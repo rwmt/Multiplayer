@@ -41,6 +41,9 @@ namespace ServerMod
             int reviewScenario = optList.FindIndex(opt => opt.label == "ReviewScenario".Translate());
             if (reviewScenario != -1)
                 AddHostButton(optList);
+
+            if (ServerMod.client != null && ServerMod.server == null)
+                optList.RemoveAll(opt => opt.label == "Save".Translate());
         }
 
         public static void AddHostButton(List<ListableOption> buttons)
@@ -100,7 +103,7 @@ namespace ServerMod
         private static void FinishLoading()
         {
             Faction.OfPlayer.def = FactionDefOf.Outlander;
-            Faction clientFaction = Find.World.GetComponent<PlayerFactions>().playerFactions[ServerMod.username];
+            Faction clientFaction = Find.World.GetComponent<ServerModWorldComp>().playerFactions[ServerMod.username];
             clientFaction.def = FactionDefOf.PlayerColony;
             Find.GameInitData.playerFaction = clientFaction;
             Log.Message("Client faction: " + clientFaction.Name + " / " + clientFaction.GetUniqueLoadID());
@@ -122,6 +125,8 @@ namespace ServerMod
                 Find.CameraDriver.JumpToVisibleMapLoc(MapGenerator.PlayerStartSpot);
                 Find.CameraDriver.ResetSize();
                 Current.Game.InitData = null;
+
+                ClientPlayingState.SyncWorldObj(factionBase);
             };
 
             Find.WindowStack.Add(page);
@@ -132,7 +137,7 @@ namespace ServerMod
 
     [HarmonyPatch(typeof(MainButtonsRoot))]
     [HarmonyPatch(nameof(MainButtonsRoot.MainButtonsOnGUI))]
-    public static class ButtonsPatch
+    public static class MainButtonsPatch
     {
         static bool Prefix()
         {
@@ -173,20 +178,24 @@ namespace ServerMod
         }
     }
 
-    [HarmonyPatch(typeof(WorldObjectsHolder))]
-    [HarmonyPatch(nameof(WorldObjectsHolder.Add))]
-    public static class WorldObjectsHolderPatch
+    [HarmonyPatch(typeof(GameDataSaveLoader))]
+    [HarmonyPatch(nameof(GameDataSaveLoader.SaveGame))]
+    public static class SavePatch
     {
-        static void Postfix(WorldObject o)
+        static bool Prefix()
         {
-            if (!(o is FactionBase))
-                return;
-            
+            if (ServerMod.client == null || ServerMod.server != null)
+                return true;
+
             ScribeUtil.StartWriting();
-            Scribe.EnterNode("data");
-            Scribe_Deep.Look(ref o, "worldObj");
+            Scribe.EnterNode("savedMaps");
+            List<Map> list = Current.Game.Maps;
+            Scribe_Collections.Look(ref list, "maps", LookMode.Deep);
             byte[] data = ScribeUtil.FinishWriting();
-            ServerMod.client.Send(Packets.CLIENT_NEW_WORLD_OBJ, data);
+            ServerMod.client.Send(Packets.CLIENT_MAP_DATA, data);
+
+            return false;
         }
     }
+
 }

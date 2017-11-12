@@ -58,6 +58,7 @@ namespace ServerMod
         public const int CLIENT_ACTION_REQUEST = 2;
         public const int CLIENT_USERNAME = 3;
         public const int CLIENT_NEW_WORLD_OBJ = 4;
+        public const int CLIENT_MAP_DATA = 5;
 
         public const int SERVER_WORLD_DATA = 0;
         public const int SERVER_ACTION_SCHEDULE = 1;
@@ -239,7 +240,7 @@ namespace ServerMod
 
         private void SendData()
         {
-            PlayerFactions factions = Find.World.GetComponent<PlayerFactions>();
+            ServerModWorldComp factions = Find.World.GetComponent<ServerModWorldComp>();
             Faction faction = null;
             factions.playerFactions.TryGetValue(Connection.username, out faction);
             if (faction == null)
@@ -315,9 +316,37 @@ namespace ServerMod
 
                     Log.Message("server got request from client at " + Find.TickManager.TicksGame + " for " + action + " " + schdl.ticks);
                 });
-            } else if (id == Packets.CLIENT_NEW_WORLD_OBJ)
+            }
+            else if (id == Packets.CLIENT_NEW_WORLD_OBJ)
             {
                 ServerMod.server.SendToAll(Packets.SERVER_NEW_WORLD_OBJ, data, this.Connection);
+            }
+            else if (id == Packets.CLIENT_MAP_DATA)
+            {
+                OnMainThread.Queue(() =>
+                {
+                    try
+                    {
+                        string worldfolder = Path.Combine(Path.Combine(GenFilePaths.SaveDataFolderPath, "MpSaves"), Find.World.GetComponent<ServerModWorldComp>().worldId);
+                        DirectoryInfo directoryInfo = new DirectoryInfo(worldfolder);
+                        if (!directoryInfo.Exists)
+                            directoryInfo.Create();
+
+                        using (MemoryStream stream = new MemoryStream(data))
+                        using (XmlTextReader xml = new XmlTextReader(stream))
+                        {
+                            XmlDocument xmlDocument = new XmlDocument();
+                            xmlDocument.Load(xml); // validate
+                            xmlDocument.Save(Path.Combine(worldfolder, Connection.username + ".maps"));
+                        }
+                    }
+                    catch (XmlException e)
+                    {
+                        Log.Error("Couldn't save " + Connection.username + "'s maps");
+                        Log.Error(e.ToString());
+                        return;
+                    }
+                });
             }
         }
 
@@ -393,13 +422,14 @@ namespace ServerMod
                 {
                     ScribeUtil.StartLoading(data);
                     Scribe.EnterNode("data");
+                    ScribeUtil.SupplyCrossRefs();
                     ScribeUtil.Look(ref ServerMod.newFactions, "newFactions", LookMode.Value, LookMode.Deep);
                     ScribeUtil.FinishLoading();
 
                     foreach (KeyValuePair<string, Faction> pair in ServerMod.newFactions)
                     {
                         Find.FactionManager.Add(pair.Value);
-                        Find.World.GetComponent<PlayerFactions>().playerFactions[pair.Key] = pair.Value;
+                        Find.World.GetComponent<ServerModWorldComp>().playerFactions[pair.Key] = pair.Value;
                     }
 
                     Log.Message("Got " + ServerMod.newFactions.Count + " new factions");
@@ -413,6 +443,7 @@ namespace ServerMod
                 {
                     ScribeUtil.StartLoading(data);
                     Scribe.EnterNode("data");
+                    ScribeUtil.SupplyCrossRefs();
                     WorldObject obj = null;
                     Scribe_Deep.Look(ref obj, "worldObj");
                     ScribeUtil.FinishLoading();
@@ -423,6 +454,17 @@ namespace ServerMod
 
         public override void Disconnect()
         {
+        }
+
+        // Currently covers:
+        // - settling after joining
+        public static void SyncWorldObj(WorldObject obj)
+        {
+            ScribeUtil.StartWriting();
+            Scribe.EnterNode("data");
+            Scribe_Deep.Look(ref obj, "worldObj");
+            byte[] data = ScribeUtil.FinishWriting();
+            ServerMod.client.Send(Packets.CLIENT_NEW_WORLD_OBJ, data);
         }
     }
 
@@ -459,18 +501,22 @@ namespace ServerMod
         }
     }
 
-    public class PlayerFactions : WorldComponent
+    public class ServerModWorldComp : WorldComponent
     {
         public Dictionary<string, Faction> playerFactions = new Dictionary<string, Faction>();
+        public string worldId;
 
         private List<string> keyWorkingList;
         private List<Faction> valueWorkingList;
 
-        public PlayerFactions(World world) : base(world) { }
+        public ServerModWorldComp(World world) : base(world)
+        {
+        }
 
         public override void ExposeData()
         {
             ScribeUtil.Look(ref playerFactions, "playerFactions", LookMode.Value, LookMode.Reference, ref keyWorkingList, ref valueWorkingList);
+            Scribe_Values.Look(ref worldId, "worldId", Guid.NewGuid().ToString());
         }
 
     }

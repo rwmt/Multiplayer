@@ -1,4 +1,5 @@
-﻿using System;
+﻿using RimWorld;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -13,6 +14,7 @@ namespace ServerMod
     {
         private static MemoryStream stream;
         private static readonly FieldInfo writerField = typeof(ScribeSaver).GetField("writer", BindingFlags.NonPublic | BindingFlags.Instance);
+        private static readonly FieldInfo crossRefsField = typeof(CrossRefHandler).GetField("loadedObjectDirectory", BindingFlags.NonPublic | BindingFlags.Instance);
 
         public static void StartWriting()
         {
@@ -52,6 +54,13 @@ namespace ServerMod
         public static void FinishLoading()
         {
             Scribe.loader.FinalizeLoading();
+        }
+
+        public static void SupplyCrossRefs()
+        {
+            LoadedObjectDirectory dir = (LoadedObjectDirectory) crossRefsField.GetValue(Scribe.loader.crossRefs);
+            foreach (Faction faction in Find.FactionManager.AllFactions)
+                dir.RegisterLoaded(faction);
         }
 
         public static void Look<K, V>(ref Dictionary<K, V> dict, string label, LookMode keyLookMode, LookMode valueLookMode)
