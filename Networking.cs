@@ -66,7 +66,7 @@ namespace ServerMod
             return connections;
         }
 
-        public void SendToAll(int id, byte[] data, params Connection[] except)
+        public void SendToAll(int id, byte[] data=null, params Connection[] except)
         {
             lock (connections)
                 foreach (Connection conn in connections)
@@ -110,6 +110,9 @@ namespace ServerMod
             get;
             set;
         }
+
+        public string username;
+        public readonly Guid connId = Guid.NewGuid();
 
         private Socket socket;
 
@@ -210,7 +213,7 @@ namespace ServerMod
 
         public override string ToString()
         {
-            return RemoteEndPoint?.ToString();
+            return username;
         }
     }
 

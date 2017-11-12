@@ -168,6 +168,9 @@ namespace ServerMod
                     ServerMod.client = localClient;
                     ServerMod.localServerConnection = localServer;
 
+                    Faction.OfPlayer.Name = ServerMod.username + "'s faction";
+                    Find.World.GetComponent<PlayerFactions>().playerFactions[ServerMod.username] = Faction.OfPlayer;
+
                     Messages.Message("Server started. Listening at " + local.ToString() + ":" + ServerMod.DEFAULT_PORT, MessageSound.Silent);
                 }
                 catch (SocketException)

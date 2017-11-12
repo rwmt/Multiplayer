@@ -67,58 +67,66 @@ namespace ServerMod
         {
             if (ServerMod.savedWorld != null && fileName == "server")
             {
-                using (MemoryStream stream = new MemoryStream(ServerMod.savedWorld))
-                using (XmlTextReader xml = new XmlTextReader(stream))
-                {
-                    XmlDocument xmlDocument = new XmlDocument();
-                    xmlDocument.Load(xml);
-                    Scribe.loader.curXmlParent = xmlDocument.DocumentElement;
-                }
-
-                Scribe.mode = LoadSaveMode.LoadingVars;
+                ScribeUtil.StartLoading(ServerMod.savedWorld);
 
                 if (Scribe.EnterNode("game"))
                 {
                     Current.Game = new Game();
                     Current.Game.InitData = new GameInitData();
                     Prefs.PauseOnLoad = false;
-                    Current.Game.LoadGame();
-                    Current.Game.InitData.playerFaction = Faction.OfPlayer;
+                    Current.Game.LoadGame(); // this calls Scribe.loader.FinalizeLoading()
                     Prefs.PauseOnLoad = true;
                     Find.TickManager.CurTimeSpeed = TimeSpeed.Paused;
                 }
 
                 LongEventHandler.ExecuteWhenFinished(() =>
                 {
-                    CustomSelectLandingSite page = new CustomSelectLandingSite();
-                    page.nextAct = () =>
-                    {
-                        Find.GameInitData.mapSize = 150;
-                        Find.GameInitData.startingPawns.Add(StartingPawnUtility.NewGeneratedStartingPawn());
-                        Find.GameInitData.PrepForMapGen();
-                        Find.Scenario.PreMapGenerate();
-                        IntVec3 intVec = new IntVec3(Find.GameInitData.mapSize, 1, Find.GameInitData.mapSize);
-                        FactionBase factionBase = Find.WorldObjects.FactionBases.First(faction => faction.Faction == Faction.OfPlayer);
-                        Map visibleMap = MapGenerator.GenerateMap(intVec, factionBase, factionBase.MapGeneratorDef, factionBase.ExtraGenStepDefs, null);
-                        Find.World.info.initialMapSize = intVec;
-                        PawnUtility.GiveAllStartingPlayerPawnsThought(ThoughtDefOf.NewColonyOptimism);
-                        Current.Game.FinalizeInit();
-                        Current.Game.VisibleMap = visibleMap;
-                        Find.CameraDriver.JumpToVisibleMapLoc(MapGenerator.PlayerStartSpot);
-                        Find.CameraDriver.ResetSize();
-                        Current.Game.InitData = null;
-                    };
-                    Find.WindowStack.Add(page);
-                    MemoryUtility.UnloadUnusedUnityAssets();
-                    Find.World.renderer.RegenerateAllLayersNow();
-
+                    ServerMod.client.State = new ClientPlayingState(ServerMod.client);
                     ServerMod.client.Send(Packets.CLIENT_WORLD_FINISHED);
+
+                    LongEventHandler.QueueLongEvent(() =>
+                    {
+                        ServerMod.pause.WaitOne();
+                        OnMainThread.Queue(() => FinishLoading());
+                    }, "Waiting for other players to load", true, null);
                 });
 
                 return false;
             }
 
             return true;
+        }
+
+        private static void FinishLoading()
+        {
+            Faction.OfPlayer.def = FactionDefOf.Outlander;
+            Faction clientFaction = Find.World.GetComponent<PlayerFactions>().playerFactions[ServerMod.username];
+            clientFaction.def = FactionDefOf.PlayerColony;
+            Find.GameInitData.playerFaction = clientFaction;
+            Log.Message("Client faction: " + clientFaction.Name + " / " + clientFaction.GetUniqueLoadID());
+
+            CustomSelectLandingSite page = new CustomSelectLandingSite();
+            page.nextAct = () =>
+            {
+                Find.GameInitData.mapSize = 150;
+                Find.GameInitData.startingPawns.Add(StartingPawnUtility.NewGeneratedStartingPawn());
+                Find.GameInitData.PrepForMapGen();
+                Find.Scenario.PreMapGenerate(); // this creates the FactionBase WorldObject
+                IntVec3 intVec = new IntVec3(Find.GameInitData.mapSize, 1, Find.GameInitData.mapSize);
+                FactionBase factionBase = Find.WorldObjects.FactionBases.First(faction => faction.Faction == Faction.OfPlayer);
+                Map visibleMap = MapGenerator.GenerateMap(intVec, factionBase, factionBase.MapGeneratorDef, factionBase.ExtraGenStepDefs, null);
+                Find.World.info.initialMapSize = intVec;
+                PawnUtility.GiveAllStartingPlayerPawnsThought(ThoughtDefOf.NewColonyOptimism);
+                Current.Game.FinalizeInit();
+                Current.Game.VisibleMap = visibleMap;
+                Find.CameraDriver.JumpToVisibleMapLoc(MapGenerator.PlayerStartSpot);
+                Find.CameraDriver.ResetSize();
+                Current.Game.InitData = null;
+            };
+
+            Find.WindowStack.Add(page);
+            MemoryUtility.UnloadUnusedUnityAssets();
+            Find.World.renderer.RegenerateAllLayersNow();
         }
     }
 
@@ -162,6 +170,23 @@ namespace ServerMod
         {
             Find.TickManager.CurTimeSpeed = speed;
             lastSpeed = speed;
+        }
+    }
+
+    [HarmonyPatch(typeof(WorldObjectsHolder))]
+    [HarmonyPatch(nameof(WorldObjectsHolder.Add))]
+    public static class WorldObjectsHolderPatch
+    {
+        static void Postfix(WorldObject o)
+        {
+            if (!(o is FactionBase))
+                return;
+            
+            ScribeUtil.StartWriting();
+            Scribe.EnterNode("data");
+            Scribe_Deep.Look(ref o, "worldObj");
+            byte[] data = ScribeUtil.FinishWriting();
+            ServerMod.client.Send(Packets.CLIENT_NEW_WORLD_OBJ, data);
         }
     }
 }
