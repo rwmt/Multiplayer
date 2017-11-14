@@ -25,10 +25,12 @@ namespace ServerMod
         public static Connection localServerConnection;
 
         public static byte[] savedWorld;
+        public static byte[] mapsData;
         public static bool saving = false;
         public static CountdownLock worldDownloading = new CountdownLock();
         public static AutoResetEvent pause = new AutoResetEvent(false);
         public static Dictionary<string, Faction> newFactions = new Dictionary<string, Faction>();
+        public static XmlDocument clientFaction;
 
         public static Queue<ScheduledServerAction> actions = new Queue<ScheduledServerAction>();
 
@@ -87,12 +89,26 @@ namespace ServerMod
 
     public static class Extensions
     {
-        public static byte[] Append(this byte[] arr1, byte[] arr2)
+        public static T[] Append<T>(this T[] arr1, T[] arr2)
         {
-            byte[] result = new byte[arr1.Length + arr2.Length];
-            arr1.CopyTo(result, 0);
-            arr2.CopyTo(result, arr1.Length);
+            T[] result = new T[arr1.Length + arr2.Length];
+            Array.Copy(arr1, 0, result, 0, arr1.Length);
+            Array.Copy(arr2, 0, result, arr1.Length, arr2.Length);
             return result;
+        }
+
+        public static T[] SubArray<T>(this T[] data, int index, int length)
+        {
+            T[] result = new T[length];
+            Array.Copy(data, index, result, 0, length);
+            return result;
+        }
+
+        public static void RemoveChildIfPresent(this XmlNode node, string child)
+        {
+            XmlNode childNode = node[child];
+            if (childNode != null)
+                node.RemoveChild(childNode);
         }
     }
 
@@ -226,6 +242,7 @@ namespace ServerMod
 
                         ServerMod.server.SendToAll(Packets.SERVER_NEW_FACTIONS, factionData, ServerMod.localServerConnection);
                         ServerMod.newFactions.Clear();
+
                         ServerMod.server.SendToAll(Packets.SERVER_UNPAUSE);
 
                         Log.Message("world sending finished");
@@ -252,10 +269,31 @@ namespace ServerMod
                 factions.playerFactions[Connection.username] = faction;
                 ServerMod.newFactions[Connection.username] = faction;
 
+                ScribeUtil.StartWriting();
+                Scribe.EnterNode("data");
+                Scribe_Deep.Look(ref faction, "clientFaction");
+                byte[] factionData = ScribeUtil.FinishWriting();
+                Connection.Send(Packets.SERVER_NEW_FACTIONS, factionData);
+
                 Log.Message("New faction: " + faction.Name);
             }
 
-            Connection.Send(Packets.SERVER_WORLD_DATA, ServerMod.savedWorld);
+            string mapsFile = ServerPlayingState.GetPlayerMapsPath(Connection.username);
+            byte[] mapsData = new byte[0];
+            if (File.Exists(mapsFile))
+            {
+                using (MemoryStream stream = new MemoryStream())
+                {
+                    XmlDocument maps = new XmlDocument();
+                    maps.Load(mapsFile);
+                    maps.Save(stream);
+                    mapsData = stream.ToArray();
+                }
+            }
+
+            byte[] data = BitConverter.GetBytes(ServerMod.savedWorld.Length).Append(ServerMod.savedWorld).Append(BitConverter.GetBytes(mapsData.Length)).Append(mapsData);
+            Connection.Send(Packets.SERVER_WORLD_DATA, data);
+
             ServerMod.worldDownloading.Add(Connection.connId);
         }
 
@@ -327,24 +365,18 @@ namespace ServerMod
                 {
                     try
                     {
-                        string worldfolder = Path.Combine(Path.Combine(GenFilePaths.SaveDataFolderPath, "MpSaves"), Find.World.GetComponent<ServerModWorldComp>().worldId);
-                        DirectoryInfo directoryInfo = new DirectoryInfo(worldfolder);
-                        if (!directoryInfo.Exists)
-                            directoryInfo.Create();
-
                         using (MemoryStream stream = new MemoryStream(data))
                         using (XmlTextReader xml = new XmlTextReader(stream))
                         {
                             XmlDocument xmlDocument = new XmlDocument();
-                            xmlDocument.Load(xml); // validate
-                            xmlDocument.Save(Path.Combine(worldfolder, Connection.username + ".maps"));
+                            xmlDocument.Load(xml);
+                            xmlDocument.Save(GetPlayerMapsPath(Connection.username));
                         }
                     }
                     catch (XmlException e)
                     {
                         Log.Error("Couldn't save " + Connection.username + "'s maps");
                         Log.Error(e.ToString());
-                        return;
                     }
                 });
             }
@@ -352,6 +384,15 @@ namespace ServerMod
 
         public override void Disconnect()
         {
+        }
+
+        public static string GetPlayerMapsPath(string username)
+        {
+            string worldfolder = Path.Combine(Path.Combine(GenFilePaths.SaveDataFolderPath, "MpSaves"), Find.World.GetComponent<ServerModWorldComp>().worldId);
+            DirectoryInfo directoryInfo = new DirectoryInfo(worldfolder);
+            if (!directoryInfo.Exists)
+                directoryInfo.Create();
+            return Path.Combine(worldfolder, username + ".maps");
         }
     }
 
@@ -369,8 +410,12 @@ namespace ServerMod
             {
                 OnMainThread.Queue(() =>
                 {
-                    ServerMod.savedWorld = data;
-                    Log.Message("World size: " + data.Length);
+                    int worldLen = BitConverter.ToInt32(data, 0);
+                    ServerMod.savedWorld = data.SubArray(4, worldLen);
+                    int mapsLen = BitConverter.ToInt32(data, worldLen + 4);
+                    ServerMod.mapsData = data.SubArray(worldLen + 8, mapsLen);
+
+                    Log.Message("World size: " + worldLen + ", Maps size: " + mapsLen);
 
                     LongEventHandler.QueueLongEvent(() =>
                     {
@@ -379,6 +424,19 @@ namespace ServerMod
                         Current.Game.InitData = new GameInitData();
                         Current.Game.InitData.gameToLoad = "server";
                     }, "Play", "LoadingLongEvent", true, null);
+                });
+            }
+            else if (id == Packets.SERVER_NEW_FACTIONS)
+            {
+                OnMainThread.Queue(() =>
+                {
+                    using (MemoryStream stream = new MemoryStream(data))
+                    using (XmlTextReader xml = new XmlTextReader(stream))
+                    {
+                        XmlDocument xmlDocument = new XmlDocument();
+                        xmlDocument.Load(xml);
+                        ServerMod.clientFaction = xmlDocument;
+                    }
                 });
             }
         }
@@ -421,13 +479,15 @@ namespace ServerMod
                 OnMainThread.Queue(() =>
                 {
                     ScribeUtil.StartLoading(data);
-                    Scribe.EnterNode("data");
                     ScribeUtil.SupplyCrossRefs();
                     ScribeUtil.Look(ref ServerMod.newFactions, "newFactions", LookMode.Value, LookMode.Deep);
                     ScribeUtil.FinishLoading();
 
                     foreach (KeyValuePair<string, Faction> pair in ServerMod.newFactions)
                     {
+                        // our own faction has been already sent
+                        if (pair.Key == Connection.username) continue;
+
                         Find.FactionManager.Add(pair.Value);
                         Find.World.GetComponent<ServerModWorldComp>().playerFactions[pair.Key] = pair.Value;
                     }
@@ -442,7 +502,6 @@ namespace ServerMod
                 OnMainThread.Queue(() =>
                 {
                     ScribeUtil.StartLoading(data);
-                    Scribe.EnterNode("data");
                     ScribeUtil.SupplyCrossRefs();
                     WorldObject obj = null;
                     Scribe_Deep.Look(ref obj, "worldObj");
@@ -504,7 +563,7 @@ namespace ServerMod
     public class ServerModWorldComp : WorldComponent
     {
         public Dictionary<string, Faction> playerFactions = new Dictionary<string, Faction>();
-        public string worldId;
+        public string worldId = Guid.NewGuid().ToString();
 
         private List<string> keyWorkingList;
         private List<Faction> valueWorkingList;
@@ -516,7 +575,7 @@ namespace ServerMod
         public override void ExposeData()
         {
             ScribeUtil.Look(ref playerFactions, "playerFactions", LookMode.Value, LookMode.Reference, ref keyWorkingList, ref valueWorkingList);
-            Scribe_Values.Look(ref worldId, "worldId", Guid.NewGuid().ToString());
+            Scribe_Values.Look(ref worldId, "worldId", null);
         }
 
     }

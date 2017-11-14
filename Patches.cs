@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Xml;
 using UnityEngine;
@@ -72,6 +73,20 @@ namespace ServerMod
             {
                 ScribeUtil.StartLoading(ServerMod.savedWorld);
 
+                if (ServerMod.mapsData.Length > 0)
+                {
+                    XmlDocument mapsXml = new XmlDocument();
+                    using (MemoryStream stream = new MemoryStream(ServerMod.mapsData))
+                        mapsXml.Load(stream);
+
+                    XmlNode gameNode = Scribe.loader.curXmlParent["game"];
+                    gameNode.RemoveChildIfPresent("maps");
+                    gameNode["taleManager"]["tales"].RemoveAll();
+
+                    XmlNode newMaps = gameNode.OwnerDocument.ImportNode(mapsXml.DocumentElement["maps"], true);
+                    gameNode.AppendChild(newMaps);
+                }
+
                 if (Scribe.EnterNode("game"))
                 {
                     Current.Game = new Game();
@@ -84,13 +99,20 @@ namespace ServerMod
 
                 LongEventHandler.ExecuteWhenFinished(() =>
                 {
+                    Log.Message("Client maps: " + Current.Game.Maps.Count());
+
+                    ServerMod.savedWorld = null;
+                    ServerMod.mapsData = null;
+
                     ServerMod.client.State = new ClientPlayingState(ServerMod.client);
                     ServerMod.client.Send(Packets.CLIENT_WORLD_FINISHED);
 
                     LongEventHandler.QueueLongEvent(() =>
                     {
                         ServerMod.pause.WaitOne();
-                        OnMainThread.Queue(() => FinishLoading());
+
+                        if (!Current.Game.Maps.Any())
+                            OnMainThread.Queue(() => FinishLoading());
                     }, "Waiting for other players to load", true, null);
                 });
 
@@ -102,16 +124,11 @@ namespace ServerMod
 
         private static void FinishLoading()
         {
-            Faction.OfPlayer.def = FactionDefOf.Outlander;
-            Faction clientFaction = Find.World.GetComponent<ServerModWorldComp>().playerFactions[ServerMod.username];
-            clientFaction.def = FactionDefOf.PlayerColony;
-            Find.GameInitData.playerFaction = clientFaction;
-            Log.Message("Client faction: " + clientFaction.Name + " / " + clientFaction.GetUniqueLoadID());
-
             CustomSelectLandingSite page = new CustomSelectLandingSite();
             page.nextAct = () =>
             {
                 Find.GameInitData.mapSize = 150;
+                Find.GameInitData.startingPawns.Add(StartingPawnUtility.NewGeneratedStartingPawn());
                 Find.GameInitData.startingPawns.Add(StartingPawnUtility.NewGeneratedStartingPawn());
                 Find.GameInitData.PrepForMapGen();
                 Find.Scenario.PreMapGenerate(); // this creates the FactionBase WorldObject
@@ -120,7 +137,6 @@ namespace ServerMod
                 Map visibleMap = MapGenerator.GenerateMap(intVec, factionBase, factionBase.MapGeneratorDef, factionBase.ExtraGenStepDefs, null);
                 Find.World.info.initialMapSize = intVec;
                 PawnUtility.GiveAllStartingPlayerPawnsThought(ThoughtDefOf.NewColonyOptimism);
-                Current.Game.FinalizeInit();
                 Current.Game.VisibleMap = visibleMap;
                 Find.CameraDriver.JumpToVisibleMapLoc(MapGenerator.PlayerStartSpot);
                 Find.CameraDriver.ResetSize();
@@ -195,6 +211,51 @@ namespace ServerMod
             ServerMod.client.Send(Packets.CLIENT_MAP_DATA, data);
 
             return false;
+        }
+    }
+
+    [HarmonyPatch(typeof(ScribeLoader))]
+    [HarmonyPatch(nameof(ScribeLoader.FinalizeLoading))]
+    public static class LongEventHandlerPatch
+    {
+        static void Prefix(ref string __state)
+        {
+            __state = Scribe.loader.curXmlParent.Name;
+        }
+
+        // handles the client faction stuff
+        // called after cross refs and right before map finalization
+        static void Postfix(string __state)
+        {
+            if (ServerMod.client == null || ServerMod.server != null) return;
+            if (Current.ProgramState != ProgramState.MapInitializing || __state != "game") return;
+
+            FinalizeFactions();
+        }
+
+        static void FinalizeFactions()
+        {
+            ServerModWorldComp comp = Find.World.GetComponent<ServerModWorldComp>();
+            if (ServerMod.clientFaction != null)
+            {
+                XmlNode node = Scribe.loader.curXmlParent.OwnerDocument.ImportNode(ServerMod.clientFaction.DocumentElement["clientFaction"], true);
+                Scribe.loader.curXmlParent.AppendChild(node);
+                Log.Message("Appended client faction to " + Scribe.loader.curXmlParent.Name);
+                Faction newFaction = null;
+                Scribe_Deep.Look(ref newFaction, "clientFaction");
+
+                Find.FactionManager.Add(newFaction);
+                comp.playerFactions[ServerMod.username] = newFaction;
+
+                Log.Message("Added client faction: " + newFaction.loadID);
+            }
+
+            Faction.OfPlayer.def = FactionDefOf.Outlander;
+            Faction clientFaction = comp.playerFactions[ServerMod.username];
+            clientFaction.def = FactionDefOf.PlayerColony;
+            Find.GameInitData.playerFaction = clientFaction;
+
+            Log.Message("Client faction: " + clientFaction.Name + " / " + clientFaction.GetUniqueLoadID());
         }
     }
 
