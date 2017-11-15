@@ -155,9 +155,9 @@ namespace ServerMod
                         conn.State = new ServerWorldState(conn);
                     });
 
-                    LocalServerConnection localServer = new LocalServerConnection();
-                    LocalClientConnection localClient = new LocalClientConnection();
-                    
+                    LocalServerConnection localServer = new LocalServerConnection() { username = ServerMod.username };
+                    LocalClientConnection localClient = new LocalClientConnection() { username = ServerMod.username };
+
                     localServer.client = localClient;
                     localClient.server = localServer;
 

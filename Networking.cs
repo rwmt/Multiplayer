@@ -66,12 +66,20 @@ namespace ServerMod
             return connections;
         }
 
-        public void SendToAll(int id, byte[] data=null, params Connection[] except)
+        public void SendToAll(int id, byte[] data = null, params Connection[] except)
         {
             lock (connections)
                 foreach (Connection conn in connections)
                     if (!except.Contains(conn))
                         conn.Send(id, data);
+        }
+
+        public Connection GetByUsername(string username)
+        {
+            lock (connections)
+            {
+                return connections.FirstOrDefault(c => c.username == username);
+            }
         }
     }
 
@@ -198,7 +206,7 @@ namespace ServerMod
             this.socket.Close();
         }
 
-        public virtual void Send(int id, byte[] message=null)
+        public virtual void Send(int id, byte[] message = null)
         {
             message = message ?? new byte[] { 0 };
 

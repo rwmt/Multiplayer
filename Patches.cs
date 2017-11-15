@@ -205,10 +205,10 @@ namespace ServerMod
 
             ScribeUtil.StartWriting();
             Scribe.EnterNode("savedMaps");
-            List<Map> list = Current.Game.Maps;
+            List<Map> list = Current.Game.Maps.FindAll(map => map.IsPlayerHome);
             Scribe_Collections.Look(ref list, "maps", LookMode.Deep);
             byte[] data = ScribeUtil.FinishWriting();
-            ServerMod.client.Send(Packets.CLIENT_MAP_DATA, data);
+            ServerMod.client.Send(Packets.CLIENT_SAVE_MAP, data);
 
             return false;
         }
@@ -223,7 +223,7 @@ namespace ServerMod
             __state = Scribe.loader.curXmlParent.Name;
         }
 
-        // handles the client faction stuff
+        // handles the client faction
         // called after cross refs and right before map finalization
         static void Postfix(string __state)
         {
@@ -248,6 +248,8 @@ namespace ServerMod
                 comp.playerFactions[ServerMod.username] = newFaction;
 
                 Log.Message("Added client faction: " + newFaction.loadID);
+
+                ServerMod.clientFaction = null;
             }
 
             Faction.OfPlayer.def = FactionDefOf.Outlander;
@@ -256,6 +258,26 @@ namespace ServerMod
             Find.GameInitData.playerFaction = clientFaction;
 
             Log.Message("Client faction: " + clientFaction.Name + " / " + clientFaction.GetUniqueLoadID());
+        }
+    }
+
+    [HarmonyPatch(typeof(CaravanArrivalAction_AttackSettlement))]
+    [HarmonyPatch(nameof(CaravanArrivalAction_AttackSettlement.Arrived))]
+    public static class AttackSettlementPatch
+    {
+        static FieldInfo settlementField = typeof(CaravanArrivalAction_AttackSettlement).GetField("settlement", BindingFlags.NonPublic | BindingFlags.Instance);
+
+        static bool Prefix(CaravanArrivalAction_AttackSettlement __instance, Caravan caravan)
+        {
+            if (ServerMod.client == null) return true;
+
+            Settlement settlement = (Settlement) settlementField.GetValue(__instance);
+            string username = Find.World.GetComponent<ServerModWorldComp>().GetUsername(settlement.Faction);
+            if (username == null) return true;
+
+            ServerMod.client.Send(Packets.CLIENT_ENCOUNTER_REQUEST, BitConverter.GetBytes(settlement.Tile));
+
+            return false;
         }
     }
 

@@ -1,4 +1,5 @@
 ﻿using RimWorld;
+using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -59,8 +60,12 @@ namespace ServerMod
         public static void SupplyCrossRefs()
         {
             LoadedObjectDirectory dir = (LoadedObjectDirectory) crossRefsField.GetValue(Scribe.loader.crossRefs);
+
             foreach (Faction faction in Find.FactionManager.AllFactions)
                 dir.RegisterLoaded(faction);
+
+            foreach (MapParent map in Find.WorldObjects.MapParents)
+                dir.RegisterLoaded(map);
         }
 
         public static void Look<K, V>(ref Dictionary<K, V> dict, string label, LookMode keyLookMode, LookMode valueLookMode)

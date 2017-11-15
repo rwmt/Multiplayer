@@ -4,6 +4,7 @@ using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Threading;
@@ -31,6 +32,8 @@ namespace ServerMod
         public static AutoResetEvent pause = new AutoResetEvent(false);
         public static Dictionary<string, Faction> newFactions = new Dictionary<string, Faction>();
         public static XmlDocument clientFaction;
+
+        public static Dictionary<string, string> encounters = new Dictionary<string, string>();
 
         public static Queue<ScheduledServerAction> actions = new Queue<ScheduledServerAction>();
 
@@ -60,7 +63,9 @@ namespace ServerMod
         public const int CLIENT_ACTION_REQUEST = 2;
         public const int CLIENT_USERNAME = 3;
         public const int CLIENT_NEW_WORLD_OBJ = 4;
-        public const int CLIENT_MAP_DATA = 5;
+        public const int CLIENT_SAVE_MAP = 5;
+        public const int CLIENT_ENCOUNTER_REQUEST = 6;
+        public const int CLIENT_ENCOUNTER_MAP = 7;
 
         public const int SERVER_WORLD_DATA = 0;
         public const int SERVER_ACTION_SCHEDULE = 1;
@@ -68,6 +73,9 @@ namespace ServerMod
         public const int SERVER_UNPAUSE = 3;
         public const int SERVER_NEW_FACTIONS = 4;
         public const int SERVER_NEW_WORLD_OBJ = 5;
+        public const int SERVER_ENCOUNTER_REQUEST = 6;
+        public const int SERVER_ENCOUNTER_MAP = 7;
+        public const int SERVER_NOTIFICATION = 8;
     }
 
     public enum ServerAction : int
@@ -359,7 +367,7 @@ namespace ServerMod
             {
                 ServerMod.server.SendToAll(Packets.SERVER_NEW_WORLD_OBJ, data, this.Connection);
             }
-            else if (id == Packets.CLIENT_MAP_DATA)
+            else if (id == Packets.CLIENT_SAVE_MAP)
             {
                 OnMainThread.Queue(() =>
                 {
@@ -377,6 +385,39 @@ namespace ServerMod
                     {
                         Log.Error("Couldn't save " + Connection.username + "'s maps");
                         Log.Error(e.ToString());
+                    }
+                });
+            }
+            else if (id == Packets.CLIENT_ENCOUNTER_REQUEST)
+            {
+                OnMainThread.Queue(() =>
+                {
+                    int tile = BitConverter.ToInt32(data, 0);
+                    Settlement settlement = Find.WorldObjects.SettlementAt(tile);
+                    if (settlement == null) return;
+                    Faction faction = settlement.Faction;
+                    string defender = Find.World.GetComponent<ServerModWorldComp>().GetUsername(faction);
+                    if (defender == null) return;
+                    Connection conn = ServerMod.server.GetByUsername(defender);
+                    if (conn == null)
+                    {
+                        Connection.Send(Packets.SERVER_NOTIFICATION, Encoding.ASCII.GetBytes("The player isn't online."));
+                        return;
+                    }
+
+                    ServerMod.encounters.Add(defender, Connection.username);
+                    conn.Send(Packets.SERVER_ENCOUNTER_REQUEST, BitConverter.GetBytes(tile));
+                });
+            }
+            else if (id == Packets.CLIENT_ENCOUNTER_MAP)
+            {
+                OnMainThread.Queue(() =>
+                {
+                    if (ServerMod.encounters.TryGetValue(Connection.username, out string attacker))
+                    {
+                        Connection conn = ServerMod.server.GetByUsername(attacker);
+                        if (conn == null) return;
+                        conn.Send(Packets.SERVER_ENCOUNTER_MAP, data);
                     }
                 });
             }
@@ -509,6 +550,40 @@ namespace ServerMod
                     Find.WorldObjects.Add(obj);
                 });
             }
+            else if (id == Packets.SERVER_ENCOUNTER_REQUEST)
+            {
+                OnMainThread.Queue(() =>
+                {
+                    int tile = BitConverter.ToInt32(data, 0);
+                    Settlement settlement = Find.WorldObjects.SettlementAt(tile);
+                    if (settlement == null || !settlement.HasMap) return;
+
+                    ScribeUtil.StartWriting();
+                    Scribe.EnterNode("data");
+                    Map map = settlement.Map;
+                    Scribe_Deep.Look(ref map, "map");
+                    byte[] mapData = ScribeUtil.FinishWriting();
+                    ServerMod.client.Send(Packets.CLIENT_ENCOUNTER_MAP, mapData);
+                });
+            }
+            else if (id == Packets.SERVER_ENCOUNTER_MAP)
+            {
+                OnMainThread.Queue(() =>
+                {
+                    Current.ProgramState = ProgramState.MapInitializing;
+
+                    ScribeUtil.StartLoading(data);
+                    ScribeUtil.SupplyCrossRefs();
+                    Map map = null;
+                    Scribe_Deep.Look(ref map, "map");
+                    ScribeUtil.FinishLoading();
+
+                    Current.Game.AddMap(map);
+                    map.FinalizeLoading();
+
+                    Current.ProgramState = ProgramState.Playing;
+                });
+            }
         }
 
         public override void Disconnect()
@@ -576,6 +651,11 @@ namespace ServerMod
         {
             ScribeUtil.Look(ref playerFactions, "playerFactions", LookMode.Value, LookMode.Reference, ref keyWorkingList, ref valueWorkingList);
             Scribe_Values.Look(ref worldId, "worldId", null);
+        }
+
+        public string GetUsername(Faction faction)
+        {
+            return playerFactions.FirstOrDefault(pair => pair.Value == faction).Key;
         }
 
     }
