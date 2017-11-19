@@ -10,6 +10,7 @@ using System.Text;
 using System.Xml;
 using UnityEngine;
 using Verse;
+using Verse.AI;
 using Verse.Profile;
 
 namespace ServerMod
@@ -142,7 +143,7 @@ namespace ServerMod
                 Find.CameraDriver.ResetSize();
                 Current.Game.InitData = null;
 
-                ClientPlayingState.SyncWorldObj(factionBase);
+                ClientPlayingState.SyncClientWorldObj(factionBase);
             };
 
             Find.WindowStack.Add(page);
@@ -223,12 +224,17 @@ namespace ServerMod
             __state = Scribe.loader.curXmlParent.Name;
         }
 
-        // handles the client faction
         // called after cross refs and right before map finalization
         static void Postfix(string __state)
         {
-            if (ServerMod.client == null || ServerMod.server != null) return;
+            ScribeUtil.loading = false;
+
             if (Current.ProgramState != ProgramState.MapInitializing || __state != "game") return;
+
+            foreach (Faction f in Find.FactionManager.AllFactions)
+                ScribeUtil.crossRefs.RegisterLoaded(f);
+
+            if (ServerMod.client == null || ServerMod.server != null) return;
 
             FinalizeFactions();
         }
@@ -271,11 +277,274 @@ namespace ServerMod
         {
             if (ServerMod.client == null) return true;
 
-            Settlement settlement = (Settlement) settlementField.GetValue(__instance);
+            Settlement settlement = (Settlement)settlementField.GetValue(__instance);
             string username = Find.World.GetComponent<ServerModWorldComp>().GetUsername(settlement.Faction);
             if (username == null) return true;
 
             ServerMod.client.Send(Packets.CLIENT_ENCOUNTER_REQUEST, BitConverter.GetBytes(settlement.Tile));
+
+            return false;
+        }
+    }
+
+    [HarmonyPatch(typeof(Pawn_JobTracker))]
+    [HarmonyPatch(nameof(Pawn_JobTracker.StartJob))]
+    public static class JobTrackerPatch
+    {
+        public static bool addingJob;
+
+        public static FieldInfo pawnField = typeof(Pawn_JobTracker).GetField("pawn", BindingFlags.Instance | BindingFlags.NonPublic);
+
+        static bool Prefix(Pawn_JobTracker __instance, Job newJob)
+        {
+            if (ServerMod.client == null) return true;
+            if (addingJob) return true;
+            Pawn pawn = (Pawn)pawnField.GetValue(__instance);
+            if (!IsPawnOwner(pawn)) return false;
+
+            if (__instance.curJob == null || __instance.curJob.expiryInterval != -2)
+            {
+                PawnTempData.Get(pawn).actualJob = __instance.curJob;
+                PawnTempData.Get(pawn).actualJobDriver = __instance.curDriver;
+
+                JobRequest jobRequest = new JobRequest()
+                {
+                    job = newJob,
+                    mapId = pawn.Map.uniqueID,
+                    pawnId = pawn.thingIDNumber
+                };
+
+                ScribeUtil.StartWriting();
+                Scribe.EnterNode("data");
+                Scribe_Deep.Look(ref jobRequest, "job");
+                byte[] jobData = ScribeUtil.FinishWriting();
+
+                byte[] data = BitConverter.GetBytes((int)ServerAction.JOB).Append(jobData);
+                ServerMod.client.Send(Packets.CLIENT_ACTION_REQUEST, data);
+            }
+            else
+            {
+                Log.Message("job start while idle");
+            }
+
+            __instance.curJob = newJob;
+            __instance.curDriver = newJob.MakeDriver(pawn);
+            __instance.curDriver.TryMakePreToilReservations();
+            newJob.expiryInterval = -2;
+
+            return false;
+        }
+
+        public static bool IsPawnOwner(Pawn pawn)
+        {
+            return (pawn.Faction != null && pawn.Faction == Faction.OfPlayer) || pawn.Map.IsPlayerHome;
+        }
+    }
+
+    [HarmonyPatch(typeof(Pawn_JobTracker))]
+    [HarmonyPatch(nameof(Pawn_JobTracker.EndCurrentJob))]
+    public static class JobTrackerEnd
+    {
+        static void Prefix(Pawn_JobTracker __instance, JobCondition condition)
+        {
+            if (ServerMod.client == null) return;
+
+            Pawn pawn = (Pawn)JobTrackerPatch.pawnField.GetValue(__instance);
+            Log.Message("end job: " + pawn + " " + __instance.curJob + " " + condition);
+        }
+    }
+
+    [HarmonyPatch(typeof(JobDriver))]
+    [HarmonyPatch(nameof(JobDriver.DriverTick))]
+    public static class JobDriverPatch
+    {
+        static FieldInfo startField = typeof(JobDriver).GetField("startTick", BindingFlags.Instance | BindingFlags.NonPublic);
+
+        static bool Prefix(JobDriver __instance)
+        {
+            if (__instance.job.expiryInterval != -2) return true;
+
+            __instance.job.startTick = Find.TickManager.TicksGame;
+            startField.SetValue(__instance, Find.TickManager.TicksGame);
+
+            return false;
+        }
+    }
+
+    [HarmonyPatch(typeof(Pawn_JobTracker))]
+    [HarmonyPatch("CleanupCurrentJob")]
+    public static class Clear
+    {
+        static void Prefix(Pawn_JobTracker __instance, JobCondition condition)
+        {
+            Pawn pawn = (Pawn)JobTrackerPatch.pawnField.GetValue(__instance);
+            if (__instance.curJob.expiryInterval == -2)
+                Log.Warning("cleanup " + JobTrackerPatch.addingJob + " " + __instance.curJob + " " + condition + " " + pawn + " " + __instance.curJob.expiryInterval);
+        }
+    }
+
+    [HarmonyPatch(typeof(Pawn_JobTracker))]
+    [HarmonyPatch(nameof(Pawn_JobTracker.JobTrackerTick))]
+    public static class JobTrackerTick
+    {
+        static void Prefix(Pawn_JobTracker __instance, ref State __state)
+        {
+            Pawn pawn = (Pawn)JobTrackerPatch.pawnField.GetValue(__instance);
+            if (PawnTempData.Get(pawn).actualJobDriver == null) return;
+
+            __state = new State()
+            {
+                job = __instance.curJob,
+                driver = __instance.curDriver
+            };
+
+            __instance.curJob = PawnTempData.Get(pawn).actualJob;
+            __instance.curDriver = PawnTempData.Get(pawn).actualJobDriver;
+        }
+
+        static void Postfix(Pawn_JobTracker __instance, State __state)
+        {
+            if (__state == null) return;
+
+            Pawn pawn = (Pawn)JobTrackerPatch.pawnField.GetValue(__instance);
+            if (PawnTempData.Get(pawn).actualJobDriver != __instance.curDriver)
+            {
+                PawnTempData.Get(pawn).actualJobDriver = null;
+                PawnTempData.Get(pawn).actualJob = null;
+            }
+
+            __instance.curJob = __state.job;
+            __instance.curDriver = __state.driver;
+        }
+
+        private class State
+        {
+            public Job job;
+            public JobDriver driver;
+        }
+    }
+
+    public class JobRequest : IExposable
+    {
+        public Job job;
+        public int mapId;
+        public int pawnId;
+
+        public void ExposeData()
+        {
+            Scribe_Values.Look(ref mapId, "map");
+            Scribe_Values.Look(ref pawnId, "pawn");
+            Scribe_Deep.Look(ref job, "job");
+        }
+    }
+
+    [HarmonyPatch(typeof(Thing))]
+    [HarmonyPatch(nameof(Thing.SpawnSetup))]
+    public static class ThingSpawnPatch
+    {
+        static void Postfix(Thing __instance)
+        {
+            if (__instance.def.HasThingIDNumber)
+                ScribeUtil.crossRefs.RegisterLoaded(__instance);
+        }
+    }
+
+    [HarmonyPatch(typeof(Thing))]
+    [HarmonyPatch(nameof(Thing.DeSpawn))]
+    public static class ThingDeSpawnPatch
+    {
+        static void Postfix(Thing __instance)
+        {
+            ScribeUtil.crossRefs.Unregister(__instance);
+        }
+    }
+
+    [HarmonyPatch(typeof(WorldObject))]
+    [HarmonyPatch(nameof(WorldObject.SpawnSetup))]
+    public static class WorldObjectSpawnPatch
+    {
+        static void Postfix(WorldObject __instance)
+        {
+            ScribeUtil.crossRefs.RegisterLoaded(__instance);
+        }
+    }
+
+    [HarmonyPatch(typeof(WorldObject))]
+    [HarmonyPatch(nameof(WorldObject.PostRemove))]
+    public static class WorldObjectRemovePatch
+    {
+        static void Postfix(WorldObject __instance)
+        {
+            ScribeUtil.crossRefs.Unregister(__instance);
+        }
+    }
+
+    [HarmonyPatch(typeof(FactionManager))]
+    [HarmonyPatch(nameof(FactionManager.Add))]
+    public static class FactionAddPatch
+    {
+        static void Postfix(Faction faction)
+        {
+            ScribeUtil.crossRefs.RegisterLoaded(faction);
+        }
+    }
+
+    [HarmonyPatch(typeof(Game))]
+    [HarmonyPatch(nameof(Game.DeinitAndRemoveMap))]
+    public static class RemoveMapPatch
+    {
+        static void Postfix(Map map)
+        {
+            ScribeUtil.crossRefs.UnregisterMap(map);
+        }
+    }
+
+    [HarmonyPatch(typeof(MemoryUtility))]
+    [HarmonyPatch(nameof(MemoryUtility.ClearAllMapsAndWorld))]
+    public static class ClearAllPatch
+    {
+        static void Postfix()
+        {
+            ScribeUtil.crossRefs = null;
+            Log.Message("Removed all cross refs");
+        }
+    }
+
+    [HarmonyPatch(typeof(Game))]
+    [HarmonyPatch("FillComponents")]
+    public static class FillComponentsPatch
+    {
+        static void Postfix()
+        {
+            ScribeUtil.crossRefs = new CrossRefSupply();
+            Log.Message("New cross refs");
+        }
+    }
+
+    [HarmonyPatch(typeof(LoadedObjectDirectory))]
+    [HarmonyPatch(nameof(LoadedObjectDirectory.RegisterLoaded))]
+    public static class LoadedObjectsRegisterPatch
+    {
+        static void Postfix(LoadedObjectDirectory __instance, ILoadReferenceable reffable)
+        {
+            if (__instance is CrossRefSupply && Scribe.mode == LoadSaveMode.ResolvingCrossRefs)
+                ScribeUtil.crossRefs.tempKeys.Add(reffable.GetUniqueLoadID());
+        }
+    }
+
+    [HarmonyPatch(typeof(LoadedObjectDirectory))]
+    [HarmonyPatch(nameof(LoadedObjectDirectory.Clear))]
+    public static class LoadedObjectsClearPatch
+    {
+        static bool Prefix(LoadedObjectDirectory __instance)
+        {
+            if (!(__instance is CrossRefSupply)) return true;
+
+            ScribeUtil.crossRefsField.SetValue(Scribe.loader.crossRefs, ScribeUtil.defaultCrossRefs);
+
+            foreach (string temp in ScribeUtil.crossRefs.tempKeys)
+                ScribeUtil.crossRefs.Unregister(temp);
+            ScribeUtil.crossRefs.tempKeys.Clear();
 
             return false;
         }

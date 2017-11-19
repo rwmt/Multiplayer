@@ -11,11 +11,43 @@ using Verse;
 
 namespace ServerMod
 {
+    public class CrossRefSupply : LoadedObjectDirectory
+    {
+        private static readonly FieldInfo dictField = typeof(LoadedObjectDirectory).GetField("allObjectsByLoadID", BindingFlags.NonPublic | BindingFlags.Instance);
+
+        public List<string> tempKeys = new List<string>();
+
+        public void Unregister(ILoadReferenceable thing)
+        {
+            Unregister(thing.GetUniqueLoadID());
+        }
+
+        public void Unregister(string key)
+        {
+            GetDict().Remove(key);
+        }
+
+        public void UnregisterMap(Map map)
+        {
+            int a = GetDict().RemoveAll(x => x.Value is Thing && ((Thing)x.Value).Map == map);
+        }
+
+        public Dictionary<string, ILoadReferenceable> GetDict()
+        {
+            return (Dictionary<string, ILoadReferenceable>)dictField.GetValue(this);
+        }
+    }
+
     public static class ScribeUtil
     {
         private static MemoryStream stream;
         private static readonly FieldInfo writerField = typeof(ScribeSaver).GetField("writer", BindingFlags.NonPublic | BindingFlags.Instance);
-        private static readonly FieldInfo crossRefsField = typeof(CrossRefHandler).GetField("loadedObjectDirectory", BindingFlags.NonPublic | BindingFlags.Instance);
+
+        public static CrossRefSupply crossRefs;
+        public static LoadedObjectDirectory defaultCrossRefs;
+        public static readonly FieldInfo crossRefsField = typeof(CrossRefHandler).GetField("loadedObjectDirectory", BindingFlags.NonPublic | BindingFlags.Instance);
+
+        public static bool loading;
 
         public static void StartWriting()
         {
@@ -29,6 +61,7 @@ namespace ServerMod
             XmlWriter writer = XmlWriter.Create(stream, xmlWriterSettings);
             writerField.SetValue(Scribe.saver, writer);
             writer.WriteStartDocument();
+
         }
 
         public static byte[] FinishWriting()
@@ -41,6 +74,8 @@ namespace ServerMod
 
         public static void StartLoading(byte[] data)
         {
+            loading = true;
+
             using (MemoryStream stream = new MemoryStream(data))
             using (XmlTextReader xml = new XmlTextReader(stream))
             {
@@ -59,13 +94,18 @@ namespace ServerMod
 
         public static void SupplyCrossRefs()
         {
-            LoadedObjectDirectory dir = (LoadedObjectDirectory) crossRefsField.GetValue(Scribe.loader.crossRefs);
+            if (!loading)
+            {
+                Log.Warning("Tried to supply cross refs without calling ScribeUtil.StartLoading()");
+                return;
+            }
 
-            foreach (Faction faction in Find.FactionManager.AllFactions)
-                dir.RegisterLoaded(faction);
+            if (defaultCrossRefs == null)
+                defaultCrossRefs = (LoadedObjectDirectory)crossRefsField.GetValue(Scribe.loader.crossRefs);
 
-            foreach (MapParent map in Find.WorldObjects.MapParents)
-                dir.RegisterLoaded(map);
+            crossRefsField.SetValue(Scribe.loader.crossRefs, crossRefs);
+
+            Log.Message("Cross ref supply: " + crossRefs.GetDict().Count + " " + crossRefs.GetDict().Last());
         }
 
         public static void Look<K, V>(ref Dictionary<K, V> dict, string label, LookMode keyLookMode, LookMode valueLookMode)
@@ -86,6 +126,7 @@ namespace ServerMod
                         keysWorkingList = new List<K>();
                         valuesWorkingList = new List<V>();
                     }
+
                     if (Scribe.mode == LoadSaveMode.Saving)
                     {
                         foreach (KeyValuePair<K, V> current in dict)
@@ -94,8 +135,10 @@ namespace ServerMod
                             valuesWorkingList.Add(current.Value);
                         }
                     }
-                    Scribe_Collections.Look<K>(ref keysWorkingList, "keys", keyLookMode, new object[0]);
-                    Scribe_Collections.Look<V>(ref valuesWorkingList, "values", valueLookMode, new object[0]);
+
+                    Scribe_Collections.Look(ref keysWorkingList, "keys", keyLookMode, new object[0]);
+                    Scribe_Collections.Look(ref valuesWorkingList, "values", valueLookMode, new object[0]);
+
                     if (Scribe.mode == LoadSaveMode.Saving)
                     {
                         if (keysWorkingList != null)
@@ -109,6 +152,7 @@ namespace ServerMod
                             valuesWorkingList = null;
                         }
                     }
+
                     bool flag = keyLookMode == LookMode.Reference || valueLookMode == LookMode.Reference;
                     if ((flag && Scribe.mode == LoadSaveMode.ResolvingCrossRefs) || (!flag && Scribe.mode == LoadSaveMode.LoadingVars))
                     {
@@ -167,6 +211,7 @@ namespace ServerMod
                             }
                         }
                     }
+
                     if (Scribe.mode == LoadSaveMode.PostLoadInit)
                     {
                         if (keysWorkingList != null)

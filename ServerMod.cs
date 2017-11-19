@@ -11,6 +11,7 @@ using System.Threading;
 using System.Xml;
 using UnityEngine;
 using Verse;
+using Verse.AI;
 using Verse.Profile;
 
 namespace ServerMod
@@ -53,6 +54,12 @@ namespace ServerMod
 
             var harmony = HarmonyInstance.Create("servermod");
             harmony.PatchAll(Assembly.GetExecutingAssembly());
+
+            if (GenCommandLine.CommandLineArgPassed("dev"))
+            {
+                // generate and load dummy dev map
+                LongEventHandler.QueueLongEvent(null, "Play", "LoadingLongEvent", true, null);
+            }
         }
     }
 
@@ -80,18 +87,20 @@ namespace ServerMod
 
     public enum ServerAction : int
     {
-        PAUSE, UNPAUSE
+        PAUSE, UNPAUSE, JOB
     }
 
     public struct ScheduledServerAction
     {
         public readonly int ticks;
         public readonly ServerAction action;
+        public readonly object extra;
 
-        public ScheduledServerAction(int ticks, ServerAction action)
+        public ScheduledServerAction(int ticks, ServerAction action, object extra)
         {
             this.ticks = ticks;
             this.action = action;
+            this.extra = extra;
         }
     }
 
@@ -355,12 +364,13 @@ namespace ServerMod
                 OnMainThread.Queue(() =>
                 {
                     ServerAction action = (ServerAction)BitConverter.ToInt32(data, 0);
-                    ScheduledServerAction schdl = new ScheduledServerAction(Find.TickManager.TicksGame + 15, action);
+                    byte[] extra = data.SubArray(4, data.Length - 4);
+                    int ticks = Find.TickManager.TicksGame + 15;
 
-                    byte[] send = BitConverter.GetBytes((int)schdl.ticks).Append(BitConverter.GetBytes((int)action));
+                    byte[] send = BitConverter.GetBytes((int)ticks).Append(BitConverter.GetBytes((int)action)).Append(extra);
                     ServerMod.server.SendToAll(Packets.SERVER_ACTION_SCHEDULE, send);
 
-                    Log.Message("server got request from client at " + Find.TickManager.TicksGame + " for " + action + " " + schdl.ticks);
+                    Log.Message("server got request from client at " + Find.TickManager.TicksGame + " for " + action + " " + ticks);
                 });
             }
             else if (id == Packets.CLIENT_NEW_WORLD_OBJ)
@@ -499,8 +509,23 @@ namespace ServerMod
             {
                 OnMainThread.Queue(() =>
                 {
-                    ScheduledServerAction schdl = new ScheduledServerAction(BitConverter.ToInt32(data, 0), (ServerAction)BitConverter.ToInt32(data, 4));
+                    ServerAction action = (ServerAction)BitConverter.ToInt32(data, 4);
+                    byte[] extra = data.SubArray(8, data.Length - 8);
+                    object extraObj = null;
+
+                    if (action == ServerAction.JOB)
+                    {
+                        ScribeUtil.StartLoading(extra);
+                        ScribeUtil.SupplyCrossRefs();
+                        JobRequest job = null;
+                        Scribe_Deep.Look(ref job, "job");
+                        ScribeUtil.FinishLoading();
+                        extraObj = job;
+                    }
+
+                    ScheduledServerAction schdl = new ScheduledServerAction(BitConverter.ToInt32(data, 0), action, extraObj);
                     ServerMod.actions.Enqueue(schdl);
+
                     Log.Message("client got request from server at " + Find.TickManager.TicksGame + " for action " + schdl.action + " " + schdl.ticks);
                 });
             }
@@ -592,7 +617,7 @@ namespace ServerMod
 
         // Currently covers:
         // - settling after joining
-        public static void SyncWorldObj(WorldObject obj)
+        public static void SyncClientWorldObj(WorldObject obj)
         {
             ScribeUtil.StartWriting();
             Scribe.EnterNode("data");
@@ -630,6 +655,26 @@ namespace ServerMod
                 TickUpdatePatch.SetSpeed(TimeSpeed.Paused);
             else if (action.action == ServerAction.UNPAUSE)
                 TickUpdatePatch.SetSpeed(TimeSpeed.Normal);
+            else if (action.action == ServerAction.JOB)
+            {
+                JobRequest job = (JobRequest)action.extra;
+                JobTrackerPatch.addingJob = true;
+                Pawn pawn = Find.Maps.FirstOrDefault(m => m.uniqueID == job.mapId).mapPawns.AllPawns.FirstOrDefault(p => p.thingIDNumber == job.pawnId);
+
+                if (!JobTrackerPatch.IsPawnOwner(pawn) || pawn.jobs.curJob.expiryInterval == -2)
+                {
+                    pawn.jobs.StartJob(job.job, JobCondition.InterruptForced);
+                    PawnTempData.Get(pawn).actualJob = null;
+                    PawnTempData.Get(pawn).actualJobDriver = null;
+                    Log.Message("executed job " + job.job + " for " + pawn);
+                }
+                else
+                {
+                    Log.Warning("Jobs don't match! p:" + pawn + " j:" + job.job + " cur:" + pawn.jobs.curJob + " driver:" + pawn.jobs.curDriver);
+                }
+
+                JobTrackerPatch.addingJob = false;
+            }
 
             Log.Message("executed a scheduled action " + action.action);
         }
@@ -658,6 +703,24 @@ namespace ServerMod
             return playerFactions.FirstOrDefault(pair => pair.Value == faction).Key;
         }
 
+    }
+
+    public class PawnTempData : ThingComp
+    {
+        public Job actualJob;
+        public JobDriver actualJobDriver;
+
+        public static PawnTempData Get(Pawn pawn)
+        {
+            PawnTempData data = pawn.GetComp<PawnTempData>();
+            if (data == null)
+            {
+                data = new PawnTempData();
+                pawn.AllComps.Add(data);
+            }
+
+            return data;
+        }
     }
 
 }

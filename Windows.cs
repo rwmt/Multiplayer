@@ -61,7 +61,7 @@ namespace ServerMod
 
                 if (!IPAddress.TryParse(ipport[0], out IPAddress address))
                 {
-                    Messages.Message("Invalid IP address.", MessageSound.RejectInput);
+                    Messages.Message("Invalid IP address.", MessageTypeDefOf.RejectInput);
                 }
                 else
                 {
@@ -171,11 +171,11 @@ namespace ServerMod
                     Faction.OfPlayer.Name = ServerMod.username + "'s faction";
                     Find.World.GetComponent<ServerModWorldComp>().playerFactions[ServerMod.username] = Faction.OfPlayer;
 
-                    Messages.Message("Server started. Listening at " + local.ToString() + ":" + ServerMod.DEFAULT_PORT, MessageSound.Silent);
+                    Messages.Message("Server started. Listening at " + local.ToString() + ":" + ServerMod.DEFAULT_PORT, MessageTypeDefOf.SilentInput);
                 }
                 catch (SocketException)
                 {
-                    Messages.Message("Server creation failed.", MessageSound.RejectInput);
+                    Messages.Message("Server creation failed.", MessageTypeDefOf.RejectInput);
                 }
 
                 this.Close(true);
