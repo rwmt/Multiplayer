@@ -88,6 +88,8 @@ namespace ServerMod
                     gameNode.AppendChild(newMaps);
                 }
 
+                ScribeMetaHeaderUtility.LoadGameDataHeader(ScribeMetaHeaderUtility.ScribeHeaderMode.Map, false);
+
                 if (Scribe.EnterNode("game"))
                 {
                     Current.Game = new Game();
@@ -126,7 +128,16 @@ namespace ServerMod
         private static void FinishLoading()
         {
             CustomSelectLandingSite page = new CustomSelectLandingSite();
-            page.nextAct = () =>
+            page.nextAct = () => Settle();
+
+            Find.WindowStack.Add(page);
+            MemoryUtility.UnloadUnusedUnityAssets();
+            Find.World.renderer.RegenerateAllLayersNow();
+        }
+
+        private static void Settle()
+        {
+            LongEventHandler.QueueLongEvent(() =>
             {
                 Find.GameInitData.mapSize = 150;
                 Find.GameInitData.startingPawns.Add(StartingPawnUtility.NewGeneratedStartingPawn());
@@ -144,11 +155,7 @@ namespace ServerMod
                 Current.Game.InitData = null;
 
                 ClientPlayingState.SyncClientWorldObj(factionBase);
-            };
-
-            Find.WindowStack.Add(page);
-            MemoryUtility.UnloadUnusedUnityAssets();
-            Find.World.renderer.RegenerateAllLayersNow();
+            }, "Generating map", false, null);
         }
     }
 
@@ -177,7 +184,8 @@ namespace ServerMod
         {
             if (ServerMod.client != null && Find.TickManager.CurTimeSpeed != lastSpeed)
             {
-                ServerMod.client.Send(Packets.CLIENT_ACTION_REQUEST, BitConverter.GetBytes((int)(Find.TickManager.CurTimeSpeed == TimeSpeed.Paused ? ServerAction.PAUSE : ServerAction.UNPAUSE)));
+                ServerAction action = Find.TickManager.CurTimeSpeed == TimeSpeed.Paused ? ServerAction.PAUSE : ServerAction.UNPAUSE;
+                ServerMod.client.Send(Packets.CLIENT_ACTION_REQUEST, new object[] { action });
                 Log.Message("client request at: " + Find.TickManager.TicksGame);
 
                 Find.TickManager.CurTimeSpeed = lastSpeed;
@@ -217,7 +225,7 @@ namespace ServerMod
 
     [HarmonyPatch(typeof(ScribeLoader))]
     [HarmonyPatch(nameof(ScribeLoader.FinalizeLoading))]
-    public static class LongEventHandlerPatch
+    public static class FinalizeLoadingPatch
     {
         static void Prefix(ref string __state)
         {
@@ -242,13 +250,14 @@ namespace ServerMod
         static void FinalizeFactions()
         {
             ServerModWorldComp comp = Find.World.GetComponent<ServerModWorldComp>();
+
             if (ServerMod.clientFaction != null)
             {
-                XmlNode node = Scribe.loader.curXmlParent.OwnerDocument.ImportNode(ServerMod.clientFaction.DocumentElement["clientFaction"], true);
-                Scribe.loader.curXmlParent.AppendChild(node);
-                Log.Message("Appended client faction to " + Scribe.loader.curXmlParent.Name);
+                ScribeUtil.StartLoading(ServerMod.clientFaction);
+                ScribeUtil.SupplyCrossRefs();
                 Faction newFaction = null;
                 Scribe_Deep.Look(ref newFaction, "clientFaction");
+                ScribeUtil.FinishLoading();
 
                 Find.FactionManager.Add(newFaction);
                 comp.playerFactions[ServerMod.username] = newFaction;
@@ -262,6 +271,13 @@ namespace ServerMod
             Faction clientFaction = comp.playerFactions[ServerMod.username];
             clientFaction.def = FactionDefOf.PlayerColony;
             Find.GameInitData.playerFaction = clientFaction;
+
+            // todo
+            foreach (Faction current in Find.FactionManager.AllFactionsListForReading)
+            {
+                if (current == clientFaction) continue;
+                current.TryMakeInitialRelationsWith(clientFaction);
+            }
 
             Log.Message("Client faction: " + clientFaction.Name + " / " + clientFaction.GetUniqueLoadID());
         }
@@ -284,6 +300,26 @@ namespace ServerMod
             ServerMod.client.Send(Packets.CLIENT_ENCOUNTER_REQUEST, BitConverter.GetBytes(settlement.Tile));
 
             return false;
+        }
+    }
+
+    [HarmonyPatch(typeof(Settlement))]
+    [HarmonyPatch(nameof(Settlement.ShouldRemoveMapNow))]
+    public static class ShouldRemoveMap
+    {
+        static void Postfix(ref bool __result)
+        {
+            __result = false;
+        }
+    }
+
+    [HarmonyPatch(typeof(FactionBaseDefeatUtility))]
+    [HarmonyPatch("IsDefeated")]
+    public static class IsDefeated
+    {
+        static void Postfix(ref bool __result)
+        {
+            __result = false;
         }
     }
 
@@ -329,7 +365,8 @@ namespace ServerMod
 
             __instance.curJob = newJob;
             __instance.curDriver = newJob.MakeDriver(pawn);
-            __instance.curDriver.TryMakePreToilReservations();
+            if (!__instance.curDriver.TryMakePreToilReservations())
+                Log.Message("new job pre toil fail");
             newJob.expiryInterval = -2;
 
             return false;
@@ -345,12 +382,46 @@ namespace ServerMod
     [HarmonyPatch(nameof(Pawn_JobTracker.EndCurrentJob))]
     public static class JobTrackerEnd
     {
-        static void Prefix(Pawn_JobTracker __instance, JobCondition condition)
+        static void Prefix(Pawn_JobTracker __instance, JobCondition condition, ref State __state)
         {
+            Pawn pawn = (Pawn)JobTrackerPatch.pawnField.GetValue(__instance);
+
             if (ServerMod.client == null) return;
 
-            Pawn pawn = (Pawn)JobTrackerPatch.pawnField.GetValue(__instance);
             Log.Message("end job: " + pawn + " " + __instance.curJob + " " + condition);
+
+            if (PawnTempData.Get(pawn).actualJob == null || __instance.curJob == PawnTempData.Get(pawn).actualJob) return;
+
+            __state = new State()
+            {
+                job = __instance.curJob,
+                driver = __instance.curDriver
+            };
+
+            __instance.curJob = PawnTempData.Get(pawn).actualJob;
+            __instance.curDriver = PawnTempData.Get(pawn).actualJobDriver;
+        }
+
+        static void Postfix(Pawn_JobTracker __instance, State __state)
+        {
+            if (__state == null) return;
+
+            Pawn pawn = (Pawn)JobTrackerPatch.pawnField.GetValue(__instance);
+            if (PawnTempData.Get(pawn).actualJobDriver != __instance.curDriver)
+            {
+                Log.Message("cleaned actual job: " + PawnTempData.Get(pawn).actualJob + " " + pawn);
+                PawnTempData.Get(pawn).actualJobDriver = null;
+                PawnTempData.Get(pawn).actualJob = null;
+            }
+
+            __instance.curJob = __state.job;
+            __instance.curDriver = __state.driver;
+        }
+
+        private class State
+        {
+            public Job job;
+            public JobDriver driver;
         }
     }
 
@@ -378,7 +449,7 @@ namespace ServerMod
         static void Prefix(Pawn_JobTracker __instance, JobCondition condition)
         {
             Pawn pawn = (Pawn)JobTrackerPatch.pawnField.GetValue(__instance);
-            if (__instance.curJob.expiryInterval == -2)
+            if (__instance.curJob != null && __instance.curJob.expiryInterval == -2)
                 Log.Warning("cleanup " + JobTrackerPatch.addingJob + " " + __instance.curJob + " " + condition + " " + pawn + " " + __instance.curJob.expiryInterval);
         }
     }
@@ -486,6 +557,11 @@ namespace ServerMod
         static void Postfix(Faction faction)
         {
             ScribeUtil.crossRefs.RegisterLoaded(faction);
+
+            foreach (Map map in Find.Maps)
+                map.pawnDestinationReservationManager.RegisterFaction(faction);
+
+            Log.Message("new faction " + faction);
         }
     }
 
@@ -525,10 +601,19 @@ namespace ServerMod
     [HarmonyPatch(nameof(LoadedObjectDirectory.RegisterLoaded))]
     public static class LoadedObjectsRegisterPatch
     {
-        static void Postfix(LoadedObjectDirectory __instance, ILoadReferenceable reffable)
+        static bool Prefix(LoadedObjectDirectory __instance, ILoadReferenceable reffable)
         {
-            if (__instance is CrossRefSupply && Scribe.mode == LoadSaveMode.ResolvingCrossRefs)
-                ScribeUtil.crossRefs.tempKeys.Add(reffable.GetUniqueLoadID());
+            if (!(__instance is CrossRefSupply)) return true;
+
+            string key = reffable.GetUniqueLoadID();
+            if (ScribeUtil.crossRefs.GetDict().ContainsKey(key)) return false;
+
+            if (Scribe.mode == LoadSaveMode.ResolvingCrossRefs)
+                ScribeUtil.crossRefs.tempKeys.Add(key);
+
+            ScribeUtil.crossRefs.GetDict().Add(key, reffable);
+
+            return false;
         }
     }
 
@@ -547,6 +632,40 @@ namespace ServerMod
             ScribeUtil.crossRefs.tempKeys.Clear();
 
             return false;
+        }
+    }
+
+    [HarmonyPatch(typeof(CompressibilityDeciderUtility))]
+    [HarmonyPatch(nameof(CompressibilityDeciderUtility.IsSaveCompressible))]
+    public static class SaveCompressible
+    {
+        static void Postfix(ref bool __result)
+        {
+            if (ServerMod.savingForEncounter)
+                __result = false;
+        }
+    }
+
+    [HarmonyPatch(typeof(GenSpawn))]
+    [HarmonyPatch(nameof(GenSpawn.Spawn))]
+    [HarmonyPatch(new Type[] { typeof(Thing), typeof(IntVec3), typeof(Map), typeof(Rot4), typeof(bool) })]
+    public static class GenSpawnPatch
+    {
+        static void Postfix(ref Thing __result)
+        {
+            if (__result == null || ServerMod.client == null) return;
+
+            if (__result is Blueprint)
+            {
+                ScribeUtil.StartWriting();
+                Scribe.EnterNode("data");
+                Scribe_Deep.Look(ref __result, "thing");
+                byte[] data = ScribeUtil.FinishWriting();
+
+                ServerMod.client.Send(Packets.CLIENT_ACTION_REQUEST, new object[] { ServerAction.SPAWN_THING, data });
+
+                return;
+            }
         }
     }
 

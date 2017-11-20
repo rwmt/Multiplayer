@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Reflection;
 using System.Text;
 using System.Threading;
@@ -28,15 +29,17 @@ namespace ServerMod
 
         public static byte[] savedWorld;
         public static byte[] mapsData;
-        public static bool saving = false;
+        public static bool savingWorld;
+        public static bool savingForEncounter;
         public static CountdownLock worldDownloading = new CountdownLock();
         public static AutoResetEvent pause = new AutoResetEvent(false);
+        // player => faction
         public static Dictionary<string, Faction> newFactions = new Dictionary<string, Faction>();
-        public static XmlDocument clientFaction;
-
-        public static Dictionary<string, string> encounters = new Dictionary<string, string>();
+        public static byte[] clientFaction;
 
         public static Queue<ScheduledServerAction> actions = new Queue<ScheduledServerAction>();
+
+        public const string WORLD_DOWNLOAD = "Waiting for players to load";
 
         static ServerMod()
         {
@@ -58,8 +61,71 @@ namespace ServerMod
             if (GenCommandLine.CommandLineArgPassed("dev"))
             {
                 // generate and load dummy dev map
+                DebugSettings.noAnimals = true;
                 LongEventHandler.QueueLongEvent(null, "Play", "LoadingLongEvent", true, null);
             }
+            else if (GenCommandLine.CommandLineArgPassed("connect"))
+            {
+                DebugSettings.noAnimals = true;
+                LongEventHandler.QueueLongEvent(() =>
+                {
+                    IPAddress.TryParse("127.0.0.1", out IPAddress addr);
+                    Client.TryConnect(addr, ServerMod.DEFAULT_PORT, (conn, e) =>
+                    {
+                        if (e != null)
+                        {
+                            ServerMod.client = null;
+                            return;
+                        }
+
+                        ServerMod.client = conn;
+                        conn.username = ServerMod.username;
+                        conn.State = new ClientWorldState(conn);
+                    });
+                }, "Connecting", false, null);
+            }
+        }
+    }
+
+    public class ServerModInstance : Mod
+    {
+        public ServerModInstance(ModContentPack pack) : base(pack)
+        {
+        }
+
+        public override void DoSettingsWindowContents(Rect inRect)
+        {
+        }
+
+        public override string SettingsCategory()
+        {
+            return "Multiplayer";
+        }
+    }
+
+    public class Encounter
+    {
+        private static List<Encounter> encounters = new List<Encounter>();
+
+        public readonly string defender;
+        public List<string> attackers = new List<string>();
+        public Queue<string> waitingForMap = new Queue<string>();
+
+        private Encounter(string defender)
+        {
+            this.defender = defender;
+        }
+
+        public static void Add(string defender, string attacker)
+        {
+            if (GetByDefender(defender) != null) return;
+
+            encounters.Add(new Encounter(defender));
+        }
+
+        public static Encounter GetByDefender(string username)
+        {
+            return encounters.FirstOrDefault(e => e.defender == username);
         }
     }
 
@@ -76,8 +142,6 @@ namespace ServerMod
 
         public const int SERVER_WORLD_DATA = 0;
         public const int SERVER_ACTION_SCHEDULE = 1;
-        public const int SERVER_PAUSE_FOR_WORLD_DOWNLOAD = 2;
-        public const int SERVER_UNPAUSE = 3;
         public const int SERVER_NEW_FACTIONS = 4;
         public const int SERVER_NEW_WORLD_OBJ = 5;
         public const int SERVER_ENCOUNTER_REQUEST = 6;
@@ -87,7 +151,7 @@ namespace ServerMod
 
     public enum ServerAction : int
     {
-        PAUSE, UNPAUSE, JOB
+        PAUSE, UNPAUSE, JOB, SPAWN_THING, HARD_PAUSE, HARD_UNPAUSE
     }
 
     public struct ScheduledServerAction
@@ -127,6 +191,43 @@ namespace ServerMod
             if (childNode != null)
                 node.RemoveChild(childNode);
         }
+
+        public static byte[] GetBytes(this ServerAction action)
+        {
+            return BitConverter.GetBytes((int)action);
+        }
+
+        public static byte[] GetBytes(this string str)
+        {
+            return Encoding.UTF8.GetBytes(str);
+        }
+
+        public static void Write(this MemoryStream stream, byte[] arr)
+        {
+            stream.Write(arr, 0, arr.Length);
+        }
+
+        public static byte[] ReadBytes(this MemoryStream stream)
+        {
+            return stream.ReadBytes(stream.ReadInt());
+        }
+
+        public static byte[] ReadBytes(this MemoryStream stream, int len)
+        {
+            byte[] arr = new byte[len];
+            stream.Read(arr, 0, arr.Length);
+            return arr;
+        }
+
+        public static int ReadInt(this MemoryStream stream)
+        {
+            return BitConverter.ToInt32(stream.ReadBytes(4), 0);
+        }
+
+        public static string ReadString(this MemoryStream stream)
+        {
+            return Encoding.UTF8.GetString(stream.ReadBytes());
+        }
     }
 
     public class LocalClientConnection : Connection
@@ -137,10 +238,10 @@ namespace ServerMod
         {
         }
 
-        public override void Send(int id, byte[] message = null)
+        public override void Send(int id, byte[] msg = null)
         {
-            message = message ?? new byte[] { 0 };
-            server.State?.Message(id, message);
+            msg = msg ?? new byte[] { 0 };
+            server.State?.Message(id, msg);
         }
 
         public override void Close()
@@ -163,10 +264,10 @@ namespace ServerMod
         {
         }
 
-        public override void Send(int id, byte[] message = null)
+        public override void Send(int id, byte[] msg = null)
         {
-            message = message ?? new byte[] { 0 };
-            client.State?.Message(id, message);
+            msg = msg ?? new byte[] { 0 };
+            client.State?.Message(id, msg);
         }
 
         public override void Close()
@@ -231,7 +332,7 @@ namespace ServerMod
                 {
                     if (ServerMod.savedWorld == null)
                     {
-                        if (!ServerMod.saving)
+                        if (!ServerMod.savingWorld)
                             SaveWorld();
 
                         LongEventHandler.QueueLongEvent(() => SendData(), "Sending the world (queued)", false, null);
@@ -260,7 +361,7 @@ namespace ServerMod
                         ServerMod.server.SendToAll(Packets.SERVER_NEW_FACTIONS, factionData, ServerMod.localServerConnection);
                         ServerMod.newFactions.Clear();
 
-                        ServerMod.server.SendToAll(Packets.SERVER_UNPAUSE);
+                        ServerMod.server.SendToAll(Packets.SERVER_ACTION_SCHEDULE, ServerPlayingState.GetActionMsg(ServerAction.HARD_UNPAUSE, ServerMod.WORLD_DOWNLOAD));
 
                         Log.Message("world sending finished");
                     }
@@ -268,16 +369,14 @@ namespace ServerMod
             }
             else if (id == Packets.CLIENT_USERNAME)
             {
-                OnMainThread.Queue(() => Connection.username = Encoding.ASCII.GetString(data));
+                OnMainThread.Queue(() => Connection.username = Encoding.UTF8.GetString(data));
             }
         }
 
         private void SendData()
         {
             ServerModWorldComp factions = Find.World.GetComponent<ServerModWorldComp>();
-            Faction faction = null;
-            factions.playerFactions.TryGetValue(Connection.username, out faction);
-            if (faction == null)
+            if (!factions.playerFactions.TryGetValue(Connection.username, out Faction faction))
             {
                 faction = FactionGenerator.NewGeneratedFaction(FactionDefOf.PlayerColony);
                 faction.Name = Connection.username + "'s faction";
@@ -308,17 +407,19 @@ namespace ServerMod
                 }
             }
 
-            byte[] data = BitConverter.GetBytes(ServerMod.savedWorld.Length).Append(ServerMod.savedWorld).Append(BitConverter.GetBytes(mapsData.Length)).Append(mapsData);
-            Connection.Send(Packets.SERVER_WORLD_DATA, data);
+            Connection.Send(Packets.SERVER_WORLD_DATA, new object[] { ServerMod.savedWorld.Length, ServerMod.savedWorld, mapsData.Length, mapsData });
 
             ServerMod.worldDownloading.Add(Connection.connId);
         }
 
         private void SaveWorld()
         {
-            ServerMod.server.SendToAll(Packets.SERVER_PAUSE_FOR_WORLD_DOWNLOAD, null, this.Connection, ServerMod.localServerConnection);
-            ServerMod.saving = true;
-            Find.TickManager.CurTimeSpeed = TimeSpeed.Paused;
+            ServerMod.server.SendToAll(Packets.SERVER_ACTION_SCHEDULE, ServerPlayingState.GetActionMsg(ServerAction.HARD_PAUSE), ServerMod.localServerConnection);
+
+            ServerMod.savingWorld = true;
+            TickUpdatePatch.SetSpeed(TimeSpeed.Paused);
+
+            IncrIds(); // a block for the joining player
 
             LongEventHandler.QueueLongEvent(() =>
             {
@@ -337,7 +438,9 @@ namespace ServerMod
                 Scribe.ExitNode();
 
                 ServerMod.savedWorld = ScribeUtil.FinishWriting();
-                ServerMod.saving = false;
+                ServerMod.savingWorld = false;
+
+                IncrIds(); // a block for us
 
                 LongEventHandler.QueueLongEvent(() =>
                 {
@@ -348,6 +451,20 @@ namespace ServerMod
 
         public override void Disconnect()
         {
+        }
+
+        // todo temporary
+        public static void IncrIds()
+        {
+            foreach (FieldInfo f in typeof(UniqueIDsManager).GetFields(BindingFlags.NonPublic | BindingFlags.Instance))
+            {
+                if (f.FieldType != typeof(int)) continue;
+
+                int curr = (int)f.GetValue(Find.UniqueIDsManager);
+                f.SetValue(Find.UniqueIDsManager, curr + 40000);
+
+                Log.Message("field " + curr);
+            }
         }
     }
 
@@ -364,11 +481,10 @@ namespace ServerMod
                 OnMainThread.Queue(() =>
                 {
                     ServerAction action = (ServerAction)BitConverter.ToInt32(data, 0);
-                    byte[] extra = data.SubArray(4, data.Length - 4);
                     int ticks = Find.TickManager.TicksGame + 15;
+                    byte[] extra = data.SubArray(4, data.Length - 4);
 
-                    byte[] send = BitConverter.GetBytes((int)ticks).Append(BitConverter.GetBytes((int)action)).Append(extra);
-                    ServerMod.server.SendToAll(Packets.SERVER_ACTION_SCHEDULE, send);
+                    ServerMod.server.SendToAll(Packets.SERVER_ACTION_SCHEDULE, GetActionMsg(action, extra));
 
                     Log.Message("server got request from client at " + Find.TickManager.TicksGame + " for " + action + " " + ticks);
                 });
@@ -411,24 +527,24 @@ namespace ServerMod
                     Connection conn = ServerMod.server.GetByUsername(defender);
                     if (conn == null)
                     {
-                        Connection.Send(Packets.SERVER_NOTIFICATION, Encoding.ASCII.GetBytes("The player isn't online."));
+                        Connection.Send(Packets.SERVER_NOTIFICATION, new object[] { "The player is offline." });
                         return;
                     }
 
-                    ServerMod.encounters.Add(defender, Connection.username);
-                    conn.Send(Packets.SERVER_ENCOUNTER_REQUEST, BitConverter.GetBytes(tile));
+                    Encounter.Add(defender, Connection.username);
+                    conn.Send(Packets.SERVER_ENCOUNTER_REQUEST, new object[] { tile });
                 });
             }
             else if (id == Packets.CLIENT_ENCOUNTER_MAP)
             {
                 OnMainThread.Queue(() =>
                 {
-                    if (ServerMod.encounters.TryGetValue(Connection.username, out string attacker))
+                    /*if (Encounter.GetByDefender(Connection.username))
                     {
                         Connection conn = ServerMod.server.GetByUsername(attacker);
                         if (conn == null) return;
                         conn.Send(Packets.SERVER_ENCOUNTER_MAP, data);
-                    }
+                    }*/
                 });
             }
         }
@@ -444,6 +560,11 @@ namespace ServerMod
             if (!directoryInfo.Exists)
                 directoryInfo.Create();
             return Path.Combine(worldfolder, username + ".maps");
+        }
+
+        public static object[] GetActionMsg(ServerAction action, object extra=null)
+        {
+            return new object[] { action, Find.TickManager.TicksGame + 15, extra };
         }
     }
 
@@ -481,13 +602,7 @@ namespace ServerMod
             {
                 OnMainThread.Queue(() =>
                 {
-                    using (MemoryStream stream = new MemoryStream(data))
-                    using (XmlTextReader xml = new XmlTextReader(stream))
-                    {
-                        XmlDocument xmlDocument = new XmlDocument();
-                        xmlDocument.Load(xml);
-                        ServerMod.clientFaction = xmlDocument;
-                    }
+                    ServerMod.clientFaction = data;
                 });
             }
         }
@@ -509,7 +624,8 @@ namespace ServerMod
             {
                 OnMainThread.Queue(() =>
                 {
-                    ServerAction action = (ServerAction)BitConverter.ToInt32(data, 4);
+                    ServerAction action = (ServerAction)BitConverter.ToInt32(data, 0);
+                    int ticks = BitConverter.ToInt32(data, 4);
                     byte[] extra = data.SubArray(8, data.Length - 8);
                     object extraObj = null;
 
@@ -520,25 +636,19 @@ namespace ServerMod
                         JobRequest job = null;
                         Scribe_Deep.Look(ref job, "job");
                         ScribeUtil.FinishLoading();
+
                         extraObj = job;
                     }
+                    else if (action == ServerAction.HARD_PAUSE || action == ServerAction.HARD_UNPAUSE)
+                    {
+                        extraObj = Encoding.UTF8.GetString(extra);
+                    }
 
-                    ScheduledServerAction schdl = new ScheduledServerAction(BitConverter.ToInt32(data, 0), action, extraObj);
+                    ScheduledServerAction schdl = new ScheduledServerAction(ticks, action, extraObj);
                     ServerMod.actions.Enqueue(schdl);
 
                     Log.Message("client got request from server at " + Find.TickManager.TicksGame + " for action " + schdl.action + " " + schdl.ticks);
                 });
-            }
-            else if (id == Packets.SERVER_PAUSE_FOR_WORLD_DOWNLOAD)
-            {
-                LongEventHandler.QueueLongEvent(() =>
-                {
-                    ServerMod.pause.WaitOne();
-                }, "Waiting for other players to load", true, null);
-            }
-            else if (id == Packets.SERVER_UNPAUSE)
-            {
-                ServerMod.pause.Set();
             }
             else if (id == Packets.SERVER_NEW_FACTIONS)
             {
@@ -551,8 +661,12 @@ namespace ServerMod
 
                     foreach (KeyValuePair<string, Faction> pair in ServerMod.newFactions)
                     {
-                        // our own faction has been already sent
-                        if (pair.Key == Connection.username) continue;
+                        // our own faction has already been sent
+                        if (pair.Key == Connection.username)
+                        {
+                            Log.Message("skip");
+                            continue;
+                        }
 
                         Find.FactionManager.Add(pair.Value);
                         Find.World.GetComponent<ServerModWorldComp>().playerFactions[pair.Key] = pair.Value;
@@ -583,11 +697,14 @@ namespace ServerMod
                     Settlement settlement = Find.WorldObjects.SettlementAt(tile);
                     if (settlement == null || !settlement.HasMap) return;
 
+                    ServerMod.savingForEncounter = true;
                     ScribeUtil.StartWriting();
                     Scribe.EnterNode("data");
                     Map map = settlement.Map;
                     Scribe_Deep.Look(ref map, "map");
                     byte[] mapData = ScribeUtil.FinishWriting();
+                    ServerMod.savingForEncounter = false;
+
                     ServerMod.client.Send(Packets.CLIENT_ENCOUNTER_MAP, mapData);
                 });
             }
@@ -595,18 +712,23 @@ namespace ServerMod
             {
                 OnMainThread.Queue(() =>
                 {
-                    Current.ProgramState = ProgramState.MapInitializing;
+                    LongEventHandler.QueueLongEvent(() =>
+                    {
+                        Current.ProgramState = ProgramState.MapInitializing;
 
-                    ScribeUtil.StartLoading(data);
-                    ScribeUtil.SupplyCrossRefs();
-                    Map map = null;
-                    Scribe_Deep.Look(ref map, "map");
-                    ScribeUtil.FinishLoading();
+                        Log.Message("Encounter map size: " + data.Length);
 
-                    Current.Game.AddMap(map);
-                    map.FinalizeLoading();
+                        ScribeUtil.StartLoading(data);
+                        ScribeUtil.SupplyCrossRefs();
+                        Map map = null;
+                        Scribe_Deep.Look(ref map, "map");
+                        ScribeUtil.FinishLoading();
 
-                    Current.ProgramState = ProgramState.Playing;
+                        Current.Game.AddMap(map);
+                        map.FinalizeLoading();
+
+                        Current.ProgramState = ProgramState.Playing;
+                    }, "Loading encounter map", false, null);
                 });
             }
         }
@@ -649,34 +771,72 @@ namespace ServerMod
                 queue.Enqueue(action);
         }
 
-        public static void ExecuteServerAction(ScheduledServerAction action)
+        public static void ExecuteServerAction(ScheduledServerAction actionReq)
         {
-            if (action.action == ServerAction.PAUSE)
-                TickUpdatePatch.SetSpeed(TimeSpeed.Paused);
-            else if (action.action == ServerAction.UNPAUSE)
-                TickUpdatePatch.SetSpeed(TimeSpeed.Normal);
-            else if (action.action == ServerAction.JOB)
+            ServerAction action = actionReq.action;
+
+            if (action == ServerAction.PAUSE || action == ServerAction.HARD_PAUSE)
             {
-                JobRequest job = (JobRequest)action.extra;
+                TickUpdatePatch.SetSpeed(TimeSpeed.Paused);
+            }
+
+            if (action == ServerAction.UNPAUSE)
+            {
+                TickUpdatePatch.SetSpeed(TimeSpeed.Normal);
+            }
+
+            if (action == ServerAction.JOB)
+            {
+                JobRequest jobReq = (JobRequest)actionReq.extra;
+                Job job = jobReq.job;
+
+                Map map = Find.Maps.FirstOrDefault(m => m.uniqueID == jobReq.mapId);
+                if (map == null) return;
+
+                Pawn pawn = map.mapPawns.AllPawns.FirstOrDefault(p => p.thingIDNumber == jobReq.pawnId);
+                if (pawn == null) return;
+
                 JobTrackerPatch.addingJob = true;
-                Pawn pawn = Find.Maps.FirstOrDefault(m => m.uniqueID == job.mapId).mapPawns.AllPawns.FirstOrDefault(p => p.thingIDNumber == job.pawnId);
+
+                // adjust for state loss
+                if (!JobTrackerPatch.IsPawnOwner(pawn))
+                {
+                    job.ignoreDesignations = true;
+                    job.ignoreForbidden = true;
+
+                    if (job.haulMode == HaulMode.ToCellStorage)
+                        job.haulMode = HaulMode.ToCellNonStorage;
+                }
 
                 if (!JobTrackerPatch.IsPawnOwner(pawn) || pawn.jobs.curJob.expiryInterval == -2)
                 {
-                    pawn.jobs.StartJob(job.job, JobCondition.InterruptForced);
+                    pawn.jobs.StartJob(job, JobCondition.InterruptForced);
                     PawnTempData.Get(pawn).actualJob = null;
                     PawnTempData.Get(pawn).actualJobDriver = null;
-                    Log.Message("executed job " + job.job + " for " + pawn);
+                    Log.Message("executed job " + job + " for " + pawn);
                 }
                 else
                 {
-                    Log.Warning("Jobs don't match! p:" + pawn + " j:" + job.job + " cur:" + pawn.jobs.curJob + " driver:" + pawn.jobs.curDriver);
+                    Log.Warning("Jobs don't match! p:" + pawn + " j:" + job + " cur:" + pawn.jobs.curJob + " driver:" + pawn.jobs.curDriver);
                 }
 
                 JobTrackerPatch.addingJob = false;
             }
 
-            Log.Message("executed a scheduled action " + action.action);
+            if (action == ServerAction.HARD_PAUSE)
+            {
+                LongEventHandler.QueueLongEvent(() =>
+                {
+                    ServerMod.pause.WaitOne();
+                }, "Waiting for other players to load", true, null);
+            }
+
+            if (action == ServerAction.HARD_UNPAUSE)
+            {
+                ServerMod.pause.Set();
+            }
+
+            Log.Message("executed a scheduled action " + action);
         }
     }
 

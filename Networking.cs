@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
@@ -74,11 +75,38 @@ namespace ServerMod
                         conn.Send(id, data);
         }
 
+        public void SendToAll(int id, object[] data, params Connection[] except)
+        {
+            SendToAll(id, GetBytes(data), except);
+        }
+
         public Connection GetByUsername(string username)
         {
             lock (connections)
             {
                 return connections.FirstOrDefault(c => c.username == username);
+            }
+        }
+
+        public static byte[] GetBytes(object[] data)
+        {
+            using (var stream = new MemoryStream())
+            {
+                foreach (object obj in data)
+                {
+                    if (obj == null) continue;
+
+                    if (obj is string)
+                        stream.Write(((string)obj).GetBytes());
+                    else if (obj is byte[])
+                        stream.Write((byte[])obj);
+                    else if (obj is int)
+                        stream.Write(BitConverter.GetBytes((int)obj));
+                    else if (obj is Enum)
+                        stream.Write(BitConverter.GetBytes((int)obj));
+                }
+
+                return stream.ToArray();
             }
         }
     }
@@ -102,7 +130,6 @@ namespace ServerMod
 
     public class Connection
     {
-        public delegate void PacketReceived(int id, byte[] data);
         public delegate void ConnectionClosed();
 
         public EndPoint RemoteEndPoint
@@ -131,7 +158,6 @@ namespace ServerMod
         private int fullPos;
 
         public ConnectionClosed connectionClosed;
-        public PacketReceived receive;
 
         public Connection(Socket socket)
         {
@@ -217,6 +243,11 @@ namespace ServerMod
             Array.Copy(message, 0, full, prefix.Length, message.Length);
 
             this.socket.BeginSend(full, 0, full.Length, SocketFlags.None, result => this.socket.EndSend(result), null);
+        }
+
+        public virtual void Send(int id, object[] message)
+        {
+            Send(id, Server.GetBytes(message));
         }
 
         public override string ToString()

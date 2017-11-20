@@ -107,6 +107,7 @@ namespace ServerMod
                     text = "Connected to server.";
 
                 ServerMod.client = conn;
+                conn.username = ServerMod.username;
                 conn.State = new ClientWorldState(conn);
             });
         }
