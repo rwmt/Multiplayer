@@ -253,18 +253,13 @@ namespace ServerMod
 
             if (ServerMod.clientFaction != null)
             {
-                ScribeUtil.StartLoading(ServerMod.clientFaction);
-                ScribeUtil.SupplyCrossRefs();
-                Faction newFaction = null;
-                Scribe_Deep.Look(ref newFaction, "clientFaction");
-                ScribeUtil.FinishLoading();
-
+                Faction newFaction = ScribeUtil.ReadSingle<Faction>(ServerMod.clientFaction);
                 Find.FactionManager.Add(newFaction);
+
                 comp.playerFactions[ServerMod.username] = newFaction;
+                ServerMod.clientFaction = null;
 
                 Log.Message("Added client faction: " + newFaction.loadID);
-
-                ServerMod.clientFaction = null;
             }
 
             Faction.OfPlayer.def = FactionDefOf.Outlander;
@@ -350,13 +345,7 @@ namespace ServerMod
                     pawnId = pawn.thingIDNumber
                 };
 
-                ScribeUtil.StartWriting();
-                Scribe.EnterNode("data");
-                Scribe_Deep.Look(ref jobRequest, "job");
-                byte[] jobData = ScribeUtil.FinishWriting();
-
-                byte[] data = BitConverter.GetBytes((int)ServerAction.JOB).Append(jobData);
-                ServerMod.client.Send(Packets.CLIENT_ACTION_REQUEST, data);
+                ServerMod.client.Send(Packets.CLIENT_ACTION_REQUEST, new object[] { ServerAction.JOB, ScribeUtil.WriteSingle(jobRequest) });
             }
             else
             {
@@ -560,8 +549,6 @@ namespace ServerMod
 
             foreach (Map map in Find.Maps)
                 map.pawnDestinationReservationManager.RegisterFaction(faction);
-
-            Log.Message("new faction " + faction);
         }
     }
 

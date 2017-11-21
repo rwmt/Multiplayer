@@ -108,6 +108,24 @@ namespace ServerMod
             Log.Message("Cross ref supply: " + crossRefs.GetDict().Count + " " + crossRefs.GetDict().Last());
         }
 
+        public static byte[] WriteSingle(IExposable element)
+        {
+            StartWriting();
+            Scribe.EnterNode("data");
+            Scribe_Deep.Look(ref element, "data");
+            return FinishWriting();
+        }
+
+        public static T ReadSingle<T>(byte[] data) where T : IExposable
+        {
+            StartLoading(data);
+            SupplyCrossRefs();
+            T element = default(T);
+            Scribe_Deep.Look(ref element, "data");
+            FinishLoading();
+            return element;
+        }
+
         public static void Look<K, V>(ref Dictionary<K, V> dict, string label, LookMode keyLookMode, LookMode valueLookMode)
         {
             List<K> list1 = null;

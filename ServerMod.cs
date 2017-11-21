@@ -28,14 +28,15 @@ namespace ServerMod
         public static Connection localServerConnection;
 
         public static byte[] savedWorld;
-        public static byte[] mapsData;
         public static bool savingWorld;
-        public static bool savingForEncounter;
-        public static CountdownLock worldDownloading = new CountdownLock();
-        public static AutoResetEvent pause = new AutoResetEvent(false);
-        // player => faction
+        public static List<string> sendToQueue = new List<string>();
+        public static HashSet<string> sentToWaiting = new HashSet<string>();
+        // player owner => faction
         public static Dictionary<string, Faction> newFactions = new Dictionary<string, Faction>();
         public static byte[] clientFaction;
+        public static byte[] mapsData;
+        public static bool savingForEncounter;
+        public static AutoResetEvent pause = new AutoResetEvent(false);
 
         public static Queue<ScheduledServerAction> actions = new Queue<ScheduledServerAction>();
 
@@ -142,11 +143,11 @@ namespace ServerMod
 
         public const int SERVER_WORLD_DATA = 0;
         public const int SERVER_ACTION_SCHEDULE = 1;
-        public const int SERVER_NEW_FACTIONS = 4;
-        public const int SERVER_NEW_WORLD_OBJ = 5;
-        public const int SERVER_ENCOUNTER_REQUEST = 6;
-        public const int SERVER_ENCOUNTER_MAP = 7;
-        public const int SERVER_NOTIFICATION = 8;
+        public const int SERVER_NEW_FACTIONS = 2;
+        public const int SERVER_NEW_WORLD_OBJ = 3;
+        public const int SERVER_ENCOUNTER_REQUEST = 4;
+        public const int SERVER_ENCOUNTER_MAP = 5;
+        public const int SERVER_NOTIFICATION = 6;
     }
 
     public enum ServerAction : int
@@ -333,9 +334,12 @@ namespace ServerMod
                     if (ServerMod.savedWorld == null)
                     {
                         if (!ServerMod.savingWorld)
-                            SaveWorld();
+                        {
+                            ServerMod.savingWorld = true;
+                            ServerMod.server.SendToAll(Packets.SERVER_ACTION_SCHEDULE, ServerPlayingState.GetServerActionMsg(ServerAction.HARD_PAUSE, ServerMod.WORLD_DOWNLOAD));
+                        }
 
-                        LongEventHandler.QueueLongEvent(() => SendData(), "Sending the world (queued)", false, null);
+                        ServerMod.sendToQueue.Add(Connection.username);
                     }
                     else
                     {
@@ -349,7 +353,7 @@ namespace ServerMod
                 {
                     this.Connection.State = new ServerPlayingState(this.Connection);
 
-                    if (ServerMod.worldDownloading.Done(Connection.connId))
+                    if (ServerMod.sentToWaiting.Remove(Connection.username) && ServerMod.sentToWaiting.Count == 0)
                     {
                         ServerMod.savedWorld = null;
 
@@ -361,7 +365,7 @@ namespace ServerMod
                         ServerMod.server.SendToAll(Packets.SERVER_NEW_FACTIONS, factionData, ServerMod.localServerConnection);
                         ServerMod.newFactions.Clear();
 
-                        ServerMod.server.SendToAll(Packets.SERVER_ACTION_SCHEDULE, ServerPlayingState.GetActionMsg(ServerAction.HARD_UNPAUSE, ServerMod.WORLD_DOWNLOAD));
+                        ServerMod.server.SendToAll(Packets.SERVER_ACTION_SCHEDULE, ServerPlayingState.GetServerActionMsg(ServerAction.HARD_UNPAUSE, ServerMod.WORLD_DOWNLOAD));
 
                         Log.Message("world sending finished");
                     }
@@ -373,7 +377,7 @@ namespace ServerMod
             }
         }
 
-        private void SendData()
+        public void SendData()
         {
             ServerModWorldComp factions = Find.World.GetComponent<ServerModWorldComp>();
             if (!factions.playerFactions.TryGetValue(Connection.username, out Faction faction))
@@ -385,11 +389,7 @@ namespace ServerMod
                 factions.playerFactions[Connection.username] = faction;
                 ServerMod.newFactions[Connection.username] = faction;
 
-                ScribeUtil.StartWriting();
-                Scribe.EnterNode("data");
-                Scribe_Deep.Look(ref faction, "clientFaction");
-                byte[] factionData = ScribeUtil.FinishWriting();
-                Connection.Send(Packets.SERVER_NEW_FACTIONS, factionData);
+                Connection.Send(Packets.SERVER_NEW_FACTIONS, ScribeUtil.WriteSingle(faction));
 
                 Log.Message("New faction: " + faction.Name);
             }
@@ -407,64 +407,12 @@ namespace ServerMod
                 }
             }
 
+            ServerMod.sentToWaiting.Add(Connection.username);
             Connection.Send(Packets.SERVER_WORLD_DATA, new object[] { ServerMod.savedWorld.Length, ServerMod.savedWorld, mapsData.Length, mapsData });
-
-            ServerMod.worldDownloading.Add(Connection.connId);
-        }
-
-        private void SaveWorld()
-        {
-            ServerMod.server.SendToAll(Packets.SERVER_ACTION_SCHEDULE, ServerPlayingState.GetActionMsg(ServerAction.HARD_PAUSE), ServerMod.localServerConnection);
-
-            ServerMod.savingWorld = true;
-            TickUpdatePatch.SetSpeed(TimeSpeed.Paused);
-
-            IncrIds(); // a block for the joining player
-
-            LongEventHandler.QueueLongEvent(() =>
-            {
-                ScribeUtil.StartWriting();
-
-                Scribe.EnterNode("savegame");
-                ScribeMetaHeaderUtility.WriteMetaHeader();
-                Scribe.EnterNode("game");
-                sbyte visibleMapIndex = -1;
-                Scribe_Values.Look<sbyte>(ref visibleMapIndex, "visibleMapIndex", -1, false);
-                typeof(Game).GetMethod("ExposeSmallComponents", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(Current.Game, null);
-                World world = Current.Game.World;
-                Scribe_Deep.Look<World>(ref world, "world");
-                List<Map> maps = new List<Map>();
-                Scribe_Collections.Look<Map>(ref maps, "maps", LookMode.Deep);
-                Scribe.ExitNode();
-
-                ServerMod.savedWorld = ScribeUtil.FinishWriting();
-                ServerMod.savingWorld = false;
-
-                IncrIds(); // a block for us
-
-                LongEventHandler.QueueLongEvent(() =>
-                {
-                    ServerMod.worldDownloading.Wait();
-                }, "Sending the world", true, null);
-            }, "Saving world for incoming players", false, null);
         }
 
         public override void Disconnect()
         {
-        }
-
-        // todo temporary
-        public static void IncrIds()
-        {
-            foreach (FieldInfo f in typeof(UniqueIDsManager).GetFields(BindingFlags.NonPublic | BindingFlags.Instance))
-            {
-                if (f.FieldType != typeof(int)) continue;
-
-                int curr = (int)f.GetValue(Find.UniqueIDsManager);
-                f.SetValue(Find.UniqueIDsManager, curr + 40000);
-
-                Log.Message("field " + curr);
-            }
         }
     }
 
@@ -484,7 +432,7 @@ namespace ServerMod
                     int ticks = Find.TickManager.TicksGame + 15;
                     byte[] extra = data.SubArray(4, data.Length - 4);
 
-                    ServerMod.server.SendToAll(Packets.SERVER_ACTION_SCHEDULE, GetActionMsg(action, extra));
+                    ServerMod.server.SendToAll(Packets.SERVER_ACTION_SCHEDULE, GetServerActionMsg(action, extra));
 
                     Log.Message("server got request from client at " + Find.TickManager.TicksGame + " for " + action + " " + ticks);
                 });
@@ -562,7 +510,7 @@ namespace ServerMod
             return Path.Combine(worldfolder, username + ".maps");
         }
 
-        public static object[] GetActionMsg(ServerAction action, object extra=null)
+        public static object[] GetServerActionMsg(ServerAction action, object extra = null)
         {
             return new object[] { action, Find.TickManager.TicksGame + 15, extra };
         }
@@ -626,22 +574,16 @@ namespace ServerMod
                 {
                     ServerAction action = (ServerAction)BitConverter.ToInt32(data, 0);
                     int ticks = BitConverter.ToInt32(data, 4);
-                    byte[] extra = data.SubArray(8, data.Length - 8);
+                    byte[] extraBytes = data.SubArray(8, data.Length - 8);
                     object extraObj = null;
 
                     if (action == ServerAction.JOB)
                     {
-                        ScribeUtil.StartLoading(extra);
-                        ScribeUtil.SupplyCrossRefs();
-                        JobRequest job = null;
-                        Scribe_Deep.Look(ref job, "job");
-                        ScribeUtil.FinishLoading();
-
-                        extraObj = job;
+                        extraObj = ScribeUtil.ReadSingle<JobRequest>(extraBytes);
                     }
                     else if (action == ServerAction.HARD_PAUSE || action == ServerAction.HARD_UNPAUSE)
                     {
-                        extraObj = Encoding.UTF8.GetString(extra);
+                        extraObj = Encoding.UTF8.GetString(extraBytes);
                     }
 
                     ScheduledServerAction schdl = new ScheduledServerAction(ticks, action, extraObj);
@@ -775,7 +717,7 @@ namespace ServerMod
         {
             ServerAction action = actionReq.action;
 
-            if (action == ServerAction.PAUSE || action == ServerAction.HARD_PAUSE)
+            if (action == ServerAction.PAUSE)
             {
                 TickUpdatePatch.SetSpeed(TimeSpeed.Paused);
             }
@@ -825,10 +767,45 @@ namespace ServerMod
 
             if (action == ServerAction.HARD_PAUSE)
             {
+                TickUpdatePatch.SetSpeed(TimeSpeed.Paused);
+                string text = (string)actionReq.extra;
+
+                if (text == ServerMod.WORLD_DOWNLOAD && ServerMod.server != null)
+                {
+                    LongEventHandler.QueueLongEvent(() =>
+                    {
+                        IncrIds(); // an id block for the joining player
+
+                        ScribeUtil.StartWriting();
+
+                        Scribe.EnterNode("savegame");
+                        ScribeMetaHeaderUtility.WriteMetaHeader();
+                        Scribe.EnterNode("game");
+                        sbyte visibleMapIndex = -1;
+                        Scribe_Values.Look<sbyte>(ref visibleMapIndex, "visibleMapIndex", -1, false);
+                        typeof(Game).GetMethod("ExposeSmallComponents", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(Current.Game, null);
+                        World world = Current.Game.World;
+                        Scribe_Deep.Look(ref world, "world");
+                        List<Map> maps = new List<Map>();
+                        Scribe_Collections.Look(ref maps, "maps", LookMode.Deep);
+                        Scribe.ExitNode();
+
+                        ServerMod.savedWorld = ScribeUtil.FinishWriting();
+                        ServerMod.savingWorld = false;
+
+                        IncrIds(); // an id block for us
+
+                        foreach (string s in ServerMod.sendToQueue)
+                            (ServerMod.server.GetByUsername(s)?.State as ServerWorldState)?.SendData();
+
+                        ServerMod.sendToQueue.Clear();
+                    }, "Saving world for incoming players", false, null);
+                }
+
                 LongEventHandler.QueueLongEvent(() =>
                 {
                     ServerMod.pause.WaitOne();
-                }, "Waiting for other players to load", true, null);
+                }, text, true, null);
             }
 
             if (action == ServerAction.HARD_UNPAUSE)
@@ -837,6 +814,20 @@ namespace ServerMod
             }
 
             Log.Message("executed a scheduled action " + action);
+        }
+
+        // todo temporary
+        public static void IncrIds()
+        {
+            foreach (FieldInfo f in typeof(UniqueIDsManager).GetFields(BindingFlags.NonPublic | BindingFlags.Instance))
+            {
+                if (f.FieldType != typeof(int)) continue;
+
+                int curr = (int)f.GetValue(Find.UniqueIDsManager);
+                f.SetValue(Find.UniqueIDsManager, curr + 40000);
+
+                Log.Message("field " + curr);
+            }
         }
     }
 
