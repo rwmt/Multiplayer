@@ -15,18 +15,6 @@ using Verse.Profile;
 
 namespace ServerMod
 {
-    [HarmonyPatch(typeof(TickManager))]
-    [HarmonyPatch(nameof(TickManager.DoSingleTick))]
-    public static class TickPatch
-    {
-        static void Postfix()
-        {
-            // when not paused, wait for synchronized tick
-            while (ServerMod.actions.Count > 0 && Find.TickManager.CurTimeSpeed != TimeSpeed.Paused && ServerMod.actions.Peek().ticks == Find.TickManager.TicksGame)
-                OnMainThread.ExecuteServerAction(ServerMod.actions.Dequeue());
-        }
-    }
-
     [HarmonyPatch(typeof(OptionListingUtility))]
     [HarmonyPatch(nameof(OptionListingUtility.DrawOptionListing))]
     public static class MainMenuPatch
@@ -107,16 +95,19 @@ namespace ServerMod
                     ServerMod.savedWorld = null;
                     ServerMod.mapsData = null;
 
-                    ServerMod.client.State = new ClientPlayingState(ServerMod.client);
-                    ServerMod.client.Send(Packets.CLIENT_WORLD_FINISHED);
-
-                    LongEventHandler.QueueLongEvent(() =>
+                    if (!Current.Game.Maps.Any())
                     {
-                        ServerMod.pause.WaitOne();
+                        MemoryUtility.UnloadUnusedUnityAssets();
+                        Find.World.renderer.RegenerateAllLayersNow();
+                    }
 
-                        if (!Current.Game.Maps.Any())
-                            OnMainThread.Queue(() => FinishLoading());
-                    }, "Waiting for other players to load", true, null);
+                    Find.WindowStack.Add(new CustomSelectLandingSite()
+                    {
+                        nextAct = () => Settle()
+                    });
+
+                    ServerMod.client.State = new ClientPlayingState(ServerMod.client);
+                    ServerMod.client.Send(Packets.CLIENT_WORLD_LOADED);
                 });
 
                 return false;
@@ -125,37 +116,29 @@ namespace ServerMod
             return true;
         }
 
-        private static void FinishLoading()
-        {
-            CustomSelectLandingSite page = new CustomSelectLandingSite();
-            page.nextAct = () => Settle();
-
-            Find.WindowStack.Add(page);
-            MemoryUtility.UnloadUnusedUnityAssets();
-            Find.World.renderer.RegenerateAllLayersNow();
-        }
-
         private static void Settle()
         {
-            LongEventHandler.QueueLongEvent(() =>
-            {
-                Find.GameInitData.mapSize = 150;
-                Find.GameInitData.startingPawns.Add(StartingPawnUtility.NewGeneratedStartingPawn());
-                Find.GameInitData.startingPawns.Add(StartingPawnUtility.NewGeneratedStartingPawn());
-                Find.GameInitData.PrepForMapGen();
-                Find.Scenario.PreMapGenerate(); // this creates the FactionBase WorldObject
-                IntVec3 intVec = new IntVec3(Find.GameInitData.mapSize, 1, Find.GameInitData.mapSize);
-                FactionBase factionBase = Find.WorldObjects.FactionBases.First(faction => faction.Faction == Faction.OfPlayer);
-                Map visibleMap = MapGenerator.GenerateMap(intVec, factionBase, factionBase.MapGeneratorDef, factionBase.ExtraGenStepDefs, null);
-                Find.World.info.initialMapSize = intVec;
-                PawnUtility.GiveAllStartingPlayerPawnsThought(ThoughtDefOf.NewColonyOptimism);
-                Current.Game.VisibleMap = visibleMap;
-                Find.CameraDriver.JumpToVisibleMapLoc(MapGenerator.PlayerStartSpot);
-                Find.CameraDriver.ResetSize();
-                Current.Game.InitData = null;
+            byte[] extra = ScribeUtil.WriteSingle(new LongActionGenerating() { username = ServerMod.username });
+            ServerMod.client.Send(Packets.CLIENT_ACTION_REQUEST, new object[] { ServerAction.LONG_ACTION_SCHEDULE, extra });
 
-                ClientPlayingState.SyncClientWorldObj(factionBase);
-            }, "Generating map", false, null);
+            Find.GameInitData.mapSize = 150;
+            Find.GameInitData.startingPawns.Add(StartingPawnUtility.NewGeneratedStartingPawn());
+            Find.GameInitData.startingPawns.Add(StartingPawnUtility.NewGeneratedStartingPawn());
+            Find.GameInitData.PrepForMapGen();
+            Find.Scenario.PreMapGenerate(); // this creates the FactionBase WorldObject
+            IntVec3 intVec = new IntVec3(Find.GameInitData.mapSize, 1, Find.GameInitData.mapSize);
+            FactionBase factionBase = Find.WorldObjects.FactionBases.First(faction => faction.Faction == Faction.OfPlayer);
+            Map visibleMap = MapGenerator.GenerateMap(intVec, factionBase, factionBase.MapGeneratorDef, factionBase.ExtraGenStepDefs, null);
+            Find.World.info.initialMapSize = intVec;
+            PawnUtility.GiveAllStartingPlayerPawnsThought(ThoughtDefOf.NewColonyOptimism);
+            Current.Game.VisibleMap = visibleMap;
+            Find.CameraDriver.JumpToVisibleMapLoc(MapGenerator.PlayerStartSpot);
+            Find.CameraDriver.ResetSize();
+            Current.Game.InitData = null;
+
+            ClientPlayingState.SyncClientWorldObj(factionBase);
+
+            ServerMod.client.Send(Packets.CLIENT_ACTION_REQUEST, new object[] { ServerAction.LONG_ACTION_END, extra });
         }
     }
 
@@ -217,7 +200,7 @@ namespace ServerMod
             List<Map> list = Current.Game.Maps.FindAll(map => map.IsPlayerHome);
             Scribe_Collections.Look(ref list, "maps", LookMode.Deep);
             byte[] data = ScribeUtil.FinishWriting();
-            ServerMod.client.Send(Packets.CLIENT_SAVE_MAP, data);
+            ServerMod.client.Send(Packets.CLIENT_QUIT_MAPS, data);
 
             return false;
         }
@@ -239,28 +222,25 @@ namespace ServerMod
 
             if (Current.ProgramState != ProgramState.MapInitializing || __state != "game") return;
 
-            foreach (Faction f in Find.FactionManager.AllFactions)
-                ScribeUtil.crossRefs.RegisterLoaded(f);
+            RegisterCrossRefs();
 
             if (ServerMod.client == null || ServerMod.server != null) return;
 
             FinalizeFactions();
         }
 
+        static void RegisterCrossRefs()
+        {
+            foreach (Faction f in Find.FactionManager.AllFactions)
+                ScribeUtil.crossRefs.RegisterLoaded(f);
+
+            foreach (Map map in Find.Maps)
+                ScribeUtil.crossRefs.RegisterLoaded(map);
+        }
+
         static void FinalizeFactions()
         {
             ServerModWorldComp comp = Find.World.GetComponent<ServerModWorldComp>();
-
-            if (ServerMod.clientFaction != null)
-            {
-                Faction newFaction = ScribeUtil.ReadSingle<Faction>(ServerMod.clientFaction);
-                Find.FactionManager.Add(newFaction);
-
-                comp.playerFactions[ServerMod.username] = newFaction;
-                ServerMod.clientFaction = null;
-
-                Log.Message("Added client faction: " + newFaction.loadID);
-            }
 
             Faction.OfPlayer.def = FactionDefOf.Outlander;
             Faction clientFaction = comp.playerFactions[ServerMod.username];
@@ -292,7 +272,7 @@ namespace ServerMod
             string username = Find.World.GetComponent<ServerModWorldComp>().GetUsername(settlement.Faction);
             if (username == null) return true;
 
-            ServerMod.client.Send(Packets.CLIENT_ENCOUNTER_REQUEST, BitConverter.GetBytes(settlement.Tile));
+            ServerMod.client.Send(Packets.CLIENT_ENCOUNTER_REQUEST, new object[] { settlement.Tile });
 
             return false;
         }
@@ -484,18 +464,14 @@ namespace ServerMod
         }
     }
 
-    public class JobRequest : IExposable
+    public class JobRequest : AttributedExposable
     {
+        [ExposeDeep]
         public Job job;
+        [ExposeValue]
         public int mapId;
+        [ExposeValue]
         public int pawnId;
-
-        public void ExposeData()
-        {
-            Scribe_Values.Look(ref mapId, "map");
-            Scribe_Values.Look(ref pawnId, "pawn");
-            Scribe_Deep.Look(ref job, "job");
-        }
     }
 
     [HarmonyPatch(typeof(Thing))]
@@ -553,6 +529,16 @@ namespace ServerMod
     }
 
     [HarmonyPatch(typeof(Game))]
+    [HarmonyPatch(nameof(Game.AddMap))]
+    public static class AddMapPatch
+    {
+        static void Postfix(Map map)
+        {
+            ScribeUtil.crossRefs.RegisterLoaded(map);
+        }
+    }
+
+    [HarmonyPatch(typeof(Game))]
     [HarmonyPatch(nameof(Game.DeinitAndRemoveMap))]
     public static class RemoveMapPatch
     {
@@ -591,6 +577,7 @@ namespace ServerMod
         static bool Prefix(LoadedObjectDirectory __instance, ILoadReferenceable reffable)
         {
             if (!(__instance is CrossRefSupply)) return true;
+            if (reffable == null) return false;
 
             string key = reffable.GetUniqueLoadID();
             if (ScribeUtil.crossRefs.GetDict().ContainsKey(key)) return false;
@@ -638,21 +625,73 @@ namespace ServerMod
     [HarmonyPatch(new Type[] { typeof(Thing), typeof(IntVec3), typeof(Map), typeof(Rot4), typeof(bool) })]
     public static class GenSpawnPatch
     {
-        static void Postfix(ref Thing __result)
+        public static bool spawningThing;
+
+        static bool Prefix(Thing newThing, IntVec3 loc, Map map, Rot4 rot)
         {
-            if (__result == null || ServerMod.client == null) return;
+            if (ServerMod.client == null || Current.ProgramState == ProgramState.MapInitializing || spawningThing) return true;
 
-            if (__result is Blueprint)
+            if (newThing is Blueprint)
             {
-                ScribeUtil.StartWriting();
-                Scribe.EnterNode("data");
-                Scribe_Deep.Look(ref __result, "thing");
-                byte[] data = ScribeUtil.FinishWriting();
-
+                byte[] data = ScribeUtil.WriteSingle(new Info(newThing, loc, map, rot));
                 ServerMod.client.Send(Packets.CLIENT_ACTION_REQUEST, new object[] { ServerAction.SPAWN_THING, data });
-
-                return;
+                return false;
             }
+
+            return true;
+        }
+
+        public class Info : AttributedExposable
+        {
+            [ExposeDeep]
+            public Thing thing;
+            [ExposeValue]
+            public IntVec3 loc;
+            [ExposeReference]
+            public Map map;
+            [ExposeValue]
+            public Rot4 rot;
+
+            public Info() { }
+
+            public Info(Thing thing, IntVec3 loc, Map map, Rot4 rot)
+            {
+                this.thing = thing;
+                this.loc = loc;
+                this.map = map;
+                this.rot = rot;
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(UIRoot_Play))]
+    [HarmonyPatch(nameof(UIRoot_Play.UIRootOnGUI))]
+    public static class OnGuiPatch
+    {
+        static bool Prefix()
+        {
+            if (OnMainThread.currentLongAction == null) return true;
+            if (Event.current.type == EventType.MouseDown || Event.current.type == EventType.MouseUp || Event.current.type == EventType.KeyDown || Event.current.type == EventType.KeyUp || Event.current.type == EventType.ScrollWheel) return false;
+            return true;
+        }
+
+        static void Postfix()
+        {
+            if (OnMainThread.currentLongAction == null) return;
+
+            string text = OnMainThread.GetActionsText();
+            Vector2 size = Text.CalcSize(text);
+            int width = Math.Max(240, (int)size.x + 40);
+            int height = Math.Max(50, (int)size.y + 20);
+            Rect rect = new Rect((UI.screenWidth - width) / 2, (UI.screenHeight - height) / 2, width, height);
+            rect.Rounded();
+
+            Widgets.DrawShadowAround(rect);
+            Widgets.DrawWindowBackground(rect);
+            Text.Font = GameFont.Small;
+            Text.Anchor = TextAnchor.MiddleCenter;
+            Widgets.Label(rect, text);
+            Text.Anchor = TextAnchor.UpperLeft;
         }
     }
 

@@ -38,6 +38,53 @@ namespace ServerMod
         }
     }
 
+    public class AttributedExposable : IExposable
+    {
+        private static readonly MethodInfo lookValue = typeof(Scribe_Values).GetMethod("Look");
+        private static readonly MethodInfo lookDeep = typeof(Scribe_Deep).GetMethods().First(m => m.Name == "Look" && m.GetParameters().Length == 3);
+        private static readonly MethodInfo lookReference = typeof(Scribe_References).GetMethod("Look");
+
+        public void ExposeData()
+        {
+            foreach (FieldInfo field in GetType().GetFields(BindingFlags.Instance | BindingFlags.Public))
+            {
+                if (field.TryGetAttribute(out ExposeValueAttribute exposeValue))
+                {
+                    object[] args = new object[] { field.GetValue(this), field.Name, null, false };
+                    lookValue.MakeGenericMethod(field.FieldType).Invoke(null, args);
+                    field.SetValue(this, args[0]);
+                }
+                else if (field.TryGetAttribute(out ExposeDeepAttribute exposeDeep))
+                {
+                    object[] args = new object[] { field.GetValue(this), field.Name, new object[0] };
+                    lookDeep.MakeGenericMethod(field.FieldType).Invoke(null, args);
+                    field.SetValue(this, args[0]);
+                }
+                else if (field.TryGetAttribute(out ExposeReferenceAttribute exposeReference))
+                {
+                    object[] args = new object[] { field.GetValue(this), field.Name, false };
+                    lookReference.MakeGenericMethod(field.FieldType).Invoke(null, args);
+                    field.SetValue(this, args[0]);
+                }
+            }
+        }
+    }
+
+    [AttributeUsage(AttributeTargets.Field)]
+    public class ExposeValueAttribute : Attribute
+    {
+    }
+
+    [AttributeUsage(AttributeTargets.Field)]
+    public class ExposeDeepAttribute : Attribute
+    {
+    }
+
+    [AttributeUsage(AttributeTargets.Field)]
+    public class ExposeReferenceAttribute : Attribute
+    {
+    }
+
     public static class ScribeUtil
     {
         private static MemoryStream stream;
@@ -94,6 +141,8 @@ namespace ServerMod
 
         public static void SupplyCrossRefs()
         {
+            if (crossRefs == null) return;
+
             if (!loading)
             {
                 Log.Warning("Tried to supply cross refs without calling ScribeUtil.StartLoading()");
