@@ -108,7 +108,7 @@ namespace ServerMod
 
                 ServerMod.client = conn;
                 conn.username = ServerMod.username;
-                conn.State = new ClientWorldState(conn);
+                conn.SetState(new ClientWorldState(conn));
             });
         }
 
@@ -153,7 +153,7 @@ namespace ServerMod
                 {
                     ServerMod.server = new Server(local, ServerMod.DEFAULT_PORT, (conn) =>
                     {
-                        conn.State = new ServerWorldState(conn);
+                        conn.SetState(new ServerWorldState(conn));
                     });
 
                     LocalServerConnection localServer = new LocalServerConnection() { username = ServerMod.username };
@@ -162,13 +162,17 @@ namespace ServerMod
                     localServer.client = localClient;
                     localClient.server = localServer;
 
-                    localClient.State = new ClientPlayingState(localClient);
-                    localServer.State = new ServerPlayingState(localServer);
+                    localClient.SetState(new ClientPlayingState(localClient));
+                    localServer.SetState(new ServerPlayingState(localServer));
 
                     ServerMod.server.GetConnections().Add(localServer);
                     ServerMod.client = localClient;
                     ServerMod.localServerConnection = localServer;
 
+                    if (ServerMod.highestUniqueId == -1)
+                        ServerMod.highestUniqueId = Find.UniqueIDsManager.GetNextThingID();
+
+                    ServerMod.mainBlock = ServerMod.NextIdBlock();
                     Faction.OfPlayer.Name = ServerMod.username + "'s faction";
                     Find.World.GetComponent<ServerModWorldComp>().playerFactions[ServerMod.username] = Faction.OfPlayer;
 

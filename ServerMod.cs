@@ -32,6 +32,10 @@ namespace ServerMod
         public static bool savingForEncounter;
         public static AutoResetEvent pause = new AutoResetEvent(false);
 
+        public static IdBlock mainBlock;
+
+        public static int highestUniqueId = -1;
+
         static ServerMod()
         {
             GenCommandLine.TryGetCommandLineArg("username", out username);
@@ -71,10 +75,59 @@ namespace ServerMod
 
                         ServerMod.client = conn;
                         conn.username = ServerMod.username;
-                        conn.State = new ClientWorldState(conn);
+                        conn.SetState(new ClientWorldState(conn));
                     });
                 }, "Connecting", false, null);
             }
+        }
+
+        public static IdBlock NextIdBlock()
+        {
+            int blockSize = 25000;
+            int blockStart = highestUniqueId;
+            highestUniqueId = highestUniqueId + blockSize;
+            Log.Message("New id block " + blockStart + " of " + blockSize);
+            return new IdBlock(blockStart, blockSize);
+        }
+    }
+
+    public class IdBlock : AttributedExposable
+    {
+        [ExposeValue]
+        public int blockStart;
+        [ExposeValue]
+        public int blockSize;
+        [ExposeValue]
+        public int mapTile = -1; // for encounters
+
+        private int current;
+
+        public IdBlock() { }
+
+        public IdBlock(int blockStart, int blockSize, int mapTile = -1)
+        {
+            this.blockStart = blockStart;
+            this.blockSize = blockSize;
+            this.mapTile = mapTile;
+            current = blockStart;
+        }
+
+        public int NextId()
+        {
+            current++;
+            if (current > blockStart + blockSize * 0.8)
+            {
+                ServerMod.client.Send(Packets.CLIENT_ID_BLOCK_REQUEST, ScribeUtil.WriteSingle(this));
+                Log.Message("Sent id block request at " + current);
+            }
+
+            return current;
+        }
+
+        public override void ExposeData()
+        {
+            base.ExposeData();
+            current = blockStart;
         }
     }
 
@@ -98,25 +151,32 @@ namespace ServerMod
     {
         private static List<Encounter> encounters = new List<Encounter>();
 
+        public readonly int tile;
         public readonly string defender;
         public List<string> attackers = new List<string>();
-        public Queue<string> waitingForMap = new Queue<string>();
 
-        private Encounter(string defender)
+        private Encounter(int tile, string defender, string attacker)
         {
+            this.tile = tile;
             this.defender = defender;
+            attackers.Add(attacker);
         }
 
-        public static void Add(string defender, string attacker)
+        public IEnumerable<string> GetAssociatedPlayers()
         {
-            if (GetByDefender(defender) != null) return;
-
-            encounters.Add(new Encounter(defender));
+            yield return defender;
+            foreach (string attacker in attackers)
+                yield return attacker;
         }
 
-        public static Encounter GetByDefender(string username)
+        public static void Add(int tile, string defender, string attacker)
         {
-            return encounters.FirstOrDefault(e => e.defender == username);
+            encounters.Add(new Encounter(tile, defender, attacker));
+        }
+
+        public static Encounter GetByTile(int tile)
+        {
+            return encounters.FirstOrDefault(e => e.tile == tile);
         }
     }
 
@@ -131,6 +191,7 @@ namespace ServerMod
         public const int CLIENT_ENCOUNTER_REQUEST = 6;
         public const int CLIENT_MAP_RESPONSE = 7;
         public const int CLIENT_MAP_LOADED = 8;
+        public const int CLIENT_ID_BLOCK_REQUEST = 9;
 
         public const int SERVER_WORLD_DATA = 0;
         public const int SERVER_ACTION_SCHEDULE = 1;
@@ -139,11 +200,12 @@ namespace ServerMod
         public const int SERVER_MAP_REQUEST = 4;
         public const int SERVER_MAP_RESPONSE = 5;
         public const int SERVER_NOTIFICATION = 6;
+        public const int SERVER_NEW_ID_BLOCK = 7;
     }
 
     public enum ServerAction : int
     {
-        PAUSE, UNPAUSE, JOB, SPAWN_THING, LONG_ACTION_SCHEDULE, LONG_ACTION_END
+        PAUSE, UNPAUSE, JOB, SPAWN_THING, LONG_ACTION_SCHEDULE, LONG_ACTION_END, MAP_ID_BLOCK
     }
 
     public struct ScheduledServerAction
@@ -184,6 +246,12 @@ namespace ServerMod
                 node.RemoveChild(childNode);
         }
 
+        public static void RemoveFromParent(this XmlNode node)
+        {
+            if (node == null) return;
+            node.ParentNode.RemoveChild(node);
+        }
+
         public static byte[] GetBytes(this ServerAction action)
         {
             return BitConverter.GetBytes((int)action);
@@ -219,58 +287,6 @@ namespace ServerMod
         public static string ReadString(this MemoryStream stream)
         {
             return Encoding.UTF8.GetString(stream.ReadBytes());
-        }
-    }
-
-    public class LocalClientConnection : Connection
-    {
-        public LocalServerConnection server;
-
-        public LocalClientConnection() : base(null)
-        {
-        }
-
-        public override void Send(int id, byte[] msg = null)
-        {
-            msg = msg ?? new byte[] { 0 };
-            server.State?.Message(id, msg);
-        }
-
-        public override void Close()
-        {
-            connectionClosed();
-            server.connectionClosed();
-        }
-
-        public override string ToString()
-        {
-            return "Local";
-        }
-    }
-
-    public class LocalServerConnection : Connection
-    {
-        public LocalClientConnection client;
-
-        public LocalServerConnection() : base(null)
-        {
-        }
-
-        public override void Send(int id, byte[] msg = null)
-        {
-            msg = msg ?? new byte[] { 0 };
-            client.State?.Message(id, msg);
-        }
-
-        public override void Close()
-        {
-            connectionClosed();
-            client.connectionClosed();
-        }
-
-        public override string ToString()
-        {
-            return "Local";
         }
     }
 
@@ -334,10 +350,10 @@ namespace ServerMod
             }
             else if (id == Packets.CLIENT_WORLD_LOADED)
             {
+                Connection.SetState(new ServerPlayingState(this.Connection));
+
                 OnMainThread.Enqueue(() =>
                 {
-                    Connection.State = new ServerPlayingState(this.Connection);
-
                     ServerMod.savedWorld = null;
 
                     byte[] extra = ScribeUtil.WriteSingle(OnMainThread.currentLongAction);
@@ -425,6 +441,8 @@ namespace ServerMod
             {
                 OnMainThread.Enqueue(() =>
                 {
+                    Log.Message("encounter request");
+
                     int tile = BitConverter.ToInt32(data, 0);
                     Settlement settlement = Find.WorldObjects.SettlementAt(tile);
                     if (settlement == null) return;
@@ -438,7 +456,7 @@ namespace ServerMod
                         return;
                     }
 
-                    Encounter.Add(defender, Connection.username);
+                    Encounter.Add(tile, defender, Connection.username);
 
                     byte[] extra = ScribeUtil.WriteSingle(new LongActionEncounter() { defender = defender, attacker = Connection.username, tile = tile });
                     conn.Send(Packets.SERVER_ACTION_SCHEDULE, GetServerActionMsg(ServerAction.LONG_ACTION_SCHEDULE, extra));
@@ -449,7 +467,6 @@ namespace ServerMod
                 OnMainThread.Enqueue(() =>
                 {
                     Connection conn = ServerMod.server.GetByUsername(((LongActionEncounter)OnMainThread.currentLongAction).attacker);
-                    if (conn == null) return;
                     conn.Send(Packets.SERVER_MAP_RESPONSE, data);
                 });
             }
@@ -459,6 +476,33 @@ namespace ServerMod
                 {
                     byte[] extra = ScribeUtil.WriteSingle(OnMainThread.currentLongAction);
                     ServerMod.server.SendToAll(Packets.SERVER_ACTION_SCHEDULE, GetServerActionMsg(ServerAction.LONG_ACTION_END, extra));
+                });
+            }
+            else if (id == Packets.CLIENT_ID_BLOCK_REQUEST)
+            {
+                OnMainThread.Enqueue(() =>
+                {
+                    IdBlock request = ScribeUtil.ReadSingle<IdBlock>(data);
+
+                    if (request.mapTile == -1)
+                    {
+                        IdBlock nextBlock = ServerMod.NextIdBlock();
+                        Connection.Send(Packets.SERVER_NEW_ID_BLOCK, ScribeUtil.WriteSingle(nextBlock));
+                    }
+                    else
+                    {
+                        Encounter encounter = Encounter.GetByTile(request.mapTile);
+                        if (Connection.username != encounter.defender) return;
+
+                        IdBlock nextBlock = ServerMod.NextIdBlock();
+                        nextBlock.mapTile = request.mapTile;
+
+                        foreach (string player in encounter.GetAssociatedPlayers())
+                        {
+                            byte[] extra = ScribeUtil.WriteSingle(nextBlock);
+                            ServerMod.server.GetByUsername(player).Send(Packets.SERVER_ACTION_SCHEDULE, GetServerActionMsg(ServerAction.MAP_ID_BLOCK, extra));
+                        }
+                    }
                 });
             }
         }
@@ -476,9 +520,9 @@ namespace ServerMod
             return Path.Combine(worldfolder, username + ".maps");
         }
 
-        public static object[] GetServerActionMsg(ServerAction action, params object[] extra)
+        public static object[] GetServerActionMsg(ServerAction action, byte[] extra)
         {
-            return new object[] { action, Find.TickManager.TicksGame + 15, Server.GetBytes(extra) };
+            return new object[] { action, Find.TickManager.TicksGame + 15, extra };
         }
     }
 
@@ -516,6 +560,13 @@ namespace ServerMod
                     }, "Play", "LoadingLongEvent", true, null);
                 });
             }
+            else if (id == Packets.SERVER_NEW_ID_BLOCK)
+            {
+                OnMainThread.Enqueue(() =>
+                {
+                    ServerMod.mainBlock = ScribeUtil.ReadSingle<IdBlock>(data);
+                });
+            }
         }
 
         public override void Disconnect()
@@ -549,12 +600,7 @@ namespace ServerMod
             {
                 OnMainThread.Enqueue(() =>
                 {
-                    ScribeUtil.StartLoading(data);
-                    ScribeUtil.SupplyCrossRefs();
-                    WorldObject obj = null;
-                    Scribe_Deep.Look(ref obj, "worldObj");
-                    ScribeUtil.FinishLoading();
-                    Find.WorldObjects.Add(obj);
+                    Find.WorldObjects.Add(ScribeUtil.ReadSingle<WorldObject>(data));
                 });
             }
             else if (id == Packets.SERVER_MAP_REQUEST)
@@ -563,7 +609,6 @@ namespace ServerMod
                 {
                     int tile = BitConverter.ToInt32(data, 0);
                     Settlement settlement = Find.WorldObjects.SettlementAt(tile);
-                    if (settlement == null || !settlement.HasMap) return;
 
                     ServerMod.savingForEncounter = true;
                     ScribeUtil.StartWriting();
@@ -585,6 +630,7 @@ namespace ServerMod
                     Log.Message("Encounter map size: " + data.Length);
 
                     ScribeUtil.StartLoading(data);
+                    Scribe.loader.curXmlParent["map"]["zoneManager"]["allZones"].RemoveAll();
                     ScribeUtil.SupplyCrossRefs();
                     Map map = null;
                     Scribe_Deep.Look(ref map, "map");
@@ -596,6 +642,17 @@ namespace ServerMod
                     Current.ProgramState = ProgramState.Playing;
 
                     ServerMod.client.Send(Packets.CLIENT_MAP_LOADED);
+                });
+            }
+            else if (id == Packets.SERVER_NEW_ID_BLOCK)
+            {
+                OnMainThread.Enqueue(() =>
+                {
+                    IdBlock block = ScribeUtil.ReadSingle<IdBlock>(data);
+                    if (block.mapTile != -1)
+                        Find.WorldObjects.MapParentAt(block.mapTile).Map.GetComponent<ServerModMapComp>().encounterIdBlock = block;
+                    else
+                        ServerMod.mainBlock = block;
                 });
             }
         }
@@ -623,10 +680,7 @@ namespace ServerMod
         // - settling after joining
         public static void SyncClientWorldObj(WorldObject obj)
         {
-            ScribeUtil.StartWriting();
-            Scribe.EnterNode("data");
-            Scribe_Deep.Look(ref obj, "worldObj");
-            byte[] data = ScribeUtil.FinishWriting();
+            byte[] data = ScribeUtil.WriteSingle(obj);
             ServerMod.client.Send(Packets.CLIENT_NEW_WORLD_OBJ, data);
         }
     }
@@ -677,9 +731,12 @@ namespace ServerMod
         public static void ScheduleAction(ScheduledServerAction actionReq)
         {
             if (actionReq.action == ServerAction.LONG_ACTION_SCHEDULE || actionReq.action == ServerAction.LONG_ACTION_END)
+            {
                 longActionRelated.Enqueue(actionReq);
-            else
-                scheduledActions.Enqueue(actionReq);
+                return;
+            }
+
+            scheduledActions.Enqueue(actionReq);
         }
 
         public static void ExecuteLongActionRelated(ScheduledServerAction actionReq)
@@ -718,40 +775,7 @@ namespace ServerMod
 
             if (action == ServerAction.JOB)
             {
-                JobRequest jobReq = ScribeUtil.ReadSingle<JobRequest>(actionReq.extra);
-                Job job = jobReq.job;
-
-                Map map = Find.Maps.FirstOrDefault(m => m.uniqueID == jobReq.mapId);
-                if (map == null) return;
-
-                Pawn pawn = map.mapPawns.AllPawns.FirstOrDefault(p => p.thingIDNumber == jobReq.pawnId);
-                if (pawn == null) return;
-
-                JobTrackerPatch.addingJob = true;
-
-                // adjust for state loss
-                if (!JobTrackerPatch.IsPawnOwner(pawn))
-                {
-                    job.ignoreDesignations = true;
-                    job.ignoreForbidden = true;
-
-                    if (job.haulMode == HaulMode.ToCellStorage)
-                        job.haulMode = HaulMode.ToCellNonStorage;
-                }
-
-                if (!JobTrackerPatch.IsPawnOwner(pawn) || pawn.jobs.curJob.expiryInterval == -2)
-                {
-                    pawn.jobs.StartJob(job, JobCondition.InterruptForced);
-                    PawnTempData.Get(pawn).actualJob = null;
-                    PawnTempData.Get(pawn).actualJobDriver = null;
-                    Log.Message("executed job " + job + " for " + pawn);
-                }
-                else
-                {
-                    Log.Warning("Jobs don't match! p:" + pawn + " j:" + job + " cur:" + pawn.jobs.curJob + " driver:" + pawn.jobs.curDriver);
-                }
-
-                JobTrackerPatch.addingJob = false;
+                ExecuteJob(actionReq);
             }
 
             if (action == ServerAction.SPAWN_THING)
@@ -759,13 +783,62 @@ namespace ServerMod
                 GenSpawnPatch.spawningThing = true;
 
                 GenSpawnPatch.Info info = ScribeUtil.ReadSingle<GenSpawnPatch.Info>(actionReq.extra);
-                GenSpawn.Spawn(info.thing, info.loc, info.map, info.rot);
-                Log.Message("action spawned thing: " + info.thing);
+                if (info.map != null)
+                {
+                    GenSpawn.Spawn(info.thing, info.loc, info.map, info.rot);
+                    Log.Message("action spawned thing: " + info.thing);
+                }
 
                 GenSpawnPatch.spawningThing = false;
             }
 
+            if (action == ServerAction.MAP_ID_BLOCK)
+            {
+                IdBlock block = ScribeUtil.ReadSingle<IdBlock>(actionReq.extra);
+                Map map = Find.WorldObjects.MapParentAt(block.mapTile)?.Map;
+                if (map != null)
+                    map.GetComponent<ServerModMapComp>().encounterIdBlock = block;
+            }
+
             Log.Message("executed a scheduled action " + action);
+        }
+
+        private static void ExecuteJob(ScheduledServerAction actionReq)
+        {
+            JobRequest jobReq = ScribeUtil.ReadSingle<JobRequest>(actionReq.extra);
+            Job job = jobReq.job;
+
+            Map map = Find.Maps.FirstOrDefault(m => m.uniqueID == jobReq.mapId);
+            if (map == null) return;
+
+            Pawn pawn = map.mapPawns.AllPawns.FirstOrDefault(p => p.thingIDNumber == jobReq.pawnId);
+            if (pawn == null) return;
+
+            JobTrackerPatch.addingJob = true;
+
+            // adjust for state loss
+            if (!JobTrackerPatch.IsPawnOwner(pawn))
+            {
+                job.ignoreDesignations = true;
+                job.ignoreForbidden = true;
+
+                if (job.haulMode == HaulMode.ToCellStorage)
+                    job.haulMode = HaulMode.ToCellNonStorage;
+            }
+
+            if (!JobTrackerPatch.IsPawnOwner(pawn) || pawn.jobs.curJob.expiryInterval == -2)
+            {
+                pawn.jobs.StartJob(job, JobCondition.InterruptForced);
+                PawnTempData.Get(pawn).actualJob = null;
+                PawnTempData.Get(pawn).actualJobDriver = null;
+                Log.Message(ServerMod.client.username + " executed job " + job + " for " + pawn);
+            }
+            else
+            {
+                Log.Warning("Jobs don't match! p:" + pawn + " j:" + job + " cur:" + pawn.jobs.curJob + " driver:" + pawn.jobs.curDriver);
+            }
+
+            JobTrackerPatch.addingJob = false;
         }
 
         private static void AddLongAction(LongAction action)
@@ -831,6 +904,8 @@ namespace ServerMod
 
     public class LongActionPlayerJoin : LongAction
     {
+        private static readonly MethodInfo exposeSmallComps = typeof(Game).GetMethod("ExposeSmallComponents", BindingFlags.NonPublic | BindingFlags.Instance);
+
         [ExposeValue]
         public string username;
 
@@ -865,15 +940,16 @@ namespace ServerMod
                 faction = FactionGenerator.NewGeneratedFaction(FactionDefOf.PlayerColony);
                 faction.Name = username + "'s faction";
                 faction.def = FactionDefOf.Outlander;
+
                 Find.FactionManager.Add(faction);
                 factions.playerFactions[username] = faction;
 
-                ServerMod.server.SendToAll(Packets.SERVER_NEW_FACTIONS, ScribeUtil.WriteSingle(new FactionData(username, faction)), conn);
+                ServerMod.server.SendToAll(Packets.SERVER_NEW_FACTIONS, ScribeUtil.WriteSingle(new FactionData(username, faction)), conn, ServerMod.localServerConnection);
 
                 Log.Message("New faction: " + faction.Name);
             }
 
-            IncrIds(); // an id block for the joining player
+            conn.Send(Packets.SERVER_NEW_ID_BLOCK, ScribeUtil.WriteSingle(ServerMod.NextIdBlock()));
 
             ScribeUtil.StartWriting();
 
@@ -882,7 +958,7 @@ namespace ServerMod
             Scribe.EnterNode("game");
             sbyte visibleMapIndex = -1;
             Scribe_Values.Look<sbyte>(ref visibleMapIndex, "visibleMapIndex", -1, false);
-            typeof(Game).GetMethod("ExposeSmallComponents", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(Current.Game, null);
+            exposeSmallComps.Invoke(Current.Game, null);
             World world = Current.Game.World;
             Scribe_Deep.Look(ref world, "world");
             List<Map> maps = new List<Map>();
@@ -891,26 +967,12 @@ namespace ServerMod
 
             ServerMod.savedWorld = ScribeUtil.FinishWriting();
 
-            IncrIds(); // an id block for the server
-
-            (conn.State as ServerWorldState).SendData();
+            (conn.GetState() as ServerWorldState).SendData();
         }
 
         public override bool Equals(LongAction other)
         {
             return base.Equals(other) && username == ((LongActionPlayerJoin)other).username;
-        }
-
-        // todo temporary
-        public static void IncrIds()
-        {
-            foreach (FieldInfo f in typeof(UniqueIDsManager).GetFields(BindingFlags.NonPublic | BindingFlags.Instance))
-            {
-                if (f.FieldType != typeof(int)) continue;
-
-                int curr = (int)f.GetValue(Find.UniqueIDsManager);
-                f.SetValue(Find.UniqueIDsManager, curr + 40000);
-            }
         }
     }
 
@@ -954,7 +1016,12 @@ namespace ServerMod
 
         public override void Run()
         {
-            ServerMod.server.GetByUsername(defender).Send(Packets.SERVER_MAP_REQUEST, new object[] { tile });
+            Connection conn = ServerMod.server.GetByUsername(defender);
+            IdBlock block = ServerMod.NextIdBlock();
+            block.mapTile = tile;
+
+            conn.Send(Packets.SERVER_NEW_ID_BLOCK, ScribeUtil.WriteSingle(block));
+            conn.Send(Packets.SERVER_MAP_REQUEST, new object[] { tile });
         }
 
         public override bool Equals(LongAction other)
@@ -1006,6 +1073,7 @@ namespace ServerMod
         {
             Scribe_Values.Look(ref worldId, "worldId");
             ScribeUtil.Look(ref playerFactions, "playerFactions", LookMode.Value, LookMode.Reference, ref keyWorkingList, ref valueWorkingList);
+            Scribe_Values.Look(ref ServerMod.highestUniqueId, "highestUniqueId");
         }
 
         public string GetUsername(Faction faction)
@@ -1015,10 +1083,29 @@ namespace ServerMod
 
     }
 
+    public class ServerModMapComp : MapComponent
+    {
+        public IdBlock encounterIdBlock;
+
+        public ServerModMapComp(Map map) : base(map)
+        {
+        }
+
+        public override void ExposeData()
+        {
+            Scribe_Deep.Look(ref encounterIdBlock, "encounterIdBlock");
+        }
+    }
+
     public class PawnTempData : ThingComp
     {
         public Job actualJob;
         public JobDriver actualJobDriver;
+
+        public override string CompInspectStringExtra()
+        {
+            return ("Actual job: " + actualJob + "\nActual job driver: " + actualJobDriver).Trim();
+        }
 
         public static PawnTempData Get(Pawn pawn)
         {

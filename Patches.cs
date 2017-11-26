@@ -6,7 +6,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Text;
 using System.Xml;
 using UnityEngine;
 using Verse;
@@ -101,13 +100,15 @@ namespace ServerMod
                         Find.World.renderer.RegenerateAllLayersNow();
                     }
 
-                    Find.WindowStack.Add(new CustomSelectLandingSite()
+                    /*Find.WindowStack.Add(new CustomSelectLandingSite()
                     {
                         nextAct = () => Settle()
-                    });
+                    });*/
 
-                    ServerMod.client.State = new ClientPlayingState(ServerMod.client);
+                    ServerMod.client.SetState(new ClientPlayingState(ServerMod.client));
                     ServerMod.client.Send(Packets.CLIENT_WORLD_LOADED);
+
+                    ServerMod.client.Send(Packets.CLIENT_ENCOUNTER_REQUEST, new object[] { Find.WorldObjects.Settlements.First(s => Find.World.GetComponent<ServerModWorldComp>().playerFactions.ContainsValue(s.Faction)).Tile });
                 });
 
                 return false;
@@ -136,6 +137,8 @@ namespace ServerMod
             Find.CameraDriver.ResetSize();
             Current.Game.InitData = null;
 
+            Log.Message("New map: " + visibleMap.GetUniqueLoadID());
+
             ClientPlayingState.SyncClientWorldObj(factionBase);
 
             ServerMod.client.Send(Packets.CLIENT_ACTION_REQUEST, new object[] { ServerAction.LONG_ACTION_END, extra });
@@ -153,7 +156,7 @@ namespace ServerMod
             Rect rect = new Rect(80f, 60f, 330f, Text.CalcHeight(text, 330f));
             Widgets.Label(rect, text);
 
-            return !Find.WindowStack.IsOpen<CustomSelectLandingSite>();
+            return Find.Maps.Count > 0;
         }
     }
 
@@ -351,46 +354,16 @@ namespace ServerMod
     [HarmonyPatch(nameof(Pawn_JobTracker.EndCurrentJob))]
     public static class JobTrackerEnd
     {
-        static void Prefix(Pawn_JobTracker __instance, JobCondition condition, ref State __state)
+        static void Prefix(Pawn_JobTracker __instance, JobCondition condition)
         {
             Pawn pawn = (Pawn)JobTrackerPatch.pawnField.GetValue(__instance);
 
             if (ServerMod.client == null) return;
 
-            Log.Message("end job: " + pawn + " " + __instance.curJob + " " + condition);
+            Log.Message(ServerMod.client.username + " end job: " + pawn + " " + __instance.curJob + " " + condition);
 
-            if (PawnTempData.Get(pawn).actualJob == null || __instance.curJob == PawnTempData.Get(pawn).actualJob) return;
-
-            __state = new State()
-            {
-                job = __instance.curJob,
-                driver = __instance.curDriver
-            };
-
-            __instance.curJob = PawnTempData.Get(pawn).actualJob;
-            __instance.curDriver = PawnTempData.Get(pawn).actualJobDriver;
-        }
-
-        static void Postfix(Pawn_JobTracker __instance, State __state)
-        {
-            if (__state == null) return;
-
-            Pawn pawn = (Pawn)JobTrackerPatch.pawnField.GetValue(__instance);
-            if (PawnTempData.Get(pawn).actualJobDriver != __instance.curDriver)
-            {
-                Log.Message("cleaned actual job: " + PawnTempData.Get(pawn).actualJob + " " + pawn);
-                PawnTempData.Get(pawn).actualJobDriver = null;
-                PawnTempData.Get(pawn).actualJob = null;
-            }
-
-            __instance.curJob = __state.job;
-            __instance.curDriver = __state.driver;
-        }
-
-        private class State
-        {
-            public Job job;
-            public JobDriver driver;
+            if (PawnTempData.Get(pawn).actualJob != null)
+                Log.Message("actual job: " + PawnTempData.Get(pawn).actualJob);
         }
     }
 
@@ -419,7 +392,7 @@ namespace ServerMod
         {
             Pawn pawn = (Pawn)JobTrackerPatch.pawnField.GetValue(__instance);
             if (__instance.curJob != null && __instance.curJob.expiryInterval == -2)
-                Log.Warning("cleanup " + JobTrackerPatch.addingJob + " " + __instance.curJob + " " + condition + " " + pawn + " " + __instance.curJob.expiryInterval);
+                Log.Warning(ServerMod.client.username + " cleanup " + JobTrackerPatch.addingJob + " " + __instance.curJob + " " + condition + " " + pawn + " " + __instance.curJob.expiryInterval);
         }
     }
 
@@ -449,6 +422,7 @@ namespace ServerMod
             Pawn pawn = (Pawn)JobTrackerPatch.pawnField.GetValue(__instance);
             if (PawnTempData.Get(pawn).actualJobDriver != __instance.curDriver)
             {
+                Log.Message(ServerMod.client.username + " actual job end " + PawnTempData.Get(pawn).actualJob + " " + pawn);
                 PawnTempData.Get(pawn).actualJobDriver = null;
                 PawnTempData.Get(pawn).actualJob = null;
             }
@@ -544,7 +518,7 @@ namespace ServerMod
     {
         static void Postfix(Map map)
         {
-            ScribeUtil.crossRefs.UnregisterMap(map);
+            ScribeUtil.crossRefs.UnregisterFromMap(map);
         }
     }
 
@@ -692,6 +666,86 @@ namespace ServerMod
             Text.Anchor = TextAnchor.MiddleCenter;
             Widgets.Label(rect, text);
             Text.Anchor = TextAnchor.UpperLeft;
+        }
+    }
+
+    [HarmonyPatch(typeof(Pawn))]
+    [HarmonyPatch(nameof(Pawn.Tick))]
+    public static class PawnContext
+    {
+        public static Pawn current;
+
+        static void Prefix(Pawn __instance)
+        {
+            current = __instance;
+        }
+
+        static void Postfix(Pawn __instance)
+        {
+            current = null;
+        }
+    }
+
+    [HarmonyPatch(typeof(JobDriver))]
+    [HarmonyPatch(nameof(JobDriver.DriverTick))]
+    public static class SeedJobDriverTick
+    {
+        static void Prefix(JobDriver __instance)
+        {
+            if (ServerMod.client == null) return;
+
+            Rand.Seed = __instance.job.loadID;
+        }
+    }
+
+    [HarmonyPatch(typeof(JobDriver))]
+    [HarmonyPatch(nameof(JobDriver.ReadyForNextToil))]
+    public static class SeedInitToil
+    {
+        static void Prefix(JobDriver __instance)
+        {
+            if (ServerMod.client == null) return;
+
+            Rand.Seed = __instance.job.loadID;
+        }
+    }
+
+    [HarmonyPatch(typeof(GameEnder))]
+    [HarmonyPatch(nameof(GameEnder.CheckOrUpdateGameOver))]
+    public static class GameEnderPatch
+    {
+        static bool Prefix()
+        {
+            return false;
+        }
+    }
+
+    [HarmonyPatch(typeof(UniqueIDsManager))]
+    [HarmonyPatch("GetNextID")]
+    public static class UniqueIdsPatch
+    {
+        static void Postfix(ref int __result)
+        {
+            if (ServerMod.mainBlock == null) return;
+            __result = ServerMod.mainBlock.NextId();
+        }
+    }
+
+    [HarmonyPatch(typeof(UniqueIDsManager))]
+    [HarmonyPatch(nameof(UniqueIDsManager.GetNextThingID))]
+    public static class GetNextThingIdPatch
+    {
+        static void Postfix(ref int __result)
+        {
+            if (PawnContext.current != null && PawnContext.current.Map != null)
+            {
+                IdBlock block = PawnContext.current.Map.GetComponent<ServerModMapComp>().encounterIdBlock;
+                if (block != null)
+                {
+                    __result = block.NextId();
+                    Log.Message(ServerMod.client.username + ": new thing id pawn " + __result + " " + PawnContext.current);
+                }
+            }
         }
     }
 

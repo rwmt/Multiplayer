@@ -27,7 +27,7 @@ namespace ServerMod
             GetDict().Remove(key);
         }
 
-        public void UnregisterMap(Map map)
+        public void UnregisterFromMap(Map map)
         {
             int a = GetDict().RemoveAll(x => x.Value is Thing && ((Thing)x.Value).Map == map);
         }
@@ -44,7 +44,7 @@ namespace ServerMod
         private static readonly MethodInfo lookDeep = typeof(Scribe_Deep).GetMethods().First(m => m.Name == "Look" && m.GetParameters().Length == 3);
         private static readonly MethodInfo lookReference = typeof(Scribe_References).GetMethod("Look");
 
-        public void ExposeData()
+        public virtual void ExposeData()
         {
             foreach (FieldInfo field in GetType().GetFields(BindingFlags.Instance | BindingFlags.Public))
             {
@@ -108,7 +108,6 @@ namespace ServerMod
             XmlWriter writer = XmlWriter.Create(stream, xmlWriterSettings);
             writerField.SetValue(Scribe.saver, writer);
             writer.WriteStartDocument();
-
         }
 
         public static byte[] FinishWriting()

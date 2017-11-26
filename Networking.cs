@@ -102,6 +102,8 @@ namespace ServerMod
                         stream.Write((byte[])obj);
                     else if (obj is int)
                         stream.Write(BitConverter.GetBytes((int)obj));
+                    else if (obj is bool)
+                        stream.Write(BitConverter.GetBytes((bool)obj));
                     else if (obj is Enum)
                         stream.Write(BitConverter.GetBytes((int)obj));
                 }
@@ -140,16 +142,13 @@ namespace ServerMod
             }
         }
 
-        public ConnectionState State
-        {
-            get;
-            set;
-        }
-
         public string username;
         public readonly Guid connId = Guid.NewGuid();
 
         private Socket socket;
+
+        private ConnectionState state;
+        private readonly object state_lock = new object();
 
         private byte[] buffer = new byte[8192];
 
@@ -207,7 +206,7 @@ namespace ServerMod
 
                         if (fullPos - prefix.Length == msg.Length)
                         {
-                            State?.Message(BitConverter.ToInt32(prefix, 4), msg);
+                            GetState()?.Message(BitConverter.ToInt32(prefix, 4), msg);
                             msg = null;
                             fullPos = 0;
                         }
@@ -228,8 +227,8 @@ namespace ServerMod
 
         public virtual void Close()
         {
-            this.socket.Shutdown(SocketShutdown.Both);
-            this.socket.Close();
+            socket.Shutdown(SocketShutdown.Both);
+            socket.Close();
         }
 
         public virtual void Send(int id, byte[] message = null)
@@ -253,6 +252,18 @@ namespace ServerMod
         public override string ToString()
         {
             return username;
+        }
+
+        public ConnectionState GetState()
+        {
+            lock (state_lock)
+                return state;
+        }
+
+        public void SetState(ConnectionState state)
+        {
+            lock (state_lock)
+                this.state = state;
         }
     }
 
@@ -289,4 +300,57 @@ namespace ServerMod
             }
         }
     }
+
+    public class LocalClientConnection : Connection
+    {
+        public LocalServerConnection server;
+
+        public LocalClientConnection() : base(null)
+        {
+        }
+
+        public override void Send(int id, byte[] msg = null)
+        {
+            msg = msg ?? new byte[] { 0 };
+            server.GetState()?.Message(id, msg);
+        }
+
+        public override void Close()
+        {
+            connectionClosed();
+            server.connectionClosed();
+        }
+
+        public override string ToString()
+        {
+            return "Local";
+        }
+    }
+
+    public class LocalServerConnection : Connection
+    {
+        public LocalClientConnection client;
+
+        public LocalServerConnection() : base(null)
+        {
+        }
+
+        public override void Send(int id, byte[] msg = null)
+        {
+            msg = msg ?? new byte[] { 0 };
+            client.GetState()?.Message(id, msg);
+        }
+
+        public override void Close()
+        {
+            connectionClosed();
+            client.connectionClosed();
+        }
+
+        public override string ToString()
+        {
+            return "Local";
+        }
+    }
+
 }
