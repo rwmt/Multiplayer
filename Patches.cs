@@ -82,7 +82,7 @@ namespace ServerMod
                     Current.Game = new Game();
                     Current.Game.InitData = new GameInitData();
                     Prefs.PauseOnLoad = false;
-                    Current.Game.LoadGame(); // this calls Scribe.loader.FinalizeLoading()
+                    Current.Game.LoadGame(); // calls Scribe.loader.FinalizeLoading()
                     Prefs.PauseOnLoad = true;
                     Find.TickManager.CurTimeSpeed = TimeSpeed.Paused;
                 }
@@ -126,7 +126,7 @@ namespace ServerMod
             Find.GameInitData.startingPawns.Add(StartingPawnUtility.NewGeneratedStartingPawn());
             Find.GameInitData.startingPawns.Add(StartingPawnUtility.NewGeneratedStartingPawn());
             Find.GameInitData.PrepForMapGen();
-            Find.Scenario.PreMapGenerate(); // this creates the FactionBase WorldObject
+            Find.Scenario.PreMapGenerate(); // creates the FactionBase WorldObject
             IntVec3 intVec = new IntVec3(Find.GameInitData.mapSize, 1, Find.GameInitData.mapSize);
             FactionBase factionBase = Find.WorldObjects.FactionBases.First(faction => faction.Faction == Faction.OfPlayer);
             Map visibleMap = MapGenerator.GenerateMap(intVec, factionBase, factionBase.MapGeneratorDef, factionBase.ExtraGenStepDefs, null);
@@ -171,7 +171,7 @@ namespace ServerMod
             if (ServerMod.client != null && Find.TickManager.CurTimeSpeed != lastSpeed)
             {
                 ServerAction action = Find.TickManager.CurTimeSpeed == TimeSpeed.Paused ? ServerAction.PAUSE : ServerAction.UNPAUSE;
-                ServerMod.client.Send(Packets.CLIENT_ACTION_REQUEST, new object[] { action });
+                ServerMod.client.Send(Packets.CLIENT_ACTION_REQUEST, new object[] { action, new byte[0] });
                 Log.Message("client request at: " + Find.TickManager.TicksGame);
 
                 Find.TickManager.CurTimeSpeed = lastSpeed;
@@ -328,7 +328,7 @@ namespace ServerMod
                     pawnId = pawn.thingIDNumber
                 };
 
-                ServerMod.client.Send(Packets.CLIENT_ACTION_REQUEST, new object[] { ServerAction.JOB, ScribeUtil.WriteSingle(jobRequest) });
+                ServerMod.client.Send(Packets.CLIENT_ACTION_REQUEST, new object[] { ServerAction.PAWN_JOB, ScribeUtil.WriteSingle(jobRequest) });
             }
             else
             {
@@ -675,14 +675,39 @@ namespace ServerMod
     {
         public static Pawn current;
 
-        static void Prefix(Pawn __instance)
+        static void Prefix(Pawn __instance, ref State __state)
         {
+            if (ServerMod.client == null) return;
+
             current = __instance;
+
+            if (current.Faction == null) return;
+
+            __state = new State();
+
+            if (current.Map != null && current.Map.GetComponent<ServerModMapComp>().factionAreas.TryGetValue(current.Faction.GetUniqueLoadID(), out AreaManager factionAreas))
+            {
+                __state.defaultAreas = current.Map.areaManager;
+                current.Map.areaManager = factionAreas;
+            }
         }
 
-        static void Postfix(Pawn __instance)
+        static void Postfix(Pawn __instance, ref State __state)
         {
+            if (ServerMod.client == null) return;
+
+            if (__state != null)
+            {
+                if (__state.defaultAreas != null)
+                    current.Map.areaManager = __state.defaultAreas;
+            }
+
             current = null;
+        }
+
+        private class State
+        {
+            public AreaManager defaultAreas;
         }
     }
 
@@ -694,7 +719,7 @@ namespace ServerMod
         {
             if (ServerMod.client == null) return;
 
-            Rand.Seed = __instance.job.loadID;
+            Rand.Seed = __instance.job.loadID ^ Find.TickManager.TicksGame;
         }
     }
 
@@ -706,7 +731,7 @@ namespace ServerMod
         {
             if (ServerMod.client == null) return;
 
-            Rand.Seed = __instance.job.loadID;
+            Rand.Seed = __instance.job.loadID ^ Find.TickManager.TicksGame;
         }
     }
 

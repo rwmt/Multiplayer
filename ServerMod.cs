@@ -59,12 +59,15 @@ namespace ServerMod
                 DebugSettings.noAnimals = true;
                 LongEventHandler.QueueLongEvent(null, "Play", "LoadingLongEvent", true, null);
             }
-            else if (GenCommandLine.CommandLineArgPassed("connect"))
+            else if (GenCommandLine.TryGetCommandLineArg("connect", out string ip))
             {
+                if (String.IsNullOrEmpty(ip))
+                    ip = "127.0.0.1";
+
                 DebugSettings.noAnimals = true;
                 LongEventHandler.QueueLongEvent(() =>
                 {
-                    IPAddress.TryParse("127.0.0.1", out IPAddress addr);
+                    IPAddress.TryParse(ip, out IPAddress addr);
                     Client.TryConnect(addr, ServerMod.DEFAULT_PORT, (conn, e) =>
                     {
                         if (e != null)
@@ -205,20 +208,71 @@ namespace ServerMod
 
     public enum ServerAction : int
     {
-        PAUSE, UNPAUSE, JOB, SPAWN_THING, LONG_ACTION_SCHEDULE, LONG_ACTION_END, MAP_ID_BLOCK
+        PAUSE, UNPAUSE, PAWN_JOB, SPAWN_THING, LONG_ACTION_SCHEDULE, LONG_ACTION_END, MAP_ID_BLOCK, AREA
     }
 
     public struct ScheduledServerAction
     {
         public readonly int ticks;
         public readonly ServerAction action;
-        public readonly byte[] extra;
+        public readonly byte[] data;
 
-        public ScheduledServerAction(int ticks, ServerAction action, byte[] extra)
+        public ScheduledServerAction(int ticks, ServerAction action, byte[] data)
         {
             this.ticks = ticks;
             this.action = action;
-            this.extra = extra;
+            this.data = data;
+        }
+    }
+
+    public class ByteReader
+    {
+        private readonly byte[] array;
+
+        private int index;
+
+        public ByteReader(byte[] array)
+        {
+            this.array = array;
+        }
+
+        public int ReadInt()
+        {
+            return BitConverter.ToInt32(array, IncrementIndex(4));
+        }
+
+        public byte[] ReadPrefixedBytes()
+        {
+            int len = ReadInt();
+            return array.SubArray(IncrementIndex(len), len);
+        }
+
+        public int[] ReadPrefixedInts()
+        {
+            int len = ReadInt();
+            int[] result = new int[len];
+            for (int i = 0; i < len; i++)
+                result[i] = ReadInt();
+            return result;
+        }
+
+        public string ReadString()
+        {
+            return Encoding.UTF8.GetString(ReadPrefixedBytes());
+        }
+
+        public int IncrementIndex(int val)
+        {
+            int i = index;
+            index += val;
+            if (index > array.Length)
+                throw new IndexOutOfRangeException();
+            return i;
+        }
+
+        public byte[] GetBytes()
+        {
+            return array;
         }
     }
 
@@ -252,41 +306,10 @@ namespace ServerMod
             node.ParentNode.RemoveChild(node);
         }
 
-        public static byte[] GetBytes(this ServerAction action)
-        {
-            return BitConverter.GetBytes((int)action);
-        }
-
-        public static byte[] GetBytes(this string str)
-        {
-            return Encoding.UTF8.GetBytes(str);
-        }
-
         public static void Write(this MemoryStream stream, byte[] arr)
         {
-            stream.Write(arr, 0, arr.Length);
-        }
-
-        public static byte[] ReadBytes(this MemoryStream stream)
-        {
-            return stream.ReadBytes(stream.ReadInt());
-        }
-
-        public static byte[] ReadBytes(this MemoryStream stream, int len)
-        {
-            byte[] arr = new byte[len];
-            stream.Read(arr, 0, arr.Length);
-            return arr;
-        }
-
-        public static int ReadInt(this MemoryStream stream)
-        {
-            return BitConverter.ToInt32(stream.ReadBytes(4), 0);
-        }
-
-        public static string ReadString(this MemoryStream stream)
-        {
-            return Encoding.UTF8.GetString(stream.ReadBytes());
+            if (arr.Length > 0)
+                stream.Write(arr, 0, arr.Length);
         }
     }
 
@@ -338,7 +361,7 @@ namespace ServerMod
         {
         }
 
-        public override void Message(int id, byte[] data)
+        public override void Message(int id, ByteReader data)
         {
             if (id == Packets.CLIENT_REQUEST_WORLD)
             {
@@ -364,7 +387,7 @@ namespace ServerMod
             }
             else if (id == Packets.CLIENT_USERNAME)
             {
-                OnMainThread.Enqueue(() => Connection.username = Encoding.UTF8.GetString(data));
+                OnMainThread.Enqueue(() => Connection.username = data.ReadString());
             }
         }
 
@@ -383,7 +406,7 @@ namespace ServerMod
                 }
             }
 
-            Connection.Send(Packets.SERVER_WORLD_DATA, new object[] { ServerMod.savedWorld.Length, ServerMod.savedWorld, mapsData.Length, mapsData });
+            Connection.Send(Packets.SERVER_WORLD_DATA, new object[] { ServerMod.savedWorld, mapsData });
         }
 
         public override void Disconnect()
@@ -397,15 +420,15 @@ namespace ServerMod
         {
         }
 
-        public override void Message(int id, byte[] data)
+        public override void Message(int id, ByteReader data)
         {
             if (id == Packets.CLIENT_ACTION_REQUEST)
             {
                 OnMainThread.Enqueue(() =>
                 {
-                    ServerAction action = (ServerAction)BitConverter.ToInt32(data, 0);
+                    ServerAction action = (ServerAction)data.ReadInt();
                     int ticks = Find.TickManager.TicksGame + 15;
-                    byte[] extra = data.SubArray(4, data.Length - 4);
+                    byte[] extra = data.ReadPrefixedBytes();
 
                     ServerMod.server.SendToAll(Packets.SERVER_ACTION_SCHEDULE, GetServerActionMsg(action, extra));
 
@@ -414,7 +437,7 @@ namespace ServerMod
             }
             else if (id == Packets.CLIENT_NEW_WORLD_OBJ)
             {
-                ServerMod.server.SendToAll(Packets.SERVER_NEW_WORLD_OBJ, data, Connection);
+                ServerMod.server.SendToAll(Packets.SERVER_NEW_WORLD_OBJ, data.GetBytes(), Connection);
             }
             else if (id == Packets.CLIENT_QUIT_MAPS)
             {
@@ -422,7 +445,7 @@ namespace ServerMod
                 {
                     try
                     {
-                        using (MemoryStream stream = new MemoryStream(data))
+                        using (MemoryStream stream = new MemoryStream(data.GetBytes()))
                         using (XmlTextReader xml = new XmlTextReader(stream))
                         {
                             XmlDocument xmlDocument = new XmlDocument();
@@ -443,7 +466,7 @@ namespace ServerMod
                 {
                     Log.Message("encounter request");
 
-                    int tile = BitConverter.ToInt32(data, 0);
+                    int tile = data.ReadInt();
                     Settlement settlement = Find.WorldObjects.SettlementAt(tile);
                     if (settlement == null) return;
                     Faction faction = settlement.Faction;
@@ -467,7 +490,7 @@ namespace ServerMod
                 OnMainThread.Enqueue(() =>
                 {
                     Connection conn = ServerMod.server.GetByUsername(((LongActionEncounter)OnMainThread.currentLongAction).attacker);
-                    conn.Send(Packets.SERVER_MAP_RESPONSE, data);
+                    conn.Send(Packets.SERVER_MAP_RESPONSE, data.GetBytes());
                 });
             }
             else if (id == Packets.CLIENT_MAP_LOADED)
@@ -482,7 +505,7 @@ namespace ServerMod
             {
                 OnMainThread.Enqueue(() =>
                 {
-                    IdBlock request = ScribeUtil.ReadSingle<IdBlock>(data);
+                    IdBlock request = ScribeUtil.ReadSingle<IdBlock>(data.GetBytes());
 
                     if (request.mapTile == -1)
                     {
@@ -530,11 +553,11 @@ namespace ServerMod
     {
         public ClientWorldState(Connection connection) : base(connection)
         {
-            connection.Send(Packets.CLIENT_USERNAME, Encoding.ASCII.GetBytes(ServerMod.username));
+            connection.Send(Packets.CLIENT_USERNAME, new object[] { ServerMod.username });
             connection.Send(Packets.CLIENT_REQUEST_WORLD);
         }
 
-        public override void Message(int id, byte[] data)
+        public override void Message(int id, ByteReader data)
         {
             if (id == Packets.SERVER_ACTION_SCHEDULE)
             {
@@ -544,12 +567,10 @@ namespace ServerMod
             {
                 OnMainThread.Enqueue(() =>
                 {
-                    int worldLen = BitConverter.ToInt32(data, 0);
-                    ServerMod.savedWorld = data.SubArray(4, worldLen);
-                    int mapsLen = BitConverter.ToInt32(data, worldLen + 4);
-                    ServerMod.mapsData = data.SubArray(worldLen + 8, mapsLen);
+                    ServerMod.savedWorld = data.ReadPrefixedBytes();
+                    ServerMod.mapsData = data.ReadPrefixedBytes();
 
-                    Log.Message("World size: " + worldLen + ", Maps size: " + mapsLen);
+                    Log.Message("World size: " + ServerMod.savedWorld.Length + ", Maps size: " + ServerMod.mapsData.Length);
 
                     LongEventHandler.QueueLongEvent(() =>
                     {
@@ -564,7 +585,7 @@ namespace ServerMod
             {
                 OnMainThread.Enqueue(() =>
                 {
-                    ServerMod.mainBlock = ScribeUtil.ReadSingle<IdBlock>(data);
+                    ServerMod.mainBlock = ScribeUtil.ReadSingle<IdBlock>(data.GetBytes());
                 });
             }
         }
@@ -580,7 +601,7 @@ namespace ServerMod
         {
         }
 
-        public override void Message(int id, byte[] data)
+        public override void Message(int id, ByteReader data)
         {
             if (id == Packets.SERVER_ACTION_SCHEDULE)
             {
@@ -590,7 +611,7 @@ namespace ServerMod
             {
                 OnMainThread.Enqueue(() =>
                 {
-                    FactionData newFaction = ScribeUtil.ReadSingle<FactionData>(data);
+                    FactionData newFaction = ScribeUtil.ReadSingle<FactionData>(data.GetBytes());
 
                     Find.FactionManager.Add(newFaction.faction);
                     Find.World.GetComponent<ServerModWorldComp>().playerFactions[newFaction.owner] = newFaction.faction;
@@ -600,14 +621,14 @@ namespace ServerMod
             {
                 OnMainThread.Enqueue(() =>
                 {
-                    Find.WorldObjects.Add(ScribeUtil.ReadSingle<WorldObject>(data));
+                    Find.WorldObjects.Add(ScribeUtil.ReadSingle<WorldObject>(data.GetBytes()));
                 });
             }
             else if (id == Packets.SERVER_MAP_REQUEST)
             {
                 OnMainThread.Enqueue(() =>
                 {
-                    int tile = BitConverter.ToInt32(data, 0);
+                    int tile = data.ReadInt();
                     Settlement settlement = Find.WorldObjects.SettlementAt(tile);
 
                     ServerMod.savingForEncounter = true;
@@ -627,10 +648,9 @@ namespace ServerMod
                 {
                     Current.ProgramState = ProgramState.MapInitializing;
 
-                    Log.Message("Encounter map size: " + data.Length);
+                    Log.Message("Encounter map size: " + data.GetBytes().Length);
 
-                    ScribeUtil.StartLoading(data);
-                    Scribe.loader.curXmlParent["map"]["zoneManager"]["allZones"].RemoveAll();
+                    ScribeUtil.StartLoading(data.GetBytes());
                     ScribeUtil.SupplyCrossRefs();
                     Map map = null;
                     Scribe_Deep.Look(ref map, "map");
@@ -638,6 +658,17 @@ namespace ServerMod
 
                     Current.Game.AddMap(map);
                     map.FinalizeLoading();
+
+                    {
+                        Faction ownerFaction = map.info.parent.Faction;
+                        ServerModWorldComp worldComp = Find.World.GetComponent<ServerModWorldComp>();
+                        ServerModMapComp mapComp = map.GetComponent<ServerModMapComp>();
+
+                        mapComp.factionAreas.Add(ownerFaction.GetUniqueLoadID(), map.areaManager);
+
+                        map.areaManager = new AreaManager(map);
+                        map.areaManager.AddStartingAreas();
+                    }
 
                     Current.ProgramState = ProgramState.Playing;
 
@@ -648,7 +679,7 @@ namespace ServerMod
             {
                 OnMainThread.Enqueue(() =>
                 {
-                    IdBlock block = ScribeUtil.ReadSingle<IdBlock>(data);
+                    IdBlock block = ScribeUtil.ReadSingle<IdBlock>(data.GetBytes());
                     if (block.mapTile != -1)
                         Find.WorldObjects.MapParentAt(block.mapTile).Map.GetComponent<ServerModMapComp>().encounterIdBlock = block;
                     else
@@ -661,13 +692,13 @@ namespace ServerMod
         {
         }
 
-        public static void HandleActionSchedule(byte[] data)
+        public static void HandleActionSchedule(ByteReader data)
         {
             OnMainThread.Enqueue(() =>
             {
-                ServerAction action = (ServerAction)BitConverter.ToInt32(data, 0);
-                int ticks = BitConverter.ToInt32(data, 4);
-                byte[] extraBytes = data.SubArray(8, data.Length - 8);
+                ServerAction action = (ServerAction)data.ReadInt();
+                int ticks = data.ReadInt();
+                byte[] extraBytes = data.ReadPrefixedBytes();
 
                 ScheduledServerAction schdl = new ScheduledServerAction(ticks, action, extraBytes);
                 OnMainThread.ScheduleAction(schdl);
@@ -695,8 +726,12 @@ namespace ServerMod
         public static readonly List<LongAction> longActions = new List<LongAction>();
         public static LongAction currentLongAction;
 
+        public static readonly FieldInfo areasField = typeof(AreaManager).GetField("areas", BindingFlags.Instance | BindingFlags.NonPublic);
+
         public void Update()
         {
+            if (ServerMod.client == null) return;
+
             lock (queue)
                 while (queue.Count > 0)
                     queue.Dequeue().Invoke();
@@ -706,8 +741,28 @@ namespace ServerMod
                     ExecuteLongActionRelated(longActionRelated.Dequeue());
 
             if (!LongEventHandler.ShouldWaitForEvent && Current.Game != null && Find.World != null && longActions.Count == 0 && currentLongAction == null)
+            {
                 while (scheduledActions.Count > 0 && Find.TickManager.CurTimeSpeed == TimeSpeed.Paused)
-                    ExecuteServerAction(scheduledActions.Dequeue());
+                {
+                    ScheduledServerAction action = scheduledActions.Dequeue();
+                    ExecuteServerAction(action, new ByteReader(action.data));
+                }
+
+                foreach (Map map in Find.Maps)
+                    foreach (KeyValuePair<string, HashSet<int>[]> pair in map.GetComponent<ServerModMapComp>().areaChangesThisTick)
+                    {
+                        if (pair.Value[0].Count == 0 && pair.Value[1].Count == 0) continue;
+
+                        int[] cells_off = pair.Value[0].ToArray();
+                        int[] cells_on = pair.Value[1].ToArray();
+
+                        byte[] extra = Server.GetBytes(1, map.GetUniqueLoadID(), Faction.OfPlayer.GetUniqueLoadID(), pair.Key, cells_off, cells_on);
+                        ServerMod.client.Send(Packets.CLIENT_ACTION_REQUEST, new object[] { ServerAction.AREA, extra });
+
+                        pair.Value[0].Clear();
+                        pair.Value[1].Clear();
+                    }
+            }
 
             if (currentLongAction == null && longActions.Count > 0)
             {
@@ -746,12 +801,12 @@ namespace ServerMod
                 if (Current.Game != null)
                     TickUpdatePatch.SetSpeed(TimeSpeed.Paused);
 
-                AddLongAction(ScribeUtil.ReadSingle<LongAction>(actionReq.extra));
+                AddLongAction(ScribeUtil.ReadSingle<LongAction>(actionReq.data));
             }
 
             if (actionReq.action == ServerAction.LONG_ACTION_END)
             {
-                LongAction longAction = ScribeUtil.ReadSingle<LongAction>(actionReq.extra);
+                LongAction longAction = ScribeUtil.ReadSingle<LongAction>(actionReq.data);
                 if (longAction.Equals(currentLongAction))
                     currentLongAction = null;
                 else
@@ -759,7 +814,7 @@ namespace ServerMod
             }
         }
 
-        public static void ExecuteServerAction(ScheduledServerAction actionReq)
+        public static void ExecuteServerAction(ScheduledServerAction actionReq, ByteReader data)
         {
             ServerAction action = actionReq.action;
 
@@ -773,7 +828,7 @@ namespace ServerMod
                 TickUpdatePatch.SetSpeed(TimeSpeed.Normal);
             }
 
-            if (action == ServerAction.JOB)
+            if (action == ServerAction.PAWN_JOB)
             {
                 ExecuteJob(actionReq);
             }
@@ -782,7 +837,7 @@ namespace ServerMod
             {
                 GenSpawnPatch.spawningThing = true;
 
-                GenSpawnPatch.Info info = ScribeUtil.ReadSingle<GenSpawnPatch.Info>(actionReq.extra);
+                GenSpawnPatch.Info info = ScribeUtil.ReadSingle<GenSpawnPatch.Info>(actionReq.data);
                 if (info.map != null)
                 {
                     GenSpawn.Spawn(info.thing, info.loc, info.map, info.rot);
@@ -794,10 +849,57 @@ namespace ServerMod
 
             if (action == ServerAction.MAP_ID_BLOCK)
             {
-                IdBlock block = ScribeUtil.ReadSingle<IdBlock>(actionReq.extra);
+                IdBlock block = ScribeUtil.ReadSingle<IdBlock>(actionReq.data);
                 Map map = Find.WorldObjects.MapParentAt(block.mapTile)?.Map;
                 if (map != null)
                     map.GetComponent<ServerModMapComp>().encounterIdBlock = block;
+            }
+
+            if (action == ServerAction.AREA)
+            {
+                int subAction = data.ReadInt();
+                string mapId = data.ReadString();
+                string factionId = data.ReadString();
+                Map map = Find.Maps.FirstOrDefault(m => m.GetUniqueLoadID() == mapId);
+                if (map == null) return;
+                
+                map.GetComponent<ServerModMapComp>().factionAreas.TryGetValue(factionId, out AreaManager areas);
+                if (factionId == Faction.OfPlayer.GetUniqueLoadID())
+                    areas = map.areaManager;
+
+                if (areas != null)
+                {
+                    if (subAction == 0) // invert
+                    {
+                        AreaInvertPatch.dontHandle = true;
+
+                        string areaId = data.ReadString();
+                        areas.AllAreas.FirstOrDefault(a => a.GetUniqueLoadID() == areaId)?.Invert();
+
+                        AreaInvertPatch.dontHandle = false;
+                    }
+                    else if (subAction == 1) // update
+                    {
+                        string areaId = data.ReadString();
+                        Area area = areas.AllAreas.FirstOrDefault(a => a.GetUniqueLoadID() == areaId);
+                        if (area != null)
+                        {
+                            AreaSetPatch.dontHandle = true;
+
+                            int[] cells_off = data.ReadPrefixedInts();
+                            for (int i = 0; i < cells_off.Length; i++)
+                                area[cells_off[i]] = false;
+
+                            int[] cells_on = data.ReadPrefixedInts();
+                            for (int i = 0; i < cells_on.Length; i++)
+                                area[cells_on[i]] = true;
+
+                            Log.Message("Updated " + (cells_off.Length + cells_on.Length) + " area cells");
+
+                            AreaSetPatch.dontHandle = false;
+                        }
+                    }
+                }
             }
 
             Log.Message("executed a scheduled action " + action);
@@ -805,7 +907,7 @@ namespace ServerMod
 
         private static void ExecuteJob(ScheduledServerAction actionReq)
         {
-            JobRequest jobReq = ScribeUtil.ReadSingle<JobRequest>(actionReq.extra);
+            JobRequest jobReq = ScribeUtil.ReadSingle<JobRequest>(actionReq.data);
             Job job = jobReq.job;
 
             Map map = Find.Maps.FirstOrDefault(m => m.uniqueID == jobReq.mapId);
@@ -881,7 +983,10 @@ namespace ServerMod
                 OnMainThread.ExecuteLongActionRelated(OnMainThread.longActionRelated.Dequeue());
 
             while (OnMainThread.scheduledActions.Count > 0 && OnMainThread.scheduledActions.Peek().ticks == Find.TickManager.TicksGame && Find.TickManager.CurTimeSpeed != TimeSpeed.Paused)
-                OnMainThread.ExecuteServerAction(OnMainThread.scheduledActions.Dequeue());
+            {
+                ScheduledServerAction action = OnMainThread.scheduledActions.Dequeue();
+                OnMainThread.ExecuteServerAction(action, new ByteReader(action.data));
+            }
         }
     }
 
@@ -932,7 +1037,7 @@ namespace ServerMod
             foreach (LongAction other in OnMainThread.longActions)
                 conn.Send(Packets.SERVER_ACTION_SCHEDULE, ServerPlayingState.GetServerActionMsg(ServerAction.LONG_ACTION_SCHEDULE, ScribeUtil.WriteSingle(other)));
             foreach (ScheduledServerAction action in OnMainThread.scheduledActions)
-                conn.Send(Packets.SERVER_ACTION_SCHEDULE, ServerPlayingState.GetServerActionMsg(action.action, action.extra));
+                conn.Send(Packets.SERVER_ACTION_SCHEDULE, ServerPlayingState.GetServerActionMsg(action.action, action.data));
 
             ServerModWorldComp factions = Find.World.GetComponent<ServerModWorldComp>();
             if (!factions.playerFactions.TryGetValue(username, out Faction faction))
@@ -1087,8 +1192,27 @@ namespace ServerMod
     {
         public IdBlock encounterIdBlock;
 
+        public Dictionary<string, SlotGroupManager> factionSlotGroups = new Dictionary<string, SlotGroupManager>();
+        public Dictionary<string, ZoneManager> factionZones = new Dictionary<string, ZoneManager>();
+        public Dictionary<string, AreaManager> factionAreas = new Dictionary<string, AreaManager>();
+
+        // zone id => [cells off, cells on]
+        public Dictionary<string, HashSet<int>[]> areaChangesThisTick = new Dictionary<string, HashSet<int>[]>();
+
         public ServerModMapComp(Map map) : base(map)
         {
+        }
+
+        public void AreaChange(string areaId, int cell, bool value)
+        {
+            if (!areaChangesThisTick.TryGetValue(areaId, out HashSet<int>[] changes))
+            {
+                changes = new HashSet<int>[] { new HashSet<int>(), new HashSet<int>() };
+                areaChangesThisTick.Add(areaId, changes);
+            }
+
+            if (!changes[value ? 0 : 1].Remove(cell))
+                changes[value ? 1 : 0].Add(cell);
         }
 
         public override void ExposeData()
@@ -1102,9 +1226,16 @@ namespace ServerMod
         public Job actualJob;
         public JobDriver actualJobDriver;
 
+        private bool homeThisTick;
+
         public override string CompInspectStringExtra()
         {
-            return ("Actual job: " + actualJob + "\nActual job driver: " + actualJobDriver).Trim();
+            return ("Actual job: " + actualJob + "\nActual job driver: " + actualJobDriver + "\nAt home: " + homeThisTick).Trim();
+        }
+
+        public override void CompTick()
+        {
+            homeThisTick = parent.Map.areaManager.Home[parent.Position];
         }
 
         public static PawnTempData Get(Pawn pawn)
@@ -1113,6 +1244,7 @@ namespace ServerMod
             if (data == null)
             {
                 data = new PawnTempData();
+                data.parent = pawn;
                 pawn.AllComps.Add(data);
             }
 

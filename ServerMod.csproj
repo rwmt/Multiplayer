@@ -50,6 +50,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AreaHandler.cs" />
     <Compile Include="ScribeUtil.cs" />
     <Compile Include="Windows.cs" />
     <Compile Include="Networking.cs" />

@@ -88,18 +88,31 @@ namespace ServerMod
             }
         }
 
-        public static byte[] GetBytes(object[] data)
+        public static byte[] GetBytes(params object[] data)
         {
             using (var stream = new MemoryStream())
             {
-                foreach (object obj in data)
+                foreach (object o in data)
                 {
+                    object obj = o;
                     if (obj == null) continue;
 
                     if (obj is string)
-                        stream.Write(((string)obj).GetBytes());
-                    else if (obj is byte[])
-                        stream.Write((byte[])obj);
+                        obj = Encoding.UTF8.GetBytes((string)obj);
+
+                    if (obj is byte[])
+                    {
+                        byte[] arr = (byte[])obj;
+                        stream.Write(BitConverter.GetBytes(arr.Length));
+                        stream.Write(arr);
+                    }
+                    else if (obj is int[])
+                    {
+                        int[] arr = (int[])obj;
+                        stream.Write(BitConverter.GetBytes(arr.Length));
+                        for (int i = 0; i < arr.Length; i++)
+                            stream.Write(BitConverter.GetBytes(arr[i]));
+                    }
                     else if (obj is int)
                         stream.Write(BitConverter.GetBytes((int)obj));
                     else if (obj is bool)
@@ -126,7 +139,7 @@ namespace ServerMod
             this.Connection = connection;
         }
 
-        public abstract void Message(int id, byte[] data);
+        public abstract void Message(int id, ByteReader data);
         public abstract void Disconnect();
     }
 
@@ -206,7 +219,7 @@ namespace ServerMod
 
                         if (fullPos - prefix.Length == msg.Length)
                         {
-                            GetState()?.Message(BitConverter.ToInt32(prefix, 4), msg);
+                            GetState()?.Message(BitConverter.ToInt32(prefix, 4), new ByteReader(msg));
                             msg = null;
                             fullPos = 0;
                         }
@@ -312,7 +325,7 @@ namespace ServerMod
         public override void Send(int id, byte[] msg = null)
         {
             msg = msg ?? new byte[] { 0 };
-            server.GetState()?.Message(id, msg);
+            server.GetState()?.Message(id, new ByteReader(msg));
         }
 
         public override void Close()
@@ -338,7 +351,7 @@ namespace ServerMod
         public override void Send(int id, byte[] msg = null)
         {
             msg = msg ?? new byte[] { 0 };
-            client.GetState()?.Message(id, msg);
+            client.GetState()?.Message(id, new ByteReader(msg));
         }
 
         public override void Close()

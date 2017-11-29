@@ -33,7 +33,7 @@ namespace ServerMod
 
     public class ConnectWindow : Window
     {
-        private string ip;
+        private string ip = "127.0.0.1";
 
         public override Vector2 InitialSize
         {
@@ -58,6 +58,8 @@ namespace ServerMod
                 string[] ipport = ip.Split(':');
                 if (ipport.Length == 2)
                     int.TryParse(ipport[1], out port);
+                else
+                    port = ServerMod.DEFAULT_PORT;
 
                 if (!IPAddress.TryParse(ipport[0], out IPAddress address))
                 {
@@ -141,14 +143,14 @@ namespace ServerMod
             }
         }
 
+        private string ip = "127.0.0.1";
+
         public override void DoWindowContents(Rect inRect)
         {
-            Widgets.Label(inRect, "Host a server");
+            ip = Widgets.TextField(new Rect(0, 15f, inRect.width, 35f), ip);
 
-            if (Widgets.ButtonText(new Rect((inRect.width - 100f) / 2f, inRect.height - 35f, 100f, 35f), "Host"))
+            if (Widgets.ButtonText(new Rect((inRect.width - 100f) / 2f, inRect.height - 35f, 100f, 35f), "Host") && IPAddress.TryParse(ip, out IPAddress local))
             {
-                IPAddress.TryParse("127.0.0.1", out IPAddress local);
-
                 try
                 {
                     ServerMod.server = new Server(local, ServerMod.DEFAULT_PORT, (conn) =>
