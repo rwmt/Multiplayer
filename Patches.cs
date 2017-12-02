@@ -305,14 +305,14 @@ namespace ServerMod
     [HarmonyPatch(nameof(Pawn_JobTracker.StartJob))]
     public static class JobTrackerPatch
     {
-        public static bool addingJob;
+        public static bool dontHandle;
 
         public static FieldInfo pawnField = typeof(Pawn_JobTracker).GetField("pawn", BindingFlags.Instance | BindingFlags.NonPublic);
 
         static bool Prefix(Pawn_JobTracker __instance, Job newJob)
         {
             if (ServerMod.client == null) return true;
-            if (addingJob) return true;
+            if (dontHandle) return true;
             Pawn pawn = (Pawn)pawnField.GetValue(__instance);
             if (!IsPawnOwner(pawn)) return false;
 
@@ -392,7 +392,7 @@ namespace ServerMod
         {
             Pawn pawn = (Pawn)JobTrackerPatch.pawnField.GetValue(__instance);
             if (__instance.curJob != null && __instance.curJob.expiryInterval == -2)
-                Log.Warning(ServerMod.client.username + " cleanup " + JobTrackerPatch.addingJob + " " + __instance.curJob + " " + condition + " " + pawn + " " + __instance.curJob.expiryInterval);
+                Log.Warning(ServerMod.username + " cleanup " + JobTrackerPatch.dontHandle + " " + __instance.curJob + " " + condition + " " + pawn + " " + __instance.curJob.expiryInterval);
         }
     }
 
@@ -400,8 +400,12 @@ namespace ServerMod
     [HarmonyPatch(nameof(Pawn_JobTracker.JobTrackerTick))]
     public static class JobTrackerTick
     {
+        public static bool tickingJobs;
+
         static void Prefix(Pawn_JobTracker __instance, ref State __state)
         {
+            tickingJobs = true;
+
             Pawn pawn = (Pawn)JobTrackerPatch.pawnField.GetValue(__instance);
             if (PawnTempData.Get(pawn).actualJobDriver == null) return;
 
@@ -417,6 +421,8 @@ namespace ServerMod
 
         static void Postfix(Pawn_JobTracker __instance, State __state)
         {
+            tickingJobs = false;
+
             if (__state == null) return;
 
             Pawn pawn = (Pawn)JobTrackerPatch.pawnField.GetValue(__instance);
@@ -675,39 +681,24 @@ namespace ServerMod
     {
         public static Pawn current;
 
-        static void Prefix(Pawn __instance, ref State __state)
+        static void Prefix(Pawn __instance)
         {
             if (ServerMod.client == null) return;
 
             current = __instance;
 
-            if (current.Faction == null) return;
+            if (current.Faction == null || current.Map == null) return;
 
-            __state = new State();
-
-            if (current.Map != null && current.Map.GetComponent<ServerModMapComp>().factionAreas.TryGetValue(current.Faction.GetUniqueLoadID(), out AreaManager factionAreas))
-            {
-                __state.defaultAreas = current.Map.areaManager;
-                current.Map.areaManager = factionAreas;
-            }
+            FactionContext.Setup(__instance.Faction, __instance.Map);
         }
 
-        static void Postfix(Pawn __instance, ref State __state)
+        static void Postfix(Pawn __instance)
         {
             if (ServerMod.client == null) return;
 
-            if (__state != null)
-            {
-                if (__state.defaultAreas != null)
-                    current.Map.areaManager = __state.defaultAreas;
-            }
+            FactionContext.Reset();
 
             current = null;
-        }
-
-        private class State
-        {
-            public AreaManager defaultAreas;
         }
     }
 
@@ -719,7 +710,7 @@ namespace ServerMod
         {
             if (ServerMod.client == null) return;
 
-            Rand.Seed = __instance.job.loadID ^ Find.TickManager.TicksGame;
+            Rand.Seed = Gen.HashCombineInt(__instance.job.loadID, Find.TickManager.TicksGame);
         }
     }
 
@@ -731,7 +722,7 @@ namespace ServerMod
         {
             if (ServerMod.client == null) return;
 
-            Rand.Seed = __instance.job.loadID ^ Find.TickManager.TicksGame;
+            Rand.Seed = Gen.HashCombineInt(__instance.job.loadID, Find.TickManager.TicksGame);
         }
     }
 
@@ -753,6 +744,119 @@ namespace ServerMod
         {
             if (ServerMod.mainBlock == null) return;
             __result = ServerMod.mainBlock.NextId();
+        }
+    }
+
+    [HarmonyPatch(typeof(DesignationManager))]
+    [HarmonyPatch(nameof(DesignationManager.AddDesignation))]
+    public static class DesignationAddPatch
+    {
+        static bool Prefix(DesignationManager __instance, Designation newDes)
+        {
+            if (ServerMod.client == null) return true;
+            if (!ProcessDesignatorsPatch.processingDesignators && !GizmoGridPatch.drawingGizmos) return true;
+
+            byte[] extra = Server.GetBytes(0, __instance.map.GetUniqueLoadID(), Faction.OfPlayer.GetUniqueLoadID(), ScribeUtil.WriteSingle(newDes));
+            ServerMod.client.Send(Packets.CLIENT_ACTION_REQUEST, new object[] { ServerAction.DESIGNATION, extra });
+
+            return false;
+        }
+    }
+
+    [HarmonyPatch(typeof(DesignationManager))]
+    [HarmonyPatch(nameof(DesignationManager.RemoveDesignation))]
+    public static class DesignationRemovePatch
+    {
+        static bool Prefix(DesignationManager __instance, Designation des)
+        {
+            if (ServerMod.client == null) return true;
+            if (!ProcessDesignatorsPatch.processingDesignators && !GizmoGridPatch.drawingGizmos) return true;
+
+            byte[] extra = Server.GetBytes(1, __instance.map.GetUniqueLoadID(), Faction.OfPlayer.GetUniqueLoadID(), ScribeUtil.WriteSingle(des));
+            ServerMod.client.Send(Packets.CLIENT_ACTION_REQUEST, new object[] { ServerAction.DESIGNATION, extra });
+
+            return false;
+        }
+    }
+
+    [HarmonyPatch(typeof(DesignationManager))]
+    [HarmonyPatch(nameof(DesignationManager.RemoveAllDesignationsOn))]
+    public static class DesignationRemoveThingPatch
+    {
+        public static bool dontHandle;
+
+        static bool Prefix(DesignationManager __instance, Thing t, bool standardCanceling)
+        {
+            if (ServerMod.client == null || dontHandle) return true;
+            if (!ProcessDesignatorsPatch.processingDesignators && !GizmoGridPatch.drawingGizmos) return true;
+
+            byte[] extra = Server.GetBytes(2, __instance.map.GetUniqueLoadID(), Faction.OfPlayer.GetUniqueLoadID(), t.GetUniqueLoadID(), standardCanceling);
+            ServerMod.client.Send(Packets.CLIENT_ACTION_REQUEST, new object[] { ServerAction.DESIGNATION, extra });
+
+            return false;
+        }
+    }
+
+    [HarmonyPatch(typeof(GizmoGridDrawer))]
+    [HarmonyPatch(nameof(GizmoGridDrawer.DrawGizmoGrid))]
+    public static class GizmoGridPatch
+    {
+        public static bool drawingGizmos;
+
+        static void Prefix()
+        {
+            drawingGizmos = true;
+        }
+
+        static void Postfix()
+        {
+            drawingGizmos = false;
+        }
+    }
+
+    [HarmonyPatch(typeof(DesignatorManager))]
+    [HarmonyPatch(nameof(DesignatorManager.ProcessInputEvents))]
+    public static class ProcessDesignatorsPatch
+    {
+        public static bool processingDesignators;
+
+        static void Prefix()
+        {
+            processingDesignators = true;
+        }
+
+        static void Postfix()
+        {
+            processingDesignators = false;
+        }
+    }
+
+    [HarmonyPatch(typeof(Pawn_DraftController))]
+    [HarmonyPatch(nameof(Pawn_DraftController.Drafted), PropertyMethod.Setter)]
+    public static class DraftSetPatch
+    {
+        public static bool dontHandle;
+
+        static bool Prefix(Pawn_DraftController __instance, bool value)
+        {
+            if (ServerMod.client == null || dontHandle) return true;
+            if (!GizmoGridPatch.drawingGizmos) return true;
+
+            byte[] extra = Server.GetBytes(__instance.pawn.Map.GetUniqueLoadID(), __instance.pawn.GetUniqueLoadID(), value);
+            ServerMod.client.Send(Packets.CLIENT_ACTION_REQUEST, new object[] { ServerAction.DRAFT, extra });
+
+            return false;
+        }
+    }
+
+    [HarmonyPatch(typeof(PawnComponentsUtility))]
+    [HarmonyPatch(nameof(PawnComponentsUtility.AddAndRemoveDynamicComponents))]
+    public static class AddAndRemoveCompsPatch
+    {
+        static void Postfix(Pawn pawn, bool actAsIfSpawned)
+        {
+            if (pawn.RaceProps.Humanlike && (pawn.Spawned || actAsIfSpawned) && pawn.drafter == null)
+                pawn.drafter = new Pawn_DraftController(pawn);
         }
     }
 

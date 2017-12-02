@@ -366,4 +366,60 @@ namespace ServerMod
         }
     }
 
+    public class ByteReader
+    {
+        private readonly byte[] array;
+
+        private int index;
+
+        public ByteReader(byte[] array)
+        {
+            this.array = array;
+        }
+
+        public int ReadInt()
+        {
+            return BitConverter.ToInt32(array, IncrementIndex(4));
+        }
+
+        public byte[] ReadPrefixedBytes()
+        {
+            int len = ReadInt();
+            return array.SubArray(IncrementIndex(len), len);
+        }
+
+        public int[] ReadPrefixedInts()
+        {
+            int len = ReadInt();
+            int[] result = new int[len];
+            for (int i = 0; i < len; i++)
+                result[i] = ReadInt();
+            return result;
+        }
+
+        public bool ReadBool()
+        {
+            return BitConverter.ToBoolean(array, IncrementIndex(1));
+        }
+
+        public string ReadString()
+        {
+            return Encoding.UTF8.GetString(ReadPrefixedBytes());
+        }
+
+        public int IncrementIndex(int val)
+        {
+            int i = index;
+            index += val;
+            if (index > array.Length)
+                throw new IndexOutOfRangeException();
+            return i;
+        }
+
+        public byte[] GetBytes()
+        {
+            return array;
+        }
+    }
+
 }

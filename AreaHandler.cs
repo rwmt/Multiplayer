@@ -51,7 +51,8 @@ namespace ServerMod
         static bool Prefix(Area __instance)
         {
             if (ServerMod.client == null) return true;
-            Messages.Message("Action not supported in multiplayer.", MessageTypeDefOf.RejectInput);
+
+            Messages.Message("Action not available in multiplayer.", MessageTypeDefOf.RejectInput);
             return false;
         }
     }
@@ -62,8 +63,9 @@ namespace ServerMod
     {
         static bool Prefix(Area __instance)
         {
-            if (ServerMod.client == null) return true;
-            Messages.Message("Action not supported in multiplayer.", MessageTypeDefOf.RejectInput);
+            if (ServerMod.client == null || Current.ProgramState != ProgramState.Playing) return true;
+
+            Messages.Message("Action not available in multiplayer.", MessageTypeDefOf.RejectInput);
             return false;
         }
     }

@@ -208,7 +208,7 @@ namespace ServerMod
 
     public enum ServerAction : int
     {
-        PAUSE, UNPAUSE, PAWN_JOB, SPAWN_THING, LONG_ACTION_SCHEDULE, LONG_ACTION_END, MAP_ID_BLOCK, AREA
+        PAUSE, UNPAUSE, PAWN_JOB, SPAWN_THING, LONG_ACTION_SCHEDULE, LONG_ACTION_END, MAP_ID_BLOCK, AREA, DESIGNATION, DRAFT
     }
 
     public struct ScheduledServerAction
@@ -222,57 +222,6 @@ namespace ServerMod
             this.ticks = ticks;
             this.action = action;
             this.data = data;
-        }
-    }
-
-    public class ByteReader
-    {
-        private readonly byte[] array;
-
-        private int index;
-
-        public ByteReader(byte[] array)
-        {
-            this.array = array;
-        }
-
-        public int ReadInt()
-        {
-            return BitConverter.ToInt32(array, IncrementIndex(4));
-        }
-
-        public byte[] ReadPrefixedBytes()
-        {
-            int len = ReadInt();
-            return array.SubArray(IncrementIndex(len), len);
-        }
-
-        public int[] ReadPrefixedInts()
-        {
-            int len = ReadInt();
-            int[] result = new int[len];
-            for (int i = 0; i < len; i++)
-                result[i] = ReadInt();
-            return result;
-        }
-
-        public string ReadString()
-        {
-            return Encoding.UTF8.GetString(ReadPrefixedBytes());
-        }
-
-        public int IncrementIndex(int val)
-        {
-            int i = index;
-            index += val;
-            if (index > array.Length)
-                throw new IndexOutOfRangeException();
-            return i;
-        }
-
-        public byte[] GetBytes()
-        {
-            return array;
         }
     }
 
@@ -310,48 +259,6 @@ namespace ServerMod
         {
             if (arr.Length > 0)
                 stream.Write(arr, 0, arr.Length);
-        }
-    }
-
-    public class CountdownLock<T>
-    {
-        public AutoResetEvent eventObj = new AutoResetEvent(false);
-        private HashSet<T> ids = new HashSet<T>();
-
-        public void Add(T id)
-        {
-            lock (ids)
-            {
-                ids.Add(id);
-            }
-        }
-
-        public void Wait()
-        {
-            eventObj.WaitOne();
-        }
-
-        public bool Done(T id)
-        {
-            lock (ids)
-            {
-                if (!ids.Remove(id))
-                    return false;
-
-                if (ids.Count == 0)
-                {
-                    eventObj.Set();
-                    return true;
-                }
-
-                return false;
-            }
-        }
-
-        public HashSet<T> GetIds()
-        {
-            lock (ids)
-                return ids;
         }
     }
 
@@ -664,10 +571,15 @@ namespace ServerMod
                         ServerModWorldComp worldComp = Find.World.GetComponent<ServerModWorldComp>();
                         ServerModMapComp mapComp = map.GetComponent<ServerModMapComp>();
 
+                        mapComp.inEncounter = true;
+
                         mapComp.factionAreas.Add(ownerFaction.GetUniqueLoadID(), map.areaManager);
+                        mapComp.factionDesignations.Add(ownerFaction.GetUniqueLoadID(), map.designationManager);
 
                         map.areaManager = new AreaManager(map);
                         map.areaManager.AddStartingAreas();
+
+                        map.designationManager = new DesignationManager(map);
                     }
 
                     Current.ProgramState = ProgramState.Playing;
@@ -725,8 +637,6 @@ namespace ServerMod
 
         public static readonly List<LongAction> longActions = new List<LongAction>();
         public static LongAction currentLongAction;
-
-        public static readonly FieldInfo areasField = typeof(AreaManager).GetField("areas", BindingFlags.Instance | BindingFlags.NonPublic);
 
         public void Update()
         {
@@ -857,52 +767,75 @@ namespace ServerMod
 
             if (action == ServerAction.AREA)
             {
-                int subAction = data.ReadInt();
+                HandleArea(actionReq, data);
+            }
+
+            if (action == ServerAction.DESIGNATION)
+            {
+                HandleDesignation(actionReq, data);
+            }
+
+            if (action == ServerAction.DRAFT)
+            {
                 string mapId = data.ReadString();
-                string factionId = data.ReadString();
+                string pawnId = data.ReadString();
+                bool draft = data.ReadBool();
+
                 Map map = Find.Maps.FirstOrDefault(m => m.GetUniqueLoadID() == mapId);
                 if (map == null) return;
-                
-                map.GetComponent<ServerModMapComp>().factionAreas.TryGetValue(factionId, out AreaManager areas);
-                if (factionId == Faction.OfPlayer.GetUniqueLoadID())
-                    areas = map.areaManager;
 
-                if (areas != null)
-                {
-                    if (subAction == 0) // invert
-                    {
-                        AreaInvertPatch.dontHandle = true;
+                Pawn pawn = map.mapPawns.AllPawns.FirstOrDefault(p => p.GetUniqueLoadID() == pawnId);
+                if (pawn == null) return;
 
-                        string areaId = data.ReadString();
-                        areas.AllAreas.FirstOrDefault(a => a.GetUniqueLoadID() == areaId)?.Invert();
-
-                        AreaInvertPatch.dontHandle = false;
-                    }
-                    else if (subAction == 1) // update
-                    {
-                        string areaId = data.ReadString();
-                        Area area = areas.AllAreas.FirstOrDefault(a => a.GetUniqueLoadID() == areaId);
-                        if (area != null)
-                        {
-                            AreaSetPatch.dontHandle = true;
-
-                            int[] cells_off = data.ReadPrefixedInts();
-                            for (int i = 0; i < cells_off.Length; i++)
-                                area[cells_off[i]] = false;
-
-                            int[] cells_on = data.ReadPrefixedInts();
-                            for (int i = 0; i < cells_on.Length; i++)
-                                area[cells_on[i]] = true;
-
-                            Log.Message("Updated " + (cells_off.Length + cells_on.Length) + " area cells");
-
-                            AreaSetPatch.dontHandle = false;
-                        }
-                    }
-                }
+                DraftSetPatch.dontHandle = true;
+                pawn.drafter.Drafted = draft;
+                DraftSetPatch.dontHandle = false;
             }
 
             Log.Message("executed a scheduled action " + action);
+        }
+
+        private static void HandleDesignation(ScheduledServerAction actionReq, ByteReader data)
+        {
+            int subAction = data.ReadInt();
+            string mapId = data.ReadString();
+            string factionId = data.ReadString();
+            Map map = Find.Maps.FirstOrDefault(m => m.GetUniqueLoadID() == mapId);
+            if (map == null) return;
+
+            map.GetComponent<ServerModMapComp>().factionDesignations.TryGetValue(factionId, out DesignationManager designations);
+            if (factionId == Faction.OfPlayer.GetUniqueLoadID())
+                designations = map.designationManager;
+
+            if (designations != null)
+            {
+                if (subAction == 0) // add
+                {
+                    Designation newDesignation = ScribeUtil.ReadSingle<Designation>(data.ReadPrefixedBytes());
+
+                    designations.allDesignations.Add(newDesignation);
+                    newDesignation.designationManager = designations;
+                }
+                else if (subAction == 1) // remove specific
+                {
+                    Designation designation = ScribeUtil.ReadSingle<Designation>(data.ReadPrefixedBytes());
+
+                    designations.allDesignations.RemoveAll(d => d.def == designation.def && d.target == designation.target);
+                }
+                else if (subAction == 2) // remove on thing
+                {
+                    string thingId = data.ReadString();
+                    bool standardCanceling = data.ReadBool();
+                    Thing thing = map.listerThings.AllThings.FirstOrDefault(t => t.GetUniqueLoadID() == thingId);
+
+                    if (thing != null)
+                    {
+                        DesignationRemoveThingPatch.dontHandle = true;
+                        designations.RemoveAllDesignationsOn(thing, standardCanceling);
+                        DesignationRemoveThingPatch.dontHandle = false;
+                    }
+                }
+            }
         }
 
         private static void ExecuteJob(ScheduledServerAction actionReq)
@@ -916,31 +849,77 @@ namespace ServerMod
             Pawn pawn = map.mapPawns.AllPawns.FirstOrDefault(p => p.thingIDNumber == jobReq.pawnId);
             if (pawn == null) return;
 
-            JobTrackerPatch.addingJob = true;
+            JobTrackerPatch.dontHandle = true;
 
-            // adjust for state loss
             if (!JobTrackerPatch.IsPawnOwner(pawn))
             {
-                job.ignoreDesignations = true;
                 job.ignoreForbidden = true;
-
-                if (job.haulMode == HaulMode.ToCellStorage)
-                    job.haulMode = HaulMode.ToCellNonStorage;
             }
 
-            if (!JobTrackerPatch.IsPawnOwner(pawn) || pawn.jobs.curJob.expiryInterval == -2)
+            if (!JobTrackerPatch.IsPawnOwner(pawn) || (pawn.jobs.curJob != null && pawn.jobs.curJob.expiryInterval == -2))
             {
+                FactionContext.Setup(pawn.Faction, pawn.Map);
                 pawn.jobs.StartJob(job, JobCondition.InterruptForced);
+                FactionContext.Reset();
+
                 PawnTempData.Get(pawn).actualJob = null;
                 PawnTempData.Get(pawn).actualJobDriver = null;
-                Log.Message(ServerMod.client.username + " executed job " + job + " for " + pawn);
+
+                Log.Message(ServerMod.username + " executed job " + job + " for " + pawn);
             }
             else
             {
                 Log.Warning("Jobs don't match! p:" + pawn + " j:" + job + " cur:" + pawn.jobs.curJob + " driver:" + pawn.jobs.curDriver);
             }
 
-            JobTrackerPatch.addingJob = false;
+            JobTrackerPatch.dontHandle = false;
+        }
+
+        private static void HandleArea(ScheduledServerAction actionReq, ByteReader data)
+        {
+            int subAction = data.ReadInt();
+            string mapId = data.ReadString();
+            string factionId = data.ReadString();
+            Map map = Find.Maps.FirstOrDefault(m => m.GetUniqueLoadID() == mapId);
+            if (map == null) return;
+
+            map.GetComponent<ServerModMapComp>().factionAreas.TryGetValue(factionId, out AreaManager areas);
+            if (factionId == Faction.OfPlayer.GetUniqueLoadID())
+                areas = map.areaManager;
+
+            if (areas != null)
+            {
+                if (subAction == 0) // invert
+                {
+                    AreaInvertPatch.dontHandle = true;
+
+                    string areaId = data.ReadString();
+                    areas.AllAreas.FirstOrDefault(a => a.GetUniqueLoadID() == areaId)?.Invert();
+
+                    AreaInvertPatch.dontHandle = false;
+                }
+                else if (subAction == 1) // update
+                {
+                    string areaId = data.ReadString();
+                    Area area = areas.AllAreas.FirstOrDefault(a => a.GetUniqueLoadID() == areaId);
+                    if (area != null)
+                    {
+                        AreaSetPatch.dontHandle = true;
+
+                        int[] cells_off = data.ReadPrefixedInts();
+                        for (int i = 0; i < cells_off.Length; i++)
+                            area[cells_off[i]] = false;
+
+                        int[] cells_on = data.ReadPrefixedInts();
+                        for (int i = 0; i < cells_on.Length; i++)
+                            area[cells_on[i]] = true;
+
+                        Log.Message("Updated " + (cells_off.Length + cells_on.Length) + " area cells");
+
+                        AreaSetPatch.dontHandle = false;
+                    }
+                }
+            }
         }
 
         private static void AddLongAction(LongAction action)
@@ -969,6 +948,7 @@ namespace ServerMod
                 if (--i > 0)
                     str.Append("\n");
             }
+
             return str.ToString();
         }
     }
@@ -1190,11 +1170,13 @@ namespace ServerMod
 
     public class ServerModMapComp : MapComponent
     {
+        public bool inEncounter;
         public IdBlock encounterIdBlock;
 
         public Dictionary<string, SlotGroupManager> factionSlotGroups = new Dictionary<string, SlotGroupManager>();
         public Dictionary<string, ZoneManager> factionZones = new Dictionary<string, ZoneManager>();
         public Dictionary<string, AreaManager> factionAreas = new Dictionary<string, AreaManager>();
+        public Dictionary<string, DesignationManager> factionDesignations = new Dictionary<string, DesignationManager>();
 
         // zone id => [cells off, cells on]
         public Dictionary<string, HashSet<int>[]> areaChangesThisTick = new Dictionary<string, HashSet<int>[]>();
@@ -1221,21 +1203,69 @@ namespace ServerMod
         }
     }
 
+    public static class FactionContext
+    {
+        private static AreaManager areas;
+        private static DesignationManager desigs;
+
+        private static Map curMap;
+
+        public static void Setup(Faction faction, Map map)
+        {
+            if (curMap != null)
+            {
+                Log.Error("Faction context already set!");
+                return;
+            }
+
+            ServerModMapComp comp = map.GetComponent<ServerModMapComp>();
+            if (!comp.factionAreas.TryGetValue(faction.GetUniqueLoadID(), out AreaManager a)) return;
+
+            areas = map.areaManager;
+            desigs = map.designationManager;
+            curMap = map;
+
+            curMap.designationManager = comp.factionDesignations.GetValueSafe(faction.GetUniqueLoadID());
+            curMap.areaManager = comp.factionAreas.GetValueSafe(faction.GetUniqueLoadID());
+        }
+
+        public static void Reset()
+        {
+            if (curMap == null) return;
+
+            curMap.areaManager = areas;
+            curMap.designationManager = desigs;
+
+            curMap = null;
+            areas = null;
+            desigs = null;
+        }
+    }
+
     public class PawnTempData : ThingComp
     {
         public Job actualJob;
         public JobDriver actualJobDriver;
 
         private bool homeThisTick;
+        private string zoneName;
 
         public override string CompInspectStringExtra()
         {
-            return ("Actual job: " + actualJob + "\nActual job driver: " + actualJobDriver + "\nAt home: " + homeThisTick).Trim();
+            ServerModMapComp comp = parent.Map.GetComponent<ServerModMapComp>();
+
+            return (
+                "Actual job: " + actualJob + "\n" +
+                "Actual job driver: " + actualJobDriver + "\n" +
+                "At home: " + homeThisTick + "\n" +
+                "Zone name: " + zoneName
+                ).Trim();
         }
 
         public override void CompTick()
         {
             homeThisTick = parent.Map.areaManager.Home[parent.Position];
+            zoneName = parent.Map.zoneManager.ZoneAt(parent.Position)?.label;
         }
 
         public static PawnTempData Get(Pawn pawn)
