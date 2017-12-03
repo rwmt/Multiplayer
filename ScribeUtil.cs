@@ -164,12 +164,16 @@ namespace ServerMod
             return FinishWriting();
         }
 
-        public static T ReadSingle<T>(byte[] data) where T : IExposable
+        public static T ReadSingle<T>(byte[] data, Action<T> beforeFinish = null) where T : IExposable
         {
             StartLoading(data);
             SupplyCrossRefs();
             T element = default(T);
             Scribe_Deep.Look(ref element, "data");
+
+            if (beforeFinish != null)
+                beforeFinish.Invoke(element);
+
             FinishLoading();
             return element;
         }

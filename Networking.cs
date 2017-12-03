@@ -93,34 +93,7 @@ namespace ServerMod
             using (var stream = new MemoryStream())
             {
                 foreach (object o in data)
-                {
-                    object obj = o;
-                    if (obj == null) continue;
-
-                    if (obj is string)
-                        obj = Encoding.UTF8.GetBytes((string)obj);
-
-                    if (obj is byte[])
-                    {
-                        byte[] arr = (byte[])obj;
-                        stream.Write(BitConverter.GetBytes(arr.Length));
-                        stream.Write(arr);
-                    }
-                    else if (obj is int[])
-                    {
-                        int[] arr = (int[])obj;
-                        stream.Write(BitConverter.GetBytes(arr.Length));
-                        for (int i = 0; i < arr.Length; i++)
-                            stream.Write(BitConverter.GetBytes(arr[i]));
-                    }
-                    else if (obj is int)
-                        stream.Write(BitConverter.GetBytes((int)obj));
-                    else if (obj is bool)
-                        stream.Write(BitConverter.GetBytes((bool)obj));
-                    else if (obj is Enum)
-                        stream.Write(BitConverter.GetBytes((int)obj));
-                }
-
+                    stream.WriteObject(o);
                 return stream.ToArray();
             }
         }
@@ -382,6 +355,16 @@ namespace ServerMod
             return BitConverter.ToInt32(array, IncrementIndex(4));
         }
 
+        public bool ReadBool()
+        {
+            return BitConverter.ToBoolean(array, IncrementIndex(1));
+        }
+
+        public string ReadString()
+        {
+            return Encoding.UTF8.GetString(ReadPrefixedBytes());
+        }
+
         public byte[] ReadPrefixedBytes()
         {
             int len = ReadInt();
@@ -397,14 +380,13 @@ namespace ServerMod
             return result;
         }
 
-        public bool ReadBool()
+        public string[] ReadPrefixedStrings()
         {
-            return BitConverter.ToBoolean(array, IncrementIndex(1));
-        }
-
-        public string ReadString()
-        {
-            return Encoding.UTF8.GetString(ReadPrefixedBytes());
+            int len = ReadInt();
+            string[] result = new string[len];
+            for (int i = 0; i < len; i++)
+                result[i] = ReadString();
+            return result;
         }
 
         public int IncrementIndex(int val)

@@ -206,9 +206,11 @@ namespace ServerMod
         public const int SERVER_NEW_ID_BLOCK = 7;
     }
 
-    public enum ServerAction : int
+    public enum ServerAction
     {
-        PAUSE, UNPAUSE, PAWN_JOB, SPAWN_THING, LONG_ACTION_SCHEDULE, LONG_ACTION_END, MAP_ID_BLOCK, AREA, DESIGNATION, DRAFT
+        PAUSE, UNPAUSE, MAP_ID_BLOCK, PAWN_JOB, SPAWN_THING, DRAFT,
+        AREA, DESIGNATION, ZONE,
+        LONG_ACTION_SCHEDULE, LONG_ACTION_END
     }
 
     public struct ScheduledServerAction
@@ -222,43 +224,6 @@ namespace ServerMod
             this.ticks = ticks;
             this.action = action;
             this.data = data;
-        }
-    }
-
-    public static class Extensions
-    {
-        public static T[] Append<T>(this T[] arr1, T[] arr2)
-        {
-            T[] result = new T[arr1.Length + arr2.Length];
-            Array.Copy(arr1, 0, result, 0, arr1.Length);
-            Array.Copy(arr2, 0, result, arr1.Length, arr2.Length);
-            return result;
-        }
-
-        public static T[] SubArray<T>(this T[] data, int index, int length)
-        {
-            T[] result = new T[length];
-            Array.Copy(data, index, result, 0, length);
-            return result;
-        }
-
-        public static void RemoveChildIfPresent(this XmlNode node, string child)
-        {
-            XmlNode childNode = node[child];
-            if (childNode != null)
-                node.RemoveChild(childNode);
-        }
-
-        public static void RemoveFromParent(this XmlNode node)
-        {
-            if (node == null) return;
-            node.ParentNode.RemoveChild(node);
-        }
-
-        public static void Write(this MemoryStream stream, byte[] arr)
-        {
-            if (arr.Length > 0)
-                stream.Write(arr, 0, arr.Length);
         }
     }
 
@@ -567,19 +532,35 @@ namespace ServerMod
                     map.FinalizeLoading();
 
                     {
+                        foreach (Thing t in map.listerThings.AllThings)
+                            t.SetForbidden(true, false);
+
                         Faction ownerFaction = map.info.parent.Faction;
                         ServerModWorldComp worldComp = Find.World.GetComponent<ServerModWorldComp>();
                         ServerModMapComp mapComp = map.GetComponent<ServerModMapComp>();
 
                         mapComp.inEncounter = true;
 
-                        mapComp.factionAreas.Add(ownerFaction.GetUniqueLoadID(), map.areaManager);
-                        mapComp.factionDesignations.Add(ownerFaction.GetUniqueLoadID(), map.designationManager);
+                        string ownerFactionId = ownerFaction.GetUniqueLoadID();
+                        string playerFactionId = Faction.OfPlayer.GetUniqueLoadID();
+
+                        mapComp.factionAreas[ownerFactionId] = map.areaManager;
+                        mapComp.factionDesignations[ownerFactionId] = map.designationManager;
+                        mapComp.factionSlotGroups[ownerFactionId] = map.slotGroupManager;
+                        mapComp.factionZones[ownerFactionId] = map.zoneManager;
 
                         map.areaManager = new AreaManager(map);
                         map.areaManager.AddStartingAreas();
+                        mapComp.factionAreas[playerFactionId] = map.areaManager;
 
                         map.designationManager = new DesignationManager(map);
+                        mapComp.factionDesignations[playerFactionId] = map.designationManager;
+
+                        map.slotGroupManager = new SlotGroupManager(map);
+                        mapComp.factionSlotGroups[playerFactionId] = map.slotGroupManager;
+
+                        map.zoneManager = new ZoneManager(map);
+                        mapComp.factionZones[playerFactionId] = map.zoneManager;
                     }
 
                     Current.ProgramState = ProgramState.Playing;
@@ -659,7 +640,10 @@ namespace ServerMod
                 }
 
                 foreach (Map map in Find.Maps)
-                    foreach (KeyValuePair<string, HashSet<int>[]> pair in map.GetComponent<ServerModMapComp>().areaChangesThisTick)
+                {
+                    ServerModMapComp comp = map.GetComponent<ServerModMapComp>();
+
+                    foreach (KeyValuePair<string, HashSet<int>[]> pair in comp.areaChangesThisTick)
                     {
                         if (pair.Value[0].Count == 0 && pair.Value[1].Count == 0) continue;
 
@@ -672,6 +656,29 @@ namespace ServerMod
                         pair.Value[0].Clear();
                         pair.Value[1].Clear();
                     }
+
+                    if (comp.zoneChangesThisTick.Count > 0 || comp.zonesAdded.Count > 0 || comp.zonesRemoved.Count > 0)
+                    {
+                        int[] cells = comp.zoneChangesThisTick.Keys.ToArray();
+                        Zone[] zones = comp.zoneChangesThisTick.Values.ToArray();
+                        string[] zoneLabels = new string[zones.Length];
+                        for (int i = 0; i < zones.Length; i++)
+                            zoneLabels[i] = zones[i] != null ? zones[i].label : String.Empty;
+
+                        byte[][] added = new byte[comp.zonesAdded.Count][];
+                        for (int i = 0; i < comp.zonesAdded.Count; i++)
+                            added[i] = ScribeUtil.WriteSingle(comp.zonesAdded[i]);
+
+                        string[] removed = comp.zonesRemoved.ToArray();
+
+                        byte[] extra = Server.GetBytes(map.GetUniqueLoadID(), Faction.OfPlayer.GetUniqueLoadID(), cells, zoneLabels, added, removed);
+                        ServerMod.client.Send(Packets.CLIENT_ACTION_REQUEST, new object[] { ServerAction.ZONE, extra });
+
+                        comp.zoneChangesThisTick.Clear();
+                        comp.zonesAdded.Clear();
+                        comp.zonesRemoved.Clear();
+                    }
+                }
             }
 
             if (currentLongAction == null && longActions.Count > 0)
@@ -775,6 +782,11 @@ namespace ServerMod
                 HandleDesignation(actionReq, data);
             }
 
+            if (action == ServerAction.ZONE)
+            {
+                HandleZone(actionReq, data);
+            }
+
             if (action == ServerAction.DRAFT)
             {
                 string mapId = data.ReadString();
@@ -795,6 +807,79 @@ namespace ServerMod
             Log.Message("executed a scheduled action " + action);
         }
 
+        private static void HandleZone(ScheduledServerAction actionReq, ByteReader data)
+        {
+            string mapId = data.ReadString();
+            string factionId = data.ReadString();
+            Map map = Find.Maps.FirstOrDefault(m => m.GetUniqueLoadID() == mapId);
+            if (map == null) return;
+
+            FactionContext.Set(map, factionId);
+            ZoneManager zones = map.zoneManager;
+
+            if (zones != null)
+            {
+                ZoneRegisterPatch.dontHandle = true;
+
+                int[] cells = data.ReadPrefixedInts();
+                string[] zoneCells = data.ReadPrefixedStrings();
+
+                int len = data.ReadInt();
+                Log.Message("added " + len);
+                Zone[] added = new Zone[len];
+                for (int i = 0; i < len; i++)
+                    added[i] = ScribeUtil.ReadSingle<Zone>(data.ReadPrefixedBytes(), z => z.zoneManager = zones);
+
+                string[] removed = data.ReadPrefixedStrings();
+
+                foreach (Zone zone in added)
+                {
+                    zones.RegisterZone(zone);
+                }
+
+                HashSet<Zone> changedZones = new HashSet<Zone>();
+
+                for (int i = 0; i < cells.Length; i++)
+                {
+                    IntVec3 cell = map.cellIndices.IndexToCell(cells[i]);
+                    Zone zone = zones.AllZones.FirstOrDefault(z => z.label == zoneCells[i]);
+
+                    if (zone != null)
+                    {
+                        zone.AddCell(cell);
+                        changedZones.Add(zone);
+                    }
+                    else
+                    {
+                        zone = zones.ZoneAt(cell);
+                        if (zone != null)
+                        {
+                            zone.RemoveCell(cell);
+                            changedZones.Add(zone);
+                        }
+                    }
+                }
+
+                foreach (Zone zone in changedZones)
+                    zone.CheckContiguous();
+
+                foreach (Zone z in added)
+                    if (z.cells.Count == 0)
+                        z.Deregister();
+
+                foreach (string label in removed)
+                {
+                    Zone zone = zones.AllZones.FirstOrDefault(z => z.label == label);
+                    if (zone != null)
+                        zone.Deregister();
+                }
+
+                ZoneRegisterPatch.dontHandle = false;
+            }
+
+            FactionContext.Reset(map);
+        }
+
         private static void HandleDesignation(ScheduledServerAction actionReq, ByteReader data)
         {
             int subAction = data.ReadInt();
@@ -803,24 +888,26 @@ namespace ServerMod
             Map map = Find.Maps.FirstOrDefault(m => m.GetUniqueLoadID() == mapId);
             if (map == null) return;
 
-            map.GetComponent<ServerModMapComp>().factionDesignations.TryGetValue(factionId, out DesignationManager designations);
-            if (factionId == Faction.OfPlayer.GetUniqueLoadID())
-                designations = map.designationManager;
+            FactionContext.Set(map, factionId);
+            DesignationManager designations = map.designationManager;
 
             if (designations != null)
             {
                 if (subAction == 0) // add
                 {
-                    Designation newDesignation = ScribeUtil.ReadSingle<Designation>(data.ReadPrefixedBytes());
+                    Designation newDesignation = ScribeUtil.ReadSingle<Designation>(data.ReadPrefixedBytes(), d => d.designationManager = designations);
 
                     designations.allDesignations.Add(newDesignation);
-                    newDesignation.designationManager = designations;
+                    newDesignation.Notify_Added();
                 }
                 else if (subAction == 1) // remove specific
                 {
                     Designation designation = ScribeUtil.ReadSingle<Designation>(data.ReadPrefixedBytes());
-
-                    designations.allDesignations.RemoveAll(d => d.def == designation.def && d.target == designation.target);
+                    designation = designations.allDesignations.FirstOrDefault(d => d.def == designation.def && d.target == designation.target);
+                    if (designation != null)
+                    {
+                        designation.Delete();
+                    }
                 }
                 else if (subAction == 2) // remove on thing
                 {
@@ -836,6 +923,8 @@ namespace ServerMod
                     }
                 }
             }
+
+            FactionContext.Reset(map);
         }
 
         private static void ExecuteJob(ScheduledServerAction actionReq)
@@ -858,9 +947,9 @@ namespace ServerMod
 
             if (!JobTrackerPatch.IsPawnOwner(pawn) || (pawn.jobs.curJob != null && pawn.jobs.curJob.expiryInterval == -2))
             {
-                FactionContext.Setup(pawn.Faction, pawn.Map);
+                FactionContext.Set(pawn.Map, pawn.Faction);
                 pawn.jobs.StartJob(job, JobCondition.InterruptForced);
-                FactionContext.Reset();
+                FactionContext.Reset(pawn.Map);
 
                 PawnTempData.Get(pawn).actualJob = null;
                 PawnTempData.Get(pawn).actualJobDriver = null;
@@ -883,9 +972,8 @@ namespace ServerMod
             Map map = Find.Maps.FirstOrDefault(m => m.GetUniqueLoadID() == mapId);
             if (map == null) return;
 
-            map.GetComponent<ServerModMapComp>().factionAreas.TryGetValue(factionId, out AreaManager areas);
-            if (factionId == Faction.OfPlayer.GetUniqueLoadID())
-                areas = map.areaManager;
+            FactionContext.Set(map, factionId);
+            AreaManager areas = map.areaManager;
 
             if (areas != null)
             {
@@ -920,13 +1008,12 @@ namespace ServerMod
                     }
                 }
             }
+
+            FactionContext.Reset(map);
         }
 
         private static void AddLongAction(LongAction action)
         {
-            if (action.type == LongActionType.PLAYER_JOIN)
-                action.shouldRun = ServerMod.server != null;
-
             longActions.Add(action);
         }
 
@@ -1178,11 +1265,21 @@ namespace ServerMod
         public Dictionary<string, AreaManager> factionAreas = new Dictionary<string, AreaManager>();
         public Dictionary<string, DesignationManager> factionDesignations = new Dictionary<string, DesignationManager>();
 
-        // zone id => [cells off, cells on]
+        public ListerHaulables standardHaulables;
+        public ListerHaulables voidHaulables;
+
+        // area id => [cells off, cells on]
         public Dictionary<string, HashSet<int>[]> areaChangesThisTick = new Dictionary<string, HashSet<int>[]>();
+
+        // cell => zone label
+        public Dictionary<int, Zone> zoneChangesThisTick = new Dictionary<int, Zone>();
+        public List<Zone> zonesAdded = new List<Zone>();
+        public List<string> zonesRemoved = new List<string>();
 
         public ServerModMapComp(Map map) : base(map)
         {
+            standardHaulables = map.listerHaulables;
+            voidHaulables = new VoidListerHaulables(map);
         }
 
         public void AreaChange(string areaId, int cell, bool value)
@@ -1205,40 +1302,34 @@ namespace ServerMod
 
     public static class FactionContext
     {
-        private static AreaManager areas;
-        private static DesignationManager desigs;
-
-        private static Map curMap;
-
-        public static void Setup(Faction faction, Map map)
+        public static void Set(Map map, Faction faction)
         {
-            if (curMap != null)
-            {
-                Log.Error("Faction context already set!");
-                return;
-            }
-
-            ServerModMapComp comp = map.GetComponent<ServerModMapComp>();
-            if (!comp.factionAreas.TryGetValue(faction.GetUniqueLoadID(), out AreaManager a)) return;
-
-            areas = map.areaManager;
-            desigs = map.designationManager;
-            curMap = map;
-
-            curMap.designationManager = comp.factionDesignations.GetValueSafe(faction.GetUniqueLoadID());
-            curMap.areaManager = comp.factionAreas.GetValueSafe(faction.GetUniqueLoadID());
+            if (faction == null) return;
+            Set(map, faction.GetUniqueLoadID());
         }
 
-        public static void Reset()
+        public static void Set(Map map, string factionId)
         {
-            if (curMap == null) return;
+            if (map == null) return;
 
-            curMap.areaManager = areas;
-            curMap.designationManager = desigs;
+            ServerModMapComp comp = map.GetComponent<ServerModMapComp>();
 
-            curMap = null;
-            areas = null;
-            desigs = null;
+            if (!comp.factionAreas.TryGetValue(factionId, out AreaManager a)) return;
+
+            map.designationManager = comp.factionDesignations.GetValueSafe(factionId);
+            map.areaManager = comp.factionAreas.GetValueSafe(factionId);
+            map.zoneManager = comp.factionZones.GetValueSafe(factionId);
+            map.slotGroupManager = comp.factionSlotGroups.GetValueSafe(factionId);
+
+            if (factionId == Faction.OfPlayer.GetUniqueLoadID())
+                map.listerHaulables = comp.standardHaulables;
+            else
+                map.listerHaulables = comp.voidHaulables;
+        }
+
+        public static void Reset(Map map)
+        {
+            Set(map, Faction.OfPlayer);
         }
     }
 
@@ -1264,6 +1355,8 @@ namespace ServerMod
 
         public override void CompTick()
         {
+            if (!parent.Spawned) return;
+
             homeThisTick = parent.Map.areaManager.Home[parent.Position];
             zoneName = parent.Map.zoneManager.ZoneAt(parent.Position)?.label;
         }
@@ -1280,6 +1373,11 @@ namespace ServerMod
 
             return data;
         }
+    }
+
+    public class VoidListerHaulables : ListerHaulables
+    {
+        public VoidListerHaulables(Map map) : base(map) { }
     }
 
 }

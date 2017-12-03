@@ -689,40 +689,16 @@ namespace ServerMod
 
             if (current.Faction == null || current.Map == null) return;
 
-            FactionContext.Setup(__instance.Faction, __instance.Map);
+            FactionContext.Set(__instance.Map, __instance.Faction);
         }
 
         static void Postfix(Pawn __instance)
         {
             if (ServerMod.client == null) return;
 
-            FactionContext.Reset();
+            FactionContext.Reset(__instance.Map);
 
             current = null;
-        }
-    }
-
-    [HarmonyPatch(typeof(JobDriver))]
-    [HarmonyPatch(nameof(JobDriver.DriverTick))]
-    public static class SeedJobDriverTick
-    {
-        static void Prefix(JobDriver __instance)
-        {
-            if (ServerMod.client == null) return;
-
-            Rand.Seed = Gen.HashCombineInt(__instance.job.loadID, Find.TickManager.TicksGame);
-        }
-    }
-
-    [HarmonyPatch(typeof(JobDriver))]
-    [HarmonyPatch(nameof(JobDriver.ReadyForNextToil))]
-    public static class SeedInitToil
-    {
-        static void Prefix(JobDriver __instance)
-        {
-            if (ServerMod.client == null) return;
-
-            Rand.Seed = Gen.HashCombineInt(__instance.job.loadID, Find.TickManager.TicksGame);
         }
     }
 
@@ -754,7 +730,7 @@ namespace ServerMod
         static bool Prefix(DesignationManager __instance, Designation newDes)
         {
             if (ServerMod.client == null) return true;
-            if (!ProcessDesignatorsPatch.processingDesignators && !GizmoGridPatch.drawingGizmos) return true;
+            if (!ProcessDesignatorsPatch.processingDesignators && !DrawGizmosPatch.drawingGizmos) return true;
 
             byte[] extra = Server.GetBytes(0, __instance.map.GetUniqueLoadID(), Faction.OfPlayer.GetUniqueLoadID(), ScribeUtil.WriteSingle(newDes));
             ServerMod.client.Send(Packets.CLIENT_ACTION_REQUEST, new object[] { ServerAction.DESIGNATION, extra });
@@ -770,7 +746,7 @@ namespace ServerMod
         static bool Prefix(DesignationManager __instance, Designation des)
         {
             if (ServerMod.client == null) return true;
-            if (!ProcessDesignatorsPatch.processingDesignators && !GizmoGridPatch.drawingGizmos) return true;
+            if (!ProcessDesignatorsPatch.processingDesignators && !DrawGizmosPatch.drawingGizmos) return true;
 
             byte[] extra = Server.GetBytes(1, __instance.map.GetUniqueLoadID(), Faction.OfPlayer.GetUniqueLoadID(), ScribeUtil.WriteSingle(des));
             ServerMod.client.Send(Packets.CLIENT_ACTION_REQUEST, new object[] { ServerAction.DESIGNATION, extra });
@@ -788,7 +764,7 @@ namespace ServerMod
         static bool Prefix(DesignationManager __instance, Thing t, bool standardCanceling)
         {
             if (ServerMod.client == null || dontHandle) return true;
-            if (!ProcessDesignatorsPatch.processingDesignators && !GizmoGridPatch.drawingGizmos) return true;
+            if (!ProcessDesignatorsPatch.processingDesignators && !DrawGizmosPatch.drawingGizmos) return true;
 
             byte[] extra = Server.GetBytes(2, __instance.map.GetUniqueLoadID(), Faction.OfPlayer.GetUniqueLoadID(), t.GetUniqueLoadID(), standardCanceling);
             ServerMod.client.Send(Packets.CLIENT_ACTION_REQUEST, new object[] { ServerAction.DESIGNATION, extra });
@@ -799,7 +775,7 @@ namespace ServerMod
 
     [HarmonyPatch(typeof(GizmoGridDrawer))]
     [HarmonyPatch(nameof(GizmoGridDrawer.DrawGizmoGrid))]
-    public static class GizmoGridPatch
+    public static class DrawGizmosPatch
     {
         public static bool drawingGizmos;
 
@@ -840,7 +816,7 @@ namespace ServerMod
         static bool Prefix(Pawn_DraftController __instance, bool value)
         {
             if (ServerMod.client == null || dontHandle) return true;
-            if (!GizmoGridPatch.drawingGizmos) return true;
+            if (!DrawGizmosPatch.drawingGizmos) return true;
 
             byte[] extra = Server.GetBytes(__instance.pawn.Map.GetUniqueLoadID(), __instance.pawn.GetUniqueLoadID(), value);
             ServerMod.client.Send(Packets.CLIENT_ACTION_REQUEST, new object[] { ServerAction.DRAFT, extra });
@@ -874,6 +850,62 @@ namespace ServerMod
                     __result = block.NextId();
                     Log.Message(ServerMod.client.username + ": new thing id pawn " + __result + " " + PawnContext.current);
                 }
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(ListerHaulables))]
+    [HarmonyPatch("ShouldBeHaulable")]
+    public static class VoidListerHaulablesPatch
+    {
+        static void Postfix(ListerHaulables __instance, ref bool __result)
+        {
+            if (__instance is VoidListerHaulables) __result = false;
+        }
+    }
+
+    [HarmonyPatch(typeof(Building))]
+    [HarmonyPatch(nameof(Building.GetGizmos))]
+    public static class GetGizmos
+    {
+        static void Postfix(Building __instance, ref IEnumerable<Gizmo> __result)
+        {
+            __result = __result.Add(new Command_Action
+            {
+                defaultLabel = "Set faction",
+                action = () =>
+                {
+                    __instance.SetFaction(Faction.OfSpacerHostile);
+                }
+            });
+        }
+    }
+
+    [HarmonyPatch(typeof(WorldObject))]
+    [HarmonyPatch(nameof(WorldObject.GetGizmos))]
+    public static class WorldObjectGizmos
+    {
+        static void Postfix(ref IEnumerable<Gizmo> __result)
+        {
+            __result = __result.Add(new Command_Action
+            {
+                defaultLabel = "Jump to",
+                action = () =>
+                {
+                    Find.WindowStack.Add(new Dialog_JumpTo());
+                }
+            });
+        }
+    }
+
+    public class Dialog_JumpTo : Dialog_Rename
+    {
+        protected override void SetName(string name)
+        {
+            if (int.TryParse(name, out int tile))
+            {
+                Find.WorldCameraDriver.JumpTo(tile);
+                Find.WorldSelector.selectedTile = tile;
             }
         }
     }
