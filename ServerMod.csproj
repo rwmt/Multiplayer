@@ -52,6 +52,7 @@
   <ItemGroup>
     <Compile Include="AreaHandler.cs" />
     <Compile Include="Extensions.cs" />
+    <Compile Include="LongActions.cs" />
     <Compile Include="ScribeUtil.cs" />
     <Compile Include="Seeds.cs" />
     <Compile Include="Windows.cs" />

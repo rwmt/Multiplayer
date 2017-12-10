@@ -153,6 +153,13 @@ namespace ServerMod
         {
             Text.Font = GameFont.Small;
             string text = Find.TickManager.TicksGame.ToString();
+
+            if (Find.VisibleMap != null)
+            {
+                text += " " + Find.VisibleMap.GetComponent<ServerModMapComp>().normalReservations.AllReservedThings().Count();
+                text += " " + Find.VisibleMap.GetComponent<ServerModMapComp>().tempOwnerReservations.AllReservedThings().Count();
+            }
+
             Rect rect = new Rect(80f, 60f, 330f, Text.CalcHeight(text, 330f));
             Widgets.Label(rect, text);
 
@@ -305,6 +312,7 @@ namespace ServerMod
     [HarmonyPatch(nameof(Pawn_JobTracker.StartJob))]
     public static class JobTrackerPatch
     {
+        public static ReservationManager normalRes;
         public static bool dontHandle;
 
         public static FieldInfo pawnField = typeof(Pawn_JobTracker).GetField("pawn", BindingFlags.Instance | BindingFlags.NonPublic);
@@ -335,11 +343,18 @@ namespace ServerMod
                 Log.Message("job start while idle");
             }
 
+            normalRes = pawn.Map.reservationManager;
+            ServerModMapComp comp = pawn.Map.GetComponent<ServerModMapComp>();
+            pawn.Map.reservationManager = comp.tempOwnerReservations;
+
             __instance.curJob = newJob;
             __instance.curDriver = newJob.MakeDriver(pawn);
             if (!__instance.curDriver.TryMakePreToilReservations())
                 Log.Message("new job pre toil fail");
             newJob.expiryInterval = -2;
+
+            pawn.Map.reservationManager = comp.normalReservations;
+            normalRes = null;
 
             return false;
         }
@@ -347,6 +362,121 @@ namespace ServerMod
         public static bool IsPawnOwner(Pawn pawn)
         {
             return (pawn.Faction != null && pawn.Faction == Faction.OfPlayer) || pawn.Map.IsPlayerHome;
+        }
+    }
+
+    [HarmonyPatch(typeof(Pawn_JobTracker))]
+    [HarmonyPatch("DetermineNextJob")]
+    public static class DetermineJobPatch
+    {
+        static void Prefix(Pawn_JobTracker __instance, ref Map __state)
+        {
+            if (ServerMod.client == null) return;
+            Pawn pawn = (Pawn)JobTrackerPatch.pawnField.GetValue(__instance);
+            if (!JobTrackerPatch.IsPawnOwner(pawn)) return;
+            ReservationManager res = pawn.Map.GetComponent<ServerModMapComp>().tempOwnerReservations;
+            if (pawn.Map.reservationManager == res) return;
+
+            __state = pawn.Map;
+            JobTrackerPatch.normalRes = __state.reservationManager;
+            __state.reservationManager = res;
+        }
+
+        static void Postfix(Pawn_JobTracker __instance, ref Map __state)
+        {
+            if (__state == null) return;
+            __state.reservationManager = __state.GetComponent<ServerModMapComp>().normalReservations;
+            JobTrackerPatch.normalRes = null;
+        }
+    }
+
+    [HarmonyPatch(typeof(Pawn_JobTracker))]
+    [HarmonyPatch("DetermineNextConstantThinkTreeJob")]
+    public static class DetermineConstantJobPatch
+    {
+        static void Prefix(Pawn_JobTracker __instance, ref Map __state)
+        {
+            if (ServerMod.client == null) return;
+            Pawn pawn = (Pawn)JobTrackerPatch.pawnField.GetValue(__instance);
+            if (!JobTrackerPatch.IsPawnOwner(pawn)) return;
+            ReservationManager res = pawn.Map.GetComponent<ServerModMapComp>().tempOwnerReservations;
+            if (pawn.Map.reservationManager == res) return;
+
+            __state = pawn.Map;
+            JobTrackerPatch.normalRes = __state.reservationManager;
+            __state.reservationManager = res;
+        }
+
+        static void Postfix(Pawn_JobTracker __instance, ref Map __state)
+        {
+            if (__state == null) return;
+            __state.reservationManager = __state.GetComponent<ServerModMapComp>().normalReservations;
+            JobTrackerPatch.normalRes = null;
+        }
+    }
+
+    [HarmonyPatch(typeof(ReservationManager))]
+    [HarmonyPatch(nameof(ReservationManager.CanReserve))]
+    public static class ReservationManagerPatch1
+    {
+        static void Postfix(ReservationManager __instance, ref bool __result, Pawn claimant, LocalTargetInfo target, int maxPawns, int stackCount, ReservationLayerDef layer, bool ignoreOtherReservations)
+        {
+            if (JobTrackerPatch.normalRes == null || __instance == JobTrackerPatch.normalRes) return;
+            if (!__result) return;
+
+            __result = JobTrackerPatch.normalRes.CanReserve(claimant, target, maxPawns, stackCount, layer, ignoreOtherReservations);
+        }
+    }
+
+    [HarmonyPatch(typeof(ReservationManager))]
+    [HarmonyPatch(nameof(ReservationManager.FirstReservationFor))]
+    public static class ReservationManagerPatch2
+    {
+        static void Postfix(ReservationManager __instance, ref LocalTargetInfo __result, Pawn claimant)
+        {
+            if (JobTrackerPatch.normalRes == null || __instance == JobTrackerPatch.normalRes) return;
+            if (__result != LocalTargetInfo.Invalid) return;
+
+            __result = JobTrackerPatch.normalRes.FirstReservationFor(claimant);
+        }
+    }
+
+    [HarmonyPatch(typeof(ReservationManager))]
+    [HarmonyPatch(nameof(ReservationManager.IsReservedByAnyoneOf))]
+    public static class ReservationManagerPatch3
+    {
+        static void Postfix(ReservationManager __instance, ref bool __result, LocalTargetInfo target, Faction faction)
+        {
+            if (JobTrackerPatch.normalRes == null || __instance == JobTrackerPatch.normalRes) return;
+            if (__result) return;
+
+            __result = JobTrackerPatch.normalRes.IsReservedByAnyoneOf(target, faction);
+        }
+    }
+
+    [HarmonyPatch(typeof(ReservationManager))]
+    [HarmonyPatch(nameof(ReservationManager.FirstRespectedReserver))]
+    public static class ReservationManagerPatch4
+    {
+        static void Postfix(ReservationManager __instance, ref Pawn __result, LocalTargetInfo target, Pawn claimant)
+        {
+            if (JobTrackerPatch.normalRes == null || __instance == JobTrackerPatch.normalRes) return;
+            if (__result != null) return;
+
+            __result = JobTrackerPatch.normalRes.FirstRespectedReserver(target, claimant);
+        }
+    }
+
+    [HarmonyPatch(typeof(ReservationManager))]
+    [HarmonyPatch(nameof(ReservationManager.ReservedBy))]
+    public static class ReservationManagerPatch5
+    {
+        static void Postfix(ReservationManager __instance, ref bool __result, LocalTargetInfo target, Pawn claimant, Job job)
+        {
+            if (JobTrackerPatch.normalRes == null || __instance == JobTrackerPatch.normalRes) return;
+            if (__result) return;
+
+            __result = JobTrackerPatch.normalRes.ReservedBy(target, claimant, job);
         }
     }
 
@@ -836,6 +966,23 @@ namespace ServerMod
         }
     }
 
+    [HarmonyPatch(typeof(ThingIDMaker))]
+    [HarmonyPatch(nameof(ThingIDMaker.GiveIDTo))]
+    public static class GiveThingId
+    {
+        static void Postfix(Thing t)
+        {
+            if (PawnContext.current != null && PawnContext.current.Map != null)
+            {
+                IdBlock block = PawnContext.current.Map.GetComponent<ServerModMapComp>().encounterIdBlock;
+                if (block != null && !(t is Mote))
+                {
+                    Log.Message(ServerMod.client.username + ": new thing id pawn " + t + " " + PawnContext.current);
+                }
+            }
+        }
+    }
+
     [HarmonyPatch(typeof(UniqueIDsManager))]
     [HarmonyPatch(nameof(UniqueIDsManager.GetNextThingID))]
     public static class GetNextThingIdPatch
@@ -848,7 +995,6 @@ namespace ServerMod
                 if (block != null)
                 {
                     __result = block.NextId();
-                    Log.Message(ServerMod.client.username + ": new thing id pawn " + __result + " " + PawnContext.current);
                 }
             }
         }
@@ -892,7 +1038,11 @@ namespace ServerMod
                 defaultLabel = "Jump to",
                 action = () =>
                 {
-                    Find.WindowStack.Add(new Dialog_JumpTo());
+                    Find.WindowStack.Add(new Dialog_JumpTo(i =>
+                    {
+                        Find.WorldCameraDriver.JumpTo(i);
+                        Find.WorldSelector.selectedTile = i;
+                    }));
                 }
             });
         }
@@ -900,12 +1050,18 @@ namespace ServerMod
 
     public class Dialog_JumpTo : Dialog_Rename
     {
+        private Action<int> action;
+
+        public Dialog_JumpTo(Action<int> action)
+        {
+            this.action = action;
+        }
+
         protected override void SetName(string name)
         {
             if (int.TryParse(name, out int tile))
             {
-                Find.WorldCameraDriver.JumpTo(tile);
-                Find.WorldSelector.selectedTile = tile;
+                action(tile);
             }
         }
     }

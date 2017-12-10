@@ -201,12 +201,12 @@ namespace ServerMod
 
                 BeginReceive();
             }
-            catch (SocketException e)
+            catch (SocketException)
             {
                 connectionClosed();
                 Close();
             }
-            catch (ObjectDisposedException e)
+            catch (ObjectDisposedException)
             {
             }
         }
