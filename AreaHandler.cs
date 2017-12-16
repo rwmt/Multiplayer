@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using Verse;
 
-namespace ServerMod
+namespace Multiplayer
 {
     [HarmonyPatch(typeof(Area))]
     [HarmonyPatch("Set")]
@@ -16,12 +16,12 @@ namespace ServerMod
 
         static bool Prefix(Area __instance, IntVec3 c, bool val)
         {
-            if (ServerMod.client == null || dontHandle) return true;
+            if (Multiplayer.client == null || dontHandle) return true;
 
             int index = __instance.Map.cellIndices.CellToIndex(c);
             if (__instance[index] == val) return false;
 
-            __instance.Map.GetComponent<ServerModMapComp>().AreaChange(__instance.GetUniqueLoadID(), index, val);
+            __instance.Map.GetComponent<MultiplayerMapComp>().AreaChange(__instance.GetUniqueLoadID(), index, val);
 
             return false;
         }
@@ -35,10 +35,10 @@ namespace ServerMod
 
         static bool Prefix(Area __instance)
         {
-            if (ServerMod.client == null || dontHandle) return true;
+            if (Multiplayer.client == null || dontHandle) return true;
 
             byte[] extra = Server.GetBytes(0, __instance.Map.GetUniqueLoadID(), Faction.OfPlayer.GetUniqueLoadID(), __instance.GetUniqueLoadID());
-            ServerMod.client.Send(Packets.CLIENT_ACTION_REQUEST, new object[] { ServerAction.AREA, extra });
+            Multiplayer.client.Send(Packets.CLIENT_ACTION_REQUEST, new object[] { ServerAction.AREA, extra });
 
             return false;
         }
@@ -50,7 +50,7 @@ namespace ServerMod
     {
         static bool Prefix(Area __instance)
         {
-            if (ServerMod.client == null) return true;
+            if (Multiplayer.client == null) return true;
 
             Messages.Message("Action not available in multiplayer.", MessageTypeDefOf.RejectInput);
             return false;
@@ -63,7 +63,7 @@ namespace ServerMod
     {
         static bool Prefix(Area __instance)
         {
-            if (ServerMod.client == null || Current.ProgramState != ProgramState.Playing) return true;
+            if (Multiplayer.client == null || Current.ProgramState != ProgramState.Playing) return true;
 
             Messages.Message("Action not available in multiplayer.", MessageTypeDefOf.RejectInput);
             return false;

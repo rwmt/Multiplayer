@@ -7,7 +7,7 @@ using System.Reflection;
 using System.Text;
 using Verse;
 
-namespace ServerMod
+namespace Multiplayer
 {
     public enum LongActionType
     {
@@ -18,7 +18,7 @@ namespace ServerMod
     {
         public LongActionType type;
 
-        public bool shouldRun = ServerMod.server != null;
+        public bool shouldRun = Multiplayer.server != null;
 
         public virtual string Text => "Waiting";
 
@@ -54,7 +54,7 @@ namespace ServerMod
 
         public override void Run()
         {
-            Connection conn = ServerMod.server.GetByUsername(username);
+            Connection conn = Multiplayer.server.GetByUsername(username);
 
             // catch them up
             conn.Send(Packets.SERVER_ACTION_SCHEDULE, ServerPlayingState.GetServerActionMsg(ServerAction.LONG_ACTION_SCHEDULE, ScribeUtil.WriteSingle(OnMainThread.currentLongAction)));
@@ -63,7 +63,7 @@ namespace ServerMod
             foreach (ScheduledServerAction action in OnMainThread.scheduledActions)
                 conn.Send(Packets.SERVER_ACTION_SCHEDULE, ServerPlayingState.GetServerActionMsg(action.action, action.data));
 
-            ServerModWorldComp factions = Find.World.GetComponent<ServerModWorldComp>();
+            MultiplayerWorldComp factions = Find.World.GetComponent<MultiplayerWorldComp>();
             if (!factions.playerFactions.TryGetValue(username, out Faction faction))
             {
                 faction = FactionGenerator.NewGeneratedFaction(FactionDefOf.PlayerColony);
@@ -73,12 +73,12 @@ namespace ServerMod
                 Find.FactionManager.Add(faction);
                 factions.playerFactions[username] = faction;
 
-                ServerMod.server.SendToAll(Packets.SERVER_NEW_FACTIONS, ScribeUtil.WriteSingle(new FactionData(username, faction)), conn, ServerMod.localServerConnection);
+                Multiplayer.server.SendToAll(Packets.SERVER_NEW_FACTIONS, ScribeUtil.WriteSingle(new FactionData(username, faction)), conn, Multiplayer.localServerConnection);
 
                 Log.Message("New faction: " + faction.Name);
             }
 
-            conn.Send(Packets.SERVER_NEW_ID_BLOCK, ScribeUtil.WriteSingle(ServerMod.NextIdBlock()));
+            conn.Send(Packets.SERVER_NEW_ID_BLOCK, ScribeUtil.WriteSingle(Multiplayer.NextIdBlock()));
 
             ScribeUtil.StartWriting();
 
@@ -94,7 +94,7 @@ namespace ServerMod
             Scribe_Collections.Look(ref maps, "maps", LookMode.Deep);
             Scribe.ExitNode();
 
-            ServerMod.savedWorld = ScribeUtil.FinishWriting();
+            Multiplayer.savedWorld = ScribeUtil.FinishWriting();
 
             (conn.GetState() as ServerWorldState).SendData();
         }
@@ -147,8 +147,8 @@ namespace ServerMod
 
         public override void Run()
         {
-            Connection conn = ServerMod.server.GetByUsername(defender);
-            IdBlock block = ServerMod.NextIdBlock();
+            Connection conn = Multiplayer.server.GetByUsername(defender);
+            IdBlock block = Multiplayer.NextIdBlock();
             block.mapTile = tile;
 
             conn.Send(Packets.SERVER_NEW_ID_BLOCK, ScribeUtil.WriteSingle(block));

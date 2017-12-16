@@ -9,7 +9,7 @@ using UnityEngine;
 using Verse;
 using Verse.Profile;
 
-namespace ServerMod
+namespace Multiplayer
 {
     public class CustomSelectLandingSite : Page_SelectLandingSite
     {
@@ -21,7 +21,7 @@ namespace ServerMod
 
         protected override void DoBack()
         {
-            ServerMod.client.Close();
+            Multiplayer.client.Close();
 
             LongEventHandler.QueueLongEvent(() =>
             {
@@ -54,12 +54,12 @@ namespace ServerMod
 
             if (Widgets.ButtonText(new Rect((inRect.width - 100f) / 2f, inRect.height - 35f, 100f, 35f), "Connect"))
             {
-                int port = ServerMod.DEFAULT_PORT;
+                int port = Multiplayer.DEFAULT_PORT;
                 string[] ipport = ip.Split(':');
                 if (ipport.Length == 2)
                     int.TryParse(ipport[1], out port);
                 else
-                    port = ServerMod.DEFAULT_PORT;
+                    port = Multiplayer.DEFAULT_PORT;
 
                 if (!IPAddress.TryParse(ipport[0], out IPAddress address))
                 {
@@ -101,15 +101,15 @@ namespace ServerMod
                 {
                     lock (textlock)
                         text = "Error: Connection failed.";
-                    ServerMod.client = null;
+                    Multiplayer.client = null;
                     return;
                 }
 
                 lock (textlock)
                     text = "Connected to server.";
 
-                ServerMod.client = conn;
-                conn.username = ServerMod.username;
+                Multiplayer.client = conn;
+                conn.username = Multiplayer.username;
                 conn.SetState(new ClientWorldState(conn));
             });
         }
@@ -123,12 +123,12 @@ namespace ServerMod
             Rect rect2 = new Rect(inRect.width / 2f - this.CloseButSize.x / 2f, inRect.height - 55f, this.CloseButSize.x, this.CloseButSize.y);
             if (Widgets.ButtonText(rect2, "Cancel", true, false, true))
             {
-                ServerMod.client?.Close();
-                ServerMod.client = null;
+                Multiplayer.client?.Close();
+                Multiplayer.client = null;
                 Close();
             }
 
-            if (ServerMod.savedWorld != null)
+            if (Multiplayer.savedWorld != null)
                 Close(false);
         }
     }
@@ -153,13 +153,13 @@ namespace ServerMod
             {
                 try
                 {
-                    ServerMod.server = new Server(local, ServerMod.DEFAULT_PORT, (conn) =>
+                    Multiplayer.server = new Server(local, Multiplayer.DEFAULT_PORT, (conn) =>
                     {
                         conn.SetState(new ServerWorldState(conn));
                     });
 
-                    LocalServerConnection localServer = new LocalServerConnection() { username = ServerMod.username };
-                    LocalClientConnection localClient = new LocalClientConnection() { username = ServerMod.username };
+                    LocalServerConnection localServer = new LocalServerConnection() { username = Multiplayer.username };
+                    LocalClientConnection localClient = new LocalClientConnection() { username = Multiplayer.username };
 
                     localServer.client = localClient;
                     localClient.server = localServer;
@@ -167,18 +167,18 @@ namespace ServerMod
                     localClient.SetState(new ClientPlayingState(localClient));
                     localServer.SetState(new ServerPlayingState(localServer));
 
-                    ServerMod.server.GetConnections().Add(localServer);
-                    ServerMod.client = localClient;
-                    ServerMod.localServerConnection = localServer;
+                    Multiplayer.server.GetConnections().Add(localServer);
+                    Multiplayer.client = localClient;
+                    Multiplayer.localServerConnection = localServer;
 
-                    if (ServerMod.highestUniqueId == -1)
-                        ServerMod.highestUniqueId = Find.UniqueIDsManager.GetNextThingID();
+                    if (Multiplayer.highestUniqueId == -1)
+                        Multiplayer.highestUniqueId = Find.UniqueIDsManager.GetNextThingID();
 
-                    ServerMod.mainBlock = ServerMod.NextIdBlock();
-                    Faction.OfPlayer.Name = ServerMod.username + "'s faction";
-                    Find.World.GetComponent<ServerModWorldComp>().playerFactions[ServerMod.username] = Faction.OfPlayer;
+                    Multiplayer.mainBlock = Multiplayer.NextIdBlock();
+                    Faction.OfPlayer.Name = Multiplayer.username + "'s faction";
+                    Find.World.GetComponent<MultiplayerWorldComp>().playerFactions[Multiplayer.username] = Faction.OfPlayer;
 
-                    Messages.Message("Server started. Listening at " + local.ToString() + ":" + ServerMod.DEFAULT_PORT, MessageTypeDefOf.SilentInput);
+                    Messages.Message("Server started. Listening at " + local.ToString() + ":" + Multiplayer.DEFAULT_PORT, MessageTypeDefOf.SilentInput);
                 }
                 catch (SocketException)
                 {
@@ -212,8 +212,8 @@ namespace ServerMod
             Rect rect = new Rect(0, 0, inRect.width, inRect.height - CloseButSize.y);
 
             IEnumerable<string> players;
-            lock (ServerMod.server.GetConnections())
-                players = ServerMod.server.GetConnections().Select(conn => conn.ToString());
+            lock (Multiplayer.server.GetConnections())
+                players = Multiplayer.server.GetConnections().Select(conn => conn.ToString());
 
             Widgets.LabelScrollable(rect, String.Format("Connected players ({0}):\n{1}", players.Count(), String.Join("\n", players.ToArray())), ref scrollPos);
         }

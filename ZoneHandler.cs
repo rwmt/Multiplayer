@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using Verse;
 
-namespace ServerMod
+namespace Multiplayer
 {
     [HarmonyPatch(typeof(ZoneManager))]
     [HarmonyPatch(nameof(ZoneManager.RegisterZone))]
@@ -16,9 +16,9 @@ namespace ServerMod
 
         static bool Prefix(Zone newZone)
         {
-            if (ServerMod.client == null || dontHandle) return true;
+            if (Multiplayer.client == null || dontHandle) return true;
 
-            newZone.Map.GetComponent<ServerModMapComp>().zonesAdded.Add(newZone);
+            newZone.Map.GetComponent<MultiplayerMapComp>().zonesAdded.Add(newZone);
 
             return false;
         }
@@ -30,9 +30,9 @@ namespace ServerMod
     {
         static bool Prefix(Zone oldZone)
         {
-            if (ServerMod.client == null || ZoneRegisterPatch.dontHandle) return true;
+            if (Multiplayer.client == null || ZoneRegisterPatch.dontHandle) return true;
 
-            oldZone.Map.GetComponent<ServerModMapComp>().zonesRemoved.Add(oldZone.label);
+            oldZone.Map.GetComponent<MultiplayerMapComp>().zonesRemoved.Add(oldZone.label);
 
             return false;
         }
@@ -44,9 +44,9 @@ namespace ServerMod
     {
         static void Postfix(ZoneManager __instance, IntVec3 c, ref Zone __result)
         {
-            if (ServerMod.client == null || !DesignateZoneAddPatch.running) return;
+            if (Multiplayer.client == null || !DesignateZoneAddPatch.running) return;
 
-            if (__instance.map.GetComponent<ServerModMapComp>().zoneChangesThisTick.TryGetValue(__instance.map.cellIndices.CellToIndex(c), out Zone zone))
+            if (__instance.map.GetComponent<MultiplayerMapComp>().zoneChangesThisTick.TryGetValue(__instance.map.cellIndices.CellToIndex(c), out Zone zone))
                 __result = zone;
         }
     }
@@ -57,7 +57,7 @@ namespace ServerMod
     {
         static bool Prefix(Zone __instance)
         {
-            if (ServerMod.client == null) return true;
+            if (Multiplayer.client == null) return true;
 
             if (__instance.cells.Count == 0)
             {
@@ -81,10 +81,10 @@ namespace ServerMod
     {
         static bool Prefix(Zone __instance, IntVec3 c)
         {
-            if (ServerMod.client == null || ZoneRegisterPatch.dontHandle) return true;
+            if (Multiplayer.client == null || ZoneRegisterPatch.dontHandle) return true;
 
             Map map = __instance.Map;
-            map.GetComponent<ServerModMapComp>().zoneChangesThisTick[map.cellIndices.CellToIndex(c)] = __instance;
+            map.GetComponent<MultiplayerMapComp>().zoneChangesThisTick[map.cellIndices.CellToIndex(c)] = __instance;
 
             return false;
         }
@@ -96,10 +96,10 @@ namespace ServerMod
     {
         static bool Prefix(Zone __instance, IntVec3 c)
         {
-            if (ServerMod.client == null || ZoneRegisterPatch.dontHandle) return true;
+            if (Multiplayer.client == null || ZoneRegisterPatch.dontHandle) return true;
 
             Map map = __instance.Map;
-            map.GetComponent<ServerModMapComp>().zoneChangesThisTick[map.cellIndices.CellToIndex(c)] = null;
+            map.GetComponent<MultiplayerMapComp>().zoneChangesThisTick[map.cellIndices.CellToIndex(c)] = null;
 
             return false;
         }
@@ -128,7 +128,7 @@ namespace ServerMod
     {
         static bool Prefix(SlotGroup newGroup)
         {
-            if (ServerMod.client == null || Current.ProgramState != ProgramState.Playing) return true;
+            if (Multiplayer.client == null || Current.ProgramState != ProgramState.Playing) return true;
             if (newGroup.parent is Zone && !ZoneRegisterPatch.dontHandle) return false;
             return true;
         }
@@ -140,7 +140,7 @@ namespace ServerMod
     {
         static bool Prefix(SlotGroup __instance)
         {
-            if (ServerMod.client == null) return true;
+            if (Multiplayer.client == null) return true;
             if (__instance.parent is Zone && !ZoneRegisterPatch.dontHandle) return false;
             return true;
         }
@@ -152,7 +152,7 @@ namespace ServerMod
     {
         static bool Prefix(SlotGroup __instance)
         {
-            if (ServerMod.client == null) return true;
+            if (Multiplayer.client == null) return true;
             if (__instance.parent is Zone && !ZoneRegisterPatch.dontHandle) return false;
             return true;
         }
@@ -164,7 +164,7 @@ namespace ServerMod
     {
         static bool Prefix(SlotGroup __instance)
         {
-            if (ServerMod.client == null) return true;
+            if (Multiplayer.client == null) return true;
             if (__instance.parent is Zone && !ZoneRegisterPatch.dontHandle) return false;
             return true;
         }

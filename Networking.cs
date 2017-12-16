@@ -8,7 +8,7 @@ using System.Text;
 using System.Threading;
 using Verse;
 
-namespace ServerMod
+namespace Multiplayer
 {
     public class Server
     {

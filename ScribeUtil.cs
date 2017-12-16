@@ -9,7 +9,7 @@ using System.Text;
 using System.Xml;
 using Verse;
 
-namespace ServerMod
+namespace Multiplayer
 {
     public class CrossRefSupply : LoadedObjectDirectory
     {

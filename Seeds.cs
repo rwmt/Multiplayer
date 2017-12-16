@@ -8,7 +8,7 @@ using System.Text;
 using Verse;
 using Verse.AI;
 
-namespace ServerMod
+namespace Multiplayer
 {
     class Seeds
     {
@@ -18,7 +18,7 @@ namespace ServerMod
         {
             static void Prefix(Thing __instance)
             {
-                if (ServerMod.client == null) return;
+                if (Multiplayer.client == null) return;
                 Rand.Seed = __instance.thingIDNumber.Combine(Find.TickManager.TicksGame).Combine(Find.World.info.Seed);
             }
         }
@@ -29,7 +29,7 @@ namespace ServerMod
         {
             static void Prefix(Pawn __instance)
             {
-                if (ServerMod.client == null) return;
+                if (Multiplayer.client == null) return;
                 Rand.Seed = __instance.thingIDNumber.Combine(Find.TickManager.TicksGame).Combine(Find.World.info.Seed).Combine(3167);
             }
         }
@@ -40,7 +40,7 @@ namespace ServerMod
         {
             static void Prefix(WorldObject __instance)
             {
-                if (ServerMod.client == null) return;
+                if (Multiplayer.client == null) return;
                 Rand.Seed = __instance.ID.Combine(Find.TickManager.TicksGame).Combine(Find.World.info.Seed);
             }
         }
@@ -51,7 +51,7 @@ namespace ServerMod
         {
             static void Prefix(JobDriver __instance)
             {
-                if (ServerMod.client == null) return;
+                if (Multiplayer.client == null) return;
                 Rand.Seed = __instance.job.loadID.Combine(Find.TickManager.TicksGame).Combine(Find.World.info.Seed);
             }
         }
@@ -62,7 +62,7 @@ namespace ServerMod
         {
             static void Prefix(JobDriver __instance)
             {
-                if (ServerMod.client == null) return;
+                if (Multiplayer.client == null) return;
                 Rand.Seed = __instance.job.loadID.Combine(Find.TickManager.TicksGame).Combine(Find.World.info.Seed).Combine(2361);
             }
         }
@@ -75,7 +75,7 @@ namespace ServerMod
 
             static void Prefix(Pawn_JobTracker __instance)
             {
-                if (ServerMod.client == null) return;
+                if (Multiplayer.client == null) return;
                 Pawn pawn = (Pawn)pawnField.GetValue(__instance);
                 Rand.Seed = pawn.thingIDNumber.Combine(Find.TickManager.TicksGame).Combine(Find.World.info.Seed).Combine(48358);
             }
@@ -87,7 +87,7 @@ namespace ServerMod
         {
             static void Prefix(Pawn_JobTracker __instance)
             {
-                if (ServerMod.client == null) return;
+                if (Multiplayer.client == null) return;
                 Pawn pawn = (Pawn)SeedNextJob.pawnField.GetValue(__instance);
                 Rand.Seed = pawn.thingIDNumber.Combine(Find.TickManager.TicksGame).Combine(Find.World.info.Seed).Combine(57362);
             }

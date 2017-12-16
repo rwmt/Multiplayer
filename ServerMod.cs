@@ -15,10 +15,10 @@ using Verse;
 using Verse.AI;
 using Verse.Profile;
 
-namespace ServerMod
+namespace Multiplayer
 {
     [StaticConstructorOnStartup]
-    public class ServerMod
+    public class Multiplayer
     {
         public const int DEFAULT_PORT = 30502;
 
@@ -36,7 +36,7 @@ namespace ServerMod
 
         public static int highestUniqueId = -1;
 
-        static ServerMod()
+        static Multiplayer()
         {
             GenCommandLine.TryGetCommandLineArg("username", out username);
             if (username == null)
@@ -50,7 +50,7 @@ namespace ServerMod
             gameobject.AddComponent<OnMainThread>();
             UnityEngine.Object.DontDestroyOnLoad(gameobject);
 
-            var harmony = HarmonyInstance.Create("servermod");
+            var harmony = HarmonyInstance.Create("multiplayer");
             harmony.PatchAll(Assembly.GetExecutingAssembly());
 
             if (GenCommandLine.CommandLineArgPassed("dev"))
@@ -68,16 +68,16 @@ namespace ServerMod
                 LongEventHandler.QueueLongEvent(() =>
                 {
                     IPAddress.TryParse(ip, out IPAddress addr);
-                    Client.TryConnect(addr, ServerMod.DEFAULT_PORT, (conn, e) =>
+                    Client.TryConnect(addr, Multiplayer.DEFAULT_PORT, (conn, e) =>
                     {
                         if (e != null)
                         {
-                            ServerMod.client = null;
+                            Multiplayer.client = null;
                             return;
                         }
 
-                        ServerMod.client = conn;
-                        conn.username = ServerMod.username;
+                        Multiplayer.client = conn;
+                        conn.username = Multiplayer.username;
                         conn.SetState(new ClientWorldState(conn));
                     });
                 }, "Connecting", false, null);
@@ -120,7 +120,7 @@ namespace ServerMod
             current++;
             if (current > blockStart + blockSize * 0.8)
             {
-                ServerMod.client.Send(Packets.CLIENT_ID_BLOCK_REQUEST, new object[] { mapTile });
+                Multiplayer.client.Send(Packets.CLIENT_ID_BLOCK_REQUEST, new object[] { mapTile });
                 Log.Message("Sent id block request at " + current);
             }
 
@@ -134,9 +134,9 @@ namespace ServerMod
         }
     }
 
-    public class ServerModInstance : Mod
+    public class MultiplayerModInstance : Mod
     {
-        public ServerModInstance(ModContentPack pack) : base(pack)
+        public MultiplayerModInstance(ModContentPack pack) : base(pack)
         {
         }
 
@@ -240,7 +240,7 @@ namespace ServerMod
                 OnMainThread.Enqueue(() =>
                 {
                     byte[] extra = ScribeUtil.WriteSingle(new LongActionPlayerJoin() { username = Connection.username });
-                    ServerMod.server.SendToAll(Packets.SERVER_ACTION_SCHEDULE, ServerPlayingState.GetServerActionMsg(ServerAction.LONG_ACTION_SCHEDULE, extra), Connection);
+                    Multiplayer.server.SendToAll(Packets.SERVER_ACTION_SCHEDULE, ServerPlayingState.GetServerActionMsg(ServerAction.LONG_ACTION_SCHEDULE, extra), Connection);
                 });
             }
             else if (id == Packets.CLIENT_WORLD_LOADED)
@@ -249,10 +249,10 @@ namespace ServerMod
 
                 OnMainThread.Enqueue(() =>
                 {
-                    ServerMod.savedWorld = null;
+                    Multiplayer.savedWorld = null;
 
                     byte[] extra = ScribeUtil.WriteSingle(OnMainThread.currentLongAction);
-                    ServerMod.server.SendToAll(Packets.SERVER_ACTION_SCHEDULE, ServerPlayingState.GetServerActionMsg(ServerAction.LONG_ACTION_END, extra));
+                    Multiplayer.server.SendToAll(Packets.SERVER_ACTION_SCHEDULE, ServerPlayingState.GetServerActionMsg(ServerAction.LONG_ACTION_END, extra));
 
                     Log.Message("world sending finished");
                 });
@@ -278,7 +278,7 @@ namespace ServerMod
                 }
             }
 
-            Connection.Send(Packets.SERVER_WORLD_DATA, new object[] { ServerMod.savedWorld, mapsData });
+            Connection.Send(Packets.SERVER_WORLD_DATA, new object[] { Multiplayer.savedWorld, mapsData });
         }
 
         public override void Disconnect()
@@ -302,14 +302,14 @@ namespace ServerMod
                     int ticks = Find.TickManager.TicksGame + 15;
                     byte[] extra = data.ReadPrefixedBytes();
 
-                    ServerMod.server.SendToAll(Packets.SERVER_ACTION_SCHEDULE, GetServerActionMsg(action, extra));
+                    Multiplayer.server.SendToAll(Packets.SERVER_ACTION_SCHEDULE, GetServerActionMsg(action, extra));
 
                     Log.Message("server got request from client at " + Find.TickManager.TicksGame + " for " + action + " " + ticks);
                 });
             }
             else if (id == Packets.CLIENT_NEW_WORLD_OBJ)
             {
-                ServerMod.server.SendToAll(Packets.SERVER_NEW_WORLD_OBJ, data.GetBytes(), Connection);
+                Multiplayer.server.SendToAll(Packets.SERVER_NEW_WORLD_OBJ, data.GetBytes(), Connection);
             }
             else if (id == Packets.CLIENT_QUIT_MAPS)
             {
@@ -342,9 +342,9 @@ namespace ServerMod
                     Settlement settlement = Find.WorldObjects.SettlementAt(tile);
                     if (settlement == null) return;
                     Faction faction = settlement.Faction;
-                    string defender = Find.World.GetComponent<ServerModWorldComp>().GetUsername(faction);
+                    string defender = Find.World.GetComponent<MultiplayerWorldComp>().GetUsername(faction);
                     if (defender == null) return;
-                    Connection conn = ServerMod.server.GetByUsername(defender);
+                    Connection conn = Multiplayer.server.GetByUsername(defender);
                     if (conn == null)
                     {
                         Connection.Send(Packets.SERVER_NOTIFICATION, new object[] { "The player is offline." });
@@ -363,8 +363,8 @@ namespace ServerMod
                 {
                     LongActionEncounter encounter = ((LongActionEncounter)OnMainThread.currentLongAction);
 
-                    Connection attacker = ServerMod.server.GetByUsername(encounter.attacker);
-                    Connection defender = ServerMod.server.GetByUsername(encounter.defender);
+                    Connection attacker = Multiplayer.server.GetByUsername(encounter.attacker);
+                    Connection defender = Multiplayer.server.GetByUsername(encounter.defender);
 
                     defender.Send(Packets.SERVER_MAP_RESPONSE, data.GetBytes());
                     attacker.Send(Packets.SERVER_MAP_RESPONSE, data.GetBytes());
@@ -382,7 +382,7 @@ namespace ServerMod
                     if (encounter.waitingFor.Remove(Connection.username) && encounter.waitingFor.Count == 0)
                     {
                         byte[] extra = ScribeUtil.WriteSingle(OnMainThread.currentLongAction);
-                        ServerMod.server.SendToAll(Packets.SERVER_ACTION_SCHEDULE, GetServerActionMsg(ServerAction.LONG_ACTION_END, extra));
+                        Multiplayer.server.SendToAll(Packets.SERVER_ACTION_SCHEDULE, GetServerActionMsg(ServerAction.LONG_ACTION_END, extra));
                     }
                 });
             }
@@ -394,7 +394,7 @@ namespace ServerMod
 
                     if (tile == -1)
                     {
-                        IdBlock nextBlock = ServerMod.NextIdBlock();
+                        IdBlock nextBlock = Multiplayer.NextIdBlock();
                         Connection.Send(Packets.SERVER_NEW_ID_BLOCK, ScribeUtil.WriteSingle(nextBlock));
                     }
                     else
@@ -402,13 +402,13 @@ namespace ServerMod
                         Encounter encounter = Encounter.GetByTile(tile);
                         if (Connection.username != encounter.defender) return;
 
-                        IdBlock nextBlock = ServerMod.NextIdBlock();
+                        IdBlock nextBlock = Multiplayer.NextIdBlock();
                         nextBlock.mapTile = tile;
 
                         foreach (string player in encounter.GetPlayers())
                         {
                             byte[] extra = ScribeUtil.WriteSingle(nextBlock);
-                            ServerMod.server.GetByUsername(player).Send(Packets.SERVER_ACTION_SCHEDULE, GetServerActionMsg(ServerAction.MAP_ID_BLOCK, extra));
+                            Multiplayer.server.GetByUsername(player).Send(Packets.SERVER_ACTION_SCHEDULE, GetServerActionMsg(ServerAction.MAP_ID_BLOCK, extra));
                         }
                     }
                 });
@@ -421,7 +421,7 @@ namespace ServerMod
 
         public static string GetPlayerMapsPath(string username)
         {
-            string worldfolder = Path.Combine(Path.Combine(GenFilePaths.SaveDataFolderPath, "MpSaves"), Find.World.GetComponent<ServerModWorldComp>().worldId);
+            string worldfolder = Path.Combine(Path.Combine(GenFilePaths.SaveDataFolderPath, "MpSaves"), Find.World.GetComponent<MultiplayerWorldComp>().worldId);
             DirectoryInfo directoryInfo = new DirectoryInfo(worldfolder);
             if (!directoryInfo.Exists)
                 directoryInfo.Create();
@@ -438,7 +438,7 @@ namespace ServerMod
     {
         public ClientWorldState(Connection connection) : base(connection)
         {
-            connection.Send(Packets.CLIENT_USERNAME, new object[] { ServerMod.username });
+            connection.Send(Packets.CLIENT_USERNAME, new object[] { Multiplayer.username });
             connection.Send(Packets.CLIENT_REQUEST_WORLD);
         }
 
@@ -452,10 +452,10 @@ namespace ServerMod
             {
                 OnMainThread.Enqueue(() =>
                 {
-                    ServerMod.savedWorld = data.ReadPrefixedBytes();
-                    ServerMod.mapsData = data.ReadPrefixedBytes();
+                    Multiplayer.savedWorld = data.ReadPrefixedBytes();
+                    Multiplayer.mapsData = data.ReadPrefixedBytes();
 
-                    Log.Message("World size: " + ServerMod.savedWorld.Length + ", Maps size: " + ServerMod.mapsData.Length);
+                    Log.Message("World size: " + Multiplayer.savedWorld.Length + ", Maps size: " + Multiplayer.mapsData.Length);
 
                     LongEventHandler.QueueLongEvent(() =>
                     {
@@ -470,7 +470,7 @@ namespace ServerMod
             {
                 OnMainThread.Enqueue(() =>
                 {
-                    ServerMod.mainBlock = ScribeUtil.ReadSingle<IdBlock>(data.GetBytes());
+                    Multiplayer.mainBlock = ScribeUtil.ReadSingle<IdBlock>(data.GetBytes());
                 });
             }
         }
@@ -499,7 +499,7 @@ namespace ServerMod
                     FactionData newFaction = ScribeUtil.ReadSingle<FactionData>(data.GetBytes());
 
                     Find.FactionManager.Add(newFaction.faction);
-                    Find.World.GetComponent<ServerModWorldComp>().playerFactions[newFaction.owner] = newFaction.faction;
+                    Find.World.GetComponent<MultiplayerWorldComp>().playerFactions[newFaction.owner] = newFaction.faction;
                 });
             }
             else if (id == Packets.SERVER_NEW_WORLD_OBJ)
@@ -516,17 +516,17 @@ namespace ServerMod
                     int tile = data.ReadInt();
                     Settlement settlement = Find.WorldObjects.SettlementAt(tile);
 
-                    ServerMod.savingForEncounter = true;
+                    Multiplayer.savingForEncounter = true;
                     ScribeUtil.StartWriting();
                     Scribe.EnterNode("data");
                     Map map = settlement.Map;
                     Scribe_Deep.Look(ref map, "map");
                     byte[] mapData = ScribeUtil.FinishWriting();
-                    ServerMod.savingForEncounter = false;
+                    Multiplayer.savingForEncounter = false;
 
                     Current.Game.DeinitAndRemoveMap(map);
 
-                    ServerMod.client.Send(Packets.CLIENT_MAP_RESPONSE, mapData);
+                    Multiplayer.client.Send(Packets.CLIENT_MAP_RESPONSE, mapData);
                 });
             }
             else if (id == Packets.SERVER_MAP_RESPONSE)
@@ -550,8 +550,8 @@ namespace ServerMod
                     map.FinalizeLoading();
 
                     Faction ownerFaction = map.info.parent.Faction;
-                    ServerModWorldComp worldComp = Find.World.GetComponent<ServerModWorldComp>();
-                    ServerModMapComp mapComp = map.GetComponent<ServerModMapComp>();
+                    MultiplayerWorldComp worldComp = Find.World.GetComponent<MultiplayerWorldComp>();
+                    MultiplayerMapComp mapComp = map.GetComponent<MultiplayerMapComp>();
 
                     string ownerFactionId = ownerFaction.GetUniqueLoadID();
                     string playerFactionId = Faction.OfPlayer.GetUniqueLoadID();
@@ -590,7 +590,7 @@ namespace ServerMod
 
                             t.SetForbidden(true, false);
 
-                            thing.GetComp<ServerModThingComp>().factionForbidden[ownerFactionId] = ownerValue;
+                            thing.GetComp<MultiplayerThingComp>().factionForbidden[ownerFactionId] = ownerValue;
                         }
                     }
 
@@ -598,7 +598,7 @@ namespace ServerMod
 
                     Current.Game.VisibleMap = map;
 
-                    ServerMod.client.Send(Packets.CLIENT_MAP_LOADED);
+                    Multiplayer.client.Send(Packets.CLIENT_MAP_LOADED);
                 });
             }
             else if (id == Packets.SERVER_NEW_ID_BLOCK)
@@ -607,9 +607,9 @@ namespace ServerMod
                 {
                     IdBlock block = ScribeUtil.ReadSingle<IdBlock>(data.GetBytes());
                     if (block.mapTile != -1)
-                        Find.WorldObjects.MapParentAt(block.mapTile).Map.GetComponent<ServerModMapComp>().encounterIdBlock = block;
+                        Find.WorldObjects.MapParentAt(block.mapTile).Map.GetComponent<MultiplayerMapComp>().encounterIdBlock = block;
                     else
-                        ServerMod.mainBlock = block;
+                        Multiplayer.mainBlock = block;
                 });
             }
         }
@@ -638,7 +638,7 @@ namespace ServerMod
         public static void SyncClientWorldObj(WorldObject obj)
         {
             byte[] data = ScribeUtil.WriteSingle(obj);
-            ServerMod.client.Send(Packets.CLIENT_NEW_WORLD_OBJ, data);
+            Multiplayer.client.Send(Packets.CLIENT_NEW_WORLD_OBJ, data);
         }
     }
 
@@ -654,7 +654,7 @@ namespace ServerMod
 
         public void Update()
         {
-            if (ServerMod.client == null) return;
+            if (Multiplayer.client == null) return;
 
             lock (queue)
                 while (queue.Count > 0)
@@ -674,7 +674,7 @@ namespace ServerMod
 
                 foreach (Map map in Find.Maps)
                 {
-                    ServerModMapComp comp = map.GetComponent<ServerModMapComp>();
+                    MultiplayerMapComp comp = map.GetComponent<MultiplayerMapComp>();
 
                     foreach (KeyValuePair<string, HashSet<int>[]> pair in comp.areaChangesThisTick)
                     {
@@ -684,7 +684,7 @@ namespace ServerMod
                         int[] cells_on = pair.Value[1].ToArray();
 
                         byte[] extra = Server.GetBytes(1, map.GetUniqueLoadID(), Faction.OfPlayer.GetUniqueLoadID(), pair.Key, cells_off, cells_on);
-                        ServerMod.client.Send(Packets.CLIENT_ACTION_REQUEST, new object[] { ServerAction.AREA, extra });
+                        Multiplayer.client.Send(Packets.CLIENT_ACTION_REQUEST, new object[] { ServerAction.AREA, extra });
 
                         pair.Value[0].Clear();
                         pair.Value[1].Clear();
@@ -705,7 +705,7 @@ namespace ServerMod
                         string[] removed = comp.zonesRemoved.ToArray();
 
                         byte[] extra = Server.GetBytes(map.GetUniqueLoadID(), Faction.OfPlayer.GetUniqueLoadID(), cells, zoneLabels, added, removed);
-                        ServerMod.client.Send(Packets.CLIENT_ACTION_REQUEST, new object[] { ServerAction.ZONE, extra });
+                        Multiplayer.client.Send(Packets.CLIENT_ACTION_REQUEST, new object[] { ServerAction.ZONE, extra });
 
                         comp.zoneChangesThisTick.Clear();
                         comp.zonesAdded.Clear();
@@ -802,7 +802,7 @@ namespace ServerMod
                 IdBlock block = ScribeUtil.ReadSingle<IdBlock>(actionReq.data);
                 Map map = Find.WorldObjects.MapParentAt(block.mapTile)?.Map;
                 if (map != null)
-                    map.GetComponent<ServerModMapComp>().encounterIdBlock = block;
+                    map.GetComponent<MultiplayerMapComp>().encounterIdBlock = block;
             }
 
             if (action == ServerAction.AREA)
@@ -1003,7 +1003,7 @@ namespace ServerMod
 
                 if (!JobTrackerPatch.IsPawnOwner(pawn) || (pawn.jobs.curJob != null && pawn.jobs.curJob.expiryInterval == -2))
                 {
-                    ServerModThingComp comp = pawn.GetComp<ServerModThingComp>();
+                    MultiplayerThingComp comp = pawn.GetComp<MultiplayerThingComp>();
                     JobDriver actualDriver = comp.actualJobDriver;
                     if (actualDriver != null)
                     {
@@ -1027,7 +1027,7 @@ namespace ServerMod
                     pawn.jobs.StartJob(job, JobCondition.InterruptForced);
                     FactionContext.Reset(pawn.Map);
 
-                    Log.Message(ServerMod.username + " executed job " + job + " for " + pawn);
+                    Log.Message(Multiplayer.username + " executed job " + job + " for " + pawn);
                 }
                 else
                 {
@@ -1133,7 +1133,7 @@ namespace ServerMod
         }
     }
 
-    public class ServerModWorldComp : WorldComponent
+    public class MultiplayerWorldComp : WorldComponent
     {
         public string worldId = Guid.NewGuid().ToString();
         public Dictionary<string, Faction> playerFactions = new Dictionary<string, Faction>();
@@ -1141,7 +1141,7 @@ namespace ServerMod
         private List<string> keyWorkingList;
         private List<Faction> valueWorkingList;
 
-        public ServerModWorldComp(World world) : base(world)
+        public MultiplayerWorldComp(World world) : base(world)
         {
         }
 
@@ -1149,7 +1149,7 @@ namespace ServerMod
         {
             Scribe_Values.Look(ref worldId, "worldId");
             ScribeUtil.Look(ref playerFactions, "playerFactions", LookMode.Value, LookMode.Reference, ref keyWorkingList, ref valueWorkingList);
-            Scribe_Values.Look(ref ServerMod.highestUniqueId, "highestUniqueId");
+            Scribe_Values.Look(ref Multiplayer.highestUniqueId, "highestUniqueId");
         }
 
         public string GetUsername(Faction faction)
@@ -1158,7 +1158,7 @@ namespace ServerMod
         }
     }
 
-    public class ServerModMapComp : MapComponent
+    public class MultiplayerMapComp : MapComponent
     {
         public bool inEncounter;
         public IdBlock encounterIdBlock;
@@ -1180,7 +1180,7 @@ namespace ServerMod
 
         public static bool tickingFactions;
 
-        public ServerModMapComp(Map map) : base(map)
+        public MultiplayerMapComp(Map map) : base(map)
         {
         }
 
@@ -1210,7 +1210,7 @@ namespace ServerMod
 
         public override void MapComponentTick()
         {
-            if (ServerMod.client == null) return;
+            if (Multiplayer.client == null) return;
 
             tickingFactions = true;
 
@@ -1261,7 +1261,7 @@ namespace ServerMod
         {
             if (map == null) return;
 
-            ServerModMapComp comp = map.GetComponent<ServerModMapComp>();
+            MultiplayerMapComp comp = map.GetComponent<MultiplayerMapComp>();
 
             if (!comp.factionAreas.ContainsKey(factionId)) return;
 
@@ -1282,7 +1282,7 @@ namespace ServerMod
         }
     }
 
-    public class ServerModThingComp : ThingComp
+    public class MultiplayerThingComp : ThingComp
     {
         public Job actualJob;
         public JobDriver actualJobDriver;
@@ -1294,7 +1294,7 @@ namespace ServerMod
 
         public override string CompInspectStringExtra()
         {
-            ServerModMapComp comp = parent.Map.GetComponent<ServerModMapComp>();
+            MultiplayerMapComp comp = parent.Map.GetComponent<MultiplayerMapComp>();
 
             string forbidden = "";
             foreach (KeyValuePair<string, bool> p in factionForbidden)
