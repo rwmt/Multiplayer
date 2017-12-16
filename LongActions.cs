@@ -130,6 +130,8 @@ namespace ServerMod
         [ExposeValue]
         public int tile;
 
+        public HashSet<string> waitingFor = new HashSet<string>();
+
         public override string Text
         {
             get

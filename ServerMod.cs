@@ -208,7 +208,7 @@ namespace ServerMod
 
     public enum ServerAction
     {
-        PAUSE, UNPAUSE, MAP_ID_BLOCK, PAWN_JOB, SPAWN_THING, DRAFT,
+        PAUSE, UNPAUSE, MAP_ID_BLOCK, PAWN_JOB, SPAWN_THING, DRAFT, FORBID,
         AREA, DESIGNATION, ZONE,
         LONG_ACTION_SCHEDULE, LONG_ACTION_END
     }
@@ -361,16 +361,29 @@ namespace ServerMod
             {
                 OnMainThread.Enqueue(() =>
                 {
-                    Connection conn = ServerMod.server.GetByUsername(((LongActionEncounter)OnMainThread.currentLongAction).attacker);
-                    conn.Send(Packets.SERVER_MAP_RESPONSE, data.GetBytes());
+                    LongActionEncounter encounter = ((LongActionEncounter)OnMainThread.currentLongAction);
+
+                    Connection attacker = ServerMod.server.GetByUsername(encounter.attacker);
+                    Connection defender = ServerMod.server.GetByUsername(encounter.defender);
+
+                    defender.Send(Packets.SERVER_MAP_RESPONSE, data.GetBytes());
+                    attacker.Send(Packets.SERVER_MAP_RESPONSE, data.GetBytes());
+
+                    encounter.waitingFor.Add(defender.username);
+                    encounter.waitingFor.Add(attacker.username);
                 });
             }
             else if (id == Packets.CLIENT_MAP_LOADED)
             {
                 OnMainThread.Enqueue(() =>
                 {
-                    byte[] extra = ScribeUtil.WriteSingle(OnMainThread.currentLongAction);
-                    ServerMod.server.SendToAll(Packets.SERVER_ACTION_SCHEDULE, GetServerActionMsg(ServerAction.LONG_ACTION_END, extra));
+                    LongActionEncounter encounter = ((LongActionEncounter)OnMainThread.currentLongAction);
+
+                    if (encounter.waitingFor.Remove(Connection.username) && encounter.waitingFor.Count == 0)
+                    {
+                        byte[] extra = ScribeUtil.WriteSingle(OnMainThread.currentLongAction);
+                        ServerMod.server.SendToAll(Packets.SERVER_ACTION_SCHEDULE, GetServerActionMsg(ServerAction.LONG_ACTION_END, extra));
+                    }
                 });
             }
             else if (id == Packets.CLIENT_ID_BLOCK_REQUEST)
@@ -511,6 +524,8 @@ namespace ServerMod
                     byte[] mapData = ScribeUtil.FinishWriting();
                     ServerMod.savingForEncounter = false;
 
+                    Current.Game.DeinitAndRemoveMap(map);
+
                     ServerMod.client.Send(Packets.CLIENT_MAP_RESPONSE, mapData);
                 });
             }
@@ -522,6 +537,9 @@ namespace ServerMod
 
                     Log.Message("Encounter map size: " + data.GetBytes().Length);
 
+                    if (ScribeMetaHeaderUtility.loadedGameVersion == null)
+                        ScribeMetaHeaderUtility.loadedGameVersion = VersionControl.CurrentVersionStringWithRev;
+
                     ScribeUtil.StartLoading(data.GetBytes());
                     ScribeUtil.SupplyCrossRefs();
                     Map map = null;
@@ -531,24 +549,17 @@ namespace ServerMod
                     Current.Game.AddMap(map);
                     map.FinalizeLoading();
 
+                    Faction ownerFaction = map.info.parent.Faction;
+                    ServerModWorldComp worldComp = Find.World.GetComponent<ServerModWorldComp>();
+                    ServerModMapComp mapComp = map.GetComponent<ServerModMapComp>();
+
+                    string ownerFactionId = ownerFaction.GetUniqueLoadID();
+                    string playerFactionId = Faction.OfPlayer.GetUniqueLoadID();
+
+                    mapComp.inEncounter = true;
+
+                    if (playerFactionId != ownerFactionId)
                     {
-                        foreach (Thing t in map.listerThings.AllThings)
-                            t.SetForbidden(true, false);
-
-                        Faction ownerFaction = map.info.parent.Faction;
-                        ServerModWorldComp worldComp = Find.World.GetComponent<ServerModWorldComp>();
-                        ServerModMapComp mapComp = map.GetComponent<ServerModMapComp>();
-
-                        mapComp.inEncounter = true;
-
-                        string ownerFactionId = ownerFaction.GetUniqueLoadID();
-                        string playerFactionId = Faction.OfPlayer.GetUniqueLoadID();
-
-                        mapComp.factionAreas[ownerFactionId] = map.areaManager;
-                        mapComp.factionDesignations[ownerFactionId] = map.designationManager;
-                        mapComp.factionSlotGroups[ownerFactionId] = map.slotGroupManager;
-                        mapComp.factionZones[ownerFactionId] = map.zoneManager;
-
                         map.areaManager = new AreaManager(map);
                         map.areaManager.AddStartingAreas();
                         mapComp.factionAreas[playerFactionId] = map.areaManager;
@@ -561,9 +572,31 @@ namespace ServerMod
 
                         map.zoneManager = new ZoneManager(map);
                         mapComp.factionZones[playerFactionId] = map.zoneManager;
+
+                        map.listerHaulables = new ListerHaulables(map);
+                        mapComp.factionHaulables[playerFactionId] = map.listerHaulables;
+
+                        map.resourceCounter = new ResourceCounter(map);
+                        mapComp.factionResources[playerFactionId] = map.resourceCounter;
+
+                        foreach (Thing t in map.listerThings.AllThings)
+                        {
+                            if (!(t is ThingWithComps thing)) continue;
+
+                            CompForbiddable forbiddable = thing.GetComp<CompForbiddable>();
+                            if (forbiddable == null) continue;
+
+                            bool ownerValue = forbiddable.Forbidden;
+
+                            t.SetForbidden(true, false);
+
+                            thing.GetComp<ServerModThingComp>().factionForbidden[ownerFactionId] = ownerValue;
+                        }
                     }
 
                     Current.ProgramState = ProgramState.Playing;
+
+                    Current.Game.VisibleMap = map;
 
                     ServerMod.client.Send(Packets.CLIENT_MAP_LOADED);
                 });
@@ -787,6 +820,27 @@ namespace ServerMod
                 HandleZone(actionReq, data);
             }
 
+            if (action == ServerAction.FORBID)
+            {
+                string mapId = data.ReadString();
+                string thingId = data.ReadString();
+                string factionId = data.ReadString();
+                bool value = data.ReadBool();
+
+                Map map = Find.Maps.FirstOrDefault(m => m.GetUniqueLoadID() == mapId);
+                if (map == null) return;
+
+                ThingWithComps thing = map.listerThings.AllThings.FirstOrDefault(t => t.GetUniqueLoadID() == thingId) as ThingWithComps;
+                if (thing == null) return;
+
+                CompForbiddable forbiddable = thing.GetComp<CompForbiddable>();
+                if (forbiddable == null) return;
+
+                FactionContext.Set(map, factionId);
+                forbiddable.Forbidden = value;
+                FactionContext.Reset(map);
+            }
+
             if (action == ServerAction.DRAFT)
             {
                 string mapId = data.ReadString();
@@ -800,7 +854,9 @@ namespace ServerMod
                 if (pawn == null) return;
 
                 DraftSetPatch.dontHandle = true;
+                FactionContext.Set(map, pawn.Faction);
                 pawn.drafter.Drafted = draft;
+                FactionContext.Reset(map);
                 DraftSetPatch.dontHandle = false;
             }
 
@@ -833,9 +889,7 @@ namespace ServerMod
                 string[] removed = data.ReadPrefixedStrings();
 
                 foreach (Zone zone in added)
-                {
                     zones.RegisterZone(zone);
-                }
 
                 HashSet<Zone> changedZones = new HashSet<Zone>();
 
@@ -949,12 +1003,13 @@ namespace ServerMod
 
                 if (!JobTrackerPatch.IsPawnOwner(pawn) || (pawn.jobs.curJob != null && pawn.jobs.curJob.expiryInterval == -2))
                 {
-                    JobDriver actualDriver = PawnTempData.Get(pawn).actualJobDriver;
+                    ServerModThingComp comp = pawn.GetComp<ServerModThingComp>();
+                    JobDriver actualDriver = comp.actualJobDriver;
                     if (actualDriver != null)
                     {
-                        Log.Message("cleaning actual driver: " + actualDriver + " " + PawnTempData.Get(pawn).actualJob + " " + actualDriver.ended);
+                        Log.Message("cleaning actual driver: " + actualDriver + " " + comp.actualJob + " " + actualDriver.ended);
 
-                        pawn.ClearReservationsForJob(PawnTempData.Get(pawn).actualJob);
+                        pawn.ClearReservationsForJob(comp.actualJob);
                         actualDriver.ended = true;
                         Log.Message("toils " + actualDriver.CurToilIndex);
                         actualDriver.Cleanup(JobCondition.InterruptForced);
@@ -964,8 +1019,8 @@ namespace ServerMod
                         if (!pawn.Destroyed && pawn.carryTracker != null && pawn.carryTracker.CarriedThing != null)
                             pawn.carryTracker.TryDropCarriedThing(pawn.Position, ThingPlaceMode.Near, out Thing thing, null);
 
-                        PawnTempData.Get(pawn).actualJob = null;
-                        PawnTempData.Get(pawn).actualJobDriver = null;
+                        comp.actualJob = null;
+                        comp.actualJobDriver = null;
                     }
 
                     FactionContext.Set(pawn.Map, pawn.Faction);
@@ -1112,6 +1167,8 @@ namespace ServerMod
         public Dictionary<string, ZoneManager> factionZones = new Dictionary<string, ZoneManager>();
         public Dictionary<string, AreaManager> factionAreas = new Dictionary<string, AreaManager>();
         public Dictionary<string, DesignationManager> factionDesignations = new Dictionary<string, DesignationManager>();
+        public Dictionary<string, ListerHaulables> factionHaulables = new Dictionary<string, ListerHaulables>();
+        public Dictionary<string, ResourceCounter> factionResources = new Dictionary<string, ResourceCounter>();
 
         // area id => [cells off, cells on]
         public Dictionary<string, HashSet<int>[]> areaChangesThisTick = new Dictionary<string, HashSet<int>[]>();
@@ -1121,19 +1178,22 @@ namespace ServerMod
         public List<Zone> zonesAdded = new List<Zone>();
         public List<string> zonesRemoved = new List<string>();
 
-        public ListerHaulables standardHaulables;
-        public ListerHaulables voidHaulables;
-
-        public ReservationManager normalReservations;
-        public ReservationManager tempOwnerReservations;
+        public static bool tickingFactions;
 
         public ServerModMapComp(Map map) : base(map)
         {
-            standardHaulables = map.listerHaulables;
-            voidHaulables = new VoidListerHaulables(map);
+        }
 
-            normalReservations = map.reservationManager;
-            tempOwnerReservations = new ReservationManager(map);
+        public override void FinalizeInit()
+        {
+            string ownerFactionId = map.ParentFaction.GetUniqueLoadID();
+
+            factionAreas[ownerFactionId] = map.areaManager;
+            factionDesignations[ownerFactionId] = map.designationManager;
+            factionSlotGroups[ownerFactionId] = map.slotGroupManager;
+            factionZones[ownerFactionId] = map.zoneManager;
+            factionHaulables[ownerFactionId] = map.listerHaulables;
+            factionResources[ownerFactionId] = map.resourceCounter;
         }
 
         public void AreaChange(string areaId, int cell, bool value)
@@ -1148,6 +1208,29 @@ namespace ServerMod
                 changes[value ? 1 : 0].Add(cell);
         }
 
+        public override void MapComponentTick()
+        {
+            if (ServerMod.client == null) return;
+
+            tickingFactions = true;
+
+            foreach (KeyValuePair<string, ListerHaulables> p in factionHaulables)
+            {
+                FactionContext.Set(map, p.Key);
+                p.Value.ListerHaulablesTick();
+                FactionContext.Reset(map);
+            }
+
+            foreach (KeyValuePair<string, ResourceCounter> p in factionResources)
+            {
+                FactionContext.Set(map, p.Key);
+                p.Value.ResourceCounterTick();
+                FactionContext.Reset(map);
+            }
+
+            tickingFactions = false;
+        }
+
         public override void ExposeData()
         {
             Scribe_Deep.Look(ref encounterIdBlock, "encounterIdBlock");
@@ -1156,6 +1239,18 @@ namespace ServerMod
 
     public static class FactionContext
     {
+        private static Faction current;
+
+        public static Faction Current
+        {
+            get
+            {
+                if (current == null)
+                    current = Faction.OfPlayer;
+                return current;
+            }
+        }
+
         public static void Set(Map map, Faction faction)
         {
             if (faction == null) return;
@@ -1168,17 +1263,17 @@ namespace ServerMod
 
             ServerModMapComp comp = map.GetComponent<ServerModMapComp>();
 
-            if (!comp.factionAreas.TryGetValue(factionId, out AreaManager a)) return;
+            if (!comp.factionAreas.ContainsKey(factionId)) return;
 
             map.designationManager = comp.factionDesignations.GetValueSafe(factionId);
             map.areaManager = comp.factionAreas.GetValueSafe(factionId);
             map.zoneManager = comp.factionZones.GetValueSafe(factionId);
             map.slotGroupManager = comp.factionSlotGroups.GetValueSafe(factionId);
+            map.listerHaulables = comp.factionHaulables.GetValueSafe(factionId);
+            map.resourceCounter = comp.factionResources.GetValueSafe(factionId);
 
-            if (factionId == Faction.OfPlayer.GetUniqueLoadID())
-                map.listerHaulables = comp.standardHaulables;
-            else
-                map.listerHaulables = comp.voidHaulables;
+            Faction faction = Find.FactionManager.AllFactions.FirstOrDefault(f => f.GetUniqueLoadID() == factionId);
+            current = faction;
         }
 
         public static void Reset(Map map)
@@ -1187,7 +1282,7 @@ namespace ServerMod
         }
     }
 
-    public class PawnTempData : ThingComp
+    public class ServerModThingComp : ThingComp
     {
         public Job actualJob;
         public JobDriver actualJobDriver;
@@ -1195,15 +1290,22 @@ namespace ServerMod
         private bool homeThisTick;
         private string zoneName;
 
+        public Dictionary<string, bool> factionForbidden = new Dictionary<string, bool>();
+
         public override string CompInspectStringExtra()
         {
             ServerModMapComp comp = parent.Map.GetComponent<ServerModMapComp>();
 
+            string forbidden = "";
+            foreach (KeyValuePair<string, bool> p in factionForbidden)
+            {
+                forbidden += p.Key + ":" + p.Value + ";";
+            }
+
             return (
-                "Actual job: " + actualJob + "\n" +
-                "Actual job driver: " + actualJobDriver + "\n" +
                 "At home: " + homeThisTick + "\n" +
-                "Zone name: " + zoneName
+                "Zone name: " + zoneName + "\n" +
+                "Forbidden: " + forbidden
                 ).Trim();
         }
 
@@ -1217,23 +1319,6 @@ namespace ServerMod
 
         public override IEnumerable<Gizmo> CompGetGizmosExtra()
         {
-            yield return new Command_Action
-            {
-                defaultLabel = "Print last 30 things",
-                action = () =>
-                {
-                    int i = 0;
-                    foreach (Thing t in parent.Map.listerThings.AllThings)
-                    {
-                        Log.Message(i + " " + t);
-
-                        i++;
-                        if (i == 30)
-                            break;
-                    }
-                }
-            };
-
             yield return new Command_Action
             {
                 defaultLabel = "Select thing",
@@ -1252,24 +1337,6 @@ namespace ServerMod
                 }
             };
         }
-
-        public static PawnTempData Get(Pawn pawn)
-        {
-            PawnTempData data = pawn.GetComp<PawnTempData>();
-            if (data == null)
-            {
-                data = new PawnTempData();
-                data.parent = pawn;
-                pawn.AllComps.Add(data);
-            }
-
-            return data;
-        }
-    }
-
-    public class VoidListerHaulables : ListerHaulables
-    {
-        public VoidListerHaulables(Map map) : base(map) { }
     }
 
 }

@@ -3,6 +3,7 @@ using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using Verse;
 using Verse.AI;
@@ -62,7 +63,33 @@ namespace ServerMod
             static void Prefix(JobDriver __instance)
             {
                 if (ServerMod.client == null) return;
-                Rand.Seed = __instance.job.loadID.Combine(Find.TickManager.TicksGame).Combine(Find.World.info.Seed);
+                Rand.Seed = __instance.job.loadID.Combine(Find.TickManager.TicksGame).Combine(Find.World.info.Seed).Combine(2361);
+            }
+        }
+
+        [HarmonyPatch(typeof(Pawn_JobTracker))]
+        [HarmonyPatch("DetermineNextJob")]
+        public static class SeedNextJob
+        {
+            public static FieldInfo pawnField = typeof(Pawn_JobTracker).GetField("pawn", BindingFlags.Instance | BindingFlags.NonPublic);
+
+            static void Prefix(Pawn_JobTracker __instance)
+            {
+                if (ServerMod.client == null) return;
+                Pawn pawn = (Pawn)pawnField.GetValue(__instance);
+                Rand.Seed = pawn.thingIDNumber.Combine(Find.TickManager.TicksGame).Combine(Find.World.info.Seed).Combine(48358);
+            }
+        }
+
+        [HarmonyPatch(typeof(Pawn_JobTracker))]
+        [HarmonyPatch("DetermineNextConstantThinkTreeJob")]
+        public static class SeedNextConstantJob
+        {
+            static void Prefix(Pawn_JobTracker __instance)
+            {
+                if (ServerMod.client == null) return;
+                Pawn pawn = (Pawn)SeedNextJob.pawnField.GetValue(__instance);
+                Rand.Seed = pawn.thingIDNumber.Combine(Find.TickManager.TicksGame).Combine(Find.World.info.Seed).Combine(57362);
             }
         }
     }

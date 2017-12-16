@@ -156,8 +156,13 @@ namespace ServerMod
 
             if (Find.VisibleMap != null)
             {
-                text += " " + Find.VisibleMap.GetComponent<ServerModMapComp>().normalReservations.AllReservedThings().Count();
-                text += " " + Find.VisibleMap.GetComponent<ServerModMapComp>().tempOwnerReservations.AllReservedThings().Count();
+                text += " r:" + Find.VisibleMap.reservationManager.AllReservedThings().Count();
+
+                if (Find.VisibleMap.GetComponent<ServerModMapComp>().factionHaulables.TryGetValue(Find.VisibleMap.info.parent.Faction.GetUniqueLoadID(), out ListerHaulables haul))
+                    text += " h:" + haul.ThingsPotentiallyNeedingHauling().Count;
+
+                if (Find.VisibleMap.GetComponent<ServerModMapComp>().factionSlotGroups.TryGetValue(Find.VisibleMap.info.parent.Faction.GetUniqueLoadID(), out SlotGroupManager groups))
+                    text += " sg:" + groups.AllGroupsListForReading.Count;
             }
 
             Rect rect = new Rect(80f, 60f, 330f, Text.CalcHeight(text, 330f));
@@ -257,7 +262,7 @@ namespace ServerMod
             clientFaction.def = FactionDefOf.PlayerColony;
             Find.GameInitData.playerFaction = clientFaction;
 
-            // todo
+            // todo actually handle relations
             foreach (Faction current in Find.FactionManager.AllFactionsListForReading)
             {
                 if (current == clientFaction) continue;
@@ -317,46 +322,10 @@ namespace ServerMod
 
         public static FieldInfo pawnField = typeof(Pawn_JobTracker).GetField("pawn", BindingFlags.Instance | BindingFlags.NonPublic);
 
-        static bool Prefix(Pawn_JobTracker __instance, Job newJob)
+        static void Postfix(Pawn_JobTracker __instance, Job newJob)
         {
-            if (ServerMod.client == null) return true;
-            if (dontHandle) return true;
             Pawn pawn = (Pawn)pawnField.GetValue(__instance);
-            if (!IsPawnOwner(pawn)) return false;
-
-            if (__instance.curJob == null || __instance.curJob.expiryInterval != -2)
-            {
-                PawnTempData.Get(pawn).actualJob = __instance.curJob;
-                PawnTempData.Get(pawn).actualJobDriver = __instance.curDriver;
-
-                JobRequest jobRequest = new JobRequest()
-                {
-                    job = newJob,
-                    mapId = pawn.Map.uniqueID,
-                    pawnId = pawn.thingIDNumber
-                };
-
-                ServerMod.client.Send(Packets.CLIENT_ACTION_REQUEST, new object[] { ServerAction.PAWN_JOB, ScribeUtil.WriteSingle(jobRequest) });
-            }
-            else
-            {
-                Log.Message("job start while idle");
-            }
-
-            normalRes = pawn.Map.reservationManager;
-            ServerModMapComp comp = pawn.Map.GetComponent<ServerModMapComp>();
-            pawn.Map.reservationManager = comp.tempOwnerReservations;
-
-            __instance.curJob = newJob;
-            __instance.curDriver = newJob.MakeDriver(pawn);
-            if (!__instance.curDriver.TryMakePreToilReservations())
-                Log.Message("new job pre toil fail");
-            newJob.expiryInterval = -2;
-
-            pawn.Map.reservationManager = comp.normalReservations;
-            normalRes = null;
-
-            return false;
+            Log.Message(ServerMod.username + " start job " + newJob + " " + pawn);
         }
 
         public static bool IsPawnOwner(Pawn pawn)
@@ -365,119 +334,14 @@ namespace ServerMod
         }
     }
 
-    [HarmonyPatch(typeof(Pawn_JobTracker))]
-    [HarmonyPatch("DetermineNextJob")]
-    public static class DetermineJobPatch
+    public class JobRequest : AttributedExposable
     {
-        static void Prefix(Pawn_JobTracker __instance, ref Map __state)
-        {
-            if (ServerMod.client == null) return;
-            Pawn pawn = (Pawn)JobTrackerPatch.pawnField.GetValue(__instance);
-            if (!JobTrackerPatch.IsPawnOwner(pawn)) return;
-            ReservationManager res = pawn.Map.GetComponent<ServerModMapComp>().tempOwnerReservations;
-            if (pawn.Map.reservationManager == res) return;
-
-            __state = pawn.Map;
-            JobTrackerPatch.normalRes = __state.reservationManager;
-            __state.reservationManager = res;
-        }
-
-        static void Postfix(Pawn_JobTracker __instance, ref Map __state)
-        {
-            if (__state == null) return;
-            __state.reservationManager = __state.GetComponent<ServerModMapComp>().normalReservations;
-            JobTrackerPatch.normalRes = null;
-        }
-    }
-
-    [HarmonyPatch(typeof(Pawn_JobTracker))]
-    [HarmonyPatch("DetermineNextConstantThinkTreeJob")]
-    public static class DetermineConstantJobPatch
-    {
-        static void Prefix(Pawn_JobTracker __instance, ref Map __state)
-        {
-            if (ServerMod.client == null) return;
-            Pawn pawn = (Pawn)JobTrackerPatch.pawnField.GetValue(__instance);
-            if (!JobTrackerPatch.IsPawnOwner(pawn)) return;
-            ReservationManager res = pawn.Map.GetComponent<ServerModMapComp>().tempOwnerReservations;
-            if (pawn.Map.reservationManager == res) return;
-
-            __state = pawn.Map;
-            JobTrackerPatch.normalRes = __state.reservationManager;
-            __state.reservationManager = res;
-        }
-
-        static void Postfix(Pawn_JobTracker __instance, ref Map __state)
-        {
-            if (__state == null) return;
-            __state.reservationManager = __state.GetComponent<ServerModMapComp>().normalReservations;
-            JobTrackerPatch.normalRes = null;
-        }
-    }
-
-    [HarmonyPatch(typeof(ReservationManager))]
-    [HarmonyPatch(nameof(ReservationManager.CanReserve))]
-    public static class ReservationManagerPatch1
-    {
-        static void Postfix(ReservationManager __instance, ref bool __result, Pawn claimant, LocalTargetInfo target, int maxPawns, int stackCount, ReservationLayerDef layer, bool ignoreOtherReservations)
-        {
-            if (JobTrackerPatch.normalRes == null || __instance == JobTrackerPatch.normalRes) return;
-            if (!__result) return;
-
-            __result = JobTrackerPatch.normalRes.CanReserve(claimant, target, maxPawns, stackCount, layer, ignoreOtherReservations);
-        }
-    }
-
-    [HarmonyPatch(typeof(ReservationManager))]
-    [HarmonyPatch(nameof(ReservationManager.FirstReservationFor))]
-    public static class ReservationManagerPatch2
-    {
-        static void Postfix(ReservationManager __instance, ref LocalTargetInfo __result, Pawn claimant)
-        {
-            if (JobTrackerPatch.normalRes == null || __instance == JobTrackerPatch.normalRes) return;
-            if (__result != LocalTargetInfo.Invalid) return;
-
-            __result = JobTrackerPatch.normalRes.FirstReservationFor(claimant);
-        }
-    }
-
-    [HarmonyPatch(typeof(ReservationManager))]
-    [HarmonyPatch(nameof(ReservationManager.IsReservedByAnyoneOf))]
-    public static class ReservationManagerPatch3
-    {
-        static void Postfix(ReservationManager __instance, ref bool __result, LocalTargetInfo target, Faction faction)
-        {
-            if (JobTrackerPatch.normalRes == null || __instance == JobTrackerPatch.normalRes) return;
-            if (__result) return;
-
-            __result = JobTrackerPatch.normalRes.IsReservedByAnyoneOf(target, faction);
-        }
-    }
-
-    [HarmonyPatch(typeof(ReservationManager))]
-    [HarmonyPatch(nameof(ReservationManager.FirstRespectedReserver))]
-    public static class ReservationManagerPatch4
-    {
-        static void Postfix(ReservationManager __instance, ref Pawn __result, LocalTargetInfo target, Pawn claimant)
-        {
-            if (JobTrackerPatch.normalRes == null || __instance == JobTrackerPatch.normalRes) return;
-            if (__result != null) return;
-
-            __result = JobTrackerPatch.normalRes.FirstRespectedReserver(target, claimant);
-        }
-    }
-
-    [HarmonyPatch(typeof(ReservationManager))]
-    [HarmonyPatch(nameof(ReservationManager.ReservedBy))]
-    public static class ReservationManagerPatch5
-    {
-        static void Postfix(ReservationManager __instance, ref bool __result, LocalTargetInfo target, Pawn claimant, Job job)
-        {
-            if (JobTrackerPatch.normalRes == null || __instance == JobTrackerPatch.normalRes) return;
-            if (__result) return;
-
-            __result = JobTrackerPatch.normalRes.ReservedBy(target, claimant, job);
-        }
+        [ExposeDeep]
+        public Job job;
+        [ExposeValue]
+        public int mapId;
+        [ExposeValue]
+        public int pawnId;
     }
 
     [HarmonyPatch(typeof(Pawn_JobTracker))]
@@ -492,8 +356,9 @@ namespace ServerMod
 
             Log.Message(ServerMod.client.username + " end job: " + pawn + " " + __instance.curJob + " " + condition);
 
-            if (PawnTempData.Get(pawn).actualJob != null)
-                Log.Message("actual job: " + PawnTempData.Get(pawn).actualJob);
+            ServerModThingComp comp = pawn.GetComp<ServerModThingComp>();
+            if (comp.actualJob != null)
+                Log.Message("actual job: " + comp.actualJob);
         }
     }
 
@@ -521,67 +386,10 @@ namespace ServerMod
         static void Prefix(Pawn_JobTracker __instance, JobCondition condition)
         {
             Pawn pawn = (Pawn)JobTrackerPatch.pawnField.GetValue(__instance);
+
             if (__instance.curJob != null && __instance.curJob.expiryInterval == -2)
                 Log.Warning(ServerMod.username + " cleanup " + JobTrackerPatch.dontHandle + " " + __instance.curJob + " " + condition + " " + pawn + " " + __instance.curJob.expiryInterval);
         }
-    }
-
-    [HarmonyPatch(typeof(Pawn_JobTracker))]
-    [HarmonyPatch(nameof(Pawn_JobTracker.JobTrackerTick))]
-    public static class JobTrackerTick
-    {
-        public static bool tickingJobs;
-
-        static void Prefix(Pawn_JobTracker __instance, ref State __state)
-        {
-            tickingJobs = true;
-
-            Pawn pawn = (Pawn)JobTrackerPatch.pawnField.GetValue(__instance);
-            if (PawnTempData.Get(pawn).actualJobDriver == null) return;
-
-            __state = new State()
-            {
-                job = __instance.curJob,
-                driver = __instance.curDriver
-            };
-
-            __instance.curJob = PawnTempData.Get(pawn).actualJob;
-            __instance.curDriver = PawnTempData.Get(pawn).actualJobDriver;
-        }
-
-        static void Postfix(Pawn_JobTracker __instance, State __state)
-        {
-            tickingJobs = false;
-
-            if (__state == null) return;
-
-            Pawn pawn = (Pawn)JobTrackerPatch.pawnField.GetValue(__instance);
-            if (PawnTempData.Get(pawn).actualJobDriver != __instance.curDriver)
-            {
-                Log.Message(ServerMod.client.username + " actual job end " + PawnTempData.Get(pawn).actualJob + " " + pawn);
-                PawnTempData.Get(pawn).actualJobDriver = null;
-                PawnTempData.Get(pawn).actualJob = null;
-            }
-
-            __instance.curJob = __state.job;
-            __instance.curDriver = __state.driver;
-        }
-
-        private class State
-        {
-            public Job job;
-            public JobDriver driver;
-        }
-    }
-
-    public class JobRequest : AttributedExposable
-    {
-        [ExposeDeep]
-        public Job job;
-        [ExposeValue]
-        public int mapId;
-        [ExposeValue]
-        public int pawnId;
     }
 
     [HarmonyPatch(typeof(Thing))]
@@ -648,11 +456,11 @@ namespace ServerMod
         }
     }
 
-    [HarmonyPatch(typeof(Game))]
-    [HarmonyPatch(nameof(Game.DeinitAndRemoveMap))]
-    public static class RemoveMapPatch
+    [HarmonyPatch(typeof(MapDeiniter))]
+    [HarmonyPatch(nameof(MapDeiniter.Deinit))]
+    public static class DeinitMapPatch
     {
-        static void Postfix(Map map)
+        static void Prefix(Map map)
         {
             ScribeUtil.crossRefs.UnregisterFromMap(map);
         }
@@ -820,15 +628,23 @@ namespace ServerMod
             if (current.Faction == null || current.Map == null) return;
 
             FactionContext.Set(__instance.Map, __instance.Faction);
+
+            Faction.OfPlayer.def = FactionDefOf.Outlander;
+            __instance.Faction.def = FactionDefOf.PlayerColony;
         }
 
         static void Postfix(Pawn __instance)
         {
             if (ServerMod.client == null) return;
 
-            FactionContext.Reset(__instance.Map);
-
             current = null;
+
+            if (__instance.Map == null || __instance.Faction == null) return;
+
+            __instance.Faction.def = FactionDefOf.Outlander;
+            Find.World.GetComponent<ServerModWorldComp>().playerFactions.GetValueSafe(ServerMod.username).def = FactionDefOf.PlayerColony;
+
+            FactionContext.Reset(__instance.Map);
         }
     }
 
@@ -959,10 +775,20 @@ namespace ServerMod
     [HarmonyPatch(nameof(PawnComponentsUtility.AddAndRemoveDynamicComponents))]
     public static class AddAndRemoveCompsPatch
     {
+        static void Prefix(Pawn pawn)
+        {
+            if (ServerMod.client == null || pawn.Faction == null) return;
+
+            Faction.OfPlayer.def = FactionDefOf.Outlander;
+            pawn.Faction.def = FactionDefOf.PlayerColony;
+        }
+
         static void Postfix(Pawn pawn, bool actAsIfSpawned)
         {
-            if (pawn.RaceProps.Humanlike && (pawn.Spawned || actAsIfSpawned) && pawn.drafter == null)
-                pawn.drafter = new Pawn_DraftController(pawn);
+            if (ServerMod.client == null || pawn.Faction == null) return;
+
+            pawn.Faction.def = FactionDefOf.Outlander;
+            Find.World.GetComponent<ServerModWorldComp>().playerFactions.GetValueSafe(ServerMod.username).def = FactionDefOf.PlayerColony;
         }
     }
 
@@ -1000,13 +826,32 @@ namespace ServerMod
         }
     }
 
-    [HarmonyPatch(typeof(ListerHaulables))]
-    [HarmonyPatch("ShouldBeHaulable")]
-    public static class VoidListerHaulablesPatch
+    [HarmonyPatch(typeof(UniqueIDsManager))]
+    [HarmonyPatch(nameof(UniqueIDsManager.GetNextJobID))]
+    public static class GetNextJobIdPatch
     {
-        static void Postfix(ListerHaulables __instance, ref bool __result)
+        static void Postfix(ref int __result)
         {
-            if (__instance is VoidListerHaulables) __result = false;
+            if (PawnContext.current != null && PawnContext.current.Map != null)
+            {
+                IdBlock block = PawnContext.current.Map.GetComponent<ServerModMapComp>().encounterIdBlock;
+                if (block != null)
+                {
+                    __result = block.NextId();
+                }
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(ThingWithComps))]
+    [HarmonyPatch(nameof(ThingWithComps.InitializeComps))]
+    public static class InitCompsPatch
+    {
+        static void Postfix(ThingWithComps __instance)
+        {
+            ServerModThingComp comp = new ServerModThingComp() { parent = __instance };
+            __instance.AllComps.Add(comp);
+            comp.Initialize(null);
         }
     }
 
@@ -1016,7 +861,7 @@ namespace ServerMod
     {
         static void Postfix(Building __instance, ref IEnumerable<Gizmo> __result)
         {
-            __result = __result.Add(new Command_Action
+            __result = __result.Concat(new Command_Action
             {
                 defaultLabel = "Set faction",
                 action = () =>
@@ -1033,7 +878,7 @@ namespace ServerMod
     {
         static void Postfix(ref IEnumerable<Gizmo> __result)
         {
-            __result = __result.Add(new Command_Action
+            __result = __result.Concat(new Command_Action
             {
                 defaultLabel = "Jump to",
                 action = () =>
@@ -1045,6 +890,106 @@ namespace ServerMod
                     }));
                 }
             });
+        }
+    }
+
+    [HarmonyPatch(typeof(ListerHaulables))]
+    [HarmonyPatch(nameof(ListerHaulables.ListerHaulablesTick))]
+    public static class HaulablesTickPatch
+    {
+        static bool Prefix()
+        {
+            return ServerMod.client == null || ServerModMapComp.tickingFactions;
+        }
+    }
+
+    [HarmonyPatch(typeof(ResourceCounter))]
+    [HarmonyPatch(nameof(ResourceCounter.ResourceCounterTick))]
+    public static class ResourcesTickPatch
+    {
+        static bool Prefix()
+        {
+            return ServerMod.client == null || ServerModMapComp.tickingFactions;
+        }
+    }
+
+    [HarmonyPatch(typeof(CompForbiddable))]
+    [HarmonyPatch(nameof(CompForbiddable.PostSplitOff))]
+    public static class ForbiddableSplitPatch
+    {
+        static bool Prefix(CompForbiddable __instance, Thing piece)
+        {
+            if (ServerMod.client == null) return true;
+            piece.SetForbidden(__instance.parent.IsForbidden(Faction.OfPlayer));
+            return false;
+        }
+    }
+
+    [HarmonyPatch(typeof(ForbidUtility))]
+    [HarmonyPatch(nameof(ForbidUtility.IsForbidden))]
+    [HarmonyPatch(new Type[] { typeof(Thing), typeof(Faction) })]
+    public static class IsForbiddenPatch
+    {
+        static void Postfix(Thing t, ref bool __result)
+        {
+            if (ServerMod.client == null || Current.ProgramState != ProgramState.Playing) return;
+
+            ThingWithComps thing = t as ThingWithComps;
+            if (thing == null) return;
+
+            ServerModThingComp comp = thing.GetComp<ServerModThingComp>();
+            CompForbiddable forbiddable = thing.GetComp<CompForbiddable>();
+            if (comp == null || forbiddable == null) return;
+
+            string factionId = FactionContext.Current.GetUniqueLoadID();
+            if (comp.factionForbidden.TryGetValue(factionId, out bool forbidden))
+                __result = forbidden;
+            else if (!t.Spawned)
+                __result = false;
+            else if (factionId == t.Map.ParentFaction.GetUniqueLoadID())
+                __result = forbiddable.Forbidden;
+            else
+                __result = true;
+        }
+    }
+
+    [HarmonyPatch(typeof(CompForbiddable))]
+    [HarmonyPatch(nameof(CompForbiddable.Forbidden), PropertyMethod.Setter)]
+    public static class ForbidSetPatch
+    {
+        private static FieldInfo forbiddenField = typeof(CompForbiddable).GetField("forbiddenInt", BindingFlags.NonPublic | BindingFlags.Instance);
+
+        static bool Prefix(CompForbiddable __instance, bool value)
+        {
+            if (ServerMod.client == null) return true;
+
+            ThingWithComps thing = __instance.parent;
+            ServerModThingComp comp = thing.GetComp<ServerModThingComp>();
+
+            string factionId = FactionContext.Current.GetUniqueLoadID();
+            if (comp.factionForbidden.TryGetValue(factionId, out bool forbidden) && forbidden == value) return false;
+
+            if (DrawGizmosPatch.drawingGizmos || ProcessDesignatorsPatch.processingDesignators)
+            {
+                byte[] extra = Server.GetBytes(thing.Map.GetUniqueLoadID(), thing.GetUniqueLoadID(), Faction.OfPlayer.GetUniqueLoadID(), value);
+                ServerMod.client.Send(Packets.CLIENT_ACTION_REQUEST, new object[] { ServerAction.FORBID, extra });
+                return false;
+            }
+
+            if (factionId == Faction.OfPlayer.GetUniqueLoadID())
+                forbiddenField.SetValue(__instance, value);
+
+            comp.factionForbidden[factionId] = value;
+
+            if (thing.Spawned)
+            {
+                if (value)
+                    thing.Map.listerHaulables.Notify_Forbidden(thing);
+                else
+                    thing.Map.listerHaulables.Notify_Unforbidden(thing);
+            }
+
+            return false;
         }
     }
 

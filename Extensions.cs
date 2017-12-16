@@ -14,15 +14,6 @@ namespace ServerMod
             return i1 ^ (i2 << 16 | (i2 >> 16));
         }
 
-        public static IEnumerable<T> Add<T>(this IEnumerable<T> input, params T[] add)
-        {
-            foreach (T t in input)
-                yield return t;
-
-            foreach (T t in add)
-                yield return t;
-        }
-
         public static T[] Append<T>(this T[] arr1, T[] arr2)
         {
             T[] result = new T[arr1.Length + arr2.Length];

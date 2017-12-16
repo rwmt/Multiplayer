@@ -128,7 +128,7 @@ namespace ServerMod
     {
         static bool Prefix(SlotGroup newGroup)
         {
-            if (ServerMod.client == null) return true;
+            if (ServerMod.client == null || Current.ProgramState != ProgramState.Playing) return true;
             if (newGroup.parent is Zone && !ZoneRegisterPatch.dontHandle) return false;
             return true;
         }
