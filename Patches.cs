@@ -50,6 +50,22 @@ namespace Multiplayer
         }
     }
 
+    [HarmonyPatch(typeof(UIRoot))]
+    [HarmonyPatch(nameof(UIRoot.UIRootOnGUI))]
+    public static class UIRootPatch
+    {
+        static bool firstRun = true;
+
+        static void Prefix()
+        {
+            if (firstRun)
+            {
+                GUI.skin.font = Text.fontStyles[1].font;
+                firstRun = false;
+            }
+        }
+    }
+
     [HarmonyPatch(typeof(SavedGameLoader))]
     [HarmonyPatch(nameof(SavedGameLoader.LoadGameFromSaveFile))]
     [HarmonyPatch(new Type[] { typeof(string) })]
@@ -990,24 +1006,6 @@ namespace Multiplayer
             }
 
             return false;
-        }
-    }
-
-    public class Dialog_JumpTo : Dialog_Rename
-    {
-        private Action<int> action;
-
-        public Dialog_JumpTo(Action<int> action)
-        {
-            this.action = action;
-        }
-
-        protected override void SetName(string name)
-        {
-            if (int.TryParse(name, out int tile))
-            {
-                action(tile);
-            }
         }
     }
 

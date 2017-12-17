@@ -218,4 +218,23 @@ namespace Multiplayer
             Widgets.LabelScrollable(rect, String.Format("Connected players ({0}):\n{1}", players.Count(), String.Join("\n", players.ToArray())), ref scrollPos);
         }
     }
+
+    public class Dialog_JumpTo : Dialog_Rename
+    {
+        private Action<int> action;
+
+        public Dialog_JumpTo(Action<int> action)
+        {
+            this.action = action;
+        }
+
+        protected override void SetName(string name)
+        {
+            if (int.TryParse(name, out int tile))
+            {
+                action(tile);
+            }
+        }
+    }
+
 }
