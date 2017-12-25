@@ -3,6 +3,7 @@ using RimWorld;
 using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -29,7 +30,28 @@ namespace Multiplayer
 
             int reviewScenario = optList.FindIndex(opt => opt.label == "ReviewScenario".Translate());
             if (reviewScenario != -1)
+            {
                 AddHostButton(optList);
+
+                optList.Insert(0, new ListableOption("Reload", () =>
+                {
+                    LongEventHandler.QueueLongEvent(() =>
+                    {
+                        Stopwatch watch = Stopwatch.StartNew();
+                        byte[] wholeGame = ScribeUtil.WriteSingle(Current.Game, "game");
+                        Log.Message("saving " + watch.ElapsedMilliseconds);
+
+                        Log.Message("wholegame " + wholeGame.Length);
+                        MemoryUtility.ClearAllMapsAndWorld();
+
+                        Stopwatch watch1 = Stopwatch.StartNew();
+                        Multiplayer.savedWorld = wholeGame;
+                        Multiplayer.mapsData = new byte[0];
+                        SavedGameLoader.LoadGameFromSaveFile("server");
+                        Log.Message("loading " + watch1.ElapsedMilliseconds);
+                    }, "Test", false, null);
+                }));
+            }
 
             if (Multiplayer.client != null && Multiplayer.server == null)
                 optList.RemoveAll(opt => opt.label == "Save".Translate());
@@ -73,64 +95,64 @@ namespace Multiplayer
     {
         static bool Prefix(string fileName)
         {
-            if (Multiplayer.savedWorld != null && fileName == "server")
+            if (fileName != "server") return true;
+            if (Multiplayer.savedWorld == null) return false;
+
+            ScribeUtil.StartLoading(Multiplayer.savedWorld);
+
+            if (Multiplayer.mapsData.Length > 0)
             {
-                ScribeUtil.StartLoading(Multiplayer.savedWorld);
+                XmlDocument mapsXml = new XmlDocument();
+                using (MemoryStream stream = new MemoryStream(Multiplayer.mapsData))
+                    mapsXml.Load(stream);
 
-                if (Multiplayer.mapsData.Length > 0)
-                {
-                    XmlDocument mapsXml = new XmlDocument();
-                    using (MemoryStream stream = new MemoryStream(Multiplayer.mapsData))
-                        mapsXml.Load(stream);
+                XmlNode gameNode = Scribe.loader.curXmlParent["game"];
+                gameNode.RemoveChildIfPresent("maps");
+                gameNode["taleManager"]["tales"].RemoveAll();
 
-                    XmlNode gameNode = Scribe.loader.curXmlParent["game"];
-                    gameNode.RemoveChildIfPresent("maps");
-                    gameNode["taleManager"]["tales"].RemoveAll();
-
-                    XmlNode newMaps = gameNode.OwnerDocument.ImportNode(mapsXml.DocumentElement["maps"], true);
-                    gameNode.AppendChild(newMaps);
-                }
-
-                ScribeMetaHeaderUtility.LoadGameDataHeader(ScribeMetaHeaderUtility.ScribeHeaderMode.Map, false);
-
-                if (Scribe.EnterNode("game"))
-                {
-                    Current.Game = new Game();
-                    Current.Game.InitData = new GameInitData();
-                    Prefs.PauseOnLoad = false;
-                    Current.Game.LoadGame(); // calls Scribe.loader.FinalizeLoading()
-                    Prefs.PauseOnLoad = true;
-                    Find.TickManager.CurTimeSpeed = TimeSpeed.Paused;
-                }
-
-                LongEventHandler.ExecuteWhenFinished(() =>
-                {
-                    Log.Message("Client maps: " + Current.Game.Maps.Count());
-
-                    Multiplayer.savedWorld = null;
-                    Multiplayer.mapsData = null;
-
-                    if (!Current.Game.Maps.Any())
-                    {
-                        MemoryUtility.UnloadUnusedUnityAssets();
-                        Find.World.renderer.RegenerateAllLayersNow();
-                    }
-
-                    /*Find.WindowStack.Add(new CustomSelectLandingSite()
-                    {
-                        nextAct = () => Settle()
-                    });*/
-
-                    Multiplayer.client.SetState(new ClientPlayingState(Multiplayer.client));
-                    Multiplayer.client.Send(Packets.CLIENT_WORLD_LOADED);
-
-                    Multiplayer.client.Send(Packets.CLIENT_ENCOUNTER_REQUEST, new object[] { Find.WorldObjects.Settlements.First(s => Find.World.GetComponent<MultiplayerWorldComp>().playerFactions.ContainsValue(s.Faction)).Tile });
-                });
-
-                return false;
+                XmlNode newMaps = gameNode.OwnerDocument.ImportNode(mapsXml.DocumentElement["maps"], true);
+                gameNode.AppendChild(newMaps);
             }
 
-            return true;
+            ScribeMetaHeaderUtility.LoadGameDataHeader(ScribeMetaHeaderUtility.ScribeHeaderMode.Map, false);
+
+            if (Scribe.EnterNode("game"))
+            {
+                Current.Game = new Game();
+                Current.Game.InitData = new GameInitData();
+                Prefs.PauseOnLoad = false;
+                Current.Game.LoadGame(); // calls Scribe.loader.FinalizeLoading()
+                Prefs.PauseOnLoad = true;
+                Find.TickManager.CurTimeSpeed = TimeSpeed.Paused;
+            }
+
+            LongEventHandler.ExecuteWhenFinished(() =>
+            {
+                Log.Message("Client maps: " + Current.Game.Maps.Count());
+
+                Multiplayer.savedWorld = null;
+                Multiplayer.mapsData = null;
+
+                if (!Current.Game.Maps.Any())
+                {
+                    MemoryUtility.UnloadUnusedUnityAssets();
+                    Find.World.renderer.RegenerateAllLayersNow();
+                }
+
+                /*Find.WindowStack.Add(new CustomSelectLandingSite()
+                {
+                    nextAct = () => Settle()
+                });*/
+
+                if (Multiplayer.client == null || Multiplayer.server != null) return;
+
+                Multiplayer.client.SetState(new ClientPlayingState(Multiplayer.client));
+                Multiplayer.client.Send(Packets.CLIENT_WORLD_LOADED);
+
+                Multiplayer.client.Send(Packets.CLIENT_ENCOUNTER_REQUEST, new object[] { Find.WorldObjects.Settlements.First(s => Find.World.GetComponent<MultiplayerWorldComp>().playerFactions.ContainsValue(s.Faction)).Tile });
+            });
+
+            return false;
         }
 
         private static void Settle()
@@ -194,20 +216,18 @@ namespace Multiplayer
     {
         private static TimeSpeed lastSpeed;
 
-        static bool Prefix()
+        static void Prefix()
         {
             if (Multiplayer.client != null && Find.TickManager.CurTimeSpeed != lastSpeed)
             {
-                ServerAction action = Find.TickManager.CurTimeSpeed == TimeSpeed.Paused ? ServerAction.PAUSE : ServerAction.UNPAUSE;
-                Multiplayer.client.Send(Packets.CLIENT_ACTION_REQUEST, new object[] { action, new byte[0] });
-                Log.Message("client request at: " + Find.TickManager.TicksGame);
+                byte[] extra = Server.GetBytes((byte)Find.TickManager.CurTimeSpeed);
+                Multiplayer.client.Send(Packets.CLIENT_ACTION_REQUEST, new object[] { ServerAction.TIME_SPEED, extra });
 
                 Find.TickManager.CurTimeSpeed = lastSpeed;
-                return false;
+                return;
             }
 
             lastSpeed = Find.TickManager.CurTimeSpeed;
-            return true;
         }
 
         public static void SetSpeed(TimeSpeed speed)
@@ -865,6 +885,8 @@ namespace Multiplayer
     {
         static void Postfix(ThingWithComps __instance)
         {
+            if (__instance.AllComps.Count == 0) return;
+
             MultiplayerThingComp comp = new MultiplayerThingComp() { parent = __instance };
             __instance.AllComps.Add(comp);
             comp.Initialize(null);
@@ -929,6 +951,17 @@ namespace Multiplayer
         }
     }
 
+    [HarmonyPatch(typeof(WindowStack))]
+    [HarmonyPatch(nameof(WindowStack.WindowsForcePause), PropertyMethod.Getter)]
+    public static class WindowsPausePatch
+    {
+        static void Postfix(ref bool __result)
+        {
+            if (Multiplayer.client != null)
+                __result = false;
+        }
+    }
+
     [HarmonyPatch(typeof(CompForbiddable))]
     [HarmonyPatch(nameof(CompForbiddable.PostSplitOff))]
     public static class ForbiddableSplitPatch
@@ -957,7 +990,7 @@ namespace Multiplayer
             CompForbiddable forbiddable = thing.GetComp<CompForbiddable>();
             if (comp == null || forbiddable == null) return;
 
-            string factionId = FactionContext.Current.GetUniqueLoadID();
+            string factionId = FactionContext.CurrentFaction.GetUniqueLoadID();
             if (comp.factionForbidden.TryGetValue(factionId, out bool forbidden))
                 __result = forbidden;
             else if (!t.Spawned)
@@ -982,7 +1015,7 @@ namespace Multiplayer
             ThingWithComps thing = __instance.parent;
             MultiplayerThingComp comp = thing.GetComp<MultiplayerThingComp>();
 
-            string factionId = FactionContext.Current.GetUniqueLoadID();
+            string factionId = FactionContext.CurrentFaction.GetUniqueLoadID();
             if (comp.factionForbidden.TryGetValue(factionId, out bool forbidden) && forbidden == value) return false;
 
             if (DrawGizmosPatch.drawingGizmos || ProcessDesignatorsPatch.processingDesignators)

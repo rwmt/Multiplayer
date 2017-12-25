@@ -2,9 +2,11 @@
 using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Xml;
 using Verse;
 
 namespace Multiplayer
@@ -73,7 +75,8 @@ namespace Multiplayer
                 Find.FactionManager.Add(faction);
                 factions.playerFactions[username] = faction;
 
-                Multiplayer.server.SendToAll(Packets.SERVER_NEW_FACTIONS, ScribeUtil.WriteSingle(new FactionData(username, faction)), conn, Multiplayer.localServerConnection);
+                object[] data = new object[] { username, ScribeUtil.WriteSingle(faction) };
+                Multiplayer.server.SendToAll(Packets.SERVER_NEW_FACTION, data, conn, Multiplayer.localServerConnection);
 
                 Log.Message("New faction: " + faction.Name);
             }
@@ -90,34 +93,31 @@ namespace Multiplayer
             exposeSmallComps.Invoke(Current.Game, null);
             World world = Current.Game.World;
             Scribe_Deep.Look(ref world, "world");
-            List<Map> maps = new List<Map>();
-            Scribe_Collections.Look(ref maps, "maps", LookMode.Deep);
+            List<Map> emptyList = new List<Map>();
+            Scribe_Collections.Look(ref emptyList, "maps", LookMode.Deep);
             Scribe.ExitNode();
 
             Multiplayer.savedWorld = ScribeUtil.FinishWriting();
 
-            (conn.GetState() as ServerWorldState).SendData();
+            string mapsFile = ServerPlayingState.GetPlayerMapsPath(username);
+            byte[] mapsData = new byte[0];
+            if (File.Exists(mapsFile))
+            {
+                using (MemoryStream stream = new MemoryStream())
+                {
+                    XmlDocument mapsXml = new XmlDocument();
+                    mapsXml.Load(mapsFile);
+                    mapsXml.Save(stream);
+                    mapsData = stream.ToArray();
+                }
+            }
+
+            conn.Send(Packets.SERVER_WORLD_DATA, new object[] { Multiplayer.savedWorld, mapsData });
         }
 
         public override bool Equals(LongAction other)
         {
             return base.Equals(other) && username == ((LongActionPlayerJoin)other).username;
-        }
-    }
-
-    public class FactionData : AttributedExposable
-    {
-        [ExposeValue]
-        public string owner;
-        [ExposeDeep]
-        public Faction faction;
-
-        public FactionData() { }
-
-        public FactionData(string owner, Faction faction)
-        {
-            this.owner = owner;
-            this.faction = faction;
         }
     }
 

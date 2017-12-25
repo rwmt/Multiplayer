@@ -52,6 +52,10 @@ namespace Multiplayer
             {
                 stream.Write(BitConverter.GetBytes(@bool));
             }
+            else if (obj is byte @byte)
+            {
+                stream.WriteByte(@byte);
+            }
             else if (obj is byte[] bytearr)
             {
                 stream.WritePrefixed(bytearr);

@@ -5,6 +5,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading;
 using UnityEngine;
 using Verse;
 using Verse.Profile;
@@ -156,6 +157,8 @@ namespace Multiplayer
                     Multiplayer.server = new Server(local, Multiplayer.DEFAULT_PORT, (conn) =>
                     {
                         conn.SetState(new ServerWorldState(conn));
+
+                        conn.connectionClosed += () => OnMainThread.Enqueue(() => Messages.Message(conn.username + " disconnected", MessageTypeDefOf.SilentInput));
                     });
 
                     LocalServerConnection localServer = new LocalServerConnection() { username = Multiplayer.username };
@@ -203,6 +206,8 @@ namespace Multiplayer
         public ServerInfoWindow()
         {
             this.doCloseButton = true;
+
+            Thread.Sleep(2000);
         }
 
         private Vector2 scrollPos = Vector2.zero;

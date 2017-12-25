@@ -355,6 +355,11 @@ namespace Multiplayer
             return BitConverter.ToInt32(array, IncrementIndex(4));
         }
 
+        public int ReadByte()
+        {
+            return array[IncrementIndex(1)];
+        }
+
         public bool ReadBool()
         {
             return BitConverter.ToBoolean(array, IncrementIndex(1));

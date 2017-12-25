@@ -3,6 +3,7 @@ using RimWorld;
 using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -21,6 +22,7 @@ namespace Multiplayer
     public class Multiplayer
     {
         public const int DEFAULT_PORT = 30502;
+        public const int SCHEDULED_ACTION_DELAY = 15;
 
         public static String username;
         public static Server server;
@@ -30,7 +32,6 @@ namespace Multiplayer
         public static byte[] savedWorld;
         public static byte[] mapsData;
         public static bool savingForEncounter;
-        public static AutoResetEvent pause = new AutoResetEvent(false);
 
         public static IdBlock mainBlock;
 
@@ -90,6 +91,7 @@ namespace Multiplayer
             int blockStart = highestUniqueId;
             highestUniqueId = highestUniqueId + blockSize;
             Log.Message("New id block " + blockStart + " of " + blockSize);
+
             return new IdBlock(blockStart, blockSize);
         }
     }
@@ -198,17 +200,18 @@ namespace Multiplayer
 
         public const int SERVER_WORLD_DATA = 0;
         public const int SERVER_ACTION_SCHEDULE = 1;
-        public const int SERVER_NEW_FACTIONS = 2;
+        public const int SERVER_NEW_FACTION = 2;
         public const int SERVER_NEW_WORLD_OBJ = 3;
         public const int SERVER_MAP_REQUEST = 4;
         public const int SERVER_MAP_RESPONSE = 5;
         public const int SERVER_NOTIFICATION = 6;
         public const int SERVER_NEW_ID_BLOCK = 7;
+        public const int SERVER_TICKS = 8;
     }
 
     public enum ServerAction
     {
-        PAUSE, UNPAUSE, MAP_ID_BLOCK, PAWN_JOB, SPAWN_THING, DRAFT, FORBID,
+        TIME_SPEED, MAP_ID_BLOCK, PAWN_JOB, SPAWN_THING, DRAFT, FORBID,
         AREA, DESIGNATION, ZONE,
         LONG_ACTION_SCHEDULE, LONG_ACTION_END
     }
@@ -254,31 +257,13 @@ namespace Multiplayer
                     byte[] extra = ScribeUtil.WriteSingle(OnMainThread.currentLongAction);
                     Multiplayer.server.SendToAll(Packets.SERVER_ACTION_SCHEDULE, ServerPlayingState.GetServerActionMsg(ServerAction.LONG_ACTION_END, extra));
 
-                    Log.Message("world sending finished");
+                    Log.Message("World sending finished");
                 });
             }
             else if (id == Packets.CLIENT_USERNAME)
             {
                 OnMainThread.Enqueue(() => Connection.username = data.ReadString());
             }
-        }
-
-        public void SendData()
-        {
-            string mapsFile = ServerPlayingState.GetPlayerMapsPath(Connection.username);
-            byte[] mapsData = new byte[0];
-            if (File.Exists(mapsFile))
-            {
-                using (MemoryStream stream = new MemoryStream())
-                {
-                    XmlDocument maps = new XmlDocument();
-                    maps.Load(mapsFile);
-                    maps.Save(stream);
-                    mapsData = stream.ToArray();
-                }
-            }
-
-            Connection.Send(Packets.SERVER_WORLD_DATA, new object[] { Multiplayer.savedWorld, mapsData });
         }
 
         public override void Disconnect()
@@ -299,12 +284,12 @@ namespace Multiplayer
                 OnMainThread.Enqueue(() =>
                 {
                     ServerAction action = (ServerAction)data.ReadInt();
-                    int ticks = Find.TickManager.TicksGame + 15;
+                    int ticks = Find.TickManager.TicksGame + Multiplayer.SCHEDULED_ACTION_DELAY * TickPatch.TickRate;
                     byte[] extra = data.ReadPrefixedBytes();
 
                     Multiplayer.server.SendToAll(Packets.SERVER_ACTION_SCHEDULE, GetServerActionMsg(action, extra));
 
-                    Log.Message("server got request from client at " + Find.TickManager.TicksGame + " for " + action + " " + ticks);
+                    Log.Message("Server got request from client at " + Find.TickManager.TicksGame + " for " + action + " " + ticks);
                 });
             }
             else if (id == Packets.CLIENT_NEW_WORLD_OBJ)
@@ -336,7 +321,7 @@ namespace Multiplayer
             {
                 OnMainThread.Enqueue(() =>
                 {
-                    Log.Message("encounter request");
+                    Log.Message("Encounter request");
 
                     int tile = data.ReadInt();
                     Settlement settlement = Find.WorldObjects.SettlementAt(tile);
@@ -430,7 +415,7 @@ namespace Multiplayer
 
         public static object[] GetServerActionMsg(ServerAction action, byte[] extra)
         {
-            return new object[] { action, Find.TickManager.TicksGame + 15, extra };
+            return new object[] { action, Find.TickManager.TicksGame + Multiplayer.SCHEDULED_ACTION_DELAY * TickPatch.TickRate, extra };
         }
     }
 
@@ -492,14 +477,15 @@ namespace Multiplayer
             {
                 HandleActionSchedule(data);
             }
-            else if (id == Packets.SERVER_NEW_FACTIONS)
+            else if (id == Packets.SERVER_NEW_FACTION)
             {
                 OnMainThread.Enqueue(() =>
                 {
-                    FactionData newFaction = ScribeUtil.ReadSingle<FactionData>(data.GetBytes());
+                    string owner = data.ReadString();
+                    Faction faction = ScribeUtil.ReadSingle<Faction>(data.ReadPrefixedBytes());
 
-                    Find.FactionManager.Add(newFaction.faction);
-                    Find.World.GetComponent<MultiplayerWorldComp>().playerFactions[newFaction.owner] = newFaction.faction;
+                    Find.FactionManager.Add(faction);
+                    Find.World.GetComponent<MultiplayerWorldComp>().playerFactions[owner] = faction;
                 });
             }
             else if (id == Packets.SERVER_NEW_WORLD_OBJ)
@@ -536,9 +522,6 @@ namespace Multiplayer
                     Current.ProgramState = ProgramState.MapInitializing;
 
                     Log.Message("Encounter map size: " + data.GetBytes().Length);
-
-                    if (ScribeMetaHeaderUtility.loadedGameVersion == null)
-                        ScribeMetaHeaderUtility.loadedGameVersion = VersionControl.CurrentVersionStringWithRev;
 
                     ScribeUtil.StartLoading(data.GetBytes());
                     ScribeUtil.SupplyCrossRefs();
@@ -596,6 +579,7 @@ namespace Multiplayer
 
                     Current.ProgramState = ProgramState.Playing;
 
+                    Find.World.renderer.wantedMode = WorldRenderMode.None;
                     Current.Game.VisibleMap = map;
 
                     Multiplayer.client.Send(Packets.CLIENT_MAP_LOADED);
@@ -610,6 +594,14 @@ namespace Multiplayer
                         Find.WorldObjects.MapParentAt(block.mapTile).Map.GetComponent<MultiplayerMapComp>().encounterIdBlock = block;
                     else
                         Multiplayer.mainBlock = block;
+                });
+            }
+            else if (id == Packets.SERVER_TICKS)
+            {
+                OnMainThread.Enqueue(() =>
+                {
+                    int tickUntil = data.ReadInt();
+                    TickPatch.tickUntil = tickUntil;
                 });
             }
         }
@@ -629,7 +621,7 @@ namespace Multiplayer
                 ScheduledServerAction schdl = new ScheduledServerAction(ticks, action, extraBytes);
                 OnMainThread.ScheduleAction(schdl);
 
-                Log.Message("client got request from server at " + (Current.Game != null ? Find.TickManager.TicksGame : 0) + " for action " + schdl.action + " " + schdl.ticks);
+                Log.Message("Client got request from server at " + (Current.Game != null ? Find.TickManager.TicksGame : 0) + " for action " + schdl.action + " " + schdl.ticks);
             });
         }
 
@@ -768,19 +760,10 @@ namespace Multiplayer
         {
             ServerAction action = actionReq.action;
 
-            if (action == ServerAction.PAUSE)
+            if (action == ServerAction.TIME_SPEED)
             {
-                TickUpdatePatch.SetSpeed(TimeSpeed.Paused);
-            }
-
-            if (action == ServerAction.UNPAUSE)
-            {
-                TickUpdatePatch.SetSpeed(TimeSpeed.Normal);
-            }
-
-            if (action == ServerAction.PAWN_JOB)
-            {
-                ExecuteJob(actionReq);
+                TimeSpeed speed = (TimeSpeed)data.ReadByte();
+                TickUpdatePatch.SetSpeed(speed);
             }
 
             if (action == ServerAction.SPAWN_THING)
@@ -791,7 +774,7 @@ namespace Multiplayer
                 if (info.map != null)
                 {
                     GenSpawn.Spawn(info.thing, info.loc, info.map, info.rot);
-                    Log.Message("action spawned thing: " + info.thing);
+                    Log.Message("Action spawned thing: " + info.thing);
                 }
 
                 GenSpawnPatch.spawningThing = false;
@@ -860,7 +843,7 @@ namespace Multiplayer
                 DraftSetPatch.dontHandle = false;
             }
 
-            Log.Message("executed a scheduled action " + action);
+            Log.Message("Executed a scheduled action " + action);
         }
 
         private static void HandleZone(ScheduledServerAction actionReq, ByteReader data)
@@ -881,7 +864,6 @@ namespace Multiplayer
                 string[] zoneCells = data.ReadPrefixedStrings();
 
                 int len = data.ReadInt();
-                Log.Message("added " + len);
                 Zone[] added = new Zone[len];
                 for (int i = 0; i < len; i++)
                     added[i] = ScribeUtil.ReadSingle<Zone>(data.ReadPrefixedBytes(), z => z.zoneManager = zones);
@@ -939,6 +921,7 @@ namespace Multiplayer
             int subAction = data.ReadInt();
             string mapId = data.ReadString();
             string factionId = data.ReadString();
+
             Map map = Find.Maps.FirstOrDefault(m => m.GetUniqueLoadID() == mapId);
             if (map == null) return;
 
@@ -981,70 +964,12 @@ namespace Multiplayer
             FactionContext.Reset(map);
         }
 
-        private static void ExecuteJob(ScheduledServerAction actionReq)
-        {
-            JobRequest jobReq = ScribeUtil.ReadSingle<JobRequest>(actionReq.data);
-            Job job = jobReq.job;
-
-            Map map = Find.Maps.FirstOrDefault(m => m.uniqueID == jobReq.mapId);
-            if (map == null) return;
-
-            Pawn pawn = map.mapPawns.AllPawns.FirstOrDefault(p => p.thingIDNumber == jobReq.pawnId);
-            if (pawn == null) return;
-
-            try
-            {
-                JobTrackerPatch.dontHandle = true;
-
-                if (!JobTrackerPatch.IsPawnOwner(pawn))
-                {
-                    job.ignoreForbidden = true;
-                }
-
-                if (!JobTrackerPatch.IsPawnOwner(pawn) || (pawn.jobs.curJob != null && pawn.jobs.curJob.expiryInterval == -2))
-                {
-                    MultiplayerThingComp comp = pawn.GetComp<MultiplayerThingComp>();
-                    JobDriver actualDriver = comp.actualJobDriver;
-                    if (actualDriver != null)
-                    {
-                        Log.Message("cleaning actual driver: " + actualDriver + " " + comp.actualJob + " " + actualDriver.ended);
-
-                        pawn.ClearReservationsForJob(comp.actualJob);
-                        actualDriver.ended = true;
-                        Log.Message("toils " + actualDriver.CurToilIndex);
-                        actualDriver.Cleanup(JobCondition.InterruptForced);
-                        pawn.VerifyReservations();
-                        pawn.stances.CancelBusyStanceSoft();
-
-                        if (!pawn.Destroyed && pawn.carryTracker != null && pawn.carryTracker.CarriedThing != null)
-                            pawn.carryTracker.TryDropCarriedThing(pawn.Position, ThingPlaceMode.Near, out Thing thing, null);
-
-                        comp.actualJob = null;
-                        comp.actualJobDriver = null;
-                    }
-
-                    FactionContext.Set(pawn.Map, pawn.Faction);
-                    pawn.jobs.StartJob(job, JobCondition.InterruptForced);
-                    FactionContext.Reset(pawn.Map);
-
-                    Log.Message(Multiplayer.username + " executed job " + job + " for " + pawn);
-                }
-                else
-                {
-                    Log.Warning("Jobs don't match! p:" + pawn + " j:" + job + " cur:" + pawn.jobs.curJob + " driver:" + pawn.jobs.curDriver);
-                }
-            }
-            finally
-            {
-                JobTrackerPatch.dontHandle = false;
-            }
-        }
-
         private static void HandleArea(ScheduledServerAction actionReq, ByteReader data)
         {
             int subAction = data.ReadInt();
             string mapId = data.ReadString();
             string factionId = data.ReadString();
+
             Map map = Find.Maps.FirstOrDefault(m => m.GetUniqueLoadID() == mapId);
             if (map == null) return;
 
@@ -1077,8 +1002,6 @@ namespace Multiplayer
                         int[] cells_on = data.ReadPrefixedInts();
                         for (int i = 0; i < cells_on.Length; i++)
                             area[cells_on[i]] = true;
-
-                        Log.Message("Updated " + (cells_off.Length + cells_on.Length) + " area cells");
 
                         AreaSetPatch.dontHandle = false;
                     }
@@ -1120,16 +1043,43 @@ namespace Multiplayer
     [HarmonyPatch(nameof(TickManager.DoSingleTick))]
     public static class TickPatch
     {
+        private static int lastTicksSend;
+        public static int tickUntil;
+
+        public static int TickRate
+        {
+            get
+            {
+                return Math.Max((int)Find.TickManager.TickRateMultiplier, 1);
+            }
+        }
+
+        static bool Prefix()
+        {
+            return Multiplayer.client == null || Multiplayer.server != null || Find.TickManager.TicksGame + 1 < tickUntil;
+        }
+
         static void Postfix()
         {
-            while (OnMainThread.longActionRelated.Count > 0 && OnMainThread.longActionRelated.Peek().ticks == Find.TickManager.TicksGame)
+            TickManager tickManager = Find.TickManager;
+            MultiplayerWorldComp worldComp = Find.World.GetComponent<MultiplayerWorldComp>();
+
+            while (OnMainThread.longActionRelated.Count > 0 && OnMainThread.longActionRelated.Peek().ticks == tickManager.TicksGame)
                 OnMainThread.ExecuteLongActionRelated(OnMainThread.longActionRelated.Dequeue());
 
-            while (OnMainThread.scheduledActions.Count > 0 && OnMainThread.scheduledActions.Peek().ticks == Find.TickManager.TicksGame && Find.TickManager.CurTimeSpeed != TimeSpeed.Paused)
+            while (OnMainThread.scheduledActions.Count > 0 && OnMainThread.scheduledActions.Peek().ticks == tickManager.TicksGame && tickManager.CurTimeSpeed != TimeSpeed.Paused)
             {
                 ScheduledServerAction action = OnMainThread.scheduledActions.Dequeue();
                 OnMainThread.ExecuteServerAction(action, new ByteReader(action.data));
             }
+
+            if (Multiplayer.server != null)
+                if (tickManager.TicksGame - lastTicksSend > Multiplayer.SCHEDULED_ACTION_DELAY / 2 * TickRate)
+                {
+                    foreach (Connection conn in Multiplayer.server.GetConnections())
+                        conn.Send(Packets.SERVER_TICKS, new object[] { tickManager.TicksGame + Multiplayer.SCHEDULED_ACTION_DELAY * TickRate });
+                    lastTicksSend = tickManager.TicksGame;
+                }
         }
     }
 
@@ -1137,6 +1087,10 @@ namespace Multiplayer
     {
         public string worldId = Guid.NewGuid().ToString();
         public Dictionary<string, Faction> playerFactions = new Dictionary<string, Faction>();
+
+        public Dictionary<string, ResearchManager> factionResearch = new Dictionary<string, ResearchManager>();
+        public Dictionary<string, DrugPolicyDatabase> factionDrugPolicies = new Dictionary<string, DrugPolicyDatabase>();
+        public Dictionary<string, OutfitDatabase> factionOutfits = new Dictionary<string, OutfitDatabase>();
 
         private List<string> keyWorkingList;
         private List<Faction> valueWorkingList;
@@ -1241,7 +1195,7 @@ namespace Multiplayer
     {
         private static Faction current;
 
-        public static Faction Current
+        public static Faction CurrentFaction
         {
             get
             {
@@ -1315,27 +1269,6 @@ namespace Multiplayer
 
             homeThisTick = parent.Map.areaManager.Home[parent.Position];
             zoneName = parent.Map.zoneManager.ZoneAt(parent.Position)?.label;
-        }
-
-        public override IEnumerable<Gizmo> CompGetGizmosExtra()
-        {
-            yield return new Command_Action
-            {
-                defaultLabel = "Select thing",
-                action = () =>
-                {
-                    Find.WindowStack.Add(new Dialog_JumpTo(i =>
-                    {
-                        Thing thing = parent.Map.listerThings.AllThings.FirstOrDefault(t => t.thingIDNumber == i);
-                        if (thing != null)
-                        {
-                            Log.Message("thing " + thing);
-                            Find.Selector.Select(thing);
-                            Find.CameraDriver.JumpToVisibleMapLoc(thing.Position);
-                        }
-                    }));
-                }
-            };
         }
     }
 

@@ -122,6 +122,8 @@ namespace Multiplayer
         {
             loading = true;
 
+            ScribeMetaHeaderUtility.loadedGameVersion = VersionControl.CurrentVersionStringWithRev;
+
             using (MemoryStream stream = new MemoryStream(data))
             using (XmlTextReader xml = new XmlTextReader(stream))
             {
@@ -156,11 +158,11 @@ namespace Multiplayer
             Log.Message("Cross ref supply: " + crossRefs.GetDict().Count + " " + crossRefs.GetDict().Last());
         }
 
-        public static byte[] WriteSingle(IExposable element)
+        public static byte[] WriteSingle(IExposable element, string name = "data")
         {
             StartWriting();
             Scribe.EnterNode("data");
-            Scribe_Deep.Look(ref element, "data");
+            Scribe_Deep.Look(ref element, name);
             return FinishWriting();
         }
 
