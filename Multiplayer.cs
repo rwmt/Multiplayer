@@ -8,6 +8,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Reflection;
+using System.Reflection.Emit;
 using System.Text;
 using System.Threading;
 using System.Xml;
@@ -15,6 +16,7 @@ using UnityEngine;
 using Verse;
 using Verse.AI;
 using Verse.Profile;
+using Verse.Sound;
 
 namespace Multiplayer
 {
@@ -37,6 +39,14 @@ namespace Multiplayer
 
         public static int highestUniqueId = -1;
 
+        public static Faction RealPlayerFaction
+        {
+            get
+            {
+                return Find.World.GetComponent<MultiplayerWorldComp>().playerFactions[username];
+            }
+        }
+
         static Multiplayer()
         {
             GenCommandLine.TryGetCommandLineArg("username", out username);
@@ -51,8 +61,7 @@ namespace Multiplayer
             gameobject.AddComponent<OnMainThread>();
             UnityEngine.Object.DontDestroyOnLoad(gameobject);
 
-            var harmony = HarmonyInstance.Create("multiplayer");
-            harmony.PatchAll(Assembly.GetExecutingAssembly());
+            DoPatches();
 
             if (GenCommandLine.CommandLineArgPassed("dev"))
             {
@@ -85,6 +94,43 @@ namespace Multiplayer
             }
         }
 
+        private static void DoPatches()
+        {
+            var harmony = HarmonyInstance.Create("multiplayer");
+            harmony.PatchAll(Assembly.GetExecutingAssembly());
+
+            var designateSingleCell = new HarmonyMethod(typeof(DesignatorPatches).GetMethod("DesignateSingleCell_Transpiler"));
+            var designateMultiCell = new HarmonyMethod(typeof(DesignatorPatches).GetMethod("DesignateMultiCell_Transpiler"));
+            var designateThing = new HarmonyMethod(typeof(DesignatorPatches).GetMethod("DesignateThing_Transpiler"));
+
+            foreach (Type t in typeof(Designator).AllSubclasses().Add(typeof(Designator)))
+            {
+                MethodInfo m1 = t.GetMethod("DesignateSingleCell", BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly);
+                if (m1 != null)
+                    harmony.Patch(m1, null, null, designateSingleCell);
+
+                MethodInfo m2 = t.GetMethod("DesignateMultiCell", BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly);
+                if (m2 != null)
+                    harmony.Patch(m2, null, null, designateMultiCell);
+
+                MethodInfo m3 = t.GetMethod("DesignateThing", BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly);
+                if (m3 != null)
+                    harmony.Patch(m3, null, null, designateThing);
+            }
+
+            var randPatchPrefix = new HarmonyMethod(typeof(RandPatches).GetMethod("Prefix"));
+            var randPatchPostfix = new HarmonyMethod(typeof(RandPatches).GetMethod("Postfix"));
+
+            var subSustainerCtor = typeof(SubSustainer).GetConstructor(new Type[] { typeof(Sustainer), typeof(SubSoundDef) });
+            var subSoundPlay = typeof(SubSoundDef).GetMethod("TryPlay");
+            var effecterTick = typeof(Effecter).GetMethod("EffectTick");
+            var effecterTrigger = typeof(Effecter).GetMethod("Trigger");
+            var moteMethods = typeof(MoteMaker).GetMethods(BindingFlags.Static | BindingFlags.Public);
+
+            foreach (MethodBase m in new List<MethodBase> { subSustainerCtor, subSoundPlay, effecterTick, effecterTrigger }.Union(moteMethods))
+                harmony.Patch(m, randPatchPrefix, randPatchPostfix);
+        }
+
         public static IdBlock NextIdBlock()
         {
             int blockSize = 25000;
@@ -93,6 +139,26 @@ namespace Multiplayer
             Log.Message("New id block " + blockStart + " of " + blockSize);
 
             return new IdBlock(blockStart, blockSize);
+        }
+
+        public static IEnumerable<CodeInstruction> PrefixTranspiler(MethodBase method, ILGenerator gen, IEnumerable<CodeInstruction> code, MethodBase prefix)
+        {
+            List<CodeInstruction> list = new List<CodeInstruction>(code);
+            Label firstInst = gen.DefineLabel();
+
+            list[0].labels.Add(firstInst);
+
+            List<CodeInstruction> newCode = new List<CodeInstruction>();
+            newCode.Add(new CodeInstruction(OpCodes.Ldarg_0));
+            for (int i = 0; i < method.GetParameters().Length; i++)
+                newCode.Add(new CodeInstruction(OpCodes.Ldarg, 1 + i));
+            newCode.Add(new CodeInstruction(OpCodes.Call, prefix));
+            newCode.Add(new CodeInstruction(OpCodes.Brtrue, firstInst));
+            newCode.Add(new CodeInstruction(OpCodes.Ret));
+
+            list.InsertRange(0, newCode);
+
+            return list;
         }
     }
 
@@ -212,7 +278,7 @@ namespace Multiplayer
     public enum ServerAction
     {
         TIME_SPEED, MAP_ID_BLOCK, PAWN_JOB, SPAWN_THING, DRAFT, FORBID,
-        AREA, DESIGNATION, ZONE,
+        DESIGNATOR,
         LONG_ACTION_SCHEDULE, LONG_ACTION_END
     }
 
@@ -288,8 +354,6 @@ namespace Multiplayer
                     byte[] extra = data.ReadPrefixedBytes();
 
                     Multiplayer.server.SendToAll(Packets.SERVER_ACTION_SCHEDULE, GetServerActionMsg(action, extra));
-
-                    Log.Message("Server got request from client at " + Find.TickManager.TicksGame + " for " + action + " " + ticks);
                 });
             }
             else if (id == Packets.CLIENT_NEW_WORLD_OBJ)
@@ -537,7 +601,7 @@ namespace Multiplayer
                     MultiplayerMapComp mapComp = map.GetComponent<MultiplayerMapComp>();
 
                     string ownerFactionId = ownerFaction.GetUniqueLoadID();
-                    string playerFactionId = Faction.OfPlayer.GetUniqueLoadID();
+                    string playerFactionId = Multiplayer.RealPlayerFaction.GetUniqueLoadID();
 
                     mapComp.inEncounter = true;
 
@@ -620,8 +684,6 @@ namespace Multiplayer
 
                 ScheduledServerAction schdl = new ScheduledServerAction(ticks, action, extraBytes);
                 OnMainThread.ScheduleAction(schdl);
-
-                Log.Message("Client got request from server at " + (Current.Game != null ? Find.TickManager.TicksGame : 0) + " for action " + schdl.action + " " + schdl.ticks);
             });
         }
 
@@ -644,6 +706,8 @@ namespace Multiplayer
         public static readonly List<LongAction> longActions = new List<LongAction>();
         public static LongAction currentLongAction;
 
+        private static readonly FieldInfo zoneShuffled = typeof(Zone).GetField("cellsShuffled", BindingFlags.NonPublic | BindingFlags.Instance);
+
         public void Update()
         {
             if (Multiplayer.client == null) return;
@@ -662,47 +726,6 @@ namespace Multiplayer
                 {
                     ScheduledServerAction action = scheduledActions.Dequeue();
                     ExecuteServerAction(action, new ByteReader(action.data));
-                }
-
-                foreach (Map map in Find.Maps)
-                {
-                    MultiplayerMapComp comp = map.GetComponent<MultiplayerMapComp>();
-
-                    foreach (KeyValuePair<string, HashSet<int>[]> pair in comp.areaChangesThisTick)
-                    {
-                        if (pair.Value[0].Count == 0 && pair.Value[1].Count == 0) continue;
-
-                        int[] cells_off = pair.Value[0].ToArray();
-                        int[] cells_on = pair.Value[1].ToArray();
-
-                        byte[] extra = Server.GetBytes(1, map.GetUniqueLoadID(), Faction.OfPlayer.GetUniqueLoadID(), pair.Key, cells_off, cells_on);
-                        Multiplayer.client.Send(Packets.CLIENT_ACTION_REQUEST, new object[] { ServerAction.AREA, extra });
-
-                        pair.Value[0].Clear();
-                        pair.Value[1].Clear();
-                    }
-
-                    if (comp.zoneChangesThisTick.Count > 0 || comp.zonesAdded.Count > 0 || comp.zonesRemoved.Count > 0)
-                    {
-                        int[] cells = comp.zoneChangesThisTick.Keys.ToArray();
-                        Zone[] zones = comp.zoneChangesThisTick.Values.ToArray();
-                        string[] zoneLabels = new string[zones.Length];
-                        for (int i = 0; i < zones.Length; i++)
-                            zoneLabels[i] = zones[i] != null ? zones[i].label : String.Empty;
-
-                        byte[][] added = new byte[comp.zonesAdded.Count][];
-                        for (int i = 0; i < comp.zonesAdded.Count; i++)
-                            added[i] = ScribeUtil.WriteSingle(comp.zonesAdded[i]);
-
-                        string[] removed = comp.zonesRemoved.ToArray();
-
-                        byte[] extra = Server.GetBytes(map.GetUniqueLoadID(), Faction.OfPlayer.GetUniqueLoadID(), cells, zoneLabels, added, removed);
-                        Multiplayer.client.Send(Packets.CLIENT_ACTION_REQUEST, new object[] { ServerAction.ZONE, extra });
-
-                        comp.zoneChangesThisTick.Clear();
-                        comp.zonesAdded.Clear();
-                        comp.zonesRemoved.Clear();
-                    }
                 }
             }
 
@@ -788,19 +811,9 @@ namespace Multiplayer
                     map.GetComponent<MultiplayerMapComp>().encounterIdBlock = block;
             }
 
-            if (action == ServerAction.AREA)
+            if (action == ServerAction.DESIGNATOR)
             {
-                HandleArea(actionReq, data);
-            }
-
-            if (action == ServerAction.DESIGNATION)
-            {
-                HandleDesignation(actionReq, data);
-            }
-
-            if (action == ServerAction.ZONE)
-            {
-                HandleZone(actionReq, data);
+                HandleDesignator(actionReq, data);
             }
 
             if (action == ServerAction.FORBID)
@@ -842,83 +855,15 @@ namespace Multiplayer
                 FactionContext.Reset(map);
                 DraftSetPatch.dontHandle = false;
             }
-
-            Log.Message("Executed a scheduled action " + action);
         }
 
-        private static void HandleZone(ScheduledServerAction actionReq, ByteReader data)
+        private static void HandleDesignator(ScheduledServerAction actionReq, ByteReader data)
         {
-            string mapId = data.ReadString();
-            string factionId = data.ReadString();
-            Map map = Find.Maps.FirstOrDefault(m => m.GetUniqueLoadID() == mapId);
-            if (map == null) return;
+            int mode = data.ReadInt();
+            string desName = data.ReadString();
+            Designator desig = GetDesignator(desName);
+            if (desig == null) return;
 
-            FactionContext.Set(map, factionId);
-            ZoneManager zones = map.zoneManager;
-
-            if (zones != null)
-            {
-                ZoneRegisterPatch.dontHandle = true;
-
-                int[] cells = data.ReadPrefixedInts();
-                string[] zoneCells = data.ReadPrefixedStrings();
-
-                int len = data.ReadInt();
-                Zone[] added = new Zone[len];
-                for (int i = 0; i < len; i++)
-                    added[i] = ScribeUtil.ReadSingle<Zone>(data.ReadPrefixedBytes(), z => z.zoneManager = zones);
-
-                string[] removed = data.ReadPrefixedStrings();
-
-                foreach (Zone zone in added)
-                    zones.RegisterZone(zone);
-
-                HashSet<Zone> changedZones = new HashSet<Zone>();
-
-                for (int i = 0; i < cells.Length; i++)
-                {
-                    IntVec3 cell = map.cellIndices.IndexToCell(cells[i]);
-                    Zone zone = zones.AllZones.FirstOrDefault(z => z.label == zoneCells[i]);
-
-                    if (zone != null)
-                    {
-                        zone.AddCell(cell);
-                        changedZones.Add(zone);
-                    }
-                    else
-                    {
-                        zone = zones.ZoneAt(cell);
-                        if (zone != null)
-                        {
-                            zone.RemoveCell(cell);
-                            changedZones.Add(zone);
-                        }
-                    }
-                }
-
-                foreach (Zone zone in changedZones)
-                    zone.CheckContiguous();
-
-                foreach (Zone z in added)
-                    if (z.cells.Count == 0)
-                        z.Deregister();
-
-                foreach (string label in removed)
-                {
-                    Zone zone = zones.AllZones.FirstOrDefault(z => z.label == label);
-                    if (zone != null)
-                        zone.Deregister();
-                }
-
-                ZoneRegisterPatch.dontHandle = false;
-            }
-
-            FactionContext.Reset(map);
-        }
-
-        private static void HandleDesignation(ScheduledServerAction actionReq, ByteReader data)
-        {
-            int subAction = data.ReadInt();
             string mapId = data.ReadString();
             string factionId = data.ReadString();
 
@@ -926,89 +871,57 @@ namespace Multiplayer
             if (map == null) return;
 
             FactionContext.Set(map, factionId);
-            DesignationManager designations = map.designationManager;
+            Rand.Seed = Find.TickManager.TicksGame;
 
-            if (designations != null)
+            if (mode == 0)
             {
-                if (subAction == 0) // add
-                {
-                    Designation newDesignation = ScribeUtil.ReadSingle<Designation>(data.ReadPrefixedBytes(), d => d.designationManager = designations);
+                IntVec3 cell = map.cellIndices.IndexToCell(data.ReadInt());
+                desig.DesignateSingleCell(cell);
+                desig.Finalize(true);
+            }
+            else if (mode == 1)
+            {
+                int[] cellData = data.ReadPrefixedInts();
+                IntVec3[] cells = new IntVec3[cellData.Length];
+                for (int i = 0; i < cellData.Length; i++)
+                    cells[i] = map.cellIndices.IndexToCell(cellData[i]);
 
-                    designations.allDesignations.Add(newDesignation);
-                    newDesignation.Notify_Added();
-                }
-                else if (subAction == 1) // remove specific
-                {
-                    Designation designation = ScribeUtil.ReadSingle<Designation>(data.ReadPrefixedBytes());
-                    designation = designations.allDesignations.FirstOrDefault(d => d.def == designation.def && d.target == designation.target);
-                    if (designation != null)
-                    {
-                        designation.Delete();
-                    }
-                }
-                else if (subAction == 2) // remove on thing
-                {
-                    string thingId = data.ReadString();
-                    bool standardCanceling = data.ReadBool();
-                    Thing thing = map.listerThings.AllThings.FirstOrDefault(t => t.GetUniqueLoadID() == thingId);
+                desig.DesignateMultiCell(cells.AsEnumerable());
 
-                    if (thing != null)
-                    {
-                        DesignationRemoveThingPatch.dontHandle = true;
-                        designations.RemoveAllDesignationsOn(thing, standardCanceling);
-                        DesignationRemoveThingPatch.dontHandle = false;
-                    }
+                foreach (Zone zone in map.zoneManager.AllZones)
+                    zoneShuffled.SetValue(zone, true);
+
+                Find.Selector.ClearSelection();
+            }
+            else if (mode == 2)
+            {
+                string thingId = data.ReadString();
+                Thing thing = map.listerThings.AllThings.FirstOrDefault(t => t.GetUniqueLoadID() == thingId);
+
+                if (thing != null)
+                {
+                    desig.DesignateThing(thing);
+                    desig.Finalize(true);
                 }
             }
 
             FactionContext.Reset(map);
         }
 
-        private static void HandleArea(ScheduledServerAction actionReq, ByteReader data)
+        private static Designator GetDesignator(string name)
         {
-            int subAction = data.ReadInt();
-            string mapId = data.ReadString();
-            string factionId = data.ReadString();
-
-            Map map = Find.Maps.FirstOrDefault(m => m.GetUniqueLoadID() == mapId);
-            if (map == null) return;
-
-            FactionContext.Set(map, factionId);
-            AreaManager areas = map.areaManager;
-
-            if (areas != null)
+            List<DesignationCategoryDef> allDefsListForReading = DefDatabase<DesignationCategoryDef>.AllDefsListForReading;
+            for (int i = 0; i < allDefsListForReading.Count; i++)
             {
-                if (subAction == 0) // invert
+                List<Designator> allResolvedDesignators = allDefsListForReading[i].AllResolvedDesignators;
+                for (int j = 0; j < allResolvedDesignators.Count; j++)
                 {
-                    AreaInvertPatch.dontHandle = true;
-
-                    string areaId = data.ReadString();
-                    areas.AllAreas.FirstOrDefault(a => a.GetUniqueLoadID() == areaId)?.Invert();
-
-                    AreaInvertPatch.dontHandle = false;
-                }
-                else if (subAction == 1) // update
-                {
-                    string areaId = data.ReadString();
-                    Area area = areas.AllAreas.FirstOrDefault(a => a.GetUniqueLoadID() == areaId);
-                    if (area != null)
-                    {
-                        AreaSetPatch.dontHandle = true;
-
-                        int[] cells_off = data.ReadPrefixedInts();
-                        for (int i = 0; i < cells_off.Length; i++)
-                            area[cells_off[i]] = false;
-
-                        int[] cells_on = data.ReadPrefixedInts();
-                        for (int i = 0; i < cells_on.Length; i++)
-                            area[cells_on[i]] = true;
-
-                        AreaSetPatch.dontHandle = false;
-                    }
+                    if (allResolvedDesignators[j].GetType().FullName == name)
+                        return allResolvedDesignators[j];
                 }
             }
 
-            FactionContext.Reset(map);
+            return null;
         }
 
         private static void AddLongAction(LongAction action)
@@ -1124,14 +1037,6 @@ namespace Multiplayer
         public Dictionary<string, ListerHaulables> factionHaulables = new Dictionary<string, ListerHaulables>();
         public Dictionary<string, ResourceCounter> factionResources = new Dictionary<string, ResourceCounter>();
 
-        // area id => [cells off, cells on]
-        public Dictionary<string, HashSet<int>[]> areaChangesThisTick = new Dictionary<string, HashSet<int>[]>();
-
-        // cell => zone label
-        public Dictionary<int, Zone> zoneChangesThisTick = new Dictionary<int, Zone>();
-        public List<Zone> zonesAdded = new List<Zone>();
-        public List<string> zonesRemoved = new List<string>();
-
         public static bool tickingFactions;
 
         public MultiplayerMapComp(Map map) : base(map)
@@ -1148,18 +1053,6 @@ namespace Multiplayer
             factionZones[ownerFactionId] = map.zoneManager;
             factionHaulables[ownerFactionId] = map.listerHaulables;
             factionResources[ownerFactionId] = map.resourceCounter;
-        }
-
-        public void AreaChange(string areaId, int cell, bool value)
-        {
-            if (!areaChangesThisTick.TryGetValue(areaId, out HashSet<int>[] changes))
-            {
-                changes = new HashSet<int>[] { new HashSet<int>(), new HashSet<int>() };
-                areaChangesThisTick.Add(areaId, changes);
-            }
-
-            if (!changes[value ? 0 : 1].Remove(cell))
-                changes[value ? 1 : 0].Add(cell);
         }
 
         public override void MapComponentTick()
@@ -1228,19 +1121,19 @@ namespace Multiplayer
 
             Faction faction = Find.FactionManager.AllFactions.FirstOrDefault(f => f.GetUniqueLoadID() == factionId);
             current = faction;
+
+            Faction.OfPlayer.def = FactionDefOf.Outlander;
+            faction.def = FactionDefOf.PlayerColony;
         }
 
         public static void Reset(Map map)
         {
-            Set(map, Faction.OfPlayer);
+            Set(map, Multiplayer.RealPlayerFaction);
         }
     }
 
     public class MultiplayerThingComp : ThingComp
     {
-        public Job actualJob;
-        public JobDriver actualJobDriver;
-
         private bool homeThisTick;
         private string zoneName;
 

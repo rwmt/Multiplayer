@@ -12,6 +12,39 @@ namespace Multiplayer
 {
     class Seeds
     {
+        [HarmonyPatch(typeof(Map))]
+        [HarmonyPatch(nameof(Map.MapPreTick))]
+        public static class SeedMapPreTick
+        {
+            static void Prefix(Map __instance)
+            {
+                if (Multiplayer.client == null) return;
+                Rand.Seed = __instance.uniqueID.Combine(Find.TickManager.TicksGame).Combine(Find.World.info.Seed);
+            }
+        }
+
+        [HarmonyPatch(typeof(Map))]
+        [HarmonyPatch(nameof(Map.MapPostTick))]
+        public static class SeedMapPostTick
+        {
+            static void Prefix(Map __instance)
+            {
+                if (Multiplayer.client == null) return;
+                Rand.Seed = __instance.uniqueID.Combine(Find.TickManager.TicksGame).Combine(Find.World.info.Seed).Combine(130531);
+            }
+        }
+
+        [HarmonyPatch(typeof(World))]
+        [HarmonyPatch(nameof(World.WorldTick))]
+        public static class SeedWorldTick
+        {
+            static void Prefix(World __instance)
+            {
+                if (Multiplayer.client == null) return;
+                Rand.Seed = Find.TickManager.TicksGame.Combine(Find.World.info.Seed).Combine(4624);
+            }
+        }
+
         [HarmonyPatch(typeof(ThingWithComps))]
         [HarmonyPatch(nameof(ThingWithComps.Tick))]
         public static class SeedThingWithCompsTick
@@ -45,51 +78,14 @@ namespace Multiplayer
             }
         }
 
-        [HarmonyPatch(typeof(JobDriver))]
-        [HarmonyPatch(nameof(JobDriver.DriverTick))]
-        public static class SeedJobDriverTick
-        {
-            static void Prefix(JobDriver __instance)
-            {
-                if (Multiplayer.client == null) return;
-                Rand.Seed = __instance.job.loadID.Combine(Find.TickManager.TicksGame).Combine(Find.World.info.Seed);
-            }
-        }
-
-        [HarmonyPatch(typeof(JobDriver))]
-        [HarmonyPatch(nameof(JobDriver.ReadyForNextToil))]
-        public static class SeedInitToil
-        {
-            static void Prefix(JobDriver __instance)
-            {
-                if (Multiplayer.client == null) return;
-                Rand.Seed = __instance.job.loadID.Combine(Find.TickManager.TicksGame).Combine(Find.World.info.Seed).Combine(2361);
-            }
-        }
-
         [HarmonyPatch(typeof(Pawn_JobTracker))]
-        [HarmonyPatch("DetermineNextJob")]
-        public static class SeedNextJob
+        [HarmonyPatch(nameof(Pawn_JobTracker.JobTrackerTick))]
+        public static class SeedJobTrackerTick
         {
-            public static FieldInfo pawnField = typeof(Pawn_JobTracker).GetField("pawn", BindingFlags.Instance | BindingFlags.NonPublic);
-
-            static void Prefix(Pawn_JobTracker __instance)
+            static void Prefix()
             {
                 if (Multiplayer.client == null) return;
-                Pawn pawn = (Pawn)pawnField.GetValue(__instance);
-                Rand.Seed = pawn.thingIDNumber.Combine(Find.TickManager.TicksGame).Combine(Find.World.info.Seed).Combine(48358);
-            }
-        }
-
-        [HarmonyPatch(typeof(Pawn_JobTracker))]
-        [HarmonyPatch("DetermineNextConstantThinkTreeJob")]
-        public static class SeedNextConstantJob
-        {
-            static void Prefix(Pawn_JobTracker __instance)
-            {
-                if (Multiplayer.client == null) return;
-                Pawn pawn = (Pawn)SeedNextJob.pawnField.GetValue(__instance);
-                Rand.Seed = pawn.thingIDNumber.Combine(Find.TickManager.TicksGame).Combine(Find.World.info.Seed).Combine(57362);
+                Rand.Seed = PawnContext.current.thingIDNumber.Combine(Find.TickManager.TicksGame).Combine(Find.World.info.Seed).Combine(2141);
             }
         }
     }

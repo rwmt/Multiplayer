@@ -12,6 +12,7 @@ using UnityEngine;
 using Verse;
 using Verse.AI;
 using Verse.Profile;
+using Verse.Sound;
 
 namespace Multiplayer
 {
@@ -33,7 +34,7 @@ namespace Multiplayer
             {
                 AddHostButton(optList);
 
-                optList.Insert(0, new ListableOption("Reload", () =>
+                /*optList.Insert(0, new ListableOption("Reload", () =>
                 {
                     LongEventHandler.QueueLongEvent(() =>
                     {
@@ -50,7 +51,7 @@ namespace Multiplayer
                         SavedGameLoader.LoadGameFromSaveFile("server");
                         Log.Message("loading " + watch1.ElapsedMilliseconds);
                     }, "Test", false, null);
-                }));
+                }));*/
             }
 
             if (Multiplayer.client != null && Multiplayer.server == null)
@@ -361,23 +362,13 @@ namespace Multiplayer
         static void Postfix(Pawn_JobTracker __instance, Job newJob)
         {
             Pawn pawn = (Pawn)pawnField.GetValue(__instance);
-            Log.Message(Multiplayer.username + " start job " + newJob + " " + pawn);
+            Log.Message(Find.TickManager.TicksGame + " " + Multiplayer.username + " start job " + pawn + " " + newJob);
         }
 
         public static bool IsPawnOwner(Pawn pawn)
         {
             return (pawn.Faction != null && pawn.Faction == Faction.OfPlayer) || pawn.Map.IsPlayerHome;
         }
-    }
-
-    public class JobRequest : AttributedExposable
-    {
-        [ExposeDeep]
-        public Job job;
-        [ExposeValue]
-        public int mapId;
-        [ExposeValue]
-        public int pawnId;
     }
 
     [HarmonyPatch(typeof(Pawn_JobTracker))]
@@ -390,41 +381,7 @@ namespace Multiplayer
 
             if (Multiplayer.client == null) return;
 
-            Log.Message(Multiplayer.client.username + " end job: " + pawn + " " + __instance.curJob + " " + condition);
-
-            MultiplayerThingComp comp = pawn.GetComp<MultiplayerThingComp>();
-            if (comp.actualJob != null)
-                Log.Message("actual job: " + comp.actualJob);
-        }
-    }
-
-    [HarmonyPatch(typeof(JobDriver))]
-    [HarmonyPatch(nameof(JobDriver.DriverTick))]
-    public static class JobDriverPatch
-    {
-        static FieldInfo startField = typeof(JobDriver).GetField("startTick", BindingFlags.Instance | BindingFlags.NonPublic);
-
-        static bool Prefix(JobDriver __instance)
-        {
-            if (__instance.job.expiryInterval != -2) return true;
-
-            __instance.job.startTick = Find.TickManager.TicksGame;
-            startField.SetValue(__instance, Find.TickManager.TicksGame);
-
-            return false;
-        }
-    }
-
-    [HarmonyPatch(typeof(Pawn_JobTracker))]
-    [HarmonyPatch("CleanupCurrentJob")]
-    public static class Clear
-    {
-        static void Prefix(Pawn_JobTracker __instance, JobCondition condition)
-        {
-            Pawn pawn = (Pawn)JobTrackerPatch.pawnField.GetValue(__instance);
-
-            if (__instance.curJob != null && __instance.curJob.expiryInterval == -2)
-                Log.Warning(Multiplayer.username + " cleanup " + JobTrackerPatch.dontHandle + " " + __instance.curJob + " " + condition + " " + pawn + " " + __instance.curJob.expiryInterval);
+            Log.Message(Find.TickManager.TicksGame + " " + Multiplayer.username + " end job " + pawn + " " + __instance.curJob);
         }
     }
 
@@ -664,9 +621,6 @@ namespace Multiplayer
             if (current.Faction == null || current.Map == null) return;
 
             FactionContext.Set(__instance.Map, __instance.Faction);
-
-            Faction.OfPlayer.def = FactionDefOf.Outlander;
-            __instance.Faction.def = FactionDefOf.PlayerColony;
         }
 
         static void Postfix(Pawn __instance)
@@ -676,9 +630,6 @@ namespace Multiplayer
             current = null;
 
             if (__instance.Map == null || __instance.Faction == null) return;
-
-            __instance.Faction.def = FactionDefOf.Outlander;
-            Find.World.GetComponent<MultiplayerWorldComp>().playerFactions.GetValueSafe(Multiplayer.username).def = FactionDefOf.PlayerColony;
 
             FactionContext.Reset(__instance.Map);
         }
@@ -705,56 +656,6 @@ namespace Multiplayer
         }
     }
 
-    [HarmonyPatch(typeof(DesignationManager))]
-    [HarmonyPatch(nameof(DesignationManager.AddDesignation))]
-    public static class DesignationAddPatch
-    {
-        static bool Prefix(DesignationManager __instance, Designation newDes)
-        {
-            if (Multiplayer.client == null) return true;
-            if (!ProcessDesignatorsPatch.processingDesignators && !DrawGizmosPatch.drawingGizmos) return true;
-
-            byte[] extra = Server.GetBytes(0, __instance.map.GetUniqueLoadID(), Faction.OfPlayer.GetUniqueLoadID(), ScribeUtil.WriteSingle(newDes));
-            Multiplayer.client.Send(Packets.CLIENT_ACTION_REQUEST, new object[] { ServerAction.DESIGNATION, extra });
-
-            return false;
-        }
-    }
-
-    [HarmonyPatch(typeof(DesignationManager))]
-    [HarmonyPatch(nameof(DesignationManager.RemoveDesignation))]
-    public static class DesignationRemovePatch
-    {
-        static bool Prefix(DesignationManager __instance, Designation des)
-        {
-            if (Multiplayer.client == null) return true;
-            if (!ProcessDesignatorsPatch.processingDesignators && !DrawGizmosPatch.drawingGizmos) return true;
-
-            byte[] extra = Server.GetBytes(1, __instance.map.GetUniqueLoadID(), Faction.OfPlayer.GetUniqueLoadID(), ScribeUtil.WriteSingle(des));
-            Multiplayer.client.Send(Packets.CLIENT_ACTION_REQUEST, new object[] { ServerAction.DESIGNATION, extra });
-
-            return false;
-        }
-    }
-
-    [HarmonyPatch(typeof(DesignationManager))]
-    [HarmonyPatch(nameof(DesignationManager.RemoveAllDesignationsOn))]
-    public static class DesignationRemoveThingPatch
-    {
-        public static bool dontHandle;
-
-        static bool Prefix(DesignationManager __instance, Thing t, bool standardCanceling)
-        {
-            if (Multiplayer.client == null || dontHandle) return true;
-            if (!ProcessDesignatorsPatch.processingDesignators && !DrawGizmosPatch.drawingGizmos) return true;
-
-            byte[] extra = Server.GetBytes(2, __instance.map.GetUniqueLoadID(), Faction.OfPlayer.GetUniqueLoadID(), t.GetUniqueLoadID(), standardCanceling);
-            Multiplayer.client.Send(Packets.CLIENT_ACTION_REQUEST, new object[] { ServerAction.DESIGNATION, extra });
-
-            return false;
-        }
-    }
-
     [HarmonyPatch(typeof(GizmoGridDrawer))]
     [HarmonyPatch(nameof(GizmoGridDrawer.DrawGizmoGrid))]
     public static class DrawGizmosPatch
@@ -769,23 +670,6 @@ namespace Multiplayer
         static void Postfix()
         {
             drawingGizmos = false;
-        }
-    }
-
-    [HarmonyPatch(typeof(DesignatorManager))]
-    [HarmonyPatch(nameof(DesignatorManager.ProcessInputEvents))]
-    public static class ProcessDesignatorsPatch
-    {
-        public static bool processingDesignators;
-
-        static void Prefix()
-        {
-            processingDesignators = true;
-        }
-
-        static void Postfix()
-        {
-            processingDesignators = false;
         }
     }
 
@@ -857,6 +741,7 @@ namespace Multiplayer
                 if (block != null)
                 {
                     __result = block.NextId();
+                    Log.Message(Find.TickManager.TicksGame + " " + Multiplayer.username + " new thing " + PawnContext.current + " " + __result);
                 }
             }
         }
@@ -1018,14 +903,14 @@ namespace Multiplayer
             string factionId = FactionContext.CurrentFaction.GetUniqueLoadID();
             if (comp.factionForbidden.TryGetValue(factionId, out bool forbidden) && forbidden == value) return false;
 
-            if (DrawGizmosPatch.drawingGizmos || ProcessDesignatorsPatch.processingDesignators)
+            if (DrawGizmosPatch.drawingGizmos || ProcessDesigInputPatch.processing)
             {
-                byte[] extra = Server.GetBytes(thing.Map.GetUniqueLoadID(), thing.GetUniqueLoadID(), Faction.OfPlayer.GetUniqueLoadID(), value);
+                byte[] extra = Server.GetBytes(thing.Map.GetUniqueLoadID(), thing.GetUniqueLoadID(), Multiplayer.RealPlayerFaction.GetUniqueLoadID(), value);
                 Multiplayer.client.Send(Packets.CLIENT_ACTION_REQUEST, new object[] { ServerAction.FORBID, extra });
                 return false;
             }
 
-            if (factionId == Faction.OfPlayer.GetUniqueLoadID())
+            if (factionId == Multiplayer.RealPlayerFaction.GetUniqueLoadID())
                 forbiddenField.SetValue(__instance, value);
 
             comp.factionForbidden[factionId] = value;
@@ -1039,6 +924,30 @@ namespace Multiplayer
             }
 
             return false;
+        }
+    }
+
+    [HarmonyPatch(typeof(RandomNumberGenerator_BasicHash))]
+    [HarmonyPatch(nameof(RandomNumberGenerator_BasicHash.GetInt))]
+    public static class RandPatch
+    {
+        static void Prefix()
+        {
+            if (PawnContext.current != null)
+                Log.Message("rand " + PawnContext.current);
+        }
+    }
+
+    public static class RandPatches
+    {
+        public static void Prefix()
+        {
+            Rand.PushState();
+        }
+
+        public static void Postfix()
+        {
+            Rand.PopState();
         }
     }
 

@@ -51,6 +51,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AreaHandler.cs" />
+    <Compile Include="Designators.cs" />
     <Compile Include="Extensions.cs" />
     <Compile Include="LongActions.cs" />
     <Compile Include="ScribeUtil.cs" />
@@ -60,7 +61,6 @@
     <Compile Include="Patches.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Multiplayer.cs" />
-    <Compile Include="ZoneHandler.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
