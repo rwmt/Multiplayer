@@ -65,15 +65,15 @@ namespace Multiplayer
             foreach (ScheduledServerAction action in OnMainThread.scheduledActions)
                 conn.Send(Packets.SERVER_ACTION_SCHEDULE, ServerPlayingState.GetServerActionMsg(action.action, action.data));
 
-            MultiplayerWorldComp factions = Find.World.GetComponent<MultiplayerWorldComp>();
-            if (!factions.playerFactions.TryGetValue(username, out Faction faction))
+            MultiplayerWorldComp comp = Find.World.GetComponent<MultiplayerWorldComp>();
+            if (!comp.playerFactions.TryGetValue(username, out Faction faction))
             {
                 faction = FactionGenerator.NewGeneratedFaction(FactionDefOf.PlayerColony);
                 faction.Name = username + "'s faction";
-                faction.def = FactionDefOf.Outlander;
+                faction.def = Multiplayer.factionDef;
 
                 Find.FactionManager.Add(faction);
-                factions.playerFactions[username] = faction;
+                comp.playerFactions[username] = faction;
 
                 object[] data = new object[] { username, ScribeUtil.WriteSingle(faction) };
                 Multiplayer.server.SendToAll(Packets.SERVER_NEW_FACTION, data, conn, Multiplayer.localServerConnection);

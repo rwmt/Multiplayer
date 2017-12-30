@@ -1,9 +1,11 @@
-﻿using System;
+﻿using RimWorld;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Xml;
+using Verse;
 
 namespace Multiplayer
 {
@@ -14,7 +16,7 @@ namespace Multiplayer
             return i1 ^ (i2 << 16 | (i2 >> 16));
         }
 
-        public static T[] Append<T>(this T[] arr1, T[] arr2)
+        public static T[] Append<T>(this T[] arr1, params T[] arr2)
         {
             T[] result = new T[arr1.Length + arr2.Length];
             Array.Copy(arr1, 0, result, 0, arr1.Length);
@@ -87,6 +89,41 @@ namespace Multiplayer
             stream.Write(BitConverter.GetBytes(arr.Length), 0, 4);
             if (arr.Length > 0)
                 stream.Write(arr, 0, arr.Length);
+        }
+
+        public static void SendAction(this Connection conn, ServerAction action, params object[] extra)
+        {
+            conn.Send(Packets.CLIENT_ACTION_REQUEST, new object[] { action, Server.GetBytes(extra) });
+        }
+
+        public static IEnumerable<Type> AllSubtypesAndSelf(this Type t)
+        {
+            return t.AllSubclasses().Concat(t);
+        }
+
+        public static IEnumerable<Type> AllImplementing(this Type t)
+        {
+            return from x in GenTypes.AllTypes where t.IsAssignableFrom(x) select x;
+        }
+
+        public static void PushFaction(this Map map, Faction faction)
+        {
+            FactionContext.Push(faction);
+            if (map != null)
+                map.GetComponent<MultiplayerMapComp>().SetFaction(faction);
+        }
+
+        public static void PushFaction(this Map map, string factionId)
+        {
+            Faction faction = Find.FactionManager.AllFactions.FirstOrDefault(f => f.GetUniqueLoadID() == factionId);
+            map.PushFaction(faction);
+        }
+
+        public static void PopFaction(this Map map)
+        {
+            Faction faction = FactionContext.Pop();
+            if (map != null)
+                map.GetComponent<MultiplayerMapComp>().SetFaction(faction);
         }
     }
 }

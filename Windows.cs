@@ -154,6 +154,9 @@ namespace Multiplayer
             {
                 try
                 {
+                    MultiplayerWorldComp comp = Find.World.GetComponent<MultiplayerWorldComp>();
+                    comp.sessionId = new System.Random().Next();
+
                     Multiplayer.server = new Server(local, Multiplayer.DEFAULT_PORT, (conn) =>
                     {
                         conn.SetState(new ServerWorldState(conn));
@@ -179,7 +182,7 @@ namespace Multiplayer
 
                     Multiplayer.mainBlock = Multiplayer.NextIdBlock();
                     Faction.OfPlayer.Name = Multiplayer.username + "'s faction";
-                    Find.World.GetComponent<MultiplayerWorldComp>().playerFactions[Multiplayer.username] = Faction.OfPlayer;
+                    comp.playerFactions[Multiplayer.username] = Faction.OfPlayer;
 
                     Messages.Message("Server started. Listening at " + local.ToString() + ":" + Multiplayer.DEFAULT_PORT, MessageTypeDefOf.SilentInput);
                 }

@@ -46,10 +46,9 @@ namespace Multiplayer
         {
             if (Multiplayer.client == null || !ProcessDesigInputPatch.processing) return true;
 
-            string desName = designator.GetType().FullName;
             Map map = Find.VisibleMap;
-            byte[] extra = Server.GetBytes(0, desName, map.GetUniqueLoadID(), Multiplayer.RealPlayerFaction.GetUniqueLoadID(), map.cellIndices.CellToIndex(c));
-            Multiplayer.client.Send(Packets.CLIENT_ACTION_REQUEST, new object[] { ServerAction.DESIGNATOR, extra });
+            object[] extra = GetExtra(0, designator).Append(map.cellIndices.CellToIndex(c));
+            Multiplayer.client.SendAction(ServerAction.DESIGNATOR, extra);
 
             return false;
         }
@@ -64,9 +63,8 @@ namespace Multiplayer
             foreach (IntVec3 cell in cells)
                 cellData[i++] = map.cellIndices.CellToIndex(cell);
 
-            string desName = designator.GetType().FullName;
-            byte[] extra = Server.GetBytes(1, desName, map.GetUniqueLoadID(), Multiplayer.RealPlayerFaction.GetUniqueLoadID(), cellData);
-            Multiplayer.client.Send(Packets.CLIENT_ACTION_REQUEST, new object[] { ServerAction.DESIGNATOR, extra });
+            object[] extra = GetExtra(1, designator).Append(cellData);
+            Multiplayer.client.SendAction(ServerAction.DESIGNATOR, extra);
 
             return false;
         }
@@ -75,13 +73,16 @@ namespace Multiplayer
         {
             if (Multiplayer.client == null || !DrawGizmosPatch.drawingGizmos) return true;
 
-            Log.Message("designate thing " + t.GetUniqueLoadID());
-
-            string desName = designator.GetType().FullName;
-            byte[] extra = Server.GetBytes(2, desName, Find.VisibleMap.GetUniqueLoadID(), Multiplayer.RealPlayerFaction.GetUniqueLoadID(), t.GetUniqueLoadID());
-            Multiplayer.client.Send(Packets.CLIENT_ACTION_REQUEST, new object[] { ServerAction.DESIGNATOR, extra });
+            object[] extra = GetExtra(2, designator).Append(t.GetUniqueLoadID());
+            Multiplayer.client.SendAction(ServerAction.DESIGNATOR, extra);
 
             return false;
+        }
+
+        private static object[] GetExtra(int action, Designator designator)
+        {
+            string buildDefName = designator is Designator_Build build ? build.PlacingDef.defName : "";
+            return new object[] { action, designator.GetType().FullName, buildDefName, Find.VisibleMap.GetUniqueLoadID(), Multiplayer.RealPlayerFaction.GetUniqueLoadID() }.Append(Metadata(designator));
         }
 
         public static IEnumerable<CodeInstruction> DesignateSingleCell_Transpiler(MethodBase method, ILGenerator gen, IEnumerable<CodeInstruction> code)
@@ -97,6 +98,89 @@ namespace Multiplayer
         public static IEnumerable<CodeInstruction> DesignateThing_Transpiler(MethodBase method, ILGenerator gen, IEnumerable<CodeInstruction> code)
         {
             return Multiplayer.PrefixTranspiler(method, gen, code, typeof(DesignatorPatches).GetMethod("DesignateThing"));
+        }
+
+        public static readonly FieldInfo selectedAreaField = typeof(Designator_AreaAllowed).GetField("selectedArea", BindingFlags.Static | BindingFlags.NonPublic);
+        public static readonly FieldInfo buildStuffField = typeof(Designator_Build).GetField("stuffDef", BindingFlags.Instance | BindingFlags.NonPublic);
+        public static readonly FieldInfo buildRotField = typeof(Designator_Place).GetField("placingRot", BindingFlags.Instance | BindingFlags.NonPublic);
+
+        private static object[] Metadata(Designator designator)
+        {
+            List<object> meta = new List<object>();
+
+            if (designator is Designator_AreaAllowed)
+            {
+                Area selectedArea = (Area)selectedAreaField.GetValue(null);
+                meta.Add(selectedArea != null ? selectedArea.GetUniqueLoadID() : "");
+            }
+
+            if (designator is Designator_Place)
+            {
+                meta.Add(((Rot4)buildRotField.GetValue(designator)).AsByte);
+            }
+
+            if (designator is Designator_Build build && build.PlacingDef.MadeFromStuff)
+            {
+                meta.Add(((ThingDef)buildStuffField.GetValue(designator)).defName);
+            }
+
+            if (designator is Designator_Install)
+            {
+                meta.Add(ThingToInstall().GetUniqueLoadID());
+            }
+
+            return meta.ToArray();
+        }
+
+        private static Thing ThingToInstall()
+        {
+            Thing singleSelectedThing = Find.Selector.SingleSelectedThing;
+            if (singleSelectedThing is MinifiedThing)
+                return singleSelectedThing;
+
+            Building building = singleSelectedThing as Building;
+            if (building != null && building.def.Minifiable)
+                return singleSelectedThing;
+
+            return null;
+        }
+    }
+
+    [HarmonyPatch(typeof(Designator_Install))]
+    [HarmonyPatch("MiniToInstallOrBuildingToReinstall", PropertyMethod.Getter)]
+    public static class DesignatorInstallPatch
+    {
+        public static Thing thingToInstall;
+
+        static void Postfix(ref Thing __result)
+        {
+            if (thingToInstall != null)
+                __result = thingToInstall;
+        }
+    }
+
+    [HarmonyPatch(typeof(Game))]
+    [HarmonyPatch(nameof(Game.VisibleMap), PropertyMethod.Getter)]
+    public static class VisibleMapGetPatch
+    {
+        public static Map visibleMap;
+
+        static void Postfix(ref Map __result)
+        {
+            if (visibleMap != null)
+                __result = visibleMap;
+        }
+    }
+
+    [HarmonyPatch(typeof(Game))]
+    [HarmonyPatch(nameof(Game.VisibleMap), PropertyMethod.Setter)]
+    public static class VisibleMapSetPatch
+    {
+        public static bool ignore;
+
+        static bool Prefix()
+        {
+            return !ignore;
         }
     }
 }

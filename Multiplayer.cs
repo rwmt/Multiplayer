@@ -39,13 +39,10 @@ namespace Multiplayer
 
         public static int highestUniqueId = -1;
 
-        public static Faction RealPlayerFaction
-        {
-            get
-            {
-                return Find.World.GetComponent<MultiplayerWorldComp>().playerFactions[username];
-            }
-        }
+        public static Faction RealPlayerFaction => WorldComp.playerFactions[username];
+        public static MultiplayerWorldComp WorldComp => Find.World.GetComponent<MultiplayerWorldComp>();
+
+        public static FactionDef factionDef = FactionDef.Named("MultiplayerColony");
 
         static Multiplayer()
         {
@@ -99,23 +96,16 @@ namespace Multiplayer
             var harmony = HarmonyInstance.Create("multiplayer");
             harmony.PatchAll(Assembly.GetExecutingAssembly());
 
-            var designateSingleCell = new HarmonyMethod(typeof(DesignatorPatches).GetMethod("DesignateSingleCell_Transpiler"));
-            var designateMultiCell = new HarmonyMethod(typeof(DesignatorPatches).GetMethod("DesignateMultiCell_Transpiler"));
-            var designateThing = new HarmonyMethod(typeof(DesignatorPatches).GetMethod("DesignateThing_Transpiler"));
+            var designatorMethods = new[] { "DesignateSingleCell", "DesignateMultiCell", "DesignateThing" };
 
-            foreach (Type t in typeof(Designator).AllSubclasses().Add(typeof(Designator)))
+            foreach (Type t in typeof(Designator).AllSubtypesAndSelf())
             {
-                MethodInfo m1 = t.GetMethod("DesignateSingleCell", BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly);
-                if (m1 != null)
-                    harmony.Patch(m1, null, null, designateSingleCell);
-
-                MethodInfo m2 = t.GetMethod("DesignateMultiCell", BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly);
-                if (m2 != null)
-                    harmony.Patch(m2, null, null, designateMultiCell);
-
-                MethodInfo m3 = t.GetMethod("DesignateThing", BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly);
-                if (m3 != null)
-                    harmony.Patch(m3, null, null, designateThing);
+                foreach (string m in designatorMethods)
+                {
+                    MethodInfo method = t.GetMethod(m, BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly);
+                    if (method != null)
+                        harmony.Patch(method, null, null, new HarmonyMethod(typeof(DesignatorPatches).GetMethod(m + "_Transpiler")));
+                }
             }
 
             var randPatchPrefix = new HarmonyMethod(typeof(RandPatches).GetMethod("Prefix"));
@@ -125,10 +115,37 @@ namespace Multiplayer
             var subSoundPlay = typeof(SubSoundDef).GetMethod("TryPlay");
             var effecterTick = typeof(Effecter).GetMethod("EffectTick");
             var effecterTrigger = typeof(Effecter).GetMethod("Trigger");
+            var effectMethods = new MethodBase[] { subSustainerCtor, subSoundPlay, effecterTick, effecterTrigger };
             var moteMethods = typeof(MoteMaker).GetMethods(BindingFlags.Static | BindingFlags.Public);
 
-            foreach (MethodBase m in new List<MethodBase> { subSustainerCtor, subSoundPlay, effecterTick, effecterTrigger }.Union(moteMethods))
+            foreach (MethodBase m in effectMethods.Concat(moteMethods))
                 harmony.Patch(m, randPatchPrefix, randPatchPostfix);
+
+            var thingTickPrefix = new HarmonyMethod(typeof(SeedThingTick).GetMethod("Prefix"));
+            var thingMethods = new[] { "Tick", "TickRare", "TickLong" };
+
+            foreach (Type t in typeof(Thing).AllSubtypesAndSelf())
+            {
+                foreach (string m in thingMethods)
+                {
+                    MethodInfo method = t.GetMethod(m, BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly);
+                    if (method != null)
+                        harmony.Patch(method, thingTickPrefix, null);
+                }
+            }
+
+            var exposablePrefix = new HarmonyMethod(typeof(ExposableProfiler).GetMethod("Prefix"));
+            var exposablePostfix = new HarmonyMethod(typeof(ExposableProfiler).GetMethod("Postfix"));
+
+            foreach (Type t in typeof(IExposable).AllImplementing())
+            {
+                MethodInfo method = t.GetMethod("ExposeData", BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly);
+                if (method != null && !method.IsAbstract && !method.DeclaringType.IsGenericTypeDefinition && method.DeclaringType.Name != "Map")
+                {
+                    Log.Message("exposable: " + t.FullName);
+                    harmony.Patch(method, exposablePrefix, exposablePostfix);
+                }
+            }
         }
 
         public static IdBlock NextIdBlock()
@@ -159,6 +176,29 @@ namespace Multiplayer
             list.InsertRange(0, newCode);
 
             return list;
+        }
+    }
+
+    public static class ExposableProfiler
+    {
+        public static Dictionary<Type, List<double>> timing = new Dictionary<Type, List<double>>();
+        public static List<long> stack = new List<long>();
+
+        public static void Prefix(IExposable __instance)
+        {
+            stack.Add(Stopwatch.GetTimestamp());
+        }
+
+        public static void Postfix(IExposable __instance)
+        {
+            if (!timing.TryGetValue(__instance.GetType(), out List<double> list))
+            {
+                list = new List<double>();
+                timing[__instance.GetType()] = list;
+            }
+
+            list.Add(Stopwatch.GetTimestamp() - stack.Last());
+            stack.RemoveLast();
         }
     }
 
@@ -212,10 +252,7 @@ namespace Multiplayer
         {
         }
 
-        public override string SettingsCategory()
-        {
-            return "Multiplayer";
-        }
+        public override string SettingsCategory() => "Multiplayer";
     }
 
     public class Encounter
@@ -240,9 +277,11 @@ namespace Multiplayer
                 yield return attacker;
         }
 
-        public static void Add(int tile, string defender, string attacker)
+        public static Encounter Add(int tile, string defender, string attacker)
         {
-            encounters.Add(new Encounter(tile, defender, attacker));
+            Encounter e = new Encounter(tile, defender, attacker);
+            encounters.Add(e);
+            return e;
         }
 
         public static Encounter GetByTile(int tile)
@@ -277,18 +316,18 @@ namespace Multiplayer
 
     public enum ServerAction
     {
-        TIME_SPEED, MAP_ID_BLOCK, PAWN_JOB, SPAWN_THING, DRAFT, FORBID,
-        DESIGNATOR,
-        LONG_ACTION_SCHEDULE, LONG_ACTION_END
+        TIME_SPEED, MAP_ID_BLOCK, DRAFT, FORBID, DESIGNATOR, ORDER_JOB, DELETE_ZONE,
+        LONG_ACTION_SCHEDULE, LONG_ACTION_END,
+        SPAWN_PAWN
     }
 
     public class ScheduledServerAction
     {
-        public readonly int ticks;
         public readonly ServerAction action;
+        public readonly int ticks;
         public readonly byte[] data;
 
-        public ScheduledServerAction(int ticks, ServerAction action, byte[] data)
+        public ScheduledServerAction(ServerAction action, int ticks, byte[] data)
         {
             this.ticks = ticks;
             this.action = action;
@@ -350,7 +389,6 @@ namespace Multiplayer
                 OnMainThread.Enqueue(() =>
                 {
                     ServerAction action = (ServerAction)data.ReadInt();
-                    int ticks = Find.TickManager.TicksGame + Multiplayer.SCHEDULED_ACTION_DELAY * TickPatch.TickRate;
                     byte[] extra = data.ReadPrefixedBytes();
 
                     Multiplayer.server.SendToAll(Packets.SERVER_ACTION_SCHEDULE, GetServerActionMsg(action, extra));
@@ -420,6 +458,19 @@ namespace Multiplayer
 
                     encounter.waitingFor.Add(defender.username);
                     encounter.waitingFor.Add(attacker.username);
+
+                    Faction attackerFaction = Find.World.GetComponent<MultiplayerWorldComp>().playerFactions[encounter.attacker];
+                    FactionContext.Push(attackerFaction);
+
+                    Pawn pawn = PawnGenerator.GeneratePawn(PawnKindDefOf.Colonist, attackerFaction);
+                    byte[] pawnExtra = Server.GetBytes(encounter.tile, ScribeUtil.WriteSingle(pawn));
+
+                    foreach (string player in new[] { encounter.attacker, encounter.defender })
+                    {
+                        Multiplayer.server.GetByUsername(player).Send(Packets.SERVER_ACTION_SCHEDULE, GetServerActionMsg(ServerAction.SPAWN_PAWN, pawnExtra));
+                    }
+
+                    FactionContext.Pop();
                 });
             }
             else if (id == Packets.CLIENT_MAP_LOADED)
@@ -574,6 +625,11 @@ namespace Multiplayer
                     byte[] mapData = ScribeUtil.FinishWriting();
                     Multiplayer.savingForEncounter = false;
 
+                    Current.ProgramState = ProgramState.MapInitializing;
+                    foreach (Thing t in new List<Thing>(map.listerThings.AllThings))
+                        t.DeSpawn();
+                    Current.ProgramState = ProgramState.Playing;
+
                     Current.Game.DeinitAndRemoveMap(map);
 
                     Multiplayer.client.Send(Packets.CLIENT_MAP_RESPONSE, mapData);
@@ -682,7 +738,7 @@ namespace Multiplayer
                 int ticks = data.ReadInt();
                 byte[] extraBytes = data.ReadPrefixedBytes();
 
-                ScheduledServerAction schdl = new ScheduledServerAction(ticks, action, extraBytes);
+                ScheduledServerAction schdl = new ScheduledServerAction(action, ticks, extraBytes);
                 OnMainThread.ScheduleAction(schdl);
             });
         }
@@ -781,26 +837,14 @@ namespace Multiplayer
 
         public static void ExecuteServerAction(ScheduledServerAction actionReq, ByteReader data)
         {
+            Rand.Seed = Find.TickManager.TicksGame;
+
             ServerAction action = actionReq.action;
 
             if (action == ServerAction.TIME_SPEED)
             {
                 TimeSpeed speed = (TimeSpeed)data.ReadByte();
                 TickUpdatePatch.SetSpeed(speed);
-            }
-
-            if (action == ServerAction.SPAWN_THING)
-            {
-                GenSpawnPatch.spawningThing = true;
-
-                GenSpawnPatch.Info info = ScribeUtil.ReadSingle<GenSpawnPatch.Info>(actionReq.data);
-                if (info.map != null)
-                {
-                    GenSpawn.Spawn(info.thing, info.loc, info.map, info.rot);
-                    Log.Message("Action spawned thing: " + info.thing);
-                }
-
-                GenSpawnPatch.spawningThing = false;
             }
 
             if (action == ServerAction.MAP_ID_BLOCK)
@@ -814,6 +858,37 @@ namespace Multiplayer
             if (action == ServerAction.DESIGNATOR)
             {
                 HandleDesignator(actionReq, data);
+            }
+
+            if (action == ServerAction.ORDER_JOB)
+            {
+                HandleOrderJob(actionReq, data);
+            }
+
+            if (action == ServerAction.DELETE_ZONE)
+            {
+                string factionId = data.ReadString();
+                string mapId = data.ReadString();
+                string zoneId = data.ReadString();
+
+                Map map = Find.Maps.FirstOrDefault(m => m.GetUniqueLoadID() == mapId);
+                if (map == null) return;
+
+                map.PushFaction(factionId);
+                map.zoneManager.AllZones.FirstOrDefault(z => z.label == zoneId)?.Delete();
+                map.PopFaction();
+            }
+
+            if (action == ServerAction.SPAWN_PAWN)
+            {
+                int tile = data.ReadInt();
+                Pawn pawn = ScribeUtil.ReadSingle<Pawn>(data.ReadPrefixedBytes());
+                Map map = Find.WorldObjects.SettlementAt(tile).Map;
+
+                FactionContext.Push(pawn.Faction);
+                GenSpawn.Spawn(pawn, map.Center, map);
+                FactionContext.Pop();
+                Log.Message("spawned " + pawn);
             }
 
             if (action == ServerAction.FORBID)
@@ -832,9 +907,9 @@ namespace Multiplayer
                 CompForbiddable forbiddable = thing.GetComp<CompForbiddable>();
                 if (forbiddable == null) return;
 
-                FactionContext.Set(map, factionId);
+                map.PushFaction(factionId);
                 forbiddable.Forbidden = value;
-                FactionContext.Reset(map);
+                map.PopFaction();
             }
 
             if (action == ServerAction.DRAFT)
@@ -850,19 +925,104 @@ namespace Multiplayer
                 if (pawn == null) return;
 
                 DraftSetPatch.dontHandle = true;
-                FactionContext.Set(map, pawn.Faction);
+                map.PushFaction(pawn.Faction);
                 pawn.drafter.Drafted = draft;
-                FactionContext.Reset(map);
+                map.PopFaction();
                 DraftSetPatch.dontHandle = false;
             }
+        }
+
+        private static void HandleOrderJob(ScheduledServerAction actionReq, ByteReader data)
+        {
+            string mapId = data.ReadString();
+            Map map = Find.Maps.FirstOrDefault(m => m.GetUniqueLoadID() == mapId);
+            if (map == null) return;
+
+            string pawnId = data.ReadString();
+            Pawn pawn = map.mapPawns.AllPawns.FirstOrDefault(p => p.GetUniqueLoadID() == pawnId);
+            if (pawn == null) return;
+
+            Job job = ScribeUtil.ReadSingle<Job>(data.ReadPrefixedBytes());
+            job.playerForced = true;
+
+            if (pawn.jobs.curJob != null && pawn.jobs.curJob.JobIsSameAs(job)) return;
+
+            bool shouldQueue = data.ReadBool();
+            int mode = data.ReadInt();
+
+            if (mode == 0)
+            {
+                JobTag tag = (JobTag)data.ReadByte();
+                OrderJob(pawn, job, tag, shouldQueue);
+            }
+            else if (mode == 1)
+            {
+                string defName = data.ReadString();
+                WorkGiverDef workGiver = DefDatabase<WorkGiverDef>.AllDefs.FirstOrDefault(d => d.defName == defName);
+                IntVec3 cell = map.cellIndices.IndexToCell(data.ReadInt());
+
+                if (OrderJob(pawn, job, workGiver.tagToGive, shouldQueue))
+                {
+                    pawn.mindState.lastGivenWorkType = workGiver.workType;
+                    if (workGiver.prioritizeSustains)
+                        pawn.mindState.priorityWork.Set(cell, workGiver.workType);
+                }
+            }
+        }
+
+        private static bool OrderJob(Pawn pawn, Job job, JobTag tag, bool shouldQueue)
+        {
+            bool interruptible = pawn.jobs.IsCurrentJobPlayerInterruptible();
+            bool idle = pawn.mindState.IsIdle || pawn.CurJob == null || pawn.CurJob.def.isIdle;
+
+            if (interruptible || (!shouldQueue && idle))
+            {
+                pawn.stances.CancelBusyStanceSoft();
+                pawn.jobs.ClearQueuedJobs();
+
+                if (job.TryMakePreToilReservations(pawn))
+                {
+                    pawn.jobs.jobQueue.EnqueueFirst(job, new JobTag?(tag));
+                    if (pawn.jobs.curJob != null)
+                        pawn.jobs.curDriver.EndJobWith(JobCondition.InterruptForced);
+                    else
+                        pawn.jobs.CheckForJobOverride();
+                    return true;
+                }
+
+                pawn.ClearReservationsForJob(job);
+                return false;
+            }
+            else if (shouldQueue)
+            {
+                if (job.TryMakePreToilReservations(pawn))
+                {
+                    pawn.jobs.jobQueue.EnqueueLast(job, new JobTag?(tag));
+                    return true;
+                }
+
+                pawn.ClearReservationsForJob(job);
+                return false;
+            }
+
+            pawn.jobs.ClearQueuedJobs();
+            if (job.TryMakePreToilReservations(pawn))
+            {
+                pawn.jobs.jobQueue.EnqueueLast(job, new JobTag?(tag));
+                return true;
+            }
+
+            pawn.ClearReservationsForJob(job);
+            return false;
         }
 
         private static void HandleDesignator(ScheduledServerAction actionReq, ByteReader data)
         {
             int mode = data.ReadInt();
             string desName = data.ReadString();
-            Designator desig = GetDesignator(desName);
-            if (desig == null) return;
+            string buildDefName = data.ReadString();
+            Designator designator = GetDesignator(desName, buildDefName);
+            if (designator == null) return;
 
             string mapId = data.ReadString();
             string factionId = data.ReadString();
@@ -870,58 +1030,101 @@ namespace Multiplayer
             Map map = Find.Maps.FirstOrDefault(m => m.GetUniqueLoadID() == mapId);
             if (map == null) return;
 
-            FactionContext.Set(map, factionId);
-            Rand.Seed = Find.TickManager.TicksGame;
+            map.PushFaction(factionId);
 
-            if (mode == 0)
-            {
-                IntVec3 cell = map.cellIndices.IndexToCell(data.ReadInt());
-                desig.DesignateSingleCell(cell);
-                desig.Finalize(true);
-            }
-            else if (mode == 1)
-            {
-                int[] cellData = data.ReadPrefixedInts();
-                IntVec3[] cells = new IntVec3[cellData.Length];
-                for (int i = 0; i < cellData.Length; i++)
-                    cells[i] = map.cellIndices.IndexToCell(cellData[i]);
+            VisibleMapGetPatch.visibleMap = map;
+            VisibleMapSetPatch.ignore = true;
 
-                desig.DesignateMultiCell(cells.AsEnumerable());
+            if (ApplyDesignatorMeta(map, designator, data))
+            {
+                if (mode == 0)
+                {
+                    IntVec3 cell = map.cellIndices.IndexToCell(data.ReadInt());
+                    designator.DesignateSingleCell(cell);
+                    designator.Finalize(true);
+                }
+                else if (mode == 1)
+                {
+                    int[] cellData = data.ReadPrefixedInts();
+                    IntVec3[] cells = new IntVec3[cellData.Length];
+                    for (int i = 0; i < cellData.Length; i++)
+                        cells[i] = map.cellIndices.IndexToCell(cellData[i]);
+
+                    designator.DesignateMultiCell(cells.AsEnumerable());
+
+                    Find.Selector.ClearSelection();
+                }
+                else if (mode == 2)
+                {
+                    string thingId = data.ReadString();
+                    Thing thing = map.listerThings.AllThings.FirstOrDefault(t => t.GetUniqueLoadID() == thingId);
+
+                    if (thing != null)
+                    {
+                        designator.DesignateThing(thing);
+                        designator.Finalize(true);
+                    }
+                }
 
                 foreach (Zone zone in map.zoneManager.AllZones)
                     zoneShuffled.SetValue(zone, true);
-
-                Find.Selector.ClearSelection();
-            }
-            else if (mode == 2)
-            {
-                string thingId = data.ReadString();
-                Thing thing = map.listerThings.AllThings.FirstOrDefault(t => t.GetUniqueLoadID() == thingId);
-
-                if (thing != null)
-                {
-                    desig.DesignateThing(thing);
-                    desig.Finalize(true);
-                }
             }
 
-            FactionContext.Reset(map);
+            DesignatorInstallPatch.thingToInstall = null;
+            VisibleMapSetPatch.ignore = false;
+            VisibleMapGetPatch.visibleMap = null;
+
+            map.PopFaction();
         }
 
-        private static Designator GetDesignator(string name)
+        private static Designator GetDesignator(string name, string buildDefName = null)
         {
             List<DesignationCategoryDef> allDefsListForReading = DefDatabase<DesignationCategoryDef>.AllDefsListForReading;
-            for (int i = 0; i < allDefsListForReading.Count; i++)
+            foreach (DesignationCategoryDef cat in allDefsListForReading)
             {
-                List<Designator> allResolvedDesignators = allDefsListForReading[i].AllResolvedDesignators;
-                for (int j = 0; j < allResolvedDesignators.Count; j++)
+                List<Designator> allResolvedDesignators = cat.AllResolvedDesignators;
+                foreach (Designator des in allResolvedDesignators)
                 {
-                    if (allResolvedDesignators[j].GetType().FullName == name)
-                        return allResolvedDesignators[j];
+                    if (des.GetType().FullName == name && (buildDefName.NullOrEmpty() || (des is Designator_Build desBuild && desBuild.PlacingDef.defName == buildDefName)))
+                        return des;
                 }
             }
 
             return null;
+        }
+
+        private static bool ApplyDesignatorMeta(Map map, Designator designator, ByteReader data)
+        {
+            if (designator is Designator_AreaAllowed)
+            {
+                string areaId = data.ReadString();
+                Area area = map.areaManager.AllAreas.FirstOrDefault(a => a.GetUniqueLoadID() == areaId);
+                if (area == null) return false;
+                DesignatorPatches.selectedAreaField.SetValue(null, area);
+            }
+
+            if (designator is Designator_Place)
+            {
+                DesignatorPatches.buildRotField.SetValue(designator, new Rot4(data.ReadByte()));
+            }
+
+            if (designator is Designator_Build build && build.PlacingDef.MadeFromStuff)
+            {
+                string thingDefName = data.ReadString();
+                ThingDef stuffDef = DefDatabase<ThingDef>.AllDefs.FirstOrDefault(t => t.defName == thingDefName);
+                if (stuffDef == null) return false;
+                DesignatorPatches.buildStuffField.SetValue(designator, stuffDef);
+            }
+
+            if (designator is Designator_Install)
+            {
+                string thingId = data.ReadString();
+                Thing thing = map.listerThings.AllThings.FirstOrDefault(t => t.GetUniqueLoadID() == thingId);
+                if (thing == null) return false;
+                DesignatorInstallPatch.thingToInstall = thing;
+            }
+
+            return true;
         }
 
         private static void AddLongAction(LongAction action)
@@ -999,6 +1202,7 @@ namespace Multiplayer
     public class MultiplayerWorldComp : WorldComponent
     {
         public string worldId = Guid.NewGuid().ToString();
+        public int sessionId = new System.Random().Next();
         public Dictionary<string, Faction> playerFactions = new Dictionary<string, Faction>();
 
         public Dictionary<string, ResearchManager> factionResearch = new Dictionary<string, ResearchManager>();
@@ -1017,6 +1221,9 @@ namespace Multiplayer
             Scribe_Values.Look(ref worldId, "worldId");
             ScribeUtil.Look(ref playerFactions, "playerFactions", LookMode.Value, LookMode.Reference, ref keyWorkingList, ref valueWorkingList);
             Scribe_Values.Look(ref Multiplayer.highestUniqueId, "highestUniqueId");
+
+            // saving for joining players
+            Scribe_Values.Look(ref sessionId, "sessionId");
         }
 
         public string GetUsername(Faction faction)
@@ -1063,19 +1270,32 @@ namespace Multiplayer
 
             foreach (KeyValuePair<string, ListerHaulables> p in factionHaulables)
             {
-                FactionContext.Set(map, p.Key);
+                map.PushFaction(p.Key);
                 p.Value.ListerHaulablesTick();
-                FactionContext.Reset(map);
+                map.PopFaction();
             }
 
             foreach (KeyValuePair<string, ResourceCounter> p in factionResources)
             {
-                FactionContext.Set(map, p.Key);
+                map.PushFaction(p.Key);
                 p.Value.ResourceCounterTick();
-                FactionContext.Reset(map);
+                map.PopFaction();
             }
 
             tickingFactions = false;
+        }
+
+        public void SetFaction(Faction faction)
+        {
+            string factionId = faction.GetUniqueLoadID();
+            if (!factionAreas.ContainsKey(factionId)) return;
+
+            map.designationManager = factionDesignations.GetValueSafe(factionId);
+            map.areaManager = factionAreas.GetValueSafe(factionId);
+            map.zoneManager = factionZones.GetValueSafe(factionId);
+            map.slotGroupManager = factionSlotGroups.GetValueSafe(factionId);
+            map.listerHaulables = factionHaulables.GetValueSafe(factionId);
+            map.resourceCounter = factionResources.GetValueSafe(factionId);
         }
 
         public override void ExposeData()
@@ -1086,50 +1306,28 @@ namespace Multiplayer
 
     public static class FactionContext
     {
-        private static Faction current;
+        public static Stack<Faction> stack = new Stack<Faction>();
 
-        public static Faction CurrentFaction
+        public static void Push(Faction faction)
         {
-            get
-            {
-                if (current == null)
-                    current = Faction.OfPlayer;
-                return current;
-            }
+            stack.Push(OfPlayer);
+            Set(faction);
         }
 
-        public static void Set(Map map, Faction faction)
+        public static Faction Pop()
         {
-            if (faction == null) return;
-            Set(map, faction.GetUniqueLoadID());
+            Faction f = stack.Pop();
+            Set(f);
+            return f;
         }
 
-        public static void Set(Map map, string factionId)
+        private static void Set(Faction faction)
         {
-            if (map == null) return;
-
-            MultiplayerMapComp comp = map.GetComponent<MultiplayerMapComp>();
-
-            if (!comp.factionAreas.ContainsKey(factionId)) return;
-
-            map.designationManager = comp.factionDesignations.GetValueSafe(factionId);
-            map.areaManager = comp.factionAreas.GetValueSafe(factionId);
-            map.zoneManager = comp.factionZones.GetValueSafe(factionId);
-            map.slotGroupManager = comp.factionSlotGroups.GetValueSafe(factionId);
-            map.listerHaulables = comp.factionHaulables.GetValueSafe(factionId);
-            map.resourceCounter = comp.factionResources.GetValueSafe(factionId);
-
-            Faction faction = Find.FactionManager.AllFactions.FirstOrDefault(f => f.GetUniqueLoadID() == factionId);
-            current = faction;
-
-            Faction.OfPlayer.def = FactionDefOf.Outlander;
+            OfPlayer.def = Multiplayer.factionDef;
             faction.def = FactionDefOf.PlayerColony;
         }
 
-        public static void Reset(Map map)
-        {
-            Set(map, Multiplayer.RealPlayerFaction);
-        }
+        private static Faction OfPlayer => Find.FactionManager.AllFactions.FirstOrDefault(f => f.IsPlayer);
     }
 
     public class MultiplayerThingComp : ThingComp

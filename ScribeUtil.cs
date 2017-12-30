@@ -1,4 +1,5 @@
-﻿using RimWorld;
+﻿using Harmony;
+using RimWorld;
 using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
@@ -27,7 +28,7 @@ namespace Multiplayer
             GetDict().Remove(key);
         }
 
-        public void UnregisterFromMap(Map map)
+        public void UnregisterAllFrom(Map map)
         {
             int a = GetDict().RemoveAll(x => x.Value is Thing && ((Thing)x.Value).Map == map);
         }
@@ -102,8 +103,7 @@ namespace Multiplayer
 
             Scribe.mode = LoadSaveMode.Saving;
             XmlWriterSettings xmlWriterSettings = new XmlWriterSettings();
-            xmlWriterSettings.Indent = true;
-            xmlWriterSettings.IndentChars = "  ";
+            xmlWriterSettings.Indent = false;
             xmlWriterSettings.OmitXmlDeclaration = true;
             XmlWriter writer = XmlWriter.Create(stream, xmlWriterSettings);
             writerField.SetValue(Scribe.saver, writer);
@@ -135,10 +135,14 @@ namespace Multiplayer
             Scribe.mode = LoadSaveMode.LoadingVars;
         }
 
-        public static void FinishLoading()
+        [HarmonyPatch(typeof(ScribeLoader))]
+        [HarmonyPatch(nameof(ScribeLoader.FinalizeLoading))]
+        public static class FinalizeLoadingPatch
         {
-            Scribe.loader.FinalizeLoading();
+            static void Postfix() => loading = false;
         }
+
+        public static void FinishLoading() => Scribe.loader.FinalizeLoading();
 
         public static void SupplyCrossRefs()
         {
@@ -155,7 +159,7 @@ namespace Multiplayer
 
             crossRefsField.SetValue(Scribe.loader.crossRefs, crossRefs);
 
-            Log.Message("Cross ref supply: " + crossRefs.GetDict().Count + " " + crossRefs.GetDict().Last());
+            Log.Message("Cross ref supply: " + crossRefs.GetDict().Count + " " + crossRefs.GetDict().Last() + " " + Faction.OfPlayer);
         }
 
         public static byte[] WriteSingle(IExposable element, string name = "data")
