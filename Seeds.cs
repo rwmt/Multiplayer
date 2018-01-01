@@ -18,7 +18,7 @@ namespace Multiplayer
         static void Prefix(Map __instance)
         {
             if (Multiplayer.client == null) return;
-            Rand.Seed = __instance.uniqueID.Combine(Find.TickManager.TicksGame).Combine(Multiplayer.WorldComp.sessionId);
+            Multiplayer.Seed = __instance.uniqueID.Combine(Find.TickManager.TicksGame).Combine(Multiplayer.WorldComp.sessionId);
         }
     }
 
@@ -29,7 +29,7 @@ namespace Multiplayer
         static void Prefix(Map __instance)
         {
             if (Multiplayer.client == null) return;
-            Rand.Seed = __instance.uniqueID.Combine(Find.TickManager.TicksGame).Combine(Multiplayer.WorldComp.sessionId).Combine(130531);
+            Multiplayer.Seed = __instance.uniqueID.Combine(Find.TickManager.TicksGame).Combine(Multiplayer.WorldComp.sessionId).Combine(130531);
         }
     }
 
@@ -40,7 +40,7 @@ namespace Multiplayer
         static void Prefix(World __instance)
         {
             if (Multiplayer.client == null) return;
-            Rand.Seed = Find.TickManager.TicksGame.Combine(Multiplayer.WorldComp.sessionId).Combine(4624);
+            Multiplayer.Seed = Find.TickManager.TicksGame.Combine(Multiplayer.WorldComp.sessionId).Combine(4624);
         }
     }
 
@@ -51,7 +51,7 @@ namespace Multiplayer
         static void Prefix(WorldObject __instance)
         {
             if (Multiplayer.client == null) return;
-            Rand.Seed = __instance.ID.Combine(Find.TickManager.TicksGame).Combine(Multiplayer.WorldComp.sessionId);
+            Multiplayer.Seed = __instance.ID.Combine(Find.TickManager.TicksGame).Combine(Multiplayer.WorldComp.sessionId);
         }
     }
 
@@ -62,33 +62,75 @@ namespace Multiplayer
         static void Prefix()
         {
             if (Multiplayer.client == null) return;
-            Rand.Seed = PawnContext.current.thingIDNumber.Combine(Find.TickManager.TicksGame).Combine(Multiplayer.WorldComp.sessionId).Combine(2141);
+            Multiplayer.Seed = ThingContext.CurrentPawn.thingIDNumber.Combine(Find.TickManager.TicksGame).Combine(Multiplayer.WorldComp.sessionId).Combine(2141);
         }
     }
 
-    public static class SeedThingTick
+    public static class PatchThingTick
     {
-        public static void Prefix(Thing __instance)
+        public static void Prefix(Thing __instance, ref Container<Map> __state)
         {
             if (Multiplayer.client == null) return;
-            Rand.Seed = __instance.thingIDNumber.Combine(Find.TickManager.TicksGame).Combine(Multiplayer.WorldComp.sessionId);
+
+            Multiplayer.Seed = __instance.thingIDNumber.Combine(Find.TickManager.TicksGame).Combine(Multiplayer.WorldComp.sessionId);
+            ThingContext.Push(__instance);
+            __state = __instance.Map;
+
+            if (__instance is Pawn)
+                __instance.Map.PushFaction(__instance.Faction);
+        }
+
+        public static void Postfix(Thing __instance, Container<Map> __state)
+        {
+            if (__state == null) return;
+
+            if (__instance is Pawn)
+                __state.PopFaction();
+
+            ThingContext.Pop();
         }
     }
 
     public static class RandPatches
     {
-        public static bool ignore;
+        private static bool _ignore;
+        private static int nesting;
+
+        public static bool Ignore
+        {
+            get => _ignore;
+            set
+            {
+                if (value)
+                {
+                    if (_ignore)
+                    {
+                        nesting++;
+                        Log.Message("Nested rand ignore!");
+                    }
+                    else
+                        _ignore = true;
+                }
+                else
+                {
+                    if (nesting > 0)
+                        nesting--;
+                    else
+                        _ignore = false;
+                }
+            }
+        }
 
         public static void Prefix()
         {
             Rand.PushState();
-            ignore = true;
+            Ignore = true;
         }
 
         public static void Postfix()
         {
             Rand.PopState();
-            ignore = false;
+            Ignore = false;
         }
     }
 }

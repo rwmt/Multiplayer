@@ -108,15 +108,20 @@ namespace Multiplayer
 
         public static void PushFaction(this Map map, Faction faction)
         {
-            FactionContext.Push(faction);
+            Faction f = FactionContext.Push(faction);
             if (map != null)
-                map.GetComponent<MultiplayerMapComp>().SetFaction(faction);
+                map.GetComponent<MultiplayerMapComp>().SetFaction(f);
         }
 
         public static void PushFaction(this Map map, string factionId)
         {
             Faction faction = Find.FactionManager.AllFactions.FirstOrDefault(f => f.GetUniqueLoadID() == factionId);
             map.PushFaction(faction);
+        }
+
+        public static void PopFaction(this Container<Map> c)
+        {
+            PopFaction(c.Value);
         }
 
         public static void PopFaction(this Map map)

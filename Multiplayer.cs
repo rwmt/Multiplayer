@@ -34,6 +34,7 @@ namespace Multiplayer
         public static byte[] savedWorld;
         public static byte[] mapsData;
         public static bool savingForEncounter;
+        public static bool loadingEncounter;
 
         public static IdBlock mainBlock;
 
@@ -43,6 +44,16 @@ namespace Multiplayer
         public static MultiplayerWorldComp WorldComp => Find.World.GetComponent<MultiplayerWorldComp>();
 
         public static FactionDef factionDef = FactionDef.Named("MultiplayerColony");
+
+        public static int Seed
+        {
+            set
+            {
+                RandSetSeedPatch.ignore = true;
+                Rand.Seed = value;
+                RandSetSeedPatch.ignore = false;
+            }
+        }
 
         static Multiplayer()
         {
@@ -59,6 +70,9 @@ namespace Multiplayer
             UnityEngine.Object.DontDestroyOnLoad(gameobject);
 
             DoPatches();
+
+            LogMessageQueue log = (LogMessageQueue) typeof(Log).GetField("messageQueue", BindingFlags.Static | BindingFlags.NonPublic).GetValue(null);
+            log.maxMessages = 500;
 
             if (GenCommandLine.CommandLineArgPassed("dev"))
             {
@@ -121,8 +135,9 @@ namespace Multiplayer
             foreach (MethodBase m in effectMethods.Concat(moteMethods))
                 harmony.Patch(m, randPatchPrefix, randPatchPostfix);
 
-            var thingTickPrefix = new HarmonyMethod(typeof(SeedThingTick).GetMethod("Prefix"));
-            var thingMethods = new[] { "Tick", "TickRare", "TickLong" };
+            var thingTickPrefix = new HarmonyMethod(typeof(PatchThingTick).GetMethod("Prefix"));
+            var thingTickPostfix = new HarmonyMethod(typeof(PatchThingTick).GetMethod("Postfix"));
+            var thingMethods = new[] { "Tick", "TickRare", "TickLong", "SpawnSetup" };
 
             foreach (Type t in typeof(Thing).AllSubtypesAndSelf())
             {
@@ -130,7 +145,7 @@ namespace Multiplayer
                 {
                     MethodInfo method = t.GetMethod(m, BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly);
                     if (method != null)
-                        harmony.Patch(method, thingTickPrefix, null);
+                        harmony.Patch(method, thingTickPrefix, thingTickPostfix);
                 }
             }
 
@@ -176,6 +191,22 @@ namespace Multiplayer
             list.InsertRange(0, newCode);
 
             return list;
+        }
+    }
+
+    public class Container<T>
+    {
+        private readonly T _value;
+        public T Value => _value;
+
+        public Container(T value)
+        {
+            _value = value;
+        }
+
+        public static implicit operator Container<T>(T value)
+        {
+            return new Container<T>(value);
         }
     }
 
@@ -462,8 +493,13 @@ namespace Multiplayer
                     Faction attackerFaction = Find.World.GetComponent<MultiplayerWorldComp>().playerFactions[encounter.attacker];
                     FactionContext.Push(attackerFaction);
 
-                    Pawn pawn = PawnGenerator.GeneratePawn(PawnKindDefOf.Colonist, attackerFaction);
-                    byte[] pawnExtra = Server.GetBytes(encounter.tile, ScribeUtil.WriteSingle(pawn));
+                    PawnGenerationRequest request = new PawnGenerationRequest(PawnKindDefOf.Colonist, attackerFaction, mustBeCapableOfViolence: true);
+                    Pawn pawn = PawnGenerator.GeneratePawn(request);
+
+                    ThingWithComps thingWithComps = (ThingWithComps)ThingMaker.MakeThing(ThingDef.Named("Gun_IncendiaryLauncher"));
+                    pawn.equipment.AddEquipment(thingWithComps);
+
+                    byte[] pawnExtra = Server.GetBytes(encounter.tile, pawn.Faction.GetUniqueLoadID(), ScribeUtil.WriteSingle(pawn));
 
                     foreach (string player in new[] { encounter.attacker, encounter.defender })
                     {
@@ -639,7 +675,9 @@ namespace Multiplayer
             {
                 OnMainThread.Enqueue(() =>
                 {
+                    Multiplayer.loadingEncounter = true;
                     Current.ProgramState = ProgramState.MapInitializing;
+                    Multiplayer.Seed = Find.TickManager.TicksGame;
 
                     Log.Message("Encounter map size: " + data.GetBytes().Length);
 
@@ -660,6 +698,9 @@ namespace Multiplayer
                     string playerFactionId = Multiplayer.RealPlayerFaction.GetUniqueLoadID();
 
                     mapComp.inEncounter = true;
+
+                    RandPatches.Ignore = true;
+                    Rand.PushState();
 
                     if (playerFactionId != ownerFactionId)
                     {
@@ -697,12 +738,17 @@ namespace Multiplayer
                         }
                     }
 
+                    RandPatches.Ignore = false;
+                    Rand.PopState();
+
+                    Multiplayer.loadingEncounter = false;
                     Current.ProgramState = ProgramState.Playing;
 
                     Find.World.renderer.wantedMode = WorldRenderMode.None;
                     Current.Game.VisibleMap = map;
 
                     Multiplayer.client.Send(Packets.CLIENT_MAP_LOADED);
+                    Log.Message("map loaded rand " + Rand.Int);
                 });
             }
             else if (id == Packets.SERVER_NEW_ID_BLOCK)
@@ -837,7 +883,8 @@ namespace Multiplayer
 
         public static void ExecuteServerAction(ScheduledServerAction actionReq, ByteReader data)
         {
-            Rand.Seed = Find.TickManager.TicksGame;
+            Multiplayer.Seed = Find.TickManager.TicksGame;
+            RandPatch.forced = "server action";
 
             ServerAction action = actionReq.action;
 
@@ -882,12 +929,15 @@ namespace Multiplayer
             if (action == ServerAction.SPAWN_PAWN)
             {
                 int tile = data.ReadInt();
-                Pawn pawn = ScribeUtil.ReadSingle<Pawn>(data.ReadPrefixedBytes());
-                Map map = Find.WorldObjects.SettlementAt(tile).Map;
+                string factionId = data.ReadString();
 
-                FactionContext.Push(pawn.Faction);
-                GenSpawn.Spawn(pawn, map.Center, map);
-                FactionContext.Pop();
+                Map map = Find.WorldObjects.SettlementAt(tile).Map;
+                map.PushFaction(Find.FactionManager.AllFactions.FirstOrDefault(f => f.GetUniqueLoadID() == factionId));
+                Pawn pawn = ScribeUtil.ReadSingle<Pawn>(data.ReadPrefixedBytes());
+
+                IntVec3 spawn = CellFinderLoose.TryFindCentralCell(map, 7, 10, (IntVec3 x) => !x.Roofed(map));
+                GenSpawn.Spawn(pawn, spawn, map);
+                map.PopFaction();
                 Log.Message("spawned " + pawn);
             }
 
@@ -930,6 +980,8 @@ namespace Multiplayer
                 map.PopFaction();
                 DraftSetPatch.dontHandle = false;
             }
+
+            RandPatch.forced = null;
         }
 
         private static void HandleOrderJob(ScheduledServerAction actionReq, ByteReader data)
@@ -950,6 +1002,8 @@ namespace Multiplayer
             bool shouldQueue = data.ReadBool();
             int mode = data.ReadInt();
 
+            map.PushFaction(pawn.Faction);
+
             if (mode == 0)
             {
                 JobTag tag = (JobTag)data.ReadByte();
@@ -968,6 +1022,8 @@ namespace Multiplayer
                         pawn.mindState.priorityWork.Set(cell, workGiver.workType);
                 }
             }
+
+            map.PopFaction();
         }
 
         private static bool OrderJob(Pawn pawn, Job job, JobTag tag, bool shouldQueue)
@@ -1287,6 +1343,8 @@ namespace Multiplayer
 
         public void SetFaction(Faction faction)
         {
+            if (faction == null) return;
+
             string factionId = faction.GetUniqueLoadID();
             if (!factionAreas.ContainsKey(factionId)) return;
 
@@ -1308,16 +1366,24 @@ namespace Multiplayer
     {
         public static Stack<Faction> stack = new Stack<Faction>();
 
-        public static void Push(Faction faction)
+        public static Faction Push(Faction faction)
         {
+            if (faction == null || faction.def != Multiplayer.factionDef)
+            {
+                stack.Push(null);
+                return null;
+            }
+
             stack.Push(OfPlayer);
             Set(faction);
+            return faction;
         }
 
         public static Faction Pop()
         {
             Faction f = stack.Pop();
-            Set(f);
+            if (f != null)
+                Set(f);
             return f;
         }
 
@@ -1327,7 +1393,7 @@ namespace Multiplayer
             faction.def = FactionDefOf.PlayerColony;
         }
 
-        private static Faction OfPlayer => Find.FactionManager.AllFactions.FirstOrDefault(f => f.IsPlayer);
+        public static Faction OfPlayer => Find.FactionManager.AllFactions.FirstOrDefault(f => f.IsPlayer);
     }
 
     public class MultiplayerThingComp : ThingComp
