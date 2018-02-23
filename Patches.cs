@@ -36,6 +36,16 @@ namespace Multiplayer
             {
                 AddHostButton(optList);
 
+                optList.Insert(0, new ListableOption("Run 1000 ticks", () =>
+                {
+                    Stopwatch ticksStart = Stopwatch.StartNew();
+                    for (int i = 0; i < 1000; i++)
+                    {
+                        Find.TickManager.DoSingleTick();
+                    }
+                    Log.Message("1000 ticks took " + ticksStart.ElapsedMilliseconds + "ms (" + (ticksStart.ElapsedMilliseconds / 1000.0) + ")");
+                }));
+
                 optList.Insert(0, new ListableOption("Reload", () =>
                 {
                     LongEventHandler.QueueLongEvent(() =>
@@ -379,8 +389,7 @@ namespace Multiplayer
             if (Multiplayer.client == null) return true;
 
             Settlement settlement = (Settlement)settlementField.GetValue(__instance);
-            string username = Find.World.GetComponent<MultiplayerWorldComp>().GetUsername(settlement.Faction);
-            if (username == null) return true;
+            if (settlement.Faction.def != Multiplayer.factionDef) return true;
 
             Multiplayer.client.Send(Packets.CLIENT_ENCOUNTER_REQUEST, new object[] { settlement.Tile });
 
@@ -426,11 +435,6 @@ namespace Multiplayer
             if (__state != null)
                 __state.PopFaction();
         }
-
-        public static bool IsPawnOwner(Pawn pawn)
-        {
-            return (pawn.Faction != null && pawn.Faction == Faction.OfPlayer) || pawn.Map.IsPlayerHome;
-        }
     }
 
     [HarmonyPatch(typeof(Pawn_JobTracker))]
@@ -453,6 +457,68 @@ namespace Multiplayer
         {
             if (__state != null)
                 __state.PopFaction();
+        }
+    }
+
+    [HarmonyPatch(typeof(Pawn_JobTracker))]
+    [HarmonyPatch(nameof(Pawn_JobTracker.CheckForJobOverride))]
+    public static class JobTrackerOverride
+    {
+        static void Prefix(Pawn_JobTracker __instance, ref Container<Map> __state)
+        {
+            if (Multiplayer.client == null) return;
+            Pawn pawn = (Pawn)JobTrackerStart.pawnField.GetValue(__instance);
+
+            if (pawn.Faction == null || !pawn.Spawned) return;
+
+            pawn.Map.PushFaction(pawn.Faction);
+            ThingContext.Push(pawn);
+            __state = pawn.Map;
+        }
+
+        static void Postfix(Container<Map> __state)
+        {
+            if (__state != null)
+            {
+                __state.PopFaction();
+                ThingContext.Pop();
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(Map))]
+    [HarmonyPatch("ExposeComponents")]
+    public static class MapExposeComps
+    {
+        static Stopwatch watch;
+
+        static void Prefix()
+        {
+            watch = Stopwatch.StartNew();
+        }
+
+        static void Postfix()
+        {
+            Log.Message("ExposeComps " + watch.ElapsedMilliseconds);
+            watch = null;
+        }
+    }
+
+    [HarmonyPatch(typeof(MapFileCompressor))]
+    [HarmonyPatch("BuildCompressedString")]
+    public static class BuildCompressedString
+    {
+        static Stopwatch watch;
+
+        static void Prefix()
+        {
+            watch = Stopwatch.StartNew();
+        }
+
+        static void Postfix()
+        {
+            Log.Message("BuildCompressedString " + watch.ElapsedMilliseconds);
+            watch = null;
         }
     }
 
@@ -500,21 +566,40 @@ namespace Multiplayer
 
     public static class ThingContext
     {
-        private static Thing current;
-        private static Stack<Thing> stack = new Stack<Thing>();
+        private static Stack<Pair<Thing, Map>> stack = new Stack<Pair<Thing, Map>>();
 
-        public static Thing Current => current;
-        public static Pawn CurrentPawn => current as Pawn;
+        static ThingContext()
+        {
+            stack.Push(new Pair<Thing, Map>(null, null));
+        }
+
+        public static Thing Current => stack.Peek().First;
+        public static Pawn CurrentPawn => Current as Pawn;
+
+        public static Map CurrentMap
+        {
+            get
+            {
+                Pair<Thing, Map> peek = stack.Peek();
+                if (peek.First != null && peek.First.Map != peek.Second)
+                    Log.ErrorOnce("Thing " + peek.First + " has changed its map!", peek.First.thingIDNumber ^ 57481021);
+                return peek.Second;
+            }
+        }
 
         public static void Push(Thing t)
         {
-            stack.Push(current);
-            current = t;
+            Push(t, t.Map);
+        }
+
+        public static void Push(Thing t, Map map)
+        {
+            stack.Push(new Pair<Thing, Map>(t, map));
         }
 
         public static void Pop()
         {
-            current = stack.Pop();
+            stack.Pop();
         }
     }
 
@@ -589,14 +674,13 @@ namespace Multiplayer
     {
         static void Postfix(ref int __result)
         {
-            if (ThingContext.Current != null && ThingContext.Current.Map != null)
+            if (ThingContext.CurrentMap == null) return;
+
+            IdBlock block = ThingContext.CurrentMap.GetComponent<MultiplayerMapComp>().encounterIdBlock;
+            if (block != null)
             {
-                IdBlock block = ThingContext.Current.Map.GetComponent<MultiplayerMapComp>().encounterIdBlock;
-                if (block != null)
-                {
-                    __result = block.NextId();
-                    Log.Message(Find.TickManager.TicksGame + " " + Multiplayer.username + " new thing " + ThingContext.Current + " " + __result);
-                }
+                __result = block.NextId();
+                Log.Message(Find.TickManager.TicksGame + " " + Multiplayer.username + " new thing " + ThingContext.Current + " " + __result);
             }
         }
     }
@@ -607,18 +691,15 @@ namespace Multiplayer
     {
         static void Postfix(ref int __result)
         {
-            if (ThingContext.CurrentPawn != null && ThingContext.CurrentPawn.Map != null)
+            if (ThingContext.CurrentMap == null)
             {
-                IdBlock block = ThingContext.CurrentPawn.Map.GetComponent<MultiplayerMapComp>().encounterIdBlock;
-                if (block != null)
-                {
-                    __result = block.NextId();
-                }
+                Log.Message("next job id not in thing context");
+                return;
             }
-            else
-            {
-                Log.Message("next job id not in pawn context");
-            }
+
+            IdBlock block = ThingContext.CurrentMap.GetComponent<MultiplayerMapComp>().encounterIdBlock;
+            if (block != null)
+                __result = block.NextId();
         }
     }
 
@@ -626,13 +707,26 @@ namespace Multiplayer
     [HarmonyPatch(nameof(ThingWithComps.InitializeComps))]
     public static class InitCompsPatch
     {
+        private static FieldInfo compsField = typeof(ThingWithComps).GetField("comps", BindingFlags.NonPublic | BindingFlags.Instance);
+
         static void Postfix(ThingWithComps __instance)
         {
-            if (__instance.AllComps.Count == 0) return;
+            if (compsField.GetValue(__instance) == null)
+                compsField.SetValue(__instance, new List<ThingComp>());
 
             MultiplayerThingComp comp = new MultiplayerThingComp() { parent = __instance };
             __instance.AllComps.Add(comp);
             comp.Initialize(null);
+        }
+    }
+
+    [HarmonyPatch(typeof(Plant))]
+    [HarmonyPatch(nameof(Plant.GetInspectString))]
+    public static class PlantInspect
+    {
+        static void Postfix(Plant __instance, ref string __result)
+        {
+            __result += __instance.GetComp<MultiplayerThingComp>().CompInspectStringExtra();
         }
     }
 
@@ -647,12 +741,12 @@ namespace Multiplayer
                 defaultLabel = "Set faction",
                 action = () =>
                 {
-                    /*Find.WindowStack.Add(new Dialog_String(s =>
+                    Find.WindowStack.Add(new Dialog_String(s =>
                     {
-                        Type t = typeof(WindowStack).Assembly.GetType("Verse.DataAnalysisTableMaker", true);
-                        MethodInfo m = t.GetMethod(s, BindingFlags.Public | BindingFlags.Static);
-                        m.Invoke(null, new object[0]);
-                    }));*/
+                        //Type t = typeof(WindowStack).Assembly.GetType("Verse.DataAnalysisTableMaker", true);
+                        //MethodInfo m = t.GetMethod(s, BindingFlags.Public | BindingFlags.Static);
+                        //m.Invoke(null, new object[0]);
+                    }));
 
                     //__instance.SetFaction(Faction.OfSpacerHostile);
                 }
@@ -671,7 +765,10 @@ namespace Multiplayer
                 defaultLabel = "Thinker",
                 action = () =>
                 {
-                    Find.WindowStack.Add(new ThinkTreeWindow(__instance));
+                    //Find.WindowStack.Add(new ThinkTreeWindow(__instance));
+                    Log.Message("" + Multiplayer.mainBlock.blockStart);
+                    Log.Message("" + __instance.Map.GetComponent<MultiplayerMapComp>().encounterIdBlock.current);
+                    Log.Message("" + __instance.Map.GetComponent<MultiplayerMapComp>().encounterIdBlock.GetHashCode());
                 }
             });
         }

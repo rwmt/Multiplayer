@@ -1,4 +1,6 @@
 ﻿using Harmony;
+using Ionic.Crc;
+using Ionic.Zlib;
 using RimWorld;
 using RimWorld.Planet;
 using System;
@@ -9,6 +11,7 @@ using System.Linq;
 using System.Net;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Xml;
@@ -50,7 +53,11 @@ namespace Multiplayer
             set
             {
                 RandSetSeedPatch.ignore = true;
+
                 Rand.Seed = value;
+                // it seems that the devs sometimes accidentally import UnityEngine.Random instead of Verse.Rand 
+                UnityEngine.Random.InitState(value);
+
                 RandSetSeedPatch.ignore = false;
             }
         }
@@ -64,6 +71,7 @@ namespace Multiplayer
                 username = "Player" + Rand.Range(0, 9999);
 
             Log.Message("Player's username: " + username);
+            Log.Message("Processor: " + SystemInfo.processorType);
 
             var gameobject = new GameObject();
             gameobject.AddComponent<OnMainThread>();
@@ -71,12 +79,17 @@ namespace Multiplayer
 
             DoPatches();
 
-            LogMessageQueue log = (LogMessageQueue) typeof(Log).GetField("messageQueue", BindingFlags.Static | BindingFlags.NonPublic).GetValue(null);
+            LogMessageQueue log = (LogMessageQueue)typeof(Log).GetField("messageQueue", BindingFlags.Static | BindingFlags.NonPublic).GetValue(null);
             log.maxMessages = 500;
 
             if (GenCommandLine.CommandLineArgPassed("dev"))
             {
-                // generate and load dummy dev map
+                Current.Game = new Game();
+                Current.Game.InitData = new GameInitData
+                {
+                    gameToLoad = "mappo"
+                };
+
                 DebugSettings.noAnimals = true;
                 LongEventHandler.QueueLongEvent(null, "Play", "LoadingLongEvent", true, null);
             }
@@ -157,8 +170,8 @@ namespace Multiplayer
                 MethodInfo method = t.GetMethod("ExposeData", BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly);
                 if (method != null && !method.IsAbstract && !method.DeclaringType.IsGenericTypeDefinition && method.DeclaringType.Name != "Map")
                 {
-                    Log.Message("exposable: " + t.FullName);
-                    harmony.Patch(method, exposablePrefix, exposablePostfix);
+                    //Log.Message("exposable: " + t.FullName);
+                    //harmony.Patch(method, exposablePrefix, exposablePostfix);
                 }
             }
         }
@@ -168,7 +181,7 @@ namespace Multiplayer
             int blockSize = 25000;
             int blockStart = highestUniqueId;
             highestUniqueId = highestUniqueId + blockSize;
-            Log.Message("New id block " + blockStart + " of " + blockSize);
+            Log.Message("New id block " + blockStart + " of size " + blockSize);
 
             return new IdBlock(blockStart, blockSize);
         }
@@ -242,7 +255,7 @@ namespace Multiplayer
         [ExposeValue]
         public int mapTile = -1; // for encounters
 
-        private int current;
+        public int current;
 
         public IdBlock() { }
 
@@ -269,7 +282,9 @@ namespace Multiplayer
         public override void ExposeData()
         {
             base.ExposeData();
-            current = blockStart;
+
+            if (Scribe.mode == LoadSaveMode.LoadingVars)
+                current = blockStart;
         }
     }
 
@@ -490,7 +505,7 @@ namespace Multiplayer
                     encounter.waitingFor.Add(defender.username);
                     encounter.waitingFor.Add(attacker.username);
 
-                    Faction attackerFaction = Find.World.GetComponent<MultiplayerWorldComp>().playerFactions[encounter.attacker];
+                    /*Faction attackerFaction = Find.World.GetComponent<MultiplayerWorldComp>().playerFactions[encounter.attacker];
                     FactionContext.Push(attackerFaction);
 
                     PawnGenerationRequest request = new PawnGenerationRequest(PawnKindDefOf.Colonist, attackerFaction, mustBeCapableOfViolence: true);
@@ -506,7 +521,7 @@ namespace Multiplayer
                         Multiplayer.server.GetByUsername(player).Send(Packets.SERVER_ACTION_SCHEDULE, GetServerActionMsg(ServerAction.SPAWN_PAWN, pawnExtra));
                     }
 
-                    FactionContext.Pop();
+                    FactionContext.Pop();*/
                 });
             }
             else if (id == Packets.CLIENT_MAP_LOADED)
@@ -810,6 +825,8 @@ namespace Multiplayer
 
         private static readonly FieldInfo zoneShuffled = typeof(Zone).GetField("cellsShuffled", BindingFlags.NonPublic | BindingFlags.Instance);
 
+        public static List<byte[]> replayActions = new List<byte[]>();
+
         public void Update()
         {
             if (Multiplayer.client == null) return;
@@ -899,7 +916,10 @@ namespace Multiplayer
                 IdBlock block = ScribeUtil.ReadSingle<IdBlock>(actionReq.data);
                 Map map = Find.WorldObjects.MapParentAt(block.mapTile)?.Map;
                 if (map != null)
+                {
                     map.GetComponent<MultiplayerMapComp>().encounterIdBlock = block;
+                    Log.Message(Multiplayer.username + "encounter id block set");
+                }
             }
 
             if (action == ServerAction.DESIGNATOR)
@@ -982,6 +1002,8 @@ namespace Multiplayer
             }
 
             RandPatch.forced = null;
+
+            replayActions.Add(Server.GetBytes(actionReq.action, actionReq.ticks, actionReq.data));
         }
 
         private static void HandleOrderJob(ScheduledServerAction actionReq, ByteReader data)
@@ -1217,6 +1239,7 @@ namespace Multiplayer
     {
         private static int lastTicksSend;
         public static int tickUntil;
+        public static bool ticking;
 
         public static int TickRate
         {
@@ -1228,6 +1251,7 @@ namespace Multiplayer
 
         static bool Prefix()
         {
+            ticking = true;
             return Multiplayer.client == null || Multiplayer.server != null || Find.TickManager.TicksGame + 1 < tickUntil;
         }
 
@@ -1252,6 +1276,37 @@ namespace Multiplayer
                         conn.Send(Packets.SERVER_TICKS, new object[] { tickManager.TicksGame + Multiplayer.SCHEDULED_ACTION_DELAY * TickRate });
                     lastTicksSend = tickManager.TicksGame;
                 }
+
+            if (Find.TickManager.TicksGame % (60 * 15) == 0)
+            {
+                Stopwatch watch = Stopwatch.StartNew();
+
+                Find.VisibleMap.PushFaction(Find.VisibleMap.ParentFaction);
+
+                ScribeUtil.StartWriting();
+                Scribe.EnterNode("data");
+                World world = Find.World;
+                Scribe_Deep.Look(ref world, "world");
+                Map map = Find.VisibleMap;
+                Scribe_Deep.Look(ref map, "map");
+                byte[] data = ScribeUtil.FinishWriting();
+                string hex = BitConverter.ToString(MD5.Create().ComputeHash(data)).Replace("-", "");
+
+                using (MemoryStream stream = new MemoryStream(data))
+                using (XmlTextReader xml = new XmlTextReader(stream))
+                {
+                    XmlDocument xmlDocument = new XmlDocument();
+                    xmlDocument.Load(xml);
+                    xmlDocument.DocumentElement["map"].RemoveChildIfPresent("rememberedCameraPos");
+                    xmlDocument.Save(ServerPlayingState.GetPlayerMapsPath(Multiplayer.username + "_replay"));
+                }
+
+                Find.VisibleMap.PopFaction();
+
+                Log.Message(Multiplayer.username + " replay " + watch.ElapsedMilliseconds + " " + data.Length + " " + hex);
+            }
+
+            ticking = false;
         }
     }
 
@@ -1370,6 +1425,7 @@ namespace Multiplayer
         {
             if (faction == null || faction.def != Multiplayer.factionDef)
             {
+                // so we can pop it later
                 stack.Push(null);
                 return null;
             }
@@ -1427,6 +1483,7 @@ namespace Multiplayer
             homeThisTick = parent.Map.areaManager.Home[parent.Position];
             zoneName = parent.Map.zoneManager.ZoneAt(parent.Position)?.label;
         }
+
     }
 
 }

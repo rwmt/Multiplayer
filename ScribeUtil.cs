@@ -142,7 +142,10 @@ namespace Multiplayer
             static void Postfix() => loading = false;
         }
 
-        public static void FinishLoading() => Scribe.loader.FinalizeLoading();
+        public static void FinishLoading()
+        {
+            Scribe.loader.FinalizeLoading();
+        }
 
         public static void SupplyCrossRefs()
         {

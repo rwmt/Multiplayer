@@ -83,6 +83,8 @@ namespace Multiplayer
 
             conn.Send(Packets.SERVER_NEW_ID_BLOCK, ScribeUtil.WriteSingle(Multiplayer.NextIdBlock()));
 
+            Find.World.tileTemperatures.ClearCaches();
+
             ScribeUtil.StartWriting();
 
             Scribe.EnterNode("savegame");

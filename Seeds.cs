@@ -15,10 +15,17 @@ namespace Multiplayer
     [HarmonyPatch(nameof(Map.MapPreTick))]
     public static class SeedMapPreTick
     {
+        public static MethodInfo skyTargetMethod = typeof(SkyManager).GetMethod("CurrentSkyTarget", BindingFlags.NonPublic | BindingFlags.Instance);
+        static FieldInfo curSkyGlowField = typeof(SkyManager).GetField("curSkyGlowInt", BindingFlags.NonPublic | BindingFlags.Instance);
+
         static void Prefix(Map __instance)
         {
             if (Multiplayer.client == null) return;
+
             Multiplayer.Seed = __instance.uniqueID.Combine(Find.TickManager.TicksGame).Combine(Multiplayer.WorldComp.sessionId);
+
+            SkyTarget target = (SkyTarget)skyTargetMethod.Invoke(__instance.skyManager, new object[0]);
+            curSkyGlowField.SetValue(__instance.skyManager, target.glow);
         }
     }
 
