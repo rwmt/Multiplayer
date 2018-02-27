@@ -52,11 +52,19 @@ namespace Multiplayer
             }
             else if (obj is bool @bool)
             {
-                stream.Write(BitConverter.GetBytes(@bool));
+                stream.WriteByte(@bool ? (byte) 1 : (byte) 0);
             }
             else if (obj is byte @byte)
             {
                 stream.WriteByte(@byte);
+            }
+            else if (obj is float @float)
+            {
+                stream.Write(BitConverter.GetBytes(@float));
+            }
+            else if (obj is double @double)
+            {
+                stream.Write(BitConverter.GetBytes(@double));
             }
             else if (obj is byte[] bytearr)
             {
@@ -106,6 +114,8 @@ namespace Multiplayer
             return from x in GenTypes.AllTypes where t.IsAssignableFrom(x) select x;
         }
 
+        // sets the current Faction.OfPlayer
+        // applies faction's map components if map not null
         public static void PushFaction(this Map map, Faction faction)
         {
             Faction f = FactionContext.Push(faction);

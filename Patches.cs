@@ -7,6 +7,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Xml;
 using UnityEngine;
 using Verse;
@@ -263,7 +264,7 @@ namespace Multiplayer
         static bool Prefix()
         {
             Text.Font = GameFont.Small;
-            string text = Find.TickManager.TicksGame.ToString();
+            string text = Find.TickManager.TicksGame.ToString() + " " + TickPatch.timer + " " + TickPatch.acc;
 
             if (Find.VisibleMap != null)
             {
@@ -589,12 +590,7 @@ namespace Multiplayer
 
         public static void Push(Thing t)
         {
-            Push(t, t.Map);
-        }
-
-        public static void Push(Thing t, Map map)
-        {
-            stack.Push(new Pair<Thing, Map>(t, map));
+            stack.Push(new Pair<Thing, Map>(t, t.Map));
         }
 
         public static void Pop()
@@ -674,13 +670,14 @@ namespace Multiplayer
     {
         static void Postfix(ref int __result)
         {
-            if (ThingContext.CurrentMap == null) return;
+            Map map = ThingContext.CurrentMap ?? Multiplayer.currentMap;
+            if (map == null) return;
 
-            IdBlock block = ThingContext.CurrentMap.GetComponent<MultiplayerMapComp>().encounterIdBlock;
+            IdBlock block = map.GetComponent<MultiplayerMapComp>().encounterIdBlock;
             if (block != null)
             {
                 __result = block.NextId();
-                Log.Message(Find.TickManager.TicksGame + " " + Multiplayer.username + " new thing " + ThingContext.Current + " " + __result);
+                Log.Message(Find.TickManager.TicksGame + " " + Multiplayer.username + " new thing " + map + " " + __result);
             }
         }
     }
@@ -691,13 +688,10 @@ namespace Multiplayer
     {
         static void Postfix(ref int __result)
         {
-            if (ThingContext.CurrentMap == null)
-            {
-                Log.Message("next job id not in thing context");
-                return;
-            }
+            Map map = ThingContext.CurrentMap ?? Multiplayer.currentMap;
+            if (map == null) return;
 
-            IdBlock block = ThingContext.CurrentMap.GetComponent<MultiplayerMapComp>().encounterIdBlock;
+            IdBlock block = map.GetComponent<MultiplayerMapComp>().encounterIdBlock;
             if (block != null)
                 __result = block.NextId();
         }
@@ -954,7 +948,7 @@ namespace Multiplayer
         public static int call;
         private static bool ignore;
 
-        public static string forced;
+        public static string current;
 
         static void Prefix()
         {
@@ -965,15 +959,15 @@ namespace Multiplayer
 
             if (ThingContext.Current != null && !(ThingContext.Current is Plant))
             {
-                Log.Message(Find.TickManager.TicksGame + " " + Multiplayer.username + " " + (call++) + " thing rand " + ThingContext.Current + " " + Rand.Int);
+                //Log.Message(Find.TickManager.TicksGame + " " + Multiplayer.username + " " + (call++) + " thing rand " + ThingContext.Current + " " + Rand.Int);
             }
-            else if (!forced.NullOrEmpty())
+            else if (!current.NullOrEmpty())
             {
-                Log.Message(Find.TickManager.TicksGame + " " + Multiplayer.username + " " + (call++) + " rand call " + forced + " " + Rand.Int);
+                //Log.Message(Find.TickManager.TicksGame + " " + Multiplayer.username + " " + (call++) + " rand call " + current + " " + Rand.Int);
             }
             else if (Multiplayer.loadingEncounter)
             {
-                Log.Message(Find.TickManager.TicksGame + " " + Multiplayer.username + " " + (call++) + " rand encounter " + Rand.Int);
+                //Log.Message(Find.TickManager.TicksGame + " " + Multiplayer.username + " " + (call++) + " rand encounter " + Rand.Int);
             }
 
             ignore = false;
@@ -988,8 +982,8 @@ namespace Multiplayer
 
         static void Prefix()
         {
-            if (Current.ProgramState == ProgramState.Playing && !ignore)
-                Log.Message(Find.TickManager.TicksGame + " " + Multiplayer.username + " set seed");
+            //if (Current.ProgramState == ProgramState.Playing && !ignore)
+                //Log.Message(Find.TickManager.TicksGame + " " + Multiplayer.username + " set seed");
         }
     }
 
@@ -1108,6 +1102,7 @@ namespace Multiplayer
     {
         public static Container<Map> state;
 
+        // postfix so faction data is already loaded
         static void Postfix(Thing __instance)
         {
             if (!(__instance is Pawn)) return;
@@ -1131,6 +1126,29 @@ namespace Multiplayer
                 ThingContext.Pop();
                 PawnExposeDataPrefix.state = null;
             }
+        }
+    }
+
+    [HarmonyPatch(typeof(TickManager))]
+    [HarmonyPatch(nameof(TickManager.TickRateMultiplier), PropertyMethod.Getter)]
+    public static class TickRatePatch
+    {
+        static bool Prefix(TickManager __instance, ref float __result)
+        {
+            if (Multiplayer.client == null) return true;
+
+            if (__instance.CurTimeSpeed == TimeSpeed.Paused)
+                __result = 0;
+            else if (__instance.slower.ForcedNormalSpeed)
+                __result = 1;
+            else if (__instance.CurTimeSpeed == TimeSpeed.Fast)
+                __result = 3;
+            else if (__instance.CurTimeSpeed == TimeSpeed.Superfast)
+                __result = 6;
+            else
+                __result = 1;
+
+            return false;
         }
     }
 

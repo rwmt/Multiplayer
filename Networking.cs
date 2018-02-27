@@ -118,6 +118,8 @@ namespace Multiplayer
 
     public class Connection
     {
+        private const int HEADER_LEN = sizeof(int) * 2;
+
         public delegate void ConnectionClosed();
 
         public EndPoint RemoteEndPoint
@@ -136,11 +138,11 @@ namespace Multiplayer
         private ConnectionState state;
         private readonly object state_lock = new object();
 
-        private byte[] buffer = new byte[8192];
-
-        private byte[] prefix = new byte[sizeof(int) * 2];
-        private byte[] msg;
-        private int fullPos;
+        private byte[] recv = new byte[8192];
+        private byte[] msg = new byte[HEADER_LEN];
+        private int msgId;
+        private bool hasHeader;
+        private int msgPos;
 
         public ConnectionClosed connectionClosed;
 
@@ -151,51 +153,52 @@ namespace Multiplayer
 
         public void BeginReceive()
         {
-            this.socket.BeginReceive(buffer, 0, buffer.Length, SocketFlags.None, OnReceive, null);
+            this.socket.BeginReceive(recv, 0, recv.Length, SocketFlags.None, OnReceive, null);
         }
 
         private void OnReceive(IAsyncResult result)
         {
             try
             {
-                int recvBytes = this.socket.EndReceive(result);
-                if (recvBytes <= 0)
+                int recvTotal = socket.EndReceive(result);
+                if (recvTotal <= 0)
                 {
                     connectionClosed();
                     Close();
                     return;
                 }
 
-                int toRead = recvBytes;
-                while (toRead > 0)
+                int recvPos = 0;
+
+                while (recvPos < recvTotal)
                 {
-                    int bufferPos = (recvBytes - toRead);
-
-                    if (fullPos < prefix.Length)
+                    // populate current msg part
+                    if (msgPos < msg.Length)
                     {
-                        int copy = Math.Min(prefix.Length - fullPos, toRead);
-                        Array.Copy(buffer, bufferPos, prefix, fullPos, copy);
+                        int copy = Math.Min(msg.Length - msgPos, recvTotal - recvPos);
+                        Array.Copy(recv, recvPos, msg, msgPos, copy);
 
-                        toRead -= copy;
-                        fullPos += copy;
+                        recvPos += copy;
+                        msgPos += copy;
                     }
-                    else if (msg == null || fullPos - prefix.Length < msg.Length)
+
+                    // handle header
+                    if (!hasHeader && msgPos == msg.Length)
                     {
-                        if (msg == null)
-                            msg = new byte[BitConverter.ToInt32(prefix, 0)];
+                        msgId = BitConverter.ToInt32(msg, 4);
+                        msg = new byte[BitConverter.ToInt32(msg, 0)];
+                        hasHeader = true;
+                        msgPos = 0;
+                    }
 
-                        int copy = Math.Min(msg.Length - (fullPos - prefix.Length), toRead);
-                        Array.Copy(buffer, bufferPos, msg, fullPos - prefix.Length, copy);
-
-                        toRead -= copy;
-                        fullPos += copy;
-
-                        if (fullPos - prefix.Length == msg.Length)
-                        {
-                            GetState()?.Message(BitConverter.ToInt32(prefix, 4), new ByteReader(msg));
-                            msg = null;
-                            fullPos = 0;
-                        }
+                    // handle body
+                    // repeat msg pos check in case of an empty body
+                    if (hasHeader && msgPos == msg.Length)
+                    {
+                        GetState()?.Message(msgId, new ByteReader(msg));
+                        msg = new byte[HEADER_LEN];
+                        hasHeader = false;
+                        msgPos = 0;
                     }
                 }
 
@@ -217,20 +220,27 @@ namespace Multiplayer
             socket.Close();
         }
 
-        public virtual void Send(int id, byte[] message = null)
+        public virtual void Send(int id)
         {
-            message = message ?? new byte[] { 0 };
-
-            byte[] full = new byte[message.Length + prefix.Length];
-
-            Array.Copy(BitConverter.GetBytes(message.Length), 0, full, 0, 4);
-            Array.Copy(BitConverter.GetBytes(id), 0, full, 4, 4);
-            Array.Copy(message, 0, full, prefix.Length, message.Length);
-
-            this.socket.BeginSend(full, 0, full.Length, SocketFlags.None, result => this.socket.EndSend(result), null);
+            Send(id, new byte[0]);
         }
 
-        public virtual void Send(int id, object[] message)
+        public virtual void Send(int id, byte[] message)
+        {
+            byte[] full = new byte[HEADER_LEN + message.Length];
+
+            BitConverter.GetBytes(message.Length).CopyTo(full, 0);
+            BitConverter.GetBytes(id).CopyTo(full, 4);
+            message.CopyTo(full, HEADER_LEN);
+
+            socket.BeginSend(full, 0, full.Length, SocketFlags.None, result =>
+            {
+                int sent = socket.EndSend(result);
+                OnMainThread.Enqueue(() => Log.Message("packet sent " + id + " " + sent + "/" + full.Length));
+            }, null);
+        }
+
+        public virtual void Send(int id, params object[] message)
         {
             Send(id, Server.GetBytes(message));
         }
@@ -353,6 +363,16 @@ namespace Multiplayer
         public int ReadInt()
         {
             return BitConverter.ToInt32(array, IncrementIndex(4));
+        }
+
+        public float ReadFloat()
+        {
+            return BitConverter.ToSingle(array, IncrementIndex(4));
+        }
+
+        public double ReadDouble()
+        {
+            return BitConverter.ToDouble(array, IncrementIndex(8));
         }
 
         public int ReadByte()

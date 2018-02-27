@@ -36,7 +36,7 @@ namespace Multiplayer
         static bool Prefix(bool somethingSucceeded)
         {
             if (Multiplayer.client == null) return true;
-            return !somethingSucceeded;
+            return somethingSucceeded;
         }
     }
 
