@@ -29,6 +29,7 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <UseVSHostingProcess>true</UseVSHostingProcess>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="0Harmony">
@@ -52,6 +53,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AreaHandler.cs" />
+    <Compile Include="AsyncTime.cs" />
+    <Compile Include="MpLog.cs" />
     <Compile Include="ProfilerExperiment.cs" />
     <Compile Include="CrossRefs.cs" />
     <Compile Include="Designators.cs" />

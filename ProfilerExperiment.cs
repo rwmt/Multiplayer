@@ -44,9 +44,6 @@ namespace Multiplayer
         [DllImport("kernel32.dll")]
         public static extern bool QueryPerformanceCounter(out long value);
 
-        [DllImport("ProfilerNative.dll")]
-        public static extern float test();
-
         [DllImport("kernel32.dll")]
         public static extern IntPtr LoadLibrary(string dllToLoad);
 
@@ -71,14 +68,13 @@ namespace Multiplayer
 
         public unsafe static void EnterCallback(void* method)
         {
-            if (GetCurrentThreadId() != mainThread)
+            if (GetCurrentThreadId() != mainThread || stack_head >= 256)
                 return;
 
             QueryPerformanceCounter(out long time);
             stack_head++;
-            long[] call = call_stack[stack_head];
-            call[0] = call[1] = time;
-            call[2] = (int)method;
+            call_stack[stack_head * 3] = call_stack[stack_head * 3 + 1] = time;
+            call_stack[stack_head * 3 + 2] = (int)method;
         }
 
         [StructLayout(LayoutKind.Sequential)]
@@ -101,7 +97,7 @@ namespace Multiplayer
 
         public unsafe static void LeaveCallback(void* method)
         {
-            if (GetCurrentThreadId() != mainThread || stack_head == -1 || call_stack[stack_head][2] != (int)method)
+            if (GetCurrentThreadId() != mainThread || stack_head < 0 || (int)call_stack[stack_head * 3 + 2] != (int)method)
                 return;
 
             QueryPerformanceCounter(out long now);
@@ -109,15 +105,14 @@ namespace Multiplayer
             if (!calls.TryGetValue((int)method, out MethodData data))
                 data = calls[(int)method] = new MethodData();
 
-            long[] current = call_stack[stack_head];
+            long elapsed = now - call_stack[stack_head * 3];
             stack_head--;
-            long elapsed = now - current[0];
 
             if (stack_head >= 0)
-                call_stack[stack_head][1] += elapsed;
+                call_stack[stack_head * 3 + 1] += elapsed;
 
             data.calls++;
-            data.self_time += now - current[1];
+            data.self_time += now - call_stack[stack_head * 3 + 3 + 1];
             data.total_time += elapsed;
         }
 
@@ -125,7 +120,7 @@ namespace Multiplayer
         {
         }
 
-        public static long[][] call_stack;
+        public unsafe static long* call_stack;
         public static int stack_head = -1;
 
         static MethodData data = new MethodData();
@@ -135,20 +130,18 @@ namespace Multiplayer
 
         public unsafe static void Run()
         {
-            call_stack = new long[256][];
-            for (int i = 0; i < 256; i++)
-                call_stack[i] = new long[3];
+            call_stack = (long*)Marshal.AllocCoTaskMem(256 * 3 * 8).ToPointer();
 
             mainThread = GetCurrentThreadId();
 
             Log.Message("Main thread " + mainThread);
 
-            enter_callback = (ProfilerMethodCallback)Marshal.GetDelegateForFunctionPointer(typeof(Multiplayer).GetMethod("EnterCallback").MethodHandle.GetFunctionPointer(), typeof(ProfilerMethodCallback));
-            leave_callback = (ProfilerMethodCallback)Marshal.GetDelegateForFunctionPointer(typeof(Multiplayer).GetMethod("LeaveCallback").MethodHandle.GetFunctionPointer(), typeof(ProfilerMethodCallback));
+            enter_callback = (ProfilerMethodCallback)Marshal.GetDelegateForFunctionPointer(typeof(ProfilerExperiment).GetMethod("EnterCallback").MethodHandle.GetFunctionPointer(), typeof(ProfilerMethodCallback));
+            leave_callback = (ProfilerMethodCallback)Marshal.GetDelegateForFunctionPointer(typeof(ProfilerExperiment).GetMethod("LeaveCallback").MethodHandle.GetFunctionPointer(), typeof(ProfilerMethodCallback));
 
-            void* leave_ptr = typeof(Multiplayer).GetMethod("leave").MethodHandle.GetFunctionPointer().ToPointer();
-            mono_profiler_install((void*)0, typeof(Multiplayer).GetMethod("shutdown").MethodHandle.GetFunctionPointer().ToPointer());
-            mono_profiler_install_enter_leave(typeof(Multiplayer).GetMethod("enter").MethodHandle.GetFunctionPointer().ToPointer(), leave_ptr);
+            void* leave_ptr = typeof(ProfilerExperiment).GetMethod("leave").MethodHandle.GetFunctionPointer().ToPointer();
+            mono_profiler_install((void*)0, typeof(ProfilerExperiment).GetMethod("shutdown").MethodHandle.GetFunctionPointer().ToPointer());
+            mono_profiler_install_enter_leave(typeof(ProfilerExperiment).GetMethod("enter").MethodHandle.GetFunctionPointer().ToPointer(), leave_ptr);
             mono_profiler_install_exception(null, leave_ptr, null);
 
             mono_profiler_set_events(1 << 12 | 1 << 6);

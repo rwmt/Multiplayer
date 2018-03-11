@@ -9,6 +9,7 @@ using System.Linq;
 using System.Net;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
@@ -52,18 +53,77 @@ namespace Multiplayer
         {
             set
             {
-                RandSetSeedPatch.ignore = true;
+                RandSetSeedPatch.dontLog = true;
 
                 Rand.Seed = value;
-                // it seems that the devs sometimes accidentally import UnityEngine.Random instead of Verse.Rand 
                 UnityEngine.Random.InitState(value);
 
-                RandSetSeedPatch.ignore = false;
+                RandSetSeedPatch.dontLog = false;
             }
         }
 
+        [DllImport("__Internal")]
+        private static unsafe extern void* mono_class_get(void* image, int token);
+
+        [DllImport("__Internal")]
+        private static unsafe extern void* mono_assembly_get_main();
+
+        [DllImport("__Internal")]
+        private static unsafe extern void* mono_assembly_get_image(void* assembly);
+
+        [DllImport("__Internal")]
+        private static unsafe extern void* mono_class_get_methods(void* clazz, int* index);
+
+        [DllImport("msvcrt.dll")]
+        private static unsafe extern void* malloc(int size);
+
+        [DllImport("msvcrt.dll")]
+        public static unsafe extern void* memcpy(void* dest, void* src, uint num);
+
         static Multiplayer()
         {
+            //ProfilerExperiment.Run();
+
+            /*Thing t = new Thing();
+            t.GetHashCode();
+
+            // Current ModuleHandle's GetHashCode() implementation exposes the pointer to the MonoImage
+            void* image = (void*)typeof(Thing).Module.ModuleHandle.GetHashCode();
+            int* clazz = (int*)mono_class_get(image, typeof(Thing).MetadataToken);
+            int* vtable = (int*)clazz[43];
+            Log.Message("vtable " + (int)vtable);
+            int temp = 0;
+            mono_class_get_methods(clazz, &temp);
+            Log.Message("" + Marshal.PtrToStringAnsi(new IntPtr(clazz[12])) + " " + clazz[30]);
+
+            int** methods = (int**)clazz[30];
+            int method_count = *(clazz + 27);
+            Log.Message("" + method_count);
+            for (int i = 0; i < *(clazz + 27); i++)
+            {
+                Log.Message("" + Marshal.PtrToStringAnsi(new IntPtr(*(methods[i] + 4))));
+            }
+
+            int* runtime_info = (int*)clazz[41];
+
+            Log.Message("runtime " + runtime_info[1] + " " + clazz[30] + " " + clazz[43] + " " + clazz[15]);
+
+            clazz[15] = 0;
+            clazz[30] = 0;
+            clazz[43] = 0;
+            runtime_info[1] = 0;
+
+            Log.Message("runtime " + runtime_info[1] + " " + clazz[30] + " " + clazz[43] + " " + clazz[15]);
+
+            Thing t1 = new Thing();
+            t1.GetHashCode();
+
+            Log.Message("runtime " + runtime_info[1] + " " + clazz[30] + " " + clazz[43] + " " + clazz[15]);
+            */
+
+            // void* new_methods = malloc(4 * (method_count + 1));
+            //memcpy(new_methods, methods, (uint)(4 * method_count));
+
             GenCommandLine.TryGetCommandLineArg("username", out username);
             if (username == null)
                 username = SteamUtility.SteamPersonaName;
@@ -164,6 +224,21 @@ namespace Multiplayer
                 }
             }
 
+            var doubleSavePrefix = new HarmonyMethod(typeof(ValueSavePatch).GetMethod(nameof(ValueSavePatch.DoubleSave_Prefix)));
+            var floatSavePrefix = new HarmonyMethod(typeof(ValueSavePatch).GetMethod(nameof(ValueSavePatch.FloatSave_Prefix)));
+            var valueSaveMethod = typeof(Scribe_Values).GetMethod(nameof(Scribe_Values.Look));
+
+            harmony.Patch(valueSaveMethod.MakeGenericMethod(typeof(double)), doubleSavePrefix, null);
+            harmony.Patch(valueSaveMethod.MakeGenericMethod(typeof(float)), floatSavePrefix, null);
+
+            var setMapTimePrefix = new HarmonyMethod(AccessTools.Method(typeof(SetMapTime), "Prefix"));
+            var setMapTimePostfix = new HarmonyMethod(AccessTools.Method(typeof(SetMapTime), "Postfix"));
+            var setMapTime = new[] { "MapInterfaceOnGUI_BeforeMainTabs", "MapInterfaceOnGUI_AfterMainTabs", "HandleMapClicks", "HandleLowPriorityInput", "MapInterfaceUpdate" };
+
+            foreach (string m in setMapTime)
+                harmony.Patch(AccessTools.Method(typeof(MapInterface), m), setMapTimePrefix, setMapTimePostfix);
+            harmony.Patch(AccessTools.Method(typeof(SoundRoot), "Update"), setMapTimePrefix, setMapTimePostfix);
+
             /*var exposablePrefix = new HarmonyMethod(typeof(ExposableProfiler).GetMethod("Prefix"));
             var exposablePostfix = new HarmonyMethod(typeof(ExposableProfiler).GetMethod("Postfix"));
 
@@ -222,6 +297,21 @@ namespace Multiplayer
         public static implicit operator Container<T>(T value)
         {
             return new Container<T>(value);
+        }
+    }
+
+    public class Container<T, U>
+    {
+        private readonly T _first;
+        private readonly U _second;
+
+        public T First => _first;
+        public U Second => _second;
+
+        public Container(T first, U second)
+        {
+            _first = first;
+            _second = second;
         }
     }
 
@@ -600,7 +690,7 @@ namespace Multiplayer
 
         public static object[] GetServerActionMsg(ServerAction action, byte[] extra)
         {
-            return new object[] { action, TickPatch.timer + Multiplayer.scheduledActionDelay, extra };
+            return new object[] { action, TickPatch.Timer + Multiplayer.scheduledActionDelay, extra };
         }
     }
 
@@ -912,7 +1002,7 @@ namespace Multiplayer
             if (actionReq.action == ServerAction.LONG_ACTION_SCHEDULE)
             {
                 if (Current.Game != null)
-                    TickUpdatePatch.SetSpeed(TimeSpeed.Paused);
+                    TimeChangeCommandPatch.SetSpeed(TimeSpeed.Paused);
 
                 AddLongAction(ScribeUtil.ReadSingle<LongAction>(actionReq.data));
             }
@@ -937,8 +1027,8 @@ namespace Multiplayer
             if (action == ServerAction.TIME_SPEED)
             {
                 TimeSpeed speed = (TimeSpeed)data.ReadByte();
-                TickUpdatePatch.SetSpeed(speed);
-                Log.Message(Multiplayer.username + " set speed " + speed + " " + TickPatch.timer + " " + Find.TickManager.TicksGame);
+                TimeChangeCommandPatch.SetSpeed(speed);
+                Log.Message(Multiplayer.username + " set speed " + speed + " " + TickPatch.Timer + " " + Find.TickManager.TicksGame);
             }
 
             if (action == ServerAction.MAP_ID_BLOCK)
@@ -1276,14 +1366,15 @@ namespace Multiplayer
     {
         private static int lastTicksSend;
         public static int tickUntil;
-        public static int timer;
-        public static float acc;
+        public static double timerInt;
+
+        public static int Timer => (int)timerInt;
 
         public static bool ticking;
 
         static bool Prefix()
         {
-            ticking = Multiplayer.client == null || Multiplayer.server != null || timer + 1 < tickUntil;
+            ticking = Multiplayer.client == null || Multiplayer.server != null || Timer + 1 < tickUntil;
             return ticking;
         }
 
@@ -1294,23 +1385,23 @@ namespace Multiplayer
             TickManager tickManager = Find.TickManager;
             MultiplayerWorldComp worldComp = Find.World.GetComponent<MultiplayerWorldComp>();
 
-            while (OnMainThread.longActionRelated.Count > 0 && OnMainThread.longActionRelated.Peek().ticks == timer)
+            while (OnMainThread.longActionRelated.Count > 0 && OnMainThread.longActionRelated.Peek().ticks == Timer)
                 OnMainThread.ExecuteLongActionRelated(OnMainThread.longActionRelated.Dequeue());
 
-            while (OnMainThread.scheduledActions.Count > 0 && OnMainThread.scheduledActions.Peek().ticks == timer && tickManager.CurTimeSpeed != TimeSpeed.Paused)
+            while (OnMainThread.scheduledActions.Count > 0 && OnMainThread.scheduledActions.Peek().ticks == Timer && tickManager.CurTimeSpeed != TimeSpeed.Paused)
             {
                 ScheduledServerAction action = OnMainThread.scheduledActions.Dequeue();
                 OnMainThread.ExecuteServerAction(action, new ByteReader(action.data));
             }
 
             if (Multiplayer.server != null)
-                if (timer - lastTicksSend > Multiplayer.scheduledActionDelay / 2)
+                if (Timer - lastTicksSend > Multiplayer.scheduledActionDelay / 2)
                 {
-                    Multiplayer.server.SendToAll(Packets.SERVER_TIME_CONTROL, new object[] { timer + Multiplayer.scheduledActionDelay });
-                    lastTicksSend = timer;
+                    Multiplayer.server.SendToAll(Packets.SERVER_TIME_CONTROL, new object[] { Timer + Multiplayer.scheduledActionDelay });
+                    lastTicksSend = Timer;
                 }
 
-            /*if (Multiplayer.client != null && Find.TickManager.TicksGame % (60 * 15) == 0)
+            if (Multiplayer.client != null && Find.TickManager.TicksGame % (60 * 15) == 0)
             {
                 Stopwatch watch = Stopwatch.StartNew();
 
@@ -1330,18 +1421,13 @@ namespace Multiplayer
                 Find.VisibleMap.PopFaction();
 
                 Log.Message(Multiplayer.username + " replay " + watch.ElapsedMilliseconds + " " + data.Length + " " + hex);
-            }*/
+            }
 
             ticking = false;
 
             if (tickManager.TickRateMultiplier > 0)
             {
-                acc += 1f / tickManager.TickRateMultiplier;
-                if (acc > 1f)
-                {
-                    timer++;
-                    acc -= 1f;
-                }
+                timerInt += 1f / tickManager.TickRateMultiplier;
             }
         }
     }
@@ -1371,8 +1457,7 @@ namespace Multiplayer
 
             // saving for joining players
             Scribe_Values.Look(ref sessionId, "sessionId");
-            Scribe_Values.Look(ref TickPatch.timer, "timer");
-            Scribe_Values.Look(ref TickPatch.acc, "acc");
+            Scribe_Values.Look(ref TickPatch.timerInt, "timer");
         }
 
         public string GetUsername(Faction faction)
@@ -1499,6 +1584,8 @@ namespace Multiplayer
 
         public override string CompInspectStringExtra()
         {
+            if (!parent.Spawned) return null;
+
             MultiplayerMapComp comp = parent.Map.GetComponent<MultiplayerMapComp>();
 
             string forbidden = "";

@@ -1,19 +1,18 @@
 ﻿using Harmony;
 using RimWorld;
 using RimWorld.Planet;
+using Multiplayer;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.InteropServices;
 using System.Xml;
 using UnityEngine;
 using Verse;
 using Verse.AI;
 using Verse.Profile;
-using Verse.Sound;
 
 namespace Multiplayer
 {
@@ -45,6 +44,7 @@ namespace Multiplayer
                         Find.TickManager.DoSingleTick();
                     }
                     Log.Message("1000 ticks took " + ticksStart.ElapsedMilliseconds + "ms (" + (ticksStart.ElapsedMilliseconds / 1000.0) + ")");
+                    //ProfilerExperiment.Print();
                 }));
 
                 optList.Insert(0, new ListableOption("Reload", () =>
@@ -264,7 +264,7 @@ namespace Multiplayer
         static bool Prefix()
         {
             Text.Font = GameFont.Small;
-            string text = Find.TickManager.TicksGame.ToString() + " " + TickPatch.timer + " " + TickPatch.acc;
+            string text = Find.TickManager.TicksGame.ToString() + " " + TickPatch.timerInt;
 
             if (Find.VisibleMap != null)
             {
@@ -275,6 +275,11 @@ namespace Multiplayer
 
                 if (Find.VisibleMap.GetComponent<MultiplayerMapComp>().factionSlotGroups.TryGetValue(Find.VisibleMap.info.parent.Faction.GetUniqueLoadID(), out SlotGroupManager groups))
                     text += " sg:" + groups.AllGroupsListForReading.Count;
+
+                AsyncTimeMapComp comp = Find.VisibleMap.GetComponent<AsyncTimeMapComp>();
+                string text1 = "" + comp.mapTicks;
+                Rect rect1 = new Rect(80f, 110f, 330f, Text.CalcHeight(text1, 330f));
+                Widgets.Label(rect1, text1);
             }
 
             Rect rect = new Rect(80f, 60f, 330f, Text.CalcHeight(text, 330f));
@@ -286,7 +291,7 @@ namespace Multiplayer
 
     [HarmonyPatch(typeof(TickManager))]
     [HarmonyPatch(nameof(TickManager.TickManagerUpdate))]
-    public static class TickUpdatePatch
+    public static class TimeChangeCommandPatch
     {
         private static TimeSpeed lastSpeed;
 
@@ -295,7 +300,6 @@ namespace Multiplayer
             if (Multiplayer.client != null && Find.TickManager.CurTimeSpeed != lastSpeed)
             {
                 Multiplayer.client.SendAction(ServerAction.TIME_SPEED, (byte)Find.TickManager.CurTimeSpeed);
-
                 Find.TickManager.CurTimeSpeed = lastSpeed;
                 return;
             }
@@ -760,9 +764,13 @@ namespace Multiplayer
                 action = () =>
                 {
                     //Find.WindowStack.Add(new ThinkTreeWindow(__instance));
-                    Log.Message("" + Multiplayer.mainBlock.blockStart);
-                    Log.Message("" + __instance.Map.GetComponent<MultiplayerMapComp>().encounterIdBlock.current);
-                    Log.Message("" + __instance.Map.GetComponent<MultiplayerMapComp>().encounterIdBlock.GetHashCode());
+                    // Log.Message("" + Multiplayer.mainBlock.blockStart);
+                    // Log.Message("" + __instance.Map.GetComponent<MultiplayerMapComp>().encounterIdBlock.current);
+                    //Log.Message("" + __instance.Map.GetComponent<MultiplayerMapComp>().encounterIdBlock.GetHashCode());
+
+                    __instance.apparel.WornApparel.Sort((Apparel a, Apparel b) => a.def.apparel.LastLayer.CompareTo(b.def.apparel.LastLayer));
+                    foreach (var a in __instance.apparel.WornApparel)
+                        Log.Message("" + a);
                 }
             });
         }
@@ -946,16 +954,16 @@ namespace Multiplayer
     public static class RandPatch
     {
         public static int call;
-        private static bool ignore;
+        private static bool dontLog;
 
         public static string current;
 
         static void Prefix()
         {
-            if (RandPatches.Ignore || ignore || Multiplayer.client == null) return;
+            if (RandPatches.Ignore || dontLog || Multiplayer.client == null) return;
             if (Current.ProgramState != ProgramState.Playing && !Multiplayer.loadingEncounter) return;
 
-            ignore = true;
+            dontLog = true;
 
             if (ThingContext.Current != null && !(ThingContext.Current is Plant))
             {
@@ -970,7 +978,7 @@ namespace Multiplayer
                 //Log.Message(Find.TickManager.TicksGame + " " + Multiplayer.username + " " + (call++) + " rand encounter " + Rand.Int);
             }
 
-            ignore = false;
+            dontLog = false;
         }
     }
 
@@ -978,12 +986,12 @@ namespace Multiplayer
     [HarmonyPatch(nameof(Rand.Seed), PropertyMethod.Setter)]
     public static class RandSetSeedPatch
     {
-        public static bool ignore;
+        public static bool dontLog;
 
         static void Prefix()
         {
             //if (Current.ProgramState == ProgramState.Playing && !ignore)
-                //Log.Message(Find.TickManager.TicksGame + " " + Multiplayer.username + " set seed");
+            //Log.Message(Find.TickManager.TicksGame + " " + Multiplayer.username + " set seed");
         }
     }
 
@@ -1129,6 +1137,16 @@ namespace Multiplayer
         }
     }
 
+    [HarmonyPatch(typeof(Pawn_ApparelTracker))]
+    [HarmonyPatch("SortWornApparelIntoDrawOrder")]
+    public static class ApparelPatch
+    {
+        static void Postfix(Pawn_ApparelTracker __instance)
+        {
+            MpLog.Log("apparel sort " + __instance.pawn);
+        }
+    }
+
     [HarmonyPatch(typeof(TickManager))]
     [HarmonyPatch(nameof(TickManager.TickRateMultiplier), PropertyMethod.Getter)]
     public static class TickRatePatch
@@ -1148,6 +1166,23 @@ namespace Multiplayer
             else
                 __result = 1;
 
+            return false;
+        }
+    }
+
+    public static class ValueSavePatch
+    {
+        public static bool DoubleSave_Prefix(string label, ref double value)
+        {
+            if (Scribe.mode != LoadSaveMode.Saving) return true;
+            Scribe.saver.WriteElement(label, value.ToString("G17"));
+            return false;
+        }
+
+        public static bool FloatSave_Prefix(string label, ref float value)
+        {
+            if (Scribe.mode != LoadSaveMode.Saving) return true;
+            Scribe.saver.WriteElement(label, value.ToString("G9"));
             return false;
         }
     }
