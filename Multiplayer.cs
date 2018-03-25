@@ -31,11 +31,10 @@ namespace Multiplayer
         public static Server server;
         public static Connection client;
         public static Connection localServerConnection;
-        public static int scheduledActionDelay = 15; // in ticks
+        public static int scheduledCmdDelay = 15; // in ticks
 
         public static byte[] savedWorld;
         public static byte[] mapsData;
-        public static bool savingForEncounter;
         public static bool loadingEncounter;
 
         public static IdBlock mainBlock;
@@ -62,67 +61,18 @@ namespace Multiplayer
             }
         }
 
-        [DllImport("__Internal")]
-        private static unsafe extern void* mono_class_get(void* image, int token);
+        [DllImport("simple_profiler.dll")]
+        public static extern void start_profiler();
 
-        [DllImport("__Internal")]
-        private static unsafe extern void* mono_assembly_get_main();
+        [DllImport("simple_profiler.dll")]
+        public static extern void stop_profiler();
 
-        [DllImport("__Internal")]
-        private static unsafe extern void* mono_assembly_get_image(void* assembly);
-
-        [DllImport("__Internal")]
-        private static unsafe extern void* mono_class_get_methods(void* clazz, int* index);
-
-        [DllImport("msvcrt.dll")]
-        private static unsafe extern void* malloc(int size);
-
-        [DllImport("msvcrt.dll")]
-        public static unsafe extern void* memcpy(void* dest, void* src, uint num);
+        [DllImport("simple_profiler.dll")]
+        public static extern void print_profiler(string filename);
 
         static Multiplayer()
         {
-            //ProfilerExperiment.Run();
-
-            /*Thing t = new Thing();
-            t.GetHashCode();
-
-            // Current ModuleHandle's GetHashCode() implementation exposes the pointer to the MonoImage
-            void* image = (void*)typeof(Thing).Module.ModuleHandle.GetHashCode();
-            int* clazz = (int*)mono_class_get(image, typeof(Thing).MetadataToken);
-            int* vtable = (int*)clazz[43];
-            Log.Message("vtable " + (int)vtable);
-            int temp = 0;
-            mono_class_get_methods(clazz, &temp);
-            Log.Message("" + Marshal.PtrToStringAnsi(new IntPtr(clazz[12])) + " " + clazz[30]);
-
-            int** methods = (int**)clazz[30];
-            int method_count = *(clazz + 27);
-            Log.Message("" + method_count);
-            for (int i = 0; i < *(clazz + 27); i++)
-            {
-                Log.Message("" + Marshal.PtrToStringAnsi(new IntPtr(*(methods[i] + 4))));
-            }
-
-            int* runtime_info = (int*)clazz[41];
-
-            Log.Message("runtime " + runtime_info[1] + " " + clazz[30] + " " + clazz[43] + " " + clazz[15]);
-
-            clazz[15] = 0;
-            clazz[30] = 0;
-            clazz[43] = 0;
-            runtime_info[1] = 0;
-
-            Log.Message("runtime " + runtime_info[1] + " " + clazz[30] + " " + clazz[43] + " " + clazz[15]);
-
-            Thing t1 = new Thing();
-            t1.GetHashCode();
-
-            Log.Message("runtime " + runtime_info[1] + " " + clazz[30] + " " + clazz[43] + " " + clazz[15]);
-            */
-
-            // void* new_methods = malloc(4 * (method_count + 1));
-            //memcpy(new_methods, methods, (uint)(4 * method_count));
+            //start_profiler();
 
             GenCommandLine.TryGetCommandLineArg("username", out username);
             if (username == null)
@@ -133,24 +83,25 @@ namespace Multiplayer
             Log.Message("Player's username: " + username);
             Log.Message("Processor: " + SystemInfo.processorType);
 
-            //mono_profiler_load(@"default:time,stat,jit,file=f:\rimworld-prof.mprf");
-
             var gameobject = new GameObject();
             gameobject.AddComponent<OnMainThread>();
             UnityEngine.Object.DontDestroyOnLoad(gameobject);
 
             DoPatches();
 
+            //print_profiler("profiler_" + Multiplayer.username + "_startup.txt");
+            //stop_profiler();
+
             LogMessageQueue log = (LogMessageQueue)typeof(Log).GetField("messageQueue", BindingFlags.Static | BindingFlags.NonPublic).GetValue(null);
             log.maxMessages = 500;
 
             if (GenCommandLine.CommandLineArgPassed("dev"))
             {
-                Current.Game = new Game();
-                Current.Game.InitData = new GameInitData
-                {
-                    gameToLoad = "mappo"
-                };
+                //Current.Game = new Game();
+                //Current.Game.InitData = new GameInitData
+                //{
+                //    gameToLoad = "mappo"
+                //};
 
                 DebugSettings.noAnimals = true;
                 LongEventHandler.QueueLongEvent(null, "Play", "LoadingLongEvent", true, null);
@@ -238,6 +189,9 @@ namespace Multiplayer
             foreach (string m in setMapTime)
                 harmony.Patch(AccessTools.Method(typeof(MapInterface), m), setMapTimePrefix, setMapTimePostfix);
             harmony.Patch(AccessTools.Method(typeof(SoundRoot), "Update"), setMapTimePrefix, setMapTimePostfix);
+
+            var worldGridCtor = AccessTools.Constructor(typeof(WorldGrid));
+            harmony.Patch(worldGridCtor, new HarmonyMethod(AccessTools.Method(typeof(WorldGridCtorPatch), "Prefix")), null);
 
             /*var exposablePrefix = new HarmonyMethod(typeof(ExposableProfiler).GetMethod("Prefix"));
             var exposablePostfix = new HarmonyMethod(typeof(ExposableProfiler).GetMethod("Postfix"));
@@ -344,7 +298,7 @@ namespace Multiplayer
         public int blockSize;
         public int mapTile = -1; // for encounters
 
-        public int current;
+        private int current;
 
         public IdBlock() { }
 
@@ -353,19 +307,18 @@ namespace Multiplayer
             this.blockStart = blockStart;
             this.blockSize = blockSize;
             this.mapTile = mapTile;
-            current = blockStart;
         }
 
         public int NextId()
         {
             current++;
-            if (current > blockStart + blockSize * 0.8)
+            if (current > blockSize * 0.8)
             {
                 Multiplayer.client.Send(Packets.CLIENT_ID_BLOCK_REQUEST, new object[] { mapTile });
                 Log.Message("Sent id block request at " + current);
             }
 
-            return current;
+            return blockStart + current;
         }
 
         public void ExposeData()
@@ -373,9 +326,6 @@ namespace Multiplayer
             Scribe_Values.Look(ref blockStart, "blockStart");
             Scribe_Values.Look(ref blockSize, "blockSize");
             Scribe_Values.Look(ref mapTile, "mapTile");
-
-            if (Scribe.mode == LoadSaveMode.LoadingVars)
-                current = blockStart;
         }
     }
 
@@ -431,7 +381,7 @@ namespace Multiplayer
     {
         public const int CLIENT_REQUEST_WORLD = 0;
         public const int CLIENT_WORLD_LOADED = 1;
-        public const int CLIENT_ACTION_REQUEST = 2;
+        public const int CLIENT_COMMAND = 2;
         public const int CLIENT_USERNAME = 3;
         public const int CLIENT_NEW_WORLD_OBJ = 4;
         public const int CLIENT_QUIT_MAPS = 5;
@@ -442,7 +392,7 @@ namespace Multiplayer
         public const int CLIENT_MAP_STATE_DEBUG = 10;
 
         public const int SERVER_WORLD_DATA = 0;
-        public const int SERVER_ACTION_SCHEDULE = 1;
+        public const int SERVER_COMMAND = 1;
         public const int SERVER_NEW_FACTION = 2;
         public const int SERVER_NEW_WORLD_OBJ = 3;
         public const int SERVER_MAP_REQUEST = 4;
@@ -452,23 +402,23 @@ namespace Multiplayer
         public const int SERVER_TIME_CONTROL = 8;
     }
 
-    public enum ServerAction
+    public enum CommandType
     {
         TIME_SPEED, MAP_ID_BLOCK, DRAFT, FORBID, DESIGNATOR, ORDER_JOB, DELETE_ZONE,
         LONG_ACTION_SCHEDULE, LONG_ACTION_END,
         SPAWN_PAWN
     }
 
-    public class ScheduledServerAction
+    public class ScheduledCommand
     {
-        public readonly ServerAction action;
+        public readonly CommandType type;
         public readonly int ticks;
         public readonly byte[] data;
 
-        public ScheduledServerAction(ServerAction action, int ticks, byte[] data)
+        public ScheduledCommand(CommandType type, int ticks, byte[] data)
         {
             this.ticks = ticks;
-            this.action = action;
+            this.type = type;
             this.data = data;
         }
     }
@@ -486,7 +436,7 @@ namespace Multiplayer
                 OnMainThread.Enqueue(() =>
                 {
                     byte[] extra = ScribeUtil.WriteSingle(new LongActionPlayerJoin() { username = Connection.username });
-                    Multiplayer.server.SendToAll(Packets.SERVER_ACTION_SCHEDULE, ServerPlayingState.GetServerActionMsg(ServerAction.LONG_ACTION_SCHEDULE, extra), Connection);
+                    Multiplayer.server.SendToAll(Packets.SERVER_COMMAND, ServerPlayingState.GetServerCommandMsg(CommandType.LONG_ACTION_SCHEDULE, extra), Connection);
                 });
             }
             else if (id == Packets.CLIENT_WORLD_LOADED)
@@ -498,7 +448,7 @@ namespace Multiplayer
                     Multiplayer.savedWorld = null;
 
                     byte[] extra = ScribeUtil.WriteSingle(OnMainThread.currentLongAction);
-                    Multiplayer.server.SendToAll(Packets.SERVER_ACTION_SCHEDULE, ServerPlayingState.GetServerActionMsg(ServerAction.LONG_ACTION_END, extra));
+                    Multiplayer.server.SendToAll(Packets.SERVER_COMMAND, ServerPlayingState.GetServerCommandMsg(CommandType.LONG_ACTION_END, extra));
 
                     Log.Message("World sending finished");
                 });
@@ -522,14 +472,14 @@ namespace Multiplayer
 
         public override void Message(int id, ByteReader data)
         {
-            if (id == Packets.CLIENT_ACTION_REQUEST)
+            if (id == Packets.CLIENT_COMMAND)
             {
                 OnMainThread.Enqueue(() =>
                 {
-                    ServerAction action = (ServerAction)data.ReadInt();
+                    CommandType action = (CommandType)data.ReadInt();
                     byte[] extra = data.ReadPrefixedBytes();
 
-                    Multiplayer.server.SendToAll(Packets.SERVER_ACTION_SCHEDULE, GetServerActionMsg(action, extra));
+                    Multiplayer.server.SendToAll(Packets.SERVER_COMMAND, GetServerCommandMsg(action, extra));
                 });
             }
             else if (id == Packets.CLIENT_NEW_WORLD_OBJ)
@@ -579,7 +529,7 @@ namespace Multiplayer
                     Encounter.Add(tile, defender, Connection.username);
 
                     byte[] extra = ScribeUtil.WriteSingle(new LongActionEncounter() { defender = defender, attacker = Connection.username, tile = tile });
-                    conn.Send(Packets.SERVER_ACTION_SCHEDULE, GetServerActionMsg(ServerAction.LONG_ACTION_SCHEDULE, extra));
+                    conn.Send(Packets.SERVER_COMMAND, GetServerCommandMsg(CommandType.LONG_ACTION_SCHEDULE, extra));
                 });
             }
             else if (id == Packets.CLIENT_MAP_RESPONSE)
@@ -625,7 +575,7 @@ namespace Multiplayer
                     if (encounter.waitingFor.Remove(Connection.username) && encounter.waitingFor.Count == 0)
                     {
                         byte[] extra = ScribeUtil.WriteSingle(OnMainThread.currentLongAction);
-                        Multiplayer.server.SendToAll(Packets.SERVER_ACTION_SCHEDULE, GetServerActionMsg(ServerAction.LONG_ACTION_END, extra));
+                        Multiplayer.server.SendToAll(Packets.SERVER_COMMAND, GetServerCommandMsg(CommandType.LONG_ACTION_END, extra));
                     }
                 });
             }
@@ -651,7 +601,7 @@ namespace Multiplayer
                         foreach (string player in encounter.GetPlayers())
                         {
                             byte[] extra = ScribeUtil.WriteSingle(nextBlock);
-                            Multiplayer.server.GetByUsername(player).Send(Packets.SERVER_ACTION_SCHEDULE, GetServerActionMsg(ServerAction.MAP_ID_BLOCK, extra));
+                            Multiplayer.server.GetByUsername(player).Send(Packets.SERVER_COMMAND, GetServerCommandMsg(CommandType.MAP_ID_BLOCK, extra));
                         }
                     }
                 });
@@ -688,9 +638,9 @@ namespace Multiplayer
             return Path.Combine(worldfolder, username + ".maps");
         }
 
-        public static object[] GetServerActionMsg(ServerAction action, byte[] extra)
+        public static object[] GetServerCommandMsg(CommandType cmdType, byte[] extra)
         {
-            return new object[] { action, TickPatch.Timer + Multiplayer.scheduledActionDelay, extra };
+            return new object[] { cmdType, TickPatch.Timer + Multiplayer.scheduledCmdDelay, extra };
         }
     }
 
@@ -704,7 +654,7 @@ namespace Multiplayer
 
         public override void Message(int id, ByteReader data)
         {
-            if (id == Packets.SERVER_ACTION_SCHEDULE)
+            if (id == Packets.SERVER_COMMAND)
             {
                 ClientPlayingState.HandleActionSchedule(data);
             }
@@ -748,7 +698,7 @@ namespace Multiplayer
 
         public override void Message(int id, ByteReader data)
         {
-            if (id == Packets.SERVER_ACTION_SCHEDULE)
+            if (id == Packets.SERVER_COMMAND)
             {
                 HandleActionSchedule(data);
             }
@@ -777,13 +727,13 @@ namespace Multiplayer
                     int tile = data.ReadInt();
                     Settlement settlement = Find.WorldObjects.SettlementAt(tile);
 
-                    Multiplayer.savingForEncounter = true;
+                    //SaveCompressible.disableCompression = true;
                     ScribeUtil.StartWriting();
                     Scribe.EnterNode("data");
                     Map map = settlement.Map;
                     Scribe_Deep.Look(ref map, "map");
                     byte[] mapData = ScribeUtil.FinishWriting();
-                    Multiplayer.savingForEncounter = false;
+                    //SaveCompressible.disableCompression = false;
 
                     Current.ProgramState = ProgramState.MapInitializing;
                     foreach (Thing t in new List<Thing>(map.listerThings.AllThings))
@@ -904,12 +854,12 @@ namespace Multiplayer
         {
             OnMainThread.Enqueue(() =>
             {
-                ServerAction action = (ServerAction)data.ReadInt();
+                CommandType action = (CommandType)data.ReadInt();
                 int ticks = data.ReadInt();
                 byte[] extraBytes = data.ReadPrefixedBytes();
 
-                ScheduledServerAction schdl = new ScheduledServerAction(action, ticks, extraBytes);
-                OnMainThread.ScheduleAction(schdl);
+                ScheduledCommand schdl = new ScheduledCommand(action, ticks, extraBytes);
+                OnMainThread.ScheduleCommand(schdl);
             });
         }
 
@@ -927,15 +877,15 @@ namespace Multiplayer
         private static Queue<Action> queue = new Queue<Action>();
         private static Queue<Action> tempQueue = new Queue<Action>();
 
-        public static readonly Queue<ScheduledServerAction> longActionRelated = new Queue<ScheduledServerAction>();
-        public static readonly Queue<ScheduledServerAction> scheduledActions = new Queue<ScheduledServerAction>();
+        public static readonly Queue<ScheduledCommand> longActionRelated = new Queue<ScheduledCommand>();
+        public static readonly Queue<ScheduledCommand> scheduledCmds = new Queue<ScheduledCommand>();
 
         public static readonly List<LongAction> longActions = new List<LongAction>();
         public static LongAction currentLongAction;
 
         private static readonly FieldInfo zoneShuffled = typeof(Zone).GetField("cellsShuffled", BindingFlags.NonPublic | BindingFlags.Instance);
 
-        public static List<byte[]> replayActions = new List<byte[]>();
+        public static List<byte[]> replayCmds = new List<byte[]>();
 
         public void Update()
         {
@@ -960,10 +910,10 @@ namespace Multiplayer
 
             if (!LongEventHandler.ShouldWaitForEvent && Current.Game != null && Find.World != null && longActions.Count == 0 && currentLongAction == null)
             {
-                while (scheduledActions.Count > 0 && Find.TickManager.CurTimeSpeed == TimeSpeed.Paused)
+                while (scheduledCmds.Count > 0 && Find.TickManager.CurTimeSpeed == TimeSpeed.Paused)
                 {
-                    ScheduledServerAction action = scheduledActions.Dequeue();
-                    ExecuteServerAction(action, new ByteReader(action.data));
+                    ScheduledCommand cmd = scheduledCmds.Dequeue();
+                    ExecuteServerCmd(cmd, new ByteReader(cmd.data));
                 }
             }
 
@@ -986,30 +936,30 @@ namespace Multiplayer
                 queue.Enqueue(action);
         }
 
-        public static void ScheduleAction(ScheduledServerAction actionReq)
+        public static void ScheduleCommand(ScheduledCommand cmd)
         {
-            if (actionReq.action == ServerAction.LONG_ACTION_SCHEDULE || actionReq.action == ServerAction.LONG_ACTION_END)
+            if (cmd.type == CommandType.LONG_ACTION_SCHEDULE || cmd.type == CommandType.LONG_ACTION_END)
             {
-                longActionRelated.Enqueue(actionReq);
+                longActionRelated.Enqueue(cmd);
                 return;
             }
 
-            scheduledActions.Enqueue(actionReq);
+            scheduledCmds.Enqueue(cmd);
         }
 
-        public static void ExecuteLongActionRelated(ScheduledServerAction actionReq)
+        public static void ExecuteLongActionRelated(ScheduledCommand command)
         {
-            if (actionReq.action == ServerAction.LONG_ACTION_SCHEDULE)
+            if (command.type == CommandType.LONG_ACTION_SCHEDULE)
             {
                 if (Current.Game != null)
                     TimeChangeCommandPatch.SetSpeed(TimeSpeed.Paused);
 
-                AddLongAction(ScribeUtil.ReadSingle<LongAction>(actionReq.data));
+                AddLongAction(ScribeUtil.ReadSingle<LongAction>(command.data));
             }
 
-            if (actionReq.action == ServerAction.LONG_ACTION_END)
+            if (command.type == CommandType.LONG_ACTION_END)
             {
-                LongAction longAction = ScribeUtil.ReadSingle<LongAction>(actionReq.data);
+                LongAction longAction = ScribeUtil.ReadSingle<LongAction>(command.data);
                 if (longAction.Equals(currentLongAction))
                     currentLongAction = null;
                 else
@@ -1017,23 +967,23 @@ namespace Multiplayer
             }
         }
 
-        public static void ExecuteServerAction(ScheduledServerAction actionReq, ByteReader data)
+        public static void ExecuteServerCmd(ScheduledCommand command, ByteReader data)
         {
             Multiplayer.Seed = Find.TickManager.TicksGame;
-            RandPatch.current = "server action";
+            RandPatch.current = "server cmd";
 
-            ServerAction action = actionReq.action;
+            CommandType cmdType = command.type;
 
-            if (action == ServerAction.TIME_SPEED)
+            if (cmdType == CommandType.TIME_SPEED)
             {
                 TimeSpeed speed = (TimeSpeed)data.ReadByte();
                 TimeChangeCommandPatch.SetSpeed(speed);
                 Log.Message(Multiplayer.username + " set speed " + speed + " " + TickPatch.Timer + " " + Find.TickManager.TicksGame);
             }
 
-            if (action == ServerAction.MAP_ID_BLOCK)
+            if (cmdType == CommandType.MAP_ID_BLOCK)
             {
-                IdBlock block = ScribeUtil.ReadSingle<IdBlock>(actionReq.data);
+                IdBlock block = ScribeUtil.ReadSingle<IdBlock>(command.data);
                 Map map = Find.WorldObjects.MapParentAt(block.mapTile)?.Map;
                 if (map != null)
                 {
@@ -1042,17 +992,17 @@ namespace Multiplayer
                 }
             }
 
-            if (action == ServerAction.DESIGNATOR)
+            if (cmdType == CommandType.DESIGNATOR)
             {
-                HandleDesignator(actionReq, data);
+                HandleDesignator(command, data);
             }
 
-            if (action == ServerAction.ORDER_JOB)
+            if (cmdType == CommandType.ORDER_JOB)
             {
-                HandleOrderJob(actionReq, data);
+                HandleOrderJob(command, data);
             }
 
-            if (action == ServerAction.DELETE_ZONE)
+            if (cmdType == CommandType.DELETE_ZONE)
             {
                 string factionId = data.ReadString();
                 string mapId = data.ReadString();
@@ -1066,7 +1016,7 @@ namespace Multiplayer
                 map.PopFaction();
             }
 
-            if (action == ServerAction.SPAWN_PAWN)
+            if (cmdType == CommandType.SPAWN_PAWN)
             {
                 int tile = data.ReadInt();
                 string factionId = data.ReadString();
@@ -1081,7 +1031,7 @@ namespace Multiplayer
                 Log.Message("spawned " + pawn);
             }
 
-            if (action == ServerAction.FORBID)
+            if (cmdType == CommandType.FORBID)
             {
                 string mapId = data.ReadString();
                 string thingId = data.ReadString();
@@ -1102,7 +1052,7 @@ namespace Multiplayer
                 map.PopFaction();
             }
 
-            if (action == ServerAction.DRAFT)
+            if (cmdType == CommandType.DRAFT)
             {
                 string mapId = data.ReadString();
                 string pawnId = data.ReadString();
@@ -1123,10 +1073,10 @@ namespace Multiplayer
 
             RandPatch.current = null;
 
-            replayActions.Add(Server.GetBytes(actionReq.action, actionReq.ticks, actionReq.data));
+            replayCmds.Add(Server.GetBytes(command.type, command.ticks, command.data));
         }
 
-        private static void HandleOrderJob(ScheduledServerAction actionReq, ByteReader data)
+        private static void HandleOrderJob(ScheduledCommand command, ByteReader data)
         {
             string mapId = data.ReadString();
             Map map = Find.Maps.FirstOrDefault(m => m.GetUniqueLoadID() == mapId);
@@ -1214,7 +1164,7 @@ namespace Multiplayer
             return false;
         }
 
-        private static void HandleDesignator(ScheduledServerAction actionReq, ByteReader data)
+        private static void HandleDesignator(ScheduledCommand command, ByteReader data)
         {
             int mode = data.ReadInt();
             string desName = data.ReadString();
@@ -1372,6 +1322,8 @@ namespace Multiplayer
 
         public static bool ticking;
 
+        public static bool print = true;
+
         static bool Prefix()
         {
             ticking = Multiplayer.client == null || Multiplayer.server != null || Timer + 1 < tickUntil;
@@ -1388,16 +1340,16 @@ namespace Multiplayer
             while (OnMainThread.longActionRelated.Count > 0 && OnMainThread.longActionRelated.Peek().ticks == Timer)
                 OnMainThread.ExecuteLongActionRelated(OnMainThread.longActionRelated.Dequeue());
 
-            while (OnMainThread.scheduledActions.Count > 0 && OnMainThread.scheduledActions.Peek().ticks == Timer && tickManager.CurTimeSpeed != TimeSpeed.Paused)
+            while (OnMainThread.scheduledCmds.Count > 0 && OnMainThread.scheduledCmds.Peek().ticks == Timer && tickManager.CurTimeSpeed != TimeSpeed.Paused)
             {
-                ScheduledServerAction action = OnMainThread.scheduledActions.Dequeue();
-                OnMainThread.ExecuteServerAction(action, new ByteReader(action.data));
+                ScheduledCommand cmd = OnMainThread.scheduledCmds.Dequeue();
+                OnMainThread.ExecuteServerCmd(cmd, new ByteReader(cmd.data));
             }
 
             if (Multiplayer.server != null)
-                if (Timer - lastTicksSend > Multiplayer.scheduledActionDelay / 2)
+                if (Timer - lastTicksSend > Multiplayer.scheduledCmdDelay / 2)
                 {
-                    Multiplayer.server.SendToAll(Packets.SERVER_TIME_CONTROL, new object[] { Timer + Multiplayer.scheduledActionDelay });
+                    Multiplayer.server.SendToAll(Packets.SERVER_TIME_CONTROL, new object[] { Timer + Multiplayer.scheduledCmdDelay });
                     lastTicksSend = Timer;
                 }
 

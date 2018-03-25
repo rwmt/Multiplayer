@@ -44,8 +44,8 @@ namespace Multiplayer
         [DllImport("kernel32.dll")]
         public static extern bool QueryPerformanceCounter(out long value);
 
-        [DllImport("kernel32.dll")]
-        public static extern IntPtr LoadLibrary(string dllToLoad);
+        [DllImport("kernel32")]
+        public static extern IntPtr LoadLibrary(string lpFileName);
 
         public unsafe delegate void ProfilerMethodCallback(void* method);
 

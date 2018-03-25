@@ -133,10 +133,7 @@ namespace Multiplayer
             AsyncTimeMapComp comp = Find.VisibleMap.GetComponent<AsyncTimeMapComp>();
             __state = Find.TickManager.CurTimeSpeed;
 
-            if (Event.current.type == EventType.repaint)
-                Find.TickManager.CurTimeSpeed = comp.timeSpeed;
-            else
-                Find.TickManager.CurTimeSpeed = comp.requestedSpeed;
+            Find.TickManager.CurTimeSpeed = comp.timeSpeed;
         }
 
         static void Postfix(Rect timerRect, Container<TimeSpeed> __state)
@@ -144,16 +141,7 @@ namespace Multiplayer
             if (__state == null) return;
 
             AsyncTimeMapComp comp = Find.VisibleMap.GetComponent<AsyncTimeMapComp>();
-            if (Event.current.type != EventType.repaint && Find.TickManager.CurTimeSpeed != comp.requestedSpeed)
-            {
-                comp.requestedSpeed = Find.TickManager.CurTimeSpeed;
-                comp.timeSpeed = comp.requestedSpeed;
-            }
-
-            // render the requested time indicator
-            GUI.BeginGroup(timerRect);
-            Widgets.DrawLineHorizontal(TimeControls.TimeButSize.x * (int)comp.requestedSpeed + 5, TimeControls.TimeButSize.y - 2, TimeControls.TimeButSize.x - 10);
-            GUI.EndGroup();
+            comp.timeSpeed = Find.TickManager.CurTimeSpeed;
 
             Find.TickManager.CurTimeSpeed = __state.Value;
         }
@@ -253,8 +241,6 @@ namespace Multiplayer
         public float realTimeToTickThrough;
         public bool forcedNormalSpeed;
 
-        public TimeSpeed requestedSpeed = TimeSpeed.Normal;
-
         public TickList tickListNormal = new TickList(TickerType.Normal);
         public TickList tickListRare = new TickList(TickerType.Rare);
         public TickList tickListLong = new TickList(TickerType.Long);
@@ -272,6 +258,11 @@ namespace Multiplayer
             Find.TickManager.DebugSetTicksGame(mapTicks);
             Find.TickManager.CurTimeSpeed = timeSpeed;
 
+            if (mapTicks == 500)
+            {
+                //Multiplayer.start_profiler();
+            }
+
             map.MapPreTick();
             mapTicks++;
             Find.TickManager.DebugSetTicksGame(mapTicks);
@@ -282,9 +273,20 @@ namespace Multiplayer
 
             map.MapPostTick();
 
+            if (mapTicks == 501)
+            {
+                //Multiplayer.print_profiler("profiler_" + Multiplayer.username + ".txt");
+               // Multiplayer.stop_profiler();
+            }
+
             Find.TickManager.DebugSetTicksGame(worldTicks);
             Find.TickManager.CurTimeSpeed = worldSpeed;
             tickingMap = false;
+        }
+
+        public override void ExposeData()
+        {
+            Scribe_Values.Look(ref mapTicks, "mapTicks");
         }
     }
 }

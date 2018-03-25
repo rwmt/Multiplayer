@@ -59,11 +59,11 @@ namespace Multiplayer
             Connection conn = Multiplayer.server.GetByUsername(username);
 
             // catch them up
-            conn.Send(Packets.SERVER_ACTION_SCHEDULE, ServerPlayingState.GetServerActionMsg(ServerAction.LONG_ACTION_SCHEDULE, ScribeUtil.WriteSingle(OnMainThread.currentLongAction)));
+            conn.Send(Packets.SERVER_COMMAND, ServerPlayingState.GetServerCommandMsg(CommandType.LONG_ACTION_SCHEDULE, ScribeUtil.WriteSingle(OnMainThread.currentLongAction)));
             foreach (LongAction other in OnMainThread.longActions)
-                conn.Send(Packets.SERVER_ACTION_SCHEDULE, ServerPlayingState.GetServerActionMsg(ServerAction.LONG_ACTION_SCHEDULE, ScribeUtil.WriteSingle(other)));
-            foreach (ScheduledServerAction action in OnMainThread.scheduledActions)
-                conn.Send(Packets.SERVER_ACTION_SCHEDULE, ServerPlayingState.GetServerActionMsg(action.action, action.data));
+                conn.Send(Packets.SERVER_COMMAND, ServerPlayingState.GetServerCommandMsg(CommandType.LONG_ACTION_SCHEDULE, ScribeUtil.WriteSingle(other)));
+            foreach (ScheduledCommand action in OnMainThread.scheduledCmds)
+                conn.Send(Packets.SERVER_COMMAND, ServerPlayingState.GetServerCommandMsg(action.type, action.data));
 
             MultiplayerWorldComp comp = Find.World.GetComponent<MultiplayerWorldComp>();
             if (!comp.playerFactions.TryGetValue(username, out Faction faction))

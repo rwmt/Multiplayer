@@ -44,23 +44,33 @@ namespace Multiplayer
                         Find.TickManager.DoSingleTick();
                     }
                     Log.Message("1000 ticks took " + ticksStart.ElapsedMilliseconds + "ms (" + (ticksStart.ElapsedMilliseconds / 1000.0) + ")");
-                    //ProfilerExperiment.Print();
                 }));
 
                 optList.Insert(0, new ListableOption("Reload", () =>
                 {
                     LongEventHandler.QueueLongEvent(() =>
                     {
-                        ExposableProfiler.timing.Clear();
+                        //Multiplayer.start_profiler();
+
+                        BetterSaver.doBetterSave = true;
                         Prefs.PauseOnLoad = false;
 
-                        MapDrawerRegenPatch.remember = Find.VisibleMap.mapDrawer;
+                        MapDrawerRegenPatch.copyFrom = Find.VisibleMap.mapDrawer;
+                        WorldGridCtorPatch.copyFrom = Find.WorldGrid;
 
                         Stopwatch watch = Stopwatch.StartNew();
                         byte[] wholeGame = ScribeUtil.WriteSingle(Current.Game, "game");
-                        Log.Message("saving " + watch.ElapsedMilliseconds);
 
+                        File.WriteAllBytes("better_map", wholeGame);
+
+                        Log.Message("saving " + watch.ElapsedMilliseconds);
                         Log.Message("wholegame " + wholeGame.Length);
+
+                        //Multiplayer.print_profiler("profiler_save.txt");
+                        //Multiplayer.stop_profiler();
+
+                        //Multiplayer.start_profiler();
+
                         MemoryUtility.ClearAllMapsAndWorld();
 
                         Prefs.LogVerbose = true;
@@ -71,14 +81,11 @@ namespace Multiplayer
                         Prefs.PauseOnLoad = true;
                         Prefs.LogVerbose = false;
 
+                        BetterSaver.doBetterSave = false;
                         Log.Message("loading " + time.ElapsedMilliseconds);
 
-                        foreach (KeyValuePair<Type, List<double>> p in ExposableProfiler.timing.OrderBy(p => p.Value.Sum()))
-                        {
-                            Log.Message(p.Key.FullName + " avg: " + p.Value.Average() + " max: " + p.Value.Max() + " min: " + p.Value.Min() + " sum: " + ((double)p.Value.Sum() / Stopwatch.Frequency) + " count: " + p.Value.Count);
-                        }
-
-                        Log.Message("exposa " + ExposableProfiler.timing.Sum(p => p.Value.Sum()));
+                        //Multiplayer.print_profiler("profiler_load.txt");
+                        //Multiplayer.stop_profiler();
                     }, "Test", false, null);
                 }));
             }
@@ -106,26 +113,23 @@ namespace Multiplayer
     [HarmonyPatch(nameof(MapDrawer.RegenerateEverythingNow))]
     public static class MapDrawerRegenPatch
     {
-        public static Stopwatch time;
-        public static MapDrawer remember;
+        public static MapDrawer copyFrom;
 
-        static FieldInfo f = typeof(MapDrawer).GetField("sections", BindingFlags.NonPublic | BindingFlags.Instance);
+        static FieldInfo sectionsField = typeof(MapDrawer).GetField("sections", BindingFlags.NonPublic | BindingFlags.Instance);
 
         static bool Prefix(MapDrawer __instance)
         {
             RandPatches.Ignore = true;
             Rand.PushState();
 
-            time = Stopwatch.StartNew();
+            if (copyFrom == null) return true;
 
-            if (remember == null) return true;
-
-            Section[,] old = (Section[,])f.GetValue(remember);
+            Section[,] old = (Section[,])sectionsField.GetValue(copyFrom);
             foreach (Section s in old)
                 s.map = Find.VisibleMap;
-            f.SetValue(__instance, old);
+            sectionsField.SetValue(__instance, old);
 
-            remember = null;
+            copyFrom = null;
 
             return false;
         }
@@ -134,8 +138,37 @@ namespace Multiplayer
         {
             RandPatches.Ignore = false;
             Rand.PopState();
+        }
+    }
 
-            Log.Message("regenerate took " + time.ElapsedMilliseconds + " game " + MainMenuPatch.time.ElapsedMilliseconds);
+    public static class WorldGridCtorPatch
+    {
+        public static WorldGrid copyFrom;
+
+        static FieldInfo cachedTraversalDistanceField = AccessTools.Field(typeof(WorldGrid), "cachedTraversalDistance");
+        static FieldInfo cachedTraversalDistanceForStartField = AccessTools.Field(typeof(WorldGrid), "cachedTraversalDistanceForStart");
+        static FieldInfo cachedTraversalDistanceForEndField = AccessTools.Field(typeof(WorldGrid), "cachedTraversalDistanceForEnd");
+
+        static bool Prefix(WorldGrid __instance)
+        {
+            if (copyFrom == null) return true;
+
+            __instance.viewAngle = copyFrom.viewAngle;
+            __instance.viewCenter = copyFrom.viewCenter;
+            __instance.verts = copyFrom.verts;
+            __instance.tileIDToNeighbors_offsets = copyFrom.tileIDToNeighbors_offsets;
+            __instance.tileIDToNeighbors_values = copyFrom.tileIDToNeighbors_values;
+            __instance.tileIDToVerts_offsets = copyFrom.tileIDToVerts_offsets;
+            __instance.averageTileSize = copyFrom.averageTileSize;
+
+            __instance.tiles = new List<Tile>();
+            cachedTraversalDistanceField.SetValue(__instance, -1);
+            cachedTraversalDistanceForStartField.SetValue(__instance, -1);
+            cachedTraversalDistanceForEndField.SetValue(__instance, -1);
+
+            copyFrom = null;
+
+            return false;
         }
     }
 
@@ -228,7 +261,7 @@ namespace Multiplayer
         private static void Settle()
         {
             byte[] extra = ScribeUtil.WriteSingle(new LongActionGenerating() { username = Multiplayer.username });
-            Multiplayer.client.Send(Packets.CLIENT_ACTION_REQUEST, new object[] { ServerAction.LONG_ACTION_SCHEDULE, extra });
+            Multiplayer.client.Send(Packets.CLIENT_COMMAND, new object[] { CommandType.LONG_ACTION_SCHEDULE, extra });
 
             Find.GameInitData.mapSize = 150;
             Find.GameInitData.startingPawns.Add(StartingPawnUtility.NewGeneratedStartingPawn());
@@ -253,7 +286,7 @@ namespace Multiplayer
 
             ClientPlayingState.SyncClientWorldObj(factionBase);
 
-            Multiplayer.client.Send(Packets.CLIENT_ACTION_REQUEST, new object[] { ServerAction.LONG_ACTION_END, extra });
+            Multiplayer.client.Send(Packets.CLIENT_COMMAND, new object[] { CommandType.LONG_ACTION_END, extra });
         }
     }
 
@@ -299,7 +332,7 @@ namespace Multiplayer
         {
             if (Multiplayer.client != null && Find.TickManager.CurTimeSpeed != lastSpeed)
             {
-                Multiplayer.client.SendAction(ServerAction.TIME_SPEED, (byte)Find.TickManager.CurTimeSpeed);
+                Multiplayer.client.SendCommand(CommandType.TIME_SPEED, (byte)Find.TickManager.CurTimeSpeed);
                 Find.TickManager.CurTimeSpeed = lastSpeed;
                 return;
             }
@@ -491,53 +524,6 @@ namespace Multiplayer
         }
     }
 
-    [HarmonyPatch(typeof(Map))]
-    [HarmonyPatch("ExposeComponents")]
-    public static class MapExposeComps
-    {
-        static Stopwatch watch;
-
-        static void Prefix()
-        {
-            watch = Stopwatch.StartNew();
-        }
-
-        static void Postfix()
-        {
-            Log.Message("ExposeComps " + watch.ElapsedMilliseconds);
-            watch = null;
-        }
-    }
-
-    [HarmonyPatch(typeof(MapFileCompressor))]
-    [HarmonyPatch("BuildCompressedString")]
-    public static class BuildCompressedString
-    {
-        static Stopwatch watch;
-
-        static void Prefix()
-        {
-            watch = Stopwatch.StartNew();
-        }
-
-        static void Postfix()
-        {
-            Log.Message("BuildCompressedString " + watch.ElapsedMilliseconds);
-            watch = null;
-        }
-    }
-
-    [HarmonyPatch(typeof(CompressibilityDeciderUtility))]
-    [HarmonyPatch(nameof(CompressibilityDeciderUtility.IsSaveCompressible))]
-    public static class SaveCompressible
-    {
-        static void Postfix(ref bool __result)
-        {
-            if (Multiplayer.savingForEncounter)
-                __result = false;
-        }
-    }
-
     [HarmonyPatch(typeof(UIRoot_Play))]
     [HarmonyPatch(nameof(UIRoot_Play.UIRootOnGUI))]
     public static class OnGuiPatch
@@ -643,7 +629,7 @@ namespace Multiplayer
             if (Multiplayer.client == null || dontHandle) return true;
             if (!DrawGizmosPatch.drawingGizmos) return true;
 
-            Multiplayer.client.SendAction(ServerAction.DRAFT, __instance.pawn.Map.GetUniqueLoadID(), __instance.pawn.GetUniqueLoadID(), value);
+            Multiplayer.client.SendCommand(CommandType.DRAFT, __instance.pawn.Map.GetUniqueLoadID(), __instance.pawn.GetUniqueLoadID(), value);
 
             return false;
         }
@@ -928,7 +914,7 @@ namespace Multiplayer
 
             if (DrawGizmosPatch.drawingGizmos || ProcessDesigInputPatch.processing)
             {
-                Multiplayer.client.SendAction(ServerAction.FORBID, thing.Map.GetUniqueLoadID(), thing.GetUniqueLoadID(), Multiplayer.RealPlayerFaction.GetUniqueLoadID(), value);
+                Multiplayer.client.SendCommand(CommandType.FORBID, thing.Map.GetUniqueLoadID(), thing.GetUniqueLoadID(), Multiplayer.RealPlayerFaction.GetUniqueLoadID(), value);
                 return false;
             }
 
@@ -1008,7 +994,7 @@ namespace Multiplayer
             byte[] jobData = ScribeUtil.WriteSingle(job);
             bool shouldQueue = KeyBindingDefOf.QueueOrder.IsDownEvent;
 
-            Multiplayer.client.SendAction(ServerAction.ORDER_JOB, pawn.Map.GetUniqueLoadID(), pawn.GetUniqueLoadID(), jobData, shouldQueue, 0, (byte)tag);
+            Multiplayer.client.SendCommand(CommandType.ORDER_JOB, pawn.Map.GetUniqueLoadID(), pawn.GetUniqueLoadID(), jobData, shouldQueue, 0, (byte)tag);
 
             return false;
         }
@@ -1034,7 +1020,7 @@ namespace Multiplayer
             bool shouldQueue = KeyBindingDefOf.QueueOrder.IsDownEvent;
             string workGiver = giver.def.defName;
 
-            Multiplayer.client.SendAction(ServerAction.ORDER_JOB, pawn.Map.GetUniqueLoadID(), pawn.GetUniqueLoadID(), jobData, shouldQueue, 1, workGiver, pawn.Map.cellIndices.CellToIndex(cell));
+            Multiplayer.client.SendCommand(CommandType.ORDER_JOB, pawn.Map.GetUniqueLoadID(), pawn.GetUniqueLoadID(), jobData, shouldQueue, 1, workGiver, pawn.Map.cellIndices.CellToIndex(cell));
 
             return false;
         }
@@ -1099,7 +1085,7 @@ namespace Multiplayer
         static bool Prefix(Zone __instance)
         {
             if (Multiplayer.client == null || !DrawGizmosPatch.drawingGizmos) return true;
-            Multiplayer.client.SendAction(ServerAction.DELETE_ZONE, Multiplayer.RealPlayerFaction.GetUniqueLoadID(), __instance.Map.GetUniqueLoadID(), __instance.label);
+            Multiplayer.client.SendCommand(CommandType.DELETE_ZONE, Multiplayer.RealPlayerFaction.GetUniqueLoadID(), __instance.Map.GetUniqueLoadID(), __instance.label);
             return false;
         }
     }

@@ -99,9 +99,9 @@ namespace Multiplayer
                 stream.Write(arr, 0, arr.Length);
         }
 
-        public static void SendAction(this Connection conn, ServerAction action, params object[] extra)
+        public static void SendCommand(this Connection conn, CommandType action, params object[] extra)
         {
-            conn.Send(Packets.CLIENT_ACTION_REQUEST, new object[] { action, Server.GetBytes(extra) });
+            conn.Send(Packets.CLIENT_COMMAND, new object[] { action, Server.GetBytes(extra) });
         }
 
         public static IEnumerable<Type> AllSubtypesAndSelf(this Type t)

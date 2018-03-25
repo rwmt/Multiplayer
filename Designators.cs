@@ -48,7 +48,7 @@ namespace Multiplayer
 
             Map map = Find.VisibleMap;
             object[] extra = GetExtra(0, designator).Append(map.cellIndices.CellToIndex(c));
-            Multiplayer.client.SendAction(ServerAction.DESIGNATOR, extra);
+            Multiplayer.client.SendCommand(CommandType.DESIGNATOR, extra);
 
             return false;
         }
@@ -64,7 +64,7 @@ namespace Multiplayer
                 cellData[i++] = map.cellIndices.CellToIndex(cell);
 
             object[] extra = GetExtra(1, designator).Append(cellData);
-            Multiplayer.client.SendAction(ServerAction.DESIGNATOR, extra);
+            Multiplayer.client.SendCommand(CommandType.DESIGNATOR, extra);
 
             return false;
         }
@@ -74,7 +74,7 @@ namespace Multiplayer
             if (Multiplayer.client == null || !DrawGizmosPatch.drawingGizmos) return true;
 
             object[] extra = GetExtra(2, designator).Append(t.GetUniqueLoadID());
-            Multiplayer.client.SendAction(ServerAction.DESIGNATOR, extra);
+            Multiplayer.client.SendCommand(CommandType.DESIGNATOR, extra);
 
             return false;
         }

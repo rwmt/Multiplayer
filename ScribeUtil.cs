@@ -97,13 +97,13 @@ namespace Multiplayer
 
         public static bool loading;
 
-        public static void StartWriting()
+        public static void StartWriting(bool indent = false)
         {
             stream = new MemoryStream();
 
             Scribe.mode = LoadSaveMode.Saving;
             XmlWriterSettings xmlWriterSettings = new XmlWriterSettings();
-            xmlWriterSettings.Indent = false;
+            xmlWriterSettings.Indent = indent;
             xmlWriterSettings.OmitXmlDeclaration = true;
             XmlWriter writer = XmlWriter.Create(stream, xmlWriterSettings);
             writerField.SetValue(Scribe.saver, writer);
@@ -125,7 +125,7 @@ namespace Multiplayer
             ScribeMetaHeaderUtility.loadedGameVersion = VersionControl.CurrentVersionStringWithRev;
 
             using (MemoryStream stream = new MemoryStream(data))
-            using (XmlTextReader xml = new XmlTextReader(stream))
+            using (XmlReader xml = XmlReader.Create(stream))
             {
                 XmlDocument xmlDocument = new XmlDocument();
                 xmlDocument.Load(xml);
@@ -165,9 +165,9 @@ namespace Multiplayer
             Log.Message("Cross ref supply: " + crossRefs.GetDict().Count + " " + crossRefs.GetDict().Last() + " " + Faction.OfPlayer);
         }
 
-        public static byte[] WriteSingle(IExposable element, string name = "data")
+        public static byte[] WriteSingle(IExposable element, string name = "data", bool indent = false)
         {
-            StartWriting();
+            StartWriting(indent);
             Scribe.EnterNode("data");
             Scribe_Deep.Look(ref element, name);
             return FinishWriting();
