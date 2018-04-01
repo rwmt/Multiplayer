@@ -1,8 +1,10 @@
-﻿using RimWorld;
+﻿using Harmony;
+using RimWorld;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Xml;
 using Verse;
@@ -11,6 +13,13 @@ namespace Multiplayer
 {
     public static class Extensions
     {
+        private static readonly MethodInfo exposeSmallComps = AccessTools.Method(typeof(Game), "ExposeSmallComponents");
+
+        public static void ExposeSmallComponents(this Game game)
+        {
+            exposeSmallComps.Invoke(game, null);
+        }
+
         public static int Combine(this int i1, int i2)
         {
             return i1 ^ (i2 << 16 | (i2 >> 16));
@@ -29,19 +38,6 @@ namespace Multiplayer
             T[] result = new T[length];
             Array.Copy(data, index, result, 0, length);
             return result;
-        }
-
-        public static void RemoveChildIfPresent(this XmlNode node, string child)
-        {
-            XmlNode childNode = node[child];
-            if (childNode != null)
-                node.RemoveChild(childNode);
-        }
-
-        public static void RemoveFromParent(this XmlNode node)
-        {
-            if (node == null) return;
-            node.ParentNode.RemoveChild(node);
         }
 
         public static void WriteObject(this MemoryStream stream, object obj)
@@ -139,6 +135,29 @@ namespace Multiplayer
             Faction faction = FactionContext.Pop();
             if (map != null)
                 map.GetComponent<MultiplayerMapComp>().SetFaction(faction);
+        }
+    }
+
+    public static class XmlExtensions
+    {
+        public static void SelectAndRemove(this XmlNode node, string xpath)
+        {
+            XmlNodeList nodes = node.SelectNodes(xpath);
+            foreach (XmlNode selected in nodes)
+                selected.RemoveFromParent();
+        }
+
+        public static void RemoveChildIfPresent(this XmlNode node, string child)
+        {
+            XmlNode childNode = node[child];
+            if (childNode != null)
+                node.RemoveChild(childNode);
+        }
+
+        public static void RemoveFromParent(this XmlNode node)
+        {
+            if (node == null) return;
+            node.ParentNode.RemoveChild(node);
         }
     }
 }

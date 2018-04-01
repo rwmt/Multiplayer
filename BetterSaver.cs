@@ -14,7 +14,6 @@ namespace Multiplayer
     public static class BetterSaver
     {
         public static bool doBetterSave;
-        public static List<Thing> loadedThings;
         private static Dictionary<ushort, ThingDef> thingDefsByShortHash;
 
         private static FieldInfo plantUnlitTicksField = AccessTools.Field(typeof(Plant), "unlitTicks");
@@ -124,7 +123,7 @@ namespace Multiplayer
         {
             if (Scribe.mode != LoadSaveMode.LoadingVars) return;
 
-            loadedThings = new List<Thing>();
+            map.GetComponent<MultiplayerMapComp>().loadedThings = new List<Thing>();
             thingDefsByShortHash = new Dictionary<ushort, ThingDef>();
 
             foreach (ThingDef thingDef in DefDatabase<ThingDef>.AllDefs)
@@ -137,6 +136,8 @@ namespace Multiplayer
 
         private static void LoadRock(Map map)
         {
+            List<Thing> loadedThings = map.GetComponent<MultiplayerMapComp>().loadedThings;
+
             LoadCellData(map, (reader, cell) =>
             {
                 ushort defId = reader.ReadUInt16();
@@ -158,6 +159,8 @@ namespace Multiplayer
 
         private static void LoadRockRubble(Map map)
         {
+            List<Thing> loadedThings = map.GetComponent<MultiplayerMapComp>().loadedThings;
+
             LoadCellData(map, (reader, cell) =>
             {
                 ushort defId = reader.ReadUInt16();
@@ -183,6 +186,8 @@ namespace Multiplayer
 
         private static void LoadPlants(Map map)
         {
+            List<Thing> loadedThings = map.GetComponent<MultiplayerMapComp>().loadedThings;
+
             LoadCellData(map, (reader, cell) =>
             {
                 ushort defId = reader.ReadUInt16();
@@ -303,12 +308,14 @@ namespace Multiplayer
     [HarmonyPatch(nameof(MapFileCompressor.ThingsToSpawnAfterLoad))]
     public static class DecompressedThingsPatch
     {
-        static void Postfix(ref IEnumerable<Thing> __result)
+        static void Postfix(MapFileCompressor __instance, ref IEnumerable<Thing> __result)
         {
             if (!BetterSaver.doBetterSave) return;
 
-            __result = BetterSaver.loadedThings;
-            BetterSaver.loadedThings = null;
+            Map map = (Map)BetterSaver.compressorMapField.GetValue(__instance);
+            MultiplayerMapComp comp = map.GetComponent<MultiplayerMapComp>();
+            __result = comp.loadedThings;
+            comp.loadedThings = null;
         }
     }
 

@@ -56,7 +56,7 @@
     <Compile Include="BetterSaver.cs" />
     <Compile Include="MapAsyncTime.cs" />
     <Compile Include="MpLog.cs" />
-    <Compile Include="ProfilerExperiment.cs" />
+    <Compile Include="SimpleProfiler.cs" />
     <Compile Include="CrossRefs.cs" />
     <Compile Include="Designators.cs" />
     <Compile Include="Extensions.cs" />

@@ -1,4 +1,5 @@
 ﻿using Harmony;
+using Ionic.Zlib;
 using RimWorld;
 using RimWorld.Planet;
 using System;
@@ -12,6 +13,7 @@ using System.Reflection.Emit;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Xml;
 using UnityEngine;
@@ -33,8 +35,8 @@ namespace Multiplayer
         public static Connection localServerConnection;
         public static int scheduledCmdDelay = 15; // in ticks
 
-        public static byte[] savedWorld;
-        public static byte[] mapsData;
+        public static byte[] savedGame;
+        public static byte[] savedPlayerMaps;
         public static bool loadingEncounter;
 
         public static IdBlock mainBlock;
@@ -61,18 +63,9 @@ namespace Multiplayer
             }
         }
 
-        [DllImport("simple_profiler.dll")]
-        public static extern void start_profiler();
-
-        [DllImport("simple_profiler.dll")]
-        public static extern void stop_profiler();
-
-        [DllImport("simple_profiler.dll")]
-        public static extern void print_profiler(string filename);
-
         static Multiplayer()
         {
-            //start_profiler();
+            SimpleProfiler.Init();
 
             GenCommandLine.TryGetCommandLineArg("username", out username);
             if (username == null)
@@ -97,11 +90,11 @@ namespace Multiplayer
 
             if (GenCommandLine.CommandLineArgPassed("dev"))
             {
-                //Current.Game = new Game();
-                //Current.Game.InitData = new GameInitData
-                //{
-                //    gameToLoad = "mappo"
-                //};
+                Current.Game = new Game();
+                Current.Game.InitData = new GameInitData
+                {
+                    gameToLoad = "mappo"
+                };
 
                 DebugSettings.noAnimals = true;
                 LongEventHandler.QueueLongEvent(null, "Play", "LoadingLongEvent", true, null);
@@ -125,9 +118,54 @@ namespace Multiplayer
 
                         Multiplayer.client = conn;
                         conn.username = Multiplayer.username;
-                        conn.SetState(new ClientWorldState(conn));
+                        conn.State = new ClientWorldState(conn);
                     });
                 }, "Connecting", false, null);
+            }
+        }
+
+        public static XmlDocument SaveGame()
+        {
+            bool betterSave = BetterSaver.doBetterSave;
+            BetterSaver.doBetterSave = true;
+
+            ScribeUtil.StartWritingToDoc();
+
+            Scribe.EnterNode("savegame");
+            ScribeMetaHeaderUtility.WriteMetaHeader();
+            Scribe.EnterNode("game");
+            sbyte visibleMapIndex = Current.Game.visibleMapIndex;
+            Scribe_Values.Look(ref visibleMapIndex, "visibleMapIndex", (sbyte)-1);
+            Current.Game.ExposeSmallComponents();
+            World world = Current.Game.World;
+            Scribe_Deep.Look(ref world, "world");
+            List<Map> maps = Find.Maps;
+            Scribe_Collections.Look(ref maps, "maps", LookMode.Deep);
+            Scribe.ExitNode();
+
+            BetterSaver.doBetterSave = betterSave;
+
+            return ScribeUtil.FinishWritingToDoc();
+        }
+
+        public static void SendGameData(XmlDocument doc, bool sendGame = true)
+        {
+            XmlNode gameNode = doc.DocumentElement["game"];
+            XmlNode mapsNode = gameNode["maps"];
+
+            string nonPlayerMaps = "li[components/li/@Class='Multiplayer.MultiplayerMapComp' and components/li/isPlayerHome='False']";
+            mapsNode.SelectAndRemove(nonPlayerMaps);
+
+            byte[] compressedMaps = GZipStream.CompressBuffer(ScribeUtil.XmlToByteArray(mapsNode));
+            Multiplayer.client.Send(Packets.CLIENT_AUTOSAVED_DATA, false, compressedMaps);
+
+            if (sendGame)
+            {
+                gameNode["visibleMapIndex"].RemoveFromParent();
+                mapsNode.RemoveAll();
+
+                byte[] compressedGame = GZipStream.CompressBuffer(ScribeUtil.XmlToByteArray(doc));
+                Multiplayer.client.Send(Packets.CLIENT_AUTOSAVED_DATA, true, compressedGame);
             }
         }
 
@@ -193,6 +231,9 @@ namespace Multiplayer
             var worldGridCtor = AccessTools.Constructor(typeof(WorldGrid));
             harmony.Patch(worldGridCtor, new HarmonyMethod(AccessTools.Method(typeof(WorldGridCtorPatch), "Prefix")), null);
 
+            var worldRendererCtor = AccessTools.Constructor(typeof(WorldRenderer));
+            harmony.Patch(worldRendererCtor, new HarmonyMethod(AccessTools.Method(typeof(WorldRendererCtorPatch), "Prefix")), null);
+
             /*var exposablePrefix = new HarmonyMethod(typeof(ExposableProfiler).GetMethod("Prefix"));
             var exposablePostfix = new HarmonyMethod(typeof(ExposableProfiler).GetMethod("Postfix"));
 
@@ -209,7 +250,7 @@ namespace Multiplayer
 
         public static IdBlock NextIdBlock()
         {
-            int blockSize = 25000;
+            int blockSize = 30000;
             int blockStart = highestUniqueId;
             highestUniqueId = highestUniqueId + blockSize;
             Log.Message("New id block " + blockStart + " of size " + blockSize);
@@ -312,7 +353,7 @@ namespace Multiplayer
         public int NextId()
         {
             current++;
-            if (current > blockSize * 0.8)
+            if (current > blockSize * 0.95)
             {
                 Multiplayer.client.Send(Packets.CLIENT_ID_BLOCK_REQUEST, new object[] { mapTile });
                 Log.Message("Sent id block request at " + current);
@@ -384,7 +425,7 @@ namespace Multiplayer
         public const int CLIENT_COMMAND = 2;
         public const int CLIENT_USERNAME = 3;
         public const int CLIENT_NEW_WORLD_OBJ = 4;
-        public const int CLIENT_QUIT_MAPS = 5;
+        public const int CLIENT_AUTOSAVED_DATA = 5;
         public const int CLIENT_ENCOUNTER_REQUEST = 6;
         public const int CLIENT_MAP_RESPONSE = 7;
         public const int CLIENT_MAP_LOADED = 8;
@@ -400,12 +441,28 @@ namespace Multiplayer
         public const int SERVER_NOTIFICATION = 6;
         public const int SERVER_NEW_ID_BLOCK = 7;
         public const int SERVER_TIME_CONTROL = 8;
+        public const int SERVER_DISCONNECT_REASON = 9;
+    }
+
+    public class GlobalScopeAttribute : Attribute
+    {
     }
 
     public enum CommandType
     {
-        TIME_SPEED, MAP_ID_BLOCK, DRAFT, FORBID, DESIGNATOR, ORDER_JOB, DELETE_ZONE,
-        LONG_ACTION_SCHEDULE, LONG_ACTION_END,
+        [GlobalScope]
+        WORLD_TIME_SPEED,
+        [GlobalScope]
+        AUTOSAVE,
+
+        // Map scope
+        MAP_TIME_SPEED,
+        MAP_ID_BLOCK,
+        DRAFT,
+        FORBID,
+        DESIGNATOR,
+        ORDER_JOB,
+        DELETE_ZONE,
         SPAWN_PAWN
     }
 
@@ -425,41 +482,57 @@ namespace Multiplayer
 
     public class ServerWorldState : ConnectionState
     {
+        private static Regex UsernamePattern = new Regex(@"^[a-zA-Z0-9_]+$");
+
         public ServerWorldState(Connection connection) : base(connection)
         {
         }
 
         public override void Message(int id, ByteReader data)
         {
-            if (id == Packets.CLIENT_REQUEST_WORLD)
+            if (id == Packets.CLIENT_USERNAME)
             {
                 OnMainThread.Enqueue(() =>
                 {
-                    byte[] extra = ScribeUtil.WriteSingle(new LongActionPlayerJoin() { username = Connection.username });
-                    Multiplayer.server.SendToAll(Packets.SERVER_COMMAND, ServerPlayingState.GetServerCommandMsg(CommandType.LONG_ACTION_SCHEDULE, extra), Connection);
+                    string username = data.ReadString();
+
+                    if (username.Length < 3 || username.Length > 15)
+                    {
+                        Connection.Send(Packets.SERVER_DISCONNECT_REASON, "Invalid username length.");
+                        Connection.Close();
+                        return;
+                    }
+
+                    if (!UsernamePattern.IsMatch(username))
+                    {
+                        Connection.Send(Packets.SERVER_DISCONNECT_REASON, "Invalid username characters.");
+                        Connection.Close();
+                        return;
+                    }
+
+                    Connection.username = username;
+                });
+            }
+            else if (id == Packets.CLIENT_REQUEST_WORLD)
+            {
+                OnMainThread.Enqueue(() =>
+                {
+                    // todo compress
+                    byte[][] cmds = OnMainThread.cmdsSinceLastAutosave.ToArray();
+                    byte[] packetData = Server.GetBytes(TickPatch.tickUntil, cmds, Multiplayer.savedGame);
+
+                    Log.Message("World response sent: " + packetData.Length + " " + cmds.Length);
+
+                    Connection.Send(Packets.SERVER_WORLD_DATA, packetData);
                 });
             }
             else if (id == Packets.CLIENT_WORLD_LOADED)
             {
-                Connection.SetState(new ServerPlayingState(this.Connection));
-
-                OnMainThread.Enqueue(() =>
-                {
-                    Multiplayer.savedWorld = null;
-
-                    byte[] extra = ScribeUtil.WriteSingle(OnMainThread.currentLongAction);
-                    Multiplayer.server.SendToAll(Packets.SERVER_COMMAND, ServerPlayingState.GetServerCommandMsg(CommandType.LONG_ACTION_END, extra));
-
-                    Log.Message("World sending finished");
-                });
-            }
-            else if (id == Packets.CLIENT_USERNAME)
-            {
-                OnMainThread.Enqueue(() => Connection.username = data.ReadString());
+                Connection.State = new ServerPlayingState(Connection);
             }
         }
 
-        public override void Disconnect()
+        public override void Disconnected()
         {
         }
     }
@@ -476,36 +549,11 @@ namespace Multiplayer
             {
                 OnMainThread.Enqueue(() =>
                 {
-                    CommandType action = (CommandType)data.ReadInt();
+                    CommandType cmd = (CommandType)data.ReadInt();
                     byte[] extra = data.ReadPrefixedBytes();
 
-                    Multiplayer.server.SendToAll(Packets.SERVER_COMMAND, GetServerCommandMsg(action, extra));
+                    Multiplayer.server.SendToAll(Packets.SERVER_COMMAND, GetServerCommandMsg(cmd, extra));
                 });
-            }
-            else if (id == Packets.CLIENT_NEW_WORLD_OBJ)
-            {
-                Multiplayer.server.SendToAll(Packets.SERVER_NEW_WORLD_OBJ, data.GetBytes(), Connection);
-            }
-            else if (id == Packets.CLIENT_QUIT_MAPS)
-            {
-                new Thread(() =>
-                {
-                    try
-                    {
-                        using (MemoryStream stream = new MemoryStream(data.GetBytes()))
-                        using (XmlTextReader xml = new XmlTextReader(stream))
-                        {
-                            XmlDocument xmlDocument = new XmlDocument();
-                            xmlDocument.Load(xml);
-                            xmlDocument.Save(GetPlayerMapsPath(Connection.username));
-                        }
-                    }
-                    catch (XmlException e)
-                    {
-                        Log.Error("Couldn't save " + Connection.username + "'s maps");
-                        Log.Error(e.ToString());
-                    }
-                }).Start();
             }
             else if (id == Packets.CLIENT_ENCOUNTER_REQUEST)
             {
@@ -528,15 +576,17 @@ namespace Multiplayer
 
                     Encounter.Add(tile, defender, Connection.username);
 
-                    byte[] extra = ScribeUtil.WriteSingle(new LongActionEncounter() { defender = defender, attacker = Connection.username, tile = tile });
-                    conn.Send(Packets.SERVER_COMMAND, GetServerCommandMsg(CommandType.LONG_ACTION_SCHEDULE, extra));
+                    // send the encounter map
+                    // setup id blocks
                 });
             }
             else if (id == Packets.CLIENT_MAP_RESPONSE)
             {
                 OnMainThread.Enqueue(() =>
                 {
-                    LongActionEncounter encounter = ((LongActionEncounter)OnMainThread.currentLongAction);
+                    // setup the encounter
+
+                    /*LongActionEncounter encounter = ((LongActionEncounter)OnMainThread.currentLongAction);
 
                     Connection attacker = Multiplayer.server.GetByUsername(encounter.attacker);
                     Connection defender = Multiplayer.server.GetByUsername(encounter.defender);
@@ -545,7 +595,7 @@ namespace Multiplayer
                     attacker.Send(Packets.SERVER_MAP_RESPONSE, data.GetBytes());
 
                     encounter.waitingFor.Add(defender.username);
-                    encounter.waitingFor.Add(attacker.username);
+                    encounter.waitingFor.Add(attacker.username);*/
 
                     /*Faction attackerFaction = Find.World.GetComponent<MultiplayerWorldComp>().playerFactions[encounter.attacker];
                     FactionContext.Push(attackerFaction);
@@ -570,13 +620,7 @@ namespace Multiplayer
             {
                 OnMainThread.Enqueue(() =>
                 {
-                    LongActionEncounter encounter = ((LongActionEncounter)OnMainThread.currentLongAction);
-
-                    if (encounter.waitingFor.Remove(Connection.username) && encounter.waitingFor.Count == 0)
-                    {
-                        byte[] extra = ScribeUtil.WriteSingle(OnMainThread.currentLongAction);
-                        Multiplayer.server.SendToAll(Packets.SERVER_COMMAND, GetServerCommandMsg(CommandType.LONG_ACTION_END, extra));
-                    }
+                    // map loaded
                 });
             }
             else if (id == Packets.CLIENT_ID_BLOCK_REQUEST)
@@ -610,7 +654,7 @@ namespace Multiplayer
             {
                 OnMainThread.Enqueue(() => { Log.Message("Got map state " + Connection.username + " " + data.GetBytes().Length); });
 
-                ThreadPool.QueueUserWorkItem(stateInfo =>
+                ThreadPool.QueueUserWorkItem(s =>
                 {
                     using (MemoryStream stream = new MemoryStream(data.GetBytes()))
                     using (XmlTextReader xml = new XmlTextReader(stream))
@@ -623,9 +667,27 @@ namespace Multiplayer
                     }
                 });
             }
+            else if (id == Packets.CLIENT_AUTOSAVED_DATA)
+            {
+                OnMainThread.Enqueue(() =>
+                {
+                    bool isGame = data.ReadBool();
+                    byte[] compressedData = data.ReadPrefixedBytes();
+                    byte[] uncompressedData = GZipStream.UncompressBuffer(compressedData);
+
+                    if (isGame)
+                    {
+                        Multiplayer.savedGame = uncompressedData;
+                    }
+                    else
+                    {
+                        // handle map data
+                    }
+                });
+            }
         }
 
-        public override void Disconnect()
+        public override void Disconnected()
         {
         }
 
@@ -648,24 +710,35 @@ namespace Multiplayer
     {
         public ClientWorldState(Connection connection) : base(connection)
         {
-            connection.Send(Packets.CLIENT_USERNAME, new object[] { Multiplayer.username });
+            connection.Send(Packets.CLIENT_USERNAME, Multiplayer.username);
             connection.Send(Packets.CLIENT_REQUEST_WORLD);
         }
 
         public override void Message(int id, ByteReader data)
         {
-            if (id == Packets.SERVER_COMMAND)
+            if (id == Packets.SERVER_WORLD_DATA)
             {
-                ClientPlayingState.HandleActionSchedule(data);
-            }
-            else if (id == Packets.SERVER_WORLD_DATA)
-            {
+                Connection.State = new ClientPlayingState(Connection);
+
                 OnMainThread.Enqueue(() =>
                 {
-                    Multiplayer.savedWorld = data.ReadPrefixedBytes();
-                    Multiplayer.mapsData = data.ReadPrefixedBytes();
+                    int tickUntil = data.ReadInt();
 
-                    Log.Message("World size: " + Multiplayer.savedWorld.Length + ", Maps size: " + Multiplayer.mapsData.Length);
+                    int cmdsLen = data.ReadInt();
+                    for (int i = 0; i < cmdsLen; i++)
+                    {
+                        byte[] cmd = data.ReadPrefixedBytes();
+                        ClientPlayingState.HandleActionSchedule(new ByteReader(cmd));
+                    }
+
+                    Multiplayer.savedGame = data.ReadPrefixedBytes();
+
+                    TickPatch.tickUntil = tickUntil;
+                    LoadPatch.gameToLoad = ScribeUtil.GetDocument(Multiplayer.savedGame);
+
+                    Log.Message("World size: " + Multiplayer.savedGame.Length + ", " + cmdsLen + " scheduled actions");
+
+                    Prefs.PauseOnLoad = false;
 
                     LongEventHandler.QueueLongEvent(() =>
                     {
@@ -673,7 +746,20 @@ namespace Multiplayer
                         Current.Game = new Game();
                         Current.Game.InitData = new GameInitData();
                         Current.Game.InitData.gameToLoad = "server";
-                    }, "Play", "LoadingLongEvent", true, null);
+
+                        LongEventHandler.ExecuteWhenFinished(() =>
+                        {
+                            LongEventHandler.QueueLongEvent(() =>
+                            {
+                                catchupStart = TickPatch.Timer;
+                                Log.Message("catchup start " + catchupStart + " " + Find.TickManager.TicksGame + " " + Find.TickManager.CurTimeSpeed);
+                                CatchUp();
+                                catchingUp.WaitOne();
+
+                                Multiplayer.client.Send(Packets.CLIENT_WORLD_LOADED);
+                            }, "Catching up", true, null);
+                        });
+                    }, "Play", "Loading the game", true, null);
                 });
             }
             else if (id == Packets.SERVER_NEW_ID_BLOCK)
@@ -685,7 +771,48 @@ namespace Multiplayer
             }
         }
 
-        public override void Disconnect()
+        private static int catchupStart;
+        private static AutoResetEvent catchingUp = new AutoResetEvent(false);
+
+        public static void CatchUp()
+        {
+            OnMainThread.Enqueue(() =>
+            {
+                int toSimulate = Math.Min(TickPatch.tickUntil - TickPatch.Timer, 100);
+                if (toSimulate == 0)
+                {
+                    catchingUp.Set();
+                    return;
+                }
+
+                int percent = (int)((TickPatch.Timer - catchupStart) / (float)(TickPatch.tickUntil - catchupStart) * 100);
+                LongEventHandler.SetCurrentEventText("Catching up (" + percent + "%)");
+
+                int timerStart = TickPatch.Timer;
+                while (TickPatch.Timer < timerStart + toSimulate)
+                {
+                    if (Find.TickManager.TickRateMultiplier > 0)
+                    {
+                        Find.TickManager.DoSingleTick();
+                    }
+                    else if (OnMainThread.scheduledCmds.Count > 0)
+                    {
+                        OnMainThread.ExecuteCommands();
+                    }
+                    // nothing to do, the game is currently paused
+                    else
+                    {
+                        catchingUp.Set();
+                        return;
+                    }
+                }
+
+                Thread.Sleep(50);
+                CatchUp();
+            });
+        }
+
+        public override void Disconnected()
         {
         }
     }
@@ -700,7 +827,10 @@ namespace Multiplayer
         {
             if (id == Packets.SERVER_COMMAND)
             {
-                HandleActionSchedule(data);
+                OnMainThread.Enqueue(() =>
+                {
+                    HandleActionSchedule(data);
+                });
             }
             else if (id == Packets.SERVER_NEW_FACTION)
             {
@@ -711,13 +841,6 @@ namespace Multiplayer
 
                     Find.FactionManager.Add(faction);
                     Find.World.GetComponent<MultiplayerWorldComp>().playerFactions[owner] = faction;
-                });
-            }
-            else if (id == Packets.SERVER_NEW_WORLD_OBJ)
-            {
-                OnMainThread.Enqueue(() =>
-                {
-                    Find.WorldObjects.Add(ScribeUtil.ReadSingle<WorldObject>(data.GetBytes()));
                 });
             }
             else if (id == Packets.SERVER_MAP_REQUEST)
@@ -846,21 +969,18 @@ namespace Multiplayer
             }
         }
 
-        public override void Disconnect()
+        public override void Disconnected()
         {
         }
 
         public static void HandleActionSchedule(ByteReader data)
         {
-            OnMainThread.Enqueue(() =>
-            {
-                CommandType action = (CommandType)data.ReadInt();
-                int ticks = data.ReadInt();
-                byte[] extraBytes = data.ReadPrefixedBytes();
+            CommandType cmd = (CommandType)data.ReadInt();
+            int ticks = data.ReadInt();
+            byte[] extraBytes = data.ReadPrefixedBytes();
 
-                ScheduledCommand schdl = new ScheduledCommand(action, ticks, extraBytes);
-                OnMainThread.ScheduleCommand(schdl);
-            });
+            ScheduledCommand schdl = new ScheduledCommand(cmd, ticks, extraBytes);
+            OnMainThread.ScheduleCommand(schdl);
         }
 
         // Currently covers:
@@ -877,15 +997,11 @@ namespace Multiplayer
         private static Queue<Action> queue = new Queue<Action>();
         private static Queue<Action> tempQueue = new Queue<Action>();
 
-        public static readonly Queue<ScheduledCommand> longActionRelated = new Queue<ScheduledCommand>();
         public static readonly Queue<ScheduledCommand> scheduledCmds = new Queue<ScheduledCommand>();
-
-        public static readonly List<LongAction> longActions = new List<LongAction>();
-        public static LongAction currentLongAction;
 
         private static readonly FieldInfo zoneShuffled = typeof(Zone).GetField("cellsShuffled", BindingFlags.NonPublic | BindingFlags.Instance);
 
-        public static List<byte[]> replayCmds = new List<byte[]>();
+        public static List<byte[]> cmdsSinceLastAutosave = new List<byte[]>();
 
         public void Update()
         {
@@ -904,29 +1020,16 @@ namespace Multiplayer
 
             if (Multiplayer.client == null) return;
 
-            if (Current.Game == null || Find.TickManager.CurTimeSpeed == TimeSpeed.Paused)
-                while (longActionRelated.Count > 0)
-                    ExecuteLongActionRelated(longActionRelated.Dequeue());
+            if (!LongEventHandler.ShouldWaitForEvent && Current.Game != null && Find.World != null)
+                ExecuteCommands();
+        }
 
-            if (!LongEventHandler.ShouldWaitForEvent && Current.Game != null && Find.World != null && longActions.Count == 0 && currentLongAction == null)
+        public static void ExecuteCommands()
+        {
+            while (scheduledCmds.Count > 0 && Find.TickManager.CurTimeSpeed == TimeSpeed.Paused)
             {
-                while (scheduledCmds.Count > 0 && Find.TickManager.CurTimeSpeed == TimeSpeed.Paused)
-                {
-                    ScheduledCommand cmd = scheduledCmds.Dequeue();
-                    ExecuteServerCmd(cmd, new ByteReader(cmd.data));
-                }
-            }
-
-            if (currentLongAction == null && longActions.Count > 0)
-            {
-                currentLongAction = longActions[0];
-                longActions.RemoveAt(0);
-            }
-
-            if (currentLongAction != null && currentLongAction.shouldRun)
-            {
-                currentLongAction.Run();
-                currentLongAction.shouldRun = false;
+                ScheduledCommand cmd = scheduledCmds.Dequeue();
+                ExecuteServerCmd(cmd, new ByteReader(cmd.data));
             }
         }
 
@@ -938,52 +1041,60 @@ namespace Multiplayer
 
         public static void ScheduleCommand(ScheduledCommand cmd)
         {
-            if (cmd.type == CommandType.LONG_ACTION_SCHEDULE || cmd.type == CommandType.LONG_ACTION_END)
-            {
-                longActionRelated.Enqueue(cmd);
-                return;
-            }
-
             scheduledCmds.Enqueue(cmd);
+            cmdsSinceLastAutosave.Add(Server.GetBytes(cmd.type, cmd.ticks, cmd.data));
         }
 
-        public static void ExecuteLongActionRelated(ScheduledCommand command)
-        {
-            if (command.type == CommandType.LONG_ACTION_SCHEDULE)
-            {
-                if (Current.Game != null)
-                    TimeChangeCommandPatch.SetSpeed(TimeSpeed.Paused);
-
-                AddLongAction(ScribeUtil.ReadSingle<LongAction>(command.data));
-            }
-
-            if (command.type == CommandType.LONG_ACTION_END)
-            {
-                LongAction longAction = ScribeUtil.ReadSingle<LongAction>(command.data);
-                if (longAction.Equals(currentLongAction))
-                    currentLongAction = null;
-                else
-                    longActions.RemoveAll(longAction.Equals);
-            }
-        }
-
-        public static void ExecuteServerCmd(ScheduledCommand command, ByteReader data)
+        public static void ExecuteServerCmd(ScheduledCommand cmd, ByteReader data)
         {
             Multiplayer.Seed = Find.TickManager.TicksGame;
             RandPatch.current = "server cmd";
 
-            CommandType cmdType = command.type;
+            CommandType cmdType = cmd.type;
 
-            if (cmdType == CommandType.TIME_SPEED)
+            if (cmdType == CommandType.WORLD_TIME_SPEED)
             {
+                TimeSpeed prevSpeed = Find.TickManager.CurTimeSpeed;
                 TimeSpeed speed = (TimeSpeed)data.ReadByte();
                 TimeChangeCommandPatch.SetSpeed(speed);
+
                 Log.Message(Multiplayer.username + " set speed " + speed + " " + TickPatch.Timer + " " + Find.TickManager.TicksGame);
+
+                if (prevSpeed == TimeSpeed.Paused)
+                    TickPatch.timerInt = cmd.ticks;
+            }
+
+            if (cmdType == CommandType.AUTOSAVE)
+            {
+                TimeChangeCommandPatch.SetSpeed(TimeSpeed.Paused);
+
+                LongEventHandler.QueueLongEvent(() =>
+                {
+                    BetterSaver.doBetterSave = true;
+
+                    WorldGridCtorPatch.copyFrom = Find.WorldGrid;
+                    WorldRendererCtorPatch.copyFrom = Find.World.renderer;
+
+                    XmlDocument gameDoc = Multiplayer.SaveGame();
+                    LoadPatch.gameToLoad = gameDoc;
+
+                    MemoryUtility.ClearAllMapsAndWorld();
+
+                    Prefs.PauseOnLoad = false;
+                    SavedGameLoader.LoadGameFromSaveFile("server");
+                    BetterSaver.doBetterSave = false;
+
+                    Multiplayer.SendGameData(gameDoc);
+
+                    cmdsSinceLastAutosave.Clear();
+                }, "Autosaving", false, null);
+
+                // todo unpause after everyone completes the autosave
             }
 
             if (cmdType == CommandType.MAP_ID_BLOCK)
             {
-                IdBlock block = ScribeUtil.ReadSingle<IdBlock>(command.data);
+                IdBlock block = ScribeUtil.ReadSingle<IdBlock>(cmd.data);
                 Map map = Find.WorldObjects.MapParentAt(block.mapTile)?.Map;
                 if (map != null)
                 {
@@ -994,12 +1105,12 @@ namespace Multiplayer
 
             if (cmdType == CommandType.DESIGNATOR)
             {
-                HandleDesignator(command, data);
+                HandleDesignator(cmd, data);
             }
 
             if (cmdType == CommandType.ORDER_JOB)
             {
-                HandleOrderJob(command, data);
+                HandleOrderJob(cmd, data);
             }
 
             if (cmdType == CommandType.DELETE_ZONE)
@@ -1072,8 +1183,6 @@ namespace Multiplayer
             }
 
             RandPatch.current = null;
-
-            replayCmds.Add(Server.GetBytes(command.type, command.ticks, command.data));
         }
 
         private static void HandleOrderJob(ScheduledCommand command, ByteReader data)
@@ -1281,40 +1390,12 @@ namespace Multiplayer
 
             return true;
         }
-
-        private static void AddLongAction(LongAction action)
-        {
-            longActions.Add(action);
-        }
-
-        public static string GetActionsText()
-        {
-            int i = longActions.Count;
-            StringBuilder str = new StringBuilder();
-
-            if (currentLongAction != null)
-            {
-                str.Append(currentLongAction.Text).Append("...");
-                if (i > 0)
-                    str.Append("\n\n");
-            }
-
-            foreach (LongAction pause in longActions)
-            {
-                str.Append(pause.Text);
-                if (--i > 0)
-                    str.Append("\n");
-            }
-
-            return str.ToString();
-        }
     }
 
     [HarmonyPatch(typeof(TickManager))]
     [HarmonyPatch(nameof(TickManager.DoSingleTick))]
     public static class TickPatch
     {
-        private static int lastTicksSend;
         public static int tickUntil;
         public static double timerInt;
 
@@ -1322,11 +1403,14 @@ namespace Multiplayer
 
         public static bool ticking;
 
-        public static bool print = true;
+        private static int lastTicksSend;
+        private static float currentTickRate;
 
         static bool Prefix()
         {
-            ticking = Multiplayer.client == null || Multiplayer.server != null || Timer + 1 < tickUntil;
+            ticking = Multiplayer.client == null || Multiplayer.server != null || Timer < tickUntil;
+            currentTickRate = Find.TickManager.TickRateMultiplier;
+
             return ticking;
         }
 
@@ -1335,12 +1419,8 @@ namespace Multiplayer
             if (!ticking) return;
 
             TickManager tickManager = Find.TickManager;
-            MultiplayerWorldComp worldComp = Find.World.GetComponent<MultiplayerWorldComp>();
 
-            while (OnMainThread.longActionRelated.Count > 0 && OnMainThread.longActionRelated.Peek().ticks == Timer)
-                OnMainThread.ExecuteLongActionRelated(OnMainThread.longActionRelated.Dequeue());
-
-            while (OnMainThread.scheduledCmds.Count > 0 && OnMainThread.scheduledCmds.Peek().ticks == Timer && tickManager.CurTimeSpeed != TimeSpeed.Paused)
+            while (OnMainThread.scheduledCmds.Count > 0 && OnMainThread.scheduledCmds.Peek().ticks == Timer)
             {
                 ScheduledCommand cmd = OnMainThread.scheduledCmds.Dequeue();
                 OnMainThread.ExecuteServerCmd(cmd, new ByteReader(cmd.data));
@@ -1353,7 +1433,7 @@ namespace Multiplayer
                     lastTicksSend = Timer;
                 }
 
-            if (Multiplayer.client != null && Find.TickManager.TicksGame % (60 * 15) == 0)
+            /*if (Multiplayer.client != null && Find.TickManager.TicksGame % (60 * 15) == 0)
             {
                 Stopwatch watch = Stopwatch.StartNew();
 
@@ -1373,14 +1453,12 @@ namespace Multiplayer
                 Find.VisibleMap.PopFaction();
 
                 Log.Message(Multiplayer.username + " replay " + watch.ElapsedMilliseconds + " " + data.Length + " " + hex);
-            }
+            }*/
 
             ticking = false;
 
-            if (tickManager.TickRateMultiplier > 0)
-            {
-                timerInt += 1f / tickManager.TickRateMultiplier;
-            }
+            if (currentTickRate >= 1)
+                timerInt += 1f / currentTickRate;
         }
     }
 
@@ -1406,10 +1484,15 @@ namespace Multiplayer
             Scribe_Values.Look(ref worldId, "worldId");
             ScribeUtil.Look(ref playerFactions, "playerFactions", LookMode.Value, LookMode.Reference, ref keyWorkingList, ref valueWorkingList);
             Scribe_Values.Look(ref Multiplayer.highestUniqueId, "highestUniqueId");
+            Scribe_Values.Look(ref TickPatch.timerInt, "timer");
 
             // saving for joining players
             Scribe_Values.Look(ref sessionId, "sessionId");
-            Scribe_Values.Look(ref TickPatch.timerInt, "timer");
+
+            TimeSpeed timeSpeed = Find.TickManager.CurTimeSpeed;
+            Scribe_Values.Look(ref timeSpeed, "timeSpeed");
+            if (Scribe.mode == LoadSaveMode.LoadingVars)
+                Find.TickManager.CurTimeSpeed = timeSpeed;
         }
 
         public string GetUsername(Faction faction)
@@ -1429,6 +1512,9 @@ namespace Multiplayer
         public Dictionary<string, DesignationManager> factionDesignations = new Dictionary<string, DesignationManager>();
         public Dictionary<string, ListerHaulables> factionHaulables = new Dictionary<string, ListerHaulables>();
         public Dictionary<string, ResourceCounter> factionResources = new Dictionary<string, ResourceCounter>();
+
+        // for BetterSaver
+        public List<Thing> loadedThings;
 
         public static bool tickingFactions;
 
@@ -1489,6 +1575,10 @@ namespace Multiplayer
         public override void ExposeData()
         {
             Scribe_Deep.Look(ref encounterIdBlock, "encounterIdBlock");
+
+            // saving indicator
+            bool isPlayerHome = map.IsPlayerHome;
+            Scribe_Values.Look(ref isPlayerHome, "isPlayerHome", false, true);
         }
     }
 

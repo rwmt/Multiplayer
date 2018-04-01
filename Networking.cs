@@ -20,10 +20,13 @@ namespace Multiplayer
 
         public Server(IPAddress address, int port, NewConnection newConnection = null)
         {
-            this.socket = new Socket(address.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-            this.socket.Bind(new IPEndPoint(address, port));
-            this.socket.Listen(5);
             this.newConnection = newConnection;
+
+            socket = new Socket(address.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+            socket.Bind(new IPEndPoint(address, port));
+            socket.Listen(5);
+            socket.NoDelay = true;
+
             BeginAccept();
         }
 
@@ -34,10 +37,11 @@ namespace Multiplayer
 
         private void OnConnectRequest(IAsyncResult result)
         {
-            Socket client = this.socket.EndAccept(result);
+            Socket client = socket.EndAccept(result);
+            client.NoDelay = true;
 
             Connection connection = new Connection(client);
-            connection.connectionClosed += delegate ()
+            connection.closedCallback += () =>
             {
                 lock (connections)
                     connections.Remove(connection);
@@ -46,7 +50,7 @@ namespace Multiplayer
             lock (connections)
                 connections.Add(connection);
 
-            this.newConnection?.Invoke(connection);
+            newConnection?.Invoke(connection);
 
             connection.BeginReceive();
 
@@ -55,7 +59,7 @@ namespace Multiplayer
 
         public void Close()
         {
-            this.socket.Close();
+            socket.Close();
 
             lock (connections)
                 foreach (Connection conn in connections)
@@ -113,12 +117,13 @@ namespace Multiplayer
         }
 
         public abstract void Message(int id, ByteReader data);
-        public abstract void Disconnect();
+        public abstract void Disconnected();
     }
 
     public class Connection
     {
         private const int HEADER_LEN = sizeof(int) * 2;
+        private const int MAX_PACKET_SIZE = 4 * 1024 * 1024;
 
         public delegate void ConnectionClosed();
 
@@ -127,6 +132,21 @@ namespace Multiplayer
             get
             {
                 return socket.Connected ? socket.RemoteEndPoint : null;
+            }
+        }
+
+        public ConnectionState State
+        {
+            get
+            {
+                lock (state_lock)
+                    return state;
+            }
+
+            set
+            {
+                lock (state_lock)
+                    state = value;
             }
         }
 
@@ -144,7 +164,7 @@ namespace Multiplayer
         private bool hasHeader;
         private int msgPos;
 
-        public ConnectionClosed connectionClosed;
+        public ConnectionClosed closedCallback;
 
         public Connection(Socket socket)
         {
@@ -163,7 +183,6 @@ namespace Multiplayer
                 int recvTotal = socket.EndReceive(result);
                 if (recvTotal <= 0)
                 {
-                    connectionClosed();
                     Close();
                     return;
                 }
@@ -186,7 +205,14 @@ namespace Multiplayer
                     if (!hasHeader && msgPos == msg.Length)
                     {
                         msgId = BitConverter.ToInt32(msg, 4);
-                        msg = new byte[BitConverter.ToInt32(msg, 0)];
+                        uint size = BitConverter.ToUInt32(msg, 0);
+                        if (size > MAX_PACKET_SIZE)
+                        {
+                            Close();
+                            return;
+                        }
+
+                        msg = new byte[size];
                         hasHeader = true;
                         msgPos = 0;
                     }
@@ -195,7 +221,7 @@ namespace Multiplayer
                     // repeat msg pos check in case of an empty body
                     if (hasHeader && msgPos == msg.Length)
                     {
-                        GetState()?.Message(msgId, new ByteReader(msg));
+                        State?.Message(msgId, new ByteReader(msg));
                         msg = new byte[HEADER_LEN];
                         hasHeader = false;
                         msgPos = 0;
@@ -206,7 +232,6 @@ namespace Multiplayer
             }
             catch (SocketException)
             {
-                connectionClosed();
                 Close();
             }
             catch (ObjectDisposedException)
@@ -216,6 +241,7 @@ namespace Multiplayer
 
         public virtual void Close()
         {
+            closedCallback();
             socket.Shutdown(SocketShutdown.Both);
             socket.Close();
         }
@@ -228,8 +254,9 @@ namespace Multiplayer
         public virtual void Send(int id, byte[] message)
         {
             byte[] full = new byte[HEADER_LEN + message.Length];
+            uint size = (uint)message.Length;
 
-            BitConverter.GetBytes(message.Length).CopyTo(full, 0);
+            BitConverter.GetBytes(size).CopyTo(full, 0);
             BitConverter.GetBytes(id).CopyTo(full, 4);
             message.CopyTo(full, HEADER_LEN);
 
@@ -249,18 +276,6 @@ namespace Multiplayer
         {
             return username;
         }
-
-        public ConnectionState GetState()
-        {
-            lock (state_lock)
-                return state;
-        }
-
-        public void SetState(ConnectionState state)
-        {
-            lock (state_lock)
-                this.state = state;
-        }
     }
 
     public static class Client
@@ -273,6 +288,7 @@ namespace Multiplayer
             try
             {
                 socket = new Socket(address.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+                socket.NoDelay = true;
                 socket.BeginConnect(new IPEndPoint(address, port), result =>
                 {
                     try
@@ -308,13 +324,14 @@ namespace Multiplayer
         public override void Send(int id, byte[] msg = null)
         {
             msg = msg ?? new byte[] { 0 };
-            server.GetState()?.Message(id, new ByteReader(msg));
+            server.State?.Message(id, new ByteReader(msg));
+
         }
 
         public override void Close()
         {
-            connectionClosed();
-            server.connectionClosed();
+            closedCallback();
+            server.closedCallback();
         }
 
         public override string ToString()
@@ -334,13 +351,13 @@ namespace Multiplayer
         public override void Send(int id, byte[] msg = null)
         {
             msg = msg ?? new byte[] { 0 };
-            client.GetState()?.Message(id, new ByteReader(msg));
+            client.State?.Message(id, new ByteReader(msg));
         }
 
         public override void Close()
         {
-            connectionClosed();
-            client.connectionClosed();
+            closedCallback();
+            client.closedCallback();
         }
 
         public override string ToString()

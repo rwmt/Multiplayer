@@ -97,14 +97,19 @@ namespace Multiplayer
 
         public static bool loading;
 
+        public static Type XmlNodeWriter = AccessTools.TypeByName("System.Xml.XmlNodeWriter");
+        public static PropertyInfo GetDocumentProperty = AccessTools.Property(XmlNodeWriter, "Document");
+
         public static void StartWriting(bool indent = false)
         {
             stream = new MemoryStream();
 
             Scribe.mode = LoadSaveMode.Saving;
-            XmlWriterSettings xmlWriterSettings = new XmlWriterSettings();
-            xmlWriterSettings.Indent = indent;
-            xmlWriterSettings.OmitXmlDeclaration = true;
+            XmlWriterSettings xmlWriterSettings = new XmlWriterSettings()
+            {
+                Indent = indent,
+                OmitXmlDeclaration = true
+            };
             XmlWriter writer = XmlWriter.Create(stream, xmlWriterSettings);
             writerField.SetValue(Scribe.saver, writer);
             writer.WriteStartDocument();
@@ -114,25 +119,43 @@ namespace Multiplayer
         {
             Scribe.saver.FinalizeSaving();
             byte[] arr = stream.ToArray();
+            stream.Close();
             stream = null;
             return arr;
         }
 
-        public static void StartLoading(byte[] data)
+        public static void StartWritingToDoc()
+        {
+            Scribe.mode = LoadSaveMode.Saving;
+            XmlWriter writer = (XmlWriter)Activator.CreateInstance(XmlNodeWriter);
+            writerField.SetValue(Scribe.saver, writer);
+            writer.WriteStartDocument();
+        }
+
+        public static XmlDocument FinishWritingToDoc()
+        {
+            XmlWriter writer = (XmlWriter)writerField.GetValue(Scribe.saver);
+            XmlDocument doc = (XmlDocument)GetDocumentProperty.GetValue(writer, null);
+            writerField.SetValue(Scribe.saver, null);
+            Scribe.saver.ExitNode();
+            writer.WriteEndDocument();
+            Scribe.saver.FinalizeSaving();
+            return doc;
+        }
+
+        public static void StartLoading(XmlDocument doc)
         {
             loading = true;
 
             ScribeMetaHeaderUtility.loadedGameVersion = VersionControl.CurrentVersionStringWithRev;
 
-            using (MemoryStream stream = new MemoryStream(data))
-            using (XmlReader xml = XmlReader.Create(stream))
-            {
-                XmlDocument xmlDocument = new XmlDocument();
-                xmlDocument.Load(xml);
-                Scribe.loader.curXmlParent = xmlDocument.DocumentElement;
-            }
-
+            Scribe.loader.curXmlParent = doc.DocumentElement;
             Scribe.mode = LoadSaveMode.LoadingVars;
+        }
+
+        public static void StartLoading(byte[] data)
+        {
+            StartLoading(GetDocument(data));
         }
 
         [HarmonyPatch(typeof(ScribeLoader))]
@@ -145,6 +168,34 @@ namespace Multiplayer
         public static void FinishLoading()
         {
             Scribe.loader.FinalizeLoading();
+        }
+
+        public static XmlDocument GetDocument(byte[] data)
+        {
+            using (MemoryStream stream = new MemoryStream(data))
+            using (XmlReader reader = XmlReader.Create(stream))
+            {
+                XmlDocument xmlDocument = new XmlDocument();
+                xmlDocument.Load(reader);
+                return xmlDocument;
+            }
+        }
+
+        public static byte[] XmlToByteArray(XmlNode node, bool indent = false)
+        {
+            XmlWriterSettings xmlWriterSettings = new XmlWriterSettings()
+            {
+                Indent = indent,
+                OmitXmlDeclaration = true
+            };
+
+            using (MemoryStream stream = new MemoryStream())
+            using (XmlWriter writer = XmlWriter.Create(stream, xmlWriterSettings))
+            {
+                node.WriteTo(writer);
+                writer.Flush();
+                return stream.ToArray();
+            }
         }
 
         public static void SupplyCrossRefs()

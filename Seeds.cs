@@ -24,7 +24,7 @@ namespace Multiplayer
 
             Multiplayer.Seed = __instance.uniqueID.Combine(Find.TickManager.TicksGame).Combine(Multiplayer.WorldComp.sessionId);
 
-            // Reset the effects of SkyManagerUpdate
+            // Reset the effects of SkyManagerUpdate called during Update
             SkyTarget target = (SkyTarget)skyTargetMethod.Invoke(__instance.skyManager, new object[0]);
             curSkyGlowField.SetValue(__instance.skyManager, target.glow);
         }

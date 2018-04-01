@@ -77,6 +77,7 @@ namespace Multiplayer
 
         private IPAddress address;
         private int port;
+
         private string text;
         private object textlock = new object();
 
@@ -97,11 +98,11 @@ namespace Multiplayer
                 }
 
                 lock (textlock)
-                    text = "Connected to server.";
+                    text = "Connected.";
 
                 Multiplayer.client = conn;
                 conn.username = Multiplayer.username;
-                conn.SetState(new ClientWorldState(conn));
+                conn.State = new ClientWorldState(conn);
             });
         }
 
@@ -119,7 +120,7 @@ namespace Multiplayer
                 Close();
             }
 
-            if (Multiplayer.savedWorld != null)
+            if (Multiplayer.savedGame != null)
                 Close(false);
         }
     }
@@ -143,9 +144,11 @@ namespace Multiplayer
 
                     Multiplayer.server = new Server(local, Multiplayer.DEFAULT_PORT, (conn) =>
                     {
-                        conn.SetState(new ServerWorldState(conn));
+                        conn.State = new ServerWorldState(conn);
 
-                        conn.connectionClosed += () => OnMainThread.Enqueue(() => Messages.Message(conn.username + " disconnected", MessageTypeDefOf.SilentInput));
+                        conn.closedCallback += () => {
+                            OnMainThread.Enqueue(() => Messages.Message(conn.username + " disconnected", MessageTypeDefOf.SilentInput));
+                        };
                     });
 
                     LocalServerConnection localServer = new LocalServerConnection() { username = Multiplayer.username };
@@ -154,8 +157,8 @@ namespace Multiplayer
                     localServer.client = localClient;
                     localClient.server = localServer;
 
-                    localClient.SetState(new ClientPlayingState(localClient));
-                    localServer.SetState(new ServerPlayingState(localServer));
+                    localClient.State = new ClientPlayingState(localClient);
+                    localServer.State = new ServerPlayingState(localServer);
 
                     Multiplayer.server.GetConnections().Add(localServer);
                     Multiplayer.client = localClient;

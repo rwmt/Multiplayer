@@ -59,11 +59,11 @@ namespace Multiplayer
             Connection conn = Multiplayer.server.GetByUsername(username);
 
             // catch them up
-            conn.Send(Packets.SERVER_COMMAND, ServerPlayingState.GetServerCommandMsg(CommandType.LONG_ACTION_SCHEDULE, ScribeUtil.WriteSingle(OnMainThread.currentLongAction)));
+            /*conn.Send(Packets.SERVER_COMMAND, ServerPlayingState.GetServerCommandMsg(CommandType.LONG_ACTION_SCHEDULE, ScribeUtil.WriteSingle(OnMainThread.currentLongAction)));
             foreach (LongAction other in OnMainThread.longActions)
                 conn.Send(Packets.SERVER_COMMAND, ServerPlayingState.GetServerCommandMsg(CommandType.LONG_ACTION_SCHEDULE, ScribeUtil.WriteSingle(other)));
             foreach (ScheduledCommand action in OnMainThread.scheduledCmds)
-                conn.Send(Packets.SERVER_COMMAND, ServerPlayingState.GetServerCommandMsg(action.type, action.data));
+                conn.Send(Packets.SERVER_COMMAND, ServerPlayingState.GetServerCommandMsg(action.type, action.data));*/
 
             MultiplayerWorldComp comp = Find.World.GetComponent<MultiplayerWorldComp>();
             if (!comp.playerFactions.TryGetValue(username, out Faction faction))
@@ -99,7 +99,7 @@ namespace Multiplayer
             Scribe_Collections.Look(ref emptyList, "maps", LookMode.Deep);
             Scribe.ExitNode();
 
-            Multiplayer.savedWorld = ScribeUtil.FinishWriting();
+            Multiplayer.savedGame = ScribeUtil.FinishWriting();
 
             string mapsFile = ServerPlayingState.GetPlayerMapsPath(username);
             byte[] mapsData = new byte[0];
@@ -114,7 +114,7 @@ namespace Multiplayer
                 }
             }
 
-            conn.Send(Packets.SERVER_WORLD_DATA, new object[] { Multiplayer.savedWorld, mapsData });
+            conn.Send(Packets.SERVER_WORLD_DATA, new object[] { Multiplayer.savedGame, mapsData });
         }
 
         public override bool Equals(LongAction other)

@@ -237,7 +237,7 @@ namespace Multiplayer
         }
 
         public int mapTicks;
-        public TimeSpeed timeSpeed = TimeSpeed.Normal;
+        public TimeSpeed timeSpeed = TimeSpeed.Paused;
         public float realTimeToTickThrough;
         public bool forcedNormalSpeed;
 
@@ -258,10 +258,7 @@ namespace Multiplayer
             Find.TickManager.DebugSetTicksGame(mapTicks);
             Find.TickManager.CurTimeSpeed = timeSpeed;
 
-            if (mapTicks == 500)
-            {
-                //Multiplayer.start_profiler();
-            }
+            //Multiplayer.start_profiler();
 
             map.MapPreTick();
             mapTicks++;
@@ -273,11 +270,10 @@ namespace Multiplayer
 
             map.MapPostTick();
 
-            if (mapTicks == 501)
-            {
-                //Multiplayer.print_profiler("profiler_" + Multiplayer.username + ".txt");
-               // Multiplayer.stop_profiler();
-            }
+            //Multiplayer.pause_profiler();
+
+            //if (mapTicks % 200 == 0)
+            //    Multiplayer.print_profiler("profiler_" + Multiplayer.username + "_tick.txt");
 
             Find.TickManager.DebugSetTicksGame(worldTicks);
             Find.TickManager.CurTimeSpeed = worldSpeed;
