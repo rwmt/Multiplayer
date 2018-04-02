@@ -1,7 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 
 namespace Multiplayer.Common
 {
@@ -21,7 +18,7 @@ namespace Multiplayer.Common
         // Map scope
         MAP_TIME_SPEED,
         MAP_ID_BLOCK,
-        DRAFT,
+        DRAFT_PAWN,
         FORBID,
         DESIGNATOR,
         ORDER_JOB,

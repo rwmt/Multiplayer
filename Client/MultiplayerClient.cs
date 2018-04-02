@@ -11,9 +11,7 @@ namespace Multiplayer.Client
 {
     public static class Client
     {
-        public delegate void ConnectEvent(Connection connection, Exception e);
-
-        public static void TryConnect(IPAddress address, int port, ConnectEvent connectEvent = null)
+        public static void TryConnect(IPAddress address, int port, Action<Connection> connectEvent = null, Action<Exception> failEvent = null)
         {
             Socket socket = null;
             try
@@ -25,22 +23,31 @@ namespace Multiplayer.Client
                     try
                     {
                         socket.EndConnect(result);
+
                         Connection connection = new Connection(socket);
                         connection.onMainThread = OnMainThread.Enqueue;
-                        connectEvent?.Invoke(connection, null);
-                        connection.BeginReceive();
+
+                        OnMainThread.Enqueue(() =>
+                        {
+                            connectEvent?.Invoke(connection);
+                            connection.BeginReceive();
+                        });
                     }
                     catch (SocketException e)
                     {
                         socket.Close();
-                        connectEvent?.Invoke(null, e);
+
+                        OnMainThread.Enqueue(() =>
+                        {
+                            failEvent?.Invoke(e);
+                        });
                     }
                 }, null);
             }
             catch (SocketException e)
             {
                 socket?.Close();
-                connectEvent?.Invoke(null, e);
+                failEvent?.Invoke(e);
             }
         }
     }
@@ -53,7 +60,7 @@ namespace Multiplayer.Client
         {
         }
 
-        public override void Send(Enum id, byte[] msg = null)
+        public override void Send(Enum id, byte[] msg, Action onSent = null)
         {
             msg = msg ?? new byte[] { 0 };
             server.HandleMsg(Convert.ToInt32(id), msg);
@@ -70,6 +77,11 @@ namespace Multiplayer.Client
         {
             return "Local";
         }
+
+        public override bool IsConnected()
+        {
+            return true;
+        }
     }
 
     public class LocalServerConnection : Connection
@@ -80,7 +92,7 @@ namespace Multiplayer.Client
         {
         }
 
-        public override void Send(Enum id, byte[] msg = null)
+        public override void Send(Enum id, byte[] msg, Action onSent = null)
         {
             msg = msg ?? new byte[] { 0 };
             client.HandleMsg(Convert.ToInt32(id), msg);
@@ -95,6 +107,11 @@ namespace Multiplayer.Client
         public override string ToString()
         {
             return "Local";
+        }
+
+        public override bool IsConnected()
+        {
+            return true;
         }
     }
 }

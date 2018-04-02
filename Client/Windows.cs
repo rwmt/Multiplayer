@@ -15,6 +15,134 @@ using Verse.Profile;
 
 namespace Multiplayer.Client
 {
+    public class ChatWindow : Window
+    {
+        public override Vector2 InitialSize
+        {
+            get
+            {
+                return new Vector2(UI.screenWidth / 2f, UI.screenHeight / 2f);
+            }
+        }
+
+        private Vector2 scrollPos;
+        private float messagesHeight;
+        private List<string> messages = new List<string>();
+        private string currentMsg = "";
+
+        public string[] playerList = new string[0];
+
+        public ChatWindow()
+        {
+            absorbInputAroundWindow = false;
+            draggable = true;
+            soundClose = null;
+            preventCameraMotion = false;
+            focusWhenOpened = false;
+            doCloseX = true;
+        }
+
+        public override void DoWindowContents(Rect inRect)
+        {
+            Text.Font = GameFont.Small;
+
+            if (Event.current.type == EventType.KeyDown)
+            {
+                if (Event.current.keyCode == KeyCode.Return)
+                {
+                    SendMsg();
+                    Event.current.Use();
+                }
+            }
+
+            Rect chat = new Rect(inRect.x, inRect.y, inRect.width - 120f, inRect.height);
+            DrawChat(chat);
+
+            Rect info = new Rect(chat);
+            info.x = chat.xMax + 10f;
+            DrawInfo(info);
+        }
+
+        public void DrawInfo(Rect rect)
+        {
+            GUI.color = new Color(1, 1, 1, 0.8f);
+
+            if (Event.current.type == EventType.repaint)
+            {
+                StringBuilder builder = new StringBuilder();
+
+                builder.Append(Multiplayer.client != null ? "Connected" : "Not connected").Append("\n");
+
+                if (playerList.Length > 0)
+                {
+                    builder.Append("\nPlayers (").Append(playerList.Length).Append("):\n");
+                    builder.Append(String.Join("\n", playerList));
+                }
+
+                Widgets.Label(rect, builder.ToString());
+            }
+        }
+
+        public void DrawChat(Rect rect)
+        {
+            GUI.BeginGroup(rect);
+
+            Rect outRect = new Rect(0f, 0f, rect.width, rect.height - 30f);
+            Rect viewRect = new Rect(0f, 0f, rect.width - 16f, messagesHeight + 10f);
+
+            Widgets.BeginScrollView(outRect, ref scrollPos, viewRect);
+
+            float yPos = 0;
+            float width = viewRect.width;
+            GUI.color = Color.white;
+
+            foreach (string msg in messages)
+            {
+                float height = Text.CalcHeight(msg, width);
+
+                Widgets.Label(new Rect(20f, yPos, width, height), msg);
+
+                yPos += height;
+            }
+
+            if (Event.current.type == EventType.layout)
+                messagesHeight = yPos;
+
+            Widgets.EndScrollView();
+
+            Rect textField = new Rect(20f, outRect.yMax + 5f, width - 55f, 25f);
+            currentMsg = Widgets.TextField(textField, currentMsg);
+            currentMsg = currentMsg.Substring(0, Math.Min(currentMsg.Length, 64));
+
+            if (Widgets.ButtonText(new Rect(textField.xMax + 5f, textField.y, 50f, textField.height), "Send"))
+            {
+                SendMsg();
+            }
+
+            GUI.EndGroup();
+        }
+
+        public void SendMsg()
+        {
+            currentMsg = currentMsg.Trim();
+
+            if (currentMsg.NullOrEmpty()) return;
+
+            if (Multiplayer.client == null)
+                AddMsg(Multiplayer.username + ": " + currentMsg);
+            else
+                Multiplayer.client.Send(Packets.CLIENT_CHAT, currentMsg);
+
+            currentMsg = "";
+        }
+
+        public void AddMsg(string msg)
+        {
+            messages.Add(msg);
+            scrollPos.y = messagesHeight;
+        }
+    }
+
     public class CustomSelectLandingSite : Page_SelectLandingSite
     {
         public CustomSelectLandingSite()
@@ -79,50 +207,47 @@ namespace Multiplayer.Client
         private IPAddress address;
         private int port;
 
-        private string text;
-        private object textlock = new object();
+        public string text;
 
         public ConnectingWindow(IPAddress address, int port)
         {
             this.address = address;
             this.port = port;
-            this.text = "Connecting to " + address.ToString() + ":" + port;
 
-            Client.TryConnect(address, port, (conn, e) =>
+            text = "Connecting to " + address.ToString() + ":" + port;
+
+            Client.TryConnect(address, port, conn =>
             {
-                if (e != null)
-                {
-                    lock (textlock)
-                        text = "Error: Connection failed.";
-                    Multiplayer.client = null;
-                    return;
-                }
+                text = "Connected.";
 
-                lock (textlock)
-                    text = "Connected.";
-
+                Multiplayer.chat = new ChatWindow();
                 Multiplayer.client = conn;
                 conn.username = Multiplayer.username;
                 conn.State = new ClientWorldState(conn);
+            }, exception =>
+            {
+                text = "Error: Connection failed.";
+                Multiplayer.client = null;
             });
         }
 
         public override void DoWindowContents(Rect inRect)
         {
-            lock (textlock)
-                Widgets.Label(inRect, text);
+            Widgets.Label(inRect, text);
 
             Text.Font = GameFont.Small;
-            Rect rect2 = new Rect(inRect.width / 2f - this.CloseButSize.x / 2f, inRect.height - 55f, this.CloseButSize.x, this.CloseButSize.y);
+            Rect rect2 = new Rect(inRect.width / 2f - CloseButSize.x / 2f, inRect.height - 55f, CloseButSize.x, CloseButSize.y);
             if (Widgets.ButtonText(rect2, "Cancel", true, false, true))
             {
-                Multiplayer.client?.Close();
+                if (Multiplayer.client != null && Multiplayer.client.IsConnected())
+                {
+                    Log.Message("Closed client connection");
+                    Multiplayer.client.Close();
+                }
+
                 Multiplayer.client = null;
                 Close();
             }
-
-            //if (Multiplayer.savedGame != null)
-            //    Close(false);
         }
     }
 
@@ -181,6 +306,9 @@ namespace Multiplayer.Client
                     Multiplayer.localServer.host = localServerConn;
                     Multiplayer.client = localClient;
 
+                    Multiplayer.chat = new ChatWindow();
+                    MultiplayerServer.instance.UpdatePlayerList();
+
                     Messages.Message("Server started. Listening at " + ipAddr.ToString() + ":" + MultiplayerServer.DEFAULT_PORT, MessageTypeDefOf.SilentInput);
                 }
                 catch (SocketException)
@@ -190,29 +318,6 @@ namespace Multiplayer.Client
 
                 this.Close(true);
             }
-        }
-    }
-
-    public class ServerInfoWindow : Window
-    {
-        public override Vector2 InitialSize => new Vector2(400f, 300f);
-
-        public ServerInfoWindow()
-        {
-            this.doCloseButton = true;
-        }
-
-        private Vector2 scrollPos = Vector2.zero;
-
-        public override void DoWindowContents(Rect inRect)
-        {
-            Rect rect = new Rect(0, 0, inRect.width, inRect.height - CloseButSize.y);
-
-            IEnumerable<string> players;
-            lock (Multiplayer.localServer.server.GetConnections())
-                players = Multiplayer.localServer.server.GetConnections().Select(conn => conn.ToString());
-
-            Widgets.LabelScrollable(rect, String.Format("Connected players ({0}):\n{1}", players.Count(), String.Join("\n", players.ToArray())), ref scrollPos);
         }
     }
 

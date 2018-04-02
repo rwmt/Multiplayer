@@ -18,6 +18,7 @@ namespace Multiplayer.Common
         CLIENT_ID_BLOCK_REQUEST,
         CLIENT_MAP_STATE_DEBUG,
         CLIENT_NEW_FACTION_RESPONSE,
+        CLIENT_CHAT,
 
         SERVER_WORLD_DATA,
         SERVER_COMMAND,
@@ -27,6 +28,8 @@ namespace Multiplayer.Common
         SERVER_NEW_ID_BLOCK,
         SERVER_TIME_CONTROL,
         SERVER_DISCONNECT_REASON,
-        SERVER_NEW_FACTION_REQUEST
+        SERVER_NEW_FACTION_REQUEST,
+        SERVER_CHAT,
+        SERVER_PLAYER_LIST
     }
 }

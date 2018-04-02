@@ -13,5 +13,14 @@ namespace Multiplayer.Common
             else
                 Console.WriteLine(s);
         }
+
+        public static void LogLines(params string[] arr)
+        {
+            string s = String.Join("\n", arr);
+            if (action != null)
+                action(s);
+            else
+                Console.WriteLine(s);
+        }
     }
 }

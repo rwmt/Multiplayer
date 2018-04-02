@@ -1,10 +1,6 @@
-﻿using Harmony;
-using RimWorld;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Reflection;
 using System.Text;
 using System.Xml;
 
@@ -96,6 +92,11 @@ namespace Multiplayer.Common
             stream.Write(BitConverter.GetBytes(arr.Length), 0, 4);
             if (arr.Length > 0)
                 stream.Write(arr, 0, arr.Length);
+        }
+
+        public static void Close(this Connection conn, string msg)
+        {
+            conn.Send(Packets.SERVER_DISCONNECT_REASON, NetworkServer.GetBytes(msg), conn.Close);
         }
     }
 

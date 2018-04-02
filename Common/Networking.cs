@@ -42,6 +42,8 @@ namespace Multiplayer.Common
             Connection connection = new Connection(client);
             connection.closedCallback += () =>
             {
+                connection.State = null;
+
                 lock (connections)
                     connections.Remove(connection);
             };
@@ -74,7 +76,7 @@ namespace Multiplayer.Common
         {
             lock (connections)
                 foreach (Connection conn in connections)
-                    if (!except.Contains(conn))
+                    if (conn.IsConnected() && !except.Contains(conn))
                         conn.Send(id, data);
         }
 
@@ -168,6 +170,11 @@ namespace Multiplayer.Common
             this.socket = socket;
         }
 
+        public virtual bool IsConnected()
+        {
+            return socket.Connected;
+        }
+
         public void BeginReceive()
         {
             this.socket.BeginReceive(recv, 0, recv.Length, SocketFlags.None, OnReceive, null);
@@ -243,7 +250,7 @@ namespace Multiplayer.Common
 
         public virtual void Close()
         {
-            closedCallback();
+            closedCallback?.Invoke();
             socket.Shutdown(SocketShutdown.Both);
             socket.Close();
         }
@@ -253,7 +260,7 @@ namespace Multiplayer.Common
             Send(id, new byte[0]);
         }
 
-        public virtual void Send(Enum id, byte[] message)
+        public virtual void Send(Enum id, byte[] message, Action onSent = null)
         {
             byte[] full = new byte[HEADER_LEN + message.Length];
             uint size = (uint)message.Length;
@@ -265,6 +272,7 @@ namespace Multiplayer.Common
             socket.BeginSend(full, 0, full.Length, SocketFlags.None, result =>
             {
                 socket.EndSend(result);
+                onSent();
             }, null);
         }
 
@@ -280,25 +288,47 @@ namespace Multiplayer.Common
 
         public bool HandleMsg(int msgId, byte[] msg)
         {
+            if (State == null)
+            {
+                MpLog.Log("Null connection state for connection " + username);
+                return true;
+            }
+
             if (!statePacketHandlers.TryGetValue(State.GetType(), out Dictionary<int, List<PacketHandler>> packets))
+            {
+                MpLog.Log("Unregistered network state!");
                 return false;
+            }
 
             if (!packets.TryGetValue(msgId, out List<PacketHandler> handlers))
-                return false;
-
-            ByteReader reader = new ByteReader(msg);
-            foreach (PacketHandler handler in handlers)
             {
-                if (handler.mainThread)
-                {
-                    onMainThread(() => handler.handler.Invoke(State, new object[] { reader }));
-                }
-                else
-                {
-                    handler.handler.Invoke(State, new object[] { reader });
-                }
+                MpLog.Log("Packet has no handlers! (" + msgId + ")");
+                return true;
+            }
 
-                reader.Reset();
+            try
+            {
+                ByteReader reader = new ByteReader(msg);
+                foreach (PacketHandler handler in handlers)
+                {
+                    Action action = () =>
+                    {
+                        ConnectionState state = State;
+                        if (state != null)
+                            handler.handler.Invoke(state, new object[] { reader });
+                    };
+
+                    if (handler.mainThread)
+                        onMainThread(action);
+                    else
+                        action();
+
+                    reader.Reset();
+                }
+            }
+            catch (Exception e)
+            {
+                MpLog.LogLines("Exception while handling message " + msgId, e.Message, e.StackTrace);
             }
 
             return true;

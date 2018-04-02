@@ -1,11 +1,9 @@
 ﻿using Ionic.Zlib;
-using Multiplayer.Common;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
-using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 
@@ -43,10 +41,18 @@ namespace Multiplayer.Common
             this.addr = addr;
             this.port = port;
 
-            server = new NetworkServer(addr, port, conn =>
+            server = new NetworkServer(addr, port, newConn =>
             {
-                conn.onMainThread = Enqueue;
-                conn.State = new ServerWorldState(conn);
+                newConn.onMainThread = Enqueue;
+                newConn.State = new ServerWorldState(newConn);
+
+                newConn.closedCallback += () =>
+                {
+                    if (newConn.username == null) return;
+
+                    server.SendToAll(Packets.SERVER_NOTIFICATION, new object[] { "Player " + newConn.username + " disconnected." });
+                    UpdatePlayerList();
+                };
             });
         }
 
@@ -54,7 +60,14 @@ namespace Multiplayer.Common
         {
             while (true)
             {
-                queue.RunQueue();
+                try
+                {
+                    queue.RunQueue();
+                }
+                catch (Exception e)
+                {
+                    MpLog.LogLines("Exception while executing the server action queue:", e.Message, e.StackTrace);
+                }
 
                 server.SendToAll(Packets.SERVER_TIME_CONTROL, new object[] { timer + SCHEDULED_CMD_DELAY });
                 timer += 6;
@@ -70,6 +83,15 @@ namespace Multiplayer.Common
                 cmdsSinceLastAutosave.Clear();
                 server.SendToAll(Packets.SERVER_COMMAND, ServerPlayingState.GetServerCommandMsg(CommandType.AUTOSAVE, new byte[0]));
             });
+        }
+
+        public void UpdatePlayerList()
+        {
+            string[] players;
+            lock (server.GetConnections())
+                players = server.GetConnections().Select(conn => conn.username).ToArray();
+
+            server.SendToAll(Packets.SERVER_PLAYER_LIST, new object[] { players });
         }
 
         public void Enqueue(Action action)
@@ -136,56 +158,32 @@ namespace Multiplayer.Common
 
             if (username.Length < 3 || username.Length > 15)
             {
-                Connection.Send(Packets.SERVER_DISCONNECT_REASON, "Invalid username length.");
-                Connection.Close();
+                Connection.Close("Invalid username length.");
                 return;
             }
 
             if (!UsernamePattern.IsMatch(username))
             {
-                Connection.Send(Packets.SERVER_DISCONNECT_REASON, "Invalid username characters.");
-                Connection.Close();
+                Connection.Close("Invalid username characters.");
+                return;
+            }
+
+            if (MultiplayerServer.instance.server.GetByUsername(username) != null)
+            {
+                Connection.Close("Username already online.");
                 return;
             }
 
             Connection.username = username;
+
+            MultiplayerServer.instance.server.SendToAll(Packets.SERVER_NOTIFICATION, new object[] { "Player " + Connection.username + " has joined the game." });
+            MultiplayerServer.instance.UpdatePlayerList();
         }
 
         [PacketHandler(Packets.CLIENT_REQUEST_WORLD)]
         public void HandleWorldRequest(ByteReader data)
         {
-            MultiplayerServer.instance.host.Send(Packets.SERVER_NEW_FACTION_REQUEST);
-        }
-
-        [PacketHandler(Packets.CLIENT_NEW_FACTION_RESPONSE)]
-        public void HandleNewFaction(ByteReader data)
-        {
-            string username = data.ReadString();
-            byte[] newFactionData = data.ReadPrefixedBytes();
-
-            // todo compress
-            byte[][] cmds = MultiplayerServer.instance.cmdsSinceLastAutosave.ToArray();
-            byte[] packetData = NetworkServer.GetBytes(MultiplayerServer.instance.timer + MultiplayerServer.SCHEDULED_CMD_DELAY, cmds, MultiplayerServer.instance.savedGame);
-
-            MultiplayerServer.instance.server.SendToAll(Packets.SERVER_COMMAND, ServerPlayingState.GetServerCommandMsg(CommandType.NEW_FACTION, newFactionData));
-
-            /*MultiplayerWorldComp comp = Find.World.GetComponent<MultiplayerWorldComp>();
-
-            if (!comp.playerFactions.TryGetValue(username, out Faction faction))
-            {
-                faction = FactionGenerator.NewGeneratedFaction(FactionDefOf.PlayerColony);
-                faction.Name = username + "'s faction";
-                faction.def = Multiplayer.factionDef;
-
-                byte[] extra = Server.GetBytes(username, ScribeUtil.WriteExposable(faction));
-                Multiplayer.server.SendToAll(Packets.SERVER_COMMAND, ServerPlayingState.GetServerCommandMsg(CommandType.NEW_FACTION, extra));
-
-                MpLog.Log("New faction: " + faction.Name);
-            }*/
-
-            Connection.Send(Packets.SERVER_WORLD_DATA, packetData);
-
-            MpLog.Log("World response sent: " + packetData.Length + " " + cmds.Length);
+            MultiplayerServer.instance.host.Send(Packets.SERVER_NEW_FACTION_REQUEST, new object[] { Connection.username });
         }
 
         [PacketHandler(Packets.CLIENT_WORLD_LOADED)]
@@ -193,6 +191,7 @@ namespace Multiplayer.Common
         public void HandleWorldLoaded(ByteReader data)
         {
             Connection.State = new ServerPlayingState(Connection);
+            MultiplayerServer.instance.UpdatePlayerList();
         }
 
         public override void Disconnected()
@@ -220,6 +219,17 @@ namespace Multiplayer.Common
             MultiplayerServer.instance.server.SendToAll(Packets.SERVER_COMMAND, toSend);
         }
 
+        [PacketHandler(Packets.CLIENT_CHAT)]
+        public void HandleChat(ByteReader data)
+        {
+            string msg = data.ReadString();
+            msg = msg.Trim();
+
+            if (msg.Length == 0) return;
+
+            MultiplayerServer.instance.server.SendToAll(Packets.SERVER_CHAT, new object[] { Connection.username, msg });
+        }
+
         [PacketHandler(Packets.CLIENT_AUTOSAVED_DATA)]
         public void HandleAutosavedData(ByteReader data)
         {
@@ -235,6 +245,29 @@ namespace Multiplayer.Common
             {
                 // handle map data
             }
+        }
+
+        [PacketHandler(Packets.CLIENT_NEW_FACTION_RESPONSE)]
+        public void HandleNewFactionResponse(ByteReader data)
+        {
+            string username = data.ReadString();
+            byte[] newFactionData = data.ReadPrefixedBytes();
+
+            // todo compress
+            byte[][] cmds = MultiplayerServer.instance.cmdsSinceLastAutosave.ToArray();
+            byte[] packetData = NetworkServer.GetBytes(MultiplayerServer.instance.timer + MultiplayerServer.SCHEDULED_CMD_DELAY, cmds, MultiplayerServer.instance.savedGame);
+
+            if (newFactionData.Length > 0)
+            {
+                byte[] extra = NetworkServer.GetBytes(username, newFactionData);
+                MultiplayerServer.instance.server.SendToAll(Packets.SERVER_COMMAND, GetServerCommandMsg(CommandType.NEW_FACTION, extra));
+            }
+
+            Connection conn = MultiplayerServer.instance.server.GetByUsername(username);
+            if (conn != null)
+                conn.Send(Packets.SERVER_WORLD_DATA, packetData);
+
+            MpLog.Log("World response sent: " + packetData.Length + " " + cmds.Length);
         }
 
         [PacketHandler(Packets.CLIENT_ENCOUNTER_REQUEST)]

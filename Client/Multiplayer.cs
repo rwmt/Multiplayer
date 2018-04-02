@@ -26,6 +26,7 @@ namespace Multiplayer.Client
         public static String username;
         public static MultiplayerServer localServer;
         public static Connection client;
+        public static ChatWindow chat = new ChatWindow();
 
         public static bool loadingEncounter;
 
@@ -99,17 +100,14 @@ namespace Multiplayer.Client
                 LongEventHandler.QueueLongEvent(() =>
                 {
                     IPAddress.TryParse(ip, out IPAddress addr);
-                    Client.TryConnect(addr, MultiplayerServer.DEFAULT_PORT, (conn, e) =>
+                    Client.TryConnect(addr, MultiplayerServer.DEFAULT_PORT, conn =>
                     {
-                        if (e != null)
-                        {
-                            Multiplayer.client = null;
-                            return;
-                        }
-
                         Multiplayer.client = conn;
                         conn.username = Multiplayer.username;
                         conn.State = new ClientWorldState(conn);
+                    }, exception =>
+                    {
+                        Multiplayer.client = null;
                     });
                 }, "Connecting", false, null);
             }
@@ -418,54 +416,63 @@ namespace Multiplayer.Client
             connection.Send(Packets.CLIENT_REQUEST_WORLD);
         }
 
+        [PacketHandler(Packets.SERVER_DISCONNECT_REASON)]
+        public void HandleDisconnectReason(ByteReader data)
+        {
+            string reason = data.ReadString();
+
+            ConnectingWindow window = Find.WindowStack.WindowOfType<ConnectingWindow>();
+            if (window != null)
+                window.text = reason;
+        }
+
         [PacketHandler(Packets.SERVER_WORLD_DATA)]
         [HandleImmediately]
         public void HandleWorldData_ChangeState(ByteReader data)
         {
             Connection.State = new ClientPlayingState(Connection);
-        }
 
-        [PacketHandler(Packets.SERVER_WORLD_DATA)]
-        public void HandleWorldData(ByteReader data)
-        {
-            int tickUntil = data.ReadInt();
-
-            int cmdsLen = data.ReadInt();
-            for (int i = 0; i < cmdsLen; i++)
+            OnMainThread.Enqueue(() =>
             {
-                byte[] cmd = data.ReadPrefixedBytes();
-                ClientPlayingState.HandleActionSchedule(new ByteReader(cmd));
-            }
+                int tickUntil = data.ReadInt();
 
-            byte[] gameData = data.ReadPrefixedBytes();
-
-            TickPatch.tickUntil = tickUntil;
-            LoadPatch.gameToLoad = ScribeUtil.GetDocument(gameData);
-
-            Log.Message("World size: " + gameData.Length + ", " + cmdsLen + " scheduled actions");
-
-            Prefs.PauseOnLoad = false;
-
-            LongEventHandler.QueueLongEvent(() =>
-            {
-                MemoryUtility.ClearAllMapsAndWorld();
-                Current.Game = new Game();
-                Current.Game.InitData = new GameInitData();
-                Current.Game.InitData.gameToLoad = "server";
-
-                LongEventHandler.ExecuteWhenFinished(() =>
+                int cmdsLen = data.ReadInt();
+                for (int i = 0; i < cmdsLen; i++)
                 {
-                    LongEventHandler.QueueLongEvent(() =>
-                    {
-                        catchupStart = TickPatch.Timer;
-                        Log.Message("catchup start " + catchupStart + " " + TickPatch.tickUntil + " " + Find.TickManager.TicksGame + " " + Find.TickManager.CurTimeSpeed);
-                        CatchUp();
-                        catchingUp.WaitOne();
+                    byte[] cmd = data.ReadPrefixedBytes();
+                    ClientPlayingState.HandleActionSchedule(new ByteReader(cmd));
+                }
 
-                        Multiplayer.client.Send(Packets.CLIENT_WORLD_LOADED);
-                    }, "Catching up", true, null);
-                });
-            }, "Play", "Loading the game", true, null);
+                byte[] gameData = data.ReadPrefixedBytes();
+
+                TickPatch.tickUntil = tickUntil;
+                LoadPatch.gameToLoad = ScribeUtil.GetDocument(gameData);
+
+                Log.Message("World size: " + gameData.Length + ", " + cmdsLen + " scheduled actions");
+
+                Prefs.PauseOnLoad = false;
+
+                LongEventHandler.QueueLongEvent(() =>
+                {
+                    MemoryUtility.ClearAllMapsAndWorld();
+                    Current.Game = new Game();
+                    Current.Game.InitData = new GameInitData();
+                    Current.Game.InitData.gameToLoad = "server";
+
+                    LongEventHandler.ExecuteWhenFinished(() =>
+                    {
+                        LongEventHandler.QueueLongEvent(() =>
+                        {
+                            catchupStart = TickPatch.Timer;
+                            Log.Message("catchup start " + catchupStart + " " + TickPatch.tickUntil + " " + Find.TickManager.TicksGame + " " + Find.TickManager.CurTimeSpeed);
+                            CatchUp();
+                            catchingUp.WaitOne();
+
+                            Multiplayer.client.Send(Packets.CLIENT_WORLD_LOADED);
+                        }, "Catching up", true, null);
+                    });
+                }, "Play", "Loading the game", true, null);
+            });
         }
 
         [PacketHandler(Packets.SERVER_NEW_ID_BLOCK)]
@@ -532,6 +539,22 @@ namespace Multiplayer.Client
             HandleActionSchedule(data);
 
             MpLog.Log("Client command");
+        }
+
+        [PacketHandler(Packets.SERVER_PLAYER_LIST)]
+        public void HandlePlayerList(ByteReader data)
+        {
+            string[] players = data.ReadPrefixedStrings();
+            Multiplayer.chat.playerList = players;
+        }
+
+        [PacketHandler(Packets.SERVER_CHAT)]
+        public void HandleChat(ByteReader data)
+        {
+            string username = data.ReadString();
+            string msg = data.ReadString();
+
+            Multiplayer.chat.AddMsg(username + ": " + msg);
         }
 
         [PacketHandler(Packets.SERVER_MAP_REQUEST)]
@@ -654,6 +677,37 @@ namespace Multiplayer.Client
             TickPatch.tickUntil = tickUntil;
         }
 
+        [PacketHandler(Packets.SERVER_NOTIFICATION)]
+        public void HandleNotification(ByteReader data)
+        {
+            string msg = data.ReadString();
+            Messages.Message(msg, MessageTypeDefOf.SilentInput);
+        }
+
+        [PacketHandler(Packets.SERVER_NEW_FACTION_REQUEST)]
+        public void HandleNewFactionRequest(ByteReader data)
+        {
+            string username = data.ReadString();
+
+            MultiplayerWorldComp comp = Find.World.GetComponent<MultiplayerWorldComp>();
+            byte[] packetData;
+
+            if (!comp.playerFactions.TryGetValue(username, out Faction faction))
+            {
+                faction = FactionGenerator.NewGeneratedFaction(FactionDefOf.PlayerColony);
+                faction.Name = username + "'s faction";
+                faction.def = Multiplayer.factionDef;
+
+                packetData = NetworkServer.GetBytes(username, ScribeUtil.WriteExposable(faction));
+            }
+            else
+            {
+                packetData = NetworkServer.GetBytes(username, new byte[0]);
+            }
+
+            Multiplayer.client.Send(Packets.CLIENT_NEW_FACTION_RESPONSE, packetData);
+        }
+
         public override void Disconnected()
         {
         }
@@ -686,7 +740,14 @@ namespace Multiplayer.Client
 
         public void Update()
         {
-            queue.RunQueue();
+            try
+            {
+                queue.RunQueue();
+            }
+            catch (Exception e)
+            {
+                MpLog.LogLines("Exception while executing client action queue", e.Message, e.StackTrace);
+            }
 
             if (Multiplayer.client == null) return;
 
@@ -736,6 +797,7 @@ namespace Multiplayer.Client
             {
                 string username = data.ReadString();
                 byte[] factionData = data.ReadPrefixedBytes();
+
                 Faction newFaction = ScribeUtil.ReadExposable<Faction>(factionData);
                 MultiplayerWorldComp comp = Find.World.GetComponent<MultiplayerWorldComp>();
 
@@ -853,7 +915,7 @@ namespace Multiplayer.Client
                 map.PopFaction();
             }
 
-            if (cmdType == CommandType.DRAFT)
+            if (cmdType == CommandType.DRAFT_PAWN)
             {
                 string mapId = data.ReadString();
                 string pawnId = data.ReadString();

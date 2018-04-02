@@ -91,12 +91,7 @@ namespace Multiplayer.Client
 
         public static void AddHostButton(List<ListableOption> buttons)
         {
-            if (Multiplayer.localServer != null)
-                buttons.Insert(0, new ListableOption("Server info", () =>
-                {
-                    Find.WindowStack.Add(new ServerInfoWindow());
-                }));
-            else if (Multiplayer.client == null)
+            if (Multiplayer.localServer == null && Multiplayer.client == null)
                 buttons.Insert(0, new ListableOption("Host a server", () =>
                 {
                     Find.WindowStack.Add(new HostWindow());
@@ -290,25 +285,28 @@ namespace Multiplayer.Client
         {
             Text.Font = GameFont.Small;
             string text = Find.TickManager.TicksGame.ToString() + " " + TickPatch.timerInt + " " + TickPatch.tickUntil;
+            Rect rect = new Rect(80f, 60f, 330f, Text.CalcHeight(text, 330f));
+            Widgets.Label(rect, text);
 
             if (Find.VisibleMap != null)
             {
-                text += " r:" + Find.VisibleMap.reservationManager.AllReservedThings().Count();
-
-                if (Find.VisibleMap.GetComponent<MultiplayerMapComp>().factionHaulables.TryGetValue(Find.VisibleMap.info.parent.Faction.GetUniqueLoadID(), out ListerHaulables haul))
-                    text += " h:" + haul.ThingsPotentiallyNeedingHauling().Count;
-
-                if (Find.VisibleMap.GetComponent<MultiplayerMapComp>().factionSlotGroups.TryGetValue(Find.VisibleMap.info.parent.Faction.GetUniqueLoadID(), out SlotGroupManager groups))
-                    text += " sg:" + groups.AllGroupsListForReading.Count;
-
                 AsyncTimeMapComp comp = Find.VisibleMap.GetComponent<AsyncTimeMapComp>();
                 string text1 = "" + comp.mapTicks;
+
+                text1 += " r:" + Find.VisibleMap.reservationManager.AllReservedThings().Count();
+
+                if (Find.VisibleMap.GetComponent<MultiplayerMapComp>().factionHaulables.TryGetValue(Find.VisibleMap.info.parent.Faction.GetUniqueLoadID(), out ListerHaulables haul))
+                    text1 += " h:" + haul.ThingsPotentiallyNeedingHauling().Count;
+
+                if (Find.VisibleMap.GetComponent<MultiplayerMapComp>().factionSlotGroups.TryGetValue(Find.VisibleMap.info.parent.Faction.GetUniqueLoadID(), out SlotGroupManager groups))
+                    text1 += " sg:" + groups.AllGroupsListForReading.Count;
+
                 Rect rect1 = new Rect(80f, 110f, 330f, Text.CalcHeight(text1, 330f));
                 Widgets.Label(rect1, text1);
             }
 
-            Rect rect = new Rect(80f, 60f, 330f, Text.CalcHeight(text, 330f));
-            Widgets.Label(rect, text);
+            if (Widgets.ButtonText(new Rect(Screen.width - 60f, 10f, 50f, 25f), "Chat"))
+                Find.WindowStack.Add(Multiplayer.chat);
 
             return Find.Maps.Count > 0;
         }
@@ -602,7 +600,7 @@ namespace Multiplayer.Client
             if (Multiplayer.client == null || dontHandle) return true;
             if (!DrawGizmosPatch.drawingGizmos) return true;
 
-            Multiplayer.client.SendCommand(CommandType.DRAFT, __instance.pawn.Map.GetUniqueLoadID(), __instance.pawn.GetUniqueLoadID(), value);
+            Multiplayer.client.SendCommand(CommandType.DRAFT_PAWN, __instance.pawn.Map.GetUniqueLoadID(), __instance.pawn.GetUniqueLoadID(), value);
 
             return false;
         }
