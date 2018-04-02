@@ -1,5 +1,6 @@
 ﻿using Harmony;
 using Harmony.ILCopying;
+using Multiplayer.Common;
 using RimWorld;
 using System;
 using System.Collections.Generic;
@@ -9,7 +10,7 @@ using System.Reflection.Emit;
 using System.Text;
 using Verse;
 
-namespace Multiplayer
+namespace Multiplayer.Client
 {
     [HarmonyPatch(typeof(DesignatorManager))]
     [HarmonyPatch(nameof(DesignatorManager.ProcessInputEvents))]

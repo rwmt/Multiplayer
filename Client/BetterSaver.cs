@@ -9,7 +9,7 @@ using System.Text;
 using UnityEngine;
 using Verse;
 
-namespace Multiplayer
+namespace Multiplayer.Client
 {
     public static class BetterSaver
     {

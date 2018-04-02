@@ -8,7 +8,7 @@ using System.Text;
 using Verse;
 using Verse.Profile;
 
-namespace Multiplayer
+namespace Multiplayer.Client
 {
     [HarmonyPatch(typeof(Thing))]
     [HarmonyPatch(nameof(Thing.SpawnSetup))]

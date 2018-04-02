@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using Verse;
 
-namespace Multiplayer
+namespace Multiplayer.Client
 {
     [HarmonyPatch(typeof(Area))]
     [HarmonyPatch(nameof(Area.Invert))]

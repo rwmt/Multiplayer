@@ -7,7 +7,7 @@ using UnityEngine;
 using Verse;
 using Verse.Sound;
 
-namespace Multiplayer
+namespace Multiplayer.Client
 {
     [HarmonyPatch(typeof(TickManager), nameof(TickManager.TickManagerUpdate))]
     public static class TickManagerUpdatePatch

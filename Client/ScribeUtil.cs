@@ -10,7 +10,7 @@ using System.Text;
 using System.Xml;
 using Verse;
 
-namespace Multiplayer
+namespace Multiplayer.Client
 {
     public class CrossRefSupply : LoadedObjectDirectory
     {
@@ -216,7 +216,7 @@ namespace Multiplayer
             Log.Message("Cross ref supply: " + crossRefs.GetDict().Count + " " + crossRefs.GetDict().Last() + " " + Faction.OfPlayer);
         }
 
-        public static byte[] WriteSingle(IExposable element, string name = "data", bool indent = false)
+        public static byte[] WriteExposable(IExposable element, string name = "data", bool indent = false)
         {
             StartWriting(indent);
             Scribe.EnterNode("data");
@@ -224,7 +224,7 @@ namespace Multiplayer
             return FinishWriting();
         }
 
-        public static T ReadSingle<T>(byte[] data, Action<T> beforeFinish = null) where T : IExposable
+        public static T ReadExposable<T>(byte[] data, Action<T> beforeFinish = null) where T : IExposable
         {
             StartLoading(data);
             SupplyCrossRefs();

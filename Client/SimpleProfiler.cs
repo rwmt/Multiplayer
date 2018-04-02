@@ -4,7 +4,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using Verse;
 
-namespace Multiplayer
+namespace Multiplayer.Client
 {
     public static class SimpleProfiler
     {

@@ -7,8 +7,8 @@
     <ProjectGuid>{BE2F4F82-5C3F-4C00-8675-2BB9E494C726}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>ServerMod</RootNamespace>
-    <AssemblyName>ServerMod</AssemblyName>
+    <RootNamespace>Multiplayer</RootNamespace>
+    <AssemblyName>Multiplayer</AssemblyName>
     <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
   </PropertyGroup>
@@ -52,22 +52,27 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="AreaHandler.cs" />
-    <Compile Include="BetterSaver.cs" />
-    <Compile Include="MapAsyncTime.cs" />
-    <Compile Include="MpLog.cs" />
-    <Compile Include="SimpleProfiler.cs" />
-    <Compile Include="CrossRefs.cs" />
-    <Compile Include="Designators.cs" />
-    <Compile Include="Extensions.cs" />
-    <Compile Include="LongActions.cs" />
-    <Compile Include="ScribeUtil.cs" />
-    <Compile Include="Seeds.cs" />
-    <Compile Include="Windows.cs" />
-    <Compile Include="Networking.cs" />
-    <Compile Include="Patches.cs" />
+    <Compile Include="Client\AreaHandler.cs" />
+    <Compile Include="Client\BetterSaver.cs" />
+    <Compile Include="Client\Extensions.cs" />
+    <Compile Include="Client\MapAsyncTime.cs" />
+    <Compile Include="Common\MpLog.cs" />
+    <Compile Include="Client\MultiplayerClient.cs" />
+    <Compile Include="Common\Commands.cs" />
+    <Compile Include="Common\MultiplayerServer.cs" />
+    <Compile Include="Client\SimpleProfiler.cs" />
+    <Compile Include="Client\CrossRefs.cs" />
+    <Compile Include="Client\Designators.cs" />
+    <Compile Include="Common\Extensions.cs" />
+    <Compile Include="Client\ScribeUtil.cs" />
+    <Compile Include="Client\Seeds.cs" />
+    <Compile Include="Client\Windows.cs" />
+    <Compile Include="Common\Networking.cs" />
+    <Compile Include="Client\Patches.cs" />
+    <Compile Include="Common\Packets.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Multiplayer.cs" />
+    <Compile Include="Client\Multiplayer.cs" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

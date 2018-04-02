@@ -13,8 +13,9 @@ using UnityEngine;
 using Verse;
 using Verse.AI;
 using Verse.Profile;
+using Multiplayer.Common;
 
-namespace Multiplayer
+namespace Multiplayer.Client
 {
     [HarmonyPatch(typeof(OptionListingUtility))]
     [HarmonyPatch(nameof(OptionListingUtility.DrawOptionListing))]
@@ -36,7 +37,7 @@ namespace Multiplayer
             {
                 AddHostButton(optList);
 
-                optList.Insert(0, new ListableOption("Run 1000 ticks", () =>
+                optList.Insert(0, new ListableOption("Autosave", () =>
                 {
                     /*Stopwatch ticksStart = Stopwatch.StartNew();
                     for (int i = 0; i < 1000; i++)
@@ -48,7 +49,7 @@ namespace Multiplayer
 
                     //Multiplayer.SendGameData(Multiplayer.SaveGame());
 
-                    Multiplayer.server.SendToAll(Packets.SERVER_COMMAND, ServerPlayingState.GetServerCommandMsg(CommandType.AUTOSAVE, new byte[0]));
+                    Multiplayer.localServer.DoAutosave();
                 }));
 
                 optList.Insert(0, new ListableOption("Reload", () =>
@@ -80,17 +81,17 @@ namespace Multiplayer
                         //Multiplayer.print_profiler("profiler_reload.txt");
 
                         Log.Message("saved " + time.ElapsedMilliseconds);
-                    }, "Autosaving", false, null);
+                    }, "Reloading", false, null);
                 }));
             }
 
-            if (Multiplayer.client != null && Multiplayer.server == null)
+            if (Multiplayer.client != null && Multiplayer.localServer == null)
                 optList.RemoveAll(opt => opt.label == "Save".Translate());
         }
 
         public static void AddHostButton(List<ListableOption> buttons)
         {
-            if (Multiplayer.server != null)
+            if (Multiplayer.localServer != null)
                 buttons.Insert(0, new ListableOption("Server info", () =>
                 {
                     Find.WindowStack.Add(new ServerInfoWindow());
@@ -210,21 +211,6 @@ namespace Multiplayer
 
             ScribeUtil.StartLoading(gameToLoad);
 
-            /*XmlNode gameNode = Scribe.loader.curXmlParent["game"];
-            gameNode["taleManager"]["tales"].RemoveAll();
-
-            if (Multiplayer.savedPlayerMaps.Length > 0)
-            {
-                XmlDocument mapsXml = new XmlDocument();
-                using (MemoryStream stream = new MemoryStream(Multiplayer.savedPlayerMaps))
-                    mapsXml.Load(stream);
-
-                XmlNode newMaps = gameNode.OwnerDocument.ImportNode(mapsXml.DocumentElement["maps"], true);
-                XmlNode oldMaps = gameNode["maps"];
-                foreach (XmlNode child in newMaps.ChildNodes)
-                    oldMaps.AppendChild(child);
-            }*/
-
             ScribeMetaHeaderUtility.LoadGameDataHeader(ScribeMetaHeaderUtility.ScribeHeaderMode.Map, false);
 
             DeepProfiler.End();
@@ -256,7 +242,7 @@ namespace Multiplayer
                     nextAct = () => Settle()
                 });*/
 
-                if (Multiplayer.client == null || Multiplayer.server != null) return;
+                if (Multiplayer.client == null || Multiplayer.localServer != null) return;
 
                 //Multiplayer.client.State = new ClientPlayingState(Multiplayer.client);
                 //Multiplayer.client.Send(Packets.CLIENT_WORLD_LOADED);
@@ -303,7 +289,7 @@ namespace Multiplayer
         static bool Prefix()
         {
             Text.Font = GameFont.Small;
-            string text = Find.TickManager.TicksGame.ToString() + " " + TickPatch.timerInt;
+            string text = Find.TickManager.TicksGame.ToString() + " " + TickPatch.timerInt + " " + TickPatch.tickUntil;
 
             if (Find.VisibleMap != null)
             {
@@ -330,7 +316,7 @@ namespace Multiplayer
 
     [HarmonyPatch(typeof(TickManager))]
     [HarmonyPatch(nameof(TickManager.TickManagerUpdate))]
-    public static class TimeChangeCommandPatch
+    public static class TimeChangePatch
     {
         private static TimeSpeed lastSpeed;
 
@@ -368,10 +354,6 @@ namespace Multiplayer
             if (Current.ProgramState != ProgramState.MapInitializing || __state != "game") return;
 
             RegisterCrossRefs();
-
-            if (Multiplayer.client == null || Multiplayer.server != null) return;
-
-            //FinalizeFactions();
         }
 
         static void RegisterCrossRefs()
@@ -381,24 +363,6 @@ namespace Multiplayer
 
             foreach (Map map in Find.Maps)
                 ScribeUtil.crossRefs.RegisterLoaded(map);
-        }
-
-        static void FinalizeFactions()
-        {
-            MultiplayerWorldComp comp = Find.World.GetComponent<MultiplayerWorldComp>();
-
-            Faction.OfPlayer.def = Multiplayer.factionDef;
-            Faction clientFaction = comp.playerFactions[Multiplayer.username];
-            clientFaction.def = FactionDefOf.PlayerColony;
-
-            // todo actually handle relations
-            foreach (Faction current in Find.FactionManager.AllFactionsListForReading)
-            {
-                if (current == clientFaction) continue;
-                current.TryMakeInitialRelationsWith(clientFaction);
-            }
-
-            Log.Message("Client faction: " + clientFaction.Name + " / " + clientFaction.GetUniqueLoadID());
         }
     }
 
@@ -425,14 +389,22 @@ namespace Multiplayer
     [HarmonyPatch(nameof(Settlement.ShouldRemoveMapNow))]
     public static class ShouldRemoveMap
     {
-        static void Postfix(ref bool __result) => __result = false;
+        static void Postfix(ref bool __result)
+        {
+            if (Multiplayer.client != null)
+                __result = false;
+        }
     }
 
     [HarmonyPatch(typeof(FactionBaseDefeatUtility))]
     [HarmonyPatch("IsDefeated")]
     public static class IsDefeated
     {
-        static void Postfix(ref bool __result) => __result = false;
+        static void Postfix(ref bool __result)
+        {
+            if (Multiplayer.client != null)
+                __result = false;
+        }
     }
 
     [HarmonyPatch(typeof(Pawn_JobTracker))]
@@ -959,7 +931,7 @@ namespace Multiplayer
             if (__instance.curJob != null && __instance.curJob.JobIsSameAs(job)) return false;
 
             Pawn pawn = (Pawn)JobTrackerStart.pawnField.GetValue(__instance);
-            byte[] jobData = ScribeUtil.WriteSingle(job);
+            byte[] jobData = ScribeUtil.WriteExposable(job);
             bool shouldQueue = KeyBindingDefOf.QueueOrder.IsDownEvent;
 
             Multiplayer.client.SendCommand(CommandType.ORDER_JOB, pawn.Map.GetUniqueLoadID(), pawn.GetUniqueLoadID(), jobData, shouldQueue, 0, (byte)tag);
@@ -984,7 +956,7 @@ namespace Multiplayer
             if (__instance.curJob != null && __instance.curJob.JobIsSameAs(job)) return false;
 
             Pawn pawn = (Pawn)JobTrackerStart.pawnField.GetValue(__instance);
-            byte[] jobData = ScribeUtil.WriteSingle(job);
+            byte[] jobData = ScribeUtil.WriteExposable(job);
             bool shouldQueue = KeyBindingDefOf.QueueOrder.IsDownEvent;
             string workGiver = giver.def.defName;
 
@@ -1088,16 +1060,6 @@ namespace Multiplayer
                 ThingContext.Pop();
                 PawnExposeDataPrefix.state = null;
             }
-        }
-    }
-
-    [HarmonyPatch(typeof(Pawn_ApparelTracker))]
-    [HarmonyPatch("SortWornApparelIntoDrawOrder")]
-    public static class ApparelPatch
-    {
-        static void Postfix(Pawn_ApparelTracker __instance)
-        {
-            MpLog.Log("apparel sort " + __instance.pawn);
         }
     }
 

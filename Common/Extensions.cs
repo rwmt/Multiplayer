@@ -7,17 +7,20 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Xml;
-using Verse;
 
-namespace Multiplayer
+namespace Multiplayer.Common
 {
     public static class Extensions
     {
-        private static readonly MethodInfo exposeSmallComps = AccessTools.Method(typeof(Game), "ExposeSmallComponents");
-
-        public static void ExposeSmallComponents(this Game game)
+        public static V AddOrGet<K, V>(this Dictionary<K, V> dict, K obj, V defaultValue)
         {
-            exposeSmallComps.Invoke(game, null);
+            if (!dict.TryGetValue(obj, out V value))
+            {
+                value = defaultValue;
+                dict[obj] = value;
+            }
+
+            return value;
         }
 
         public static int Combine(this int i1, int i2)
@@ -93,48 +96,6 @@ namespace Multiplayer
             stream.Write(BitConverter.GetBytes(arr.Length), 0, 4);
             if (arr.Length > 0)
                 stream.Write(arr, 0, arr.Length);
-        }
-
-        public static void SendCommand(this Connection conn, CommandType action, params object[] extra)
-        {
-            conn.Send(Packets.CLIENT_COMMAND, new object[] { action, Server.GetBytes(extra) });
-        }
-
-        public static IEnumerable<Type> AllSubtypesAndSelf(this Type t)
-        {
-            return t.AllSubclasses().Concat(t);
-        }
-
-        public static IEnumerable<Type> AllImplementing(this Type t)
-        {
-            return from x in GenTypes.AllTypes where t.IsAssignableFrom(x) select x;
-        }
-
-        // sets the current Faction.OfPlayer
-        // applies faction's map components if map not null
-        public static void PushFaction(this Map map, Faction faction)
-        {
-            Faction f = FactionContext.Push(faction);
-            if (map != null)
-                map.GetComponent<MultiplayerMapComp>().SetFaction(f);
-        }
-
-        public static void PushFaction(this Map map, string factionId)
-        {
-            Faction faction = Find.FactionManager.AllFactions.FirstOrDefault(f => f.GetUniqueLoadID() == factionId);
-            map.PushFaction(faction);
-        }
-
-        public static void PopFaction(this Container<Map> c)
-        {
-            PopFaction(c.Value);
-        }
-
-        public static void PopFaction(this Map map)
-        {
-            Faction faction = FactionContext.Pop();
-            if (map != null)
-                map.GetComponent<MultiplayerMapComp>().SetFaction(faction);
         }
     }
 

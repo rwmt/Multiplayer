@@ -1,4 +1,5 @@
 ﻿using Harmony;
+using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
 using System;
@@ -9,7 +10,7 @@ using System.Text;
 using Verse;
 using Verse.AI;
 
-namespace Multiplayer
+namespace Multiplayer.Client
 {
     [HarmonyPatch(typeof(Map))]
     [HarmonyPatch(nameof(Map.MapPreTick))]

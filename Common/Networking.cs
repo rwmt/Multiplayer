@@ -4,13 +4,12 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Reflection;
 using System.Text;
-using System.Threading;
-using Verse;
 
-namespace Multiplayer
+namespace Multiplayer.Common
 {
-    public class Server
+    public class NetworkServer
     {
         public delegate void NewConnection(Connection connection);
 
@@ -18,7 +17,7 @@ namespace Multiplayer
         private List<Connection> connections = new List<Connection>();
         private NewConnection newConnection;
 
-        public Server(IPAddress address, int port, NewConnection newConnection = null)
+        public NetworkServer(IPAddress address, int port, NewConnection newConnection = null)
         {
             this.newConnection = newConnection;
 
@@ -71,7 +70,7 @@ namespace Multiplayer
             return connections;
         }
 
-        public void SendToAll(int id, byte[] data = null, params Connection[] except)
+        public void SendToAll(Enum id, byte[] data = null, params Connection[] except)
         {
             lock (connections)
                 foreach (Connection conn in connections)
@@ -79,7 +78,7 @@ namespace Multiplayer
                         conn.Send(id, data);
         }
 
-        public void SendToAll(int id, object[] data, params Connection[] except)
+        public void SendToAll(Enum id, object[] data, params Connection[] except)
         {
             SendToAll(id, GetBytes(data), except);
         }
@@ -116,7 +115,6 @@ namespace Multiplayer
             this.Connection = connection;
         }
 
-        public abstract void Message(int id, ByteReader data);
         public abstract void Disconnected();
     }
 
@@ -124,8 +122,6 @@ namespace Multiplayer
     {
         private const int HEADER_LEN = sizeof(int) * 2;
         private const int MAX_PACKET_SIZE = 4 * 1024 * 1024;
-
-        public delegate void ConnectionClosed();
 
         public EndPoint RemoteEndPoint
         {
@@ -164,7 +160,8 @@ namespace Multiplayer
         private bool hasHeader;
         private int msgPos;
 
-        public ConnectionClosed closedCallback;
+        public Action<Action> onMainThread;
+        public Action closedCallback;
 
         public Connection(Socket socket)
         {
@@ -221,7 +218,12 @@ namespace Multiplayer
                     // repeat msg pos check in case of an empty body
                     if (hasHeader && msgPos == msg.Length)
                     {
-                        State?.Message(msgId, new ByteReader(msg));
+                        if (!HandleMsg(msgId, msg))
+                        {
+                            Close();
+                            return;
+                        }
+
                         msg = new byte[HEADER_LEN];
                         hasHeader = false;
                         msgPos = 0;
@@ -246,123 +248,103 @@ namespace Multiplayer
             socket.Close();
         }
 
-        public virtual void Send(int id)
+        public virtual void Send(Enum id)
         {
             Send(id, new byte[0]);
         }
 
-        public virtual void Send(int id, byte[] message)
+        public virtual void Send(Enum id, byte[] message)
         {
             byte[] full = new byte[HEADER_LEN + message.Length];
             uint size = (uint)message.Length;
 
             BitConverter.GetBytes(size).CopyTo(full, 0);
-            BitConverter.GetBytes(id).CopyTo(full, 4);
+            BitConverter.GetBytes(Convert.ToInt32(id)).CopyTo(full, 4);
             message.CopyTo(full, HEADER_LEN);
 
             socket.BeginSend(full, 0, full.Length, SocketFlags.None, result =>
             {
-                int sent = socket.EndSend(result);
-                OnMainThread.Enqueue(() => Log.Message("packet sent " + id + " " + sent + "/" + full.Length));
+                socket.EndSend(result);
             }, null);
         }
 
-        public virtual void Send(int id, params object[] message)
+        public virtual void Send(Enum id, params object[] message)
         {
-            Send(id, Server.GetBytes(message));
+            Send(id, NetworkServer.GetBytes(message));
         }
 
         public override string ToString()
         {
             return username;
         }
-    }
 
-    public static class Client
-    {
-        public delegate void ConnectEvent(Connection connection, Exception e);
-
-        public static void TryConnect(IPAddress address, int port, ConnectEvent connectEvent = null)
+        public bool HandleMsg(int msgId, byte[] msg)
         {
-            Socket socket = null;
-            try
+            if (!statePacketHandlers.TryGetValue(State.GetType(), out Dictionary<int, List<PacketHandler>> packets))
+                return false;
+
+            if (!packets.TryGetValue(msgId, out List<PacketHandler> handlers))
+                return false;
+
+            ByteReader reader = new ByteReader(msg);
+            foreach (PacketHandler handler in handlers)
             {
-                socket = new Socket(address.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-                socket.NoDelay = true;
-                socket.BeginConnect(new IPEndPoint(address, port), result =>
+                if (handler.mainThread)
                 {
-                    try
-                    {
-                        socket.EndConnect(result);
-                        Connection connection = new Connection(socket);
-                        connectEvent?.Invoke(connection, null);
-                        connection.BeginReceive();
-                    }
-                    catch (SocketException e)
-                    {
-                        socket.Close();
-                        connectEvent?.Invoke(null, e);
-                    }
-                }, null);
+                    onMainThread(() => handler.handler.Invoke(State, new object[] { reader }));
+                }
+                else
+                {
+                    handler.handler.Invoke(State, new object[] { reader });
+                }
+
+                reader.Reset();
             }
-            catch (SocketException e)
+
+            return true;
+        }
+
+        public static Dictionary<Type, Dictionary<int, List<PacketHandler>>> statePacketHandlers = new Dictionary<Type, Dictionary<int, List<PacketHandler>>>();
+
+        public static void RegisterState(Type type)
+        {
+            if (!(type.IsSubclassOf(typeof(ConnectionState)))) return;
+
+            foreach (MethodInfo method in type.GetMethods())
             {
-                socket?.Close();
-                connectEvent?.Invoke(null, e);
+                PacketHandlerAttribute attr = (PacketHandlerAttribute)Attribute.GetCustomAttribute(method, typeof(PacketHandlerAttribute));
+                if (attr == null)
+                    continue;
+
+                if (!(attr.packet is Enum))
+                {
+                    MpLog.Log("Packet not enum!");
+                    continue;
+                }
+
+                Type actionType = typeof(Action<,>).MakeGenericType(type, typeof(ByteReader));
+                if (Delegate.CreateDelegate(actionType, null, method, false) == null)
+                {
+                    MpLog.Log("Wrong method signature! " + method.Name);
+                    continue;
+                }
+
+                bool mainThread = Attribute.GetCustomAttribute(method, typeof(HandleImmediatelyAttribute)) == null;
+
+                statePacketHandlers.AddOrGet(type, new Dictionary<int, List<PacketHandler>>()).AddOrGet((int)attr.packet, new List<PacketHandler>()).Add(new PacketHandler(method, mainThread));
             }
         }
-    }
 
-    public class LocalClientConnection : Connection
-    {
-        public LocalServerConnection server;
-
-        public LocalClientConnection() : base(null)
+        public class PacketHandler
         {
-        }
+            public readonly MethodBase handler;
+            public readonly bool mainThread;
 
-        public override void Send(int id, byte[] msg = null)
-        {
-            msg = msg ?? new byte[] { 0 };
-            server.State?.Message(id, new ByteReader(msg));
-
-        }
-
-        public override void Close()
-        {
-            closedCallback();
-            server.closedCallback();
-        }
-
-        public override string ToString()
-        {
-            return "Local";
-        }
-    }
-
-    public class LocalServerConnection : Connection
-    {
-        public LocalClientConnection client;
-
-        public LocalServerConnection() : base(null)
-        {
-        }
-
-        public override void Send(int id, byte[] msg = null)
-        {
-            msg = msg ?? new byte[] { 0 };
-            client.State?.Message(id, new ByteReader(msg));
-        }
-
-        public override void Close()
-        {
-            closedCallback();
-            client.closedCallback();
-        }
-
-        public override string ToString()
-        {
-            return "Local";
+            public PacketHandler(MethodBase handler, bool mainThread)
+            {
+                this.handler = handler;
+                this.mainThread = mainThread;
+            }
         }
     }
 
@@ -443,6 +425,11 @@ namespace Multiplayer
         public byte[] GetBytes()
         {
             return array;
+        }
+
+        public void Reset()
+        {
+            index = 0;
         }
     }
 

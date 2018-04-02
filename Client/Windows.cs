@@ -1,4 +1,5 @@
-﻿using RimWorld;
+﻿using Multiplayer.Common;
+using RimWorld;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,7 +13,7 @@ using Verse;
 using Verse.AI;
 using Verse.Profile;
 
-namespace Multiplayer
+namespace Multiplayer.Client
 {
     public class CustomSelectLandingSite : Page_SelectLandingSite
     {
@@ -51,12 +52,12 @@ namespace Multiplayer
 
             if (Widgets.ButtonText(new Rect((inRect.width - 100f) / 2f, inRect.height - 35f, 100f, 35f), "Connect"))
             {
-                int port = Multiplayer.DEFAULT_PORT;
+                int port = MultiplayerServer.DEFAULT_PORT;
                 string[] ipport = ip.Split(':');
                 if (ipport.Length == 2)
                     int.TryParse(ipport[1], out port);
                 else
-                    port = Multiplayer.DEFAULT_PORT;
+                    port = MultiplayerServer.DEFAULT_PORT;
 
                 if (!IPAddress.TryParse(ipport[0], out IPAddress address))
                 {
@@ -120,8 +121,8 @@ namespace Multiplayer
                 Close();
             }
 
-            if (Multiplayer.savedGame != null)
-                Close(false);
+            //if (Multiplayer.savedGame != null)
+            //    Close(false);
         }
     }
 
@@ -135,34 +136,11 @@ namespace Multiplayer
         {
             ip = Widgets.TextField(new Rect(0, 15f, inRect.width, 35f), ip);
 
-            if (Widgets.ButtonText(new Rect((inRect.width - 100f) / 2f, inRect.height - 35f, 100f, 35f), "Host") && IPAddress.TryParse(ip, out IPAddress local))
+            if (Widgets.ButtonText(new Rect((inRect.width - 100f) / 2f, inRect.height - 35f, 100f, 35f), "Host") && IPAddress.TryParse(ip, out IPAddress ipAddr))
             {
                 try
                 {
                     MultiplayerWorldComp comp = Find.World.GetComponent<MultiplayerWorldComp>();
-                    comp.sessionId = new System.Random().Next();
-
-                    Multiplayer.server = new Server(local, Multiplayer.DEFAULT_PORT, (conn) =>
-                    {
-                        conn.State = new ServerWorldState(conn);
-
-                        conn.closedCallback += () => {
-                            OnMainThread.Enqueue(() => Messages.Message(conn.username + " disconnected", MessageTypeDefOf.SilentInput));
-                        };
-                    });
-
-                    LocalServerConnection localServer = new LocalServerConnection() { username = Multiplayer.username };
-                    LocalClientConnection localClient = new LocalClientConnection() { username = Multiplayer.username };
-
-                    localServer.client = localClient;
-                    localClient.server = localServer;
-
-                    localClient.State = new ClientPlayingState(localClient);
-                    localServer.State = new ServerPlayingState(localServer);
-
-                    Multiplayer.server.GetConnections().Add(localServer);
-                    Multiplayer.client = localClient;
-                    Multiplayer.localServerConnection = localServer;
 
                     if (Multiplayer.highestUniqueId == -1)
                         Multiplayer.highestUniqueId = Find.UniqueIDsManager.GetNextThingID();
@@ -171,7 +149,39 @@ namespace Multiplayer
                     Faction.OfPlayer.Name = Multiplayer.username + "'s faction";
                     comp.playerFactions[Multiplayer.username] = Faction.OfPlayer;
 
-                    Messages.Message("Server started. Listening at " + local.ToString() + ":" + Multiplayer.DEFAULT_PORT, MessageTypeDefOf.SilentInput);
+                    Multiplayer.localServer = new MultiplayerServer(ipAddr);
+                    MultiplayerServer.instance = Multiplayer.localServer;
+
+                    Thread thread = new Thread(Multiplayer.localServer.Run)
+                    {
+                        Name = "Local server thread"
+                    };
+                    thread.Start();
+
+                    LocalClientConnection localClient = new LocalClientConnection()
+                    {
+                        username = Multiplayer.username,
+                        onMainThread = OnMainThread.Enqueue
+                    };
+
+                    LocalServerConnection localServerConn = new LocalServerConnection()
+                    {
+                        username = localClient.username,
+                        onMainThread = Multiplayer.localServer.Enqueue
+                    };
+
+                    localClient.State = new ClientPlayingState(localClient);
+                    localServerConn.State = new ServerPlayingState(localServerConn);
+
+                    localServerConn.client = localClient;
+                    localClient.server = localServerConn;
+
+                    Multiplayer.localServer.server.GetConnections().Add(localServerConn);
+
+                    Multiplayer.localServer.host = localServerConn;
+                    Multiplayer.client = localClient;
+
+                    Messages.Message("Server started. Listening at " + ipAddr.ToString() + ":" + MultiplayerServer.DEFAULT_PORT, MessageTypeDefOf.SilentInput);
                 }
                 catch (SocketException)
                 {
@@ -199,8 +209,8 @@ namespace Multiplayer
             Rect rect = new Rect(0, 0, inRect.width, inRect.height - CloseButSize.y);
 
             IEnumerable<string> players;
-            lock (Multiplayer.server.GetConnections())
-                players = Multiplayer.server.GetConnections().Select(conn => conn.ToString());
+            lock (Multiplayer.localServer.server.GetConnections())
+                players = Multiplayer.localServer.server.GetConnections().Select(conn => conn.ToString());
 
             Widgets.LabelScrollable(rect, String.Format("Connected players ({0}):\n{1}", players.Count(), String.Join("\n", players.ToArray())), ref scrollPos);
         }
