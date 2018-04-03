@@ -11,13 +11,11 @@ namespace Multiplayer.Common
 {
     public class NetworkServer
     {
-        public delegate void NewConnection(Connection connection);
-
         private Socket socket;
         private List<Connection> connections = new List<Connection>();
-        private NewConnection newConnection;
+        private Action<Connection> newConnection;
 
-        public NetworkServer(IPAddress address, int port, NewConnection newConnection = null)
+        public NetworkServer(IPAddress address, int port, Action<Connection> newConnection = null)
         {
             this.newConnection = newConnection;
 

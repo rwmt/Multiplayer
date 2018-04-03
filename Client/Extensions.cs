@@ -19,9 +19,9 @@ namespace Multiplayer.Client
             exposeSmallComps.Invoke(game, null);
         }
 
-        public static void SendCommand(this Connection conn, CommandType action, params object[] extra)
+        public static void SendCommand(this Connection conn, CommandType action, int mapId, params object[] extra)
         {
-            conn.Send(Packets.CLIENT_COMMAND, new object[] { action, NetworkServer.GetBytes(extra) });
+            conn.Send(Packets.CLIENT_COMMAND, new object[] { action, mapId, NetworkServer.GetBytes(extra) });
         }
 
         public static IEnumerable<Type> AllSubtypesAndSelf(this Type t)
@@ -59,6 +59,11 @@ namespace Multiplayer.Client
             Faction faction = FactionContext.Pop();
             if (map != null)
                 map.GetComponent<MultiplayerMapComp>().SetFaction(faction);
+        }
+
+        public static Map GetMap(this ScheduledCommand cmd)
+        {
+            return Find.Maps.FirstOrDefault(map => map.uniqueID == cmd.mapId);
         }
     }
 }

@@ -1,4 +1,5 @@
 ﻿using Harmony;
+using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
 using System.Collections.Generic;
@@ -14,37 +15,49 @@ namespace Multiplayer.Client
     {
         static void Prefix()
         {
+            if (Multiplayer.client == null) return;
+
             List<Map> maps = Find.Maps;
             for (int i = 0; i < maps.Count; i++)
             {
-                AsyncTimeMapComp comp = maps[i].GetComponent<AsyncTimeMapComp>();
+                MapAsyncTimeComp comp = maps[i].GetComponent<MapAsyncTimeComp>();
 
-                if (comp.timeSpeed == TimeSpeed.Paused) continue;
-
-                if (Mathf.Abs(Time.deltaTime - comp.CurTimePerTick) < comp.CurTimePerTick * 0.2f)
-                    comp.realTimeToTickThrough += comp.CurTimePerTick;
-                else
-                    comp.realTimeToTickThrough += Time.deltaTime;
-
-                int num = 0;
-                while (comp.realTimeToTickThrough > 0f && num < comp.TickRateMultiplier * 2f)
+                if (comp.timeSpeed != TimeSpeed.Paused && comp.Timer < TickPatch.tickUntil)
                 {
-                    comp.Tick();
+                    if (Mathf.Abs(Time.deltaTime - comp.CurTimePerTick) < comp.CurTimePerTick * 0.2f)
+                        comp.realTimeToTickThrough += comp.CurTimePerTick;
+                    else
+                        comp.realTimeToTickThrough += Time.deltaTime;
 
-                    comp.realTimeToTickThrough -= comp.CurTimePerTick;
-                    num++;
+                    int num = 0;
+                    while (comp.realTimeToTickThrough > 0f && num < comp.TickRateMultiplier * 2f)
+                    {
+                        comp.Tick();
+
+                        comp.realTimeToTickThrough -= comp.CurTimePerTick;
+                        num++;
+                    }
+
+                    if (comp.realTimeToTickThrough > 0f)
+                        comp.realTimeToTickThrough = 0f;
                 }
 
-                if (comp.realTimeToTickThrough > 0f)
-                    comp.realTimeToTickThrough = 0f;
+                comp.PreContext();
+
+                if (!LongEventHandler.ShouldWaitForEvent && Current.Game != null && Find.World != null)
+                    comp.ExecuteCommands();
+
+                comp.PostContext();
             }
         }
 
         static void Postfix()
         {
+            if (Multiplayer.client == null) return;
+
             if (Find.VisibleMap != null)
             {
-                AsyncTimeMapComp comp = Find.VisibleMap.GetComponent<AsyncTimeMapComp>();
+                MapAsyncTimeComp comp = Find.VisibleMap.GetComponent<MapAsyncTimeComp>();
                 Shader.SetGlobalFloat(ShaderPropertyIDs.GameSeconds, comp.mapTicks.TicksToSeconds());
             }
         }
@@ -55,15 +68,18 @@ namespace Multiplayer.Client
     {
         static void Prefix(Map __instance, ref Container<int, TimeSpeed> __state)
         {
+            if (Multiplayer.client == null) return;
+
             __state = new Container<int, TimeSpeed>(Find.TickManager.TicksGame, Find.TickManager.CurTimeSpeed);
 
-            AsyncTimeMapComp comp = __instance.GetComponent<AsyncTimeMapComp>();
+            MapAsyncTimeComp comp = __instance.GetComponent<MapAsyncTimeComp>();
             Find.TickManager.DebugSetTicksGame(comp.mapTicks);
             Find.TickManager.CurTimeSpeed = comp.timeSpeed;
         }
 
         static void Postfix(Container<int, TimeSpeed> __state)
         {
+            if (Multiplayer.client == null) return;
             if (__state == null) return;
 
             Find.TickManager.DebugSetTicksGame(__state.First);
@@ -76,7 +92,7 @@ namespace Multiplayer.Client
     {
         static bool Prefix()
         {
-            return AsyncTimeMapComp.tickingMap;
+            return Multiplayer.client == null || MapAsyncTimeComp.tickingMap;
         }
     }
 
@@ -85,64 +101,87 @@ namespace Multiplayer.Client
     {
         static bool Prefix()
         {
-            return AsyncTimeMapComp.tickingMap;
+            return Multiplayer.client == null || MapAsyncTimeComp.tickingMap;
+        }
+    }
+
+    [HarmonyPatch(typeof(Autosaver), nameof(Autosaver.AutosaverTick))]
+    public static class DisableAutosaver
+    {
+        static bool Prefix()
+        {
+            return Multiplayer.client == null;
         }
     }
 
     [HarmonyPatch(typeof(TickManager), nameof(TickManager.RegisterAllTickabilityFor))]
     public static class TickListAdd
     {
-        static bool Prefix(Thing t)
+        static void Prefix(Thing t)
         {
-            AsyncTimeMapComp comp = t.Map.GetComponent<AsyncTimeMapComp>();
+            MapAsyncTimeComp comp = t.Map.GetComponent<MapAsyncTimeComp>();
+
             if (t.def.tickerType == TickerType.Normal)
                 comp.tickListNormal.RegisterThing(t);
             else if (t.def.tickerType == TickerType.Rare)
                 comp.tickListRare.RegisterThing(t);
             else if (t.def.tickerType == TickerType.Long)
                 comp.tickListLong.RegisterThing(t);
-
-            return false;
         }
     }
 
     [HarmonyPatch(typeof(TickManager), nameof(TickManager.DeRegisterAllTickabilityFor))]
     public static class TickListRemove
     {
-        static bool Prefix(Thing t)
+        static void Prefix(Thing t)
         {
-            AsyncTimeMapComp comp = t.Map.GetComponent<AsyncTimeMapComp>();
+            MapAsyncTimeComp comp = t.Map.GetComponent<MapAsyncTimeComp>();
+
             if (t.def.tickerType == TickerType.Normal)
                 comp.tickListNormal.DeregisterThing(t);
             else if (t.def.tickerType == TickerType.Rare)
                 comp.tickListRare.DeregisterThing(t);
             else if (t.def.tickerType == TickerType.Long)
                 comp.tickListLong.DeregisterThing(t);
+        }
+    }
 
-            return false;
+    [HarmonyPatch(typeof(TickList), nameof(TickList.Tick))]
+    public static class TickListTickPatch
+    {
+        static bool Prefix()
+        {
+            return Multiplayer.client == null || MapAsyncTimeComp.tickingMap;
         }
     }
 
     [HarmonyPatch(typeof(TimeControls), nameof(TimeControls.DoTimeControlsGUI))]
-    public static class DoMapTimeControls
+    public static class MapTimeControl
     {
         static void Prefix(ref Container<TimeSpeed> __state)
         {
-            if (WorldRendererUtility.WorldRenderedNow || Find.VisibleMap == null) return;
+            if (Multiplayer.client == null || WorldRendererUtility.WorldRenderedNow) return;
 
-            AsyncTimeMapComp comp = Find.VisibleMap.GetComponent<AsyncTimeMapComp>();
+            // remember the state
             __state = Find.TickManager.CurTimeSpeed;
 
+            MapAsyncTimeComp comp = Find.VisibleMap.GetComponent<MapAsyncTimeComp>();
             Find.TickManager.CurTimeSpeed = comp.timeSpeed;
         }
 
         static void Postfix(Rect timerRect, Container<TimeSpeed> __state)
         {
+            if (Multiplayer.client == null) return;
             if (__state == null) return;
 
-            AsyncTimeMapComp comp = Find.VisibleMap.GetComponent<AsyncTimeMapComp>();
-            comp.timeSpeed = Find.TickManager.CurTimeSpeed;
+            Map map = Find.VisibleMap;
+            MapAsyncTimeComp comp = map.GetComponent<MapAsyncTimeComp>();
+            if (Find.TickManager.CurTimeSpeed != comp.lastSpeed)
+            {
+                Multiplayer.client.SendCommand(CommandType.MAP_TIME_SPEED, map.uniqueID, (byte)Find.TickManager.CurTimeSpeed);
+            }
 
+            // restore the state
             Find.TickManager.CurTimeSpeed = __state.Value;
         }
     }
@@ -151,16 +190,18 @@ namespace Multiplayer.Client
     {
         static void Prefix(ref Container<int, TimeSpeed> __state)
         {
-            if (Find.VisibleMap == null || WorldRendererUtility.WorldRenderedNow) return;
+            if (Multiplayer.client == null || WorldRendererUtility.WorldRenderedNow) return;
+
             __state = new Container<int, TimeSpeed>(Find.TickManager.TicksGame, Find.TickManager.CurTimeSpeed);
-            AsyncTimeMapComp comp = Find.VisibleMap.GetComponent<AsyncTimeMapComp>();
+            MapAsyncTimeComp comp = Find.VisibleMap.GetComponent<MapAsyncTimeComp>();
             Find.TickManager.DebugSetTicksGame(comp.mapTicks);
             Find.TickManager.CurTimeSpeed = comp.timeSpeed;
         }
 
         static void Postfix(Container<int, TimeSpeed> __state)
         {
-            if (__state == null) return;
+            if (Multiplayer.client == null || __state == null) return;
+
             Find.TickManager.DebugSetTicksGame(__state.First);
             Find.TickManager.CurTimeSpeed = __state.Second;
         }
@@ -183,6 +224,8 @@ namespace Multiplayer.Client
 
         static void Postfix()
         {
+            if (Multiplayer.client == null) return;
+
             ColonistBar bar = Find.ColonistBar;
             if (bar.Entries.Count == 0 || bar.Entries[bar.Entries.Count - 1].group == 0) return;
 
@@ -195,7 +238,7 @@ namespace Multiplayer.Client
                 if (entry.map != Find.VisibleMap || WorldRendererUtility.WorldRenderedNow)
                     alpha = 0.75f;
 
-                AsyncTimeMapComp comp = entry.map.GetComponent<AsyncTimeMapComp>();
+                MapAsyncTimeComp comp = entry.map.GetComponent<MapAsyncTimeComp>();
                 Rect rect = (Rect)groupFrameRect.Invoke(bar.drawer, new object[] { entry.group });
                 Rect button = new Rect(rect.x - TimeControls.TimeButSize.x / 2f, rect.yMax - TimeControls.TimeButSize.y / 2f, TimeControls.TimeButSize.x, TimeControls.TimeButSize.y);
                 Widgets.DrawRectFast(button, new Color(0.5f, 0.5f, 0.5f, 0.4f * alpha));
@@ -206,7 +249,34 @@ namespace Multiplayer.Client
         }
     }
 
-    public class AsyncTimeMapComp : MapComponent
+    [HarmonyPatch(typeof(Storyteller))]
+    [HarmonyPatch(nameof(Storyteller.StorytellerTick))]
+    public class StorytellerTickPatch
+    {
+        static bool Prefix()
+        {
+            // the storyteller is currently only enabled for maps
+            return Multiplayer.client != null && !TickPatch.tickingWorld;
+        }
+    }
+
+    [HarmonyPatch(typeof(Storyteller))]
+    [HarmonyPatch(nameof(Storyteller.AllIncidentTargets), PropertyMethod.Getter)]
+    public class StorytellerTargetsPatch
+    {
+        public static Map target;
+
+        static void Postfix(ref List<IIncidentTarget> __result)
+        {
+            if (Multiplayer.client == null) return;
+            if (target == null) return;
+
+            __result.Clear();
+            __result.Add(target);
+        }
+    }
+
+    public class MapAsyncTimeComp : MapComponent
     {
         public static bool tickingMap;
 
@@ -236,29 +306,37 @@ namespace Multiplayer.Client
             }
         }
 
+        public int Timer => (int)timerInt;
+
+        public Queue<ScheduledCommand> scheduledCmds = new Queue<ScheduledCommand>();
+
+        public double timerInt;
         public int mapTicks;
+        public TimeSpeed lastSpeed = TimeSpeed.Paused;
         public TimeSpeed timeSpeed = TimeSpeed.Paused;
         public float realTimeToTickThrough;
         public bool forcedNormalSpeed;
+
+        public Storyteller storyteller;
 
         public TickList tickListNormal = new TickList(TickerType.Normal);
         public TickList tickListRare = new TickList(TickerType.Rare);
         public TickList tickListLong = new TickList(TickerType.Long);
 
-        public AsyncTimeMapComp(Map map) : base(map)
+        public MapAsyncTimeComp(Map map) : base(map)
         {
+            storyteller = new Storyteller(StorytellerDefOf.Cassandra, DifficultyDefOf.Medium);
         }
 
         public void Tick()
         {
             tickingMap = true;
 
-            int worldTicks = Find.TickManager.TicksGame;
-            TimeSpeed worldSpeed = Find.TickManager.CurTimeSpeed;
-            Find.TickManager.DebugSetTicksGame(mapTicks);
-            Find.TickManager.CurTimeSpeed = timeSpeed;
+            PreContext();
 
-            //Multiplayer.start_profiler();
+            float tickRate = TickRateMultiplier;
+
+            //SimpleProfiler.Init();
 
             map.MapPreTick();
             mapTicks++;
@@ -268,21 +346,69 @@ namespace Multiplayer.Client
             tickListRare.Tick();
             tickListLong.Tick();
 
+            storyteller.StorytellerTick();
+
             map.MapPostTick();
 
-            //Multiplayer.pause_profiler();
+            //SimpleProfiler.Pause();
 
             //if (mapTicks % 200 == 0)
-            //    Multiplayer.print_profiler("profiler_" + Multiplayer.username + "_tick.txt");
+            //    SimpleProfiler.Print("profiler_" + Multiplayer.username + "_tick.txt");
+
+            ExecuteCommands();
+
+            PostContext();
+
+            if (tickRate >= 1)
+                timerInt += 1f / tickRate;
+
+            tickingMap = false;
+        }
+
+        private int worldTicks;
+        private TimeSpeed worldSpeed;
+        private Storyteller globalStoryteller;
+
+        public void PreContext()
+        {
+            worldTicks = Find.TickManager.TicksGame;
+            worldSpeed = Find.TickManager.CurTimeSpeed;
+            Find.TickManager.DebugSetTicksGame(mapTicks);
+            Find.TickManager.CurTimeSpeed = timeSpeed;
+
+            globalStoryteller = Current.Game.storyteller;
+            Current.Game.storyteller = storyteller;
+            StorytellerTargetsPatch.target = map;
+        }
+
+        public void PostContext()
+        {
+            Current.Game.storyteller = globalStoryteller;
+            StorytellerTargetsPatch.target = null;
 
             Find.TickManager.DebugSetTicksGame(worldTicks);
             Find.TickManager.CurTimeSpeed = worldSpeed;
-            tickingMap = false;
+        }
+
+        public void ExecuteCommands()
+        {
+            while (scheduledCmds.Count > 0 && (scheduledCmds.Peek().ticks == Timer || timeSpeed == TimeSpeed.Paused))
+            {
+                ScheduledCommand cmd = scheduledCmds.Dequeue();
+                OnMainThread.ExecuteServerCmd(cmd, new ByteReader(cmd.data));
+            }
         }
 
         public override void ExposeData()
         {
             Scribe_Values.Look(ref mapTicks, "mapTicks");
+            Scribe_Values.Look(ref timerInt, "timer");
+        }
+
+        public void SetTimeSpeed(TimeSpeed speed)
+        {
+            timeSpeed = speed;
+            lastSpeed = speed;
         }
     }
 }

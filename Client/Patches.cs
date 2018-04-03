@@ -236,13 +236,6 @@ namespace Multiplayer.Client
                 {
                     nextAct = () => Settle()
                 });*/
-
-                if (Multiplayer.client == null || Multiplayer.localServer != null) return;
-
-                //Multiplayer.client.State = new ClientPlayingState(Multiplayer.client);
-                //Multiplayer.client.Send(Packets.CLIENT_WORLD_LOADED);
-
-                //Multiplayer.client.Send(Packets.CLIENT_ENCOUNTER_REQUEST, new object[] { Find.WorldObjects.Settlements.First(s => Find.World.GetComponent<MultiplayerWorldComp>().playerFactions.ContainsValue(s.Faction)).Tile });
             });
 
             return false;
@@ -284,14 +277,14 @@ namespace Multiplayer.Client
         static bool Prefix()
         {
             Text.Font = GameFont.Small;
-            string text = Find.TickManager.TicksGame.ToString() + " " + TickPatch.timerInt + " " + TickPatch.tickUntil;
+            string text = Find.TickManager.TicksGame + " " + TickPatch.timerInt + " " + TickPatch.tickUntil;
             Rect rect = new Rect(80f, 60f, 330f, Text.CalcHeight(text, 330f));
             Widgets.Label(rect, text);
 
             if (Find.VisibleMap != null)
             {
-                AsyncTimeMapComp comp = Find.VisibleMap.GetComponent<AsyncTimeMapComp>();
-                string text1 = "" + comp.mapTicks;
+                MapAsyncTimeComp comp = Find.VisibleMap.GetComponent<MapAsyncTimeComp>();
+                string text1 = "" + comp.mapTicks + " " + comp.timerInt;
 
                 text1 += " r:" + Find.VisibleMap.reservationManager.AllReservedThings().Count();
 
@@ -316,18 +309,17 @@ namespace Multiplayer.Client
     [HarmonyPatch(nameof(TickManager.TickManagerUpdate))]
     public static class TimeChangePatch
     {
-        private static TimeSpeed lastSpeed;
+        private static TimeSpeed lastSpeed = TimeSpeed.Paused;
 
         static void Prefix()
         {
-            if (Multiplayer.client != null && Find.TickManager.CurTimeSpeed != lastSpeed)
-            {
-                Multiplayer.client.SendCommand(CommandType.WORLD_TIME_SPEED, (byte)Find.TickManager.CurTimeSpeed);
-                Find.TickManager.CurTimeSpeed = lastSpeed;
-                return;
-            }
+            if (Multiplayer.client == null || !WorldRendererUtility.WorldRenderedNow) return;
 
-            lastSpeed = Find.TickManager.CurTimeSpeed;
+            if (Find.TickManager.CurTimeSpeed != lastSpeed)
+            {
+                Multiplayer.client.SendCommand(CommandType.WORLD_TIME_SPEED, -1, (byte)Find.TickManager.CurTimeSpeed);
+                Find.TickManager.CurTimeSpeed = lastSpeed;
+            }
         }
 
         public static void SetSpeed(TimeSpeed speed)
@@ -600,7 +592,7 @@ namespace Multiplayer.Client
             if (Multiplayer.client == null || dontHandle) return true;
             if (!DrawGizmosPatch.drawingGizmos) return true;
 
-            Multiplayer.client.SendCommand(CommandType.DRAFT_PAWN, __instance.pawn.Map.GetUniqueLoadID(), __instance.pawn.GetUniqueLoadID(), value);
+            Multiplayer.client.SendCommand(CommandType.DRAFT_PAWN, __instance.pawn.Map.uniqueID, __instance.pawn.GetUniqueLoadID(), value);
 
             return false;
         }
@@ -852,7 +844,7 @@ namespace Multiplayer.Client
 
             if (DrawGizmosPatch.drawingGizmos || ProcessDesigInputPatch.processing)
             {
-                Multiplayer.client.SendCommand(CommandType.FORBID, thing.Map.GetUniqueLoadID(), thing.GetUniqueLoadID(), Multiplayer.RealPlayerFaction.GetUniqueLoadID(), value);
+                Multiplayer.client.SendCommand(CommandType.FORBID, thing.Map.uniqueID, thing.GetUniqueLoadID(), Multiplayer.RealPlayerFaction.GetUniqueLoadID(), value);
                 return false;
             }
 
@@ -932,7 +924,7 @@ namespace Multiplayer.Client
             byte[] jobData = ScribeUtil.WriteExposable(job);
             bool shouldQueue = KeyBindingDefOf.QueueOrder.IsDownEvent;
 
-            Multiplayer.client.SendCommand(CommandType.ORDER_JOB, pawn.Map.GetUniqueLoadID(), pawn.GetUniqueLoadID(), jobData, shouldQueue, 0, (byte)tag);
+            Multiplayer.client.SendCommand(CommandType.ORDER_JOB, pawn.Map.uniqueID, pawn.GetUniqueLoadID(), jobData, shouldQueue, 0, (byte)tag);
 
             return false;
         }
@@ -958,7 +950,7 @@ namespace Multiplayer.Client
             bool shouldQueue = KeyBindingDefOf.QueueOrder.IsDownEvent;
             string workGiver = giver.def.defName;
 
-            Multiplayer.client.SendCommand(CommandType.ORDER_JOB, pawn.Map.GetUniqueLoadID(), pawn.GetUniqueLoadID(), jobData, shouldQueue, 1, workGiver, pawn.Map.cellIndices.CellToIndex(cell));
+            Multiplayer.client.SendCommand(CommandType.ORDER_JOB, pawn.Map.uniqueID, pawn.GetUniqueLoadID(), jobData, shouldQueue, 1, workGiver, pawn.Map.cellIndices.CellToIndex(cell));
 
             return false;
         }
@@ -1023,7 +1015,7 @@ namespace Multiplayer.Client
         static bool Prefix(Zone __instance)
         {
             if (Multiplayer.client == null || !DrawGizmosPatch.drawingGizmos) return true;
-            Multiplayer.client.SendCommand(CommandType.DELETE_ZONE, Multiplayer.RealPlayerFaction.GetUniqueLoadID(), __instance.Map.GetUniqueLoadID(), __instance.label);
+            Multiplayer.client.SendCommand(CommandType.DELETE_ZONE, __instance.Map.uniqueID, Multiplayer.RealPlayerFaction.GetUniqueLoadID(), __instance.label);
             return false;
         }
     }

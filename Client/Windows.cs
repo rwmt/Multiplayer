@@ -1,5 +1,6 @@
 ﻿using Multiplayer.Common;
 using RimWorld;
+using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -222,6 +223,12 @@ namespace Multiplayer.Client
 
                 Multiplayer.chat = new ChatWindow();
                 Multiplayer.client = conn;
+
+                conn.closedCallback += () =>
+                {
+                    MpLog.Log("Client connection closed.");
+                };
+
                 conn.username = Multiplayer.username;
                 conn.State = new ClientWorldState(conn);
             }, exception =>
@@ -267,15 +274,18 @@ namespace Multiplayer.Client
                 {
                     MultiplayerWorldComp comp = Find.World.GetComponent<MultiplayerWorldComp>();
 
-                    if (Multiplayer.highestUniqueId == -1)
-                        Multiplayer.highestUniqueId = Find.UniqueIDsManager.GetNextThingID();
-
-                    Multiplayer.mainBlock = Multiplayer.NextIdBlock();
                     Faction.OfPlayer.Name = Multiplayer.username + "'s faction";
                     comp.playerFactions[Multiplayer.username] = Faction.OfPlayer;
 
                     Multiplayer.localServer = new MultiplayerServer(ipAddr);
                     MultiplayerServer.instance = Multiplayer.localServer;
+
+                    Multiplayer.localServer.highestUniqueId = Find.UniqueIDsManager.GetNextThingID();
+                    Multiplayer.mainBlock = Multiplayer.localServer.NextIdBlock();
+
+                    foreach (Settlement settlement in Find.WorldObjects.Settlements)
+                        if (settlement.HasMap)
+                            Multiplayer.localServer.mapTiles[settlement.Tile] = settlement.Map.uniqueID;
 
                     Thread thread = new Thread(Multiplayer.localServer.Run)
                     {

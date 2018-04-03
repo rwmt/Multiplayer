@@ -49,7 +49,7 @@ namespace Multiplayer.Client
 
             Map map = Find.VisibleMap;
             object[] extra = GetExtra(0, designator).Append(map.cellIndices.CellToIndex(c));
-            Multiplayer.client.SendCommand(CommandType.DESIGNATOR, extra);
+            Multiplayer.client.SendCommand(CommandType.DESIGNATOR, map.uniqueID, extra);
 
             return false;
         }
@@ -65,7 +65,7 @@ namespace Multiplayer.Client
                 cellData[i++] = map.cellIndices.CellToIndex(cell);
 
             object[] extra = GetExtra(1, designator).Append(cellData);
-            Multiplayer.client.SendCommand(CommandType.DESIGNATOR, extra);
+            Multiplayer.client.SendCommand(CommandType.DESIGNATOR, map.uniqueID, extra);
 
             return false;
         }
@@ -74,8 +74,9 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.client == null || !DrawGizmosPatch.drawingGizmos) return true;
 
+            Map map = Find.VisibleMap;
             object[] extra = GetExtra(2, designator).Append(t.GetUniqueLoadID());
-            Multiplayer.client.SendCommand(CommandType.DESIGNATOR, extra);
+            Multiplayer.client.SendCommand(CommandType.DESIGNATOR, map.uniqueID, extra);
 
             return false;
         }
@@ -83,7 +84,7 @@ namespace Multiplayer.Client
         private static object[] GetExtra(int action, Designator designator)
         {
             string buildDefName = designator is Designator_Build build ? build.PlacingDef.defName : "";
-            return new object[] { action, designator.GetType().FullName, buildDefName, Find.VisibleMap.GetUniqueLoadID(), Multiplayer.RealPlayerFaction.GetUniqueLoadID() }.Append(Metadata(designator));
+            return new object[] { action, designator.GetType().FullName, buildDefName, Multiplayer.RealPlayerFaction.GetUniqueLoadID() }.Append(Metadata(designator));
         }
 
         public static IEnumerable<CodeInstruction> DesignateSingleCell_Transpiler(MethodBase method, ILGenerator gen, IEnumerable<CodeInstruction> code)

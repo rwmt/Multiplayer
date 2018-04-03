@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Reflection;
 
 namespace Multiplayer.Common
 {
@@ -30,13 +32,29 @@ namespace Multiplayer.Common
     {
         public readonly CommandType type;
         public readonly int ticks;
+        public readonly int mapId;
         public readonly byte[] data;
 
-        public ScheduledCommand(CommandType type, int ticks, byte[] data)
+        public ScheduledCommand(CommandType type, int ticks, int mapId, byte[] data)
         {
-            this.ticks = ticks;
             this.type = type;
+            this.ticks = ticks;
+            this.mapId = mapId;
             this.data = data;
+        }
+
+        private static readonly HashSet<CommandType> globalCmds = new HashSet<CommandType>();
+
+        static ScheduledCommand()
+        {
+            foreach (FieldInfo field in typeof(CommandType).GetFields(BindingFlags.Static | BindingFlags.Public))
+                if (Attribute.GetCustomAttribute(field, typeof(GlobalScopeAttribute)) != null)
+                    globalCmds.Add((CommandType)field.GetValue(null));
+        }
+
+        public static bool IsCommandGlobal(CommandType cmd)
+        {
+            return globalCmds.Contains(cmd);
         }
     }
 }

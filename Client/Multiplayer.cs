@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Net;
+using System.Net.Sockets;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Threading;
@@ -31,8 +32,6 @@ namespace Multiplayer.Client
         public static bool loadingEncounter;
 
         public static IdBlock mainBlock;
-
-        public static int highestUniqueId = -1;
 
         public static Faction RealPlayerFaction => WorldComp.playerFactions[username];
         public static MultiplayerWorldComp WorldComp => Find.World.GetComponent<MultiplayerWorldComp>();
@@ -223,29 +222,6 @@ namespace Multiplayer.Client
 
             var worldRendererCtor = AccessTools.Constructor(typeof(WorldRenderer));
             harmony.Patch(worldRendererCtor, new HarmonyMethod(AccessTools.Method(typeof(WorldRendererCtorPatch), "Prefix")), null);
-
-            /*var exposablePrefix = new HarmonyMethod(typeof(ExposableProfiler).GetMethod("Prefix"));
-            var exposablePostfix = new HarmonyMethod(typeof(ExposableProfiler).GetMethod("Postfix"));
-
-            foreach (Type t in typeof(IExposable).AllImplementing())
-            {
-                MethodInfo method = t.GetMethod("ExposeData", BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly);
-                if (method != null && !method.IsAbstract && !method.DeclaringType.IsGenericTypeDefinition && method.DeclaringType.Name != "Map")
-                {
-                   /Log.Message("exposable: " + t.FullName);
-                    harmony.Patch(method, exposablePrefix, exposablePostfix);
-                }
-            }*/
-        }
-
-        public static IdBlock NextIdBlock()
-        {
-            int blockSize = 30000;
-            int blockStart = highestUniqueId;
-            highestUniqueId = highestUniqueId + blockSize;
-            Log.Message("New id block " + blockStart + " of size " + blockSize);
-
-            return new IdBlock(blockStart, blockSize);
         }
 
         public static IEnumerable<CodeInstruction> PrefixTranspiler(MethodBase method, ILGenerator gen, IEnumerable<CodeInstruction> inputCode, MethodBase prefix)
@@ -297,66 +273,6 @@ namespace Multiplayer.Client
         {
             _first = first;
             _second = second;
-        }
-    }
-
-    public static class ExposableProfiler
-    {
-        public static Dictionary<Type, List<double>> timing = new Dictionary<Type, List<double>>();
-        public static List<long> stack = new List<long>();
-
-        public static void Prefix(IExposable __instance)
-        {
-            stack.Add(Stopwatch.GetTimestamp());
-        }
-
-        public static void Postfix(IExposable __instance)
-        {
-            if (!timing.TryGetValue(__instance.GetType(), out List<double> list))
-            {
-                list = new List<double>();
-                timing[__instance.GetType()] = list;
-            }
-
-            list.Add(Stopwatch.GetTimestamp() - stack.Last());
-            stack.RemoveLast();
-        }
-    }
-
-    public class IdBlock : IExposable
-    {
-        public int blockStart;
-        public int blockSize;
-        public int mapTile = -1; // for encounters
-
-        private int current;
-
-        public IdBlock() { }
-
-        public IdBlock(int blockStart, int blockSize, int mapTile = -1)
-        {
-            this.blockStart = blockStart;
-            this.blockSize = blockSize;
-            this.mapTile = mapTile;
-        }
-
-        public int NextId()
-        {
-            current++;
-            if (current > blockSize * 0.95)
-            {
-                Multiplayer.client.Send(Packets.CLIENT_ID_BLOCK_REQUEST, new object[] { mapTile });
-                Log.Message("Sent id block request at " + current);
-            }
-
-            return blockStart + current;
-        }
-
-        public void ExposeData()
-        {
-            Scribe_Values.Look(ref blockStart, "blockStart");
-            Scribe_Values.Look(ref blockSize, "blockSize");
-            Scribe_Values.Look(ref mapTile, "mapTile");
         }
     }
 
@@ -443,7 +359,8 @@ namespace Multiplayer.Client
                     ClientPlayingState.HandleActionSchedule(new ByteReader(cmd));
                 }
 
-                byte[] gameData = data.ReadPrefixedBytes();
+                byte[] compressedGameData = data.ReadPrefixedBytes();
+                byte[] gameData = GZipStream.UncompressBuffer(compressedGameData);
 
                 TickPatch.tickUntil = tickUntil;
                 LoadPatch.gameToLoad = ScribeUtil.GetDocument(gameData);
@@ -469,16 +386,10 @@ namespace Multiplayer.Client
                             catchingUp.WaitOne();
 
                             Multiplayer.client.Send(Packets.CLIENT_WORLD_LOADED);
-                        }, "Catching up", true, null);
+                        }, "Loading", true, null);
                     });
                 }, "Play", "Loading the game", true, null);
             });
-        }
-
-        [PacketHandler(Packets.SERVER_NEW_ID_BLOCK)]
-        public void HandleNewIdBlock(ByteReader data)
-        {
-            Multiplayer.mainBlock = ScribeUtil.ReadExposable<IdBlock>(data.GetBytes());
         }
 
         private static int catchupStart;
@@ -496,7 +407,7 @@ namespace Multiplayer.Client
                 }
 
                 int percent = (int)((TickPatch.Timer - catchupStart) / (float)(TickPatch.tickUntil - catchupStart) * 100);
-                LongEventHandler.SetCurrentEventText("Catching up (" + percent + "%)");
+                LongEventHandler.SetCurrentEventText("Loading (" + percent + "%)");
 
                 int timerStart = TickPatch.Timer;
                 while (TickPatch.Timer < timerStart + toSimulate)
@@ -557,40 +468,22 @@ namespace Multiplayer.Client
             Multiplayer.chat.AddMsg(username + ": " + msg);
         }
 
-        [PacketHandler(Packets.SERVER_MAP_REQUEST)]
-        public void HandleMapRequest(ByteReader data)
-        {
-            int tile = data.ReadInt();
-            Settlement settlement = Find.WorldObjects.SettlementAt(tile);
-
-            //SaveCompressible.disableCompression = true;
-            ScribeUtil.StartWriting();
-            Scribe.EnterNode("data");
-            Map map = settlement.Map;
-            Scribe_Deep.Look(ref map, "map");
-            byte[] mapData = ScribeUtil.FinishWriting();
-            //SaveCompressible.disableCompression = false;
-
-            Current.ProgramState = ProgramState.MapInitializing;
-            foreach (Thing t in new List<Thing>(map.listerThings.AllThings))
-                t.DeSpawn();
-            Current.ProgramState = ProgramState.Playing;
-
-            Current.Game.DeinitAndRemoveMap(map);
-
-            Multiplayer.client.Send(Packets.CLIENT_MAP_RESPONSE, mapData);
-        }
-
         [PacketHandler(Packets.SERVER_MAP_RESPONSE)]
         public void HandleMapResponse(ByteReader data)
         {
+            int cmdsLen = data.ReadInt();
+            byte[][] cmds = new byte[cmdsLen][];
+            for (int i = 0; i < cmdsLen; i++)
+                cmds[i] = data.ReadPrefixedBytes();
+
+            byte[] compressedMapData = data.ReadPrefixedBytes();
+            byte[] mapData = GZipStream.UncompressBuffer(compressedMapData);
+
             Multiplayer.loadingEncounter = true;
             Current.ProgramState = ProgramState.MapInitializing;
             Multiplayer.Seed = Find.TickManager.TicksGame;
 
-            Log.Message("Encounter map size: " + data.GetBytes().Length);
-
-            ScribeUtil.StartLoading(data.GetBytes());
+            ScribeUtil.StartLoading(mapData);
             ScribeUtil.SupplyCrossRefs();
             Map map = null;
             Scribe_Deep.Look(ref map, "map");
@@ -605,8 +498,6 @@ namespace Multiplayer.Client
 
             string ownerFactionId = ownerFaction.GetUniqueLoadID();
             string playerFactionId = Multiplayer.RealPlayerFaction.GetUniqueLoadID();
-
-            mapComp.inEncounter = true;
 
             RandPatches.Ignore = true;
             Rand.PushState();
@@ -663,7 +554,8 @@ namespace Multiplayer.Client
         [PacketHandler(Packets.SERVER_NEW_ID_BLOCK)]
         public void HandleNewIdBlock(ByteReader data)
         {
-            IdBlock block = ScribeUtil.ReadExposable<IdBlock>(data.GetBytes());
+            IdBlock block = IdBlock.Deserialize(data);
+
             if (block.mapTile != -1)
                 Find.WorldObjects.MapParentAt(block.mapTile).Map.GetComponent<MultiplayerMapComp>().encounterIdBlock = block;
             else
@@ -716,9 +608,10 @@ namespace Multiplayer.Client
         {
             CommandType cmd = (CommandType)data.ReadInt();
             int ticks = data.ReadInt();
+            int mapId = data.ReadInt();
             byte[] extraBytes = data.ReadPrefixedBytes();
 
-            ScheduledCommand schdl = new ScheduledCommand(cmd, ticks, extraBytes);
+            ScheduledCommand schdl = new ScheduledCommand(cmd, ticks, mapId, extraBytes);
             OnMainThread.ScheduleCommand(schdl);
         }
 
@@ -771,13 +664,22 @@ namespace Multiplayer.Client
 
         public static void ScheduleCommand(ScheduledCommand cmd)
         {
-            scheduledCmds.Enqueue(cmd);
+            if (cmd.mapId == -1)
+            {
+                scheduledCmds.Enqueue(cmd);
+            }
+            else
+            {
+                Map map = cmd.GetMap();
+                if (map == null) return;
+
+                map.GetComponent<MapAsyncTimeComp>().scheduledCmds.Enqueue(cmd);
+            }
         }
 
         public static void ExecuteServerCmd(ScheduledCommand cmd, ByteReader data)
         {
             Multiplayer.Seed = Find.TickManager.TicksGame;
-            RandPatch.current = "server cmd";
 
             CommandType cmdType = cmd.type;
 
@@ -787,7 +689,7 @@ namespace Multiplayer.Client
                 TimeSpeed speed = (TimeSpeed)data.ReadByte();
                 TimeChangePatch.SetSpeed(speed);
 
-                Log.Message(Multiplayer.username + " set speed " + speed + " " + TickPatch.Timer + " " + Find.TickManager.TicksGame);
+                MpLog.Log("Set speed " + speed + " " + TickPatch.Timer + " " + Find.TickManager.TicksGame);
 
                 if (prevSpeed == TimeSpeed.Paused)
                     TickPatch.timerInt = cmd.ticks;
@@ -843,10 +745,25 @@ namespace Multiplayer.Client
                 // todo unpause after everyone completes the autosave
             }
 
+            if (cmdType == CommandType.MAP_TIME_SPEED)
+            {
+                Map map = cmd.GetMap();
+                if (map == null) return;
+
+                MapAsyncTimeComp comp = map.GetComponent<MapAsyncTimeComp>();
+                TimeSpeed prevSpeed = comp.timeSpeed;
+                TimeSpeed speed = (TimeSpeed)data.ReadByte();
+
+                comp.SetTimeSpeed(speed);
+
+                if (prevSpeed == TimeSpeed.Paused)
+                    comp.timerInt = cmd.ticks;
+            }
+
             if (cmdType == CommandType.MAP_ID_BLOCK)
             {
-                IdBlock block = ScribeUtil.ReadExposable<IdBlock>(cmd.data);
-                Map map = Find.WorldObjects.MapParentAt(block.mapTile)?.Map;
+                IdBlock block = IdBlock.Deserialize(data);
+                Map map = cmd.GetMap();
 
                 if (map != null)
                 {
@@ -867,12 +784,11 @@ namespace Multiplayer.Client
 
             if (cmdType == CommandType.DELETE_ZONE)
             {
-                string factionId = data.ReadString();
-                string mapId = data.ReadString();
-                string zoneId = data.ReadString();
-
-                Map map = Find.Maps.FirstOrDefault(m => m.GetUniqueLoadID() == mapId);
+                Map map = cmd.GetMap();
                 if (map == null) return;
+
+                string factionId = data.ReadString();
+                string zoneId = data.ReadString();
 
                 map.PushFaction(factionId);
                 map.zoneManager.AllZones.FirstOrDefault(z => z.label == zoneId)?.Delete();
@@ -881,10 +797,11 @@ namespace Multiplayer.Client
 
             if (cmdType == CommandType.SPAWN_PAWN)
             {
-                int tile = data.ReadInt();
+                Map map = cmd.GetMap();
+                if (map == null) return;
+
                 string factionId = data.ReadString();
 
-                Map map = Find.WorldObjects.SettlementAt(tile).Map;
                 map.PushFaction(Find.FactionManager.AllFactions.FirstOrDefault(f => f.GetUniqueLoadID() == factionId));
                 Pawn pawn = ScribeUtil.ReadExposable<Pawn>(data.ReadPrefixedBytes());
 
@@ -896,13 +813,12 @@ namespace Multiplayer.Client
 
             if (cmdType == CommandType.FORBID)
             {
-                string mapId = data.ReadString();
+                Map map = cmd.GetMap();
+                if (map == null) return;
+
                 string thingId = data.ReadString();
                 string factionId = data.ReadString();
                 bool value = data.ReadBool();
-
-                Map map = Find.Maps.FirstOrDefault(m => m.GetUniqueLoadID() == mapId);
-                if (map == null) return;
 
                 ThingWithComps thing = map.listerThings.AllThings.FirstOrDefault(t => t.GetUniqueLoadID() == thingId) as ThingWithComps;
                 if (thing == null) return;
@@ -917,12 +833,11 @@ namespace Multiplayer.Client
 
             if (cmdType == CommandType.DRAFT_PAWN)
             {
-                string mapId = data.ReadString();
+                Map map = cmd.GetMap();
+                if (map == null) return;
+
                 string pawnId = data.ReadString();
                 bool draft = data.ReadBool();
-
-                Map map = Find.Maps.FirstOrDefault(m => m.GetUniqueLoadID() == mapId);
-                if (map == null) return;
 
                 Pawn pawn = map.mapPawns.AllPawns.FirstOrDefault(p => p.GetUniqueLoadID() == pawnId);
                 if (pawn == null) return;
@@ -933,14 +848,11 @@ namespace Multiplayer.Client
                 map.PopFaction();
                 DraftSetPatch.dontHandle = false;
             }
-
-            RandPatch.current = null;
         }
 
         private static void HandleOrderJob(ScheduledCommand command, ByteReader data)
         {
-            string mapId = data.ReadString();
-            Map map = Find.Maps.FirstOrDefault(m => m.GetUniqueLoadID() == mapId);
+            Map map = command.GetMap();
             if (map == null) return;
 
             string pawnId = data.ReadString();
@@ -1027,17 +939,16 @@ namespace Multiplayer.Client
 
         private static void HandleDesignator(ScheduledCommand command, ByteReader data)
         {
+            Map map = command.GetMap();
+            if (map == null) return;
+
             int mode = data.ReadInt();
             string desName = data.ReadString();
             string buildDefName = data.ReadString();
             Designator designator = GetDesignator(desName, buildDefName);
             if (designator == null) return;
 
-            string mapId = data.ReadString();
             string factionId = data.ReadString();
-
-            Map map = Find.Maps.FirstOrDefault(m => m.GetUniqueLoadID() == mapId);
-            if (map == null) return;
 
             map.PushFaction(factionId);
             Multiplayer.currentMap = map;
@@ -1153,20 +1064,20 @@ namespace Multiplayer.Client
 
         public static int Timer => (int)timerInt;
 
-        public static bool ticking;
+        public static bool tickingWorld;
         private static float currentTickRate;
 
         static bool Prefix()
         {
-            ticking = Multiplayer.client == null || Timer < tickUntil;
+            tickingWorld = Multiplayer.client == null || Timer < tickUntil;
             currentTickRate = Find.TickManager.TickRateMultiplier;
 
-            return ticking;
+            return tickingWorld;
         }
 
         static void Postfix()
         {
-            if (!ticking) return;
+            if (!tickingWorld) return;
 
             TickManager tickManager = Find.TickManager;
 
@@ -1198,7 +1109,7 @@ namespace Multiplayer.Client
                 Log.Message(Multiplayer.username + " replay " + watch.ElapsedMilliseconds + " " + data.Length + " " + hex);
             }*/
 
-            ticking = false;
+            tickingWorld = false;
 
             if (currentTickRate >= 1)
                 timerInt += 1f / currentTickRate;
@@ -1245,10 +1156,7 @@ namespace Multiplayer.Client
         {
             Scribe_Values.Look(ref worldId, "worldId");
             ScribeUtil.Look(ref playerFactions, "playerFactions", LookMode.Value, LookMode.Reference, ref keyWorkingList, ref valueWorkingList);
-            Scribe_Values.Look(ref Multiplayer.highestUniqueId, "highestUniqueId");
             Scribe_Values.Look(ref TickPatch.timerInt, "timer");
-
-            // saving for joining players
             Scribe_Values.Look(ref sessionId, "sessionId");
 
             TimeSpeed timeSpeed = Find.TickManager.CurTimeSpeed;

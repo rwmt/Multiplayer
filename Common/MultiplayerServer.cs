@@ -1,5 +1,4 @@
-﻿using Ionic.Zlib;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -23,9 +22,17 @@ namespace Multiplayer.Common
         public const int DEFAULT_PORT = 30502;
         public const int LOOP_RESOLUTION = 100; // in ms, 6 game ticks
 
-        public byte[] savedGame;
-        public Dictionary<string, byte[]> playerMaps = new Dictionary<string, byte[]>();
-        public List<byte[]> cmdsSinceLastAutosave = new List<byte[]>();
+        public byte[] savedGame; // Compressed game save
+
+        // World tile to map id
+        public Dictionary<int, int> mapTiles = new Dictionary<int, int>();
+
+        // Map id to compressed map data
+        public Dictionary<int, byte[]> mapData = new Dictionary<int, byte[]>();
+
+        // Map id to serialized cmds list
+        public Dictionary<int, List<byte[]>> mapCmds = new Dictionary<int, List<byte[]>>();
+        public List<byte[]> globalCmds = new List<byte[]>();
 
         public int timer;
         public ActionQueue queue = new ActionQueue();
@@ -35,6 +42,8 @@ namespace Multiplayer.Common
         public string worldId;
         public IPAddress addr;
         public int port;
+
+        public int highestUniqueId = -1;
 
         public MultiplayerServer(IPAddress addr, int port = DEFAULT_PORT)
         {
@@ -80,8 +89,11 @@ namespace Multiplayer.Common
         {
             Enqueue(() =>
             {
-                cmdsSinceLastAutosave.Clear();
-                server.SendToAll(Packets.SERVER_COMMAND, ServerPlayingState.GetServerCommandMsg(CommandType.AUTOSAVE, new byte[0]));
+                globalCmds.Clear();
+                foreach (int tile in mapCmds.Keys)
+                    mapCmds[tile].Clear();
+
+                server.SendToAll(Packets.SERVER_COMMAND, ServerPlayingState.GetServerCommandMsg(CommandType.AUTOSAVE, -1, new byte[0]));
             });
         }
 
@@ -97,6 +109,56 @@ namespace Multiplayer.Common
         public void Enqueue(Action action)
         {
             queue.Enqueue(action);
+        }
+
+        public IdBlock NextIdBlock()
+        {
+            int blockSize = 30000;
+            int blockStart = highestUniqueId;
+            highestUniqueId = highestUniqueId + blockSize;
+            MpLog.Log("New id block " + blockStart + " of size " + blockSize);
+
+            return new IdBlock(blockStart, blockSize);
+        }
+    }
+
+    public class IdBlock
+    {
+        public int blockStart;
+        public int blockSize;
+        public int mapTile = -1; // for encounters
+
+        private int current;
+
+        public IdBlock() { }
+
+        public IdBlock(int blockStart, int blockSize, int mapTile = -1)
+        {
+            this.blockStart = blockStart;
+            this.blockSize = blockSize;
+            this.mapTile = mapTile;
+        }
+
+        public int NextId()
+        {
+            current++;
+            if (current > blockSize * 0.95)
+            {
+                //Multiplayer.client.Send(Packets.CLIENT_ID_BLOCK_REQUEST, new object[] { mapTile });
+                //Log.Message("Sent id block request at " + current);
+            }
+
+            return blockStart + current;
+        }
+
+        public byte[] Serialize()
+        {
+            return NetworkServer.GetBytes(blockSize, blockSize);
+        }
+
+        public static IdBlock Deserialize(ByteReader data)
+        {
+            return new IdBlock(data.ReadInt(), data.ReadInt());
         }
     }
 
@@ -209,12 +271,29 @@ namespace Multiplayer.Common
         public void HandleClientCommand(ByteReader data)
         {
             CommandType cmd = (CommandType)data.ReadInt();
+            int mapId = data.ReadInt();
             byte[] extra = data.ReadPrefixedBytes();
 
-            byte[] toSend = NetworkServer.GetBytes(GetServerCommandMsg(cmd, extra));
-            MultiplayerServer.instance.cmdsSinceLastAutosave.Add(toSend);
+            bool global = ScheduledCommand.IsCommandGlobal(cmd);
+            if (global && mapId != -1)
+            {
+                MpLog.Log("Client {0} sent a global command {1} with map id specified.", Connection.username, cmd);
+                mapId = -1;
+            } else if (!global && mapId <0)
+            {
+                MpLog.Log("Client {0} sent a map command {1} without a map id.", Connection.username, cmd);
+                return;
+            }
 
-            MpLog.Log("Server command " + cmd);
+            // todo check if map id valid for the player
+
+            byte[] toSend = NetworkServer.GetBytes(GetServerCommandMsg(cmd, mapId, extra));
+            if (global)
+                MultiplayerServer.instance.globalCmds.Add(toSend);
+            else
+                MultiplayerServer.instance.mapCmds.AddOrGet(mapId, new List<byte[]>()).Add(toSend);
+
+            // todo send only to players playing the map if not global
 
             MultiplayerServer.instance.server.SendToAll(Packets.SERVER_COMMAND, toSend);
         }
@@ -234,16 +313,19 @@ namespace Multiplayer.Common
         public void HandleAutosavedData(ByteReader data)
         {
             bool isGame = data.ReadBool();
-            byte[] compressedData = data.ReadPrefixedBytes();
-            byte[] uncompressedData = GZipStream.UncompressBuffer(compressedData);
 
             if (isGame)
             {
-                MultiplayerServer.instance.savedGame = uncompressedData;
+                byte[] compressedData = data.ReadPrefixedBytes();
+                MultiplayerServer.instance.savedGame = compressedData;
             }
             else
             {
-                // handle map data
+                int mapId = data.ReadInt();
+                byte[] compressedData = data.ReadPrefixedBytes();
+
+                // todo test map ownership
+                MultiplayerServer.instance.mapData[mapId] = compressedData;
             }
         }
 
@@ -253,19 +335,19 @@ namespace Multiplayer.Common
             string username = data.ReadString();
             byte[] newFactionData = data.ReadPrefixedBytes();
 
-            // todo compress
-            byte[][] cmds = MultiplayerServer.instance.cmdsSinceLastAutosave.ToArray();
+            Connection conn = MultiplayerServer.instance.server.GetByUsername(username);
+            if (conn == null) return;
+
+            byte[][] cmds = MultiplayerServer.instance.globalCmds.ToArray();
             byte[] packetData = NetworkServer.GetBytes(MultiplayerServer.instance.timer + MultiplayerServer.SCHEDULED_CMD_DELAY, cmds, MultiplayerServer.instance.savedGame);
 
             if (newFactionData.Length > 0)
             {
                 byte[] extra = NetworkServer.GetBytes(username, newFactionData);
-                MultiplayerServer.instance.server.SendToAll(Packets.SERVER_COMMAND, GetServerCommandMsg(CommandType.NEW_FACTION, extra));
+                MultiplayerServer.instance.server.SendToAll(Packets.SERVER_COMMAND, GetServerCommandMsg(CommandType.NEW_FACTION, -1, extra));
             }
 
-            Connection conn = MultiplayerServer.instance.server.GetByUsername(username);
-            if (conn != null)
-                conn.Send(Packets.SERVER_WORLD_DATA, packetData);
+            conn.Send(Packets.SERVER_WORLD_DATA, packetData);
 
             MpLog.Log("World response sent: " + packetData.Length + " " + cmds.Length);
         }
@@ -273,6 +355,15 @@ namespace Multiplayer.Common
         [PacketHandler(Packets.CLIENT_ENCOUNTER_REQUEST)]
         public void HandleEncounterRequest(ByteReader data)
         {
+            int tile = data.ReadInt();
+            if (!MultiplayerServer.instance.mapTiles.TryGetValue(tile, out int mapId))
+                return;
+
+            byte[] mapData = MultiplayerServer.instance.mapData[mapId];
+            byte[][] mapCmds = MultiplayerServer.instance.mapCmds.AddOrGet(mapId, new List<byte[]>()).ToArray();
+            byte[] packetData = NetworkServer.GetBytes(mapCmds, mapData);
+
+            Connection.Send(Packets.SERVER_MAP_RESPONSE, packetData);
         }
 
         public void OnMessage(Packets packet, ByteReader data)
@@ -422,9 +513,9 @@ namespace Multiplayer.Common
             return Path.Combine(worldfolder, username + ".maps");
         }
 
-        public static object[] GetServerCommandMsg(CommandType cmdType, byte[] extra)
+        public static object[] GetServerCommandMsg(CommandType cmdType, int mapId, byte[] extra)
         {
-            return new object[] { cmdType, MultiplayerServer.instance.timer + MultiplayerServer.SCHEDULED_CMD_DELAY, extra };
+            return new object[] { cmdType, MultiplayerServer.instance.timer + MultiplayerServer.SCHEDULED_CMD_DELAY, mapId, extra };
         }
     }
 }

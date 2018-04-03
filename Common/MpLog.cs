@@ -6,8 +6,10 @@ namespace Multiplayer.Common
     {
         public static Action<string> action;
 
-        public static void Log(string s)
+        public static void Log(string s, params object[] args)
         {
+            s = String.Format(s, args);
+
             if (action != null)
                 action(s);
             else
