@@ -38,9 +38,9 @@ namespace Multiplayer.Client
         // applies faction's map components if map not null
         public static void PushFaction(this Map map, Faction faction)
         {
-            Faction f = FactionContext.Push(faction);
-            if (map != null)
-                map.GetComponent<MultiplayerMapComp>().SetFaction(f);
+            FactionContext.Push(faction);
+            if (map != null && faction != null)
+                map.GetComponent<MultiplayerMapComp>().SetFaction(faction);
         }
 
         public static void PushFaction(this Map map, string factionId)
@@ -57,7 +57,7 @@ namespace Multiplayer.Client
         public static void PopFaction(this Map map)
         {
             Faction faction = FactionContext.Pop();
-            if (map != null)
+            if (map != null && faction != null)
                 map.GetComponent<MultiplayerMapComp>().SetFaction(faction);
         }
 

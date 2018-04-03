@@ -245,15 +245,10 @@ namespace Multiplayer.Client
             return element;
         }
 
-        public static void Look<K, V>(ref Dictionary<K, V> dict, string label, LookMode keyLookMode, LookMode valueLookMode)
+        public static void Look<K, V>(ref Dictionary<K, V> dict, string label, LookMode valueLookMode, ref List<K> keysWorkingList, ref List<V> valuesWorkingList, params object[] valueCtorArgs)
         {
-            List<K> list1 = null;
-            List<V> list2 = null;
-            Look(ref dict, label, keyLookMode, valueLookMode, ref list1, ref list2);
-        }
+            LookMode keyLookMode = LookMode.Value;
 
-        public static void Look<K, V>(ref Dictionary<K, V> dict, string label, LookMode keyLookMode, LookMode valueLookMode, ref List<K> keysWorkingList, ref List<V> valuesWorkingList)
-        {
             if (Scribe.EnterNode(label))
             {
                 try
@@ -273,8 +268,8 @@ namespace Multiplayer.Client
                         }
                     }
 
-                    Scribe_Collections.Look(ref keysWorkingList, "keys", keyLookMode, new object[0]);
-                    Scribe_Collections.Look(ref valuesWorkingList, "values", valueLookMode, new object[0]);
+                    Scribe_Collections.Look(ref keysWorkingList, "keys", keyLookMode);
+                    Scribe_Collections.Look(ref valuesWorkingList, "values", valueLookMode, valueCtorArgs);
 
                     if (Scribe.mode == LoadSaveMode.Saving)
                     {
@@ -314,6 +309,7 @@ namespace Multiplayer.Client
                                     valuesWorkingList.Count
                                 }));
                             }
+
                             int num = Math.Min(keysWorkingList.Count, valuesWorkingList.Count);
                             for (int i = 0; i < num; i++)
                             {

@@ -15,10 +15,13 @@ namespace Multiplayer.Common
         [GlobalScope]
         AUTOSAVE,
         [GlobalScope]
-        NEW_FACTION,
+        SETUP_FACTION,
+        [GlobalScope]
+        GLOBAL_ID_BLOCK,
 
         // Map scope
         MAP_TIME_SPEED,
+        MAP_FACTION_DATA,
         MAP_ID_BLOCK,
         DRAFT_PAWN,
         FORBID,

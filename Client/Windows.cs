@@ -281,7 +281,8 @@ namespace Multiplayer.Client
                     MultiplayerServer.instance = Multiplayer.localServer;
 
                     Multiplayer.localServer.highestUniqueId = Find.UniqueIDsManager.GetNextThingID();
-                    Multiplayer.mainBlock = Multiplayer.localServer.NextIdBlock();
+                    Multiplayer.localServer.globalBlock = Multiplayer.localServer.NextIdBlock();
+                    Multiplayer.globalBlock = Multiplayer.localServer.globalBlock;
 
                     foreach (Settlement settlement in Find.WorldObjects.Settlements)
                         if (settlement.HasMap)

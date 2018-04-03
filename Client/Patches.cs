@@ -288,11 +288,14 @@ namespace Multiplayer.Client
 
                 text1 += " r:" + Find.VisibleMap.reservationManager.AllReservedThings().Count();
 
-                if (Find.VisibleMap.GetComponent<MultiplayerMapComp>().factionHaulables.TryGetValue(Find.VisibleMap.info.parent.Faction.GetUniqueLoadID(), out ListerHaulables haul))
-                    text1 += " h:" + haul.ThingsPotentiallyNeedingHauling().Count;
+                string faction = Find.VisibleMap.info.parent.Faction.GetUniqueLoadID();
+                FactionMapData data = Find.VisibleMap.GetComponent<MultiplayerMapComp>().factionMapData.GetValueSafe(faction);
 
-                if (Find.VisibleMap.GetComponent<MultiplayerMapComp>().factionSlotGroups.TryGetValue(Find.VisibleMap.info.parent.Faction.GetUniqueLoadID(), out SlotGroupManager groups))
-                    text1 += " sg:" + groups.AllGroupsListForReading.Count;
+                if (data != null)
+                {
+                    text1 += " h:" + data.listerHaulables.ThingsPotentiallyNeedingHauling().Count;
+                    text1 += " sg:" + data.slotGroupManager.AllGroupsListForReading.Count;
+                }
 
                 Rect rect1 = new Rect(80f, 110f, 330f, Text.CalcHeight(text1, 330f));
                 Widgets.Label(rect1, text1);
@@ -551,22 +554,19 @@ namespace Multiplayer.Client
     [HarmonyPatch("GetNextID")]
     public static class UniqueIdsPatch
     {
+        public static IdBlock currentBlock;
+
         static void Postfix(ref int __result)
         {
-            if (Multiplayer.client == null || Multiplayer.mainBlock == null) return;
+            if (Multiplayer.client == null) return;
 
-            Map map = ThingContext.CurrentMap ?? Multiplayer.currentMap;
-            if (map != null)
+            if (currentBlock == null)
             {
-                IdBlock block = map.GetComponent<MultiplayerMapComp>().encounterIdBlock;
-                if (block != null)
-                {
-                    __result = block.NextId();
-                    return;
-                }
+                MpLog.Log("Tried to get a unique id without an id block set!");
+                return;
             }
 
-            __result = Multiplayer.mainBlock.NextId();
+            __result = currentBlock.NextId();
         }
     }
 

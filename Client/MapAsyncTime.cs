@@ -42,12 +42,8 @@ namespace Multiplayer.Client
                         comp.realTimeToTickThrough = 0f;
                 }
 
-                comp.PreContext();
-
                 if (!LongEventHandler.ShouldWaitForEvent && Current.Game != null && Find.World != null)
-                    comp.ExecuteCommands();
-
-                comp.PostContext();
+                    comp.ExecuteMapCmdsWhilePaused();
             }
         }
 
@@ -353,10 +349,12 @@ namespace Multiplayer.Client
             while (scheduledCmds.Count > 0 && scheduledCmds.Peek().ticks == Timer)
             {
                 ScheduledCommand cmd = scheduledCmds.Dequeue();
-                OnMainThread.ExecuteServerCmd(cmd, new ByteReader(cmd.data));
+                OnMainThread.ExecuteMapCmd(cmd, new ByteReader(cmd.data));
             }
 
             PostContext();
+
+            ExecuteMapCmdsWhilePaused();
 
             if (tickRate >= 1)
                 timerInt += 1f / tickRate;
@@ -378,10 +376,14 @@ namespace Multiplayer.Client
             globalStoryteller = Current.Game.storyteller;
             Current.Game.storyteller = storyteller;
             StorytellerTargetsPatch.target = map;
+
+            UniqueIdsPatch.currentBlock = map.GetComponent<MultiplayerMapComp>().mapIdBlock;
         }
 
         public void PostContext()
         {
+            UniqueIdsPatch.currentBlock = null;
+
             Current.Game.storyteller = globalStoryteller;
             StorytellerTargetsPatch.target = null;
 
@@ -389,13 +391,17 @@ namespace Multiplayer.Client
             Find.TickManager.CurTimeSpeed = worldSpeed;
         }
 
-        public void ExecuteCommands()
+        public void ExecuteMapCmdsWhilePaused()
         {
+            PreContext();
+
             while (scheduledCmds.Count > 0 && timeSpeed == TimeSpeed.Paused)
             {
                 ScheduledCommand cmd = scheduledCmds.Dequeue();
-                OnMainThread.ExecuteServerCmd(cmd, new ByteReader(cmd.data));
+                OnMainThread.ExecuteMapCmd(cmd, new ByteReader(cmd.data));
             }
+
+            PostContext();
         }
 
         public override void ExposeData()
