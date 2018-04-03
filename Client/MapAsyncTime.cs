@@ -53,13 +53,10 @@ namespace Multiplayer.Client
 
         static void Postfix()
         {
-            if (Multiplayer.client == null) return;
+            if (Multiplayer.client == null || Find.VisibleMap == null) return;
 
-            if (Find.VisibleMap != null)
-            {
-                MapAsyncTimeComp comp = Find.VisibleMap.GetComponent<MapAsyncTimeComp>();
-                Shader.SetGlobalFloat(ShaderPropertyIDs.GameSeconds, comp.mapTicks.TicksToSeconds());
-            }
+            MapAsyncTimeComp comp = Find.VisibleMap.GetComponent<MapAsyncTimeComp>();
+            Shader.SetGlobalFloat(ShaderPropertyIDs.GameSeconds, comp.mapTicks.TicksToSeconds());
         }
     }
 
@@ -79,7 +76,6 @@ namespace Multiplayer.Client
 
         static void Postfix(Container<int, TimeSpeed> __state)
         {
-            if (Multiplayer.client == null) return;
             if (__state == null) return;
 
             Find.TickManager.DebugSetTicksGame(__state.First);
@@ -160,7 +156,7 @@ namespace Multiplayer.Client
     {
         static void Prefix(ref Container<TimeSpeed> __state)
         {
-            if (Multiplayer.client == null || WorldRendererUtility.WorldRenderedNow) return;
+            if (Multiplayer.client == null || WorldRendererUtility.WorldRenderedNow || Find.VisibleMap == null) return;
 
             // remember the state
             __state = Find.TickManager.CurTimeSpeed;
@@ -171,7 +167,6 @@ namespace Multiplayer.Client
 
         static void Postfix(Rect timerRect, Container<TimeSpeed> __state)
         {
-            if (Multiplayer.client == null) return;
             if (__state == null) return;
 
             Map map = Find.VisibleMap;
@@ -190,7 +185,7 @@ namespace Multiplayer.Client
     {
         static void Prefix(ref Container<int, TimeSpeed> __state)
         {
-            if (Multiplayer.client == null || WorldRendererUtility.WorldRenderedNow) return;
+            if (Multiplayer.client == null || WorldRendererUtility.WorldRenderedNow || Find.VisibleMap == null) return;
 
             __state = new Container<int, TimeSpeed>(Find.TickManager.TicksGame, Find.TickManager.CurTimeSpeed);
             MapAsyncTimeComp comp = Find.VisibleMap.GetComponent<MapAsyncTimeComp>();
@@ -200,7 +195,7 @@ namespace Multiplayer.Client
 
         static void Postfix(Container<int, TimeSpeed> __state)
         {
-            if (Multiplayer.client == null || __state == null) return;
+            if (__state == null) return;
 
             Find.TickManager.DebugSetTicksGame(__state.First);
             Find.TickManager.CurTimeSpeed = __state.Second;
@@ -355,7 +350,11 @@ namespace Multiplayer.Client
             //if (mapTicks % 200 == 0)
             //    SimpleProfiler.Print("profiler_" + Multiplayer.username + "_tick.txt");
 
-            ExecuteCommands();
+            while (scheduledCmds.Count > 0 && scheduledCmds.Peek().ticks == Timer)
+            {
+                ScheduledCommand cmd = scheduledCmds.Dequeue();
+                OnMainThread.ExecuteServerCmd(cmd, new ByteReader(cmd.data));
+            }
 
             PostContext();
 
@@ -392,7 +391,7 @@ namespace Multiplayer.Client
 
         public void ExecuteCommands()
         {
-            while (scheduledCmds.Count > 0 && (scheduledCmds.Peek().ticks == Timer || timeSpeed == TimeSpeed.Paused))
+            while (scheduledCmds.Count > 0 && timeSpeed == TimeSpeed.Paused)
             {
                 ScheduledCommand cmd = scheduledCmds.Dequeue();
                 OnMainThread.ExecuteServerCmd(cmd, new ByteReader(cmd.data));
@@ -403,6 +402,7 @@ namespace Multiplayer.Client
         {
             Scribe_Values.Look(ref mapTicks, "mapTicks");
             Scribe_Values.Look(ref timerInt, "timer");
+            Scribe_Values.Look(ref timeSpeed, "timeSpeed");
         }
 
         public void SetTimeSpeed(TimeSpeed speed)

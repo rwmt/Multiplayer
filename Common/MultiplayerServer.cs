@@ -75,10 +75,11 @@ namespace Multiplayer.Common
                 }
                 catch (Exception e)
                 {
-                    MpLog.LogLines("Exception while executing the server action queue:", e.Message, e.StackTrace);
+                    MpLog.LogLines("Exception while executing the server action queue:", e.ToString());
                 }
 
                 server.SendToAll(Packets.SERVER_TIME_CONTROL, new object[] { timer + SCHEDULED_CMD_DELAY });
+
                 timer += 6;
 
                 Thread.Sleep(LOOP_RESOLUTION);
@@ -279,13 +280,14 @@ namespace Multiplayer.Common
             {
                 MpLog.Log("Client {0} sent a global command {1} with map id specified.", Connection.username, cmd);
                 mapId = -1;
-            } else if (!global && mapId <0)
+            }
+            else if (!global && mapId < 0)
             {
                 MpLog.Log("Client {0} sent a map command {1} without a map id.", Connection.username, cmd);
                 return;
             }
 
-            // todo check if map id valid for the player
+            // todo check if map id is valid for the player
 
             byte[] toSend = NetworkServer.GetBytes(GetServerCommandMsg(cmd, mapId, extra));
             if (global)

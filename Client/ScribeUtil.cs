@@ -181,7 +181,7 @@ namespace Multiplayer.Client
             }
         }
 
-        public static byte[] XmlToByteArray(XmlNode node, bool indent = false)
+        public static byte[] XmlToByteArray(XmlNode node, string rootNode = null, bool indent = false)
         {
             XmlWriterSettings xmlWriterSettings = new XmlWriterSettings()
             {
@@ -192,7 +192,14 @@ namespace Multiplayer.Client
             using (MemoryStream stream = new MemoryStream())
             using (XmlWriter writer = XmlWriter.Create(stream, xmlWriterSettings))
             {
+                if (rootNode != null)
+                    writer.WriteStartElement(rootNode);
+
                 node.WriteTo(writer);
+
+                if (rootNode != null)
+                    writer.WriteEndElement();
+
                 writer.Flush();
                 return stream.ToArray();
             }

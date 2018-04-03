@@ -70,7 +70,13 @@ namespace Multiplayer.Common
             return connections;
         }
 
-        public void SendToAll(Enum id, byte[] data = null, params Connection[] except)
+        public int GetConnectionCount()
+        {
+            lock (connections)
+                return connections.Count;
+        }
+
+        public void SendToAll(Enum id, byte[] data, params Connection[] except)
         {
             lock (connections)
                 foreach (Connection conn in connections)
@@ -122,14 +128,6 @@ namespace Multiplayer.Common
     {
         private const int HEADER_LEN = sizeof(int) * 2;
         private const int MAX_PACKET_SIZE = 4 * 1024 * 1024;
-
-        public EndPoint RemoteEndPoint
-        {
-            get
-            {
-                return socket.Connected ? socket.RemoteEndPoint : null;
-            }
-        }
 
         public ConnectionState State
         {
@@ -270,7 +268,7 @@ namespace Multiplayer.Common
             socket.BeginSend(full, 0, full.Length, SocketFlags.None, result =>
             {
                 socket.EndSend(result);
-                onSent();
+                onSent?.Invoke();
             }, null);
         }
 
@@ -292,47 +290,44 @@ namespace Multiplayer.Common
                 return true;
             }
 
-            if (!statePacketHandlers.TryGetValue(State.GetType(), out Dictionary<int, List<PacketHandler>> packets))
+            if (!statePacketHandlers.TryGetValue(State.GetType(), out Dictionary<int, PacketHandler> packets))
             {
                 MpLog.Log("Unregistered network state!");
                 return false;
             }
 
-            if (!packets.TryGetValue(msgId, out List<PacketHandler> handlers))
+            if (!packets.TryGetValue(msgId, out PacketHandler handler))
             {
-                MpLog.Log("Packet has no handlers! (" + msgId + ")");
+                MpLog.Log("Packet has no handler! ({0})", msgId);
                 return true;
             }
 
-            try
+            ByteReader reader = new ByteReader(msg);
+            ConnectionState state = State;
+
+            Action action = () =>
             {
-                ByteReader reader = new ByteReader(msg);
-                foreach (PacketHandler handler in handlers)
+                if (state == null) return;
+
+                try
                 {
-                    Action action = () =>
-                    {
-                        ConnectionState state = State;
-                        if (state != null)
-                            handler.handler.Invoke(state, new object[] { reader });
-                    };
-
-                    if (handler.mainThread)
-                        onMainThread(action);
-                    else
-                        action();
-
-                    reader.Reset();
+                    handler.handler.Invoke(state, new object[] { reader });
                 }
-            }
-            catch (Exception e)
-            {
-                MpLog.LogLines("Exception while handling message " + msgId, e.Message, e.StackTrace);
-            }
+                catch (Exception e)
+                {
+                    onMainThread(() => MpLog.Log("Exception while handling message {0} by {1}\n{2}", msgId, handler.handler, e.ToString()));
+                }
+            };
+
+            if (handler.mainThread)
+                onMainThread(action);
+            else
+                action();
 
             return true;
         }
 
-        public static Dictionary<Type, Dictionary<int, List<PacketHandler>>> statePacketHandlers = new Dictionary<Type, Dictionary<int, List<PacketHandler>>>();
+        public static Dictionary<Type, Dictionary<int, PacketHandler>> statePacketHandlers = new Dictionary<Type, Dictionary<int, PacketHandler>>();
 
         public static void RegisterState(Type type)
         {
@@ -359,7 +354,7 @@ namespace Multiplayer.Common
 
                 bool mainThread = Attribute.GetCustomAttribute(method, typeof(HandleImmediatelyAttribute)) == null;
 
-                statePacketHandlers.AddOrGet(type, new Dictionary<int, List<PacketHandler>>()).AddOrGet((int)attr.packet, new List<PacketHandler>()).Add(new PacketHandler(method, mainThread));
+                statePacketHandlers.AddOrGet(type, new Dictionary<int, PacketHandler>())[(int)attr.packet] = new PacketHandler(method, mainThread);
             }
         }
 
@@ -420,12 +415,18 @@ namespace Multiplayer.Common
         public byte[] ReadPrefixedBytes()
         {
             int len = ReadInt();
+            if (len < 0)
+                throw new IOException("Byte array length less than 0");
+            HasSizeLeft(len);
             return array.SubArray(IncrementIndex(len), len);
         }
 
         public int[] ReadPrefixedInts()
         {
             int len = ReadInt();
+            if (len < 0)
+                throw new IOException("Int array length less than 0");
+            HasSizeLeft(len * 4);
             int[] result = new int[len];
             for (int i = 0; i < len; i++)
                 result[i] = ReadInt();
@@ -435,29 +436,31 @@ namespace Multiplayer.Common
         public string[] ReadPrefixedStrings()
         {
             int len = ReadInt();
+            if (len < 0)
+                throw new IOException("String array length less than 0");
             string[] result = new string[len];
             for (int i = 0; i < len; i++)
                 result[i] = ReadString();
             return result;
         }
 
-        public int IncrementIndex(int val)
+        private int IncrementIndex(int size)
         {
+            HasSizeLeft(size);
             int i = index;
-            index += val;
-            if (index > array.Length)
-                throw new IndexOutOfRangeException();
+            index += size;
             return i;
+        }
+
+        public void HasSizeLeft(int size)
+        {
+            if (index + size > array.Length)
+                throw new IndexOutOfRangeException();
         }
 
         public byte[] GetBytes()
         {
             return array;
-        }
-
-        public void Reset()
-        {
-            index = 0;
         }
     }
 

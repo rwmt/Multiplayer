@@ -9,8 +9,8 @@ namespace Multiplayer.Client
     public static class SimpleProfiler
     {
         // Inits (or clears) the profiler
-        [DllImport("simple_profiler.dll")]
-        private static extern void init_profiler();
+        [DllImport("simple_profiler.dll", CharSet = CharSet.Ansi)]
+        private static extern void init_profiler(string id);
 
         // Starts collecting profiler data
         [DllImport("simple_profiler.dll")]
@@ -34,10 +34,10 @@ namespace Multiplayer.Client
             available = GetModuleHandle("simple_profiler.dll").ToInt32() != 0;
         }
 
-        public static void Init()
+        public static void Init(string id)
         {
             if (!available) return;
-            init_profiler();
+            init_profiler(id);
         }
 
         public static void Start()
