@@ -51,38 +51,6 @@ namespace Multiplayer.Client
 
                     Multiplayer.localServer.DoAutosave();
                 }));
-
-                optList.Insert(0, new ListableOption("Reload", () =>
-                {
-                    LongEventHandler.QueueLongEvent(() =>
-                    {
-                        time = Stopwatch.StartNew();
-
-                        //Multiplayer.init_profiler();
-                        //Multiplayer.start_profiler();
-
-                        BetterSaver.doBetterSave = true;
-                        Prefs.PauseOnLoad = false;
-
-                        WorldGridCtorPatch.copyFrom = Find.WorldGrid;
-                        WorldRendererCtorPatch.copyFrom = Find.World.renderer;
-
-                        LoadPatch.gameToLoad = Multiplayer.SaveGame();
-
-                        MemoryUtility.ClearAllMapsAndWorld();
-
-                        Prefs.LogVerbose = true;
-                        SavedGameLoader.LoadGameFromSaveFile("server");
-                        Prefs.LogVerbose = false;
-
-                        BetterSaver.doBetterSave = false;
-
-                        //Multiplayer.pause_profiler();
-                        //Multiplayer.print_profiler("profiler_reload.txt");
-
-                        Log.Message("saved " + time.ElapsedMilliseconds);
-                    }, "Reloading", false, null);
-                }));
             }
 
             if (Multiplayer.client != null && Multiplayer.localServer == null)
@@ -222,8 +190,6 @@ namespace Multiplayer.Client
 
             LongEventHandler.ExecuteWhenFinished(() =>
             {
-                Log.Message("Client maps: " + Current.Game.Maps.Count());
-
                 if (!Current.Game.Maps.Any())
                 {
                     MemoryUtility.UnloadUnusedUnityAssets();
@@ -411,7 +377,7 @@ namespace Multiplayer.Client
             if (Multiplayer.client == null) return;
             Pawn pawn = (Pawn)pawnField.GetValue(__instance);
 
-            Log.Message(Find.TickManager.TicksGame + " " + Multiplayer.username + " start job " + pawn + " " + newJob);
+            //Log.Message(Find.TickManager.TicksGame + " " + Multiplayer.username + " start job " + pawn + " " + newJob);
 
             if (pawn.Faction == null || !pawn.Spawned) return;
 
@@ -434,7 +400,8 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.client == null) return;
             Pawn pawn = (Pawn)JobTrackerStart.pawnField.GetValue(__instance);
-            Log.Message(Find.TickManager.TicksGame + " " + Multiplayer.username + " end job " + pawn + " " + __instance.curJob + " " + condition);
+
+            //Log.Message(Find.TickManager.TicksGame + " " + Multiplayer.username + " end job " + pawn + " " + __instance.curJob + " " + condition);
 
             if (pawn.Faction == null || !pawn.Spawned) return;
 
@@ -554,19 +521,31 @@ namespace Multiplayer.Client
     [HarmonyPatch("GetNextID")]
     public static class UniqueIdsPatch
     {
-        public static IdBlock currentBlock;
+        private static IdBlock currentBlock;
+        public static IdBlock CurrentBlock
+        {
+            get => currentBlock;
+
+            set
+            {
+                if (value != null && currentBlock != null)
+                    MpLog.Log("Reassigning the current id block!");
+                currentBlock = value;
+            }
+        }
 
         static void Postfix(ref int __result)
         {
             if (Multiplayer.client == null) return;
 
-            if (currentBlock == null)
+            if (CurrentBlock == null)
             {
                 MpLog.Log("Tried to get a unique id without an id block set!");
                 return;
             }
 
-            __result = currentBlock.NextId();
+            // todo handle overflows
+            __result = CurrentBlock.NextId();
         }
     }
 

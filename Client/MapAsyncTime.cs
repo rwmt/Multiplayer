@@ -377,12 +377,12 @@ namespace Multiplayer.Client
             Current.Game.storyteller = storyteller;
             StorytellerTargetsPatch.target = map;
 
-            UniqueIdsPatch.currentBlock = map.GetComponent<MultiplayerMapComp>().mapIdBlock;
+            UniqueIdsPatch.CurrentBlock = map.GetComponent<MultiplayerMapComp>().mapIdBlock;
         }
 
         public void PostContext()
         {
-            UniqueIdsPatch.currentBlock = null;
+            UniqueIdsPatch.CurrentBlock = null;
 
             Current.Game.storyteller = globalStoryteller;
             StorytellerTargetsPatch.target = null;

@@ -42,7 +42,6 @@ namespace Multiplayer.Common
         public string worldId;
         public IPAddress addr;
         public int port;
-        public IdBlock globalBlock;
 
         public int highestUniqueId = -1;
 

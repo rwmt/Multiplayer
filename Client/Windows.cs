@@ -281,12 +281,14 @@ namespace Multiplayer.Client
                     MultiplayerServer.instance = Multiplayer.localServer;
 
                     Multiplayer.localServer.highestUniqueId = Find.UniqueIDsManager.GetNextThingID();
-                    Multiplayer.localServer.globalBlock = Multiplayer.localServer.NextIdBlock();
-                    Multiplayer.globalBlock = Multiplayer.localServer.globalBlock;
+                    Multiplayer.globalIdBlock = Multiplayer.localServer.NextIdBlock();
 
                     foreach (Settlement settlement in Find.WorldObjects.Settlements)
                         if (settlement.HasMap)
+                        {
                             Multiplayer.localServer.mapTiles[settlement.Tile] = settlement.Map.uniqueID;
+                            settlement.Map.GetComponent<MultiplayerMapComp>().mapIdBlock = Multiplayer.localServer.NextIdBlock();
+                        }
 
                     Thread thread = new Thread(Multiplayer.localServer.Run)
                     {
