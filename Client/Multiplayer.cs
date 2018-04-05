@@ -5,6 +5,7 @@ using RimWorld;
 using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -369,7 +370,7 @@ namespace Multiplayer.Client
 
         [PacketHandler(Packets.SERVER_WORLD_DATA)]
         [HandleImmediately]
-        public void HandleWorldData_ChangeState(ByteReader data)
+        public void HandleWorldData(ByteReader data)
         {
             Connection.State = new ClientPlayingState(Connection);
 
@@ -496,6 +497,7 @@ namespace Multiplayer.Client
         }
 
         private int mapCatchupStart;
+        private static MethodInfo ExecuteToExecuteWhenFinished = AccessTools.Method(typeof(LongEventHandler), "ExecuteToExecuteWhenFinished");
 
         [PacketHandler(Packets.SERVER_MAP_RESPONSE)]
         public void HandleMapResponse(ByteReader data)
@@ -510,6 +512,8 @@ namespace Multiplayer.Client
 
             LongEventHandler.QueueLongEvent(() =>
             {
+                Stopwatch time = Stopwatch.StartNew();
+
                 Multiplayer.loadingEncounter = true;
                 Current.ProgramState = ProgramState.MapInitializing;
                 Multiplayer.Seed = Find.TickManager.TicksGame;
@@ -534,6 +538,9 @@ namespace Multiplayer.Client
                 Find.World.renderer.wantedMode = WorldRenderMode.None;
                 Current.Game.VisibleMap = map;
 
+                // RegenerateEverythingNow
+                ExecuteToExecuteWhenFinished.Invoke(null, new object[0]);
+
                 MapAsyncTimeComp asyncTime = map.GetComponent<MapAsyncTimeComp>();
 
                 foreach (byte[] cmd in cmds)
@@ -542,12 +549,19 @@ namespace Multiplayer.Client
                 Faction ownerFaction = map.info.parent.Faction;
 
                 mapCatchupStart = TickPatch.Timer;
+
+                Log.Message("Loading took " + time.ElapsedMilliseconds);
+                time = Stopwatch.StartNew();
+
                 Log.Message("Map catchup start " + mapCatchupStart + " " + TickPatch.tickUntil + " " + Find.TickManager.TicksGame + " " + Find.TickManager.CurTimeSpeed);
 
                 map.PushFaction(ownerFaction);
 
                 while (asyncTime.Timer < TickPatch.tickUntil)
                 {
+                    // Handle TIME_CONTROL and schedule new commands
+                    OnMainThread.queue.RunQueue();
+
                     if (asyncTime.TickRateMultiplier > 0)
                     {
                         asyncTime.Tick();
@@ -564,6 +578,8 @@ namespace Multiplayer.Client
 
                 map.PopFaction();
                 map.GetComponent<MultiplayerMapComp>().SetFaction(Faction.OfPlayer);
+
+                Log.Message("Catchup took " + time.ElapsedMilliseconds);
 
                 Multiplayer.client.Send(Packets.CLIENT_MAP_LOADED);
             }, "Loading the map", false, null);
@@ -609,21 +625,14 @@ namespace Multiplayer.Client
 
     public class OnMainThread : MonoBehaviour
     {
-        private static ActionQueue queue = new ActionQueue();
+        public static ActionQueue queue = new ActionQueue();
         public static readonly Queue<ScheduledCommand> scheduledCmds = new Queue<ScheduledCommand>();
 
         private static readonly FieldInfo zoneShuffled = typeof(Zone).GetField("cellsShuffled", BindingFlags.NonPublic | BindingFlags.Instance);
 
         public void Update()
         {
-            try
-            {
-                queue.RunQueue();
-            }
-            catch (Exception e)
-            {
-                MpLog.LogLines("Exception while executing client action queue", e.ToString());
-            }
+            queue.RunQueue();
 
             if (Multiplayer.client == null) return;
 

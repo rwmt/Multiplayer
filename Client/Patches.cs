@@ -544,8 +544,13 @@ namespace Multiplayer.Client
                 return;
             }
 
-            // todo handle overflows
             __result = CurrentBlock.NextId();
+
+            if (currentBlock.current > currentBlock.blockSize * 0.95f && !currentBlock.overflowHandled)
+            {
+                Multiplayer.client.Send(Packets.CLIENT_ID_BLOCK_REQUEST, CurrentBlock.mapId);
+                currentBlock.overflowHandled = true;
+            }
         }
     }
 

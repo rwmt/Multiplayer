@@ -69,14 +69,7 @@ namespace Multiplayer.Common
         {
             while (true)
             {
-                try
-                {
-                    queue.RunQueue();
-                }
-                catch (Exception e)
-                {
-                    MpLog.LogLines("Exception while executing the server action queue:", e.ToString());
-                }
+                queue.RunQueue();
 
                 server.SendToAll(Packets.SERVER_TIME_CONTROL, new object[] { timer + SCHEDULED_CMD_DELAY });
 
@@ -144,7 +137,8 @@ namespace Multiplayer.Common
         public int blockSize;
         public int mapId = -1; // -1 means global
 
-        private int current;
+        public int current;
+        public bool overflowHandled;
 
         public IdBlock(int blockStart, int blockSize, int mapId = -1)
         {
@@ -190,8 +184,15 @@ namespace Multiplayer.Common
                 }
             }
 
-            while (tempQueue.Count > 0)
-                tempQueue.Dequeue().Invoke();
+            try
+            {
+                while (tempQueue.Count > 0)
+                    tempQueue.Dequeue().Invoke();
+            }
+            catch (Exception e)
+            {
+                MpLog.LogLines("Exception while executing action queue", e.ToString());
+            }
         }
 
         public void Enqueue(Action action)

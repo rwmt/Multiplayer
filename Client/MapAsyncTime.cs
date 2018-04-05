@@ -327,7 +327,7 @@ namespace Multiplayer.Client
 
             float tickRate = TickRateMultiplier;
 
-            //SimpleProfiler.Init();
+            //SimpleProfiler.Start();
 
             map.MapPreTick();
             mapTicks++;
@@ -342,7 +342,6 @@ namespace Multiplayer.Client
             map.MapPostTick();
 
             //SimpleProfiler.Pause();
-
             //if (mapTicks % 200 == 0)
             //    SimpleProfiler.Print("profiler_" + Multiplayer.username + "_tick.txt");
 
