@@ -354,8 +354,8 @@ namespace Multiplayer.Common
 
             byte[] mapData = MultiplayerServer.instance.mapData[mapId];
             byte[][] mapCmds = MultiplayerServer.instance.mapCmds.AddOrGet(mapId, new List<byte[]>()).ToArray();
-            byte[] packetData = NetworkServer.GetBytes(mapCmds, mapData);
 
+            byte[] packetData = NetworkServer.GetBytes(mapId, mapCmds, mapData);
             Connection.Send(Packets.SERVER_MAP_RESPONSE, packetData);
         }
 

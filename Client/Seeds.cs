@@ -12,36 +12,6 @@ using Verse.AI;
 
 namespace Multiplayer.Client
 {
-    [HarmonyPatch(typeof(Map))]
-    [HarmonyPatch(nameof(Map.MapPreTick))]
-    public static class SeedMapPreTick
-    {
-        public static MethodInfo skyTargetMethod = typeof(SkyManager).GetMethod("CurrentSkyTarget", BindingFlags.NonPublic | BindingFlags.Instance);
-        static FieldInfo curSkyGlowField = typeof(SkyManager).GetField("curSkyGlowInt", BindingFlags.NonPublic | BindingFlags.Instance);
-
-        static void Prefix(Map __instance)
-        {
-            if (Multiplayer.client == null) return;
-
-            Multiplayer.Seed = __instance.uniqueID.Combine(Find.TickManager.TicksGame).Combine(Multiplayer.WorldComp.sessionId);
-
-            // Reset the effects of SkyManagerUpdate called during Update
-            SkyTarget target = (SkyTarget)skyTargetMethod.Invoke(__instance.skyManager, new object[0]);
-            curSkyGlowField.SetValue(__instance.skyManager, target.glow);
-        }
-    }
-
-    [HarmonyPatch(typeof(Map))]
-    [HarmonyPatch(nameof(Map.MapPostTick))]
-    public static class SeedMapPostTick
-    {
-        static void Prefix(Map __instance)
-        {
-            if (Multiplayer.client == null) return;
-            Multiplayer.Seed = __instance.uniqueID.Combine(Find.TickManager.TicksGame).Combine(Multiplayer.WorldComp.sessionId).Combine(130531);
-        }
-    }
-
     [HarmonyPatch(typeof(World))]
     [HarmonyPatch(nameof(World.WorldTick))]
     public static class SeedWorldTick
@@ -64,18 +34,31 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(Pawn_JobTracker))]
-    [HarmonyPatch(nameof(Pawn_JobTracker.JobTrackerTick))]
-    public static class SeedJobTrackerTick
+    [HarmonyPatch(typeof(Map))]
+    [HarmonyPatch(nameof(Map.FinalizeLoading))]
+    public static class SeedMapFinalizeLoading
     {
-        static void Prefix()
+        static void Prefix(Map __instance)
         {
             if (Multiplayer.client == null) return;
-            Multiplayer.Seed = ThingContext.CurrentPawn.thingIDNumber.Combine(Find.TickManager.TicksGame).Combine(Multiplayer.WorldComp.sessionId).Combine(2141);
+            Multiplayer.Seed = __instance.uniqueID.Combine(Multiplayer.WorldComp.sessionId);
         }
     }
 
-    public static class PatchThingTick
+    [HarmonyPatch(typeof(Map))]
+    [HarmonyPatch("ExposeComponents")]
+    public static class SeedMapLoading
+    {
+        static void Prefix(Map __instance)
+        {
+            if (Multiplayer.client == null) return;
+            if (Scribe.mode != LoadSaveMode.LoadingVars && Scribe.mode != LoadSaveMode.PostLoadInit) return;
+
+            Multiplayer.Seed = __instance.uniqueID.Combine(Multiplayer.WorldComp.sessionId);
+        }
+    }
+
+    public static class PatchThingMethods
     {
         public static void Prefix(Thing __instance, ref Container<Map> __state)
         {

@@ -194,8 +194,8 @@ namespace Multiplayer.Client
             foreach (MethodBase m in effectMethods.Concat(moteMethods))
                 harmony.Patch(m, randPatchPrefix, randPatchPostfix);
 
-            var thingTickPrefix = new HarmonyMethod(typeof(PatchThingTick).GetMethod("Prefix"));
-            var thingTickPostfix = new HarmonyMethod(typeof(PatchThingTick).GetMethod("Postfix"));
+            var thingTickPrefix = new HarmonyMethod(typeof(PatchThingMethods).GetMethod("Prefix"));
+            var thingTickPostfix = new HarmonyMethod(typeof(PatchThingMethods).GetMethod("Postfix"));
             var thingMethods = new[] { "Tick", "TickRare", "TickLong", "SpawnSetup" };
 
             foreach (Type t in typeof(Thing).AllSubtypesAndSelf())
@@ -502,6 +502,7 @@ namespace Multiplayer.Client
         [PacketHandler(Packets.SERVER_MAP_RESPONSE)]
         public void HandleMapResponse(ByteReader data)
         {
+            int mapId = data.ReadInt();
             int cmdsLen = data.ReadInt();
             byte[][] cmds = new byte[cmdsLen][];
             for (int i = 0; i < cmdsLen; i++)
@@ -516,7 +517,6 @@ namespace Multiplayer.Client
 
                 Multiplayer.loadingEncounter = true;
                 Current.ProgramState = ProgramState.MapInitializing;
-                Multiplayer.Seed = Find.TickManager.TicksGame;
                 BetterSaver.doBetterSave = true;
 
                 ScribeUtil.StartLoading(mapData);
@@ -525,7 +525,7 @@ namespace Multiplayer.Client
                 Scribe_Collections.Look(ref maps, "maps", LookMode.Deep);
                 ScribeUtil.FinishLoading();
 
-                MpLog.Log("maps " + maps.Count);
+                MpLog.Log("Maps " + maps.Count);
                 Map map = maps[0];
 
                 Current.Game.AddMap(map);
@@ -1382,7 +1382,7 @@ namespace Multiplayer.Client
 
         public static Faction Push(Faction faction)
         {
-            if (faction == null || faction.def != Multiplayer.factionDef)
+            if (faction == null || (faction.def != Multiplayer.factionDef && faction.def != FactionDefOf.PlayerColony))
             {
                 // so we can pop it later
                 stack.Push(null);

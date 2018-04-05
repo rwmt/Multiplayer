@@ -6,7 +6,6 @@ using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
 using Verse;
-using Verse.Sound;
 
 namespace Multiplayer.Client
 {
@@ -314,6 +313,9 @@ namespace Multiplayer.Client
         public TickList tickListRare = new TickList(TickerType.Rare);
         public TickList tickListLong = new TickList(TickerType.Long);
 
+        static MethodInfo skyTargetMethod = typeof(SkyManager).GetMethod("CurrentSkyTarget", BindingFlags.NonPublic | BindingFlags.Instance);
+        static FieldInfo curSkyGlowField = typeof(SkyManager).GetField("curSkyGlowInt", BindingFlags.NonPublic | BindingFlags.Instance);
+
         public MapAsyncTimeComp(Map map) : base(map)
         {
             storyteller = new Storyteller(StorytellerDefOf.Cassandra, DifficultyDefOf.Medium);
@@ -327,7 +329,7 @@ namespace Multiplayer.Client
 
             float tickRate = TickRateMultiplier;
 
-            //SimpleProfiler.Start();
+            SimpleProfiler.Start();
 
             map.MapPreTick();
             mapTicks++;
@@ -337,13 +339,18 @@ namespace Multiplayer.Client
             tickListRare.Tick();
             tickListLong.Tick();
 
+            map.PushFaction(map.ParentFaction);
             storyteller.StorytellerTick();
+            map.PopFaction();
 
             map.MapPostTick();
 
-            //SimpleProfiler.Pause();
-            //if (mapTicks % 200 == 0)
-            //    SimpleProfiler.Print("profiler_" + Multiplayer.username + "_tick.txt");
+            SimpleProfiler.Pause();
+            if (mapTicks % 200 == 0)
+            {
+                SimpleProfiler.Print("profiler_" + Multiplayer.username + "_tick.txt");
+                SimpleProfiler.Init(Multiplayer.username);
+            }
 
             while (scheduledCmds.Count > 0 && scheduledCmds.Peek().ticks == Timer)
             {
@@ -352,8 +359,6 @@ namespace Multiplayer.Client
             }
 
             PostContext();
-
-            ExecuteMapCmdsWhilePaused();
 
             if (tickRate >= 1)
                 timerInt += 1f / tickRate;
@@ -377,6 +382,12 @@ namespace Multiplayer.Client
             StorytellerTargetsPatch.target = map;
 
             UniqueIdsPatch.CurrentBlock = map.GetComponent<MultiplayerMapComp>().mapIdBlock;
+
+            Multiplayer.Seed = map.uniqueID.Combine(mapTicks).Combine(Multiplayer.WorldComp.sessionId);
+
+            // Reset the effects of SkyManagerUpdate called during Update
+            SkyTarget target = (SkyTarget)skyTargetMethod.Invoke(map.skyManager, new object[0]);
+            curSkyGlowField.SetValue(map.skyManager, target.glow);
         }
 
         public void PostContext()

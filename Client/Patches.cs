@@ -1,11 +1,9 @@
 ﻿using Harmony;
 using RimWorld;
 using RimWorld.Planet;
-using Multiplayer;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Xml;
@@ -1034,6 +1032,33 @@ namespace Multiplayer.Client
                 ThingContext.Pop();
                 PawnExposeDataPrefix.state = null;
             }
+        }
+    }
+
+    [HarmonyPatch(typeof(Pawn_NeedsTracker))]
+    [HarmonyPatch(nameof(Pawn_NeedsTracker.AddOrRemoveNeedsAsAppropriate))]
+    public static class AddRemoveNeeds
+    {
+        static void Prefix()
+        {
+            MpLog.Log("add remove needs {0}", FactionContext.OfPlayer.ToString());
+        }
+    }
+
+    [HarmonyPatch(typeof(PawnTweener))]
+    [HarmonyPatch(nameof(PawnTweener.PreDrawPosCalculation))]
+    public static class DrawPosPatch
+    {
+        static void Prefix()
+        {
+            if (MapAsyncTimeComp.tickingMap)
+                SimpleProfiler.Pause();
+        }
+
+        static void Postfix()
+        {
+            if (MapAsyncTimeComp.tickingMap)
+                SimpleProfiler.Start();
         }
     }
 
