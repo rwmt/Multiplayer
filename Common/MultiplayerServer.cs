@@ -156,7 +156,7 @@ namespace Multiplayer.Common
 
         public byte[] Serialize()
         {
-            return NetworkServer.GetBytes(blockSize, blockSize, mapId, current);
+            return NetworkServer.GetBytes(blockStart, blockSize, mapId, current);
         }
 
         public static IdBlock Deserialize(ByteReader data)
@@ -373,6 +373,12 @@ namespace Multiplayer.Common
             {
                 // todo
             }
+        }
+
+        [PacketHandler(Packets.CLIENT_MAP_LOADED)]
+        public void HandleMapLoaded(ByteReader data)
+        {
+            // todo
         }
 
         public void OnMessage(Packets packet, ByteReader data)

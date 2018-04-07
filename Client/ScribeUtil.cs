@@ -1,12 +1,11 @@
 ﻿using Harmony;
+using Multiplayer.Common;
 using RimWorld;
-using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Text;
 using System.Xml;
 using Verse;
 
@@ -278,6 +277,7 @@ namespace Multiplayer.Client
                             keysWorkingList.Clear();
                             keysWorkingList = null;
                         }
+
                         if (valuesWorkingList != null)
                         {
                             valuesWorkingList.Clear();

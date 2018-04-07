@@ -58,9 +58,6 @@ namespace Multiplayer.Client
         static void Postfix(Faction faction)
         {
             ScribeUtil.crossRefs.RegisterLoaded(faction);
-
-            foreach (Map map in Find.Maps)
-                map.pawnDestinationReservationManager.RegisterFaction(faction);
         }
     }
 

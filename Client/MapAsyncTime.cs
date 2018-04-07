@@ -3,6 +3,7 @@ using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
 using System.Collections.Generic;
+using System.IO;
 using System.Reflection;
 using UnityEngine;
 using Verse;
@@ -345,13 +346,6 @@ namespace Multiplayer.Client
 
             map.MapPostTick();
 
-            SimpleProfiler.Pause();
-            if (mapTicks % 200 == 0)
-            {
-                SimpleProfiler.Print("profiler_" + Multiplayer.username + "_tick.txt");
-                SimpleProfiler.Init(Multiplayer.username);
-            }
-
             while (scheduledCmds.Count > 0 && scheduledCmds.Peek().ticks == Timer)
             {
                 ScheduledCommand cmd = scheduledCmds.Dequeue();
@@ -359,6 +353,18 @@ namespace Multiplayer.Client
             }
 
             PostContext();
+
+            SimpleProfiler.Pause();
+            if (mapTicks % 300 == 0)
+            {
+                SimpleProfiler.Print("profiler_" + Multiplayer.username + "_tick.txt");
+                SimpleProfiler.Init(Multiplayer.username);
+
+                map.GetComponent<MultiplayerMapComp>().SetFaction(map.ParentFaction);
+                byte[] mapData = ScribeUtil.WriteExposable(map, "map", true);
+                File.WriteAllBytes("map_0_" + Multiplayer.username + ".xml", mapData);
+                map.GetComponent<MultiplayerMapComp>().SetFaction(Multiplayer.RealPlayerFaction);
+            }
 
             if (tickRate >= 1)
                 timerInt += 1f / tickRate;

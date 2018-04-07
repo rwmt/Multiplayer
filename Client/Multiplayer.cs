@@ -169,65 +169,80 @@ namespace Multiplayer.Client
             var harmony = HarmonyInstance.Create("multiplayer");
             harmony.PatchAll(Assembly.GetExecutingAssembly());
 
-            var designatorMethods = new[] { "DesignateSingleCell", "DesignateMultiCell", "DesignateThing" };
-
-            foreach (Type t in typeof(Designator).AllSubtypesAndSelf())
+            // General designation handling
             {
-                foreach (string m in designatorMethods)
+                var designatorMethods = new[] { "DesignateSingleCell", "DesignateMultiCell", "DesignateThing" };
+
+                foreach (Type t in typeof(Designator).AllSubtypesAndSelf())
                 {
-                    MethodInfo method = t.GetMethod(m, BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly);
-                    if (method != null)
+                    foreach (string m in designatorMethods)
+                    {
+                        MethodInfo method = t.GetMethod(m, BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly);
+                        if (method == null) continue;
                         harmony.Patch(method, null, null, new HarmonyMethod(typeof(DesignatorPatches).GetMethod(m + "_Transpiler")));
+                    }
                 }
             }
 
-            var randPatchPrefix = new HarmonyMethod(typeof(RandPatches).GetMethod("Prefix"));
-            var randPatchPostfix = new HarmonyMethod(typeof(RandPatches).GetMethod("Postfix"));
-
-            var subSustainerCtor = typeof(SubSustainer).GetConstructor(new Type[] { typeof(Sustainer), typeof(SubSoundDef) });
-            var subSoundPlay = typeof(SubSoundDef).GetMethod("TryPlay");
-            var effecterTick = typeof(Effecter).GetMethod("EffectTick");
-            var effecterTrigger = typeof(Effecter).GetMethod("Trigger");
-            var effectMethods = new MethodBase[] { subSustainerCtor, subSoundPlay, effecterTick, effecterTrigger };
-            var moteMethods = typeof(MoteMaker).GetMethods(BindingFlags.Static | BindingFlags.Public);
-
-            foreach (MethodBase m in effectMethods.Concat(moteMethods))
-                harmony.Patch(m, randPatchPrefix, randPatchPostfix);
-
-            var thingTickPrefix = new HarmonyMethod(typeof(PatchThingMethods).GetMethod("Prefix"));
-            var thingTickPostfix = new HarmonyMethod(typeof(PatchThingMethods).GetMethod("Postfix"));
-            var thingMethods = new[] { "Tick", "TickRare", "TickLong", "SpawnSetup" };
-
-            foreach (Type t in typeof(Thing).AllSubtypesAndSelf())
+            // Remove side effects from methods which are non-deterministic during ticking (e.g. camera dependent motes and sound effects)
             {
-                foreach (string m in thingMethods)
+                var randPatchPrefix = new HarmonyMethod(typeof(RandPatches).GetMethod("Prefix"));
+                var randPatchPostfix = new HarmonyMethod(typeof(RandPatches).GetMethod("Postfix"));
+
+                var subSustainerCtor = typeof(SubSustainer).GetConstructor(new Type[] { typeof(Sustainer), typeof(SubSoundDef) });
+                var subSoundPlay = typeof(SubSoundDef).GetMethod("TryPlay");
+                var effecterTick = typeof(Effecter).GetMethod("EffectTick");
+                var effecterTrigger = typeof(Effecter).GetMethod("Trigger");
+                var effectMethods = new MethodBase[] { subSustainerCtor, subSoundPlay, effecterTick, effecterTrigger };
+                var moteMethods = typeof(MoteMaker).GetMethods(BindingFlags.Static | BindingFlags.Public);
+
+                foreach (MethodBase m in effectMethods.Concat(moteMethods))
+                    harmony.Patch(m, randPatchPrefix, randPatchPostfix);
+            }
+
+            // Set Rand.Seed, ThingContext and FactionContext (for pawns) in common Thing methods
+            {
+                var thingMethodPrefix = new HarmonyMethod(typeof(PatchThingMethods).GetMethod("Prefix"));
+                var thingMethodPostfix = new HarmonyMethod(typeof(PatchThingMethods).GetMethod("Postfix"));
+                var thingMethods = new[] { "Tick", "TickRare", "TickLong", "SpawnSetup" };
+
+                foreach (Type t in typeof(Thing).AllSubtypesAndSelf())
                 {
-                    MethodInfo method = t.GetMethod(m, BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly);
-                    if (method != null)
-                        harmony.Patch(method, thingTickPrefix, thingTickPostfix);
+                    foreach (string m in thingMethods)
+                    {
+                        MethodInfo method = t.GetMethod(m, BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly);
+                        if (method != null)
+                            harmony.Patch(method, thingMethodPrefix, thingMethodPostfix);
+                    }
                 }
             }
 
-            var doubleSavePrefix = new HarmonyMethod(typeof(ValueSavePatch).GetMethod(nameof(ValueSavePatch.DoubleSave_Prefix)));
-            var floatSavePrefix = new HarmonyMethod(typeof(ValueSavePatch).GetMethod(nameof(ValueSavePatch.FloatSave_Prefix)));
-            var valueSaveMethod = typeof(Scribe_Values).GetMethod(nameof(Scribe_Values.Look));
+            // Full precision floating point saving (not really needed?)
+            {
+                var doubleSavePrefix = new HarmonyMethod(typeof(ValueSavePatch).GetMethod(nameof(ValueSavePatch.DoubleSave_Prefix)));
+                var floatSavePrefix = new HarmonyMethod(typeof(ValueSavePatch).GetMethod(nameof(ValueSavePatch.FloatSave_Prefix)));
+                var valueSaveMethod = typeof(Scribe_Values).GetMethod(nameof(Scribe_Values.Look));
 
-            harmony.Patch(valueSaveMethod.MakeGenericMethod(typeof(double)), doubleSavePrefix, null);
-            harmony.Patch(valueSaveMethod.MakeGenericMethod(typeof(float)), floatSavePrefix, null);
+                harmony.Patch(valueSaveMethod.MakeGenericMethod(typeof(double)), doubleSavePrefix, null);
+                harmony.Patch(valueSaveMethod.MakeGenericMethod(typeof(float)), floatSavePrefix, null);
+            }
 
-            var setMapTimePrefix = new HarmonyMethod(AccessTools.Method(typeof(SetMapTime), "Prefix"));
-            var setMapTimePostfix = new HarmonyMethod(AccessTools.Method(typeof(SetMapTime), "Postfix"));
-            var setMapTime = new[] { "MapInterfaceOnGUI_BeforeMainTabs", "MapInterfaceOnGUI_AfterMainTabs", "HandleMapClicks", "HandleLowPriorityInput", "MapInterfaceUpdate" };
+            // Set the map time for GUI methods depending on it
+            {
+                var setMapTimePrefix = new HarmonyMethod(AccessTools.Method(typeof(SetMapTime), "Prefix"));
+                var setMapTimePostfix = new HarmonyMethod(AccessTools.Method(typeof(SetMapTime), "Postfix"));
+                var setMapTime = new[] { "MapInterfaceOnGUI_BeforeMainTabs", "MapInterfaceOnGUI_AfterMainTabs", "HandleMapClicks", "HandleLowPriorityInput", "MapInterfaceUpdate" };
 
-            foreach (string m in setMapTime)
-                harmony.Patch(AccessTools.Method(typeof(MapInterface), m), setMapTimePrefix, setMapTimePostfix);
-            harmony.Patch(AccessTools.Method(typeof(SoundRoot), "Update"), setMapTimePrefix, setMapTimePostfix);
+                foreach (string m in setMapTime)
+                    harmony.Patch(AccessTools.Method(typeof(MapInterface), m), setMapTimePrefix, setMapTimePostfix);
+                harmony.Patch(AccessTools.Method(typeof(SoundRoot), "Update"), setMapTimePrefix, setMapTimePostfix);
 
-            var worldGridCtor = AccessTools.Constructor(typeof(WorldGrid));
-            harmony.Patch(worldGridCtor, new HarmonyMethod(AccessTools.Method(typeof(WorldGridCtorPatch), "Prefix")), null);
+                var worldGridCtor = AccessTools.Constructor(typeof(WorldGrid));
+                harmony.Patch(worldGridCtor, new HarmonyMethod(AccessTools.Method(typeof(WorldGridCtorPatch), "Prefix")), null);
 
-            var worldRendererCtor = AccessTools.Constructor(typeof(WorldRenderer));
-            harmony.Patch(worldRendererCtor, new HarmonyMethod(AccessTools.Method(typeof(WorldRendererCtorPatch), "Prefix")), null);
+                var worldRendererCtor = AccessTools.Constructor(typeof(WorldRenderer));
+                harmony.Patch(worldRendererCtor, new HarmonyMethod(AccessTools.Method(typeof(WorldRendererCtorPatch), "Prefix")), null);
+            }
         }
 
         public static IEnumerable<CodeInstruction> PrefixTranspiler(MethodBase method, ILGenerator gen, IEnumerable<CodeInstruction> inputCode, MethodBase prefix)
@@ -810,27 +825,15 @@ namespace Multiplayer.Client
             {
                 FactionMapData factionMapData = new FactionMapData(map);
                 comp.factionMapData[faction.GetUniqueLoadID()] = factionMapData;
-                factionMapData.Initialize();
+
+                AreaAddPatch.ignore = true;
+                factionMapData.areaManager.AddStartingAreas();
+                AreaAddPatch.ignore = false;
+
+                map.pawnDestinationReservationManager.RegisterFaction(faction);
 
                 MpLog.Log("New map faction data for {0}", faction.GetUniqueLoadID());
             }
-
-            // todo handle forbidden thing settings
-
-            /*
-            foreach (Thing t in map.listerThings.AllThings)
-            {
-                if (!(t is ThingWithComps thing)) continue;
-
-                CompForbiddable forbiddable = thing.GetComp<CompForbiddable>();
-                if (forbiddable == null) continue;
-
-                bool ownerValue = forbiddable.Forbidden;
-
-                t.SetForbidden(true, false);
-
-                thing.GetComp<MultiplayerThingComp>().factionForbidden[ownerFactionId] = ownerValue;
-            }*/
         }
 
         public static void ExecuteGlobalServerCmd(ScheduledCommand cmd, ByteReader data)
@@ -1235,13 +1238,6 @@ namespace Multiplayer.Client
             this.resourceCounter = resourceCounter;
         }
 
-        public void Initialize()
-        {
-            AreaAddPatch.ignore = true;
-            areaManager.AddStartingAreas();
-            AreaAddPatch.ignore = false;
-        }
-
         public void ExposeData()
         {
             Scribe_Deep.Look(ref designationManager, "designationManager", map);
@@ -1349,21 +1345,23 @@ namespace Multiplayer.Client
 
             Multiplayer.ExposeIdBlock(ref mapIdBlock, "mapIdBlock");
 
-            ref Dictionary<string, FactionMapData> data = ref factionMapData;
-
             if (Scribe.mode == LoadSaveMode.Saving)
             {
                 string parentFaction = map.ParentFaction.GetUniqueLoadID();
                 if (map.areaManager != factionMapData[parentFaction].areaManager)
                     MpLog.Log("Current map faction data is not parent's faction data during map saving. This might cause problems.");
 
-                data = new Dictionary<string, FactionMapData>(factionMapData);
-                data.Remove(map.ParentFaction.GetUniqueLoadID());
+                Dictionary<string, FactionMapData> data = new Dictionary<string, FactionMapData>(factionMapData);
+                data.Remove(parentFaction);
+                ScribeUtil.Look(ref data, "factionMapData", LookMode.Deep, ref keyWorkingList, ref valueWorkingList, map);
+            }
+            else
+            {
+                ScribeUtil.Look(ref factionMapData, "factionMapData", LookMode.Deep, ref keyWorkingList, ref valueWorkingList, map);
             }
 
-            ScribeUtil.Look(ref data, "factionMapData", LookMode.Deep, ref keyWorkingList, ref valueWorkingList, map);
-            if (Scribe.mode == LoadSaveMode.LoadingVars && data == null)
-                data = new Dictionary<string, FactionMapData>();
+            if (Scribe.mode == LoadSaveMode.LoadingVars && factionMapData == null)
+                factionMapData = new Dictionary<string, FactionMapData>();
 
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
@@ -1409,42 +1407,6 @@ namespace Multiplayer.Client
         }
 
         public static Faction OfPlayer => Find.FactionManager.AllFactions.FirstOrDefault(f => f.IsPlayer);
-    }
-
-    public class MultiplayerThingComp : ThingComp
-    {
-        private bool homeThisTick;
-        private string zoneName;
-
-        public Dictionary<string, bool> factionForbidden = new Dictionary<string, bool>();
-
-        public override string CompInspectStringExtra()
-        {
-            if (!parent.Spawned) return null;
-
-            MultiplayerMapComp comp = parent.Map.GetComponent<MultiplayerMapComp>();
-
-            string forbidden = "";
-            foreach (KeyValuePair<string, bool> p in factionForbidden)
-            {
-                forbidden += p.Key + ":" + p.Value + ";";
-            }
-
-            return (
-                "At home: " + homeThisTick + "\n" +
-                "Zone name: " + zoneName + "\n" +
-                "Forbidden: " + forbidden
-                ).Trim();
-        }
-
-        public override void CompTick()
-        {
-            if (!parent.Spawned) return;
-
-            homeThisTick = parent.Map.areaManager.Home[parent.Position];
-            zoneName = parent.Map.zoneManager.ZoneAt(parent.Position)?.label;
-        }
-
     }
 
 }

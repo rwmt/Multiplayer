@@ -1,14 +1,7 @@
 ﻿using Harmony;
 using Multiplayer.Common;
-using RimWorld;
 using RimWorld.Planet;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using System.Text;
 using Verse;
-using Verse.AI;
 
 namespace Multiplayer.Client
 {
@@ -64,9 +57,9 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.client == null) return;
 
+            __state = __instance.Map;
             Multiplayer.Seed = __instance.thingIDNumber.Combine(Find.TickManager.TicksGame).Combine(Multiplayer.WorldComp.sessionId);
             ThingContext.Push(__instance);
-            __state = __instance.Map;
 
             if (__instance is Pawn)
                 __instance.Map.PushFaction(__instance.Faction);

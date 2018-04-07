@@ -522,7 +522,10 @@ namespace Multiplayer.Client
         private static IdBlock currentBlock;
         public static IdBlock CurrentBlock
         {
-            get => currentBlock;
+            get
+            {
+                return currentBlock;
+            }
 
             set
             {
@@ -596,33 +599,6 @@ namespace Multiplayer.Client
         {
             if (__state != null)
                 __state.PopFaction();
-        }
-    }
-
-    [HarmonyPatch(typeof(ThingWithComps))]
-    [HarmonyPatch(nameof(ThingWithComps.InitializeComps))]
-    public static class InitCompsPatch
-    {
-        private static FieldInfo compsField = typeof(ThingWithComps).GetField("comps", BindingFlags.NonPublic | BindingFlags.Instance);
-
-        static void Postfix(ThingWithComps __instance)
-        {
-            if (compsField.GetValue(__instance) == null)
-                compsField.SetValue(__instance, new List<ThingComp>());
-
-            MultiplayerThingComp comp = new MultiplayerThingComp() { parent = __instance };
-            __instance.AllComps.Add(comp);
-            comp.Initialize(null);
-        }
-    }
-
-    [HarmonyPatch(typeof(Plant))]
-    [HarmonyPatch(nameof(Plant.GetInspectString))]
-    public static class PlantInspect
-    {
-        static void Postfix(Plant __instance, ref string __result)
-        {
-            __result += __instance.GetComp<MultiplayerThingComp>().CompInspectStringExtra();
         }
     }
 
@@ -765,85 +741,6 @@ namespace Multiplayer.Client
             }
 
             return true;
-        }
-    }
-
-    [HarmonyPatch(typeof(CompForbiddable))]
-    [HarmonyPatch(nameof(CompForbiddable.PostSplitOff))]
-    public static class ForbiddableSplitPatch
-    {
-        static bool Prefix(CompForbiddable __instance, Thing piece)
-        {
-            if (Multiplayer.client == null) return true;
-            piece.SetForbidden(__instance.parent.IsForbidden(Faction.OfPlayer));
-            return false;
-        }
-    }
-
-    [HarmonyPatch(typeof(ForbidUtility))]
-    [HarmonyPatch(nameof(ForbidUtility.IsForbidden))]
-    [HarmonyPatch(new Type[] { typeof(Thing), typeof(Faction) })]
-    public static class IsForbiddenPatch
-    {
-        static void Postfix(Thing t, ref bool __result)
-        {
-            if (Multiplayer.client == null || Current.ProgramState != ProgramState.Playing) return;
-
-            ThingWithComps thing = t as ThingWithComps;
-            if (thing == null) return;
-
-            MultiplayerThingComp comp = thing.GetComp<MultiplayerThingComp>();
-            CompForbiddable forbiddable = thing.GetComp<CompForbiddable>();
-            if (comp == null || forbiddable == null) return;
-
-            string factionId = Faction.OfPlayer.GetUniqueLoadID();
-            if (comp.factionForbidden.TryGetValue(factionId, out bool forbidden))
-                __result = forbidden;
-            else if (!t.Spawned)
-                __result = false;
-            else if (factionId == t.Map.ParentFaction.GetUniqueLoadID())
-                __result = forbiddable.Forbidden;
-            else
-                __result = true;
-        }
-    }
-
-    [HarmonyPatch(typeof(CompForbiddable))]
-    [HarmonyPatch(nameof(CompForbiddable.Forbidden), PropertyMethod.Setter)]
-    public static class ForbidSetPatch
-    {
-        private static FieldInfo forbiddenField = typeof(CompForbiddable).GetField("forbiddenInt", BindingFlags.NonPublic | BindingFlags.Instance);
-
-        static bool Prefix(CompForbiddable __instance, bool value)
-        {
-            if (Multiplayer.client == null) return true;
-
-            ThingWithComps thing = __instance.parent;
-            MultiplayerThingComp comp = thing.GetComp<MultiplayerThingComp>();
-
-            string factionId = Faction.OfPlayer.GetUniqueLoadID();
-            if (comp.factionForbidden.TryGetValue(factionId, out bool forbidden) && forbidden == value) return false;
-
-            if (DrawGizmosPatch.drawingGizmos || ProcessDesigInputPatch.processing)
-            {
-                Multiplayer.client.SendCommand(CommandType.FORBID, thing.Map.uniqueID, thing.GetUniqueLoadID(), Multiplayer.RealPlayerFaction.GetUniqueLoadID(), value);
-                return false;
-            }
-
-            if (factionId == Multiplayer.RealPlayerFaction.GetUniqueLoadID())
-                forbiddenField.SetValue(__instance, value);
-
-            comp.factionForbidden[factionId] = value;
-
-            if (thing.Spawned)
-            {
-                if (value)
-                    thing.Map.listerHaulables.Notify_Forbidden(thing);
-                else
-                    thing.Map.listerHaulables.Notify_Unforbidden(thing);
-            }
-
-            return false;
         }
     }
 
@@ -1041,7 +938,7 @@ namespace Multiplayer.Client
     {
         static void Prefix()
         {
-            MpLog.Log("add remove needs {0}", FactionContext.OfPlayer.ToString());
+            //MpLog.Log("add remove needs {0}", FactionContext.OfPlayer.ToString());
         }
     }
 
