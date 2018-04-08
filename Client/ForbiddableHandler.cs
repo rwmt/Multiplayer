@@ -134,12 +134,9 @@ namespace Multiplayer.Client
 
             // Should only happen for maps transitioning singleplayer -> multiplayer
             if (Scribe.mode == LoadSaveMode.LoadingVars && factionForbidden == null)
-            {
-                factionForbidden = new Dictionary<int, bool>
-                {
-                    [FactionContext.OfPlayer.loadID] = parent.GetComp<CompForbiddable>().Forbidden
-                };
-            }
+                factionForbidden = new Dictionary<int, bool>();
+            if (Scribe.mode == LoadSaveMode.PostLoadInit && factionForbidden.Count == 0)
+                factionForbidden[FactionContext.OfPlayer.loadID] = parent.GetComp<CompForbiddable>().Forbidden;
         }
 
     }

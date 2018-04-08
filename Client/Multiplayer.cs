@@ -33,8 +33,8 @@ namespace Multiplayer.Client
 
         public static IdBlock globalIdBlock;
 
-        public static Faction RealPlayerFaction => WorldComp.playerFactions[username];
         public static MultiplayerWorldComp WorldComp => Find.World.GetComponent<MultiplayerWorldComp>();
+        public static Faction RealPlayerFaction => client != null ? WorldComp.playerFactions[username] : Faction.OfPlayer;
 
         public static FactionDef factionDef = FactionDef.Named("MultiplayerColony");
 
@@ -823,7 +823,7 @@ namespace Multiplayer.Client
 
             if (!comp.factionMapData.ContainsKey(faction.GetUniqueLoadID()))
             {
-                FactionMapData factionMapData = new FactionMapData(map);
+                FactionMapData factionMapData = FactionMapData.New(map);
                 comp.factionMapData[faction.GetUniqueLoadID()] = factionMapData;
 
                 AreaAddPatch.ignore = true;
@@ -1215,27 +1215,8 @@ namespace Multiplayer.Client
         public ListerHaulables listerHaulables;
         public ResourceCounter resourceCounter;
 
-        public FactionMapData(Map map)
+        private FactionMapData()
         {
-            this.map = map;
-
-            designationManager = new DesignationManager(map);
-            areaManager = new AreaManager(map);
-            zoneManager = new ZoneManager(map);
-            slotGroupManager = new SlotGroupManager(map);
-            listerHaulables = new ListerHaulables(map);
-            resourceCounter = new ResourceCounter(map);
-        }
-
-        public FactionMapData(Map map, DesignationManager designationManager, AreaManager areaManager, ZoneManager zoneManager, SlotGroupManager slotGroupManager, ListerHaulables listerHaulables, ResourceCounter resourceCounter)
-        {
-            this.map = map;
-            this.designationManager = designationManager;
-            this.areaManager = areaManager;
-            this.zoneManager = zoneManager;
-            this.slotGroupManager = slotGroupManager;
-            this.listerHaulables = listerHaulables;
-            this.resourceCounter = resourceCounter;
         }
 
         public void ExposeData()
@@ -1243,6 +1224,34 @@ namespace Multiplayer.Client
             Scribe_Deep.Look(ref designationManager, "designationManager", map);
             Scribe_Deep.Look(ref areaManager, "areaManager", map);
             Scribe_Deep.Look(ref zoneManager, "zoneManager", map);
+        }
+
+        public static FactionMapData New(Map map)
+        {
+            return new FactionMapData()
+            {
+                map = map,
+                designationManager = new DesignationManager(map),
+                areaManager = new AreaManager(map),
+                zoneManager = new ZoneManager(map),
+                slotGroupManager = new SlotGroupManager(map),
+                listerHaulables = new ListerHaulables(map),
+                resourceCounter = new ResourceCounter(map),
+            };
+        }
+
+        public static FactionMapData FromMap(Map map)
+        {
+            return new FactionMapData()
+            {
+                map = map,
+                designationManager = map.designationManager,
+                areaManager = map.areaManager,
+                zoneManager = map.zoneManager,
+                slotGroupManager = map.slotGroupManager,
+                listerHaulables = map.listerHaulables,
+                resourceCounter = map.resourceCounter,
+            };
         }
     }
 
@@ -1300,6 +1309,8 @@ namespace Multiplayer.Client
 
         public MultiplayerMapComp(Map map) : base(map)
         {
+            if (map.info != null && map.info.parent != null)
+                factionMapData[map.ParentFaction.GetUniqueLoadID()] = FactionMapData.FromMap(map);
         }
 
         public override void MapComponentTick()
@@ -1369,7 +1380,7 @@ namespace Multiplayer.Client
                 if (factionMapData.ContainsKey(parentFaction))
                     MpLog.Log("Map's saved faction data includes parent's faction data.");
 
-                factionMapData[parentFaction] = new FactionMapData(map, map.designationManager, map.areaManager, map.zoneManager, map.slotGroupManager, map.listerHaulables, map.resourceCounter);
+                factionMapData[parentFaction] = FactionMapData.FromMap(map);
             }
         }
     }

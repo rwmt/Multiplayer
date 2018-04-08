@@ -246,8 +246,8 @@ namespace Multiplayer.Client
     {
         static bool Prefix()
         {
-            // the storyteller is currently only enabled for maps
-            return Multiplayer.client != null && !TickPatch.tickingWorld;
+            // The storyteller is currently only enabled for maps
+            return Multiplayer.client == null || !TickPatch.tickingWorld;
         }
     }
 
