@@ -27,11 +27,12 @@ namespace Multiplayer.Client
         [DllImport("kernel32.dll", CharSet = CharSet.Auto)]
         private static extern IntPtr GetModuleHandle(string lpModuleName);
 
-        private static bool available;
+        public static readonly bool available;
 
         static SimpleProfiler()
         {
-            available = GetModuleHandle("simple_profiler.dll").ToInt32() != 0;
+            //available = GetModuleHandle("simple_profiler.dll").ToInt32() != 0;
+            available = false;
         }
 
         public static void Init(string id)

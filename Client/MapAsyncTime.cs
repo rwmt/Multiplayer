@@ -5,6 +5,7 @@ using RimWorld.Planet;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
+using System.Threading;
 using UnityEngine;
 using Verse;
 
@@ -355,7 +356,7 @@ namespace Multiplayer.Client
             PostContext();
 
             SimpleProfiler.Pause();
-            if (mapTicks % 300 == 0)
+            if (mapTicks % 300 == 0 && SimpleProfiler.available)
             {
                 SimpleProfiler.Print("profiler_" + Multiplayer.username + "_tick.txt");
                 SimpleProfiler.Init(Multiplayer.username);

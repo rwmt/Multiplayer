@@ -1,4 +1,5 @@
-﻿using Multiplayer;
+﻿using LiteNetLib;
+using Multiplayer;
 using Multiplayer.Common;
 using System;
 using System.Collections.Generic;
@@ -11,107 +12,120 @@ namespace Multiplayer.Client
 {
     public static class Client
     {
-        public static void TryConnect(IPAddress address, int port, Action<Connection> connectEvent = null, Action<Exception> failEvent = null)
+        public static void TryConnect(IPAddress address, int port, Action<IConnection> connectEvent = null, Action<string> failEvent = null)
         {
-            Socket socket = null;
-            try
+            EventBasedNetListener listener = new EventBasedNetListener();
+            Multiplayer.netClient = new NetManager(listener, "");
+            Multiplayer.netClient.Start();
+
+            Multiplayer.netClient.ReconnectDelay = 300;
+            Multiplayer.netClient.MaxConnectAttempts = 8;
+
+            listener.PeerConnectedEvent += peer =>
             {
-                socket = new Socket(address.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-                socket.NoDelay = true;
-                socket.BeginConnect(new IPEndPoint(address, port), result =>
+                peer.Tag = new MultiplayerConnection(peer);
+                OnMainThread.Enqueue(() => connectEvent(peer.GetConnection()));
+            };
+
+            listener.PeerDisconnectedEvent += (peer, info) =>
+            {
+                string reason;
+                if (info.Reason == DisconnectReason.RemoteConnectionClose || info.Reason == DisconnectReason.DisconnectPeerCalled)
                 {
-                    try
-                    {
-                        socket.EndConnect(result);
+                    reason = info.AdditionalData.GetString();
+                }
+                else
+                {
+                    reason = info.Reason + ": " + info.SocketErrorCode;
+                }
 
-                        Connection connection = new Connection(socket);
-                        connection.onMainThread = OnMainThread.Enqueue;
+                Multiplayer.netClient.Stop();
+                Multiplayer.netClient = null;
 
-                        OnMainThread.Enqueue(() =>
-                        {
-                            connectEvent?.Invoke(connection);
-                            connection.BeginReceive();
-                        });
-                    }
-                    catch (SocketException e)
-                    {
-                        socket.Close();
+                OnMainThread.Enqueue(() => failEvent(reason));
+            };
 
-                        OnMainThread.Enqueue(() =>
-                        {
-                            failEvent?.Invoke(e);
-                        });
-                    }
-                }, null);
-            }
-            catch (SocketException e)
+            listener.NetworkReceiveEvent += (peer, reader) =>
             {
-                socket?.Close();
-                failEvent?.Invoke(e);
-            }
+                byte[] data = reader.Data;
+                OnMainThread.Enqueue(() => peer.GetConnection().HandleReceive(data));
+            };
+
+            Multiplayer.netClient.Connect(address.ToString(), port);
         }
     }
 
-    public class LocalClientConnection : Connection
+    public class LocalClientConnection : IConnection
     {
         public LocalServerConnection server;
 
-        public LocalClientConnection() : base(null)
+        public override string Username { get; set; }
+        public override int Latency { get; set; }
+        public override MultiplayerConnectionState State { get; set; }
+
+        public override void Send(Enum id)
         {
+            Send(id, new byte[0]);
         }
 
-        public override void Send(Enum id, byte[] msg, Action onSent = null)
+        public override void Send(Enum id, params object[] msg)
         {
-            msg = msg ?? new byte[] { 0 };
-            server.HandleMsg(Convert.ToInt32(id), msg);
-
+            Send(id, ByteWriter.GetBytes(msg));
         }
 
-        public override void Close()
+        public override void Send(Enum id, byte[] message)
         {
-            closedCallback();
-            server.closedCallback();
+            byte[] full = new byte[4 + message.Length];
+            BitConverter.GetBytes(Convert.ToInt32(id)).CopyTo(full, 0);
+            message.CopyTo(full, 4);
+
+            server.HandleReceive(full);
         }
 
-        public override string ToString()
+        public override void HandleReceive(byte[] data)
         {
-            return "Local";
+            HandleMsg(data);
         }
 
-        public override bool IsConnected()
+        public override void Close(string reason)
         {
-            return true;
         }
     }
 
-    public class LocalServerConnection : Connection
+    public class LocalServerConnection : IConnection
     {
         public LocalClientConnection client;
 
-        public LocalServerConnection() : base(null)
+        public override string Username { get; set; }
+        public override int Latency { get; set; }
+        public override MultiplayerConnectionState State { get; set; }
+
+        public override void Send(Enum id)
         {
+            Send(id, new byte[0]);
         }
 
-        public override void Send(Enum id, byte[] msg, Action onSent = null)
+        public override void Send(Enum id, params object[] msg)
         {
-            msg = msg ?? new byte[] { 0 };
-            client.HandleMsg(Convert.ToInt32(id), msg);
+            Send(id, ByteWriter.GetBytes(msg));
         }
 
-        public override void Close()
+        public override void Send(Enum id, byte[] message)
         {
-            closedCallback();
-            client.closedCallback();
+            byte[] full = new byte[4 + message.Length];
+            BitConverter.GetBytes(Convert.ToInt32(id)).CopyTo(full, 0);
+            message.CopyTo(full, 4);
+
+            client.HandleReceive(full);
         }
 
-        public override string ToString()
+        public override void HandleReceive(byte[] data)
         {
-            return "Local";
+            HandleMsg(data);
         }
 
-        public override bool IsConnected()
+        public override void Close(string reason)
         {
-            return true;
         }
     }
 }

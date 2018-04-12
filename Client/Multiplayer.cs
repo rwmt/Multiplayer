@@ -1,5 +1,6 @@
 ﻿using Harmony;
 using Ionic.Zlib;
+using LiteNetLib;
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
@@ -26,7 +27,8 @@ namespace Multiplayer.Client
     {
         public static String username;
         public static MultiplayerServer localServer;
-        public static Connection client;
+        public static IConnection client;
+        public static NetManager netClient;
         public static ChatWindow chat = new ChatWindow();
 
         public static bool loadingEncounter;
@@ -70,8 +72,8 @@ namespace Multiplayer.Client
             gameobject.AddComponent<OnMainThread>();
             UnityEngine.Object.DontDestroyOnLoad(gameobject);
 
-            Connection.RegisterState(typeof(ClientWorldState));
-            Connection.RegisterState(typeof(ClientPlayingState));
+            MultiplayerConnectionState.RegisterState(typeof(ClientWorldState));
+            MultiplayerConnectionState.RegisterState(typeof(ClientPlayingState));
 
             DoPatches();
 
@@ -100,12 +102,14 @@ namespace Multiplayer.Client
                     IPAddress.TryParse(ip, out IPAddress addr);
                     Client.TryConnect(addr, MultiplayerServer.DEFAULT_PORT, conn =>
                     {
-                        Multiplayer.client = conn;
-                        conn.username = Multiplayer.username;
+                        MpLog.Log("Client connected");
+
+                        client = conn;
+                        conn.Username = username;
                         conn.State = new ClientWorldState(conn);
                     }, exception =>
                     {
-                        Multiplayer.client = null;
+                        client = null;
                     });
                 }, "Connecting", false, null);
             }
@@ -365,22 +369,12 @@ namespace Multiplayer.Client
         }
     }
 
-    public class ClientWorldState : ConnectionState
+    public class ClientWorldState : MultiplayerConnectionState
     {
-        public ClientWorldState(Connection connection) : base(connection)
+        public ClientWorldState(IConnection connection) : base(connection)
         {
             connection.Send(Packets.CLIENT_USERNAME, Multiplayer.username);
             connection.Send(Packets.CLIENT_REQUEST_WORLD);
-        }
-
-        [PacketHandler(Packets.SERVER_DISCONNECT_REASON)]
-        public void HandleDisconnectReason(ByteReader data)
-        {
-            string reason = data.ReadString();
-
-            ConnectingWindow window = Find.WindowStack.WindowOfType<ConnectingWindow>();
-            if (window != null)
-                window.text = reason;
         }
 
         [PacketHandler(Packets.SERVER_WORLD_DATA)]
@@ -463,7 +457,7 @@ namespace Multiplayer.Client
                     {
                         OnMainThread.ExecuteGlobalCmdsWhilePaused();
                     }
-                    // nothing to do, the game is currently paused
+                    // Nothing to do, the game is currently paused
                     else
                     {
                         catchingUp.Set();
@@ -476,14 +470,14 @@ namespace Multiplayer.Client
             });
         }
 
-        public override void Disconnected()
+        public override void Disconnected(string reason)
         {
         }
     }
 
-    public class ClientPlayingState : ConnectionState
+    public class ClientPlayingState : MultiplayerConnectionState
     {
-        public ClientPlayingState(Connection connection) : base(connection)
+        public ClientPlayingState(IConnection connection) : base(connection)
         {
         }
 
@@ -614,7 +608,13 @@ namespace Multiplayer.Client
             Messages.Message(msg, MessageTypeDefOf.SilentInput);
         }
 
-        public override void Disconnected()
+        [PacketHandler(Packets.SERVER_KEEP_ALIVE)]
+        public void HandleKeepAlive(ByteReader data)
+        {
+            Multiplayer.client.Send(Packets.CLIENT_KEEP_ALIVE, new byte[0]);
+        }
+
+        public override void Disconnected(string reason)
         {
         }
 
@@ -647,12 +647,24 @@ namespace Multiplayer.Client
 
         public void Update()
         {
+            if (Multiplayer.netClient != null)
+                Multiplayer.netClient.PollEvents();
+
             queue.RunQueue();
 
             if (Multiplayer.client == null) return;
 
             if (!LongEventHandler.ShouldWaitForEvent && Current.Game != null && Find.World != null)
                 ExecuteGlobalCmdsWhilePaused();
+        }
+
+        public void OnApplicationQuit()
+        {
+            if (Multiplayer.netClient != null)
+                Multiplayer.netClient.Stop();
+
+            if (Multiplayer.localServer != null)
+                Multiplayer.localServer.Stop();
         }
 
         public static void ExecuteGlobalCmdsWhilePaused()

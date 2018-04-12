@@ -1,5 +1,8 @@
-﻿using System;
+﻿using LiteNetLib;
+using LiteNetLib.Utils;
+using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -12,15 +15,14 @@ namespace Multiplayer.Common
     {
         static MultiplayerServer()
         {
-            Connection.RegisterState(typeof(ServerWorldState));
-            Connection.RegisterState(typeof(ServerPlayingState));
+            MultiplayerConnectionState.RegisterState(typeof(ServerWorldState));
+            MultiplayerConnectionState.RegisterState(typeof(ServerPlayingState));
         }
 
         public static MultiplayerServer instance;
 
-        public const int SCHEDULED_CMD_DELAY = 15; // in ticks
         public const int DEFAULT_PORT = 30502;
-        public const int LOOP_RESOLUTION = 100; // in ms, 6 game ticks
+        public const int LOOP_SLEEP = 50; // in ms, 3 game ticks
 
         public byte[] savedGame; // Compressed game save
 
@@ -34,14 +36,17 @@ namespace Multiplayer.Common
         public Dictionary<int, List<byte[]>> mapCmds = new Dictionary<int, List<byte[]>>();
         public List<byte[]> globalCmds = new List<byte[]>();
 
+        public List<ServerPlayer> players = new List<ServerPlayer>();
+
         public int timer;
         public ActionQueue queue = new ActionQueue();
-        public Connection host;
-        public NetworkServer server;
+        public string host;
         public string saveFolder;
         public string worldId;
         public IPAddress addr;
         public int port;
+
+        private NetManager server;
 
         public int highestUniqueId = -1;
 
@@ -50,33 +55,45 @@ namespace Multiplayer.Common
             this.addr = addr;
             this.port = port;
 
-            server = new NetworkServer(addr, port, newConn =>
+            EventBasedNetListener listener = new EventBasedNetListener();
+            server = new NetManager(listener, 32, "");
+
+            listener.PeerConnectedEvent += peer => Enqueue(() => PeerConnected(peer));
+            listener.PeerDisconnectedEvent += (peer, info) => Enqueue(() => PeerDisconnected(peer, info));
+            listener.NetworkLatencyUpdateEvent += (peer, latency) => Enqueue(() => UpdateLatency(peer, latency));
+
+            listener.NetworkReceiveEvent += (peer, reader) =>
             {
-                newConn.onMainThread = Enqueue;
-                newConn.State = new ServerWorldState(newConn);
+                byte[] data = reader.Data;
+                Enqueue(() => MessageReceived(peer, data));
+            };
 
-                newConn.closedCallback += () =>
-                {
-                    if (newConn.username == null) return;
-
-                    server.SendToAll(Packets.SERVER_NOTIFICATION, new object[] { "Player " + newConn.username + " disconnected." });
-                    UpdatePlayerList();
-                };
-            });
+            server.Start(port);
         }
 
         public void Run()
         {
             while (true)
             {
+                server.PollEvents();
+
                 queue.RunQueue();
 
-                server.SendToAll(Packets.SERVER_TIME_CONTROL, new object[] { timer + SCHEDULED_CMD_DELAY });
+                SendToAll(Packets.SERVER_TIME_CONTROL, new object[] { timer });
 
-                timer += 6;
+                timer += 3;
 
-                Thread.Sleep(LOOP_RESOLUTION);
+                // Update ping
+                if (timer % 180 == 0)
+                    UpdatePlayerList();
+
+                Thread.Sleep(LOOP_SLEEP);
             }
+        }
+
+        public void Stop()
+        {
+            server.Stop();
         }
 
         public void DoAutosave()
@@ -93,16 +110,59 @@ namespace Multiplayer.Common
 
         public void UpdatePlayerList()
         {
-            string[] players;
-            lock (server.GetConnections())
-                players = server.GetConnections().Select(conn => conn.username).ToArray();
-
-            server.SendToAll(Packets.SERVER_PLAYER_LIST, new object[] { players });
+            string[] playerList = players.Select(player => player.Username + " (" + player.Latency + ")").ToArray();
+            SendToAll(Packets.SERVER_PLAYER_LIST, new object[] { playerList });
         }
 
         public void Enqueue(Action action)
         {
             queue.Enqueue(action);
+        }
+
+        public void PeerConnected(NetPeer peer)
+        {
+            IConnection conn = new MultiplayerConnection(peer);
+            peer.Tag = conn;
+            conn.State = new ServerWorldState(conn);
+            players.Add(new ServerPlayer(conn));
+        }
+
+        public void PeerDisconnected(NetPeer peer, DisconnectInfo info)
+        {
+            IConnection conn = peer.GetConnection();
+
+            players.RemoveAll(player => player.connection == conn);
+
+            SendToAll(Packets.SERVER_NOTIFICATION, new object[] { "Player " + conn.Username + " disconnected." });
+            UpdatePlayerList();
+        }
+
+        public void MessageReceived(NetPeer peer, byte[] data)
+        {
+            IConnection conn = peer.GetConnection();
+            conn.HandleReceive(data);
+        }
+
+        public void UpdateLatency(NetPeer peer, int latency)
+        {
+            IConnection conn = peer.GetConnection();
+            conn.Latency = latency;
+        }
+
+        public void SendToAll(Enum id, byte[] data)
+        {
+            foreach (ServerPlayer player in players)
+                player.connection.Send(id, data);
+        }
+
+        public void SendToAll(Enum id, object[] data)
+        {
+            SendToAll(id, ByteWriter.GetBytes(data));
+        }
+
+        public ServerPlayer GetServerPlayer(string username)
+        {
+            return players.FirstOrDefault(player => player.Username == username);
         }
 
         public IdBlock NextIdBlock()
@@ -120,14 +180,27 @@ namespace Multiplayer.Common
             // todo send only to players playing the map if not global
 
             bool global = ScheduledCommand.IsCommandGlobal(cmd);
-            byte[] toSend = NetworkServer.GetBytes(ServerPlayingState.GetServerCommandMsg(cmd, mapId, extra));
+            byte[] toSend = ByteWriter.GetBytes(ServerPlayingState.GetServerCommandMsg(cmd, mapId, extra));
 
             if (global)
                 globalCmds.Add(toSend);
             else
                 mapCmds.AddOrGet(mapId, new List<byte[]>()).Add(toSend);
 
-            server.SendToAll(Packets.SERVER_COMMAND, toSend);
+            SendToAll(Packets.SERVER_COMMAND, toSend);
+        }
+    }
+
+    public class ServerPlayer
+    {
+        public IConnection connection;
+
+        public string Username => connection.Username;
+        public int Latency => connection.Latency;
+
+        public ServerPlayer(IConnection connection)
+        {
+            this.connection = connection;
         }
     }
 
@@ -156,7 +229,7 @@ namespace Multiplayer.Common
 
         public byte[] Serialize()
         {
-            return NetworkServer.GetBytes(blockStart, blockSize, mapId, current);
+            return ByteWriter.GetBytes(blockStart, blockSize, mapId, current);
         }
 
         public static IdBlock Deserialize(ByteReader data)
@@ -217,11 +290,11 @@ namespace Multiplayer.Common
     {
     }
 
-    public class ServerWorldState : ConnectionState
+    public class ServerWorldState : MultiplayerConnectionState
     {
         private static Regex UsernamePattern = new Regex(@"^[a-zA-Z0-9_]+$");
 
-        public ServerWorldState(Connection connection) : base(connection)
+        public ServerWorldState(IConnection connection) : base(connection)
         {
         }
 
@@ -242,26 +315,26 @@ namespace Multiplayer.Common
                 return;
             }
 
-            if (MultiplayerServer.instance.server.GetByUsername(username) != null)
+            if (MultiplayerServer.instance.GetServerPlayer(username) != null)
             {
                 Connection.Close("Username already online.");
                 return;
             }
 
-            Connection.username = username;
+            Connection.Username = username;
 
-            MultiplayerServer.instance.server.SendToAll(Packets.SERVER_NOTIFICATION, new object[] { "Player " + Connection.username + " has joined the game." });
+            MultiplayerServer.instance.SendToAll(Packets.SERVER_NOTIFICATION, new object[] { "Player " + Connection.Username + " has joined the game." });
             MultiplayerServer.instance.UpdatePlayerList();
         }
 
         [PacketHandler(Packets.CLIENT_REQUEST_WORLD)]
         public void HandleWorldRequest(ByteReader data)
         {
-            byte[] extra = NetworkServer.GetBytes(Connection.username);
+            byte[] extra = ByteWriter.GetBytes(Connection.Username);
             MultiplayerServer.instance.SendCommand(CommandType.SETUP_FACTION, -1, extra);
 
             byte[][] cmds = MultiplayerServer.instance.globalCmds.ToArray();
-            byte[] packetData = NetworkServer.GetBytes(MultiplayerServer.instance.timer + MultiplayerServer.SCHEDULED_CMD_DELAY, cmds, MultiplayerServer.instance.savedGame);
+            byte[] packetData = ByteWriter.GetBytes(MultiplayerServer.instance.timer, cmds, MultiplayerServer.instance.savedGame);
 
             Connection.Send(Packets.SERVER_WORLD_DATA, packetData);
 
@@ -276,14 +349,14 @@ namespace Multiplayer.Common
             MultiplayerServer.instance.UpdatePlayerList();
         }
 
-        public override void Disconnected()
+        public override void Disconnected(string reason)
         {
         }
     }
 
-    public class ServerPlayingState : ConnectionState
+    public class ServerPlayingState : MultiplayerConnectionState
     {
-        public ServerPlayingState(Connection connection) : base(connection)
+        public ServerPlayingState(IConnection connection) : base(connection)
         {
         }
 
@@ -297,12 +370,12 @@ namespace Multiplayer.Common
             bool global = ScheduledCommand.IsCommandGlobal(cmd);
             if (global && mapId != -1)
             {
-                MpLog.Log("Client {0} sent a global command {1} with map id specified.", Connection.username, cmd);
+                MpLog.Log("Client {0} sent a global command {1} with map id specified.", Connection.Username, cmd);
                 mapId = -1;
             }
             else if (!global && mapId < 0)
             {
-                MpLog.Log("Client {0} sent a map command {1} without a map id.", Connection.username, cmd);
+                MpLog.Log("Client {0} sent a map command {1} without a map id.", Connection.Username, cmd);
                 return;
             }
 
@@ -319,7 +392,7 @@ namespace Multiplayer.Common
 
             if (msg.Length == 0) return;
 
-            MultiplayerServer.instance.server.SendToAll(Packets.SERVER_CHAT, new object[] { Connection.username, msg });
+            MultiplayerServer.instance.SendToAll(Packets.SERVER_CHAT, new object[] { Connection.Username, msg });
         }
 
         [PacketHandler(Packets.CLIENT_AUTOSAVED_DATA)]
@@ -349,13 +422,13 @@ namespace Multiplayer.Common
             if (!MultiplayerServer.instance.mapTiles.TryGetValue(tile, out int mapId))
                 return;
 
-            byte[] extra = NetworkServer.GetBytes(Connection.username);
+            byte[] extra = ByteWriter.GetBytes(Connection.Username);
             MultiplayerServer.instance.SendCommand(CommandType.MAP_FACTION_DATA, mapId, extra);
 
             byte[] mapData = MultiplayerServer.instance.mapData[mapId];
             byte[][] mapCmds = MultiplayerServer.instance.mapCmds.AddOrGet(mapId, new List<byte[]>()).ToArray();
 
-            byte[] packetData = NetworkServer.GetBytes(mapId, mapCmds, mapData);
+            byte[] packetData = ByteWriter.GetBytes(mapId, mapCmds, mapData);
             Connection.Send(Packets.SERVER_MAP_RESPONSE, packetData);
         }
 
@@ -402,7 +475,7 @@ namespace Multiplayer.Common
             }*/
         }
 
-        public override void Disconnected()
+        public override void Disconnected(string reason)
         {
         }
 
@@ -417,7 +490,7 @@ namespace Multiplayer.Common
 
         public static object[] GetServerCommandMsg(CommandType cmdType, int mapId, byte[] extra)
         {
-            return new object[] { cmdType, MultiplayerServer.instance.timer + MultiplayerServer.SCHEDULED_CMD_DELAY, mapId, extra };
+            return new object[] { cmdType, MultiplayerServer.instance.timer, mapId, extra };
         }
     }
 }

@@ -154,7 +154,7 @@ namespace Multiplayer.Client
 
         protected override void DoBack()
         {
-            Multiplayer.client.Close();
+            Multiplayer.client.Close("");
 
             LongEventHandler.QueueLongEvent(() =>
             {
@@ -209,50 +209,51 @@ namespace Multiplayer.Client
         private int port;
 
         public string text;
+        private bool connecting;
 
         public ConnectingWindow(IPAddress address, int port)
         {
             this.address = address;
             this.port = port;
 
-            text = "Connecting to " + address.ToString() + ":" + port;
+            connecting = true;
 
             Client.TryConnect(address, port, conn =>
             {
+                connecting = false;
                 text = "Connected.";
 
                 Multiplayer.chat = new ChatWindow();
                 Multiplayer.client = conn;
 
-                conn.closedCallback += () =>
-                {
-                    MpLog.Log("Client connection closed.");
-                };
-
-                conn.username = Multiplayer.username;
+                conn.Username = Multiplayer.username;
                 conn.State = new ClientWorldState(conn);
-            }, exception =>
+            }, reason =>
             {
-                text = "Error: Connection failed.";
+                // todo decouple from window
+                connecting = false;
+                text = "Couldn't connect to the server.\n" + reason;
                 Multiplayer.client = null;
             });
         }
 
         public override void DoWindowContents(Rect inRect)
         {
-            Widgets.Label(inRect, text);
+            string label = text;
+            if (connecting)
+                label = "Connecting to " + address.ToString() + ":" + port + GenText.MarchingEllipsis();
+            Widgets.Label(inRect, label);
 
             Text.Font = GameFont.Small;
             Rect rect2 = new Rect(inRect.width / 2f - CloseButSize.x / 2f, inRect.height - 55f, CloseButSize.x, CloseButSize.y);
             if (Widgets.ButtonText(rect2, "Cancel", true, false, true))
             {
-                if (Multiplayer.client != null && Multiplayer.client.IsConnected())
+                if (Multiplayer.netClient != null)
                 {
-                    Log.Message("Closed client connection");
-                    Multiplayer.client.Close();
+                    Multiplayer.netClient.Stop();
+                    Multiplayer.netClient = null;
                 }
 
-                Multiplayer.client = null;
                 Close();
             }
         }
@@ -298,25 +299,23 @@ namespace Multiplayer.Client
 
                     LocalClientConnection localClient = new LocalClientConnection()
                     {
-                        username = Multiplayer.username,
-                        onMainThread = OnMainThread.Enqueue
+                        Username = Multiplayer.username
                     };
 
                     LocalServerConnection localServerConn = new LocalServerConnection()
                     {
-                        username = localClient.username,
-                        onMainThread = Multiplayer.localServer.Enqueue
+                        Username = Multiplayer.username
                     };
-
-                    localClient.State = new ClientPlayingState(localClient);
-                    localServerConn.State = new ServerPlayingState(localServerConn);
 
                     localServerConn.client = localClient;
                     localClient.server = localServerConn;
 
-                    Multiplayer.localServer.server.GetConnections().Add(localServerConn);
+                    localClient.State = new ClientPlayingState(localClient);
+                    localServerConn.State = new ServerPlayingState(localServerConn);
 
-                    Multiplayer.localServer.host = localServerConn;
+                    Multiplayer.localServer.players.Add(new ServerPlayer(localServerConn));
+
+                    Multiplayer.localServer.host = Multiplayer.username;
                     Multiplayer.client = localClient;
 
                     Multiplayer.chat = new ChatWindow();

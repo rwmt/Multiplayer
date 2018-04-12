@@ -18,11 +18,6 @@ namespace Multiplayer.Client
             exposeSmallComps.Invoke(game, null);
         }
 
-        public static void SendCommand(this Connection conn, CommandType action, int mapId, params object[] extra)
-        {
-            conn.Send(Packets.CLIENT_COMMAND, new object[] { action, mapId, NetworkServer.GetBytes(extra) });
-        }
-
         public static IEnumerable<Type> AllSubtypesAndSelf(this Type t)
         {
             return t.AllSubclasses().Concat(t);

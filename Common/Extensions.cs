@@ -1,4 +1,5 @@
-﻿using System;
+﻿using LiteNetLib;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -39,6 +40,19 @@ namespace Multiplayer.Common
             return result;
         }
 
+        public static IConnection GetConnection(this NetPeer peer)
+        {
+            return (IConnection)peer.Tag;
+        }
+
+        public static void SendCommand(this IConnection conn, CommandType action, int mapId, params object[] extra)
+        {
+            conn.Send(Packets.CLIENT_COMMAND, new object[] { action, mapId, ByteWriter.GetBytes(extra) });
+        }
+    }
+
+    public static class ByteWriter
+    {
         public static void WriteObject(this MemoryStream stream, object obj)
         {
             if (obj is int @int)
@@ -47,7 +61,7 @@ namespace Multiplayer.Common
             }
             else if (obj is bool @bool)
             {
-                stream.WriteByte(@bool ? (byte) 1 : (byte) 0);
+                stream.WriteByte(@bool ? (byte)1 : (byte)0);
             }
             else if (obj is byte @byte)
             {
@@ -94,9 +108,14 @@ namespace Multiplayer.Common
                 stream.Write(arr, 0, arr.Length);
         }
 
-        public static void Close(this Connection conn, string msg)
+        public static byte[] GetBytes(params object[] data)
         {
-            conn.Send(Packets.SERVER_DISCONNECT_REASON, NetworkServer.GetBytes(msg), conn.Close);
+            using (var stream = new MemoryStream())
+            {
+                foreach (object o in data)
+                    stream.WriteObject(o);
+                return stream.ToArray();
+            }
         }
     }
 
