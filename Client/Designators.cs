@@ -41,18 +41,20 @@ namespace Multiplayer.Client
 
     public static class DesignatorPatches
     {
-        public static bool DesignateSingleCell(Designator designator, IntVec3 c)
+        public const string FIRST_PARAM = "0";
+
+        public static bool DesignateSingleCell(Designator __instance, [HarmonyParameter(FIRST_PARAM)] IntVec3 c)
         {
             if (Multiplayer.client == null || !ProcessDesigInputPatch.processing) return true;
 
             Map map = Find.VisibleMap;
-            object[] extra = GetExtra(0, designator).Append(map.cellIndices.CellToIndex(c));
+            object[] extra = GetExtra(0, __instance).Append(map.cellIndices.CellToIndex(c));
             Multiplayer.client.SendCommand(CommandType.DESIGNATOR, map.uniqueID, extra);
 
             return false;
         }
 
-        public static bool DesignateMultiCell(Designator designator, IEnumerable<IntVec3> cells)
+        public static bool DesignateMultiCell(Designator __instance, [HarmonyParameter(FIRST_PARAM)] IEnumerable<IntVec3> cells)
         {
             if (Multiplayer.client == null || !ProcessDesigInputPatch.processing) return true;
 
@@ -62,19 +64,21 @@ namespace Multiplayer.Client
             foreach (IntVec3 cell in cells)
                 cellData[i++] = map.cellIndices.CellToIndex(cell);
 
-            object[] extra = GetExtra(1, designator).Append(cellData);
+            object[] extra = GetExtra(1, __instance).Append(cellData);
             Multiplayer.client.SendCommand(CommandType.DESIGNATOR, map.uniqueID, extra);
 
             return false;
         }
 
-        public static bool DesignateThing(Designator designator, Thing t)
+        public static bool DesignateThing(Designator __instance, [HarmonyParameter(FIRST_PARAM)] Thing t)
         {
             if (Multiplayer.client == null || !DrawGizmosPatch.drawingGizmos) return true;
 
             Map map = Find.VisibleMap;
-            object[] extra = GetExtra(2, designator).Append(t.GetUniqueLoadID());
+            object[] extra = GetExtra(2, __instance).Append(t.GetUniqueLoadID());
             Multiplayer.client.SendCommand(CommandType.DESIGNATOR, map.uniqueID, extra);
+
+            MoteMaker.ThrowMetaPuffs(t);
 
             return false;
         }
@@ -83,21 +87,6 @@ namespace Multiplayer.Client
         {
             string buildDefName = designator is Designator_Build build ? build.PlacingDef.defName : "";
             return new object[] { action, designator.GetType().FullName, buildDefName, Multiplayer.RealPlayerFaction.GetUniqueLoadID() }.Append(Metadata(designator));
-        }
-
-        public static IEnumerable<CodeInstruction> DesignateSingleCell_Transpiler(MethodBase method, ILGenerator gen, IEnumerable<CodeInstruction> code)
-        {
-            return Multiplayer.PrefixTranspiler(method, gen, code, typeof(DesignatorPatches).GetMethod("DesignateSingleCell"));
-        }
-
-        public static IEnumerable<CodeInstruction> DesignateMultiCell_Transpiler(MethodBase method, ILGenerator gen, IEnumerable<CodeInstruction> code)
-        {
-            return Multiplayer.PrefixTranspiler(method, gen, code, typeof(DesignatorPatches).GetMethod("DesignateMultiCell"));
-        }
-
-        public static IEnumerable<CodeInstruction> DesignateThing_Transpiler(MethodBase method, ILGenerator gen, IEnumerable<CodeInstruction> code)
-        {
-            return Multiplayer.PrefixTranspiler(method, gen, code, typeof(DesignatorPatches).GetMethod("DesignateThing"));
         }
 
         public static readonly FieldInfo selectedAreaField = typeof(Designator_AreaAllowed).GetField("selectedArea", BindingFlags.Static | BindingFlags.NonPublic);

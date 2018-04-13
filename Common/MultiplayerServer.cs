@@ -179,10 +179,9 @@ namespace Multiplayer.Common
         {
             // todo send only to players playing the map if not global
 
-            bool global = ScheduledCommand.IsCommandGlobal(cmd);
             byte[] toSend = ByteWriter.GetBytes(ServerPlayingState.GetServerCommandMsg(cmd, mapId, extra));
 
-            if (global)
+            if (mapId < 0)
                 globalCmds.Add(toSend);
             else
                 mapCmds.AddOrGet(mapId, new List<byte[]>()).Add(toSend);
@@ -285,11 +284,6 @@ namespace Multiplayer.Common
         }
     }
 
-    // i.e. not on the main thread
-    public class HandleImmediatelyAttribute : Attribute
-    {
-    }
-
     public class ServerWorldState : MultiplayerConnectionState
     {
         private static Regex UsernamePattern = new Regex(@"^[a-zA-Z0-9_]+$");
@@ -342,7 +336,6 @@ namespace Multiplayer.Common
         }
 
         [PacketHandler(Packets.CLIENT_WORLD_LOADED)]
-        [HandleImmediately]
         public void HandleWorldLoaded(ByteReader data)
         {
             Connection.State = new ServerPlayingState(Connection);
@@ -366,18 +359,6 @@ namespace Multiplayer.Common
             CommandType cmd = (CommandType)data.ReadInt();
             int mapId = data.ReadInt();
             byte[] extra = data.ReadPrefixedBytes();
-
-            bool global = ScheduledCommand.IsCommandGlobal(cmd);
-            if (global && mapId != -1)
-            {
-                MpLog.Log("Client {0} sent a global command {1} with map id specified.", Connection.Username, cmd);
-                mapId = -1;
-            }
-            else if (!global && mapId < 0)
-            {
-                MpLog.Log("Client {0} sent a map command {1} without a map id.", Connection.Username, cmd);
-                return;
-            }
 
             // todo check if map id is valid for the player
 

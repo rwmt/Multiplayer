@@ -20,6 +20,11 @@ namespace Multiplayer.Common
             return value;
         }
 
+        public static IEnumerable<T> ToEnumerable<T>(this T input)
+        {
+            yield return input;
+        }
+
         public static int Combine(this int i1, int i2)
         {
             return i1 ^ (i2 << 16 | (i2 >> 16));

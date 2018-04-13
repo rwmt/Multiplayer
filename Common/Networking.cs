@@ -50,21 +50,17 @@ namespace Multiplayer.Common
                     continue;
                 }
 
-                bool mainThread = Attribute.GetCustomAttribute(method, typeof(HandleImmediatelyAttribute)) == null;
-
-                statePacketHandlers.AddOrGet(type, new Dictionary<int, PacketHandler>())[(int)attr.packet] = new PacketHandler(method, mainThread);
+                statePacketHandlers.AddOrGet(type, new Dictionary<int, PacketHandler>())[(int)attr.packet] = new PacketHandler(method);
             }
         }
 
         public class PacketHandler
         {
             public readonly MethodBase handler;
-            public readonly bool mainThread;
 
-            public PacketHandler(MethodBase handler, bool mainThread)
+            public PacketHandler(MethodBase handler)
             {
                 this.handler = handler;
-                this.mainThread = mainThread;
             }
         }
     }

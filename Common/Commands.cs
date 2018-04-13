@@ -1,22 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Reflection;
-
-namespace Multiplayer.Common
+﻿namespace Multiplayer.Common
 {
-    public class GlobalScopeAttribute : Attribute
-    {
-    }
-
     public enum CommandType
     {
-        [GlobalScope]
+        // Global scope
         WORLD_TIME_SPEED,
-        [GlobalScope]
         AUTOSAVE,
-        [GlobalScope]
         SETUP_FACTION,
-        [GlobalScope]
         GLOBAL_ID_BLOCK,
 
         // Map scope
@@ -44,20 +33,6 @@ namespace Multiplayer.Common
             this.ticks = ticks;
             this.mapId = mapId;
             this.data = data;
-        }
-
-        private static readonly HashSet<CommandType> globalCmds = new HashSet<CommandType>();
-
-        static ScheduledCommand()
-        {
-            foreach (FieldInfo field in typeof(CommandType).GetFields(BindingFlags.Static | BindingFlags.Public))
-                if (Attribute.GetCustomAttribute(field, typeof(GlobalScopeAttribute)) != null)
-                    globalCmds.Add((CommandType)field.GetValue(null));
-        }
-
-        public static bool IsCommandGlobal(CommandType cmd)
-        {
-            return globalCmds.Contains(cmd);
         }
     }
 }

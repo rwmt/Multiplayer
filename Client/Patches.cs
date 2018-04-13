@@ -999,4 +999,21 @@ namespace Multiplayer.Client
         }
     }
 
+    [HarmonyPatch(typeof(HarmonyParameter))]
+    [HarmonyPatch(nameof(HarmonyParameter.OriginalName), PropertyMethod.Getter)]
+    public static class HarmonyParameterPatch
+    {
+        public static string[] bestHack;
+        public static bool ignore;
+
+        static void Postfix(HarmonyParameter __instance, ref string __result)
+        {
+            if (ignore || bestHack == null) return;
+
+            ignore = true;
+            __result = bestHack[int.Parse(__instance.OriginalName)];
+            ignore = false;
+        }
+    }
+
 }

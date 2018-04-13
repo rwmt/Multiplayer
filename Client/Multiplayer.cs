@@ -7,6 +7,7 @@ using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -52,6 +53,8 @@ namespace Multiplayer.Client
                 RandSetSeedPatch.dontLog = false;
             }
         }
+
+        public static bool Ticking => TickPatch.tickingWorld || MapAsyncTimeComp.tickingMap;
 
         static Multiplayer()
         {
@@ -183,7 +186,11 @@ namespace Multiplayer.Client
                     {
                         MethodInfo method = t.GetMethod(m, BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly);
                         if (method == null) continue;
-                        harmony.Patch(method, null, null, new HarmonyMethod(typeof(DesignatorPatches).GetMethod(m + "_Transpiler")));
+
+                        string[] paramNames = method.GetParameters().Select(p => p.Name).ToArray();
+                        HarmonyParameterPatch.bestHack = paramNames;
+                        harmony.Patch(method, new HarmonyMethod(AccessTools.Method(typeof(DesignatorPatches), m)), null, null);
+                        HarmonyParameterPatch.bestHack = null;
                     }
                 }
             }
@@ -247,26 +254,6 @@ namespace Multiplayer.Client
                 var worldRendererCtor = AccessTools.Constructor(typeof(WorldRenderer));
                 harmony.Patch(worldRendererCtor, new HarmonyMethod(AccessTools.Method(typeof(WorldRendererCtorPatch), "Prefix")), null);
             }
-        }
-
-        public static IEnumerable<CodeInstruction> PrefixTranspiler(MethodBase method, ILGenerator gen, IEnumerable<CodeInstruction> inputCode, MethodBase prefix)
-        {
-            List<CodeInstruction> list = new List<CodeInstruction>(inputCode);
-            Label firstInst = gen.DefineLabel();
-
-            list[0].labels.Add(firstInst);
-
-            List<CodeInstruction> newCode = new List<CodeInstruction>();
-            newCode.Add(new CodeInstruction(OpCodes.Ldarg_0));
-            for (int i = 0; i < method.GetParameters().Length; i++)
-                newCode.Add(new CodeInstruction(OpCodes.Ldarg, 1 + i));
-            newCode.Add(new CodeInstruction(OpCodes.Call, prefix));
-            newCode.Add(new CodeInstruction(OpCodes.Brtrue, firstInst));
-            newCode.Add(new CodeInstruction(OpCodes.Ret));
-
-            list.InsertRange(0, newCode);
-
-            return list;
         }
 
         public static void ExposeIdBlock(ref IdBlock block, string label)
@@ -378,7 +365,6 @@ namespace Multiplayer.Client
         }
 
         [PacketHandler(Packets.SERVER_WORLD_DATA)]
-        [HandleImmediately]
         public void HandleWorldData(ByteReader data)
         {
             Connection.State = new ClientPlayingState(Connection);
@@ -1034,40 +1020,39 @@ namespace Multiplayer.Client
 
             try
             {
-                if (SetDesignatorState(map, designator, data))
+                if (!SetDesignatorState(map, designator, data)) return;
+
+                if (mode == 0)
                 {
-                    if (mode == 0)
+                    IntVec3 cell = map.cellIndices.IndexToCell(data.ReadInt());
+                    designator.DesignateSingleCell(cell);
+                    designator.Finalize(true);
+                }
+                else if (mode == 1)
+                {
+                    int[] cellData = data.ReadPrefixedInts();
+                    IntVec3[] cells = new IntVec3[cellData.Length];
+                    for (int i = 0; i < cellData.Length; i++)
+                        cells[i] = map.cellIndices.IndexToCell(cellData[i]);
+
+                    designator.DesignateMultiCell(cells.AsEnumerable());
+
+                    Find.Selector.ClearSelection();
+                }
+                else if (mode == 2)
+                {
+                    string thingId = data.ReadString();
+                    Thing thing = map.listerThings.AllThings.FirstOrDefault(t => t.GetUniqueLoadID() == thingId);
+
+                    if (thing != null)
                     {
-                        IntVec3 cell = map.cellIndices.IndexToCell(data.ReadInt());
-                        designator.DesignateSingleCell(cell);
+                        designator.DesignateThing(thing);
                         designator.Finalize(true);
                     }
-                    else if (mode == 1)
-                    {
-                        int[] cellData = data.ReadPrefixedInts();
-                        IntVec3[] cells = new IntVec3[cellData.Length];
-                        for (int i = 0; i < cellData.Length; i++)
-                            cells[i] = map.cellIndices.IndexToCell(cellData[i]);
-
-                        designator.DesignateMultiCell(cells.AsEnumerable());
-
-                        Find.Selector.ClearSelection();
-                    }
-                    else if (mode == 2)
-                    {
-                        string thingId = data.ReadString();
-                        Thing thing = map.listerThings.AllThings.FirstOrDefault(t => t.GetUniqueLoadID() == thingId);
-
-                        if (thing != null)
-                        {
-                            designator.DesignateThing(thing);
-                            designator.Finalize(true);
-                        }
-                    }
-
-                    foreach (Zone zone in map.zoneManager.AllZones)
-                        zoneShuffled.SetValue(zone, true);
                 }
+
+                foreach (Zone zone in map.zoneManager.AllZones)
+                    zoneShuffled.SetValue(zone, true);
             }
             finally
             {
