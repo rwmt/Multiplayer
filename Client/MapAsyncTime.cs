@@ -58,7 +58,7 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(Map), nameof(Map.MapUpdate))]
-    public static class MapUpdatePatch
+    public static class MapUpdateTimePatch
     {
         static void Prefix(Map __instance, ref Container<int, TimeSpeed> __state)
         {
@@ -178,7 +178,7 @@ namespace Multiplayer.Client
         }
     }
 
-    public static class SetMapTime
+    public static class SetMapTimeForUI
     {
         static void Prefix(ref Container<int, TimeSpeed> __state)
         {
@@ -411,14 +411,21 @@ namespace Multiplayer.Client
         public void ExecuteMapCmdsWhilePaused()
         {
             PreContext();
+            OnMainThread.executingCmds = true;
 
-            while (scheduledCmds.Count > 0 && timeSpeed == TimeSpeed.Paused)
+            try
             {
-                ScheduledCommand cmd = scheduledCmds.Dequeue();
-                OnMainThread.ExecuteMapCmd(cmd, new ByteReader(cmd.data));
+                while (scheduledCmds.Count > 0 && timeSpeed == TimeSpeed.Paused)
+                {
+                    ScheduledCommand cmd = scheduledCmds.Dequeue();
+                    OnMainThread.ExecuteMapCmd(cmd, new ByteReader(cmd.data));
+                }
             }
-
-            PostContext();
+            finally
+            {
+                OnMainThread.executingCmds = false;
+                PostContext();
+            }
         }
 
         public override void ExposeData()

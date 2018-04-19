@@ -10,6 +10,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Net;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -31,6 +32,7 @@ namespace Multiplayer.Client
         public static IConnection client;
         public static NetManager netClient;
         public static ChatWindow chat = new ChatWindow();
+        public static HarmonyInstance harmony = HarmonyInstance.Create("multiplayer");
 
         public static bool loadingEncounter;
 
@@ -56,6 +58,8 @@ namespace Multiplayer.Client
 
         public static bool Ticking => TickPatch.tickingWorld || MapAsyncTimeComp.tickingMap;
 
+        public static bool ShouldSync => client != null && !Ticking && !OnMainThread.executingCmds;
+
         static Multiplayer()
         {
             MpLog.action = str => Log.Message(username + " " + str);
@@ -77,6 +81,10 @@ namespace Multiplayer.Client
 
             MultiplayerConnectionState.RegisterState(typeof(ClientWorldState));
             MultiplayerConnectionState.RegisterState(typeof(ClientPlayingState));
+
+            MpPatch.DoPatches(typeof(MethodMarkers));
+            MpPatch.DoPatches(typeof(SyncPatches));
+            Sync.RegisterPatches(typeof(SyncFieldsPatches));
 
             DoPatches();
 
@@ -171,9 +179,10 @@ namespace Multiplayer.Client
             }
         }
 
+        static readonly FieldInfo paramName = AccessTools.Field(typeof(ParameterInfo), "NameImpl");
+
         private static void DoPatches()
         {
-            var harmony = HarmonyInstance.Create("multiplayer");
             harmony.PatchAll(Assembly.GetExecutingAssembly());
 
             // General designation handling
@@ -187,10 +196,13 @@ namespace Multiplayer.Client
                         MethodInfo method = t.GetMethod(m, BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly);
                         if (method == null) continue;
 
-                        string[] paramNames = method.GetParameters().Select(p => p.Name).ToArray();
-                        HarmonyParameterPatch.bestHack = paramNames;
-                        harmony.Patch(method, new HarmonyMethod(AccessTools.Method(typeof(DesignatorPatches), m)), null, null);
-                        HarmonyParameterPatch.bestHack = null;
+                        MethodInfo prefix = AccessTools.Method(typeof(DesignatorPatches), m);
+
+                        paramName.SetValue(prefix.GetParameters()[0], MethodPatcher.INSTANCE_PARAM);
+                        for (int i = 0; i < method.GetParameters().Length; i++)
+                            paramName.SetValue(prefix.GetParameters()[i + 1], method.GetParameters()[i].Name);
+
+                        harmony.Patch(method, new HarmonyMethod(prefix), null, null);
                     }
                 }
             }
@@ -240,14 +252,16 @@ namespace Multiplayer.Client
 
             // Set the map time for GUI methods depending on it
             {
-                var setMapTimePrefix = new HarmonyMethod(AccessTools.Method(typeof(SetMapTime), "Prefix"));
-                var setMapTimePostfix = new HarmonyMethod(AccessTools.Method(typeof(SetMapTime), "Postfix"));
+                var setMapTimePrefix = new HarmonyMethod(AccessTools.Method(typeof(SetMapTimeForUI), "Prefix"));
+                var setMapTimePostfix = new HarmonyMethod(AccessTools.Method(typeof(SetMapTimeForUI), "Postfix"));
                 var setMapTime = new[] { "MapInterfaceOnGUI_BeforeMainTabs", "MapInterfaceOnGUI_AfterMainTabs", "HandleMapClicks", "HandleLowPriorityInput", "MapInterfaceUpdate" };
 
                 foreach (string m in setMapTime)
                     harmony.Patch(AccessTools.Method(typeof(MapInterface), m), setMapTimePrefix, setMapTimePostfix);
                 harmony.Patch(AccessTools.Method(typeof(SoundRoot), "Update"), setMapTimePrefix, setMapTimePostfix);
+            }
 
+            {
                 var worldGridCtor = AccessTools.Constructor(typeof(WorldGrid));
                 harmony.Patch(worldGridCtor, new HarmonyMethod(AccessTools.Method(typeof(WorldGridCtorPatch), "Prefix")), null);
 
@@ -371,9 +385,9 @@ namespace Multiplayer.Client
 
             OnMainThread.Enqueue(() =>
             {
-                int tickUntil = data.ReadInt();
+                int tickUntil = data.ReadInt32();
 
-                int cmdsLen = data.ReadInt();
+                int cmdsLen = data.ReadInt32();
                 for (int i = 0; i < cmdsLen; i++)
                 {
                     byte[] cmd = data.ReadPrefixedBytes();
@@ -497,8 +511,8 @@ namespace Multiplayer.Client
         [PacketHandler(Packets.SERVER_MAP_RESPONSE)]
         public void HandleMapResponse(ByteReader data)
         {
-            int mapId = data.ReadInt();
-            int cmdsLen = data.ReadInt();
+            int mapId = data.ReadInt32();
+            int cmdsLen = data.ReadInt32();
             byte[][] cmds = new byte[cmdsLen][];
             for (int i = 0; i < cmdsLen; i++)
                 cmds[i] = data.ReadPrefixedBytes();
@@ -583,7 +597,7 @@ namespace Multiplayer.Client
         [PacketHandler(Packets.SERVER_TIME_CONTROL)]
         public void HandleTimeControl(ByteReader data)
         {
-            int tickUntil = data.ReadInt();
+            int tickUntil = data.ReadInt32();
             TickPatch.tickUntil = tickUntil;
         }
 
@@ -606,9 +620,9 @@ namespace Multiplayer.Client
 
         public static void HandleCmdSchedule(ByteReader data)
         {
-            CommandType cmd = (CommandType)data.ReadInt();
-            int ticks = data.ReadInt();
-            int mapId = data.ReadInt();
+            CommandType cmd = (CommandType)data.ReadInt32();
+            int ticks = data.ReadInt32();
+            int mapId = data.ReadInt32();
             byte[] extraBytes = data.ReadPrefixedBytes();
 
             ScheduledCommand schdl = new ScheduledCommand(cmd, ticks, mapId, extraBytes);
@@ -630,6 +644,8 @@ namespace Multiplayer.Client
         public static readonly Queue<ScheduledCommand> scheduledCmds = new Queue<ScheduledCommand>();
 
         private static readonly FieldInfo zoneShuffled = typeof(Zone).GetField("cellsShuffled", BindingFlags.NonPublic | BindingFlags.Instance);
+
+        public static bool executingCmds;
 
         public void Update()
         {
@@ -655,15 +671,20 @@ namespace Multiplayer.Client
 
         public static void ExecuteGlobalCmdsWhilePaused()
         {
-            UniqueIdsPatch.CurrentBlock = Multiplayer.globalIdBlock;
+            executingCmds = true;
 
-            while (scheduledCmds.Count > 0 && Find.TickManager.CurTimeSpeed == TimeSpeed.Paused)
+            try
             {
-                ScheduledCommand cmd = scheduledCmds.Dequeue();
-                ExecuteGlobalServerCmd(cmd, new ByteReader(cmd.data));
+                while (scheduledCmds.Count > 0 && Find.TickManager.CurTimeSpeed == TimeSpeed.Paused)
+                {
+                    ScheduledCommand cmd = scheduledCmds.Dequeue();
+                    ExecuteGlobalServerCmd(cmd, new ByteReader(cmd.data));
+                }
             }
-
-            UniqueIdsPatch.CurrentBlock = null;
+            finally
+            {
+                executingCmds = false;
+            }
         }
 
         public static void Enqueue(Action action)
@@ -699,6 +720,11 @@ namespace Multiplayer.Client
 
             try
             {
+                if (cmdType == CommandType.SYNC)
+                {
+                    Sync.HandleCmd(data, map);
+                }
+
                 if (cmdType == CommandType.MAP_FACTION_DATA)
                 {
                     HandleMapFactionData(cmd, data);
@@ -839,8 +865,15 @@ namespace Multiplayer.Client
             Multiplayer.Seed = Find.TickManager.TicksGame;
             CommandType cmdType = cmd.type;
 
+            UniqueIdsPatch.CurrentBlock = Multiplayer.globalIdBlock;
+
             try
             {
+                if (cmdType == CommandType.SYNC)
+                {
+                    Sync.HandleCmd(data, null);
+                }
+
                 if (cmdType == CommandType.WORLD_TIME_SPEED)
                 {
                     TimeSpeed prevSpeed = Find.TickManager.CurTimeSpeed;
@@ -917,6 +950,7 @@ namespace Multiplayer.Client
             }
             finally
             {
+                UniqueIdsPatch.CurrentBlock = null;
             }
         }
 
@@ -933,7 +967,7 @@ namespace Multiplayer.Client
             if (pawn.jobs.curJob != null && pawn.jobs.curJob.JobIsSameAs(job)) return;
 
             bool shouldQueue = data.ReadBool();
-            int mode = data.ReadInt();
+            int mode = data.ReadInt32();
 
             map.PushFaction(pawn.Faction);
 
@@ -946,7 +980,7 @@ namespace Multiplayer.Client
             {
                 string defName = data.ReadString();
                 WorkGiverDef workGiver = DefDatabase<WorkGiverDef>.AllDefs.FirstOrDefault(d => d.defName == defName);
-                IntVec3 cell = map.cellIndices.IndexToCell(data.ReadInt());
+                IntVec3 cell = map.cellIndices.IndexToCell(data.ReadInt32());
 
                 if (OrderJob(pawn, job, workGiver.tagToGive, shouldQueue))
                 {
@@ -1008,7 +1042,7 @@ namespace Multiplayer.Client
         private static void HandleDesignator(ScheduledCommand command, ByteReader data)
         {
             Map map = command.GetMap();
-            int mode = data.ReadInt();
+            int mode = data.ReadInt32();
             string desName = data.ReadString();
             string buildDefName = data.ReadString();
             Designator designator = GetDesignator(desName, buildDefName);
@@ -1024,7 +1058,7 @@ namespace Multiplayer.Client
 
                 if (mode == 0)
                 {
-                    IntVec3 cell = map.cellIndices.IndexToCell(data.ReadInt());
+                    IntVec3 cell = map.cellIndices.IndexToCell(data.ReadInt32());
                     designator.DesignateSingleCell(cell);
                     designator.Finalize(true);
                 }
@@ -1186,12 +1220,14 @@ namespace Multiplayer.Client
         public ResearchManager researchManager;
         public DrugPolicyDatabase drugPolicyDatabase;
         public OutfitDatabase outfitDatabase;
+        public PlaySettings playSettings;
 
         public FactionWorldData()
         {
             researchManager = new ResearchManager();
             drugPolicyDatabase = new DrugPolicyDatabase();
             outfitDatabase = new OutfitDatabase();
+            playSettings = new PlaySettings();
         }
 
         public void ExposeData()
@@ -1199,6 +1235,7 @@ namespace Multiplayer.Client
             Scribe_Deep.Look(ref researchManager, "researchManager");
             Scribe_Deep.Look(ref drugPolicyDatabase, "drugPolicyDatabase");
             Scribe_Deep.Look(ref outfitDatabase, "outfitDatabase");
+            Scribe_Deep.Look(ref playSettings, "playSettings");
         }
     }
 

@@ -335,19 +335,16 @@ namespace Multiplayer.Client
 
     public class Dialog_JumpTo : Dialog_Rename
     {
-        private Action<int> action;
+        private Action<string> action;
 
-        public Dialog_JumpTo(Action<int> action)
+        public Dialog_JumpTo(Action<string> action)
         {
             this.action = action;
         }
 
         protected override void SetName(string name)
         {
-            if (int.TryParse(name, out int tile))
-            {
-                action(tile);
-            }
+            action(name);
         }
     }
 

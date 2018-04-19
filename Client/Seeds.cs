@@ -78,31 +78,21 @@ namespace Multiplayer.Client
 
     public static class RandPatches
     {
-        private static bool _ignore;
         private static int nesting;
 
         public static bool Ignore
         {
-            get => _ignore;
+            get => nesting > 0;
             set
             {
                 if (value)
                 {
-                    if (_ignore)
-                    {
-                        nesting++;
-                        Log.Message("Nested rand ignore!");
-                    }
-                    else
-                        _ignore = true;
-                }
-                else
-                {
                     if (nesting > 0)
-                        nesting--;
-                    else
-                        _ignore = false;
+                        Log.Message("Nested rand ignore!");
+                    nesting++;
                 }
+                else if (nesting > 0)
+                    nesting--;
             }
         }
 

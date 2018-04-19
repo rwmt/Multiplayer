@@ -233,8 +233,8 @@ namespace Multiplayer.Common
 
         public static IdBlock Deserialize(ByteReader data)
         {
-            IdBlock block = new IdBlock(data.ReadInt(), data.ReadInt(), data.ReadInt());
-            block.current = data.ReadInt();
+            IdBlock block = new IdBlock(data.ReadInt32(), data.ReadInt32(), data.ReadInt32());
+            block.current = data.ReadInt32();
             return block;
         }
     }
@@ -356,8 +356,8 @@ namespace Multiplayer.Common
         [PacketHandler(Packets.CLIENT_COMMAND)]
         public void HandleClientCommand(ByteReader data)
         {
-            CommandType cmd = (CommandType)data.ReadInt();
-            int mapId = data.ReadInt();
+            CommandType cmd = (CommandType)data.ReadInt32();
+            int mapId = data.ReadInt32();
             byte[] extra = data.ReadPrefixedBytes();
 
             // todo check if map id is valid for the player
@@ -388,7 +388,7 @@ namespace Multiplayer.Common
             }
             else
             {
-                int mapId = data.ReadInt();
+                int mapId = data.ReadInt32();
                 byte[] compressedData = data.ReadPrefixedBytes();
 
                 // todo test map ownership
@@ -399,7 +399,7 @@ namespace Multiplayer.Common
         [PacketHandler(Packets.CLIENT_ENCOUNTER_REQUEST)]
         public void HandleEncounterRequest(ByteReader data)
         {
-            int tile = data.ReadInt();
+            int tile = data.ReadInt32();
             if (!MultiplayerServer.instance.mapTiles.TryGetValue(tile, out int mapId))
                 return;
 
@@ -416,7 +416,7 @@ namespace Multiplayer.Common
         [PacketHandler(Packets.CLIENT_ID_BLOCK_REQUEST)]
         public void HandleIdBlockRequest(ByteReader data)
         {
-            int mapId = data.ReadInt();
+            int mapId = data.ReadInt32();
 
             if (mapId == -1)
             {

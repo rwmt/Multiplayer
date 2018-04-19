@@ -1,7 +1,9 @@
 ﻿using LiteNetLib;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
 using System.Text;
 using System.Xml;
 
@@ -54,6 +56,31 @@ namespace Multiplayer.Common
         {
             conn.Send(Packets.CLIENT_COMMAND, new object[] { action, mapId, ByteWriter.GetBytes(extra) });
         }
+
+        public static bool IsList(this object o)
+        {
+            return o is IList &&
+               o.GetType().IsGenericType &&
+               o.GetType().GetGenericTypeDefinition().IsAssignableFrom(typeof(List<>));
+        }
+
+        public static bool IsDictionary(this object o)
+        {
+            return o is IDictionary &&
+               o.GetType().IsGenericType &&
+               o.GetType().GetGenericTypeDefinition().IsAssignableFrom(typeof(Dictionary<,>));
+        }
+
+        public static bool ListsEqual(this IList list1, IList list2)
+        {
+            if (list1.Count != list2.Count) return false;
+
+            for (int i = 0; i < list1.Count; i++)
+                if (!Equals(list1[i], list2[i]))
+                    return false;
+
+            return true;
+        }
     }
 
     public static class ByteWriter
@@ -63,6 +90,10 @@ namespace Multiplayer.Common
             if (obj is int @int)
             {
                 stream.Write(BitConverter.GetBytes(@int));
+            }
+            else if (obj is ushort @ushort)
+            {
+                stream.Write(BitConverter.GetBytes(@ushort));
             }
             else if (obj is bool @bool)
             {
@@ -86,7 +117,7 @@ namespace Multiplayer.Common
             }
             else if (obj is Enum)
             {
-                stream.WriteObject((int)obj);
+                stream.WriteObject(Convert.ToInt32(obj));
             }
             else if (obj is string @string)
             {
@@ -115,12 +146,10 @@ namespace Multiplayer.Common
 
         public static byte[] GetBytes(params object[] data)
         {
-            using (var stream = new MemoryStream())
-            {
-                foreach (object o in data)
-                    stream.WriteObject(o);
-                return stream.ToArray();
-            }
+            var stream = new MemoryStream();
+            foreach (object o in data)
+                stream.WriteObject(o);
+            return stream.ToArray();
         }
     }
 

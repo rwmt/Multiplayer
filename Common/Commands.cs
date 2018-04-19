@@ -17,7 +17,8 @@
         DESIGNATOR,
         ORDER_JOB,
         DELETE_ZONE,
-        SPAWN_PAWN
+        SPAWN_PAWN,
+        SYNC
     }
 
     public class ScheduledCommand

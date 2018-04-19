@@ -12,6 +12,7 @@ using Verse;
 using Verse.AI;
 using Verse.Profile;
 using Multiplayer.Common;
+using System.Runtime.InteropServices;
 
 namespace Multiplayer.Client
 {
@@ -47,7 +48,14 @@ namespace Multiplayer.Client
 
                     //Multiplayer.SendGameData(Multiplayer.SaveGame());
 
-                    Multiplayer.localServer.DoAutosave();
+                    //Multiplayer.localServer.DoAutosave();
+
+                    Find.WindowStack.Add(new Dialog_JumpTo(str =>
+                    {
+                        int[] angle = str.Split(',').Select(s => int.Parse(s)).ToArray();
+                        Find.Camera.transform.Rotate(new Vector3(angle[0], angle[1], angle[2]));
+                        Find.Camera.orthographic = false;
+                    }));
                 }));
             }
 
@@ -248,7 +256,7 @@ namespace Multiplayer.Client
             if (Find.VisibleMap != null)
             {
                 MapAsyncTimeComp comp = Find.VisibleMap.GetComponent<MapAsyncTimeComp>();
-                string text1 = "" + comp.mapTicks + " " + comp.timerInt;
+                string text1 = "" + comp.mapTicks + " " + comp.timerInt + " " + (TickPatch.tickUntil - comp.Timer);
 
                 text1 += " r:" + Find.VisibleMap.reservationManager.AllReservedThings().Count();
 
@@ -529,7 +537,7 @@ namespace Multiplayer.Client
 
             set
             {
-                if (value != null && currentBlock != null)
+                if (value != null && currentBlock != null && currentBlock != value)
                     MpLog.Log("Reassigning the current id block!");
                 currentBlock = value;
             }
@@ -541,6 +549,7 @@ namespace Multiplayer.Client
 
             if (CurrentBlock == null)
             {
+                __result = -1;
                 MpLog.Log("Tried to get a unique id without an id block set!");
                 return;
             }
@@ -693,11 +702,11 @@ namespace Multiplayer.Client
                         }
                     }
 
-                    Find.WindowStack.Add(new Dialog_JumpTo(i =>
+                    /*Find.WindowStack.Add(new Dialog_JumpTo(i =>
                     {
                         Find.WorldCameraDriver.JumpTo(i);
                         Find.WorldSelector.selectedTile = i;
-                    }));
+                    }));*/
                 }
             });
         }
@@ -998,22 +1007,4 @@ namespace Multiplayer.Client
             return false;
         }
     }
-
-    [HarmonyPatch(typeof(HarmonyParameter))]
-    [HarmonyPatch(nameof(HarmonyParameter.OriginalName), PropertyMethod.Getter)]
-    public static class HarmonyParameterPatch
-    {
-        public static string[] bestHack;
-        public static bool ignore;
-
-        static void Postfix(HarmonyParameter __instance, ref string __result)
-        {
-            if (ignore || bestHack == null) return;
-
-            ignore = true;
-            __result = bestHack[int.Parse(__instance.OriginalName)];
-            ignore = false;
-        }
-    }
-
 }

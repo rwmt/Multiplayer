@@ -159,7 +159,6 @@ namespace Multiplayer.Common
     public class ByteReader
     {
         private readonly byte[] array;
-
         private int index;
 
         public ByteReader(byte[] array)
@@ -167,9 +166,14 @@ namespace Multiplayer.Common
             this.array = array;
         }
 
-        public int ReadInt()
+        public int ReadInt32()
         {
             return BitConverter.ToInt32(array, IncrementIndex(4));
+        }
+
+        public ushort ReadUInt16()
+        {
+            return BitConverter.ToUInt16(array, IncrementIndex(2));
         }
 
         public float ReadFloat()
@@ -199,7 +203,7 @@ namespace Multiplayer.Common
 
         public byte[] ReadPrefixedBytes()
         {
-            int len = ReadInt();
+            int len = ReadInt32();
             if (len < 0)
                 throw new IOException("Byte array length less than 0");
             HasSizeLeft(len);
@@ -208,19 +212,19 @@ namespace Multiplayer.Common
 
         public int[] ReadPrefixedInts()
         {
-            int len = ReadInt();
+            int len = ReadInt32();
             if (len < 0)
                 throw new IOException("Int array length less than 0");
             HasSizeLeft(len * 4);
             int[] result = new int[len];
             for (int i = 0; i < len; i++)
-                result[i] = ReadInt();
+                result[i] = ReadInt32();
             return result;
         }
 
         public string[] ReadPrefixedStrings()
         {
-            int len = ReadInt();
+            int len = ReadInt32();
             if (len < 0)
                 throw new IOException("String array length less than 0");
             string[] result = new string[len];
