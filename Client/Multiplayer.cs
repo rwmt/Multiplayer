@@ -7,13 +7,10 @@ using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Linq.Expressions;
 using System.Net;
 using System.Reflection;
-using System.Reflection.Emit;
 using System.Threading;
 using System.Xml;
 using UnityEngine;
@@ -722,7 +719,8 @@ namespace Multiplayer.Client
             {
                 if (cmdType == CommandType.SYNC)
                 {
-                    Sync.HandleCmd(data, map);
+                    data.context = map;
+                    Sync.HandleCmd(data);
                 }
 
                 if (cmdType == CommandType.MAP_FACTION_DATA)
@@ -871,7 +869,7 @@ namespace Multiplayer.Client
             {
                 if (cmdType == CommandType.SYNC)
                 {
-                    Sync.HandleCmd(data, null);
+                    Sync.HandleCmd(data);
                 }
 
                 if (cmdType == CommandType.WORLD_TIME_SPEED)

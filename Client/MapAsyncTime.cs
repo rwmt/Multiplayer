@@ -31,7 +31,7 @@ namespace Multiplayer.Client
                         comp.realTimeToTickThrough += Time.deltaTime;
 
                     int num = 0;
-                    while (comp.realTimeToTickThrough > 0f && num < comp.TickRateMultiplier * 2f)
+                    while ((comp.realTimeToTickThrough > 0f || comp.Timer < TickPatch.tickUntil - 5) && num < comp.TickRateMultiplier * 2f)
                     {
                         comp.Tick();
 

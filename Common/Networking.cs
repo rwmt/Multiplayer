@@ -156,10 +156,99 @@ namespace Multiplayer.Common
         }
     }
 
+    public class ByteWriter
+    {
+        private MemoryStream stream = new MemoryStream();
+        public object context;
+
+        public void WriteInt32(int val)
+        {
+            stream.Write(BitConverter.GetBytes(val));
+        }
+
+        public void WriteUInt16(ushort val)
+        {
+            stream.Write(BitConverter.GetBytes(val));
+        }
+
+        public void WriteBool(bool val)
+        {
+            stream.WriteByte(val ? (byte)1 : (byte)0);
+        }
+
+        public void WriteList<T>(List<T> list)
+        {
+            WriteInt32(list.Count);
+            foreach (T t in list)
+                Write(t);
+        }
+
+        public void Write(object obj)
+        {
+            if (obj is int @int)
+            {
+                WriteInt32(@int);
+            }
+            else if (obj is ushort @ushort)
+            {
+                WriteUInt16(@ushort);
+            }
+            else if (obj is bool @bool)
+            {
+                WriteBool(@bool);
+            }
+            else if (obj is byte @byte)
+            {
+                stream.WriteByte(@byte);
+            }
+            else if (obj is float @float)
+            {
+                stream.Write(BitConverter.GetBytes(@float));
+            }
+            else if (obj is double @double)
+            {
+                stream.Write(BitConverter.GetBytes(@double));
+            }
+            else if (obj is byte[] bytearr)
+            {
+                WriteInt32(bytearr.Length);
+                stream.Write(bytearr);
+            }
+            else if (obj is Enum)
+            {
+                Write(Convert.ToInt32(obj));
+            }
+            else if (obj is string @string)
+            {
+                Write(Encoding.UTF8.GetBytes(@string));
+            }
+            else if (obj is Array arr)
+            {
+                Write(arr.Length);
+                foreach (object o in arr)
+                    Write(o);
+            }
+        }
+
+        public byte[] GetArray()
+        {
+            return stream.ToArray();
+        }
+
+        public static byte[] GetBytes(params object[] data)
+        {
+            var writer = new ByteWriter();
+            foreach (object o in data)
+                writer.Write(o);
+            return writer.GetArray();
+        }
+    }
+
     public class ByteReader
     {
         private readonly byte[] array;
         private int index;
+        public object context;
 
         public ByteReader(byte[] array)
         {
@@ -186,7 +275,7 @@ namespace Multiplayer.Common
             return BitConverter.ToDouble(array, IncrementIndex(8));
         }
 
-        public int ReadByte()
+        public byte ReadByte()
         {
             return array[IncrementIndex(1)];
         }

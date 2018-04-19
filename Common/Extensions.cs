@@ -52,104 +52,20 @@ namespace Multiplayer.Common
             return (IConnection)peer.Tag;
         }
 
+        public static void SendCommand(this IConnection conn, CommandType action, int mapId, byte[] extra)
+        {
+            conn.Send(Packets.CLIENT_COMMAND, new object[] { action, mapId, extra });
+        }
+
         public static void SendCommand(this IConnection conn, CommandType action, int mapId, params object[] extra)
         {
             conn.Send(Packets.CLIENT_COMMAND, new object[] { action, mapId, ByteWriter.GetBytes(extra) });
-        }
-
-        public static bool IsList(this object o)
-        {
-            return o is IList &&
-               o.GetType().IsGenericType &&
-               o.GetType().GetGenericTypeDefinition().IsAssignableFrom(typeof(List<>));
-        }
-
-        public static bool IsDictionary(this object o)
-        {
-            return o is IDictionary &&
-               o.GetType().IsGenericType &&
-               o.GetType().GetGenericTypeDefinition().IsAssignableFrom(typeof(Dictionary<,>));
-        }
-
-        public static bool ListsEqual(this IList list1, IList list2)
-        {
-            if (list1.Count != list2.Count) return false;
-
-            for (int i = 0; i < list1.Count; i++)
-                if (!Equals(list1[i], list2[i]))
-                    return false;
-
-            return true;
-        }
-    }
-
-    public static class ByteWriter
-    {
-        public static void WriteObject(this MemoryStream stream, object obj)
-        {
-            if (obj is int @int)
-            {
-                stream.Write(BitConverter.GetBytes(@int));
-            }
-            else if (obj is ushort @ushort)
-            {
-                stream.Write(BitConverter.GetBytes(@ushort));
-            }
-            else if (obj is bool @bool)
-            {
-                stream.WriteByte(@bool ? (byte)1 : (byte)0);
-            }
-            else if (obj is byte @byte)
-            {
-                stream.WriteByte(@byte);
-            }
-            else if (obj is float @float)
-            {
-                stream.Write(BitConverter.GetBytes(@float));
-            }
-            else if (obj is double @double)
-            {
-                stream.Write(BitConverter.GetBytes(@double));
-            }
-            else if (obj is byte[] bytearr)
-            {
-                stream.WritePrefixed(bytearr);
-            }
-            else if (obj is Enum)
-            {
-                stream.WriteObject(Convert.ToInt32(obj));
-            }
-            else if (obj is string @string)
-            {
-                stream.WriteObject(Encoding.UTF8.GetBytes(@string));
-            }
-            else if (obj is Array arr)
-            {
-                stream.WriteObject(arr.Length);
-                foreach (object o in arr)
-                    stream.WriteObject(o);
-            }
         }
 
         public static void Write(this MemoryStream stream, byte[] arr)
         {
             if (arr.Length > 0)
                 stream.Write(arr, 0, arr.Length);
-        }
-
-        public static void WritePrefixed(this MemoryStream stream, byte[] arr)
-        {
-            stream.Write(BitConverter.GetBytes(arr.Length), 0, 4);
-            if (arr.Length > 0)
-                stream.Write(arr, 0, arr.Length);
-        }
-
-        public static byte[] GetBytes(params object[] data)
-        {
-            var stream = new MemoryStream();
-            foreach (object o in data)
-                stream.WriteObject(o);
-            return stream.ToArray();
         }
     }
 

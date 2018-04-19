@@ -16,6 +16,57 @@ using System.Runtime.InteropServices;
 
 namespace Multiplayer.Client
 {
+    public class MpPostfix : Attribute
+    {
+    }
+
+    public class MpPatch : Attribute
+    {
+        public readonly Type type;
+        public readonly string typeName;
+        public readonly string method;
+
+        public MpPatch(string typeName, string method)
+        {
+            this.typeName = typeName;
+            this.method = method;
+        }
+
+        public MpPatch(Type type, string method)
+        {
+            this.type = type;
+            this.method = method;
+        }
+
+        public static List<MethodBase> DoPatches(Type type)
+        {
+            List<MethodBase> result = new List<MethodBase>();
+
+            foreach (MethodInfo m in AccessTools.GetDeclaredMethods(type))
+            {
+                MpPatch attr = (MpPatch)GetCustomAttribute(m, typeof(MpPatch));
+                if (attr == null) continue;
+
+                Type declaring = attr.type ?? MpReflection.GetTypeByName(attr.typeName);
+                if (declaring == null)
+                    throw new Exception("Couldn't find type " + attr.typeName);
+
+                MethodInfo patched = AccessTools.Method(declaring, attr.method);
+                if (patched == null)
+                    throw new Exception("Couldn't find method " + attr.method + " in type " + declaring.FullName);
+
+                bool postfix = GetCustomAttribute(m, typeof(MpPostfix)) != null;
+
+                HarmonyMethod patch = new HarmonyMethod(m);
+                Multiplayer.harmony.Patch(patched, postfix ? null : patch, postfix ? patch : null);
+
+                result.Add(patched);
+            }
+
+            return result;
+        }
+    }
+
     [HarmonyPatch(typeof(OptionListingUtility))]
     [HarmonyPatch(nameof(OptionListingUtility.DrawOptionListing))]
     public static class MainMenuPatch

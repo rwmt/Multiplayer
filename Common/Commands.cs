@@ -8,6 +8,9 @@
         SETUP_FACTION,
         GLOBAL_ID_BLOCK,
 
+        // Mixed scope
+        SYNC,
+
         // Map scope
         MAP_TIME_SPEED,
         MAP_FACTION_DATA,
@@ -18,7 +21,6 @@
         ORDER_JOB,
         DELETE_ZONE,
         SPAWN_PAWN,
-        SYNC
     }
 
     public class ScheduledCommand

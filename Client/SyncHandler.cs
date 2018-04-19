@@ -4,6 +4,7 @@ using RimWorld;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Linq;
 using System.Reflection;
 using Verse;
@@ -177,57 +178,6 @@ namespace Multiplayer.Client
         }
     }
 
-    public class MpPostfix : Attribute
-    {
-    }
-
-    public class MpPatch : Attribute
-    {
-        public readonly Type type;
-        public readonly string typeName;
-        public readonly string method;
-
-        public MpPatch(string typeName, string method)
-        {
-            this.typeName = typeName;
-            this.method = method;
-        }
-
-        public MpPatch(Type type, string method)
-        {
-            this.type = type;
-            this.method = method;
-        }
-
-        public static List<MethodBase> DoPatches(Type type)
-        {
-            List<MethodBase> result = new List<MethodBase>();
-
-            foreach (MethodInfo m in AccessTools.GetDeclaredMethods(type))
-            {
-                MpPatch attr = (MpPatch)GetCustomAttribute(m, typeof(MpPatch));
-                if (attr == null) continue;
-
-                Type declaring = attr.type ?? MpReflection.GetTypeByName(attr.typeName);
-                if (declaring == null)
-                    throw new Exception("Couldn't find type " + attr.typeName);
-
-                MethodInfo patched = AccessTools.Method(declaring, attr.method);
-                if (patched == null)
-                    throw new Exception("Couldn't find method " + attr.method + " in type " + declaring.FullName);
-
-                bool postfix = GetCustomAttribute(m, typeof(MpPostfix)) != null;
-
-                HarmonyMethod patch = new HarmonyMethod(m);
-                Multiplayer.harmony.Patch(patched, postfix ? null : patch, postfix ? patch : null);
-
-                result.Add(patched);
-            }
-
-            return result;
-        }
-    }
-
     public abstract class SyncHandler
     {
         public readonly int syncId;
@@ -255,6 +205,8 @@ namespace Multiplayer.Client
 
         public void Watch(object target = null, string instancePath = null)
         {
+            if (!Multiplayer.ShouldSync) return;
+
             object instance = target;
             if (instancePath != null)
                 instance = MpReflection.GetPropertyOrField(target, instancePath);
@@ -266,19 +218,19 @@ namespace Multiplayer.Client
         public void DoSync(object target, object value)
         {
             int mapId = -1;
-            List<object> data = new List<object>();
+            ByteWriter writer = new ByteWriter();
 
-            data.Add(syncId);
+            writer.WriteInt32(syncId);
 
             if (target is Pawn pawn)
             {
                 mapId = pawn.Map.uniqueID;
-                data.Add(pawn.thingIDNumber);
+                writer.WriteInt32(pawn.thingIDNumber);
             }
 
-            Sync.WriteSyncObject(value, data, fieldType);
+            Sync.WriteSyncObject(writer, value, fieldType);
 
-            Multiplayer.client.SendCommand(CommandType.SYNC, mapId, data.ToArray());
+            Multiplayer.client.SendCommand(CommandType.SYNC, mapId, writer.GetArray());
         }
     }
 
@@ -305,20 +257,20 @@ namespace Multiplayer.Client
         public void DoSync(object target, params object[] args)
         {
             int mapId = -1;
-            List<object> data = new List<object>();
+            ByteWriter writer = new ByteWriter();
 
-            data.Add(syncId);
+            writer.WriteInt32(syncId);
 
             if (target is Pawn pawn)
             {
                 mapId = pawn.Map.uniqueID;
-                data.Add(pawn.thingIDNumber);
+                writer.WriteInt32(pawn.thingIDNumber);
             }
 
             for (int i = 0; i < args.Length; i++)
-                Sync.WriteSyncObject(args[i], data, argTypes[i]);
+                Sync.WriteSyncObject(writer, args[i], argTypes[i]);
 
-            Multiplayer.client.SendCommand(CommandType.SYNC, mapId, data.ToArray());
+            Multiplayer.client.SendCommand(CommandType.SYNC, mapId, writer.GetArray());
         }
     }
 
@@ -345,7 +297,7 @@ namespace Multiplayer.Client
 
         private static void Prefix(ref bool __state)
         {
-            if (!syncing)
+            if (!syncing && Multiplayer.ShouldSync)
                 syncing = __state = true;
         }
 
@@ -362,8 +314,6 @@ namespace Multiplayer.Client
                 {
                     MpReflection.SetPropertyOrField(data.target, data.handler.memberPath, data.value);
                     data.handler.DoSync(data.target, newValue);
-
-                    MpLog.Log("Value changed " + data.handler.memberPath + " " + data.value + " " + newValue);
                 }
             }
 
@@ -405,104 +355,200 @@ namespace Multiplayer.Client
                 sync.Watch(target);
         }
 
-        public static void HandleCmd(ByteReader data, Map map)
+        public static void HandleCmd(ByteReader data)
         {
             int syncId = data.ReadInt32();
             SyncHandler handler = handlers[syncId];
 
             if (handler is SyncMethod method)
             {
-                object target = ReadTarget(method.targetType, data, map);
+                object target = ReadTarget(data, method.targetType);
                 target = MpReflection.GetPropertyOrField(target, method.instancePath);
-                object[] parameters = ReadSyncObjects(data, map, method.argTypes);
+                object[] parameters = ReadSyncObjects(data, method.argTypes);
 
                 MpLog.Log("Invoked " + method.method + " on " + target + " with " + parameters.Length + " params");
                 method.method.Invoke(target, parameters);
             }
             else if (handler is SyncField field)
             {
-                object target = ReadTarget(field.targetType, data, map);
-                object value = ReadSyncObjects(data, map, field.fieldType)[0];
+                object target = ReadTarget(data, field.targetType);
+                object value = ReadSyncObject(data, field.fieldType);
 
-                MpLog.Log("Set " + field.memberPath + " in " + target + " to " + value + " map " + map);
+                MpLog.Log("Set " + field.memberPath + " in " + target + " to " + value + " map " + data.context);
                 MpReflection.SetPropertyOrField(target, field.memberPath, value);
             }
         }
 
-        private static object ReadTarget(Type targetType, ByteReader data, Map map)
+        private static object ReadTarget(ByteReader data, Type targetType)
         {
             object target = null;
             if (targetType == typeof(Pawn))
             {
                 int pawnId = data.ReadInt32();
+                Map map = data.context as Map;
                 target = map.mapPawns.AllPawns.FirstOrDefault(p => p.thingIDNumber == pawnId);
             }
 
             return target;
         }
 
-        static Dictionary<Type, Func<ByteReader, object>> readers = new Dictionary<Type, Func<ByteReader, object>>
+        static ReaderDictionary readers = new ReaderDictionary
         {
-            { typeof(int), data => data.ReadInt32() },
-            { typeof(bool), data => data.ReadBool() },
-            { typeof(string), data => data.ReadString() }
+            { data => data.ReadInt32() },
+            { data => data.ReadBool() },
+            { data => data.ReadString() },
+            { data => new IntVec3(data.ReadInt32(), data.ReadInt32(), data.ReadInt32()) }
         };
 
-        public static object[] ReadSyncObjects(ByteReader data, Map mapContext, params Type[] spec)
+        static WriterDictionary writers = new WriterDictionary
+        {
+            { (ByteWriter data, int o) => data.WriteInt32(o) },
+            { (ByteWriter data, bool o) => data.WriteBool(o) },
+            { (ByteWriter data, string o) => data.Write(o) },
+            {
+                (ByteWriter data, IntVec3 vec) =>
+                {
+                    data.WriteInt32(vec.x);
+                    data.WriteInt32(vec.y);
+                    data.WriteInt32(vec.z);
+                }
+            }
+        };
+
+        public static List<T> ReadList<T>(ByteReader data)
+        {
+            int size = data.ReadInt32();
+            return null;
+        }
+
+        public static object ReadSyncObject(ByteReader data, Type type)
+        {
+            if (type.IsEnum)
+            {
+                return Enum.ToObject(type, data.ReadInt32());
+            }
+            else if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(List<>))
+            {
+                Type listType = type.GetGenericArguments()[0];
+                int size = data.ReadInt32();
+                IList list = Activator.CreateInstance(type, size) as IList;
+                for (int j = 0; j < size; j++)
+                    list.Add(ReadSyncObject(data, listType));
+                return list;
+            }
+            else if (typeof(Area).IsAssignableFrom(type))
+            {
+                int areaId = data.ReadInt32();
+                if (areaId == -1)
+                {
+                    return null;
+                }
+
+                Map map = data.context as Map;
+                return map.areaManager.AllAreas.FirstOrDefault(a => a.ID == areaId);
+            }
+            else if (typeof(Def).IsAssignableFrom(type))
+            {
+                ushort shortHash = data.ReadUInt16();
+                if (shortHash == 0)
+                {
+                    return null;
+                }
+
+                Type dbType = typeof(DefDatabase<>).MakeGenericType(type);
+                return AccessTools.Method(dbType, "GetByShortHash").Invoke(null, new object[] { shortHash });
+            }
+            else if (readers.TryGetValue(type, out Func<ByteReader, object> reader))
+            {
+                return reader(data);
+            }
+            else
+            {
+                throw new Exception("Couldn't read type " + type);
+            }
+        }
+
+        public static object[] ReadSyncObjects(ByteReader data, params Type[] spec)
         {
             object[] read = new object[spec.Length];
 
             for (int i = 0; i < spec.Length; i++)
             {
-                Type t = spec[i];
-                if (t.IsEnum)
-                {
-                    read[i] = Enum.ToObject(t, data.ReadInt32());
-                }
-                else if (typeof(Area).IsAssignableFrom(t))
-                {
-                    int areaId = data.ReadInt32();
-                    read[i] = mapContext.areaManager.AllAreas.FirstOrDefault(a => a.ID == areaId);
-                }
-                else if (typeof(Def).IsAssignableFrom(t))
-                {
-                    ushort shortHash = data.ReadUInt16();
-                    Type dbType = typeof(DefDatabase<>).MakeGenericType(t);
-                    read[i] = AccessTools.Method(dbType, "GetByShortHash").Invoke(null, new object[] { shortHash });
-                }
-                else if (readers.TryGetValue(t, out Func<ByteReader, object> reader))
-                {
-                    read[i] = reader(data);
-                }
-                else
-                {
-                    MpLog.Log("No reader for type " + t);
-                }
+                Type type = spec[i];
+                read[i] = ReadSyncObject(data, type);
             }
 
             return read;
         }
 
-        public static void WriteSyncObject(object obj, List<object> data, Type type)
+        public static void WriteSyncObject(ByteWriter data, object obj, Type type)
         {
-            if (typeof(Def).IsAssignableFrom(type))
+            if (type.IsEnum)
             {
-                if (obj != null)
-                    data.Add((obj as Def).shortHash);
-                else
-                    data.Add((ushort)0);
+                data.WriteInt32(Convert.ToInt32(obj));
+            }
+            else if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(List<>))
+            {
+                Type listType = type.GetGenericArguments()[0];
+                IList list = obj as IList;
+                data.WriteInt32(list.Count);
+                foreach (object e in list)
+                    WriteSyncObject(data, e, listType);
             }
             else if (typeof(Area).IsAssignableFrom(type))
             {
-                if (obj != null)
-                    data.Add((obj as Area).ID);
-                else
-                    data.Add(-1);
+                data.WriteInt32(obj is Area area ? area.ID : -1);
+            }
+            else if (typeof(Def).IsAssignableFrom(type))
+            {
+                data.WriteUInt16(obj is Def def ? def.shortHash : (ushort)0);
+            }
+            else if (writers.TryGetValue(type, out Action<ByteWriter, object> writer))
+            {
+                writer(data, obj);
             }
             else
             {
-                data.Add(obj);
+                throw new Exception("Couldn't write type " + type);
             }
         }
     }
+
+    class ReaderDictionary : OrderedDictionary<Type, Func<ByteReader, object>>
+    {
+        public void Add<T>(Func<ByteReader, T> writer)
+        {
+            Add(typeof(T), data => writer(data));
+        }
+    }
+
+    class WriterDictionary : OrderedDictionary<Type, Action<ByteWriter, object>>
+    {
+        public void Add<T>(Action<ByteWriter, T> writer)
+        {
+            Add(typeof(T), (data, o) => writer(data, (T)o));
+        }
+    }
+
+    abstract class OrderedDictionary<K, V> : IEnumerable
+    {
+        private OrderedDictionary dict = new OrderedDictionary();
+
+        protected void Add(K key, V value)
+        {
+            dict.Add(key, value);
+        }
+
+        public bool TryGetValue(K key, out V value)
+        {
+            value = (V)dict[key];
+            return value != null;
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return dict.GetEnumerator();
+        }
+    }
+
 }
