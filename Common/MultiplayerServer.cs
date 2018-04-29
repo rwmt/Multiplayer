@@ -1,8 +1,6 @@
 ﻿using LiteNetLib;
-using LiteNetLib.Utils;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -100,7 +98,7 @@ namespace Multiplayer.Common
         {
             Enqueue(() =>
             {
-                SendCommand(CommandType.AUTOSAVE, -1, new byte[0]);
+                SendCommand(CommandType.AUTOSAVE, ScheduledCommand.GLOBAL, new byte[0]);
 
                 globalCmds.Clear();
                 foreach (int tile in mapCmds.Keys)
@@ -325,7 +323,7 @@ namespace Multiplayer.Common
         public void HandleWorldRequest(ByteReader data)
         {
             byte[] extra = ByteWriter.GetBytes(Connection.Username);
-            MultiplayerServer.instance.SendCommand(CommandType.SETUP_FACTION, -1, extra);
+            MultiplayerServer.instance.SendCommand(CommandType.SETUP_FACTION, ScheduledCommand.GLOBAL, extra);
 
             byte[][] cmds = MultiplayerServer.instance.globalCmds.ToArray();
             byte[] packetData = ByteWriter.GetBytes(MultiplayerServer.instance.timer, cmds, MultiplayerServer.instance.savedGame);
@@ -418,10 +416,10 @@ namespace Multiplayer.Common
         {
             int mapId = data.ReadInt32();
 
-            if (mapId == -1)
+            if (mapId == ScheduledCommand.GLOBAL)
             {
                 IdBlock nextBlock = MultiplayerServer.instance.NextIdBlock();
-                MultiplayerServer.instance.SendCommand(CommandType.GLOBAL_ID_BLOCK, -1, nextBlock.Serialize());
+                MultiplayerServer.instance.SendCommand(CommandType.GLOBAL_ID_BLOCK, ScheduledCommand.GLOBAL, nextBlock.Serialize());
             }
             else
             {

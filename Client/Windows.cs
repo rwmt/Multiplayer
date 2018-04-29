@@ -18,6 +18,8 @@ namespace Multiplayer.Client
 {
     public class ChatWindow : Window
     {
+        public const int MaxChatMsgLength = 128;
+
         public override Vector2 InitialSize
         {
             get
@@ -26,10 +28,13 @@ namespace Multiplayer.Client
             }
         }
 
+        private static readonly Texture2D SelectedMsg = SolidColorMaterials.NewSolidColorTexture(new Color(0.17f, 0.17f, 0.17f, 0.85f));
+
         private Vector2 scrollPos;
         private float messagesHeight;
-        private List<string> messages = new List<string>();
+        private List<ChatMsg> messages = new List<ChatMsg>();
         private string currentMsg = "";
+        private bool focused;
 
         public string[] playerList = new string[0];
 
@@ -86,22 +91,43 @@ namespace Multiplayer.Client
 
         public void DrawChat(Rect rect)
         {
-            GUI.BeginGroup(rect);
-
             Rect outRect = new Rect(0f, 0f, rect.width, rect.height - 30f);
             Rect viewRect = new Rect(0f, 0f, rect.width - 16f, messagesHeight + 10f);
+            float width = viewRect.width;
+            Rect textField = new Rect(20f, outRect.yMax + 5f, width - 70f, 25f);
+
+            GUI.BeginGroup(rect);
+
+            GUI.SetNextControlName("chat_input");
+            currentMsg = Widgets.TextField(textField, currentMsg);
+            currentMsg = currentMsg.Substring(0, Math.Min(currentMsg.Length, MaxChatMsgLength));
 
             Widgets.BeginScrollView(outRect, ref scrollPos, viewRect);
 
             float yPos = 0;
-            float width = viewRect.width;
             GUI.color = Color.white;
 
-            foreach (string msg in messages)
-            {
-                float height = Text.CalcHeight(msg, width);
+            int i = 0;
 
-                Widgets.Label(new Rect(20f, yPos, width, height), msg);
+            foreach (ChatMsg msg in messages)
+            {
+                float height = Text.CalcHeight(msg.msg, width);
+
+                GUI.SetNextControlName("chat_msg_" + i++);
+
+                Color cursorColor = GUI.skin.settings.cursorColor;
+                GUI.skin.settings.cursorColor = new Color(0, 0, 0, 0);
+
+                Rect msgRect = new Rect(20f, yPos, width, height);
+                if (Mouse.IsOver(msgRect))
+                {
+                    GUI.DrawTexture(msgRect, SelectedMsg);
+                    TooltipHandler.TipRegion(msgRect, msg.timestamp.ToLongTimeString());
+                }
+
+                Widgets.TextArea(msgRect, msg.msg, true);
+
+                GUI.skin.settings.cursorColor = cursorColor;
 
                 yPos += height;
             }
@@ -111,16 +137,33 @@ namespace Multiplayer.Client
 
             Widgets.EndScrollView();
 
-            Rect textField = new Rect(20f, outRect.yMax + 5f, width - 55f, 25f);
-            currentMsg = Widgets.TextField(textField, currentMsg);
-            currentMsg = currentMsg.Substring(0, Math.Min(currentMsg.Length, 64));
-
-            if (Widgets.ButtonText(new Rect(textField.xMax + 5f, textField.y, 50f, textField.height), "Send"))
+            if (Widgets.ButtonText(new Rect(textField.xMax + 5f, textField.y, 55f, textField.height), "Send"))
             {
                 SendMsg();
             }
 
             GUI.EndGroup();
+
+            if (Event.current.type == EventType.mouseDown)
+            {
+                UI.UnfocusCurrentControl();
+                Event.current.Use();
+            }
+
+            if (!focused)
+            {
+                GUI.FocusControl("chat_input");
+                TextEditor editor = (TextEditor)GUIUtility.GetStateObject(typeof(TextEditor), GUIUtility.keyboardControl);
+                editor.OnFocus();
+                editor.MoveTextEnd();
+                focused = true;
+            }
+        }
+
+        public override void PreOpen()
+        {
+            base.PreOpen();
+            focused = false;
         }
 
         public void SendMsg()
@@ -139,8 +182,20 @@ namespace Multiplayer.Client
 
         public void AddMsg(string msg)
         {
-            messages.Add(msg);
+            messages.Add(new ChatMsg(msg, DateTime.Now));
             scrollPos.y = messagesHeight;
+        }
+
+        private class ChatMsg
+        {
+            public string msg;
+            public DateTime timestamp;
+
+            public ChatMsg(string msg, DateTime timestamp)
+            {
+                this.msg = msg;
+                this.timestamp = timestamp;
+            }
         }
     }
 

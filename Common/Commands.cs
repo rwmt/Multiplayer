@@ -25,6 +25,8 @@
 
     public class ScheduledCommand
     {
+        public const int GLOBAL = -1;
+
         public readonly CommandType type;
         public readonly int ticks;
         public readonly int mapId;

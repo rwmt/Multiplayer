@@ -41,17 +41,19 @@ namespace Multiplayer.Client
 
     public static class DesignatorPatches
     {
-        public static bool DesignateSingleCell(Designator designator, IntVec3 c)
+        [IndexedPatchParameters]
+        public static bool DesignateSingleCell(Designator designator, IntVec3 cell)
         {
             if (Multiplayer.client == null || !ProcessDesigInputPatch.processing) return true;
 
             Map map = Find.VisibleMap;
-            object[] extra = GetExtra(0, designator).Append(map.cellIndices.CellToIndex(c));
+            object[] extra = GetExtra(0, designator).Append(map.cellIndices.CellToIndex(cell));
             Multiplayer.client.SendCommand(CommandType.DESIGNATOR, map.uniqueID, extra);
 
             return false;
         }
 
+        [IndexedPatchParameters]
         public static bool DesignateMultiCell(Designator designator, IEnumerable<IntVec3> cells)
         {
             if (Multiplayer.client == null || !ProcessDesigInputPatch.processing) return true;
@@ -68,15 +70,16 @@ namespace Multiplayer.Client
             return false;
         }
 
-        public static bool DesignateThing(Designator designator, Thing t)
+        [IndexedPatchParameters]
+        public static bool DesignateThing(Designator designator, Thing thing)
         {
             if (Multiplayer.client == null || !DrawGizmosPatch.drawingGizmos) return true;
 
             Map map = Find.VisibleMap;
-            object[] extra = GetExtra(2, designator).Append(t.GetUniqueLoadID());
+            object[] extra = GetExtra(2, designator).Append(thing.GetUniqueLoadID());
             Multiplayer.client.SendCommand(CommandType.DESIGNATOR, map.uniqueID, extra);
 
-            MoteMaker.ThrowMetaPuffs(t);
+            MoteMaker.ThrowMetaPuffs(thing);
 
             return false;
         }

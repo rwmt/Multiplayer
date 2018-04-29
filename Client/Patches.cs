@@ -12,14 +12,10 @@ using Verse;
 using Verse.AI;
 using Verse.Profile;
 using Multiplayer.Common;
-using System.Runtime.InteropServices;
+using System.Text.RegularExpressions;
 
 namespace Multiplayer.Client
 {
-    public class MpPostfix : Attribute
-    {
-    }
-
     public class MpPatch : Attribute
     {
         public readonly Type type;
@@ -65,6 +61,10 @@ namespace Multiplayer.Client
 
             return result;
         }
+    }
+
+    public class MpPostfix : Attribute
+    {
     }
 
     [HarmonyPatch(typeof(OptionListingUtility))]
@@ -343,7 +343,7 @@ namespace Multiplayer.Client
 
             if (Find.TickManager.CurTimeSpeed != lastSpeed)
             {
-                Multiplayer.client.SendCommand(CommandType.WORLD_TIME_SPEED, -1, (byte)Find.TickManager.CurTimeSpeed);
+                Multiplayer.client.SendCommand(CommandType.WORLD_TIME_SPEED, ScheduledCommand.GLOBAL, (byte)Find.TickManager.CurTimeSpeed);
                 Find.TickManager.CurTimeSpeed = lastSpeed;
             }
         }
@@ -856,7 +856,7 @@ namespace Multiplayer.Client
     {
         static bool Prefix(Pawn_JobTracker __instance, Job job, JobTag tag)
         {
-            if (Multiplayer.client == null) return true;
+            if (!Multiplayer.ShouldSync) return true;
             if (__instance.curJob != null && __instance.curJob.JobIsSameAs(job)) return false;
 
             Pawn pawn = (Pawn)JobTrackerStart.pawnField.GetValue(__instance);
@@ -870,7 +870,7 @@ namespace Multiplayer.Client
 
         static void Postfix(ref bool __result)
         {
-            if (Multiplayer.client == null) return;
+            if (!Multiplayer.ShouldSync) return;
             __result = true;
         }
     }
@@ -881,7 +881,7 @@ namespace Multiplayer.Client
     {
         static bool Prefix(Pawn_JobTracker __instance, Job job, WorkGiver giver, IntVec3 cell)
         {
-            if (Multiplayer.client == null) return true;
+            if (!Multiplayer.ShouldSync) return true;
             if (__instance.curJob != null && __instance.curJob.JobIsSameAs(job)) return false;
 
             Pawn pawn = (Pawn)JobTrackerStart.pawnField.GetValue(__instance);
@@ -896,7 +896,7 @@ namespace Multiplayer.Client
 
         static void Postfix(ref bool __result)
         {
-            if (Multiplayer.client == null) return;
+            if (!Multiplayer.ShouldSync) return;
             __result = true;
         }
     }
@@ -1058,4 +1058,86 @@ namespace Multiplayer.Client
             return false;
         }
     }
+
+    [HarmonyPatch(typeof(Log))]
+    [HarmonyPatch(nameof(Log.Warning))]
+    public static class CrossRefWarningPatch
+    {
+        private static Regex regex = new Regex(@"^Could not resolve reference to object with loadID ([\w.-]*) of type ([\w.<>+]*)\. Was it compressed away");
+        public static bool ignore;
+
+        // The only non-generic entry point during cross reference resolving
+        static bool Prefix(string text)
+        {
+            if (Multiplayer.client == null || ignore) return true;
+
+            ignore = true;
+
+            GroupCollection groups = regex.Match(text).Groups;
+            if (groups.Count == 3)
+            {
+                string loadId = groups[1].Value;
+                string typeName = groups[2].Value;
+            }
+
+            ignore = false;
+
+            return false;
+        }
+    }
+
+    [HarmonyPatch(typeof(UI))]
+    [HarmonyPatch(nameof(UI.MouseCell))]
+    public static class MouseCellPatch
+    {
+        public static IntVec3 result = IntVec3.Invalid;
+
+        public static bool Prefix()
+        {
+            return !result.IsValid;
+        }
+
+        public static void Postfix(ref IntVec3 __result)
+        {
+            if (result.IsValid)
+                __result = result;
+        }
+    }
+
+    // The first parameter is the instance (only for instance methods)
+    // The rest are original method's parameters in order
+    [AttributeUsage(AttributeTargets.Method)]
+    public class IndexedPatchParameters : Attribute
+    {
+    }
+
+    [HarmonyPatch(typeof(MethodPatcher))]
+    [HarmonyPatch("EmitCallParameter")]
+    public static class ParameterNamePatch
+    {
+        static readonly FieldInfo paramName = AccessTools.Field(typeof(ParameterInfo), "NameImpl");
+
+        static void Prefix(MethodBase original, MethodInfo patch)
+        {
+            if (Attribute.GetCustomAttribute(patch, typeof(IndexedPatchParameters)) == null)
+                return;
+
+            ParameterInfo[] patchParams = patch.GetParameters();
+
+            for (int i = 0; i < patchParams.Length; i++)
+            {
+                string name;
+
+                if (original.IsStatic)
+                    name = original.GetParameters()[i].Name;
+                else if (i == 0)
+                    name = MethodPatcher.INSTANCE_PARAM;
+                else
+                    name = original.GetParameters()[i - 1].Name;
+
+                paramName.SetValue(patchParams[i], name);
+            }
+        }
+    }
+
 }

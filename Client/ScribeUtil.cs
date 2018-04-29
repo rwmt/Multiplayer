@@ -13,9 +13,17 @@ namespace Multiplayer.Client
 {
     public class CrossRefSupply : LoadedObjectDirectory
     {
-        private static readonly FieldInfo dictField = typeof(LoadedObjectDirectory).GetField("allObjectsByLoadID", BindingFlags.NonPublic | BindingFlags.Instance);
+        private static readonly FieldInfo dictField = AccessTools.Field(typeof(LoadedObjectDirectory), "allObjectsByLoadID");
 
+        // Used in CrossRefs patches
         public List<string> tempKeys = new List<string>();
+
+        public Dictionary<string, ILoadReferenceable> Dict { get; }
+
+        public CrossRefSupply()
+        {
+            Dict = (Dictionary<string, ILoadReferenceable>)dictField.GetValue(this);
+        }
 
         public void Unregister(ILoadReferenceable thing)
         {
@@ -24,65 +32,13 @@ namespace Multiplayer.Client
 
         public void Unregister(string key)
         {
-            GetDict().Remove(key);
+            Dict.Remove(key);
         }
 
         public void UnregisterAllFrom(Map map)
         {
-            int a = GetDict().RemoveAll(x => x.Value is Thing && ((Thing)x.Value).Map == map);
+            Dict.RemoveAll(x => x.Value is Thing && ((Thing)x.Value).Map == map);
         }
-
-        public Dictionary<string, ILoadReferenceable> GetDict()
-        {
-            return (Dictionary<string, ILoadReferenceable>)dictField.GetValue(this);
-        }
-    }
-
-    public class AttributedExposable : IExposable
-    {
-        private static readonly MethodInfo lookValue = typeof(Scribe_Values).GetMethod("Look");
-        private static readonly MethodInfo lookDeep = typeof(Scribe_Deep).GetMethods().First(m => m.Name == "Look" && m.GetParameters().Length == 3);
-        private static readonly MethodInfo lookReference = typeof(Scribe_References).GetMethod("Look");
-
-        public virtual void ExposeData()
-        {
-            foreach (FieldInfo field in GetType().GetFields(BindingFlags.Instance | BindingFlags.Public))
-            {
-                if (field.TryGetAttribute(out ExposeValueAttribute exposeValue))
-                {
-                    object[] args = new object[] { field.GetValue(this), field.Name, null, false };
-                    lookValue.MakeGenericMethod(field.FieldType).Invoke(null, args);
-                    field.SetValue(this, args[0]);
-                }
-                else if (field.TryGetAttribute(out ExposeDeepAttribute exposeDeep))
-                {
-                    object[] args = new object[] { field.GetValue(this), field.Name, new object[0] };
-                    lookDeep.MakeGenericMethod(field.FieldType).Invoke(null, args);
-                    field.SetValue(this, args[0]);
-                }
-                else if (field.TryGetAttribute(out ExposeReferenceAttribute exposeReference))
-                {
-                    object[] args = new object[] { field.GetValue(this), field.Name, false };
-                    lookReference.MakeGenericMethod(field.FieldType).Invoke(null, args);
-                    field.SetValue(this, args[0]);
-                }
-            }
-        }
-    }
-
-    [AttributeUsage(AttributeTargets.Field)]
-    public class ExposeValueAttribute : Attribute
-    {
-    }
-
-    [AttributeUsage(AttributeTargets.Field)]
-    public class ExposeDeepAttribute : Attribute
-    {
-    }
-
-    [AttributeUsage(AttributeTargets.Field)]
-    public class ExposeReferenceAttribute : Attribute
-    {
     }
 
     public static class ScribeUtil
@@ -157,16 +113,36 @@ namespace Multiplayer.Client
             StartLoading(GetDocument(data));
         }
 
-        [HarmonyPatch(typeof(ScribeLoader))]
-        [HarmonyPatch(nameof(ScribeLoader.FinalizeLoading))]
-        public static class FinalizeLoadingPatch
+        public static void FinalizeLoading()
         {
-            static void Postfix() => loading = false;
-        }
+            if (!loading)
+            {
+                Log.Error("Called FinalizeLoading() but we aren't loading");
+                return;
+            }
 
-        public static void FinishLoading()
-        {
-            Scribe.loader.FinalizeLoading();
+            ScribeLoader loader = Scribe.loader;
+
+            try
+            {
+                Scribe.ExitNode();
+
+                loader.curXmlParent = null;
+                loader.curParent = null;
+                loader.curPathRelToParent = null;
+                loader.crossRefs.ResolveAllCrossReferences();
+                loader.initer.DoAllPostLoadInits();
+            }
+            catch (Exception e)
+            {
+                Log.Error("Exception in FinalizeLoading(): " + e);
+                loader.ForceStop();
+                throw;
+            }
+            finally
+            {
+                loading = false;
+            }
         }
 
         public static XmlDocument GetDocument(byte[] data)
@@ -219,7 +195,7 @@ namespace Multiplayer.Client
 
             crossRefsField.SetValue(Scribe.loader.crossRefs, crossRefs);
 
-            Log.Message("Cross ref supply: " + crossRefs.GetDict().Count + " " + crossRefs.GetDict().Last() + " " + Faction.OfPlayer);
+            Log.Message("Cross ref supply: " + crossRefs.Dict.Count + " " + crossRefs.Dict.Last() + " " + Faction.OfPlayer);
         }
 
         public static byte[] WriteExposable(IExposable element, string name = "data", bool indent = false)
@@ -240,7 +216,7 @@ namespace Multiplayer.Client
             if (beforeFinish != null)
                 beforeFinish.Invoke(element);
 
-            FinishLoading();
+            FinalizeLoading();
             return element;
         }
 

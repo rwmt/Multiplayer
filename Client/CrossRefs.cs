@@ -1,10 +1,6 @@
 ﻿using Harmony;
 using RimWorld;
 using RimWorld.Planet;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using Verse;
 using Verse.Profile;
 
@@ -114,12 +110,12 @@ namespace Multiplayer.Client
             if (reffable == null) return false;
 
             string key = reffable.GetUniqueLoadID();
-            if (ScribeUtil.crossRefs.GetDict().ContainsKey(key)) return false;
+            if (ScribeUtil.crossRefs.Dict.ContainsKey(key)) return false;
 
             if (Scribe.mode == LoadSaveMode.ResolvingCrossRefs)
                 ScribeUtil.crossRefs.tempKeys.Add(key);
 
-            ScribeUtil.crossRefs.GetDict().Add(key, reffable);
+            ScribeUtil.crossRefs.Dict.Add(key, reffable);
 
             return false;
         }

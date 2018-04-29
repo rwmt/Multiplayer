@@ -3,15 +3,13 @@ using RimWorld;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Reflection;
-using System.Text;
 using UnityEngine;
 using Verse;
 
 namespace Multiplayer.Client
 {
-    public static class BetterSaver
+    public static class SaveCompression
     {
         public static bool doBetterSave;
         private static Dictionary<ushort, ThingDef> thingDefsByShortHash;
@@ -280,10 +278,10 @@ namespace Multiplayer.Client
     {
         static bool Prefix(MapFileCompressor __instance)
         {
-            if (!BetterSaver.doBetterSave) return true;
+            if (!SaveCompression.doBetterSave) return true;
 
-            Map map = (Map)BetterSaver.compressorMapField.GetValue(__instance);
-            BetterSaver.Save(map);
+            Map map = (Map)SaveCompression.compressorMapField.GetValue(__instance);
+            SaveCompression.Save(map);
 
             return false;
         }
@@ -295,10 +293,10 @@ namespace Multiplayer.Client
     {
         static bool Prefix(MapFileCompressor __instance)
         {
-            if (!BetterSaver.doBetterSave) return true;
+            if (!SaveCompression.doBetterSave) return true;
 
-            Map map = (Map)BetterSaver.compressorMapField.GetValue(__instance);
-            BetterSaver.Load(map);
+            Map map = (Map)SaveCompression.compressorMapField.GetValue(__instance);
+            SaveCompression.Load(map);
 
             return false;
         }
@@ -310,9 +308,9 @@ namespace Multiplayer.Client
     {
         static void Postfix(MapFileCompressor __instance, ref IEnumerable<Thing> __result)
         {
-            if (!BetterSaver.doBetterSave) return;
+            if (!SaveCompression.doBetterSave) return;
 
-            Map map = (Map)BetterSaver.compressorMapField.GetValue(__instance);
+            Map map = (Map)SaveCompression.compressorMapField.GetValue(__instance);
             MultiplayerMapComp comp = map.GetComponent<MultiplayerMapComp>();
             __result = comp.loadedThings;
             comp.loadedThings = null;
@@ -325,9 +323,9 @@ namespace Multiplayer.Client
     {
         static void Postfix(Thing t, ref bool __result)
         {
-            if (!BetterSaver.doBetterSave) return;
+            if (!SaveCompression.doBetterSave) return;
 
-            __result = BetterSaver.IsSavePlant(t) || BetterSaver.IsSaveRock(t) || BetterSaver.IsSaveRockRubble(t);
+            __result = SaveCompression.IsSavePlant(t) || SaveCompression.IsSaveRock(t) || SaveCompression.IsSaveRockRubble(t);
         }
     }
 }

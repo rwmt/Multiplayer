@@ -176,13 +176,6 @@ namespace Multiplayer.Common
             stream.WriteByte(val ? (byte)1 : (byte)0);
         }
 
-        public void WriteList<T>(List<T> list)
-        {
-            WriteInt32(list.Count);
-            foreach (T t in list)
-                Write(t);
-        }
-
         public void Write(object obj)
         {
             if (obj is int @int)

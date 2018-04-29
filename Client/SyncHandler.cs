@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using Verse;
 
 namespace Multiplayer.Client
@@ -120,9 +121,10 @@ namespace Multiplayer.Client
 
     public static class SyncPatches
     {
-        public static SyncMethod SyncSetAssignment = Sync.Method(typeof(Pawn), "timetable", "SetAssignment", typeof(int), typeof(TimeAssignmentDef));
-        public static SyncMethod SyncSetPriority = Sync.Method(typeof(Pawn), "workSettings", "SetPriority", typeof(WorkTypeDef), typeof(int));
+        public static SyncMethod SyncSetAssignment = Sync.Method(typeof(Pawn), "timetable", "SetAssignment");
+        public static SyncMethod SyncSetPriority = Sync.Method(typeof(Pawn), "workSettings", "SetPriority");
         public static SyncField SyncTimetable = Sync.Field(typeof(Pawn), "timetable", "times");
+        public static SyncDelegate SyncGotoLocation = Sync.Delegate("RimWorld.FloatMenuMakerMap+<GotoLocationOption>c__AnonStorey18", "<>m__0");
 
         private static FieldInfo timetablePawn = AccessTools.Field(typeof(Pawn_TimetableTracker), "pawn");
         private static FieldInfo workPrioritiesPawn = AccessTools.Field(typeof(Pawn_WorkSettings), "pawn");
@@ -217,7 +219,7 @@ namespace Multiplayer.Client
 
         public void DoSync(object target, object value)
         {
-            int mapId = -1;
+            int mapId = ScheduledCommand.GLOBAL;
             ByteWriter writer = new ByteWriter();
 
             writer.WriteInt32(syncId);
@@ -227,6 +229,9 @@ namespace Multiplayer.Client
                 mapId = pawn.Map.uniqueID;
                 writer.WriteInt32(pawn.thingIDNumber);
             }
+
+            if (mapId >= 0)
+                Sync.WriteSyncObject<IntVec3>(writer, UI.MouseCell());
 
             Sync.WriteSyncObject(writer, value, fieldType);
 
@@ -238,25 +243,24 @@ namespace Multiplayer.Client
     {
         public readonly Type targetType;
         public readonly string instancePath;
-        public readonly string methodName;
-        public readonly Type[] argTypes;
 
         public readonly MethodInfo method;
+        public readonly Type[] argTypes;
 
-        public SyncMethod(int syncId, Type targetType, string instancePath, string methodName, Type[] argTypes) : base(syncId)
+        public SyncMethod(int syncId, Type targetType, string instancePath, string methodName) : base(syncId)
         {
             this.targetType = targetType;
             this.instancePath = targetType + "/" + instancePath;
-            this.methodName = methodName;
-            this.argTypes = argTypes;
 
             Type instanceType = MpReflection.PropertyOrFieldType(this.instancePath);
             method = AccessTools.Method(instanceType, methodName);
+
+            argTypes = method.GetParameters().Select(p => p.ParameterType).ToArray();
         }
 
         public void DoSync(object target, params object[] args)
         {
-            int mapId = -1;
+            int mapId = ScheduledCommand.GLOBAL;
             ByteWriter writer = new ByteWriter();
 
             writer.WriteInt32(syncId);
@@ -267,10 +271,51 @@ namespace Multiplayer.Client
                 writer.WriteInt32(pawn.thingIDNumber);
             }
 
+            if (mapId >= 0)
+                Sync.WriteSyncObject<IntVec3>(writer, UI.MouseCell());
+
             for (int i = 0; i < args.Length; i++)
                 Sync.WriteSyncObject(writer, args[i], argTypes[i]);
 
             Multiplayer.client.SendCommand(CommandType.SYNC, mapId, writer.GetArray());
+        }
+    }
+
+    public class SyncDelegate : SyncHandler
+    {
+        public readonly Type delegateType;
+        public readonly MethodInfo method;
+
+        public SyncDelegate(int syncId, Type delegateType, string delegateMethod) : base(syncId)
+        {
+            this.delegateType = delegateType;
+            method = AccessTools.Method(delegateType, delegateMethod);
+
+            //Multiplayer.harmony.Patch(method, );
+        }
+
+        public void DoSync(object delegateInstance, int mapId)
+        {
+            ByteWriter writer = new ByteWriter();
+            writer.WriteInt32(syncId);
+
+            if (mapId >= 0)
+                Sync.WriteSyncObject<IntVec3>(writer, UI.MouseCell());
+
+            Sync.SerializeRecursively(writer, delegateType, delegateInstance);
+
+            Multiplayer.client.SendCommand(CommandType.SYNC, mapId, writer.GetArray());
+        }
+
+        public static bool ignore;
+
+        private static bool Prefix(object __instance)
+        {
+            if (ignore) return true;
+
+
+
+            return false;
         }
     }
 
@@ -321,9 +366,9 @@ namespace Multiplayer.Client
             syncing = __state = false;
         }
 
-        public static SyncMethod Method(Type targetType, string instancePath, string methodName, params Type[] argTypes)
+        public static SyncMethod Method(Type targetType, string instancePath, string methodName)
         {
-            SyncMethod handler = new SyncMethod(handlers.Count, targetType, instancePath, methodName, argTypes);
+            SyncMethod handler = new SyncMethod(handlers.Count, targetType, instancePath, methodName);
             handlers.Add(handler);
             return handler;
         }
@@ -340,7 +385,61 @@ namespace Multiplayer.Client
             return memberPaths.Select(path => Field(targetType, instancePath, path)).ToArray();
         }
 
-        public static void RegisterPatches(Type type)
+        public static SyncDelegate Delegate(string delegateType, string delegateMethod)
+        {
+            SyncDelegate handler = new SyncDelegate(handlers.Count, MpReflection.GetTypeByName(delegateType), delegateMethod);
+            handlers.Add(handler);
+            return handler;
+        }
+
+        public static void SerializeRecursively(ByteWriter data, Type type, object obj)
+        {
+            foreach (FieldInfo field in type.GetFields())
+            {
+                object val = field.GetValue(obj);
+                try
+                {
+                    WriteSyncObject(data, val, field.FieldType);
+                }
+                catch (SerializationException)
+                {
+                    if (!CanSerialize(field.FieldType))
+                        throw new Exception("Couldn't serialize type " + field.FieldType);
+                    SerializeRecursively(data, field.FieldType, val);
+                }
+            }
+        }
+
+        public static object DeserializeRecursively(ByteReader data, Type type)
+        {
+            object result = Activator.CreateInstance(type);
+
+            foreach (FieldInfo field in type.GetFields())
+            {
+                object val;
+                try
+                {
+                    val = ReadSyncObject(data, field.FieldType);
+                }
+                catch (SerializationException)
+                {
+                    if (!CanSerialize(field.FieldType))
+                        throw new Exception("Couldn't deserialize type " + field.FieldType);
+                    val = DeserializeRecursively(data, field.FieldType);
+                }
+
+                field.SetValue(result, val);
+            }
+
+            return result;
+        }
+
+        public static bool CanSerialize(Type type)
+        {
+            return type.GetConstructors(AccessTools.all).Any(c => c.GetParameters().Length == 0);
+        }
+
+        public static void RegisterFieldPatches(Type type)
         {
             HarmonyMethod prefix = new HarmonyMethod(AccessTools.Method(typeof(Sync), "Prefix"));
             HarmonyMethod postfix = new HarmonyMethod(AccessTools.Method(typeof(Sync), "Postfix"));
@@ -360,6 +459,12 @@ namespace Multiplayer.Client
             int syncId = data.ReadInt32();
             SyncHandler handler = handlers[syncId];
 
+            if (data.context is Map)
+            {
+                IntVec3 mouseCell = ReadSyncObject<IntVec3>(data);
+                MouseCellPatch.result = mouseCell;
+            }
+
             if (handler is SyncMethod method)
             {
                 object target = ReadTarget(data, method.targetType);
@@ -376,6 +481,11 @@ namespace Multiplayer.Client
 
                 MpLog.Log("Set " + field.memberPath + " in " + target + " to " + value + " map " + data.context);
                 MpReflection.SetPropertyOrField(target, field.memberPath, value);
+            }
+
+            if (data.context is Map)
+            {
+                MouseCellPatch.result = IntVec3.Invalid;
             }
         }
 
@@ -415,10 +525,9 @@ namespace Multiplayer.Client
             }
         };
 
-        public static List<T> ReadList<T>(ByteReader data)
+        public static T ReadSyncObject<T>(ByteReader data)
         {
-            int size = data.ReadInt32();
-            return null;
+            return (T)ReadSyncObject(data, typeof(T));
         }
 
         public static object ReadSyncObject(ByteReader data, Type type)
@@ -464,7 +573,7 @@ namespace Multiplayer.Client
             }
             else
             {
-                throw new Exception("Couldn't read type " + type);
+                throw new SerializationException("No reader for type " + type);
             }
         }
 
@@ -479,6 +588,11 @@ namespace Multiplayer.Client
             }
 
             return read;
+        }
+
+        public static void WriteSyncObject<T>(ByteWriter data, object obj)
+        {
+            WriteSyncObject(data, obj, typeof(T));
         }
 
         public static void WriteSyncObject(ByteWriter data, object obj, Type type)
@@ -509,7 +623,7 @@ namespace Multiplayer.Client
             }
             else
             {
-                throw new Exception("Couldn't write type " + type);
+                throw new SerializationException("No writer for type " + type);
             }
         }
     }
@@ -548,6 +662,13 @@ namespace Multiplayer.Client
         IEnumerator IEnumerable.GetEnumerator()
         {
             return dict.GetEnumerator();
+        }
+    }
+
+    public class SerializationException : Exception
+    {
+        public SerializationException(string msg) : base(msg)
+        {
         }
     }
 

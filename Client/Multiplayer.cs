@@ -1,4 +1,5 @@
 ﻿using Harmony;
+using Harmony.ILCopying;
 using Ionic.Zlib;
 using LiteNetLib;
 using Multiplayer.Common;
@@ -11,6 +12,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Reflection;
+using System.Reflection.Emit;
 using System.Threading;
 using System.Xml;
 using UnityEngine;
@@ -81,7 +83,7 @@ namespace Multiplayer.Client
 
             MpPatch.DoPatches(typeof(MethodMarkers));
             MpPatch.DoPatches(typeof(SyncPatches));
-            Sync.RegisterPatches(typeof(SyncFieldsPatches));
+            Sync.RegisterFieldPatches(typeof(SyncFieldsPatches));
 
             DoPatches();
 
@@ -125,8 +127,8 @@ namespace Multiplayer.Client
 
         public static XmlDocument SaveGame()
         {
-            bool betterSave = BetterSaver.doBetterSave;
-            BetterSaver.doBetterSave = true;
+            bool betterSave = SaveCompression.doBetterSave;
+            SaveCompression.doBetterSave = true;
 
             ScribeUtil.StartWritingToDoc();
 
@@ -143,7 +145,7 @@ namespace Multiplayer.Client
             Find.CameraDriver.Expose();
             Scribe.ExitNode();
 
-            BetterSaver.doBetterSave = betterSave;
+            SaveCompression.doBetterSave = betterSave;
 
             return ScribeUtil.FinishWritingToDoc();
         }
@@ -194,11 +196,6 @@ namespace Multiplayer.Client
                         if (method == null) continue;
 
                         MethodInfo prefix = AccessTools.Method(typeof(DesignatorPatches), m);
-
-                        paramName.SetValue(prefix.GetParameters()[0], MethodPatcher.INSTANCE_PARAM);
-                        for (int i = 0; i < method.GetParameters().Length; i++)
-                            paramName.SetValue(prefix.GetParameters()[i + 1], method.GetParameters()[i].Name);
-
                         harmony.Patch(method, new HarmonyMethod(prefix), null, null);
                     }
                 }
@@ -523,13 +520,13 @@ namespace Multiplayer.Client
 
                 Multiplayer.loadingEncounter = true;
                 Current.ProgramState = ProgramState.MapInitializing;
-                BetterSaver.doBetterSave = true;
+                SaveCompression.doBetterSave = true;
 
                 ScribeUtil.StartLoading(mapData);
                 ScribeUtil.SupplyCrossRefs();
                 List<Map> maps = null;
                 Scribe_Collections.Look(ref maps, "maps", LookMode.Deep);
-                ScribeUtil.FinishLoading();
+                ScribeUtil.FinalizeLoading();
 
                 MpLog.Log("Maps " + maps.Count);
                 Map map = maps[0];
@@ -537,7 +534,7 @@ namespace Multiplayer.Client
                 Current.Game.AddMap(map);
                 map.FinalizeLoading();
 
-                BetterSaver.doBetterSave = false;
+                SaveCompression.doBetterSave = false;
                 Multiplayer.loadingEncounter = false;
                 Current.ProgramState = ProgramState.Playing;
 
@@ -691,7 +688,7 @@ namespace Multiplayer.Client
 
         public static void ScheduleCommand(ScheduledCommand cmd)
         {
-            if (cmd.mapId == -1)
+            if (cmd.mapId == ScheduledCommand.GLOBAL)
             {
                 scheduledCmds.Enqueue(cmd);
             }
@@ -920,7 +917,7 @@ namespace Multiplayer.Client
 
                     LongEventHandler.QueueLongEvent(() =>
                     {
-                        BetterSaver.doBetterSave = true;
+                        SaveCompression.doBetterSave = true;
 
                         WorldGridCtorPatch.copyFrom = Find.WorldGrid;
                         WorldRendererCtorPatch.copyFrom = Find.World.renderer;
@@ -935,7 +932,7 @@ namespace Multiplayer.Client
 
                         Prefs.PauseOnLoad = false;
                         SavedGameLoader.LoadGameFromSaveFile("server");
-                        BetterSaver.doBetterSave = false;
+                        SaveCompression.doBetterSave = false;
 
                         foreach (Map map in Find.Maps)
                             map.GetComponent<MultiplayerMapComp>().SetFaction(Multiplayer.RealPlayerFaction);

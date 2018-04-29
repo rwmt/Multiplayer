@@ -1,8 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.InteropServices;
-using Verse;
 
 namespace Multiplayer.Client
 {
@@ -25,7 +22,7 @@ namespace Multiplayer.Client
         private static extern void print_profiler(string filename);
 
         [DllImport("kernel32.dll", CharSet = CharSet.Auto)]
-        private static extern IntPtr GetModuleHandle(string lpModuleName);
+        public static extern IntPtr GetModuleHandle(string lpModuleName);
 
         public static readonly bool available;
 
