@@ -10,6 +10,7 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Verse;
+using Verse.AI;
 
 namespace Multiplayer.Client
 {
@@ -91,13 +92,13 @@ namespace Multiplayer.Client
             SyncFollowDrafted.Watch(pawn);
         }
 
-        [MpPatch("RimWorld.TrainableUtility+<OpenMasterSelectMenu>c__AnonStorey0", "<>m__0")]
+        [MpPatch(typeof(TrainableUtility), "<OpenMasterSelectMenu>c__AnonStorey0", "<>m__0")]
         public static void OpenMasterSelectMenu_Inner1(object __instance)
         {
             SyncMaster.Watch(__instance, "p");
         }
 
-        [MpPatch("RimWorld.TrainableUtility+<OpenMasterSelectMenu>c__AnonStorey1", "<>m__0")]
+        [MpPatch(typeof(TrainableUtility), "<OpenMasterSelectMenu>c__AnonStorey1", "<>m__0")]
         public static void OpenMasterSelectMenu_Inner2(object __instance)
         {
             SyncMaster.Watch(__instance, "<>f__ref$0/p");
@@ -184,7 +185,7 @@ namespace Multiplayer.Client
         }
 
         [SyncDelegate]
-        [MpPatch("RimWorld.FloatMenuMakerMap+<GotoLocationOption>c__AnonStorey18", "<>m__0")]
+        [MpPatch(typeof(FloatMenuMakerMap), "<GotoLocationOption>c__AnonStorey18", "<>m__0")]
         public static bool FloatMenuGoto(object __instance)
         {
             if (!Multiplayer.ShouldSync) return true;
@@ -193,7 +194,7 @@ namespace Multiplayer.Client
         }
 
         [SyncDelegate]
-        [MpPatch("RimWorld.FloatMenuMakerMap+<AddDraftedOrders>c__AnonStorey3", "<>m__0")]
+        [MpPatch(typeof(FloatMenuMakerMap), "<AddDraftedOrders>c__AnonStorey3", "<>m__0")]
         public static bool FloatMenuArrest(object __instance)
         {
             if (!Multiplayer.ShouldSync) return true;
@@ -202,7 +203,7 @@ namespace Multiplayer.Client
         }
 
         [SyncDelegate]
-        [MpPatch("RimWorld.FloatMenuMakerMap+<AddHumanlikeOrders>c__AnonStorey7", "<>m__0")]
+        [MpPatch(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey7", "<>m__0")]
         public static bool FloatMenuRescue(object __instance)
         {
             if (!Multiplayer.ShouldSync) return true;
@@ -211,7 +212,7 @@ namespace Multiplayer.Client
         }
 
         [SyncDelegate]
-        [MpPatch("RimWorld.FloatMenuMakerMap+<AddHumanlikeOrders>c__AnonStorey7", "<>m__1")]
+        [MpPatch(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey7", "<>m__1")]
         public static bool FloatMenuCapture(object __instance)
         {
             if (!Multiplayer.ShouldSync) return true;
@@ -220,13 +221,40 @@ namespace Multiplayer.Client
         }
 
         [SyncDelegate]
-        [MpPatch("RimWorld.FloatMenuMakerMap+<AddHumanlikeOrders>c__AnonStorey9", "<>m__0")]
+        [MpPatch(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey9", "<>m__0")]
         public static bool FloatMenuCarryToCryptosleepCasket(object __instance)
         {
             if (!Multiplayer.ShouldSync) return true;
             Sync.Delegate(__instance, MapProviderMode.ANY_PAWN);
             return false;
         }
+
+        [SyncDelegate("$this")]
+        [MpPatch(typeof(Pawn_PlayerSettings), "<GetGizmos>c__Iterator0", "<>m__2")]
+        public static bool GizmoReleaseAnimals(object __instance)
+        {
+            if (!Multiplayer.ShouldSync) return true;
+            Sync.Delegate(__instance, __instance.GetPropertyOrField("$this/pawn"));
+            return false;
+        }
+
+        [SyncDelegate("$this")]
+        [MpPatch(typeof(PriorityWork), "<GetGizmos>c__Iterator0", "<>m__0")]
+        public static bool GizmoClearPrioritizedWork(object __instance)
+        {
+            if (!Multiplayer.ShouldSync) return true;
+            Sync.Delegate(__instance, __instance.GetPropertyOrField("$this/pawn"));
+            return false;
+        }
+
+        /*[SyncDelegate("lord")]
+        [MpPatch(typeof(Pawn_MindState), "<GetGizmos>c__Iterator0+<GetGizmos>c__AnonStorey2", "<>m__0")]
+        public static bool GizmoCancelFormingCaravan(object __instance)
+        {
+            if (!Multiplayer.ShouldSync) return true;
+            Sync.Delegate(__instance, MpReflection.GetPropertyOrField(__instance, ""));
+            return false;
+        }*/
     }
 
     public static class MapProviderMode
@@ -234,12 +262,18 @@ namespace Multiplayer.Client
         public static readonly object ANY_PAWN = new object();
     }
 
-    public class SyncMethodAttribute : Attribute
-    {
-    }
-
     public class SyncDelegateAttribute : Attribute
     {
+        public readonly string[] fields;
+
+        public SyncDelegateAttribute()
+        {
+        }
+
+        public SyncDelegateAttribute(params string[] fields)
+        {
+            this.fields = fields;
+        }
     }
 
     public static class MethodMarkers
@@ -268,6 +302,8 @@ namespace Multiplayer.Client
         {
             this.syncId = syncId;
         }
+
+        public abstract void Read(ByteReader data);
     }
 
     public class SyncField : SyncHandler
@@ -290,9 +326,9 @@ namespace Multiplayer.Client
             if (!Multiplayer.ShouldSync) return;
 
             if (targetPath != null)
-                target = MpReflection.GetPropertyOrField(target, targetPath);
+                target = target.GetPropertyOrField(targetPath);
 
-            object value = MpReflection.GetPropertyOrField(target, memberPath);
+            object value = target.GetPropertyOrField(memberPath);
             Sync.currentMethod.Add(new SyncData(target, this, value));
         }
 
@@ -303,8 +339,7 @@ namespace Multiplayer.Client
 
             writer.WriteInt32(syncId);
 
-            if (mapId >= 0)
-                Sync.WriteSyncObject(writer, UI.MouseCell());
+            Sync.WriteContext(writer, mapId);
 
             if (target is Pawn p)
                 writer.WriteInt32(p.thingIDNumber);
@@ -312,6 +347,15 @@ namespace Multiplayer.Client
             Sync.WriteSyncObject(writer, value, fieldType);
 
             Multiplayer.client.SendCommand(CommandType.SYNC, mapId, writer.GetArray());
+        }
+
+        public override void Read(ByteReader data)
+        {
+            object target = Sync.ReadTarget(data, targetType);
+            object value = Sync.ReadSyncObject(data, fieldType);
+
+            MpLog.Log("Set " + memberPath + " in " + target + " to " + value + " map " + data.context);
+            MpReflection.SetPropertyOrField(target, memberPath, value);
         }
     }
 
@@ -345,16 +389,26 @@ namespace Multiplayer.Client
 
             writer.WriteInt32(syncId);
 
-            if (mapId >= 0)
-                Sync.WriteSyncObject(writer, UI.MouseCell());
+            Sync.WriteContext(writer, mapId);
 
             if (target is Pawn p)
                 writer.WriteInt32(p.thingIDNumber);
 
-            for (int i = 0; i < args.Length; i++)
-                Sync.WriteSyncObject(writer, args[i], argTypes[i]);
+            Sync.WriteSyncObjects(writer, args, argTypes);
 
             Multiplayer.client.SendCommand(CommandType.SYNC, mapId, writer.GetArray());
+        }
+
+        public override void Read(ByteReader data)
+        {
+            object target = Sync.ReadTarget(data, targetType);
+            if (!instancePath.NullOrEmpty())
+                target = target.GetPropertyOrField(instancePath);
+
+            object[] parameters = Sync.ReadSyncObjects(data, argTypes);
+
+            MpLog.Log("Invoked " + method + " on " + target + " with " + parameters.Length + " params");
+            method.Invoke(target, parameters);
         }
     }
 
@@ -363,10 +417,33 @@ namespace Multiplayer.Client
         public readonly Type delegateType;
         public readonly MethodInfo method;
 
-        public SyncDelegate(int syncId, Type delegateType, string delegateMethod) : base(syncId)
+        private Type[] argTypes;
+        public string[] fields;
+        private Type[] fieldTypes;
+
+        public SyncDelegate(int syncId, Type delegateType, string delegateMethod, string[] fields) : base(syncId)
         {
             this.delegateType = delegateType;
             method = AccessTools.Method(delegateType, delegateMethod);
+
+            argTypes = method.GetParameters().Select(p => p.ParameterType).ToArray();
+
+            this.fields = fields;
+            if (fields == null)
+            {
+                List<string> fieldList = new List<string>();
+                Sync.AllDelegateFieldsRecursive(delegateType, path => { fieldList.Add(path); return false; });
+                this.fields = fieldList.ToArray();
+            }
+            else
+            {
+                for (int i = 0; i < this.fields.Length; i++)
+                {
+                    this.fields[i] = MpReflection.AppendType(this.fields[i], delegateType);
+                }
+            }
+
+            fieldTypes = this.fields.Select(path => MpReflection.PropertyOrFieldType(path)).ToArray();
         }
 
         public void DoSync(object delegateInstance, int mapId, params object[] args)
@@ -374,12 +451,26 @@ namespace Multiplayer.Client
             ByteWriter writer = new ByteWriter();
             writer.WriteInt32(syncId);
 
-            if (mapId >= 0)
-                Sync.WriteSyncObject(writer, UI.MouseCell());
+            Sync.WriteContext(writer, mapId);
 
-            Sync.SerializeRecursively(writer, delegateType, delegateInstance);
+            foreach (string field in fields)
+                Sync.WriteSyncObject(writer, delegateInstance.GetPropertyOrField(field));
+
+            Sync.WriteSyncObjects(writer, args, argTypes);
 
             Multiplayer.client.SendCommand(CommandType.SYNC, mapId, writer.GetArray());
+        }
+
+        public override void Read(ByteReader data)
+        {
+            object target = Activator.CreateInstance(delegateType);
+            for (int i = 0; i < fields.Length; i++)
+                MpReflection.SetPropertyOrField(target, fields[i], Sync.ReadSyncObject(data, fieldTypes[i]));
+
+            object[] parameters = Sync.ReadSyncObjects(data, argTypes);
+
+            MpLog.Log("Invoked delegate method " + method + " " + delegateType);
+            method.Invoke(target, parameters);
         }
     }
 
@@ -418,7 +509,7 @@ namespace Multiplayer.Client
 
             foreach (SyncData data in currentMethod)
             {
-                object newValue = MpReflection.GetPropertyOrField(data.target, data.handler.memberPath);
+                object newValue = data.target.GetPropertyOrField(data.handler.memberPath);
 
                 if (!Equals(newValue, data.value))
                 {
@@ -458,35 +549,41 @@ namespace Multiplayer.Client
 
             if (mapProvider == MapProviderMode.ANY_PAWN)
             {
-                AllDelegateFieldsRecursive(instance, obj =>
+                foreach (string path in handler.fields)
                 {
+                    object obj = instance.GetPropertyOrField(path);
                     if (obj is Pawn pawn)
                     {
                         mapId = pawn.Map.uniqueID;
-                        return true;
+                        break;
                     }
-                    return false;
-                });
+                }
             }
             else if (mapProvider is Pawn pawn)
             {
                 mapId = pawn.Map.uniqueID;
             }
 
-            handler.DoSync(instance, mapId);
+            args = args ?? new object[0];
+            handler.DoSync(instance, mapId, args);
         }
 
-        public static bool AllDelegateFieldsRecursive(object instance, Func<object, bool> getter)
+        public static bool AllDelegateFieldsRecursive(Type type, Func<string, bool> getter, string path = "")
         {
-            foreach (FieldInfo field in AccessTools.GetDeclaredFields(instance.GetType()))
+            if (path.NullOrEmpty())
+                path = type.ToString();
+
+            foreach (FieldInfo field in AccessTools.GetDeclaredFields(type))
             {
-                if (getter(field.GetValue(instance)))
+                string curPath = path + "/" + field.Name;
+
+                if (getter(curPath))
                     return true;
 
                 if (Attribute.GetCustomAttribute(field.FieldType, typeof(CompilerGeneratedAttribute)) == null)
                     continue;
 
-                if (AllDelegateFieldsRecursive(field.GetValue(instance), getter))
+                if (AllDelegateFieldsRecursive(field.FieldType, getter, curPath))
                     return true;
             }
 
@@ -504,52 +601,10 @@ namespace Multiplayer.Client
                     continue;
 
                 Type type = patchAttr.type ?? MpReflection.GetTypeByName(patchAttr.typeName);
-                SyncDelegate handler = new SyncDelegate(handlers.Count, type, patchAttr.method);
+                SyncDelegate handler = new SyncDelegate(handlers.Count, type, patchAttr.method, syncAttr.fields);
                 delegates[method] = handler;
                 handlers.Add(handler);
             }
-        }
-
-        public static void SerializeRecursively(ByteWriter data, Type type, object obj)
-        {
-            foreach (FieldInfo field in AccessTools.GetDeclaredFields(type))
-            {
-                object val = field.GetValue(obj);
-                try
-                {
-                    WriteSyncObject(data, val, field.FieldType);
-                }
-                catch (SerializationException)
-                {
-                    if (!CanSerialize(field.FieldType))
-                        throw new Exception("Couldn't serialize type " + field.FieldType);
-                    SerializeRecursively(data, field.FieldType, val);
-                }
-            }
-        }
-
-        public static object DeserializeRecursively(ByteReader data, Type type)
-        {
-            object result = Activator.CreateInstance(type);
-
-            foreach (FieldInfo field in AccessTools.GetDeclaredFields(type))
-            {
-                object val;
-                try
-                {
-                    val = ReadSyncObject(data, field.FieldType);
-                }
-                catch (SerializationException)
-                {
-                    if (!CanSerialize(field.FieldType))
-                        throw new Exception("Couldn't deserialize type " + field.FieldType);
-                    val = DeserializeRecursively(data, field.FieldType);
-                }
-
-                field.SetValue(result, val);
-            }
-
-            return result;
         }
 
         public static bool CanSerialize(Type type)
@@ -583,33 +638,23 @@ namespace Multiplayer.Client
                 MouseCellPatch.result = mouseCell;
             }
 
-            if (handler is SyncMethod method)
-            {
-                object target = ReadTarget(data, method.targetType);
-                if (!method.instancePath.NullOrEmpty())
-                    target = MpReflection.GetPropertyOrField(target, method.instancePath);
-                object[] parameters = ReadSyncObjects(data, method.argTypes);
+            bool shouldQueue = data.ReadBool();
+            KeyIsDownPatch.result = shouldQueue;
+            KeyIsDownPatch.forKey = KeyBindingDefOf.QueueOrder;
 
-                MpLog.Log("Invoked " + method.method + " on " + target + " with " + parameters.Length + " params");
-                method.method.Invoke(target, parameters);
-            }
-            else if (handler is SyncField field)
-            {
-                object target = ReadTarget(data, field.targetType);
-                object value = ReadSyncObject(data, field.fieldType);
+            handler.Read(data);
 
-                MpLog.Log("Set " + field.memberPath + " in " + target + " to " + value + " map " + data.context);
-                MpReflection.SetPropertyOrField(target, field.memberPath, value);
-            }
-            else if (handler is SyncDelegate del)
-            {
-                object target = DeserializeRecursively(data, del.delegateType);
+            MouseCellPatch.result = null;
+            KeyIsDownPatch.result = null;
+            KeyIsDownPatch.forKey = null;
+        }
 
-                MpLog.Log("Invoked delegate method " + del.method + " " + del.delegateType);
-                del.method.Invoke(target, new object[0]);
-            }
+        public static void WriteContext(ByteWriter data, int mapId)
+        {
+            if (mapId >= 0)
+                WriteSyncObject(data, UI.MouseCell());
 
-            MouseCellPatch.result = IntVec3.Invalid;
+            data.WriteBool(KeyBindingDefOf.QueueOrder.IsDownEvent);
         }
 
         public static int GetMapId(object obj)
@@ -620,7 +665,7 @@ namespace Multiplayer.Client
             return ScheduledCommand.GLOBAL;
         }
 
-        private static object ReadTarget(ByteReader data, Type targetType)
+        public static object ReadTarget(ByteReader data, Type targetType)
         {
             object target = null;
             if (targetType == typeof(Pawn))
@@ -639,6 +684,8 @@ namespace Multiplayer.Client
             { data => data.ReadBool() },
             { data => data.ReadString() },
             { data => new IntVec3(data.ReadInt32(), data.ReadInt32(), data.ReadInt32()) },
+            { data => ReadSyncObject<Pawn>(data).mindState.priorityWork },
+            { data => ReadSyncObject<Pawn>(data).playerSettings },
             { data =>
             {
                 Thing thing = ReadSyncObject<Thing>(data);
@@ -655,6 +702,8 @@ namespace Multiplayer.Client
             { (ByteWriter data, int o) => data.WriteInt32(o) },
             { (ByteWriter data, bool o) => data.WriteBool(o) },
             { (ByteWriter data, string o) => data.Write(o) },
+            { (ByteWriter data, PriorityWork work) => WriteSyncObject(data, work.GetPropertyOrField("pawn")) },
+            { (ByteWriter data, Pawn_PlayerSettings settings) => WriteSyncObject(data, settings.GetPropertyOrField("pawn")) },
             {
                 (ByteWriter data, IntVec3 vec) =>
                 {
@@ -732,17 +781,14 @@ namespace Multiplayer.Client
             }
         }
 
-        public static object[] ReadSyncObjects(ByteReader data, params Type[] spec)
+        public static object[] ReadSyncObjects(ByteReader data, Type[] spec)
         {
-            object[] read = new object[spec.Length];
+            return spec.Select(type => ReadSyncObject(data, type)).ToArray();
+        }
 
-            for (int i = 0; i < spec.Length; i++)
-            {
-                Type type = spec[i];
-                read[i] = ReadSyncObject(data, type);
-            }
-
-            return read;
+        public static void WriteSyncObject(ByteWriter data, object obj)
+        {
+            WriteSyncObject(data, obj, obj.GetType());
         }
 
         public static void WriteSyncObject<T>(ByteWriter data, T obj)
@@ -792,6 +838,12 @@ namespace Multiplayer.Client
             {
                 throw new SerializationException("No writer for type " + type);
             }
+        }
+
+        public static void WriteSyncObjects(ByteWriter data, object[] objs, Type[] spec)
+        {
+            for (int i = 0; i < spec.Length; i++)
+                WriteSyncObject(data, objs[i], spec[i]);
         }
     }
 

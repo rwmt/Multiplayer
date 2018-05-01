@@ -35,9 +35,8 @@ namespace Multiplayer.Client
         /// </summary>
         public static object GetPropertyOrField(object instance, string memberPath)
         {
-            string[] parts = memberPath.Split(new[] { '/' }, 2, StringSplitOptions.RemoveEmptyEntries);
-            if (instance != null && (parts.Length <= 1 || !parts[0].Contains('.')))
-                memberPath = instance.GetType() + "/" + memberPath;
+            if (instance != null)
+                memberPath = AppendType(memberPath, instance.GetType());
 
             InitPropertyOrField(memberPath);
             return getters[memberPath](instance);
@@ -45,6 +44,9 @@ namespace Multiplayer.Client
 
         public static void SetPropertyOrField(object instance, string memberPath, object value)
         {
+            if (instance != null)
+                memberPath = AppendType(memberPath, instance.GetType());
+
             InitPropertyOrField(memberPath);
             setters[memberPath](instance, value);
         }
@@ -62,15 +64,24 @@ namespace Multiplayer.Client
             return member is PropertyInfo prop ? prop.PropertyType : (member as FieldInfo).FieldType;
         }
 
+        public static string AppendType(string memberPath, Type type)
+        {
+            string[] parts = memberPath.Split(new[] { '/' }, 2, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length <= 1 || !parts[0].Contains('.'))
+                memberPath = type + "/" + memberPath;
+
+            return memberPath;
+        }
+
         private static void InitPropertyOrField(string memberPath)
         {
             string[] parts = memberPath.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
             if (parts.Length < 2)
-                throw new Exception("Path requires at least the type and one member");
+                throw new Exception("Path requires at least the type and one member: " + memberPath);
 
             Type type = GetTypeByName(parts[0]);
             if (type == null)
-                throw new Exception("Type " + parts[0] + " not found");
+                throw new Exception("Type " + parts[0] + " not found for path: " + memberPath);
 
             if (!getters.TryGetValue(memberPath, out Func<object, object> del))
             {
@@ -178,6 +189,11 @@ namespace Multiplayer.Client
         public static Map GetMap(this ScheduledCommand cmd)
         {
             return Find.Maps.FirstOrDefault(map => map.uniqueID == cmd.mapId);
+        }
+
+        public static object GetPropertyOrField(this object obj, string memberPath)
+        {
+            return MpReflection.GetPropertyOrField(obj, memberPath);
         }
     }
 }

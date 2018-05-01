@@ -29,6 +29,12 @@ namespace Multiplayer.Client
             this.method = method;
         }
 
+        public MpPatch(Type type, string innerType, string method)
+        {
+            this.typeName = type + "+" + innerType;
+            this.method = method;
+        }
+
         public MpPatch(Type type, string method)
         {
             this.type = type;
@@ -1071,17 +1077,28 @@ namespace Multiplayer.Client
     [HarmonyPatch(nameof(UI.MouseCell))]
     public static class MouseCellPatch
     {
-        public static IntVec3 result = IntVec3.Invalid;
+        public static IntVec3? result;
 
-        public static bool Prefix()
+        static void Postfix(ref IntVec3 __result)
         {
-            return !result.IsValid;
+            if (result.HasValue)
+                __result = result.Value;
         }
+    }
 
-        public static void Postfix(ref IntVec3 __result)
+    [HarmonyPatch(typeof(KeyBindingDef))]
+    [HarmonyPatch(nameof(KeyBindingDef.IsDownEvent), PropertyMethod.Getter)]
+    public static class KeyIsDownPatch
+    {
+        public static bool? result;
+        public static KeyBindingDef forKey;
+
+        static bool Prefix(KeyBindingDef __instance) => !(__instance == forKey && result.HasValue);
+
+        static void Postfix(KeyBindingDef __instance, ref bool __result)
         {
-            if (result.IsValid)
-                __result = result;
+            if (__instance == forKey && result.HasValue)
+                __result = result.Value;
         }
     }
 

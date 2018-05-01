@@ -1,5 +1,4 @@
 ﻿using Harmony;
-using Harmony.ILCopying;
 using Ionic.Zlib;
 using LiteNetLib;
 using Multiplayer.Common;
@@ -12,7 +11,6 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Reflection;
-using System.Reflection.Emit;
 using System.Threading;
 using System.Xml;
 using UnityEngine;
@@ -859,70 +857,80 @@ namespace Multiplayer.Client
 
                 if (cmdType == CommandType.SETUP_FACTION)
                 {
-                    string username = data.ReadString();
-                    MultiplayerWorldComp comp = Find.World.GetComponent<MultiplayerWorldComp>();
-
-                    if (!comp.playerFactions.TryGetValue(username, out Faction faction))
-                    {
-                        faction = FactionGenerator.NewGeneratedFaction(FactionDefOf.PlayerColony);
-                        faction.Name = username + "'s faction";
-                        faction.def = Multiplayer.factionDef;
-
-                        Find.FactionManager.Add(faction);
-                        comp.playerFactions[username] = faction;
-
-                        foreach (Faction current in Find.FactionManager.AllFactionsListForReading)
-                        {
-                            if (current == faction) continue;
-                            current.TryMakeInitialRelationsWith(faction);
-                        }
-
-                        MpLog.Log("New faction {0} of player {1}", faction.GetUniqueLoadID(), username);
-                    }
-
-                    if (username == Multiplayer.username)
-                    {
-                        Faction.OfPlayer.def = Multiplayer.factionDef;
-                        faction.def = FactionDefOf.PlayerColony;
-                    }
+                    HandleSetupFaction(cmd, data);
                 }
 
                 if (cmdType == CommandType.AUTOSAVE)
                 {
-                    TimeChangePatch.SetSpeed(TimeSpeed.Paused);
-
-                    LongEventHandler.QueueLongEvent(() =>
-                    {
-                        SaveCompression.doBetterSave = true;
-
-                        WorldGridCtorPatch.copyFrom = Find.WorldGrid;
-                        WorldRendererCtorPatch.copyFrom = Find.World.renderer;
-
-                        foreach (Map map in Find.Maps)
-                            map.GetComponent<MultiplayerMapComp>().SetFaction(map.ParentFaction);
-
-                        XmlDocument gameDoc = Multiplayer.SaveGame();
-                        LoadPatch.gameToLoad = gameDoc;
-
-                        MemoryUtility.ClearAllMapsAndWorld();
-
-                        Prefs.PauseOnLoad = false;
-                        SavedGameLoader.LoadGameFromSaveFile("server");
-                        SaveCompression.doBetterSave = false;
-
-                        foreach (Map map in Find.Maps)
-                            map.GetComponent<MultiplayerMapComp>().SetFaction(Multiplayer.RealPlayerFaction);
-
-                        Multiplayer.SendGameData(gameDoc);
-                    }, "Autosaving", false, null);
-
-                    // todo unpause after everyone completes the autosave
+                    HandleAutosave(cmd, data);
                 }
             }
             finally
             {
                 UniqueIdsPatch.CurrentBlock = null;
             }
+        }
+
+        private static void HandleSetupFaction(ScheduledCommand command, ByteReader data)
+        {
+            string username = data.ReadString();
+            MultiplayerWorldComp comp = Find.World.GetComponent<MultiplayerWorldComp>();
+
+            if (!comp.playerFactions.TryGetValue(username, out Faction faction))
+            {
+                faction = FactionGenerator.NewGeneratedFaction(FactionDefOf.PlayerColony);
+                faction.Name = username + "'s faction";
+                faction.def = Multiplayer.factionDef;
+
+                Find.FactionManager.Add(faction);
+                comp.playerFactions[username] = faction;
+
+                foreach (Faction current in Find.FactionManager.AllFactionsListForReading)
+                {
+                    if (current == faction) continue;
+                    current.TryMakeInitialRelationsWith(faction);
+                }
+
+                MpLog.Log("New faction {0} of player {1}", faction.GetUniqueLoadID(), username);
+            }
+
+            if (username == Multiplayer.username)
+            {
+                Faction.OfPlayer.def = Multiplayer.factionDef;
+                faction.def = FactionDefOf.PlayerColony;
+            }
+        }
+
+        private static void HandleAutosave(ScheduledCommand command, ByteReader data)
+        {
+            TimeChangePatch.SetSpeed(TimeSpeed.Paused);
+
+            LongEventHandler.QueueLongEvent(() =>
+            {
+                SaveCompression.doBetterSave = true;
+
+                WorldGridCtorPatch.copyFrom = Find.WorldGrid;
+                WorldRendererCtorPatch.copyFrom = Find.World.renderer;
+
+                foreach (Map map in Find.Maps)
+                    map.GetComponent<MultiplayerMapComp>().SetFaction(map.ParentFaction);
+
+                XmlDocument gameDoc = Multiplayer.SaveGame();
+                LoadPatch.gameToLoad = gameDoc;
+
+                MemoryUtility.ClearAllMapsAndWorld();
+
+                Prefs.PauseOnLoad = false;
+                SavedGameLoader.LoadGameFromSaveFile("server");
+                SaveCompression.doBetterSave = false;
+
+                foreach (Map map in Find.Maps)
+                    map.GetComponent<MultiplayerMapComp>().SetFaction(Multiplayer.RealPlayerFaction);
+
+                Multiplayer.SendGameData(gameDoc);
+            }, "Autosaving", false, null);
+
+            // todo unpause after everyone completes the autosave
         }
 
         private static void HandleOrderJob(ScheduledCommand command, ByteReader data)
