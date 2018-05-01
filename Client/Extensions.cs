@@ -29,16 +29,24 @@ namespace Multiplayer.Client
         private static Dictionary<string, Func<object, object>> getters = new Dictionary<string, Func<object, object>>();
         private static Dictionary<string, Action<object, object>> setters = new Dictionary<string, Action<object, object>>();
 
-        public static object GetPropertyOrField(object obj, string memberPath)
+        /// <summary>
+        /// Returns the value of the property/field specified by memberPath
+        /// Type specification in path is not required if instance is provided
+        /// </summary>
+        public static object GetPropertyOrField(object instance, string memberPath)
         {
+            string[] parts = memberPath.Split(new[] { '/' }, 2, StringSplitOptions.RemoveEmptyEntries);
+            if (instance != null && (parts.Length <= 1 || !parts[0].Contains('.')))
+                memberPath = instance.GetType() + "/" + memberPath;
+
             InitPropertyOrField(memberPath);
-            return getters[memberPath](obj);
+            return getters[memberPath](instance);
         }
 
-        public static void SetPropertyOrField(object obj, string memberPath, object value)
+        public static void SetPropertyOrField(object instance, string memberPath, object value)
         {
             InitPropertyOrField(memberPath);
-            setters[memberPath](obj, value);
+            setters[memberPath](instance, value);
         }
 
         public static MemberInfo PropertyOrField(string memberPath)
@@ -56,7 +64,7 @@ namespace Multiplayer.Client
 
         private static void InitPropertyOrField(string memberPath)
         {
-            string[] parts = memberPath.Split('/');
+            string[] parts = memberPath.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
             if (parts.Length < 2)
                 throw new Exception("Path requires at least the type and one member");
 
@@ -116,6 +124,7 @@ namespace Multiplayer.Client
                 }
             }
 
+            types[name] = null;
             return null;
         }
     }

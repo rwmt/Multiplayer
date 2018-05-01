@@ -402,7 +402,7 @@ namespace Multiplayer.Common
                 return;
 
             byte[] extra = ByteWriter.GetBytes(Connection.Username);
-            MultiplayerServer.instance.SendCommand(CommandType.MAP_FACTION_DATA, mapId, extra);
+            MultiplayerServer.instance.SendCommand(CommandType.CREATE_MAP_FACTION_DATA, mapId, extra);
 
             byte[] mapData = MultiplayerServer.instance.mapData[mapId];
             byte[][] mapCmds = MultiplayerServer.instance.mapCmds.AddOrGet(mapId, new List<byte[]>()).ToArray();

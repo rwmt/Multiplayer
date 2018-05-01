@@ -16,6 +16,7 @@ using Verse.Profile;
 
 namespace Multiplayer.Client
 {
+    [StaticConstructorOnStartup]
     public class ChatWindow : Window
     {
         public const int MaxChatMsgLength = 128;
@@ -44,8 +45,9 @@ namespace Multiplayer.Client
             draggable = true;
             soundClose = null;
             preventCameraMotion = false;
-            focusWhenOpened = false;
+            focusWhenOpened = true;
             doCloseX = true;
+            closeOnClickedOutside = false;
         }
 
         public override void DoWindowContents(Rect inRect)
@@ -112,11 +114,9 @@ namespace Multiplayer.Client
             foreach (ChatMsg msg in messages)
             {
                 float height = Text.CalcHeight(msg.msg, width);
+                float textWidth = Text.CalcSize(msg.msg).x + 15;
 
                 GUI.SetNextControlName("chat_msg_" + i++);
-
-                Color cursorColor = GUI.skin.settings.cursorColor;
-                GUI.skin.settings.cursorColor = new Color(0, 0, 0, 0);
 
                 Rect msgRect = new Rect(20f, yPos, width, height);
                 if (Mouse.IsOver(msgRect))
@@ -125,6 +125,10 @@ namespace Multiplayer.Client
                     TooltipHandler.TipRegion(msgRect, msg.timestamp.ToLongTimeString());
                 }
 
+                Color cursorColor = GUI.skin.settings.cursorColor;
+                GUI.skin.settings.cursorColor = new Color(0, 0, 0, 0);
+
+                msgRect.width = Math.Min(textWidth, msgRect.width);
                 Widgets.TextArea(msgRect, msg.msg, true);
 
                 GUI.skin.settings.cursorColor = cursorColor;
@@ -138,17 +142,12 @@ namespace Multiplayer.Client
             Widgets.EndScrollView();
 
             if (Widgets.ButtonText(new Rect(textField.xMax + 5f, textField.y, 55f, textField.height), "Send"))
-            {
                 SendMsg();
-            }
 
             GUI.EndGroup();
 
-            if (Event.current.type == EventType.mouseDown)
-            {
+            if (Event.current.type == EventType.mouseDown && !GUI.GetNameOfFocusedControl().NullOrEmpty())
                 UI.UnfocusCurrentControl();
-                Event.current.Use();
-            }
 
             if (!focused)
             {

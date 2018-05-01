@@ -4,14 +4,14 @@ namespace Multiplayer.Common
 {
     public static class MpLog
     {
-        public static Action<string> action;
+        public static Action<string> info;
 
         public static void Log(string s, params object[] args)
         {
             s = String.Format(s, args);
 
-            if (action != null)
-                action(s);
+            if (info != null)
+                info(s);
             else
                 Console.WriteLine(s);
         }
@@ -19,8 +19,8 @@ namespace Multiplayer.Common
         public static void LogLines(params string[] arr)
         {
             string s = String.Join("\n", arr);
-            if (action != null)
-                action(s);
+            if (info != null)
+                info(s);
             else
                 Console.WriteLine(s);
         }

@@ -13,9 +13,8 @@
 
         // Map scope
         MAP_TIME_SPEED,
-        MAP_FACTION_DATA,
+        CREATE_MAP_FACTION_DATA,
         MAP_ID_BLOCK,
-        DRAFT_PAWN,
         FORBID,
         DESIGNATOR,
         ORDER_JOB,

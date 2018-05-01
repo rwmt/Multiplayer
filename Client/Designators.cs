@@ -44,7 +44,7 @@ namespace Multiplayer.Client
         [IndexedPatchParameters]
         public static bool DesignateSingleCell(Designator designator, IntVec3 cell)
         {
-            if (Multiplayer.client == null || !ProcessDesigInputPatch.processing) return true;
+            if (!Multiplayer.ShouldSync) return true;
 
             Map map = Find.VisibleMap;
             object[] extra = GetExtra(0, designator).Append(map.cellIndices.CellToIndex(cell));
@@ -56,7 +56,7 @@ namespace Multiplayer.Client
         [IndexedPatchParameters]
         public static bool DesignateMultiCell(Designator designator, IEnumerable<IntVec3> cells)
         {
-            if (Multiplayer.client == null || !ProcessDesigInputPatch.processing) return true;
+            if (!Multiplayer.ShouldSync) return true;
 
             Map map = Find.VisibleMap;
             int[] cellData = new int[cells.Count()];
@@ -73,7 +73,7 @@ namespace Multiplayer.Client
         [IndexedPatchParameters]
         public static bool DesignateThing(Designator designator, Thing thing)
         {
-            if (Multiplayer.client == null || !DrawGizmosPatch.drawingGizmos) return true;
+            if (!Multiplayer.ShouldSync) return true;
 
             Map map = Find.VisibleMap;
             object[] extra = GetExtra(2, designator).Append(thing.GetUniqueLoadID());

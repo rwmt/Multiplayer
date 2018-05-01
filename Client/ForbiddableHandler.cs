@@ -75,7 +75,7 @@ namespace Multiplayer.Client
             int factionId = Faction.OfPlayer.loadID;
             if (comp.factionForbidden.TryGetValue(factionId, out bool forbidden) && forbidden == value) return false;
 
-            if (Multiplayer.client != null && (DrawGizmosPatch.drawingGizmos || ProcessDesigInputPatch.processing))
+            if (Multiplayer.ShouldSync)
             {
                 Multiplayer.client.SendCommand(CommandType.FORBID, thing.Map.uniqueID, thing.GetUniqueLoadID(), Multiplayer.RealPlayerFaction.GetUniqueLoadID(), value);
                 return false;

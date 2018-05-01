@@ -56,12 +56,11 @@ namespace Multiplayer.Client
         }
 
         public static bool Ticking => TickPatch.tickingWorld || MapAsyncTimeComp.tickingMap;
-
         public static bool ShouldSync => client != null && !Ticking && !OnMainThread.executingCmds;
 
         static Multiplayer()
         {
-            MpLog.action = str => Log.Message(username + " " + str);
+            MpLog.info = str => Log.Message(username + " " + str);
 
             GenCommandLine.TryGetCommandLineArg("username", out username);
             if (username == null)
@@ -84,6 +83,7 @@ namespace Multiplayer.Client
             MpPatch.DoPatches(typeof(MethodMarkers));
             MpPatch.DoPatches(typeof(SyncPatches));
             Sync.RegisterFieldPatches(typeof(SyncFieldsPatches));
+            Sync.RegisterSyncDelegates(typeof(SyncPatches));
 
             DoPatches();
 
@@ -636,9 +636,6 @@ namespace Multiplayer.Client
     {
         public static ActionQueue queue = new ActionQueue();
         public static readonly Queue<ScheduledCommand> scheduledCmds = new Queue<ScheduledCommand>();
-
-        private static readonly FieldInfo zoneShuffled = typeof(Zone).GetField("cellsShuffled", BindingFlags.NonPublic | BindingFlags.Instance);
-
         public static bool executingCmds;
 
         public void Update()
@@ -720,7 +717,7 @@ namespace Multiplayer.Client
                     Sync.HandleCmd(data);
                 }
 
-                if (cmdType == CommandType.MAP_FACTION_DATA)
+                if (cmdType == CommandType.CREATE_MAP_FACTION_DATA)
                 {
                     HandleMapFactionData(cmd, data);
                 }
@@ -785,33 +782,12 @@ namespace Multiplayer.Client
                 {
                     HandleForbid(cmd, data);
                 }
-
-                if (cmdType == CommandType.DRAFT_PAWN)
-                {
-                    HandleDraft(cmd, data);
-                }
             }
             finally
             {
                 VisibleMapSetPatch.ignore = false;
                 VisibleMapGetPatch.visibleMap = null;
             }
-        }
-
-        private static void HandleDraft(ScheduledCommand cmd, ByteReader data)
-        {
-            Map map = cmd.GetMap();
-            string pawnId = data.ReadString();
-            bool draft = data.ReadBool();
-
-            Pawn pawn = map.mapPawns.AllPawns.FirstOrDefault(p => p.GetUniqueLoadID() == pawnId);
-            if (pawn == null) return;
-
-            DraftSetPatch.dontHandle = true;
-            map.PushFaction(pawn.Faction);
-            pawn.drafter.Drafted = draft;
-            map.PopFaction();
-            DraftSetPatch.dontHandle = false;
         }
 
         private static void HandleForbid(ScheduledCommand cmd, ByteReader data)
@@ -952,8 +928,8 @@ namespace Multiplayer.Client
         private static void HandleOrderJob(ScheduledCommand command, ByteReader data)
         {
             Map map = command.GetMap();
-            string pawnId = data.ReadString();
-            Pawn pawn = map.mapPawns.AllPawns.FirstOrDefault(p => p.GetUniqueLoadID() == pawnId);
+            int pawnId = data.ReadInt32();
+            Pawn pawn = map.mapPawns.AllPawns.FirstOrDefault(p => p.thingIDNumber == pawnId);
             if (pawn == null) return;
 
             Job job = ScribeUtil.ReadExposable<Job>(data.ReadPrefixedBytes());
@@ -973,8 +949,8 @@ namespace Multiplayer.Client
             }
             else if (mode == 1)
             {
-                string defName = data.ReadString();
-                WorkGiverDef workGiver = DefDatabase<WorkGiverDef>.AllDefs.FirstOrDefault(d => d.defName == defName);
+                ushort defId = data.ReadUInt16();
+                WorkGiverDef workGiver = DefDatabase<WorkGiverDef>.GetByShortHash(defId);
                 IntVec3 cell = map.cellIndices.IndexToCell(data.ReadInt32());
 
                 if (OrderJob(pawn, job, workGiver.tagToGive, shouldQueue))
@@ -1033,6 +1009,8 @@ namespace Multiplayer.Client
             pawn.ClearReservationsForJob(job);
             return false;
         }
+
+        private static readonly FieldInfo zoneShuffled = typeof(Zone).GetField("cellsShuffled", BindingFlags.NonPublic | BindingFlags.Instance);
 
         private static void HandleDesignator(ScheduledCommand command, ByteReader data)
         {

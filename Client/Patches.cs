@@ -16,6 +16,7 @@ using System.Text.RegularExpressions;
 
 namespace Multiplayer.Client
 {
+    // Allows specifying type by name
     public class MpPatch : Attribute
     {
         public readonly Type type;
@@ -67,6 +68,17 @@ namespace Multiplayer.Client
     {
     }
 
+    [HarmonyPatch(typeof(MainMenuDrawer))]
+    [HarmonyPatch(nameof(MainMenuDrawer.DoMainMenuControls))]
+    public static class MainMenuMarker
+    {
+        public static bool drawing;
+
+        static void Prefix() => drawing = true;
+
+        static void Postfix() => drawing = false;
+    }
+
     [HarmonyPatch(typeof(OptionListingUtility))]
     [HarmonyPatch(nameof(OptionListingUtility.DrawOptionListing))]
     public static class MainMenuPatch
@@ -75,17 +87,28 @@ namespace Multiplayer.Client
 
         static void Prefix(Rect rect, List<ListableOption> optList)
         {
-            int newColony = optList.FindIndex(opt => opt.label == "NewColony".Translate());
-            if (newColony != -1)
-                optList.Insert(newColony + 1, new ListableOption("Connect to server", () =>
-                {
-                    Find.WindowStack.Add(new ConnectWindow());
-                }));
+            if (!MainMenuMarker.drawing) return;
+
+            if (Current.ProgramState == ProgramState.Entry)
+            {
+                int newColony = optList.FindIndex(opt => opt.label == "NewColony".Translate());
+                if (newColony != -1)
+                    optList.Insert(newColony + 1, new ListableOption("Connect to server", () =>
+                    {
+                        Find.WindowStack.Add(new ConnectWindow());
+                    }));
+
+                return;
+            }
 
             int reviewScenario = optList.FindIndex(opt => opt.label == "ReviewScenario".Translate());
             if (reviewScenario != -1)
             {
-                AddHostButton(optList);
+                if (Multiplayer.localServer == null && Multiplayer.client == null)
+                    optList.Insert(0, new ListableOption("Host a server", () =>
+                    {
+                        Find.WindowStack.Add(new HostWindow());
+                    }));
 
                 optList.Insert(0, new ListableOption("Autosave", () =>
                 {
@@ -100,27 +123,13 @@ namespace Multiplayer.Client
                     //Multiplayer.SendGameData(Multiplayer.SaveGame());
 
                     //Multiplayer.localServer.DoAutosave();
-
-                    Find.WindowStack.Add(new Dialog_JumpTo(str =>
-                    {
-                        int[] angle = str.Split(',').Select(s => int.Parse(s)).ToArray();
-                        Find.Camera.transform.Rotate(new Vector3(angle[0], angle[1], angle[2]));
-                        Find.Camera.orthographic = false;
-                    }));
                 }));
             }
 
-            if (Multiplayer.client != null && Multiplayer.localServer == null)
-                optList.RemoveAll(opt => opt.label == "Save".Translate());
-        }
-
-        public static void AddHostButton(List<ListableOption> buttons)
-        {
-            if (Multiplayer.localServer == null && Multiplayer.client == null)
-                buttons.Insert(0, new ListableOption("Host a server", () =>
-                {
-                    Find.WindowStack.Add(new HostWindow());
-                }));
+            if (Multiplayer.client != null)
+            {
+                optList.RemoveAll(opt => opt.label == "Save".Translate() || opt.label == "LoadGame".Translate());
+            }
         }
     }
 
@@ -589,7 +598,7 @@ namespace Multiplayer.Client
             set
             {
                 if (value != null && currentBlock != null && currentBlock != value)
-                    MpLog.Log("Reassigning the current id block!");
+                    Log.Warning("Reassigning the current id block!");
                 currentBlock = value;
             }
         }
@@ -601,7 +610,7 @@ namespace Multiplayer.Client
             if (CurrentBlock == null)
             {
                 __result = -1;
-                MpLog.Log("Tried to get a unique id without an id block set!");
+                Log.Warning("Tried to get a unique id without an id block set!");
                 return;
             }
 
@@ -612,34 +621,6 @@ namespace Multiplayer.Client
                 Multiplayer.client.Send(Packets.CLIENT_ID_BLOCK_REQUEST, CurrentBlock.mapId);
                 currentBlock.overflowHandled = true;
             }
-        }
-    }
-
-    [HarmonyPatch(typeof(GizmoGridDrawer))]
-    [HarmonyPatch(nameof(GizmoGridDrawer.DrawGizmoGrid))]
-    public static class DrawGizmosPatch
-    {
-        public static bool drawingGizmos;
-
-        static void Prefix() => drawingGizmos = true;
-
-        static void Postfix() => drawingGizmos = false;
-    }
-
-    [HarmonyPatch(typeof(Pawn_DraftController))]
-    [HarmonyPatch(nameof(Pawn_DraftController.Drafted), PropertyMethod.Setter)]
-    public static class DraftSetPatch
-    {
-        public static bool dontHandle;
-
-        static bool Prefix(Pawn_DraftController __instance, bool value)
-        {
-            if (Multiplayer.client == null || dontHandle) return true;
-            if (!DrawGizmosPatch.drawingGizmos) return true;
-
-            Multiplayer.client.SendCommand(CommandType.DRAFT_PAWN, __instance.pawn.Map.uniqueID, __instance.pawn.GetUniqueLoadID(), value);
-
-            return false;
         }
     }
 
@@ -863,7 +844,7 @@ namespace Multiplayer.Client
             byte[] jobData = ScribeUtil.WriteExposable(job);
             bool shouldQueue = KeyBindingDefOf.QueueOrder.IsDownEvent;
 
-            Multiplayer.client.SendCommand(CommandType.ORDER_JOB, pawn.Map.uniqueID, pawn.GetUniqueLoadID(), jobData, shouldQueue, 0, (byte)tag);
+            Multiplayer.client.SendCommand(CommandType.ORDER_JOB, pawn.Map.uniqueID, pawn.thingIDNumber, jobData, shouldQueue, 0, (byte)tag);
 
             return false;
         }
@@ -887,9 +868,9 @@ namespace Multiplayer.Client
             Pawn pawn = (Pawn)JobTrackerStart.pawnField.GetValue(__instance);
             byte[] jobData = ScribeUtil.WriteExposable(job);
             bool shouldQueue = KeyBindingDefOf.QueueOrder.IsDownEvent;
-            string workGiver = giver.def.defName;
+            ushort workGiver = giver.def.shortHash;
 
-            Multiplayer.client.SendCommand(CommandType.ORDER_JOB, pawn.Map.uniqueID, pawn.GetUniqueLoadID(), jobData, shouldQueue, 1, workGiver, pawn.Map.cellIndices.CellToIndex(cell));
+            Multiplayer.client.SendCommand(CommandType.ORDER_JOB, pawn.Map.uniqueID, pawn.thingIDNumber, jobData, shouldQueue, 1, workGiver, pawn.Map.cellIndices.CellToIndex(cell));
 
             return false;
         }
@@ -916,12 +897,9 @@ namespace Multiplayer.Client
     [HarmonyPatch("TryGenerateAreaNow")]
     public static class AutoRoofPatch
     {
-        private static bool ignore;
-        private static MethodInfo method = typeof(AutoBuildRoofAreaSetter).GetMethod("TryGenerateAreaNow", BindingFlags.NonPublic | BindingFlags.Instance);
-
-        static bool Prefix(AutoBuildRoofAreaSetter __instance, Room room)
+        static bool Prefix(AutoBuildRoofAreaSetter __instance, Room room, ref Map __state)
         {
-            if (Multiplayer.client == null || ignore) return true;
+            if (Multiplayer.client == null) return true;
             if (room.Dereferenced || room.TouchesMapEdge || room.RegionCount > 26 || room.CellCount > 320 || room.RegionType == RegionType.Portal) return false;
 
             Map map = room.Map;
@@ -937,13 +915,16 @@ namespace Multiplayer.Client
 
             if (faction == null) return false;
 
-            ignore = true;
             map.PushFaction(faction);
-            method.Invoke(__instance, new object[] { room });
-            map.PopFaction();
-            ignore = false;
+            __state = map;
 
-            return false;
+            return true;
+        }
+
+        static void Postfix(ref Map __state)
+        {
+            if (__state != null)
+                __state.PopFaction();
         }
     }
 
@@ -953,7 +934,7 @@ namespace Multiplayer.Client
     {
         static bool Prefix(Zone __instance)
         {
-            if (Multiplayer.client == null || !DrawGizmosPatch.drawingGizmos) return true;
+            if (!Multiplayer.ShouldSync) return true;
             Multiplayer.client.SendCommand(CommandType.DELETE_ZONE, __instance.Map.uniqueID, Multiplayer.RealPlayerFaction.GetUniqueLoadID(), __instance.label);
             return false;
         }
@@ -1136,6 +1117,22 @@ namespace Multiplayer.Client
                     name = original.GetParameters()[i - 1].Name;
 
                 paramName.SetValue(patchParams[i], name);
+            }
+        }
+    }
+
+    // Fix window control focus
+    [HarmonyPatch(typeof(WindowStack))]
+    [HarmonyPatch("CloseWindowsBecauseClicked")]
+    public static class WindowFocusPatch
+    {
+        static void Prefix(Window clickedWindow)
+        {
+            for (int i = Find.WindowStack.Windows.Count - 1; i >= 0; i--)
+            {
+                Window window = Find.WindowStack.Windows[i];
+                if (window == clickedWindow || window.closeOnClickedOutside) break;
+                UI.UnfocusCurrentControl();
             }
         }
     }
