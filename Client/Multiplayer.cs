@@ -11,6 +11,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Xml;
 using UnityEngine;
@@ -80,8 +81,14 @@ namespace Multiplayer.Client
 
             MpPatch.DoPatches(typeof(MethodMarkers));
             MpPatch.DoPatches(typeof(SyncPatches));
+            MpPatch.DoPatches(typeof(SyncDelegates));
+
+            RuntimeHelpers.RunClassConstructor(typeof(SyncPatches).TypeHandle);
+            RuntimeHelpers.RunClassConstructor(typeof(SyncFieldsPatches).TypeHandle);
+            RuntimeHelpers.RunClassConstructor(typeof(SyncDelegates).TypeHandle);
+
             Sync.RegisterFieldPatches(typeof(SyncFieldsPatches));
-            Sync.RegisterSyncDelegates(typeof(SyncPatches));
+            Sync.RegisterSyncDelegates(typeof(SyncDelegates));
 
             DoPatches();
 
@@ -748,11 +755,6 @@ namespace Multiplayer.Client
                     HandleDesignator(cmd, data);
                 }
 
-                if (cmdType == CommandType.ORDER_JOB)
-                {
-                    HandleOrderJob(cmd, data);
-                }
-
                 if (cmdType == CommandType.DELETE_ZONE)
                 {
                     string factionId = data.ReadString();
@@ -933,93 +935,6 @@ namespace Multiplayer.Client
             // todo unpause after everyone completes the autosave
         }
 
-        private static void HandleOrderJob(ScheduledCommand command, ByteReader data)
-        {
-            Map map = command.GetMap();
-            int pawnId = data.ReadInt32();
-            Pawn pawn = map.mapPawns.AllPawns.FirstOrDefault(p => p.thingIDNumber == pawnId);
-            if (pawn == null) return;
-
-            Job job = ScribeUtil.ReadExposable<Job>(data.ReadPrefixedBytes());
-            job.playerForced = true;
-
-            if (pawn.jobs.curJob != null && pawn.jobs.curJob.JobIsSameAs(job)) return;
-
-            bool shouldQueue = data.ReadBool();
-            int mode = data.ReadInt32();
-
-            map.PushFaction(pawn.Faction);
-
-            if (mode == 0)
-            {
-                JobTag tag = (JobTag)data.ReadByte();
-                OrderJob(pawn, job, tag, shouldQueue);
-            }
-            else if (mode == 1)
-            {
-                ushort defId = data.ReadUInt16();
-                WorkGiverDef workGiver = DefDatabase<WorkGiverDef>.GetByShortHash(defId);
-                IntVec3 cell = map.cellIndices.IndexToCell(data.ReadInt32());
-
-                if (OrderJob(pawn, job, workGiver.tagToGive, shouldQueue))
-                {
-                    pawn.mindState.lastGivenWorkType = workGiver.workType;
-                    if (workGiver.prioritizeSustains)
-                        pawn.mindState.priorityWork.Set(cell, workGiver.workType);
-                }
-            }
-
-            map.PopFaction();
-        }
-
-        private static bool OrderJob(Pawn pawn, Job job, JobTag tag, bool shouldQueue)
-        {
-            bool interruptible = pawn.jobs.IsCurrentJobPlayerInterruptible();
-            bool idle = pawn.mindState.IsIdle || pawn.CurJob == null || pawn.CurJob.def.isIdle;
-
-            if (interruptible || (!shouldQueue && idle))
-            {
-                pawn.stances.CancelBusyStanceSoft();
-                pawn.jobs.ClearQueuedJobs();
-
-                if (job.TryMakePreToilReservations(pawn))
-                {
-                    pawn.jobs.jobQueue.EnqueueFirst(job, new JobTag?(tag));
-                    if (pawn.jobs.curJob != null)
-                        pawn.jobs.curDriver.EndJobWith(JobCondition.InterruptForced);
-                    else
-                        pawn.jobs.CheckForJobOverride();
-                    return true;
-                }
-
-                pawn.ClearReservationsForJob(job);
-                return false;
-            }
-            else if (shouldQueue)
-            {
-                if (job.TryMakePreToilReservations(pawn))
-                {
-                    pawn.jobs.jobQueue.EnqueueLast(job, new JobTag?(tag));
-                    return true;
-                }
-
-                pawn.ClearReservationsForJob(job);
-                return false;
-            }
-
-            pawn.jobs.ClearQueuedJobs();
-            if (job.TryMakePreToilReservations(pawn))
-            {
-                pawn.jobs.jobQueue.EnqueueLast(job, new JobTag?(tag));
-                return true;
-            }
-
-            pawn.ClearReservationsForJob(job);
-            return false;
-        }
-
-        private static readonly FieldInfo zoneShuffled = typeof(Zone).GetField("cellsShuffled", BindingFlags.NonPublic | BindingFlags.Instance);
-
         private static void HandleDesignator(ScheduledCommand command, ByteReader data)
         {
             Map map = command.GetMap();
@@ -1067,7 +982,7 @@ namespace Multiplayer.Client
                 }
 
                 foreach (Zone zone in map.zoneManager.AllZones)
-                    zoneShuffled.SetValue(zone, true);
+                    zone.SetPropertyOrField("cellsShuffled", true);
             }
             finally
             {

@@ -781,6 +781,7 @@ namespace Multiplayer.Client
     {
         static bool Prefix(Window window)
         {
+            // Zone names need to be unique and constant for identification
             if (Multiplayer.client != null && window is Dialog_RenameZone)
             {
                 Messages.Message("Action not available in multiplayer.", MessageTypeDefOf.RejectInput);
@@ -834,57 +835,6 @@ namespace Multiplayer.Client
         {
             //if (Current.ProgramState == ProgramState.Playing && !ignore)
             //Log.Message(Find.TickManager.TicksGame + " " + Multiplayer.username + " set seed");
-        }
-    }
-
-    [HarmonyPatch(typeof(Pawn_JobTracker))]
-    [HarmonyPatch(nameof(Pawn_JobTracker.TryTakeOrderedJob))]
-    public static class TakeOrderedJobPatch
-    {
-        static bool Prefix(Pawn_JobTracker __instance, Job job, JobTag tag)
-        {
-            if (!Multiplayer.ShouldSync) return true;
-            if (__instance.curJob != null && __instance.curJob.JobIsSameAs(job)) return false;
-
-            Pawn pawn = (Pawn)JobTrackerStart.pawnField.GetValue(__instance);
-            byte[] jobData = ScribeUtil.WriteExposable(job);
-            bool shouldQueue = KeyBindingDefOf.QueueOrder.IsDownEvent;
-
-            Multiplayer.client.SendCommand(CommandType.ORDER_JOB, pawn.Map.uniqueID, pawn.thingIDNumber, jobData, shouldQueue, 0, (byte)tag);
-
-            return false;
-        }
-
-        static void Postfix(ref bool __result)
-        {
-            if (!Multiplayer.ShouldSync) return;
-            __result = true;
-        }
-    }
-
-    [HarmonyPatch(typeof(Pawn_JobTracker))]
-    [HarmonyPatch(nameof(Pawn_JobTracker.TryTakeOrderedJobPrioritizedWork))]
-    public static class TakeOrderedWorkPatch
-    {
-        static bool Prefix(Pawn_JobTracker __instance, Job job, WorkGiver giver, IntVec3 cell)
-        {
-            if (!Multiplayer.ShouldSync) return true;
-            if (__instance.curJob != null && __instance.curJob.JobIsSameAs(job)) return false;
-
-            Pawn pawn = (Pawn)JobTrackerStart.pawnField.GetValue(__instance);
-            byte[] jobData = ScribeUtil.WriteExposable(job);
-            bool shouldQueue = KeyBindingDefOf.QueueOrder.IsDownEvent;
-            ushort workGiver = giver.def.shortHash;
-
-            Multiplayer.client.SendCommand(CommandType.ORDER_JOB, pawn.Map.uniqueID, pawn.thingIDNumber, jobData, shouldQueue, 1, workGiver, pawn.Map.cellIndices.CellToIndex(cell));
-
-            return false;
-        }
-
-        static void Postfix(ref bool __result)
-        {
-            if (!Multiplayer.ShouldSync) return;
-            __result = true;
         }
     }
 

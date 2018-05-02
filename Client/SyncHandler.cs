@@ -14,7 +14,6 @@ using Verse.AI;
 
 namespace Multiplayer.Client
 {
-    [StaticConstructorOnStartup]
     public static class SyncFieldsPatches
     {
         public static SyncField SyncAreaRestriction = Sync.Field(typeof(Pawn), "playerSettings", "AreaRestriction");
@@ -26,6 +25,8 @@ namespace Multiplayer.Client
         public static SyncField SyncMaster = Sync.Field(typeof(Pawn), "playerSettings", "master");
         public static SyncField SyncGetsFood = Sync.Field(typeof(Pawn), "guest", "GetsFood");
         public static SyncField SyncInteractionMode = Sync.Field(typeof(Pawn), "guest", "interactionMode");
+        public static SyncField SyncThingFilterHitPoints = Sync.Field(typeof(ThingFilterWrapper), "filter", "AllowedHitPointsPercents");
+        public static SyncField SyncThingFilterQuality = Sync.Field(typeof(ThingFilterWrapper), "filter", "AllowedQualityLevels");
 
         public static SyncField SyncUseWorkPriorities = Sync.Field(null, "Verse.Current/Game/playSettings", "useWorkPriorities");
         public static SyncField SyncAutoHomeArea = Sync.Field(null, "Verse.Current/Game/playSettings", "autoHomeArea");
@@ -41,33 +42,33 @@ namespace Multiplayer.Client
         );
 
         [MpPatch(typeof(AreaAllowedGUI), "DoAreaSelector")]
-        public static void DoAreaSelector_Prefix(Pawn p)
+        static void DoAreaSelector_Prefix(Pawn p)
         {
             SyncAreaRestriction.Watch(p);
         }
 
         [MpPatch(typeof(PawnColumnWorker_AllowedArea), "HeaderClicked")]
-        public static void AllowedArea_HeaderClicked_Prefix(PawnTable table)
+        static void AllowedArea_HeaderClicked_Prefix(PawnTable table)
         {
             foreach (Pawn pawn in table.PawnsListForReading)
                 SyncAreaRestriction.Watch(pawn);
         }
 
         [MpPatch("RimWorld.InspectPaneFiller+<DrawAreaAllowed>c__AnonStorey0", "<>m__0")]
-        public static void DrawAreaAllowed_Inner(object __instance)
+        static void DrawAreaAllowed_Inner(object __instance)
         {
             SyncAreaRestriction.Watch(__instance, "pawn");
         }
 
         [MpPatch(typeof(HealthCardUtility), "DrawOverviewTab")]
-        public static void HealthCardUtility1(Pawn pawn)
+        static void HealthCardUtility1(Pawn pawn)
         {
             SyncMedCare.Watch(pawn);
             SyncSelfTend.Watch(pawn);
         }
 
         [MpPatch(typeof(ITab_Pawn_Visitor), "FillTab")]
-        public static void ITab_Pawn_Visitor(ITab __instance)
+        static void ITab_Pawn_Visitor(ITab __instance)
         {
             SyncMedCare.Watch(__instance, "SelPawn");
             SyncGetsFood.Watch(__instance, "SelPawn");
@@ -75,101 +76,127 @@ namespace Multiplayer.Client
         }
 
         [MpPatch(typeof(HostilityResponseModeUtility), "DrawResponseButton")]
-        public static void DrawResponseButton(Pawn pawn)
+        static void DrawResponseButton(Pawn pawn)
         {
             SyncHostilityResponse.Watch(pawn);
         }
 
         [MpPatch(typeof(PawnColumnWorker_FollowFieldwork), "SetValue")]
-        public static void FollowFieldwork(Pawn pawn)
+        static void FollowFieldwork(Pawn pawn)
         {
             SyncFollowFieldwork.Watch(pawn);
         }
 
         [MpPatch(typeof(PawnColumnWorker_FollowDrafted), "SetValue")]
-        public static void FollowDrafted(Pawn pawn)
+        static void FollowDrafted(Pawn pawn)
         {
             SyncFollowDrafted.Watch(pawn);
         }
 
         [MpPatch(typeof(TrainableUtility), "<OpenMasterSelectMenu>c__AnonStorey0", "<>m__0")]
-        public static void OpenMasterSelectMenu_Inner1(object __instance)
+        static void OpenMasterSelectMenu_Inner1(object __instance)
         {
             SyncMaster.Watch(__instance, "p");
         }
 
         [MpPatch(typeof(TrainableUtility), "<OpenMasterSelectMenu>c__AnonStorey1", "<>m__0")]
-        public static void OpenMasterSelectMenu_Inner2(object __instance)
+        static void OpenMasterSelectMenu_Inner2(object __instance)
         {
             SyncMaster.Watch(__instance, "<>f__ref$0/p");
         }
 
         [MpPatch(typeof(Dialog_MedicalDefaults), "DoWindowContents")]
-        public static void MedicalDefaults()
+        static void MedicalDefaults()
         {
             SyncDefaultCare.Watch();
         }
 
         [MpPatch(typeof(Widgets), "CheckboxLabeled")]
-        public static void CheckboxLabeled()
+        static void CheckboxLabeled()
         {
             if (MethodMarkers.manualPriorities)
                 SyncUseWorkPriorities.Watch();
         }
 
         [MpPatch(typeof(PlaySettings), "DoPlaySettingsGlobalControls")]
-        public static void PlaySettingsControls()
+        static void PlaySettingsControls()
         {
             SyncAutoHomeArea.Watch();
         }
+
+        [MpPatch(typeof(ThingFilterUI), "DrawHitPointsFilterConfig")]
+        static void ThingFilterHitPoints()
+        {
+            ThingFilterWrapper? owner = GetThingFilterWrapper();
+            if (!owner.HasValue || !owner.Value.filter.allowedHitPointsConfigurable) return;
+            SyncThingFilterHitPoints.Watch(owner.Value);
+        }
+
+        [MpPatch(typeof(ThingFilterUI), "DrawQualityFilterConfig")]
+        static void ThingFilterQuality()
+        {
+            ThingFilterWrapper? owner = GetThingFilterWrapper();
+            if (!owner.HasValue || !owner.Value.filter.allowedQualitiesConfigurable) return;
+            SyncThingFilterQuality.Watch(owner.Value);
+        }
+
+        private static ThingFilterWrapper? GetThingFilterWrapper()
+        {
+            if (MethodMarkers.tabStorage != null)
+            {
+                StorageSettings settings = MethodMarkers.tabStorage.GetStoreSettings();
+                return new ThingFilterWrapper(settings, settings.filter);
+            }
+
+            if (MethodMarkers.billConfig != null)
+            {
+                Bill bill = MethodMarkers.billConfig;
+                return new ThingFilterWrapper(bill, bill.ingredientFilter);
+            }
+
+            return null;
+        }
     }
 
-    [StaticConstructorOnStartup]
     public static class SyncPatches
     {
         public static SyncMethod SyncSetAssignment = Sync.Method(typeof(Pawn), "timetable", "SetAssignment");
-        public static SyncMethod SyncSetPriority = Sync.Method(typeof(Pawn), "workSettings", "SetPriority");
+        public static SyncMethod SyncSetWorkPriority = Sync.Method(typeof(Pawn), "workSettings", "SetPriority");
         public static SyncMethod SyncSetDrafted = Sync.Method(typeof(Pawn), "drafter", "set_Drafted");
         public static SyncMethod SyncSetFireAtWill = Sync.Method(typeof(Pawn), "drafter", "set_FireAtWill");
+        public static SyncMethod SyncStartJob = Sync.Method(typeof(Pawn), "jobs", "StartJob");
+        public static SyncMethod SyncTryTakeOrderedJob = Sync.Method(typeof(Pawn), "jobs", "TryTakeOrderedJob");
+        public static SyncMethod SyncTryTakeOrderedJobPrioritizedWork = Sync.Method(typeof(Pawn), "jobs", "TryTakeOrderedJobPrioritizedWork");
+        public static SyncMethod SyncSetStoragePriority = Sync.Method(typeof(IStoreSettingsParent), "GetStoreSettings", "set_Priority");
 
         public static SyncField SyncTimetable = Sync.Field(typeof(Pawn), "timetable", "times");
 
-        private static FieldInfo timetablePawn = AccessTools.Field(typeof(Pawn_TimetableTracker), "pawn");
-        private static FieldInfo workPrioritiesPawn = AccessTools.Field(typeof(Pawn_WorkSettings), "pawn");
-        private static FieldInfo timetableClipboard = AccessTools.Field(typeof(PawnColumnWorker_CopyPasteTimetable), "clipboard");
-
         [MpPatch(typeof(Pawn_TimetableTracker), "SetAssignment")]
-        public static bool SetTimetableAssignment(Pawn_TimetableTracker __instance, int hour, TimeAssignmentDef ta)
+        static bool SetTimetableAssignment(Pawn_TimetableTracker __instance, int hour, TimeAssignmentDef ta)
         {
             if (!Multiplayer.ShouldSync) return true;
-
-            Pawn pawn = timetablePawn.GetValue(__instance) as Pawn;
-            SyncSetAssignment.DoSync(pawn, hour, ta);
-
+            SyncSetAssignment.DoSync(__instance.GetPropertyOrField("pawn"), hour, ta);
             return false;
         }
 
         [MpPatch(typeof(PawnColumnWorker_CopyPasteTimetable), "PasteTo")]
-        public static bool CopyPasteTimetable(Pawn p)
+        static bool CopyPasteTimetable(Pawn p)
         {
             if (!Multiplayer.ShouldSync) return true;
-            SyncTimetable.DoSync(p, timetableClipboard.GetValue(null));
+            SyncTimetable.DoSync(p, MpReflection.GetPropertyOrField("PawnColumnWorker_CopyPasteTimetable.clipboard"));
             return false;
         }
 
         [MpPatch(typeof(Pawn_WorkSettings), "SetPriority")]
-        public static bool SetWorkPriority(Pawn_WorkSettings __instance, WorkTypeDef w, int priority)
+        static bool SetWorkPriority(Pawn_WorkSettings __instance, WorkTypeDef w, int priority)
         {
             if (!Multiplayer.ShouldSync) return true;
-
-            Pawn pawn = workPrioritiesPawn.GetValue(__instance) as Pawn;
-            SyncSetPriority.DoSync(pawn, w, priority);
-
+            SyncSetWorkPriority.DoSync(__instance.GetPropertyOrField("pawn"), w, priority);
             return false;
         }
 
         [MpPatch(typeof(Pawn_DraftController), "set_Drafted")]
-        public static bool SetDrafted(Pawn_DraftController __instance, bool value)
+        static bool SetDrafted(Pawn_DraftController __instance, bool value)
         {
             if (!Multiplayer.ShouldSync) return true;
             SyncSetDrafted.DoSync(__instance.pawn, value);
@@ -177,61 +204,108 @@ namespace Multiplayer.Client
         }
 
         [MpPatch(typeof(Pawn_DraftController), "set_FireAtWill")]
-        public static bool SetFireAtWill(Pawn_DraftController __instance, bool value)
+        static bool SetFireAtWill(Pawn_DraftController __instance, bool value)
         {
             if (!Multiplayer.ShouldSync) return true;
             SyncSetFireAtWill.DoSync(__instance.pawn, value);
             return false;
         }
 
-        [SyncDelegate]
-        [MpPatch(typeof(FloatMenuMakerMap), "<GotoLocationOption>c__AnonStorey18", "<>m__0")]
-        public static bool FloatMenuGoto(object __instance)
+        [MpPatch(typeof(Pawn_JobTracker), "StartJob")]
+        static bool StartJob(Pawn_JobTracker __instance, Job newJob, JobCondition lastJobEndCondition, ThinkNode jobGiver, bool resumeCurJobAfterwards, bool cancelBusyStances, ThinkTreeDef thinkTree, JobTag? tag, bool fromQueue)
         {
             if (!Multiplayer.ShouldSync) return true;
-            Sync.Delegate(__instance, MapProviderMode.ANY_PAWN);
+            SyncSetFireAtWill.DoSync(__instance.GetPropertyOrField("pawn"), newJob, lastJobEndCondition, jobGiver, resumeCurJobAfterwards, cancelBusyStances, thinkTree, tag, fromQueue);
+            return false;
+        }
+
+        [MpPatch(typeof(StorageSettings), "set_Priority")]
+        static bool StorageSetPriority(StorageSettings __instance, StoragePriority value)
+        {
+            if (!Multiplayer.ShouldSync) return true;
+            SyncSetStoragePriority.DoSync(__instance.owner, value);
+            return false;
+        }
+
+        [MpPatch(typeof(Pawn_JobTracker), "TryTakeOrderedJob")]
+        static bool TryTakeOrderedJob(Pawn_JobTracker __instance, Job job, JobTag tag)
+        {
+            if (!Multiplayer.ShouldSync) return true;
+            SyncTryTakeOrderedJob.DoSync(__instance.GetPropertyOrField("pawn"), job, tag);
+            return false;
+        }
+
+        [MpPatch(typeof(Pawn_JobTracker), "TryTakeOrderedJobPrioritizedWork")]
+        static bool TryTakeOrderedJobPrioritizedWork(Pawn_JobTracker __instance, Job job, WorkGiver giver, IntVec3 cell)
+        {
+            if (!Multiplayer.ShouldSync) return true;
+            SyncTryTakeOrderedJobPrioritizedWork.DoSync(__instance.GetPropertyOrField("pawn"), job, giver, cell);
+            return false;
+        }
+    }
+
+    public struct ThingFilterWrapper
+    {
+        public readonly object owner;
+        public readonly ThingFilter filter;
+
+        public ThingFilterWrapper(object owner, ThingFilter filter)
+        {
+            this.owner = owner;
+            this.filter = filter;
+        }
+    }
+
+    public static class SyncDelegates
+    {
+        [SyncDelegate]
+        [MpPatch(typeof(FloatMenuMakerMap), "<GotoLocationOption>c__AnonStorey18", "<>m__0")]
+        static bool FloatMenuGoto(object __instance)
+        {
+            if (!Multiplayer.ShouldSync) return true;
+            Sync.Delegate(__instance, MapProviderMode.ANY_FIELD);
             return false;
         }
 
         [SyncDelegate]
         [MpPatch(typeof(FloatMenuMakerMap), "<AddDraftedOrders>c__AnonStorey3", "<>m__0")]
-        public static bool FloatMenuArrest(object __instance)
+        static bool FloatMenuArrest(object __instance)
         {
             if (!Multiplayer.ShouldSync) return true;
-            Sync.Delegate(__instance, MapProviderMode.ANY_PAWN);
+            Sync.Delegate(__instance, MapProviderMode.ANY_FIELD);
             return false;
         }
 
         [SyncDelegate]
         [MpPatch(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey7", "<>m__0")]
-        public static bool FloatMenuRescue(object __instance)
+        static bool FloatMenuRescue(object __instance)
         {
             if (!Multiplayer.ShouldSync) return true;
-            Sync.Delegate(__instance, MapProviderMode.ANY_PAWN);
+            Sync.Delegate(__instance, MapProviderMode.ANY_FIELD);
             return false;
         }
 
         [SyncDelegate]
         [MpPatch(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey7", "<>m__1")]
-        public static bool FloatMenuCapture(object __instance)
+        static bool FloatMenuCapture(object __instance)
         {
             if (!Multiplayer.ShouldSync) return true;
-            Sync.Delegate(__instance, MapProviderMode.ANY_PAWN);
+            Sync.Delegate(__instance, MapProviderMode.ANY_FIELD);
             return false;
         }
 
         [SyncDelegate]
         [MpPatch(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey9", "<>m__0")]
-        public static bool FloatMenuCarryToCryptosleepCasket(object __instance)
+        static bool FloatMenuCarryToCryptosleepCasket(object __instance)
         {
             if (!Multiplayer.ShouldSync) return true;
-            Sync.Delegate(__instance, MapProviderMode.ANY_PAWN);
+            Sync.Delegate(__instance, MapProviderMode.ANY_FIELD);
             return false;
         }
 
         [SyncDelegate("$this")]
         [MpPatch(typeof(Pawn_PlayerSettings), "<GetGizmos>c__Iterator0", "<>m__2")]
-        public static bool GizmoReleaseAnimals(object __instance)
+        static bool GizmoReleaseAnimals(object __instance)
         {
             if (!Multiplayer.ShouldSync) return true;
             Sync.Delegate(__instance, __instance.GetPropertyOrField("$this/pawn"));
@@ -240,7 +314,7 @@ namespace Multiplayer.Client
 
         [SyncDelegate("$this")]
         [MpPatch(typeof(PriorityWork), "<GetGizmos>c__Iterator0", "<>m__0")]
-        public static bool GizmoClearPrioritizedWork(object __instance)
+        static bool GizmoClearPrioritizedWork(object __instance)
         {
             if (!Multiplayer.ShouldSync) return true;
             Sync.Delegate(__instance, __instance.GetPropertyOrField("$this/pawn"));
@@ -249,7 +323,7 @@ namespace Multiplayer.Client
 
         /*[SyncDelegate("lord")]
         [MpPatch(typeof(Pawn_MindState), "<GetGizmos>c__Iterator0+<GetGizmos>c__AnonStorey2", "<>m__0")]
-        public static bool GizmoCancelFormingCaravan(object __instance)
+        static bool GizmoCancelFormingCaravan(object __instance)
         {
             if (!Multiplayer.ShouldSync) return true;
             Sync.Delegate(__instance, MpReflection.GetPropertyOrField(__instance, ""));
@@ -259,7 +333,7 @@ namespace Multiplayer.Client
 
     public static class MapProviderMode
     {
-        public static readonly object ANY_PAWN = new object();
+        public static readonly object ANY_FIELD = new object();
     }
 
     public class SyncDelegateAttribute : Attribute
@@ -279,19 +353,37 @@ namespace Multiplayer.Client
     public static class MethodMarkers
     {
         public static bool manualPriorities;
+        public static IStoreSettingsParent tabStorage;
+        public static Bill billConfig;
+        public static Outfit dialogOutfit;
 
         [MpPatch(typeof(MainTabWindow_Work), "DoManualPrioritiesCheckbox")]
-        public static void ManualPriorities_Prefix()
-        {
-            manualPriorities = true;
-        }
+        static void ManualPriorities_Prefix() => manualPriorities = true;
 
         [MpPatch(typeof(MainTabWindow_Work), "DoManualPrioritiesCheckbox")]
         [MpPostfix]
-        public static void ManualPriorities_Postfix()
-        {
-            manualPriorities = false;
-        }
+        static void ManualPriorities_Postfix() => manualPriorities = false;
+
+        [MpPatch(typeof(ITab_Storage), "FillTab")]
+        static void TabStorageFillTab_Prefix(ITab_Storage __instance) => tabStorage = (IStoreSettingsParent)__instance.GetPropertyOrField("SelStoreSettingsParent");
+
+        [MpPatch(typeof(ITab_Storage), "FillTab")]
+        [MpPostfix]
+        static void TabStorageFillTab_Postfix() => tabStorage = null;
+
+        [MpPatch(typeof(Dialog_BillConfig), "DoWindowContents")]
+        static void BillConfig_Prefix(Dialog_BillConfig __instance) => billConfig = (Bill)__instance.GetPropertyOrField("bill");
+
+        [MpPatch(typeof(Dialog_BillConfig), "DoWindowContents")]
+        [MpPostfix]
+        static void BillConfig_Postfix() => billConfig = null;
+
+        [MpPatch(typeof(Dialog_ManageOutfits), "DoWindowContents")]
+        static void ManageOutfit_Prefix(Dialog_ManageOutfits __instance) => dialogOutfit = (Outfit)__instance.GetPropertyOrField("SelectedOutfit");
+
+        [MpPatch(typeof(Dialog_ManageOutfits), "DoWindowContents")]
+        [MpPostfix]
+        static void ManageOutfit_Postfix() => billConfig = null;
     }
 
     public abstract class SyncHandler
@@ -306,12 +398,22 @@ namespace Multiplayer.Client
         public abstract void Read(ByteReader data);
     }
 
+    public interface Test1
+    {
+        void a();
+    }
+
+    public abstract class test2 : Test1
+    {
+        public abstract void a();
+    }
+
     public class SyncField : SyncHandler
     {
         public readonly Type targetType;
         public readonly string memberPath;
-
         public readonly Type fieldType;
+        public readonly Func<object, object> instanceFunc;
 
         public SyncField(int syncId, Type targetType, string memberPath) : base(syncId)
         {
@@ -334,16 +436,14 @@ namespace Multiplayer.Client
 
         public void DoSync(object target, object value)
         {
-            int mapId = Sync.GetMapId(target);
+            Map map = Sync.GetMap(target);
+            int mapId = map != null ? map.uniqueID : ScheduledCommand.GLOBAL;
             ByteWriter writer = new ByteWriter();
 
             writer.WriteInt32(syncId);
 
             Sync.WriteContext(writer, mapId);
-
-            if (target is Pawn p)
-                writer.WriteInt32(p.thingIDNumber);
-
+            Sync.WriteSyncObject(writer, target, targetType);
             Sync.WriteSyncObject(writer, value, fieldType);
 
             Multiplayer.client.SendCommand(CommandType.SYNC, mapId, writer.GetArray());
@@ -351,7 +451,7 @@ namespace Multiplayer.Client
 
         public override void Read(ByteReader data)
         {
-            object target = Sync.ReadTarget(data, targetType);
+            object target = Sync.ReadSyncObject(data, targetType);
             object value = Sync.ReadSyncObject(data, fieldType);
 
             MpLog.Log("Set " + memberPath + " in " + target + " to " + value + " map " + data.context);
@@ -384,16 +484,13 @@ namespace Multiplayer.Client
 
         public void DoSync(object target, params object[] args)
         {
-            int mapId = Sync.GetMapId(target);
+            int mapId = Sync.GetMap(target).uniqueID;
             ByteWriter writer = new ByteWriter();
 
             writer.WriteInt32(syncId);
 
             Sync.WriteContext(writer, mapId);
-
-            if (target is Pawn p)
-                writer.WriteInt32(p.thingIDNumber);
-
+            Sync.WriteSyncObject(writer, target, targetType);
             Sync.WriteSyncObjects(writer, args, argTypes);
 
             Multiplayer.client.SendCommand(CommandType.SYNC, mapId, writer.GetArray());
@@ -401,7 +498,7 @@ namespace Multiplayer.Client
 
         public override void Read(ByteReader data)
         {
-            object target = Sync.ReadTarget(data, targetType);
+            object target = Sync.ReadSyncObject(data, targetType);
             if (!instancePath.NullOrEmpty())
                 target = target.GetPropertyOrField(instancePath);
 
@@ -488,6 +585,20 @@ namespace Multiplayer.Client
         }
     }
 
+    public enum StoreSettingsParent
+    {
+        THING,
+        THING_COMP,
+        ZONE
+    }
+
+    public enum ThingFilterOwner
+    {
+        STORAGE,
+        BILL,
+        OUTFIT
+    }
+
     public static class Sync
     {
         private static List<SyncHandler> handlers = new List<SyncHandler>();
@@ -547,14 +658,14 @@ namespace Multiplayer.Client
             SyncDelegate handler = delegates[caller];
             int mapId = ScheduledCommand.GLOBAL;
 
-            if (mapProvider == MapProviderMode.ANY_PAWN)
+            if (mapProvider == MapProviderMode.ANY_FIELD)
             {
                 foreach (string path in handler.fields)
                 {
                     object obj = instance.GetPropertyOrField(path);
-                    if (obj is Pawn pawn)
+                    if (GetMap(obj) != null)
                     {
-                        mapId = pawn.Map.uniqueID;
+                        mapId = GetMap(obj).uniqueID;
                         break;
                     }
                 }
@@ -634,7 +745,7 @@ namespace Multiplayer.Client
 
             if (data.context is Map)
             {
-                IntVec3 mouseCell = ReadSyncObject<IntVec3>(data);
+                IntVec3 mouseCell = ReadSync<IntVec3>(data);
                 MouseCellPatch.result = mouseCell;
             }
 
@@ -652,30 +763,35 @@ namespace Multiplayer.Client
         public static void WriteContext(ByteWriter data, int mapId)
         {
             if (mapId >= 0)
-                WriteSyncObject(data, UI.MouseCell());
+                WriteSync(data, UI.MouseCell());
 
             data.WriteBool(KeyBindingDefOf.QueueOrder.IsDownEvent);
         }
 
-        public static int GetMapId(object obj)
+        public static Map GetMap(object obj)
         {
-            if (obj is Pawn pawn)
-                return pawn.Map.uniqueID;
-
-            return ScheduledCommand.GLOBAL;
-        }
-
-        public static object ReadTarget(ByteReader data, Type targetType)
-        {
-            object target = null;
-            if (targetType == typeof(Pawn))
+            if (obj is Thing thing && thing.Spawned)
             {
-                int pawnId = data.ReadInt32();
-                Map map = data.context as Map;
-                target = map.mapPawns.AllPawns.FirstOrDefault(p => p.thingIDNumber == pawnId);
+                return thing.Map;
+            }
+            else if (obj is ThingComp comp)
+            {
+                return GetMap(comp.parent);
+            }
+            else if (obj is Zone zone)
+            {
+                return zone.Map;
+            }
+            else if (obj is Bill bill)
+            {
+                return bill.Map;
+            }
+            else if (obj is ThingFilterWrapper filter)
+            {
+                return GetMap(filter.owner);
             }
 
-            return target;
+            return null;
         }
 
         static ReaderDictionary readers = new ReaderDictionary
@@ -683,64 +799,86 @@ namespace Multiplayer.Client
             { data => data.ReadInt32() },
             { data => data.ReadBool() },
             { data => data.ReadString() },
+            { data => data.ReadLong() },
             { data => new IntVec3(data.ReadInt32(), data.ReadInt32(), data.ReadInt32()) },
-            { data => ReadSyncObject<Pawn>(data).mindState.priorityWork },
-            { data => ReadSyncObject<Pawn>(data).playerSettings },
+            { data => ReadSync<Pawn>(data).mindState.priorityWork },
+            { data => ReadSync<Pawn>(data).playerSettings },
+            { data => ScribeUtil.ReadExposable<Job>(data.ReadPrefixedBytes()) },
+            { data => new FloatRange(data.ReadFloat(), data.ReadFloat()) },
+            { data => new IntRange(data.ReadInt32(), data.ReadInt32()) },
+            { data => new QualityRange(ReadSync<QualityCategory>(data), ReadSync<QualityCategory>(data)) },
             { data =>
             {
-                Thing thing = ReadSyncObject<Thing>(data);
+                Thing thing = ReadSync<Thing>(data);
                 if (thing != null)
                     return new LocalTargetInfo(thing);
                 else
-                    return new LocalTargetInfo(ReadSyncObject<IntVec3>(data));
+                    return new LocalTargetInfo(ReadSync<IntVec3>(data));
             }
             }
         };
 
         static WriterDictionary writers = new WriterDictionary
         {
-            { (ByteWriter data, int o) => data.WriteInt32(o) },
-            { (ByteWriter data, bool o) => data.WriteBool(o) },
-            { (ByteWriter data, string o) => data.Write(o) },
+            { (ByteWriter data, int i) => data.WriteInt32(i) },
+            { (ByteWriter data, bool b) => data.WriteBool(b) },
+            { (ByteWriter data, string s) => data.WriteString(s) },
+            { (ByteWriter data, long l) => data.WriteLong(l) },
             { (ByteWriter data, PriorityWork work) => WriteSyncObject(data, work.GetPropertyOrField("pawn")) },
             { (ByteWriter data, Pawn_PlayerSettings settings) => WriteSyncObject(data, settings.GetPropertyOrField("pawn")) },
-            {
-                (ByteWriter data, IntVec3 vec) =>
-                {
-                    data.WriteInt32(vec.x);
-                    data.WriteInt32(vec.y);
-                    data.WriteInt32(vec.z);
-                }
-            },
+            { (ByteWriter data, Job job) => data.WritePrefixedBytes(ScribeUtil.WriteExposable(job)) },
+            { (ByteWriter data, FloatRange range) => { data.WriteFloat(range.min); data.WriteFloat(range.max); }},
+            { (ByteWriter data, IntRange range) => { data.WriteInt32(range.min); data.WriteInt32(range.max); }},
+            { (ByteWriter data, QualityRange range) => { WriteSync(data, range.min); WriteSync(data, range.max); }},
+            { (ByteWriter data, IntVec3 vec) => { data.WriteInt32(vec.x); data.WriteInt32(vec.y); data.WriteInt32(vec.z); }},
             {
                 (ByteWriter data, LocalTargetInfo info) =>
                 {
-                    WriteSyncObject(data, info.Thing);
+                    WriteSync(data, info.Thing);
                     if (!info.HasThing)
-                        WriteSyncObject(data, info.Cell);
+                        WriteSync(data, info.Cell);
                 }
             }
         };
 
-        public static T ReadSyncObject<T>(ByteReader data)
+        public static T ReadSync<T>(ByteReader data)
         {
             return (T)ReadSyncObject(data, typeof(T));
         }
 
         public static object ReadSyncObject(ByteReader data, Type type)
         {
+            Map map = data.context as Map;
+
             if (type.IsEnum)
             {
                 return Enum.ToObject(type, data.ReadInt32());
             }
-            else if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(List<>))
+            else if (type.IsGenericType)
             {
-                Type listType = type.GetGenericArguments()[0];
-                int size = data.ReadInt32();
-                IList list = Activator.CreateInstance(type, size) as IList;
-                for (int j = 0; j < size; j++)
-                    list.Add(ReadSyncObject(data, listType));
-                return list;
+                if (type.GetGenericTypeDefinition() == typeof(List<>))
+                {
+                    Type listType = type.GetGenericArguments()[0];
+                    int size = data.ReadInt32();
+                    IList list = Activator.CreateInstance(type, size) as IList;
+                    for (int j = 0; j < size; j++)
+                        list.Add(ReadSyncObject(data, listType));
+                    return list;
+                }
+                else if (type.GetGenericTypeDefinition() == typeof(Nullable<>))
+                {
+                    bool hasValue = data.ReadBool();
+                    if (!hasValue)
+                        return Activator.CreateInstance(type);
+
+                    Type nullableType = type.GetGenericArguments()[0];
+                    return Activator.CreateInstance(type, ReadSyncObject(data, nullableType));
+                }
+            }
+            else if (typeof(ThinkNode).IsAssignableFrom(type))
+            {
+                // todo temporary
+                return null;
             }
             else if (typeof(Area).IsAssignableFrom(type))
             {
@@ -748,8 +886,16 @@ namespace Multiplayer.Client
                 if (areaId == -1)
                     return null;
 
-                Map map = data.context as Map;
                 return map.areaManager.AllAreas.FirstOrDefault(a => a.ID == areaId);
+            }
+            else if (typeof(Zone).IsAssignableFrom(type))
+            {
+                string name = data.ReadString();
+                Log.Message("Reading zone " + name + " " + map);
+                if (name.NullOrEmpty())
+                    return null;
+
+                return map.zoneManager.AllZones.FirstOrDefault(zone => zone.label == name);
             }
             else if (typeof(Def).IsAssignableFrom(type))
             {
@@ -766,19 +912,76 @@ namespace Multiplayer.Client
                 if (thingId == -1)
                     return null;
 
-                ThingDef def = ReadSyncObject<ThingDef>(data);
-                Map map = data.context as Map;
-
+                ThingDef def = ReadSync<ThingDef>(data);
                 return map.listerThings.ThingsOfDef(def).FirstOrDefault(t => t.thingIDNumber == thingId);
+            }
+            else if (typeof(ThingComp).IsAssignableFrom(type))
+            {
+                string compType = data.ReadString();
+                if (compType.NullOrEmpty())
+                    return null;
+
+                ThingWithComps parent = ReadSync<Thing>(data) as ThingWithComps;
+                if (parent == null)
+                    return null;
+
+                return parent.AllComps.FirstOrDefault(comp => comp.props.compClass.FullName == compType);
+            }
+            else if (typeof(WorkGiver).IsAssignableFrom(type))
+            {
+                WorkGiverDef def = ReadSync<WorkGiverDef>(data);
+                return def?.Worker;
+            }
+            else if (typeof(BillStack) == type)
+            {
+                Thing thing = ReadSync<Thing>(data);
+                if (thing is IBillGiver billGiver)
+                    return billGiver.BillStack;
+                return null;
+            }
+            else if (typeof(Bill).IsAssignableFrom(type))
+            {
+                BillStack billStack = ReadSync<BillStack>(data);
+                if (billStack == null)
+                    return null;
+
+                int id = data.ReadInt32();
+                return billStack.Bills.FirstOrDefault(bill => (int)bill.GetPropertyOrField("loadId") == id);
+            }
+            else if (typeof(ThingFilterWrapper) == type)
+            {
+                ThingFilterOwner ownerType = ReadSync<ThingFilterOwner>(data);
+
+                if (ownerType == ThingFilterOwner.STORAGE)
+                {
+                    IStoreSettingsParent storage = ReadSync<IStoreSettingsParent>(data);
+                    return new ThingFilterWrapper(storage, storage.GetStoreSettings().filter);
+                }
+                else if (ownerType == ThingFilterOwner.BILL)
+                {
+                    Bill bill = ReadSync<Bill>(data);
+                    return new ThingFilterWrapper(bill, bill.ingredientFilter);
+                }
+            }
+            else if (typeof(IStoreSettingsParent) == type)
+            {
+                StoreSettingsParent parentType = ReadSync<StoreSettingsParent>(data);
+
+                if (parentType == StoreSettingsParent.THING)
+                    return ReadSync<Thing>(data) as IStoreSettingsParent;
+                else if (parentType == StoreSettingsParent.THING_COMP)
+                    return ReadSync<ThingComp>(data) as IStoreSettingsParent;
+                else if (parentType == StoreSettingsParent.ZONE)
+                    return ReadSync<Zone>(data) as IStoreSettingsParent;
+                else
+                    return null;
             }
             else if (readers.TryGetValue(type, out Func<ByteReader, object> reader))
             {
                 return reader(data);
             }
-            else
-            {
-                throw new SerializationException("No reader for type " + type);
-            }
+
+            throw new SerializationException("No reader for type " + type);
         }
 
         public static object[] ReadSyncObjects(ByteReader data, Type[] spec)
@@ -786,14 +989,14 @@ namespace Multiplayer.Client
             return spec.Select(type => ReadSyncObject(data, type)).ToArray();
         }
 
+        public static void WriteSync<T>(ByteWriter data, T obj)
+        {
+            WriteSyncObject(data, obj, typeof(T));
+        }
+
         public static void WriteSyncObject(ByteWriter data, object obj)
         {
             WriteSyncObject(data, obj, obj.GetType());
-        }
-
-        public static void WriteSyncObject<T>(ByteWriter data, T obj)
-        {
-            WriteSyncObject(data, obj, typeof(T));
         }
 
         public static void WriteSyncObject(ByteWriter data, object obj, Type type)
@@ -810,13 +1013,50 @@ namespace Multiplayer.Client
                 foreach (object e in list)
                     WriteSyncObject(data, e, listType);
             }
+            else if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>))
+            {
+                Type nullableType = type.GetGenericArguments()[0];
+                bool hasValue = (bool)obj.GetPropertyOrField("HasValue");
+
+                data.WriteBool(hasValue);
+                if (hasValue)
+                    WriteSyncObject(data, obj.GetPropertyOrField("Value"));
+            }
+            else if (typeof(ThinkNode).IsAssignableFrom(type))
+            {
+                // todo temporary
+            }
             else if (typeof(Area).IsAssignableFrom(type))
             {
                 data.WriteInt32(obj is Area area ? area.ID : -1);
             }
+            else if (typeof(Zone).IsAssignableFrom(type))
+            {
+                data.WriteString(obj is Zone zone ? zone.label : "");
+            }
             else if (typeof(Def).IsAssignableFrom(type))
             {
                 data.WriteUInt16(obj is Def def ? def.shortHash : (ushort)0);
+            }
+            else if (typeof(ThingComp).IsAssignableFrom(type))
+            {
+                if (obj is ThingComp comp)
+                {
+                    data.WriteString(comp.props.compClass.FullName);
+                    WriteSync<Thing>(data, comp.parent);
+                }
+                else
+                {
+                    data.WriteString("");
+                }
+            }
+            else if (typeof(WorkGiver).IsAssignableFrom(type))
+            {
+                WorkGiver workGiver = obj as WorkGiver;
+                if (workGiver == null)
+                    return;
+
+                WriteSync(data, workGiver);
             }
             else if (typeof(Thing).IsAssignableFrom(type))
             {
@@ -828,7 +1068,61 @@ namespace Multiplayer.Client
                 }
 
                 data.WriteInt32(thing.thingIDNumber);
-                WriteSyncObject(data, thing.def);
+                WriteSync(data, thing.def);
+            }
+            else if (typeof(BillStack) == type)
+            {
+                Thing billGiver = (obj as BillStack)?.billGiver as Thing;
+                WriteSync(data, billGiver);
+            }
+            else if (typeof(Bill) == type)
+            {
+                Bill bill = obj as Bill;
+                WriteSync(data, bill.billStack);
+                data.WriteInt32((int)bill.GetPropertyOrField("loadId"));
+            }
+            else if (typeof(ThingFilterWrapper) == type)
+            {
+                ThingFilterWrapper wrapper = (ThingFilterWrapper)obj;
+
+                if (wrapper.owner is IStoreSettingsParent storage)
+                {
+                    WriteSync(data, ThingFilterOwner.STORAGE);
+                    WriteSyncObject(data, wrapper.owner, typeof(IStoreSettingsParent));
+                }
+                else if (wrapper.owner is Bill bill)
+                {
+                    WriteSync(data, ThingFilterOwner.BILL);
+                    WriteSyncObject(data, wrapper.owner, typeof(Bill));
+                }
+                else
+                {
+                    throw new SerializationException("Unknown thing filter owner type: " + wrapper.owner?.GetType());
+                }
+            }
+            else if (typeof(IStoreSettingsParent) == type)
+            {
+                IStoreSettingsParent owner = obj as IStoreSettingsParent;
+
+                if (owner is Thing)
+                {
+                    WriteSync(data, StoreSettingsParent.THING);
+                    WriteSyncObject(data, owner, typeof(Thing));
+                }
+                else if (owner is ThingComp)
+                {
+                    WriteSync(data, StoreSettingsParent.THING_COMP);
+                    WriteSyncObject(data, owner, typeof(ThingComp));
+                }
+                else if (owner is Zone)
+                {
+                    WriteSync(data, StoreSettingsParent.ZONE);
+                    WriteSyncObject(data, owner, typeof(Zone));
+                }
+                else
+                {
+                    throw new SerializationException("Unknown storage settings parent type: " + owner?.GetType());
+                }
             }
             else if (writers.TryGetValue(type, out Action<ByteWriter, object> writer))
             {

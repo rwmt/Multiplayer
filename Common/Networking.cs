@@ -171,9 +171,35 @@ namespace Multiplayer.Common
             stream.Write(BitConverter.GetBytes(val));
         }
 
+        public void WriteFloat(float val)
+        {
+            stream.Write(BitConverter.GetBytes(val));
+        }
+
+        public void WriteDouble(double val)
+        {
+            stream.Write(BitConverter.GetBytes(val));
+        }
+
+        public void WriteLong(long val)
+        {
+            stream.Write(BitConverter.GetBytes(val));
+        }
+
         public void WriteBool(bool val)
         {
             stream.WriteByte(val ? (byte)1 : (byte)0);
+        }
+
+        public void WritePrefixedBytes(byte[] bytes)
+        {
+            WriteInt32(bytes.Length);
+            stream.Write(bytes);
+        }
+
+        public void WriteString(string s)
+        {
+            WritePrefixedBytes(Encoding.UTF8.GetBytes(s));
         }
 
         public void Write(object obj)
@@ -190,22 +216,25 @@ namespace Multiplayer.Common
             {
                 WriteBool(@bool);
             }
+            else if (obj is long @long)
+            {
+                WriteLong(@long);
+            }
             else if (obj is byte @byte)
             {
                 stream.WriteByte(@byte);
             }
             else if (obj is float @float)
             {
-                stream.Write(BitConverter.GetBytes(@float));
+                WriteFloat(@float);
             }
             else if (obj is double @double)
             {
-                stream.Write(BitConverter.GetBytes(@double));
+                WriteDouble(@double);
             }
-            else if (obj is byte[] bytearr)
+            else if (obj is byte[] bytes)
             {
-                WriteInt32(bytearr.Length);
-                stream.Write(bytearr);
+                WritePrefixedBytes(bytes);
             }
             else if (obj is Enum)
             {
@@ -213,7 +242,7 @@ namespace Multiplayer.Common
             }
             else if (obj is string @string)
             {
-                Write(Encoding.UTF8.GetBytes(@string));
+                WriteString(@string);
             }
             else if (obj is Array arr)
             {
@@ -266,6 +295,11 @@ namespace Multiplayer.Common
         public double ReadDouble()
         {
             return BitConverter.ToDouble(array, IncrementIndex(8));
+        }
+
+        public long ReadLong()
+        {
+            return BitConverter.ToInt64(array, IncrementIndex(8));
         }
 
         public byte ReadByte()

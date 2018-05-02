@@ -95,11 +95,21 @@ namespace Multiplayer.Client
         }
     }
 
+    public class MultiplayerForbiddenCompProps : CompProperties
+    {
+        public MultiplayerForbiddenCompProps() : base(typeof(MultiplayerForbiddenComp))
+        {
+        }
+    }
+
     public class MultiplayerForbiddenComp : ThingComp
     {
         public Dictionary<int, bool> factionForbidden = new Dictionary<int, bool>();
 
-        private static FieldInfo forbiddenField = AccessTools.Field(typeof(CompForbiddable), "forbiddenInt");
+        public MultiplayerForbiddenComp()
+        {
+            props = new MultiplayerForbiddenCompProps();
+        }
 
         public override string CompInspectStringExtra()
         {
@@ -123,7 +133,7 @@ namespace Multiplayer.Client
 
             // Visual
             if (faction == Multiplayer.RealPlayerFaction)
-                forbiddenField.SetValue(parent.GetComp<CompForbiddable>(), value);
+                parent.GetComp<CompForbiddable>().SetPropertyOrField("forbiddenInt", value);
         }
 
         public override void PostExposeData()

@@ -184,8 +184,35 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.client == null || WorldRendererUtility.WorldRenderedNow || Find.VisibleMap == null) return;
 
+            Map map = Find.VisibleMap;
             __state = new Container<int, TimeSpeed>(Find.TickManager.TicksGame, Find.TickManager.CurTimeSpeed);
-            MapAsyncTimeComp comp = Find.VisibleMap.GetComponent<MapAsyncTimeComp>();
+            MapAsyncTimeComp comp = map.GetComponent<MapAsyncTimeComp>();
+            Find.TickManager.DebugSetTicksGame(comp.mapTicks);
+            Find.TickManager.CurTimeSpeed = comp.timeSpeed;
+        }
+
+        static void Postfix(Container<int, TimeSpeed> __state)
+        {
+            if (__state == null) return;
+
+            Find.TickManager.DebugSetTicksGame(__state.First);
+            Find.TickManager.CurTimeSpeed = __state.Second;
+        }
+    }
+
+    [HarmonyPatch(typeof(PortraitsCache))]
+    [HarmonyPatch("IsAnimated")]
+    public static class PawnPortraitMapTime
+    {
+        static void Prefix(Pawn pawn, ref Container<int, TimeSpeed> __state)
+        {
+            if (Multiplayer.client == null) return;
+
+            Map map = pawn.Map;
+            if (map == null) return;
+
+            __state = new Container<int, TimeSpeed>(Find.TickManager.TicksGame, Find.TickManager.CurTimeSpeed);
+            MapAsyncTimeComp comp = map.GetComponent<MapAsyncTimeComp>();
             Find.TickManager.DebugSetTicksGame(comp.mapTicks);
             Find.TickManager.CurTimeSpeed = comp.timeSpeed;
         }
@@ -315,9 +342,6 @@ namespace Multiplayer.Client
         public TickList tickListRare = new TickList(TickerType.Rare);
         public TickList tickListLong = new TickList(TickerType.Long);
 
-        static MethodInfo skyTargetMethod = typeof(SkyManager).GetMethod("CurrentSkyTarget", BindingFlags.NonPublic | BindingFlags.Instance);
-        static FieldInfo curSkyGlowField = typeof(SkyManager).GetField("curSkyGlowInt", BindingFlags.NonPublic | BindingFlags.Instance);
-
         public MapAsyncTimeComp(Map map) : base(map)
         {
             storyteller = new Storyteller(StorytellerDefOf.Cassandra, DifficultyDefOf.Medium);
@@ -393,8 +417,8 @@ namespace Multiplayer.Client
             Multiplayer.Seed = map.uniqueID.Combine(mapTicks).Combine(Multiplayer.WorldComp.sessionId);
 
             // Reset the effects of SkyManagerUpdate called during Update
-            SkyTarget target = (SkyTarget)skyTargetMethod.Invoke(map.skyManager, new object[0]);
-            curSkyGlowField.SetValue(map.skyManager, target.glow);
+            SkyTarget target = (SkyTarget)map.skyManager.GetPropertyOrField("CurrentSkyTarget");
+            map.skyManager.SetPropertyOrField("curSkyGlowInt", target.glow);
         }
 
         public void PostContext()
