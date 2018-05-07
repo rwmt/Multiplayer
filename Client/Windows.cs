@@ -21,13 +21,7 @@ namespace Multiplayer.Client
     {
         public const int MaxChatMsgLength = 128;
 
-        public override Vector2 InitialSize
-        {
-            get
-            {
-                return new Vector2(UI.screenWidth / 2f, UI.screenHeight / 2f);
-            }
-        }
+        public override Vector2 InitialSize => new Vector2(UI.screenWidth / 2f, UI.screenHeight / 2f);
 
         private static readonly Texture2D SelectedMsg = SolidColorMaterials.NewSolidColorTexture(new Color(0.17f, 0.17f, 0.17f, 0.85f));
 
@@ -195,6 +189,55 @@ namespace Multiplayer.Client
                 this.msg = msg;
                 this.timestamp = timestamp;
             }
+        }
+    }
+
+    public class PacketLogWindow : Window
+    {
+        public override Vector2 InitialSize => new Vector2(UI.screenWidth / 2f, UI.screenHeight / 2f);
+
+        public List<LogNode> nodes = new List<LogNode>();
+        private int logHeight;
+        private Vector2 scrollPos;
+
+        public override void DoWindowContents(Rect rect)
+        {
+            GUI.BeginGroup(rect);
+
+            Text.Font = GameFont.Tiny;
+            Rect outRect = new Rect(0f, 0f, rect.width, rect.height - 30f);
+            Rect viewRect = new Rect(0f, 0f, rect.width - 16f, logHeight + 10f);
+
+            Widgets.BeginScrollView(outRect, ref scrollPos, viewRect);
+
+            int y = 0;
+            foreach (LogNode node in nodes)
+                Draw(node, 0, ref y);
+
+            if (Event.current.type == EventType.layout)
+                logHeight = y;
+
+            Widgets.EndScrollView();
+
+            GUI.EndGroup();
+        }
+
+        public void Draw(LogNode node, int depth, ref int y)
+        {
+            string text = node.text;
+            if (depth == 0)
+                text = node.children[0].text;
+
+            Vector2 textSize = Text.CalcSize(text);
+            Rect label = new Rect(depth * 10, y, textSize.x, textSize.y);
+            Widgets.Label(label, text);
+            if (Widgets.ButtonInvisible(label))
+                node.expand = !node.expand;
+            y += (int) textSize.y;
+
+            if (node.expand)
+                foreach (LogNode child in node.children)
+                    Draw(child, depth + 1, ref y);
         }
     }
 
@@ -399,161 +442,6 @@ namespace Multiplayer.Client
         protected override void SetName(string name)
         {
             action(name);
-        }
-    }
-
-    public class ThinkTreeWindow : Window
-    {
-        public override Vector2 InitialSize => new Vector2(UI.screenWidth, 500f);
-
-        const int NodeWidth = 10;
-
-        public class Node
-        {
-            public string label;
-            public int depth;
-            public Node parent;
-            public List<Node> children = new List<Node>();
-            public ThinkNode thinkNode;
-
-            public int width;
-            public int y;
-            public int x;
-
-            public Node(ThinkNode thinkNode, string label, Node parent = null)
-            {
-                this.thinkNode = thinkNode;
-                this.label = label;
-                this.parent = parent;
-
-                if (parent != null)
-                {
-                    depth = parent.depth + 1;
-                    parent.children.Add(this);
-                }
-            }
-        }
-
-        private List<List<Node>> tree = new List<List<Node>>();
-        private Pawn pawn;
-
-        public ThinkTreeWindow(Pawn pawn)
-        {
-            this.doCloseButton = true;
-            this.doCloseX = true;
-            this.draggable = true;
-            this.pawn = pawn;
-
-            ThinkNode thinkRoot = DefDatabase<ThinkTreeDef>.GetNamed("Humanlike").thinkRoot;
-            AddNode(thinkRoot, new Node(thinkRoot, "Root"));
-
-            for (int i = tree.Count - 1; i >= 0; i--)
-                foreach (Node n in tree[i])
-                    if (n.children.Count == 0)
-                        n.width = NodeWidth;
-                    else
-                        n.width = n.children.Sum(c => c.width);
-
-            tree[0][0].x = UI.screenWidth / 2;
-
-            CalcNode(tree[0][0]);
-        }
-
-        public void AddNode(ThinkNode from, Node node)
-        {
-            List<Node> nodes;
-            if (tree.Count <= node.depth)
-                tree.Add(nodes = new List<Node>());
-            else
-                nodes = tree[node.depth];
-            nodes.Add(node);
-
-            if (from is ThinkNode_Duty) return;
-
-            foreach (ThinkNode child in from.subNodes)
-                AddNode(child, new Node(child, child.GetType().Name, node));
-        }
-
-        private Vector2 scroll;
-        private int y;
-        private float scale = 1f;
-
-        public override void DoWindowContents(Rect inRect)
-        {
-            Text.Font = GameFont.Small;
-
-            if (Event.current.type == EventType.ScrollWheel)
-            {
-                scale -= Event.current.delta.y * 0.01f;
-                Log.Message("scale " + scale);
-            }
-
-            Rect outRect = new Rect(0, 0, inRect.width / scale, (inRect.height - 60) / scale);
-
-            Widgets.BeginScrollView(outRect, ref scroll, new Rect(0, 0, inRect.width, y));
-
-            Vector3 pivot = new Vector3(windowRect.x, windowRect.y);
-            Matrix4x4 keep = GUI.matrix;
-            GUI.matrix = Matrix4x4.Translate(pivot) * Matrix4x4.Scale(new Vector3(scale, scale, scale)) * Matrix4x4.Translate(-pivot);
-
-            if (Event.current.type == EventType.layout)
-                y = 0;
-
-            //NodeLabel(tree[0][0]);
-
-            for (int i = 0; i < tree.Count; i++)
-            {
-                foreach (Node n in tree[i])
-                {
-                    if (n.parent != null)
-                        Widgets.DrawLine(new Vector2(n.x, n.depth * 20), new Vector2(n.parent.x, n.parent.depth * 20), Color.blue, 2f);
-
-                    Color c = Color.yellow;
-                    if (n.thinkNode is ThinkNode_Conditional cond)
-                    {
-                        c = Color.red;
-                        if ((bool)cond_satisfied.Invoke(cond, new object[] { pawn }) == !cond.invert)
-                            c = Color.green;
-                    }
-                    Widgets.DrawRectFast(new Rect(n.x, i * 20, 5, 5), c);
-                }
-            }
-
-            GUI.matrix = keep;
-
-            Widgets.EndScrollView();
-        }
-
-        private static MethodInfo cond_satisfied = typeof(ThinkNode_Conditional).GetMethod("Satisfied", BindingFlags.NonPublic | BindingFlags.Instance);
-
-        public void CalcNode(Node n)
-        {
-            int x = 0;
-            foreach (Node c in n.children)
-            {
-                c.x = x + n.x - n.width / 2 + c.width / 2;
-                x += c.width;
-                CalcNode(c);
-            }
-        }
-
-        public void NodeLabel(Node n)
-        {
-            if (Event.current.type == EventType.layout)
-                n.y = y;
-
-            string text = n.label + " " + n.width;
-            if (n.thinkNode is ThinkNode_Conditional cond)
-                text += " " + cond_satisfied.Invoke(cond, new object[] { pawn });
-
-            Vector2 size = Text.CalcSize(text);
-            Widgets.Label(new Rect(n.depth * 10, n.y, size.x, size.y), text);
-
-            if (Event.current.type == EventType.layout)
-                y += 20;
-
-            foreach (Node c in n.children)
-                NodeLabel(c);
         }
     }
 

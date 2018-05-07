@@ -284,6 +284,9 @@ namespace Multiplayer.Client
             if (Widgets.ButtonText(new Rect(Screen.width - 60f, 10f, 50f, 25f), "Chat"))
                 Find.WindowStack.Add(Multiplayer.chat);
 
+            if (Widgets.ButtonText(new Rect(Screen.width - 60f, 35f, 50f, 25f), "Packets"))
+                Find.WindowStack.Add(Multiplayer.packetLog);
+
             return Find.Maps.Count > 0;
         }
     }
@@ -990,6 +993,19 @@ namespace Multiplayer.Client
         {
             if (__instance == forKey && result.HasValue)
                 __result = result.Value;
+        }
+    }
+
+    [HarmonyPatch(typeof(ITab))]
+    [HarmonyPatch("SelThing", PropertyMethod.Getter)]
+    public static class ITabSelThingPatch
+    {
+        public static Thing result;
+
+        static void Postfix(ref Thing __result)
+        {
+            if (result != null)
+                __result = result;
         }
     }
 

@@ -161,43 +161,43 @@ namespace Multiplayer.Common
         private MemoryStream stream = new MemoryStream();
         public object context;
 
-        public void WriteInt32(int val)
+        public virtual void WriteInt32(int val)
         {
             stream.Write(BitConverter.GetBytes(val));
         }
 
-        public void WriteUInt16(ushort val)
+        public virtual void WriteUInt16(ushort val)
         {
             stream.Write(BitConverter.GetBytes(val));
         }
 
-        public void WriteFloat(float val)
+        public virtual void WriteFloat(float val)
         {
             stream.Write(BitConverter.GetBytes(val));
         }
 
-        public void WriteDouble(double val)
+        public virtual void WriteDouble(double val)
         {
             stream.Write(BitConverter.GetBytes(val));
         }
 
-        public void WriteLong(long val)
+        public virtual void WriteLong(long val)
         {
             stream.Write(BitConverter.GetBytes(val));
         }
 
-        public void WriteBool(bool val)
+        public virtual void WriteBool(bool val)
         {
             stream.WriteByte(val ? (byte)1 : (byte)0);
         }
 
-        public void WritePrefixedBytes(byte[] bytes)
+        public virtual void WritePrefixedBytes(byte[] bytes)
         {
             WriteInt32(bytes.Length);
             stream.Write(bytes);
         }
 
-        public void WriteString(string s)
+        public virtual void WriteString(string s)
         {
             WritePrefixedBytes(Encoding.UTF8.GetBytes(s));
         }

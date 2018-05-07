@@ -1,5 +1,6 @@
 ﻿using RimWorld;
 using System;
+using System.Reflection;
 using Verse;
 using Verse.AI;
 
@@ -32,6 +33,25 @@ namespace Multiplayer.Client
 
         public static SyncField[] SyncThingFilterHitPoints = Sync.FieldMultiTarget(Sync.thingFilterTarget, "AllowedHitPointsPercents");
         public static SyncField[] SyncThingFilterQuality = Sync.FieldMultiTarget(Sync.thingFilterTarget, "AllowedQualityLevels");
+
+        public static SyncField[] SyncBill = Sync.Fields(
+            typeof(Bill),
+            null,
+            "suspended",
+            "ingredientSearchRadius",
+            "allowedSkillRange"
+        );
+
+        public static SyncField[] SyncBillProduction = Sync.Fields(
+            typeof(Bill_Production),
+            null,
+            "repeatMode",
+            "repeatCount",
+            "targetCount",
+            "storeMode",
+            "pauseWhenSatisfied",
+            "unpauseWhenYouHave"
+        );
 
         [MpPrefix(typeof(AreaAllowedGUI), "DoAreaSelector")]
         static void DoAreaSelector_Prefix(Pawn p)
@@ -134,6 +154,35 @@ namespace Multiplayer.Client
             else if (MethodMarkers.billConfig != null)
                 SyncThingFilterQuality.Watch(MethodMarkers.billConfig);
         }
+
+        [MpPrefix(typeof(Dialog_BillConfig), "DoWindowContents")]
+        static void DialogBillConfig(Dialog_BillConfig __instance)
+        {
+            Bill_Production bill = __instance.GetPropertyOrField("bill") as Bill_Production;
+            SyncBill.Watch(bill);
+            SyncBillProduction.Watch(bill);
+        }
+
+        [MpPrefix(typeof(Bill), "DoInterface")]
+        static void BillInterfaceCard(Bill __instance)
+        {
+            SyncBill.Watch(__instance);
+            SyncBillProduction.Watch(__instance);
+        }
+
+        [MpPrefix(typeof(BillRepeatModeUtility), "<MakeConfigFloatMenu>c__AnonStorey0", "<>m__0")]
+        [MpPrefix(typeof(BillRepeatModeUtility), "<MakeConfigFloatMenu>c__AnonStorey0", "<>m__1")]
+        [MpPrefix(typeof(BillRepeatModeUtility), "<MakeConfigFloatMenu>c__AnonStorey0", "<>m__2")]
+        static void FloatMenuBillRepeatMode(object __instance)
+        {
+            SyncBillProduction.Watch(__instance.GetPropertyOrField("bill"));
+        }
+
+        [MpPrefix(typeof(Dialog_BillConfig), "<DoWindowContents>c__AnonStorey0", "<>m__0")]
+        static void FloatMenuBillStoreMode(object __instance)
+        {
+            SyncBillProduction.Watch(__instance.GetPropertyOrField("$this/bill"));
+        }
     }
 
     public static class SyncPatches
@@ -230,28 +279,40 @@ namespace Multiplayer.Client
     public static class SyncDelegates
     {
         [SyncDelegate]
-        [MpPrefix(typeof(FloatMenuMakerMap), "<GotoLocationOption>c__AnonStorey18", "<>m__0")] // Goto
-        [MpPrefix(typeof(FloatMenuMakerMap), "<AddDraftedOrders>c__AnonStorey3", "<>m__0")] // Arrest
-        [MpPrefix(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey7", "<>m__0")] // Rescue
-        [MpPrefix(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey7", "<>m__1")] // Capture
-        [MpPrefix(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey9", "<>m__0")] // Carry to cryptosleep casket
-        static bool FloatMenuGeneral(object __instance)
+        [MpPrefix(typeof(FloatMenuMakerMap), "<GotoLocationOption>c__AnonStorey18", "<>m__0")]   // Goto
+        [MpPrefix(typeof(FloatMenuMakerMap), "<AddDraftedOrders>c__AnonStorey3", "<>m__0")]      // Arrest
+        [MpPrefix(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey7", "<>m__0")]    // Rescue
+        [MpPrefix(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey7", "<>m__1")]    // Capture
+        [MpPrefix(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey9", "<>m__0")]    // Carry to cryptosleep casket
+        [MpPrefix(typeof(HealthCardUtility), "<GenerateSurgeryOption>c__AnonStorey4", "<>m__0")] // Add medical bill
+        static bool GeneralSync(object __instance, MethodBase __originalMethod)
         {
-            return !Sync.Delegate(__instance, MapProviderMode.ANY_FIELD);
+            return !Sync.Delegate(__instance, __originalMethod, MapProviderMode.ANY_FIELD);
         }
 
         [SyncDelegate("$this")]
         [MpPrefix(typeof(Pawn_PlayerSettings), "<GetGizmos>c__Iterator0", "<>m__2")]
-        static bool GizmoReleaseAnimals(object __instance)
+        static bool GizmoReleaseAnimals(object __instance, MethodBase __originalMethod)
         {
-            return !Sync.Delegate(__instance, __instance.GetPropertyOrField("$this/pawn"));
+            return !Sync.Delegate(__instance, __originalMethod, __instance.GetPropertyOrField("$this/pawn"));
         }
 
         [SyncDelegate("$this")]
         [MpPrefix(typeof(PriorityWork), "<GetGizmos>c__Iterator0", "<>m__0")]
-        static bool GizmoClearPrioritizedWork(object __instance)
+        static bool GizmoClearPrioritizedWork(object __instance, MethodBase __originalMethod)
         {
-            return !Sync.Delegate(__instance, __instance.GetPropertyOrField("$this/pawn"));
+            return !Sync.Delegate(__instance, __originalMethod, __instance.GetPropertyOrField("$this/pawn"));
+        }
+
+        [SyncDelegate]
+        [MpPrefix(typeof(ITab_Bills), "<FillTab>c__AnonStorey0", "<>m__0")]
+        static bool ITabBillsAddBill(object __instance, MethodBase __originalMethod)
+        {
+            Sync.selThingContext = __instance.GetPropertyOrField("$this/SelThing") as Building_WorkTable;
+            bool result = !Sync.Delegate(__instance, __originalMethod, __instance.GetPropertyOrField("$this/SelThing"));
+            Sync.selThingContext = null;
+
+            return result;
         }
 
         /*[SyncDelegate("lord")]

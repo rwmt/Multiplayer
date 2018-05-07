@@ -23,13 +23,14 @@ using Verse.Sound;
 namespace Multiplayer.Client
 {
     [StaticConstructorOnStartup]
-    public class Multiplayer
+    public static class Multiplayer
     {
         public static String username;
         public static MultiplayerServer localServer;
         public static IConnection client;
         public static NetManager netClient;
         public static ChatWindow chat = new ChatWindow();
+        public static PacketLogWindow packetLog = new PacketLogWindow();
         public static HarmonyInstance harmony = HarmonyInstance.Create("multiplayer");
 
         public static bool loadingEncounter;

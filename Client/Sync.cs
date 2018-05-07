@@ -51,13 +51,16 @@ namespace Multiplayer.Client
                 return false;
 
             int mapId = Sync.GetMap(target)?.uniqueID ?? ScheduledCommand.GLOBAL;
-            ByteWriter writer = new ByteWriter();
+            LoggingByteWriter writer = new LoggingByteWriter();
+            writer.LogNode("Sync field " + memberPath);
 
             writer.WriteInt32(syncId);
 
             Sync.WriteContext(writer, mapId);
             Sync.WriteSyncObject(writer, target, targetType);
             Sync.WriteSyncObject(writer, value, fieldType);
+
+            Multiplayer.packetLog.nodes.Add(writer.current);
 
             Multiplayer.client.SendCommand(CommandType.SYNC, mapId, writer.GetArray());
 
@@ -96,7 +99,7 @@ namespace Multiplayer.Client
             method = AccessTools.Method(instanceType, methodName) ?? throw new Exception($"Couldn't find method {instanceType}::{methodName}");
 
             if (argTypes.Length == 0)
-                this.argTypes = method.GetParameters().Select(p => p.ParameterType).ToArray();
+                this.argTypes = method.GetParameters().Types();
             else if (argTypes.Length != method.GetParameters().Length)
                 throw new Exception("Wrong parameter count for method " + method);
             else
@@ -112,13 +115,16 @@ namespace Multiplayer.Client
                 return false;
 
             int mapId = Sync.GetMap(target)?.uniqueID ?? ScheduledCommand.GLOBAL;
-            ByteWriter writer = new ByteWriter();
+            LoggingByteWriter writer = new LoggingByteWriter();
+            writer.LogNode("Sync method " + method);
 
             writer.WriteInt32(syncId);
 
             Sync.WriteContext(writer, mapId);
             Sync.WriteSyncObject(writer, target, targetType);
             Sync.WriteSyncObjects(writer, args, argTypes);
+
+            Multiplayer.packetLog.nodes.Add(writer.current);
 
             Multiplayer.client.SendCommand(CommandType.SYNC, mapId, writer.GetArray());
 
@@ -147,12 +153,14 @@ namespace Multiplayer.Client
         public string[] fieldPaths;
         private Type[] fieldTypes;
 
+        public MethodInfo patch;
+
         public SyncDelegate(int syncId, Type delegateType, string delegateMethod, string[] fieldPaths) : base(syncId)
         {
             this.delegateType = delegateType;
             method = AccessTools.Method(delegateType, delegateMethod);
 
-            argTypes = method.GetParameters().Select(p => p.ParameterType).ToArray();
+            argTypes = method.GetParameters().Types();
 
             this.fieldPaths = fieldPaths;
             if (fieldPaths == null)
@@ -177,15 +185,20 @@ namespace Multiplayer.Client
             if (!Multiplayer.ShouldSync)
                 return false;
 
-            ByteWriter writer = new ByteWriter();
+            LoggingByteWriter writer = new LoggingByteWriter();
+            writer.LogNode($"Sync delegate: {delegateType} method: {method}");
+            writer.LogNode("Patch: " + patch.FullDescription());
+
             writer.WriteInt32(syncId);
 
             Sync.WriteContext(writer, mapId);
 
-            foreach (string field in fieldPaths)
-                Sync.WriteSyncObject(writer, delegateInstance.GetPropertyOrField(field));
+            for (int i = 0; i < fieldPaths.Length; i++)
+                Sync.WriteSyncObject(writer, delegateInstance.GetPropertyOrField(fieldPaths[i]), fieldTypes[i]);
 
             Sync.WriteSyncObjects(writer, args, argTypes);
+
+            Multiplayer.packetLog.nodes.Add(writer.current);
 
             Multiplayer.client.SendCommand(CommandType.SYNC, mapId, writer.GetArray());
 
@@ -278,6 +291,13 @@ namespace Multiplayer.Client
             return targetType.Select(type => Method(type.First, type.Second, methodName)).ToArray();
         }
 
+        public static SyncField Field(Type targetType, string fieldName)
+        {
+            SyncField handler = new SyncField(handlers.Count, targetType, fieldName);
+            handlers.Add(handler);
+            return handler;
+        }
+
         public static SyncField Field(Type targetType, string instancePath, string fieldName)
         {
             SyncField handler = new SyncField(handlers.Count, targetType, instancePath + "/" + fieldName);
@@ -298,10 +318,9 @@ namespace Multiplayer.Client
         /// <summary>
         /// Returns whether the sync has been done
         /// </summary>
-        public static bool Delegate(object instance, object mapProvider, params object[] args)
+        public static bool Delegate(object instance, MethodBase originalMethod, object mapProvider, params object[] args)
         {
-            MethodBase caller = new StackTrace().GetFrame(1).GetMethod();
-            SyncDelegate handler = delegates[caller];
+            SyncDelegate handler = delegates[originalMethod];
             int mapId = GetMap(mapProvider)?.uniqueID ?? ScheduledCommand.GLOBAL;
 
             if (mapProvider == MapProviderMode.ANY_FIELD)
@@ -355,7 +374,8 @@ namespace Multiplayer.Client
                 {
                     Type type = patchAttr.type ?? MpReflection.GetTypeByName(patchAttr.typeName);
                     SyncDelegate handler = new SyncDelegate(handlers.Count, type, patchAttr.method, syncAttr.fields);
-                    delegates[method] = handler;
+                    handler.patch = method;
+                    delegates[handler.method] = handler;
                     handlers.Add(handler);
                 }
             }
@@ -408,23 +428,37 @@ namespace Multiplayer.Client
             {
                 IntVec3 mouseCell = ReadSync<IntVec3>(data);
                 MouseCellPatch.result = mouseCell;
+
+                Thing selThing = ReadSync<Thing>(data);
+                ITabSelThingPatch.result = selThing;
             }
 
             bool shouldQueue = data.ReadBool();
             KeyIsDownPatch.result = shouldQueue;
             KeyIsDownPatch.forKey = KeyBindingDefOf.QueueOrder;
 
-            handler.Read(data);
-
-            MouseCellPatch.result = null;
-            KeyIsDownPatch.result = null;
-            KeyIsDownPatch.forKey = null;
+            try
+            {
+                handler.Read(data);
+            }
+            finally
+            {
+                MouseCellPatch.result = null;
+                KeyIsDownPatch.result = null;
+                KeyIsDownPatch.forKey = null;
+                ITabSelThingPatch.result = null;
+            }
         }
+
+        public static Thing selThingContext; // for ITabs
 
         public static void WriteContext(ByteWriter data, int mapId)
         {
             if (mapId >= 0)
+            {
                 WriteSync(data, UI.MouseCell());
+                WriteSync(data, selThingContext);
+            }
 
             data.WriteBool(KeyBindingDefOf.QueueOrder.IsDownEvent);
         }
@@ -451,20 +485,24 @@ namespace Multiplayer.Client
             { data => data.ReadBool() },
             { data => data.ReadString() },
             { data => data.ReadLong() },
-            { data => new IntVec3(data.ReadInt32(), data.ReadInt32(), data.ReadInt32()) },
+            { data => data.ReadFloat() },
+            { data => data.ReadDouble() },
             { data => ReadSync<Pawn>(data).mindState.priorityWork },
             { data => ReadSync<Pawn>(data).playerSettings },
             { data => new FloatRange(data.ReadFloat(), data.ReadFloat()) },
             { data => new IntRange(data.ReadInt32(), data.ReadInt32()) },
             { data => new QualityRange(ReadSync<QualityCategory>(data), ReadSync<QualityCategory>(data)) },
-            { data =>
+            { data => new IntVec3(data.ReadInt32(), data.ReadInt32(), data.ReadInt32()) },
+            { data => new ITab_Bills() },
             {
-                Thing thing = ReadSync<Thing>(data);
-                if (thing != null)
-                    return new LocalTargetInfo(thing);
-                else
-                    return new LocalTargetInfo(ReadSync<IntVec3>(data));
-            }
+                data =>
+                {
+                    Thing thing = ReadSync<Thing>(data);
+                    if (thing != null)
+                        return new LocalTargetInfo(thing);
+                    else
+                        return new LocalTargetInfo(ReadSync<IntVec3>(data));
+                }
             }
         };
 
@@ -474,12 +512,15 @@ namespace Multiplayer.Client
             { (ByteWriter data, bool b) => data.WriteBool(b) },
             { (ByteWriter data, string s) => data.WriteString(s) },
             { (ByteWriter data, long l) => data.WriteLong(l) },
-            { (ByteWriter data, PriorityWork work) => WriteSyncObject(data, work.GetPropertyOrField("pawn")) },
-            { (ByteWriter data, Pawn_PlayerSettings settings) => WriteSyncObject(data, settings.GetPropertyOrField("pawn")) },
+            { (ByteWriter data, float f) => data.WriteFloat(f) },
+            { (ByteWriter data, double d) => data.WriteDouble(d) },
+            { (ByteWriter data, PriorityWork work) => WriteSync(data, work.GetPropertyOrField("pawn") as Pawn) },
+            { (ByteWriter data, Pawn_PlayerSettings settings) => WriteSync(data, settings.GetPropertyOrField("pawn") as Pawn) },
             { (ByteWriter data, FloatRange range) => { data.WriteFloat(range.min); data.WriteFloat(range.max); }},
             { (ByteWriter data, IntRange range) => { data.WriteInt32(range.min); data.WriteInt32(range.max); }},
             { (ByteWriter data, QualityRange range) => { WriteSync(data, range.min); WriteSync(data, range.max); }},
             { (ByteWriter data, IntVec3 vec) => { data.WriteInt32(vec.x); data.WriteInt32(vec.y); data.WriteInt32(vec.z); }},
+            { (ByteWriter data, ITab_Bills tag) => {} },
             {
                 (ByteWriter data, LocalTargetInfo info) =>
                 {
@@ -605,6 +646,13 @@ namespace Multiplayer.Client
                 int id = data.ReadInt32();
                 return billStack.Bills.FirstOrDefault(bill => (int)bill.GetPropertyOrField("loadID") == id);
             }
+            else if (typeof(BodyPartRecord) == type)
+            {
+                BodyDef body = ReadSync<BodyDef>(data);
+                int partIndex = data.ReadInt32();
+
+                return body.GetPartAtIndex(partIndex);
+            }
             else if (readers.TryGetValue(type, out Func<ByteReader, object> reader))
             {
                 return reader(data);
@@ -630,102 +678,127 @@ namespace Multiplayer.Client
 
         public static void WriteSyncObject(ByteWriter data, object obj, Type type)
         {
-            if (type.IsEnum)
-            {
-                data.WriteInt32(Convert.ToInt32(obj));
-            }
-            else if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(List<>))
-            {
-                Type listType = type.GetGenericArguments()[0];
-                IList list = obj as IList;
-                data.WriteInt32(list.Count);
-                foreach (object e in list)
-                    WriteSyncObject(data, e, listType);
-            }
-            else if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>))
-            {
-                Type nullableType = type.GetGenericArguments()[0];
-                bool hasValue = (bool)obj.GetPropertyOrField("HasValue");
+            LoggingByteWriter log = data as LoggingByteWriter;
+            log?.LogEnter(type.FullName + ": " + (obj ?? "null"));
 
-                data.WriteBool(hasValue);
-                if (hasValue)
-                    WriteSyncObject(data, obj.GetPropertyOrField("Value"));
-            }
-            else if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Expose<>))
+            try
             {
-                Type exposableType = type.GetGenericArguments()[0];
-                if (!exposableType.IsAssignableFrom(obj.GetType()))
-                    throw new SerializationException($"Expose<> types {obj.GetType()} and {exposableType} don't match");
-
-                IExposable exposable = obj as IExposable;
-                data.WritePrefixedBytes(ScribeUtil.WriteExposable(exposable));
-            }
-            else if (typeof(ThinkNode).IsAssignableFrom(type))
-            {
-                // todo temporary
-            }
-            else if (typeof(Area).IsAssignableFrom(type))
-            {
-                data.WriteInt32(obj is Area area ? area.ID : -1);
-            }
-            else if (typeof(Zone).IsAssignableFrom(type))
-            {
-                data.WriteString(obj is Zone zone ? zone.label : "");
-            }
-            else if (typeof(Def).IsAssignableFrom(type))
-            {
-                data.WriteUInt16(obj is Def def ? def.shortHash : (ushort)0);
-            }
-            else if (typeof(ThingComp).IsAssignableFrom(type))
-            {
-                if (obj is ThingComp comp)
+                if (type.IsEnum)
                 {
-                    data.WriteString(comp.props.compClass.FullName);
-                    WriteSync<Thing>(data, comp.parent);
+                    data.WriteInt32(Convert.ToInt32(obj));
+                }
+                else if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(List<>))
+                {
+                    Type listType = type.GetGenericArguments()[0];
+                    IList list = obj as IList;
+                    data.WriteInt32(list.Count);
+                    foreach (object e in list)
+                        WriteSyncObject(data, e, listType);
+                }
+                else if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>))
+                {
+                    Type nullableType = type.GetGenericArguments()[0];
+                    bool hasValue = (bool)obj.GetPropertyOrField("HasValue");
+
+                    data.WriteBool(hasValue);
+                    if (hasValue)
+                        WriteSyncObject(data, obj.GetPropertyOrField("Value"), nullableType);
+                }
+                else if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Expose<>))
+                {
+                    Type exposableType = type.GetGenericArguments()[0];
+                    if (!exposableType.IsAssignableFrom(obj.GetType()))
+                        throw new SerializationException($"Expose<> types {obj.GetType()} and {exposableType} don't match");
+
+                    IExposable exposable = obj as IExposable;
+                    data.WritePrefixedBytes(ScribeUtil.WriteExposable(exposable));
+                }
+                else if (typeof(ThinkNode).IsAssignableFrom(type))
+                {
+                    // todo temporary
+                }
+                else if (typeof(Area).IsAssignableFrom(type))
+                {
+                    data.WriteInt32(obj is Area area ? area.ID : -1);
+                }
+                else if (typeof(Zone).IsAssignableFrom(type))
+                {
+                    data.WriteString(obj is Zone zone ? zone.label : "");
+                }
+                else if (typeof(Def).IsAssignableFrom(type))
+                {
+                    data.WriteUInt16(obj is Def def ? def.shortHash : (ushort)0);
+                }
+                else if (typeof(ThingComp).IsAssignableFrom(type))
+                {
+                    if (obj is ThingComp comp)
+                    {
+                        data.WriteString(comp.props.compClass.FullName);
+                        WriteSync<Thing>(data, comp.parent);
+                    }
+                    else
+                    {
+                        data.WriteString("");
+                    }
+                }
+                else if (typeof(WorkGiver).IsAssignableFrom(type))
+                {
+                    WorkGiver workGiver = obj as WorkGiver;
+                    if (workGiver == null)
+                        return;
+
+                    WriteSync(data, workGiver);
+                }
+                else if (typeof(Thing).IsAssignableFrom(type))
+                {
+                    Thing thing = (Thing)obj;
+                    if (thing == null)
+                    {
+                        data.WriteInt32(-1);
+                        return;
+                    }
+
+                    data.WriteInt32(thing.thingIDNumber);
+                    WriteSync(data, thing.def);
+                }
+                else if (typeof(BillStack) == type)
+                {
+                    Thing billGiver = (obj as BillStack)?.billGiver as Thing;
+                    WriteSync(data, billGiver);
+                }
+                else if (typeof(Bill).IsAssignableFrom(type))
+                {
+                    Bill bill = obj as Bill;
+                    WriteSync(data, bill.billStack);
+                    data.WriteInt32((int)bill.GetPropertyOrField("loadID"));
+                }
+                else if (typeof(BodyPartRecord) == type)
+                {
+                    BodyPartRecord part = obj as BodyPartRecord;
+                    BodyDef body = (from b in DefDatabase<BodyDef>.AllDefsListForReading
+                                    from p in b.AllParts
+                                    where p == part
+                                    select b).FirstOrDefault();
+
+                    if (body == null)
+                        throw new SerializationException($"Couldn't find body for body part: {part}");
+
+                    WriteSync(data, body);
+                    data.WriteInt32(body.GetIndexOfPart(part));
+                }
+                else if (writers.TryGetValue(type, out Action<ByteWriter, object> writer))
+                {
+                    writer(data, obj);
                 }
                 else
                 {
-                    data.WriteString("");
+                    log.LogNode("No writer for " + type);
+                    throw new SerializationException("No writer for type " + type);
                 }
             }
-            else if (typeof(WorkGiver).IsAssignableFrom(type))
+            finally
             {
-                WorkGiver workGiver = obj as WorkGiver;
-                if (workGiver == null)
-                    return;
-
-                WriteSync(data, workGiver);
-            }
-            else if (typeof(Thing).IsAssignableFrom(type))
-            {
-                Thing thing = (Thing)obj;
-                if (thing == null)
-                {
-                    data.WriteInt32(-1);
-                    return;
-                }
-
-                data.WriteInt32(thing.thingIDNumber);
-                WriteSync(data, thing.def);
-            }
-            else if (typeof(BillStack) == type)
-            {
-                Thing billGiver = (obj as BillStack)?.billGiver as Thing;
-                WriteSync(data, billGiver);
-            }
-            else if (typeof(Bill) == type)
-            {
-                Bill bill = obj as Bill;
-                WriteSync(data, bill.billStack);
-                data.WriteInt32((int)bill.GetPropertyOrField("loadID"));
-            }
-            else if (writers.TryGetValue(type, out Action<ByteWriter, object> writer))
-            {
-                writer(data, obj);
-            }
-            else
-            {
-                throw new SerializationException("No writer for type " + type);
+                log?.LogExit();
             }
         }
 
@@ -838,6 +911,104 @@ namespace Multiplayer.Client
             this.target = target;
             this.handler = handler;
             this.value = value;
+        }
+    }
+
+    public class LoggingByteWriter : ByteWriter
+    {
+        public LogNode current = new LogNode("Root");
+
+        public override void WriteInt32(int val)
+        {
+            LogNode("int: " + val);
+            base.WriteInt32(val);
+        }
+
+        public override void WriteBool(bool val)
+        {
+            LogNode("bool: " + val);
+            base.WriteBool(val);
+        }
+
+        public override void WriteDouble(double val)
+        {
+            LogNode("double: " + val);
+            base.WriteDouble(val);
+        }
+
+        public override void WriteUInt16(ushort val)
+        {
+            LogNode("ushort: " + val);
+            base.WriteUInt16(val);
+        }
+
+        public override void WriteFloat(float val)
+        {
+            LogNode("float: " + val);
+            base.WriteFloat(val);
+        }
+
+        public override void WriteLong(long val)
+        {
+            LogNode("long: " + val);
+            base.WriteLong(val);
+        }
+
+        public override void WritePrefixedBytes(byte[] bytes)
+        {
+            LogEnter("byte[]");
+            base.WritePrefixedBytes(bytes);
+            LogExit();
+        }
+
+        public override void WriteString(string s)
+        {
+            LogEnter("string: " + s);
+            base.WriteString(s);
+            LogExit();
+        }
+
+        public LogNode LogNode(string text)
+        {
+            LogNode node = new LogNode(text, current);
+            current.children.Add(node);
+            return node;
+        }
+
+        public void LogEnter(string text)
+        {
+            current = LogNode(text);
+        }
+
+        public void LogExit()
+        {
+            current = current.parent;
+        }
+
+        public void Print()
+        {
+            Print(current, 1);
+        }
+
+        private void Print(LogNode node, int depth)
+        {
+            Log.Message(new string(' ', depth) + node.text);
+            foreach (LogNode child in node.children)
+                Print(child, depth + 1);
+        }
+    }
+
+    public class LogNode
+    {
+        public LogNode parent;
+        public List<LogNode> children = new List<LogNode>();
+        public string text;
+        public bool expand;
+
+        public LogNode(string text, LogNode parent = null)
+        {
+            this.text = text;
+            this.parent = parent;
         }
     }
 
