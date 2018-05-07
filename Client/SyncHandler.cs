@@ -11,6 +11,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using Verse;
 using Verse.AI;
+using MultiType = Verse.Pair<System.Type, string>;
 
 namespace Multiplayer.Client
 {
@@ -25,8 +26,6 @@ namespace Multiplayer.Client
         public static SyncField SyncMaster = Sync.Field(typeof(Pawn), "playerSettings", "master");
         public static SyncField SyncGetsFood = Sync.Field(typeof(Pawn), "guest", "GetsFood");
         public static SyncField SyncInteractionMode = Sync.Field(typeof(Pawn), "guest", "interactionMode");
-        public static SyncField SyncThingFilterHitPoints = Sync.Field(typeof(ThingFilterWrapper), "filter", "AllowedHitPointsPercents");
-        public static SyncField SyncThingFilterQuality = Sync.Field(typeof(ThingFilterWrapper), "filter", "AllowedQualityLevels");
 
         public static SyncField SyncUseWorkPriorities = Sync.Field(null, "Verse.Current/Game/playSettings", "useWorkPriorities");
         public static SyncField SyncAutoHomeArea = Sync.Field(null, "Verse.Current/Game/playSettings", "autoHomeArea");
@@ -41,120 +40,109 @@ namespace Multiplayer.Client
             "defaultCareForHostileFaction"
         );
 
-        [MpPatch(typeof(AreaAllowedGUI), "DoAreaSelector")]
+        public static SyncField[] SyncThingFilterHitPoints = Sync.FieldMultiTarget(Sync.thingFilterTarget, "AllowedHitPointsPercents");
+        public static SyncField[] SyncThingFilterQuality = Sync.FieldMultiTarget(Sync.thingFilterTarget, "AllowedQualityLevels");
+
+        [MpPrefix(typeof(AreaAllowedGUI), "DoAreaSelector")]
         static void DoAreaSelector_Prefix(Pawn p)
         {
             SyncAreaRestriction.Watch(p);
         }
 
-        [MpPatch(typeof(PawnColumnWorker_AllowedArea), "HeaderClicked")]
+        [MpPrefix(typeof(PawnColumnWorker_AllowedArea), "HeaderClicked")]
         static void AllowedArea_HeaderClicked_Prefix(PawnTable table)
         {
             foreach (Pawn pawn in table.PawnsListForReading)
                 SyncAreaRestriction.Watch(pawn);
         }
 
-        [MpPatch("RimWorld.InspectPaneFiller+<DrawAreaAllowed>c__AnonStorey0", "<>m__0")]
+        [MpPrefix("RimWorld.InspectPaneFiller+<DrawAreaAllowed>c__AnonStorey0", "<>m__0")]
         static void DrawAreaAllowed_Inner(object __instance)
         {
-            SyncAreaRestriction.Watch(__instance, "pawn");
+            SyncAreaRestriction.Watch(__instance.GetPropertyOrField("pawn"));
         }
 
-        [MpPatch(typeof(HealthCardUtility), "DrawOverviewTab")]
+        [MpPrefix(typeof(HealthCardUtility), "DrawOverviewTab")]
         static void HealthCardUtility1(Pawn pawn)
         {
             SyncMedCare.Watch(pawn);
             SyncSelfTend.Watch(pawn);
         }
 
-        [MpPatch(typeof(ITab_Pawn_Visitor), "FillTab")]
+        [MpPrefix(typeof(ITab_Pawn_Visitor), "FillTab")]
         static void ITab_Pawn_Visitor(ITab __instance)
         {
-            SyncMedCare.Watch(__instance, "SelPawn");
-            SyncGetsFood.Watch(__instance, "SelPawn");
-            SyncInteractionMode.Watch(__instance, "SelPawn");
+            Pawn pawn = __instance.GetPropertyOrField("SelPawn") as Pawn;
+            SyncMedCare.Watch(pawn);
+            SyncGetsFood.Watch(pawn);
+            SyncInteractionMode.Watch(pawn);
         }
 
-        [MpPatch(typeof(HostilityResponseModeUtility), "DrawResponseButton")]
+        [MpPrefix(typeof(HostilityResponseModeUtility), "DrawResponseButton")]
         static void DrawResponseButton(Pawn pawn)
         {
             SyncHostilityResponse.Watch(pawn);
         }
 
-        [MpPatch(typeof(PawnColumnWorker_FollowFieldwork), "SetValue")]
+        [MpPrefix(typeof(PawnColumnWorker_FollowFieldwork), "SetValue")]
         static void FollowFieldwork(Pawn pawn)
         {
             SyncFollowFieldwork.Watch(pawn);
         }
 
-        [MpPatch(typeof(PawnColumnWorker_FollowDrafted), "SetValue")]
+        [MpPrefix(typeof(PawnColumnWorker_FollowDrafted), "SetValue")]
         static void FollowDrafted(Pawn pawn)
         {
             SyncFollowDrafted.Watch(pawn);
         }
 
-        [MpPatch(typeof(TrainableUtility), "<OpenMasterSelectMenu>c__AnonStorey0", "<>m__0")]
+        [MpPrefix(typeof(TrainableUtility), "<OpenMasterSelectMenu>c__AnonStorey0", "<>m__0")]
         static void OpenMasterSelectMenu_Inner1(object __instance)
         {
-            SyncMaster.Watch(__instance, "p");
+            SyncMaster.Watch(__instance.GetPropertyOrField("p"));
         }
 
-        [MpPatch(typeof(TrainableUtility), "<OpenMasterSelectMenu>c__AnonStorey1", "<>m__0")]
+        [MpPrefix(typeof(TrainableUtility), "<OpenMasterSelectMenu>c__AnonStorey1", "<>m__0")]
         static void OpenMasterSelectMenu_Inner2(object __instance)
         {
-            SyncMaster.Watch(__instance, "<>f__ref$0/p");
+            SyncMaster.Watch(__instance.GetPropertyOrField("<>f__ref$0/p"));
         }
 
-        [MpPatch(typeof(Dialog_MedicalDefaults), "DoWindowContents")]
+        [MpPrefix(typeof(Dialog_MedicalDefaults), "DoWindowContents")]
         static void MedicalDefaults()
         {
             SyncDefaultCare.Watch();
         }
 
-        [MpPatch(typeof(Widgets), "CheckboxLabeled")]
+        [MpPrefix(typeof(Widgets), "CheckboxLabeled")]
         static void CheckboxLabeled()
         {
             if (MethodMarkers.manualPriorities)
                 SyncUseWorkPriorities.Watch();
         }
 
-        [MpPatch(typeof(PlaySettings), "DoPlaySettingsGlobalControls")]
+        [MpPrefix(typeof(PlaySettings), "DoPlaySettingsGlobalControls")]
         static void PlaySettingsControls()
         {
             SyncAutoHomeArea.Watch();
         }
 
-        [MpPatch(typeof(ThingFilterUI), "DrawHitPointsFilterConfig")]
+        [MpPrefix(typeof(ThingFilterUI), "DrawHitPointsFilterConfig")]
         static void ThingFilterHitPoints()
         {
-            ThingFilterWrapper? owner = GetThingFilterWrapper();
-            if (!owner.HasValue || !owner.Value.filter.allowedHitPointsConfigurable) return;
-            SyncThingFilterHitPoints.Watch(owner.Value);
+            if (MethodMarkers.tabStorage != null)
+                SyncThingFilterHitPoints.Watch(MethodMarkers.tabStorage);
+            else if (MethodMarkers.billConfig != null)
+                SyncThingFilterHitPoints.Watch(MethodMarkers.billConfig);
         }
 
-        [MpPatch(typeof(ThingFilterUI), "DrawQualityFilterConfig")]
+        [MpPrefix(typeof(ThingFilterUI), "DrawQualityFilterConfig")]
         static void ThingFilterQuality()
         {
-            ThingFilterWrapper? owner = GetThingFilterWrapper();
-            if (!owner.HasValue || !owner.Value.filter.allowedQualitiesConfigurable) return;
-            SyncThingFilterQuality.Watch(owner.Value);
-        }
-
-        private static ThingFilterWrapper? GetThingFilterWrapper()
-        {
             if (MethodMarkers.tabStorage != null)
-            {
-                StorageSettings settings = MethodMarkers.tabStorage.GetStoreSettings();
-                return new ThingFilterWrapper(settings, settings.filter);
-            }
-
-            if (MethodMarkers.billConfig != null)
-            {
-                Bill bill = MethodMarkers.billConfig;
-                return new ThingFilterWrapper(bill, bill.ingredientFilter);
-            }
-
-            return null;
+                SyncThingFilterQuality.Watch(MethodMarkers.tabStorage);
+            else if (MethodMarkers.billConfig != null)
+                SyncThingFilterQuality.Watch(MethodMarkers.billConfig);
         }
     }
 
@@ -164,161 +152,116 @@ namespace Multiplayer.Client
         public static SyncMethod SyncSetWorkPriority = Sync.Method(typeof(Pawn), "workSettings", "SetPriority");
         public static SyncMethod SyncSetDrafted = Sync.Method(typeof(Pawn), "drafter", "set_Drafted");
         public static SyncMethod SyncSetFireAtWill = Sync.Method(typeof(Pawn), "drafter", "set_FireAtWill");
-        public static SyncMethod SyncStartJob = Sync.Method(typeof(Pawn), "jobs", "StartJob");
-        public static SyncMethod SyncTryTakeOrderedJob = Sync.Method(typeof(Pawn), "jobs", "TryTakeOrderedJob");
-        public static SyncMethod SyncTryTakeOrderedJobPrioritizedWork = Sync.Method(typeof(Pawn), "jobs", "TryTakeOrderedJobPrioritizedWork");
-        public static SyncMethod SyncSetStoragePriority = Sync.Method(typeof(IStoreSettingsParent), "GetStoreSettings", "set_Priority");
+        public static SyncMethod[] SyncSetStoragePriority = Sync.MethodMultiTarget(Sync.storageTarget, "set_Priority");
+
+        public static SyncMethod SyncStartJob = Sync.Method(typeof(Pawn), "jobs", "StartJob", typeof(Expose<Job>), typeof(JobCondition), typeof(ThinkNode), typeof(bool), typeof(bool), typeof(ThinkTreeDef), typeof(JobTag?), typeof(bool));
+        public static SyncMethod SyncTryTakeOrderedJob = Sync.Method(typeof(Pawn), "jobs", "TryTakeOrderedJob", typeof(Expose<Job>), typeof(JobTag));
+        public static SyncMethod SyncTryTakeOrderedJobPrioritizedWork = Sync.Method(typeof(Pawn), "jobs", "TryTakeOrderedJobPrioritizedWork", typeof(Expose<Job>), typeof(WorkGiver), typeof(IntVec3));
+
+        public static SyncMethod SyncAddBill = Sync.Method(typeof(BillStack), "AddBill", typeof(Expose<Bill>));
+        public static SyncMethod SyncDeleteBill = Sync.Method(typeof(BillStack), "Delete");
+        public static SyncMethod SyncReorderBill = Sync.Method(typeof(BillStack), "Reorder");
 
         public static SyncField SyncTimetable = Sync.Field(typeof(Pawn), "timetable", "times");
 
-        [MpPatch(typeof(Pawn_TimetableTracker), "SetAssignment")]
+        [MpPrefix(typeof(Pawn_TimetableTracker), "SetAssignment")]
         static bool SetTimetableAssignment(Pawn_TimetableTracker __instance, int hour, TimeAssignmentDef ta)
         {
-            if (!Multiplayer.ShouldSync) return true;
-            SyncSetAssignment.DoSync(__instance.GetPropertyOrField("pawn"), hour, ta);
-            return false;
+            return !SyncSetAssignment.DoSync(__instance.GetPropertyOrField("pawn"), hour, ta);
         }
 
-        [MpPatch(typeof(PawnColumnWorker_CopyPasteTimetable), "PasteTo")]
+        [MpPrefix(typeof(PawnColumnWorker_CopyPasteTimetable), "PasteTo")]
         static bool CopyPasteTimetable(Pawn p)
         {
-            if (!Multiplayer.ShouldSync) return true;
-            SyncTimetable.DoSync(p, MpReflection.GetPropertyOrField("PawnColumnWorker_CopyPasteTimetable.clipboard"));
-            return false;
+            return !SyncTimetable.DoSync(p, MpReflection.GetPropertyOrField("PawnColumnWorker_CopyPasteTimetable.clipboard"));
         }
 
-        [MpPatch(typeof(Pawn_WorkSettings), "SetPriority")]
+        [MpPrefix(typeof(Pawn_WorkSettings), "SetPriority")]
         static bool SetWorkPriority(Pawn_WorkSettings __instance, WorkTypeDef w, int priority)
         {
-            if (!Multiplayer.ShouldSync) return true;
-            SyncSetWorkPriority.DoSync(__instance.GetPropertyOrField("pawn"), w, priority);
-            return false;
+            return !SyncSetWorkPriority.DoSync(__instance.GetPropertyOrField("pawn"), w, priority);
         }
 
-        [MpPatch(typeof(Pawn_DraftController), "set_Drafted")]
+        [MpPrefix(typeof(Pawn_DraftController), "set_Drafted")]
         static bool SetDrafted(Pawn_DraftController __instance, bool value)
         {
-            if (!Multiplayer.ShouldSync) return true;
-            SyncSetDrafted.DoSync(__instance.pawn, value);
-            return false;
+            return !SyncSetDrafted.DoSync(__instance.pawn, value);
         }
 
-        [MpPatch(typeof(Pawn_DraftController), "set_FireAtWill")]
+        [MpPrefix(typeof(Pawn_DraftController), "set_FireAtWill")]
         static bool SetFireAtWill(Pawn_DraftController __instance, bool value)
         {
-            if (!Multiplayer.ShouldSync) return true;
-            SyncSetFireAtWill.DoSync(__instance.pawn, value);
-            return false;
+            return !SyncSetFireAtWill.DoSync(__instance.pawn, value);
         }
 
-        [MpPatch(typeof(Pawn_JobTracker), "StartJob")]
+        [MpPrefix(typeof(Pawn_JobTracker), "StartJob")]
         static bool StartJob(Pawn_JobTracker __instance, Job newJob, JobCondition lastJobEndCondition, ThinkNode jobGiver, bool resumeCurJobAfterwards, bool cancelBusyStances, ThinkTreeDef thinkTree, JobTag? tag, bool fromQueue)
         {
-            if (!Multiplayer.ShouldSync) return true;
-            SyncSetFireAtWill.DoSync(__instance.GetPropertyOrField("pawn"), newJob, lastJobEndCondition, jobGiver, resumeCurJobAfterwards, cancelBusyStances, thinkTree, tag, fromQueue);
-            return false;
+            return !SyncSetFireAtWill.DoSync(__instance.GetPropertyOrField("pawn"), newJob, lastJobEndCondition, jobGiver, resumeCurJobAfterwards, cancelBusyStances, thinkTree, tag, fromQueue);
         }
 
-        [MpPatch(typeof(StorageSettings), "set_Priority")]
+        [MpPrefix(typeof(StorageSettings), "set_Priority")]
         static bool StorageSetPriority(StorageSettings __instance, StoragePriority value)
         {
-            if (!Multiplayer.ShouldSync) return true;
-            SyncSetStoragePriority.DoSync(__instance.owner, value);
-            return false;
+            return !SyncSetStoragePriority.DoSync(__instance.owner, value);
         }
 
-        [MpPatch(typeof(Pawn_JobTracker), "TryTakeOrderedJob")]
+        [MpPrefix(typeof(Pawn_JobTracker), "TryTakeOrderedJob")]
         static bool TryTakeOrderedJob(Pawn_JobTracker __instance, Job job, JobTag tag)
         {
-            if (!Multiplayer.ShouldSync) return true;
-            SyncTryTakeOrderedJob.DoSync(__instance.GetPropertyOrField("pawn"), job, tag);
-            return false;
+            return !SyncTryTakeOrderedJob.DoSync(__instance.GetPropertyOrField("pawn"), job, tag);
         }
 
-        [MpPatch(typeof(Pawn_JobTracker), "TryTakeOrderedJobPrioritizedWork")]
+        [MpPrefix(typeof(Pawn_JobTracker), "TryTakeOrderedJobPrioritizedWork")]
         static bool TryTakeOrderedJobPrioritizedWork(Pawn_JobTracker __instance, Job job, WorkGiver giver, IntVec3 cell)
         {
-            if (!Multiplayer.ShouldSync) return true;
-            SyncTryTakeOrderedJobPrioritizedWork.DoSync(__instance.GetPropertyOrField("pawn"), job, giver, cell);
-            return false;
+            return !SyncTryTakeOrderedJobPrioritizedWork.DoSync(__instance.GetPropertyOrField("pawn"), job, giver, cell);
         }
-    }
 
-    public struct ThingFilterWrapper
-    {
-        public readonly object owner;
-        public readonly ThingFilter filter;
-
-        public ThingFilterWrapper(object owner, ThingFilter filter)
+        [MpPrefix(typeof(BillStack), "AddBill")]
+        static bool AddBill(BillStack __instance, Bill bill)
         {
-            this.owner = owner;
-            this.filter = filter;
+            return !SyncAddBill.DoSync(__instance, bill);
+        }
+
+        [MpPrefix(typeof(BillStack), "Delete")]
+        static bool DeleteBill(BillStack __instance, Bill bill)
+        {
+            return !SyncDeleteBill.DoSync(__instance, bill);
+        }
+
+        [MpPrefix(typeof(BillStack), "Reorder")]
+        static bool ReorderBill(BillStack __instance, Bill bill, int offset)
+        {
+            return !SyncReorderBill.DoSync(__instance, bill, offset);
         }
     }
 
     public static class SyncDelegates
     {
         [SyncDelegate]
-        [MpPatch(typeof(FloatMenuMakerMap), "<GotoLocationOption>c__AnonStorey18", "<>m__0")]
-        static bool FloatMenuGoto(object __instance)
+        [MpPrefix(typeof(FloatMenuMakerMap), "<GotoLocationOption>c__AnonStorey18", "<>m__0")] // Goto
+        [MpPrefix(typeof(FloatMenuMakerMap), "<AddDraftedOrders>c__AnonStorey3", "<>m__0")] // Arrest
+        [MpPrefix(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey7", "<>m__0")] // Rescue
+        [MpPrefix(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey7", "<>m__1")] // Capture
+        [MpPrefix(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey9", "<>m__0")] // Carry to cryptosleep casket
+        static bool FloatMenuGeneral(object __instance)
         {
-            if (!Multiplayer.ShouldSync) return true;
-            Sync.Delegate(__instance, MapProviderMode.ANY_FIELD);
-            return false;
-        }
-
-        [SyncDelegate]
-        [MpPatch(typeof(FloatMenuMakerMap), "<AddDraftedOrders>c__AnonStorey3", "<>m__0")]
-        static bool FloatMenuArrest(object __instance)
-        {
-            if (!Multiplayer.ShouldSync) return true;
-            Sync.Delegate(__instance, MapProviderMode.ANY_FIELD);
-            return false;
-        }
-
-        [SyncDelegate]
-        [MpPatch(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey7", "<>m__0")]
-        static bool FloatMenuRescue(object __instance)
-        {
-            if (!Multiplayer.ShouldSync) return true;
-            Sync.Delegate(__instance, MapProviderMode.ANY_FIELD);
-            return false;
-        }
-
-        [SyncDelegate]
-        [MpPatch(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey7", "<>m__1")]
-        static bool FloatMenuCapture(object __instance)
-        {
-            if (!Multiplayer.ShouldSync) return true;
-            Sync.Delegate(__instance, MapProviderMode.ANY_FIELD);
-            return false;
-        }
-
-        [SyncDelegate]
-        [MpPatch(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey9", "<>m__0")]
-        static bool FloatMenuCarryToCryptosleepCasket(object __instance)
-        {
-            if (!Multiplayer.ShouldSync) return true;
-            Sync.Delegate(__instance, MapProviderMode.ANY_FIELD);
-            return false;
+            return !Sync.Delegate(__instance, MapProviderMode.ANY_FIELD);
         }
 
         [SyncDelegate("$this")]
-        [MpPatch(typeof(Pawn_PlayerSettings), "<GetGizmos>c__Iterator0", "<>m__2")]
+        [MpPrefix(typeof(Pawn_PlayerSettings), "<GetGizmos>c__Iterator0", "<>m__2")]
         static bool GizmoReleaseAnimals(object __instance)
         {
-            if (!Multiplayer.ShouldSync) return true;
-            Sync.Delegate(__instance, __instance.GetPropertyOrField("$this/pawn"));
-            return false;
+            return !Sync.Delegate(__instance, __instance.GetPropertyOrField("$this/pawn"));
         }
 
         [SyncDelegate("$this")]
-        [MpPatch(typeof(PriorityWork), "<GetGizmos>c__Iterator0", "<>m__0")]
+        [MpPrefix(typeof(PriorityWork), "<GetGizmos>c__Iterator0", "<>m__0")]
         static bool GizmoClearPrioritizedWork(object __instance)
         {
-            if (!Multiplayer.ShouldSync) return true;
-            Sync.Delegate(__instance, __instance.GetPropertyOrField("$this/pawn"));
-            return false;
+            return !Sync.Delegate(__instance, __instance.GetPropertyOrField("$this/pawn"));
         }
 
         /*[SyncDelegate("lord")]
@@ -357,32 +300,28 @@ namespace Multiplayer.Client
         public static Bill billConfig;
         public static Outfit dialogOutfit;
 
-        [MpPatch(typeof(MainTabWindow_Work), "DoManualPrioritiesCheckbox")]
+        [MpPrefix(typeof(MainTabWindow_Work), "DoManualPrioritiesCheckbox")]
         static void ManualPriorities_Prefix() => manualPriorities = true;
 
-        [MpPatch(typeof(MainTabWindow_Work), "DoManualPrioritiesCheckbox")]
-        [MpPostfix]
+        [MpPostfix(typeof(MainTabWindow_Work), "DoManualPrioritiesCheckbox")]
         static void ManualPriorities_Postfix() => manualPriorities = false;
 
-        [MpPatch(typeof(ITab_Storage), "FillTab")]
+        [MpPrefix(typeof(ITab_Storage), "FillTab")]
         static void TabStorageFillTab_Prefix(ITab_Storage __instance) => tabStorage = (IStoreSettingsParent)__instance.GetPropertyOrField("SelStoreSettingsParent");
 
-        [MpPatch(typeof(ITab_Storage), "FillTab")]
-        [MpPostfix]
+        [MpPostfix(typeof(ITab_Storage), "FillTab")]
         static void TabStorageFillTab_Postfix() => tabStorage = null;
 
-        [MpPatch(typeof(Dialog_BillConfig), "DoWindowContents")]
+        [MpPrefix(typeof(Dialog_BillConfig), "DoWindowContents")]
         static void BillConfig_Prefix(Dialog_BillConfig __instance) => billConfig = (Bill)__instance.GetPropertyOrField("bill");
 
-        [MpPatch(typeof(Dialog_BillConfig), "DoWindowContents")]
-        [MpPostfix]
+        [MpPostfix(typeof(Dialog_BillConfig), "DoWindowContents")]
         static void BillConfig_Postfix() => billConfig = null;
 
-        [MpPatch(typeof(Dialog_ManageOutfits), "DoWindowContents")]
+        [MpPrefix(typeof(Dialog_ManageOutfits), "DoWindowContents")]
         static void ManageOutfit_Prefix(Dialog_ManageOutfits __instance) => dialogOutfit = (Outfit)__instance.GetPropertyOrField("SelectedOutfit");
 
-        [MpPatch(typeof(Dialog_ManageOutfits), "DoWindowContents")]
-        [MpPostfix]
+        [MpPostfix(typeof(Dialog_ManageOutfits), "DoWindowContents")]
         static void ManageOutfit_Postfix() => billConfig = null;
     }
 
@@ -396,16 +335,6 @@ namespace Multiplayer.Client
         }
 
         public abstract void Read(ByteReader data);
-    }
-
-    public interface Test1
-    {
-        void a();
-    }
-
-    public abstract class test2 : Test1
-    {
-        public abstract void a();
     }
 
     public class SyncField : SyncHandler
@@ -423,21 +352,15 @@ namespace Multiplayer.Client
             fieldType = MpReflection.PropertyOrFieldType(this.memberPath);
         }
 
-        public void Watch(object target = null, string targetPath = null)
+        /// <summary>
+        /// Returns whether the sync has been done
+        /// </summary>
+        public bool DoSync(object target, object value)
         {
-            if (!Multiplayer.ShouldSync) return;
+            if (!Multiplayer.ShouldSync)
+                return false;
 
-            if (targetPath != null)
-                target = target.GetPropertyOrField(targetPath);
-
-            object value = target.GetPropertyOrField(memberPath);
-            Sync.currentMethod.Add(new SyncData(target, this, value));
-        }
-
-        public void DoSync(object target, object value)
-        {
-            Map map = Sync.GetMap(target);
-            int mapId = map != null ? map.uniqueID : ScheduledCommand.GLOBAL;
+            int mapId = Sync.GetMap(target)?.uniqueID ?? ScheduledCommand.GLOBAL;
             ByteWriter writer = new ByteWriter();
 
             writer.WriteInt32(syncId);
@@ -447,6 +370,8 @@ namespace Multiplayer.Client
             Sync.WriteSyncObject(writer, value, fieldType);
 
             Multiplayer.client.SendCommand(CommandType.SYNC, mapId, writer.GetArray());
+
+            return true;
         }
 
         public override void Read(ByteReader data)
@@ -467,7 +392,7 @@ namespace Multiplayer.Client
         public readonly MethodInfo method;
         public readonly Type[] argTypes;
 
-        public SyncMethod(int syncId, Type targetType, string instancePath, string methodName) : base(syncId)
+        public SyncMethod(int syncId, Type targetType, string instancePath, string methodName, Type[] argTypes) : base(syncId)
         {
             this.targetType = targetType;
 
@@ -478,13 +403,25 @@ namespace Multiplayer.Client
                 instanceType = MpReflection.PropertyOrFieldType(this.instancePath);
             }
 
-            method = AccessTools.Method(instanceType, methodName);
-            argTypes = method.GetParameters().Select(p => p.ParameterType).ToArray();
+            method = AccessTools.Method(instanceType, methodName) ?? throw new Exception($"Couldn't find method {instanceType}::{methodName}");
+
+            if (argTypes.Length == 0)
+                this.argTypes = method.GetParameters().Select(p => p.ParameterType).ToArray();
+            else if (argTypes.Length != method.GetParameters().Length)
+                throw new Exception("Wrong parameter count for method " + method);
+            else
+                this.argTypes = argTypes;
         }
 
-        public void DoSync(object target, params object[] args)
+        /// <summary>
+        /// Returns whether the sync has been done
+        /// </summary>
+        public bool DoSync(object target, params object[] args)
         {
-            int mapId = Sync.GetMap(target).uniqueID;
+            if (!Multiplayer.ShouldSync)
+                return false;
+
+            int mapId = Sync.GetMap(target)?.uniqueID ?? ScheduledCommand.GLOBAL;
             ByteWriter writer = new ByteWriter();
 
             writer.WriteInt32(syncId);
@@ -494,6 +431,8 @@ namespace Multiplayer.Client
             Sync.WriteSyncObjects(writer, args, argTypes);
 
             Multiplayer.client.SendCommand(CommandType.SYNC, mapId, writer.GetArray());
+
+            return true;
         }
 
         public override void Read(ByteReader data)
@@ -515,54 +454,59 @@ namespace Multiplayer.Client
         public readonly MethodInfo method;
 
         private Type[] argTypes;
-        public string[] fields;
+        public string[] fieldPaths;
         private Type[] fieldTypes;
 
-        public SyncDelegate(int syncId, Type delegateType, string delegateMethod, string[] fields) : base(syncId)
+        public SyncDelegate(int syncId, Type delegateType, string delegateMethod, string[] fieldPaths) : base(syncId)
         {
             this.delegateType = delegateType;
             method = AccessTools.Method(delegateType, delegateMethod);
 
             argTypes = method.GetParameters().Select(p => p.ParameterType).ToArray();
 
-            this.fields = fields;
-            if (fields == null)
+            this.fieldPaths = fieldPaths;
+            if (fieldPaths == null)
             {
                 List<string> fieldList = new List<string>();
                 Sync.AllDelegateFieldsRecursive(delegateType, path => { fieldList.Add(path); return false; });
-                this.fields = fieldList.ToArray();
+                this.fieldPaths = fieldList.ToArray();
             }
             else
             {
-                for (int i = 0; i < this.fields.Length; i++)
+                for (int i = 0; i < this.fieldPaths.Length; i++)
                 {
-                    this.fields[i] = MpReflection.AppendType(this.fields[i], delegateType);
+                    this.fieldPaths[i] = MpReflection.AppendType(this.fieldPaths[i], delegateType);
                 }
             }
 
-            fieldTypes = this.fields.Select(path => MpReflection.PropertyOrFieldType(path)).ToArray();
+            fieldTypes = this.fieldPaths.Select(path => MpReflection.PropertyOrFieldType(path)).ToArray();
         }
 
-        public void DoSync(object delegateInstance, int mapId, params object[] args)
+        public bool DoSync(object delegateInstance, int mapId, params object[] args)
         {
+            if (!Multiplayer.ShouldSync)
+                return false;
+
             ByteWriter writer = new ByteWriter();
             writer.WriteInt32(syncId);
 
             Sync.WriteContext(writer, mapId);
 
-            foreach (string field in fields)
+            foreach (string field in fieldPaths)
                 Sync.WriteSyncObject(writer, delegateInstance.GetPropertyOrField(field));
 
             Sync.WriteSyncObjects(writer, args, argTypes);
 
             Multiplayer.client.SendCommand(CommandType.SYNC, mapId, writer.GetArray());
+
+            return true;
         }
 
         public override void Read(ByteReader data)
         {
             object target = Activator.CreateInstance(delegateType);
-            for (int i = 0; i < fields.Length; i++)
-                MpReflection.SetPropertyOrField(target, fields[i], Sync.ReadSyncObject(data, fieldTypes[i]));
+            for (int i = 0; i < fieldPaths.Length; i++)
+                MpReflection.SetPropertyOrField(target, fieldPaths[i], Sync.ReadSyncObject(data, fieldTypes[i]));
 
             object[] parameters = Sync.ReadSyncObjects(data, argTypes);
 
@@ -577,40 +521,45 @@ namespace Multiplayer.Client
         public readonly SyncField handler;
         public readonly object value;
 
-        public SyncData(object instance, SyncField handler, object value)
+        public SyncData(object target, SyncField handler, object value)
         {
-            this.target = instance;
+            this.target = target;
             this.handler = handler;
             this.value = value;
         }
     }
 
-    public enum StoreSettingsParent
-    {
-        THING,
-        THING_COMP,
-        ZONE
-    }
-
-    public enum ThingFilterOwner
-    {
-        STORAGE,
-        BILL,
-        OUTFIT
-    }
+    public class Expose<T> { }
 
     public static class Sync
     {
         private static List<SyncHandler> handlers = new List<SyncHandler>();
-        public static Dictionary<MethodBase, SyncDelegate> delegates = new Dictionary<MethodBase, SyncDelegate>();
+        private static Dictionary<MethodBase, SyncDelegate> delegates = new Dictionary<MethodBase, SyncDelegate>();
 
-        public static List<SyncData> currentMethod = new List<SyncData>();
-        public static bool syncing;
+        private static List<SyncData> watchedData = new List<SyncData>();
+        private static bool syncing;
+
+        public static MultiTarget storageTarget = new MultiTarget()
+        {
+            { typeof(Building_Grave), "GetStoreSettings" },
+            { typeof(Building_Storage), "GetStoreSettings" },
+            { typeof(CompChangeableProjectile), "GetStoreSettings" },
+            { typeof(Zone_Stockpile), "GetStoreSettings" }
+        };
+
+        public static MultiTarget thingFilterTarget = new MultiTarget()
+        {
+            { storageTarget, "filter" },
+            { typeof(Bill), "ingredientFilter" },
+            { typeof(Outfit), "filter" }
+        };
 
         private static void Prefix(ref bool __state)
         {
             if (!syncing && Multiplayer.ShouldSync)
+            {
                 syncing = __state = true;
+            }
         }
 
         private static void Postfix(ref bool __state)
@@ -618,7 +567,7 @@ namespace Multiplayer.Client
             if (!__state)
                 return;
 
-            foreach (SyncData data in currentMethod)
+            foreach (SyncData data in watchedData)
             {
                 object newValue = data.target.GetPropertyOrField(data.handler.memberPath);
 
@@ -629,15 +578,30 @@ namespace Multiplayer.Client
                 }
             }
 
-            currentMethod.Clear();
+            watchedData.Clear();
             syncing = __state = false;
         }
 
-        public static SyncMethod Method(Type targetType, string instancePath, string methodName)
+        public static SyncMethod Method(Type targetType, string methodName)
         {
-            SyncMethod handler = new SyncMethod(handlers.Count, targetType, instancePath, methodName);
+            return Method(targetType, null, methodName);
+        }
+
+        public static SyncMethod Method(Type targetType, string methodName, params Type[] argTypes)
+        {
+            return Method(targetType, null, methodName, argTypes);
+        }
+
+        public static SyncMethod Method(Type targetType, string instancePath, string methodName, params Type[] argTypes)
+        {
+            SyncMethod handler = new SyncMethod(handlers.Count, targetType, instancePath, methodName, argTypes);
             handlers.Add(handler);
             return handler;
+        }
+
+        public static SyncMethod[] MethodMultiTarget(MultiTarget targetType, string methodName)
+        {
+            return targetType.Select(type => Method(type.First, type.Second, methodName)).ToArray();
         }
 
         public static SyncField Field(Type targetType, string instancePath, string fieldName)
@@ -647,36 +611,41 @@ namespace Multiplayer.Client
             return handler;
         }
 
+        public static SyncField[] FieldMultiTarget(MultiTarget targetType, string fieldName)
+        {
+            return targetType.Select(type => Field(type.First, type.Second, fieldName)).ToArray();
+        }
+
         public static SyncField[] Fields(Type targetType, string instancePath, params string[] memberPaths)
         {
             return memberPaths.Select(path => Field(targetType, instancePath, path)).ToArray();
         }
 
-        public static void Delegate(object instance, object mapProvider, params object[] args)
+        /// <summary>
+        /// Returns whether the sync has been done
+        /// </summary>
+        public static bool Delegate(object instance, object mapProvider, params object[] args)
         {
             MethodBase caller = new StackTrace().GetFrame(1).GetMethod();
             SyncDelegate handler = delegates[caller];
-            int mapId = ScheduledCommand.GLOBAL;
+            int mapId = GetMap(mapProvider)?.uniqueID ?? ScheduledCommand.GLOBAL;
 
             if (mapProvider == MapProviderMode.ANY_FIELD)
             {
-                foreach (string path in handler.fields)
+                foreach (string path in handler.fieldPaths)
                 {
                     object obj = instance.GetPropertyOrField(path);
-                    if (GetMap(obj) != null)
+                    Map map = GetMap(obj);
+                    if (map != null)
                     {
-                        mapId = GetMap(obj).uniqueID;
+                        mapId = map.uniqueID;
                         break;
                     }
                 }
             }
-            else if (mapProvider is Pawn pawn)
-            {
-                mapId = pawn.Map.uniqueID;
-            }
 
             args = args ?? new object[0];
-            handler.DoSync(instance, mapId, args);
+            return handler.DoSync(instance, mapId, args);
         }
 
         public static bool AllDelegateFieldsRecursive(Type type, Func<string, bool> getter, string path = "")
@@ -708,13 +677,13 @@ namespace Multiplayer.Client
                 if (!method.TryGetAttribute(out SyncDelegateAttribute syncAttr))
                     continue;
 
-                if (!method.TryGetAttribute(out MpPatch patchAttr))
-                    continue;
-
-                Type type = patchAttr.type ?? MpReflection.GetTypeByName(patchAttr.typeName);
-                SyncDelegate handler = new SyncDelegate(handlers.Count, type, patchAttr.method, syncAttr.fields);
-                delegates[method] = handler;
-                handlers.Add(handler);
+                foreach (MpPrefix patchAttr in method.AllAttributes<MpPrefix>())
+                {
+                    Type type = patchAttr.type ?? MpReflection.GetTypeByName(patchAttr.typeName);
+                    SyncDelegate handler = new SyncDelegate(handlers.Count, type, patchAttr.method, syncAttr.fields);
+                    delegates[method] = handler;
+                    handlers.Add(handler);
+                }
             }
         }
 
@@ -732,10 +701,28 @@ namespace Multiplayer.Client
             new PatchProcessor(Multiplayer.harmony, patched, prefix, postfix).Patch();
         }
 
+        public static void Watch(this SyncField field, object target = null)
+        {
+            if (!Multiplayer.ShouldSync) return;
+
+            object value = target.GetPropertyOrField(field.memberPath);
+            watchedData.Add(new SyncData(target, field, value));
+        }
+
         public static void Watch(this SyncField[] group, object target = null)
         {
             foreach (SyncField sync in group)
-                sync.Watch(target);
+                if (target == null || sync.targetType.IsAssignableFrom(target.GetType()))
+                    sync.Watch(target);
+        }
+
+        public static bool DoSync(this SyncMethod[] group, object target, params object[] args)
+        {
+            foreach (SyncMethod sync in group)
+                if (target == null || sync.targetType.IsAssignableFrom(target.GetType()))
+                    return sync.DoSync(target);
+
+            return false;
         }
 
         public static void HandleCmd(ByteReader data)
@@ -770,26 +757,16 @@ namespace Multiplayer.Client
 
         public static Map GetMap(object obj)
         {
-            if (obj is Thing thing && thing.Spawned)
-            {
+            if (obj is Thing thing)
                 return thing.Map;
-            }
             else if (obj is ThingComp comp)
-            {
-                return GetMap(comp.parent);
-            }
+                return comp.parent.Map;
             else if (obj is Zone zone)
-            {
                 return zone.Map;
-            }
             else if (obj is Bill bill)
-            {
                 return bill.Map;
-            }
-            else if (obj is ThingFilterWrapper filter)
-            {
-                return GetMap(filter.owner);
-            }
+            else if (obj is BillStack bills)
+                return bills.billGiver.Map;
 
             return null;
         }
@@ -803,7 +780,6 @@ namespace Multiplayer.Client
             { data => new IntVec3(data.ReadInt32(), data.ReadInt32(), data.ReadInt32()) },
             { data => ReadSync<Pawn>(data).mindState.priorityWork },
             { data => ReadSync<Pawn>(data).playerSettings },
-            { data => ScribeUtil.ReadExposable<Job>(data.ReadPrefixedBytes()) },
             { data => new FloatRange(data.ReadFloat(), data.ReadFloat()) },
             { data => new IntRange(data.ReadInt32(), data.ReadInt32()) },
             { data => new QualityRange(ReadSync<QualityCategory>(data), ReadSync<QualityCategory>(data)) },
@@ -826,7 +802,6 @@ namespace Multiplayer.Client
             { (ByteWriter data, long l) => data.WriteLong(l) },
             { (ByteWriter data, PriorityWork work) => WriteSyncObject(data, work.GetPropertyOrField("pawn")) },
             { (ByteWriter data, Pawn_PlayerSettings settings) => WriteSyncObject(data, settings.GetPropertyOrField("pawn")) },
-            { (ByteWriter data, Job job) => data.WritePrefixedBytes(ScribeUtil.WriteExposable(job)) },
             { (ByteWriter data, FloatRange range) => { data.WriteFloat(range.min); data.WriteFloat(range.max); }},
             { (ByteWriter data, IntRange range) => { data.WriteInt32(range.min); data.WriteInt32(range.max); }},
             { (ByteWriter data, QualityRange range) => { WriteSync(data, range.min); WriteSync(data, range.max); }},
@@ -845,6 +820,8 @@ namespace Multiplayer.Client
         {
             return (T)ReadSyncObject(data, typeof(T));
         }
+
+        private static MethodInfo ReadExposable = AccessTools.Method(typeof(ScribeUtil), "ReadExposable");
 
         public static object ReadSyncObject(ByteReader data, Type type)
         {
@@ -873,6 +850,12 @@ namespace Multiplayer.Client
 
                     Type nullableType = type.GetGenericArguments()[0];
                     return Activator.CreateInstance(type, ReadSyncObject(data, nullableType));
+                }
+                else if (type.GetGenericTypeDefinition() == typeof(Expose<>))
+                {
+                    Type exposableType = type.GetGenericArguments()[0];
+                    byte[] exposableData = data.ReadPrefixedBytes();
+                    return ReadExposable.MakeGenericMethod(exposableType).Invoke(null, new[] { exposableData, null });
                 }
             }
             else if (typeof(ThinkNode).IsAssignableFrom(type))
@@ -946,35 +929,7 @@ namespace Multiplayer.Client
                     return null;
 
                 int id = data.ReadInt32();
-                return billStack.Bills.FirstOrDefault(bill => (int)bill.GetPropertyOrField("loadId") == id);
-            }
-            else if (typeof(ThingFilterWrapper) == type)
-            {
-                ThingFilterOwner ownerType = ReadSync<ThingFilterOwner>(data);
-
-                if (ownerType == ThingFilterOwner.STORAGE)
-                {
-                    IStoreSettingsParent storage = ReadSync<IStoreSettingsParent>(data);
-                    return new ThingFilterWrapper(storage, storage.GetStoreSettings().filter);
-                }
-                else if (ownerType == ThingFilterOwner.BILL)
-                {
-                    Bill bill = ReadSync<Bill>(data);
-                    return new ThingFilterWrapper(bill, bill.ingredientFilter);
-                }
-            }
-            else if (typeof(IStoreSettingsParent) == type)
-            {
-                StoreSettingsParent parentType = ReadSync<StoreSettingsParent>(data);
-
-                if (parentType == StoreSettingsParent.THING)
-                    return ReadSync<Thing>(data) as IStoreSettingsParent;
-                else if (parentType == StoreSettingsParent.THING_COMP)
-                    return ReadSync<ThingComp>(data) as IStoreSettingsParent;
-                else if (parentType == StoreSettingsParent.ZONE)
-                    return ReadSync<Zone>(data) as IStoreSettingsParent;
-                else
-                    return null;
+                return billStack.Bills.FirstOrDefault(bill => (int)bill.GetPropertyOrField("loadID") == id);
             }
             else if (readers.TryGetValue(type, out Func<ByteReader, object> reader))
             {
@@ -1021,6 +976,15 @@ namespace Multiplayer.Client
                 data.WriteBool(hasValue);
                 if (hasValue)
                     WriteSyncObject(data, obj.GetPropertyOrField("Value"));
+            }
+            else if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Expose<>))
+            {
+                Type exposableType = type.GetGenericArguments()[0];
+                if (!exposableType.IsAssignableFrom(obj.GetType()))
+                    throw new SerializationException($"Expose<> types {obj.GetType()} and {exposableType} don't match");
+
+                IExposable exposable = obj as IExposable;
+                data.WritePrefixedBytes(ScribeUtil.WriteExposable(exposable));
             }
             else if (typeof(ThinkNode).IsAssignableFrom(type))
             {
@@ -1079,50 +1043,7 @@ namespace Multiplayer.Client
             {
                 Bill bill = obj as Bill;
                 WriteSync(data, bill.billStack);
-                data.WriteInt32((int)bill.GetPropertyOrField("loadId"));
-            }
-            else if (typeof(ThingFilterWrapper) == type)
-            {
-                ThingFilterWrapper wrapper = (ThingFilterWrapper)obj;
-
-                if (wrapper.owner is IStoreSettingsParent storage)
-                {
-                    WriteSync(data, ThingFilterOwner.STORAGE);
-                    WriteSyncObject(data, wrapper.owner, typeof(IStoreSettingsParent));
-                }
-                else if (wrapper.owner is Bill bill)
-                {
-                    WriteSync(data, ThingFilterOwner.BILL);
-                    WriteSyncObject(data, wrapper.owner, typeof(Bill));
-                }
-                else
-                {
-                    throw new SerializationException("Unknown thing filter owner type: " + wrapper.owner?.GetType());
-                }
-            }
-            else if (typeof(IStoreSettingsParent) == type)
-            {
-                IStoreSettingsParent owner = obj as IStoreSettingsParent;
-
-                if (owner is Thing)
-                {
-                    WriteSync(data, StoreSettingsParent.THING);
-                    WriteSyncObject(data, owner, typeof(Thing));
-                }
-                else if (owner is ThingComp)
-                {
-                    WriteSync(data, StoreSettingsParent.THING_COMP);
-                    WriteSyncObject(data, owner, typeof(ThingComp));
-                }
-                else if (owner is Zone)
-                {
-                    WriteSync(data, StoreSettingsParent.ZONE);
-                    WriteSyncObject(data, owner, typeof(Zone));
-                }
-                else
-                {
-                    throw new SerializationException("Unknown storage settings parent type: " + owner?.GetType());
-                }
+                data.WriteInt32((int)bill.GetPropertyOrField("loadID"));
             }
             else if (writers.TryGetValue(type, out Action<ByteWriter, object> writer))
             {
@@ -1138,6 +1059,32 @@ namespace Multiplayer.Client
         {
             for (int i = 0; i < spec.Length; i++)
                 WriteSyncObject(data, objs[i], spec[i]);
+        }
+    }
+
+    public class MultiTarget : IEnumerable<MultiType>
+    {
+        private List<MultiType> types = new List<MultiType>();
+
+        public void Add(Type type, string path)
+        {
+            types.Add(new MultiType(type, path));
+        }
+
+        public void Add(MultiTarget type, string path)
+        {
+            foreach (MultiType multiType in type)
+                Add(multiType.First, multiType.Second + "/" + path);
+        }
+
+        public IEnumerator<MultiType> GetEnumerator()
+        {
+            return types.GetEnumerator();
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return types.GetEnumerator();
         }
     }
 

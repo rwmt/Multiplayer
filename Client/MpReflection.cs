@@ -40,7 +40,7 @@ namespace Multiplayer.Client
         }
 
         /// <summary>
-        /// Get the value of the property/field specified by memberPath
+        /// Get the value of a property/field specified by memberPath
         /// Type specification in path is not required if instance is provided
         /// </summary>
         public static object GetPropertyOrField(object instance, string memberPath)
@@ -59,7 +59,7 @@ namespace Multiplayer.Client
 
             InitPropertyOrField(memberPath);
             if (setters[memberPath] == null)
-                throw new Exception("The value of " + memberPath + " can't be set");
+                throw new Exception($"The value of {memberPath} can't be set");
 
             setters[memberPath](instance, value);
         }
@@ -86,11 +86,11 @@ namespace Multiplayer.Client
 
             string[] parts = memberPath.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
             if (parts.Length < 2)
-                throw new Exception("Path requires at least the type and one member: " + memberPath);
+                throw new Exception($"Path requires at least the type and one member: {memberPath}");
 
             Type type = GetTypeByName(parts[0]);
             if (type == null)
-                throw new Exception("Type " + parts[0] + " not found for path: " + memberPath);
+                throw new Exception($"Type {parts[0]} not found for path: {memberPath}");
 
             List<MemberInfo> members = new List<MemberInfo>();
             Type currentType = type;
@@ -133,8 +133,7 @@ namespace Multiplayer.Client
                 throw new Exception("Member " + part + " not found in path: " + memberPath + ", current type: " + currentType);
             }
 
-            int last = members.Count - 1;
-            MemberInfo lastMember = members[last];
+            MemberInfo lastMember = members.Last();
 
             pathType[memberPath] = currentType;
 
@@ -151,7 +150,7 @@ namespace Multiplayer.Client
 
             if (hasSetter)
             {
-                EmitAccess(type, members, last, setterGen);
+                EmitAccess(type, members, members.Count - 1, setterGen);
 
                 setterGen.Emit(OpCodes.Ldarg_1);
 

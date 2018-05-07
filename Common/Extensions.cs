@@ -68,6 +68,11 @@ namespace Multiplayer.Common
             if (arr.Length > 0)
                 stream.Write(arr, 0, arr.Length);
         }
+
+        public static IEnumerable<T> AllAttributes<T>(this MemberInfo member) where T : Attribute
+        {
+            return Attribute.GetCustomAttributes(member, typeof(T)).Cast<T>();
+        }
     }
 
     public static class XmlExtensions

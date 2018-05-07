@@ -484,8 +484,6 @@ namespace Multiplayer.Client
         public void HandleCommand(ByteReader data)
         {
             HandleCmdSchedule(data);
-
-            MpLog.Log("Client command");
         }
 
         [PacketHandler(Packets.SERVER_PLAYER_LIST)]
@@ -626,6 +624,8 @@ namespace Multiplayer.Client
 
             ScheduledCommand schdl = new ScheduledCommand(cmd, ticks, mapId, extraBytes);
             OnMainThread.ScheduleCommand(schdl);
+
+            MpLog.Log("Client command on map " + schdl.mapId);
         }
 
         // Currently covers:

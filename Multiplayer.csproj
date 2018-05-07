@@ -65,6 +65,7 @@
     <Compile Include="Client\Extensions.cs" />
     <Compile Include="Client\ForbiddableHandler.cs" />
     <Compile Include="Client\MapAsyncTime.cs" />
+    <Compile Include="Client\MpPatch.cs" />
     <Compile Include="Client\MpReflection.cs" />
     <Compile Include="Client\SyncHandler.cs" />
     <Compile Include="Common\MpLog.cs" />

@@ -16,64 +16,6 @@ using System.Text.RegularExpressions;
 
 namespace Multiplayer.Client
 {
-    // Allows specifying type by name
-    public class MpPatch : Attribute
-    {
-        public readonly Type type;
-        public readonly string typeName;
-        public readonly string method;
-
-        public MpPatch(string typeName, string method)
-        {
-            this.typeName = typeName;
-            this.method = method;
-        }
-
-        public MpPatch(Type type, string innerType, string method)
-        {
-            this.typeName = type + "+" + innerType;
-            this.method = method;
-        }
-
-        public MpPatch(Type type, string method)
-        {
-            this.type = type;
-            this.method = method;
-        }
-
-        public static List<MethodBase> DoPatches(Type type)
-        {
-            List<MethodBase> result = new List<MethodBase>();
-
-            foreach (MethodInfo m in AccessTools.GetDeclaredMethods(type))
-            {
-                MpPatch attr = (MpPatch)GetCustomAttribute(m, typeof(MpPatch));
-                if (attr == null) continue;
-
-                Type declaring = attr.type ?? MpReflection.GetTypeByName(attr.typeName);
-                if (declaring == null)
-                    throw new Exception("Couldn't find type " + attr.typeName);
-
-                MethodInfo patched = AccessTools.Method(declaring, attr.method);
-                if (patched == null)
-                    throw new Exception("Couldn't find method " + attr.method + " in type " + declaring.FullName);
-
-                bool postfix = GetCustomAttribute(m, typeof(MpPostfix)) != null;
-
-                HarmonyMethod patch = new HarmonyMethod(m);
-                Multiplayer.harmony.Patch(patched, postfix ? null : patch, postfix ? patch : null);
-
-                result.Add(patched);
-            }
-
-            return result;
-        }
-    }
-
-    public class MpPostfix : Attribute
-    {
-    }
-
     [HarmonyPatch(typeof(MainMenuDrawer))]
     [HarmonyPatch(nameof(MainMenuDrawer.DoMainMenuControls))]
     public static class MainMenuMarker
@@ -596,10 +538,7 @@ namespace Multiplayer.Client
         private static IdBlock currentBlock;
         public static IdBlock CurrentBlock
         {
-            get
-            {
-                return currentBlock;
-            }
+            get => currentBlock;
 
             set
             {
@@ -1015,11 +954,13 @@ namespace Multiplayer.Client
             {
                 string loadId = groups[1].Value;
                 string typeName = groups[2].Value;
+
+                return false;
             }
 
             ignore = false;
 
-            return false;
+            return true;
         }
     }
 
