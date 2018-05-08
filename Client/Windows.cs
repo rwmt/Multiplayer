@@ -210,34 +210,40 @@ namespace Multiplayer.Client
 
             Widgets.BeginScrollView(outRect, ref scrollPos, viewRect);
 
-            int y = 0;
+            Rect nodeRect = new Rect(0f, 0f, viewRect.width, 20f);
             foreach (LogNode node in nodes)
-                Draw(node, 0, ref y);
+                Draw(node, 0, ref nodeRect);
 
             if (Event.current.type == EventType.layout)
-                logHeight = y;
+                logHeight = (int)nodeRect.y;
 
             Widgets.EndScrollView();
 
             GUI.EndGroup();
         }
 
-        public void Draw(LogNode node, int depth, ref int y)
+        public void Draw(LogNode node, int depth, ref Rect rect)
         {
             string text = node.text;
             if (depth == 0)
                 text = node.children[0].text;
 
-            Vector2 textSize = Text.CalcSize(text);
-            Rect label = new Rect(depth * 10, y, textSize.x, textSize.y);
-            Widgets.Label(label, text);
-            if (Widgets.ButtonInvisible(label))
+            rect.x = depth * 15;
+            if (node.children.Count > 0)
+            {
+                Widgets.Label(rect, node.expand ? "[-]" : "[+]");
+                rect.x += 15;
+            }
+
+            rect.height = Text.CalcHeight(text, rect.width);
+            Widgets.Label(rect, text);
+            if (Widgets.ButtonInvisible(rect))
                 node.expand = !node.expand;
-            y += (int) textSize.y;
+            rect.y += (int)rect.height;
 
             if (node.expand)
                 foreach (LogNode child in node.children)
-                    Draw(child, depth + 1, ref y);
+                    Draw(child, depth + 1, ref rect);
         }
     }
 

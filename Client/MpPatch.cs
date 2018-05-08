@@ -11,24 +11,57 @@ namespace Multiplayer.Client
     [AttributeUsage(AttributeTargets.Method, AllowMultiple = true)]
     public class MpPatch : Attribute
     {
-        public readonly Type type;
-        public readonly string typeName;
-        public readonly string method;
+        private Type type;
+        private string typeName;
+        private MethodInfo method;
+        private Type[] argTypes;
+        private string methodName;
 
-        protected MpPatch(Type type, string innerType, string method) : this($"{type}+{innerType}", method)
+        public Type Type
+        {
+            get
+            {
+                if (type != null)
+                    return type;
+
+                type = MpReflection.GetTypeByName(typeName);
+                if (type == null)
+                    throw new Exception("Couldn't find type " + typeName);
+
+                return type;
+            }
+        }
+
+        public MethodInfo Method
+        {
+            get
+            {
+                if (method != null)
+                    return method;
+
+                method = AccessTools.Method(Type, methodName, argTypes?.Length > 0 ? argTypes : null);
+                if (method == null)
+                    throw new Exception($"Couldn't find method {methodName} in type {Type}");
+
+                return method;
+            }
+        }
+
+        protected MpPatch(Type type, string innerType, string methodName) : this($"{type}+{innerType}", methodName)
         {
         }
 
-        protected MpPatch(string typeName, string method)
+        protected MpPatch(string typeName, string methodName)
         {
             this.typeName = typeName;
-            this.method = method;
+            this.methodName = methodName;
         }
 
-        protected MpPatch(Type type, string method)
+        protected MpPatch(Type type, string methodName, params Type[] argTypes)
         {
             this.type = type;
-            this.method = method;
+            this.methodName = methodName;
+            this.argTypes = argTypes;
         }
 
         public static List<MethodBase> DoPatches(Type type)
@@ -39,14 +72,7 @@ namespace Multiplayer.Client
             {
                 foreach (MpPatch attr in m.AllAttributes<MpPatch>())
                 {
-                    Type declaring = attr.type ?? MpReflection.GetTypeByName(attr.typeName);
-                    if (declaring == null)
-                        throw new Exception("Couldn't find type " + attr.typeName);
-
-                    MethodInfo patched = AccessTools.Method(declaring, attr.method);
-                    if (patched == null)
-                        throw new Exception("Couldn't find method " + attr.method + " in type " + declaring.FullName);
-
+                    MethodInfo patched = attr.Method;
                     bool postfix = attr.GetType() == typeof(MpPostfix);
 
                     HarmonyMethod patch = new HarmonyMethod(m);
@@ -66,7 +92,7 @@ namespace Multiplayer.Client
         {
         }
 
-        public MpPrefix(Type type, string method) : base(type, method)
+        public MpPrefix(Type type, string method, params Type[] argTypes) : base(type, method, argTypes)
         {
         }
 
@@ -81,7 +107,7 @@ namespace Multiplayer.Client
         {
         }
 
-        public MpPostfix(Type type, string method) : base(type, method)
+        public MpPostfix(Type type, string method, params Type[] argTypes) : base(type, method, argTypes)
         {
         }
 

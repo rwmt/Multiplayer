@@ -826,18 +826,6 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(Zone))]
-    [HarmonyPatch(nameof(Zone.Delete))]
-    public static class ZoneDeletePatch
-    {
-        static bool Prefix(Zone __instance)
-        {
-            if (!Multiplayer.ShouldSync) return true;
-            Multiplayer.client.SendCommand(CommandType.DELETE_ZONE, __instance.Map.uniqueID, Multiplayer.RealPlayerFaction.GetUniqueLoadID(), __instance.label);
-            return false;
-        }
-    }
-
     [HarmonyPatch(typeof(Thing))]
     [HarmonyPatch(nameof(Thing.ExposeData))]
     public static class PawnExposeDataPrefix
@@ -1009,7 +997,7 @@ namespace Multiplayer.Client
         }
     }
 
-    // The first parameter is the instance (only for instance methods)
+    // For instance methods, the first parameter is the instance
     // The rest are original method's parameters in order
     [AttributeUsage(AttributeTargets.Method)]
     public class IndexedPatchParameters : Attribute

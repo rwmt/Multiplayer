@@ -32,18 +32,26 @@ namespace Multiplayer.Client
         private static Dictionary<string, Action<object, object>> setters = new Dictionary<string, Action<object, object>>();
 
         /// <summary>
+        /// Get the value of a static property/field in type specified by memberPath
+        /// </summary>
+        public static object GetValueStatic(Type type, string memberPath)
+        {
+            return GetValue(null, type + "/" + memberPath);
+        }
+
+        /// <summary>
         /// Get the value of a static property/field specified by memberPath
         /// </summary>
-        public static object GetPropertyOrField(string memberPath)
+        public static object GetValueStatic(string memberPath)
         {
-            return GetPropertyOrField(null, memberPath);
+            return GetValue(null, memberPath);
         }
 
         /// <summary>
         /// Get the value of a property/field specified by memberPath
         /// Type specification in path is not required if instance is provided
         /// </summary>
-        public static object GetPropertyOrField(object instance, string memberPath)
+        public static object GetValue(object instance, string memberPath)
         {
             if (instance != null)
                 memberPath = AppendType(memberPath, instance.GetType());
@@ -52,7 +60,7 @@ namespace Multiplayer.Client
             return getters[memberPath](instance);
         }
 
-        public static void SetPropertyOrField(object instance, string memberPath, object value)
+        public static void SetValue(object instance, string memberPath, object value)
         {
             if (instance != null)
                 memberPath = AppendType(memberPath, instance.GetType());
@@ -250,12 +258,12 @@ namespace Multiplayer.Client
     {
         public static object GetPropertyOrField(this object obj, string memberPath)
         {
-            return MpReflection.GetPropertyOrField(obj, memberPath);
+            return MpReflection.GetValue(obj, memberPath);
         }
 
         public static void SetPropertyOrField(this object obj, string memberPath, object value)
         {
-            MpReflection.SetPropertyOrField(obj, memberPath, value);
+            MpReflection.SetValue(obj, memberPath, value);
         }
 
         private static readonly MethodInfo exposeSmallComps = AccessTools.Method(typeof(Game), "ExposeSmallComponents");

@@ -1,5 +1,8 @@
-﻿using RimWorld;
+﻿using Harmony;
+using Multiplayer.Common;
+using RimWorld;
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using Verse;
 using Verse.AI;
@@ -140,19 +143,13 @@ namespace Multiplayer.Client
         [MpPrefix(typeof(ThingFilterUI), "DrawHitPointsFilterConfig")]
         static void ThingFilterHitPoints()
         {
-            if (MethodMarkers.tabStorage != null)
-                SyncThingFilterHitPoints.Watch(MethodMarkers.tabStorage);
-            else if (MethodMarkers.billConfig != null)
-                SyncThingFilterHitPoints.Watch(MethodMarkers.billConfig);
+            SyncThingFilterHitPoints.Watch(MethodMarkers.ThingFilterOwner);
         }
 
         [MpPrefix(typeof(ThingFilterUI), "DrawQualityFilterConfig")]
         static void ThingFilterQuality()
         {
-            if (MethodMarkers.tabStorage != null)
-                SyncThingFilterQuality.Watch(MethodMarkers.tabStorage);
-            else if (MethodMarkers.billConfig != null)
-                SyncThingFilterQuality.Watch(MethodMarkers.billConfig);
+            SyncThingFilterQuality.Watch(MethodMarkers.ThingFilterOwner);
         }
 
         [MpPrefix(typeof(Dialog_BillConfig), "DoWindowContents")]
@@ -187,92 +184,136 @@ namespace Multiplayer.Client
 
     public static class SyncPatches
     {
-        public static SyncMethod SyncSetAssignment = Sync.Method(typeof(Pawn), "timetable", "SetAssignment");
-        public static SyncMethod SyncSetWorkPriority = Sync.Method(typeof(Pawn), "workSettings", "SetPriority");
-        public static SyncMethod SyncSetDrafted = Sync.Method(typeof(Pawn), "drafter", "set_Drafted");
-        public static SyncMethod SyncSetFireAtWill = Sync.Method(typeof(Pawn), "drafter", "set_FireAtWill");
-        public static SyncMethod[] SyncSetStoragePriority = Sync.MethodMultiTarget(Sync.storageTarget, "set_Priority");
-
-        public static SyncMethod SyncStartJob = Sync.Method(typeof(Pawn), "jobs", "StartJob", typeof(Expose<Job>), typeof(JobCondition), typeof(ThinkNode), typeof(bool), typeof(bool), typeof(ThinkTreeDef), typeof(JobTag?), typeof(bool));
-        public static SyncMethod SyncTryTakeOrderedJob = Sync.Method(typeof(Pawn), "jobs", "TryTakeOrderedJob", typeof(Expose<Job>), typeof(JobTag));
-        public static SyncMethod SyncTryTakeOrderedJobPrioritizedWork = Sync.Method(typeof(Pawn), "jobs", "TryTakeOrderedJobPrioritizedWork", typeof(Expose<Job>), typeof(WorkGiver), typeof(IntVec3));
-
-        public static SyncMethod SyncAddBill = Sync.Method(typeof(BillStack), "AddBill", typeof(Expose<Bill>));
-        public static SyncMethod SyncDeleteBill = Sync.Method(typeof(BillStack), "Delete");
-        public static SyncMethod SyncReorderBill = Sync.Method(typeof(BillStack), "Reorder");
+        static SyncPatches()
+        {
+            Sync.RegisterSyncMethod(typeof(Pawn_TimetableTracker), "SetAssignment");
+            Sync.RegisterSyncMethod(typeof(Pawn_WorkSettings), "SetPriority");
+            Sync.RegisterSyncMethod(typeof(Pawn_DraftController), "set_Drafted");
+            Sync.RegisterSyncMethod(typeof(Pawn_DraftController), "set_FireAtWill");
+            Sync.RegisterSyncMethod(typeof(Zone), "Delete");
+            Sync.RegisterSyncMethod(typeof(BillStack), "Delete");
+            Sync.RegisterSyncMethod(typeof(BillStack), "Reorder");
+            Sync.RegisterSyncMethod(typeof(Pawn_JobTracker), "StartJob", typeof(Expose<Job>), typeof(JobCondition), typeof(ThinkNode), typeof(bool), typeof(bool), typeof(ThinkTreeDef), typeof(JobTag?), typeof(bool));
+            Sync.RegisterSyncMethod(typeof(Pawn_JobTracker), "TryTakeOrderedJob", typeof(Expose<Job>), typeof(JobTag));
+            Sync.RegisterSyncMethod(typeof(Pawn_JobTracker), "TryTakeOrderedJobPrioritizedWork", typeof(Expose<Job>), typeof(WorkGiver), typeof(IntVec3));
+            Sync.RegisterSyncMethod(typeof(StorageSettings), "set_Priority");
+            Sync.RegisterSyncMethod(typeof(Pawn), "set_Name", typeof(Expose<Name>));
+        }
 
         public static SyncField SyncTimetable = Sync.Field(typeof(Pawn), "timetable", "times");
-
-        [MpPrefix(typeof(Pawn_TimetableTracker), "SetAssignment")]
-        static bool SetTimetableAssignment(Pawn_TimetableTracker __instance, int hour, TimeAssignmentDef ta)
-        {
-            return !SyncSetAssignment.DoSync(__instance.GetPropertyOrField("pawn"), hour, ta);
-        }
 
         [MpPrefix(typeof(PawnColumnWorker_CopyPasteTimetable), "PasteTo")]
         static bool CopyPasteTimetable(Pawn p)
         {
-            return !SyncTimetable.DoSync(p, MpReflection.GetPropertyOrField("PawnColumnWorker_CopyPasteTimetable.clipboard"));
+            return !SyncTimetable.DoSync(p, MpReflection.GetValueStatic(typeof(PawnColumnWorker_CopyPasteTimetable), "clipboard"));
+        }
+    }
+
+    public static class SyncThingFilters
+    {
+        public static SyncMethod[] SyncThingFilterAllowThing = Sync.MethodMultiTarget(Sync.thingFilterTarget, "SetAllow", typeof(ThingDef), typeof(bool));
+        public static SyncMethod[] SyncThingFilterAllowSpecial = Sync.MethodMultiTarget(Sync.thingFilterTarget, "SetAllow", typeof(SpecialThingFilterDef), typeof(bool));
+        public static SyncMethod[] SyncThingFilterAllowStuffCategory = Sync.MethodMultiTarget(Sync.thingFilterTarget, "SetAllow", typeof(StuffCategoryDef), typeof(bool));
+
+        [MpPrefix(typeof(ThingFilter), "SetAllow", typeof(StuffCategoryDef), typeof(bool))]
+        static bool ThingFilter_SetAllow(StuffCategoryDef cat, bool allow)
+        {
+            return !SyncThingFilterAllowStuffCategory.DoSync(MethodMarkers.ThingFilterOwner, cat, allow);
         }
 
-        [MpPrefix(typeof(Pawn_WorkSettings), "SetPriority")]
-        static bool SetWorkPriority(Pawn_WorkSettings __instance, WorkTypeDef w, int priority)
+        [MpPrefix(typeof(ThingFilter), "SetAllow", typeof(SpecialThingFilterDef), typeof(bool))]
+        static bool ThingFilter_SetAllow(SpecialThingFilterDef sfDef, bool allow)
         {
-            return !SyncSetWorkPriority.DoSync(__instance.GetPropertyOrField("pawn"), w, priority);
+            return !SyncThingFilterAllowSpecial.DoSync(MethodMarkers.ThingFilterOwner, sfDef, allow);
         }
 
-        [MpPrefix(typeof(Pawn_DraftController), "set_Drafted")]
-        static bool SetDrafted(Pawn_DraftController __instance, bool value)
+        [MpPrefix(typeof(ThingFilter), "SetAllow", typeof(ThingDef), typeof(bool))]
+        static bool ThingFilter_SetAllow(ThingDef thingDef, bool allow)
         {
-            return !SyncSetDrafted.DoSync(__instance.pawn, value);
+            return !SyncThingFilterAllowThing.DoSync(MethodMarkers.ThingFilterOwner, thingDef, allow);
         }
 
-        [MpPrefix(typeof(Pawn_DraftController), "set_FireAtWill")]
-        static bool SetFireAtWill(Pawn_DraftController __instance, bool value)
+        [MpPrefix(typeof(ThingFilter), "SetAllow", typeof(ThingCategoryDef), typeof(bool), typeof(IEnumerable<ThingDef>), typeof(IEnumerable<SpecialThingFilterDef>))]
+        static bool ThingFilter_SetAllow(ThingCategoryDef categoryDef, bool allow)
         {
-            return !SyncSetFireAtWill.DoSync(__instance.pawn, value);
+            if (!Multiplayer.ShouldSync || MethodMarkers.ThingFilterOwner == null) return true;
+
+            if (MethodMarkers.tabStorage != null)
+                ThingFilter_AllowCategory_HelperStorage(MethodMarkers.tabStorage, categoryDef, allow);
+            else if (MethodMarkers.billConfig != null)
+                ThingFilter_AllowCategory_HelperBill(MethodMarkers.billConfig, categoryDef, allow);
+            else if (MethodMarkers.dialogOutfit != null)
+                ThingFilter_AllowCategory_HelperOutfit(MethodMarkers.dialogOutfit, categoryDef, allow);
+
+            return false;
         }
 
-        [MpPrefix(typeof(Pawn_JobTracker), "StartJob")]
-        static bool StartJob(Pawn_JobTracker __instance, Job newJob, JobCondition lastJobEndCondition, ThinkNode jobGiver, bool resumeCurJobAfterwards, bool cancelBusyStances, ThinkTreeDef thinkTree, JobTag? tag, bool fromQueue)
+        [MpPrefix(typeof(ThingFilter), "SetDisallowAll")]
+        static bool ThingFilter_SetDisallowAll()
         {
-            return !SyncSetFireAtWill.DoSync(__instance.GetPropertyOrField("pawn"), newJob, lastJobEndCondition, jobGiver, resumeCurJobAfterwards, cancelBusyStances, thinkTree, tag, fromQueue);
+            if (!Multiplayer.ShouldSync || MethodMarkers.ThingFilterOwner == null) return true;
+
+            if (MethodMarkers.tabStorage != null)
+                ThingFilter_DisallowAll_HelperStorage(MethodMarkers.tabStorage);
+            else if (MethodMarkers.billConfig != null)
+                ThingFilter_DisallowAll_HelperBill(MethodMarkers.billConfig);
+            else if (MethodMarkers.dialogOutfit != null)
+                ThingFilter_DisallowAll_HelperOutfit(MethodMarkers.dialogOutfit);
+
+            return false;
         }
 
-        [MpPrefix(typeof(StorageSettings), "set_Priority")]
-        static bool StorageSetPriority(StorageSettings __instance, StoragePriority value)
+        [MpPrefix(typeof(ThingFilter), "SetAllowAll")]
+        static bool ThingFilter_SetAllowAll()
         {
-            return !SyncSetStoragePriority.DoSync(__instance.owner, value);
+            if (!Multiplayer.ShouldSync || MethodMarkers.ThingFilterOwner == null) return true;
+
+            if (MethodMarkers.tabStorage != null)
+                ThingFilter_AllowAll_HelperStorage(MethodMarkers.tabStorage);
+            else if (MethodMarkers.billConfig != null)
+                ThingFilter_AllowAll_HelperBill(MethodMarkers.billConfig);
+            else if (MethodMarkers.dialogOutfit != null)
+                ThingFilter_AllowAll_HelperOutfit(MethodMarkers.dialogOutfit);
+
+            return false;
         }
 
-        [MpPrefix(typeof(Pawn_JobTracker), "TryTakeOrderedJob")]
-        static bool TryTakeOrderedJob(Pawn_JobTracker __instance, Job job, JobTag tag)
-        {
-            return !SyncTryTakeOrderedJob.DoSync(__instance.GetPropertyOrField("pawn"), job, tag);
-        }
+        private static IEnumerable<SpecialThingFilterDef> OutfitSpecialFilters = SpecialThingFilterDefOf.AllowNonDeadmansApparel.ToEnumerable();
 
-        [MpPrefix(typeof(Pawn_JobTracker), "TryTakeOrderedJobPrioritizedWork")]
-        static bool TryTakeOrderedJobPrioritizedWork(Pawn_JobTracker __instance, Job job, WorkGiver giver, IntVec3 cell)
-        {
-            return !SyncTryTakeOrderedJobPrioritizedWork.DoSync(__instance.GetPropertyOrField("pawn"), job, giver, cell);
-        }
+        [SyncMethod]
+        static void ThingFilter_DisallowAll_HelperBill(Bill bill) => bill.ingredientFilter.SetDisallowAll(null, bill.recipe.forceHiddenSpecialFilters);
 
-        [MpPrefix(typeof(BillStack), "AddBill")]
-        static bool AddBill(BillStack __instance, Bill bill)
-        {
-            return !SyncAddBill.DoSync(__instance, bill);
-        }
+        [SyncMethod]
+        static void ThingFilter_AllowAll_HelperBill(Bill bill) => bill.ingredientFilter.SetAllowAll(bill.recipe.fixedIngredientFilter);
 
-        [MpPrefix(typeof(BillStack), "Delete")]
-        static bool DeleteBill(BillStack __instance, Bill bill)
-        {
-            return !SyncDeleteBill.DoSync(__instance, bill);
-        }
+        [SyncMethod]
+        static void ThingFilter_DisallowAll_HelperOutfit(Outfit outfit) => outfit.filter.SetDisallowAll(null, OutfitSpecialFilters);
 
-        [MpPrefix(typeof(BillStack), "Reorder")]
-        static bool ReorderBill(BillStack __instance, Bill bill, int offset)
+        [SyncMethod]
+        static void ThingFilter_AllowAll_HelperOutfit(Outfit outfit) => outfit.filter.SetAllowAll((ThingFilter)MpReflection.GetValueStatic(typeof(Dialog_ManageOutfits), "apparelGlobalFilter"));
+
+        [SyncMethod]
+        static void ThingFilter_DisallowAll_HelperStorage(IStoreSettingsParent storage) => storage.GetStoreSettings().filter.SetDisallowAll(null, null);
+
+        [SyncMethod]
+        static void ThingFilter_AllowAll_HelperStorage(IStoreSettingsParent storage) => storage.GetStoreSettings().filter.SetAllowAll(storage.GetParentStoreSettings()?.filter);
+
+        [SyncMethod]
+        static void ThingFilter_AllowCategory_HelperBill(Bill bill, ThingCategoryDef categoryDef, bool allow) => ThingFilter_AllowCategory_Helper(bill.ingredientFilter, categoryDef, allow, bill.recipe.fixedIngredientFilter, null, bill.recipe.forceHiddenSpecialFilters);
+
+        [SyncMethod]
+        static void ThingFilter_AllowCategory_HelperOutfit(Outfit outfit, ThingCategoryDef categoryDef, bool allow) => ThingFilter_AllowCategory_Helper(outfit.filter, categoryDef, allow, (ThingFilter)MpReflection.GetValueStatic(typeof(Dialog_ManageOutfits), "apparelGlobalFilter"), null, OutfitSpecialFilters);
+
+        [SyncMethod]
+        static void ThingFilter_AllowCategory_HelperStorage(IStoreSettingsParent storage, ThingCategoryDef categoryDef, bool allow) => ThingFilter_AllowCategory_Helper(storage.GetStoreSettings().filter, categoryDef, allow, storage.GetParentStoreSettings()?.filter, null, null);
+
+        private static MethodInfo CalculateHiddenSpecialFilters = AccessTools.Method(typeof(Listing_TreeThingFilter), "CalculateHiddenSpecialFilters");
+
+        static void ThingFilter_AllowCategory_Helper(ThingFilter filter, ThingCategoryDef categoryDef, bool allow, ThingFilter parentfilter, IEnumerable<ThingDef> forceHiddenDefs, IEnumerable<SpecialThingFilterDef> forceHiddenFilters)
         {
-            return !SyncReorderBill.DoSync(__instance, bill, offset);
+            Listing_TreeThingFilter listing = new Listing_TreeThingFilter(filter, parentfilter, forceHiddenDefs, forceHiddenFilters, null);
+            CalculateHiddenSpecialFilters.Invoke(listing, new object[0]);
+            filter.SetAllow(categoryDef, allow, forceHiddenDefs, listing.GetPropertyOrField("hiddenSpecialFilters") as IEnumerable<SpecialThingFilterDef>);
         }
     }
 
@@ -306,7 +347,7 @@ namespace Multiplayer.Client
 
         [SyncDelegate]
         [MpPrefix(typeof(ITab_Bills), "<FillTab>c__AnonStorey0", "<>m__0")]
-        static bool ITabBillsAddBill(object __instance, MethodBase __originalMethod)
+        static bool AddBill(object __instance, MethodBase __originalMethod)
         {
             Sync.selThingContext = __instance.GetPropertyOrField("$this/SelThing") as Building_WorkTable;
             bool result = !Sync.Delegate(__instance, __originalMethod, __instance.GetPropertyOrField("$this/SelThing"));
@@ -332,6 +373,8 @@ namespace Multiplayer.Client
         public static Bill billConfig;
         public static Outfit dialogOutfit;
 
+        public static object ThingFilterOwner => tabStorage ?? billConfig ?? (object)dialogOutfit;
+
         [MpPrefix(typeof(MainTabWindow_Work), "DoManualPrioritiesCheckbox")]
         static void ManualPriorities_Prefix() => manualPriorities = true;
 
@@ -354,7 +397,7 @@ namespace Multiplayer.Client
         static void ManageOutfit_Prefix(Dialog_ManageOutfits __instance) => dialogOutfit = (Outfit)__instance.GetPropertyOrField("SelectedOutfit");
 
         [MpPostfix(typeof(Dialog_ManageOutfits), "DoWindowContents")]
-        static void ManageOutfit_Postfix() => billConfig = null;
+        static void ManageOutfit_Postfix() => dialogOutfit = null;
     }
 
 }

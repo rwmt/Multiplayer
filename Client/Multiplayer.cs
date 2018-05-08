@@ -83,13 +83,17 @@ namespace Multiplayer.Client
             MpPatch.DoPatches(typeof(MethodMarkers));
             MpPatch.DoPatches(typeof(SyncPatches));
             MpPatch.DoPatches(typeof(SyncDelegates));
+            MpPatch.DoPatches(typeof(SyncThingFilters));
 
             RuntimeHelpers.RunClassConstructor(typeof(SyncPatches).TypeHandle);
             RuntimeHelpers.RunClassConstructor(typeof(SyncFieldsPatches).TypeHandle);
             RuntimeHelpers.RunClassConstructor(typeof(SyncDelegates).TypeHandle);
+            RuntimeHelpers.RunClassConstructor(typeof(SyncThingFilters).TypeHandle);
 
             Sync.RegisterFieldPatches(typeof(SyncFieldsPatches));
             Sync.RegisterSyncDelegates(typeof(SyncDelegates));
+            Sync.RegisterSyncMethods(typeof(SyncPatches));
+            Sync.RegisterSyncMethods(typeof(SyncThingFilters));
 
             DoPatches();
 
@@ -754,16 +758,6 @@ namespace Multiplayer.Client
                 if (cmdType == CommandType.DESIGNATOR)
                 {
                     HandleDesignator(cmd, data);
-                }
-
-                if (cmdType == CommandType.DELETE_ZONE)
-                {
-                    string factionId = data.ReadString();
-                    string zoneId = data.ReadString();
-
-                    map.PushFaction(factionId);
-                    map.zoneManager.AllZones.FirstOrDefault(z => z.label == zoneId)?.Delete();
-                    map.PopFaction();
                 }
 
                 if (cmdType == CommandType.SPAWN_PAWN)

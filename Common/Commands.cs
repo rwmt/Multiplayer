@@ -17,7 +17,6 @@
         MAP_ID_BLOCK,
         FORBID,
         DESIGNATOR,
-        DELETE_ZONE,
         SPAWN_PAWN,
     }
 
