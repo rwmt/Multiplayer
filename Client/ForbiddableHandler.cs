@@ -55,7 +55,7 @@ namespace Multiplayer.Client
             if (comp.factionForbidden.TryGetValue(Faction.OfPlayer.loadID, out bool forbidden))
                 __result = forbidden;
             else
-                __result = true; // default Forbidden
+                __result = false; // default Forbidden
         }
     }
 

@@ -159,6 +159,7 @@ namespace Multiplayer.Common
     public class ByteWriter
     {
         private MemoryStream stream = new MemoryStream();
+
         public object context;
 
         public virtual void WriteInt32(int val)
@@ -189,6 +190,11 @@ namespace Multiplayer.Common
         public virtual void WriteBool(bool val)
         {
             stream.WriteByte(val ? (byte)1 : (byte)0);
+        }
+
+        public virtual void WriteByte(byte val)
+        {
+            stream.WriteByte(val);
         }
 
         public virtual void WritePrefixedBytes(byte[] bytes)
@@ -222,7 +228,7 @@ namespace Multiplayer.Common
             }
             else if (obj is byte @byte)
             {
-                stream.WriteByte(@byte);
+                WriteByte(@byte);
             }
             else if (obj is float @float)
             {

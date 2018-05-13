@@ -60,6 +60,11 @@ namespace Multiplayer.Client
             return getters[memberPath](instance);
         }
 
+        public static void SetValueStatic(Type type, string memberPath, object value)
+        {
+            SetValue(null, type + "/" + memberPath, value);
+        }
+
         public static void SetValue(object instance, string memberPath, object value)
         {
             if (instance != null)
@@ -78,6 +83,9 @@ namespace Multiplayer.Client
             return pathType[memberPath];
         }
 
+        /// <summary>
+        /// Appends the type name to the path if needed
+        /// </summary>
         public static string AppendType(string memberPath, Type type)
         {
             string[] parts = memberPath.Split(new[] { '/' }, 2, StringSplitOptions.RemoveEmptyEntries);

@@ -11,7 +11,7 @@ namespace Multiplayer.Client
 {
     public static class SaveCompression
     {
-        public static bool doBetterSave;
+        public static bool doSaveCompression;
         private static Dictionary<ushort, ThingDef> thingDefsByShortHash;
 
         private static FieldInfo plantUnlitTicksField = AccessTools.Field(typeof(Plant), "unlitTicks");
@@ -278,7 +278,7 @@ namespace Multiplayer.Client
     {
         static bool Prefix(MapFileCompressor __instance)
         {
-            if (!SaveCompression.doBetterSave) return true;
+            if (!SaveCompression.doSaveCompression) return true;
 
             Map map = (Map)SaveCompression.compressorMapField.GetValue(__instance);
             SaveCompression.Save(map);
@@ -293,7 +293,7 @@ namespace Multiplayer.Client
     {
         static bool Prefix(MapFileCompressor __instance)
         {
-            if (!SaveCompression.doBetterSave) return true;
+            if (!SaveCompression.doSaveCompression) return true;
 
             Map map = (Map)SaveCompression.compressorMapField.GetValue(__instance);
             SaveCompression.Load(map);
@@ -308,7 +308,7 @@ namespace Multiplayer.Client
     {
         static void Postfix(MapFileCompressor __instance, ref IEnumerable<Thing> __result)
         {
-            if (!SaveCompression.doBetterSave) return;
+            if (!SaveCompression.doSaveCompression) return;
 
             Map map = (Map)SaveCompression.compressorMapField.GetValue(__instance);
             MultiplayerMapComp comp = map.GetComponent<MultiplayerMapComp>();
@@ -323,7 +323,7 @@ namespace Multiplayer.Client
     {
         static void Postfix(Thing t, ref bool __result)
         {
-            if (!SaveCompression.doBetterSave) return;
+            if (!SaveCompression.doSaveCompression) return;
 
             __result = SaveCompression.IsSavePlant(t) || SaveCompression.IsSaveRock(t) || SaveCompression.IsSaveRockRubble(t);
         }

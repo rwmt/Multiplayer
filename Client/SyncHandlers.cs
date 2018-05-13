@@ -198,6 +198,7 @@ namespace Multiplayer.Client
             Sync.RegisterSyncMethod(typeof(Pawn_JobTracker), "TryTakeOrderedJobPrioritizedWork", typeof(Expose<Job>), typeof(WorkGiver), typeof(IntVec3));
             Sync.RegisterSyncMethod(typeof(StorageSettings), "set_Priority");
             Sync.RegisterSyncMethod(typeof(Pawn), "set_Name", typeof(Expose<Name>));
+            Sync.RegisterSyncMethod(typeof(Building_TurretGun), "OrderAttack");
         }
 
         public static SyncField SyncTimetable = Sync.Field(typeof(Pawn), "timetable", "times");
@@ -328,21 +329,16 @@ namespace Multiplayer.Client
         [MpPrefix(typeof(HealthCardUtility), "<GenerateSurgeryOption>c__AnonStorey4", "<>m__0")] // Add medical bill
         static bool GeneralSync(object __instance, MethodBase __originalMethod)
         {
-            return !Sync.Delegate(__instance, __originalMethod, MapProviderMode.ANY_FIELD);
+            return !Sync.Delegate(__instance, __originalMethod);
         }
 
         [SyncDelegate("$this")]
-        [MpPrefix(typeof(Pawn_PlayerSettings), "<GetGizmos>c__Iterator0", "<>m__2")]
-        static bool GizmoReleaseAnimals(object __instance, MethodBase __originalMethod)
+        [MpPrefix(typeof(Pawn_PlayerSettings), "<GetGizmos>c__Iterator0", "<>m__2")]    // Release animals
+        [MpPrefix(typeof(PriorityWork), "<GetGizmos>c__Iterator0", "<>m__0")]           // Clear prioritized work
+        [MpPrefix(typeof(CompFlickable), "<CompGetGizmosExtra>c__Iterator0", "<>m__1")] // Designate flick
+        static bool GeneralIteratorSync(object __instance, MethodBase __originalMethod)
         {
-            return !Sync.Delegate(__instance, __originalMethod, __instance.GetPropertyOrField("$this/pawn"));
-        }
-
-        [SyncDelegate("$this")]
-        [MpPrefix(typeof(PriorityWork), "<GetGizmos>c__Iterator0", "<>m__0")]
-        static bool GizmoClearPrioritizedWork(object __instance, MethodBase __originalMethod)
-        {
-            return !Sync.Delegate(__instance, __originalMethod, __instance.GetPropertyOrField("$this/pawn"));
+            return !Sync.Delegate(__instance, __originalMethod);
         }
 
         [SyncDelegate]
@@ -350,10 +346,19 @@ namespace Multiplayer.Client
         static bool AddBill(object __instance, MethodBase __originalMethod)
         {
             Sync.selThingContext = __instance.GetPropertyOrField("$this/SelThing") as Building_WorkTable;
-            bool result = !Sync.Delegate(__instance, __originalMethod, __instance.GetPropertyOrField("$this/SelThing"));
+            bool result = !Sync.Delegate(__instance, __originalMethod);
             Sync.selThingContext = null;
 
             return result;
+        }
+
+        [SyncDelegate("changeableProjectile", "<>f__ref$0/$this")]
+        [MpPrefix(typeof(Building_TurretGun), "<GetGizmos>c__Iterator0+<GetGizmos>c__AnonStorey2", "<>m__0")] // Remove shell
+        [MpPrefix(typeof(Building_TurretGun), "<GetGizmos>c__Iterator0+<GetGizmos>c__AnonStorey2", "<>m__1")] // Reset forced target
+        [MpPrefix(typeof(Building_TurretGun), "<GetGizmos>c__Iterator0+<GetGizmos>c__AnonStorey2", "<>m__2")] // Toggle hold fire
+        static bool TurretGunGizmos(object __instance, MethodBase __originalMethod)
+        {
+            return !Sync.Delegate(__instance, __originalMethod);
         }
 
         /*[SyncDelegate("lord")]

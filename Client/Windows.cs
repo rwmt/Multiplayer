@@ -394,12 +394,6 @@ namespace Multiplayer.Client
                             settlement.Map.GetComponent<MultiplayerMapComp>().mapIdBlock = Multiplayer.localServer.NextIdBlock();
                         }
 
-                    Thread thread = new Thread(Multiplayer.localServer.Run)
-                    {
-                        Name = "Local server thread"
-                    };
-                    thread.Start();
-
                     LocalClientConnection localClient = new LocalClientConnection()
                     {
                         Username = Multiplayer.username
@@ -421,10 +415,23 @@ namespace Multiplayer.Client
                     Multiplayer.localServer.host = Multiplayer.username;
                     Multiplayer.client = localClient;
 
-                    Multiplayer.chat = new ChatWindow();
-                    MultiplayerServer.instance.UpdatePlayerList();
+                    Find.MainTabsRoot.EscapeCurrentTab(false);
 
-                    Messages.Message("Server started. Listening at " + ipAddr.ToString() + ":" + MultiplayerServer.DEFAULT_PORT, MessageTypeDefOf.SilentInput);
+                    LongEventHandler.QueueLongEvent(() =>
+                    {
+                        Multiplayer.SendGameData(Multiplayer.SaveAndReload());
+
+                        Multiplayer.serverThread = new Thread(Multiplayer.localServer.Run)
+                        {
+                            Name = "Local server thread"
+                        };
+                        Multiplayer.serverThread.Start();
+
+                        Multiplayer.chat = new ChatWindow();
+                        MultiplayerServer.instance.UpdatePlayerList();
+
+                        Messages.Message("Server started. Listening at " + ipAddr.ToString() + ":" + MultiplayerServer.DEFAULT_PORT, MessageTypeDefOf.SilentInput);
+                    }, "Saving", false, null);
                 }
                 catch (SocketException)
                 {

@@ -20,13 +20,15 @@ namespace Multiplayer.Client
     public abstract class SyncHandler
     {
         public readonly int syncId;
+        public readonly bool hasContext;
 
-        public SyncHandler(int syncId)
+        protected SyncHandler(int syncId, bool hasContext)
         {
             this.syncId = syncId;
+            this.hasContext = hasContext;
         }
 
-        public abstract void Read(ByteReader data);
+        public abstract void Handle(ByteReader data);
     }
 
     public class SyncField : SyncHandler
@@ -36,7 +38,7 @@ namespace Multiplayer.Client
         public readonly Type fieldType;
         public readonly Func<object, object> instanceFunc;
 
-        public SyncField(int syncId, Type targetType, string memberPath) : base(syncId)
+        public SyncField(int syncId, Type targetType, string memberPath) : base(syncId, false)
         {
             this.targetType = targetType;
             this.memberPath = targetType + "/" + memberPath;
@@ -52,17 +54,22 @@ namespace Multiplayer.Client
             if (!Multiplayer.ShouldSync)
                 return false;
 
-            int mapId = Sync.GetMap(target)?.uniqueID ?? ScheduledCommand.GLOBAL;
             LoggingByteWriter writer = new LoggingByteWriter();
             writer.LogNode("Sync field " + memberPath);
 
             writer.WriteInt32(syncId);
 
-            Sync.WriteContext(writer, mapId);
+            int mapId = ScheduledCommand.GLOBAL;
             if (targetType != null)
+            {
                 Sync.WriteSyncObject(writer, target, targetType);
+                if (writer.context is Map map)
+                    mapId = map.uniqueID;
+            }
+
             Sync.WriteSyncObject(writer, value, fieldType);
 
+            writer.LogNode("Map id: " + mapId);
             Multiplayer.packetLog.nodes.Add(writer.current);
 
             Multiplayer.client.SendCommand(CommandType.SYNC, mapId, writer.GetArray());
@@ -70,7 +77,7 @@ namespace Multiplayer.Client
             return true;
         }
 
-        public override void Read(ByteReader data)
+        public override void Handle(ByteReader data)
         {
             object target = null;
             if (targetType != null)
@@ -90,7 +97,7 @@ namespace Multiplayer.Client
         public readonly MethodInfo method;
         public Type[] argTypes;
 
-        public SyncMethod(int syncId, Type targetType, string instancePath, string methodName, params Type[] argTypes) : base(syncId)
+        public SyncMethod(int syncId, Type targetType, string instancePath, string methodName, params Type[] argTypes) : base(syncId, true)
         {
             this.targetType = targetType;
 
@@ -105,7 +112,7 @@ namespace Multiplayer.Client
             this.argTypes = CheckArgs(argTypes);
         }
 
-        public SyncMethod(int syncId, Type targetType, MethodInfo method, params Type[] argTypes) : base(syncId)
+        public SyncMethod(int syncId, Type targetType, MethodInfo method, params Type[] argTypes) : base(syncId, true)
         {
             this.method = method;
             this.targetType = targetType;
@@ -130,17 +137,33 @@ namespace Multiplayer.Client
             if (!Multiplayer.ShouldSync)
                 return false;
 
-            int mapId = Sync.GetMap(target)?.uniqueID ?? ScheduledCommand.GLOBAL;
             LoggingByteWriter writer = new LoggingByteWriter();
             writer.LogNode("Sync method " + method);
 
             writer.WriteInt32(syncId);
 
-            Sync.WriteContext(writer, mapId);
-            if (targetType != null)
-                Sync.WriteSyncObject(writer, target, targetType);
-            Sync.WriteSyncObjects(writer, args, argTypes);
+            Sync.WriteContext(writer);
 
+            int mapId = ScheduledCommand.GLOBAL;
+            if (targetType != null)
+            {
+                Sync.WriteSyncObject(writer, target, targetType);
+                if (writer.context is Map map)
+                    mapId = map.uniqueID;
+            }
+
+            for (int i = 0; i < argTypes.Length; i++)
+            {
+                Sync.WriteSyncObject(writer, args[i], argTypes[i]);
+                if (writer.context is Map map)
+                {
+                    if (mapId != ScheduledCommand.GLOBAL && mapId != map.uniqueID)
+                        throw new Exception("SyncMethod map mismatch");
+                    mapId = map.uniqueID;
+                }
+            }
+
+            writer.LogNode("Map id: " + mapId);
             Multiplayer.packetLog.nodes.Add(writer.current);
 
             Multiplayer.client.SendCommand(CommandType.SYNC, mapId, writer.GetArray());
@@ -148,7 +171,7 @@ namespace Multiplayer.Client
             return true;
         }
 
-        public override void Read(ByteReader data)
+        public override void Handle(ByteReader data)
         {
             object target = null;
 
@@ -176,14 +199,13 @@ namespace Multiplayer.Client
 
         public MethodInfo patch;
 
-        public SyncDelegate(int syncId, Type delegateType, MethodInfo method, string[] fieldPaths) : base(syncId)
+        public SyncDelegate(int syncId, Type delegateType, MethodInfo method, string[] fieldPaths) : base(syncId, true)
         {
             this.delegateType = delegateType;
             this.method = method;
 
             argTypes = method.GetParameters().Types();
 
-            this.fieldPaths = fieldPaths;
             if (fieldPaths == null)
             {
                 List<string> fieldList = new List<string>();
@@ -192,16 +214,29 @@ namespace Multiplayer.Client
             }
             else
             {
-                for (int i = 0; i < this.fieldPaths.Length; i++)
+                UniqueList<string> temp = new UniqueList<string>();
+                foreach (string path in fieldPaths.Select(p => MpReflection.AppendType(p, delegateType)))
                 {
-                    this.fieldPaths[i] = MpReflection.AppendType(this.fieldPaths[i], delegateType);
+                    string[] parts = path.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+                    string increment = parts[0] + "/" + parts[1];
+                    for (int i = 2; i < parts.Length; i++)
+                    {
+                        if (!MpReflection.PropertyOrFieldType(increment).HasAttribute<CompilerGeneratedAttribute>())
+                            break;
+                        temp.Add(increment);
+                        increment += "/" + parts[i];
+                    }
+
+                    temp.Add(path);
                 }
+
+                this.fieldPaths = temp.ToArray();
             }
 
             fieldTypes = this.fieldPaths.Select(path => MpReflection.PropertyOrFieldType(path)).ToArray();
         }
 
-        public bool DoSync(object delegateInstance, int mapId, params object[] args)
+        public bool DoSync(object delegateInstance, params object[] args)
         {
             if (!Multiplayer.ShouldSync)
                 return false;
@@ -212,13 +247,28 @@ namespace Multiplayer.Client
 
             writer.WriteInt32(syncId);
 
-            Sync.WriteContext(writer, mapId);
+            Sync.WriteContext(writer);
 
-            for (int i = 0; i < fieldPaths.Length; i++)
-                Sync.WriteSyncObject(writer, delegateInstance.GetPropertyOrField(fieldPaths[i]), fieldTypes[i]);
+            int mapId = ScheduledCommand.GLOBAL;
 
-            Sync.WriteSyncObjects(writer, args, argTypes);
+            IEnumerable<object> fields = fieldPaths.Select(p => delegateInstance.GetPropertyOrField(p));
 
+            EnumerableHelper.CombineAndProcess(fields.Concat(args), fieldTypes.Concat(argTypes), (obj, type) =>
+            {
+                if (type.HasAttribute<CompilerGeneratedAttribute>())
+                    return;
+
+                Sync.WriteSyncObject(writer, obj, type);
+
+                if (writer.context is Map map)
+                {
+                    if (mapId != ScheduledCommand.GLOBAL && mapId != map.uniqueID)
+                        throw new Exception("SyncDelegate map mismatch");
+                    mapId = map.uniqueID;
+                }
+            });
+
+            writer.LogNode("Map id: " + mapId);
             Multiplayer.packetLog.nodes.Add(writer.current);
 
             Multiplayer.client.SendCommand(CommandType.SYNC, mapId, writer.GetArray());
@@ -226,11 +276,21 @@ namespace Multiplayer.Client
             return true;
         }
 
-        public override void Read(ByteReader data)
+        public override void Handle(ByteReader data)
         {
             object target = Activator.CreateInstance(delegateType);
             for (int i = 0; i < fieldPaths.Length; i++)
-                MpReflection.SetValue(target, fieldPaths[i], Sync.ReadSyncObject(data, fieldTypes[i]));
+            {
+                Type fieldType = fieldTypes[i];
+                object value;
+
+                if (fieldType.HasAttribute<CompilerGeneratedAttribute>())
+                    value = Activator.CreateInstance(fieldType);
+                else
+                    value = Sync.ReadSyncObject(data, fieldType);
+
+                MpReflection.SetValue(target, fieldPaths[i], value);
+            }
 
             object[] parameters = Sync.ReadSyncObjects(data, argTypes);
 
@@ -263,7 +323,7 @@ namespace Multiplayer.Client
             }
         }
 
-        private static void Postfix(ref bool __state)
+        private static void Postfix(bool __state)
         {
             if (!__state)
                 return;
@@ -280,7 +340,7 @@ namespace Multiplayer.Client
             }
 
             watchedData.Clear();
-            syncing = __state = false;
+            syncing = false;
         }
 
         public static SyncMethod Method(Type targetType, string methodName)
@@ -332,27 +392,10 @@ namespace Multiplayer.Client
         /// <summary>
         /// Returns whether the sync has been done
         /// </summary>
-        public static bool Delegate(object instance, MethodBase originalMethod, object mapProvider, params object[] args)
+        public static bool Delegate(object instance, MethodBase originalMethod, params object[] args)
         {
             SyncDelegate handler = syncDelegates[originalMethod];
-            int mapId = GetMap(mapProvider)?.uniqueID ?? ScheduledCommand.GLOBAL;
-
-            if (mapProvider == MapProviderMode.ANY_FIELD)
-            {
-                foreach (string path in handler.fieldPaths)
-                {
-                    object obj = instance.GetPropertyOrField(path);
-                    Map map = GetMap(obj);
-                    if (map != null)
-                    {
-                        mapId = map.uniqueID;
-                        break;
-                    }
-                }
-            }
-
-            args = args ?? new object[0];
-            return handler.DoSync(instance, mapId, args);
+            return handler.DoSync(instance, args ?? new object[0]);
         }
 
         public static bool AllDelegateFieldsRecursive(Type type, Func<string, bool> getter, string path = "")
@@ -367,7 +410,7 @@ namespace Multiplayer.Client
                 if (getter(curPath))
                     return true;
 
-                if (Attribute.GetCustomAttribute(field.FieldType, typeof(CompilerGeneratedAttribute)) == null)
+                if (!field.FieldType.HasAttribute<CompilerGeneratedAttribute>())
                     continue;
 
                 if (AllDelegateFieldsRecursive(field.FieldType, getter, curPath))
@@ -490,7 +533,7 @@ namespace Multiplayer.Client
             if (!Multiplayer.ShouldSync) return;
 
             object value = target.GetPropertyOrField(field.memberPath);
-            watchedData.Add(new SyncData(target, field, value));
+            watchedData.Add(new SyncData(field, target, value));
         }
 
         public static void Watch(this SyncField[] group, object target = null)
@@ -514,22 +557,22 @@ namespace Multiplayer.Client
             int syncId = data.ReadInt32();
             SyncHandler handler = handlers[syncId];
 
-            if (data.context is Map)
+            if (handler.hasContext)
             {
                 IntVec3 mouseCell = ReadSync<IntVec3>(data);
                 MouseCellPatch.result = mouseCell;
 
                 Thing selThing = ReadSync<Thing>(data);
                 ITabSelThingPatch.result = selThing;
-            }
 
-            bool shouldQueue = data.ReadBool();
-            KeyIsDownPatch.result = shouldQueue;
-            KeyIsDownPatch.forKey = KeyBindingDefOf.QueueOrder;
+                bool shouldQueue = data.ReadBool();
+                KeyIsDownPatch.result = shouldQueue;
+                KeyIsDownPatch.forKey = KeyBindingDefOf.QueueOrder;
+            }
 
             try
             {
-                handler.Read(data);
+                handler.Handle(data);
             }
             finally
             {
@@ -542,33 +585,11 @@ namespace Multiplayer.Client
 
         public static Thing selThingContext; // for ITabs
 
-        public static void WriteContext(ByteWriter data, int mapId)
+        public static void WriteContext(ByteWriter data)
         {
-            if (mapId >= 0)
-            {
-                WriteSync(data, UI.MouseCell());
-                WriteSync(data, selThingContext);
-            }
-
+            WriteSync(data, Find.VisibleMap != null && !WorldRendererUtility.WorldRenderedNow ? UI.MouseCell() : IntVec3.Invalid);
+            WriteSync(data, selThingContext);
             data.WriteBool(KeyBindingDefOf.QueueOrder.IsDownEvent);
-        }
-
-        public static Map GetMap(object obj)
-        {
-            if (obj is Thing thing)
-                return thing.Map;
-            else if (obj is ThingComp comp)
-                return comp.parent.Map;
-            else if (obj is Zone zone)
-                return zone.Map;
-            else if (obj is Bill bill)
-                return bill.Map;
-            else if (obj is BillStack bills)
-                return bills.billGiver.Map;
-            else if (Find.VisibleMap != null && !WorldRendererUtility.WorldRenderedNow)
-                return Find.VisibleMap;
-
-            return null;
         }
 
         static ReaderDictionary readers = new ReaderDictionary
@@ -579,6 +600,8 @@ namespace Multiplayer.Client
             { data => data.ReadLong() },
             { data => data.ReadFloat() },
             { data => data.ReadDouble() },
+            { data => data.ReadUInt16() },
+            { data => data.ReadByte() },
             { data => ReadSync<Pawn>(data).mindState.priorityWork },
             { data => ReadSync<Pawn>(data).playerSettings },
             { data => ReadSync<Pawn>(data).timetable },
@@ -610,6 +633,8 @@ namespace Multiplayer.Client
             { (ByteWriter data, long l) => data.WriteLong(l) },
             { (ByteWriter data, float f) => data.WriteFloat(f) },
             { (ByteWriter data, double d) => data.WriteDouble(d) },
+            { (ByteWriter data, ushort u) => data.WriteUInt16(u) },
+            { (ByteWriter data, byte b) => data.WriteByte(b) },
             { (ByteWriter data, PriorityWork work) => WriteSync(data, work.GetPropertyOrField("pawn") as Pawn) },
             { (ByteWriter data, Pawn_PlayerSettings comp) => WriteSync(data, comp.GetPropertyOrField("pawn") as Pawn) },
             { (ByteWriter data, Pawn_TimetableTracker comp) => WriteSync(data, comp.GetPropertyOrField("pawn") as Pawn) },
@@ -620,7 +645,7 @@ namespace Multiplayer.Client
             { (ByteWriter data, IntRange range) => { data.WriteInt32(range.min); data.WriteInt32(range.max); }},
             { (ByteWriter data, QualityRange range) => { WriteSync(data, range.min); WriteSync(data, range.max); }},
             { (ByteWriter data, IntVec3 vec) => { data.WriteInt32(vec.x); data.WriteInt32(vec.y); data.WriteInt32(vec.z); }},
-            { (ByteWriter data, ITab_Bills tag) => {} },
+            { (ByteWriter data, ITab_Bills tab) => {} },
             {
                 (ByteWriter data, LocalTargetInfo info) =>
                 {
@@ -631,7 +656,7 @@ namespace Multiplayer.Client
             }
         };
 
-        private static List<Type> storageSettingsImplementations = new List<Type>()
+        private static List<Type> storageParentImplementations = new List<Type>()
         {
             typeof(Building_Grave),
             typeof(Building_Storage),
@@ -721,6 +746,14 @@ namespace Multiplayer.Client
                 ThingDef def = ReadSync<ThingDef>(data);
                 return map.listerThings.ThingsOfDef(def).FirstOrDefault(t => t.thingIDNumber == thingId);
             }
+            else if (typeof(CompChangeableProjectile) == type) // special case
+            {
+                Building_TurretGun parent = ReadSync<Thing>(data) as Building_TurretGun;
+                if (parent == null)
+                    return null;
+
+                return (parent.gun as ThingWithComps).TryGetComp<CompChangeableProjectile>();
+            }
             else if (typeof(ThingComp).IsAssignableFrom(type))
             {
                 string compType = data.ReadString();
@@ -762,7 +795,7 @@ namespace Multiplayer.Client
             else if (typeof(IStoreSettingsParent).IsAssignableFrom(type))
             {
                 int impl = data.ReadInt32();
-                return ReadSyncObject(data, storageSettingsImplementations[impl]) as IStoreSettingsParent;
+                return ReadSyncObject(data, storageParentImplementations[impl]) as IStoreSettingsParent;
             }
             else if (typeof(StorageSettings) == type)
             {
@@ -792,11 +825,6 @@ namespace Multiplayer.Client
         public static void WriteSync<T>(ByteWriter data, T obj)
         {
             WriteSyncObject(data, obj, typeof(T));
-        }
-
-        public static void WriteSyncObject(ByteWriter data, object obj)
-        {
-            WriteSyncObject(data, obj, obj.GetType());
         }
 
         public static void WriteSyncObject(ByteWriter data, object obj, Type type)
@@ -842,15 +870,55 @@ namespace Multiplayer.Client
                 }
                 else if (typeof(Area).IsAssignableFrom(type))
                 {
-                    data.WriteInt32(obj is Area area ? area.ID : -1);
+                    if (obj is Area area)
+                    {
+                        data.context = area.Map;
+                        data.WriteInt32(area.ID);
+                    }
+                    else
+                    {
+                        data.WriteInt32(-1);
+                    }
+
                 }
                 else if (typeof(Zone).IsAssignableFrom(type))
                 {
-                    data.WriteString(obj is Zone zone ? zone.label : "");
+                    if (obj is Zone zone)
+                    {
+                        data.context = zone.Map;
+                        data.WriteString(zone.label);
+                    }
+                    else
+                    {
+                        data.WriteString("");
+                    }
                 }
                 else if (typeof(Def).IsAssignableFrom(type))
                 {
                     data.WriteUInt16(obj is Def def ? def.shortHash : (ushort)0);
+                }
+                else if (typeof(CompChangeableProjectile) == type) // special case
+                {
+                    CompChangeableProjectile comp = obj as CompChangeableProjectile;
+                    if (comp == null)
+                    {
+                        WriteSync<Thing>(data, null);
+                        return;
+                    }
+
+                    CompEquippable compEquippable = comp.parent.TryGetComp<CompEquippable>();
+
+                    if (compEquippable.AllVerbs.Any())
+                    {
+                        Building_TurretGun turretGun = compEquippable.AllVerbs.Select(v => v.caster).OfType<Building_TurretGun>().FirstOrDefault();
+                        if (turretGun != null)
+                        {
+                            WriteSync<Thing>(data, turretGun);
+                            return;
+                        }
+                    }
+
+                    throw new SerializationException("Couldn't save CompChangeableProjectile for thing " + comp.parent);
                 }
                 else if (typeof(ThingComp).IsAssignableFrom(type))
                 {
@@ -867,10 +935,7 @@ namespace Multiplayer.Client
                 else if (typeof(WorkGiver).IsAssignableFrom(type))
                 {
                     WorkGiver workGiver = obj as WorkGiver;
-                    if (workGiver == null)
-                        return;
-
-                    WriteSync(data, workGiver);
+                    WriteSync(data, workGiver.def);
                 }
                 else if (typeof(Thing).IsAssignableFrom(type))
                 {
@@ -881,6 +946,7 @@ namespace Multiplayer.Client
                         return;
                     }
 
+                    data.context = thing.Map;
                     data.WriteInt32(thing.thingIDNumber);
                     WriteSync(data, thing.def);
                 }
@@ -918,11 +984,11 @@ namespace Multiplayer.Client
                 {
                     int impl = -1;
                     Type implType = null;
-                    for (int i = 0; i < storageSettingsImplementations.Count; i++)
+                    for (int i = 0; i < storageParentImplementations.Count; i++)
                     {
-                        if (storageSettingsImplementations[i].IsAssignableFrom(obj.GetType()))
+                        if (storageParentImplementations[i].IsAssignableFrom(obj.GetType()))
                         {
-                            implType = storageSettingsImplementations[i];
+                            implType = storageParentImplementations[i];
                             impl = i;
                         }
                     }
@@ -953,17 +1019,6 @@ namespace Multiplayer.Client
                 log?.LogExit();
             }
         }
-
-        public static void WriteSyncObjects(ByteWriter data, object[] objs, Type[] spec)
-        {
-            for (int i = 0; i < spec.Length; i++)
-                WriteSyncObject(data, objs[i], spec[i]);
-        }
-    }
-
-    public static class MapProviderMode
-    {
-        public static readonly object ANY_FIELD = new object();
     }
 
     public class SyncDelegateAttribute : Attribute
@@ -1049,6 +1104,23 @@ namespace Multiplayer.Client
         }
     }
 
+    class UniqueList<T>
+    {
+        private List<T> list = new List<T>();
+        private HashSet<T> set = new HashSet<T>();
+
+        public void Add(T t)
+        {
+            if (set.Add(t))
+                list.Add(t);
+        }
+
+        public T[] ToArray()
+        {
+            return list.ToArray();
+        }
+    }
+
     public class SerializationException : Exception
     {
         public SerializationException(string msg) : base(msg)
@@ -1058,14 +1130,14 @@ namespace Multiplayer.Client
 
     public struct SyncData
     {
-        public readonly object target;
         public readonly SyncField handler;
+        public readonly object target;
         public readonly object value;
 
-        public SyncData(object target, SyncField handler, object value)
+        public SyncData(SyncField handler, object target, object value)
         {
-            this.target = target;
             this.handler = handler;
+            this.target = target;
             this.value = value;
         }
     }

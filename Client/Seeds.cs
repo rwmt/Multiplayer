@@ -1,29 +1,47 @@
 ﻿using Harmony;
 using Multiplayer.Common;
 using RimWorld.Planet;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
 using Verse;
 
 namespace Multiplayer.Client
 {
-    [HarmonyPatch(typeof(World))]
-    [HarmonyPatch(nameof(World.WorldTick))]
-    public static class SeedWorldTick
+    [HarmonyPatch(typeof(Game))]
+    [HarmonyPatch(nameof(Game.LoadGame))]
+    public static class SeedGameLoad
     {
-        static void Prefix(World __instance)
+        static void Prefix()
         {
             if (Multiplayer.client == null) return;
-            Multiplayer.Seed = Find.TickManager.TicksGame.Combine(Multiplayer.WorldComp.sessionId).Combine(4624);
+            Multiplayer.Seed = 1;
         }
     }
 
-    [HarmonyPatch(typeof(WorldObject))]
-    [HarmonyPatch(nameof(WorldObject.Tick))]
-    public static class SeedWorldObjectTick
+    [HarmonyPatch(typeof(Map))]
+    [HarmonyPatch(nameof(Map.ExposeData))]
+    public static class SeedMapLoad
     {
-        static void Prefix(WorldObject __instance)
+        static void Prefix(Map __instance, ref bool __state)
         {
             if (Multiplayer.client == null) return;
-            Multiplayer.Seed = __instance.ID.Combine(Find.TickManager.TicksGame).Combine(Multiplayer.WorldComp.sessionId);
+            if (Scribe.mode != LoadSaveMode.LoadingVars && Scribe.mode != LoadSaveMode.ResolvingCrossRefs && Scribe.mode != LoadSaveMode.PostLoadInit) return;
+
+            int seed = __instance.uniqueID.Combine(Multiplayer.WorldComp.sessionId);
+            Rand.PushState(seed);
+            UnityRandomSeed.Push(seed);
+
+            __state = true;
+        }
+
+        static void Postfix(bool __state)
+        {
+            if (__state)
+            {
+                Rand.PopState();
+                UnityRandomSeed.Pop();
+            }
         }
     }
 
@@ -31,23 +49,24 @@ namespace Multiplayer.Client
     [HarmonyPatch(nameof(Map.FinalizeLoading))]
     public static class SeedMapFinalizeLoading
     {
-        static void Prefix(Map __instance)
+        static void Prefix(Map __instance, ref bool __state)
         {
             if (Multiplayer.client == null) return;
-            Multiplayer.Seed = __instance.uniqueID.Combine(Multiplayer.WorldComp.sessionId);
+
+            int seed = __instance.uniqueID.Combine(Multiplayer.WorldComp.sessionId);
+            Rand.PushState(seed);
+            UnityRandomSeed.Push(seed);
+
+            __state = true;
         }
-    }
 
-    [HarmonyPatch(typeof(Map))]
-    [HarmonyPatch("ExposeComponents")]
-    public static class SeedMapLoading
-    {
-        static void Prefix(Map __instance)
+        static void Postfix(bool __state)
         {
-            if (Multiplayer.client == null) return;
-            if (Scribe.mode != LoadSaveMode.LoadingVars && Scribe.mode != LoadSaveMode.PostLoadInit) return;
-
-            Multiplayer.Seed = __instance.uniqueID.Combine(Multiplayer.WorldComp.sessionId);
+            if (__state)
+            {
+                Rand.PopState();
+                UnityRandomSeed.Pop();
+            }
         }
     }
 
@@ -58,7 +77,6 @@ namespace Multiplayer.Client
             if (Multiplayer.client == null) return;
 
             __state = __instance.Map;
-            Multiplayer.Seed = __instance.thingIDNumber.Combine(Find.TickManager.TicksGame).Combine(Multiplayer.WorldComp.sessionId);
             ThingContext.Push(__instance);
 
             if (__instance is Pawn)
@@ -73,6 +91,22 @@ namespace Multiplayer.Client
                 __state.PopFaction();
 
             ThingContext.Pop();
+        }
+    }
+
+    public static class UnityRandomSeed
+    {
+        private static Stack<Random.State> stack = new Stack<Random.State>();
+
+        public static void Push(int seed)
+        {
+            stack.Push(Random.state);
+            Random.InitState(seed);
+        }
+
+        public static void Pop()
+        {
+            Random.state = stack.Pop();
         }
     }
 

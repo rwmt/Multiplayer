@@ -45,38 +45,45 @@ namespace Multiplayer.Client
                     {
                         Find.WindowStack.Add(new ConnectWindow());
                     }));
-
-                return;
             }
 
-            int reviewScenario = optList.FindIndex(opt => opt.label == "ReviewScenario".Translate());
-            if (reviewScenario != -1)
+            if (optList.Any(opt => opt.label == "ReviewScenario".Translate()))
             {
                 if (Multiplayer.localServer == null && Multiplayer.client == null)
+                {
                     optList.Insert(0, new ListableOption("Host a server", () =>
                     {
                         Find.WindowStack.Add(new HostWindow());
                     }));
+                }
 
-                optList.Insert(0, new ListableOption("Autosave", () =>
+                if (Multiplayer.client != null)
                 {
-                    /*Stopwatch ticksStart = Stopwatch.StartNew();
-                    for (int i = 0; i < 1000; i++)
+                    optList.Insert(0, new ListableOption("Autosave", () =>
                     {
-                        Find.TickManager.DoSingleTick();
-                    }
-                    Log.Message("1000 ticks took " + ticksStart.ElapsedMilliseconds + "ms (" + (ticksStart.ElapsedMilliseconds / 1000.0) + ")");
-                    */
+                        /*Stopwatch ticksStart = Stopwatch.StartNew();
+                        for (int i = 0; i < 1000; i++)
+                        {
+                            Find.TickManager.DoSingleTick();
+                        }
+                        Log.Message("1000 ticks took " + ticksStart.ElapsedMilliseconds + "ms (" + (ticksStart.ElapsedMilliseconds / 1000.0) + ")");
+                        */
 
-                    //Multiplayer.SendGameData(Multiplayer.SaveGame());
+                        //Multiplayer.SendGameData(Multiplayer.SaveGame());
 
-                    //Multiplayer.localServer.DoAutosave();
-                }));
-            }
+                        //Multiplayer.localServer.DoAutosave();
+                    }));
 
-            if (Multiplayer.client != null)
-            {
-                optList.RemoveAll(opt => opt.label == "Save".Translate() || opt.label == "LoadGame".Translate());
+                    optList.RemoveAll(opt => opt.label == "Save".Translate() || opt.label == "LoadGame".Translate());
+
+                    optList.FirstOrDefault(opt => opt.label == "QuitToMainMenu".Translate()).action = () =>
+                    {
+                        OnMainThread.StopMultiplayer();
+                        GenScene.GoToMainMenu();
+                    };
+
+                    optList.FirstOrDefault(opt => opt.label == "QuitToOS".Translate()).action = () => Root.Shutdown();
+                }
             }
         }
     }
@@ -174,7 +181,7 @@ namespace Multiplayer.Client
 
     [HarmonyPatch(typeof(SavedGameLoader))]
     [HarmonyPatch(nameof(SavedGameLoader.LoadGameFromSaveFile))]
-    [HarmonyPatch(new Type[] { typeof(string) })]
+    [HarmonyPatch(new[] { typeof(string) })]
     public static class LoadPatch
     {
         public static XmlDocument gameToLoad;
@@ -184,20 +191,14 @@ namespace Multiplayer.Client
             if (fileName != "server") return true;
             if (gameToLoad == null) return false;
 
-            DeepProfiler.Start("InitLoading");
-
             ScribeUtil.StartLoading(gameToLoad);
 
             ScribeMetaHeaderUtility.LoadGameDataHeader(ScribeMetaHeaderUtility.ScribeHeaderMode.Map, false);
-
-            DeepProfiler.End();
-
             Scribe.EnterNode("game");
             Current.Game = new Game();
             Current.Game.InitData = new GameInitData();
             Prefs.PauseOnLoad = false;
             Current.Game.LoadGame(); // calls Scribe.loader.FinalizeLoading()
-            Prefs.PauseOnLoad = true;
             Find.TickManager.CurTimeSpeed = TimeSpeed.Paused;
 
             Log.Message("Game loaded");
@@ -557,7 +558,7 @@ namespace Multiplayer.Client
 
             if (CurrentBlock == null)
             {
-                __result = -1;
+                //__result = -1;
                 Log.Warning("Tried to get a unique id without an id block set!");
                 return;
             }

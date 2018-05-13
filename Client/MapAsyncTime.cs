@@ -18,10 +18,9 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.client == null) return;
 
-            List<Map> maps = Find.Maps;
-            for (int i = 0; i < maps.Count; i++)
+            foreach (Map map in Find.Maps)
             {
-                MapAsyncTimeComp comp = maps[i].GetComponent<MapAsyncTimeComp>();
+                MapAsyncTimeComp comp = map.GetComponent<MapAsyncTimeComp>();
 
                 if (comp.timeSpeed != TimeSpeed.Paused && comp.Timer < TickPatch.tickUntil)
                 {
@@ -206,7 +205,7 @@ namespace Multiplayer.Client
     {
         static void Prefix(Pawn pawn, ref Container<int, TimeSpeed> __state)
         {
-            if (Multiplayer.client == null) return;
+            if (Multiplayer.client == null || Current.ProgramState != ProgramState.Playing) return;
 
             Map map = pawn.Map;
             if (map == null) return;

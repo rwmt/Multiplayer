@@ -43,6 +43,7 @@ namespace Multiplayer.Common
         public string worldId;
         public IPAddress addr;
         public int port;
+        public volatile bool running = true;
 
         private NetManager server;
 
@@ -65,13 +66,11 @@ namespace Multiplayer.Common
                 byte[] data = reader.Data;
                 Enqueue(() => MessageReceived(peer, data));
             };
-
-            server.Start(port);
         }
 
         public void Run()
         {
-            while (true)
+            while (running)
             {
                 server.PollEvents();
 
@@ -87,11 +86,13 @@ namespace Multiplayer.Common
 
                 Thread.Sleep(LOOP_SLEEP);
             }
+
+            server.Stop();
         }
 
-        public void Stop()
+        public void StartListening()
         {
-            server.Stop();
+            server.Start(port);
         }
 
         public void DoAutosave()

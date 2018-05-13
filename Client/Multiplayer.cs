@@ -1,4 +1,6 @@
-﻿using Harmony;
+﻿extern alias zip;
+
+using Harmony;
 using Ionic.Zlib;
 using LiteNetLib;
 using Multiplayer.Common;
@@ -12,13 +14,14 @@ using System.Linq;
 using System.Net;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Threading;
 using System.Xml;
 using UnityEngine;
 using Verse;
-using Verse.AI;
 using Verse.Profile;
 using Verse.Sound;
+using zip::Ionic.Zip;
 
 namespace Multiplayer.Client
 {
@@ -27,6 +30,7 @@ namespace Multiplayer.Client
     {
         public static String username;
         public static MultiplayerServer localServer;
+        public static Thread serverThread;
         public static IConnection client;
         public static NetManager netClient;
         public static ChatWindow chat = new ChatWindow();
@@ -137,8 +141,8 @@ namespace Multiplayer.Client
 
         public static XmlDocument SaveGame()
         {
-            bool betterSave = SaveCompression.doBetterSave;
-            SaveCompression.doBetterSave = true;
+            bool betterSave = SaveCompression.doSaveCompression;
+            SaveCompression.doSaveCompression = true;
 
             ScribeUtil.StartWritingToDoc();
 
@@ -155,9 +159,35 @@ namespace Multiplayer.Client
             Find.CameraDriver.Expose();
             Scribe.ExitNode();
 
-            SaveCompression.doBetterSave = betterSave;
+            SaveCompression.doSaveCompression = betterSave;
 
             return ScribeUtil.FinishWritingToDoc();
+        }
+
+        public static XmlDocument SaveAndReload()
+        {
+            SaveCompression.doSaveCompression = true;
+
+            WorldGridCtorPatch.copyFrom = Find.WorldGrid;
+            WorldRendererCtorPatch.copyFrom = Find.World.renderer;
+
+            foreach (Map map in Find.Maps)
+                map.GetComponent<MultiplayerMapComp>().SetFaction(map.ParentFaction);
+
+            XmlDocument gameDoc = SaveGame();
+
+            MemoryUtility.ClearAllMapsAndWorld();
+
+            LoadPatch.gameToLoad = gameDoc;
+            Prefs.PauseOnLoad = false;
+            SavedGameLoader.LoadGameFromSaveFile("server");
+
+            SaveCompression.doSaveCompression = false;
+
+            foreach (Map map in Find.Maps)
+                map.GetComponent<MultiplayerMapComp>().SetFaction(Multiplayer.RealPlayerFaction);
+
+            return gameDoc;
         }
 
         public static void SendGameData(XmlDocument doc, bool sendGame = true)
@@ -187,8 +217,6 @@ namespace Multiplayer.Client
                 Multiplayer.client.Send(Packets.CLIENT_AUTOSAVED_DATA, true, compressedGame);
             }
         }
-
-        static readonly FieldInfo paramName = AccessTools.Field(typeof(ParameterInfo), "NameImpl");
 
         private static void DoPatches()
         {
@@ -339,41 +367,6 @@ namespace Multiplayer.Client
         public override string SettingsCategory() => "Multiplayer";
     }
 
-    public class Encounter
-    {
-        private static List<Encounter> encounters = new List<Encounter>();
-
-        public readonly int tile;
-        public readonly string defender;
-        public List<string> attackers = new List<string>();
-
-        private Encounter(int tile, string defender, string attacker)
-        {
-            this.tile = tile;
-            this.defender = defender;
-            attackers.Add(attacker);
-        }
-
-        public IEnumerable<string> GetPlayers()
-        {
-            yield return defender;
-            foreach (string attacker in attackers)
-                yield return attacker;
-        }
-
-        public static Encounter Add(int tile, string defender, string attacker)
-        {
-            Encounter e = new Encounter(tile, defender, attacker);
-            encounters.Add(e);
-            return e;
-        }
-
-        public static Encounter GetByTile(int tile)
-        {
-            return encounters.FirstOrDefault(e => e.tile == tile);
-        }
-    }
-
     public class ClientWorldState : MultiplayerConnectionState
     {
         public ClientWorldState(IConnection connection) : base(connection)
@@ -461,7 +454,7 @@ namespace Multiplayer.Client
                     {
                         OnMainThread.ExecuteGlobalCmdsWhilePaused();
                     }
-                    // Nothing to do, the game is currently paused
+                    // Nothing to do and the game is currently paused
                     else
                     {
                         catchingUp.Set();
@@ -528,7 +521,7 @@ namespace Multiplayer.Client
 
                 Multiplayer.loadingEncounter = true;
                 Current.ProgramState = ProgramState.MapInitializing;
-                SaveCompression.doBetterSave = true;
+                SaveCompression.doSaveCompression = true;
 
                 ScribeUtil.StartLoading(mapData);
                 ScribeUtil.SupplyCrossRefs();
@@ -542,7 +535,7 @@ namespace Multiplayer.Client
                 Current.Game.AddMap(map);
                 map.FinalizeLoading();
 
-                SaveCompression.doBetterSave = false;
+                SaveCompression.doSaveCompression = false;
                 Multiplayer.loadingEncounter = false;
                 Current.ProgramState = ProgramState.Playing;
 
@@ -663,11 +656,23 @@ namespace Multiplayer.Client
 
         public void OnApplicationQuit()
         {
+            StopMultiplayer();
+        }
+
+        public static void StopMultiplayer()
+        {
             if (Multiplayer.netClient != null)
+            {
                 Multiplayer.netClient.Stop();
+                Multiplayer.client = null;
+            }
 
             if (Multiplayer.localServer != null)
-                Multiplayer.localServer.Stop();
+            {
+                Multiplayer.localServer.running = false;
+                Multiplayer.serverThread = null;
+                Multiplayer.localServer = null;
+            }
         }
 
         public static void ExecuteGlobalCmdsWhilePaused()
@@ -859,7 +864,12 @@ namespace Multiplayer.Client
 
                 if (cmdType == CommandType.AUTOSAVE)
                 {
-                    HandleAutosave(cmd, data);
+                    TimeChangePatch.SetSpeed(TimeSpeed.Paused);
+
+                    LongEventHandler.QueueLongEvent(() =>
+                    {
+                        Multiplayer.SendGameData(Multiplayer.SaveAndReload());
+                    }, "Autosaving", false, null);
                 }
             }
             finally
@@ -896,38 +906,6 @@ namespace Multiplayer.Client
                 Faction.OfPlayer.def = Multiplayer.factionDef;
                 faction.def = FactionDefOf.PlayerColony;
             }
-        }
-
-        private static void HandleAutosave(ScheduledCommand command, ByteReader data)
-        {
-            TimeChangePatch.SetSpeed(TimeSpeed.Paused);
-
-            LongEventHandler.QueueLongEvent(() =>
-            {
-                SaveCompression.doBetterSave = true;
-
-                WorldGridCtorPatch.copyFrom = Find.WorldGrid;
-                WorldRendererCtorPatch.copyFrom = Find.World.renderer;
-
-                foreach (Map map in Find.Maps)
-                    map.GetComponent<MultiplayerMapComp>().SetFaction(map.ParentFaction);
-
-                XmlDocument gameDoc = Multiplayer.SaveGame();
-                LoadPatch.gameToLoad = gameDoc;
-
-                MemoryUtility.ClearAllMapsAndWorld();
-
-                Prefs.PauseOnLoad = false;
-                SavedGameLoader.LoadGameFromSaveFile("server");
-                SaveCompression.doBetterSave = false;
-
-                foreach (Map map in Find.Maps)
-                    map.GetComponent<MultiplayerMapComp>().SetFaction(Multiplayer.RealPlayerFaction);
-
-                Multiplayer.SendGameData(gameDoc);
-            }, "Autosaving", false, null);
-
-            // todo unpause after everyone completes the autosave
         }
 
         private static void HandleDesignator(ScheduledCommand command, ByteReader data)

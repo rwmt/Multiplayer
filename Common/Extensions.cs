@@ -75,6 +75,24 @@ namespace Multiplayer.Common
         }
     }
 
+    public static class EnumerableHelper
+    {
+        public static void CombineAndProcess<T, U>(IEnumerable<T> first, IEnumerable<U> second, Action<T, U> action)
+        {
+            using (var firstEnumerator = first.GetEnumerator())
+            using (var secondEnumerator = second.GetEnumerator())
+            {
+                bool hasFirst = true;
+                bool hasSecond = true;
+
+                while ((hasFirst && (hasFirst = firstEnumerator.MoveNext())) | (hasSecond && (hasSecond = secondEnumerator.MoveNext())))
+                {
+                    action(hasFirst ? firstEnumerator.Current : default(T), hasSecond ? secondEnumerator.Current : default(U));
+                }
+            }
+        }
+    }
+
     public static class XmlExtensions
     {
         public static void SelectAndRemove(this XmlNode node, string xpath)
