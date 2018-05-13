@@ -32,9 +32,9 @@ namespace Multiplayer.Client
                 map.GetComponent<MultiplayerMapComp>().SetFaction(faction);
         }
 
-        public static void PushFaction(this Map map, string factionId)
+        public static void PushFaction(this Map map, int factionId)
         {
-            Faction faction = Find.FactionManager.AllFactions.FirstOrDefault(f => f.GetUniqueLoadID() == factionId);
+            Faction faction = Find.FactionManager.AllFactions.FirstOrDefault(f => f.loadID == factionId);
             map.PushFaction(faction);
         }
 
@@ -52,7 +52,14 @@ namespace Multiplayer.Client
 
         public static Map GetMap(this ScheduledCommand cmd)
         {
+            if (cmd.mapId == ScheduledCommand.GLOBAL) return null;
             return Find.Maps.FirstOrDefault(map => map.uniqueID == cmd.mapId);
+        }
+
+        public static Faction GetFaction(this ScheduledCommand cmd)
+        {
+            if (cmd.factionId == ScheduledCommand.NO_FACTION) return null;
+            return Find.FactionManager.AllFactions.FirstOrDefault(f => f.loadID == cmd.factionId);
         }
     }
 }

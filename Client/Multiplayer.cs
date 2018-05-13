@@ -523,6 +523,7 @@ namespace Multiplayer.Client
                 Current.ProgramState = ProgramState.MapInitializing;
                 SaveCompression.doSaveCompression = true;
 
+                // Faction context for Pawn.ExposeData is set in a patch
                 ScribeUtil.StartLoading(mapData);
                 ScribeUtil.SupplyCrossRefs();
                 List<Map> maps = null;
@@ -533,6 +534,8 @@ namespace Multiplayer.Client
                 Map map = maps[0];
 
                 Current.Game.AddMap(map);
+
+                // Faction context for Pawn.SpawnSetup is set in a patch
                 map.FinalizeLoading();
 
                 SaveCompression.doSaveCompression = false;
@@ -617,13 +620,14 @@ namespace Multiplayer.Client
         {
             CommandType cmd = (CommandType)data.ReadInt32();
             int ticks = data.ReadInt32();
+            int factionId = data.ReadInt32();
             int mapId = data.ReadInt32();
             byte[] extraBytes = data.ReadPrefixedBytes();
 
-            ScheduledCommand schdl = new ScheduledCommand(cmd, ticks, mapId, extraBytes);
+            ScheduledCommand schdl = new ScheduledCommand(cmd, ticks, factionId, mapId, extraBytes);
             OnMainThread.ScheduleCommand(schdl);
 
-            MpLog.Log("Client command on map " + schdl.mapId);
+            MpLog.Log($"Cmd: {cmd}, faction: {schdl.factionId}, map: {schdl.mapId}");
         }
 
         // Currently covers:
@@ -664,7 +668,7 @@ namespace Multiplayer.Client
             if (Multiplayer.netClient != null)
             {
                 Multiplayer.netClient.Stop();
-                Multiplayer.client = null;
+                Multiplayer.netClient = null;
             }
 
             if (Multiplayer.localServer != null)
@@ -673,6 +677,9 @@ namespace Multiplayer.Client
                 Multiplayer.serverThread = null;
                 Multiplayer.localServer = null;
             }
+
+            if (Multiplayer.client != null)
+                Multiplayer.client = null;
         }
 
         public static void ExecuteGlobalCmdsWhilePaused()
@@ -724,6 +731,8 @@ namespace Multiplayer.Client
             VisibleMapGetPatch.visibleMap = map;
             VisibleMapSetPatch.ignore = true;
 
+            map.PushFaction(cmd.GetFaction());
+
             try
             {
                 if (cmdType == CommandType.SYNC)
@@ -767,14 +776,10 @@ namespace Multiplayer.Client
 
                 if (cmdType == CommandType.SPAWN_PAWN)
                 {
-                    string factionId = data.ReadString();
-
-                    map.PushFaction(Find.FactionManager.AllFactions.FirstOrDefault(f => f.GetUniqueLoadID() == factionId));
                     Pawn pawn = ScribeUtil.ReadExposable<Pawn>(data.ReadPrefixedBytes());
 
                     IntVec3 spawn = CellFinderLoose.TryFindCentralCell(map, 7, 10, (IntVec3 x) => !x.Roofed(map));
                     GenSpawn.Spawn(pawn, spawn, map);
-                    map.PopFaction();
                     Log.Message("spawned " + pawn);
                 }
 
@@ -787,25 +792,23 @@ namespace Multiplayer.Client
             {
                 VisibleMapSetPatch.ignore = false;
                 VisibleMapGetPatch.visibleMap = null;
+                map.PopFaction();
             }
         }
 
         private static void HandleForbid(ScheduledCommand cmd, ByteReader data)
         {
             Map map = cmd.GetMap();
-            string thingId = data.ReadString();
-            string factionId = data.ReadString();
+            int thingId = data.ReadInt32();
             bool value = data.ReadBool();
 
-            ThingWithComps thing = map.listerThings.AllThings.FirstOrDefault(t => t.GetUniqueLoadID() == thingId) as ThingWithComps;
+            ThingWithComps thing = map.listerThings.AllThings.FirstOrDefault(t => t.thingIDNumber == thingId) as ThingWithComps;
             if (thing == null) return;
 
             CompForbiddable forbiddable = thing.GetComp<CompForbiddable>();
             if (forbiddable == null) return;
 
-            map.PushFaction(factionId);
             forbiddable.Forbidden = value;
-            map.PopFaction();
         }
 
         private static void HandleMapFactionData(ScheduledCommand cmd, ByteReader data)
@@ -816,10 +819,10 @@ namespace Multiplayer.Client
             Faction faction = Multiplayer.WorldComp.playerFactions[username];
             MultiplayerMapComp comp = map.GetComponent<MultiplayerMapComp>();
 
-            if (!comp.factionMapData.ContainsKey(faction.GetUniqueLoadID()))
+            if (!comp.factionMapData.ContainsKey(faction.loadID))
             {
                 FactionMapData factionMapData = FactionMapData.New(map);
-                comp.factionMapData[faction.GetUniqueLoadID()] = factionMapData;
+                comp.factionMapData[faction.loadID] = factionMapData;
 
                 AreaAddPatch.ignore = true;
                 factionMapData.areaManager.AddStartingAreas();
@@ -837,6 +840,7 @@ namespace Multiplayer.Client
             CommandType cmdType = cmd.type;
 
             UniqueIdsPatch.CurrentBlock = Multiplayer.globalIdBlock;
+            FactionContext.Push(cmd.GetFaction());
 
             try
             {
@@ -875,19 +879,25 @@ namespace Multiplayer.Client
             finally
             {
                 UniqueIdsPatch.CurrentBlock = null;
+                FactionContext.Pop();
             }
         }
 
         private static void HandleSetupFaction(ScheduledCommand command, ByteReader data)
         {
             string username = data.ReadString();
+            int factionId = data.ReadInt32();
             MultiplayerWorldComp comp = Find.World.GetComponent<MultiplayerWorldComp>();
 
             if (!comp.playerFactions.TryGetValue(username, out Faction faction))
             {
-                faction = FactionGenerator.NewGeneratedFaction(FactionDefOf.PlayerColony);
-                faction.Name = username + "'s faction";
-                faction.def = Multiplayer.factionDef;
+                faction = new Faction
+                {
+                    loadID = factionId,
+                    def = Multiplayer.factionDef,
+                    Name = username + "'s faction",
+                    centralMelanin = Rand.Value
+                };
 
                 Find.FactionManager.Add(faction);
                 comp.playerFactions[username] = faction;
@@ -917,10 +927,6 @@ namespace Multiplayer.Client
             Designator designator = GetDesignator(desName, buildDefName);
             if (designator == null) return;
 
-            string factionId = data.ReadString();
-
-            map.PushFaction(factionId);
-
             try
             {
                 if (!SetDesignatorState(map, designator, data)) return;
@@ -944,8 +950,8 @@ namespace Multiplayer.Client
                 }
                 else if (mode == 2)
                 {
-                    string thingId = data.ReadString();
-                    Thing thing = map.listerThings.AllThings.FirstOrDefault(t => t.GetUniqueLoadID() == thingId);
+                    int thingId = data.ReadInt32();
+                    Thing thing = map.listerThings.AllThings.FirstOrDefault(t => t.thingIDNumber == thingId);
 
                     if (thing != null)
                     {
@@ -960,8 +966,6 @@ namespace Multiplayer.Client
             finally
             {
                 DesignatorInstallPatch.thingToInstall = null;
-
-                map.PopFaction();
             }
         }
 
@@ -985,8 +989,8 @@ namespace Multiplayer.Client
         {
             if (designator is Designator_AreaAllowed)
             {
-                string areaId = data.ReadString();
-                Area area = map.areaManager.AllAreas.FirstOrDefault(a => a.GetUniqueLoadID() == areaId);
+                int areaId = data.ReadInt32();
+                Area area = map.areaManager.AllAreas.FirstOrDefault(a => a.ID == areaId);
                 if (area == null) return false;
                 DesignatorPatches.selectedAreaField.SetValue(null, area);
             }
@@ -1006,8 +1010,8 @@ namespace Multiplayer.Client
 
             if (designator is Designator_Install)
             {
-                string thingId = data.ReadString();
-                Thing thing = map.listerThings.AllThings.FirstOrDefault(t => t.GetUniqueLoadID() == thingId);
+                int thingId = data.ReadInt32();
+                Thing thing = map.listerThings.AllThings.FirstOrDefault(t => t.thingIDNumber == thingId);
                 if (thing == null) return false;
                 DesignatorInstallPatch.thingToInstall = thing;
             }
@@ -1201,8 +1205,7 @@ namespace Multiplayer.Client
     {
         public IdBlock mapIdBlock;
 
-        public Dictionary<string, FactionMapData> factionMapData = new Dictionary<string, FactionMapData>();
-        private List<string> keyWorkingList;
+        public Dictionary<int, FactionMapData> factionMapData = new Dictionary<int, FactionMapData>();
         private List<FactionMapData> valueWorkingList;
 
         // for BetterSaver
@@ -1213,7 +1216,7 @@ namespace Multiplayer.Client
         public MultiplayerMapComp(Map map) : base(map)
         {
             if (map.info != null && map.info.parent != null)
-                factionMapData[map.ParentFaction.GetUniqueLoadID()] = FactionMapData.FromMap(map);
+                factionMapData[map.ParentFaction.loadID] = FactionMapData.FromMap(map);
         }
 
         public override void MapComponentTick()
@@ -1222,7 +1225,7 @@ namespace Multiplayer.Client
 
             tickingFactions = true;
 
-            foreach (KeyValuePair<string, FactionMapData> data in factionMapData)
+            foreach (KeyValuePair<int, FactionMapData> data in factionMapData)
             {
                 map.PushFaction(data.Key);
                 data.Value.listerHaulables.ListerHaulablesTick();
@@ -1235,8 +1238,7 @@ namespace Multiplayer.Client
 
         public void SetFaction(Faction faction, bool silent = false)
         {
-            string factionId = faction.GetUniqueLoadID();
-            if (!factionMapData.TryGetValue(factionId, out FactionMapData data))
+            if (!factionMapData.TryGetValue(faction.loadID, out FactionMapData data))
             {
                 if (!silent)
                     MpLog.Log("No map faction data for faction {0} on map {1}", faction, map.uniqueID);
@@ -1259,13 +1261,14 @@ namespace Multiplayer.Client
 
             Multiplayer.ExposeIdBlock(ref mapIdBlock, "mapIdBlock");
 
+            List<int> keyWorkingList = null;
             if (Scribe.mode == LoadSaveMode.Saving)
             {
-                string parentFaction = map.ParentFaction.GetUniqueLoadID();
+                int parentFaction = map.ParentFaction.loadID;
                 if (map.areaManager != factionMapData[parentFaction].areaManager)
                     MpLog.Log("Current map faction data is not parent's faction data during map saving. This might cause problems.");
 
-                Dictionary<string, FactionMapData> data = new Dictionary<string, FactionMapData>(factionMapData);
+                Dictionary<int, FactionMapData> data = new Dictionary<int, FactionMapData>(factionMapData);
                 data.Remove(parentFaction);
                 ScribeUtil.Look(ref data, "factionMapData", LookMode.Deep, ref keyWorkingList, ref valueWorkingList, map);
             }
@@ -1275,11 +1278,11 @@ namespace Multiplayer.Client
             }
 
             if (Scribe.mode == LoadSaveMode.LoadingVars && factionMapData == null)
-                factionMapData = new Dictionary<string, FactionMapData>();
+                factionMapData = new Dictionary<int, FactionMapData>();
 
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
-                string parentFaction = map.ParentFaction.GetUniqueLoadID();
+                int parentFaction = map.ParentFaction.loadID;
                 if (factionMapData.ContainsKey(parentFaction))
                     MpLog.Log("Map's saved faction data includes parent's faction data.");
 

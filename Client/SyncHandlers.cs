@@ -56,6 +56,8 @@ namespace Multiplayer.Client
             "unpauseWhenYouHave"
         );
 
+        public static SyncField SyncGodMode = Sync.Field(null, "Verse.DebugSettings/godMode");
+
         [MpPrefix(typeof(AreaAllowedGUI), "DoAreaSelector")]
         static void DoAreaSelector_Prefix(Pawn p)
         {
@@ -179,6 +181,13 @@ namespace Multiplayer.Client
         static void FloatMenuBillStoreMode(object __instance)
         {
             SyncBillProduction.Watch(__instance.GetPropertyOrField("$this/bill"));
+        }
+
+        [MpPrefix(typeof(Prefs), "set_DevMode")]
+        [MpPrefix(typeof(DebugWindowsOpener), "ToggleGodMode")]
+        static void SetGodMode()
+        {
+            SyncGodMode.Watch();
         }
     }
 

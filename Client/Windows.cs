@@ -381,17 +381,20 @@ namespace Multiplayer.Client
                     Faction.OfPlayer.Name = Multiplayer.username + "'s faction";
                     comp.playerFactions[Multiplayer.username] = Faction.OfPlayer;
 
-                    Multiplayer.localServer = new MultiplayerServer(ipAddr);
-                    MultiplayerServer.instance = Multiplayer.localServer;
+                    MultiplayerServer localServer = new MultiplayerServer(ipAddr);
+                    Multiplayer.localServer = localServer;
+                    MultiplayerServer.instance = localServer;
 
-                    Multiplayer.localServer.highestUniqueId = Find.UniqueIDsManager.GetNextThingID();
-                    Multiplayer.globalIdBlock = Multiplayer.localServer.NextIdBlock();
+                    localServer.nextUniqueId = GetMaxUniqueId();
+                    Multiplayer.globalIdBlock = localServer.NextIdBlock();
+
+                    localServer.playerFactions[Multiplayer.username] = Faction.OfPlayer.loadID;
 
                     foreach (Settlement settlement in Find.WorldObjects.Settlements)
                         if (settlement.HasMap)
                         {
-                            Multiplayer.localServer.mapTiles[settlement.Tile] = settlement.Map.uniqueID;
-                            settlement.Map.GetComponent<MultiplayerMapComp>().mapIdBlock = Multiplayer.localServer.NextIdBlock();
+                            localServer.mapTiles[settlement.Tile] = settlement.Map.uniqueID;
+                            settlement.Map.GetComponent<MultiplayerMapComp>().mapIdBlock = localServer.NextIdBlock();
                         }
 
                     LocalClientConnection localClient = new LocalClientConnection()
@@ -410,24 +413,26 @@ namespace Multiplayer.Client
                     localClient.State = new ClientPlayingState(localClient);
                     localServerConn.State = new ServerPlayingState(localServerConn);
 
-                    Multiplayer.localServer.players.Add(new ServerPlayer(localServerConn));
+                    localServer.players.Add(new ServerPlayer(localServerConn));
 
-                    Multiplayer.localServer.host = Multiplayer.username;
+                    localServer.host = Multiplayer.username;
                     Multiplayer.client = localClient;
 
                     Find.MainTabsRoot.EscapeCurrentTab(false);
+                    Multiplayer.chat = new ChatWindow();
 
                     LongEventHandler.QueueLongEvent(() =>
                     {
                         Multiplayer.SendGameData(Multiplayer.SaveAndReload());
 
-                        Multiplayer.serverThread = new Thread(Multiplayer.localServer.Run)
+                        localServer.StartListening();
+
+                        Multiplayer.serverThread = new Thread(localServer.Run)
                         {
                             Name = "Local server thread"
                         };
                         Multiplayer.serverThread.Start();
 
-                        Multiplayer.chat = new ChatWindow();
                         MultiplayerServer.instance.UpdatePlayerList();
 
                         Messages.Message("Server started. Listening at " + ipAddr.ToString() + ":" + MultiplayerServer.DEFAULT_PORT, MessageTypeDefOf.SilentInput);
@@ -440,6 +445,15 @@ namespace Multiplayer.Client
 
                 this.Close(true);
             }
+        }
+
+        private static int GetMaxUniqueId()
+        {
+            return typeof(UniqueIDsManager)
+                .GetFields(BindingFlags.NonPublic | BindingFlags.Instance)
+                .Where(f => f.FieldType == typeof(int))
+                .Select(f => (int)f.GetValue(Find.UniqueIDsManager))
+                .Max();
         }
     }
 

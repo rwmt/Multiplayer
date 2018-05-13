@@ -22,17 +22,20 @@
 
     public class ScheduledCommand
     {
+        public const int NO_FACTION = -1;
         public const int GLOBAL = -1;
 
         public readonly CommandType type;
         public readonly int ticks;
+        public readonly int factionId;
         public readonly int mapId;
         public readonly byte[] data;
 
-        public ScheduledCommand(CommandType type, int ticks, int mapId, byte[] data)
+        public ScheduledCommand(CommandType type, int ticks, int factionId, int mapId, byte[] data)
         {
             this.type = type;
             this.ticks = ticks;
+            this.factionId = factionId;
             this.mapId = mapId;
             this.data = data;
         }

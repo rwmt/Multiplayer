@@ -77,7 +77,7 @@ namespace Multiplayer.Client
 
             if (Multiplayer.ShouldSync)
             {
-                Multiplayer.client.SendCommand(CommandType.FORBID, thing.Map.uniqueID, thing.GetUniqueLoadID(), Multiplayer.RealPlayerFaction.GetUniqueLoadID(), value);
+                Multiplayer.client.SendCommand(CommandType.FORBID, thing.Map.uniqueID, thing.thingIDNumber, value);
                 return false;
             }
 

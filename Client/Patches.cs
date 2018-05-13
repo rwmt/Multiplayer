@@ -269,7 +269,7 @@ namespace Multiplayer.Client
 
                 text1 += " r:" + Find.VisibleMap.reservationManager.AllReservedThings().Count();
 
-                string faction = Find.VisibleMap.info.parent.Faction.GetUniqueLoadID();
+                int faction = Find.VisibleMap.info.parent.Faction.loadID;
                 FactionMapData data = Find.VisibleMap.GetComponent<MultiplayerMapComp>().factionMapData.GetValueSafe(faction);
 
                 if (data != null)
@@ -564,6 +564,7 @@ namespace Multiplayer.Client
             }
 
             __result = CurrentBlock.NextId();
+            MpLog.Log("got new id " + __result);
 
             if (currentBlock.current > currentBlock.blockSize * 0.95f && !currentBlock.overflowHandled)
             {
@@ -864,9 +865,9 @@ namespace Multiplayer.Client
     [HarmonyPatch(nameof(Pawn_NeedsTracker.AddOrRemoveNeedsAsAppropriate))]
     public static class AddRemoveNeeds
     {
-        static void Prefix()
+        static void Prefix(Pawn_NeedsTracker __instance)
         {
-            //MpLog.Log("add remove needs {0}", FactionContext.OfPlayer.ToString());
+            //MpLog.Log("add remove needs {0} {1}", FactionContext.OfPlayer.ToString(), __instance.GetPropertyOrField("pawn"));
         }
     }
 

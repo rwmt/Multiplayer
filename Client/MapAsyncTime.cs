@@ -22,7 +22,7 @@ namespace Multiplayer.Client
             {
                 MapAsyncTimeComp comp = map.GetComponent<MapAsyncTimeComp>();
 
-                if (comp.timeSpeed != TimeSpeed.Paused && comp.Timer < TickPatch.tickUntil)
+                if (comp.timeSpeed != TimeSpeed.Paused)
                 {
                     if (Mathf.Abs(Time.deltaTime - comp.CurTimePerTick) < comp.CurTimePerTick * 0.2f)
                         comp.realTimeToTickThrough += comp.CurTimePerTick;
@@ -30,7 +30,7 @@ namespace Multiplayer.Client
                         comp.realTimeToTickThrough += Time.deltaTime;
 
                     int num = 0;
-                    while ((comp.realTimeToTickThrough > 0f || comp.Timer < TickPatch.tickUntil - 3) && num < comp.TickRateMultiplier * 2f)
+                    while ((comp.realTimeToTickThrough > 0f || (TickPatch.tickUntil - comp.Timer) > 6) && comp.Timer < TickPatch.tickUntil && num < comp.TickRateMultiplier * 3f)
                     {
                         comp.Tick();
 

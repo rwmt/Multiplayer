@@ -76,7 +76,7 @@ namespace Multiplayer.Client
             if (!Multiplayer.ShouldSync) return true;
 
             Map map = Find.VisibleMap;
-            object[] extra = GetExtra(2, designator).Append(thing.GetUniqueLoadID());
+            object[] extra = GetExtra(2, designator).Append(thing.thingIDNumber);
             Multiplayer.client.SendCommand(CommandType.DESIGNATOR, map.uniqueID, extra);
 
             MoteMaker.ThrowMetaPuffs(thing);
@@ -87,7 +87,7 @@ namespace Multiplayer.Client
         private static object[] GetExtra(int action, Designator designator)
         {
             string buildDefName = designator is Designator_Build build ? build.PlacingDef.defName : "";
-            return new object[] { action, designator.GetType().FullName, buildDefName, Multiplayer.RealPlayerFaction.GetUniqueLoadID() }.Append(Metadata(designator));
+            return new object[] { action, designator.GetType().FullName, buildDefName }.Append(Metadata(designator));
         }
 
         public static readonly FieldInfo selectedAreaField = typeof(Designator_AreaAllowed).GetField("selectedArea", BindingFlags.Static | BindingFlags.NonPublic);
@@ -101,7 +101,7 @@ namespace Multiplayer.Client
             if (designator is Designator_AreaAllowed)
             {
                 Area selectedArea = (Area)selectedAreaField.GetValue(null);
-                meta.Add(selectedArea != null ? selectedArea.GetUniqueLoadID() : "");
+                meta.Add(selectedArea != null ? selectedArea.ID : -1);
             }
 
             if (designator is Designator_Place)
@@ -116,7 +116,7 @@ namespace Multiplayer.Client
 
             if (designator is Designator_Install)
             {
-                meta.Add(ThingToInstall().GetUniqueLoadID());
+                meta.Add(ThingToInstall().thingIDNumber);
             }
 
             return meta.ToArray();
