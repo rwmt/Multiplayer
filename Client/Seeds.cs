@@ -1,5 +1,6 @@
 ﻿using Harmony;
 using Multiplayer.Common;
+using RimWorld;
 using RimWorld.Planet;
 using System.Collections;
 using System.Collections.Generic;
@@ -70,6 +71,26 @@ namespace Multiplayer.Client
         }
     }
 
+    [MpPatch(typeof(VoluntarilyJoinableLordsStarter), "Tick_TryStartParty")]
+    [MpPatch(typeof(DamageWatcher), nameof(DamageWatcher.Notify_DamageTaken))]
+    public static class MapParentFactionPatch
+    {
+        static void Prefix(ref bool __state)
+        {
+            if (MapAsyncTimeComp.tickingMap is Map map)
+            {
+                map.PushFaction(map.ParentFaction);
+                __state = true;
+            }
+        }
+
+        static void Postfix(bool __state)
+        {
+            if (__state)
+                MapAsyncTimeComp.tickingMap.PopFaction();
+        }
+    }
+
     public static class PatchThingMethods
     {
         public static void Prefix(Thing __instance, ref Container<Map> __state)
@@ -79,7 +100,7 @@ namespace Multiplayer.Client
             __state = __instance.Map;
             ThingContext.Push(__instance);
 
-            if (__instance is Pawn)
+            if (__instance is Pawn || __instance is Building)
                 __instance.Map.PushFaction(__instance.Faction);
         }
 
@@ -87,7 +108,7 @@ namespace Multiplayer.Client
         {
             if (__state == null) return;
 
-            if (__instance is Pawn)
+            if (__instance is Pawn || __instance is Building)
                 __state.PopFaction();
 
             ThingContext.Pop();

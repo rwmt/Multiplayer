@@ -29,6 +29,10 @@ namespace Multiplayer.Client
         }
 
         public abstract void Handle(ByteReader data);
+
+        public override int GetHashCode() => syncId;
+
+        public override bool Equals(object obj) => (obj as SyncHandler)?.syncId == syncId;
     }
 
     public class SyncField : SyncHandler
@@ -37,6 +41,8 @@ namespace Multiplayer.Client
         public readonly string memberPath;
         public readonly Type fieldType;
         public readonly Func<object, object> instanceFunc;
+
+        public Dictionary<object, CachedField> changeBuffer;
 
         public SyncField(int syncId, Type targetType, string memberPath) : base(syncId, false)
         {
@@ -86,6 +92,13 @@ namespace Multiplayer.Client
 
             MpLog.Log("Set " + memberPath + " in " + target + " to " + value + " map " + data.context);
             MpReflection.SetValue(target, memberPath, value);
+        }
+
+        public SyncField BufferChanges()
+        {
+            changeBuffer = new Dictionary<object, CachedField>();
+            Sync.bufferedFields.Add(this);
+            return this;
         }
     }
 
@@ -299,13 +312,51 @@ namespace Multiplayer.Client
         }
     }
 
+    public class CachedField
+    {
+        public SyncField handler;
+        public object target;
+        public object oldValue;
+        public object newValue;
+        public int timestamp;
+        public bool sent;
+
+        public CachedField(SyncField handler, object target, object oldValue, object newValue)
+        {
+            this.handler = handler;
+            this.target = target;
+            this.oldValue = oldValue;
+            this.newValue = newValue;
+
+            timestamp = Environment.TickCount;
+        }
+
+        public bool Changed => !Equals(target.GetPropertyOrField(handler.memberPath), oldValue);
+    }
+
+    public struct SyncData
+    {
+        public readonly SyncField handler;
+        public readonly object target;
+        public readonly object value;
+
+        public SyncData(SyncField handler, object target, object value)
+        {
+            this.handler = handler;
+            this.target = target;
+            this.value = value;
+        }
+    }
+
     public static class Sync
     {
         private static List<SyncHandler> handlers = new List<SyncHandler>();
+        public static List<SyncField> bufferedFields = new List<SyncField>();
         private static Dictionary<MethodBase, SyncDelegate> syncDelegates = new Dictionary<MethodBase, SyncDelegate>();
         private static Dictionary<MethodBase, SyncMethod> syncMethods = new Dictionary<MethodBase, SyncMethod>();
 
         private static List<SyncData> watchedData = new List<SyncData>();
+
         private static bool syncing;
 
         public static MultiTarget thingFilterTarget = new MultiTarget()
@@ -315,15 +366,13 @@ namespace Multiplayer.Client
             { typeof(Outfit), "filter" }
         };
 
-        private static void Prefix(ref bool __state)
+        private static void FieldWatchPrefix(ref bool __state)
         {
             if (!syncing && Multiplayer.ShouldSync)
-            {
                 syncing = __state = true;
-            }
         }
 
-        private static void Postfix(bool __state)
+        private static void FieldWatchPostfix(bool __state)
         {
             if (!__state)
                 return;
@@ -331,12 +380,30 @@ namespace Multiplayer.Client
             foreach (SyncData data in watchedData)
             {
                 object newValue = data.target.GetPropertyOrField(data.handler.memberPath);
+                bool changed = !Equals(newValue, data.value);
+                Dictionary<object, CachedField> cache = data.handler.changeBuffer;
 
-                if (!Equals(newValue, data.value))
+                if (cache != null && cache.TryGetValue(data.target, out CachedField cached))
                 {
-                    MpReflection.SetValue(data.target, data.handler.memberPath, data.value);
-                    data.handler.DoSync(data.target, newValue);
+                    if (changed && cached.sent)
+                    {
+                        cached.sent = false;
+                        cached.timestamp = Environment.TickCount;
+                    }
+
+                    cached.newValue = newValue;
+                    data.target.SetPropertyOrField(data.handler.memberPath, cached.oldValue);
+                    continue;
                 }
+
+                if (!changed) continue;
+
+                if (cache != null)
+                    cache[data.target] = new CachedField(data.handler, data.target, data.value, newValue);
+                else
+                    data.handler.DoSync(data.target, newValue);
+
+                data.target.SetPropertyOrField(data.handler.memberPath, data.value);
             }
 
             watchedData.Clear();
@@ -367,9 +434,7 @@ namespace Multiplayer.Client
 
         public static SyncField Field(Type targetType, string fieldName)
         {
-            SyncField handler = new SyncField(handlers.Count, targetType, fieldName);
-            handlers.Add(handler);
-            return handler;
+            return Field(targetType, null, fieldName);
         }
 
         public static SyncField Field(Type targetType, string instancePath, string fieldName)
@@ -463,15 +528,14 @@ namespace Multiplayer.Client
         {
             return argTypes.Select(t =>
             {
-                if (t.IsGenericType && t.GetGenericTypeDefinition() == typeof(Expose<>))
-                    return t.GetGenericArguments()[0];
+                if (t.IsGenericType && t.GetGenericTypeDefinition() == typeof(Expose<>)) return t.GetGenericArguments()[0];
                 return t;
             }).ToArray();
         }
 
         private static void RegisterSyncMethod(MethodInfo method, params Type[] argTypes)
         {
-            Multiplayer.harmony.Patch(method, null, null, new HarmonyMethod(typeof(Sync), "SyncMethodTranspiler"));
+            Multiplayer.harmony.Patch(method, null, null, new HarmonyMethod(typeof(Sync), nameof(Sync.SyncMethodTranspiler)));
             SyncMethod handler = new SyncMethod(handlers.Count, (method.IsStatic ? null : method.DeclaringType), method, argTypes);
             syncMethods[method] = handler;
             handlers.Add(handler);
@@ -486,7 +550,7 @@ namespace Multiplayer.Client
         {
             Label jump = gen.DefineLabel();
 
-            yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(Multiplayer), "get_ShouldSync"));
+            yield return new CodeInstruction(OpCodes.Call, AccessTools.Property(typeof(Multiplayer), nameof(Multiplayer.ShouldSync)).GetGetMethod());
             yield return new CodeInstruction(OpCodes.Brfalse, jump);
             yield return new CodeInstruction(OpCodes.Ldtoken, original);
 
@@ -521,18 +585,24 @@ namespace Multiplayer.Client
 
         public static void RegisterFieldPatches(Type type)
         {
-            HarmonyMethod prefix = new HarmonyMethod(AccessTools.Method(typeof(Sync), "Prefix"));
-            HarmonyMethod postfix = new HarmonyMethod(AccessTools.Method(typeof(Sync), "Postfix"));
+            HarmonyMethod prefix = new HarmonyMethod(AccessTools.Method(typeof(Sync), nameof(Sync.FieldWatchPrefix)));
+            HarmonyMethod postfix = new HarmonyMethod(AccessTools.Method(typeof(Sync), nameof(Sync.FieldWatchPostfix)));
 
-            List<MethodBase> patched = MpPatch.DoPatches(type);
-            new PatchProcessor(Multiplayer.harmony, patched, prefix, postfix).Patch();
+            foreach (MethodBase patched in MpPatch.DoPatches(type))
+                Multiplayer.harmony.Patch(patched, prefix, postfix);
         }
 
         public static void Watch(this SyncField field, object target = null)
         {
             if (!Multiplayer.ShouldSync) return;
 
-            object value = target.GetPropertyOrField(field.memberPath);
+            object value;
+
+            if (field.changeBuffer != null && field.changeBuffer.TryGetValue(target, out CachedField cached))
+                target.SetPropertyOrField(field.memberPath, value = cached.newValue);
+            else
+                value = target.GetPropertyOrField(field.memberPath);
+
             watchedData.Add(new SyncData(field, target, value));
         }
 
@@ -1125,20 +1195,6 @@ namespace Multiplayer.Client
     {
         public SerializationException(string msg) : base(msg)
         {
-        }
-    }
-
-    public struct SyncData
-    {
-        public readonly SyncField handler;
-        public readonly object target;
-        public readonly object value;
-
-        public SyncData(SyncField handler, object target, object value)
-        {
-            this.handler = handler;
-            this.target = target;
-            this.value = value;
         }
     }
 

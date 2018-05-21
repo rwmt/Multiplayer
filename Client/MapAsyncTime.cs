@@ -5,7 +5,6 @@ using RimWorld.Planet;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
-using System.Threading;
 using UnityEngine;
 using Verse;
 
@@ -84,7 +83,7 @@ namespace Multiplayer.Client
     {
         static bool Prefix()
         {
-            return Multiplayer.client == null || MapAsyncTimeComp.tickingMap;
+            return Multiplayer.client == null || MapAsyncTimeComp.tickingMap != null;
         }
     }
 
@@ -93,7 +92,7 @@ namespace Multiplayer.Client
     {
         static bool Prefix()
         {
-            return Multiplayer.client == null || MapAsyncTimeComp.tickingMap;
+            return Multiplayer.client == null || MapAsyncTimeComp.tickingMap != null;
         }
     }
 
@@ -143,7 +142,7 @@ namespace Multiplayer.Client
     {
         static bool Prefix()
         {
-            return Multiplayer.client == null || MapAsyncTimeComp.tickingMap;
+            return Multiplayer.client == null || MapAsyncTimeComp.tickingMap != null;
         }
     }
 
@@ -296,7 +295,7 @@ namespace Multiplayer.Client
 
     public class MapAsyncTimeComp : MapComponent
     {
-        public static bool tickingMap;
+        public static Map tickingMap;
 
         public float CurTimePerTick
         {
@@ -341,6 +340,9 @@ namespace Multiplayer.Client
         public TickList tickListRare = new TickList(TickerType.Rare);
         public TickList tickListLong = new TickList(TickerType.Long);
 
+        // Shared random state for ticking and commands
+        public ulong randState = 1;
+
         public MapAsyncTimeComp(Map map) : base(map)
         {
             storyteller = new Storyteller(StorytellerDefOf.Cassandra, DifficultyDefOf.Medium);
@@ -348,52 +350,57 @@ namespace Multiplayer.Client
 
         public void Tick()
         {
-            tickingMap = true;
-
+            tickingMap = map;
             PreContext();
 
             float tickRate = TickRateMultiplier;
 
             SimpleProfiler.Start();
 
-            map.MapPreTick();
-            mapTicks++;
-            Find.TickManager.DebugSetTicksGame(mapTicks);
-
-            tickListNormal.Tick();
-            tickListRare.Tick();
-            tickListLong.Tick();
-
-            map.PushFaction(map.ParentFaction);
-            storyteller.StorytellerTick();
-            map.PopFaction();
-
-            map.MapPostTick();
-
-            while (scheduledCmds.Count > 0 && scheduledCmds.Peek().ticks == Timer)
+            try
             {
-                ScheduledCommand cmd = scheduledCmds.Dequeue();
-                OnMainThread.ExecuteMapCmd(cmd, new ByteReader(cmd.data));
+                map.MapPreTick();
+                mapTicks++;
+                Find.TickManager.DebugSetTicksGame(mapTicks);
+
+                tickListNormal.Tick();
+                tickListRare.Tick();
+                tickListLong.Tick();
+
+                map.PushFaction(map.ParentFaction);
+                storyteller.StorytellerTick();
+                map.PopFaction();
+
+                map.MapPostTick();
+
+                while (scheduledCmds.Count > 0 && scheduledCmds.Peek().ticks == Timer)
+                {
+                    ScheduledCommand cmd = scheduledCmds.Dequeue();
+                    OnMainThread.ExecuteMapCmd(cmd, new ByteReader(cmd.data));
+                }
             }
-
-            PostContext();
-
-            SimpleProfiler.Pause();
-            if (mapTicks % 300 == 0 && SimpleProfiler.available)
+            finally
             {
-                SimpleProfiler.Print("profiler_" + Multiplayer.username + "_tick.txt");
-                SimpleProfiler.Init(Multiplayer.username);
+                PostContext();
+                if (tickRate >= 1)
+                    timerInt += 1f / tickRate;
 
-                map.GetComponent<MultiplayerMapComp>().SetFaction(map.ParentFaction);
-                byte[] mapData = ScribeUtil.WriteExposable(map, "map", true);
-                File.WriteAllBytes("map_0_" + Multiplayer.username + ".xml", mapData);
-                map.GetComponent<MultiplayerMapComp>().SetFaction(Multiplayer.RealPlayerFaction);
+                tickingMap = null;
+
+                SimpleProfiler.Pause();
+
+                if (!Multiplayer.simulating)
+                    if (mapTicks % 300 == 0 && SimpleProfiler.available)
+                    {
+                        SimpleProfiler.Print("profiler_" + Multiplayer.username + "_tick.txt");
+                        SimpleProfiler.Init(Multiplayer.username);
+
+                        map.GetComponent<MultiplayerMapComp>().SetFaction(map.ParentFaction);
+                        byte[] mapData = ScribeUtil.WriteExposable(map, "map", true);
+                        File.WriteAllBytes("map_0_" + Multiplayer.username + ".xml", mapData);
+                        map.GetComponent<MultiplayerMapComp>().SetFaction(Multiplayer.RealPlayerFaction);
+                    }
             }
-
-            if (tickRate >= 1)
-                timerInt += 1f / tickRate;
-
-            tickingMap = false;
         }
 
         private int worldTicks;
@@ -413,7 +420,7 @@ namespace Multiplayer.Client
 
             UniqueIdsPatch.CurrentBlock = map.GetComponent<MultiplayerMapComp>().mapIdBlock;
 
-            Multiplayer.Seed = map.uniqueID.Combine(mapTicks).Combine(Multiplayer.WorldComp.sessionId);
+            MpReflection.SetValueStatic(typeof(Rand), "StateCompressed", randState);
 
             // Reset the effects of SkyManagerUpdate called during Update
             SkyTarget target = (SkyTarget)map.skyManager.GetPropertyOrField("CurrentSkyTarget");
@@ -429,6 +436,8 @@ namespace Multiplayer.Client
 
             Find.TickManager.DebugSetTicksGame(worldTicks);
             Find.TickManager.CurTimeSpeed = worldSpeed;
+
+            randState = (ulong)MpReflection.GetValueStatic(typeof(Rand), "StateCompressed");
         }
 
         public void ExecuteMapCmdsWhilePaused()

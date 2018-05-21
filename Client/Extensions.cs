@@ -61,5 +61,10 @@ namespace Multiplayer.Client
             if (cmd.factionId == ScheduledCommand.NO_FACTION) return null;
             return Find.FactionManager.AllFactions.FirstOrDefault(f => f.loadID == cmd.factionId);
         }
+
+        public static void RemoveAll<K, V>(this Dictionary<K, V> dict, Func<K, V, bool> predicate)
+        {
+            dict.RemoveAll(p => predicate(p.Key, p.Value));
+        }
     }
 }

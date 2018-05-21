@@ -5,10 +5,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using Verse;
 
 namespace Multiplayer.Client
 {
-    [AttributeUsage(AttributeTargets.Method, AllowMultiple = true)]
+    /// <summary>
+    /// Applies a normal Harmony patch, but allows multiple targets
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Class, AllowMultiple = true, Inherited = false)]
     public class MpPatch : Attribute
     {
         private Type type;
@@ -47,17 +51,17 @@ namespace Multiplayer.Client
             }
         }
 
-        protected MpPatch(Type type, string innerType, string methodName) : this($"{type}+{innerType}", methodName)
+        public MpPatch(Type type, string innerType, string methodName) : this($"{type}+{innerType}", methodName)
         {
         }
 
-        protected MpPatch(string typeName, string methodName)
+        public MpPatch(string typeName, string methodName)
         {
             this.typeName = typeName;
             this.methodName = methodName;
         }
 
-        protected MpPatch(Type type, string methodName, params Type[] argTypes)
+        public MpPatch(Type type, string methodName, params Type[] argTypes)
         {
             this.type = type;
             this.methodName = methodName;
@@ -68,17 +72,31 @@ namespace Multiplayer.Client
         {
             List<MethodBase> result = new List<MethodBase>();
 
+            foreach (MpPatch attr in type.AllAttributes<MpPatch>())
+            {
+                MethodInfo toPatch = attr.Method;
+                HarmonyMethod harmonyMethod = new HarmonyMethod
+                {
+                    originalType = toPatch.DeclaringType,
+                    methodName = toPatch.Name,
+                    parameter = toPatch.GetParameters().Types()
+                };
+
+                new PatchProcessor(Multiplayer.harmony, type, harmonyMethod).Patch();
+                result.Add(toPatch);
+            }
+
             foreach (MethodInfo m in AccessTools.GetDeclaredMethods(type))
             {
                 foreach (MpPatch attr in m.AllAttributes<MpPatch>())
                 {
-                    MethodInfo patched = attr.Method;
+                    MethodInfo toPatch = attr.Method;
                     bool postfix = attr.GetType() == typeof(MpPostfix);
 
                     HarmonyMethod patch = new HarmonyMethod(m);
-                    Multiplayer.harmony.Patch(patched, postfix ? null : patch, postfix ? patch : null);
+                    Multiplayer.harmony.Patch(toPatch, postfix ? null : patch, postfix ? patch : null);
 
-                    result.Add(patched);
+                    result.Add(toPatch);
                 }
             }
 
@@ -86,6 +104,10 @@ namespace Multiplayer.Client
         }
     }
 
+    /// <summary>
+    /// Prefix method attribute
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Method, AllowMultiple = true)]
     public class MpPrefix : MpPatch
     {
         public MpPrefix(string typeName, string method) : base(typeName, method)
@@ -101,6 +123,10 @@ namespace Multiplayer.Client
         }
     }
 
+    /// <summary>
+    /// Postfix method attribute
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Method, AllowMultiple = true)]
     public class MpPostfix : MpPatch
     {
         public MpPostfix(string typeName, string method) : base(typeName, method)

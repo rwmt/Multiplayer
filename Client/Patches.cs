@@ -27,6 +27,28 @@ namespace Multiplayer.Client
         static void Postfix() => drawing = false;
     }
 
+    [HarmonyPatch(typeof(WildSpawner))]
+    [HarmonyPatch(nameof(WildSpawner.WildSpawnerTick))]
+    public static class WildSpawnerTickMarker
+    {
+        public static bool ticking;
+
+        static void Prefix() => ticking = true;
+
+        static void Postfix() => ticking = false;
+    }
+
+    [HarmonyPatch(typeof(SteadyAtmosphereEffects))]
+    [HarmonyPatch(nameof(SteadyAtmosphereEffects.SteadyAtmosphereEffectsTick))]
+    public static class SteadyAtmosphereEffectsTickkMarker
+    {
+        public static bool ticking;
+
+        static void Prefix() => ticking = true;
+
+        static void Postfix() => ticking = false;
+    }
+
     [HarmonyPatch(typeof(OptionListingUtility))]
     [HarmonyPatch(nameof(OptionListingUtility.DrawOptionListing))]
     public static class MainMenuPatch
@@ -88,8 +110,7 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(MapDrawer))]
-    [HarmonyPatch(nameof(MapDrawer.RegenerateEverythingNow))]
+    // Currently broken
     public static class MapDrawerRegenPatch
     {
         public static Dictionary<string, MapDrawer> copyFrom = new Dictionary<string, MapDrawer>();
@@ -113,6 +134,7 @@ namespace Multiplayer.Client
         }
     }
 
+    [HarmonyPatch(typeof(WorldGrid))]
     public static class WorldGridCtorPatch
     {
         public static WorldGrid copyFrom;
@@ -146,6 +168,7 @@ namespace Multiplayer.Client
         }
     }
 
+    [HarmonyPatch(typeof(WorldRenderer))]
     public static class WorldRendererCtorPatch
     {
         public static WorldRenderer copyFrom;
@@ -193,6 +216,7 @@ namespace Multiplayer.Client
 
             ScribeUtil.StartLoading(gameToLoad);
 
+            Multiplayer.loadingEncounter = true;
             ScribeMetaHeaderUtility.LoadGameDataHeader(ScribeMetaHeaderUtility.ScribeHeaderMode.Map, false);
             Scribe.EnterNode("game");
             Current.Game = new Game();
@@ -200,6 +224,7 @@ namespace Multiplayer.Client
             Prefs.PauseOnLoad = false;
             Current.Game.LoadGame(); // calls Scribe.loader.FinalizeLoading()
             Find.TickManager.CurTimeSpeed = TimeSpeed.Paused;
+            Multiplayer.loadingEncounter = false;
 
             Log.Message("Game loaded");
 
@@ -248,6 +273,20 @@ namespace Multiplayer.Client
             Log.Message("New map: " + visibleMap.GetUniqueLoadID());
 
             ClientPlayingState.SyncClientWorldObj(factionBase);
+        }
+    }
+
+    [HarmonyPatch(typeof(PawnObserver))]
+    [HarmonyPatch("ObserveSurroundingThings")]
+    public static class ObservePatch
+    {
+        static int i;
+
+        static void Prefix()
+        {
+            if (Multiplayer.client == null) return;
+            MpLog.Log("observer " + ThingContext.Current + " " + i);
+            i++;
         }
     }
 
@@ -535,6 +574,17 @@ namespace Multiplayer.Client
         static bool Prefix() => false;
     }
 
+    [HarmonyPatch(typeof(Faction))]
+    [HarmonyPatch(nameof(Faction.OfPlayer), PropertyMethod.Getter)]
+    public static class FactionOfPlayerPatch
+    {
+        static void Prefix()
+        {
+            if (Multiplayer.Ticking && FactionContext.stack.Count == 0)
+                Log.Warning("Faction context not set during ticking");
+        }
+    }
+
     [HarmonyPatch(typeof(UniqueIDsManager))]
     [HarmonyPatch("GetNextID")]
     public static class UniqueIdsPatch
@@ -736,6 +786,31 @@ namespace Multiplayer.Client
         }
     }
 
+    [HarmonyPatch(typeof(Plant))]
+    [HarmonyPatch(nameof(Plant.TickLong))]
+    public static class PlantTickLong
+    {
+        static void Prefix()
+        {
+            Rand.PushState();
+        }
+
+        static void Postfix()
+        {
+            Rand.PopState();
+        }
+    }
+
+    [HarmonyPatch(typeof(Projectile))]
+    [HarmonyPatch(nameof(Projectile.Tick))]
+    public static class ProjectileTick
+    {
+        static void Postfix(Projectile __instance)
+        {
+            MpLog.Log("projectile " + __instance.GetPropertyOrField("ticksToImpact") + " " + __instance.ExactPosition);
+        }
+    }
+
     [HarmonyPatch(typeof(RandomNumberGenerator_BasicHash))]
     [HarmonyPatch(nameof(RandomNumberGenerator_BasicHash.GetInt))]
     public static class RandPatch
@@ -752,9 +827,18 @@ namespace Multiplayer.Client
 
             dontLog = true;
 
-            if (ThingContext.Current != null && !(ThingContext.Current is Plant))
+            if (MapAsyncTimeComp.tickingMap != null)
             {
-                //Log.Message(Find.TickManager.TicksGame + " " + Multiplayer.username + " " + (call++) + " thing rand " + ThingContext.Current + " " + Rand.Int);
+                call++;
+
+                if (ThingContext.Current == null || !(ThingContext.Current is Plant || ThingContext.Current.def == ThingDefOf.SteamGeyser))
+                    if (!WildSpawnerTickMarker.ticking && !SteadyAtmosphereEffectsTickkMarker.ticking)
+                        MpLog.Log(call + " thing rand " + ThingContext.Current + " " + Rand.Int);
+            }
+
+            if (ThingContext.Current != null && !(ThingContext.Current is Plant) && !(ThingContext.Current.def == ThingDefOf.SteamGeyser))
+            {
+                //MpLog.Log((call++) + " thing rand " + ThingContext.Current + " " + Rand.Int);
             }
             else if (!current.NullOrEmpty())
             {
@@ -777,8 +861,9 @@ namespace Multiplayer.Client
 
         static void Prefix()
         {
-            //if (Current.ProgramState == ProgramState.Playing && !ignore)
-            //Log.Message(Find.TickManager.TicksGame + " " + Multiplayer.username + " set seed");
+            if (dontLog) return;
+            if (MapAsyncTimeComp.tickingMap != null)
+                MpLog.Log("set seed");
         }
     }
 
@@ -828,6 +913,21 @@ namespace Multiplayer.Client
         }
     }
 
+    [HarmonyPatch(typeof(Pawn_DrawTracker))]
+    [HarmonyPatch(nameof(Pawn_DrawTracker.DrawPos), PropertyMethod.Getter)]
+    static class DrawPosPatch
+    {
+        static void Postfix(Pawn_DrawTracker __instance, ref Vector3 __result)
+        {
+            if (Multiplayer.client == null || Multiplayer.ShouldSync) return;
+
+            Vector3 result = __result;
+            result -= __instance.tweener.TweenedPos;
+            result += (Vector3)__instance.tweener.GetPropertyOrField("TweenedPosRoot");
+            __result = result;
+        }
+    }
+
     [HarmonyPatch(typeof(Thing))]
     [HarmonyPatch(nameof(Thing.ExposeData))]
     public static class PawnExposeDataPrefix
@@ -873,17 +973,17 @@ namespace Multiplayer.Client
 
     [HarmonyPatch(typeof(PawnTweener))]
     [HarmonyPatch(nameof(PawnTweener.PreDrawPosCalculation))]
-    public static class DrawPosPatch
+    public static class PreDrawPosCalcPatch
     {
         static void Prefix()
         {
-            if (MapAsyncTimeComp.tickingMap)
+            if (MapAsyncTimeComp.tickingMap != null)
                 SimpleProfiler.Pause();
         }
 
         static void Postfix()
         {
-            if (MapAsyncTimeComp.tickingMap)
+            if (MapAsyncTimeComp.tickingMap != null)
                 SimpleProfiler.Start();
         }
     }

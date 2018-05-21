@@ -41,9 +41,10 @@ namespace Multiplayer.Client
             typeof(Bill),
             null,
             "suspended",
-            "ingredientSearchRadius",
             "allowedSkillRange"
         );
+
+        public static SyncField SyncIngredientSearchRadius = Sync.Field(typeof(Bill), "ingredientSearchRadius").BufferChanges();
 
         public static SyncField[] SyncBillProduction = Sync.Fields(
             typeof(Bill_Production),
@@ -159,6 +160,7 @@ namespace Multiplayer.Client
         {
             Bill_Production bill = __instance.GetPropertyOrField("bill") as Bill_Production;
             SyncBill.Watch(bill);
+            SyncIngredientSearchRadius.Watch(bill);
             SyncBillProduction.Watch(bill);
         }
 
@@ -166,6 +168,7 @@ namespace Multiplayer.Client
         static void BillInterfaceCard(Bill __instance)
         {
             SyncBill.Watch(__instance);
+            SyncIngredientSearchRadius.Watch(__instance);
             SyncBillProduction.Watch(__instance);
         }
 

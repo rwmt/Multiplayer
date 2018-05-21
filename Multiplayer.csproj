@@ -59,7 +59,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Client\AreaHandler.cs" />
-    <Compile Include="Client\BetterSaver.cs" />
+    <Compile Include="Client\SaveCompression.cs" />
     <Compile Include="Client\Extensions.cs" />
     <Compile Include="Client\ForbiddableHandler.cs" />
     <Compile Include="Client\MapAsyncTime.cs" />

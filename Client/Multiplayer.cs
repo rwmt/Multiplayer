@@ -38,6 +38,7 @@ namespace Multiplayer.Client
         public static HarmonyInstance harmony = HarmonyInstance.Create("multiplayer");
 
         public static bool loadingEncounter;
+        public static bool simulating;
 
         public static IdBlock globalIdBlock;
 
@@ -59,12 +60,12 @@ namespace Multiplayer.Client
             }
         }
 
-        public static bool Ticking => TickPatch.tickingWorld || MapAsyncTimeComp.tickingMap;
+        public static bool Ticking => TickPatch.tickingWorld || MapAsyncTimeComp.tickingMap != null;
         public static bool ShouldSync => client != null && !Ticking && !OnMainThread.executingCmds;
 
         static Multiplayer()
         {
-            MpLog.info = str => Log.Message(username + " " + str);
+            MpLog.info = str => Log.Message($"{username} {(Current.Game != null ? (Find.VisibleMap != null ? Find.VisibleMap.GetComponent<MapAsyncTimeComp>().mapTicks.ToString() : "") : "")} {str}");
 
             GenCommandLine.TryGetCommandLineArg("username", out username);
             if (username == null)
@@ -88,6 +89,7 @@ namespace Multiplayer.Client
             MpPatch.DoPatches(typeof(SyncPatches));
             MpPatch.DoPatches(typeof(SyncDelegates));
             MpPatch.DoPatches(typeof(SyncThingFilters));
+            MpPatch.DoPatches(typeof(MapParentFactionPatch));
 
             RuntimeHelpers.RunClassConstructor(typeof(SyncPatches).TypeHandle);
             RuntimeHelpers.RunClassConstructor(typeof(SyncFieldsPatches).TypeHandle);
@@ -102,7 +104,7 @@ namespace Multiplayer.Client
             DoPatches();
 
             LogMessageQueue log = (LogMessageQueue)typeof(Log).GetField("messageQueue", BindingFlags.Static | BindingFlags.NonPublic).GetValue(null);
-            log.maxMessages = 500;
+            log.maxMessages = 1000;
 
             if (GenCommandLine.CommandLineArgPassed("dev"))
             {
@@ -166,6 +168,7 @@ namespace Multiplayer.Client
 
         public static XmlDocument SaveAndReload()
         {
+            Multiplayer.loadingEncounter = true;
             SaveCompression.doSaveCompression = true;
 
             WorldGridCtorPatch.copyFrom = Find.WorldGrid;
@@ -186,6 +189,8 @@ namespace Multiplayer.Client
 
             foreach (Map map in Find.Maps)
                 map.GetComponent<MultiplayerMapComp>().SetFaction(Multiplayer.RealPlayerFaction);
+
+            Multiplayer.loadingEncounter = false;
 
             return gameDoc;
         }
@@ -255,11 +260,11 @@ namespace Multiplayer.Client
                     harmony.Patch(m, randPatchPrefix, randPatchPostfix);
             }
 
-            // Set Rand.Seed, ThingContext and FactionContext (for pawns) in common Thing methods
+            // Set ThingContext and FactionContext (for pawns and buildings) in common Thing methods
             {
                 var thingMethodPrefix = new HarmonyMethod(typeof(PatchThingMethods).GetMethod("Prefix"));
                 var thingMethodPostfix = new HarmonyMethod(typeof(PatchThingMethods).GetMethod("Postfix"));
-                var thingMethods = new[] { "Tick", "TickRare", "TickLong", "SpawnSetup" };
+                var thingMethods = new[] { "Tick", "TickRare", "TickLong", "SpawnSetup", "TakeDamage", "Kill" };
 
                 foreach (Type t in typeof(Thing).AllSubtypesAndSelf())
                 {
@@ -291,14 +296,6 @@ namespace Multiplayer.Client
                 foreach (string m in setMapTime)
                     harmony.Patch(AccessTools.Method(typeof(MapInterface), m), setMapTimePrefix, setMapTimePostfix);
                 harmony.Patch(AccessTools.Method(typeof(SoundRoot), "Update"), setMapTimePrefix, setMapTimePostfix);
-            }
-
-            {
-                var worldGridCtor = AccessTools.Constructor(typeof(WorldGrid));
-                harmony.Patch(worldGridCtor, new HarmonyMethod(AccessTools.Method(typeof(WorldGridCtorPatch), "Prefix")), null);
-
-                var worldRendererCtor = AccessTools.Constructor(typeof(WorldRenderer));
-                harmony.Patch(worldRendererCtor, new HarmonyMethod(AccessTools.Method(typeof(WorldRendererCtorPatch), "Prefix")), null);
             }
         }
 
@@ -553,16 +550,15 @@ namespace Multiplayer.Client
                 foreach (byte[] cmd in cmds)
                     HandleCmdSchedule(new ByteReader(cmd));
 
-                Faction ownerFaction = map.info.parent.Faction;
-
                 mapCatchupStart = TickPatch.Timer;
 
                 Log.Message("Loading took " + time.ElapsedMilliseconds);
-                time = Stopwatch.StartNew();
-
                 Log.Message("Map catchup start " + mapCatchupStart + " " + TickPatch.tickUntil + " " + Find.TickManager.TicksGame + " " + Find.TickManager.CurTimeSpeed);
 
+                time = Stopwatch.StartNew();
+                Faction ownerFaction = map.info.parent.Faction;
                 map.PushFaction(ownerFaction);
+                Multiplayer.simulating = true;
 
                 while (asyncTime.Timer < TickPatch.tickUntil)
                 {
@@ -583,6 +579,11 @@ namespace Multiplayer.Client
                     }
                 }
 
+                // Update pawn rendering position
+                foreach (Pawn pawn in map.mapPawns.AllPawns)
+                    pawn.Drawer.tweener.SetPropertyOrField("tweenedPos", pawn.Drawer.tweener.GetPropertyOrField("TweenedPosRoot"));
+
+                Multiplayer.simulating = false;
                 map.PopFaction();
                 map.GetComponent<MultiplayerMapComp>().SetFaction(Faction.OfPlayer);
 
@@ -656,6 +657,25 @@ namespace Multiplayer.Client
 
             if (!LongEventHandler.ShouldWaitForEvent && Current.Game != null && Find.World != null)
                 ExecuteGlobalCmdsWhilePaused();
+
+            UpdateSync();
+        }
+
+        public void UpdateSync()
+        {
+            foreach (SyncField f in Sync.bufferedFields)
+            {
+                f.changeBuffer.RemoveAll((k, v) =>
+                {
+                    if (!v.sent && Environment.TickCount - v.timestamp > 100)
+                    {
+                        v.handler.DoSync(v.target, v.newValue);
+                        v.sent = true;
+                    }
+
+                    return v.Changed;
+                });
+            }
         }
 
         public void OnApplicationQuit()
@@ -725,7 +745,6 @@ namespace Multiplayer.Client
             Map map = cmd.GetMap();
             if (map == null) return;
 
-            Multiplayer.Seed = Find.TickManager.TicksGame;
             CommandType cmdType = cmd.type;
 
             VisibleMapGetPatch.visibleMap = map;

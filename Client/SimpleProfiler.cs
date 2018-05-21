@@ -28,8 +28,8 @@ namespace Multiplayer.Client
 
         static SimpleProfiler()
         {
-            //available = GetModuleHandle("simple_profiler.dll").ToInt32() != 0;
-            available = false;
+            available = GetModuleHandle("simple_profiler.dll").ToInt32() != 0;
+            //available = false;
         }
 
         public static void Init(string id)
