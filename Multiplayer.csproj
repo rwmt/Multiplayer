@@ -36,8 +36,8 @@
       <HintPath>..\..\..\..\0Harmony.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="Assembly-CSharp">
-      <HintPath>..\..\..\..\RimWorldWin_Data\Managed\Assembly-CSharp.dll</HintPath>
+    <Reference Include="Assembly-CSharp_public">
+      <HintPath>..\..\..\..\RimWorldWin_Data\Managed\Assembly-CSharp_public.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="Ionic.Zip.Reduced, Version=1.9.1.8, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c, processorArchitecture=MSIL">

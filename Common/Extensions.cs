@@ -77,7 +77,7 @@ namespace Multiplayer.Common
 
     public static class EnumerableHelper
     {
-        public static void CombineAndProcess<T, U>(IEnumerable<T> first, IEnumerable<U> second, Action<T, U> action)
+        public static void ProcessCombined<T, U>(IEnumerable<T> first, IEnumerable<U> second, Action<T, U> action)
         {
             using (var firstEnumerator = first.GetEnumerator())
             using (var secondEnumerator = second.GetEnumerator())

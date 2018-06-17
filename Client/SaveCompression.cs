@@ -200,7 +200,7 @@ namespace Multiplayer.Client
                 int plantMadeLeaflessTick = reader.ReadInt32();
 
                 float growth = (growthAndSown & 127) / 127f;
-                bool sown = (growthAndSown & 128) > 0;
+                bool sown = (growthAndSown & 128) != 0;
 
                 ThingDef def = thingDefsByShortHash[defId];
 

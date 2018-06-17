@@ -1,5 +1,6 @@
 ﻿using LiteNetLib;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -254,6 +255,17 @@ namespace Multiplayer.Common
             {
                 Write(arr.Length);
                 foreach (object o in arr)
+                    Write(o);
+            }
+            else if (obj is IList list)
+            {
+                Write(list.Count);
+                foreach (object o in list)
+                    Write(o);
+            }
+            else if (obj is IEnumerable enumerable)
+            {
+                foreach (object o in enumerable)
                     Write(o);
             }
         }

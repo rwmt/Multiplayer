@@ -66,5 +66,10 @@ namespace Multiplayer.Client
         {
             dict.RemoveAll(p => predicate(p.Key, p.Value));
         }
+
+        public static MapAsyncTimeComp AsyncTime(this Map map)
+        {
+            return map.GetComponent<MapAsyncTimeComp>();
+        }
     }
 }

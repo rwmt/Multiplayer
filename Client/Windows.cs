@@ -210,7 +210,14 @@ namespace Multiplayer.Client
 
             Widgets.BeginScrollView(outRect, ref scrollPos, viewRect);
 
-            Rect nodeRect = new Rect(0f, 0f, viewRect.width, 20f);
+            Rect cmdRect = new Rect(0, 0, viewRect.width, 20f);
+            string cmdText = "" + OnMainThread.scheduledCmds.Count;
+            if (OnMainThread.scheduledCmds.Count > 0)
+                cmdText += " " + OnMainThread.scheduledCmds.Peek().type;
+
+            Widgets.Label(cmdRect, cmdText);
+
+            Rect nodeRect = new Rect(0f, 25f, viewRect.width, 20f);
             foreach (LogNode node in nodes)
                 Draw(node, 0, ref nodeRect);
 
@@ -255,7 +262,7 @@ namespace Multiplayer.Client
             this.closeOnEscapeKey = false;
         }
 
-        protected override void DoBack()
+        public override void DoBack()
         {
             Multiplayer.client.Close("");
 
@@ -466,7 +473,7 @@ namespace Multiplayer.Client
             this.action = action;
         }
 
-        protected override void SetName(string name)
+        public override void SetName(string name)
         {
             action(name);
         }

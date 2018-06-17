@@ -34,17 +34,12 @@ namespace Multiplayer.Client
             "defaultCareForHostileFaction"
         );
 
-        public static SyncField[] SyncThingFilterHitPoints = Sync.FieldMultiTarget(Sync.thingFilterTarget, "AllowedHitPointsPercents");
-        public static SyncField[] SyncThingFilterQuality = Sync.FieldMultiTarget(Sync.thingFilterTarget, "AllowedQualityLevels");
+        public static SyncField[] SyncThingFilterHitPoints = Sync.FieldMultiTarget(Sync.thingFilterTarget, "AllowedHitPointsPercents").SetBufferChanges();
+        public static SyncField[] SyncThingFilterQuality = Sync.FieldMultiTarget(Sync.thingFilterTarget, "AllowedQualityLevels").SetBufferChanges();
 
-        public static SyncField[] SyncBill = Sync.Fields(
-            typeof(Bill),
-            null,
-            "suspended",
-            "allowedSkillRange"
-        );
-
-        public static SyncField SyncIngredientSearchRadius = Sync.Field(typeof(Bill), "ingredientSearchRadius").BufferChanges();
+        public static SyncField SyncBillSuspended = Sync.Field(typeof(Bill), "suspended");
+        public static SyncField SyncIngredientSearchRadius = Sync.Field(typeof(Bill), "ingredientSearchRadius").SetBufferChanges();
+        public static SyncField SyncBillSkillRange = Sync.Field(typeof(Bill), "allowedSkillRange").SetBufferChanges();
 
         public static SyncField[] SyncBillProduction = Sync.Fields(
             typeof(Bill_Production),
@@ -159,17 +154,36 @@ namespace Multiplayer.Client
         static void DialogBillConfig(Dialog_BillConfig __instance)
         {
             Bill_Production bill = __instance.GetPropertyOrField("bill") as Bill_Production;
-            SyncBill.Watch(bill);
+
+            SyncBillSuspended.Watch(bill);
+            SyncBillSkillRange.Watch(bill);
             SyncIngredientSearchRadius.Watch(bill);
+
             SyncBillProduction.Watch(bill);
         }
 
         [MpPrefix(typeof(Bill), "DoInterface")]
         static void BillInterfaceCard(Bill __instance)
         {
-            SyncBill.Watch(__instance);
+            SyncBillSuspended.Watch(__instance);
+            SyncBillSkillRange.Watch(__instance);
             SyncIngredientSearchRadius.Watch(__instance);
+
             SyncBillProduction.Watch(__instance);
+        }
+
+        [MpPrefix(typeof(ITab_Bills), "TabUpdate")]
+        static void BillIngredientSearchRadius(ITab_Bills __instance)
+        {
+            if (__instance.GetPropertyOrField("mouseoverBill") is Bill mouseover)
+                SyncIngredientSearchRadius.Watch(mouseover);
+        }
+
+        [MpPrefix(typeof(Dialog_BillConfig), "WindowUpdate")]
+        static void BillIngredientSearchRadius(Dialog_BillConfig __instance)
+        {
+            Bill_Production bill = __instance.GetPropertyOrField("bill") as Bill_Production;
+            SyncIngredientSearchRadius.Watch(bill);
         }
 
         [MpPrefix(typeof(BillRepeatModeUtility), "<MakeConfigFloatMenu>c__AnonStorey0", "<>m__0")]

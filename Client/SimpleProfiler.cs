@@ -25,6 +25,7 @@ namespace Multiplayer.Client
         public static extern IntPtr GetModuleHandle(string lpModuleName);
 
         public static readonly bool available;
+        public static bool running;
 
         static SimpleProfiler()
         {
@@ -42,12 +43,14 @@ namespace Multiplayer.Client
         {
             if (!available) return;
             start_profiler();
+            running = true;
         }
 
         public static void Pause()
         {
             if (!available) return;
             pause_profiler();
+            running = false;
         }
 
         public static void Print(string file)

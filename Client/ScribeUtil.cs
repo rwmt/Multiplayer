@@ -13,16 +13,13 @@ namespace Multiplayer.Client
 {
     public class CrossRefSupply : LoadedObjectDirectory
     {
-        private static readonly FieldInfo dictField = AccessTools.Field(typeof(LoadedObjectDirectory), "allObjectsByLoadID");
-
         // Used in CrossRefs patches
         public List<string> tempKeys = new List<string>();
 
-        public Dictionary<string, ILoadReferenceable> Dict { get; }
+        public Dictionary<string, ILoadReferenceable> Dict { get => allObjectsByLoadID; }
 
         public CrossRefSupply()
         {
-            Dict = (Dictionary<string, ILoadReferenceable>)dictField.GetValue(this);
         }
 
         public void Unregister(ILoadReferenceable thing)
@@ -44,7 +41,6 @@ namespace Multiplayer.Client
     public static class ScribeUtil
     {
         private static MemoryStream stream;
-        private static readonly FieldInfo writerField = typeof(ScribeSaver).GetField("writer", BindingFlags.NonPublic | BindingFlags.Instance);
 
         public static CrossRefSupply crossRefs;
         public static LoadedObjectDirectory defaultCrossRefs;
@@ -65,8 +61,9 @@ namespace Multiplayer.Client
                 Indent = indent,
                 OmitXmlDeclaration = true
             };
+
             XmlWriter writer = XmlWriter.Create(stream, xmlWriterSettings);
-            writerField.SetValue(Scribe.saver, writer);
+            Scribe.saver.writer = writer;
             writer.WriteStartDocument();
         }
 
@@ -83,15 +80,15 @@ namespace Multiplayer.Client
         {
             Scribe.mode = LoadSaveMode.Saving;
             XmlWriter writer = (XmlWriter)Activator.CreateInstance(XmlNodeWriter);
-            writerField.SetValue(Scribe.saver, writer);
+            Scribe.saver.writer = writer;
             writer.WriteStartDocument();
         }
 
         public static XmlDocument FinishWritingToDoc()
         {
-            XmlWriter writer = (XmlWriter)writerField.GetValue(Scribe.saver);
+            XmlWriter writer = Scribe.saver.writer;
             XmlDocument doc = (XmlDocument)GetDocumentProperty.GetValue(writer, null);
-            writerField.SetValue(Scribe.saver, null);
+            Scribe.saver.writer = null;
             Scribe.saver.ExitNode();
             writer.WriteEndDocument();
             Scribe.saver.FinalizeSaving();

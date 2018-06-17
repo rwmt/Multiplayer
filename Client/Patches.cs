@@ -13,9 +13,28 @@ using Verse.AI;
 using Verse.Profile;
 using Multiplayer.Common;
 using System.Text.RegularExpressions;
+using System.Runtime.CompilerServices;
 
 namespace Multiplayer.Client
 {
+    [HarmonyPatch(typeof(PatchProcessor), nameof(PatchProcessor.Patch))]
+    static class PatchProcessorPatch
+    {
+        static void Prefix(List<MethodBase> ___originals)
+        {
+            foreach (MethodBase m in ___originals)
+            {
+                MarkNoInlining(m);
+            }
+        }
+
+        public unsafe static void MarkNoInlining(MethodBase method)
+        {
+            ushort* iflags = (ushort*)(method.MethodHandle.Value) + 1;
+            *iflags |= (ushort)MethodImplOptions.NoInlining;
+        }
+    }
+
     [HarmonyPatch(typeof(MainMenuDrawer))]
     [HarmonyPatch(nameof(MainMenuDrawer.DoMainMenuControls))]
     public static class MainMenuMarker
@@ -115,18 +134,15 @@ namespace Multiplayer.Client
     {
         public static Dictionary<string, MapDrawer> copyFrom = new Dictionary<string, MapDrawer>();
 
-        static FieldInfo mapField = AccessTools.Field(typeof(MapDrawer), "map");
-        static FieldInfo sectionsField = AccessTools.Field(typeof(MapDrawer), "sections");
-
         static bool Prefix(MapDrawer __instance)
         {
-            Map map = (Map)mapField.GetValue(__instance);
+            Map map = __instance.map;
             if (!copyFrom.TryGetValue(map.GetUniqueLoadID(), out MapDrawer oldDrawer)) return true;
 
-            Section[,] oldSections = (Section[,])sectionsField.GetValue(oldDrawer);
+            Section[,] oldSections = oldDrawer.sections;
             foreach (Section s in oldSections)
                 s.map = map;
-            sectionsField.SetValue(__instance, oldSections);
+            __instance.sections = oldSections;
 
             copyFrom.Remove(map.GetUniqueLoadID());
 
@@ -139,11 +155,7 @@ namespace Multiplayer.Client
     {
         public static WorldGrid copyFrom;
 
-        static FieldInfo cachedTraversalDistanceField = AccessTools.Field(typeof(WorldGrid), "cachedTraversalDistance");
-        static FieldInfo cachedTraversalDistanceForStartField = AccessTools.Field(typeof(WorldGrid), "cachedTraversalDistanceForStart");
-        static FieldInfo cachedTraversalDistanceForEndField = AccessTools.Field(typeof(WorldGrid), "cachedTraversalDistanceForEnd");
-
-        static bool Prefix(WorldGrid __instance)
+        static bool Prefix(WorldGrid __instance, int ___cachedTraversalDistance, int ___cachedTraversalDistanceForStart, int ___cachedTraversalDistanceForEnd)
         {
             if (copyFrom == null) return true;
 
@@ -158,9 +170,9 @@ namespace Multiplayer.Client
             grid.averageTileSize = copyFrom.averageTileSize;
 
             grid.tiles = new List<Tile>();
-            cachedTraversalDistanceField.SetValue(grid, -1);
-            cachedTraversalDistanceForStartField.SetValue(grid, -1);
-            cachedTraversalDistanceForEndField.SetValue(grid, -1);
+            ___cachedTraversalDistance = -1;
+            ___cachedTraversalDistanceForStart = -1;
+            ___cachedTraversalDistanceForEnd = -1;
 
             copyFrom = null;
 
@@ -173,32 +185,41 @@ namespace Multiplayer.Client
     {
         public static WorldRenderer copyFrom;
 
-        static FieldInfo layersField = AccessTools.Field(typeof(WorldRenderer), "layers");
-
         static bool Prefix(WorldRenderer __instance)
         {
             if (copyFrom == null) return true;
 
-            layersField.SetValue(__instance, layersField.GetValue(copyFrom));
+            __instance.layers = copyFrom.layers;
             copyFrom = null;
 
             return false;
         }
     }
 
+    public class FactionEquality : IEqualityComparer<Faction>
+    {
+        public bool Equals(Faction x, Faction y) => object.Equals(x, y);
+        public int GetHashCode(Faction obj) => obj.loadID;
+    }
+
+    public class ThingCompEquality : IEqualityComparer<ThingComp>
+    {
+        public bool Equals(ThingComp x, ThingComp y) => object.Equals(x, y);
+        public int GetHashCode(ThingComp obj) => obj.parent.thingIDNumber.Combine(obj.GetType().FullName.GetHashCode());
+    }
+
+    // Fixes a lag spike when opening debug tools
     [HarmonyPatch(typeof(UIRoot))]
     [HarmonyPatch(nameof(UIRoot.UIRootOnGUI))]
-    public static class UIRootPatch
+    static class UIRootPatch
     {
-        static bool firstRun = true;
+        static bool ran;
 
         static void Prefix()
         {
-            if (firstRun)
-            {
-                GUI.skin.font = Text.fontStyles[1].font;
-                firstRun = false;
-            }
+            if (ran) return;
+            GUI.skin.font = Text.fontStyles[1].font;
+            ran = true;
         }
     }
 
@@ -209,9 +230,8 @@ namespace Multiplayer.Client
     {
         public static XmlDocument gameToLoad;
 
-        static bool Prefix(string fileName)
+        static bool Prefix()
         {
-            if (fileName != "server") return true;
             if (gameToLoad == null) return false;
 
             ScribeUtil.StartLoading(gameToLoad);
@@ -225,6 +245,7 @@ namespace Multiplayer.Client
             Current.Game.LoadGame(); // calls Scribe.loader.FinalizeLoading()
             Find.TickManager.CurTimeSpeed = TimeSpeed.Paused;
             Multiplayer.loadingEncounter = false;
+            gameToLoad = null;
 
             Log.Message("Game loaded");
 
@@ -235,8 +256,6 @@ namespace Multiplayer.Client
                     MemoryUtility.UnloadUnusedUnityAssets();
                     Find.World.renderer.RegenerateAllLayersNow();
                 }
-
-                gameToLoad = null;
 
                 /*Find.WindowStack.Add(new CustomSelectLandingSite()
                 {
@@ -277,7 +296,7 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(PawnObserver))]
-    [HarmonyPatch("ObserveSurroundingThings")]
+    [HarmonyPatch(nameof(PawnObserver.ObserveSurroundingThings))]
     public static class ObservePatch
     {
         static int i;
@@ -297,14 +316,14 @@ namespace Multiplayer.Client
         static bool Prefix()
         {
             Text.Font = GameFont.Small;
-            string text = Find.TickManager.TicksGame + " " + TickPatch.timerInt + " " + TickPatch.tickUntil;
+            string text = Find.TickManager.TicksGame + " " + TickPatch.timerInt + " " + TickPatch.tickUntil + " " + (TickPatch.tickUntil - (int)TickPatch.timerInt);
             Rect rect = new Rect(80f, 60f, 330f, Text.CalcHeight(text, 330f));
             Widgets.Label(rect, text);
 
             if (Find.VisibleMap != null)
             {
                 MapAsyncTimeComp comp = Find.VisibleMap.GetComponent<MapAsyncTimeComp>();
-                string text1 = "" + comp.mapTicks + " " + comp.timerInt + " " + (TickPatch.tickUntil - comp.Timer);
+                string text1 = "" + comp.mapTicks;
 
                 text1 += " r:" + Find.VisibleMap.reservationManager.AllReservedThings().Count();
 
@@ -333,7 +352,7 @@ namespace Multiplayer.Client
 
     [HarmonyPatch(typeof(TickManager))]
     [HarmonyPatch(nameof(TickManager.TickManagerUpdate))]
-    public static class TimeChangePatch
+    public static class WorldTimeChangePatch
     {
         private static TimeSpeed lastSpeed = TimeSpeed.Paused;
 
@@ -386,13 +405,11 @@ namespace Multiplayer.Client
     [HarmonyPatch(nameof(CaravanArrivalAction_AttackSettlement.Arrived))]
     public static class AttackSettlementPatch
     {
-        static FieldInfo settlementField = typeof(CaravanArrivalAction_AttackSettlement).GetField("settlement", BindingFlags.NonPublic | BindingFlags.Instance);
-
         static bool Prefix(CaravanArrivalAction_AttackSettlement __instance, Caravan caravan)
         {
             if (Multiplayer.client == null) return true;
 
-            Settlement settlement = (Settlement)settlementField.GetValue(__instance);
+            Settlement settlement = __instance.settlement;
             if (settlement.Faction.def != Multiplayer.factionDef) return true;
 
             Multiplayer.client.Send(Packets.CLIENT_ENCOUNTER_REQUEST, new object[] { settlement.Tile });
@@ -403,24 +420,16 @@ namespace Multiplayer.Client
 
     [HarmonyPatch(typeof(Settlement))]
     [HarmonyPatch(nameof(Settlement.ShouldRemoveMapNow))]
-    public static class ShouldRemoveMap
+    public static class ShouldRemoveMapPatch
     {
-        static void Postfix(ref bool __result)
-        {
-            if (Multiplayer.client != null)
-                __result = false;
-        }
+        static bool Prefix() => Multiplayer.client == null;
     }
 
     [HarmonyPatch(typeof(FactionBaseDefeatUtility))]
-    [HarmonyPatch("IsDefeated")]
-    public static class IsDefeated
+    [HarmonyPatch(nameof(FactionBaseDefeatUtility.CheckDefeated))]
+    public static class CheckDefeatedPatch
     {
-        static void Postfix(ref bool __result)
-        {
-            if (Multiplayer.client != null)
-                __result = false;
-        }
+        static bool Prefix() => Multiplayer.client == null;
     }
 
     [HarmonyPatch(typeof(Pawn_JobTracker))]
@@ -586,7 +595,7 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(UniqueIDsManager))]
-    [HarmonyPatch("GetNextID")]
+    [HarmonyPatch(nameof(UniqueIDsManager.GetNextID))]
     public static class UniqueIdsPatch
     {
         private static IdBlock currentBlock;
@@ -700,7 +709,7 @@ namespace Multiplayer.Client
             this.action = action;
         }
 
-        protected override void SetName(string name)
+        public override void SetName(string name)
         {
             action(name);
         }
@@ -807,7 +816,7 @@ namespace Multiplayer.Client
     {
         static void Postfix(Projectile __instance)
         {
-            MpLog.Log("projectile " + __instance.GetPropertyOrField("ticksToImpact") + " " + __instance.ExactPosition);
+            MpLog.Log("projectile " + __instance.ticksToImpact + " " + __instance.ExactPosition);
         }
     }
 
@@ -827,12 +836,12 @@ namespace Multiplayer.Client
 
             dontLog = true;
 
-            if (MapAsyncTimeComp.tickingMap != null)
+            if (MapAsyncTimeComp.tickingMap != null && false)
             {
                 call++;
 
                 if (ThingContext.Current == null || !(ThingContext.Current is Plant || ThingContext.Current.def == ThingDefOf.SteamGeyser))
-                    if (!WildSpawnerTickMarker.ticking && !SteadyAtmosphereEffectsTickkMarker.ticking)
+                    if (!(WildSpawnerTickMarker.ticking || SteadyAtmosphereEffectsTickkMarker.ticking) || (Find.TickManager.TicksGame > 9670 && Find.TickManager.TicksGame < 9690))
                         MpLog.Log(call + " thing rand " + ThingContext.Current + " " + Rand.Int);
             }
 
@@ -862,8 +871,8 @@ namespace Multiplayer.Client
         static void Prefix()
         {
             if (dontLog) return;
-            if (MapAsyncTimeComp.tickingMap != null)
-                MpLog.Log("set seed");
+            //if (MapAsyncTimeComp.tickingMap != null)
+            //MpLog.Log("set seed");
         }
     }
 
@@ -879,7 +888,7 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(AutoBuildRoofAreaSetter))]
-    [HarmonyPatch("TryGenerateAreaNow")]
+    [HarmonyPatch(nameof(AutoBuildRoofAreaSetter.TryGenerateAreaNow))]
     public static class AutoRoofPatch
     {
         static bool Prefix(AutoBuildRoofAreaSetter __instance, Room room, ref Map __state)
@@ -923,7 +932,7 @@ namespace Multiplayer.Client
 
             Vector3 result = __result;
             result -= __instance.tweener.TweenedPos;
-            result += (Vector3)__instance.tweener.GetPropertyOrField("TweenedPosRoot");
+            result += __instance.tweener.TweenedPosRoot();
             __result = result;
         }
     }
@@ -977,14 +986,14 @@ namespace Multiplayer.Client
     {
         static void Prefix()
         {
-            if (MapAsyncTimeComp.tickingMap != null)
-                SimpleProfiler.Pause();
+            //if (MapAsyncTimeComp.tickingMap != null)
+            //    SimpleProfiler.Pause();
         }
 
         static void Postfix()
         {
-            if (MapAsyncTimeComp.tickingMap != null)
-                SimpleProfiler.Start();
+            //if (MapAsyncTimeComp.tickingMap != null)
+            //    SimpleProfiler.Start();
         }
     }
 
@@ -1087,7 +1096,7 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(ITab))]
-    [HarmonyPatch("SelThing", PropertyMethod.Getter)]
+    [HarmonyPatch(nameof(ITab.SelThing), PropertyMethod.Getter)]
     public static class ITabSelThingPatch
     {
         public static Thing result;
@@ -1099,7 +1108,7 @@ namespace Multiplayer.Client
         }
     }
 
-    // For instance methods, the first parameter is the instance
+    // For instance methods the first parameter is the instance
     // The rest are original method's parameters in order
     [AttributeUsage(AttributeTargets.Method)]
     public class IndexedPatchParameters : Attribute
@@ -1137,7 +1146,7 @@ namespace Multiplayer.Client
 
     // Fix window control focus
     [HarmonyPatch(typeof(WindowStack))]
-    [HarmonyPatch("CloseWindowsBecauseClicked")]
+    [HarmonyPatch(nameof(WindowStack.CloseWindowsBecauseClicked))]
     public static class WindowFocusPatch
     {
         static void Prefix(Window clickedWindow)

@@ -42,7 +42,7 @@ namespace Multiplayer.Client
         public readonly Type fieldType;
         public readonly Func<object, object> instanceFunc;
 
-        public Dictionary<object, CachedField> changeBuffer;
+        public bool bufferChanges;
 
         public SyncField(int syncId, Type targetType, string memberPath) : base(syncId, false)
         {
@@ -94,10 +94,11 @@ namespace Multiplayer.Client
             MpReflection.SetValue(target, memberPath, value);
         }
 
-        public SyncField BufferChanges()
+        public SyncField SetBufferChanges()
         {
-            changeBuffer = new Dictionary<object, CachedField>();
+            Sync.bufferedChanges[this] = new Dictionary<object, FieldData>();
             Sync.bufferedFields.Add(this);
+            bufferChanges = true;
             return this;
         }
     }
@@ -266,7 +267,7 @@ namespace Multiplayer.Client
 
             IEnumerable<object> fields = fieldPaths.Select(p => delegateInstance.GetPropertyOrField(p));
 
-            EnumerableHelper.CombineAndProcess(fields.Concat(args), fieldTypes.Concat(argTypes), (obj, type) =>
+            EnumerableHelper.ProcessCombined(fields.Concat(args), fieldTypes.Concat(argTypes), (obj, type) =>
             {
                 if (type.HasAttribute<CompilerGeneratedAttribute>())
                     return;
@@ -312,7 +313,7 @@ namespace Multiplayer.Client
         }
     }
 
-    public class CachedField
+    public class FieldData
     {
         public SyncField handler;
         public object target;
@@ -321,7 +322,7 @@ namespace Multiplayer.Client
         public int timestamp;
         public bool sent;
 
-        public CachedField(SyncField handler, object target, object oldValue, object newValue)
+        public FieldData(SyncField handler, object target, object oldValue, object newValue = null)
         {
             this.handler = handler;
             this.target = target;
@@ -329,22 +330,6 @@ namespace Multiplayer.Client
             this.newValue = newValue;
 
             timestamp = Environment.TickCount;
-        }
-
-        public bool Changed => !Equals(target.GetPropertyOrField(handler.memberPath), oldValue);
-    }
-
-    public struct SyncData
-    {
-        public readonly SyncField handler;
-        public readonly object target;
-        public readonly object value;
-
-        public SyncData(SyncField handler, object target, object value)
-        {
-            this.handler = handler;
-            this.target = target;
-            this.value = value;
         }
     }
 
@@ -355,7 +340,8 @@ namespace Multiplayer.Client
         private static Dictionary<MethodBase, SyncDelegate> syncDelegates = new Dictionary<MethodBase, SyncDelegate>();
         private static Dictionary<MethodBase, SyncMethod> syncMethods = new Dictionary<MethodBase, SyncMethod>();
 
-        private static List<SyncData> watchedData = new List<SyncData>();
+        public static Dictionary<SyncField, Dictionary<object, FieldData>> bufferedChanges = new Dictionary<SyncField, Dictionary<object, FieldData>>();
+        private static List<FieldData> watchedData = new List<FieldData>();
 
         private static bool syncing;
 
@@ -377,13 +363,13 @@ namespace Multiplayer.Client
             if (!__state)
                 return;
 
-            foreach (SyncData data in watchedData)
+            foreach (FieldData data in watchedData)
             {
                 object newValue = data.target.GetPropertyOrField(data.handler.memberPath);
-                bool changed = !Equals(newValue, data.value);
-                Dictionary<object, CachedField> cache = data.handler.changeBuffer;
+                bool changed = !Equals(newValue, data.oldValue);
+                Dictionary<object, FieldData> cache = bufferedChanges.GetValueSafe(data.handler);
 
-                if (cache != null && cache.TryGetValue(data.target, out CachedField cached))
+                if (cache != null && cache.TryGetValue(data.target, out FieldData cached))
                 {
                     if (changed && cached.sent)
                     {
@@ -399,11 +385,16 @@ namespace Multiplayer.Client
                 if (!changed) continue;
 
                 if (cache != null)
-                    cache[data.target] = new CachedField(data.handler, data.target, data.value, newValue);
+                {
+                    data.newValue = newValue;
+                    cache[data.target] = data;
+                }
                 else
+                {
                     data.handler.DoSync(data.target, newValue);
+                }
 
-                data.target.SetPropertyOrField(data.handler.memberPath, data.value);
+                data.target.SetPropertyOrField(data.handler.memberPath, data.oldValue);
             }
 
             watchedData.Clear();
@@ -588,7 +579,7 @@ namespace Multiplayer.Client
             HarmonyMethod prefix = new HarmonyMethod(AccessTools.Method(typeof(Sync), nameof(Sync.FieldWatchPrefix)));
             HarmonyMethod postfix = new HarmonyMethod(AccessTools.Method(typeof(Sync), nameof(Sync.FieldWatchPostfix)));
 
-            foreach (MethodBase patched in MpPatch.DoPatches(type))
+            foreach (MethodBase patched in Multiplayer.harmony.DoMpPatches(type))
                 Multiplayer.harmony.Patch(patched, prefix, postfix);
         }
 
@@ -598,28 +589,12 @@ namespace Multiplayer.Client
 
             object value;
 
-            if (field.changeBuffer != null && field.changeBuffer.TryGetValue(target, out CachedField cached))
+            if (field.bufferChanges && bufferedChanges[field].TryGetValue(target, out FieldData cached))
                 target.SetPropertyOrField(field.memberPath, value = cached.newValue);
             else
                 value = target.GetPropertyOrField(field.memberPath);
 
-            watchedData.Add(new SyncData(field, target, value));
-        }
-
-        public static void Watch(this SyncField[] group, object target = null)
-        {
-            foreach (SyncField sync in group)
-                if (sync.targetType == null || sync.targetType.IsAssignableFrom(target.GetType()))
-                    sync.Watch(target);
-        }
-
-        public static bool DoSync(this SyncMethod[] group, object target, params object[] args)
-        {
-            foreach (SyncMethod sync in group)
-                if (sync.targetType == null || (target != null && sync.targetType.IsAssignableFrom(target.GetType())))
-                    return sync.DoSync(target, args);
-
-            return false;
+            watchedData.Add(new FieldData(field, target, value));
         }
 
         public static void HandleCmd(ByteReader data)
@@ -778,7 +753,6 @@ namespace Multiplayer.Client
             }
             else if (typeof(ThinkNode).IsAssignableFrom(type))
             {
-                // todo temporary
                 return null;
             }
             else if (typeof(Area).IsAssignableFrom(type))
@@ -816,7 +790,7 @@ namespace Multiplayer.Client
                 ThingDef def = ReadSync<ThingDef>(data);
                 return map.listerThings.ThingsOfDef(def).FirstOrDefault(t => t.thingIDNumber == thingId);
             }
-            else if (typeof(CompChangeableProjectile) == type) // special case
+            else if (typeof(CompChangeableProjectile) == type) // special case of ThingComp
             {
                 Building_TurretGun parent = ReadSync<Thing>(data) as Building_TurretGun;
                 if (parent == null)
@@ -936,7 +910,6 @@ namespace Multiplayer.Client
                 }
                 else if (typeof(ThinkNode).IsAssignableFrom(type))
                 {
-                    // todo temporary
                 }
                 else if (typeof(Area).IsAssignableFrom(type))
                 {
@@ -967,7 +940,7 @@ namespace Multiplayer.Client
                 {
                     data.WriteUInt16(obj is Def def ? def.shortHash : (ushort)0);
                 }
-                else if (typeof(CompChangeableProjectile) == type) // special case
+                else if (typeof(CompChangeableProjectile) == type) // special case of ThingComp
                 {
                     CompChangeableProjectile comp = obj as CompChangeableProjectile;
                     if (comp == null)
@@ -1091,6 +1064,32 @@ namespace Multiplayer.Client
         }
     }
 
+    public static class GroupExtensions
+    {
+        public static void Watch(this SyncField[] group, object target = null)
+        {
+            foreach (SyncField sync in group)
+                if (sync.targetType == null || sync.targetType.IsAssignableFrom(target.GetType()))
+                    sync.Watch(target);
+        }
+
+        public static bool DoSync(this SyncMethod[] group, object target, params object[] args)
+        {
+            foreach (SyncMethod sync in group)
+                if (sync.targetType == null || (target != null && sync.targetType.IsAssignableFrom(target.GetType())))
+                    return sync.DoSync(target, args);
+
+            return false;
+        }
+
+        public static SyncField[] SetBufferChanges(this SyncField[] group)
+        {
+            foreach (SyncField field in group)
+                field.SetBufferChanges();
+            return group;
+        }
+    }
+
     public class SyncDelegateAttribute : Attribute
     {
         public readonly string[] fields;
@@ -1137,7 +1136,7 @@ namespace Multiplayer.Client
         }
     }
 
-    class ReaderDictionary : OrderedDictionary<Type, Func<ByteReader, object>>
+    class ReaderDictionary : OrderedDict<Type, Func<ByteReader, object>>
     {
         public void Add<T>(Func<ByteReader, T> writer)
         {
@@ -1145,7 +1144,7 @@ namespace Multiplayer.Client
         }
     }
 
-    class WriterDictionary : OrderedDictionary<Type, Action<ByteWriter, object>>
+    class WriterDictionary : OrderedDict<Type, Action<ByteWriter, object>>
     {
         public void Add<T>(Action<ByteWriter, T> writer)
         {
@@ -1153,18 +1152,36 @@ namespace Multiplayer.Client
         }
     }
 
-    abstract class OrderedDictionary<K, V> : IEnumerable
+    public class OrderedDict<K, V> : IEnumerable
     {
-        private OrderedDictionary dict = new OrderedDictionary();
+        private List<K> list = new List<K>();
+        private Dictionary<K, V> dict = new Dictionary<K, V>();
 
-        protected void Add(K key, V value)
+        public K this[int index]
+        {
+            get => list[index];
+        }
+
+        public V this[K key]
+        {
+            get => dict[key];
+        }
+
+        public void Add(K key, V value)
         {
             dict.Add(key, value);
+            list.Add(key);
+        }
+
+        public void Insert(int index, K key, V value)
+        {
+            dict.Add(key, value);
+            list.Insert(index, key);
         }
 
         public bool TryGetValue(K key, out V value)
         {
-            value = (V)dict[key];
+            value = dict[key];
             return value != null;
         }
 
