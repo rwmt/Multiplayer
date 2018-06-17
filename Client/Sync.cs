@@ -737,9 +737,11 @@ namespace Multiplayer.Client
                 }
                 else if (type.GetGenericTypeDefinition() == typeof(Nullable<>))
                 {
+                    bool isNull = data.ReadBool();
+                    if (isNull) return null;
+
                     bool hasValue = data.ReadBool();
-                    if (!hasValue)
-                        return Activator.CreateInstance(type);
+                    if (!hasValue) return Activator.CreateInstance(type);
 
                     Type nullableType = type.GetGenericArguments()[0];
                     return Activator.CreateInstance(type, ReadSyncObject(data, nullableType));
@@ -892,10 +894,14 @@ namespace Multiplayer.Client
                 }
                 else if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>))
                 {
-                    Type nullableType = type.GetGenericArguments()[0];
-                    bool hasValue = (bool)obj.GetPropertyOrField("HasValue");
+                    bool isNull = obj == null;
+                    data.WriteBool(isNull);
+                    if (isNull) return;
 
+                    bool hasValue = (bool)obj.GetPropertyOrField("HasValue");
                     data.WriteBool(hasValue);
+
+                    Type nullableType = type.GetGenericArguments()[0];
                     if (hasValue)
                         WriteSyncObject(data, obj.GetPropertyOrField("Value"), nullableType);
                 }
@@ -922,7 +928,6 @@ namespace Multiplayer.Client
                     {
                         data.WriteInt32(-1);
                     }
-
                 }
                 else if (typeof(Zone).IsAssignableFrom(type))
                 {

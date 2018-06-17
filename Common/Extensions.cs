@@ -114,5 +114,12 @@ namespace Multiplayer.Common
             if (node == null) return;
             node.ParentNode.RemoveChild(node);
         }
+
+        public static void AddNode(this XmlNode parent, string name, string value)
+        {
+            XmlNode node = parent.OwnerDocument.CreateElement(name);
+            node.InnerText = value;
+            parent.AppendChild(node);
+        }
     }
 }

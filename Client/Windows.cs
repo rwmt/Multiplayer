@@ -386,7 +386,7 @@ namespace Multiplayer.Client
                     MultiplayerWorldComp comp = Find.World.GetComponent<MultiplayerWorldComp>();
 
                     Faction.OfPlayer.Name = Multiplayer.username + "'s faction";
-                    comp.playerFactions[Multiplayer.username] = Faction.OfPlayer;
+                    comp.myFaction = Faction.OfPlayer;
 
                     MultiplayerServer localServer = new MultiplayerServer(ipAddr);
                     Multiplayer.localServer = localServer;
@@ -430,7 +430,7 @@ namespace Multiplayer.Client
 
                     LongEventHandler.QueueLongEvent(() =>
                     {
-                        Multiplayer.SendGameData(Multiplayer.SaveAndReload());
+                        Multiplayer.CacheAndSendGameData(Multiplayer.SaveAndReload());
 
                         localServer.StartListening();
 

@@ -36,13 +36,13 @@ namespace Multiplayer.Client
         public static PacketLogWindow packetLog = new PacketLogWindow();
         public static HarmonyInstance harmony = HarmonyInstance.Create("multiplayer");
 
-        public static bool loadingEncounter;
+        public static bool reloading;
         public static bool simulating;
 
         public static IdBlock globalIdBlock;
 
         public static MultiplayerWorldComp WorldComp => Find.World.GetComponent<MultiplayerWorldComp>();
-        public static Faction RealPlayerFaction => client != null ? WorldComp.playerFactions[username] : Faction.OfPlayer;
+        public static Faction RealPlayerFaction => client != null ? WorldComp.myFaction : Faction.OfPlayer;
 
         public static FactionDef factionDef = FactionDef.Named("MultiplayerColony");
 
@@ -60,10 +60,13 @@ namespace Multiplayer.Client
         }
 
         public static bool Ticking => MultiplayerWorldComp.tickingWorld || MapAsyncTimeComp.tickingMap != null;
-        public static bool ShouldSync => client != null && !Ticking && !OnMainThread.executingCmds;
+        public static bool ShouldSync => client != null && !Ticking && !OnMainThread.executingCmds && !reloading;
 
         static Multiplayer()
         {
+            if (GenCommandLine.CommandLineArgPassed("profiler"))
+                SimpleProfiler.CheckAvailable();
+
             MpLog.info = str => Log.Message($"{username} {(Current.Game != null ? (Find.VisibleMap != null ? Find.VisibleMap.GetComponent<MapAsyncTimeComp>().mapTicks.ToString() : "") : "")} {str}");
 
             GenCommandLine.TryGetCommandLineArg("username", out username);
@@ -142,62 +145,90 @@ namespace Multiplayer.Client
             }
         }
 
-        private static XmlDocument SaveGame()
-        {
-            bool prevCompression = SaveCompression.doSaveCompression;
-            SaveCompression.doSaveCompression = true;
-
-            ScribeUtil.StartWritingToDoc();
-
-            Scribe.EnterNode("savegame");
-            ScribeMetaHeaderUtility.WriteMetaHeader();
-            Scribe.EnterNode("game");
-            sbyte visibleMapIndex = Current.Game.visibleMapIndex;
-            Scribe_Values.Look(ref visibleMapIndex, "visibleMapIndex", (sbyte)-1);
-            Current.Game.ExposeSmallComponents();
-            World world = Current.Game.World;
-            Scribe_Deep.Look(ref world, "world");
-            List<Map> maps = Find.Maps;
-            Scribe_Collections.Look(ref maps, "maps", LookMode.Deep);
-            Find.CameraDriver.Expose();
-            Scribe.ExitNode();
-
-            SaveCompression.doSaveCompression = prevCompression;
-
-            return ScribeUtil.FinishWritingToDoc();
-        }
-
         public static XmlDocument SaveAndReload()
         {
-            Multiplayer.loadingEncounter = true;
+            XmlDocument SaveGame()
+            {
+                SaveCompression.doSaveCompression = true;
+
+                ScribeUtil.StartWritingToDoc();
+
+                Scribe.EnterNode("savegame");
+                ScribeMetaHeaderUtility.WriteMetaHeader();
+                Scribe.EnterNode("game");
+                sbyte visibleMapIndex = Current.Game.visibleMapIndex;
+                Scribe_Values.Look(ref visibleMapIndex, "visibleMapIndex", (sbyte)-1);
+                Current.Game.ExposeSmallComponents();
+                World world = Current.Game.World;
+                Scribe_Deep.Look(ref world, "world");
+                List<Map> maps = Find.Maps;
+                Scribe_Collections.Look(ref maps, "maps", LookMode.Deep);
+                Find.CameraDriver.Expose();
+                Scribe.ExitNode();
+
+                SaveCompression.doSaveCompression = false;
+
+                return ScribeUtil.FinishWritingToDoc();
+            }
+
+            reloading = true;
 
             WorldGridCtorPatch.copyFrom = Find.WorldGrid;
             WorldRendererCtorPatch.copyFrom = Find.World.renderer;
+            Dictionary<int, Vector3> tweenedPos = new Dictionary<int, Vector3>();
 
             foreach (Map map in Find.Maps)
+            {
                 map.GetComponent<MultiplayerMapComp>().SetFaction(map.ParentFaction);
+                MapDrawerRegenPatch.copyFrom[map.uniqueID] = map.mapDrawer;
+                //RebuildRegionsAndRoomsPatch.copyFrom[map.uniqueID] = map.regionGrid;
 
+                foreach (Pawn p in map.mapPawns.AllPawns)
+                    if (p.drawer != null)
+                        tweenedPos[p.thingIDNumber] = p.drawer.tweener.tweenedPos;
+            }
+
+            Stopwatch watch = Stopwatch.StartNew();
+            SimpleProfiler.Start();
             XmlDocument gameDoc = SaveGame();
+            SimpleProfiler.Pause();
+            SimpleProfiler.Print("profiler_save.txt");
+            SimpleProfiler.Init(username);
+            Log.Message("Saving took " + watch.ElapsedMilliseconds);
 
             MemoryUtility.ClearAllMapsAndWorld();
 
             SaveCompression.doSaveCompression = true;
 
+            watch = Stopwatch.StartNew();
             LoadPatch.gameToLoad = gameDoc;
             Prefs.PauseOnLoad = false;
+            SimpleProfiler.Start();
             SavedGameLoader.LoadGameFromSaveFile("server");
+            SimpleProfiler.Pause();
+            SimpleProfiler.Print("profiler_load.txt");
+            SimpleProfiler.Init(username);
+            Log.Message("Loading took " + watch.ElapsedMilliseconds);
+
+            foreach (Map m in Find.Maps)
+                foreach (Pawn p in m.mapPawns.AllPawns)
+                    if (p.drawer != null && tweenedPos.TryGetValue(p.thingIDNumber, out Vector3 v))
+                    {
+                        p.drawer.tweener.tweenedPos = v;
+                        p.drawer.tweener.lastDrawFrame = Time.frameCount;
+                    }
 
             SaveCompression.doSaveCompression = false;
 
             foreach (Map map in Find.Maps)
-                map.GetComponent<MultiplayerMapComp>().SetFaction(Multiplayer.RealPlayerFaction);
+                map.GetComponent<MultiplayerMapComp>().SetFaction(RealPlayerFaction);
 
-            Multiplayer.loadingEncounter = false;
+            reloading = false;
 
             return gameDoc;
         }
 
-        public static void SendGameData(XmlDocument doc, bool sendGame = true)
+        public static void CacheAndSendGameData(XmlDocument doc, bool sendGame = true)
         {
             XmlNode gameNode = doc.DocumentElement["game"];
             XmlNode mapsNode = gameNode["maps"];
@@ -216,7 +247,7 @@ namespace Multiplayer.Client
 
             byte[] compressedMaps = GZipStream.CompressBuffer(mapData);
             // todo send map id
-            Multiplayer.client.Send(Packets.CLIENT_AUTOSAVED_DATA, false, 0, compressedMaps);
+            client.Send(Packets.CLIENT_AUTOSAVED_DATA, false, 0, compressedMaps);
 
             gameNode["visibleMapIndex"].RemoveFromParent();
             mapsNode.RemoveAll();
@@ -229,7 +260,7 @@ namespace Multiplayer.Client
                 File.WriteAllBytes("game.xml", gameData);
 
                 byte[] compressedGame = GZipStream.CompressBuffer(gameData);
-                Multiplayer.client.Send(Packets.CLIENT_AUTOSAVED_DATA, true, compressedGame);
+                client.Send(Packets.CLIENT_AUTOSAVED_DATA, true, compressedGame);
             }
         }
 
@@ -390,26 +421,24 @@ namespace Multiplayer.Client
             int tickUntil = data.ReadInt32();
 
             List<ScheduledCommand> cmds = new List<ScheduledCommand>();
-            XmlDocument gameDoc = null;
 
-            {
-                int cmdsLen = data.ReadInt32();
-                for (int i = 0; i < cmdsLen; i++)
-                    cmds.Add(ClientPlayingState.DeserializeCmd(new ByteReader(data.ReadPrefixedBytes())));
+            int cmdsLen = data.ReadInt32();
+            for (int i = 0; i < cmdsLen; i++)
+                cmds.Add(ClientPlayingState.DeserializeCmd(new ByteReader(data.ReadPrefixedBytes())));
 
-                byte[] worldData = GZipStream.UncompressBuffer(data.ReadPrefixedBytes());
-                OnMainThread.localGameData = worldData;
+            byte[] worldData = GZipStream.UncompressBuffer(data.ReadPrefixedBytes());
+            OnMainThread.localGameData = worldData;
 
-                gameDoc = ScribeUtil.GetDocument(worldData);
-            }
+            XmlDocument gameDoc = ScribeUtil.GetDocument(worldData);
+            XmlNode gameNode = gameDoc.DocumentElement["game"];
 
             int maps = data.ReadInt32();
             for (int i = 0; i < maps; i++)
             {
                 int mapId = data.ReadInt32();
 
-                int cmdsLen = data.ReadInt32();
-                for (int j = 0; j < cmdsLen; j++)
+                int mapCmdsLen = data.ReadInt32();
+                for (int j = 0; j < mapCmdsLen; j++)
                     cmds.Add(ClientPlayingState.DeserializeCmd(new ByteReader(data.ReadPrefixedBytes())));
 
                 byte[] mapData = GZipStream.UncompressBuffer(data.ReadPrefixedBytes());
@@ -418,7 +447,10 @@ namespace Multiplayer.Client
                 using (XmlReader reader = XmlReader.Create(new MemoryStream(mapData)))
                 {
                     XmlNode mapNode = gameDoc.ReadNode(reader);
-                    gameDoc.DocumentElement["game"]["maps"].AppendChild(mapNode);
+                    gameNode["maps"].AppendChild(mapNode);
+
+                    if (gameNode["visibleMapIndex"] == null)
+                        gameNode.AddNode("visibleMapIndex", mapId.ToString());
                 }
             }
 
@@ -432,9 +464,6 @@ namespace Multiplayer.Client
 
             Log.Message("Game data size: " + data.GetBytes().Length);
 
-            Prefs.PauseOnLoad = false;
-            SaveCompression.doSaveCompression = true;
-
             LongEventHandler.QueueLongEvent(() =>
             {
                 MemoryUtility.ClearAllMapsAndWorld();
@@ -444,8 +473,6 @@ namespace Multiplayer.Client
 
                 LongEventHandler.ExecuteWhenFinished(() =>
                 {
-                    SaveCompression.doSaveCompression = false;
-
                     LongEventHandler.QueueLongEvent(CatchUp(() =>
                     {
                         Multiplayer.client.Send(Packets.CLIENT_WORLD_LOADED);
@@ -457,14 +484,19 @@ namespace Multiplayer.Client
         public static IEnumerable CatchUp(Action finishAction)
         {
             int start = TickPatch.Timer;
+            int startTicks = Find.Maps[0].AsyncTime().mapTicks;
+            float startTime = Time.realtimeSinceStartup;
 
             while (TickPatch.Timer < TickPatch.tickUntil)
             {
-                TickPatch.accumulator = 1;
+                TickPatch.accumulator = 100;
+
+                Multiplayer.simulating = true;
                 TickPatch.Tick();
+                Multiplayer.simulating = false;
 
                 int pct = (int)((float)(TickPatch.Timer - start) / (TickPatch.tickUntil - start) * 100);
-                LongEventHandler.SetCurrentEventText($"Loading game {pct}/100");
+                LongEventHandler.SetCurrentEventText($"Loading game {pct}/100 " + TickPatch.Timer + " " + TickPatch.tickUntil + " " + OnMainThread.scheduledCmds.Count + " " + Find.Maps[0].AsyncTime().mapTicks + " " + (Find.Maps[0].AsyncTime().mapTicks - startTicks) / (Time.realtimeSinceStartup - startTime));
 
                 bool allPaused = TickPatch.AllTickables.All(t => t.CurTimePerTick == 0);
                 if (allPaused) break;
@@ -526,7 +558,7 @@ namespace Multiplayer.Client
             {
                 Stopwatch time = Stopwatch.StartNew();
 
-                Multiplayer.loadingEncounter = true;
+                Multiplayer.reloading = true;
                 Current.ProgramState = ProgramState.MapInitializing;
                 SaveCompression.doSaveCompression = true;
 
@@ -546,7 +578,7 @@ namespace Multiplayer.Client
                 map.FinalizeLoading();
 
                 SaveCompression.doSaveCompression = false;
-                Multiplayer.loadingEncounter = false;
+                Multiplayer.reloading = false;
                 Current.ProgramState = ProgramState.Playing;
 
                 Find.World.renderer.wantedMode = WorldRenderMode.None;
@@ -825,15 +857,15 @@ namespace Multiplayer.Client
         private static void HandleMapFactionData(ScheduledCommand cmd, ByteReader data)
         {
             Map map = cmd.GetMap();
-            string username = data.ReadString();
+            int factionId = data.ReadInt32();
 
-            Faction faction = Multiplayer.WorldComp.playerFactions[username];
+            Faction faction = Find.FactionManager.AllFactions.FirstOrDefault(f => f.loadID == factionId);
             MultiplayerMapComp comp = map.GetComponent<MultiplayerMapComp>();
 
-            if (!comp.factionMapData.ContainsKey(faction.loadID))
+            if (!comp.factionMapData.ContainsKey(factionId))
             {
                 FactionMapData factionMapData = FactionMapData.New(map);
-                comp.factionMapData[faction.loadID] = factionMapData;
+                comp.factionMapData[factionId] = factionMapData;
 
                 AreaAddPatch.ignore = true;
                 factionMapData.areaManager.AddStartingAreas();
@@ -885,7 +917,8 @@ namespace Multiplayer.Client
                         localMapData.Clear();
                         localCmds.Clear();
 
-                        Multiplayer.SendGameData(Multiplayer.SaveAndReload());
+                        XmlDocument doc = Multiplayer.SaveAndReload();
+                        //Multiplayer.CacheAndSendGameData(doc);
                     }, "Autosaving", false, null);
                 }
             }
@@ -901,9 +934,11 @@ namespace Multiplayer.Client
         {
             string username = data.ReadString();
             int factionId = data.ReadInt32();
+
+            Faction faction = Find.FactionManager.AllFactions.FirstOrDefault(f => f.loadID == factionId);
             MultiplayerWorldComp comp = Find.World.GetComponent<MultiplayerWorldComp>();
 
-            if (!comp.playerFactions.TryGetValue(username, out Faction faction))
+            if (faction == null)
             {
                 faction = new Faction
                 {
@@ -914,7 +949,6 @@ namespace Multiplayer.Client
                 };
 
                 Find.FactionManager.Add(faction);
-                comp.playerFactions[username] = faction;
 
                 foreach (Faction current in Find.FactionManager.AllFactionsListForReading)
                 {
@@ -927,6 +961,7 @@ namespace Multiplayer.Client
 
             if (username == Multiplayer.username)
             {
+                comp.myFaction = faction;
                 Faction.OfPlayer.def = Multiplayer.factionDef;
                 faction.def = FactionDefOf.PlayerColony;
             }
@@ -1152,15 +1187,12 @@ namespace Multiplayer.Client
             set => timeSpeedInt = value;
         }
 
+        public Faction myFaction;
+
         public string worldId = Guid.NewGuid().ToString();
         public int sessionId = new System.Random().Next();
-
         public TimeSpeed timeSpeedInt;
-        public Dictionary<string, Faction> playerFactions = new Dictionary<string, Faction>();
-        private List<string> keyWorkingList;
-        private List<Faction> valueWorkingList;
-
-        public Dictionary<string, FactionWorldData> factionData = new Dictionary<string, FactionWorldData>();
+        public Dictionary<int, FactionWorldData> factionData = new Dictionary<int, FactionWorldData>();
 
         public MultiplayerWorldComp(World world) : base(world)
         {
@@ -1171,19 +1203,11 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref worldId, "worldId");
             Scribe_Values.Look(ref TickPatch.timerInt, "timer");
             Scribe_Values.Look(ref sessionId, "sessionId");
-
-            ScribeUtil.Look(ref playerFactions, "playerFactions", LookMode.Reference, ref keyWorkingList, ref valueWorkingList);
-            if (Scribe.mode == LoadSaveMode.LoadingVars && playerFactions == null)
-                playerFactions = new Dictionary<string, Faction>();
-
             Scribe_Values.Look(ref timeSpeedInt, "timeSpeed");
 
-            Multiplayer.ExposeIdBlock(ref Multiplayer.globalIdBlock, "globalIdBlock");
-        }
+            Scribe_References.Look(ref myFaction, "myFaction"); // local only
 
-        public string GetUsernameByFaction(Faction faction)
-        {
-            return playerFactions.FirstOrDefault(pair => pair.Value == faction).Key;
+            Multiplayer.ExposeIdBlock(ref Multiplayer.globalIdBlock, "globalIdBlock");
         }
 
         public void Tick()

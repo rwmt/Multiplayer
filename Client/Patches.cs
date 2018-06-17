@@ -14,6 +14,7 @@ using Verse.Profile;
 using Multiplayer.Common;
 using System.Text.RegularExpressions;
 using System.Runtime.CompilerServices;
+using System.Reflection.Emit;
 
 namespace Multiplayer.Client
 {
@@ -112,7 +113,7 @@ namespace Multiplayer.Client
 
                         //Multiplayer.SendGameData(Multiplayer.SaveGame());
 
-                        //Multiplayer.localServer.DoAutosave();
+                        Multiplayer.localServer.DoAutosave();
                     }));
 
                     optList.RemoveAll(opt => opt.label == "Save".Translate() || opt.label == "LoadGame".Translate());
@@ -129,22 +130,106 @@ namespace Multiplayer.Client
         }
     }
 
-    // Currently broken
+    [HarmonyPatch(typeof(MapDrawer), nameof(MapDrawer.RegenerateEverythingNow))]
     public static class MapDrawerRegenPatch
     {
-        public static Dictionary<string, MapDrawer> copyFrom = new Dictionary<string, MapDrawer>();
+        public static Dictionary<int, MapDrawer> copyFrom = new Dictionary<int, MapDrawer>();
 
         static bool Prefix(MapDrawer __instance)
         {
             Map map = __instance.map;
-            if (!copyFrom.TryGetValue(map.GetUniqueLoadID(), out MapDrawer oldDrawer)) return true;
+            if (!copyFrom.TryGetValue(map.uniqueID, out MapDrawer keepDrawer)) return true;
 
-            Section[,] oldSections = oldDrawer.sections;
-            foreach (Section s in oldSections)
+            map.mapDrawer = keepDrawer;
+            keepDrawer.map = map;
+
+            foreach (Section s in keepDrawer.sections)
+            {
                 s.map = map;
-            __instance.sections = oldSections;
 
-            copyFrom.Remove(map.GetUniqueLoadID());
+                for (int i = 0; i < s.layers.Count; i++)
+                {
+                    SectionLayer layer = s.layers[i];
+                    if (!ShouldKeep(layer))
+                        s.layers[i] = (SectionLayer)Activator.CreateInstance(layer.GetType(), s);
+                    else if (layer is SectionLayer_SunShadows sunShadows)
+                        SectionLayer_SunShadows.edificeGrid = map.edificeGrid.InnerArray;
+                    else if (layer is SectionLayer_LightingOverlay lighting)
+                        lighting.glowGrid = map.glowGrid.glowGrid;
+                }
+            }
+
+            foreach (Section s in keepDrawer.sections)
+                foreach (SectionLayer layer in s.layers)
+                    if (!ShouldKeep(layer))
+                        layer.Regenerate();
+
+            copyFrom.Remove(map.uniqueID);
+
+            return false;
+        }
+
+        static bool ShouldKeep(SectionLayer layer)
+        {
+            return layer.GetType().Assembly == typeof(Game).Assembly &&
+                layer.GetType() != typeof(SectionLayer_TerrainScatter);
+        }
+    }
+
+    //[HarmonyPatch(typeof(RegionAndRoomUpdater), nameof(RegionAndRoomUpdater.RebuildAllRegionsAndRooms))]
+    public static class RebuildRegionsAndRoomsPatch
+    {
+        public static Dictionary<int, RegionGrid> copyFrom = new Dictionary<int, RegionGrid>();
+
+        static bool Prefix(RegionAndRoomUpdater __instance)
+        {
+            Map map = __instance.map;
+            if (!copyFrom.TryGetValue(map.uniqueID, out RegionGrid oldRegions)) return true;
+
+            __instance.initialized = true;
+            map.temperatureCache.ResetTemperatureCache();
+
+            oldRegions.map = map; // for access to cellIndices in the iterator
+
+            foreach (Region r in oldRegions.AllRegions_NoRebuild_InvalidAllowed)
+            {
+                r.cachedAreaOverlaps = null;
+                r.cachedDangers.Clear();
+                r.mark = 0;
+                r.reachedIndex = 0;
+                r.closedIndex = new uint[RegionTraverser.NumWorkers];
+                r.cachedCellCount = -1;
+                r.mapIndex = (sbyte)map.Index;
+
+                if (r.portal != null)
+                    r.portal = map.ThingReplacement(r.portal);
+
+                foreach (List<Thing> things in r.listerThings.listsByGroup.Concat(r.ListerThings.listsByDef.Values))
+                    if (things != null)
+                        for (int j = 0; j < things.Count; j++)
+                            if (things[j] != null)
+                                things[j] = map.ThingReplacement(things[j]);
+
+                Room rm = r.Room;
+                if (rm == null) continue;
+
+                rm.mapIndex = (sbyte)map.Index;
+                rm.cachedCellCount = -1;
+                rm.cachedOpenRoofCount = -1;
+                rm.statsAndRoleDirty = true;
+                rm.stats = new DefMap<RoomStatDef, float>();
+                rm.role = null;
+                rm.uniqueNeighbors.Clear();
+                rm.uniqueContainedThings.Clear();
+
+                RoomGroup rg = rm.groupInt;
+                rg.tempTracker.cycleIndex = 0;
+            }
+
+            for (int i = 0; i < oldRegions.regionGrid.Length; i++)
+                map.regionGrid.regionGrid[i] = oldRegions.regionGrid[i];
+
+            copyFrom.Remove(map.uniqueID);
 
             return false;
         }
@@ -196,18 +281,6 @@ namespace Multiplayer.Client
         }
     }
 
-    public class FactionEquality : IEqualityComparer<Faction>
-    {
-        public bool Equals(Faction x, Faction y) => object.Equals(x, y);
-        public int GetHashCode(Faction obj) => obj.loadID;
-    }
-
-    public class ThingCompEquality : IEqualityComparer<ThingComp>
-    {
-        public bool Equals(ThingComp x, ThingComp y) => object.Equals(x, y);
-        public int GetHashCode(ThingComp obj) => obj.parent.thingIDNumber.Combine(obj.GetType().FullName.GetHashCode());
-    }
-
     // Fixes a lag spike when opening debug tools
     [HarmonyPatch(typeof(UIRoot))]
     [HarmonyPatch(nameof(UIRoot.UIRootOnGUI))]
@@ -234,9 +307,10 @@ namespace Multiplayer.Client
         {
             if (gameToLoad == null) return false;
 
-            ScribeUtil.StartLoading(gameToLoad);
+            bool prevCompress = SaveCompression.doSaveCompression;
+            SaveCompression.doSaveCompression = true;
 
-            Multiplayer.loadingEncounter = true;
+            ScribeUtil.StartLoading(gameToLoad);
             ScribeMetaHeaderUtility.LoadGameDataHeader(ScribeMetaHeaderUtility.ScribeHeaderMode.Map, false);
             Scribe.EnterNode("game");
             Current.Game = new Game();
@@ -244,7 +318,8 @@ namespace Multiplayer.Client
             Prefs.PauseOnLoad = false;
             Current.Game.LoadGame(); // calls Scribe.loader.FinalizeLoading()
             Find.TickManager.CurTimeSpeed = TimeSpeed.Paused;
-            Multiplayer.loadingEncounter = false;
+
+            SaveCompression.doSaveCompression = prevCompress;
             gameToLoad = null;
 
             Log.Message("Game loaded");
@@ -832,7 +907,7 @@ namespace Multiplayer.Client
         static void Prefix()
         {
             if (RandPatches.Ignore || dontLog || Multiplayer.client == null) return;
-            if (Current.ProgramState != ProgramState.Playing && !Multiplayer.loadingEncounter) return;
+            if (Current.ProgramState != ProgramState.Playing && !Multiplayer.reloading) return;
 
             dontLog = true;
 
@@ -853,7 +928,7 @@ namespace Multiplayer.Client
             {
                 //Log.Message(Find.TickManager.TicksGame + " " + Multiplayer.username + " " + (call++) + " rand call " + current + " " + Rand.Int);
             }
-            else if (Multiplayer.loadingEncounter)
+            else if (Multiplayer.reloading)
             {
                 //Log.Message(Find.TickManager.TicksGame + " " + Multiplayer.username + " " + (call++) + " rand encounter " + Rand.Int);
             }
@@ -1157,6 +1232,100 @@ namespace Multiplayer.Client
                 if (window == clickedWindow || window.closeOnClickedOutside) break;
                 UI.UnfocusCurrentControl();
             }
+        }
+    }
+
+    [HarmonyPatch(typeof(Pawn), nameof(Pawn.SpawnSetup))]
+    static class PawnSpawnSetupMarker
+    {
+        public static bool respawningAfterLoad;
+
+        static void Prefix(bool respawningAfterLoad)
+        {
+            PawnSpawnSetupMarker.respawningAfterLoad = respawningAfterLoad;
+        }
+
+        static void Postfix()
+        {
+            respawningAfterLoad = false;
+        }
+    }
+
+    [HarmonyPatch(typeof(Pawn_PathFollower), nameof(Pawn_PathFollower.ResetToCurrentPosition))]
+    static class PatherResetPatch
+    {
+        static bool Prefix() => !PawnSpawnSetupMarker.respawningAfterLoad;
+    }
+
+    [HarmonyPatch(typeof(GenSpawn), nameof(GenSpawn.Spawn), new[] { typeof(Thing), typeof(IntVec3), typeof(Map), typeof(Rot4), typeof(bool) })]
+    static class GenSpawnRotatePatch
+    {
+        static MethodInfo Rot4GetRandom = AccessTools.Property(typeof(Rot4), nameof(Rot4.Random)).GetGetMethod();
+
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+        {
+            foreach (CodeInstruction inst in insts)
+            {
+                if (inst.operand == Rot4GetRandom)
+                {
+                    yield return new CodeInstruction(OpCodes.Ldarg_0);
+                    yield return new CodeInstruction(OpCodes.Ldfld, AccessTools.Field(typeof(Thing), nameof(Thing.thingIDNumber)));
+                    yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(Rand), nameof(Rand.PushState), new[] { typeof(int) }));
+                }
+
+                yield return inst;
+
+                if (inst.operand == Rot4GetRandom)
+                    yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(Rand), nameof(Rand.PopState)));
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(LongEventHandler), nameof(LongEventHandler.ExecuteWhenFinished))]
+    static class ExecuteWhenFinishedPatch
+    {
+        static bool Prefix(Action action)
+        {
+            if (!Multiplayer.simulating) return true;
+            action();
+            return false;
+        }
+    }
+
+    [HarmonyPatch(typeof(Root_Play), nameof(Root_Play.SetupForQuickTestPlay))]
+    static class SetupQuickTestPatch
+    {
+        public static bool marker;
+
+        static void Prefix() => marker = true;
+
+        static void Postfix()
+        {
+            Find.GameInitData.mapSize = 250;
+            marker = false;
+        }
+    }
+
+    [HarmonyPatch(typeof(GameInitData), nameof(GameInitData.ChooseRandomStartingTile))]
+    static class RandomStartingTilePatch
+    {
+        static void Postfix()
+        {
+            if (SetupQuickTestPatch.marker)
+            {
+                Find.GameInitData.startingTile = 501;
+                Find.WorldGrid[Find.GameInitData.startingTile].hilliness = Hilliness.SmallHills;
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(GenText), nameof(GenText.RandomSeedString))]
+    static class GrammarRandomStringPatch
+    {
+        static void Postfix(ref string __result)
+        {
+            if (SetupQuickTestPatch.marker)
+                __result = "multiplayer";
         }
     }
 

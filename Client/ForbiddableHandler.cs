@@ -133,7 +133,7 @@ namespace Multiplayer.Client
 
             // Visual
             if (faction == Multiplayer.RealPlayerFaction)
-                parent.GetComp<CompForbiddable>().SetPropertyOrField("forbiddenInt", value);
+                parent.GetComp<CompForbiddable>().forbiddenInt = value;
         }
 
         public override void PostExposeData()

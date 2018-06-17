@@ -14,11 +14,6 @@ namespace Multiplayer.Client
         public static bool doSaveCompression;
         private static Dictionary<ushort, ThingDef> thingDefsByShortHash;
 
-        private static FieldInfo plantUnlitTicksField = AccessTools.Field(typeof(Plant), "unlitTicks");
-        private static FieldInfo plantMadeLeaflessTickField = AccessTools.Field(typeof(Plant), "madeLeaflessTick");
-        private static FieldInfo filthGrowTickField = AccessTools.Field(typeof(Filth), "growTick");
-        public static FieldInfo compressorMapField = AccessTools.Field(typeof(MapFileCompressor), "map");
-
         public static void Save(Map map)
         {
             if (Scribe.mode != LoadSaveMode.Saving) return;
@@ -73,7 +68,7 @@ namespace Multiplayer.Client
                     writer.Write(thing.def.shortHash);
                     writer.Write(thing.thingIDNumber);
                     writer.Write((byte)thing.thickness);
-                    writer.Write((int)filthGrowTickField.GetValue(thing));
+                    writer.Write(thing.growTick);
                 }
                 else
                 {
@@ -101,14 +96,14 @@ namespace Multiplayer.Client
                     writer.Write(thing.thingIDNumber);
                     writer.Write(thing.HitPoints);
 
-                    int sown = thing.sown ? 128 : 0;
-                    int growth = (int)(Mathf.Clamp01(thing.Growth) * 127);
+                    uint sown = thing.sown ? 128u : 0u;
+                    uint growth = (uint)(thing.Growth * 127) & 127u;
                     byte growthAndSown = (byte)(growth | sown);
                     writer.Write(growthAndSown);
 
                     writer.Write(thing.Age);
-                    writer.Write((int)plantUnlitTicksField.GetValue(thing));
-                    writer.Write((int)plantMadeLeaflessTickField.GetValue(thing));
+                    writer.Write(thing.unlitTicks);
+                    writer.Write(thing.madeLeaflessTick);
                 }
                 else
                 {
@@ -175,7 +170,7 @@ namespace Multiplayer.Client
 
                 thing.thingIDNumber = id;
                 thing.thickness = thickness;
-                filthGrowTickField.SetValue(thing, growTick);
+                thing.growTick = growTick;
 
                 thing.SetPositionDirect(cell);
                 loadedThings.Add(thing);
@@ -213,8 +208,8 @@ namespace Multiplayer.Client
 
                 thing.Growth = growth;
                 thing.Age = age;
-                plantUnlitTicksField.SetValue(thing, plantUnlitTicks);
-                plantMadeLeaflessTickField.SetValue(thing, plantMadeLeaflessTick);
+                thing.unlitTicks = plantUnlitTicks;
+                thing.madeLeaflessTick = plantMadeLeaflessTick;
                 thing.sown = sown;
 
                 thing.SetPositionDirect(cell);
@@ -245,10 +240,7 @@ namespace Multiplayer.Client
             using (BinaryWriter writer = new BinaryWriter(new MemoryStream()))
             {
                 for (int i = 0; i < cells; i++)
-                {
-                    IntVec3 cell = map.cellIndices.IndexToCell(i);
-                    action(writer, cell);
-                }
+                    action(writer, map.cellIndices.IndexToCell(i));
 
                 byte[] arr = (writer.BaseStream as MemoryStream).ToArray();
                 DataExposeUtility.ByteArray(ref arr, label);
@@ -262,13 +254,8 @@ namespace Multiplayer.Client
             DataExposeUtility.ByteArray(ref arr, label);
 
             using (BinaryReader reader = new BinaryReader(new MemoryStream(arr)))
-            {
                 for (int i = 0; i < cells; i++)
-                {
-                    IntVec3 cell = map.cellIndices.IndexToCell(i);
-                    action(reader, cell);
-                }
-            }
+                    action(reader, map.cellIndices.IndexToCell(i));
         }
     }
 
@@ -279,10 +266,7 @@ namespace Multiplayer.Client
         static bool Prefix(MapFileCompressor __instance)
         {
             if (!SaveCompression.doSaveCompression) return true;
-
-            Map map = (Map)SaveCompression.compressorMapField.GetValue(__instance);
-            SaveCompression.Save(map);
-
+            SaveCompression.Save(__instance.map);
             return false;
         }
     }
@@ -294,10 +278,7 @@ namespace Multiplayer.Client
         static bool Prefix(MapFileCompressor __instance)
         {
             if (!SaveCompression.doSaveCompression) return true;
-
-            Map map = (Map)SaveCompression.compressorMapField.GetValue(__instance);
-            SaveCompression.Load(map);
-
+            SaveCompression.Load(__instance.map);
             return false;
         }
     }
@@ -310,8 +291,7 @@ namespace Multiplayer.Client
         {
             if (!SaveCompression.doSaveCompression) return;
 
-            Map map = (Map)SaveCompression.compressorMapField.GetValue(__instance);
-            MultiplayerMapComp comp = map.GetComponent<MultiplayerMapComp>();
+            MultiplayerMapComp comp = __instance.map.GetComponent<MultiplayerMapComp>();
             __result = comp.loadedThings;
             comp.loadedThings = null;
         }

@@ -156,7 +156,7 @@ namespace Multiplayer.Common
             SendToAll(id, ByteWriter.GetBytes(data));
         }
 
-        public ServerPlayer GetServerPlayer(string username)
+        public ServerPlayer GetPlayer(string username)
         {
             return players.FirstOrDefault(player => player.Username == username);
         }
@@ -204,7 +204,7 @@ namespace Multiplayer.Common
     {
         public int blockStart;
         public int blockSize;
-        public int mapId = -1; // -1 means global
+        public int mapId = -1;
 
         public int current;
         public bool overflowHandled;
@@ -306,7 +306,7 @@ namespace Multiplayer.Common
                 return;
             }
 
-            if (MultiplayerServer.instance.GetServerPlayer(username) != null)
+            if (MultiplayerServer.instance.GetPlayer(username) != null)
             {
                 Connection.Close("Username already online.");
                 return;
@@ -341,7 +341,7 @@ namespace Multiplayer.Common
 
             foreach (int mapId in new[] { 0 })
             {
-                MultiplayerServer.instance.SendCommand(CommandType.CREATE_MAP_FACTION_DATA, ScheduledCommand.NO_FACTION, mapId, ByteWriter.GetBytes(Connection.Username));
+                MultiplayerServer.instance.SendCommand(CommandType.CREATE_MAP_FACTION_DATA, ScheduledCommand.NO_FACTION, mapId, ByteWriter.GetBytes(factionId));
 
                 writer.WriteInt32(mapId);
                 writer.Write(MultiplayerServer.instance.mapCmds[mapId]);

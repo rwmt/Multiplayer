@@ -186,7 +186,8 @@ namespace Multiplayer.Client
     {
         static void Prefix(DateNotifier __instance, ref int? __state)
         {
-            if (Multiplayer.client == null) return;
+            if (Multiplayer.client == null && Multiplayer.RealPlayerFaction != null) return;
+
             __state = Find.TickManager.TicksGame;
             FactionContext.Push(Multiplayer.RealPlayerFaction);
             Map map = __instance.FindPlayerHomeWithMinTimezone();

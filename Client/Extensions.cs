@@ -27,7 +27,7 @@ namespace Multiplayer.Client
         // applies faction's map components if map not null
         public static void PushFaction(this Map map, Faction faction)
         {
-            FactionContext.Push(faction);
+            faction = FactionContext.Push(faction);
             if (map != null && faction != null)
                 map.GetComponent<MultiplayerMapComp>().SetFaction(faction);
         }
@@ -70,6 +70,15 @@ namespace Multiplayer.Client
         public static MapAsyncTimeComp AsyncTime(this Map map)
         {
             return map.GetComponent<MapAsyncTimeComp>();
+        }
+
+        public static T ThingReplacement<T>(this Map map, T thing) where T : Thing
+        {
+            foreach (Thing t in map.thingGrid.ThingsListAtFast(thing.positionInt))
+                if (t.thingIDNumber == thing.thingIDNumber)
+                    return (T)t;
+
+            return null;
         }
     }
 }
