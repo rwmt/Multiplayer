@@ -63,8 +63,6 @@ namespace Multiplayer.Common
             };
         }
 
-        public static Stopwatch watch = Stopwatch.StartNew();
-
         public void Run()
         {
             while (running)
@@ -171,12 +169,10 @@ namespace Multiplayer.Common
             return new IdBlock(blockStart, blockSize);
         }
 
-        private int nextCmdId;
-
         public void SendCommand(CommandType cmd, int factionId, int mapId, byte[] extra)
         {
             // todo send only to players playing the map if not global
-            byte[] toSend = ByteWriter.GetBytes(nextCmdId++, cmd, timer, factionId, mapId, extra);
+            byte[] toSend = ByteWriter.GetBytes(cmd, timer, factionId, mapId, extra);
 
             if (mapId < 0)
                 globalCmds.Add(toSend);
@@ -423,7 +419,7 @@ namespace Multiplayer.Common
             if (!MultiplayerServer.instance.mapTiles.TryGetValue(tile, out int mapId))
                 return;
 
-            byte[] extra = ByteWriter.GetBytes(Connection.Username);
+            byte[] extra = ByteWriter.GetBytes(Connection.Username); // todo faction id
             MultiplayerServer.instance.SendCommand(CommandType.CREATE_MAP_FACTION_DATA, ScheduledCommand.NO_FACTION, mapId, extra);
 
             byte[] mapData = MultiplayerServer.instance.mapData[mapId];

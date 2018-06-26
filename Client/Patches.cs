@@ -397,19 +397,23 @@ namespace Multiplayer.Client
 
             if (Find.VisibleMap != null)
             {
-                MapAsyncTimeComp comp = Find.VisibleMap.GetComponent<MapAsyncTimeComp>();
-                string text1 = "" + comp.mapTicks;
+                MapAsyncTimeComp async = Find.VisibleMap.GetComponent<MapAsyncTimeComp>();
+                string text1 = "" + async.mapTicks;
 
                 text1 += " r:" + Find.VisibleMap.reservationManager.AllReservedThings().Count();
 
                 int faction = Find.VisibleMap.info.parent.Faction.loadID;
-                FactionMapData data = Find.VisibleMap.GetComponent<MultiplayerMapComp>().factionMapData.GetValueSafe(faction);
+                MultiplayerMapComp comp = Find.VisibleMap.GetComponent<MultiplayerMapComp>();
+                FactionMapData data = comp.factionMapData.GetValueSafe(faction);
 
                 if (data != null)
                 {
                     text1 += " h:" + data.listerHaulables.ThingsPotentiallyNeedingHauling().Count;
                     text1 += " sg:" + data.slotGroupManager.AllGroupsListForReading.Count;
                 }
+
+                if (comp.mapIdBlock != null)
+                    text1 += " " + comp.mapIdBlock.current;
 
                 Rect rect1 = new Rect(80f, 110f, 330f, Text.CalcHeight(text1, 330f));
                 Widgets.Label(rect1, text1);
@@ -469,10 +473,10 @@ namespace Multiplayer.Client
         static void RegisterCrossRefs()
         {
             foreach (Faction f in Find.FactionManager.AllFactions)
-                ScribeUtil.crossRefs.RegisterLoaded(f);
+                ScribeUtil.sharedCrossRefs.RegisterLoaded(f);
 
             foreach (Map map in Find.Maps)
-                ScribeUtil.crossRefs.RegisterLoaded(map);
+                ScribeUtil.sharedCrossRefs.RegisterLoaded(map);
         }
     }
 
@@ -1004,11 +1008,7 @@ namespace Multiplayer.Client
         static void Postfix(Pawn_DrawTracker __instance, ref Vector3 __result)
         {
             if (Multiplayer.client == null || Multiplayer.ShouldSync) return;
-
-            Vector3 result = __result;
-            result -= __instance.tweener.TweenedPos;
-            result += __instance.tweener.TweenedPosRoot();
-            __result = result;
+            __result = __result - __instance.tweener.TweenedPos + __instance.tweener.TweenedPosRoot();
         }
     }
 

@@ -34,7 +34,7 @@ namespace Multiplayer.Client
 
         public static void PushFaction(this Map map, int factionId)
         {
-            Faction faction = Find.FactionManager.AllFactions.FirstOrDefault(f => f.loadID == factionId);
+            Faction faction = Find.FactionManager.AllFactionsListForReading.Find(f => f.loadID == factionId);
             map.PushFaction(faction);
         }
 
@@ -53,13 +53,13 @@ namespace Multiplayer.Client
         public static Map GetMap(this ScheduledCommand cmd)
         {
             if (cmd.mapId == ScheduledCommand.GLOBAL) return null;
-            return Find.Maps.FirstOrDefault(map => map.uniqueID == cmd.mapId);
+            return Find.Maps.Find(map => map.uniqueID == cmd.mapId);
         }
 
         public static Faction GetFaction(this ScheduledCommand cmd)
         {
             if (cmd.factionId == ScheduledCommand.NO_FACTION) return null;
-            return Find.FactionManager.AllFactions.FirstOrDefault(f => f.loadID == cmd.factionId);
+            return Find.FactionManager.AllFactionsListForReading.Find(f => f.loadID == cmd.factionId);
         }
 
         public static void RemoveAll<K, V>(this Dictionary<K, V> dict, Func<K, V, bool> predicate)

@@ -5,7 +5,6 @@ using RimWorld.Planet;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using UnityEngine;
 using Verse;
 
@@ -64,29 +63,22 @@ namespace Multiplayer.Client
             while (accumulator > 0)
             {
                 bool allPaused = AllTickables.All(t => t.CurTimePerTick == 0);
-                double curTimer = timerInt;
+                int curTimer = Timer;
 
-                while (OnMainThread.scheduledCmds.Count > 0 && (allPaused || OnMainThread.scheduledCmds.Peek().ticks == (int)curTimer))
+                foreach (ITickable tickable in AllTickables)
                 {
-                    ScheduledCommand cmd = OnMainThread.scheduledCmds.Dequeue();
-                    bool prevPaused = allPaused;
-
-                    if (cmd.mapId == ScheduledCommand.GLOBAL)
+                    while (tickable.Cmds.Count > 0 && (allPaused || tickable.Cmds.Peek().ticks == curTimer))
                     {
-                        OnMainThread.ExecuteGlobalServerCmd(cmd, new ByteReader(cmd.data));
-                        allPaused &= Multiplayer.WorldComp.CurTimePerTick == 0;
-                    }
-                    else
-                    {
-                        Map map = cmd.GetMap();
-                        if (map == null) continue;
+                        ScheduledCommand cmd = tickable.Cmds.Dequeue();
+                        bool prevPaused = allPaused;
 
-                        OnMainThread.ExecuteMapCmd(cmd, new ByteReader(cmd.data));
-                        allPaused &= map.GetComponent<MapAsyncTimeComp>().CurTimePerTick == 0;
-                    }
+                        tickable.ExecuteCmd(cmd);
 
-                    if (prevPaused && !allPaused)
-                        timerInt = cmd.ticks;
+                        allPaused &= tickable.CurTimePerTick == 0;
+
+                        if (prevPaused && !allPaused)
+                            timerInt = cmd.ticks;
+                    }
                 }
 
                 if (allPaused)
@@ -123,7 +115,11 @@ namespace Multiplayer.Client
 
         TimeSpeed TimeSpeed { get; }
 
+        Queue<ScheduledCommand> Cmds { get; }
+
         void Tick();
+
+        void ExecuteCmd(ScheduledCommand cmd);
     }
 
     [HarmonyPatch(typeof(Map), nameof(Map.MapUpdate))]
@@ -312,15 +308,6 @@ namespace Multiplayer.Client
     [StaticConstructorOnStartup]
     public static class ColonistBarTimeControl
     {
-        public static readonly Texture2D[] SpeedButtonTextures = new Texture2D[]
-        {
-            ContentFinder<Texture2D>.Get("UI/TimeControls/TimeSpeedButton_Pause", true),
-            ContentFinder<Texture2D>.Get("UI/TimeControls/TimeSpeedButton_Normal", true),
-            ContentFinder<Texture2D>.Get("UI/TimeControls/TimeSpeedButton_Fast", true),
-            ContentFinder<Texture2D>.Get("UI/TimeControls/TimeSpeedButton_Superfast", true),
-            ContentFinder<Texture2D>.Get("UI/TimeControls/TimeSpeedButton_Superfast", true)
-        };
-
         static void Postfix()
         {
             if (Multiplayer.client == null) return;
@@ -341,7 +328,7 @@ namespace Multiplayer.Client
                 Rect rect = bar.drawer.GroupFrameRect(entry.group);
                 Rect button = new Rect(rect.x - TimeControls.TimeButSize.x / 2f, rect.yMax - TimeControls.TimeButSize.y / 2f, TimeControls.TimeButSize.x, TimeControls.TimeButSize.y);
                 Widgets.DrawRectFast(button, new Color(0.5f, 0.5f, 0.5f, 0.4f * alpha));
-                Widgets.ButtonImage(button, SpeedButtonTextures[(int)comp.TimeSpeed]);
+                Widgets.ButtonImage(button, TexButton.SpeedButtonTextures[(int)comp.TimeSpeed]);
 
                 curGroup = entry.group;
             }
@@ -413,9 +400,11 @@ namespace Multiplayer.Client
 
         public float RealTimeToTickThrough { get; set; }
 
+        public Queue<ScheduledCommand> Cmds { get => cmds; }
+
         public int mapTicks;
         public TimeSpeed timeSpeedInt;
-        public bool forcedNormalSpeed;
+        public bool forcedNormalSpeed; // todo save
 
         public Storyteller storyteller;
 
@@ -425,6 +414,8 @@ namespace Multiplayer.Client
 
         // Shared random state for ticking and commands
         public ulong randState = 1;
+
+        public Queue<ScheduledCommand> cmds = new Queue<ScheduledCommand>();
 
         public MapAsyncTimeComp(Map map) : base(map)
         {
@@ -498,6 +489,8 @@ namespace Multiplayer.Client
 
         public void PreContext()
         {
+            map.PushFaction(map.ParentFaction);
+
             worldTicks = Find.TickManager.TicksGame;
             worldSpeed = Find.TickManager.CurTimeSpeed;
             Find.TickManager.DebugSetTicksGame(mapTicks);
@@ -526,12 +519,19 @@ namespace Multiplayer.Client
             Find.TickManager.CurTimeSpeed = worldSpeed;
 
             randState = Rand.StateCompressed;
+
+            map.PopFaction();
         }
 
         public override void ExposeData()
         {
             Scribe_Values.Look(ref mapTicks, "mapTicks");
             Scribe_Values.Look(ref timeSpeedInt, "timeSpeed");
+        }
+
+        public void ExecuteCmd(ScheduledCommand cmd)
+        {
+            OnMainThread.ExecuteMapCmd(cmd, new ByteReader(cmd.data));
         }
     }
 }

@@ -138,9 +138,7 @@ namespace Multiplayer.Client
 
         public override void PostExposeData()
         {
-            List<int> list1 = null;
-            List<bool> list2 = null;
-            ScribeUtil.Look(ref factionForbidden, "factionForbidden", LookMode.Value, ref list1, ref list2);
+            ScribeUtil.Look(ref factionForbidden, "factionForbidden", LookMode.Value);
 
             // Should only happen for maps transitioning singleplayer -> multiplayer
             if (Scribe.mode == LoadSaveMode.LoadingVars && factionForbidden == null)

@@ -680,12 +680,12 @@ namespace Multiplayer.Client
             { (ByteWriter data, double d) => data.WriteDouble(d) },
             { (ByteWriter data, ushort u) => data.WriteUInt16(u) },
             { (ByteWriter data, byte b) => data.WriteByte(b) },
-            { (ByteWriter data, PriorityWork work) => WriteSync(data, work.GetPropertyOrField("pawn") as Pawn) },
-            { (ByteWriter data, Pawn_PlayerSettings comp) => WriteSync(data, comp.GetPropertyOrField("pawn") as Pawn) },
-            { (ByteWriter data, Pawn_TimetableTracker comp) => WriteSync(data, comp.GetPropertyOrField("pawn") as Pawn) },
+            { (ByteWriter data, PriorityWork work) => WriteSync(data, work.pawn) },
+            { (ByteWriter data, Pawn_PlayerSettings comp) => WriteSync(data, comp.pawn) },
+            { (ByteWriter data, Pawn_TimetableTracker comp) => WriteSync(data, comp.pawn) },
             { (ByteWriter data, Pawn_DraftController comp) => WriteSync(data, comp.pawn) },
-            { (ByteWriter data, Pawn_WorkSettings comp) => WriteSync(data, comp.GetPropertyOrField("pawn") as Pawn) },
-            { (ByteWriter data, Pawn_JobTracker comp) => WriteSync(data, comp.GetPropertyOrField("pawn") as Pawn) },
+            { (ByteWriter data, Pawn_WorkSettings comp) => WriteSync(data, comp.pawn) },
+            { (ByteWriter data, Pawn_JobTracker comp) => WriteSync(data, comp.pawn) },
             { (ByteWriter data, FloatRange range) => { data.WriteFloat(range.min); data.WriteFloat(range.max); }},
             { (ByteWriter data, IntRange range) => { data.WriteInt32(range.min); data.WriteInt32(range.max); }},
             { (ByteWriter data, QualityRange range) => { WriteSync(data, range.min); WriteSync(data, range.max); }},
@@ -701,7 +701,7 @@ namespace Multiplayer.Client
             }
         };
 
-        private static List<Type> storageParentImplementations = new List<Type>()
+        private static Type[] storageParentImplementations = new[]
         {
             typeof(Building_Grave),
             typeof(Building_Storage),
@@ -831,7 +831,7 @@ namespace Multiplayer.Client
                     return null;
 
                 int id = data.ReadInt32();
-                return billStack.Bills.FirstOrDefault(bill => (int)bill.GetPropertyOrField("loadID") == id);
+                return billStack.Bills.FirstOrDefault(bill => bill.loadID == id);
             }
             else if (typeof(Outfit) == type)
             {
@@ -1007,7 +1007,7 @@ namespace Multiplayer.Client
                 {
                     Bill bill = obj as Bill;
                     WriteSync(data, bill.billStack);
-                    data.WriteInt32((int)bill.GetPropertyOrField("loadID"));
+                    data.WriteInt32(bill.loadID);
                 }
                 else if (typeof(Outfit) == type)
                 {
@@ -1032,7 +1032,7 @@ namespace Multiplayer.Client
                 {
                     int impl = -1;
                     Type implType = null;
-                    for (int i = 0; i < storageParentImplementations.Count; i++)
+                    for (int i = 0; i < storageParentImplementations.Length; i++)
                     {
                         if (storageParentImplementations[i].IsAssignableFrom(obj.GetType()))
                         {

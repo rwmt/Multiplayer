@@ -25,21 +25,30 @@
         public const int NO_FACTION = -1;
         public const int GLOBAL = -1;
 
-        public readonly int id;
         public readonly CommandType type;
         public readonly int ticks;
         public readonly int factionId;
         public readonly int mapId;
         public readonly byte[] data;
 
-        public ScheduledCommand(int id, CommandType type, int ticks, int factionId, int mapId, byte[] data)
+        public ScheduledCommand(CommandType type, int ticks, int factionId, int mapId, byte[] data)
         {
-            this.id = id;
             this.type = type;
             this.ticks = ticks;
             this.factionId = factionId;
             this.mapId = mapId;
             this.data = data;
+        }
+
+        public static ScheduledCommand Deserialize(ByteReader data)
+        {
+            CommandType cmd = (CommandType)data.ReadInt32();
+            int ticks = data.ReadInt32();
+            int factionId = data.ReadInt32();
+            int mapId = data.ReadInt32();
+            byte[] extraBytes = data.ReadPrefixedBytes();
+
+            return new ScheduledCommand(cmd, ticks, factionId, mapId, extraBytes);
         }
     }
 }

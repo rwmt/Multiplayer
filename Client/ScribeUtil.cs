@@ -11,16 +11,12 @@ using Verse;
 
 namespace Multiplayer.Client
 {
-    public class CrossRefSupply : LoadedObjectDirectory
+    public class SharedCrossRefs : LoadedObjectDirectory
     {
         // Used in CrossRefs patches
-        public List<string> tempKeys = new List<string>();
+        public HashSet<string> tempKeys = new HashSet<string>();
 
         public Dictionary<string, ILoadReferenceable> Dict { get => allObjectsByLoadID; }
-
-        public CrossRefSupply()
-        {
-        }
 
         public void Unregister(ILoadReferenceable thing)
         {
@@ -34,7 +30,7 @@ namespace Multiplayer.Client
 
         public void UnregisterAllFrom(Map map)
         {
-            Dict.RemoveAll(x => x.Value is Thing && ((Thing)x.Value).Map == map);
+            Dict.RemoveAll(x => x.Value is Thing t && t.Map == map);
         }
     }
 
@@ -42,9 +38,8 @@ namespace Multiplayer.Client
     {
         private static MemoryStream stream;
 
-        public static CrossRefSupply crossRefs;
+        public static SharedCrossRefs sharedCrossRefs;
         public static LoadedObjectDirectory defaultCrossRefs;
-        public static readonly FieldInfo crossRefsField = typeof(CrossRefHandler).GetField("loadedObjectDirectory", BindingFlags.NonPublic | BindingFlags.Instance);
 
         public static bool loading;
 
@@ -179,7 +174,7 @@ namespace Multiplayer.Client
 
         public static void SupplyCrossRefs()
         {
-            if (crossRefs == null) return;
+            if (sharedCrossRefs == null) return;
 
             if (!loading)
             {
@@ -188,11 +183,11 @@ namespace Multiplayer.Client
             }
 
             if (defaultCrossRefs == null)
-                defaultCrossRefs = (LoadedObjectDirectory)crossRefsField.GetValue(Scribe.loader.crossRefs);
+                defaultCrossRefs = Scribe.loader.crossRefs.loadedObjectDirectory;
 
-            crossRefsField.SetValue(Scribe.loader.crossRefs, crossRefs);
+            Scribe.loader.crossRefs.loadedObjectDirectory = sharedCrossRefs;
 
-            Log.Message("Cross ref supply: " + crossRefs.Dict.Count + " " + crossRefs.Dict.Last() + " " + Faction.OfPlayer);
+            Log.Message("Cross ref supply: " + sharedCrossRefs.Dict.Count + " " + sharedCrossRefs.Dict.Last() + " " + Faction.OfPlayer);
         }
 
         public static byte[] WriteExposable(IExposable element, string name = "data", bool indent = false)
@@ -208,19 +203,25 @@ namespace Multiplayer.Client
             StartLoading(data);
             SupplyCrossRefs();
             T element = default(T);
-            Scribe_Deep.Look(ref element, "data");
+            Scribe_Deep.Look(ref element, "root");
 
-            if (beforeFinish != null)
-                beforeFinish.Invoke(element);
+            beforeFinish?.Invoke(element);
 
             FinalizeLoading();
             return element;
         }
 
+        public static void Look<K, V>(ref Dictionary<K, V> dict, string label, LookMode valueLookMode, params object[] valueCtorArgs)
+        {
+            List<V> list = null;
+            Look(ref dict, label, valueLookMode, ref list, valueCtorArgs);
+        }
+
         // Dictionary Look with value keys
-        public static void Look<K, V>(ref Dictionary<K, V> dict, string label, LookMode valueLookMode, ref List<K> keysWorkingList, ref List<V> valuesWorkingList, params object[] valueCtorArgs)
+        public static void Look<K, V>(ref Dictionary<K, V> dict, string label, LookMode valueLookMode, ref List<V> valuesWorkingList, params object[] valueCtorArgs)
         {
             LookMode keyLookMode = LookMode.Value;
+            List<K> keysWorkingList = null;
 
             if (Scribe.EnterNode(label))
             {
@@ -326,6 +327,7 @@ namespace Multiplayer.Client
                             keysWorkingList.Clear();
                             keysWorkingList = null;
                         }
+
                         if (valuesWorkingList != null)
                         {
                             valuesWorkingList.Clear();

@@ -33,6 +33,9 @@ namespace Multiplayer.Client
             Rand.PushState(seed);
             UnityRandomSeed.Push(seed);
 
+            if (Scribe.mode != LoadSaveMode.LoadingVars)
+                UniqueIdsPatch.CurrentBlock = __instance.GetComponent<MultiplayerMapComp>().mapIdBlock;
+
             __state = true;
         }
 
@@ -42,6 +45,9 @@ namespace Multiplayer.Client
             {
                 Rand.PopState();
                 UnityRandomSeed.Pop();
+
+                if (Scribe.mode != LoadSaveMode.LoadingVars)
+                    UniqueIdsPatch.CurrentBlock = null;
             }
         }
     }
@@ -58,6 +64,8 @@ namespace Multiplayer.Client
             Rand.PushState(seed);
             UnityRandomSeed.Push(seed);
 
+            UniqueIdsPatch.CurrentBlock = __instance.GetComponent<MultiplayerMapComp>().mapIdBlock;
+
             __state = true;
         }
 
@@ -67,11 +75,12 @@ namespace Multiplayer.Client
             {
                 Rand.PopState();
                 UnityRandomSeed.Pop();
+                UniqueIdsPatch.CurrentBlock = null;
             }
         }
     }
 
-    [MpPatch(typeof(VoluntarilyJoinableLordsStarter), "Tick_TryStartParty")]
+    [MpPatch(typeof(VoluntarilyJoinableLordsStarter), nameof(VoluntarilyJoinableLordsStarter.Tick_TryStartParty))]
     [MpPatch(typeof(DamageWatcher), nameof(DamageWatcher.Notify_DamageTaken))]
     [MpPatch(typeof(WildSpawner), nameof(WildSpawner.WildSpawnerTick))]
     public static class MapParentFactionPatch

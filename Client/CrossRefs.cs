@@ -13,7 +13,7 @@ namespace Multiplayer.Client
         static void Postfix(Thing __instance)
         {
             if (__instance.def.HasThingIDNumber)
-                ScribeUtil.crossRefs.RegisterLoaded(__instance);
+                ScribeUtil.sharedCrossRefs.RegisterLoaded(__instance);
         }
     }
 
@@ -23,7 +23,7 @@ namespace Multiplayer.Client
     {
         static void Postfix(Thing __instance)
         {
-            ScribeUtil.crossRefs.Unregister(__instance);
+            ScribeUtil.sharedCrossRefs.Unregister(__instance);
         }
     }
 
@@ -33,7 +33,7 @@ namespace Multiplayer.Client
     {
         static void Postfix(WorldObject __instance)
         {
-            ScribeUtil.crossRefs.RegisterLoaded(__instance);
+            ScribeUtil.sharedCrossRefs.RegisterLoaded(__instance);
         }
     }
 
@@ -43,7 +43,7 @@ namespace Multiplayer.Client
     {
         static void Postfix(WorldObject __instance)
         {
-            ScribeUtil.crossRefs.Unregister(__instance);
+            ScribeUtil.sharedCrossRefs.Unregister(__instance);
         }
     }
 
@@ -53,7 +53,7 @@ namespace Multiplayer.Client
     {
         static void Postfix(Faction faction)
         {
-            ScribeUtil.crossRefs.RegisterLoaded(faction);
+            ScribeUtil.sharedCrossRefs.RegisterLoaded(faction);
         }
     }
 
@@ -63,7 +63,7 @@ namespace Multiplayer.Client
     {
         static void Postfix(Map map)
         {
-            ScribeUtil.crossRefs.RegisterLoaded(map);
+            ScribeUtil.sharedCrossRefs.RegisterLoaded(map);
         }
     }
 
@@ -73,8 +73,8 @@ namespace Multiplayer.Client
     {
         static void Prefix(Map map)
         {
-            ScribeUtil.crossRefs.UnregisterAllFrom(map);
-            ScribeUtil.crossRefs.Unregister(map);
+            ScribeUtil.sharedCrossRefs.UnregisterAllFrom(map);
+            ScribeUtil.sharedCrossRefs.Unregister(map);
         }
     }
 
@@ -84,18 +84,18 @@ namespace Multiplayer.Client
     {
         static void Postfix()
         {
-            ScribeUtil.crossRefs = null;
+            ScribeUtil.sharedCrossRefs = null;
             Log.Message("Removed all cross refs");
         }
     }
 
     [HarmonyPatch(typeof(Game))]
-    [HarmonyPatch("FillComponents")]
+    [HarmonyPatch(nameof(Game.FillComponents))]
     public static class FillComponentsPatch
     {
         static void Postfix()
         {
-            ScribeUtil.crossRefs = new CrossRefSupply();
+            ScribeUtil.sharedCrossRefs = new SharedCrossRefs();
             Log.Message("New cross refs");
         }
     }
@@ -106,16 +106,16 @@ namespace Multiplayer.Client
     {
         static bool Prefix(LoadedObjectDirectory __instance, ILoadReferenceable reffable)
         {
-            if (!(__instance is CrossRefSupply)) return true;
+            if (!(__instance is SharedCrossRefs)) return true;
             if (reffable == null) return false;
 
             string key = reffable.GetUniqueLoadID();
-            if (ScribeUtil.crossRefs.Dict.ContainsKey(key)) return false;
+            if (ScribeUtil.sharedCrossRefs.Dict.ContainsKey(key)) return false;
 
             if (Scribe.mode == LoadSaveMode.ResolvingCrossRefs)
-                ScribeUtil.crossRefs.tempKeys.Add(key);
+                ScribeUtil.sharedCrossRefs.tempKeys.Add(key);
 
-            ScribeUtil.crossRefs.Dict.Add(key, reffable);
+            ScribeUtil.sharedCrossRefs.Dict.Add(key, reffable);
 
             return false;
         }
@@ -127,13 +127,13 @@ namespace Multiplayer.Client
     {
         static bool Prefix(LoadedObjectDirectory __instance)
         {
-            if (!(__instance is CrossRefSupply)) return true;
+            if (!(__instance is SharedCrossRefs)) return true;
 
-            ScribeUtil.crossRefsField.SetValue(Scribe.loader.crossRefs, ScribeUtil.defaultCrossRefs);
+            Scribe.loader.crossRefs.loadedObjectDirectory = ScribeUtil.defaultCrossRefs;
 
-            foreach (string temp in ScribeUtil.crossRefs.tempKeys)
-                ScribeUtil.crossRefs.Unregister(temp);
-            ScribeUtil.crossRefs.tempKeys.Clear();
+            foreach (string temp in ScribeUtil.sharedCrossRefs.tempKeys)
+                ScribeUtil.sharedCrossRefs.Unregister(temp);
+            ScribeUtil.sharedCrossRefs.tempKeys.Clear();
 
             return false;
         }
