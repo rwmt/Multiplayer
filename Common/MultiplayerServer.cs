@@ -27,6 +27,7 @@ namespace Multiplayer.Common
         public Dictionary<int, byte[]> mapData = new Dictionary<int, byte[]>(); // Map id to compressed map data
         public Dictionary<int, List<byte[]>> mapCmds = new Dictionary<int, List<byte[]>>(); // Map id to serialized cmds list
         public List<byte[]> globalCmds = new List<byte[]>(); // Serialized global cmds
+        public Dictionary<int, byte[]> worldFactionData = new Dictionary<int, byte[]>(); // Faction id to serialized world faction data
         public Dictionary<string, int> playerFactions = new Dictionary<string, int>(); // Username to faction id
 
         public List<ServerPlayer> players = new List<ServerPlayer>();
@@ -395,20 +396,24 @@ namespace Multiplayer.Common
         [PacketHandler(Packets.CLIENT_AUTOSAVED_DATA)]
         public void HandleAutosavedData(ByteReader data)
         {
-            bool isGame = data.ReadBool();
+            int type = data.ReadInt32();
+            byte[] compressedData = data.ReadPrefixedBytes();
 
-            if (isGame)
+            if (type == 0) // Faction data
             {
-                byte[] compressedData = data.ReadPrefixedBytes();
                 MultiplayerServer.instance.savedGame = compressedData;
             }
-            else
+            else if (type == 1) // Map data
             {
                 int mapId = data.ReadInt32();
-                byte[] compressedData = data.ReadPrefixedBytes();
 
                 // todo test map ownership
                 MultiplayerServer.instance.mapData[mapId] = compressedData;
+            }
+            else if (type == 2) // Faction world data
+            {
+                int factionId = data.ReadInt32();
+                MultiplayerServer.instance.worldFactionData[factionId] = compressedData;
             }
         }
 

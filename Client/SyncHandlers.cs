@@ -4,11 +4,34 @@ using RimWorld;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using Verse;
 using Verse.AI;
 
 namespace Multiplayer.Client
 {
+    public static class SyncHandlers
+    {
+        public static void Init()
+        {
+            HarmonyInstance harmony = Multiplayer.harmony;
+            harmony.DoMpPatches(typeof(SyncMarkers));
+            harmony.DoMpPatches(typeof(SyncPatches));
+            harmony.DoMpPatches(typeof(SyncDelegates));
+            harmony.DoMpPatches(typeof(SyncThingFilters));
+
+            RuntimeHelpers.RunClassConstructor(typeof(SyncPatches).TypeHandle);
+            RuntimeHelpers.RunClassConstructor(typeof(SyncFieldsPatches).TypeHandle);
+            RuntimeHelpers.RunClassConstructor(typeof(SyncDelegates).TypeHandle);
+            RuntimeHelpers.RunClassConstructor(typeof(SyncThingFilters).TypeHandle);
+
+            Sync.RegisterFieldPatches(typeof(SyncFieldsPatches));
+            Sync.RegisterSyncDelegates(typeof(SyncDelegates));
+            Sync.RegisterSyncMethods(typeof(SyncPatches));
+            Sync.RegisterSyncMethods(typeof(SyncThingFilters));
+        }
+    }
+
     public static class SyncFieldsPatches
     {
         public static SyncField SyncAreaRestriction = Sync.Field(typeof(Pawn), "playerSettings", "AreaRestriction");
@@ -128,7 +151,7 @@ namespace Multiplayer.Client
         [MpPrefix(typeof(Widgets), "CheckboxLabeled")]
         static void CheckboxLabeled()
         {
-            if (MethodMarkers.manualPriorities)
+            if (SyncMarkers.manualPriorities)
                 SyncUseWorkPriorities.Watch();
         }
 
@@ -141,13 +164,13 @@ namespace Multiplayer.Client
         [MpPrefix(typeof(ThingFilterUI), "DrawHitPointsFilterConfig")]
         static void ThingFilterHitPoints()
         {
-            SyncThingFilterHitPoints.Watch(MethodMarkers.ThingFilterOwner);
+            SyncThingFilterHitPoints.Watch(SyncMarkers.ThingFilterOwner);
         }
 
         [MpPrefix(typeof(ThingFilterUI), "DrawQualityFilterConfig")]
         static void ThingFilterQuality()
         {
-            SyncThingFilterQuality.Watch(MethodMarkers.ThingFilterOwner);
+            SyncThingFilterQuality.Watch(SyncMarkers.ThingFilterOwner);
         }
 
         [MpPrefix(typeof(Dialog_BillConfig), "DoWindowContents")]
@@ -225,6 +248,8 @@ namespace Multiplayer.Client
             Sync.RegisterSyncMethod(typeof(StorageSettings), "set_Priority");
             Sync.RegisterSyncMethod(typeof(Pawn), "set_Name", typeof(Expose<Name>));
             Sync.RegisterSyncMethod(typeof(Building_TurretGun), "OrderAttack");
+            Sync.RegisterSyncMethod(typeof(Area), "Invert");
+            Sync.RegisterSyncMethod(typeof(Area), "Delete");
         }
 
         public static SyncField SyncTimetable = Sync.Field(typeof(Pawn), "timetable", "times");
@@ -232,7 +257,7 @@ namespace Multiplayer.Client
         [MpPrefix(typeof(PawnColumnWorker_CopyPasteTimetable), "PasteTo")]
         static bool CopyPasteTimetable(Pawn p)
         {
-            return !SyncTimetable.DoSync(p, MpReflection.GetValueStatic(typeof(PawnColumnWorker_CopyPasteTimetable), "clipboard"));
+            return !SyncTimetable.DoSync(p, PawnColumnWorker_CopyPasteTimetable.clipboard);
         }
     }
 
@@ -245,32 +270,32 @@ namespace Multiplayer.Client
         [MpPrefix(typeof(ThingFilter), "SetAllow", typeof(StuffCategoryDef), typeof(bool))]
         static bool ThingFilter_SetAllow(StuffCategoryDef cat, bool allow)
         {
-            return !SyncThingFilterAllowStuffCategory.DoSync(MethodMarkers.ThingFilterOwner, cat, allow);
+            return !SyncThingFilterAllowStuffCategory.DoSync(SyncMarkers.ThingFilterOwner, cat, allow);
         }
 
         [MpPrefix(typeof(ThingFilter), "SetAllow", typeof(SpecialThingFilterDef), typeof(bool))]
         static bool ThingFilter_SetAllow(SpecialThingFilterDef sfDef, bool allow)
         {
-            return !SyncThingFilterAllowSpecial.DoSync(MethodMarkers.ThingFilterOwner, sfDef, allow);
+            return !SyncThingFilterAllowSpecial.DoSync(SyncMarkers.ThingFilterOwner, sfDef, allow);
         }
 
         [MpPrefix(typeof(ThingFilter), "SetAllow", typeof(ThingDef), typeof(bool))]
         static bool ThingFilter_SetAllow(ThingDef thingDef, bool allow)
         {
-            return !SyncThingFilterAllowThing.DoSync(MethodMarkers.ThingFilterOwner, thingDef, allow);
+            return !SyncThingFilterAllowThing.DoSync(SyncMarkers.ThingFilterOwner, thingDef, allow);
         }
 
         [MpPrefix(typeof(ThingFilter), "SetAllow", typeof(ThingCategoryDef), typeof(bool), typeof(IEnumerable<ThingDef>), typeof(IEnumerable<SpecialThingFilterDef>))]
         static bool ThingFilter_SetAllow(ThingCategoryDef categoryDef, bool allow)
         {
-            if (!Multiplayer.ShouldSync || MethodMarkers.ThingFilterOwner == null) return true;
+            if (!Multiplayer.ShouldSync || SyncMarkers.ThingFilterOwner == null) return true;
 
-            if (MethodMarkers.tabStorage != null)
-                ThingFilter_AllowCategory_HelperStorage(MethodMarkers.tabStorage, categoryDef, allow);
-            else if (MethodMarkers.billConfig != null)
-                ThingFilter_AllowCategory_HelperBill(MethodMarkers.billConfig, categoryDef, allow);
-            else if (MethodMarkers.dialogOutfit != null)
-                ThingFilter_AllowCategory_HelperOutfit(MethodMarkers.dialogOutfit, categoryDef, allow);
+            if (SyncMarkers.tabStorage != null)
+                ThingFilter_AllowCategory_HelperStorage(SyncMarkers.tabStorage, categoryDef, allow);
+            else if (SyncMarkers.billConfig != null)
+                ThingFilter_AllowCategory_HelperBill(SyncMarkers.billConfig, categoryDef, allow);
+            else if (SyncMarkers.dialogOutfit != null)
+                ThingFilter_AllowCategory_HelperOutfit(SyncMarkers.dialogOutfit, categoryDef, allow);
 
             return false;
         }
@@ -278,14 +303,14 @@ namespace Multiplayer.Client
         [MpPrefix(typeof(ThingFilter), "SetDisallowAll")]
         static bool ThingFilter_SetDisallowAll()
         {
-            if (!Multiplayer.ShouldSync || MethodMarkers.ThingFilterOwner == null) return true;
+            if (!Multiplayer.ShouldSync || SyncMarkers.ThingFilterOwner == null) return true;
 
-            if (MethodMarkers.tabStorage != null)
-                ThingFilter_DisallowAll_HelperStorage(MethodMarkers.tabStorage);
-            else if (MethodMarkers.billConfig != null)
-                ThingFilter_DisallowAll_HelperBill(MethodMarkers.billConfig);
-            else if (MethodMarkers.dialogOutfit != null)
-                ThingFilter_DisallowAll_HelperOutfit(MethodMarkers.dialogOutfit);
+            if (SyncMarkers.tabStorage != null)
+                ThingFilter_DisallowAll_HelperStorage(SyncMarkers.tabStorage);
+            else if (SyncMarkers.billConfig != null)
+                ThingFilter_DisallowAll_HelperBill(SyncMarkers.billConfig);
+            else if (SyncMarkers.dialogOutfit != null)
+                ThingFilter_DisallowAll_HelperOutfit(SyncMarkers.dialogOutfit);
 
             return false;
         }
@@ -293,14 +318,14 @@ namespace Multiplayer.Client
         [MpPrefix(typeof(ThingFilter), "SetAllowAll")]
         static bool ThingFilter_SetAllowAll()
         {
-            if (!Multiplayer.ShouldSync || MethodMarkers.ThingFilterOwner == null) return true;
+            if (!Multiplayer.ShouldSync || SyncMarkers.ThingFilterOwner == null) return true;
 
-            if (MethodMarkers.tabStorage != null)
-                ThingFilter_AllowAll_HelperStorage(MethodMarkers.tabStorage);
-            else if (MethodMarkers.billConfig != null)
-                ThingFilter_AllowAll_HelperBill(MethodMarkers.billConfig);
-            else if (MethodMarkers.dialogOutfit != null)
-                ThingFilter_AllowAll_HelperOutfit(MethodMarkers.dialogOutfit);
+            if (SyncMarkers.tabStorage != null)
+                ThingFilter_AllowAll_HelperStorage(SyncMarkers.tabStorage);
+            else if (SyncMarkers.billConfig != null)
+                ThingFilter_AllowAll_HelperBill(SyncMarkers.billConfig);
+            else if (SyncMarkers.dialogOutfit != null)
+                ThingFilter_AllowAll_HelperOutfit(SyncMarkers.dialogOutfit);
 
             return false;
         }
@@ -317,7 +342,7 @@ namespace Multiplayer.Client
         static void ThingFilter_DisallowAll_HelperOutfit(Outfit outfit) => outfit.filter.SetDisallowAll(null, OutfitSpecialFilters);
 
         [SyncMethod]
-        static void ThingFilter_AllowAll_HelperOutfit(Outfit outfit) => outfit.filter.SetAllowAll((ThingFilter)MpReflection.GetValueStatic(typeof(Dialog_ManageOutfits), "apparelGlobalFilter"));
+        static void ThingFilter_AllowAll_HelperOutfit(Outfit outfit) => outfit.filter.SetAllowAll(Dialog_ManageOutfits.apparelGlobalFilter);
 
         [SyncMethod]
         static void ThingFilter_DisallowAll_HelperStorage(IStoreSettingsParent storage) => storage.GetStoreSettings().filter.SetDisallowAll(null, null);
@@ -329,18 +354,16 @@ namespace Multiplayer.Client
         static void ThingFilter_AllowCategory_HelperBill(Bill bill, ThingCategoryDef categoryDef, bool allow) => ThingFilter_AllowCategory_Helper(bill.ingredientFilter, categoryDef, allow, bill.recipe.fixedIngredientFilter, null, bill.recipe.forceHiddenSpecialFilters);
 
         [SyncMethod]
-        static void ThingFilter_AllowCategory_HelperOutfit(Outfit outfit, ThingCategoryDef categoryDef, bool allow) => ThingFilter_AllowCategory_Helper(outfit.filter, categoryDef, allow, (ThingFilter)MpReflection.GetValueStatic(typeof(Dialog_ManageOutfits), "apparelGlobalFilter"), null, OutfitSpecialFilters);
+        static void ThingFilter_AllowCategory_HelperOutfit(Outfit outfit, ThingCategoryDef categoryDef, bool allow) => ThingFilter_AllowCategory_Helper(outfit.filter, categoryDef, allow, Dialog_ManageOutfits.apparelGlobalFilter, null, OutfitSpecialFilters);
 
         [SyncMethod]
         static void ThingFilter_AllowCategory_HelperStorage(IStoreSettingsParent storage, ThingCategoryDef categoryDef, bool allow) => ThingFilter_AllowCategory_Helper(storage.GetStoreSettings().filter, categoryDef, allow, storage.GetParentStoreSettings()?.filter, null, null);
 
-        private static MethodInfo CalculateHiddenSpecialFilters = AccessTools.Method(typeof(Listing_TreeThingFilter), "CalculateHiddenSpecialFilters");
-
         static void ThingFilter_AllowCategory_Helper(ThingFilter filter, ThingCategoryDef categoryDef, bool allow, ThingFilter parentfilter, IEnumerable<ThingDef> forceHiddenDefs, IEnumerable<SpecialThingFilterDef> forceHiddenFilters)
         {
             Listing_TreeThingFilter listing = new Listing_TreeThingFilter(filter, parentfilter, forceHiddenDefs, forceHiddenFilters, null);
-            CalculateHiddenSpecialFilters.Invoke(listing, new object[0]);
-            filter.SetAllow(categoryDef, allow, forceHiddenDefs, listing.GetPropertyOrField("hiddenSpecialFilters") as IEnumerable<SpecialThingFilterDef>);
+            listing.CalculateHiddenSpecialFilters();
+            filter.SetAllow(categoryDef, allow, forceHiddenDefs, listing.hiddenSpecialFilters);
         }
     }
 
@@ -397,7 +420,7 @@ namespace Multiplayer.Client
         }*/
     }
 
-    public static class MethodMarkers
+    public static class SyncMarkers
     {
         public static bool manualPriorities;
         public static IStoreSettingsParent tabStorage;

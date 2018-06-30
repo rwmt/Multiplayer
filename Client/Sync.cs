@@ -5,15 +5,12 @@ using RimWorld.Planet;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Collections.Specialized;
-using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
 using Verse;
 using Verse.AI;
-using MultiType = Verse.Pair<System.Type, string>;
 
 namespace Multiplayer.Client
 {
@@ -763,7 +760,7 @@ namespace Multiplayer.Client
                 if (areaId == -1)
                     return null;
 
-                return map.areaManager.AllAreas.FirstOrDefault(a => a.ID == areaId);
+                return map.areaManager.AllAreas.Find(a => a.ID == areaId);
             }
             else if (typeof(Zone).IsAssignableFrom(type))
             {
@@ -772,7 +769,7 @@ namespace Multiplayer.Client
                 if (name.NullOrEmpty())
                     return null;
 
-                return map.zoneManager.AllZones.FirstOrDefault(zone => zone.label == name);
+                return map.zoneManager.AllZones.Find(zone => zone.label == name);
             }
             else if (typeof(Def).IsAssignableFrom(type))
             {
@@ -790,7 +787,7 @@ namespace Multiplayer.Client
                     return null;
 
                 ThingDef def = ReadSync<ThingDef>(data);
-                return map.listerThings.ThingsOfDef(def).FirstOrDefault(t => t.thingIDNumber == thingId);
+                return map.listerThings.ThingsOfDef(def).Find(t => t.thingIDNumber == thingId);
             }
             else if (typeof(CompChangeableProjectile) == type) // special case of ThingComp
             {
@@ -810,7 +807,7 @@ namespace Multiplayer.Client
                 if (parent == null)
                     return null;
 
-                return parent.AllComps.FirstOrDefault(comp => comp.props.compClass.FullName == compType);
+                return parent.AllComps.Find(comp => comp.props.compClass.FullName == compType);
             }
             else if (typeof(WorkGiver).IsAssignableFrom(type))
             {
@@ -831,12 +828,12 @@ namespace Multiplayer.Client
                     return null;
 
                 int id = data.ReadInt32();
-                return billStack.Bills.FirstOrDefault(bill => bill.loadID == id);
+                return billStack.Bills.Find(bill => bill.loadID == id);
             }
             else if (typeof(Outfit) == type)
             {
                 int id = data.ReadInt32();
-                return Current.Game.outfitDatabase.AllOutfits.FirstOrDefault(o => o.uniqueId == id);
+                return Current.Game.outfitDatabase.AllOutfits.Find(o => o.uniqueId == id);
             }
             else if (typeof(IStoreSettingsParent).IsAssignableFrom(type))
             {
@@ -1115,22 +1112,22 @@ namespace Multiplayer.Client
 
     public class Expose<T> { }
 
-    public class MultiTarget : IEnumerable<MultiType>
+    public class MultiTarget : IEnumerable<Pair<Type, string>>
     {
-        private List<MultiType> types = new List<MultiType>();
+        private List<Pair<Type, string>> types = new List<Pair<Type, string>>();
 
         public void Add(Type type, string path)
         {
-            types.Add(new MultiType(type, path));
+            types.Add(new Pair<Type, string>(type, path));
         }
 
         public void Add(MultiTarget type, string path)
         {
-            foreach (MultiType multiType in type)
+            foreach (var multiType in type)
                 Add(multiType.First, multiType.Second + "/" + path);
         }
 
-        public IEnumerator<MultiType> GetEnumerator()
+        public IEnumerator<Pair<Type, string>> GetEnumerator()
         {
             return types.GetEnumerator();
         }

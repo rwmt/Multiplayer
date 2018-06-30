@@ -15,11 +15,13 @@ using System.Linq;
 using System.Net;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Threading;
 using System.Xml;
 using System.Xml.Linq;
 using UnityEngine;
 using Verse;
+using Verse.AI;
 using Verse.Profile;
 using Verse.Sound;
 
@@ -88,23 +90,11 @@ namespace Multiplayer.Client
             MultiplayerConnectionState.RegisterState(typeof(ClientWorldState));
             MultiplayerConnectionState.RegisterState(typeof(ClientPlayingState));
 
-            harmony.DoMpPatches(typeof(MethodMarkers));
-            harmony.DoMpPatches(typeof(SyncPatches));
-            harmony.DoMpPatches(typeof(SyncDelegates));
-            harmony.DoMpPatches(typeof(SyncThingFilters));
             harmony.DoMpPatches(typeof(MapParentFactionPatch));
             harmony.DoMpPatches(typeof(CancelMapManagersTick));
             harmony.DoMpPatches(typeof(CancelMapManagersUpdate));
 
-            RuntimeHelpers.RunClassConstructor(typeof(SyncPatches).TypeHandle);
-            RuntimeHelpers.RunClassConstructor(typeof(SyncFieldsPatches).TypeHandle);
-            RuntimeHelpers.RunClassConstructor(typeof(SyncDelegates).TypeHandle);
-            RuntimeHelpers.RunClassConstructor(typeof(SyncThingFilters).TypeHandle);
-
-            Sync.RegisterFieldPatches(typeof(SyncFieldsPatches));
-            Sync.RegisterSyncDelegates(typeof(SyncDelegates));
-            Sync.RegisterSyncMethods(typeof(SyncPatches));
-            Sync.RegisterSyncMethods(typeof(SyncThingFilters));
+            SyncHandlers.Init();
 
             DoPatches();
 
@@ -148,6 +138,29 @@ namespace Multiplayer.Client
 
         public static XmlDocument SaveAndReload()
         {
+            if (serverThread != null)
+            {
+                Map map = Find.Maps[0];
+                List<Region> regions = new List<Region>(map.regionGrid.AllRegions);
+                foreach (Region region in regions)
+                {
+                    region.id = map.cellIndices.CellToIndex(region.AnyCell);
+                    region.cachedCellCount = -1;
+                    region.precalculatedHashCode = Gen.HashCombineInt(region.id, 1295813358);
+                    region.closedIndex = new uint[RegionTraverser.NumWorkers];
+
+                    if (region.Room != null)
+                    {
+                        region.Room.ID = region.id;
+                        region.Room.Group.ID = region.id;
+                    }
+                }
+
+                StringBuilder builder = new StringBuilder();
+                SimpleProfiler.DumpMemory(Find.Maps[0].spawnedThings, builder);
+                File.WriteAllText("memory_save", builder.ToString());
+            }
+
             XmlDocument SaveGame()
             {
                 SaveCompression.doSaveCompression = true;
@@ -220,6 +233,49 @@ namespace Multiplayer.Client
 
             reloading = false;
 
+            if (serverThread != null)
+            {
+                Map map = Find.Maps[0];
+                List<Region> regions = new List<Region>(map.regionGrid.AllRegions);
+                foreach (Region region in regions)
+                {
+                    region.id = map.cellIndices.CellToIndex(region.AnyCell);
+                    region.cachedCellCount = -1;
+                    region.precalculatedHashCode = Gen.HashCombineInt(region.id, 1295813358);
+                    region.closedIndex = new uint[RegionTraverser.NumWorkers];
+
+                    if (region.Room != null)
+                    {
+                        region.Room.ID = region.id;
+                        region.Room.Group.ID = region.id;
+                    }
+                }
+
+                TickList[] tickLists = new[] {
+                    Find.Maps[0].AsyncTime().tickListLong,
+                    Find.Maps[0].AsyncTime().tickListRare,
+                    Find.Maps[0].AsyncTime().tickListNormal
+                };
+
+                foreach (TickList list in tickLists)
+                {
+                    for (int i = 0; i < list.thingsToRegister.Count; i++)
+                    {
+                        list.BucketOf(list.thingsToRegister[i]).Add(list.thingsToRegister[i]);
+                    }
+                    list.thingsToRegister.Clear();
+                    for (int j = 0; j < list.thingsToDeregister.Count; j++)
+                    {
+                        list.BucketOf(list.thingsToDeregister[j]).Remove(list.thingsToDeregister[j]);
+                    }
+                    list.thingsToDeregister.Clear();
+                }
+
+                StringBuilder builder = new StringBuilder();
+                SimpleProfiler.DumpMemory(Find.Maps[0].spawnedThings, builder);
+                File.WriteAllText("memory_reload", builder.ToString());
+            }
+
             return gameDoc;
         }
 
@@ -227,6 +283,10 @@ namespace Multiplayer.Client
         {
             XmlNode gameNode = doc.DocumentElement["game"];
             XmlNode mapsNode = gameNode["maps"];
+
+            // todo send all owned data
+            XmlDocument factionWorldData = FactionWorldData.ExtractFromGameDoc(doc);
+            client.Send(Packets.CLIENT_AUTOSAVED_DATA, 2, ScribeUtil.XmlToByteArray(factionWorldData), 0);
 
             foreach (XmlNode mapNode in mapsNode)
             {
@@ -239,10 +299,9 @@ namespace Multiplayer.Client
 
             byte[] mapData = ScribeUtil.XmlToByteArray(mapsNode["li"], null, true);
             File.WriteAllBytes("map_" + username + ".xml", mapData);
-
             byte[] compressedMaps = GZipStream.CompressBuffer(mapData);
             // todo send map id
-            client.Send(Packets.CLIENT_AUTOSAVED_DATA, false, 0, compressedMaps);
+            client.Send(Packets.CLIENT_AUTOSAVED_DATA, 1, compressedMaps, 0);
 
             gameNode["visibleMapIndex"].RemoveFromParent();
             mapsNode.RemoveAll();
@@ -255,7 +314,7 @@ namespace Multiplayer.Client
                 File.WriteAllBytes("game.xml", gameData);
 
                 byte[] compressedGame = GZipStream.CompressBuffer(gameData);
-                client.Send(Packets.CLIENT_AUTOSAVED_DATA, true, compressedGame);
+                client.Send(Packets.CLIENT_AUTOSAVED_DATA, 0, compressedGame);
             }
         }
 
@@ -412,6 +471,7 @@ namespace Multiplayer.Client
         public void HandleWorldData(ByteReader data)
         {
             Connection.State = new ClientPlayingState(Connection);
+            Log.Message("Game data size: " + data.GetBytes().Length);
 
             int tickUntil = data.ReadInt32();
 
@@ -425,9 +485,7 @@ namespace Multiplayer.Client
             byte[] worldData = GZipStream.UncompressBuffer(data.ReadPrefixedBytes());
             OnMainThread.cachedGameData = worldData;
 
-            XmlDocument gameDoc = ScribeUtil.GetDocument(worldData);
-            XmlNode gameNode = gameDoc.DocumentElement["game"];
-
+            List<int> mapIds = new List<int>();
             int maps = data.ReadInt32();
             for (int i = 0; i < maps; i++)
             {
@@ -442,21 +500,31 @@ namespace Multiplayer.Client
 
                 byte[] mapData = GZipStream.UncompressBuffer(data.ReadPrefixedBytes());
                 OnMainThread.cachedMapData[mapId] = mapData;
+                mapIds.Add(mapId);
+            }
 
-                using (XmlReader reader = XmlReader.Create(new MemoryStream(mapData)))
+            ReloadGame(tickUntil, mapIds);
+        }
+
+        public static void ReloadGame(int tickUntil, List<int> maps)
+        {
+            XmlDocument gameDoc = ScribeUtil.GetDocument(OnMainThread.cachedGameData);
+            XmlNode gameNode = gameDoc.DocumentElement["game"];
+
+            foreach (int map in maps)
+            {
+                using (XmlReader reader = XmlReader.Create(new MemoryStream(OnMainThread.cachedMapData[map])))
                 {
                     XmlNode mapNode = gameDoc.ReadNode(reader);
                     gameNode["maps"].AppendChild(mapNode);
 
                     if (gameNode["visibleMapIndex"] == null)
-                        gameNode.AddNode("visibleMapIndex", mapId.ToString());
+                        gameNode.AddNode("visibleMapIndex", map.ToString());
                 }
             }
 
             TickPatch.tickUntil = tickUntil;
             LoadPatch.gameToLoad = gameDoc;
-
-            Log.Message("Game data size: " + data.GetBytes().Length);
 
             LongEventHandler.QueueLongEvent(() =>
             {
@@ -570,93 +638,19 @@ namespace Multiplayer.Client
         public void HandleMapResponse(ByteReader data)
         {
             int mapId = data.ReadInt32();
-            int cmdsLen = data.ReadInt32();
-            byte[][] cmds = new byte[cmdsLen][];
-            for (int i = 0; i < cmdsLen; i++)
-                cmds[i] = data.ReadPrefixedBytes();
 
-            byte[] compressedMapData = data.ReadPrefixedBytes();
-            byte[] mapData = GZipStream.UncompressBuffer(compressedMapData);
+            int mapCmdsLen = data.ReadInt32();
+            List<ScheduledCommand> mapCmds = new List<ScheduledCommand>(mapCmdsLen);
+            for (int j = 0; j < mapCmdsLen; j++)
+                mapCmds.Add(ScheduledCommand.Deserialize(new ByteReader(data.ReadPrefixedBytes())));
 
-            LongEventHandler.QueueLongEvent(() =>
-            {
-                Stopwatch time = Stopwatch.StartNew();
+            OnMainThread.cachedMapCmds[mapId] = mapCmds;
 
-                Multiplayer.reloading = true;
-                Current.ProgramState = ProgramState.MapInitializing;
-                SaveCompression.doSaveCompression = true;
+            byte[] mapData = GZipStream.UncompressBuffer(data.ReadPrefixedBytes());
+            OnMainThread.cachedMapData[mapId] = mapData;
 
-                // Faction context for Pawn.ExposeData is set in a patch
-                ScribeUtil.StartLoading(mapData);
-                ScribeUtil.SupplyCrossRefs();
-                List<Map> maps = null;
-                Scribe_Collections.Look(ref maps, "maps", LookMode.Deep);
-                ScribeUtil.FinalizeLoading();
-
-                MpLog.Log("Maps " + maps.Count);
-                Map map = maps[0];
-
-                Current.Game.AddMap(map);
-
-                // Faction context for Pawn.SpawnSetup is set in a patch
-                map.FinalizeLoading();
-
-                SaveCompression.doSaveCompression = false;
-                Multiplayer.reloading = false;
-                Current.ProgramState = ProgramState.Playing;
-
-                Find.World.renderer.wantedMode = WorldRenderMode.None;
-                Current.Game.VisibleMap = map;
-
-                // RegenerateEverythingNow
-                LongEventHandler.ExecuteToExecuteWhenFinished();
-
-                MapAsyncTimeComp asyncTime = map.GetComponent<MapAsyncTimeComp>();
-
-                foreach (byte[] cmd in cmds)
-                    OnMainThread.ScheduleCommand(ScheduledCommand.Deserialize(new ByteReader(cmd)));
-
-                mapCatchupStart = TickPatch.Timer;
-
-                Log.Message("Loading took " + time.ElapsedMilliseconds);
-                Log.Message("Map catchup start " + mapCatchupStart + " " + TickPatch.tickUntil + " " + Find.TickManager.TicksGame + " " + Find.TickManager.CurTimeSpeed);
-
-                time = Stopwatch.StartNew();
-                Faction ownerFaction = map.info.parent.Faction;
-                map.PushFaction(ownerFaction);
-                Multiplayer.simulating = true;
-
-                //while (asyncTime.Timer < TickPatch.tickUntil)
-                {
-                    // Handle TIME_CONTROL and schedule new commands
-                    OnMainThread.queue.RunQueue();
-
-                    /*if (asyncTime.TickRateMultiplier > 0)
-                    {
-                        asyncTime.Tick();
-                    }
-                    else if (asyncTime.scheduledCmds.Count > 0)
-                    {
-                        //asyncTime.ExecuteMapCmdsWhilePaused();
-                    }
-                    else
-                    {
-                        //break;
-                    }*/
-                }
-
-                // Update pawn rendering position
-                foreach (Pawn pawn in map.mapPawns.AllPawns)
-                    pawn.drawer.tweener.tweenedPos = pawn.drawer.tweener.TweenedPosRoot();
-
-                Multiplayer.simulating = false;
-                map.PopFaction();
-                map.GetComponent<MultiplayerMapComp>().SetFaction(Faction.OfPlayer);
-
-                Log.Message("Catchup took " + time.ElapsedMilliseconds);
-
-                Multiplayer.client.Send(Packets.CLIENT_MAP_LOADED);
-            }, "Loading the map", false, null);
+            ClientWorldState.ReloadGame(TickPatch.tickUntil, Find.Maps.Select(m => m.uniqueID).Concat(mapId).ToList());
+            // todo Multiplayer.client.Send(Packets.CLIENT_MAP_LOADED);
         }
 
         [PacketHandler(Packets.SERVER_NOTIFICATION)]
@@ -1019,7 +1013,7 @@ namespace Multiplayer.Client
                 }
 
                 foreach (Zone zone in map.zoneManager.AllZones)
-                    zone.SetPropertyOrField("cellsShuffled", true);
+                    zone.cellsShuffled = true;
             }
             finally
             {
@@ -1048,28 +1042,28 @@ namespace Multiplayer.Client
             if (designator is Designator_AreaAllowed)
             {
                 int areaId = data.ReadInt32();
-                Area area = map.areaManager.AllAreas.FirstOrDefault(a => a.ID == areaId);
+                Area area = map.areaManager.AllAreas.Find(a => a.ID == areaId);
                 if (area == null) return false;
-                DesignatorPatches.selectedAreaField.SetValue(null, area);
+                Designator_AreaAllowed.selectedArea = area;
             }
 
-            if (designator is Designator_Place)
+            if (designator is Designator_Place place)
             {
-                DesignatorPatches.buildRotField.SetValue(designator, new Rot4(data.ReadByte()));
+                place.placingRot = new Rot4(data.ReadByte());
             }
 
             if (designator is Designator_Build build && build.PlacingDef.MadeFromStuff)
             {
                 string thingDefName = data.ReadString();
-                ThingDef stuffDef = DefDatabase<ThingDef>.AllDefs.FirstOrDefault(t => t.defName == thingDefName);
+                ThingDef stuffDef = DefDatabase<ThingDef>.AllDefsListForReading.Find(t => t.defName == thingDefName);
                 if (stuffDef == null) return false;
-                DesignatorPatches.buildStuffField.SetValue(designator, stuffDef);
+                build.stuffDef = stuffDef;
             }
 
             if (designator is Designator_Install)
             {
                 int thingId = data.ReadInt32();
-                Thing thing = map.listerThings.AllThings.FirstOrDefault(t => t.thingIDNumber == thingId);
+                Thing thing = map.listerThings.AllThings.Find(t => t.thingIDNumber == thingId);
                 if (thing == null) return false;
                 DesignatorInstallPatch.thingToInstall = thing;
             }

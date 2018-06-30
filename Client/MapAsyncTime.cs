@@ -201,8 +201,9 @@ namespace Multiplayer.Client
     [HarmonyPatch(typeof(TickManager), nameof(TickManager.RegisterAllTickabilityFor))]
     public static class TickListAdd
     {
-        static void Prefix(Thing t)
+        static bool Prefix(Thing t)
         {
+            if (Multiplayer.client == null) return true;
             MapAsyncTimeComp comp = t.Map.GetComponent<MapAsyncTimeComp>();
 
             if (t.def.tickerType == TickerType.Normal)
@@ -211,14 +212,17 @@ namespace Multiplayer.Client
                 comp.tickListRare.RegisterThing(t);
             else if (t.def.tickerType == TickerType.Long)
                 comp.tickListLong.RegisterThing(t);
+
+            return false;
         }
     }
 
     [HarmonyPatch(typeof(TickManager), nameof(TickManager.DeRegisterAllTickabilityFor))]
     public static class TickListRemove
     {
-        static void Prefix(Thing t)
+        static bool Prefix(Thing t)
         {
+            if (Multiplayer.client == null) return true;
             MapAsyncTimeComp comp = t.Map.GetComponent<MapAsyncTimeComp>();
 
             if (t.def.tickerType == TickerType.Normal)
@@ -227,6 +231,8 @@ namespace Multiplayer.Client
                 comp.tickListRare.DeregisterThing(t);
             else if (t.def.tickerType == TickerType.Long)
                 comp.tickListLong.DeregisterThing(t);
+
+            return false;
         }
     }
 

@@ -10,23 +10,6 @@ using Verse;
 
 namespace Multiplayer.Client
 {
-    [HarmonyPatch(typeof(DesignatorManager))]
-    [HarmonyPatch(nameof(DesignatorManager.ProcessInputEvents))]
-    public static class ProcessDesigInputPatch
-    {
-        public static bool processing;
-
-        static void Prefix()
-        {
-            processing = true;
-        }
-
-        static void Postfix()
-        {
-            processing = false;
-        }
-    }
-
     [HarmonyPatch(typeof(Designator))]
     [HarmonyPatch(nameof(Designator.Finalize))]
     [HarmonyPatch(new Type[] { typeof(bool) })]
@@ -90,28 +73,23 @@ namespace Multiplayer.Client
             return new object[] { action, designator.GetType().FullName, buildDefName }.Append(Metadata(designator));
         }
 
-        public static readonly FieldInfo selectedAreaField = typeof(Designator_AreaAllowed).GetField("selectedArea", BindingFlags.Static | BindingFlags.NonPublic);
-        public static readonly FieldInfo buildStuffField = typeof(Designator_Build).GetField("stuffDef", BindingFlags.Instance | BindingFlags.NonPublic);
-        public static readonly FieldInfo buildRotField = typeof(Designator_Place).GetField("placingRot", BindingFlags.Instance | BindingFlags.NonPublic);
-
         private static object[] Metadata(Designator designator)
         {
             List<object> meta = new List<object>();
 
             if (designator is Designator_AreaAllowed)
             {
-                Area selectedArea = (Area)selectedAreaField.GetValue(null);
-                meta.Add(selectedArea != null ? selectedArea.ID : -1);
+                meta.Add(Designator_AreaAllowed.SelectedArea != null ? Designator_AreaAllowed.SelectedArea.ID : -1);
             }
 
-            if (designator is Designator_Place)
+            if (designator is Designator_Place place)
             {
-                meta.Add(((Rot4)buildRotField.GetValue(designator)).AsByte);
+                meta.Add(place.placingRot.AsByte);
             }
 
             if (designator is Designator_Build build && build.PlacingDef.MadeFromStuff)
             {
-                meta.Add(((ThingDef)buildStuffField.GetValue(designator)).defName);
+                meta.Add(build.stuffDef.defName);
             }
 
             if (designator is Designator_Install)
@@ -137,7 +115,7 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(Designator_Install))]
-    [HarmonyPatch("MiniToInstallOrBuildingToReinstall", PropertyMethod.Getter)]
+    [HarmonyPatch(nameof(Designator_Install.MiniToInstallOrBuildingToReinstall), PropertyMethod.Getter)]
     public static class DesignatorInstallPatch
     {
         public static Thing thingToInstall;

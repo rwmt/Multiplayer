@@ -7,6 +7,8 @@
         AUTOSAVE,
         SETUP_FACTION,
         GLOBAL_ID_BLOCK,
+        FACTION_ONLINE,
+        FACTION_OFFLINE,
 
         // Mixed scope
         SYNC,

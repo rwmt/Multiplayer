@@ -770,10 +770,6 @@ namespace Multiplayer.Client
                     // Log.Message("" + Multiplayer.mainBlock.blockStart);
                     // Log.Message("" + __instance.Map.GetComponent<MultiplayerMapComp>().encounterIdBlock.current);
                     //Log.Message("" + __instance.Map.GetComponent<MultiplayerMapComp>().encounterIdBlock.GetHashCode());
-
-                    __instance.apparel.WornApparel.Sort((Apparel a, Apparel b) => a.def.apparel.LastLayer.CompareTo(b.def.apparel.LastLayer));
-                    foreach (var a in __instance.apparel.WornApparel)
-                        Log.Message("" + a);
                 }
             });
         }
@@ -1326,6 +1322,16 @@ namespace Multiplayer.Client
         {
             if (SetupQuickTestPatch.marker)
                 __result = "multiplayer";
+        }
+    }
+
+    [HarmonyPatch(typeof(Pawn_ApparelTracker), "<SortWornApparelIntoDrawOrder>m__0")]
+    static class FixApparelSort
+    {
+        static void Postfix(Apparel a, Apparel b, ref int __result)
+        {
+            if (__result == 0)
+                __result = a.thingIDNumber.CompareTo(b.thingIDNumber);
         }
     }
 
