@@ -20,14 +20,13 @@ namespace Multiplayer.Common
 
         public static MultiplayerServer instance;
 
-        public const int DEFAULT_PORT = 30502;
+        public const int DefaultPort = 30502;
 
         public byte[] savedGame; // Compressed game save
         public Dictionary<int, int> mapTiles = new Dictionary<int, int>(); // World tile to map id
         public Dictionary<int, byte[]> mapData = new Dictionary<int, byte[]>(); // Map id to compressed map data
         public Dictionary<int, List<byte[]>> mapCmds = new Dictionary<int, List<byte[]>>(); // Map id to serialized cmds list
         public List<byte[]> globalCmds = new List<byte[]>(); // Serialized global cmds
-        public Dictionary<int, byte[]> worldFactionData = new Dictionary<int, byte[]>(); // Faction id to serialized world faction data
         public Dictionary<string, int> playerFactions = new Dictionary<string, int>(); // Username to faction id
 
         public List<ServerPlayer> players = new List<ServerPlayer>();
@@ -45,7 +44,7 @@ namespace Multiplayer.Common
 
         public int nextUniqueId;
 
-        public MultiplayerServer(IPAddress addr, int port = DEFAULT_PORT)
+        public MultiplayerServer(IPAddress addr, int port = DefaultPort)
         {
             this.addr = addr;
             this.port = port;
@@ -95,7 +94,7 @@ namespace Multiplayer.Common
         {
             Enqueue(() =>
             {
-                SendCommand(CommandType.AUTOSAVE, ScheduledCommand.NO_FACTION, ScheduledCommand.GLOBAL, new byte[0]);
+                SendCommand(CommandType.AUTOSAVE, ScheduledCommand.NoFaction, ScheduledCommand.Global, new byte[0]);
 
                 globalCmds.Clear();
                 foreach (int mapId in mapCmds.Keys)
@@ -105,7 +104,7 @@ namespace Multiplayer.Common
 
         public void UpdatePlayerList()
         {
-            string[] playerList = players.Select(player => player.Username + " (" + player.Latency + ")").ToArray();
+            string[] playerList = players.Select(player => $"{player.Username} ({player.Latency})").ToArray();
             SendToAll(Packets.SERVER_PLAYER_LIST, new object[] { playerList });
         }
 
@@ -125,8 +124,15 @@ namespace Multiplayer.Common
         public void PeerDisconnected(NetPeer peer, DisconnectInfo info)
         {
             IConnection conn = peer.GetConnection();
+            ServerPlayer player = players.Find(p => p.connection == conn);
 
-            players.RemoveAll(player => player.connection == conn);
+            players.Remove(player);
+
+            if (!players.Any(p => p.FactionId == player.FactionId))
+            {
+                byte[] data = ByteWriter.GetBytes(player.FactionId);
+                SendCommand(CommandType.FACTION_OFFLINE, ScheduledCommand.NoFaction, ScheduledCommand.Global, data);
+            }
 
             SendToAll(Packets.SERVER_NOTIFICATION, new object[] { "Player " + conn.Username + " disconnected." });
             UpdatePlayerList();
@@ -190,6 +196,7 @@ namespace Multiplayer.Common
 
         public string Username => connection.Username;
         public int Latency => connection.Latency;
+        public int FactionId => MultiplayerServer.instance.playerFactions[Username];
 
         public ServerPlayer(IConnection connection)
         {
@@ -322,14 +329,21 @@ namespace Multiplayer.Common
             {
                 factionId = MultiplayerServer.instance.nextUniqueId++;
                 MultiplayerServer.instance.playerFactions[Connection.Username] = factionId;
+
+                byte[] extra = ByteWriter.GetBytes(factionId);
+                MultiplayerServer.instance.SendCommand(CommandType.SETUP_FACTION, ScheduledCommand.NoFaction, ScheduledCommand.Global, extra);
             }
 
-            byte[] extra = ByteWriter.GetBytes(Connection.Username, factionId);
-            MultiplayerServer.instance.SendCommand(CommandType.SETUP_FACTION, ScheduledCommand.NO_FACTION, ScheduledCommand.GLOBAL, extra);
+            if (MultiplayerServer.instance.players.Count(p => p.FactionId == factionId) == 1)
+            {
+                byte[] extra = ByteWriter.GetBytes(factionId);
+                MultiplayerServer.instance.SendCommand(CommandType.FACTION_ONLINE, ScheduledCommand.NoFaction, ScheduledCommand.Global, extra);
+            }
 
             List<byte[]> globalCmds = MultiplayerServer.instance.globalCmds;
             ByteWriter writer = new ByteWriter();
 
+            writer.WriteInt32(factionId);
             writer.WriteInt32(MultiplayerServer.instance.timer);
             writer.Write(globalCmds);
             writer.WritePrefixedBytes(MultiplayerServer.instance.savedGame);
@@ -338,7 +352,7 @@ namespace Multiplayer.Common
 
             foreach (int mapId in new[] { 0 })
             {
-                MultiplayerServer.instance.SendCommand(CommandType.CREATE_MAP_FACTION_DATA, ScheduledCommand.NO_FACTION, mapId, ByteWriter.GetBytes(factionId));
+                MultiplayerServer.instance.SendCommand(CommandType.CREATE_MAP_FACTION_DATA, ScheduledCommand.NoFaction, mapId, ByteWriter.GetBytes(factionId));
 
                 writer.WriteInt32(mapId);
                 writer.Write(MultiplayerServer.instance.mapCmds[mapId]);
@@ -410,11 +424,6 @@ namespace Multiplayer.Common
                 // todo test map ownership
                 MultiplayerServer.instance.mapData[mapId] = compressedData;
             }
-            else if (type == 2) // Faction world data
-            {
-                int factionId = data.ReadInt32();
-                MultiplayerServer.instance.worldFactionData[factionId] = compressedData;
-            }
         }
 
         [PacketHandler(Packets.CLIENT_ENCOUNTER_REQUEST)]
@@ -425,7 +434,7 @@ namespace Multiplayer.Common
                 return;
 
             byte[] extra = ByteWriter.GetBytes(Connection.Username); // todo faction id
-            MultiplayerServer.instance.SendCommand(CommandType.CREATE_MAP_FACTION_DATA, ScheduledCommand.NO_FACTION, mapId, extra);
+            MultiplayerServer.instance.SendCommand(CommandType.CREATE_MAP_FACTION_DATA, ScheduledCommand.NoFaction, mapId, extra);
 
             byte[] mapData = MultiplayerServer.instance.mapData[mapId];
             List<byte[]> mapCmds = MultiplayerServer.instance.mapCmds.AddOrGet(mapId, new List<byte[]>());
@@ -439,10 +448,10 @@ namespace Multiplayer.Common
         {
             int mapId = data.ReadInt32();
 
-            if (mapId == ScheduledCommand.GLOBAL)
+            if (mapId == ScheduledCommand.Global)
             {
                 IdBlock nextBlock = MultiplayerServer.instance.NextIdBlock();
-                MultiplayerServer.instance.SendCommand(CommandType.GLOBAL_ID_BLOCK, ScheduledCommand.NO_FACTION, ScheduledCommand.GLOBAL, nextBlock.Serialize());
+                MultiplayerServer.instance.SendCommand(CommandType.GLOBAL_ID_BLOCK, ScheduledCommand.NoFaction, ScheduledCommand.Global, nextBlock.Serialize());
             }
             else
             {

@@ -77,6 +77,23 @@ namespace Multiplayer.Client
 
         public static SyncField SyncGodMode = Sync.Field(null, "Verse.DebugSettings/godMode");
 
+        public static SyncField[] SyncDrugPolicyEntry = Sync.Fields(
+            typeof(DrugPolicy),
+            "entriesInt[]",
+            "allowedForAddiction",
+            "allowedForJoy",
+            "allowScheduled",
+            "takeToInventory"
+        );
+
+        public static SyncField[] SyncDrugPolicyEntryBuffered = Sync.Fields(
+            typeof(DrugPolicy),
+            "entriesInt[]",
+            "daysFrequency",
+            "onlyIfMoodBelow",
+            "onlyIfJoyBelow"
+        ).SetBufferChanges();
+
         [MpPrefix(typeof(AreaAllowedGUI), "DoAreaSelector")]
         static void DoAreaSelector_Prefix(Pawn p)
         {
@@ -176,7 +193,7 @@ namespace Multiplayer.Client
         [MpPrefix(typeof(Dialog_BillConfig), "DoWindowContents")]
         static void DialogBillConfig(Dialog_BillConfig __instance)
         {
-            Bill_Production bill = __instance.GetPropertyOrField("bill") as Bill_Production;
+            Bill_Production bill = __instance.bill;
 
             SyncBillSuspended.Watch(bill);
             SyncBillSkillRange.Watch(bill);
@@ -198,15 +215,15 @@ namespace Multiplayer.Client
         [MpPrefix(typeof(ITab_Bills), "TabUpdate")]
         static void BillIngredientSearchRadius(ITab_Bills __instance)
         {
-            if (__instance.GetPropertyOrField("mouseoverBill") is Bill mouseover)
+            // Use the buffered value for smooth rendering
+            if (__instance.mouseoverBill is Bill mouseover)
                 SyncIngredientSearchRadius.Watch(mouseover);
         }
 
         [MpPrefix(typeof(Dialog_BillConfig), "WindowUpdate")]
         static void BillIngredientSearchRadius(Dialog_BillConfig __instance)
         {
-            Bill_Production bill = __instance.GetPropertyOrField("bill") as Bill_Production;
-            SyncIngredientSearchRadius.Watch(bill);
+            SyncIngredientSearchRadius.Watch(__instance.bill);
         }
 
         [MpPrefix(typeof(BillRepeatModeUtility), "<MakeConfigFloatMenu>c__AnonStorey0", "<>m__0")]
@@ -221,6 +238,17 @@ namespace Multiplayer.Client
         static void FloatMenuBillStoreMode(object __instance)
         {
             SyncBillProduction.Watch(__instance.GetPropertyOrField("$this/bill"));
+        }
+
+        [MpPrefix(typeof(Dialog_ManageDrugPolicies), "DoPolicyConfigArea")]
+        static void DialogManageDrugPolicies(Dialog_ManageDrugPolicies __instance)
+        {
+            DrugPolicy policy = __instance.SelectedPolicy;
+            for (int i = 0; i < policy.Count; i++)
+            {
+                SyncDrugPolicyEntry.Watch(policy, i);
+                SyncDrugPolicyEntryBuffered.Watch(policy, i);
+            }
         }
 
         [MpPrefix(typeof(Prefs), "set_DevMode")]
@@ -239,6 +267,9 @@ namespace Multiplayer.Client
             Sync.RegisterSyncMethod(typeof(Pawn_WorkSettings), "SetPriority");
             Sync.RegisterSyncMethod(typeof(Pawn_DraftController), "set_Drafted");
             Sync.RegisterSyncMethod(typeof(Pawn_DraftController), "set_FireAtWill");
+            Sync.RegisterSyncMethod(typeof(Pawn_DraftController), "set_FireAtWill");
+            Sync.RegisterSyncMethod(typeof(Pawn_DrugPolicyTracker), "set_CurrentPolicy");
+            Sync.RegisterSyncMethod(typeof(Pawn_OutfitTracker), "set_CurrentOutfit");
             Sync.RegisterSyncMethod(typeof(Zone), "Delete");
             Sync.RegisterSyncMethod(typeof(BillStack), "Delete");
             Sync.RegisterSyncMethod(typeof(BillStack), "Reorder");
@@ -250,6 +281,10 @@ namespace Multiplayer.Client
             Sync.RegisterSyncMethod(typeof(Building_TurretGun), "OrderAttack");
             Sync.RegisterSyncMethod(typeof(Area), "Invert");
             Sync.RegisterSyncMethod(typeof(Area), "Delete");
+            Sync.RegisterSyncMethod(typeof(DrugPolicyDatabase), "MakeNewDrugPolicy");
+            Sync.RegisterSyncMethod(typeof(OutfitDatabase), "MakeNewOutfit");
+            Sync.RegisterSyncMethod(typeof(DrugPolicyDatabase), "TryDelete");
+            Sync.RegisterSyncMethod(typeof(OutfitDatabase), "TryDelete");
         }
 
         public static SyncField SyncTimetable = Sync.Field(typeof(Pawn), "timetable", "times");
@@ -258,6 +293,37 @@ namespace Multiplayer.Client
         static bool CopyPasteTimetable(Pawn p)
         {
             return !SyncTimetable.DoSync(p, PawnColumnWorker_CopyPasteTimetable.clipboard);
+        }
+
+        // ===== CALLBACKS =====
+
+        [MpPostfix(typeof(DrugPolicyDatabase), "MakeNewDrugPolicy")]
+        static void MakeNewDrugPolicy_Postfix(DrugPolicy __result)
+        {
+            // todo check faction
+            if (__result != null && Find.WindowStack?.WindowOfType<Dialog_ManageDrugPolicies>() is Dialog_ManageDrugPolicies dialog)
+                dialog.SelectedPolicy = __result;
+        }
+
+        [MpPostfix(typeof(OutfitDatabase), "MakeNewOutfit")]
+        static void MakeNewOutfit_Postfix(Outfit __result)
+        {
+            if (__result != null && Find.WindowStack?.WindowOfType<Dialog_ManageOutfits>() is Dialog_ManageOutfits dialog)
+                dialog.SelectedOutfit = __result;
+        }
+
+        [MpPostfix(typeof(DrugPolicyDatabase), "TryDelete")]
+        static void TryDeleteDrugPolicy_Postfix(DrugPolicy policy, AcceptanceReport __result)
+        {
+            if (__result.Accepted && Find.WindowStack?.WindowOfType<Dialog_ManageDrugPolicies>() is Dialog_ManageDrugPolicies dialog && dialog.SelectedPolicy == policy)
+                dialog.SelectedPolicy = null;
+        }
+
+        [MpPostfix(typeof(OutfitDatabase), "TryDelete")]
+        static void TRyDeleteOutfit_Postfix(Outfit outfit, AcceptanceReport __result)
+        {
+            if (__result.Accepted && Find.WindowStack?.WindowOfType<Dialog_ManageOutfits>() is Dialog_ManageOutfits dialog && dialog.SelectedOutfit == outfit)
+                dialog.SelectedOutfit = null;
         }
     }
 
@@ -330,7 +396,7 @@ namespace Multiplayer.Client
             return false;
         }
 
-        private static IEnumerable<SpecialThingFilterDef> OutfitSpecialFilters = SpecialThingFilterDefOf.AllowNonDeadmansApparel.ToEnumerable();
+        private static IEnumerable<SpecialThingFilterDef> OutfitSpecialFilters => SpecialThingFilterDefOf.AllowNonDeadmansApparel.ToEnumerable();
 
         [SyncMethod]
         static void ThingFilter_DisallowAll_HelperBill(Bill bill) => bill.ingredientFilter.SetDisallowAll(null, bill.recipe.forceHiddenSpecialFilters);
@@ -436,19 +502,19 @@ namespace Multiplayer.Client
         static void ManualPriorities_Postfix() => manualPriorities = false;
 
         [MpPrefix(typeof(ITab_Storage), "FillTab")]
-        static void TabStorageFillTab_Prefix(ITab_Storage __instance) => tabStorage = (IStoreSettingsParent)__instance.GetPropertyOrField("SelStoreSettingsParent");
+        static void TabStorageFillTab_Prefix(ITab_Storage __instance) => tabStorage = __instance.SelStoreSettingsParent;
 
         [MpPostfix(typeof(ITab_Storage), "FillTab")]
         static void TabStorageFillTab_Postfix() => tabStorage = null;
 
         [MpPrefix(typeof(Dialog_BillConfig), "DoWindowContents")]
-        static void BillConfig_Prefix(Dialog_BillConfig __instance) => billConfig = (Bill)__instance.GetPropertyOrField("bill");
+        static void BillConfig_Prefix(Dialog_BillConfig __instance) => billConfig = __instance.bill;
 
         [MpPostfix(typeof(Dialog_BillConfig), "DoWindowContents")]
         static void BillConfig_Postfix() => billConfig = null;
 
         [MpPrefix(typeof(Dialog_ManageOutfits), "DoWindowContents")]
-        static void ManageOutfit_Prefix(Dialog_ManageOutfits __instance) => dialogOutfit = (Outfit)__instance.GetPropertyOrField("SelectedOutfit");
+        static void ManageOutfit_Prefix(Dialog_ManageOutfits __instance) => dialogOutfit = __instance.SelectedOutfit;
 
         [MpPostfix(typeof(Dialog_ManageOutfits), "DoWindowContents")]
         static void ManageOutfit_Postfix() => dialogOutfit = null;

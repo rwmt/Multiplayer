@@ -159,15 +159,6 @@ namespace Multiplayer.Client
         static bool Prefix() => Multiplayer.client == null;
     }
 
-    [MpPatch(typeof(PowerNetManager), nameof(PowerNetManager.UpdatePowerNetsAndConnections_First))]
-    [MpPatch(typeof(RegionGrid), nameof(RegionGrid.UpdateClean))]
-    [MpPatch(typeof(GlowGrid), nameof(GlowGrid.GlowGridUpdate_First))]
-    [MpPatch(typeof(RegionAndRoomUpdater), nameof(RegionAndRoomUpdater.TryRebuildDirtyRegionsAndRooms))]
-    static class CancelMapManagersUpdate
-    {
-        static bool Prefix() => Multiplayer.client == null || !MapUpdateMarker.updating;
-    }
-
     [HarmonyPatch(typeof(Map), nameof(Map.MapUpdate))]
     static class MapUpdateMarker
     {
@@ -175,6 +166,15 @@ namespace Multiplayer.Client
 
         static void Prefix() => updating = true;
         static void Postfix() => updating = false;
+    }
+
+    [MpPatch(typeof(PowerNetManager), nameof(PowerNetManager.UpdatePowerNetsAndConnections_First))]
+    [MpPatch(typeof(RegionGrid), nameof(RegionGrid.UpdateClean))]
+    [MpPatch(typeof(GlowGrid), nameof(GlowGrid.GlowGridUpdate_First))]
+    [MpPatch(typeof(RegionAndRoomUpdater), nameof(RegionAndRoomUpdater.TryRebuildDirtyRegionsAndRooms))]
+    static class CancelMapManagersUpdate
+    {
+        static bool Prefix() => Multiplayer.client == null || !MapUpdateMarker.updating;
     }
 
     [HarmonyPatch(typeof(DateNotifier), nameof(DateNotifier.DateNotifierTick))]
@@ -256,7 +256,7 @@ namespace Multiplayer.Client
             if (Find.TickManager.CurTimeSpeed == tickable.TimeSpeed) return;
 
             if (WorldRendererUtility.WorldRenderedNow)
-                Multiplayer.client.SendCommand(CommandType.WORLD_TIME_SPEED, ScheduledCommand.GLOBAL, (byte)Find.TickManager.CurTimeSpeed);
+                Multiplayer.client.SendCommand(CommandType.WORLD_TIME_SPEED, ScheduledCommand.Global, (byte)Find.TickManager.CurTimeSpeed);
             else if (Find.VisibleMap != null)
                 Multiplayer.client.SendCommand(CommandType.MAP_TIME_SPEED, Find.VisibleMap.uniqueID, (byte)Find.TickManager.CurTimeSpeed);
         }

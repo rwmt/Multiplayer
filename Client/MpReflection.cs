@@ -1,6 +1,7 @@
 ﻿using Harmony;
 using Multiplayer.Common;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -11,6 +12,9 @@ namespace Multiplayer.Client
 {
     public static class MpReflection
     {
+        public delegate object Getter(object instance, int index);
+        public delegate void Setter(object instance, object value, int index);
+
         public static IEnumerable<Assembly> AllAssemblies
         {
             get
@@ -28,44 +32,44 @@ namespace Multiplayer.Client
 
         private static Dictionary<string, Type> types = new Dictionary<string, Type>();
         private static Dictionary<string, Type> pathType = new Dictionary<string, Type>();
-        private static Dictionary<string, Func<object, object>> getters = new Dictionary<string, Func<object, object>>();
-        private static Dictionary<string, Action<object, object>> setters = new Dictionary<string, Action<object, object>>();
+        private static Dictionary<string, Getter> getters = new Dictionary<string, Getter>();
+        private static Dictionary<string, Setter> setters = new Dictionary<string, Setter>();
 
         /// <summary>
         /// Get the value of a static property/field in type specified by memberPath
         /// </summary>
-        public static object GetValueStatic(Type type, string memberPath)
+        public static object GetValueStatic(Type type, string memberPath, int index = -1)
         {
-            return GetValue(null, type + "/" + memberPath);
+            return GetValue(null, type + "/" + memberPath, index);
         }
 
         /// <summary>
         /// Get the value of a static property/field specified by memberPath
         /// </summary>
-        public static object GetValueStatic(string memberPath)
+        public static object GetValueStatic(string memberPath, int index = -1)
         {
-            return GetValue(null, memberPath);
+            return GetValue(null, memberPath, index);
         }
 
         /// <summary>
         /// Get the value of a property/field specified by memberPath
         /// Type specification in path is not required if instance is provided
         /// </summary>
-        public static object GetValue(object instance, string memberPath)
+        public static object GetValue(object instance, string memberPath, int index = -1)
         {
             if (instance != null)
                 memberPath = AppendType(memberPath, instance.GetType());
 
             InitPropertyOrField(memberPath);
-            return getters[memberPath](instance);
+            return getters[memberPath](instance, index);
         }
 
-        public static void SetValueStatic(Type type, string memberPath, object value)
+        public static void SetValueStatic(Type type, string memberPath, object value, int index = -1)
         {
-            SetValue(null, type + "/" + memberPath, value);
+            SetValue(null, type + "/" + memberPath, value, index);
         }
 
-        public static void SetValue(object instance, string memberPath, object value)
+        public static void SetValue(object instance, string memberPath, object value, int index = -1)
         {
             if (instance != null)
                 memberPath = AppendType(memberPath, instance.GetType());
@@ -74,7 +78,7 @@ namespace Multiplayer.Client
             if (setters[memberPath] == null)
                 throw new Exception($"The value of {memberPath} can't be set");
 
-            setters[memberPath](instance, value);
+            setters[memberPath](instance, value, index);
         }
 
         public static Type PropertyOrFieldType(string memberPath)
@@ -115,6 +119,8 @@ namespace Multiplayer.Client
             for (int i = 1; i < parts.Length; i++)
             {
                 string part = parts[i];
+                bool arrayAccess = part.EndsWith("[]");
+                part = part.Replace("[]", "");
 
                 if (!currentType.IsInterface)
                 {
@@ -124,7 +130,6 @@ namespace Multiplayer.Client
                         members.Add(field);
                         currentType = field.FieldType;
                         hasSetter = true;
-                        continue;
                     }
 
                     PropertyInfo property = AccessTools.Property(currentType, part);
@@ -133,7 +138,6 @@ namespace Multiplayer.Client
                         members.Add(property);
                         currentType = property.PropertyType;
                         hasSetter = property.GetSetMethod(true) != null;
-                        continue;
                     }
                 }
 
@@ -143,33 +147,62 @@ namespace Multiplayer.Client
                     members.Add(method);
                     currentType = method.ReturnType;
                     hasSetter = false;
+                }
+
+                if (currentType != null)
+                {
+                    if (arrayAccess)
+                    {
+                        if (currentType.IsGenericType && currentType.GetGenericTypeDefinition() == typeof(List<>))
+                        {
+                            PropertyInfo indexer = AccessTools.Property(currentType, "Item");
+                            members.Add(indexer);
+                            currentType = indexer.PropertyType;
+                            hasSetter = true;
+                        }
+                        else if (currentType.IsArray)
+                        {
+                            currentType = currentType.GetElementType();
+                            members.Add(new ArrayAccess() { ElementType = currentType });
+                            hasSetter = true;
+                        }
+                    }
+
                     continue;
                 }
 
-                throw new Exception("Member " + part + " not found in path: " + memberPath + ", current type: " + currentType);
+                throw new Exception($"Member {part} not found in path: {memberPath}, current type: {currentType}");
             }
 
             MemberInfo lastMember = members.Last();
-
             pathType[memberPath] = currentType;
 
             string methodName = memberPath.Replace('/', '_');
-            DynamicMethod getter = new DynamicMethod("MP_Reflection_Getter_" + methodName, typeof(object), new[] { typeof(object) }, true);
+            DynamicMethod getter = new DynamicMethod("MP_Reflection_Getter_" + methodName, typeof(object), new[] { typeof(object), typeof(int) }, true);
             ILGenerator getterGen = getter.GetILGenerator();
 
-            DynamicMethod setter = new DynamicMethod("MP_Reflection_Setter_" + methodName, null, new[] { typeof(object), typeof(object) }, true);
-            ILGenerator setterGen = setter.GetILGenerator();
-
-            EmitAccess(type, members, members.Count, getterGen);
+            EmitAccess(type, members, members.Count, getterGen, 1);
             getterGen.Emit(OpCodes.Ret);
-            getters[memberPath] = (Func<object, object>)getter.CreateDelegate(typeof(Func<object, object>));
+            getters[memberPath] = (Getter)getter.CreateDelegate(typeof(Getter));
 
-            if (hasSetter)
+            if (!hasSetter)
             {
-                EmitAccess(type, members, members.Count - 1, setterGen);
+                setters[memberPath] = null;
+            }
+            else
+            {
+                DynamicMethod setter = new DynamicMethod("MP_Reflection_Setter_" + methodName, null, new[] { typeof(object), typeof(object), typeof(int) }, true);
+                ILGenerator setterGen = setter.GetILGenerator();
 
+                // Load the instance
+                EmitAccess(type, members, members.Count - 1, setterGen, 2);
+
+                // Load the index
+                if (lastMember is ArrayAccess || (lastMember is PropertyInfo prop1 && prop1.GetIndexParameters().Length == 1))
+                    setterGen.Emit(OpCodes.Ldarg_2);
+
+                // Load and box/cast the value
                 setterGen.Emit(OpCodes.Ldarg_1);
-
                 if (currentType.IsValueType)
                     setterGen.Emit(OpCodes.Unbox_Any, currentType);
                 else
@@ -187,17 +220,17 @@ namespace Multiplayer.Client
                     MethodInfo setterMethod = prop.GetSetMethod(true);
                     setterGen.Emit(setterMethod.IsVirtual ? OpCodes.Callvirt : OpCodes.Call, setterMethod);
                 }
+                else if (lastMember is ArrayAccess)
+                {
+                    setterGen.Emit(OpCodes.Stelem, currentType);
+                }
 
                 setterGen.Emit(OpCodes.Ret);
-                setters[memberPath] = (Action<object, object>)setter.CreateDelegate(typeof(Action<object, object>));
-            }
-            else
-            {
-                setters[memberPath] = null;
+                setters[memberPath] = (Setter)setter.CreateDelegate(typeof(Setter));
             }
         }
 
-        private static void EmitAccess(Type type, List<MemberInfo> members, int count, ILGenerator gen)
+        private static void EmitAccess(Type type, List<MemberInfo> members, int count, ILGenerator gen, int indexArg)
         {
             if (!members[0].IsStatic())
             {
@@ -212,6 +245,7 @@ namespace Multiplayer.Client
             for (int i = 0; i < count; i++)
             {
                 MemberInfo member = members[i];
+                Type memberType;
 
                 if (member is FieldInfo field)
                 {
@@ -220,26 +254,41 @@ namespace Multiplayer.Client
                     else
                         gen.Emit(OpCodes.Ldfld, field);
 
-                    BoxIfNeeded(field.FieldType, gen);
+                    memberType = field.FieldType;
                 }
                 else if (member is PropertyInfo prop)
                 {
+                    if (prop.GetIndexParameters().Length == 1)
+                        gen.Emit(OpCodes.Ldarg, indexArg);
+
                     MethodInfo m = prop.GetGetMethod(true);
                     gen.Emit(m.IsVirtual ? OpCodes.Callvirt : OpCodes.Call, m);
-                    BoxIfNeeded(m.ReturnType, gen);
+                    memberType = m.ReturnType;
                 }
                 else if (member is MethodInfo method)
                 {
                     gen.Emit(method.IsVirtual ? OpCodes.Callvirt : OpCodes.Call, method);
-                    BoxIfNeeded(method.ReturnType, gen);
+                    memberType = method.ReturnType;
                 }
-            }
-        }
+                else if (member is ArrayAccess arr)
+                {
+                    gen.Emit(OpCodes.Ldarg, indexArg);
+                    gen.Emit(OpCodes.Ldelem);
+                    memberType = arr.ElementType;
+                }
+                else
+                {
+                    throw new Exception("Unsupported member type " + member.GetType());
+                }
 
-        private static void BoxIfNeeded(Type type, ILGenerator gen)
-        {
-            if (type.IsValueType)
-                gen.Emit(OpCodes.Box, type);
+                BoxIfNeeded(memberType);
+            }
+
+            void BoxIfNeeded(Type forType)
+            {
+                if (forType.IsValueType)
+                    gen.Emit(OpCodes.Box, forType);
+            }
         }
 
         public static Type GetTypeByName(string name)
@@ -262,16 +311,44 @@ namespace Multiplayer.Client
         }
     }
 
-    public static class ReflectionExtensions
+    public class ArrayAccess : MemberInfo
     {
-        public static object GetPropertyOrField(this object obj, string memberPath)
+        public Type ElementType { get; set; }
+
+        public override MemberTypes MemberType => throw new NotImplementedException();
+
+        public override string Name => throw new NotImplementedException();
+
+        public override Type DeclaringType => throw new NotImplementedException();
+
+        public override Type ReflectedType => throw new NotImplementedException();
+
+        public override object[] GetCustomAttributes(bool inherit)
         {
-            return MpReflection.GetValue(obj, memberPath);
+            throw new NotImplementedException();
         }
 
-        public static void SetPropertyOrField(this object obj, string memberPath, object value)
+        public override object[] GetCustomAttributes(Type attributeType, bool inherit)
         {
-            MpReflection.SetValue(obj, memberPath, value);
+            throw new NotImplementedException();
+        }
+
+        public override bool IsDefined(Type attributeType, bool inherit)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    public static class ReflectionExtensions
+    {
+        public static object GetPropertyOrField(this object obj, string memberPath, int index = -1)
+        {
+            return MpReflection.GetValue(obj, memberPath, index);
+        }
+
+        public static void SetPropertyOrField(this object obj, string memberPath, object value, int index = -1)
+        {
+            MpReflection.SetValue(obj, memberPath, value, index);
         }
 
         private static readonly MethodInfo exposeSmallComps = AccessTools.Method(typeof(Game), "ExposeSmallComponents");

@@ -28,6 +28,8 @@ namespace Multiplayer.Client
         public static void PushFaction(this Map map, Faction faction)
         {
             faction = FactionContext.Push(faction);
+            if (faction != null)
+                Multiplayer.WorldComp.SetFaction(faction);
             if (map != null && faction != null)
                 map.GetComponent<MultiplayerMapComp>().SetFaction(faction);
         }
@@ -46,19 +48,21 @@ namespace Multiplayer.Client
         public static void PopFaction(this Map map)
         {
             Faction faction = FactionContext.Pop();
+            if (faction != null)
+                Multiplayer.WorldComp.SetFaction(faction);
             if (map != null && faction != null)
                 map.GetComponent<MultiplayerMapComp>().SetFaction(faction);
         }
 
         public static Map GetMap(this ScheduledCommand cmd)
         {
-            if (cmd.mapId == ScheduledCommand.GLOBAL) return null;
+            if (cmd.mapId == ScheduledCommand.Global) return null;
             return Find.Maps.Find(map => map.uniqueID == cmd.mapId);
         }
 
         public static Faction GetFaction(this ScheduledCommand cmd)
         {
-            if (cmd.factionId == ScheduledCommand.NO_FACTION) return null;
+            if (cmd.factionId == ScheduledCommand.NoFaction) return null;
             return Find.FactionManager.AllFactionsListForReading.Find(f => f.loadID == cmd.factionId);
         }
 
@@ -79,6 +83,12 @@ namespace Multiplayer.Client
                     return (T)t;
 
             return null;
+        }
+
+        public static void ReinsertLast<T>(this List<T> list)
+        {
+            list.Insert(0, list.Last());
+            list.RemoveLast();
         }
     }
 }

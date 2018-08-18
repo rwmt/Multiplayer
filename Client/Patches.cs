@@ -15,6 +15,7 @@ using Multiplayer.Common;
 using System.Text.RegularExpressions;
 using System.Runtime.CompilerServices;
 using System.Reflection.Emit;
+using System.Collections;
 
 namespace Multiplayer.Client
 {
@@ -441,7 +442,7 @@ namespace Multiplayer.Client
 
             if (Find.TickManager.CurTimeSpeed != lastSpeed)
             {
-                Multiplayer.client.SendCommand(CommandType.WORLD_TIME_SPEED, ScheduledCommand.GLOBAL, (byte)Find.TickManager.CurTimeSpeed);
+                Multiplayer.client.SendCommand(CommandType.WORLD_TIME_SPEED, ScheduledCommand.Global, (byte)Find.TickManager.CurTimeSpeed);
                 Find.TickManager.CurTimeSpeed = lastSpeed;
             }
         }
@@ -801,7 +802,7 @@ namespace Multiplayer.Client
                 defaultLabel = "Jump to",
                 action = () =>
                 {
-                    if (__instance is Caravan c)
+                    /*if (__instance is Caravan c)
                     {
                         foreach (Pawn p in c.pawns)
                         {
@@ -816,13 +817,14 @@ namespace Multiplayer.Client
                             foreach (Thing t in p.apparel.GetDirectlyHeldThings())
                                 Log.Message(t + " " + t.Spawned);
                         }
-                    }
+                    }*/
 
-                    /*Find.WindowStack.Add(new Dialog_JumpTo(i =>
+                    Find.WindowStack.Add(new Dialog_JumpTo(s =>
                     {
+                        int i = int.Parse(s);
                         Find.WorldCameraDriver.JumpTo(i);
                         Find.WorldSelector.selectedTile = i;
-                    }));*/
+                    }));
                 }
             });
         }
@@ -1332,6 +1334,33 @@ namespace Multiplayer.Client
         {
             if (__result == 0)
                 __result = a.thingIDNumber.CompareTo(b.thingIDNumber);
+        }
+    }
+
+    [MpPatch(typeof(OutfitDatabase), nameof(OutfitDatabase.GenerateStartingOutfits))]
+    [MpPatch(typeof(DrugPolicyDatabase), nameof(DrugPolicyDatabase.GenerateStartingDrugPolicies))]
+    static class CancelReinitializationDuringLoading
+    {
+        static bool Prefix() => Scribe.mode != LoadSaveMode.LoadingVars;
+    }
+
+    [HarmonyPatch(typeof(OutfitDatabase), nameof(OutfitDatabase.MakeNewOutfit))]
+    static class OutfitUniqueIdPatch
+    {
+        static void Postfix(Outfit __result)
+        {
+            if (Multiplayer.client == null || Multiplayer.ShouldSync) return;
+            __result.uniqueId = Multiplayer.globalIdBlock.NextId();
+        }
+    }
+
+    [HarmonyPatch(typeof(DrugPolicyDatabase), nameof(DrugPolicyDatabase.MakeNewDrugPolicy))]
+    static class DrugPolicyUniqueIdPatch
+    {
+        static void Postfix(DrugPolicy __result)
+        {
+            if (Multiplayer.client == null || Multiplayer.ShouldSync) return;
+            __result.uniqueId = Multiplayer.globalIdBlock.NextId();
         }
     }
 

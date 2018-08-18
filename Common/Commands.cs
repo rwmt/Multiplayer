@@ -24,8 +24,8 @@
 
     public class ScheduledCommand
     {
-        public const int NO_FACTION = -1;
-        public const int GLOBAL = -1;
+        public const int NoFaction = -1;
+        public const int Global = -1;
 
         public readonly CommandType type;
         public readonly int ticks;
