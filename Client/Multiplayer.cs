@@ -78,7 +78,7 @@ namespace Multiplayer.Client
             }
         }
 
-        public static bool Ticking => MultiplayerWorldComp.tickingWorld || MapAsyncTimeComp.tickingMap != null;
+        public static bool Ticking => MultiplayerWorldComp.tickingWorld || MapAsyncTimeComp.tickingMap != null || ConstantTicker.ticking;
         public static bool ShouldSync => client != null && !Ticking && !OnMainThread.executingCmds && !reloading;
 
         static Multiplayer()
@@ -724,9 +724,11 @@ namespace Multiplayer.Client
         {
             foreach (SyncField f in Sync.bufferedFields)
             {
+                if (f.inGameLoop) continue;
+
                 Sync.bufferedChanges[f].RemoveAll((k, data) =>
                 {
-                    if (!data.sent && Environment.TickCount - data.timestamp > 100)
+                    if (!data.sent && Environment.TickCount - data.timestamp > 200)
                     {
                         f.DoSync(k.first, data.toSend, k.second);
                         data.sent = true;
@@ -1116,6 +1118,8 @@ namespace Multiplayer.Client
         public PlaySettings playSettings;
         public WorldSettings worldSettings;
 
+        public ResearchSpeed researchSpeed;
+
         public FactionWorldData() { }
 
         public void ExposeData()
@@ -1128,6 +1132,8 @@ namespace Multiplayer.Client
             Scribe_Deep.Look(ref outfitDatabase, "outfitDatabase");
             Scribe_Deep.Look(ref playSettings, "playSettings");
             Scribe_Deep.Look(ref worldSettings, "settings");
+
+            Scribe_Deep.Look(ref researchSpeed, "researchSpeed");
         }
 
         public void Tick()
@@ -1145,6 +1151,7 @@ namespace Multiplayer.Client
                 outfitDatabase = new OutfitDatabase(),
                 playSettings = new PlaySettings(),
                 worldSettings = new WorldSettings(),
+                researchSpeed = new ResearchSpeed(),
             };
         }
 
@@ -1160,6 +1167,8 @@ namespace Multiplayer.Client
                 outfitDatabase = Current.Game.outfitDatabase,
                 playSettings = Current.Game.playSettings,
                 worldSettings = Find.World.settings,
+
+                researchSpeed = new ResearchSpeed(),
             };
         }
 
@@ -1282,6 +1291,7 @@ namespace Multiplayer.Client
                         return 3f;
                     case TimeSpeed.Superfast:
                         return 6f;
+                    // todo speed up when nothing is happening
                     case TimeSpeed.Ultrafast:
                         return 15f;
                     default:
@@ -1376,6 +1386,8 @@ namespace Multiplayer.Client
             game.outfitDatabase = data.outfitDatabase;
             game.playSettings = data.playSettings;
             world.settings = data.worldSettings;
+
+            SyncResearch.researchSpeed = data.researchSpeed;
         }
 
         public void ExecuteCmd(ScheduledCommand cmd)

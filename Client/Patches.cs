@@ -1129,7 +1129,7 @@ namespace Multiplayer.Client
             {
                 string loadId = groups[1].Value;
                 string typeName = groups[2].Value;
-
+                // todo
                 return false;
             }
 
@@ -1217,7 +1217,7 @@ namespace Multiplayer.Client
         }
     }
 
-    // Fix window control focus
+    // Fix window focus
     [HarmonyPatch(typeof(WindowStack))]
     [HarmonyPatch(nameof(WindowStack.CloseWindowsBecauseClicked))]
     public static class WindowFocusPatch

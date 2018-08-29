@@ -19,6 +19,7 @@ namespace Multiplayer.Client
             harmony.DoMpPatches(typeof(SyncPatches));
             harmony.DoMpPatches(typeof(SyncDelegates));
             harmony.DoMpPatches(typeof(SyncThingFilters));
+            harmony.DoMpPatches(typeof(SyncResearch));
 
             RuntimeHelpers.RunClassConstructor(typeof(SyncPatches).TypeHandle);
             RuntimeHelpers.RunClassConstructor(typeof(SyncFieldsPatches).TypeHandle);
@@ -57,8 +58,11 @@ namespace Multiplayer.Client
             "defaultCareForHostileFaction"
         );
 
-        public static SyncField[] SyncThingFilterHitPoints = Sync.FieldMultiTarget(Sync.thingFilterTarget, "AllowedHitPointsPercents").SetBufferChanges();
-        public static SyncField[] SyncThingFilterQuality = Sync.FieldMultiTarget(Sync.thingFilterTarget, "AllowedQualityLevels").SetBufferChanges();
+        public static SyncField[] SyncThingFilterHitPoints = 
+            Sync.FieldMultiTarget(Sync.thingFilterTarget, "AllowedHitPointsPercents").SetBufferChanges();
+
+        public static SyncField[] SyncThingFilterQuality = 
+            Sync.FieldMultiTarget(Sync.thingFilterTarget, "AllowedQualityLevels").SetBufferChanges();
 
         public static SyncField SyncBillSuspended = Sync.Field(typeof(Bill), "suspended");
         public static SyncField SyncIngredientSearchRadius = Sync.Field(typeof(Bill), "ingredientSearchRadius").SetBufferChanges();
@@ -215,7 +219,7 @@ namespace Multiplayer.Client
         [MpPrefix(typeof(ITab_Bills), "TabUpdate")]
         static void BillIngredientSearchRadius(ITab_Bills __instance)
         {
-            // Use the buffered value for smooth rendering
+            // Use the buffered value for smooth rendering (doesn't actually have to sync anything here)
             if (__instance.mouseoverBill is Bill mouseover)
                 SyncIngredientSearchRadius.Watch(mouseover);
         }
@@ -518,6 +522,53 @@ namespace Multiplayer.Client
 
         [MpPostfix(typeof(Dialog_ManageOutfits), "DoWindowContents")]
         static void ManageOutfit_Postfix() => dialogOutfit = null;
+    }
+
+    public static class SyncResearch
+    {
+        // Set by faction context
+        public static ResearchSpeed researchSpeed;
+
+        // todo fix faction context
+        public static SyncField SyncResearchSpeed =
+            Sync.Field(null, "Multiplayer.Client.ResearchSync/researchSpeed[]").SetBufferChanges().InGameLoop();
+
+        [MpPrefix(typeof(ResearchManager), nameof(ResearchManager.ResearchPerformed))]
+        static bool ResearchPerformed_Prefix(float amount, Pawn researcher)
+        {
+            if (Multiplayer.client == null)
+                return true;
+
+            Sync.FieldWatchPrefix();
+
+            SyncResearchSpeed.Watch(null, researcher.thingIDNumber);
+            researchSpeed[researcher.thingIDNumber] = amount;
+
+            Sync.FieldWatchPostfix();
+
+            return false;
+        }
+    }
+
+    public class ResearchSpeed : IExposable
+    {
+        public Dictionary<int, float> data = new Dictionary<int, float>();
+
+        public float this[int pawnId]
+        {
+            get => data.TryGetValue(pawnId, out float speed) ? speed : 0f;
+
+            set
+            {
+                if (value == 0) data.Remove(pawnId);
+                else data[pawnId] = value;
+            }
+        }
+
+        public void ExposeData()
+        {
+            ScribeUtil.Look(ref data, "data", LookMode.Value);
+        }
     }
 
 }

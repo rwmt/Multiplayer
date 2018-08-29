@@ -37,24 +37,25 @@ namespace Multiplayer.Client
         public readonly Type targetType;
         public readonly string memberPath;
         public readonly Type fieldType;
-        public readonly Func<object, object> instanceFunc;
+        public readonly Type indexType;
 
         public bool bufferChanges;
+        public bool inGameLoop;
 
         public SyncField(int syncId, Type targetType, string memberPath) : base(syncId, false)
         {
             this.targetType = targetType;
             this.memberPath = targetType + "/" + memberPath;
-
             fieldType = MpReflection.PropertyOrFieldType(this.memberPath);
+            indexType = MpReflection.IndexType(this.memberPath);
         }
 
         /// <summary>
         /// Returns whether the sync has been done
         /// </summary>
-        public bool DoSync(object target, object value, int index = -1)
+        public bool DoSync(object target, object value, object index = null)
         {
-            if (!Multiplayer.ShouldSync)
+            if (!inGameLoop && !Multiplayer.ShouldSync)
                 return false;
 
             LoggingByteWriter writer = new LoggingByteWriter();
@@ -71,7 +72,8 @@ namespace Multiplayer.Client
             }
 
             Sync.WriteSyncObject(writer, value, fieldType);
-            writer.WriteInt32(index);
+            if (indexType != null)
+                Sync.WriteSyncObject(writer, index, indexType);
 
             writer.LogNode("Map id: " + mapId);
             Multiplayer.packetLog.nodes.Add(writer.current);
@@ -87,7 +89,10 @@ namespace Multiplayer.Client
             if (targetType != null)
                 target = Sync.ReadSyncObject(data, targetType);
             object value = Sync.ReadSyncObject(data, fieldType);
-            int index = data.ReadInt32();
+
+            object index = null;
+            if (indexType != null)
+                index = Sync.ReadSyncObject(data, indexType);
 
             MpLog.Log($"Set {memberPath} in {target} to {value}, map {data.context}, index {index}");
             MpReflection.SetValue(target, memberPath, value, index);
@@ -95,9 +100,15 @@ namespace Multiplayer.Client
 
         public SyncField SetBufferChanges()
         {
-            Sync.bufferedChanges[this] = new Dictionary<Pair<object, int>, BufferData>();
+            Sync.bufferedChanges[this] = new Dictionary<Pair<object, object>, BufferData>();
             Sync.bufferedFields.Add(this);
             bufferChanges = true;
+            return this;
+        }
+
+        public SyncField InGameLoop()
+        {
+            inGameLoop = true;
             return this;
         }
     }
@@ -317,9 +328,9 @@ namespace Multiplayer.Client
         public SyncField handler;
         public object target;
         public object oldValue;
-        public int index;
+        public object index;
 
-        public FieldData(SyncField handler, object target, object oldValue, int index)
+        public FieldData(SyncField handler, object target, object oldValue, object index)
         {
             this.handler = handler;
             this.target = target;
@@ -351,10 +362,8 @@ namespace Multiplayer.Client
         private static Dictionary<MethodBase, SyncDelegate> syncDelegates = new Dictionary<MethodBase, SyncDelegate>();
         private static Dictionary<MethodBase, SyncMethod> syncMethods = new Dictionary<MethodBase, SyncMethod>();
 
-        public static Dictionary<SyncField, Dictionary<Pair<object, int>, BufferData>> bufferedChanges = new Dictionary<SyncField, Dictionary<Pair<object, int>, BufferData>>();
-        private static List<FieldData> watchedData = new List<FieldData>();
-
-        private static bool syncing;
+        public static Dictionary<SyncField, Dictionary<Pair<object, object>, BufferData>> bufferedChanges = new Dictionary<SyncField, Dictionary<Pair<object, object>, BufferData>>();
+        private static Stack<FieldData> watchedStack = new Stack<FieldData>();
 
         public static MultiTarget thingFilterTarget = new MultiTarget()
         {
@@ -363,48 +372,48 @@ namespace Multiplayer.Client
             { typeof(Outfit), "filter" }
         };
 
-        private static void FieldWatchPrefix(ref bool __state)
+        public static void FieldWatchPrefix()
         {
-            if (!syncing && Multiplayer.ShouldSync)
-                syncing = __state = true;
+            if (Multiplayer.client == null) return;
+            watchedStack.Push(null); // Marker
         }
 
-        private static void FieldWatchPostfix(bool __state)
+        // todo what happens on exceptions?
+        public static void FieldWatchPostfix()
         {
-            if (!__state)
-                return;
-
-            foreach (FieldData data in watchedData)
+            while (watchedStack.Count > 0)
             {
-                object newValue = data.target.GetPropertyOrField(data.handler.memberPath, data.index);
-                bool changed = !Equals(newValue, data.oldValue);
-                var cache = data.handler.bufferChanges ? bufferedChanges.GetValueSafe(data.handler) : null;
+                FieldData data = watchedStack.Pop();
+                if (data == null)
+                    break; // The marker
 
-                if (cache != null && cache.TryGetValue(new Pair<object, int>(data.target, data.index), out BufferData cached))
+                SyncField handler = data.handler;
+                object newValue = data.target.GetPropertyOrField(handler.memberPath, data.index);
+                bool changed = !Equals(newValue, data.oldValue);
+                var cache = handler.bufferChanges ? bufferedChanges.GetValueSafe(handler) : null;
+
+                if (cache != null && cache.TryGetValue(new Pair<object, object>(data.target, data.index), out BufferData cached))
                 {
                     if (changed && cached.sent)
                     {
                         cached.sent = false;
-                        cached.timestamp = Environment.TickCount;
+                        cached.timestamp = (handler.inGameLoop ? TickPatch.ticker.time : Environment.TickCount);
                     }
 
                     cached.toSend = newValue;
-                    data.target.SetPropertyOrField(data.handler.memberPath, cached.currentValue, data.index);
+                    data.target.SetPropertyOrField(handler.memberPath, cached.currentValue, data.index);
                     continue;
                 }
 
                 if (!changed) continue;
 
                 if (cache != null)
-                    cache[new Pair<object, int>(data.target, data.index)] = new BufferData(data.oldValue, newValue);
+                    cache[new Pair<object, object>(data.target, data.index)] = new BufferData(data.oldValue, newValue);
                 else
-                    data.handler.DoSync(data.target, newValue, data.index);
+                    handler.DoSync(data.target, newValue, data.index);
 
-                data.target.SetPropertyOrField(data.handler.memberPath, data.oldValue, data.index);
+                data.target.SetPropertyOrField(handler.memberPath, data.oldValue, data.index);
             }
-
-            watchedData.Clear();
-            syncing = false;
         }
 
         public static SyncMethod Method(Type targetType, string methodName)
@@ -596,24 +605,31 @@ namespace Multiplayer.Client
         public static void RegisterFieldPatches(Type type)
         {
             HarmonyMethod prefix = new HarmonyMethod(AccessTools.Method(typeof(Sync), nameof(Sync.FieldWatchPrefix)));
+            prefix.prioritiy = Priority.First;
             HarmonyMethod postfix = new HarmonyMethod(AccessTools.Method(typeof(Sync), nameof(Sync.FieldWatchPostfix)));
 
             foreach (MethodBase patched in Multiplayer.harmony.DoMpPatches(type))
                 Multiplayer.harmony.Patch(patched, prefix, postfix);
         }
 
-        public static void Watch(this SyncField field, object target = null, int index = -1)
+        public static void Watch(this SyncField field, object target = null, object index = null)
         {
-            if (!Multiplayer.ShouldSync) return;
+            if (!field.inGameLoop && !Multiplayer.ShouldSync)
+                return;
 
             object value;
 
-            if (field.bufferChanges && bufferedChanges[field].TryGetValue(new Pair<object, int>(target, index), out BufferData cached))
-                target.SetPropertyOrField(field.memberPath, value = cached.toSend, index);
+            if (field.bufferChanges && bufferedChanges[field].TryGetValue(new Pair<object, object>(target, index), out BufferData cached))
+            {
+                value = cached.toSend;
+                target.SetPropertyOrField(field.memberPath, value, index);
+            }
             else
+            {
                 value = target.GetPropertyOrField(field.memberPath, index);
+            }
 
-            watchedData.Add(new FieldData(field, target, value, index));
+            watchedStack.Push(new FieldData(field, target, value, index));
         }
 
         public static void HandleCmd(ByteReader data)

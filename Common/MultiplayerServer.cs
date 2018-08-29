@@ -178,7 +178,7 @@ namespace Multiplayer.Common
 
         public void SendCommand(CommandType cmd, int factionId, int mapId, byte[] extra)
         {
-            // todo send only to players playing the map if not global
+            // todo cull target players if not global
             byte[] toSend = ByteWriter.GetBytes(cmd, timer, factionId, mapId, extra);
 
             if (mapId < 0)

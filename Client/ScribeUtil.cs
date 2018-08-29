@@ -211,13 +211,18 @@ namespace Multiplayer.Client
             return element;
         }
 
+        /// <summary>
+        /// Dictionary Look with value type keys
+        /// </summary>
         public static void Look<K, V>(ref Dictionary<K, V> dict, string label, LookMode valueLookMode, params object[] valueCtorArgs)
         {
             List<V> list = null;
             Look(ref dict, label, valueLookMode, ref list, valueCtorArgs);
         }
 
-        // Dictionary Look with value keys
+        /// <summary>
+        /// Dictionary Look with value type keys
+        /// </summary>
         public static void Look<K, V>(ref Dictionary<K, V> dict, string label, LookMode valueLookMode, ref List<V> valuesWorkingList, params object[] valueCtorArgs)
         {
             LookMode keyLookMode = LookMode.Value;

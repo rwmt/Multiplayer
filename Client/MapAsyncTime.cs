@@ -2,6 +2,7 @@
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -17,6 +18,8 @@ namespace Multiplayer.Client
 
         public static int Timer => (int)timerInt;
 
+        // todo reset on game reload (make not static?)
+        public static ConstantTicker ticker = new ConstantTicker();
         public static float accumulator;
         public static double timerInt;
         public static int tickUntil;
@@ -29,6 +32,8 @@ namespace Multiplayer.Client
 
                 foreach (Map map in Find.Maps)
                     yield return map.GetComponent<MapAsyncTimeComp>();
+
+                yield return ticker;
             }
         }
 
@@ -120,6 +125,85 @@ namespace Multiplayer.Client
         void Tick();
 
         void ExecuteCmd(ScheduledCommand cmd);
+    }
+
+    public class ConstantTicker : ITickable
+    {
+        public static bool ticking;
+
+        public float RealTimeToTickThrough { get; set; }
+        public float CurTimePerTick => 1f / 60f;
+        public TimeSpeed TimeSpeed => TimeSpeed.Normal;
+        public Queue<ScheduledCommand> Cmds => null;
+
+        public int time;
+
+        public void ExecuteCmd(ScheduledCommand cmd)
+        {
+        }
+
+        public void Tick()
+        {
+            ticking = true;
+
+            TickSync();
+            TickResearch();
+
+            ticking = false;
+            time++;
+        }
+
+        public void TickSync()
+        {
+            foreach (SyncField f in Sync.bufferedFields)
+            {
+                if (!f.inGameLoop) continue;
+
+                Sync.bufferedChanges[f].RemoveAll((k, data) =>
+                {
+                    if (!data.sent && time - data.timestamp > 30)
+                    {
+                        f.DoSync(k.first, data.toSend, k.second);
+                        data.sent = true;
+                    }
+
+                    return !Equals(k.first.GetPropertyOrField(f.memberPath, k.second), data.currentValue);
+                });
+            }
+        }
+
+        private static Pawn dummyPawn = new Pawn()
+        {
+            relations = new Pawn_RelationsTracker(dummyPawn),
+        };
+
+        public void TickResearch()
+        {
+            MultiplayerWorldComp comp = Multiplayer.WorldComp;
+            foreach (FactionWorldData data in comp.factionData.Values)
+            {
+                if (data.researchManager.currentProj == null)
+                    continue;
+
+                Extensions.PushFaction(null, data.factionId);
+
+                foreach (var kv in data.researchSpeed.data)
+                {
+                    Pawn pawn = PawnsFinder.AllMaps_Spawned.FirstOrDefault(p => p.thingIDNumber == kv.Key);
+                    if (pawn == null)
+                    {
+                        dummyPawn.factionInt = Faction.OfPlayer;
+                        pawn = dummyPawn;
+                    }
+
+                    Find.ResearchManager.ResearchPerformed(kv.Value, pawn);
+
+                    dummyPawn.factionInt = null;
+                }
+
+                Extensions.PopFaction(null);
+            }
+        }
     }
 
     [HarmonyPatch(typeof(Map), nameof(Map.MapUpdate))]
@@ -392,6 +476,7 @@ namespace Multiplayer.Client
                     return 1;
                 if (TimeSpeed == TimeSpeed.Fast)
                     return 3;
+                // todo speed up when nothing is happening
                 if (TimeSpeed == TimeSpeed.Superfast)
                     return 6;
                 return 1;
