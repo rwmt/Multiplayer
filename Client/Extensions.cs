@@ -40,6 +40,11 @@ namespace Multiplayer.Client
             map.PushFaction(faction);
         }
 
+        public static void PopFaction()
+        {
+            PopFaction(null);
+        }
+
         public static void PopFaction(this Container<Map> c)
         {
             PopFaction(c.Value);

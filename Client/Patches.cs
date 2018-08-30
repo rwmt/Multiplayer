@@ -19,10 +19,10 @@ using System.Collections;
 
 namespace Multiplayer.Client
 {
-    [HarmonyPatch(typeof(PatchProcessor), nameof(PatchProcessor.Patch))]
-    static class PatchProcessorPatch
+    static class HarmonyPatches
     {
-        static void Prefix(List<MethodBase> ___originals)
+        [MpPrefix(typeof(PatchProcessor), nameof(PatchProcessor.Patch))]
+        static void PatchProcessorPrefix(List<MethodBase> ___originals)
         {
             foreach (MethodBase m in ___originals)
             {
@@ -35,6 +35,38 @@ namespace Multiplayer.Client
             ushort* iflags = (ushort*)(method.MethodHandle.Value) + 1;
             *iflags |= (ushort)MethodImplOptions.NoInlining;
         }
+
+        static readonly FieldInfo paramName = AccessTools.Field(typeof(ParameterInfo), "NameImpl");
+
+        [MpPrefix(typeof(MethodPatcher), "EmitCallParameter")]
+        static void EmitCallParamsPrefix(MethodBase original, MethodInfo patch)
+        {
+            if (Attribute.GetCustomAttribute(patch, typeof(IndexedPatchParameters)) == null)
+                return;
+
+            ParameterInfo[] patchParams = patch.GetParameters();
+
+            for (int i = 0; i < patchParams.Length; i++)
+            {
+                string name;
+
+                if (original.IsStatic)
+                    name = original.GetParameters()[i].Name;
+                else if (i == 0)
+                    name = MethodPatcher.INSTANCE_PARAM;
+                else
+                    name = original.GetParameters()[i - 1].Name;
+
+                paramName.SetValue(patchParams[i], name);
+            }
+        }
+    }
+
+    // For instance methods the first parameter is the instance
+    // The rest are original method's parameters in order
+    [AttributeUsage(AttributeTargets.Method)]
+    public class IndexedPatchParameters : Attribute
+    {
     }
 
     [HarmonyPatch(typeof(MainMenuDrawer))]
@@ -396,7 +428,7 @@ namespace Multiplayer.Client
             Rect rect = new Rect(80f, 60f, 330f, Text.CalcHeight(text, 330f));
             Widgets.Label(rect, text);
 
-            if (Find.VisibleMap != null)
+            if (Find.VisibleMap != null && Multiplayer.client != null)
             {
                 MapAsyncTimeComp async = Find.VisibleMap.GetComponent<MapAsyncTimeComp>();
                 string text1 = "" + async.mapTicks;
@@ -416,6 +448,8 @@ namespace Multiplayer.Client
                 if (comp.mapIdBlock != null)
                     text1 += " " + comp.mapIdBlock.current;
 
+                text1 += " " + Sync.bufferedChanges.Sum(kv => kv.Value.Count);
+                
                 Rect rect1 = new Rect(80f, 110f, 330f, Text.CalcHeight(text1, 330f));
                 Widgets.Label(rect1, text1);
             }
@@ -1178,42 +1212,6 @@ namespace Multiplayer.Client
         {
             if (result != null)
                 __result = result;
-        }
-    }
-
-    // For instance methods the first parameter is the instance
-    // The rest are original method's parameters in order
-    [AttributeUsage(AttributeTargets.Method)]
-    public class IndexedPatchParameters : Attribute
-    {
-    }
-
-    [HarmonyPatch(typeof(MethodPatcher))]
-    [HarmonyPatch("EmitCallParameter")]
-    public static class ParameterNamePatch
-    {
-        static readonly FieldInfo paramName = AccessTools.Field(typeof(ParameterInfo), "NameImpl");
-
-        static void Prefix(MethodBase original, MethodInfo patch)
-        {
-            if (Attribute.GetCustomAttribute(patch, typeof(IndexedPatchParameters)) == null)
-                return;
-
-            ParameterInfo[] patchParams = patch.GetParameters();
-
-            for (int i = 0; i < patchParams.Length; i++)
-            {
-                string name;
-
-                if (original.IsStatic)
-                    name = original.GetParameters()[i].Name;
-                else if (i == 0)
-                    name = MethodPatcher.INSTANCE_PARAM;
-                else
-                    name = original.GetParameters()[i - 1].Name;
-
-                paramName.SetValue(patchParams[i], name);
-            }
         }
     }
 

@@ -55,7 +55,7 @@ namespace Multiplayer.Client
         /// </summary>
         public bool DoSync(object target, object value, object index = null)
         {
-            if (!inGameLoop && !Multiplayer.ShouldSync)
+            if (!(inGameLoop || Multiplayer.ShouldSync))
                 return false;
 
             LoggingByteWriter writer = new LoggingByteWriter();
@@ -350,8 +350,6 @@ namespace Multiplayer.Client
         {
             this.currentValue = currentValue;
             this.toSend = toSend;
-
-            timestamp = Environment.TickCount;
         }
     }
 
@@ -397,7 +395,7 @@ namespace Multiplayer.Client
                     if (changed && cached.sent)
                     {
                         cached.sent = false;
-                        cached.timestamp = (handler.inGameLoop ? TickPatch.ticker.time : Environment.TickCount);
+                        cached.timestamp = handler.inGameLoop ? TickPatch.Timer : Environment.TickCount;
                     }
 
                     cached.toSend = newValue;
@@ -408,9 +406,15 @@ namespace Multiplayer.Client
                 if (!changed) continue;
 
                 if (cache != null)
-                    cache[new Pair<object, object>(data.target, data.index)] = new BufferData(data.oldValue, newValue);
+                {
+                    BufferData bufferData = new BufferData(data.oldValue, newValue);
+                    bufferData.timestamp = handler.inGameLoop ? TickPatch.Timer : Environment.TickCount;
+                    cache[new Pair<object, object>(data.target, data.index)] = bufferData;
+                }
                 else
+                {
                     handler.DoSync(data.target, newValue, data.index);
+                }
 
                 data.target.SetPropertyOrField(handler.memberPath, data.oldValue, data.index);
             }
@@ -614,7 +618,7 @@ namespace Multiplayer.Client
 
         public static void Watch(this SyncField field, object target = null, object index = null)
         {
-            if (!field.inGameLoop && !Multiplayer.ShouldSync)
+            if (!(field.inGameLoop || Multiplayer.ShouldSync))
                 return;
 
             object value;

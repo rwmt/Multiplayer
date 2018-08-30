@@ -106,6 +106,8 @@ namespace Multiplayer.Client
             MultiplayerConnectionState.RegisterState(typeof(ClientWorldState));
             MultiplayerConnectionState.RegisterState(typeof(ClientPlayingState));
 
+            harmony.DoMpPatches(typeof(HarmonyPatches));
+
             harmony.DoMpPatches(typeof(MapParentFactionPatch));
             harmony.DoMpPatches(typeof(CancelMapManagersTick));
             harmony.DoMpPatches(typeof(CancelMapManagersUpdate));
@@ -906,7 +908,7 @@ namespace Multiplayer.Client
             }
         }
 
-        public static void ExecuteGlobalServerCmd(ScheduledCommand cmd, ByteReader data)
+        public static void ExecuteGlobalCmd(ScheduledCommand cmd, ByteReader data)
         {
             Multiplayer.Seed = Find.TickManager.TicksGame;
             CommandType cmdType = cmd.type;
@@ -1310,6 +1312,7 @@ namespace Multiplayer.Client
 
         public Dictionary<int, FactionWorldData> factionData = new Dictionary<int, FactionWorldData>();
 
+        public ConstantTicker ticker = new ConstantTicker();
         public string worldId = Guid.NewGuid().ToString();
         public int sessionId = new System.Random().Next();
         public TimeSpeed timeSpeedInt;
@@ -1392,7 +1395,7 @@ namespace Multiplayer.Client
 
         public void ExecuteCmd(ScheduledCommand cmd)
         {
-            OnMainThread.ExecuteGlobalServerCmd(cmd, new ByteReader(cmd.data));
+            OnMainThread.ExecuteGlobalCmd(cmd, new ByteReader(cmd.data));
         }
     }
 

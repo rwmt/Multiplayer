@@ -3,6 +3,7 @@ using Multiplayer.Common;
 using RimWorld;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Verse;
@@ -58,10 +59,10 @@ namespace Multiplayer.Client
             "defaultCareForHostileFaction"
         );
 
-        public static SyncField[] SyncThingFilterHitPoints = 
+        public static SyncField[] SyncThingFilterHitPoints =
             Sync.FieldMultiTarget(Sync.thingFilterTarget, "AllowedHitPointsPercents").SetBufferChanges();
 
-        public static SyncField[] SyncThingFilterQuality = 
+        public static SyncField[] SyncThingFilterQuality =
             Sync.FieldMultiTarget(Sync.thingFilterTarget, "AllowedQualityLevels").SetBufferChanges();
 
         public static SyncField SyncBillSuspended = Sync.Field(typeof(Bill), "suspended");
@@ -80,6 +81,7 @@ namespace Multiplayer.Client
         );
 
         public static SyncField SyncGodMode = Sync.Field(null, "Verse.DebugSettings/godMode");
+        public static SyncField SyncResearchProject = Sync.Field(null, "Verse.Find/ResearchManager/currentProj");
 
         public static SyncField[] SyncDrugPolicyEntry = Sync.Fields(
             typeof(DrugPolicy),
@@ -255,11 +257,17 @@ namespace Multiplayer.Client
             }
         }
 
-        [MpPrefix(typeof(Prefs), "set_DevMode")]
         [MpPrefix(typeof(DebugWindowsOpener), "ToggleGodMode")]
+        [MpPrefix(typeof(Prefs), "set_DevMode")]
         static void SetGodMode()
         {
             SyncGodMode.Watch();
+        }
+
+        [MpPrefix(typeof(MainTabWindow_Research), "DrawLeftRect")]
+        static void ResearchTab()
+        {
+            SyncResearchProject.Watch();
         }
     }
 
@@ -493,10 +501,11 @@ namespace Multiplayer.Client
     public static class SyncMarkers
     {
         public static bool manualPriorities;
+        public static bool researchToil;
+
         public static IStoreSettingsParent tabStorage;
         public static Bill billConfig;
         public static Outfit dialogOutfit;
-
         public static object ThingFilterOwner => tabStorage ?? billConfig ?? (object)dialogOutfit;
 
         [MpPrefix(typeof(MainTabWindow_Work), "DoManualPrioritiesCheckbox")]
@@ -504,6 +513,12 @@ namespace Multiplayer.Client
 
         [MpPostfix(typeof(MainTabWindow_Work), "DoManualPrioritiesCheckbox")]
         static void ManualPriorities_Postfix() => manualPriorities = false;
+
+        [MpPrefix(typeof(JobDriver_Research), "<MakeNewToils>c__Iterator0+<MakeNewToils>c__AnonStorey1", "<>m__0")]
+        static void ResearchToil_Prefix() => researchToil = true;
+
+        [MpPostfix(typeof(JobDriver_Research), "<MakeNewToils>c__Iterator0+<MakeNewToils>c__AnonStorey1", "<>m__0")]
+        static void ResearchToil_Postfix() => researchToil = false;
 
         [MpPrefix(typeof(ITab_Storage), "FillTab")]
         static void TabStorageFillTab_Prefix(ITab_Storage __instance) => tabStorage = __instance.SelStoreSettingsParent;
@@ -526,27 +541,45 @@ namespace Multiplayer.Client
 
     public static class SyncResearch
     {
-        // Set by faction context
-        public static ResearchSpeed researchSpeed;
-
-        // todo fix faction context
-        public static SyncField SyncResearchSpeed =
-            Sync.Field(null, "Multiplayer.Client.ResearchSync/researchSpeed[]").SetBufferChanges().InGameLoop();
+        private static Dictionary<int, float> localResearch = new Dictionary<int, float>();
 
         [MpPrefix(typeof(ResearchManager), nameof(ResearchManager.ResearchPerformed))]
         static bool ResearchPerformed_Prefix(float amount, Pawn researcher)
         {
-            if (Multiplayer.client == null)
+            if (Multiplayer.client == null || !SyncMarkers.researchToil)
                 return true;
 
-            Sync.FieldWatchPrefix();
-
-            SyncResearchSpeed.Watch(null, researcher.thingIDNumber);
-            researchSpeed[researcher.thingIDNumber] = amount;
-
-            Sync.FieldWatchPostfix();
+            // todo only faction leader
+            if (Faction.OfPlayer == Multiplayer.RealPlayerFaction)
+            {
+                float current = localResearch.GetValueSafe(researcher.thingIDNumber);
+                localResearch[researcher.thingIDNumber] = current + amount;
+            }
 
             return false;
+        }
+
+        // Set by faction context
+        public static ResearchSpeed researchSpeed;
+        public static SyncField SyncResearchSpeed =
+            Sync.Field(null, "Multiplayer.Client.SyncResearch/researchSpeed[]").SetBufferChanges().InGameLoop();
+
+        public static void ConstantTick()
+        {
+            if (localResearch.Count == 0) return;
+
+            Extensions.PushFaction(null, Multiplayer.RealPlayerFaction);
+            Sync.FieldWatchPrefix();
+
+            foreach (int pawn in localResearch.Keys.ToList())
+            {
+                SyncResearchSpeed.Watch(null, pawn);
+                researchSpeed[pawn] = localResearch[pawn];
+                localResearch[pawn] = 0;
+            }
+
+            Sync.FieldWatchPostfix();
+            Extensions.PopFaction();
         }
     }
 

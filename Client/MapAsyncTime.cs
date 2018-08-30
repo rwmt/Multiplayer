@@ -18,8 +18,6 @@ namespace Multiplayer.Client
 
         public static int Timer => (int)timerInt;
 
-        // todo reset on game reload (make not static?)
-        public static ConstantTicker ticker = new ConstantTicker();
         public static float accumulator;
         public static double timerInt;
         public static int tickUntil;
@@ -28,12 +26,12 @@ namespace Multiplayer.Client
         {
             get
             {
-                yield return Multiplayer.WorldComp;
+                MultiplayerWorldComp comp = Multiplayer.WorldComp;
+                yield return comp;
+                yield return comp.ticker;
 
                 foreach (Map map in Find.Maps)
                     yield return map.GetComponent<MapAsyncTimeComp>();
-
-                yield return ticker;
             }
         }
 
@@ -49,6 +47,8 @@ namespace Multiplayer.Client
 
             if (Timer >= tickUntil)
                 accumulator = 0;
+            else if (delta < 1.5f && tickUntil - timerInt > 5)
+                accumulator *= 2f;
 
             Tick();
 
@@ -67,29 +67,15 @@ namespace Multiplayer.Client
         {
             while (accumulator > 0)
             {
-                bool allPaused = AllTickables.All(t => t.CurTimePerTick == 0);
                 int curTimer = Timer;
 
                 foreach (ITickable tickable in AllTickables)
                 {
-                    while (tickable.Cmds.Count > 0 && (allPaused || tickable.Cmds.Peek().ticks == curTimer))
+                    while (tickable.Cmds.Count > 0 && tickable.Cmds.Peek().ticks == curTimer)
                     {
                         ScheduledCommand cmd = tickable.Cmds.Dequeue();
-                        bool prevPaused = allPaused;
-
                         tickable.ExecuteCmd(cmd);
-
-                        allPaused &= tickable.CurTimePerTick == 0;
-
-                        if (prevPaused && !allPaused)
-                            timerInt = cmd.ticks;
                     }
-                }
-
-                if (allPaused)
-                {
-                    accumulator = 0;
-                    break;
                 }
 
                 foreach (ITickable tickable in AllTickables)
@@ -132,11 +118,10 @@ namespace Multiplayer.Client
         public static bool ticking;
 
         public float RealTimeToTickThrough { get; set; }
-        public float CurTimePerTick => 1f / 60f;
+        public float CurTimePerTick => 1f;
         public TimeSpeed TimeSpeed => TimeSpeed.Normal;
-        public Queue<ScheduledCommand> Cmds => null;
-
-        public int time;
+        public Queue<ScheduledCommand> Cmds => cmds;
+        public Queue<ScheduledCommand> cmds = new Queue<ScheduledCommand>();
 
         public void ExecuteCmd(ScheduledCommand cmd)
         {
@@ -146,22 +131,29 @@ namespace Multiplayer.Client
         {
             ticking = true;
 
-            TickSync();
-            TickResearch();
-
-            ticking = false;
-            time++;
+            try
+            {
+                TickSync();
+                TickResearch();
+                SyncResearch.ConstantTick();
+            }
+            finally
+            {
+                ticking = false;
+            }
         }
 
         public void TickSync()
         {
+            Extensions.PushFaction(null, Multiplayer.RealPlayerFaction);
+
             foreach (SyncField f in Sync.bufferedFields)
             {
                 if (!f.inGameLoop) continue;
 
                 Sync.bufferedChanges[f].RemoveAll((k, data) =>
                 {
-                    if (!data.sent && time - data.timestamp > 30)
+                    if (!data.sent && TickPatch.Timer - data.timestamp > 30)
                     {
                         f.DoSync(k.first, data.toSend, k.second);
                         data.sent = true;
@@ -170,6 +162,8 @@ namespace Multiplayer.Client
                     return !Equals(k.first.GetPropertyOrField(f.memberPath, k.second), data.currentValue);
                 });
             }
+
+            Extensions.PopFaction(null);
         }
 
         private static Pawn dummyPawn = new Pawn()
@@ -180,14 +174,14 @@ namespace Multiplayer.Client
         public void TickResearch()
         {
             MultiplayerWorldComp comp = Multiplayer.WorldComp;
-            foreach (FactionWorldData data in comp.factionData.Values)
+            foreach (FactionWorldData factionData in comp.factionData.Values)
             {
-                if (data.researchManager.currentProj == null)
+                if (factionData.researchManager.currentProj == null)
                     continue;
 
-                Extensions.PushFaction(null, data.factionId);
+                Extensions.PushFaction(null, factionData.factionId);
 
-                foreach (var kv in data.researchSpeed.data)
+                foreach (var kv in factionData.researchSpeed.data)
                 {
                     Pawn pawn = PawnsFinder.AllMaps_Spawned.FirstOrDefault(p => p.thingIDNumber == kv.Key);
                     if (pawn == null)
@@ -495,7 +489,7 @@ namespace Multiplayer.Client
 
         public int mapTicks;
         public TimeSpeed timeSpeedInt;
-        public bool forcedNormalSpeed; // todo save
+        public bool forcedNormalSpeed; // todo save?
 
         public Storyteller storyteller;
 
