@@ -82,7 +82,8 @@ namespace Multiplayer.Client
 
     [MpPatch(typeof(VoluntarilyJoinableLordsStarter), nameof(VoluntarilyJoinableLordsStarter.Tick_TryStartParty))]
     [MpPatch(typeof(DamageWatcher), nameof(DamageWatcher.Notify_DamageTaken))]
-    [MpPatch(typeof(WildSpawner), nameof(WildSpawner.WildSpawnerTick))]
+    [MpPatch(typeof(WildAnimalSpawner), nameof(WildAnimalSpawner.WildAnimalSpawnerTick))]
+    [MpPatch(typeof(WildPlantSpawner), nameof(WildPlantSpawner.WildPlantSpawnerTick))]
     public static class MapParentFactionPatch
     {
         static void Prefix(ref bool __state)

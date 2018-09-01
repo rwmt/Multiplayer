@@ -42,6 +42,7 @@ namespace Multiplayer.Client
             focusWhenOpened = true;
             doCloseX = true;
             closeOnClickedOutside = false;
+            closeOnAccept = false;
         }
 
         public override void DoWindowContents(Rect inRect)
@@ -252,7 +253,7 @@ namespace Multiplayer.Client
         public CustomSelectLandingSite()
         {
             this.forcePause = false;
-            this.closeOnEscapeKey = false;
+            this.closeOnCancel = false;
         }
 
         public override void DoBack()
@@ -393,14 +394,16 @@ namespace Multiplayer.Client
 
             MultiplayerWorldComp comp = Find.World.GetComponent<MultiplayerWorldComp>();
 
+            Multiplayer.dummyFaction = new Faction() { loadID = -1, def = Multiplayer.dummyFactionDef };
+            foreach (Faction other in Find.FactionManager.AllFactionsListForReading)
+                Multiplayer.dummyFaction.TryMakeInitialRelationsWith(other);
+
             Faction.OfPlayer.Name = Multiplayer.username + "'s faction";
-            Find.FactionManager.allFactions.ReinsertLast();
 
             comp.factionData[Faction.OfPlayer.loadID] = FactionWorldData.FromCurrent();
             comp.factionData[Multiplayer.dummyFaction.loadID] = FactionWorldData.New(Multiplayer.dummyFaction.loadID);
 
             Find.FactionManager.Add(Multiplayer.dummyFaction);
-            Find.FactionManager.allFactions.ReinsertLast();
 
             MultiplayerServer localServer = new MultiplayerServer(addr);
             Multiplayer.localServer = localServer;
@@ -455,7 +458,7 @@ namespace Multiplayer.Client
 
                 MultiplayerServer.instance.UpdatePlayerList();
 
-                Messages.Message("Server started. Listening at " + addr.ToString() + ":" + MultiplayerServer.DefaultPort, MessageTypeDefOf.SilentInput);
+                Messages.Message("Server started. Listening at " + addr.ToString() + ":" + MultiplayerServer.DefaultPort, MessageTypeDefOf.SilentInput, false);
             }, "Saving", false, null);
         }
 

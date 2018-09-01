@@ -144,7 +144,7 @@ namespace Multiplayer.Client
             if (Scribe.mode == LoadSaveMode.LoadingVars && factionForbidden == null)
                 factionForbidden = new Dictionary<int, bool>();
             if (Scribe.mode == LoadSaveMode.PostLoadInit && factionForbidden.Count == 0)
-                factionForbidden[FactionContext.OfPlayer.loadID] = parent.GetComp<CompForbiddable>().Forbidden;
+                factionForbidden[Find.FactionManager.OfPlayer.loadID] = parent.GetComp<CompForbiddable>().Forbidden;
         }
 
     }

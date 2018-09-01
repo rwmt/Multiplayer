@@ -80,9 +80,9 @@ namespace Multiplayer.Client
         static void Postfix() => drawing = false;
     }
 
-    [HarmonyPatch(typeof(WildSpawner))]
-    [HarmonyPatch(nameof(WildSpawner.WildSpawnerTick))]
-    public static class WildSpawnerTickMarker
+    [HarmonyPatch(typeof(WildAnimalSpawner))]
+    [HarmonyPatch(nameof(WildAnimalSpawner.WildAnimalSpawnerTick))]
+    public static class WildAnimalSpawnerTickMarker
     {
         public static bool ticking;
 
@@ -91,9 +91,9 @@ namespace Multiplayer.Client
         static void Postfix() => ticking = false;
     }
 
-    [HarmonyPatch(typeof(SteadyAtmosphereEffects))]
-    [HarmonyPatch(nameof(SteadyAtmosphereEffects.SteadyAtmosphereEffectsTick))]
-    public static class SteadyAtmosphereEffectsTickkMarker
+    [HarmonyPatch(typeof(SteadyEnvironmentEffects))]
+    [HarmonyPatch(nameof(SteadyEnvironmentEffects.SteadyEnvironmentEffectsTick))]
+    public static class SteadyEnvironmentEffectsTickMarker
     {
         public static bool ticking;
 
@@ -185,8 +185,6 @@ namespace Multiplayer.Client
                     SectionLayer layer = s.layers[i];
                     if (!ShouldKeep(layer))
                         s.layers[i] = (SectionLayer)Activator.CreateInstance(layer.GetType(), s);
-                    else if (layer is SectionLayer_SunShadows sunShadows)
-                        SectionLayer_SunShadows.edificeGrid = map.edificeGrid.InnerArray;
                     else if (layer is SectionLayer_LightingOverlay lighting)
                         lighting.glowGrid = map.glowGrid.glowGrid;
                 }
@@ -234,8 +232,8 @@ namespace Multiplayer.Client
                 r.cachedCellCount = -1;
                 r.mapIndex = (sbyte)map.Index;
 
-                if (r.portal != null)
-                    r.portal = map.ThingReplacement(r.portal);
+                if (r.door != null)
+                    r.door = map.ThingReplacement(r.door);
 
                 foreach (List<Thing> things in r.listerThings.listsByGroup.Concat(r.ListerThings.listsByDef.Values))
                     if (things != null)
@@ -329,8 +327,8 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(SavedGameLoader))]
-    [HarmonyPatch(nameof(SavedGameLoader.LoadGameFromSaveFile))]
+    [HarmonyPatch(typeof(SavedGameLoaderNow))]
+    [HarmonyPatch(nameof(SavedGameLoaderNow.LoadGameFromSaveFileNow))]
     [HarmonyPatch(new[] { typeof(string) })]
     public static class LoadPatch
     {
@@ -379,27 +377,27 @@ namespace Multiplayer.Client
             // notify the server of map gen pause?
 
             Find.GameInitData.mapSize = 150;
-            Find.GameInitData.startingPawns.Add(StartingPawnUtility.NewGeneratedStartingPawn());
-            Find.GameInitData.startingPawns.Add(StartingPawnUtility.NewGeneratedStartingPawn());
+            Find.GameInitData.startingAndOptionalPawns.Add(StartingPawnUtility.NewGeneratedStartingPawn());
+            Find.GameInitData.startingAndOptionalPawns.Add(StartingPawnUtility.NewGeneratedStartingPawn());
 
-            FactionBase factionBase = (FactionBase)WorldObjectMaker.MakeWorldObject(WorldObjectDefOf.FactionBase);
-            factionBase.SetFaction(Multiplayer.RealPlayerFaction);
-            factionBase.Tile = Find.GameInitData.startingTile;
-            factionBase.Name = FactionBaseNameGenerator.GenerateFactionBaseName(factionBase);
-            Find.WorldObjects.Add(factionBase);
+            Settlement settlement = (Settlement)WorldObjectMaker.MakeWorldObject(WorldObjectDefOf.Settlement);
+            settlement.SetFaction(Multiplayer.RealPlayerFaction);
+            settlement.Tile = Find.GameInitData.startingTile;
+            settlement.Name = SettlementNameGenerator.GenerateSettlementName(settlement);
+            Find.WorldObjects.Add(settlement);
 
             IntVec3 intVec = new IntVec3(Find.GameInitData.mapSize, 1, Find.GameInitData.mapSize);
-            Map visibleMap = MapGenerator.GenerateMap(intVec, factionBase, factionBase.MapGeneratorDef, factionBase.ExtraGenStepDefs, null);
+            Map visibleMap = MapGenerator.GenerateMap(intVec, settlement, settlement.MapGeneratorDef, settlement.ExtraGenStepDefs, null);
             Find.World.info.initialMapSize = intVec;
             PawnUtility.GiveAllStartingPlayerPawnsThought(ThoughtDefOf.NewColonyOptimism);
-            Current.Game.VisibleMap = visibleMap;
-            Find.CameraDriver.JumpToVisibleMapLoc(MapGenerator.PlayerStartSpot);
+            Current.Game.CurrentMap = visibleMap;
+            Find.CameraDriver.JumpToCurrentMapLoc(MapGenerator.PlayerStartSpot);
             Find.CameraDriver.ResetSize();
             Current.Game.InitData = null;
 
             Log.Message("New map: " + visibleMap.GetUniqueLoadID());
 
-            ClientPlayingState.SyncClientWorldObj(factionBase);
+            ClientPlayingState.SyncClientWorldObj(settlement);
         }
     }
 
@@ -428,28 +426,28 @@ namespace Multiplayer.Client
             Rect rect = new Rect(80f, 60f, 330f, Text.CalcHeight(text, 330f));
             Widgets.Label(rect, text);
 
-            if (Find.VisibleMap != null && Multiplayer.client != null)
+            if (Find.CurrentMap != null && Multiplayer.client != null)
             {
-                MapAsyncTimeComp async = Find.VisibleMap.GetComponent<MapAsyncTimeComp>();
+                MapAsyncTimeComp async = Find.CurrentMap.GetComponent<MapAsyncTimeComp>();
                 string text1 = "" + async.mapTicks;
 
-                text1 += " r:" + Find.VisibleMap.reservationManager.AllReservedThings().Count();
+                text1 += " r:" + Find.CurrentMap.reservationManager.AllReservedThings().Count();
 
-                int faction = Find.VisibleMap.info.parent.Faction.loadID;
-                MultiplayerMapComp comp = Find.VisibleMap.GetComponent<MultiplayerMapComp>();
+                int faction = Find.CurrentMap.info.parent.Faction.loadID;
+                MultiplayerMapComp comp = Find.CurrentMap.GetComponent<MultiplayerMapComp>();
                 FactionMapData data = comp.factionMapData.GetValueSafe(faction);
 
                 if (data != null)
                 {
                     text1 += " h:" + data.listerHaulables.ThingsPotentiallyNeedingHauling().Count;
-                    text1 += " sg:" + data.slotGroupManager.AllGroupsListForReading.Count;
+                    text1 += " sg:" + data.haulDestinationManager.AllGroupsListForReading.Count;
                 }
 
                 if (comp.mapIdBlock != null)
                     text1 += " " + comp.mapIdBlock.current;
 
                 text1 += " " + Sync.bufferedChanges.Sum(kv => kv.Value.Count);
-                
+
                 Rect rect1 = new Rect(80f, 110f, 330f, Text.CalcHeight(text1, 330f));
                 Widgets.Label(rect1, text1);
             }
@@ -523,7 +521,7 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.client == null) return true;
 
-            Settlement settlement = __instance.settlement;
+            SettlementBase settlement = __instance.settlement;
             if (settlement.Faction.def != Multiplayer.factionDef) return true;
 
             Multiplayer.client.Send(Packets.CLIENT_ENCOUNTER_REQUEST, new object[] { settlement.Tile });
@@ -539,8 +537,8 @@ namespace Multiplayer.Client
         static bool Prefix() => Multiplayer.client == null;
     }
 
-    [HarmonyPatch(typeof(FactionBaseDefeatUtility))]
-    [HarmonyPatch(nameof(FactionBaseDefeatUtility.CheckDefeated))]
+    [HarmonyPatch(typeof(SettlementDefeatUtility))]
+    [HarmonyPatch(nameof(SettlementDefeatUtility.CheckDefeated))]
     public static class CheckDefeatedPatch
     {
         static bool Prefix() => Multiplayer.client == null;
@@ -801,12 +799,42 @@ namespace Multiplayer.Client
                 defaultLabel = "Thinker",
                 action = () =>
                 {
+                    Dialog_BillConfig dialog = Find.WindowStack.WindowOfType<Dialog_BillConfig>();
+                    if (dialog != null)
+                        dialog.bill.repeatCount++;
+
                     //Find.WindowStack.Add(new ThinkTreeWindow(__instance));
                     // Log.Message("" + Multiplayer.mainBlock.blockStart);
                     // Log.Message("" + __instance.Map.GetComponent<MultiplayerMapComp>().encounterIdBlock.current);
                     //Log.Message("" + __instance.Map.GetComponent<MultiplayerMapComp>().encounterIdBlock.GetHashCode());
                 }
             });
+        }
+    }
+
+    // Fix input field handling
+    [HarmonyPatch]
+    public static class WidgetsResolveParsePatch
+    {
+        static MethodBase TargetMethod()
+        {
+            return AccessTools.Method(typeof(Widgets), "ResolveParseNow").MakeGenericMethod(typeof(int));
+        }
+
+        static void Prefix(bool force, ref int val, ref string buffer, ref string edited)
+        {
+            if (force)
+                edited = Widgets.ToStringTypedIn(val);
+        }
+    }
+
+    [HarmonyPatch(typeof(Dialog_BillConfig))]
+    [HarmonyPatch(new[] { typeof(Bill_Production), typeof(IntVec3) })]
+    public static class DialogPatch
+    {
+        static void Postfix(Dialog_BillConfig __instance)
+        {
+            __instance.absorbInputAroundWindow = false;
         }
     }
 
@@ -952,7 +980,7 @@ namespace Multiplayer.Client
                 call++;
 
                 if (ThingContext.Current == null || !(ThingContext.Current is Plant || ThingContext.Current.def == ThingDefOf.SteamGeyser))
-                    if (!(WildSpawnerTickMarker.ticking || SteadyAtmosphereEffectsTickkMarker.ticking) || (Find.TickManager.TicksGame > 9670 && Find.TickManager.TicksGame < 9690))
+                    if (!(WildAnimalSpawnerTickMarker.ticking || SteadyEnvironmentEffectsTickMarker.ticking) || (Find.TickManager.TicksGame > 9670 && Find.TickManager.TicksGame < 9690))
                         MpLog.Log(call + " thing rand " + ThingContext.Current + " " + Rand.Int);
             }
 
@@ -1253,7 +1281,7 @@ namespace Multiplayer.Client
         static bool Prefix() => !PawnSpawnSetupMarker.respawningAfterLoad;
     }
 
-    [HarmonyPatch(typeof(GenSpawn), nameof(GenSpawn.Spawn), new[] { typeof(Thing), typeof(IntVec3), typeof(Map), typeof(Rot4), typeof(bool) })]
+    [HarmonyPatch(typeof(GenSpawn), nameof(GenSpawn.Spawn), new[] { typeof(Thing), typeof(IntVec3), typeof(Map), typeof(Rot4), typeof(WipeMode), typeof(bool) })]
     static class GenSpawnRotatePatch
     {
         static MethodInfo Rot4GetRandom = AccessTools.Property(typeof(Rot4), nameof(Rot4.Random)).GetGetMethod();

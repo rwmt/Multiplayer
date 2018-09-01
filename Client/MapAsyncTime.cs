@@ -57,9 +57,9 @@ namespace Multiplayer.Client
 
         static void Postfix()
         {
-            if (Multiplayer.client == null || Find.VisibleMap == null) return;
+            if (Multiplayer.client == null || Find.CurrentMap == null) return;
 
-            MapAsyncTimeComp comp = Find.VisibleMap.GetComponent<MapAsyncTimeComp>();
+            MapAsyncTimeComp comp = Find.CurrentMap.GetComponent<MapAsyncTimeComp>();
             Shader.SetGlobalFloat(ShaderPropertyIDs.GameSeconds, comp.mapTicks.TicksToSeconds());
         }
 
@@ -319,9 +319,9 @@ namespace Multiplayer.Client
     {
         static void Prefix(ref bool __state)
         {
-            if (Multiplayer.client == null || (!WorldRendererUtility.WorldRenderedNow && Find.VisibleMap == null)) return;
+            if (Multiplayer.client == null || (!WorldRendererUtility.WorldRenderedNow && Find.CurrentMap == null)) return;
 
-            ITickable tickable = WorldRendererUtility.WorldRenderedNow ? Multiplayer.WorldComp : (ITickable)(Find.VisibleMap?.GetComponent<MapAsyncTimeComp>());
+            ITickable tickable = WorldRendererUtility.WorldRenderedNow ? Multiplayer.WorldComp : (ITickable)(Find.CurrentMap?.GetComponent<MapAsyncTimeComp>());
             Find.TickManager.CurTimeSpeed = tickable.TimeSpeed;
             __state = true;
         }
@@ -330,13 +330,13 @@ namespace Multiplayer.Client
         {
             if (!__state) return;
 
-            ITickable tickable = WorldRendererUtility.WorldRenderedNow ? Multiplayer.WorldComp : (ITickable)(Find.VisibleMap?.GetComponent<MapAsyncTimeComp>());
+            ITickable tickable = WorldRendererUtility.WorldRenderedNow ? Multiplayer.WorldComp : (ITickable)(Find.CurrentMap?.GetComponent<MapAsyncTimeComp>());
             if (Find.TickManager.CurTimeSpeed == tickable.TimeSpeed) return;
 
             if (WorldRendererUtility.WorldRenderedNow)
                 Multiplayer.client.SendCommand(CommandType.WORLD_TIME_SPEED, ScheduledCommand.Global, (byte)Find.TickManager.CurTimeSpeed);
-            else if (Find.VisibleMap != null)
-                Multiplayer.client.SendCommand(CommandType.MAP_TIME_SPEED, Find.VisibleMap.uniqueID, (byte)Find.TickManager.CurTimeSpeed);
+            else if (Find.CurrentMap != null)
+                Multiplayer.client.SendCommand(CommandType.MAP_TIME_SPEED, Find.CurrentMap.uniqueID, (byte)Find.TickManager.CurTimeSpeed);
         }
     }
 
@@ -344,9 +344,9 @@ namespace Multiplayer.Client
     {
         static void Prefix(ref Container<int, TimeSpeed> __state)
         {
-            if (Multiplayer.client == null || WorldRendererUtility.WorldRenderedNow || Find.VisibleMap == null) return;
+            if (Multiplayer.client == null || WorldRendererUtility.WorldRenderedNow || Find.CurrentMap == null) return;
 
-            Map map = Find.VisibleMap;
+            Map map = Find.CurrentMap;
             __state = new Container<int, TimeSpeed>(Find.TickManager.TicksGame, Find.TickManager.CurTimeSpeed);
             MapAsyncTimeComp comp = map.GetComponent<MapAsyncTimeComp>();
             Find.TickManager.DebugSetTicksGame(comp.mapTicks);
@@ -405,7 +405,7 @@ namespace Multiplayer.Client
                 if (entry.map == null || curGroup == entry.group) continue;
 
                 float alpha = 1.0f;
-                if (entry.map != Find.VisibleMap || WorldRendererUtility.WorldRenderedNow)
+                if (entry.map != Find.CurrentMap || WorldRendererUtility.WorldRenderedNow)
                     alpha = 0.75f;
 
                 MapAsyncTimeComp comp = entry.map.GetComponent<MapAsyncTimeComp>();
@@ -504,7 +504,7 @@ namespace Multiplayer.Client
 
         public MapAsyncTimeComp(Map map) : base(map)
         {
-            storyteller = new Storyteller(StorytellerDefOf.Cassandra, DifficultyDefOf.Medium);
+            storyteller = new Storyteller(StorytellerDefOf.Cassandra, DifficultyDefOf.Rough);
         }
 
         public void Tick()

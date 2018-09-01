@@ -671,7 +671,7 @@ namespace Multiplayer.Client
 
         public static void WriteContext(ByteWriter data)
         {
-            WriteSync(data, Find.VisibleMap != null && !WorldRendererUtility.WorldRenderedNow ? UI.MouseCell() : IntVec3.Invalid);
+            WriteSync(data, Find.CurrentMap != null && !WorldRendererUtility.WorldRenderedNow ? UI.MouseCell() : IntVec3.Invalid);
             WriteSync(data, selThingContext);
             data.WriteBool(KeyBindingDefOf.QueueOrder.IsDownEvent);
         }
@@ -814,12 +814,11 @@ namespace Multiplayer.Client
             }
             else if (typeof(Zone).IsAssignableFrom(type))
             {
-                string name = data.ReadString();
-                Log.Message("Reading zone " + name + " " + map);
-                if (name.NullOrEmpty())
+                int zoneId = data.ReadInt32();
+                if (zoneId == -1)
                     return null;
 
-                return map.zoneManager.AllZones.Find(zone => zone.label == name);
+                return map.zoneManager.AllZones.Find(zone => zone.ID == zoneId);
             }
             else if (typeof(Def).IsAssignableFrom(type))
             {
@@ -986,11 +985,11 @@ namespace Multiplayer.Client
                     if (obj is Zone zone)
                     {
                         data.context = zone.Map;
-                        data.WriteString(zone.label);
+                        data.WriteInt32(zone.ID);
                     }
                     else
                     {
-                        data.WriteString("");
+                        data.WriteInt32(-1);
                     }
                 }
                 else if (typeof(Def).IsAssignableFrom(type))
@@ -1130,16 +1129,16 @@ namespace Multiplayer.Client
     {
         public static void Watch(this SyncField[] group, object target = null, int index = -1)
         {
-            foreach (SyncField sync in group)
-                if (sync.targetType == null || sync.targetType.IsAssignableFrom(target.GetType()))
-                    sync.Watch(target, index);
+            foreach (SyncField field in group)
+                if (field.targetType == null || field.targetType.IsAssignableFrom(target.GetType()))
+                    field.Watch(target, index);
         }
 
         public static bool DoSync(this SyncMethod[] group, object target, params object[] args)
         {
-            foreach (SyncMethod sync in group)
-                if (sync.targetType == null || (target != null && sync.targetType.IsAssignableFrom(target.GetType())))
-                    return sync.DoSync(target, args);
+            foreach (SyncMethod method in group)
+                if (method.targetType == null || (target != null && method.targetType.IsAssignableFrom(target.GetType())))
+                    return method.DoSync(target, args);
 
             return false;
         }

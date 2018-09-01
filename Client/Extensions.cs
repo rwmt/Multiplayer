@@ -89,11 +89,5 @@ namespace Multiplayer.Client
 
             return null;
         }
-
-        public static void ReinsertLast<T>(this List<T> list)
-        {
-            list.Insert(0, list.Last());
-            list.RemoveLast();
-        }
     }
 }

@@ -225,7 +225,7 @@ namespace Multiplayer.Client
 
         public static bool IsSaveRockRubble(Thing t)
         {
-            return t.def == ThingDefOf.RockRubble;
+            return t.def == ThingDefOf.Filth_RubbleRock;
         }
 
         private static void SaveBinary(BinaryWriter writer, string label)

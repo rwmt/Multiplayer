@@ -26,13 +26,14 @@ namespace Multiplayer.Client
     [StaticConstructorOnStartup]
     public static class Multiplayer
     {
-        public static String username;
         public static MultiplayerServer localServer;
         public static Thread serverThread;
         public static IConnection client;
         public static NetManager netClient;
         public static ChatWindow chat = new ChatWindow();
         public static PacketLogWindow packetLog = new PacketLogWindow();
+
+        public static String username;
         public static HarmonyInstance harmony = HarmonyInstance.Create("multiplayer");
 
         public static bool reloading;
@@ -45,7 +46,7 @@ namespace Multiplayer.Client
         public static FactionDef factionDef = FactionDef.Named("MultiplayerColony");
         public static FactionDef dummyFactionDef = FactionDef.Named("MultiplayerDummy");
 
-        public static Faction dummyFaction = new Faction() { loadID = -1, def = dummyFactionDef };
+        public static Faction dummyFaction;
 
         public static MultiplayerWorldComp WorldComp => Find.World.GetComponent<MultiplayerWorldComp>();
         public static Faction RealPlayerFaction
@@ -57,6 +58,7 @@ namespace Multiplayer.Client
                 myFaction = value;
                 Faction.OfPlayer.def = factionDef;
                 value.def = FactionDefOf.PlayerColony;
+                Find.FactionManager.ofPlayer = value;
 
                 WorldComp.SetFaction(value);
 
@@ -86,7 +88,7 @@ namespace Multiplayer.Client
             if (GenCommandLine.CommandLineArgPassed("profiler"))
                 SimpleProfiler.CheckAvailable();
 
-            MpLog.info = str => Log.Message($"{username} {(Current.Game != null ? (Find.VisibleMap != null ? Find.VisibleMap.GetComponent<MapAsyncTimeComp>().mapTicks.ToString() : "") : "")} {str}");
+            MpLog.info = str => Log.Message($"{username} {(Current.Game != null ? (Find.CurrentMap != null ? Find.CurrentMap.GetComponent<MapAsyncTimeComp>().mapTicks.ToString() : "") : "")} {str}");
 
             GenCommandLine.TryGetCommandLineArg("username", out username);
             if (username == null)
@@ -189,7 +191,7 @@ namespace Multiplayer.Client
                 Scribe.EnterNode("savegame");
                 ScribeMetaHeaderUtility.WriteMetaHeader();
                 Scribe.EnterNode("game");
-                sbyte visibleMapIndex = Current.Game.visibleMapIndex;
+                sbyte visibleMapIndex = Current.Game.currentMapIndex;
                 Scribe_Values.Look(ref visibleMapIndex, "visibleMapIndex", (sbyte)-1);
                 Current.Game.ExposeSmallComponents();
                 World world = Current.Game.World;
@@ -233,7 +235,7 @@ namespace Multiplayer.Client
             watch = Stopwatch.StartNew();
             LoadPatch.gameToLoad = gameDoc;
             Prefs.PauseOnLoad = false;
-            SavedGameLoader.LoadGameFromSaveFile("server");
+            SavedGameLoaderNow.LoadGameFromSaveFileNow("server");
             Log.Message("Loading took " + watch.ElapsedMilliseconds);
 
             RealPlayerFaction = Find.FactionManager.AllFactionsListForReading.Find(f => f.loadID == localFactionId);
@@ -428,6 +430,40 @@ namespace Multiplayer.Client
                     block = IdBlock.Deserialize(new ByteReader(Convert.FromBase64String(base64)));
                 else
                     block = null;
+            }
+        }
+    }
+
+    public class MultiplayerGame
+    {
+        public MultiplayerServer localServer;
+        public Thread serverThread;
+        public IConnection client;
+        public NetManager netClient;
+        public ChatWindow chat = new ChatWindow();
+        public PacketLogWindow packetLog = new PacketLogWindow();
+
+        public IdBlock globalIdBlock;
+        public MultiplayerWorldComp WorldComp;
+
+        public Faction dummyFaction;
+        private Faction myFaction;
+        public int myFactionId;
+
+        public Faction RealPlayerFaction
+        {
+            get => client != null ? myFaction : Faction.OfPlayer;
+
+            set
+            {
+                myFaction = value;
+                Faction.OfPlayer.def = Multiplayer.factionDef;
+                value.def = FactionDefOf.PlayerColony;
+
+                WorldComp.SetFaction(value);
+
+                foreach (Map m in Find.Maps)
+                    m.GetComponent<MultiplayerMapComp>().SetFaction(value);
             }
         }
     }
@@ -805,8 +841,8 @@ namespace Multiplayer.Client
 
             executingCmds = true;
 
-            VisibleMapGetPatch.visibleMap = map;
-            VisibleMapSetPatch.ignore = true;
+            CurrentMapGetPatch.visibleMap = map;
+            CurrentMapSetPatch.ignore = true;
 
             comp.PreContext();
             map.PushFaction(cmd.GetFaction());
@@ -862,8 +898,8 @@ namespace Multiplayer.Client
             }
             finally
             {
-                VisibleMapSetPatch.ignore = false;
-                VisibleMapGetPatch.visibleMap = null;
+                CurrentMapSetPatch.ignore = false;
+                CurrentMapGetPatch.visibleMap = null;
                 map.PopFaction();
                 comp.PostContext();
                 executingCmds = false;
@@ -993,7 +1029,6 @@ namespace Multiplayer.Client
                 };
 
                 Find.FactionManager.Add(faction);
-                Find.FactionManager.allFactions.ReinsertLast();
 
                 foreach (Faction current in Find.FactionManager.AllFactionsListForReading)
                 {
@@ -1118,7 +1153,6 @@ namespace Multiplayer.Client
         public DrugPolicyDatabase drugPolicyDatabase;
         public OutfitDatabase outfitDatabase;
         public PlaySettings playSettings;
-        public WorldSettings worldSettings;
 
         public ResearchSpeed researchSpeed;
 
@@ -1133,7 +1167,6 @@ namespace Multiplayer.Client
             Scribe_Deep.Look(ref drugPolicyDatabase, "drugPolicyDatabase");
             Scribe_Deep.Look(ref outfitDatabase, "outfitDatabase");
             Scribe_Deep.Look(ref playSettings, "playSettings");
-            Scribe_Deep.Look(ref worldSettings, "settings");
 
             Scribe_Deep.Look(ref researchSpeed, "researchSpeed");
         }
@@ -1152,7 +1185,6 @@ namespace Multiplayer.Client
                 drugPolicyDatabase = new DrugPolicyDatabase(),
                 outfitDatabase = new OutfitDatabase(),
                 playSettings = new PlaySettings(),
-                worldSettings = new WorldSettings(),
                 researchSpeed = new ResearchSpeed(),
             };
         }
@@ -1168,7 +1200,6 @@ namespace Multiplayer.Client
                 drugPolicyDatabase = Current.Game.drugPolicyDatabase,
                 outfitDatabase = Current.Game.outfitDatabase,
                 playSettings = Current.Game.playSettings,
-                worldSettings = Find.World.settings,
 
                 researchSpeed = new ResearchSpeed(),
             };
@@ -1213,7 +1244,7 @@ namespace Multiplayer.Client
         public ZoneManager zoneManager;
 
         // Not saved
-        public SlotGroupManager slotGroupManager;
+        public HaulDestinationManager haulDestinationManager;
         public ListerHaulables listerHaulables;
         public ResourceCounter resourceCounter;
 
@@ -1222,7 +1253,7 @@ namespace Multiplayer.Client
         {
             this.map = map;
 
-            slotGroupManager = new SlotGroupManager(map);
+            haulDestinationManager = new HaulDestinationManager(map);
             listerHaulables = new ListerHaulables(map);
             resourceCounter = new ResourceCounter(map);
         }
@@ -1258,7 +1289,8 @@ namespace Multiplayer.Client
                 designationManager = map.designationManager,
                 areaManager = map.areaManager,
                 zoneManager = map.zoneManager,
-                slotGroupManager = map.slotGroupManager,
+
+                haulDestinationManager = map.haulDestinationManager,
                 listerHaulables = map.listerHaulables,
                 resourceCounter = map.resourceCounter,
             };
@@ -1379,7 +1411,7 @@ namespace Multiplayer.Client
             if (!factionData.TryGetValue(faction.loadID, out FactionWorldData data))
             {
                 if (!Multiplayer.simulating)
-                    MpLog.Log("No world faction data for faction {0}", faction);
+                    MpLog.Log("No world faction data for faction {0} {1}", faction.loadID, faction);
                 return;
             }
 
@@ -1388,7 +1420,6 @@ namespace Multiplayer.Client
             game.drugPolicyDatabase = data.drugPolicyDatabase;
             game.outfitDatabase = data.outfitDatabase;
             game.playSettings = data.playSettings;
-            world.settings = data.worldSettings;
 
             SyncResearch.researchSpeed = data.researchSpeed;
         }
@@ -1442,16 +1473,18 @@ namespace Multiplayer.Client
             map.designationManager = data.designationManager;
             map.areaManager = data.areaManager;
             map.zoneManager = data.zoneManager;
-            map.slotGroupManager = data.slotGroupManager;
             map.listerHaulables = data.listerHaulables;
             map.resourceCounter = data.resourceCounter;
         }
 
         public override void ExposeData()
         {
-            // saving indicator
-            bool isPlayerHome = map.IsPlayerHome;
-            Scribe_Values.Look(ref isPlayerHome, "isPlayerHome", false, true);
+            // Data marker
+            if (Scribe.mode == LoadSaveMode.Saving)
+            {
+                bool isPlayerHome = map.IsPlayerHome;
+                Scribe_Values.Look(ref isPlayerHome, "isPlayerHome", false, true);
+            }
 
             Multiplayer.ExposeIdBlock(ref mapIdBlock, "mapIdBlock");
 
@@ -1500,7 +1533,7 @@ namespace Multiplayer.Client
                 return null;
             }
 
-            stack.Push(OfPlayer);
+            stack.Push(Find.FactionManager.OfPlayer);
             Set(faction);
             return faction;
         }
@@ -1515,11 +1548,10 @@ namespace Multiplayer.Client
 
         private static void Set(Faction faction)
         {
-            OfPlayer.def = Multiplayer.factionDef;
+            Find.FactionManager.OfPlayer.def = Multiplayer.factionDef;
             faction.def = FactionDefOf.PlayerColony;
+            Find.FactionManager.ofPlayer = faction;
         }
-
-        public static Faction OfPlayer => Find.FactionManager.AllFactionsListForReading.Find(f => f.IsPlayer);
     }
 
 }

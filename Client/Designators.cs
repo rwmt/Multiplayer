@@ -29,7 +29,7 @@ namespace Multiplayer.Client
         {
             if (!Multiplayer.ShouldSync) return true;
 
-            Map map = Find.VisibleMap;
+            Map map = Find.CurrentMap;
             object[] extra = GetExtra(0, designator).Append(map.cellIndices.CellToIndex(cell));
             Multiplayer.client.SendCommand(CommandType.DESIGNATOR, map.uniqueID, extra);
 
@@ -41,7 +41,7 @@ namespace Multiplayer.Client
         {
             if (!Multiplayer.ShouldSync) return true;
 
-            Map map = Find.VisibleMap;
+            Map map = Find.CurrentMap;
             int[] cellData = new int[cells.Count()];
             int i = 0;
             foreach (IntVec3 cell in cells)
@@ -58,7 +58,7 @@ namespace Multiplayer.Client
         {
             if (!Multiplayer.ShouldSync) return true;
 
-            Map map = Find.VisibleMap;
+            Map map = Find.CurrentMap;
             object[] extra = GetExtra(2, designator).Append(thing.thingIDNumber);
             Multiplayer.client.SendCommand(CommandType.DESIGNATOR, map.uniqueID, extra);
 
@@ -128,8 +128,8 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(Game))]
-    [HarmonyPatch(nameof(Game.VisibleMap), PropertyMethod.Getter)]
-    public static class VisibleMapGetPatch
+    [HarmonyPatch(nameof(Game.CurrentMap), PropertyMethod.Getter)]
+    public static class CurrentMapGetPatch
     {
         public static Map visibleMap;
 
@@ -141,8 +141,8 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(Game))]
-    [HarmonyPatch(nameof(Game.VisibleMap), PropertyMethod.Setter)]
-    public static class VisibleMapSetPatch
+    [HarmonyPatch(nameof(Game.CurrentMap), PropertyMethod.Setter)]
+    public static class CurrentMapSetPatch
     {
         public static bool ignore;
 

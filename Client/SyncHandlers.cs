@@ -46,11 +46,14 @@ namespace Multiplayer.Client
         public static SyncField SyncGetsFood = Sync.Field(typeof(Pawn), "guest", "GetsFood");
         public static SyncField SyncInteractionMode = Sync.Field(typeof(Pawn), "guest", "interactionMode");
 
+        public static SyncField SyncGodMode = Sync.Field(null, "Verse.DebugSettings/godMode");
+        public static SyncField SyncResearchProject = Sync.Field(null, "Verse.Find/ResearchManager/currentProj");
         public static SyncField SyncUseWorkPriorities = Sync.Field(null, "Verse.Current/Game/playSettings", "useWorkPriorities");
         public static SyncField SyncAutoHomeArea = Sync.Field(null, "Verse.Current/Game/playSettings", "autoHomeArea");
+        public static SyncField SyncAutoRebuild = Sync.Field(null, "Verse.Current/Game/playSettings", "autoRebuild");
         public static SyncField[] SyncDefaultCare = Sync.Fields(
             null,
-            "Verse.Find/World/settings",
+            "Verse.Current/Game/playSettings",
             "defaultCareForColonyHumanlike",
             "defaultCareForColonyPrisoner",
             "defaultCareForColonyAnimal",
@@ -69,19 +72,28 @@ namespace Multiplayer.Client
         public static SyncField SyncIngredientSearchRadius = Sync.Field(typeof(Bill), "ingredientSearchRadius").SetBufferChanges();
         public static SyncField SyncBillSkillRange = Sync.Field(typeof(Bill), "allowedSkillRange").SetBufferChanges();
 
+        public static SyncField SyncBillIncludeZone = Sync.Field(typeof(Bill_Production), "includeFromZone");
+        public static SyncField SyncBillIncludeHpRange = Sync.Field(typeof(Bill_Production), "hpRange").SetBufferChanges();
+        public static SyncField SyncBillIncludeQualityRange = Sync.Field(typeof(Bill_Production), "qualityRange").SetBufferChanges();
+        public static SyncField SyncBillPawnRestriction = Sync.Field(typeof(Bill), "pawnRestriction");
+
         public static SyncField[] SyncBillProduction = Sync.Fields(
             typeof(Bill_Production),
             null,
             "repeatMode",
             "repeatCount",
             "targetCount",
-            "storeMode",
             "pauseWhenSatisfied",
             "unpauseWhenYouHave"
         );
 
-        public static SyncField SyncGodMode = Sync.Field(null, "Verse.DebugSettings/godMode");
-        public static SyncField SyncResearchProject = Sync.Field(null, "Verse.Find/ResearchManager/currentProj");
+        public static SyncField[] SyncBillIncludeCriteria = Sync.Fields(
+            typeof(Bill_Production),
+            null,
+            "includeEquipped",
+            "includeTainted",
+            "limitToAllowedStuff"
+        );
 
         public static SyncField[] SyncDrugPolicyEntry = Sync.Fields(
             typeof(DrugPolicy),
@@ -129,16 +141,22 @@ namespace Multiplayer.Client
         [MpPrefix(typeof(ITab_Pawn_Visitor), "FillTab")]
         static void ITab_Pawn_Visitor(ITab __instance)
         {
-            Pawn pawn = __instance.GetPropertyOrField("SelPawn") as Pawn;
+            Pawn pawn = __instance.SelPawn;
             SyncMedCare.Watch(pawn);
             SyncGetsFood.Watch(pawn);
             SyncInteractionMode.Watch(pawn);
         }
 
-        [MpPrefix(typeof(HostilityResponseModeUtility), "DrawResponseButton")]
-        static void DrawResponseButton(Pawn pawn)
+        [MpPrefix(typeof(HostilityResponseModeUtility), "<DrawResponseButton_GenerateMenu>c__Iterator0+<DrawResponseButton_GenerateMenu>c__AnonStorey1", "<>m__0")]
+        static void SelectHostilityResponse(object __instance)
         {
-            SyncHostilityResponse.Watch(pawn);
+            SyncHostilityResponse.Watch(__instance.GetPropertyOrField("<>f__ref$2/p"));
+        }
+
+        [MpPrefix(typeof(MedicalCareUtility), "<MedicalCareSelectButton_GenerateMenu>c__Iterator0+<MedicalCareSelectButton_GenerateMenu>c__AnonStorey2", "<>m__0")]
+        static void SelectMedicalCare(object __instance)
+        {
+            SyncMedCare.Watch(__instance.GetPropertyOrField("<>f__ref$3/p"));
         }
 
         [MpPrefix(typeof(PawnColumnWorker_FollowFieldwork), "SetValue")]
@@ -153,16 +171,16 @@ namespace Multiplayer.Client
             SyncFollowDrafted.Watch(pawn);
         }
 
-        [MpPrefix(typeof(TrainableUtility), "<OpenMasterSelectMenu>c__AnonStorey0", "<>m__0")]
+        [MpPrefix(typeof(TrainableUtility), "<MasterSelectButton_GenerateMenu>c__Iterator0+<MasterSelectButton_GenerateMenu>c__AnonStorey1", "<>m__0")]
         static void OpenMasterSelectMenu_Inner1(object __instance)
         {
             SyncMaster.Watch(__instance.GetPropertyOrField("p"));
         }
 
-        [MpPrefix(typeof(TrainableUtility), "<OpenMasterSelectMenu>c__AnonStorey1", "<>m__0")]
+        [MpPrefix(typeof(TrainableUtility), "<MasterSelectButton_GenerateMenu>c__Iterator0+<MasterSelectButton_GenerateMenu>c__AnonStorey2", "<>m__0")]
         static void OpenMasterSelectMenu_Inner2(object __instance)
         {
-            SyncMaster.Watch(__instance.GetPropertyOrField("<>f__ref$0/p"));
+            SyncMaster.Watch(__instance.GetPropertyOrField("<>f__ref$1/p"));
         }
 
         [MpPrefix(typeof(Dialog_MedicalDefaults), "DoWindowContents")]
@@ -182,6 +200,7 @@ namespace Multiplayer.Client
         static void PlaySettingsControls()
         {
             SyncAutoHomeArea.Watch();
+            SyncAutoRebuild.Watch();
         }
 
         [MpPrefix(typeof(ThingFilterUI), "DrawHitPointsFilterConfig")]
@@ -196,6 +215,16 @@ namespace Multiplayer.Client
             SyncThingFilterQuality.Watch(SyncMarkers.ThingFilterOwner);
         }
 
+        [MpPrefix(typeof(Bill), "DoInterface")]
+        static void BillInterfaceCard(Bill __instance)
+        {
+            SyncBillSuspended.Watch(__instance);
+            SyncBillSkillRange.Watch(__instance);
+            SyncIngredientSearchRadius.Watch(__instance);
+
+            SyncBillProduction.Watch(__instance);
+        }
+
         [MpPrefix(typeof(Dialog_BillConfig), "DoWindowContents")]
         static void DialogBillConfig(Dialog_BillConfig __instance)
         {
@@ -206,16 +235,43 @@ namespace Multiplayer.Client
             SyncIngredientSearchRadius.Watch(bill);
 
             SyncBillProduction.Watch(bill);
+
+            if (bill.recipe.ProducedThingDef != null)
+            {
+                SyncBillIncludeCriteria.Watch(bill);
+                SyncBillIncludeHpRange.Watch(bill);
+                SyncBillIncludeQualityRange.Watch(bill);
+            }
         }
 
-        [MpPrefix(typeof(Bill), "DoInterface")]
-        static void BillInterfaceCard(Bill __instance)
+        [MpPrefix(typeof(Dialog_BillConfig), "<GeneratePawnRestrictionOptions>c__Iterator0+<GeneratePawnRestrictionOptions>c__AnonStorey4", "<>m__0")] // Set to null
+        [MpPrefix(typeof(Dialog_BillConfig), "<GeneratePawnRestrictionOptions>c__Iterator0+<GeneratePawnRestrictionOptions>c__AnonStorey5", "<>m__0")]
+        [MpPrefix(typeof(Dialog_BillConfig), "<GeneratePawnRestrictionOptions>c__Iterator0+<GeneratePawnRestrictionOptions>c__AnonStorey5", "<>m__1")]
+        [MpPrefix(typeof(Dialog_BillConfig), "<GeneratePawnRestrictionOptions>c__Iterator0+<GeneratePawnRestrictionOptions>c__AnonStorey5", "<>m__2")]
+        [MpPrefix(typeof(Dialog_BillConfig), "<GeneratePawnRestrictionOptions>c__Iterator0+<GeneratePawnRestrictionOptions>c__AnonStorey5", "<>m__3")]
+        static void BillPawnRestriction(object __instance)
         {
-            SyncBillSuspended.Watch(__instance);
-            SyncBillSkillRange.Watch(__instance);
-            SyncIngredientSearchRadius.Watch(__instance);
+            SyncBillPawnRestriction.Watch(__instance.GetPropertyOrField("<>f__ref$0/$this/bill"));
+        }
 
-            SyncBillProduction.Watch(__instance);
+        [MpPrefix(typeof(Dialog_BillConfig), "<GenerateStockpileInclusion>c__Iterator1", "<>m__0")]
+        static void BillIncludeZoneSetNull(object __instance)
+        {
+            SyncBillIncludeZone.Watch(__instance.GetPropertyOrField("$this/bill"));
+        }
+
+        [MpPrefix(typeof(Dialog_BillConfig), "<GenerateStockpileInclusion>c__Iterator1+<GenerateStockpileInclusion>c__AnonStorey6", "<>m__0")]
+        static void BillIncludeZone(object __instance)
+        {
+            SyncBillIncludeZone.Watch(__instance.GetPropertyOrField("<>f__ref$1/$this/bill"));
+        }
+
+        [MpPrefix(typeof(BillRepeatModeUtility), "<MakeConfigFloatMenu>c__AnonStorey0", "<>m__0")]
+        [MpPrefix(typeof(BillRepeatModeUtility), "<MakeConfigFloatMenu>c__AnonStorey0", "<>m__1")]
+        [MpPrefix(typeof(BillRepeatModeUtility), "<MakeConfigFloatMenu>c__AnonStorey0", "<>m__2")]
+        static void BillRepeatMode(object __instance)
+        {
+            SyncBillProduction.Watch(__instance.GetPropertyOrField("bill"));
         }
 
         [MpPrefix(typeof(ITab_Bills), "TabUpdate")]
@@ -230,20 +286,6 @@ namespace Multiplayer.Client
         static void BillIngredientSearchRadius(Dialog_BillConfig __instance)
         {
             SyncIngredientSearchRadius.Watch(__instance.bill);
-        }
-
-        [MpPrefix(typeof(BillRepeatModeUtility), "<MakeConfigFloatMenu>c__AnonStorey0", "<>m__0")]
-        [MpPrefix(typeof(BillRepeatModeUtility), "<MakeConfigFloatMenu>c__AnonStorey0", "<>m__1")]
-        [MpPrefix(typeof(BillRepeatModeUtility), "<MakeConfigFloatMenu>c__AnonStorey0", "<>m__2")]
-        static void FloatMenuBillRepeatMode(object __instance)
-        {
-            SyncBillProduction.Watch(__instance.GetPropertyOrField("bill"));
-        }
-
-        [MpPrefix(typeof(Dialog_BillConfig), "<DoWindowContents>c__AnonStorey0", "<>m__0")]
-        static void FloatMenuBillStoreMode(object __instance)
-        {
-            SyncBillProduction.Watch(__instance.GetPropertyOrField("$this/bill"));
         }
 
         [MpPrefix(typeof(Dialog_ManageDrugPolicies), "DoPolicyConfigArea")]
@@ -285,6 +327,7 @@ namespace Multiplayer.Client
             Sync.RegisterSyncMethod(typeof(Zone), "Delete");
             Sync.RegisterSyncMethod(typeof(BillStack), "Delete");
             Sync.RegisterSyncMethod(typeof(BillStack), "Reorder");
+            Sync.RegisterSyncMethod(typeof(Bill_Production), "SetStoreMode");
             Sync.RegisterSyncMethod(typeof(Pawn_JobTracker), "StartJob", typeof(Expose<Job>), typeof(JobCondition), typeof(ThinkNode), typeof(bool), typeof(bool), typeof(ThinkTreeDef), typeof(JobTag?), typeof(bool));
             Sync.RegisterSyncMethod(typeof(Pawn_JobTracker), "TryTakeOrderedJob", typeof(Expose<Job>), typeof(JobTag));
             Sync.RegisterSyncMethod(typeof(Pawn_JobTracker), "TryTakeOrderedJobPrioritizedWork", typeof(Expose<Job>), typeof(WorkGiver), typeof(IntVec3));
@@ -294,8 +337,8 @@ namespace Multiplayer.Client
             Sync.RegisterSyncMethod(typeof(Area), "Invert");
             Sync.RegisterSyncMethod(typeof(Area), "Delete");
             Sync.RegisterSyncMethod(typeof(DrugPolicyDatabase), "MakeNewDrugPolicy");
-            Sync.RegisterSyncMethod(typeof(OutfitDatabase), "MakeNewOutfit");
             Sync.RegisterSyncMethod(typeof(DrugPolicyDatabase), "TryDelete");
+            Sync.RegisterSyncMethod(typeof(OutfitDatabase), "MakeNewOutfit");
             Sync.RegisterSyncMethod(typeof(OutfitDatabase), "TryDelete");
         }
 
@@ -448,8 +491,8 @@ namespace Multiplayer.Client
     public static class SyncDelegates
     {
         [SyncDelegate]
-        [MpPrefix(typeof(FloatMenuMakerMap), "<GotoLocationOption>c__AnonStorey18", "<>m__0")]   // Goto
-        [MpPrefix(typeof(FloatMenuMakerMap), "<AddDraftedOrders>c__AnonStorey3", "<>m__0")]      // Arrest
+        [MpPrefix(typeof(FloatMenuMakerMap), "<GotoLocationOption>c__AnonStorey1B", "<>m__0")]   // Goto
+        [MpPrefix(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey3", "<>m__0")]    // Arrest
         [MpPrefix(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey7", "<>m__0")]    // Rescue
         [MpPrefix(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey7", "<>m__1")]    // Capture
         [MpPrefix(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey9", "<>m__0")]    // Carry to cryptosleep casket
@@ -460,7 +503,7 @@ namespace Multiplayer.Client
         }
 
         [SyncDelegate("$this")]
-        [MpPrefix(typeof(Pawn_PlayerSettings), "<GetGizmos>c__Iterator0", "<>m__2")]    // Release animals
+        [MpPrefix(typeof(Pawn_PlayerSettings), "<GetGizmos>c__Iterator0", "<>m__1")]    // Release animals
         [MpPrefix(typeof(PriorityWork), "<GetGizmos>c__Iterator0", "<>m__0")]           // Clear prioritized work
         [MpPrefix(typeof(CompFlickable), "<CompGetGizmosExtra>c__Iterator0", "<>m__1")] // Designate flick
         static bool GeneralIteratorSync(object __instance, MethodBase __originalMethod)
@@ -469,7 +512,7 @@ namespace Multiplayer.Client
         }
 
         [SyncDelegate]
-        [MpPrefix(typeof(ITab_Bills), "<FillTab>c__AnonStorey0", "<>m__0")]
+        [MpPrefix(typeof(ITab_Bills), "<FillTab>c__AnonStorey0", "<>m__0")] // New bill
         static bool AddBill(object __instance, MethodBase __originalMethod)
         {
             Sync.selThingContext = __instance.GetPropertyOrField("$this/SelThing") as Building_WorkTable;
@@ -481,8 +524,14 @@ namespace Multiplayer.Client
 
         [SyncDelegate("changeableProjectile", "<>f__ref$0/$this")]
         [MpPrefix(typeof(Building_TurretGun), "<GetGizmos>c__Iterator0+<GetGizmos>c__AnonStorey2", "<>m__0")] // Remove shell
-        [MpPrefix(typeof(Building_TurretGun), "<GetGizmos>c__Iterator0+<GetGizmos>c__AnonStorey2", "<>m__1")] // Reset forced target
-        [MpPrefix(typeof(Building_TurretGun), "<GetGizmos>c__Iterator0+<GetGizmos>c__AnonStorey2", "<>m__2")] // Toggle hold fire
+        static bool TurretGunGizmos_RemoveShell(object __instance, MethodBase __originalMethod)
+        {
+            return !Sync.Delegate(__instance, __originalMethod);
+        }
+
+        [SyncDelegate("$this")]
+        [MpPrefix(typeof(Building_TurretGun), "<GetGizmos>c__Iterator0", "<>m__0")] // Reset forced target
+        [MpPrefix(typeof(Building_TurretGun), "<GetGizmos>c__Iterator0", "<>m__1")] // Toggle hold fire
         static bool TurretGunGizmos(object __instance, MethodBase __originalMethod)
         {
             return !Sync.Delegate(__instance, __originalMethod);
