@@ -178,7 +178,8 @@ namespace Multiplayer.Client
 
             for (int i = 0; i < argTypes.Length; i++)
             {
-                Sync.WriteSyncObject(writer, args[i], argTypes[i]);
+                Type type = argTypes[i];
+                Sync.WriteSyncObject(writer, args[i], type);
                 if (writer.context is Map map)
                 {
                     if (mapId != ScheduledCommand.Global && mapId != map.uniqueID)
@@ -556,6 +557,7 @@ namespace Multiplayer.Client
             syncMethods[MethodBase.GetMethodFromHandle(original)].DoSync(instance, args);
         }
 
+        // Cancels execution and sends the method with its arguments over the network if Multiplayer.ShouldSync
         private static IEnumerable<CodeInstruction> SyncMethodTranspiler(MethodBase original, ILGenerator gen, IEnumerable<CodeInstruction> insts)
         {
             Label jump = gen.DefineLabel();
@@ -581,11 +583,22 @@ namespace Multiplayer.Client
             for (int i = 0; i < len; i++)
             {
                 Type paramType = original.GetParameters()[i].ParameterType;
+
                 yield return new CodeInstruction(OpCodes.Dup);
                 yield return new CodeInstruction(OpCodes.Ldc_I4, i);
-                yield return new CodeInstruction(OpCodes.Ldarg, (original.IsStatic ? i : i + 1));
-                if (paramType.IsValueType)
-                    yield return new CodeInstruction(OpCodes.Box, paramType);
+
+                if (paramType.IsByRef)
+                {
+                    // todo value types?
+                    yield return new CodeInstruction(OpCodes.Ldnull);
+                }
+                else
+                {
+                    yield return new CodeInstruction(OpCodes.Ldarg, (original.IsStatic ? i : i + 1));
+                    if (paramType.IsValueType)
+                        yield return new CodeInstruction(OpCodes.Box, paramType);
+                }
+
                 yield return new CodeInstruction(OpCodes.Stelem, typeof(object));
             }
 
@@ -701,6 +714,7 @@ namespace Multiplayer.Client
             { data => new ITab_Bills() },
             { data => Current.Game.outfitDatabase },
             { data => Current.Game.drugPolicyDatabase },
+            { data => (data.context as Map).areaManager },
             {
                 data =>
                 {
@@ -736,8 +750,9 @@ namespace Multiplayer.Client
             { (ByteWriter data, QualityRange range) => { WriteSync(data, range.min); WriteSync(data, range.max); }},
             { (ByteWriter data, IntVec3 vec) => { data.WriteInt32(vec.x); data.WriteInt32(vec.y); data.WriteInt32(vec.z); }},
             { (ByteWriter data, ITab_Bills tab) => {} },
-            { (ByteWriter data, OutfitDatabase db) => { } },
-            { (ByteWriter data, DrugPolicyDatabase db) => { } },
+            { (ByteWriter data, OutfitDatabase db) => {} },
+            { (ByteWriter data, DrugPolicyDatabase db) => {} },
+            { (ByteWriter data, AreaManager areas) => data.context = areas.map },
             {
                 (ByteWriter data, LocalTargetInfo info) =>
                 {
@@ -767,7 +782,11 @@ namespace Multiplayer.Client
         {
             Map map = data.context as Map;
 
-            if (type.IsEnum)
+            if (type.IsByRef)
+            {
+                return null;
+            }
+            else if (type.IsEnum)
             {
                 return Enum.ToObject(type, data.ReadInt32());
             }
@@ -914,7 +933,7 @@ namespace Multiplayer.Client
             throw new SerializationException("No reader for type " + type);
         }
 
-        public static object[] ReadSyncObjects(ByteReader data, Type[] spec)
+        public static object[] ReadSyncObjects(ByteReader data, IEnumerable<Type> spec)
         {
             return spec.Select(type => ReadSyncObject(data, type)).ToArray();
         }
@@ -931,7 +950,10 @@ namespace Multiplayer.Client
 
             try
             {
-                if (type.IsEnum)
+                if (type.IsByRef)
+                {
+                }
+                else if (type.IsEnum)
                 {
                     data.WriteInt32(Convert.ToInt32(obj));
                 }
@@ -967,6 +989,7 @@ namespace Multiplayer.Client
                 }
                 else if (typeof(ThinkNode).IsAssignableFrom(type))
                 {
+                    // todo implement?
                 }
                 else if (typeof(Area).IsAssignableFrom(type))
                 {

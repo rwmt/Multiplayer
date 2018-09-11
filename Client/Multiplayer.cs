@@ -63,7 +63,7 @@ namespace Multiplayer.Client
                 WorldComp.SetFaction(value);
 
                 foreach (Map m in Find.Maps)
-                    m.GetComponent<MultiplayerMapComp>().SetFaction(value);
+                    m.MpComp().SetFaction(value);
             }
         }
 
@@ -110,7 +110,6 @@ namespace Multiplayer.Client
 
             harmony.DoMpPatches(typeof(HarmonyPatches));
 
-            harmony.DoMpPatches(typeof(MapParentFactionPatch));
             harmony.DoMpPatches(typeof(CancelMapManagersTick));
             harmony.DoMpPatches(typeof(CancelMapManagersUpdate));
             harmony.DoMpPatches(typeof(CancelReinitializationDuringLoading));
@@ -434,7 +433,7 @@ namespace Multiplayer.Client
         }
     }
 
-    public class MultiplayerGame
+    public class MultiplayerSession
     {
         public MultiplayerServer localServer;
         public Thread serverThread;
@@ -442,7 +441,10 @@ namespace Multiplayer.Client
         public NetManager netClient;
         public ChatWindow chat = new ChatWindow();
         public PacketLogWindow packetLog = new PacketLogWindow();
+    }
 
+    public class MultiplayerGame
+    {
         public IdBlock globalIdBlock;
         public MultiplayerWorldComp WorldComp;
 
@@ -452,7 +454,7 @@ namespace Multiplayer.Client
 
         public Faction RealPlayerFaction
         {
-            get => client != null ? myFaction : Faction.OfPlayer;
+            get => Multiplayer.client != null ? myFaction : Faction.OfPlayer;
 
             set
             {
@@ -463,7 +465,7 @@ namespace Multiplayer.Client
                 WorldComp.SetFaction(value);
 
                 foreach (Map m in Find.Maps)
-                    m.GetComponent<MultiplayerMapComp>().SetFaction(value);
+                    m.MpComp().SetFaction(value);
             }
         }
     }
@@ -872,7 +874,7 @@ namespace Multiplayer.Client
 
                     if (map != null)
                     {
-                        map.GetComponent<MultiplayerMapComp>().mapIdBlock = block;
+                        map.MpComp().mapIdBlock = block;
                         Log.Message(Multiplayer.username + "encounter id block set");
                     }
                 }
@@ -927,17 +929,14 @@ namespace Multiplayer.Client
             int factionId = data.ReadInt32();
 
             Faction faction = Find.FactionManager.AllFactions.FirstOrDefault(f => f.loadID == factionId);
-            MultiplayerMapComp comp = map.GetComponent<MultiplayerMapComp>();
+            MultiplayerMapComp comp = map.MpComp();
 
             if (!comp.factionMapData.ContainsKey(factionId))
             {
                 FactionMapData factionMapData = FactionMapData.New(factionId, map);
                 comp.factionMapData[factionId] = factionMapData;
 
-                AreaAddPatch.ignore = true;
                 factionMapData.areaManager.AddStartingAreas();
-                AreaAddPatch.ignore = false;
-
                 map.pawnDestinationReservationManager.RegisterFaction(faction);
 
                 MpLog.Log("New map faction data for {0}", faction.GetUniqueLoadID());
@@ -1247,6 +1246,7 @@ namespace Multiplayer.Client
         public HaulDestinationManager haulDestinationManager;
         public ListerHaulables listerHaulables;
         public ResourceCounter resourceCounter;
+        public ListerFilthInHomeArea listerFilthInHomeArea;
 
         // Loading ctor
         public FactionMapData(Map map)
@@ -1256,6 +1256,7 @@ namespace Multiplayer.Client
             haulDestinationManager = new HaulDestinationManager(map);
             listerHaulables = new ListerHaulables(map);
             resourceCounter = new ResourceCounter(map);
+            listerFilthInHomeArea = new ListerFilthInHomeArea(map);
         }
 
         private FactionMapData(int factionId, Map map) : this(map)
@@ -1293,6 +1294,7 @@ namespace Multiplayer.Client
                 haulDestinationManager = map.haulDestinationManager,
                 listerHaulables = map.listerHaulables,
                 resourceCounter = map.resourceCounter,
+                listerFilthInHomeArea = map.listerFilthInHomeArea,
             };
         }
     }
@@ -1473,8 +1475,10 @@ namespace Multiplayer.Client
             map.designationManager = data.designationManager;
             map.areaManager = data.areaManager;
             map.zoneManager = data.zoneManager;
+            map.haulDestinationManager = data.haulDestinationManager;
             map.listerHaulables = data.listerHaulables;
             map.resourceCounter = data.resourceCounter;
+            map.listerFilthInHomeArea = data.listerFilthInHomeArea;
         }
 
         public override void ExposeData()

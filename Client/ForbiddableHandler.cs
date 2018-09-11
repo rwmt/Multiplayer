@@ -86,9 +86,15 @@ namespace Multiplayer.Client
             if (thing.Spawned)
             {
                 if (value)
+                {
                     thing.Map.listerHaulables.Notify_Forbidden(thing);
+                    thing.Map.listerMergeables.Notify_Forbidden(thing);
+                }
                 else
+                {
                     thing.Map.listerHaulables.Notify_Unforbidden(thing);
+                    thing.Map.listerMergeables.Notify_Unforbidden(thing);
+                }
             }
 
             return false;

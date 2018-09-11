@@ -81,6 +81,11 @@ namespace Multiplayer.Client
             return map.GetComponent<MapAsyncTimeComp>();
         }
 
+        public static MultiplayerMapComp MpComp(this Map map)
+        {
+            return map.GetComponent<MultiplayerMapComp>();
+        }
+
         public static T ThingReplacement<T>(this Map map, T thing) where T : Thing
         {
             foreach (Thing t in map.thingGrid.ThingsListAtFast(thing.positionInt))
@@ -89,5 +94,11 @@ namespace Multiplayer.Client
 
             return null;
         }
+
+        public static void Insert<T>(this List<T> list, int index, params T[] items)
+        {
+            list.InsertRange(index, items);
+        }
+
     }
 }

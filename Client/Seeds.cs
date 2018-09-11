@@ -80,28 +80,6 @@ namespace Multiplayer.Client
         }
     }
 
-    [MpPatch(typeof(VoluntarilyJoinableLordsStarter), nameof(VoluntarilyJoinableLordsStarter.Tick_TryStartParty))]
-    [MpPatch(typeof(DamageWatcher), nameof(DamageWatcher.Notify_DamageTaken))]
-    [MpPatch(typeof(WildAnimalSpawner), nameof(WildAnimalSpawner.WildAnimalSpawnerTick))]
-    [MpPatch(typeof(WildPlantSpawner), nameof(WildPlantSpawner.WildPlantSpawnerTick))]
-    public static class MapParentFactionPatch
-    {
-        static void Prefix(ref bool __state)
-        {
-            if (MapAsyncTimeComp.tickingMap is Map map)
-            {
-                map.PushFaction(map.ParentFaction);
-                __state = true;
-            }
-        }
-
-        static void Postfix(bool __state)
-        {
-            if (__state)
-                MapAsyncTimeComp.tickingMap.PopFaction();
-        }
-    }
-
     public static class PatchThingMethods
     {
         public static void Prefix(Thing __instance, ref Container<Map> __state)
@@ -111,7 +89,7 @@ namespace Multiplayer.Client
             __state = __instance.Map;
             ThingContext.Push(__instance);
 
-            if (__instance is Pawn || __instance is Building)
+            if (__instance.def.CanHaveFaction)
                 __instance.Map.PushFaction(__instance.Faction);
         }
 
@@ -119,7 +97,7 @@ namespace Multiplayer.Client
         {
             if (__state == null) return;
 
-            if (__instance is Pawn || __instance is Building)
+            if (__instance.def.CanHaveFaction)
                 __state.PopFaction();
 
             ThingContext.Pop();

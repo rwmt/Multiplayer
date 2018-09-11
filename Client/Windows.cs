@@ -394,16 +394,18 @@ namespace Multiplayer.Client
 
             MultiplayerWorldComp comp = Find.World.GetComponent<MultiplayerWorldComp>();
 
-            Multiplayer.dummyFaction = new Faction() { loadID = -1, def = Multiplayer.dummyFactionDef };
+            Faction dummyFaction = new Faction() { loadID = -1, def = Multiplayer.dummyFactionDef };
+            Multiplayer.dummyFaction = dummyFaction;
+
             foreach (Faction other in Find.FactionManager.AllFactionsListForReading)
-                Multiplayer.dummyFaction.TryMakeInitialRelationsWith(other);
+                dummyFaction.TryMakeInitialRelationsWith(other);
 
             Faction.OfPlayer.Name = Multiplayer.username + "'s faction";
 
             comp.factionData[Faction.OfPlayer.loadID] = FactionWorldData.FromCurrent();
-            comp.factionData[Multiplayer.dummyFaction.loadID] = FactionWorldData.New(Multiplayer.dummyFaction.loadID);
+            comp.factionData[dummyFaction.loadID] = FactionWorldData.New(dummyFaction.loadID);
 
-            Find.FactionManager.Add(Multiplayer.dummyFaction);
+            Find.FactionManager.Add(dummyFaction);
 
             MultiplayerServer localServer = new MultiplayerServer(addr);
             Multiplayer.localServer = localServer;
@@ -427,7 +429,9 @@ namespace Multiplayer.Client
                 mapComp.mapIdBlock = localServer.NextIdBlock();
 
                 mapComp.factionMapData[map.ParentFaction.loadID] = FactionMapData.FromMap(map);
-                mapComp.factionMapData[Multiplayer.dummyFaction.loadID] = FactionMapData.New(Multiplayer.dummyFaction.loadID, map);
+
+                mapComp.factionMapData[dummyFaction.loadID] = FactionMapData.New(dummyFaction.loadID, map);
+                mapComp.factionMapData[dummyFaction.loadID].areaManager.AddStartingAreas();
             }
 
             Multiplayer.myFactionId = Faction.OfPlayer.loadID;

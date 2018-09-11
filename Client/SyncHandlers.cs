@@ -336,6 +336,7 @@ namespace Multiplayer.Client
             Sync.RegisterSyncMethod(typeof(Building_TurretGun), "OrderAttack");
             Sync.RegisterSyncMethod(typeof(Area), "Invert");
             Sync.RegisterSyncMethod(typeof(Area), "Delete");
+            Sync.RegisterSyncMethod(typeof(AreaManager), "TryMakeNewAllowed");
             Sync.RegisterSyncMethod(typeof(DrugPolicyDatabase), "MakeNewDrugPolicy");
             Sync.RegisterSyncMethod(typeof(DrugPolicyDatabase), "TryDelete");
             Sync.RegisterSyncMethod(typeof(OutfitDatabase), "MakeNewOutfit");

@@ -1,4 +1,5 @@
 ﻿using Harmony;
+using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
 using System;
@@ -6,16 +7,14 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
+using System.Reflection.Emit;
+using System.Runtime.CompilerServices;
+using System.Text.RegularExpressions;
 using System.Xml;
 using UnityEngine;
 using Verse;
 using Verse.AI;
 using Verse.Profile;
-using Multiplayer.Common;
-using System.Text.RegularExpressions;
-using System.Runtime.CompilerServices;
-using System.Reflection.Emit;
-using System.Collections;
 
 namespace Multiplayer.Client
 {
@@ -812,7 +811,6 @@ namespace Multiplayer.Client
         }
     }
 
-    // Fix input field handling
     [HarmonyPatch]
     public static class WidgetsResolveParsePatch
     {
@@ -821,6 +819,7 @@ namespace Multiplayer.Client
             return AccessTools.Method(typeof(Widgets), "ResolveParseNow").MakeGenericMethod(typeof(int));
         }
 
+        // Fix input field handling
         static void Prefix(bool force, ref int val, ref string buffer, ref string edited)
         {
             if (force)
@@ -1012,17 +1011,6 @@ namespace Multiplayer.Client
             if (dontLog) return;
             //if (MapAsyncTimeComp.tickingMap != null)
             //MpLog.Log("set seed");
-        }
-    }
-
-    [HarmonyPatch(typeof(Thing))]
-    [HarmonyPatch(nameof(Thing.Print))]
-    public static class ThingPrintPatch
-    {
-        static bool Prefix(Thing __instance)
-        {
-            if (Multiplayer.client == null || !(__instance is Blueprint)) return true;
-            return __instance.Faction == null || __instance.Faction == Multiplayer.RealPlayerFaction;
         }
     }
 
@@ -1281,6 +1269,7 @@ namespace Multiplayer.Client
         static bool Prefix() => !PawnSpawnSetupMarker.respawningAfterLoad;
     }
 
+    // Seed the rotation random
     [HarmonyPatch(typeof(GenSpawn), nameof(GenSpawn.Spawn), new[] { typeof(Thing), typeof(IntVec3), typeof(Map), typeof(Rot4), typeof(WipeMode), typeof(bool) })]
     static class GenSpawnRotatePatch
     {
@@ -1387,6 +1376,63 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.client == null || Multiplayer.ShouldSync) return;
             __result.uniqueId = Multiplayer.globalIdBlock.NextId();
+        }
+    }
+
+    [HarmonyPatch(typeof(ListerFilthInHomeArea), nameof(ListerFilthInHomeArea.RebuildAll))]
+    static class ListerFilthRebuildPatch
+    {
+        static bool ignore;
+
+        static void Prefix(ListerFilthInHomeArea __instance)
+        {
+            if (ignore) return;
+            ignore = true;
+            foreach (FactionMapData data in __instance.map.MpComp().factionMapData.Values)
+            {
+                __instance.map.PushFaction(data.factionId);
+                data.listerFilthInHomeArea.RebuildAll();
+                __instance.map.PopFaction();
+            }
+            ignore = false;
+        }
+    }
+
+    [HarmonyPatch(typeof(ListerFilthInHomeArea), nameof(ListerFilthInHomeArea.Notify_FilthSpawned))]
+    static class ListerFilthSpawnedPatch
+    {
+        static bool ignore;
+
+        static void Prefix(ListerFilthInHomeArea __instance, Filth f)
+        {
+            if (ignore) return;
+            ignore = true;
+            foreach (FactionMapData data in __instance.map.MpComp().factionMapData.Values)
+            {
+                __instance.map.PushFaction(data.factionId);
+                data.listerFilthInHomeArea.Notify_FilthSpawned(f);
+                __instance.map.PopFaction();
+            }
+            ignore = false;
+        }
+    }
+
+    [HarmonyPatch(typeof(ListerFilthInHomeArea), nameof(ListerFilthInHomeArea.Notify_FilthDespawned))]
+    static class ListerFilthDespawnedPatch
+    {
+        static bool ignore;
+
+        static void Prefix(ListerFilthInHomeArea __instance, Filth f)
+        {
+            if (ignore) return;
+            ignore = true;
+            foreach (FactionMapData data in __instance.map.MpComp().factionMapData.Values)
+            {
+                __instance.map.PushFaction(data.factionId);
+                data.listerFilthInHomeArea.Notify_FilthDespawned(f);
+                __instance.map.PopFaction();
+            }
+            ignore = false;
         }
     }
 
