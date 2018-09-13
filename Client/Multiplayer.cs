@@ -26,12 +26,13 @@ namespace Multiplayer.Client
     [StaticConstructorOnStartup]
     public static class Multiplayer
     {
-        public static MultiplayerServer localServer;
-        public static Thread serverThread;
-        public static IConnection client;
-        public static NetManager netClient;
-        public static ChatWindow chat = new ChatWindow();
-        public static PacketLogWindow packetLog = new PacketLogWindow();
+        public static MultiplayerSession session;
+        public static MultiplayerGame game;
+
+        public static IConnection Client => session?.client;
+        public static MultiplayerServer LocalServer => session?.localServer;
+        public static ChatWindow Chat => session?.chat;
+        public static PacketLogWindow PacketLog => session?.packetLog;
 
         public static String username;
         public static HarmonyInstance harmony = HarmonyInstance.Create("multiplayer");
@@ -39,32 +40,17 @@ namespace Multiplayer.Client
         public static bool reloading;
         public static bool simulating;
 
-        public static IdBlock globalIdBlock;
-        public static int myFactionId;
-        private static Faction myFaction;
-
         public static FactionDef factionDef = FactionDef.Named("MultiplayerColony");
         public static FactionDef dummyFactionDef = FactionDef.Named("MultiplayerDummy");
 
-        public static Faction dummyFaction;
+        public static IdBlock GlobalIdBlock => game.worldComp.globalIdBlock;
+        public static Faction DummyFaction => game.dummyFaction;
+        public static MultiplayerWorldComp WorldComp => game.worldComp;
 
-        public static MultiplayerWorldComp WorldComp => Find.World.GetComponent<MultiplayerWorldComp>();
         public static Faction RealPlayerFaction
         {
-            get => client != null ? myFaction : Faction.OfPlayer;
-
-            set
-            {
-                myFaction = value;
-                Faction.OfPlayer.def = factionDef;
-                value.def = FactionDefOf.PlayerColony;
-                Find.FactionManager.ofPlayer = value;
-
-                WorldComp.SetFaction(value);
-
-                foreach (Map m in Find.Maps)
-                    m.MpComp().SetFaction(value);
-            }
+            get => Client != null ? game.RealPlayerFaction : Faction.OfPlayer;
+            set => game.RealPlayerFaction = value;
         }
 
         public static int Seed
@@ -81,7 +67,7 @@ namespace Multiplayer.Client
         }
 
         public static bool Ticking => MultiplayerWorldComp.tickingWorld || MapAsyncTimeComp.tickingMap != null || ConstantTicker.ticking;
-        public static bool ShouldSync => client != null && !Ticking && !OnMainThread.executingCmds && !reloading;
+        public static bool ShouldSync => Client != null && !Ticking && !OnMainThread.executingCmds && !reloading && Current.ProgramState == ProgramState.Playing;
 
         static Multiplayer()
         {
@@ -141,16 +127,9 @@ namespace Multiplayer.Client
                 LongEventHandler.QueueLongEvent(() =>
                 {
                     IPAddress.TryParse(ip, out IPAddress addr);
-                    Client.TryConnect(addr, MultiplayerServer.DefaultPort, conn =>
+                    ClientUtil.TryConnect(addr, MultiplayerServer.DefaultPort, conn =>
                     {
                         MpLog.Log("Client connected");
-
-                        client = conn;
-                        conn.Username = username;
-                        conn.State = new ClientWorldState(conn);
-                    }, exception =>
-                    {
-                        client = null;
                     });
                 }, "Connecting", false, null);
             }
@@ -212,7 +191,7 @@ namespace Multiplayer.Client
             Dictionary<int, Vector3> tweenedPos = new Dictionary<int, Vector3>();
             int localFactionId = RealPlayerFaction.loadID;
 
-            RealPlayerFaction = dummyFaction;
+            RealPlayerFaction = DummyFaction;
 
             foreach (Map map in Find.Maps)
             {
@@ -319,7 +298,7 @@ namespace Multiplayer.Client
             File.WriteAllBytes("map_" + username + ".xml", mapData);
             byte[] compressedMaps = GZipStream.CompressBuffer(mapData);
             // todo send map id
-            client.Send(Packets.CLIENT_AUTOSAVED_DATA, 1, compressedMaps, 0);
+            Client.Send(Packets.CLIENT_AUTOSAVED_DATA, 1, compressedMaps, 0);
 
             gameNode["visibleMapIndex"].RemoveFromParent();
             mapsNode.RemoveAll();
@@ -332,7 +311,7 @@ namespace Multiplayer.Client
                 File.WriteAllBytes("game.xml", gameData);
 
                 byte[] compressedGame = GZipStream.CompressBuffer(gameData);
-                client.Send(Packets.CLIENT_AUTOSAVED_DATA, 0, compressedGame);
+                Client.Send(Packets.CLIENT_AUTOSAVED_DATA, 0, compressedGame);
             }
         }
 
@@ -435,34 +414,45 @@ namespace Multiplayer.Client
 
     public class MultiplayerSession
     {
-        public MultiplayerServer localServer;
-        public Thread serverThread;
         public IConnection client;
         public NetManager netClient;
         public ChatWindow chat = new ChatWindow();
         public PacketLogWindow packetLog = new PacketLogWindow();
+        public int myFactionId;
+
+        public MultiplayerServer localServer;
+        public Thread serverThread;
+
+        public void Stop()
+        {
+            if (netClient != null)
+                netClient.Stop();
+
+            if (localServer != null)
+                localServer.running = false;
+        }
     }
 
     public class MultiplayerGame
     {
-        public IdBlock globalIdBlock;
-        public MultiplayerWorldComp WorldComp;
+        public MultiplayerWorldComp worldComp;
+        public SharedCrossRefs sharedCrossRefs = new SharedCrossRefs();
 
         public Faction dummyFaction;
         private Faction myFaction;
-        public int myFactionId;
 
         public Faction RealPlayerFaction
         {
-            get => Multiplayer.client != null ? myFaction : Faction.OfPlayer;
+            get => myFaction;
 
             set
             {
                 myFaction = value;
                 Faction.OfPlayer.def = Multiplayer.factionDef;
                 value.def = FactionDefOf.PlayerColony;
+                Find.FactionManager.ofPlayer = value;
 
-                WorldComp.SetFaction(value);
+                worldComp.SetFaction(value);
 
                 foreach (Map m in Find.Maps)
                     m.MpComp().SetFaction(value);
@@ -529,7 +519,7 @@ namespace Multiplayer.Client
             Log.Message("Game data size: " + data.GetBytes().Length);
 
             int factionId = data.ReadInt32();
-            Multiplayer.myFactionId = factionId;
+            Multiplayer.session.myFactionId = factionId;
 
             int tickUntil = data.ReadInt32();
 
@@ -595,7 +585,7 @@ namespace Multiplayer.Client
                 {
                     LongEventHandler.QueueLongEvent(CatchUp(() =>
                     {
-                        Multiplayer.client.Send(Packets.CLIENT_WORLD_LOADED);
+                        Multiplayer.Client.Send(Packets.CLIENT_WORLD_LOADED);
                     }), "Loading", null);
                 });
             }, "Play", "Loading the game", true, null);
@@ -603,11 +593,11 @@ namespace Multiplayer.Client
 
         public static IEnumerable CatchUp(Action finishAction)
         {
-            FactionWorldData factionData = Multiplayer.WorldComp.factionData.GetValueSafe(Multiplayer.myFactionId);
+            FactionWorldData factionData = Multiplayer.WorldComp.factionData.GetValueSafe(Multiplayer.session.myFactionId);
             if (factionData != null && factionData.online)
                 Multiplayer.RealPlayerFaction = Find.FactionManager.AllFactionsListForReading.Find(f => f.loadID == factionData.factionId);
             else
-                Multiplayer.RealPlayerFaction = Multiplayer.dummyFaction;
+                Multiplayer.RealPlayerFaction = Multiplayer.DummyFaction;
 
             Multiplayer.WorldComp.cmds = new Queue<ScheduledCommand>(OnMainThread.cachedMapCmds.GetValueSafe(ScheduledCommand.Global) ?? new List<ScheduledCommand>());
             foreach (Map m in Find.Maps)
@@ -682,7 +672,7 @@ namespace Multiplayer.Client
         public void HandlePlayerList(ByteReader data)
         {
             string[] players = data.ReadPrefixedStrings();
-            Multiplayer.chat.playerList = players;
+            Multiplayer.Chat.playerList = players;
         }
 
         [PacketHandler(Packets.SERVER_CHAT)]
@@ -691,7 +681,7 @@ namespace Multiplayer.Client
             string username = data.ReadString();
             string msg = data.ReadString();
 
-            Multiplayer.chat.AddMsg(username + ": " + msg);
+            Multiplayer.Chat.AddMsg(username + ": " + msg);
         }
 
         [PacketHandler(Packets.SERVER_MAP_RESPONSE)]
@@ -723,7 +713,7 @@ namespace Multiplayer.Client
         [PacketHandler(Packets.SERVER_KEEP_ALIVE)]
         public void HandleKeepAlive(ByteReader data)
         {
-            Multiplayer.client.Send(Packets.CLIENT_KEEP_ALIVE, new byte[0]);
+            Multiplayer.Client.Send(Packets.CLIENT_KEEP_ALIVE, new byte[0]);
         }
 
         public override void Disconnected(string reason)
@@ -750,12 +740,11 @@ namespace Multiplayer.Client
 
         public void Update()
         {
-            if (Multiplayer.netClient != null)
-                Multiplayer.netClient.PollEvents();
+            Multiplayer.session?.netClient?.PollEvents();
 
             queue.RunQueue();
 
-            if (Multiplayer.client == null) return;
+            if (Multiplayer.Client == null) return;
 
             UpdateSync();
         }
@@ -786,22 +775,10 @@ namespace Multiplayer.Client
 
         public static void StopMultiplayer()
         {
-            if (Multiplayer.netClient != null)
+            if (Multiplayer.session != null)
             {
-                Multiplayer.netClient.Stop();
-                Multiplayer.netClient = null;
-            }
-
-            if (Multiplayer.localServer != null)
-            {
-                Multiplayer.localServer.running = false;
-                Multiplayer.serverThread = null;
-                Multiplayer.localServer = null;
-            }
-
-            if (Multiplayer.client != null)
-            {
-                Multiplayer.client = null;
+                Multiplayer.session.Stop();
+                Multiplayer.session = null;
             }
 
             Sync.bufferedChanges.Clear();
@@ -838,7 +815,7 @@ namespace Multiplayer.Client
             Map map = cmd.GetMap();
             if (map == null) return;
 
-            MapAsyncTimeComp comp = map.GetComponent<MapAsyncTimeComp>();
+            MapAsyncTimeComp mapComp = map.GetComponent<MapAsyncTimeComp>();
             CommandType cmdType = cmd.type;
 
             executingCmds = true;
@@ -846,7 +823,7 @@ namespace Multiplayer.Client
             CurrentMapGetPatch.visibleMap = map;
             CurrentMapSetPatch.ignore = true;
 
-            comp.PreContext();
+            mapComp.PreContext();
             map.PushFaction(cmd.GetFaction());
 
             try
@@ -865,7 +842,7 @@ namespace Multiplayer.Client
                 if (cmdType == CommandType.MAP_TIME_SPEED)
                 {
                     TimeSpeed speed = (TimeSpeed)data.ReadByte();
-                    comp.TimeSpeed = speed;
+                    mapComp.TimeSpeed = speed;
                 }
 
                 if (cmdType == CommandType.MAP_ID_BLOCK)
@@ -903,7 +880,7 @@ namespace Multiplayer.Client
                 CurrentMapSetPatch.ignore = false;
                 CurrentMapGetPatch.visibleMap = null;
                 map.PopFaction();
-                comp.PostContext();
+                mapComp.PostContext();
                 executingCmds = false;
             }
         }
@@ -948,7 +925,7 @@ namespace Multiplayer.Client
             Multiplayer.Seed = Find.TickManager.TicksGame;
             CommandType cmdType = cmd.type;
 
-            UniqueIdsPatch.CurrentBlock = Multiplayer.globalIdBlock;
+            UniqueIdsPatch.CurrentBlock = Multiplayer.GlobalIdBlock;
             FactionContext.Push(cmd.GetFaction());
 
             executingCmds = true;
@@ -978,8 +955,8 @@ namespace Multiplayer.Client
                     int factionId = data.ReadInt32();
                     Multiplayer.WorldComp.factionData[factionId].online = false;
 
-                    if (Multiplayer.myFactionId == factionId)
-                        Multiplayer.RealPlayerFaction = Multiplayer.dummyFaction;
+                    if (Multiplayer.session.myFactionId == factionId)
+                        Multiplayer.RealPlayerFaction = Multiplayer.DummyFaction;
                 }
 
                 if (cmdType == CommandType.FACTION_ONLINE)
@@ -987,7 +964,7 @@ namespace Multiplayer.Client
                     int factionId = data.ReadInt32();
                     Multiplayer.WorldComp.factionData[factionId].online = true;
 
-                    if (Multiplayer.myFactionId == factionId)
+                    if (Multiplayer.session.myFactionId == factionId)
                         Multiplayer.RealPlayerFaction = Find.FactionManager.AllFactionsListForReading.Find(f => f.loadID == factionId);
                 }
 
@@ -1347,6 +1324,7 @@ namespace Multiplayer.Client
         public Dictionary<int, FactionWorldData> factionData = new Dictionary<int, FactionWorldData>();
 
         public ConstantTicker ticker = new ConstantTicker();
+        public IdBlock globalIdBlock;
         public string worldId = Guid.NewGuid().ToString();
         public int sessionId = new System.Random().Next();
         public TimeSpeed timeSpeedInt;
@@ -1366,7 +1344,7 @@ namespace Multiplayer.Client
 
             ExposeFactionData();
 
-            Multiplayer.ExposeIdBlock(ref Multiplayer.globalIdBlock, "globalIdBlock");
+            Multiplayer.ExposeIdBlock(ref globalIdBlock, "globalIdBlock");
         }
 
         private void ExposeFactionData()
@@ -1374,7 +1352,7 @@ namespace Multiplayer.Client
             if (Scribe.mode == LoadSaveMode.Saving)
             {
                 var factionData = new Dictionary<int, FactionWorldData>(this.factionData);
-                factionData.Remove(Multiplayer.dummyFaction.loadID);
+                factionData.Remove(Multiplayer.DummyFaction.loadID);
 
                 ScribeUtil.Look(ref factionData, "factionData", LookMode.Deep);
             }
@@ -1387,14 +1365,14 @@ namespace Multiplayer.Client
 
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
-                factionData[Multiplayer.dummyFaction.loadID] = FactionWorldData.FromCurrent();
+                factionData[Multiplayer.DummyFaction.loadID] = FactionWorldData.FromCurrent();
             }
         }
 
         public void Tick()
         {
             tickingWorld = true;
-            UniqueIdsPatch.CurrentBlock = Multiplayer.globalIdBlock;
+            UniqueIdsPatch.CurrentBlock = Multiplayer.GlobalIdBlock;
             Find.TickManager.CurTimeSpeed = timeSpeedInt;
 
             try
@@ -1448,7 +1426,7 @@ namespace Multiplayer.Client
 
         public override void MapComponentTick()
         {
-            if (Multiplayer.client == null) return;
+            if (Multiplayer.Client == null) return;
 
             tickingFactions = true;
 
@@ -1499,7 +1477,7 @@ namespace Multiplayer.Client
         {
             if (Scribe.mode == LoadSaveMode.Saving)
             {
-                int dummyId = Multiplayer.dummyFaction.loadID;
+                int dummyId = Multiplayer.DummyFaction.loadID;
                 if (map.areaManager != factionMapData[dummyId].areaManager)
                     Log.Warning("Current map faction data is not dummy faction's data during map saving. This might cause problems.");
 
@@ -1516,7 +1494,7 @@ namespace Multiplayer.Client
 
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
-                int dummyFaction = Multiplayer.dummyFaction.loadID;
+                int dummyFaction = Multiplayer.DummyFaction.loadID;
                 if (factionMapData.ContainsKey(dummyFaction))
                     Log.Warning("Map's saved faction data includes dummy faction's data.");
 

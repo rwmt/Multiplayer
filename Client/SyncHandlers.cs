@@ -596,7 +596,7 @@ namespace Multiplayer.Client
         [MpPrefix(typeof(ResearchManager), nameof(ResearchManager.ResearchPerformed))]
         static bool ResearchPerformed_Prefix(float amount, Pawn researcher)
         {
-            if (Multiplayer.client == null || !SyncMarkers.researchToil)
+            if (Multiplayer.Client == null || !SyncMarkers.researchToil)
                 return true;
 
             // todo only faction leader

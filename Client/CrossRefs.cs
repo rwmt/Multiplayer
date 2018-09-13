@@ -12,6 +12,8 @@ namespace Multiplayer.Client
     {
         static void Postfix(Thing __instance)
         {
+            if (Multiplayer.game == null) return;
+
             if (__instance.def.HasThingIDNumber)
                 ScribeUtil.sharedCrossRefs.RegisterLoaded(__instance);
         }
@@ -23,6 +25,7 @@ namespace Multiplayer.Client
     {
         static void Postfix(Thing __instance)
         {
+            if (Multiplayer.game == null) return;
             ScribeUtil.sharedCrossRefs.Unregister(__instance);
         }
     }
@@ -33,6 +36,7 @@ namespace Multiplayer.Client
     {
         static void Postfix(WorldObject __instance)
         {
+            if (Multiplayer.game == null) return;
             ScribeUtil.sharedCrossRefs.RegisterLoaded(__instance);
         }
     }
@@ -43,6 +47,7 @@ namespace Multiplayer.Client
     {
         static void Postfix(WorldObject __instance)
         {
+            if (Multiplayer.game == null) return;
             ScribeUtil.sharedCrossRefs.Unregister(__instance);
         }
     }
@@ -53,6 +58,7 @@ namespace Multiplayer.Client
     {
         static void Postfix(Faction faction)
         {
+            if (Multiplayer.game == null) return;
             ScribeUtil.sharedCrossRefs.RegisterLoaded(faction);
         }
     }
@@ -63,6 +69,7 @@ namespace Multiplayer.Client
     {
         static void Postfix(Map map)
         {
+            if (Multiplayer.game == null) return;
             ScribeUtil.sharedCrossRefs.RegisterLoaded(map);
         }
     }
@@ -73,30 +80,29 @@ namespace Multiplayer.Client
     {
         static void Prefix(Map map)
         {
+            if (Multiplayer.game == null) return;
             ScribeUtil.sharedCrossRefs.UnregisterAllFrom(map);
             ScribeUtil.sharedCrossRefs.Unregister(map);
         }
     }
 
-    [HarmonyPatch(typeof(MemoryUtility))]
-    [HarmonyPatch(nameof(MemoryUtility.ClearAllMapsAndWorld))]
-    public static class ClearAllPatch
+    [HarmonyPatch(typeof(ScribeLoader))]
+    [HarmonyPatch(nameof(ScribeLoader.FinalizeLoading))]
+    public static class FinalizeLoadingGame
     {
         static void Postfix()
         {
-            ScribeUtil.sharedCrossRefs = null;
-            Log.Message("Removed all cross refs");
+            if (Multiplayer.game == null || !LoadGamePatch.loading) return;
+            RegisterCrossRefs();
         }
-    }
 
-    [HarmonyPatch(typeof(Game))]
-    [HarmonyPatch(nameof(Game.FillComponents))]
-    public static class FillComponentsPatch
-    {
-        static void Postfix()
+        static void RegisterCrossRefs()
         {
-            ScribeUtil.sharedCrossRefs = new SharedCrossRefs();
-            Log.Message("New cross refs");
+            foreach (Faction f in Find.FactionManager.AllFactions)
+                ScribeUtil.sharedCrossRefs.RegisterLoaded(f);
+
+            foreach (Map map in Find.Maps)
+                ScribeUtil.sharedCrossRefs.RegisterLoaded(map);
         }
     }
 

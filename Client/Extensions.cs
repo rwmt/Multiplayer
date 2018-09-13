@@ -1,12 +1,8 @@
-﻿using Harmony;
-using Multiplayer.Common;
+﻿using Multiplayer.Common;
 using RimWorld;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Linq.Expressions;
-using System.Reflection;
-using System.Reflection.Emit;
 using Verse;
 
 namespace Multiplayer.Client
@@ -28,10 +24,10 @@ namespace Multiplayer.Client
         public static void PushFaction(this Map map, Faction faction)
         {
             faction = FactionContext.Push(faction);
-            if (faction != null)
-                Multiplayer.WorldComp.SetFaction(faction);
-            if (map != null && faction != null)
-                map.GetComponent<MultiplayerMapComp>().SetFaction(faction);
+            if (faction == null) return;
+
+            Multiplayer.WorldComp?.SetFaction(faction);
+            map?.GetComponent<MultiplayerMapComp>().SetFaction(faction);
         }
 
         public static void PushFaction(this Map map, int factionId)
@@ -53,10 +49,10 @@ namespace Multiplayer.Client
         public static void PopFaction(this Map map)
         {
             Faction faction = FactionContext.Pop();
-            if (faction != null)
-                Multiplayer.WorldComp.SetFaction(faction);
-            if (map != null && faction != null)
-                map.GetComponent<MultiplayerMapComp>().SetFaction(faction);
+            if (faction == null) return;
+
+            Multiplayer.WorldComp?.SetFaction(faction);
+            map?.GetComponent<MultiplayerMapComp>().SetFaction(faction);
         }
 
         public static Map GetMap(this ScheduledCommand cmd)

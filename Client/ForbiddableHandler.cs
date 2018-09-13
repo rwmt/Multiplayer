@@ -44,7 +44,7 @@ namespace Multiplayer.Client
     {
         static void Postfix(Thing t, ref bool __result)
         {
-            if (Multiplayer.client == null || Current.ProgramState != ProgramState.Playing) return;
+            if (Multiplayer.Client == null || Current.ProgramState != ProgramState.Playing) return;
 
             ThingWithComps thing = t as ThingWithComps;
             if (thing == null) return;
@@ -77,7 +77,7 @@ namespace Multiplayer.Client
 
             if (Multiplayer.ShouldSync)
             {
-                Multiplayer.client.SendCommand(CommandType.FORBID, thing.Map.uniqueID, thing.thingIDNumber, value);
+                Multiplayer.Client.SendCommand(CommandType.FORBID, thing.Map.uniqueID, thing.thingIDNumber, value);
                 return false;
             }
 

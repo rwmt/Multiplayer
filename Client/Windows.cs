@@ -74,7 +74,7 @@ namespace Multiplayer.Client
             {
                 StringBuilder builder = new StringBuilder();
 
-                builder.Append(Multiplayer.client != null ? "Connected" : "Not connected").Append("\n");
+                builder.Append(Multiplayer.Client != null ? "Connected" : "Not connected").Append("\n");
 
                 if (playerList.Length > 0)
                 {
@@ -166,10 +166,10 @@ namespace Multiplayer.Client
 
             if (currentMsg.NullOrEmpty()) return;
 
-            if (Multiplayer.client == null)
+            if (Multiplayer.Client == null)
                 AddMsg(Multiplayer.username + ": " + currentMsg);
             else
-                Multiplayer.client.Send(Packets.CLIENT_CHAT, currentMsg);
+                Multiplayer.Client.Send(Packets.CLIENT_CHAT, currentMsg);
 
             currentMsg = "";
         }
@@ -258,7 +258,7 @@ namespace Multiplayer.Client
 
         public override void DoBack()
         {
-            Multiplayer.client.Close("");
+            Multiplayer.Client.Close("");
 
             LongEventHandler.QueueLongEvent(() =>
             {
@@ -322,22 +322,14 @@ namespace Multiplayer.Client
 
             connecting = true;
 
-            Client.TryConnect(address, port, conn =>
+            ClientUtil.TryConnect(address, port, conn =>
             {
                 connecting = false;
                 text = "Connected.";
-
-                Multiplayer.chat = new ChatWindow();
-                Multiplayer.client = conn;
-
-                conn.Username = Multiplayer.username;
-                conn.State = new ClientWorldState(conn);
             }, reason =>
             {
-                // todo decouple from window
                 connecting = false;
                 text = "Couldn't connect to the server.\n" + reason;
-                Multiplayer.client = null;
             });
         }
 
@@ -352,12 +344,7 @@ namespace Multiplayer.Client
             Rect rect2 = new Rect(inRect.width / 2f - CloseButSize.x / 2f, inRect.height - 55f, CloseButSize.x, CloseButSize.y);
             if (Widgets.ButtonText(rect2, "Cancel", true, false, true))
             {
-                if (Multiplayer.netClient != null)
-                {
-                    Multiplayer.netClient.Stop();
-                    Multiplayer.netClient = null;
-                }
-
+                OnMainThread.StopMultiplayer();
                 Close();
             }
         }
@@ -393,9 +380,7 @@ namespace Multiplayer.Client
             MpLog.Log("Starting a server");
 
             MultiplayerWorldComp comp = Find.World.GetComponent<MultiplayerWorldComp>();
-
             Faction dummyFaction = new Faction() { loadID = -1, def = Multiplayer.dummyFactionDef };
-            Multiplayer.dummyFaction = dummyFaction;
 
             foreach (Faction other in Find.FactionManager.AllFactionsListForReading)
                 dummyFaction.TryMakeInitialRelationsWith(other);
@@ -407,20 +392,28 @@ namespace Multiplayer.Client
 
             Find.FactionManager.Add(dummyFaction);
 
+            MultiplayerSession session = Multiplayer.session = new MultiplayerSession();
             MultiplayerServer localServer = new MultiplayerServer(addr);
-            Multiplayer.localServer = localServer;
             MultiplayerServer.instance = localServer;
+            session.localServer = localServer;
+            session.myFactionId = Faction.OfPlayer.loadID;
+
+            Multiplayer.game = new MultiplayerGame
+            {
+                dummyFaction = dummyFaction,
+                worldComp = comp
+            };
 
             localServer.nextUniqueId = GetMaxUniqueId();
-            Multiplayer.globalIdBlock = localServer.NextIdBlock();
+            comp.globalIdBlock = localServer.NextIdBlock();
 
             foreach (FactionWorldData data in comp.factionData.Values)
             {
                 foreach (DrugPolicy p in data.drugPolicyDatabase.policies)
-                    p.uniqueId = Multiplayer.globalIdBlock.NextId();
+                    p.uniqueId = Multiplayer.GlobalIdBlock.NextId();
 
                 foreach (Outfit o in data.outfitDatabase.outfits)
-                    o.uniqueId = Multiplayer.globalIdBlock.NextId();
+                    o.uniqueId = Multiplayer.GlobalIdBlock.NextId();
             }
 
             foreach (Map map in Find.Maps)
@@ -434,7 +427,6 @@ namespace Multiplayer.Client
                 mapComp.factionMapData[dummyFaction.loadID].areaManager.AddStartingAreas();
             }
 
-            Multiplayer.myFactionId = Faction.OfPlayer.loadID;
             Multiplayer.RealPlayerFaction = Faction.OfPlayer;
 
             localServer.playerFactions[Multiplayer.username] = Faction.OfPlayer.loadID;
@@ -446,7 +438,7 @@ namespace Multiplayer.Client
             SetupLocalClient();
 
             Find.MainTabsRoot.EscapeCurrentTab(false);
-            Multiplayer.chat = new ChatWindow();
+            session.chat = new ChatWindow();
 
             LongEventHandler.QueueLongEvent(() =>
             {
@@ -454,11 +446,11 @@ namespace Multiplayer.Client
 
                 localServer.StartListening();
 
-                Multiplayer.serverThread = new Thread(localServer.Run)
+                session.serverThread = new Thread(localServer.Run)
                 {
                     Name = "Local server thread"
                 };
-                Multiplayer.serverThread.Start();
+                session.serverThread.Start();
 
                 MultiplayerServer.instance.UpdatePlayerList();
 
@@ -477,10 +469,10 @@ namespace Multiplayer.Client
             localClient.State = new ClientPlayingState(localClient);
             localServerConn.State = new ServerPlayingState(localServerConn);
 
-            Multiplayer.localServer.players.Add(new ServerPlayer(localServerConn));
-            Multiplayer.localServer.host = Multiplayer.username;
+            Multiplayer.LocalServer.players.Add(new ServerPlayer(localServerConn));
+            Multiplayer.LocalServer.host = Multiplayer.username;
 
-            Multiplayer.client = localClient;
+            Multiplayer.session.client = localClient;
         }
 
         private static int GetMaxUniqueId()

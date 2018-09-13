@@ -76,9 +76,9 @@ namespace Multiplayer.Client
                 Sync.WriteSyncObject(writer, index, indexType);
 
             writer.LogNode("Map id: " + mapId);
-            Multiplayer.packetLog.nodes.Add(writer.current);
+            Multiplayer.PacketLog.nodes.Add(writer.current);
 
-            Multiplayer.client.SendCommand(CommandType.SYNC, mapId, writer.GetArray());
+            Multiplayer.Client.SendCommand(CommandType.SYNC, mapId, writer.GetArray());
 
             return true;
         }
@@ -189,9 +189,9 @@ namespace Multiplayer.Client
             }
 
             writer.LogNode("Map id: " + mapId);
-            Multiplayer.packetLog.nodes.Add(writer.current);
+            Multiplayer.PacketLog.nodes.Add(writer.current);
 
-            Multiplayer.client.SendCommand(CommandType.SYNC, mapId, writer.GetArray());
+            Multiplayer.Client.SendCommand(CommandType.SYNC, mapId, writer.GetArray());
 
             return true;
         }
@@ -208,7 +208,7 @@ namespace Multiplayer.Client
 
             object[] parameters = Sync.ReadSyncObjects(data, argTypes);
 
-            MpLog.Log("Invoked " + method + " on " + target + " with " + parameters.Length + " params");
+            MpLog.Log("Invoked " + method + " on " + target + " with " + parameters.Length + " params " + parameters.ToStringSafeEnumerable());
             method.Invoke(target, parameters);
         }
     }
@@ -294,9 +294,9 @@ namespace Multiplayer.Client
             });
 
             writer.LogNode("Map id: " + mapId);
-            Multiplayer.packetLog.nodes.Add(writer.current);
+            Multiplayer.PacketLog.nodes.Add(writer.current);
 
-            Multiplayer.client.SendCommand(CommandType.SYNC, mapId, writer.GetArray());
+            Multiplayer.Client.SendCommand(CommandType.SYNC, mapId, writer.GetArray());
 
             return true;
         }
@@ -373,7 +373,7 @@ namespace Multiplayer.Client
 
         public static void FieldWatchPrefix()
         {
-            if (Multiplayer.client == null) return;
+            if (Multiplayer.Client == null) return;
             watchedStack.Push(null); // Marker
         }
 
@@ -776,7 +776,7 @@ namespace Multiplayer.Client
             return (T)ReadSyncObject(data, typeof(T));
         }
 
-        private static MethodInfo ReadExposable = AccessTools.Method(typeof(ScribeUtil), "ReadExposable");
+        private static MethodInfo ReadExposable = AccessTools.Method(typeof(ScribeUtil), nameof(ScribeUtil.ReadExposable));
 
         public static object ReadSyncObject(ByteReader data, Type type)
         {

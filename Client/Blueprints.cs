@@ -16,82 +16,6 @@ namespace Multiplayer.Client
     // Don't draw other factions' blueprints
     // Don't link graphics of different factions' blueprints
 
-    public class CodeFinder
-    {
-        private int pos;
-        private List<CodeInstruction> list;
-
-        public int Pos => pos;
-
-        public CodeFinder(List<CodeInstruction> list)
-        {
-            this.list = list;
-        }
-
-        public CodeFinder Advance(int steps)
-        {
-            pos += steps;
-            return this;
-        }
-
-        public CodeFinder Forward(OpCode opcode, object operand = null)
-        {
-            Find(opcode, operand, 1);
-            return this;
-        }
-
-        public CodeFinder Backward(OpCode opcode, object operand = null)
-        {
-            Find(opcode, operand, -1);
-            return this;
-        }
-
-        public CodeFinder Find(OpCode opcode, object operand, int direction)
-        {
-            Find(i => Matches(i, opcode, operand), direction);
-            return this;
-        }
-
-        public CodeFinder Find(Predicate<CodeInstruction> predicate, int direction)
-        {
-            while (pos < list.Count && pos >= 0)
-            {
-                if (predicate(list[pos])) return this;
-                pos += direction;
-            }
-
-            throw new Exception("Couldn't find instruction.");
-        }
-
-        public CodeFinder Start()
-        {
-            pos = 0;
-            return this;
-        }
-
-        public CodeFinder End()
-        {
-            pos = list.Count - 1;
-            return this;
-        }
-
-        private bool Matches(CodeInstruction inst, OpCode opcode, object operand)
-        {
-            if (inst.opcode != opcode) return false;
-            if (operand == null) return true;
-
-            if (opcode == OpCodes.Stloc_S)
-                return (inst.operand as LocalBuilder).LocalIndex == (int)operand;
-
-            return Equals(inst.operand, operand);
-        }
-
-        public static implicit operator int(CodeFinder finder)
-        {
-            return finder.pos;
-        }
-    }
-
     [HarmonyPatch(typeof(GenConstruct), nameof(GenConstruct.CanPlaceBlueprintAt))]
     static class CanPlaceBlueprintAtPatch
     {
@@ -213,6 +137,29 @@ namespace Multiplayer.Client
         }
     }
 
+    [HarmonyPatch(typeof(GenSpawn), nameof(GenSpawn.WipeAndRefundExistingThings))]
+    static class WipeAndRefundExistingThingsPatch
+    {
+        static MethodInfo SpawningWipes = AccessTools.Method(typeof(GenSpawn), nameof(GenSpawn.SpawningWipes));
+
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+        {
+            foreach (CodeInstruction inst in insts)
+            {
+                yield return inst;
+
+                if (inst.opcode == OpCodes.Call && inst.operand == SpawningWipes)
+                {
+                    yield return new CodeInstruction(OpCodes.Ldarg_2);
+                    yield return new CodeInstruction(OpCodes.Ldloc_3);
+                    yield return new CodeInstruction(OpCodes.Call, CanPlaceBlueprintAtPatch.ShouldIgnore2Method);
+                    yield return new CodeInstruction(OpCodes.Not);
+                    yield return new CodeInstruction(OpCodes.And);
+                }
+            }
+        }
+    }
+
     [HarmonyPatch(typeof(GenSpawn), nameof(GenSpawn.SpawnBuildingAsPossible))]
     static class SpawnBuildingAsPossiblePatch
     {
@@ -286,7 +233,7 @@ namespace Multiplayer.Client
     {
         static bool Prefix(Thing __instance)
         {
-            if (Multiplayer.client == null || !__instance.def.IsBlueprint) return true;
+            if (Multiplayer.Client == null || !__instance.def.IsBlueprint) return true;
             return __instance.Faction == null || __instance.Faction == Multiplayer.RealPlayerFaction;
         }
     }
@@ -298,6 +245,61 @@ namespace Multiplayer.Client
         {
             return !linker.def.IsBlueprint || linker.Faction == Multiplayer.RealPlayerFaction;
         }
+    }
+
+    [HarmonyPatch(typeof(Designator_Build), nameof(Designator_Build.DesignateSingleCell))]
+    static class DisableInstaBuild
+    {
+        static MethodInfo GetStatValueAbstract = AccessTools.Method(typeof(StatExtension), nameof(StatExtension.GetStatValueAbstract));
+        static MethodInfo WorkToBuildMethod = AccessTools.Method(typeof(DisableInstaBuild), nameof(WorkToBuild));
+
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> e)
+        {
+            List<CodeInstruction> insts = (List<CodeInstruction>)e;
+            int pos = new CodeFinder(insts).Forward(OpCodes.Call, GetStatValueAbstract);
+            insts[pos + 1] = new CodeInstruction(OpCodes.Call, WorkToBuildMethod);
+
+            return insts;
+        }
+
+        static float WorkToBuild() => Multiplayer.Client == null ? 0f : -1f;
+    }
+
+    [HarmonyPatch(typeof(Frame))]
+    [HarmonyPatch(nameof(Frame.WorkToBuild), PropertyMethod.Getter)]
+    static class NoZeroWorkFrames
+    {
+        static void Postfix(ref float __result)
+        {
+            __result = Math.Max(5, __result); // 5 otherwise the game complains about jobs starting too fast
+        }
+    }
+
+    [HarmonyPatch(typeof(WorkGiver_ConstructDeliverResourcesToBlueprints), nameof(WorkGiver_ConstructDeliverResourcesToBlueprints.NoCostFrameMakeJobFor))]
+    static class OnlyConstructorsPlaceNoCostFrames
+    {
+        static MethodInfo IsConstructionMethod = AccessTools.Method(typeof(OnlyConstructorsPlaceNoCostFrames), nameof(IsConstruction));
+
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+        {
+            foreach (CodeInstruction inst in insts)
+            {
+                yield return inst;
+
+                if (inst.opcode == OpCodes.Isinst && inst.operand == typeof(Blueprint))
+                {
+                    yield return new CodeInstruction(OpCodes.Ldnull);
+                    yield return new CodeInstruction(OpCodes.Cgt_Un);
+
+                    yield return new CodeInstruction(OpCodes.Ldarg_0);
+                    yield return new CodeInstruction(OpCodes.Call, IsConstructionMethod);
+
+                    yield return new CodeInstruction(OpCodes.And);
+                }
+            }
+        }
+
+        static bool IsConstruction(WorkGiver w) => w.def.workType == WorkTypeDefOf.Construction;
     }
 
 }

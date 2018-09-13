@@ -15,8 +15,15 @@ namespace Multiplayer.Client
     {
         static void Prefix()
         {
-            if (Multiplayer.client == null) return;
+            Rand.PushState();
+
+            if (Multiplayer.Client == null) return;
             Multiplayer.Seed = 1;
+        }
+
+        static void Postfix()
+        {
+            Rand.PopState();
         }
     }
 
@@ -26,7 +33,7 @@ namespace Multiplayer.Client
     {
         static void Prefix(Map __instance, ref bool __state)
         {
-            if (Multiplayer.client == null) return;
+            if (Multiplayer.Client == null) return;
             if (Scribe.mode != LoadSaveMode.LoadingVars && Scribe.mode != LoadSaveMode.ResolvingCrossRefs && Scribe.mode != LoadSaveMode.PostLoadInit) return;
 
             int seed = __instance.uniqueID.Combine(Multiplayer.WorldComp.sessionId);
@@ -58,7 +65,7 @@ namespace Multiplayer.Client
     {
         static void Prefix(Map __instance, ref bool __state)
         {
-            if (Multiplayer.client == null) return;
+            if (Multiplayer.Client == null) return;
 
             int seed = __instance.uniqueID.Combine(Multiplayer.WorldComp.sessionId);
             Rand.PushState(seed);
@@ -84,7 +91,7 @@ namespace Multiplayer.Client
     {
         public static void Prefix(Thing __instance, ref Container<Map> __state)
         {
-            if (Multiplayer.client == null) return;
+            if (Multiplayer.Client == null) return;
 
             __state = __instance.Map;
             ThingContext.Push(__instance);

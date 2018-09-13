@@ -123,7 +123,7 @@ namespace Multiplayer.Client
 
             if (optList.Any(opt => opt.label == "ReviewScenario".Translate()))
             {
-                if (Multiplayer.localServer == null && Multiplayer.client == null)
+                if (Multiplayer.LocalServer == null && Multiplayer.Client == null)
                 {
                     optList.Insert(0, new ListableOption("Host a server", () =>
                     {
@@ -131,7 +131,7 @@ namespace Multiplayer.Client
                     }));
                 }
 
-                if (Multiplayer.client != null)
+                if (Multiplayer.Client != null)
                 {
                     optList.Insert(0, new ListableOption("Autosave", () =>
                     {
@@ -145,7 +145,7 @@ namespace Multiplayer.Client
 
                         //Multiplayer.SendGameData(Multiplayer.SaveGame());
 
-                        Multiplayer.localServer.DoAutosave();
+                        Multiplayer.LocalServer.DoAutosave();
                     }));
 
                     optList.RemoveAll(opt => opt.label == "Save".Translate() || opt.label == "LoadGame".Translate());
@@ -400,20 +400,6 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(PawnObserver))]
-    [HarmonyPatch(nameof(PawnObserver.ObserveSurroundingThings))]
-    public static class ObservePatch
-    {
-        static int i;
-
-        static void Prefix()
-        {
-            if (Multiplayer.client == null) return;
-            MpLog.Log("observer " + ThingContext.Current + " " + i);
-            i++;
-        }
-    }
-
     [HarmonyPatch(typeof(MainButtonsRoot))]
     [HarmonyPatch(nameof(MainButtonsRoot.MainButtonsOnGUI))]
     public static class MainButtonsPatch
@@ -425,7 +411,7 @@ namespace Multiplayer.Client
             Rect rect = new Rect(80f, 60f, 330f, Text.CalcHeight(text, 330f));
             Widgets.Label(rect, text);
 
-            if (Find.CurrentMap != null && Multiplayer.client != null)
+            if (Find.CurrentMap != null && Multiplayer.Client != null)
             {
                 MapAsyncTimeComp async = Find.CurrentMap.GetComponent<MapAsyncTimeComp>();
                 string text1 = "" + async.mapTicks;
@@ -452,63 +438,12 @@ namespace Multiplayer.Client
             }
 
             if (Widgets.ButtonText(new Rect(Screen.width - 60f, 10f, 50f, 25f), "Chat"))
-                Find.WindowStack.Add(Multiplayer.chat);
+                Find.WindowStack.Add(Multiplayer.Chat);
 
             if (Widgets.ButtonText(new Rect(Screen.width - 60f, 35f, 50f, 25f), "Packets"))
-                Find.WindowStack.Add(Multiplayer.packetLog);
+                Find.WindowStack.Add(Multiplayer.PacketLog);
 
             return Find.Maps.Count > 0;
-        }
-    }
-
-    [HarmonyPatch(typeof(TickManager))]
-    [HarmonyPatch(nameof(TickManager.TickManagerUpdate))]
-    public static class WorldTimeChangePatch
-    {
-        private static TimeSpeed lastSpeed = TimeSpeed.Paused;
-
-        static void Prefix()
-        {
-            if (Multiplayer.client == null || !WorldRendererUtility.WorldRenderedNow) return;
-
-            if (Find.TickManager.CurTimeSpeed != lastSpeed)
-            {
-                Multiplayer.client.SendCommand(CommandType.WORLD_TIME_SPEED, ScheduledCommand.Global, (byte)Find.TickManager.CurTimeSpeed);
-                Find.TickManager.CurTimeSpeed = lastSpeed;
-            }
-        }
-
-        public static void SetSpeed(TimeSpeed speed)
-        {
-            Find.TickManager.CurTimeSpeed = speed;
-            lastSpeed = speed;
-        }
-    }
-
-    [HarmonyPatch(typeof(ScribeLoader))]
-    [HarmonyPatch(nameof(ScribeLoader.FinalizeLoading))]
-    public static class FinalizeLoadingGame
-    {
-        static void Prefix(ref string __state)
-        {
-            __state = Scribe.loader.curXmlParent.Name;
-        }
-
-        // Called after ResolveAllCrossReferences and right before Map.FinalizeLoading
-        static void Postfix(string __state)
-        {
-            if (Current.ProgramState != ProgramState.MapInitializing || __state != "game") return;
-
-            RegisterCrossRefs();
-        }
-
-        static void RegisterCrossRefs()
-        {
-            foreach (Faction f in Find.FactionManager.AllFactions)
-                ScribeUtil.sharedCrossRefs.RegisterLoaded(f);
-
-            foreach (Map map in Find.Maps)
-                ScribeUtil.sharedCrossRefs.RegisterLoaded(map);
         }
     }
 
@@ -518,12 +453,12 @@ namespace Multiplayer.Client
     {
         static bool Prefix(CaravanArrivalAction_AttackSettlement __instance, Caravan caravan)
         {
-            if (Multiplayer.client == null) return true;
+            if (Multiplayer.Client == null) return true;
 
             SettlementBase settlement = __instance.settlement;
             if (settlement.Faction.def != Multiplayer.factionDef) return true;
 
-            Multiplayer.client.Send(Packets.CLIENT_ENCOUNTER_REQUEST, new object[] { settlement.Tile });
+            Multiplayer.Client.Send(Packets.CLIENT_ENCOUNTER_REQUEST, new object[] { settlement.Tile });
 
             return false;
         }
@@ -533,28 +468,24 @@ namespace Multiplayer.Client
     [HarmonyPatch(nameof(Settlement.ShouldRemoveMapNow))]
     public static class ShouldRemoveMapPatch
     {
-        static bool Prefix() => Multiplayer.client == null;
+        static bool Prefix() => Multiplayer.Client == null;
     }
 
     [HarmonyPatch(typeof(SettlementDefeatUtility))]
     [HarmonyPatch(nameof(SettlementDefeatUtility.CheckDefeated))]
     public static class CheckDefeatedPatch
     {
-        static bool Prefix() => Multiplayer.client == null;
+        static bool Prefix() => Multiplayer.Client == null;
     }
 
     [HarmonyPatch(typeof(Pawn_JobTracker))]
     [HarmonyPatch(nameof(Pawn_JobTracker.StartJob))]
     public static class JobTrackerStart
     {
-        public static FieldInfo pawnField = typeof(Pawn_JobTracker).GetField("pawn", BindingFlags.Instance | BindingFlags.NonPublic);
-
         static void Prefix(Pawn_JobTracker __instance, Job newJob, ref Container<Map> __state)
         {
-            if (Multiplayer.client == null) return;
-            Pawn pawn = (Pawn)pawnField.GetValue(__instance);
-
-            //Log.Message(Find.TickManager.TicksGame + " " + Multiplayer.username + " start job " + pawn + " " + newJob);
+            if (Multiplayer.Client == null) return;
+            Pawn pawn = __instance.pawn;
 
             if (pawn.Faction == null || !pawn.Spawned) return;
 
@@ -575,10 +506,8 @@ namespace Multiplayer.Client
     {
         static void Prefix(Pawn_JobTracker __instance, JobCondition condition, ref Container<Map> __state)
         {
-            if (Multiplayer.client == null) return;
-            Pawn pawn = (Pawn)JobTrackerStart.pawnField.GetValue(__instance);
-
-            //Log.Message(Find.TickManager.TicksGame + " " + Multiplayer.username + " end job " + pawn + " " + __instance.curJob + " " + condition);
+            if (Multiplayer.Client == null) return;
+            Pawn pawn = __instance.pawn;
 
             if (pawn.Faction == null || !pawn.Spawned) return;
 
@@ -599,8 +528,8 @@ namespace Multiplayer.Client
     {
         static void Prefix(Pawn_JobTracker __instance, ref Container<Map> __state)
         {
-            if (Multiplayer.client == null) return;
-            Pawn pawn = (Pawn)JobTrackerStart.pawnField.GetValue(__instance);
+            if (Multiplayer.Client == null) return;
+            Pawn pawn = __instance.pawn;
 
             if (pawn.Faction == null || !pawn.Spawned) return;
 
@@ -618,40 +547,6 @@ namespace Multiplayer.Client
             }
         }
     }
-
-    /*[HarmonyPatch(typeof(UIRoot_Play))]
-    [HarmonyPatch(nameof(UIRoot_Play.UIRootOnGUI))]
-    public static class OnGuiPatch
-    {
-        static bool Prefix()
-        {
-            if (OnMainThread.currentLongAction == null) return true;
-
-            if (Event.current.type == EventType.MouseDown || Event.current.type == EventType.MouseUp || Event.current.type == EventType.KeyDown || Event.current.type == EventType.KeyUp || Event.current.type == EventType.ScrollWheel)
-                return false;
-
-            return true;
-        }
-
-        static void Postfix()
-        {
-            if (OnMainThread.currentLongAction == null) return;
-
-            string text = OnMainThread.GetActionsText();
-            Vector2 size = Text.CalcSize(text);
-            int width = Math.Max(240, (int)size.x + 40);
-            int height = Math.Max(50, (int)size.y + 20);
-            Rect rect = new Rect((UI.screenWidth - width) / 2, (UI.screenHeight - height) / 2, width, height);
-            rect.Rounded();
-
-            Widgets.DrawShadowAround(rect);
-            Widgets.DrawWindowBackground(rect);
-            Text.Font = GameFont.Small;
-            Text.Anchor = TextAnchor.MiddleCenter;
-            Widgets.Label(rect, text);
-            Text.Anchor = TextAnchor.UpperLeft;
-        }
-    }*/
 
     public static class ThingContext
     {
@@ -724,7 +619,7 @@ namespace Multiplayer.Client
 
         static void Postfix(ref int __result)
         {
-            if (Multiplayer.client == null) return;
+            if (Multiplayer.Client == null) return;
 
             if (CurrentBlock == null)
             {
@@ -738,7 +633,7 @@ namespace Multiplayer.Client
 
             if (currentBlock.current > currentBlock.blockSize * 0.95f && !currentBlock.overflowHandled)
             {
-                Multiplayer.client.Send(Packets.CLIENT_ID_BLOCK_REQUEST, CurrentBlock.mapId);
+                Multiplayer.Client.Send(Packets.CLIENT_ID_BLOCK_REQUEST, CurrentBlock.mapId);
                 currentBlock.overflowHandled = true;
             }
         }
@@ -750,7 +645,7 @@ namespace Multiplayer.Client
     {
         static void Prefix(Pawn pawn, ref Container<Map> __state)
         {
-            if (Multiplayer.client == null || pawn.Faction == null) return;
+            if (Multiplayer.Client == null || pawn.Faction == null) return;
 
             pawn.Map.PushFaction(pawn.Faction);
             __state = pawn.Map;
@@ -895,14 +790,14 @@ namespace Multiplayer.Client
     [HarmonyPatch(nameof(ListerHaulables.ListerHaulablesTick))]
     public static class HaulablesTickPatch
     {
-        static bool Prefix() => Multiplayer.client == null || MultiplayerMapComp.tickingFactions;
+        static bool Prefix() => Multiplayer.Client == null || MultiplayerMapComp.tickingFactions;
     }
 
     [HarmonyPatch(typeof(ResourceCounter))]
     [HarmonyPatch(nameof(ResourceCounter.ResourceCounterTick))]
     public static class ResourcesTickPatch
     {
-        static bool Prefix() => Multiplayer.client == null || MultiplayerMapComp.tickingFactions;
+        static bool Prefix() => Multiplayer.Client == null || MultiplayerMapComp.tickingFactions;
     }
 
     [HarmonyPatch(typeof(WindowStack))]
@@ -911,25 +806,8 @@ namespace Multiplayer.Client
     {
         static void Postfix(ref bool __result)
         {
-            if (Multiplayer.client != null)
+            if (Multiplayer.Client != null)
                 __result = false;
-        }
-    }
-
-    [HarmonyPatch(typeof(WindowStack))]
-    [HarmonyPatch(nameof(WindowStack.Add))]
-    public static class WindowsAddPatch
-    {
-        static bool Prefix(Window window)
-        {
-            // Zone names need to be unique and constant for identification
-            if (Multiplayer.client != null && window is Dialog_RenameZone)
-            {
-                Messages.Message("Action not available in multiplayer.", MessageTypeDefOf.RejectInput);
-                return false;
-            }
-
-            return true;
         }
     }
 
@@ -948,16 +826,6 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(Projectile))]
-    [HarmonyPatch(nameof(Projectile.Tick))]
-    public static class ProjectileTick
-    {
-        static void Postfix(Projectile __instance)
-        {
-            MpLog.Log("projectile " + __instance.ticksToImpact + " " + __instance.ExactPosition);
-        }
-    }
-
     [HarmonyPatch(typeof(RandomNumberGenerator_BasicHash))]
     [HarmonyPatch(nameof(RandomNumberGenerator_BasicHash.GetInt))]
     public static class RandPatch
@@ -969,7 +837,7 @@ namespace Multiplayer.Client
 
         static void Prefix()
         {
-            if (RandPatches.Ignore || dontLog || Multiplayer.client == null) return;
+            if (RandPatches.Ignore || dontLog || Multiplayer.Client == null) return;
             if (Current.ProgramState != ProgramState.Playing && !Multiplayer.reloading) return;
 
             dontLog = true;
@@ -1020,7 +888,7 @@ namespace Multiplayer.Client
     {
         static bool Prefix(AutoBuildRoofAreaSetter __instance, Room room, ref Map __state)
         {
-            if (Multiplayer.client == null) return true;
+            if (Multiplayer.Client == null) return true;
             if (room.Dereferenced || room.TouchesMapEdge || room.RegionCount > 26 || room.CellCount > 320 || room.RegionType == RegionType.Portal) return false;
 
             Map map = room.Map;
@@ -1053,24 +921,25 @@ namespace Multiplayer.Client
     [HarmonyPatch(nameof(Pawn_DrawTracker.DrawPos), PropertyMethod.Getter)]
     static class DrawPosPatch
     {
+        // Give the root position when ticking
         static void Postfix(Pawn_DrawTracker __instance, ref Vector3 __result)
         {
-            if (Multiplayer.client == null || Multiplayer.ShouldSync) return;
+            if (Multiplayer.Client == null || Multiplayer.ShouldSync) return;
             __result = __result - __instance.tweener.TweenedPos + __instance.tweener.TweenedPosRoot();
         }
     }
 
     [HarmonyPatch(typeof(Thing))]
     [HarmonyPatch(nameof(Thing.ExposeData))]
-    public static class PawnExposeDataPrefix
+    public static class PawnExposeDataFirst
     {
         public static Container<Map> state;
 
-        // postfix so faction data is already loaded
+        // Postfix so Thing's faction is already loaded
         static void Postfix(Thing __instance)
         {
             if (!(__instance is Pawn)) return;
-            if (Multiplayer.client == null || __instance.Faction == null || Find.FactionManager == null || Find.FactionManager.AllFactions.Count() == 0) return;
+            if (Multiplayer.Client == null || __instance.Faction == null || Find.FactionManager == null || Find.FactionManager.AllFactions.Count() == 0) return;
 
             ThingContext.Push(__instance);
             state = __instance.Map;
@@ -1080,15 +949,15 @@ namespace Multiplayer.Client
 
     [HarmonyPatch(typeof(Pawn))]
     [HarmonyPatch(nameof(Pawn.ExposeData))]
-    public static class PawnExposeDataPostfix
+    public static class PawnExposeDataLast
     {
         static void Postfix()
         {
-            if (PawnExposeDataPrefix.state != null)
+            if (PawnExposeDataFirst.state != null)
             {
-                PawnExposeDataPrefix.state.PopFaction();
+                PawnExposeDataFirst.state.PopFaction();
                 ThingContext.Pop();
-                PawnExposeDataPrefix.state = null;
+                PawnExposeDataFirst.state = null;
             }
         }
     }
@@ -1126,7 +995,7 @@ namespace Multiplayer.Client
     {
         static bool Prefix(TickManager __instance, ref float __result)
         {
-            if (Multiplayer.client == null) return true;
+            if (Multiplayer.Client == null) return true;
 
             if (__instance.CurTimeSpeed == TimeSpeed.Paused)
                 __result = 0;
@@ -1170,7 +1039,7 @@ namespace Multiplayer.Client
         // The only non-generic entry point during cross reference resolving
         static bool Prefix(string text)
         {
-            if (Multiplayer.client == null || ignore) return true;
+            if (Multiplayer.Client == null || ignore) return true;
 
             ignore = true;
 
@@ -1364,8 +1233,8 @@ namespace Multiplayer.Client
     {
         static void Postfix(Outfit __result)
         {
-            if (Multiplayer.client == null || Multiplayer.ShouldSync) return;
-            __result.uniqueId = Multiplayer.globalIdBlock.NextId();
+            if (Multiplayer.Ticking || OnMainThread.executingCmds)
+                __result.uniqueId = Multiplayer.GlobalIdBlock.NextId();
         }
     }
 
@@ -1374,8 +1243,8 @@ namespace Multiplayer.Client
     {
         static void Postfix(DrugPolicy __result)
         {
-            if (Multiplayer.client == null || Multiplayer.ShouldSync) return;
-            __result.uniqueId = Multiplayer.globalIdBlock.NextId();
+            if (Multiplayer.Ticking || OnMainThread.executingCmds)
+                __result.uniqueId = Multiplayer.GlobalIdBlock.NextId();
         }
     }
 
@@ -1435,5 +1304,54 @@ namespace Multiplayer.Client
             ignore = false;
         }
     }
+
+    [HarmonyPatch(typeof(Game), nameof(Game.LoadGame))]
+    static class LoadGamePatch
+    {
+        public static bool loading;
+
+        static void Prefix() => loading = true;
+        static void Postfix() => loading = false;
+    }
+
+    [HarmonyPatch(typeof(Game), nameof(Game.ExposeSmallComponents))]
+    static class GameExposeComponentsPatch
+    {
+        static void Prefix()
+        {
+            if (Multiplayer.Client == null || Scribe.mode != LoadSaveMode.LoadingVars) return;
+            Multiplayer.game = new MultiplayerGame();
+        }
+    }
+
+    [HarmonyPatch(typeof(MemoryUtility), nameof(MemoryUtility.ClearAllMapsAndWorld))]
+    static class ClearAllPatch
+    {
+        static void Postfix()
+        {
+            Multiplayer.game = null;
+        }
+    }
+
+    [HarmonyPatch(typeof(FactionManager), nameof(FactionManager.RecacheFactions))]
+    static class RecacheFactionsPatch
+    {
+        static void Postfix()
+        {
+            if (Multiplayer.Client == null) return;
+            Multiplayer.game.dummyFaction = Find.FactionManager.allFactions.FirstOrDefault(f => f.loadID == -1);
+        }
+    }
+
+    [HarmonyPatch(typeof(World), nameof(World.ExposeComponents))]
+    static class WorldExposeComponentsPatch
+    {
+        static void Postfix()
+        {
+            if (Multiplayer.Client == null) return;
+            Multiplayer.game.worldComp = Find.World.GetComponent<MultiplayerWorldComp>();
+        }
+    }
+
 
 }

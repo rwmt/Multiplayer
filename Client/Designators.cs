@@ -17,7 +17,7 @@ namespace Multiplayer.Client
     {
         static bool Prefix(bool somethingSucceeded)
         {
-            if (Multiplayer.client == null) return true;
+            if (Multiplayer.Client == null) return true;
             return somethingSucceeded;
         }
     }
@@ -31,7 +31,7 @@ namespace Multiplayer.Client
 
             Map map = Find.CurrentMap;
             object[] extra = GetExtra(0, designator).Append(map.cellIndices.CellToIndex(cell));
-            Multiplayer.client.SendCommand(CommandType.DESIGNATOR, map.uniqueID, extra);
+            Multiplayer.Client.SendCommand(CommandType.DESIGNATOR, map.uniqueID, extra);
 
             return false;
         }
@@ -48,7 +48,7 @@ namespace Multiplayer.Client
                 cellData[i++] = map.cellIndices.CellToIndex(cell);
 
             object[] extra = GetExtra(1, designator).Append(cellData);
-            Multiplayer.client.SendCommand(CommandType.DESIGNATOR, map.uniqueID, extra);
+            Multiplayer.Client.SendCommand(CommandType.DESIGNATOR, map.uniqueID, extra);
 
             return false;
         }
@@ -60,7 +60,7 @@ namespace Multiplayer.Client
 
             Map map = Find.CurrentMap;
             object[] extra = GetExtra(2, designator).Append(thing.thingIDNumber);
-            Multiplayer.client.SendCommand(CommandType.DESIGNATOR, map.uniqueID, extra);
+            Multiplayer.Client.SendCommand(CommandType.DESIGNATOR, map.uniqueID, extra);
 
             MoteMaker.ThrowMetaPuffs(thing);
 

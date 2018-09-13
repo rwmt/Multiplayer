@@ -36,9 +36,11 @@ namespace Multiplayer.Client
 
     public static class ScribeUtil
     {
+        private const string ROOT_NODE = "root";
+
         private static MemoryStream stream;
 
-        public static SharedCrossRefs sharedCrossRefs;
+        public static SharedCrossRefs sharedCrossRefs => Multiplayer.game.sharedCrossRefs;
         public static LoadedObjectDirectory defaultCrossRefs;
 
         public static bool loading;
@@ -190,10 +192,10 @@ namespace Multiplayer.Client
             Log.Message("Cross ref supply: " + sharedCrossRefs.Dict.Count + " " + sharedCrossRefs.Dict.Last() + " " + Faction.OfPlayer);
         }
 
-        public static byte[] WriteExposable(IExposable element, string name = "data", bool indent = false)
+        public static byte[] WriteExposable(IExposable element, string name = ROOT_NODE, bool indent = false)
         {
             StartWriting(indent);
-            Scribe.EnterNode("data");
+            Scribe.EnterNode(ROOT_NODE);
             Scribe_Deep.Look(ref element, name);
             return FinishWriting();
         }
@@ -203,7 +205,7 @@ namespace Multiplayer.Client
             StartLoading(data);
             SupplyCrossRefs();
             T element = default(T);
-            Scribe_Deep.Look(ref element, "root");
+            Scribe_Deep.Look(ref element, ROOT_NODE);
 
             beforeFinish?.Invoke(element);
 

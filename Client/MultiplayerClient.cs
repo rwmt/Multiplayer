@@ -10,16 +10,29 @@ using System.Text;
 
 namespace Multiplayer.Client
 {
-    public static class Client
+    public static class ClientUtil
     {
         public static void TryConnect(IPAddress address, int port, Action<IConnection> connectEvent = null, Action<string> failEvent = null)
         {
             EventBasedNetListener listener = new EventBasedNetListener();
-            Multiplayer.netClient = new NetManager(listener, "");
-            Multiplayer.netClient.Start();
 
-            Multiplayer.netClient.ReconnectDelay = 300;
-            Multiplayer.netClient.MaxConnectAttempts = 8;
+            Multiplayer.session = new MultiplayerSession();
+            NetManager netClient = new NetManager(listener, "");
+            netClient.Start();
+            netClient.ReconnectDelay = 300;
+            netClient.MaxConnectAttempts = 8;
+
+            connectEvent += conn =>
+            {
+                conn.Username = Multiplayer.username;
+                conn.State = new ClientWorldState(conn);
+                Multiplayer.session.client = conn;
+            };
+
+            failEvent += reason =>
+            {
+                OnMainThread.StopMultiplayer();
+            };
 
             listener.PeerConnectedEvent += peer =>
             {
@@ -30,17 +43,14 @@ namespace Multiplayer.Client
             listener.PeerDisconnectedEvent += (peer, info) =>
             {
                 string reason;
-                if (info.Reason == DisconnectReason.RemoteConnectionClose || info.Reason == DisconnectReason.DisconnectPeerCalled)
-                {
-                    reason = info.AdditionalData.GetString();
-                }
-                else
-                {
-                    reason = info.Reason + ": " + info.SocketErrorCode;
-                }
 
-                Multiplayer.netClient.Stop();
-                Multiplayer.netClient = null;
+                if (info.Reason == DisconnectReason.RemoteConnectionClose || info.Reason == DisconnectReason.DisconnectPeerCalled)
+                    reason = info.AdditionalData.GetString();
+                else
+                    reason = info.Reason + ": " + info.SocketErrorCode;
+
+                netClient.Stop();
+                netClient = null;
 
                 OnMainThread.Enqueue(() => failEvent(reason));
             };
@@ -51,7 +61,8 @@ namespace Multiplayer.Client
                 OnMainThread.Enqueue(() => peer.GetConnection().HandleReceive(data));
             };
 
-            Multiplayer.netClient.Connect(address.ToString(), port);
+            Multiplayer.session.netClient = netClient;
+            netClient.Connect(address.ToString(), port);
         }
     }
 
