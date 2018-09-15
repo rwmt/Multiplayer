@@ -48,7 +48,7 @@ namespace Multiplayer.Client
             if (Timer >= tickUntil)
                 accumulator = 0;
             else if (delta < 1.5f && tickUntil - timerInt > 5)
-                accumulator *= 2f;
+                accumulator *= 3;
 
             Tick();
 

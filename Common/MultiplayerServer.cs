@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 
@@ -14,8 +15,8 @@ namespace Multiplayer.Common
     {
         static MultiplayerServer()
         {
-            MultiplayerConnectionState.RegisterState(typeof(ServerWorldState));
-            MultiplayerConnectionState.RegisterState(typeof(ServerPlayingState));
+            MpConnectionState.RegisterState(typeof(ServerWorldState));
+            MpConnectionState.RegisterState(typeof(ServerPlayingState));
         }
 
         public static MultiplayerServer instance;
@@ -39,6 +40,7 @@ namespace Multiplayer.Common
         public IPAddress addr;
         public int port;
         public volatile bool running = true;
+        public bool lan;
 
         private NetManager server;
 
@@ -73,6 +75,9 @@ namespace Multiplayer.Common
 
                 if (timer % 3 == 0)
                     SendToAll(Packets.SERVER_TIME_CONTROL, new object[] { timer });
+
+                if (lan && timer % 120 == 0)
+                    server.SendDiscoveryRequest(Encoding.UTF8.GetBytes("mp-server"), 5100);
 
                 timer += 3;
 
@@ -115,10 +120,12 @@ namespace Multiplayer.Common
 
         public void PeerConnected(NetPeer peer)
         {
-            IConnection conn = new MultiplayerConnection(peer);
+            IConnection conn = new MpConnection(peer);
             peer.Tag = conn;
             conn.State = new ServerWorldState(conn);
             players.Add(new ServerPlayer(conn));
+
+            MpLog.Log("Peer connected " + peer.EndPoint);
         }
 
         public void PeerDisconnected(NetPeer peer, DisconnectInfo info)
@@ -285,7 +292,7 @@ namespace Multiplayer.Common
         }
     }
 
-    public class ServerWorldState : MultiplayerConnectionState
+    public class ServerWorldState : MpConnectionState
     {
         private static Regex UsernamePattern = new Regex(@"^[a-zA-Z0-9_]+$");
 
@@ -377,7 +384,7 @@ namespace Multiplayer.Common
         }
     }
 
-    public class ServerPlayingState : MultiplayerConnectionState
+    public class ServerPlayingState : MpConnectionState
     {
         public ServerPlayingState(IConnection connection) : base(connection)
         {
@@ -497,6 +504,17 @@ namespace Multiplayer.Common
             if (!directoryInfo.Exists)
                 directoryInfo.Create();
             return Path.Combine(worldfolder, username + ".maps");
+        }
+    }
+
+    public class ServerSteamState : MpConnectionState
+    {
+        public ServerSteamState(IConnection connection) : base(connection)
+        {
+        }
+
+        public override void Disconnected(string reason)
+        {
         }
     }
 }

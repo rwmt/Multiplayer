@@ -11,7 +11,7 @@ using System.Text;
 
 namespace Multiplayer.Common
 {
-    public abstract class MultiplayerConnectionState
+    public abstract class MpConnectionState
     {
         public IConnection Connection
         {
@@ -19,7 +19,7 @@ namespace Multiplayer.Common
             private set;
         }
 
-        public MultiplayerConnectionState(IConnection connection)
+        public MpConnectionState(IConnection connection)
         {
             Connection = connection;
         }
@@ -30,7 +30,7 @@ namespace Multiplayer.Common
 
         public static void RegisterState(Type type)
         {
-            if (!(type.IsSubclassOf(typeof(MultiplayerConnectionState)))) return;
+            if (!(type.IsSubclassOf(typeof(MpConnectionState)))) return;
 
             foreach (MethodInfo method in type.GetMethods())
             {
@@ -70,7 +70,7 @@ namespace Multiplayer.Common
     {
         public abstract string Username { get; set; }
         public abstract int Latency { get; set; }
-        public abstract MultiplayerConnectionState State { get; set; }
+        public abstract MpConnectionState State { get; set; }
 
         public abstract void Send(Enum id);
 
@@ -87,13 +87,13 @@ namespace Multiplayer.Common
             int msgId = BitConverter.ToInt32(rawData, 0);
             byte[] msg = rawData.SubArray(4, rawData.Length - 4);
 
-            if (!MultiplayerConnectionState.statePacketHandlers.TryGetValue(State.GetType(), out Dictionary<int, MultiplayerConnectionState.PacketHandler> packets))
+            if (!MpConnectionState.statePacketHandlers.TryGetValue(State.GetType(), out Dictionary<int, MpConnectionState.PacketHandler> packets))
             {
                 MpLog.Log("Unregistered network state!");
                 return false;
             }
 
-            if (!packets.TryGetValue(msgId, out MultiplayerConnectionState.PacketHandler handler))
+            if (!packets.TryGetValue(msgId, out MpConnectionState.PacketHandler handler))
             {
                 MpLog.Log("Packet has no handler! ({0})", msgId);
                 return true;
@@ -114,15 +114,15 @@ namespace Multiplayer.Common
         }
     }
 
-    public class MultiplayerConnection : IConnection
+    public class MpConnection : IConnection
     {
         public override string Username { get; set; }
         public override int Latency { get; set; }
-        public override MultiplayerConnectionState State { get; set; }
+        public override MpConnectionState State { get; set; }
 
         private readonly NetPeer peer;
 
-        public MultiplayerConnection(NetPeer peer)
+        public MpConnection(NetPeer peer)
         {
             this.peer = peer;
         }
@@ -204,9 +204,10 @@ namespace Multiplayer.Common
             stream.Write(bytes);
         }
 
-        public virtual void WriteString(string s)
+        public virtual ByteWriter WriteString(string s)
         {
             WritePrefixedBytes(Encoding.UTF8.GetBytes(s));
+            return this;
         }
 
         public void Write(object obj)

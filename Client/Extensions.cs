@@ -3,6 +3,7 @@ using RimWorld;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEngine;
 using Verse;
 
 namespace Multiplayer.Client
@@ -94,6 +95,24 @@ namespace Multiplayer.Client
         public static void Insert<T>(this List<T> list, int index, params T[] items)
         {
             list.InsertRange(index, items);
+        }
+
+        public static Rect Down(this Rect rect, float y)
+        {
+            rect.y += y;
+            return rect;
+        }
+
+        public static Rect Up(this Rect rect, float y)
+        {
+            rect.y -= y;
+            return rect;
+        }
+
+        public static Rect Right(this Rect rect, float x)
+        {
+            rect.x += x;
+            return rect;
         }
 
     }

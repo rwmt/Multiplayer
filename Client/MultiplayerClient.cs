@@ -36,7 +36,7 @@ namespace Multiplayer.Client
 
             listener.PeerConnectedEvent += peer =>
             {
-                peer.Tag = new MultiplayerConnection(peer);
+                peer.Tag = new MpConnection(peer);
                 OnMainThread.Enqueue(() => connectEvent(peer.GetConnection()));
             };
 
@@ -48,9 +48,6 @@ namespace Multiplayer.Client
                     reason = info.AdditionalData.GetString();
                 else
                     reason = info.Reason + ": " + info.SocketErrorCode;
-
-                netClient.Stop();
-                netClient = null;
 
                 OnMainThread.Enqueue(() => failEvent(reason));
             };
@@ -77,7 +74,7 @@ namespace Multiplayer.Client
 
         public override string Username { get; set; }
         public override int Latency { get; set; }
-        public override MultiplayerConnectionState State { get; set; }
+        public override MpConnectionState State { get; set; }
 
         public override void Send(Enum id)
         {
@@ -119,7 +116,7 @@ namespace Multiplayer.Client
 
         public override string Username { get; set; }
         public override int Latency { get; set; }
-        public override MultiplayerConnectionState State { get; set; }
+        public override MpConnectionState State { get; set; }
 
         public override void Send(Enum id)
         {

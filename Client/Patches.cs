@@ -1,7 +1,9 @@
 ﻿using Harmony;
+using LiteNetLib;
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
+using Steamworks;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -9,6 +11,7 @@ using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml;
 using UnityEngine;
@@ -68,8 +71,7 @@ namespace Multiplayer.Client
     {
     }
 
-    [HarmonyPatch(typeof(MainMenuDrawer))]
-    [HarmonyPatch(nameof(MainMenuDrawer.DoMainMenuControls))]
+    [MpPatch(typeof(MainMenuDrawer), nameof(MainMenuDrawer.DoMainMenuControls))]
     public static class MainMenuMarker
     {
         public static bool drawing;
@@ -101,8 +103,7 @@ namespace Multiplayer.Client
         static void Postfix() => ticking = false;
     }
 
-    [HarmonyPatch(typeof(OptionListingUtility))]
-    [HarmonyPatch(nameof(OptionListingUtility.DrawOptionListing))]
+    [MpPatch(typeof(OptionListingUtility), nameof(OptionListingUtility.DrawOptionListing))]
     public static class MainMenuPatch
     {
         public static Stopwatch time = new Stopwatch();
@@ -117,7 +118,7 @@ namespace Multiplayer.Client
                 if (newColony != -1)
                     optList.Insert(newColony + 1, new ListableOption("Connect to server", () =>
                     {
-                        Find.WindowStack.Add(new ConnectWindow());
+                        Find.WindowStack.Add(new ServerBrowser());
                     }));
             }
 
@@ -407,7 +408,10 @@ namespace Multiplayer.Client
         static bool Prefix()
         {
             Text.Font = GameFont.Small;
-            string text = Find.TickManager.TicksGame + " " + TickPatch.timerInt + " " + TickPatch.tickUntil + " " + (TickPatch.tickUntil - (int)TickPatch.timerInt);
+
+            int timerLag = (TickPatch.tickUntil - (int)TickPatch.timerInt);
+            string text = $"{Find.TickManager.TicksGame} {TickPatch.timerInt} {TickPatch.tickUntil} {timerLag} {Time.deltaTime * 60f}";
+
             Rect rect = new Rect(80f, 60f, 330f, Text.CalcHeight(text, 330f));
             Widgets.Label(rect, text);
 

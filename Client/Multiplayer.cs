@@ -6,6 +6,7 @@ using LiteNetLib;
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
+using Steamworks;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -20,6 +21,7 @@ using UnityEngine;
 using Verse;
 using Verse.Profile;
 using Verse.Sound;
+using Verse.Steam;
 
 namespace Multiplayer.Client
 {
@@ -69,6 +71,11 @@ namespace Multiplayer.Client
         public static bool Ticking => MultiplayerWorldComp.tickingWorld || MapAsyncTimeComp.tickingMap != null || ConstantTicker.ticking;
         public static bool ShouldSync => Client != null && !Ticking && !OnMainThread.executingCmds && !reloading && Current.ProgramState == ProgramState.Playing;
 
+        public static Callback<P2PSessionRequest_t> sessionReqCallback;
+        public static Callback<FriendRichPresenceUpdate_t> friendRchpUpdate;
+        public static Callback<GameRichPresenceJoinRequested_t> gameJoinReq;
+        public static AppId_t RimWorldAppId;
+
         static Multiplayer()
         {
             if (GenCommandLine.CommandLineArgPassed("profiler"))
@@ -84,6 +91,9 @@ namespace Multiplayer.Client
 
             SimpleProfiler.Init(username);
 
+            if (SteamManager.Initialized)
+                InitSteam();
+
             Log.Message("Player's username: " + username);
             Log.Message("Processor: " + SystemInfo.processorType);
 
@@ -91,8 +101,8 @@ namespace Multiplayer.Client
             gameobject.AddComponent<OnMainThread>();
             UnityEngine.Object.DontDestroyOnLoad(gameobject);
 
-            MultiplayerConnectionState.RegisterState(typeof(ClientWorldState));
-            MultiplayerConnectionState.RegisterState(typeof(ClientPlayingState));
+            MpConnectionState.RegisterState(typeof(ClientWorldState));
+            MpConnectionState.RegisterState(typeof(ClientPlayingState));
 
             harmony.DoMpPatches(typeof(HarmonyPatches));
 
@@ -100,9 +110,12 @@ namespace Multiplayer.Client
             harmony.DoMpPatches(typeof(CancelMapManagersUpdate));
             harmony.DoMpPatches(typeof(CancelReinitializationDuringLoading));
 
+            harmony.DoMpPatches(typeof(MainMenuMarker));
+            harmony.DoMpPatches(typeof(MainMenuPatch));
+
             SyncHandlers.Init();
 
-            DoPatches();
+            //DoPatches();
 
             Log.messageQueue.maxMessages = 1000;
             DebugSettings.noAnimals = true;
@@ -133,6 +146,25 @@ namespace Multiplayer.Client
                     });
                 }, "Connecting", false, null);
             }
+        }
+
+        private static void InitSteam()
+        {
+            SteamFriends.GetFriendGamePlayed(SteamUser.GetSteamID(), out FriendGameInfo_t gameInfo);
+            RimWorldAppId = gameInfo.m_gameID.AppID();
+
+            sessionReqCallback = Callback<P2PSessionRequest_t>.Create(req =>
+            {
+                SteamNetworking.AcceptP2PSessionWithUser(req.m_steamIDRemote);
+            });
+
+            friendRchpUpdate = Callback<FriendRichPresenceUpdate_t>.Create(update =>
+            {
+            });
+
+            gameJoinReq = Callback<GameRichPresenceJoinRequested_t>.Create(req =>
+            {
+            });
         }
 
         public static XmlDocument SaveAndReload()
@@ -504,7 +536,7 @@ namespace Multiplayer.Client
         public override string SettingsCategory() => "Multiplayer";
     }
 
-    public class ClientWorldState : MultiplayerConnectionState
+    public class ClientWorldState : MpConnectionState
     {
         public ClientWorldState(IConnection connection) : base(connection)
         {
@@ -609,7 +641,7 @@ namespace Multiplayer.Client
 
             while (TickPatch.Timer < TickPatch.tickUntil)
             {
-                TickPatch.accumulator = 100;
+                TickPatch.accumulator = Math.Min(100, TickPatch.tickUntil - TickPatch.Timer);
 
                 SimpleProfiler.Start();
                 Multiplayer.simulating = true;
@@ -649,7 +681,7 @@ namespace Multiplayer.Client
         }
     }
 
-    public class ClientPlayingState : MultiplayerConnectionState
+    public class ClientPlayingState : MpConnectionState
     {
         public ClientPlayingState(IConnection connection) : base(connection)
         {
@@ -719,13 +751,16 @@ namespace Multiplayer.Client
         public override void Disconnected(string reason)
         {
         }
+    }
 
-        // Currently covers:
-        // - settling after joining
-        public static void SyncClientWorldObj(WorldObject obj)
+    public class ClientSteamState : MpConnectionState
+    {
+        public ClientSteamState(IConnection connection) : base(connection)
         {
-            //byte[] data = ScribeUtil.WriteExposable(obj);
-            //Multiplayer.client.Send(Packets.CLIENT_NEW_WORLD_OBJ, data);
+        }
+
+        public override void Disconnected(string reason)
+        {
         }
     }
 
@@ -743,6 +778,13 @@ namespace Multiplayer.Client
             Multiplayer.session?.netClient?.PollEvents();
 
             queue.RunQueue();
+
+            if (SteamManager.Initialized && SteamNetworking.IsP2PPacketAvailable(out uint size))
+            {
+                byte[] data = new byte[size];
+                SteamNetworking.ReadP2PPacket(data, size, out uint sizeRead, out CSteamID remote);
+                Log.Message("packet from " + remote + " " + sizeRead);
+            }
 
             if (Multiplayer.Client == null) return;
 
@@ -779,6 +821,11 @@ namespace Multiplayer.Client
             {
                 Multiplayer.session.Stop();
                 Multiplayer.session = null;
+            }
+
+            if (Find.WindowStack != null)
+            {
+                Find.WindowStack.WindowOfType<ServerBrowser>()?.PostClose();
             }
 
             Sync.bufferedChanges.Clear();

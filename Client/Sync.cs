@@ -1346,11 +1346,12 @@ namespace Multiplayer.Client
             LogExit();
         }
 
-        public override void WriteString(string s)
+        public override ByteWriter WriteString(string s)
         {
             LogEnter("string: " + s);
             base.WriteString(s);
             LogExit();
+            return this;
         }
 
         public LogNode LogNode(string text)

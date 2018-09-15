@@ -36,6 +36,10 @@
       <HintPath>..\..\..\..\0Harmony.dll</HintPath>
       <Private>True</Private>
     </Reference>
+    <Reference Include="Assembly-CSharp-firstpass">
+      <HintPath>..\..\..\..\RimWorldWin64_Data\Managed\Assembly-CSharp-firstpass.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
     <Reference Include="Assembly-CSharp_public">
       <HintPath>..\..\..\..\RimWorldWin64_Data\Managed\Assembly-CSharp_public.dll</HintPath>
       <Private>False</Private>
