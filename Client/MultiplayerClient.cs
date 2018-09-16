@@ -1,12 +1,9 @@
 ﻿using LiteNetLib;
-using Multiplayer;
 using Multiplayer.Common;
+using Steamworks;
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net;
-using System.Net.Sockets;
-using System.Text;
+using Verse;
 
 namespace Multiplayer.Client
 {
@@ -25,7 +22,7 @@ namespace Multiplayer.Client
             connectEvent += conn =>
             {
                 conn.Username = Multiplayer.username;
-                conn.State = new ClientWorldState(conn);
+                conn.State = new ClientJoiningState(conn);
                 Multiplayer.session.client = conn;
             };
 
@@ -36,7 +33,7 @@ namespace Multiplayer.Client
 
             listener.PeerConnectedEvent += peer =>
             {
-                peer.Tag = new MpConnection(peer);
+                peer.Tag = new MpNetConnection(peer);
                 OnMainThread.Enqueue(() => connectEvent(peer.GetConnection()));
             };
 
@@ -73,31 +70,17 @@ namespace Multiplayer.Client
         }
 
         public override string Username { get; set; }
-        public override int Latency { get; set; }
+        public override int Latency { get => 0; set { } }
         public override MpConnectionState State { get; set; }
 
-        public override void Send(Enum id)
+        public override void SendRaw(byte[] raw)
         {
-            Send(id, new byte[0]);
-        }
+            void run() => server.HandleReceive(raw);
 
-        public override void Send(Enum id, params object[] msg)
-        {
-            Send(id, ByteWriter.GetBytes(msg));
-        }
-
-        public override void Send(Enum id, byte[] message)
-        {
-            byte[] full = new byte[4 + message.Length];
-            BitConverter.GetBytes(Convert.ToInt32(id)).CopyTo(full, 0);
-            message.CopyTo(full, 4);
-
-            server.HandleReceive(full);
-        }
-
-        public override void HandleReceive(byte[] data)
-        {
-            HandleMsg(data);
+            if (UnityData.IsInMainThread)
+                run();
+            else
+                OnMainThread.Enqueue(run);
         }
 
         public override void Close(string reason)
@@ -115,35 +98,51 @@ namespace Multiplayer.Client
         }
 
         public override string Username { get; set; }
-        public override int Latency { get; set; }
+        public override int Latency { get => 0; set { } }
         public override MpConnectionState State { get; set; }
 
-        public override void Send(Enum id)
+        public override void SendRaw(byte[] raw)
         {
-            Send(id, new byte[0]);
-        }
+            void run() => client.HandleReceive(raw);
 
-        public override void Send(Enum id, params object[] msg)
-        {
-            Send(id, ByteWriter.GetBytes(msg));
-        }
-
-        public override void Send(Enum id, byte[] message)
-        {
-            byte[] full = new byte[4 + message.Length];
-            BitConverter.GetBytes(Convert.ToInt32(id)).CopyTo(full, 0);
-            message.CopyTo(full, 4);
-
-            client.HandleReceive(full);
-        }
-
-        public override void HandleReceive(byte[] data)
-        {
-            HandleMsg(data);
+            if (UnityData.IsInMainThread)
+                run();
+            else
+                OnMainThread.Enqueue(run);
         }
 
         public override void Close(string reason)
         {
         }
     }
+
+    public class SteamConnection : IConnection
+    {
+        public override string Username { get; set; }
+        public override int Latency { get; set; }
+        public override MpConnectionState State { get; set; }
+
+        public readonly CSteamID remoteId;
+
+        public SteamConnection(CSteamID remoteId)
+        {
+            this.remoteId = remoteId;
+        }
+
+        public override void SendRaw(byte[] raw)
+        {
+            SteamNetworking.SendP2PPacket(remoteId, raw, (uint)raw.Length, EP2PSend.k_EP2PSendReliable);
+        }
+
+        public override void Close(string reason)
+        {
+            SteamNetworking.CloseP2PSessionWithUser(remoteId);
+        }
+
+        public override string ToString()
+        {
+            return "SteamP2P to " + remoteId;
+        }
+    }
+
 }

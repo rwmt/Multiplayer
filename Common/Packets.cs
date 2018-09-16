@@ -1,6 +1,6 @@
 ﻿namespace Multiplayer.Common
 {
-    public enum Packets
+    public enum Packets : byte
     {
         CLIENT_USERNAME,
         CLIENT_REQUEST_WORLD,
@@ -8,11 +8,11 @@
         CLIENT_COMMAND,
         CLIENT_AUTOSAVED_DATA,
         CLIENT_ENCOUNTER_REQUEST,
-        CLIENT_MAP_LOADED,
         CLIENT_ID_BLOCK_REQUEST,
         CLIENT_MAP_STATE_DEBUG,
         CLIENT_CHAT,
         CLIENT_KEEP_ALIVE,
+        CLIENT_STEAM_REQUEST,
 
         SERVER_WORLD_DATA,
         SERVER_COMMAND,
@@ -21,6 +21,7 @@
         SERVER_TIME_CONTROL,
         SERVER_CHAT,
         SERVER_PLAYER_LIST,
-        SERVER_KEEP_ALIVE
+        SERVER_KEEP_ALIVE,
+        SERVER_STEAM_ACCEPT
     }
 }

@@ -8,6 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Net;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
@@ -107,6 +108,7 @@ namespace Multiplayer.Client
     public static class MainMenuPatch
     {
         public static Stopwatch time = new Stopwatch();
+        static int state;
 
         static void Prefix(Rect rect, List<ListableOption> optList)
         {
@@ -396,8 +398,6 @@ namespace Multiplayer.Client
             Current.Game.InitData = null;
 
             Log.Message("New map: " + visibleMap.GetUniqueLoadID());
-
-            ClientPlayingState.SyncClientWorldObj(settlement);
         }
     }
 
@@ -441,11 +441,14 @@ namespace Multiplayer.Client
                 Widgets.Label(rect1, text1);
             }
 
-            if (Widgets.ButtonText(new Rect(Screen.width - 60f, 10f, 50f, 25f), "Chat"))
-                Find.WindowStack.Add(Multiplayer.Chat);
+            if (Multiplayer.session != null)
+            {
+                if (Widgets.ButtonText(new Rect(Screen.width - 60f, 10f, 50f, 25f), "Chat"))
+                    Find.WindowStack.Add(Multiplayer.Chat);
 
-            if (Widgets.ButtonText(new Rect(Screen.width - 60f, 35f, 50f, 25f), "Packets"))
-                Find.WindowStack.Add(Multiplayer.PacketLog);
+                if (Widgets.ButtonText(new Rect(Screen.width - 60f, 35f, 50f, 25f), "Packets"))
+                    Find.WindowStack.Add(Multiplayer.PacketLog);
+            }
 
             return Find.Maps.Count > 0;
         }

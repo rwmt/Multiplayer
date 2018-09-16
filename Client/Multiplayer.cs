@@ -15,6 +15,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Reflection;
+using System.Text;
 using System.Threading;
 using System.Xml;
 using UnityEngine;
@@ -36,7 +37,7 @@ namespace Multiplayer.Client
         public static ChatWindow Chat => session?.chat;
         public static PacketLogWindow PacketLog => session?.packetLog;
 
-        public static String username;
+        public static string username;
         public static HarmonyInstance harmony = HarmonyInstance.Create("multiplayer");
 
         public static bool reloading;
@@ -72,9 +73,13 @@ namespace Multiplayer.Client
         public static bool ShouldSync => Client != null && !Ticking && !OnMainThread.executingCmds && !reloading && Current.ProgramState == ProgramState.Playing;
 
         public static Callback<P2PSessionRequest_t> sessionReqCallback;
+        public static Callback<P2PSessionConnectFail_t> p2pFail;
         public static Callback<FriendRichPresenceUpdate_t> friendRchpUpdate;
         public static Callback<GameRichPresenceJoinRequested_t> gameJoinReq;
+        public static Callback<PersonaStateChange_t> personaChange;
         public static AppId_t RimWorldAppId;
+
+        public const string SteamConnectStart = " -mpserver=";
 
         static Multiplayer()
         {
@@ -101,7 +106,8 @@ namespace Multiplayer.Client
             gameobject.AddComponent<OnMainThread>();
             UnityEngine.Object.DontDestroyOnLoad(gameobject);
 
-            MpConnectionState.RegisterState(typeof(ClientWorldState));
+            MpConnectionState.RegisterState(typeof(ClientSteamState));
+            MpConnectionState.RegisterState(typeof(ClientJoiningState));
             MpConnectionState.RegisterState(typeof(ClientPlayingState));
 
             harmony.DoMpPatches(typeof(HarmonyPatches));
@@ -115,7 +121,7 @@ namespace Multiplayer.Client
 
             SyncHandlers.Init();
 
-            //DoPatches();
+            DoPatches();
 
             Log.messageQueue.maxMessages = 1000;
             DebugSettings.noAnimals = true;
@@ -155,7 +161,11 @@ namespace Multiplayer.Client
 
             sessionReqCallback = Callback<P2PSessionRequest_t>.Create(req =>
             {
-                SteamNetworking.AcceptP2PSessionWithUser(req.m_steamIDRemote);
+                if (session != null && session.allowSteam && !session.pendingSteam.Contains(req.m_steamIDRemote))
+                {
+                    session.pendingSteam.Add(req.m_steamIDRemote);
+                    SteamFriends.RequestUserInformation(req.m_steamIDRemote, true);
+                }
             });
 
             friendRchpUpdate = Callback<FriendRichPresenceUpdate_t>.Create(update =>
@@ -164,6 +174,26 @@ namespace Multiplayer.Client
 
             gameJoinReq = Callback<GameRichPresenceJoinRequested_t>.Create(req =>
             {
+            });
+
+            personaChange = Callback<PersonaStateChange_t>.Create(change =>
+            {
+            });
+
+            p2pFail = Callback<P2PSessionConnectFail_t>.Create(fail =>
+            {
+                if (session == null) return;
+
+                CSteamID remoteId = fail.m_steamIDRemote;
+
+                if (Client is SteamConnection clientConn && clientConn.remoteId == remoteId)
+                    OnMainThread.StopMultiplayer();
+
+                if (LocalServer == null) return;
+
+                ServerPlayer player = LocalServer.players.Find(p => p.connection is SteamConnection conn && conn.remoteId == remoteId);
+                if (player != null)
+                    LocalServer.OnDisconnected(player.connection, null);
             });
         }
 
@@ -452,6 +482,9 @@ namespace Multiplayer.Client
         public PacketLogWindow packetLog = new PacketLogWindow();
         public int myFactionId;
 
+        public bool allowSteam;
+        public List<CSteamID> pendingSteam = new List<CSteamID>();
+
         public MultiplayerServer localServer;
         public Thread serverThread;
 
@@ -536,9 +569,9 @@ namespace Multiplayer.Client
         public override string SettingsCategory() => "Multiplayer";
     }
 
-    public class ClientWorldState : MpConnectionState
+    public class ClientJoiningState : MpConnectionState
     {
-        public ClientWorldState(IConnection connection) : base(connection)
+        public ClientJoiningState(IConnection connection) : base(connection)
         {
             connection.Send(Packets.CLIENT_USERNAME, Multiplayer.username);
             connection.Send(Packets.CLIENT_REQUEST_WORLD);
@@ -583,10 +616,13 @@ namespace Multiplayer.Client
                 mapIds.Add(mapId);
             }
 
-            ReloadGame(tickUntil, mapIds);
+            ReloadGame(tickUntil, mapIds, () =>
+            {
+                Multiplayer.Client.Send(Packets.CLIENT_WORLD_LOADED);
+            });
         }
 
-        public static void ReloadGame(int tickUntil, List<int> maps)
+        public static void ReloadGame(int tickUntil, List<int> maps, Action done = null)
         {
             XmlDocument gameDoc = ScribeUtil.GetDocument(OnMainThread.cachedGameData);
             XmlNode gameNode = gameDoc.DocumentElement["game"];
@@ -615,10 +651,7 @@ namespace Multiplayer.Client
 
                 LongEventHandler.ExecuteWhenFinished(() =>
                 {
-                    LongEventHandler.QueueLongEvent(CatchUp(() =>
-                    {
-                        Multiplayer.Client.Send(Packets.CLIENT_WORLD_LOADED);
-                    }), "Loading", null);
+                    LongEventHandler.QueueLongEvent(CatchUp(done), "Loading", null);
                 });
             }, "Play", "Loading the game", true, null);
         }
@@ -670,12 +703,6 @@ namespace Multiplayer.Client
             finishAction();
         }
 
-        [PacketHandler(Packets.SERVER_COMMAND)]
-        public void HandleCommand(ByteReader data)
-        {
-            OnMainThread.ScheduleCommand(ScheduledCommand.Deserialize(data));
-        }
-
         public override void Disconnected(string reason)
         {
         }
@@ -694,6 +721,13 @@ namespace Multiplayer.Client
             TickPatch.tickUntil = tickUntil;
         }
 
+        [PacketHandler(Packets.SERVER_KEEP_ALIVE)]
+        public void HandleKeepAlive(ByteReader data)
+        {
+            int id = data.ReadInt32();
+            Connection.Send(Packets.CLIENT_KEEP_ALIVE, id);
+        }
+
         [PacketHandler(Packets.SERVER_COMMAND)]
         public void HandleCommand(ByteReader data)
         {
@@ -703,8 +737,8 @@ namespace Multiplayer.Client
         [PacketHandler(Packets.SERVER_PLAYER_LIST)]
         public void HandlePlayerList(ByteReader data)
         {
-            string[] players = data.ReadPrefixedStrings();
-            Multiplayer.Chat.playerList = players;
+            string[] playerList = data.ReadPrefixedStrings();
+            Multiplayer.Chat.playerList = playerList;
         }
 
         [PacketHandler(Packets.SERVER_CHAT)]
@@ -731,7 +765,7 @@ namespace Multiplayer.Client
             byte[] mapData = GZipStream.UncompressBuffer(data.ReadPrefixedBytes());
             OnMainThread.cachedMapData[mapId] = mapData;
 
-            ClientWorldState.ReloadGame(TickPatch.tickUntil, Find.Maps.Select(m => m.uniqueID).Concat(mapId).ToList());
+            ClientJoiningState.ReloadGame(TickPatch.tickUntil, Find.Maps.Select(m => m.uniqueID).Concat(mapId).ToList());
             // todo Multiplayer.client.Send(Packets.CLIENT_MAP_LOADED);
         }
 
@@ -740,12 +774,6 @@ namespace Multiplayer.Client
         {
             string msg = data.ReadString();
             Messages.Message(msg, MessageTypeDefOf.SilentInput);
-        }
-
-        [PacketHandler(Packets.SERVER_KEEP_ALIVE)]
-        public void HandleKeepAlive(ByteReader data)
-        {
-            Multiplayer.Client.Send(Packets.CLIENT_KEEP_ALIVE, new byte[0]);
         }
 
         public override void Disconnected(string reason)
@@ -757,6 +785,13 @@ namespace Multiplayer.Client
     {
         public ClientSteamState(IConnection connection) : base(connection)
         {
+            connection.Send(Packets.CLIENT_STEAM_REQUEST);
+        }
+
+        [PacketHandler(Packets.SERVER_STEAM_ACCEPT)]
+        public void HandleSteamAccept(ByteReader data)
+        {
+            Connection.State = new ClientJoiningState(Connection);
         }
 
         public override void Disconnected(string reason)
@@ -779,16 +814,46 @@ namespace Multiplayer.Client
 
             queue.RunQueue();
 
-            if (SteamManager.Initialized && SteamNetworking.IsP2PPacketAvailable(out uint size))
+            if (Multiplayer.Client == null) return;
+
+            if (SteamManager.Initialized)
+                UpdateSteam();
+
+            UpdateSync();
+        }
+
+        private Stopwatch lastSteamUpdate = Stopwatch.StartNew();
+
+        private void UpdateSteam()
+        {
+            if (lastSteamUpdate.ElapsedMilliseconds > 1000)
+            {
+                if (Multiplayer.session.allowSteam)
+                    SteamFriends.SetRichPresence("connect", Multiplayer.SteamConnectStart + "" + SteamUser.GetSteamID());
+                else
+                    SteamFriends.SetRichPresence("connect", null);
+
+                lastSteamUpdate.Restart();
+            }
+
+            while (SteamNetworking.IsP2PPacketAvailable(out uint size))
             {
                 byte[] data = new byte[size];
                 SteamNetworking.ReadP2PPacket(data, size, out uint sizeRead, out CSteamID remote);
-                Log.Message("packet from " + remote + " " + sizeRead);
+                HandleSteamPacket(remote, data);
             }
+        }
 
-            if (Multiplayer.Client == null) return;
+        private void HandleSteamPacket(CSteamID remote, byte[] data)
+        {
+            if (Multiplayer.Client is SteamConnection localConn && localConn.remoteId == remote)
+                localConn.HandleReceive(data);
 
-            UpdateSync();
+            if (Multiplayer.LocalServer == null) return;
+
+            ServerPlayer player = Multiplayer.LocalServer.players.Find(p => p.connection is SteamConnection conn && conn.remoteId == remote);
+            if (player != null)
+                player.connection.HandleReceive(data);
         }
 
         private void UpdateSync()

@@ -18,7 +18,7 @@ namespace Multiplayer.Client
 
         public static int Timer => (int)timerInt;
 
-        public static float accumulator;
+        public static double accumulator;
         public static double timerInt;
         public static int tickUntil;
 
@@ -39,7 +39,7 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.Client == null) return true;
 
-            float delta = Time.deltaTime * 60f;
+            double delta = Time.deltaTime * 60f;
             if (delta > 3f)
                 delta = 3f;
 
@@ -47,8 +47,8 @@ namespace Multiplayer.Client
 
             if (Timer >= tickUntil)
                 accumulator = 0;
-            else if (delta < 1.5f && tickUntil - timerInt > 5)
-                accumulator *= 3;
+            else if (delta < 1.5f && tickUntil - timerInt > 8)
+                accumulator += Math.Min(100, tickUntil - timerInt - 8);
 
             Tick();
 
@@ -94,6 +94,9 @@ namespace Multiplayer.Client
 
                 accumulator -= TimeStep;
                 timerInt += TimeStep;
+
+                if (Timer >= tickUntil)
+                    accumulator = 0;
             }
         }
     }

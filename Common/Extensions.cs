@@ -2,6 +2,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -73,6 +74,12 @@ namespace Multiplayer.Common
         {
             return Attribute.GetCustomAttributes(member, typeof(T)).Cast<T>();
         }
+
+        public static void Restart(this Stopwatch watch)
+        {
+            watch.Reset();
+            watch.Start();
+        }
     }
 
     public static class EnumerableHelper
@@ -122,4 +129,5 @@ namespace Multiplayer.Common
             parent.AppendChild(node);
         }
     }
+
 }

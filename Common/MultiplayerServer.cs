@@ -15,7 +15,8 @@ namespace Multiplayer.Common
     {
         static MultiplayerServer()
         {
-            MpConnectionState.RegisterState(typeof(ServerWorldState));
+            MpConnectionState.RegisterState(typeof(ServerSteamState));
+            MpConnectionState.RegisterState(typeof(ServerJoiningState));
             MpConnectionState.RegisterState(typeof(ServerPlayingState));
         }
 
@@ -31,6 +32,7 @@ namespace Multiplayer.Common
         public Dictionary<string, int> playerFactions = new Dictionary<string, int>(); // Username to faction id
 
         public List<ServerPlayer> players = new List<ServerPlayer>();
+        public IEnumerable<ServerPlayer> PlayingPlayers => players.Where(p => p.IsPlaying);
 
         public int timer;
         public ActionQueue queue = new ActionQueue();
@@ -40,7 +42,10 @@ namespace Multiplayer.Common
         public IPAddress addr;
         public int port;
         public volatile bool running = true;
-        public bool lan;
+        public bool allowLan;
+
+        public int keepAliveId;
+        public Stopwatch lastKeepAlive = Stopwatch.StartNew();
 
         private NetManager server;
 
@@ -54,9 +59,9 @@ namespace Multiplayer.Common
             EventBasedNetListener listener = new EventBasedNetListener();
             server = new NetManager(listener, 32, "");
 
-            listener.PeerConnectedEvent += peer => Enqueue(() => PeerConnected(peer));
-            listener.PeerDisconnectedEvent += (peer, info) => Enqueue(() => PeerDisconnected(peer, info));
-            listener.NetworkLatencyUpdateEvent += (peer, latency) => Enqueue(() => UpdateLatency(peer, latency));
+            listener.PeerConnectedEvent += peer => Enqueue(() => NetPeerConnected(peer));
+            listener.PeerDisconnectedEvent += (peer, info) => Enqueue(() => NetPeerDisconnected(peer, info));
+            listener.NetworkLatencyUpdateEvent += (peer, ping) => Enqueue(() => NetPeerUpdateLatency(peer, ping));
 
             listener.NetworkReceiveEvent += (peer, reader) =>
             {
@@ -67,27 +72,49 @@ namespace Multiplayer.Common
 
         public void Run()
         {
+            Stopwatch time = Stopwatch.StartNew();
+            double lag = 0;
+            double timePerTick = 1000.0 / 60.0;
+
             while (running)
             {
-                server.PollEvents();
+                double elapsed = time.ElapsedTicks * 1000.0 / Stopwatch.Frequency;
+                time.Restart();
+                lag += elapsed;
 
-                queue.RunQueue();
+                while (lag >= timePerTick)
+                {
+                    Tick();
+                    lag -= timePerTick;
+                }
 
-                if (timer % 3 == 0)
-                    SendToAll(Packets.SERVER_TIME_CONTROL, new object[] { timer });
-
-                if (lan && timer % 120 == 0)
-                    server.SendDiscoveryRequest(Encoding.UTF8.GetBytes("mp-server"), 5100);
-
-                timer += 3;
-
-                if (timer % 180 == 0)
-                    UpdatePlayerList();
-
-                Thread.Sleep(50); // 3 game ticks
+                Thread.Sleep(10);
             }
 
             server.Stop();
+        }
+
+        public void Tick()
+        {
+            server.PollEvents();
+            queue.RunQueue();
+
+            if (timer % 3 == 0)
+                SendToAll(Packets.SERVER_TIME_CONTROL, new object[] { timer });
+
+            if (allowLan && timer % 60 == 0)
+                server.SendDiscoveryRequest(Encoding.UTF8.GetBytes("mp-server"), 5100);
+
+            timer++;
+
+            if (timer % 180 == 0)
+            {
+                UpdatePlayerList();
+
+                keepAliveId++;
+                SendToAll(Packets.SERVER_KEEP_ALIVE, new object[] { keepAliveId });
+                lastKeepAlive.Restart();
+            }
         }
 
         public void StartListening()
@@ -109,7 +136,10 @@ namespace Multiplayer.Common
 
         public void UpdatePlayerList()
         {
-            string[] playerList = players.Select(player => $"{player.Username} ({player.Latency})").ToArray();
+            string[] playerList = PlayingPlayers.
+                Select(p => $"{p.Username} ({p.Latency}ms)")
+                .ToArray();
+
             SendToAll(Packets.SERVER_PLAYER_LIST, new object[] { playerList });
         }
 
@@ -118,21 +148,34 @@ namespace Multiplayer.Common
             queue.Enqueue(action);
         }
 
-        public void PeerConnected(NetPeer peer)
+        public void NetPeerUpdateLatency(NetPeer peer, int ping)
         {
-            IConnection conn = new MpConnection(peer);
-            peer.Tag = conn;
-            conn.State = new ServerWorldState(conn);
-            players.Add(new ServerPlayer(conn));
-
-            MpLog.Log("Peer connected " + peer.EndPoint);
+            peer.GetConnection().Latency = ping;
         }
 
-        public void PeerDisconnected(NetPeer peer, DisconnectInfo info)
+        public void NetPeerConnected(NetPeer peer)
+        {
+            IConnection conn = new MpNetConnection(peer);
+            conn.State = new ServerJoiningState(conn);
+            peer.Tag = conn;
+            OnConnected(conn);
+        }
+
+        public void OnConnected(IConnection conn)
+        {
+            players.Add(new ServerPlayer(conn));
+            MpLog.Log($"New connection: {conn}");
+        }
+
+        public void NetPeerDisconnected(NetPeer peer, DisconnectInfo info)
         {
             IConnection conn = peer.GetConnection();
-            ServerPlayer player = players.Find(p => p.connection == conn);
+            OnDisconnected(conn, null); // todo reason
+        }
 
+        public void OnDisconnected(IConnection conn, string reason)
+        {
+            ServerPlayer player = players.Find(p => p.connection == conn);
             players.Remove(player);
 
             if (!players.Any(p => p.FactionId == player.FactionId))
@@ -143,6 +186,8 @@ namespace Multiplayer.Common
 
             SendToAll(Packets.SERVER_NOTIFICATION, new object[] { "Player " + conn.Username + " disconnected." });
             UpdatePlayerList();
+
+            MpLog.Log($"Disconnected: " + conn);
         }
 
         public void MessageReceived(NetPeer peer, byte[] data)
@@ -157,15 +202,20 @@ namespace Multiplayer.Common
             conn.Latency = latency;
         }
 
-        public void SendToAll(Enum id, byte[] data)
+        public void SendToAll(Packets id)
         {
-            foreach (ServerPlayer player in players)
-                player.connection.Send(id, data);
+            SendToAll(id, new byte[0]);
         }
 
-        public void SendToAll(Enum id, object[] data)
+        public void SendToAll(Packets id, object[] data)
         {
             SendToAll(id, ByteWriter.GetBytes(data));
+        }
+
+        public void SendToAll(Packets id, byte[] data)
+        {
+            foreach (ServerPlayer player in PlayingPlayers)
+                player.connection.Send(id, data);
         }
 
         public ServerPlayer GetPlayer(string username)
@@ -204,6 +254,7 @@ namespace Multiplayer.Common
         public string Username => connection.Username;
         public int Latency => connection.Latency;
         public int FactionId => MultiplayerServer.instance.playerFactions[Username];
+        public bool IsPlaying => connection?.State?.GetType() == typeof(ServerPlayingState);
 
         public ServerPlayer(IConnection connection)
         {
@@ -282,21 +333,11 @@ namespace Multiplayer.Common
         }
     }
 
-    public class PacketHandlerAttribute : Attribute
-    {
-        public readonly object packet;
-
-        public PacketHandlerAttribute(object packet)
-        {
-            this.packet = packet;
-        }
-    }
-
-    public class ServerWorldState : MpConnectionState
+    public class ServerJoiningState : MpConnectionState
     {
         private static Regex UsernamePattern = new Regex(@"^[a-zA-Z0-9_]+$");
 
-        public ServerWorldState(IConnection connection) : base(connection)
+        public ServerJoiningState(IConnection connection) : base(connection)
         {
         }
 
@@ -367,16 +408,11 @@ namespace Multiplayer.Common
             }
 
             byte[] packetData = writer.GetArray();
+
+            Connection.State = new ServerPlayingState(Connection);
             Connection.Send(Packets.SERVER_WORLD_DATA, packetData);
 
             MpLog.Log("World response sent: " + packetData.Length + " " + globalCmds.Count);
-        }
-
-        [PacketHandler(Packets.CLIENT_WORLD_LOADED)]
-        public void HandleWorldLoaded(ByteReader data)
-        {
-            Connection.State = new ServerPlayingState(Connection);
-            MultiplayerServer.instance.UpdatePlayerList();
         }
 
         public override void Disconnected(string reason)
@@ -387,6 +423,11 @@ namespace Multiplayer.Common
     public class ServerPlayingState : MpConnectionState
     {
         public ServerPlayingState(IConnection connection) : base(connection)
+        {
+        }
+
+        [PacketHandler(Packets.CLIENT_WORLD_LOADED)]
+        public void HandleWorldLoaded(ByteReader data)
         {
         }
 
@@ -466,10 +507,17 @@ namespace Multiplayer.Common
             }
         }
 
-        [PacketHandler(Packets.CLIENT_MAP_LOADED)]
-        public void HandleMapLoaded(ByteReader data)
+        [PacketHandler(Packets.CLIENT_KEEP_ALIVE)]
+        public void HandleClientKeepAlive(ByteReader data)
         {
-            // todo
+            // Ping already handled by LiteNetLib
+            if (Connection is MpNetConnection) return;
+
+            int id = data.ReadInt32();
+            if (MultiplayerServer.instance.keepAliveId == id)
+                Connection.Latency = (int)MultiplayerServer.instance.lastKeepAlive.ElapsedMilliseconds / 2;
+            else
+                Connection.Latency = 2000;
         }
 
         public void OnMessage(Packets packet, ByteReader data)
@@ -511,6 +559,13 @@ namespace Multiplayer.Common
     {
         public ServerSteamState(IConnection connection) : base(connection)
         {
+        }
+
+        [PacketHandler(Packets.CLIENT_STEAM_REQUEST)]
+        public void HandleSteamRequest(ByteReader data)
+        {
+            Connection.State = new ServerJoiningState(Connection);
+            Connection.Send(Packets.SERVER_STEAM_ACCEPT);
         }
 
         public override void Disconnected(string reason)

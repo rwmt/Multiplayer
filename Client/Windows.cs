@@ -28,7 +28,9 @@ namespace Multiplayer.Client
 
         private static readonly Texture2D SelectedMsg = SolidColorMaterials.NewSolidColorTexture(new Color(0.17f, 0.17f, 0.17f, 0.85f));
 
-        private Vector2 scrollPos;
+        private Vector2 chatScroll;
+        private Vector2 playerListScroll;
+        private Vector2 steamScroll;
         private float messagesHeight;
         private List<ChatMsg> messages = new List<ChatMsg>();
         private string currentMsg = "";
@@ -46,6 +48,7 @@ namespace Multiplayer.Client
             doCloseX = true;
             closeOnClickedOutside = false;
             closeOnAccept = false;
+            resizeable = true;
         }
 
         public override void DoWindowContents(Rect inRect)
@@ -61,48 +64,133 @@ namespace Multiplayer.Client
                 }
             }
 
-            Rect chat = new Rect(inRect.x, inRect.y, inRect.width - 120f, inRect.height);
+            float infoWidth = 140f;
+            Rect chat = new Rect(inRect.x, inRect.y, inRect.width - infoWidth - 10f, inRect.height);
             DrawChat(chat);
 
-            Rect info = new Rect(chat);
-            info.x = chat.xMax + 10f;
-            DrawInfo(info);
+            GUI.BeginGroup(new Rect(chat.xMax + 10f, chat.y, infoWidth, inRect.height));
+            DrawInfo(new Rect(0, 0, infoWidth, inRect.height));
+            GUI.EndGroup();
         }
 
-        public void DrawInfo(Rect rect)
+        private void DrawInfo(Rect inRect)
         {
-            GUI.color = new Color(1, 1, 1, 0.8f);
+            DrawOptions(ref inRect);
 
-            if (Event.current.type == EventType.repaint)
+            Widgets.Label(inRect, Multiplayer.Client != null ? "Connected" : "Not connected");
+            inRect.yMin += 30f;
+
+            DrawList($"Players ({playerList.Length}):", playerList, ref inRect, ref playerListScroll, index =>
             {
-                StringBuilder builder = new StringBuilder();
+                if (Event.current.button == 1)
+                    Find.WindowStack.Add(new FloatMenu(new List<FloatMenuOption>()
+                    {
+                        new FloatMenuOption("Kick", () =>
+                        {
+                            // todo
+                        })
+                    }));
+            });
 
-                builder.Append(Multiplayer.Client != null ? "Connected" : "Not connected").Append("\n");
+            inRect.yMin += 10f;
 
-                if (playerList.Length > 0)
-                {
-                    builder.Append("\nPlayers (").Append(playerList.Length).Append("):\n");
-                    builder.Append(String.Join("\n", playerList));
-                }
+            List<string> names = Multiplayer.session.pendingSteam.Select(SteamFriends.GetFriendPersonaName).ToList();
+            DrawList("Accept Steam players", names, ref inRect, ref steamScroll, AcceptSteamPlayer, true);
+        }
 
-                Widgets.Label(rect, builder.ToString());
+        private void DrawOptions(ref Rect inRect)
+        {
+            {
+                Rect optionsRect = new Rect(0, inRect.yMax - 20, inRect.width, 20);
+                Widgets.CheckboxLabeled(optionsRect, "Allow Steam", ref Multiplayer.session.allowSteam);
+                inRect.yMax -= 20;
+            }
+
+            if (Multiplayer.LocalServer != null)
+            {
+                Rect optionsRect = new Rect(0, inRect.yMax - 20, inRect.width, 20);
+                Widgets.CheckboxLabeled(optionsRect, "Allow LAN", ref Multiplayer.LocalServer.allowLan);
+                inRect.yMax -= 20;
             }
         }
 
-        public void DrawChat(Rect rect)
+        private void AcceptSteamPlayer(int index)
         {
-            Rect outRect = new Rect(0f, 0f, rect.width, rect.height - 30f);
-            Rect viewRect = new Rect(0f, 0f, rect.width - 16f, messagesHeight + 10f);
+            CSteamID remoteId = Multiplayer.session.pendingSteam[index];
+
+            IConnection conn = new SteamConnection(remoteId);
+            conn.State = new ServerSteamState(conn);
+            Multiplayer.LocalServer.OnConnected(conn);
+
+            SteamNetworking.AcceptP2PSessionWithUser(remoteId);
+            Multiplayer.session.pendingSteam.RemoveAt(index);
+        }
+
+        private void DrawList(string label, IList<string> entries, ref Rect inRect, ref Vector2 scroll, Action<int> click = null, bool hideNullOrEmpty = false)
+        {
+            if (hideNullOrEmpty && !entries.Any(s => !s.NullOrEmpty())) return;
+
+            Widgets.Label(inRect, label);
+            inRect.yMin += 20f;
+
+            float entryHeight = Text.LineHeight;
+            float height = entries.Count() * entryHeight;
+
+            Rect outRect = new Rect(0, inRect.yMin, inRect.width, Math.Min(height, Math.Min(230, inRect.height)));
+            Rect viewRect = new Rect(0, 0, outRect.width - 16f, height);
+            if (viewRect.height <= outRect.height)
+                viewRect.width += 16f;
+
+            Widgets.BeginScrollView(outRect, ref scroll, viewRect, true);
+            GUI.color = new Color(1, 1, 1, 0.8f);
+
+            float y = height - entryHeight;
+            for (int i = entries.Count - 1; i >= 0; i--)
+            {
+                string entry = entries[i];
+                if (hideNullOrEmpty && entry.NullOrEmpty()) continue;
+
+                Rect entryRect = new Rect(0, y, viewRect.width, entryHeight);
+                if (i % 2 == 0)
+                    Widgets.DrawAltRect(entryRect);
+
+                if (Mouse.IsOver(entryRect))
+                {
+                    GUI.DrawTexture(entryRect, SelectedMsg);
+                    if (click != null && Event.current.type == EventType.mouseDown)
+                    {
+                        click(i);
+                        Event.current.Use();
+                    }
+                }
+
+                Text.Anchor = TextAnchor.MiddleLeft;
+                Widgets.Label(entryRect, entry);
+                Text.Anchor = TextAnchor.UpperLeft;
+
+                y -= entryHeight;
+            }
+
+            GUI.color = Color.white;
+            Widgets.EndScrollView();
+
+            inRect.yMin += outRect.height;
+        }
+
+        private void DrawChat(Rect inRect)
+        {
+            Rect outRect = new Rect(0f, 0f, inRect.width, inRect.height - 30f);
+            Rect viewRect = new Rect(0f, 0f, inRect.width - 16f, messagesHeight + 10f);
             float width = viewRect.width;
             Rect textField = new Rect(20f, outRect.yMax + 5f, width - 70f, 25f);
 
-            GUI.BeginGroup(rect);
+            GUI.BeginGroup(inRect);
 
             GUI.SetNextControlName("chat_input");
             currentMsg = Widgets.TextField(textField, currentMsg);
             currentMsg = currentMsg.Substring(0, Math.Min(currentMsg.Length, MaxChatMsgLength));
 
-            Widgets.BeginScrollView(outRect, ref scrollPos, viewRect);
+            Widgets.BeginScrollView(outRect, ref chatScroll, viewRect);
 
             float yPos = 0;
             GUI.color = Color.white;
@@ -111,8 +199,8 @@ namespace Multiplayer.Client
 
             foreach (ChatMsg msg in messages)
             {
-                float height = Text.CalcHeight(msg.msg, width);
-                float textWidth = Text.CalcSize(msg.msg).x + 15;
+                float height = Text.CalcHeight(msg.Msg, width);
+                float textWidth = Text.CalcSize(msg.Msg).x + 15;
 
                 GUI.SetNextControlName("chat_msg_" + i++);
 
@@ -120,14 +208,19 @@ namespace Multiplayer.Client
                 if (Mouse.IsOver(msgRect))
                 {
                     GUI.DrawTexture(msgRect, SelectedMsg);
-                    TooltipHandler.TipRegion(msgRect, msg.timestamp.ToLongTimeString());
+
+                    if (msg.TimeStamp != null)
+                        TooltipHandler.TipRegion(msgRect, msg.TimeStamp.ToLongTimeString());
+
+                    if (msg.Clickable && Event.current.type == EventType.MouseUp)
+                        msg.Click();
                 }
 
                 Color cursorColor = GUI.skin.settings.cursorColor;
                 GUI.skin.settings.cursorColor = new Color(0, 0, 0, 0);
 
                 msgRect.width = Math.Min(textWidth, msgRect.width);
-                Widgets.TextArea(msgRect, msg.msg, true);
+                Widgets.TextArea(msgRect, msg.Msg, true);
 
                 GUI.skin.settings.cursorColor = cursorColor;
 
@@ -179,20 +272,37 @@ namespace Multiplayer.Client
 
         public void AddMsg(string msg)
         {
-            messages.Add(new ChatMsg(msg, DateTime.Now));
-            scrollPos.y = messagesHeight;
+            AddMsg(new ChatMsg_Text(msg, DateTime.Now));
         }
 
-        private class ChatMsg
+        public void AddMsg(ChatMsg msg)
         {
-            public string msg;
-            public DateTime timestamp;
+            messages.Add(msg);
+            chatScroll.y = messagesHeight;
+        }
+    }
 
-            public ChatMsg(string msg, DateTime timestamp)
-            {
-                this.msg = msg;
-                this.timestamp = timestamp;
-            }
+    public abstract class ChatMsg
+    {
+        public virtual bool Clickable => false;
+        public abstract string Msg { get; }
+        public abstract DateTime TimeStamp { get; }
+
+        public virtual void Click() { }
+    }
+
+    public class ChatMsg_Text : ChatMsg
+    {
+        private string msg;
+        private DateTime timestamp;
+
+        public override string Msg => msg;
+        public override DateTime TimeStamp => timestamp;
+
+        public ChatMsg_Text(string msg, DateTime timestamp)
+        {
+            this.msg = msg;
+            this.timestamp = timestamp;
         }
     }
 
@@ -271,48 +381,74 @@ namespace Multiplayer.Client
         }
     }
 
-    public class ConnectingWindow : Window
+    public abstract class BaseConnectingWindow : Window
     {
         public override Vector2 InitialSize => new Vector2(300f, 150f);
 
+        public virtual bool Ellipsis => true;
+        public virtual string Label => "";
+
+        public override void DoWindowContents(Rect inRect)
+        {
+            string label = Label;
+
+            Rect textRect = inRect;
+            float textWidth = Text.CalcSize(label).x;
+            textRect.x = (inRect.width - textWidth) / 2 - 5f;
+            Widgets.Label(textRect, label);
+
+            if (Ellipsis)
+                Widgets.Label(textRect.Right(textWidth), GenText.MarchingEllipsis());
+
+            Text.Font = GameFont.Small;
+            Rect buttonRect = new Rect((inRect.width - 120f) / 2f, inRect.height - 55f, 120f, 40f);
+            if (Widgets.ButtonText(buttonRect, "Cancel", true, false, true))
+                Close();
+        }
+    }
+
+    public class ConnectingWindow : BaseConnectingWindow
+    {
+        public override bool Ellipsis => result == null;
+        public override string Label => Ellipsis ? $"Connecting to {address}:{port}" : result;
+
         private IPAddress address;
         private int port;
-
-        public string text;
-        private bool connecting;
+        public string result;
 
         public ConnectingWindow(IPAddress address, int port)
         {
             this.address = address;
             this.port = port;
 
-            connecting = true;
-
             ClientUtil.TryConnect(address, port, conn =>
             {
-                connecting = false;
-                text = "Connected.";
+                result = "Connected.";
             }, reason =>
             {
-                connecting = false;
-                text = "Couldn't connect to the server.\n" + reason;
+                result = $"Couldn't connect to the server.\n{reason}";
             });
         }
 
-        public override void DoWindowContents(Rect inRect)
-        {
-            string label = text;
-            if (connecting)
-                label = "Connecting to " + address.ToString() + ":" + port + GenText.MarchingEllipsis();
-            Widgets.Label(inRect, label);
+        public override void PostClose() => OnMainThread.StopMultiplayer();
+    }
 
-            Text.Font = GameFont.Small;
-            Rect rect2 = new Rect(inRect.width / 2f - CloseButSize.x / 2f, inRect.height - 55f, CloseButSize.x, CloseButSize.y);
-            if (Widgets.ButtonText(rect2, "Cancel", true, false, true))
-            {
-                OnMainThread.StopMultiplayer();
-                Close();
-            }
+    public class SteamConnectingWindow : BaseConnectingWindow
+    {
+        public override string Label => (host.NullOrEmpty() ? "" : $"Connecting to a game hosted by {host}\n") + "Waiting for host to accept";
+
+        public CSteamID hostId;
+        public string host;
+
+        public SteamConnectingWindow(CSteamID hostId)
+        {
+            this.hostId = hostId;
+            host = SteamFriends.GetFriendPersonaName(hostId);
+        }
+
+        public override void PostClose()
+        {
+            SteamNetworking.CloseP2PSessionWithUser(hostId);
         }
     }
 
@@ -360,7 +496,7 @@ namespace Multiplayer.Client
 
             MultiplayerSession session = Multiplayer.session = new MultiplayerSession();
             MultiplayerServer localServer = new MultiplayerServer(addr);
-            localServer.lan = true;
+            localServer.allowLan = true;
             MultiplayerServer.instance = localServer;
             session.localServer = localServer;
             session.myFactionId = Faction.OfPlayer.loadID;
@@ -553,7 +689,7 @@ namespace Multiplayer.Client
             GUI.EndGroup();
         }
 
-        private List<SteamFriend> friends = new List<SteamFriend>();
+        private List<SteamPersona> friends = new List<SteamPersona>();
         private static readonly Color SteamGreen = new Color32(144, 186, 60, 255);
 
         private void DrawSteam(Rect inRect)
@@ -584,7 +720,7 @@ namespace Multiplayer.Client
             float y = 0;
             int i = 0;
 
-            foreach (SteamFriend friend in friends)
+            foreach (SteamPersona friend in friends)
             {
                 Rect entryRect = new Rect(0, y, viewRect.width, 40);
                 if (i % 2 == 0)
@@ -606,13 +742,20 @@ namespace Multiplayer.Client
 
                 Text.Anchor = TextAnchor.MiddleCenter;
 
-                if (friend.onServer)
+                if (friend.serverHost != CSteamID.Nil)
                 {
                     Rect playButton = new Rect(entryRect.xMax - 85, entryRect.y + 5, 80, 40 - 10);
                     if (Widgets.ButtonText(playButton, "Join"))
                     {
                         Close(false);
-                        // connect
+
+                        Find.WindowStack.Add(new SteamConnectingWindow(friend.serverHost));
+
+                        SteamConnection conn = new SteamConnection(friend.serverHost);
+                        conn.Username = Multiplayer.username;
+                        Multiplayer.session = new MultiplayerSession();
+                        Multiplayer.session.client = conn;
+                        conn.State = new ClientSteamState(conn);
                     }
                 }
                 else
@@ -628,16 +771,6 @@ namespace Multiplayer.Client
             }
 
             Widgets.EndScrollView();
-        }
-
-        class SteamFriend
-        {
-            public CSteamID id;
-            public string username;
-            public int avatar;
-
-            public bool playingRimworld;
-            public bool onServer;
         }
 
         private string ip = "127.0.0.1";
@@ -746,23 +879,31 @@ namespace Multiplayer.Client
                     CSteamID friend = SteamFriends.GetFriendByIndex(i, EFriendFlags.k_EFriendFlagImmediate);
                     SteamFriends.GetFriendGamePlayed(friend, out FriendGameInfo_t friendGame);
                     bool playingRimworld = friendGame.m_gameID.AppID() == Multiplayer.RimWorldAppId;
-                    //if (!playingRimworld) continue;
+                    if (!playingRimworld) continue;
 
                     int avatar = SteamFriends.GetSmallFriendAvatar(friend);
                     string username = SteamFriends.GetFriendPersonaName(friend);
                     string connectValue = SteamFriends.GetFriendRichPresence(friend, "connect");
 
-                    friends.Add(new SteamFriend()
+                    CSteamID serverHost = CSteamID.Nil;
+                    if (connectValue != null &&
+                        connectValue.Contains(Multiplayer.SteamConnectStart) &&
+                        ulong.TryParse(connectValue.Substring(Multiplayer.SteamConnectStart.Length), out ulong hostId))
+                    {
+                        serverHost = (CSteamID)hostId;
+                    }
+
+                    friends.Add(new SteamPersona()
                     {
                         id = friend,
                         avatar = avatar,
                         username = username,
                         playingRimworld = playingRimworld,
-                        onServer = connectValue != null && connectValue.Contains("-mpserver=")
+                        serverHost = serverHost,
                     });
                 }
 
-                friends.SortBy(f => f.onServer);
+                friends.SortByDescending(f => f.serverHost != CSteamID.Nil);
 
                 lastFriendUpdate = Environment.TickCount;
             }
@@ -797,6 +938,16 @@ namespace Multiplayer.Client
             public NetEndPoint endpoint;
             public int lastUpdate;
         }
+    }
+
+    public class SteamPersona
+    {
+        public CSteamID id;
+        public string username;
+        public int avatar;
+
+        public bool playingRimworld;
+        public CSteamID serverHost = CSteamID.Nil;
     }
 
     public class Dialog_JumpTo : Dialog_Rename
