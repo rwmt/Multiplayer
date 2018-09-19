@@ -938,11 +938,12 @@ namespace Multiplayer.Client
             mapComp.PreContext();
             map.PushFaction(cmd.GetFaction());
 
+            data.context = map;
+
             try
             {
                 if (cmdType == CommandType.SYNC)
                 {
-                    data.context = map;
                     Sync.HandleCmd(data);
                 }
 
@@ -1134,9 +1135,7 @@ namespace Multiplayer.Client
         {
             Map map = command.GetMap();
             int mode = data.ReadInt32();
-            string desName = data.ReadString();
-            string buildDefName = data.ReadString();
-            Designator designator = GetDesignator(desName, buildDefName);
+            Designator designator = Sync.ReadSync<Designator>(data);
             if (designator == null) return;
 
             try
@@ -1145,25 +1144,20 @@ namespace Multiplayer.Client
 
                 if (mode == 0)
                 {
-                    IntVec3 cell = map.cellIndices.IndexToCell(data.ReadInt32());
+                    IntVec3 cell = Sync.ReadSync<IntVec3>(data);
                     designator.DesignateSingleCell(cell);
                     designator.Finalize(true);
                 }
                 else if (mode == 1)
                 {
-                    int[] cellData = data.ReadPrefixedInts();
-                    IntVec3[] cells = new IntVec3[cellData.Length];
-                    for (int i = 0; i < cellData.Length; i++)
-                        cells[i] = map.cellIndices.IndexToCell(cellData[i]);
-
-                    designator.DesignateMultiCell(cells.AsEnumerable());
+                    IntVec3[] cells = Sync.ReadSync<IntVec3[]>(data);
+                    designator.DesignateMultiCell(cells);
 
                     Find.Selector.ClearSelection();
                 }
                 else if (mode == 2)
                 {
-                    int thingId = data.ReadInt32();
-                    Thing thing = map.listerThings.AllThings.FirstOrDefault(t => t.thingIDNumber == thingId);
+                    Thing thing = Sync.ReadSync<Thing>(data);
 
                     if (thing != null)
                     {
@@ -1181,49 +1175,30 @@ namespace Multiplayer.Client
             }
         }
 
-        private static Designator GetDesignator(string name, string buildDefName = null)
-        {
-            List<DesignationCategoryDef> allDefsListForReading = DefDatabase<DesignationCategoryDef>.AllDefsListForReading;
-            foreach (DesignationCategoryDef cat in allDefsListForReading)
-            {
-                List<Designator> allResolvedDesignators = cat.AllResolvedDesignators;
-                foreach (Designator des in allResolvedDesignators)
-                {
-                    if (des.GetType().FullName == name && (buildDefName.NullOrEmpty() || (des is Designator_Build desBuild && desBuild.PlacingDef.defName == buildDefName)))
-                        return des;
-                }
-            }
-
-            return null;
-        }
-
         private static bool SetDesignatorState(Map map, Designator designator, ByteReader data)
         {
             if (designator is Designator_AreaAllowed)
             {
-                int areaId = data.ReadInt32();
-                Area area = map.areaManager.AllAreas.Find(a => a.ID == areaId);
+                Area area = Sync.ReadSync<Area>(data);
                 if (area == null) return false;
                 Designator_AreaAllowed.selectedArea = area;
             }
 
             if (designator is Designator_Place place)
             {
-                place.placingRot = new Rot4(data.ReadByte());
+                place.placingRot = Sync.ReadSync<Rot4>(data);
             }
 
             if (designator is Designator_Build build && build.PlacingDef.MadeFromStuff)
             {
-                string thingDefName = data.ReadString();
-                ThingDef stuffDef = DefDatabase<ThingDef>.AllDefsListForReading.Find(t => t.defName == thingDefName);
+                ThingDef stuffDef = Sync.ReadSync<ThingDef>(data);
                 if (stuffDef == null) return false;
                 build.stuffDef = stuffDef;
             }
 
             if (designator is Designator_Install)
             {
-                int thingId = data.ReadInt32();
-                Thing thing = map.listerThings.AllThings.Find(t => t.thingIDNumber == thingId);
+                Thing thing = Sync.ReadSync<Thing>(data);
                 if (thing == null) return false;
                 DesignatorInstallPatch.thingToInstall = thing;
             }
@@ -1330,6 +1305,8 @@ namespace Multiplayer.Client
         public DesignationManager designationManager;
         public AreaManager areaManager;
         public ZoneManager zoneManager;
+        public List<Thing> owned = new List<Thing>();
+        public List<Thing> forbidden = new List<Thing>();
 
         // Not saved
         public HaulDestinationManager haulDestinationManager;

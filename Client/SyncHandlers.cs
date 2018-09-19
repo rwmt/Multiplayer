@@ -341,6 +341,8 @@ namespace Multiplayer.Client
             Sync.RegisterSyncMethod(typeof(DrugPolicyDatabase), "TryDelete");
             Sync.RegisterSyncMethod(typeof(OutfitDatabase), "MakeNewOutfit");
             Sync.RegisterSyncMethod(typeof(OutfitDatabase), "TryDelete");
+            Sync.RegisterSyncMethod(typeof(ITab_Pawn_Gear), "InterfaceDrop");
+            Sync.RegisterSyncMethod(typeof(ITab_Pawn_Gear), "InterfaceIngest");
         }
 
         public static SyncField SyncTimetable = Sync.Field(typeof(Pawn), "timetable", "times");

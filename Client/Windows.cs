@@ -64,7 +64,7 @@ namespace Multiplayer.Client
                 }
             }
 
-            float infoWidth = 140f;
+            const float infoWidth = 140f;
             Rect chat = new Rect(inRect.x, inRect.y, inRect.width - infoWidth - 10f, inRect.height);
             DrawChat(chat);
 
@@ -82,7 +82,7 @@ namespace Multiplayer.Client
 
             DrawList($"Players ({playerList.Length}):", playerList, ref inRect, ref playerListScroll, index =>
             {
-                if (Event.current.button == 1)
+                if (Multiplayer.LocalServer != null && Event.current.button == 1)
                     Find.WindowStack.Add(new FloatMenu(new List<FloatMenuOption>()
                     {
                         new FloatMenuOption("Kick", () =>
@@ -100,16 +100,25 @@ namespace Multiplayer.Client
 
         private void DrawOptions(ref Rect inRect)
         {
+            if (Multiplayer.LocalServer == null) return;
+
+            const float height = 20f;
+
+            if (SteamManager.Initialized)
             {
-                Rect optionsRect = new Rect(0, inRect.yMax - 20, inRect.width, 20);
-                Widgets.CheckboxLabeled(optionsRect, "Allow Steam", ref Multiplayer.session.allowSteam);
+                // todo sync this between players
+                string label = "Steam";
+                Rect optionsRect = new Rect(inRect.width, inRect.yMax - height, 0, height);
+                optionsRect.xMin -= Text.CalcSize(label).x + 24f + 10f;
+                Widgets.CheckboxLabeled(optionsRect, label, ref Multiplayer.session.allowSteam);
                 inRect.yMax -= 20;
             }
 
-            if (Multiplayer.LocalServer != null)
             {
-                Rect optionsRect = new Rect(0, inRect.yMax - 20, inRect.width, 20);
-                Widgets.CheckboxLabeled(optionsRect, "Allow LAN", ref Multiplayer.LocalServer.allowLan);
+                string label = "LAN";
+                Rect optionsRect = new Rect(inRect.width, inRect.yMax - height, 0, height);
+                optionsRect.xMin -= Text.CalcSize(label).x + 24f + 10f;
+                Widgets.CheckboxLabeled(optionsRect, label, ref Multiplayer.LocalServer.allowLan);
                 inRect.yMax -= 20;
             }
         }

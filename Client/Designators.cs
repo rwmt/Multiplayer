@@ -30,8 +30,10 @@ namespace Multiplayer.Client
             if (!Multiplayer.ShouldSync) return true;
 
             Map map = Find.CurrentMap;
-            object[] extra = GetExtra(0, designator).Append(map.cellIndices.CellToIndex(cell));
-            Multiplayer.Client.SendCommand(CommandType.DESIGNATOR, map.uniqueID, extra);
+            ByteWriter data = new ByteWriter();
+            WriteData(data, 0, designator);
+            Sync.WriteSync(data, cell);
+            Multiplayer.Client.SendCommand(CommandType.DESIGNATOR, map.uniqueID, data.GetArray());
 
             return false;
         }
@@ -42,13 +44,13 @@ namespace Multiplayer.Client
             if (!Multiplayer.ShouldSync) return true;
 
             Map map = Find.CurrentMap;
-            int[] cellData = new int[cells.Count()];
-            int i = 0;
-            foreach (IntVec3 cell in cells)
-                cellData[i++] = map.cellIndices.CellToIndex(cell);
+            ByteWriter data = new ByteWriter();
+            WriteData(data, 1, designator);
 
-            object[] extra = GetExtra(1, designator).Append(cellData);
-            Multiplayer.Client.SendCommand(CommandType.DESIGNATOR, map.uniqueID, extra);
+            IntVec3[] cellArray = cells.ToArray();
+            Sync.WriteSync(data, cellArray);
+
+            Multiplayer.Client.SendCommand(CommandType.DESIGNATOR, map.uniqueID, data.GetArray());
 
             return false;
         }
@@ -59,45 +61,32 @@ namespace Multiplayer.Client
             if (!Multiplayer.ShouldSync) return true;
 
             Map map = Find.CurrentMap;
-            object[] extra = GetExtra(2, designator).Append(thing.thingIDNumber);
-            Multiplayer.Client.SendCommand(CommandType.DESIGNATOR, map.uniqueID, extra);
+            ByteWriter data = new ByteWriter();
+            WriteData(data, 2, designator);
+            Sync.WriteSync(data, thing);
+            Multiplayer.Client.SendCommand(CommandType.DESIGNATOR, map.uniqueID, data.GetArray());
 
             MoteMaker.ThrowMetaPuffs(thing);
 
             return false;
         }
 
-        private static object[] GetExtra(int action, Designator designator)
+        private static void WriteData(ByteWriter data, int action, Designator designator)
         {
-            string buildDefName = designator is Designator_Build build ? build.PlacingDef.defName : "";
-            return new object[] { action, designator.GetType().FullName, buildDefName }.Append(Metadata(designator));
-        }
-
-        private static object[] Metadata(Designator designator)
-        {
-            List<object> meta = new List<object>();
+            data.WriteInt32(action);
+            Sync.WriteSync(data, designator);
 
             if (designator is Designator_AreaAllowed)
-            {
-                meta.Add(Designator_AreaAllowed.SelectedArea != null ? Designator_AreaAllowed.SelectedArea.ID : -1);
-            }
+                Sync.WriteSync(data, Designator_AreaAllowed.SelectedArea);
 
             if (designator is Designator_Place place)
-            {
-                meta.Add(place.placingRot.AsByte);
-            }
+                Sync.WriteSync(data, place.placingRot);
 
             if (designator is Designator_Build build && build.PlacingDef.MadeFromStuff)
-            {
-                meta.Add(build.stuffDef.defName);
-            }
+                Sync.WriteSync(data, build.stuffDef);
 
             if (designator is Designator_Install)
-            {
-                meta.Add(ThingToInstall().thingIDNumber);
-            }
-
-            return meta.ToArray();
+                Sync.WriteSync(data, ThingToInstall().thingIDNumber);
         }
 
         private static Thing ThingToInstall()
