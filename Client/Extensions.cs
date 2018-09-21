@@ -116,6 +116,19 @@ namespace Multiplayer.Client
             return rect;
         }
 
+        public static MpContext MpContext(this ByteReader data) => (MpContext)(data.context ?? (data.context = new MpContext()));
+        public static MpContext MpContext(this ByteWriter data) => (MpContext)(data.context ?? (data.context = new MpContext()));
+
+        public static Map ContextMap(this ByteReader data) => data.MpContext().map;
+        public static Map ContextMap(this ByteWriter data) => data.MpContext().map;
+        public static void ContextMap(this ByteReader data, Map val) => data.MpContext().map = val;
+        public static void ContextMap(this ByteWriter data, Map val) => data.MpContext().map = val;
+
+        public static Faction ContextFaction(this ByteReader data) => data.MpContext().faction;
+        public static Faction ContextFaction(this ByteWriter data) => data.MpContext().faction;
+        public static void ContextFaction(this ByteReader data, Faction val) => data.MpContext().faction = val;
+        public static void ContextFaction(this ByteWriter data, Faction val) => data.MpContext().faction = val;
+
     }
 
 }

@@ -63,6 +63,9 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Client\Blueprints.cs" />
+    <Compile Include="Client\ClientConnection.cs" />
+    <Compile Include="Client\MultiplayerMapComp.cs" />
+    <Compile Include="Client\MultiplayerWorldComp.cs" />
     <Compile Include="Client\SaveCompression.cs" />
     <Compile Include="Client\Extensions.cs" />
     <Compile Include="Client\ForbiddableHandler.cs" />
@@ -72,8 +75,9 @@
     <Compile Include="Client\Sync.cs" />
     <Compile Include="Client\SyncHandlers.cs" />
     <Compile Include="Common\MpLog.cs" />
-    <Compile Include="Client\MultiplayerClient.cs" />
+    <Compile Include="Client\ClientNetworking.cs" />
     <Compile Include="Common\Commands.cs" />
+    <Compile Include="Common\ServerConnection.cs" />
     <Compile Include="Common\MultiplayerServer.cs" />
     <Compile Include="Client\SimpleProfiler.cs" />
     <Compile Include="Client\CrossRefs.cs" />

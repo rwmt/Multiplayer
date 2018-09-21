@@ -476,6 +476,7 @@ namespace Multiplayer.Client
     public class MapAsyncTimeComp : MapComponent, ITickable
     {
         public static Map tickingMap;
+        public static Map executingCmdMap;
 
         public float CurTimePerTick
         {
@@ -643,7 +644,182 @@ namespace Multiplayer.Client
 
         public void ExecuteCmd(ScheduledCommand cmd)
         {
-            OnMainThread.ExecuteMapCmd(cmd, new ByteReader(cmd.data));
+            ByteReader data = new ByteReader(cmd.data);
+            CommandType cmdType = cmd.type;
+
+            executingCmdMap = map;
+
+            CurrentMapGetPatch.visibleMap = map;
+            CurrentMapSetPatch.ignore = true;
+
+            PreContext();
+            map.PushFaction(cmd.GetFaction());
+
+            data.ContextMap(map);
+
+            try
+            {
+                if (cmdType == CommandType.SYNC)
+                {
+                    Sync.HandleCmd(data);
+                }
+
+                if (cmdType == CommandType.CREATE_MAP_FACTION_DATA)
+                {
+                    HandleMapFactionData(cmd, data);
+                }
+
+                if (cmdType == CommandType.MAP_TIME_SPEED)
+                {
+                    TimeSpeed speed = (TimeSpeed)data.ReadByte();
+                    TimeSpeed = speed;
+                }
+
+                if (cmdType == CommandType.MAP_ID_BLOCK)
+                {
+                    IdBlock block = IdBlock.Deserialize(data);
+
+                    if (map != null)
+                    {
+                        map.MpComp().mapIdBlock = block;
+                        Log.Message(Multiplayer.username + "encounter id block set");
+                    }
+                }
+
+                if (cmdType == CommandType.DESIGNATOR)
+                {
+                    HandleDesignator(cmd, data);
+                }
+
+                if (cmdType == CommandType.SPAWN_PAWN)
+                {
+                    Pawn pawn = ScribeUtil.ReadExposable<Pawn>(data.ReadPrefixedBytes());
+
+                    IntVec3 spawn = CellFinderLoose.TryFindCentralCell(map, 7, 10, (IntVec3 x) => !x.Roofed(map));
+                    GenSpawn.Spawn(pawn, spawn, map);
+                    Log.Message("spawned " + pawn);
+                }
+
+                if (cmdType == CommandType.FORBID)
+                {
+                    HandleForbid(cmd, data);
+                }
+            }
+            finally
+            {
+                CurrentMapSetPatch.ignore = false;
+                CurrentMapGetPatch.visibleMap = null;
+                map.PopFaction();
+                PostContext();
+                executingCmdMap = null;
+            }
+        }
+
+        private void HandleForbid(ScheduledCommand cmd, ByteReader data)
+        {
+            int thingId = data.ReadInt32();
+            bool value = data.ReadBool();
+
+            ThingWithComps thing = map.listerThings.AllThings.FirstOrDefault(t => t.thingIDNumber == thingId) as ThingWithComps;
+            if (thing == null) return;
+
+            CompForbiddable forbiddable = thing.GetComp<CompForbiddable>();
+            if (forbiddable == null) return;
+
+            forbiddable.Forbidden = value;
+        }
+
+        private void HandleMapFactionData(ScheduledCommand cmd, ByteReader data)
+        {
+            int factionId = data.ReadInt32();
+
+            Faction faction = Find.FactionManager.AllFactions.FirstOrDefault(f => f.loadID == factionId);
+            MultiplayerMapComp comp = map.MpComp();
+
+            if (!comp.factionMapData.ContainsKey(factionId))
+            {
+                FactionMapData factionMapData = FactionMapData.New(factionId, map);
+                comp.factionMapData[factionId] = factionMapData;
+
+                factionMapData.areaManager.AddStartingAreas();
+                map.pawnDestinationReservationManager.RegisterFaction(faction);
+
+                MpLog.Log("New map faction data for {0}", faction.GetUniqueLoadID());
+            }
+        }
+
+        private void HandleDesignator(ScheduledCommand command, ByteReader data)
+        {
+            int mode = data.ReadInt32();
+            Designator designator = Sync.ReadSync<Designator>(data);
+            if (designator == null) return;
+
+            try
+            {
+                if (!SetDesignatorState(designator, data)) return;
+
+                if (mode == 0)
+                {
+                    IntVec3 cell = Sync.ReadSync<IntVec3>(data);
+                    designator.DesignateSingleCell(cell);
+                    designator.Finalize(true);
+                }
+                else if (mode == 1)
+                {
+                    IntVec3[] cells = Sync.ReadSync<IntVec3[]>(data);
+                    designator.DesignateMultiCell(cells);
+
+                    Find.Selector.ClearSelection();
+                }
+                else if (mode == 2)
+                {
+                    Thing thing = Sync.ReadSync<Thing>(data);
+
+                    if (thing != null)
+                    {
+                        designator.DesignateThing(thing);
+                        designator.Finalize(true);
+                    }
+                }
+
+                foreach (Zone zone in map.zoneManager.AllZones)
+                    zone.cellsShuffled = true;
+            }
+            finally
+            {
+                DesignatorInstallPatch.thingToInstall = null;
+            }
+        }
+
+        private bool SetDesignatorState(Designator designator, ByteReader data)
+        {
+            if (designator is Designator_AreaAllowed)
+            {
+                Area area = Sync.ReadSync<Area>(data);
+                if (area == null) return false;
+                Designator_AreaAllowed.selectedArea = area;
+            }
+
+            if (designator is Designator_Place place)
+            {
+                place.placingRot = Sync.ReadSync<Rot4>(data);
+            }
+
+            if (designator is Designator_Build build && build.PlacingDef.MadeFromStuff)
+            {
+                ThingDef stuffDef = Sync.ReadSync<ThingDef>(data);
+                if (stuffDef == null) return false;
+                build.stuffDef = stuffDef;
+            }
+
+            if (designator is Designator_Install)
+            {
+                Thing thing = Sync.ReadSync<Thing>(data);
+                if (thing == null) return false;
+                DesignatorInstallPatch.thingToInstall = thing;
+            }
+
+            return true;
         }
     }
 }

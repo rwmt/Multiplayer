@@ -36,13 +36,11 @@ namespace Multiplayer.Client
 
     public static class SyncFieldsPatches
     {
-        public static SyncField SyncAreaRestriction = Sync.Field(typeof(Pawn), "playerSettings", "AreaRestriction");
         public static SyncField SyncMedCare = Sync.Field(typeof(Pawn), "playerSettings", "medCare");
         public static SyncField SyncSelfTend = Sync.Field(typeof(Pawn), "playerSettings", "selfTend");
         public static SyncField SyncHostilityResponse = Sync.Field(typeof(Pawn), "playerSettings", "hostilityResponse");
         public static SyncField SyncFollowFieldwork = Sync.Field(typeof(Pawn), "playerSettings", "followFieldwork");
         public static SyncField SyncFollowDrafted = Sync.Field(typeof(Pawn), "playerSettings", "followDrafted");
-        public static SyncField SyncMaster = Sync.Field(typeof(Pawn), "playerSettings", "master");
         public static SyncField SyncGetsFood = Sync.Field(typeof(Pawn), "guest", "GetsFood");
         public static SyncField SyncInteractionMode = Sync.Field(typeof(Pawn), "guest", "interactionMode");
 
@@ -76,6 +74,8 @@ namespace Multiplayer.Client
         public static SyncField SyncBillIncludeHpRange = Sync.Field(typeof(Bill_Production), "hpRange").SetBufferChanges();
         public static SyncField SyncBillIncludeQualityRange = Sync.Field(typeof(Bill_Production), "qualityRange").SetBufferChanges();
         public static SyncField SyncBillPawnRestriction = Sync.Field(typeof(Bill), "pawnRestriction");
+
+        public static SyncField SyncZoneLabel = Sync.Field(typeof(Zone), "label");
 
         public static SyncField[] SyncBillProduction = Sync.Fields(
             typeof(Bill_Production),
@@ -111,25 +111,6 @@ namespace Multiplayer.Client
             "onlyIfMoodBelow",
             "onlyIfJoyBelow"
         ).SetBufferChanges();
-
-        [MpPrefix(typeof(AreaAllowedGUI), "DoAreaSelector")]
-        static void DoAreaSelector_Prefix(Pawn p)
-        {
-            SyncAreaRestriction.Watch(p);
-        }
-
-        [MpPrefix(typeof(PawnColumnWorker_AllowedArea), "HeaderClicked")]
-        static void AllowedArea_HeaderClicked_Prefix(PawnTable table)
-        {
-            foreach (Pawn pawn in table.PawnsListForReading)
-                SyncAreaRestriction.Watch(pawn);
-        }
-
-        [MpPrefix("RimWorld.InspectPaneFiller+<DrawAreaAllowed>c__AnonStorey0", "<>m__0")]
-        static void DrawAreaAllowed_Inner(object __instance)
-        {
-            SyncAreaRestriction.Watch(__instance.GetPropertyOrField("pawn"));
-        }
 
         [MpPrefix(typeof(HealthCardUtility), "DrawOverviewTab")]
         static void HealthCardUtility1(Pawn pawn)
@@ -169,18 +150,6 @@ namespace Multiplayer.Client
         static void FollowDrafted(Pawn pawn)
         {
             SyncFollowDrafted.Watch(pawn);
-        }
-
-        [MpPrefix(typeof(TrainableUtility), "<MasterSelectButton_GenerateMenu>c__Iterator0+<MasterSelectButton_GenerateMenu>c__AnonStorey1", "<>m__0")]
-        static void OpenMasterSelectMenu_Inner1(object __instance)
-        {
-            SyncMaster.Watch(__instance.GetPropertyOrField("p"));
-        }
-
-        [MpPrefix(typeof(TrainableUtility), "<MasterSelectButton_GenerateMenu>c__Iterator0+<MasterSelectButton_GenerateMenu>c__AnonStorey2", "<>m__0")]
-        static void OpenMasterSelectMenu_Inner2(object __instance)
-        {
-            SyncMaster.Watch(__instance.GetPropertyOrField("<>f__ref$1/p"));
         }
 
         [MpPrefix(typeof(Dialog_MedicalDefaults), "DoWindowContents")]
@@ -311,6 +280,12 @@ namespace Multiplayer.Client
         {
             SyncResearchProject.Watch();
         }
+
+        [MpPrefix(typeof(Dialog_RenameZone), "SetName")]
+        static void RenameZone(Dialog_RenameZone __instance)
+        {
+            SyncZoneLabel.Watch(__instance.zone);
+        }
     }
 
     public static class SyncPatches
@@ -321,21 +296,23 @@ namespace Multiplayer.Client
             Sync.RegisterSyncMethod(typeof(Pawn_WorkSettings), "SetPriority");
             Sync.RegisterSyncMethod(typeof(Pawn_DraftController), "set_Drafted");
             Sync.RegisterSyncMethod(typeof(Pawn_DraftController), "set_FireAtWill");
-            Sync.RegisterSyncMethod(typeof(Pawn_DraftController), "set_FireAtWill");
             Sync.RegisterSyncMethod(typeof(Pawn_DrugPolicyTracker), "set_CurrentPolicy");
             Sync.RegisterSyncMethod(typeof(Pawn_OutfitTracker), "set_CurrentOutfit");
+            Sync.RegisterSyncMethod(typeof(Pawn_PlayerSettings), "set_AreaRestriction");
+            Sync.RegisterSyncMethod(typeof(Pawn_PlayerSettings), "set_Master");
+            Sync.RegisterSyncMethod(typeof(Pawn_JobTracker), "StartJob", typeof(Expose<Job>), typeof(JobCondition), typeof(ThinkNode), typeof(bool), typeof(bool), typeof(ThinkTreeDef), typeof(JobTag?), typeof(bool));
+            Sync.RegisterSyncMethod(typeof(Pawn_JobTracker), "TryTakeOrderedJob", typeof(Expose<Job>), typeof(JobTag));
+            Sync.RegisterSyncMethod(typeof(Pawn_JobTracker), "TryTakeOrderedJobPrioritizedWork", typeof(Expose<Job>), typeof(WorkGiver), typeof(IntVec3));
+            Sync.RegisterSyncMethod(typeof(Pawn), "set_Name", typeof(Expose<Name>));
             Sync.RegisterSyncMethod(typeof(Zone), "Delete");
             Sync.RegisterSyncMethod(typeof(BillStack), "Delete");
             Sync.RegisterSyncMethod(typeof(BillStack), "Reorder");
             Sync.RegisterSyncMethod(typeof(Bill_Production), "SetStoreMode");
-            Sync.RegisterSyncMethod(typeof(Pawn_JobTracker), "StartJob", typeof(Expose<Job>), typeof(JobCondition), typeof(ThinkNode), typeof(bool), typeof(bool), typeof(ThinkTreeDef), typeof(JobTag?), typeof(bool));
-            Sync.RegisterSyncMethod(typeof(Pawn_JobTracker), "TryTakeOrderedJob", typeof(Expose<Job>), typeof(JobTag));
-            Sync.RegisterSyncMethod(typeof(Pawn_JobTracker), "TryTakeOrderedJobPrioritizedWork", typeof(Expose<Job>), typeof(WorkGiver), typeof(IntVec3));
             Sync.RegisterSyncMethod(typeof(StorageSettings), "set_Priority");
-            Sync.RegisterSyncMethod(typeof(Pawn), "set_Name", typeof(Expose<Name>));
             Sync.RegisterSyncMethod(typeof(Building_TurretGun), "OrderAttack");
             Sync.RegisterSyncMethod(typeof(Area), "Invert");
             Sync.RegisterSyncMethod(typeof(Area), "Delete");
+            Sync.RegisterSyncMethod(typeof(Area_Allowed), "SetLabel");
             Sync.RegisterSyncMethod(typeof(AreaManager), "TryMakeNewAllowed");
             Sync.RegisterSyncMethod(typeof(DrugPolicyDatabase), "MakeNewDrugPolicy");
             Sync.RegisterSyncMethod(typeof(DrugPolicyDatabase), "TryDelete");
@@ -343,9 +320,13 @@ namespace Multiplayer.Client
             Sync.RegisterSyncMethod(typeof(OutfitDatabase), "TryDelete");
             Sync.RegisterSyncMethod(typeof(ITab_Pawn_Gear), "InterfaceDrop");
             Sync.RegisterSyncMethod(typeof(ITab_Pawn_Gear), "InterfaceIngest");
+            Sync.RegisterSyncMethod(typeof(Building_Bed), "TryAssignPawn");
+            Sync.RegisterSyncMethod(typeof(Building_Bed), "TryUnassignPawn");
+            Sync.RegisterSyncMethod(typeof(Building_Grave), "TryAssignPawn");
+            Sync.RegisterSyncMethod(typeof(Building_Grave), "TryUnassignPawn");
         }
 
-        public static SyncField SyncTimetable = Sync.Field(typeof(Pawn), "timetable", "times");
+        static SyncField SyncTimetable = Sync.Field(typeof(Pawn), "timetable", "times");
 
         [MpPrefix(typeof(PawnColumnWorker_CopyPasteTimetable), "PasteTo")]
         static bool CopyPasteTimetable(Pawn p)
@@ -355,41 +336,31 @@ namespace Multiplayer.Client
 
         // ===== CALLBACKS =====
 
-        [MpPostfix(typeof(DrugPolicyDatabase), "MakeNewDrugPolicy")]
-        static void MakeNewDrugPolicy_Postfix(DrugPolicy __result)
-        {
-            // todo check faction
-            if (__result != null && Find.WindowStack?.WindowOfType<Dialog_ManageDrugPolicies>() is Dialog_ManageDrugPolicies dialog)
-                dialog.SelectedPolicy = __result;
-        }
-
-        [MpPostfix(typeof(OutfitDatabase), "MakeNewOutfit")]
-        static void MakeNewOutfit_Postfix(Outfit __result)
-        {
-            if (__result != null && Find.WindowStack?.WindowOfType<Dialog_ManageOutfits>() is Dialog_ManageOutfits dialog)
-                dialog.SelectedOutfit = __result;
-        }
-
         [MpPostfix(typeof(DrugPolicyDatabase), "TryDelete")]
         static void TryDeleteDrugPolicy_Postfix(DrugPolicy policy, AcceptanceReport __result)
         {
-            if (__result.Accepted && Find.WindowStack?.WindowOfType<Dialog_ManageDrugPolicies>() is Dialog_ManageDrugPolicies dialog && dialog.SelectedPolicy == policy)
+            var dialog = GetDialogDrugPolicies();
+            if (__result.Accepted && dialog != null && dialog.SelectedPolicy == policy)
                 dialog.SelectedPolicy = null;
         }
 
         [MpPostfix(typeof(OutfitDatabase), "TryDelete")]
         static void TRyDeleteOutfit_Postfix(Outfit outfit, AcceptanceReport __result)
         {
-            if (__result.Accepted && Find.WindowStack?.WindowOfType<Dialog_ManageOutfits>() is Dialog_ManageOutfits dialog && dialog.SelectedOutfit == outfit)
+            var dialog = GetDialogOutfits();
+            if (__result.Accepted && dialog != null && dialog.SelectedOutfit == outfit)
                 dialog.SelectedOutfit = null;
         }
+
+        static Dialog_ManageOutfits GetDialogOutfits() => Find.WindowStack?.WindowOfType<Dialog_ManageOutfits>();
+        static Dialog_ManageDrugPolicies GetDialogDrugPolicies() => Find.WindowStack?.WindowOfType<Dialog_ManageDrugPolicies>();
     }
 
     public static class SyncThingFilters
     {
-        public static SyncMethod[] SyncThingFilterAllowThing = Sync.MethodMultiTarget(Sync.thingFilterTarget, "SetAllow", typeof(ThingDef), typeof(bool));
-        public static SyncMethod[] SyncThingFilterAllowSpecial = Sync.MethodMultiTarget(Sync.thingFilterTarget, "SetAllow", typeof(SpecialThingFilterDef), typeof(bool));
-        public static SyncMethod[] SyncThingFilterAllowStuffCategory = Sync.MethodMultiTarget(Sync.thingFilterTarget, "SetAllow", typeof(StuffCategoryDef), typeof(bool));
+        static SyncMethod[] SyncThingFilterAllowThing = Sync.MethodMultiTarget(Sync.thingFilterTarget, "SetAllow", typeof(ThingDef), typeof(bool));
+        static SyncMethod[] SyncThingFilterAllowSpecial = Sync.MethodMultiTarget(Sync.thingFilterTarget, "SetAllow", typeof(SpecialThingFilterDef), typeof(bool));
+        static SyncMethod[] SyncThingFilterAllowStuffCategory = Sync.MethodMultiTarget(Sync.thingFilterTarget, "SetAllow", typeof(StuffCategoryDef), typeof(bool));
 
         [MpPrefix(typeof(ThingFilter), "SetAllow", typeof(StuffCategoryDef), typeof(bool))]
         static bool ThingFilter_SetAllow(StuffCategoryDef cat, bool allow)
@@ -509,6 +480,8 @@ namespace Multiplayer.Client
         [MpPrefix(typeof(Pawn_PlayerSettings), "<GetGizmos>c__Iterator0", "<>m__1")]    // Release animals
         [MpPrefix(typeof(PriorityWork), "<GetGizmos>c__Iterator0", "<>m__0")]           // Clear prioritized work
         [MpPrefix(typeof(CompFlickable), "<CompGetGizmosExtra>c__Iterator0", "<>m__1")] // Designate flick
+        [MpPrefix(typeof(Building_TurretGun), "<GetGizmos>c__Iterator0", "<>m__0")]     // Reset forced target
+        [MpPrefix(typeof(Building_TurretGun), "<GetGizmos>c__Iterator0", "<>m__1")]     // Toggle hold fire
         static bool GeneralIteratorSync(object __instance, MethodBase __originalMethod)
         {
             return !Sync.Delegate(__instance, __originalMethod);
@@ -531,23 +504,6 @@ namespace Multiplayer.Client
         {
             return !Sync.Delegate(__instance, __originalMethod);
         }
-
-        [SyncDelegate("$this")]
-        [MpPrefix(typeof(Building_TurretGun), "<GetGizmos>c__Iterator0", "<>m__0")] // Reset forced target
-        [MpPrefix(typeof(Building_TurretGun), "<GetGizmos>c__Iterator0", "<>m__1")] // Toggle hold fire
-        static bool TurretGunGizmos(object __instance, MethodBase __originalMethod)
-        {
-            return !Sync.Delegate(__instance, __originalMethod);
-        }
-
-        /*[SyncDelegate("lord")]
-        [MpPatch(typeof(Pawn_MindState), "<GetGizmos>c__Iterator0+<GetGizmos>c__AnonStorey2", "<>m__0")]
-        static bool GizmoCancelFormingCaravan(object __instance)
-        {
-            if (!Multiplayer.ShouldSync) return true;
-            Sync.Delegate(__instance, MpReflection.GetPropertyOrField(__instance, ""));
-            return false;
-        }*/
     }
 
     public static class SyncMarkers

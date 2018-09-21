@@ -271,7 +271,7 @@ namespace Multiplayer.Client
     {
         static void Postfix(ref float __result)
         {
-            __result = Math.Max(5, __result); // 5 otherwise the game complains about jobs starting too fast
+            __result = Math.Max(5, __result); // >=5 otherwise the game complains about jobs starting too fast
         }
     }
 

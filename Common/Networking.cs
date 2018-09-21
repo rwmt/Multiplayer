@@ -267,11 +267,6 @@ namespace Multiplayer.Common
                 foreach (object o in list)
                     Write(o);
             }
-            else if (obj is IEnumerable enumerable)
-            {
-                foreach (object o in enumerable)
-                    Write(o);
-            }
         }
 
         public byte[] GetArray()
@@ -336,24 +331,21 @@ namespace Multiplayer.Common
 
         public string ReadString()
         {
-            return Encoding.UTF8.GetString(ReadPrefixedBytes());
+            int bytes = ReadInt32();
+            string result = Encoding.UTF8.GetString(array, index, bytes);
+            index += bytes;
+            return result;
         }
 
         public byte[] ReadPrefixedBytes()
         {
             int len = ReadInt32();
-            if (len < 0)
-                throw new IOException("Byte array length less than 0");
-            HasSizeLeft(len);
             return array.SubArray(IncrementIndex(len), len);
         }
 
         public int[] ReadPrefixedInts()
         {
             int len = ReadInt32();
-            if (len < 0)
-                throw new IOException("Int array length less than 0");
-            HasSizeLeft(len * 4);
             int[] result = new int[len];
             for (int i = 0; i < len; i++)
                 result[i] = ReadInt32();
@@ -363,8 +355,6 @@ namespace Multiplayer.Common
         public string[] ReadPrefixedStrings()
         {
             int len = ReadInt32();
-            if (len < 0)
-                throw new IOException("String array length less than 0");
             string[] result = new string[len];
             for (int i = 0; i < len; i++)
                 result[i] = ReadString();
@@ -373,16 +363,9 @@ namespace Multiplayer.Common
 
         private int IncrementIndex(int size)
         {
-            HasSizeLeft(size);
             int i = index;
             index += size;
             return i;
-        }
-
-        public void HasSizeLeft(int size)
-        {
-            if (index + size > array.Length)
-                throw new IndexOutOfRangeException();
         }
 
         public byte[] GetBytes()

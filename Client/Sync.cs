@@ -67,7 +67,7 @@ namespace Multiplayer.Client
             if (targetType != null)
             {
                 Sync.WriteSyncObject(writer, target, targetType);
-                if (writer.context is Map map)
+                if (writer.ContextMap() is Map map)
                     mapId = map.uniqueID;
             }
 
@@ -94,7 +94,7 @@ namespace Multiplayer.Client
             if (indexType != null)
                 index = Sync.ReadSyncObject(data, indexType);
 
-            MpLog.Log($"Set {memberPath} in {target} to {value}, map {data.context}, index {index}");
+            MpLog.Log($"Set {memberPath} in {target} to {value}, map {data.ContextMap()}, index {index}");
             MpReflection.SetValue(target, memberPath, value, index);
         }
 
@@ -172,7 +172,7 @@ namespace Multiplayer.Client
             if (targetType != null)
             {
                 Sync.WriteSyncObject(writer, target, targetType);
-                if (writer.context is Map map)
+                if (writer.ContextMap() is Map map)
                     mapId = map.uniqueID;
             }
 
@@ -180,7 +180,7 @@ namespace Multiplayer.Client
             {
                 Type type = argTypes[i];
                 Sync.WriteSyncObject(writer, args[i], type);
-                if (writer.context is Map map)
+                if (writer.ContextMap() is Map map)
                 {
                     if (mapId != ScheduledCommand.Global && mapId != map.uniqueID)
                         throw new Exception("SyncMethod map mismatch");
@@ -285,7 +285,7 @@ namespace Multiplayer.Client
 
                 Sync.WriteSyncObject(writer, obj, type);
 
-                if (writer.context is Map map)
+                if (writer.ContextMap() is Map map)
                 {
                     if (mapId != ScheduledCommand.Global && mapId != map.uniqueID)
                         throw new Exception("SyncDelegate map mismatch");
@@ -363,13 +363,6 @@ namespace Multiplayer.Client
 
         public static Dictionary<SyncField, Dictionary<Pair<object, object>, BufferData>> bufferedChanges = new Dictionary<SyncField, Dictionary<Pair<object, object>, BufferData>>();
         private static Stack<FieldData> watchedStack = new Stack<FieldData>();
-
-        public static MultiTarget thingFilterTarget = new MultiTarget()
-        {
-            { typeof(IStoreSettingsParent), "GetStoreSettings/filter" },
-            { typeof(Bill), "ingredientFilter" },
-            { typeof(Outfit), "filter" }
-        };
 
         public static void FieldWatchPrefix()
         {
@@ -539,7 +532,15 @@ namespace Multiplayer.Client
         {
             return argTypes.Select(t =>
             {
-                if (t.IsGenericType && t.GetGenericTypeDefinition() == typeof(Expose<>)) return t.GetGenericArguments()[0];
+                if (t.IsGenericType)
+                {
+                    // todo handle chains
+                    if (t.GetGenericTypeDefinition() == typeof(Expose<>))
+                        return t.GetGenericArguments()[0];
+                    else if (t.GetGenericTypeDefinition() == typeof(CheckFaction<>))
+                        return t.GetGenericArguments()[0];
+                }
+
                 return t;
             }).ToArray();
         }
@@ -711,12 +712,14 @@ namespace Multiplayer.Client
             { data => new IntRange(data.ReadInt32(), data.ReadInt32()) },
             { data => new QualityRange(ReadSync<QualityCategory>(data), ReadSync<QualityCategory>(data)) },
             { data => new IntVec3(data.ReadInt32(), data.ReadInt32(), data.ReadInt32()) },
+            { data => new NameSingle(data.ReadString(), data.ReadBool()) },
+            { data => new NameTriple(data.ReadString(), data.ReadString(), data.ReadString()) },
             { data => new Rot4(data.ReadByte()) },
             { data => new ITab_Bills() },
             { data => new ITab_Pawn_Gear() },
             { data => Current.Game.outfitDatabase },
             { data => Current.Game.drugPolicyDatabase },
-            { data => (data.context as Map).areaManager },
+            { data => (data.ContextMap()).areaManager },
             {
                 data =>
                 {
@@ -751,6 +754,8 @@ namespace Multiplayer.Client
             { (ByteWriter data, IntRange range) => { data.WriteInt32(range.min); data.WriteInt32(range.max); }},
             { (ByteWriter data, QualityRange range) => { WriteSync(data, range.min); WriteSync(data, range.max); }},
             { (ByteWriter data, IntVec3 vec) => { data.WriteInt32(vec.x); data.WriteInt32(vec.y); data.WriteInt32(vec.z); }},
+            { (ByteWriter data, NameSingle name) => { data.WriteString(name.nameInt); data.WriteBool(name.numerical); } },
+            { (ByteWriter data, NameTriple name) => { data.WriteString(name.firstInt); data.WriteString(name.nickInt); data.WriteString(name.lastInt); } },
             { (ByteWriter data, Rot4 rot) => data.WriteByte(rot.AsByte) },
             { (ByteWriter data, ITab_Bills tab) => {} },
             { (ByteWriter data, ITab_Pawn_Gear tab) => {} },
@@ -775,8 +780,15 @@ namespace Multiplayer.Client
             typeof(Zone_Stockpile)
         };
 
-        public static List<Type> thingCompTypes = typeof(ThingComp).AllSubclassesNonAbstract().ToList();
-        public static List<Type> designatorTypes = typeof(Designator).AllSubclassesNonAbstract().ToList();
+        public static MultiTarget thingFilterTarget = new MultiTarget()
+        {
+            { typeof(IStoreSettingsParent), "GetStoreSettings/filter" },
+            { typeof(Bill), "ingredientFilter" },
+            { typeof(Outfit), "filter" }
+        };
+
+        private static List<Type> thingCompTypes = typeof(ThingComp).AllSubclassesNonAbstract().ToList();
+        private static List<Type> designatorTypes = typeof(Designator).AllSubclassesNonAbstract().ToList();
 
         public static T ReadSync<T>(ByteReader data)
         {
@@ -787,7 +799,7 @@ namespace Multiplayer.Client
 
         public static object ReadSyncObject(ByteReader data, Type type)
         {
-            Map map = data.context as Map;
+            Map map = data.ContextMap();
 
             if (type.IsByRef)
             {
@@ -1049,7 +1061,7 @@ namespace Multiplayer.Client
                 {
                     if (obj is Area area)
                     {
-                        data.context = area.Map;
+                        data.ContextMap(area.Map);
                         data.WriteInt32(area.ID);
                     }
                     else
@@ -1061,7 +1073,7 @@ namespace Multiplayer.Client
                 {
                     if (obj is Zone zone)
                     {
-                        data.context = zone.Map;
+                        data.ContextMap(zone.Map);
                         data.WriteInt32(zone.ID);
                     }
                     else
@@ -1130,7 +1142,9 @@ namespace Multiplayer.Client
                         return;
                     }
 
-                    data.context = thing.Map;
+                    data.ContextMap(thing.Map);
+                    data.ContextFaction(thing.Faction);
+
                     data.WriteInt32(thing.thingIDNumber);
                     WriteSync(data, thing.def);
                     WriteSync(data, thing.Spawned ? null : ThingOwnerUtility.GetFirstSpawnedParentThing(thing));
@@ -1514,6 +1528,12 @@ namespace Multiplayer.Client
         {
             throw new NotImplementedException();
         }
+    }
+
+    public class MpContext
+    {
+        public Map map;
+        public Faction faction;
     }
 
 }

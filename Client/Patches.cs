@@ -1360,5 +1360,29 @@ namespace Multiplayer.Client
         }
     }
 
+    [MpPatch(typeof(Messages), nameof(Messages.Message), new[] { typeof(string), typeof(MessageTypeDef), typeof(bool) })]
+    [MpPatch(typeof(Messages), nameof(Messages.Message), new[] { typeof(string), typeof(LookTargets), typeof(MessageTypeDef), typeof(bool) })]
+    static class MessagesMarker
+    {
+        public static bool? historical;
+
+        static void Prefix(bool historical) => MessagesMarker.historical = historical;
+        static void Postfix() => historical = null;
+    }
+
+    [HarmonyPatch(typeof(UniqueIDsManager), nameof(UniqueIDsManager.GetNextMessageID))]
+    static class NextMessageIdPatch
+    {
+        static int nextUniqueUnhistoricalMessageId = -1;
+
+        static bool Prefix() => !MessagesMarker.historical.HasValue || MessagesMarker.historical.Value;
+
+        static void Postfix(ref int __result)
+        {
+            if (MessagesMarker.historical.HasValue && !MessagesMarker.historical.Value)
+                __result = nextUniqueUnhistoricalMessageId--;
+        }
+    }
+
 
 }
