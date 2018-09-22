@@ -120,12 +120,12 @@ namespace Multiplayer.Client
     [HarmonyPatch(nameof(Game.CurrentMap), PropertyMethod.Getter)]
     public static class CurrentMapGetPatch
     {
-        public static Map visibleMap;
+        public static Map currentMap;
 
         static void Postfix(ref Map __result)
         {
-            if (visibleMap != null)
-                __result = visibleMap;
+            if (currentMap != null)
+                __result = currentMap;
         }
     }
 

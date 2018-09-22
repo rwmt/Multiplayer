@@ -22,19 +22,19 @@ namespace Multiplayer.Common
 
             if (username.Length < 3 || username.Length > 15)
             {
-                Connection.Close("Invalid username length.");
+                MultiplayerServer.instance.Disconnect(Connection, "Invalid username length.");
                 return;
             }
 
             if (!UsernamePattern.IsMatch(username))
             {
-                Connection.Close("Invalid username characters.");
+                MultiplayerServer.instance.Disconnect(Connection, "Invalid username characters.");
                 return;
             }
 
             if (MultiplayerServer.instance.GetPlayer(username) != null)
             {
-                Connection.Close("Username already online.");
+                MultiplayerServer.instance.Disconnect(Connection, "Username already online.");
                 return;
             }
 
@@ -67,7 +67,7 @@ namespace Multiplayer.Common
 
             writer.WriteInt32(factionId);
             writer.WriteInt32(MultiplayerServer.instance.timer);
-            writer.Write(globalCmds);
+            writer.WriteByteArrayList(globalCmds);
             writer.WritePrefixedBytes(MultiplayerServer.instance.savedGame);
 
             writer.WriteInt32(1); // maps count
@@ -77,7 +77,7 @@ namespace Multiplayer.Common
                 MultiplayerServer.instance.SendCommand(CommandType.CREATE_MAP_FACTION_DATA, ScheduledCommand.NoFaction, mapId, ByteWriter.GetBytes(factionId));
 
                 writer.WriteInt32(mapId);
-                writer.Write(MultiplayerServer.instance.mapCmds[mapId]);
+                writer.WriteByteArrayList(MultiplayerServer.instance.mapCmds[mapId]);
                 writer.WritePrefixedBytes(MultiplayerServer.instance.mapData[mapId]);
             }
 
@@ -87,10 +87,6 @@ namespace Multiplayer.Common
             Connection.Send(Packets.SERVER_WORLD_DATA, packetData);
 
             MpLog.Log("World response sent: " + packetData.Length + " " + globalCmds.Count);
-        }
-
-        public override void Disconnected(string reason)
-        {
         }
     }
 
@@ -115,7 +111,7 @@ namespace Multiplayer.Common
             // todo check if map id is valid for the player
 
             int factionId = MultiplayerServer.instance.playerFactions[Connection.Username];
-            MultiplayerServer.instance.SendCommand(cmd, factionId, mapId, extra);
+            MultiplayerServer.instance.SendCommand(cmd, factionId, mapId, extra, Connection.Username);
         }
 
         [PacketHandler(Packets.CLIENT_CHAT)]
@@ -215,10 +211,6 @@ namespace Multiplayer.Common
             }*/
         }
 
-        public override void Disconnected(string reason)
-        {
-        }
-
         public static string GetPlayerMapsPath(string username)
         {
             string worldfolder = Path.Combine(Path.Combine(MultiplayerServer.instance.saveFolder, "MpSaves"), MultiplayerServer.instance.worldId);
@@ -240,10 +232,6 @@ namespace Multiplayer.Common
         {
             Connection.State = new ServerJoiningState(Connection);
             Connection.Send(Packets.SERVER_STEAM_ACCEPT);
-        }
-
-        public override void Disconnected(string reason)
-        {
         }
     }
 }

@@ -58,7 +58,7 @@ namespace Multiplayer.Client
             "defaultCareForNeutralAnimal",
             "defaultCareForNeutralFaction",
             "defaultCareForHostileFaction"
-        );
+        ).SetBufferChanges();
 
         public static SyncField[] SyncThingFilterHitPoints =
             Sync.FieldMultiTarget(Sync.thingFilterTarget, "AllowedHitPointsPercents").SetBufferChanges();
@@ -301,8 +301,8 @@ namespace Multiplayer.Client
             Sync.RegisterSyncMethod(typeof(Pawn_PlayerSettings), "set_AreaRestriction");
             Sync.RegisterSyncMethod(typeof(Pawn_PlayerSettings), "set_Master");
             Sync.RegisterSyncMethod(typeof(Pawn_JobTracker), "StartJob", typeof(Expose<Job>), typeof(JobCondition), typeof(ThinkNode), typeof(bool), typeof(bool), typeof(ThinkTreeDef), typeof(JobTag?), typeof(bool));
-            Sync.RegisterSyncMethod(typeof(Pawn_JobTracker), "TryTakeOrderedJob", typeof(Expose<Job>), typeof(JobTag));
-            Sync.RegisterSyncMethod(typeof(Pawn_JobTracker), "TryTakeOrderedJobPrioritizedWork", typeof(Expose<Job>), typeof(WorkGiver), typeof(IntVec3));
+            Sync.RegisterSyncMethod(typeof(Pawn_JobTracker), "TryTakeOrderedJob", typeof(Expose<Job>), typeof(JobTag)).SetHasContext();
+            Sync.RegisterSyncMethod(typeof(Pawn_JobTracker), "TryTakeOrderedJobPrioritizedWork", typeof(Expose<Job>), typeof(WorkGiver), typeof(IntVec3)).SetHasContext();
             Sync.RegisterSyncMethod(typeof(Pawn), "set_Name", typeof(Expose<Name>));
             Sync.RegisterSyncMethod(typeof(Zone), "Delete");
             Sync.RegisterSyncMethod(typeof(BillStack), "Delete");
@@ -318,8 +318,6 @@ namespace Multiplayer.Client
             Sync.RegisterSyncMethod(typeof(DrugPolicyDatabase), "TryDelete");
             Sync.RegisterSyncMethod(typeof(OutfitDatabase), "MakeNewOutfit");
             Sync.RegisterSyncMethod(typeof(OutfitDatabase), "TryDelete");
-            Sync.RegisterSyncMethod(typeof(ITab_Pawn_Gear), "InterfaceDrop");
-            Sync.RegisterSyncMethod(typeof(ITab_Pawn_Gear), "InterfaceIngest");
             Sync.RegisterSyncMethod(typeof(Building_Bed), "TryAssignPawn");
             Sync.RegisterSyncMethod(typeof(Building_Bed), "TryUnassignPawn");
             Sync.RegisterSyncMethod(typeof(Building_Grave), "TryAssignPawn");
@@ -334,7 +332,46 @@ namespace Multiplayer.Client
             return !SyncTimetable.DoSync(p, PawnColumnWorker_CopyPasteTimetable.clipboard);
         }
 
+        static SyncMethod SyncPawnGearDrop = Sync.Method(typeof(ITab_Pawn_Gear), "InterfaceDrop").SetHasContext();
+        static SyncMethod SyncPawnGearIngest = Sync.Method(typeof(ITab_Pawn_Gear), "InterfaceIngest").SetHasContext();
+
+        [MpPrefix(typeof(ITab_Pawn_Gear), "InterfaceDrop")]
+        static bool ITabPawnGearDrop(ITab_Pawn_Gear __instance, Thing t)
+        {
+            Sync.selThingContext = __instance.SelThing;
+            bool result = SyncPawnGearDrop.DoSync(__instance, t);
+            Sync.selThingContext = null;
+
+            return result;
+        }
+
+        [MpPrefix(typeof(ITab_Pawn_Gear), "InterfaceIngest")]
+        static bool ITabPawnGearIngest(ITab_Pawn_Gear __instance, Thing t)
+        {
+            Sync.selThingContext = __instance.SelThing;
+            bool result = SyncPawnGearIngest.DoSync(__instance, t);
+            Sync.selThingContext = null;
+
+            return result;
+        }
+
         // ===== CALLBACKS =====
+
+        [MpPostfix(typeof(DrugPolicyDatabase), "MakeNewDrugPolicy")]
+        static void MakeNewDrugPolicy_Postfix(DrugPolicy __result)
+        {
+            var dialog = GetDialogDrugPolicies();
+            if (__result != null && dialog != null && TickPatch.currentExecutingCmdIssuedBySelf)
+                dialog.SelectedPolicy = __result;
+        }
+
+        [MpPostfix(typeof(OutfitDatabase), "MakeNewOutfit")]
+        static void MakeNewOutfit_Postfix(Outfit __result)
+        {
+            var dialog = GetDialogOutfits();
+            if (__result != null && dialog != null && TickPatch.currentExecutingCmdIssuedBySelf)
+                dialog.SelectedOutfit = __result;
+        }
 
         [MpPostfix(typeof(DrugPolicyDatabase), "TryDelete")]
         static void TryDeleteDrugPolicy_Postfix(DrugPolicy policy, AcceptanceReport __result)

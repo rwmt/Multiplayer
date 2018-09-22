@@ -21,8 +21,6 @@ namespace Multiplayer.Common
             Connection = connection;
         }
 
-        public abstract void Disconnected(string reason);
-
         public static Dictionary<Type, Dictionary<Packets, PacketHandler>> statePacketHandlers = new Dictionary<Type, Dictionary<Packets, PacketHandler>>();
 
         public static void RegisterState(Type type)
@@ -99,7 +97,7 @@ namespace Multiplayer.Common
             HandleRaw(data);
         }
 
-        public abstract void Close(string reason);
+        public abstract void Close();
 
         public bool HandleRaw(byte[] rawData)
         {
@@ -149,9 +147,9 @@ namespace Multiplayer.Common
             peer.Send(raw, SendOptions.ReliableOrdered);
         }
 
-        public override void Close(string reason)
+        public override void Close()
         {
-            peer.NetManager.DisconnectPeer(peer, ByteWriter.GetBytes(reason));
+            peer.NetManager.DisconnectPeer(peer);
         }
 
         public override string ToString()
@@ -207,13 +205,20 @@ namespace Multiplayer.Common
             stream.Write(bytes);
         }
 
+        public virtual void WriteByteArrayList(List<byte[]> list)
+        {
+            WriteInt32(list.Count);
+            foreach (byte[] arr in list)
+                WritePrefixedBytes(arr);
+        }
+
         public virtual ByteWriter WriteString(string s)
         {
             WritePrefixedBytes(Encoding.UTF8.GetBytes(s));
             return this;
         }
 
-        public void Write(object obj)
+        private void Write(object obj)
         {
             if (obj is int @int)
             {

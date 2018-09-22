@@ -380,7 +380,7 @@ namespace Multiplayer.Client
 
         public override void DoBack()
         {
-            Multiplayer.Client.Close("");
+            Multiplayer.Client.Close();
 
             LongEventHandler.QueueLongEvent(() =>
             {
@@ -394,12 +394,14 @@ namespace Multiplayer.Client
     {
         public override Vector2 InitialSize => new Vector2(300f, 150f);
 
-        public virtual bool Ellipsis => true;
-        public virtual string Label => "";
+        public virtual bool Ellipsis => result == null;
+        public abstract string ConnectingString { get; }
+
+        public string result;
 
         public override void DoWindowContents(Rect inRect)
         {
-            string label = Label;
+            string label = Ellipsis ? ConnectingString : result;
 
             Rect textRect = inRect;
             float textWidth = Text.CalcSize(label).x;
@@ -414,16 +416,16 @@ namespace Multiplayer.Client
             if (Widgets.ButtonText(buttonRect, "Cancel", true, false, true))
                 Close();
         }
+
+        public override void PostClose() => Multiplayer.Client?.Close();
     }
 
     public class ConnectingWindow : BaseConnectingWindow
     {
-        public override bool Ellipsis => result == null;
-        public override string Label => Ellipsis ? $"Connecting to {address}:{port}" : result;
+        public override string ConnectingString => $"Connecting to {address}:{port}";
 
         private IPAddress address;
         private int port;
-        public string result;
 
         public ConnectingWindow(IPAddress address, int port)
         {
@@ -435,16 +437,15 @@ namespace Multiplayer.Client
                 result = "Connected.";
             }, reason =>
             {
-                result = $"Couldn't connect to the server.\n{reason}";
+                if (result == null)
+                    result = $"Couldn't connect to the server.\n{reason}";
             });
         }
-
-        public override void PostClose() => OnMainThread.StopMultiplayer();
     }
 
     public class SteamConnectingWindow : BaseConnectingWindow
     {
-        public override string Label => (host.NullOrEmpty() ? "" : $"Connecting to a game hosted by {host}\n") + "Waiting for host to accept";
+        public override string ConnectingString => (host.NullOrEmpty() ? "" : $"Connecting to a game hosted by {host}\n") + "Waiting for host to accept";
 
         public CSteamID hostId;
         public string host;
@@ -453,11 +454,6 @@ namespace Multiplayer.Client
         {
             this.hostId = hostId;
             host = SteamFriends.GetFriendPersonaName(hostId);
-        }
-
-        public override void PostClose()
-        {
-            SteamNetworking.CloseP2PSessionWithUser(hostId);
         }
     }
 
@@ -479,7 +475,7 @@ namespace Multiplayer.Client
                 }
                 catch (SocketException)
                 {
-                    Messages.Message("Server creation failed.", MessageTypeDefOf.RejectInput);
+                    Messages.Message("Server creation failed.", MessageTypeDefOf.RejectInput, false);
                 }
 
                 Close(true);
@@ -799,7 +795,7 @@ namespace Multiplayer.Client
 
                 if (!IPAddress.TryParse(ipport[0], out IPAddress address))
                 {
-                    Messages.Message("Invalid IP address.", MessageTypeDefOf.RejectInput);
+                    Messages.Message("Invalid IP address.", MessageTypeDefOf.RejectInput, false);
                 }
                 else
                 {
@@ -926,7 +922,7 @@ namespace Multiplayer.Client
 
         private void AddOrUpdate(NetEndPoint endpoint)
         {
-            LanServer server = servers.FirstOrDefault(s => s.endpoint.Equals(endpoint));
+            LanServer server = servers.Find(s => s.endpoint.Equals(endpoint));
 
             if (server == null)
             {

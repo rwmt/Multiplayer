@@ -34,7 +34,7 @@ namespace Multiplayer.Client
 
         public static void PushFaction(this Map map, int factionId)
         {
-            Faction faction = Find.FactionManager.AllFactionsListForReading.Find(f => f.loadID == factionId);
+            Faction faction = Find.FactionManager.GetById(factionId);
             map.PushFaction(faction);
         }
 
@@ -66,7 +66,7 @@ namespace Multiplayer.Client
         public static Faction GetFaction(this ScheduledCommand cmd)
         {
             if (cmd.factionId == ScheduledCommand.NoFaction) return null;
-            return Find.FactionManager.AllFactionsListForReading.Find(f => f.loadID == cmd.factionId);
+            return Find.FactionManager.GetById(cmd.factionId);
         }
 
         public static void RemoveAll<K, V>(this Dictionary<K, V> dict, Func<K, V, bool> predicate)
@@ -114,6 +114,26 @@ namespace Multiplayer.Client
         {
             rect.x += x;
             return rect;
+        }
+
+        public static Faction GetById(this FactionManager manager, int factionId)
+        {
+            return manager.AllFactionsListForReading.Find(f => f.loadID == factionId);
+        }
+
+        public static void SendCommand(this IConnection conn, CommandType cmd, int mapId, byte[] data)
+        {
+            ByteWriter writer = new ByteWriter();
+            writer.WriteInt32(Convert.ToInt32(cmd));
+            writer.WriteInt32(mapId);
+            writer.WritePrefixedBytes(data);
+
+            conn.Send(Packets.CLIENT_COMMAND, writer.GetArray());
+        }
+
+        public static void SendCommand(this IConnection conn, CommandType cmd, int mapId, params object[] data)
+        {
+            SendCommand(conn, cmd, mapId, ByteWriter.GetBytes(data));
         }
 
         public static MpContext MpContext(this ByteReader data) => (MpContext)(data.context ?? (data.context = new MpContext()));

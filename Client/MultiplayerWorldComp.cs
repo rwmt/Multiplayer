@@ -31,6 +31,8 @@ namespace Multiplayer.Client
         {
             get
             {
+                if (!TickPatch.asyncTime) return Find.TickManager.TickRateMultiplier;
+
                 switch (timeSpeedInt)
                 {
                     case TimeSpeed.Normal:
@@ -50,8 +52,14 @@ namespace Multiplayer.Client
 
         public TimeSpeed TimeSpeed
         {
-            get => timeSpeedInt;
-            set => timeSpeedInt = value;
+            get => TickPatch.asyncTime ? timeSpeedInt : Find.TickManager.CurTimeSpeed;
+            set
+            {
+                if (TickPatch.asyncTime)
+                    timeSpeedInt = value;
+                else
+                    Find.TickManager.CurTimeSpeed = value;
+            }
         }
 
         public Queue<ScheduledCommand> Cmds { get => cmds; }
@@ -61,8 +69,8 @@ namespace Multiplayer.Client
         public ConstantTicker ticker = new ConstantTicker();
         public IdBlock globalIdBlock;
         public string worldId = Guid.NewGuid().ToString();
-        public int sessionId = new System.Random().Next();
-        public TimeSpeed timeSpeedInt;
+        public int sessionId = new Random().Next();
+        private TimeSpeed timeSpeedInt;
 
         public Queue<ScheduledCommand> cmds = new Queue<ScheduledCommand>();
 
@@ -108,7 +116,7 @@ namespace Multiplayer.Client
         {
             tickingWorld = true;
             UniqueIdsPatch.CurrentBlock = Multiplayer.GlobalIdBlock;
-            Find.TickManager.CurTimeSpeed = timeSpeedInt;
+            Find.TickManager.CurTimeSpeed = TimeSpeed;
 
             try
             {
@@ -142,13 +150,16 @@ namespace Multiplayer.Client
         public void ExecuteCmd(ScheduledCommand cmd)
         {
             ByteReader data = new ByteReader(cmd.data);
+
+            executingCmdWorld = true;
+            TickPatch.currentExecutingCmdIssuedBySelf = cmd.issuedBySelf;
+
+            Rand.PushState();
             Multiplayer.Seed = Find.TickManager.TicksGame;
             CommandType cmdType = cmd.type;
 
             UniqueIdsPatch.CurrentBlock = Multiplayer.GlobalIdBlock;
             FactionContext.Push(cmd.GetFaction());
-
-            executingCmdWorld = true;
 
             try
             {
@@ -160,7 +171,7 @@ namespace Multiplayer.Client
                 if (cmdType == CommandType.WORLD_TIME_SPEED)
                 {
                     TimeSpeed speed = (TimeSpeed)data.ReadByte();
-                    Multiplayer.WorldComp.timeSpeedInt = speed;
+                    Multiplayer.WorldComp.TimeSpeed = speed;
 
                     MpLog.Log("Set world speed " + speed + " " + TickPatch.Timer + " " + Find.TickManager.TicksGame);
                 }
@@ -190,7 +201,7 @@ namespace Multiplayer.Client
 
                 if (cmdType == CommandType.AUTOSAVE)
                 {
-                    WorldTimeChangePatch.SetSpeed(TimeSpeed.Paused);
+                    Multiplayer.WorldComp.TimeSpeed = TimeSpeed.Paused;
 
                     LongEventHandler.QueueLongEvent(() =>
                     {
@@ -203,8 +214,10 @@ namespace Multiplayer.Client
             }
             finally
             {
-                UniqueIdsPatch.CurrentBlock = null;
                 FactionContext.Pop();
+                UniqueIdsPatch.CurrentBlock = null;
+                Rand.PopState();
+                TickPatch.currentExecutingCmdIssuedBySelf = false;
                 executingCmdWorld = false;
             }
         }
@@ -212,7 +225,7 @@ namespace Multiplayer.Client
         private void HandleSetupFaction(ScheduledCommand command, ByteReader data)
         {
             int factionId = data.ReadInt32();
-            Faction faction = Find.FactionManager.AllFactions.FirstOrDefault(f => f.loadID == factionId);
+            Faction faction = Find.FactionManager.GetById(factionId);
 
             if (faction == null)
             {

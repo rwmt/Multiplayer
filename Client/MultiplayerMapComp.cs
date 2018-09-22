@@ -16,7 +16,7 @@ namespace Multiplayer.Client
         public Dictionary<int, FactionMapData> factionMapData = new Dictionary<int, FactionMapData>();
 
         // for SaveCompression
-        public List<Thing> loadedThings;
+        public List<Thing> tempLoadedThings;
 
         public MultiplayerMapComp(Map map) : base(map)
         {

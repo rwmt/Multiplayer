@@ -153,13 +153,13 @@ namespace Multiplayer.Client
 
                     optList.RemoveAll(opt => opt.label == "Save".Translate() || opt.label == "LoadGame".Translate());
 
-                    optList.FirstOrDefault(opt => opt.label == "QuitToMainMenu".Translate()).action = () =>
+                    optList.Find(opt => opt.label == "QuitToMainMenu".Translate()).action = () =>
                     {
                         OnMainThread.StopMultiplayer();
                         GenScene.GoToMainMenu();
                     };
 
-                    optList.FirstOrDefault(opt => opt.label == "QuitToOS".Translate()).action = () => Root.Shutdown();
+                    optList.Find(opt => opt.label == "QuitToOS".Translate()).action = () => Root.Shutdown();
                 }
             }
         }
@@ -389,15 +389,15 @@ namespace Multiplayer.Client
             Find.WorldObjects.Add(settlement);
 
             IntVec3 intVec = new IntVec3(Find.GameInitData.mapSize, 1, Find.GameInitData.mapSize);
-            Map visibleMap = MapGenerator.GenerateMap(intVec, settlement, settlement.MapGeneratorDef, settlement.ExtraGenStepDefs, null);
+            Map currentMap = MapGenerator.GenerateMap(intVec, settlement, settlement.MapGeneratorDef, settlement.ExtraGenStepDefs, null);
             Find.World.info.initialMapSize = intVec;
             PawnUtility.GiveAllStartingPlayerPawnsThought(ThoughtDefOf.NewColonyOptimism);
-            Current.Game.CurrentMap = visibleMap;
+            Current.Game.CurrentMap = currentMap;
             Find.CameraDriver.JumpToCurrentMapLoc(MapGenerator.PlayerStartSpot);
             Find.CameraDriver.ResetSize();
             Current.Game.InitData = null;
 
-            Log.Message("New map: " + visibleMap.GetUniqueLoadID());
+            Log.Message("New map: " + currentMap.GetUniqueLoadID());
         }
     }
 
@@ -436,6 +436,7 @@ namespace Multiplayer.Client
                     text1 += " " + comp.mapIdBlock.current;
 
                 text1 += " " + Sync.bufferedChanges.Sum(kv => kv.Value.Count);
+                text1 += " " + async.randState;
 
                 Rect rect1 = new Rect(80f, 110f, 330f, Text.CalcHeight(text1, 330f));
                 Widgets.Label(rect1, text1);
@@ -493,6 +494,9 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.Client == null) return;
             Pawn pawn = __instance.pawn;
+
+            if (Multiplayer.simulating)
+                __instance.jobsGivenThisTick = 0;
 
             if (pawn.Faction == null || !pawn.Spawned) return;
 
@@ -596,8 +600,8 @@ namespace Multiplayer.Client
         static bool Prefix() => false;
     }
 
-    [HarmonyPatch(typeof(Faction))]
-    [HarmonyPatch(nameof(Faction.OfPlayer), PropertyMethod.Getter)]
+    //[HarmonyPatch(typeof(Faction))]
+    //[HarmonyPatch(nameof(Faction.OfPlayer), PropertyMethod.Getter)]
     public static class FactionOfPlayerPatch
     {
         static void Prefix()
@@ -818,8 +822,8 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(Plant))]
-    [HarmonyPatch(nameof(Plant.TickLong))]
+    //[HarmonyPatch(typeof(Plant))]
+    //[HarmonyPatch(nameof(Plant.TickLong))]
     public static class PlantTickLong
     {
         static void Prefix()
@@ -1240,7 +1244,7 @@ namespace Multiplayer.Client
     {
         static void Postfix(Outfit __result)
         {
-            if (Multiplayer.Ticking || OnMainThread.executingCmds)
+            if (Multiplayer.Ticking || Multiplayer.ExecutingCmds)
                 __result.uniqueId = Multiplayer.GlobalIdBlock.NextId();
         }
     }
@@ -1250,7 +1254,7 @@ namespace Multiplayer.Client
     {
         static void Postfix(DrugPolicy __result)
         {
-            if (Multiplayer.Ticking || OnMainThread.executingCmds)
+            if (Multiplayer.Ticking || Multiplayer.ExecutingCmds)
                 __result.uniqueId = Multiplayer.GlobalIdBlock.NextId();
         }
     }
@@ -1346,7 +1350,7 @@ namespace Multiplayer.Client
         static void Postfix()
         {
             if (Multiplayer.Client == null) return;
-            Multiplayer.game.dummyFaction = Find.FactionManager.allFactions.FirstOrDefault(f => f.loadID == -1);
+            Multiplayer.game.dummyFaction = Find.FactionManager.GetById(-1);
         }
     }
 
@@ -1384,5 +1388,26 @@ namespace Multiplayer.Client
         }
     }
 
+    [HarmonyPatch(typeof(Log))]
+    [HarmonyPatch(nameof(Log.ReachedMaxMessagesLimit), PropertyMethod.Getter)]
+    static class LogMaxMessagesPatch
+    {
+        static void Postfix(ref bool __result)
+        {
+            if (Multiplayer.Client != null)
+                __result = false;
+        }
+    }
+
+    [HarmonyPatch(typeof(TutorSystem))]
+    [HarmonyPatch(nameof(TutorSystem.AdaptiveTrainingEnabled), PropertyMethod.Getter)]
+    static class DisableAdaptiveLearningPatch
+    {
+        static void Postfix(ref bool __result)
+        {
+            if (Multiplayer.Client != null)
+                __result = false;
+        }
+    }
 
 }

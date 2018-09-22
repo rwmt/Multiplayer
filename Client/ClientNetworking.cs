@@ -39,11 +39,12 @@ namespace Multiplayer.Client
 
             listener.PeerDisconnectedEvent += (peer, info) =>
             {
-                string reason;
+                string reason = "Disconnected";
 
-                if (info.Reason == DisconnectReason.RemoteConnectionClose || info.Reason == DisconnectReason.DisconnectPeerCalled)
-                    reason = info.AdditionalData.GetString();
-                else
+                if (info.Reason == DisconnectReason.SocketSendError || 
+                    info.Reason == DisconnectReason.SocketReceiveError ||
+                    info.Reason == DisconnectReason.ConnectionFailed
+                )
                     reason = info.Reason + ": " + info.SocketErrorCode;
 
                 OnMainThread.Enqueue(() => failEvent(reason));
@@ -83,7 +84,7 @@ namespace Multiplayer.Client
                 OnMainThread.Enqueue(run);
         }
 
-        public override void Close(string reason)
+        public override void Close()
         {
         }
     }
@@ -111,7 +112,7 @@ namespace Multiplayer.Client
                 OnMainThread.Enqueue(run);
         }
 
-        public override void Close(string reason)
+        public override void Close()
         {
         }
     }
@@ -134,7 +135,7 @@ namespace Multiplayer.Client
             SteamNetworking.SendP2PPacket(remoteId, raw, (uint)raw.Length, EP2PSend.k_EP2PSendReliable);
         }
 
-        public override void Close(string reason)
+        public override void Close()
         {
             SteamNetworking.CloseP2PSessionWithUser(remoteId);
         }

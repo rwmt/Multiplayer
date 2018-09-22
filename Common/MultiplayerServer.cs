@@ -2,11 +2,9 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading;
 
 namespace Multiplayer.Common
@@ -148,12 +146,12 @@ namespace Multiplayer.Common
             queue.Enqueue(action);
         }
 
-        public void NetPeerUpdateLatency(NetPeer peer, int ping)
+        private void NetPeerUpdateLatency(NetPeer peer, int ping)
         {
             peer.GetConnection().Latency = ping;
         }
 
-        public void NetPeerConnected(NetPeer peer)
+        private void NetPeerConnected(NetPeer peer)
         {
             IConnection conn = new MpNetConnection(peer);
             conn.State = new ServerJoiningState(conn);
@@ -167,25 +165,30 @@ namespace Multiplayer.Common
             MpLog.Log($"New connection: {conn}");
         }
 
-        public void NetPeerDisconnected(NetPeer peer, DisconnectInfo info)
+        private void NetPeerDisconnected(NetPeer peer, DisconnectInfo info)
         {
             IConnection conn = peer.GetConnection();
-            OnDisconnected(conn, null); // todo reason
+            OnDisconnected(conn);
         }
 
-        public void OnDisconnected(IConnection conn, string reason)
+        public void OnDisconnected(IConnection conn)
         {
-            ServerPlayer player = players.Find(p => p.connection == conn);
+            ServerPlayer player = GetPlayer(conn);
+            if (player == null) return;
+
             players.Remove(player);
 
-            if (!players.Any(p => p.FactionId == player.FactionId))
+            if (player.IsPlaying)
             {
-                byte[] data = ByteWriter.GetBytes(player.FactionId);
-                SendCommand(CommandType.FACTION_OFFLINE, ScheduledCommand.NoFaction, ScheduledCommand.Global, data);
-            }
+                if (!players.Any(p => p.FactionId == player.FactionId))
+                {
+                    byte[] data = ByteWriter.GetBytes(player.FactionId);
+                    SendCommand(CommandType.FACTION_OFFLINE, ScheduledCommand.NoFaction, ScheduledCommand.Global, data);
+                }
 
-            SendToAll(Packets.SERVER_NOTIFICATION, new object[] { "Player " + conn.Username + " disconnected." });
-            UpdatePlayerList();
+                SendToAll(Packets.SERVER_NOTIFICATION, new object[] { "Player " + conn.Username + " disconnected." });
+                UpdatePlayerList();
+            }
 
             MpLog.Log($"Disconnected: " + conn);
         }
@@ -193,13 +196,21 @@ namespace Multiplayer.Common
         public void MessageReceived(NetPeer peer, byte[] data)
         {
             IConnection conn = peer.GetConnection();
-            conn.HandleReceive(data);
+            if (GetPlayer(conn) != null)
+                conn.HandleReceive(data);
         }
 
         public void UpdateLatency(NetPeer peer, int latency)
         {
             IConnection conn = peer.GetConnection();
             conn.Latency = latency;
+        }
+
+        public void Disconnect(IConnection conn, string reason)
+        {
+            conn.Send(Packets.SERVER_DISCONNECT_REASON, reason);
+            conn.Close();
+            OnDisconnected(conn);
         }
 
         public void SendToAll(Packets id)
@@ -220,7 +231,12 @@ namespace Multiplayer.Common
 
         public ServerPlayer GetPlayer(string username)
         {
-            return players.FirstOrDefault(player => player.Username == username);
+            return players.Find(player => player.Username == username);
+        }
+
+        public ServerPlayer GetPlayer(IConnection conn)
+        {
+            return players.Find(player => player.connection == conn);
         }
 
         public IdBlock NextIdBlock()
@@ -233,17 +249,26 @@ namespace Multiplayer.Common
             return new IdBlock(blockStart, blockSize);
         }
 
-        public void SendCommand(CommandType cmd, int factionId, int mapId, byte[] extra)
+        public void SendCommand(CommandType cmd, int factionId, int mapId, byte[] data, string sourcePlayer = null)
         {
+            byte[] toSave = new ScheduledCommand(cmd, timer, factionId, mapId, data).GetBytes();
+
             // todo cull target players if not global
-            byte[] toSend = ByteWriter.GetBytes(cmd, timer, factionId, mapId, extra);
-
             if (mapId < 0)
-                globalCmds.Add(toSend);
+                globalCmds.Add(toSave);
             else
-                mapCmds.AddOrGet(mapId, new List<byte[]>()).Add(toSend);
+                mapCmds.GetOrAddDefault(mapId).Add(toSave);
 
-            SendToAll(Packets.SERVER_COMMAND, toSend);
+            byte[] toSend = toSave.Append(new byte[] { 0 });
+            byte[] toSendSource = toSave.Append(new byte[] { 1 });
+
+            foreach (ServerPlayer player in PlayingPlayers)
+            {
+                player.connection.Send(
+                    Packets.SERVER_COMMAND,
+                    sourcePlayer == player.Username ? toSendSource : toSend
+                );
+            }
         }
     }
 
@@ -287,7 +312,13 @@ namespace Multiplayer.Common
 
         public byte[] Serialize()
         {
-            return ByteWriter.GetBytes(blockStart, blockSize, mapId, current);
+            ByteWriter writer = new ByteWriter();
+            writer.WriteInt32(blockStart);
+            writer.WriteInt32(blockSize);
+            writer.WriteInt32(mapId);
+            writer.WriteInt32(current);
+
+            return writer.GetArray();
         }
 
         public static IdBlock Deserialize(ByteReader data)

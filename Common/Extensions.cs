@@ -24,6 +24,11 @@ namespace Multiplayer.Common
             return value;
         }
 
+        public static V GetOrAddDefault<K, V>(this Dictionary<K, V> dict, K obj) where V : new()
+        {
+            return AddOrGet(dict, obj, new V());
+        }
+
         public static IEnumerable<T> ToEnumerable<T>(this T input)
         {
             yield return input;
@@ -54,16 +59,6 @@ namespace Multiplayer.Common
             return (IConnection)peer.Tag;
         }
 
-        public static void SendCommand(this IConnection conn, CommandType action, int mapId, byte[] extra)
-        {
-            conn.Send(Packets.CLIENT_COMMAND, new object[] { action, mapId, extra });
-        }
-
-        public static void SendCommand(this IConnection conn, CommandType action, int mapId, params object[] extra)
-        {
-            conn.Send(Packets.CLIENT_COMMAND, new object[] { action, mapId, ByteWriter.GetBytes(extra) });
-        }
-
         public static void Write(this MemoryStream stream, byte[] arr)
         {
             if (arr.Length > 0)
@@ -79,6 +74,12 @@ namespace Multiplayer.Common
         {
             watch.Reset();
             watch.Start();
+        }
+
+        public static bool HasFlag(this Enum on, Enum flag)
+        {
+            ulong num = Convert.ToUInt64(flag);
+            return (Convert.ToUInt64(on) & num) == num;
         }
     }
 

@@ -17,12 +17,13 @@ namespace Multiplayer.Client
     public abstract class SyncHandler
     {
         public readonly int syncId;
-        public readonly bool hasContext;
+        protected bool hasContext;
 
-        protected SyncHandler(int syncId, bool hasContext)
+        public bool HasContext => hasContext;
+
+        protected SyncHandler(int syncId)
         {
             this.syncId = syncId;
-            this.hasContext = hasContext;
         }
 
         public abstract void Handle(ByteReader data);
@@ -42,7 +43,7 @@ namespace Multiplayer.Client
         public bool bufferChanges;
         public bool inGameLoop;
 
-        public SyncField(int syncId, Type targetType, string memberPath) : base(syncId, false)
+        public SyncField(int syncId, Type targetType, string memberPath) : base(syncId)
         {
             this.targetType = targetType;
             this.memberPath = targetType + "/" + memberPath;
@@ -121,7 +122,7 @@ namespace Multiplayer.Client
         public readonly MethodInfo method;
         public Type[] argTypes;
 
-        public SyncMethod(int syncId, Type targetType, string instancePath, string methodName, params Type[] argTypes) : base(syncId, true)
+        public SyncMethod(int syncId, Type targetType, string instancePath, string methodName, params Type[] argTypes) : base(syncId)
         {
             this.targetType = targetType;
 
@@ -136,7 +137,7 @@ namespace Multiplayer.Client
             this.argTypes = CheckArgs(argTypes);
         }
 
-        public SyncMethod(int syncId, Type targetType, MethodInfo method, params Type[] argTypes) : base(syncId, true)
+        public SyncMethod(int syncId, Type targetType, MethodInfo method, params Type[] argTypes) : base(syncId)
         {
             this.method = method;
             this.targetType = targetType;
@@ -166,7 +167,7 @@ namespace Multiplayer.Client
 
             writer.WriteInt32(syncId);
 
-            Sync.WriteContext(writer);
+            Sync.WriteContext(this, writer);
 
             int mapId = ScheduledCommand.Global;
             if (targetType != null)
@@ -211,6 +212,12 @@ namespace Multiplayer.Client
             MpLog.Log("Invoked " + method + " on " + target + " with " + parameters.Length + " params " + parameters.ToStringSafeEnumerable());
             method.Invoke(target, parameters);
         }
+
+        public SyncMethod SetHasContext()
+        {
+            hasContext = true;
+            return this;
+        }
     }
 
     public class SyncDelegate : SyncHandler
@@ -224,8 +231,9 @@ namespace Multiplayer.Client
 
         public MethodInfo patch;
 
-        public SyncDelegate(int syncId, Type delegateType, MethodInfo method, string[] fieldPaths) : base(syncId, true)
+        public SyncDelegate(int syncId, Type delegateType, MethodInfo method, string[] fieldPaths) : base(syncId)
         {
+            this.hasContext = true;
             this.delegateType = delegateType;
             this.method = method;
 
@@ -272,7 +280,7 @@ namespace Multiplayer.Client
 
             writer.WriteInt32(syncId);
 
-            Sync.WriteContext(writer);
+            Sync.WriteContext(this, writer);
 
             int mapId = ScheduledCommand.Global;
 
@@ -509,12 +517,12 @@ namespace Multiplayer.Client
             }
         }
 
-        public static void RegisterSyncMethod(Type type, string methodName, params Type[] argTypes)
+        public static SyncMethod RegisterSyncMethod(Type type, string methodName, params Type[] argTypes)
         {
             MethodInfo method = AccessTools.Method(type, methodName, argTypes.Length > 0 ? TranslateArgTypes(argTypes) : null);
             if (method == null)
                 throw new Exception("Couldn't find method " + methodName + " in type " + type);
-            RegisterSyncMethod(method, argTypes);
+            return RegisterSyncMethod(method, argTypes);
         }
 
         public static void RegisterSyncMethods(Type inType)
@@ -545,12 +553,14 @@ namespace Multiplayer.Client
             }).ToArray();
         }
 
-        private static void RegisterSyncMethod(MethodInfo method, params Type[] argTypes)
+        private static SyncMethod RegisterSyncMethod(MethodInfo method, params Type[] argTypes)
         {
             Multiplayer.harmony.Patch(method, null, null, new HarmonyMethod(typeof(Sync), nameof(Sync.SyncMethodTranspiler)));
             SyncMethod handler = new SyncMethod(handlers.Count, (method.IsStatic ? null : method.DeclaringType), method, argTypes);
             syncMethods[method] = handler;
             handlers.Add(handler);
+
+            return handler;
         }
 
         private static void DoSyncMethod(RuntimeMethodHandle original, object instance, object[] args)
@@ -655,7 +665,7 @@ namespace Multiplayer.Client
             int syncId = data.ReadInt32();
             SyncHandler handler = handlers[syncId];
 
-            if (handler.hasContext)
+            if (handler.HasContext)
             {
                 IntVec3 mouseCell = ReadSync<IntVec3>(data);
                 MouseCellPatch.result = mouseCell;
@@ -683,8 +693,10 @@ namespace Multiplayer.Client
 
         public static Thing selThingContext; // for ITabs
 
-        public static void WriteContext(ByteWriter data)
+        public static void WriteContext(SyncHandler handler, ByteWriter data)
         {
+            if (!handler.HasContext) return;
+
             WriteSync(data, Find.CurrentMap != null && !WorldRendererUtility.WorldRenderedNow ? UI.MouseCell() : IntVec3.Invalid);
             WriteSync(data, selThingContext);
             data.WriteBool(KeyBindingDefOf.QueueOrder.IsDownEvent);
@@ -1143,7 +1155,6 @@ namespace Multiplayer.Client
                     }
 
                     data.ContextMap(thing.Map);
-                    data.ContextFaction(thing.Faction);
 
                     data.WriteInt32(thing.thingIDNumber);
                     WriteSync(data, thing.def);
@@ -1247,6 +1258,7 @@ namespace Multiplayer.Client
         }
     }
 
+    [AttributeUsage(AttributeTargets.Method)]
     public class SyncDelegateAttribute : Attribute
     {
         public readonly string[] fields;
@@ -1261,6 +1273,7 @@ namespace Multiplayer.Client
         }
     }
 
+    [AttributeUsage(AttributeTargets.Method)]
     public class SyncMethodAttribute : Attribute
     {
     }

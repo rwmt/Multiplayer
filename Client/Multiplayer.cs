@@ -61,16 +61,14 @@ namespace Multiplayer.Client
             set
             {
                 RandSetSeedPatch.dontLog = true;
-
                 Rand.Seed = value;
-                UnityEngine.Random.InitState(value);
-
                 RandSetSeedPatch.dontLog = false;
             }
         }
 
+        public static bool ExecutingCmds => MultiplayerWorldComp.executingCmdWorld || MapAsyncTimeComp.executingCmdMap != null;
         public static bool Ticking => MultiplayerWorldComp.tickingWorld || MapAsyncTimeComp.tickingMap != null || ConstantTicker.ticking;
-        public static bool ShouldSync => Client != null && !Ticking && !OnMainThread.executingCmds && !reloading && Current.ProgramState == ProgramState.Playing;
+        public static bool ShouldSync => Client != null && !Ticking && !ExecutingCmds && !reloading && Current.ProgramState == ProgramState.Playing;
 
         public static Callback<P2PSessionRequest_t> sessionReqCallback;
         public static Callback<P2PSessionConnectFail_t> p2pFail;
@@ -80,6 +78,7 @@ namespace Multiplayer.Client
         public static AppId_t RimWorldAppId;
 
         public const string SteamConnectStart = " -mpserver=";
+        public const string CurrentMapIndexXml = "currentMapIndex";
 
         static Multiplayer()
         {
@@ -194,7 +193,7 @@ namespace Multiplayer.Client
 
                 ServerPlayer player = LocalServer.players.Find(p => p.connection is SteamConnection conn && conn.remoteId == remoteId);
                 if (player != null)
-                    LocalServer.OnDisconnected(player.connection, null);
+                    LocalServer.OnDisconnected(player.connection);
             });
         }
 
@@ -232,8 +231,8 @@ namespace Multiplayer.Client
                 Scribe.EnterNode("savegame");
                 ScribeMetaHeaderUtility.WriteMetaHeader();
                 Scribe.EnterNode("game");
-                sbyte visibleMapIndex = Current.Game.currentMapIndex;
-                Scribe_Values.Look(ref visibleMapIndex, "visibleMapIndex", (sbyte)-1);
+                int currentMapIndex = Current.Game.currentMapIndex;
+                Scribe_Values.Look(ref currentMapIndex, CurrentMapIndexXml, -1);
                 Current.Game.ExposeSmallComponents();
                 World world = Current.Game.World;
                 Scribe_Deep.Look(ref world, "world");
@@ -279,7 +278,7 @@ namespace Multiplayer.Client
             SavedGameLoaderNow.LoadGameFromSaveFileNow("server");
             Log.Message("Loading took " + watch.ElapsedMilliseconds);
 
-            RealPlayerFaction = Find.FactionManager.AllFactionsListForReading.Find(f => f.loadID == localFactionId);
+            RealPlayerFaction = Find.FactionManager.GetById(localFactionId);
 
             foreach (Map m in Find.Maps)
             {
@@ -363,7 +362,7 @@ namespace Multiplayer.Client
             // todo send map id
             Client.Send(Packets.CLIENT_AUTOSAVED_DATA, 1, compressedMaps, 0);
 
-            gameNode["visibleMapIndex"].RemoveFromParent();
+            gameNode[CurrentMapIndexXml].RemoveFromParent();
             mapsNode.RemoveAll();
 
             byte[] gameData = ScribeUtil.XmlToByteArray(doc, null, true);
@@ -446,9 +445,15 @@ namespace Multiplayer.Client
             {
                 var setMapTimePrefix = new HarmonyMethod(AccessTools.Method(typeof(SetMapTimeForUI), "Prefix"));
                 var setMapTimePostfix = new HarmonyMethod(AccessTools.Method(typeof(SetMapTimeForUI), "Postfix"));
-                var setMapTime = new[] { "MapInterfaceOnGUI_BeforeMainTabs", "MapInterfaceOnGUI_AfterMainTabs", "HandleMapClicks", "HandleLowPriorityInput", "MapInterfaceUpdate" };
+                var methods = new[] {
+                    "MapInterfaceOnGUI_BeforeMainTabs",
+                    "MapInterfaceOnGUI_AfterMainTabs",
+                    "HandleMapClicks",
+                    "HandleLowPriorityInput",
+                    "MapInterfaceUpdate"
+                };
 
-                foreach (string m in setMapTime)
+                foreach (string m in methods)
                     harmony.Patch(AccessTools.Method(typeof(MapInterface), m), setMapTimePrefix, setMapTimePostfix);
                 harmony.Patch(AccessTools.Method(typeof(SoundRoot), "Update"), setMapTimePrefix, setMapTimePostfix);
             }
@@ -573,7 +578,6 @@ namespace Multiplayer.Client
     public class OnMainThread : MonoBehaviour
     {
         public static ActionQueue queue = new ActionQueue();
-        public static bool executingCmds;
 
         public static byte[] cachedGameData;
         public static Dictionary<int, byte[]> cachedMapData = new Dictionary<int, byte[]>();
@@ -683,7 +687,7 @@ namespace Multiplayer.Client
         public static void ScheduleCommand(ScheduledCommand cmd)
         {
             MpLog.Log($"Cmd: {cmd.type}, faction: {cmd.factionId}, map: {cmd.mapId}, ticks: {cmd.ticks}");
-            cachedMapCmds.AddOrGet(cmd.mapId, new List<ScheduledCommand>()).Add(cmd);
+            cachedMapCmds.GetOrAddDefault(cmd.mapId).Add(cmd);
 
             if (Current.ProgramState != ProgramState.Playing) return;
 

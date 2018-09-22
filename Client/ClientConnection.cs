@@ -80,8 +80,8 @@ namespace Multiplayer.Client
                     XmlNode mapNode = gameDoc.ReadNode(reader);
                     gameNode["maps"].AppendChild(mapNode);
 
-                    if (gameNode["visibleMapIndex"] == null)
-                        gameNode.AddNode("visibleMapIndex", map.ToString());
+                    if (gameNode[Multiplayer.CurrentMapIndexXml] == null)
+                        gameNode.AddNode(Multiplayer.CurrentMapIndexXml, map.ToString());
                 }
             }
 
@@ -106,7 +106,7 @@ namespace Multiplayer.Client
         {
             FactionWorldData factionData = Multiplayer.WorldComp.factionData.GetValueSafe(Multiplayer.session.myFactionId);
             if (factionData != null && factionData.online)
-                Multiplayer.RealPlayerFaction = Find.FactionManager.AllFactionsListForReading.Find(f => f.loadID == factionData.factionId);
+                Multiplayer.RealPlayerFaction = Find.FactionManager.GetById(factionData.factionId);
             else
                 Multiplayer.RealPlayerFaction = Multiplayer.DummyFaction;
 
@@ -149,8 +149,14 @@ namespace Multiplayer.Client
             finishAction();
         }
 
-        public override void Disconnected(string reason)
+        [PacketHandler(Packets.SERVER_DISCONNECT_REASON)]
+        public void HandleDisconnectReason(ByteReader data)
         {
+            string reason = data.ReadString();
+            BaseConnectingWindow window = Find.WindowStack?.WindowOfType<BaseConnectingWindow>();
+
+            if (window != null)
+                window.result = reason;
         }
     }
 
@@ -177,7 +183,9 @@ namespace Multiplayer.Client
         [PacketHandler(Packets.SERVER_COMMAND)]
         public void HandleCommand(ByteReader data)
         {
-            OnMainThread.ScheduleCommand(ScheduledCommand.Deserialize(data));
+            ScheduledCommand cmd = ScheduledCommand.Deserialize(data);
+            cmd.issuedBySelf = data.ReadBool();
+            OnMainThread.ScheduleCommand(cmd);
         }
 
         [PacketHandler(Packets.SERVER_PLAYER_LIST)]
@@ -219,11 +227,13 @@ namespace Multiplayer.Client
         public void HandleNotification(ByteReader data)
         {
             string msg = data.ReadString();
-            Messages.Message(msg, MessageTypeDefOf.SilentInput);
+            Messages.Message(msg, MessageTypeDefOf.SilentInput, false);
         }
 
-        public override void Disconnected(string reason)
+        [PacketHandler(Packets.SERVER_DISCONNECT_REASON)]
+        public void HandleDisconnectReason(ByteReader data)
         {
+            string reason = data.ReadString();
         }
     }
 
@@ -240,8 +250,10 @@ namespace Multiplayer.Client
             Connection.State = new ClientJoiningState(Connection);
         }
 
-        public override void Disconnected(string reason)
+        [PacketHandler(Packets.SERVER_DISCONNECT_REASON)]
+        public void HandleDisconnectReason(ByteReader data)
         {
+            string reason = data.ReadString();
         }
     }
 }

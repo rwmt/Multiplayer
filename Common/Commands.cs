@@ -1,6 +1,8 @@
-﻿namespace Multiplayer.Common
+﻿using System;
+
+namespace Multiplayer.Common
 {
-    public enum CommandType
+    public enum CommandType : byte
     {
         // Global scope
         WORLD_TIME_SPEED,
@@ -33,6 +35,9 @@
         public readonly int mapId;
         public readonly byte[] data;
 
+        // Client only, not serialized
+        public bool issuedBySelf;
+
         public ScheduledCommand(CommandType type, int ticks, int factionId, int mapId, byte[] data)
         {
             this.type = type;
@@ -40,6 +45,18 @@
             this.factionId = factionId;
             this.mapId = mapId;
             this.data = data;
+        }
+
+        public byte[] GetBytes()
+        {
+            ByteWriter writer = new ByteWriter();
+            writer.WriteInt32(Convert.ToInt32(type));
+            writer.WriteInt32(ticks);
+            writer.WriteInt32(factionId);
+            writer.WriteInt32(mapId);
+            writer.WritePrefixedBytes(data);
+
+            return writer.GetArray();
         }
 
         public static ScheduledCommand Deserialize(ByteReader data)
