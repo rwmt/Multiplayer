@@ -153,14 +153,11 @@ namespace Multiplayer.Client
         public void HandleDisconnectReason(ByteReader data)
         {
             string reason = data.ReadString();
-            BaseConnectingWindow window = Find.WindowStack?.WindowOfType<BaseConnectingWindow>();
-
-            if (window != null)
-                window.result = reason;
+            Multiplayer.session.disconnectServerReason = reason;
         }
     }
 
-    public class ClientPlayingState : MpConnectionState
+    public class ClientPlayingState : MpConnectionState, IConnectionStatusListener
     {
         public ClientPlayingState(IConnection connection) : base(connection)
         {
@@ -234,6 +231,17 @@ namespace Multiplayer.Client
         public void HandleDisconnectReason(ByteReader data)
         {
             string reason = data.ReadString();
+            Multiplayer.session.disconnectServerReason = reason;
+        }
+
+        public void Connected()
+        {
+        }
+
+        public void Disconnected()
+        {
+            Find.TickManager.CurTimeSpeed = TimeSpeed.Paused;
+            Find.WindowStack.Add(new DisconnectedWindow(Multiplayer.session.disconnectServerReason ?? Multiplayer.session.disconnectNetReason));
         }
     }
 
@@ -254,6 +262,63 @@ namespace Multiplayer.Client
         public void HandleDisconnectReason(ByteReader data)
         {
             string reason = data.ReadString();
+            Multiplayer.session.disconnectServerReason = reason;
         }
     }
+
+    public class DisconnectedWindow : Window
+    {
+        public override Vector2 InitialSize => new Vector2(300f, 150f);
+
+        private string reason;
+
+        public DisconnectedWindow(string reason)
+        {
+            this.reason = reason;
+            forcePause = true;
+            absorbInputAroundWindow = true;
+        }
+
+        public override void DoWindowContents(Rect inRect)
+        {
+            const float ButtonWidth = 120f;
+            const float ButtonHeight = 40f;
+
+            Text.Anchor = TextAnchor.MiddleCenter;
+            Rect labelRect = inRect;
+            labelRect.yMax -= ButtonHeight;
+            Widgets.Label(labelRect, reason);
+            Text.Anchor = TextAnchor.UpperLeft;
+
+            Rect buttonRect = new Rect((inRect.width - ButtonWidth) / 2f, inRect.height - ButtonHeight - 15f, ButtonWidth, ButtonHeight);
+            if (Widgets.ButtonText(buttonRect, "Quit to main menu", true, false, true))
+            {
+                GenScene.GoToMainMenu();
+            }
+        }
+    }
+
+    public interface IConnectionStatusListener
+    {
+        void Connected();
+        void Disconnected();
+    }
+
+    public static class ConnectionStatusListeners
+    {
+        public static IEnumerable<IConnectionStatusListener> All
+        {
+            get
+            {
+                if (Find.WindowStack != null)
+                    foreach (Window window in Find.WindowStack.Windows)
+                        if (window is IConnectionStatusListener listener)
+                            yield return listener;
+
+                if (Multiplayer.Client.State is IConnectionStatusListener state)
+                    yield return state;
+            }
+        }
+    }
+
 }

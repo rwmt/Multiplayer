@@ -1,63 +1,81 @@
-﻿using LiteNetLib;
+﻿using Harmony;
+using LiteNetLib;
 using Multiplayer.Common;
 using Steamworks;
 using System;
 using System.Net;
+using System.Net.Sockets;
 using Verse;
 
 namespace Multiplayer.Client
 {
     public static class ClientUtil
     {
-        public static void TryConnect(IPAddress address, int port, Action<IConnection> connectEvent = null, Action<string> failEvent = null)
+        public static void TryConnect(IPAddress address, int port)
         {
             EventBasedNetListener listener = new EventBasedNetListener();
 
             Multiplayer.session = new MultiplayerSession();
-            NetManager netClient = new NetManager(listener, "");
+            NetManager netClient = new NetManager(listener);
             netClient.Start();
             netClient.ReconnectDelay = 300;
             netClient.MaxConnectAttempts = 8;
 
-            connectEvent += conn =>
-            {
-                conn.Username = Multiplayer.username;
-                conn.State = new ClientJoiningState(conn);
-                Multiplayer.session.client = conn;
-            };
-
-            failEvent += reason =>
-            {
-                OnMainThread.StopMultiplayer();
-            };
-
             listener.PeerConnectedEvent += peer =>
             {
-                peer.Tag = new MpNetConnection(peer);
-                OnMainThread.Enqueue(() => connectEvent(peer.GetConnection()));
+                OnMainThread.Enqueue(() =>
+                {
+                    IConnection conn = new MpNetConnection(peer);
+                    peer.Tag = conn;
+
+                    conn.Username = Multiplayer.username;
+                    conn.State = new ClientJoiningState(conn);
+                    Multiplayer.session.client = conn;
+
+                    ConnectionStatusListeners.All.Do(a => a.Connected());
+
+                    MpLog.Log("Client connected");
+                });
             };
 
             listener.PeerDisconnectedEvent += (peer, info) =>
             {
-                string reason = "Disconnected";
+                OnMainThread.Enqueue(() =>
+                {
+                    string reason = DisconnectReasonString(info.Reason);
+                    if (info.SocketErrorCode != SocketError.Success)
+                        reason += ": " + info.SocketErrorCode;
 
-                if (info.Reason == DisconnectReason.SocketSendError || 
-                    info.Reason == DisconnectReason.SocketReceiveError ||
-                    info.Reason == DisconnectReason.ConnectionFailed
-                )
-                    reason = info.Reason + ": " + info.SocketErrorCode;
+                    Multiplayer.session.disconnectNetReason = reason;
 
-                OnMainThread.Enqueue(() => failEvent(reason));
+                    ConnectionStatusListeners.All.Do(a => a.Disconnected());
+
+                    OnMainThread.StopMultiplayer();
+                    MpLog.Log("Client disconnected");
+                });
             };
 
-            listener.NetworkReceiveEvent += (peer, reader) =>
+            listener.NetworkReceiveEvent += (peer, reader, method) =>
             {
-                byte[] data = reader.Data;
+                byte[] data = reader.GetRemainingBytes();
                 OnMainThread.Enqueue(() => peer.GetConnection().HandleReceive(data));
             };
 
             Multiplayer.session.netClient = netClient;
-            netClient.Connect(address.ToString(), port);
+            netClient.Connect(address.ToString(), port, "");
+        }
+
+        private static string DisconnectReasonString(DisconnectReason reason)
+        {
+            switch (reason)
+            {
+                case DisconnectReason.ConnectionFailed: return "Connection failed";
+                case DisconnectReason.ConnectionRejected: return "Connection rejected";
+                case DisconnectReason.Timeout: return "Timed out";
+                case DisconnectReason.SocketSendError: return "Socket send error";
+                case DisconnectReason.SocketReceiveError: return "Socket receive error";
+                default: return "Disconnected";
+            }
         }
     }
 

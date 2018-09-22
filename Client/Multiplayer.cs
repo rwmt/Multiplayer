@@ -146,10 +146,7 @@ namespace Multiplayer.Client
                 LongEventHandler.QueueLongEvent(() =>
                 {
                     IPAddress.TryParse(ip, out IPAddress addr);
-                    ClientUtil.TryConnect(addr, MultiplayerServer.DefaultPort, conn =>
-                    {
-                        MpLog.Log("Client connected");
-                    });
+                    ClientUtil.TryConnect(addr, MultiplayerServer.DefaultPort);
                 }, "Connecting", false, null);
             }
         }
@@ -185,9 +182,14 @@ namespace Multiplayer.Client
                 if (session == null) return;
 
                 CSteamID remoteId = fail.m_steamIDRemote;
+                EP2PSessionError error = (EP2PSessionError)fail.m_eP2PSessionError;
 
                 if (Client is SteamConnection clientConn && clientConn.remoteId == remoteId)
+                {
+                    session.disconnectNetReason = error == EP2PSessionError.k_EP2PSessionErrorTimeout ? "Connection timed out" : "Connection error";
+                    ConnectionStatusListeners.All.Do(a => a.Disconnected());
                     OnMainThread.StopMultiplayer();
+                }
 
                 if (LocalServer == null) return;
 
@@ -488,6 +490,9 @@ namespace Multiplayer.Client
         public PacketLogWindow packetLog = new PacketLogWindow();
         public int myFactionId;
 
+        public string disconnectNetReason;
+        public string disconnectServerReason;
+
         public bool allowSteam;
         public List<CSteamID> pendingSteam = new List<CSteamID>();
 
@@ -500,7 +505,10 @@ namespace Multiplayer.Client
                 netClient.Stop();
 
             if (localServer != null)
+            {
                 localServer.running = false;
+                serverThread.Join();
+            }
         }
     }
 

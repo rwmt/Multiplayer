@@ -135,7 +135,7 @@ namespace Multiplayer.Common
         public override int Latency { get; set; }
         public override MpConnectionState State { get; set; }
 
-        private readonly NetPeer peer;
+        public readonly NetPeer peer;
 
         public MpNetConnection(NetPeer peer)
         {
@@ -144,7 +144,7 @@ namespace Multiplayer.Common
 
         public override void SendRaw(byte[] raw)
         {
-            peer.Send(raw, SendOptions.ReliableOrdered);
+            peer.Send(raw, DeliveryMethod.ReliableOrdered);
         }
 
         public override void Close()

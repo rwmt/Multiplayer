@@ -63,6 +63,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Client\Blueprints.cs" />
+    <Compile Include="Client\ChatWindow.cs" />
     <Compile Include="Client\ClientConnection.cs" />
     <Compile Include="Client\MultiplayerMapComp.cs" />
     <Compile Include="Client\MultiplayerWorldComp.cs" />
@@ -72,6 +73,7 @@
     <Compile Include="Client\MapAsyncTime.cs" />
     <Compile Include="Client\MpPatch.cs" />
     <Compile Include="Client\MpReflection.cs" />
+    <Compile Include="Client\ServerBrowser.cs" />
     <Compile Include="Client\Sync.cs" />
     <Compile Include="Client\SyncHandlers.cs" />
     <Compile Include="Common\MpLog.cs" />

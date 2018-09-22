@@ -55,15 +55,16 @@ namespace Multiplayer.Common
             this.port = port;
 
             EventBasedNetListener listener = new EventBasedNetListener();
-            server = new NetManager(listener, 32, "");
+            server = new NetManager(listener);
 
+            listener.ConnectionRequestEvent += req => req.Accept();
             listener.PeerConnectedEvent += peer => Enqueue(() => NetPeerConnected(peer));
             listener.PeerDisconnectedEvent += (peer, info) => Enqueue(() => NetPeerDisconnected(peer, info));
             listener.NetworkLatencyUpdateEvent += (peer, ping) => Enqueue(() => NetPeerUpdateLatency(peer, ping));
 
-            listener.NetworkReceiveEvent += (peer, reader) =>
+            listener.NetworkReceiveEvent += (peer, reader, method) =>
             {
-                byte[] data = reader.Data;
+                byte[] data = reader.GetRemainingBytes();
                 Enqueue(() => MessageReceived(peer, data));
             };
         }
@@ -209,6 +210,10 @@ namespace Multiplayer.Common
         public void Disconnect(IConnection conn, string reason)
         {
             conn.Send(Packets.SERVER_DISCONNECT_REASON, reason);
+
+            if (conn is MpNetConnection netConn)
+                netConn.peer.Flush();
+
             conn.Close();
             OnDisconnected(conn);
         }
