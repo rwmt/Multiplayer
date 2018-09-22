@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Security.Cryptography;
 using System.Text;
 using System.Xml;
 
@@ -128,6 +129,25 @@ namespace Multiplayer.Common
             XmlNode node = parent.OwnerDocument.CreateElement(name);
             node.InnerText = value;
             parent.AppendChild(node);
+        }
+    }
+
+    public static class Utils
+    {
+        public static byte[] GetMD5(IEnumerable<string> strings)
+        {
+            using (var hash = MD5.Create())
+            {
+                foreach (string s in strings)
+                {
+                    byte[] data = Encoding.UTF8.GetBytes(s);
+                    hash.TransformBlock(data, 0, data.Length, null, 0);
+                }
+
+                hash.TransformFinalBlock(new byte[0], 0, 0);
+
+                return hash.Hash;
+            }
         }
     }
 

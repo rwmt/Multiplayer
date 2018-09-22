@@ -697,7 +697,8 @@ namespace Multiplayer.Client
         {
             if (!handler.HasContext) return;
 
-            WriteSync(data, Find.CurrentMap != null && !WorldRendererUtility.WorldRenderedNow ? UI.MouseCell() : IntVec3.Invalid);
+            bool viewingMap = Find.CurrentMap != null && !WorldRendererUtility.WorldRenderedNow;
+            WriteSync(data, viewingMap ? UI.MouseCell() : IntVec3.Invalid);
             WriteSync(data, selThingContext);
             data.WriteBool(KeyBindingDefOf.QueueOrder.IsDownEvent);
         }
@@ -809,6 +810,11 @@ namespace Multiplayer.Client
 
         private static MethodInfo ReadExposable = AccessTools.Method(typeof(ScribeUtil), nameof(ScribeUtil.ReadExposable));
 
+        enum SpecialList
+        {
+            Normal, MapAllThings, MapAllDesignations
+        }
+
         public static object ReadSyncObject(ByteReader data, Type type)
         {
             Map map = data.ContextMap();
@@ -838,6 +844,12 @@ namespace Multiplayer.Client
             {
                 if (type.GetGenericTypeDefinition() == typeof(List<>))
                 {
+                    SpecialList specialList = ReadSync<SpecialList>(data);
+                    if (specialList == SpecialList.MapAllThings)
+                        return map.listerThings.AllThings;
+                    else if (specialList == SpecialList.MapAllDesignations)
+                        return map.designationManager.allDesignations;
+
                     Type listType = type.GetGenericArguments()[0];
                     int size = data.ReadInt32();
                     IList list = Activator.CreateInstance(type, size) as IList;
@@ -891,6 +903,11 @@ namespace Multiplayer.Client
 
                 Type dbType = typeof(DefDatabase<>).MakeGenericType(type);
                 return AccessTools.Method(dbType, nameof(DefDatabase<Def>.GetByShortHash)).Invoke(null, new object[] { shortHash });
+            }
+            else if (typeof(PawnColumnWorker).IsAssignableFrom(type))
+            {
+                PawnColumnDef def = ReadSync<PawnColumnDef>(data);
+                return def.Worker;
             }
             else if (typeof(Designator).IsAssignableFrom(type))
             {
@@ -1037,11 +1054,29 @@ namespace Multiplayer.Client
                 }
                 else if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(List<>))
                 {
+                    SpecialList specialList = SpecialList.Normal;
                     Type listType = type.GetGenericArguments()[0];
-                    IList list = obj as IList;
-                    data.WriteInt32(list.Count);
-                    foreach (object e in list)
-                        WriteSyncObject(data, e, listType);
+
+                    if (listType == typeof(Thing) && obj == Find.CurrentMap.listerThings.AllThings)
+                    {
+                        data.ContextMap(Find.CurrentMap);
+                        specialList = SpecialList.MapAllThings;
+                    }
+                    else if (listType == typeof(Designation) && obj == Find.CurrentMap.designationManager.allDesignations)
+                    {
+                        data.ContextMap(Find.CurrentMap);
+                        specialList = SpecialList.MapAllDesignations;
+                    }
+
+                    WriteSync(data, specialList);
+
+                    if (specialList == SpecialList.Normal)
+                    {
+                        IList list = obj as IList;
+                        data.WriteInt32(list.Count);
+                        foreach (object e in list)
+                            WriteSyncObject(data, e, listType);
+                    }
                 }
                 else if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>))
                 {
@@ -1096,6 +1131,11 @@ namespace Multiplayer.Client
                 else if (typeof(Def).IsAssignableFrom(type))
                 {
                     data.WriteUInt16(obj is Def def ? def.shortHash : (ushort)0);
+                }
+                else if (typeof(PawnColumnWorker).IsAssignableFrom(type))
+                {
+                    PawnColumnWorker worker = obj as PawnColumnWorker;
+                    WriteSync(data, worker.def);
                 }
                 else if (typeof(Designator).IsAssignableFrom(type))
                 {
@@ -1489,11 +1529,6 @@ namespace Multiplayer.Client
     public class MethodGroup : IEnumerable<SyncMethod>
     {
         private List<SyncMethod> methods = new List<SyncMethod>();
-
-        public void Add<T>(Action<T> helper)
-        {
-            Action<object> d = (o) => helper((T)o);
-        }
 
         public void Add(string methodName, params Type[] argTypes)
         {

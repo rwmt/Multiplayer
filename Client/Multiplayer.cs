@@ -124,7 +124,6 @@ namespace Multiplayer.Client
             DoPatches();
 
             Log.messageQueue.maxMessages = 1000;
-            DebugSettings.noAnimals = true;
 
             if (GenCommandLine.CommandLineArgPassed("dev"))
             {
@@ -134,7 +133,6 @@ namespace Multiplayer.Client
                     gameToLoad = "mappo"
                 };
 
-                DebugSettings.noAnimals = true;
                 LongEventHandler.QueueLongEvent(null, "Play", "LoadingLongEvent", true, null);
             }
             else if (GenCommandLine.TryGetCommandLineArg("connect", out string ip))
@@ -142,7 +140,6 @@ namespace Multiplayer.Client
                 if (String.IsNullOrEmpty(ip))
                     ip = "127.0.0.1";
 
-                DebugSettings.noAnimals = true;
                 LongEventHandler.QueueLongEvent(() =>
                 {
                     IPAddress.TryParse(ip, out IPAddress addr);

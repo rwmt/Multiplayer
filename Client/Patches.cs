@@ -640,7 +640,7 @@ namespace Multiplayer.Client
             }
 
             __result = CurrentBlock.NextId();
-            MpLog.Log("got new id " + __result);
+            //MpLog.Log("got new id " + __result);
 
             if (currentBlock.current > currentBlock.blockSize * 0.95f && !currentBlock.overflowHandled)
             {
@@ -1361,6 +1361,16 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.Client == null) return;
             Multiplayer.game.worldComp = Find.World.GetComponent<MultiplayerWorldComp>();
+        }
+    }
+
+    [HarmonyPatch(typeof(Messages), nameof(Messages.Message), new[] { typeof(Message), typeof(bool) })]
+    static class SilenceMessagesNotTargetedAtMe
+    {
+        static bool Prefix(bool historical)
+        {
+            bool cancel = Multiplayer.Client != null && !historical && Multiplayer.ExecutingCmds && !TickPatch.currentExecutingCmdIssuedBySelf;
+            return !cancel;
         }
     }
 

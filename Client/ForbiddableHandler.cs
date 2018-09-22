@@ -67,6 +67,7 @@ namespace Multiplayer.Client
 
         static bool Prefix(CompForbiddable __instance, bool value)
         {
+            if (Multiplayer.Client == null) return true;
             if (ignore) return true;
 
             ThingWithComps thing = __instance.parent;

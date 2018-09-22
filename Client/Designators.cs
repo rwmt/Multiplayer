@@ -12,13 +12,13 @@ namespace Multiplayer.Client
 {
     [HarmonyPatch(typeof(Designator))]
     [HarmonyPatch(nameof(Designator.Finalize))]
-    [HarmonyPatch(new Type[] { typeof(bool) })]
+    [HarmonyPatch(new[] { typeof(bool) })]
     public static class DesignatorFinalizePatch
     {
         static bool Prefix(bool somethingSucceeded)
         {
             if (Multiplayer.Client == null) return true;
-            return somethingSucceeded;
+            return !somethingSucceeded || Multiplayer.ExecutingCmds;
         }
     }
 
@@ -42,6 +42,7 @@ namespace Multiplayer.Client
         public static bool DesignateMultiCell(Designator designator, IEnumerable<IntVec3> cells)
         {
             if (!Multiplayer.ShouldSync) return true;
+            if (cells.Count() == 0) return true; // No cells implies Finalize(false), which currently doesn't cause side effects
 
             Map map = Find.CurrentMap;
             ByteWriter data = new ByteWriter();

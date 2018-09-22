@@ -22,8 +22,6 @@ namespace Multiplayer.Client
 
         public ServerBrowser()
         {
-            Log.Message("Server browser created");
-
             EventBasedNetListener listener = new EventBasedNetListener();
             listener.NetworkReceiveUnconnectedEvent += (endpoint, data, type) =>
             {
@@ -302,7 +300,6 @@ namespace Multiplayer.Client
         public override void PostClose()
         {
             net.Stop();
-            Log.Message("Server browser closed");
         }
 
         private void AddOrUpdate(IPEndPoint endpoint)
@@ -339,4 +336,5 @@ namespace Multiplayer.Client
         public bool playingRimworld;
         public CSteamID serverHost = CSteamID.Nil;
     }
+
 }

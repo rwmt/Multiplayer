@@ -27,6 +27,11 @@ namespace Multiplayer.Client
         private int logHeight;
         private Vector2 scrollPos;
 
+        public PacketLogWindow()
+        {
+            doCloseX = true;
+        }
+
         public override void DoWindowContents(Rect rect)
         {
             GUI.BeginGroup(rect);

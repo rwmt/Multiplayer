@@ -39,8 +39,6 @@ namespace Multiplayer.Client
         public static SyncField SyncMedCare = Sync.Field(typeof(Pawn), "playerSettings", "medCare");
         public static SyncField SyncSelfTend = Sync.Field(typeof(Pawn), "playerSettings", "selfTend");
         public static SyncField SyncHostilityResponse = Sync.Field(typeof(Pawn), "playerSettings", "hostilityResponse");
-        public static SyncField SyncFollowFieldwork = Sync.Field(typeof(Pawn), "playerSettings", "followFieldwork");
-        public static SyncField SyncFollowDrafted = Sync.Field(typeof(Pawn), "playerSettings", "followDrafted");
         public static SyncField SyncGetsFood = Sync.Field(typeof(Pawn), "guest", "GetsFood");
         public static SyncField SyncInteractionMode = Sync.Field(typeof(Pawn), "guest", "interactionMode");
 
@@ -138,18 +136,6 @@ namespace Multiplayer.Client
         static void SelectMedicalCare(object __instance)
         {
             SyncMedCare.Watch(__instance.GetPropertyOrField("<>f__ref$3/p"));
-        }
-
-        [MpPrefix(typeof(PawnColumnWorker_FollowFieldwork), "SetValue")]
-        static void FollowFieldwork(Pawn pawn)
-        {
-            SyncFollowFieldwork.Watch(pawn);
-        }
-
-        [MpPrefix(typeof(PawnColumnWorker_FollowDrafted), "SetValue")]
-        static void FollowDrafted(Pawn pawn)
-        {
-            SyncFollowDrafted.Watch(pawn);
         }
 
         [MpPrefix(typeof(Dialog_MedicalDefaults), "DoWindowContents")]
@@ -322,6 +308,9 @@ namespace Multiplayer.Client
             Sync.RegisterSyncMethod(typeof(Building_Bed), "TryUnassignPawn");
             Sync.RegisterSyncMethod(typeof(Building_Grave), "TryAssignPawn");
             Sync.RegisterSyncMethod(typeof(Building_Grave), "TryUnassignPawn");
+            Sync.RegisterSyncMethod(typeof(PawnColumnWorker_Designator), "SetValue"); // Abstract but currently not overriden by any subclasses
+            Sync.RegisterSyncMethod(typeof(PawnColumnWorker_FollowDrafted), "SetValue");
+            Sync.RegisterSyncMethod(typeof(PawnColumnWorker_FollowFieldwork), "SetValue");
         }
 
         static SyncField SyncTimetable = Sync.Field(typeof(Pawn), "timetable", "times");
@@ -339,7 +328,7 @@ namespace Multiplayer.Client
         static bool ITabPawnGearDrop(ITab_Pawn_Gear __instance, Thing t)
         {
             Sync.selThingContext = __instance.SelThing;
-            bool result = SyncPawnGearDrop.DoSync(__instance, t);
+            bool result = !SyncPawnGearDrop.DoSync(__instance, t);
             Sync.selThingContext = null;
 
             return result;
@@ -349,7 +338,7 @@ namespace Multiplayer.Client
         static bool ITabPawnGearIngest(ITab_Pawn_Gear __instance, Thing t)
         {
             Sync.selThingContext = __instance.SelThing;
-            bool result = SyncPawnGearIngest.DoSync(__instance, t);
+            bool result = !SyncPawnGearIngest.DoSync(__instance, t);
             Sync.selThingContext = null;
 
             return result;
@@ -538,6 +527,20 @@ namespace Multiplayer.Client
         [SyncDelegate("changeableProjectile", "<>f__ref$0/$this")]
         [MpPrefix(typeof(Building_TurretGun), "<GetGizmos>c__Iterator0+<GetGizmos>c__AnonStorey2", "<>m__0")] // Remove shell
         static bool TurretGunGizmos_RemoveShell(object __instance, MethodBase __originalMethod)
+        {
+            return !Sync.Delegate(__instance, __originalMethod);
+        }
+
+        [SyncDelegate("<>f__ref$0/$this", "things")]
+        [MpPrefix(typeof(Designator), "<>c__Iterator0+<>c__AnonStorey1", "<>m__0")]
+        static bool DesignateAll(object __instance, MethodBase __originalMethod)
+        {
+            return !Sync.Delegate(__instance, __originalMethod);
+        }
+
+        [SyncDelegate("<>f__ref$0/$this", "<>f__ref$3/designation", "designations")]
+        [MpPrefix(typeof(Designator), "<>c__Iterator0+<>c__AnonStorey2", "<>m__0")]
+        static bool RemoveAllDesignations(object __instance, MethodBase __originalMethod)
         {
             return !Sync.Delegate(__instance, __originalMethod);
         }
