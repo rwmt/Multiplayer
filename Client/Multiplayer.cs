@@ -86,6 +86,7 @@ namespace Multiplayer.Client
                 SimpleProfiler.CheckAvailable();
 
             MpLog.info = str => Log.Message($"{username} {(Current.Game != null ? (Find.CurrentMap != null ? Find.CurrentMap.GetComponent<MapAsyncTimeComp>().mapTicks.ToString() : "") : "")} {str}");
+            MpLog.error = str => Log.Error(str);
 
             GenCommandLine.TryGetCommandLineArg("username", out username);
             if (username == null)
@@ -190,9 +191,9 @@ namespace Multiplayer.Client
 
                 if (LocalServer == null) return;
 
-                ServerPlayer player = LocalServer.FindPlayer(p => p.connection is SteamConnection conn && conn.remoteId == remoteId);
+                ServerPlayer player = LocalServer.FindPlayer(p => p.conn is SteamConnection conn && conn.remoteId == remoteId);
                 if (player != null)
-                    LocalServer.Enqueue(() => LocalServer.OnDisconnected(player.connection));
+                    LocalServer.Enqueue(() => LocalServer.OnDisconnected(player.conn));
             });
         }
 
@@ -477,6 +478,18 @@ namespace Multiplayer.Client
                     block = null;
             }
         }
+
+        public static void HandleReceive(byte[] data)
+        {
+            try
+            {
+                Client.HandleReceive(data);
+            }
+            catch (Exception e)
+            {
+                Log.Error($"Exception handling packet by {Client}: {e}");
+            }
+        }
     }
 
     public class MultiplayerSession
@@ -627,13 +640,13 @@ namespace Multiplayer.Client
         private void HandleSteamPacket(CSteamID remote, byte[] data)
         {
             if (Multiplayer.Client is SteamConnection localConn && localConn.remoteId == remote)
-                localConn.HandleReceive(data);
+                Multiplayer.HandleReceive(data);
 
             if (Multiplayer.LocalServer == null) return;
 
-            ServerPlayer player = Multiplayer.LocalServer.FindPlayer(p => p.connection is SteamConnection conn && conn.remoteId == remote);
+            ServerPlayer player = Multiplayer.LocalServer.FindPlayer(p => p.conn is SteamConnection conn && conn.remoteId == remote);
             if (player != null)
-                Multiplayer.LocalServer.Enqueue(() => player.connection.HandleReceive(data));
+                Multiplayer.LocalServer.Enqueue(() => player.HandleReceive(data));
         }
 
         private void UpdateSync()

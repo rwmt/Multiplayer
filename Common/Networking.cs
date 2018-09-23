@@ -53,8 +53,9 @@ namespace Multiplayer.Common
 
     public abstract class IConnection
     {
-        public abstract string Username { get; set; }
-        public abstract int Latency { get; set; }
+        public string username;
+        public int latency;
+        public ServerPlayer serverPlayer;
 
         public ConnectionStateEnum State
         {
@@ -106,6 +107,9 @@ namespace Multiplayer.Common
             if (state == ConnectionStateEnum.Disconnected)
                 return;
 
+            if (rawData.Length == 0)
+                throw new Exception("No packet id");
+
             ByteReader reader = new ByteReader(rawData);
             byte msgId = reader.ReadByte();
 
@@ -125,9 +129,6 @@ namespace Multiplayer.Common
 
     public class MpNetConnection : IConnection
     {
-        public override string Username { get; set; }
-        public override int Latency { get; set; }
-
         public readonly NetPeer peer;
 
         public MpNetConnection(NetPeer peer)
@@ -147,7 +148,7 @@ namespace Multiplayer.Common
 
         public override string ToString()
         {
-            return "NetConnection " + peer.EndPoint;
+            return $"NetConnection ({peer.EndPoint}) ({username})";
         }
     }
 

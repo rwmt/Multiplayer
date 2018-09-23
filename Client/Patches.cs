@@ -19,6 +19,7 @@ using UnityEngine;
 using Verse;
 using Verse.AI;
 using Verse.Profile;
+using Verse.Sound;
 
 namespace Multiplayer.Client
 {
@@ -1361,6 +1362,16 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.Client == null) return;
             Multiplayer.game.worldComp = Find.World.GetComponent<MultiplayerWorldComp>();
+        }
+    }
+
+    [HarmonyPatch(typeof(SoundStarter), nameof(SoundStarter.PlayOneShot))]
+    static class SilenceSoundsNotTargetedAtMe
+    {
+        static bool Prefix()
+        {
+            bool cancel = Multiplayer.Client != null && Multiplayer.ExecutingCmds && !TickPatch.currentExecutingCmdIssuedBySelf;
+            return !cancel;
         }
     }
 

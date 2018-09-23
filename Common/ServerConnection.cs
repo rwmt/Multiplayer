@@ -19,42 +19,46 @@ namespace Multiplayer.Common
         public void HandleClientUsername(ByteReader data)
         {
             string username = data.ReadString();
+            ServerPlayer player = connection.serverPlayer;
 
             if (username.Length < 3 || username.Length > 15)
             {
-                MultiplayerServer.instance.Disconnect(connection, "Invalid username length.");
+                player.Disconnect("Invalid username length.");
                 return;
             }
 
             if (!UsernamePattern.IsMatch(username))
             {
-                MultiplayerServer.instance.Disconnect(connection, "Invalid username characters.");
+                player.Disconnect("Invalid username characters.");
                 return;
             }
 
             if (MultiplayerServer.instance.GetPlayer(username) != null)
             {
-                MultiplayerServer.instance.Disconnect(connection, "Username already online.");
+                player.Disconnect("Username already online.");
                 return;
             }
 
-            connection.Username = username;
+            connection.username = username;
 
-            MultiplayerServer.instance.SendToAll(Packets.SERVER_NOTIFICATION, new object[] { "Player " + connection.Username + " has joined the game." });
+            MultiplayerServer.instance.SendToAll(Packets.SERVER_NOTIFICATION, new object[] { "Player " + connection.username + " has joined the game." });
             MultiplayerServer.instance.UpdatePlayerList();
         }
 
         [PacketHandler(Packets.CLIENT_REQUEST_WORLD)]
         public void HandleWorldRequest(ByteReader data)
         {
-            if (!MultiplayerServer.instance.playerFactions.TryGetValue(connection.Username, out int factionId))
+            int factionId = MultiplayerServer.instance.coopFactionId;
+            MultiplayerServer.instance.playerFactions[connection.username] = factionId;
+
+            /*if (!MultiplayerServer.instance.playerFactions.TryGetValue(connection.Username, out int factionId))
             {
                 factionId = MultiplayerServer.instance.nextUniqueId++;
                 MultiplayerServer.instance.playerFactions[connection.Username] = factionId;
 
                 byte[] extra = ByteWriter.GetBytes(factionId);
                 MultiplayerServer.instance.SendCommand(CommandType.SETUP_FACTION, ScheduledCommand.NoFaction, ScheduledCommand.Global, extra);
-            }
+            }*/
 
             if (MultiplayerServer.instance.players.Count(p => p.FactionId == factionId) == 1)
             {
@@ -110,8 +114,8 @@ namespace Multiplayer.Common
 
             // todo check if map id is valid for the player
 
-            int factionId = MultiplayerServer.instance.playerFactions[connection.Username];
-            MultiplayerServer.instance.SendCommand(cmd, factionId, mapId, extra, connection.Username);
+            int factionId = MultiplayerServer.instance.playerFactions[connection.username];
+            MultiplayerServer.instance.SendCommand(cmd, factionId, mapId, extra, connection.username);
         }
 
         [PacketHandler(Packets.CLIENT_CHAT)]
@@ -122,7 +126,7 @@ namespace Multiplayer.Common
 
             if (msg.Length == 0) return;
 
-            MultiplayerServer.instance.SendToAll(Packets.SERVER_CHAT, new object[] { connection.Username, msg });
+            MultiplayerServer.instance.SendToAll(Packets.SERVER_CHAT, new object[] { connection.username, msg });
         }
 
         [PacketHandler(Packets.CLIENT_AUTOSAVED_DATA)]
@@ -151,7 +155,7 @@ namespace Multiplayer.Common
             if (!MultiplayerServer.instance.mapTiles.TryGetValue(tile, out int mapId))
                 return;
 
-            byte[] extra = ByteWriter.GetBytes(connection.Username); // todo faction id
+            byte[] extra = ByteWriter.GetBytes(connection.username); // todo faction id
             MultiplayerServer.instance.SendCommand(CommandType.CREATE_MAP_FACTION_DATA, ScheduledCommand.NoFaction, mapId, extra);
 
             byte[] mapData = MultiplayerServer.instance.mapData[mapId];
@@ -185,9 +189,9 @@ namespace Multiplayer.Common
 
             int id = data.ReadInt32();
             if (MultiplayerServer.instance.keepAliveId == id)
-                connection.Latency = (int)MultiplayerServer.instance.lastKeepAlive.ElapsedMilliseconds / 2;
+                connection.latency = (int)MultiplayerServer.instance.lastKeepAlive.ElapsedMilliseconds / 2;
             else
-                connection.Latency = 2000;
+                connection.latency = 2000;
         }
 
         public void OnMessage(Packets packet, ByteReader data)

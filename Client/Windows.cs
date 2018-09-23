@@ -112,15 +112,20 @@ namespace Multiplayer.Client
         {
             string label = Ellipsis ? ConnectingString : result;
 
+            const float buttonHeight = 40f;
+            const float buttonWidth = 120f;
+
             Rect textRect = inRect;
+            textRect.yMax -= (buttonHeight + 10f);
             float textWidth = Text.CalcSize(label).x;
-            textRect.x = (inRect.width - textWidth) / 2 - 5f;
+            Text.Anchor = TextAnchor.MiddleCenter;
             Widgets.Label(textRect, label);
+            Text.Anchor = TextAnchor.UpperLeft;
 
             if (Ellipsis)
-                Widgets.Label(textRect.Right(textWidth), GenText.MarchingEllipsis());
+                Widgets.Label(textRect.Right((inRect.width - textWidth) / 2 - 5f + textWidth), GenText.MarchingEllipsis());
 
-            Rect buttonRect = new Rect((inRect.width - 120f) / 2f, inRect.height - 55f, 120f, 40f);
+            Rect buttonRect = new Rect((inRect.width - buttonWidth) / 2f, inRect.height - buttonHeight - 10f, buttonWidth, buttonHeight);
             if (Widgets.ButtonText(buttonRect, "Cancel", true, false, true))
                 Close();
         }
@@ -206,6 +211,7 @@ namespace Multiplayer.Client
             MultiplayerSession session = Multiplayer.session = new MultiplayerSession();
             MultiplayerServer localServer = new MultiplayerServer(addr);
             localServer.allowLan = true;
+            localServer.coopFactionId = Faction.OfPlayer.loadID;
             MultiplayerServer.instance = localServer;
             session.localServer = localServer;
             session.myFactionId = Faction.OfPlayer.loadID;
@@ -281,7 +287,10 @@ namespace Multiplayer.Client
             localClient.State = ConnectionStateEnum.ClientPlaying;
             localServerConn.State = ConnectionStateEnum.ServerPlaying;
 
-            Multiplayer.LocalServer.players.Add(new ServerPlayer(localServerConn));
+            ServerPlayer serverPlayer = new ServerPlayer(localServerConn);
+            localServerConn.serverPlayer = serverPlayer;
+
+            Multiplayer.LocalServer.players.Add(serverPlayer);
             Multiplayer.LocalServer.host = Multiplayer.username;
 
             Multiplayer.session.client = localClient;

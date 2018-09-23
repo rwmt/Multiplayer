@@ -55,9 +55,9 @@ namespace Multiplayer.Common
             return result;
         }
 
-        public static IConnection GetConnection(this NetPeer peer)
+        public static MpNetConnection GetConnection(this NetPeer peer)
         {
-            return (IConnection)peer.Tag;
+            return (MpNetConnection)peer.Tag;
         }
 
         public static void Write(this MemoryStream stream, byte[] arr)
@@ -86,6 +86,11 @@ namespace Multiplayer.Common
         public static int FindIndex<T>(this T[] arr, T t)
         {
             return Array.IndexOf(arr, t);
+        }
+
+        public static double ElapsedMillisDouble(this Stopwatch watch)
+        {
+            return (watch.ElapsedTicks * 1000.0) / Stopwatch.Frequency;
         }
     }
 

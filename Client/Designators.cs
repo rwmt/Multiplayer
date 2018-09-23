@@ -87,7 +87,7 @@ namespace Multiplayer.Client
                 Sync.WriteSync(data, build.stuffDef);
 
             if (designator is Designator_Install)
-                Sync.WriteSync(data, ThingToInstall().thingIDNumber);
+                Sync.WriteSync(data, ThingToInstall());
         }
 
         private static Thing ThingToInstall()

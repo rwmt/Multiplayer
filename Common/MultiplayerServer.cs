@@ -22,6 +22,7 @@ namespace Multiplayer.Common
 
         public const int DefaultPort = 30502;
 
+        public int coopFactionId;
         public byte[] savedGame; // Compressed game save
         public Dictionary<int, int> mapTiles = new Dictionary<int, int>(); // World tile to map id
         public Dictionary<int, byte[]> mapData = new Dictionary<int, byte[]>(); // Map id to compressed map data
@@ -64,33 +65,29 @@ namespace Multiplayer.Common
 
             listener.ConnectionRequestEvent += req => req.Accept();
 
-            listener.PeerConnectedEvent += peer => Enqueue(() =>
+            listener.PeerConnectedEvent += peer =>
             {
                 IConnection conn = new MpNetConnection(peer);
                 conn.State = ConnectionStateEnum.ServerJoining;
                 peer.Tag = conn;
                 OnConnected(conn);
-            });
+            };
 
-            listener.PeerDisconnectedEvent += (peer, info) => Enqueue(() =>
+            listener.PeerDisconnectedEvent += (peer, info) =>
             {
                 IConnection conn = peer.GetConnection();
                 OnDisconnected(conn);
-            });
+            };
 
-            listener.NetworkLatencyUpdateEvent += (peer, ping) => Enqueue(() =>
+            listener.NetworkLatencyUpdateEvent += (peer, ping) =>
             {
-                peer.GetConnection().Latency = ping;
-            });
+                peer.GetConnection().latency = ping;
+            };
 
             listener.NetworkReceiveEvent += (peer, reader, method) =>
             {
                 byte[] data = reader.GetRemainingBytes();
-                Enqueue(() =>
-                {
-                    IConnection conn = peer.GetConnection();
-                    conn.HandleReceive(data);
-                });
+                peer.GetConnection().serverPlayer.HandleReceive(data);
             };
         }
 
@@ -107,7 +104,7 @@ namespace Multiplayer.Common
 
             while (running)
             {
-                double elapsed = time.ElapsedTicks * 1000.0 / Stopwatch.Frequency;
+                double elapsed = time.ElapsedMillisDouble();
                 time.Restart();
                 lag += elapsed;
 
@@ -171,7 +168,11 @@ namespace Multiplayer.Common
 
         public void OnConnected(IConnection conn)
         {
-            players.Add(new ServerPlayer(conn));
+            if (conn.serverPlayer != null)
+                MpLog.Error($"Connection {conn} already has a server player");
+
+            conn.serverPlayer = new ServerPlayer(conn);
+            players.Add(conn.serverPlayer);
             MpLog.Log($"New connection: {conn}");
         }
 
@@ -179,7 +180,7 @@ namespace Multiplayer.Common
         {
             if (conn.State == ConnectionStateEnum.Disconnected) return;
 
-            ServerPlayer player = GetPlayer(conn);
+            ServerPlayer player = conn.serverPlayer;
             players.Remove(player);
 
             if (player.IsPlaying)
@@ -190,24 +191,13 @@ namespace Multiplayer.Common
                     SendCommand(CommandType.FACTION_OFFLINE, ScheduledCommand.NoFaction, ScheduledCommand.Global, data);
                 }
 
-                SendToAll(Packets.SERVER_NOTIFICATION, new object[] { "Player " + conn.Username + " disconnected." });
+                SendToAll(Packets.SERVER_NOTIFICATION, new object[] { "Player " + conn.username + " disconnected." });
                 UpdatePlayerList();
             }
 
             conn.State = ConnectionStateEnum.Disconnected;
 
             MpLog.Log($"Disconnected: " + conn);
-        }
-
-        public void Disconnect(IConnection conn, string reason)
-        {
-            conn.Send(Packets.SERVER_DISCONNECT_REASON, reason);
-
-            if (conn is MpNetConnection netConn)
-                netConn.peer.Flush();
-
-            conn.Close();
-            OnDisconnected(conn);
         }
 
         public void SendToAll(Packets id)
@@ -223,7 +213,7 @@ namespace Multiplayer.Common
         public void SendToAll(Packets id, byte[] data)
         {
             foreach (ServerPlayer player in PlayingPlayers)
-                player.connection.Send(id, data);
+                player.conn.Send(id, data);
         }
 
         public ServerPlayer FindPlayer(Predicate<ServerPlayer> match)
@@ -237,11 +227,6 @@ namespace Multiplayer.Common
         public ServerPlayer GetPlayer(string username)
         {
             return FindPlayer(player => player.Username == username);
-        }
-
-        public ServerPlayer GetPlayer(IConnection conn)
-        {
-            return FindPlayer(player => player.connection == conn);
         }
 
         public IdBlock NextIdBlock()
@@ -269,7 +254,7 @@ namespace Multiplayer.Common
 
             foreach (ServerPlayer player in PlayingPlayers)
             {
-                player.connection.Send(
+                player.conn.Send(
                     Packets.SERVER_COMMAND,
                     sourcePlayer == player.Username ? toSendSource : toSend
                 );
@@ -279,16 +264,40 @@ namespace Multiplayer.Common
 
     public class ServerPlayer
     {
-        public IConnection connection;
+        public IConnection conn;
 
-        public string Username => connection.Username;
-        public int Latency => connection.Latency;
+        public string Username => conn.username;
+        public int Latency => conn.latency;
         public int FactionId => MultiplayerServer.instance.playerFactions[Username];
-        public bool IsPlaying => connection.State == ConnectionStateEnum.ServerPlaying;
+        public bool IsPlaying => conn.State == ConnectionStateEnum.ServerPlaying;
 
         public ServerPlayer(IConnection connection)
         {
-            this.connection = connection;
+            conn = connection;
+        }
+
+        public void HandleReceive(byte[] data)
+        {
+            try
+            {
+                conn.HandleReceive(data);
+            }
+            catch (Exception e)
+            {
+                MpLog.Error($"Error handling packet by {conn}: {e}");
+                Disconnect($"Connection error: {e.GetType().Name}");
+            }
+        }
+
+        public void Disconnect(string reason)
+        {
+            conn.Send(Packets.SERVER_DISCONNECT_REASON, reason);
+
+            if (conn is MpNetConnection netConn)
+                netConn.peer.Flush();
+
+            conn.Close();
+            MultiplayerServer.instance.OnDisconnected(conn);
         }
     }
 

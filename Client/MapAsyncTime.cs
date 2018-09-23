@@ -711,6 +711,10 @@ namespace Multiplayer.Client
                     HandleForbid(cmd, data);
                 }
             }
+            catch (Exception e)
+            {
+                Log.Error($"Map cmd exception ({cmdType}): {e}");
+            }
             finally
             {
                 CurrentMapSetPatch.ignore = false;

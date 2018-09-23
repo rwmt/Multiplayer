@@ -69,7 +69,6 @@
     <Compile Include="Client\MultiplayerWorldComp.cs" />
     <Compile Include="Client\SaveCompression.cs" />
     <Compile Include="Client\Extensions.cs" />
-    <Compile Include="Client\ForbiddableHandler.cs" />
     <Compile Include="Client\MapAsyncTime.cs" />
     <Compile Include="Client\MpPatch.cs" />
     <Compile Include="Client\MpReflection.cs" />

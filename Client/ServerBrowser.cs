@@ -140,7 +140,7 @@ namespace Multiplayer.Client
                         Find.WindowStack.Add(new SteamConnectingWindow(friend.serverHost));
 
                         SteamConnection conn = new SteamConnection(friend.serverHost);
-                        conn.Username = Multiplayer.username;
+                        conn.username = Multiplayer.username;
                         Multiplayer.session = new MultiplayerSession();
                         Multiplayer.session.client = conn;
                         conn.State = ConnectionStateEnum.ClientSteam;

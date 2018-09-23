@@ -212,6 +212,10 @@ namespace Multiplayer.Client
                     }, "Autosaving", false, null);
                 }
             }
+            catch (Exception e)
+            {
+                Log.Error($"World cmd exception ({cmdType}): {e}");
+            }
             finally
             {
                 FactionContext.Pop();

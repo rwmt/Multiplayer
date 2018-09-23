@@ -308,6 +308,7 @@ namespace Multiplayer.Client
             Sync.RegisterSyncMethod(typeof(Building_Bed), "TryUnassignPawn");
             Sync.RegisterSyncMethod(typeof(Building_Grave), "TryAssignPawn");
             Sync.RegisterSyncMethod(typeof(Building_Grave), "TryUnassignPawn");
+            Sync.RegisterSyncMethod(typeof(CompForbiddable), "set_Forbidden");
             Sync.RegisterSyncMethod(typeof(PawnColumnWorker_Designator), "SetValue"); // Abstract but currently not overriden by any subclasses
             Sync.RegisterSyncMethod(typeof(PawnColumnWorker_FollowDrafted), "SetValue");
             Sync.RegisterSyncMethod(typeof(PawnColumnWorker_FollowFieldwork), "SetValue");

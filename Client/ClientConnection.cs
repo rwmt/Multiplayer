@@ -281,7 +281,7 @@ namespace Multiplayer.Client
 
         public override void DoWindowContents(Rect inRect)
         {
-            const float ButtonWidth = 120f;
+            const float ButtonWidth = 140f;
             const float ButtonHeight = 40f;
 
             Text.Anchor = TextAnchor.MiddleCenter;
@@ -290,7 +290,7 @@ namespace Multiplayer.Client
             Widgets.Label(labelRect, reason);
             Text.Anchor = TextAnchor.UpperLeft;
 
-            Rect buttonRect = new Rect((inRect.width - ButtonWidth) / 2f, inRect.height - ButtonHeight - 15f, ButtonWidth, ButtonHeight);
+            Rect buttonRect = new Rect((inRect.width - ButtonWidth) / 2f, inRect.height - ButtonHeight - 10f, ButtonWidth, ButtonHeight);
             if (Widgets.ButtonText(buttonRect, "Quit to main menu", true, false, true))
             {
                 GenScene.GoToMainMenu();

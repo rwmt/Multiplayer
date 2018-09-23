@@ -23,42 +23,34 @@ namespace Multiplayer.Client
 
             listener.PeerConnectedEvent += peer =>
             {
-                OnMainThread.Enqueue(() =>
-                {
-                    IConnection conn = new MpNetConnection(peer);
-                    peer.Tag = conn;
+                IConnection conn = new MpNetConnection(peer);
+                conn.username = Multiplayer.username;
+                conn.State = ConnectionStateEnum.ClientJoining;
+                Multiplayer.session.client = conn;
 
-                    conn.Username = Multiplayer.username;
-                    conn.State = ConnectionStateEnum.ClientJoining;
-                    Multiplayer.session.client = conn;
+                ConnectionStatusListeners.All.Do(a => a.Connected());
 
-                    ConnectionStatusListeners.All.Do(a => a.Connected());
-
-                    MpLog.Log("Client connected");
-                });
+                MpLog.Log("Client connected");
             };
 
             listener.PeerDisconnectedEvent += (peer, info) =>
             {
-                OnMainThread.Enqueue(() =>
-                {
-                    string reason = DisconnectReasonString(info.Reason);
-                    if (info.SocketErrorCode != SocketError.Success)
-                        reason += ": " + info.SocketErrorCode;
+                string reason = DisconnectReasonString(info.Reason);
+                if (info.SocketErrorCode != SocketError.Success)
+                    reason += ": " + info.SocketErrorCode;
 
-                    Multiplayer.session.disconnectNetReason = reason;
+                Multiplayer.session.disconnectNetReason = reason;
 
-                    ConnectionStatusListeners.All.Do(a => a.Disconnected());
+                ConnectionStatusListeners.All.Do(a => a.Disconnected());
 
-                    OnMainThread.StopMultiplayer();
-                    MpLog.Log("Client disconnected");
-                });
+                OnMainThread.StopMultiplayer();
+                MpLog.Log("Client disconnected");
             };
 
             listener.NetworkReceiveEvent += (peer, reader, method) =>
             {
                 byte[] data = reader.GetRemainingBytes();
-                OnMainThread.Enqueue(() => peer.GetConnection().HandleReceive(data));
+                Multiplayer.HandleReceive(data);
             };
 
             Multiplayer.session.netClient = netClient;
@@ -85,24 +77,31 @@ namespace Multiplayer.Client
 
         public LocalClientConnection(string username)
         {
-            Username = username;
+            this.username = username;
         }
-
-        public override string Username { get; set; }
-        public override int Latency { get => 0; set { } }
 
         public override void SendRaw(byte[] raw)
         {
-            void run() => server.HandleReceive(raw);
-
-            if (UnityData.IsInMainThread)
-                run();
-            else
-                OnMainThread.Enqueue(run);
+            OnMainThread.Enqueue(() =>
+            {
+                try
+                {
+                    server.HandleReceive(raw);
+                }
+                catch (Exception e)
+                {
+                    Log.Error($"Exception handling packet by {this}: {e}");
+                }
+            });
         }
 
         public override void Close()
         {
+        }
+
+        public override string ToString()
+        {
+            return "LocalClientConn";
         }
     }
 
@@ -112,32 +111,36 @@ namespace Multiplayer.Client
 
         public LocalServerConnection(string username)
         {
-            Username = username;
+            this.username = username;
         }
-
-        public override string Username { get; set; }
-        public override int Latency { get => 0; set { } }
 
         public override void SendRaw(byte[] raw)
         {
-            void run() => client.HandleReceive(raw);
-
-            if (UnityData.IsInMainThread)
-                run();
-            else
-                OnMainThread.Enqueue(run);
+            OnMainThread.Enqueue(() =>
+            {
+                try
+                {
+                    client.HandleReceive(raw);
+                }
+                catch (Exception e)
+                {
+                    Log.Error($"Exception handling packet by {this}: {e}");
+                }
+            });
         }
 
         public override void Close()
         {
         }
+
+        public override string ToString()
+        {
+            return "LocalServerConn";
+        }
     }
 
     public class SteamConnection : IConnection
     {
-        public override string Username { get; set; }
-        public override int Latency { get; set; }
-
         public readonly CSteamID remoteId;
 
         public SteamConnection(CSteamID remoteId)
@@ -157,7 +160,7 @@ namespace Multiplayer.Client
 
         public override string ToString()
         {
-            return "SteamP2P to " + remoteId;
+            return $"SteamP2P ({remoteId}) ({username})";
         }
     }
 
