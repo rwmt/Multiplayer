@@ -3,6 +3,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Text;
 
@@ -10,47 +11,32 @@ namespace Multiplayer.Common
 {
     public abstract class MpConnectionState
     {
-        public IConnection Connection
-        {
-            get;
-            private set;
-        }
+        public readonly IConnection connection;
 
         public MpConnectionState(IConnection connection)
         {
-            Connection = connection;
+            this.connection = connection;
         }
 
-        public static Dictionary<Type, Dictionary<Packets, PacketHandler>> statePacketHandlers = new Dictionary<Type, Dictionary<Packets, PacketHandler>>();
+        public static Type[] connectionImpls = new Type[(int)ConnectionStateEnum.Count];
+        public static MethodBase[,] packetHandlers = new MethodBase[(int)ConnectionStateEnum.Count, (int)Packets.Count];
 
-        public static void RegisterState(Type type)
+        public static void SetImplementation(ConnectionStateEnum state, Type type)
         {
             if (!type.IsSubclassOf(typeof(MpConnectionState))) return;
 
-            foreach (MethodInfo method in type.GetMethods())
+            connectionImpls[(int)state] = type;
+
+            foreach (MethodBase method in type.GetMethods(BindingFlags.Instance | BindingFlags.Public))
             {
                 PacketHandlerAttribute attr = (PacketHandlerAttribute)Attribute.GetCustomAttribute(method, typeof(PacketHandlerAttribute));
                 if (attr == null)
                     continue;
 
-                Type actionType = typeof(Action<,>).MakeGenericType(type, typeof(ByteReader));
-                if (Delegate.CreateDelegate(actionType, null, method, false) == null)
-                {
-                    MpLog.Log("Wrong method signature! " + method.Name);
+                if (method.GetParameters().Length != 1 || method.GetParameters()[0].ParameterType != typeof(ByteReader))
                     continue;
-                }
 
-                statePacketHandlers.AddOrGet(type, new Dictionary<Packets, PacketHandler>())[attr.packet] = new PacketHandler(method);
-            }
-        }
-
-        public class PacketHandler
-        {
-            public readonly MethodBase handler;
-
-            public PacketHandler(MethodBase handler)
-            {
-                this.handler = handler;
+                packetHandlers[(int)state, (int)attr.packet] = method;
             }
         }
     }
@@ -69,7 +55,30 @@ namespace Multiplayer.Common
     {
         public abstract string Username { get; set; }
         public abstract int Latency { get; set; }
-        public abstract MpConnectionState State { get; set; }
+
+        public ConnectionStateEnum State
+        {
+            get => state;
+
+            set
+            {
+                state = value;
+
+                if (state == ConnectionStateEnum.Disconnected)
+                {
+                    stateObj = null;
+                }
+                else
+                {
+                    stateObj = (MpConnectionState)Activator.CreateInstance(MpConnectionState.connectionImpls[(int)value], this);
+                }
+            }
+        }
+
+        public MpConnectionState StateObj => stateObj;
+
+        private ConnectionStateEnum state;
+        private MpConnectionState stateObj;
 
         public virtual void Send(Packets id)
         {
@@ -92,48 +101,32 @@ namespace Multiplayer.Common
 
         public abstract void SendRaw(byte[] raw);
 
-        public virtual void HandleReceive(byte[] data)
+        public void HandleReceive(byte[] rawData)
         {
-            HandleRaw(data);
+            if (state == ConnectionStateEnum.Disconnected)
+                return;
+
+            ByteReader reader = new ByteReader(rawData);
+            byte msgId = reader.ReadByte();
+
+            if (msgId < 0 || msgId >= MpConnectionState.packetHandlers.Length)
+                throw new Exception($"Bad packet id {msgId}");
+
+            Packets packetType = (Packets)msgId;
+            MethodBase handler = MpConnectionState.packetHandlers[(int)state, msgId];
+            if (handler == null)
+                throw new Exception($"No handler for packet {packetType} in state {state}");
+
+            handler.Invoke(stateObj, new object[] { reader });
         }
 
         public abstract void Close();
-
-        public bool HandleRaw(byte[] rawData)
-        {
-            if (!MpConnectionState.statePacketHandlers.TryGetValue(State.GetType(), out var packets))
-            {
-                MpLog.Log("Unregistered network state!");
-                return false;
-            }
-
-            ByteReader reader = new ByteReader(rawData);
-            Packets msgId = (Packets)reader.ReadByte();
-
-            if (!packets.TryGetValue(msgId, out MpConnectionState.PacketHandler handler))
-            {
-                MpLog.Log("Packet has no handler! ({0})", msgId);
-                return true;
-            }
-
-            try
-            {
-                handler.handler.Invoke(State, new object[] { reader });
-            }
-            catch (Exception e)
-            {
-                MpLog.Log("Exception while handling message {0} by {1}\n{2}", msgId, handler.handler, e.ToString());
-            }
-
-            return true;
-        }
     }
 
     public class MpNetConnection : IConnection
     {
         public override string Username { get; set; }
         public override int Latency { get; set; }
-        public override MpConnectionState State { get; set; }
 
         public readonly NetPeer peer;
 

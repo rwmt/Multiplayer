@@ -562,8 +562,8 @@ namespace Multiplayer.Client
 
                 tickingMap = null;
 
-                //if (mapTicks % 10 == 0)
-                    //MpLog.Log($"maptick {mapTicks} {randState}");
+                if (mapTicks % 10 == 0)
+                    MpLog.Log($"maptick {mapTicks} {randState}");
 
                 //SimpleProfiler.Pause();
 

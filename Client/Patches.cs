@@ -148,7 +148,7 @@ namespace Multiplayer.Client
 
                         //Multiplayer.SendGameData(Multiplayer.SaveGame());
 
-                        Multiplayer.LocalServer.DoAutosave();
+                        Multiplayer.LocalServer.Enqueue(() => Multiplayer.LocalServer.DoAutosave());
                     }));
 
                     optList.RemoveAll(opt => opt.label == "Save".Translate() || opt.label == "LoadGame".Translate());

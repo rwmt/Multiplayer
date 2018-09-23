@@ -26,7 +26,7 @@ namespace Multiplayer.Client
         [PacketHandler(Packets.SERVER_WORLD_DATA)]
         public void HandleWorldData(ByteReader data)
         {
-            Connection.State = new ClientPlayingState(Connection);
+            connection.State = ConnectionStateEnum.ClientPlaying;
             Log.Message("Game data size: " + data.GetBytes().Length);
 
             int factionId = data.ReadInt32();
@@ -174,7 +174,7 @@ namespace Multiplayer.Client
         public void HandleKeepAlive(ByteReader data)
         {
             int id = data.ReadInt32();
-            Connection.Send(Packets.CLIENT_KEEP_ALIVE, id);
+            connection.Send(Packets.CLIENT_KEEP_ALIVE, id);
         }
 
         [PacketHandler(Packets.SERVER_COMMAND)]
@@ -255,7 +255,7 @@ namespace Multiplayer.Client
         [PacketHandler(Packets.SERVER_STEAM_ACCEPT)]
         public void HandleSteamAccept(ByteReader data)
         {
-            Connection.State = new ClientJoiningState(Connection);
+            connection.State = ConnectionStateEnum.ClientJoining;
         }
 
         [PacketHandler(Packets.SERVER_DISCONNECT_REASON)]
@@ -315,7 +315,7 @@ namespace Multiplayer.Client
                         if (window is IConnectionStatusListener listener)
                             yield return listener;
 
-                if (Multiplayer.Client.State is IConnectionStatusListener state)
+                if (Multiplayer.Client.StateObj is IConnectionStatusListener state)
                     yield return state;
             }
         }

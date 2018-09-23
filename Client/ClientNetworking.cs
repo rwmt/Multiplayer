@@ -29,7 +29,7 @@ namespace Multiplayer.Client
                     peer.Tag = conn;
 
                     conn.Username = Multiplayer.username;
-                    conn.State = new ClientJoiningState(conn);
+                    conn.State = ConnectionStateEnum.ClientJoining;
                     Multiplayer.session.client = conn;
 
                     ConnectionStatusListeners.All.Do(a => a.Connected());
@@ -90,7 +90,6 @@ namespace Multiplayer.Client
 
         public override string Username { get; set; }
         public override int Latency { get => 0; set { } }
-        public override MpConnectionState State { get; set; }
 
         public override void SendRaw(byte[] raw)
         {
@@ -118,7 +117,6 @@ namespace Multiplayer.Client
 
         public override string Username { get; set; }
         public override int Latency { get => 0; set { } }
-        public override MpConnectionState State { get; set; }
 
         public override void SendRaw(byte[] raw)
         {
@@ -139,7 +137,6 @@ namespace Multiplayer.Client
     {
         public override string Username { get; set; }
         public override int Latency { get; set; }
-        public override MpConnectionState State { get; set; }
 
         public readonly CSteamID remoteId;
 

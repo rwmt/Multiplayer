@@ -11,7 +11,7 @@ namespace Multiplayer.Common
     {
         private static Regex UsernamePattern = new Regex(@"^[a-zA-Z0-9_]+$");
 
-        public ServerJoiningState(IConnection connection) : base(connection)
+        public ServerJoiningState(IConnection conn) : base(conn)
         {
         }
 
@@ -22,35 +22,35 @@ namespace Multiplayer.Common
 
             if (username.Length < 3 || username.Length > 15)
             {
-                MultiplayerServer.instance.Disconnect(Connection, "Invalid username length.");
+                MultiplayerServer.instance.Disconnect(connection, "Invalid username length.");
                 return;
             }
 
             if (!UsernamePattern.IsMatch(username))
             {
-                MultiplayerServer.instance.Disconnect(Connection, "Invalid username characters.");
+                MultiplayerServer.instance.Disconnect(connection, "Invalid username characters.");
                 return;
             }
 
             if (MultiplayerServer.instance.GetPlayer(username) != null)
             {
-                MultiplayerServer.instance.Disconnect(Connection, "Username already online.");
+                MultiplayerServer.instance.Disconnect(connection, "Username already online.");
                 return;
             }
 
-            Connection.Username = username;
+            connection.Username = username;
 
-            MultiplayerServer.instance.SendToAll(Packets.SERVER_NOTIFICATION, new object[] { "Player " + Connection.Username + " has joined the game." });
+            MultiplayerServer.instance.SendToAll(Packets.SERVER_NOTIFICATION, new object[] { "Player " + connection.Username + " has joined the game." });
             MultiplayerServer.instance.UpdatePlayerList();
         }
 
         [PacketHandler(Packets.CLIENT_REQUEST_WORLD)]
         public void HandleWorldRequest(ByteReader data)
         {
-            if (!MultiplayerServer.instance.playerFactions.TryGetValue(Connection.Username, out int factionId))
+            if (!MultiplayerServer.instance.playerFactions.TryGetValue(connection.Username, out int factionId))
             {
                 factionId = MultiplayerServer.instance.nextUniqueId++;
-                MultiplayerServer.instance.playerFactions[Connection.Username] = factionId;
+                MultiplayerServer.instance.playerFactions[connection.Username] = factionId;
 
                 byte[] extra = ByteWriter.GetBytes(factionId);
                 MultiplayerServer.instance.SendCommand(CommandType.SETUP_FACTION, ScheduledCommand.NoFaction, ScheduledCommand.Global, extra);
@@ -83,8 +83,8 @@ namespace Multiplayer.Common
 
             byte[] packetData = writer.GetArray();
 
-            Connection.State = new ServerPlayingState(Connection);
-            Connection.Send(Packets.SERVER_WORLD_DATA, packetData);
+            connection.State = ConnectionStateEnum.ServerPlaying;
+            connection.Send(Packets.SERVER_WORLD_DATA, packetData);
 
             MpLog.Log("World response sent: " + packetData.Length + " " + globalCmds.Count);
         }
@@ -92,7 +92,7 @@ namespace Multiplayer.Common
 
     public class ServerPlayingState : MpConnectionState
     {
-        public ServerPlayingState(IConnection connection) : base(connection)
+        public ServerPlayingState(IConnection conn) : base(conn)
         {
         }
 
@@ -110,8 +110,8 @@ namespace Multiplayer.Common
 
             // todo check if map id is valid for the player
 
-            int factionId = MultiplayerServer.instance.playerFactions[Connection.Username];
-            MultiplayerServer.instance.SendCommand(cmd, factionId, mapId, extra, Connection.Username);
+            int factionId = MultiplayerServer.instance.playerFactions[connection.Username];
+            MultiplayerServer.instance.SendCommand(cmd, factionId, mapId, extra, connection.Username);
         }
 
         [PacketHandler(Packets.CLIENT_CHAT)]
@@ -122,7 +122,7 @@ namespace Multiplayer.Common
 
             if (msg.Length == 0) return;
 
-            MultiplayerServer.instance.SendToAll(Packets.SERVER_CHAT, new object[] { Connection.Username, msg });
+            MultiplayerServer.instance.SendToAll(Packets.SERVER_CHAT, new object[] { connection.Username, msg });
         }
 
         [PacketHandler(Packets.CLIENT_AUTOSAVED_DATA)]
@@ -151,14 +151,14 @@ namespace Multiplayer.Common
             if (!MultiplayerServer.instance.mapTiles.TryGetValue(tile, out int mapId))
                 return;
 
-            byte[] extra = ByteWriter.GetBytes(Connection.Username); // todo faction id
+            byte[] extra = ByteWriter.GetBytes(connection.Username); // todo faction id
             MultiplayerServer.instance.SendCommand(CommandType.CREATE_MAP_FACTION_DATA, ScheduledCommand.NoFaction, mapId, extra);
 
             byte[] mapData = MultiplayerServer.instance.mapData[mapId];
             List<byte[]> mapCmds = MultiplayerServer.instance.mapCmds.AddOrGet(mapId, new List<byte[]>());
 
             byte[] packetData = ByteWriter.GetBytes(mapId, mapCmds, mapData);
-            Connection.Send(Packets.SERVER_MAP_RESPONSE, packetData);
+            connection.Send(Packets.SERVER_MAP_RESPONSE, packetData);
         }
 
         [PacketHandler(Packets.CLIENT_ID_BLOCK_REQUEST)]
@@ -181,13 +181,13 @@ namespace Multiplayer.Common
         public void HandleClientKeepAlive(ByteReader data)
         {
             // Ping already handled by LiteNetLib
-            if (Connection is MpNetConnection) return;
+            if (connection is MpNetConnection) return;
 
             int id = data.ReadInt32();
             if (MultiplayerServer.instance.keepAliveId == id)
-                Connection.Latency = (int)MultiplayerServer.instance.lastKeepAlive.ElapsedMilliseconds / 2;
+                connection.Latency = (int)MultiplayerServer.instance.lastKeepAlive.ElapsedMilliseconds / 2;
             else
-                Connection.Latency = 2000;
+                connection.Latency = 2000;
         }
 
         public void OnMessage(Packets packet, ByteReader data)
@@ -223,15 +223,15 @@ namespace Multiplayer.Common
 
     public class ServerSteamState : MpConnectionState
     {
-        public ServerSteamState(IConnection connection) : base(connection)
+        public ServerSteamState(IConnection conn) : base(conn)
         {
         }
 
         [PacketHandler(Packets.CLIENT_STEAM_REQUEST)]
         public void HandleSteamRequest(ByteReader data)
         {
-            Connection.State = new ServerJoiningState(Connection);
-            Connection.Send(Packets.SERVER_STEAM_ACCEPT);
+            connection.State = ConnectionStateEnum.ServerJoining;
+            connection.Send(Packets.SERVER_STEAM_ACCEPT);
         }
     }
 }

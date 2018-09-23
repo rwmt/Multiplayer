@@ -105,9 +105,9 @@ namespace Multiplayer.Client
             gameobject.AddComponent<OnMainThread>();
             UnityEngine.Object.DontDestroyOnLoad(gameobject);
 
-            MpConnectionState.RegisterState(typeof(ClientSteamState));
-            MpConnectionState.RegisterState(typeof(ClientJoiningState));
-            MpConnectionState.RegisterState(typeof(ClientPlayingState));
+            MpConnectionState.SetImplementation(ConnectionStateEnum.ClientSteam, typeof(ClientSteamState));
+            MpConnectionState.SetImplementation(ConnectionStateEnum.ClientJoining, typeof(ClientJoiningState));
+            MpConnectionState.SetImplementation(ConnectionStateEnum.ClientPlaying, typeof(ClientPlayingState));
 
             harmony.DoMpPatches(typeof(HarmonyPatches));
 
@@ -190,9 +190,9 @@ namespace Multiplayer.Client
 
                 if (LocalServer == null) return;
 
-                ServerPlayer player = LocalServer.players.Find(p => p.connection is SteamConnection conn && conn.remoteId == remoteId);
+                ServerPlayer player = LocalServer.FindPlayer(p => p.connection is SteamConnection conn && conn.remoteId == remoteId);
                 if (player != null)
-                    LocalServer.OnDisconnected(player.connection);
+                    LocalServer.Enqueue(() => LocalServer.OnDisconnected(player.connection));
             });
         }
 
@@ -631,9 +631,9 @@ namespace Multiplayer.Client
 
             if (Multiplayer.LocalServer == null) return;
 
-            ServerPlayer player = Multiplayer.LocalServer.players.Find(p => p.connection is SteamConnection conn && conn.remoteId == remote);
+            ServerPlayer player = Multiplayer.LocalServer.FindPlayer(p => p.connection is SteamConnection conn && conn.remoteId == remote);
             if (player != null)
-                player.connection.HandleReceive(data);
+                Multiplayer.LocalServer.Enqueue(() => player.connection.HandleReceive(data));
         }
 
         private void UpdateSync()

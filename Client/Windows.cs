@@ -278,8 +278,8 @@ namespace Multiplayer.Client
             localServerConn.client = localClient;
             localClient.server = localServerConn;
 
-            localClient.State = new ClientPlayingState(localClient);
-            localServerConn.State = new ServerPlayingState(localServerConn);
+            localClient.State = ConnectionStateEnum.ClientPlaying;
+            localServerConn.State = ConnectionStateEnum.ServerPlaying;
 
             Multiplayer.LocalServer.players.Add(new ServerPlayer(localServerConn));
             Multiplayer.LocalServer.host = Multiplayer.username;

@@ -109,7 +109,11 @@ namespace Multiplayer.Client
                 string label = "LAN";
                 Rect optionsRect = new Rect(inRect.width, inRect.yMax - height, 0, height);
                 optionsRect.xMin -= Text.CalcSize(label).x + 24f + 10f;
-                Widgets.CheckboxLabeled(optionsRect, label, ref Multiplayer.LocalServer.allowLan);
+
+                bool allowLan = Multiplayer.LocalServer.allowLan;
+                Widgets.CheckboxLabeled(optionsRect, label, ref allowLan);
+                Multiplayer.LocalServer.allowLan = allowLan;
+
                 inRect.yMax -= 20;
             }
         }
@@ -119,8 +123,8 @@ namespace Multiplayer.Client
             CSteamID remoteId = Multiplayer.session.pendingSteam[index];
 
             IConnection conn = new SteamConnection(remoteId);
-            conn.State = new ServerSteamState(conn);
-            Multiplayer.LocalServer.OnConnected(conn);
+            conn.State = ConnectionStateEnum.ServerSteam;
+            Multiplayer.LocalServer.Enqueue(() => Multiplayer.LocalServer.OnConnected(conn));
 
             SteamNetworking.AcceptP2PSessionWithUser(remoteId);
             Multiplayer.session.pendingSteam.RemoveAt(index);

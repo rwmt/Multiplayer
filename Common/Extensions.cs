@@ -82,6 +82,11 @@ namespace Multiplayer.Common
             ulong num = Convert.ToUInt64(flag);
             return (Convert.ToUInt64(on) & num) == num;
         }
+
+        public static int FindIndex<T>(this T[] arr, T t)
+        {
+            return Array.IndexOf(arr, t);
+        }
     }
 
     public static class EnumerableHelper

@@ -23,6 +23,22 @@
         SERVER_PLAYER_LIST,
         SERVER_KEEP_ALIVE,
         SERVER_STEAM_ACCEPT,
-        SERVER_DISCONNECT_REASON
+        SERVER_DISCONNECT_REASON,
+
+        Count
+    }
+
+    public enum ConnectionStateEnum
+    {
+        ClientJoining,
+        ClientPlaying,
+        ClientSteam,
+
+        ServerJoining,
+        ServerPlaying,
+        ServerSteam,
+
+        Count,
+        Disconnected
     }
 }

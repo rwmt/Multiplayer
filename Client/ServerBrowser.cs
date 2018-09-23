@@ -143,7 +143,7 @@ namespace Multiplayer.Client
                         conn.Username = Multiplayer.username;
                         Multiplayer.session = new MultiplayerSession();
                         Multiplayer.session.client = conn;
-                        conn.State = new ClientSteamState(conn);
+                        conn.State = ConnectionStateEnum.ClientSteam;
                     }
                 }
                 else

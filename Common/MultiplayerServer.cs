@@ -13,9 +13,9 @@ namespace Multiplayer.Common
     {
         static MultiplayerServer()
         {
-            MpConnectionState.RegisterState(typeof(ServerSteamState));
-            MpConnectionState.RegisterState(typeof(ServerJoiningState));
-            MpConnectionState.RegisterState(typeof(ServerPlayingState));
+            MpConnectionState.SetImplementation(ConnectionStateEnum.ServerSteam, typeof(ServerSteamState));
+            MpConnectionState.SetImplementation(ConnectionStateEnum.ServerJoining, typeof(ServerJoiningState));
+            MpConnectionState.SetImplementation(ConnectionStateEnum.ServerPlaying, typeof(ServerPlayingState));
         }
 
         public static MultiplayerServer instance;
@@ -30,7 +30,7 @@ namespace Multiplayer.Common
         public Dictionary<string, int> playerFactions = new Dictionary<string, int>(); // Username to faction id
 
         public List<ServerPlayer> players = new List<ServerPlayer>();
-        public IEnumerable<ServerPlayer> PlayingPlayers => players.Where(p => p.IsPlaying);
+        private IEnumerable<ServerPlayer> PlayingPlayers => players.Where(p => p.IsPlaying);
 
         public int timer;
         public ActionQueue queue = new ActionQueue();
@@ -40,7 +40,7 @@ namespace Multiplayer.Common
         public IPAddress addr;
         public int port;
         public volatile bool running = true;
-        public bool allowLan;
+        public volatile bool allowLan;
 
         public int keepAliveId;
         public Stopwatch lastKeepAlive = Stopwatch.StartNew();
@@ -54,19 +54,49 @@ namespace Multiplayer.Common
             this.addr = addr;
             this.port = port;
 
+            StartNet();
+        }
+
+        private void StartNet()
+        {
             EventBasedNetListener listener = new EventBasedNetListener();
             server = new NetManager(listener);
 
             listener.ConnectionRequestEvent += req => req.Accept();
-            listener.PeerConnectedEvent += peer => Enqueue(() => NetPeerConnected(peer));
-            listener.PeerDisconnectedEvent += (peer, info) => Enqueue(() => NetPeerDisconnected(peer, info));
-            listener.NetworkLatencyUpdateEvent += (peer, ping) => Enqueue(() => NetPeerUpdateLatency(peer, ping));
+
+            listener.PeerConnectedEvent += peer => Enqueue(() =>
+            {
+                IConnection conn = new MpNetConnection(peer);
+                conn.State = ConnectionStateEnum.ServerJoining;
+                peer.Tag = conn;
+                OnConnected(conn);
+            });
+
+            listener.PeerDisconnectedEvent += (peer, info) => Enqueue(() =>
+            {
+                IConnection conn = peer.GetConnection();
+                OnDisconnected(conn);
+            });
+
+            listener.NetworkLatencyUpdateEvent += (peer, ping) => Enqueue(() =>
+            {
+                peer.GetConnection().Latency = ping;
+            });
 
             listener.NetworkReceiveEvent += (peer, reader, method) =>
             {
                 byte[] data = reader.GetRemainingBytes();
-                Enqueue(() => MessageReceived(peer, data));
+                Enqueue(() =>
+                {
+                    IConnection conn = peer.GetConnection();
+                    conn.HandleReceive(data);
+                });
             };
+        }
+
+        public void StartListening()
+        {
+            server.Start(port);
         }
 
         public void Run()
@@ -116,21 +146,13 @@ namespace Multiplayer.Common
             }
         }
 
-        public void StartListening()
-        {
-            server.Start(port);
-        }
-
         public void DoAutosave()
         {
-            Enqueue(() =>
-            {
-                SendCommand(CommandType.AUTOSAVE, ScheduledCommand.NoFaction, ScheduledCommand.Global, new byte[0]);
+            SendCommand(CommandType.AUTOSAVE, ScheduledCommand.NoFaction, ScheduledCommand.Global, new byte[0]);
 
-                globalCmds.Clear();
-                foreach (int mapId in mapCmds.Keys)
-                    mapCmds[mapId].Clear();
-            });
+            globalCmds.Clear();
+            foreach (int mapId in mapCmds.Keys)
+                mapCmds[mapId].Clear();
         }
 
         public void UpdatePlayerList()
@@ -147,36 +169,17 @@ namespace Multiplayer.Common
             queue.Enqueue(action);
         }
 
-        private void NetPeerUpdateLatency(NetPeer peer, int ping)
-        {
-            peer.GetConnection().Latency = ping;
-        }
-
-        private void NetPeerConnected(NetPeer peer)
-        {
-            IConnection conn = new MpNetConnection(peer);
-            conn.State = new ServerJoiningState(conn);
-            peer.Tag = conn;
-            OnConnected(conn);
-        }
-
         public void OnConnected(IConnection conn)
         {
             players.Add(new ServerPlayer(conn));
             MpLog.Log($"New connection: {conn}");
         }
 
-        private void NetPeerDisconnected(NetPeer peer, DisconnectInfo info)
-        {
-            IConnection conn = peer.GetConnection();
-            OnDisconnected(conn);
-        }
-
         public void OnDisconnected(IConnection conn)
         {
-            ServerPlayer player = GetPlayer(conn);
-            if (player == null) return;
+            if (conn.State == ConnectionStateEnum.Disconnected) return;
 
+            ServerPlayer player = GetPlayer(conn);
             players.Remove(player);
 
             if (player.IsPlaying)
@@ -191,20 +194,9 @@ namespace Multiplayer.Common
                 UpdatePlayerList();
             }
 
+            conn.State = ConnectionStateEnum.Disconnected;
+
             MpLog.Log($"Disconnected: " + conn);
-        }
-
-        public void MessageReceived(NetPeer peer, byte[] data)
-        {
-            IConnection conn = peer.GetConnection();
-            if (GetPlayer(conn) != null)
-                conn.HandleReceive(data);
-        }
-
-        public void UpdateLatency(NetPeer peer, int latency)
-        {
-            IConnection conn = peer.GetConnection();
-            conn.Latency = latency;
         }
 
         public void Disconnect(IConnection conn, string reason)
@@ -234,14 +226,22 @@ namespace Multiplayer.Common
                 player.connection.Send(id, data);
         }
 
+        public ServerPlayer FindPlayer(Predicate<ServerPlayer> match)
+        {
+            lock (players)
+            {
+                return players.Find(match);
+            }
+        }
+
         public ServerPlayer GetPlayer(string username)
         {
-            return players.Find(player => player.Username == username);
+            return FindPlayer(player => player.Username == username);
         }
 
         public ServerPlayer GetPlayer(IConnection conn)
         {
-            return players.Find(player => player.connection == conn);
+            return FindPlayer(player => player.connection == conn);
         }
 
         public IdBlock NextIdBlock()
@@ -284,7 +284,7 @@ namespace Multiplayer.Common
         public string Username => connection.Username;
         public int Latency => connection.Latency;
         public int FactionId => MultiplayerServer.instance.playerFactions[Username];
-        public bool IsPlaying => connection?.State?.GetType() == typeof(ServerPlayingState);
+        public bool IsPlaying => connection.State == ConnectionStateEnum.ServerPlaying;
 
         public ServerPlayer(IConnection connection)
         {
