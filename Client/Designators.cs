@@ -31,8 +31,10 @@ namespace Multiplayer.Client
 
             Map map = Find.CurrentMap;
             ByteWriter data = new ByteWriter();
+
             WriteData(data, 0, designator);
             Sync.WriteSync(data, cell);
+
             Multiplayer.Client.SendCommand(CommandType.DESIGNATOR, map.uniqueID, data.GetArray());
 
             return false;
@@ -42,13 +44,15 @@ namespace Multiplayer.Client
         public static bool DesignateMultiCell(Designator designator, IEnumerable<IntVec3> cells)
         {
             if (!Multiplayer.ShouldSync) return true;
-            if (cells.Count() == 0) return true; // No cells implies Finalize(false), which currently doesn't cause side effects
+
+            // No cells implies Finalize(false), which currently doesn't cause side effects
+            if (cells.Count() == 0) return true;
 
             Map map = Find.CurrentMap;
             ByteWriter data = new ByteWriter();
-            WriteData(data, 1, designator);
-
             IntVec3[] cellArray = cells.ToArray();
+
+            WriteData(data, 1, designator);
             Sync.WriteSync(data, cellArray);
 
             Multiplayer.Client.SendCommand(CommandType.DESIGNATOR, map.uniqueID, data.GetArray());
@@ -63,8 +67,10 @@ namespace Multiplayer.Client
 
             Map map = Find.CurrentMap;
             ByteWriter data = new ByteWriter();
+
             WriteData(data, 2, designator);
             Sync.WriteSync(data, thing);
+
             Multiplayer.Client.SendCommand(CommandType.DESIGNATOR, map.uniqueID, data.GetArray());
 
             MoteMaker.ThrowMetaPuffs(thing);

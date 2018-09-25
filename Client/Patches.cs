@@ -179,17 +179,20 @@ namespace Multiplayer.Client
             map.mapDrawer = keepDrawer;
             keepDrawer.map = map;
 
-            foreach (Section s in keepDrawer.sections)
+            foreach (Section section in keepDrawer.sections)
             {
-                s.map = map;
+                section.map = map;
 
-                for (int i = 0; i < s.layers.Count; i++)
+                for (int i = 0; i < section.layers.Count; i++)
                 {
-                    SectionLayer layer = s.layers[i];
+                    SectionLayer layer = section.layers[i];
+
                     if (!ShouldKeep(layer))
-                        s.layers[i] = (SectionLayer)Activator.CreateInstance(layer.GetType(), s);
+                        section.layers[i] = (SectionLayer)Activator.CreateInstance(layer.GetType(), section);
                     else if (layer is SectionLayer_LightingOverlay lighting)
                         lighting.glowGrid = map.glowGrid.glowGrid;
+                    else if (layer is SectionLayer_TerrainScatter scatter)
+                        scatter.scats.Do(s => s.map = map);
                 }
             }
 
@@ -205,8 +208,7 @@ namespace Multiplayer.Client
 
         static bool ShouldKeep(SectionLayer layer)
         {
-            return layer.GetType().Assembly == typeof(Game).Assembly &&
-                layer.GetType() != typeof(SectionLayer_TerrainScatter);
+            return layer.GetType().Assembly == typeof(Game).Assembly;
         }
     }
 
@@ -349,9 +351,11 @@ namespace Multiplayer.Client
             Scribe.EnterNode("game");
             Current.Game = new Game();
             Current.Game.InitData = new GameInitData();
-            Prefs.PauseOnLoad = false;
             Current.Game.LoadGame(); // calls Scribe.loader.FinalizeLoading()
-            Find.TickManager.CurTimeSpeed = TimeSpeed.Paused;
+
+            // Deterministically init all caches
+            foreach (ITickable tickable in TickPatch.AllTickables)
+                tickable.Tick();
 
             SaveCompression.doSaveCompression = prevCompress;
             gameToLoad = null;
@@ -496,8 +500,7 @@ namespace Multiplayer.Client
             if (Multiplayer.Client == null) return;
             Pawn pawn = __instance.pawn;
 
-            if (Multiplayer.simulating)
-                __instance.jobsGivenThisTick = 0;
+            __instance.jobsGivenThisTick = 0;
 
             if (pawn.Faction == null || !pawn.Spawned) return;
 
@@ -629,14 +632,17 @@ namespace Multiplayer.Client
             }
         }
 
+        private static int localIds = -1;
+
         static void Postfix(ref int __result)
         {
             if (Multiplayer.Client == null) return;
 
             if (CurrentBlock == null)
             {
-                //__result = -1;
-                Log.Warning("Tried to get a unique id without an id block set!");
+                __result = localIds--;
+                if (!Multiplayer.ShouldSync)
+                    Log.Warning("Tried to get a unique id without an id block set!");
                 return;
             }
 
@@ -1428,6 +1434,16 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.Client != null)
                 __result = false;
+        }
+    }
+
+    [HarmonyPatch(typeof(Building_Bed), nameof(Building_Bed.ToggleForPrisonersByInterface))]
+    static class BuildingBedPatch
+    {
+        static void Postfix()
+        {
+            if (Multiplayer.Client != null)
+                Building_Bed.lastPrisonerSetChangeFrame = -1;
         }
     }
 

@@ -4,6 +4,7 @@ using RimWorld;
 using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using UnityEngine;
@@ -104,6 +105,18 @@ namespace Multiplayer.Client
         }
     }
 
+    [HarmonyPatch(typeof(Prefs))]
+    [HarmonyPatch(nameof(Prefs.PauseOnLoad), PropertyMethod.Getter)]
+    public static class CancelSingleTick
+    {
+        // Cancel ticking after loading as its handled seperately
+        static void Postfix(ref bool __result)
+        {
+            if (Multiplayer.Client != null)
+                __result = false;
+        }
+    }
+
     public interface ITickable
     {
         float RealTimeToTickThrough { get; set; }
@@ -139,9 +152,13 @@ namespace Multiplayer.Client
 
             try
             {
-                TickSync();
                 TickResearch();
+
+                // Not really deterministic but here for possible future server-side game state verification
+                Extensions.PushFaction(null, Multiplayer.RealPlayerFaction);
+                TickSync();
                 SyncResearch.ConstantTick();
+                Extensions.PopFaction();
             }
             finally
             {
@@ -149,10 +166,8 @@ namespace Multiplayer.Client
             }
         }
 
-        public void TickSync()
+        private static void TickSync()
         {
-            Extensions.PushFaction(null, Multiplayer.RealPlayerFaction);
-
             foreach (SyncField f in Sync.bufferedFields)
             {
                 if (!f.inGameLoop) continue;
@@ -168,8 +183,6 @@ namespace Multiplayer.Client
                     return !Equals(k.first.GetPropertyOrField(f.memberPath, k.second), data.currentValue);
                 });
             }
-
-            Extensions.PopFaction(null);
         }
 
         private static Pawn dummyPawn = new Pawn()
@@ -253,12 +266,25 @@ namespace Multiplayer.Client
     }
 
     [MpPatch(typeof(PowerNetManager), nameof(PowerNetManager.UpdatePowerNetsAndConnections_First))]
-    [MpPatch(typeof(RegionGrid), nameof(RegionGrid.UpdateClean))]
     [MpPatch(typeof(GlowGrid), nameof(GlowGrid.GlowGridUpdate_First))]
+    [MpPatch(typeof(RegionGrid), nameof(RegionGrid.UpdateClean))]
     [MpPatch(typeof(RegionAndRoomUpdater), nameof(RegionAndRoomUpdater.TryRebuildDirtyRegionsAndRooms))]
     static class CancelMapManagersUpdate
     {
         static bool Prefix() => Multiplayer.Client == null || !MapUpdateMarker.updating;
+    }
+
+    [HarmonyPatch(typeof(RegionAndRoomUpdater), nameof(RegionAndRoomUpdater.RegenerateNewRegionsFromDirtyCells))]
+    static class TellMe
+    {
+        static void Prefix()
+        {
+            if (Multiplayer.Client != null && (Multiplayer.ShouldSync || Multiplayer.ExecutingCmds))
+            {
+                int hash = new StackTrace().Hash();
+                Log.ErrorOnce($"should sync {hash}", hash);
+            }
+        }
     }
 
     [HarmonyPatch(typeof(DateNotifier), nameof(DateNotifier.DateNotifierTick))]
@@ -474,12 +500,12 @@ namespace Multiplayer.Client
             }
         }
 
-        public float TickRateMultiplier
+        public float TickRateMultiplier => Find.TickManager.TickRateMultiplier;
+
+        /*public float TickRateMultiplier
         {
             get
             {
-                if (!TickPatch.asyncTime) return Find.TickManager.TickRateMultiplier;
-
                 if (TimeSpeed == TimeSpeed.Paused)
                     return 0;
                 if (forcedNormalSpeed)
@@ -491,26 +517,26 @@ namespace Multiplayer.Client
                     return 6;
                 return 1;
             }
-        }
+        }*/
 
         public TimeSpeed TimeSpeed
         {
-            get => TickPatch.asyncTime ? timeSpeedInt : Find.TickManager.CurTimeSpeed;
-            set
-            {
-                if (TickPatch.asyncTime)
-                    timeSpeedInt = value;
-                else
-                    Find.TickManager.CurTimeSpeed = value;
-            }
+            get => Find.TickManager.CurTimeSpeed;
+            set => Find.TickManager.CurTimeSpeed = value;
         }
+
+        /*public TimeSpeed TimeSpeed
+        {
+            get => timeSpeedInt;
+            set => timeSpeedInt = value;
+        }*/
 
         public float RealTimeToTickThrough { get; set; }
 
         public Queue<ScheduledCommand> Cmds { get => cmds; }
 
         public int mapTicks;
-        private TimeSpeed timeSpeedInt;
+        //private TimeSpeed timeSpeedInt;
         public bool forcedNormalSpeed; // todo?
 
         public Storyteller storyteller;
@@ -538,8 +564,6 @@ namespace Multiplayer.Client
 
             try
             {
-                UpdateRegionsAndRooms();
-
                 map.MapPreTick();
                 mapTicks++;
                 Find.TickManager.DebugSetTicksGame(mapTicks);
@@ -581,14 +605,14 @@ namespace Multiplayer.Client
             }
         }
 
-        public void UpdateRegionsAndRooms()
+        // These are normally called in Map.MapUpdate() and react to changes in the game state even when the game is paused (not ticking)
+        // Update() methods are not deterministic, but in multiplayer all game state changes (which don't happen during ticking) happen in commands
+        // Thus these methods can be moved to Tick() and ExecuteCmd()
+        public void UpdateManagers()
         {
             map.regionGrid.UpdateClean();
             map.regionAndRoomUpdater.TryRebuildDirtyRegionsAndRooms();
-        }
 
-        public void UpdateManagers()
-        {
             map.powerNetManager.UpdatePowerNetsAndConnections_First();
             map.glowGrid.GlowGridUpdate_First();
         }
@@ -642,12 +666,14 @@ namespace Multiplayer.Client
         public override void ExposeData()
         {
             Scribe_Values.Look(ref mapTicks, "mapTicks");
-            Scribe_Values.Look(ref timeSpeedInt, "timeSpeed");
+            //Scribe_Values.Look(ref timeSpeedInt, "timeSpeed");
         }
 
         public void ExecuteCmd(ScheduledCommand cmd)
         {
             ByteReader data = new ByteReader(cmd.data);
+            MpContext context = data.MpContext();
+
             CommandType cmdType = cmd.type;
 
             executingCmdMap = map;
@@ -659,7 +685,7 @@ namespace Multiplayer.Client
             PreContext();
             map.PushFaction(cmd.GetFaction());
 
-            data.ContextMap(map);
+            context.map = map;
 
             try
             {
@@ -710,6 +736,8 @@ namespace Multiplayer.Client
                 {
                     HandleForbid(cmd, data);
                 }
+
+                UpdateManagers();
             }
             catch (Exception e)
             {

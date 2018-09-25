@@ -52,7 +52,7 @@ namespace Multiplayer.Client
         }
 
         /// <summary>
-        /// Returns whether the sync has been done
+        /// Returns whether the original should cancelled
         /// </summary>
         public bool DoSync(object target, object value, object index = null)
         {
@@ -60,6 +60,7 @@ namespace Multiplayer.Client
                 return false;
 
             LoggingByteWriter writer = new LoggingByteWriter();
+            MpContext context = writer.MpContext();
             writer.LogNode("Sync field " + memberPath);
 
             writer.WriteInt32(syncId);
@@ -68,7 +69,7 @@ namespace Multiplayer.Client
             if (targetType != null)
             {
                 Sync.WriteSyncObject(writer, target, targetType);
-                if (writer.ContextMap() is Map map)
+                if (context.map is Map map)
                     mapId = map.uniqueID;
             }
 
@@ -95,7 +96,7 @@ namespace Multiplayer.Client
             if (indexType != null)
                 index = Sync.ReadSyncObject(data, indexType);
 
-            MpLog.Log($"Set {memberPath} in {target} to {value}, map {data.ContextMap()}, index {index}");
+            MpLog.Log($"Set {memberPath} in {target} to {value}, map {data.MpContext().map}, index {index}");
             MpReflection.SetValue(target, memberPath, value, index);
         }
 
@@ -121,6 +122,9 @@ namespace Multiplayer.Client
 
         public readonly MethodInfo method;
         public Type[] argTypes;
+
+        private int minTime = 100; // Milliseconds between resends
+        private int lastSendTime;
 
         public SyncMethod(int syncId, Type targetType, string instancePath, string methodName, params Type[] argTypes) : base(syncId)
         {
@@ -155,14 +159,19 @@ namespace Multiplayer.Client
         }
 
         /// <summary>
-        /// Returns whether the sync has been done
+        /// Returns whether the original should be cancelled
         /// </summary>
         public bool DoSync(object target, params object[] args)
         {
             if (!Multiplayer.ShouldSync)
                 return false;
 
+            // todo limit per specific target/argument
+            //if (Environment.TickCount - lastSendTime < minTime)
+            //    return true;
+
             LoggingByteWriter writer = new LoggingByteWriter();
+            MpContext context = writer.MpContext();
             writer.LogNode("Sync method " + method);
 
             writer.WriteInt32(syncId);
@@ -173,7 +182,7 @@ namespace Multiplayer.Client
             if (targetType != null)
             {
                 Sync.WriteSyncObject(writer, target, targetType);
-                if (writer.ContextMap() is Map map)
+                if (context.map is Map map)
                     mapId = map.uniqueID;
             }
 
@@ -181,7 +190,7 @@ namespace Multiplayer.Client
             {
                 Type type = argTypes[i];
                 Sync.WriteSyncObject(writer, args[i], type);
-                if (writer.ContextMap() is Map map)
+                if (context.map is Map map)
                 {
                     if (mapId != ScheduledCommand.Global && mapId != map.uniqueID)
                         throw new Exception("SyncMethod map mismatch");
@@ -193,6 +202,8 @@ namespace Multiplayer.Client
             Multiplayer.PacketLog.nodes.Add(writer.current);
 
             Multiplayer.Client.SendCommand(CommandType.SYNC, mapId, writer.GetArray());
+
+            lastSendTime = Environment.TickCount;
 
             return true;
         }
@@ -211,6 +222,12 @@ namespace Multiplayer.Client
 
             MpLog.Log("Invoked " + method + " on " + target + " with " + parameters.Length + " params " + parameters.ToStringSafeEnumerable());
             method.Invoke(target, parameters);
+        }
+
+        public SyncMethod MinTime(int time)
+        {
+            minTime = time;
+            return this;
         }
 
         public SyncMethod SetHasContext()
@@ -275,6 +292,7 @@ namespace Multiplayer.Client
                 return false;
 
             LoggingByteWriter writer = new LoggingByteWriter();
+            MpContext context = writer.MpContext();
             writer.LogNode($"Sync delegate: {delegateType} method: {method}");
             writer.LogNode("Patch: " + patch.FullDescription());
 
@@ -293,7 +311,7 @@ namespace Multiplayer.Client
 
                 Sync.WriteSyncObject(writer, obj, type);
 
-                if (writer.ContextMap() is Map map)
+                if (context.map is Map map)
                 {
                     if (mapId != ScheduledCommand.Global && mapId != map.uniqueID)
                         throw new Exception("SyncDelegate map mismatch");
@@ -467,7 +485,7 @@ namespace Multiplayer.Client
         }
 
         /// <summary>
-        /// Returns whether the sync has been done
+        /// Returns whether the original should be cancelled
         /// </summary>
         public static bool Delegate(object instance, MethodBase originalMethod, params object[] args)
         {
@@ -523,6 +541,11 @@ namespace Multiplayer.Client
             if (method == null)
                 throw new Exception("Couldn't find method " + methodName + " in type " + type);
             return RegisterSyncMethod(method, argTypes);
+        }
+
+        public static SyncMethod RegisterSyncProperty(Type type, string propertyName, params Type[] argTypes)
+        {
+            return RegisterSyncMethod(type, "set_" + propertyName, argTypes);
         }
 
         public static void RegisterSyncMethods(Type inType)
@@ -732,7 +755,7 @@ namespace Multiplayer.Client
             { data => new ITab_Pawn_Gear() },
             { data => Current.Game.outfitDatabase },
             { data => Current.Game.drugPolicyDatabase },
-            { data => (data.ContextMap()).areaManager },
+            { data => (data.MpContext().map).areaManager },
             {
                 data =>
                 {
@@ -774,7 +797,7 @@ namespace Multiplayer.Client
             { (ByteWriter data, ITab_Pawn_Gear tab) => {} },
             { (ByteWriter data, OutfitDatabase db) => {} },
             { (ByteWriter data, DrugPolicyDatabase db) => {} },
-            { (ByteWriter data, AreaManager areas) => data.context = areas.map },
+            { (ByteWriter data, AreaManager areas) => data.MpContext().map = areas.map },
             {
                 (ByteWriter data, LocalTargetInfo info) =>
                 {
@@ -817,7 +840,8 @@ namespace Multiplayer.Client
 
         public static object ReadSyncObject(ByteReader data, Type type)
         {
-            Map map = data.ContextMap();
+            MpContext context = data.MpContext();
+            Map map = context.map;
 
             if (type.IsByRef)
             {
@@ -934,12 +958,18 @@ namespace Multiplayer.Client
                     return null;
 
                 ThingDef def = ReadSync<ThingDef>(data);
-                Thing parent = ReadSync<Thing>(data);
 
-                if (parent is IThingHolder holder)
-                    return ThingOwnerUtility.GetAllThingsRecursively(holder).Find(t => t.thingIDNumber == thingId);
-                else if (parent != null)
-                    return null;
+                if (!context.readingThingParent)
+                {
+                    context.readingThingParent = true;
+                    Thing parent = ReadSync<Thing>(data);
+                    context.readingThingParent = false;
+
+                    if (parent is IThingHolder holder)
+                        return ThingOwnerUtility.GetAllThingsRecursively(holder).Find(t => t.thingIDNumber == thingId);
+                    else if (parent != null)
+                        return null;
+                }
 
                 return map.listerThings.ThingsOfDef(def).Find(t => t.thingIDNumber == thingId);
             }
@@ -1028,6 +1058,8 @@ namespace Multiplayer.Client
 
         public static void WriteSyncObject(ByteWriter data, object obj, Type type)
         {
+            MpContext context = data.MpContext();
+
             LoggingByteWriter log = data as LoggingByteWriter;
             log?.LogEnter(type.FullName + ": " + (obj ?? "null"));
 
@@ -1059,12 +1091,12 @@ namespace Multiplayer.Client
 
                     if (listType == typeof(Thing) && obj == Find.CurrentMap.listerThings.AllThings)
                     {
-                        data.ContextMap(Find.CurrentMap);
+                        context.map = Find.CurrentMap;
                         specialList = SpecialList.MapAllThings;
                     }
                     else if (listType == typeof(Designation) && obj == Find.CurrentMap.designationManager.allDesignations)
                     {
-                        data.ContextMap(Find.CurrentMap);
+                        context.map = Find.CurrentMap;
                         specialList = SpecialList.MapAllDesignations;
                     }
 
@@ -1108,7 +1140,7 @@ namespace Multiplayer.Client
                 {
                     if (obj is Area area)
                     {
-                        data.ContextMap(area.Map);
+                        context.map = area.Map;
                         data.WriteInt32(area.ID);
                     }
                     else
@@ -1120,7 +1152,7 @@ namespace Multiplayer.Client
                 {
                     if (obj is Zone zone)
                     {
-                        data.ContextMap(zone.Map);
+                        context.map = zone.Map;
                         data.WriteInt32(zone.ID);
                     }
                     else
@@ -1187,18 +1219,24 @@ namespace Multiplayer.Client
                 }
                 else if (typeof(Thing).IsAssignableFrom(type))
                 {
-                    Thing thing = (Thing)obj;
+                    Thing thing = obj as Thing;
                     if (thing == null)
                     {
                         data.WriteInt32(-1);
                         return;
                     }
 
-                    data.ContextMap(thing.Map);
+                    if (thing.Spawned)
+                        context.map = thing.Map;
 
                     data.WriteInt32(thing.thingIDNumber);
                     WriteSync(data, thing.def);
-                    WriteSync(data, thing.Spawned ? null : ThingOwnerUtility.GetFirstSpawnedParentThing(thing));
+
+                    Thing parent = ThingOwnerUtility.GetFirstSpawnedParentThing(thing);
+                    if (!thing.Spawned && parent == null)
+                        throw new SerializationException($"Thing {thing} is inaccessible");
+
+                    WriteSync(data, thing.Spawned ? null : parent);
                 }
                 else if (typeof(BillStack) == type)
                 {
@@ -1224,13 +1262,7 @@ namespace Multiplayer.Client
                 else if (typeof(BodyPartRecord) == type)
                 {
                     BodyPartRecord part = obj as BodyPartRecord;
-                    BodyDef body = (from b in DefDatabase<BodyDef>.AllDefsListForReading
-                                    from p in b.AllParts
-                                    where p == part
-                                    select b).FirstOrDefault();
-
-                    if (body == null)
-                        throw new SerializationException($"Couldn't find body for body part: {part}");
+                    BodyDef body = part.body;
 
                     WriteSync(data, body);
                     data.WriteInt32(body.GetIndexOfPart(part));
@@ -1581,7 +1613,7 @@ namespace Multiplayer.Client
     public class MpContext
     {
         public Map map;
-        public Faction faction;
+        public bool readingThingParent;
     }
 
 }

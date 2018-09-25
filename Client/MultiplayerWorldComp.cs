@@ -27,12 +27,12 @@ namespace Multiplayer.Client
             }
         }
 
-        public float TickRateMultiplier
+        public float TickRateMultiplier => Find.TickManager.TickRateMultiplier;
+
+        /*public float TickRateMultiplier
         {
             get
             {
-                if (!TickPatch.asyncTime) return Find.TickManager.TickRateMultiplier;
-
                 switch (timeSpeedInt)
                 {
                     case TimeSpeed.Normal:
@@ -48,19 +48,19 @@ namespace Multiplayer.Client
                         return 0f;
                 }
             }
-        }
+        }*/
 
         public TimeSpeed TimeSpeed
         {
-            get => TickPatch.asyncTime ? timeSpeedInt : Find.TickManager.CurTimeSpeed;
-            set
-            {
-                if (TickPatch.asyncTime)
-                    timeSpeedInt = value;
-                else
-                    Find.TickManager.CurTimeSpeed = value;
-            }
+            get => Find.TickManager.CurTimeSpeed;
+            set => Find.TickManager.CurTimeSpeed = value;
         }
+
+        /*public TimeSpeed TimeSpeed
+        {
+            get => timeSpeedInt;
+            set => timeSpeedInt = value;
+        }*/
 
         public Queue<ScheduledCommand> Cmds { get => cmds; }
 
@@ -70,7 +70,7 @@ namespace Multiplayer.Client
         public IdBlock globalIdBlock;
         public string worldId = Guid.NewGuid().ToString();
         public int sessionId = new Random().Next();
-        private TimeSpeed timeSpeedInt;
+        //private TimeSpeed timeSpeedInt;
 
         public Queue<ScheduledCommand> cmds = new Queue<ScheduledCommand>();
 
@@ -83,7 +83,10 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref worldId, "worldId");
             Scribe_Values.Look(ref TickPatch.timerInt, "timer");
             Scribe_Values.Look(ref sessionId, "sessionId");
-            Scribe_Values.Look(ref timeSpeedInt, "timeSpeed");
+
+            TimeSpeed timeSpeed = Find.TickManager.CurTimeSpeed;
+            Scribe_Values.Look(ref timeSpeed, "timeSpeed");
+            Find.TickManager.CurTimeSpeed = timeSpeed;
 
             ExposeFactionData();
 
@@ -92,10 +95,14 @@ namespace Multiplayer.Client
 
         private void ExposeFactionData()
         {
+            // The faction whose data is currently set
+            int currentFactionId = Faction.OfPlayer.loadID;
+            Scribe_Values.Look(ref currentFactionId, "currentFactionId");
+
             if (Scribe.mode == LoadSaveMode.Saving)
             {
                 var factionData = new Dictionary<int, FactionWorldData>(this.factionData);
-                factionData.Remove(Multiplayer.DummyFaction.loadID);
+                factionData.Remove(currentFactionId);
 
                 ScribeUtil.Look(ref factionData, "factionData", LookMode.Deep);
             }
@@ -108,7 +115,7 @@ namespace Multiplayer.Client
 
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
-                factionData[Multiplayer.DummyFaction.loadID] = FactionWorldData.FromCurrent();
+                factionData[currentFactionId] = FactionWorldData.FromCurrent();
             }
         }
 
@@ -150,6 +157,7 @@ namespace Multiplayer.Client
         public void ExecuteCmd(ScheduledCommand cmd)
         {
             ByteReader data = new ByteReader(cmd.data);
+            MpContext context = data.MpContext();
 
             executingCmdWorld = true;
             TickPatch.currentExecutingCmdIssuedBySelf = cmd.issuedBySelf;

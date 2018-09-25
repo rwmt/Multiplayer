@@ -50,6 +50,7 @@ namespace Multiplayer.Client
         public static Faction DummyFaction => game.dummyFaction;
         public static MultiplayerWorldComp WorldComp => game.worldComp;
 
+        // Null during loading
         public static Faction RealPlayerFaction
         {
             get => Client != null ? game.RealPlayerFaction : Faction.OfPlayer;
@@ -151,8 +152,7 @@ namespace Multiplayer.Client
 
         private static void InitSteam()
         {
-            SteamFriends.GetFriendGamePlayed(SteamUser.GetSteamID(), out FriendGameInfo_t gameInfo);
-            RimWorldAppId = gameInfo.m_gameID.AppID();
+            RimWorldAppId = SteamUtils.GetAppID();
 
             sessionReqCallback = Callback<P2PSessionRequest_t>.Create(req =>
             {
@@ -253,7 +253,7 @@ namespace Multiplayer.Client
             Dictionary<int, Vector3> tweenedPos = new Dictionary<int, Vector3>();
             int localFactionId = RealPlayerFaction.loadID;
 
-            RealPlayerFaction = DummyFaction;
+            //RealPlayerFaction = DummyFaction;
 
             foreach (Map map in Find.Maps)
             {
@@ -274,7 +274,6 @@ namespace Multiplayer.Client
 
             watch = Stopwatch.StartNew();
             LoadPatch.gameToLoad = gameDoc;
-            Prefs.PauseOnLoad = false;
             SavedGameLoaderNow.LoadGameFromSaveFileNow("server");
             Log.Message("Loading took " + watch.ElapsedMilliseconds);
 

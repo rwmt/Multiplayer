@@ -73,14 +73,14 @@ namespace Multiplayer.Client
 
         private void ExposeFactionData()
         {
+            // The faction whose data is currently set
+            int currentFactionId = Faction.OfPlayer.loadID;
+            Scribe_Values.Look(ref currentFactionId, "currentFactionId");
+
             if (Scribe.mode == LoadSaveMode.Saving)
             {
-                int dummyId = Multiplayer.DummyFaction.loadID;
-                if (map.areaManager != factionMapData[dummyId].areaManager)
-                    Log.Warning("Current map faction data is not dummy faction's data during map saving. This might cause problems.");
-
-                Dictionary<int, FactionMapData> data = new Dictionary<int, FactionMapData>(factionMapData);
-                data.Remove(dummyId);
+                var data = new Dictionary<int, FactionMapData>(factionMapData);
+                data.Remove(currentFactionId);
                 ScribeUtil.Look(ref data, "factionMapData", LookMode.Deep, map);
             }
             else
@@ -92,11 +92,7 @@ namespace Multiplayer.Client
 
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
-                int dummyFaction = Multiplayer.DummyFaction.loadID;
-                if (factionMapData.ContainsKey(dummyFaction))
-                    Log.Warning("Map's saved faction data includes dummy faction's data.");
-
-                factionMapData[dummyFaction] = FactionMapData.FromMap(map);
+                factionMapData[currentFactionId] = FactionMapData.FromMap(map);
             }
         }
     }

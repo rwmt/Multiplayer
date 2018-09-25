@@ -136,18 +136,28 @@ namespace Multiplayer.Client
             SendCommand(conn, cmd, mapId, ByteWriter.GetBytes(data));
         }
 
-        public static MpContext MpContext(this ByteReader data) => (MpContext)(data.context ?? (data.context = new MpContext()));
-        public static MpContext MpContext(this ByteWriter data) => (MpContext)(data.context ?? (data.context = new MpContext()));
+        public static MpContext MpContext(this ByteReader data)
+        {
+            if (data.context == null)
+                data.context = new MpContext();
+            return data.context as MpContext;
+        }
 
-        public static Map ContextMap(this ByteReader data) => data.MpContext().map;
-        public static Map ContextMap(this ByteWriter data) => data.MpContext().map;
-        public static void ContextMap(this ByteReader data, Map val) => data.MpContext().map = val;
-        public static void ContextMap(this ByteWriter data, Map val) => data.MpContext().map = val;
+        public static MpContext MpContext(this ByteWriter data)
+        {
+            if (data.context == null)
+                data.context = new MpContext();
+            return data.context as MpContext;
+        }
 
-        public static Faction ContextFaction(this ByteReader data) => data.MpContext().faction;
-        public static Faction ContextFaction(this ByteWriter data) => data.MpContext().faction;
-        public static void ContextFaction(this ByteReader data, Faction val) => data.MpContext().faction = val;
-        public static void ContextFaction(this ByteWriter data, Faction val) => data.MpContext().faction = val;
+        public static int Hash(this StackTrace trace)
+        {
+            int hash = 0;
+            foreach (StackFrame frame in trace.GetFrames())
+                hash = Gen.HashCombineInt(hash, frame.GetMethod().GetHashCode());
+
+            return hash;
+        }
 
     }
 

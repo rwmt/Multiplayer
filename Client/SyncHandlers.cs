@@ -278,40 +278,42 @@ namespace Multiplayer.Client
     {
         static SyncPatches()
         {
-            Sync.RegisterSyncMethod(typeof(Pawn_TimetableTracker), "SetAssignment");
-            Sync.RegisterSyncMethod(typeof(Pawn_WorkSettings), "SetPriority");
-            Sync.RegisterSyncMethod(typeof(Pawn_DraftController), "set_Drafted");
-            Sync.RegisterSyncMethod(typeof(Pawn_DraftController), "set_FireAtWill");
-            Sync.RegisterSyncMethod(typeof(Pawn_DrugPolicyTracker), "set_CurrentPolicy");
-            Sync.RegisterSyncMethod(typeof(Pawn_OutfitTracker), "set_CurrentOutfit");
-            Sync.RegisterSyncMethod(typeof(Pawn_PlayerSettings), "set_AreaRestriction");
-            Sync.RegisterSyncMethod(typeof(Pawn_PlayerSettings), "set_Master");
-            Sync.RegisterSyncMethod(typeof(Pawn_JobTracker), "StartJob", typeof(Expose<Job>), typeof(JobCondition), typeof(ThinkNode), typeof(bool), typeof(bool), typeof(ThinkTreeDef), typeof(JobTag?), typeof(bool));
-            Sync.RegisterSyncMethod(typeof(Pawn_JobTracker), "TryTakeOrderedJob", typeof(Expose<Job>), typeof(JobTag)).SetHasContext();
-            Sync.RegisterSyncMethod(typeof(Pawn_JobTracker), "TryTakeOrderedJobPrioritizedWork", typeof(Expose<Job>), typeof(WorkGiver), typeof(IntVec3)).SetHasContext();
-            Sync.RegisterSyncMethod(typeof(Pawn), "set_Name", typeof(Expose<Name>));
-            Sync.RegisterSyncMethod(typeof(Zone), "Delete");
-            Sync.RegisterSyncMethod(typeof(BillStack), "Delete");
-            Sync.RegisterSyncMethod(typeof(BillStack), "Reorder");
-            Sync.RegisterSyncMethod(typeof(Bill_Production), "SetStoreMode");
-            Sync.RegisterSyncMethod(typeof(StorageSettings), "set_Priority");
-            Sync.RegisterSyncMethod(typeof(Building_TurretGun), "OrderAttack");
-            Sync.RegisterSyncMethod(typeof(Area), "Invert");
-            Sync.RegisterSyncMethod(typeof(Area), "Delete");
-            Sync.RegisterSyncMethod(typeof(Area_Allowed), "SetLabel");
-            Sync.RegisterSyncMethod(typeof(AreaManager), "TryMakeNewAllowed");
-            Sync.RegisterSyncMethod(typeof(DrugPolicyDatabase), "MakeNewDrugPolicy");
-            Sync.RegisterSyncMethod(typeof(DrugPolicyDatabase), "TryDelete");
-            Sync.RegisterSyncMethod(typeof(OutfitDatabase), "MakeNewOutfit");
-            Sync.RegisterSyncMethod(typeof(OutfitDatabase), "TryDelete");
-            Sync.RegisterSyncMethod(typeof(Building_Bed), "TryAssignPawn");
-            Sync.RegisterSyncMethod(typeof(Building_Bed), "TryUnassignPawn");
-            Sync.RegisterSyncMethod(typeof(Building_Grave), "TryAssignPawn");
-            Sync.RegisterSyncMethod(typeof(Building_Grave), "TryUnassignPawn");
-            Sync.RegisterSyncMethod(typeof(CompForbiddable), "set_Forbidden");
-            Sync.RegisterSyncMethod(typeof(PawnColumnWorker_Designator), "SetValue"); // Abstract but currently not overriden by any subclasses
-            Sync.RegisterSyncMethod(typeof(PawnColumnWorker_FollowDrafted), "SetValue");
-            Sync.RegisterSyncMethod(typeof(PawnColumnWorker_FollowFieldwork), "SetValue");
+            Sync.RegisterSyncProperty(typeof(Pawn_DraftController), nameof(Pawn_DraftController.Drafted));
+            Sync.RegisterSyncProperty(typeof(Pawn_DraftController), nameof(Pawn_DraftController.FireAtWill));
+            Sync.RegisterSyncProperty(typeof(Pawn_DrugPolicyTracker), nameof(Pawn_DrugPolicyTracker.CurrentPolicy));
+            Sync.RegisterSyncProperty(typeof(Pawn_OutfitTracker), nameof(Pawn_OutfitTracker.CurrentOutfit));
+            Sync.RegisterSyncProperty(typeof(Pawn_PlayerSettings), nameof(Pawn_PlayerSettings.AreaRestriction));
+            Sync.RegisterSyncProperty(typeof(Pawn_PlayerSettings), nameof(Pawn_PlayerSettings.Master));
+            Sync.RegisterSyncProperty(typeof(Pawn), nameof(Pawn.Name), typeof(Expose<Name>));
+            Sync.RegisterSyncProperty(typeof(StorageSettings), nameof(StorageSettings.Priority));
+            Sync.RegisterSyncProperty(typeof(CompForbiddable), nameof(CompForbiddable.Forbidden));
+
+            Sync.RegisterSyncMethod(typeof(Pawn_TimetableTracker), nameof(Pawn_TimetableTracker.SetAssignment));
+            Sync.RegisterSyncMethod(typeof(Pawn_WorkSettings), nameof(Pawn_WorkSettings.SetPriority));
+            Sync.RegisterSyncMethod(typeof(Pawn_JobTracker), nameof(Pawn_JobTracker.StartJob), typeof(Expose<Job>), typeof(JobCondition), typeof(ThinkNode), typeof(bool), typeof(bool), typeof(ThinkTreeDef), typeof(JobTag?), typeof(bool));
+            Sync.RegisterSyncMethod(typeof(Pawn_JobTracker), nameof(Pawn_JobTracker.TryTakeOrderedJob), typeof(Expose<Job>), typeof(JobTag)).SetHasContext();
+            Sync.RegisterSyncMethod(typeof(Pawn_JobTracker), nameof(Pawn_JobTracker.TryTakeOrderedJobPrioritizedWork), typeof(Expose<Job>), typeof(WorkGiver), typeof(IntVec3)).SetHasContext();
+            Sync.RegisterSyncMethod(typeof(Zone), nameof(Zone.Delete));
+            Sync.RegisterSyncMethod(typeof(BillStack), nameof(BillStack.Delete));
+            Sync.RegisterSyncMethod(typeof(BillStack), nameof(BillStack.Reorder));
+            Sync.RegisterSyncMethod(typeof(Bill_Production), nameof(Bill_Production.SetStoreMode));
+            Sync.RegisterSyncMethod(typeof(Building_TurretGun), nameof(Building_TurretGun.OrderAttack));
+            Sync.RegisterSyncMethod(typeof(Area), nameof(Area.Invert));
+            Sync.RegisterSyncMethod(typeof(Area), nameof(Area.Delete));
+            Sync.RegisterSyncMethod(typeof(Area_Allowed), nameof(Area_Allowed.SetLabel));
+            Sync.RegisterSyncMethod(typeof(AreaManager), nameof(AreaManager.TryMakeNewAllowed));
+            Sync.RegisterSyncMethod(typeof(DrugPolicyDatabase), nameof(DrugPolicyDatabase.MakeNewDrugPolicy));
+            Sync.RegisterSyncMethod(typeof(DrugPolicyDatabase), nameof(DrugPolicyDatabase.TryDelete));
+            Sync.RegisterSyncMethod(typeof(OutfitDatabase), nameof(OutfitDatabase.MakeNewOutfit));
+            Sync.RegisterSyncMethod(typeof(OutfitDatabase), nameof(OutfitDatabase.TryDelete));
+            Sync.RegisterSyncMethod(typeof(Building_Bed), nameof(Building_Bed.ToggleForPrisonersByInterface));
+            Sync.RegisterSyncMethod(typeof(Building_Bed), nameof(Building_Bed.TryAssignPawn));
+            Sync.RegisterSyncMethod(typeof(Building_Bed), nameof(Building_Bed.TryUnassignPawn));
+            Sync.RegisterSyncMethod(typeof(Building_Grave), nameof(Building_Grave.TryAssignPawn));
+            Sync.RegisterSyncMethod(typeof(Building_Grave), nameof(Building_Grave.TryUnassignPawn));
+            Sync.RegisterSyncMethod(typeof(PawnColumnWorker_Designator), nameof(PawnColumnWorker_Designator.SetValue)); // Abstract but currently not overriden by any subclasses
+            Sync.RegisterSyncMethod(typeof(PawnColumnWorker_FollowDrafted), nameof(PawnColumnWorker_FollowDrafted.SetValue));
+            Sync.RegisterSyncMethod(typeof(PawnColumnWorker_FollowFieldwork), nameof(PawnColumnWorker_FollowFieldwork.SetValue));
         }
 
         static SyncField SyncTimetable = Sync.Field(typeof(Pawn), "timetable", "times");
@@ -617,7 +619,6 @@ namespace Multiplayer.Client
         {
             if (localResearch.Count == 0) return;
 
-            Extensions.PushFaction(null, Multiplayer.RealPlayerFaction);
             Sync.FieldWatchPrefix();
 
             foreach (int pawn in localResearch.Keys.ToList())
@@ -628,7 +629,6 @@ namespace Multiplayer.Client
             }
 
             Sync.FieldWatchPostfix();
-            Extensions.PopFaction();
         }
     }
 
