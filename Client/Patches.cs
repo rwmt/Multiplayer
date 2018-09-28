@@ -1447,4 +1447,24 @@ namespace Multiplayer.Client
         }
     }
 
+    [HarmonyPatch(typeof(Root_Play), nameof(Root_Play.Start))]
+    static class RootPlayStartMarker
+    {
+        public static bool starting;
+
+        static void Prefix() => starting = true;
+        static void Postfix() => starting = false;
+    }
+
+    [HarmonyPatch(typeof(LongEventHandler), nameof(LongEventHandler.QueueLongEvent), new[] { typeof(Action), typeof(string), typeof(bool), typeof(Action<Exception>) })]
+    static class ExecuteMultiplayerLoadActionImmediately
+    {
+        // Disable standard loading and screen fading during a reload
+        static bool Prefix()
+        {
+            if (RootPlayStartMarker.starting && Multiplayer.reloading) return false;
+            return true;
+        }
+    }
+
 }

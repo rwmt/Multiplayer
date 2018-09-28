@@ -80,8 +80,8 @@ namespace Multiplayer.Client
                     XmlNode mapNode = gameDoc.ReadNode(reader);
                     gameNode["maps"].AppendChild(mapNode);
 
-                    if (gameNode[Multiplayer.CurrentMapIndexXml] == null)
-                        gameNode.AddNode(Multiplayer.CurrentMapIndexXml, map.ToString());
+                    if (gameNode[Multiplayer.CurrentMapIndexXmlKey] == null)
+                        gameNode.AddNode(Multiplayer.CurrentMapIndexXmlKey, map.ToString());
                 }
             }
 

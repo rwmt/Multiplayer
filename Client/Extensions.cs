@@ -21,8 +21,9 @@ namespace Multiplayer.Client
             return from x in GenTypes.AllTypes where t.IsAssignableFrom(x) select x;
         }
 
-        // sets the current Faction.OfPlayer
-        // applies faction's map components if map not null
+        // Sets the current Faction.OfPlayer
+        // Applies faction's world components
+        // Applies faction's map components if map not null
         public static void PushFaction(this Map map, Faction faction)
         {
             faction = FactionContext.Push(faction);
@@ -154,7 +155,7 @@ namespace Multiplayer.Client
         {
             int hash = 0;
             foreach (StackFrame frame in trace.GetFrames())
-                hash = Gen.HashCombineInt(hash, frame.GetMethod().GetHashCode());
+                hash = Gen.HashCombineInt(hash, frame.GetMethod().MetadataToken);
 
             return hash;
         }

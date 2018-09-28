@@ -214,7 +214,7 @@ namespace Multiplayer.Client
                     dummyPawn.factionInt = null;
                 }
 
-                Extensions.PopFaction(null);
+                Extensions.PopFaction();
             }
         }
     }

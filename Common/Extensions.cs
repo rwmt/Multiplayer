@@ -90,7 +90,7 @@ namespace Multiplayer.Common
 
         public static double ElapsedMillisDouble(this Stopwatch watch)
         {
-            return (watch.ElapsedTicks * 1000.0) / Stopwatch.Frequency;
+            return (double)watch.ElapsedTicks / Stopwatch.Frequency * 1000;
         }
     }
 

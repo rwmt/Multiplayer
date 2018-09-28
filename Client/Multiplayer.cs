@@ -19,6 +19,7 @@ using System.Text;
 using System.Threading;
 using System.Xml;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using Verse;
 using Verse.Profile;
 using Verse.Sound;
@@ -79,7 +80,7 @@ namespace Multiplayer.Client
         public static AppId_t RimWorldAppId;
 
         public const string SteamConnectStart = " -mpserver=";
-        public const string CurrentMapIndexXml = "currentMapIndex";
+        public const string CurrentMapIndexXmlKey = "currentMapIndex";
 
         static Multiplayer()
         {
@@ -232,7 +233,7 @@ namespace Multiplayer.Client
                 ScribeMetaHeaderUtility.WriteMetaHeader();
                 Scribe.EnterNode("game");
                 int currentMapIndex = Current.Game.currentMapIndex;
-                Scribe_Values.Look(ref currentMapIndex, CurrentMapIndexXml, -1);
+                Scribe_Values.Look(ref currentMapIndex, CurrentMapIndexXmlKey, -1);
                 Current.Game.ExposeSmallComponents();
                 World world = Current.Game.World;
                 Scribe_Deep.Look(ref world, "world");
@@ -248,16 +249,17 @@ namespace Multiplayer.Client
 
             reloading = true;
 
-            WorldGridCtorPatch.copyFrom = Find.WorldGrid;
-            WorldRendererCtorPatch.copyFrom = Find.World.renderer;
-            Dictionary<int, Vector3> tweenedPos = new Dictionary<int, Vector3>();
+            WorldGrid worldGridSaved = Find.WorldGrid;
+            WorldRenderer worldRendererSaved = Find.World.renderer;
+            var tweenedPos = new Dictionary<int, Vector3>();
+            var drawers = new Dictionary<int, MapDrawer>();
             int localFactionId = RealPlayerFaction.loadID;
 
             //RealPlayerFaction = DummyFaction;
 
             foreach (Map map in Find.Maps)
             {
-                MapDrawerRegenPatch.copyFrom[map.uniqueID] = map.mapDrawer;
+                drawers[map.uniqueID] = map.mapDrawer;
                 //RebuildRegionsAndRoomsPatch.copyFrom[map.uniqueID] = map.regionGrid;
 
                 foreach (Pawn p in map.mapPawns.AllPawnsSpawned)
@@ -270,11 +272,18 @@ namespace Multiplayer.Client
 
             MemoryUtility.ClearAllMapsAndWorld();
 
-            SaveCompression.doSaveCompression = true;
+            watch.Restart();
 
-            watch = Stopwatch.StartNew();
+            SaveCompression.doSaveCompression = true;
             LoadPatch.gameToLoad = gameDoc;
-            SavedGameLoaderNow.LoadGameFromSaveFileNow("server");
+
+            MapDrawerRegenPatch.copyFrom = drawers;
+            WorldGridCtorPatch.copyFrom = worldGridSaved;
+            WorldRendererCtorPatch.copyFrom = worldRendererSaved;
+
+            Find.Root.Start();
+            SavedGameLoaderNow.LoadGameFromSaveFileNow(null);
+
             Log.Message("Loading took " + watch.ElapsedMilliseconds);
 
             RealPlayerFaction = Find.FactionManager.GetById(localFactionId);
@@ -292,7 +301,6 @@ namespace Multiplayer.Client
             }
 
             SaveCompression.doSaveCompression = false;
-
             reloading = false;
 
             /*if (serverThread != null)
@@ -361,7 +369,7 @@ namespace Multiplayer.Client
             // todo send map id
             Client.Send(Packets.CLIENT_AUTOSAVED_DATA, 1, compressedMaps, 0);
 
-            gameNode[CurrentMapIndexXml].RemoveFromParent();
+            gameNode[CurrentMapIndexXmlKey].RemoveFromParent();
             mapsNode.RemoveAll();
 
             byte[] gameData = ScribeUtil.XmlToByteArray(doc, null, true);
