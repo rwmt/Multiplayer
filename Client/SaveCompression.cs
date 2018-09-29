@@ -15,6 +15,10 @@ namespace Multiplayer.Client
         public static bool doSaveCompression;
         private static Dictionary<ushort, ThingDef> thingDefsByShortHash;
 
+        const string CompressedRocks = "compressedRocks";
+        const string CompressedPlants = "compressedPlants";
+        const string CompressedRockRubble = "compressedRockRubble";
+
         public static void Save(Map map)
         {
             if (Scribe.mode != LoadSaveMode.Saving) return;
@@ -31,12 +35,12 @@ namespace Multiplayer.Client
                 IntVec3 cell = map.cellIndices.IndexToCell(i);
                 SaveRock(map, rockData, cell);
                 SaveRockRubble(map, rockRubbleData, cell);
-                SavePlants(map, plantData, cell);
+                SavePlant(map, plantData, cell);
             }
 
-            SaveBinary(rockData, "compressedRocks");
-            SaveBinary(plantData, "compressedPlants");
-            SaveBinary(rockRubbleData, "compressedRockRubble");
+            SaveBinary(rockData, CompressedRocks);
+            SaveBinary(plantData, CompressedPlants);
+            SaveBinary(rockRubbleData, CompressedRockRubble);
         }
 
         private static void SaveRock(Map map, BinaryWriter writer, IntVec3 cell)
@@ -71,7 +75,7 @@ namespace Multiplayer.Client
             }
         }
 
-        private static void SavePlants(Map map, BinaryWriter writer, IntVec3 cell)
+        private static void SavePlant(Map map, BinaryWriter writer, IntVec3 cell)
         {
             Plant thing = (Plant)map.thingGrid.ThingsListAt(cell).Find(IsSavePlant);
 
@@ -110,9 +114,9 @@ namespace Multiplayer.Client
             foreach (ThingDef thingDef in DefDatabase<ThingDef>.AllDefs)
                 thingDefsByShortHash[thingDef.shortHash] = thingDef;
 
-            BinaryReader rockData = LoadBinary("compressedRocks");
-            BinaryReader plantData = LoadBinary("compressedPlants");
-            BinaryReader rockRubbleData = LoadBinary("compressedRockRubble");
+            BinaryReader rockData = LoadBinary(CompressedRocks);
+            BinaryReader plantData = LoadBinary(CompressedPlants);
+            BinaryReader rockRubbleData = LoadBinary(CompressedRockRubble);
             List<Thing> loadedThings = new List<Thing>();
 
             int cells = map.info.NumCells;
@@ -123,7 +127,7 @@ namespace Multiplayer.Client
 
                 if ((t = LoadRock(map, rockData, cell)) != null) loadedThings.Add(t);
                 if ((t = LoadRockRubble(map, rockRubbleData, cell)) != null) loadedThings.Add(t);
-                if ((t = LoadPlants(map, plantData, cell)) != null) loadedThings.Add(t);
+                if ((t = LoadPlant(map, plantData, cell)) != null) loadedThings.Add(t);
             }
 
             map.GetComponent<MultiplayerMapComp>().tempLoadedThings = loadedThings;
@@ -170,7 +174,7 @@ namespace Multiplayer.Client
             return thing;
         }
 
-        private static Thing LoadPlants(Map map, BinaryReader reader, IntVec3 cell)
+        private static Thing LoadPlant(Map map, BinaryReader reader, IntVec3 cell)
         {
             ushort defId = reader.ReadUInt16();
             if (defId == 0)
@@ -217,7 +221,28 @@ namespace Multiplayer.Client
             return t.def.saveCompressible && (!t.def.useHitPoints || t.HitPoints == t.MaxHitPoints);
         }
 
-        private static readonly HashSet<string> savePlants = new HashSet<string>() { "PlantGrass", "PlantTallGrass", "PlantTreeOak", "PlantTreePoplar", "PlantTreeBirch", "PlantTreePine", "PlantBush", "PlantBrambles", "PlantDandelion", "PlantRaspberry", "PlantMoss", "PlantSaguaroCactus", "PlantShrubLow", "PlantTreeWillow", "PlantTreeCypress", "PlantTreeMaple", "PlantChokevine", "PlantWildHealroot" };
+        private static readonly HashSet<string> savePlants = new HashSet<string>()
+        {
+            "Plant_Grass",
+            "Plant_TallGrass",
+            "Plant_TreeOak",
+            "Plant_TreePoplar",
+            "Plant_TreeBirch",
+            "Plant_TreePine",
+            "Plant_Bush",
+            "Plant_Brambles",
+            "Plant_Dandelion",
+            "Plant_Berry",
+            "Plant_Moss",
+            "Plant_SaguaroCactus",
+            "Plant_ShrubLow",
+            "Plant_TreeWillow",
+            "Plant_TreeCypress",
+            "Plant_TreeMaple",
+            "Plant_Chokevine",
+            "Plant_HealrootWild"
+        };
+
         public static bool IsSavePlant(Thing t)
         {
             return savePlants.Contains(t.def.defName);

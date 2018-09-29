@@ -47,7 +47,7 @@ namespace Multiplayer.Common
             this.data = data;
         }
 
-        public byte[] GetBytes()
+        public byte[] Serialize()
         {
             ByteWriter writer = new ByteWriter();
             writer.WriteInt32(Convert.ToInt32(type));

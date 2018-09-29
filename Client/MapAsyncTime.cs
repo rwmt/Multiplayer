@@ -23,6 +23,8 @@ namespace Multiplayer.Client
         public static double timerInt;
         public static int tickUntil;
         public static bool currentExecutingCmdIssuedBySelf;
+        public static TimeSpeed replayTimeSpeed;
+        public static int skipTo = -1;
 
         public static bool asyncTime;
 
@@ -42,21 +44,43 @@ namespace Multiplayer.Client
         static bool Prefix()
         {
             if (Multiplayer.Client == null) return true;
+            if (LongEventHandler.AnyEventNowOrWaiting) return false;
 
-            double delta = Time.deltaTime * 60f;
-            if (delta > 3f)
-                delta = 3f;
+            double delta = Time.deltaTime * 60.0;
+            if (delta > 3)
+                delta = 3;
 
             accumulator += delta;
 
             if (Timer >= tickUntil)
                 accumulator = 0;
-            else if (delta < 1.5f && tickUntil - timerInt > 8)
+            else if (!Multiplayer.IsReplay && delta < 1.5 && tickUntil - timerInt > 8)
                 accumulator += Math.Min(100, tickUntil - timerInt - 8);
+
+            if (Multiplayer.IsReplay && replayTimeSpeed == TimeSpeed.Paused)
+                accumulator = 0;
+
+            if (skipTo > 0)
+            {
+                if (Timer >= skipTo)
+                    skipTo = -1;
+                else
+                    accumulator = Math.Min(60, skipTo - Timer);
+            }
 
             Tick();
 
             return false;
+        }
+
+        static ITickable CurrentTickable()
+        {
+            if (WorldRendererUtility.WorldRenderedNow)
+                return Multiplayer.WorldComp;
+            else if (Find.CurrentMap != null)
+                return Find.CurrentMap.AsyncTime();
+
+            return null;
         }
 
         static void Postfix()
@@ -84,24 +108,39 @@ namespace Multiplayer.Client
 
                 foreach (ITickable tickable in AllTickables)
                 {
-                    if (tickable.CurTimePerTick == 0)
-                        continue;
-
+                    if (tickable.TimePerTick(tickable.TimeSpeed) == 0) continue;
                     tickable.RealTimeToTickThrough += TimeStep;
 
                     while (tickable.RealTimeToTickThrough >= 0)
                     {
-                        tickable.RealTimeToTickThrough -= tickable.CurTimePerTick;
+                        float timePerTick = tickable.TimePerTick(tickable.TimeSpeed);
+                        if (timePerTick == 0) break;
+
+                        tickable.RealTimeToTickThrough -= timePerTick;
                         tickable.Tick();
                     }
                 }
 
-                accumulator -= TimeStep;
+                accumulator -= TimeStep * ReplayMultiplier();
                 timerInt += TimeStep;
 
                 if (Timer >= tickUntil)
                     accumulator = 0;
             }
+        }
+
+        private static float ReplayMultiplier()
+        {
+            if (!Multiplayer.IsReplay || skipTo > 0 || Multiplayer.simulating) return 1f;
+
+            if (replayTimeSpeed == TimeSpeed.Paused)
+                return 0f;
+
+            ITickable tickable = CurrentTickable();
+            if (tickable.TimeSpeed == TimeSpeed.Paused)
+                return 1 / 60f; // So paused sections of the timeline are skipped through asap
+
+            return tickable.TimePerTick(replayTimeSpeed) / tickable.TimePerTick(tickable.TimeSpeed);
         }
     }
 
@@ -121,11 +160,11 @@ namespace Multiplayer.Client
     {
         float RealTimeToTickThrough { get; set; }
 
-        float CurTimePerTick { get; }
-
         TimeSpeed TimeSpeed { get; }
 
         Queue<ScheduledCommand> Cmds { get; }
+
+        float TimePerTick(TimeSpeed speed);
 
         void Tick();
 
@@ -137,7 +176,6 @@ namespace Multiplayer.Client
         public static bool ticking;
 
         public float RealTimeToTickThrough { get; set; }
-        public float CurTimePerTick => 1f;
         public TimeSpeed TimeSpeed => TimeSpeed.Normal;
         public Queue<ScheduledCommand> Cmds => cmds;
         public Queue<ScheduledCommand> cmds = new Queue<ScheduledCommand>();
@@ -145,6 +183,8 @@ namespace Multiplayer.Client
         public void ExecuteCmd(ScheduledCommand cmd)
         {
         }
+
+        public float TimePerTick(TimeSpeed speed) => 1f;
 
         public void Tick()
         {
@@ -279,7 +319,7 @@ namespace Multiplayer.Client
     {
         static void Prefix()
         {
-            if (Multiplayer.Client != null && (Multiplayer.ShouldSync || Multiplayer.ExecutingCmds))
+            if (Multiplayer.Client != null && Multiplayer.ShouldSync)
             {
                 int hash = new StackTrace().Hash();
                 Log.ErrorOnce($"should sync {hash}", hash);
@@ -360,22 +400,32 @@ namespace Multiplayer.Client
 
             ITickable tickable = Multiplayer.WorldComp;
             if (!WorldRendererUtility.WorldRenderedNow)
-                tickable = Find.CurrentMap?.GetComponent<MapAsyncTimeComp>();
+                tickable = Find.CurrentMap.AsyncTime();
 
-            Find.TickManager.CurTimeSpeed = tickable.TimeSpeed;
-            lastSpeed = tickable.TimeSpeed;
+            TimeSpeed speed = tickable.TimeSpeed;
+            if (Multiplayer.IsReplay)
+                speed = TickPatch.replayTimeSpeed;
+
+            Find.TickManager.CurTimeSpeed = speed;
+            lastSpeed = speed;
             __state = tickable;
         }
 
         static void Postfix(ITickable __state)
         {
             if (__state == null) return;
-            if (lastSpeed == __state.TimeSpeed) return;
 
+            TimeSpeed newSpeed = Find.TickManager.CurTimeSpeed;
+            if (lastSpeed == newSpeed) return;
+
+            if (Multiplayer.IsReplay)
+                TickPatch.replayTimeSpeed = newSpeed;
             if (__state is MultiplayerWorldComp)
-                Multiplayer.Client.SendCommand(CommandType.WORLD_TIME_SPEED, ScheduledCommand.Global, (byte)Find.TickManager.CurTimeSpeed);
+                Multiplayer.Client.SendCommand(CommandType.WORLD_TIME_SPEED, ScheduledCommand.Global, (byte)newSpeed);
             else if (__state is MapAsyncTimeComp comp)
-                Multiplayer.Client.SendCommand(CommandType.MAP_TIME_SPEED, comp.map.uniqueID, (byte)Find.TickManager.CurTimeSpeed);
+                Multiplayer.Client.SendCommand(CommandType.MAP_TIME_SPEED, comp.map.uniqueID, (byte)newSpeed);
+
+            Find.TickManager.CurTimeSpeed = lastSpeed;
         }
     }
 
@@ -490,34 +540,33 @@ namespace Multiplayer.Client
         public static Map tickingMap;
         public static Map executingCmdMap;
 
-        public float CurTimePerTick
+        public float TimePerTick(TimeSpeed speed)
         {
-            get
-            {
-                if (TickRateMultiplier == 0f)
-                    return 0f;
-                return 1f / TickRateMultiplier;
-            }
+            if (TickRateMultiplier(speed) == 0f)
+                return 0f;
+            return 1f / TickRateMultiplier(speed);
         }
 
-        public float TickRateMultiplier => Find.TickManager.TickRateMultiplier;
-
-        /*public float TickRateMultiplier
+        private float TickRateMultiplier(TimeSpeed speed)
         {
-            get
+            switch (speed)
             {
-                if (TimeSpeed == TimeSpeed.Paused)
-                    return 0;
-                if (forcedNormalSpeed)
-                    return 1;
-                if (TimeSpeed == TimeSpeed.Fast)
-                    return 3;
-                // todo speed up when nothing is happening
-                if (TimeSpeed == TimeSpeed.Superfast)
-                    return 6;
-                return 1;
+                case TimeSpeed.Paused:
+                    return 0f;
+                case TimeSpeed.Normal:
+                    return 1f;
+                case TimeSpeed.Fast:
+                    return 3f;
+                case TimeSpeed.Superfast:
+                    if (Find.TickManager.NothingHappeningInGame())
+                        return 12f;
+                    return 6f;
+                case TimeSpeed.Ultrafast:
+                    return 15f;
+                default:
+                    return -1f;
             }
-        }*/
+        }
 
         public TimeSpeed TimeSpeed
         {
@@ -555,6 +604,8 @@ namespace Multiplayer.Client
             storyteller = new Storyteller(StorytellerDefOf.Cassandra, DifficultyDefOf.Rough);
         }
 
+        public int tickRel;
+
         public void Tick()
         {
             tickingMap = map;
@@ -566,7 +617,7 @@ namespace Multiplayer.Client
             {
                 map.MapPreTick();
                 mapTicks++;
-                Find.TickManager.DebugSetTicksGame(mapTicks);
+                Find.TickManager.ticksGameInt = mapTicks;
 
                 tickListNormal.Tick();
                 tickListRare.Tick();
@@ -586,8 +637,22 @@ namespace Multiplayer.Client
 
                 tickingMap = null;
 
-                if (mapTicks % 10 == 0)
-                    MpLog.Log($"maptick {mapTicks} {randState}");
+                if (Multiplayer.IsReplay || Multiplayer.LocalServer != null)
+                {
+                    if (Multiplayer.mapSeeds.Count > tickRel)
+                    {
+                        if (Multiplayer.mapSeeds[tickRel] != randState)
+                        {
+                            MpLog.Error("Desync tick " + mapTicks);
+                        }
+                    }
+                    else
+                    {
+                        Multiplayer.mapSeeds.Add(randState);
+                    }
+                }
+
+                tickRel++;
 
                 //SimpleProfiler.Pause();
 
@@ -629,7 +694,7 @@ namespace Multiplayer.Client
             {
                 worldTicks = Find.TickManager.TicksGame;
                 worldSpeed = Find.TickManager.CurTimeSpeed;
-                Find.TickManager.DebugSetTicksGame(mapTicks);
+                Find.TickManager.ticksGameInt = mapTicks;
                 Find.TickManager.CurTimeSpeed = TimeSpeed;
             }
 
@@ -654,7 +719,7 @@ namespace Multiplayer.Client
 
             if (TickPatch.asyncTime)
             {
-                Find.TickManager.DebugSetTicksGame(worldTicks);
+                Find.TickManager.ticksGameInt = worldTicks;
                 Find.TickManager.CurTimeSpeed = worldSpeed;
             }
 

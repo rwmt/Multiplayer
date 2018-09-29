@@ -24,6 +24,7 @@ using Verse;
 using Verse.Profile;
 using Verse.Sound;
 using Verse.Steam;
+using zip::Ionic.Zip;
 
 namespace Multiplayer.Client
 {
@@ -37,6 +38,7 @@ namespace Multiplayer.Client
         public static MultiplayerServer LocalServer => session?.localServer;
         public static ChatWindow Chat => session?.chat;
         public static PacketLogWindow PacketLog => session?.packetLog;
+        public static bool IsReplay => session == null ? false : session.replay;
 
         public static string username;
         public static HarmonyInstance harmony = HarmonyInstance.Create("multiplayer");
@@ -50,6 +52,8 @@ namespace Multiplayer.Client
         public static IdBlock GlobalIdBlock => game.worldComp.globalIdBlock;
         public static Faction DummyFaction => game.dummyFaction;
         public static MultiplayerWorldComp WorldComp => game.worldComp;
+
+        public static List<ulong> mapSeeds = new List<ulong>();
 
         // Null during loading
         public static Faction RealPlayerFaction
@@ -70,7 +74,7 @@ namespace Multiplayer.Client
 
         public static bool ExecutingCmds => MultiplayerWorldComp.executingCmdWorld || MapAsyncTimeComp.executingCmdMap != null;
         public static bool Ticking => MultiplayerWorldComp.tickingWorld || MapAsyncTimeComp.tickingMap != null || ConstantTicker.ticking;
-        public static bool ShouldSync => Client != null && !Ticking && !ExecutingCmds && !reloading && Current.ProgramState == ProgramState.Playing;
+        public static bool ShouldSync => Client != null && !Ticking && !ExecutingCmds && !reloading && Current.ProgramState == ProgramState.Playing && !LongEventHandler.ShouldWaitForEvent;
 
         public static Callback<P2PSessionRequest_t> sessionReqCallback;
         public static Callback<P2PSessionConnectFail_t> p2pFail;
@@ -121,6 +125,7 @@ namespace Multiplayer.Client
 
             harmony.DoMpPatches(typeof(MainMenuMarker));
             harmony.DoMpPatches(typeof(MainMenuPatch));
+            harmony.DoMpPatches(typeof(MakeSpaceForReplayTimeline));
 
             SyncHandlers.Init();
 
@@ -497,6 +502,113 @@ namespace Multiplayer.Client
                 Log.Error($"Exception handling packet by {Client}: {e}");
             }
         }
+
+        private static string ReplayPath = Path.Combine(GenFilePaths.FolderUnderSaveData("MpReplays"), "Replay1.zip");
+
+        public static void SaveReplay()
+        {
+            using (ZipFile zip = new ZipFile())
+            {
+                zip.AddEntry("saved_world", OnMainThread.cachedGameData);
+
+                foreach (var entry in OnMainThread.cachedMapData)
+                    zip.AddEntry("saved_map_" + entry.Key, entry.Value);
+
+                foreach (var entry in OnMainThread.cachedMapCmds)
+                {
+                    ByteWriter writer = new ByteWriter();
+
+                    writer.WriteInt32(entry.Value.Count);
+                    foreach (var cmd in entry.Value)
+                        writer.WritePrefixedBytes(cmd.Serialize());
+
+                    zip.AddEntry("cmds_" + entry.Key, writer.GetArray());
+                }
+
+                ByteWriter infoWriter = new ByteWriter();
+                infoWriter.WriteInt32(RealPlayerFaction.loadID);
+                infoWriter.WriteDouble(TickPatch.timerInt);
+                zip.AddEntry("info", infoWriter.GetArray());
+
+                zip.Save(ReplayPath);
+            }
+        }
+
+        public static void LoadReplay()
+        {
+            session = new MultiplayerSession();
+            session.client = new ReplayConnection();
+            session.replay = true;
+
+            LoadReplayFile();
+            // todo ensure everything is read correctly
+
+            bool hasSeeds = mapSeeds.Count > 0;
+
+            ClientJoiningState.ReloadGame((int)replayTimer, new List<int>() { 0 }, () =>
+            {
+                session.replayTimerStart = TickPatch.Timer;
+                session.replayTimerEnd = (int)replayTimer;
+                TickPatch.tickUntil = (int)replayTimer;
+
+                if (!hasSeeds)
+                    LoadReplay();
+                else
+                    mapSeeds.Clear();
+            });
+        }
+
+        private static double replayTimer;
+
+        private static void LoadReplayFile()
+        {
+            using (ZipFile zip = ZipFile.Read(ReplayPath))
+            {
+                foreach (ZipEntry entry in zip)
+                {
+                    string fileName = entry.FileName;
+                    if (fileName == "saved_world")
+                    {
+                        byte[] content = entry.GetBytes();
+
+                        OnMainThread.cachedGameData = content;
+                        Log.Message("Read world data");
+                    }
+                    else if (fileName.StartsWith("saved_map_"))
+                    {
+                        if (int.TryParse(fileName.Substring(10), out int mapId))
+                        {
+                            byte[] content = entry.GetBytes();
+
+                            OnMainThread.cachedMapData[mapId] = content;
+                            Log.Message("Read map data " + mapId);
+                        }
+                    }
+                    else if (fileName.StartsWith("cmds_"))
+                    {
+                        if (int.TryParse(fileName.Substring(5), out int mapId))
+                        {
+                            byte[] content = entry.GetBytes();
+
+                            var cmds = new List<ScheduledCommand>();
+                            ByteReader reader = new ByteReader(content);
+                            int count = reader.ReadInt32();
+                            for (int i = 0; i < count; i++)
+                                cmds.Add(ScheduledCommand.Deserialize(new ByteReader(reader.ReadPrefixedBytes())));
+
+                            OnMainThread.cachedMapCmds[mapId] = cmds;
+                            Log.Message($"Read {cmds.Count} cmds for map {cmds}");
+                        }
+                    }
+                    else if (fileName == "info")
+                    {
+                        ByteReader reader = new ByteReader(entry.GetBytes());
+                        session.myFactionId = reader.ReadInt32();
+                        replayTimer = reader.ReadDouble();
+                    }
+                }
+            }
+        }
     }
 
     public class MultiplayerSession
@@ -506,6 +618,10 @@ namespace Multiplayer.Client
         public ChatWindow chat = new ChatWindow();
         public PacketLogWindow packetLog = new PacketLogWindow();
         public int myFactionId;
+
+        public bool replay;
+        public int replayTimerStart;
+        public int replayTimerEnd;
 
         public string disconnectNetReason;
         public string disconnectServerReason;
@@ -606,6 +722,8 @@ namespace Multiplayer.Client
 
         public static byte[] cachedGameData;
         public static Dictionary<int, byte[]> cachedMapData = new Dictionary<int, byte[]>();
+
+        // Global cmds are -1
         public static Dictionary<int, List<ScheduledCommand>> cachedMapCmds = new Dictionary<int, List<ScheduledCommand>>();
 
         public void Update()
@@ -693,7 +811,9 @@ namespace Multiplayer.Client
                 Find.WindowStack.WindowOfType<ServerBrowser>()?.PostClose();
             }
 
-            Sync.bufferedChanges.Clear();
+            foreach (var entry in Sync.bufferedChanges)
+                entry.Value.Clear();
+
             ClearCaches();
         }
 
@@ -753,6 +873,21 @@ namespace Multiplayer.Client
             Find.FactionManager.OfPlayer.def = Multiplayer.factionDef;
             faction.def = FactionDefOf.PlayerColony;
             Find.FactionManager.ofPlayer = faction;
+        }
+    }
+
+    public class ReplayConnection : IConnection
+    {
+        public override void SendRaw(byte[] raw)
+        {
+        }
+
+        public override void HandleReceive(byte[] rawData)
+        {
+        }
+
+        public override void Close()
+        {
         }
     }
 

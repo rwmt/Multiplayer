@@ -94,6 +94,17 @@ namespace Multiplayer.Client
         static void Postfix() => ticking = false;
     }
 
+    [HarmonyPatch(typeof(WildPlantSpawner))]
+    [HarmonyPatch(nameof(WildPlantSpawner.WildPlantSpawnerTick))]
+    public static class WildPlantSpawnerTickMarker
+    {
+        public static bool ticking;
+
+        static void Prefix() => ticking = true;
+
+        static void Postfix() => ticking = false;
+    }
+
     [HarmonyPatch(typeof(SteadyEnvironmentEffects))]
     [HarmonyPatch(nameof(SteadyEnvironmentEffects.SteadyEnvironmentEffectsTick))]
     public static class SteadyEnvironmentEffectsTickMarker
@@ -108,9 +119,6 @@ namespace Multiplayer.Client
     [MpPatch(typeof(OptionListingUtility), nameof(OptionListingUtility.DrawOptionListing))]
     public static class MainMenuPatch
     {
-        public static Stopwatch time = new Stopwatch();
-        static int state;
-
         static void Prefix(Rect rect, List<ListableOption> optList)
         {
             if (!MainMenuMarker.drawing) return;
@@ -119,10 +127,17 @@ namespace Multiplayer.Client
             {
                 int newColony = optList.FindIndex(opt => opt.label == "NewColony".Translate());
                 if (newColony != -1)
+                {
                     optList.Insert(newColony + 1, new ListableOption("Connect to server", () =>
                     {
                         Find.WindowStack.Add(new ServerBrowser());
                     }));
+
+                    optList.Insert(0, new ListableOption("Load replay", () =>
+                    {
+                        Multiplayer.LoadReplay();
+                    }));
+                }
             }
 
             if (optList.Any(opt => opt.label == "ReviewScenario".Translate()))
@@ -137,7 +152,7 @@ namespace Multiplayer.Client
 
                 if (Multiplayer.Client != null)
                 {
-                    optList.Insert(0, new ListableOption("Autosave", () =>
+                    optList.Insert(0, new ListableOption("Save replay", () =>
                     {
                         /*Stopwatch ticksStart = Stopwatch.StartNew();
                         for (int i = 0; i < 1000; i++)
@@ -149,7 +164,9 @@ namespace Multiplayer.Client
 
                         //Multiplayer.SendGameData(Multiplayer.SaveGame());
 
-                        Multiplayer.LocalServer.Enqueue(() => Multiplayer.LocalServer.DoAutosave());
+                        //Multiplayer.LocalServer.Enqueue(() => Multiplayer.LocalServer.DoAutosave());
+
+                        Multiplayer.SaveReplay();
                     }));
 
                     optList.RemoveAll(opt => opt.label == "Save".Translate() || opt.label == "LoadGame".Translate());
@@ -353,10 +370,6 @@ namespace Multiplayer.Client
             Current.Game.InitData = new GameInitData();
             Current.Game.LoadGame(); // calls Scribe.loader.FinalizeLoading()
 
-            // Deterministically init all caches
-            foreach (ITickable tickable in TickPatch.AllTickables)
-                tickable.Tick();
-
             SaveCompression.doSaveCompression = prevCompress;
             gameToLoad = null;
 
@@ -364,6 +377,10 @@ namespace Multiplayer.Client
 
             LongEventHandler.ExecuteWhenFinished(() =>
             {
+                // Inits all caches
+                foreach (ITickable tickable in TickPatch.AllTickables)
+                    tickable.Tick();
+
                 if (!Current.Game.Maps.Any())
                 {
                     MemoryUtility.UnloadUnusedUnityAssets();
@@ -442,21 +459,86 @@ namespace Multiplayer.Client
 
                 text1 += " " + Sync.bufferedChanges.Sum(kv => kv.Value.Count);
                 text1 += " " + async.randState;
+                text1 += "\nreal speed: " + Find.TickManager.CurTimeSpeed;
 
                 Rect rect1 = new Rect(80f, 110f, 330f, Text.CalcHeight(text1, 330f));
                 Widgets.Label(rect1, text1);
             }
 
-            if (Multiplayer.session != null)
+            if (Multiplayer.IsReplay)
             {
-                if (Widgets.ButtonText(new Rect(Screen.width - 60f, 10f, 50f, 25f), "Chat"))
-                    Find.WindowStack.Add(Multiplayer.Chat);
-
-                if (Widgets.ButtonText(new Rect(Screen.width - 60f, 35f, 50f, 25f), "Packets"))
-                    Find.WindowStack.Add(Multiplayer.PacketLog);
+                DrawTimeline();
             }
 
+            if (Multiplayer.Chat != null && Widgets.ButtonText(new Rect(Screen.width - 60f, 10f, 50f, 25f), "Chat"))
+                Find.WindowStack.Add(Multiplayer.Chat);
+
+            if (Multiplayer.PacketLog != null && Widgets.ButtonText(new Rect(Screen.width - 60f, 35f, 50f, 25f), "Packets"))
+                Find.WindowStack.Add(Multiplayer.PacketLog);
+
             return Find.Maps.Count > 0;
+        }
+
+        static void DrawTimeline()
+        {
+            const float margin = 50f;
+            const float height = 35f;
+
+            Rect rect = new Rect(margin, UI.screenHeight - 35f - height - 10f, UI.screenWidth - margin * 2, height);
+            Widgets.DrawBoxSolid(rect, new Color(0.6f, 0.6f, 0.6f, 0.8f));
+
+            int timerEnd = Multiplayer.session.replayTimerEnd;
+            double progress = TickPatch.timerInt / timerEnd;
+            float progressX = rect.xMin + (float)progress * rect.width;
+            Widgets.DrawLine(new Vector2(progressX, rect.yMin), new Vector2(progressX, rect.yMax), Color.green, 7f);
+
+            if (Mouse.IsOver(rect))
+            {
+                float mouseX = Event.current.mousePosition.x;
+                float mouseProgress = (mouseX - rect.xMin) / rect.width;
+                int mouseTimer = (int)(timerEnd * mouseProgress);
+                Widgets.DrawLine(new Vector2(mouseX, rect.yMin), new Vector2(mouseX, rect.yMax), Color.blue, 3f);
+
+                if (Event.current.type == EventType.MouseDown)
+                {
+                    if (mouseTimer >= TickPatch.Timer)
+                    {
+                        TickPatch.skipTo = mouseTimer;
+                    }
+                    else
+                    {
+                        ClientJoiningState.ReloadGame(mouseTimer, new List<int>() { 0 }, () =>
+                        {
+                            TickPatch.tickUntil = Multiplayer.session.replayTimerEnd;
+                        });
+                    }
+
+                    Event.current.Use();
+                }
+
+                ActiveTip tip = new ActiveTip("Tick " + mouseTimer + "\nETA "); // todo eta
+                tip.DrawTooltip(GenUI.GetMouseAttachedWindowPos(tip.TipRect.x, tip.TipRect.y));
+            }
+
+            Widgets.DrawLine(new Vector2(rect.xMin, rect.yMin), new Vector2(rect.xMin, rect.yMax), Color.white, 4f);
+            Widgets.DrawLine(new Vector2(rect.xMax, rect.yMin), new Vector2(rect.xMax, rect.yMax), Color.white, 4f);
+        }
+    }
+
+    [MpPatch(typeof(MouseoverReadout), nameof(MouseoverReadout.MouseoverReadoutOnGUI))]
+    [MpPatch(typeof(GlobalControls), nameof(GlobalControls.GlobalControlsOnGUI))]
+    static class MakeSpaceForReplayTimeline
+    {
+        static void Prefix()
+        {
+            if (Multiplayer.IsReplay)
+                UI.screenHeight -= 45;
+        }
+
+        static void Postfix()
+        {
+            if (Multiplayer.IsReplay)
+                UI.screenHeight += 45;
         }
     }
 
@@ -857,16 +939,15 @@ namespace Multiplayer.Client
         {
             if (RandPatches.Ignore || dontLog || Multiplayer.Client == null) return;
             if (Current.ProgramState != ProgramState.Playing && !Multiplayer.reloading) return;
+            if (Multiplayer.reloading) return;
+            if (SteadyEnvironmentEffectsTickMarker.ticking || WildAnimalSpawnerTickMarker.ticking || WildPlantSpawnerTickMarker.ticking) return;
 
             dontLog = true;
 
-            if (MapAsyncTimeComp.tickingMap != null && false)
+            if (false && MapAsyncTimeComp.tickingMap != null && MapAsyncTimeComp.tickingMap.AsyncTime().tickRel > 1)
             {
                 call++;
-
-                if (ThingContext.Current == null || !(ThingContext.Current is Plant || ThingContext.Current.def == ThingDefOf.SteamGeyser))
-                    if (!(WildAnimalSpawnerTickMarker.ticking || SteadyEnvironmentEffectsTickMarker.ticking) || (Find.TickManager.TicksGame > 9670 && Find.TickManager.TicksGame < 9690))
-                        MpLog.Log(call + " thing rand " + ThingContext.Current + " " + Rand.Int);
+                MpLog.Log(call + " thing rand " + ThingContext.Current + " " + Rand.Int);
             }
 
             if (ThingContext.Current != null && !(ThingContext.Current is Plant) && !(ThingContext.Current.def == ThingDefOf.SteamGeyser))
@@ -1186,9 +1267,14 @@ namespace Multiplayer.Client
     {
         static bool Prefix(Action action)
         {
-            if (!Multiplayer.simulating) return true;
-            action();
-            return false;
+            if (Multiplayer.simulating)
+            {
+                action();
+                //Log.Message("Executed " + action.Method);
+                return false;
+            }
+
+            return true;
         }
     }
 
@@ -1464,6 +1550,68 @@ namespace Multiplayer.Client
         {
             if (RootPlayStartMarker.starting && Multiplayer.reloading) return false;
             return true;
+        }
+    }
+
+    [HarmonyPatch(typeof(LongEventHandler.QueuedLongEvent))]
+    [HarmonyPatch(nameof(LongEventHandler.QueuedLongEvent.UseStandardWindow), PropertyMethod.Getter)]
+    static class ShowStandardWindow
+    {
+        static void Postfix(LongEventHandler.QueuedLongEvent __instance, ref bool __result)
+        {
+            if (__instance.eventTextKey == "MpSimulating")
+                __result = true;
+        }
+    }
+
+    [HarmonyPatch(typeof(WindowStack), nameof(WindowStack.ImmediateWindow))]
+    static class LongEventWindowAbsorbInput
+    {
+        static void Prefix(int ID, ref bool absorbInputAroundWindow)
+        {
+            if (ID == 62893994)
+                absorbInputAroundWindow = true;
+        }
+    }
+
+    [HarmonyPatch(typeof(WindowStack), nameof(WindowStack.AddNewImmediateWindow))]
+    static class LongEventWindowPreventCameraMotion
+    {
+        static void Postfix(int ID)
+        {
+            if (ID == -62893994)
+                Find.WindowStack.windows.Find(w => w.ID == ID).preventCameraMotion = true;
+        }
+    }
+
+    [HarmonyPatch(typeof(Window), nameof(Window.WindowOnGUI))]
+    static class LongEventWindowBackground
+    {
+        static void Prefix(Window __instance)
+        {
+            if (__instance.ID != -62893994) return;
+            Widgets.DrawBoxSolid(new Rect(0, 0, UI.screenWidth, UI.screenHeight), new Color(0, 0, 0, 0.5f));
+        }
+    }
+
+    [HarmonyPatch(typeof(Pawn_MeleeVerbs), nameof(Pawn_MeleeVerbs.TryGetMeleeVerb))]
+    static class TryGetMeleeVerbPatch
+    {
+        static bool Prefix()
+        {
+            // Namely FloatMenuUtility.GetMeleeAttackAction
+            if (Multiplayer.ShouldSync) return false;
+            return true;
+        }
+
+        static void Postfix(Pawn_MeleeVerbs __instance, Thing target, ref Verb __result)
+        {
+            if (Multiplayer.ShouldSync)
+            {
+                __result =
+                    __instance.GetUpdatedAvailableVerbsList(false).FirstOrDefault(ve => ve.GetSelectionWeight(target) != 0).verb ??
+                    __instance.GetUpdatedAvailableVerbsList(true).FirstOrDefault(ve => ve.GetSelectionWeight(target) != 0).verb;
+            }
         }
     }
 

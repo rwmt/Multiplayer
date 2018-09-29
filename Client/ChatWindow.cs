@@ -161,7 +161,7 @@ namespace Multiplayer.Client
                 if (Mouse.IsOver(entryRect))
                 {
                     GUI.DrawTexture(entryRect, SelectedMsg);
-                    if (click != null && Event.current.type == EventType.mouseDown)
+                    if (click != null && Event.current.type == EventType.MouseDown)
                     {
                         click(i);
                         Event.current.Use();

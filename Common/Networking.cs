@@ -102,7 +102,7 @@ namespace Multiplayer.Common
 
         public abstract void SendRaw(byte[] raw);
 
-        public void HandleReceive(byte[] rawData)
+        public virtual void HandleReceive(byte[] rawData)
         {
             if (state == ConnectionStateEnum.Disconnected)
                 return;

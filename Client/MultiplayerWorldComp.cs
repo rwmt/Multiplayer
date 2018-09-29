@@ -17,38 +17,33 @@ namespace Multiplayer.Client
 
         public float RealTimeToTickThrough { get; set; }
 
-        public float CurTimePerTick
+        public float TimePerTick(TimeSpeed speed)
         {
-            get
-            {
-                if (TickRateMultiplier == 0f)
-                    return 0f;
-                return 1f / TickRateMultiplier;
-            }
+            if (TickRateMultiplier(speed) == 0f)
+                return 0f;
+            return 1f / TickRateMultiplier(speed);
         }
 
-        public float TickRateMultiplier => Find.TickManager.TickRateMultiplier;
-
-        /*public float TickRateMultiplier
+        private float TickRateMultiplier(TimeSpeed speed)
         {
-            get
+            switch (speed)
             {
-                switch (timeSpeedInt)
-                {
-                    case TimeSpeed.Normal:
-                        return 1f;
-                    case TimeSpeed.Fast:
-                        return 3f;
-                    case TimeSpeed.Superfast:
-                        return 6f;
-                    // todo speed up when nothing is happening
-                    case TimeSpeed.Ultrafast:
-                        return 15f;
-                    default:
-                        return 0f;
-                }
+                case TimeSpeed.Paused:
+                    return 0f;
+                case TimeSpeed.Normal:
+                    return 1f;
+                case TimeSpeed.Fast:
+                    return 3f;
+                case TimeSpeed.Superfast:
+                    if (Find.TickManager.NothingHappeningInGame())
+                        return 12f;
+                    return 6f;
+                case TimeSpeed.Ultrafast:
+                    return 15f;
+                default:
+                    return -1f;
             }
-        }*/
+        }
 
         public TimeSpeed TimeSpeed
         {

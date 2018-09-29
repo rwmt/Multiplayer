@@ -241,7 +241,7 @@ namespace Multiplayer.Common
 
         public void SendCommand(CommandType cmd, int factionId, int mapId, byte[] data, string sourcePlayer = null)
         {
-            byte[] toSave = new ScheduledCommand(cmd, timer, factionId, mapId, data).GetBytes();
+            byte[] toSave = new ScheduledCommand(cmd, timer, factionId, mapId, data).Serialize();
 
             // todo cull target players if not global
             if (mapId < 0)

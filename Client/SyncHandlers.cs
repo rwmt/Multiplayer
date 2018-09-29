@@ -293,6 +293,7 @@ namespace Multiplayer.Client
             Sync.RegisterSyncMethod(typeof(Pawn_JobTracker), nameof(Pawn_JobTracker.StartJob), typeof(Expose<Job>), typeof(JobCondition), typeof(ThinkNode), typeof(bool), typeof(bool), typeof(ThinkTreeDef), typeof(JobTag?), typeof(bool));
             Sync.RegisterSyncMethod(typeof(Pawn_JobTracker), nameof(Pawn_JobTracker.TryTakeOrderedJob), typeof(Expose<Job>), typeof(JobTag)).SetHasContext();
             Sync.RegisterSyncMethod(typeof(Pawn_JobTracker), nameof(Pawn_JobTracker.TryTakeOrderedJobPrioritizedWork), typeof(Expose<Job>), typeof(WorkGiver), typeof(IntVec3)).SetHasContext();
+            Sync.RegisterSyncMethod(typeof(Pawn_TrainingTracker), nameof(Pawn_TrainingTracker.SetWantedRecursive));
             Sync.RegisterSyncMethod(typeof(Zone), nameof(Zone.Delete));
             Sync.RegisterSyncMethod(typeof(BillStack), nameof(BillStack.Delete));
             Sync.RegisterSyncMethod(typeof(BillStack), nameof(BillStack.Reorder));

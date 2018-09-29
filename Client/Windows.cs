@@ -243,6 +243,9 @@ namespace Multiplayer.Client
 
                 mapComp.factionMapData[dummyFaction.loadID] = FactionMapData.New(dummyFaction.loadID, map);
                 mapComp.factionMapData[dummyFaction.loadID].areaManager.AddStartingAreas();
+
+                MapAsyncTimeComp async = map.AsyncTime();
+                async.mapTicks = Find.TickManager.TicksGame;
             }
 
             Multiplayer.RealPlayerFaction = Faction.OfPlayer;
@@ -273,7 +276,7 @@ namespace Multiplayer.Client
                 MultiplayerServer.instance.UpdatePlayerList();
 
                 Messages.Message("Server started. Listening at " + addr.ToString() + ":" + MultiplayerServer.DefaultPort, MessageTypeDefOf.SilentInput, false);
-            }, "Saving", false, null);
+            }, "MpSaving", false, null);
         }
 
         private void SetupLocalClient()

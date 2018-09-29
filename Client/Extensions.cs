@@ -1,11 +1,15 @@
-﻿using Multiplayer.Common;
+﻿extern alias zip;
+
+using Multiplayer.Common;
 using RimWorld;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using UnityEngine;
 using Verse;
+using zip::Ionic.Zip;
 
 namespace Multiplayer.Client
 {
@@ -158,6 +162,13 @@ namespace Multiplayer.Client
                 hash = Gen.HashCombineInt(hash, frame.GetMethod().MetadataToken);
 
             return hash;
+        }
+
+        public static byte[] GetBytes(this ZipEntry entry)
+        {
+            MemoryStream stream = new MemoryStream();
+            entry.Extract(stream);
+            return stream.ToArray();
         }
 
     }

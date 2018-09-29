@@ -744,6 +744,7 @@ namespace Multiplayer.Client
             { data => ReadSync<Pawn>(data).jobs },
             { data => ReadSync<Pawn>(data).outfits },
             { data => ReadSync<Pawn>(data).drugs },
+            { data => ReadSync<Pawn>(data).training },
             { data => new FloatRange(data.ReadFloat(), data.ReadFloat()) },
             { data => new IntRange(data.ReadInt32(), data.ReadInt32()) },
             { data => new QualityRange(ReadSync<QualityCategory>(data), ReadSync<QualityCategory>(data)) },
@@ -786,6 +787,7 @@ namespace Multiplayer.Client
             { (ByteWriter data, Pawn_JobTracker comp) => WriteSync(data, comp.pawn) },
             { (ByteWriter data, Pawn_OutfitTracker comp) => WriteSync(data, comp.pawn) },
             { (ByteWriter data, Pawn_DrugPolicyTracker comp) => WriteSync(data, comp.pawn) },
+            { (ByteWriter data, Pawn_TrainingTracker comp) => WriteSync(data, comp.pawn) },
             { (ByteWriter data, FloatRange range) => { data.WriteFloat(range.min); data.WriteFloat(range.max); }},
             { (ByteWriter data, IntRange range) => { data.WriteInt32(range.min); data.WriteInt32(range.max); }},
             { (ByteWriter data, QualityRange range) => { WriteSync(data, range.min); WriteSync(data, range.max); }},
@@ -1028,18 +1030,21 @@ namespace Multiplayer.Client
             else if (typeof(IStoreSettingsParent).IsAssignableFrom(type))
             {
                 int impl = data.ReadInt32();
+                if (impl == -1) return null;
                 return ReadSyncObject(data, storageParentImplementations[impl]) as IStoreSettingsParent;
             }
             else if (typeof(StorageSettings) == type)
             {
                 IStoreSettingsParent parent = ReadSync<IStoreSettingsParent>(data);
+                if (parent == null) return null;
                 return parent.GetStoreSettings();
             }
             else if (typeof(BodyPartRecord) == type)
             {
-                BodyDef body = ReadSync<BodyDef>(data);
                 int partIndex = data.ReadInt32();
+                if (partIndex == -1) return null;
 
+                BodyDef body = ReadSync<BodyDef>(data);
                 return body.GetPartAtIndex(partIndex);
             }
 
@@ -1162,7 +1167,8 @@ namespace Multiplayer.Client
                 }
                 else if (typeof(Def).IsAssignableFrom(type))
                 {
-                    data.WriteUInt16(obj is Def def ? def.shortHash : (ushort)0);
+                    Def def = obj as Def;
+                    data.WriteUInt16(def != null ? def.shortHash : (ushort)0);
                 }
                 else if (typeof(PawnColumnWorker).IsAssignableFrom(type))
                 {
@@ -1261,14 +1267,26 @@ namespace Multiplayer.Client
                 }
                 else if (typeof(BodyPartRecord) == type)
                 {
+                    if (obj == null)
+                    {
+                        data.WriteInt32(-1);
+                        return;
+                    }
+
                     BodyPartRecord part = obj as BodyPartRecord;
                     BodyDef body = part.body;
 
-                    WriteSync(data, body);
                     data.WriteInt32(body.GetIndexOfPart(part));
+                    WriteSync(data, body);
                 }
                 else if (typeof(IStoreSettingsParent).IsAssignableFrom(type))
                 {
+                    if (obj == null)
+                    {
+                        data.WriteInt32(-1);
+                        return;
+                    }
+
                     int impl = -1;
                     Type implType = null;
                     for (int i = 0; i < storageParentImplementations.Length; i++)
@@ -1296,6 +1314,11 @@ namespace Multiplayer.Client
                     log.LogNode("No writer for " + type);
                     throw new SerializationException("No writer for type " + type);
                 }
+            }
+            catch
+            {
+                MpLog.Error($"Error writing type: {type}, obj: {obj}");
+                throw;
             }
             finally
             {

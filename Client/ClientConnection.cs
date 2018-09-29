@@ -68,7 +68,7 @@ namespace Multiplayer.Client
             });
         }
 
-        public static void ReloadGame(int tickUntil, List<int> maps, Action done = null)
+        public static void ReloadGame(int tickUntil, List<int> maps, Action onDone = null)
         {
             XmlDocument gameDoc = ScribeUtil.GetDocument(OnMainThread.cachedGameData);
             XmlNode gameNode = gameDoc.DocumentElement["game"];
@@ -97,9 +97,9 @@ namespace Multiplayer.Client
 
                 LongEventHandler.ExecuteWhenFinished(() =>
                 {
-                    LongEventHandler.QueueLongEvent(CatchUp(done), "Loading", null);
+                    LongEventHandler.QueueLongEvent(CatchUp(onDone), "MpSimulating", null);
                 });
-            }, "Play", "Loading the game", true, null);
+            }, "Play", "MpLoading", true, null);
         }
 
         public static IEnumerable CatchUp(Action finishAction)
@@ -120,7 +120,7 @@ namespace Multiplayer.Client
 
             while (TickPatch.Timer < TickPatch.tickUntil)
             {
-                TickPatch.accumulator = Math.Min(100, TickPatch.tickUntil - TickPatch.Timer);
+                TickPatch.accumulator = Math.Min(60, TickPatch.tickUntil - TickPatch.Timer);
 
                 SimpleProfiler.Start();
                 Multiplayer.simulating = true;
@@ -129,10 +129,8 @@ namespace Multiplayer.Client
                 SimpleProfiler.Pause();
 
                 int pct = (int)((float)(TickPatch.Timer - start) / (TickPatch.tickUntil - start) * 100);
-                LongEventHandler.SetCurrentEventText($"Loading game {pct}/100 " + TickPatch.Timer + " " + TickPatch.tickUntil + " " + Find.Maps[0].AsyncTime().mapTicks + " " + (Find.Maps[0].AsyncTime().mapTicks - startTicks) / (Time.realtimeSinceStartup - startTime));
-
-                bool allPaused = TickPatch.AllTickables.All(t => t.CurTimePerTick == 0);
-                if (allPaused) break;
+                float tps = (Find.Maps[0].AsyncTime().mapTicks - startTicks) / (Time.realtimeSinceStartup - startTime);
+                LongEventHandler.SetCurrentEventText($"Loading game {pct}/100 " + TickPatch.Timer + " " + TickPatch.tickUntil + " " + Find.Maps[0].AsyncTime().mapTicks + " " + tps);
 
                 yield return null;
             }
@@ -146,7 +144,7 @@ namespace Multiplayer.Client
             SimpleProfiler.Print("prof_sim.txt");
             SimpleProfiler.Init("");
 
-            finishAction();
+            finishAction?.Invoke();
         }
 
         [PacketHandler(Packets.SERVER_DISCONNECT_REASON)]
