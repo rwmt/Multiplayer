@@ -835,7 +835,7 @@ namespace Multiplayer.Client
 
         private static MethodInfo ReadExposable = AccessTools.Method(typeof(ScribeUtil), nameof(ScribeUtil.ReadExposable));
 
-        enum SpecialList
+        enum ListType
         {
             Normal, MapAllThings, MapAllDesignations
         }
@@ -870,10 +870,10 @@ namespace Multiplayer.Client
             {
                 if (type.GetGenericTypeDefinition() == typeof(List<>))
                 {
-                    SpecialList specialList = ReadSync<SpecialList>(data);
-                    if (specialList == SpecialList.MapAllThings)
+                    ListType specialList = ReadSync<ListType>(data);
+                    if (specialList == ListType.MapAllThings)
                         return map.listerThings.AllThings;
-                    else if (specialList == SpecialList.MapAllDesignations)
+                    else if (specialList == ListType.MapAllDesignations)
                         return map.designationManager.allDesignations;
 
                     Type listType = type.GetGenericArguments()[0];
@@ -1091,23 +1091,23 @@ namespace Multiplayer.Client
                 }
                 else if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(List<>))
                 {
-                    SpecialList specialList = SpecialList.Normal;
+                    ListType specialList = ListType.Normal;
                     Type listType = type.GetGenericArguments()[0];
 
                     if (listType == typeof(Thing) && obj == Find.CurrentMap.listerThings.AllThings)
                     {
                         context.map = Find.CurrentMap;
-                        specialList = SpecialList.MapAllThings;
+                        specialList = ListType.MapAllThings;
                     }
                     else if (listType == typeof(Designation) && obj == Find.CurrentMap.designationManager.allDesignations)
                     {
                         context.map = Find.CurrentMap;
-                        specialList = SpecialList.MapAllDesignations;
+                        specialList = ListType.MapAllDesignations;
                     }
 
                     WriteSync(data, specialList);
 
-                    if (specialList == SpecialList.Normal)
+                    if (specialList == ListType.Normal)
                     {
                         IList list = obj as IList;
                         data.WriteInt32(list.Count);

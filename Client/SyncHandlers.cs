@@ -113,8 +113,11 @@ namespace Multiplayer.Client
         [MpPrefix(typeof(HealthCardUtility), "DrawOverviewTab")]
         static void HealthCardUtility1(Pawn pawn)
         {
-            SyncMedCare.Watch(pawn);
-            SyncSelfTend.Watch(pawn);
+            if (pawn.playerSettings != null)
+            {
+                SyncMedCare.Watch(pawn);
+                SyncSelfTend.Watch(pawn);
+            }
         }
 
         [MpPrefix(typeof(ITab_Pawn_Visitor), "FillTab")]

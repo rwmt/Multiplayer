@@ -7,6 +7,7 @@ using Steamworks;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Reflection;
@@ -911,59 +912,62 @@ namespace Multiplayer.Client
         }
     }
 
-    //[HarmonyPatch(typeof(Plant))]
-    //[HarmonyPatch(nameof(Plant.TickLong))]
-    public static class PlantTickLong
-    {
-        static void Prefix()
-        {
-            Rand.PushState();
-        }
-
-        static void Postfix()
-        {
-            Rand.PopState();
-        }
-    }
-
     [HarmonyPatch(typeof(RandomNumberGenerator_BasicHash))]
     [HarmonyPatch(nameof(RandomNumberGenerator_BasicHash.GetInt))]
     public static class RandPatch
     {
-        public static int call;
-        private static bool dontLog;
-
-        public static string current;
+        public static int calls;
+        public static List<int> called = new List<int>();
+        public static List<List<RandContext>> traces = new List<List<RandContext>>()
+        {
+            new List<RandContext>()
+        };
 
         static void Prefix()
         {
-            if (RandPatches.Ignore || dontLog || Multiplayer.Client == null) return;
+            if (RandPatches.Ignore || Multiplayer.Client == null) return;
             if (Current.ProgramState != ProgramState.Playing && !Multiplayer.reloading) return;
             if (Multiplayer.reloading) return;
-            if (SteadyEnvironmentEffectsTickMarker.ticking || WildAnimalSpawnerTickMarker.ticking || WildPlantSpawnerTickMarker.ticking) return;
 
-            dontLog = true;
+            if (MapAsyncTimeComp.tickingMap != null)
+            {
+                calls++;
 
-            if (false && MapAsyncTimeComp.tickingMap != null && MapAsyncTimeComp.tickingMap.AsyncTime().tickRel > 1)
-            {
-                call++;
-                MpLog.Log(call + " thing rand " + ThingContext.Current + " " + Rand.Int);
-            }
+                if (ThingContext.Current?.def == ThingDefOf.SteamGeyser) return;
+                if (SteadyEnvironmentEffectsTickMarker.ticking || WildAnimalSpawnerTickMarker.ticking || WildPlantSpawnerTickMarker.ticking) return;
 
-            if (ThingContext.Current != null && !(ThingContext.Current is Plant) && !(ThingContext.Current.def == ThingDefOf.SteamGeyser))
-            {
-                //MpLog.Log((call++) + " thing rand " + ThingContext.Current + " " + Rand.Int);
-            }
-            else if (!current.NullOrEmpty())
-            {
-                //Log.Message(Find.TickManager.TicksGame + " " + Multiplayer.username + " " + (call++) + " rand call " + current + " " + Rand.Int);
-            }
-            else if (Multiplayer.reloading)
-            {
-                //Log.Message(Find.TickManager.TicksGame + " " + Multiplayer.username + " " + (call++) + " rand encounter " + Rand.Int);
-            }
+                Log(0);
 
-            dontLog = false;
+                //MpLog.Log($"rand {calls}, {ThingContext.Current} {Rand.StateCompressed} {new StackTrace().Hash()}");
+            }
+        }
+
+        public static void Log(int extra)
+        {
+            StackTrace trace = new StackTrace(1);
+            int thingHash = ThingContext.Current?.thingIDNumber ?? -1;
+            called.Add(trace.Hash().Combine(calls).Combine(thingHash));
+
+            traces[0].Add(new RandContext()
+            {
+                thing = ThingContext.Current.ToStringSafe(),
+                trace = trace,
+                calls = calls,
+                extra = extra
+            });
+        }
+    }
+
+    public class RandContext
+    {
+        public string thing;
+        public StackTrace trace;
+        public int calls;
+        public int extra;
+
+        public override string ToString()
+        {
+            return $"Thing: {thing}, Calls: {calls}, Extra: {extra}\n{trace}";
         }
     }
 
@@ -1597,21 +1601,35 @@ namespace Multiplayer.Client
     [HarmonyPatch(typeof(Pawn_MeleeVerbs), nameof(Pawn_MeleeVerbs.TryGetMeleeVerb))]
     static class TryGetMeleeVerbPatch
     {
+        static bool Cancel => Multiplayer.Client != null && Multiplayer.ShouldSync;
+
         static bool Prefix()
         {
             // Namely FloatMenuUtility.GetMeleeAttackAction
-            if (Multiplayer.ShouldSync) return false;
+            if (Cancel) return false;
             return true;
         }
 
         static void Postfix(Pawn_MeleeVerbs __instance, Thing target, ref Verb __result)
         {
-            if (Multiplayer.ShouldSync)
+            if (Cancel)
             {
                 __result =
                     __instance.GetUpdatedAvailableVerbsList(false).FirstOrDefault(ve => ve.GetSelectionWeight(target) != 0).verb ??
                     __instance.GetUpdatedAvailableVerbsList(true).FirstOrDefault(ve => ve.GetSelectionWeight(target) != 0).verb;
             }
+        }
+    }
+
+    [HarmonyPatch(typeof(SituationalThoughtHandler), nameof(SituationalThoughtHandler.CheckRecalculateMoodThoughts))]
+    static class RecalcThoughts
+    {
+        static bool Cancel => Multiplayer.Client != null && !Multiplayer.Ticking && !Multiplayer.ExecutingCmds;
+
+        static bool Prefix(SituationalThoughtHandler __instance)
+        {
+            if (Cancel) return false;
+            return true;
         }
     }
 

@@ -32,7 +32,7 @@ namespace Multiplayer.Client
             Map map = Find.CurrentMap;
             ByteWriter data = new ByteWriter();
 
-            WriteData(data, 0, designator);
+            WriteData(data, DesignatorMode.SingleCell, designator);
             Sync.WriteSync(data, cell);
 
             Multiplayer.Client.SendCommand(CommandType.DESIGNATOR, map.uniqueID, data.GetArray());
@@ -52,7 +52,7 @@ namespace Multiplayer.Client
             ByteWriter data = new ByteWriter();
             IntVec3[] cellArray = cells.ToArray();
 
-            WriteData(data, 1, designator);
+            WriteData(data, DesignatorMode.MultiCell, designator);
             Sync.WriteSync(data, cellArray);
 
             Multiplayer.Client.SendCommand(CommandType.DESIGNATOR, map.uniqueID, data.GetArray());
@@ -68,7 +68,7 @@ namespace Multiplayer.Client
             Map map = Find.CurrentMap;
             ByteWriter data = new ByteWriter();
 
-            WriteData(data, 2, designator);
+            WriteData(data, DesignatorMode.Thing, designator);
             Sync.WriteSync(data, thing);
 
             Multiplayer.Client.SendCommand(CommandType.DESIGNATOR, map.uniqueID, data.GetArray());
@@ -78,9 +78,9 @@ namespace Multiplayer.Client
             return false;
         }
 
-        private static void WriteData(ByteWriter data, int action, Designator designator)
+        private static void WriteData(ByteWriter data, DesignatorMode mode, Designator designator)
         {
-            data.WriteInt32(action);
+            data.WriteInt32((int)mode);
             Sync.WriteSync(data, designator);
 
             if (designator is Designator_AreaAllowed)

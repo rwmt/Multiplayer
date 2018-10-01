@@ -656,17 +656,21 @@ namespace Multiplayer.Client
 
                 //SimpleProfiler.Pause();
 
-                if (!Multiplayer.simulating && false)
-                    if (mapTicks % 300 == 0 && SimpleProfiler.available)
-                    {
-                        SimpleProfiler.Print("profiler_" + Multiplayer.username + "_tick.txt");
-                        SimpleProfiler.Init(Multiplayer.username);
+                if (tickRel % 200 == 0)
+                {
+                    Multiplayer.Client.Send(Packets.CLIENT_DEBUG, RandPatch.called);
+                    RandPatch.called.Clear();
+                    RandPatch.traces.Insert(0, new List<RandContext>());
 
-                        map.GetComponent<MultiplayerMapComp>().SetFaction(map.ParentFaction);
-                        byte[] mapData = ScribeUtil.WriteExposable(map, "map", true);
-                        File.WriteAllBytes("map_0_" + Multiplayer.username + ".xml", mapData);
-                        map.GetComponent<MultiplayerMapComp>().SetFaction(Multiplayer.RealPlayerFaction);
+                    if (!Multiplayer.simulating)
+                    {
+                        //SimpleProfiler.Print("profiler_{Multiplayer.username}_tick.txt");
+                        //SimpleProfiler.Init(Multiplayer.username);
+
+                        //byte[] mapData = ScribeUtil.WriteExposable(map, "map", true);
+                        //File.WriteAllBytes($"map_0_{Multiplayer.username}.xml", mapData);
                     }
+                }
             }
         }
 
@@ -854,7 +858,7 @@ namespace Multiplayer.Client
 
         private void HandleDesignator(ScheduledCommand command, ByteReader data)
         {
-            int mode = data.ReadInt32();
+            DesignatorMode mode = Sync.ReadSync<DesignatorMode>(data);
             Designator designator = Sync.ReadSync<Designator>(data);
             if (designator == null) return;
 
@@ -862,20 +866,20 @@ namespace Multiplayer.Client
             {
                 if (!SetDesignatorState(designator, data)) return;
 
-                if (mode == 0)
+                if (mode == DesignatorMode.SingleCell)
                 {
                     IntVec3 cell = Sync.ReadSync<IntVec3>(data);
                     designator.DesignateSingleCell(cell);
                     designator.Finalize(true);
                 }
-                else if (mode == 1)
+                else if (mode == DesignatorMode.MultiCell)
                 {
                     IntVec3[] cells = Sync.ReadSync<IntVec3[]>(data);
                     designator.DesignateMultiCell(cells);
 
                     Find.Selector.ClearSelection();
                 }
-                else if (mode == 2)
+                else if (mode == DesignatorMode.Thing)
                 {
                     Thing thing = Sync.ReadSync<Thing>(data);
 
@@ -926,4 +930,12 @@ namespace Multiplayer.Client
             return true;
         }
     }
+
+    public enum DesignatorMode
+    {
+        SingleCell,
+        MultiCell,
+        Thing
+    }
+
 }

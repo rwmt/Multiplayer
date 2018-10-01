@@ -138,12 +138,12 @@ namespace Multiplayer.Client
             {
                 if (value)
                 {
-                    if (nesting > 0)
-                        Log.Message("Nested rand ignore!");
                     nesting++;
                 }
                 else if (nesting > 0)
+                {
                     nesting--;
+                }
             }
         }
 

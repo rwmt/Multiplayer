@@ -71,7 +71,7 @@ namespace Multiplayer.Common
 
             writer.WriteInt32(factionId);
             writer.WriteInt32(MultiplayerServer.instance.timer);
-            writer.WriteByteArrayList(globalCmds);
+            writer.WriteByteList(globalCmds);
             writer.WritePrefixedBytes(MultiplayerServer.instance.savedGame);
 
             writer.WriteInt32(1); // maps count
@@ -81,7 +81,7 @@ namespace Multiplayer.Common
                 MultiplayerServer.instance.SendCommand(CommandType.CREATE_MAP_FACTION_DATA, ScheduledCommand.NoFaction, mapId, ByteWriter.GetBytes(factionId));
 
                 writer.WriteInt32(mapId);
-                writer.WriteByteArrayList(MultiplayerServer.instance.mapCmds[mapId]);
+                writer.WriteByteList(MultiplayerServer.instance.mapCmds[mapId]);
                 writer.WritePrefixedBytes(MultiplayerServer.instance.mapData[mapId]);
             }
 
@@ -192,6 +192,35 @@ namespace Multiplayer.Common
                 connection.latency = (int)MultiplayerServer.instance.lastKeepAlive.ElapsedMilliseconds / 2;
             else
                 connection.latency = 2000;
+        }
+
+        public static Dictionary<string, int[]> debugHashes = new Dictionary<string, int[]>();
+
+        [PacketHandler(Packets.CLIENT_DEBUG)]
+        public void HandleDebug(ByteReader data)
+        {
+            int[] hashes = data.ReadPrefixedInts();
+            debugHashes[connection.username] = hashes;
+
+            if (debugHashes.Count == 2)
+            {
+                var first = debugHashes.ElementAt(0);
+                var second = debugHashes.ElementAt(1);
+                int index = int.MinValue;
+
+                for (int i = 0; i < Math.Min(first.Value.Length, second.Value.Length); i++)
+                {
+                    if (first.Value[i] != second.Value[i])
+                        index = i;
+                }
+
+                if (index == int.MinValue && first.Value.Length != second.Value.Length)
+                    index = -1;
+
+                MultiplayerServer.instance.SendToAll(Packets.SERVER_DEBUG, new object[] { index });
+
+                debugHashes.Clear();
+            }
         }
 
         public void OnMessage(Packets packet, ByteReader data)

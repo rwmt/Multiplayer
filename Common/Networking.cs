@@ -199,7 +199,7 @@ namespace Multiplayer.Common
             stream.Write(bytes);
         }
 
-        public virtual void WriteByteArrayList(List<byte[]> list)
+        public virtual void WriteByteList(List<byte[]> list)
         {
             WriteInt32(list.Count);
             foreach (byte[] arr in list)

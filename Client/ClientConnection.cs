@@ -5,6 +5,7 @@ using RimWorld;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -230,6 +231,41 @@ namespace Multiplayer.Client
         {
             string reason = data.ReadString();
             Multiplayer.session.disconnectServerReason = reason;
+        }
+
+        [PacketHandler(Packets.SERVER_DEBUG)]
+        public void HandleDebug(ByteReader data)
+        {
+            int index = data.ReadInt32();
+
+            if (index == int.MinValue)
+            {
+                MpLog.Log("No desync");
+            }
+            else
+            {
+                List<RandContext> traces = RandPatch.traces.Last();
+
+                if (index >= 0)
+                {
+                    StringBuilder builder = new StringBuilder("RNG desync at\n");
+                    if (index - 1 >= 0)
+                        builder.AppendLine(traces[index - 1].ToString());
+                    builder.AppendLine(traces[index].ToString());
+                    if (index + 1 < traces.Count)
+                        builder.AppendLine(traces[index + 1].ToString());
+
+                    Log.Error(builder.ToString());
+                }
+                else
+                {
+                    Log.Error("RNG call amount not the same");
+                }
+
+                File.WriteAllLines($"rng_calls_{Multiplayer.username}.txt", traces.Select(t => t.ToString()).ToArray());
+            }
+
+            RandPatch.traces.RemoveLast();
         }
 
         public void Connected()
