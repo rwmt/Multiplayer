@@ -80,7 +80,7 @@ namespace Multiplayer.Client
             writer.LogNode("Map id: " + mapId);
             Multiplayer.PacketLog.nodes.Add(writer.current);
 
-            Multiplayer.Client.SendCommand(CommandType.SYNC, mapId, writer.GetArray());
+            Multiplayer.Client.SendCommand(CommandType.Sync, mapId, writer.GetArray());
 
             return true;
         }
@@ -201,7 +201,7 @@ namespace Multiplayer.Client
             writer.LogNode("Map id: " + mapId);
             Multiplayer.PacketLog.nodes.Add(writer.current);
 
-            Multiplayer.Client.SendCommand(CommandType.SYNC, mapId, writer.GetArray());
+            Multiplayer.Client.SendCommand(CommandType.Sync, mapId, writer.GetArray());
 
             lastSendTime = Environment.TickCount;
 
@@ -322,7 +322,7 @@ namespace Multiplayer.Client
             writer.LogNode("Map id: " + mapId);
             Multiplayer.PacketLog.nodes.Add(writer.current);
 
-            Multiplayer.Client.SendCommand(CommandType.SYNC, mapId, writer.GetArray());
+            Multiplayer.Client.SendCommand(CommandType.Sync, mapId, writer.GetArray());
 
             return true;
         }

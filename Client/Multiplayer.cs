@@ -372,7 +372,7 @@ namespace Multiplayer.Client
             File.WriteAllBytes("map_" + username + ".xml", mapData);
             byte[] compressedMaps = GZipStream.CompressBuffer(mapData);
             // todo send map id
-            Client.Send(Packets.CLIENT_AUTOSAVED_DATA, 1, compressedMaps, 0);
+            Client.Send(Packets.Client_AutosavedData, 1, compressedMaps, 0);
 
             gameNode[CurrentMapIndexXmlKey].RemoveFromParent();
             mapsNode.RemoveAll();
@@ -385,7 +385,7 @@ namespace Multiplayer.Client
                 File.WriteAllBytes("game.xml", gameData);
 
                 byte[] compressedGame = GZipStream.CompressBuffer(gameData);
-                Client.Send(Packets.CLIENT_AUTOSAVED_DATA, 0, compressedGame);
+                Client.Send(Packets.Client_AutosavedData, 0, compressedGame);
             }
         }
 

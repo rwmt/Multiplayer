@@ -5,23 +5,23 @@ namespace Multiplayer.Common
     public enum CommandType : byte
     {
         // Global scope
-        WORLD_TIME_SPEED,
-        AUTOSAVE,
-        SETUP_FACTION,
-        GLOBAL_ID_BLOCK,
-        FACTION_ONLINE,
-        FACTION_OFFLINE,
+        WorldTimeSpeed,
+        Autosave,
+        SetupFaction,
+        GlobalIdBlock,
+        FactionOnline,
+        FactionOffline,
 
         // Mixed scope
-        SYNC,
+        Sync,
 
         // Map scope
-        MAP_TIME_SPEED,
-        CREATE_MAP_FACTION_DATA,
-        MAP_ID_BLOCK,
-        FORBID,
-        DESIGNATOR,
-        SPAWN_PAWN,
+        MapTimeSpeed,
+        CreateMapFactionData,
+        MapIdBlock,
+        Forbid,
+        Designator,
+        SpawnPawn,
     }
 
     public class ScheduledCommand

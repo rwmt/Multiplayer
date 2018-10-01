@@ -554,7 +554,7 @@ namespace Multiplayer.Client
             SettlementBase settlement = __instance.settlement;
             if (settlement.Faction.def != Multiplayer.factionDef) return true;
 
-            Multiplayer.Client.Send(Packets.CLIENT_ENCOUNTER_REQUEST, new object[] { settlement.Tile });
+            Multiplayer.Client.Send(Packets.Client_EncounterRequest, new object[] { settlement.Tile });
 
             return false;
         }
@@ -734,7 +734,7 @@ namespace Multiplayer.Client
 
             if (currentBlock.current > currentBlock.blockSize * 0.95f && !currentBlock.overflowHandled)
             {
-                Multiplayer.Client.Send(Packets.CLIENT_ID_BLOCK_REQUEST, CurrentBlock.mapId);
+                Multiplayer.Client.Send(Packets.Client_IdBlockRequest, CurrentBlock.mapId);
                 currentBlock.overflowHandled = true;
             }
         }

@@ -269,7 +269,7 @@ namespace Multiplayer.Client
             if (Multiplayer.Client == null)
                 AddMsg(Multiplayer.username + ": " + currentMsg);
             else
-                Multiplayer.Client.Send(Packets.CLIENT_CHAT, currentMsg);
+                Multiplayer.Client.Send(Packets.Client_Chat, currentMsg);
 
             currentMsg = "";
         }

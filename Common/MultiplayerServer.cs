@@ -126,7 +126,7 @@ namespace Multiplayer.Common
             queue.RunQueue();
 
             if (timer % 3 == 0)
-                SendToAll(Packets.SERVER_TIME_CONTROL, new object[] { timer });
+                SendToAll(Packets.Server_TimeControl, new object[] { timer });
 
             if (allowLan && timer % 60 == 0)
                 server.SendDiscoveryRequest(Encoding.UTF8.GetBytes("mp-server"), 5100);
@@ -138,14 +138,14 @@ namespace Multiplayer.Common
                 UpdatePlayerList();
 
                 keepAliveId++;
-                SendToAll(Packets.SERVER_KEEP_ALIVE, new object[] { keepAliveId });
+                SendToAll(Packets.Server_KeepAlive, new object[] { keepAliveId });
                 lastKeepAlive.Restart();
             }
         }
 
         public void DoAutosave()
         {
-            SendCommand(CommandType.AUTOSAVE, ScheduledCommand.NoFaction, ScheduledCommand.Global, new byte[0]);
+            SendCommand(CommandType.Autosave, ScheduledCommand.NoFaction, ScheduledCommand.Global, new byte[0]);
 
             globalCmds.Clear();
             foreach (int mapId in mapCmds.Keys)
@@ -158,7 +158,7 @@ namespace Multiplayer.Common
                 Select(p => $"{p.Username} ({p.Latency}ms)")
                 .ToArray();
 
-            SendToAll(Packets.SERVER_PLAYER_LIST, new object[] { playerList });
+            SendToAll(Packets.Server_PlayerList, new object[] { playerList });
         }
 
         public void Enqueue(Action action)
@@ -188,10 +188,10 @@ namespace Multiplayer.Common
                 if (!players.Any(p => p.FactionId == player.FactionId))
                 {
                     byte[] data = ByteWriter.GetBytes(player.FactionId);
-                    SendCommand(CommandType.FACTION_OFFLINE, ScheduledCommand.NoFaction, ScheduledCommand.Global, data);
+                    SendCommand(CommandType.FactionOffline, ScheduledCommand.NoFaction, ScheduledCommand.Global, data);
                 }
 
-                SendToAll(Packets.SERVER_NOTIFICATION, new object[] { "Player " + conn.username + " disconnected." });
+                SendToAll(Packets.Server_Notification, new object[] { "Player " + conn.username + " disconnected." });
                 UpdatePlayerList();
             }
 
@@ -255,7 +255,7 @@ namespace Multiplayer.Common
             foreach (ServerPlayer player in PlayingPlayers)
             {
                 player.conn.Send(
-                    Packets.SERVER_COMMAND,
+                    Packets.Server_Command,
                     sourcePlayer == player.Username ? toSendSource : toSend
                 );
             }
@@ -291,7 +291,7 @@ namespace Multiplayer.Common
 
         public void Disconnect(string reason)
         {
-            conn.Send(Packets.SERVER_DISCONNECT_REASON, reason);
+            conn.Send(Packets.Server_DisconnectReason, reason);
 
             if (conn is MpNetConnection netConn)
                 netConn.peer.Flush();

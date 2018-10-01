@@ -133,7 +133,7 @@ namespace Multiplayer.Client
             writer.WriteInt32(mapId);
             writer.WritePrefixedBytes(data);
 
-            conn.Send(Packets.CLIENT_COMMAND, writer.GetArray());
+            conn.Send(Packets.Client_Command, writer.GetArray());
         }
 
         public static void SendCommand(this IConnection conn, CommandType cmd, int mapId, params object[] data)

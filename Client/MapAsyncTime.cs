@@ -421,9 +421,9 @@ namespace Multiplayer.Client
             if (Multiplayer.IsReplay)
                 TickPatch.replayTimeSpeed = newSpeed;
             if (__state is MultiplayerWorldComp)
-                Multiplayer.Client.SendCommand(CommandType.WORLD_TIME_SPEED, ScheduledCommand.Global, (byte)newSpeed);
+                Multiplayer.Client.SendCommand(CommandType.WorldTimeSpeed, ScheduledCommand.Global, (byte)newSpeed);
             else if (__state is MapAsyncTimeComp comp)
-                Multiplayer.Client.SendCommand(CommandType.MAP_TIME_SPEED, comp.map.uniqueID, (byte)newSpeed);
+                Multiplayer.Client.SendCommand(CommandType.MapTimeSpeed, comp.map.uniqueID, (byte)newSpeed);
 
             Find.TickManager.CurTimeSpeed = lastSpeed;
         }
@@ -658,7 +658,7 @@ namespace Multiplayer.Client
 
                 if (tickRel % 200 == 0)
                 {
-                    Multiplayer.Client.Send(Packets.CLIENT_DEBUG, RandPatch.called);
+                    Multiplayer.Client.Send(Packets.Client_Debug, RandPatch.called);
                     RandPatch.called.Clear();
                     RandPatch.traces.Insert(0, new List<RandContext>());
 
@@ -758,17 +758,17 @@ namespace Multiplayer.Client
 
             try
             {
-                if (cmdType == CommandType.SYNC)
+                if (cmdType == CommandType.Sync)
                 {
                     Sync.HandleCmd(data);
                 }
 
-                if (cmdType == CommandType.CREATE_MAP_FACTION_DATA)
+                if (cmdType == CommandType.CreateMapFactionData)
                 {
                     HandleMapFactionData(cmd, data);
                 }
 
-                if (cmdType == CommandType.MAP_TIME_SPEED)
+                if (cmdType == CommandType.MapTimeSpeed)
                 {
                     TimeSpeed speed = (TimeSpeed)data.ReadByte();
                     TimeSpeed = speed;
@@ -776,7 +776,7 @@ namespace Multiplayer.Client
                     MpLog.Log("Set map time speed " + speed);
                 }
 
-                if (cmdType == CommandType.MAP_ID_BLOCK)
+                if (cmdType == CommandType.MapIdBlock)
                 {
                     IdBlock block = IdBlock.Deserialize(data);
 
@@ -787,12 +787,12 @@ namespace Multiplayer.Client
                     }
                 }
 
-                if (cmdType == CommandType.DESIGNATOR)
+                if (cmdType == CommandType.Designator)
                 {
                     HandleDesignator(cmd, data);
                 }
 
-                if (cmdType == CommandType.SPAWN_PAWN)
+                if (cmdType == CommandType.SpawnPawn)
                 {
                     Pawn pawn = ScribeUtil.ReadExposable<Pawn>(data.ReadPrefixedBytes());
 
@@ -801,7 +801,7 @@ namespace Multiplayer.Client
                     Log.Message("spawned " + pawn);
                 }
 
-                if (cmdType == CommandType.FORBID)
+                if (cmdType == CommandType.Forbid)
                 {
                     HandleForbid(cmd, data);
                 }

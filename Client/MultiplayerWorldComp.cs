@@ -166,12 +166,12 @@ namespace Multiplayer.Client
 
             try
             {
-                if (cmdType == CommandType.SYNC)
+                if (cmdType == CommandType.Sync)
                 {
                     Sync.HandleCmd(data);
                 }
 
-                if (cmdType == CommandType.WORLD_TIME_SPEED)
+                if (cmdType == CommandType.WorldTimeSpeed)
                 {
                     TimeSpeed speed = (TimeSpeed)data.ReadByte();
                     Multiplayer.WorldComp.TimeSpeed = speed;
@@ -179,12 +179,12 @@ namespace Multiplayer.Client
                     MpLog.Log("Set world speed " + speed + " " + TickPatch.Timer + " " + Find.TickManager.TicksGame);
                 }
 
-                if (cmdType == CommandType.SETUP_FACTION)
+                if (cmdType == CommandType.SetupFaction)
                 {
                     HandleSetupFaction(cmd, data);
                 }
 
-                if (cmdType == CommandType.FACTION_OFFLINE)
+                if (cmdType == CommandType.FactionOffline)
                 {
                     int factionId = data.ReadInt32();
                     Multiplayer.WorldComp.factionData[factionId].online = false;
@@ -193,7 +193,7 @@ namespace Multiplayer.Client
                         Multiplayer.RealPlayerFaction = Multiplayer.DummyFaction;
                 }
 
-                if (cmdType == CommandType.FACTION_ONLINE)
+                if (cmdType == CommandType.FactionOnline)
                 {
                     int factionId = data.ReadInt32();
                     Multiplayer.WorldComp.factionData[factionId].online = true;
@@ -202,7 +202,7 @@ namespace Multiplayer.Client
                         Multiplayer.RealPlayerFaction = Find.FactionManager.AllFactionsListForReading.Find(f => f.loadID == factionId);
                 }
 
-                if (cmdType == CommandType.AUTOSAVE)
+                if (cmdType == CommandType.Autosave)
                 {
                     Multiplayer.WorldComp.TimeSpeed = TimeSpeed.Paused;
 

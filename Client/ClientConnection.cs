@@ -20,11 +20,11 @@ namespace Multiplayer.Client
     {
         public ClientJoiningState(IConnection connection) : base(connection)
         {
-            connection.Send(Packets.CLIENT_USERNAME, Multiplayer.username);
-            connection.Send(Packets.CLIENT_REQUEST_WORLD);
+            connection.Send(Packets.Client_Username, Multiplayer.username);
+            connection.Send(Packets.Client_RequestWorld);
         }
 
-        [PacketHandler(Packets.SERVER_WORLD_DATA)]
+        [PacketHandler(Packets.Server_WorldData)]
         public void HandleWorldData(ByteReader data)
         {
             connection.State = ConnectionStateEnum.ClientPlaying;
@@ -65,7 +65,7 @@ namespace Multiplayer.Client
 
             ReloadGame(tickUntil, mapIds, () =>
             {
-                Multiplayer.Client.Send(Packets.CLIENT_WORLD_LOADED);
+                Multiplayer.Client.Send(Packets.Client_WorldLoaded);
             });
         }
 
@@ -148,7 +148,7 @@ namespace Multiplayer.Client
             finishAction?.Invoke();
         }
 
-        [PacketHandler(Packets.SERVER_DISCONNECT_REASON)]
+        [PacketHandler(Packets.Server_DisconnectReason)]
         public void HandleDisconnectReason(ByteReader data)
         {
             string reason = data.ReadString();
@@ -162,21 +162,21 @@ namespace Multiplayer.Client
         {
         }
 
-        [PacketHandler(Packets.SERVER_TIME_CONTROL)]
+        [PacketHandler(Packets.Server_TimeControl)]
         public void HandleTimeControl(ByteReader data)
         {
             int tickUntil = data.ReadInt32();
             TickPatch.tickUntil = tickUntil;
         }
 
-        [PacketHandler(Packets.SERVER_KEEP_ALIVE)]
+        [PacketHandler(Packets.Server_KeepAlive)]
         public void HandleKeepAlive(ByteReader data)
         {
             int id = data.ReadInt32();
-            connection.Send(Packets.CLIENT_KEEP_ALIVE, id);
+            connection.Send(Packets.Client_KeepAlive, id);
         }
 
-        [PacketHandler(Packets.SERVER_COMMAND)]
+        [PacketHandler(Packets.Server_Command)]
         public void HandleCommand(ByteReader data)
         {
             ScheduledCommand cmd = ScheduledCommand.Deserialize(data);
@@ -184,14 +184,14 @@ namespace Multiplayer.Client
             OnMainThread.ScheduleCommand(cmd);
         }
 
-        [PacketHandler(Packets.SERVER_PLAYER_LIST)]
+        [PacketHandler(Packets.Server_PlayerList)]
         public void HandlePlayerList(ByteReader data)
         {
             string[] playerList = data.ReadPrefixedStrings();
             Multiplayer.Chat.playerList = playerList;
         }
 
-        [PacketHandler(Packets.SERVER_CHAT)]
+        [PacketHandler(Packets.Server_Chat)]
         public void HandleChat(ByteReader data)
         {
             string username = data.ReadString();
@@ -200,7 +200,7 @@ namespace Multiplayer.Client
             Multiplayer.Chat.AddMsg(username + ": " + msg);
         }
 
-        [PacketHandler(Packets.SERVER_MAP_RESPONSE)]
+        [PacketHandler(Packets.Server_MapResponse)]
         public void HandleMapResponse(ByteReader data)
         {
             int mapId = data.ReadInt32();
@@ -219,21 +219,21 @@ namespace Multiplayer.Client
             // todo Multiplayer.client.Send(Packets.CLIENT_MAP_LOADED);
         }
 
-        [PacketHandler(Packets.SERVER_NOTIFICATION)]
+        [PacketHandler(Packets.Server_Notification)]
         public void HandleNotification(ByteReader data)
         {
             string msg = data.ReadString();
             Messages.Message(msg, MessageTypeDefOf.SilentInput, false);
         }
 
-        [PacketHandler(Packets.SERVER_DISCONNECT_REASON)]
+        [PacketHandler(Packets.Server_DisconnectReason)]
         public void HandleDisconnectReason(ByteReader data)
         {
             string reason = data.ReadString();
             Multiplayer.session.disconnectServerReason = reason;
         }
 
-        [PacketHandler(Packets.SERVER_DEBUG)]
+        [PacketHandler(Packets.Server_Debug)]
         public void HandleDebug(ByteReader data)
         {
             int index = data.ReadInt32();
@@ -283,16 +283,16 @@ namespace Multiplayer.Client
     {
         public ClientSteamState(IConnection connection) : base(connection)
         {
-            connection.Send(Packets.CLIENT_STEAM_REQUEST);
+            connection.Send(Packets.Client_SteamRequest);
         }
 
-        [PacketHandler(Packets.SERVER_STEAM_ACCEPT)]
+        [PacketHandler(Packets.Server_SteamAccept)]
         public void HandleSteamAccept(ByteReader data)
         {
             connection.State = ConnectionStateEnum.ClientJoining;
         }
 
-        [PacketHandler(Packets.SERVER_DISCONNECT_REASON)]
+        [PacketHandler(Packets.Server_DisconnectReason)]
         public void HandleDisconnectReason(ByteReader data)
         {
             string reason = data.ReadString();

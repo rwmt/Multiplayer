@@ -15,7 +15,7 @@ namespace Multiplayer.Common
         {
         }
 
-        [PacketHandler(Packets.CLIENT_USERNAME)]
+        [PacketHandler(Packets.Client_Username)]
         public void HandleClientUsername(ByteReader data)
         {
             string username = data.ReadString();
@@ -41,11 +41,11 @@ namespace Multiplayer.Common
 
             connection.username = username;
 
-            MultiplayerServer.instance.SendToAll(Packets.SERVER_NOTIFICATION, new object[] { "Player " + connection.username + " has joined the game." });
+            MultiplayerServer.instance.SendToAll(Packets.Server_Notification, new object[] { "Player " + connection.username + " has joined the game." });
             MultiplayerServer.instance.UpdatePlayerList();
         }
 
-        [PacketHandler(Packets.CLIENT_REQUEST_WORLD)]
+        [PacketHandler(Packets.Client_RequestWorld)]
         public void HandleWorldRequest(ByteReader data)
         {
             int factionId = MultiplayerServer.instance.coopFactionId;
@@ -63,7 +63,7 @@ namespace Multiplayer.Common
             if (MultiplayerServer.instance.players.Count(p => p.FactionId == factionId) == 1)
             {
                 byte[] extra = ByteWriter.GetBytes(factionId);
-                MultiplayerServer.instance.SendCommand(CommandType.FACTION_ONLINE, ScheduledCommand.NoFaction, ScheduledCommand.Global, extra);
+                MultiplayerServer.instance.SendCommand(CommandType.FactionOnline, ScheduledCommand.NoFaction, ScheduledCommand.Global, extra);
             }
 
             List<byte[]> globalCmds = MultiplayerServer.instance.globalCmds;
@@ -78,7 +78,7 @@ namespace Multiplayer.Common
 
             foreach (int mapId in new[] { 0 })
             {
-                MultiplayerServer.instance.SendCommand(CommandType.CREATE_MAP_FACTION_DATA, ScheduledCommand.NoFaction, mapId, ByteWriter.GetBytes(factionId));
+                MultiplayerServer.instance.SendCommand(CommandType.CreateMapFactionData, ScheduledCommand.NoFaction, mapId, ByteWriter.GetBytes(factionId));
 
                 writer.WriteInt32(mapId);
                 writer.WriteByteList(MultiplayerServer.instance.mapCmds[mapId]);
@@ -88,7 +88,7 @@ namespace Multiplayer.Common
             byte[] packetData = writer.GetArray();
 
             connection.State = ConnectionStateEnum.ServerPlaying;
-            connection.Send(Packets.SERVER_WORLD_DATA, packetData);
+            connection.Send(Packets.Server_WorldData, packetData);
 
             MpLog.Log("World response sent: " + packetData.Length + " " + globalCmds.Count);
         }
@@ -100,12 +100,12 @@ namespace Multiplayer.Common
         {
         }
 
-        [PacketHandler(Packets.CLIENT_WORLD_LOADED)]
+        [PacketHandler(Packets.Client_WorldLoaded)]
         public void HandleWorldLoaded(ByteReader data)
         {
         }
 
-        [PacketHandler(Packets.CLIENT_COMMAND)]
+        [PacketHandler(Packets.Client_Command)]
         public void HandleClientCommand(ByteReader data)
         {
             CommandType cmd = (CommandType)data.ReadInt32();
@@ -118,7 +118,7 @@ namespace Multiplayer.Common
             MultiplayerServer.instance.SendCommand(cmd, factionId, mapId, extra, connection.username);
         }
 
-        [PacketHandler(Packets.CLIENT_CHAT)]
+        [PacketHandler(Packets.Client_Chat)]
         public void HandleChat(ByteReader data)
         {
             string msg = data.ReadString();
@@ -126,10 +126,10 @@ namespace Multiplayer.Common
 
             if (msg.Length == 0) return;
 
-            MultiplayerServer.instance.SendToAll(Packets.SERVER_CHAT, new object[] { connection.username, msg });
+            MultiplayerServer.instance.SendToAll(Packets.Server_Chat, new object[] { connection.username, msg });
         }
 
-        [PacketHandler(Packets.CLIENT_AUTOSAVED_DATA)]
+        [PacketHandler(Packets.Client_AutosavedData)]
         public void HandleAutosavedData(ByteReader data)
         {
             int type = data.ReadInt32();
@@ -148,7 +148,7 @@ namespace Multiplayer.Common
             }
         }
 
-        [PacketHandler(Packets.CLIENT_ENCOUNTER_REQUEST)]
+        [PacketHandler(Packets.Client_EncounterRequest)]
         public void HandleEncounterRequest(ByteReader data)
         {
             int tile = data.ReadInt32();
@@ -156,16 +156,16 @@ namespace Multiplayer.Common
                 return;
 
             byte[] extra = ByteWriter.GetBytes(connection.username); // todo faction id
-            MultiplayerServer.instance.SendCommand(CommandType.CREATE_MAP_FACTION_DATA, ScheduledCommand.NoFaction, mapId, extra);
+            MultiplayerServer.instance.SendCommand(CommandType.CreateMapFactionData, ScheduledCommand.NoFaction, mapId, extra);
 
             byte[] mapData = MultiplayerServer.instance.mapData[mapId];
             List<byte[]> mapCmds = MultiplayerServer.instance.mapCmds.AddOrGet(mapId, new List<byte[]>());
 
             byte[] packetData = ByteWriter.GetBytes(mapId, mapCmds, mapData);
-            connection.Send(Packets.SERVER_MAP_RESPONSE, packetData);
+            connection.Send(Packets.Server_MapResponse, packetData);
         }
 
-        [PacketHandler(Packets.CLIENT_ID_BLOCK_REQUEST)]
+        [PacketHandler(Packets.Client_IdBlockRequest)]
         public void HandleIdBlockRequest(ByteReader data)
         {
             int mapId = data.ReadInt32();
@@ -173,7 +173,7 @@ namespace Multiplayer.Common
             if (mapId == ScheduledCommand.Global)
             {
                 IdBlock nextBlock = MultiplayerServer.instance.NextIdBlock();
-                MultiplayerServer.instance.SendCommand(CommandType.GLOBAL_ID_BLOCK, ScheduledCommand.NoFaction, ScheduledCommand.Global, nextBlock.Serialize());
+                MultiplayerServer.instance.SendCommand(CommandType.GlobalIdBlock, ScheduledCommand.NoFaction, ScheduledCommand.Global, nextBlock.Serialize());
             }
             else
             {
@@ -181,7 +181,7 @@ namespace Multiplayer.Common
             }
         }
 
-        [PacketHandler(Packets.CLIENT_KEEP_ALIVE)]
+        [PacketHandler(Packets.Client_KeepAlive)]
         public void HandleClientKeepAlive(ByteReader data)
         {
             // Ping already handled by LiteNetLib
@@ -196,7 +196,7 @@ namespace Multiplayer.Common
 
         public static Dictionary<string, int[]> debugHashes = new Dictionary<string, int[]>();
 
-        [PacketHandler(Packets.CLIENT_DEBUG)]
+        [PacketHandler(Packets.Client_Debug)]
         public void HandleDebug(ByteReader data)
         {
             int[] hashes = data.ReadPrefixedInts();
@@ -217,7 +217,7 @@ namespace Multiplayer.Common
                 if (index == int.MinValue && first.Value.Length != second.Value.Length)
                     index = -1;
 
-                MultiplayerServer.instance.SendToAll(Packets.SERVER_DEBUG, new object[] { index });
+                MultiplayerServer.instance.SendToAll(Packets.Server_Debug, new object[] { index });
 
                 debugHashes.Clear();
             }
@@ -260,11 +260,11 @@ namespace Multiplayer.Common
         {
         }
 
-        [PacketHandler(Packets.CLIENT_STEAM_REQUEST)]
+        [PacketHandler(Packets.Client_SteamRequest)]
         public void HandleSteamRequest(ByteReader data)
         {
             connection.State = ConnectionStateEnum.ServerJoining;
-            connection.Send(Packets.SERVER_STEAM_ACCEPT);
+            connection.Send(Packets.Server_SteamAccept);
         }
     }
 }
