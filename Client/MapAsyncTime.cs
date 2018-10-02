@@ -656,7 +656,7 @@ namespace Multiplayer.Client
 
                 //SimpleProfiler.Pause();
 
-                if (tickRel % 200 == 0)
+                if (!Multiplayer.IsReplay && tickRel % 200 == 0)
                 {
                     Multiplayer.Client.Send(Packets.Client_Debug, RandPatch.called);
                     RandPatch.called.Clear();

@@ -126,19 +126,19 @@ namespace Multiplayer.Client
             return manager.AllFactionsListForReading.Find(f => f.loadID == factionId);
         }
 
-        public static void SendCommand(this IConnection conn, CommandType cmd, int mapId, byte[] data)
+        public static void SendCommand(this IConnection conn, CommandType type, int mapId, byte[] data)
         {
             ByteWriter writer = new ByteWriter();
-            writer.WriteInt32(Convert.ToInt32(cmd));
+            writer.WriteInt32(Convert.ToInt32(type));
             writer.WriteInt32(mapId);
             writer.WritePrefixedBytes(data);
 
             conn.Send(Packets.Client_Command, writer.GetArray());
         }
 
-        public static void SendCommand(this IConnection conn, CommandType cmd, int mapId, params object[] data)
+        public static void SendCommand(this IConnection conn, CommandType type, int mapId, params object[] data)
         {
-            SendCommand(conn, cmd, mapId, ByteWriter.GetBytes(data));
+            SendCommand(conn, type, mapId, ByteWriter.GetBytes(data));
         }
 
         public static MpContext MpContext(this ByteReader data)

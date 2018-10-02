@@ -38,7 +38,6 @@ namespace Multiplayer.Client
 
             int seed = __instance.uniqueID.Combine(Multiplayer.WorldComp.sessionId);
             Rand.PushState(seed);
-            UnityRandomSeed.Push(seed);
 
             if (Scribe.mode != LoadSaveMode.LoadingVars)
                 UniqueIdsPatch.CurrentBlock = __instance.GetComponent<MultiplayerMapComp>().mapIdBlock;
@@ -51,7 +50,6 @@ namespace Multiplayer.Client
             if (__state)
             {
                 Rand.PopState();
-                UnityRandomSeed.Pop();
 
                 if (Scribe.mode != LoadSaveMode.LoadingVars)
                     UniqueIdsPatch.CurrentBlock = null;
@@ -69,7 +67,6 @@ namespace Multiplayer.Client
 
             int seed = __instance.uniqueID.Combine(Multiplayer.WorldComp.sessionId);
             Rand.PushState(seed);
-            UnityRandomSeed.Push(seed);
 
             UniqueIdsPatch.CurrentBlock = __instance.GetComponent<MultiplayerMapComp>().mapIdBlock;
 
@@ -81,7 +78,6 @@ namespace Multiplayer.Client
             if (__state)
             {
                 Rand.PopState();
-                UnityRandomSeed.Pop();
                 UniqueIdsPatch.CurrentBlock = null;
             }
         }
@@ -111,22 +107,6 @@ namespace Multiplayer.Client
         }
     }
 
-    public static class UnityRandomSeed
-    {
-        private static Stack<Random.State> stack = new Stack<Random.State>();
-
-        public static void Push(int seed)
-        {
-            stack.Push(Random.state);
-            Random.InitState(seed);
-        }
-
-        public static void Pop()
-        {
-            Random.state = stack.Pop();
-        }
-    }
-
     public static class RandPatches
     {
         private static int nesting;
@@ -147,14 +127,17 @@ namespace Multiplayer.Client
             }
         }
 
-        public static void Prefix()
+        public static void Prefix(ref bool __state)
         {
             Rand.PushState();
             Ignore = true;
+            __state = true;
         }
 
-        public static void Postfix()
+        public static void Postfix(bool __state)
         {
+            if (!__state) return;
+
             Rand.PopState();
             Ignore = false;
         }

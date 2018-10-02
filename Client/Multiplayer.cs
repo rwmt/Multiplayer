@@ -105,6 +105,8 @@ namespace Multiplayer.Client
             if (SteamManager.Initialized)
                 InitSteam();
 
+            Log.Message("sich " + ThoughtUtility.situationalSocialThoughtDefs.Count);
+
             Log.Message("Player's username: " + username);
             Log.Message("Processor: " + SystemInfo.processorType);
 
@@ -126,6 +128,7 @@ namespace Multiplayer.Client
             harmony.DoMpPatches(typeof(MainMenuMarker));
             harmony.DoMpPatches(typeof(MainMenuPatch));
             harmony.DoMpPatches(typeof(MakeSpaceForReplayTimeline));
+            harmony.DoMpPatches(typeof(CancelFeedbackNotTargetedAtMe));
 
             SyncHandlers.Init();
 

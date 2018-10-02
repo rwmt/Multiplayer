@@ -73,6 +73,7 @@
     <Compile Include="Client\MpPatch.cs" />
     <Compile Include="Client\MpReflection.cs" />
     <Compile Include="Client\ServerBrowser.cs" />
+    <Compile Include="Client\SituationalThoughts.cs" />
     <Compile Include="Client\Sync.cs" />
     <Compile Include="Client\SyncHandlers.cs" />
     <Compile Include="Common\MpLog.cs" />

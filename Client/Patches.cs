@@ -936,7 +936,8 @@ namespace Multiplayer.Client
                 if (ThingContext.Current?.def == ThingDefOf.SteamGeyser) return;
                 if (SteadyEnvironmentEffectsTickMarker.ticking || WildAnimalSpawnerTickMarker.ticking || WildPlantSpawnerTickMarker.ticking) return;
 
-                Log(0);
+                if (!Multiplayer.IsReplay)
+                    Log(0);
 
                 //MpLog.Log($"rand {calls}, {ThingContext.Current} {Rand.StateCompressed} {new StackTrace().Hash()}");
             }
@@ -1461,14 +1462,18 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(SoundStarter), nameof(SoundStarter.PlayOneShot))]
-    static class SilenceSoundsNotTargetedAtMe
+    [MpPatch(typeof(SoundStarter), nameof(SoundStarter.PlayOneShot))]
+    [MpPatch(typeof(Command_SetPlantToGrow), nameof(Command_SetPlantToGrow.WarnAsAppropriate))]
+    [MpPatch(typeof(MoteMaker), nameof(MoteMaker.MakeStaticMote), new[] { typeof(IntVec3), typeof(Map), typeof(ThingDef), typeof(float) })]
+    [MpPatch(typeof(MoteMaker), nameof(MoteMaker.MakeStaticMote), new[] { typeof(Vector3), typeof(Map), typeof(ThingDef), typeof(float) })]
+    static class CancelFeedbackNotTargetedAtMe
     {
-        static bool Prefix()
-        {
-            bool cancel = Multiplayer.Client != null && Multiplayer.ExecutingCmds && !TickPatch.currentExecutingCmdIssuedBySelf;
-            return !cancel;
-        }
+        private static bool Cancel =>
+            Multiplayer.Client != null &&
+            Multiplayer.ExecutingCmds &&
+            !TickPatch.currentExecutingCmdIssuedBySelf;
+
+        static bool Prefix() => !Cancel;
     }
 
     [HarmonyPatch(typeof(Messages), nameof(Messages.Message), new[] { typeof(Message), typeof(bool) })]
@@ -1571,9 +1576,11 @@ namespace Multiplayer.Client
     [HarmonyPatch(typeof(WindowStack), nameof(WindowStack.ImmediateWindow))]
     static class LongEventWindowAbsorbInput
     {
+        public const int LongEventWindowId = 62893994;
+
         static void Prefix(int ID, ref bool absorbInputAroundWindow)
         {
-            if (ID == 62893994)
+            if (ID == LongEventWindowId)
                 absorbInputAroundWindow = true;
         }
     }
@@ -1583,7 +1590,7 @@ namespace Multiplayer.Client
     {
         static void Postfix(int ID)
         {
-            if (ID == -62893994)
+            if (ID == -LongEventWindowAbsorbInput.LongEventWindowId)
                 Find.WindowStack.windows.Find(w => w.ID == ID).preventCameraMotion = true;
         }
     }
@@ -1593,8 +1600,8 @@ namespace Multiplayer.Client
     {
         static void Prefix(Window __instance)
         {
-            if (__instance.ID != -62893994) return;
-            Widgets.DrawBoxSolid(new Rect(0, 0, UI.screenWidth, UI.screenHeight), new Color(0, 0, 0, 0.5f));
+            if (__instance.ID == -LongEventWindowAbsorbInput.LongEventWindowId)
+                Widgets.DrawBoxSolid(new Rect(0, 0, UI.screenWidth, UI.screenHeight), new Color(0, 0, 0, 0.5f));
         }
     }
 
@@ -1606,8 +1613,7 @@ namespace Multiplayer.Client
         static bool Prefix()
         {
             // Namely FloatMenuUtility.GetMeleeAttackAction
-            if (Cancel) return false;
-            return true;
+            return !Cancel;
         }
 
         static void Postfix(Pawn_MeleeVerbs __instance, Thing target, ref Verb __result)
@@ -1621,16 +1627,23 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(SituationalThoughtHandler), nameof(SituationalThoughtHandler.CheckRecalculateMoodThoughts))]
-    static class RecalcThoughts
+    [HarmonyPatch(typeof(ThingWithComps))]
+    [HarmonyPatch(nameof(ThingWithComps.InitializeComps))]
+    static class InitializeCompsPatch
     {
-        static bool Cancel => Multiplayer.Client != null && !Multiplayer.Ticking && !Multiplayer.ExecutingCmds;
-
-        static bool Prefix(SituationalThoughtHandler __instance)
+        static void Postfix(ThingWithComps __instance)
         {
-            if (Cancel) return false;
-            return true;
+            if (__instance is Pawn)
+            {
+                MultiplayerPawnComp comp = new MultiplayerPawnComp() { parent = __instance };
+                __instance.AllComps.Add(comp);
+            }
         }
+    }
+
+    public class MultiplayerPawnComp : ThingComp
+    {
+        public SituationalThoughtHandler thoughtsForInterface;
     }
 
 }
