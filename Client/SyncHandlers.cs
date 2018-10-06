@@ -3,6 +3,7 @@ using Multiplayer.Common;
 using RimWorld;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -44,7 +45,7 @@ namespace Multiplayer.Client
 
         public static SyncField SyncGodMode = Sync.Field(null, "Verse.DebugSettings/godMode");
         public static SyncField SyncResearchProject = Sync.Field(null, "Verse.Find/ResearchManager/currentProj");
-        public static SyncField SyncUseWorkPriorities = Sync.Field(null, "Verse.Current/Game/playSettings", "useWorkPriorities");
+        public static SyncField SyncUseWorkPriorities = Sync.Field(null, "Verse.Current/Game/playSettings", "useWorkPriorities").PostApply(UseWorkPriorities_PostApply);
         public static SyncField SyncAutoHomeArea = Sync.Field(null, "Verse.Current/Game/playSettings", "autoHomeArea");
         public static SyncField SyncAutoRebuild = Sync.Field(null, "Verse.Current/Game/playSettings", "autoRebuild");
         public static SyncField[] SyncDefaultCare = Sync.Fields(
@@ -150,6 +151,7 @@ namespace Multiplayer.Client
         [MpPrefix(typeof(Widgets), "CheckboxLabeled")]
         static void CheckboxLabeled()
         {
+            // Watched here to get reset asap and not trigger any side effects
             if (SyncMarkers.manualPriorities)
                 SyncUseWorkPriorities.Watch();
         }
@@ -235,7 +237,7 @@ namespace Multiplayer.Client
         [MpPrefix(typeof(ITab_Bills), "TabUpdate")]
         static void BillIngredientSearchRadius(ITab_Bills __instance)
         {
-            // Use the buffered value for smooth rendering (doesn't actually have to sync anything here)
+            // Apply the buffered value for smooth rendering (doesn't actually have to sync anything here)
             if (__instance.mouseoverBill is Bill mouseover)
                 SyncIngredientSearchRadius.Watch(mouseover);
         }
@@ -275,6 +277,14 @@ namespace Multiplayer.Client
         {
             SyncZoneLabel.Watch(__instance.zone);
         }
+
+        static void UseWorkPriorities_PostApply(object target, object value)
+        {
+            // From MainTabWindow_Work.DoManualPrioritiesCheckbox
+            foreach (Pawn pawn in PawnsFinder.AllMapsWorldAndTemporary_Alive)
+                if (pawn.Faction == Faction.OfPlayer && pawn.workSettings != null)
+                    pawn.workSettings.Notify_UseWorkPrioritiesChanged();
+        }
     }
 
     public static class SyncPatches
@@ -290,14 +300,13 @@ namespace Multiplayer.Client
             Sync.RegisterSyncProperty(typeof(Pawn), nameof(Pawn.Name), typeof(Expose<Name>));
             Sync.RegisterSyncProperty(typeof(StorageSettings), nameof(StorageSettings.Priority));
             Sync.RegisterSyncProperty(typeof(CompForbiddable), nameof(CompForbiddable.Forbidden));
-
             Sync.RegisterSyncMethod(typeof(Pawn_TimetableTracker), nameof(Pawn_TimetableTracker.SetAssignment));
             Sync.RegisterSyncMethod(typeof(Pawn_WorkSettings), nameof(Pawn_WorkSettings.SetPriority));
-            Sync.RegisterSyncMethod(typeof(Pawn_JobTracker), nameof(Pawn_JobTracker.StartJob), typeof(Expose<Job>), typeof(JobCondition), typeof(ThinkNode), typeof(bool), typeof(bool), typeof(ThinkTreeDef), typeof(JobTag?), typeof(bool));
             Sync.RegisterSyncMethod(typeof(Pawn_JobTracker), nameof(Pawn_JobTracker.TryTakeOrderedJob), typeof(Expose<Job>), typeof(JobTag)).SetHasContext();
             Sync.RegisterSyncMethod(typeof(Pawn_JobTracker), nameof(Pawn_JobTracker.TryTakeOrderedJobPrioritizedWork), typeof(Expose<Job>), typeof(WorkGiver), typeof(IntVec3)).SetHasContext();
             Sync.RegisterSyncMethod(typeof(Pawn_TrainingTracker), nameof(Pawn_TrainingTracker.SetWantedRecursive));
             Sync.RegisterSyncMethod(typeof(Zone), nameof(Zone.Delete));
+            Sync.RegisterSyncMethod(typeof(BillStack), nameof(BillStack.AddBill), typeof(Expose<Bill>)); // Only used for pasting
             Sync.RegisterSyncMethod(typeof(BillStack), nameof(BillStack.Delete));
             Sync.RegisterSyncMethod(typeof(BillStack), nameof(BillStack.Reorder));
             Sync.RegisterSyncMethod(typeof(Bill_Production), nameof(Bill_Production.SetStoreMode));
@@ -310,7 +319,6 @@ namespace Multiplayer.Client
             Sync.RegisterSyncMethod(typeof(DrugPolicyDatabase), nameof(DrugPolicyDatabase.TryDelete));
             Sync.RegisterSyncMethod(typeof(OutfitDatabase), nameof(OutfitDatabase.MakeNewOutfit));
             Sync.RegisterSyncMethod(typeof(OutfitDatabase), nameof(OutfitDatabase.TryDelete));
-            Sync.RegisterSyncMethod(typeof(Building_Bed), nameof(Building_Bed.ToggleForPrisonersByInterface));
             Sync.RegisterSyncMethod(typeof(Building_Bed), nameof(Building_Bed.TryAssignPawn));
             Sync.RegisterSyncMethod(typeof(Building_Bed), nameof(Building_Bed.TryUnassignPawn));
             Sync.RegisterSyncMethod(typeof(Building_Grave), nameof(Building_Grave.TryAssignPawn));
@@ -318,11 +326,12 @@ namespace Multiplayer.Client
             Sync.RegisterSyncMethod(typeof(PawnColumnWorker_Designator), nameof(PawnColumnWorker_Designator.SetValue)); // Abstract but currently not overriden by any subclasses
             Sync.RegisterSyncMethod(typeof(PawnColumnWorker_FollowDrafted), nameof(PawnColumnWorker_FollowDrafted.SetValue));
             Sync.RegisterSyncMethod(typeof(PawnColumnWorker_FollowFieldwork), nameof(PawnColumnWorker_FollowFieldwork.SetValue));
+            Sync.RegisterSyncProperty(typeof(Building_Bed), nameof(Building_Bed.Medical));
         }
 
         static SyncField SyncTimetable = Sync.Field(typeof(Pawn), "timetable", "times");
 
-        [MpPrefix(typeof(PawnColumnWorker_CopyPasteTimetable), "PasteTo")]
+        [MpPrefix(typeof(PawnColumnWorker_CopyPasteTimetable), nameof(PawnColumnWorker_CopyPasteTimetable.PasteTo))]
         static bool CopyPasteTimetable(Pawn p)
         {
             return !SyncTimetable.DoSync(p, PawnColumnWorker_CopyPasteTimetable.clipboard);
@@ -331,7 +340,7 @@ namespace Multiplayer.Client
         static SyncMethod SyncPawnGearDrop = Sync.Method(typeof(ITab_Pawn_Gear), "InterfaceDrop").SetHasContext();
         static SyncMethod SyncPawnGearIngest = Sync.Method(typeof(ITab_Pawn_Gear), "InterfaceIngest").SetHasContext();
 
-        [MpPrefix(typeof(ITab_Pawn_Gear), "InterfaceDrop")]
+        [MpPrefix(typeof(ITab_Pawn_Gear), nameof(ITab_Pawn_Gear.InterfaceDrop))]
         static bool ITabPawnGearDrop(ITab_Pawn_Gear __instance, Thing t)
         {
             Sync.selThingContext = __instance.SelThing;
@@ -341,7 +350,7 @@ namespace Multiplayer.Client
             return result;
         }
 
-        [MpPrefix(typeof(ITab_Pawn_Gear), "InterfaceIngest")]
+        [MpPrefix(typeof(ITab_Pawn_Gear), nameof(ITab_Pawn_Gear.InterfaceIngest))]
         static bool ITabPawnGearIngest(ITab_Pawn_Gear __instance, Thing t)
         {
             Sync.selThingContext = __instance.SelThing;
@@ -353,7 +362,7 @@ namespace Multiplayer.Client
 
         // ===== CALLBACKS =====
 
-        [MpPostfix(typeof(DrugPolicyDatabase), "MakeNewDrugPolicy")]
+        [MpPostfix(typeof(DrugPolicyDatabase), nameof(DrugPolicyDatabase.MakeNewDrugPolicy))]
         static void MakeNewDrugPolicy_Postfix(DrugPolicy __result)
         {
             var dialog = GetDialogDrugPolicies();
@@ -361,7 +370,7 @@ namespace Multiplayer.Client
                 dialog.SelectedPolicy = __result;
         }
 
-        [MpPostfix(typeof(OutfitDatabase), "MakeNewOutfit")]
+        [MpPostfix(typeof(OutfitDatabase), nameof(OutfitDatabase.MakeNewOutfit))]
         static void MakeNewOutfit_Postfix(Outfit __result)
         {
             var dialog = GetDialogOutfits();
@@ -369,7 +378,7 @@ namespace Multiplayer.Client
                 dialog.SelectedOutfit = __result;
         }
 
-        [MpPostfix(typeof(DrugPolicyDatabase), "TryDelete")]
+        [MpPostfix(typeof(DrugPolicyDatabase), nameof(DrugPolicyDatabase.TryDelete))]
         static void TryDeleteDrugPolicy_Postfix(DrugPolicy policy, AcceptanceReport __result)
         {
             var dialog = GetDialogDrugPolicies();
@@ -377,8 +386,8 @@ namespace Multiplayer.Client
                 dialog.SelectedPolicy = null;
         }
 
-        [MpPostfix(typeof(OutfitDatabase), "TryDelete")]
-        static void TRyDeleteOutfit_Postfix(Outfit outfit, AcceptanceReport __result)
+        [MpPostfix(typeof(OutfitDatabase), nameof(OutfitDatabase.TryDelete))]
+        static void TryDeleteOutfit_Postfix(Outfit outfit, AcceptanceReport __result)
         {
             var dialog = GetDialogOutfits();
             if (__result.Accepted && dialog != null && dialog.SelectedOutfit == outfit)
@@ -387,6 +396,39 @@ namespace Multiplayer.Client
 
         static Dialog_ManageOutfits GetDialogOutfits() => Find.WindowStack?.WindowOfType<Dialog_ManageOutfits>();
         static Dialog_ManageDrugPolicies GetDialogDrugPolicies() => Find.WindowStack?.WindowOfType<Dialog_ManageDrugPolicies>();
+
+        [MpPrefix(typeof(Pawn_JobTracker), nameof(Pawn_JobTracker.TryTakeOrderedJob))]
+        static void TryTakeOrderedJob_Prefix(Job job)
+        {
+            if (Multiplayer.ExecutingCmds && job.loadID < 0)
+                job.loadID = Find.UniqueIDsManager.GetNextJobID();
+        }
+
+        [MpPrefix(typeof(BillStack), nameof(BillStack.AddBill))]
+        static void AddBill_Prefix(Bill bill)
+        {
+            if (Multiplayer.ExecutingCmds && bill.loadID < 0)
+                bill.loadID = Find.UniqueIDsManager.GetNextBillID();
+        }
+
+        [SyncMethod]
+        public static void AdvanceTime()
+        {
+            int to = 148 * 1000;
+            if (Find.TickManager.TicksGame < to)
+            {
+                Find.TickManager.ticksGameInt = to;
+                Find.Maps[0].AsyncTime().mapTicks = to;
+            }
+        }
+
+        [SyncMethod]
+        public static void SaveMap()
+        {
+            Map map = Find.Maps[0];
+            byte[] mapData = ScribeUtil.WriteExposable(Current.Game, "map", true);
+            File.WriteAllBytes($"map_0_{Multiplayer.username}.xml", mapData);
+        }
     }
 
     public static class SyncThingFilters
@@ -498,12 +540,14 @@ namespace Multiplayer.Client
     public static class SyncDelegates
     {
         [SyncDelegate]
-        [MpPrefix(typeof(FloatMenuMakerMap), "<GotoLocationOption>c__AnonStorey1B", "<>m__0")]   // Goto
-        [MpPrefix(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey3", "<>m__0")]    // Arrest
-        [MpPrefix(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey7", "<>m__0")]    // Rescue
-        [MpPrefix(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey7", "<>m__1")]    // Capture
-        [MpPrefix(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey9", "<>m__0")]    // Carry to cryptosleep casket
-        [MpPrefix(typeof(HealthCardUtility), "<GenerateSurgeryOption>c__AnonStorey4", "<>m__0")] // Add medical bill
+        [MpPrefix(typeof(FloatMenuMakerMap), "<GotoLocationOption>c__AnonStorey1B", "<>m__0")]      // Goto
+        [MpPrefix(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey3", "<>m__0")]       // Arrest
+        [MpPrefix(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey7", "<>m__0")]       // Rescue
+        [MpPrefix(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey7", "<>m__1")]       // Capture
+        [MpPrefix(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey9", "<>m__0")]       // Carry to cryptosleep casket
+        [MpPrefix(typeof(HealthCardUtility), "<GenerateSurgeryOption>c__AnonStorey4", "<>m__0")]    // Add medical bill
+        [MpPrefix(typeof(Command_SetPlantToGrow), "<ProcessInput>c__AnonStorey0", "<>m__0")]        // Set plant to grow
+        [MpPrefix(typeof(Building_Bed), "<ToggleForPrisonersByInterface>c__AnonStorey3", "<>m__0")] // Toggle bed for prisoners
         static bool GeneralSync(object __instance, MethodBase __originalMethod)
         {
             return !Sync.Delegate(__instance, __originalMethod);
@@ -515,6 +559,7 @@ namespace Multiplayer.Client
         [MpPrefix(typeof(CompFlickable), "<CompGetGizmosExtra>c__Iterator0", "<>m__1")] // Designate flick
         [MpPrefix(typeof(Building_TurretGun), "<GetGizmos>c__Iterator0", "<>m__0")]     // Reset forced target
         [MpPrefix(typeof(Building_TurretGun), "<GetGizmos>c__Iterator0", "<>m__1")]     // Toggle hold fire
+        [MpPrefix(typeof(Building_Trap), "<GetGizmos>c__Iterator0", "<>m__1")]          // Toggle trap auto-rearm
         static bool GeneralIteratorSync(object __instance, MethodBase __originalMethod)
         {
             return !Sync.Delegate(__instance, __originalMethod);

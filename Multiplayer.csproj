@@ -67,6 +67,7 @@
     <Compile Include="Client\ClientConnection.cs" />
     <Compile Include="Client\MultiplayerMapComp.cs" />
     <Compile Include="Client\MultiplayerWorldComp.cs" />
+    <Compile Include="Client\Multithreading.cs" />
     <Compile Include="Client\SaveCompression.cs" />
     <Compile Include="Client\Extensions.cs" />
     <Compile Include="Client\MapAsyncTime.cs" />

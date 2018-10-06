@@ -69,7 +69,7 @@ namespace Multiplayer.Client
             });
         }
 
-        public static void ReloadGame(int tickUntil, List<int> maps, Action onDone = null)
+        public static void ReloadGame(int tickUntil, List<int> maps, Action onDone = null, Action afterLoad = null)
         {
             XmlDocument gameDoc = ScribeUtil.GetDocument(OnMainThread.cachedGameData);
             XmlNode gameNode = gameDoc.DocumentElement["game"];
@@ -98,12 +98,12 @@ namespace Multiplayer.Client
 
                 LongEventHandler.ExecuteWhenFinished(() =>
                 {
-                    LongEventHandler.QueueLongEvent(CatchUp(onDone), "MpSimulating", null);
+                    LongEventHandler.QueueLongEvent(CatchUp(onDone, afterLoad), "MpSimulating", null);
                 });
             }, "Play", "MpLoading", true, null);
         }
 
-        public static IEnumerable CatchUp(Action finishAction)
+        private static IEnumerable CatchUp(Action finishAction, Action startAction)
         {
             FactionWorldData factionData = Multiplayer.WorldComp.factionData.GetValueSafe(Multiplayer.session.myFactionId);
             if (factionData != null && factionData.online)
@@ -119,15 +119,17 @@ namespace Multiplayer.Client
             int startTicks = Find.Maps[0].AsyncTime().mapTicks;
             float startTime = Time.realtimeSinceStartup;
 
+            startAction?.Invoke();
+
             while (TickPatch.Timer < TickPatch.tickUntil)
             {
                 TickPatch.accumulator = Math.Min(60, TickPatch.tickUntil - TickPatch.Timer);
 
-                SimpleProfiler.Start();
+                //SimpleProfiler.Start();
                 Multiplayer.simulating = true;
                 TickPatch.Tick();
                 Multiplayer.simulating = false;
-                SimpleProfiler.Pause();
+                //SimpleProfiler.Pause();
 
                 int pct = (int)((float)(TickPatch.Timer - start) / (TickPatch.tickUntil - start) * 100);
                 float tps = (Find.Maps[0].AsyncTime().mapTicks - startTicks) / (Time.realtimeSinceStartup - startTime);
@@ -142,8 +144,8 @@ namespace Multiplayer.Client
                     pawn.drawer.tweener.tweenedPos = pawn.drawer.tweener.TweenedPosRoot();
             }
 
-            SimpleProfiler.Print("prof_sim.txt");
-            SimpleProfiler.Init("");
+            //SimpleProfiler.Print("prof_sim.txt");
+            //SimpleProfiler.Init("");
 
             finishAction?.Invoke();
         }

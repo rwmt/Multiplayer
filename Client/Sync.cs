@@ -9,6 +9,7 @@ using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
+using System.Runtime.Serialization;
 using Verse;
 using Verse.AI;
 
@@ -42,6 +43,9 @@ namespace Multiplayer.Client
 
         public bool bufferChanges;
         public bool inGameLoop;
+
+        private Action<object, object> preApply;
+        private Action<object, object> postApply;
 
         public SyncField(int syncId, Type targetType, string memberPath) : base(syncId)
         {
@@ -96,8 +100,24 @@ namespace Multiplayer.Client
             if (indexType != null)
                 index = Sync.ReadSyncObject(data, indexType);
 
+            preApply?.Invoke(target, value);
+
             MpLog.Log($"Set {memberPath} in {target} to {value}, map {data.MpContext().map}, index {index}");
             MpReflection.SetValue(target, memberPath, value, index);
+
+            postApply?.Invoke(target, value);
+        }
+
+        public SyncField PreApply(Action<object, object> action)
+        {
+            preApply = action;
+            return this;
+        }
+
+        public SyncField PostApply(Action<object, object> action)
+        {
+            postApply = action;
+            return this;
         }
 
         public SyncField SetBufferChanges()
@@ -125,6 +145,9 @@ namespace Multiplayer.Client
 
         private int minTime = 100; // Milliseconds between resends
         private int lastSendTime;
+
+        private Action<object, object[]> beforeCall;
+        private Action<object, object[]> afterCall;
 
         public SyncMethod(int syncId, Type targetType, string instancePath, string methodName, params Type[] argTypes) : base(syncId)
         {
@@ -218,10 +241,14 @@ namespace Multiplayer.Client
             if (!instancePath.NullOrEmpty())
                 target = target.GetPropertyOrField(instancePath);
 
-            object[] parameters = Sync.ReadSyncObjects(data, argTypes);
+            object[] args = Sync.ReadSyncObjects(data, argTypes);
 
-            MpLog.Log("Invoked " + method + " on " + target + " with " + parameters.Length + " params " + parameters.ToStringSafeEnumerable());
-            method.Invoke(target, parameters);
+            beforeCall?.Invoke(target, args);
+
+            MpLog.Log("Invoked " + method + " on " + target + " with " + args.Length + " params " + args.ToStringSafeEnumerable());
+            method.Invoke(target, args);
+
+            afterCall?.Invoke(target, args);
         }
 
         public SyncMethod MinTime(int time)
@@ -233,6 +260,12 @@ namespace Multiplayer.Client
         public SyncMethod SetHasContext()
         {
             hasContext = true;
+            return this;
+        }
+
+        public SyncMethod SetPreInvoke(Action<object, object[]> action)
+        {
+            beforeCall = action;
             return this;
         }
     }
@@ -578,7 +611,10 @@ namespace Multiplayer.Client
 
         private static SyncMethod RegisterSyncMethod(MethodInfo method, params Type[] argTypes)
         {
-            Multiplayer.harmony.Patch(method, null, null, new HarmonyMethod(typeof(Sync), nameof(Sync.SyncMethodTranspiler)));
+            HarmonyMethod transpiler = new HarmonyMethod(typeof(Sync), nameof(Sync.SyncMethodTranspiler));
+            transpiler.prioritiy = Priority.First;
+
+            Multiplayer.harmony.Patch(method, null, null, transpiler);
             SyncMethod handler = new SyncMethod(handlers.Count, (method.IsStatic ? null : method.DeclaringType), method, argTypes);
             syncMethods[method] = handler;
             handlers.Add(handler);
@@ -810,12 +846,18 @@ namespace Multiplayer.Client
             }
         };
 
-        private static Type[] storageParentImplementations = new[]
+        private static Type[] storageParents = new[]
         {
             typeof(Building_Grave),
             typeof(Building_Storage),
             typeof(CompChangeableProjectile),
             typeof(Zone_Stockpile)
+        };
+
+        private static Type[] plantToGrowSettables = new[]
+        {
+            typeof(Building_PlantGrower),
+            typeof(Zone_Growing),
         };
 
         public static MultiTarget thingFilterTarget = new MultiTarget()
@@ -935,6 +977,17 @@ namespace Multiplayer.Client
                 PawnColumnDef def = ReadSync<PawnColumnDef>(data);
                 return def.Worker;
             }
+            else if (typeof(Command_SetPlantToGrow) == type)
+            {
+                IPlantToGrowSettable settable = ReadSync<IPlantToGrowSettable>(data);
+                List<IPlantToGrowSettable> settables = ReadSync<List<IPlantToGrowSettable>>(data);
+
+                Command_SetPlantToGrow command = (Command_SetPlantToGrow)FormatterServices.GetUninitializedObject(typeof(Command_SetPlantToGrow));
+                command.settable = settable;
+                command.settables = settables;
+
+                return command;
+            }
             else if (typeof(Designator).IsAssignableFrom(type))
             {
                 int desId = data.ReadInt32();
@@ -1027,11 +1080,13 @@ namespace Multiplayer.Client
                 int id = data.ReadInt32();
                 return Current.Game.drugPolicyDatabase.AllPolicies.Find(o => o.uniqueId == id);
             }
-            else if (typeof(IStoreSettingsParent).IsAssignableFrom(type))
+            else if (typeof(IStoreSettingsParent) == type)
             {
-                int impl = data.ReadInt32();
-                if (impl == -1) return null;
-                return ReadSyncObject(data, storageParentImplementations[impl]) as IStoreSettingsParent;
+                return ReadWithImpl<IStoreSettingsParent>(data, storageParents);
+            }
+            else if (typeof(IPlantToGrowSettable) == type)
+            {
+                return ReadWithImpl<IPlantToGrowSettable>(data, plantToGrowSettables);
             }
             else if (typeof(StorageSettings) == type)
             {
@@ -1175,6 +1230,12 @@ namespace Multiplayer.Client
                     PawnColumnWorker worker = obj as PawnColumnWorker;
                     WriteSync(data, worker.def);
                 }
+                else if (typeof(Command_SetPlantToGrow) == type)
+                {
+                    Command_SetPlantToGrow command = obj as Command_SetPlantToGrow;
+                    WriteSync(data, command.settable);
+                    WriteSync(data, command.settables);
+                }
                 else if (typeof(Designator).IsAssignableFrom(type))
                 {
                     Designator des = obj as Designator;
@@ -1279,30 +1340,13 @@ namespace Multiplayer.Client
                     data.WriteInt32(body.GetIndexOfPart(part));
                     WriteSync(data, body);
                 }
-                else if (typeof(IStoreSettingsParent).IsAssignableFrom(type))
+                else if (typeof(IStoreSettingsParent) == type)
                 {
-                    if (obj == null)
-                    {
-                        data.WriteInt32(-1);
-                        return;
-                    }
-
-                    int impl = -1;
-                    Type implType = null;
-                    for (int i = 0; i < storageParentImplementations.Length; i++)
-                    {
-                        if (storageParentImplementations[i].IsAssignableFrom(obj.GetType()))
-                        {
-                            implType = storageParentImplementations[i];
-                            impl = i;
-                        }
-                    }
-
-                    if (implType == null)
-                        throw new SerializationException("Unknown IStoreSettingsParent implementation type " + obj.GetType());
-
-                    data.WriteInt32(impl);
-                    WriteSyncObject(data, obj, implType);
+                    WriteWithImpl<IStoreSettingsParent>(data, obj, storageParents);
+                }
+                else if (typeof(IPlantToGrowSettable) == type)
+                {
+                    WriteWithImpl<IPlantToGrowSettable>(data, obj, plantToGrowSettables);
                 }
                 else if (typeof(StorageSettings) == type)
                 {
@@ -1324,6 +1368,39 @@ namespace Multiplayer.Client
             {
                 log?.LogExit();
             }
+        }
+
+        private static T ReadWithImpl<T>(ByteReader data, IList<Type> impls) where T : class
+        {
+            int impl = data.ReadInt32();
+            if (impl == -1) return null;
+            return (T)ReadSyncObject(data, impls[impl]);
+        }
+
+        private static void WriteWithImpl<T>(ByteWriter data, object obj, IList<Type> impls) where T : class
+        {
+            if (obj == null)
+            {
+                data.WriteInt32(-1);
+                return;
+            }
+
+            int impl = -1;
+            Type implType = null;
+            for (int i = 0; i < impls.Count; i++)
+            {
+                if (impls[i].IsAssignableFrom(obj.GetType()))
+                {
+                    implType = impls[i];
+                    impl = i;
+                }
+            }
+
+            if (implType == null)
+                throw new SerializationException($"Unknown {typeof(T)} implementation type {obj.GetType()}");
+
+            data.WriteInt32(impl);
+            WriteSyncObject(data, obj, implType);
         }
     }
 

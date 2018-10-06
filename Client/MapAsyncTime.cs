@@ -7,8 +7,10 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using UnityEngine;
 using Verse;
+using Verse.AI;
 
 namespace Multiplayer.Client
 {
@@ -52,9 +54,10 @@ namespace Multiplayer.Client
 
             accumulator += delta;
 
-            if (Timer >= tickUntil)
-                accumulator = 0;
-            else if (!Multiplayer.IsReplay && delta < 1.5 && tickUntil - timerInt > 8)
+            //if (Timer >= tickUntil)
+            //    accumulator = 0;
+            //else 
+            if (!Multiplayer.IsReplay && delta < 1.5 && tickUntil - timerInt > 8)
                 accumulator += Math.Min(100, tickUntil - timerInt - 8);
 
             if (Multiplayer.IsReplay && replayTimeSpeed == TimeSpeed.Paused)
@@ -91,6 +94,10 @@ namespace Multiplayer.Client
             Shader.SetGlobalFloat(ShaderPropertyIDs.GameSeconds, comp.mapTicks.TicksToSeconds());
         }
 
+        static Stopwatch watch = Stopwatch.StartNew();
+        private static int lastTick;
+        public static double took;
+
         public static void Tick()
         {
             while (accumulator > 0)
@@ -106,26 +113,58 @@ namespace Multiplayer.Client
                     }
                 }
 
+                bool multithread = true;
+
                 foreach (ITickable tickable in AllTickables)
                 {
                     if (tickable.TimePerTick(tickable.TimeSpeed) == 0) continue;
                     tickable.RealTimeToTickThrough += TimeStep;
 
-                    while (tickable.RealTimeToTickThrough >= 0)
-                    {
-                        float timePerTick = tickable.TimePerTick(tickable.TimeSpeed);
-                        if (timePerTick == 0) break;
+                    if (!multithread || !(tickable is MapAsyncTimeComp))
+                        Tick(tickable);
+                }
 
-                        tickable.RealTimeToTickThrough -= timePerTick;
-                        tickable.Tick();
+                if (multithread)
+                {
+                    foreach (MapAsyncTimeComp comp in Find.Maps.Where(m => m != Find.CurrentMap).Select(m => m.AsyncTime()).Where(m => m.RealTimeToTickThrough >= 0 && m.TimePerTick(m.TimeSpeed) > 0))
+                    {
+                        comp.task = () => Tick(comp);
+                        comp.hasTask.Set();
                     }
+
+                    Tick(Find.CurrentMap.AsyncTime());
+
+                    foreach (MapAsyncTimeComp comp in Find.Maps.Where(m => m != Find.CurrentMap).Select(m => m.AsyncTime()).Where(m => m.task != null))
+                    {
+                        comp.ran.WaitOne();
+                        comp.task = null;
+                    }
+                }
+
+                if (lastTick != Timer)
+                {
+                    took = watch.ElapsedMillisDouble();
+                    lastTick = Timer;
+                    watch.Restart();
                 }
 
                 accumulator -= TimeStep * ReplayMultiplier();
                 timerInt += TimeStep;
 
-                if (Timer >= tickUntil)
-                    accumulator = 0;
+                //if (Timer >= tickUntil)
+                //    accumulator = 0;
+            }
+        }
+
+        private static void Tick(ITickable tickable)
+        {
+            while (tickable.RealTimeToTickThrough >= 0)
+            {
+                float timePerTick = tickable.TimePerTick(tickable.TimeSpeed);
+                if (timePerTick == 0) break;
+
+                tickable.RealTimeToTickThrough -= timePerTick;
+                tickable.Tick();
             }
         }
 
@@ -403,7 +442,7 @@ namespace Multiplayer.Client
                 tickable = Find.CurrentMap.AsyncTime();
 
             TimeSpeed speed = tickable.TimeSpeed;
-            if (Multiplayer.IsReplay)
+            if (Multiplayer.IsReplay && !KeyBindingDefOf.QueueOrder.IsDownEvent)
                 speed = TickPatch.replayTimeSpeed;
 
             Find.TickManager.CurTimeSpeed = speed;
@@ -419,7 +458,13 @@ namespace Multiplayer.Client
             if (lastSpeed == newSpeed) return;
 
             if (Multiplayer.IsReplay)
-                TickPatch.replayTimeSpeed = newSpeed;
+            {
+                if (KeyBindingDefOf.QueueOrder.IsDownEvent)
+                    OnMainThread.Enqueue(() => Find.TickManager.CurTimeSpeed = newSpeed);
+                else
+                    TickPatch.replayTimeSpeed = newSpeed;
+            }
+
             if (__state is MultiplayerWorldComp)
                 Multiplayer.Client.SendCommand(CommandType.WorldTimeSpeed, ScheduledCommand.Global, (byte)newSpeed);
             else if (__state is MapAsyncTimeComp comp)
@@ -537,7 +582,12 @@ namespace Multiplayer.Client
 
     public class MapAsyncTimeComp : MapComponent, ITickable
     {
+        [ThreadStatic]
         public static Map tickingMap;
+
+        [ThreadStatic]
+        public static MapAsyncTimeComp tickingComp;
+
         public static Map executingCmdMap;
 
         public float TimePerTick(TimeSpeed speed)
@@ -597,11 +647,42 @@ namespace Multiplayer.Client
         // Shared random state for ticking and commands
         public ulong randState = 1;
 
+        public AutoResetEvent hasTask = new AutoResetEvent(false);
+        public AutoResetEvent ran = new AutoResetEvent(false);
+        public Action task;
+        public Thread thread;
+
         public Queue<ScheduledCommand> cmds = new Queue<ScheduledCommand>();
 
         public MapAsyncTimeComp(Map map) : base(map)
         {
             storyteller = new Storyteller(StorytellerDefOf.Cassandra, DifficultyDefOf.Rough);
+
+            if (Multiplayer.Client != null)
+            {
+                thread = new Thread(() =>
+                {
+                    typeof(ThreadStatics).TypeInitializer.Invoke(null, null);
+
+                    while (true)
+                    {
+                        hasTask.WaitOne();
+
+                        try
+                        {
+                            task();
+                        }
+                        catch (Exception e)
+                        {
+                            Log.Error("Async throw " + e);
+                        }
+
+                        ran.Set();
+                    }
+                });
+
+                thread.Start();
+            }
         }
 
         public int tickRel;
@@ -609,6 +690,7 @@ namespace Multiplayer.Client
         public void Tick()
         {
             tickingMap = map;
+            tickingComp = this;
             PreContext();
 
             //SimpleProfiler.Start();
@@ -636,27 +718,36 @@ namespace Multiplayer.Client
                 PostContext();
 
                 tickingMap = null;
+                tickingComp = null;
 
-                if (Multiplayer.IsReplay || Multiplayer.LocalServer != null)
-                {
-                    if (Multiplayer.mapSeeds.Count > tickRel)
+                if (false)
+                    if (Multiplayer.IsReplay || Multiplayer.LocalServer != null)
                     {
-                        if (Multiplayer.mapSeeds[tickRel] != randState)
+                        if (Multiplayer.mapSeeds.Count > tickRel)
                         {
-                            MpLog.Error("Desync tick " + mapTicks);
+                            if (Multiplayer.mapSeeds[tickRel] != randState)
+                            {
+                                MpLog.Error("Desync tick " + mapTicks);
+                            }
+                        }
+                        else
+                        {
+                            Multiplayer.mapSeeds.Add(randState);
                         }
                     }
-                    else
-                    {
-                        Multiplayer.mapSeeds.Add(randState);
-                    }
-                }
 
                 tickRel++;
 
                 //SimpleProfiler.Pause();
 
-                if (!Multiplayer.IsReplay && tickRel % 200 == 0)
+                if (false)
+                    if (tickRel % 1000 == 0)
+                    {
+                        SimpleProfiler.Print("profiler_alltick.txt");
+                        SimpleProfiler.Init(Multiplayer.username);
+                    }
+
+                if (RandPatch.collect && !Multiplayer.IsReplay && tickRel % 1000 == 0)
                 {
                     Multiplayer.Client.Send(Packets.Client_Debug, RandPatch.called);
                     RandPatch.called.Clear();
@@ -664,7 +755,7 @@ namespace Multiplayer.Client
 
                     if (!Multiplayer.simulating)
                     {
-                        //SimpleProfiler.Print("profiler_{Multiplayer.username}_tick.txt");
+                        //SimpleProfiler.Print($"profiler_{Multiplayer.username}_tick.txt");
                         //SimpleProfiler.Init(Multiplayer.username);
 
                         //byte[] mapData = ScribeUtil.WriteExposable(map, "map", true);
@@ -706,7 +797,8 @@ namespace Multiplayer.Client
             Current.Game.storyteller = storyteller;
             StorytellerTargetsPatch.target = map;
 
-            UniqueIdsPatch.CurrentBlock = map.GetComponent<MultiplayerMapComp>().mapIdBlock;
+            if (tickingMap == null)
+                UniqueIdsPatch.CurrentBlock = map.GetComponent<MultiplayerMapComp>().mapIdBlock;
 
             Rand.StateCompressed = randState;
 
@@ -716,7 +808,8 @@ namespace Multiplayer.Client
 
         public void PostContext()
         {
-            UniqueIdsPatch.CurrentBlock = null;
+            if (tickingMap == null)
+                UniqueIdsPatch.CurrentBlock = null;
 
             Current.Game.storyteller = globalStoryteller;
             StorytellerTargetsPatch.target = null;

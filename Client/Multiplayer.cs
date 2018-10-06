@@ -38,7 +38,7 @@ namespace Multiplayer.Client
         public static MultiplayerServer LocalServer => session?.localServer;
         public static ChatWindow Chat => session?.chat;
         public static PacketLogWindow PacketLog => session?.packetLog;
-        public static bool IsReplay => session == null ? false : session.replay;
+        public static bool IsReplay => session?.replay ?? false;
 
         public static string username;
         public static HarmonyInstance harmony = HarmonyInstance.Create("multiplayer");
@@ -105,8 +105,6 @@ namespace Multiplayer.Client
             if (SteamManager.Initialized)
                 InitSteam();
 
-            Log.Message("sich " + ThoughtUtility.situationalSocialThoughtDefs.Count);
-
             Log.Message("Player's username: " + username);
             Log.Message("Processor: " + SystemInfo.processorType);
 
@@ -130,9 +128,17 @@ namespace Multiplayer.Client
             harmony.DoMpPatches(typeof(MakeSpaceForReplayTimeline));
             harmony.DoMpPatches(typeof(CancelFeedbackNotTargetedAtMe));
 
+            harmony.DoMpPatches(typeof(MakeMotePatch2));
+            harmony.DoMpPatches(typeof(MotesPatch));
+            harmony.DoMpPatches(typeof(BFSWorkerLock));
+
             SyncHandlers.Init();
 
             DoPatches();
+            ThreadStaticsData.RegisterAll();
+            ThreadStaticsData.Patch();
+
+            typeof(ThreadStatics).TypeInitializer.Invoke(null, null);
 
             Log.messageQueue.maxMessages = 1000;
 
@@ -422,7 +428,9 @@ namespace Multiplayer.Client
                 var subSoundPlay = typeof(SubSoundDef).GetMethod("TryPlay");
                 var effecterTick = typeof(Effecter).GetMethod("EffectTick");
                 var effecterTrigger = typeof(Effecter).GetMethod("Trigger");
-                var effectMethods = new MethodBase[] { subSustainerCtor, subSoundPlay, effecterTick, effecterTrigger };
+                var randomBoltMesh = typeof(LightningBoltMeshPool).GetProperty("RandomBoltMesh").GetGetMethod();
+
+                var effectMethods = new MethodBase[] { subSustainerCtor, subSoundPlay, effecterTick, effecterTrigger, randomBoltMesh };
                 var moteMethods = typeof(MoteMaker).GetMethods(BindingFlags.Static | BindingFlags.Public);
 
                 foreach (MethodBase m in effectMethods.Concat(moteMethods))
@@ -548,12 +556,13 @@ namespace Multiplayer.Client
 
             bool hasSeeds = mapSeeds.Count > 0;
 
-            ClientJoiningState.ReloadGame((int)replayTimer, new List<int>() { 0 }, () =>
+            ClientJoiningState.ReloadGame((int)replayTimer, OnMainThread.cachedMapData.Keys.Take(6).ToList(), () =>
             {
                 session.replayTimerStart = TickPatch.Timer;
                 session.replayTimerEnd = (int)replayTimer;
                 TickPatch.tickUntil = (int)replayTimer;
 
+                return;
                 if (!hasSeeds)
                     LoadReplay();
                 else
@@ -672,6 +681,15 @@ namespace Multiplayer.Client
                 foreach (Map m in Find.Maps)
                     m.MpComp().SetFaction(value);
             }
+        }
+
+        public MultiplayerGame()
+        {
+            Toils_Ingest.cardinals = GenAdj.CardinalDirections.ToList();
+            Toils_Ingest.diagonals = GenAdj.DiagonalDirections.ToList();
+            GenAdj.adjRandomOrderList = null;
+            CellFinder.mapEdgeCells = null;
+            CellFinder.mapSingleEdgeCells = new List<IntVec3>[4];
         }
     }
 
@@ -835,7 +853,7 @@ namespace Multiplayer.Client
         public static void ScheduleCommand(ScheduledCommand cmd)
         {
             MpLog.Log($"Cmd: {cmd.type}, faction: {cmd.factionId}, map: {cmd.mapId}, ticks: {cmd.ticks}");
-            cachedMapCmds.GetOrAddDefault(cmd.mapId).Add(cmd);
+            cachedMapCmds.GetOrAddNew(cmd.mapId).Add(cmd);
 
             if (Current.ProgramState != ProgramState.Playing) return;
 
@@ -848,24 +866,22 @@ namespace Multiplayer.Client
 
     public static class FactionContext
     {
-        public static Stack<Faction> stack = new Stack<Faction>();
-
         public static Faction Push(Faction faction)
         {
             if (faction == null || (faction.def != Multiplayer.factionDef && faction.def != FactionDefOf.PlayerColony))
             {
-                stack.Push(null);
+                ThreadStatics.factionContextStack.Push(null);
                 return null;
             }
 
-            stack.Push(Find.FactionManager.OfPlayer);
+            ThreadStatics.factionContextStack.Push(Find.FactionManager.OfPlayer);
             Set(faction);
             return faction;
         }
 
         public static Faction Pop()
         {
-            Faction f = stack.Pop();
+            Faction f = ThreadStatics.factionContextStack.Pop();
             if (f != null)
                 Set(f);
             return f;

@@ -12,7 +12,7 @@ namespace Multiplayer.Client
 {
     // Allow different factions' blueprints in the same cell
     // Ignore other factions' blueprints when building
-    // Remove blueprints when something is built over them
+    // Remove all blueprints when something solid is built over them
     // Don't draw other factions' blueprints
     // Don't link graphics of different factions' blueprints
 

@@ -149,6 +149,28 @@ namespace Multiplayer.Client
                     {
                         Find.WindowStack.Add(new HostWindow());
                     }));
+
+                    optList.Insert(0, new ListableOption("Make 5 autotests", () =>
+                    {
+                        for (int i = 0; i < 5; i++)
+                        {
+                            MapParent mapParent = (MapParent)WorldObjectMaker.MakeWorldObject(WorldObjectDefOf.Settlement);
+                            mapParent.Tile = (from tile in Enumerable.Range(0, Find.WorldGrid.TilesCount)
+                                              where Find.WorldGrid[tile].biome.canBuildBase
+                                              select tile).RandomElement();
+
+                            mapParent.SetFaction(Faction.OfPlayer);
+                            Find.WorldObjects.Add(mapParent);
+                            Map currentMap = MapGenerator.GenerateMap(Find.World.info.initialMapSize, mapParent, MapGeneratorDefOf.Base_Player, null, null);
+                            Current.Game.CurrentMap = currentMap;
+
+                            Find.TickManager.DoSingleTick();
+
+                            Autotests_ColonyMaker.MakeColony_Full();
+
+                            Find.TickManager.DoSingleTick();
+                        }
+                    }));
                 }
 
                 if (Multiplayer.Client != null)
@@ -168,6 +190,16 @@ namespace Multiplayer.Client
                         //Multiplayer.LocalServer.Enqueue(() => Multiplayer.LocalServer.DoAutosave());
 
                         Multiplayer.SaveReplay();
+                    }));
+
+                    optList.Insert(0, new ListableOption("Advance time", () =>
+                    {
+                        SyncPatches.AdvanceTime();
+                    }));
+
+                    optList.Insert(0, new ListableOption("Save map", () =>
+                    {
+                        SyncPatches.SaveMap();
                     }));
 
                     optList.RemoveAll(opt => opt.label == "Save".Translate() || opt.label == "LoadGame".Translate());
@@ -461,6 +493,7 @@ namespace Multiplayer.Client
                 text1 += " " + Sync.bufferedChanges.Sum(kv => kv.Value.Count);
                 text1 += " " + async.randState;
                 text1 += "\nreal speed: " + Find.TickManager.CurTimeSpeed;
+                text1 += "\ntook: " + TickPatch.took;
 
                 Rect rect1 = new Rect(80f, 110f, 330f, Text.CalcHeight(text1, 330f));
                 Widgets.Label(rect1, text1);
@@ -581,6 +614,13 @@ namespace Multiplayer.Client
         static void Prefix(Pawn_JobTracker __instance, Job newJob, ref Container<Map> __state)
         {
             if (Multiplayer.Client == null) return;
+
+            if (Multiplayer.ShouldSync)
+            {
+                Log.Warning($"Started a job {newJob} on pawn {__instance.pawn} from the interface!");
+                return;
+            }
+
             Pawn pawn = __instance.pawn;
 
             __instance.jobsGivenThisTick = 0;
@@ -648,21 +688,14 @@ namespace Multiplayer.Client
 
     public static class ThingContext
     {
-        private static Stack<Pair<Thing, Map>> stack = new Stack<Pair<Thing, Map>>();
-
-        static ThingContext()
-        {
-            stack.Push(new Pair<Thing, Map>(null, null));
-        }
-
-        public static Thing Current => stack.Peek().First;
+        public static Thing Current => ThreadStatics.thingContextStack.Peek().First;
         public static Pawn CurrentPawn => Current as Pawn;
 
         public static Map CurrentMap
         {
             get
             {
-                Pair<Thing, Map> peek = stack.Peek();
+                Pair<Thing, Map> peek = ThreadStatics.thingContextStack.Peek();
                 if (peek.First != null && peek.First.Map != peek.Second)
                     Log.ErrorOnce("Thing " + peek.First + " has changed its map!", peek.First.thingIDNumber ^ 57481021);
                 return peek.Second;
@@ -671,12 +704,12 @@ namespace Multiplayer.Client
 
         public static void Push(Thing t)
         {
-            stack.Push(new Pair<Thing, Map>(t, t.Map));
+            ThreadStatics.thingContextStack.Push(new Pair<Thing, Map>(t, t.Map));
         }
 
         public static void Pop()
         {
-            stack.Pop();
+            ThreadStatics.thingContextStack.Pop();
         }
     }
 
@@ -687,17 +720,6 @@ namespace Multiplayer.Client
         static bool Prefix() => false;
     }
 
-    //[HarmonyPatch(typeof(Faction))]
-    //[HarmonyPatch(nameof(Faction.OfPlayer), PropertyMethod.Getter)]
-    public static class FactionOfPlayerPatch
-    {
-        static void Prefix()
-        {
-            if (Multiplayer.Ticking && FactionContext.stack.Count == 0)
-                Log.Warning("Faction context not set during ticking");
-        }
-    }
-
     [HarmonyPatch(typeof(UniqueIDsManager))]
     [HarmonyPatch(nameof(UniqueIDsManager.GetNextID))]
     public static class UniqueIdsPatch
@@ -705,7 +727,7 @@ namespace Multiplayer.Client
         private static IdBlock currentBlock;
         public static IdBlock CurrentBlock
         {
-            get => currentBlock;
+            get => MapAsyncTimeComp.tickingMap?.GetComponent<MultiplayerMapComp>().mapIdBlock ?? currentBlock;
 
             set
             {
@@ -721,7 +743,8 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.Client == null) return;
 
-            if (CurrentBlock == null)
+            IdBlock currentBlock = CurrentBlock;
+            if (currentBlock == null)
             {
                 __result = localIds--;
                 if (!Multiplayer.ShouldSync)
@@ -729,7 +752,7 @@ namespace Multiplayer.Client
                 return;
             }
 
-            __result = CurrentBlock.NextId();
+            __result = currentBlock.NextId();
             //MpLog.Log("got new id " + __result);
 
             if (currentBlock.current > currentBlock.blockSize * 0.95f && !currentBlock.overflowHandled)
@@ -923,6 +946,8 @@ namespace Multiplayer.Client
             new List<RandContext>()
         };
 
+        public static readonly bool collect = false;
+
         static void Prefix()
         {
             if (RandPatches.Ignore || Multiplayer.Client == null) return;
@@ -945,6 +970,8 @@ namespace Multiplayer.Client
 
         public static void Log(int extra)
         {
+            if (!collect) return;
+
             StackTrace trace = new StackTrace(1);
             int thingHash = ThingContext.Current?.thingIDNumber ?? -1;
             called.Add(trace.Hash().Combine(calls).Combine(thingHash));
@@ -1466,6 +1493,7 @@ namespace Multiplayer.Client
     [MpPatch(typeof(Command_SetPlantToGrow), nameof(Command_SetPlantToGrow.WarnAsAppropriate))]
     [MpPatch(typeof(MoteMaker), nameof(MoteMaker.MakeStaticMote), new[] { typeof(IntVec3), typeof(Map), typeof(ThingDef), typeof(float) })]
     [MpPatch(typeof(MoteMaker), nameof(MoteMaker.MakeStaticMote), new[] { typeof(Vector3), typeof(Map), typeof(ThingDef), typeof(float) })]
+    [MpPatch(typeof(TutorUtility), nameof(TutorUtility.DoModalDialogIfNotKnown))]
     static class CancelFeedbackNotTargetedAtMe
     {
         private static bool Cancel =>
@@ -1529,16 +1557,6 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.Client != null)
                 __result = false;
-        }
-    }
-
-    [HarmonyPatch(typeof(Building_Bed), nameof(Building_Bed.ToggleForPrisonersByInterface))]
-    static class BuildingBedPatch
-    {
-        static void Postfix()
-        {
-            if (Multiplayer.Client != null)
-                Building_Bed.lastPrisonerSetChangeFrame = -1;
         }
     }
 
@@ -1644,6 +1662,50 @@ namespace Multiplayer.Client
     public class MultiplayerPawnComp : ThingComp
     {
         public SituationalThoughtHandler thoughtsForInterface;
+    }
+
+    [HarmonyPatch(typeof(IncidentWorker_PawnsArrive), nameof(IncidentWorker_PawnsArrive.FactionCanBeGroupSource))]
+    static class FactionCanBeGroupSourcePatch
+    {
+        static void Postfix(Faction f, ref bool __result)
+        {
+            __result &= f.def.pawnGroupMakers?.Count > 0;
+        }
+    }
+
+    [HarmonyPatch(typeof(Prefs), nameof(Prefs.RandomPreferredName))]
+    static class PreferredNamePatch
+    {
+        static bool Prefix() => Multiplayer.Client == null;
+    }
+
+    [HarmonyPatch(typeof(PawnBioAndNameGenerator), nameof(PawnBioAndNameGenerator.TryGetRandomUnusedSolidName))]
+    public static class GenerateNewPawnInternalPatch
+    {
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> e)
+        {
+            List<CodeInstruction> insts = new List<CodeInstruction>(e);
+
+            insts.Insert(insts.Count - 1, new CodeInstruction(OpCodes.Ldloc_2));
+            insts.Insert(insts.Count - 1, new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(GenerateNewPawnInternalPatch), nameof(Unshuffle)).MakeGenericMethod(typeof(NameTriple))));
+
+            return insts;
+        }
+
+        public static void Unshuffle<T>(List<T> list)
+        {
+            uint iters = Rand.iterations;
+
+            int i = 0;
+            while (i < list.Count)
+            {
+                int index = Mathf.Abs(Rand.random.GetInt(iters--) % (i + 1));
+                T value = list[index];
+                list[index] = list[i];
+                list[i] = value;
+                i++;
+            }
+        }
     }
 
 }

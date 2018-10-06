@@ -25,7 +25,7 @@ namespace Multiplayer.Common
             return value;
         }
 
-        public static V GetOrAddDefault<K, V>(this Dictionary<K, V> dict, K obj) where V : new()
+        public static V GetOrAddNew<K, V>(this Dictionary<K, V> dict, K obj) where V : new()
         {
             return AddOrGet(dict, obj, new V());
         }

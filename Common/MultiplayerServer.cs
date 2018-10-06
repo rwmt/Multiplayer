@@ -247,7 +247,7 @@ namespace Multiplayer.Common
             if (mapId < 0)
                 globalCmds.Add(toSave);
             else
-                mapCmds.GetOrAddDefault(mapId).Add(toSave);
+                mapCmds.GetOrAddNew(mapId).Add(toSave);
 
             byte[] toSend = toSave.Append(new byte[] { 0 });
             byte[] toSendSource = toSave.Append(new byte[] { 1 });
