@@ -8,7 +8,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
-using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
 using Verse;
 using Verse.AI;
@@ -51,7 +50,7 @@ namespace Multiplayer.Client
         {
             this.targetType = targetType;
             this.memberPath = targetType + "/" + memberPath;
-            fieldType = MpReflection.PropertyOrFieldType(this.memberPath);
+            fieldType = MpReflection.PathType(this.memberPath);
             indexType = MpReflection.IndexType(this.memberPath);
         }
 
@@ -157,7 +156,7 @@ namespace Multiplayer.Client
             if (!instancePath.NullOrEmpty())
             {
                 this.instancePath = instanceType + "/" + instancePath;
-                instanceType = MpReflection.PropertyOrFieldType(this.instancePath);
+                instanceType = MpReflection.PathType(this.instancePath);
             }
 
             method = AccessTools.Method(instanceType, methodName, argTypes.Length > 0 ? Sync.TranslateArgTypes(argTypes) : null) ?? throw new Exception($"Couldn't find method {instanceType}::{methodName}");
@@ -304,7 +303,7 @@ namespace Multiplayer.Client
                     string increment = parts[0] + "/" + parts[1];
                     for (int i = 2; i < parts.Length; i++)
                     {
-                        if (!MpReflection.PropertyOrFieldType(increment).HasAttribute<CompilerGeneratedAttribute>())
+                        if (!MpReflection.PathType(increment).IsCompilerGenerated())
                             break;
                         temp.Add(increment);
                         increment += "/" + parts[i];
@@ -316,7 +315,7 @@ namespace Multiplayer.Client
                 this.fieldPaths = temp.ToArray();
             }
 
-            fieldTypes = this.fieldPaths.Select(path => MpReflection.PropertyOrFieldType(path)).ToArray();
+            fieldTypes = this.fieldPaths.Select(path => MpReflection.PathType(path)).ToArray();
         }
 
         public bool DoSync(object delegateInstance, params object[] args)
@@ -339,7 +338,7 @@ namespace Multiplayer.Client
 
             EnumerableHelper.ProcessCombined(fields.Concat(args), fieldTypes.Concat(argTypes), (obj, type) =>
             {
-                if (type.HasAttribute<CompilerGeneratedAttribute>())
+                if (type.IsCompilerGenerated())
                     return;
 
                 Sync.WriteSyncObject(writer, obj, type);
@@ -368,7 +367,7 @@ namespace Multiplayer.Client
                 Type fieldType = fieldTypes[i];
                 object value;
 
-                if (fieldType.HasAttribute<CompilerGeneratedAttribute>())
+                if (fieldType.IsCompilerGenerated())
                     value = Activator.CreateInstance(fieldType);
                 else
                     value = Sync.ReadSyncObject(data, fieldType);
@@ -538,7 +537,7 @@ namespace Multiplayer.Client
                 if (getter(curPath))
                     return true;
 
-                if (!field.FieldType.HasAttribute<CompilerGeneratedAttribute>())
+                if (!field.FieldType.IsCompilerGenerated())
                     continue;
 
                 if (AllDelegateFieldsRecursive(field.FieldType, getter, curPath))
@@ -882,6 +881,10 @@ namespace Multiplayer.Client
             Normal, MapAllThings, MapAllDesignations
         }
 
+        private static MethodInfo GetDefByIdMethod = AccessTools.Method(typeof(Sync), nameof(Sync.GetDefById));
+
+        private static T GetDefById<T>(ushort id) where T : Def, new() => DefDatabase<T>.GetByShortHash(id);
+
         public static object ReadSyncObject(ByteReader data, Type type)
         {
             MpContext context = data.MpContext();
@@ -969,8 +972,7 @@ namespace Multiplayer.Client
                 if (shortHash == 0)
                     return null;
 
-                Type dbType = typeof(DefDatabase<>).MakeGenericType(type);
-                return AccessTools.Method(dbType, nameof(DefDatabase<Def>.GetByShortHash)).Invoke(null, new object[] { shortHash });
+                return GetDefByIdMethod.MakeGenericMethod(type).Invoke(null, new object[] { shortHash });
             }
             else if (typeof(PawnColumnWorker).IsAssignableFrom(type))
             {
@@ -1355,7 +1357,7 @@ namespace Multiplayer.Client
                 }
                 else
                 {
-                    log.LogNode("No writer for " + type);
+                    log?.LogNode("No writer for " + type);
                     throw new SerializationException("No writer for type " + type);
                 }
             }

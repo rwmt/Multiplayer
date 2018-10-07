@@ -270,13 +270,14 @@ namespace Multiplayer.Client
         public static Stack<Faction> factionContextStack = new Stack<Faction>();
 
         [ThreadStatic]
-        public static Stack<Pair<Thing, Map>> thingContextStack = new Stack<Pair<Thing, Map>>();
+        public static Stack<Pair<Thing, Map>> thingContextStack = new Stack<Pair<Thing, Map>>()
+        {
+            new Pair<Thing, Map>(null, null)
+        };
 
         static ThreadStatics()
         {
             //RecreateWorkers();
-            thingContextStack.Clear();
-            thingContextStack.Push(new Pair<Thing, Map>(null, null));
         }
     }
 
@@ -309,9 +310,15 @@ namespace Multiplayer.Client
 
         public static void Patch()
         {
+            HarmonyInstance harmony = Multiplayer.harmony;
+
+            harmony.DoMpPatches(typeof(MakeMotePatch2));
+            harmony.DoMpPatches(typeof(MotesPatch));
+            harmony.DoMpPatches(typeof(BFSWorkerLock));
+
             HarmonyMethod transpiler = new HarmonyMethod(typeof(ThreadStaticsData), nameof(ThreadStaticsData.Transpiler));
             foreach (MethodInfo method in usedFields.Keys)
-                Multiplayer.harmony.Patch(method, null, null, transpiler);
+                harmony.Patch(method, null, null, transpiler);
         }
 
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts, MethodBase original)
@@ -328,6 +335,11 @@ namespace Multiplayer.Client
                 yield return inst;
             }
         }
+
+        public static void InvokeCctor()
+        {
+            typeof(ThreadStatics).TypeInitializer.Invoke(null, null);
+        }
     }
 
     [HarmonyPatch(typeof(LongEventHandler), nameof(LongEventHandler.RunEventFromAnotherThread))]
@@ -335,7 +347,7 @@ namespace Multiplayer.Client
     {
         static void Prefix()
         {
-            typeof(ThreadStatics).TypeInitializer.Invoke(null, null);
+            ThreadStaticsData.InvokeCctor();
         }
     }
 

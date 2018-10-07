@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using UnityEngine;
 using Verse;
 using zip::Ionic.Zip;
@@ -169,6 +170,17 @@ namespace Multiplayer.Client
             MemoryStream stream = new MemoryStream();
             entry.Extract(stream);
             return stream.ToArray();
+        }
+
+        public static bool IsCompilerGenerated(this Type type)
+        {
+            while (type != null)
+            {
+                if (type.HasAttribute<CompilerGeneratedAttribute>()) return true;
+                type = type.DeclaringType;
+            }
+
+            return false;
         }
 
     }

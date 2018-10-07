@@ -63,8 +63,7 @@ namespace Multiplayer.Client
 
         public ConstantTicker ticker = new ConstantTicker();
         public IdBlock globalIdBlock;
-        public string worldId = Guid.NewGuid().ToString();
-        public int sessionId = new Random().Next();
+        public ulong randState = 2;
         //private TimeSpeed timeSpeedInt;
 
         public Queue<ScheduledCommand> cmds = new Queue<ScheduledCommand>();
@@ -75,9 +74,7 @@ namespace Multiplayer.Client
 
         public override void ExposeData()
         {
-            Scribe_Values.Look(ref worldId, "worldId");
             Scribe_Values.Look(ref TickPatch.timerInt, "timer");
-            Scribe_Values.Look(ref sessionId, "sessionId");
 
             TimeSpeed timeSpeed = Find.TickManager.CurTimeSpeed;
             Scribe_Values.Look(ref timeSpeed, "timeSpeed");
@@ -117,8 +114,7 @@ namespace Multiplayer.Client
         public void Tick()
         {
             tickingWorld = true;
-            UniqueIdsPatch.CurrentBlock = Multiplayer.GlobalIdBlock;
-            Find.TickManager.CurTimeSpeed = TimeSpeed;
+            PreContext();
 
             try
             {
@@ -126,9 +122,21 @@ namespace Multiplayer.Client
             }
             finally
             {
-                UniqueIdsPatch.CurrentBlock = null;
+                PostContext();
                 tickingWorld = false;
             }
+        }
+
+        public void PreContext()
+        {
+            UniqueIdsPatch.CurrentBlock = globalIdBlock;
+            Rand.StateCompressed = randState;
+        }
+
+        public void PostContext()
+        {
+            randState = Rand.StateCompressed;
+            UniqueIdsPatch.CurrentBlock = null;
         }
 
         public void SetFaction(Faction faction)
@@ -151,17 +159,13 @@ namespace Multiplayer.Client
 
         public void ExecuteCmd(ScheduledCommand cmd)
         {
+            CommandType cmdType = cmd.type;
             ByteReader data = new ByteReader(cmd.data);
-            MpContext context = data.MpContext();
 
             executingCmdWorld = true;
             TickPatch.currentExecutingCmdIssuedBySelf = cmd.issuedBySelf;
 
-            Rand.PushState();
-            Multiplayer.Seed = Find.TickManager.TicksGame;
-            CommandType cmdType = cmd.type;
-
-            UniqueIdsPatch.CurrentBlock = Multiplayer.GlobalIdBlock;
+            PreContext();
             FactionContext.Push(cmd.GetFaction());
 
             try
@@ -222,8 +226,7 @@ namespace Multiplayer.Client
             finally
             {
                 FactionContext.Pop();
-                UniqueIdsPatch.CurrentBlock = null;
-                Rand.PopState();
+                PostContext();
                 TickPatch.currentExecutingCmdIssuedBySelf = false;
                 executingCmdWorld = false;
             }

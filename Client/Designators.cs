@@ -30,12 +30,14 @@ namespace Multiplayer.Client
             if (!Multiplayer.ShouldSync) return true;
 
             Map map = Find.CurrentMap;
-            ByteWriter data = new ByteWriter();
+            LoggingByteWriter writer = new LoggingByteWriter();
+            writer.LogNode("Designate single cell: " + designator.GetType());
 
-            WriteData(data, DesignatorMode.SingleCell, designator);
-            Sync.WriteSync(data, cell);
+            WriteData(writer, DesignatorMode.SingleCell, designator);
+            Sync.WriteSync(writer, cell);
 
-            Multiplayer.Client.SendCommand(CommandType.Designator, map.uniqueID, data.GetArray());
+            Multiplayer.Client.SendCommand(CommandType.Designator, map.uniqueID, writer.GetArray());
+            Multiplayer.PacketLog.nodes.Add(writer.current);
 
             return false;
         }
@@ -49,13 +51,15 @@ namespace Multiplayer.Client
             if (cells.Count() == 0) return true;
 
             Map map = Find.CurrentMap;
-            ByteWriter data = new ByteWriter();
+            LoggingByteWriter writer = new LoggingByteWriter();
+            writer.LogNode("Designate multi cell: " + designator.GetType());
             IntVec3[] cellArray = cells.ToArray();
 
-            WriteData(data, DesignatorMode.MultiCell, designator);
-            Sync.WriteSync(data, cellArray);
+            WriteData(writer, DesignatorMode.MultiCell, designator);
+            Sync.WriteSync(writer, cellArray);
 
-            Multiplayer.Client.SendCommand(CommandType.Designator, map.uniqueID, data.GetArray());
+            Multiplayer.Client.SendCommand(CommandType.Designator, map.uniqueID, writer.GetArray());
+            Multiplayer.PacketLog.nodes.Add(writer.current);
 
             return false;
         }
@@ -66,12 +70,14 @@ namespace Multiplayer.Client
             if (!Multiplayer.ShouldSync) return true;
 
             Map map = Find.CurrentMap;
-            ByteWriter data = new ByteWriter();
+            LoggingByteWriter writer = new LoggingByteWriter();
+            writer.LogNode("Designate thing: " + thing + " " + designator.GetType());
 
-            WriteData(data, DesignatorMode.Thing, designator);
-            Sync.WriteSync(data, thing);
+            WriteData(writer, DesignatorMode.Thing, designator);
+            Sync.WriteSync(writer, thing);
 
-            Multiplayer.Client.SendCommand(CommandType.Designator, map.uniqueID, data.GetArray());
+            Multiplayer.Client.SendCommand(CommandType.Designator, map.uniqueID, writer.GetArray());
+            Multiplayer.PacketLog.nodes.Add(writer.current);
 
             MoteMaker.ThrowMetaPuffs(thing);
 
@@ -80,7 +86,7 @@ namespace Multiplayer.Client
 
         private static void WriteData(ByteWriter data, DesignatorMode mode, Designator designator)
         {
-            data.WriteInt32((int)mode);
+            Sync.WriteSync(data, mode);
             Sync.WriteSync(data, designator);
 
             if (designator is Designator_AreaAllowed)

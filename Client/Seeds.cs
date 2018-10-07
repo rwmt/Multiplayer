@@ -36,7 +36,7 @@ namespace Multiplayer.Client
             if (Multiplayer.Client == null) return;
             if (Scribe.mode != LoadSaveMode.LoadingVars && Scribe.mode != LoadSaveMode.ResolvingCrossRefs && Scribe.mode != LoadSaveMode.PostLoadInit) return;
 
-            int seed = __instance.uniqueID.Combine(Multiplayer.WorldComp.sessionId);
+            int seed = __instance.uniqueID;
             Rand.PushState(seed);
 
             if (Scribe.mode != LoadSaveMode.LoadingVars)
@@ -65,7 +65,7 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.Client == null) return;
 
-            int seed = __instance.uniqueID.Combine(Multiplayer.WorldComp.sessionId);
+            int seed = __instance.uniqueID;
             Rand.PushState(seed);
 
             UniqueIdsPatch.CurrentBlock = __instance.GetComponent<MultiplayerMapComp>().mapIdBlock;
@@ -136,10 +136,11 @@ namespace Multiplayer.Client
 
         public static void Postfix(bool __state)
         {
-            if (!__state) return;
-
-            Rand.PopState();
-            Ignore = false;
+            if (__state)
+            {
+                Rand.PopState();
+                Ignore = false;
+            }
         }
     }
 }

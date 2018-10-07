@@ -82,7 +82,7 @@ namespace Multiplayer.Client
             setters[memberPath](instance, value, index);
         }
 
-        public static Type PropertyOrFieldType(string memberPath)
+        public static Type PathType(string memberPath)
         {
             InitPropertyOrField(memberPath);
             return pathTypes[memberPath];

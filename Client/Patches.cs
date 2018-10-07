@@ -149,28 +149,6 @@ namespace Multiplayer.Client
                     {
                         Find.WindowStack.Add(new HostWindow());
                     }));
-
-                    optList.Insert(0, new ListableOption("Make 5 autotests", () =>
-                    {
-                        for (int i = 0; i < 5; i++)
-                        {
-                            MapParent mapParent = (MapParent)WorldObjectMaker.MakeWorldObject(WorldObjectDefOf.Settlement);
-                            mapParent.Tile = (from tile in Enumerable.Range(0, Find.WorldGrid.TilesCount)
-                                              where Find.WorldGrid[tile].biome.canBuildBase
-                                              select tile).RandomElement();
-
-                            mapParent.SetFaction(Faction.OfPlayer);
-                            Find.WorldObjects.Add(mapParent);
-                            Map currentMap = MapGenerator.GenerateMap(Find.World.info.initialMapSize, mapParent, MapGeneratorDefOf.Base_Player, null, null);
-                            Current.Game.CurrentMap = currentMap;
-
-                            Find.TickManager.DoSingleTick();
-
-                            Autotests_ColonyMaker.MakeColony_Full();
-
-                            Find.TickManager.DoSingleTick();
-                        }
-                    }));
                 }
 
                 if (Multiplayer.Client != null)
@@ -464,18 +442,20 @@ namespace Multiplayer.Client
         {
             Text.Font = GameFont.Small;
 
-            int timerLag = (TickPatch.tickUntil - (int)TickPatch.timerInt);
-            string text = $"{Find.TickManager.TicksGame} {TickPatch.timerInt} {TickPatch.tickUntil} {timerLag} {Time.deltaTime * 60f}";
-
-            Rect rect = new Rect(80f, 60f, 330f, Text.CalcHeight(text, 330f));
-            Widgets.Label(rect, text);
+            {
+                int timerLag = (TickPatch.tickUntil - (int)TickPatch.timerInt);
+                string text = $"{Find.TickManager.TicksGame} {TickPatch.timerInt} {TickPatch.tickUntil} {timerLag} {Time.deltaTime * 60f}";
+                Rect rect = new Rect(80f, 60f, 330f, Text.CalcHeight(text, 330f));
+                Widgets.Label(rect, text);
+            }
 
             if (Find.CurrentMap != null && Multiplayer.Client != null)
             {
                 MapAsyncTimeComp async = Find.CurrentMap.GetComponent<MapAsyncTimeComp>();
-                string text1 = "" + async.mapTicks;
+                StringBuilder text = new StringBuilder();
+                text.Append(async.mapTicks);
 
-                text1 += " r:" + Find.CurrentMap.reservationManager.AllReservedThings().Count();
+                text.Append($" d: {Find.CurrentMap.designationManager.allDesignations.Count}");
 
                 int faction = Find.CurrentMap.info.parent.Faction.loadID;
                 MultiplayerMapComp comp = Find.CurrentMap.GetComponent<MultiplayerMapComp>();
@@ -483,20 +463,20 @@ namespace Multiplayer.Client
 
                 if (data != null)
                 {
-                    text1 += " h:" + data.listerHaulables.ThingsPotentiallyNeedingHauling().Count;
-                    text1 += " sg:" + data.haulDestinationManager.AllGroupsListForReading.Count;
+                    text.Append($" h: {data.listerHaulables.ThingsPotentiallyNeedingHauling().Count}");
+                    text.Append($" sg: {data.haulDestinationManager.AllGroupsListForReading.Count}");
                 }
 
                 if (comp.mapIdBlock != null)
-                    text1 += " " + comp.mapIdBlock.current;
+                    text.Append($" {comp.mapIdBlock.current}");
 
-                text1 += " " + Sync.bufferedChanges.Sum(kv => kv.Value.Count);
-                text1 += " " + async.randState;
-                text1 += "\nreal speed: " + Find.TickManager.CurTimeSpeed;
-                text1 += "\ntook: " + TickPatch.took;
+                text.Append($" {Sync.bufferedChanges.Sum(kv => kv.Value.Count)}");
+                text.Append($"\n{async.randState}");
+                text.Append($"\n{Multiplayer.WorldComp.randState}");
+                text.Append($"\nreal speed: {Find.TickManager.CurTimeSpeed}");
 
-                Rect rect1 = new Rect(80f, 110f, 330f, Text.CalcHeight(text1, 330f));
-                Widgets.Label(rect1, text1);
+                Rect rect1 = new Rect(80f, 110f, 330f, Text.CalcHeight(text.ToString(), 330f));
+                Widgets.Label(rect1, text.ToString());
             }
 
             if (Multiplayer.IsReplay)
@@ -688,14 +668,21 @@ namespace Multiplayer.Client
 
     public static class ThingContext
     {
-        public static Thing Current => ThreadStatics.thingContextStack.Peek().First;
+        private static Stack<Pair<Thing, Map>> stack = new Stack<Pair<Thing, Map>>();
+
+        static ThingContext()
+        {
+            stack.Push(new Pair<Thing, Map>(null, null));
+        }
+
+        public static Thing Current => stack.Peek().First;
         public static Pawn CurrentPawn => Current as Pawn;
 
         public static Map CurrentMap
         {
             get
             {
-                Pair<Thing, Map> peek = ThreadStatics.thingContextStack.Peek();
+                Pair<Thing, Map> peek = stack.Peek();
                 if (peek.First != null && peek.First.Map != peek.Second)
                     Log.ErrorOnce("Thing " + peek.First + " has changed its map!", peek.First.thingIDNumber ^ 57481021);
                 return peek.Second;
@@ -704,12 +691,12 @@ namespace Multiplayer.Client
 
         public static void Push(Thing t)
         {
-            ThreadStatics.thingContextStack.Push(new Pair<Thing, Map>(t, t.Map));
+            stack.Push(new Pair<Thing, Map>(t, t.Map));
         }
 
         public static void Pop()
         {
-            ThreadStatics.thingContextStack.Pop();
+            stack.Pop();
         }
     }
 
@@ -727,7 +714,7 @@ namespace Multiplayer.Client
         private static IdBlock currentBlock;
         public static IdBlock CurrentBlock
         {
-            get => MapAsyncTimeComp.tickingMap?.GetComponent<MultiplayerMapComp>().mapIdBlock ?? currentBlock;
+            get => currentBlock;
 
             set
             {
@@ -1302,7 +1289,6 @@ namespace Multiplayer.Client
             if (Multiplayer.simulating)
             {
                 action();
-                //Log.Message("Executed " + action.Method);
                 return false;
             }
 
@@ -1570,7 +1556,7 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(LongEventHandler), nameof(LongEventHandler.QueueLongEvent), new[] { typeof(Action), typeof(string), typeof(bool), typeof(Action<Exception>) })]
-    static class ExecuteMultiplayerLoadActionImmediately
+    static class CancelLongEventDuringReloading
     {
         // Disable standard loading and screen fading during a reload
         static bool Prefix()

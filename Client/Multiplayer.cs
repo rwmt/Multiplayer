@@ -128,17 +128,9 @@ namespace Multiplayer.Client
             harmony.DoMpPatches(typeof(MakeSpaceForReplayTimeline));
             harmony.DoMpPatches(typeof(CancelFeedbackNotTargetedAtMe));
 
-            harmony.DoMpPatches(typeof(MakeMotePatch2));
-            harmony.DoMpPatches(typeof(MotesPatch));
-            harmony.DoMpPatches(typeof(BFSWorkerLock));
-
             SyncHandlers.Init();
 
             DoPatches();
-            ThreadStaticsData.RegisterAll();
-            ThreadStaticsData.Patch();
-
-            typeof(ThreadStatics).TypeInitializer.Invoke(null, null);
 
             Log.messageQueue.maxMessages = 1000;
 
@@ -556,7 +548,7 @@ namespace Multiplayer.Client
 
             bool hasSeeds = mapSeeds.Count > 0;
 
-            ClientJoiningState.ReloadGame((int)replayTimer, OnMainThread.cachedMapData.Keys.Take(6).ToList(), () =>
+            ClientJoiningState.ReloadGame((int)replayTimer, OnMainThread.cachedMapData.Keys.ToList(), () =>
             {
                 session.replayTimerStart = TickPatch.Timer;
                 session.replayTimerEnd = (int)replayTimer;
@@ -866,22 +858,24 @@ namespace Multiplayer.Client
 
     public static class FactionContext
     {
+        private static Stack<Faction> stack = new Stack<Faction>();
+
         public static Faction Push(Faction faction)
         {
             if (faction == null || (faction.def != Multiplayer.factionDef && faction.def != FactionDefOf.PlayerColony))
             {
-                ThreadStatics.factionContextStack.Push(null);
+                stack.Push(null);
                 return null;
             }
 
-            ThreadStatics.factionContextStack.Push(Find.FactionManager.OfPlayer);
+            stack.Push(Find.FactionManager.OfPlayer);
             Set(faction);
             return faction;
         }
 
         public static Faction Pop()
         {
-            Faction f = ThreadStatics.factionContextStack.Pop();
+            Faction f = stack.Pop();
             if (f != null)
                 Set(f);
             return f;
