@@ -1,4 +1,5 @@
-﻿using Multiplayer.Common;
+﻿using Harmony;
+using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
 using System;
@@ -7,6 +8,7 @@ using System.Linq;
 using System.Text;
 using System.Xml;
 using Verse;
+using Verse.AI;
 
 namespace Multiplayer.Client
 {
@@ -66,6 +68,8 @@ namespace Multiplayer.Client
         public ulong randState = 2;
         //private TimeSpeed timeSpeedInt;
 
+        public List<MpTradeSession> trading = new List<MpTradeSession>();
+
         public Queue<ScheduledCommand> cmds = new Queue<ScheduledCommand>();
 
         public MultiplayerWorldComp(World world) : base(world)
@@ -119,12 +123,42 @@ namespace Multiplayer.Client
             try
             {
                 Find.TickManager.DoSingleTick();
+                TickTrading();
             }
             finally
             {
                 PostContext();
                 tickingWorld = false;
             }
+        }
+
+        public void TickTrading()
+        {
+            for (int i = trading.Count - 1; i >= 0; i--)
+            {
+                var session = trading[i];
+                if (session.ShouldCancel())
+                {
+                    RemoveTradeSession(session);
+                    continue;
+                }
+
+                Pawn negotiator = session.playerNegotiator;
+                if (!session.startedWaitJobs && negotiator.Spawned && session.trader is Pawn pawn && pawn.Spawned)
+                {
+                    negotiator.jobs.StartJob(new Job(JobDefOf.Wait, 10, true) { count = 1234, targetA = pawn }, JobCondition.InterruptForced);
+                    pawn.jobs.StartJob(new Job(JobDefOf.Wait, 10, true) { count = 1234, targetA = negotiator }, JobCondition.InterruptForced);
+
+                    session.startedWaitJobs = true;
+                }
+            }
+        }
+
+        public void RemoveTradeSession(MpTradeSession session)
+        {
+            int index = trading.IndexOf(session);
+            trading.Remove(session);
+            Find.WindowStack?.WindowOfType<TradingWindow>()?.Notify_RemovedSession(index);
         }
 
         public void PreContext()
@@ -260,6 +294,229 @@ namespace Multiplayer.Client
                 MpLog.Log("New faction {0}", faction.GetUniqueLoadID());
             }
         }
+
+        public void DirtyTradeForMaps(Map map)
+        {
+            if (map == null) return;
+            foreach (MpTradeSession session in trading.Where(s => s.playerNegotiator.Map == map))
+                session.deal.fullRecache = true;
+        }
+
+        public void DirtyTradeForThing(Thing t)
+        {
+            if (t == null) return;
+            foreach (MpTradeSession session in trading.Where(s => s.playerNegotiator.Map == t.Map))
+                session.deal.recacheThings.Add(t);
+        }
+    }
+
+    public class MpTradeSession
+    {
+        public static MpTradeSession current;
+
+        public int sessionId;
+        public ITrader trader;
+        public Pawn playerNegotiator;
+        public bool giftMode;
+        public MpTradeDeal deal;
+        public bool giftsOnly;
+
+        public bool startedWaitJobs;
+
+        public string Label
+        {
+            get
+            {
+                if (trader is Pawn pawn)
+                    return pawn.Faction.Name;
+                return trader.TraderName;
+            }
+        }
+
+        public MpTradeSession() { }
+
+        private MpTradeSession(ITrader trader, Pawn playerNegotiator, bool giftMode)
+        {
+            sessionId = Multiplayer.GlobalIdBlock.NextId();
+
+            this.trader = trader;
+            this.playerNegotiator = playerNegotiator;
+            this.giftMode = giftMode;
+            giftsOnly = giftMode;
+
+            SetTradeSession(this, true);
+            deal = new MpTradeDeal(this);
+            SetTradeSession(null);
+        }
+
+        public static void TryCreate(ITrader trader, Pawn playerNegotiator, bool giftMode)
+        {
+            if (Multiplayer.WorldComp.trading.Any(s => s.trader == trader))
+                return;
+
+            if (Multiplayer.WorldComp.trading.Any(s => s.playerNegotiator == playerNegotiator))
+                return;
+
+            Multiplayer.WorldComp.trading.Add(new MpTradeSession(trader, playerNegotiator, giftMode));
+        }
+
+        public bool ShouldCancel()
+        {
+            if (!trader.CanTradeNow)
+                return true;
+
+            if (playerNegotiator.Drafted)
+                return true;
+
+            if (trader is Pawn pawn && pawn.Spawned && playerNegotiator.Spawned)
+                return pawn.Position.DistanceToSquared(playerNegotiator.Position) > 2 * 2;
+
+            return false;
+        }
+
+        public void TryExecute()
+        {
+            SetTradeSession(this);
+            deal.TryExecute(out bool traded);
+            SetTradeSession(null);
+
+            Multiplayer.WorldComp.RemoveTradeSession(this);
+        }
+
+        public void Reset()
+        {
+            deal.tradeables.ForEach(t => t.countToTransfer = 0);
+            deal.uiShouldReset = UIShouldReset.Silent;
+        }
+
+        public void ToggleGiftMode()
+        {
+            giftMode = !giftMode;
+            deal.tradeables.ForEach(t => t.countToTransfer = 0);
+            deal.uiShouldReset = UIShouldReset.Silent;
+        }
+
+        public Tradeable GetTradeableByThingId(int thingId)
+        {
+            for (int i = 0; i < deal.tradeables.Count; i++)
+            {
+                Tradeable tr = deal.tradeables[i];
+                if (tr.FirstThingColony?.thingIDNumber == thingId)
+                    return tr;
+                if (tr.FirstThingTrader?.thingIDNumber == thingId)
+                    return tr;
+            }
+
+            return null;
+        }
+
+        public static void SetTradeSession(MpTradeSession session, bool force = false)
+        {
+            if (!force && TradeSession.deal == session?.deal) return;
+
+            current = session;
+            TradeSession.trader = session?.trader;
+            TradeSession.playerNegotiator = session?.playerNegotiator;
+            TradeSession.giftMode = session?.giftMode ?? false;
+            TradeSession.deal = session?.deal;
+        }
+    }
+
+    public class MpTradeDeal : TradeDeal
+    {
+        public MpTradeSession session;
+
+        private static HashSet<Thing> newThings = new HashSet<Thing>();
+        private static HashSet<Thing> oldThings = new HashSet<Thing>();
+
+        public UIShouldReset uiShouldReset;
+
+        public HashSet<Thing> recacheThings = new HashSet<Thing>();
+        public bool fullRecache;
+        public bool ShouldRecache => fullRecache || recacheThings.Count > 0;
+
+        public MpTradeDeal(MpTradeSession session)
+        {
+            this.session = session;
+        }
+
+        public void Recache()
+        {
+            if (fullRecache)
+                CheckAddRemove();
+
+            if (recacheThings.Count > 0)
+                CheckReassign();
+
+            newThings.Clear();
+            oldThings.Clear();
+
+            uiShouldReset = UIShouldReset.Full;
+            recacheThings.Clear();
+            fullRecache = false;
+        }
+
+        private void CheckAddRemove()
+        {
+            foreach (Thing t in TradeSession.trader.ColonyThingsWillingToBuy(TradeSession.playerNegotiator))
+                newThings.Add(t);
+
+            for (int i = tradeables.Count - 1; i >= 0; i--)
+            {
+                Tradeable tradeable = tradeables[i];
+                int toRemove = 0;
+
+                for (int j = tradeable.thingsColony.Count - 1; j >= 0; j--)
+                {
+                    Thing thingColony = tradeable.thingsColony[j];
+                    if (!newThings.Contains(thingColony))
+                        toRemove++;
+                    else
+                        oldThings.Add(thingColony);
+                }
+
+                if (toRemove == 0) continue;
+
+                if (toRemove == tradeable.thingsColony.Count + tradeable.thingsTrader.Count)
+                    tradeables.RemoveAt(i);
+                else
+                    tradeable.thingsColony.RemoveAll(t => !newThings.Contains(t));
+            }
+
+            foreach (Thing newThing in newThings)
+                if (!oldThings.Contains(newThing))
+                    AddToTradeables(newThing, Transactor.Colony);
+        }
+
+        private void CheckReassign()
+        {
+            for (int i = tradeables.Count - 1; i >= 0; i--)
+            {
+                Tradeable tradeable = tradeables[i];
+                for (int j = tradeable.thingsColony.Count - 1; j >= 1; j--)
+                {
+                    Thing thingColony = tradeable.thingsColony[j];
+                    TransferAsOneMode mode = (!tradeable.TraderWillTrade) ? TransferAsOneMode.InactiveTradeable : TransferAsOneMode.Normal;
+
+                    if (recacheThings.Contains(thingColony))
+                    {
+                        if (!TransferableUtility.TransferAsOne(tradeable.AnyThing, thingColony, mode))
+                            tradeable.thingsColony.RemoveAt(j);
+                        else
+                            AddToTradeables(thingColony, Transactor.Colony);
+                    }
+                }
+
+                if (recacheThings.Count == 0) break;
+            }
+        }
+    }
+
+    public enum UIShouldReset
+    {
+        None,
+        Silent,
+        Full
     }
 
     public class FactionWorldData : IExposable

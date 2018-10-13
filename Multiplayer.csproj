@@ -31,6 +31,9 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <UseVSHostingProcess>true</UseVSHostingProcess>
   </PropertyGroup>
+  <PropertyGroup>
+    <RunPostBuildEvent>OnOutputUpdated</RunPostBuildEvent>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="0Harmony">
       <HintPath>..\..\..\..\0Harmony.dll</HintPath>
@@ -77,6 +80,7 @@
     <Compile Include="Client\SituationalThoughts.cs" />
     <Compile Include="Client\Sync.cs" />
     <Compile Include="Client\SyncHandlers.cs" />
+    <Compile Include="Client\Trading.cs" />
     <Compile Include="Common\MpLog.cs" />
     <Compile Include="Client\ClientNetworking.cs" />
     <Compile Include="Common\Commands.cs" />
@@ -99,4 +103,7 @@
     <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <PropertyGroup>
+    <PostBuildEvent>"$(ProjectDir)..\..\..\..\postbuild.bat"</PostBuildEvent>
+  </PropertyGroup>
 </Project>

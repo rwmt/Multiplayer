@@ -46,11 +46,11 @@ namespace Multiplayer.Client
     [HarmonyPatch(typeof(GenConstruct), nameof(GenConstruct.CanPlaceBlueprintAt))]
     static class CanPlaceBlueprintAtPatch2
     {
-        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> e)
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> e, MethodBase original)
         {
             List<CodeInstruction> insts = (List<CodeInstruction>)e;
 
-            int loop1 = new CodeFinder(insts).
+            int loop1 = new CodeFinder(original, insts).
                 Forward(OpCodes.Ldstr, "IdenticalThingExists").
                 Backward(OpCodes.Ldarg_S, (byte)5);
 
@@ -61,7 +61,7 @@ namespace Multiplayer.Client
                 new CodeInstruction(OpCodes.Brtrue, insts[loop1 + 2].operand)
             );
 
-            int loop2 = new CodeFinder(insts).
+            int loop2 = new CodeFinder(original, insts).
                 Forward(OpCodes.Ldstr, "InteractionSpotBlocked").
                 Backward(OpCodes.Ldarg_S, (byte)5);
 
@@ -74,7 +74,7 @@ namespace Multiplayer.Client
                 new CodeInstruction(OpCodes.Brtrue, insts[loop2 + 2].operand)
             );
 
-            int loop3 = new CodeFinder(insts).
+            int loop3 = new CodeFinder(original, insts).
                 Forward(OpCodes.Ldstr, "WouldBlockInteractionSpot").
                 Backward(OpCodes.Ldarg_S, (byte)5);
 
@@ -92,12 +92,12 @@ namespace Multiplayer.Client
     [HarmonyPatch(typeof(PlaceWorker_NeverAdjacentTrap), nameof(PlaceWorker_NeverAdjacentTrap.AllowsPlacing))]
     static class PlaceWorkerTrapPatch
     {
-        static IEnumerable<CodeInstruction> Transpiler(ILGenerator gen, IEnumerable<CodeInstruction> e)
+        static IEnumerable<CodeInstruction> Transpiler(ILGenerator gen, IEnumerable<CodeInstruction> e, MethodBase original)
         {
             List<CodeInstruction> insts = (List<CodeInstruction>)e;
             Label label = gen.DefineLabel();
 
-            var finder = new CodeFinder(insts);
+            var finder = new CodeFinder(original, insts);
             int pos = finder.Forward(OpCodes.Stloc_S, 5);
 
             insts.Insert(
@@ -191,12 +191,12 @@ namespace Multiplayer.Client
     [HarmonyPatch(typeof(GenPlace), nameof(GenPlace.HaulPlaceBlockerIn))]
     static class HaulPlaceBlockerInPatch
     {
-        static IEnumerable<CodeInstruction> Transpiler(ILGenerator gen, IEnumerable<CodeInstruction> e)
+        static IEnumerable<CodeInstruction> Transpiler(ILGenerator gen, IEnumerable<CodeInstruction> e, MethodBase original)
         {
             List<CodeInstruction> insts = (List<CodeInstruction>)e;
             Label label = gen.DefineLabel();
 
-            CodeFinder finder = new CodeFinder(insts);
+            CodeFinder finder = new CodeFinder(original, insts);
             int pos = finder.Forward(OpCodes.Stloc_2);
 
             insts.Insert(
@@ -253,10 +253,10 @@ namespace Multiplayer.Client
         static MethodInfo GetStatValueAbstract = AccessTools.Method(typeof(StatExtension), nameof(StatExtension.GetStatValueAbstract));
         static MethodInfo WorkToBuildMethod = AccessTools.Method(typeof(DisableInstaBuild), nameof(WorkToBuild));
 
-        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> e)
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> e, MethodBase original)
         {
             List<CodeInstruction> insts = (List<CodeInstruction>)e;
-            int pos = new CodeFinder(insts).Forward(OpCodes.Call, GetStatValueAbstract);
+            int pos = new CodeFinder(original, insts).Forward(OpCodes.Call, GetStatValueAbstract);
             insts[pos + 1] = new CodeInstruction(OpCodes.Call, WorkToBuildMethod);
 
             return insts;

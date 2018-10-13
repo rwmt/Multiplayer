@@ -55,25 +55,25 @@ namespace Multiplayer.Client
         {
             List<TabRecord> tabs = new List<TabRecord>()
             {
-                new TabRecord("LAN", ()=> tab = Tabs.Lan,  tab == Tabs.Lan),
-                new TabRecord("Direct", ()=> tab = Tabs.Direct, tab == Tabs.Direct),
-                new TabRecord("Steam", ()=> tab = Tabs.Steam, tab == Tabs.Steam),
-                new TabRecord("Host", ()=> tab = Tabs.Host, tab == Tabs.Host),
+                new TabRecord("LAN", () => tab = Tabs.Lan,  tab == Tabs.Lan),
+                new TabRecord("Direct", () => tab = Tabs.Direct, tab == Tabs.Direct),
+                new TabRecord("Steam", () => tab = Tabs.Steam, tab == Tabs.Steam),
+                new TabRecord("Host", () => tab = Tabs.Host, tab == Tabs.Host),
             };
 
             inRect.yMin += 35f;
             TabDrawer.DrawTabs(inRect, tabs);
 
             GUI.BeginGroup(new Rect(0, inRect.yMin, inRect.width, inRect.height));
-
-            Rect groupRect = new Rect(0, 0, inRect.width, inRect.height);
-            if (tab == Tabs.Lan)
-                DrawLan(groupRect);
-            else if (tab == Tabs.Direct)
-                DrawDirect(groupRect);
-            else if (tab == Tabs.Steam)
-                DrawSteam(groupRect);
-
+            {
+                Rect groupRect = new Rect(0, 0, inRect.width, inRect.height);
+                if (tab == Tabs.Lan)
+                    DrawLan(groupRect);
+                else if (tab == Tabs.Direct)
+                    DrawDirect(groupRect);
+                else if (tab == Tabs.Steam)
+                    DrawSteam(groupRect);
+            }
             GUI.EndGroup();
         }
 

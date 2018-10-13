@@ -222,13 +222,17 @@ namespace Multiplayer.Client
 
                 Sync.bufferedChanges[f].RemoveAll((k, data) =>
                 {
-                    if (!data.sent && TickPatch.Timer - data.timestamp > 30)
+                    if (OnMainThread.CheckShouldRemove(f, k, data))
+                        return true;
+
+                    if (TickPatch.Timer - data.timestamp > 30)
                     {
                         f.DoSync(k.first, data.toSend, k.second);
                         data.sent = true;
+                        data.timestamp = TickPatch.Timer;
                     }
 
-                    return !Equals(k.first.GetPropertyOrField(f.memberPath, k.second), data.currentValue);
+                    return false;
                 });
             }
         }

@@ -127,6 +127,10 @@ namespace Multiplayer.Client
             harmony.DoMpPatches(typeof(MainMenuPatch));
             harmony.DoMpPatches(typeof(MakeSpaceForReplayTimeline));
             harmony.DoMpPatches(typeof(CancelFeedbackNotTargetedAtMe));
+            harmony.DoMpPatches(typeof(ShowTradingWindow));
+            harmony.DoMpPatches(typeof(HaulDestinationChanged));
+            harmony.DoMpPatches(typeof(FixTradeSorters));
+            harmony.DoMpPatches(typeof(ListerThingsChangedItem));
 
             SyncHandlers.Init();
 
@@ -682,6 +686,11 @@ namespace Multiplayer.Client
             GenAdj.adjRandomOrderList = null;
             CellFinder.mapEdgeCells = null;
             CellFinder.mapSingleEdgeCells = new List<IntVec3>[4];
+
+            TradeSession.trader = null;
+            TradeSession.playerNegotiator = null;
+            TradeSession.deal = null;
+            TradeSession.giftMode = false;
         }
     }
 
@@ -795,15 +804,37 @@ namespace Multiplayer.Client
 
                 Sync.bufferedChanges[f].RemoveAll((k, data) =>
                 {
-                    if (!data.sent && Environment.TickCount - data.timestamp > 200)
+                    if (CheckShouldRemove(f, k, data))
+                        return true;
+
+                    if (Environment.TickCount - data.timestamp > 200)
                     {
                         f.DoSync(k.first, data.toSend, k.second);
                         data.sent = true;
+                        data.timestamp = Environment.TickCount;
                     }
 
-                    return !Equals(k.first.GetPropertyOrField(f.memberPath, k.second), data.currentValue);
+                    return false;
                 });
             }
+        }
+
+        public static bool CheckShouldRemove(SyncField field, Pair<object, object> target, BufferData data)
+        {
+            if (Equals(data.toSend, data.actualValue))
+                return true;
+
+            object currentValue = target.first.GetPropertyOrField(field.memberPath, target.second);
+
+            if (!Equals(currentValue, data.actualValue))
+            {
+                if (data.sent)
+                    return true;
+                else
+                    data.actualValue = currentValue;
+            }
+
+            return false;
         }
 
         public void OnApplicationQuit()

@@ -470,7 +470,7 @@ namespace Multiplayer.Client
                 if (comp.mapIdBlock != null)
                     text.Append($" {comp.mapIdBlock.current}");
 
-                text.Append($" {Sync.bufferedChanges.Sum(kv => kv.Value.Count)}");
+                text.Append($"\n{Sync.bufferedChanges.Sum(kv => kv.Value.Count)}");
                 text.Append($"\n{async.randState}");
                 text.Append($"\n{Multiplayer.WorldComp.randState}");
                 text.Append($"\nreal speed: {Find.TickManager.CurTimeSpeed}");
@@ -484,13 +484,36 @@ namespace Multiplayer.Client
                 DrawTimeline();
             }
 
-            if (Multiplayer.Chat != null && Widgets.ButtonText(new Rect(Screen.width - 60f, 10f, 50f, 25f), "Chat"))
-                Find.WindowStack.Add(Multiplayer.Chat);
-
-            if (Multiplayer.PacketLog != null && Widgets.ButtonText(new Rect(Screen.width - 60f, 35f, 50f, 25f), "Packets"))
-                Find.WindowStack.Add(Multiplayer.PacketLog);
+            DoButtons();
 
             return Find.Maps.Count > 0;
+        }
+
+        static void DoButtons()
+        {
+            float x = 10f;
+            const float width = 60f;
+
+            if (Multiplayer.Chat != null)
+            {
+                if (Widgets.ButtonText(new Rect(Screen.width - width - 10f, x, width, 25f), "Chat"))
+                    Find.WindowStack.Add(Multiplayer.Chat);
+                x += 25f;
+            }
+
+            if (Multiplayer.PacketLog != null)
+            {
+                if (Widgets.ButtonText(new Rect(Screen.width - width - 10f, x, width, 25f), "Packets"))
+                    Find.WindowStack.Add(Multiplayer.PacketLog);
+                x += 25f;
+            }
+
+            if (Multiplayer.Client != null && Multiplayer.WorldComp.trading.Any())
+            {
+                if (Widgets.ButtonText(new Rect(Screen.width - width - 10f, x, width, 25f), "Trading"))
+                    Find.WindowStack.Add(new TradingWindow());
+                x += 25f;
+            }
         }
 
         static void DrawTimeline()
@@ -822,7 +845,7 @@ namespace Multiplayer.Client
     {
         static MethodBase TargetMethod()
         {
-            return AccessTools.Method(typeof(Widgets), "ResolveParseNow").MakeGenericMethod(typeof(int));
+            return AccessTools.Method(typeof(Widgets), nameof(Widgets.ResolveParseNow)).MakeGenericMethod(typeof(int));
         }
 
         // Fix input field handling
@@ -1441,7 +1464,8 @@ namespace Multiplayer.Client
     {
         static void Prefix()
         {
-            if (Multiplayer.Client == null || Scribe.mode != LoadSaveMode.LoadingVars) return;
+            if (Multiplayer.Client == null) return;
+            if (Scribe.mode != LoadSaveMode.LoadingVars) return;
             Multiplayer.game = new MultiplayerGame();
         }
     }
@@ -1604,7 +1628,7 @@ namespace Multiplayer.Client
     {
         static void Prefix(Window __instance)
         {
-            if (__instance.ID == -LongEventWindowAbsorbInput.LongEventWindowId)
+            if (__instance.ID == -LongEventWindowAbsorbInput.LongEventWindowId || __instance is DisconnectedWindow)
                 Widgets.DrawBoxSolid(new Rect(0, 0, UI.screenWidth, UI.screenHeight), new Color(0, 0, 0, 0.5f));
         }
     }
@@ -1666,7 +1690,7 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(PawnBioAndNameGenerator), nameof(PawnBioAndNameGenerator.TryGetRandomUnusedSolidName))]
-    public static class GenerateNewPawnInternalPatch
+    static class GenerateNewPawnInternalPatch
     {
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> e)
         {
@@ -1691,6 +1715,47 @@ namespace Multiplayer.Client
                 list[i] = value;
                 i++;
             }
+        }
+    }
+
+    [HarmonyPatch(typeof(GlowGrid))]
+    [HarmonyPatch(new[] { typeof(Map) })]
+    static class GlowGridCtorPatch
+    {
+        static void Postfix(GlowGrid __instance)
+        {
+            __instance.litGlowers = new HashSet<CompGlower>(new CompGlowerEquality());
+        }
+
+        class CompGlowerEquality : IEqualityComparer<CompGlower>
+        {
+            public bool Equals(CompGlower x, CompGlower y) => x == y;
+            public int GetHashCode(CompGlower obj) => obj.parent.thingIDNumber;
+        }
+    }
+
+    [HarmonyPatch(typeof(ThingCategoryDef))]
+    [HarmonyPatch(nameof(ThingCategoryDef.DescendantThingDefs), PropertyMethod.Getter)]
+    static class ThingCategoryDef_DescendantThingDefs
+    {
+        static Dictionary<ThingCategoryDef, HashSet<ThingDef>> values = new Dictionary<ThingCategoryDef, HashSet<ThingDef>>();
+
+        static bool Prefix(ThingCategoryDef __instance)
+        {
+            return !values.ContainsKey(__instance);
+        }
+
+        static void Postfix(ThingCategoryDef __instance, ref IEnumerable<ThingDef> __result)
+        {
+            if (values.TryGetValue(__instance, out HashSet<ThingDef> set))
+            {
+                __result = set;
+                return;
+            }
+
+            set = new HashSet<ThingDef>(__result);
+            values[__instance] = set;
+            __result = set;
         }
     }
 

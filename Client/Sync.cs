@@ -400,14 +400,14 @@ namespace Multiplayer.Client
 
     public class BufferData
     {
-        public object currentValue;
+        public object actualValue;
         public object toSend;
         public int timestamp;
         public bool sent;
 
         public BufferData(object currentValue, object toSend)
         {
-            this.currentValue = currentValue;
+            this.actualValue = currentValue;
             this.toSend = toSend;
         }
     }
@@ -445,13 +445,10 @@ namespace Multiplayer.Client
                 if (cache != null && cache.TryGetValue(new Pair<object, object>(data.target, data.index), out BufferData cached))
                 {
                     if (changed && cached.sent)
-                    {
                         cached.sent = false;
-                        cached.timestamp = handler.inGameLoop ? TickPatch.Timer : Environment.TickCount;
-                    }
 
                     cached.toSend = newValue;
-                    data.target.SetPropertyOrField(handler.memberPath, cached.currentValue, data.index);
+                    data.target.SetPropertyOrField(handler.memberPath, cached.actualValue, data.index);
                     continue;
                 }
 
@@ -460,7 +457,6 @@ namespace Multiplayer.Client
                 if (cache != null)
                 {
                     BufferData bufferData = new BufferData(data.oldValue, newValue);
-                    bufferData.timestamp = handler.inGameLoop ? TickPatch.Timer : Environment.TickCount;
                     cache[new Pair<object, object>(data.target, data.index)] = bufferData;
                 }
                 else
@@ -795,6 +791,13 @@ namespace Multiplayer.Client
             {
                 data =>
                 {
+                    int id = data.ReadInt32();
+                    return Multiplayer.WorldComp.trading.FirstOrDefault(s => s.sessionId == id);
+                }
+            },
+            {
+                data =>
+                {
                     Thing thing = ReadSync<Thing>(data);
                     if (thing != null)
                         return new LocalTargetInfo(thing);
@@ -835,6 +838,7 @@ namespace Multiplayer.Client
             { (ByteWriter data, OutfitDatabase db) => {} },
             { (ByteWriter data, DrugPolicyDatabase db) => {} },
             { (ByteWriter data, AreaManager areas) => data.MpContext().map = areas.map },
+            { (ByteWriter data, MpTradeSession session) => data.WriteInt32(session.sessionId) },
             {
                 (ByteWriter data, LocalTargetInfo info) =>
                 {
@@ -1082,6 +1086,28 @@ namespace Multiplayer.Client
                 int id = data.ReadInt32();
                 return Current.Game.drugPolicyDatabase.AllPolicies.Find(o => o.uniqueId == id);
             }
+            else if (typeof(BodyPartRecord) == type)
+            {
+                int partIndex = data.ReadInt32();
+                if (partIndex == -1) return null;
+
+                BodyDef body = ReadSync<BodyDef>(data);
+                return body.GetPartAtIndex(partIndex);
+            }
+            else if (typeof(MpTradeableReference) == type)
+            {
+                int sessionId = data.ReadInt32();
+                MpTradeSession session = Multiplayer.WorldComp.trading.FirstOrDefault(s => s.sessionId == sessionId);
+                if (session == null) return null;
+
+                int thingId = data.ReadInt32();
+                if (thingId == -1) return null;
+
+                Tradeable tradeable = session.GetTradeableByThingId(thingId);
+                if (tradeable == null) return null;
+
+                return new MpTradeableReference(sessionId, tradeable);
+            }
             else if (typeof(IStoreSettingsParent) == type)
             {
                 return ReadWithImpl<IStoreSettingsParent>(data, storageParents);
@@ -1095,14 +1121,6 @@ namespace Multiplayer.Client
                 IStoreSettingsParent parent = ReadSync<IStoreSettingsParent>(data);
                 if (parent == null) return null;
                 return parent.GetStoreSettings();
-            }
-            else if (typeof(BodyPartRecord) == type)
-            {
-                int partIndex = data.ReadInt32();
-                if (partIndex == -1) return null;
-
-                BodyDef body = ReadSync<BodyDef>(data);
-                return body.GetPartAtIndex(partIndex);
             }
 
             throw new SerializationException("No reader for type " + type);
@@ -1341,6 +1359,14 @@ namespace Multiplayer.Client
 
                     data.WriteInt32(body.GetIndexOfPart(part));
                     WriteSync(data, body);
+                }
+                else if (typeof(MpTradeableReference) == type)
+                {
+                    MpTradeableReference tr = (MpTradeableReference)obj;
+                    data.WriteInt32(tr.sessionId);
+
+                    Thing thing = tr.tradeable.FirstThingTrader ?? tr.tradeable.FirstThingColony;
+                    data.WriteInt32(thing?.thingIDNumber ?? -1);
                 }
                 else if (typeof(IStoreSettingsParent) == type)
                 {

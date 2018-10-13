@@ -165,13 +165,15 @@ namespace Multiplayer.Client
 
     public class CodeFinder
     {
+        private MethodBase inMethod;
         private int pos;
         private List<CodeInstruction> list;
 
         public int Pos => pos;
 
-        public CodeFinder(List<CodeInstruction> list)
+        public CodeFinder(MethodBase inMethod, List<CodeInstruction> list)
         {
+            this.inMethod = inMethod;
             this.list = list;
         }
 
@@ -195,8 +197,13 @@ namespace Multiplayer.Client
 
         public CodeFinder Find(OpCode opcode, object operand, int direction)
         {
-            Find(i => Matches(i, opcode, operand), direction);
-            return this;
+            while (pos < list.Count && pos >= 0)
+            {
+                if (Matches(list[pos], opcode, operand)) return this;
+                pos += direction;
+            }
+
+            throw new Exception($"Couldn't find instruction ({opcode}) with operand ({operand}) in {inMethod.FullDescription()}.");
         }
 
         public CodeFinder Find(Predicate<CodeInstruction> predicate, int direction)
@@ -207,7 +214,7 @@ namespace Multiplayer.Client
                 pos += direction;
             }
 
-            throw new Exception("Couldn't find instruction.");
+            throw new Exception($"Couldn't find instruction using predicate ({predicate.Method}) in method {inMethod.FullDescription()}.");
         }
 
         public CodeFinder Start()

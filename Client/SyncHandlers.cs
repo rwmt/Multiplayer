@@ -32,6 +32,7 @@ namespace Multiplayer.Client
             Sync.RegisterSyncDelegates(typeof(SyncDelegates));
             Sync.RegisterSyncMethods(typeof(SyncPatches));
             Sync.RegisterSyncMethods(typeof(SyncThingFilters));
+            Sync.RegisterSyncMethods(typeof(TradingWindow));
         }
     }
 
@@ -110,6 +111,8 @@ namespace Multiplayer.Client
             "onlyIfMoodBelow",
             "onlyIfJoyBelow"
         ).SetBufferChanges();
+
+        public static SyncField SyncTradeableCount = Sync.Field(typeof(MpTradeableReference), "CountToTransfer").SetBufferChanges();
 
         [MpPrefix(typeof(HealthCardUtility), "DrawOverviewTab")]
         static void HealthCardUtility1(Pawn pawn)
@@ -278,6 +281,13 @@ namespace Multiplayer.Client
             SyncZoneLabel.Watch(__instance.zone);
         }
 
+        [MpPrefix(typeof(TransferableUIUtility), "DoCountAdjustInterface")]
+        static void TransferableAdjustTo(Transferable trad)
+        {
+            if (MpTradeSession.current != null && trad is Tradeable tr)
+                SyncTradeableCount.Watch(new MpTradeableReference(MpTradeSession.current.sessionId, tr));
+        }
+
         static void UseWorkPriorities_PostApply(object target, object value)
         {
             // From MainTabWindow_Work.DoManualPrioritiesCheckbox
@@ -285,6 +295,27 @@ namespace Multiplayer.Client
                 if (pawn.Faction == Faction.OfPlayer && pawn.workSettings != null)
                     pawn.workSettings.Notify_UseWorkPrioritiesChanged();
         }
+    }
+
+    public class MpTradeableReference
+    {
+        public int sessionId;
+        public Tradeable tradeable;
+
+        public MpTradeableReference(int sessionId, Tradeable tradeable)
+        {
+            this.sessionId = sessionId;
+            this.tradeable = tradeable;
+        }
+
+        public int CountToTransfer
+        {
+            get => tradeable.CountToTransfer;
+            set => tradeable.CountToTransfer = value;
+        }
+
+        public override int GetHashCode() => tradeable.GetHashCode();
+        public override bool Equals(object obj) => obj is MpTradeableReference tr && tr.tradeable == tradeable;
     }
 
     public static class SyncPatches
@@ -327,6 +358,10 @@ namespace Multiplayer.Client
             Sync.RegisterSyncMethod(typeof(PawnColumnWorker_FollowDrafted), nameof(PawnColumnWorker_FollowDrafted.SetValue));
             Sync.RegisterSyncMethod(typeof(PawnColumnWorker_FollowFieldwork), nameof(PawnColumnWorker_FollowFieldwork.SetValue));
             Sync.RegisterSyncProperty(typeof(Building_Bed), nameof(Building_Bed.Medical));
+
+            Sync.RegisterSyncMethod(typeof(MpTradeSession), nameof(MpTradeSession.TryExecute));
+            Sync.RegisterSyncMethod(typeof(MpTradeSession), nameof(MpTradeSession.Reset));
+            Sync.RegisterSyncMethod(typeof(MpTradeSession), nameof(MpTradeSession.ToggleGiftMode));
         }
 
         static SyncField SyncTimetable = Sync.Field(typeof(Pawn), "timetable", "times");
@@ -401,7 +436,12 @@ namespace Multiplayer.Client
         static void TryTakeOrderedJob_Prefix(Job job)
         {
             if (Multiplayer.ExecutingCmds && job.loadID < 0)
+            {
                 job.loadID = Find.UniqueIDsManager.GetNextJobID();
+
+                if (job.def == JobDefOf.TradeWithPawn && TickPatch.currentExecutingCmdIssuedBySelf)
+                    ShowTradingWindow.tradeJobStartedByMe = job.loadID;
+            }
         }
 
         [MpPrefix(typeof(BillStack), nameof(BillStack.AddBill))]
