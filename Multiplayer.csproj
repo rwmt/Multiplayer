@@ -66,6 +66,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Client\Blueprints.cs" />
+    <Compile Include="Client\Caravans.cs" />
     <Compile Include="Client\ChatWindow.cs" />
     <Compile Include="Client\ClientConnection.cs" />
     <Compile Include="Client\MultiplayerMapComp.cs" />
@@ -77,6 +78,7 @@
     <Compile Include="Client\MpPatch.cs" />
     <Compile Include="Client\MpReflection.cs" />
     <Compile Include="Client\ServerBrowser.cs" />
+    <Compile Include="Client\SetMapTime.cs" />
     <Compile Include="Client\SituationalThoughts.cs" />
     <Compile Include="Client\Sync.cs" />
     <Compile Include="Client\SyncHandlers.cs" />

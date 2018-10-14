@@ -328,16 +328,17 @@ namespace Multiplayer.Client
             Sync.RegisterSyncProperty(typeof(Pawn_OutfitTracker), nameof(Pawn_OutfitTracker.CurrentOutfit));
             Sync.RegisterSyncProperty(typeof(Pawn_PlayerSettings), nameof(Pawn_PlayerSettings.AreaRestriction));
             Sync.RegisterSyncProperty(typeof(Pawn_PlayerSettings), nameof(Pawn_PlayerSettings.Master));
-            Sync.RegisterSyncProperty(typeof(Pawn), nameof(Pawn.Name), typeof(Expose<Name>));
+            Sync.RegisterSyncProperty(typeof(Pawn), nameof(Pawn.Name), new[] { typeof(Expose<Name>) });
             Sync.RegisterSyncProperty(typeof(StorageSettings), nameof(StorageSettings.Priority));
             Sync.RegisterSyncProperty(typeof(CompForbiddable), nameof(CompForbiddable.Forbidden));
+
             Sync.RegisterSyncMethod(typeof(Pawn_TimetableTracker), nameof(Pawn_TimetableTracker.SetAssignment));
             Sync.RegisterSyncMethod(typeof(Pawn_WorkSettings), nameof(Pawn_WorkSettings.SetPriority));
-            Sync.RegisterSyncMethod(typeof(Pawn_JobTracker), nameof(Pawn_JobTracker.TryTakeOrderedJob), typeof(Expose<Job>), typeof(JobTag)).SetHasContext();
-            Sync.RegisterSyncMethod(typeof(Pawn_JobTracker), nameof(Pawn_JobTracker.TryTakeOrderedJobPrioritizedWork), typeof(Expose<Job>), typeof(WorkGiver), typeof(IntVec3)).SetHasContext();
+            Sync.RegisterSyncMethod(typeof(Pawn_JobTracker), nameof(Pawn_JobTracker.TryTakeOrderedJob), new[] { typeof(Expose<Job>), typeof(JobTag) }).SetHasContext();
+            Sync.RegisterSyncMethod(typeof(Pawn_JobTracker), nameof(Pawn_JobTracker.TryTakeOrderedJobPrioritizedWork), new[] { typeof(Expose<Job>), typeof(WorkGiver), typeof(IntVec3) }).SetHasContext();
             Sync.RegisterSyncMethod(typeof(Pawn_TrainingTracker), nameof(Pawn_TrainingTracker.SetWantedRecursive));
             Sync.RegisterSyncMethod(typeof(Zone), nameof(Zone.Delete));
-            Sync.RegisterSyncMethod(typeof(BillStack), nameof(BillStack.AddBill), typeof(Expose<Bill>)); // Only used for pasting
+            Sync.RegisterSyncMethod(typeof(BillStack), nameof(BillStack.AddBill), new[] { typeof(Expose<Bill>) }); // Only used for pasting
             Sync.RegisterSyncMethod(typeof(BillStack), nameof(BillStack.Delete));
             Sync.RegisterSyncMethod(typeof(BillStack), nameof(BillStack.Reorder));
             Sync.RegisterSyncMethod(typeof(Bill_Production), nameof(Bill_Production.SetStoreMode));
@@ -352,12 +353,30 @@ namespace Multiplayer.Client
             Sync.RegisterSyncMethod(typeof(OutfitDatabase), nameof(OutfitDatabase.TryDelete));
             Sync.RegisterSyncMethod(typeof(Building_Bed), nameof(Building_Bed.TryAssignPawn));
             Sync.RegisterSyncMethod(typeof(Building_Bed), nameof(Building_Bed.TryUnassignPawn));
+            Sync.RegisterSyncProperty(typeof(Building_Bed), nameof(Building_Bed.Medical));
             Sync.RegisterSyncMethod(typeof(Building_Grave), nameof(Building_Grave.TryAssignPawn));
             Sync.RegisterSyncMethod(typeof(Building_Grave), nameof(Building_Grave.TryUnassignPawn));
-            Sync.RegisterSyncMethod(typeof(PawnColumnWorker_Designator), nameof(PawnColumnWorker_Designator.SetValue)); // Abstract but currently not overriden by any subclasses
+            Sync.RegisterSyncMethod(typeof(PawnColumnWorker_Designator), nameof(PawnColumnWorker_Designator.SetValue)); // Virtual but currently not overriden by any subclasses
             Sync.RegisterSyncMethod(typeof(PawnColumnWorker_FollowDrafted), nameof(PawnColumnWorker_FollowDrafted.SetValue));
             Sync.RegisterSyncMethod(typeof(PawnColumnWorker_FollowFieldwork), nameof(PawnColumnWorker_FollowFieldwork.SetValue));
-            Sync.RegisterSyncProperty(typeof(Building_Bed), nameof(Building_Bed.Medical));
+            Sync.RegisterSyncProperty(typeof(CompGatherSpot), nameof(CompGatherSpot.Active));
+            Sync.RegisterSyncMethod(typeof(Building_BlastingCharge), nameof(Building_BlastingCharge.Command_Detonate));
+
+            Sync.RegisterSyncMethod(typeof(Building_Grave), nameof(Building_Grave.EjectContents));
+            Sync.RegisterSyncMethod(typeof(Building_Casket), nameof(Building_Casket.EjectContents));
+            Sync.RegisterSyncMethod(typeof(Building_CryptosleepCasket), nameof(Building_CryptosleepCasket.EjectContents));
+            Sync.RegisterSyncMethod(typeof(Building_AncientCryptosleepCasket), nameof(Building_AncientCryptosleepCasket.EjectContents));
+
+            Sync.RegisterSyncMethod(typeof(Building_OrbitalTradeBeacon), nameof(Building_OrbitalTradeBeacon.MakeMatchingStockpile));
+            Sync.RegisterSyncMethod(typeof(Building_SunLamp), nameof(Building_SunLamp.MakeMatchingGrowZone));
+            Sync.RegisterSyncMethod(typeof(Building_ShipComputerCore), nameof(Building_ShipComputerCore.TryLaunch));
+            Sync.RegisterSyncMethod(typeof(CompPower), nameof(CompPower.TryManualReconnect));
+            Sync.RegisterSyncMethod(typeof(CompTempControl), nameof(CompTempControl.InterfaceChangeTargetTemperature));
+            Sync.RegisterSyncMethod(typeof(CompTransporter), nameof(CompTransporter.CancelLoad), new Type[0]);
+            Sync.RegisterSyncMethod(typeof(StorageSettingsClipboard), nameof(StorageSettingsClipboard.PasteInto));
+            Sync.RegisterSyncMethod(typeof(Command_SetTargetFuelLevel), "<ProcessInput>m__2"); // Set target fuel level from Dialog_Slider
+            Sync.RegisterSyncMethod(typeof(ITab_Pawn_Gear), nameof(ITab_Pawn_Gear.InterfaceDrop)).SetHasContext();
+            Sync.RegisterSyncMethod(typeof(ITab_Pawn_Gear), nameof(ITab_Pawn_Gear.InterfaceIngest)).SetHasContext();
 
             Sync.RegisterSyncMethod(typeof(MpTradeSession), nameof(MpTradeSession.TryExecute));
             Sync.RegisterSyncMethod(typeof(MpTradeSession), nameof(MpTradeSession.Reset));
@@ -367,32 +386,9 @@ namespace Multiplayer.Client
         static SyncField SyncTimetable = Sync.Field(typeof(Pawn), "timetable", "times");
 
         [MpPrefix(typeof(PawnColumnWorker_CopyPasteTimetable), nameof(PawnColumnWorker_CopyPasteTimetable.PasteTo))]
-        static bool CopyPasteTimetable(Pawn p)
+        static bool PastePawnTimetable(Pawn p)
         {
             return !SyncTimetable.DoSync(p, PawnColumnWorker_CopyPasteTimetable.clipboard);
-        }
-
-        static SyncMethod SyncPawnGearDrop = Sync.Method(typeof(ITab_Pawn_Gear), "InterfaceDrop").SetHasContext();
-        static SyncMethod SyncPawnGearIngest = Sync.Method(typeof(ITab_Pawn_Gear), "InterfaceIngest").SetHasContext();
-
-        [MpPrefix(typeof(ITab_Pawn_Gear), nameof(ITab_Pawn_Gear.InterfaceDrop))]
-        static bool ITabPawnGearDrop(ITab_Pawn_Gear __instance, Thing t)
-        {
-            Sync.selThingContext = __instance.SelThing;
-            bool result = !SyncPawnGearDrop.DoSync(__instance, t);
-            Sync.selThingContext = null;
-
-            return result;
-        }
-
-        [MpPrefix(typeof(ITab_Pawn_Gear), nameof(ITab_Pawn_Gear.InterfaceIngest))]
-        static bool ITabPawnGearIngest(ITab_Pawn_Gear __instance, Thing t)
-        {
-            Sync.selThingContext = __instance.SelThing;
-            bool result = !SyncPawnGearIngest.DoSync(__instance, t);
-            Sync.selThingContext = null;
-
-            return result;
         }
 
         // ===== CALLBACKS =====
@@ -473,9 +469,9 @@ namespace Multiplayer.Client
 
     public static class SyncThingFilters
     {
-        static SyncMethod[] SyncThingFilterAllowThing = Sync.MethodMultiTarget(Sync.thingFilterTarget, "SetAllow", typeof(ThingDef), typeof(bool));
-        static SyncMethod[] SyncThingFilterAllowSpecial = Sync.MethodMultiTarget(Sync.thingFilterTarget, "SetAllow", typeof(SpecialThingFilterDef), typeof(bool));
-        static SyncMethod[] SyncThingFilterAllowStuffCategory = Sync.MethodMultiTarget(Sync.thingFilterTarget, "SetAllow", typeof(StuffCategoryDef), typeof(bool));
+        static SyncMethod[] SyncThingFilterAllowThing = Sync.MethodMultiTarget(Sync.thingFilterTarget, "SetAllow", new[] { typeof(ThingDef), typeof(bool) });
+        static SyncMethod[] SyncThingFilterAllowSpecial = Sync.MethodMultiTarget(Sync.thingFilterTarget, "SetAllow", new[] { typeof(SpecialThingFilterDef), typeof(bool) });
+        static SyncMethod[] SyncThingFilterAllowStuffCategory = Sync.MethodMultiTarget(Sync.thingFilterTarget, "SetAllow", new[] { typeof(StuffCategoryDef), typeof(bool) });
 
         [MpPrefix(typeof(ThingFilter), "SetAllow", typeof(StuffCategoryDef), typeof(bool))]
         static bool ThingFilter_SetAllow(StuffCategoryDef cat, bool allow)
@@ -588,36 +584,37 @@ namespace Multiplayer.Client
         [MpPrefix(typeof(HealthCardUtility), "<GenerateSurgeryOption>c__AnonStorey4", "<>m__0")]    // Add medical bill
         [MpPrefix(typeof(Command_SetPlantToGrow), "<ProcessInput>c__AnonStorey0", "<>m__0")]        // Set plant to grow
         [MpPrefix(typeof(Building_Bed), "<ToggleForPrisonersByInterface>c__AnonStorey3", "<>m__0")] // Toggle bed for prisoners
+        [MpPrefix(typeof(ITab_Bills), "<FillTab>c__AnonStorey0", "<>m__0")]                         // Add bill
+        [MpPrefix(typeof(CompLongRangeMineralScanner), "<CompGetGizmosExtra>c__Iterator0+<CompGetGizmosExtra>c__AnonStorey1", "<>m__0")] // Select mineral to scan for
         static bool GeneralSync(object __instance, MethodBase __originalMethod)
         {
             return !Sync.Delegate(__instance, __originalMethod);
         }
 
         [SyncDelegate("$this")]
-        [MpPrefix(typeof(Pawn_PlayerSettings), "<GetGizmos>c__Iterator0", "<>m__1")]    // Release animals
-        [MpPrefix(typeof(PriorityWork), "<GetGizmos>c__Iterator0", "<>m__0")]           // Clear prioritized work
-        [MpPrefix(typeof(CompFlickable), "<CompGetGizmosExtra>c__Iterator0", "<>m__1")] // Designate flick
-        [MpPrefix(typeof(Building_TurretGun), "<GetGizmos>c__Iterator0", "<>m__0")]     // Reset forced target
-        [MpPrefix(typeof(Building_TurretGun), "<GetGizmos>c__Iterator0", "<>m__1")]     // Toggle hold fire
+        [MpPrefix(typeof(CompFlickable), "<CompGetGizmosExtra>c__Iterator0", "<>m__1")] // Toggle flick designation
+        [MpPrefix(typeof(Pawn_PlayerSettings), "<GetGizmos>c__Iterator0", "<>m__1")]    // Toggle release animals
+        [MpPrefix(typeof(Building_TurretGun), "<GetGizmos>c__Iterator0", "<>m__1")]     // Toggle turret hold fire
         [MpPrefix(typeof(Building_Trap), "<GetGizmos>c__Iterator0", "<>m__1")]          // Toggle trap auto-rearm
-        static bool GeneralIteratorSync(object __instance, MethodBase __originalMethod)
+        [MpPrefix(typeof(Building_Door), "<GetGizmos>c__Iterator0", "<>m__1")]          // Toggle door hold open
+        [MpPrefix(typeof(Zone_Growing), "<GetGizmos>c__Iterator0", "<>m__1")]           // Toggle zone allow sow
+        static bool GeneralIteratorSync_Toggle(object __instance, MethodBase __originalMethod)
         {
             return !Sync.Delegate(__instance, __originalMethod);
         }
 
-        [SyncDelegate]
-        [MpPrefix(typeof(ITab_Bills), "<FillTab>c__AnonStorey0", "<>m__0")] // New bill
-        static bool AddBill(object __instance, MethodBase __originalMethod)
+        [SyncDelegate("$this")]
+        [MpPrefix(typeof(PriorityWork), "<GetGizmos>c__Iterator0", "<>m__0")]               // Clear prioritized work
+        [MpPrefix(typeof(Building_TurretGun), "<GetGizmos>c__Iterator0", "<>m__0")]         // Reset forced target
+        [MpPrefix(typeof(UnfinishedThing), "<GetGizmos>c__Iterator0", "<>m__0")]            // Cancel unfinished thing
+        [MpPrefix(typeof(CompTempControl), "<CompGetGizmosExtra>c__Iterator0", "<>m__0")]   // Reset temperature
+        static bool GeneralIteratorSync_Action(object __instance, MethodBase __originalMethod)
         {
-            Sync.selThingContext = __instance.GetPropertyOrField("$this/SelThing") as Building_WorkTable;
-            bool result = !Sync.Delegate(__instance, __originalMethod);
-            Sync.selThingContext = null;
-
-            return result;
+            return !Sync.Delegate(__instance, __originalMethod);
         }
 
         [SyncDelegate("changeableProjectile", "<>f__ref$0/$this")]
-        [MpPrefix(typeof(Building_TurretGun), "<GetGizmos>c__Iterator0+<GetGizmos>c__AnonStorey2", "<>m__0")] // Remove shell
+        [MpPrefix(typeof(Building_TurretGun), "<GetGizmos>c__Iterator0+<GetGizmos>c__AnonStorey2", "<>m__0")] // Extract shell
         static bool TurretGunGizmos_RemoveShell(object __instance, MethodBase __originalMethod)
         {
             return !Sync.Delegate(__instance, __originalMethod);

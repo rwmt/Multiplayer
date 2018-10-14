@@ -246,6 +246,7 @@ namespace Multiplayer.Client
 
                 MapAsyncTimeComp async = map.AsyncTime();
                 async.mapTicks = Find.TickManager.TicksGame;
+                async.TimeSpeed = Find.TickManager.CurTimeSpeed;
                 async.storyteller = new Storyteller(StorytellerDefOf.Cassandra, DifficultyDefOf.Rough);
             }
 

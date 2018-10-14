@@ -80,7 +80,6 @@ namespace Multiplayer.Client
         public static bool drawing;
 
         static void Prefix() => drawing = true;
-
         static void Postfix() => drawing = false;
     }
 
@@ -91,7 +90,6 @@ namespace Multiplayer.Client
         public static bool ticking;
 
         static void Prefix() => ticking = true;
-
         static void Postfix() => ticking = false;
     }
 
@@ -102,7 +100,6 @@ namespace Multiplayer.Client
         public static bool ticking;
 
         static void Prefix() => ticking = true;
-
         static void Postfix() => ticking = false;
     }
 
@@ -113,7 +110,6 @@ namespace Multiplayer.Client
         public static bool ticking;
 
         static void Prefix() => ticking = true;
-
         static void Postfix() => ticking = false;
     }
 
@@ -1225,19 +1221,6 @@ namespace Multiplayer.Client
         {
             if (__instance == forKey && result.HasValue)
                 __result = result.Value;
-        }
-    }
-
-    [HarmonyPatch(typeof(ITab))]
-    [HarmonyPatch(nameof(ITab.SelThing), PropertyMethod.Getter)]
-    public static class ITabSelThingPatch
-    {
-        public static Thing result;
-
-        static void Postfix(ref Thing __result)
-        {
-            if (result != null)
-                __result = result;
         }
     }
 

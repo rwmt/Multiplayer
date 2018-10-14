@@ -53,12 +53,6 @@ namespace Multiplayer.Client
             set => Find.TickManager.CurTimeSpeed = value;
         }
 
-        /*public TimeSpeed TimeSpeed
-        {
-            get => timeSpeedInt;
-            set => timeSpeedInt = value;
-        }*/
-
         public Queue<ScheduledCommand> Cmds { get => cmds; }
 
         public Dictionary<int, FactionWorldData> factionData = new Dictionary<int, FactionWorldData>();
@@ -66,7 +60,6 @@ namespace Multiplayer.Client
         public ConstantTicker ticker = new ConstantTicker();
         public IdBlock globalIdBlock;
         public ulong randState = 2;
-        //private TimeSpeed timeSpeedInt;
 
         public List<MpTradeSession> trading = new List<MpTradeSession>();
 
@@ -123,7 +116,7 @@ namespace Multiplayer.Client
             try
             {
                 Find.TickManager.DoSingleTick();
-                TickTrading();
+                TickWorldTrading();
             }
             finally
             {
@@ -132,25 +125,15 @@ namespace Multiplayer.Client
             }
         }
 
-        public void TickTrading()
+        public void TickWorldTrading()
         {
             for (int i = trading.Count - 1; i >= 0; i--)
             {
                 var session = trading[i];
+                if (session.playerNegotiator.Spawned) continue;
+
                 if (session.ShouldCancel())
-                {
                     RemoveTradeSession(session);
-                    continue;
-                }
-
-                Pawn negotiator = session.playerNegotiator;
-                if (!session.startedWaitJobs && negotiator.Spawned && session.trader is Pawn pawn && pawn.Spawned)
-                {
-                    negotiator.jobs.StartJob(new Job(JobDefOf.Wait, 10, true) { count = 1234, targetA = pawn }, JobCondition.InterruptForced);
-                    pawn.jobs.StartJob(new Job(JobDefOf.Wait, 10, true) { count = 1234, targetA = negotiator }, JobCondition.InterruptForced);
-
-                    session.startedWaitJobs = true;
-                }
             }
         }
 

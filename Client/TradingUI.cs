@@ -412,6 +412,7 @@ namespace Multiplayer.Client
                 __instance.cachedCurrencyTradeable = null;
         }
 
+        // Replace TradeDeal.get_AllTradeables with TradingWindow.AllTradeables
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> e, MethodBase original)
         {
             List<CodeInstruction> insts = new List<CodeInstruction>(e);

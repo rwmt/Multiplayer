@@ -25,8 +25,6 @@ namespace Multiplayer.Client
         public MpTradeDeal deal;
         public bool giftsOnly;
 
-        public bool startedWaitJobs;
-
         public string Label
         {
             get
@@ -47,21 +45,34 @@ namespace Multiplayer.Client
             this.playerNegotiator = playerNegotiator;
             this.giftMode = giftMode;
             giftsOnly = giftMode;
-
-            SetTradeSession(this, true);
-            deal = new MpTradeDeal(this);
-            SetTradeSession(null);
         }
 
         public static void TryCreate(ITrader trader, Pawn playerNegotiator, bool giftMode)
         {
+            // todo show error messages?
             if (Multiplayer.WorldComp.trading.Any(s => s.trader == trader))
                 return;
 
             if (Multiplayer.WorldComp.trading.Any(s => s.playerNegotiator == playerNegotiator))
                 return;
 
-            Multiplayer.WorldComp.trading.Add(new MpTradeSession(trader, playerNegotiator, giftMode));
+            MpTradeSession session = new MpTradeSession(trader, playerNegotiator, giftMode);
+            Multiplayer.WorldComp.trading.Add(session);
+
+            SetTradeSession(session, true);
+            session.deal = new MpTradeDeal(session);
+            SetTradeSession(null);
+
+            session.StartWaitingJobs();
+        }
+
+        private void StartWaitingJobs()
+        {
+            if (playerNegotiator.Spawned && trader is Pawn traderPawn && traderPawn.Spawned)
+            {
+                playerNegotiator.jobs.StartJob(new Job(JobDefOf.Wait, 10, true) { count = 1234, targetA = traderPawn }, JobCondition.InterruptForced);
+                traderPawn.jobs.StartJob(new Job(JobDefOf.Wait, 10, true) { count = 1234, targetA = playerNegotiator }, JobCondition.InterruptForced);
+            }
         }
 
         public bool ShouldCancel()
@@ -340,6 +351,17 @@ namespace Multiplayer.Client
         }
     }
 
+    [MpPatch(typeof(Pawn_HealthTracker), nameof(Pawn_HealthTracker.MakeDowned))]
+    [MpPatch(typeof(Pawn_HealthTracker), nameof(Pawn_HealthTracker.MakeUndowned))]
+    static class PawnDownedStateChanged
+    {
+        static void Postfix(Pawn_HealthTracker __instance)
+        {
+            if (Multiplayer.Client != null)
+                Multiplayer.WorldComp.DirtyTradeForMaps(__instance.pawn.Map);
+        }
+    }
+
     [HarmonyPatch(typeof(Thing))]
     [HarmonyPatch(nameof(Thing.HitPoints), PropertyMethod.Setter)]
     static class ThingHitPointsChanged
@@ -355,6 +377,6 @@ namespace Multiplayer.Client
             if (__state)
                 Multiplayer.WorldComp.DirtyTradeForThing(__instance);
         }
-    } 
+    }
 
 }

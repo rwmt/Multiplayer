@@ -320,6 +320,8 @@ namespace Multiplayer.Client
             const float ButtonWidth = 140f;
             const float ButtonHeight = 40f;
 
+            Text.Font = GameFont.Small;
+
             Text.Anchor = TextAnchor.MiddleCenter;
             Rect labelRect = inRect;
             labelRect.yMax -= ButtonHeight;

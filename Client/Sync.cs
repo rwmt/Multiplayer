@@ -148,7 +148,7 @@ namespace Multiplayer.Client
         private Action<object, object[]> beforeCall;
         private Action<object, object[]> afterCall;
 
-        public SyncMethod(int syncId, Type targetType, string instancePath, string methodName, params Type[] argTypes) : base(syncId)
+        public SyncMethod(int syncId, Type targetType, string instancePath, string methodName, Type[] argTypes) : base(syncId)
         {
             this.targetType = targetType;
 
@@ -159,11 +159,11 @@ namespace Multiplayer.Client
                 instanceType = MpReflection.PathType(this.instancePath);
             }
 
-            method = AccessTools.Method(instanceType, methodName, argTypes.Length > 0 ? Sync.TranslateArgTypes(argTypes) : null) ?? throw new Exception($"Couldn't find method {instanceType}::{methodName}");
+            method = AccessTools.Method(instanceType, methodName, argTypes != null ? Sync.TranslateArgTypes(argTypes) : null) ?? throw new Exception($"Couldn't find method {instanceType}::{methodName}");
             this.argTypes = CheckArgs(argTypes);
         }
 
-        public SyncMethod(int syncId, Type targetType, MethodInfo method, params Type[] argTypes) : base(syncId)
+        public SyncMethod(int syncId, Type targetType, MethodInfo method, Type[] argTypes) : base(syncId)
         {
             this.method = method;
             this.targetType = targetType;
@@ -172,7 +172,7 @@ namespace Multiplayer.Client
 
         private Type[] CheckArgs(Type[] argTypes)
         {
-            if (argTypes.Length == 0)
+            if (argTypes == null || argTypes.Length == 0)
                 return method.GetParameters().Types();
             else if (argTypes.Length != method.GetParameters().Length)
                 throw new Exception("Wrong parameter count for method " + method);
@@ -194,7 +194,7 @@ namespace Multiplayer.Client
 
             LoggingByteWriter writer = new LoggingByteWriter();
             MpContext context = writer.MpContext();
-            writer.LogNode("Sync method " + method);
+            writer.LogNode("Sync method " + method.FullDescription());
 
             writer.WriteInt32(syncId);
 
@@ -240,7 +240,9 @@ namespace Multiplayer.Client
             if (!instancePath.NullOrEmpty())
                 target = target.GetPropertyOrField(instancePath);
 
-            object[] args = Sync.ReadSyncObjects(data, argTypes);
+            object[] args = null;
+            if (argTypes != null)
+                args = Sync.ReadSyncObjects(data, argTypes);
 
             beforeCall?.Invoke(target, args);
 
@@ -468,24 +470,19 @@ namespace Multiplayer.Client
             }
         }
 
-        public static SyncMethod Method(Type targetType, string methodName)
-        {
-            return Method(targetType, null, methodName);
-        }
-
-        public static SyncMethod Method(Type targetType, string methodName, params Type[] argTypes)
+        public static SyncMethod Method(Type targetType, string methodName, Type[] argTypes = null)
         {
             return Method(targetType, null, methodName, argTypes);
         }
 
-        public static SyncMethod Method(Type targetType, string instancePath, string methodName, params Type[] argTypes)
+        public static SyncMethod Method(Type targetType, string instancePath, string methodName, Type[] argTypes = null)
         {
             SyncMethod handler = new SyncMethod(handlers.Count, targetType, instancePath, methodName, argTypes);
             handlers.Add(handler);
             return handler;
         }
 
-        public static SyncMethod[] MethodMultiTarget(MultiTarget targetType, string methodName, params Type[] argTypes)
+        public static SyncMethod[] MethodMultiTarget(MultiTarget targetType, string methodName, Type[] argTypes = null)
         {
             return targetType.Select(type => Method(type.First, type.Second, methodName, argTypes)).ToArray();
         }
@@ -563,15 +560,19 @@ namespace Multiplayer.Client
             }
         }
 
-        public static SyncMethod RegisterSyncMethod(Type type, string methodName, params Type[] argTypes)
+        public static SyncMethod RegisterSyncMethod(Type type, string methodName, Type[] argTypes = null)
         {
-            MethodInfo method = AccessTools.Method(type, methodName, argTypes.Length > 0 ? TranslateArgTypes(argTypes) : null);
+            MethodInfo method = AccessTools.Method(type, methodName, argTypes != null ? TranslateArgTypes(argTypes) : null);
             if (method == null)
                 throw new Exception("Couldn't find method " + methodName + " in type " + type);
+
+            if (method.IsVirtual)
+                Log.Message("Sync method virtual " + method.FullDescription());
+
             return RegisterSyncMethod(method, argTypes);
         }
 
-        public static SyncMethod RegisterSyncProperty(Type type, string propertyName, params Type[] argTypes)
+        public static SyncMethod RegisterSyncProperty(Type type, string propertyName, Type[] argTypes = null)
         {
             return RegisterSyncMethod(type, "set_" + propertyName, argTypes);
         }
@@ -583,7 +584,7 @@ namespace Multiplayer.Client
                 if (!method.TryGetAttribute(out SyncMethodAttribute syncAttr))
                     continue;
 
-                RegisterSyncMethod(method);
+                RegisterSyncMethod(method, null);
             }
         }
 
@@ -604,7 +605,7 @@ namespace Multiplayer.Client
             }).ToArray();
         }
 
-        private static SyncMethod RegisterSyncMethod(MethodInfo method, params Type[] argTypes)
+        private static SyncMethod RegisterSyncMethod(MethodInfo method, Type[] argTypes)
         {
             HarmonyMethod transpiler = new HarmonyMethod(typeof(Sync), nameof(Sync.SyncMethodTranspiler));
             transpiler.prioritiy = Priority.First;
@@ -719,13 +720,15 @@ namespace Multiplayer.Client
             int syncId = data.ReadInt32();
             SyncHandler handler = handlers[syncId];
 
+            List<object> prevSelected = Find.Selector.selected;
+
             if (handler.HasContext)
             {
                 IntVec3 mouseCell = ReadSync<IntVec3>(data);
                 MouseCellPatch.result = mouseCell;
 
-                Thing selThing = ReadSync<Thing>(data);
-                ITabSelThingPatch.result = selThing;
+                List<ISelectable> selected = ReadSync<List<ISelectable>>(data);
+                Find.Selector.selected = selected.Cast<object>().ToList();
 
                 bool shouldQueue = data.ReadBool();
                 KeyIsDownPatch.result = shouldQueue;
@@ -741,11 +744,9 @@ namespace Multiplayer.Client
                 MouseCellPatch.result = null;
                 KeyIsDownPatch.result = null;
                 KeyIsDownPatch.forKey = null;
-                ITabSelThingPatch.result = null;
+                Find.Selector.selected = prevSelected;
             }
         }
-
-        public static Thing selThingContext; // for ITabs
 
         public static void WriteContext(SyncHandler handler, ByteWriter data)
         {
@@ -753,7 +754,7 @@ namespace Multiplayer.Client
 
             bool viewingMap = Find.CurrentMap != null && !WorldRendererUtility.WorldRenderedNow;
             WriteSync(data, viewingMap ? UI.MouseCell() : IntVec3.Invalid);
-            WriteSync(data, selThingContext);
+            WriteSync(data, Find.Selector.selected.Cast<ISelectable>().ToList());
             data.WriteBool(KeyBindingDefOf.QueueOrder.IsDownEvent);
         }
 
@@ -994,6 +995,15 @@ namespace Multiplayer.Client
 
                 return command;
             }
+            else if (typeof(Command_SetTargetFuelLevel) == type)
+            {
+                List<CompRefuelable> refuelables = ReadSync<List<CompRefuelable>>(data);
+
+                Command_SetTargetFuelLevel command = new Command_SetTargetFuelLevel();
+                command.refuelables = refuelables;
+
+                return command;
+            }
             else if (typeof(Designator).IsAssignableFrom(type))
             {
                 int desId = data.ReadInt32();
@@ -1107,6 +1117,15 @@ namespace Multiplayer.Client
                 if (tradeable == null) return null;
 
                 return new MpTradeableReference(sessionId, tradeable);
+            }
+            else if (typeof(ISelectable) == type)
+            {
+                bool isThing = data.ReadBool();
+
+                if (isThing)
+                    return ReadSync<Thing>(data);
+                else
+                    return ReadSync<Zone>(data);
             }
             else if (typeof(IStoreSettingsParent) == type)
             {
@@ -1252,9 +1271,14 @@ namespace Multiplayer.Client
                 }
                 else if (typeof(Command_SetPlantToGrow) == type)
                 {
-                    Command_SetPlantToGrow command = obj as Command_SetPlantToGrow;
+                    Command_SetPlantToGrow command = (Command_SetPlantToGrow)obj;
                     WriteSync(data, command.settable);
                     WriteSync(data, command.settables);
+                }
+                else if (typeof(Command_SetTargetFuelLevel) == type)
+                {
+                    Command_SetTargetFuelLevel command = (Command_SetTargetFuelLevel)obj;
+                    WriteSync(data, command.refuelables);
                 }
                 else if (typeof(Designator).IsAssignableFrom(type))
                 {
@@ -1367,6 +1391,21 @@ namespace Multiplayer.Client
 
                     Thing thing = tr.tradeable.FirstThingTrader ?? tr.tradeable.FirstThingColony;
                     data.WriteInt32(thing?.thingIDNumber ?? -1);
+                }
+                else if (typeof(ISelectable) == type)
+                {
+                    if (obj is Thing thing)
+                    {
+                        WriteSync(data, true);
+                        WriteSync(data, thing);
+                    }
+                    else if (obj is Zone zone)
+                    {
+                        WriteSync(data, false);
+                        WriteSync(data, zone);
+                    }
+                    else
+                        throw new SerializationException($"ISelectable is neither a thing nor a zone. Got type {obj?.GetType()}");
                 }
                 else if (typeof(IStoreSettingsParent) == type)
                 {

@@ -131,6 +131,7 @@ namespace Multiplayer.Client
             harmony.DoMpPatches(typeof(HaulDestinationChanged));
             harmony.DoMpPatches(typeof(FixTradeSorters));
             harmony.DoMpPatches(typeof(ListerThingsChangedItem));
+            harmony.DoMpPatches(typeof(PawnDownedStateChanged));
 
             SyncHandlers.Init();
 
@@ -420,13 +421,14 @@ namespace Multiplayer.Client
                 var randPatchPrefix = new HarmonyMethod(typeof(RandPatches).GetMethod("Prefix"));
                 var randPatchPostfix = new HarmonyMethod(typeof(RandPatches).GetMethod("Postfix"));
 
-                var subSustainerCtor = typeof(SubSustainer).GetConstructor(new Type[] { typeof(Sustainer), typeof(SubSoundDef) });
+                var subSustainerCtor = typeof(SubSustainer).GetConstructor(new[] { typeof(Sustainer), typeof(SubSoundDef) });
+                var sampleCtor = typeof(Sample).GetConstructor(new[] { typeof(SubSoundDef) });
                 var subSoundPlay = typeof(SubSoundDef).GetMethod("TryPlay");
                 var effecterTick = typeof(Effecter).GetMethod("EffectTick");
                 var effecterTrigger = typeof(Effecter).GetMethod("Trigger");
                 var randomBoltMesh = typeof(LightningBoltMeshPool).GetProperty("RandomBoltMesh").GetGetMethod();
 
-                var effectMethods = new MethodBase[] { subSustainerCtor, subSoundPlay, effecterTick, effecterTrigger, randomBoltMesh };
+                var effectMethods = new MethodBase[] { subSustainerCtor, sampleCtor, subSoundPlay, effecterTick, effecterTrigger, randomBoltMesh };
                 var moteMethods = typeof(MoteMaker).GetMethods(BindingFlags.Static | BindingFlags.Public);
 
                 foreach (MethodBase m in effectMethods.Concat(moteMethods))
@@ -464,17 +466,32 @@ namespace Multiplayer.Client
             {
                 var setMapTimePrefix = new HarmonyMethod(AccessTools.Method(typeof(SetMapTimeForUI), "Prefix"));
                 var setMapTimePostfix = new HarmonyMethod(AccessTools.Method(typeof(SetMapTimeForUI), "Postfix"));
-                var methods = new[] {
-                    "MapInterfaceOnGUI_BeforeMainTabs",
-                    "MapInterfaceOnGUI_AfterMainTabs",
-                    "HandleMapClicks",
-                    "HandleLowPriorityInput",
-                    "MapInterfaceUpdate"
+
+                var mapInterfaceMethods = new[]
+                {
+                    nameof(MapInterface.MapInterfaceOnGUI_BeforeMainTabs),
+                    nameof(MapInterface.MapInterfaceOnGUI_AfterMainTabs),
+                    nameof(MapInterface.HandleMapClicks),
+                    nameof(MapInterface.HandleLowPriorityInput),
+                    nameof(MapInterface.MapInterfaceUpdate)
                 };
 
-                foreach (string m in methods)
+                foreach (string m in mapInterfaceMethods)
                     harmony.Patch(AccessTools.Method(typeof(MapInterface), m), setMapTimePrefix, setMapTimePostfix);
-                harmony.Patch(AccessTools.Method(typeof(SoundRoot), "Update"), setMapTimePrefix, setMapTimePostfix);
+
+                var windowMethods = new[] { "DoWindowContents", "WindowUpdate" };
+
+                foreach (string m in windowMethods)
+                    harmony.Patch(typeof(MainTabWindow_Inspect).GetMethod(m), setMapTimePrefix, setMapTimePostfix);
+
+                foreach (Type t in typeof(InspectTabBase).AllSubtypesAndSelf())
+                {
+                    MethodInfo method = t.GetMethod("FillTab", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
+                    if (method != null && !method.IsAbstract)
+                        harmony.Patch(method, setMapTimePrefix, setMapTimePostfix);
+                }
+
+                harmony.Patch(AccessTools.Method(typeof(SoundRoot), nameof(SoundRoot.Update)), setMapTimePrefix, setMapTimePostfix);
             }
         }
 
