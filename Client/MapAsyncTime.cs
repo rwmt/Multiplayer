@@ -675,7 +675,7 @@ namespace Multiplayer.Client
         {
             Scribe_Values.Look(ref mapTicks, "mapTicks");
             Scribe_Deep.Look(ref storyteller, "storyteller");
-            //Scribe_Values.Look(ref timeSpeedInt, "timeSpeed");
+            Scribe_Values.Look(ref timeSpeedInt, "timeSpeed");
         }
 
         public void ExecuteCmd(ScheduledCommand cmd)
@@ -695,6 +695,10 @@ namespace Multiplayer.Client
             map.PushFaction(cmd.GetFaction());
 
             context.map = map;
+
+            List<object> prevSelected = Find.Selector.selected;
+            if (!TickPatch.currentExecutingCmdIssuedBySelf)
+                Find.Selector.selected = new List<object>();
 
             try
             {
@@ -754,6 +758,9 @@ namespace Multiplayer.Client
             }
             finally
             {
+                if (!TickPatch.currentExecutingCmdIssuedBySelf)
+                    Find.Selector.selected = prevSelected;
+
                 CurrentMapSetPatch.ignore = false;
                 CurrentMapGetPatch.currentMap = null;
                 map.PopFaction();
@@ -816,8 +823,6 @@ namespace Multiplayer.Client
                 {
                     IntVec3[] cells = Sync.ReadSync<IntVec3[]>(data);
                     designator.DesignateMultiCell(cells);
-
-                    Find.Selector.ClearSelection();
                 }
                 else if (mode == DesignatorMode.Thing)
                 {

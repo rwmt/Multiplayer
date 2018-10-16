@@ -1351,6 +1351,7 @@ namespace Multiplayer.Client
 
     [MpPatch(typeof(OutfitDatabase), nameof(OutfitDatabase.GenerateStartingOutfits))]
     [MpPatch(typeof(DrugPolicyDatabase), nameof(DrugPolicyDatabase.GenerateStartingDrugPolicies))]
+    [MpPatch(typeof(FoodRestrictionDatabase), nameof(FoodRestrictionDatabase.GenerateStartingFoodRestrictions))]
     static class CancelReinitializationDuringLoading
     {
         static bool Prefix() => Scribe.mode != LoadSaveMode.LoadingVars;
@@ -1373,6 +1374,16 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.Ticking || Multiplayer.ExecutingCmds)
                 __result.uniqueId = Multiplayer.GlobalIdBlock.NextId();
+        }
+    }
+
+    [HarmonyPatch(typeof(FoodRestrictionDatabase), nameof(FoodRestrictionDatabase.MakeNewFoodRestriction))]
+    static class FoodRestrictionUniqueIdPatch
+    {
+        static void Postfix(FoodRestriction __result)
+        {
+            if (Multiplayer.Ticking || Multiplayer.ExecutingCmds)
+                __result.id = Multiplayer.GlobalIdBlock.NextId();
         }
     }
 

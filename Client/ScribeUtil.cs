@@ -16,7 +16,7 @@ namespace Multiplayer.Client
         // Used in CrossRefs patches
         public HashSet<string> tempKeys = new HashSet<string>();
 
-        public Dictionary<string, ILoadReferenceable> Dict { get => allObjectsByLoadID; }
+        public Dictionary<string, ILoadReferenceable> Dict => allObjectsByLoadID;
 
         public void Unregister(ILoadReferenceable thing)
         {

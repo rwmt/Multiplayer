@@ -74,7 +74,9 @@ namespace Multiplayer.Client
 
         public static bool ExecutingCmds => MultiplayerWorldComp.executingCmdWorld || MapAsyncTimeComp.executingCmdMap != null;
         public static bool Ticking => MultiplayerWorldComp.tickingWorld || MapAsyncTimeComp.tickingMap != null || ConstantTicker.ticking;
-        public static bool ShouldSync => Client != null && !Ticking && !ExecutingCmds && !reloading && Current.ProgramState == ProgramState.Playing && !LongEventHandler.ShouldWaitForEvent;
+
+        public static bool dontSync;
+        public static bool ShouldSync => Client != null && !Ticking && !ExecutingCmds && !reloading && Current.ProgramState == ProgramState.Playing && !LongEventHandler.ShouldWaitForEvent && !dontSync;
 
         public static Callback<P2PSessionRequest_t> sessionReqCallback;
         public static Callback<P2PSessionConnectFail_t> p2pFail;
@@ -633,6 +635,16 @@ namespace Multiplayer.Client
                     }
                 }
             }
+        }
+
+        public static string FixedEllipsis()
+        {
+            int num = Mathf.FloorToInt(Time.realtimeSinceStartup) % 3;
+            if (num == 0)
+                return ".  ";
+            if (num == 1)
+                return ".. ";
+            return "...";
         }
     }
 

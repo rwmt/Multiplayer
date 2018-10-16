@@ -79,7 +79,7 @@ namespace Multiplayer.Client
         }
     }
 
-    public class CustomSelectLandingSite : Page_SelectLandingSite
+    public class CustomSelectLandingSite : Page_SelectStartingSite
     {
         public CustomSelectLandingSite()
         {
@@ -110,7 +110,7 @@ namespace Multiplayer.Client
 
         public override void DoWindowContents(Rect inRect)
         {
-            string label = Ellipsis ? ConnectingString : result;
+            string label = Ellipsis ? (ConnectingString + Multiplayer.FixedEllipsis()) : result;
 
             const float buttonHeight = 40f;
             const float buttonWidth = 120f;
@@ -121,9 +121,6 @@ namespace Multiplayer.Client
             Text.Anchor = TextAnchor.MiddleCenter;
             Widgets.Label(textRect, label);
             Text.Anchor = TextAnchor.UpperLeft;
-
-            if (Ellipsis)
-                Widgets.Label(textRect.Right((inRect.width - textWidth) / 2 - 5f + textWidth), GenText.MarchingEllipsis());
 
             Rect buttonRect = new Rect((inRect.width - buttonWidth) / 2f, inRect.height - buttonHeight - 10f, buttonWidth, buttonHeight);
             if (Widgets.ButtonText(buttonRect, "Cancel", true, false, true))
@@ -232,6 +229,9 @@ namespace Multiplayer.Client
 
                 foreach (Outfit o in data.outfitDatabase.outfits)
                     o.uniqueId = Multiplayer.GlobalIdBlock.NextId();
+
+                foreach (FoodRestriction o in data.foodRestrictionDatabase.foodRestrictions)
+                    o.id = Multiplayer.GlobalIdBlock.NextId();
             }
 
             foreach (Map map in Find.Maps)

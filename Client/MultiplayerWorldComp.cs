@@ -169,6 +169,7 @@ namespace Multiplayer.Client
             game.researchManager = data.researchManager;
             game.drugPolicyDatabase = data.drugPolicyDatabase;
             game.outfitDatabase = data.outfitDatabase;
+            game.foodRestrictionDatabase = data.foodRestrictionDatabase;
             game.playSettings = data.playSettings;
 
             SyncResearch.researchSpeed = data.researchSpeed;
@@ -299,8 +300,9 @@ namespace Multiplayer.Client
         public bool online;
 
         public ResearchManager researchManager;
-        public DrugPolicyDatabase drugPolicyDatabase;
         public OutfitDatabase outfitDatabase;
+        public DrugPolicyDatabase drugPolicyDatabase;
+        public FoodRestrictionDatabase foodRestrictionDatabase;
         public PlaySettings playSettings;
 
         public ResearchSpeed researchSpeed;
@@ -315,6 +317,7 @@ namespace Multiplayer.Client
             Scribe_Deep.Look(ref researchManager, "researchManager");
             Scribe_Deep.Look(ref drugPolicyDatabase, "drugPolicyDatabase");
             Scribe_Deep.Look(ref outfitDatabase, "outfitDatabase");
+            Scribe_Deep.Look(ref foodRestrictionDatabase, "foodRestrictionDatabase");
             Scribe_Deep.Look(ref playSettings, "playSettings");
 
             Scribe_Deep.Look(ref researchSpeed, "researchSpeed");
@@ -333,6 +336,7 @@ namespace Multiplayer.Client
                 researchManager = new ResearchManager(),
                 drugPolicyDatabase = new DrugPolicyDatabase(),
                 outfitDatabase = new OutfitDatabase(),
+                foodRestrictionDatabase = new FoodRestrictionDatabase(),
                 playSettings = new PlaySettings(),
                 researchSpeed = new ResearchSpeed(),
             };
@@ -348,37 +352,11 @@ namespace Multiplayer.Client
                 researchManager = Find.ResearchManager,
                 drugPolicyDatabase = Current.Game.drugPolicyDatabase,
                 outfitDatabase = Current.Game.outfitDatabase,
+                foodRestrictionDatabase = Current.Game.foodRestrictionDatabase,
                 playSettings = Current.Game.playSettings,
 
                 researchSpeed = new ResearchSpeed(),
             };
-        }
-
-        public static XmlDocument ExtractFromGameDoc(XmlDocument gameDoc)
-        {
-            XmlDocument doc = new XmlDocument();
-            doc.AppendChild(doc.CreateElement("factionWorldData"));
-            XmlNode root = doc.DocumentElement;
-
-            string[] fromGame = new[] {
-                "researchManager",
-                "drugPolicyDatabase",
-                "outfitDatabase",
-                "playSettings",
-                "history"
-            };
-
-            string[] fromWorld = new[] {
-                "settings"
-            };
-
-            foreach (string s in fromGame)
-                root.AppendChild(doc.ImportNode(gameDoc.DocumentElement["game"][s], true));
-
-            foreach (string s in fromWorld)
-                root.AppendChild(doc.ImportNode(gameDoc.DocumentElement["game"]["world"][s], true));
-
-            return doc;
         }
     }
 }

@@ -190,9 +190,8 @@ namespace Multiplayer.Client
 
         private void DrawLan(Rect inRect)
         {
-            Text.Anchor = TextAnchor.MiddleLeft;
-            float textWidth = Text.CalcSize("Searching").x;
-            Widgets.Label(new Rect((inRect.width - textWidth) / 2, 8f, textWidth + 20, 40), "Searching" + GenText.MarchingEllipsis());
+            Text.Anchor = TextAnchor.MiddleCenter;
+            Widgets.Label(new Rect(inRect.x, 8f, inRect.width, 40), "Searching" + Multiplayer.FixedEllipsis());
             Text.Anchor = TextAnchor.UpperLeft;
             inRect.yMin += 40f;
 

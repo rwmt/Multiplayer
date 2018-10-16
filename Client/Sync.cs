@@ -9,6 +9,7 @@ using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.Serialization;
+using System.Text;
 using Verse;
 using Verse.AI;
 
@@ -776,7 +777,9 @@ namespace Multiplayer.Client
             { data => ReadSync<Pawn>(data).jobs },
             { data => ReadSync<Pawn>(data).outfits },
             { data => ReadSync<Pawn>(data).drugs },
+            { data => ReadSync<Pawn>(data).foodRestriction },
             { data => ReadSync<Pawn>(data).training },
+            { data => ReadSync<Caravan>(data).pather },
             { data => new FloatRange(data.ReadFloat(), data.ReadFloat()) },
             { data => new IntRange(data.ReadInt32(), data.ReadInt32()) },
             { data => new QualityRange(ReadSync<QualityCategory>(data), ReadSync<QualityCategory>(data)) },
@@ -788,6 +791,7 @@ namespace Multiplayer.Client
             { data => new ITab_Pawn_Gear() },
             { data => Current.Game.outfitDatabase },
             { data => Current.Game.drugPolicyDatabase },
+            { data => Current.Game.foodRestrictionDatabase },
             { data => (data.MpContext().map).areaManager },
             {
                 data =>
@@ -826,7 +830,9 @@ namespace Multiplayer.Client
             { (ByteWriter data, Pawn_JobTracker comp) => WriteSync(data, comp.pawn) },
             { (ByteWriter data, Pawn_OutfitTracker comp) => WriteSync(data, comp.pawn) },
             { (ByteWriter data, Pawn_DrugPolicyTracker comp) => WriteSync(data, comp.pawn) },
+            { (ByteWriter data, Pawn_FoodRestrictionTracker comp) => WriteSync(data, comp.pawn) },
             { (ByteWriter data, Pawn_TrainingTracker comp) => WriteSync(data, comp.pawn) },
+            { (ByteWriter data, Caravan_PathFollower follower) => WriteSync(data, follower.caravan) },
             { (ByteWriter data, FloatRange range) => { data.WriteFloat(range.min); data.WriteFloat(range.max); }},
             { (ByteWriter data, IntRange range) => { data.WriteInt32(range.min); data.WriteInt32(range.max); }},
             { (ByteWriter data, QualityRange range) => { WriteSync(data, range.min); WriteSync(data, range.max); }},
@@ -838,6 +844,7 @@ namespace Multiplayer.Client
             { (ByteWriter data, ITab_Pawn_Gear tab) => {} },
             { (ByteWriter data, OutfitDatabase db) => {} },
             { (ByteWriter data, DrugPolicyDatabase db) => {} },
+            { (ByteWriter data, FoodRestrictionDatabase db) => {} },
             { (ByteWriter data, AreaManager areas) => data.MpContext().map = areas.map },
             { (ByteWriter data, MpTradeSession session) => data.WriteInt32(session.sessionId) },
             {
@@ -868,11 +875,21 @@ namespace Multiplayer.Client
         {
             { typeof(IStoreSettingsParent), "GetStoreSettings/filter" },
             { typeof(Bill), "ingredientFilter" },
-            { typeof(Outfit), "filter" }
+            { typeof(Outfit), "filter" },
+            { typeof(FoodRestriction), "filter" }
         };
 
         private static List<Type> thingCompTypes = typeof(ThingComp).AllSubclassesNonAbstract().ToList();
         private static List<Type> designatorTypes = typeof(Designator).AllSubclassesNonAbstract().ToList();
+        private static List<Type> worldObjectCompTypes = typeof(WorldObjectComp).AllSubclassesNonAbstract().ToList();
+
+        private static Type[] supportedThingHolders = new[]
+        {
+            typeof(Map),
+            typeof(Thing),
+            typeof(WorldObject),
+            typeof(WorldObjectComp)
+        };
 
         public static T ReadSync<T>(ByteReader data)
         {
@@ -1028,21 +1045,47 @@ namespace Multiplayer.Client
                 if (thingId == -1)
                     return null;
 
-                ThingDef def = ReadSync<ThingDef>(data);
-
-                if (!context.readingThingParent)
+                if (!context.syncingThingParent)
                 {
-                    context.readingThingParent = true;
-                    Thing parent = ReadSync<Thing>(data);
-                    context.readingThingParent = false;
+                    byte implIndex = data.ReadByte();
+                    Type implType = supportedThingHolders[implIndex];
 
-                    if (parent is IThingHolder holder)
-                        return ThingOwnerUtility.GetAllThingsRecursively(holder).Find(t => t.thingIDNumber == thingId);
-                    else if (parent != null)
-                        return null;
+                    if (implType != typeof(Map))
+                    {
+                        context.syncingThingParent = true;
+                        IThingHolder parent = (IThingHolder)ReadSyncObject(data, implType);
+                        context.syncingThingParent = false;
+
+                        if (parent != null)
+                            return ThingOwnerUtility.GetAllThingsRecursively(parent).Find(t => t.thingIDNumber == thingId);
+                        else
+                            return null;
+                    }
                 }
 
+                ThingDef def = ReadSync<ThingDef>(data);
                 return map.listerThings.ThingsOfDef(def).Find(t => t.thingIDNumber == thingId);
+            }
+            else if (typeof(WorldObject).IsAssignableFrom(type))
+            {
+                int objId = data.ReadInt32();
+                if (objId == -1)
+                    return null;
+
+                return Find.World.worldObjects.AllWorldObjects.Find(w => w.ID == objId);
+            }
+            else if (typeof(WorldObjectComp).IsAssignableFrom(type))
+            {
+                int compTypeId = data.ReadInt32();
+                if (compTypeId == -1)
+                    return null;
+
+                WorldObject parent = ReadSync<WorldObject>(data);
+                if (parent == null)
+                    return null;
+
+                Type compType = worldObjectCompTypes[compTypeId];
+                return parent.AllComps.Find(comp => comp.props.compClass == compType);
             }
             else if (typeof(CompChangeableProjectile) == type) // special case of ThingComp
             {
@@ -1058,7 +1101,7 @@ namespace Multiplayer.Client
                 if (compTypeId == -1)
                     return null;
 
-                ThingWithComps parent = ReadSync<Thing>(data) as ThingWithComps;
+                ThingWithComps parent = ReadSync<ThingWithComps>(data);
                 if (parent == null)
                     return null;
 
@@ -1095,6 +1138,11 @@ namespace Multiplayer.Client
             {
                 int id = data.ReadInt32();
                 return Current.Game.drugPolicyDatabase.AllPolicies.Find(o => o.uniqueId == id);
+            }
+            else if (typeof(FoodRestriction) == type)
+            {
+                int id = data.ReadInt32();
+                return Current.Game.foodRestrictionDatabase.AllFoodRestrictions.Find(o => o.id == id);
             }
             else if (typeof(BodyPartRecord) == type)
             {
@@ -1313,14 +1361,15 @@ namespace Multiplayer.Client
                 }
                 else if (typeof(ThingComp).IsAssignableFrom(type))
                 {
-                    if (obj is ThingComp comp)
+                    ThingComp comp = (ThingComp)obj;
+                    if (comp != null)
                     {
                         data.WriteInt32(thingCompTypes.IndexOf(comp.GetType()));
-                        WriteSync<Thing>(data, comp.parent);
+                        WriteSync(data, comp.parent);
                     }
                     else
                     {
-                        data.WriteString("");
+                        data.WriteInt32(-1);
                     }
                 }
                 else if (typeof(WorkGiver).IsAssignableFrom(type))
@@ -1341,13 +1390,55 @@ namespace Multiplayer.Client
                         context.map = thing.Map;
 
                     data.WriteInt32(thing.thingIDNumber);
-                    WriteSync(data, thing.def);
 
-                    Thing parent = ThingOwnerUtility.GetFirstSpawnedParentThing(thing);
-                    if (!thing.Spawned && parent == null)
-                        throw new SerializationException($"Thing {thing} is inaccessible");
+                    if (!context.syncingThingParent)
+                    {
+                        object holder = null;
 
-                    WriteSync(data, thing.Spawned ? null : parent);
+                        if (thing.Spawned)
+                            holder = thing.Map;
+                        else if (ThingOwnerUtility.GetFirstSpawnedParentThing(thing) is Thing parentThing)
+                            holder = parentThing;
+                        else if (GetAnyParent<WorldObject>(thing) is WorldObject worldObj)
+                            holder = worldObj;
+                        else if (GetAnyParent<WorldObjectComp>(thing) is WorldObjectComp worldObjComp)
+                            holder = worldObjComp;
+
+                        GetImpl(holder, supportedThingHolders, out Type implType, out int index);
+                        if (index == -1)
+                            throw new SerializationException($"Thing {ThingHolderString(thing)} is inaccessible");
+
+                        WriteSync(data, (byte)index);
+
+                        if (implType != typeof(Map))
+                        {
+                            context.syncingThingParent = true;
+                            WriteSyncObject(data, holder, implType);
+                            context.syncingThingParent = false;
+                            return;
+                        }
+                    }
+
+                    if (thing.Spawned)
+                        WriteSync(data, thing.def);
+                }
+                else if (typeof(WorldObject).IsAssignableFrom(type))
+                {
+                    WorldObject worldObj = (WorldObject)obj;
+                    data.WriteInt32(worldObj?.ID ?? -1);
+                }
+                else if (typeof(WorldObjectComp).IsAssignableFrom(type))
+                {
+                    WorldObjectComp comp = (WorldObjectComp)obj;
+                    if (comp != null)
+                    {
+                        data.WriteInt32(worldObjectCompTypes.IndexOf(comp.GetType()));
+                        WriteSync(data, comp.parent);
+                    }
+                    else
+                    {
+                        data.WriteInt32(-1);
+                    }
                 }
                 else if (typeof(BillStack) == type)
                 {
@@ -1356,19 +1447,24 @@ namespace Multiplayer.Client
                 }
                 else if (typeof(Bill).IsAssignableFrom(type))
                 {
-                    Bill bill = obj as Bill;
+                    Bill bill = (Bill)obj;
                     WriteSync(data, bill.billStack);
                     data.WriteInt32(bill.loadID);
                 }
                 else if (typeof(Outfit) == type)
                 {
-                    Outfit outfit = obj as Outfit;
+                    Outfit outfit = (Outfit)obj;
                     data.WriteInt32(outfit.uniqueId);
                 }
                 else if (typeof(DrugPolicy) == type)
                 {
-                    DrugPolicy outfit = obj as DrugPolicy;
+                    DrugPolicy outfit = (DrugPolicy)obj;
                     data.WriteInt32(outfit.uniqueId);
+                }
+                else if (typeof(FoodRestriction) == type)
+                {
+                    FoodRestriction foodRestriction = (FoodRestriction)obj;
+                    data.WriteInt32(foodRestriction.id);
                 }
                 else if (typeof(BodyPartRecord) == type)
                 {
@@ -1405,7 +1501,9 @@ namespace Multiplayer.Client
                         WriteSync(data, zone);
                     }
                     else
+                    {
                         throw new SerializationException($"ISelectable is neither a thing nor a zone. Got type {obj?.GetType()}");
+                    }
                 }
                 else if (typeof(IStoreSettingsParent) == type)
                 {
@@ -1452,22 +1550,56 @@ namespace Multiplayer.Client
                 return;
             }
 
-            int impl = -1;
-            Type implType = null;
-            for (int i = 0; i < impls.Count; i++)
-            {
-                if (impls[i].IsAssignableFrom(obj.GetType()))
-                {
-                    implType = impls[i];
-                    impl = i;
-                }
-            }
+            GetImpl(obj, impls, out Type implType, out int impl);
 
             if (implType == null)
                 throw new SerializationException($"Unknown {typeof(T)} implementation type {obj.GetType()}");
 
             data.WriteInt32(impl);
             WriteSyncObject(data, obj, implType);
+        }
+
+        private static void GetImpl(object obj, IList<Type> impls, out Type type, out int index)
+        {
+            type = null;
+            index = -1;
+
+            if (obj == null) return;
+
+            for (int i = 0; i < impls.Count; i++)
+            {
+                if (impls[i].IsAssignableFrom(obj.GetType()))
+                {
+                    type = impls[i];
+                    index = i;
+                }
+            }
+        }
+
+        private static T GetAnyParent<T>(Thing thing) where T : class
+        {
+            T t = thing as T;
+            if (t != null)
+                return t;
+
+            for (IThingHolder parentHolder = thing.ParentHolder; parentHolder != null; parentHolder = parentHolder.ParentHolder)
+                if (parentHolder is T t2)
+                    return t2;
+
+            return (T)((object)null);
+        }
+
+        private static string ThingHolderString(Thing thing)
+        {
+            StringBuilder builder = new StringBuilder(thing.ToString());
+
+            for (IThingHolder parentHolder = thing.ParentHolder; parentHolder != null; parentHolder = parentHolder.ParentHolder)
+            {
+                builder.Insert(0, "=>");
+                builder.Insert(0, parentHolder.ToString());
+            }
+
+            return builder.ToString();
         }
     }
 
@@ -1780,7 +1912,7 @@ namespace Multiplayer.Client
     public class MpContext
     {
         public Map map;
-        public bool readingThingParent;
+        public bool syncingThingParent;
     }
 
 }
