@@ -15,11 +15,19 @@ namespace Multiplayer.Client
         public IdBlock mapIdBlock;
         public Dictionary<int, FactionMapData> factionMapData = new Dictionary<int, FactionMapData>();
 
+        public CaravanFormingSession caravanForming;
+
         // for SaveCompression
         public List<Thing> tempLoadedThings;
 
         public MultiplayerMapComp(Map map) : base(map)
         {
+        }
+
+        public void CreateCaravanFormingSession(bool reform, Action onClosed, bool mapAboutToBeRemoved)
+        {
+            if (caravanForming != null) return;
+            caravanForming = new CaravanFormingSession(map, reform, onClosed, mapAboutToBeRemoved);
         }
 
         public override void MapComponentTick()
@@ -66,6 +74,7 @@ namespace Multiplayer.Client
                 Scribe_Values.Look(ref isPlayerHome, "isPlayerHome", false, true);
             }
 
+            Scribe_Deep.Look(ref caravanForming, "caravanFormingSession", map);
             Multiplayer.ExposeIdBlock(ref mapIdBlock, "mapIdBlock");
 
             ExposeFactionData();

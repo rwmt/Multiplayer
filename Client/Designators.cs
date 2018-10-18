@@ -144,6 +144,7 @@ namespace Multiplayer.Client
 
     [HarmonyPatch(typeof(Game))]
     [HarmonyPatch(nameof(Game.CurrentMap), PropertyMethod.Setter)]
+    [HarmonyPriority(Priority.First)]
     public static class CurrentMapSetPatch
     {
         public static bool ignore;

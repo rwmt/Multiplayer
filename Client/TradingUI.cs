@@ -197,38 +197,6 @@ namespace Multiplayer.Client
         static void Postfix() => running = false;
     }
 
-    [HarmonyPatch(typeof(WindowStack), nameof(WindowStack.Add))]
-    static class CancelDialogTrade
-    {
-        static bool Prefix(Window window)
-        {
-            if (window is Dialog_Trade && (Multiplayer.ExecutingCmds || Multiplayer.Ticking))
-                return false;
-
-            return true;
-        }
-    }
-
-    [HarmonyPatch(typeof(Dialog_Trade))]
-    [HarmonyPatch(new[] { typeof(Pawn), typeof(ITrader), typeof(bool) })]
-    static class CancelDialogTradeCtor
-    {
-        public static bool cancel;
-
-        static bool Prefix(Pawn playerNegotiator, ITrader trader, bool giftsOnly)
-        {
-            if (cancel) return false;
-
-            if (Multiplayer.ExecutingCmds || Multiplayer.Ticking)
-            {
-                MpTradeSession.TryCreate(trader, playerNegotiator, giftsOnly);
-                return false;
-            }
-
-            return true;
-        }
-    }
-
     [MpPatch(typeof(JobDriver_TradeWithPawn), "<MakeNewToils>c__Iterator0+<MakeNewToils>c__AnonStorey1", "<>m__1")]
     static class ShowTradingWindow
     {

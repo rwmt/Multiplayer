@@ -129,11 +129,14 @@ namespace Multiplayer.Client
                 bool arrayAccess = part.EndsWith("[]");
                 part = part.Replace("[]", "");
 
+                MemberInfo memberFound = null;
+
                 if (!currentType.IsInterface)
                 {
                     FieldInfo field = AccessTools.Field(currentType, part);
                     if (field != null)
                     {
+                        memberFound = field;
                         members.Add(field);
                         currentType = field.FieldType;
                         hasSetter = true;
@@ -142,6 +145,7 @@ namespace Multiplayer.Client
                     PropertyInfo property = AccessTools.Property(currentType, part);
                     if (property != null)
                     {
+                        memberFound = property;
                         members.Add(property);
                         currentType = property.PropertyType;
                         hasSetter = property.GetSetMethod(true) != null;
@@ -151,12 +155,13 @@ namespace Multiplayer.Client
                 MethodInfo method = AccessTools.Method(currentType, part);
                 if (method != null)
                 {
+                    memberFound = method;
                     members.Add(method);
                     currentType = method.ReturnType;
                     hasSetter = false;
                 }
 
-                if (currentType == null)
+                if (memberFound == null)
                     throw new Exception($"Member {part} not found in path: {memberPath}, current type: {currentType}");
 
                 if (arrayAccess)

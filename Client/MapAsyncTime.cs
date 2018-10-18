@@ -481,6 +481,9 @@ namespace Multiplayer.Client
 
         private float TickRateMultiplier(TimeSpeed speed)
         {
+            if (map.MpComp().caravanForming != null)
+                return 0f;
+
             switch (speed)
             {
                 case TimeSpeed.Paused:
@@ -505,6 +508,8 @@ namespace Multiplayer.Client
             get => timeSpeedInt;
             set => timeSpeedInt = value;
         }
+
+        public bool Paused => TickRateMultiplier(TimeSpeed) == 0f;
 
         public float RealTimeToTickThrough { get; set; }
 

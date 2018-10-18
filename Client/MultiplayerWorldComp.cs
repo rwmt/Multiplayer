@@ -88,6 +88,8 @@ namespace Multiplayer.Client
             int currentFactionId = Faction.OfPlayer.loadID;
             Scribe_Values.Look(ref currentFactionId, "currentFactionId");
 
+            Scribe_Collections.Look(ref trading, "tradingSessions", LookMode.Deep);
+
             if (Scribe.mode == LoadSaveMode.Saving)
             {
                 var factionData = new Dictionary<int, FactionWorldData>(this.factionData);
@@ -100,6 +102,11 @@ namespace Multiplayer.Client
                 ScribeUtil.Look(ref factionData, "factionData", LookMode.Deep);
                 if (factionData == null)
                     factionData = new Dictionary<int, FactionWorldData>();
+            }
+
+            if (Scribe.mode == LoadSaveMode.ResolvingCrossRefs)
+            {
+                trading.RemoveAll(t => t.trader == null || t.playerNegotiator == null);
             }
 
             if (Scribe.mode == LoadSaveMode.PostLoadInit)

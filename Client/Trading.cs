@@ -14,7 +14,7 @@ using Verse.AI;
 
 namespace Multiplayer.Client
 {
-    public class MpTradeSession
+    public class MpTradeSession : IExposable, ISessionWithTransferables
     {
         public static MpTradeSession current;
 
@@ -34,6 +34,8 @@ namespace Multiplayer.Client
                 return trader.TraderName;
             }
         }
+
+        public int SessionId => sessionId;
 
         public MpTradeSession() { }
 
@@ -91,11 +93,14 @@ namespace Multiplayer.Client
 
         public void TryExecute()
         {
+            deal.Recache();
+
             SetTradeSession(this);
-            deal.TryExecute(out bool traded);
+            bool executed = deal.TryExecute(out bool traded);
             SetTradeSession(null);
 
-            Multiplayer.WorldComp.RemoveTradeSession(this);
+            if (executed)
+                Multiplayer.WorldComp.RemoveTradeSession(this);
         }
 
         public void Reset()
@@ -111,7 +116,33 @@ namespace Multiplayer.Client
             deal.uiShouldReset = UIShouldReset.Silent;
         }
 
-        public Tradeable GetTradeableByThingId(int thingId)
+        public static void SetTradeSession(MpTradeSession session, bool force = false)
+        {
+            if (!force && TradeSession.deal == session?.deal) return;
+
+            current = session;
+            TradeSession.trader = session?.trader;
+            TradeSession.playerNegotiator = session?.playerNegotiator;
+            TradeSession.giftMode = session?.giftMode ?? false;
+            TradeSession.deal = session?.deal;
+        }
+
+        public void ExposeData()
+        {
+            Scribe_Values.Look(ref sessionId, "sessionId");
+
+            ILoadReferenceable trader = (ILoadReferenceable)this.trader;
+            Scribe_References.Look(ref trader, "trader");
+            this.trader = (ITrader)trader;
+
+            Scribe_References.Look(ref playerNegotiator, "playerNegotiator");
+            Scribe_Values.Look(ref giftMode, "giftMode");
+            Scribe_Values.Look(ref giftsOnly, "giftsOnly");
+
+            Scribe_Deep.Look(ref deal, "tradeDeal", this);
+        }
+
+        public Transferable GetTransferableByThingId(int thingId)
         {
             for (int i = 0; i < deal.tradeables.Count; i++)
             {
@@ -124,20 +155,9 @@ namespace Multiplayer.Client
 
             return null;
         }
-
-        public static void SetTradeSession(MpTradeSession session, bool force = false)
-        {
-            if (!force && TradeSession.deal == session?.deal) return;
-
-            current = session;
-            TradeSession.trader = session?.trader;
-            TradeSession.playerNegotiator = session?.playerNegotiator;
-            TradeSession.giftMode = session?.giftMode ?? false;
-            TradeSession.deal = session?.deal;
-        }
     }
 
-    public class MpTradeDeal : TradeDeal
+    public class MpTradeDeal : TradeDeal, IExposable
     {
         public MpTradeSession session;
 
@@ -225,6 +245,11 @@ namespace Multiplayer.Client
                 if (recacheThings.Count == 0) break;
             }
         }
+
+        public void ExposeData()
+        {
+            Scribe_Collections.Look(ref tradeables, "tradeables", LookMode.Deep);
+        }
     }
 
     public enum UIShouldReset
@@ -232,6 +257,44 @@ namespace Multiplayer.Client
         None,
         Silent,
         Full
+    }
+
+    [HarmonyPatch(typeof(TradeDeal), nameof(TradeDeal.Reset))]
+    static class CancelTradeDealResetDuringLoading
+    {
+        static bool Prefix() => Scribe.mode != LoadSaveMode.LoadingVars;
+    }
+
+    [HarmonyPatch(typeof(WindowStack), nameof(WindowStack.Add))]
+    static class CancelDialogTrade
+    {
+        static bool Prefix(Window window)
+        {
+            if (window is Dialog_Trade && (Multiplayer.ExecutingCmds || Multiplayer.Ticking))
+                return false;
+
+            return true;
+        }
+    }
+
+    [HarmonyPatch(typeof(Dialog_Trade))]
+    [HarmonyPatch(new[] { typeof(Pawn), typeof(ITrader), typeof(bool) })]
+    static class CancelDialogTradeCtor
+    {
+        public static bool cancel;
+
+        static bool Prefix(Pawn playerNegotiator, ITrader trader, bool giftsOnly)
+        {
+            if (cancel) return false;
+
+            if (Multiplayer.ExecutingCmds || Multiplayer.Ticking)
+            {
+                MpTradeSession.TryCreate(trader, playerNegotiator, giftsOnly);
+                return false;
+            }
+
+            return true;
+        }
     }
 
     [HarmonyPatch(typeof(JobDriver_Wait), nameof(JobDriver_Wait.DecorateWaitToil))]

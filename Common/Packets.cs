@@ -2,6 +2,7 @@
 {
     public enum Packets : byte
     {
+        Client_Defs,
         Client_Username,
         Client_RequestWorld,
         Client_WorldLoaded,
@@ -14,6 +15,7 @@
         Client_SteamRequest,
         Client_Debug,
 
+        Server_DefsOK,
         Server_WorldData,
         Server_Command,
         Server_MapResponse,

@@ -1,6 +1,7 @@
 ﻿extern alias zip;
 
 using Harmony;
+using Ionic.Crc;
 using Ionic.Zlib;
 using LiteNetLib;
 using Multiplayer.Common;
@@ -31,6 +32,8 @@ namespace Multiplayer.Client
     [StaticConstructorOnStartup]
     public static class Multiplayer
     {
+        public static readonly int ProtocolVersion = 1;
+
         public static MultiplayerSession session;
         public static MultiplayerGame game;
 
@@ -93,7 +96,7 @@ namespace Multiplayer.Client
             if (GenCommandLine.CommandLineArgPassed("profiler"))
                 SimpleProfiler.CheckAvailable();
 
-            MpLog.info = str => Log.Message($"{username} {(Current.Game != null ? (Find.CurrentMap != null ? Find.CurrentMap.GetComponent<MapAsyncTimeComp>().mapTicks.ToString() : "") : "")} {str}");
+            MpLog.info = str => Log.Message($"{username} {Current.Game?.CurrentMap?.AsyncTime()?.mapTicks.ToString() ?? ""} {str}");
             MpLog.error = str => Log.Error(str);
 
             GenCommandLine.TryGetCommandLineArg("username", out username);

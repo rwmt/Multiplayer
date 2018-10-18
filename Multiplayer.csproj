@@ -82,6 +82,7 @@
     <Compile Include="Client\SituationalThoughts.cs" />
     <Compile Include="Client\Sync.cs" />
     <Compile Include="Client\SyncHandlers.cs" />
+    <Compile Include="Client\SyncSerialization.cs" />
     <Compile Include="Client\Trading.cs" />
     <Compile Include="Client\TradingUI.cs" />
     <Compile Include="Common\MpLog.cs" />
@@ -101,9 +102,19 @@
     <Compile Include="Common\Packets.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Client\Multiplayer.cs" />
+    <Compile Include="Properties\Settings.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+      <DependentUpon>Settings.settings</DependentUpon>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
+    <None Include="app.config" />
     <None Include="packages.config" />
+    <None Include="Properties\Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </None>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>

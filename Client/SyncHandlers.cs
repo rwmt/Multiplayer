@@ -35,6 +35,7 @@ namespace Multiplayer.Client
             Sync.RegisterSyncMethods(typeof(SyncPatches));
             Sync.RegisterSyncMethods(typeof(SyncThingFilters));
             Sync.RegisterSyncMethods(typeof(TradingWindow));
+            Sync.RegisterSyncMethods(typeof(SyncDelegates));
         }
     }
 
@@ -43,7 +44,6 @@ namespace Multiplayer.Client
         public static SyncField SyncMedCare = Sync.Field(typeof(Pawn), "playerSettings", "medCare");
         public static SyncField SyncSelfTend = Sync.Field(typeof(Pawn), "playerSettings", "selfTend");
         public static SyncField SyncHostilityResponse = Sync.Field(typeof(Pawn), "playerSettings", "hostilityResponse");
-        public static SyncField SyncGetsFood = Sync.Field(typeof(Pawn), "guest", "GetsFood");
         public static SyncField SyncInteractionMode = Sync.Field(typeof(Pawn), "guest", "interactionMode");
         public static SyncField SyncBeCarried = Sync.Field(typeof(Pawn), "health", "beCarriedByCaravanIfSick");
 
@@ -115,7 +115,7 @@ namespace Multiplayer.Client
             "onlyIfJoyBelow"
         ).SetBufferChanges();
 
-        public static SyncField SyncTradeableCount = Sync.Field(typeof(MpTradeableReference), "CountToTransfer").SetBufferChanges();
+        public static SyncField SyncTradeableCount = Sync.Field(typeof(MpTransferableReference), "CountToTransfer").SetBufferChanges();
 
         [MpPrefix(typeof(HealthCardUtility), "DrawOverviewTab")]
         static void HealthCardUtility1(Pawn pawn)
@@ -132,7 +132,6 @@ namespace Multiplayer.Client
         {
             Pawn pawn = __instance.SelPawn;
             SyncMedCare.Watch(pawn);
-            SyncGetsFood.Watch(pawn);
             SyncInteractionMode.Watch(pawn);
         }
 
@@ -287,8 +286,9 @@ namespace Multiplayer.Client
         [MpPrefix(typeof(TransferableUIUtility), "DoCountAdjustInterface")]
         static void TransferableAdjustTo(Transferable trad)
         {
-            if (MpTradeSession.current != null && trad is Tradeable tr)
-                SyncTradeableCount.Watch(new MpTradeableReference(MpTradeSession.current.sessionId, tr));
+            int sessionId = MpTradeSession.current?.sessionId ?? MpFormingCaravanWindow.drawing?.Session?.sessionId ?? -1;
+            if (sessionId != -1)
+                SyncTradeableCount.Watch(new MpTransferableReference(sessionId, trad));
         }
 
         [MpPrefix(typeof(WITab_Caravan_Health), nameof(WITab_Caravan_Health.DoRow), new[] { typeof(Rect), typeof(Pawn) })]
@@ -306,25 +306,25 @@ namespace Multiplayer.Client
         }
     }
 
-    public class MpTradeableReference
+    public class MpTransferableReference
     {
         public int sessionId;
-        public Tradeable tradeable;
+        public Transferable transferable;
 
-        public MpTradeableReference(int sessionId, Tradeable tradeable)
+        public MpTransferableReference(int sessionId, Transferable transferable)
         {
             this.sessionId = sessionId;
-            this.tradeable = tradeable;
+            this.transferable = transferable;
         }
 
         public int CountToTransfer
         {
-            get => tradeable.CountToTransfer;
-            set => tradeable.CountToTransfer = value;
+            get => transferable.CountToTransfer;
+            set => transferable.CountToTransfer = value;
         }
 
-        public override int GetHashCode() => tradeable.GetHashCode();
-        public override bool Equals(object obj) => obj is MpTradeableReference tr && tr.tradeable == tradeable;
+        public override int GetHashCode() => transferable.GetHashCode();
+        public override bool Equals(object obj) => obj is MpTransferableReference tr && tr.transferable == transferable;
     }
 
     public static class SyncPatches
@@ -394,10 +394,19 @@ namespace Multiplayer.Client
             Sync.RegisterSyncMethod(typeof(ITab_Pawn_Gear), nameof(ITab_Pawn_Gear.InterfaceIngest)).SetHasContext();
 
             Sync.RegisterSyncProperty(typeof(Caravan_PathFollower), nameof(Caravan_PathFollower.Paused));
+            Sync.RegisterSyncMethod(typeof(CaravanFormingUtility), nameof(CaravanFormingUtility.StopFormingCaravan));
+            Sync.RegisterSyncMethod(typeof(CaravanFormingUtility), nameof(CaravanFormingUtility.RemovePawnFromCaravan));
+            Sync.RegisterSyncMethod(typeof(CaravanFormingUtility), nameof(CaravanFormingUtility.LateJoinFormingCaravan));
 
             Sync.RegisterSyncMethod(typeof(MpTradeSession), nameof(MpTradeSession.TryExecute));
             Sync.RegisterSyncMethod(typeof(MpTradeSession), nameof(MpTradeSession.Reset));
             Sync.RegisterSyncMethod(typeof(MpTradeSession), nameof(MpTradeSession.ToggleGiftMode));
+
+            Sync.RegisterSyncMethod(typeof(CaravanFormingSession), nameof(CaravanFormingSession.TryReformCaravan));
+            Sync.RegisterSyncMethod(typeof(CaravanFormingSession), nameof(CaravanFormingSession.TryFormAndSendCaravan));
+            Sync.RegisterSyncMethod(typeof(CaravanFormingSession), nameof(CaravanFormingSession.Reset));
+            Sync.RegisterSyncMethod(typeof(CaravanFormingSession), nameof(CaravanFormingSession.Remove));
+            Sync.RegisterSyncMethod(typeof(CaravanFormingSession), nameof(CaravanFormingSession.ChooseRoute));
         }
 
         static SyncField SyncTimetable = Sync.Field(typeof(Pawn), "timetable", "times");
@@ -602,7 +611,7 @@ namespace Multiplayer.Client
         static void ThingFilter_AllowAll_HelperStorage(IStoreSettingsParent storage) => storage.GetStoreSettings().filter.SetAllowAll(storage.GetParentStoreSettings()?.filter);
 
         [SyncMethod]
-        static void ThingFilter_AllowAll_HelperBill(Bill bill) => bill.ingredientFilter.SetAllowAll(bill.recipe.fixedIngredientFilter); 
+        static void ThingFilter_AllowAll_HelperBill(Bill bill) => bill.ingredientFilter.SetAllowAll(bill.recipe.fixedIngredientFilter);
 
         [SyncMethod]
         static void ThingFilter_AllowAll_HelperOutfit(Outfit outfit) => outfit.filter.SetAllowAll(Dialog_ManageOutfits.apparelGlobalFilter);
@@ -632,57 +641,67 @@ namespace Multiplayer.Client
 
     public static class SyncDelegates
     {
-        [SyncDelegate]
-        [MpPrefix(typeof(FloatMenuMakerMap), "<GotoLocationOption>c__AnonStorey1C", "<>m__0")]      // Goto
-        [MpPrefix(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey3", "<>m__0")]       // Arrest
-        [MpPrefix(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey7", "<>m__0")]       // Rescue
-        [MpPrefix(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey7", "<>m__1")]       // Capture
-        [MpPrefix(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey9", "<>m__0")]       // Carry to cryptosleep casket
-        [MpPrefix(typeof(HealthCardUtility), "<GenerateSurgeryOption>c__AnonStorey4", "<>m__0")]    // Add medical bill
-        [MpPrefix(typeof(Command_SetPlantToGrow), "<ProcessInput>c__AnonStorey0", "<>m__0")]        // Set plant to grow
-        [MpPrefix(typeof(Building_Bed), "<ToggleForPrisonersByInterface>c__AnonStorey3", "<>m__0")] // Toggle bed for prisoners
-        [MpPrefix(typeof(ITab_Bills), "<FillTab>c__AnonStorey0", "<>m__0")]                         // Add bill
-        [MpPrefix(typeof(CompLongRangeMineralScanner), "<CompGetGizmosExtra>c__Iterator0+<CompGetGizmosExtra>c__AnonStorey1", "<>m__0")] // Select mineral to scan for
-        static bool GeneralSync(object __instance, MethodBase __originalMethod)
+        static SyncDelegates()
         {
-            return !Sync.Delegate(__instance, __originalMethod);
+            Sync.RegisterSyncDelegate(typeof(FloatMenuMakerMap), "<GotoLocationOption>c__AnonStorey1C", "<>m__0");  // Goto
+            Sync.RegisterSyncDelegate(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey3", "<>m__0");   // Arrest
+            Sync.RegisterSyncDelegate(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey7", "<>m__0");   // Rescue
+            Sync.RegisterSyncDelegate(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey7", "<>m__1");   // Capture
+            Sync.RegisterSyncDelegate(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey9", "<>m__0");   // Carry to cryptosleep casket
+
+            Sync.RegisterSyncDelegate(typeof(HealthCardUtility), "<GenerateSurgeryOption>c__AnonStorey4", "<>m__0");    // Add medical bill
+            Sync.RegisterSyncDelegate(typeof(Command_SetPlantToGrow), "<ProcessInput>c__AnonStorey0", "<>m__0");        // Set plant to grow
+            Sync.RegisterSyncDelegate(typeof(Building_Bed), "<ToggleForPrisonersByInterface>c__AnonStorey3", "<>m__0"); // Toggle bed for prisoners
+            Sync.RegisterSyncDelegate(typeof(ITab_Bills), "<FillTab>c__AnonStorey0", "<>m__0");                         // Add bill
+
+            Sync.RegisterSyncDelegate(typeof(CompLongRangeMineralScanner), "<CompGetGizmosExtra>c__Iterator0+<CompGetGizmosExtra>c__AnonStorey1", "<>m__0"); // Select mineral to scan for
+
+            string[] thisField = new[] { "$this" };
+
+            Sync.RegisterSyncDelegate(typeof(CompFlickable), "<CompGetGizmosExtra>c__Iterator0", "<>m__1", thisField); // Toggle flick designation
+            Sync.RegisterSyncDelegate(typeof(Pawn_PlayerSettings), "<GetGizmos>c__Iterator0", "<>m__1", thisField);    // Toggle release animals
+            Sync.RegisterSyncDelegate(typeof(Building_TurretGun), "<GetGizmos>c__Iterator0", "<>m__1", thisField);     // Toggle turret hold fire
+            Sync.RegisterSyncDelegate(typeof(Building_Trap), "<GetGizmos>c__Iterator0", "<>m__1", thisField);          // Toggle trap auto-rearm
+            Sync.RegisterSyncDelegate(typeof(Building_Door), "<GetGizmos>c__Iterator0", "<>m__1", thisField);          // Toggle door hold open
+            Sync.RegisterSyncDelegate(typeof(Zone_Growing), "<GetGizmos>c__Iterator0", "<>m__1", thisField);           // Toggle zone allow sow
+
+            Sync.RegisterSyncDelegate(typeof(PriorityWork), "<GetGizmos>c__Iterator0", "<>m__0", thisField);               // Clear prioritized work
+            Sync.RegisterSyncDelegate(typeof(Building_TurretGun), "<GetGizmos>c__Iterator0", "<>m__0", thisField);         // Reset forced target
+            Sync.RegisterSyncDelegate(typeof(UnfinishedThing), "<GetGizmos>c__Iterator0", "<>m__0", thisField);            // Cancel unfinished thing
+            Sync.RegisterSyncDelegate(typeof(CompTempControl), "<CompGetGizmosExtra>c__Iterator0", "<>m__0", thisField);   // Reset temperature
+
+            Sync.RegisterSyncDelegate(typeof(Designator), "<>c__Iterator0+<>c__AnonStorey1", "<>m__0", new[] { "<>f__ref$0/$this", "things" }); // Designate all
+            Sync.RegisterSyncDelegate(typeof(Designator), "<>c__Iterator0+<>c__AnonStorey2", "<>m__0", new[] { "<>f__ref$0/$this", "<>f__ref$3/designation", "designations" }); // Remove all designations
         }
 
-        [SyncDelegate("$this")]
-        [MpPrefix(typeof(CompFlickable), "<CompGetGizmosExtra>c__Iterator0", "<>m__1")] // Toggle flick designation
-        [MpPrefix(typeof(Pawn_PlayerSettings), "<GetGizmos>c__Iterator0", "<>m__1")]    // Toggle release animals
-        [MpPrefix(typeof(Building_TurretGun), "<GetGizmos>c__Iterator0", "<>m__1")]     // Toggle turret hold fire
-        [MpPrefix(typeof(Building_Trap), "<GetGizmos>c__Iterator0", "<>m__1")]          // Toggle trap auto-rearm
-        [MpPrefix(typeof(Building_Door), "<GetGizmos>c__Iterator0", "<>m__1")]          // Toggle door hold open
-        [MpPrefix(typeof(Zone_Growing), "<GetGizmos>c__Iterator0", "<>m__1")]           // Toggle zone allow sow
-        static bool GeneralIteratorSync_Toggle(object __instance, MethodBase __originalMethod)
+        [MpPrefix(typeof(FormCaravanComp), "<GetGizmos>c__Iterator0+<GetGizmos>c__AnonStorey1", "<>m__0")]
+        static bool GizmoFormCaravan(MapParent ___mapParent)
         {
-            return !Sync.Delegate(__instance, __originalMethod);
+            if (Multiplayer.Client == null) return true;
+            GizmoFormCaravan(___mapParent.Map, false);
+            return false;
         }
 
-        [SyncDelegate("$this")]
-        [MpPrefix(typeof(PriorityWork), "<GetGizmos>c__Iterator0", "<>m__0")]               // Clear prioritized work
-        [MpPrefix(typeof(Building_TurretGun), "<GetGizmos>c__Iterator0", "<>m__0")]         // Reset forced target
-        [MpPrefix(typeof(UnfinishedThing), "<GetGizmos>c__Iterator0", "<>m__0")]            // Cancel unfinished thing
-        [MpPrefix(typeof(CompTempControl), "<CompGetGizmosExtra>c__Iterator0", "<>m__0")]   // Reset temperature
-        static bool GeneralIteratorSync_Action(object __instance, MethodBase __originalMethod)
+        [MpPrefix(typeof(FormCaravanComp), "<GetGizmos>c__Iterator0+<GetGizmos>c__AnonStorey1", "<>m__1")]
+        static bool GizmoRefomCaravan(MapParent ___mapParent)
         {
-            return !Sync.Delegate(__instance, __originalMethod);
+            if (Multiplayer.Client == null) return true;
+            GizmoFormCaravan(___mapParent.Map, true);
+            return false;
         }
 
-        [SyncDelegate("<>f__ref$0/$this", "things")]
-        [MpPrefix(typeof(Designator), "<>c__Iterator0+<>c__AnonStorey1", "<>m__0")]
-        static bool DesignateAll(object __instance, MethodBase __originalMethod)
+        private static void GizmoFormCaravan(Map map, bool reform)
         {
-            return !Sync.Delegate(__instance, __originalMethod);
+            var comp = map.MpComp();
+
+            if (comp.caravanForming != null)
+                comp.caravanForming.OpenWindow();
+            else
+                CreateCaravanFormingSession(comp, reform);
         }
 
-        [SyncDelegate("<>f__ref$0/$this", "<>f__ref$3/designation", "designations")]
-        [MpPrefix(typeof(Designator), "<>c__Iterator0+<>c__AnonStorey2", "<>m__0")]
-        static bool RemoveAllDesignations(object __instance, MethodBase __originalMethod)
-        {
-            return !Sync.Delegate(__instance, __originalMethod);
-        }
+        [SyncMethod]
+        private static void CreateCaravanFormingSession(MultiplayerMapComp comp, bool reform) => comp.CreateCaravanFormingSession(reform, null, false);
     }
 
     public static class SyncMarkers

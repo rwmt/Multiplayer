@@ -199,6 +199,11 @@ namespace Multiplayer.Common
             stream.Write(bytes);
         }
 
+        public virtual void WriteRaw(byte[] bytes)
+        {
+            stream.Write(bytes);
+        }
+
         public virtual void WriteByteList(List<byte[]> list)
         {
             WriteInt32(list.Count);
