@@ -66,7 +66,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Client\Blueprints.cs" />
-    <Compile Include="Client\Caravans.cs" />
+    <Compile Include="Client\CaravanForming.cs" />
     <Compile Include="Client\ChatWindow.cs" />
     <Compile Include="Client\ClientConnection.cs" />
     <Compile Include="Client\MultiplayerMapComp.cs" />
