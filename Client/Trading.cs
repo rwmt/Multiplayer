@@ -155,6 +155,11 @@ namespace Multiplayer.Client
 
             return null;
         }
+
+        public void Notify_CountChanged(Transferable tr)
+        {
+            // todo set caravan params dirty   
+        }
     }
 
     public class MpTradeDeal : TradeDeal, IExposable

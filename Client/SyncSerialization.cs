@@ -181,299 +181,298 @@ namespace Multiplayer.Client
             MpContext context = data.MpContext();
             Map map = context.map;
 
-            if (type.IsByRef)
+            try
             {
-                return null;
-            }
-            else if (readers.TryGetValue(type, out Func<ByteReader, object> reader))
-            {
-                return reader(data);
-            }
-            else if (type.IsEnum)
-            {
-                return Enum.ToObject(type, data.ReadInt32());
-            }
-            else if (type.IsArray && type.GetArrayRank() == 1)
-            {
-                Type elementType = type.GetElementType();
-                int length = data.ReadInt32();
-                Array arr = Array.CreateInstance(elementType, length);
-                for (int i = 0; i < length; i++)
-                    arr.SetValue(ReadSyncObject(data, elementType), i);
-                return arr;
-            }
-            else if (type.IsGenericType)
-            {
-                if (type.GetGenericTypeDefinition() == typeof(List<>))
+                if (type.IsByRef)
                 {
-                    ListType specialList = ReadSync<ListType>(data);
-                    if (specialList == ListType.MapAllThings)
-                        return map.listerThings.AllThings;
-                    else if (specialList == ListType.MapAllDesignations)
-                        return map.designationManager.allDesignations;
-
-                    Type listType = type.GetGenericArguments()[0];
-                    int size = data.ReadInt32();
-                    IList list = Activator.CreateInstance(type, size) as IList;
-                    for (int j = 0; j < size; j++)
-                        list.Add(ReadSyncObject(data, listType));
-                    return list;
-                }
-                else if (type.GetGenericTypeDefinition() == typeof(Nullable<>))
-                {
-                    bool isNull = data.ReadBool();
-                    if (isNull) return null;
-
-                    bool hasValue = data.ReadBool();
-                    if (!hasValue) return Activator.CreateInstance(type);
-
-                    Type nullableType = type.GetGenericArguments()[0];
-                    return Activator.CreateInstance(type, ReadSyncObject(data, nullableType));
-                }
-                else if (type.GetGenericTypeDefinition() == typeof(Expose<>))
-                {
-                    Type exposableType = type.GetGenericArguments()[0];
-                    byte[] exposableData = data.ReadPrefixedBytes();
-                    return ReadExposable.MakeGenericMethod(exposableType).Invoke(null, new[] { exposableData, null });
-                }
-            }
-            else if (typeof(ThinkNode).IsAssignableFrom(type))
-            {
-                return null;
-            }
-            else if (typeof(Area).IsAssignableFrom(type))
-            {
-                int areaId = data.ReadInt32();
-                if (areaId == -1)
                     return null;
-
-                return map.areaManager.AllAreas.Find(a => a.ID == areaId);
-            }
-            else if (typeof(Zone).IsAssignableFrom(type))
-            {
-                int zoneId = data.ReadInt32();
-                if (zoneId == -1)
-                    return null;
-
-                return map.zoneManager.AllZones.Find(zone => zone.ID == zoneId);
-            }
-            else if (typeof(Def).IsAssignableFrom(type))
-            {
-                ushort shortHash = data.ReadUInt16();
-                if (shortHash == 0)
-                    return null;
-
-                return GetDefByIdMethod.MakeGenericMethod(type).Invoke(null, new object[] { shortHash });
-            }
-            else if (typeof(PawnColumnWorker).IsAssignableFrom(type))
-            {
-                PawnColumnDef def = ReadSync<PawnColumnDef>(data);
-                return def.Worker;
-            }
-            else if (typeof(Command_SetPlantToGrow) == type)
-            {
-                IPlantToGrowSettable settable = ReadSync<IPlantToGrowSettable>(data);
-                List<IPlantToGrowSettable> settables = ReadSync<List<IPlantToGrowSettable>>(data);
-
-                Command_SetPlantToGrow command = (Command_SetPlantToGrow)FormatterServices.GetUninitializedObject(typeof(Command_SetPlantToGrow));
-                command.settable = settable;
-                command.settables = settables;
-
-                return command;
-            }
-            else if (typeof(Command_SetTargetFuelLevel) == type)
-            {
-                List<CompRefuelable> refuelables = ReadSync<List<CompRefuelable>>(data);
-
-                Command_SetTargetFuelLevel command = new Command_SetTargetFuelLevel();
-                command.refuelables = refuelables;
-
-                return command;
-            }
-            else if (typeof(Designator).IsAssignableFrom(type))
-            {
-                int desId = data.ReadInt32();
-                Type desType = designatorTypes[desId];
-
-                Designator des;
-                if (desType == typeof(Designator_Build))
-                {
-                    BuildableDef def = ReadSync<BuildableDef>(data);
-                    des = new Designator_Build(def);
                 }
-                else
+                else if (readers.TryGetValue(type, out Func<ByteReader, object> reader))
                 {
-                    des = (Designator)Activator.CreateInstance(desType);
+                    return reader(data);
                 }
-
-                return des;
-            }
-            else if (typeof(Thing).IsAssignableFrom(type))
-            {
-                int thingId = data.ReadInt32();
-                if (thingId == -1)
-                    return null;
-
-                if (!context.syncingThingParent)
+                else if (type.IsEnum)
                 {
-                    byte implIndex = data.ReadByte();
-                    Type implType = supportedThingHolders[implIndex];
-
-                    if (implType != typeof(Map))
+                    return Enum.ToObject(type, data.ReadInt32());
+                }
+                else if (type.IsArray && type.GetArrayRank() == 1)
+                {
+                    Type elementType = type.GetElementType();
+                    int length = data.ReadInt32();
+                    Array arr = Array.CreateInstance(elementType, length);
+                    for (int i = 0; i < length; i++)
+                        arr.SetValue(ReadSyncObject(data, elementType), i);
+                    return arr;
+                }
+                else if (type.IsGenericType)
+                {
+                    if (type.GetGenericTypeDefinition() == typeof(List<>))
                     {
-                        context.syncingThingParent = true;
-                        IThingHolder parent = (IThingHolder)ReadSyncObject(data, implType);
-                        context.syncingThingParent = false;
+                        ListType specialList = ReadSync<ListType>(data);
+                        if (specialList == ListType.MapAllThings)
+                            return map.listerThings.AllThings;
+                        else if (specialList == ListType.MapAllDesignations)
+                            return map.designationManager.allDesignations;
 
-                        if (parent != null)
-                            return ThingOwnerUtility.GetAllThingsRecursively(parent).Find(t => t.thingIDNumber == thingId);
-                        else
-                            return null;
+                        Type listType = type.GetGenericArguments()[0];
+                        int size = data.ReadInt32();
+                        IList list = Activator.CreateInstance(type, size) as IList;
+                        for (int j = 0; j < size; j++)
+                            list.Add(ReadSyncObject(data, listType));
+                        return list;
+                    }
+                    else if (type.GetGenericTypeDefinition() == typeof(Nullable<>))
+                    {
+                        bool isNull = data.ReadBool();
+                        if (isNull) return null;
+
+                        bool hasValue = data.ReadBool();
+                        if (!hasValue) return Activator.CreateInstance(type);
+
+                        Type nullableType = type.GetGenericArguments()[0];
+                        return Activator.CreateInstance(type, ReadSyncObject(data, nullableType));
+                    }
+                    else if (type.GetGenericTypeDefinition() == typeof(Expose<>))
+                    {
+                        Type exposableType = type.GetGenericArguments()[0];
+                        byte[] exposableData = data.ReadPrefixedBytes();
+                        return ReadExposable.MakeGenericMethod(exposableType).Invoke(null, new[] { exposableData, null });
                     }
                 }
-
-                ThingDef def = ReadSync<ThingDef>(data);
-                return map.listerThings.ThingsOfDef(def).Find(t => t.thingIDNumber == thingId);
-            }
-            else if (typeof(WorldObject).IsAssignableFrom(type))
-            {
-                int objId = data.ReadInt32();
-                if (objId == -1)
-                    return null;
-
-                return Find.World.worldObjects.AllWorldObjects.Find(w => w.ID == objId);
-            }
-            else if (typeof(WorldObjectComp).IsAssignableFrom(type))
-            {
-                int compTypeId = data.ReadInt32();
-                if (compTypeId == -1)
-                    return null;
-
-                WorldObject parent = ReadSync<WorldObject>(data);
-                if (parent == null)
-                    return null;
-
-                Type compType = worldObjectCompTypes[compTypeId];
-                return parent.AllComps.Find(comp => comp.props.compClass == compType);
-            }
-            else if (typeof(CompChangeableProjectile) == type) // special case of ThingComp
-            {
-                Building_TurretGun parent = ReadSync<Thing>(data) as Building_TurretGun;
-                if (parent == null)
-                    return null;
-
-                return (parent.gun as ThingWithComps).TryGetComp<CompChangeableProjectile>();
-            }
-            else if (typeof(ThingComp).IsAssignableFrom(type))
-            {
-                int compTypeId = data.ReadInt32();
-                if (compTypeId == -1)
-                    return null;
-
-                ThingWithComps parent = ReadSync<ThingWithComps>(data);
-                if (parent == null)
-                    return null;
-
-                Type compType = thingCompTypes[compTypeId];
-                return parent.AllComps.Find(comp => comp.props.compClass == compType);
-            }
-            else if (typeof(WorkGiver).IsAssignableFrom(type))
-            {
-                WorkGiverDef def = ReadSync<WorkGiverDef>(data);
-                return def?.Worker;
-            }
-            else if (typeof(BillStack) == type)
-            {
-                Thing thing = ReadSync<Thing>(data);
-                if (thing is IBillGiver billGiver)
-                    return billGiver.BillStack;
-                return null;
-            }
-            else if (typeof(Bill).IsAssignableFrom(type))
-            {
-                BillStack billStack = ReadSync<BillStack>(data);
-                if (billStack == null)
-                    return null;
-
-                int id = data.ReadInt32();
-                return billStack.Bills.Find(bill => bill.loadID == id);
-            }
-            else if (typeof(Outfit) == type)
-            {
-                int id = data.ReadInt32();
-                return Current.Game.outfitDatabase.AllOutfits.Find(o => o.uniqueId == id);
-            }
-            else if (typeof(DrugPolicy) == type)
-            {
-                int id = data.ReadInt32();
-                return Current.Game.drugPolicyDatabase.AllPolicies.Find(o => o.uniqueId == id);
-            }
-            else if (typeof(FoodRestriction) == type)
-            {
-                int id = data.ReadInt32();
-                return Current.Game.foodRestrictionDatabase.AllFoodRestrictions.Find(o => o.id == id);
-            }
-            else if (typeof(BodyPartRecord) == type)
-            {
-                int partIndex = data.ReadInt32();
-                if (partIndex == -1) return null;
-
-                BodyDef body = ReadSync<BodyDef>(data);
-                return body.GetPartAtIndex(partIndex);
-            }
-            else if (typeof(MpTransferableReference) == type)
-            {
-                IEnumerable<ISessionWithTransferables> GetSessions()
+                else if (typeof(ThinkNode).IsAssignableFrom(type))
                 {
-                    foreach (var s in Multiplayer.WorldComp.trading)
-                        yield return s;
+                    return null;
+                }
+                else if (typeof(Area).IsAssignableFrom(type))
+                {
+                    int areaId = data.ReadInt32();
+                    if (areaId == -1)
+                        return null;
 
-                    if (map != null && map.MpComp().caravanForming != null)
-                        yield return map.MpComp().caravanForming;
+                    return map.areaManager.AllAreas.Find(a => a.ID == areaId);
+                }
+                else if (typeof(Zone).IsAssignableFrom(type))
+                {
+                    int zoneId = data.ReadInt32();
+                    if (zoneId == -1)
+                        return null;
+
+                    return map.zoneManager.AllZones.Find(zone => zone.ID == zoneId);
+                }
+                else if (typeof(Def).IsAssignableFrom(type))
+                {
+                    ushort shortHash = data.ReadUInt16();
+                    if (shortHash == 0)
+                        return null;
+
+                    return GetDefByIdMethod.MakeGenericMethod(type).Invoke(null, new object[] { shortHash });
+                }
+                else if (typeof(PawnColumnWorker).IsAssignableFrom(type))
+                {
+                    PawnColumnDef def = ReadSync<PawnColumnDef>(data);
+                    return def.Worker;
+                }
+                else if (typeof(Command_SetPlantToGrow) == type)
+                {
+                    IPlantToGrowSettable settable = ReadSync<IPlantToGrowSettable>(data);
+                    List<IPlantToGrowSettable> settables = ReadSync<List<IPlantToGrowSettable>>(data);
+
+                    Command_SetPlantToGrow command = (Command_SetPlantToGrow)FormatterServices.GetUninitializedObject(typeof(Command_SetPlantToGrow));
+                    command.settable = settable;
+                    command.settables = settables;
+
+                    return command;
+                }
+                else if (typeof(Command_SetTargetFuelLevel) == type)
+                {
+                    List<CompRefuelable> refuelables = ReadSync<List<CompRefuelable>>(data);
+
+                    Command_SetTargetFuelLevel command = new Command_SetTargetFuelLevel();
+                    command.refuelables = refuelables;
+
+                    return command;
+                }
+                else if (typeof(Designator).IsAssignableFrom(type))
+                {
+                    int desId = data.ReadInt32();
+                    Type desType = designatorTypes[desId];
+
+                    Designator des;
+                    if (desType == typeof(Designator_Build))
+                    {
+                        BuildableDef def = ReadSync<BuildableDef>(data);
+                        des = new Designator_Build(def);
+                    }
+                    else
+                    {
+                        des = (Designator)Activator.CreateInstance(desType);
+                    }
+
+                    return des;
+                }
+                else if (typeof(Thing).IsAssignableFrom(type))
+                {
+                    int thingId = data.ReadInt32();
+                    if (thingId == -1)
+                        return null;
+
+                    if (!context.syncingThingParent)
+                    {
+                        byte implIndex = data.ReadByte();
+                        Type implType = supportedThingHolders[implIndex];
+
+                        if (implType != typeof(Map))
+                        {
+                            context.syncingThingParent = true;
+                            IThingHolder parent = (IThingHolder)ReadSyncObject(data, implType);
+                            context.syncingThingParent = false;
+
+                            if (parent != null)
+                                return ThingOwnerUtility.GetAllThingsRecursively(parent).Find(t => t.thingIDNumber == thingId);
+                            else
+                                return null;
+                        }
+                    }
+
+                    ThingDef def = ReadSync<ThingDef>(data);
+                    return map.listerThings.ThingsOfDef(def).Find(t => t.thingIDNumber == thingId);
+                }
+                else if (typeof(WorldObject).IsAssignableFrom(type))
+                {
+                    int objId = data.ReadInt32();
+                    if (objId == -1)
+                        return null;
+
+                    return Find.World.worldObjects.AllWorldObjects.Find(w => w.ID == objId);
+                }
+                else if (typeof(WorldObjectComp).IsAssignableFrom(type))
+                {
+                    int compTypeId = data.ReadInt32();
+                    if (compTypeId == -1)
+                        return null;
+
+                    WorldObject parent = ReadSync<WorldObject>(data);
+                    if (parent == null)
+                        return null;
+
+                    Type compType = worldObjectCompTypes[compTypeId];
+                    return parent.AllComps.Find(comp => comp.props.compClass == compType);
+                }
+                else if (typeof(CompChangeableProjectile) == type) // special case of ThingComp
+                {
+                    Building_TurretGun parent = ReadSync<Thing>(data) as Building_TurretGun;
+                    if (parent == null)
+                        return null;
+
+                    return (parent.gun as ThingWithComps).TryGetComp<CompChangeableProjectile>();
+                }
+                else if (typeof(ThingComp).IsAssignableFrom(type))
+                {
+                    int compTypeId = data.ReadInt32();
+                    if (compTypeId == -1)
+                        return null;
+
+                    ThingWithComps parent = ReadSync<ThingWithComps>(data);
+                    if (parent == null)
+                        return null;
+
+                    Type compType = thingCompTypes[compTypeId];
+                    return parent.AllComps.Find(comp => comp.props.compClass == compType);
+                }
+                else if (typeof(WorkGiver).IsAssignableFrom(type))
+                {
+                    WorkGiverDef def = ReadSync<WorkGiverDef>(data);
+                    return def?.Worker;
+                }
+                else if (typeof(BillStack) == type)
+                {
+                    Thing thing = ReadSync<Thing>(data);
+                    if (thing is IBillGiver billGiver)
+                        return billGiver.BillStack;
+                    return null;
+                }
+                else if (typeof(Bill).IsAssignableFrom(type))
+                {
+                    BillStack billStack = ReadSync<BillStack>(data);
+                    if (billStack == null)
+                        return null;
+
+                    int id = data.ReadInt32();
+                    return billStack.Bills.Find(bill => bill.loadID == id);
+                }
+                else if (typeof(Outfit) == type)
+                {
+                    int id = data.ReadInt32();
+                    return Current.Game.outfitDatabase.AllOutfits.Find(o => o.uniqueId == id);
+                }
+                else if (typeof(DrugPolicy) == type)
+                {
+                    int id = data.ReadInt32();
+                    return Current.Game.drugPolicyDatabase.AllPolicies.Find(o => o.uniqueId == id);
+                }
+                else if (typeof(FoodRestriction) == type)
+                {
+                    int id = data.ReadInt32();
+                    return Current.Game.foodRestrictionDatabase.AllFoodRestrictions.Find(o => o.id == id);
+                }
+                else if (typeof(BodyPartRecord) == type)
+                {
+                    int partIndex = data.ReadInt32();
+                    if (partIndex == -1) return null;
+
+                    BodyDef body = ReadSync<BodyDef>(data);
+                    return body.GetPartAtIndex(partIndex);
+                }
+                else if (typeof(MpTransferableReference) == type)
+                {
+                    int sessionId = data.ReadInt32();
+                    var session = GetSessions(map).FirstOrDefault(s => s.SessionId == sessionId);
+                    if (session == null) return null;
+
+                    int thingId = data.ReadInt32();
+                    if (thingId == -1) return null;
+
+                    var transferable = session.GetTransferableByThingId(thingId);
+                    if (transferable == null) return null;
+
+                    return new MpTransferableReference(session, transferable);
+                }
+                else if (typeof(Lord) == type)
+                {
+                    int lordId = data.ReadInt32();
+                    return map.lordManager.lords.Find(l => l.loadID == lordId);
+                }
+                else if (typeof(ISelectable) == type)
+                {
+                    bool isThing = data.ReadBool();
+
+                    if (isThing)
+                        return ReadSync<Thing>(data);
+                    else
+                        return ReadSync<Zone>(data);
+                }
+                else if (typeof(IStoreSettingsParent) == type)
+                {
+                    return ReadWithImpl<IStoreSettingsParent>(data, storageParents);
+                }
+                else if (typeof(IPlantToGrowSettable) == type)
+                {
+                    return ReadWithImpl<IPlantToGrowSettable>(data, plantToGrowSettables);
+                }
+                else if (typeof(StorageSettings) == type)
+                {
+                    IStoreSettingsParent parent = ReadSync<IStoreSettingsParent>(data);
+                    if (parent == null) return null;
+                    return parent.GetStoreSettings();
                 }
 
-                int sessionId = data.ReadInt32();
-                var session = GetSessions().FirstOrDefault(s => s.SessionId == sessionId);
-                if (session == null) return null;
-
-                int thingId = data.ReadInt32();
-                if (thingId == -1) return null;
-
-                var transferable = session.GetTransferableByThingId(thingId);
-                if (transferable == null) return null;
-
-                return new MpTransferableReference(sessionId, transferable);
+                throw new SerializationException("No reader for type " + type);
             }
-            else if (typeof(Lord) == type)
+            catch
             {
-                int lordId = data.ReadInt32();
-                return map.lordManager.lords.Find(l => l.loadID == lordId);
+                MpLog.Error($"Error reading type: {type}");
+                throw;
             }
-            else if (typeof(ISelectable) == type)
-            {
-                bool isThing = data.ReadBool();
-
-                if (isThing)
-                    return ReadSync<Thing>(data);
-                else
-                    return ReadSync<Zone>(data);
-            }
-            else if (typeof(IStoreSettingsParent) == type)
-            {
-                return ReadWithImpl<IStoreSettingsParent>(data, storageParents);
-            }
-            else if (typeof(IPlantToGrowSettable) == type)
-            {
-                return ReadWithImpl<IPlantToGrowSettable>(data, plantToGrowSettables);
-            }
-            else if (typeof(StorageSettings) == type)
-            {
-                IStoreSettingsParent parent = ReadSync<IStoreSettingsParent>(data);
-                if (parent == null) return null;
-                return parent.GetStoreSettings();
-            }
-
-            throw new SerializationException("No reader for type " + type);
         }
 
         public static object[] ReadSyncObjects(ByteReader data, IEnumerable<Type> spec)
@@ -766,7 +765,7 @@ namespace Multiplayer.Client
                 else if (typeof(MpTransferableReference) == type)
                 {
                     MpTransferableReference reference = (MpTransferableReference)obj;
-                    data.WriteInt32(reference.sessionId);
+                    data.WriteInt32(reference.session.SessionId);
 
                     Transferable tr = reference.transferable;
 
@@ -786,6 +785,7 @@ namespace Multiplayer.Client
                 else if (typeof(Lord) == type)
                 {
                     Lord lord = (Lord)obj;
+                    context.map = lord.Map;
                     data.WriteInt32(lord.loadID);
                 }
                 else if (typeof(ISelectable) == type)
@@ -900,6 +900,15 @@ namespace Multiplayer.Client
             }
 
             return builder.ToString();
+        }
+
+        private static IEnumerable<ISessionWithTransferables> GetSessions(Map map)
+        {
+            foreach (var s in Multiplayer.WorldComp.trading)
+                yield return s;
+
+            if (map != null && map.MpComp().caravanForming != null)
+                yield return map.MpComp().caravanForming;
         }
     }
 

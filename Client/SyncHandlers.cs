@@ -115,7 +115,7 @@ namespace Multiplayer.Client
             "onlyIfJoyBelow"
         ).SetBufferChanges();
 
-        public static SyncField SyncTradeableCount = Sync.Field(typeof(MpTransferableReference), "CountToTransfer").SetBufferChanges();
+        public static SyncField SyncTradeableCount = Sync.Field(typeof(MpTransferableReference), "CountToTransfer").SetBufferChanges().PostApply(TransferableCount_PostApply);
 
         [MpPrefix(typeof(HealthCardUtility), "DrawOverviewTab")]
         static void HealthCardUtility1(Pawn pawn)
@@ -286,9 +286,9 @@ namespace Multiplayer.Client
         [MpPrefix(typeof(TransferableUIUtility), "DoCountAdjustInterface")]
         static void TransferableAdjustTo(Transferable trad)
         {
-            int sessionId = MpTradeSession.current?.sessionId ?? MpFormingCaravanWindow.drawing?.Session?.sessionId ?? -1;
-            if (sessionId != -1)
-                SyncTradeableCount.Watch(new MpTransferableReference(sessionId, trad));
+            ISessionWithTransferables session = MpTradeSession.current ?? (ISessionWithTransferables)MpFormingCaravanWindow.drawing?.Session;
+            if (session != null)
+                SyncTradeableCount.Watch(new MpTransferableReference(session, trad));
         }
 
         [MpPrefix(typeof(WITab_Caravan_Health), nameof(WITab_Caravan_Health.DoRow), new[] { typeof(Rect), typeof(Pawn) })]
@@ -304,16 +304,23 @@ namespace Multiplayer.Client
                 if (pawn.Faction == Faction.OfPlayer && pawn.workSettings != null)
                     pawn.workSettings.Notify_UseWorkPrioritiesChanged();
         }
+
+        static void TransferableCount_PostApply(object target, object value)
+        {
+            var tr = (MpTransferableReference)target;
+            if (tr != null)
+                tr.session.Notify_CountChanged(tr.transferable);
+        }
     }
 
     public class MpTransferableReference
     {
-        public int sessionId;
+        public ISessionWithTransferables session;
         public Transferable transferable;
 
-        public MpTransferableReference(int sessionId, Transferable transferable)
+        public MpTransferableReference(ISessionWithTransferables session, Transferable transferable)
         {
-            this.sessionId = sessionId;
+            this.session = session;
             this.transferable = transferable;
         }
 
@@ -325,6 +332,15 @@ namespace Multiplayer.Client
 
         public override int GetHashCode() => transferable.GetHashCode();
         public override bool Equals(object obj) => obj is MpTransferableReference tr && tr.transferable == transferable;
+    }
+
+    public interface ISessionWithTransferables
+    {
+        int SessionId { get; }
+
+        Transferable GetTransferableByThingId(int thingId);
+
+        void Notify_CountChanged(Transferable tr);
     }
 
     public static class SyncPatches
@@ -397,6 +413,7 @@ namespace Multiplayer.Client
             Sync.RegisterSyncMethod(typeof(CaravanFormingUtility), nameof(CaravanFormingUtility.StopFormingCaravan));
             Sync.RegisterSyncMethod(typeof(CaravanFormingUtility), nameof(CaravanFormingUtility.RemovePawnFromCaravan));
             Sync.RegisterSyncMethod(typeof(CaravanFormingUtility), nameof(CaravanFormingUtility.LateJoinFormingCaravan));
+            Sync.RegisterSyncMethod(typeof(SettleInEmptyTileUtility), nameof(SettleInEmptyTileUtility.Settle));
 
             Sync.RegisterSyncMethod(typeof(MpTradeSession), nameof(MpTradeSession.TryExecute));
             Sync.RegisterSyncMethod(typeof(MpTradeSession), nameof(MpTradeSession.Reset));
@@ -701,7 +718,16 @@ namespace Multiplayer.Client
         }
 
         [SyncMethod]
-        private static void CreateCaravanFormingSession(MultiplayerMapComp comp, bool reform) => comp.CreateCaravanFormingSession(reform, null, false);
+        private static void CreateCaravanFormingSession(MultiplayerMapComp comp, bool reform)
+        {
+            comp.CreateCaravanFormingSession(reform, null, false);
+
+            if (TickPatch.currentExecutingCmdIssuedBySelf)
+            {
+                Current.Game.CurrentMap = comp.map;
+                Find.World.renderer.wantedMode = WorldRenderMode.None;
+            }
+        }
     }
 
     public static class SyncMarkers

@@ -83,7 +83,7 @@ namespace Multiplayer.Client
             dialog.Notify_ChoseRoute(destinationTile);
 
             startingTile = dialog.startingTile;
-            destinationTile = dialog.destinationTile;
+            this.destinationTile = dialog.destinationTile;
 
             uiDirty = true;
         }
@@ -128,13 +128,11 @@ namespace Multiplayer.Client
         {
             return transferables.FirstOrDefault(tr => tr.things.Any(t => t.thingIDNumber == thingId));
         }
-    }
 
-    public interface ISessionWithTransferables
-    {
-        int SessionId { get; }
-
-        Transferable GetTransferableByThingId(int thingId);
+        public void Notify_CountChanged(Transferable tr)
+        {
+            uiDirty = true;
+        }
     }
 
     public class MpFormingCaravanWindow : Dialog_FormCaravan
@@ -236,11 +234,11 @@ namespace Multiplayer.Client
     [HarmonyPatch(typeof(Dialog_FormCaravan), nameof(Dialog_FormCaravan.TryFormAndSendCaravan))]
     static class TryFormAndSendCaravanPatch
     {
-        static bool Prefix()
+        static bool Prefix(Dialog_FormCaravan __instance)
         {
-            if (MpFormingCaravanWindow.drawing != null)
+            if (Multiplayer.ShouldSync && __instance is MpFormingCaravanWindow dialog)
             {
-                MpFormingCaravanWindow.drawing.Session?.TryFormAndSendCaravan();
+                dialog.Session?.TryFormAndSendCaravan();
                 return false;
             }
 
@@ -251,11 +249,11 @@ namespace Multiplayer.Client
     [HarmonyPatch(typeof(Dialog_FormCaravan), nameof(Dialog_FormCaravan.TryReformCaravan))]
     static class TryReformCaravanPatch
     {
-        static bool Prefix()
+        static bool Prefix(Dialog_FormCaravan __instance)
         {
-            if (MpFormingCaravanWindow.drawing != null)
+            if (Multiplayer.ShouldSync && __instance is MpFormingCaravanWindow dialog)
             {
-                MpFormingCaravanWindow.drawing.Session?.TryReformCaravan();
+                dialog.Session?.TryReformCaravan();
                 return false;
             }
 
@@ -266,11 +264,11 @@ namespace Multiplayer.Client
     [HarmonyPatch(typeof(Dialog_FormCaravan), nameof(Dialog_FormCaravan.Notify_ChoseRoute))]
     static class Notify_ChoseRoutePatch
     {
-        static bool Prefix(int destinationTile)
+        static bool Prefix(Dialog_FormCaravan __instance, int destinationTile)
         {
-            if (MpFormingCaravanWindow.drawing != null)
+            if (Multiplayer.ShouldSync && __instance is MpFormingCaravanWindow dialog)
             {
-                MpFormingCaravanWindow.drawing.Session?.ChooseRoute(destinationTile);
+                dialog.Session?.ChooseRoute(destinationTile);
                 return false;
             }
 

@@ -144,7 +144,7 @@ namespace Multiplayer.Client
         public Type[] argTypes;
 
         private int minTime = 100; // Milliseconds between resends
-        private int lastSendTime;
+        private long lastSendTime;
 
         private Action<object, object[]> beforeCall;
         private Action<object, object[]> afterCall;
@@ -190,7 +190,7 @@ namespace Multiplayer.Client
                 return false;
 
             // todo limit per specific target/argument
-            //if (Environment.TickCount - lastSendTime < minTime)
+            //if (Utils.MillisNow - lastSendTime < minTime)
             //    return true;
 
             LoggingByteWriter writer = new LoggingByteWriter();
@@ -226,7 +226,7 @@ namespace Multiplayer.Client
 
             Multiplayer.Client.SendCommand(CommandType.Sync, mapId, writer.GetArray());
 
-            lastSendTime = Environment.TickCount;
+            lastSendTime = Utils.MillisNow;
 
             return true;
         }
@@ -405,7 +405,7 @@ namespace Multiplayer.Client
     {
         public object actualValue;
         public object toSend;
-        public int timestamp = int.MinValue;
+        public long timestamp;
         public bool sent;
 
         public BufferData(object currentValue, object toSend)

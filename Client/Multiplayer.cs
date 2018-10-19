@@ -79,7 +79,7 @@ namespace Multiplayer.Client
         public static bool Ticking => MultiplayerWorldComp.tickingWorld || MapAsyncTimeComp.tickingMap != null || ConstantTicker.ticking;
 
         public static bool dontSync;
-        public static bool ShouldSync => Client != null && !Ticking && !ExecutingCmds && !reloading && Current.ProgramState == ProgramState.Playing && !LongEventHandler.ShouldWaitForEvent && !dontSync;
+        public static bool ShouldSync => Client != null && !Ticking && !ExecutingCmds && !reloading && Current.ProgramState == ProgramState.Playing && LongEventHandler.currentEvent == null && !dontSync;
 
         public static Callback<P2PSessionRequest_t> sessionReqCallback;
         public static Callback<P2PSessionConnectFail_t> p2pFail;
@@ -839,11 +839,11 @@ namespace Multiplayer.Client
                     if (CheckShouldRemove(f, k, data))
                         return true;
 
-                    if (Environment.TickCount - data.timestamp > 200)
+                    if (Utils.MillisNow - data.timestamp > 200)
                     {
                         f.DoSync(k.first, data.toSend, k.second);
                         data.sent = true;
-                        data.timestamp = Environment.TickCount;
+                        data.timestamp = Utils.MillisNow;
                     }
 
                     return false;

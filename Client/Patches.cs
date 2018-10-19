@@ -823,9 +823,7 @@ namespace Multiplayer.Client
                 defaultLabel = "Thinker",
                 action = () =>
                 {
-                    Dialog_BillConfig dialog = Find.WindowStack.WindowOfType<Dialog_BillConfig>();
-                    if (dialog != null)
-                        dialog.bill.repeatCount++;
+                    Log.Message("touch " + TouchPathEndModeUtility.IsAdjacentOrInsideAndAllowedToTouch(__instance.Position, __instance.Position + new IntVec3(1,0,1), __instance.Map));
 
                     //Find.WindowStack.Add(new ThinkTreeWindow(__instance));
                     // Log.Message("" + Multiplayer.mainBlock.blockStart);
@@ -1622,7 +1620,10 @@ namespace Multiplayer.Client
     {
         static void Prefix(Window __instance)
         {
-            if (__instance.ID == -LongEventWindowAbsorbInput.LongEventWindowId || __instance is DisconnectedWindow)
+            if (__instance.ID == -LongEventWindowAbsorbInput.LongEventWindowId || 
+                __instance is DisconnectedWindow || 
+                __instance is MpFormingCaravanWindow
+            )
                 Widgets.DrawBoxSolid(new Rect(0, 0, UI.screenWidth, UI.screenHeight), new Color(0, 0, 0, 0.5f));
         }
     }

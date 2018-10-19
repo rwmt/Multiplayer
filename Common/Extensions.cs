@@ -167,6 +167,8 @@ namespace Multiplayer.Common
                 return hash.Hash;
             }
         }
+
+        public static long MillisNow => DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
     }
 
 }
