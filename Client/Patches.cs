@@ -346,13 +346,13 @@ namespace Multiplayer.Client
     [HarmonyPatch(nameof(UIRoot.UIRootOnGUI))]
     static class UIRootPatch
     {
-        static bool ran;
+        static bool done;
 
         static void Prefix()
         {
-            if (ran) return;
+            if (done) return;
             GUI.skin.font = Text.fontStyles[1].font;
-            ran = true;
+            done = true;
         }
     }
 
@@ -1788,6 +1788,7 @@ namespace Multiplayer.Client
             mapComp.factionMapData[dummyFaction.loadID] = FactionMapData.New(dummyFaction.loadID, map);
             mapComp.factionMapData[dummyFaction.loadID].areaManager.AddStartingAreas();
 
+            async.mapTicks = Find.Maps.Select(m => m.AsyncTime().mapTicks).Max();
             async.storyteller = new Storyteller(Find.Storyteller.def, Find.Storyteller.difficulty);
         }
     }

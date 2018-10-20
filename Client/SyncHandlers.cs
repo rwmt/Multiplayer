@@ -360,8 +360,8 @@ namespace Multiplayer.Client
 
             SyncMethod.Register(typeof(Pawn_TimetableTracker), nameof(Pawn_TimetableTracker.SetAssignment));
             SyncMethod.Register(typeof(Pawn_WorkSettings), nameof(Pawn_WorkSettings.SetPriority));
-            SyncMethod.Register(typeof(Pawn_JobTracker), nameof(Pawn_JobTracker.TryTakeOrderedJob), new[] { typeof(Expose<Job>), typeof(JobTag) }).SetHasContext();
-            SyncMethod.Register(typeof(Pawn_JobTracker), nameof(Pawn_JobTracker.TryTakeOrderedJobPrioritizedWork), new[] { typeof(Expose<Job>), typeof(WorkGiver), typeof(IntVec3) }).SetHasContext();
+            SyncMethod.Register(typeof(Pawn_JobTracker), nameof(Pawn_JobTracker.TryTakeOrderedJob), new[] { typeof(Expose<Job>), typeof(JobTag) }).SetContext(SyncContext.QueueOrder_Down);
+            SyncMethod.Register(typeof(Pawn_JobTracker), nameof(Pawn_JobTracker.TryTakeOrderedJobPrioritizedWork), new[] { typeof(Expose<Job>), typeof(WorkGiver), typeof(IntVec3) }).SetContext(SyncContext.QueueOrder_Down);
             SyncMethod.Register(typeof(Pawn_TrainingTracker), nameof(Pawn_TrainingTracker.SetWantedRecursive));
             SyncMethod.Register(typeof(Zone), nameof(Zone.Delete));
             SyncMethod.Register(typeof(BillStack), nameof(BillStack.AddBill), new[] { typeof(Expose<Bill>) }); // Only used for pasting
@@ -406,8 +406,8 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(CompTransporter), nameof(CompTransporter.CancelLoad), new Type[0]);
             SyncMethod.Register(typeof(StorageSettings), nameof(StorageSettings.CopyFrom), new[] { typeof(Expose<StorageSettings>) });
             SyncMethod.Register(typeof(Command_SetTargetFuelLevel), "<ProcessInput>m__2"); // Set target fuel level from Dialog_Slider
-            SyncMethod.Register(typeof(ITab_Pawn_Gear), nameof(ITab_Pawn_Gear.InterfaceDrop)).SetHasContext().CancelIfAnyArgNull().CancelIfNoSelectedObjects();
-            SyncMethod.Register(typeof(ITab_Pawn_Gear), nameof(ITab_Pawn_Gear.InterfaceIngest)).SetHasContext().CancelIfAnyArgNull().CancelIfNoSelectedObjects();
+            SyncMethod.Register(typeof(ITab_Pawn_Gear), nameof(ITab_Pawn_Gear.InterfaceDrop)).SetContext(SyncContext.MapSelected | SyncContext.QueueOrder_Down).CancelIfAnyArgNull().CancelIfNoSelectedObjects();
+            SyncMethod.Register(typeof(ITab_Pawn_Gear), nameof(ITab_Pawn_Gear.InterfaceIngest)).SetContext(SyncContext.MapSelected | SyncContext.QueueOrder_Down).CancelIfAnyArgNull().CancelIfNoSelectedObjects();
 
             SyncMethod.Register(typeof(Caravan_PathFollower), nameof(Caravan_PathFollower.Paused));
             SyncMethod.Register(typeof(CaravanFormingUtility), nameof(CaravanFormingUtility.StopFormingCaravan)).CancelIfAnyArgNull();
@@ -415,6 +415,7 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(CaravanFormingUtility), nameof(CaravanFormingUtility.LateJoinFormingCaravan)).CancelIfAnyArgNull();
             SyncMethod.Register(typeof(SettleInEmptyTileUtility), nameof(SettleInEmptyTileUtility.Settle)).CancelIfAnyArgNull();
             SyncMethod.Register(typeof(SettlementAbandonUtility), nameof(SettlementAbandonUtility.Abandon)).CancelIfAnyArgNull();
+            SyncMethod.Register(typeof(WorldSelector), nameof(WorldSelector.AutoOrderToTileNow)).CancelIfAnyArgNull();
 
             SyncMethod.Register(typeof(MpTradeSession), nameof(MpTradeSession.TryExecute));
             SyncMethod.Register(typeof(MpTradeSession), nameof(MpTradeSession.Reset));
@@ -662,18 +663,20 @@ namespace Multiplayer.Client
     {
         static SyncDelegates()
         {
-            SyncDelegate.Register(typeof(FloatMenuMakerMap), "<GotoLocationOption>c__AnonStorey1C", "<>m__0").CancelIfAnyFieldNull();  // Goto
-            SyncDelegate.Register(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey3", "<>m__0").CancelIfAnyFieldNull();   // Arrest
-            SyncDelegate.Register(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey7", "<>m__0").CancelIfAnyFieldNull();   // Rescue
-            SyncDelegate.Register(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey7", "<>m__1").CancelIfAnyFieldNull();   // Capture
-            SyncDelegate.Register(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey9", "<>m__0").CancelIfAnyFieldNull();   // Carry to cryptosleep casket
+            SyncContext mouseKeyContext = SyncContext.QueueOrder_Down | SyncContext.MapMouseCell;
+
+            SyncDelegate.Register(typeof(FloatMenuMakerMap), "<GotoLocationOption>c__AnonStorey1C", "<>m__0").CancelIfAnyFieldNull().SetContext(mouseKeyContext);  // Goto
+            SyncDelegate.Register(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey3", "<>m__0").CancelIfAnyFieldNull().SetContext(mouseKeyContext);   // Arrest
+            SyncDelegate.Register(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey7", "<>m__0").CancelIfAnyFieldNull().SetContext(mouseKeyContext);   // Rescue
+            SyncDelegate.Register(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey7", "<>m__1").CancelIfAnyFieldNull().SetContext(mouseKeyContext);   // Capture
+            SyncDelegate.Register(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey9", "<>m__0").CancelIfAnyFieldNull().SetContext(mouseKeyContext);   // Carry to cryptosleep casket
 
             SyncDelegate.Register(typeof(HealthCardUtility), "<GenerateSurgeryOption>c__AnonStorey4", "<>m__0").CancelIfAnyFieldNull(without: "part");      // Add medical bill
             SyncDelegate.Register(typeof(Command_SetPlantToGrow), "<ProcessInput>c__AnonStorey0", "<>m__0");                                                // Set plant to grow
             SyncDelegate.Register(typeof(Building_Bed), "<ToggleForPrisonersByInterface>c__AnonStorey3", "<>m__0").RemoveNullsFromLists("bedsToAffect");    // Toggle bed for prisoners
-            SyncDelegate.Register(typeof(ITab_Bills), "<FillTab>c__AnonStorey0", "<>m__0").CancelIfNoSelectedObjects();                                     // Add bill
+            SyncDelegate.Register(typeof(ITab_Bills), "<FillTab>c__AnonStorey0", "<>m__0").SetContext(SyncContext.MapSelected).CancelIfNoSelectedObjects(); // Add bill
 
-            SyncDelegate.Register(typeof(CompLongRangeMineralScanner), "<CompGetGizmosExtra>c__Iterator0+<CompGetGizmosExtra>c__AnonStorey1", "<>m__0"); // Select mineral to scan for
+            SyncDelegate.Register(typeof(CompLongRangeMineralScanner), "<CompGetGizmosExtra>c__Iterator0+<CompGetGizmosExtra>c__AnonStorey1", "<>m__0").SetContext(SyncContext.MapSelected); // Select mineral to scan for
 
             string[] thisField = new[] { "$this" };
 

@@ -52,6 +52,7 @@ namespace Multiplayer.Client
             { data => Current.Game.foodRestrictionDatabase },
             { data => (data.MpContext().map).areaManager },
             { data => (data.MpContext().map).MpComp() },
+            { data => Find.WorldSelector },
             {
                 data =>
                 {
@@ -114,6 +115,7 @@ namespace Multiplayer.Client
             { (ByteWriter data, FoodRestrictionDatabase db) => {} },
             { (ByteWriter data, AreaManager areas) => data.MpContext().map = areas.map },
             { (ByteWriter data, MultiplayerMapComp comp) => data.MpContext().map = comp.map },
+            { (ByteWriter data, WorldSelector selector) => {} },
             { (ByteWriter data, MpTradeSession session) => data.WriteInt32(session.sessionId) },
             { (ByteWriter data, CaravanFormingSession session) => { data.MpContext().map = session.map; data.WriteInt32(session.sessionId); } },
             {

@@ -18,9 +18,8 @@ namespace Multiplayer.Client
     public abstract class SyncHandler
     {
         public readonly int syncId;
-        protected bool hasContext;
 
-        public bool HasContext => hasContext;
+        public SyncContext context;
 
         protected SyncHandler(int syncId)
         {
@@ -271,7 +270,7 @@ namespace Multiplayer.Client
                     return;
             }
 
-            if (hasContext && cancelIfNoSelectedObjects && Find.Selector.selected.Count == 0)
+            if (context.HasFlag(SyncContext.MapSelected) && cancelIfNoSelectedObjects && Find.Selector.selected.Count == 0)
                 return;
 
             beforeCall?.Invoke(target, args);
@@ -288,9 +287,9 @@ namespace Multiplayer.Client
             return this;
         }
 
-        public SyncMethod SetHasContext()
+        public SyncMethod SetContext(SyncContext context)
         {
-            hasContext = true;
+            this.context = context;
             return this;
         }
 
@@ -327,14 +326,15 @@ namespace Multiplayer.Client
         public string[] fieldPaths;
         private Type[] fieldTypes;
 
-        private bool cancelIfAnyFieldNull;
+        private string[] cancelIfAnyNullBlacklist;
+        private string[] cancelIfNull;
         private bool cancelIfNoSelectedObjects;
+        private string[] removeNullsFromLists;
 
         public MethodInfo patch;
 
         public SyncDelegate(int syncId, Type delegateType, MethodInfo method, string[] fieldPaths) : base(syncId)
         {
-            this.hasContext = true;
             this.delegateType = delegateType;
             this.method = method;
 
@@ -417,6 +417,7 @@ namespace Multiplayer.Client
 
             for (int i = 0; i < fieldPaths.Length; i++)
             {
+                string path = fieldPaths[i];
                 Type fieldType = fieldTypes[i];
                 object value;
 
@@ -425,16 +426,25 @@ namespace Multiplayer.Client
                 else
                     value = Sync.ReadSyncObject(data, fieldType);
 
-                if (cancelIfAnyFieldNull && value == null)
-                    return;
+                if (value == null)
+                {
+                    if (cancelIfAnyNullBlacklist != null && !cancelIfAnyNullBlacklist.Contains(path))
+                        return;
 
-                if (fieldPaths[i].EndsWith("$this") && value == null)
-                    return;
+                    if (path.EndsWith("$this"))
+                        return;
 
-                MpReflection.SetValue(target, fieldPaths[i], value);
+                    if (cancelIfNull != null && cancelIfNull.Contains(path))
+                        return;
+                }
+
+                if (removeNullsFromLists != null && removeNullsFromLists.Contains(path) && value is IList list)
+                    list.RemoveNulls();
+
+                MpReflection.SetValue(target, path, value);
             }
 
-            if (hasContext && cancelIfNoSelectedObjects && Find.Selector.selected.Count == 0)
+            if (context.HasFlag(SyncContext.MapSelected) && cancelIfNoSelectedObjects && Find.Selector.selected.Count == 0)
                 return;
 
             object[] parameters = Sync.ReadSyncObjects(data, argTypes);
@@ -443,15 +453,21 @@ namespace Multiplayer.Client
             method.Invoke(target, parameters);
         }
 
+        public SyncDelegate SetContext(SyncContext context)
+        {
+            this.context = context;
+            return this;
+        }
+
         public SyncDelegate CancelIfAnyFieldNull(params string[] without)
         {
-            cancelIfAnyFieldNull = true;
+            cancelIfAnyNullBlacklist = without;
             return this;
         }
 
         public SyncDelegate CancelIfFieldsNull(params string[] whitelist)
         {
-            cancelIfAnyFieldNull = true;
+            cancelIfNull = whitelist;
             return this;
         }
 
@@ -463,7 +479,7 @@ namespace Multiplayer.Client
 
         public SyncDelegate RemoveNullsFromLists(params string[] listFields)
         {
-            cancelIfNoSelectedObjects = true;
+            removeNullsFromLists = listFields;
             return this;
         }
 
@@ -585,6 +601,16 @@ namespace Multiplayer.Client
             this.actualValue = currentValue;
             this.toSend = toSend;
         }
+    }
+
+    [Flags]
+    public enum SyncContext
+    {
+        None = 0,
+        MapMouseCell = 1,
+        MapSelected = 2,
+        WorldSelected = 4,
+        QueueOrder_Down = 8
     }
 
     public static partial class Sync
@@ -928,17 +954,26 @@ namespace Multiplayer.Client
 
             List<object> prevSelected = Find.Selector.selected;
 
-            if (handler.HasContext)
+            if (handler.context != SyncContext.None)
             {
-                IntVec3 mouseCell = ReadSync<IntVec3>(data);
-                MouseCellPatch.result = mouseCell;
+                if (handler.context.HasFlag(SyncContext.MapMouseCell))
+                {
+                    IntVec3 mouseCell = ReadSync<IntVec3>(data);
+                    MouseCellPatch.result = mouseCell;
+                }
 
-                List<ISelectable> selected = ReadSync<List<ISelectable>>(data);
-                Find.Selector.selected = selected.Cast<object>().Where(o => o != null).ToList();
+                if (handler.context.HasFlag(SyncContext.MapSelected))
+                {
+                    List<ISelectable> selected = ReadSync<List<ISelectable>>(data);
+                    Find.Selector.selected = selected.Cast<object>().Where(o => o != null).ToList();
+                }
 
-                bool shouldQueue = data.ReadBool();
-                KeyIsDownPatch.result = shouldQueue;
-                KeyIsDownPatch.forKey = KeyBindingDefOf.QueueOrder;
+                if (handler.context.HasFlag(SyncContext.QueueOrder_Down))
+                {
+                    bool shouldQueue = data.ReadBool();
+                    KeyIsDownPatch.result = shouldQueue;
+                    KeyIsDownPatch.forKey = KeyBindingDefOf.QueueOrder;
+                }
             }
 
             try
@@ -956,12 +991,19 @@ namespace Multiplayer.Client
 
         public static void WriteContext(SyncHandler handler, ByteWriter data)
         {
-            if (!handler.HasContext) return;
+            if (handler.context == SyncContext.None) return;
 
-            bool viewingMap = Find.CurrentMap != null && !WorldRendererUtility.WorldRenderedNow;
-            WriteSync(data, viewingMap ? UI.MouseCell() : IntVec3.Invalid);
-            WriteSync(data, Find.Selector.selected.Cast<ISelectable>().ToList());
-            data.WriteBool(KeyBindingDefOf.QueueOrder.IsDownEvent);
+            if (handler.context.HasFlag(SyncContext.MapMouseCell))
+            {
+                bool viewingMap = Find.CurrentMap != null && !WorldRendererUtility.WorldRenderedNow;
+                WriteSync(data, viewingMap ? UI.MouseCell() : IntVec3.Invalid);
+            }
+
+            if (handler.context.HasFlag(SyncContext.MapSelected))
+                WriteSync(data, Find.Selector.selected.Cast<ISelectable>().ToList());
+
+            if (handler.context.HasFlag(SyncContext.QueueOrder_Down))
+                data.WriteBool(KeyBindingDefOf.QueueOrder.IsDownEvent);
         }
     }
 

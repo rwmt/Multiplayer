@@ -3,6 +3,7 @@
 using Multiplayer.Common;
 using RimWorld;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -181,6 +182,15 @@ namespace Multiplayer.Client
             }
 
             return false;
+        }
+
+        public static void RemoveNulls(this IList list)
+        {
+            for (int i = list.Count - 1; i > 0; i--)
+            {
+                if (list[i] == null)
+                    list.RemoveAt(i);
+            }
         }
 
     }
