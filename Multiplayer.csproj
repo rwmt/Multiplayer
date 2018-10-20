@@ -85,6 +85,7 @@
     <Compile Include="Client\SyncSerialization.cs" />
     <Compile Include="Client\Trading.cs" />
     <Compile Include="Client\TradingUI.cs" />
+    <Compile Include="Client\VanillaTweaks.cs" />
     <Compile Include="Common\MpLog.cs" />
     <Compile Include="Client\ClientNetworking.cs" />
     <Compile Include="Common\Commands.cs" />

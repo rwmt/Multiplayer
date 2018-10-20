@@ -108,6 +108,31 @@ namespace Multiplayer.Client
         }
     }
 
+    // Seed the rotation random
+    [HarmonyPatch(typeof(GenSpawn), nameof(GenSpawn.Spawn), new[] { typeof(Thing), typeof(IntVec3), typeof(Map), typeof(Rot4), typeof(WipeMode), typeof(bool) })]
+    static class GenSpawnRotatePatch
+    {
+        static MethodInfo Rot4GetRandom = AccessTools.Property(typeof(Rot4), nameof(Rot4.Random)).GetGetMethod();
+
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+        {
+            foreach (CodeInstruction inst in insts)
+            {
+                if (inst.operand == Rot4GetRandom)
+                {
+                    yield return new CodeInstruction(OpCodes.Ldarg_0);
+                    yield return new CodeInstruction(OpCodes.Ldfld, AccessTools.Field(typeof(Thing), nameof(Thing.thingIDNumber)));
+                    yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(Rand), nameof(Rand.PushState), new[] { typeof(int) }));
+                }
+
+                yield return inst;
+
+                if (inst.operand == Rot4GetRandom)
+                    yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(Rand), nameof(Rand.PopState)));
+            }
+        }
+    }
+
     public static class PatchThingMethods
     {
         public static void Prefix(Thing __instance, ref Container<Map> __state)
