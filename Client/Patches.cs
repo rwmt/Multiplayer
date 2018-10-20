@@ -1736,7 +1736,7 @@ namespace Multiplayer.Client
 
     [HarmonyPatch(typeof(ThingCategoryDef))]
     [HarmonyPatch(nameof(ThingCategoryDef.DescendantThingDefs), PropertyMethod.Getter)]
-    static class ThingCategoryDef_DescendantThingDefs
+    static class ThingCategoryDef_DescendantThingDefsPatch
     {
         static Dictionary<ThingCategoryDef, HashSet<ThingDef>> values = new Dictionary<ThingCategoryDef, HashSet<ThingDef>>();
 
@@ -1796,10 +1796,63 @@ namespace Multiplayer.Client
     static class CaravanVisibleToCameraPatch
     {
         static void Postfix(ref bool __result)
-    {
+        {
             if (!Multiplayer.ShouldSync)
                 __result = false;
+        }
     }
+
+    [HarmonyPatch(typeof(GenTypes), nameof(GenTypes.GetTypeInAnyAssembly))]
+    static class GetTypeInAnyAssemblyPatch
+    {
+        public static Dictionary<string, Type> results = new Dictionary<string, Type>();
+
+        static bool Prefix(string typeName, ref Type __state)
+        {
+            return !results.TryGetValue(typeName, out __state);
+        }
+
+        static void Postfix(string typeName, ref Type __result, Type __state)
+        {
+            if (__state == null)
+                results[typeName] = __result;
+            else
+                __result = __state;
+        }
+    }
+
+    [HarmonyPatch(typeof(GenTypes), nameof(GenTypes.AllLeafSubclasses))]
+    static class AllLeafSubclassesPatch
+    {
+        public static HashSet<Type> hasSubclasses;
+
+        static bool Prefix()
+        {
+            if (hasSubclasses == null)
+            {
+                hasSubclasses = new HashSet<Type>();
+                foreach (Type t in GenTypes.AllTypes)
+                    if (t.BaseType != null)
+                        hasSubclasses.Add(t.BaseType);
+            }
+
+            return false;
+        }
+
+        static void Postfix(Type baseType, ref IEnumerable<Type> __result)
+        {
+            __result = baseType.AllSubclasses().Where(t => !hasSubclasses.Contains(t));
+        }
+    }
+
+    [HarmonyPatch(typeof(ModAssemblyHandler), nameof(ModAssemblyHandler.ReloadAll))]
+    static class ReloadAllAssembliesPatch
+    {
+        static void Postfix()
+        {
+            GetTypeInAnyAssemblyPatch.results.Clear();
+            AllLeafSubclassesPatch.hasSubclasses = null;
+        }
     }
 
 }

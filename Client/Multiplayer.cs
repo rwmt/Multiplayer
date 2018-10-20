@@ -1,7 +1,6 @@
 ﻿extern alias zip;
 
 using Harmony;
-using Ionic.Crc;
 using Ionic.Zlib;
 using LiteNetLib;
 using Multiplayer.Common;
@@ -9,18 +8,15 @@ using RimWorld;
 using RimWorld.Planet;
 using Steamworks;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Reflection;
-using System.Text;
 using System.Threading;
 using System.Xml;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using Verse;
 using Verse.Profile;
 using Verse.Sound;
@@ -141,8 +137,6 @@ namespace Multiplayer.Client
             SyncHandlers.Init();
 
             DoPatches();
-
-            Log.Message("patched: " + harmony.GetPatchedMethods().Count());
 
             Log.messageQueue.maxMessages = 1000;
 
