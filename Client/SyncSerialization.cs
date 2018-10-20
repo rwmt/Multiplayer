@@ -176,6 +176,11 @@ namespace Multiplayer.Client
             Normal, MapAllThings, MapAllDesignations
         }
 
+        enum ISelectableImpl
+        {
+            Thing, Zone, WorldObject
+        }
+
         private static MethodInfo GetDefByIdMethod = AccessTools.Method(typeof(Sync), nameof(Sync.GetDefById));
 
         private static T GetDefById<T>(ushort id) where T : Def, new() => DefDatabase<T>.GetByShortHash(id);
@@ -274,6 +279,23 @@ namespace Multiplayer.Client
                         throw new Exception($"Couldn't find {type} with short hash {shortHash}");
 
                     return def;
+                }
+                else if (typeof(WITab_Caravan_Gear) == type)
+                {
+                    bool hasThing = data.ReadBool();
+
+                    Thing thing = null;
+                    if (hasThing)
+                    {
+                        thing = ReadSync<Thing>(data);
+                        if (thing == null)
+                            return null;
+                    }
+
+                    var tab = new WITab_Caravan_Gear();
+                    tab.draggedItem = thing;
+
+                    return tab;
                 }
                 else if (typeof(PawnColumnWorker).IsAssignableFrom(type))
                 {
@@ -435,6 +457,15 @@ namespace Multiplayer.Client
                     BodyDef body = ReadSync<BodyDef>(data);
                     return body.GetPartAtIndex(partIndex);
                 }
+                else if (typeof(TransferableImmutable) == type)
+                {
+                    List<Thing> things = ReadSync<List<Thing>>(data);
+
+                    TransferableImmutable tr = new TransferableImmutable();
+                    tr.things.AddRange(things.Where(t => t != null));
+
+                    return tr;
+                }
                 else if (typeof(MpTransferableReference) == type)
                 {
                     int sessionId = data.ReadInt32();
@@ -456,12 +487,16 @@ namespace Multiplayer.Client
                 }
                 else if (typeof(ISelectable) == type)
                 {
-                    bool isThing = data.ReadBool();
+                    ISelectableImpl impl = ReadSync<ISelectableImpl>(data);
 
-                    if (isThing)
+                    if (impl == ISelectableImpl.Thing)
                         return ReadSync<Thing>(data);
-                    else
+                    else if (impl == ISelectableImpl.Zone)
                         return ReadSync<Zone>(data);
+                    else if (impl == ISelectableImpl.WorldObject)
+                        return ReadSync<WorldObject>(data);
+                    else
+                        throw new Exception($"Unknown ISelectable");
                 }
                 else if (typeof(IStoreSettingsParent) == type)
                 {
@@ -605,6 +640,13 @@ namespace Multiplayer.Client
                 {
                     Def def = obj as Def;
                     data.WriteUInt16(def != null ? def.shortHash : (ushort)0);
+                }
+                else if (typeof(WITab_Caravan_Gear) == type)
+                {
+                    var tab = (WITab_Caravan_Gear)obj;
+                    data.WriteBool(tab.draggedItem != null);
+                    if (tab.draggedItem != null)
+                        WriteSync(data, tab.draggedItem);
                 }
                 else if (typeof(PawnColumnWorker).IsAssignableFrom(type))
                 {
@@ -774,6 +816,12 @@ namespace Multiplayer.Client
                     data.WriteInt32(body.GetIndexOfPart(part));
                     WriteSync(data, body);
                 }
+                else if (typeof(TransferableImmutable) == type)
+                {
+                    // todo find a better way
+                    TransferableImmutable tr = (TransferableImmutable)obj;
+                    WriteSync(data, tr.things);
+                }
                 else if (typeof(MpTransferableReference) == type)
                 {
                     MpTransferableReference reference = (MpTransferableReference)obj;
@@ -804,17 +852,22 @@ namespace Multiplayer.Client
                 {
                     if (obj is Thing thing)
                     {
-                        WriteSync(data, true);
+                        WriteSync(data, ISelectableImpl.Thing);
                         WriteSync(data, thing);
                     }
                     else if (obj is Zone zone)
                     {
-                        WriteSync(data, false);
+                        WriteSync(data, ISelectableImpl.Zone);
                         WriteSync(data, zone);
+                    }
+                    else if (obj is WorldObject worldObj)
+                    {
+                        WriteSync(data, ISelectableImpl.WorldObject);
+                        WriteSync(data, worldObj);
                     }
                     else
                     {
-                        throw new SerializationException($"ISelectable is neither a thing nor a zone. Got type {obj?.GetType()}");
+                        throw new SerializationException($"Unknown ISelectable type: {obj?.GetType()}");
                     }
                 }
                 else if (typeof(IStoreSettingsParent) == type)

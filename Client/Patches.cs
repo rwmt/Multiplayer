@@ -1687,4 +1687,19 @@ namespace Multiplayer.Client
         }
     }
 
+    [HarmonyPatch(typeof(WindowStack), nameof(WindowStack.Add))]
+    static class DisableCaravanSplit
+    {
+        static bool Prefix(Window window)
+        {
+            if (Multiplayer.Client != null && window is Dialog_SplitCaravan)
+            {
+                Messages.Message("Not available in multiplayer.", MessageTypeDefOf.RejectInput, false);
+                return false;
+            }
+
+            return true;
+        }
+    }
+
 }

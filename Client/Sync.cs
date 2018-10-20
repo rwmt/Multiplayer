@@ -17,7 +17,9 @@ namespace Multiplayer.Client
 {
     public abstract class SyncHandler
     {
-        public readonly int syncId;
+        private readonly int syncId;
+
+        public int SyncId => syncId;
 
         public SyncContext context;
 
@@ -68,7 +70,7 @@ namespace Multiplayer.Client
             MpContext context = writer.MpContext();
             writer.LogNode("Sync field " + memberPath);
 
-            writer.WriteInt32(syncId);
+            writer.WriteInt32(SyncId);
 
             int mapId = ScheduledCommand.Global;
             if (targetType != null)
@@ -149,7 +151,14 @@ namespace Multiplayer.Client
         }
     }
 
-    public class SyncMethod : SyncHandler
+    public interface ISyncMethod
+    {
+        int SyncId { get; }
+
+        bool DoSync(object target, params object[] args);
+    }
+
+    public class SyncMethod : SyncHandler, ISyncMethod
     {
         public readonly Type targetType;
         public readonly string instancePath;
@@ -161,7 +170,8 @@ namespace Multiplayer.Client
         private long lastSendTime;
 
         private bool cancelIfAnyArgNull;
-        private bool cancelIfNoSelectedObjects;
+        private bool cancelIfNoSelectedMapObjects;
+        private bool cancelIfNoSelectedWorldObjects;
 
         private Action<object, object[]> beforeCall;
         private Action<object, object[]> afterCall;
@@ -214,7 +224,7 @@ namespace Multiplayer.Client
             MpContext context = writer.MpContext();
             writer.LogNode("Sync method " + method.FullDescription());
 
-            writer.WriteInt32(syncId);
+            writer.WriteInt32(SyncId);
 
             Sync.WriteContext(this, writer);
 
@@ -270,7 +280,10 @@ namespace Multiplayer.Client
                     return;
             }
 
-            if (context.HasFlag(SyncContext.MapSelected) && cancelIfNoSelectedObjects && Find.Selector.selected.Count == 0)
+            if (context.HasFlag(SyncContext.MapSelected) && cancelIfNoSelectedMapObjects && Find.Selector.selected.Count == 0)
+                return;
+
+            if (context.HasFlag(SyncContext.WorldSelected) && cancelIfNoSelectedWorldObjects && Find.WorldSelector.selected.Count == 0)
                 return;
 
             beforeCall?.Invoke(target, args);
@@ -305,9 +318,15 @@ namespace Multiplayer.Client
             return this;
         }
 
-        public SyncMethod CancelIfNoSelectedObjects()
+        public SyncMethod CancelIfNoSelectedMapObjects()
         {
-            cancelIfNoSelectedObjects = true;
+            cancelIfNoSelectedMapObjects = true;
+            return this;
+        }
+
+        public SyncMethod CancelIfNoSelectedWorldObjects()
+        {
+            cancelIfNoSelectedWorldObjects = true;
             return this;
         }
 
@@ -317,7 +336,7 @@ namespace Multiplayer.Client
         }
     }
 
-    public class SyncDelegate : SyncHandler
+    public class SyncDelegate : SyncHandler, ISyncMethod
     {
         public readonly Type delegateType;
         public readonly MethodInfo method;
@@ -380,7 +399,7 @@ namespace Multiplayer.Client
             writer.LogNode($"Sync delegate: {delegateType} method: {method}");
             writer.LogNode("Patch: " + patch?.FullDescription());
 
-            writer.WriteInt32(syncId);
+            writer.WriteInt32(SyncId);
 
             Sync.WriteContext(this, writer);
 
@@ -517,7 +536,7 @@ namespace Multiplayer.Client
             MpContext context = writer.MpContext();
             writer.LogNode($"Sync action: {method}");
 
-            writer.WriteInt32(syncId);
+            writer.WriteInt32(SyncId);
 
             int mapId = ScheduledCommand.Global;
             Sync.WriteSyncObject(writer, target, targetType);
@@ -618,8 +637,7 @@ namespace Multiplayer.Client
         public static List<SyncHandler> handlers = new List<SyncHandler>();
         public static List<SyncField> bufferedFields = new List<SyncField>();
 
-        private static Dictionary<MethodBase, SyncDelegate> syncDelegates = new Dictionary<MethodBase, SyncDelegate>();
-        private static Dictionary<MethodBase, SyncMethod> syncMethods = new Dictionary<MethodBase, SyncMethod>();
+        private static Dictionary<MethodBase, ISyncMethod> syncMethods = new Dictionary<MethodBase, ISyncMethod>();
         public static Dictionary<MethodBase, SyncAction> syncActions = new Dictionary<MethodBase, SyncAction>();
 
         public static Dictionary<SyncField, Dictionary<Pair<object, object>, BufferData>> bufferedChanges = new Dictionary<SyncField, Dictionary<Pair<object, object>, BufferData>>();
@@ -710,15 +728,6 @@ namespace Multiplayer.Client
             return memberPaths.Select(path => Field(targetType, instancePath, path)).ToArray();
         }
 
-        /// <summary>
-        /// Returns whether the original should be cancelled
-        /// </summary>
-        public static bool Delegate(object instance, MethodBase originalMethod, params object[] args)
-        {
-            SyncDelegate handler = syncDelegates[originalMethod];
-            return handler.DoSync(instance, args ?? new object[0]);
-        }
-
         public static bool AllDelegateFieldsRecursive(Type type, Func<string, bool> getter, string path = "")
         {
             if (path.NullOrEmpty())
@@ -747,51 +756,26 @@ namespace Multiplayer.Client
         }
 
         // todo support methods with arguments (currently there has been no need for it)
-        public static SyncDelegate RegisterSyncDelegate(Type inType, string nestedType, string methodName, string[] fields)
+        public static SyncDelegate RegisterSyncDelegate(Type inType, string nestedType, string methodName, string[] fields, Type[] args = null)
         {
             string typeName = $"{inType}+{nestedType}";
             Type type = MpReflection.GetTypeByName(typeName);
             if (type == null)
                 throw new Exception($"Couldn't find type {typeName}");
 
-            MethodInfo method = AccessTools.Method(type, methodName, new Type[0]);
+            MethodInfo method = AccessTools.Method(type, methodName, args);
             if (method == null)
                 throw new Exception($"Couldn't find method {typeName}::{methodName}");
 
             SyncDelegate handler = new SyncDelegate(handlers.Count, type, method, fields);
-            syncDelegates[handler.method] = handler;
+            syncMethods[handler.method] = handler;
             handlers.Add(handler);
 
-            HarmonyMethod prefix = new HarmonyMethod(typeof(Sync), nameof(Sync.SyncDelegatePrefix));
-            prefix.prioritiy = Priority.First;
-            Multiplayer.harmony.Patch(method, prefix, null);
+            HarmonyMethod transpiler = new HarmonyMethod(typeof(Sync), nameof(Sync.SyncMethodTranspiler));
+            transpiler.prioritiy = Priority.First;
+            Multiplayer.harmony.Patch(method, null, null, transpiler);
 
             return handler;
-        }
-
-        static bool SyncDelegatePrefix(object __instance, MethodBase __originalMethod)
-        {
-            return !Delegate(__instance, __originalMethod);
-        }
-
-        public static void RegisterSyncDelegates(Type inType)
-        {
-            foreach (MethodInfo method in AccessTools.GetDeclaredMethods(inType))
-            {
-                if (!method.TryGetAttribute(out SyncDelegateAttribute syncAttr))
-                    continue;
-
-                foreach (MpPrefix patchAttr in method.AllAttributes<MpPrefix>())
-                {
-                    SyncDelegate handler = new SyncDelegate(handlers.Count, patchAttr.Type, patchAttr.Method, syncAttr.fields)
-                    {
-                        patch = method
-                    };
-
-                    syncDelegates[handler.method] = handler;
-                    handlers.Add(handler);
-                }
-            }
         }
 
         public static SyncMethod RegisterSyncMethod(Type type, string methodOrPropertyName, Type[] argTypes = null)
@@ -837,13 +821,12 @@ namespace Multiplayer.Client
 
         public static SyncMethod RegisterSyncMethod(MethodInfo method, Type[] argTypes)
         {
-            HarmonyMethod transpiler = new HarmonyMethod(typeof(Sync), nameof(Sync.SyncMethodTranspiler));
-            transpiler.prioritiy = Priority.First;
-
             SyncMethod handler = new SyncMethod(handlers.Count, (method.IsStatic ? null : method.DeclaringType), method, argTypes);
             syncMethods[method] = handler;
             handlers.Add(handler);
 
+            HarmonyMethod transpiler = new HarmonyMethod(typeof(Sync), nameof(Sync.SyncMethodTranspiler));
+            transpiler.prioritiy = Priority.First;
             Multiplayer.harmony.Patch(method, null, null, transpiler);
 
             return handler;
@@ -851,7 +834,7 @@ namespace Multiplayer.Client
 
         private static void DoSyncMethod(int index, object instance, object[] args)
         {
-            ((SyncMethod)handlers[index]).DoSync(instance, args);
+            ((ISyncMethod)handlers[index]).DoSync(instance, args);
         }
 
         // Cancels execution and sends the method with its arguments over the network if Multiplayer.ShouldSync
@@ -867,7 +850,7 @@ namespace Multiplayer.Client
             yield return new CodeInstruction(OpCodes.Call, AccessTools.Property(typeof(Multiplayer), nameof(Multiplayer.ShouldSync)).GetGetMethod());
             yield return new CodeInstruction(OpCodes.Brfalse, jump);
 
-            yield return new CodeInstruction(OpCodes.Ldc_I4, syncMethods[original].syncId);
+            yield return new CodeInstruction(OpCodes.Ldc_I4, syncMethods[original].SyncId);
 
             if (!original.IsStatic)
                 yield return new CodeInstruction(OpCodes.Ldarg_0);
@@ -953,6 +936,7 @@ namespace Multiplayer.Client
             SyncHandler handler = handlers[syncId];
 
             List<object> prevSelected = Find.Selector.selected;
+            List<WorldObject> prevWorldSelected = Find.WorldSelector.selected;
 
             if (handler.context != SyncContext.None)
             {
@@ -966,6 +950,12 @@ namespace Multiplayer.Client
                 {
                     List<ISelectable> selected = ReadSync<List<ISelectable>>(data);
                     Find.Selector.selected = selected.Cast<object>().Where(o => o != null).ToList();
+                }
+
+                if (handler.context.HasFlag(SyncContext.WorldSelected))
+                {
+                    List<ISelectable> selected = ReadSync<List<ISelectable>>(data);
+                    Find.WorldSelector.selected = selected.Cast<WorldObject>().Where(o => o != null).ToList();
                 }
 
                 if (handler.context.HasFlag(SyncContext.QueueOrder_Down))
@@ -986,6 +976,7 @@ namespace Multiplayer.Client
                 KeyIsDownPatch.result = null;
                 KeyIsDownPatch.forKey = null;
                 Find.Selector.selected = prevSelected;
+                Find.WorldSelector.selected = prevWorldSelected;
             }
         }
 
@@ -1001,6 +992,9 @@ namespace Multiplayer.Client
 
             if (handler.context.HasFlag(SyncContext.MapSelected))
                 WriteSync(data, Find.Selector.selected.Cast<ISelectable>().ToList());
+
+            if (handler.context.HasFlag(SyncContext.WorldSelected))
+                WriteSync(data, Find.WorldSelector.selected.Cast<ISelectable>().ToList());
 
             if (handler.context.HasFlag(SyncContext.QueueOrder_Down))
                 data.WriteBool(KeyBindingDefOf.QueueOrder.IsDownEvent);
@@ -1030,21 +1024,6 @@ namespace Multiplayer.Client
             foreach (SyncField field in group)
                 field.SetBufferChanges();
             return group;
-        }
-    }
-
-    [AttributeUsage(AttributeTargets.Method)]
-    public class SyncDelegateAttribute : Attribute
-    {
-        public readonly string[] fields;
-
-        public SyncDelegateAttribute()
-        {
-        }
-
-        public SyncDelegateAttribute(params string[] fields)
-        {
-            this.fields = fields;
         }
     }
 

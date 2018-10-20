@@ -31,7 +31,6 @@ namespace Multiplayer.Client
             RuntimeHelpers.RunClassConstructor(typeof(SyncThingFilters).TypeHandle);
 
             Sync.RegisterFieldPatches(typeof(SyncFieldsPatches));
-            Sync.RegisterSyncDelegates(typeof(SyncDelegates));
             Sync.RegisterSyncMethods(typeof(SyncPatches));
             Sync.RegisterSyncMethods(typeof(SyncThingFilters));
             Sync.RegisterSyncMethods(typeof(TradingWindow));
@@ -406,8 +405,8 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(CompTransporter), nameof(CompTransporter.CancelLoad), new Type[0]);
             SyncMethod.Register(typeof(StorageSettings), nameof(StorageSettings.CopyFrom), new[] { typeof(Expose<StorageSettings>) });
             SyncMethod.Register(typeof(Command_SetTargetFuelLevel), "<ProcessInput>m__2"); // Set target fuel level from Dialog_Slider
-            SyncMethod.Register(typeof(ITab_Pawn_Gear), nameof(ITab_Pawn_Gear.InterfaceDrop)).SetContext(SyncContext.MapSelected | SyncContext.QueueOrder_Down).CancelIfAnyArgNull().CancelIfNoSelectedObjects();
-            SyncMethod.Register(typeof(ITab_Pawn_Gear), nameof(ITab_Pawn_Gear.InterfaceIngest)).SetContext(SyncContext.MapSelected | SyncContext.QueueOrder_Down).CancelIfAnyArgNull().CancelIfNoSelectedObjects();
+            SyncMethod.Register(typeof(ITab_Pawn_Gear), nameof(ITab_Pawn_Gear.InterfaceDrop)).SetContext(SyncContext.MapSelected | SyncContext.QueueOrder_Down).CancelIfAnyArgNull().CancelIfNoSelectedMapObjects();
+            SyncMethod.Register(typeof(ITab_Pawn_Gear), nameof(ITab_Pawn_Gear.InterfaceIngest)).SetContext(SyncContext.MapSelected | SyncContext.QueueOrder_Down).CancelIfAnyArgNull().CancelIfNoSelectedMapObjects();
 
             SyncMethod.Register(typeof(Caravan_PathFollower), nameof(Caravan_PathFollower.Paused));
             SyncMethod.Register(typeof(CaravanFormingUtility), nameof(CaravanFormingUtility.StopFormingCaravan)).CancelIfAnyArgNull();
@@ -416,6 +415,11 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(SettleInEmptyTileUtility), nameof(SettleInEmptyTileUtility.Settle)).CancelIfAnyArgNull();
             SyncMethod.Register(typeof(SettlementAbandonUtility), nameof(SettlementAbandonUtility.Abandon)).CancelIfAnyArgNull();
             SyncMethod.Register(typeof(WorldSelector), nameof(WorldSelector.AutoOrderToTileNow)).CancelIfAnyArgNull();
+            SyncMethod.Register(typeof(CaravanMergeUtility), nameof(CaravanMergeUtility.TryMergeSelectedCaravans)).SetContext(SyncContext.WorldSelected);
+            SyncMethod.Register(typeof(PawnBanishUtility), nameof(PawnBanishUtility.Banish)).CancelIfAnyArgNull();
+
+            SyncMethod.Register(typeof(WITab_Caravan_Gear), nameof(WITab_Caravan_Gear.TryEquipDraggedItem)).SetContext(SyncContext.WorldSelected).CancelIfNoSelectedWorldObjects().CancelIfAnyArgNull();
+            SyncMethod.Register(typeof(WITab_Caravan_Gear), nameof(WITab_Caravan_Gear.MoveDraggedItemToInventory)).SetContext(SyncContext.WorldSelected).CancelIfNoSelectedWorldObjects();
 
             SyncMethod.Register(typeof(MpTradeSession), nameof(MpTradeSession.TryExecute));
             SyncMethod.Register(typeof(MpTradeSession), nameof(MpTradeSession.Reset));
@@ -453,28 +457,12 @@ namespace Multiplayer.Client
                 dialog.SelectedPolicy = __result;
         }
 
-        [MpPostfix(typeof(DrugPolicyDatabase), nameof(DrugPolicyDatabase.TryDelete))]
-        static void TryDeleteDrugPolicy_Postfix(DrugPolicy policy, AcceptanceReport __result)
-        {
-            var dialog = GetDialogDrugPolicies();
-            if (__result.Accepted && dialog != null && dialog.SelectedPolicy == policy)
-                dialog.SelectedPolicy = null;
-        }
-
         [MpPostfix(typeof(OutfitDatabase), nameof(OutfitDatabase.MakeNewOutfit))]
         static void MakeNewOutfit_Postfix(Outfit __result)
         {
             var dialog = GetDialogOutfits();
             if (__result != null && dialog != null && TickPatch.currentExecutingCmdIssuedBySelf)
                 dialog.SelectedOutfit = __result;
-        }
-
-        [MpPostfix(typeof(OutfitDatabase), nameof(OutfitDatabase.TryDelete))]
-        static void TryDeleteOutfit_Postfix(Outfit outfit, AcceptanceReport __result)
-        {
-            var dialog = GetDialogOutfits();
-            if (__result.Accepted && dialog != null && dialog.SelectedOutfit == outfit)
-                dialog.SelectedOutfit = null;
         }
 
         [MpPostfix(typeof(FoodRestrictionDatabase), nameof(FoodRestrictionDatabase.MakeNewFoodRestriction))]
@@ -485,6 +473,22 @@ namespace Multiplayer.Client
                 dialog.SelectedFoodRestriction = __result;
         }
 
+        [MpPostfix(typeof(DrugPolicyDatabase), nameof(DrugPolicyDatabase.TryDelete))]
+        static void TryDeleteDrugPolicy_Postfix(DrugPolicy policy, AcceptanceReport __result)
+        {
+            var dialog = GetDialogDrugPolicies();
+            if (__result.Accepted && dialog != null && dialog.SelectedPolicy == policy)
+                dialog.SelectedPolicy = null;
+        }
+
+        [MpPostfix(typeof(OutfitDatabase), nameof(OutfitDatabase.TryDelete))]
+        static void TryDeleteOutfit_Postfix(Outfit outfit, AcceptanceReport __result)
+        {
+            var dialog = GetDialogOutfits();
+            if (__result.Accepted && dialog != null && dialog.SelectedOutfit == outfit)
+                dialog.SelectedOutfit = null;
+        }
+
         [MpPostfix(typeof(FoodRestrictionDatabase), nameof(FoodRestrictionDatabase.TryDelete))]
         static void TryDeleteFood_Postfix(FoodRestriction foodRestriction, AcceptanceReport __result)
         {
@@ -493,9 +497,23 @@ namespace Multiplayer.Client
                 dialog.SelectedFoodRestriction = null;
         }
 
-        static Dialog_ManageOutfits GetDialogOutfits() => Find.WindowStack?.WindowOfType<Dialog_ManageOutfits>();
         static Dialog_ManageDrugPolicies GetDialogDrugPolicies() => Find.WindowStack?.WindowOfType<Dialog_ManageDrugPolicies>();
+        static Dialog_ManageOutfits GetDialogOutfits() => Find.WindowStack?.WindowOfType<Dialog_ManageOutfits>();
         static Dialog_ManageFoodRestrictions GetDialogFood() => Find.WindowStack?.WindowOfType<Dialog_ManageFoodRestrictions>();
+        
+        [MpPostfix(typeof(WITab_Caravan_Gear), nameof(WITab_Caravan_Gear.TryEquipDraggedItem))]
+        static void TryEquipDraggedItem_Postfix(WITab_Caravan_Gear __instance)
+        {
+            __instance.droppedDraggedItem = false;
+            __instance.draggedItem = null;
+        }
+
+        [MpPostfix(typeof(WITab_Caravan_Gear), nameof(WITab_Caravan_Gear.MoveDraggedItemToInventory))]
+        static void MoveDraggedItemToInventory_Postfix(WITab_Caravan_Gear __instance)
+        {
+            __instance.droppedDraggedItem = false;
+            __instance.draggedItem = null;
+        }
 
         [MpPrefix(typeof(Pawn_JobTracker), nameof(Pawn_JobTracker.TryTakeOrderedJob))]
         static void TryTakeOrderedJob_Prefix(Job job)
@@ -694,6 +712,11 @@ namespace Multiplayer.Client
 
             SyncDelegate.Register(typeof(Designator), "<>c__Iterator0+<>c__AnonStorey1", "<>m__0", new[] { "<>f__ref$0/$this", "things" }); // Designate all
             SyncDelegate.Register(typeof(Designator), "<>c__Iterator0+<>c__AnonStorey2", "<>m__0", new[] { "<>f__ref$0/$this", "<>f__ref$3/designation", "designations" }); // Remove all designations
+
+            SyncDelegate.Register(typeof(CaravanAbandonOrBanishUtility), "<TryAbandonOrBanishViaInterface>c__AnonStorey0", "<>m__1", new[] { "caravan", "t" }).CancelIfAnyFieldNull();      // Abandon caravan thing
+            SyncDelegate.Register(typeof(CaravanAbandonOrBanishUtility), "<TryAbandonOrBanishViaInterface>c__AnonStorey1", "<>m__0", new[] { "caravan", "t" }).CancelIfAnyFieldNull();      // Abandon caravan transferable
+            SyncDelegate.Register(typeof(CaravanAbandonOrBanishUtility), "<TryAbandonSpecificCountViaInterface>c__AnonStorey2", "<>m__0", new[] { "caravan", "t" }).CancelIfAnyFieldNull(); // Abandon thing specific count
+            SyncDelegate.Register(typeof(CaravanAbandonOrBanishUtility), "<TryAbandonSpecificCountViaInterface>c__AnonStorey3", "<>m__0", new[] { "caravan", "t" }).CancelIfAnyFieldNull(); // Abandon transferable specific count
         }
 
         [MpPrefix(typeof(FormCaravanComp), "<GetGizmos>c__Iterator0+<GetGizmos>c__AnonStorey1", "<>m__0")]
