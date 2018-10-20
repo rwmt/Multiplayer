@@ -142,6 +142,8 @@ namespace Multiplayer.Client
 
             DoPatches();
 
+            Log.Message("patched: " + harmony.GetPatchedMethods().Count());
+
             Log.messageQueue.maxMessages = 1000;
 
             if (GenCommandLine.CommandLineArgPassed("dev"))

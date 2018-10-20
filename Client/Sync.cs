@@ -311,6 +311,11 @@ namespace Multiplayer.Client
             cancelIfNoSelectedObjects = true;
             return this;
         }
+
+        public static SyncMethod Register(Type type, string methodOrPropertyName, Type[] argTypes = null)
+        {
+            return Sync.RegisterSyncMethod(type, methodOrPropertyName, argTypes);
+        }
     }
 
     public class SyncDelegate : SyncHandler
@@ -460,6 +465,16 @@ namespace Multiplayer.Client
         {
             cancelIfNoSelectedObjects = true;
             return this;
+        }
+
+        public static SyncDelegate Register(Type type, string nestedType, string method)
+        {
+            return Sync.RegisterSyncDelegate(type, nestedType, method);
+        }
+
+        public static SyncDelegate Register(Type inType, string nestedType, string methodName, string[] fields)
+        {
+            return Sync.RegisterSyncDelegate(inType, nestedType, methodName, fields);
         }
     }
 
@@ -753,18 +768,20 @@ namespace Multiplayer.Client
             }
         }
 
-        public static SyncMethod RegisterSyncMethod(Type type, string methodName, Type[] argTypes = null)
+        public static SyncMethod RegisterSyncMethod(Type type, string methodOrPropertyName, Type[] argTypes = null)
         {
-            MethodInfo method = AccessTools.Method(type, methodName, argTypes != null ? TranslateArgTypes(argTypes) : null);
+            MethodInfo method = AccessTools.Method(type, methodOrPropertyName, argTypes != null ? Sync.TranslateArgTypes(argTypes) : null);
+
             if (method == null)
-                throw new Exception("Couldn't find method " + methodName + " in type " + type);
+            {
+                PropertyInfo property = AccessTools.Property(type, methodOrPropertyName);
+                method = property.GetSetMethod();
+            }
+
+            if (method == null)
+                throw new Exception($"Couldn't find method or property {methodOrPropertyName} in type {type}");
 
             return RegisterSyncMethod(method, argTypes);
-        }
-
-        public static SyncMethod RegisterSyncProperty(Type type, string propertyName, Type[] argTypes = null)
-        {
-            return RegisterSyncMethod(type, "set_" + propertyName, argTypes);
         }
 
         public static void RegisterSyncMethods(Type inType)
@@ -792,7 +809,7 @@ namespace Multiplayer.Client
             }).ToArray();
         }
 
-        private static SyncMethod RegisterSyncMethod(MethodInfo method, Type[] argTypes)
+        public static SyncMethod RegisterSyncMethod(MethodInfo method, Type[] argTypes)
         {
             HarmonyMethod transpiler = new HarmonyMethod(typeof(Sync), nameof(Sync.SyncMethodTranspiler));
             transpiler.prioritiy = Priority.First;
