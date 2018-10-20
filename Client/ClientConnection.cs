@@ -46,7 +46,7 @@ namespace Multiplayer.Client
             byte[] worldData = GZipStream.UncompressBuffer(data.ReadPrefixedBytes());
             OnMainThread.cachedGameData = worldData;
 
-            List<int> mapIds = new List<int>();
+            List<int> mapsToLoad = new List<int>();
             int maps = data.ReadInt32();
             for (int i = 0; i < maps; i++)
             {
@@ -59,23 +59,27 @@ namespace Multiplayer.Client
 
                 OnMainThread.cachedMapCmds[mapId] = mapCmds;
 
-                byte[] mapData = GZipStream.UncompressBuffer(data.ReadPrefixedBytes());
-                OnMainThread.cachedMapData[mapId] = mapData;
-                mapIds.Add(mapId);
+                byte[] rawMapData = data.ReadPrefixedBytes();
+                if (rawMapData.Length > 0)
+                {
+                    byte[] mapData = GZipStream.UncompressBuffer(rawMapData);
+                    OnMainThread.cachedMapData[mapId] = mapData;
+                    mapsToLoad.Add(mapId);
+                }
             }
 
-            ReloadGame(tickUntil, mapIds, () =>
+            ReloadGame(tickUntil, mapsToLoad, () =>
             {
                 Multiplayer.Client.Send(Packets.Client_WorldLoaded);
             });
         }
 
-        public static void ReloadGame(int tickUntil, List<int> maps, Action onDone = null, Action afterLoad = null)
+        public static void ReloadGame(int tickUntil, List<int> mapsToLoad, Action onDone = null)
         {
             XmlDocument gameDoc = ScribeUtil.GetDocument(OnMainThread.cachedGameData);
             XmlNode gameNode = gameDoc.DocumentElement["game"];
 
-            foreach (int map in maps)
+            foreach (int map in mapsToLoad)
             {
                 using (XmlReader reader = XmlReader.Create(new MemoryStream(OnMainThread.cachedMapData[map])))
                 {
@@ -99,12 +103,12 @@ namespace Multiplayer.Client
 
                 LongEventHandler.ExecuteWhenFinished(() =>
                 {
-                    LongEventHandler.QueueLongEvent(CatchUp(onDone, afterLoad), "MpSimulating", null);
+                    LongEventHandler.QueueLongEvent(() => PostLoad(onDone), "MpSimulating", false, null);
                 });
             }, "Play", "MpLoading", true, null);
         }
 
-        private static IEnumerable CatchUp(Action finishAction, Action startAction)
+        private static void PostLoad(Action finishAction)
         {
             FactionWorldData factionData = Multiplayer.WorldComp.factionData.GetValueSafe(Multiplayer.session.myFactionId);
             if (factionData != null && factionData.online)
@@ -113,42 +117,20 @@ namespace Multiplayer.Client
                 Multiplayer.RealPlayerFaction = Multiplayer.DummyFaction;
 
             Multiplayer.WorldComp.cmds = new Queue<ScheduledCommand>(OnMainThread.cachedMapCmds.GetValueSafe(ScheduledCommand.Global) ?? new List<ScheduledCommand>());
-            foreach (Map m in Find.Maps)
-                m.AsyncTime().cmds = new Queue<ScheduledCommand>(OnMainThread.cachedMapCmds.GetValueSafe(m.uniqueID) ?? new List<ScheduledCommand>());
+            // Map cmds are added in MapAsyncTimeComp.FinalizeInit
 
-            int start = TickPatch.Timer;
-            int startTicks = Find.Maps[0].AsyncTime().mapTicks;
-            float startTime = Time.realtimeSinceStartup;
+            TickPatch.skipTo = TickPatch.tickUntil;
 
-            startAction?.Invoke();
-
-            while (TickPatch.Timer < TickPatch.tickUntil)
+            Action afterSkip = () =>
             {
-                TickPatch.accumulator = Math.Min(60, TickPatch.tickUntil - TickPatch.Timer);
+                foreach (Map map in Find.Maps)
+                {
+                    foreach (Pawn pawn in map.mapPawns.AllPawnsSpawned)
+                        pawn.drawer.tweener.tweenedPos = pawn.drawer.tweener.TweenedPosRoot();
+                }
+            };
 
-                //SimpleProfiler.Start();
-                Multiplayer.simulating = true;
-                TickPatch.Tick();
-                Multiplayer.simulating = false;
-                //SimpleProfiler.Pause();
-
-                int pct = (int)((float)(TickPatch.Timer - start) / (TickPatch.tickUntil - start) * 100);
-                float tps = (Find.Maps[0].AsyncTime().mapTicks - startTicks) / (Time.realtimeSinceStartup - startTime);
-                LongEventHandler.SetCurrentEventText($"Loading game {pct}/100 " + TickPatch.Timer + " " + TickPatch.tickUntil + " " + Find.Maps[0].AsyncTime().mapTicks + " " + tps);
-
-                yield return null;
-            }
-
-            foreach (Map map in Find.Maps)
-            {
-                foreach (Pawn pawn in map.mapPawns.AllPawnsSpawned)
-                    pawn.drawer.tweener.tweenedPos = pawn.drawer.tweener.TweenedPosRoot();
-            }
-
-            //SimpleProfiler.Print("prof_sim.txt");
-            //SimpleProfiler.Init("");
-
-            finishAction?.Invoke();
+            TickPatch.afterSkip = afterSkip;
         }
 
         [PacketHandler(Packets.Server_DisconnectReason)]

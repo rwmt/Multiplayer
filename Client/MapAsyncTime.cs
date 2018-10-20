@@ -29,6 +29,7 @@ namespace Multiplayer.Client
 
         public static TimeSpeed replayTimeSpeed;
         public static int skipTo = -1;
+        public static Action afterSkip;
 
         public static IEnumerable<ITickable> AllTickables
         {
@@ -46,7 +47,7 @@ namespace Multiplayer.Client
         static bool Prefix()
         {
             if (Multiplayer.Client == null) return true;
-            if (LongEventHandler.AnyEventNowOrWaiting) return false;
+            if (LongEventHandler.currentEvent != null) return false;
 
             double delta = Time.deltaTime * 60.0;
             if (delta > 3)
@@ -65,9 +66,15 @@ namespace Multiplayer.Client
             if (skipTo > 0)
             {
                 if (Timer >= skipTo)
+                {
                     skipTo = -1;
+                    afterSkip?.Invoke();
+                    afterSkip = null;
+                }
                 else
+                {
                     accumulator = Math.Min(60, skipTo - Timer);
+                }
             }
 
             Tick();
@@ -119,7 +126,7 @@ namespace Multiplayer.Client
                 accumulator -= TimeStep * ReplayMultiplier();
                 timerInt += TimeStep;
 
-                if (Timer >= tickUntil)
+                if (Timer >= tickUntil || LongEventHandler.eventQueue.Count > 0)
                     accumulator = 0;
             }
         }
@@ -370,7 +377,8 @@ namespace Multiplayer.Client
     [HarmonyPatch(typeof(TimeControls), nameof(TimeControls.DoTimeControlsGUI))]
     public static class TimeControlPatch
     {
-        private static TimeSpeed lastSpeed;
+        private static TimeSpeed prevSpeed;
+        private static TimeSpeed savedSpeed;
 
         static void Prefix(ref ITickable __state)
         {
@@ -385,8 +393,10 @@ namespace Multiplayer.Client
             if (Multiplayer.IsReplay)
                 speed = TickPatch.replayTimeSpeed;
 
+            savedSpeed = Find.TickManager.CurTimeSpeed;
+
             Find.TickManager.CurTimeSpeed = speed;
-            lastSpeed = speed;
+            prevSpeed = speed;
             __state = tickable;
         }
 
@@ -395,7 +405,9 @@ namespace Multiplayer.Client
             if (__state == null) return;
 
             TimeSpeed newSpeed = Find.TickManager.CurTimeSpeed;
-            if (lastSpeed == newSpeed) return;
+            Find.TickManager.CurTimeSpeed = savedSpeed;
+
+            if (prevSpeed == newSpeed) return;
 
             if (Multiplayer.IsReplay)
                 TickPatch.replayTimeSpeed = newSpeed;
@@ -404,8 +416,6 @@ namespace Multiplayer.Client
                 Multiplayer.Client.SendCommand(CommandType.WorldTimeSpeed, ScheduledCommand.Global, (byte)newSpeed);
             else if (__state is MapAsyncTimeComp comp)
                 Multiplayer.Client.SendCommand(CommandType.MapTimeSpeed, comp.map.uniqueID, (byte)newSpeed);
-
-            Find.TickManager.CurTimeSpeed = lastSpeed;
         }
     }
 
@@ -654,7 +664,8 @@ namespace Multiplayer.Client
             Current.Game.storyteller = storyteller;
             StorytellerTargetsPatch.target = map;
 
-            UniqueIdsPatch.CurrentBlock = map.GetComponent<MultiplayerMapComp>().mapIdBlock;
+            //UniqueIdsPatch.CurrentBlock = map.MpComp().mapIdBlock;
+            UniqueIdsPatch.CurrentBlock = Multiplayer.GlobalIdBlock;
 
             Rand.StateCompressed = randState;
 
@@ -681,6 +692,12 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref mapTicks, "mapTicks");
             Scribe_Deep.Look(ref storyteller, "storyteller");
             Scribe_Values.Look(ref timeSpeedInt, "timeSpeed");
+        }
+
+        public override void FinalizeInit()
+        {
+            cmds = new Queue<ScheduledCommand>(OnMainThread.cachedMapCmds.GetValueSafe(map.uniqueID) ?? new List<ScheduledCommand>());
+            Log.Message("init map with cmds " + cmds.Count);
         }
 
         public void ExecuteCmd(ScheduledCommand cmd)
@@ -731,8 +748,7 @@ namespace Multiplayer.Client
 
                     if (map != null)
                     {
-                        map.MpComp().mapIdBlock = block;
-                        Log.Message(Multiplayer.username + "encounter id block set");
+                        //map.MpComp().mapIdBlock = block;
                     }
                 }
 

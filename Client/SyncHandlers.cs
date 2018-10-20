@@ -73,10 +73,10 @@ namespace Multiplayer.Client
         public static SyncField SyncIngredientSearchRadius = Sync.Field(typeof(Bill), "ingredientSearchRadius").SetBufferChanges();
         public static SyncField SyncBillSkillRange = Sync.Field(typeof(Bill), "allowedSkillRange").SetBufferChanges();
 
-        public static SyncField SyncBillIncludeZone = Sync.Field(typeof(Bill_Production), "includeFromZone");
+        public static SyncField SyncBillIncludeZone = Sync.Field(typeof(Bill_Production), "includeFromZone").CancelIfValueNull();
         public static SyncField SyncBillIncludeHpRange = Sync.Field(typeof(Bill_Production), "hpRange").SetBufferChanges();
         public static SyncField SyncBillIncludeQualityRange = Sync.Field(typeof(Bill_Production), "qualityRange").SetBufferChanges();
-        public static SyncField SyncBillPawnRestriction = Sync.Field(typeof(Bill), "pawnRestriction");
+        public static SyncField SyncBillPawnRestriction = Sync.Field(typeof(Bill), "pawnRestriction").CancelIfValueNull();
 
         public static SyncField SyncZoneLabel = Sync.Field(typeof(Zone), "label");
 
@@ -349,10 +349,10 @@ namespace Multiplayer.Client
         {
             Sync.RegisterSyncProperty(typeof(Pawn_DraftController), nameof(Pawn_DraftController.Drafted));
             Sync.RegisterSyncProperty(typeof(Pawn_DraftController), nameof(Pawn_DraftController.FireAtWill));
-            Sync.RegisterSyncProperty(typeof(Pawn_DrugPolicyTracker), nameof(Pawn_DrugPolicyTracker.CurrentPolicy));
-            Sync.RegisterSyncProperty(typeof(Pawn_OutfitTracker), nameof(Pawn_OutfitTracker.CurrentOutfit));
-            Sync.RegisterSyncProperty(typeof(Pawn_FoodRestrictionTracker), nameof(Pawn_FoodRestrictionTracker.CurrentFoodRestriction));
-            Sync.RegisterSyncProperty(typeof(Pawn_PlayerSettings), nameof(Pawn_PlayerSettings.AreaRestriction));
+            Sync.RegisterSyncProperty(typeof(Pawn_DrugPolicyTracker), nameof(Pawn_DrugPolicyTracker.CurrentPolicy)).CancelIfAnyArgNull();
+            Sync.RegisterSyncProperty(typeof(Pawn_OutfitTracker), nameof(Pawn_OutfitTracker.CurrentOutfit)).CancelIfAnyArgNull();
+            Sync.RegisterSyncProperty(typeof(Pawn_FoodRestrictionTracker), nameof(Pawn_FoodRestrictionTracker.CurrentFoodRestriction)).CancelIfAnyArgNull();
+            Sync.RegisterSyncProperty(typeof(Pawn_PlayerSettings), nameof(Pawn_PlayerSettings.AreaRestriction)).CancelIfAnyArgNull();
             Sync.RegisterSyncProperty(typeof(Pawn_PlayerSettings), nameof(Pawn_PlayerSettings.Master));
             Sync.RegisterSyncProperty(typeof(Pawn), nameof(Pawn.Name), new[] { typeof(Expose<Name>) });
             Sync.RegisterSyncProperty(typeof(StorageSettings), nameof(StorageSettings.Priority));
@@ -365,9 +365,9 @@ namespace Multiplayer.Client
             Sync.RegisterSyncMethod(typeof(Pawn_TrainingTracker), nameof(Pawn_TrainingTracker.SetWantedRecursive));
             Sync.RegisterSyncMethod(typeof(Zone), nameof(Zone.Delete));
             Sync.RegisterSyncMethod(typeof(BillStack), nameof(BillStack.AddBill), new[] { typeof(Expose<Bill>) }); // Only used for pasting
-            Sync.RegisterSyncMethod(typeof(BillStack), nameof(BillStack.Delete));
-            Sync.RegisterSyncMethod(typeof(BillStack), nameof(BillStack.Reorder));
-            Sync.RegisterSyncMethod(typeof(Bill_Production), nameof(Bill_Production.SetStoreMode));
+            Sync.RegisterSyncMethod(typeof(BillStack), nameof(BillStack.Delete)).CancelIfAnyArgNull();
+            Sync.RegisterSyncMethod(typeof(BillStack), nameof(BillStack.Reorder)).CancelIfAnyArgNull();
+            Sync.RegisterSyncMethod(typeof(Bill_Production), nameof(Bill_Production.SetStoreMode)).CancelIfAnyArgNull();
             Sync.RegisterSyncMethod(typeof(Building_TurretGun), nameof(Building_TurretGun.OrderAttack));
             Sync.RegisterSyncMethod(typeof(Building_TurretGun), nameof(Building_TurretGun.ExtractShell));
             Sync.RegisterSyncMethod(typeof(Area), nameof(Area.Invert));
@@ -376,20 +376,20 @@ namespace Multiplayer.Client
             Sync.RegisterSyncMethod(typeof(AreaManager), nameof(AreaManager.TryMakeNewAllowed));
 
             Sync.RegisterSyncMethod(typeof(DrugPolicyDatabase), nameof(DrugPolicyDatabase.MakeNewDrugPolicy));
-            Sync.RegisterSyncMethod(typeof(DrugPolicyDatabase), nameof(DrugPolicyDatabase.TryDelete));
+            Sync.RegisterSyncMethod(typeof(DrugPolicyDatabase), nameof(DrugPolicyDatabase.TryDelete)).CancelIfAnyArgNull();
             Sync.RegisterSyncMethod(typeof(OutfitDatabase), nameof(OutfitDatabase.MakeNewOutfit));
-            Sync.RegisterSyncMethod(typeof(OutfitDatabase), nameof(OutfitDatabase.TryDelete));
+            Sync.RegisterSyncMethod(typeof(OutfitDatabase), nameof(OutfitDatabase.TryDelete)).CancelIfAnyArgNull();
             Sync.RegisterSyncMethod(typeof(FoodRestrictionDatabase), nameof(FoodRestrictionDatabase.MakeNewFoodRestriction));
-            Sync.RegisterSyncMethod(typeof(FoodRestrictionDatabase), nameof(FoodRestrictionDatabase.TryDelete));
+            Sync.RegisterSyncMethod(typeof(FoodRestrictionDatabase), nameof(FoodRestrictionDatabase.TryDelete)).CancelIfAnyArgNull();
 
-            Sync.RegisterSyncMethod(typeof(Building_Bed), nameof(Building_Bed.TryAssignPawn));
-            Sync.RegisterSyncMethod(typeof(Building_Bed), nameof(Building_Bed.TryUnassignPawn));
+            Sync.RegisterSyncMethod(typeof(Building_Bed), nameof(Building_Bed.TryAssignPawn)).CancelIfAnyArgNull();
+            Sync.RegisterSyncMethod(typeof(Building_Bed), nameof(Building_Bed.TryUnassignPawn)).CancelIfAnyArgNull();
             Sync.RegisterSyncProperty(typeof(Building_Bed), nameof(Building_Bed.Medical));
-            Sync.RegisterSyncMethod(typeof(Building_Grave), nameof(Building_Grave.TryAssignPawn));
-            Sync.RegisterSyncMethod(typeof(Building_Grave), nameof(Building_Grave.TryUnassignPawn));
-            Sync.RegisterSyncMethod(typeof(PawnColumnWorker_Designator), nameof(PawnColumnWorker_Designator.SetValue)); // Virtual but currently not overriden by any subclasses
-            Sync.RegisterSyncMethod(typeof(PawnColumnWorker_FollowDrafted), nameof(PawnColumnWorker_FollowDrafted.SetValue));
-            Sync.RegisterSyncMethod(typeof(PawnColumnWorker_FollowFieldwork), nameof(PawnColumnWorker_FollowFieldwork.SetValue));
+            Sync.RegisterSyncMethod(typeof(Building_Grave), nameof(Building_Grave.TryAssignPawn)).CancelIfAnyArgNull();
+            Sync.RegisterSyncMethod(typeof(Building_Grave), nameof(Building_Grave.TryUnassignPawn)).CancelIfAnyArgNull();
+            Sync.RegisterSyncMethod(typeof(PawnColumnWorker_Designator), nameof(PawnColumnWorker_Designator.SetValue)).CancelIfAnyArgNull(); // Virtual but currently not overriden by any subclasses
+            Sync.RegisterSyncMethod(typeof(PawnColumnWorker_FollowDrafted), nameof(PawnColumnWorker_FollowDrafted.SetValue)).CancelIfAnyArgNull();
+            Sync.RegisterSyncMethod(typeof(PawnColumnWorker_FollowFieldwork), nameof(PawnColumnWorker_FollowFieldwork.SetValue)).CancelIfAnyArgNull();
             Sync.RegisterSyncProperty(typeof(CompGatherSpot), nameof(CompGatherSpot.Active));
             Sync.RegisterSyncMethod(typeof(Building_BlastingCharge), nameof(Building_BlastingCharge.Command_Detonate));
 
@@ -406,14 +406,15 @@ namespace Multiplayer.Client
             Sync.RegisterSyncMethod(typeof(CompTransporter), nameof(CompTransporter.CancelLoad), new Type[0]);
             Sync.RegisterSyncMethod(typeof(StorageSettings), nameof(StorageSettings.CopyFrom), new[] { typeof(Expose<StorageSettings>) });
             Sync.RegisterSyncMethod(typeof(Command_SetTargetFuelLevel), "<ProcessInput>m__2"); // Set target fuel level from Dialog_Slider
-            Sync.RegisterSyncMethod(typeof(ITab_Pawn_Gear), nameof(ITab_Pawn_Gear.InterfaceDrop)).SetHasContext();
-            Sync.RegisterSyncMethod(typeof(ITab_Pawn_Gear), nameof(ITab_Pawn_Gear.InterfaceIngest)).SetHasContext();
+            Sync.RegisterSyncMethod(typeof(ITab_Pawn_Gear), nameof(ITab_Pawn_Gear.InterfaceDrop)).SetHasContext().CancelIfAnyArgNull().CancelIfNoSelectedObjects();
+            Sync.RegisterSyncMethod(typeof(ITab_Pawn_Gear), nameof(ITab_Pawn_Gear.InterfaceIngest)).SetHasContext().CancelIfAnyArgNull().CancelIfNoSelectedObjects();
 
             Sync.RegisterSyncProperty(typeof(Caravan_PathFollower), nameof(Caravan_PathFollower.Paused));
-            Sync.RegisterSyncMethod(typeof(CaravanFormingUtility), nameof(CaravanFormingUtility.StopFormingCaravan));
-            Sync.RegisterSyncMethod(typeof(CaravanFormingUtility), nameof(CaravanFormingUtility.RemovePawnFromCaravan));
-            Sync.RegisterSyncMethod(typeof(CaravanFormingUtility), nameof(CaravanFormingUtility.LateJoinFormingCaravan));
-            Sync.RegisterSyncMethod(typeof(SettleInEmptyTileUtility), nameof(SettleInEmptyTileUtility.Settle));
+            Sync.RegisterSyncMethod(typeof(CaravanFormingUtility), nameof(CaravanFormingUtility.StopFormingCaravan)).CancelIfAnyArgNull();
+            Sync.RegisterSyncMethod(typeof(CaravanFormingUtility), nameof(CaravanFormingUtility.RemovePawnFromCaravan)).CancelIfAnyArgNull();
+            Sync.RegisterSyncMethod(typeof(CaravanFormingUtility), nameof(CaravanFormingUtility.LateJoinFormingCaravan)).CancelIfAnyArgNull();
+            Sync.RegisterSyncMethod(typeof(SettleInEmptyTileUtility), nameof(SettleInEmptyTileUtility.Settle)).CancelIfAnyArgNull();
+            Sync.RegisterSyncMethod(typeof(SettlementAbandonUtility), nameof(SettlementAbandonUtility.Abandon)).CancelIfAnyArgNull();
 
             Sync.RegisterSyncMethod(typeof(MpTradeSession), nameof(MpTradeSession.TryExecute));
             Sync.RegisterSyncMethod(typeof(MpTradeSession), nameof(MpTradeSession.Reset));
@@ -424,6 +425,7 @@ namespace Multiplayer.Client
             Sync.RegisterSyncMethod(typeof(CaravanFormingSession), nameof(CaravanFormingSession.Reset));
             Sync.RegisterSyncMethod(typeof(CaravanFormingSession), nameof(CaravanFormingSession.Remove));
             Sync.RegisterSyncMethod(typeof(CaravanFormingSession), nameof(CaravanFormingSession.ChooseRoute));
+            Sync.RegisterSyncMethod(typeof(CaravanFormingSession), nameof(CaravanFormingSession.DebugTryFormCaravanInstantly));
         }
 
         static SyncField SyncTimetable = Sync.Field(typeof(Pawn), "timetable", "times");
@@ -660,16 +662,16 @@ namespace Multiplayer.Client
     {
         static SyncDelegates()
         {
-            Sync.RegisterSyncDelegate(typeof(FloatMenuMakerMap), "<GotoLocationOption>c__AnonStorey1C", "<>m__0");  // Goto
-            Sync.RegisterSyncDelegate(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey3", "<>m__0");   // Arrest
-            Sync.RegisterSyncDelegate(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey7", "<>m__0");   // Rescue
-            Sync.RegisterSyncDelegate(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey7", "<>m__1");   // Capture
-            Sync.RegisterSyncDelegate(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey9", "<>m__0");   // Carry to cryptosleep casket
+            Sync.RegisterSyncDelegate(typeof(FloatMenuMakerMap), "<GotoLocationOption>c__AnonStorey1C", "<>m__0").CancelIfAnyFieldNull();  // Goto
+            Sync.RegisterSyncDelegate(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey3", "<>m__0").CancelIfAnyFieldNull();   // Arrest
+            Sync.RegisterSyncDelegate(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey7", "<>m__0").CancelIfAnyFieldNull();   // Rescue
+            Sync.RegisterSyncDelegate(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey7", "<>m__1").CancelIfAnyFieldNull();   // Capture
+            Sync.RegisterSyncDelegate(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey9", "<>m__0").CancelIfAnyFieldNull();   // Carry to cryptosleep casket
 
-            Sync.RegisterSyncDelegate(typeof(HealthCardUtility), "<GenerateSurgeryOption>c__AnonStorey4", "<>m__0");    // Add medical bill
-            Sync.RegisterSyncDelegate(typeof(Command_SetPlantToGrow), "<ProcessInput>c__AnonStorey0", "<>m__0");        // Set plant to grow
-            Sync.RegisterSyncDelegate(typeof(Building_Bed), "<ToggleForPrisonersByInterface>c__AnonStorey3", "<>m__0"); // Toggle bed for prisoners
-            Sync.RegisterSyncDelegate(typeof(ITab_Bills), "<FillTab>c__AnonStorey0", "<>m__0");                         // Add bill
+            Sync.RegisterSyncDelegate(typeof(HealthCardUtility), "<GenerateSurgeryOption>c__AnonStorey4", "<>m__0").CancelIfAnyFieldNull(without: "part");                                  // Add medical bill
+            Sync.RegisterSyncDelegate(typeof(Command_SetPlantToGrow), "<ProcessInput>c__AnonStorey0", "<>m__0");                                                // Set plant to grow
+            Sync.RegisterSyncDelegate(typeof(Building_Bed), "<ToggleForPrisonersByInterface>c__AnonStorey3", "<>m__0").RemoveNullsFromLists("bedsToAffect");    // Toggle bed for prisoners
+            Sync.RegisterSyncDelegate(typeof(ITab_Bills), "<FillTab>c__AnonStorey0", "<>m__0").CancelIfNoSelectedObjects();                                     // Add bill
 
             Sync.RegisterSyncDelegate(typeof(CompLongRangeMineralScanner), "<CompGetGizmosExtra>c__Iterator0+<CompGetGizmosExtra>c__AnonStorey1", "<>m__0"); // Select mineral to scan for
 

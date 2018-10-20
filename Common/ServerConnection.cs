@@ -74,15 +74,22 @@ namespace Multiplayer.Common
             writer.WriteByteList(globalCmds);
             writer.WritePrefixedBytes(MultiplayerServer.instance.savedGame);
 
-            writer.WriteInt32(1); // maps count
+            writer.WriteInt32(MultiplayerServer.instance.mapCmds.Count); // maps count
 
-            foreach (int mapId in new[] { 0 })
+            foreach (var kv in MultiplayerServer.instance.mapCmds)
             {
+                int mapId = kv.Key;
+                List<byte[]> mapCmds = kv.Value;
+
                 MultiplayerServer.instance.SendCommand(CommandType.CreateMapFactionData, ScheduledCommand.NoFaction, mapId, ByteWriter.GetBytes(factionId));
 
                 writer.WriteInt32(mapId);
-                writer.WriteByteList(MultiplayerServer.instance.mapCmds[mapId]);
-                writer.WritePrefixedBytes(MultiplayerServer.instance.mapData[mapId]);
+                writer.WriteByteList(mapCmds);
+
+                if (MultiplayerServer.instance.mapData.TryGetValue(mapId, out byte[] mapData))
+                    writer.WritePrefixedBytes(mapData);
+                else
+                    writer.WritePrefixedBytes(new byte[0]);
             }
 
             byte[] packetData = writer.GetArray();

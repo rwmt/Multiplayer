@@ -220,7 +220,7 @@ namespace Multiplayer.Client
             };
 
             localServer.nextUniqueId = GetMaxUniqueId();
-            comp.globalIdBlock = localServer.NextIdBlock();
+            comp.globalIdBlock = localServer.NextIdBlock(1_000_000_000);
 
             foreach (FactionWorldData data in comp.factionData.Values)
             {
@@ -236,18 +236,13 @@ namespace Multiplayer.Client
 
             foreach (Map map in Find.Maps)
             {
-                MultiplayerMapComp mapComp = map.GetComponent<MultiplayerMapComp>();
-                mapComp.mapIdBlock = localServer.NextIdBlock();
+                //mapComp.mapIdBlock = localServer.NextIdBlock();
 
-                mapComp.factionMapData[map.ParentFaction.loadID] = FactionMapData.FromMap(map);
-
-                mapComp.factionMapData[dummyFaction.loadID] = FactionMapData.New(dummyFaction.loadID, map);
-                mapComp.factionMapData[dummyFaction.loadID].areaManager.AddStartingAreas();
+                BeforeMapGeneration.SetupMap(map);
 
                 MapAsyncTimeComp async = map.AsyncTime();
                 async.mapTicks = Find.TickManager.TicksGame;
                 async.TimeSpeed = Find.TickManager.CurTimeSpeed;
-                async.storyteller = new Storyteller(StorytellerDefOf.Cassandra, DifficultyDefOf.Rough);
             }
 
             Multiplayer.RealPlayerFaction = Faction.OfPlayer;

@@ -44,6 +44,8 @@ namespace Multiplayer.Client
         public bool bufferChanges;
         public bool inGameLoop;
 
+        private bool cancelIfValueNull;
+
         private Action<object, object> preApply;
         private Action<object, object> postApply;
 
@@ -73,8 +75,8 @@ namespace Multiplayer.Client
             if (targetType != null)
             {
                 Sync.WriteSyncObject(writer, target, targetType);
-                if (context.map is Map map)
-                    mapId = map.uniqueID;
+                if (context.map != null)
+                    mapId = context.map.uniqueID;
             }
 
             Sync.WriteSyncObject(writer, value, fieldType);
@@ -93,8 +95,15 @@ namespace Multiplayer.Client
         {
             object target = null;
             if (targetType != null)
+            {
                 target = Sync.ReadSyncObject(data, targetType);
+                if (target == null)
+                    return;
+            }
+
             object value = Sync.ReadSyncObject(data, fieldType);
+            if (cancelIfValueNull && value == null)
+                return;
 
             object index = null;
             if (indexType != null)
@@ -133,6 +142,12 @@ namespace Multiplayer.Client
             inGameLoop = true;
             return this;
         }
+
+        public SyncField CancelIfValueNull()
+        {
+            cancelIfValueNull = true;
+            return this;
+        }
     }
 
     public class SyncMethod : SyncHandler
@@ -145,6 +160,9 @@ namespace Multiplayer.Client
 
         private int minTime = 100; // Milliseconds between resends
         private long lastSendTime;
+
+        private bool cancelIfAnyArgNull;
+        private bool cancelIfNoSelectedObjects;
 
         private Action<object, object[]> beforeCall;
         private Action<object, object[]> afterCall;
@@ -236,14 +254,25 @@ namespace Multiplayer.Client
             object target = null;
 
             if (targetType != null)
+            {
                 target = Sync.ReadSyncObject(data, targetType);
+                if (target == null)
+                    return;
+            }
 
             if (!instancePath.NullOrEmpty())
                 target = target.GetPropertyOrField(instancePath);
 
             object[] args = null;
             if (argTypes != null)
+            {
                 args = Sync.ReadSyncObjects(data, argTypes);
+                if (cancelIfAnyArgNull && args.Any(a => a == null))
+                    return;
+            }
+
+            if (hasContext && cancelIfNoSelectedObjects && Find.Selector.selected.Count == 0)
+                return;
 
             beforeCall?.Invoke(target, args);
 
@@ -270,6 +299,18 @@ namespace Multiplayer.Client
             beforeCall = action;
             return this;
         }
+
+        public SyncMethod CancelIfAnyArgNull()
+        {
+            cancelIfAnyArgNull = true;
+            return this;
+        }
+
+        public SyncMethod CancelIfNoSelectedObjects()
+        {
+            cancelIfNoSelectedObjects = true;
+            return this;
+        }
     }
 
     public class SyncDelegate : SyncHandler
@@ -280,6 +321,9 @@ namespace Multiplayer.Client
         private Type[] argTypes;
         public string[] fieldPaths;
         private Type[] fieldTypes;
+
+        private bool cancelIfAnyFieldNull;
+        private bool cancelIfNoSelectedObjects;
 
         public MethodInfo patch;
 
@@ -365,6 +409,7 @@ namespace Multiplayer.Client
         public override void Handle(ByteReader data)
         {
             object target = Activator.CreateInstance(delegateType);
+
             for (int i = 0; i < fieldPaths.Length; i++)
             {
                 Type fieldType = fieldTypes[i];
@@ -375,13 +420,125 @@ namespace Multiplayer.Client
                 else
                     value = Sync.ReadSyncObject(data, fieldType);
 
+                if (cancelIfAnyFieldNull && value == null)
+                    return;
+
+                if (fieldPaths[i].EndsWith("$this") && value == null)
+                    return;
+
                 MpReflection.SetValue(target, fieldPaths[i], value);
             }
+
+            if (hasContext && cancelIfNoSelectedObjects && Find.Selector.selected.Count == 0)
+                return;
 
             object[] parameters = Sync.ReadSyncObjects(data, argTypes);
 
             MpLog.Log("Invoked delegate method " + method + " " + delegateType);
             method.Invoke(target, parameters);
+        }
+
+        public SyncDelegate CancelIfAnyFieldNull(params string[] without)
+        {
+            cancelIfAnyFieldNull = true;
+            return this;
+        }
+
+        public SyncDelegate CancelIfFieldsNull(params string[] whitelist)
+        {
+            cancelIfAnyFieldNull = true;
+            return this;
+        }
+
+        public SyncDelegate CancelIfNoSelectedObjects()
+        {
+            cancelIfNoSelectedObjects = true;
+            return this;
+        }
+
+        public SyncDelegate RemoveNullsFromLists(params string[] listFields)
+        {
+            cancelIfNoSelectedObjects = true;
+            return this;
+        }
+    }
+
+    public class SyncAction : SyncHandler
+    {
+        private Type targetType;
+        private MethodInfo method;
+        private string targetPath;
+        private Func<object, IEnumerable<Action>> actionSource;
+
+        public SyncAction(int syncId, Type targetType, MethodInfo method, string targetPath, Func<object, IEnumerable<Action>> actionSource) : base(syncId)
+        {
+            this.targetType = targetType;
+            this.method = method;
+            this.targetPath = targetPath;
+            this.actionSource = actionSource;
+        }
+
+        public void DoSync(object delegateInstance)
+        {
+            object target = delegateInstance.GetPropertyOrField(targetPath);
+
+            LoggingByteWriter writer = new LoggingByteWriter();
+            MpContext context = writer.MpContext();
+            writer.LogNode($"Sync action: {method}");
+
+            writer.WriteInt32(syncId);
+
+            int mapId = ScheduledCommand.Global;
+            Sync.WriteSyncObject(writer, target, targetType);
+
+            if (context.map != null)
+                mapId = context.map.uniqueID;
+
+            writer.LogNode("Map id: " + mapId);
+            Multiplayer.PacketLog.nodes.Add(writer.current);
+
+            Multiplayer.Client.SendCommand(CommandType.Sync, mapId, writer.GetArray());
+        }
+
+        public override void Handle(ByteReader data)
+        {
+            object target = Sync.ReadSyncObject(data, targetType);
+            if (target == null)
+                return;
+
+            actionSource(target).FirstOrDefault(a => a.Method == method)?.Invoke();
+        }
+
+        public static void Register<T>(string innerType, string methodName, string targetPath, Func<T, IEnumerable<Action>> actionSource) where T : class
+        {
+            string typeName = $"{typeof(T)}+{innerType}";
+            Type type = MpReflection.GetTypeByName(typeName);
+            if (type == null)
+                throw new Exception($"Couldn't find type {typeName}");
+
+            MethodInfo method = AccessTools.Method(type, methodName, new Type[0]);
+            if (method == null)
+                throw new Exception($"Couldn't find method {type}::{methodName}");
+
+            SyncAction handler = new SyncAction(Sync.handlers.Count, typeof(T), method, targetPath, obj => actionSource((T)obj));
+            Sync.handlers.Add(handler);
+            Sync.syncActions[method] = handler;
+
+            var prefix = new HarmonyMethod(AccessTools.Method(typeof(SyncAction), nameof(Prefix)));
+            prefix.prioritiy = Priority.First;
+
+            Multiplayer.harmony.Patch(method, prefix, null);
+        }
+
+        static bool Prefix(object __instance, MethodBase __originalMethod)
+        {
+            if (Multiplayer.ShouldSync)
+            {
+                Sync.syncActions[__originalMethod].DoSync(__instance);
+                return false;
+            }
+
+            return true;
         }
     }
 
@@ -417,10 +574,12 @@ namespace Multiplayer.Client
 
     public static partial class Sync
     {
-        private static List<SyncHandler> handlers = new List<SyncHandler>();
+        public static List<SyncHandler> handlers = new List<SyncHandler>();
         public static List<SyncField> bufferedFields = new List<SyncField>();
+
         private static Dictionary<MethodBase, SyncDelegate> syncDelegates = new Dictionary<MethodBase, SyncDelegate>();
         private static Dictionary<MethodBase, SyncMethod> syncMethods = new Dictionary<MethodBase, SyncMethod>();
+        public static Dictionary<MethodBase, SyncAction> syncActions = new Dictionary<MethodBase, SyncAction>();
 
         public static Dictionary<SyncField, Dictionary<Pair<object, object>, BufferData>> bufferedChanges = new Dictionary<SyncField, Dictionary<Pair<object, object>, BufferData>>();
         private static Stack<FieldData> watchedStack = new Stack<FieldData>();
@@ -625,10 +784,7 @@ namespace Multiplayer.Client
             {
                 if (t.IsGenericType)
                 {
-                    // todo handle chains
                     if (t.GetGenericTypeDefinition() == typeof(Expose<>))
-                        return t.GetGenericArguments()[0];
-                    else if (t.GetGenericTypeDefinition() == typeof(CheckFaction<>))
                         return t.GetGenericArguments()[0];
                 }
 
@@ -761,7 +917,7 @@ namespace Multiplayer.Client
                 MouseCellPatch.result = mouseCell;
 
                 List<ISelectable> selected = ReadSync<List<ISelectable>>(data);
-                Find.Selector.selected = selected.Cast<object>().ToList();
+                Find.Selector.selected = selected.Cast<object>().Where(o => o != null).ToList();
 
                 bool shouldQueue = data.ReadBool();
                 KeyIsDownPatch.result = shouldQueue;
@@ -839,8 +995,6 @@ namespace Multiplayer.Client
     }
 
     public class Expose<T> { }
-
-    public class CheckFaction<T> { }
 
     public class MultiTarget : IEnumerable<Pair<Type, string>>
     {

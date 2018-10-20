@@ -374,7 +374,6 @@ namespace Multiplayer.Client
             ScribeMetaHeaderUtility.LoadGameDataHeader(ScribeMetaHeaderUtility.ScribeHeaderMode.Map, false);
             Scribe.EnterNode("game");
             Current.Game = new Game();
-            Current.Game.InitData = new GameInitData();
             Current.Game.LoadGame(); // calls Scribe.loader.FinalizeLoading()
 
             SaveCompression.doSaveCompression = prevCompress;
@@ -463,8 +462,7 @@ namespace Multiplayer.Client
                     text.Append($" sg: {data.haulDestinationManager.AllGroupsListForReading.Count}");
                 }
 
-                if (comp.mapIdBlock != null)
-                    text.Append($" {comp.mapIdBlock.current}");
+                text.Append($" {Multiplayer.GlobalIdBlock.current}");
 
                 text.Append($"\n{Sync.bufferedChanges.Sum(kv => kv.Value.Count)}");
                 text.Append($"\n{async.randState}");
@@ -475,7 +473,7 @@ namespace Multiplayer.Client
                 Widgets.Label(rect1, text.ToString());
             }
 
-            if (Multiplayer.IsReplay)
+            if (Multiplayer.IsReplay || TickPatch.skipTo > 0)
             {
                 DrawTimeline();
             }
@@ -520,7 +518,8 @@ namespace Multiplayer.Client
             Rect rect = new Rect(margin, UI.screenHeight - 35f - height - 10f, UI.screenWidth - margin * 2, height);
             Widgets.DrawBoxSolid(rect, new Color(0.6f, 0.6f, 0.6f, 0.8f));
 
-            int timerEnd = Multiplayer.session.replayTimerEnd;
+            int timerEnd = TickPatch.skipTo > 0 ? TickPatch.skipTo : Multiplayer.session.replayTimerEnd;
+
             double progress = TickPatch.timerInt / timerEnd;
             float progressX = rect.xMin + (float)progress * rect.width;
             Widgets.DrawLine(new Vector2(progressX, rect.yMin), new Vector2(progressX, rect.yMax), Color.green, 7f);
@@ -749,7 +748,7 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.Client == null) return;
 
-            IdBlock currentBlock = CurrentBlock;
+            /*IdBlock currentBlock = CurrentBlock;
             if (currentBlock == null)
             {
                 __result = localIds--;
@@ -758,14 +757,20 @@ namespace Multiplayer.Client
                 return;
             }
 
-            __result = currentBlock.NextId();
+            __result = currentBlock.NextId();*/
+
+            if (Multiplayer.ShouldSync)
+                __result = localIds--;
+            else
+                __result = Multiplayer.GlobalIdBlock.NextId();
+
             //MpLog.Log("got new id " + __result);
 
-            if (currentBlock.current > currentBlock.blockSize * 0.95f && !currentBlock.overflowHandled)
+            /*if (currentBlock.current > currentBlock.blockSize * 0.95f && !currentBlock.overflowHandled)
             {
                 Multiplayer.Client.Send(Packets.Client_IdBlockRequest, CurrentBlock.mapId);
                 currentBlock.overflowHandled = true;
-            }
+            }*/
         }
     }
 
@@ -823,7 +828,7 @@ namespace Multiplayer.Client
                 defaultLabel = "Thinker",
                 action = () =>
                 {
-                    Log.Message("touch " + TouchPathEndModeUtility.IsAdjacentOrInsideAndAllowedToTouch(__instance.Position, __instance.Position + new IntVec3(1,0,1), __instance.Map));
+                    Log.Message("touch " + TouchPathEndModeUtility.IsAdjacentOrInsideAndAllowedToTouch(__instance.Position, __instance.Position + new IntVec3(1, 0, 1), __instance.Map));
 
                     //Find.WindowStack.Add(new ThinkTreeWindow(__instance));
                     // Log.Message("" + Multiplayer.mainBlock.blockStart);
@@ -1620,8 +1625,8 @@ namespace Multiplayer.Client
     {
         static void Prefix(Window __instance)
         {
-            if (__instance.ID == -LongEventWindowAbsorbInput.LongEventWindowId || 
-                __instance is DisconnectedWindow || 
+            if (__instance.ID == -LongEventWindowAbsorbInput.LongEventWindowId ||
+                __instance is DisconnectedWindow ||
                 __instance is MpFormingCaravanWindow
             )
                 Widgets.DrawBoxSolid(new Rect(0, 0, UI.screenWidth, UI.screenHeight), new Color(0, 0, 0, 0.5f));
@@ -1752,6 +1757,49 @@ namespace Multiplayer.Client
             values[__instance] = set;
             __result = set;
         }
+    }
+
+    [HarmonyPatch(typeof(MapGenerator), nameof(MapGenerator.GenerateMap))]
+    static class BeforeMapGeneration
+    {
+        static void Prefix(ref Action<Map> extraInitBeforeContentGen)
+        {
+            if (Multiplayer.Client == null) return;
+            extraInitBeforeContentGen += SetupMap;
+        }
+
+        static void Postfix()
+        {
+            if (Multiplayer.Client == null) return;
+            Log.Message("Uniq ids " + Multiplayer.GlobalIdBlock.current);
+        }
+
+        public static void SetupMap(Map map)
+        {
+            Log.Message("Uniq ids " + Multiplayer.GlobalIdBlock.current);
+            Log.Message("new map " + map.uniqueID);
+
+            MapAsyncTimeComp async = map.AsyncTime();
+            MultiplayerMapComp mapComp = map.MpComp();
+            Faction dummyFaction = Multiplayer.DummyFaction;
+
+            mapComp.factionMapData[map.ParentFaction.loadID] = FactionMapData.FromMap(map);
+
+            mapComp.factionMapData[dummyFaction.loadID] = FactionMapData.New(dummyFaction.loadID, map);
+            mapComp.factionMapData[dummyFaction.loadID].areaManager.AddStartingAreas();
+
+            async.storyteller = new Storyteller(Find.Storyteller.def, Find.Storyteller.difficulty);
+        }
+    }
+
+    [HarmonyPatch(typeof(WorldObjectSelectionUtility), nameof(WorldObjectSelectionUtility.VisibleToCameraNow))]
+    static class CaravanVisibleToCameraPatch
+    {
+        static void Postfix(ref bool __result)
+    {
+            if (!Multiplayer.ShouldSync)
+                __result = false;
+    }
     }
 
 }

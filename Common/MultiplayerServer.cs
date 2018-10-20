@@ -229,9 +229,8 @@ namespace Multiplayer.Common
             return FindPlayer(player => player.Username == username);
         }
 
-        public IdBlock NextIdBlock()
+        public IdBlock NextIdBlock(int blockSize = 30000)
         {
-            int blockSize = 30000;
             int blockStart = nextUniqueId;
             nextUniqueId = nextUniqueId + blockSize;
             MpLog.Log("New id block " + blockStart + " of size " + blockSize);

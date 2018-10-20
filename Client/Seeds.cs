@@ -2,6 +2,7 @@
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -40,7 +41,10 @@ namespace Multiplayer.Client
             Rand.PushState(seed);
 
             if (Scribe.mode != LoadSaveMode.LoadingVars)
-                UniqueIdsPatch.CurrentBlock = __instance.GetComponent<MultiplayerMapComp>().mapIdBlock;
+            {
+                //UniqueIdsPatch.CurrentBlock = __instance.MpComp().mapIdBlock;
+                UniqueIdsPatch.CurrentBlock = Multiplayer.GlobalIdBlock;
+            }
 
             __state = true;
         }
@@ -68,7 +72,8 @@ namespace Multiplayer.Client
             int seed = __instance.uniqueID;
             Rand.PushState(seed);
 
-            UniqueIdsPatch.CurrentBlock = __instance.GetComponent<MultiplayerMapComp>().mapIdBlock;
+            //UniqueIdsPatch.CurrentBlock = __instance.MpComp().mapIdBlock;
+            UniqueIdsPatch.CurrentBlock = Multiplayer.GlobalIdBlock;
 
             __state = true;
         }
@@ -80,6 +85,26 @@ namespace Multiplayer.Client
                 Rand.PopState();
                 UniqueIdsPatch.CurrentBlock = null;
             }
+        }
+    }
+
+    [HarmonyPatch(typeof(CaravanEnterMapUtility), nameof(CaravanEnterMapUtility.Enter), new[] { typeof(Caravan), typeof(Map), typeof(CaravanEnterMode), typeof(CaravanDropInventoryMode), typeof(bool), typeof(Predicate<IntVec3>) })]
+    static class SeedCaravanEnter
+    {
+        static void Prefix(Map map, ref bool __state)
+        {
+            if (Multiplayer.Client == null) return;
+
+            int seed = map.uniqueID;
+            Rand.PushState(seed);
+
+            __state = true;
+        }
+
+        static void Postfix(bool __state)
+        {
+            if (__state)
+                Rand.PopState();
         }
     }
 

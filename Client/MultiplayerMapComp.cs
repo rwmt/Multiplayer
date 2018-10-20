@@ -12,7 +12,7 @@ namespace Multiplayer.Client
     {
         public static bool tickingFactions;
 
-        public IdBlock mapIdBlock;
+        //public IdBlock mapIdBlock;
         public Dictionary<int, FactionMapData> factionMapData = new Dictionary<int, FactionMapData>();
 
         public CaravanFormingSession caravanForming;
@@ -75,7 +75,7 @@ namespace Multiplayer.Client
             }
 
             Scribe_Deep.Look(ref caravanForming, "caravanFormingSession", map);
-            Multiplayer.ExposeIdBlock(ref mapIdBlock, "mapIdBlock");
+            //Multiplayer.ExposeIdBlock(ref mapIdBlock, "mapIdBlock");
 
             ExposeFactionData();
         }

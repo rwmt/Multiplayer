@@ -27,17 +27,17 @@ namespace Multiplayer.Client
             { data => data.ReadDouble() },
             { data => data.ReadUInt16() },
             { data => data.ReadByte() },
-            { data => ReadSync<Pawn>(data).mindState.priorityWork },
-            { data => ReadSync<Pawn>(data).playerSettings },
-            { data => ReadSync<Pawn>(data).timetable },
-            { data => ReadSync<Pawn>(data).workSettings },
-            { data => ReadSync<Pawn>(data).drafter },
-            { data => ReadSync<Pawn>(data).jobs },
-            { data => ReadSync<Pawn>(data).outfits },
-            { data => ReadSync<Pawn>(data).drugs },
-            { data => ReadSync<Pawn>(data).foodRestriction },
-            { data => ReadSync<Pawn>(data).training },
-            { data => ReadSync<Caravan>(data).pather },
+            { data => ReadSync<Pawn>(data)?.mindState?.priorityWork },
+            { data => ReadSync<Pawn>(data)?.playerSettings },
+            { data => ReadSync<Pawn>(data)?.timetable },
+            { data => ReadSync<Pawn>(data)?.workSettings },
+            { data => ReadSync<Pawn>(data)?.drafter },
+            { data => ReadSync<Pawn>(data)?.jobs },
+            { data => ReadSync<Pawn>(data)?.outfits },
+            { data => ReadSync<Pawn>(data)?.drugs },
+            { data => ReadSync<Pawn>(data)?.foodRestriction },
+            { data => ReadSync<Pawn>(data)?.training },
+            { data => ReadSync<Caravan>(data)?.pather },
             { data => new FloatRange(data.ReadFloat(), data.ReadFloat()) },
             { data => new IntRange(data.ReadInt32(), data.ReadInt32()) },
             { data => new QualityRange(ReadSync<QualityCategory>(data), ReadSync<QualityCategory>(data)) },
@@ -70,9 +70,9 @@ namespace Multiplayer.Client
             {
                 data =>
                 {
-                    Thing thing = ReadSync<Thing>(data);
-                    if (thing != null)
-                        return new LocalTargetInfo(thing);
+                    bool hasThing = data.ReadBool();
+                    if (hasThing)
+                        return new LocalTargetInfo(ReadSync<Thing>(data));
                     else
                         return new LocalTargetInfo(ReadSync<IntVec3>(data));
                 }
@@ -119,8 +119,10 @@ namespace Multiplayer.Client
             {
                 (ByteWriter data, LocalTargetInfo info) =>
                 {
-                    WriteSync(data, info.Thing);
-                    if (!info.HasThing)
+                    data.WriteBool(info.HasThing);
+                    if (info.HasThing)
+                        WriteSync(data, info.Thing);
+                    else
                         WriteSync(data, info.Cell);
                 }
             }
@@ -265,7 +267,11 @@ namespace Multiplayer.Client
                     if (shortHash == 0)
                         return null;
 
-                    return GetDefByIdMethod.MakeGenericMethod(type).Invoke(null, new object[] { shortHash });
+                    Def def = (Def)GetDefByIdMethod.MakeGenericMethod(type).Invoke(null, new object[] { shortHash });
+                    if (def == null)
+                        throw new Exception($"Couldn't find {type} with short hash {shortHash}");
+
+                    return def;
                 }
                 else if (typeof(PawnColumnWorker).IsAssignableFrom(type))
                 {
@@ -275,7 +281,11 @@ namespace Multiplayer.Client
                 else if (typeof(Command_SetPlantToGrow) == type)
                 {
                     IPlantToGrowSettable settable = ReadSync<IPlantToGrowSettable>(data);
+                    if (settable == null)
+                        return null;
+
                     List<IPlantToGrowSettable> settables = ReadSync<List<IPlantToGrowSettable>>(data);
+                    settables.RemoveAll(s => s == null);
 
                     Command_SetPlantToGrow command = (Command_SetPlantToGrow)FormatterServices.GetUninitializedObject(typeof(Command_SetPlantToGrow));
                     command.settable = settable;

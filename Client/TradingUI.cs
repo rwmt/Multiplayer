@@ -202,7 +202,7 @@ namespace Multiplayer.Client
     {
         public static int tradeJobStartedByMe = -1;
 
-        static void Postfix(Toil ___trade)
+        static void Prefix(Toil ___trade)
         {
             if (___trade.actor.CurJob.loadID == tradeJobStartedByMe)
             {

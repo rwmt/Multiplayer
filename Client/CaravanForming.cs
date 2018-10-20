@@ -33,7 +33,8 @@ namespace Multiplayer.Client
 
         public CaravanFormingSession(Map map, bool reform, Action onClosed, bool mapAboutToBeRemoved) : this(map)
         {
-            sessionId = map.MpComp().mapIdBlock.NextId();
+            //sessionId = map.MpComp().mapIdBlock.NextId();
+            sessionId = Multiplayer.GlobalIdBlock.NextId();
 
             this.reform = reform;
             this.onClosed = onClosed;
@@ -97,6 +98,12 @@ namespace Multiplayer.Client
         public void TryFormAndSendCaravan()
         {
             if (PrepareDummyDialog().TryFormAndSendCaravan())
+                Remove();
+        }
+
+        public void DebugTryFormCaravanInstantly()
+        {
+            if (PrepareDummyDialog().DebugTryFormCaravanInstantly())
                 Remove();
         }
 
@@ -239,6 +246,21 @@ namespace Multiplayer.Client
             if (Multiplayer.ShouldSync && __instance is MpFormingCaravanWindow dialog)
             {
                 dialog.Session?.TryFormAndSendCaravan();
+                return false;
+            }
+
+            return true;
+        }
+    }
+
+    [HarmonyPatch(typeof(Dialog_FormCaravan), nameof(Dialog_FormCaravan.DebugTryFormCaravanInstantly))]
+    static class DebugTryFormCaravanInstantlyPatch
+    {
+        static bool Prefix(Dialog_FormCaravan __instance)
+        {
+            if (Multiplayer.ShouldSync && __instance is MpFormingCaravanWindow dialog)
+            {
+                dialog.Session?.DebugTryFormCaravanInstantly();
                 return false;
             }
 
