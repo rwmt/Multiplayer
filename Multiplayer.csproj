@@ -69,6 +69,7 @@
     <Compile Include="Client\CaravanForming.cs" />
     <Compile Include="Client\ChatWindow.cs" />
     <Compile Include="Client\ClientConnection.cs" />
+    <Compile Include="Client\DebugTools.cs" />
     <Compile Include="Client\MultiplayerMapComp.cs" />
     <Compile Include="Client\MultiplayerWorldComp.cs" />
     <Compile Include="Client\Multithreading.cs" />
@@ -83,6 +84,7 @@
     <Compile Include="Client\Sync.cs" />
     <Compile Include="Client\SyncHandlers.cs" />
     <Compile Include="Client\SyncSerialization.cs" />
+    <Compile Include="Client\TileTemperatures.cs" />
     <Compile Include="Client\Trading.cs" />
     <Compile Include="Client\TradingUI.cs" />
     <Compile Include="Client\VanillaTweaks.cs" />

@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Text;
+using System.Threading;
 using UnityEngine;
 using Verse;
 using Verse.Steam;
@@ -48,7 +49,7 @@ namespace Multiplayer.Client
 
         enum Tabs
         {
-            Lan, Direct, Steam, Host
+            Lan, Direct, Steam, Replays
         }
 
         public override void DoWindowContents(Rect inRect)
@@ -58,7 +59,7 @@ namespace Multiplayer.Client
                 new TabRecord("LAN", () => tab = Tabs.Lan,  tab == Tabs.Lan),
                 new TabRecord("Direct", () => tab = Tabs.Direct, tab == Tabs.Direct),
                 new TabRecord("Steam", () => tab = Tabs.Steam, tab == Tabs.Steam),
-                new TabRecord("Host", () => tab = Tabs.Host, tab == Tabs.Host),
+                new TabRecord("Replays", () => tab = Tabs.Replays, tab == Tabs.Replays),
             };
 
             inRect.yMin += 35f;
@@ -67,12 +68,15 @@ namespace Multiplayer.Client
             GUI.BeginGroup(new Rect(0, inRect.yMin, inRect.width, inRect.height));
             {
                 Rect groupRect = new Rect(0, 0, inRect.width, inRect.height);
+
                 if (tab == Tabs.Lan)
                     DrawLan(groupRect);
                 else if (tab == Tabs.Direct)
                     DrawDirect(groupRect);
                 else if (tab == Tabs.Steam)
                     DrawSteam(groupRect);
+                //else if (tab == Tabs.Replays)
+                    //Multiplayer.LoadReplay();
             }
             GUI.EndGroup();
         }
@@ -91,7 +95,7 @@ namespace Multiplayer.Client
             if (info != null)
             {
                 Text.Anchor = TextAnchor.MiddleCenter;
-                Widgets.Label(new Rect(0, 0, inRect.width, 40f), info);
+                Widgets.Label(new Rect(0, 8, inRect.width, 40f), info);
 
                 Text.Anchor = TextAnchor.UpperLeft;
                 inRect.yMin += 40f;
@@ -298,7 +302,7 @@ namespace Multiplayer.Client
 
         public override void PostClose()
         {
-            net.Stop();
+            ThreadPool.QueueUserWorkItem(s => net.Stop());
         }
 
         private void AddOrUpdate(IPEndPoint endpoint)

@@ -11,6 +11,7 @@ using System.Runtime.CompilerServices;
 using UnityEngine;
 using Verse;
 using Verse.AI;
+using static Verse.Widgets;
 
 namespace Multiplayer.Client
 {
@@ -31,10 +32,6 @@ namespace Multiplayer.Client
             RuntimeHelpers.RunClassConstructor(typeof(SyncThingFilters).TypeHandle);
 
             Sync.RegisterFieldPatches(typeof(SyncFieldsPatches));
-            Sync.RegisterSyncMethods(typeof(SyncPatches));
-            Sync.RegisterSyncMethods(typeof(SyncThingFilters));
-            Sync.RegisterSyncMethods(typeof(TradingWindow));
-            Sync.RegisterSyncMethods(typeof(SyncDelegates));
         }
     }
 
@@ -117,7 +114,7 @@ namespace Multiplayer.Client
         public static SyncField SyncTradeableCount = Sync.Field(typeof(MpTransferableReference), "CountToTransfer").SetBufferChanges().PostApply(TransferableCount_PostApply);
 
         [MpPrefix(typeof(HealthCardUtility), "DrawOverviewTab")]
-        static void HealthCardUtility1(Pawn pawn)
+        static void HealthCardUtility(Pawn pawn)
         {
             if (pawn.playerSettings != null)
             {
@@ -134,16 +131,28 @@ namespace Multiplayer.Client
             SyncInteractionMode.Watch(pawn);
         }
 
-        [MpPrefix(typeof(HostilityResponseModeUtility), "<DrawResponseButton_GenerateMenu>c__Iterator0+<DrawResponseButton_GenerateMenu>c__AnonStorey1", "<>m__0")]
-        static void SelectHostilityResponse(object __instance)
+        [MpPostfix(typeof(Dialog_BillConfig), nameof(Dialog_BillConfig.GeneratePawnRestrictionOptions))]
+        static IEnumerable<DropdownMenuElement<Pawn>> BillPawnRestrictions_Postfix(IEnumerable<DropdownMenuElement<Pawn>> __result, Bill ___bill)
         {
-            SyncHostilityResponse.Watch(__instance.GetPropertyOrField("<>f__ref$2/p"));
+            return WatchDropdowns(() => SyncBillPawnRestriction.Watch(___bill), __result);
         }
 
-        [MpPrefix(typeof(MedicalCareUtility), "<MedicalCareSelectButton_GenerateMenu>c__Iterator0+<MedicalCareSelectButton_GenerateMenu>c__AnonStorey2", "<>m__0")]
-        static void SelectMedicalCare(object __instance)
+        [MpPostfix(typeof(HostilityResponseModeUtility), nameof(HostilityResponseModeUtility.DrawResponseButton_GenerateMenu))]
+        static IEnumerable<DropdownMenuElement<HostilityResponseMode>> HostilityResponse_Postfix(IEnumerable<DropdownMenuElement<HostilityResponseMode>> __result, Pawn p)
         {
-            SyncMedCare.Watch(__instance.GetPropertyOrField("<>f__ref$3/p"));
+            return WatchDropdowns(() => SyncHostilityResponse.Watch(p), __result);
+        }
+
+        [MpPostfix(typeof(MedicalCareUtility), nameof(MedicalCareUtility.MedicalCareSelectButton_GenerateMenu))]
+        static IEnumerable<DropdownMenuElement<MedicalCareCategory>> MedicalCare_Postfix(IEnumerable<DropdownMenuElement<MedicalCareCategory>> __result, Pawn p)
+        {
+            return WatchDropdowns(() => SyncMedCare.Watch(p), __result);
+        }
+
+        [MpPostfix(typeof(Dialog_BillConfig), nameof(Dialog_BillConfig.GenerateStockpileInclusion))]
+        static IEnumerable<DropdownMenuElement<Zone_Stockpile>> BillIncludeZone_Postfix(IEnumerable<DropdownMenuElement<Zone_Stockpile>> __result, Bill ___bill)
+        {
+            return WatchDropdowns(() => SyncBillIncludeZone.Watch(___bill), __result);
         }
 
         [MpPrefix(typeof(Dialog_MedicalDefaults), "DoWindowContents")]
@@ -206,28 +215,6 @@ namespace Multiplayer.Client
                 SyncBillIncludeHpRange.Watch(bill);
                 SyncBillIncludeQualityRange.Watch(bill);
             }
-        }
-
-        [MpPrefix(typeof(Dialog_BillConfig), "<GeneratePawnRestrictionOptions>c__Iterator0+<GeneratePawnRestrictionOptions>c__AnonStorey4", "<>m__0")] // Set to null
-        [MpPrefix(typeof(Dialog_BillConfig), "<GeneratePawnRestrictionOptions>c__Iterator0+<GeneratePawnRestrictionOptions>c__AnonStorey5", "<>m__0")]
-        [MpPrefix(typeof(Dialog_BillConfig), "<GeneratePawnRestrictionOptions>c__Iterator0+<GeneratePawnRestrictionOptions>c__AnonStorey5", "<>m__1")]
-        [MpPrefix(typeof(Dialog_BillConfig), "<GeneratePawnRestrictionOptions>c__Iterator0+<GeneratePawnRestrictionOptions>c__AnonStorey5", "<>m__2")]
-        [MpPrefix(typeof(Dialog_BillConfig), "<GeneratePawnRestrictionOptions>c__Iterator0+<GeneratePawnRestrictionOptions>c__AnonStorey5", "<>m__3")]
-        static void BillPawnRestriction(object __instance)
-        {
-            SyncBillPawnRestriction.Watch(__instance.GetPropertyOrField("<>f__ref$0/$this/bill"));
-        }
-
-        [MpPrefix(typeof(Dialog_BillConfig), "<GenerateStockpileInclusion>c__Iterator1", "<>m__0")]
-        static void BillIncludeZoneSetNull(object __instance)
-        {
-            SyncBillIncludeZone.Watch(__instance.GetPropertyOrField("$this/bill"));
-        }
-
-        [MpPrefix(typeof(Dialog_BillConfig), "<GenerateStockpileInclusion>c__Iterator1+<GenerateStockpileInclusion>c__AnonStorey6", "<>m__0")]
-        static void BillIncludeZone(object __instance)
-        {
-            SyncBillIncludeZone.Watch(__instance.GetPropertyOrField("<>f__ref$1/$this/bill"));
         }
 
         [MpPrefix(typeof(BillRepeatModeUtility), "<MakeConfigFloatMenu>c__AnonStorey0", "<>m__0")]
@@ -309,6 +296,16 @@ namespace Multiplayer.Client
             var tr = (MpTransferableReference)target;
             if (tr != null)
                 tr.session.Notify_CountChanged(tr.transferable);
+        }
+
+        static IEnumerable<DropdownMenuElement<T>> WatchDropdowns<T>(Action watchAction, IEnumerable<DropdownMenuElement<T>> dropdowns)
+        {
+            foreach (var entry in dropdowns)
+            {
+                if (entry.option.action != null)
+                    entry.option.action = (Sync.FieldWatchPrefix + watchAction + entry.option.action + Sync.FieldWatchPostfix);
+                yield return entry;
+            }
         }
     }
 
@@ -500,7 +497,7 @@ namespace Multiplayer.Client
         static Dialog_ManageDrugPolicies GetDialogDrugPolicies() => Find.WindowStack?.WindowOfType<Dialog_ManageDrugPolicies>();
         static Dialog_ManageOutfits GetDialogOutfits() => Find.WindowStack?.WindowOfType<Dialog_ManageOutfits>();
         static Dialog_ManageFoodRestrictions GetDialogFood() => Find.WindowStack?.WindowOfType<Dialog_ManageFoodRestrictions>();
-        
+
         [MpPostfix(typeof(WITab_Caravan_Gear), nameof(WITab_Caravan_Gear.TryEquipDraggedItem))]
         static void TryEquipDraggedItem_Postfix(WITab_Caravan_Gear __instance)
         {
@@ -532,25 +529,6 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.ExecutingCmds && bill.loadID < 0)
                 bill.loadID = Find.UniqueIDsManager.GetNextBillID();
-        }
-
-        [SyncMethod]
-        public static void AdvanceTime()
-        {
-            int to = 148 * 1000;
-            if (Find.TickManager.TicksGame < to)
-            {
-                Find.TickManager.ticksGameInt = to;
-                Find.Maps[0].AsyncTime().mapTicks = to;
-            }
-        }
-
-        [SyncMethod]
-        public static void SaveMap()
-        {
-            Map map = Find.Maps[0];
-            byte[] mapData = ScribeUtil.WriteExposable(Current.Game, "map", true);
-            File.WriteAllBytes($"map_0_{Multiplayer.username}.xml", mapData);
         }
     }
 

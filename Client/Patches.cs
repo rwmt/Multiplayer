@@ -125,14 +125,9 @@ namespace Multiplayer.Client
                 int newColony = optList.FindIndex(opt => opt.label == "NewColony".Translate());
                 if (newColony != -1)
                 {
-                    optList.Insert(newColony + 1, new ListableOption("Connect to server", () =>
+                    optList.Insert(newColony + 1, new ListableOption("Multiplayer", () =>
                     {
                         Find.WindowStack.Add(new ServerBrowser());
-                    }));
-
-                    optList.Insert(0, new ListableOption("Load replay", () =>
-                    {
-                        Multiplayer.LoadReplay();
                     }));
                 }
             }
@@ -164,16 +159,6 @@ namespace Multiplayer.Client
                         //Multiplayer.LocalServer.Enqueue(() => Multiplayer.LocalServer.DoAutosave());
 
                         Multiplayer.SaveReplay();
-                    }));
-
-                    optList.Insert(0, new ListableOption("Advance time", () =>
-                    {
-                        SyncPatches.AdvanceTime();
-                    }));
-
-                    optList.Insert(0, new ListableOption("Save map", () =>
-                    {
-                        SyncPatches.SaveMap();
                     }));
 
                     optList.RemoveAll(opt => opt.label == "Save".Translate() || opt.label == "LoadGame".Translate());
@@ -1692,13 +1677,25 @@ namespace Multiplayer.Client
     {
         static bool Prefix(Window window)
         {
-            if (Multiplayer.Client != null && window is Dialog_SplitCaravan)
+            if (Multiplayer.Client == null) return true;
+
+            if (window is Dialog_SplitCaravan || window is Dialog_Negotiation)
             {
                 Messages.Message("Not available in multiplayer.", MessageTypeDefOf.RejectInput, false);
                 return false;
             }
 
             return true;
+        }
+    }
+
+    [HarmonyPatch(typeof(IncidentWorker_CaravanMeeting), nameof(IncidentWorker_CaravanMeeting.CanFireNowSub))]
+    static class CancelCaravanMeeting
+    {
+        static void Postfix(ref bool __result)
+        {
+            if (Multiplayer.Client != null)
+                __result = false;
         }
     }
 

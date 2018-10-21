@@ -286,14 +286,21 @@ namespace Multiplayer.Client
             }
         }
 
-        public void DirtyTradeForMaps(Map map)
+        public void DirtyColonyTradeForMap(Map map)
         {
             if (map == null) return;
             foreach (MpTradeSession session in trading.Where(s => s.playerNegotiator.Map == map))
-                session.deal.fullRecache = true;
+                session.deal.recacheColony = true;
         }
 
-        public void DirtyTradeForThing(Thing t)
+        public void DirtyTraderTradeForTrader(ITrader trader)
+        {
+            if (trader == null) return;
+            foreach (MpTradeSession session in trading.Where(s => s.trader == trader))
+                session.deal.recacheTrader = true;
+        }
+
+        public void DirtyTradeForSpawnedThing(Thing t)
         {
             if (t == null) return;
             foreach (MpTradeSession session in trading.Where(s => s.playerNegotiator.Map == t.Map))

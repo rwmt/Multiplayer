@@ -11,6 +11,7 @@ using System.Text;
 using UnityEngine;
 using Verse;
 using Verse.AI;
+using Verse.AI.Group;
 
 namespace Multiplayer.Client
 {
@@ -172,8 +173,9 @@ namespace Multiplayer.Client
         public UIShouldReset uiShouldReset;
 
         public HashSet<Thing> recacheThings = new HashSet<Thing>();
-        public bool fullRecache;
-        public bool ShouldRecache => fullRecache || recacheThings.Count > 0;
+        public bool recacheColony;
+        public bool recacheTrader;
+        public bool ShouldRecache => recacheColony || recacheTrader || recacheThings.Count > 0;
 
         public MpTradeDeal(MpTradeSession session)
         {
@@ -182,21 +184,22 @@ namespace Multiplayer.Client
 
         public void Recache()
         {
-            if (fullRecache)
-                CheckAddRemove();
+            if (recacheColony)
+                CheckAddRemoveColony();
+
+            if (recacheTrader)
+                CheckAddRemoveColony();
 
             if (recacheThings.Count > 0)
                 CheckReassign();
 
-            newThings.Clear();
-            oldThings.Clear();
-
             uiShouldReset = UIShouldReset.Full;
             recacheThings.Clear();
-            fullRecache = false;
+            recacheColony = false;
+            recacheTrader = false;
         }
 
-        private void CheckAddRemove()
+        private void CheckAddRemoveColony()
         {
             foreach (Thing t in TradeSession.trader.ColonyThingsWillingToBuy(TradeSession.playerNegotiator))
                 newThings.Add(t);
@@ -226,6 +229,44 @@ namespace Multiplayer.Client
             foreach (Thing newThing in newThings)
                 if (!oldThings.Contains(newThing))
                     AddToTradeables(newThing, Transactor.Colony);
+
+            newThings.Clear();
+            oldThings.Clear();
+        }
+
+        private void CheckAddRemoveTrader()
+        {
+            foreach (Thing t in TradeSession.trader.Goods)
+                newThings.Add(t);
+
+            for (int i = tradeables.Count - 1; i >= 0; i--)
+            {
+                Tradeable tradeable = tradeables[i];
+                int toRemove = 0;
+
+                for (int j = tradeable.thingsTrader.Count - 1; j >= 0; j--)
+                {
+                    Thing thingTrader = tradeable.thingsTrader[j];
+                    if (!newThings.Contains(thingTrader))
+                        toRemove++;
+                    else
+                        oldThings.Add(thingTrader);
+                }
+
+                if (toRemove == 0) continue;
+
+                if (toRemove == tradeable.thingsColony.Count + tradeable.thingsTrader.Count)
+                    tradeables.RemoveAt(i);
+                else
+                    tradeable.thingsTrader.RemoveAll(t => !newThings.Contains(t));
+            }
+
+            foreach (Thing newThing in newThings)
+                if (!oldThings.Contains(newThing))
+                    AddToTradeables(newThing, Transactor.Trader);
+
+            newThings.Clear();
+            oldThings.Clear();
         }
 
         private void CheckReassign()
@@ -370,7 +411,7 @@ namespace Multiplayer.Client
         static void Postfix(Reachability __instance)
         {
             if (Multiplayer.Client != null)
-                Multiplayer.WorldComp.DirtyTradeForMaps(__instance.map);
+                Multiplayer.WorldComp.DirtyColonyTradeForMap(__instance.map);
         }
     }
 
@@ -380,7 +421,7 @@ namespace Multiplayer.Client
         static void Postfix(Area_Home __instance)
         {
             if (Multiplayer.Client != null)
-                Multiplayer.WorldComp.DirtyTradeForMaps(__instance.Map);
+                Multiplayer.WorldComp.DirtyColonyTradeForMap(__instance.Map);
         }
     }
 
@@ -393,7 +434,7 @@ namespace Multiplayer.Client
         static void Postfix(HaulDestinationManager __instance)
         {
             if (Multiplayer.Client != null)
-                Multiplayer.WorldComp.DirtyTradeForMaps(__instance.map);
+                Multiplayer.WorldComp.DirtyColonyTradeForMap(__instance.map);
         }
     }
 
@@ -403,7 +444,7 @@ namespace Multiplayer.Client
         static void Postfix(CompRottable __instance)
         {
             if (Multiplayer.Client != null)
-                Multiplayer.WorldComp.DirtyTradeForMaps(__instance.parent.Map);
+                Multiplayer.WorldComp.DirtyColonyTradeForMap(__instance.parent.Map);
         }
     }
 
@@ -415,7 +456,7 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.Client == null) return;
             if (t.def.category == ThingCategory.Item && ListerThings.EverListable(t.def, __instance.use))
-                Multiplayer.WorldComp.DirtyTradeForMaps(t.Map);
+                Multiplayer.WorldComp.DirtyColonyTradeForMap(t.Map);
         }
     }
 
@@ -426,7 +467,22 @@ namespace Multiplayer.Client
         static void Postfix(Pawn_HealthTracker __instance)
         {
             if (Multiplayer.Client != null)
-                Multiplayer.WorldComp.DirtyTradeForMaps(__instance.pawn.Map);
+                Multiplayer.WorldComp.DirtyColonyTradeForMap(__instance.pawn.Map);
+        }
+    }
+
+    [HarmonyPatch(typeof(CompPowerTrader))]
+    [HarmonyPatch(nameof(CompPowerTrader.PowerOn), PropertyMethod.Setter)]
+    static class OrbitalTradeBeaconPowerChanged
+    {
+        static void Postfix(CompPowerTrader __instance, bool value)
+        {
+            if (Multiplayer.Client == null) return;
+            if (!(__instance.parent is Building_OrbitalTradeBeacon)) return;
+            if (value == __instance.powerOnInt) return;
+
+            // For trade ships
+            Multiplayer.WorldComp.DirtyColonyTradeForMap(__instance.parent.Map);
         }
     }
 
@@ -443,7 +499,50 @@ namespace Multiplayer.Client
         static void Postfix(Thing __instance, bool __state)
         {
             if (__state)
-                Multiplayer.WorldComp.DirtyTradeForThing(__instance);
+                Multiplayer.WorldComp.DirtyTradeForSpawnedThing(__instance);
+        }
+    }
+
+    [MpPatch(typeof(ThingOwner), nameof(ThingOwner.NotifyAdded))]
+    [MpPatch(typeof(ThingOwner), nameof(ThingOwner.NotifyAddedAndMergedWith))]
+    [MpPatch(typeof(ThingOwner), nameof(ThingOwner.NotifyRemoved))]
+    static class ThingOwner_ChangedPatch
+    {
+        static void Postfix(ThingOwner __instance)
+        {
+            if (Multiplayer.Client == null) return;
+
+            if (__instance.owner is Pawn_InventoryTracker inv)
+            {
+                ITrader trader = null;
+
+                if (inv.pawn.GetLord()?.LordJob is LordJob_TradeWithColony lordJob)
+                    // Carrier inventory changed
+                    trader = lordJob.lord.ownedPawns.FirstOrDefault(p => p.GetTraderCaravanRole() == TraderCaravanRole.Trader);
+                else if (inv.pawn.trader != null)
+                    // Trader inventory changed
+                    trader = inv.pawn;
+
+                if (trader != null)
+                    Multiplayer.WorldComp.DirtyTraderTradeForTrader(trader);
+            }
+        }
+    }
+
+    [MpPatch(typeof(Lord), nameof(Lord.AddPawn))]
+    [MpPatch(typeof(Lord), nameof(Lord.Notify_PawnLost))]
+    static class Lord_TradeChanged
+    {
+        static void Postfix(Lord __instance)
+        {
+            if (Multiplayer.Client == null) return;
+
+            if (__instance.LordJob is LordJob_TradeWithColony)
+            {
+                // Chattel changed
+                ITrader trader = __instance.ownedPawns.FirstOrDefault(p => p.GetTraderCaravanRole() == TraderCaravanRole.Trader);
+                Multiplayer.WorldComp.DirtyTraderTradeForTrader(trader);
+            }
         }
     }
 

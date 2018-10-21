@@ -135,6 +135,7 @@ namespace Multiplayer.Client
             harmony.DoMpPatches(typeof(PawnDownedStateChanged));
 
             SyncHandlers.Init();
+            Sync.RegisterAllSyncMethods();
 
             DoPatches();
 

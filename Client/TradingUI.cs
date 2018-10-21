@@ -11,6 +11,7 @@ using System.Text;
 using UnityEngine;
 using Verse;
 using Verse.AI;
+using Verse.AI.Group;
 
 namespace Multiplayer.Client
 {
@@ -61,8 +62,6 @@ namespace Multiplayer.Client
 
             var session = Multiplayer.WorldComp.trading[selectedTab];
 
-            Rect groupRect = new Rect(0, 0, inRect.width, inRect.height);
-            GUI.BeginGroup(inRect);
             {
                 MpTradeSession.SetTradeSession(session);
                 drawingTrade = this;
@@ -80,7 +79,25 @@ namespace Multiplayer.Client
                     session.deal.uiShouldReset = UIShouldReset.None;
                 }
 
-                dialog.DoWindowContents(groupRect);
+                GUI.BeginGroup(inRect);
+                {
+                    Rect groupRect = new Rect(0, 0, inRect.width, inRect.height);
+                    dialog.DoWindowContents(groupRect);
+                }
+                GUI.EndGroup();
+
+                int? traderLeavingIn = GetTraderTime(TradeSession.trader);
+                if (traderLeavingIn != null)
+                {
+                    float num = inRect.width - 590f;
+                    Rect position = new Rect(inRect.x + num, inRect.y, inRect.width - num, 58f);
+                    Rect traderNameRect = new Rect(position.x + position.width / 2f, position.y, position.width / 2f - 1f, position.height);
+                    Rect traderTimeRect = traderNameRect.Up(traderNameRect.height - 5f);
+
+                    Text.Anchor = TextAnchor.LowerRight;
+                    Widgets.Label(traderTimeRect, $"Leaves in {traderLeavingIn?.ToStringTicksToPeriod()}");
+                    Text.Anchor = TextAnchor.UpperLeft;
+                }
 
                 if (cancelPressed)
                 {
@@ -93,9 +110,32 @@ namespace Multiplayer.Client
                 drawingTrade = null;
                 MpTradeSession.SetTradeSession(null);
             }
-            GUI.EndGroup();
 
             Widgets.Label(new Rect(0, 0, inRect.width, inRect.height), "" + watch.ElapsedMillisDouble());
+        }
+
+        private int? GetTraderTime(ITrader trader)
+        {
+            if (trader is Pawn pawn)
+            {
+                Lord lord = pawn.GetLord();
+                if (lord == null) return null;
+
+                if (lord.LordJob is LordJob_VisitColony || lord.LordJob is LordJob_TradeWithColony)
+                {
+                    Transition transition = lord.graph.transitions.FirstOrDefault(t => t.preActions.Any(a => a is TransitionAction_CheckGiveGift));
+                    if (transition == null) return null;
+
+                    var trigger = transition.triggers.OfType<Trigger_TicksPassed>().FirstOrDefault();
+                    return trigger?.TicksLeft;
+                }
+            }
+            else if (trader is TradeShip ship)
+            {
+                return ship.ticksUntilDeparture;
+            }
+
+            return null;
         }
 
         void SelectTab(int index)

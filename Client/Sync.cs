@@ -228,26 +228,28 @@ namespace Multiplayer.Client
 
             Sync.WriteContext(this, writer);
 
-            int mapId = ScheduledCommand.Global;
+            Map map = writer.MpContext().map;
+
             if (targetType != null)
             {
                 Sync.WriteSyncObject(writer, target, targetType);
-                if (context.map is Map map)
-                    mapId = map.uniqueID;
+                if (context.map is Map newMap)
+                    map = newMap;
             }
 
             for (int i = 0; i < argTypes.Length; i++)
             {
                 Type type = argTypes[i];
                 Sync.WriteSyncObject(writer, args[i], type);
-                if (context.map is Map map)
+                if (context.map is Map newMap)
                 {
-                    if (mapId != ScheduledCommand.Global && mapId != map.uniqueID)
-                        throw new Exception("SyncMethod map mismatch");
-                    mapId = map.uniqueID;
+                    if (map != newMap)
+                        throw new Exception($"SyncMethod map mismatch ({map?.uniqueID} and {newMap?.uniqueID})");
+                    map = newMap;
                 }
             }
 
+            int mapId = map?.uniqueID ?? ScheduledCommand.Global;
             writer.LogNode("Map id: " + mapId);
             Multiplayer.PacketLog.nodes.Add(writer.current);
 
@@ -652,6 +654,8 @@ namespace Multiplayer.Client
         // todo what happens on exceptions?
         public static void FieldWatchPostfix()
         {
+            if (Multiplayer.Client == null) return;
+
             while (watchedStack.Count > 0)
             {
                 FieldData data = watchedStack.Pop();
@@ -794,14 +798,25 @@ namespace Multiplayer.Client
             return RegisterSyncMethod(method, argTypes);
         }
 
-        public static void RegisterSyncMethods(Type inType)
+        private static IEnumerable<Type> AllModTypes()
         {
-            foreach (MethodInfo method in AccessTools.GetDeclaredMethods(inType))
-            {
-                if (!method.TryGetAttribute(out SyncMethodAttribute syncAttr))
-                    continue;
+            foreach (ModContentPack mod in LoadedModManager.RunningMods)
+                for (int i = 0; i < mod.assemblies.loadedAssemblies.Count; i++)
+                    foreach (Type t in mod.assemblies.loadedAssemblies[i].GetTypes())
+                        yield return t;
+        }
 
-                RegisterSyncMethod(method, null);
+        public static void RegisterAllSyncMethods()
+        {
+            foreach (Type type in AllModTypes())
+            {
+                foreach (MethodInfo method in AccessTools.GetDeclaredMethods(type))
+                {
+                    if (!method.TryGetAttribute(out SyncMethodAttribute syncAttr))
+                        continue;
+
+                    RegisterSyncMethod(method, null).SetContext(syncAttr.context);
+                }
             }
         }
 
@@ -986,8 +1001,8 @@ namespace Multiplayer.Client
 
             if (handler.context.HasFlag(SyncContext.MapMouseCell))
             {
-                bool viewingMap = Find.CurrentMap != null && !WorldRendererUtility.WorldRenderedNow;
-                WriteSync(data, viewingMap ? UI.MouseCell() : IntVec3.Invalid);
+                data.MpContext().map = Find.CurrentMap;
+                WriteSync(data, UI.MouseCell());
             }
 
             if (handler.context.HasFlag(SyncContext.MapSelected))
@@ -1030,6 +1045,12 @@ namespace Multiplayer.Client
     [AttributeUsage(AttributeTargets.Method)]
     public class SyncMethodAttribute : Attribute
     {
+        public SyncContext context;
+
+        public SyncMethodAttribute(SyncContext context = SyncContext.None)
+        {
+            this.context = context;
+        }
     }
 
     public class Expose<T> { }
