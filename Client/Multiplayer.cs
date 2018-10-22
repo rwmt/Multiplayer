@@ -117,22 +117,19 @@ namespace Multiplayer.Client
             MpConnectionState.SetImplementation(ConnectionStateEnum.ClientJoining, typeof(ClientJoiningState));
             MpConnectionState.SetImplementation(ConnectionStateEnum.ClientPlaying, typeof(ClientPlayingState));
 
-            harmony.DoMpPatches(typeof(HarmonyPatches));
+            harmony.Patch(
+                AccessTools.Method(typeof(PatchProcessor), nameof(PatchProcessor.Patch)),
+                new HarmonyMethod(typeof(HarmonyPatches), nameof(HarmonyPatches.PatchProcessorPrefix)),
+                null
+            );
 
-            harmony.DoMpPatches(typeof(CancelMapManagersTick));
-            harmony.DoMpPatches(typeof(CancelMapManagersUpdate));
-            harmony.DoMpPatches(typeof(CancelReinitializationDuringLoading));
-            harmony.DoMpPatches(typeof(MessagesMarker));
+            harmony.Patch(
+                AccessTools.Method(typeof(MethodPatcher), "EmitCallParameter"),
+                new HarmonyMethod(typeof(HarmonyPatches), nameof(HarmonyPatches.EmitCallParamsPrefix)),
+                null
+            );
 
-            harmony.DoMpPatches(typeof(MainMenuMarker));
-            harmony.DoMpPatches(typeof(MainMenuPatch));
-            harmony.DoMpPatches(typeof(MakeSpaceForReplayTimeline));
-            harmony.DoMpPatches(typeof(CancelFeedbackNotTargetedAtMe));
-            harmony.DoMpPatches(typeof(ShowTradingWindow));
-            harmony.DoMpPatches(typeof(HaulDestinationChanged));
-            harmony.DoMpPatches(typeof(FixTradeSorters));
-            harmony.DoMpPatches(typeof(ListerThingsChangedItem));
-            harmony.DoMpPatches(typeof(PawnDownedStateChanged));
+            harmony.DoAllMpPatches();
 
             SyncHandlers.Init();
             Sync.RegisterAllSyncMethods();
@@ -645,6 +642,14 @@ namespace Multiplayer.Client
             if (num == 1)
                 return ".. ";
             return "...";
+        }
+
+        public static IEnumerable<Type> AllModTypes()
+        {
+            foreach (ModContentPack mod in LoadedModManager.RunningMods)
+                for (int i = 0; i < mod.assemblies.loadedAssemblies.Count; i++)
+                    foreach (Type t in mod.assemblies.loadedAssemblies[i].GetTypes())
+                        yield return t;
         }
     }
 

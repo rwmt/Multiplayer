@@ -798,19 +798,11 @@ namespace Multiplayer.Client
             return RegisterSyncMethod(method, argTypes);
         }
 
-        private static IEnumerable<Type> AllModTypes()
-        {
-            foreach (ModContentPack mod in LoadedModManager.RunningMods)
-                for (int i = 0; i < mod.assemblies.loadedAssemblies.Count; i++)
-                    foreach (Type t in mod.assemblies.loadedAssemblies[i].GetTypes())
-                        yield return t;
-        }
-
         public static void RegisterAllSyncMethods()
         {
-            foreach (Type type in AllModTypes())
+            foreach (Type type in Multiplayer.AllModTypes())
             {
-                foreach (MethodInfo method in AccessTools.GetDeclaredMethods(type))
+                foreach (MethodInfo method in AccessTools.GetDeclaredMethods(type).Where(m => m.IsStatic))
                 {
                     if (!method.TryGetAttribute(out SyncMethodAttribute syncAttr))
                         continue;
@@ -915,14 +907,20 @@ namespace Multiplayer.Client
                 yield return inst;
         }
 
-        public static void RegisterFieldPatches(Type type)
+        public static void ApplyWatchFieldPatches(Type type)
         {
             HarmonyMethod prefix = new HarmonyMethod(AccessTools.Method(typeof(Sync), nameof(Sync.FieldWatchPrefix)));
             prefix.prioritiy = Priority.First;
             HarmonyMethod postfix = new HarmonyMethod(AccessTools.Method(typeof(Sync), nameof(Sync.FieldWatchPostfix)));
+            postfix.prioritiy = Priority.Last;
 
-            foreach (MethodBase patched in Multiplayer.harmony.DoMpPatches(type))
-                Multiplayer.harmony.Patch(patched, prefix, postfix);
+            foreach (MethodBase toPatch in AccessTools.GetDeclaredMethods(type))
+            {
+                if (!toPatch.TryGetAttribute<MpPrefix>(out var attr))
+                    continue;
+
+                Multiplayer.harmony.Patch(attr.Method, prefix, postfix);
+            }
         }
 
         public static void Watch(this SyncField field, object target = null, object index = null)
@@ -1170,6 +1168,12 @@ namespace Multiplayer.Client
         {
             LogNode("ushort: " + val);
             base.WriteUInt16(val);
+        }
+
+        public override void WriteInt16(short val)
+        {
+            LogNode("short: " + val);
+            base.WriteInt16(val);
         }
 
         public override void WriteFloat(float val)

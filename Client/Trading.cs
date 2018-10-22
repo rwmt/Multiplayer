@@ -62,11 +62,26 @@ namespace Multiplayer.Client
             MpTradeSession session = new MpTradeSession(trader, playerNegotiator, giftMode);
             Multiplayer.WorldComp.trading.Add(session);
 
+            CancelTradeDealReset.cancel = true;
             SetTradeSession(session, true);
-            session.deal = new MpTradeDeal(session);
-            SetTradeSession(null);
 
-            session.StartWaitingJobs();
+            try
+            {
+                session.deal = new MpTradeDeal(session);
+
+                Thing permSilver = ThingMaker.MakeThing(ThingDefOf.Silver, null);
+                permSilver.stackCount = 0;
+                session.deal.permanentSilver = permSilver;
+                session.deal.AddToTradeables(permSilver, Transactor.Trader);
+
+                session.deal.AddAllTradeables();
+                session.StartWaitingJobs();
+            }
+            finally
+            {
+                SetTradeSession(null);
+                CancelTradeDealReset.cancel = false;
+            }
         }
 
         private void StartWaitingJobs()
@@ -94,6 +109,8 @@ namespace Multiplayer.Client
 
         public void TryExecute()
         {
+            deal.recacheColony = true;
+            deal.recacheTrader = true;
             deal.Recache();
 
             SetTradeSession(this);
@@ -177,6 +194,8 @@ namespace Multiplayer.Client
         public bool recacheTrader;
         public bool ShouldRecache => recacheColony || recacheTrader || recacheThings.Count > 0;
 
+        public Thing permanentSilver;
+
         public MpTradeDeal(MpTradeSession session)
         {
             this.session = session;
@@ -188,7 +207,7 @@ namespace Multiplayer.Client
                 CheckAddRemoveColony();
 
             if (recacheTrader)
-                CheckAddRemoveColony();
+                CheckAddRemoveTrader();
 
             if (recacheThings.Count > 0)
                 CheckReassign();
@@ -201,7 +220,7 @@ namespace Multiplayer.Client
 
         private void CheckAddRemoveColony()
         {
-            foreach (Thing t in TradeSession.trader.ColonyThingsWillingToBuy(TradeSession.playerNegotiator))
+            foreach (Thing t in session.trader.ColonyThingsWillingToBuy(session.playerNegotiator))
                 newThings.Add(t);
 
             for (int i = tradeables.Count - 1; i >= 0; i--)
@@ -236,7 +255,9 @@ namespace Multiplayer.Client
 
         private void CheckAddRemoveTrader()
         {
-            foreach (Thing t in TradeSession.trader.Goods)
+            newThings.Add(permanentSilver);
+
+            foreach (Thing t in session.trader.Goods)
                 newThings.Add(t);
 
             for (int i = tradeables.Count - 1; i >= 0; i--)
@@ -294,6 +315,7 @@ namespace Multiplayer.Client
 
         public void ExposeData()
         {
+            Scribe_Deep.Look(ref permanentSilver, "permanentSilver");
             Scribe_Collections.Look(ref tradeables, "tradeables", LookMode.Deep);
         }
     }
@@ -306,9 +328,11 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(TradeDeal), nameof(TradeDeal.Reset))]
-    static class CancelTradeDealResetDuringLoading
+    static class CancelTradeDealReset
     {
-        static bool Prefix() => Scribe.mode != LoadSaveMode.LoadingVars;
+        public static bool cancel;
+
+        static bool Prefix() => !cancel && Scribe.mode != LoadSaveMode.LoadingVars;
     }
 
     [HarmonyPatch(typeof(WindowStack), nameof(WindowStack.Add))]

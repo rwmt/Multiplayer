@@ -168,6 +168,11 @@ namespace Multiplayer.Common
             stream.Write(BitConverter.GetBytes(val));
         }
 
+        public virtual void WriteInt16(short val)
+        {
+            stream.Write(BitConverter.GetBytes(val));
+        }
+
         public virtual void WriteFloat(float val)
         {
             stream.Write(BitConverter.GetBytes(val));
@@ -204,7 +209,7 @@ namespace Multiplayer.Common
             stream.Write(bytes);
         }
 
-        public virtual void WriteByteList(List<byte[]> list)
+        public virtual void WriteByteArrayList(List<byte[]> list)
         {
             WriteInt32(list.Count);
             foreach (byte[] arr in list)
@@ -306,6 +311,11 @@ namespace Multiplayer.Common
         public ushort ReadUInt16()
         {
             return BitConverter.ToUInt16(array, IncrementIndex(2));
+        }
+
+        public short ReadInt16()
+        {
+            return BitConverter.ToInt16(array, IncrementIndex(2));
         }
 
         public float ReadFloat()

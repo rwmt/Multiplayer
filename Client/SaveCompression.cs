@@ -309,11 +309,19 @@ namespace Multiplayer.Client
     [HarmonyPatch(nameof(CompressibilityDeciderUtility.IsSaveCompressible))]
     public static class SaveCompressiblePatch
     {
+        static bool Prefix() => !SaveCompression.doSaveCompression;
+
         static void Postfix(Thing t, ref bool __result)
         {
             if (!SaveCompression.doSaveCompression) return;
+            if (!t.Spawned) return;
 
-            __result = SaveCompression.IsSavePlant(t) || SaveCompression.IsSaveRock(t) || SaveCompression.IsSaveRockRubble(t);
+            __result = (SaveCompression.IsSavePlant(t) || SaveCompression.IsSaveRock(t) || SaveCompression.IsSaveRockRubble(t)) && !Referenced(t);
+        }
+
+        static bool Referenced(Thing t)
+        {
+            return t.Map?.compressor?.compressibilityDecider.IsReferenced(t) ?? false;
         }
     }
 }

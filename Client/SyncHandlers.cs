@@ -19,19 +19,12 @@ namespace Multiplayer.Client
     {
         public static void Init()
         {
-            HarmonyInstance harmony = Multiplayer.harmony;
-            harmony.DoMpPatches(typeof(SyncMarkers));
-            harmony.DoMpPatches(typeof(SyncPatches));
-            harmony.DoMpPatches(typeof(SyncDelegates));
-            harmony.DoMpPatches(typeof(SyncThingFilters));
-            harmony.DoMpPatches(typeof(SyncResearch));
-
             RuntimeHelpers.RunClassConstructor(typeof(SyncPatches).TypeHandle);
             RuntimeHelpers.RunClassConstructor(typeof(SyncFieldsPatches).TypeHandle);
             RuntimeHelpers.RunClassConstructor(typeof(SyncDelegates).TypeHandle);
             RuntimeHelpers.RunClassConstructor(typeof(SyncThingFilters).TypeHandle);
 
-            Sync.RegisterFieldPatches(typeof(SyncFieldsPatches));
+            Sync.ApplyWatchFieldPatches(typeof(SyncFieldsPatches));
         }
     }
 
@@ -69,10 +62,10 @@ namespace Multiplayer.Client
         public static SyncField SyncIngredientSearchRadius = Sync.Field(typeof(Bill), "ingredientSearchRadius").SetBufferChanges();
         public static SyncField SyncBillSkillRange = Sync.Field(typeof(Bill), "allowedSkillRange").SetBufferChanges();
 
-        public static SyncField SyncBillIncludeZone = Sync.Field(typeof(Bill_Production), "includeFromZone").CancelIfValueNull();
+        public static SyncField SyncBillIncludeZone = Sync.Field(typeof(Bill_Production), "includeFromZone");
         public static SyncField SyncBillIncludeHpRange = Sync.Field(typeof(Bill_Production), "hpRange").SetBufferChanges();
         public static SyncField SyncBillIncludeQualityRange = Sync.Field(typeof(Bill_Production), "qualityRange").SetBufferChanges();
-        public static SyncField SyncBillPawnRestriction = Sync.Field(typeof(Bill), "pawnRestriction").CancelIfValueNull();
+        public static SyncField SyncBillPawnRestriction = Sync.Field(typeof(Bill), "pawnRestriction");
 
         public static SyncField SyncZoneLabel = Sync.Field(typeof(Zone), "label");
 
@@ -363,7 +356,7 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(BillStack), nameof(BillStack.AddBill), new[] { typeof(Expose<Bill>) }); // Only used for pasting
             SyncMethod.Register(typeof(BillStack), nameof(BillStack.Delete)).CancelIfAnyArgNull();
             SyncMethod.Register(typeof(BillStack), nameof(BillStack.Reorder)).CancelIfAnyArgNull();
-            SyncMethod.Register(typeof(Bill_Production), nameof(Bill_Production.SetStoreMode)).CancelIfAnyArgNull();
+            SyncMethod.Register(typeof(Bill_Production), nameof(Bill_Production.SetStoreMode));
             SyncMethod.Register(typeof(Building_TurretGun), nameof(Building_TurretGun.OrderAttack));
             SyncMethod.Register(typeof(Building_TurretGun), nameof(Building_TurretGun.ExtractShell));
             SyncMethod.Register(typeof(Area), nameof(Area.Invert));

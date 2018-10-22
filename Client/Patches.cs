@@ -26,8 +26,7 @@ namespace Multiplayer.Client
 {
     static class HarmonyPatches
     {
-        [MpPrefix(typeof(PatchProcessor), nameof(PatchProcessor.Patch))]
-        static void PatchProcessorPrefix(List<MethodBase> ___originals)
+        public static void PatchProcessorPrefix(List<MethodBase> ___originals)
         {
             foreach (MethodBase m in ___originals)
             {
@@ -43,8 +42,7 @@ namespace Multiplayer.Client
 
         static readonly FieldInfo paramName = AccessTools.Field(typeof(ParameterInfo), "NameImpl");
 
-        [MpPrefix(typeof(MethodPatcher), "EmitCallParameter")]
-        static void EmitCallParamsPrefix(MethodBase original, MethodInfo patch)
+        public static void EmitCallParamsPrefix(MethodBase original, MethodInfo patch)
         {
             if (Attribute.GetCustomAttribute(patch, typeof(IndexedPatchParameters)) == null)
                 return;

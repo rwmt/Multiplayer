@@ -2,6 +2,7 @@
 using Multiplayer.Common;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 
@@ -69,6 +70,12 @@ namespace Multiplayer.Client
 
     public static class MpPatchExtensions
     {
+        public static void DoAllMpPatches(this HarmonyInstance harmony)
+        {
+            foreach (Type type in Assembly.GetCallingAssembly().GetTypes())
+                harmony.DoMpPatches(type);
+        }
+
         public static List<MethodBase> DoMpPatches(this HarmonyInstance harmony, Type type)
         {
             List<MethodBase> result = new List<MethodBase>();
@@ -89,7 +96,7 @@ namespace Multiplayer.Client
             }
 
             // On methods
-            foreach (MethodInfo m in AccessTools.GetDeclaredMethods(type))
+            foreach (MethodInfo m in AccessTools.GetDeclaredMethods(type).Where(m => m.IsStatic))
             {
                 foreach (MpPatch attr in m.AllAttributes<MpPatch>())
                 {

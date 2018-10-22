@@ -47,8 +47,9 @@ namespace Multiplayer.Client
             OnMainThread.cachedGameData = worldData;
 
             List<int> mapsToLoad = new List<int>();
-            int maps = data.ReadInt32();
-            for (int i = 0; i < maps; i++)
+
+            int mapCmdsCount = data.ReadInt32();
+            for (int i = 0; i < mapCmdsCount; i++)
             {
                 int mapId = data.ReadInt32();
 
@@ -58,14 +59,17 @@ namespace Multiplayer.Client
                     mapCmds.Add(ScheduledCommand.Deserialize(new ByteReader(data.ReadPrefixedBytes())));
 
                 OnMainThread.cachedMapCmds[mapId] = mapCmds;
+            }
 
+            int mapDataCount = data.ReadInt32();
+            for (int i = 0; i < mapCmdsCount; i++)
+            {
+                int mapId = data.ReadInt32();
                 byte[] rawMapData = data.ReadPrefixedBytes();
-                if (rawMapData.Length > 0)
-                {
-                    byte[] mapData = GZipStream.UncompressBuffer(rawMapData);
-                    OnMainThread.cachedMapData[mapId] = mapData;
-                    mapsToLoad.Add(mapId);
-                }
+
+                byte[] mapData = GZipStream.UncompressBuffer(rawMapData);
+                OnMainThread.cachedMapData[mapId] = mapData;
+                mapsToLoad.Add(mapId);
             }
 
             ReloadGame(tickUntil, mapsToLoad, () =>

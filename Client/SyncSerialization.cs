@@ -41,7 +41,6 @@ namespace Multiplayer.Client
             { data => new FloatRange(data.ReadFloat(), data.ReadFloat()) },
             { data => new IntRange(data.ReadInt32(), data.ReadInt32()) },
             { data => new QualityRange(ReadSync<QualityCategory>(data), ReadSync<QualityCategory>(data)) },
-            { data => new IntVec3(data.ReadInt32(), data.ReadInt32(), data.ReadInt32()) },
             { data => new NameSingle(data.ReadString(), data.ReadBool()) },
             { data => new NameTriple(data.ReadString(), data.ReadString(), data.ReadString()) },
             { data => new Rot4(data.ReadByte()) },
@@ -104,7 +103,6 @@ namespace Multiplayer.Client
             { (ByteWriter data, FloatRange range) => { data.WriteFloat(range.min); data.WriteFloat(range.max); }},
             { (ByteWriter data, IntRange range) => { data.WriteInt32(range.min); data.WriteInt32(range.max); }},
             { (ByteWriter data, QualityRange range) => { WriteSync(data, range.min); WriteSync(data, range.max); }},
-            { (ByteWriter data, IntVec3 vec) => { data.WriteInt32(vec.x); data.WriteInt32(vec.y); data.WriteInt32(vec.z); }},
             { (ByteWriter data, NameSingle name) => { data.WriteString(name.nameInt); data.WriteBool(name.numerical); } },
             { (ByteWriter data, NameTriple name) => { data.WriteString(name.firstInt); data.WriteString(name.nickInt); data.WriteString(name.lastInt); } },
             { (ByteWriter data, Rot4 rot) => data.WriteByte(rot.AsByte) },
@@ -195,6 +193,17 @@ namespace Multiplayer.Client
                 if (type.IsByRef)
                 {
                     return null;
+                }
+                else if (typeof(IntVec3) == type)
+                {
+                    short y = data.ReadInt16();
+                    if (y < 0)
+                        return IntVec3.Invalid;
+
+                    short x = data.ReadInt16();
+                    short z = data.ReadInt16();
+
+                    return new IntVec3(x, y, z);
                 }
                 else if (readers.TryGetValue(type, out Func<ByteReader, object> reader))
                 {
@@ -544,6 +553,21 @@ namespace Multiplayer.Client
                 if (type.IsByRef)
                 {
                 }
+                else if (typeof(IntVec3) == type)
+                {
+                    IntVec3 vec = (IntVec3)obj;
+
+                    if (vec.y < 0)
+                    {
+                        data.WriteInt16(-1);
+                    }
+                    else
+                    {
+                        data.WriteInt16((short)vec.y);
+                        data.WriteInt16((short)vec.x);
+                        data.WriteInt16((short)vec.z);
+                    }
+                }
                 else if (writers.TryGetValue(type, out Action<ByteWriter, object> writer))
                 {
                     writer(data, obj);
@@ -744,7 +768,7 @@ namespace Multiplayer.Client
                         if (index == -1)
                             throw new SerializationException($"Thing {ThingHolderString(thing)} is inaccessible");
 
-                        WriteSync(data, (byte)index);
+                        data.WriteByte((byte)index);
 
                         if (implType != typeof(Map))
                         {
