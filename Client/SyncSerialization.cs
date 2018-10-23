@@ -19,14 +19,18 @@ namespace Multiplayer.Client
     {
         static ReaderDictionary readers = new ReaderDictionary
         {
+            { data => data.ReadByte() },
+            { data => data.ReadSByte() },
+            { data => data.ReadShort() },
+            { data => data.ReadUShort() },
             { data => data.ReadInt32() },
-            { data => data.ReadBool() },
-            { data => data.ReadString() },
+            { data => data.ReadUInt32() },
             { data => data.ReadLong() },
+            { data => data.ReadULong() },
             { data => data.ReadFloat() },
             { data => data.ReadDouble() },
-            { data => data.ReadUInt16() },
-            { data => data.ReadByte() },
+            { data => data.ReadBool() },
+            { data => data.ReadString() },
             { data => ReadSync<Pawn>(data)?.mindState?.priorityWork },
             { data => ReadSync<Pawn>(data)?.playerSettings },
             { data => ReadSync<Pawn>(data)?.timetable },
@@ -81,14 +85,18 @@ namespace Multiplayer.Client
 
         static WriterDictionary writers = new WriterDictionary
         {
+            { (ByteWriter data, byte b) => data.WriteByte(b) },
+            { (ByteWriter data, sbyte b) => data.WriteSByte(b) },
+            { (ByteWriter data, short u) => data.WriteShort(u) },
+            { (ByteWriter data, ushort u) => data.WriteUShort(u) },
             { (ByteWriter data, int i) => data.WriteInt32(i) },
-            { (ByteWriter data, bool b) => data.WriteBool(b) },
-            { (ByteWriter data, string s) => data.WriteString(s) },
+            { (ByteWriter data, uint i) => data.WriteUInt32(i) },
             { (ByteWriter data, long l) => data.WriteLong(l) },
+            { (ByteWriter data, ulong l) => data.WriteULong(l) },
             { (ByteWriter data, float f) => data.WriteFloat(f) },
             { (ByteWriter data, double d) => data.WriteDouble(d) },
-            { (ByteWriter data, ushort u) => data.WriteUInt16(u) },
-            { (ByteWriter data, byte b) => data.WriteByte(b) },
+            { (ByteWriter data, bool b) => data.WriteBool(b) },
+            { (ByteWriter data, string s) => data.WriteString(s) },
             { (ByteWriter data, PriorityWork work) => WriteSync(data, work.pawn) },
             { (ByteWriter data, Pawn_PlayerSettings comp) => WriteSync(data, comp.pawn) },
             { (ByteWriter data, Pawn_TimetableTracker comp) => WriteSync(data, comp.pawn) },
@@ -128,19 +136,8 @@ namespace Multiplayer.Client
             }
         };
 
-        private static Type[] storageParents = new[]
-        {
-            typeof(Building_Grave),
-            typeof(Building_Storage),
-            typeof(CompChangeableProjectile),
-            typeof(Zone_Stockpile)
-        };
-
-        private static Type[] plantToGrowSettables = new[]
-        {
-            typeof(Building_PlantGrower),
-            typeof(Zone_Growing),
-        };
+        private static Type[] storageParents = GenTypes.AllTypes.Where(t => typeof(IStoreSettingsParent).IsAssignableFrom(t)).ToArray();
+        private static Type[] plantToGrowSettables = GenTypes.AllTypes.Where(t => typeof(IPlantToGrowSettable).IsAssignableFrom(t)).ToArray();
 
         public static MultiTarget thingFilterTarget = new MultiTarget()
         {
@@ -150,9 +147,9 @@ namespace Multiplayer.Client
             { typeof(FoodRestriction), "filter" }
         };
 
-        private static List<Type> thingCompTypes = typeof(ThingComp).AllSubclassesNonAbstract().ToList();
-        private static List<Type> designatorTypes = typeof(Designator).AllSubclassesNonAbstract().ToList();
-        private static List<Type> worldObjectCompTypes = typeof(WorldObjectComp).AllSubclassesNonAbstract().ToList();
+        private static Type[] thingCompTypes = typeof(ThingComp).AllSubclassesNonAbstract().ToArray();
+        private static Type[] designatorTypes = typeof(Designator).AllSubclassesNonAbstract().ToArray();
+        private static Type[] worldObjectCompTypes = typeof(WorldObjectComp).AllSubclassesNonAbstract().ToArray();
 
         private static Type[] supportedThingHolders = new[]
         {
@@ -169,12 +166,12 @@ namespace Multiplayer.Client
 
         private static MethodInfo ReadExposable = AccessTools.Method(typeof(ScribeUtil), nameof(ScribeUtil.ReadExposable));
 
-        enum ListType
+        enum ListType : byte
         {
             Normal, MapAllThings, MapAllDesignations
         }
 
-        enum ISelectableImpl
+        enum ISelectableImpl : byte
         {
             Thing, Zone, WorldObject
         }
@@ -196,12 +193,12 @@ namespace Multiplayer.Client
                 }
                 else if (typeof(IntVec3) == type)
                 {
-                    short y = data.ReadInt16();
+                    short y = data.ReadShort();
                     if (y < 0)
                         return IntVec3.Invalid;
 
-                    short x = data.ReadInt16();
-                    short z = data.ReadInt16();
+                    short x = data.ReadShort();
+                    short z = data.ReadShort();
 
                     return new IntVec3(x, y, z);
                 }
@@ -211,12 +208,13 @@ namespace Multiplayer.Client
                 }
                 else if (type.IsEnum)
                 {
-                    return Enum.ToObject(type, data.ReadInt32());
+                    Type enumType = Enum.GetUnderlyingType(type);
+                    return readers[enumType](data);
                 }
                 else if (type.IsArray && type.GetArrayRank() == 1)
                 {
                     Type elementType = type.GetElementType();
-                    int length = data.ReadInt32();
+                    ushort length = data.ReadUShort();
                     Array arr = Array.CreateInstance(elementType, length);
                     for (int i = 0; i < length; i++)
                         arr.SetValue(ReadSyncObject(data, elementType), i);
@@ -233,8 +231,8 @@ namespace Multiplayer.Client
                             return map.designationManager.allDesignations;
 
                         Type listType = type.GetGenericArguments()[0];
-                        int size = data.ReadInt32();
-                        IList list = Activator.CreateInstance(type, size) as IList;
+                        ushort size = data.ReadUShort();
+                        IList list = (IList)Activator.CreateInstance(type, size);
                         for (int j = 0; j < size; j++)
                             list.Add(ReadSyncObject(data, listType));
                         return list;
@@ -279,7 +277,7 @@ namespace Multiplayer.Client
                 }
                 else if (typeof(Def).IsAssignableFrom(type))
                 {
-                    ushort shortHash = data.ReadUInt16();
+                    ushort shortHash = data.ReadUShort();
                     if (shortHash == 0)
                         return null;
 
@@ -337,7 +335,7 @@ namespace Multiplayer.Client
                 }
                 else if (typeof(Designator).IsAssignableFrom(type))
                 {
-                    int desId = data.ReadInt32();
+                    ushort desId = data.ReadUShort();
                     Type desType = designatorTypes[desId];
 
                     Designator des;
@@ -390,8 +388,8 @@ namespace Multiplayer.Client
                 }
                 else if (typeof(WorldObjectComp).IsAssignableFrom(type))
                 {
-                    int compTypeId = data.ReadInt32();
-                    if (compTypeId == -1)
+                    ushort compTypeId = data.ReadUShort();
+                    if (compTypeId == ushort.MaxValue)
                         return null;
 
                     WorldObject parent = ReadSync<WorldObject>(data);
@@ -411,8 +409,8 @@ namespace Multiplayer.Client
                 }
                 else if (typeof(ThingComp).IsAssignableFrom(type))
                 {
-                    int compTypeId = data.ReadInt32();
-                    if (compTypeId == -1)
+                    ushort compTypeId = data.ReadUShort();
+                    if (compTypeId == ushort.MaxValue)
                         return null;
 
                     ThingWithComps parent = ReadSync<ThingWithComps>(data);
@@ -460,8 +458,8 @@ namespace Multiplayer.Client
                 }
                 else if (typeof(BodyPartRecord) == type)
                 {
-                    int partIndex = data.ReadInt32();
-                    if (partIndex == -1) return null;
+                    ushort partIndex = data.ReadUShort();
+                    if (partIndex == ushort.MaxValue) return null;
 
                     BodyDef body = ReadSync<BodyDef>(data);
                     return body.GetPartAtIndex(partIndex);
@@ -559,13 +557,13 @@ namespace Multiplayer.Client
 
                     if (vec.y < 0)
                     {
-                        data.WriteInt16(-1);
+                        data.WriteShort(-1);
                     }
                     else
                     {
-                        data.WriteInt16((short)vec.y);
-                        data.WriteInt16((short)vec.x);
-                        data.WriteInt16((short)vec.z);
+                        data.WriteShort((short)vec.y);
+                        data.WriteShort((short)vec.x);
+                        data.WriteShort((short)vec.z);
                     }
                 }
                 else if (writers.TryGetValue(type, out Action<ByteWriter, object> writer))
@@ -574,13 +572,18 @@ namespace Multiplayer.Client
                 }
                 else if (type.IsEnum)
                 {
-                    data.WriteInt32(Convert.ToInt32(obj));
+                    Type enumType = Enum.GetUnderlyingType(type);
+                    writers[enumType](data, Convert.ChangeType(obj, enumType));
                 }
                 else if (type.IsArray && type.GetArrayRank() == 1)
                 {
                     Type elementType = type.GetElementType();
-                    Array arr = obj as Array;
-                    data.WriteInt32(arr.Length);
+                    Array arr = (Array)obj;
+
+                    if (arr.Length > ushort.MaxValue)
+                        throw new Exception($"Tried to serialize a {elementType}[] with too many ({arr.Length}) items.");
+
+                    data.WriteUShort((ushort)arr.Length);
                     foreach (object e in arr)
                         WriteSyncObject(data, e, elementType);
                 }
@@ -604,8 +607,12 @@ namespace Multiplayer.Client
 
                     if (specialList == ListType.Normal)
                     {
-                        IList list = obj as IList;
-                        data.WriteInt32(list.Count);
+                        IList list = (IList)obj;
+
+                        if (list.Count > ushort.MaxValue)
+                            throw new Exception($"Tried to serialize a {type} with too many ({list.Count}) items.");
+
+                        data.WriteUShort((ushort)list.Count);
                         foreach (object e in list)
                             WriteSyncObject(data, e, listType);
                     }
@@ -663,7 +670,7 @@ namespace Multiplayer.Client
                 else if (typeof(Def).IsAssignableFrom(type))
                 {
                     Def def = obj as Def;
-                    data.WriteUInt16(def != null ? def.shortHash : (ushort)0);
+                    data.WriteUShort(def != null ? def.shortHash : (ushort)0);
                 }
                 else if (typeof(WITab_Caravan_Gear) == type)
                 {
@@ -691,7 +698,7 @@ namespace Multiplayer.Client
                 else if (typeof(Designator).IsAssignableFrom(type))
                 {
                     Designator des = obj as Designator;
-                    data.WriteInt32(designatorTypes.IndexOf(des.GetType()));
+                    data.WriteInt32(Array.IndexOf(designatorTypes, des.GetType()));
 
                     if (des is Designator_Build build)
                         WriteSync(data, build.PlacingDef);
@@ -724,12 +731,12 @@ namespace Multiplayer.Client
                     ThingComp comp = (ThingComp)obj;
                     if (comp != null)
                     {
-                        data.WriteInt32(thingCompTypes.IndexOf(comp.GetType()));
+                        data.WriteUShort((ushort)Array.IndexOf(thingCompTypes, comp.GetType()));
                         WriteSync(data, comp.parent);
                     }
                     else
                     {
-                        data.WriteInt32(-1);
+                        data.WriteUShort(ushort.MaxValue);
                     }
                 }
                 else if (typeof(WorkGiver).IsAssignableFrom(type))
@@ -792,12 +799,13 @@ namespace Multiplayer.Client
                     WorldObjectComp comp = (WorldObjectComp)obj;
                     if (comp != null)
                     {
-                        data.WriteInt32(worldObjectCompTypes.IndexOf(comp.GetType()));
+                        ushort index = (ushort)Array.IndexOf(worldObjectCompTypes, comp.GetType());
+                        data.WriteUShort(index);
                         WriteSync(data, comp.parent);
                     }
                     else
                     {
-                        data.WriteInt32(-1);
+                        data.WriteInt32(ushort.MaxValue);
                     }
                 }
                 else if (typeof(BillStack) == type)
@@ -830,14 +838,14 @@ namespace Multiplayer.Client
                 {
                     if (obj == null)
                     {
-                        data.WriteInt32(-1);
+                        data.WriteUShort(ushort.MaxValue);
                         return;
                     }
 
                     BodyPartRecord part = obj as BodyPartRecord;
                     BodyDef body = part.body;
 
-                    data.WriteInt32(body.GetIndexOfPart(part));
+                    data.WriteUShort((ushort)body.GetIndexOfPart(part));
                     WriteSync(data, body);
                 }
                 else if (typeof(TransferableImmutable) == type)
@@ -926,8 +934,8 @@ namespace Multiplayer.Client
 
         private static T ReadWithImpl<T>(ByteReader data, IList<Type> impls) where T : class
         {
-            int impl = data.ReadInt32();
-            if (impl == -1) return null;
+            ushort impl = data.ReadUShort();
+            if (impl == ushort.MaxValue) return null;
             return (T)ReadSyncObject(data, impls[impl]);
         }
 
@@ -935,7 +943,7 @@ namespace Multiplayer.Client
         {
             if (obj == null)
             {
-                data.WriteInt32(-1);
+                data.WriteUShort(ushort.MaxValue);
                 return;
             }
 
@@ -944,7 +952,7 @@ namespace Multiplayer.Client
             if (implType == null)
                 throw new SerializationException($"Unknown {typeof(T)} implementation type {obj.GetType()}");
 
-            data.WriteInt32(impl);
+            data.WriteUShort((ushort)impl);
             WriteSyncObject(data, obj, implType);
         }
 

@@ -31,7 +31,7 @@
         Count
     }
 
-    public enum ConnectionStateEnum
+    public enum ConnectionStateEnum : byte
     {
         ClientJoining,
         ClientPlaying,

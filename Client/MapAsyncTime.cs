@@ -897,7 +897,7 @@ namespace Multiplayer.Client
         }
     }
 
-    public enum DesignatorMode
+    public enum DesignatorMode : byte
     {
         SingleCell,
         MultiCell,

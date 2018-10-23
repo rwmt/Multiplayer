@@ -688,6 +688,9 @@ namespace Multiplayer.Client
             SyncDelegate.Register(typeof(CaravanAbandonOrBanishUtility), "<TryAbandonOrBanishViaInterface>c__AnonStorey1", "<>m__0", new[] { "caravan", "t" }).CancelIfAnyFieldNull();      // Abandon caravan transferable
             SyncDelegate.Register(typeof(CaravanAbandonOrBanishUtility), "<TryAbandonSpecificCountViaInterface>c__AnonStorey2", "<>m__0", new[] { "caravan", "t" }).CancelIfAnyFieldNull(); // Abandon thing specific count
             SyncDelegate.Register(typeof(CaravanAbandonOrBanishUtility), "<TryAbandonSpecificCountViaInterface>c__AnonStorey3", "<>m__0", new[] { "caravan", "t" }).CancelIfAnyFieldNull(); // Abandon transferable specific count
+
+            SyncDelegate.Register(typeof(CaravanVisitUtility), "<TradeCommand>c__AnonStorey0", "<>m__0").CancelIfAnyFieldNull();     // Caravan trade with settlement
+            SyncDelegate.Register(typeof(FactionGiftUtility), "<OfferGiftsCommand>c__AnonStorey0", "<>m__0").CancelIfAnyFieldNull(); // Caravan offer gifts
         }
 
         [MpPrefix(typeof(FormCaravanComp), "<GetGizmos>c__Iterator0+<GetGizmos>c__AnonStorey1", "<>m__0")]

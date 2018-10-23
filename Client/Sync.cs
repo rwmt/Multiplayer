@@ -243,7 +243,7 @@ namespace Multiplayer.Client
                 Sync.WriteSyncObject(writer, args[i], type);
                 if (context.map is Map newMap)
                 {
-                    if (map != newMap)
+                    if (map != null && map != newMap)
                         throw new Exception($"SyncMethod map mismatch ({map?.uniqueID} and {newMap?.uniqueID})");
                     map = newMap;
                 }
@@ -1164,16 +1164,16 @@ namespace Multiplayer.Client
             base.WriteDouble(val);
         }
 
-        public override void WriteUInt16(ushort val)
+        public override void WriteUShort(ushort val)
         {
             LogNode("ushort: " + val);
-            base.WriteUInt16(val);
+            base.WriteUShort(val);
         }
 
-        public override void WriteInt16(short val)
+        public override void WriteShort(short val)
         {
             LogNode("short: " + val);
-            base.WriteInt16(val);
+            base.WriteShort(val);
         }
 
         public override void WriteFloat(float val)

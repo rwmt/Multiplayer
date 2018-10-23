@@ -27,7 +27,7 @@ namespace Multiplayer.Common
 
             connectionImpls[(int)state] = type;
 
-            foreach (MethodBase method in type.GetMethods(BindingFlags.Instance | BindingFlags.Public))
+            foreach (MethodBase method in type.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly))
             {
                 PacketHandlerAttribute attr = (PacketHandlerAttribute)Attribute.GetCustomAttribute(method, typeof(PacketHandlerAttribute));
                 if (attr == null)
@@ -158,45 +158,27 @@ namespace Multiplayer.Common
 
         public object context;
 
-        public virtual void WriteInt32(int val)
-        {
-            stream.Write(BitConverter.GetBytes(val));
-        }
+        public virtual void WriteByte(byte val) => stream.WriteByte(val);
 
-        public virtual void WriteUInt16(ushort val)
-        {
-            stream.Write(BitConverter.GetBytes(val));
-        }
+        public virtual void WriteSByte(sbyte val) => stream.WriteByte((byte)val);
 
-        public virtual void WriteInt16(short val)
-        {
-            stream.Write(BitConverter.GetBytes(val));
-        }
+        public virtual void WriteShort(short val) => stream.Write(BitConverter.GetBytes(val));
 
-        public virtual void WriteFloat(float val)
-        {
-            stream.Write(BitConverter.GetBytes(val));
-        }
+        public virtual void WriteUShort(ushort val) => stream.Write(BitConverter.GetBytes(val));
 
-        public virtual void WriteDouble(double val)
-        {
-            stream.Write(BitConverter.GetBytes(val));
-        }
+        public virtual void WriteInt32(int val) => stream.Write(BitConverter.GetBytes(val));
 
-        public virtual void WriteLong(long val)
-        {
-            stream.Write(BitConverter.GetBytes(val));
-        }
+        public virtual void WriteUInt32(uint val) => stream.Write(BitConverter.GetBytes(val));
 
-        public virtual void WriteBool(bool val)
-        {
-            stream.WriteByte(val ? (byte)1 : (byte)0);
-        }
+        public virtual void WriteLong(long val) => stream.Write(BitConverter.GetBytes(val));
 
-        public virtual void WriteByte(byte val)
-        {
-            stream.WriteByte(val);
-        }
+        public virtual void WriteULong(ulong val) => stream.Write(BitConverter.GetBytes(val));
+
+        public virtual void WriteFloat(float val) => stream.Write(BitConverter.GetBytes(val));
+
+        public virtual void WriteDouble(double val) => stream.Write(BitConverter.GetBytes(val));
+
+        public virtual void WriteBool(bool val) => stream.WriteByte(val ? (byte)1 : (byte)0);
 
         public virtual void WritePrefixedBytes(byte[] bytes)
         {
@@ -230,7 +212,7 @@ namespace Multiplayer.Common
             }
             else if (obj is ushort @ushort)
             {
-                WriteUInt16(@ushort);
+                WriteUShort(@ushort);
             }
             else if (obj is bool @bool)
             {
@@ -303,45 +285,27 @@ namespace Multiplayer.Common
             this.array = array;
         }
 
-        public int ReadInt32()
-        {
-            return BitConverter.ToInt32(array, IncrementIndex(4));
-        }
+        public byte ReadByte() => array[IncrementIndex(1)];
 
-        public ushort ReadUInt16()
-        {
-            return BitConverter.ToUInt16(array, IncrementIndex(2));
-        }
+        public sbyte ReadSByte() => (sbyte)array[IncrementIndex(1)];
 
-        public short ReadInt16()
-        {
-            return BitConverter.ToInt16(array, IncrementIndex(2));
-        }
+        public short ReadShort() => BitConverter.ToInt16(array, IncrementIndex(2));
 
-        public float ReadFloat()
-        {
-            return BitConverter.ToSingle(array, IncrementIndex(4));
-        }
+        public ushort ReadUShort() => BitConverter.ToUInt16(array, IncrementIndex(2));
 
-        public double ReadDouble()
-        {
-            return BitConverter.ToDouble(array, IncrementIndex(8));
-        }
+        public int ReadInt32() => BitConverter.ToInt32(array, IncrementIndex(4));
 
-        public long ReadLong()
-        {
-            return BitConverter.ToInt64(array, IncrementIndex(8));
-        }
+        public uint ReadUInt32() => BitConverter.ToUInt32(array, IncrementIndex(4));
 
-        public byte ReadByte()
-        {
-            return array[IncrementIndex(1)];
-        }
+        public long ReadLong() => BitConverter.ToInt64(array, IncrementIndex(8));
 
-        public bool ReadBool()
-        {
-            return BitConverter.ToBoolean(array, IncrementIndex(1));
-        }
+        public ulong ReadULong() => BitConverter.ToUInt64(array, IncrementIndex(8));
+
+        public float ReadFloat() => BitConverter.ToSingle(array, IncrementIndex(4));
+
+        public double ReadDouble() => BitConverter.ToDouble(array, IncrementIndex(8));
+
+        public bool ReadBool() => BitConverter.ToBoolean(array, IncrementIndex(1));
 
         public string ReadString()
         {
