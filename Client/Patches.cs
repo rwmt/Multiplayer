@@ -511,23 +511,6 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(CaravanArrivalAction_AttackSettlement))]
-    [HarmonyPatch(nameof(CaravanArrivalAction_AttackSettlement.Arrived))]
-    public static class AttackSettlementPatch
-    {
-        static bool Prefix(CaravanArrivalAction_AttackSettlement __instance, Caravan caravan)
-        {
-            if (Multiplayer.Client == null) return true;
-
-            SettlementBase settlement = __instance.settlement;
-            if (settlement.Faction.def != Multiplayer.factionDef) return true;
-
-            Multiplayer.Client.Send(Packets.Client_EncounterRequest, new object[] { settlement.Tile });
-
-            return false;
-        }
-    }
-
     [HarmonyPatch(typeof(Settlement))]
     [HarmonyPatch(nameof(Settlement.ShouldRemoveMapNow))]
     public static class ShouldRemoveMapPatch

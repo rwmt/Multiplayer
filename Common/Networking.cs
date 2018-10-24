@@ -54,8 +54,9 @@ namespace Multiplayer.Common
     public abstract class IConnection
     {
         public string username;
-        public int latency;
         public ServerPlayer serverPlayer;
+
+        public virtual int Latency { get; set; }
 
         public ConnectionStateEnum State
         {

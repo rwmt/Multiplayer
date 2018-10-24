@@ -62,7 +62,7 @@ namespace Multiplayer.Client
             }
 
             int mapDataCount = data.ReadInt32();
-            for (int i = 0; i < mapCmdsCount; i++)
+            for (int i = 0; i < mapDataCount; i++)
             {
                 int mapId = data.ReadInt32();
                 byte[] rawMapData = data.ReadPrefixedBytes();

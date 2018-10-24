@@ -206,12 +206,12 @@ namespace Multiplayer.Client
 
             try
             {
-                TickResearch();
+                //TickResearch();
 
                 // Not really deterministic but here for possible future server-side game state verification
                 Extensions.PushFaction(null, Multiplayer.RealPlayerFaction);
                 TickSync();
-                SyncResearch.ConstantTick();
+                //SyncResearch.ConstantTick();
                 Extensions.PopFaction();
             }
             finally

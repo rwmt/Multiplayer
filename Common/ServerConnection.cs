@@ -148,7 +148,7 @@ namespace Multiplayer.Common
             int type = data.ReadInt32();
             byte[] compressedData = data.ReadPrefixedBytes();
 
-            if (type == 0) // Faction data
+            if (type == 0) // World data
             {
                 MultiplayerServer.instance.savedGame = compressedData;
             }
@@ -161,23 +161,6 @@ namespace Multiplayer.Common
             }
         }
 
-        [PacketHandler(Packets.Client_EncounterRequest)]
-        public void HandleEncounterRequest(ByteReader data)
-        {
-            int tile = data.ReadInt32();
-            if (!MultiplayerServer.instance.mapTiles.TryGetValue(tile, out int mapId))
-                return;
-
-            byte[] extra = ByteWriter.GetBytes(connection.username); // todo faction id
-            MultiplayerServer.instance.SendCommand(CommandType.CreateMapFactionData, ScheduledCommand.NoFaction, mapId, extra);
-
-            byte[] mapData = MultiplayerServer.instance.mapData[mapId];
-            List<byte[]> mapCmds = MultiplayerServer.instance.mapCmds.AddOrGet(mapId, new List<byte[]>());
-
-            byte[] packetData = ByteWriter.GetBytes(mapId, mapCmds, mapData);
-            connection.Send(Packets.Server_MapResponse, packetData);
-        }
-
         [PacketHandler(Packets.Client_IdBlockRequest)]
         public void HandleIdBlockRequest(ByteReader data)
         {
@@ -185,8 +168,8 @@ namespace Multiplayer.Common
 
             if (mapId == ScheduledCommand.Global)
             {
-                IdBlock nextBlock = MultiplayerServer.instance.NextIdBlock();
-                MultiplayerServer.instance.SendCommand(CommandType.GlobalIdBlock, ScheduledCommand.NoFaction, ScheduledCommand.Global, nextBlock.Serialize());
+                //IdBlock nextBlock = MultiplayerServer.instance.NextIdBlock();
+                //MultiplayerServer.instance.SendCommand(CommandType.GlobalIdBlock, ScheduledCommand.NoFaction, ScheduledCommand.Global, nextBlock.Serialize());
             }
             else
             {
@@ -202,9 +185,9 @@ namespace Multiplayer.Common
 
             int id = data.ReadInt32();
             if (MultiplayerServer.instance.keepAliveId == id)
-                connection.latency = (int)MultiplayerServer.instance.lastKeepAlive.ElapsedMilliseconds / 2;
+                connection.Latency = (int)MultiplayerServer.instance.lastKeepAlive.ElapsedMilliseconds / 2;
             else
-                connection.latency = 2000;
+                connection.Latency = 2000;
         }
 
         public static Dictionary<string, int[]> debugHashes = new Dictionary<string, int[]>();
@@ -234,27 +217,6 @@ namespace Multiplayer.Common
 
                 debugHashes.Clear();
             }
-        }
-
-        public void OnMessage(Packets packet, ByteReader data)
-        {
-            /* if (packet == Packets.CLIENT_MAP_STATE_DEBUG)
-            {
-                OnMainThread.Enqueue(() => { Log.Message("Got map state " + Connection.username + " " + data.GetBytes().Length); });
-
-                ThreadPool.QueueUserWorkItem(s =>
-                {
-                    using (MemoryStream stream = new MemoryStream(data.GetBytes()))
-                    using (XmlTextReader xml = new XmlTextReader(stream))
-                    {
-                        XmlDocument xmlDocument = new XmlDocument();
-                        xmlDocument.Load(xml);
-                        xmlDocument.DocumentElement["map"].RemoveChildIfPresent("rememberedCameraPos");
-                        xmlDocument.Save(GetPlayerMapsPath(Connection.username + "_replay"));
-                        OnMainThread.Enqueue(() => { Log.Message("Writing done for " + Connection.username); });
-                    }
-                });
-            }*/
         }
 
         public static string GetPlayerMapsPath(string username)

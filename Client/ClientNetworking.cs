@@ -75,6 +75,8 @@ namespace Multiplayer.Client
     {
         public LocalServerConnection server;
 
+        public override int Latency { get => 0; set { } }
+
         public LocalClientConnection(string username)
         {
             this.username = username;
@@ -108,6 +110,8 @@ namespace Multiplayer.Client
     public class LocalServerConnection : IConnection
     {
         public LocalClientConnection client;
+
+        public override int Latency { get => 0; set { } }
 
         public LocalServerConnection(string username)
         {

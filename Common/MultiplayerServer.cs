@@ -81,7 +81,7 @@ namespace Multiplayer.Common
 
             listener.NetworkLatencyUpdateEvent += (peer, ping) =>
             {
-                peer.GetConnection().latency = ping;
+                peer.GetConnection().Latency = ping;
             };
 
             listener.NetworkReceiveEvent += (peer, reader, method) =>
@@ -266,7 +266,7 @@ namespace Multiplayer.Common
         public IConnection conn;
 
         public string Username => conn.username;
-        public int Latency => conn.latency;
+        public int Latency => conn.Latency;
         public int FactionId => MultiplayerServer.instance.playerFactions[Username];
         public bool IsPlaying => conn.State == ConnectionStateEnum.ServerPlaying;
 

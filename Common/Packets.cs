@@ -8,7 +8,6 @@
         Client_WorldLoaded,
         Client_Command,
         Client_AutosavedData,
-        Client_EncounterRequest,
         Client_IdBlockRequest,
         Client_Chat,
         Client_KeepAlive,

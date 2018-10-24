@@ -24,6 +24,7 @@ namespace Multiplayer.Client
             RuntimeHelpers.RunClassConstructor(typeof(SyncDelegates).TypeHandle);
             RuntimeHelpers.RunClassConstructor(typeof(SyncThingFilters).TypeHandle);
             RuntimeHelpers.RunClassConstructor(typeof(SyncActions).TypeHandle);
+            RuntimeHelpers.RunClassConstructor(typeof(SyncResearch).TypeHandle);
 
             Sync.ApplyWatchFieldPatches(typeof(SyncFieldsPatches));
         }
@@ -837,11 +838,12 @@ namespace Multiplayer.Client
         static void ManageFoodRestriction_Postfix() => foodRestriction = null;
     }
 
+    // Currently unused
     public static class SyncResearch
     {
         private static Dictionary<int, float> localResearch = new Dictionary<int, float>();
 
-        [MpPrefix(typeof(ResearchManager), nameof(ResearchManager.ResearchPerformed))]
+        //[MpPrefix(typeof(ResearchManager), nameof(ResearchManager.ResearchPerformed))]
         static bool ResearchPerformed_Prefix(float amount, Pawn researcher)
         {
             if (Multiplayer.Client == null || !SyncMarkers.researchToil)
