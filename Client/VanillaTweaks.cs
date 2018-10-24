@@ -41,7 +41,7 @@ namespace Multiplayer.Client
 
     // Optimize trading
     [HarmonyPatch(typeof(ThingCategoryDef))]
-    [HarmonyPatch(nameof(ThingCategoryDef.DescendantThingDefs), PropertyMethod.Getter)]
+    [HarmonyPatch(nameof(ThingCategoryDef.DescendantThingDefs), MethodType.Getter)]
     static class ThingCategoryDef_DescendantThingDefsPatch
     {
         static Dictionary<ThingCategoryDef, HashSet<ThingDef>> values = new Dictionary<ThingCategoryDef, HashSet<ThingDef>>();

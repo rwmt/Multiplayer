@@ -60,6 +60,10 @@ namespace Multiplayer.Client
             this.methodName = methodName;
         }
 
+        public MpPatch(Type type, string methodName) : this(type, methodName, (Type[])null)
+        {
+        }
+
         public MpPatch(Type type, string methodName, params Type[] argTypes)
         {
             this.type = type;
@@ -86,9 +90,9 @@ namespace Multiplayer.Client
                 MethodInfo toPatch = attr.Method;
                 HarmonyMethod harmonyMethod = new HarmonyMethod
                 {
-                    originalType = toPatch.DeclaringType,
+                    declaringType = toPatch.DeclaringType,
                     methodName = toPatch.Name,
-                    parameter = toPatch.GetParameters().Types()
+                    argumentTypes = toPatch.GetParameters().Types()
                 };
 
                 new PatchProcessor(harmony, type, harmonyMethod).Patch();
@@ -251,6 +255,12 @@ namespace Multiplayer.Client
         {
             return finder.pos;
         }
+    }
+
+    public static class MpPriority
+    {
+        public const int MpLast = Priority.Last - 1;
+        public const int MpFirst = Priority.First + 1;
     }
 
 }

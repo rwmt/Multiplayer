@@ -46,7 +46,7 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(DangerWatcher))]
-    [HarmonyPatch(nameof(DangerWatcher.DangerRating), PropertyMethod.Getter)]
+    [HarmonyPatch(nameof(DangerWatcher.DangerRating), MethodType.Getter)]
     static class DangerRatingMapTime
     {
         static void Prefix(DangerWatcher __instance, ref PrevTime? __state)

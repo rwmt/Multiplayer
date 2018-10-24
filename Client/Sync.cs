@@ -515,36 +515,66 @@ namespace Multiplayer.Client
         }
     }
 
-    public class SyncAction : SyncHandler
-    {
-        private Type targetType;
-        private MethodInfo method;
-        private string targetPath;
-        private Func<object, IEnumerable<Action>> actionSource;
+    public delegate ref Action ActionGetter<T>(T t);
 
-        public SyncAction(int syncId, Type targetType, MethodInfo method, string targetPath, Func<object, IEnumerable<Action>> actionSource) : base(syncId)
+    public interface ISyncAction
+    {
+        IEnumerable DoSync(object target, object arg0, object arg1);
+    }
+
+    public class SyncAction<T, A, B, C> : SyncHandler, ISyncAction
+    {
+        private Func<A, B, C, IEnumerable<T>> func;
+        private ActionGetter<T> actionGetter;
+
+        public SyncAction(int syncId, Func<A, B, C, IEnumerable<T>> func, ActionGetter<T> actionGetter) : base(syncId)
         {
-            this.targetType = targetType;
-            this.method = method;
-            this.targetPath = targetPath;
-            this.actionSource = actionSource;
+            this.func = func;
+            this.actionGetter = actionGetter;
         }
 
-        public void DoSync(object delegateInstance)
+        public IEnumerable<T> DoSync(A target, B arg0, C arg1)
         {
-            object target = delegateInstance.GetPropertyOrField(targetPath);
+            int i = 0;
 
+            SyncActions.wantOriginal = true;
+
+            try
+            {
+                foreach (T t in func(target, arg0, arg1))
+                {
+                    int j = i;
+                    i++;
+                    actionGetter(t) = () => ActualSync(target, arg0, arg1, j);
+
+                    yield return t;
+                }
+            }
+            finally
+            {
+                SyncActions.wantOriginal = false;
+            }
+        }
+
+        public IEnumerable DoSync(object target, object arg0, object arg1)
+        {
+            return DoSync((A)target, (B)arg0, (C)arg1);
+        }
+
+        private void ActualSync(A target, B arg0, C arg1, int index)
+        {
             LoggingByteWriter writer = new LoggingByteWriter();
             MpContext context = writer.MpContext();
-            writer.LogNode($"Sync action: {method}");
+            writer.LogNode("Sync action");
 
             writer.WriteInt32(SyncId);
 
-            int mapId = ScheduledCommand.Global;
-            Sync.WriteSyncObject(writer, target, targetType);
+            Sync.WriteSync(writer, target);
+            Sync.WriteSync(writer, arg0);
+            Sync.WriteSync(writer, arg1);
+            writer.WriteInt32(index);
 
-            if (context.map != null)
-                mapId = context.map.uniqueID;
+            int mapId = writer.MpContext().map?.uniqueID ?? -1;
 
             writer.LogNode("Map id: " + mapId);
             Multiplayer.PacketLog.nodes.Add(writer.current);
@@ -554,43 +584,41 @@ namespace Multiplayer.Client
 
         public override void Handle(ByteReader data)
         {
-            object target = Sync.ReadSyncObject(data, targetType);
-            if (target == null)
-                return;
+            A target = Sync.ReadSync<A>(data);
+            B arg0 = Sync.ReadSync<B>(data);
+            C arg1 = Sync.ReadSync<C>(data);
+            int index = data.ReadInt32();
 
-            actionSource(target).FirstOrDefault(a => a.Method == method)?.Invoke();
+            List<T> list = func(target, arg0, arg1).ToList();
+            actionGetter(list[index])();
         }
 
-        public static void Register<T>(string innerType, string methodName, string targetPath, Func<T, IEnumerable<Action>> actionSource) where T : class
+        public void PatchAll(string methodName)
         {
-            string typeName = $"{typeof(T)}+{innerType}";
-            Type type = MpReflection.GetTypeByName(typeName);
-            if (type == null)
-                throw new Exception($"Couldn't find type {typeName}");
-
-            MethodInfo method = AccessTools.Method(type, methodName, new Type[0]);
-            if (method == null)
-                throw new Exception($"Couldn't find method {type}::{methodName}");
-
-            SyncAction handler = new SyncAction(Sync.handlers.Count, typeof(T), method, targetPath, obj => actionSource((T)obj));
-            Sync.handlers.Add(handler);
-            Sync.syncActions[method] = handler;
-
-            var prefix = new HarmonyMethod(AccessTools.Method(typeof(SyncAction), nameof(Prefix)));
-            prefix.prioritiy = Priority.First;
-
-            Multiplayer.harmony.Patch(method, prefix, null);
-        }
-
-        static bool Prefix(object __instance, MethodBase __originalMethod)
-        {
-            if (Multiplayer.ShouldSync)
+            foreach (var type in typeof(A).AllSubtypesAndSelf())
             {
-                Sync.syncActions[__originalMethod].DoSync(__instance);
-                return false;
-            }
+                if (type.IsAbstract) continue;
 
-            return true;
+                foreach (var method in AccessTools.GetDeclaredMethods(type).Where(m => m.Name == methodName))
+                {
+                    HarmonyMethod prefix = new HarmonyMethod(typeof(SyncActions), nameof(SyncActions.SyncAction_Prefix));
+                    prefix.prioritiy = MpPriority.MpFirst;
+
+                    HarmonyMethod postfix;
+
+                    if (method.GetParameters().Length == 1)
+                        postfix = new HarmonyMethod(typeof(SyncActions), nameof(SyncActions.SyncAction1_Postfix));
+                    else if (method.GetParameters().Length == 2)
+                        postfix = new HarmonyMethod(typeof(SyncActions), nameof(SyncActions.SyncAction2_Postfix));
+                    else
+                        throw new Exception($"Too many arguments to patch {method.FullDescription()}");
+
+                    postfix.prioritiy = MpPriority.MpLast;
+
+                    Multiplayer.harmony.Patch(method, prefix, postfix);
+                    SyncActions.syncActions[method] = this;
+                }
+            }
         }
     }
 
@@ -640,7 +668,6 @@ namespace Multiplayer.Client
         public static List<SyncField> bufferedFields = new List<SyncField>();
 
         private static Dictionary<MethodBase, ISyncMethod> syncMethods = new Dictionary<MethodBase, ISyncMethod>();
-        public static Dictionary<MethodBase, SyncAction> syncActions = new Dictionary<MethodBase, SyncAction>();
 
         public static Dictionary<SyncField, Dictionary<Pair<object, object>, BufferData>> bufferedChanges = new Dictionary<SyncField, Dictionary<Pair<object, object>, BufferData>>();
         private static Stack<FieldData> watchedStack = new Stack<FieldData>();

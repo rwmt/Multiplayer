@@ -266,7 +266,7 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(Frame))]
-    [HarmonyPatch(nameof(Frame.WorkToBuild), PropertyMethod.Getter)]
+    [HarmonyPatch(nameof(Frame.WorkToBuild), MethodType.Getter)]
     static class NoZeroWorkFrames
     {
         static void Postfix(ref float __result)

@@ -97,20 +97,20 @@ namespace Multiplayer.Client
 
         [ThreadStatic]
         [Source(typeof(Rand), nameof(Rand.random))]
-        [UsedBy(typeof(Rand), nameof(Rand.Seed), PropertyMethod.Setter)]
-        [UsedBy(typeof(Rand), nameof(Rand.Value), PropertyMethod.Getter)]
-        [UsedBy(typeof(Rand), nameof(Rand.Int), PropertyMethod.Getter)]
-        [UsedBy(typeof(Rand), nameof(Rand.StateCompressed), PropertyMethod.Getter)]
-        [UsedBy(typeof(Rand), nameof(Rand.StateCompressed), PropertyMethod.Setter)]
+        [UsedBy(typeof(Rand), nameof(Rand.Seed), MethodType.Setter)]
+        [UsedBy(typeof(Rand), nameof(Rand.Value), MethodType.Getter)]
+        [UsedBy(typeof(Rand), nameof(Rand.Int), MethodType.Getter)]
+        [UsedBy(typeof(Rand), nameof(Rand.StateCompressed), MethodType.Getter)]
+        [UsedBy(typeof(Rand), nameof(Rand.StateCompressed), MethodType.Setter)]
         public static RandomNumberGenerator random = new RandomNumberGenerator_BasicHash();
 
         [ThreadStatic]
         [Source(typeof(Rand), nameof(Rand.iterations))]
-        [UsedBy(typeof(Rand), nameof(Rand.Seed), PropertyMethod.Setter)]
-        [UsedBy(typeof(Rand), nameof(Rand.Value), PropertyMethod.Getter)]
-        [UsedBy(typeof(Rand), nameof(Rand.Int), PropertyMethod.Getter)]
-        [UsedBy(typeof(Rand), nameof(Rand.StateCompressed), PropertyMethod.Getter)]
-        [UsedBy(typeof(Rand), nameof(Rand.StateCompressed), PropertyMethod.Setter)]
+        [UsedBy(typeof(Rand), nameof(Rand.Seed), MethodType.Setter)]
+        [UsedBy(typeof(Rand), nameof(Rand.Value), MethodType.Getter)]
+        [UsedBy(typeof(Rand), nameof(Rand.Int), MethodType.Getter)]
+        [UsedBy(typeof(Rand), nameof(Rand.StateCompressed), MethodType.Getter)]
+        [UsedBy(typeof(Rand), nameof(Rand.StateCompressed), MethodType.Setter)]
         public static uint iterations = 0;
 
         [ThreadStatic]
@@ -120,12 +120,12 @@ namespace Multiplayer.Client
 
         [ThreadStatic]
         [Source(typeof(CameraDriver), nameof(CameraDriver.lastViewRectGetFrame))]
-        [UsedBy(typeof(CameraDriver), nameof(CameraDriver.CurrentViewRect), PropertyMethod.Getter)]
+        [UsedBy(typeof(CameraDriver), nameof(CameraDriver.CurrentViewRect), MethodType.Getter)]
         public static int lastViewRectGetFrame = -1;
 
         [ThreadStatic]
         [Source(typeof(CameraDriver), nameof(CameraDriver.lastViewRect))]
-        [UsedBy(typeof(CameraDriver), nameof(CameraDriver.CurrentViewRect), PropertyMethod.Getter)]
+        [UsedBy(typeof(CameraDriver), nameof(CameraDriver.CurrentViewRect), MethodType.Getter)]
         public static CellRect lastViewRect;
 
         [ThreadStatic]
@@ -135,7 +135,7 @@ namespace Multiplayer.Client
 
         [ThreadStatic]
         [Source(typeof(Rand), nameof(Rand.stateStack))]
-        [UsedBy(typeof(Rand), nameof(Rand.Seed), PropertyMethod.Setter)]
+        [UsedBy(typeof(Rand), nameof(Rand.Seed), MethodType.Setter)]
         [UsedBy(typeof(Rand), nameof(Rand.EnsureStateStackEmpty))]
         [UsedBy(typeof(Rand), nameof(Rand.PushState), new Type[0])]
         [UsedBy(typeof(Rand), nameof(Rand.PopState))]
@@ -398,7 +398,7 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(InteractionDef))]
-    [HarmonyPatch(nameof(InteractionDef.Symbol), PropertyMethod.Getter)]
+    [HarmonyPatch(nameof(InteractionDef.Symbol), MethodType.Getter)]
     static class MakeMotePatch3
     {
         static bool Prefix() => UnityData.IsInMainThread;
@@ -454,10 +454,10 @@ namespace Multiplayer.Client
         {
         }
 
-        public UsedByAttribute(Type type, string property, PropertyMethod propertyMethod)
+        public UsedByAttribute(Type type, string property, MethodType propertyMethod)
         {
             this.type = type;
-            this.method = (propertyMethod == PropertyMethod.Getter ? "get_" : "set_") + property;
+            this.method = (propertyMethod == MethodType.Getter ? "get_" : "set_") + property;
         }
     }
 }

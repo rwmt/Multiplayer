@@ -159,7 +159,7 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(Prefs))]
-    [HarmonyPatch(nameof(Prefs.PauseOnLoad), PropertyMethod.Getter)]
+    [HarmonyPatch(nameof(Prefs.PauseOnLoad), MethodType.Getter)]
     public static class CancelSingleTick
     {
         // Cancel ticking after loading as its handled seperately
@@ -462,7 +462,7 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(Storyteller))]
-    [HarmonyPatch(nameof(Storyteller.AllIncidentTargets), PropertyMethod.Getter)]
+    [HarmonyPatch(nameof(Storyteller.AllIncidentTargets), MethodType.Getter)]
     public class StorytellerTargetsPatch
     {
         public static Map target;

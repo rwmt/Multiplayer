@@ -123,12 +123,6 @@ namespace Multiplayer.Client
                 null
             );
 
-            harmony.Patch(
-                AccessTools.Method(typeof(MethodPatcher), "EmitCallParameter"),
-                new HarmonyMethod(typeof(HarmonyPatches), nameof(HarmonyPatches.EmitCallParamsPrefix)),
-                null
-            );
-
             harmony.DoAllMpPatches();
 
             SyncHandlers.Init();

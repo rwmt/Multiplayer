@@ -1,6 +1,7 @@
 ﻿using Harmony;
 using Multiplayer.Common;
 using RimWorld;
+using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -176,7 +177,7 @@ namespace Multiplayer.Client
 
         public void Notify_CountChanged(Transferable tr)
         {
-            // todo set caravan params dirty   
+            deal.caravanDirty = true;
         }
     }
 
@@ -193,6 +194,7 @@ namespace Multiplayer.Client
         public bool recacheColony;
         public bool recacheTrader;
         public bool ShouldRecache => recacheColony || recacheTrader || recacheThings.Count > 0;
+        public bool caravanDirty;
 
         public Thing permanentSilver;
 
@@ -295,21 +297,30 @@ namespace Multiplayer.Client
             for (int i = tradeables.Count - 1; i >= 0; i--)
             {
                 Tradeable tradeable = tradeables[i];
-                for (int j = tradeable.thingsColony.Count - 1; j >= 1; j--)
-                {
-                    Thing thingColony = tradeable.thingsColony[j];
-                    TransferAsOneMode mode = (!tradeable.TraderWillTrade) ? TransferAsOneMode.InactiveTradeable : TransferAsOneMode.Normal;
 
-                    if (recacheThings.Contains(thingColony))
-                    {
-                        if (!TransferableUtility.TransferAsOne(tradeable.AnyThing, thingColony, mode))
-                            tradeable.thingsColony.RemoveAt(j);
-                        else
-                            AddToTradeables(thingColony, Transactor.Colony);
-                    }
-                }
+                CheckReassign(tradeable, Transactor.Colony);
+                CheckReassign(tradeable, Transactor.Trader);
 
                 if (recacheThings.Count == 0) break;
+            }
+        }
+
+        private void CheckReassign(Tradeable tradeable, Transactor side)
+        {
+            List<Thing> things = side == Transactor.Colony ? tradeable.thingsColony : tradeable.thingsTrader;
+
+            for (int j = things.Count - 1; j >= 1; j--)
+            {
+                Thing thing = things[j];
+                TransferAsOneMode mode = tradeable.TraderWillTrade ? TransferAsOneMode.Normal : TransferAsOneMode.InactiveTradeable;
+
+                if (recacheThings.Contains(thing))
+                {
+                    if (!TransferableUtility.TransferAsOne(tradeable.AnyThing, thing, mode))
+                        things.RemoveAt(j);
+                    else
+                        AddToTradeables(thing, side);
+                }
             }
         }
 
@@ -347,7 +358,7 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(Dialog_Trade))]
+    [HarmonyPatch(typeof(Dialog_Trade), MethodType.Constructor)]
     [HarmonyPatch(new[] { typeof(Pawn), typeof(ITrader), typeof(bool) })]
     static class CancelDialogTradeCtor
     {
@@ -360,6 +371,10 @@ namespace Multiplayer.Client
             if (Multiplayer.ExecutingCmds || Multiplayer.Ticking)
             {
                 MpTradeSession.TryCreate(trader, playerNegotiator, giftsOnly);
+
+                if (TickPatch.currentExecutingCmdIssuedBySelf)
+                    Find.WindowStack.Add(new TradingWindow());
+
                 return false;
             }
 
@@ -467,8 +482,8 @@ namespace Multiplayer.Client
     {
         static void Postfix(CompRottable __instance)
         {
-            if (Multiplayer.Client != null)
-                Multiplayer.WorldComp.DirtyColonyTradeForMap(__instance.parent.Map);
+            if (Multiplayer.Client == null) return;
+            Multiplayer.WorldComp.DirtyColonyTradeForMap(__instance.parent.Map);
         }
     }
 
@@ -496,7 +511,7 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(CompPowerTrader))]
-    [HarmonyPatch(nameof(CompPowerTrader.PowerOn), PropertyMethod.Setter)]
+    [HarmonyPatch(nameof(CompPowerTrader.PowerOn), MethodType.Setter)]
     static class OrbitalTradeBeaconPowerChanged
     {
         static void Postfix(CompPowerTrader __instance, bool value)
@@ -504,6 +519,7 @@ namespace Multiplayer.Client
             if (Multiplayer.Client == null) return;
             if (!(__instance.parent is Building_OrbitalTradeBeacon)) return;
             if (value == __instance.powerOnInt) return;
+            if (!Multiplayer.WorldComp.trading.Any(t => t.trader is TradeShip)) return;
 
             // For trade ships
             Multiplayer.WorldComp.DirtyColonyTradeForMap(__instance.parent.Map);
@@ -511,7 +527,7 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(Thing))]
-    [HarmonyPatch(nameof(Thing.HitPoints), PropertyMethod.Setter)]
+    [HarmonyPatch(nameof(Thing.HitPoints), MethodType.Setter)]
     static class ThingHitPointsChanged
     {
         static void Prefix(Thing __instance, int value, ref bool __state)
@@ -550,6 +566,14 @@ namespace Multiplayer.Client
                 if (trader != null)
                     Multiplayer.WorldComp.DirtyTraderTradeForTrader(trader);
             }
+            else if (__instance.owner is SettlementBase_TraderTracker trader)
+            {
+                Multiplayer.WorldComp.DirtyTraderTradeForTrader(trader.settlement);
+            }
+            else if (__instance.owner is TradeShip ship)
+            {
+                Multiplayer.WorldComp.DirtyTraderTradeForTrader(ship);
+            }
         }
     }
 
@@ -567,7 +591,120 @@ namespace Multiplayer.Client
                 ITrader trader = __instance.ownedPawns.FirstOrDefault(p => p.GetTraderCaravanRole() == TraderCaravanRole.Trader);
                 Multiplayer.WorldComp.DirtyTraderTradeForTrader(trader);
             }
+            else if (__instance.LordJob is LordJob_PrisonBreak)
+            {
+                // Prisoners in a break can't be sold
+                Multiplayer.WorldComp.DirtyColonyTradeForMap(__instance.Map);
+            }
         }
     }
 
+    [MpPatch(typeof(MentalStateHandler), nameof(MentalStateHandler.TryStartMentalState))]
+    [MpPatch(typeof(MentalStateHandler), nameof(MentalStateHandler.ClearMentalStateDirect))]
+    static class MentalStateChanged
+    {
+        static void Postfix(MentalStateHandler __instance)
+        {
+            if (Multiplayer.Client == null) return;
+
+            // Pawns in a mental state can't be sold
+            Multiplayer.WorldComp.DirtyColonyTradeForMap(__instance.pawn.Map);
+        }
+    }
+
+    [HarmonyPatch(typeof(JobDriver), nameof(JobDriver.Notify_Starting))]
+    static class JobExitMapStarted
+    {
+        static void Postfix(JobDriver __instance)
+        {
+            if (Multiplayer.Client == null) return;
+
+            if (__instance.job.exitMapOnArrival)
+            {
+                // Prisoners exiting the map can't be sold
+                Multiplayer.WorldComp.DirtyColonyTradeForMap(__instance.pawn.Map);
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(SettlementBase_TraderTracker), nameof(SettlementBase_TraderTracker.TraderTrackerTick))]
+    static class DontDestroyStockWhileTrading
+    {
+        static bool Prefix(SettlementBase_TraderTracker __instance)
+        {
+            return Multiplayer.Client == null || !Multiplayer.WorldComp.trading.Any(t => t.trader == __instance.settlement);
+        }
+    }
+
+    [HarmonyPatch(typeof(MapPawns), nameof(MapPawns.DoListChangedNotifications))]
+    static class MapPawnsChanged
+    {
+        static void Postfix(MapPawns __instance)
+        {
+            if (Multiplayer.Client == null) return;
+            Multiplayer.WorldComp.DirtyColonyTradeForMap(__instance.map);
+        }
+    }
+
+    [HarmonyPatch(typeof(Pawn_AgeTracker), nameof(Pawn_AgeTracker.RecalculateLifeStageIndex))]
+    static class PawnLifeStageChanged
+    {
+        static void Postfix(Pawn_AgeTracker __instance)
+        {
+            if (Multiplayer.Client == null) return;
+            if (!__instance.pawn.Spawned) return;
+
+            Multiplayer.WorldComp.DirtyTradeForSpawnedThing(__instance.pawn);
+        }
+    }
+
+    [HarmonyPatch(typeof(Pawn_AgeTracker), nameof(Pawn_AgeTracker.AgeTick))]
+    static class PawnAgeChanged
+    {
+        static void Prefix(Pawn_AgeTracker __instance, ref int __state)
+        {
+            __state = __instance.AgeBiologicalYears;
+        }
+        
+        static void Postfix(Pawn_AgeTracker __instance, int __state)
+        {
+            if (Multiplayer.Client == null) return;
+            if (__state == __instance.AgeBiologicalYears) return;
+        }
+    }
+
+    [HarmonyPatch(typeof(TransferableUtility), nameof(TransferableUtility.TransferAsOne))]
+    static class TransferAsOneAgeCheck_Patch
+    {
+        static MethodInfo AgeBiologicalFloat = AccessTools.Method(typeof(Pawn_AgeTracker), "get_AgeBiologicalYearsFloat");
+        static MethodInfo AgeBiologicalInt = AccessTools.Method(typeof(Pawn_AgeTracker), "get_AgeBiologicalYears");
+
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+        {
+            foreach (var inst in insts)
+            {
+                if (inst.operand == AgeBiologicalFloat)
+                {
+                    yield return new CodeInstruction(OpCodes.Callvirt, AgeBiologicalInt);
+                    yield return new CodeInstruction(OpCodes.Conv_R4);
+                    continue;
+                }
+
+                yield return inst;
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(TradeDeal), nameof(TradeDeal.InSellablePosition))]
+    static class InSellablePositionPatch
+    {
+        // todo actually handle this
+        static void Postfix(Thing t, ref bool __result, ref string reason)
+        {
+            if (Multiplayer.Client == null) return;
+
+            __result = t.Spawned;
+            reason = null;
+        }
+    }
 }

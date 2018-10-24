@@ -29,7 +29,10 @@ namespace Multiplayer.Client
         }
 
         public int selectedTab = -1;
-        public Dialog_Trade dialog;
+        private int selectedSession = -1;
+        private Dialog_Trade dialog;
+
+        private static List<TabRecord> tabs = new List<TabRecord>();
 
         public override void DoWindowContents(Rect inRect)
         {
@@ -38,19 +41,22 @@ namespace Multiplayer.Client
             added.RemoveAll(kv => Time.time - kv.Value > 1f);
             removed.RemoveAll(kv => Time.time - kv.Value > 0.5f && RemoveCachedTradeable(kv.Key));
 
-            List<TabRecord> tabs = new List<TabRecord>();
+            tabs.Clear();
             var trading = Multiplayer.WorldComp.trading;
             for (int i = 0; i < trading.Count; i++)
             {
                 int j = i;
-                tabs.Add(new TabRecord(trading[i].Label, () => SelectTab(j), () => selectedTab == j));
+                tabs.Add(new TabRecord(trading[i].Label, () => selectedTab = j, () => selectedTab == j));
             }
 
             if (selectedTab == -1 && trading.Count > 0)
-                SelectTab(0);
+                selectedTab = 0;
 
             if (selectedTab == -1)
+            {
                 Close();
+                return;
+            }
 
             int rows = Mathf.CeilToInt(tabs.Count / 3f);
             inRect.yMin += rows * TabDrawer.TabHeight + 3;
@@ -58,9 +64,12 @@ namespace Multiplayer.Client
 
             inRect.yMin += 10f;
 
-            if (selectedTab == -1) return;
-
             var session = Multiplayer.WorldComp.trading[selectedTab];
+            if (session.sessionId != selectedSession)
+            {
+                RecreateDialog();
+                selectedSession = session.sessionId;
+            }
 
             {
                 MpTradeSession.SetTradeSession(session);
@@ -77,6 +86,12 @@ namespace Multiplayer.Client
                     dialog.CacheTradeables();
                     dialog.CountToTransferChanged();
                     session.deal.uiShouldReset = UIShouldReset.None;
+                }
+
+                if (session.deal.caravanDirty)
+                {
+                    dialog.CountToTransferChanged();
+                    session.deal.caravanDirty = false;
                 }
 
                 GUI.BeginGroup(inRect);
@@ -138,20 +153,9 @@ namespace Multiplayer.Client
             return null;
         }
 
-        void SelectTab(int index)
+        private void RecreateDialog()
         {
-            selectedTab = index;
-
-            if (index < 0) selectedTab = -1;
-            if (index >= Multiplayer.WorldComp.trading.Count) selectedTab = Multiplayer.WorldComp.trading.Count - 1;
-
-            if (selectedTab == -1)
-            {
-                dialog = null;
-                return;
-            }
-
-            var session = Multiplayer.WorldComp.trading[index];
+            var session = Multiplayer.WorldComp.trading[selectedTab];
 
             CancelDialogTradeCtor.cancel = true;
             MpTradeSession.SetTradeSession(session);
@@ -172,7 +176,16 @@ namespace Multiplayer.Client
 
         public void Notify_RemovedSession(int index)
         {
-            SelectTab(selectedTab);
+            if (selectedTab < index) return;
+
+            if (selectedTab > index)
+                selectedTab--;
+
+            if (selectedTab == Multiplayer.WorldComp.trading.Count)
+                selectedTab--;
+
+            if (selectedTab < 0)
+                Close();
         }
 
         [SyncMethod]
@@ -225,16 +238,6 @@ namespace Multiplayer.Client
                         yield return kv.Key;
             }
         }
-    }
-
-    [HarmonyPatch(typeof(Dialog_Trade))]
-    [HarmonyPatch(new[] { typeof(Pawn), typeof(ITrader), typeof(bool) })]
-    static class DialogTradeCtor
-    {
-        public static bool running;
-
-        static void Prefix() => running = true;
-        static void Postfix() => running = false;
     }
 
     [MpPatch(typeof(JobDriver_TradeWithPawn), "<MakeNewToils>c__Iterator0+<MakeNewToils>c__AnonStorey1", "<>m__1")]

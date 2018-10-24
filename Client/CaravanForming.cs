@@ -322,7 +322,7 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(Dialog_FormCaravan))]
+    [HarmonyPatch(typeof(Dialog_FormCaravan), MethodType.Constructor)]
     [HarmonyPatch(new[] { typeof(Map), typeof(bool), typeof(Action), typeof(bool) })]
     static class CancelDialogFormCaravanCtor
     {

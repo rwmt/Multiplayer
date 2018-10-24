@@ -187,7 +187,11 @@ namespace Multiplayer.Client
 
             try
             {
-                if (type.IsByRef)
+                if (typeof(object) == type)
+                {
+                    return null;
+                }
+                else if (type.IsByRef)
                 {
                     return null;
                 }
@@ -235,6 +239,7 @@ namespace Multiplayer.Client
                         IList list = (IList)Activator.CreateInstance(type, size);
                         for (int j = 0; j < size; j++)
                             list.Add(ReadSyncObject(data, listType));
+
                         return list;
                     }
                     else if (type.GetGenericTypeDefinition() == typeof(Nullable<>))
@@ -548,7 +553,10 @@ namespace Multiplayer.Client
 
             try
             {
-                if (type.IsByRef)
+                if (typeof(object) == type)
+                {
+                }
+                else if (type.IsByRef)
                 {
                 }
                 else if (typeof(IntVec3) == type)
@@ -698,7 +706,7 @@ namespace Multiplayer.Client
                 else if (typeof(Designator).IsAssignableFrom(type))
                 {
                     Designator des = obj as Designator;
-                    data.WriteInt32(Array.IndexOf(designatorTypes, des.GetType()));
+                    data.WriteUShort((ushort)Array.IndexOf(designatorTypes, des.GetType()));
 
                     if (des is Designator_Build build)
                         WriteSync(data, build.PlacingDef);

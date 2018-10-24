@@ -39,37 +39,6 @@ namespace Multiplayer.Client
             ushort* iflags = (ushort*)(method.MethodHandle.Value) + 1;
             *iflags |= (ushort)MethodImplOptions.NoInlining;
         }
-
-        static readonly FieldInfo paramName = AccessTools.Field(typeof(ParameterInfo), "NameImpl");
-
-        public static void EmitCallParamsPrefix(MethodBase original, MethodInfo patch)
-        {
-            if (Attribute.GetCustomAttribute(patch, typeof(IndexedPatchParameters)) == null)
-                return;
-
-            ParameterInfo[] patchParams = patch.GetParameters();
-
-            for (int i = 0; i < patchParams.Length; i++)
-            {
-                string name;
-
-                if (original.IsStatic)
-                    name = original.GetParameters()[i].Name;
-                else if (i == 0)
-                    name = MethodPatcher.INSTANCE_PARAM;
-                else
-                    name = original.GetParameters()[i - 1].Name;
-
-                paramName.SetValue(patchParams[i], name);
-            }
-        }
-    }
-
-    // For instance methods the first parameter is the instance
-    // The rest are original method's parameters in order
-    [AttributeUsage(AttributeTargets.Method)]
-    public class IndexedPatchParameters : Attribute
-    {
     }
 
     [MpPatch(typeof(MainMenuDrawer), nameof(MainMenuDrawer.DoMainMenuControls))]
@@ -278,7 +247,7 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(WorldGrid))]
+    [HarmonyPatch(typeof(WorldGrid), MethodType.Constructor)]
     public static class WorldGridCtorPatch
     {
         public static WorldGrid copyFrom;
@@ -308,7 +277,7 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(WorldRenderer))]
+    [HarmonyPatch(typeof(WorldRenderer), MethodType.Constructor)]
     public static class WorldRendererCtorPatch
     {
         public static WorldRenderer copyFrom;
@@ -823,7 +792,7 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(Dialog_BillConfig))]
+    [HarmonyPatch(typeof(Dialog_BillConfig), MethodType.Constructor)]
     [HarmonyPatch(new[] { typeof(Bill_Production), typeof(IntVec3) })]
     public static class DialogPatch
     {
@@ -902,7 +871,7 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(WindowStack))]
-    [HarmonyPatch(nameof(WindowStack.WindowsForcePause), PropertyMethod.Getter)]
+    [HarmonyPatch(nameof(WindowStack.WindowsForcePause), MethodType.Getter)]
     public static class WindowsPausePatch
     {
         static void Postfix(ref bool __result)
@@ -977,7 +946,7 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(Rand))]
-    [HarmonyPatch(nameof(Rand.Seed), PropertyMethod.Setter)]
+    [HarmonyPatch(nameof(Rand.Seed), MethodType.Setter)]
     public static class RandSetSeedPatch
     {
         public static bool dontLog;
@@ -1026,7 +995,7 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(Pawn_DrawTracker))]
-    [HarmonyPatch(nameof(Pawn_DrawTracker.DrawPos), PropertyMethod.Getter)]
+    [HarmonyPatch(nameof(Pawn_DrawTracker.DrawPos), MethodType.Getter)]
     static class DrawPosPatch
     {
         // Give the root position when ticking
@@ -1098,7 +1067,7 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(TickManager))]
-    [HarmonyPatch(nameof(TickManager.TickRateMultiplier), PropertyMethod.Getter)]
+    [HarmonyPatch(nameof(TickManager.TickRateMultiplier), MethodType.Getter)]
     public static class TickRatePatch
     {
         static bool Prefix(TickManager __instance, ref float __result)
@@ -1180,7 +1149,7 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(KeyBindingDef))]
-    [HarmonyPatch(nameof(KeyBindingDef.IsDownEvent), PropertyMethod.Getter)]
+    [HarmonyPatch(nameof(KeyBindingDef.IsDownEvent), MethodType.Getter)]
     public static class KeyIsDownPatch
     {
         public static bool? result;
@@ -1265,7 +1234,7 @@ namespace Multiplayer.Client
         static void Postfix(ref string __result)
         {
             if (SetupQuickTestPatch.marker)
-                __result = "multiplayer";
+                __result = "multiplayer1";
         }
     }
 
@@ -1473,7 +1442,7 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(Log))]
-    [HarmonyPatch(nameof(Log.ReachedMaxMessagesLimit), PropertyMethod.Getter)]
+    [HarmonyPatch(nameof(Log.ReachedMaxMessagesLimit), MethodType.Getter)]
     static class LogMaxMessagesPatch
     {
         static void Postfix(ref bool __result)
@@ -1484,7 +1453,7 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(TutorSystem))]
-    [HarmonyPatch(nameof(TutorSystem.AdaptiveTrainingEnabled), PropertyMethod.Getter)]
+    [HarmonyPatch(nameof(TutorSystem.AdaptiveTrainingEnabled), MethodType.Getter)]
     static class DisableAdaptiveLearningPatch
     {
         static void Postfix(ref bool __result)
@@ -1515,7 +1484,7 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(LongEventHandler.QueuedLongEvent))]
-    [HarmonyPatch(nameof(LongEventHandler.QueuedLongEvent.UseStandardWindow), PropertyMethod.Getter)]
+    [HarmonyPatch(nameof(LongEventHandler.QueuedLongEvent.UseStandardWindow), MethodType.Getter)]
     static class ShowStandardWindow
     {
         static void Postfix(LongEventHandler.QueuedLongEvent __instance, ref bool __result)
@@ -1610,8 +1579,7 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(GlowGrid))]
-    [HarmonyPatch(new[] { typeof(Map) })]
+    [HarmonyPatch(typeof(GlowGrid), MethodType.Constructor, new[] { typeof(Map) })]
     static class GlowGridCtorPatch
     {
         static void Postfix(GlowGrid __instance)

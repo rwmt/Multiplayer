@@ -24,10 +24,11 @@ namespace Multiplayer.Client
 
     public static class DesignatorPatches
     {
-        [IndexedPatchParameters]
-        public static bool DesignateSingleCell(Designator designator, IntVec3 cell)
+        public static bool DesignateSingleCell(Designator __instance, [HarmonyArgument(0)] IntVec3 cell)
         {
             if (!Multiplayer.ShouldSync) return true;
+
+            Designator designator = __instance;
 
             Map map = Find.CurrentMap;
             LoggingByteWriter writer = new LoggingByteWriter();
@@ -42,13 +43,14 @@ namespace Multiplayer.Client
             return false;
         }
 
-        [IndexedPatchParameters]
-        public static bool DesignateMultiCell(Designator designator, IEnumerable<IntVec3> cells)
+        public static bool DesignateMultiCell(Designator __instance, [HarmonyArgument(0)] IEnumerable<IntVec3> cells)
         {
             if (!Multiplayer.ShouldSync) return true;
 
             // No cells implies Finalize(false), which currently doesn't cause side effects
             if (cells.Count() == 0) return true;
+
+            Designator designator = __instance;
 
             Map map = Find.CurrentMap;
             LoggingByteWriter writer = new LoggingByteWriter();
@@ -64,10 +66,11 @@ namespace Multiplayer.Client
             return false;
         }
 
-        [IndexedPatchParameters]
-        public static bool DesignateThing(Designator designator, Thing thing)
+        public static bool DesignateThing(Designator __instance, [HarmonyArgument(0)] Thing thing)
         {
             if (!Multiplayer.ShouldSync) return true;
+
+            Designator designator = __instance;
 
             Map map = Find.CurrentMap;
             LoggingByteWriter writer = new LoggingByteWriter();
@@ -117,7 +120,7 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(Designator_Install))]
-    [HarmonyPatch(nameof(Designator_Install.MiniToInstallOrBuildingToReinstall), PropertyMethod.Getter)]
+    [HarmonyPatch(nameof(Designator_Install.MiniToInstallOrBuildingToReinstall), MethodType.Getter)]
     public static class DesignatorInstallPatch
     {
         public static Thing thingToInstall;
@@ -130,7 +133,7 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(Game))]
-    [HarmonyPatch(nameof(Game.CurrentMap), PropertyMethod.Getter)]
+    [HarmonyPatch(nameof(Game.CurrentMap), MethodType.Getter)]
     public static class CurrentMapGetPatch
     {
         public static Map currentMap;
@@ -143,7 +146,7 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(Game))]
-    [HarmonyPatch(nameof(Game.CurrentMap), PropertyMethod.Setter)]
+    [HarmonyPatch(nameof(Game.CurrentMap), MethodType.Setter)]
     [HarmonyPriority(Priority.First)]
     public static class CurrentMapSetPatch
     {
