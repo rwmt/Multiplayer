@@ -122,10 +122,6 @@ namespace Multiplayer.Client
         {
             CSteamID remoteId = Multiplayer.session.pendingSteam[index];
 
-            IConnection conn = new SteamConnection(remoteId);
-            conn.State = ConnectionStateEnum.ServerSteam;
-            Multiplayer.LocalServer.Enqueue(() => Multiplayer.LocalServer.OnConnected(conn));
-
             SteamNetworking.AcceptP2PSessionWithUser(remoteId);
             Multiplayer.session.pendingSteam.RemoveAt(index);
         }

@@ -166,7 +166,7 @@ namespace Multiplayer.Common
             queue.Enqueue(action);
         }
 
-        public void OnConnected(IConnection conn)
+        public ServerPlayer OnConnected(IConnection conn)
         {
             if (conn.serverPlayer != null)
                 MpLog.Error($"Connection {conn} already has a server player");
@@ -174,6 +174,8 @@ namespace Multiplayer.Common
             conn.serverPlayer = new ServerPlayer(conn);
             players.Add(conn.serverPlayer);
             MpLog.Log($"New connection: {conn}");
+
+            return conn.serverPlayer;
         }
 
         public void OnDisconnected(IConnection conn)

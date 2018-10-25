@@ -14,6 +14,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Reflection;
+using System.Reflection.Emit;
 using System.Threading;
 using System.Xml;
 using UnityEngine;
@@ -196,9 +197,12 @@ namespace Multiplayer.Client
 
                 if (LocalServer == null) return;
 
-                ServerPlayer player = LocalServer.FindPlayer(p => p.conn is SteamConnection conn && conn.remoteId == remoteId);
-                if (player != null)
-                    LocalServer.Enqueue(() => LocalServer.OnDisconnected(player.conn));
+                LocalServer.Enqueue(() =>
+                {
+                    ServerPlayer player = LocalServer.FindPlayer(p => p.conn is SteamConnection conn && conn.remoteId == remoteId);
+                    if (player != null)
+                        LocalServer.OnDisconnected(player.conn);
+                });
             });
         }
 
@@ -819,9 +823,19 @@ namespace Multiplayer.Client
 
             if (Multiplayer.LocalServer == null) return;
 
-            ServerPlayer player = Multiplayer.LocalServer.FindPlayer(p => p.conn is SteamConnection conn && conn.remoteId == remote);
-            if (player != null)
-                Multiplayer.LocalServer.Enqueue(() => player.HandleReceive(data));
+            Multiplayer.LocalServer.Enqueue(() =>
+            {
+                ServerPlayer player = Multiplayer.LocalServer.FindPlayer(p => p.conn is SteamConnection conn && conn.remoteId == remote);
+
+                if (player == null)
+                {
+                    IConnection conn = new SteamConnection(remote);
+                    conn.State = ConnectionStateEnum.ServerSteam;
+                    player = Multiplayer.LocalServer.OnConnected(conn);
+                }
+
+                player.HandleReceive(data);
+            });
         }
 
         private void UpdateSync()
