@@ -263,7 +263,6 @@ namespace Multiplayer.Client
 
         public void Disconnected()
         {
-            Find.TickManager.CurTimeSpeed = TimeSpeed.Paused;
             Find.WindowStack.Add(new DisconnectedWindow(Multiplayer.session.disconnectServerReason ?? Multiplayer.session.disconnectNetReason));
         }
     }
@@ -340,7 +339,7 @@ namespace Multiplayer.Client
                         if (window is IConnectionStatusListener listener)
                             yield return listener;
 
-                if (Multiplayer.Client.StateObj is IConnectionStatusListener state)
+                if (Multiplayer.Client?.StateObj is IConnectionStatusListener state)
                     yield return state;
             }
         }

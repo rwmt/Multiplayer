@@ -1540,8 +1540,11 @@ namespace Multiplayer.Client
         {
             List<CodeInstruction> insts = new List<CodeInstruction>(e);
 
-            insts.Insert(insts.Count - 1, new CodeInstruction(OpCodes.Ldloc_2));
-            insts.Insert(insts.Count - 1, new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(GenerateNewPawnInternalPatch), nameof(Unshuffle)).MakeGenericMethod(typeof(NameTriple))));
+            insts.Insert(
+                insts.Count - 1, 
+                new CodeInstruction(OpCodes.Ldloc_2),
+                new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(GenerateNewPawnInternalPatch), nameof(Unshuffle)).MakeGenericMethod(typeof(NameTriple)))
+            );
 
             return insts;
         }

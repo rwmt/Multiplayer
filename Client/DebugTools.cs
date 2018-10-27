@@ -1,14 +1,13 @@
 ﻿using Harmony;
-using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
+using System.Reflection.Emit;
 using Verse;
 
 namespace Multiplayer.Client
 {
-    [HarmonyPatch(typeof(Dialog_DebugActionsMenu), nameof(Dialog_DebugActionsMenu.DoListingItems))]
+    [MpPatch(typeof(Dialog_DebugActionsMenu), nameof(Dialog_DebugActionsMenu.DoListingItems))]
     static class DebugToolsListing_Patch
     {
         static void Postfix(Dialog_DebugActionsMenu __instance)
@@ -51,4 +50,52 @@ namespace Multiplayer.Client
             File.WriteAllBytes($"map_0_{Multiplayer.username}.xml", mapData);
         }
     }
+
+    [MpPatch(typeof(DebugWindowsOpener), nameof(DebugWindowsOpener.DevToolStarterOnGUI))]
+    static class AddDebugButtonPatch
+    {
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+        {
+            bool found = false;
+
+            foreach (CodeInstruction inst in insts)
+            {
+                if (!found && inst.opcode == OpCodes.Stloc_1)
+                {
+                    yield return new CodeInstruction(OpCodes.Ldc_I4_1);
+                    yield return new CodeInstruction(OpCodes.Add);
+                    found = true;
+                }
+
+                yield return inst;
+            }
+        }
+    }
+
+    [MpPatch(typeof(DebugWindowsOpener), nameof(DebugWindowsOpener.DrawButtons))]
+    static class DebugButtonsPatch
+    {
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+        {
+            var list = new List<CodeInstruction>(insts);
+
+            var labels = list.Last().labels;
+            list.RemoveLast();
+
+            list.Add(
+                new CodeInstruction(OpCodes.Ldloc_0) { labels = labels },
+                new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(DebugButtonsPatch), nameof(Draw))),
+                new CodeInstruction(OpCodes.Ret)
+            );
+
+            return list;
+        }
+
+        static void Draw(WidgetRow row)
+        {
+            if (row.ButtonIcon(TexButton.Paste, "Hot swap."))
+                HotSwap.DoHotSwap();
+        }
+    }
+
 }

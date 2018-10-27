@@ -126,10 +126,10 @@ namespace Multiplayer.Client
 
             harmony.DoAllMpPatches();
 
-            SyncHandlers.Init();
-            Sync.RegisterAllSyncMethods();
+            //SyncHandlers.Init();
+            //Sync.RegisterAllSyncMethods();
 
-            DoPatches();
+            //DoPatches();
 
             Log.messageQueue.maxMessages = 1000;
 
@@ -649,6 +649,11 @@ namespace Multiplayer.Client
                     foreach (Type t in mod.assemblies.loadedAssemblies[i].GetTypes())
                         yield return t;
         }
+    }
+
+    public class Replay
+    {
+        public int sessionId;
     }
 
     public class MultiplayerSession

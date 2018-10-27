@@ -14,6 +14,8 @@ using Verse.Steam;
 
 namespace Multiplayer.Client
 {
+    [StaticConstructorOnStartup]
+    [HotSwappable]
     public class ServerBrowser : Window
     {
         private NetManager net;
@@ -36,7 +38,6 @@ namespace Multiplayer.Client
             net = new NetManager(listener);
             net.DiscoveryEnabled = true;
             net.ReuseAddress = true;
-            net.UpdateTime = 500;
             net.Start(5100);
 
             doCloseX = true;
@@ -45,11 +46,12 @@ namespace Multiplayer.Client
 
         private Vector2 lanScroll;
         private Vector2 steamScroll;
+        private Vector2 hostScroll;
         private Tabs tab;
 
         enum Tabs
         {
-            Lan, Direct, Steam, Replays
+            Lan, Direct, Steam, Host
         }
 
         public override void DoWindowContents(Rect inRect)
@@ -59,7 +61,7 @@ namespace Multiplayer.Client
                 new TabRecord("LAN", () => tab = Tabs.Lan,  tab == Tabs.Lan),
                 new TabRecord("Direct", () => tab = Tabs.Direct, tab == Tabs.Direct),
                 new TabRecord("Steam", () => tab = Tabs.Steam, tab == Tabs.Steam),
-                new TabRecord("Replays", () => tab = Tabs.Replays, tab == Tabs.Replays),
+                new TabRecord("Host", () => tab = Tabs.Host, tab == Tabs.Host),
             };
 
             inRect.yMin += 35f;
@@ -75,10 +77,112 @@ namespace Multiplayer.Client
                     DrawDirect(groupRect);
                 else if (tab == Tabs.Steam)
                     DrawSteam(groupRect);
-                //else if (tab == Tabs.Replays)
-                    //Multiplayer.LoadReplay();
+                else if (tab == Tabs.Host)
+                    DrawHost(groupRect);
             }
             GUI.EndGroup();
+        }
+
+        private bool mpCollapsed, spCollapsed;
+        private float hostHeight;
+        private static Texture2D WatchReplay = ContentFinder<Texture2D>.Get("Multiplayer/film-strip");
+        private static Texture2D HostReplay = ContentFinder<Texture2D>.Get("Multiplayer/gamepad");
+
+        private void DrawHost(Rect inRect)
+        {
+            inRect.y += 8;
+
+            float margin = 80;
+            Rect outRect = new Rect(margin, inRect.yMin + 10, inRect.width - 2 * margin, inRect.height - 20);
+            Rect viewRect = new Rect(0, 0, outRect.width - 16f, hostHeight);
+
+            Widgets.BeginScrollView(outRect, ref hostScroll, viewRect, true);
+
+            Rect collapseRect = new Rect(0, 4f, 18f, 18f);
+            if (Widgets.ButtonImage(collapseRect, mpCollapsed ? TexButton.Reveal : TexButton.Collapse))
+                mpCollapsed = !mpCollapsed;
+
+            float y = 0;
+            Text.Font = GameFont.Medium;
+            float textHeight1 = Text.CalcHeight("Multiplayer", inRect.width);
+            Widgets.Label(viewRect.Right(18f), "Multiplayer");
+            Text.Font = GameFont.Small;
+            y += textHeight1 + 10;
+
+            if (!mpCollapsed)
+                DrawSaveList(viewRect.width, ref y);
+
+            y += 10;
+
+            collapseRect.y += y;
+
+            if (Widgets.ButtonImage(collapseRect, spCollapsed ? TexButton.Reveal : TexButton.Collapse))
+                spCollapsed = !spCollapsed;
+
+            viewRect.y = y;
+            Text.Font = GameFont.Medium;
+            float textHeight2 = Text.CalcHeight("Singeplayer", inRect.width);
+            Widgets.Label(viewRect.Right(18), "Singeplayer");
+            Text.Font = GameFont.Small;
+            y += textHeight2 + 10;
+
+            if (!spCollapsed)
+                DrawSaveList(viewRect.width, ref y, false);
+
+            if (Event.current.type == EventType.layout)
+                hostHeight = y;
+
+            Widgets.EndScrollView();
+        }
+
+        private void DrawSaveList(float width, ref float y, bool watch = true, bool host = true)
+        {
+            for (int i = 0; i < 10; i++)
+            {
+                Rect entryRect = new Rect(0, y, width, 40);
+
+                if (i % 2 == 0)
+                    Widgets.DrawAltRect(entryRect);
+
+                Text.Anchor = TextAnchor.MiddleLeft;
+                Widgets.Label(entryRect.Right(10), $"Replay");
+                Text.Anchor = TextAnchor.UpperLeft;
+
+                var buttonRect = new Rect(entryRect.xMax - 10 - 32, y + 4, 32, 32);
+
+                if (host)
+                {
+                    ButtonImage(buttonRect, HostReplay, Color.white, new Vector2(24f, 24f));
+                    TooltipHandler.TipRegion(buttonRect, "Host and continue");
+                    buttonRect.x -= 32 + 5;
+                }
+
+                if (watch)
+                {
+                    ButtonImage(buttonRect, WatchReplay, Color.white, new Vector2(22f, 22f));
+                    TooltipHandler.TipRegion(buttonRect, "Watch");
+                }
+
+                y += 40;
+            }
+        }
+
+        private bool ButtonImage(Rect rect, Texture2D image, Color imageColor, Vector2? imageSize)
+        {
+            bool result = Widgets.ButtonText(rect, string.Empty, true, false, true);
+            Rect position;
+            if (imageSize != null)
+                position = new Rect(Mathf.Floor(rect.x + rect.width / 2f - imageSize.Value.x / 2f), Mathf.Floor(rect.y + rect.height / 2f - imageSize.Value.y / 2f), imageSize.Value.x, imageSize.Value.y);
+            else
+                position = rect;
+
+            GUI.color = Color.black;
+            GUI.DrawTexture(position.Down(1).Right(1), image);
+            GUI.color = imageColor;
+            GUI.DrawTexture(position, image);
+            GUI.color = Color.white;
+
+            return result;
         }
 
         private List<SteamPersona> friends = new List<SteamPersona>();
@@ -129,8 +233,6 @@ namespace Multiplayer.Client
                 Widgets.Label(entryRect.Right(45).Down(8), "Playing RimWorld");
                 Text.Font = GameFont.Small;
                 GUI.color = Color.white;
-
-                Text.Anchor = TextAnchor.UpperLeft;
 
                 Text.Anchor = TextAnchor.MiddleCenter;
 
