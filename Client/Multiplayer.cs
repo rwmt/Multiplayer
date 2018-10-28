@@ -86,7 +86,6 @@ namespace Multiplayer.Client
         public static AppId_t RimWorldAppId;
 
         public const string SteamConnectStart = " -mpserver=";
-        public const string CurrentMapIndexXmlKey = "currentMapIndex";
 
         static Multiplayer()
         {
@@ -126,10 +125,10 @@ namespace Multiplayer.Client
 
             harmony.DoAllMpPatches();
 
-            //SyncHandlers.Init();
-            //Sync.RegisterAllSyncMethods();
+            SyncHandlers.Init();
+            Sync.RegisterAllSyncMethods();
 
-            //DoPatches();
+            DoPatches();
 
             Log.messageQueue.maxMessages = 1000;
 
@@ -233,7 +232,7 @@ namespace Multiplayer.Client
 
             XmlDocument SaveGame()
             {
-                SaveCompression.doSaveCompression = true;
+                //SaveCompression.doSaveCompression = true;
 
                 ScribeUtil.StartWritingToDoc();
 
@@ -241,7 +240,7 @@ namespace Multiplayer.Client
                 ScribeMetaHeaderUtility.WriteMetaHeader();
                 Scribe.EnterNode("game");
                 int currentMapIndex = Current.Game.currentMapIndex;
-                Scribe_Values.Look(ref currentMapIndex, CurrentMapIndexXmlKey, -1);
+                Scribe_Values.Look(ref currentMapIndex, "currentMapIndex", -1);
                 Current.Game.ExposeSmallComponents();
                 World world = Current.Game.World;
                 Scribe_Deep.Look(ref world, "world");
@@ -282,7 +281,7 @@ namespace Multiplayer.Client
 
             watch.Restart();
 
-            SaveCompression.doSaveCompression = true;
+            //SaveCompression.doSaveCompression = true;
             LoadPatch.gameToLoad = gameDoc;
 
             MapDrawerRegenPatch.copyFrom = drawers;
@@ -357,44 +356,43 @@ namespace Multiplayer.Client
             return gameDoc;
         }
 
-        public static void CacheAndSendGameData(XmlDocument doc, bool sendGame = true)
+        public static void CacheAndSendGameData(XmlDocument doc)
         {
             XmlNode gameNode = doc.DocumentElement["game"];
             XmlNode mapsNode = gameNode["maps"];
 
+            var mapsData = new Dictionary<int, byte[]>();
+
             foreach (XmlNode mapNode in mapsNode)
             {
                 int id = int.Parse(mapNode["uniqueID"].InnerText);
-                OnMainThread.cachedMapData[id] = ScribeUtil.XmlToByteArray(mapNode);
+                byte[] mapData = ScribeUtil.XmlToByteArray(mapNode);
+                OnMainThread.cachedMapData[id] = mapData;
+                mapsData[id] = mapData;
             }
 
-            string nonPlayerMaps = "li[components/li/@Class='Multiplayer.Client.MultiplayerMapComp' and components/li/isPlayerHome='False']";
-            //mapsNode.SelectAndRemove(nonPlayerMaps);
-
-            byte[] mapData = ScribeUtil.XmlToByteArray(mapsNode["li"], null, true);
-            File.WriteAllBytes("map_" + username + ".xml", mapData);
-            byte[] compressedMaps = GZipStream.CompressBuffer(mapData);
-            // todo send map id
-            Client.Send(Packets.Client_AutosavedData, 1, compressedMaps, 0);
-
-            gameNode[CurrentMapIndexXmlKey].RemoveFromParent();
+            gameNode["currentMapIndex"].RemoveFromParent();
             mapsNode.RemoveAll();
 
-            byte[] gameData = ScribeUtil.XmlToByteArray(doc, null, true);
+            byte[] gameData = ScribeUtil.XmlToByteArray(doc);
             OnMainThread.cachedGameData = gameData;
 
-            if (sendGame)
+            ThreadPool.QueueUserWorkItem(c =>
             {
-                File.WriteAllBytes("game.xml", gameData);
+                foreach (var mapData in mapsData)
+                {
+                    byte[] compressedMaps = GZipStream.CompressBuffer(mapData.Value);
+                    Client.Send(Packets.Client_AutosavedData, 1, compressedMaps, mapData.Key);
+                }
 
                 byte[] compressedGame = GZipStream.CompressBuffer(gameData);
                 Client.Send(Packets.Client_AutosavedData, 0, compressedGame);
-            }
+            });
         }
 
         private static void DoPatches()
         {
-            harmony.PatchAll(Assembly.GetExecutingAssembly());
+            harmony.PatchAll();
 
             // General designation handling
             {
@@ -524,6 +522,10 @@ namespace Multiplayer.Client
             }
         }
 
+        public static void AppendCurrentDataToReplay(int sessionId)
+        {
+        }
+
         private static string ReplayPath = Path.Combine(GenFilePaths.FolderUnderSaveData("MpReplays"), "Replay1.zip");
 
         public static void SaveReplay()
@@ -559,6 +561,7 @@ namespace Multiplayer.Client
         {
             session = new MultiplayerSession();
             session.client = new ReplayConnection();
+            session.client.State = ConnectionStateEnum.ClientPlaying;
             session.replay = true;
 
             LoadReplayFile();
@@ -679,14 +682,16 @@ namespace Multiplayer.Client
 
         public void Stop()
         {
-            if (netClient != null)
-                netClient.Stop();
+            client.State = ConnectionStateEnum.Disconnected;
 
             if (localServer != null)
             {
                 localServer.running = false;
                 serverThread.Join();
             }
+
+            if (netClient != null)
+                netClient.Stop();
         }
     }
 
@@ -897,10 +902,7 @@ namespace Multiplayer.Client
                 Multiplayer.session = null;
             }
 
-            if (Find.WindowStack != null)
-            {
-                Find.WindowStack.WindowOfType<ServerBrowser>()?.PostClose();
-            }
+            Find.WindowStack?.WindowOfType<ServerBrowser>()?.Cleanup(true);
 
             foreach (var entry in Sync.bufferedChanges)
                 entry.Value.Clear();

@@ -4,12 +4,14 @@ using RimWorld;
 using Steamworks;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
 using System.Threading;
 using UnityEngine;
 using Verse;
+using Verse.Profile;
 using Verse.Steam;
 
 namespace Multiplayer.Client
@@ -21,7 +23,7 @@ namespace Multiplayer.Client
         private NetManager net;
         private List<LanServer> servers = new List<LanServer>();
 
-        public override Vector2 InitialSize => new Vector2(600f, 400f);
+        public override Vector2 InitialSize => new Vector2(800f, 500f);
 
         public ServerBrowser()
         {
@@ -42,12 +44,14 @@ namespace Multiplayer.Client
 
             doCloseX = true;
             closeOnAccept = false;
+
+            ReloadSaves();
         }
 
         private Vector2 lanScroll;
         private Vector2 steamScroll;
         private Vector2 hostScroll;
-        private Tabs tab;
+        private static Tabs tab;
 
         enum Tabs
         {
@@ -83,6 +87,32 @@ namespace Multiplayer.Client
             GUI.EndGroup();
         }
 
+        class SaveFile
+        {
+            public FileInfo file;
+
+            public SaveFile(FileInfo file)
+            {
+                this.file = file;
+            }
+        }
+
+        private List<SaveFile> spSaves = new List<SaveFile>();
+        private List<SaveFile> mpReplays = new List<SaveFile>();
+
+        private void ReloadSaves()
+        {
+            foreach (FileInfo file in GenFilePaths.AllSavedGameFiles)
+                spSaves.Add(new SaveFile(file));
+
+            var replaysDir = new DirectoryInfo(GenFilePaths.FolderUnderSaveData("MpReplays"));
+            if (!replaysDir.Exists)
+                replaysDir.Create();
+
+            foreach (var file in replaysDir.GetFiles().Where(f => f.Extension == ".zip").OrderByDescending(f => f.LastWriteTime))
+                mpReplays.Add(new SaveFile(file));
+        }
+
         private bool mpCollapsed, spCollapsed;
         private float hostHeight;
         private static Texture2D WatchReplay = ContentFinder<Texture2D>.Get("Multiplayer/film-strip");
@@ -110,9 +140,10 @@ namespace Multiplayer.Client
             y += textHeight1 + 10;
 
             if (!mpCollapsed)
-                DrawSaveList(viewRect.width, ref y);
-
-            y += 10;
+            {
+                DrawSaveList(mpReplays, viewRect.width, ref y);
+                y += 25;
+            }
 
             collapseRect.y += y;
 
@@ -121,13 +152,13 @@ namespace Multiplayer.Client
 
             viewRect.y = y;
             Text.Font = GameFont.Medium;
-            float textHeight2 = Text.CalcHeight("Singeplayer", inRect.width);
-            Widgets.Label(viewRect.Right(18), "Singeplayer");
+            float textHeight2 = Text.CalcHeight("Singleplayer", inRect.width);
+            Widgets.Label(viewRect.Right(18), "Singleplayer");
             Text.Font = GameFont.Small;
             y += textHeight2 + 10;
 
             if (!spCollapsed)
-                DrawSaveList(viewRect.width, ref y, false);
+                DrawSaveList(spSaves, viewRect.width, ref y, false);
 
             if (Event.current.type == EventType.layout)
                 hostHeight = y;
@@ -135,26 +166,38 @@ namespace Multiplayer.Client
             Widgets.EndScrollView();
         }
 
-        private void DrawSaveList(float width, ref float y, bool watch = true, bool host = true)
+        private void DrawSaveList(List<SaveFile> saves, float width, ref float y, bool watch = true, bool host = true)
         {
-            for (int i = 0; i < 10; i++)
+            for (int i = 0; i < saves.Count; i++)
             {
+                var saveFile = saves[i];
+                var fileName = Path.GetFileNameWithoutExtension(saveFile.file.Name);
+
                 Rect entryRect = new Rect(0, y, width, 40);
 
                 if (i % 2 == 0)
                     Widgets.DrawAltRect(entryRect);
 
                 Text.Anchor = TextAnchor.MiddleLeft;
-                Widgets.Label(entryRect.Right(10), $"Replay");
+                Widgets.Label(entryRect.Right(10), fileName);
                 Text.Anchor = TextAnchor.UpperLeft;
 
                 var buttonRect = new Rect(entryRect.xMax - 10 - 32, y + 4, 32, 32);
 
                 if (host)
                 {
-                    ButtonImage(buttonRect, HostReplay, Color.white, new Vector2(24f, 24f));
+                    Widgets.ButtonImage(buttonRect, TexButton.DeleteX);
+                    TooltipHandler.TipRegion(buttonRect, "Delete");
+                    buttonRect.x -= 32 + 8;
+                }
+
+                if (host)
+                {
+                    if (ButtonImage(buttonRect, HostReplay, Color.white, new Vector2(22f, 22f)))
+                        HostFromSave(fileName);
+
                     TooltipHandler.TipRegion(buttonRect, "Host and continue");
-                    buttonRect.x -= 32 + 5;
+                    buttonRect.x -= 32 + 8;
                 }
 
                 if (watch)
@@ -165,6 +208,22 @@ namespace Multiplayer.Client
 
                 y += 40;
             }
+        }
+
+        private void HostFromSave(string fileName)
+        {
+            LongEventHandler.QueueLongEvent(() =>
+            {
+                MemoryUtility.ClearAllMapsAndWorld();
+                Current.Game = new Game();
+                Current.Game.InitData = new GameInitData();
+                Current.Game.InitData.gameToLoad = fileName;
+
+                LongEventHandler.ExecuteWhenFinished(() =>
+                {
+                    LongEventHandler.QueueLongEvent(() => HostWindow.HostServer(IPAddress.Any), "MpLoading", false, null);
+                });
+            }, "Play", "LoadingLongEvent", true, null);
         }
 
         private bool ButtonImage(Rect rect, Texture2D image, Color imageColor, Vector2? imageSize)
@@ -404,7 +463,17 @@ namespace Multiplayer.Client
 
         public override void PostClose()
         {
-            ThreadPool.QueueUserWorkItem(s => net.Stop());
+            Cleanup();
+        }
+
+        public void Cleanup(bool onMainThread = false)
+        {
+            WaitCallback stop = s => net.Stop();
+
+            if (onMainThread)
+                stop(null);
+            else
+                ThreadPool.QueueUserWorkItem(stop);
         }
 
         private void AddOrUpdate(IPEndPoint endpoint)

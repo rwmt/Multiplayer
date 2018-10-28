@@ -90,8 +90,8 @@ namespace Multiplayer.Client
                     XmlNode mapNode = gameDoc.ReadNode(reader);
                     gameNode["maps"].AppendChild(mapNode);
 
-                    if (gameNode[Multiplayer.CurrentMapIndexXmlKey] == null)
-                        gameNode.AddNode(Multiplayer.CurrentMapIndexXmlKey, map.ToString());
+                    if (gameNode["currentMapIndex"] == null)
+                        gameNode.AddNode("currentMapIndex", map.ToString());
                 }
             }
 
@@ -183,10 +183,8 @@ namespace Multiplayer.Client
         [PacketHandler(Packets.Server_Chat)]
         public void HandleChat(ByteReader data)
         {
-            string username = data.ReadString();
             string msg = data.ReadString();
-
-            Multiplayer.Chat.AddMsg(username + ": " + msg);
+            Multiplayer.Chat.AddMsg(msg);
         }
 
         [PacketHandler(Packets.Server_MapResponse)]
@@ -212,6 +210,8 @@ namespace Multiplayer.Client
         public void HandleNotification(ByteReader data)
         {
             string msg = data.ReadString();
+            string[] keys = data.ReadPrefixedStrings();
+
             Messages.Message(msg, MessageTypeDefOf.SilentInput, false);
         }
 

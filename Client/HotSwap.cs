@@ -54,6 +54,8 @@ namespace Multiplayer.Client
         private static Dictionary<MethodBase, DynamicMethod> dynMethods = new Dictionary<MethodBase, DynamicMethod>();
         private static int count;
 
+        private static MethodInfo AddRef = AccessTools.Method(typeof(DynamicMethod), "AddRef");
+
         public static void DoHotSwap()
         {
             var asms = AssemblyFiles.Where(kv => kv.Key.GetTypes().Any(t => t.HasAttribute<HotSwappableAttribute>()));
@@ -109,7 +111,7 @@ namespace Multiplayer.Client
                                     case dnlib.DotNet.Emit.OperandType.InlineSig:
                                         pos += inst.OpCode.Size;
                                         object refe = TranslateRef(module, inst.Operand);
-                                        int token = replacement.AddRef(refe);
+                                        int token = (int)AddRef.Invoke(replacement, new[] { refe });
                                         newCode[pos++] = (byte)(token & 255);
                                         newCode[pos++] = (byte)(token >> 8 & 255);
                                         newCode[pos++] = (byte)(token >> 16 & 255);
@@ -121,9 +123,11 @@ namespace Multiplayer.Client
                                 }
                             }
 
-                            ilGen.code = newCode;
+                            // todo convert to reflection
+
+                            /*ilGen.code = newCode;
                             ilGen.code_len = newCode.Length;
-                            ilGen.max_stack = methodBody.MaxStack;
+                            ilGen.max_stack = methodBody.MaxStack;*/
 
                             foreach (var ex in methodBody.ExceptionHandlers)
                             {
@@ -142,7 +146,9 @@ namespace Multiplayer.Client
                                 else if (ex.FilterStart != null)
                                     filterOffset = (int)ex.FilterStart.Offset;
 
-                                if (ilGen.ex_handlers == null)
+                                // todo convert to reflection
+
+                                /*if (ilGen.ex_handlers == null)
                                     ilGen.ex_handlers = new ILExceptionInfo[0];
 
                                 ILExceptionInfo exInfo = ilGen.ex_handlers.FirstOrDefault(e => e.start == start && e.len == len);
@@ -163,7 +169,7 @@ namespace Multiplayer.Client
                                     len = handlerLen,
                                     extype = catchType,
                                     filter_offset = filterOffset
-                                });
+                                });*/
                             }
 
                             DynamicTools.PrepareDynamicMethod(replacement);

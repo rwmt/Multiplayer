@@ -24,7 +24,6 @@ namespace Multiplayer.Common
 
         public int coopFactionId;
         public byte[] savedGame; // Compressed game save
-        public Dictionary<int, int> mapTiles = new Dictionary<int, int>(); // World tile to map id
         public Dictionary<int, byte[]> mapData = new Dictionary<int, byte[]>(); // Map id to compressed map data
         public Dictionary<int, List<byte[]>> mapCmds = new Dictionary<int, List<byte[]>>(); // Map id to serialized cmds list
         public List<byte[]> globalCmds = new List<byte[]>(); // Serialized global cmds
@@ -33,15 +32,17 @@ namespace Multiplayer.Common
         public List<ServerPlayer> players = new List<ServerPlayer>();
         private IEnumerable<ServerPlayer> PlayingPlayers => players.Where(p => p.IsPlaying);
 
+        public string hostUsername;
         public int timer;
         public ActionQueue queue = new ActionQueue();
-        public string host;
         public string saveFolder;
         public string worldId;
         public IPAddress addr;
         public int port;
         public volatile bool running = true;
         public volatile bool allowLan;
+
+        private Dictionary<string, ChatCmdHandler> chatCmds = new Dictionary<string, ChatCmdHandler>();
 
         public int keepAliveId;
         public Stopwatch lastKeepAlive = Stopwatch.StartNew();
@@ -54,6 +55,9 @@ namespace Multiplayer.Common
         {
             this.addr = addr;
             this.port = port;
+
+            RegisterChatCmd("autosave", new ChatCmdAutosave());
+            RegisterChatCmd("kick", new ChatCmdKick());
 
             StartNet();
         }
@@ -116,6 +120,10 @@ namespace Multiplayer.Common
 
                 Thread.Sleep(10);
             }
+
+            SendToAll(Packets.Server_DisconnectReason, new[] { "MpServerClosed" });
+            foreach (var peer in server.GetPeers(ConnectionState.Connected))
+                peer.Flush();
 
             server.Stop();
         }
@@ -193,13 +201,13 @@ namespace Multiplayer.Common
                     SendCommand(CommandType.FactionOffline, ScheduledCommand.NoFaction, ScheduledCommand.Global, data);
                 }
 
-                SendToAll(Packets.Server_Notification, new object[] { "Player " + conn.username + " disconnected." });
+                SendNotification("MpPlayerDisonnected", conn.username);
                 UpdatePlayerList();
             }
 
             conn.State = ConnectionStateEnum.Disconnected;
 
-            MpLog.Log($"Disconnected: " + conn);
+            MpLog.Log($"Disconnected: {conn}");
         }
 
         public void SendToAll(Packets id)
@@ -235,7 +243,7 @@ namespace Multiplayer.Common
         {
             int blockStart = nextUniqueId;
             nextUniqueId = nextUniqueId + blockSize;
-            MpLog.Log("New id block " + blockStart + " of size " + blockSize);
+            MpLog.Log($"New id block {blockStart} of size {blockSize}");
 
             return new IdBlock(blockStart, blockSize);
         }
@@ -261,6 +269,22 @@ namespace Multiplayer.Common
                 );
             }
         }
+
+        public void SendNotification(string text, params string[] keys)
+        {
+            SendToAll(Packets.Server_Notification, new object[] { text, keys });
+        }
+
+        public void RegisterChatCmd(string cmdName, ChatCmdHandler handler)
+        {
+            chatCmds[cmdName] = handler;
+        }
+
+        public ChatCmdHandler GetCmdHandler(string cmdName)
+        {
+            chatCmds.TryGetValue(cmdName, out ChatCmdHandler handler);
+            return handler;
+        }
     }
 
     public class ServerPlayer
@@ -271,6 +295,7 @@ namespace Multiplayer.Common
         public int Latency => conn.Latency;
         public int FactionId => MultiplayerServer.instance.playerFactions[Username];
         public bool IsPlaying => conn.State == ConnectionStateEnum.ServerPlaying;
+        public bool IsHost => MultiplayerServer.instance.hostUsername == Username;
 
         public ServerPlayer(IConnection connection)
         {
@@ -299,6 +324,16 @@ namespace Multiplayer.Common
 
             conn.Close();
             MultiplayerServer.instance.OnDisconnected(conn);
+        }
+
+        public void SendChat(string msg)
+        {
+            SendPacket(Packets.Server_Chat, new[] { msg });
+        }
+
+        public void SendPacket(Packets packet, object[] data)
+        {
+            conn.Send(packet, data);
         }
     }
 

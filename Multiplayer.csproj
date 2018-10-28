@@ -47,8 +47,9 @@
       <HintPath>..\..\..\..\RimWorldWin64_Data\Managed\Assembly-CSharp_public.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="dnlib">
-      <HintPath>D:\Programowanie\DnSpyDev\dnSpy_build\dnlib.dll</HintPath>
+    <Reference Include="dnlib, Version=3.0.0.0, Culture=neutral, PublicKeyToken=50e96378b6e77999, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\..\dnlib.dll</HintPath>
     </Reference>
     <Reference Include="Ionic.Zip.Reduced, Version=1.9.1.8, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c, processorArchitecture=MSIL">
       <HintPath>packages\DotNetZip.Reduced.1.9.1.8\lib\net20\Ionic.Zip.Reduced.dll</HintPath>
@@ -58,10 +59,6 @@
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\..\Assemblies\LiteNetLib.dll</HintPath>
       <Private>True</Private>
-    </Reference>
-    <Reference Include="mscorlib_public">
-      <HintPath>..\..\..\..\RimWorldWin64_Data\Managed\mscorlib_public.dll</HintPath>
-      <Private>False</Private>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Xml" />
@@ -96,6 +93,7 @@
     <Compile Include="Client\Trading.cs" />
     <Compile Include="Client\TradingUI.cs" />
     <Compile Include="Client\VanillaTweaks.cs" />
+    <Compile Include="Common\ChatCommands.cs" />
     <Compile Include="Common\MpLog.cs" />
     <Compile Include="Client\ClientNetworking.cs" />
     <Compile Include="Common\Commands.cs" />

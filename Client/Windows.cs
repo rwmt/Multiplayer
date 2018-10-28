@@ -173,7 +173,9 @@ namespace Multiplayer.Client
         {
             ip = Widgets.TextField(new Rect(0, 15f, inRect.width, 35f), ip);
 
-            if (Widgets.ButtonText(new Rect((inRect.width - 100f) / 2f, inRect.height - 35f, 100f, 35f), "Host") && IPAddress.TryParse(ip, out IPAddress ipAddr))
+            var buttonRect = new Rect((inRect.width - 100f) / 2f, inRect.height - 35f, 100f, 35f);
+
+            if (Widgets.ButtonText(buttonRect, "Host") && IPAddress.TryParse(ip, out IPAddress ipAddr))
             {
                 try
                 {
@@ -188,25 +190,31 @@ namespace Multiplayer.Client
             }
         }
 
-        private void HostServer(IPAddress addr)
+        public static void HostServer(IPAddress addr)
         {
             MpLog.Log("Starting a server");
 
             MultiplayerWorldComp comp = Find.World.GetComponent<MultiplayerWorldComp>();
-            Faction dummyFaction = new Faction() { loadID = -1, def = Multiplayer.dummyFactionDef };
+            Faction dummyFaction = Find.FactionManager.AllFactions.FirstOrDefault(f => f.loadID == -1);
 
-            foreach (Faction other in Find.FactionManager.AllFactionsListForReading)
-                dummyFaction.TryMakeInitialRelationsWith(other);
+            if (dummyFaction == null)
+            {
+                dummyFaction = new Faction() { loadID = -1, def = Multiplayer.dummyFactionDef };
+
+                foreach (Faction other in Find.FactionManager.AllFactionsListForReading)
+                    dummyFaction.TryMakeInitialRelationsWith(other);
+
+                Find.FactionManager.Add(dummyFaction);
+            }
 
             Faction.OfPlayer.Name = Multiplayer.username + "'s faction";
 
             comp.factionData[Faction.OfPlayer.loadID] = FactionWorldData.FromCurrent();
             comp.factionData[dummyFaction.loadID] = FactionWorldData.New(dummyFaction.loadID);
 
-            Find.FactionManager.Add(dummyFaction);
-
             MultiplayerSession session = Multiplayer.session = new MultiplayerSession();
             MultiplayerServer localServer = new MultiplayerServer(addr);
+            localServer.hostUsername = Multiplayer.username;
             localServer.allowLan = true;
             localServer.coopFactionId = Faction.OfPlayer.loadID;
             MultiplayerServer.instance = localServer;
@@ -246,12 +254,7 @@ namespace Multiplayer.Client
             }
 
             Multiplayer.RealPlayerFaction = Faction.OfPlayer;
-
             localServer.playerFactions[Multiplayer.username] = Faction.OfPlayer.loadID;
-
-            foreach (Settlement settlement in Find.WorldObjects.Settlements)
-                if (settlement.HasMap)
-                    localServer.mapTiles[settlement.Tile] = settlement.Map.uniqueID;
 
             SetupLocalClient();
 
@@ -276,7 +279,7 @@ namespace Multiplayer.Client
             }, "MpSaving", false, null);
         }
 
-        private void SetupLocalClient()
+        private static void SetupLocalClient()
         {
             LocalClientConnection localClient = new LocalClientConnection(Multiplayer.username);
             LocalServerConnection localServerConn = new LocalServerConnection(Multiplayer.username);
@@ -291,7 +294,6 @@ namespace Multiplayer.Client
             localServerConn.serverPlayer = serverPlayer;
 
             Multiplayer.LocalServer.players.Add(serverPlayer);
-            Multiplayer.LocalServer.host = Multiplayer.username;
 
             Multiplayer.session.client = localClient;
         }

@@ -101,32 +101,14 @@ namespace Multiplayer.Client
 
             if (optList.Any(opt => opt.label == "ReviewScenario".Translate()))
             {
-                if (Multiplayer.LocalServer == null && Multiplayer.Client == null)
+                if (Multiplayer.session == null)
                 {
-                    optList.Insert(0, new ListableOption("Host a server", () =>
-                    {
-                        Find.WindowStack.Add(new HostWindow());
-                    }));
+                    optList.Insert(0, new ListableOption("Host a server", () => Find.WindowStack.Add(new HostWindow())));
                 }
 
                 if (Multiplayer.Client != null)
                 {
-                    optList.Insert(0, new ListableOption("Save replay", () =>
-                    {
-                        /*Stopwatch ticksStart = Stopwatch.StartNew();
-                        for (int i = 0; i < 1000; i++)
-                        {
-                            Find.TickManager.DoSingleTick();
-                        }
-                        Log.Message("1000 ticks took " + ticksStart.ElapsedMilliseconds + "ms (" + (ticksStart.ElapsedMilliseconds / 1000.0) + ")");
-                        */
-
-                        //Multiplayer.SendGameData(Multiplayer.SaveGame());
-
-                        //Multiplayer.LocalServer.Enqueue(() => Multiplayer.LocalServer.DoAutosave());
-
-                        Multiplayer.SaveReplay();
-                    }));
+                    optList.Insert(0, new ListableOption("Save replay", () => Multiplayer.SaveReplay()));
 
                     optList.RemoveAll(opt => opt.label == "Save".Translate() || opt.label == "LoadGame".Translate());
 
@@ -302,10 +284,10 @@ namespace Multiplayer.Client
 
         static bool Prefix()
         {
-            if (gameToLoad == null) return false;
+            if (gameToLoad == null) return true;
 
             bool prevCompress = SaveCompression.doSaveCompression;
-            SaveCompression.doSaveCompression = true;
+            //SaveCompression.doSaveCompression = true;
 
             ScribeUtil.StartLoading(gameToLoad);
             ScribeMetaHeaderUtility.LoadGameDataHeader(ScribeMetaHeaderUtility.ScribeHeaderMode.Map, false);
@@ -977,15 +959,15 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(Pawn_DrawTracker))]
-    [HarmonyPatch(nameof(Pawn_DrawTracker.DrawPos), MethodType.Getter)]
+    [HarmonyPatch(typeof(PawnTweener))]
+    [HarmonyPatch(nameof(PawnTweener.TweenedPos), MethodType.Getter)]
     static class DrawPosPatch
     {
-        // Give the root position when ticking
-        static void Postfix(Pawn_DrawTracker __instance, ref Vector3 __result)
+        // Give the root position during ticking
+        static void Postfix(PawnTweener __instance, ref Vector3 __result)
         {
             if (Multiplayer.Client == null || Multiplayer.ShouldSync) return;
-            __result = __result - __instance.tweener.TweenedPos + __instance.tweener.TweenedPosRoot();
+            __result = __instance.TweenedPosRoot();
         }
     }
 
@@ -1276,7 +1258,8 @@ namespace Multiplayer.Client
 
         static void Prefix(ListerFilthInHomeArea __instance)
         {
-            if (ignore) return;
+            if (Multiplayer.Client == null || ignore) return;
+
             ignore = true;
             foreach (FactionMapData data in __instance.map.MpComp().factionMapData.Values)
             {
@@ -1295,7 +1278,8 @@ namespace Multiplayer.Client
 
         static void Prefix(ListerFilthInHomeArea __instance, Filth f)
         {
-            if (ignore) return;
+            if (Multiplayer.Client == null || ignore) return;
+
             ignore = true;
             foreach (FactionMapData data in __instance.map.MpComp().factionMapData.Values)
             {
@@ -1314,7 +1298,8 @@ namespace Multiplayer.Client
 
         static void Prefix(ListerFilthInHomeArea __instance, Filth f)
         {
-            if (ignore) return;
+            if (Multiplayer.Client == null || ignore) return;
+
             ignore = true;
             foreach (FactionMapData data in __instance.map.MpComp().factionMapData.Values)
             {
@@ -1466,17 +1451,6 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(LongEventHandler.QueuedLongEvent))]
-    [HarmonyPatch(nameof(LongEventHandler.QueuedLongEvent.UseStandardWindow), MethodType.Getter)]
-    static class ShowStandardWindow
-    {
-        static void Postfix(LongEventHandler.QueuedLongEvent __instance, ref bool __result)
-        {
-            if (__instance.eventTextKey == "MpSimulating")
-                __result = true;
-        }
-    }
-
     [HarmonyPatch(typeof(Pawn_MeleeVerbs), nameof(Pawn_MeleeVerbs.TryGetMeleeVerb))]
     static class TryGetMeleeVerbPatch
     {
@@ -1518,15 +1492,6 @@ namespace Multiplayer.Client
         public SituationalThoughtHandler thoughtsForInterface;
     }
 
-    [HarmonyPatch(typeof(IncidentWorker_PawnsArrive), nameof(IncidentWorker_PawnsArrive.FactionCanBeGroupSource))]
-    static class FactionCanBeGroupSourcePatch
-    {
-        static void Postfix(Faction f, ref bool __result)
-        {
-            __result &= f.def.pawnGroupMakers?.Count > 0;
-        }
-    }
-
     [HarmonyPatch(typeof(Prefs), nameof(Prefs.RandomPreferredName))]
     static class PreferredNamePatch
     {
@@ -1541,7 +1506,7 @@ namespace Multiplayer.Client
             List<CodeInstruction> insts = new List<CodeInstruction>(e);
 
             insts.Insert(
-                insts.Count - 1, 
+                insts.Count - 1,
                 new CodeInstruction(OpCodes.Ldloc_2),
                 new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(GenerateNewPawnInternalPatch), nameof(Unshuffle)).MakeGenericMethod(typeof(NameTriple)))
             );

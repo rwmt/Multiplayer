@@ -13,8 +13,6 @@ namespace Multiplayer.Client
     [StaticConstructorOnStartup]
     public class ChatWindow : Window
     {
-        public const int MaxChatMsgLength = 128;
-
         public override Vector2 InitialSize => new Vector2(UI.screenWidth / 2f, UI.screenHeight / 2f);
 
         private static readonly Texture2D SelectedMsg = SolidColorMaterials.NewSolidColorTexture(new Color(0.17f, 0.17f, 0.17f, 0.85f));
@@ -25,7 +23,7 @@ namespace Multiplayer.Client
         private float messagesHeight;
         private List<ChatMsg> messages = new List<ChatMsg>();
         private string currentMsg = "";
-        private bool focused;
+        private bool hasBeenFocused;
 
         public string[] playerList = new string[0];
 
@@ -71,17 +69,7 @@ namespace Multiplayer.Client
             Widgets.Label(inRect, Multiplayer.Client != null ? "Connected" : "Not connected");
             inRect.yMin += 30f;
 
-            DrawList($"Players ({playerList.Length}):", playerList, ref inRect, ref playerListScroll, index =>
-            {
-                if (Multiplayer.LocalServer != null && Event.current.button == 1)
-                    Find.WindowStack.Add(new FloatMenu(new List<FloatMenuOption>()
-                    {
-                        new FloatMenuOption("Kick", () =>
-                        {
-                            // todo
-                        })
-                    }));
-            });
+            DrawList($"Players ({playerList.Length}):", playerList, ref inRect, ref playerListScroll);
 
             inRect.yMin += 10f;
 
@@ -157,7 +145,7 @@ namespace Multiplayer.Client
                 if (Mouse.IsOver(entryRect))
                 {
                     GUI.DrawTexture(entryRect, SelectedMsg);
-                    if (click != null && Event.current.type == EventType.MouseDown)
+                    if (click != null && Event.current.type == EventType.MouseUp)
                     {
                         click(i);
                         Event.current.Use();
@@ -188,7 +176,7 @@ namespace Multiplayer.Client
 
             GUI.SetNextControlName("chat_input");
             currentMsg = Widgets.TextField(textField, currentMsg);
-            currentMsg = currentMsg.Substring(0, Math.Min(currentMsg.Length, MaxChatMsgLength));
+            currentMsg = currentMsg.Substring(0, Math.Min(currentMsg.Length, ServerPlayingState.MaxChatMsgLength));
 
             Widgets.BeginScrollView(outRect, ref chatScroll, viewRect);
 
@@ -240,20 +228,20 @@ namespace Multiplayer.Client
             if (Event.current.type == EventType.mouseDown && !GUI.GetNameOfFocusedControl().NullOrEmpty())
                 UI.UnfocusCurrentControl();
 
-            if (!focused)
+            if (!hasBeenFocused)
             {
                 GUI.FocusControl("chat_input");
                 TextEditor editor = (TextEditor)GUIUtility.GetStateObject(typeof(TextEditor), GUIUtility.keyboardControl);
                 editor.OnFocus();
                 editor.MoveTextEnd();
-                focused = true;
+                hasBeenFocused = true;
             }
         }
 
         public override void PreOpen()
         {
             base.PreOpen();
-            focused = false;
+            hasBeenFocused = false;
         }
 
         public void SendMsg()

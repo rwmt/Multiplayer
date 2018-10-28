@@ -811,7 +811,7 @@ namespace Multiplayer.Client
 
         public static SyncMethod RegisterSyncMethod(Type type, string methodOrPropertyName, Type[] argTypes = null)
         {
-            MethodInfo method = AccessTools.Method(type, methodOrPropertyName, argTypes != null ? Sync.TranslateArgTypes(argTypes) : null);
+            MethodInfo method = AccessTools.Method(type, methodOrPropertyName, argTypes != null ? TranslateArgTypes(argTypes) : null);
 
             if (method == null)
             {
@@ -871,6 +871,9 @@ namespace Multiplayer.Client
             ((ISyncMethod)handlers[index]).DoSync(instance, args);
         }
 
+        private static MethodInfo DoSyncMethodInfo = AccessTools.Method(typeof(Sync), nameof(Sync.DoSyncMethod));
+        private static MethodInfo ShouldSyncMethod = AccessTools.Property(typeof(Multiplayer), nameof(Multiplayer.ShouldSync)).GetGetMethod();
+
         // Cancels execution and sends the method with its arguments over the network if Multiplayer.ShouldSync
         private static IEnumerable<CodeInstruction> SyncMethodTranspiler(MethodBase original, ILGenerator gen, IEnumerable<CodeInstruction> insts)
         {
@@ -881,7 +884,7 @@ namespace Multiplayer.Client
             if (retType != null && retType != typeof(void))
                 retLocal = gen.DeclareLocal(retType);
 
-            yield return new CodeInstruction(OpCodes.Call, AccessTools.Property(typeof(Multiplayer), nameof(Multiplayer.ShouldSync)).GetGetMethod());
+            yield return new CodeInstruction(OpCodes.Call, ShouldSyncMethod);
             yield return new CodeInstruction(OpCodes.Brfalse, jump);
 
             yield return new CodeInstruction(OpCodes.Ldc_I4, syncMethods[original].SyncId);
@@ -917,7 +920,7 @@ namespace Multiplayer.Client
                 yield return new CodeInstruction(OpCodes.Stelem, typeof(object));
             }
 
-            yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(Sync), nameof(Sync.DoSyncMethod)));
+            yield return new CodeInstruction(OpCodes.Call, DoSyncMethodInfo);
 
             if (retLocal != null)
             {

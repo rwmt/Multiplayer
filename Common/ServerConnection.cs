@@ -19,29 +19,28 @@ namespace Multiplayer.Common
         public void HandleClientUsername(ByteReader data)
         {
             string username = data.ReadString();
-            ServerPlayer player = connection.serverPlayer;
 
             if (username.Length < 3 || username.Length > 15)
             {
-                player.Disconnect("Invalid username length.");
+                Player.Disconnect("MpInvalidUsernameLength");
                 return;
             }
 
             if (!UsernamePattern.IsMatch(username))
             {
-                player.Disconnect("Invalid username characters.");
+                Player.Disconnect("MpInvalidUsernameChars");
                 return;
             }
 
             if (MultiplayerServer.instance.GetPlayer(username) != null)
             {
-                player.Disconnect("Username already online.");
+                Player.Disconnect("MpInvalidUsernameAlreadyPlaying");
                 return;
             }
 
             connection.username = username;
 
-            MultiplayerServer.instance.SendToAll(Packets.Server_Notification, new object[] { "Player " + connection.username + " has joined the game." });
+            MultiplayerServer.instance.SendNotification("MpPlayerConnected", connection.username);
             MultiplayerServer.instance.UpdatePlayerList();
         }
 
@@ -131,15 +130,32 @@ namespace Multiplayer.Common
             MultiplayerServer.instance.SendCommand(cmd, factionId, mapId, extra, connection.username);
         }
 
+        public const int MaxChatMsgLength = 128;
+
         [PacketHandler(Packets.Client_Chat)]
         public void HandleChat(ByteReader data)
         {
             string msg = data.ReadString();
             msg = msg.Trim();
 
+            // todo handle max length
             if (msg.Length == 0) return;
 
-            MultiplayerServer.instance.SendToAll(Packets.Server_Chat, new object[] { connection.username, msg });
+            if (msg[0] == '/')
+            {
+                var cmd = msg.Substring(1);
+                var parts = cmd.Split(' ');
+                var handler = MultiplayerServer.instance.GetCmdHandler(parts[0]);
+
+                if (handler != null)
+                    handler.Handle(Player, parts.SubArray(1));
+                else
+                    Player.SendChat("Invalid command");
+            }
+            else
+            {
+                Player.SendChat($"{connection.username}: {msg}");
+            }
         }
 
         [PacketHandler(Packets.Client_AutosavedData)]
@@ -217,15 +233,6 @@ namespace Multiplayer.Common
 
                 debugHashes.Clear();
             }
-        }
-
-        public static string GetPlayerMapsPath(string username)
-        {
-            string worldfolder = Path.Combine(Path.Combine(MultiplayerServer.instance.saveFolder, "MpSaves"), MultiplayerServer.instance.worldId);
-            DirectoryInfo directoryInfo = new DirectoryInfo(worldfolder);
-            if (!directoryInfo.Exists)
-                directoryInfo.Create();
-            return Path.Combine(worldfolder, username + ".maps");
         }
     }
 

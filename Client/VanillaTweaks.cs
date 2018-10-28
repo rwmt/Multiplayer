@@ -1,7 +1,9 @@
 ﻿using Harmony;
+using RimWorld;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection.Emit;
 using System.Text;
 using UnityEngine;
 using Verse;
@@ -120,25 +122,29 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(WindowStack), nameof(WindowStack.ImmediateWindow))]
-    static class LongEventWindowAbsorbInput
+    [HarmonyPatch(typeof(IncidentWorker_PawnsArrive), nameof(IncidentWorker_PawnsArrive.FactionCanBeGroupSource))]
+    static class FactionCanBeGroupSourcePatch
     {
-        public const int LongEventWindowId = 62893994;
-
-        static void Prefix(int ID, ref bool absorbInputAroundWindow)
+        static void Postfix(Faction f, ref bool __result)
         {
-            if (ID == LongEventWindowId)
-                absorbInputAroundWindow = true;
+            __result &= f.def.pawnGroupMakers?.Count > 0;
         }
     }
 
     [HarmonyPatch(typeof(WindowStack), nameof(WindowStack.AddNewImmediateWindow))]
     static class LongEventWindowPreventCameraMotion
     {
+        public const int LongEventWindowId = 62893994;
+
         static void Postfix(int ID)
         {
-            if (ID == -LongEventWindowAbsorbInput.LongEventWindowId)
-                Find.WindowStack.windows.Find(w => w.ID == ID).preventCameraMotion = true;
+            if (ID == -LongEventWindowId)
+            {
+                var window = Find.WindowStack.windows.Find(w => w.ID == ID);
+
+                window.absorbInputAroundWindow = true;
+                window.preventCameraMotion = true;
+            }
         }
     }
 
@@ -147,11 +153,32 @@ namespace Multiplayer.Client
     {
         static void Prefix(Window __instance)
         {
-            if (__instance.ID == -LongEventWindowAbsorbInput.LongEventWindowId ||
+            if (__instance.ID == -LongEventWindowPreventCameraMotion.LongEventWindowId ||
                 __instance is DisconnectedWindow ||
                 __instance is MpFormingCaravanWindow
             )
                 Widgets.DrawBoxSolid(new Rect(0, 0, UI.screenWidth, UI.screenHeight), new Color(0, 0, 0, 0.5f));
+        }
+    }
+
+    // Fixes a bug with long event handler's immediate window ordering
+    [HarmonyPatch(typeof(WindowStack), nameof(WindowStack.ImmediateWindow))]
+    static class AddImmediateWindowsDuringLayouting
+    {
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+        {
+            bool found = false;
+
+            foreach (var inst in insts)
+            {
+                if (!found && inst.opcode == OpCodes.Ldc_I4_7)
+                {
+                    inst.opcode = OpCodes.Ldc_I4_8;
+                    found = true;
+                }
+
+                yield return inst;
+            }
         }
     }
 

@@ -13,6 +13,8 @@ namespace Multiplayer.Common
     {
         public readonly IConnection connection;
 
+        protected ServerPlayer Player => connection.serverPlayer;
+
         public MpConnectionState(IConnection connection)
         {
             this.connection = connection;
@@ -67,13 +69,9 @@ namespace Multiplayer.Common
                 state = value;
 
                 if (state == ConnectionStateEnum.Disconnected)
-                {
                     stateObj = null;
-                }
                 else
-                {
                     stateObj = (MpConnectionState)Activator.CreateInstance(MpConnectionState.connectionImpls[(int)value], this);
-                }
             }
         }
 

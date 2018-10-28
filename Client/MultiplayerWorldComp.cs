@@ -240,7 +240,7 @@ namespace Multiplayer.Client
                         OnMainThread.ClearCaches();
 
                         XmlDocument doc = Multiplayer.SaveAndReload();
-                        //Multiplayer.CacheAndSendGameData(doc);
+                        Multiplayer.CacheAndSendGameData(doc);
                     }, "Autosaving", false, null);
                 }
             }
