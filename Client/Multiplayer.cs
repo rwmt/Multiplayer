@@ -46,8 +46,9 @@ namespace Multiplayer.Client
         public static bool reloading;
         public static bool simulating;
 
-        public static FactionDef factionDef = FactionDef.Named("MultiplayerColony");
-        public static FactionDef dummyFactionDef = FactionDef.Named("MultiplayerDummy");
+        public static FactionDef FactionDef = FactionDef.Named("MultiplayerColony");
+        public static FactionDef DummyFactionDef = FactionDef.Named("MultiplayerDummy");
+        public static IncidentDef AuroraIncident = IncidentDef.Named("Aurora");
 
         public static IdBlock GlobalIdBlock => game.worldComp.globalIdBlock;
         public static Faction DummyFaction => game.dummyFaction;
@@ -710,7 +711,7 @@ namespace Multiplayer.Client
             set
             {
                 myFaction = value;
-                Faction.OfPlayer.def = Multiplayer.factionDef;
+                Faction.OfPlayer.def = Multiplayer.FactionDef;
                 value.def = FactionDefOf.PlayerColony;
                 Find.FactionManager.ofPlayer = value;
 
@@ -942,7 +943,7 @@ namespace Multiplayer.Client
 
         public static Faction Push(Faction faction)
         {
-            if (faction == null || (faction.def != Multiplayer.factionDef && faction.def != FactionDefOf.PlayerColony))
+            if (faction == null || (faction.def != Multiplayer.FactionDef && faction.def != FactionDefOf.PlayerColony))
             {
                 stack.Push(null);
                 return null;
@@ -963,7 +964,7 @@ namespace Multiplayer.Client
 
         private static void Set(Faction faction)
         {
-            Find.FactionManager.OfPlayer.def = Multiplayer.factionDef;
+            Find.FactionManager.OfPlayer.def = Multiplayer.FactionDef;
             faction.def = FactionDefOf.PlayerColony;
             Find.FactionManager.ofPlayer = faction;
         }

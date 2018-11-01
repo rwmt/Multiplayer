@@ -1616,4 +1616,28 @@ namespace Multiplayer.Client
         }
     }
 
+    [HarmonyPatch(typeof(IncidentDef), nameof(IncidentDef.TargetAllowed))]
+    static class GameConditionIncidentTargetPatch
+    {
+        static void Postfix(IncidentDef __instance, IIncidentTarget target, ref bool __result)
+        {
+            if (Multiplayer.Client == null) return;
+
+            if (__instance.workerClass == typeof(IncidentWorker_MakeGameCondition) || __instance.workerClass == typeof(IncidentWorker_Aurora))
+                __result = target.IncidentTargetTags().Contains(IncidentTargetTagDefOf.Map_PlayerHome);
+        }
+    }
+
+    [HarmonyPatch(typeof(IncidentWorker_Aurora), nameof(IncidentWorker_Aurora.AuroraWillEndSoon))]
+    static class IncidentWorkerAuroraPatch
+    {
+        static void Postfix(Map map, ref bool __result)
+        {
+            if (Multiplayer.Client == null) return;
+
+            if (map != MapAsyncTimeComp.tickingMap)
+                __result = false;
+        }
+    }
+
 }

@@ -161,7 +161,7 @@ namespace Multiplayer.Client
         }
     }
 
-    // Fixes a bug with long event handler's immediate window ordering
+    // Fixes a bug with long event handler's immediate window draw order
     [HarmonyPatch(typeof(WindowStack), nameof(WindowStack.ImmediateWindow))]
     static class AddImmediateWindowsDuringLayouting
     {

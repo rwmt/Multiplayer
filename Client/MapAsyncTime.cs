@@ -412,10 +412,7 @@ namespace Multiplayer.Client
             if (Multiplayer.IsReplay)
                 TickPatch.replayTimeSpeed = newSpeed;
 
-            if (__state is MultiplayerWorldComp)
-                Multiplayer.Client.SendCommand(CommandType.WorldTimeSpeed, ScheduledCommand.Global, (byte)newSpeed);
-            else if (__state is MapAsyncTimeComp comp)
-                Multiplayer.Client.SendCommand(CommandType.MapTimeSpeed, comp.map.uniqueID, (byte)newSpeed);
+            TimeControl.SendTimeChange(__state, newSpeed);
         }
     }
 
@@ -439,14 +436,63 @@ namespace Multiplayer.Client
                 if (entry.map != Find.CurrentMap || WorldRendererUtility.WorldRenderedNow)
                     alpha = 0.75f;
 
-                MapAsyncTimeComp comp = entry.map.AsyncTime();
                 Rect rect = bar.drawer.GroupFrameRect(entry.group);
+
                 Rect button = new Rect(rect.x - TimeControls.TimeButSize.x / 2f, rect.yMax - TimeControls.TimeButSize.y / 2f, TimeControls.TimeButSize.x, TimeControls.TimeButSize.y);
-                Widgets.DrawRectFast(button, new Color(0.5f, 0.5f, 0.5f, 0.4f * alpha));
-                Widgets.ButtonImage(button, TexButton.SpeedButtonTextures[(int)comp.TimeSpeed]);
+                TimeControl.TimeControlButton(button, entry.map.AsyncTime(), alpha);
 
                 curGroup = entry.group;
             }
+        }
+    }
+
+    [HarmonyPatch(typeof(MainButtonWorker), nameof(MainButtonWorker.DoButton))]
+    static class MainButtonWorldTimeControl
+    {
+        static void Prefix(MainButtonWorker __instance, Rect rect, ref Rect? __state)
+        {
+            if (Multiplayer.Client == null) return;
+            if (__instance.def != MainButtonDefOf.World) return;
+            if (__instance.Disabled) return;
+            if (Find.CurrentMap == null) return;
+
+            Rect button = new Rect(rect.xMax - TimeControls.TimeButSize.x - 5f, rect.y + (rect.height - TimeControls.TimeButSize.y) / 2f, TimeControls.TimeButSize.x, TimeControls.TimeButSize.y);
+            __state = button;
+
+            if (Event.current.type == EventType.MouseDown || Event.current.type == EventType.MouseUp)
+                TimeControl.TimeControlButton(__state.Value, Multiplayer.WorldComp, 0.5f);
+        }
+
+        static void Postfix(MainButtonWorker __instance, Rect? __state)
+        {
+            if (__state == null) return;
+
+            if (Event.current.type == EventType.Repaint)
+                TimeControl.TimeControlButton(__state.Value, Multiplayer.WorldComp, 0.5f);
+        }
+    }
+
+    static class TimeControl
+    {
+        public static void TimeControlButton(Rect button, ITickable tickable, float alpha)
+        {
+            Widgets.DrawRectFast(button, new Color(0.5f, 0.5f, 0.5f, 0.4f * alpha));
+
+            int speed = (int)tickable.TimeSpeed;
+            if (Widgets.ButtonImage(button, TexButton.SpeedButtonTextures[speed]))
+            {
+                int dir = Event.current.button == 0 ? 1 : -1;
+                SendTimeChange(tickable, (TimeSpeed)GenMath.PositiveMod(speed + dir, (int)TimeSpeed.Ultrafast));
+                Event.current.Use();
+            }
+        }
+
+        public static void SendTimeChange(ITickable tickable, TimeSpeed newSpeed)
+        {
+            if (tickable is MultiplayerWorldComp)
+                Multiplayer.Client.SendCommand(CommandType.WorldTimeSpeed, ScheduledCommand.Global, (byte)newSpeed);
+            else if (tickable is MapAsyncTimeComp comp)
+                Multiplayer.Client.SendCommand(CommandType.MapTimeSpeed, comp.map.uniqueID, (byte)newSpeed);
         }
     }
 
@@ -456,8 +502,7 @@ namespace Multiplayer.Client
     {
         static bool Prefix()
         {
-            // The storyteller is currently only enabled for maps
-            return Multiplayer.Client == null || MapAsyncTimeComp.tickingMap != null;
+            return Multiplayer.Client == null || Multiplayer.Ticking;
         }
     }
 
@@ -465,15 +510,25 @@ namespace Multiplayer.Client
     [HarmonyPatch(nameof(Storyteller.AllIncidentTargets), MethodType.Getter)]
     public class StorytellerTargetsPatch
     {
-        public static Map target;
-
-        static void Postfix(ref List<IIncidentTarget> __result)
+        static void Postfix(List<IIncidentTarget> __result)
         {
             if (Multiplayer.Client == null) return;
-            if (target == null) return;
 
-            __result.Clear();
-            __result.Add(target);
+            if (MapAsyncTimeComp.tickingMap != null)
+            {
+                __result.Clear();
+                __result.Add(MapAsyncTimeComp.tickingMap);
+            }
+            else if (MultiplayerWorldComp.tickingWorld)
+            {
+                __result.Clear();
+
+                foreach (var caravan in Find.WorldObjects.Caravans)
+                    if (caravan.IsPlayerControlled)
+                        __result.Add(caravan);
+
+                __result.Add(Find.World);
+            }
         }
     }
 
@@ -503,7 +558,7 @@ namespace Multiplayer.Client
                 case TimeSpeed.Fast:
                     return 3f;
                 case TimeSpeed.Superfast:
-                    if (Find.TickManager.NothingHappeningInGame())
+                    if (nothingHappeningCached)
                         return 12f;
                     return 6f;
                 case TimeSpeed.Ultrafast:
@@ -570,6 +625,7 @@ namespace Multiplayer.Client
                 map.MapPostTick();
 
                 UpdateManagers();
+                CacheNothingHappening();
             }
             finally
             {
@@ -662,7 +718,6 @@ namespace Multiplayer.Client
 
             prevStoryteller = Current.Game.storyteller;
             Current.Game.storyteller = storyteller;
-            StorytellerTargetsPatch.target = map;
 
             //UniqueIdsPatch.CurrentBlock = map.MpComp().mapIdBlock;
             UniqueIdsPatch.CurrentBlock = Multiplayer.GlobalIdBlock;
@@ -678,7 +733,6 @@ namespace Multiplayer.Client
             UniqueIdsPatch.CurrentBlock = null;
 
             Current.Game.storyteller = prevStoryteller;
-            StorytellerTargetsPatch.target = null;
 
             prevTime?.Set();
 
@@ -894,6 +948,24 @@ namespace Multiplayer.Client
             }
 
             return true;
+        }
+
+        private bool nothingHappeningCached;
+
+        private void CacheNothingHappening()
+        {
+            nothingHappeningCached = true;
+            List<Pawn> list = map.mapPawns.SpawnedPawnsInFaction(Faction.OfPlayer);
+
+            for (int j = 0; j < list.Count; j++)
+            {
+                Pawn pawn = list[j];
+                if (pawn.HostFaction == null && pawn.RaceProps.Humanlike && pawn.Awake())
+                    nothingHappeningCached = false;
+            }
+
+            if (nothingHappeningCached && map.IsPlayerHome && map.dangerWatcher.DangerRating >= StoryDanger.Low)
+                nothingHappeningCached = false;
         }
     }
 

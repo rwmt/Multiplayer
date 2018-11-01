@@ -199,7 +199,7 @@ namespace Multiplayer.Client
 
             if (dummyFaction == null)
             {
-                dummyFaction = new Faction() { loadID = -1, def = Multiplayer.dummyFactionDef };
+                dummyFaction = new Faction() { loadID = -1, def = Multiplayer.DummyFactionDef };
 
                 foreach (Faction other in Find.FactionManager.AllFactionsListForReading)
                     dummyFaction.TryMakeInitialRelationsWith(other);
@@ -252,6 +252,8 @@ namespace Multiplayer.Client
                 async.mapTicks = Find.TickManager.TicksGame;
                 async.TimeSpeed = Find.TickManager.CurTimeSpeed;
             }
+
+            Find.PlaySettings.usePlanetDayNightSystem = false;
 
             Multiplayer.RealPlayerFaction = Faction.OfPlayer;
             localServer.playerFactions[Multiplayer.username] = Faction.OfPlayer.loadID;

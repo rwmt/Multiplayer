@@ -37,8 +37,6 @@ namespace Multiplayer.Client
                 case TimeSpeed.Fast:
                     return 3f;
                 case TimeSpeed.Superfast:
-                    if (Find.TickManager.NothingHappeningInGame())
-                        return 12f;
                     return 6f;
                 case TimeSpeed.Ultrafast:
                     return 15f;
@@ -267,7 +265,7 @@ namespace Multiplayer.Client
                 faction = new Faction
                 {
                     loadID = factionId,
-                    def = Multiplayer.factionDef,
+                    def = Multiplayer.FactionDef,
                     Name = "Multiplayer faction",
                     centralMelanin = Rand.Value
                 };
