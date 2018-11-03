@@ -78,9 +78,9 @@ namespace Multiplayer.Client
             });
         }
 
-        public static void ReloadGame(int tickUntil, List<int> mapsToLoad, Action onDone = null)
+        private static XmlDocument GetGameDocument(List<int> mapsToLoad)
         {
-            XmlDocument gameDoc = ScribeUtil.GetDocument(OnMainThread.cachedGameData);
+            XmlDocument gameDoc = ScribeUtil.LoadDocument(OnMainThread.cachedGameData);
             XmlNode gameNode = gameDoc.DocumentElement["game"];
 
             foreach (int map in mapsToLoad)
@@ -95,25 +95,43 @@ namespace Multiplayer.Client
                 }
             }
 
-            TickPatch.tickUntil = tickUntil;
-            LoadPatch.gameToLoad = gameDoc;
-
-            LongEventHandler.QueueLongEvent(() =>
-            {
-                MemoryUtility.ClearAllMapsAndWorld();
-                Current.Game = new Game();
-                Current.Game.InitData = new GameInitData();
-                Current.Game.InitData.gameToLoad = "server";
-
-                LongEventHandler.ExecuteWhenFinished(() =>
-                {
-                    LongEventHandler.QueueLongEvent(() => PostLoad(onDone), "MpSimulating", false, null);
-                });
-            }, "Play", "MpLoading", true, null);
+            return gameDoc;
         }
 
-        private static void PostLoad(Action finishAction)
+        public static void ReloadGame(int tickUntil, List<int> mapsToLoad, Action reloadDone = null, bool async = true)
         {
+            TickPatch.tickUntil = tickUntil;
+            LoadPatch.gameToLoad = GetGameDocument(mapsToLoad);
+
+            if (async)
+            {
+                LongEventHandler.QueueLongEvent(() =>
+                {
+                    MemoryUtility.ClearAllMapsAndWorld();
+                    Current.Game = new Game();
+                    Current.Game.InitData = new GameInitData();
+                    Current.Game.InitData.gameToLoad = "server";
+
+                    LongEventHandler.ExecuteWhenFinished(() =>
+                    {
+                        LongEventHandler.QueueLongEvent(() => PostLoad(reloadDone), "MpSimulating", false, null);
+                    });
+                }, "Play", "MpLoading", true, null);
+            }
+            else
+            {
+                LongEventHandler.QueueLongEvent(() =>
+                {
+                    Multiplayer.LoadInMainThread(LoadPatch.gameToLoad);
+                    PostLoad(reloadDone);
+                }, "MpLoading", false, null);
+            }
+        }
+
+        private static void PostLoad(Action reloadDone)
+        {
+            OnMainThread.cachedAtTime = TickPatch.Timer;
+
             FactionWorldData factionData = Multiplayer.WorldComp.factionData.GetValueSafe(Multiplayer.session.myFactionId);
             if (factionData != null && factionData.online)
                 Multiplayer.RealPlayerFaction = Find.FactionManager.GetById(factionData.factionId);
@@ -132,6 +150,8 @@ namespace Multiplayer.Client
                     foreach (Pawn pawn in map.mapPawns.AllPawnsSpawned)
                         pawn.drawer.tweener.tweenedPos = pawn.drawer.tweener.TweenedPosRoot();
                 }
+
+                reloadDone?.Invoke();
             };
 
             TickPatch.afterSkip = afterSkip;

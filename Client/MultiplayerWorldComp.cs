@@ -69,7 +69,7 @@ namespace Multiplayer.Client
 
         public override void ExposeData()
         {
-            Scribe_Values.Look(ref TickPatch.timerInt, "timer");
+            Scribe_Values.Look(ref TickPatch.Timer, "timer");
 
             TimeSpeed timeSpeed = Find.TickManager.CurTimeSpeed;
             Scribe_Values.Look(ref timeSpeed, "timeSpeed");
@@ -93,11 +93,11 @@ namespace Multiplayer.Client
                 var factionData = new Dictionary<int, FactionWorldData>(this.factionData);
                 factionData.Remove(currentFactionId);
 
-                ScribeUtil.Look(ref factionData, "factionData", LookMode.Deep);
+                Scribe_Collections.Look(ref factionData, "factionData", LookMode.Value, LookMode.Deep);
             }
             else
             {
-                ScribeUtil.Look(ref factionData, "factionData", LookMode.Deep);
+                Scribe_Collections.Look(ref factionData, "factionData", LookMode.Value, LookMode.Deep);
                 if (factionData == null)
                     factionData = new Dictionary<int, FactionWorldData>();
             }

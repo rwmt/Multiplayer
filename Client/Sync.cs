@@ -602,7 +602,7 @@ namespace Multiplayer.Client
                 foreach (var method in AccessTools.GetDeclaredMethods(type).Where(m => m.Name == methodName))
                 {
                     HarmonyMethod prefix = new HarmonyMethod(typeof(SyncActions), nameof(SyncActions.SyncAction_Prefix));
-                    prefix.prioritiy = MpPriority.MpFirst;
+                    prefix.priority = MpPriority.MpFirst;
 
                     HarmonyMethod postfix;
 
@@ -613,7 +613,7 @@ namespace Multiplayer.Client
                     else
                         throw new Exception($"Too many arguments to patch {method.FullDescription()}");
 
-                    postfix.prioritiy = MpPriority.MpLast;
+                    postfix.priority = MpPriority.MpLast;
 
                     Multiplayer.harmony.Patch(method, prefix, postfix);
                     SyncActions.syncActions[method] = this;
@@ -803,7 +803,7 @@ namespace Multiplayer.Client
             handlers.Add(handler);
 
             HarmonyMethod transpiler = new HarmonyMethod(typeof(Sync), nameof(Sync.SyncMethodTranspiler));
-            transpiler.prioritiy = Priority.First;
+            transpiler.priority = Priority.First;
             Multiplayer.harmony.Patch(method, null, null, transpiler);
 
             return handler;
@@ -860,7 +860,7 @@ namespace Multiplayer.Client
             handlers.Add(handler);
 
             HarmonyMethod transpiler = new HarmonyMethod(typeof(Sync), nameof(Sync.SyncMethodTranspiler));
-            transpiler.prioritiy = Priority.First;
+            transpiler.priority = Priority.First;
             Multiplayer.harmony.Patch(method, null, null, transpiler);
 
             return handler;
@@ -940,9 +940,9 @@ namespace Multiplayer.Client
         public static void ApplyWatchFieldPatches(Type type)
         {
             HarmonyMethod prefix = new HarmonyMethod(AccessTools.Method(typeof(Sync), nameof(Sync.FieldWatchPrefix)));
-            prefix.prioritiy = Priority.First;
+            prefix.priority = Priority.First;
             HarmonyMethod postfix = new HarmonyMethod(AccessTools.Method(typeof(Sync), nameof(Sync.FieldWatchPostfix)));
-            postfix.prioritiy = Priority.Last;
+            postfix.priority = Priority.Last;
 
             foreach (MethodBase toPatch in AccessTools.GetDeclaredMethods(type))
             {

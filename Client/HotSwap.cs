@@ -257,7 +257,9 @@ namespace Multiplayer.Client
                         if (!(typeMember is MethodBase m)) continue;
                         if (new SigComparer().Equals(m, method))
                         {
-                            if (genericForMethod != null) return (members[i] as MethodInfo).MakeGenericMethod(genericForMethod);
+                            if (genericForMethod != null)
+                                return (members[i] as MethodInfo).MakeGenericMethod(genericForMethod);
+
                             return members[i];
                         }
                     }

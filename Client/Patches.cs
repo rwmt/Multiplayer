@@ -103,12 +103,18 @@ namespace Multiplayer.Client
             {
                 if (Multiplayer.session == null)
                 {
-                    optList.Insert(0, new ListableOption("Host a server", () => Find.WindowStack.Add(new HostWindow())));
+                    optList.Insert(0, new ListableOption("Host a server", () =>
+                    {
+                        Find.WindowStack.Add(new HostWindow());
+                    }));
                 }
 
                 if (Multiplayer.Client != null)
                 {
-                    optList.Insert(0, new ListableOption("Save replay", () => Multiplayer.SaveReplay()));
+                    optList.Insert(0, new ListableOption("Save replay", () =>
+                    {
+                        Replay.ForSaving("TestReplay").WriteCurrentData();
+                    }));
 
                     optList.RemoveAll(opt => opt.label == "Save".Translate() || opt.label == "LoadGame".Translate());
 
@@ -357,8 +363,8 @@ namespace Multiplayer.Client
             Text.Font = GameFont.Small;
 
             {
-                int timerLag = (TickPatch.tickUntil - (int)TickPatch.timerInt);
-                string text = $"{Find.TickManager.TicksGame} {TickPatch.timerInt} {TickPatch.tickUntil} {timerLag} {Time.deltaTime * 60f}";
+                int timerLag = (TickPatch.tickUntil - (int)TickPatch.Timer);
+                string text = $"{Find.TickManager.TicksGame} {TickPatch.Timer} {TickPatch.tickUntil} {timerLag} {Time.deltaTime * 60f}";
                 Rect rect = new Rect(80f, 60f, 330f, Text.CalcHeight(text, 330f));
                 Widgets.Label(rect, text);
             }
@@ -437,10 +443,10 @@ namespace Multiplayer.Client
             Rect rect = new Rect(margin, UI.screenHeight - 35f - height - 10f, UI.screenWidth - margin * 2, height);
             Widgets.DrawBoxSolid(rect, new Color(0.6f, 0.6f, 0.6f, 0.8f));
 
-            int timerEnd = TickPatch.skipTo > 0 ? TickPatch.skipTo : Multiplayer.session.replayTimerEnd;
+            int timerEnd = Multiplayer.session.replayTimerEnd > 0 ? Multiplayer.session.replayTimerEnd : TickPatch.skipTo;
 
-            double progress = TickPatch.timerInt / timerEnd;
-            float progressX = rect.xMin + (float)progress * rect.width;
+            float progress = TickPatch.Timer / (float)timerEnd;
+            float progressX = rect.xMin + progress * rect.width;
             Widgets.DrawLine(new Vector2(progressX, rect.yMin), new Vector2(progressX, rect.yMax), Color.green, 7f);
 
             if (Mouse.IsOver(rect))
@@ -450,7 +456,7 @@ namespace Multiplayer.Client
                 int mouseTimer = (int)(timerEnd * mouseProgress);
                 Widgets.DrawLine(new Vector2(mouseX, rect.yMin), new Vector2(mouseX, rect.yMax), Color.blue, 3f);
 
-                if (Event.current.type == EventType.MouseDown)
+                if (Event.current.type == EventType.MouseUp)
                 {
                     if (mouseTimer >= TickPatch.Timer)
                     {
@@ -461,13 +467,14 @@ namespace Multiplayer.Client
                         ClientJoiningState.ReloadGame(mouseTimer, new List<int>() { 0 }, () =>
                         {
                             TickPatch.tickUntil = Multiplayer.session.replayTimerEnd;
-                        });
+                        }, async: false);
                     }
-
-                    Event.current.Use();
                 }
 
-                ActiveTip tip = new ActiveTip("Tick " + mouseTimer + "\nETA "); // todo eta
+                if (Event.current.isMouse)
+                    Event.current.Use();
+
+                ActiveTip tip = new ActiveTip($"Tick {mouseTimer}\nETA "); // todo eta
                 tip.DrawTooltip(GenUI.GetMouseAttachedWindowPos(tip.TipRect.x, tip.TipRect.y));
             }
 
@@ -1441,12 +1448,13 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(LongEventHandler), nameof(LongEventHandler.QueueLongEvent), new[] { typeof(Action), typeof(string), typeof(bool), typeof(Action<Exception>) })]
-    static class CancelLongEventDuringReloading
+    static class CancelRootPlayStartLongEvents
     {
-        // Disable standard loading and screen fading during a reload
+        public static bool cancel;
+
         static bool Prefix()
         {
-            if (RootPlayStartMarker.starting && Multiplayer.reloading) return false;
+            if (RootPlayStartMarker.starting && cancel) return false;
             return true;
         }
     }

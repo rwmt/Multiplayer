@@ -202,7 +202,9 @@ namespace Multiplayer.Client
 
                 if (watch)
                 {
-                    ButtonImage(buttonRect, WatchReplay, Color.white, new Vector2(22f, 22f));
+                    if (ButtonImage(buttonRect, WatchReplay, Color.white, new Vector2(22f, 22f)))
+                        Multiplayer.LoadReplay();
+
                     TooltipHandler.TipRegion(buttonRect, "Watch");
                 }
 

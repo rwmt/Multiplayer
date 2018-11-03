@@ -1,4 +1,5 @@
-﻿using Multiplayer.Common;
+﻿using Harmony;
+using Multiplayer.Common;
 using RimWorld;
 using System;
 using System.Collections.Generic;
@@ -90,11 +91,11 @@ namespace Multiplayer.Client
             {
                 var data = new Dictionary<int, FactionMapData>(factionMapData);
                 data.Remove(currentFactionId);
-                ScribeUtil.Look(ref data, "factionMapData", LookMode.Deep, map);
+                ScribeUtil.LookWithValueKey(ref data, "factionMapData", LookMode.Deep, map);
             }
             else
             {
-                ScribeUtil.Look(ref factionMapData, "factionMapData", LookMode.Deep, map);
+                ScribeUtil.LookWithValueKey(ref factionMapData, "factionMapData", LookMode.Deep, map);
                 if (factionMapData == null)
                     factionMapData = new Dictionary<int, FactionMapData>();
             }

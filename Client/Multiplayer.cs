@@ -17,6 +17,9 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.Threading;
 using System.Xml;
+using System.Xml.Linq;
+using System.Xml.Schema;
+using System.Xml.Serialization;
 using UnityEngine;
 using Verse;
 using Verse.Profile;
@@ -63,21 +66,13 @@ namespace Multiplayer.Client
             set => game.RealPlayerFaction = value;
         }
 
-        public static int Seed
-        {
-            set
-            {
-                RandSetSeedPatch.dontLog = true;
-                Rand.Seed = value;
-                RandSetSeedPatch.dontLog = false;
-            }
-        }
-
         public static bool ExecutingCmds => MultiplayerWorldComp.executingCmdWorld || MapAsyncTimeComp.executingCmdMap != null;
         public static bool Ticking => MultiplayerWorldComp.tickingWorld || MapAsyncTimeComp.tickingMap != null || ConstantTicker.ticking;
 
         public static bool dontSync;
         public static bool ShouldSync => Client != null && !Ticking && !ExecutingCmds && !reloading && Current.ProgramState == ProgramState.Playing && LongEventHandler.currentEvent == null && !dontSync;
+
+        public static string ReplaysDir => GenFilePaths.FolderUnderSaveData("MpReplays");
 
         public static Callback<P2PSessionRequest_t> sessionReqCallback;
         public static Callback<P2PSessionConnectFail_t> p2pFail;
@@ -107,8 +102,10 @@ namespace Multiplayer.Client
             if (SteamManager.Initialized)
                 InitSteam();
 
-            Log.Message("Player's username: " + username);
-            Log.Message("Processor: " + SystemInfo.processorType);
+            Log.Message($"Player's username: {username}");
+            Log.Message($"Processor: {SystemInfo.processorType}");
+
+            PlantWindSwayPatch.Init();
 
             var gameobject = new GameObject();
             gameobject.AddComponent<OnMainThread>();
@@ -278,21 +275,11 @@ namespace Multiplayer.Client
             XmlDocument gameDoc = SaveGame();
             Log.Message("Saving took " + watch.ElapsedMilliseconds);
 
-            MemoryUtility.ClearAllMapsAndWorld();
-
-            watch.Restart();
-
-            //SaveCompression.doSaveCompression = true;
-            LoadPatch.gameToLoad = gameDoc;
-
             MapDrawerRegenPatch.copyFrom = drawers;
             WorldGridCtorPatch.copyFrom = worldGridSaved;
             WorldRendererCtorPatch.copyFrom = worldRendererSaved;
 
-            Find.Root.Start();
-            SavedGameLoaderNow.LoadGameFromSaveFileNow(null);
-
-            Log.Message("Loading took " + watch.ElapsedMilliseconds);
+            LoadInMainThread(gameDoc);
 
             RealPlayerFaction = Find.FactionManager.GetById(localFactionId);
 
@@ -357,6 +344,22 @@ namespace Multiplayer.Client
             return gameDoc;
         }
 
+        public static void LoadInMainThread(XmlDocument gameDoc)
+        {
+            var watch = Stopwatch.StartNew();
+            MemoryUtility.ClearAllMapsAndWorld();
+
+            LoadPatch.gameToLoad = gameDoc;
+
+            CancelRootPlayStartLongEvents.cancel = true;
+            Find.Root.Start();
+            CancelRootPlayStartLongEvents.cancel = false;
+
+            SavedGameLoaderNow.LoadGameFromSaveFileNow(null);
+
+            Log.Message("Loading took " + watch.ElapsedMilliseconds);
+        }
+
         public static void CacheAndSendGameData(XmlDocument doc)
         {
             XmlNode gameNode = doc.DocumentElement["game"];
@@ -376,6 +379,7 @@ namespace Multiplayer.Client
             mapsNode.RemoveAll();
 
             byte[] gameData = ScribeUtil.XmlToByteArray(doc);
+            OnMainThread.cachedAtTime = TickPatch.Timer;
             OnMainThread.cachedGameData = gameData;
 
             ThreadPool.QueueUserWorkItem(c =>
@@ -448,7 +452,7 @@ namespace Multiplayer.Client
                 }
             }
 
-            // Full precision floating point saving (not really needed?)
+            // Full precision floating point saving
             {
                 var doubleSavePrefix = new HarmonyMethod(typeof(ValueSavePatch).GetMethod(nameof(ValueSavePatch.DoubleSave_Prefix)));
                 var floatSavePrefix = new HarmonyMethod(typeof(ValueSavePatch).GetMethod(nameof(ValueSavePatch.FloatSave_Prefix)));
@@ -527,37 +531,6 @@ namespace Multiplayer.Client
         {
         }
 
-        private static string ReplayPath = Path.Combine(GenFilePaths.FolderUnderSaveData("MpReplays"), "Replay1.zip");
-
-        public static void SaveReplay()
-        {
-            using (ZipFile zip = new ZipFile())
-            {
-                zip.AddEntry("saved_world", OnMainThread.cachedGameData);
-
-                foreach (var entry in OnMainThread.cachedMapData)
-                    zip.AddEntry("saved_map_" + entry.Key, entry.Value);
-
-                foreach (var entry in OnMainThread.cachedMapCmds)
-                {
-                    ByteWriter writer = new ByteWriter();
-
-                    writer.WriteInt32(entry.Value.Count);
-                    foreach (var cmd in entry.Value)
-                        writer.WritePrefixedBytes(cmd.Serialize());
-
-                    zip.AddEntry("cmds_" + entry.Key, writer.GetArray());
-                }
-
-                ByteWriter infoWriter = new ByteWriter();
-                infoWriter.WriteInt32(RealPlayerFaction.loadID);
-                infoWriter.WriteDouble(TickPatch.timerInt);
-                zip.AddEntry("info", infoWriter.GetArray());
-
-                zip.Save(ReplayPath);
-            }
-        }
-
         public static void LoadReplay()
         {
             session = new MultiplayerSession();
@@ -565,16 +538,22 @@ namespace Multiplayer.Client
             session.client.State = ConnectionStateEnum.ClientPlaying;
             session.replay = true;
 
-            LoadReplayFile();
+            var replay = Replay.ForLoading("TestReplay");
+            replay.LoadInfo();
+            replay.LoadCurrentData(0);
+
+            session.myFactionId = replay.info.playerFaction;
+
             // todo ensure everything is read correctly
 
             bool hasSeeds = mapSeeds.Count > 0;
+            int tickUntil = replay.info.sections[0].end;
 
-            ClientJoiningState.ReloadGame((int)replayTimer, OnMainThread.cachedMapData.Keys.ToList(), () =>
+            ClientJoiningState.ReloadGame(tickUntil, OnMainThread.cachedMapData.Keys.ToList(), () =>
             {
-                session.replayTimerStart = TickPatch.Timer;
-                session.replayTimerEnd = (int)replayTimer;
-                TickPatch.tickUntil = (int)replayTimer;
+                session.replayTimerStart = replay.info.sections[0].start;
+                session.replayTimerEnd = tickUntil;
+                TickPatch.tickUntil = tickUntil;
 
                 return;
                 if (!hasSeeds)
@@ -582,58 +561,6 @@ namespace Multiplayer.Client
                 else
                     mapSeeds.Clear();
             });
-        }
-
-        private static double replayTimer;
-
-        private static void LoadReplayFile()
-        {
-            using (ZipFile zip = ZipFile.Read(ReplayPath))
-            {
-                foreach (ZipEntry entry in zip)
-                {
-                    string fileName = entry.FileName;
-                    if (fileName == "saved_world")
-                    {
-                        byte[] content = entry.GetBytes();
-
-                        OnMainThread.cachedGameData = content;
-                        Log.Message("Read world data");
-                    }
-                    else if (fileName.StartsWith("saved_map_"))
-                    {
-                        if (int.TryParse(fileName.Substring(10), out int mapId))
-                        {
-                            byte[] content = entry.GetBytes();
-
-                            OnMainThread.cachedMapData[mapId] = content;
-                            Log.Message("Read map data " + mapId);
-                        }
-                    }
-                    else if (fileName.StartsWith("cmds_"))
-                    {
-                        if (int.TryParse(fileName.Substring(5), out int mapId))
-                        {
-                            byte[] content = entry.GetBytes();
-
-                            var cmds = new List<ScheduledCommand>();
-                            ByteReader reader = new ByteReader(content);
-                            int count = reader.ReadInt32();
-                            for (int i = 0; i < count; i++)
-                                cmds.Add(ScheduledCommand.Deserialize(new ByteReader(reader.ReadPrefixedBytes())));
-
-                            OnMainThread.cachedMapCmds[mapId] = cmds;
-                            Log.Message($"Read {cmds.Count} cmds for map {cmds}");
-                        }
-                    }
-                    else if (fileName == "info")
-                    {
-                        ByteReader reader = new ByteReader(entry.GetBytes());
-                        session.myFactionId = reader.ReadInt32();
-                        replayTimer = reader.ReadDouble();
-                    }
-                }
-            }
         }
 
         public static string FixedEllipsis()
@@ -657,7 +584,152 @@ namespace Multiplayer.Client
 
     public class Replay
     {
-        public int sessionId;
+        public readonly string fileName;
+        public ReplayInfo info = new ReplayInfo();
+
+        private Replay(string fileName)
+        {
+            this.fileName = fileName;
+        }
+
+        private ZipFile ZipFile => new ZipFile(Path.Combine(Multiplayer.ReplaysDir, $"{fileName}.zip"));
+
+        public void WriteCurrentData()
+        {
+            string sectionId = info.sections.Count.ToString("D3");
+
+            using (var zip = ZipFile)
+            {
+                foreach (var kv in OnMainThread.cachedMapData)
+                    zip.AddEntry($"maps/{sectionId}_{kv.Key}_save", kv.Value);
+
+                foreach (var kv in OnMainThread.cachedMapCmds)
+                    if (kv.Key >= 0)
+                        zip.AddEntry($"maps/{sectionId}_{kv.Key}_cmds", SerializeCmds(kv.Value));
+
+                if (OnMainThread.cachedMapCmds.TryGetValue(ScheduledCommand.Global, out var worldCmds))
+                    zip.AddEntry($"world/{sectionId}_cmds", SerializeCmds(worldCmds));
+
+                zip.AddEntry($"world/{sectionId}_save", OnMainThread.cachedGameData);
+                zip.Save();
+            }
+
+            info.sections.Add(new ReplaySection(OnMainThread.cachedAtTime, TickPatch.Timer));
+            WriteInfo();
+        }
+
+        private byte[] SerializeCmds(List<ScheduledCommand> cmds)
+        {
+            ByteWriter writer = new ByteWriter();
+
+            writer.WriteInt32(cmds.Count);
+            foreach (var cmd in cmds)
+                writer.WritePrefixedBytes(cmd.Serialize());
+
+            return writer.GetArray();
+        }
+
+        private List<ScheduledCommand> DeserializeCmds(byte[] data)
+        {
+            var reader = new ByteReader(data);
+
+            int count = reader.ReadInt32();
+            var result = new List<ScheduledCommand>(count);
+            for (int i = 0; i < count; i++)
+                result.Add(ScheduledCommand.Deserialize(new ByteReader(reader.ReadPrefixedBytes())));
+
+            return result;
+        }
+
+        public void WriteInfo()
+        {
+            using (var zip = ZipFile)
+            {
+                zip.UpdateEntry("info", DirectXmlSaver.XElementFromObject(info, typeof(ReplayInfo)).ToString());
+                zip.Save();
+            }
+        }
+
+        public void LoadInfo()
+        {
+            using (var zip = ZipFile)
+            {
+                var doc = ScribeUtil.LoadDocument(zip["info"].GetBytes());
+                info = DirectXmlToObject.ObjectFromXml<ReplayInfo>(doc.DocumentElement, true);
+            }
+        }
+
+        public void LoadCurrentData(int sectionId)
+        {
+            string sectionIdStr = sectionId.ToString("D3");
+
+            using (var zip = ZipFile)
+            {
+                foreach (var mapCmds in zip.SelectEntries($"name = maps/{sectionIdStr}_*_cmds"))
+                {
+                    int mapId = int.Parse(mapCmds.FileName.Split('_')[1]);
+                    OnMainThread.cachedMapCmds[mapId] = DeserializeCmds(mapCmds.GetBytes());
+                }
+
+                foreach (var mapSave in zip.SelectEntries($"name = maps/{sectionIdStr}_*_save"))
+                {
+                    int mapId = int.Parse(mapSave.FileName.Split('_')[1]);
+                    OnMainThread.cachedMapData[mapId] = mapSave.GetBytes();
+                }
+
+                var worldCmds = zip[$"world/{sectionIdStr}_cmds"];
+                if (worldCmds != null)
+                    OnMainThread.cachedMapCmds[ScheduledCommand.Global] = DeserializeCmds(worldCmds.GetBytes());
+
+                OnMainThread.cachedGameData = zip[$"world/{sectionIdStr}_save"].GetBytes();
+            }
+        }
+
+        public static Replay ForLoading(string fileName)
+        {
+            return new Replay(fileName);
+        }
+
+        public static Replay ForSaving(string fileName)
+        {
+            var replay = new Replay(fileName);
+            replay.info.name = $"{Multiplayer.username}'s {Find.World.info.name}";
+            replay.info.playerFaction = Multiplayer.session.myFactionId;
+
+            return replay;
+        }
+    }
+
+    public class ReplayInfo
+    {
+        public string name;
+        public int playerFaction;
+
+        public List<ReplaySection> sections = new List<ReplaySection>();
+        public List<ReplayCheckpoint> checkpoints = new List<ReplayCheckpoint>();
+    }
+
+    public class ReplaySection
+    {
+        public int start;
+        public int end;
+
+        public ReplaySection()
+        {
+        }
+
+        public ReplaySection(int start, int end)
+        {
+            this.start = start;
+            this.end = end;
+        }
+    }
+
+    public class ReplayCheckpoint
+    {
+        public string name;
+        public double time;
+        public Color color;
     }
 
     public class MultiplayerSession
@@ -669,8 +741,8 @@ namespace Multiplayer.Client
         public int myFactionId;
 
         public bool replay;
-        public int replayTimerStart;
-        public int replayTimerEnd;
+        public int replayTimerStart = -1;
+        public int replayTimerEnd = -1;
 
         public string disconnectNetReason;
         public string disconnectServerReason;
@@ -785,6 +857,7 @@ namespace Multiplayer.Client
     {
         public static ActionQueue queue = new ActionQueue();
 
+        public static int cachedAtTime;
         public static byte[] cachedGameData;
         public static Dictionary<int, byte[]> cachedMapData = new Dictionary<int, byte[]>();
 
@@ -913,6 +986,7 @@ namespace Multiplayer.Client
 
         public static void ClearCaches()
         {
+            cachedAtTime = 0;
             cachedGameData = null;
             cachedMapData.Clear();
             cachedMapCmds.Clear();

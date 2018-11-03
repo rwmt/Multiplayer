@@ -201,7 +201,7 @@ namespace Multiplayer.Common
                     SendCommand(CommandType.FactionOffline, ScheduledCommand.NoFaction, ScheduledCommand.Global, data);
                 }
 
-                SendNotification("MpPlayerDisonnected", conn.username);
+                SendNotification("MpPlayerDisconnected", conn.username);
                 UpdatePlayerList();
             }
 

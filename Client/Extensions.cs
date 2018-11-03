@@ -190,8 +190,8 @@ namespace Multiplayer.Client
         public static int Hash(this StackTrace trace)
         {
             int hash = 0;
-            foreach (StackFrame frame in trace.GetFrames())
-                hash = Gen.HashCombineInt(hash, frame.GetMethod().MetadataToken);
+            for (int i = 0; i < trace.GetFrames().Length; i++)
+                hash = Gen.HashCombineInt(hash, trace.GetFrames()[i].GetMethod().MetadataToken);
 
             return hash;
         }

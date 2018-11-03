@@ -18,12 +18,8 @@ namespace Multiplayer.Client
     [HarmonyPatch(typeof(TickManager), nameof(TickManager.TickManagerUpdate))]
     public static class TickPatch
     {
-        const float TimeStep = 1 / 6f;
-
-        public static int Timer => (int)timerInt;
-
         public static double accumulator;
-        public static double timerInt;
+        public static int Timer;
         public static int tickUntil;
         public static bool currentExecutingCmdIssuedBySelf;
 
@@ -57,8 +53,8 @@ namespace Multiplayer.Client
 
             if (Timer >= tickUntil)
                 accumulator = 0;
-            else if (!Multiplayer.IsReplay && delta < 1.5 && tickUntil - timerInt > 8)
-                accumulator += Math.Min(100, tickUntil - timerInt - 8);
+            else if (!Multiplayer.IsReplay && delta < 1.5 && tickUntil - Timer > 8)
+                accumulator += Math.Min(100, tickUntil - Timer - 8);
 
             if (Multiplayer.IsReplay && replayTimeSpeed == TimeSpeed.Paused)
                 accumulator = 0;
@@ -68,6 +64,7 @@ namespace Multiplayer.Client
                 if (Timer >= skipTo)
                 {
                     skipTo = -1;
+                    accumulator = 0;
                     afterSkip?.Invoke();
                     afterSkip = null;
                 }
@@ -118,13 +115,13 @@ namespace Multiplayer.Client
                 foreach (ITickable tickable in AllTickables)
                 {
                     if (tickable.TimePerTick(tickable.TimeSpeed) == 0) continue;
-                    tickable.RealTimeToTickThrough += TimeStep;
+                    tickable.RealTimeToTickThrough += 1f;
 
                     Tick(tickable);
                 }
 
-                accumulator -= TimeStep * ReplayMultiplier();
-                timerInt += TimeStep;
+                accumulator -= 1 * ReplayMultiplier();
+                Timer += 1;
 
                 if (Timer >= tickUntil || LongEventHandler.eventQueue.Count > 0)
                     accumulator = 0;
@@ -152,7 +149,7 @@ namespace Multiplayer.Client
 
             ITickable tickable = CurrentTickable();
             if (tickable.TimeSpeed == TimeSpeed.Paused)
-                return 1 / 60f; // So paused sections of the timeline are skipped through asap
+                return 1 / 100f; // So paused sections of the timeline are skipped through asap
 
             return tickable.TimePerTick(replayTimeSpeed) / tickable.TimePerTick(tickable.TimeSpeed);
         }

@@ -21,7 +21,7 @@ namespace Multiplayer.Client
             Rand.PushState();
 
             if (Multiplayer.Client == null) return;
-            Multiplayer.Seed = 1;
+            Rand.Seed = 1;
         }
 
         static void Postfix()

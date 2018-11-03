@@ -898,7 +898,7 @@ namespace Multiplayer.Client
 
         public void ExposeData()
         {
-            ScribeUtil.Look(ref data, "data", LookMode.Value);
+            Scribe_Collections.Look(ref data, "data", LookMode.Value, LookMode.Value);
         }
     }
 

@@ -104,7 +104,7 @@ namespace Multiplayer.Client
 
         public static void StartLoading(byte[] data)
         {
-            StartLoading(GetDocument(data));
+            StartLoading(LoadDocument(data));
         }
 
         public static void FinalizeLoading()
@@ -139,7 +139,7 @@ namespace Multiplayer.Client
             }
         }
 
-        public static XmlDocument GetDocument(byte[] data)
+        public static XmlDocument LoadDocument(byte[] data)
         {
             using (MemoryStream stream = new MemoryStream(data))
             using (XmlReader reader = XmlReader.Create(stream))
@@ -216,16 +216,16 @@ namespace Multiplayer.Client
         /// <summary>
         /// Dictionary Look with value type keys
         /// </summary>
-        public static void Look<K, V>(ref Dictionary<K, V> dict, string label, LookMode valueLookMode, params object[] valueCtorArgs)
+        public static void LookWithValueKey<K, V>(ref Dictionary<K, V> dict, string label, LookMode valueLookMode, params object[] valueCtorArgs)
         {
             List<V> list = null;
-            Look(ref dict, label, valueLookMode, ref list, valueCtorArgs);
+            LookWithValueKey(ref dict, label, valueLookMode, ref list, valueCtorArgs);
         }
 
         /// <summary>
         /// Dictionary Look with value type keys
         /// </summary>
-        public static void Look<K, V>(ref Dictionary<K, V> dict, string label, LookMode valueLookMode, ref List<V> valuesWorkingList, params object[] valueCtorArgs)
+        public static void LookWithValueKey<K, V>(ref Dictionary<K, V> dict, string label, LookMode valueLookMode, ref List<V> valuesWorkingList, params object[] valueCtorArgs)
         {
             LookMode keyLookMode = LookMode.Value;
             List<K> keysWorkingList = null;
