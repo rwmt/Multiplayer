@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Steamworks;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -33,6 +34,41 @@ namespace Multiplayer.Client
         {
             ushort* iflags = (ushort*)(method.MethodHandle.Value) + 1;
             *iflags |= (ushort)MethodImplOptions.NoInlining;
+        }
+    }
+
+    public static class SteamImages
+    {
+        public static Dictionary<int, Texture2D> cache = new Dictionary<int, Texture2D>();
+
+        // Remember to flip it
+        public static Texture2D GetTexture(int id)
+        {
+            if (cache.TryGetValue(id, out Texture2D tex))
+                return tex;
+
+            if (!SteamUtils.GetImageSize(id, out uint width, out uint height))
+            {
+                cache[id] = null;
+                return null;
+            }
+
+            uint sizeInBytes = width * height * 4;
+            byte[] data = new byte[sizeInBytes];
+
+            if (!SteamUtils.GetImageRGBA(id, data, (int)sizeInBytes))
+            {
+                cache[id] = null;
+                return null;
+            }
+
+            tex = new Texture2D((int)width, (int)height, TextureFormat.RGBA32, false);
+            tex.LoadRawTextureData(data);
+            tex.Apply();
+
+            cache[id] = tex;
+
+            return tex;
         }
     }
 

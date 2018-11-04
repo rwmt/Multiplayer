@@ -80,7 +80,9 @@
     <Compile Include="Client\CaravanForming.cs" />
     <Compile Include="Client\ChatWindow.cs" />
     <Compile Include="Client\ClientConnection.cs" />
+    <Compile Include="Client\ConnectingWindow.cs" />
     <Compile Include="Client\DebugTools.cs" />
+    <Compile Include="Client\HostWindow.cs" />
     <Compile Include="Client\HotSwap.cs" />
     <Compile Include="Client\MpUtil.cs" />
     <Compile Include="Client\MultiplayerMapComp.cs" />
