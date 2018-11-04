@@ -99,7 +99,9 @@ namespace Multiplayer.Client
 
         public static void Tick()
         {
-            while (accumulator > 0)
+            var watch = Stopwatch.StartNew();
+
+            while (accumulator > 0 || (skipTo > 0 && Timer < skipTo && watch.ElapsedMilliseconds < 25))
             {
                 int curTimer = Timer;
 
@@ -124,7 +126,10 @@ namespace Multiplayer.Client
                 Timer += 1;
 
                 if (Timer >= tickUntil || LongEventHandler.eventQueue.Count > 0)
+                {
                     accumulator = 0;
+                    return;
+                }
             }
         }
 
@@ -493,6 +498,29 @@ namespace Multiplayer.Client
         }
     }
 
+    [HarmonyPatch(typeof(PawnTweener), nameof(PawnTweener.PreDrawPosCalculation))]
+    static class PreDrawCalcMarker
+    {
+        public static bool calculating;
+
+        static void Prefix() => calculating = true;
+        static void Postfix() => calculating = false;
+    }
+
+    [HarmonyPatch(typeof(TickManager), nameof(TickManager.TickRateMultiplier), MethodType.Getter)]
+    static class TickRateMultPatch
+    {
+        static void Postfix(ref float __result)
+        {
+            if (!PreDrawCalcMarker.calculating) return;
+            if (Multiplayer.Client == null) return;
+            if (WorldRendererUtility.WorldRenderedNow) return;
+            if (!Multiplayer.IsReplay) return;
+
+            __result = TickPatch.skipTo > 0 ? 6 : Find.CurrentMap.AsyncTime().TickRateMultiplier(TickPatch.replayTimeSpeed);
+        }
+    }
+
     [HarmonyPatch(typeof(Storyteller))]
     [HarmonyPatch(nameof(Storyteller.StorytellerTick))]
     public class StorytellerTickPatch
@@ -541,7 +569,7 @@ namespace Multiplayer.Client
             return 1f / TickRateMultiplier(speed);
         }
 
-        private float TickRateMultiplier(TimeSpeed speed)
+        public float TickRateMultiplier(TimeSpeed speed)
         {
             if (map.MpComp().caravanForming != null)
                 return 0f;

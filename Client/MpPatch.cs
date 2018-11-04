@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using Verse;
 
 namespace Multiplayer.Client
 {
@@ -77,12 +78,15 @@ namespace Multiplayer.Client
         public static void DoAllMpPatches(this HarmonyInstance harmony)
         {
             foreach (Type type in Assembly.GetCallingAssembly().GetTypes())
+            {
                 harmony.DoMpPatches(type);
+            }
         }
 
+        // Use null as harmony instance to just collect the methods
         public static List<MethodBase> DoMpPatches(this HarmonyInstance harmony, Type type)
         {
-            List<MethodBase> result = new List<MethodBase>();
+            List<MethodBase> result = null;
 
             // On whole type
             foreach (MpPatch attr in type.AllAttributes<MpPatch>())
@@ -95,19 +99,28 @@ namespace Multiplayer.Client
                     argumentTypes = toPatch.GetParameters().Types()
                 };
 
-                new PatchProcessor(harmony, type, harmonyMethod).Patch();
+                if (harmony != null)
+                    new PatchProcessor(harmony, type, harmonyMethod).Patch();
+
+                if (result == null)
+                    result = new List<MethodBase>();
+
                 result.Add(toPatch);
             }
 
             // On methods
-            foreach (MethodInfo m in AccessTools.GetDeclaredMethods(type).Where(m => m.IsStatic))
+            foreach (MethodInfo m in type.GetDeclaredMethods().Where(m => m.IsStatic))
             {
                 foreach (MpPatch attr in m.AllAttributes<MpPatch>())
                 {
                     MethodInfo toPatch = attr.Method;
-
                     HarmonyMethod patch = new HarmonyMethod(m);
-                    harmony.Patch(toPatch, (attr is MpPrefix) ? patch : null, (attr is MpPostfix) ? patch : null, (attr is MpTranspiler) ? patch : null);
+
+                    if (harmony != null)
+                        harmony.Patch(toPatch, (attr is MpPrefix) ? patch : null, (attr is MpPostfix) ? patch : null, (attr is MpTranspiler) ? patch : null);
+
+                    if (result == null)
+                        result = new List<MethodBase>();
 
                     result.Add(toPatch);
                 }

@@ -17,12 +17,13 @@
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>false</DebugSymbols>
     <DebugType>none</DebugType>
-    <Optimize>false</Optimize>
+    <Optimize>true</Optimize>
     <OutputPath>..\..\Assemblies\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <PlatformTarget>AnyCPU</PlatformTarget>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>none</DebugType>
@@ -81,9 +82,11 @@
     <Compile Include="Client\ClientConnection.cs" />
     <Compile Include="Client\DebugTools.cs" />
     <Compile Include="Client\HotSwap.cs" />
+    <Compile Include="Client\MpUtil.cs" />
     <Compile Include="Client\MultiplayerMapComp.cs" />
     <Compile Include="Client\MultiplayerWorldComp.cs" />
     <Compile Include="Client\Multithreading.cs" />
+    <Compile Include="Client\Native.cs" />
     <Compile Include="Client\SaveCompression.cs" />
     <Compile Include="Client\Extensions.cs" />
     <Compile Include="Client\MapAsyncTime.cs" />

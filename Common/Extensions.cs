@@ -73,7 +73,7 @@ namespace Multiplayer.Common
 
         public static IEnumerable<T> AllAttributes<T>(this MemberInfo member) where T : Attribute
         {
-            return Attribute.GetCustomAttributes(member, typeof(T)).Cast<T>();
+            return Attribute.GetCustomAttributes(member).OfType<T>();
         }
 
         public static void Restart(this Stopwatch watch)

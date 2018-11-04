@@ -190,8 +190,6 @@ namespace Multiplayer.Client
                 float height = Text.CalcHeight(msg.Msg, width);
                 float textWidth = Text.CalcSize(msg.Msg).x + 15;
 
-                GUI.SetNextControlName("chat_msg_" + i++);
-
                 Rect msgRect = new Rect(20f, yPos, width, height);
                 if (Mouse.IsOver(msgRect))
                 {
@@ -208,6 +206,8 @@ namespace Multiplayer.Client
                 GUI.skin.settings.cursorColor = new Color(0, 0, 0, 0);
 
                 msgRect.width = Math.Min(textWidth, msgRect.width);
+
+                GUI.SetNextControlName("chat_msg_" + i++);
                 Widgets.TextArea(msgRect, msg.Msg, true);
 
                 GUI.skin.settings.cursorColor = cursorColor;

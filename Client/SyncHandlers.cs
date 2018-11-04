@@ -91,7 +91,7 @@ namespace Multiplayer.Client
 
         public static SyncField[] SyncDrugPolicyEntry = Sync.Fields(
             typeof(DrugPolicy),
-            "entriesInt[]",
+            "entriesInt/[]",
             "allowedForAddiction",
             "allowedForJoy",
             "allowScheduled",
@@ -100,7 +100,7 @@ namespace Multiplayer.Client
 
         public static SyncField[] SyncDrugPolicyEntryBuffered = Sync.Fields(
             typeof(DrugPolicy),
-            "entriesInt[]",
+            "entriesInt/[]",
             "daysFrequency",
             "onlyIfMoodBelow",
             "onlyIfJoyBelow"
@@ -244,9 +244,9 @@ namespace Multiplayer.Client
                 SyncDrugPolicyEntryBuffered.Watch(policy, i);
             }
         }
-
-        [MpPrefix(typeof(DebugWindowsOpener), "ToggleGodMode")]
+        
         [MpPrefix(typeof(Prefs), "set_DevMode")]
+        [MpPrefix(typeof(DebugWindowsOpener), "ToggleGodMode")]
         static void SetGodMode()
         {
             SyncGodMode.Watch();
@@ -267,7 +267,7 @@ namespace Multiplayer.Client
         [MpPrefix(typeof(TransferableUIUtility), "DoCountAdjustInterface")]
         static void TransferableAdjustTo(Transferable trad)
         {
-            ISessionWithTransferables session = MpTradeSession.current ?? (ISessionWithTransferables)MpFormingCaravanWindow.drawing?.Session;
+            var session = MpTradeSession.current ?? (ISessionWithTransferables)MpFormingCaravanWindow.drawing?.Session;
             if (session != null)
                 SyncTradeableCount.Watch(new MpTransferableReference(session, trad));
         }
@@ -862,7 +862,7 @@ namespace Multiplayer.Client
         // Set by faction context
         public static ResearchSpeed researchSpeed;
         public static SyncField SyncResearchSpeed =
-            Sync.Field(null, "Multiplayer.Client.SyncResearch/researchSpeed[]").SetBufferChanges().InGameLoop();
+            Sync.Field(null, "Multiplayer.Client.SyncResearch/researchSpeed/[]").SetBufferChanges().InGameLoop();
 
         public static void ConstantTick()
         {

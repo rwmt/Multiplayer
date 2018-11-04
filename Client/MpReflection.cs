@@ -126,50 +126,15 @@ namespace Multiplayer.Client
             for (int i = 1; i < parts.Length; i++)
             {
                 string part = parts[i];
-                bool arrayAccess = part.EndsWith("[]");
-                part = part.Replace("[]", "");
-
                 MemberInfo memberFound = null;
 
-                if (!currentType.IsInterface)
+                if (part == "[]")
                 {
-                    FieldInfo field = AccessTools.Field(currentType, part);
-                    if (field != null)
-                    {
-                        memberFound = field;
-                        members.Add(field);
-                        currentType = field.FieldType;
-                        hasSetter = true;
-                    }
-
-                    PropertyInfo property = AccessTools.Property(currentType, part);
-                    if (property != null)
-                    {
-                        memberFound = property;
-                        members.Add(property);
-                        currentType = property.PropertyType;
-                        hasSetter = property.GetSetMethod(true) != null;
-                    }
-                }
-
-                MethodInfo method = AccessTools.Method(currentType, part);
-                if (method != null)
-                {
-                    memberFound = method;
-                    members.Add(method);
-                    currentType = method.ReturnType;
-                    hasSetter = false;
-                }
-
-                if (memberFound == null)
-                    throw new Exception($"Member {part} not found in path: {memberPath}, current type: {currentType}");
-
-                if (arrayAccess)
-                {
-                    if (currentType.IsArray)
+                    if (currentType.IsArray || currentType == typeof(Array))
                     {
                         currentType = currentType.GetElementType();
-                        members.Add(new ArrayAccess() { ElementType = currentType });
+                        memberFound = new ArrayAccess() { ElementType = currentType };
+                        members.Add(memberFound);
                         hasSetter = true;
                         indexTypes[memberPath] = typeof(int);
                     }
@@ -180,12 +145,48 @@ namespace Multiplayer.Client
 
                         Type indexType = indexer.GetIndexParameters()[0].ParameterType;
 
+                        memberFound = indexer;
                         members.Add(indexer);
                         currentType = indexer.PropertyType;
                         hasSetter = indexer.GetSetMethod(true) != null;
                         indexTypes[memberPath] = indexType;
                     }
                 }
+                else
+                {
+                    if (!currentType.IsInterface)
+                    {
+                        FieldInfo field = AccessTools.Field(currentType, part);
+                        if (field != null)
+                        {
+                            memberFound = field;
+                            members.Add(field);
+                            currentType = field.FieldType;
+                            hasSetter = true;
+                        }
+
+                        PropertyInfo property = AccessTools.Property(currentType, part);
+                        if (property != null)
+                        {
+                            memberFound = property;
+                            members.Add(property);
+                            currentType = property.PropertyType;
+                            hasSetter = property.GetSetMethod(true) != null;
+                        }
+                    }
+
+                    MethodInfo method = AccessTools.Method(currentType, part);
+                    if (method != null)
+                    {
+                        memberFound = method;
+                        members.Add(method);
+                        currentType = method.ReturnType;
+                        hasSetter = false;
+                    }
+                }
+
+                if (memberFound == null)
+                    throw new Exception($"Member {part} not found in path: {memberPath}, current type: {currentType}");
             }
 
             MemberInfo lastMember = members.Last();
@@ -195,7 +196,7 @@ namespace Multiplayer.Client
             DynamicMethod getter = new DynamicMethod("MP_Reflection_Getter_" + methodName, typeof(object), new[] { typeof(object), typeof(object) }, true);
             ILGenerator getterGen = getter.GetILGenerator();
 
-            EmitAccess(type, members, members.Count, getterGen, 1);
+            EmitAccess(type, members, members.Count, getterGen, 1, lastMember);
             getterGen.Emit(OpCodes.Ret);
             getters[memberPath] = (Getter)getter.CreateDelegate(typeof(Getter));
 
@@ -209,7 +210,7 @@ namespace Multiplayer.Client
                 ILGenerator setterGen = setter.GetILGenerator();
 
                 // Load the instance
-                EmitAccess(type, members, members.Count - 1, setterGen, 2);
+                EmitAccess(type, members, members.Count - 1, setterGen, 2, lastMember);
 
                 // Load the index
                 if (lastMember is ArrayAccess)
@@ -224,7 +225,7 @@ namespace Multiplayer.Client
                     setterGen.Emit(OpCodes.Unbox_Any, indexType);
                 }
 
-                // Load and box/cast the value
+                // Load and unbox/cast the value
                 setterGen.Emit(OpCodes.Ldarg_1);
                 setterGen.Emit(OpCodes.Unbox_Any, currentType);
 
@@ -250,7 +251,7 @@ namespace Multiplayer.Client
             }
         }
 
-        private static void EmitAccess(Type type, List<MemberInfo> members, int count, ILGenerator gen, int indexArg)
+        private static void EmitAccess(Type type, List<MemberInfo> members, int count, ILGenerator gen, int indexArg, MemberInfo lastMember)
         {
             if (!members[0].IsStatic())
             {
@@ -262,6 +263,8 @@ namespace Multiplayer.Client
             {
                 MemberInfo member = members[i];
                 Type memberType;
+
+                bool dontBox = false;
 
                 if (member is FieldInfo field)
                 {
@@ -292,23 +295,28 @@ namespace Multiplayer.Client
                 }
                 else if (member is ArrayAccess arr)
                 {
+                    memberType = arr.ElementType;
+
                     gen.Emit(OpCodes.Ldarg, indexArg);
                     gen.Emit(OpCodes.Unbox_Any, typeof(int));
-                    gen.Emit(OpCodes.Ldelem);
-                    memberType = arr.ElementType;
+
+                    if (memberType.IsValueType && member != lastMember)
+                    {
+                        gen.Emit(OpCodes.Ldelema, memberType);
+                        dontBox = true;
+                    }
+                    else
+                    {
+                        gen.Emit(OpCodes.Ldelem, memberType);
+                    }
                 }
                 else
                 {
                     throw new Exception("Unsupported member type " + member.GetType());
                 }
 
-                BoxIfNeeded(memberType);
-            }
-
-            void BoxIfNeeded(Type forType)
-            {
-                if (forType.IsValueType)
-                    gen.Emit(OpCodes.Box, forType);
+                if (!dontBox && memberType.IsValueType)
+                    gen.Emit(OpCodes.Box, memberType);
             }
         }
 
@@ -317,18 +325,20 @@ namespace Multiplayer.Client
             if (types.TryGetValue(name, out Type cached))
                 return cached;
 
+            Type type = null;
+
             foreach (Assembly assembly in AllAssemblies)
             {
-                Type type = assembly.GetType(name, false);
+                type = assembly.GetType(name, false);
                 if (type != null)
-                {
-                    types[name] = type;
-                    return type;
-                }
+                    break;
             }
 
-            types[name] = null;
-            return null;
+            if (type == null)
+                type = Type.GetType(name);
+
+            types[name] = type;
+            return type;
         }
     }
 
@@ -387,7 +397,7 @@ namespace Multiplayer.Client
             else if (member is MethodInfo method)
                 return method.IsStatic;
             else
-                throw new Exception("Invalid member " + member?.GetType());
+                return false;
         }
     }
 }

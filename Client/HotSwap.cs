@@ -6,11 +6,13 @@ using Harmony;
 using Harmony.ILCopying;
 using Multiplayer.Common;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Runtime.InteropServices;
 using Verse;
 
 namespace Multiplayer.Client
@@ -25,7 +27,7 @@ namespace Multiplayer.Client
         static Dictionary<Assembly, FileInfo> AssemblyFiles = new Dictionary<Assembly, FileInfo>();
         static Dictionary<string, Assembly> AssembliesByName = new Dictionary<string, Assembly>();
 
-        static HotSwap()
+        unsafe static HotSwap()
         {
             foreach (var a in AppDomain.CurrentDomain.GetAssemblies())
                 AssembliesByName[a.FullName] = a;
@@ -56,22 +58,24 @@ namespace Multiplayer.Client
 
         private static MethodInfo AddRef = AccessTools.Method(typeof(DynamicMethod), "AddRef");
 
+        private static FieldInfo ilgen_code = AccessTools.Field(typeof(ILGenerator), "code");
+        private static FieldInfo ilgen_code_len = AccessTools.Field(typeof(ILGenerator), "code_len");
+        private static FieldInfo ilgen_max_stack = AccessTools.Field(typeof(ILGenerator), "max_stack");
+
         public static void DoHotSwap()
         {
-            var asms = AssemblyFiles.Where(kv => kv.Key.GetTypes().Any(t => t.HasAttribute<HotSwappableAttribute>()));
-
-            foreach (var kv in asms)
+            foreach (var kv in AssemblyFiles)
             {
                 var asm = kv.Key;
                 var module = asm.GetModules()[0];
 
                 using (var dnModule = ModuleDefMD.Load(kv.Value.FullName))
                 {
-                    foreach (var type in asm.GetTypes())
+                    foreach (var dnType in dnModule.GetTypes())
                     {
-                        if (!type.HasAttribute<HotSwappableAttribute>()) continue;
+                        if (!dnType.HasCustomAttributes || dnType.CustomAttributes.Find(typeof(HotSwappableAttribute).FullName) == null) continue;
 
-                        var dnType = dnModule.FindReflection(type.FullName);
+                        var type = Type.GetType(dnType.AssemblyQualifiedName);
                         var flags = BindingFlags.DeclaredOnly | BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static;
 
                         foreach (var method in type.GetMethods(flags))
@@ -123,53 +127,49 @@ namespace Multiplayer.Client
                                 }
                             }
 
-                            // todo convert to reflection
+                            ilgen_code.SetValue(ilGen, newCode);
+                            ilgen_code_len.SetValue(ilGen, newCode.Length);
+                            ilgen_max_stack.SetValue(ilGen, methodBody.MaxStack);
 
-                            /*ilGen.code = newCode;
-                            ilGen.code_len = newCode.Length;
-                            ilGen.max_stack = methodBody.MaxStack;*/
+                            var exhandlers = methodBody.ExceptionHandlers.Distinct(new ExceptionHandlerComparer()).ToArray();
+                            ilGen.SetPropertyOrField("ex_handlers", Array.CreateInstance(ILExceptionInfoType, exhandlers.Length));
 
-                            foreach (var ex in methodBody.ExceptionHandlers)
+                            for (int i = 0; i < exhandlers.Length; i++)
                             {
+                                var ex = exhandlers[i];
                                 int start = (int)ex.TryStart.Offset;
                                 int end = (int)ex.TryEnd.Offset;
                                 int len = end - start;
-                                int handlerStart = (int)ex.HandlerStart.Offset;
-                                int handlerEnd = (int)ex.HandlerEnd.Offset;
-                                int handlerLen = handlerEnd - handlerStart;
 
-                                Type catchType = null;
-                                int filterOffset = 0;
+                                var handlers = methodBody.ExceptionHandlers.Where(h => h.TryStart.Offset == start).ToArray();
 
-                                if (ex.CatchType != null)
-                                    catchType = module.ResolveType(ex.CatchType.MDToken.ToInt32());
-                                else if (ex.FilterStart != null)
-                                    filterOffset = (int)ex.FilterStart.Offset;
+                                ilGen.SetPropertyOrField("ex_handlers/[]/start", start, i);
+                                ilGen.SetPropertyOrField("ex_handlers/[]/len", len, i);
+                                ilGen.SetPropertyOrField("ex_handlers/[]/handlers", Array.CreateInstance(ILExceptionBlockType, handlers.Length), i);
 
-                                // todo convert to reflection
-
-                                /*if (ilGen.ex_handlers == null)
-                                    ilGen.ex_handlers = new ILExceptionInfo[0];
-
-                                ILExceptionInfo exInfo = ilGen.ex_handlers.FirstOrDefault(e => e.start == start && e.len == len);
-                                if (exInfo.handlers == null)
+                                for (int j = 0; j < handlers.Length; j++)
                                 {
-                                    ilGen.ex_handlers = ilGen.ex_handlers.AddToArray(new ILExceptionInfo()
-                                    {
-                                        start = start,
-                                        len = len,
-                                        handlers = new ILExceptionBlock[0]
-                                    });
+                                    var exx = handlers[j];
+
+                                    int handlerStart = (int)exx.HandlerStart.Offset;
+                                    int handlerEnd = (int)exx.HandlerEnd.Offset;
+                                    int handlerLen = handlerEnd - handlerStart;
+
+                                    Type catchType = null;
+                                    int filterOffset = 0;
+
+                                    if (exx.CatchType != null)
+                                        catchType = module.ResolveType(exx.CatchType.MDToken.ToInt32());
+                                    else if (exx.FilterStart != null)
+                                        filterOffset = (int)exx.FilterStart.Offset;
+
+                                    Array arr = (Array)ilGen.GetPropertyOrField("ex_handlers/[]/handlers", i);
+                                    arr.SetPropertyOrField("[]/type", (int)ex.HandlerType, j);
+                                    arr.SetPropertyOrField("[]/start", handlerStart, j);
+                                    arr.SetPropertyOrField("[]/len", handlerLen, j);
+                                    arr.SetPropertyOrField("[]/extype", catchType, j);
+                                    arr.SetPropertyOrField("[]/filter_offset", filterOffset, j);
                                 }
-
-                                exInfo.handlers = exInfo.handlers.AddToArray(new ILExceptionBlock()
-                                {
-                                    type = (int)ex.HandlerType,
-                                    start = handlerStart,
-                                    len = handlerLen,
-                                    extype = catchType,
-                                    filter_offset = filterOffset
-                                });*/
                             }
 
                             DynamicTools.PrepareDynamicMethod(replacement);
@@ -179,6 +179,38 @@ namespace Multiplayer.Client
                         }
                     }
                 }
+            }
+        }
+
+        private static bool Contains(this IEnumerable enumerable, Predicate<object> predicate)
+        {
+            foreach (object obj in enumerable)
+                if (predicate(obj))
+                    return true;
+            return false;
+        }
+
+        private static Type ILExceptionInfoType = Type.GetType("System.Reflection.Emit.ILExceptionInfo");
+        private static Type ILExceptionBlockType = Type.GetType("System.Reflection.Emit.ILExceptionBlock");
+
+        private static Array AddToArray(Array arr, object obj)
+        {
+            Array newArray = Array.CreateInstance(arr.GetType().GetElementType(), arr.Length + 1);
+            Array.Copy(arr, newArray, arr.Length);
+            newArray.SetValue(obj, arr.Length);
+            return newArray;
+        }
+
+        public class ExceptionHandlerComparer : IEqualityComparer<ExceptionHandler>
+        {
+            public bool Equals(ExceptionHandler x, ExceptionHandler y)
+            {
+                return x.TryStart.Offset == y.TryStart.Offset;
+            }
+
+            public int GetHashCode(ExceptionHandler obj)
+            {
+                return 0;
             }
         }
 

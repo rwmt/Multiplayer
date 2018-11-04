@@ -97,7 +97,7 @@ namespace Multiplayer.Common
 
         public void StartListening()
         {
-            server.Start(port);
+            server.Start(addr, IPAddress.IPv6Any, port);
         }
 
         public void Run()

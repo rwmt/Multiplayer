@@ -15,6 +15,8 @@ using System.Linq;
 using System.Net;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Xml;
 using System.Xml.Linq;
@@ -44,7 +46,7 @@ namespace Multiplayer.Client
         public static bool IsReplay => session?.replay ?? false;
 
         public static string username;
-        public static HarmonyInstance harmony = HarmonyInstance.Create("multiplayer");
+        public static HarmonyInstance harmony => MultiplayerModInstance.harmony;
 
         public static bool reloading;
         public static bool simulating;
@@ -114,12 +116,6 @@ namespace Multiplayer.Client
             MpConnectionState.SetImplementation(ConnectionStateEnum.ClientSteam, typeof(ClientSteamState));
             MpConnectionState.SetImplementation(ConnectionStateEnum.ClientJoining, typeof(ClientJoiningState));
             MpConnectionState.SetImplementation(ConnectionStateEnum.ClientPlaying, typeof(ClientPlayingState));
-
-            harmony.Patch(
-                AccessTools.Method(typeof(PatchProcessor), nameof(PatchProcessor.Patch)),
-                new HarmonyMethod(typeof(HarmonyPatches), nameof(HarmonyPatches.PatchProcessorPrefix)),
-                null
-            );
 
             harmony.DoAllMpPatches();
 
@@ -527,58 +523,28 @@ namespace Multiplayer.Client
             }
         }
 
-        public static void AppendCurrentDataToReplay(int sessionId)
-        {
-        }
-
-        public static void LoadReplay()
+        public static void LoadReplay(string name)
         {
             session = new MultiplayerSession();
             session.client = new ReplayConnection();
             session.client.State = ConnectionStateEnum.ClientPlaying;
             session.replay = true;
 
-            var replay = Replay.ForLoading("TestReplay");
+            var replay = Replay.ForLoading(name);
             replay.LoadInfo();
             replay.LoadCurrentData(0);
+            // todo ensure everything is read correctly
 
             session.myFactionId = replay.info.playerFaction;
 
-            // todo ensure everything is read correctly
-
-            bool hasSeeds = mapSeeds.Count > 0;
             int tickUntil = replay.info.sections[0].end;
 
-            ClientJoiningState.ReloadGame(tickUntil, OnMainThread.cachedMapData.Keys.ToList(), () =>
+            ClientJoiningState.ReloadGame(0, OnMainThread.cachedMapData.Keys.ToList(), () =>
             {
                 session.replayTimerStart = replay.info.sections[0].start;
                 session.replayTimerEnd = tickUntil;
                 TickPatch.tickUntil = tickUntil;
-
-                return;
-                if (!hasSeeds)
-                    LoadReplay();
-                else
-                    mapSeeds.Clear();
             });
-        }
-
-        public static string FixedEllipsis()
-        {
-            int num = Mathf.FloorToInt(Time.realtimeSinceStartup) % 3;
-            if (num == 0)
-                return ".  ";
-            if (num == 1)
-                return ".. ";
-            return "...";
-        }
-
-        public static IEnumerable<Type> AllModTypes()
-        {
-            foreach (ModContentPack mod in LoadedModManager.RunningMods)
-                for (int i = 0; i < mod.assemblies.loadedAssemblies.Count; i++)
-                    foreach (Type t in mod.assemblies.loadedAssemblies[i].GetTypes())
-                        yield return t;
         }
     }
 
@@ -690,6 +656,11 @@ namespace Multiplayer.Client
             return new Replay(fileName);
         }
 
+        public static Replay ForLoading(FileInfo file)
+        {
+            return new Replay(Path.GetFileNameWithoutExtension(file.Name));
+        }
+
         public static Replay ForSaving(string fileName)
         {
             var replay = new Replay(fileName);
@@ -732,6 +703,7 @@ namespace Multiplayer.Client
         public Color color;
     }
 
+    [HotSwappable]
     public class MultiplayerSession
     {
         public IConnection client;
@@ -755,7 +727,8 @@ namespace Multiplayer.Client
 
         public void Stop()
         {
-            client.State = ConnectionStateEnum.Disconnected;
+            if (client != null)
+                client.State = ConnectionStateEnum.Disconnected;
 
             if (localServer != null)
             {
@@ -765,6 +738,8 @@ namespace Multiplayer.Client
 
             if (netClient != null)
                 netClient.Stop();
+
+            Log.Message("Multiplayer session stopped.");
         }
     }
 
@@ -842,8 +817,27 @@ namespace Multiplayer.Client
 
     public class MultiplayerModInstance : Mod
     {
+        public static HarmonyInstance harmony = HarmonyInstance.Create("multiplayer");
+
         public MultiplayerModInstance(ModContentPack pack) : base(pack)
         {
+            EarlyMarkNoInline();
+        }
+
+        public void EarlyMarkNoInline()
+        {
+            foreach (var type in MpUtil.AllModTypes())
+            {
+                MpPatchExtensions.DoMpPatches(null, type)?.ForEach(m => MpUtil.MarkNoInlining(m));
+
+                var harmonyMethods = type.GetHarmonyMethods();
+                if (harmonyMethods?.Count > 0)
+                {
+                    var original = new PatchProcessor(harmony, type, HarmonyMethod.Merge(harmonyMethods)).GetOriginalMethod();
+                    if (original != null)
+                        MpUtil.MarkNoInlining(original);
+                }
+            }
         }
 
         public override void DoSettingsWindowContents(Rect inRect)

@@ -141,8 +141,6 @@ namespace Multiplayer.Client
             Multiplayer.WorldComp.cmds = new Queue<ScheduledCommand>(OnMainThread.cachedMapCmds.GetValueSafe(ScheduledCommand.Global) ?? new List<ScheduledCommand>());
             // Map cmds are added in MapAsyncTimeComp.FinalizeInit
 
-            TickPatch.skipTo = TickPatch.tickUntil;
-
             Action afterSkip = () =>
             {
                 foreach (Map map in Find.Maps)
@@ -154,7 +152,15 @@ namespace Multiplayer.Client
                 reloadDone?.Invoke();
             };
 
-            TickPatch.afterSkip = afterSkip;
+            if (TickPatch.Timer == TickPatch.tickUntil)
+            {
+                afterSkip();
+            }
+            else
+            {
+                TickPatch.skipTo = TickPatch.tickUntil;
+                TickPatch.afterSkip = afterSkip;
+            }
         }
 
         [PacketHandler(Packets.Server_DisconnectReason)]

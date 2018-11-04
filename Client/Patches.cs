@@ -24,20 +24,14 @@ using Verse.Sound;
 
 namespace Multiplayer.Client
 {
-    static class HarmonyPatches
+    [HarmonyPatch(typeof(Log))]
+    [HarmonyPatch(nameof(Log.ReachedMaxMessagesLimit), MethodType.Getter)]
+    static class LogMaxMessagesPatch
     {
-        public static void PatchProcessorPrefix(List<MethodBase> ___originals)
+        static void Postfix(ref bool __result)
         {
-            foreach (MethodBase m in ___originals)
-            {
-                MarkNoInlining(m);
-            }
-        }
-
-        public unsafe static void MarkNoInlining(MethodBase method)
-        {
-            ushort* iflags = (ushort*)(method.MethodHandle.Value) + 1;
-            *iflags |= (ushort)MethodImplOptions.NoInlining;
+            //if (Multiplayer.Client != null)
+            __result = false;
         }
     }
 
@@ -1416,17 +1410,6 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(Log))]
-    [HarmonyPatch(nameof(Log.ReachedMaxMessagesLimit), MethodType.Getter)]
-    static class LogMaxMessagesPatch
-    {
-        static void Postfix(ref bool __result)
-        {
-            if (Multiplayer.Client != null)
-                __result = false;
-        }
-    }
-
     [HarmonyPatch(typeof(TutorSystem))]
     [HarmonyPatch(nameof(TutorSystem.AdaptiveTrainingEnabled), MethodType.Getter)]
     static class DisableAdaptiveLearningPatch
@@ -1457,6 +1440,18 @@ namespace Multiplayer.Client
             if (RootPlayStartMarker.starting && cancel) return false;
             return true;
         }
+    }
+
+    [HarmonyPatch(typeof(ScreenFader), nameof(ScreenFader.SetColor))]
+    static class DisableScreenFade1
+    {
+        static bool Prefix() => !LongEventHandler.eventQueue.Any(e => e.eventTextKey == "MpLoading");
+    }
+
+    [HarmonyPatch(typeof(ScreenFader), nameof(ScreenFader.StartFade))]
+    static class DisableScreenFade2
+    {
+        static bool Prefix() => !LongEventHandler.eventQueue.Any(e => e.eventTextKey == "MpLoading");
     }
 
     [HarmonyPatch(typeof(Pawn_MeleeVerbs), nameof(Pawn_MeleeVerbs.TryGetMeleeVerb))]

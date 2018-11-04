@@ -9,9 +9,9 @@ using System.Linq;
 using System.Net;
 using System.Text;
 using System.Threading;
+using System.Xml;
 using UnityEngine;
 using Verse;
-using Verse.Profile;
 using Verse.Steam;
 
 namespace Multiplayer.Client
@@ -45,7 +45,7 @@ namespace Multiplayer.Client
             doCloseX = true;
             closeOnAccept = false;
 
-            ReloadSaves();
+            ReloadFiles();
         }
 
         private Vector2 lanScroll;
@@ -87,43 +87,62 @@ namespace Multiplayer.Client
             GUI.EndGroup();
         }
 
-        class SaveFile
-        {
-            public FileInfo file;
-
-            public SaveFile(FileInfo file)
-            {
-                this.file = file;
-            }
-        }
-
         private List<SaveFile> spSaves = new List<SaveFile>();
         private List<SaveFile> mpReplays = new List<SaveFile>();
 
-        private void ReloadSaves()
+        private void ReloadFiles()
         {
             foreach (FileInfo file in GenFilePaths.AllSavedGameFiles)
-                spSaves.Add(new SaveFile(file));
+            {
+                spSaves.Add(new SaveFile(Path.GetFileNameWithoutExtension(file.Name), false, file, GetWorldName(file)));
+            }
 
             var replaysDir = new DirectoryInfo(GenFilePaths.FolderUnderSaveData("MpReplays"));
             if (!replaysDir.Exists)
                 replaysDir.Create();
 
             foreach (var file in replaysDir.GetFiles().Where(f => f.Extension == ".zip").OrderByDescending(f => f.LastWriteTime))
-                mpReplays.Add(new SaveFile(file));
+            {
+                var replay = Replay.ForLoading(file);
+                replay.LoadInfo();
+                mpReplays.Add(new SaveFile(Path.GetFileNameWithoutExtension(file.Name), true, file, replay.info.name));
+            }
+        }
+
+        private string GetWorldName(FileInfo file)
+        {
+            using (var stream = new StreamReader(file.FullName))
+            {
+                using (var reader = new XmlTextReader(stream))
+                {
+                    var result =
+                        reader.
+                        ReadToNextElement()?. // savedGame
+                        ReadToNextElement()?. // meta
+                        SkipContents().
+                        ReadToNextElement()?. // game
+                        ReadToNextElement("world")?.
+                        ReadToNextElement("info")?.
+                        ReadToNextElement("name")?.
+                        ReadFirstText();
+
+                    return result;
+                }
+            }
         }
 
         private bool mpCollapsed, spCollapsed;
         private float hostHeight;
-        private static Texture2D WatchReplay = ContentFinder<Texture2D>.Get("Multiplayer/film-strip");
-        private static Texture2D HostReplay = ContentFinder<Texture2D>.Get("Multiplayer/gamepad");
+
+        private SaveFile selectedFile;
+        private float fileButtonsWidth;
 
         private void DrawHost(Rect inRect)
         {
             inRect.y += 8;
 
             float margin = 80;
-            Rect outRect = new Rect(margin, inRect.yMin + 10, inRect.width - 2 * margin, inRect.height - 20);
+            Rect outRect = new Rect(margin, inRect.yMin + 10, inRect.width - 2 * margin, inRect.height - 80);
             Rect viewRect = new Rect(0, 0, outRect.width - 16f, hostHeight);
 
             Widgets.BeginScrollView(outRect, ref hostScroll, viewRect, true);
@@ -158,74 +177,103 @@ namespace Multiplayer.Client
             y += textHeight2 + 10;
 
             if (!spCollapsed)
-                DrawSaveList(spSaves, viewRect.width, ref y, false);
+                DrawSaveList(spSaves, viewRect.width, ref y);
 
             if (Event.current.type == EventType.layout)
                 hostHeight = y;
 
             Widgets.EndScrollView();
+
+            if (selectedFile == null)
+            {
+                Text.Anchor = TextAnchor.MiddleCenter;
+                Widgets.Label(new Rect(outRect.x, outRect.yMax, outRect.width, 80), "Nothing selected");
+                Text.Anchor = TextAnchor.UpperLeft;
+            }
+            else
+            {
+                float width = 0;
+
+                GUI.BeginGroup(new Rect(outRect.x + (outRect.width - fileButtonsWidth) / 2, outRect.yMax + 20, fileButtonsWidth, 40));
+                DrawFileButtons(selectedFile, ref width);
+                GUI.EndGroup();
+
+                if (Event.current.type == EventType.layout)
+                {
+                    fileButtonsWidth = width;
+                }
+            }
         }
 
-        private void DrawSaveList(List<SaveFile> saves, float width, ref float y, bool watch = true, bool host = true)
+        private void DrawFileButtons(SaveFile file, ref float width)
+        {
+            if (file.replay)
+            {
+                if (Widgets.ButtonText(new Rect(width, 0, 120, 40), "Watch"))
+                    Multiplayer.LoadReplay(file.name);
+
+                width += 120 + 10;
+            }
+
+            if (Widgets.ButtonText(new Rect(width, 0, 120, 40), "Host"))
+            {
+                Find.WindowStack.Add(new HostWindow(file) { returnToServerBrowser = true });
+                Close(false);
+            }
+
+            width += 120 + 10;
+
+            if (Widgets.ButtonText(new Rect(width, 0, 120, 40), "Delete"))
+            {
+                Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation("ConfirmDelete".Translate(file.name), () =>
+                {
+                    file.file.Delete();
+                    ReloadFiles();
+                }, true));
+            }
+
+            width += 120;
+        }
+
+        private void DrawSaveList(List<SaveFile> saves, float width, ref float y)
         {
             for (int i = 0; i < saves.Count; i++)
             {
                 var saveFile = saves[i];
-                var fileName = Path.GetFileNameWithoutExtension(saveFile.file.Name);
-
                 Rect entryRect = new Rect(0, y, width, 40);
 
-                if (i % 2 == 0)
+                if (saveFile == selectedFile)
+                {
+                    Widgets.DrawRectFast(entryRect, new Color(1f, 1f, 0.7f, 0.1f));
+
+                    var lineColor = new Color(1, 1, 1, 0.3f);
+                    Widgets.DrawLine(entryRect.min, entryRect.TopRightCorner(), lineColor, 2f);
+                    Widgets.DrawLine(entryRect.min + new Vector2(2, 1), entryRect.BottomLeftCorner() + new Vector2(2, -1), lineColor, 2f);
+                    Widgets.DrawLine(entryRect.BottomLeftCorner(), entryRect.max, lineColor, 2f);
+                    Widgets.DrawLine(entryRect.TopRightCorner() - new Vector2(2, -1), entryRect.max - new Vector2(2, 1), lineColor, 2f);
+                }
+                else if (i % 2 == 0)
+                {
                     Widgets.DrawAltRect(entryRect);
+                }
 
                 Text.Anchor = TextAnchor.MiddleLeft;
-                Widgets.Label(entryRect.Right(10), fileName);
+                Widgets.Label(entryRect.Right(10), saveFile.name);
                 Text.Anchor = TextAnchor.UpperLeft;
 
-                var buttonRect = new Rect(entryRect.xMax - 10 - 32, y + 4, 32, 32);
+                GUI.color = new Color(0.6f, 0.6f, 0.6f);
+                Text.Font = GameFont.Tiny;
+                var infoText = new Rect(entryRect.xMax - 120, entryRect.yMin + 3, 120, entryRect.height);
+                Widgets.Label(infoText, saveFile.gameName.Truncate(110));
+                Widgets.Label(infoText.Down(16), saveFile.file.LastWriteTime.ToString("g"));
+                Text.Font = GameFont.Small;
+                GUI.color = Color.white;
 
-                if (host)
-                {
-                    Widgets.ButtonImage(buttonRect, TexButton.DeleteX);
-                    TooltipHandler.TipRegion(buttonRect, "Delete");
-                    buttonRect.x -= 32 + 8;
-                }
-
-                if (host)
-                {
-                    if (ButtonImage(buttonRect, HostReplay, Color.white, new Vector2(22f, 22f)))
-                        HostFromSave(fileName);
-
-                    TooltipHandler.TipRegion(buttonRect, "Host and continue");
-                    buttonRect.x -= 32 + 8;
-                }
-
-                if (watch)
-                {
-                    if (ButtonImage(buttonRect, WatchReplay, Color.white, new Vector2(22f, 22f)))
-                        Multiplayer.LoadReplay();
-
-                    TooltipHandler.TipRegion(buttonRect, "Watch");
-                }
+                if (Widgets.ButtonInvisible(entryRect))
+                    selectedFile = saveFile;
 
                 y += 40;
             }
-        }
-
-        private void HostFromSave(string fileName)
-        {
-            LongEventHandler.QueueLongEvent(() =>
-            {
-                MemoryUtility.ClearAllMapsAndWorld();
-                Current.Game = new Game();
-                Current.Game.InitData = new GameInitData();
-                Current.Game.InitData.gameToLoad = fileName;
-
-                LongEventHandler.ExecuteWhenFinished(() =>
-                {
-                    LongEventHandler.QueueLongEvent(() => HostWindow.HostServer(IPAddress.Any), "MpLoading", false, null);
-                });
-            }, "Play", "LoadingLongEvent", true, null);
         }
 
         private bool ButtonImage(Rect rect, Texture2D image, Color imageColor, Vector2? imageSize)
@@ -304,7 +352,7 @@ namespace Multiplayer.Client
                     {
                         Close(false);
 
-                        Find.WindowStack.Add(new SteamConnectingWindow(friend.serverHost));
+                        Find.WindowStack.Add(new SteamConnectingWindow(friend.serverHost) { returnToServerBrowser = true });
 
                         SteamConnection conn = new SteamConnection(friend.serverHost);
                         conn.username = Multiplayer.username;
@@ -349,8 +397,8 @@ namespace Multiplayer.Client
                 }
                 else
                 {
-                    this.Close(true);
-                    Find.WindowStack.Add(new ConnectingWindow(address, port));
+                    Find.WindowStack.Add(new ConnectingWindow(address, port) { returnToServerBrowser = true });
+                    Close(false);
                 }
             }
         }
@@ -358,7 +406,7 @@ namespace Multiplayer.Client
         private void DrawLan(Rect inRect)
         {
             Text.Anchor = TextAnchor.MiddleCenter;
-            Widgets.Label(new Rect(inRect.x, 8f, inRect.width, 40), "Searching" + Multiplayer.FixedEllipsis());
+            Widgets.Label(new Rect(inRect.x, 8f, inRect.width, 40), "Searching" + MpUtil.FixedEllipsis());
             Text.Anchor = TextAnchor.UpperLeft;
             inRect.yMin += 40f;
 
@@ -387,7 +435,7 @@ namespace Multiplayer.Client
                 if (Widgets.ButtonText(playButton, ">>"))
                 {
                     Close(false);
-                    Find.WindowStack.Add(new ConnectingWindow(server.endpoint.Address, server.endpoint.Port));
+                    Find.WindowStack.Add(new ConnectingWindow(server.endpoint.Address, server.endpoint.Port) { returnToServerBrowser = true });
                 }
 
                 Text.Anchor = TextAnchor.UpperLeft;
@@ -511,6 +559,22 @@ namespace Multiplayer.Client
 
         public bool playingRimworld;
         public CSteamID serverHost = CSteamID.Nil;
+    }
+
+    public class SaveFile
+    {
+        public string name;
+        public bool replay;
+        public FileInfo file;
+        public string gameName;
+
+        public SaveFile(string name, bool replay, FileInfo file, string gameName)
+        {
+            this.name = name;
+            this.replay = replay;
+            this.file = file;
+            this.gameName = gameName;
+        }
     }
 
 }

@@ -313,7 +313,14 @@ namespace Multiplayer.Client
 
         static void Postfix(Thing t, ref bool __result)
         {
-            if (!SaveCompression.doSaveCompression) return;
+            if (!SaveCompression.doSaveCompression)
+            {
+                if (Multiplayer.Client != null)
+                    __result = false;
+
+                return;
+            }
+
             if (!t.Spawned) return;
 
             __result = (SaveCompression.IsSavePlant(t) || SaveCompression.IsSaveRock(t) || SaveCompression.IsSaveRockRubble(t)) && !Referenced(t);

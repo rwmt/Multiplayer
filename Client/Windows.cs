@@ -79,38 +79,26 @@ namespace Multiplayer.Client
         }
     }
 
-    public class CustomSelectLandingSite : Page_SelectStartingSite
-    {
-        public CustomSelectLandingSite()
-        {
-            this.forcePause = false;
-            this.closeOnCancel = false;
-        }
-
-        public override void DoBack()
-        {
-            Multiplayer.Client.Close();
-
-            LongEventHandler.QueueLongEvent(() =>
-            {
-                MemoryUtility.ClearAllMapsAndWorld();
-                Current.Game = null;
-            }, "Entry", "LoadingLongEvent", true, null);
-        }
-    }
-
+    [HotSwappable]
     public abstract class BaseConnectingWindow : Window, IConnectionStatusListener
     {
-        public override Vector2 InitialSize => new Vector2(300f, 150f);
+        public override Vector2 InitialSize => new Vector2(350f, 150f);
 
         public virtual bool Ellipsis => result == null;
         public abstract string ConnectingString { get; }
 
+        public bool returnToServerBrowser;
+
         public string result;
+
+        public BaseConnectingWindow()
+        {
+            closeOnAccept = false;
+        }
 
         public override void DoWindowContents(Rect inRect)
         {
-            string label = Ellipsis ? (ConnectingString + Multiplayer.FixedEllipsis()) : result;
+            string label = Ellipsis ? (ConnectingString + MpUtil.FixedEllipsis()) : result;
 
             const float buttonHeight = 40f;
             const float buttonWidth = 120f;
@@ -124,10 +112,18 @@ namespace Multiplayer.Client
 
             Rect buttonRect = new Rect((inRect.width - buttonWidth) / 2f, inRect.height - buttonHeight - 10f, buttonWidth, buttonHeight);
             if (Widgets.ButtonText(buttonRect, "Cancel", true, false, true))
+            {
                 Close();
+            }
         }
 
-        public override void PostClose() => Multiplayer.Client?.Close();
+        public override void PostClose()
+        {
+            Multiplayer.Client?.Close();
+
+            if (returnToServerBrowser)
+                Find.WindowStack.Add(new ServerBrowser());
+        }
 
         public void Connected() => result = "Connected.";
         public void Disconnected() => result = Multiplayer.session.disconnectServerReason ?? Multiplayer.session.disconnectNetReason;
@@ -163,34 +159,143 @@ namespace Multiplayer.Client
         }
     }
 
+    [HotSwappable]
     public class HostWindow : Window
     {
-        public override Vector2 InitialSize => new Vector2(300f, 150f);
+        public override Vector2 InitialSize => new Vector2(450f, 300f);
 
-        private string ip = "127.0.0.1";
+        private SaveFile file;
+        public bool returnToServerBrowser;
+
+        public HostWindow(SaveFile file = null)
+        {
+            closeOnAccept = false;
+
+            this.file = file;
+            gameName = file?.gameName ?? string.Empty;
+
+            var localAddr = Dns.GetHostEntry(Dns.GetHostName()).AddressList.FirstOrDefault(i => i.AddressFamily == AddressFamily.InterNetwork) ?? IPAddress.Loopback;
+            ip = localAddr.ToString();
+        }
+
+        private string ip;
+        private string gameName;
+        private int maxPlayers = 8;
+        private int autosaveInterval = 8;
+        private bool lan = true;
+        private bool steam;
+
+        private string maxPlayersBuffer;
+        private string autosaveBuffer;
 
         public override void DoWindowContents(Rect inRect)
         {
-            ip = Widgets.TextField(new Rect(0, 15f, inRect.width, 35f), ip);
+            var entry = new Rect(0, 10f, inRect.width, 30f);
+
+            var labelWidth = 100f;
+
+            gameName = TextEntryLabeled(entry, "Name:  ", gameName, labelWidth);
+            entry = entry.Down(40);
+
+            ip = TextEntryLabeled(entry, "Address:  ", ip, labelWidth);
+            entry = entry.Down(40);
+
+            TextFieldNumericLabeled(entry.Width(labelWidth + 50f), "Max players:  ", ref maxPlayers, ref maxPlayersBuffer, labelWidth);
+
+            TextFieldNumericLabeled(entry.Right(200f).Width(labelWidth + 35f), "Autosave every ", ref autosaveInterval, ref autosaveBuffer, labelWidth + 5f);
+            Text.Anchor = TextAnchor.MiddleLeft;
+            Widgets.Label(entry.Right(200f).Right(labelWidth + 35f), " minutes");
+            Text.Anchor = TextAnchor.UpperLeft;
+            entry = entry.Down(40);
+
+            Widgets.CheckboxLabeled(entry.Right(labelWidth - Text.CalcSize("LAN:  ").x).Width(120), "LAN:  ", ref lan, placeCheckboxNearText: true);
+            entry = entry.Down(30);
+
+            if (SteamManager.Initialized)
+                Widgets.CheckboxLabeled(entry.Right(labelWidth - Text.CalcSize("Steam:  ").x).Width(120), "Steam:  ", ref steam, placeCheckboxNearText: true);
 
             var buttonRect = new Rect((inRect.width - 100f) / 2f, inRect.height - 35f, 100f, 35f);
 
-            if (Widgets.ButtonText(buttonRect, "Host") && IPAddress.TryParse(ip, out IPAddress ipAddr))
+            if (Widgets.ButtonText(buttonRect, "Host") && TryParseIp(ip, out IPAddress addr, out int port))
             {
-                try
-                {
-                    HostServer(ipAddr);
-                }
-                catch (SocketException)
-                {
-                    Messages.Message("Server creation failed.", MessageTypeDefOf.RejectInput, false);
-                }
+                if (file != null)
+                    HostFromSave(addr, port);
+                else
+                    HostServer(addr, port);
 
                 Close(true);
             }
         }
 
-        public static void HostServer(IPAddress addr)
+        private bool TryParseIp(string ip, out IPAddress addr, out int port)
+        {
+            port = 0;
+            string[] parts = ip.Split(':');
+
+            if (!IPAddress.TryParse(parts[0], out addr))
+            {
+                Messages.Message("MpInvalidAddress", MessageTypeDefOf.RejectInput, false);
+                return false;
+            }
+
+            if (parts.Length >= 2 && !int.TryParse(parts[1], out port))
+            {
+                Messages.Message("MpInvalidPort", MessageTypeDefOf.RejectInput, false);
+                return false;
+            }
+
+            return true;
+        }
+
+        public static string TextEntryLabeled(Rect rect, string label, string text, float labelWidth)
+        {
+            Rect labelRect = rect.Rounded();
+            labelRect.width = labelWidth;
+            Rect fieldRect = rect;
+            fieldRect.xMin += labelWidth;
+            TextAnchor anchor = Text.Anchor;
+            Text.Anchor = TextAnchor.MiddleRight;
+            Widgets.Label(labelRect, label);
+            Text.Anchor = anchor;
+            return Widgets.TextField(fieldRect, text);
+        }
+
+        public static void TextFieldNumericLabeled(Rect rect, string label, ref int val, ref string buffer, float labelWidth)
+        {
+            Rect labelRect = rect;
+            labelRect.width = labelWidth;
+            Rect fieldRect = rect;
+            fieldRect.xMin += labelWidth;
+            TextAnchor anchor = Text.Anchor;
+            Text.Anchor = TextAnchor.MiddleRight;
+            Widgets.Label(labelRect, label);
+            Text.Anchor = anchor;
+            Widgets.TextFieldNumeric(fieldRect, ref val, ref buffer);
+        }
+
+        public override void PostClose()
+        {
+            if (returnToServerBrowser)
+                Find.WindowStack.Add(new ServerBrowser());
+        }
+
+        private void HostFromSave(IPAddress addr, int port)
+        {
+            LongEventHandler.QueueLongEvent(() =>
+            {
+                MemoryUtility.ClearAllMapsAndWorld();
+                Current.Game = new Game();
+                Current.Game.InitData = new GameInitData();
+                Current.Game.InitData.gameToLoad = file.name;
+
+                LongEventHandler.ExecuteWhenFinished(() =>
+                {
+                    LongEventHandler.QueueLongEvent(() => HostServer(addr, port), "MpLoading", false, null);
+                });
+            }, "Play", "LoadingLongEvent", true, null);
+        }
+
+        private static void HostServer(IPAddress addr, int port)
         {
             MpLog.Log("Starting a server");
 
@@ -213,7 +318,7 @@ namespace Multiplayer.Client
             comp.factionData[dummyFaction.loadID] = FactionWorldData.New(dummyFaction.loadID);
 
             MultiplayerSession session = Multiplayer.session = new MultiplayerSession();
-            MultiplayerServer localServer = new MultiplayerServer(addr);
+            MultiplayerServer localServer = new MultiplayerServer(addr, port);
             localServer.hostUsername = Multiplayer.username;
             localServer.allowLan = true;
             localServer.coopFactionId = Faction.OfPlayer.loadID;

@@ -8,7 +8,9 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Xml;
 using UnityEngine;
 using Verse;
 using zip::Ionic.Zip;
@@ -153,6 +155,22 @@ namespace Multiplayer.Client
             return rect;
         }
 
+        public static Rect Width(this Rect rect, float width)
+        {
+            rect.width = width;
+            return rect;
+        }
+
+        public static Vector2 BottomLeftCorner(this Rect rect)
+        {
+            return new Vector2(rect.xMin, rect.yMax);
+        }
+
+        public static Vector2 TopRightCorner(this Rect rect)
+        {
+            return new Vector2(rect.xMax, rect.yMin);
+        }
+
         public static Faction GetById(this FactionManager manager, int factionId)
         {
             return manager.AllFactionsListForReading.Find(f => f.loadID == factionId);
@@ -221,6 +239,38 @@ namespace Multiplayer.Client
                 if (list[i] == null)
                     list.RemoveAt(i);
             }
+        }
+
+        public static MethodInfo[] GetDeclaredMethods(this Type type)
+        {
+            return type.GetMethods(BindingFlags.DeclaredOnly | BindingFlags.Instance | BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
+        }
+
+        public static FieldInfo[] GetDeclaredInstanceFields(this Type type)
+        {
+            return type.GetFields(BindingFlags.DeclaredOnly | BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+        }
+
+        public static XmlTextReader ReadToNextElement(this XmlTextReader reader, string name = null)
+        {
+            while (reader.Read())
+                if (reader.NodeType == XmlNodeType.Element && (name == null || reader.Name == name))
+                    return reader;
+            return null;
+        }
+
+        public static XmlTextReader SkipContents(this XmlTextReader reader)
+        {
+            reader.Skip();
+            return reader;
+        }
+
+        public static string ReadFirstText(this XmlTextReader textReader)
+        {
+            while (textReader.Read())
+                if (textReader.NodeType == XmlNodeType.Text)
+                    return textReader.Value;
+            return null;
         }
 
     }

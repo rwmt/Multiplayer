@@ -149,6 +149,11 @@ namespace Multiplayer.Client
             cancelIfValueNull = true;
             return this;
         }
+
+        public override string ToString()
+        {
+            return memberPath;
+        }
     }
 
     public interface ISyncMethod
@@ -599,7 +604,7 @@ namespace Multiplayer.Client
             {
                 if (type.IsAbstract) continue;
 
-                foreach (var method in AccessTools.GetDeclaredMethods(type).Where(m => m.Name == methodName))
+                foreach (var method in type.GetDeclaredMethods().Where(m => m.Name == methodName))
                 {
                     HarmonyMethod prefix = new HarmonyMethod(typeof(SyncActions), nameof(SyncActions.SyncAction_Prefix));
                     prefix.priority = MpPriority.MpFirst;
@@ -690,7 +695,7 @@ namespace Multiplayer.Client
                     break; // The marker
 
                 SyncField handler = data.handler;
-                object newValue = data.target.GetPropertyOrField(handler.memberPath, data.index);
+                object newValue = MpReflection.GetValue(data.target, handler.memberPath, data.index);
                 bool changed = !Equals(newValue, data.oldValue);
                 var cache = handler.bufferChanges ? bufferedChanges.GetValueSafe(handler) : null;
 
@@ -700,7 +705,7 @@ namespace Multiplayer.Client
                         cached.sent = false;
 
                     cached.toSend = newValue;
-                    data.target.SetPropertyOrField(handler.memberPath, cached.actualValue, data.index);
+                    MpReflection.SetValue(data.target, handler.memberPath, cached.actualValue, data.index);
                     continue;
                 }
 
@@ -716,7 +721,7 @@ namespace Multiplayer.Client
                     handler.DoSync(data.target, newValue, data.index);
                 }
 
-                data.target.SetPropertyOrField(handler.memberPath, data.oldValue, data.index);
+                MpReflection.SetValue(data.target, handler.memberPath, data.oldValue, data.index);
             }
         }
 
@@ -764,7 +769,7 @@ namespace Multiplayer.Client
             if (path.NullOrEmpty())
                 path = type.ToString();
 
-            foreach (FieldInfo field in AccessTools.GetDeclaredFields(type))
+            foreach (FieldInfo field in type.GetDeclaredInstanceFields())
             {
                 string curPath = path + "/" + field.Name;
 
@@ -798,6 +803,8 @@ namespace Multiplayer.Client
             if (method == null)
                 throw new Exception($"Couldn't find method {typeName}::{methodName}");
 
+            MpUtil.MarkNoInlining(method);
+
             SyncDelegate handler = new SyncDelegate(handlers.Count, type, method, fields);
             syncMethods[handler.method] = handler;
             handlers.Add(handler);
@@ -827,9 +834,9 @@ namespace Multiplayer.Client
 
         public static void RegisterAllSyncMethods()
         {
-            foreach (Type type in Multiplayer.AllModTypes())
+            foreach (Type type in MpUtil.AllModTypes())
             {
-                foreach (MethodInfo method in AccessTools.GetDeclaredMethods(type).Where(m => m.IsStatic))
+                foreach (MethodInfo method in type.GetDeclaredMethods().Where(m => m.IsStatic))
                 {
                     if (!method.TryGetAttribute(out SyncMethodAttribute syncAttr))
                         continue;
@@ -855,6 +862,8 @@ namespace Multiplayer.Client
 
         public static SyncMethod RegisterSyncMethod(MethodInfo method, Type[] argTypes)
         {
+            MpUtil.MarkNoInlining(method);
+
             SyncMethod handler = new SyncMethod(handlers.Count, (method.IsStatic ? null : method.DeclaringType), method, argTypes);
             syncMethods[method] = handler;
             handlers.Add(handler);
@@ -944,12 +953,10 @@ namespace Multiplayer.Client
             HarmonyMethod postfix = new HarmonyMethod(AccessTools.Method(typeof(Sync), nameof(Sync.FieldWatchPostfix)));
             postfix.priority = Priority.Last;
 
-            foreach (MethodBase toPatch in AccessTools.GetDeclaredMethods(type))
+            foreach (MethodBase toPatch in type.GetDeclaredMethods())
             {
-                if (!toPatch.TryGetAttribute<MpPrefix>(out var attr))
-                    continue;
-
-                Multiplayer.harmony.Patch(attr.Method, prefix, postfix);
+                foreach (var attr in toPatch.AllAttributes<MpPrefix>())
+                    Multiplayer.harmony.Patch(attr.Method, prefix, postfix);
             }
         }
 
