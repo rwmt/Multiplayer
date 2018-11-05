@@ -83,7 +83,7 @@ namespace Multiplayer.Client
                             if (method.GetMethodBody() == null) continue;
 
                             byte[] code = method.GetMethodBody().GetILAsByteArray();
-                            var dnMethod = dnType.FindMethod(method.Name);
+                            var dnMethod = dnType.Methods.FirstOrDefault(m => MethodsSame(method, m));
 
                             var methodBody = dnMethod.Body;
                             byte[] newCode = SerializeInstructions(methodBody);
@@ -99,6 +99,7 @@ namespace Multiplayer.Client
                             {
                                 var localType = Type.GetType(local.Type.AssemblyQualifiedName);
                                 Log.Message($"local {local.Type.AssemblyQualifiedName} / {localType}");
+
                                 ilGen.DeclareLocal(localType);
                             }
 
@@ -115,6 +116,9 @@ namespace Multiplayer.Client
                                     case dnlib.DotNet.Emit.OperandType.InlineSig:
                                         pos += inst.OpCode.Size;
                                         object refe = TranslateRef(module, inst.Operand);
+                                        if (refe == null)
+                                            Log.Message($"Null reference {inst.Operand} {inst.Operand.GetType()}");
+
                                         int token = (int)AddRef.Invoke(replacement, new[] { refe });
                                         newCode[pos++] = (byte)(token & 255);
                                         newCode[pos++] = (byte)(token >> 8 & 255);
@@ -263,6 +267,7 @@ namespace Multiplayer.Client
                 if (member.IsField)
                 {
                     Type type = Type.GetType(member.DeclaringType.AssemblyQualifiedName);
+                    Log.Message($"field {member} / {type} / {member.DeclaringType.AssemblyQualifiedName} / {member.DeclaringType}");
                     return AccessTools.Field(type, member.Name);
                 }
                 else if (member.IsMethod && member is IMethod method)
@@ -287,7 +292,8 @@ namespace Multiplayer.Client
                     {
                         var typeMember = genericMembers[i];
                         if (!(typeMember is MethodBase m)) continue;
-                        if (new SigComparer().Equals(m, method))
+
+                        if (MethodsSame(m, method))
                         {
                             if (genericForMethod != null)
                                 return (members[i] as MethodInfo).MakeGenericMethod(genericForMethod);
@@ -309,6 +315,11 @@ namespace Multiplayer.Client
             }
 
             return null;
+        }
+
+        private static bool MethodsSame(MethodBase m, IMethod method)
+        {
+            return new SigComparer().Equals(method.Module.Import(m), method);
         }
     }
 }

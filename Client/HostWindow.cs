@@ -18,7 +18,7 @@ namespace Multiplayer.Client
     [HotSwappable]
     public class HostWindow : Window
     {
-        public override Vector2 InitialSize => new Vector2(450f, 300f);
+        public override Vector2 InitialSize => new Vector2(450f, 320f);
 
         private SaveFile file;
         public bool returnToServerBrowser;
@@ -40,6 +40,7 @@ namespace Multiplayer.Client
         private int autosaveInterval = 8;
         private bool lan = true;
         private bool steam;
+        private string password;
 
         private string maxPlayersBuffer;
         private string autosaveBuffer;
@@ -64,11 +65,23 @@ namespace Multiplayer.Client
             Text.Anchor = TextAnchor.UpperLeft;
             entry = entry.Down(40);
 
+            const char passChar = '\u2022';
+
+            if (Event.current.type == EventType.Repaint || Event.current.isMouse)
+                TextEntryLabeled(entry.Width(200), "Password:  ", new string(passChar, password.Length), labelWidth);
+            else
+                password = TextEntryLabeled(entry.Width(200), "Password:  ", password, labelWidth);
+
+            entry = entry.Down(40);
+
             Widgets.CheckboxLabeled(entry.Right(labelWidth - Text.CalcSize("LAN:  ").x).Width(120), "LAN:  ", ref lan, placeCheckboxNearText: true);
             entry = entry.Down(30);
 
             if (SteamManager.Initialized)
+            {
                 Widgets.CheckboxLabeled(entry.Right(labelWidth - Text.CalcSize("Steam:  ").x).Width(120), "Steam:  ", ref steam, placeCheckboxNearText: true);
+                entry = entry.Down(30);
+            }
 
             var buttonRect = new Rect((inRect.width - 100f) / 2f, inRect.height - 35f, 100f, 35f);
 

@@ -12,7 +12,7 @@ namespace Multiplayer.Client
     [HotSwappable]
     public abstract class BaseConnectingWindow : Window, IConnectionStatusListener
     {
-        public override Vector2 InitialSize => new Vector2(350f, 150f);
+        public override Vector2 InitialSize => new Vector2(300f, 150f);
 
         public virtual bool Ellipsis => result == null;
         public abstract string ConnectingString { get; }
