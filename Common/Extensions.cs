@@ -1,6 +1,5 @@
 ﻿using LiteNetLib;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -74,6 +73,11 @@ namespace Multiplayer.Common
         public static IEnumerable<T> AllAttributes<T>(this MemberInfo member) where T : Attribute
         {
             return Attribute.GetCustomAttributes(member).OfType<T>();
+        }
+
+        public static T GetAttribute<T>(this MemberInfo member) where T : Attribute
+        {
+            return AllAttributes<T>(member).FirstOrDefault();
         }
 
         public static void Restart(this Stopwatch watch)

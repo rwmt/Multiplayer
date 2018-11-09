@@ -383,11 +383,11 @@ namespace Multiplayer.Client
                 foreach (var mapData in mapsData)
                 {
                     byte[] compressedMaps = GZipStream.CompressBuffer(mapData.Value);
-                    Client.Send(Packets.Client_AutosavedData, 1, compressedMaps, mapData.Key);
+                    Client.SendFragmented(Packets.Client_AutosavedData, ByteWriter.GetBytes(0, compressedMaps, mapData.Key));
                 }
 
                 byte[] compressedGame = GZipStream.CompressBuffer(gameData);
-                Client.Send(Packets.Client_AutosavedData, 0, compressedGame);
+                Client.SendFragmented(Packets.Client_AutosavedData, ByteWriter.GetBytes(1, compressedGame));
             });
         }
 
@@ -523,7 +523,7 @@ namespace Multiplayer.Client
             }
         }
 
-        public static void LoadReplay(string name)
+        public static void LoadReplay(string name, bool toEnd = false, Action after = null)
         {
             session = new MultiplayerSession();
             session.client = new ReplayConnection();
@@ -536,15 +536,16 @@ namespace Multiplayer.Client
             // todo ensure everything is read correctly
 
             session.myFactionId = replay.info.playerFaction;
+            session.replayTimerStart = replay.info.sections[0].start;
 
             int tickUntil = replay.info.sections[0].end;
+            session.replayTimerEnd = tickUntil;
+            TickPatch.tickUntil = tickUntil;
 
-            ClientJoiningState.ReloadGame(0, OnMainThread.cachedMapData.Keys.ToList(), () =>
-            {
-                session.replayTimerStart = replay.info.sections[0].start;
-                session.replayTimerEnd = tickUntil;
-                TickPatch.tickUntil = tickUntil;
-            });
+            TickPatch.skipTo = toEnd ? tickUntil : session.replayTimerStart;
+            TickPatch.afterSkip = after;
+
+            ClientJoiningState.ReloadGame(OnMainThread.cachedMapData.Keys.ToList());
         }
     }
 
@@ -703,7 +704,6 @@ namespace Multiplayer.Client
         public Color color;
     }
 
-    [HotSwappable]
     public class MultiplayerSession
     {
         public IConnection client;
@@ -969,6 +969,10 @@ namespace Multiplayer.Client
                 Multiplayer.session.Stop();
                 Multiplayer.session = null;
             }
+
+            TickPatch.skipTo = -1;
+            TickPatch.skipToTickUntil = false;
+            TickPatch.afterSkip = null;
 
             Find.WindowStack?.WindowOfType<ServerBrowser>()?.Cleanup(true);
 

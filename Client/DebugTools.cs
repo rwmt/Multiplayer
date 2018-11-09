@@ -1,4 +1,5 @@
 ﻿using Harmony;
+using Multiplayer.Common;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -20,6 +21,7 @@ namespace Multiplayer.Client
             menu.DoLabel("Multiplayer");
 
             menu.DebugToolMap("T: Destroy thing", DestroyThing);
+
             menu.DebugAction("Save map", SaveMap);
             menu.DebugAction("Advance time", AdvanceTime);
         }
@@ -32,7 +34,15 @@ namespace Multiplayer.Client
         }
 
         [SyncMethod]
-        public static void AdvanceTime()
+        static void SaveMap()
+        {
+            Map map = Find.Maps[0];
+            byte[] mapData = ScribeUtil.WriteExposable(Current.Game, "map", true);
+            File.WriteAllBytes($"map_0_{Multiplayer.username}.xml", mapData);
+        }
+
+        [SyncMethod]
+        static void AdvanceTime()
         {
             int to = 148 * 1000;
             if (Find.TickManager.TicksGame < to)
@@ -40,14 +50,6 @@ namespace Multiplayer.Client
                 Find.TickManager.ticksGameInt = to;
                 Find.Maps[0].AsyncTime().mapTicks = to;
             }
-        }
-
-        [SyncMethod]
-        public static void SaveMap()
-        {
-            Map map = Find.Maps[0];
-            byte[] mapData = ScribeUtil.WriteExposable(Current.Game, "map", true);
-            File.WriteAllBytes($"map_0_{Multiplayer.username}.xml", mapData);
         }
     }
 

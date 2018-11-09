@@ -392,9 +392,10 @@ namespace Multiplayer.Client
                 Widgets.Label(rect1, text.ToString());
             }
 
-            if (Multiplayer.IsReplay || TickPatch.skipTo > 0)
+            if (Multiplayer.IsReplay || TickPatch.skipTo >= 0)
             {
                 DrawTimeline();
+                DrawSkippingWindow();
             }
 
             DoButtons();
@@ -437,9 +438,11 @@ namespace Multiplayer.Client
             Rect rect = new Rect(margin, UI.screenHeight - 35f - height - 10f, UI.screenWidth - margin * 2, height);
             Widgets.DrawBoxSolid(rect, new Color(0.6f, 0.6f, 0.6f, 0.8f));
 
-            int timerEnd = Multiplayer.session.replayTimerEnd > 0 ? Multiplayer.session.replayTimerEnd : TickPatch.skipTo;
+            int timerStart = Multiplayer.session.replayTimerStart > 0 ? Multiplayer.session.replayTimerStart : OnMainThread.cachedAtTime;
+            int timerEnd = Multiplayer.session.replayTimerEnd > 0 ? Multiplayer.session.replayTimerEnd : TickPatch.tickUntil;
+            int timeLen = timerEnd - timerStart;
 
-            float progress = TickPatch.Timer / (float)timerEnd;
+            float progress = (TickPatch.Timer - timerStart) / (float)timeLen;
             float progressX = rect.xMin + progress * rect.width;
             Widgets.DrawLine(new Vector2(progressX, rect.yMin), new Vector2(progressX, rect.yMax), Color.green, 7f);
 
@@ -447,33 +450,49 @@ namespace Multiplayer.Client
             {
                 float mouseX = Event.current.mousePosition.x;
                 float mouseProgress = (mouseX - rect.xMin) / rect.width;
-                int mouseTimer = (int)(timerEnd * mouseProgress);
+                int mouseTimer = timerStart + (int)(timeLen * mouseProgress);
                 Widgets.DrawLine(new Vector2(mouseX, rect.yMin), new Vector2(mouseX, rect.yMax), Color.blue, 3f);
 
                 if (Event.current.type == EventType.MouseUp)
                 {
-                    if (mouseTimer >= TickPatch.Timer)
+                    TickPatch.skipTo = mouseTimer;
+
+                    if (mouseTimer < TickPatch.Timer)
                     {
-                        TickPatch.skipTo = mouseTimer;
-                    }
-                    else
-                    {
-                        ClientJoiningState.ReloadGame(mouseTimer, new List<int>() { 0 }, () =>
-                        {
-                            TickPatch.tickUntil = Multiplayer.session.replayTimerEnd;
-                        }, async: false);
+                        ClientJoiningState.ReloadGame(OnMainThread.cachedMapData.Keys.ToList(), false);
                     }
                 }
 
                 if (Event.current.isMouse)
                     Event.current.Use();
 
+                // Drawing directly so there's no delay between the mouse over and showing
                 ActiveTip tip = new ActiveTip($"Tick {mouseTimer}\nETA "); // todo eta
                 tip.DrawTooltip(GenUI.GetMouseAttachedWindowPos(tip.TipRect.x, tip.TipRect.y));
             }
 
             Widgets.DrawLine(new Vector2(rect.xMin, rect.yMin), new Vector2(rect.xMin, rect.yMax), Color.white, 4f);
             Widgets.DrawLine(new Vector2(rect.xMax, rect.yMin), new Vector2(rect.xMax, rect.yMax), Color.white, 4f);
+        }
+
+        public const int SkippingWindowId = 26461263;
+
+        static void DrawSkippingWindow()
+        {
+            if (TickPatch.skipTo < 0) return;
+
+            string text = "Simulating" + MpUtil.FixedEllipsis();
+            float textWidth = Text.CalcSize(text).x;
+            float windowWidth = Math.Max(240f, textWidth + 40f);
+            Rect rect = new Rect(0, 0, windowWidth, 75f).CenterOn(new Rect(0, 0, UI.screenWidth, UI.screenHeight));
+
+            Find.WindowStack.ImmediateWindow(SkippingWindowId, rect, WindowLayer.Super, () =>
+            {
+                Text.Anchor = TextAnchor.MiddleCenter;
+                Text.Font = GameFont.Small;
+                Widgets.Label(rect.AtZero(), text);
+                Text.Anchor = TextAnchor.UpperLeft;
+            }, absorbInputAroundWindow: true);
         }
     }
 

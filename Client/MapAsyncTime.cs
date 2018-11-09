@@ -24,6 +24,8 @@ namespace Multiplayer.Client
         public static bool currentExecutingCmdIssuedBySelf;
 
         public static TimeSpeed replayTimeSpeed;
+
+        public static bool skipToTickUntil;
         public static int skipTo = -1;
         public static Action afterSkip;
 
@@ -36,7 +38,7 @@ namespace Multiplayer.Client
                 yield return comp.ticker;
 
                 foreach (Map map in Find.Maps)
-                    yield return map.GetComponent<MapAsyncTimeComp>();
+                    yield return map.AsyncTime();
             }
         }
 
@@ -59,19 +61,16 @@ namespace Multiplayer.Client
             if (Multiplayer.IsReplay && replayTimeSpeed == TimeSpeed.Paused)
                 accumulator = 0;
 
-            if (skipTo > 0)
+            if (skipToTickUntil)
+                skipTo = tickUntil;
+
+            if (skipTo >= 0 && Timer >= skipTo)
             {
-                if (Timer >= skipTo)
-                {
-                    skipTo = -1;
-                    accumulator = 0;
-                    afterSkip?.Invoke();
-                    afterSkip = null;
-                }
-                else
-                {
-                    accumulator = Math.Min(60, skipTo - Timer);
-                }
+                skipTo = -1;
+                skipToTickUntil = false;
+                accumulator = 0;
+                afterSkip?.Invoke();
+                afterSkip = null;
             }
 
             Tick();
@@ -101,7 +100,7 @@ namespace Multiplayer.Client
         {
             var watch = Stopwatch.StartNew();
 
-            while (accumulator > 0 || (skipTo > 0 && Timer < skipTo && watch.ElapsedMilliseconds < 25))
+            while (accumulator > 0 || (skipTo >= 0 && Timer < skipTo && watch.ElapsedMilliseconds < 25))
             {
                 int curTimer = Timer;
 
@@ -147,7 +146,7 @@ namespace Multiplayer.Client
 
         private static float ReplayMultiplier()
         {
-            if (!Multiplayer.IsReplay || skipTo > 0 || Multiplayer.simulating) return 1f;
+            if (!Multiplayer.IsReplay || skipTo >= 0 || Multiplayer.simulating) return 1f;
 
             if (replayTimeSpeed == TimeSpeed.Paused)
                 return 0f;
@@ -517,7 +516,20 @@ namespace Multiplayer.Client
             if (WorldRendererUtility.WorldRenderedNow) return;
             if (!Multiplayer.IsReplay) return;
 
-            __result = TickPatch.skipTo > 0 ? 6 : Find.CurrentMap.AsyncTime().TickRateMultiplier(TickPatch.replayTimeSpeed);
+            __result = TickPatch.skipTo >= 0 ? 6 : Find.CurrentMap.AsyncTime().TickRateMultiplier(TickPatch.replayTimeSpeed);
+        }
+    }
+
+    [HarmonyPatch(typeof(TickManager), nameof(TickManager.Paused), MethodType.Getter)]
+    static class TickManagerPausedPatch
+    {
+        static void Postfix(ref bool __result)
+        {
+            if (Multiplayer.Client == null) return;
+            if (WorldRendererUtility.WorldRenderedNow) return;
+            if (!Multiplayer.IsReplay) return;
+
+            __result = Find.CurrentMap.AsyncTime().TickRateMultiplier(TickPatch.replayTimeSpeed) == 0;
         }
     }
 

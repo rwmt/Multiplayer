@@ -74,7 +74,7 @@ namespace Multiplayer.Client
             inRect.yMin += 10f;
 
             List<string> names = Multiplayer.session.pendingSteam.Select(SteamFriends.GetFriendPersonaName).ToList();
-            DrawList("Accept Steam players", names, ref inRect, ref steamScroll, AcceptSteamPlayer, true);
+            DrawList("Accept Steam players", names, ref inRect, ref steamScroll, AcceptSteamPlayer, true, "Click to accept");
         }
 
         private void DrawOptions(ref Rect inRect)
@@ -114,7 +114,7 @@ namespace Multiplayer.Client
             Multiplayer.session.pendingSteam.RemoveAt(index);
         }
 
-        private void DrawList(string label, IList<string> entries, ref Rect inRect, ref Vector2 scroll, Action<int> click = null, bool hideNullOrEmpty = false)
+        private void DrawList(string label, IList<string> entries, ref Rect inRect, ref Vector2 scroll, Action<int> click = null, bool hideNullOrEmpty = false, string tooltip = null)
         {
             if (hideNullOrEmpty && !entries.Any(s => !s.NullOrEmpty())) return;
 
@@ -151,6 +151,9 @@ namespace Multiplayer.Client
                         Event.current.Use();
                     }
                 }
+
+                if (tooltip != null)
+                    TooltipHandler.TipRegion(entryRect, tooltip);
 
                 Text.Anchor = TextAnchor.MiddleLeft;
                 Widgets.Label(entryRect, entry);

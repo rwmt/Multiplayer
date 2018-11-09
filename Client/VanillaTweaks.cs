@@ -138,7 +138,7 @@ namespace Multiplayer.Client
 
         static void Postfix(int ID)
         {
-            if (ID == -LongEventWindowId)
+            if (ID == -LongEventWindowId || ID == -MainButtonsPatch.SkippingWindowId)
             {
                 var window = Find.WindowStack.windows.Find(w => w.ID == ID);
 
@@ -154,6 +154,7 @@ namespace Multiplayer.Client
         static void Prefix(Window __instance)
         {
             if (__instance.ID == -LongEventWindowPreventCameraMotion.LongEventWindowId ||
+                __instance.ID == -MainButtonsPatch.SkippingWindowId ||
                 __instance is DisconnectedWindow ||
                 __instance is MpFormingCaravanWindow
             )
@@ -173,13 +174,15 @@ namespace Multiplayer.Client
             {
                 if (!found && inst.opcode == OpCodes.Ldc_I4_7)
                 {
-                    inst.opcode = OpCodes.Ldc_I4_8;
+                    yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(AddImmediateWindowsDuringLayouting), nameof(Process)));
                     found = true;
                 }
 
                 yield return inst;
             }
         }
+
+        static EventType Process(EventType type) => type == EventType.layout ? EventType.repaint : type;
     }
 
     // Use a simpler shader for plants when possible
@@ -191,12 +194,54 @@ namespace Multiplayer.Client
         static void Prefix(bool value)
         {
             foreach (var thingDef in DefDatabase<ThingDef>.AllDefs)
-                if (thingDef.category == ThingCategory.Plant && 
-                    thingDef.graphicData != null && 
-                    thingDef.graphicData.shaderParameters == null && 
+                if (thingDef.category == ThingCategory.Plant &&
+                    thingDef.graphicData != null &&
+                    thingDef.graphicData.shaderParameters == null &&
                     thingDef.graphicData.shaderType?.defName == "CutoutPlant"
                 )
                     thingDef.graphic.MatSingle.shader = value ? ShaderDatabase.CutoutPlant : ShaderDatabase.Cutout;
+        }
+    }
+
+    // Fixes performance of the options screen
+    [HarmonyPatch(typeof(PrefsData), nameof(Prefs.Apply))]
+    static class PrefsCache
+    {
+        static bool initialized;
+
+        static bool customCursorEnabled;
+        static int screenWidth;
+        static int screenHeight;
+        static bool fullscreen;
+        static bool runInBackground;
+        static float volumeGame;
+
+        static bool Prefix(PrefsData __instance)
+        {
+            var prefs = __instance;
+
+            return
+                !initialized ||
+                customCursorEnabled != prefs.customCursorEnabled ||
+                screenWidth != prefs.screenWidth ||
+                screenHeight != prefs.screenHeight ||
+                fullscreen != prefs.fullscreen ||
+                runInBackground != prefs.runInBackground ||
+                volumeGame != prefs.volumeGame;
+
+        }
+
+        static void Postfix(PrefsData __instance)
+        {
+            var prefs = __instance;
+
+            initialized = true;
+            customCursorEnabled = prefs.customCursorEnabled;
+            screenWidth = prefs.screenWidth;
+            screenHeight = prefs.screenHeight;
+            fullscreen = prefs.fullscreen;
+            runInBackground = prefs.runInBackground;
+            volumeGame = prefs.volumeGame;
         }
     }
 

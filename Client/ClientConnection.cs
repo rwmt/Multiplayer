@@ -26,22 +26,16 @@ namespace Multiplayer.Client
         }
 
         [PacketHandler(Packets.Server_WorldData)]
+        [IsFragmented]
         public void HandleWorldData(ByteReader data)
         {
             connection.State = ConnectionStateEnum.ClientPlaying;
-            Log.Message("Game data size: " + data.GetBytes().Length);
+            Log.Message("Game data size: " + data.Length);
 
             int factionId = data.ReadInt32();
             Multiplayer.session.myFactionId = factionId;
 
             int tickUntil = data.ReadInt32();
-
-            int globalCmdsLen = data.ReadInt32();
-            List<ScheduledCommand> globalCmds = new List<ScheduledCommand>(globalCmdsLen);
-            for (int i = 0; i < globalCmdsLen; i++)
-                globalCmds.Add(ScheduledCommand.Deserialize(new ByteReader(data.ReadPrefixedBytes())));
-
-            OnMainThread.cachedMapCmds[ScheduledCommand.Global] = globalCmds;
 
             byte[] worldData = GZipStream.UncompressBuffer(data.ReadPrefixedBytes());
             OnMainThread.cachedGameData = worldData;
@@ -72,10 +66,12 @@ namespace Multiplayer.Client
                 mapsToLoad.Add(mapId);
             }
 
-            ReloadGame(tickUntil, mapsToLoad, () =>
-            {
-                Multiplayer.Client.Send(Packets.Client_WorldLoaded);
-            });
+            TickPatch.tickUntil = tickUntil;
+
+            TickPatch.skipToTickUntil = true;
+            TickPatch.afterSkip = () => Multiplayer.Client.Send(Packets.Client_WorldLoaded);
+
+            ReloadGame(mapsToLoad);
         }
 
         private static XmlDocument GetGameDocument(List<int> mapsToLoad)
@@ -98,10 +94,10 @@ namespace Multiplayer.Client
             return gameDoc;
         }
 
-        public static void ReloadGame(int tickUntil, List<int> mapsToLoad, Action reloadDone = null, bool async = true)
+        public static void ReloadGame(List<int> mapsToLoad, bool async = true)
         {
-            TickPatch.tickUntil = tickUntil;
             LoadPatch.gameToLoad = GetGameDocument(mapsToLoad);
+            TickPatch.replayTimeSpeed = TimeSpeed.Paused;
 
             if (async)
             {
@@ -114,7 +110,7 @@ namespace Multiplayer.Client
 
                     LongEventHandler.ExecuteWhenFinished(() =>
                     {
-                        LongEventHandler.QueueLongEvent(() => PostLoad(reloadDone), "MpSimulating", false, null);
+                        LongEventHandler.QueueLongEvent(() => PostLoad(), "MpSimulating", false, null);
                     });
                 }, "Play", "MpLoading", true, null);
             }
@@ -123,12 +119,12 @@ namespace Multiplayer.Client
                 LongEventHandler.QueueLongEvent(() =>
                 {
                     Multiplayer.LoadInMainThread(LoadPatch.gameToLoad);
-                    PostLoad(reloadDone);
+                    PostLoad();
                 }, "MpLoading", false, null);
             }
         }
 
-        private static void PostLoad(Action reloadDone)
+        private static void PostLoad()
         {
             OnMainThread.cachedAtTime = TickPatch.Timer;
 
@@ -140,27 +136,6 @@ namespace Multiplayer.Client
 
             Multiplayer.WorldComp.cmds = new Queue<ScheduledCommand>(OnMainThread.cachedMapCmds.GetValueSafe(ScheduledCommand.Global) ?? new List<ScheduledCommand>());
             // Map cmds are added in MapAsyncTimeComp.FinalizeInit
-
-            Action afterSkip = () =>
-            {
-                foreach (Map map in Find.Maps)
-                {
-                    foreach (Pawn pawn in map.mapPawns.AllPawnsSpawned)
-                        pawn.drawer.tweener.tweenedPos = pawn.drawer.tweener.TweenedPosRoot();
-                }
-
-                reloadDone?.Invoke();
-            };
-
-            if (TickPatch.Timer == TickPatch.tickUntil)
-            {
-                afterSkip();
-            }
-            else
-            {
-                TickPatch.skipTo = TickPatch.tickUntil;
-                TickPatch.afterSkip = afterSkip;
-            }
         }
 
         [PacketHandler(Packets.Server_DisconnectReason)]
@@ -228,7 +203,7 @@ namespace Multiplayer.Client
             byte[] mapData = GZipStream.UncompressBuffer(data.ReadPrefixedBytes());
             OnMainThread.cachedMapData[mapId] = mapData;
 
-            ClientJoiningState.ReloadGame(TickPatch.tickUntil, Find.Maps.Select(m => m.uniqueID).Concat(mapId).ToList());
+            //ClientJoiningState.ReloadGame(TickPatch.tickUntil, Find.Maps.Select(m => m.uniqueID).Concat(mapId).ToList());
             // todo Multiplayer.client.Send(Packets.CLIENT_MAP_LOADED);
         }
 

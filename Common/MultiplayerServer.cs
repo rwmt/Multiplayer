@@ -25,8 +25,10 @@ namespace Multiplayer.Common
         public int coopFactionId;
         public byte[] savedGame; // Compressed game save
         public Dictionary<int, byte[]> mapData = new Dictionary<int, byte[]>(); // Map id to compressed map data
+
         public Dictionary<int, List<byte[]>> mapCmds = new Dictionary<int, List<byte[]>>(); // Map id to serialized cmds list
-        public List<byte[]> globalCmds = new List<byte[]>(); // Serialized global cmds
+        public Dictionary<int, List<byte[]>> tmpMapCmds;
+
         public Dictionary<string, int> playerFactions = new Dictionary<string, int>(); // Username to faction id
 
         public List<ServerPlayer> players = new List<ServerPlayer>();
@@ -121,11 +123,18 @@ namespace Multiplayer.Common
                 Thread.Sleep(10);
             }
 
+            Stop();
+        }
+
+        private void Stop()
+        {
             SendToAll(Packets.Server_DisconnectReason, new[] { "MpServerClosed" });
             foreach (var peer in server.GetPeers(ConnectionState.Connected))
                 peer.Flush();
 
             server.Stop();
+
+            instance = null;
         }
 
         public void Tick()
@@ -155,9 +164,7 @@ namespace Multiplayer.Common
         {
             SendCommand(CommandType.Autosave, ScheduledCommand.NoFaction, ScheduledCommand.Global, new byte[0]);
 
-            globalCmds.Clear();
-            foreach (int mapId in mapCmds.Keys)
-                mapCmds[mapId].Clear();
+            tmpMapCmds = new Dictionary<int, List<byte[]>>();
         }
 
         public void UpdatePlayerList()
@@ -253,10 +260,8 @@ namespace Multiplayer.Common
             byte[] toSave = new ScheduledCommand(cmd, timer, factionId, mapId, data).Serialize();
 
             // todo cull target players if not global
-            if (mapId < 0)
-                globalCmds.Add(toSave);
-            else
-                mapCmds.GetOrAddNew(mapId).Add(toSave);
+            mapCmds.GetOrAddNew(mapId).Add(toSave);
+            tmpMapCmds?.GetOrAddNew(mapId).Add(toSave);
 
             byte[] toSend = toSave.Append(new byte[] { 0 });
             byte[] toSendSource = toSave.Append(new byte[] { 1 });

@@ -65,12 +65,10 @@ namespace Multiplayer.Common
                 MultiplayerServer.instance.SendCommand(CommandType.FactionOnline, ScheduledCommand.NoFaction, ScheduledCommand.Global, extra);
             }
 
-            List<byte[]> globalCmds = MultiplayerServer.instance.globalCmds;
             ByteWriter writer = new ByteWriter();
 
             writer.WriteInt32(factionId);
             writer.WriteInt32(MultiplayerServer.instance.timer);
-            writer.WriteByteArrayList(globalCmds);
             writer.WritePrefixedBytes(MultiplayerServer.instance.savedGame);
 
             writer.WriteInt32(MultiplayerServer.instance.mapCmds.Count);
@@ -78,9 +76,10 @@ namespace Multiplayer.Common
             foreach (var kv in MultiplayerServer.instance.mapCmds)
             {
                 int mapId = kv.Key;
-                List<byte[]> mapCmds = kv.Value;
 
-                MultiplayerServer.instance.SendCommand(CommandType.CreateMapFactionData, ScheduledCommand.NoFaction, mapId, ByteWriter.GetBytes(factionId));
+                //MultiplayerServer.instance.SendCommand(CommandType.CreateMapFactionData, ScheduledCommand.NoFaction, mapId, ByteWriter.GetBytes(factionId));
+
+                List<byte[]> mapCmds = kv.Value;
 
                 writer.WriteInt32(mapId);
                 writer.WriteByteArrayList(mapCmds);
@@ -97,12 +96,12 @@ namespace Multiplayer.Common
                 writer.WritePrefixedBytes(mapData);
             }
 
-            byte[] packetData = writer.GetArray();
-
             connection.State = ConnectionStateEnum.ServerPlaying;
-            connection.Send(Packets.Server_WorldData, packetData);
 
-            MpLog.Log("World response sent: " + packetData.Length + " " + globalCmds.Count);
+            byte[] packetData = writer.GetArray();
+            connection.SendFragmented(Packets.Server_WorldData, packetData);
+
+            MpLog.Log("World response sent: " + packetData.Length);
         }
     }
 
@@ -122,7 +121,7 @@ namespace Multiplayer.Common
         {
             CommandType cmd = (CommandType)data.ReadInt32();
             int mapId = data.ReadInt32();
-            byte[] extra = data.ReadPrefixedBytes();
+            byte[] extra = data.ReadPrefixedBytes(32767);
 
             // todo check if map id is valid for the player
 
@@ -159,21 +158,30 @@ namespace Multiplayer.Common
         }
 
         [PacketHandler(Packets.Client_AutosavedData)]
+        [IsFragmented]
         public void HandleAutosavedData(ByteReader data)
         {
+            if (Player.Username != Server.hostUsername) return;
+
             int type = data.ReadInt32();
             byte[] compressedData = data.ReadPrefixedBytes();
 
             if (type == 0) // World data
             {
-                MultiplayerServer.instance.savedGame = compressedData;
-            }
-            else if (type == 1) // Map data
-            {
                 int mapId = data.ReadInt32();
 
                 // todo test map ownership
-                MultiplayerServer.instance.mapData[mapId] = compressedData;
+                Server.mapData[mapId] = compressedData;
+            }
+            else if (type == 1) // Map data
+            {
+                Server.savedGame = compressedData;
+
+                if (Server.tmpMapCmds != null)
+                {
+                    Server.mapCmds = Server.tmpMapCmds;
+                    Server.tmpMapCmds = null;
+                }
             }
         }
 
@@ -206,33 +214,13 @@ namespace Multiplayer.Common
                 connection.Latency = 2000;
         }
 
-        public static Dictionary<string, int[]> debugHashes = new Dictionary<string, int[]>();
-
         [PacketHandler(Packets.Client_Debug)]
         public void HandleDebug(ByteReader data)
         {
-            int[] hashes = data.ReadPrefixedInts();
-            debugHashes[connection.username] = hashes;
+            if (Player.Username != Server.hostUsername) return;
 
-            if (debugHashes.Count == 2)
-            {
-                var first = debugHashes.ElementAt(0);
-                var second = debugHashes.ElementAt(1);
-                int index = int.MinValue;
+            int tick = data.ReadInt32();
 
-                for (int i = 0; i < Math.Min(first.Value.Length, second.Value.Length); i++)
-                {
-                    if (first.Value[i] != second.Value[i])
-                        index = i;
-                }
-
-                if (index == int.MinValue && first.Value.Length != second.Value.Length)
-                    index = -1;
-
-                MultiplayerServer.instance.SendToAll(Packets.Server_Debug, new object[] { index });
-
-                debugHashes.Clear();
-            }
         }
     }
 
