@@ -80,16 +80,17 @@ namespace Multiplayer.Client
             Multiplayer.ExposeIdBlock(ref globalIdBlock, "globalIdBlock");
         }
 
+        private int currentFactionId;
+
         private void ExposeFactionData()
         {
-            // The faction whose data is currently set
-            int currentFactionId = Faction.OfPlayer.loadID;
-            Scribe_Values.Look(ref currentFactionId, "currentFactionId");
-
             Scribe_Collections.Look(ref trading, "tradingSessions", LookMode.Deep);
 
             if (Scribe.mode == LoadSaveMode.Saving)
             {
+                int currentFactionId = Faction.OfPlayer.loadID;
+                ScribeUtil.LookValue(currentFactionId, "currentFactionId");
+
                 var factionData = new Dictionary<int, FactionWorldData>(this.factionData);
                 factionData.Remove(currentFactionId);
 
@@ -97,6 +98,9 @@ namespace Multiplayer.Client
             }
             else
             {
+                // The faction whose data is currently set
+                Scribe_Values.Look(ref currentFactionId, "currentFactionId");
+
                 Scribe_Collections.Look(ref factionData, "factionData", LookMode.Value, LookMode.Deep);
                 if (factionData == null)
                     factionData = new Dictionary<int, FactionWorldData>();
@@ -109,7 +113,7 @@ namespace Multiplayer.Client
 
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
-                factionData[currentFactionId] = FactionWorldData.FromCurrent();
+                factionData[currentFactionId] = FactionWorldData.FromCurrent(currentFactionId);
             }
         }
 
@@ -354,11 +358,11 @@ namespace Multiplayer.Client
             };
         }
 
-        public static FactionWorldData FromCurrent()
+        public static FactionWorldData FromCurrent(int factionId = int.MinValue)
         {
             return new FactionWorldData()
             {
-                factionId = Faction.OfPlayer.loadID,
+                factionId = factionId == int.MinValue ? Faction.OfPlayer.loadID : factionId,
                 online = true,
 
                 researchManager = Find.ResearchManager,

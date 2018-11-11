@@ -365,13 +365,6 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref t, label, forceSave: force);
         }
 
-        public static T LookValue<T>(string label)
-        {
-            T value = default(T);
-            Scribe_Values.Look(ref value, label);
-            return value;
-        }
-
         public static void LookDeep<T>(T t, string label)
         {
             Scribe_Deep.Look(ref t, label);

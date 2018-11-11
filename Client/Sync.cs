@@ -152,7 +152,7 @@ namespace Multiplayer.Client
 
         public override string ToString()
         {
-            return memberPath;
+            return $"SyncField {memberPath}";
         }
     }
 
@@ -341,6 +341,11 @@ namespace Multiplayer.Client
         {
             return Sync.RegisterSyncMethod(type, methodOrPropertyName, argTypes);
         }
+
+        public override string ToString()
+        {
+            return $"SyncMethod {method.FullDescription()}";
+        }
     }
 
     public class SyncDelegate : SyncHandler, ISyncMethod
@@ -517,6 +522,11 @@ namespace Multiplayer.Client
         public static SyncDelegate Register(Type inType, string nestedType, string methodName, string[] fields)
         {
             return Sync.RegisterSyncDelegate(inType, nestedType, methodName, fields);
+        }
+
+        public override string ToString()
+        {
+            return $"SyncDelegate {method.FullDescription()}";
         }
     }
 

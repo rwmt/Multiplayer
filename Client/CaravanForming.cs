@@ -78,6 +78,7 @@ namespace Multiplayer.Client
             return dialog;
         }
 
+        [SyncMethod]
         public void ChooseRoute(int destinationTile)
         {
             var dialog = PrepareDummyDialog();
@@ -89,30 +90,35 @@ namespace Multiplayer.Client
             uiDirty = true;
         }
 
+        [SyncMethod]
         public void TryReformCaravan()
         {
             if (PrepareDummyDialog().TryReformCaravan())
                 Remove();
         }
 
+        [SyncMethod]
         public void TryFormAndSendCaravan()
         {
             if (PrepareDummyDialog().TryFormAndSendCaravan())
                 Remove();
         }
 
+        [SyncMethod]
         public void DebugTryFormCaravanInstantly()
         {
             if (PrepareDummyDialog().DebugTryFormCaravanInstantly())
                 Remove();
         }
-
+        
+        [SyncMethod]
         public void Reset()
         {
             transferables.ForEach(t => t.CountToTransfer = 0);
             uiDirty = true;
         }
-
+ 
+        [SyncMethod]
         public void Remove()
         {
             map.MpComp().caravanForming = null;

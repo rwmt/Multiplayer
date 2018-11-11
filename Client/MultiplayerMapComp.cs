@@ -89,20 +89,24 @@ namespace Multiplayer.Client
             ExposeFactionData();
         }
 
+        private int currentFactionId;
+
         private void ExposeFactionData()
         {
-            // The faction whose data is currently set
-            int currentFactionId = Faction.OfPlayer.loadID;
-            Scribe_Values.Look(ref currentFactionId, "currentFactionId");
-
             if (Scribe.mode == LoadSaveMode.Saving)
             {
+                int currentFactionId = Faction.OfPlayer.loadID;
+                ScribeUtil.LookValue(currentFactionId, "currentFactionId");
+
                 var data = new Dictionary<int, FactionMapData>(factionMapData);
                 data.Remove(currentFactionId);
                 ScribeUtil.LookWithValueKey(ref data, "factionMapData", LookMode.Deep, map);
             }
             else
             {
+                // The faction whose data is currently set
+                Scribe_Values.Look(ref currentFactionId, "currentFactionId");
+
                 ScribeUtil.LookWithValueKey(ref factionMapData, "factionMapData", LookMode.Deep, map);
                 if (factionMapData == null)
                     factionMapData = new Dictionary<int, FactionMapData>();
@@ -110,7 +114,7 @@ namespace Multiplayer.Client
 
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
-                factionMapData[currentFactionId] = FactionMapData.FromMap(map);
+                factionMapData[currentFactionId] = FactionMapData.FromMap(map, currentFactionId);
             }
         }
     }
@@ -166,11 +170,11 @@ namespace Multiplayer.Client
             return new FactionMapData(factionId, map);
         }
 
-        public static FactionMapData FromMap(Map map)
+        public static FactionMapData FromMap(Map map, int factionId = int.MinValue)
         {
             return new FactionMapData(map)
             {
-                factionId = map.ParentFaction.loadID,
+                factionId = factionId == int.MinValue ? map.ParentFaction.loadID : factionId,
 
                 designationManager = map.designationManager,
                 areaManager = map.areaManager,

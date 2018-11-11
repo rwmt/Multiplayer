@@ -210,7 +210,9 @@ namespace Multiplayer.Client
             if (file.replay)
             {
                 if (Widgets.ButtonText(new Rect(width, 0, 120, 40), "Watch"))
+                {
                     Multiplayer.LoadReplay(file.name);
+                }
 
                 width += 120 + 10;
             }

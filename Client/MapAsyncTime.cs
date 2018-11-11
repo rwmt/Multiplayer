@@ -153,7 +153,7 @@ namespace Multiplayer.Client
 
             ITickable tickable = CurrentTickable();
             if (tickable.TimePerTick(tickable.TimeSpeed) == 0f)
-                return 1 / 100f; // So paused sections of the timeline are skipped through asap
+                return 1 / 100f; // So paused sections of the timeline are skipped through
 
             return tickable.TimePerTick(replayTimeSpeed) / tickable.TimePerTick(tickable.TimeSpeed);
         }

@@ -412,17 +412,6 @@ namespace Multiplayer.Client
 
             SyncMethod.Register(typeof(WITab_Caravan_Gear), nameof(WITab_Caravan_Gear.TryEquipDraggedItem)).SetContext(SyncContext.WorldSelected).CancelIfNoSelectedWorldObjects().CancelIfAnyArgNull();
             SyncMethod.Register(typeof(WITab_Caravan_Gear), nameof(WITab_Caravan_Gear.MoveDraggedItemToInventory)).SetContext(SyncContext.WorldSelected).CancelIfNoSelectedWorldObjects();
-
-            SyncMethod.Register(typeof(MpTradeSession), nameof(MpTradeSession.TryExecute));
-            SyncMethod.Register(typeof(MpTradeSession), nameof(MpTradeSession.Reset));
-            SyncMethod.Register(typeof(MpTradeSession), nameof(MpTradeSession.ToggleGiftMode));
-
-            SyncMethod.Register(typeof(CaravanFormingSession), nameof(CaravanFormingSession.TryReformCaravan));
-            SyncMethod.Register(typeof(CaravanFormingSession), nameof(CaravanFormingSession.TryFormAndSendCaravan));
-            SyncMethod.Register(typeof(CaravanFormingSession), nameof(CaravanFormingSession.Reset));
-            SyncMethod.Register(typeof(CaravanFormingSession), nameof(CaravanFormingSession.Remove));
-            SyncMethod.Register(typeof(CaravanFormingSession), nameof(CaravanFormingSession.ChooseRoute));
-            SyncMethod.Register(typeof(CaravanFormingSession), nameof(CaravanFormingSession.DebugTryFormCaravanInstantly));
         }
 
         static SyncField SyncTimetable = Sync.Field(typeof(Pawn), "timetable", "times");

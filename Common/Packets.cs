@@ -13,6 +13,7 @@
         Client_KeepAlive,
         Client_SteamRequest,
         Client_Debug,
+        Client_Cursor,
 
         Server_DefsOK,
         Server_WorldData,
@@ -26,6 +27,7 @@
         Server_SteamAccept,
         Server_DisconnectReason,
         Server_Debug,
+        Server_Cursor,
 
         Count
     }

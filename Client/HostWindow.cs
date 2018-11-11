@@ -97,7 +97,7 @@ namespace Multiplayer.Client
                 }
                 else
                 {
-                    ClientUtil.HostServer(addr, port);
+                    ClientUtil.HostServer(addr, port, false);
                 }
 
                 Close(true);
@@ -167,7 +167,7 @@ namespace Multiplayer.Client
 
                 LongEventHandler.ExecuteWhenFinished(() =>
                 {
-                    LongEventHandler.QueueLongEvent(() => ClientUtil.HostServer(addr, port), "MpLoading", false, null);
+                    LongEventHandler.QueueLongEvent(() => ClientUtil.HostServer(addr, port, false), "MpLoading", false, null);
                 });
             }, "Play", "LoadingLongEvent", true, null);
         }
@@ -177,7 +177,7 @@ namespace Multiplayer.Client
             Multiplayer.LoadReplay(file.name, true, () =>
             {
                 OnMainThread.StopMultiplayer();
-                ClientUtil.HostServer(addr, port); // todo
+                ClientUtil.HostServer(addr, port, true);
             });
         }
     }

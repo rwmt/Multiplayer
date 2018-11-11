@@ -351,9 +351,9 @@ namespace Multiplayer.Client
 
                     if (Scribe.mode == LoadSaveMode.LoadingVars)
                     {
-                        methodType = ScribeUtil.LookValue<string>("methodType");
-                        methodName = ScribeUtil.LookValue<string>("methodName");
-                        targetIndex = ScribeUtil.LookValue<int>("targetIndex");
+                        Scribe_Values.Look(ref methodType, "methodType");
+                        Scribe_Values.Look(ref methodName, "methodName");
+                        Scribe_Values.Look(ref targetIndex, "targetIndex");
                     }
 
                     if (Scribe.mode == LoadSaveMode.ResolvingCrossRefs)
@@ -450,9 +450,10 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.ShouldSync)
             {
-                var opt = __instance;
-                var dialog = PersistentDialog.FindDialog(opt.dialog);
-                dialog.Click(dialog.ver, dialog.dialog.curNode.options.IndexOf(opt));
+                var dialog = PersistentDialog.FindDialog(__instance.dialog);
+                if (dialog == null) return true;
+
+                dialog.Click(dialog.ver, dialog.dialog.curNode.options.IndexOf(__instance));
 
                 return false;
             }

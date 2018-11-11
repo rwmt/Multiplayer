@@ -1171,21 +1171,6 @@ namespace Multiplayer.Client
         static bool Prefix() => !PawnSpawnSetupMarker.respawningAfterLoad;
     }
 
-    [HarmonyPatch(typeof(LongEventHandler), nameof(LongEventHandler.ExecuteWhenFinished))]
-    static class ExecuteWhenFinishedPatch
-    {
-        static bool Prefix(Action action)
-        {
-            if (Multiplayer.simulating)
-            {
-                action();
-                return false;
-            }
-
-            return true;
-        }
-    }
-
     [HarmonyPatch(typeof(Root_Play), nameof(Root_Play.SetupForQuickTestPlay))]
     static class SetupQuickTestPatch
     {
@@ -1584,8 +1569,8 @@ namespace Multiplayer.Client
 
         public static void SetupMap(Map map)
         {
+            Log.Message("New map " + map.uniqueID);
             Log.Message("Uniq ids " + Multiplayer.GlobalIdBlock.current);
-            Log.Message("new map " + map.uniqueID);
 
             MapAsyncTimeComp async = map.AsyncTime();
             MultiplayerMapComp mapComp = map.MpComp();
@@ -1679,6 +1664,22 @@ namespace Multiplayer.Client
 
             if (map != Multiplayer.MapContext)
                 __result = false;
+        }
+    }
+
+    [HotSwappable]
+    [HarmonyPatch(typeof(Targeter), nameof(Targeter.TargeterOnGUI))]
+    static class DrawCursor
+    {
+        static void Postfix()
+        {
+            GUI.color = new Color(1, 1, 1, 0.5f);
+            var pos = new Vector3(10, 0, 10).MapToUIPosition();
+            Text.Font = GameFont.Tiny;
+            Widgets.Label(new Rect(pos, new Vector2(100, 30)).Up(15f), "username");
+            Text.Font = GameFont.Small;
+            Widgets.DrawTextureRotated(new Rect(pos, new Vector2(24, 24)), CustomCursor.CursorTex, 180f);
+            GUI.color = Color.white;
         }
     }
 

@@ -37,8 +37,6 @@ namespace Multiplayer.Common
         public string hostUsername;
         public int timer;
         public ActionQueue queue = new ActionQueue();
-        public string saveFolder;
-        public string worldId;
         public IPAddress addr;
         public int port;
         public volatile bool running = true;

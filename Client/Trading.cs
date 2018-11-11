@@ -108,6 +108,7 @@ namespace Multiplayer.Client
             return false;
         }
 
+        [SyncMethod]
         public void TryExecute()
         {
             deal.recacheColony = true;
@@ -122,12 +123,14 @@ namespace Multiplayer.Client
                 Multiplayer.WorldComp.RemoveTradeSession(this);
         }
 
+        [SyncMethod]
         public void Reset()
         {
             deal.tradeables.ForEach(t => t.countToTransfer = 0);
             deal.uiShouldReset = UIShouldReset.Silent;
         }
 
+        [SyncMethod]
         public void ToggleGiftMode()
         {
             giftMode = !giftMode;

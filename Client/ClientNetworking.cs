@@ -74,7 +74,7 @@ namespace Multiplayer.Client
             }
         }
 
-        public static void HostServer(IPAddress addr, int port)
+        public static void HostServer(IPAddress addr, int port, bool replay)
         {
             MpLog.Log("Starting a server");
 
@@ -84,26 +84,32 @@ namespace Multiplayer.Client
             if (dummyFaction == null)
             {
                 dummyFaction = new Faction() { loadID = -1, def = Multiplayer.DummyFactionDef };
+                dummyFaction.Name = "Multiplayer dummy faction";
 
                 foreach (Faction other in Find.FactionManager.AllFactionsListForReading)
                     dummyFaction.TryMakeInitialRelationsWith(other);
 
                 Find.FactionManager.Add(dummyFaction);
+
+                comp.factionData[dummyFaction.loadID] = FactionWorldData.New(dummyFaction.loadID);
             }
 
             Faction.OfPlayer.Name = $"{Multiplayer.username}'s faction";
-
             comp.factionData[Faction.OfPlayer.loadID] = FactionWorldData.FromCurrent();
-            comp.factionData[dummyFaction.loadID] = FactionWorldData.New(dummyFaction.loadID);
 
             MultiplayerSession session = Multiplayer.session = new MultiplayerSession();
+            session.myFactionId = Faction.OfPlayer.loadID;
+
             MultiplayerServer localServer = new MultiplayerServer(addr, port);
             localServer.hostUsername = Multiplayer.username;
             localServer.allowLan = true;
             localServer.coopFactionId = Faction.OfPlayer.loadID;
+
+            if (replay)
+                localServer.timer = TickPatch.Timer;
+
             MultiplayerServer.instance = localServer;
             session.localServer = localServer;
-            session.myFactionId = Faction.OfPlayer.loadID;
 
             Multiplayer.game = new MultiplayerGame
             {
@@ -111,30 +117,33 @@ namespace Multiplayer.Client
                 worldComp = comp
             };
 
-            localServer.nextUniqueId = GetMaxUniqueId();
-            comp.globalIdBlock = localServer.NextIdBlock(1_000_000_000);
-
-            foreach (FactionWorldData data in comp.factionData.Values)
+            if (!replay)
             {
-                foreach (DrugPolicy p in data.drugPolicyDatabase.policies)
-                    p.uniqueId = Multiplayer.GlobalIdBlock.NextId();
+                localServer.nextUniqueId = GetMaxUniqueId();
+                comp.globalIdBlock = localServer.NextIdBlock(1_000_000_000);
 
-                foreach (Outfit o in data.outfitDatabase.outfits)
-                    o.uniqueId = Multiplayer.GlobalIdBlock.NextId();
+                foreach (FactionWorldData data in comp.factionData.Values)
+                {
+                    foreach (DrugPolicy p in data.drugPolicyDatabase.policies)
+                        p.uniqueId = Multiplayer.GlobalIdBlock.NextId();
 
-                foreach (FoodRestriction o in data.foodRestrictionDatabase.foodRestrictions)
-                    o.id = Multiplayer.GlobalIdBlock.NextId();
-            }
+                    foreach (Outfit o in data.outfitDatabase.outfits)
+                        o.uniqueId = Multiplayer.GlobalIdBlock.NextId();
 
-            foreach (Map map in Find.Maps)
-            {
-                //mapComp.mapIdBlock = localServer.NextIdBlock();
+                    foreach (FoodRestriction o in data.foodRestrictionDatabase.foodRestrictions)
+                        o.id = Multiplayer.GlobalIdBlock.NextId();
+                }
 
-                BeforeMapGeneration.SetupMap(map);
+                foreach (Map map in Find.Maps)
+                {
+                    //mapComp.mapIdBlock = localServer.NextIdBlock();
 
-                MapAsyncTimeComp async = map.AsyncTime();
-                async.mapTicks = Find.TickManager.TicksGame;
-                async.TimeSpeed = Find.TickManager.CurTimeSpeed;
+                    BeforeMapGeneration.SetupMap(map);
+
+                    MapAsyncTimeComp async = map.AsyncTime();
+                    async.mapTicks = Find.TickManager.TicksGame;
+                    async.TimeSpeed = Find.TickManager.CurTimeSpeed;
+                }
             }
 
             Find.PlaySettings.usePlanetDayNightSystem = false;
