@@ -90,6 +90,7 @@
     <Compile Include="Client\Multithreading.cs" />
     <Compile Include="Client\Native.cs" />
     <Compile Include="Client\PersistentDialogs.cs" />
+    <Compile Include="Client\Replays.cs" />
     <Compile Include="Client\SaveCompression.cs" />
     <Compile Include="Client\Extensions.cs" />
     <Compile Include="Client\MapAsyncTime.cs" />

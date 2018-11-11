@@ -174,7 +174,7 @@ namespace Multiplayer.Client
 
         private void HostFromReplay(IPAddress addr, int port)
         {
-            Multiplayer.LoadReplay(file.name, true, () =>
+            Replay.LoadReplay(file.name, true, () =>
             {
                 OnMainThread.StopMultiplayer();
                 ClientUtil.HostServer(addr, port, true);
