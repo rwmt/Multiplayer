@@ -1,9 +1,11 @@
 ﻿using Harmony;
 using Multiplayer.Common;
 using RimWorld;
+using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using Verse;
 
@@ -17,6 +19,7 @@ namespace Multiplayer.Client
         public Dictionary<int, FactionMapData> factionMapData = new Dictionary<int, FactionMapData>();
 
         public CaravanFormingSession caravanForming;
+        public List<PersistentDialog> mapDialogs = new List<PersistentDialog>();
 
         // for SaveCompression
         public List<Thing> tempLoadedThings;
@@ -76,6 +79,11 @@ namespace Multiplayer.Client
             }
 
             Scribe_Deep.Look(ref caravanForming, "caravanFormingSession", map);
+
+            Scribe_Collections.Look(ref mapDialogs, "mapDialogs", LookMode.Deep, map);
+            if (Scribe.mode == LoadSaveMode.LoadingVars && mapDialogs == null)
+                mapDialogs = new List<PersistentDialog>();
+
             //Multiplayer.ExposeIdBlock(ref mapIdBlock, "mapIdBlock");
 
             ExposeFactionData();
@@ -175,4 +183,27 @@ namespace Multiplayer.Client
             };
         }
     }
+
+    [HarmonyPatch(typeof(MapDrawer), nameof(MapDrawer.DrawMapMesh))]
+    static class ForceShowDialogs
+    {
+        static void Prefix(MapDrawer __instance)
+        {
+            if (Multiplayer.Client == null) return;
+
+            var comp = __instance.map.MpComp();
+
+            if (comp.mapDialogs.Any())
+            {
+                if (!Find.WindowStack.IsOpen(typeof(Dialog_NodeTreeWithFactionInfo)))
+                    Find.WindowStack.Add(comp.mapDialogs.First().dialog);
+            }
+            else if (comp.caravanForming != null)
+            {
+                if (!Find.WindowStack.IsOpen(typeof(MpFormingCaravanWindow)))
+                    comp.caravanForming.OpenWindow(false);
+            }
+        }
+    }
+
 }

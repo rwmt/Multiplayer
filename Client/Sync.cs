@@ -374,7 +374,7 @@ namespace Multiplayer.Client
             }
             else
             {
-                UniqueList<string> temp = new UniqueList<string>();
+                var temp = new UniqueList<string>();
                 foreach (string path in fieldPaths.Select(p => MpReflection.AppendType(p, delegateType)))
                 {
                     string[] parts = path.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
@@ -664,7 +664,8 @@ namespace Multiplayer.Client
         MapMouseCell = 1,
         MapSelected = 2,
         WorldSelected = 4,
-        QueueOrder_Down = 8
+        QueueOrder_Down = 8,
+        CurrentMap = 16,
     }
 
     public static partial class Sync
@@ -836,12 +837,12 @@ namespace Multiplayer.Client
         {
             foreach (Type type in MpUtil.AllModTypes())
             {
-                foreach (MethodInfo method in type.GetDeclaredMethods().Where(m => m.IsStatic))
+                foreach (MethodInfo method in type.GetDeclaredMethods())
                 {
                     if (!method.TryGetAttribute(out SyncMethodAttribute syncAttr))
                         continue;
 
-                    RegisterSyncMethod(method, null).SetContext(syncAttr.context);
+                    RegisterSyncMethod(method, syncAttr.args).SetContext(syncAttr.context);
                 }
             }
         }
@@ -999,13 +1000,13 @@ namespace Multiplayer.Client
                 if (handler.context.HasFlag(SyncContext.MapSelected))
                 {
                     List<ISelectable> selected = ReadSync<List<ISelectable>>(data);
-                    Find.Selector.selected = selected.Cast<object>().Where(o => o != null).ToList();
+                    Find.Selector.selected = selected.Cast<object>().NotNull().ToList();
                 }
 
                 if (handler.context.HasFlag(SyncContext.WorldSelected))
                 {
                     List<ISelectable> selected = ReadSync<List<ISelectable>>(data);
-                    Find.WorldSelector.selected = selected.Cast<WorldObject>().Where(o => o != null).ToList();
+                    Find.WorldSelector.selected = selected.Cast<WorldObject>().NotNull().ToList();
                 }
 
                 if (handler.context.HasFlag(SyncContext.QueueOrder_Down))
@@ -1033,6 +1034,9 @@ namespace Multiplayer.Client
         public static void WriteContext(SyncHandler handler, ByteWriter data)
         {
             if (handler.context == SyncContext.None) return;
+
+            if (handler.context.HasFlag(SyncContext.CurrentMap))
+                data.MpContext().map = Find.CurrentMap;
 
             if (handler.context.HasFlag(SyncContext.MapMouseCell))
             {
@@ -1081,10 +1085,12 @@ namespace Multiplayer.Client
     public class SyncMethodAttribute : Attribute
     {
         public SyncContext context;
+        public Type[] args;
 
-        public SyncMethodAttribute(SyncContext context = SyncContext.None)
+        public SyncMethodAttribute(SyncContext context = SyncContext.None, Type[] args = null)
         {
             this.context = context;
+            this.args = args;
         }
     }
 
@@ -1155,20 +1161,38 @@ namespace Multiplayer.Client
         }
     }
 
-    class UniqueList<T>
+    public class UniqueList<T> : IEnumerable<T>
     {
         private List<T> list = new List<T>();
         private HashSet<T> set = new HashSet<T>();
 
-        public void Add(T t)
+        public int Count => list.Count;
+        public T this[int index] => list[index];
+
+        public bool Add(T t)
         {
             if (set.Add(t))
+            {
                 list.Add(t);
+                return true;
+            }
+
+            return false;
         }
 
         public T[] ToArray()
         {
             return list.ToArray();
+        }
+
+        public IEnumerator<T> GetEnumerator()
+        {
+            return list.GetEnumerator();
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return list.GetEnumerator();
         }
     }
 

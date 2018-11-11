@@ -1,5 +1,6 @@
 ﻿using Harmony;
 using Multiplayer.Common;
+using RimWorld;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -24,6 +25,44 @@ namespace Multiplayer.Client
 
             menu.DebugAction("Save map", SaveMap);
             menu.DebugAction("Advance time", AdvanceTime);
+            DoMapIncidentDebugAction(menu);
+        }
+
+        private static void DoMapIncidentDebugAction(Dialog_DebugActionsMenu menu)
+        {
+            var target = Find.CurrentMap;
+
+            menu.DebugAction("Do incident on map", () =>
+            {
+                var list = new List<DebugMenuOption>();
+                foreach (var localDef2 in DefDatabase<IncidentDef>.AllDefs.Where(d => d.TargetAllowed(target)).OrderBy(d => d.defName))
+                {
+                    IncidentDef localDef = localDef2;
+                    string text = localDef.defName;
+                    IncidentParms parms = StorytellerUtility.DefaultParmsNow(localDef.category, target);
+                    if (!localDef.Worker.CanFireNow(parms, false))
+                        text += " [NO]";
+
+                    list.Add(new DebugMenuOption(text, DebugMenuOptionMode.Action, () =>
+                    {
+                        if (localDef.pointsScaleable)
+                        {
+                            StorytellerComp storytellerComp = Find.Storyteller.storytellerComps.First((StorytellerComp x) => x is StorytellerComp_OnOffCycle || x is StorytellerComp_RandomMain);
+                            parms = storytellerComp.GenerateParms(localDef.category, parms.target);
+                        }
+
+                        ExecuteMapIncident(localDef, parms);
+                    }));
+                }
+
+                Find.WindowStack.Add(new Dialog_DebugOptionListLister(list));
+            });
+        }
+
+        [SyncMethod(SyncContext.CurrentMap, new[] { typeof(IncidentDef), typeof(Expose<IncidentParms>) })]
+        private static void ExecuteMapIncident(IncidentDef def, IncidentParms parms)
+        {
+            def.Worker.TryExecute(parms);
         }
 
         [SyncMethod(SyncContext.MapMouseCell)]

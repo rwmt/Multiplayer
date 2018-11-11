@@ -13,6 +13,11 @@ namespace Multiplayer.Common
 {
     public static class Extensions
     {
+        public static object GetDefaultValue(this Type t)
+        {
+            return t.IsValueType ? Activator.CreateInstance(t) : null;
+        }
+
         public static V AddOrGet<K, V>(this Dictionary<K, V> dict, K obj, V defaultValue)
         {
             if (!dict.TryGetValue(obj, out V value))

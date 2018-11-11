@@ -1638,6 +1638,26 @@ namespace Multiplayer.Client
         }
     }
 
+    [HarmonyPatch(typeof(IncidentWorker_CaravanDemand), nameof(IncidentWorker_CaravanDemand.CanFireNowSub))]
+    static class CancelCaravanmDemand
+    {
+        static void Postfix(ref bool __result)
+        {
+            if (Multiplayer.Client != null)
+                __result = false;
+        }
+    }
+
+    [HarmonyPatch(typeof(IncidentWorker_RansomDemand), nameof(IncidentWorker_RansomDemand.CanFireNowSub))]
+    static class CancelRansomDemand
+    {
+        static void Postfix(ref bool __result)
+        {
+            if (Multiplayer.Client != null)
+                __result = false;
+        }
+    }
+
     [HarmonyPatch(typeof(IncidentDef), nameof(IncidentDef.TargetAllowed))]
     static class GameConditionIncidentTargetPatch
     {
@@ -1657,7 +1677,7 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.Client == null) return;
 
-            if (map != MapAsyncTimeComp.tickingMap)
+            if (map != Multiplayer.MapContext)
                 __result = false;
         }
     }

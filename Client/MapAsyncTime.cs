@@ -152,7 +152,7 @@ namespace Multiplayer.Client
                 return 0f;
 
             ITickable tickable = CurrentTickable();
-            if (tickable.TimeSpeed == TimeSpeed.Paused)
+            if (tickable.TimePerTick(tickable.TimeSpeed) == 0f)
                 return 1 / 100f; // So paused sections of the timeline are skipped through asap
 
             return tickable.TimePerTick(replayTimeSpeed) / tickable.TimePerTick(tickable.TimeSpeed);
@@ -551,10 +551,10 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.Client == null) return;
 
-            if (MapAsyncTimeComp.tickingMap != null)
+            if (Multiplayer.MapContext != null)
             {
                 __result.Clear();
-                __result.Add(MapAsyncTimeComp.tickingMap);
+                __result.Add(Multiplayer.MapContext);
             }
             else if (MultiplayerWorldComp.tickingWorld)
             {
@@ -583,7 +583,8 @@ namespace Multiplayer.Client
 
         public float TickRateMultiplier(TimeSpeed speed)
         {
-            if (map.MpComp().caravanForming != null)
+            var comp = map.MpComp();
+            if (comp.caravanForming != null || comp.mapDialogs.Any())
                 return 0f;
 
             switch (speed)

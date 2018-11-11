@@ -19,6 +19,11 @@ namespace Multiplayer.Client
 {
     public static class Extensions
     {
+        public static IEnumerable<T> NotNull<T>(this IEnumerable<T> e)
+        {
+            return e.Where(t => t != null);
+        }
+
         public static IEnumerable<Type> AllSubtypesAndSelf(this Type t)
         {
             return t.AllSubclasses().Concat(t);
@@ -278,6 +283,21 @@ namespace Multiplayer.Client
                 if (textReader.NodeType == XmlNodeType.Text)
                     return textReader.Value;
             return null;
+        }
+
+        public static IEnumerable<DiaNode> TraverseNodes(this DiaNode root, HashSet<DiaNode> processed = null)
+        {
+            if (processed == null)
+                processed = new HashSet<DiaNode>();
+
+            if (!processed.Add(root)) yield break;
+
+            yield return root;
+
+            foreach (var opt in root.options)
+                if (opt.link != null)
+                    foreach (var node in TraverseNodes(opt.link, processed))
+                        yield return node;
         }
 
     }

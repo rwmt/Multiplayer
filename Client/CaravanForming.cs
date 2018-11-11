@@ -298,24 +298,12 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(MapDrawer), nameof(MapDrawer.DrawMapMesh))]
-    static class ForceShowFormingDialog
-    {
-        static void Prefix(MapDrawer __instance)
-        {
-            if (Multiplayer.Client != null &&
-                __instance.map.MpComp().caravanForming != null &&
-                !Find.WindowStack.IsOpen(typeof(MpFormingCaravanWindow)))
-                __instance.map.MpComp().caravanForming.OpenWindow(false);
-        }
-    }
-
     [HarmonyPatch(typeof(WindowStack), nameof(WindowStack.Add))]
     static class CancelDialogFormCaravan
     {
         static bool Prefix(Window window)
         {
-            if (window.GetType() == typeof(Dialog_FormCaravan) && (Multiplayer.ExecutingCmds || Multiplayer.Ticking))
+            if (Multiplayer.MapContext != null && window.GetType() == typeof(Dialog_FormCaravan))
                 return false;
 
             return true;
@@ -328,7 +316,8 @@ namespace Multiplayer.Client
     {
         static bool Prefix(Dialog_FormCaravan __instance, Map map, bool reform, Action onClosed, bool mapAboutToBeRemoved)
         {
-            if (__instance.GetType() != typeof(Dialog_FormCaravan)) return true;
+            if (__instance.GetType() != typeof(Dialog_FormCaravan))
+                return true;
 
             if (Multiplayer.ExecutingCmds || Multiplayer.Ticking)
             {

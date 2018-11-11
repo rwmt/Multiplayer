@@ -36,7 +36,7 @@ namespace Multiplayer.Client
 
     public static class ScribeUtil
     {
-        private const string ROOT_NODE = "root";
+        private const string RootNode = "root";
 
         private static MemoryStream stream;
 
@@ -67,9 +67,12 @@ namespace Multiplayer.Client
         public static byte[] FinishWriting()
         {
             Scribe.saver.FinalizeSaving();
+            Scribe.saver.savingForDebug = false;
+
             byte[] arr = stream.ToArray();
             stream.Close();
             stream = null;
+
             return arr;
         }
 
@@ -192,10 +195,11 @@ namespace Multiplayer.Client
             Log.Message("Cross ref supply: " + sharedCrossRefs.Dict.Count + " " + sharedCrossRefs.Dict.Last() + " " + Faction.OfPlayer);
         }
 
-        public static byte[] WriteExposable(IExposable element, string name = ROOT_NODE, bool indent = false)
+        public static byte[] WriteExposable(IExposable element, string name = RootNode, bool indent = false)
         {
+            Scribe.saver.savingForDebug = true;
             StartWriting(indent);
-            Scribe.EnterNode(ROOT_NODE);
+            Scribe.EnterNode(RootNode);
             Scribe_Deep.Look(ref element, name);
             return FinishWriting();
         }
@@ -205,11 +209,14 @@ namespace Multiplayer.Client
             StartLoading(data);
             SupplyCrossRefs();
             T element = default(T);
-            Scribe_Deep.Look(ref element, ROOT_NODE);
+            Scribe_Deep.Look(ref element, RootNode);
 
             beforeFinish?.Invoke(element);
 
             FinalizeLoading();
+
+            // Default cross refs restored in LoadedObjectsClearPatch
+
             return element;
         }
 
@@ -351,6 +358,23 @@ namespace Multiplayer.Client
             {
                 dict = null;
             }
+        }
+
+        public static void LookValue<T>(T t, string label, bool force = false)
+        {
+            Scribe_Values.Look(ref t, label, forceSave: force);
+        }
+
+        public static T LookValue<T>(string label)
+        {
+            T value = default(T);
+            Scribe_Values.Look(ref value, label);
+            return value;
+        }
+
+        public static void LookDeep<T>(T t, string label)
+        {
+            Scribe_Deep.Look(ref t, label);
         }
     }
 }

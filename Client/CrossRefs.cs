@@ -92,12 +92,16 @@ namespace Multiplayer.Client
     {
         static void Postfix()
         {
-            if (Multiplayer.game == null || !LoadGamePatch.loading) return;
+            if (Multiplayer.game == null) return;
+            if (!LoadGamePatch.loading) return;
+
             RegisterCrossRefs();
         }
 
         static void RegisterCrossRefs()
         {
+            ScribeUtil.sharedCrossRefs.RegisterLoaded(Find.World);
+
             foreach (Faction f in Find.FactionManager.AllFactions)
                 ScribeUtil.sharedCrossRefs.RegisterLoaded(f);
 

@@ -60,6 +60,13 @@ namespace Multiplayer.Client
                 data =>
                 {
                     int id = data.ReadInt32();
+                    return data.MpContext().map.MpComp().mapDialogs.FirstOrDefault(s => s.id == id);
+                }
+            },
+            {
+                data =>
+                {
+                    int id = data.ReadInt32();
                     return Multiplayer.WorldComp.trading.FirstOrDefault(s => s.sessionId == id);
                 }
             },
@@ -67,7 +74,7 @@ namespace Multiplayer.Client
                 data =>
                 {
                     int id = data.ReadInt32();
-                    CaravanFormingSession session = data.MpContext().map.MpComp().caravanForming;
+                    var session = data.MpContext().map.MpComp().caravanForming;
                     return session?.sessionId == id ? session : null;
                 }
             },
@@ -122,6 +129,7 @@ namespace Multiplayer.Client
             { (ByteWriter data, AreaManager areas) => data.MpContext().map = areas.map },
             { (ByteWriter data, MultiplayerMapComp comp) => data.MpContext().map = comp.map },
             { (ByteWriter data, WorldSelector selector) => {} },
+            { (ByteWriter data, PersistentDialog session) => { data.MpContext().map = session.map; data.WriteInt32(session.id); } },
             { (ByteWriter data, MpTradeSession session) => data.WriteInt32(session.sessionId) },
             { (ByteWriter data, CaravanFormingSession session) => { data.MpContext().map = session.map; data.WriteInt32(session.sessionId); } },
             {
@@ -474,7 +482,7 @@ namespace Multiplayer.Client
                     List<Thing> things = ReadSync<List<Thing>>(data);
 
                     TransferableImmutable tr = new TransferableImmutable();
-                    tr.things.AddRange(things.Where(t => t != null));
+                    tr.things.AddRange(things.NotNull());
 
                     return tr;
                 }

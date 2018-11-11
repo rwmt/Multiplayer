@@ -214,7 +214,7 @@ namespace Multiplayer.Client
 
             public int GetHashCode(ExceptionHandler obj)
             {
-                return 0;
+                return (int)obj.TryStart.Offset;
             }
         }
 

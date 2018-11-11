@@ -325,17 +325,10 @@ namespace Multiplayer.Client
             if (types.TryGetValue(name, out Type cached))
                 return cached;
 
-            Type type = null;
-
-            foreach (Assembly assembly in AllAssemblies)
-            {
-                type = assembly.GetType(name, false);
-                if (type != null)
-                    break;
-            }
-
-            if (type == null)
-                type = Type.GetType(name);
+            Type type =
+                AllAssemblies.Select(a => a.GetType(name)).NotNull().FirstOrDefault() ??
+                Type.GetType(name) ??
+                AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType(name)).NotNull().FirstOrDefault();
 
             types[name] = type;
             return type;
