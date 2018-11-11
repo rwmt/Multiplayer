@@ -25,8 +25,6 @@ namespace Multiplayer.Client
         private string currentMsg = "";
         private bool hasBeenFocused;
 
-        public string[] playerList = new string[0];
-
         public ChatWindow()
         {
             absorbInputAroundWindow = false;
@@ -69,12 +67,26 @@ namespace Multiplayer.Client
             Widgets.Label(inRect, Multiplayer.Client != null ? "Connected" : "Not connected");
             inRect.yMin += 30f;
 
-            DrawList($"Players ({playerList.Length}):", playerList, ref inRect, ref playerListScroll);
+            DrawList(
+                $"Players ({Multiplayer.session.players.Count}):", 
+                Multiplayer.session.players, 
+                p => $"{p.username} ({p.latency}ms)", 
+                ref inRect, 
+                ref playerListScroll
+            );
 
             inRect.yMin += 10f;
 
-            List<string> names = Multiplayer.session.pendingSteam.Select(SteamFriends.GetFriendPersonaName).ToList();
-            DrawList("Accept Steam players", names, ref inRect, ref steamScroll, AcceptSteamPlayer, true, "Click to accept");
+            DrawList(
+                "Accept Steam players", 
+                Multiplayer.session.pendingSteam,
+                SteamFriends.GetFriendPersonaName, 
+                ref inRect, 
+                ref steamScroll, 
+                AcceptSteamPlayer, 
+                true, 
+                "Click to accept"
+            );
         }
 
         private void DrawOptions(ref Rect inRect)
@@ -106,23 +118,21 @@ namespace Multiplayer.Client
             }
         }
 
-        private void AcceptSteamPlayer(int index)
+        private void AcceptSteamPlayer(CSteamID id)
         {
-            CSteamID remoteId = Multiplayer.session.pendingSteam[index];
-
-            SteamNetworking.AcceptP2PSessionWithUser(remoteId);
-            Multiplayer.session.pendingSteam.RemoveAt(index);
+            SteamNetworking.AcceptP2PSessionWithUser(id);
+            Multiplayer.session.pendingSteam.Remove(id);
         }
 
-        private void DrawList(string label, IList<string> entries, ref Rect inRect, ref Vector2 scroll, Action<int> click = null, bool hideNullOrEmpty = false, string tooltip = null)
+        private void DrawList<T>(string label, IList<T> entries, Func<T, string> entryString, ref Rect inRect, ref Vector2 scroll, Action<T> click = null, bool hideEmpty = false, string tooltip = null)
         {
-            if (hideNullOrEmpty && !entries.Any(s => !s.NullOrEmpty())) return;
+            if (hideEmpty && entries.Count == 0) return;
 
             Widgets.Label(inRect, label);
             inRect.yMin += 20f;
 
             float entryHeight = Text.LineHeight;
-            float height = entries.Count() * entryHeight;
+            float height = entries.Count * entryHeight;
 
             Rect outRect = new Rect(0, inRect.yMin, inRect.width, Math.Min(height, Math.Min(230, inRect.height)));
             Rect viewRect = new Rect(0, 0, outRect.width - 16f, height);
@@ -132,11 +142,14 @@ namespace Multiplayer.Client
             Widgets.BeginScrollView(outRect, ref scroll, viewRect, true);
             GUI.color = new Color(1, 1, 1, 0.8f);
 
-            float y = height - entryHeight;
+            float y = height;
+
             for (int i = entries.Count - 1; i >= 0; i--)
             {
-                string entry = entries[i];
-                if (hideNullOrEmpty && entry.NullOrEmpty()) continue;
+                y -= entryHeight;
+
+                T entry = entries[i];
+                string entryLabel = entryString(entry);
 
                 Rect entryRect = new Rect(0, y, viewRect.width, entryHeight);
                 if (i % 2 == 0)
@@ -147,7 +160,7 @@ namespace Multiplayer.Client
                     GUI.DrawTexture(entryRect, SelectedMsg);
                     if (click != null && Event.current.type == EventType.MouseUp)
                     {
-                        click(i);
+                        click(entry);
                         Event.current.Use();
                     }
                 }
@@ -156,10 +169,8 @@ namespace Multiplayer.Client
                     TooltipHandler.TipRegion(entryRect, tooltip);
 
                 Text.Anchor = TextAnchor.MiddleLeft;
-                Widgets.Label(entryRect, entry);
+                Widgets.Label(entryRect, entryLabel);
                 Text.Anchor = TextAnchor.UpperLeft;
-
-                y -= entryHeight;
             }
 
             GUI.color = Color.white;

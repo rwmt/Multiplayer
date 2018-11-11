@@ -1195,6 +1195,16 @@ namespace Multiplayer.Client
             return list.ToArray();
         }
 
+        public bool Contains(T t)
+        {
+            return set.Contains(t);
+        }
+
+        public int IndexOf(T t)
+        {
+            return list.IndexOf(t);
+        }
+
         public IEnumerator<T> GetEnumerator()
         {
             return list.GetEnumerator();

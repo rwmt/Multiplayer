@@ -32,7 +32,7 @@ namespace Multiplayer.Common
         public Dictionary<string, int> playerFactions = new Dictionary<string, int>(); // Username to faction id
 
         public List<ServerPlayer> players = new List<ServerPlayer>();
-        private IEnumerable<ServerPlayer> PlayingPlayers => players.Where(p => p.IsPlaying);
+        public IEnumerable<ServerPlayer> PlayingPlayers => players.Where(p => p.IsPlaying);
 
         public string hostUsername;
         public int timer;
@@ -150,12 +150,17 @@ namespace Multiplayer.Common
 
             if (timer % 180 == 0)
             {
-                UpdatePlayerList();
+                SendLatencies();
 
                 keepAliveId++;
                 SendToAll(Packets.Server_KeepAlive, new object[] { keepAliveId });
                 lastKeepAlive.Restart();
             }
+        }
+
+        private void SendLatencies()
+        {
+            SendToAll(Packets.Server_PlayerList, new object[] { (byte)PlayerListAction.Latencies, PlayingPlayers.Select(p => p.Latency).ToArray() });
         }
 
         public void DoAutosave()
@@ -165,26 +170,19 @@ namespace Multiplayer.Common
             tmpMapCmds = new Dictionary<int, List<byte[]>>();
         }
 
-        public void UpdatePlayerList()
-        {
-            string[] playerList = PlayingPlayers.
-                Select(p => $"{p.Username} ({p.Latency}ms)")
-                .ToArray();
-
-            SendToAll(Packets.Server_PlayerList, new object[] { playerList });
-        }
-
         public void Enqueue(Action action)
         {
             queue.Enqueue(action);
         }
+
+        private int nextPlayerId;
 
         public ServerPlayer OnConnected(IConnection conn)
         {
             if (conn.serverPlayer != null)
                 MpLog.Error($"Connection {conn} already has a server player");
 
-            conn.serverPlayer = new ServerPlayer(conn);
+            conn.serverPlayer = new ServerPlayer(nextPlayerId++, conn);
             players.Add(conn.serverPlayer);
             MpLog.Log($"New connection: {conn}");
 
@@ -207,7 +205,7 @@ namespace Multiplayer.Common
                 }
 
                 SendNotification("MpPlayerDisconnected", conn.username);
-                UpdatePlayerList();
+                SendToAll(Packets.Server_PlayerList, new object[] { (byte)PlayerListAction.Remove, player.id });
             }
 
             conn.State = ConnectionStateEnum.Disconnected;
@@ -292,6 +290,7 @@ namespace Multiplayer.Common
 
     public class ServerPlayer
     {
+        public int id;
         public IConnection conn;
 
         public string Username => conn.username;
@@ -300,8 +299,11 @@ namespace Multiplayer.Common
         public bool IsPlaying => conn.State == ConnectionStateEnum.ServerPlaying;
         public bool IsHost => MultiplayerServer.instance.hostUsername == Username;
 
-        public ServerPlayer(IConnection connection)
+        public MultiplayerServer Server => MultiplayerServer.instance;
+
+        public ServerPlayer(int id, IConnection connection)
         {
+            this.id = id;
             conn = connection;
         }
 
@@ -326,7 +328,7 @@ namespace Multiplayer.Common
                 netConn.peer.Flush();
 
             conn.Close();
-            MultiplayerServer.instance.OnDisconnected(conn);
+            Server.OnDisconnected(conn);
         }
 
         public void SendChat(string msg)
@@ -337,6 +339,23 @@ namespace Multiplayer.Common
         public void SendPacket(Packets packet, object[] data)
         {
             conn.Send(packet, data);
+        }
+
+        public void SendPlayerList()
+        {
+            var writer = new ByteWriter();
+
+            writer.WriteByte((byte)PlayerListAction.List);
+            writer.WriteInt32(Server.PlayingPlayers.Count());
+
+            foreach (var player in Server.PlayingPlayers)
+            {
+                writer.WriteInt32(player.id);
+                writer.WriteString(player.Username);
+                writer.WriteInt32(player.Latency);
+            }
+
+            conn.Send(Packets.Server_PlayerList, writer.GetArray());
         }
     }
 

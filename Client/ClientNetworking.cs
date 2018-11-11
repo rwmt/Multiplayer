@@ -168,8 +168,6 @@ namespace Multiplayer.Client
                 };
                 session.serverThread.Start();
 
-                Multiplayer.LocalServer.UpdatePlayerList();
-
                 Messages.Message("Server started. Listening at " + addr.ToString() + ":" + MultiplayerServer.DefaultPort, MessageTypeDefOf.SilentInput, false);
             }, "MpSaving", false, null);
         }
@@ -185,10 +183,8 @@ namespace Multiplayer.Client
             localClient.State = ConnectionStateEnum.ClientPlaying;
             localServerConn.State = ConnectionStateEnum.ServerPlaying;
 
-            ServerPlayer serverPlayer = new ServerPlayer(localServerConn);
-            localServerConn.serverPlayer = serverPlayer;
-
-            Multiplayer.LocalServer.players.Add(serverPlayer);
+            var serverPlayer = Multiplayer.LocalServer.OnConnected(localServerConn);
+            serverPlayer.SendPlayerList();
 
             Multiplayer.session.client = localClient;
         }
@@ -214,7 +210,7 @@ namespace Multiplayer.Client
             this.username = username;
         }
 
-        public override void SendRaw(byte[] raw)
+        public override void SendRaw(byte[] raw, bool reliable)
         {
             OnMainThread.Enqueue(() =>
             {
@@ -250,7 +246,7 @@ namespace Multiplayer.Client
             this.username = username;
         }
 
-        public override void SendRaw(byte[] raw)
+        public override void SendRaw(byte[] raw, bool reliable)
         {
             OnMainThread.Enqueue(() =>
             {
@@ -284,9 +280,9 @@ namespace Multiplayer.Client
             this.remoteId = remoteId;
         }
 
-        public override void SendRaw(byte[] raw)
+        public override void SendRaw(byte[] raw, bool reliable)
         {
-            SteamNetworking.SendP2PPacket(remoteId, raw, (uint)raw.Length, EP2PSend.k_EP2PSendReliable);
+            SteamNetworking.SendP2PPacket(remoteId, raw, (uint)raw.Length, reliable ? EP2PSend.k_EP2PSendReliable : EP2PSend.k_EP2PSendUnreliable);
         }
 
         public override void Close()

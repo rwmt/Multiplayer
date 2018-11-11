@@ -10,24 +10,16 @@ using Steamworks;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using System.Net;
 using System.Reflection;
-using System.Reflection.Emit;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Threading;
 using System.Xml;
-using System.Xml.Linq;
-using System.Xml.Schema;
-using System.Xml.Serialization;
 using UnityEngine;
 using Verse;
 using Verse.Profile;
 using Verse.Sound;
 using Verse.Steam;
-using zip::Ionic.Zip;
 
 namespace Multiplayer.Client
 {
@@ -84,6 +76,8 @@ namespace Multiplayer.Client
         public static Callback<PersonaStateChange_t> personaChange;
         public static AppId_t RimWorldAppId;
 
+        public static Stopwatch MasterTime = Stopwatch.StartNew();
+
         public const string SteamConnectStart = " -mpserver=";
 
         static Multiplayer()
@@ -117,6 +111,8 @@ namespace Multiplayer.Client
             MpConnectionState.SetImplementation(ConnectionStateEnum.ClientSteam, typeof(ClientSteamState));
             MpConnectionState.SetImplementation(ConnectionStateEnum.ClientJoining, typeof(ClientJoiningState));
             MpConnectionState.SetImplementation(ConnectionStateEnum.ClientPlaying, typeof(ClientPlayingState));
+
+            CollectCursorIcons();
 
             harmony.DoAllMpPatches();
 
@@ -492,6 +488,31 @@ namespace Multiplayer.Client
             }
         }
 
+        public static UniqueList<Texture2D> icons = new UniqueList<Texture2D>();
+        public static UniqueList<IconInfo> iconInfos = new UniqueList<IconInfo>();
+
+        public class IconInfo
+        {
+            public bool hasStuff;
+        }
+
+        private static void CollectCursorIcons()
+        {
+            icons.Add(null);
+            iconInfos.Add(null);
+
+            foreach (var des in DefDatabase<DesignationCategoryDef>.AllDefsListForReading.SelectMany(c => c.AllResolvedDesignators))
+            {
+                if (des.icon == null) continue;
+
+                if (icons.Add(des.icon))
+                    iconInfos.Add(new IconInfo()
+                    {
+                        hasStuff = des is Designator_Build build && build.entDef.MadeFromStuff
+                    });
+            }
+        }
+
         public static void ExposeIdBlock(ref IdBlock block, string label)
         {
             if (Scribe.mode == LoadSaveMode.Saving && block != null)
@@ -532,6 +553,7 @@ namespace Multiplayer.Client
         public ChatWindow chat = new ChatWindow();
         public PacketLogWindow packetLog = new PacketLogWindow();
         public int myFactionId;
+        public List<PlayerInfo> players = new List<PlayerInfo>();
 
         public bool replay;
         public int replayTimerStart = -1;
@@ -561,6 +583,47 @@ namespace Multiplayer.Client
                 netClient.Stop();
 
             Log.Message("Multiplayer session stopped.");
+        }
+    }
+
+    public class PlayerInfo
+    {
+        public int id;
+        public string username;
+        public int latency;
+
+        public byte cursorSeq;
+        public byte map = byte.MaxValue;
+        public Vector3 cursor;
+        public Vector3 lastCursor;
+        public double updatedAt;
+        public double lastDelta;
+        public byte cursorIcon;
+
+        private PlayerInfo(int id, string username, int latency)
+        {
+            this.id = id;
+            this.username = username;
+            this.latency = latency;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is PlayerInfo info && info.id == id;
+        }
+
+        public override int GetHashCode()
+        {
+            return id;
+        }
+
+        public static PlayerInfo Read(ByteReader data)
+        {
+            int id = data.ReadInt32();
+            string username = data.ReadString();
+            int latency = data.ReadInt32();
+
+            return new PlayerInfo(id, username, latency);
         }
     }
 
@@ -691,6 +754,35 @@ namespace Multiplayer.Client
                 UpdateSteam();
 
             UpdateSync();
+
+            if (Time.frameCount % 4 == 0)
+                SendCursor();
+        }
+
+        private byte cursorSeq;
+
+        private void SendCursor()
+        {
+            var writer = new ByteWriter();
+            writer.WriteByte(cursorSeq++);
+
+            if (Find.CurrentMap != null && !WorldRendererUtility.WorldRenderedNow)
+            {
+                writer.WriteByte((byte)Find.CurrentMap.Index);
+
+                var icon = Find.MapUI?.designatorManager?.SelectedDesignator?.icon;
+                int iconId = icon == null ? 0 : !Multiplayer.icons.Contains(icon) ? 0 : Multiplayer.icons.IndexOf(icon);
+                writer.WriteByte((byte)iconId);
+
+                writer.WriteShort((short)(UI.MouseMapPosition().x * 10f));
+                writer.WriteShort((short)(UI.MouseMapPosition().z * 10f));
+            }
+            else
+            {
+                writer.WriteByte(byte.MaxValue);
+            }
+
+            Multiplayer.Client.SendUnreliable(Packets.Client_Cursor, writer.GetArray());
         }
 
         private Stopwatch lastSteamUpdate = Stopwatch.StartNew();
@@ -865,7 +957,7 @@ namespace Multiplayer.Client
 
     public class ReplayConnection : IConnection
     {
-        public override void SendRaw(byte[] raw)
+        public override void SendRaw(byte[] raw, bool reliable)
         {
         }
 

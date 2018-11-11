@@ -173,6 +173,13 @@ namespace Multiplayer.Client
             return rect;
         }
 
+        public static Rect CenterOn(this Rect rect, Vector2 on)
+        {
+            rect.x = on.x - rect.width / 2f;
+            rect.y = on.y - rect.height / 2f;
+            return rect;
+        }
+
         public static Vector2 BottomLeftCorner(this Rect rect)
         {
             return new Vector2(rect.xMin, rect.yMax);

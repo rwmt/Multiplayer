@@ -146,6 +146,7 @@ namespace Multiplayer.Client
         }
     }
 
+    [HotSwappable]
     public class ClientPlayingState : MpConnectionState, IConnectionStatusListener
     {
         public ClientPlayingState(IConnection connection) : base(connection)
@@ -177,8 +178,34 @@ namespace Multiplayer.Client
         [PacketHandler(Packets.Server_PlayerList)]
         public void HandlePlayerList(ByteReader data)
         {
-            string[] playerList = data.ReadPrefixedStrings();
-            Multiplayer.Chat.playerList = playerList;
+            var action = (PlayerListAction)data.ReadByte();
+
+            if (action == PlayerListAction.Add)
+            {
+                var info = PlayerInfo.Read(data);
+                if (!Multiplayer.session.players.Contains(info))
+                    Multiplayer.session.players.Add(info);
+            }
+            else if (action == PlayerListAction.Remove)
+            {
+                int id = data.ReadInt32();
+                Multiplayer.session.players.RemoveAll(p => p.id == id);
+            }
+            else if (action == PlayerListAction.List)
+            {
+                int count = data.ReadInt32();
+
+                Multiplayer.session.players.Clear();
+                for (int i = 0; i < count; i++)
+                    Multiplayer.session.players.Add(PlayerInfo.Read(data));
+            }
+            else if (action == PlayerListAction.Latencies)
+            {
+                int[] latencies = data.ReadPrefixedInts();
+
+                for (int i = 0; i < Multiplayer.session.players.Count; i++)
+                    Multiplayer.session.players[i].latency = latencies[i];
+            }
         }
 
         [PacketHandler(Packets.Server_Chat)]
@@ -186,6 +213,33 @@ namespace Multiplayer.Client
         {
             string msg = data.ReadString();
             Multiplayer.Chat.AddMsg(msg);
+        }
+
+        [PacketHandler(Packets.Server_Cursor)]
+        public void HandleCursor(ByteReader data)
+        {
+            int playerId = data.ReadInt32();
+            var player = Multiplayer.session.players.Find(p => p.id == playerId);
+            if (player == null) return;
+
+            byte seq = data.ReadByte();
+            if (seq < player.cursorSeq && player.cursorSeq - seq < 128) return;
+
+            byte map = data.ReadByte();
+            player.map = map;
+
+            if (map == byte.MaxValue) return;
+
+            byte icon = data.ReadByte();
+            float x = data.ReadShort() / 10f;
+            float z = data.ReadShort() / 10f;
+
+            player.cursorSeq = seq;
+            player.lastCursor = player.cursor;
+            player.lastDelta = Multiplayer.MasterTime.ElapsedMillisDouble() - player.updatedAt;
+            player.cursor = new Vector3(x, 0, z);
+            player.updatedAt = Multiplayer.MasterTime.ElapsedMillisDouble();
+            player.cursorIcon = icon;
         }
 
         [PacketHandler(Packets.Server_MapResponse)]

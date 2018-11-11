@@ -40,8 +40,8 @@ namespace Multiplayer.Common
 
             connection.username = username;
 
-            MultiplayerServer.instance.SendNotification("MpPlayerConnected", connection.username);
-            MultiplayerServer.instance.UpdatePlayerList();
+            Server.SendNotification("MpPlayerConnected", connection.username);
+            Server.SendToAll(Packets.Server_PlayerList, new object[] { (byte)PlayerListAction.Add, Player.id, Player.Username, Player.Latency });
         }
 
         [PacketHandler(Packets.Client_RequestWorld)]
@@ -100,6 +100,8 @@ namespace Multiplayer.Common
 
             byte[] packetData = writer.GetArray();
             connection.SendFragmented(Packets.Server_WorldData, packetData);
+
+            Player.SendPlayerList();
 
             MpLog.Log("World response sent: " + packetData.Length);
         }
@@ -185,6 +187,32 @@ namespace Multiplayer.Common
             }
         }
 
+        [PacketHandler(Packets.Client_Cursor)]
+        public void HandleCursor(ByteReader data)
+        {
+            var writer = new ByteWriter();
+
+            byte seq = data.ReadByte();
+            byte map = data.ReadByte();
+
+            writer.WriteInt32(Player.id);
+            writer.WriteByte(seq);
+            writer.WriteByte(map);
+
+            if (map < byte.MaxValue)
+            {
+                byte icon = data.ReadByte();
+                short x = data.ReadShort();
+                short z = data.ReadShort();
+
+                writer.WriteByte(icon);
+                writer.WriteShort(x);
+                writer.WriteShort(z);
+            }
+
+            Server.SendToAll(Packets.Server_Cursor, writer.GetArray());
+        }
+
         [PacketHandler(Packets.Client_IdBlockRequest)]
         public void HandleIdBlockRequest(ByteReader data)
         {
@@ -222,6 +250,14 @@ namespace Multiplayer.Common
             int tick = data.ReadInt32();
 
         }
+    }
+
+    public enum PlayerListAction : byte
+    {
+        List,
+        Add,
+        Remove,
+        Latencies
     }
 
     public class ServerSteamState : MpConnectionState

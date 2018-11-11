@@ -1,18 +1,13 @@
 ﻿using Harmony;
-using LiteNetLib;
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
-using Steamworks;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Linq;
-using System.Net;
 using System.Reflection;
 using System.Reflection.Emit;
-using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml;
@@ -1667,19 +1662,40 @@ namespace Multiplayer.Client
         }
     }
 
-    [HotSwappable]
     [HarmonyPatch(typeof(Targeter), nameof(Targeter.TargeterOnGUI))]
-    static class DrawCursor
+    static class DrawPlayerCursors
     {
         static void Postfix()
         {
-            GUI.color = new Color(1, 1, 1, 0.5f);
-            var pos = new Vector3(10, 0, 10).MapToUIPosition();
-            Text.Font = GameFont.Tiny;
-            Widgets.Label(new Rect(pos, new Vector2(100, 30)).Up(15f), "username");
-            Text.Font = GameFont.Small;
-            Widgets.DrawTextureRotated(new Rect(pos, new Vector2(24, 24)), CustomCursor.CursorTex, 180f);
-            GUI.color = Color.white;
+            if (Multiplayer.Client == null) return;
+
+            var curMap = Find.CurrentMap.Index;
+
+            foreach (var player in Multiplayer.session.players)
+            {
+                if (player.username == Multiplayer.username) continue;
+                if (player.map != curMap) continue;
+
+                GUI.color = new Color(1, 1, 1, 0.5f);
+                var pos = Vector3.Lerp(player.lastCursor, player.cursor, (float)(Multiplayer.MasterTime.ElapsedMillisDouble() - player.updatedAt) / (float)player.lastDelta).MapToUIPosition();
+
+                var icon = Multiplayer.icons.ElementAtOrDefault(player.cursorIcon);
+                var drawIcon = icon ?? CustomCursor.CursorTex;
+                var iconRect = new Rect(pos, new Vector2(24f * drawIcon.width / drawIcon.height, 24f));
+
+                Text.Font = GameFont.Tiny;
+                Text.Anchor = TextAnchor.MiddleCenter;
+                Widgets.Label(new Rect(pos, new Vector2(100, 30)).CenterOn(iconRect).Down(20f).Left(icon != null ? 0f : 5f), player.username);
+                Text.Anchor = TextAnchor.UpperLeft;
+                Text.Font = GameFont.Small;
+
+                if (icon != null && Multiplayer.iconInfos[player.cursorIcon].hasStuff)
+                    GUI.color = new Color(0.5f, 0.4f, 0.26f, 0.5f);
+
+                GUI.DrawTexture(iconRect, drawIcon);
+
+                GUI.color = Color.white;
+            }
         }
     }
 

@@ -117,6 +117,15 @@ namespace Multiplayer.Common
             SendRaw(full);
         }
 
+        public virtual void SendUnreliable(Packets id, byte[] message)
+        {
+            byte[] full = new byte[1 + message.Length];
+            full[0] = Convert.ToByte(id);
+            message.CopyTo(full, 1);
+
+            SendRaw(full, false);
+        }
+
         // Steam doesn't like messages bigger than a megabyte
         public const int FragmentSize = 900_000;
         public const int MaxPacketSize = 33_554_432;
@@ -135,7 +144,7 @@ namespace Multiplayer.Common
             }
         }
 
-        public abstract void SendRaw(byte[] raw);
+        public abstract void SendRaw(byte[] raw, bool reliable = true);
 
         private ByteWriter fragmented;
 
@@ -201,9 +210,9 @@ namespace Multiplayer.Common
             this.peer = peer;
         }
 
-        public override void SendRaw(byte[] raw)
+        public override void SendRaw(byte[] raw, bool reliable)
         {
-            peer.Send(raw, DeliveryMethod.ReliableOrdered);
+            peer.Send(raw, reliable ? DeliveryMethod.ReliableOrdered : DeliveryMethod.Unreliable);
         }
 
         public override void Close()
@@ -284,6 +293,10 @@ namespace Multiplayer.Common
             else if (obj is ushort @ushort)
             {
                 WriteUShort(@ushort);
+            }
+            else if (obj is short @short)
+            {
+                WriteShort(@short);
             }
             else if (obj is bool @bool)
             {
