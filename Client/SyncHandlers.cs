@@ -24,7 +24,7 @@ namespace Multiplayer.Client
             RuntimeHelpers.RunClassConstructor(typeof(SyncDelegates).TypeHandle);
             RuntimeHelpers.RunClassConstructor(typeof(SyncThingFilters).TypeHandle);
             RuntimeHelpers.RunClassConstructor(typeof(SyncActions).TypeHandle);
-            RuntimeHelpers.RunClassConstructor(typeof(SyncResearch).TypeHandle);
+            //RuntimeHelpers.RunClassConstructor(typeof(SyncResearch).TypeHandle);
 
             Sync.ApplyWatchFieldPatches(typeof(SyncFieldsPatches));
         }

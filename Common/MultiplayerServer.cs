@@ -51,7 +51,7 @@ namespace Multiplayer.Common
 
         public int nextUniqueId;
 
-        public MultiplayerServer(IPAddress addr, int port = DefaultPort)
+        public MultiplayerServer(IPAddress addr, int port)
         {
             this.addr = addr;
             this.port = port;
@@ -91,7 +91,7 @@ namespace Multiplayer.Common
             listener.NetworkReceiveEvent += (peer, reader, method) =>
             {
                 byte[] data = reader.GetRemainingBytes();
-                peer.GetConnection().serverPlayer.HandleReceive(data);
+                peer.GetConnection().serverPlayer.HandleReceive(data, method == DeliveryMethod.ReliableOrdered);
             };
         }
 
@@ -223,18 +223,15 @@ namespace Multiplayer.Common
             SendToAll(id, ByteWriter.GetBytes(data));
         }
 
-        public void SendToAll(Packets id, byte[] data)
+        public void SendToAll(Packets id, byte[] data, bool reliable = true)
         {
             foreach (ServerPlayer player in PlayingPlayers)
-                player.conn.Send(id, data);
+                player.conn.Send(id, data, reliable);
         }
 
         public ServerPlayer FindPlayer(Predicate<ServerPlayer> match)
         {
-            lock (players)
-            {
-                return players.Find(match);
-            }
+            return players.Find(match);
         }
 
         public ServerPlayer GetPlayer(string username)
@@ -271,6 +268,11 @@ namespace Multiplayer.Common
             }
         }
 
+        public void SendChat(string msg)
+        {
+            SendToAll(Packets.Server_Chat, new[] { msg });
+        }
+
         public void SendNotification(string text, params string[] keys)
         {
             SendToAll(Packets.Server_Notification, new object[] { text, keys });
@@ -292,6 +294,7 @@ namespace Multiplayer.Common
     {
         public int id;
         public IConnection conn;
+        public bool steam;
 
         public string Username => conn.username;
         public int Latency => conn.Latency;
@@ -307,11 +310,11 @@ namespace Multiplayer.Common
             conn = connection;
         }
 
-        public void HandleReceive(byte[] data)
+        public void HandleReceive(byte[] data, bool reliable)
         {
             try
             {
-                conn.HandleReceive(data);
+                conn.HandleReceive(data, reliable);
             }
             catch (Exception e)
             {
@@ -349,13 +352,21 @@ namespace Multiplayer.Common
             writer.WriteInt32(Server.PlayingPlayers.Count());
 
             foreach (var player in Server.PlayingPlayers)
-            {
-                writer.WriteInt32(player.id);
-                writer.WriteString(player.Username);
-                writer.WriteInt32(player.Latency);
-            }
+                writer.WriteRaw(player.SerializePlayerInfo());
 
             conn.Send(Packets.Server_PlayerList, writer.GetArray());
+        }
+
+        public byte[] SerializePlayerInfo()
+        {
+            var writer = new ByteWriter();
+
+            writer.WriteInt32(id);
+            writer.WriteString(Username);
+            writer.WriteInt32(Latency);
+            writer.WriteBool(steam);
+
+            return writer.GetArray();
         }
     }
 

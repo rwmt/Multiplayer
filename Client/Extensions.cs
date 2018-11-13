@@ -117,6 +117,13 @@ namespace Multiplayer.Client
             list.AddRange(items);
         }
 
+        public static T RemoveFirst<T>(this List<T> list)
+        {
+            T elem = list[0];
+            list.RemoveAt(0);
+            return elem;
+        }
+
         static bool ArraysEqual<T>(T[] a1, T[] a2)
         {
             if (ReferenceEquals(a1, a2))

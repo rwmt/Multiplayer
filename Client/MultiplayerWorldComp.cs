@@ -131,6 +131,8 @@ namespace Multiplayer.Client
             {
                 PostContext();
                 tickingWorld = false;
+
+                Multiplayer.game.sync.TryAddWorld(randState);
             }
         }
 
@@ -168,11 +170,7 @@ namespace Multiplayer.Client
         public void SetFaction(Faction faction)
         {
             if (!factionData.TryGetValue(faction.loadID, out FactionWorldData data))
-            {
-                if (!Multiplayer.simulating)
-                    MpLog.Log("No world faction data for faction {0} {1}", faction.loadID, faction);
                 return;
-            }
 
             Game game = Current.Game;
             game.researchManager = data.researchManager;
@@ -256,6 +254,8 @@ namespace Multiplayer.Client
                 PostContext();
                 TickPatch.currentExecutingCmdIssuedBySelf = false;
                 executingCmdWorld = false;
+
+                Multiplayer.game.sync.TryAddCmd(randState);
             }
         }
 
@@ -307,6 +307,11 @@ namespace Multiplayer.Client
             if (t == null) return;
             foreach (MpTradeSession session in trading.Where(s => s.playerNegotiator.Map == t.Map))
                 session.deal.recacheThings.Add(t);
+        }
+
+        public override string ToString()
+        {
+            return $"{nameof(MultiplayerWorldComp)}_{world}";
         }
     }
 

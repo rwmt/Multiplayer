@@ -57,8 +57,19 @@ namespace Multiplayer.Client
         static void Postfix(PrevTime? __state) => __state?.Set();
     }
 
-    [HarmonyPatch(typeof(DangerWatcher))]
-    [HarmonyPatch(nameof(DangerWatcher.DangerRating), MethodType.Getter)]
+    [HarmonyPatch(typeof(PawnTweener), nameof(PawnTweener.PreDrawPosCalculation))]
+    static class PreDrawPosCalculationMapTime
+    {
+        static void Prefix(PawnTweener __instance, ref PrevTime? __state)
+        {
+            if (Multiplayer.Client == null || Current.ProgramState != ProgramState.Playing) return;
+            __state = PrevTime.GetAndSetToMap(__instance.pawn.Map);
+        }
+
+        static void Postfix(PrevTime? __state) => __state?.Set();
+    }
+
+    [HarmonyPatch(typeof(DangerWatcher), nameof(DangerWatcher.DangerRating), MethodType.Getter)]
     static class DangerRatingMapTime
     {
         static void Prefix(DangerWatcher __instance, ref PrevTime? __state)

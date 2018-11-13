@@ -236,9 +236,9 @@ namespace Multiplayer.Client
 
             player.cursorSeq = seq;
             player.lastCursor = player.cursor;
-            player.lastDelta = Multiplayer.MasterTime.ElapsedMillisDouble() - player.updatedAt;
+            player.lastDelta = Multiplayer.Time.ElapsedMillisDouble() - player.updatedAt;
             player.cursor = new Vector3(x, 0, z);
-            player.updatedAt = Multiplayer.MasterTime.ElapsedMillisDouble();
+            player.updatedAt = Multiplayer.Time.ElapsedMillisDouble();
             player.cursorIcon = icon;
         }
 
@@ -277,39 +277,10 @@ namespace Multiplayer.Client
             Multiplayer.session.disconnectServerReason = reason;
         }
 
-        [PacketHandler(Packets.Server_Debug)]
-        public void HandleDebug(ByteReader data)
+        [PacketHandler(Packets.Server_DesyncCheck)]
+        public void HandleDesyncCheck(ByteReader data)
         {
-            int index = data.ReadInt32();
-
-            if (index == int.MinValue)
-            {
-                MpLog.Log("No desync");
-            }
-            else
-            {
-                List<RandContext> traces = RandPatch.traces.Last();
-
-                if (index >= 0)
-                {
-                    StringBuilder builder = new StringBuilder("RNG desync at\n");
-                    if (index - 1 >= 0)
-                        builder.AppendLine(traces[index - 1].ToString());
-                    builder.AppendLine(traces[index].ToString());
-                    if (index + 1 < traces.Count)
-                        builder.AppendLine(traces[index + 1].ToString());
-
-                    Log.Error(builder.ToString());
-                }
-                else
-                {
-                    Log.Error("RNG call amount not the same");
-                }
-
-                File.WriteAllLines($"rng_calls_{Multiplayer.username}.txt", traces.Select(t => t.ToString()).ToArray());
-            }
-
-            RandPatch.traces.RemoveLast();
+            Multiplayer.game?.sync.Add(SyncInfo.Deserialize(data));
         }
 
         public void Connected()

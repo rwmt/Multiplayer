@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 
 namespace Multiplayer.Common
 {
@@ -41,7 +42,12 @@ namespace Multiplayer.Common
             connection.username = username;
 
             Server.SendNotification("MpPlayerConnected", connection.username);
-            Server.SendToAll(Packets.Server_PlayerList, new object[] { (byte)PlayerListAction.Add, Player.id, Player.Username, Player.Latency });
+
+            var writer = new ByteWriter();
+            writer.WriteByte((byte)PlayerListAction.Add);
+            writer.WriteRaw(Player.SerializePlayerInfo());
+
+            Server.SendToAll(Packets.Server_PlayerList, writer.GetArray());
         }
 
         [PacketHandler(Packets.Client_RequestWorld)]
@@ -82,7 +88,10 @@ namespace Multiplayer.Common
                 List<byte[]> mapCmds = kv.Value;
 
                 writer.WriteInt32(mapId);
-                writer.WriteByteArrayList(mapCmds);
+
+                writer.WriteInt32(mapCmds.Count);
+                foreach (var arr in mapCmds)
+                    writer.WritePrefixedBytes(arr);
             }
 
             writer.WriteInt32(MultiplayerServer.instance.mapData.Count);
@@ -155,7 +164,7 @@ namespace Multiplayer.Common
             }
             else
             {
-                Player.SendChat($"{connection.username}: {msg}");
+                Server.SendChat($"{connection.username}: {msg}");
             }
         }
 
@@ -210,7 +219,7 @@ namespace Multiplayer.Common
                 writer.WriteShort(z);
             }
 
-            Server.SendToAll(Packets.Server_Cursor, writer.GetArray());
+            Server.SendToAll(Packets.Server_Cursor, writer.GetArray(), reliable: false);
         }
 
         [PacketHandler(Packets.Client_IdBlockRequest)]
@@ -232,7 +241,7 @@ namespace Multiplayer.Common
         [PacketHandler(Packets.Client_KeepAlive)]
         public void HandleClientKeepAlive(ByteReader data)
         {
-            // Ping already handled by LiteNetLib
+            // Latency already handled by LiteNetLib
             if (connection is MpNetConnection) return;
 
             int id = data.ReadInt32();
@@ -242,13 +251,12 @@ namespace Multiplayer.Common
                 connection.Latency = 2000;
         }
 
-        [PacketHandler(Packets.Client_Debug)]
-        public void HandleDebug(ByteReader data)
+        [PacketHandler(Packets.Client_DesyncCheck)]
+        public void HandleDesyncCheck(ByteReader data)
         {
             if (Player.Username != Server.hostUsername) return;
 
-            int tick = data.ReadInt32();
-
+            Server.SendToAll(Packets.Server_DesyncCheck, data.ReadRaw(data.Left));
         }
     }
 

@@ -92,8 +92,7 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.Client == null || Find.CurrentMap == null) return;
 
-            MapAsyncTimeComp comp = Find.CurrentMap.GetComponent<MapAsyncTimeComp>();
-            Shader.SetGlobalFloat(ShaderPropertyIDs.GameSeconds, comp.mapTicks.TicksToSeconds());
+            Shader.SetGlobalFloat(ShaderPropertyIDs.GameSeconds, Find.CurrentMap.AsyncTime().mapTicks.TicksToSeconds());
         }
 
         public static void Tick()
@@ -140,13 +139,21 @@ namespace Multiplayer.Client
                 if (timePerTick == 0) break;
 
                 tickable.RealTimeToTickThrough -= timePerTick;
-                tickable.Tick();
+
+                try
+                {
+                    tickable.Tick();
+                }
+                catch (Exception e)
+                {
+                    Log.Error($"Exception during ticking {tickable}: {e}");
+                }
             }
         }
 
         private static float ReplayMultiplier()
         {
-            if (!Multiplayer.IsReplay || skipTo >= 0 || Multiplayer.simulating) return 1f;
+            if (!Multiplayer.IsReplay || skipTo >= 0) return 1f;
 
             if (replayTimeSpeed == TimeSpeed.Paused)
                 return 0f;
@@ -214,6 +221,16 @@ namespace Multiplayer.Client
                 TickSync();
                 //SyncResearch.ConstantTick();
                 Extensions.PopFaction();
+
+                var sync = Multiplayer.game.sync;
+                if (sync.ShouldCollect && TickPatch.Timer % 30 == 0 && sync.current != null)
+                {
+                    if (Multiplayer.LocalServer != null)
+                        Multiplayer.Client.Send(Packets.Client_DesyncCheck, sync.current.Serialize());
+
+                    sync.Add(sync.current);
+                    sync.current = null;
+                }
             }
             finally
             {
@@ -507,7 +524,7 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(TickManager), nameof(TickManager.TickRateMultiplier), MethodType.Getter)]
-    static class TickRateMultPatch
+    static class TickRateMultiplierDuringReplay
     {
         static void Postfix(ref float __result)
         {
@@ -521,7 +538,7 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(TickManager), nameof(TickManager.Paused), MethodType.Getter)]
-    static class TickManagerPausedPatch
+    static class TickManagerPausedDuringReplay
     {
         static void Postfix(ref bool __result)
         {
@@ -669,56 +686,17 @@ namespace Multiplayer.Client
             {
                 PostContext();
 
+                Multiplayer.game.sync.TryAddMap(map.uniqueID, randState);
+
                 tickingMap = null;
 
-                if (false)
-                    if (Multiplayer.IsReplay || Multiplayer.LocalServer != null)
-                    {
-                        if (Multiplayer.mapSeeds.Count > tickRel)
-                        {
-                            if (Multiplayer.mapSeeds[tickRel] != randState)
-                            {
-                                MpLog.Error("Desync tick " + mapTicks);
-                            }
-                        }
-                        else
-                        {
-                            Multiplayer.mapSeeds.Add(randState);
-                        }
-                    }
-
-                tickRel++;
-
                 //SimpleProfiler.Pause();
-
-                if (false)
-                    if (tickRel % 1000 == 0)
-                    {
-                        SimpleProfiler.Print("profiler_alltick.txt");
-                        SimpleProfiler.Init(Multiplayer.username);
-                    }
-
-                if (RandPatch.collect && !Multiplayer.IsReplay && tickRel % 1000 == 0)
-                {
-                    Multiplayer.Client.Send(Packets.Client_Debug, RandPatch.called);
-                    RandPatch.called.Clear();
-                    RandPatch.traces.Insert(0, new List<RandContext>());
-
-                    if (!Multiplayer.simulating)
-                    {
-                        //SimpleProfiler.Print($"profiler_{Multiplayer.username}_tick.txt");
-                        //SimpleProfiler.Init(Multiplayer.username);
-
-                        //byte[] mapData = ScribeUtil.WriteExposable(map, "map", true);
-                        //File.WriteAllBytes($"map_0_{Multiplayer.username}.xml", mapData);
-                    }
-                }
             }
         }
 
         public void TickMapTrading()
         {
-            List<MpTradeSession> trading = Multiplayer.WorldComp.trading;
+            var trading = Multiplayer.WorldComp.trading;
 
             for (int i = trading.Count - 1; i >= 0; i--)
             {
@@ -880,6 +858,8 @@ namespace Multiplayer.Client
                 PostContext();
                 TickPatch.currentExecutingCmdIssuedBySelf = false;
                 executingCmdMap = null;
+
+                Multiplayer.game.sync.TryAddCmd(randState);
             }
         }
 
@@ -993,7 +973,7 @@ namespace Multiplayer.Client
         private void CacheNothingHappening()
         {
             nothingHappeningCached = true;
-            List<Pawn> list = map.mapPawns.SpawnedPawnsInFaction(Faction.OfPlayer);
+            var list = map.mapPawns.SpawnedPawnsInFaction(Faction.OfPlayer);
 
             for (int j = 0; j < list.Count; j++)
             {
@@ -1005,6 +985,11 @@ namespace Multiplayer.Client
             if (nothingHappeningCached && map.IsPlayerHome && map.dangerWatcher.DangerRating >= StoryDanger.Low)
                 nothingHappeningCached = false;
         }
+
+        public override string ToString()
+        {
+            return $"{nameof(MapAsyncTimeComp)}_{map}";
+        }
     }
 
     public enum DesignatorMode : byte
@@ -1013,4 +998,174 @@ namespace Multiplayer.Client
         MultiCell,
         Thing
     }
+
+    public class SyncInfoBuffer
+    {
+        public List<SyncInfo> buffer = new List<SyncInfo>();
+
+        public bool ShouldCollect => !Multiplayer.IsReplay && TickPatch.skipTo < 0;
+
+        public SyncInfo current;
+        private SyncInfo Current
+        {
+            get
+            {
+                if (current != null)
+                    return current;
+
+                current = new SyncInfo(TickPatch.Timer)
+                {
+                    local = true
+                };
+
+                return current;
+            }
+        }
+
+        public void Add(SyncInfo info)
+        {
+            if (buffer.Count == 0)
+            {
+                buffer.Add(info);
+                return;
+            }
+
+            if (buffer[0].local == info.local)
+            {
+                buffer.Add(info);
+                if (buffer.Count > 30)
+                    buffer.RemoveAt(0);
+            }
+            else
+            {
+                while (buffer.Count > 0 && buffer[0].startTick < info.startTick)
+                    buffer.RemoveAt(0);
+
+                if (buffer.Count == 0)
+                {
+                    buffer.Add(info);
+                }
+                else
+                {
+                    var error = buffer.RemoveFirst().Compare(info);
+                    if (error != null)
+                        Log.Message(error);
+                }
+            }
+        }
+
+        public void TryAddCmd(ulong state)
+        {
+            if (!ShouldCollect) return;
+            Current.cmds.Add((uint)(state >> 32));
+        }
+
+        public void TryAddWorld(ulong state)
+        {
+            if (!ShouldCollect) return;
+            Current.world.Add((uint)(state >> 32));
+        }
+
+        public void TryAddMap(int map, ulong state)
+        {
+            if (!ShouldCollect) return;
+            Current.GetForMap(map).Add((uint)(state >> 32));
+        }
+    }
+
+    public class SyncInfo
+    {
+        public bool local;
+        public int startTick;
+        public List<uint> cmds = new List<uint>();
+        public List<uint> world = new List<uint>();
+        public List<SyncMapInfo> maps = new List<SyncMapInfo>();
+
+        public SyncInfo(int startTick)
+        {
+            this.startTick = startTick;
+        }
+
+        public string Compare(SyncInfo other)
+        {
+            if (cmds.Count != other.cmds.Count)
+                return "Cmd count doesn't match";
+
+            if (maps.Count != other.maps.Count)
+                return $"Wrong map amount {startTick} {other.startTick} {maps.Count} {other.maps.Count} {maps.ElementAtOrDefault(0)?.map.Count} {other.maps.ElementAtOrDefault(0)?.map.Count}";
+
+            for (int i = 0; i < maps.Count; i++)
+            {
+                if (maps[i].mapId != other.maps[i].mapId)
+                    return "Wrong map order";
+
+                if (!maps[i].map.SequenceEqual(other.maps[i].map))
+                    return $"Wrong rand state on map {maps[i].mapId} {maps[i].map.Count} {other.maps[i].map.Count}";
+            }
+
+            return null;
+        }
+
+        public List<uint> GetForMap(int mapId)
+        {
+            var result = maps.Find(m => m.mapId == mapId);
+            if (result != null) return result.map;
+            maps.Add(result = new SyncMapInfo(mapId));
+            return result.map;
+        }
+
+        public byte[] Serialize()
+        {
+            var writer = new ByteWriter();
+
+            writer.WriteInt32(startTick);
+            writer.WritePrefixedUInts(cmds);
+            writer.WritePrefixedUInts(world);
+
+            writer.WriteInt32(maps.Count);
+            foreach (var map in maps)
+            {
+                writer.WriteInt32(map.mapId);
+                writer.WritePrefixedUInts(map.map);
+            }
+
+            return writer.GetArray();
+        }
+
+        public static SyncInfo Deserialize(ByteReader data)
+        {
+            var startTick = data.ReadInt32();
+
+            var cmds = new List<uint>(data.ReadPrefixedUInts());
+            var world = new List<uint>(data.ReadPrefixedUInts());
+
+            var maps = new List<SyncMapInfo>();
+            int mapCount = data.ReadInt32();
+            for (int i = 0; i < mapCount; i++)
+            {
+                int mapId = data.ReadInt32();
+                var mapData = new List<uint>(data.ReadPrefixedUInts());
+                maps.Add(new SyncMapInfo(mapId) { map = mapData });
+            }
+
+            return new SyncInfo(startTick)
+            {
+                cmds = cmds,
+                world = world,
+                maps = maps
+            };
+        }
+    }
+
+    public class SyncMapInfo
+    {
+        public int mapId;
+        public List<uint> map = new List<uint>();
+
+        public SyncMapInfo(int mapId)
+        {
+            this.mapId = mapId;
+        }
+    }
+
 }

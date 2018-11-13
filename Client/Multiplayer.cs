@@ -10,6 +10,7 @@ using Steamworks;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Reflection;
@@ -41,7 +42,6 @@ namespace Multiplayer.Client
         public static HarmonyInstance harmony => MultiplayerModInstance.harmony;
 
         public static bool reloading;
-        public static bool simulating;
 
         public static FactionDef FactionDef = FactionDef.Named("MultiplayerColony");
         public static FactionDef DummyFactionDef = FactionDef.Named("MultiplayerDummy");
@@ -50,8 +50,6 @@ namespace Multiplayer.Client
         public static IdBlock GlobalIdBlock => game.worldComp.globalIdBlock;
         public static Faction DummyFaction => game.dummyFaction;
         public static MultiplayerWorldComp WorldComp => game.worldComp;
-
-        public static List<ulong> mapSeeds = new List<ulong>();
 
         // Null during loading
         public static Faction RealPlayerFaction
@@ -76,7 +74,7 @@ namespace Multiplayer.Client
         public static Callback<PersonaStateChange_t> personaChange;
         public static AppId_t RimWorldAppId;
 
-        public static Stopwatch MasterTime = Stopwatch.StartNew();
+        public static Stopwatch Time = Stopwatch.StartNew();
 
         public const string SteamConnectStart = " -mpserver=";
 
@@ -98,6 +96,8 @@ namespace Multiplayer.Client
 
             if (SteamManager.Initialized)
                 InitSteam();
+
+            Log.Message(Process.GetCurrentProcess().MainModule.FileName);
 
             Log.Message($"Player's username: {username}");
             Log.Message($"Processor: {SystemInfo.processorType}");
@@ -123,25 +123,15 @@ namespace Multiplayer.Client
 
             Log.messageQueue.maxMessages = 1000;
 
-            if (GenCommandLine.CommandLineArgPassed("dev"))
-            {
-                Current.Game = new Game();
-                Current.Game.InitData = new GameInitData
-                {
-                    gameToLoad = "mappo"
-                };
-
-                LongEventHandler.QueueLongEvent(null, "Play", "LoadingLongEvent", true, null);
-            }
-            else if (GenCommandLine.TryGetCommandLineArg("connect", out string ip))
+            if (GenCommandLine.TryGetCommandLineArg("connect", out string ip))
             {
                 if (String.IsNullOrEmpty(ip))
                     ip = "127.0.0.1";
 
                 LongEventHandler.QueueLongEvent(() =>
                 {
-                    IPAddress.TryParse(ip, out IPAddress addr);
-                    ClientUtil.TryConnect(addr, MultiplayerServer.DefaultPort);
+                    if (IPAddress.TryParse(ip, out IPAddress addr))
+                        ClientUtil.TryConnect(addr, MultiplayerServer.DefaultPort);
                 }, "Connecting", false, null);
             }
         }
@@ -283,7 +273,7 @@ namespace Multiplayer.Client
                     if (tweenedPos.TryGetValue(p.thingIDNumber, out Vector3 v))
                     {
                         p.drawer.tweener.tweenedPos = v;
-                        p.drawer.tweener.lastDrawFrame = Time.frameCount;
+                        p.drawer.tweener.lastDrawFrame = UnityEngine.Time.frameCount;
                     }
                 }
             }
@@ -533,11 +523,11 @@ namespace Multiplayer.Client
             }
         }
 
-        public static void HandleReceive(byte[] data)
+        public static void HandleReceive(byte[] data, bool reliable)
         {
             try
             {
-                Client.HandleReceive(data);
+                Client.HandleReceive(data, reliable);
             }
             catch (Exception e)
             {
@@ -591,6 +581,7 @@ namespace Multiplayer.Client
         public int id;
         public string username;
         public int latency;
+        public bool steam;
 
         public byte cursorSeq;
         public byte map = byte.MaxValue;
@@ -600,11 +591,12 @@ namespace Multiplayer.Client
         public double lastDelta;
         public byte cursorIcon;
 
-        private PlayerInfo(int id, string username, int latency)
+        private PlayerInfo(int id, string username, int latency, bool steam)
         {
             this.id = id;
             this.username = username;
             this.latency = latency;
+            this.steam = steam;
         }
 
         public override bool Equals(object obj)
@@ -622,13 +614,16 @@ namespace Multiplayer.Client
             int id = data.ReadInt32();
             string username = data.ReadString();
             int latency = data.ReadInt32();
+            bool steam = data.ReadBool();
 
-            return new PlayerInfo(id, username, latency);
+            return new PlayerInfo(id, username, latency, steam);
         }
     }
 
     public class MultiplayerGame
     {
+        public SyncInfoBuffer sync = new SyncInfoBuffer();
+
         public MultiplayerWorldComp worldComp;
         public SharedCrossRefs sharedCrossRefs = new SharedCrossRefs();
 
@@ -755,7 +750,7 @@ namespace Multiplayer.Client
 
             UpdateSync();
 
-            if (Time.frameCount % 4 == 0)
+            if (Application.isFocused && Time.frameCount % 3 == 0)
                 SendCursor();
         }
 
@@ -782,7 +777,7 @@ namespace Multiplayer.Client
                 writer.WriteByte(byte.MaxValue);
             }
 
-            Multiplayer.Client.SendUnreliable(Packets.Client_Cursor, writer.GetArray());
+            Multiplayer.Client.Send(Packets.Client_Cursor, writer.GetArray(), reliable: false);
         }
 
         private Stopwatch lastSteamUpdate = Stopwatch.StartNew();
@@ -799,18 +794,24 @@ namespace Multiplayer.Client
                 lastSteamUpdate.Restart();
             }
 
-            while (SteamNetworking.IsP2PPacketAvailable(out uint size))
+            ReadSteamPackets(0); // Reliable
+            ReadSteamPackets(1); // Unreliable
+        }
+
+        private void ReadSteamPackets(int channel)
+        {
+            while (SteamNetworking.IsP2PPacketAvailable(out uint size, channel))
             {
                 byte[] data = new byte[size];
-                SteamNetworking.ReadP2PPacket(data, size, out uint sizeRead, out CSteamID remote);
-                HandleSteamPacket(remote, data);
+                SteamNetworking.ReadP2PPacket(data, size, out uint sizeRead, out CSteamID remote, channel);
+                HandleSteamPacket(remote, data, channel);
             }
         }
 
-        private void HandleSteamPacket(CSteamID remote, byte[] data)
+        private void HandleSteamPacket(CSteamID remote, byte[] data, int channel)
         {
             if (Multiplayer.Client is SteamConnection localConn && localConn.remoteId == remote)
-                Multiplayer.HandleReceive(data);
+                Multiplayer.HandleReceive(data, channel == 0);
 
             if (Multiplayer.LocalServer == null) return;
 
@@ -823,9 +824,10 @@ namespace Multiplayer.Client
                     IConnection conn = new SteamConnection(remote);
                     conn.State = ConnectionStateEnum.ServerSteam;
                     player = Multiplayer.LocalServer.OnConnected(conn);
+                    player.steam = true;
                 }
 
-                player.HandleReceive(data);
+                player.HandleReceive(data, channel == 0);
             });
         }
 
@@ -961,7 +963,7 @@ namespace Multiplayer.Client
         {
         }
 
-        public override void HandleReceive(byte[] rawData)
+        public override void HandleReceive(byte[] rawData, bool reliable)
         {
         }
 

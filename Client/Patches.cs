@@ -351,6 +351,7 @@ namespace Multiplayer.Client
         {
             Text.Font = GameFont.Small;
 
+            if (Prefs.DevMode && Multiplayer.Client != null)
             {
                 int timerLag = (TickPatch.tickUntil - (int)TickPatch.Timer);
                 string text = $"{Find.TickManager.TicksGame} {TickPatch.Timer} {TickPatch.tickUntil} {timerLag} {Time.deltaTime * 60f}";
@@ -358,7 +359,7 @@ namespace Multiplayer.Client
                 Widgets.Label(rect, text);
             }
 
-            if (Find.CurrentMap != null && Multiplayer.Client != null)
+            if (Prefs.DevMode && Multiplayer.Client != null && Find.CurrentMap != null)
             {
                 MapAsyncTimeComp async = Find.CurrentMap.GetComponent<MapAsyncTimeComp>();
                 StringBuilder text = new StringBuilder();
@@ -379,9 +380,9 @@ namespace Multiplayer.Client
                 text.Append($" {Multiplayer.GlobalIdBlock.current}");
 
                 text.Append($"\n{Sync.bufferedChanges.Sum(kv => kv.Value.Count)}");
-                text.Append($"\n{async.randState}");
-                text.Append($"\n{Multiplayer.WorldComp.randState}");
-                text.Append($"\nreal speed: {Find.TickManager.CurTimeSpeed}");
+                text.Append($"\n{((uint)async.randState)} {(uint)(async.randState >> 32)}");
+                text.Append($"\n{(uint)Multiplayer.WorldComp.randState} {(uint)(Multiplayer.WorldComp.randState >> 32)}");
+                text.Append($"\n{Multiplayer.game.sync.buffer.Count} {Multiplayer.game.sync.buffer.ElementAtOrDefault(0)?.local}");
 
                 Rect rect1 = new Rect(80f, 110f, 330f, Text.CalcHeight(text.ToString(), 330f));
                 Widgets.Label(rect1, text.ToString());
@@ -405,12 +406,12 @@ namespace Multiplayer.Client
 
             if (Multiplayer.Chat != null)
             {
-                if (Widgets.ButtonText(new Rect(Screen.width - width - 10f, x, width, 25f), "Chat"))
+                if (Widgets.ButtonText(new Rect(Screen.width - width - 10f, x, width, 25f), $"Chat{(Multiplayer.Chat.hasUnread ? "*" : "")}"))
                     Find.WindowStack.Add(Multiplayer.Chat);
                 x += 25f;
             }
 
-            if (Multiplayer.PacketLog != null)
+            if (Prefs.DevMode && Multiplayer.PacketLog != null)
             {
                 if (Widgets.ButtonText(new Rect(Screen.width - width - 10f, x, width, 25f), "Packets"))
                     Find.WindowStack.Add(Multiplayer.PacketLog);
@@ -461,13 +462,20 @@ namespace Multiplayer.Client
                 if (Event.current.isMouse)
                     Event.current.Use();
 
-                // Drawing directly so there's no delay between the mouse over and showing
+                // Drawing directly so there's no delay between the mouseover and showing
                 ActiveTip tip = new ActiveTip($"Tick {mouseTimer}\nETA "); // todo eta
                 tip.DrawTooltip(GenUI.GetMouseAttachedWindowPos(tip.TipRect.x, tip.TipRect.y));
             }
 
             Widgets.DrawLine(new Vector2(rect.xMin, rect.yMin), new Vector2(rect.xMin, rect.yMax), Color.white, 4f);
             Widgets.DrawLine(new Vector2(rect.xMax, rect.yMin), new Vector2(rect.xMax, rect.yMax), Color.white, 4f);
+
+            if (TickPatch.skipTo >= 0)
+            {
+                float pct = (TickPatch.skipTo - timerStart) / (float)timeLen;
+                float skipToX = rect.xMin + rect.width * pct;
+                Widgets.DrawLine(new Vector2(skipToX, rect.yMin), new Vector2(skipToX, rect.yMax), Color.yellow, 4f);
+            }
         }
 
         public const int SkippingWindowId = 26461263;
@@ -858,84 +866,6 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.Client != null)
                 __result = false;
-        }
-    }
-
-    [HarmonyPatch(typeof(RandomNumberGenerator_BasicHash))]
-    [HarmonyPatch(nameof(RandomNumberGenerator_BasicHash.GetInt))]
-    public static class RandPatch
-    {
-        public static int calls;
-        public static List<int> called = new List<int>();
-        public static List<List<RandContext>> traces = new List<List<RandContext>>()
-        {
-            new List<RandContext>()
-        };
-
-        public static readonly bool collect = false;
-
-        static void Prefix()
-        {
-            if (RandPatches.Ignore || Multiplayer.Client == null) return;
-            if (Current.ProgramState != ProgramState.Playing && !Multiplayer.reloading) return;
-            if (Multiplayer.reloading) return;
-
-            if (MapAsyncTimeComp.tickingMap != null)
-            {
-                calls++;
-
-                if (ThingContext.Current?.def == ThingDefOf.SteamGeyser) return;
-                if (SteadyEnvironmentEffectsTickMarker.ticking || WildAnimalSpawnerTickMarker.ticking || WildPlantSpawnerTickMarker.ticking) return;
-
-                if (!Multiplayer.IsReplay)
-                    Log(0);
-
-                //MpLog.Log($"rand {calls}, {ThingContext.Current} {Rand.StateCompressed} {new StackTrace().Hash()}");
-            }
-        }
-
-        public static void Log(int extra)
-        {
-            if (!collect) return;
-
-            StackTrace trace = new StackTrace(1);
-            int thingHash = ThingContext.Current?.thingIDNumber ?? -1;
-            called.Add(trace.Hash().Combine(calls).Combine(thingHash));
-
-            traces[0].Add(new RandContext()
-            {
-                thing = ThingContext.Current.ToStringSafe(),
-                trace = trace,
-                calls = calls,
-                extra = extra
-            });
-        }
-    }
-
-    public class RandContext
-    {
-        public string thing;
-        public StackTrace trace;
-        public int calls;
-        public int extra;
-
-        public override string ToString()
-        {
-            return $"Thing: {thing}, Calls: {calls}, Extra: {extra}\n{trace}";
-        }
-    }
-
-    [HarmonyPatch(typeof(Rand))]
-    [HarmonyPatch(nameof(Rand.Seed), MethodType.Setter)]
-    public static class RandSetSeedPatch
-    {
-        public static bool dontLog;
-
-        static void Prefix()
-        {
-            if (dontLog) return;
-            //if (MapAsyncTimeComp.tickingMap != null)
-            //MpLog.Log("set seed");
         }
     }
 
@@ -1677,7 +1607,7 @@ namespace Multiplayer.Client
                 if (player.map != curMap) continue;
 
                 GUI.color = new Color(1, 1, 1, 0.5f);
-                var pos = Vector3.Lerp(player.lastCursor, player.cursor, (float)(Multiplayer.MasterTime.ElapsedMillisDouble() - player.updatedAt) / (float)player.lastDelta).MapToUIPosition();
+                var pos = Vector3.Lerp(player.lastCursor, player.cursor, (float)(Multiplayer.Time.ElapsedMillisDouble() - player.updatedAt) / (float)player.lastDelta).MapToUIPosition();
 
                 var icon = Multiplayer.icons.ElementAtOrDefault(player.cursorIcon);
                 var drawIcon = icon ?? CustomCursor.CursorTex;
@@ -1697,6 +1627,20 @@ namespace Multiplayer.Client
                 GUI.color = Color.white;
             }
         }
+    }
+
+    [HarmonyPatch(typeof(NamePlayerFactionAndSettlementUtility), nameof(NamePlayerFactionAndSettlementUtility.CanNameAnythingNow))]
+    static class NoNamingInMultiplayer
+    {
+        static bool Prefix() => Multiplayer.Client == null;
+    }
+
+    [MpPatch(typeof(CameraJumper), nameof(CameraJumper.TrySelect))]
+    [MpPatch(typeof(CameraJumper), nameof(CameraJumper.TryJumpAndSelect))]
+    [MpPatch(typeof(CameraJumper), nameof(CameraJumper.TryJump), new[] { typeof(GlobalTargetInfo) })]
+    static class NoCameraJumpingDuringSkipping
+    {
+        static bool Prefix() => TickPatch.skipTo < 0;
     }
 
 }

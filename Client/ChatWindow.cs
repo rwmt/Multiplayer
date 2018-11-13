@@ -13,6 +13,7 @@ namespace Multiplayer.Client
     [StaticConstructorOnStartup]
     public class ChatWindow : Window
     {
+        public const int MaxMessages = 200;
         public override Vector2 InitialSize => new Vector2(UI.screenWidth / 2f, UI.screenHeight / 2f);
 
         private static readonly Texture2D SelectedMsg = SolidColorMaterials.NewSolidColorTexture(new Color(0.17f, 0.17f, 0.17f, 0.85f));
@@ -24,6 +25,8 @@ namespace Multiplayer.Client
         private List<ChatMsg> messages = new List<ChatMsg>();
         private string currentMsg = "";
         private bool hasBeenFocused;
+
+        public bool hasUnread;
 
         public ChatWindow()
         {
@@ -40,6 +43,8 @@ namespace Multiplayer.Client
 
         public override void DoWindowContents(Rect inRect)
         {
+            hasUnread = false;
+
             Text.Font = GameFont.Small;
 
             if (Event.current.type == EventType.KeyDown)
@@ -68,23 +73,28 @@ namespace Multiplayer.Client
             inRect.yMin += 30f;
 
             DrawList(
-                $"Players ({Multiplayer.session.players.Count}):", 
-                Multiplayer.session.players, 
-                p => $"{p.username} ({p.latency}ms)", 
-                ref inRect, 
-                ref playerListScroll
+                $"Players ({Multiplayer.session.players.Count}):",
+                Multiplayer.session.players,
+                p => $"{p.username} ({p.latency}ms)",
+                ref inRect,
+                ref playerListScroll,
+                extra: (p, rect) =>
+                {
+                    if (p.steam)
+                        GUI.DrawTexture(new Rect(rect.xMax - 24f, 0, 24f, 24f), ContentSourceUtility.ContentSourceIcon_SteamWorkshop);
+                }
             );
 
             inRect.yMin += 10f;
 
             DrawList(
-                "Accept Steam players", 
+                "Accept Steam players",
                 Multiplayer.session.pendingSteam,
-                SteamFriends.GetFriendPersonaName, 
-                ref inRect, 
-                ref steamScroll, 
-                AcceptSteamPlayer, 
-                true, 
+                SteamFriends.GetFriendPersonaName,
+                ref inRect,
+                ref steamScroll,
+                AcceptSteamPlayer,
+                true,
                 "Click to accept"
             );
         }
@@ -124,14 +134,14 @@ namespace Multiplayer.Client
             Multiplayer.session.pendingSteam.Remove(id);
         }
 
-        private void DrawList<T>(string label, IList<T> entries, Func<T, string> entryString, ref Rect inRect, ref Vector2 scroll, Action<T> click = null, bool hideEmpty = false, string tooltip = null)
+        private void DrawList<T>(string label, IList<T> entries, Func<T, string> entryString, ref Rect inRect, ref Vector2 scroll, Action<T> click = null, bool hideEmpty = false, string tooltip = null, Action<T, Rect> extra = null)
         {
             if (hideEmpty && entries.Count == 0) return;
 
             Widgets.Label(inRect, label);
             inRect.yMin += 20f;
 
-            float entryHeight = Text.LineHeight;
+            float entryHeight = 24f;
             float height = entries.Count * entryHeight;
 
             Rect outRect = new Rect(0, inRect.yMin, inRect.width, Math.Min(height, Math.Min(230, inRect.height)));
@@ -151,7 +161,10 @@ namespace Multiplayer.Client
                 T entry = entries[i];
                 string entryLabel = entryString(entry);
 
-                Rect entryRect = new Rect(0, y, viewRect.width, entryHeight);
+                var entryRect = new Rect(0, y, viewRect.width, entryHeight);
+                GUI.BeginGroup(entryRect);
+                entryRect = entryRect.AtZero();
+
                 if (i % 2 == 0)
                     Widgets.DrawAltRect(entryRect);
 
@@ -171,6 +184,10 @@ namespace Multiplayer.Client
                 Text.Anchor = TextAnchor.MiddleLeft;
                 Widgets.Label(entryRect, entryLabel);
                 Text.Anchor = TextAnchor.UpperLeft;
+
+                extra(entry, entryRect);
+
+                GUI.EndGroup();
             }
 
             GUI.color = Color.white;
@@ -279,7 +296,14 @@ namespace Multiplayer.Client
 
         public void AddMsg(ChatMsg msg)
         {
+            if (!Find.WindowStack.IsOpen<ChatWindow>())
+                hasUnread = true;
+
             messages.Add(msg);
+
+            if (messages.Count > MaxMessages)
+                messages.RemoveAt(0);
+
             chatScroll.y = messagesHeight;
         }
     }

@@ -106,7 +106,7 @@ namespace Multiplayer.Client
 
         private bool TryParseIp(string ip, out IPAddress addr, out int port)
         {
-            port = 0;
+            port = MultiplayerServer.DefaultPort;
             string[] parts = ip.Split(':');
 
             if (!IPAddress.TryParse(parts[0], out addr))

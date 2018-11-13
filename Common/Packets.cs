@@ -12,7 +12,7 @@
         Client_Chat,
         Client_KeepAlive,
         Client_SteamRequest,
-        Client_Debug,
+        Client_DesyncCheck,
         Client_Cursor,
 
         Server_DefsOK,
@@ -26,7 +26,7 @@
         Server_KeepAlive,
         Server_SteamAccept,
         Server_DisconnectReason,
-        Server_Debug,
+        Server_DesyncCheck,
         Server_Cursor,
 
         Count

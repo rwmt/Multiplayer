@@ -108,22 +108,13 @@ namespace Multiplayer.Common
             Send(id, ByteWriter.GetBytes(msg));
         }
 
-        public virtual void Send(Packets id, byte[] message)
+        public virtual void Send(Packets id, byte[] message, bool reliable = true)
         {
             byte[] full = new byte[1 + message.Length];
             full[0] = (byte)(Convert.ToByte(id) & 0x3F);
             message.CopyTo(full, 1);
 
-            SendRaw(full);
-        }
-
-        public virtual void SendUnreliable(Packets id, byte[] message)
-        {
-            byte[] full = new byte[1 + message.Length];
-            full[0] = Convert.ToByte(id);
-            message.CopyTo(full, 1);
-
-            SendRaw(full, false);
+            SendRaw(full, reliable);
         }
 
         // Steam doesn't like messages bigger than a megabyte
@@ -148,7 +139,7 @@ namespace Multiplayer.Common
 
         private ByteWriter fragmented;
 
-        public virtual void HandleReceive(byte[] rawData)
+        public virtual void HandleReceive(byte[] rawData, bool reliable)
         {
             if (state == ConnectionStateEnum.Disconnected)
                 return;
@@ -167,7 +158,12 @@ namespace Multiplayer.Common
             Packets packetType = (Packets)msgId;
             var handler = MpConnectionState.packetHandlers[(int)state, msgId];
             if (handler == null)
-                throw new Exception($"No handler for packet {packetType} in state {state}");
+            {
+                if (reliable)
+                    throw new Exception($"No handler for packet {packetType} in state {state}");
+                else
+                    return;
+            }
 
             if (reader.Left > FragmentSize)
                 throw new Exception($"Packet too big {reader.Left}>{FragmentSize}");
@@ -266,16 +262,23 @@ namespace Multiplayer.Common
             stream.Write(bytes);
         }
 
+        public virtual void WritePrefixedInts(IList<int> ints)
+        {
+            WriteInt32(ints.Count);
+            foreach (var @int in ints)
+                WriteInt32(@int);
+        }
+
+        public virtual void WritePrefixedUInts(IList<uint> ints)
+        {
+            WriteInt32(ints.Count);
+            foreach (var @int in ints)
+                WriteUInt32(@int);
+        }
+
         public virtual void WriteRaw(byte[] bytes)
         {
             stream.Write(bytes);
-        }
-
-        public virtual void WriteByteArrayList(List<byte[]> list)
-        {
-            WriteInt32(list.Count);
-            foreach (byte[] arr in list)
-                WritePrefixedBytes(arr);
         }
 
         public virtual ByteWriter WriteString(string s)
@@ -426,6 +429,15 @@ namespace Multiplayer.Common
             int[] result = new int[len];
             for (int i = 0; i < len; i++)
                 result[i] = ReadInt32();
+            return result;
+        }
+
+        public uint[] ReadPrefixedUInts()
+        {
+            int len = ReadInt32();
+            uint[] result = new uint[len];
+            for (int i = 0; i < len; i++)
+                result[i] = ReadUInt32();
             return result;
         }
 

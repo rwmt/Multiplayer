@@ -54,11 +54,7 @@ namespace Multiplayer.Client
         public void SetFaction(Faction faction)
         {
             if (!factionMapData.TryGetValue(faction.loadID, out FactionMapData data))
-            {
-                if (!Multiplayer.simulating)
-                    MpLog.Log("No map faction data for faction {0} on map {1}", faction, map.uniqueID);
                 return;
-            }
 
             map.designationManager = data.designationManager;
             map.areaManager = data.areaManager;
