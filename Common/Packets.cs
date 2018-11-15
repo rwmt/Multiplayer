@@ -5,15 +5,16 @@
         Client_Defs,
         Client_Username,
         Client_RequestWorld,
-        Client_WorldLoaded,
+        Client_WorldReady,
         Client_Command,
         Client_AutosavedData,
         Client_IdBlockRequest,
         Client_Chat,
         Client_KeepAlive,
         Client_SteamRequest,
-        Client_DesyncCheck,
+        Client_SyncInfo,
         Client_Cursor,
+        Client_Desynced,
 
         Server_DefsOK,
         Server_WorldData,
@@ -26,7 +27,7 @@
         Server_KeepAlive,
         Server_SteamAccept,
         Server_DisconnectReason,
-        Server_DesyncCheck,
+        Server_SyncInfo,
         Server_Cursor,
 
         Count

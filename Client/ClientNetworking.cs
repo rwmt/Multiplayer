@@ -39,9 +39,18 @@ namespace Multiplayer.Client
 
             listener.PeerDisconnectedEvent += (peer, info) =>
             {
-                string reason = DisconnectReasonString(info.Reason);
-                if (info.SocketErrorCode != SocketError.Success)
-                    reason += ": " + info.SocketErrorCode;
+                string reason;
+
+                if (info.AdditionalData.AvailableBytes > 0)
+                {
+                    reason = info.AdditionalData.GetString();
+                }
+                else
+                {
+                    reason = DisconnectReasonString(info.Reason);
+                    if (info.SocketErrorCode != SocketError.Success)
+                        reason += ": " + info.SocketErrorCode;
+                }
 
                 Multiplayer.session.disconnectNetReason = reason;
 
@@ -184,6 +193,7 @@ namespace Multiplayer.Client
             localServerConn.State = ConnectionStateEnum.ServerPlaying;
 
             var serverPlayer = Multiplayer.LocalServer.OnConnected(localServerConn);
+            serverPlayer.status = PlayerStatus.Playing;
             serverPlayer.SendPlayerList();
 
             Multiplayer.session.client = localClient;

@@ -17,9 +17,11 @@ namespace Multiplayer.Client
     {
         private Type type;
         private string typeName;
-        private MethodInfo method;
-        private Type[] argTypes;
         private string methodName;
+        private Type[] argTypes;
+        private MethodType methodType;
+
+        private MethodBase method;
 
         public Type Type
         {
@@ -36,18 +38,32 @@ namespace Multiplayer.Client
             }
         }
 
-        public MethodInfo Method
+        public MethodBase Method
         {
             get
             {
                 if (method != null)
                     return method;
 
-                method = AccessTools.Method(Type, methodName, argTypes?.Length > 0 ? argTypes : null);
+                method = MpUtil.GetOriginalMethod(HarmonyMethod);
                 if (method == null)
                     throw new Exception($"Couldn't find method {methodName} in type {Type}");
 
                 return method;
+            }
+        }
+
+        public HarmonyMethod HarmonyMethod
+        {
+            get
+            {
+                return new HarmonyMethod()
+                {
+                    declaringType = Type,
+                    methodName = methodName,
+                    argumentTypes = argTypes,
+                    methodType = methodType
+                };
             }
         }
 
@@ -61,14 +77,17 @@ namespace Multiplayer.Client
             this.methodName = methodName;
         }
 
-        public MpPatch(Type type, string methodName) : this(type, methodName, (Type[])null)
-        {
-        }
-
-        public MpPatch(Type type, string methodName, params Type[] argTypes)
+        public MpPatch(Type type, string methodName, Type[] argTypes = null)
         {
             this.type = type;
             this.methodName = methodName;
+            this.argTypes = argTypes;
+        }
+
+        public MpPatch(Type type, MethodType methodType, Type[] argTypes = null)
+        {
+            this.type = type;
+            this.methodType = methodType;
             this.argTypes = argTypes;
         }
     }
@@ -89,18 +108,12 @@ namespace Multiplayer.Client
             List<MethodBase> result = null;
 
             // On whole type
-            foreach (MpPatch attr in type.AllAttributes<MpPatch>())
+            foreach (var attr in type.AllAttributes<MpPatch>())
             {
-                MethodInfo toPatch = attr.Method;
-                HarmonyMethod harmonyMethod = new HarmonyMethod
-                {
-                    declaringType = toPatch.DeclaringType,
-                    methodName = toPatch.Name,
-                    argumentTypes = toPatch.GetParameters().Types()
-                };
+                var toPatch = attr.Method;
 
                 if (harmony != null)
-                    new PatchProcessor(harmony, type, harmonyMethod).Patch();
+                    new PatchProcessor(harmony, type, attr.HarmonyMethod).Patch();
 
                 if (result == null)
                     result = new List<MethodBase>();
@@ -109,11 +122,11 @@ namespace Multiplayer.Client
             }
 
             // On methods
-            foreach (MethodInfo m in type.GetDeclaredMethods().Where(m => m.IsStatic))
+            foreach (var m in type.GetDeclaredMethods().Where(m => m.IsStatic))
             {
                 foreach (MpPatch attr in m.AllAttributes<MpPatch>())
                 {
-                    MethodInfo toPatch = attr.Method;
+                    var toPatch = attr.Method;
                     HarmonyMethod patch = new HarmonyMethod(m);
 
                     if (harmony != null)
@@ -140,7 +153,7 @@ namespace Multiplayer.Client
         {
         }
 
-        public MpPrefix(Type type, string method, params Type[] argTypes) : base(type, method, argTypes)
+        public MpPrefix(Type type, string method, Type[] argTypes = null) : base(type, method, argTypes)
         {
         }
 
@@ -159,7 +172,7 @@ namespace Multiplayer.Client
         {
         }
 
-        public MpPostfix(Type type, string method, params Type[] argTypes) : base(type, method, argTypes)
+        public MpPostfix(Type type, string method, Type[] argTypes = null) : base(type, method, argTypes)
         {
         }
 
@@ -178,7 +191,7 @@ namespace Multiplayer.Client
         {
         }
 
-        public MpTranspiler(Type type, string method, params Type[] argTypes) : base(type, method, argTypes)
+        public MpTranspiler(Type type, string method, Type[] argTypes) : base(type, method, argTypes)
         {
         }
 

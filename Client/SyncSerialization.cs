@@ -324,14 +324,14 @@ namespace Multiplayer.Client
                 }
                 else if (typeof(Command_SetPlantToGrow) == type)
                 {
-                    IPlantToGrowSettable settable = ReadSync<IPlantToGrowSettable>(data);
+                    var settable = ReadSync<IPlantToGrowSettable>(data);
                     if (settable == null)
                         return null;
 
-                    List<IPlantToGrowSettable> settables = ReadSync<List<IPlantToGrowSettable>>(data);
+                    var settables = ReadSync<List<IPlantToGrowSettable>>(data);
                     settables.RemoveAll(s => s == null);
 
-                    Command_SetPlantToGrow command = (Command_SetPlantToGrow)FormatterServices.GetUninitializedObject(typeof(Command_SetPlantToGrow));
+                    var command = MpUtil.UninitializedObject<Command_SetPlantToGrow>();
                     command.settable = settable;
                     command.settables = settables;
 

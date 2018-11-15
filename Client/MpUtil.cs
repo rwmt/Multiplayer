@@ -1,9 +1,11 @@
-﻿using Steamworks;
+﻿using Harmony;
+using Steamworks;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Runtime.Serialization;
 using System.Text;
 using UnityEngine;
 using Verse;
@@ -34,6 +36,45 @@ namespace Multiplayer.Client
         {
             ushort* iflags = (ushort*)(method.MethodHandle.Value) + 1;
             *iflags |= (ushort)MethodImplOptions.NoInlining;
+        }
+
+        public static T UninitializedObject<T>()
+        {
+            return (T)FormatterServices.GetUninitializedObject(typeof(T));
+        }
+
+        // Copied from Harmony
+        public static MethodBase GetOriginalMethod(HarmonyMethod attr)
+        {
+            if (attr.declaringType == null) return null;
+
+            switch (attr.methodType)
+            {
+                case MethodType.Normal:
+                    if (attr.methodName == null)
+                        return null;
+                    return AccessTools.DeclaredMethod(attr.declaringType, attr.methodName, attr.argumentTypes);
+
+                case MethodType.Getter:
+                    if (attr.methodName == null)
+                        return null;
+                    return AccessTools.DeclaredProperty(attr.declaringType, attr.methodName).GetGetMethod(true);
+
+                case MethodType.Setter:
+                    if (attr.methodName == null)
+                        return null;
+                    return AccessTools.DeclaredProperty(attr.declaringType, attr.methodName).GetSetMethod(true);
+
+                case MethodType.Constructor:
+                    return AccessTools.DeclaredConstructor(attr.declaringType, attr.argumentTypes);
+
+                case MethodType.StaticConstructor:
+                    return AccessTools.GetDeclaredConstructors(attr.declaringType)
+                        .Where(c => c.IsStatic)
+                        .FirstOrDefault();
+            }
+
+            return null;
         }
     }
 

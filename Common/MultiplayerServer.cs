@@ -39,6 +39,8 @@ namespace Multiplayer.Common
         public ActionQueue queue = new ActionQueue();
         public IPAddress addr;
         public int port;
+        public int maxPlayers;
+
         public volatile bool running = true;
         public volatile bool allowLan;
 
@@ -67,7 +69,7 @@ namespace Multiplayer.Common
             EventBasedNetListener listener = new EventBasedNetListener();
             server = new NetManager(listener);
 
-            listener.ConnectionRequestEvent += req => req.Accept();
+            listener.ConnectionRequestEvent += AcceptNet;
 
             listener.PeerConnectedEvent += peer =>
             {
@@ -93,6 +95,19 @@ namespace Multiplayer.Common
                 byte[] data = reader.GetRemainingBytes();
                 peer.GetConnection().serverPlayer.HandleReceive(data, method == DeliveryMethod.ReliableOrdered);
             };
+        }
+
+        private void AcceptNet(ConnectionRequest req)
+        {
+            if (maxPlayers > 0 && players.Count >= maxPlayers)
+            {
+                var writer = new ByteWriter();
+                writer.WriteString("Server is full");
+                req.Reject(writer.GetArray());
+                return;
+            }
+
+            req.Accept();
         }
 
         public void StartListening()
@@ -295,6 +310,7 @@ namespace Multiplayer.Common
         public int id;
         public IConnection conn;
         public bool steam;
+        public PlayerStatus status;
 
         public string Username => conn.username;
         public int Latency => conn.Latency;
@@ -365,9 +381,24 @@ namespace Multiplayer.Common
             writer.WriteString(Username);
             writer.WriteInt32(Latency);
             writer.WriteBool(steam);
+            writer.WriteByte((byte)status);
 
             return writer.GetArray();
         }
+
+        public void UpdateStatus(PlayerStatus status)
+        {
+            if (this.status == status) return;
+            this.status = status;
+            Server.SendToAll(Packets.Server_PlayerList, new object[] { (byte)PlayerListAction.Status, id, (byte)status });
+        }
+    }
+
+    public enum PlayerStatus
+    {
+        Connecting,
+        Playing,
+        Desynced
     }
 
     public class IdBlock

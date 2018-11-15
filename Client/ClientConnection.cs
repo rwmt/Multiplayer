@@ -69,7 +69,7 @@ namespace Multiplayer.Client
             TickPatch.tickUntil = tickUntil;
 
             TickPatch.skipToTickUntil = true;
-            TickPatch.afterSkip = () => Multiplayer.Client.Send(Packets.Client_WorldLoaded);
+            TickPatch.afterSkip = () => Multiplayer.Client.Send(Packets.Client_WorldReady);
 
             ReloadGame(mapsToLoad);
         }
@@ -206,6 +206,15 @@ namespace Multiplayer.Client
                 for (int i = 0; i < Multiplayer.session.players.Count; i++)
                     Multiplayer.session.players[i].latency = latencies[i];
             }
+            else if (action == PlayerListAction.Status)
+            {
+                var id = data.ReadInt32();
+                var status = (PlayerStatus)data.ReadByte();
+                var player = Multiplayer.session.GetPlayerInfo(id);
+
+                if (player != null)
+                    player.status = status;
+            }
         }
 
         [PacketHandler(Packets.Server_Chat)]
@@ -277,7 +286,7 @@ namespace Multiplayer.Client
             Multiplayer.session.disconnectServerReason = reason;
         }
 
-        [PacketHandler(Packets.Server_DesyncCheck)]
+        [PacketHandler(Packets.Server_SyncInfo)]
         public void HandleDesyncCheck(ByteReader data)
         {
             Multiplayer.game?.sync.Add(SyncInfo.Deserialize(data));

@@ -65,17 +65,22 @@ namespace Multiplayer.Client
                 skipTo = tickUntil;
 
             if (skipTo >= 0 && Timer >= skipTo)
-            {
-                skipTo = -1;
-                skipToTickUntil = false;
-                accumulator = 0;
-                afterSkip?.Invoke();
-                afterSkip = null;
-            }
+                EndSkipping();
 
+            SimpleProfiler.Start();
             Tick();
+            SimpleProfiler.Pause();
 
             return false;
+        }
+
+        public static void EndSkipping()
+        {
+            skipTo = -1;
+            skipToTickUntil = false;
+            accumulator = 0;
+            afterSkip?.Invoke();
+            afterSkip = null;
         }
 
         static ITickable CurrentTickable()
@@ -226,7 +231,7 @@ namespace Multiplayer.Client
                 if (sync.ShouldCollect && TickPatch.Timer % 30 == 0 && sync.current != null)
                 {
                     if (Multiplayer.LocalServer != null)
-                        Multiplayer.Client.Send(Packets.Client_DesyncCheck, sync.current.Serialize());
+                        Multiplayer.Client.Send(Packets.Client_SyncInfo, sync.current.Serialize());
 
                     sync.Add(sync.current);
                     sync.current = null;
@@ -829,11 +834,11 @@ namespace Multiplayer.Client
 
                 if (cmdType == CommandType.SpawnPawn)
                 {
-                    Pawn pawn = ScribeUtil.ReadExposable<Pawn>(data.ReadPrefixedBytes());
+                    /*Pawn pawn = ScribeUtil.ReadExposable<Pawn>(data.ReadPrefixedBytes());
 
                     IntVec3 spawn = CellFinderLoose.TryFindCentralCell(map, 7, 10, (IntVec3 x) => !x.Roofed(map));
                     GenSpawn.Spawn(pawn, spawn, map);
-                    Log.Message("spawned " + pawn);
+                    Log.Message("spawned " + pawn);*/
                 }
 
                 if (cmdType == CommandType.Forbid)
@@ -1049,7 +1054,10 @@ namespace Multiplayer.Client
                 {
                     var error = buffer.RemoveFirst().Compare(info);
                     if (error != null)
+                    {
+                        Multiplayer.Client.Send(Packets.Client_Desynced);
                         Log.Message(error);
+                    }
                 }
             }
         }
@@ -1088,20 +1096,20 @@ namespace Multiplayer.Client
 
         public string Compare(SyncInfo other)
         {
-            if (cmds.Count != other.cmds.Count)
-                return "Cmd count doesn't match";
-
-            if (maps.Count != other.maps.Count)
-                return $"Wrong map amount {startTick} {other.startTick} {maps.Count} {other.maps.Count} {maps.ElementAtOrDefault(0)?.map.Count} {other.maps.ElementAtOrDefault(0)?.map.Count}";
+            if (!maps.Select(m => m.mapId).SequenceEqual(other.maps.Select(m => m.mapId)))
+                return $"Map instances don't match";
 
             for (int i = 0; i < maps.Count; i++)
             {
-                if (maps[i].mapId != other.maps[i].mapId)
-                    return "Wrong map order";
-
                 if (!maps[i].map.SequenceEqual(other.maps[i].map))
-                    return $"Wrong rand state on map {maps[i].mapId} {maps[i].map.Count} {other.maps[i].map.Count}";
+                    return $"Wrong random state on map {maps[i].mapId}";
             }
+
+            if (!world.SequenceEqual(other.world))
+                return "Wrong random state for the world";
+
+            if (!cmds.SequenceEqual(other.cmds))
+                return "Random state from commands doesn't match";
 
             return null;
         }

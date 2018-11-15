@@ -102,7 +102,9 @@ namespace Multiplayer.Client
                 {
                     optList.Insert(0, new ListableOption("Save replay", () =>
                     {
-                        Replay.ForSaving("TestReplay").WriteCurrentData();
+                        //Replay.ForSaving("TestReplay").WriteCurrentData();
+                        SimpleProfiler.Print("main_loop");
+                        SimpleProfiler.Init("");
                     }));
 
                     optList.RemoveAll(opt => opt.label == "Save".Translate() || opt.label == "LoadGame".Translate());
@@ -225,7 +227,7 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(WorldGrid), MethodType.Constructor)]
-    public static class WorldGridCtorPatch
+    public static class WorldGridCachePatch
     {
         public static WorldGrid copyFrom;
 
@@ -255,7 +257,7 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(WorldRenderer), MethodType.Constructor)]
-    public static class WorldRendererCtorPatch
+    public static class WorldRendererCachePatch
     {
         public static WorldRenderer copyFrom;
 
@@ -382,7 +384,6 @@ namespace Multiplayer.Client
                 text.Append($"\n{Sync.bufferedChanges.Sum(kv => kv.Value.Count)}");
                 text.Append($"\n{((uint)async.randState)} {(uint)(async.randState >> 32)}");
                 text.Append($"\n{(uint)Multiplayer.WorldComp.randState} {(uint)(Multiplayer.WorldComp.randState >> 32)}");
-                text.Append($"\n{Multiplayer.game.sync.buffer.Count} {Multiplayer.game.sync.buffer.ElementAtOrDefault(0)?.local}");
 
                 Rect rect1 = new Rect(80f, 110f, 330f, Text.CalcHeight(text.ToString(), 330f));
                 Widgets.Label(rect1, text.ToString());
@@ -404,7 +405,7 @@ namespace Multiplayer.Client
             float x = 10f;
             const float width = 60f;
 
-            if (Multiplayer.Chat != null)
+            if (Multiplayer.Chat != null && !Multiplayer.IsReplay)
             {
                 if (Widgets.ButtonText(new Rect(Screen.width - width - 10f, x, width, 25f), $"Chat{(Multiplayer.Chat.hasUnread ? "*" : "")}"))
                     Find.WindowStack.Add(Multiplayer.Chat);
@@ -489,12 +490,19 @@ namespace Multiplayer.Client
             float windowWidth = Math.Max(240f, textWidth + 40f);
             Rect rect = new Rect(0, 0, windowWidth, 75f).CenterOn(new Rect(0, 0, UI.screenWidth, UI.screenHeight));
 
+            if (Multiplayer.IsReplay && Event.current.type == EventType.KeyUp && Event.current.keyCode == KeyCode.Escape)
+            {
+                TickPatch.EndSkipping();
+                Event.current.Use();
+            }
+
             Find.WindowStack.ImmediateWindow(SkippingWindowId, rect, WindowLayer.Super, () =>
             {
                 Text.Anchor = TextAnchor.MiddleCenter;
                 Text.Font = GameFont.Small;
                 Widgets.Label(rect.AtZero(), text);
                 Text.Anchor = TextAnchor.UpperLeft;
+
             }, absorbInputAroundWindow: true);
         }
     }
@@ -534,7 +542,7 @@ namespace Multiplayer.Client
     [HarmonyPatch(nameof(Pawn_JobTracker.StartJob))]
     public static class JobTrackerStart
     {
-        static void Prefix(Pawn_JobTracker __instance, Job newJob, ref Container<Map> __state)
+        static void Prefix(Pawn_JobTracker __instance, Job newJob, ref Container<Map>? __state)
         {
             if (Multiplayer.Client == null) return;
 
@@ -554,7 +562,7 @@ namespace Multiplayer.Client
             __state = pawn.Map;
         }
 
-        static void Postfix(Container<Map> __state)
+        static void Postfix(Container<Map>? __state)
         {
             if (__state != null)
                 __state.PopFaction();
@@ -565,7 +573,7 @@ namespace Multiplayer.Client
     [HarmonyPatch(nameof(Pawn_JobTracker.EndCurrentJob))]
     public static class JobTrackerEndCurrent
     {
-        static void Prefix(Pawn_JobTracker __instance, JobCondition condition, ref Container<Map> __state)
+        static void Prefix(Pawn_JobTracker __instance, JobCondition condition, ref Container<Map>? __state)
         {
             if (Multiplayer.Client == null) return;
             Pawn pawn = __instance.pawn;
@@ -576,7 +584,7 @@ namespace Multiplayer.Client
             __state = pawn.Map;
         }
 
-        static void Postfix(Container<Map> __state)
+        static void Postfix(Container<Map>? __state)
         {
             if (__state != null)
                 __state.PopFaction();
@@ -587,7 +595,7 @@ namespace Multiplayer.Client
     [HarmonyPatch(nameof(Pawn_JobTracker.CheckForJobOverride))]
     public static class JobTrackerOverride
     {
-        static void Prefix(Pawn_JobTracker __instance, ref Container<Map> __state)
+        static void Prefix(Pawn_JobTracker __instance, ref Container<Map>? __state)
         {
             if (Multiplayer.Client == null) return;
             Pawn pawn = __instance.pawn;
@@ -599,7 +607,7 @@ namespace Multiplayer.Client
             __state = pawn.Map;
         }
 
-        static void Postfix(Container<Map> __state)
+        static void Postfix(Container<Map>? __state)
         {
             if (__state != null)
             {
@@ -703,7 +711,7 @@ namespace Multiplayer.Client
     [HarmonyPatch(nameof(PawnComponentsUtility.AddAndRemoveDynamicComponents))]
     public static class AddAndRemoveCompsPatch
     {
-        static void Prefix(Pawn pawn, ref Container<Map> __state)
+        static void Prefix(Pawn pawn, ref Container<Map>? __state)
         {
             if (Multiplayer.Client == null || pawn.Faction == null) return;
 
@@ -711,7 +719,7 @@ namespace Multiplayer.Client
             __state = pawn.Map;
         }
 
-        static void Postfix(Pawn pawn, Container<Map> __state)
+        static void Postfix(Pawn pawn, Container<Map>? __state)
         {
             if (__state != null)
                 __state.PopFaction();
@@ -920,7 +928,7 @@ namespace Multiplayer.Client
     [HarmonyPatch(nameof(Thing.ExposeData))]
     public static class PawnExposeDataFirst
     {
-        public static Container<Map> state;
+        public static Container<Map>? state;
 
         // Postfix so Thing's faction is already loaded
         static void Postfix(Thing __instance)
@@ -1641,6 +1649,47 @@ namespace Multiplayer.Client
     static class NoCameraJumpingDuringSkipping
     {
         static bool Prefix() => TickPatch.skipTo < 0;
+    }
+
+    [HarmonyPatch(typeof(WealthWatcher), nameof(WealthWatcher.ForceRecount))]
+    static class WealthWatcherRecalc
+    {
+        static bool Prefix() => Multiplayer.Client == null || !Multiplayer.ShouldSync;
+    }
+
+    [HarmonyPatch(typeof(ThinkTreeKeyAssigner), nameof(ThinkTreeKeyAssigner.NextUnusedKeyFor))]
+    static class ThinkTreeKeys
+    {
+        static MethodInfo RandInt = AccessTools.Method(typeof(Rand), "get_Int");
+
+        // Replace (^= Rand.Int) with (++)
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+        {
+            foreach (var inst in insts)
+            {
+                if (inst.operand == RandInt)
+                {
+                    yield return new CodeInstruction(OpCodes.Ldc_I4_1);
+                    continue;
+                }
+
+                if (inst.opcode == OpCodes.Xor)
+                    inst.opcode = OpCodes.Add;
+
+                yield return inst;
+            }
+        }
+    }
+
+    static class CaptureThingSetMakers
+    {
+        public static List<ThingSetMaker> captured = new List<ThingSetMaker>();
+
+        static void Prefix(ThingSetMaker __instance)
+        {
+            if (Current.ProgramState == ProgramState.Entry)
+                captured.Add(__instance);
+        }
     }
 
 }

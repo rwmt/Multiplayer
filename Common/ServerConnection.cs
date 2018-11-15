@@ -122,9 +122,16 @@ namespace Multiplayer.Common
         {
         }
 
-        [PacketHandler(Packets.Client_WorldLoaded)]
-        public void HandleWorldLoaded(ByteReader data)
+        [PacketHandler(Packets.Client_WorldReady)]
+        public void HandleWorldReady(ByteReader data)
         {
+            Player.UpdateStatus(PlayerStatus.Playing);
+        }
+
+        [PacketHandler(Packets.Client_Desynced)]
+        public void HandleDesynced(ByteReader data)
+        {
+            Player.UpdateStatus(PlayerStatus.Desynced);
         }
 
         [PacketHandler(Packets.Client_Command)]
@@ -251,12 +258,12 @@ namespace Multiplayer.Common
                 connection.Latency = 2000;
         }
 
-        [PacketHandler(Packets.Client_DesyncCheck)]
+        [PacketHandler(Packets.Client_SyncInfo)]
         public void HandleDesyncCheck(ByteReader data)
         {
             if (Player.Username != Server.hostUsername) return;
 
-            Server.SendToAll(Packets.Server_DesyncCheck, data.ReadRaw(data.Left));
+            Server.SendToAll(Packets.Server_SyncInfo, data.ReadRaw(data.Left));
         }
     }
 
@@ -265,7 +272,8 @@ namespace Multiplayer.Common
         List,
         Add,
         Remove,
-        Latencies
+        Latencies,
+        Status
     }
 
     public class ServerSteamState : MpConnectionState

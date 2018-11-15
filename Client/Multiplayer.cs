@@ -11,6 +11,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Pipes;
 using System.Linq;
 using System.Net;
 using System.Reflection;
@@ -259,8 +260,8 @@ namespace Multiplayer.Client
             Log.Message("Saving took " + watch.ElapsedMilliseconds);
 
             MapDrawerRegenPatch.copyFrom = drawers;
-            WorldGridCtorPatch.copyFrom = worldGridSaved;
-            WorldRendererCtorPatch.copyFrom = worldRendererSaved;
+            WorldGridCachePatch.copyFrom = worldGridSaved;
+            WorldRendererCachePatch.copyFrom = worldRendererSaved;
 
             LoadInMainThread(gameDoc);
 
@@ -574,6 +575,11 @@ namespace Multiplayer.Client
 
             Log.Message("Multiplayer session stopped.");
         }
+
+        public PlayerInfo GetPlayerInfo(int id)
+        {
+            return players.FirstOrDefault(p => p.id == id);
+        }
     }
 
     public class PlayerInfo
@@ -582,6 +588,7 @@ namespace Multiplayer.Client
         public string username;
         public int latency;
         public bool steam;
+        public PlayerStatus status;
 
         public byte cursorSeq;
         public byte map = byte.MaxValue;
@@ -615,8 +622,12 @@ namespace Multiplayer.Client
             string username = data.ReadString();
             int latency = data.ReadInt32();
             bool steam = data.ReadBool();
+            var status = (PlayerStatus)data.ReadByte();
 
-            return new PlayerInfo(id, username, latency, steam);
+            return new PlayerInfo(id, username, latency, steam)
+            {
+                status = status
+            };
         }
     }
 
@@ -660,13 +671,21 @@ namespace Multiplayer.Client
             TradeSession.playerNegotiator = null;
             TradeSession.deal = null;
             TradeSession.giftMode = false;
+
+            foreach (var maker in CaptureThingSetMakers.captured)
+            {
+                if (maker is ThingSetMaker_Nutrition n)
+                    n.nextSeed = 1;
+                if (maker is ThingSetMaker_MarketValue m)
+                    m.nextSeed = 1;
+            }
         }
     }
 
-    public class Container<T>
+    public struct Container<T>
     {
         private readonly T _value;
-        public T Value => _value;
+        public T Inner => _value;
 
         public Container(T value)
         {
@@ -679,21 +698,6 @@ namespace Multiplayer.Client
         }
     }
 
-    public class Container<T, U>
-    {
-        private readonly T _first;
-        private readonly U _second;
-
-        public T First => _first;
-        public U Second => _second;
-
-        public Container(T first, U second)
-        {
-            _first = first;
-            _second = second;
-        }
-    }
-
     public class MultiplayerModInstance : Mod
     {
         public static HarmonyInstance harmony = HarmonyInstance.Create("multiplayer");
@@ -701,9 +705,11 @@ namespace Multiplayer.Client
         public MultiplayerModInstance(ModContentPack pack) : base(pack)
         {
             EarlyMarkNoInline();
+            EarlyPatches();
+            EarlyInit();
         }
 
-        public void EarlyMarkNoInline()
+        private void EarlyMarkNoInline()
         {
             foreach (var type in MpUtil.AllModTypes())
             {
@@ -712,10 +718,36 @@ namespace Multiplayer.Client
                 var harmonyMethods = type.GetHarmonyMethods();
                 if (harmonyMethods?.Count > 0)
                 {
-                    var original = new PatchProcessor(harmony, type, HarmonyMethod.Merge(harmonyMethods)).GetOriginalMethod();
+                    var original = MpUtil.GetOriginalMethod(HarmonyMethod.Merge(harmonyMethods));
                     if (original != null)
                         MpUtil.MarkNoInlining(original);
                 }
+            }
+        }
+
+        private void EarlyPatches()
+        {
+            {
+                var prefix = new HarmonyMethod(AccessTools.Method(typeof(CaptureThingSetMakers), "Prefix"));
+                harmony.Patch(AccessTools.Constructor(typeof(ThingSetMaker_MarketValue)), prefix);
+                harmony.Patch(AccessTools.Constructor(typeof(ThingSetMaker_Nutrition)), prefix);
+            }
+        }
+
+        private void EarlyInit()
+        {
+            foreach (var thingMaker in DefDatabase<ThingSetMakerDef>.AllDefs)
+            {
+                CaptureThingSetMakers.captured.Add(thingMaker.root);
+
+                if (thingMaker.root is ThingSetMaker_Sum sum)
+                    sum.options.Select(o => o.thingSetMaker).Do(CaptureThingSetMakers.captured.Add);
+
+                if (thingMaker.root is ThingSetMaker_Conditional cond)
+                    CaptureThingSetMakers.captured.Add(cond.thingSetMaker);
+
+                if (thingMaker.root is ThingSetMaker_RandomOption rand)
+                    rand.options.Select(o => o.thingSetMaker).Do(CaptureThingSetMakers.captured.Add);
             }
         }
 
@@ -885,9 +917,7 @@ namespace Multiplayer.Client
                 Multiplayer.session = null;
             }
 
-            TickPatch.skipTo = -1;
-            TickPatch.skipToTickUntil = false;
-            TickPatch.afterSkip = null;
+            TickPatch.EndSkipping();
 
             Find.WindowStack?.WindowOfType<ServerBrowser>()?.Cleanup(true);
 

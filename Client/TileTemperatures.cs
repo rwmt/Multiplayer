@@ -46,8 +46,7 @@ namespace Multiplayer.Client
         {
             if (__state && Multiplayer.ShouldSync)
             {
-                float[] array = __instance.cache[tile].twelfthlyTempAverages;
-                Array.Resize(ref array, 13);
+                Array.Resize(ref __instance.cache[tile].twelfthlyTempAverages, 13);
             }
         }
     }

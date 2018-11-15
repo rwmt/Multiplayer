@@ -32,10 +32,10 @@ namespace Multiplayer.Client
             gameName = file?.gameName ?? string.Empty;
 
             var localAddr = Dns.GetHostEntry(Dns.GetHostName()).AddressList.FirstOrDefault(i => i.AddressFamily == AddressFamily.InterNetwork) ?? IPAddress.Loopback;
-            ip = localAddr.ToString();
+            address = localAddr.ToString();
         }
 
-        private string ip;
+        private string address;
         private string gameName;
         private int maxPlayers = 8;
         private int autosaveInterval = 8;
@@ -55,7 +55,7 @@ namespace Multiplayer.Client
             gameName = TextEntryLabeled(entry, "Name:  ", gameName, labelWidth);
             entry = entry.Down(40);
 
-            ip = TextEntryLabeled(entry, "Address:  ", ip, labelWidth);
+            address = TextEntryLabeled(entry, "Address:  ", address, labelWidth);
             entry = entry.Down(40);
 
             TextFieldNumericLabeled(entry.Width(labelWidth + 30f), "Max players:  ", ref maxPlayers, ref maxPlayersBuffer, labelWidth);
@@ -66,14 +66,12 @@ namespace Multiplayer.Client
             Text.Anchor = TextAnchor.UpperLeft;
             entry = entry.Down(40);
 
-            const char passChar = '\u2022';
-
+            /*const char passChar = '\u2022';
             if (Event.current.type == EventType.Repaint || Event.current.isMouse)
                 TextEntryLabeled(entry.Width(200), "Password:  ", new string(passChar, password.Length), labelWidth);
             else
                 password = TextEntryLabeled(entry.Width(200), "Password:  ", password, labelWidth);
-
-            entry = entry.Down(40);
+            entry = entry.Down(40);*/
 
             Widgets.CheckboxLabeled(entry.Right(labelWidth - Text.CalcSize("LAN:  ").x).Width(120), "LAN:  ", ref lan, placeCheckboxNearText: true);
             entry = entry.Down(30);
@@ -86,7 +84,7 @@ namespace Multiplayer.Client
 
             var buttonRect = new Rect((inRect.width - 100f) / 2f, inRect.height - 35f, 100f, 35f);
 
-            if (Widgets.ButtonText(buttonRect, "Host") && TryParseIp(ip, out IPAddress addr, out int port))
+            if (Widgets.ButtonText(buttonRect, "Host") && TryParseIp(address, out IPAddress addr, out int port))
             {
                 if (file != null)
                 {

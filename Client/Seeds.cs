@@ -137,7 +137,7 @@ namespace Multiplayer.Client
 
     public static class PatchThingMethods
     {
-        public static void Prefix(Thing __instance, ref Container<Map> __state)
+        public static void Prefix(Thing __instance, ref Container<Map>? __state)
         {
             if (Multiplayer.Client == null) return;
 
@@ -148,7 +148,7 @@ namespace Multiplayer.Client
                 __instance.Map.PushFaction(__instance.Faction);
         }
 
-        public static void Postfix(Thing __instance, Container<Map> __state)
+        public static void Postfix(Thing __instance, Container<Map>? __state)
         {
             if (__state == null) return;
 

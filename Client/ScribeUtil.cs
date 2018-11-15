@@ -67,7 +67,6 @@ namespace Multiplayer.Client
         public static byte[] FinishWriting()
         {
             Scribe.saver.FinalizeSaving();
-            Scribe.saver.savingForDebug = false;
 
             byte[] arr = stream.ToArray();
             stream.Close();
@@ -197,7 +196,6 @@ namespace Multiplayer.Client
 
         public static byte[] WriteExposable(IExposable element, string name = RootNode, bool indent = false)
         {
-            Scribe.saver.savingForDebug = true;
             StartWriting(indent);
             Scribe.EnterNode(RootNode);
             Scribe_Deep.Look(ref element, name);

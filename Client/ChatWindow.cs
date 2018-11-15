@@ -82,7 +82,8 @@ namespace Multiplayer.Client
                 {
                     if (p.steam)
                         GUI.DrawTexture(new Rect(rect.xMax - 24f, 0, 24f, 24f), ContentSourceUtility.ContentSourceIcon_SteamWorkshop);
-                }
+                },
+                entryLabelColor: e => GetColor(e.status)
             );
 
             inRect.yMin += 10f;
@@ -134,7 +135,17 @@ namespace Multiplayer.Client
             Multiplayer.session.pendingSteam.Remove(id);
         }
 
-        private void DrawList<T>(string label, IList<T> entries, Func<T, string> entryString, ref Rect inRect, ref Vector2 scroll, Action<T> click = null, bool hideEmpty = false, string tooltip = null, Action<T, Rect> extra = null)
+        private Color GetColor(PlayerStatus status)
+        {
+            switch (status)
+            {
+                case PlayerStatus.Connecting: return new Color(1, 1, 1, 0.6f);
+                case PlayerStatus.Desynced: return new Color(0.8f, 0.4f, 0.4f, 0.8f);
+                default: return new Color(1, 1, 1, 0.8f);
+            }
+        }
+
+        private void DrawList<T>(string label, IList<T> entries, Func<T, string> entryString, ref Rect inRect, ref Vector2 scroll, Action<T> click = null, bool hideEmpty = false, string tooltip = null, Action<T, Rect> extra = null, Func<T, Color?> entryLabelColor = null)
         {
             if (hideEmpty && entries.Count == 0) return;
 
@@ -181,9 +192,17 @@ namespace Multiplayer.Client
                 if (tooltip != null)
                     TooltipHandler.TipRegion(entryRect, tooltip);
 
+                var prevColor = GUI.color;
+                var labelColor = entryLabelColor(entry);
+                if (labelColor != null)
+                    GUI.color = labelColor.Value;
+
                 Text.Anchor = TextAnchor.MiddleLeft;
                 Widgets.Label(entryRect, entryLabel);
                 Text.Anchor = TextAnchor.UpperLeft;
+
+                if (labelColor != null)
+                    GUI.color = prevColor;
 
                 extra(entry, entryRect);
 

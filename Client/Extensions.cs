@@ -1,5 +1,6 @@
 ﻿extern alias zip;
 
+using Harmony;
 using Multiplayer.Common;
 using RimWorld;
 using System;
@@ -57,9 +58,10 @@ namespace Multiplayer.Client
             PopFaction(null);
         }
 
-        public static void PopFaction(this Container<Map> c)
+        public static void PopFaction(this Container<Map>? c)
         {
-            PopFaction(c.Value);
+            if (!c.HasValue) return;
+            PopFaction(c.Value.Inner);
         }
 
         public static void PopFaction(this Map map)

@@ -40,7 +40,7 @@ namespace Multiplayer.Client
 
         public static PersistentDialog FindDialog(Window dialog)
         {
-            return Find.Maps.Select(m => m.MpComp().mapDialogs.FirstOrDefault(s => s.dialog == dialog)).NotNull().FirstOrDefault();
+            return Find.Maps.SelectMany(m => m.MpComp().mapDialogs).FirstOrDefault(d => d.dialog == dialog);
         }
 
         private List<FieldSave> fieldValues;
