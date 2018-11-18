@@ -114,6 +114,7 @@ namespace Multiplayer.Client
                                     case dnlib.DotNet.Emit.OperandType.InlineMethod:
                                     case dnlib.DotNet.Emit.OperandType.InlineField:
                                     case dnlib.DotNet.Emit.OperandType.InlineSig:
+                                    case dnlib.DotNet.Emit.OperandType.InlineTok:
                                         pos += inst.OpCode.Size;
                                         object refe = TranslateRef(module, inst.Operand);
                                         if (refe == null)
@@ -124,6 +125,7 @@ namespace Multiplayer.Client
                                         newCode[pos++] = (byte)(token >> 8 & 255);
                                         newCode[pos++] = (byte)(token >> 16 & 255);
                                         newCode[pos++] = (byte)(token >> 24 & 255);
+
                                         break;
                                     default:
                                         pos += inst.GetSize();
@@ -176,10 +178,16 @@ namespace Multiplayer.Client
                                 }
                             }
 
+                            Log.Message("Preparing method");
+
                             DynamicTools.PrepareDynamicMethod(replacement);
+
+                            Log.Message("Detouring");
 
                             dynMethods[method] = replacement;
                             Memory.DetourMethod(method, replacement);
+
+                            Log.Message("Patch done");
                         }
                     }
                 }
@@ -267,7 +275,6 @@ namespace Multiplayer.Client
                 if (member.IsField)
                 {
                     Type type = Type.GetType(member.DeclaringType.AssemblyQualifiedName);
-                    Log.Message($"field {member} / {type} / {member.DeclaringType.AssemblyQualifiedName} / {member.DeclaringType}");
                     return AccessTools.Field(type, member.Name);
                 }
                 else if (member.IsMethod && member is IMethod method)

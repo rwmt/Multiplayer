@@ -29,20 +29,20 @@ namespace Multiplayer.Client
             doCloseX = true;
 
             this.file = file;
-            gameName = file?.gameName ?? string.Empty;
+            settings.gameName = file?.gameName ?? Find.World?.info.name;
+            if (!settings.gameName.Contains("'s"))
+                settings.gameName = $"{Multiplayer.username}'s {settings.gameName}";
 
             var localAddr = Dns.GetHostEntry(Dns.GetHostName()).AddressList.FirstOrDefault(i => i.AddressFamily == AddressFamily.InterNetwork) ?? IPAddress.Loopback;
-            address = localAddr.ToString();
+            settings.address = localAddr;
+            addressBuffer = localAddr.ToString();
+
+            settings.lan = true;
         }
 
-        private string address;
-        private string gameName;
-        private int maxPlayers = 8;
-        private int autosaveInterval = 8;
-        private bool lan = true;
-        private bool steam;
-        private string password;
+        private ServerSettings settings = new ServerSettings();
 
+        private string addressBuffer;
         private string maxPlayersBuffer;
         private string autosaveBuffer;
 
@@ -52,15 +52,12 @@ namespace Multiplayer.Client
 
             var labelWidth = 100f;
 
-            gameName = TextEntryLabeled(entry, "Name:  ", gameName, labelWidth);
+            settings.gameName = TextEntryLabeled(entry, "Name:  ", settings.gameName, labelWidth);
             entry = entry.Down(40);
 
-            address = TextEntryLabeled(entry, "Address:  ", address, labelWidth);
-            entry = entry.Down(40);
+            TextFieldNumericLabeled(entry.Width(labelWidth + 30f), "Max players:  ", ref settings.maxPlayers, ref maxPlayersBuffer, labelWidth, 0, 999);
 
-            TextFieldNumericLabeled(entry.Width(labelWidth + 30f), "Max players:  ", ref maxPlayers, ref maxPlayersBuffer, labelWidth);
-
-            TextFieldNumericLabeled(entry.Right(200f).Width(labelWidth + 35f), "Autosave every ", ref autosaveInterval, ref autosaveBuffer, labelWidth + 5f);
+            TextFieldNumericLabeled(entry.Right(200f).Width(labelWidth + 35f), "Autosave every ", ref settings.autosaveInterval, ref autosaveBuffer, labelWidth + 5f, 0, 999);
             Text.Anchor = TextAnchor.MiddleLeft;
             Widgets.Label(entry.Right(200f).Right(labelWidth + 35f), " minutes");
             Text.Anchor = TextAnchor.UpperLeft;
@@ -73,30 +70,37 @@ namespace Multiplayer.Client
                 password = TextEntryLabeled(entry.Width(200), "Password:  ", password, labelWidth);
             entry = entry.Down(40);*/
 
-            Widgets.CheckboxLabeled(entry.Right(labelWidth - Text.CalcSize("LAN:  ").x).Width(120), "LAN:  ", ref lan, placeCheckboxNearText: true);
+            var directLabelWidth = Text.CalcSize("Direct:  ").x;
+            var directRect = entry.Right(labelWidth - directLabelWidth).Width(directLabelWidth + 24 + 10);
+            Widgets.CheckboxLabeled(directRect, "Direct:  ", ref settings.direct, placeCheckboxNearText: true);
+            if (settings.direct)
+            {
+                directRect.x = directRect.xMax + 15;
+                addressBuffer = Widgets.TextField(directRect.Width(150), addressBuffer);
+            }
+
+            entry = entry.Down(30);
+
+            Widgets.CheckboxLabeled(entry.Right(labelWidth - Text.CalcSize("LAN:  ").x).Width(120), "LAN:  ", ref settings.lan, placeCheckboxNearText: true);
             entry = entry.Down(30);
 
             if (SteamManager.Initialized)
             {
-                Widgets.CheckboxLabeled(entry.Right(labelWidth - Text.CalcSize("Steam:  ").x).Width(120), "Steam:  ", ref steam, placeCheckboxNearText: true);
+                Widgets.CheckboxLabeled(entry.Right(labelWidth - Text.CalcSize("Steam:  ").x).Width(120), "Steam:  ", ref settings.steam, placeCheckboxNearText: true);
                 entry = entry.Down(30);
             }
 
             var buttonRect = new Rect((inRect.width - 100f) / 2f, inRect.height - 35f, 100f, 35f);
 
-            if (Widgets.ButtonText(buttonRect, "Host") && TryParseIp(address, out IPAddress addr, out int port))
+            if (Widgets.ButtonText(buttonRect, "Host") && 
+                (!settings.direct || TryParseIp(addressBuffer, out settings.address, out settings.port)))
             {
-                if (file != null)
-                {
-                    if (file.replay)
-                        HostFromReplay(addr, port);
-                    else
-                        HostFromSave(addr, port);
-                }
+                if (file == null)
+                    ClientUtil.HostServer(settings, false);
+                else if (file.replay)
+                    HostFromReplay(settings);
                 else
-                {
-                    ClientUtil.HostServer(addr, port, false);
-                }
+                    HostFromSave(settings);
 
                 Close(true);
             }
@@ -135,7 +139,7 @@ namespace Multiplayer.Client
             return Widgets.TextField(fieldRect, text);
         }
 
-        public static void TextFieldNumericLabeled(Rect rect, string label, ref int val, ref string buffer, float labelWidth)
+        public static void TextFieldNumericLabeled(Rect rect, string label, ref int val, ref string buffer, float labelWidth, float min = 0, float max = float.MaxValue)
         {
             Rect labelRect = rect;
             labelRect.width = labelWidth;
@@ -145,7 +149,7 @@ namespace Multiplayer.Client
             Text.Anchor = TextAnchor.MiddleRight;
             Widgets.Label(labelRect, label);
             Text.Anchor = anchor;
-            Widgets.TextFieldNumeric(fieldRect, ref val, ref buffer);
+            Widgets.TextFieldNumeric(fieldRect, ref val, ref buffer, min, max);
         }
 
         public override void PostClose()
@@ -154,7 +158,7 @@ namespace Multiplayer.Client
                 Find.WindowStack.Add(new ServerBrowser());
         }
 
-        private void HostFromSave(IPAddress addr, int port)
+        private void HostFromSave(ServerSettings settings)
         {
             LongEventHandler.QueueLongEvent(() =>
             {
@@ -165,17 +169,17 @@ namespace Multiplayer.Client
 
                 LongEventHandler.ExecuteWhenFinished(() =>
                 {
-                    LongEventHandler.QueueLongEvent(() => ClientUtil.HostServer(addr, port, false), "MpLoading", false, null);
+                    LongEventHandler.QueueLongEvent(() => ClientUtil.HostServer(settings, false), "MpLoading", false, null);
                 });
             }, "Play", "LoadingLongEvent", true, null);
         }
 
-        private void HostFromReplay(IPAddress addr, int port)
+        private void HostFromReplay(ServerSettings settings)
         {
             Replay.LoadReplay(file.name, true, () =>
             {
                 OnMainThread.StopMultiplayer();
-                ClientUtil.HostServer(addr, port, true);
+                ClientUtil.HostServer(settings, true);
             });
         }
     }

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Net;
+using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 
@@ -37,82 +38,35 @@ namespace Multiplayer.Common
         public string hostUsername;
         public int timer;
         public ActionQueue queue = new ActionQueue();
-        public IPAddress addr;
-        public int port;
-        public int maxPlayers;
+        public ServerSettings settings;
 
         public volatile bool running = true;
-        public volatile bool allowLan;
 
         private Dictionary<string, ChatCmdHandler> chatCmds = new Dictionary<string, ChatCmdHandler>();
 
         public int keepAliveId;
         public Stopwatch lastKeepAlive = Stopwatch.StartNew();
 
-        private NetManager server;
+        private NetManager netManager;
 
         public int nextUniqueId;
 
-        public MultiplayerServer(IPAddress addr, int port)
+        public int LocalPort => netManager.LocalPort;
+
+        public MultiplayerServer(ServerSettings settings)
         {
-            this.addr = addr;
-            this.port = port;
+            this.settings = settings;
 
             RegisterChatCmd("autosave", new ChatCmdAutosave());
             RegisterChatCmd("kick", new ChatCmdKick());
 
-            StartNet();
-        }
-
-        private void StartNet()
-        {
-            EventBasedNetListener listener = new EventBasedNetListener();
-            server = new NetManager(listener);
-
-            listener.ConnectionRequestEvent += AcceptNet;
-
-            listener.PeerConnectedEvent += peer =>
-            {
-                IConnection conn = new MpNetConnection(peer);
-                conn.State = ConnectionStateEnum.ServerJoining;
-                peer.Tag = conn;
-                OnConnected(conn);
-            };
-
-            listener.PeerDisconnectedEvent += (peer, info) =>
-            {
-                IConnection conn = peer.GetConnection();
-                OnDisconnected(conn);
-            };
-
-            listener.NetworkLatencyUpdateEvent += (peer, ping) =>
-            {
-                peer.GetConnection().Latency = ping;
-            };
-
-            listener.NetworkReceiveEvent += (peer, reader, method) =>
-            {
-                byte[] data = reader.GetRemainingBytes();
-                peer.GetConnection().serverPlayer.HandleReceive(data, method == DeliveryMethod.ReliableOrdered);
-            };
-        }
-
-        private void AcceptNet(ConnectionRequest req)
-        {
-            if (maxPlayers > 0 && players.Count >= maxPlayers)
-            {
-                var writer = new ByteWriter();
-                writer.WriteString("Server is full");
-                req.Reject(writer.GetArray());
-                return;
-            }
-
-            req.Accept();
+            if (settings.direct || settings.lan)
+                netManager = new NetManager(new MpNetListener(this));
         }
 
         public void StartListening()
         {
-            server.Start(addr, IPAddress.IPv6Any, port);
+            netManager?.Start(settings.address, IPAddress.IPv6Any, settings.port);
         }
 
         public void Run()
@@ -142,24 +96,27 @@ namespace Multiplayer.Common
         private void Stop()
         {
             SendToAll(Packets.Server_DisconnectReason, new[] { "MpServerClosed" });
-            foreach (var peer in server.GetPeers(ConnectionState.Connected))
-                peer.Flush();
 
-            server.Stop();
+            if (netManager != null)
+            {
+                foreach (var peer in netManager.GetPeers(ConnectionState.Connected))
+                    peer.Flush();
+                netManager.Stop();
+            }
 
             instance = null;
         }
 
         public void Tick()
         {
-            server.PollEvents();
+            netManager?.PollEvents();
             queue.RunQueue();
 
             if (timer % 3 == 0)
                 SendToAll(Packets.Server_TimeControl, new object[] { timer });
 
-            if (allowLan && timer % 60 == 0)
-                server.SendDiscoveryRequest(Encoding.UTF8.GetBytes("mp-server"), 5100);
+            if (settings.lan && timer % 60 == 0)
+                netManager.SendDiscoveryRequest(Encoding.UTF8.GetBytes("mp-server"), 5100);
 
             timer++;
 
@@ -220,6 +177,8 @@ namespace Multiplayer.Common
                 }
 
                 SendNotification("MpPlayerDisconnected", conn.username);
+                SendChat($"{conn.username} has left.");
+
                 SendToAll(Packets.Server_PlayerList, new object[] { (byte)PlayerListAction.Remove, player.id });
             }
 
@@ -303,6 +262,74 @@ namespace Multiplayer.Common
             chatCmds.TryGetValue(cmdName, out ChatCmdHandler handler);
             return handler;
         }
+    }
+
+    public class MpNetListener : INetEventListener
+    {
+        private MultiplayerServer server;
+
+        public MpNetListener(MultiplayerServer server)
+        {
+            this.server = server;
+        }
+
+        public void OnConnectionRequest(ConnectionRequest req)
+        {
+            if (server.settings.maxPlayers > 0 && server.players.Count >= server.settings.maxPlayers)
+            {
+                var writer = new ByteWriter();
+                writer.WriteString("Server is full");
+                req.Reject(writer.GetArray());
+                return;
+            }
+
+            req.Accept();
+        }
+
+        public void OnPeerConnected(NetPeer peer)
+        {
+            IConnection conn = new MpNetConnection(peer);
+            conn.State = ConnectionStateEnum.ServerJoining;
+            peer.Tag = conn;
+            server.OnConnected(conn);
+        }
+
+        public void OnPeerDisconnected(NetPeer peer, DisconnectInfo disconnectInfo)
+        {
+            IConnection conn = peer.GetConnection();
+            server.OnDisconnected(conn);
+        }
+
+        public void OnNetworkLatencyUpdate(NetPeer peer, int latency)
+        {
+            peer.GetConnection().Latency = latency;
+        }
+
+        public void OnNetworkReceive(NetPeer peer, NetPacketReader reader, DeliveryMethod method)
+        {
+            byte[] data = reader.GetRemainingBytes();
+            peer.GetConnection().serverPlayer.HandleReceive(data, method == DeliveryMethod.ReliableOrdered);
+        }
+
+        public void OnNetworkError(IPEndPoint endPoint, SocketError socketError)
+        {
+        }
+
+        public void OnNetworkReceiveUnconnected(IPEndPoint remoteEndPoint, NetPacketReader reader, UnconnectedMessageType messageType)
+        {
+        }
+    }
+
+    public class ServerSettings
+    {
+        public string gameName;
+        public IPAddress address;
+        public int port;
+        public int maxPlayers = 8;
+        public int autosaveInterval = 8;
+        public bool direct;
+        public bool lan;
+        public bool steam;
     }
 
     public class ServerPlayer

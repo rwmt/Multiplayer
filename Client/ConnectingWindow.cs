@@ -88,4 +88,43 @@ namespace Multiplayer.Client
             host = SteamFriends.GetFriendPersonaName(hostId);
         }
     }
+
+    public class DisconnectedWindow : Window
+    {
+        public override Vector2 InitialSize => new Vector2(300f, 150f);
+
+        private string reason;
+
+        public DisconnectedWindow(string reason)
+        {
+            this.reason = reason;
+
+            closeOnAccept = false;
+            closeOnCancel = false;
+            closeOnClickedOutside = false;
+            forcePause = true;
+            absorbInputAroundWindow = true;
+        }
+
+        public override void DoWindowContents(Rect inRect)
+        {
+            const float ButtonWidth = 140f;
+            const float ButtonHeight = 40f;
+
+            Text.Font = GameFont.Small;
+
+            Text.Anchor = TextAnchor.MiddleCenter;
+            Rect labelRect = inRect;
+            labelRect.yMax -= ButtonHeight;
+            Widgets.Label(labelRect, reason);
+            Text.Anchor = TextAnchor.UpperLeft;
+
+            Rect buttonRect = new Rect((inRect.width - ButtonWidth) / 2f, inRect.height - ButtonHeight - 10f, ButtonWidth, ButtonHeight);
+            if (Widgets.ButtonText(buttonRect, "Quit to main menu", true, false, true))
+            {
+                GenScene.GoToMainMenu();
+            }
+        }
+    }
+
 }

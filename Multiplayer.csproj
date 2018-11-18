@@ -46,6 +46,19 @@
       <HintPath>..\..\..\..\0Harmony.dll</HintPath>
       <Private>True</Private>
     </Reference>
+    <Reference Include="1LiteNetLib, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\..\1LiteNetLib.dll</HintPath>
+    </Reference>
+    <Reference Include="4Ionic.Zip.Reduced, Version=1.9.1.8, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\..\4Ionic.Zip.Reduced.dll</HintPath>
+      <Aliases>zip</Aliases>
+    </Reference>
+    <Reference Include="5dnlib, Version=3.0.0.0, Culture=neutral, PublicKeyToken=50e96378b6e77999, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\..\5dnlib.dll</HintPath>
+    </Reference>
     <Reference Include="Assembly-CSharp-firstpass">
       <HintPath>..\..\..\..\RimWorldWin64_Data\Managed\Assembly-CSharp-firstpass.dll</HintPath>
       <Private>False</Private>
@@ -53,19 +66,6 @@
     <Reference Include="Assembly-CSharp_public">
       <HintPath>..\..\..\..\RimWorldWin64_Data\Managed\Assembly-CSharp_public.dll</HintPath>
       <Private>False</Private>
-    </Reference>
-    <Reference Include="dnlib, Version=3.0.0.0, Culture=neutral, PublicKeyToken=50e96378b6e77999, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\..\..\dnlib.dll</HintPath>
-    </Reference>
-    <Reference Include="Ionic.Zip.Reduced, Version=1.9.1.8, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c, processorArchitecture=MSIL">
-      <HintPath>packages\DotNetZip.Reduced.1.9.1.8\lib\net20\Ionic.Zip.Reduced.dll</HintPath>
-      <Aliases>zip</Aliases>
-    </Reference>
-    <Reference Include="LiteNetLib, Version=0.7.193.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\Assemblies\LiteNetLib.dll</HintPath>
-      <Private>True</Private>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Xml" />
@@ -122,11 +122,9 @@
     <Compile Include="Common\Networking.cs" />
     <Compile Include="Client\Patches.cs" />
     <Compile Include="Common\Packets.cs" />
+    <Compile Include="Common\Version.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Client\Multiplayer.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>

@@ -102,20 +102,32 @@ namespace Multiplayer.Client
                 {
                     optList.Insert(0, new ListableOption("Save replay", () =>
                     {
-                        //Replay.ForSaving("TestReplay").WriteCurrentData();
-                        SimpleProfiler.Print("main_loop");
-                        SimpleProfiler.Init("");
+                        Find.WindowStack.Add(new Dialog_SaveReplay());
                     }));
 
                     optList.RemoveAll(opt => opt.label == "Save".Translate() || opt.label == "LoadGame".Translate());
 
                     optList.Find(opt => opt.label == "QuitToMainMenu".Translate()).action = () =>
                     {
-                        OnMainThread.StopMultiplayer();
-                        GenScene.GoToMainMenu();
+                        Action action = () =>
+                        {
+                            OnMainThread.StopMultiplayer();
+                            GenScene.GoToMainMenu();
+                        };
+
+                        if (Multiplayer.LocalServer != null)
+                            Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation("Are you sure you want to close the server?", action, true));
+                        else
+                            action();
                     };
 
-                    optList.Find(opt => opt.label == "QuitToOS".Translate()).action = () => Root.Shutdown();
+                    optList.Find(opt => opt.label == "QuitToOS".Translate()).action = () =>
+                    {
+                        if (Multiplayer.LocalServer != null)
+                            Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation("Are you sure you want to close the server?", () => Root.Shutdown(), true));
+                        else
+                            Root.Shutdown();
+                    };
                 }
             }
         }
@@ -355,7 +367,7 @@ namespace Multiplayer.Client
 
             if (Prefs.DevMode && Multiplayer.Client != null)
             {
-                int timerLag = (TickPatch.tickUntil - (int)TickPatch.Timer);
+                int timerLag = (TickPatch.tickUntil - TickPatch.Timer);
                 string text = $"{Find.TickManager.TicksGame} {TickPatch.Timer} {TickPatch.tickUntil} {timerLag} {Time.deltaTime * 60f}";
                 Rect rect = new Rect(80f, 60f, 330f, Text.CalcHeight(text, 330f));
                 Widgets.Label(rect, text);
@@ -405,10 +417,10 @@ namespace Multiplayer.Client
             float x = 10f;
             const float width = 60f;
 
-            if (Multiplayer.Chat != null && !Multiplayer.IsReplay)
+            if (Multiplayer.session != null && !Multiplayer.IsReplay)
             {
-                if (Widgets.ButtonText(new Rect(Screen.width - width - 10f, x, width, 25f), $"Chat{(Multiplayer.Chat.hasUnread ? "*" : "")}"))
-                    Find.WindowStack.Add(Multiplayer.Chat);
+                if (Widgets.ButtonText(new Rect(Screen.width - width - 10f, x, width, 25f), $"Chat{(Multiplayer.session.hasUnread ? "*" : "")}"))
+                    Find.WindowStack.Add(new ChatWindow());
                 x += 25f;
             }
 
@@ -464,7 +476,7 @@ namespace Multiplayer.Client
                     Event.current.Use();
 
                 // Drawing directly so there's no delay between the mouseover and showing
-                ActiveTip tip = new ActiveTip($"Tick {mouseTimer}\nETA "); // todo eta
+                ActiveTip tip = new ActiveTip(new TipSignal($"Tick {mouseTimer}\nETA ", 215462143)); // todo eta
                 tip.DrawTooltip(GenUI.GetMouseAttachedWindowPos(tip.TipRect.x, tip.TipRect.y));
             }
 
@@ -492,7 +504,7 @@ namespace Multiplayer.Client
 
             if (Multiplayer.IsReplay && Event.current.type == EventType.KeyUp && Event.current.keyCode == KeyCode.Escape)
             {
-                TickPatch.EndSkipping();
+                TickPatch.ClearSkipping();
                 Event.current.Use();
             }
 
@@ -502,7 +514,6 @@ namespace Multiplayer.Client
                 Text.Font = GameFont.Small;
                 Widgets.Label(rect.AtZero(), text);
                 Text.Anchor = TextAnchor.UpperLeft;
-
             }, absorbInputAroundWindow: true);
         }
     }
@@ -1601,11 +1612,12 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(Targeter), nameof(Targeter.TargeterOnGUI))]
+    [HotSwappable]
     static class DrawPlayerCursors
     {
         static void Postfix()
         {
-            if (Multiplayer.Client == null) return;
+            if (Multiplayer.Client == null || !MultiplayerMod.settings.showCursors) return;
 
             var curMap = Find.CurrentMap.Index;
 
@@ -1615,7 +1627,7 @@ namespace Multiplayer.Client
                 if (player.map != curMap) continue;
 
                 GUI.color = new Color(1, 1, 1, 0.5f);
-                var pos = Vector3.Lerp(player.lastCursor, player.cursor, (float)(Multiplayer.Time.ElapsedMillisDouble() - player.updatedAt) / (float)player.lastDelta).MapToUIPosition();
+                var pos = Vector3.Lerp(player.lastCursor, player.cursor, (float)(Multiplayer.Time.ElapsedMillisDouble() - player.updatedAt) / 50f).MapToUIPosition();
 
                 var icon = Multiplayer.icons.ElementAtOrDefault(player.cursorIcon);
                 var drawIcon = icon ?? CustomCursor.CursorTex;

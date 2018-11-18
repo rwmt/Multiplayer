@@ -32,7 +32,7 @@ namespace Multiplayer.Client
                 conn.State = ConnectionStateEnum.ClientJoining;
                 Multiplayer.session.client = conn;
 
-                ConnectionStatusListeners.All.Do(a => a.Connected());
+                ConnectionStatusListeners.TryNotifyAll_Connected();
 
                 MpLog.Log("Client connected");
             };
@@ -54,7 +54,7 @@ namespace Multiplayer.Client
 
                 Multiplayer.session.disconnectNetReason = reason;
 
-                ConnectionStatusListeners.All.Do(a => a.Disconnected());
+                ConnectionStatusListeners.TryNotifyAll_Disconnected();
 
                 OnMainThread.StopMultiplayer();
                 MpLog.Log("Client disconnected");
@@ -77,15 +77,15 @@ namespace Multiplayer.Client
                 case DisconnectReason.ConnectionFailed: return "Connection failed";
                 case DisconnectReason.ConnectionRejected: return "Connection rejected";
                 case DisconnectReason.Timeout: return "Timed out";
-                case DisconnectReason.SocketSendError: return "Socket send error";
-                case DisconnectReason.SocketReceiveError: return "Socket receive error";
+                case DisconnectReason.HostUnreachable: return "Host unreachable";
+                case DisconnectReason.InvalidProtocol: return "Invalid library protocol";
                 default: return "Disconnected";
             }
         }
 
-        public static void HostServer(IPAddress addr, int port, bool replay)
+        public static void HostServer(ServerSettings settings, bool replay)
         {
-            Log.Message($"Starting a server at {addr}:{port}");
+            Log.Message($"Starting a server at {settings.address}:{settings.port}");
 
             MultiplayerWorldComp comp = Find.World.GetComponent<MultiplayerWorldComp>();
             Faction dummyFaction = Find.FactionManager.AllFactions.FirstOrDefault(f => f.loadID == -1);
@@ -106,12 +106,13 @@ namespace Multiplayer.Client
             Faction.OfPlayer.Name = $"{Multiplayer.username}'s faction";
             comp.factionData[Faction.OfPlayer.loadID] = FactionWorldData.FromCurrent();
 
-            MultiplayerSession session = Multiplayer.session = new MultiplayerSession();
+            var session = Multiplayer.session = new MultiplayerSession();
             session.myFactionId = Faction.OfPlayer.loadID;
+            session.localSettings = settings;
+            session.gameName = settings.gameName;
 
-            MultiplayerServer localServer = new MultiplayerServer(addr, port);
+            var localServer = new MultiplayerServer(settings);
             localServer.hostUsername = Multiplayer.username;
-            localServer.allowLan = true;
             localServer.coopFactionId = Faction.OfPlayer.loadID;
 
             if (replay)
@@ -163,7 +164,6 @@ namespace Multiplayer.Client
             SetupLocalClient();
 
             Find.MainTabsRoot.EscapeCurrentTab(false);
-            session.chat = new ChatWindow();
 
             LongEventHandler.QueueLongEvent(() =>
             {
@@ -177,7 +177,10 @@ namespace Multiplayer.Client
                 };
                 session.serverThread.Start();
 
-                Messages.Message("Server started. Listening at " + addr.ToString() + ":" + MultiplayerServer.DefaultPort, MessageTypeDefOf.SilentInput, false);
+                string text = "Server started.";
+                if (settings.direct || settings.lan)
+                    text += $" Listening at {settings.address}:{localServer.LocalPort}";
+                Messages.Message(text, MessageTypeDefOf.SilentInput, false);
             }, "MpSaving", false, null);
         }
 

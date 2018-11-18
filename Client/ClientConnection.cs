@@ -21,6 +21,14 @@ namespace Multiplayer.Client
     {
         public ClientJoiningState(IConnection connection) : base(connection)
         {
+            connection.Send(Packets.Client_Defs, MpVersion.Protocol);
+        }
+
+        [PacketHandler(Packets.Server_DefsOK)]
+        public void HandleDefsOK(ByteReader data)
+        {
+            Multiplayer.session.gameName = data.ReadString();
+
             connection.Send(Packets.Client_Username, Multiplayer.username);
             connection.Send(Packets.Client_RequestWorld);
         }
@@ -221,7 +229,7 @@ namespace Multiplayer.Client
         public void HandleChat(ByteReader data)
         {
             string msg = data.ReadString();
-            Multiplayer.Chat.AddMsg(msg);
+            Multiplayer.session.AddMsg(msg);
         }
 
         [PacketHandler(Packets.Server_Cursor)]
@@ -298,6 +306,7 @@ namespace Multiplayer.Client
 
         public void Disconnected()
         {
+            Find.WindowStack.windows.Clear();
             Find.WindowStack.Add(new DisconnectedWindow(Multiplayer.session.disconnectServerReason ?? Multiplayer.session.disconnectNetReason));
         }
     }
@@ -323,40 +332,6 @@ namespace Multiplayer.Client
         }
     }
 
-    public class DisconnectedWindow : Window
-    {
-        public override Vector2 InitialSize => new Vector2(300f, 150f);
-
-        private string reason;
-
-        public DisconnectedWindow(string reason)
-        {
-            this.reason = reason;
-            forcePause = true;
-            absorbInputAroundWindow = true;
-        }
-
-        public override void DoWindowContents(Rect inRect)
-        {
-            const float ButtonWidth = 140f;
-            const float ButtonHeight = 40f;
-
-            Text.Font = GameFont.Small;
-
-            Text.Anchor = TextAnchor.MiddleCenter;
-            Rect labelRect = inRect;
-            labelRect.yMax -= ButtonHeight;
-            Widgets.Label(labelRect, reason);
-            Text.Anchor = TextAnchor.UpperLeft;
-
-            Rect buttonRect = new Rect((inRect.width - ButtonWidth) / 2f, inRect.height - ButtonHeight - 10f, ButtonWidth, ButtonHeight);
-            if (Widgets.ButtonText(buttonRect, "Quit to main menu", true, false, true))
-            {
-                GenScene.GoToMainMenu();
-            }
-        }
-    }
-
     public interface IConnectionStatusListener
     {
         void Connected();
@@ -365,17 +340,47 @@ namespace Multiplayer.Client
 
     public static class ConnectionStatusListeners
     {
-        public static IEnumerable<IConnectionStatusListener> All
+        private static IEnumerable<IConnectionStatusListener> All
         {
             get
             {
                 if (Find.WindowStack != null)
-                    foreach (Window window in Find.WindowStack.Windows)
+                    foreach (Window window in Find.WindowStack.Windows.ToList())
                         if (window is IConnectionStatusListener listener)
                             yield return listener;
 
                 if (Multiplayer.Client?.StateObj is IConnectionStatusListener state)
                     yield return state;
+            }
+        }
+
+        public static void TryNotifyAll_Connected()
+        {
+            foreach (var listener in All)
+            {
+                try
+                {
+                    listener.Connected();
+                }
+                catch (Exception e)
+                {
+                    Log.Error(e.ToString());
+                }
+            }
+        }
+
+        public static void TryNotifyAll_Disconnected()
+        {
+            foreach (var listener in All)
+            {
+                try
+                {
+                    listener.Disconnected();
+                }
+                catch (Exception e)
+                {
+                    Log.Error(e.ToString());
+                }
             }
         }
     }

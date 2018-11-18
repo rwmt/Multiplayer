@@ -14,6 +14,7 @@ using System.IO;
 using System.IO.Pipes;
 using System.Linq;
 using System.Net;
+using System.Net.Sockets;
 using System.Reflection;
 using System.Threading;
 using System.Xml;
@@ -28,19 +29,16 @@ namespace Multiplayer.Client
     [StaticConstructorOnStartup]
     public static class Multiplayer
     {
-        public static readonly int ProtocolVersion = 1;
-
         public static MultiplayerSession session;
         public static MultiplayerGame game;
 
         public static IConnection Client => session?.client;
         public static MultiplayerServer LocalServer => session?.localServer;
-        public static ChatWindow Chat => session?.chat;
         public static PacketLogWindow PacketLog => session?.packetLog;
         public static bool IsReplay => session?.replay ?? false;
 
         public static string username;
-        public static HarmonyInstance harmony => MultiplayerModInstance.harmony;
+        public static HarmonyInstance harmony => MultiplayerMod.harmony;
 
         public static bool reloading;
 
@@ -92,6 +90,8 @@ namespace Multiplayer.Client
                 username = SteamUtility.SteamPersonaName;
             if (username == "???")
                 username = "Player" + Rand.Range(0, 9999);
+
+            //Log.Message("Supports ipv6" + Socket.SupportsIPv6 + " " + Socket.OSSupportsIPv6);
 
             SimpleProfiler.Init(username);
 
@@ -172,7 +172,7 @@ namespace Multiplayer.Client
                 if (Client is SteamConnection clientConn && clientConn.remoteId == remoteId)
                 {
                     session.disconnectNetReason = error == EP2PSessionError.k_EP2PSessionErrorTimeout ? "Connection timed out" : "Connection error";
-                    ConnectionStatusListeners.All.Do(a => a.Disconnected());
+                    ConnectionStatusListeners.TryNotifyAll_Disconnected();
                     OnMainThread.StopMultiplayer();
                 }
 
@@ -539,9 +539,10 @@ namespace Multiplayer.Client
 
     public class MultiplayerSession
     {
+        public string gameName;
+
         public IConnection client;
         public NetManager netClient;
-        public ChatWindow chat = new ChatWindow();
         public PacketLogWindow packetLog = new PacketLogWindow();
         public int myFactionId;
         public List<PlayerInfo> players = new List<PlayerInfo>();
@@ -550,14 +551,21 @@ namespace Multiplayer.Client
         public int replayTimerStart = -1;
         public int replayTimerEnd = -1;
 
+        public bool desynced;
+
         public string disconnectNetReason;
         public string disconnectServerReason;
 
         public bool allowSteam;
         public List<CSteamID> pendingSteam = new List<CSteamID>();
 
+        public const int MaxMessages = 200;
+        public List<ChatMsg> messages = new List<ChatMsg>();
+        public bool hasUnread;
+
         public MultiplayerServer localServer;
         public Thread serverThread;
+        public ServerSettings localSettings;
 
         public void Stop()
         {
@@ -579,6 +587,25 @@ namespace Multiplayer.Client
         public PlayerInfo GetPlayerInfo(int id)
         {
             return players.FirstOrDefault(p => p.id == id);
+        }
+
+        public void AddMsg(string msg)
+        {
+            AddMsg(new ChatMsg_Text(msg, DateTime.Now));
+        }
+
+        public void AddMsg(ChatMsg msg)
+        {
+            var window = Find.WindowStack.WindowOfType<ChatWindow>();
+            if (window == null)
+                hasUnread = true;
+            else
+                window.OnChatReceived();
+
+            messages.Add(msg);
+
+            if (messages.Count > MaxMessages)
+                messages.RemoveAt(0);
         }
     }
 
@@ -698,15 +725,19 @@ namespace Multiplayer.Client
         }
     }
 
-    public class MultiplayerModInstance : Mod
+    [HotSwappable]
+    public class MultiplayerMod : Mod
     {
         public static HarmonyInstance harmony = HarmonyInstance.Create("multiplayer");
+        public static MpSettings settings;
 
-        public MultiplayerModInstance(ModContentPack pack) : base(pack)
+        public MultiplayerMod(ModContentPack pack) : base(pack)
         {
             EarlyMarkNoInline();
             EarlyPatches();
             EarlyInit();
+
+            settings = GetSettings<MpSettings>();
         }
 
         private void EarlyMarkNoInline()
@@ -753,11 +784,27 @@ namespace Multiplayer.Client
 
         public override void DoSettingsWindowContents(Rect inRect)
         {
+            var listing = new Listing_Standard();
+            listing.Begin(inRect);
+            listing.ColumnWidth = 200f;
+            listing.CheckboxLabeled("Show cursors", ref settings.showCursors);
+            listing.End();
         }
 
         public override string SettingsCategory() => "Multiplayer";
     }
 
+    public class MpSettings : ModSettings
+    {
+        public bool showCursors = true;
+
+        public override void ExposeData()
+        {
+            Scribe_Values.Look(ref showCursors, "showCursors", true);
+        }
+    }
+
+    [HotSwappable]
     public class OnMainThread : MonoBehaviour
     {
         public static ActionQueue queue = new ActionQueue();
@@ -782,11 +829,15 @@ namespace Multiplayer.Client
 
             UpdateSync();
 
-            if (Application.isFocused && Time.frameCount % 3 == 0)
+            if (Application.isFocused && Time.realtimeSinceStartup - lastCursorSend > 0.05f)
+            {
+                lastCursorSend = Time.realtimeSinceStartup;
                 SendCursor();
+            }
         }
 
         private byte cursorSeq;
+        private float lastCursorSend;
 
         private void SendCursor()
         {
@@ -917,7 +968,10 @@ namespace Multiplayer.Client
                 Multiplayer.session = null;
             }
 
-            TickPatch.EndSkipping();
+            TickPatch.ClearSkipping();
+            TickPatch.Timer = 0;
+            TickPatch.tickUntil = 0;
+            TickPatch.accumulator = 0;
 
             Find.WindowStack?.WindowOfType<ServerBrowser>()?.Cleanup(true);
 

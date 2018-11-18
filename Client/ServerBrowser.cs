@@ -17,7 +17,6 @@ using Verse.Steam;
 namespace Multiplayer.Client
 {
     [StaticConstructorOnStartup]
-    [HotSwappable]
     public class ServerBrowser : Window
     {
         private NetManager net;
@@ -30,6 +29,8 @@ namespace Multiplayer.Client
             EventBasedNetListener listener = new EventBasedNetListener();
             listener.NetworkReceiveUnconnectedEvent += (endpoint, data, type) =>
             {
+                Log.Message("receive lan");
+
                 if (type != UnconnectedMessageType.DiscoveryRequest) return;
 
                 string s = Encoding.UTF8.GetString(data.GetRemainingBytes());

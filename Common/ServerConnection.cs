@@ -16,9 +16,25 @@ namespace Multiplayer.Common
         {
         }
 
+        [PacketHandler(Packets.Client_Defs)]
+        public void HandleDefs(ByteReader data)
+        {
+            int clientProtocol = data.ReadInt32();
+            if (clientProtocol != MpVersion.Protocol)
+            {
+                Player.Disconnect("MpWrongProtocol");
+                return;
+            }
+
+            connection.Send(Packets.Server_DefsOK, Server.settings.gameName);
+        }
+
         [PacketHandler(Packets.Client_Username)]
         public void HandleClientUsername(ByteReader data)
         {
+            if (connection.username != null && connection.username.Length != 0)
+                return;
+
             string username = data.ReadString();
 
             if (username.Length < 3 || username.Length > 15)
@@ -41,7 +57,8 @@ namespace Multiplayer.Common
 
             connection.username = username;
 
-            Server.SendNotification("MpPlayerConnected", connection.username);
+            Server.SendNotification("MpPlayerConnected", Player.Username);
+            Server.SendChat($"{Player.Username} has joined.");
 
             var writer = new ByteWriter();
             writer.WriteByte((byte)PlayerListAction.Add);

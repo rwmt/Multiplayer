@@ -46,6 +46,7 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.Client == null) return true;
             if (LongEventHandler.currentEvent != null) return false;
+            if (Multiplayer.session.desynced) return false;
 
             double delta = Time.deltaTime * 60.0;
             if (delta > 3)
@@ -65,7 +66,10 @@ namespace Multiplayer.Client
                 skipTo = tickUntil;
 
             if (skipTo >= 0 && Timer >= skipTo)
-                EndSkipping();
+            {
+                afterSkip?.Invoke();
+                ClearSkipping();
+            }
 
             SimpleProfiler.Start();
             Tick();
@@ -74,12 +78,11 @@ namespace Multiplayer.Client
             return false;
         }
 
-        public static void EndSkipping()
+        public static void ClearSkipping()
         {
             skipTo = -1;
             skipToTickUntil = false;
             accumulator = 0;
-            afterSkip?.Invoke();
             afterSkip = null;
         }
 
@@ -783,7 +786,7 @@ namespace Multiplayer.Client
             CommandType cmdType = cmd.type;
 
             executingCmdMap = map;
-            TickPatch.currentExecutingCmdIssuedBySelf = cmd.issuedBySelf;
+            TickPatch.currentExecutingCmdIssuedBySelf = cmd.issuedBySelf && TickPatch.skipTo < 0;
 
             CurrentMapGetPatch.currentMap = map;
             CurrentMapSetPatch.ignore = true;
@@ -1050,16 +1053,22 @@ namespace Multiplayer.Client
                 {
                     buffer.Add(info);
                 }
-                else
+                else if (buffer.First().startTick == info.startTick)
                 {
                     var error = buffer.RemoveFirst().Compare(info);
                     if (error != null)
-                    {
-                        Multiplayer.Client.Send(Packets.Client_Desynced);
-                        Log.Message(error);
-                    }
+                        OnDesynced();
                 }
             }
+        }
+
+        private void OnDesynced()
+        {
+            Multiplayer.Client.Send(Packets.Client_Desynced);
+            Multiplayer.session.desynced = true;
+
+            Find.WindowStack.windows.Clear();
+            Find.WindowStack.Add(new DesyncedWindow());
         }
 
         public void TryAddCmd(ulong state)

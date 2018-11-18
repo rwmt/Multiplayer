@@ -188,7 +188,7 @@ namespace Multiplayer.Client
             ByteReader data = new ByteReader(cmd.data);
 
             executingCmdWorld = true;
-            TickPatch.currentExecutingCmdIssuedBySelf = cmd.issuedBySelf;
+            TickPatch.currentExecutingCmdIssuedBySelf = cmd.issuedBySelf && TickPatch.skipTo < 0;
 
             PreContext();
             FactionContext.Push(cmd.GetFaction());

@@ -13,7 +13,6 @@ namespace Multiplayer.Client
     [StaticConstructorOnStartup]
     public class ChatWindow : Window
     {
-        public const int MaxMessages = 200;
         public override Vector2 InitialSize => new Vector2(UI.screenWidth / 2f, UI.screenHeight / 2f);
 
         private static readonly Texture2D SelectedMsg = SolidColorMaterials.NewSolidColorTexture(new Color(0.17f, 0.17f, 0.17f, 0.85f));
@@ -22,11 +21,8 @@ namespace Multiplayer.Client
         private Vector2 playerListScroll;
         private Vector2 steamScroll;
         private float messagesHeight;
-        private List<ChatMsg> messages = new List<ChatMsg>();
         private string currentMsg = "";
         private bool hasBeenFocused;
-
-        public bool hasUnread;
 
         public ChatWindow()
         {
@@ -39,11 +35,12 @@ namespace Multiplayer.Client
             closeOnClickedOutside = false;
             closeOnAccept = false;
             resizeable = true;
+            onlyOneOfTypeAllowed = true;
         }
 
         public override void DoWindowContents(Rect inRect)
         {
-            hasUnread = false;
+            Multiplayer.session.hasUnread = false;
 
             Text.Font = GameFont.Small;
 
@@ -121,9 +118,9 @@ namespace Multiplayer.Client
                 Rect optionsRect = new Rect(inRect.width, inRect.yMax - height, 0, height);
                 optionsRect.xMin -= Text.CalcSize(label).x + 24f + 10f;
 
-                bool allowLan = Multiplayer.LocalServer.allowLan;
-                Widgets.CheckboxLabeled(optionsRect, label, ref allowLan);
-                Multiplayer.LocalServer.allowLan = allowLan;
+                //bool allowLan = Multiplayer.LocalServer.allowLan;
+                //Widgets.CheckboxLabeled(optionsRect, label, ref allowLan);
+                //Multiplayer.LocalServer.allowLan = allowLan;
 
                 inRect.yMax -= 20;
             }
@@ -235,7 +232,7 @@ namespace Multiplayer.Client
 
             int i = 0;
 
-            foreach (ChatMsg msg in messages)
+            foreach (ChatMsg msg in Multiplayer.session.messages)
             {
                 float height = Text.CalcHeight(msg.Msg, width);
                 float textWidth = Text.CalcSize(msg.Msg).x + 15;
@@ -301,28 +298,15 @@ namespace Multiplayer.Client
             if (currentMsg.NullOrEmpty()) return;
 
             if (Multiplayer.Client == null)
-                AddMsg(Multiplayer.username + ": " + currentMsg);
+                Multiplayer.session.AddMsg(Multiplayer.username + ": " + currentMsg);
             else
                 Multiplayer.Client.Send(Packets.Client_Chat, currentMsg);
 
             currentMsg = "";
         }
 
-        public void AddMsg(string msg)
+        public void OnChatReceived()
         {
-            AddMsg(new ChatMsg_Text(msg, DateTime.Now));
-        }
-
-        public void AddMsg(ChatMsg msg)
-        {
-            if (!Find.WindowStack.IsOpen<ChatWindow>())
-                hasUnread = true;
-
-            messages.Add(msg);
-
-            if (messages.Count > MaxMessages)
-                messages.RemoveAt(0);
-
             chatScroll.y = messagesHeight;
         }
     }

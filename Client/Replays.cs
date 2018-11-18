@@ -22,7 +22,8 @@ namespace Multiplayer.Client
             this.fileName = fileName;
         }
 
-        private ZipFile ZipFile => new ZipFile(Path.Combine(Multiplayer.ReplaysDir, $"{fileName}.zip"));
+        private string FilePath => Path.Combine(Multiplayer.ReplaysDir, $"{fileName}.zip");
+        private ZipFile ZipFile => new ZipFile(FilePath);
 
         public void WriteCurrentData()
         {
@@ -128,7 +129,7 @@ namespace Multiplayer.Client
         public static Replay ForSaving(string fileName)
         {
             var replay = new Replay(fileName);
-            replay.info.name = $"{Multiplayer.username}'s {Find.World.info.name}";
+            replay.info.name = Multiplayer.session.gameName;
             replay.info.playerFaction = Multiplayer.session.myFactionId;
 
             return replay;
