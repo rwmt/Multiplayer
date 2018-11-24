@@ -7,19 +7,8 @@ namespace Multiplayer.Common
         public static Action<string> info;
         public static Action<string> error;
 
-        public static void Log(string s, params object[] args)
+        public static void Log(string s)
         {
-            s = String.Format(s, args);
-
-            if (info != null)
-                info(s);
-            else
-                Console.WriteLine(s);
-        }
-
-        public static void LogLines(params string[] arr)
-        {
-            string s = String.Join("\n", arr);
             if (info != null)
                 info(s);
             else

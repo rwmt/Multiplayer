@@ -281,17 +281,17 @@ namespace Multiplayer.Client
         [PacketHandler(Packets.Server_Notification)]
         public void HandleNotification(ByteReader data)
         {
-            string msg = data.ReadString();
-            string[] keys = data.ReadPrefixedStrings();
-
-            Messages.Message(msg, MessageTypeDefOf.SilentInput, false);
+            string key = data.ReadString();
+            string[] args = data.ReadPrefixedStrings();
+            
+            Messages.Message(key.Translate(Array.ConvertAll(args, s => (NamedArgument)s)), MessageTypeDefOf.SilentInput, false);
         }
 
         [PacketHandler(Packets.Server_DisconnectReason)]
         public void HandleDisconnectReason(ByteReader data)
         {
-            string reason = data.ReadString();
-            Multiplayer.session.disconnectServerReason = reason;
+            string reasonKey = data.ReadString();
+            Multiplayer.session.disconnectServerReason = reasonKey.Translate();
         }
 
         [PacketHandler(Packets.Server_SyncInfo)]

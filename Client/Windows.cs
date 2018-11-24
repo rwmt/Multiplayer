@@ -172,7 +172,7 @@ namespace Multiplayer.Client
 
             GUI.SetNextControlName("RenameField");
             string text = Widgets.TextField(new Rect(0, 25 + 15f, inRect.width, 35f), curName);
-            if (curName != text && text.Length < 30)
+            if (curName != text && text.Length < 30 || !focused)
             {
                 curName = text;
                 fileExists = new FileInfo(Path.Combine(Multiplayer.ReplaysDir, $"{curName}.zip")).Exists;

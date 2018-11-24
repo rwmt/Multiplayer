@@ -4,6 +4,7 @@ using Multiplayer.Common;
 using RimWorld;
 using Steamworks;
 using System;
+using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
@@ -167,7 +168,8 @@ namespace Multiplayer.Client
 
             LongEventHandler.QueueLongEvent(() =>
             {
-                Multiplayer.CacheAndSendGameData(Multiplayer.SaveAndReload());
+                Multiplayer.CacheGameData(Multiplayer.SaveAndReload());
+                Multiplayer.SendCurrentGameData(false);
 
                 localServer.StartListening();
 
@@ -180,12 +182,17 @@ namespace Multiplayer.Client
                 string text = "Server started.";
                 if (settings.direct || settings.lan)
                     text += $" Listening at {settings.address}:{localServer.LocalPort}";
+
                 Messages.Message(text, MessageTypeDefOf.SilentInput, false);
+                Log.Message(text);
             }, "MpSaving", false, null);
         }
 
         private static void SetupLocalClient()
         {
+            if (Multiplayer.session.localSettings.arbiter)
+                StartArbiter();
+
             LocalClientConnection localClient = new LocalClientConnection(Multiplayer.username);
             LocalServerConnection localServerConn = new LocalServerConnection(Multiplayer.username);
 
@@ -200,6 +207,16 @@ namespace Multiplayer.Client
             serverPlayer.SendPlayerList();
 
             Multiplayer.session.client = localClient;
+        }
+
+        private static void StartArbiter()
+        {
+            Multiplayer.LocalServer.SetupArbiterConnection();
+
+            Multiplayer.session.arbiter = Process.Start(
+                Process.GetCurrentProcess().MainModule.FileName,
+                $"-batchmode -nographics -arbiter -logfile arbiter_log.txt -connect=127.0.0.1:{Multiplayer.LocalServer.ArbiterPort}"
+            );
         }
 
         private static int GetMaxUniqueId()

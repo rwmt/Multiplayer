@@ -43,13 +43,13 @@ namespace Multiplayer.Common
                 return;
             }
 
-            if (!UsernamePattern.IsMatch(username))
+            if (!Player.arbiter && !UsernamePattern.IsMatch(username))
             {
                 Player.Disconnect("MpInvalidUsernameChars");
                 return;
             }
 
-            if (MultiplayerServer.instance.GetPlayer(username) != null)
+            if (Server.GetPlayer(username) != null)
             {
                 Player.Disconnect("MpInvalidUsernameAlreadyPlaying");
                 return;
@@ -196,7 +196,9 @@ namespace Multiplayer.Common
         [IsFragmented]
         public void HandleAutosavedData(ByteReader data)
         {
-            if (Player.Username != Server.hostUsername) return;
+            var arbiter = Server.PlayingPlayers.Any(p => p.arbiter);
+            if (arbiter && !Player.arbiter) return;
+            if (!arbiter && Player.Username != Server.hostUsername) return;
 
             int type = data.ReadInt32();
             byte[] compressedData = data.ReadPrefixedBytes();
@@ -278,9 +280,13 @@ namespace Multiplayer.Common
         [PacketHandler(Packets.Client_SyncInfo)]
         public void HandleDesyncCheck(ByteReader data)
         {
-            if (Player.Username != Server.hostUsername) return;
+            var arbiter = Server.PlayingPlayers.Any(p => p.arbiter);
+            if (arbiter && !Player.arbiter) return;
+            if (!arbiter && Player.Username != Server.hostUsername) return;
 
-            Server.SendToAll(Packets.Server_SyncInfo, data.ReadRaw(data.Left));
+            var raw = data.ReadRaw(data.Left);
+            foreach (var p in Server.PlayingPlayers.Where(p => !p.arbiter))
+                p.SendPacket(Packets.Server_SyncInfo, raw);
         }
     }
 

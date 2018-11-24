@@ -219,60 +219,26 @@ namespace Multiplayer.Client
 
         static bool Prefix(PrefsData __instance)
         {
-            var prefs = __instance;
-
             return
                 !initialized ||
-                customCursorEnabled != prefs.customCursorEnabled ||
-                screenWidth != prefs.screenWidth ||
-                screenHeight != prefs.screenHeight ||
-                fullscreen != prefs.fullscreen ||
-                runInBackground != prefs.runInBackground ||
-                volumeGame != prefs.volumeGame;
+                customCursorEnabled != Prefs.CustomCursorEnabled ||
+                screenWidth != Prefs.ScreenWidth ||
+                screenHeight != Prefs.ScreenHeight ||
+                fullscreen != Prefs.FullScreen ||
+                runInBackground != Prefs.RunInBackground ||
+                volumeGame != Prefs.VolumeGame;
 
         }
 
         static void Postfix(PrefsData __instance)
         {
-            var prefs = __instance;
-
             initialized = true;
-            customCursorEnabled = prefs.customCursorEnabled;
-            screenWidth = prefs.screenWidth;
-            screenHeight = prefs.screenHeight;
-            fullscreen = prefs.fullscreen;
-            runInBackground = prefs.runInBackground;
-            volumeGame = prefs.volumeGame;
-        }
-    }
-
-    [HarmonyPatch(typeof(WorldGrid), MethodType.Constructor)]
-    static class WorldGridCtorPostfix
-    {
-        static void Postfix(WorldGrid __instance)
-        {
-            WorldGridTileCenter.tileCenters = new Vector3[__instance.TilesCount];
-        }
-    }
-
-    [HarmonyPatch(typeof(WorldGrid), nameof(WorldGrid.GetTileCenter))]
-    static class WorldGridTileCenter
-    {
-        public static Vector3[] tileCenters;
-
-        static bool Prefix(int tileID)
-        {
-            return tileCenters == null || tileCenters[tileID] == default(Vector3);
-        }
-
-        static void Postfix(int tileID, ref Vector3 __result)
-        {
-            if (tileCenters == null) return;
-
-            if (__result != default(Vector3))
-                tileCenters[tileID] = __result;
-
-            __result = tileCenters[tileID];
+            customCursorEnabled = Prefs.CustomCursorEnabled;
+            screenWidth = Prefs.ScreenWidth;
+            screenHeight = Prefs.ScreenHeight;
+            fullscreen = Prefs.FullScreen;
+            runInBackground = Prefs.RunInBackground;
+            volumeGame = Prefs.VolumeGame;
         }
     }
 

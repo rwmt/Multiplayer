@@ -29,8 +29,6 @@ namespace Multiplayer.Client
             EventBasedNetListener listener = new EventBasedNetListener();
             listener.NetworkReceiveUnconnectedEvent += (endpoint, data, type) =>
             {
-                Log.Message("receive lan");
-
                 if (type != UnconnectedMessageType.DiscoveryRequest) return;
 
                 string s = Encoding.UTF8.GetString(data.GetRemainingBytes());
@@ -93,20 +91,34 @@ namespace Multiplayer.Client
 
         private void ReloadFiles()
         {
+            spSaves.Clear();
+            mpReplays.Clear();
+
             foreach (FileInfo file in GenFilePaths.AllSavedGameFiles)
             {
-                spSaves.Add(new SaveFile(Path.GetFileNameWithoutExtension(file.Name), false, file, GetWorldName(file)));
+                spSaves.Add(
+                    new SaveFile(Path.GetFileNameWithoutExtension(file.Name), false, file)
+                    {
+                        rwVersion = ScribeMetaHeaderUtility.GameVersionOf(file)
+                    }
+                );
             }
 
             var replaysDir = new DirectoryInfo(GenFilePaths.FolderUnderSaveData("MpReplays"));
             if (!replaysDir.Exists)
                 replaysDir.Create();
 
-            foreach (var file in replaysDir.GetFiles().Where(f => f.Extension == ".zip").OrderByDescending(f => f.LastWriteTime))
+            foreach (var file in replaysDir.GetFiles("*.zip").OrderByDescending(f => f.LastWriteTime))
             {
                 var replay = Replay.ForLoading(file);
                 replay.LoadInfo();
-                mpReplays.Add(new SaveFile(Path.GetFileNameWithoutExtension(file.Name), true, file, replay.info.name));
+
+                mpReplays.Add(
+                    new SaveFile(Path.GetFileNameWithoutExtension(file.Name), true, file)
+                    {
+                        gameName = replay.info.name
+                    }
+                );
             }
         }
 
@@ -212,7 +224,8 @@ namespace Multiplayer.Client
             {
                 if (Widgets.ButtonText(new Rect(width, 0, 120, 40), "Watch"))
                 {
-                    Replay.LoadReplay(file.name);
+                    Close(false);
+                    Replay.LoadReplay(file.fileName);
                 }
 
                 width += 120 + 10;
@@ -220,15 +233,15 @@ namespace Multiplayer.Client
 
             if (Widgets.ButtonText(new Rect(width, 0, 120, 40), "Host"))
             {
-                Find.WindowStack.Add(new HostWindow(file) { returnToServerBrowser = true });
                 Close(false);
+                Find.WindowStack.Add(new HostWindow(file) { returnToServerBrowser = true });
             }
 
             width += 120 + 10;
 
             if (Widgets.ButtonText(new Rect(width, 0, 120, 40), "Delete"))
             {
-                Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation("ConfirmDelete".Translate(file.name), () =>
+                Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation("ConfirmDelete".Translate(file.fileName), () =>
                 {
                     file.file.Delete();
                     ReloadFiles();
@@ -261,14 +274,25 @@ namespace Multiplayer.Client
                 }
 
                 Text.Anchor = TextAnchor.MiddleLeft;
-                Widgets.Label(entryRect.Right(10), saveFile.name);
+                Widgets.Label(entryRect.Right(10), saveFile.fileName);
                 Text.Anchor = TextAnchor.UpperLeft;
 
                 GUI.color = new Color(0.6f, 0.6f, 0.6f);
                 Text.Font = GameFont.Tiny;
+
                 var infoText = new Rect(entryRect.xMax - 120, entryRect.yMin + 3, 120, entryRect.height);
-                Widgets.Label(infoText, saveFile.gameName.Truncate(110));
-                Widgets.Label(infoText.Down(16), saveFile.file.LastWriteTime.ToString("g"));
+                Widgets.Label(infoText, saveFile.file.LastWriteTime.ToString("g"));
+
+                if (saveFile.gameName != null)
+                {
+                    Widgets.Label(infoText.Down(16), saveFile.gameName.Truncate(110));
+                }
+                else
+                {
+                    GUI.color = saveFile.VersionColor;
+                    Widgets.Label(infoText.Down(16), (saveFile.rwVersion ?? "???").Truncate(110));
+                }
+
                 Text.Font = GameFont.Small;
                 GUI.color = Color.white;
 
@@ -465,16 +489,16 @@ namespace Multiplayer.Client
             for (int i = servers.Count - 1; i >= 0; i--)
             {
                 LanServer server = servers[i];
-                if (Environment.TickCount - server.lastUpdate > 5000)
+                if (Multiplayer.Time.ElapsedMilliseconds - server.lastUpdate > 5000)
                     servers.RemoveAt(i);
             }
         }
 
-        private int lastFriendUpdate = 0;
+        private long lastFriendUpdate = 0;
 
         private void UpdateSteam()
         {
-            if (Environment.TickCount - lastFriendUpdate > 2000)
+            if (Multiplayer.Time.ElapsedMilliseconds - lastFriendUpdate > 2000)
             {
                 friends.Clear();
 
@@ -510,7 +534,7 @@ namespace Multiplayer.Client
 
                 friends.SortByDescending(f => f.serverHost != CSteamID.Nil);
 
-                lastFriendUpdate = Environment.TickCount;
+                lastFriendUpdate = Multiplayer.Time.ElapsedMilliseconds;
             }
         }
 
@@ -519,11 +543,11 @@ namespace Multiplayer.Client
             Cleanup();
         }
 
-        public void Cleanup(bool onMainThread = false)
+        public void Cleanup(bool sync = false)
         {
             WaitCallback stop = s => net.Stop();
 
-            if (onMainThread)
+            if (sync)
                 stop(null);
             else
                 ThreadPool.QueueUserWorkItem(stop);
@@ -538,19 +562,19 @@ namespace Multiplayer.Client
                 servers.Add(new LanServer()
                 {
                     endpoint = endpoint,
-                    lastUpdate = Environment.TickCount
+                    lastUpdate = Multiplayer.Time.ElapsedMilliseconds
                 });
             }
             else
             {
-                server.lastUpdate = Environment.TickCount;
+                server.lastUpdate = Multiplayer.Time.ElapsedMilliseconds;
             }
         }
 
         class LanServer
         {
             public IPEndPoint endpoint;
-            public int lastUpdate;
+            public long lastUpdate;
         }
     }
 
@@ -566,17 +590,39 @@ namespace Multiplayer.Client
 
     public class SaveFile
     {
-        public string name;
+        public string fileName;
         public bool replay;
         public FileInfo file;
-        public string gameName;
 
-        public SaveFile(string name, bool replay, FileInfo file, string gameName)
+        public string gameName;
+        public string rwVersion;
+
+        public Color VersionColor
         {
-            this.name = name;
+            get
+            {
+                if (rwVersion == null)
+                    return Color.red;
+
+                if (VersionControl.MajorFromVersionString(rwVersion) != VersionControl.CurrentMajor || VersionControl.MinorFromVersionString(rwVersion) != VersionControl.CurrentMinor)
+                {
+                    if (BackCompatibility.IsSaveCompatibleWith(rwVersion))
+                        return Color.yellow;
+                    return Color.red;
+                }
+
+                if (VersionControl.BuildFromVersionString(rwVersion) != VersionControl.CurrentBuild)
+                    return Color.yellow;
+
+                return new Color(0.6f, 0.6f, 0.6f);
+            }
+        }
+
+        public SaveFile(string fileName, bool replay, FileInfo file)
+        {
+            this.fileName = fileName;
             this.replay = replay;
             this.file = file;
-            this.gameName = gameName;
         }
     }
 

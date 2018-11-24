@@ -72,6 +72,8 @@ namespace Multiplayer.Client
     [MpPatch(typeof(OptionListingUtility), nameof(OptionListingUtility.DrawOptionListing))]
     public static class MainMenuPatch
     {
+        const string ServerClose = "Are you sure you want to close the server? Unsaved progress will be lost.";
+
         static void Prefix(Rect rect, List<ListableOption> optList)
         {
             if (!MainMenuMarker.drawing) return;
@@ -116,7 +118,7 @@ namespace Multiplayer.Client
                         };
 
                         if (Multiplayer.LocalServer != null)
-                            Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation("Are you sure you want to close the server?", action, true));
+                            Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(ServerClose, action, true));
                         else
                             action();
                     };
@@ -124,7 +126,7 @@ namespace Multiplayer.Client
                     optList.Find(opt => opt.label == "QuitToOS".Translate()).action = () =>
                     {
                         if (Multiplayer.LocalServer != null)
-                            Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation("Are you sure you want to close the server?", () => Root.Shutdown(), true));
+                            Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(ServerClose, () => Root.Shutdown(), true));
                         else
                             Root.Shutdown();
                     };
@@ -359,6 +361,7 @@ namespace Multiplayer.Client
 
     [HarmonyPatch(typeof(MainButtonsRoot))]
     [HarmonyPatch(nameof(MainButtonsRoot.MainButtonsOnGUI))]
+    [HotSwappable]
     public static class MainButtonsPatch
     {
         static bool Prefix()
@@ -455,6 +458,15 @@ namespace Multiplayer.Client
             float progressX = rect.xMin + progress * rect.width;
             Widgets.DrawLine(new Vector2(progressX, rect.yMin), new Vector2(progressX, rect.yMax), Color.green, 7f);
 
+            foreach (var checkpoint in Multiplayer.session.checkpoints)
+            {
+                if (checkpoint.time < timerStart || checkpoint.time > timerEnd)
+                    continue;
+
+                var pointX = rect.xMin + (checkpoint.time - timerStart) / (float)timeLen * rect.width;
+                Widgets.DrawLine(new Vector2(pointX, rect.yMin), new Vector2(pointX, rect.yMax), checkpoint.color, 5f);
+            }
+
             if (Mouse.IsOver(rect))
             {
                 float mouseX = Event.current.mousePosition.x;
@@ -476,7 +488,7 @@ namespace Multiplayer.Client
                     Event.current.Use();
 
                 // Drawing directly so there's no delay between the mouseover and showing
-                ActiveTip tip = new ActiveTip(new TipSignal($"Tick {mouseTimer}\nETA ", 215462143)); // todo eta
+                ActiveTip tip = new ActiveTip(new TipSignal($"Tick {mouseTimer}", 215462143));
                 tip.DrawTooltip(GenUI.GetMouseAttachedWindowPos(tip.TipRect.x, tip.TipRect.y));
             }
 
@@ -737,52 +749,6 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(Building))]
-    [HarmonyPatch(nameof(Building.GetGizmos))]
-    public static class GetGizmos
-    {
-        static void Postfix(Building __instance, ref IEnumerable<Gizmo> __result)
-        {
-            __result = __result.Concat(new Command_Action
-            {
-                defaultLabel = "Set faction",
-                action = () =>
-                {
-                    Find.WindowStack.Add(new Dialog_String(s =>
-                    {
-                        //Type t = typeof(WindowStack).Assembly.GetType("Verse.DataAnalysisTableMaker", true);
-                        //MethodInfo m = t.GetMethod(s, BindingFlags.Public | BindingFlags.Static);
-                        //m.Invoke(null, new object[0]);
-                    }));
-
-                    //__instance.SetFaction(Faction.OfSpacerHostile);
-                }
-            });
-        }
-    }
-
-    [HarmonyPatch(typeof(Pawn))]
-    [HarmonyPatch(nameof(Pawn.GetGizmos))]
-    public static class PawnGizmos
-    {
-        static void Postfix(Pawn __instance, ref IEnumerable<Gizmo> __result)
-        {
-            __result = __result.Concat(new Command_Action
-            {
-                defaultLabel = "Thinker",
-                action = () =>
-                {
-                    Log.Message("touch " + TouchPathEndModeUtility.IsAdjacentOrInsideAndAllowedToTouch(__instance.Position, __instance.Position + new IntVec3(1, 0, 1), __instance.Map));
-
-                    //Find.WindowStack.Add(new ThinkTreeWindow(__instance));
-                    // Log.Message("" + Multiplayer.mainBlock.blockStart);
-                    // Log.Message("" + __instance.Map.GetComponent<MultiplayerMapComp>().encounterIdBlock.current);
-                    //Log.Message("" + __instance.Map.GetComponent<MultiplayerMapComp>().encounterIdBlock.GetHashCode());
-                }
-            });
-        }
-    }
-
     [HarmonyPatch]
     public static class WidgetsResolveParsePatch
     {
@@ -806,60 +772,6 @@ namespace Multiplayer.Client
         static void Postfix(Dialog_BillConfig __instance)
         {
             __instance.absorbInputAroundWindow = false;
-        }
-    }
-
-    public class Dialog_String : Dialog_Rename
-    {
-        private Action<string> action;
-
-        public Dialog_String(Action<string> action)
-        {
-            this.action = action;
-        }
-
-        public override void SetName(string name)
-        {
-            action(name);
-        }
-    }
-
-    [HarmonyPatch(typeof(WorldObject))]
-    [HarmonyPatch(nameof(WorldObject.GetGizmos))]
-    public static class WorldObjectGizmos
-    {
-        static void Postfix(WorldObject __instance, ref IEnumerable<Gizmo> __result)
-        {
-            __result = __result.Concat(new Command_Action
-            {
-                defaultLabel = "Jump to",
-                action = () =>
-                {
-                    /*if (__instance is Caravan c)
-                    {
-                        foreach (Pawn p in c.pawns)
-                        {
-                            Log.Message(p + " " + p.Spawned);
-
-                            foreach (Thing t in p.inventory.innerContainer)
-                                Log.Message(t + " " + t.Spawned);
-
-                            foreach (Thing t in p.equipment.AllEquipmentListForReading)
-                                Log.Message(t + " " + t.Spawned);
-
-                            foreach (Thing t in p.apparel.GetDirectlyHeldThings())
-                                Log.Message(t + " " + t.Spawned);
-                        }
-                    }*/
-
-                    Find.WindowStack.Add(new Dialog_JumpTo(s =>
-                    {
-                        int i = int.Parse(s);
-                        Find.WorldCameraDriver.JumpTo(i);
-                        Find.WorldSelector.selectedTile = i;
-                    }));
-                }
-            });
         }
     }
 
@@ -1701,6 +1613,91 @@ namespace Multiplayer.Client
         {
             if (Current.ProgramState == ProgramState.Entry)
                 captured.Add(__instance);
+        }
+    }
+
+    [MpPatch(typeof(SubcameraDriver), nameof(SubcameraDriver.UpdatePositions))]
+    [MpPatch(typeof(PortraitsCache), nameof(PortraitsCache.Get))]
+    static class RenderTextureCreatePatch
+    {
+        static MethodInfo IsCreated = AccessTools.Method(typeof(RenderTexture), "IsCreated");
+        static FieldInfo ArbiterField = AccessTools.Field(typeof(Multiplayer), nameof(Multiplayer.arbiterInstance));
+
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+        {
+            foreach (var inst in insts)
+            {
+                yield return inst;
+
+                if (inst.operand == IsCreated)
+                {
+                    yield return new CodeInstruction(OpCodes.Ldsfld, ArbiterField);
+                    yield return new CodeInstruction(OpCodes.Or);
+                }
+            }
+        }
+    }
+
+    [MpPatch(typeof(WaterInfo), nameof(WaterInfo.SetTextures))]
+    [MpPatch(typeof(SubcameraDriver), nameof(SubcameraDriver.UpdatePositions))]
+    [MpPatch(typeof(Prefs), nameof(Prefs.Save))]
+    static class CancelForArbiter
+    {
+        static bool Prefix() => !Multiplayer.arbiterInstance;
+    }
+
+    [HarmonyPatch(typeof(Prefs), nameof(Prefs.MaxNumberOfPlayerSettlements), MethodType.Getter)]
+    static class MaxColoniesPatch
+    {
+        static void Postfix(ref int __result)
+        {
+            if (Multiplayer.Client != null)
+                __result = 5;
+        }
+    }
+
+    [HarmonyPatch(typeof(Prefs), nameof(Prefs.RunInBackground), MethodType.Getter)]
+    static class RunInBackgroundPatch
+    {
+        static void Postfix(ref bool __result)
+        {
+            if (Multiplayer.Client != null)
+                __result = true;
+        }
+    }
+
+    [MpPatch(typeof(Prefs), "get_" + nameof(Prefs.PauseOnLoad))]
+    [MpPatch(typeof(Prefs), "get_" + nameof(Prefs.PauseOnError))]
+    [MpPatch(typeof(Prefs), "get_" + nameof(Prefs.PauseOnUrgentLetter))]
+    static class PrefGettersInMultiplayer
+    {
+        static bool Prefix() => Multiplayer.Client == null;
+    }
+
+    [MpPatch(typeof(Prefs), "set_" + nameof(Prefs.PauseOnLoad))]
+    [MpPatch(typeof(Prefs), "set_" + nameof(Prefs.PauseOnError))]
+    [MpPatch(typeof(Prefs), "set_" + nameof(Prefs.PauseOnUrgentLetter))]
+    [MpPatch(typeof(Prefs), "set_" + nameof(Prefs.MaxNumberOfPlayerSettlements))]
+    [MpPatch(typeof(Prefs), "set_" + nameof(Prefs.RunInBackground))]
+    static class PrefSettersInMultiplayer
+    {
+        static bool Prefix() => Multiplayer.Client == null;
+    }
+
+    [HarmonyPatch(typeof(StorytellerUI), nameof(StorytellerUI.DrawStorytellerSelectionInterface))]
+    static class DisableStorytellerSelection
+    {
+        static bool Prefix() => Multiplayer.Client == null || Event.current.type == EventType.Repaint || Event.current.type == EventType.Layout;
+    }
+    
+    [HarmonyPatch(typeof(Command_LoadToTransporter), nameof(Command_LoadToTransporter.ProcessInput))]
+    static class DisableTransporterLoading
+    {
+        static bool Prefix()
+        {
+            if (Multiplayer.Client == null) return true;
+            Messages.Message("Not available in multiplayer.", MessageTypeDefOf.RejectInput, false);
+            return false;
         }
     }
 

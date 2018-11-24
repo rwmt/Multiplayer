@@ -240,8 +240,11 @@ namespace Multiplayer.Client
                         OnMainThread.ClearCaches();
 
                         XmlDocument doc = Multiplayer.SaveAndReload();
-                        Multiplayer.CacheAndSendGameData(doc);
-                    }, "Autosaving", false, null);
+                        Multiplayer.CacheGameData(doc);
+
+                        if (TickPatch.skipTo < 0 && !Multiplayer.IsReplay && (Multiplayer.LocalServer != null || Multiplayer.arbiterInstance))
+                            Multiplayer.SendCurrentGameData(true);
+                    }, "MpAutosaving", false, null);
                 }
             }
             catch (Exception e)
@@ -284,7 +287,7 @@ namespace Multiplayer.Client
 
                 Multiplayer.WorldComp.factionData[factionId] = FactionWorldData.New(factionId);
 
-                MpLog.Log("New faction {0}", faction.GetUniqueLoadID());
+                MpLog.Log($"New faction {faction.GetUniqueLoadID()}");
             }
         }
 

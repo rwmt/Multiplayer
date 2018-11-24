@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using UnityEngine;
 using Verse;
@@ -233,7 +234,7 @@ namespace Multiplayer.Client
                 var sync = Multiplayer.game.sync;
                 if (sync.ShouldCollect && TickPatch.Timer % 30 == 0 && sync.current != null)
                 {
-                    if (Multiplayer.LocalServer != null)
+                    if (Multiplayer.LocalServer != null || Multiplayer.arbiterInstance)
                         Multiplayer.Client.Send(Packets.Client_SyncInfo, sync.current.Serialize());
 
                     sync.Add(sync.current);
@@ -900,7 +901,7 @@ namespace Multiplayer.Client
                 factionMapData.areaManager.AddStartingAreas();
                 map.pawnDestinationReservationManager.RegisterFaction(faction);
 
-                MpLog.Log("New map faction data for {0}", faction.GetUniqueLoadID());
+                MpLog.Log($"New map faction data for {faction.GetUniqueLoadID()}");
             }
         }
 
@@ -1055,20 +1056,61 @@ namespace Multiplayer.Client
                 }
                 else if (buffer.First().startTick == info.startTick)
                 {
-                    var error = buffer.RemoveFirst().Compare(info);
+                    var first = buffer.RemoveFirst();
+                    var error = first.Compare(info);
                     if (error != null)
-                        OnDesynced();
+                        OnDesynced(first, info);
                 }
             }
         }
 
-        private void OnDesynced()
+        private void OnDesynced(SyncInfo one, SyncInfo two)
         {
+            if (Multiplayer.session.desynced) return;
+
             Multiplayer.Client.Send(Packets.Client_Desynced);
             Multiplayer.session.desynced = true;
 
+            try
+            {
+                var desyncFile = PrepareNextDesyncFile();
+
+                var replay = Replay.ForSaving(desyncFile, Multiplayer.DesyncsDir);
+                replay.WriteCurrentData();
+
+                var local = one.local ? one : two;
+                var remote = !one.local ? one : two;
+                var savedGame = ScribeUtil.WriteExposable(Verse.Current.Game, "game");
+
+                var zip = replay.ZipFile;
+                zip.AddEntry("sync_local", local.Serialize());
+                zip.AddEntry("sync_remote", remote.Serialize());
+                zip.AddEntry("game_snapshot", savedGame);
+                zip.Save();
+            }
+            catch (Exception e)
+            {
+                Log.Error($"Exception writing desync info: {e}");
+            }
+
             Find.WindowStack.windows.Clear();
             Find.WindowStack.Add(new DesyncedWindow());
+        }
+
+        private string PrepareNextDesyncFile()
+        {
+            var files = new DirectoryInfo(Multiplayer.DesyncsDir).GetFiles("Desync-*.zip");
+
+            const int MaxFiles = 5;
+            if (files.Length > MaxFiles - 1)
+                files.OrderByDescending(f => f.LastWriteTime).Skip(MaxFiles - 1).Do(f => f.Delete());
+
+            int max = 0;
+            foreach (var f in files)
+                if (int.TryParse(f.Name.Substring(7, f.Name.Length - 7 - 4), out int result) && result > max)
+                    max = result;
+
+            return $"Desync-{max + 1:00}";
         }
 
         public void TryAddCmd(ulong state)

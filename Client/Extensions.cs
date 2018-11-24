@@ -316,6 +316,15 @@ namespace Multiplayer.Client
                         yield return node;
         }
 
+        public static void TryKill(this Process process)
+        {
+            try
+            {
+                process.Kill();
+            }
+            catch { }
+        }
+
     }
 
 }

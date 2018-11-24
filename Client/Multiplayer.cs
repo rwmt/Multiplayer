@@ -38,13 +38,13 @@ namespace Multiplayer.Client
         public static bool IsReplay => session?.replay ?? false;
 
         public static string username;
+        public static bool arbiterInstance;
         public static HarmonyInstance harmony => MultiplayerMod.harmony;
 
         public static bool reloading;
 
         public static FactionDef FactionDef = FactionDef.Named("MultiplayerColony");
         public static FactionDef DummyFactionDef = FactionDef.Named("MultiplayerDummy");
-        public static IncidentDef AuroraIncident = IncidentDef.Named("Aurora");
 
         public static IdBlock GlobalIdBlock => game.worldComp.globalIdBlock;
         public static Faction DummyFaction => game.dummyFaction;
@@ -65,6 +65,7 @@ namespace Multiplayer.Client
         public static bool ShouldSync => Client != null && !Ticking && !ExecutingCmds && !reloading && Current.ProgramState == ProgramState.Playing && LongEventHandler.currentEvent == null && !dontSync;
 
         public static string ReplaysDir => GenFilePaths.FolderUnderSaveData("MpReplays");
+        public static string DesyncsDir => GenFilePaths.FolderUnderSaveData("MpDesyncs");
 
         public static Callback<P2PSessionRequest_t> sessionReqCallback;
         public static Callback<P2PSessionConnectFail_t> p2pFail;
@@ -91,14 +92,10 @@ namespace Multiplayer.Client
             if (username == "???")
                 username = "Player" + Rand.Range(0, 9999);
 
-            //Log.Message("Supports ipv6" + Socket.SupportsIPv6 + " " + Socket.OSSupportsIPv6);
-
             SimpleProfiler.Init(username);
 
             if (SteamManager.Initialized)
                 InitSteam();
-
-            Log.Message(Process.GetCurrentProcess().MainModule.FileName);
 
             Log.Message($"Player's username: {username}");
             Log.Message($"Processor: {SystemInfo.processorType}");
@@ -124,16 +121,33 @@ namespace Multiplayer.Client
 
             Log.messageQueue.maxMessages = 1000;
 
+            HandleCommandLine();
+        }
+
+        private static void HandleCommandLine()
+        {
             if (GenCommandLine.TryGetCommandLineArg("connect", out string ip))
             {
-                if (String.IsNullOrEmpty(ip))
-                    ip = "127.0.0.1";
+                int port = MultiplayerServer.DefaultPort;
 
-                LongEventHandler.QueueLongEvent(() =>
-                {
-                    if (IPAddress.TryParse(ip, out IPAddress addr))
-                        ClientUtil.TryConnect(addr, MultiplayerServer.DefaultPort);
-                }, "Connecting", false, null);
+                var split = ip.Split(':');
+                if (split.Length == 0)
+                    ip = "127.0.0.1";
+                else if (split.Length >= 1)
+                    ip = split[0];
+
+                if (split.Length == 2)
+                    int.TryParse(split[1], out port);
+
+                if (IPAddress.TryParse(ip, out IPAddress addr))
+                    LongEventHandler.QueueLongEvent(() => ClientUtil.TryConnect(addr, port), "Connecting", false, null);
+            }
+
+            if (GenCommandLine.CommandLineArgPassed("arbiter"))
+            {
+                arbiterInstance = true;
+                username = "The Arbiter";
+                Prefs.VolumeGame = 0;
             }
         }
 
@@ -344,19 +358,16 @@ namespace Multiplayer.Client
             Log.Message("Loading took " + watch.ElapsedMilliseconds);
         }
 
-        public static void CacheAndSendGameData(XmlDocument doc)
+        public static void CacheGameData(XmlDocument doc)
         {
             XmlNode gameNode = doc.DocumentElement["game"];
             XmlNode mapsNode = gameNode["maps"];
-
-            var mapsData = new Dictionary<int, byte[]>();
 
             foreach (XmlNode mapNode in mapsNode)
             {
                 int id = int.Parse(mapNode["uniqueID"].InnerText);
                 byte[] mapData = ScribeUtil.XmlToByteArray(mapNode);
                 OnMainThread.cachedMapData[id] = mapData;
-                mapsData[id] = mapData;
             }
 
             gameNode["currentMapIndex"].RemoveFromParent();
@@ -365,8 +376,14 @@ namespace Multiplayer.Client
             byte[] gameData = ScribeUtil.XmlToByteArray(doc);
             OnMainThread.cachedAtTime = TickPatch.Timer;
             OnMainThread.cachedGameData = gameData;
+        }
 
-            ThreadPool.QueueUserWorkItem(c =>
+        public static void SendCurrentGameData(bool async)
+        {
+            var mapsData = new Dictionary<int, byte[]>(OnMainThread.cachedMapData);
+            var gameData = OnMainThread.cachedGameData;
+
+            void Send()
             {
                 foreach (var mapData in mapsData)
                 {
@@ -376,7 +393,12 @@ namespace Multiplayer.Client
 
                 byte[] compressedGame = GZipStream.CompressBuffer(gameData);
                 Client.SendFragmented(Packets.Client_AutosavedData, ByteWriter.GetBytes(1, compressedGame));
-            });
+            };
+
+            if (async)
+                ThreadPool.QueueUserWorkItem(c => Send());
+            else
+                Send();
         }
 
         private static void DoPatches()
@@ -550,6 +572,7 @@ namespace Multiplayer.Client
         public bool replay;
         public int replayTimerStart = -1;
         public int replayTimerEnd = -1;
+        public List<ReplayCheckpoint> checkpoints = new List<ReplayCheckpoint>();
 
         public bool desynced;
 
@@ -567,6 +590,8 @@ namespace Multiplayer.Client
         public Thread serverThread;
         public ServerSettings localSettings;
 
+        public Process arbiter;
+
         public void Stop()
         {
             if (client != null)
@@ -580,6 +605,12 @@ namespace Multiplayer.Client
 
             if (netClient != null)
                 netClient.Stop();
+
+            if (arbiter != null)
+            {
+                arbiter.TryKill();
+                arbiter = null;
+            }
 
             Log.Message("Multiplayer session stopped.");
         }
@@ -787,7 +818,7 @@ namespace Multiplayer.Client
             var listing = new Listing_Standard();
             listing.Begin(inRect);
             listing.ColumnWidth = 200f;
-            listing.CheckboxLabeled("Show cursors", ref settings.showCursors);
+            listing.CheckboxLabeled("Show player cursors", ref settings.showCursors);
             listing.End();
         }
 
@@ -829,7 +860,7 @@ namespace Multiplayer.Client
 
             UpdateSync();
 
-            if (Application.isFocused && Time.realtimeSinceStartup - lastCursorSend > 0.05f)
+            if (!Multiplayer.arbiterInstance && Application.isFocused && Time.realtimeSinceStartup - lastCursorSend > 0.05f)
             {
                 lastCursorSend = Time.realtimeSinceStartup;
                 SendCursor();
@@ -979,6 +1010,12 @@ namespace Multiplayer.Client
                 entry.Value.Clear();
 
             ClearCaches();
+
+            if (Multiplayer.arbiterInstance)
+            {
+                Multiplayer.arbiterInstance = false;
+                Application.Quit();
+            }
         }
 
         public static void ClearCaches()

@@ -11,6 +11,7 @@ using System.Threading;
 using UnityEngine;
 using Verse;
 using Verse.Profile;
+using Verse.Sound;
 using Verse.Steam;
 
 namespace Multiplayer.Client
@@ -29,15 +30,14 @@ namespace Multiplayer.Client
             doCloseX = true;
 
             this.file = file;
-            settings.gameName = file?.gameName ?? Find.World?.info.name;
-            if (!settings.gameName.Contains("'s"))
-                settings.gameName = $"{Multiplayer.username}'s {settings.gameName}";
+            settings.gameName = file?.gameName ?? $"{Multiplayer.username}'s game";
 
             var localAddr = Dns.GetHostEntry(Dns.GetHostName()).AddressList.FirstOrDefault(i => i.AddressFamily == AddressFamily.InterNetwork) ?? IPAddress.Loopback;
             settings.address = localAddr;
             addressBuffer = localAddr.ToString();
 
             settings.lan = true;
+            settings.arbiter = true;
         }
 
         private ServerSettings settings = new ServerSettings();
@@ -48,11 +48,17 @@ namespace Multiplayer.Client
 
         public override void DoWindowContents(Rect inRect)
         {
-            var entry = new Rect(0, 10f, inRect.width, 30f);
+            Text.Font = GameFont.Medium;
+            Text.Anchor = TextAnchor.UpperCenter;
+            Widgets.Label(inRect.Down(0), $"Host from {(file == null ? "this game" : (file.replay ? "a replay" : "a savefile"))}");
+            Text.Anchor = TextAnchor.UpperLeft;
+            Text.Font = GameFont.Small;
+
+            var entry = new Rect(0, 45, inRect.width, 30f);
 
             var labelWidth = 100f;
 
-            settings.gameName = TextEntryLabeled(entry, "Name:  ", settings.gameName, labelWidth);
+            settings.gameName = TextEntryLabeled(entry, "Game name:  ", settings.gameName, labelWidth);
             entry = entry.Down(40);
 
             TextFieldNumericLabeled(entry.Width(labelWidth + 30f), "Max players:  ", ref settings.maxPlayers, ref maxPlayersBuffer, labelWidth, 0, 999);
@@ -71,24 +77,26 @@ namespace Multiplayer.Client
             entry = entry.Down(40);*/
 
             var directLabelWidth = Text.CalcSize("Direct:  ").x;
-            var directRect = entry.Right(labelWidth - directLabelWidth).Width(directLabelWidth + 24 + 10);
-            Widgets.CheckboxLabeled(directRect, "Direct:  ", ref settings.direct, placeCheckboxNearText: true);
+            CheckboxLabeled(entry.Width(130), "Direct:  ", ref settings.direct, placeTextNearCheckbox: true);
             if (settings.direct)
             {
-                directRect.x = directRect.xMax + 15;
-                addressBuffer = Widgets.TextField(directRect.Width(150), addressBuffer);
+                addressBuffer = Widgets.TextField(entry.Width(130).Right(130 + 10), addressBuffer);
             }
 
             entry = entry.Down(30);
 
-            Widgets.CheckboxLabeled(entry.Right(labelWidth - Text.CalcSize("LAN:  ").x).Width(120), "LAN:  ", ref settings.lan, placeCheckboxNearText: true);
+            CheckboxLabeled(entry.Width(130), "LAN:  ", ref settings.lan, placeTextNearCheckbox: true);
             entry = entry.Down(30);
 
             if (SteamManager.Initialized)
             {
-                Widgets.CheckboxLabeled(entry.Right(labelWidth - Text.CalcSize("Steam:  ").x).Width(120), "Steam:  ", ref settings.steam, placeCheckboxNearText: true);
+                CheckboxLabeled(entry.Width(130), "Steam:  ", ref settings.steam, placeTextNearCheckbox: true);
                 entry = entry.Down(30);
             }
+
+            TooltipHandler.TipRegion(entry.Width(130), "MpArbiterDesc".Translate());
+            CheckboxLabeled(entry.Width(130), "The Arbiter:  ", ref settings.arbiter, placeTextNearCheckbox: true);
+            entry = entry.Down(30);
 
             var buttonRect = new Rect((inRect.width - 100f) / 2f, inRect.height - 35f, 100f, 35f);
 
@@ -106,6 +114,33 @@ namespace Multiplayer.Client
             }
         }
 
+        public static void CheckboxLabeled(Rect rect, string label, ref bool checkOn, bool disabled = false, Texture2D texChecked = null, Texture2D texUnchecked = null, bool placeTextNearCheckbox = false)
+        {
+            TextAnchor anchor = Text.Anchor;
+            Text.Anchor = TextAnchor.MiddleLeft;
+
+            if (placeTextNearCheckbox)
+            {
+                float textWidth = Text.CalcSize(label).x;
+                rect.x = rect.xMax - textWidth - 24f - 5f;
+                rect.width = textWidth + 24f + 5f;
+            }
+
+            Widgets.Label(rect, label);
+
+            if (!disabled && Widgets.ButtonInvisible(rect, false))
+            {
+                checkOn = !checkOn;
+                if (checkOn)
+                    SoundDefOf.Checkbox_TurnedOn.PlayOneShotOnCamera(null);
+                else
+                    SoundDefOf.Checkbox_TurnedOff.PlayOneShotOnCamera(null);
+            }
+
+            Widgets.CheckboxDraw(rect.x + rect.width - 24f, rect.y, checkOn, disabled, 24f, null, null);
+            Text.Anchor = anchor;
+        }
+
         private bool TryParseIp(string ip, out IPAddress addr, out int port)
         {
             port = MultiplayerServer.DefaultPort;
@@ -113,13 +148,13 @@ namespace Multiplayer.Client
 
             if (!IPAddress.TryParse(parts[0], out addr))
             {
-                Messages.Message("MpInvalidAddress", MessageTypeDefOf.RejectInput, false);
+                Messages.Message("MpInvalidAddress".Translate(), MessageTypeDefOf.RejectInput, false);
                 return false;
             }
 
             if (parts.Length >= 2 && !int.TryParse(parts[1], out port))
             {
-                Messages.Message("MpInvalidPort", MessageTypeDefOf.RejectInput, false);
+                Messages.Message("MpInvalidPort".Translate(), MessageTypeDefOf.RejectInput, false);
                 return false;
             }
 
@@ -165,7 +200,7 @@ namespace Multiplayer.Client
                 MemoryUtility.ClearAllMapsAndWorld();
                 Current.Game = new Game();
                 Current.Game.InitData = new GameInitData();
-                Current.Game.InitData.gameToLoad = file.name;
+                Current.Game.InitData.gameToLoad = file.fileName;
 
                 LongEventHandler.ExecuteWhenFinished(() =>
                 {
@@ -176,7 +211,7 @@ namespace Multiplayer.Client
 
         private void HostFromReplay(ServerSettings settings)
         {
-            Replay.LoadReplay(file.name, true, () =>
+            Replay.LoadReplay(file.fileName, true, () =>
             {
                 OnMainThread.StopMultiplayer();
                 ClientUtil.HostServer(settings, true);

@@ -66,7 +66,7 @@ namespace Multiplayer.Client
         {
             DrawOptions(ref inRect);
 
-            Widgets.Label(inRect, Multiplayer.Client != null ? "Connected" : "Not connected");
+            Widgets.Label(inRect, Multiplayer.session.gameName);
             inRect.yMin += 30f;
 
             DrawList(

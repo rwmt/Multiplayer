@@ -48,10 +48,12 @@ namespace Multiplayer.Common
         public Stopwatch lastKeepAlive = Stopwatch.StartNew();
 
         private NetManager netManager;
+        private NetManager arbiter;
 
         public int nextUniqueId;
 
         public int LocalPort => netManager.LocalPort;
+        public int ArbiterPort => arbiter.LocalPort;
 
         public MultiplayerServer(ServerSettings settings)
         {
@@ -61,12 +63,18 @@ namespace Multiplayer.Common
             RegisterChatCmd("kick", new ChatCmdKick());
 
             if (settings.direct || settings.lan)
-                netManager = new NetManager(new MpNetListener(this));
+                netManager = new NetManager(new MpNetListener(this, false));
         }
 
         public void StartListening()
         {
             netManager?.Start(settings.address, IPAddress.IPv6Any, settings.port);
+        }
+        
+        public void SetupArbiterConnection()
+        {
+            arbiter = new NetManager(new MpNetListener(this, true));
+            arbiter.Start(IPAddress.Loopback, IPAddress.IPv6Any, 0);
         }
 
         public void Run()
@@ -104,12 +112,15 @@ namespace Multiplayer.Common
                 netManager.Stop();
             }
 
+            arbiter?.Stop();
+
             instance = null;
         }
 
         public void Tick()
         {
             netManager?.PollEvents();
+            arbiter?.PollEvents();
             queue.RunQueue();
 
             if (timer % 3 == 0)
@@ -233,7 +244,7 @@ namespace Multiplayer.Common
             byte[] toSend = toSave.Append(new byte[] { 0 });
             byte[] toSendSource = toSave.Append(new byte[] { 1 });
 
-            foreach (ServerPlayer player in PlayingPlayers)
+            foreach (var player in PlayingPlayers)
             {
                 player.conn.Send(
                     Packets.Server_Command,
@@ -247,9 +258,9 @@ namespace Multiplayer.Common
             SendToAll(Packets.Server_Chat, new[] { msg });
         }
 
-        public void SendNotification(string text, params string[] keys)
+        public void SendNotification(string key, params string[] args)
         {
-            SendToAll(Packets.Server_Notification, new object[] { text, keys });
+            SendToAll(Packets.Server_Notification, new object[] { key, args });
         }
 
         public void RegisterChatCmd(string cmdName, ChatCmdHandler handler)
@@ -267,10 +278,12 @@ namespace Multiplayer.Common
     public class MpNetListener : INetEventListener
     {
         private MultiplayerServer server;
+        private bool arbiter;
 
-        public MpNetListener(MultiplayerServer server)
+        public MpNetListener(MultiplayerServer server, bool arbiter)
         {
             this.server = server;
+            this.arbiter = arbiter;
         }
 
         public void OnConnectionRequest(ConnectionRequest req)
@@ -291,7 +304,9 @@ namespace Multiplayer.Common
             IConnection conn = new MpNetConnection(peer);
             conn.State = ConnectionStateEnum.ServerJoining;
             peer.Tag = conn;
-            server.OnConnected(conn);
+
+            var player = server.OnConnected(conn);
+            player.arbiter = arbiter;
         }
 
         public void OnPeerDisconnected(NetPeer peer, DisconnectInfo disconnectInfo)
@@ -330,6 +345,7 @@ namespace Multiplayer.Common
         public bool direct;
         public bool lan;
         public bool steam;
+        public bool arbiter;
     }
 
     public class ServerPlayer
@@ -337,6 +353,7 @@ namespace Multiplayer.Common
         public int id;
         public IConnection conn;
         public bool steam;
+        public bool arbiter;
         public PlayerStatus status;
 
         public string Username => conn.username;
@@ -366,9 +383,9 @@ namespace Multiplayer.Common
             }
         }
 
-        public void Disconnect(string reason)
+        public void Disconnect(string reasonKey)
         {
-            conn.Send(Packets.Server_DisconnectReason, reason);
+            conn.Send(Packets.Server_DisconnectReason, reasonKey);
 
             if (conn is MpNetConnection netConn)
                 netConn.peer.Flush();
@@ -380,6 +397,11 @@ namespace Multiplayer.Common
         public void SendChat(string msg)
         {
             SendPacket(Packets.Server_Chat, new[] { msg });
+        }
+
+        public void SendPacket(Packets packet, byte[] data)
+        {
+            conn.Send(packet, data);
         }
 
         public void SendPacket(Packets packet, object[] data)
@@ -494,7 +516,7 @@ namespace Multiplayer.Common
             }
             catch (Exception e)
             {
-                MpLog.LogLines("Exception while executing action queue", e.ToString());
+                MpLog.Log($"Exception while executing action queue: {e}");
             }
         }
 

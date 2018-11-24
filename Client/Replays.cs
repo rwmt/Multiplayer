@@ -17,13 +17,16 @@ namespace Multiplayer.Client
         public readonly string fileName;
         public ReplayInfo info = new ReplayInfo();
 
-        private Replay(string fileName)
+        private string folder;
+
+        private Replay(string fileName, string folder = null)
         {
             this.fileName = fileName;
+            this.folder = folder;
         }
 
-        private string FilePath => Path.Combine(Multiplayer.ReplaysDir, $"{fileName}.zip");
-        private ZipFile ZipFile => new ZipFile(FilePath);
+        private string FilePath => Path.Combine(folder ?? Multiplayer.ReplaysDir, $"{fileName}.zip");
+        public ZipFile ZipFile => new ZipFile(FilePath);
 
         public void WriteCurrentData()
         {
@@ -126,9 +129,9 @@ namespace Multiplayer.Client
             return new Replay(Path.GetFileNameWithoutExtension(file.Name));
         }
 
-        public static Replay ForSaving(string fileName)
+        public static Replay ForSaving(string fileName, string folder = null)
         {
-            var replay = new Replay(fileName);
+            var replay = new Replay(fileName, folder);
             replay.info.name = Multiplayer.session.gameName;
             replay.info.playerFaction = Multiplayer.session.myFactionId;
 
@@ -189,7 +192,7 @@ namespace Multiplayer.Client
     public class ReplayCheckpoint
     {
         public string name;
-        public double time;
+        public int time;
         public Color color;
     }
 }
