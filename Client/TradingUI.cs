@@ -1,6 +1,7 @@
 ﻿using Harmony;
 using Multiplayer.Common;
 using RimWorld;
+using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -26,6 +27,7 @@ namespace Multiplayer.Client
         {
             doCloseX = true;
             closeOnAccept = false;
+            absorbInputAroundWindow = true;
         }
 
         public int selectedTab = -1;
@@ -36,8 +38,6 @@ namespace Multiplayer.Client
 
         public override void DoWindowContents(Rect inRect)
         {
-            Stopwatch watch = Stopwatch.StartNew();
-
             added.RemoveAll(kv => Time.time - kv.Value > 1f);
             removed.RemoveAll(kv => Time.time - kv.Value > 0.5f && RemoveCachedTradeable(kv.Key));
 
@@ -125,8 +125,6 @@ namespace Multiplayer.Client
                 drawingTrade = null;
                 MpTradeSession.SetTradeSession(null);
             }
-
-            Widgets.Label(new Rect(0, 0, inRect.width, inRect.height), "" + watch.ElapsedMillisDouble());
         }
 
         private int? GetTraderTime(ITrader trader)
@@ -151,6 +149,14 @@ namespace Multiplayer.Client
             }
 
             return null;
+        }
+
+        public override void PostClose()
+        {
+            base.PostClose();
+
+            if (selectedTab >= 0 && Multiplayer.WorldComp.trading.ElementAtOrDefault(selectedTab)?.playerNegotiator.Map == Find.CurrentMap)
+                Find.World.renderer.wantedMode = WorldRenderMode.Planet;
         }
 
         private void RecreateDialog()

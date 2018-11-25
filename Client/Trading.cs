@@ -102,8 +102,15 @@ namespace Multiplayer.Client
             if (playerNegotiator.Drafted)
                 return true;
 
-            if (trader is Pawn pawn && pawn.Spawned && playerNegotiator.Spawned)
-                return pawn.Position.DistanceToSquared(playerNegotiator.Position) > 2 * 2;
+            if (trader is Pawn traderPawn)
+            {
+                if (!traderPawn.Spawned || !playerNegotiator.Spawned)
+                    return true;
+                return traderPawn.Position.DistanceToSquared(playerNegotiator.Position) > 2 * 2;
+            }
+
+            if (trader is SettlementBase traderBase && playerNegotiator.GetCaravan() == null)
+                return true;
 
             return false;
         }
@@ -668,7 +675,7 @@ namespace Multiplayer.Client
         {
             __state = __instance.AgeBiologicalYears;
         }
-        
+
         static void Postfix(Pawn_AgeTracker __instance, int __state)
         {
             if (Multiplayer.Client == null) return;

@@ -13,7 +13,7 @@ namespace Multiplayer.Client
     [StaticConstructorOnStartup]
     public class ChatWindow : Window
     {
-        public override Vector2 InitialSize => new Vector2(UI.screenWidth / 2f, UI.screenHeight / 2f);
+        public override Vector2 InitialSize => new Vector2(640f, 460f);
 
         private static readonly Texture2D SelectedMsg = SolidColorMaterials.NewSolidColorTexture(new Color(0.17f, 0.17f, 0.17f, 0.85f));
 
@@ -77,7 +77,7 @@ namespace Multiplayer.Client
                 ref playerListScroll,
                 extra: (p, rect) =>
                 {
-                    if (p.steam)
+                    if (p.type == PlayerType.Steam)
                         GUI.DrawTexture(new Rect(rect.xMax - 24f, 0, 24f, 24f), ContentSourceUtility.ContentSourceIcon_SteamWorkshop);
                 },
                 entryLabelColor: e => GetColor(e.status)
@@ -136,7 +136,7 @@ namespace Multiplayer.Client
         {
             switch (status)
             {
-                case PlayerStatus.Connecting: return new Color(1, 1, 1, 0.6f);
+                case PlayerStatus.Simulating: return new Color(1, 1, 1, 0.6f);
                 case PlayerStatus.Desynced: return new Color(0.8f, 0.4f, 0.4f, 0.8f);
                 default: return new Color(1, 1, 1, 0.8f);
             }

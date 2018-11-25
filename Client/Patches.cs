@@ -5,9 +5,11 @@ using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml;
@@ -378,7 +380,7 @@ namespace Multiplayer.Client
 
             if (Prefs.DevMode && Multiplayer.Client != null && Find.CurrentMap != null)
             {
-                MapAsyncTimeComp async = Find.CurrentMap.GetComponent<MapAsyncTimeComp>();
+                var async = Find.CurrentMap.GetComponent<MapAsyncTimeComp>();
                 StringBuilder text = new StringBuilder();
                 text.Append(async.mapTicks);
 
@@ -399,6 +401,7 @@ namespace Multiplayer.Client
                 text.Append($"\n{Sync.bufferedChanges.Sum(kv => kv.Value.Count)}");
                 text.Append($"\n{((uint)async.randState)} {(uint)(async.randState >> 32)}");
                 text.Append($"\n{(uint)Multiplayer.WorldComp.randState} {(uint)(Multiplayer.WorldComp.randState >> 32)}");
+                text.Append($"\n{async.cmds.Select(c => $"{c.type}:{c.ticks}").ToStringSafeEnumerable()} {Multiplayer.WorldComp.cmds.Count}");
 
                 Rect rect1 = new Rect(80f, 110f, 330f, Text.CalcHeight(text.ToString(), 330f));
                 Widgets.Label(rect1, text.ToString());
@@ -450,8 +453,8 @@ namespace Multiplayer.Client
             Rect rect = new Rect(margin, UI.screenHeight - 35f - height - 10f, UI.screenWidth - margin * 2, height);
             Widgets.DrawBoxSolid(rect, new Color(0.6f, 0.6f, 0.6f, 0.8f));
 
-            int timerStart = Multiplayer.session.replayTimerStart > 0 ? Multiplayer.session.replayTimerStart : OnMainThread.cachedAtTime;
-            int timerEnd = Multiplayer.session.replayTimerEnd > 0 ? Multiplayer.session.replayTimerEnd : TickPatch.tickUntil;
+            int timerStart = Multiplayer.session.replayTimerStart >= 0 ? Multiplayer.session.replayTimerStart : OnMainThread.cachedAtTime;
+            int timerEnd = Multiplayer.session.replayTimerEnd >= 0 ? Multiplayer.session.replayTimerEnd : TickPatch.tickUntil;
             int timeLen = timerEnd - timerStart;
 
             float progress = (TickPatch.Timer - timerStart) / (float)timeLen;
@@ -1421,12 +1424,14 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.Client == null) return;
             Log.Message("Uniq ids " + Multiplayer.GlobalIdBlock.current);
+            Log.Message("Rand " + Rand.StateCompressed);
         }
 
         public static void SetupMap(Map map)
         {
             Log.Message("New map " + map.uniqueID);
             Log.Message("Uniq ids " + Multiplayer.GlobalIdBlock.current);
+            Log.Message("Rand " + Rand.StateCompressed);
 
             MapAsyncTimeComp async = map.AsyncTime();
             MultiplayerMapComp mapComp = map.MpComp();
@@ -1459,7 +1464,10 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.Client == null) return true;
 
-            if (window is Dialog_SplitCaravan || window is Dialog_Negotiation)
+            if (window is Dialog_Negotiation)
+                return false;
+
+            if (window is Dialog_SplitCaravan)
             {
                 Messages.Message("Not available in multiplayer.", MessageTypeDefOf.RejectInput, false);
                 return false;
@@ -1529,7 +1537,7 @@ namespace Multiplayer.Client
     {
         static void Postfix()
         {
-            if (Multiplayer.Client == null || !MultiplayerMod.settings.showCursors) return;
+            if (Multiplayer.Client == null || !MultiplayerMod.settings.showCursors || TickPatch.skipTo >= 0) return;
 
             var curMap = Find.CurrentMap.Index;
 
@@ -1539,7 +1547,7 @@ namespace Multiplayer.Client
                 if (player.map != curMap) continue;
 
                 GUI.color = new Color(1, 1, 1, 0.5f);
-                var pos = Vector3.Lerp(player.lastCursor, player.cursor, (float)(Multiplayer.Time.ElapsedMillisDouble() - player.updatedAt) / 50f).MapToUIPosition();
+                var pos = Vector3.Lerp(player.lastCursor, player.cursor, (float)(Multiplayer.Watch.ElapsedMillisDouble() - player.updatedAt) / 50f).MapToUIPosition();
 
                 var icon = Multiplayer.icons.ElementAtOrDefault(player.cursorIcon);
                 var drawIcon = icon ?? CustomCursor.CursorTex;
@@ -1641,6 +1649,7 @@ namespace Multiplayer.Client
     [MpPatch(typeof(WaterInfo), nameof(WaterInfo.SetTextures))]
     [MpPatch(typeof(SubcameraDriver), nameof(SubcameraDriver.UpdatePositions))]
     [MpPatch(typeof(Prefs), nameof(Prefs.Save))]
+    [MpPatch(typeof(FloatMenuOption), nameof(FloatMenuOption.SetSizeMode))]
     static class CancelForArbiter
     {
         static bool Prefix() => !Multiplayer.arbiterInstance;
@@ -1689,7 +1698,7 @@ namespace Multiplayer.Client
     {
         static bool Prefix() => Multiplayer.Client == null || Event.current.type == EventType.Repaint || Event.current.type == EventType.Layout;
     }
-    
+
     [HarmonyPatch(typeof(Command_LoadToTransporter), nameof(Command_LoadToTransporter.ProcessInput))]
     static class DisableTransporterLoading
     {
@@ -1698,6 +1707,73 @@ namespace Multiplayer.Client
             if (Multiplayer.Client == null) return true;
             Messages.Message("Not available in multiplayer.", MessageTypeDefOf.RejectInput, false);
             return false;
+        }
+    }
+
+    [HarmonyPatch(typeof(LongEventHandler), nameof(LongEventHandler.LongEventsUpdate))]
+    static class ArbiterLongEventPatch
+    {
+        static void Postfix()
+        {
+            if (Multiplayer.arbiterInstance && LongEventHandler.currentEvent != null)
+                LongEventHandler.currentEvent.alreadyDisplayed = true;
+        }
+    }
+
+    [HarmonyPatch(typeof(FloodFillerFog), nameof(FloodFillerFog.FloodUnfog))]
+    static class FloodUnfogPatch
+    {
+        static void Postfix(ref FloodUnfogResult __result)
+        {
+            if (Multiplayer.Client != null)
+                __result.allOnScreen = false;
+        }
+    }
+
+    [HarmonyPatch(typeof(Pawn_DrawTracker), nameof(Pawn_DrawTracker.DrawTrackerTick))]
+    static class DrawTrackerTickPatch
+    {
+        static MethodInfo CellRectContains = AccessTools.Method(typeof(CellRect), nameof(CellRect.Contains));
+
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+        {
+            foreach (var inst in insts)
+            {
+                yield return inst;
+
+                if (inst.operand == CellRectContains)
+                {
+                    yield return new CodeInstruction(OpCodes.Ldc_I4_1);
+                    yield return new CodeInstruction(OpCodes.Or);
+                }
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(Archive), nameof(Archive.Add))]
+    static class ArchiveAddPatch
+    {
+        static bool Prefix(IArchivable archivable)
+        {
+            if (Multiplayer.Client == null) return true;
+
+            if (archivable is Message msg && msg.ID < 0)
+                return false;
+            else if (archivable is Letter letter && letter.ID < 0)
+                return false;
+
+            return true;
+        }
+    }
+
+    [HarmonyPatch(typeof(Tradeable), nameof(Tradeable.GetHashCode))]
+    static class TradeableHashCode
+    {
+        static bool Prefix() => false;
+
+        static void Postfix(Tradeable __instance, ref int __result)
+        {
+            __result = RuntimeHelpers.GetHashCode(__instance);
         }
     }
 

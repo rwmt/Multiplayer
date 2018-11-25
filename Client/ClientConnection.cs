@@ -135,6 +135,7 @@ namespace Multiplayer.Client
         private static void PostLoad()
         {
             OnMainThread.cachedAtTime = TickPatch.Timer;
+            Multiplayer.session.replayTimerStart = TickPatch.Timer;
 
             FactionWorldData factionData = Multiplayer.WorldComp.factionData.GetValueSafe(Multiplayer.session.myFactionId);
             if (factionData != null && factionData.online)
@@ -253,9 +254,9 @@ namespace Multiplayer.Client
 
             player.cursorSeq = seq;
             player.lastCursor = player.cursor;
-            player.lastDelta = Multiplayer.Time.ElapsedMillisDouble() - player.updatedAt;
+            player.lastDelta = Multiplayer.Watch.ElapsedMillisDouble() - player.updatedAt;
             player.cursor = new Vector3(x, 0, z);
-            player.updatedAt = Multiplayer.Time.ElapsedMillisDouble();
+            player.updatedAt = Multiplayer.Watch.ElapsedMillisDouble();
             player.cursorIcon = icon;
         }
 

@@ -5,6 +5,7 @@ using RimWorld.Planet;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using UnityEngine;
@@ -103,10 +104,12 @@ namespace Multiplayer.Client
             __state = true;
         }
 
-        static void Postfix(bool __state)
+        static void Postfix(Map map, bool __state)
         {
             if (__state)
                 Rand.PopState();
+
+            MpLog.Log("CaravanEnter " + map.mapPawns.AllPawnsSpawned.Select(p => p.Position).ToStringSafeEnumerable());
         }
     }
 
@@ -132,6 +135,24 @@ namespace Multiplayer.Client
                 if (inst.operand == Rot4GetRandom)
                     yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(Rand), nameof(Rand.PopState)));
             }
+        }
+    }
+
+    [HarmonyPatch(typeof(Pawn_DrawTracker), MethodType.Constructor, new[] { typeof(Pawn) })]
+    static class SeedDrawTrackerCtor
+    {
+        static void Prefix(Pawn pawn, ref bool __state)
+        {
+            if (Multiplayer.Client == null) return;
+
+            Rand.PushState(pawn.thingIDNumber);
+            __state = true;
+        }
+
+        static void Postfix(bool __state)
+        {
+            if (!__state) return;
+            Rand.PopState();
         }
     }
 

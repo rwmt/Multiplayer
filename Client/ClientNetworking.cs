@@ -10,6 +10,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
 using System.Threading;
+using System.Xml;
 using Verse;
 
 namespace Multiplayer.Client

@@ -74,7 +74,7 @@ namespace Multiplayer.Client
         public static Callback<PersonaStateChange_t> personaChange;
         public static AppId_t RimWorldAppId;
 
-        public static Stopwatch Time = Stopwatch.StartNew();
+        public static Stopwatch Watch = Stopwatch.StartNew();
 
         public const string SteamConnectStart = " -mpserver=";
 
@@ -83,7 +83,7 @@ namespace Multiplayer.Client
             if (GenCommandLine.CommandLineArgPassed("profiler"))
                 SimpleProfiler.CheckAvailable();
 
-            MpLog.info = str => Log.Message($"{username} {Current.Game?.CurrentMap?.AsyncTime()?.mapTicks.ToString() ?? ""} {str}");
+            MpLog.info = str => Log.Message($"{username} {TickPatch.Timer} {str}");
             MpLog.error = str => Log.Error(str);
 
             GenCommandLine.TryGetCommandLineArg("username", out username);
@@ -149,6 +149,18 @@ namespace Multiplayer.Client
                 username = "The Arbiter";
                 Prefs.VolumeGame = 0;
             }
+
+            if (GenCommandLine.TryGetCommandLineArg("replay", out string replay))
+            {
+                LongEventHandler.QueueLongEvent(() =>
+                {
+                    Replay.LoadReplay(replay, true, () =>
+                    {
+                        var rand = Find.Maps.Select(m => m.AsyncTime().randState).Select(s => $"{(uint)s} {s >> 32}");
+                        Log.Message($"map rand {rand.ToStringSafeEnumerable()} | {TickPatch.Timer} | {Find.Maps.Select(m => m.AsyncTime().mapTicks).ToStringSafeEnumerable()}");
+                    });
+                }, "Replay", false, null);
+            }
         }
 
         private static void InitSteam()
@@ -201,6 +213,30 @@ namespace Multiplayer.Client
             });
         }
 
+        public static XmlDocument SaveGame()
+        {
+            //SaveCompression.doSaveCompression = true;
+
+            ScribeUtil.StartWritingToDoc();
+
+            Scribe.EnterNode("savegame");
+            ScribeMetaHeaderUtility.WriteMetaHeader();
+            Scribe.EnterNode("game");
+            int currentMapIndex = Current.Game.currentMapIndex;
+            Scribe_Values.Look(ref currentMapIndex, "currentMapIndex", -1);
+            Current.Game.ExposeSmallComponents();
+            World world = Current.Game.World;
+            Scribe_Deep.Look(ref world, "world");
+            List<Map> maps = Find.Maps;
+            Scribe_Collections.Look(ref maps, "maps", LookMode.Deep);
+            Find.CameraDriver.Expose();
+            Scribe.ExitNode();
+
+            SaveCompression.doSaveCompression = false;
+
+            return ScribeUtil.FinishWritingToDoc();
+        }
+
         public static XmlDocument SaveAndReload()
         {
             /*if (serverThread != null)
@@ -226,30 +262,6 @@ namespace Multiplayer.Client
                 File.WriteAllText("memory_save", builder.ToString());
             }*/
 
-            XmlDocument SaveGame()
-            {
-                //SaveCompression.doSaveCompression = true;
-
-                ScribeUtil.StartWritingToDoc();
-
-                Scribe.EnterNode("savegame");
-                ScribeMetaHeaderUtility.WriteMetaHeader();
-                Scribe.EnterNode("game");
-                int currentMapIndex = Current.Game.currentMapIndex;
-                Scribe_Values.Look(ref currentMapIndex, "currentMapIndex", -1);
-                Current.Game.ExposeSmallComponents();
-                World world = Current.Game.World;
-                Scribe_Deep.Look(ref world, "world");
-                List<Map> maps = Find.Maps;
-                Scribe_Collections.Look(ref maps, "maps", LookMode.Deep);
-                Find.CameraDriver.Expose();
-                Scribe.ExitNode();
-
-                SaveCompression.doSaveCompression = false;
-
-                return ScribeUtil.FinishWritingToDoc();
-            }
-
             reloading = true;
 
             WorldGrid worldGridSaved = Find.WorldGrid;
@@ -257,6 +269,7 @@ namespace Multiplayer.Client
             var tweenedPos = new Dictionary<int, Vector3>();
             var drawers = new Dictionary<int, MapDrawer>();
             int localFactionId = RealPlayerFaction.loadID;
+            var mapCmds = new Dictionary<int, Queue<ScheduledCommand>>();
 
             //RealPlayerFaction = DummyFaction;
 
@@ -267,7 +280,11 @@ namespace Multiplayer.Client
 
                 foreach (Pawn p in map.mapPawns.AllPawnsSpawned)
                     tweenedPos[p.thingIDNumber] = p.drawer.tweener.tweenedPos;
+
+                mapCmds[map.uniqueID] = map.AsyncTime().cmds;
             }
+
+            mapCmds[ScheduledCommand.Global] = WorldComp.cmds;
 
             Stopwatch watch = Stopwatch.StartNew();
             XmlDocument gameDoc = SaveGame();
@@ -291,7 +308,11 @@ namespace Multiplayer.Client
                         p.drawer.tweener.lastDrawFrame = UnityEngine.Time.frameCount;
                     }
                 }
+
+                m.AsyncTime().cmds = mapCmds[m.uniqueID];
             }
+
+            WorldComp.cmds = mapCmds[ScheduledCommand.Global];
 
             SaveCompression.doSaveCompression = false;
             reloading = false;
@@ -363,11 +384,15 @@ namespace Multiplayer.Client
             XmlNode gameNode = doc.DocumentElement["game"];
             XmlNode mapsNode = gameNode["maps"];
 
+            OnMainThread.cachedMapData.Clear();
+            OnMainThread.cachedMapCmds.Clear();
+
             foreach (XmlNode mapNode in mapsNode)
             {
                 int id = int.Parse(mapNode["uniqueID"].InnerText);
                 byte[] mapData = ScribeUtil.XmlToByteArray(mapNode);
                 OnMainThread.cachedMapData[id] = mapData;
+                OnMainThread.cachedMapCmds[id] = new List<ScheduledCommand>(Find.Maps.First(m => m.uniqueID == id).AsyncTime().cmds);
             }
 
             gameNode["currentMapIndex"].RemoveFromParent();
@@ -376,6 +401,7 @@ namespace Multiplayer.Client
             byte[] gameData = ScribeUtil.XmlToByteArray(doc);
             OnMainThread.cachedAtTime = TickPatch.Timer;
             OnMainThread.cachedGameData = gameData;
+            OnMainThread.cachedMapCmds[ScheduledCommand.Global] = new List<ScheduledCommand>(WorldComp.cmds);
         }
 
         public static void SendCurrentGameData(bool async)
@@ -385,14 +411,18 @@ namespace Multiplayer.Client
 
             void Send()
             {
+                var writer = new ByteWriter();
+
+                writer.WriteInt32(mapsData.Count);
                 foreach (var mapData in mapsData)
                 {
-                    byte[] compressedMaps = GZipStream.CompressBuffer(mapData.Value);
-                    Client.SendFragmented(Packets.Client_AutosavedData, ByteWriter.GetBytes(0, compressedMaps, mapData.Key));
+                    writer.WriteInt32(mapData.Key);
+                    writer.WritePrefixedBytes(GZipStream.CompressBuffer(mapData.Value));
                 }
 
-                byte[] compressedGame = GZipStream.CompressBuffer(gameData);
-                Client.SendFragmented(Packets.Client_AutosavedData, ByteWriter.GetBytes(1, compressedGame));
+                writer.WritePrefixedBytes(GZipStream.CompressBuffer(gameData));
+
+                Client.SendFragmented(Packets.Client_AutosavedData, writer.GetArray());
             };
 
             if (async)
@@ -432,9 +462,10 @@ namespace Multiplayer.Client
                 var subSoundPlay = typeof(SubSoundDef).GetMethod("TryPlay");
                 var effecterTick = typeof(Effecter).GetMethod("EffectTick");
                 var effecterTrigger = typeof(Effecter).GetMethod("Trigger");
+                var effecterCleanup = typeof(Effecter).GetMethod("Cleanup");
                 var randomBoltMesh = typeof(LightningBoltMeshPool).GetProperty("RandomBoltMesh").GetGetMethod();
 
-                var effectMethods = new MethodBase[] { subSustainerCtor, sampleCtor, subSoundPlay, effecterTick, effecterTrigger, randomBoltMesh };
+                var effectMethods = new MethodBase[] { subSustainerCtor, sampleCtor, subSoundPlay, effecterTick, effecterTrigger, effecterCleanup, randomBoltMesh };
                 var moteMethods = typeof(MoteMaker).GetMethods(BindingFlags.Static | BindingFlags.Public);
 
                 foreach (MethodBase m in effectMethods.Concat(moteMethods))
@@ -591,6 +622,7 @@ namespace Multiplayer.Client
         public ServerSettings localSettings;
 
         public Process arbiter;
+        public bool ArbiterPlaying => players.Any(p => p.type == PlayerType.Arbiter && p.status == PlayerStatus.Playing);
 
         public void Stop()
         {
@@ -645,7 +677,7 @@ namespace Multiplayer.Client
         public int id;
         public string username;
         public int latency;
-        public bool steam;
+        public PlayerType type;
         public PlayerStatus status;
 
         public byte cursorSeq;
@@ -656,12 +688,12 @@ namespace Multiplayer.Client
         public double lastDelta;
         public byte cursorIcon;
 
-        private PlayerInfo(int id, string username, int latency, bool steam)
+        private PlayerInfo(int id, string username, int latency, PlayerType type)
         {
             this.id = id;
             this.username = username;
             this.latency = latency;
-            this.steam = steam;
+            this.type = type;
         }
 
         public override bool Equals(object obj)
@@ -679,10 +711,10 @@ namespace Multiplayer.Client
             int id = data.ReadInt32();
             string username = data.ReadString();
             int latency = data.ReadInt32();
-            bool steam = data.ReadBool();
+            var type = (PlayerType)data.ReadByte();
             var status = (PlayerStatus)data.ReadByte();
 
-            return new PlayerInfo(id, username, latency, steam)
+            return new PlayerInfo(id, username, latency, type)
             {
                 status = status
             };
@@ -737,6 +769,21 @@ namespace Multiplayer.Client
                 if (maker is ThingSetMaker_MarketValue m)
                     m.nextSeed = 1;
             }
+
+            DebugTools.curTool = null;
+            PortraitsCache.Clear();
+
+            Room.nextRoomID = 1;
+            Region.nextId = 1;
+
+            ZoneColorUtility.nextGrowingZoneColorIndex = 0;
+            ZoneColorUtility.nextStorageZoneColorIndex = 0;
+
+            foreach (var field in typeof(DebugSettings).GetFields(BindingFlags.Public | BindingFlags.Static))
+                if (!field.IsLiteral && field.FieldType == typeof(bool))
+                    field.SetValue(null, default(bool));
+
+            typeof(DebugSettings).TypeInitializer.Invoke(null, null);
         }
     }
 
@@ -860,7 +907,7 @@ namespace Multiplayer.Client
 
             UpdateSync();
 
-            if (!Multiplayer.arbiterInstance && Application.isFocused && Time.realtimeSinceStartup - lastCursorSend > 0.05f)
+            if (!Multiplayer.arbiterInstance && Application.isFocused && Time.realtimeSinceStartup - lastCursorSend > 0.05f && TickPatch.skipTo < 0)
             {
                 lastCursorSend = Time.realtimeSinceStartup;
                 SendCursor();
@@ -938,7 +985,7 @@ namespace Multiplayer.Client
                     IConnection conn = new SteamConnection(remote);
                     conn.State = ConnectionStateEnum.ServerSteam;
                     player = Multiplayer.LocalServer.OnConnected(conn);
-                    player.steam = true;
+                    player.type = PlayerType.Steam;
                 }
 
                 player.HandleReceive(data, channel == 0);

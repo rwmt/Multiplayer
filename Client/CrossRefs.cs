@@ -30,6 +30,92 @@ namespace Multiplayer.Client
         }
     }
 
+    [HarmonyPatch(typeof(PassingShipManager))]
+    [HarmonyPatch(nameof(PassingShipManager.AddShip))]
+    public static class ShipManagerAddPatch
+    {
+        static void Postfix(PassingShip vis)
+        {
+            if (Multiplayer.game == null) return;
+            ScribeUtil.sharedCrossRefs.RegisterLoaded(vis);
+        }
+    }
+
+    [HarmonyPatch(typeof(PassingShipManager))]
+    [HarmonyPatch(nameof(PassingShipManager.RemoveShip))]
+    public static class ShipManagerRemovePatch
+    {
+        static void Postfix(PassingShip vis)
+        {
+            if (Multiplayer.game == null) return;
+            ScribeUtil.sharedCrossRefs.Unregister(vis);
+        }
+    }
+
+    [HarmonyPatch(typeof(PassingShipManager))]
+    [HarmonyPatch(nameof(PassingShipManager.ExposeData))]
+    public static class ShipManagerExposePatch
+    {
+        static void Postfix(PassingShipManager __instance)
+        {
+            if (Multiplayer.game == null) return;
+
+            if (Scribe.mode == LoadSaveMode.PostLoadInit)
+                foreach (var ship in __instance.passingShips)
+                    ScribeUtil.sharedCrossRefs.RegisterLoaded(ship);
+        }
+    }
+
+    [HarmonyPatch(typeof(BillStack))]
+    [HarmonyPatch(nameof(BillStack.AddBill))]
+    public static class BillStackAddPatch
+    {
+        static void Postfix(Bill bill)
+        {
+            if (Multiplayer.game == null) return;
+            ScribeUtil.sharedCrossRefs.RegisterLoaded(bill);
+        }
+    }
+
+    [HarmonyPatch(typeof(BillStack))]
+    [HarmonyPatch(nameof(BillStack.RemoveIncompletableBills))]
+    public static class BillStackRemoveIncompletablePatch
+    {
+        static void Prefix(BillStack __instance)
+        {
+            if (Multiplayer.game == null) return;
+
+            foreach (var bill in __instance.bills)
+                if (!bill.CompletableEver)
+                    ScribeUtil.sharedCrossRefs.Unregister(bill);
+        }
+    }
+
+    [HarmonyPatch(typeof(BillStack))]
+    [HarmonyPatch(nameof(BillStack.Delete))]
+    public static class BillStackDeletePatch
+    {
+        static void Postfix(Bill bill)
+        {
+            if (Multiplayer.game == null) return;
+            ScribeUtil.sharedCrossRefs.Unregister(bill);
+        }
+    }
+
+    [HarmonyPatch(typeof(BillStack))]
+    [HarmonyPatch(nameof(BillStack.ExposeData))]
+    public static class BillStackExposePatch
+    {
+        static void Postfix(BillStack __instance)
+        {
+            if (Multiplayer.game == null) return;
+
+            if (Scribe.mode == LoadSaveMode.PostLoadInit)
+                foreach (var bill in __instance.bills)
+                    ScribeUtil.sharedCrossRefs.RegisterLoaded(bill);
+        }
+    }
+
     [HarmonyPatch(typeof(WorldObject))]
     [HarmonyPatch(nameof(WorldObject.SpawnSetup))]
     public static class WorldObjectSpawnPatch

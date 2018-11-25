@@ -1,10 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading;
 
 namespace Multiplayer.Common
 {
@@ -43,7 +39,7 @@ namespace Multiplayer.Common
                 return;
             }
 
-            if (!Player.arbiter && !UsernamePattern.IsMatch(username))
+            if (!Player.IsArbiter && !UsernamePattern.IsMatch(username))
             {
                 Player.Disconnect("MpInvalidUsernameChars");
                 return;
@@ -179,12 +175,19 @@ namespace Multiplayer.Common
             {
                 var cmd = msg.Substring(1);
                 var parts = cmd.Split(' ');
-                var handler = MultiplayerServer.instance.GetCmdHandler(parts[0]);
+                var handler = Server.GetCmdHandler(parts[0]);
 
                 if (handler != null)
-                    handler.Handle(Player, parts.SubArray(1));
+                {
+                    if (handler.requiresHost && Player.Username != Server.hostUsername)
+                        Player.SendChat("No permission");
+                    else
+                        handler.Handle(Player, parts.SubArray(1));
+                }
                 else
+                {
                     Player.SendChat("Invalid command");
+                }
             }
             else
             {
@@ -196,29 +199,23 @@ namespace Multiplayer.Common
         [IsFragmented]
         public void HandleAutosavedData(ByteReader data)
         {
-            var arbiter = Server.PlayingPlayers.Any(p => p.arbiter);
-            if (arbiter && !Player.arbiter) return;
+            var arbiter = Server.ArbiterPlaying;
+            if (arbiter && !Player.IsArbiter) return;
             if (!arbiter && Player.Username != Server.hostUsername) return;
 
-            int type = data.ReadInt32();
-            byte[] compressedData = data.ReadPrefixedBytes();
-
-            if (type == 0) // World data
+            int maps = data.ReadInt32();
+            for (int i = 0; i < maps; i++)
             {
                 int mapId = data.ReadInt32();
-
-                // todo test map ownership
-                Server.mapData[mapId] = compressedData;
+                Server.mapData[mapId] = data.ReadPrefixedBytes();
             }
-            else if (type == 1) // Map data
-            {
-                Server.savedGame = compressedData;
 
-                if (Server.tmpMapCmds != null)
-                {
-                    Server.mapCmds = Server.tmpMapCmds;
-                    Server.tmpMapCmds = null;
-                }
+            Server.savedGame = data.ReadPrefixedBytes();
+
+            if (Server.tmpMapCmds != null)
+            {
+                Server.mapCmds = Server.tmpMapCmds;
+                Server.tmpMapCmds = null;
             }
         }
 
@@ -280,12 +277,12 @@ namespace Multiplayer.Common
         [PacketHandler(Packets.Client_SyncInfo)]
         public void HandleDesyncCheck(ByteReader data)
         {
-            var arbiter = Server.PlayingPlayers.Any(p => p.arbiter);
-            if (arbiter && !Player.arbiter) return;
+            var arbiter = Server.ArbiterPlaying;
+            if (arbiter && !Player.IsArbiter) return;
             if (!arbiter && Player.Username != Server.hostUsername) return;
 
             var raw = data.ReadRaw(data.Left);
-            foreach (var p in Server.PlayingPlayers.Where(p => !p.arbiter))
+            foreach (var p in Server.PlayingPlayers.Where(p => !p.IsArbiter))
                 p.SendPacket(Packets.Server_SyncInfo, raw);
         }
     }

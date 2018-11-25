@@ -2,6 +2,6 @@
 {
     public static class MpVersion
     {
-        public static readonly int Protocol = 1;
+        public static readonly int Protocol = 2;
     }
 }

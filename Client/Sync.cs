@@ -708,7 +708,7 @@ namespace Multiplayer.Client
                 SyncField handler = data.handler;
                 object newValue = MpReflection.GetValue(data.target, handler.memberPath, data.index);
                 bool changed = !Equals(newValue, data.oldValue);
-                var cache = handler.bufferChanges ? bufferedChanges.GetValueSafe(handler) : null;
+                var cache = (handler.bufferChanges && !Multiplayer.IsReplay) ? bufferedChanges.GetValueSafe(handler) : null;
 
                 if (cache != null && cache.TryGetValue(new Pair<object, object>(data.target, data.index), out BufferData cached))
                 {

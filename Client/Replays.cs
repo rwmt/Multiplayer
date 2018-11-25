@@ -12,6 +12,7 @@ using zip::Ionic.Zip;
 
 namespace Multiplayer.Client
 {
+    [HotSwappable]
     public class Replay
     {
         public readonly string fileName;
@@ -26,6 +27,8 @@ namespace Multiplayer.Client
         }
 
         private string FilePath => Path.Combine(folder ?? Multiplayer.ReplaysDir, $"{fileName}.zip");
+
+        public FileInfo File => new FileInfo(FilePath);
         public ZipFile ZipFile => new ZipFile(FilePath);
 
         public void WriteCurrentData()

@@ -91,6 +91,8 @@ namespace Multiplayer.Client
 
         private void ReloadFiles()
         {
+            selectedFile = null;
+
             spSaves.Clear();
             mpReplays.Clear();
 
@@ -489,7 +491,7 @@ namespace Multiplayer.Client
             for (int i = servers.Count - 1; i >= 0; i--)
             {
                 LanServer server = servers[i];
-                if (Multiplayer.Time.ElapsedMilliseconds - server.lastUpdate > 5000)
+                if (Multiplayer.Watch.ElapsedMilliseconds - server.lastUpdate > 5000)
                     servers.RemoveAt(i);
             }
         }
@@ -498,7 +500,7 @@ namespace Multiplayer.Client
 
         private void UpdateSteam()
         {
-            if (Multiplayer.Time.ElapsedMilliseconds - lastFriendUpdate > 2000)
+            if (Multiplayer.Watch.ElapsedMilliseconds - lastFriendUpdate > 2000)
             {
                 friends.Clear();
 
@@ -534,7 +536,7 @@ namespace Multiplayer.Client
 
                 friends.SortByDescending(f => f.serverHost != CSteamID.Nil);
 
-                lastFriendUpdate = Multiplayer.Time.ElapsedMilliseconds;
+                lastFriendUpdate = Multiplayer.Watch.ElapsedMilliseconds;
             }
         }
 
@@ -562,12 +564,12 @@ namespace Multiplayer.Client
                 servers.Add(new LanServer()
                 {
                     endpoint = endpoint,
-                    lastUpdate = Multiplayer.Time.ElapsedMilliseconds
+                    lastUpdate = Multiplayer.Watch.ElapsedMilliseconds
                 });
             }
             else
             {
-                server.lastUpdate = Multiplayer.Time.ElapsedMilliseconds;
+                server.lastUpdate = Multiplayer.Watch.ElapsedMilliseconds;
             }
         }
 

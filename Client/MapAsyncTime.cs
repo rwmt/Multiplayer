@@ -108,7 +108,7 @@ namespace Multiplayer.Client
         {
             var watch = Stopwatch.StartNew();
 
-            while (accumulator > 0 || (skipTo >= 0 && Timer < skipTo && watch.ElapsedMilliseconds < 25))
+            while ((skipTo < 0 && accumulator > 0) || (skipTo >= 0 && Timer < skipTo && watch.ElapsedMilliseconds < 25))
             {
                 int curTimer = Timer;
 
@@ -610,7 +610,7 @@ namespace Multiplayer.Client
         public float TickRateMultiplier(TimeSpeed speed)
         {
             var comp = map.MpComp();
-            if (comp.caravanForming != null || comp.mapDialogs.Any())
+            if (comp.caravanForming != null || comp.mapDialogs.Any() || Multiplayer.WorldComp.trading.Any(t => t.playerNegotiator.Map == map))
                 return 0f;
 
             switch (speed)
@@ -1059,7 +1059,10 @@ namespace Multiplayer.Client
                     var first = buffer.RemoveFirst();
                     var error = first.Compare(info);
                     if (error != null)
+                    {
+                        MpLog.Log($"Desynced: {error}");
                         OnDesynced(first, info);
+                    }
                 }
             }
         }
@@ -1086,6 +1089,7 @@ namespace Multiplayer.Client
                 zip.AddEntry("sync_local", local.Serialize());
                 zip.AddEntry("sync_remote", remote.Serialize());
                 zip.AddEntry("game_snapshot", savedGame);
+                zip.AddEntry("desync_info", new byte[] { Multiplayer.session.ArbiterPlaying ? (byte)1 : (byte)0 });
                 zip.Save();
             }
             catch (Exception e)

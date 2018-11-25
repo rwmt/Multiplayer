@@ -203,6 +203,11 @@ namespace Multiplayer.Client
                 if (!Find.WindowStack.IsOpen(typeof(MpFormingCaravanWindow)))
                     comp.caravanForming.OpenWindow(false);
             }
+            else if (Multiplayer.WorldComp.trading.FirstOrDefault(t => t.playerNegotiator.Map == comp.map) is MpTradeSession trading)
+            {
+                if (!Find.WindowStack.IsOpen(typeof(TradingWindow)))
+                    Find.WindowStack.Add(new TradingWindow() { selectedTab = Multiplayer.WorldComp.trading.IndexOf(trading) });
+            }
         }
     }
 

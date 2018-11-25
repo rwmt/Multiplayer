@@ -33,7 +33,8 @@ namespace Multiplayer.Common
 
         public override void Handle(ServerPlayer player, string[] args)
         {
-            Server.DoAutosave();
+            if (!Server.DoAutosave())
+                player.SendChat("Autosave already in progress.");
         }
     }
 

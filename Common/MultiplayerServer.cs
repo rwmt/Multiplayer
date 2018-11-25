@@ -54,6 +54,7 @@ namespace Multiplayer.Common
 
         public int LocalPort => netManager.LocalPort;
         public int ArbiterPort => arbiter.LocalPort;
+        public bool ArbiterPlaying => PlayingPlayers.Any(p => p.IsArbiter && p.status == PlayerStatus.Playing);
 
         public MultiplayerServer(ServerSettings settings)
         {
@@ -70,7 +71,7 @@ namespace Multiplayer.Common
         {
             netManager?.Start(settings.address, IPAddress.IPv6Any, settings.port);
         }
-        
+
         public void SetupArbiterConnection()
         {
             arbiter = new NetManager(new MpNetListener(this, true));
@@ -117,6 +118,8 @@ namespace Multiplayer.Common
             instance = null;
         }
 
+        private int lastAutosave;
+
         public void Tick()
         {
             netManager?.PollEvents();
@@ -139,6 +142,14 @@ namespace Multiplayer.Common
                 SendToAll(Packets.Server_KeepAlive, new object[] { keepAliveId });
                 lastKeepAlive.Restart();
             }
+
+            if (lastAutosave >= settings.autosaveInterval * 60 * 60)
+            {
+                DoAutosave();
+                lastAutosave = 0;
+            }
+
+            lastAutosave++;
         }
 
         private void SendLatencies()
@@ -146,11 +157,15 @@ namespace Multiplayer.Common
             SendToAll(Packets.Server_PlayerList, new object[] { (byte)PlayerListAction.Latencies, PlayingPlayers.Select(p => p.Latency).ToArray() });
         }
 
-        public void DoAutosave()
+        public bool DoAutosave()
         {
-            SendCommand(CommandType.Autosave, ScheduledCommand.NoFaction, ScheduledCommand.Global, new byte[0]);
+            if (tmpMapCmds != null)
+                return false;
 
+            SendCommand(CommandType.Autosave, ScheduledCommand.NoFaction, ScheduledCommand.Global, new byte[0]);
             tmpMapCmds = new Dictionary<int, List<byte[]>>();
+
+            return true;
         }
 
         public void Enqueue(Action action)
@@ -288,7 +303,7 @@ namespace Multiplayer.Common
 
         public void OnConnectionRequest(ConnectionRequest req)
         {
-            if (server.settings.maxPlayers > 0 && server.players.Count >= server.settings.maxPlayers)
+            if (!arbiter && server.settings.maxPlayers > 0 && server.players.Count(p => !p.IsArbiter) >= server.settings.maxPlayers)
             {
                 var writer = new ByteWriter();
                 writer.WriteString("Server is full");
@@ -306,7 +321,8 @@ namespace Multiplayer.Common
             peer.Tag = conn;
 
             var player = server.OnConnected(conn);
-            player.arbiter = arbiter;
+            if (arbiter)
+                player.type = PlayerType.Arbiter;
         }
 
         public void OnPeerDisconnected(NetPeer peer, DisconnectInfo disconnectInfo)
@@ -352,8 +368,7 @@ namespace Multiplayer.Common
     {
         public int id;
         public IConnection conn;
-        public bool steam;
-        public bool arbiter;
+        public PlayerType type;
         public PlayerStatus status;
 
         public string Username => conn.username;
@@ -361,6 +376,7 @@ namespace Multiplayer.Common
         public int FactionId => MultiplayerServer.instance.playerFactions[Username];
         public bool IsPlaying => conn.State == ConnectionStateEnum.ServerPlaying;
         public bool IsHost => MultiplayerServer.instance.hostUsername == Username;
+        public bool IsArbiter => type == PlayerType.Arbiter;
 
         public MultiplayerServer Server => MultiplayerServer.instance;
 
@@ -429,7 +445,7 @@ namespace Multiplayer.Common
             writer.WriteInt32(id);
             writer.WriteString(Username);
             writer.WriteInt32(Latency);
-            writer.WriteBool(steam);
+            writer.WriteByte((byte)type);
             writer.WriteByte((byte)status);
 
             return writer.GetArray();
@@ -443,11 +459,18 @@ namespace Multiplayer.Common
         }
     }
 
-    public enum PlayerStatus
+    public enum PlayerStatus : byte
     {
-        Connecting,
+        Simulating,
         Playing,
         Desynced
+    }
+
+    public enum PlayerType : byte
+    {
+        Normal,
+        Steam,
+        Arbiter
     }
 
     public class IdBlock

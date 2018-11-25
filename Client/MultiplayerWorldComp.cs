@@ -4,6 +4,7 @@ using RimWorld;
 using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Xml;
@@ -77,6 +78,13 @@ namespace Multiplayer.Client
 
             ExposeFactionData();
 
+            Scribe_Collections.Look(ref trading, "tradingSessions", LookMode.Deep);
+            if (Scribe.mode == LoadSaveMode.PostLoadInit)
+            {
+                if (trading.RemoveAll(t => t.trader == null || t.playerNegotiator == null) > 0)
+                    Log.Message("Some trading sessions had null entries");
+            }
+
             Multiplayer.ExposeIdBlock(ref globalIdBlock, "globalIdBlock");
         }
 
@@ -84,8 +92,6 @@ namespace Multiplayer.Client
 
         private void ExposeFactionData()
         {
-            Scribe_Collections.Look(ref trading, "tradingSessions", LookMode.Deep);
-
             if (Scribe.mode == LoadSaveMode.Saving)
             {
                 int currentFactionId = Faction.OfPlayer.loadID;
@@ -104,11 +110,6 @@ namespace Multiplayer.Client
                 Scribe_Collections.Look(ref factionData, "factionData", LookMode.Value, LookMode.Deep);
                 if (factionData == null)
                     factionData = new Dictionary<int, FactionWorldData>();
-            }
-
-            if (Scribe.mode == LoadSaveMode.ResolvingCrossRefs)
-            {
-                trading.RemoveAll(t => t.trader == null || t.playerNegotiator == null);
             }
 
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
@@ -237,14 +238,26 @@ namespace Multiplayer.Client
 
                     LongEventHandler.QueueLongEvent(() =>
                     {
-                        OnMainThread.ClearCaches();
+                        if (Multiplayer.LocalServer != null && TickPatch.skipTo < 0 && !Multiplayer.IsReplay)
+                        {
+                            try
+                            {
+                                var replay = Replay.ForSaving(AutosaveFile());
+                                replay.File.Delete();
+                                replay.WriteCurrentData();
+                            }
+                            catch (Exception e)
+                            {
+                                Log.Error($"Autosave file writing failed: {e}");
+                            }
+                        }
 
                         XmlDocument doc = Multiplayer.SaveAndReload();
                         Multiplayer.CacheGameData(doc);
 
                         if (TickPatch.skipTo < 0 && !Multiplayer.IsReplay && (Multiplayer.LocalServer != null || Multiplayer.arbiterInstance))
                             Multiplayer.SendCurrentGameData(true);
-                    }, "MpAutosaving", false, null);
+                    }, "MpSaving", false, null);
                 }
             }
             catch (Exception e)
@@ -260,6 +273,15 @@ namespace Multiplayer.Client
 
                 Multiplayer.game.sync.TryAddCmd(randState);
             }
+        }
+
+        private string AutosaveFile()
+        {
+            return Enumerable
+                .Range(1, 5)
+                .Select(i => $"Autosave-{i}")
+                .OrderBy(s => new FileInfo(Path.Combine(Multiplayer.ReplaysDir, $"{s}.zip")).LastWriteTime)
+                .First();
         }
 
         private void HandleSetupFaction(ScheduledCommand command, ByteReader data)

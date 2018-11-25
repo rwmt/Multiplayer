@@ -100,7 +100,7 @@ namespace Multiplayer.Client
 
             var buttonRect = new Rect((inRect.width - 100f) / 2f, inRect.height - 35f, 100f, 35f);
 
-            if (Widgets.ButtonText(buttonRect, "Host") && 
+            if (Widgets.ButtonText(buttonRect, "Host") &&
                 (!settings.direct || TryParseIp(addressBuffer, out settings.address, out settings.port)))
             {
                 if (file == null)
@@ -213,7 +213,9 @@ namespace Multiplayer.Client
         {
             Replay.LoadReplay(file.fileName, true, () =>
             {
+                var timer = TickPatch.Timer;
                 OnMainThread.StopMultiplayer();
+                TickPatch.Timer = timer;
                 ClientUtil.HostServer(settings, true);
             });
         }
