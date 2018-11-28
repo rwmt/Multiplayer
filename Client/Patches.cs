@@ -316,7 +316,7 @@ namespace Multiplayer.Client
             LongEventHandler.ExecuteWhenFinished(() =>
             {
                 // Inits all caches
-                foreach (ITickable tickable in TickPatch.AllTickables)
+                foreach (ITickable tickable in TickPatch.AllTickables.Where(t => !(t is ConstantTicker)))
                     tickable.Tick();
 
                 if (!Current.Game.Maps.Any())
@@ -324,40 +324,9 @@ namespace Multiplayer.Client
                     MemoryUtility.UnloadUnusedUnityAssets();
                     Find.World.renderer.RegenerateAllLayersNow();
                 }
-
-                /*Find.WindowStack.Add(new CustomSelectLandingSite()
-                {
-                    nextAct = () => Settle()
-                });*/
             });
 
             return false;
-        }
-
-        private static void Settle()
-        {
-            // notify the server of map gen pause?
-
-            Find.GameInitData.mapSize = 150;
-            Find.GameInitData.startingAndOptionalPawns.Add(StartingPawnUtility.NewGeneratedStartingPawn());
-            Find.GameInitData.startingAndOptionalPawns.Add(StartingPawnUtility.NewGeneratedStartingPawn());
-
-            Settlement settlement = (Settlement)WorldObjectMaker.MakeWorldObject(WorldObjectDefOf.Settlement);
-            settlement.SetFaction(Multiplayer.RealPlayerFaction);
-            settlement.Tile = Find.GameInitData.startingTile;
-            settlement.Name = SettlementNameGenerator.GenerateSettlementName(settlement);
-            Find.WorldObjects.Add(settlement);
-
-            IntVec3 intVec = new IntVec3(Find.GameInitData.mapSize, 1, Find.GameInitData.mapSize);
-            Map currentMap = MapGenerator.GenerateMap(intVec, settlement, settlement.MapGeneratorDef, settlement.ExtraGenStepDefs, null);
-            Find.World.info.initialMapSize = intVec;
-            PawnUtility.GiveAllStartingPlayerPawnsThought(ThoughtDefOf.NewColonyOptimism);
-            Current.Game.CurrentMap = currentMap;
-            Find.CameraDriver.JumpToCurrentMapLoc(MapGenerator.PlayerStartSpot);
-            Find.CameraDriver.ResetSize();
-            Current.Game.InitData = null;
-
-            Log.Message("New map: " + currentMap.GetUniqueLoadID());
         }
     }
 
@@ -401,7 +370,7 @@ namespace Multiplayer.Client
                 text.Append($"\n{Sync.bufferedChanges.Sum(kv => kv.Value.Count)}");
                 text.Append($"\n{((uint)async.randState)} {(uint)(async.randState >> 32)}");
                 text.Append($"\n{(uint)Multiplayer.WorldComp.randState} {(uint)(Multiplayer.WorldComp.randState >> 32)}");
-                text.Append($"\n{async.cmds.Select(c => $"{c.type}:{c.ticks}").ToStringSafeEnumerable()} {Multiplayer.WorldComp.cmds.Count}");
+                text.Append($"\n{async.cmds.Count} {Multiplayer.WorldComp.cmds.Count}");
 
                 Rect rect1 = new Rect(80f, 110f, 330f, Text.CalcHeight(text.ToString(), 330f));
                 Widgets.Label(rect1, text.ToString());
@@ -420,28 +389,61 @@ namespace Multiplayer.Client
 
         static void DoButtons()
         {
-            float x = 10f;
-            const float width = 60f;
+            float y = 10f;
+            const float btnWidth = 60f;
 
             if (Multiplayer.session != null && !Multiplayer.IsReplay)
             {
-                if (Widgets.ButtonText(new Rect(Screen.width - width - 10f, x, width, 25f), $"Chat{(Multiplayer.session.hasUnread ? "*" : "")}"))
+                var btnRect = new Rect(UI.screenWidth - btnWidth - 10f, y, btnWidth, 25f);
+
+                if (Widgets.ButtonText(btnRect, $"Chat{(Multiplayer.session.hasUnread ? "*" : "")}"))
                     Find.WindowStack.Add(new ChatWindow());
-                x += 25f;
+
+                if (TickPatch.skipTo < 0)
+                {
+                    IndicatorInfo(out Color color, out string text);
+
+                    var indRect = new Rect(btnRect.x - 25f - 5f + 6f / 2f, btnRect.y + 6f / 2f, 19f, 19f);
+                    Widgets.DrawRectFast(new Rect(btnRect.x - 25f - 5f + 2f / 2f, btnRect.y + 2f / 2f, 23f, 23f), new Color(color.r * 0.6f, color.g * 0.6f, color.b * 0.6f));
+                    Widgets.DrawRectFast(indRect, color);
+                    TooltipHandler.TipRegion(indRect, new TipSignal(text, 31641624));
+                }
+
+                y += 25f;
             }
 
             if (Prefs.DevMode && Multiplayer.PacketLog != null)
             {
-                if (Widgets.ButtonText(new Rect(Screen.width - width - 10f, x, width, 25f), "Packets"))
+                if (Widgets.ButtonText(new Rect(UI.screenWidth - btnWidth - 10f, y, btnWidth, 25f), "Packets"))
                     Find.WindowStack.Add(Multiplayer.PacketLog);
-                x += 25f;
+                y += 25f;
             }
 
             if (Multiplayer.Client != null && Multiplayer.WorldComp.trading.Any())
             {
-                if (Widgets.ButtonText(new Rect(Screen.width - width - 10f, x, width, 25f), "Trading"))
+                if (Widgets.ButtonText(new Rect(UI.screenWidth - btnWidth - 10f, y, btnWidth, 25f), "Trading"))
                     Find.WindowStack.Add(new TradingWindow());
-                x += 25f;
+                y += 25f;
+            }
+        }
+
+        static void IndicatorInfo(out Color color, out string text)
+        {
+            int behind = TickPatch.tickUntil - TickPatch.Timer;
+            text = $"You are {behind} ticks behind.";
+
+            if (behind > 30)
+            {
+                color = new Color(0.9f, 0, 0);
+                text += "\n\nConsider lowering the game speed.";
+            }
+            else if (behind > 15)
+            {
+                color = Color.yellow;
+            }
+            else
+            {
+                color = new Color(0.0f, 0.8f, 0.0f);
             }
         }
 
@@ -1655,6 +1657,30 @@ namespace Multiplayer.Client
         static bool Prefix() => !Multiplayer.arbiterInstance;
     }
 
+    [MpPatch(typeof(Prefs), "get_" + nameof(Prefs.VolumeGame))]
+    [MpPatch(typeof(Prefs), nameof(Prefs.Save))]
+    static class CancelDuringSkipping
+    {
+        static bool Prefix() => TickPatch.skipTo < 0;
+    }
+
+    [HarmonyPatch(typeof(LetterStack), nameof(LetterStack.LetterStackUpdate))]
+    static class CloseLetters
+    {
+        static void Postfix(LetterStack __instance)
+        {
+            if (Multiplayer.Client == null) return;
+            if (TickPatch.skipTo < 0 && !Multiplayer.arbiterInstance) return;
+
+            for (int i = __instance.letters.Count - 1; i >= 0; i--)
+            {
+                var letter = __instance.letters[i];
+                if (letter is ChoiceLetter choice && choice.Choices.Contains(choice.Option_Close) && Time.time - letter.arrivalTime > 4)
+                    __instance.RemoveLetter(letter);
+            }
+        }
+    }
+
     [HarmonyPatch(typeof(Prefs), nameof(Prefs.MaxNumberOfPlayerSettlements), MethodType.Getter)]
     static class MaxColoniesPatch
     {
@@ -1766,6 +1792,7 @@ namespace Multiplayer.Client
         }
     }
 
+    // todo does this cause issues?
     [HarmonyPatch(typeof(Tradeable), nameof(Tradeable.GetHashCode))]
     static class TradeableHashCode
     {
@@ -1774,6 +1801,46 @@ namespace Multiplayer.Client
         static void Postfix(Tradeable __instance, ref int __result)
         {
             __result = RuntimeHelpers.GetHashCode(__instance);
+        }
+    }
+
+    [HarmonyPatch(typeof(LongEventHandler), nameof(LongEventHandler.LongEventsUpdate))]
+    static class NewLongEvent
+    {
+        static void Prefix(ref bool __state)
+        {
+            __state = LongEventHandler.currentEvent == null;
+        }
+
+        static void Postfix(bool __state)
+        {
+            if (Multiplayer.Client == null) return;
+            if (TickPatch.skipTo >= 0 || Multiplayer.IsReplay) return;
+
+            if (__state && LongEventHandler.currentEvent != null)
+                Multiplayer.Client.Send(Packets.Client_Pause, new object[] { true });
+        }
+    }
+
+    [HarmonyPatch(typeof(LongEventHandler), nameof(LongEventHandler.ExecuteToExecuteWhenFinished))]
+    static class LongEventEnd
+    {
+        static void Postfix()
+        {
+            if (Multiplayer.Client == null) return;
+            if (TickPatch.skipTo >= 0 || Multiplayer.IsReplay) return;
+
+            Multiplayer.Client.Send(Packets.Client_Pause, new object[] { false });
+        }
+    }
+
+    [HarmonyPatch(typeof(LongEventHandler), nameof(LongEventHandler.QueueLongEvent), new[] { typeof(Action), typeof(string), typeof(bool), typeof(Action<Exception>) })]
+    static class LongEventAlwaysSync
+    {
+        static void Prefix(ref bool doAsynchronously)
+        {
+            if (Multiplayer.ExecutingCmds)
+                doAsynchronously = false;
         }
     }
 

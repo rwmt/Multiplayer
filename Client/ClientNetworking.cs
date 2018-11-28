@@ -212,6 +212,9 @@ namespace Multiplayer.Client
 
         private static void StartArbiter()
         {
+            Multiplayer.session.AddMsg("The Arbiter instance is starting...");
+            Multiplayer.session.hasUnread = false;
+
             Multiplayer.LocalServer.SetupArbiterConnection();
 
             Multiplayer.session.arbiter = Process.Start(

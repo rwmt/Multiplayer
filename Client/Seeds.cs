@@ -108,8 +108,6 @@ namespace Multiplayer.Client
         {
             if (__state)
                 Rand.PopState();
-
-            MpLog.Log("CaravanEnter " + map.mapPawns.AllPawnsSpawned.Select(p => p.Position).ToStringSafeEnumerable());
         }
     }
 

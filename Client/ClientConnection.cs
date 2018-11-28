@@ -301,6 +301,13 @@ namespace Multiplayer.Client
             Multiplayer.game?.sync.Add(SyncInfo.Deserialize(data));
         }
 
+        [PacketHandler(Packets.Server_Pause)]
+        public void HandlePause(ByteReader data)
+        {
+            bool pause = data.ReadBool();
+            // This packet doesn't get processed in time during a synchronous long event 
+        }
+
         public void Connected()
         {
         }

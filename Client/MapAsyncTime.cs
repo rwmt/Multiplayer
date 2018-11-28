@@ -57,8 +57,8 @@ namespace Multiplayer.Client
 
             if (Timer >= tickUntil)
                 accumulator = 0;
-            else if (!Multiplayer.IsReplay && delta < 1.5 && tickUntil - Timer > 8)
-                accumulator += Math.Min(100, tickUntil - Timer - 8);
+            else if (!Multiplayer.IsReplay && delta < 1.5 && tickUntil - Timer > 6)
+                accumulator += Math.Min(100, tickUntil - Timer - 6);
 
             if (Multiplayer.IsReplay && replayTimeSpeed == TimeSpeed.Paused)
                 accumulator = 0;
@@ -1031,6 +1031,8 @@ namespace Multiplayer.Client
             }
         }
 
+        private int lastValidTick;
+
         public void Add(SyncInfo info)
         {
             if (buffer.Count == 0)
@@ -1058,10 +1060,15 @@ namespace Multiplayer.Client
                 {
                     var first = buffer.RemoveFirst();
                     var error = first.Compare(info);
+
                     if (error != null)
                     {
                         MpLog.Log($"Desynced: {error}");
                         OnDesynced(first, info);
+                    }
+                    else
+                    {
+                        lastValidTick = first.startTick;
                     }
                 }
             }
@@ -1089,7 +1096,12 @@ namespace Multiplayer.Client
                 zip.AddEntry("sync_local", local.Serialize());
                 zip.AddEntry("sync_remote", remote.Serialize());
                 zip.AddEntry("game_snapshot", savedGame);
-                zip.AddEntry("desync_info", new byte[] { Multiplayer.session.ArbiterPlaying ? (byte)1 : (byte)0 });
+
+                var desyncInfo = new ByteWriter();
+                desyncInfo.WriteBool(Multiplayer.session.ArbiterPlaying);
+                desyncInfo.WriteInt32(lastValidTick);
+
+                zip.AddEntry("desync_info", desyncInfo.GetArray());
                 zip.Save();
             }
             catch (Exception e)
@@ -1105,7 +1117,7 @@ namespace Multiplayer.Client
         {
             var files = new DirectoryInfo(Multiplayer.DesyncsDir).GetFiles("Desync-*.zip");
 
-            const int MaxFiles = 5;
+            const int MaxFiles = 10;
             if (files.Length > MaxFiles - 1)
                 files.OrderByDescending(f => f.LastWriteTime).Skip(MaxFiles - 1).Do(f => f.Delete());
 

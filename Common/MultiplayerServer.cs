@@ -37,6 +37,7 @@ namespace Multiplayer.Common
 
         public string hostUsername;
         public int timer;
+        public bool paused;
         public ActionQueue queue = new ActionQueue();
         public ServerSettings settings;
 
@@ -92,7 +93,9 @@ namespace Multiplayer.Common
 
                 while (lag >= timePerTick)
                 {
-                    Tick();
+                    TickNet();
+                    if (!paused)
+                        Tick();
                     lag -= timePerTick;
                 }
 
@@ -120,12 +123,15 @@ namespace Multiplayer.Common
 
         private int lastAutosave;
 
-        public void Tick()
+        public void TickNet()
         {
             netManager?.PollEvents();
             arbiter?.PollEvents();
             queue.RunQueue();
+        }
 
+        public void Tick()
+        {
             if (timer % 3 == 0)
                 SendToAll(Packets.Server_TimeControl, new object[] { timer });
 

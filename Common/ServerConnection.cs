@@ -285,6 +285,17 @@ namespace Multiplayer.Common
             foreach (var p in Server.PlayingPlayers.Where(p => !p.IsArbiter))
                 p.SendPacket(Packets.Server_SyncInfo, raw);
         }
+
+        [PacketHandler(Packets.Client_Pause)]
+        public void HandlePause(ByteReader data)
+        {
+            bool pause = data.ReadBool();
+            if (pause && Player.Username != Server.hostUsername) return;
+            if (Server.paused == pause) return;
+
+            Server.paused = pause;
+            Server.SendToAll(Packets.Server_Pause, new object[] { pause });
+        }
     }
 
     public enum PlayerListAction : byte

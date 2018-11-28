@@ -277,6 +277,8 @@ namespace Multiplayer.Client
 
             if (!hasBeenFocused)
             {
+                chatScroll.y = messagesHeight;
+
                 GUI.FocusControl("chat_input");
                 TextEditor editor = (TextEditor)GUIUtility.GetStateObject(typeof(TextEditor), GUIUtility.keyboardControl);
                 editor.OnFocus();

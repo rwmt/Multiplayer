@@ -15,6 +15,7 @@
         Client_SyncInfo,
         Client_Cursor,
         Client_Desynced,
+        Client_Pause,
 
         Server_DefsOK,
         Server_WorldData,
@@ -29,6 +30,7 @@
         Server_DisconnectReason,
         Server_SyncInfo,
         Server_Cursor,
+        Server_Pause,
 
         Count
     }
