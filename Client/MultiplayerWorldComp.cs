@@ -159,12 +159,14 @@ namespace Multiplayer.Client
         public void PreContext()
         {
             UniqueIdsPatch.CurrentBlock = globalIdBlock;
+            Rand.PushState();
             Rand.StateCompressed = randState;
         }
 
         public void PostContext()
         {
             randState = Rand.StateCompressed;
+            Rand.PopState();
             UniqueIdsPatch.CurrentBlock = null;
         }
 

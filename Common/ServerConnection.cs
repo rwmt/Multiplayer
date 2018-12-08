@@ -296,6 +296,12 @@ namespace Multiplayer.Common
             Server.paused = pause;
             Server.SendToAll(Packets.Server_Pause, new object[] { pause });
         }
+
+        [PacketHandler(Packets.Client_Debug)]
+        public void HandleDebug(ByteReader data)
+        {
+            Server.PlayingPlayers.FirstOrDefault(p => p.IsArbiter)?.SendPacket(Packets.Server_Debug, data.ReadRaw(data.Left));
+        }
     }
 
     public enum PlayerListAction : byte

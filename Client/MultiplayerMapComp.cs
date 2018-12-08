@@ -166,11 +166,11 @@ namespace Multiplayer.Client
             return new FactionMapData(factionId, map);
         }
 
-        public static FactionMapData FromMap(Map map, int factionId = int.MinValue)
+        public static FactionMapData FromMap(Map map, int factionId)
         {
             return new FactionMapData(map)
             {
-                factionId = factionId == int.MinValue ? map.ParentFaction.loadID : factionId,
+                factionId = factionId,
 
                 designationManager = map.designationManager,
                 areaManager = map.areaManager,

@@ -111,6 +111,24 @@ namespace Multiplayer.Client
         }
     }
 
+    [HarmonyPatch(typeof(LongEventHandler), nameof(LongEventHandler.QueueLongEvent), new[] { typeof(Action), typeof(string), typeof(bool), typeof(Action<Exception>) })]
+    static class SeedLongEvents
+    {
+        static void Prefix(ref Action action)
+        {
+            if (Multiplayer.Client != null && (Multiplayer.Ticking || Multiplayer.ExecutingCmds))
+            {
+                var a = action;
+                action = () =>
+                {
+                    Rand.PushState(4);
+                    a();
+                    Rand.PopState();
+                };
+            }
+        }
+    }
+
     // Seed the rotation random
     [HarmonyPatch(typeof(GenSpawn), nameof(GenSpawn.Spawn), new[] { typeof(Thing), typeof(IntVec3), typeof(Map), typeof(Rot4), typeof(WipeMode), typeof(bool) })]
     static class GenSpawnRotatePatch

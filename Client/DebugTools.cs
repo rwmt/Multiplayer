@@ -19,13 +19,23 @@ namespace Multiplayer.Client
 
             var menu = __instance;
 
+            menu.DebugAction("Save game", SaveGame);
+
             menu.DoLabel("Multiplayer");
 
             menu.DebugToolMap("T: Destroy thing", DestroyThing);
+            menu.DebugToolMap("T: Mental state", DoMentalState);
 
             menu.DebugAction("Save map", SaveMap);
             menu.DebugAction("Advance time", AdvanceTime);
             DoMapIncidentDebugAction(menu);
+        }
+
+        [SyncMethod(SyncContext.MapMouseCell)]
+        static void DoMentalState()
+        {
+            foreach (var pawn in Find.CurrentMap.thingGrid.ThingsAt(UI.MouseCell()).OfType<Pawn>())
+                pawn.mindState.mentalStateHandler.TryStartMentalState(DefDatabase<MentalStateDef>.GetNamed("TargetedTantrum"), forceWake: true);
         }
 
         private static void DoMapIncidentDebugAction(Dialog_DebugActionsMenu menu)
@@ -89,6 +99,12 @@ namespace Multiplayer.Client
                 Find.TickManager.ticksGameInt = to;
                 Find.Maps[0].AsyncTime().mapTicks = to;
             }
+        }
+
+        static void SaveGame()
+        {
+            byte[] data = ScribeUtil.WriteExposable(Current.Game, "game", true);
+            File.WriteAllBytes($"game_0_{Multiplayer.username}.xml", data);
         }
     }
 

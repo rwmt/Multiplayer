@@ -179,7 +179,7 @@ namespace Multiplayer.Client
         static void Postfix()
         {
             if (Multiplayer.game == null) return;
-            if (!LoadGamePatch.loading) return;
+            if (!LoadGameMarker.loading) return;
 
             RegisterCrossRefs();
         }

@@ -173,7 +173,7 @@ namespace Multiplayer.Client
         public int playerFaction;
 
         public List<ReplaySection> sections = new List<ReplaySection>();
-        public List<ReplayCheckpoint> checkpoints = new List<ReplayCheckpoint>();
+        public List<ReplayEvent> events = new List<ReplayEvent>();
     }
 
     public class ReplaySection
@@ -192,7 +192,7 @@ namespace Multiplayer.Client
         }
     }
 
-    public class ReplayCheckpoint
+    public class ReplayEvent
     {
         public string name;
         public int time;

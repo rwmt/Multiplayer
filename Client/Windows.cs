@@ -109,6 +109,8 @@ namespace Multiplayer.Client
 
         public override void DoWindowContents(Rect inRect)
         {
+            Text.Font = GameFont.Small;
+
             Text.Anchor = TextAnchor.UpperCenter;
             Widgets.Label(new Rect(0, 0, inRect.width, 40), "The game state has desynced.");
             Text.Anchor = TextAnchor.UpperLeft;

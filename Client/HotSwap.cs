@@ -27,7 +27,7 @@ namespace Multiplayer.Client
         static Dictionary<Assembly, FileInfo> AssemblyFiles = new Dictionary<Assembly, FileInfo>();
         static Dictionary<string, Assembly> AssembliesByName = new Dictionary<string, Assembly>();
 
-        unsafe static HotSwap()
+        static HotSwap()
         {
             foreach (var a in AppDomain.CurrentDomain.GetAssemblies())
                 AssembliesByName[a.FullName] = a;
@@ -62,6 +62,8 @@ namespace Multiplayer.Client
         private static FieldInfo ilgen_code_len = AccessTools.Field(typeof(ILGenerator), "code_len");
         private static FieldInfo ilgen_max_stack = AccessTools.Field(typeof(ILGenerator), "max_stack");
 
+        private const string HotSwappableAttrName = "HotSwappable";
+
         public static void DoHotSwap()
         {
             foreach (var kv in AssemblyFiles)
@@ -73,7 +75,7 @@ namespace Multiplayer.Client
                 {
                     foreach (var dnType in dnModule.GetTypes())
                     {
-                        if (!dnType.HasCustomAttributes || dnType.CustomAttributes.Find(typeof(HotSwappableAttribute).FullName) == null) continue;
+                        if (!dnType.HasCustomAttributes || !dnType.CustomAttributes.Any(a => a.AttributeType.Name == HotSwappableAttrName)) continue;
 
                         var type = Type.GetType(dnType.AssemblyQualifiedName);
                         var flags = BindingFlags.DeclaredOnly | BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static;

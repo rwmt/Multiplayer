@@ -595,6 +595,20 @@ namespace Multiplayer.Client
         }
     }
 
+    [HarmonyPatch(typeof(TickManager), nameof(TickManager.Notify_GeneratedPotentiallyHostileMap))]
+    static class GeneratedHostileMapPatch
+    {
+        static bool Prefix() => Multiplayer.Client == null;
+
+        static void Postfix()
+        {
+            if (Multiplayer.Client == null) return;
+
+            var map = Find.Maps.Last();
+            map.AsyncTime().slower.SignalForceNormalSpeedShort();
+        }
+    }
+
     public class MapAsyncTimeComp : MapComponent, ITickable
     {
         public static Map tickingMap;
@@ -612,6 +626,9 @@ namespace Multiplayer.Client
             var comp = map.MpComp();
             if (comp.caravanForming != null || comp.mapDialogs.Any() || Multiplayer.WorldComp.trading.Any(t => t.playerNegotiator.Map == map))
                 return 0f;
+
+            if (mapTicks < slower.forceNormalSpeedUntil)
+                return speed == TimeSpeed.Paused ? 0 : 1;
 
             switch (speed)
             {
@@ -649,6 +666,7 @@ namespace Multiplayer.Client
         public bool forcedNormalSpeed;
 
         public Storyteller storyteller;
+        public TimeSlower slower = new TimeSlower();
 
         public TickList tickListNormal = new TickList(TickerType.Normal);
         public TickList tickListRare = new TickList(TickerType.Rare);
@@ -662,8 +680,6 @@ namespace Multiplayer.Client
         public MapAsyncTimeComp(Map map) : base(map)
         {
         }
-
-        public int tickRel;
 
         public void Tick()
         {
@@ -737,7 +753,7 @@ namespace Multiplayer.Client
 
         public void PreContext()
         {
-            map.PushFaction(map.ParentFaction);
+            //map.PushFaction(map.ParentFaction);
 
             prevTime = PrevTime.GetAndSetToMap(map);
 
@@ -747,6 +763,7 @@ namespace Multiplayer.Client
             //UniqueIdsPatch.CurrentBlock = map.MpComp().mapIdBlock;
             UniqueIdsPatch.CurrentBlock = Multiplayer.GlobalIdBlock;
 
+            Rand.PushState();
             Rand.StateCompressed = randState;
 
             // Reset the effects of SkyManager.SkyManagerUpdate
@@ -762,8 +779,9 @@ namespace Multiplayer.Client
             prevTime?.Set();
 
             randState = Rand.StateCompressed;
+            Rand.PopState();
 
-            map.PopFaction();
+            //map.PopFaction();
         }
 
         public override void ExposeData()
@@ -847,7 +865,7 @@ namespace Multiplayer.Client
 
                 if (cmdType == CommandType.Forbid)
                 {
-                    HandleForbid(cmd, data);
+                    //HandleForbid(cmd, data);
                 }
 
                 UpdateManagers();
@@ -936,9 +954,6 @@ namespace Multiplayer.Client
                         designator.Finalize(true);
                     }
                 }
-
-                foreach (Zone zone in map.zoneManager.AllZones)
-                    zone.cellsShuffled = true;
             }
             finally
             {
@@ -1031,7 +1046,8 @@ namespace Multiplayer.Client
             }
         }
 
-        private int lastValidTick;
+        private int lastValidTick = -1;
+        private bool lastValidArbiter;
 
         public void Add(SyncInfo info)
         {
@@ -1063,12 +1079,13 @@ namespace Multiplayer.Client
 
                     if (error != null)
                     {
-                        MpLog.Log($"Desynced: {error}");
+                        MpLog.Log($"Desynced {lastValidTick}: {error}");
                         OnDesynced(first, info);
                     }
                     else
                     {
                         lastValidTick = first.startTick;
+                        lastValidArbiter = Multiplayer.session.ArbiterPlaying;
                     }
                 }
             }
@@ -1081,6 +1098,11 @@ namespace Multiplayer.Client
             Multiplayer.Client.Send(Packets.Client_Desynced);
             Multiplayer.session.desynced = true;
 
+            var local = one.local ? one : two;
+            var remote = !one.local ? one : two;
+
+            //PrintTrace(local, remote);
+
             try
             {
                 var desyncFile = PrepareNextDesyncFile();
@@ -1088,9 +1110,7 @@ namespace Multiplayer.Client
                 var replay = Replay.ForSaving(desyncFile, Multiplayer.DesyncsDir);
                 replay.WriteCurrentData();
 
-                var local = one.local ? one : two;
-                var remote = !one.local ? one : two;
-                var savedGame = ScribeUtil.WriteExposable(Verse.Current.Game, "game");
+                var savedGame = ScribeUtil.WriteExposable(Verse.Current.Game, "game", true);
 
                 var zip = replay.ZipFile;
                 zip.AddEntry("sync_local", local.Serialize());
@@ -1100,6 +1120,7 @@ namespace Multiplayer.Client
                 var desyncInfo = new ByteWriter();
                 desyncInfo.WriteBool(Multiplayer.session.ArbiterPlaying);
                 desyncInfo.WriteInt32(lastValidTick);
+                desyncInfo.WriteBool(lastValidArbiter);
 
                 zip.AddEntry("desync_info", desyncInfo.GetArray());
                 zip.Save();
@@ -1111,6 +1132,12 @@ namespace Multiplayer.Client
 
             Find.WindowStack.windows.Clear();
             Find.WindowStack.Add(new DesyncedWindow());
+        }
+
+        private void PrintTrace(SyncInfo local, SyncInfo remote)
+        {
+            File.WriteAllText("host_traces.txt", local.traces.Join(delimiter: "\n\n"));
+            Multiplayer.Client.Send(Packets.Client_Debug, local.startTick);
         }
 
         private string PrepareNextDesyncFile()
@@ -1146,6 +1173,15 @@ namespace Multiplayer.Client
             if (!ShouldCollect) return;
             Current.GetForMap(map).Add((uint)(state >> 32));
         }
+
+        public void TryAddStackTrace()
+        {
+            if (!ShouldCollect) return;
+
+            var trace = new StackTrace(4);
+            Current.traces.Add(trace);
+            current.traceHashes.Add(trace.Hash());
+        }
     }
 
     public class SyncInfo
@@ -1155,6 +1191,9 @@ namespace Multiplayer.Client
         public List<uint> cmds = new List<uint>();
         public List<uint> world = new List<uint>();
         public List<SyncMapInfo> maps = new List<SyncMapInfo>();
+
+        public List<StackTrace> traces = new List<StackTrace>();
+        public List<int> traceHashes = new List<int>();
 
         public SyncInfo(int startTick)
         {
@@ -1177,6 +1216,9 @@ namespace Multiplayer.Client
 
             if (!cmds.SequenceEqual(other.cmds))
                 return "Random state from commands doesn't match";
+
+            if (!traceHashes.SequenceEqual(other.traceHashes))
+                return "Trace hashes don't match";
 
             return null;
         }
@@ -1204,6 +1246,8 @@ namespace Multiplayer.Client
                 writer.WritePrefixedUInts(map.map);
             }
 
+            writer.WritePrefixedInts(traceHashes);
+
             return writer.GetArray();
         }
 
@@ -1223,11 +1267,14 @@ namespace Multiplayer.Client
                 maps.Add(new SyncMapInfo(mapId) { map = mapData });
             }
 
+            var traceHashes = new List<int>(data.ReadPrefixedInts());
+
             return new SyncInfo(startTick)
             {
                 cmds = cmds,
                 world = world,
-                maps = maps
+                maps = maps,
+                traceHashes = traceHashes
             };
         }
     }

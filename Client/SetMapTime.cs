@@ -39,7 +39,7 @@ namespace Multiplayer.Client
         static void Prefix(Pawn pawn, ref PrevTime? __state)
         {
             if (Multiplayer.Client == null || Current.ProgramState != ProgramState.Playing) return;
-            __state = PrevTime.GetAndSetToMap(pawn.Map);
+            __state = PrevTime.GetAndSetToMap(pawn.MapHeld);
         }
 
         static void Postfix(PrevTime? __state) => __state?.Set();
@@ -51,7 +51,7 @@ namespace Multiplayer.Client
         static void Prefix(PawnRenderer __instance, ref PrevTime? __state)
         {
             if (Multiplayer.Client == null || Current.ProgramState != ProgramState.Playing) return;
-            __state = PrevTime.GetAndSetToMap(__instance.pawn.Map);
+            __state = PrevTime.GetAndSetToMap(__instance.pawn.MapHeld);
         }
 
         static void Postfix(PrevTime? __state) => __state?.Set();
@@ -109,10 +109,12 @@ namespace Multiplayer.Client
     {
         public int ticks;
         public TimeSpeed speed;
+        public TimeSlower slower;
 
         public void Set()
         {
             Find.TickManager.ticksGameInt = ticks;
+            Find.TickManager.slower = slower;
             Find.TickManager.curTimeSpeed = speed;
         }
 
@@ -123,11 +125,16 @@ namespace Multiplayer.Client
             PrevTime prev = new PrevTime()
             {
                 ticks = Find.TickManager.ticksGameInt,
-                speed = Find.TickManager.curTimeSpeed
+                speed = Find.TickManager.curTimeSpeed,
+                slower = Find.TickManager.slower
             };
 
-            Find.TickManager.ticksGameInt = map.AsyncTime().mapTicks;
-            Find.TickManager.CurTimeSpeed = map.AsyncTime().TimeSpeed;
+            var man = Find.TickManager;
+            var comp = map.AsyncTime();
+
+            man.ticksGameInt = comp.mapTicks;
+            man.slower = comp.slower;
+            man.CurTimeSpeed = comp.TimeSpeed;
 
             return prev;
         }

@@ -254,9 +254,9 @@ namespace Multiplayer.Client
 
             player.cursorSeq = seq;
             player.lastCursor = player.cursor;
-            player.lastDelta = Multiplayer.Watch.ElapsedMillisDouble() - player.updatedAt;
+            player.lastDelta = Multiplayer.Clock.ElapsedMillisDouble() - player.updatedAt;
             player.cursor = new Vector3(x, 0, z);
-            player.updatedAt = Multiplayer.Watch.ElapsedMillisDouble();
+            player.updatedAt = Multiplayer.Clock.ElapsedMillisDouble();
             player.cursorIcon = icon;
         }
 
@@ -306,6 +306,15 @@ namespace Multiplayer.Client
         {
             bool pause = data.ReadBool();
             // This packet doesn't get processed in time during a synchronous long event 
+        }
+
+        [PacketHandler(Packets.Server_Debug)]
+        public void HandleDebug(ByteReader data)
+        {
+            int tick = data.ReadInt32();
+            var info = Multiplayer.game.sync.buffer.FirstOrDefault(b => b.startTick == tick);
+            
+            File.WriteAllText("arbiter_traces.txt", info?.traces.Join(delimiter: "\n\n") ?? "null");
         }
 
         public void Connected()

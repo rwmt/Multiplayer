@@ -370,7 +370,7 @@ namespace Multiplayer.Client
                 text.Append($"\n{Sync.bufferedChanges.Sum(kv => kv.Value.Count)}");
                 text.Append($"\n{((uint)async.randState)} {(uint)(async.randState >> 32)}");
                 text.Append($"\n{(uint)Multiplayer.WorldComp.randState} {(uint)(Multiplayer.WorldComp.randState >> 32)}");
-                text.Append($"\n{async.cmds.Count} {Multiplayer.WorldComp.cmds.Count}");
+                text.Append($"\n{async.cmds.Count} {Multiplayer.WorldComp.cmds.Count} {async.slower.ForcedNormalSpeed}");
 
                 Rect rect1 = new Rect(80f, 110f, 330f, Text.CalcHeight(text.ToString(), 330f));
                 Widgets.Label(rect1, text.ToString());
@@ -463,13 +463,13 @@ namespace Multiplayer.Client
             float progressX = rect.xMin + progress * rect.width;
             Widgets.DrawLine(new Vector2(progressX, rect.yMin), new Vector2(progressX, rect.yMax), Color.green, 7f);
 
-            foreach (var checkpoint in Multiplayer.session.checkpoints)
+            foreach (var ev in Multiplayer.session.events)
             {
-                if (checkpoint.time < timerStart || checkpoint.time > timerEnd)
+                if (ev.time < timerStart || ev.time > timerEnd)
                     continue;
 
-                var pointX = rect.xMin + (checkpoint.time - timerStart) / (float)timeLen * rect.width;
-                Widgets.DrawLine(new Vector2(pointX, rect.yMin), new Vector2(pointX, rect.yMax), checkpoint.color, 5f);
+                var pointX = rect.xMin + (ev.time - timerStart) / (float)timeLen * rect.width;
+                Widgets.DrawLine(new Vector2(pointX, rect.yMin), new Vector2(pointX, rect.yMax), ev.color, 5f);
             }
 
             if (Mouse.IsOver(rect))
@@ -1178,7 +1178,7 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(Game), nameof(Game.LoadGame))]
-    static class LoadGamePatch
+    static class LoadGameMarker
     {
         public static bool loading;
 
@@ -1439,7 +1439,7 @@ namespace Multiplayer.Client
             MultiplayerMapComp mapComp = map.MpComp();
             Faction dummyFaction = Multiplayer.DummyFaction;
 
-            mapComp.factionMapData[map.ParentFaction.loadID] = FactionMapData.FromMap(map);
+            mapComp.factionMapData[Faction.OfPlayer.loadID] = FactionMapData.FromMap(map, Faction.OfPlayer.loadID);
 
             mapComp.factionMapData[dummyFaction.loadID] = FactionMapData.New(dummyFaction.loadID, map);
             mapComp.factionMapData[dummyFaction.loadID].areaManager.AddStartingAreas();
@@ -1479,28 +1479,10 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(IncidentWorker_CaravanMeeting), nameof(IncidentWorker_CaravanMeeting.CanFireNowSub))]
-    static class CancelCaravanMeeting
-    {
-        static void Postfix(ref bool __result)
-        {
-            if (Multiplayer.Client != null)
-                __result = false;
-        }
-    }
-
-    [HarmonyPatch(typeof(IncidentWorker_CaravanDemand), nameof(IncidentWorker_CaravanDemand.CanFireNowSub))]
-    static class CancelCaravanmDemand
-    {
-        static void Postfix(ref bool __result)
-        {
-            if (Multiplayer.Client != null)
-                __result = false;
-        }
-    }
-
-    [HarmonyPatch(typeof(IncidentWorker_RansomDemand), nameof(IncidentWorker_RansomDemand.CanFireNowSub))]
-    static class CancelRansomDemand
+    [MpPatch(typeof(IncidentWorker_CaravanMeeting), nameof(IncidentWorker_CaravanMeeting.CanFireNowSub))]
+    [MpPatch(typeof(IncidentWorker_CaravanDemand), nameof(IncidentWorker_CaravanDemand.CanFireNowSub))]
+    [MpPatch(typeof(IncidentWorker_RansomDemand), nameof(IncidentWorker_RansomDemand.CanFireNowSub))]
+    static class CancelIncidents
     {
         static void Postfix(ref bool __result)
         {
@@ -1549,7 +1531,7 @@ namespace Multiplayer.Client
                 if (player.map != curMap) continue;
 
                 GUI.color = new Color(1, 1, 1, 0.5f);
-                var pos = Vector3.Lerp(player.lastCursor, player.cursor, (float)(Multiplayer.Watch.ElapsedMillisDouble() - player.updatedAt) / 50f).MapToUIPosition();
+                var pos = Vector3.Lerp(player.lastCursor, player.cursor, (float)(Multiplayer.Clock.ElapsedMillisDouble() - player.updatedAt) / 50f).MapToUIPosition();
 
                 var icon = Multiplayer.icons.ElementAtOrDefault(player.cursorIcon);
                 var drawIcon = icon ?? CustomCursor.CursorTex;
@@ -1596,7 +1578,7 @@ namespace Multiplayer.Client
     {
         static MethodInfo RandInt = AccessTools.Method(typeof(Rand), "get_Int");
 
-        // Replace (^= Rand.Int) with (++)
+        // Replaces (^= Rand.Int) with (++)
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
         {
             foreach (var inst in insts)
@@ -1675,7 +1657,7 @@ namespace Multiplayer.Client
             for (int i = __instance.letters.Count - 1; i >= 0; i--)
             {
                 var letter = __instance.letters[i];
-                if (letter is ChoiceLetter choice && choice.Choices.Contains(choice.Option_Close) && Time.time - letter.arrivalTime > 4)
+                if (letter is ChoiceLetter choice && choice.Choices.Any(c => c.action?.Method == choice.Option_Close.action.Method) && Time.time - letter.arrivalTime > 4)
                     __instance.RemoveLetter(letter);
             }
         }
@@ -1841,6 +1823,87 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.ExecutingCmds)
                 doAsynchronously = false;
+        }
+    }
+
+    [HarmonyPatch(typeof(RandomNumberGenerator_BasicHash), nameof(RandomNumberGenerator_BasicHash.GetHash))]
+    static class RandGetHashPatch
+    {
+        static void Postfix()
+        {
+            return;
+
+            if (Multiplayer.Client == null) return;
+            if (RandPatches.Ignore) return;
+            if (TickPatch.skipTo >= 0 || Multiplayer.IsReplay) return;
+
+            if (!Multiplayer.Ticking && !Multiplayer.ExecutingCmds) return;
+
+            if (!WildAnimalSpawnerTickMarker.ticking &&
+                !WildPlantSpawnerTickMarker.ticking &&
+                !SteadyEnvironmentEffectsTickMarker.ticking &&
+                ThingContext.Current?.def != ThingDefOf.SteamGeyser)
+                Multiplayer.game.sync.TryAddStackTrace();
+        }
+    }
+
+    [HarmonyPatch(typeof(Zone), nameof(Zone.Cells), MethodType.Getter)]
+    static class ZoneCellsShufflePatch
+    {
+        static FieldInfo CellsShuffled = AccessTools.Field(typeof(Zone), nameof(Zone.cellsShuffled));
+
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+        {
+            bool found = false;
+
+            foreach (var inst in insts)
+            {
+                yield return inst;
+
+                if (!found && inst.operand == CellsShuffled)
+                {
+                    yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(ZoneCellsShufflePatch), nameof(ShouldShuffle)));
+                    yield return new CodeInstruction(OpCodes.Not);
+                    yield return new CodeInstruction(OpCodes.Or);
+                    found = true;
+                }
+            }
+        }
+
+        static bool ShouldShuffle()
+        {
+            return Multiplayer.Client == null || Multiplayer.Ticking;
+        }
+    }
+
+    [HarmonyPatch(typeof(WorkGiver_DoBill), nameof(WorkGiver_DoBill.StartOrResumeBillJob))]
+    static class StartOrResumeBillPatch
+    {
+        static FieldInfo LastFailTicks = AccessTools.Field(typeof(Bill), nameof(Bill.lastIngredientSearchFailTicks));
+
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts, MethodBase original)
+        {
+            var list = new List<CodeInstruction>(insts);
+
+            int index = new CodeFinder(original, list).Forward(OpCodes.Stfld, LastFailTicks).Advance(-1);
+            if (list[index].opcode != OpCodes.Ldc_I4_0)
+                throw new Exception("Wrong code");
+
+            list.RemoveAt(index);
+
+            list.Insert(
+                index,
+                new CodeInstruction(OpCodes.Ldloc_1),
+                new CodeInstruction(OpCodes.Ldarg_1),
+                new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(StartOrResumeBillPatch), nameof(Value)))
+            );
+
+            return list;
+        }
+
+        static int Value(Bill bill, Pawn pawn)
+        {
+            return FloatMenuMakerMap.makingFor == pawn ? bill.lastIngredientSearchFailTicks : 0;
         }
     }
 

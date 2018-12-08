@@ -74,7 +74,7 @@ namespace Multiplayer.Client
         public static Callback<PersonaStateChange_t> personaChange;
         public static AppId_t RimWorldAppId;
 
-        public static Stopwatch Watch = Stopwatch.StartNew();
+        public static Stopwatch Clock = Stopwatch.StartNew();
 
         public const string SteamConnectStart = " -mpserver=";
 
@@ -305,7 +305,7 @@ namespace Multiplayer.Client
                     if (tweenedPos.TryGetValue(p.thingIDNumber, out Vector3 v))
                     {
                         p.drawer.tweener.tweenedPos = v;
-                        p.drawer.tweener.lastDrawFrame = UnityEngine.Time.frameCount;
+                        p.drawer.tweener.lastDrawFrame = Time.frameCount;
                     }
                 }
 
@@ -603,7 +603,7 @@ namespace Multiplayer.Client
         public bool replay;
         public int replayTimerStart = -1;
         public int replayTimerEnd = -1;
-        public List<ReplayCheckpoint> checkpoints = new List<ReplayCheckpoint>();
+        public List<ReplayEvent> events = new List<ReplayEvent>();
 
         public bool desynced;
 

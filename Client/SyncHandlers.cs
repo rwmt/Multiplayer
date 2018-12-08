@@ -723,10 +723,11 @@ namespace Multiplayer.Client
             SyncDelegate.Register(typeof(Building_Door), "<GetGizmos>c__Iterator0", "<>m__1", thisField);          // Toggle door hold open
             SyncDelegate.Register(typeof(Zone_Growing), "<GetGizmos>c__Iterator0", "<>m__1", thisField);           // Toggle zone allow sow
 
-            SyncDelegate.Register(typeof(PriorityWork), "<GetGizmos>c__Iterator0", "<>m__0", thisField);               // Clear prioritized work
-            SyncDelegate.Register(typeof(Building_TurretGun), "<GetGizmos>c__Iterator0", "<>m__0", thisField);         // Reset forced target
-            SyncDelegate.Register(typeof(UnfinishedThing), "<GetGizmos>c__Iterator0", "<>m__0", thisField);            // Cancel unfinished thing
-            SyncDelegate.Register(typeof(CompTempControl), "<CompGetGizmosExtra>c__Iterator0", "<>m__0", thisField);   // Reset temperature
+            SyncDelegate.Register(typeof(PriorityWork), "<GetGizmos>c__Iterator0", "<>m__0", thisField);                // Clear prioritized work
+            SyncDelegate.Register(typeof(Building_TurretGun), "<GetGizmos>c__Iterator0", "<>m__0", thisField);          // Reset forced target
+            SyncDelegate.Register(typeof(UnfinishedThing), "<GetGizmos>c__Iterator0", "<>m__0", thisField);             // Cancel unfinished thing
+            SyncDelegate.Register(typeof(CompTempControl), "<CompGetGizmosExtra>c__Iterator0", "<>m__0", thisField);    // Reset temperature
+            SyncDelegate.Register(typeof(CompTargetable), "<SelectedUseOption>c__AnonStorey0", "<>m__0");               // Use targetable
 
             SyncDelegate.Register(typeof(Designator), "<>c__Iterator0+<>c__AnonStorey1", "<>m__0", new[] { "<>f__ref$0/$this", "things" }); // Designate all
             SyncDelegate.Register(typeof(Designator), "<>c__Iterator0+<>c__AnonStorey2", "<>m__0", new[] { "<>f__ref$0/$this", "<>f__ref$3/designation", "designations" }); // Remove all designations

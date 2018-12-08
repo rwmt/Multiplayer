@@ -16,6 +16,7 @@
         Client_Cursor,
         Client_Desynced,
         Client_Pause,
+        Client_Debug,
 
         Server_DefsOK,
         Server_WorldData,
@@ -31,6 +32,7 @@
         Server_SyncInfo,
         Server_Cursor,
         Server_Pause,
+        Server_Debug,
 
         Count
     }
