@@ -1831,7 +1831,7 @@ namespace Multiplayer.Client
     {
         static void Postfix()
         {
-            return;
+            //return;
 
             if (Multiplayer.Client == null) return;
             if (RandPatches.Ignore) return;

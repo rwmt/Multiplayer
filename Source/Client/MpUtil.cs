@@ -113,4 +113,9 @@ namespace Multiplayer.Client
         }
     }
 
+    [AttributeUsage(AttributeTargets.Class)]
+    public class HotSwappableAttribute : Attribute
+    {
+    }
+
 }

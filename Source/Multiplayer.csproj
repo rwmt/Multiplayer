@@ -4,74 +4,63 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{BE2F4F82-5C3F-4C00-8675-2BB9E494C726}</ProjectGuid>
+    <ProjectGuid>{562CC73B-D52D-4615-B8AA-BCE875838D24}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>Multiplayer</RootNamespace>
     <AssemblyName>Multiplayer</AssemblyName>
     <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
-    <TargetFrameworkProfile>
-    </TargetFrameworkProfile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>false</DebugSymbols>
     <DebugType>none</DebugType>
-    <Optimize>true</Optimize>
-    <OutputPath>..\..\Assemblies\</OutputPath>
+    <Optimize>false</Optimize>
+    <OutputPath>..\Assemblies\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <PlatformTarget>AnyCPU</PlatformTarget>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <DebugType>none</DebugType>
+    <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
-    <OutputPath>..\..\Assemblies\</OutputPath>
+    <OutputPath>bin\Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <UseVSHostingProcess>true</UseVSHostingProcess>
-  </PropertyGroup>
-  <PropertyGroup>
-    <RunPostBuildEvent>OnOutputUpdated</RunPostBuildEvent>
-  </PropertyGroup>
-  <PropertyGroup>
-    <StartupObject />
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="0Harmony">
-      <HintPath>..\..\..\..\0Harmony.dll</HintPath>
-      <Private>True</Private>
+      <HintPath>..\Assemblies\0Harmony.dll</HintPath>
+      <Private>False</Private>
     </Reference>
-    <Reference Include="1LiteNetLib, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\..\..\1LiteNetLib.dll</HintPath>
+    <Reference Include="1LiteNetLib">
+      <HintPath>..\Assemblies\1LiteNetLib.dll</HintPath>
+      <Private>False</Private>
     </Reference>
-    <Reference Include="4Ionic.Zip.Reduced, Version=1.9.1.8, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\..\..\4Ionic.Zip.Reduced.dll</HintPath>
+    <Reference Include="4Ionic.Zip.Reduced">
+      <HintPath>..\Assemblies\4Ionic.Zip.Reduced.dll</HintPath>
       <Aliases>zip</Aliases>
-    </Reference>
-    <Reference Include="5dnlib, Version=3.0.0.0, Culture=neutral, PublicKeyToken=50e96378b6e77999, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\..\..\5dnlib.dll</HintPath>
+      <Private>False</Private>
     </Reference>
     <Reference Include="Assembly-CSharp-firstpass">
-      <HintPath>..\..\..\..\RimWorldWin64_Data\Managed\Assembly-CSharp-firstpass.dll</HintPath>
+      <HintPath>..\..\..\RimWorldWin64_Data\Managed\Assembly-CSharp-firstpass.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="Assembly-CSharp_public">
-      <HintPath>..\..\..\..\RimWorldWin64_Data\Managed\Assembly-CSharp_public.dll</HintPath>
+      <HintPath>..\..\..\RimWorldWin64_Data\Managed\Assembly-CSharp_public.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="System" />
-    <Reference Include="System.Xml" />
+    <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Xml" />
     <Reference Include="UnityEngine">
-      <HintPath>..\..\..\..\RimWorldWin64_Data\Managed\UnityEngine.dll</HintPath>
+      <HintPath>..\..\..\RimWorldWin64_Data\Managed\UnityEngine.dll</HintPath>
       <Private>False</Private>
     </Reference>
   </ItemGroup>
@@ -80,23 +69,30 @@
     <Compile Include="Client\CaravanForming.cs" />
     <Compile Include="Client\ChatWindow.cs" />
     <Compile Include="Client\ClientConnection.cs" />
+    <Compile Include="Client\ClientNetworking.cs" />
     <Compile Include="Client\ConnectingWindow.cs" />
+    <Compile Include="Client\CrossRefs.cs" />
     <Compile Include="Client\DebugTools.cs" />
-    <Compile Include="Client\HostWindow.cs" />
-    <Compile Include="Client\HotSwap.cs" />
-    <Compile Include="Client\MpUtil.cs" />
-    <Compile Include="Client\MultiplayerMapComp.cs" />
-    <Compile Include="Client\MultiplayerWorldComp.cs" />
-    <Compile Include="Client\Native.cs" />
-    <Compile Include="Client\PersistentDialogs.cs" />
-    <Compile Include="Client\Replays.cs" />
-    <Compile Include="Client\SaveCompression.cs" />
+    <Compile Include="Client\Designators.cs" />
     <Compile Include="Client\Extensions.cs" />
+    <Compile Include="Client\HostWindow.cs" />
     <Compile Include="Client\MapAsyncTime.cs" />
     <Compile Include="Client\MpPatch.cs" />
     <Compile Include="Client\MpReflection.cs" />
+    <Compile Include="Client\MpUtil.cs" />
+    <Compile Include="Client\Multiplayer.cs" />
+    <Compile Include="Client\MultiplayerMapComp.cs" />
+    <Compile Include="Client\MultiplayerWorldComp.cs" />
+    <Compile Include="Client\Native.cs" />
+    <Compile Include="Client\Patches.cs" />
+    <Compile Include="Client\PersistentDialogs.cs" />
+    <Compile Include="Client\Replays.cs" />
+    <Compile Include="Client\SaveCompression.cs" />
+    <Compile Include="Client\ScribeUtil.cs" />
+    <Compile Include="Client\Seeds.cs" />
     <Compile Include="Client\ServerBrowser.cs" />
     <Compile Include="Client\SetMapTime.cs" />
+    <Compile Include="Client\SimpleProfiler.cs" />
     <Compile Include="Client\SituationalThoughts.cs" />
     <Compile Include="Client\Sync.cs" />
     <Compile Include="Client\SyncHandlers.cs" />
@@ -105,28 +101,17 @@
     <Compile Include="Client\Trading.cs" />
     <Compile Include="Client\TradingUI.cs" />
     <Compile Include="Client\VanillaTweaks.cs" />
-    <Compile Include="Common\ChatCommands.cs" />
-    <Compile Include="Common\MpLog.cs" />
-    <Compile Include="Client\ClientNetworking.cs" />
-    <Compile Include="Common\Commands.cs" />
-    <Compile Include="Common\ServerConnection.cs" />
-    <Compile Include="Common\MultiplayerServer.cs" />
-    <Compile Include="Client\SimpleProfiler.cs" />
-    <Compile Include="Client\CrossRefs.cs" />
-    <Compile Include="Client\Designators.cs" />
-    <Compile Include="Common\Extensions.cs" />
-    <Compile Include="Client\ScribeUtil.cs" />
-    <Compile Include="Client\Seeds.cs" />
     <Compile Include="Client\Windows.cs" />
+    <Compile Include="Common\ChatCommands.cs" />
+    <Compile Include="Common\Commands.cs" />
+    <Compile Include="Common\Extensions.cs" />
+    <Compile Include="Common\MpLog.cs" />
+    <Compile Include="Common\MultiplayerServer.cs" />
     <Compile Include="Common\Networking.cs" />
-    <Compile Include="Client\Patches.cs" />
     <Compile Include="Common\Packets.cs" />
+    <Compile Include="Common\ServerConnection.cs" />
     <Compile Include="Common\Version.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Client\Multiplayer.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <PropertyGroup>
-    <PostBuildEvent>"$(ProjectDir)..\..\..\..\postbuild.bat"</PostBuildEvent>
-  </PropertyGroup>
 </Project>

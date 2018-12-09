@@ -155,8 +155,8 @@ namespace Multiplayer.Client
 
         static void Draw(WidgetRow row)
         {
-            if (row.ButtonIcon(TexButton.Paste, "Hot swap."))
-                HotSwap.DoHotSwap();
+            //if (row.ButtonIcon(TexButton.Paste, "Hot swap."))
+                //HotSwap.DoHotSwap();
         }
     }
 

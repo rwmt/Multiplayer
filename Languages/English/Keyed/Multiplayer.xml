@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<LanguageData>
+
+  <MpSimulating>Simulating</MpSimulating>
+  <MpLoading>Loading</MpLoading>
+  <MpSaving>Saving</MpSaving>
+  
+  <MpInvalidPort>Invalid port</MpInvalidPort>
+  <MpInvalidAddress>Invalid address</MpInvalidAddress>
+  
+  <MpWrongProtocol>Wrong protocol version</MpWrongProtocol>
+  <MpServerClosed>Server closed</MpServerClosed>
+
+  <MpInvalidUsernameAlreadyPlaying>Username already online</MpInvalidUsernameAlreadyPlaying>
+  <MpInvalidUsernameChars>Username has invalid characters</MpInvalidUsernameChars>
+  <MpInvalidUsernameLength>Username has invalid length</MpInvalidUsernameLength>
+  
+  <MpPlayerConnected>{0} has joined</MpPlayerConnected>
+  <MpPlayerDisconnected>{0} has left</MpPlayerDisconnected>
+  
+  <MpArbiterDesc>A passive game instance which runs in the background and helps with desync solving.</MpArbiterDesc>
+  
+</LanguageData>

@@ -1106,7 +1106,8 @@ namespace Multiplayer.Client
             var local = one.local ? one : two;
             var remote = !one.local ? one : two;
 
-            //PrintTrace(local, remote);
+            if (local.traces.Any())
+                PrintTrace(local, remote);
 
             try
             {
