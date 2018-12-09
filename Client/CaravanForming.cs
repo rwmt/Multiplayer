@@ -105,6 +105,7 @@ namespace Multiplayer.Client
         }
 
         [SyncMethod]
+        [SyncDebugOnly]
         public void DebugTryFormCaravanInstantly()
         {
             if (PrepareDummyDialog().DebugTryFormCaravanInstantly())

@@ -44,6 +44,7 @@ namespace Multiplayer.Common
         public volatile bool running = true;
 
         private Dictionary<string, ChatCmdHandler> chatCmds = new Dictionary<string, ChatCmdHandler>();
+        public HashSet<int> debugOnlySyncCmds = new HashSet<int>();
 
         public int keepAliveId;
         public Stopwatch lastKeepAlive = Stopwatch.StartNew();
@@ -254,8 +255,15 @@ namespace Multiplayer.Common
             return new IdBlock(blockStart, blockSize);
         }
 
-        public void SendCommand(CommandType cmd, int factionId, int mapId, byte[] data, string sourcePlayer = null)
+        public void SendCommand(CommandType cmd, int factionId, int mapId, byte[] data, ServerPlayer sourcePlayer = null)
         {
+            if (sourcePlayer != null && cmd == CommandType.Sync)
+            {
+                int syncId = BitConverter.ToInt32(data, 0);
+                if (!sourcePlayer.IsHost && debugOnlySyncCmds.Contains(syncId))
+                    return;
+            }
+
             byte[] toSave = new ScheduledCommand(cmd, timer, factionId, mapId, data).Serialize();
 
             // todo cull target players if not global
@@ -269,7 +277,7 @@ namespace Multiplayer.Common
             {
                 player.conn.Send(
                     Packets.Server_Command,
-                    sourcePlayer == player.Username ? toSendSource : toSend
+                    sourcePlayer == player ? toSendSource : toSend
                 );
             }
         }

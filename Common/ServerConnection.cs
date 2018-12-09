@@ -157,7 +157,7 @@ namespace Multiplayer.Common
             // todo check if map id is valid for the player
 
             int factionId = MultiplayerServer.instance.playerFactions[connection.username];
-            MultiplayerServer.instance.SendCommand(cmd, factionId, mapId, extra, connection.username);
+            MultiplayerServer.instance.SendCommand(cmd, factionId, mapId, extra, Player);
         }
 
         public const int MaxChatMsgLength = 128;

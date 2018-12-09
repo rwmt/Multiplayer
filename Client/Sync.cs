@@ -22,6 +22,7 @@ namespace Multiplayer.Client
         public int SyncId => syncId;
 
         public SyncContext context;
+        public bool debugOnly;
 
         protected SyncHandler(int syncId)
         {
@@ -147,6 +148,12 @@ namespace Multiplayer.Client
         public SyncField CancelIfValueNull()
         {
             cancelIfValueNull = true;
+            return this;
+        }
+
+        public SyncField SetDebugOnly()
+        {
+            debugOnly = true;
             return this;
         }
 
@@ -310,6 +317,12 @@ namespace Multiplayer.Client
         public SyncMethod SetContext(SyncContext context)
         {
             this.context = context;
+            return this;
+        }
+
+        public SyncMethod SetDebugOnly()
+        {
+            debugOnly = true;
             return this;
         }
 
@@ -522,6 +535,12 @@ namespace Multiplayer.Client
         public static SyncDelegate Register(Type inType, string nestedType, string methodName, string[] fields)
         {
             return Sync.RegisterSyncDelegate(inType, nestedType, methodName, fields);
+        }
+
+        public SyncDelegate SetDebugOnly()
+        {
+            debugOnly = true;
+            return this;
         }
 
         public override string ToString()
@@ -852,7 +871,9 @@ namespace Multiplayer.Client
                     if (!method.TryGetAttribute(out SyncMethodAttribute syncAttr))
                         continue;
 
-                    RegisterSyncMethod(method, syncAttr.args).SetContext(syncAttr.context);
+                    var syncMethod = RegisterSyncMethod(method, syncAttr.args);
+                    syncMethod.context = syncAttr.context;
+                    syncMethod.debugOnly = method.HasAttribute<SyncDebugOnlyAttribute>();
                 }
             }
         }
@@ -1102,6 +1123,11 @@ namespace Multiplayer.Client
             this.context = context;
             this.args = args;
         }
+    }
+
+    [AttributeUsage(AttributeTargets.Method)]
+    public class SyncDebugOnlyAttribute : Attribute
+    {
     }
 
     public class Expose<T> { }

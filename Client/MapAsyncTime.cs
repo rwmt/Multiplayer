@@ -819,6 +819,9 @@ namespace Multiplayer.Client
             if (!TickPatch.currentExecutingCmdIssuedBySelf)
                 Find.Selector.selected = new List<object>();
 
+            bool devMode = Prefs.data.devMode;
+            Prefs.data.devMode = false;
+
             try
             {
                 if (cmdType == CommandType.Sync)
@@ -876,6 +879,8 @@ namespace Multiplayer.Client
             }
             finally
             {
+                Prefs.data.devMode = devMode;
+
                 if (!TickPatch.currentExecutingCmdIssuedBySelf)
                     Find.Selector.selected = prevSelected;
 

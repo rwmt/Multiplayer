@@ -196,6 +196,9 @@ namespace Multiplayer.Client
             PreContext();
             FactionContext.Push(cmd.GetFaction());
 
+            bool devMode = Prefs.data.devMode;
+            Prefs.data.devMode = false;
+
             try
             {
                 if (cmdType == CommandType.Sync)
@@ -268,6 +271,8 @@ namespace Multiplayer.Client
             }
             finally
             {
+                Prefs.data.devMode = devMode;
+
                 FactionContext.Pop();
                 PostContext();
                 TickPatch.currentExecutingCmdIssuedBySelf = false;

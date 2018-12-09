@@ -4,6 +4,7 @@ using Multiplayer.Common;
 using RimWorld;
 using Steamworks;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Net;
@@ -114,6 +115,7 @@ namespace Multiplayer.Client
             session.gameName = settings.gameName;
 
             var localServer = new MultiplayerServer(settings);
+            localServer.debugOnlySyncCmds = new HashSet<int>(Sync.handlers.Where(h => h.debugOnly).Select(h => h.SyncId));
             localServer.hostUsername = Multiplayer.username;
             localServer.coopFactionId = Faction.OfPlayer.loadID;
 

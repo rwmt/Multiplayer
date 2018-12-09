@@ -32,6 +32,7 @@ namespace Multiplayer.Client
         }
 
         [SyncMethod(SyncContext.MapMouseCell)]
+        [SyncDebugOnly]
         static void DoMentalState()
         {
             foreach (var pawn in Find.CurrentMap.thingGrid.ThingsAt(UI.MouseCell()).OfType<Pawn>())
@@ -70,12 +71,14 @@ namespace Multiplayer.Client
         }
 
         [SyncMethod(SyncContext.CurrentMap, new[] { typeof(IncidentDef), typeof(Expose<IncidentParms>) })]
+        [SyncDebugOnly]
         private static void ExecuteMapIncident(IncidentDef def, IncidentParms parms)
         {
             def.Worker.TryExecute(parms);
         }
 
         [SyncMethod(SyncContext.MapMouseCell)]
+        [SyncDebugOnly]
         static void DestroyThing()
         {
             foreach (Thing thing in Find.CurrentMap.thingGrid.ThingsAt(UI.MouseCell()))
@@ -83,6 +86,7 @@ namespace Multiplayer.Client
         }
 
         [SyncMethod]
+        [SyncDebugOnly]
         static void SaveMap()
         {
             Map map = Find.Maps[0];
@@ -91,6 +95,7 @@ namespace Multiplayer.Client
         }
 
         [SyncMethod]
+        [SyncDebugOnly]
         static void AdvanceTime()
         {
             int to = 148 * 1000;

@@ -10,6 +10,7 @@ using Verse;
 
 namespace Multiplayer.Client
 {
+    // Currently unused
     public static class SaveCompression
     {
         public static bool doSaveCompression;
