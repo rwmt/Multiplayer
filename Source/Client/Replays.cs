@@ -200,4 +200,20 @@ namespace Multiplayer.Client
         public int time;
         public Color color;
     }
+
+    public class ReplayConnection : IConnection
+    {
+        public override void SendRaw(byte[] raw, bool reliable)
+        {
+        }
+
+        public override void HandleReceive(byte[] rawData, bool reliable)
+        {
+        }
+
+        public override void Close()
+        {
+        }
+    }
+
 }

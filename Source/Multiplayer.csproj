@@ -85,8 +85,11 @@
     <Compile Include="Client\MpUtil.cs" />
     <Compile Include="Client\Multiplayer.cs" />
     <Compile Include="Client\MultiplayerMapComp.cs" />
+    <Compile Include="Client\MultiplayerMod.cs" />
+    <Compile Include="Client\MultiplayerSession.cs" />
     <Compile Include="Client\MultiplayerWorldComp.cs" />
     <Compile Include="Client\Native.cs" />
+    <Compile Include="Client\OnMainThread.cs" />
     <Compile Include="Client\Patches.cs" />
     <Compile Include="Client\PersistentDialogs.cs" />
     <Compile Include="Client\Replays.cs" />

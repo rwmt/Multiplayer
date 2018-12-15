@@ -118,4 +118,20 @@ namespace Multiplayer.Client
     {
     }
 
+    public struct Container<T>
+    {
+        private readonly T _value;
+        public T Inner => _value;
+
+        public Container(T value)
+        {
+            _value = value;
+        }
+
+        public static implicit operator Container<T>(T value)
+        {
+            return new Container<T>(value);
+        }
+    }
+
 }
