@@ -64,8 +64,6 @@ namespace Multiplayer.Client
 
         private void DrawInfo(Rect inRect)
         {
-            DrawOptions(ref inRect);
-
             Widgets.Label(inRect, Multiplayer.session.gameName);
             inRect.yMin += 30f;
 
@@ -78,7 +76,11 @@ namespace Multiplayer.Client
                 extra: (p, rect) =>
                 {
                     if (p.type == PlayerType.Steam)
-                        GUI.DrawTexture(new Rect(rect.xMax - 24f, 0, 24f, 24f), ContentSourceUtility.ContentSourceIcon_SteamWorkshop);
+                    {
+                        var steamIcon = new Rect(rect.xMax - 24f, 0, 24f, 24f);
+                        GUI.DrawTexture(steamIcon, ContentSourceUtility.ContentSourceIcon_SteamWorkshop);
+                        TooltipHandler.TipRegion(steamIcon, $"{p.steamPersonaName}\n{p.steamId}");
+                    }
                 },
                 entryLabelColor: e => GetColor(e.status)
             );
@@ -95,35 +97,6 @@ namespace Multiplayer.Client
                 true,
                 "Click to accept"
             );
-        }
-
-        private void DrawOptions(ref Rect inRect)
-        {
-            if (Multiplayer.LocalServer == null) return;
-
-            const float height = 20f;
-
-            if (SteamManager.Initialized)
-            {
-                // todo sync this between players
-                string label = "Steam";
-                Rect optionsRect = new Rect(inRect.width, inRect.yMax - height, 0, height);
-                optionsRect.xMin -= Text.CalcSize(label).x + 24f + 10f;
-                Widgets.CheckboxLabeled(optionsRect, label, ref Multiplayer.session.allowSteam);
-                inRect.yMax -= 20;
-            }
-
-            {
-                string label = "LAN";
-                Rect optionsRect = new Rect(inRect.width, inRect.yMax - height, 0, height);
-                optionsRect.xMin -= Text.CalcSize(label).x + 24f + 10f;
-
-                //bool allowLan = Multiplayer.LocalServer.allowLan;
-                //Widgets.CheckboxLabeled(optionsRect, label, ref allowLan);
-                //Multiplayer.LocalServer.allowLan = allowLan;
-
-                inRect.yMax -= 20;
-            }
         }
 
         private void AcceptSteamPlayer(CSteamID id)
@@ -190,7 +163,7 @@ namespace Multiplayer.Client
                     TooltipHandler.TipRegion(entryRect, tooltip);
 
                 var prevColor = GUI.color;
-                var labelColor = entryLabelColor(entry);
+                var labelColor = entryLabelColor?.Invoke(entry);
                 if (labelColor != null)
                     GUI.color = labelColor.Value;
 
@@ -201,7 +174,7 @@ namespace Multiplayer.Client
                 if (labelColor != null)
                     GUI.color = prevColor;
 
-                extra(entry, entryRect);
+                extra?.Invoke(entry, entryRect);
 
                 GUI.EndGroup();
             }

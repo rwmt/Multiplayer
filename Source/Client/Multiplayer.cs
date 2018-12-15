@@ -16,6 +16,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Xml;
 using UnityEngine;
@@ -86,11 +87,7 @@ namespace Multiplayer.Client
             MpLog.info = str => Log.Message($"{username} {TickPatch.Timer} {str}");
             MpLog.error = str => Log.Error(str);
 
-            GenCommandLine.TryGetCommandLineArg("username", out username);
-            if (username == null)
-                username = SteamUtility.SteamPersonaName;
-            if (username == "???")
-                username = "Player" + Rand.Range(0, 9999);
+            SetUsername();
 
             SimpleProfiler.Init(username);
 
@@ -122,6 +119,26 @@ namespace Multiplayer.Client
             Log.messageQueue.maxMessages = 1000;
 
             HandleCommandLine();
+        }
+
+        private static void SetUsername()
+        {
+            Multiplayer.username = MultiplayerMod.settings.username;
+
+            if (Multiplayer.username == null && SteamManager.Initialized)
+            {
+                Multiplayer.username = SteamUtility.SteamPersonaName;
+                Multiplayer.username = new Regex("[^a-zA-Z0-9_]").Replace(Multiplayer.username, string.Empty);
+                Multiplayer.username = Multiplayer.username.TrimmedToLength(15);
+
+                MultiplayerMod.settings.username = Multiplayer.username;
+                MultiplayerMod.settings.Write();
+            }
+
+            if (GenCommandLine.TryGetCommandLineArg("username", out string username))
+                Multiplayer.username = username;
+            else if (Multiplayer.username == null || MpVersion.IsDebug)
+                Multiplayer.username = "Player" + Rand.Range(0, 9999);
         }
 
         private static void HandleCommandLine()
@@ -169,7 +186,7 @@ namespace Multiplayer.Client
 
             sessionReqCallback = Callback<P2PSessionRequest_t>.Create(req =>
             {
-                if (session != null && session.allowSteam && !session.pendingSteam.Contains(req.m_steamIDRemote))
+                if (session?.localSettings != null && session.localSettings.steam && !session.pendingSteam.Contains(req.m_steamIDRemote))
                 {
                     session.pendingSteam.Add(req.m_steamIDRemote);
                     SteamFriends.RequestUserInformation(req.m_steamIDRemote, true);
@@ -206,7 +223,7 @@ namespace Multiplayer.Client
 
                 LocalServer.Enqueue(() =>
                 {
-                    ServerPlayer player = LocalServer.FindPlayer(p => p.conn is SteamConnection conn && conn.remoteId == remoteId);
+                    var player = LocalServer.FindPlayer(p => p.conn is SteamConnection conn && conn.remoteId == remoteId);
                     if (player != null)
                         LocalServer.OnDisconnected(player.conn);
                 });
@@ -561,7 +578,10 @@ namespace Multiplayer.Client
         public void Stop()
         {
             if (client != null)
+            {
                 client.State = ConnectionStateEnum.Disconnected;
+                client.Close();
+            }
 
             if (localServer != null)
             {
@@ -614,6 +634,9 @@ namespace Multiplayer.Client
         public PlayerType type;
         public PlayerStatus status;
 
+        public ulong steamId;
+        public string steamPersonaName;
+
         public byte cursorSeq;
         public byte map = byte.MaxValue;
         public Vector3 cursor;
@@ -648,9 +671,14 @@ namespace Multiplayer.Client
             var type = (PlayerType)data.ReadByte();
             var status = (PlayerStatus)data.ReadByte();
 
+            var steamId = data.ReadULong();
+            var steamName = data.ReadString();
+
             return new PlayerInfo(id, username, latency, type)
             {
-                status = status
+                status = status,
+                steamId = steamId,
+                steamPersonaName = steamName
             };
         }
     }
@@ -801,9 +829,27 @@ namespace Multiplayer.Client
         {
             var listing = new Listing_Standard();
             listing.Begin(inRect);
-            listing.ColumnWidth = 200f;
+            listing.ColumnWidth = 220f;
+
+            DoUsernameField(listing);
+
             listing.CheckboxLabeled("Show player cursors", ref settings.showCursors);
             listing.End();
+        }
+
+        private void DoUsernameField(Listing_Standard listing)
+        {
+            GUI.SetNextControlName("UsernameField");
+
+            string username = listing.TextEntryLabeled("Username:  ", settings.username);
+            if (username.Length <= 15 && ServerJoiningState.UsernamePattern.IsMatch(username))
+            {
+                settings.username = username;
+                Multiplayer.username = username;
+            }
+
+            if (Multiplayer.Client != null && GUI.GetNameOfFocusedControl() == "UsernameField")
+                UI.UnfocusCurrentControl();
         }
 
         public override string SettingsCategory() => "Multiplayer";
@@ -811,10 +857,12 @@ namespace Multiplayer.Client
 
     public class MpSettings : ModSettings
     {
+        public string username;
         public bool showCursors = true;
 
         public override void ExposeData()
         {
+            Scribe_Values.Look(ref username, "username");
             Scribe_Values.Look(ref showCursors, "showCursors", true);
         }
     }
@@ -837,10 +885,16 @@ namespace Multiplayer.Client
 
             queue.RunQueue();
 
+            if (SteamManager.Initialized)
+                UpdateRichPresence();
+
             if (Multiplayer.Client == null) return;
 
             if (SteamManager.Initialized)
-                UpdateSteam();
+            {
+                ReadSteamPackets(0); // Reliable
+                ReadSteamPackets(1); // Unreliable
+            }
 
             UpdateSync();
 
@@ -880,20 +934,16 @@ namespace Multiplayer.Client
 
         private Stopwatch lastSteamUpdate = Stopwatch.StartNew();
 
-        private void UpdateSteam()
+        private void UpdateRichPresence()
         {
-            if (lastSteamUpdate.ElapsedMilliseconds > 1000)
-            {
-                if (Multiplayer.session.allowSteam)
-                    SteamFriends.SetRichPresence("connect", Multiplayer.SteamConnectStart + "" + SteamUser.GetSteamID());
-                else
-                    SteamFriends.SetRichPresence("connect", null);
+            if (lastSteamUpdate.ElapsedMilliseconds < 1000) return;
 
-                lastSteamUpdate.Restart();
-            }
+            if (Multiplayer.session?.localSettings?.steam ?? false)
+                SteamFriends.SetRichPresence("connect", $"{Multiplayer.SteamConnectStart}{SteamUser.GetSteamID()}");
+            else
+                SteamFriends.SetRichPresence("connect", null);
 
-            ReadSteamPackets(0); // Reliable
-            ReadSteamPackets(1); // Unreliable
+            lastSteamUpdate.Restart();
         }
 
         private void ReadSteamPackets(int channel)
@@ -923,6 +973,11 @@ namespace Multiplayer.Client
                     conn.State = ConnectionStateEnum.ServerSteam;
                     player = Multiplayer.LocalServer.OnConnected(conn);
                     player.type = PlayerType.Steam;
+
+                    player.steamId = (ulong)remote;
+                    player.steamPersonaName = SteamFriends.GetFriendPersonaName(remote);
+                    if (player.steamPersonaName.Length == 0)
+                        player.steamPersonaName = "[unknown]";
                 }
 
                 player.HandleReceive(data, channel == 0);

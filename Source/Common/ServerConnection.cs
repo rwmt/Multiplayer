@@ -6,7 +6,7 @@ namespace Multiplayer.Common
 {
     public class ServerJoiningState : MpConnectionState
     {
-        private static Regex UsernamePattern = new Regex(@"^[a-zA-Z0-9_]+$");
+        public static Regex UsernamePattern = new Regex(@"^[a-zA-Z0-9_]+$");
 
         public ServerJoiningState(IConnection conn) : base(conn)
         {
@@ -78,7 +78,7 @@ namespace Multiplayer.Common
                 MultiplayerServer.instance.SendCommand(CommandType.SETUP_FACTION, ScheduledCommand.NoFaction, ScheduledCommand.Global, extra);
             }*/
 
-            if (MultiplayerServer.instance.players.Count(p => p.FactionId == factionId) == 1)
+            if (Server.PlayingPlayers.Count(p => p.FactionId == factionId) == 1)
             {
                 byte[] extra = ByteWriter.GetBytes(factionId);
                 MultiplayerServer.instance.SendCommand(CommandType.FactionOnline, ScheduledCommand.NoFaction, ScheduledCommand.Global, extra);

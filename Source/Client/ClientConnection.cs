@@ -22,6 +22,8 @@ namespace Multiplayer.Client
         public ClientJoiningState(IConnection connection) : base(connection)
         {
             connection.Send(Packets.Client_Defs, MpVersion.Protocol);
+
+            ConnectionStatusListeners.TryNotifyAll_Connected();
         }
 
         [PacketHandler(Packets.Server_DefsOK)]

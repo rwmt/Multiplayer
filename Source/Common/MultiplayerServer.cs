@@ -30,6 +30,7 @@ namespace Multiplayer.Common
         public Dictionary<int, List<byte[]>> mapCmds = new Dictionary<int, List<byte[]>>(); // Map id to serialized cmds list
         public Dictionary<int, List<byte[]>> tmpMapCmds;
 
+        // todo remove entries
         public Dictionary<string, int> playerFactions = new Dictionary<string, int>(); // Username to faction id
 
         public List<ServerPlayer> players = new List<ServerPlayer>();
@@ -111,12 +112,13 @@ namespace Multiplayer.Common
             SendToAll(Packets.Server_DisconnectReason, new[] { "MpServerClosed" });
 
             if (netManager != null)
-            {
                 foreach (var peer in netManager.GetPeers(ConnectionState.Connected))
                     peer.Flush();
-                netManager.Stop();
-            }
 
+            foreach (var player in players)
+                player.conn.Close();
+
+            netManager?.Stop();
             arbiter?.Stop();
 
             instance = null;
@@ -387,6 +389,9 @@ namespace Multiplayer.Common
         public PlayerType type;
         public PlayerStatus status;
 
+        public ulong steamId;
+        public string steamPersonaName = "";
+
         public string Username => conn.username;
         public int Latency => conn.Latency;
         public int FactionId => MultiplayerServer.instance.playerFactions[Username];
@@ -463,6 +468,8 @@ namespace Multiplayer.Common
             writer.WriteInt32(Latency);
             writer.WriteByte((byte)type);
             writer.WriteByte((byte)status);
+            writer.WriteULong(steamId);
+            writer.WriteString(steamPersonaName);
 
             return writer.GetArray();
         }

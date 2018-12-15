@@ -35,8 +35,6 @@ namespace Multiplayer.Client
                 conn.State = ConnectionStateEnum.ClientJoining;
                 Multiplayer.session.client = conn;
 
-                ConnectionStatusListeners.TryNotifyAll_Connected();
-
                 MpLog.Log("Client connected");
             };
 
