@@ -339,7 +339,7 @@ namespace Multiplayer.Client
         {
             Text.Font = GameFont.Small;
 
-            if (Prefs.DevMode && Multiplayer.Client != null)
+            if (MpVersion.IsDebug && Multiplayer.Client != null)
             {
                 int timerLag = (TickPatch.tickUntil - TickPatch.Timer);
                 string text = $"{Find.TickManager.TicksGame} {TickPatch.Timer} {TickPatch.tickUntil} {timerLag} {Time.deltaTime * 60f}";
@@ -347,7 +347,7 @@ namespace Multiplayer.Client
                 Widgets.Label(rect, text);
             }
 
-            if (Prefs.DevMode && Multiplayer.Client != null && Find.CurrentMap != null)
+            if (MpVersion.IsDebug && Multiplayer.Client != null && Find.CurrentMap != null)
             {
                 var async = Find.CurrentMap.GetComponent<MapAsyncTimeComp>();
                 StringBuilder text = new StringBuilder();
@@ -412,7 +412,7 @@ namespace Multiplayer.Client
                 y += 25f;
             }
 
-            if (Prefs.DevMode && Multiplayer.PacketLog != null)
+            if (MpVersion.IsDebug && Multiplayer.PacketLog != null)
             {
                 if (Widgets.ButtonText(new Rect(UI.screenWidth - btnWidth - 10f, y, btnWidth, 25f), "Packets"))
                     Find.WindowStack.Add(Multiplayer.PacketLog);
@@ -1228,17 +1228,28 @@ namespace Multiplayer.Client
 
     [MpPatch(typeof(SoundStarter), nameof(SoundStarter.PlayOneShot))]
     [MpPatch(typeof(Command_SetPlantToGrow), nameof(Command_SetPlantToGrow.WarnAsAppropriate))]
-    [MpPatch(typeof(MoteMaker), nameof(MoteMaker.MakeStaticMote), new[] { typeof(IntVec3), typeof(Map), typeof(ThingDef), typeof(float) })]
-    [MpPatch(typeof(MoteMaker), nameof(MoteMaker.MakeStaticMote), new[] { typeof(Vector3), typeof(Map), typeof(ThingDef), typeof(float) })]
     [MpPatch(typeof(TutorUtility), nameof(TutorUtility.DoModalDialogIfNotKnown))]
     static class CancelFeedbackNotTargetedAtMe
     {
-        private static bool Cancel =>
+        public static bool Cancel =>
             Multiplayer.Client != null &&
             Multiplayer.ExecutingCmds &&
             !TickPatch.currentExecutingCmdIssuedBySelf;
 
         static bool Prefix() => !Cancel;
+    }
+
+    [MpPatch(typeof(MoteMaker), nameof(MoteMaker.MakeStaticMote), new[] { typeof(IntVec3), typeof(Map), typeof(ThingDef), typeof(float) })]
+    [MpPatch(typeof(MoteMaker), nameof(MoteMaker.MakeStaticMote), new[] { typeof(Vector3), typeof(Map), typeof(ThingDef), typeof(float) })]
+    static class CancelMotesNotTargetedAtMe
+    {
+        static bool Prefix(ThingDef moteDef)
+        {
+            if (moteDef == ThingDefOf.Mote_FeedbackGoto)
+                return true;
+
+            return !CancelFeedbackNotTargetedAtMe.Cancel;
+        }
     }
 
     [HarmonyPatch(typeof(Messages), nameof(Messages.Message), new[] { typeof(Message), typeof(bool) })]

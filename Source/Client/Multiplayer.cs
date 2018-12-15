@@ -86,8 +86,6 @@ namespace Multiplayer.Client
             MpLog.info = str => Log.Message($"{username} {TickPatch.Timer} {str}");
             MpLog.error = str => Log.Error(str);
 
-            Log.Message("vsync " + QualitySettings.vSyncCount);
-
             GenCommandLine.TryGetCommandLineArg("username", out username);
             if (username == null)
                 username = SteamUtility.SteamPersonaName;
