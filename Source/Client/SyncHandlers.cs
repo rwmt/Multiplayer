@@ -642,8 +642,6 @@ namespace Multiplayer.Client
 
     static class SyncActions
     {
-        static Action NullAction = () => { };
-
         static SyncAction<FloatMenuOption, WorldObject, Caravan, object> SyncWorldObjCaravanMenus;
         static SyncAction<FloatMenuOption, WorldObject, IEnumerable<IThingHolder>, CompLaunchable> SyncTransportPodMenus;
 

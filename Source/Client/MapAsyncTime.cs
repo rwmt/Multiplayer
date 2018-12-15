@@ -202,6 +202,7 @@ namespace Multiplayer.Client
         void ExecuteCmd(ScheduledCommand cmd);
     }
 
+    [HotSwappable]
     public class ConstantTicker : ITickable
     {
         public static bool ticking;
@@ -820,7 +821,7 @@ namespace Multiplayer.Client
                 Find.Selector.selected = new List<object>();
 
             bool devMode = Prefs.data.devMode;
-            Prefs.data.devMode = false;
+            Prefs.data.devMode = MpVersion.IsDebug;
 
             try
             {

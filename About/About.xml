@@ -1,5 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <ModMetaData>
   <name>Multiplayer</name>
-  <targetVersion>1.0.2059</targetVersion>
+  <targetVersion>1.0.2096</targetVersion>
+  <author>Zetrith</author>
+  <description>Multiplayer mod. This is version {{version}}</description>
 </ModMetaData>

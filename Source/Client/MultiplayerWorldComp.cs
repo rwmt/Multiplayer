@@ -197,7 +197,7 @@ namespace Multiplayer.Client
             FactionContext.Push(cmd.GetFaction());
 
             bool devMode = Prefs.data.devMode;
-            Prefs.data.devMode = false;
+            Prefs.data.devMode = MpVersion.IsDebug;
 
             try
             {

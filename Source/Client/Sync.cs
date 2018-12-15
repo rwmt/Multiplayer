@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
 using System.Text;
 using Verse;
@@ -569,17 +570,18 @@ namespace Multiplayer.Client
 
         public IEnumerable<T> DoSync(A target, B arg0, C arg1)
         {
-            int i = 0;
-
             SyncActions.wantOriginal = true;
 
             try
             {
+                int i = 0;
+
                 foreach (T t in func(target, arg0, arg1))
                 {
                     int j = i;
                     i++;
-                    actionGetter(t) = () => ActualSync(target, arg0, arg1, j);
+                    var original = actionGetter(t);
+                    actionGetter(t) = () => ActualSync(target, arg0, arg1, original);
 
                     yield return t;
                 }
@@ -595,7 +597,7 @@ namespace Multiplayer.Client
             return DoSync((A)target, (B)arg0, (C)arg1);
         }
 
-        private void ActualSync(A target, B arg0, C arg1, int index)
+        private void ActualSync(A target, B arg0, C arg1, Action original)
         {
             LoggingByteWriter writer = new LoggingByteWriter();
             MpContext context = writer.MpContext();
@@ -606,7 +608,9 @@ namespace Multiplayer.Client
             Sync.WriteSync(writer, target);
             Sync.WriteSync(writer, arg0);
             Sync.WriteSync(writer, arg1);
-            writer.WriteInt32(index);
+
+            writer.WriteInt32(original.Method.DeclaringType.MetadataToken);
+            writer.WriteInt32(original.Method.MetadataToken);
 
             int mapId = writer.MpContext().map?.uniqueID ?? -1;
 
@@ -621,10 +625,12 @@ namespace Multiplayer.Client
             A target = Sync.ReadSync<A>(data);
             B arg0 = Sync.ReadSync<B>(data);
             C arg1 = Sync.ReadSync<C>(data);
-            int index = data.ReadInt32();
 
-            List<T> list = func(target, arg0, arg1).ToList();
-            actionGetter(list[index])();
+            int typeMeta = data.ReadInt32();
+            int methodMeta = data.ReadInt32();
+
+            var action = func(target, arg0, arg1).Select(t => actionGetter(t)).FirstOrDefault(a => a.Method.DeclaringType.MetadataToken == typeMeta && a.Method.MetadataToken == methodMeta);
+            action?.Invoke();
         }
 
         public void PatchAll(string methodName)

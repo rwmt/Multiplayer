@@ -137,6 +137,7 @@ namespace Multiplayer.Client
             var replay = new Replay(fileName, folder);
             replay.info.name = Multiplayer.session.gameName;
             replay.info.playerFaction = Multiplayer.session.myFactionId;
+            replay.info.protocol = MpVersion.Protocol;
 
             return replay;
         }
@@ -170,6 +171,7 @@ namespace Multiplayer.Client
     public class ReplayInfo
     {
         public string name;
+        public int protocol;
         public int playerFaction;
 
         public List<ReplaySection> sections = new List<ReplaySection>();

@@ -18,6 +18,6 @@
   <MpPlayerConnected>{0} has joined</MpPlayerConnected>
   <MpPlayerDisconnected>{0} has left</MpPlayerDisconnected>
   
-  <MpArbiterDesc>A passive game instance which runs in the background and helps with desync solving.</MpArbiterDesc>
+  <MpArbiterDesc>A game instance which runs in the background and helps with desync solving.</MpArbiterDesc>
   
 </LanguageData>

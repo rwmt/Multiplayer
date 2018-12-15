@@ -172,6 +172,8 @@ namespace Multiplayer.Common
             SendCommand(CommandType.Autosave, ScheduledCommand.NoFaction, ScheduledCommand.Global, new byte[0]);
             tmpMapCmds = new Dictionary<int, List<byte[]>>();
 
+            SendChat("Autosaving...");
+
             return true;
         }
 
@@ -260,7 +262,7 @@ namespace Multiplayer.Common
             if (sourcePlayer != null && cmd == CommandType.Sync)
             {
                 int syncId = BitConverter.ToInt32(data, 0);
-                if (!sourcePlayer.IsHost && debugOnlySyncCmds.Contains(syncId))
+                if (!MpVersion.IsDebug && debugOnlySyncCmds.Contains(syncId))
                     return;
             }
 

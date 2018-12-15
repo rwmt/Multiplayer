@@ -2,6 +2,13 @@
 {
     public static class MpVersion
     {
-        public static readonly int Protocol = 2;
+        public const string Version = "0.1";
+        public const int Protocol = 2;
+
+#if DEBUG
+        public const bool IsDebug = true;
+#else
+        public const bool IsDebug = false;
+#endif
     }
 }

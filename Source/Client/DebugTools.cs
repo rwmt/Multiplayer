@@ -1,10 +1,9 @@
-﻿using Harmony;
-using Multiplayer.Common;
-using RimWorld;
+﻿using RimWorld;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection.Emit;
+using System.Reflection;
+using System.Text;
 using Verse;
 
 namespace Multiplayer.Client
@@ -20,6 +19,7 @@ namespace Multiplayer.Client
             var menu = __instance;
 
             menu.DebugAction("Save game", SaveGame);
+            menu.DebugAction("Print static", PrintStatic);
 
             menu.DoLabel("Multiplayer");
 
@@ -111,52 +111,18 @@ namespace Multiplayer.Client
             byte[] data = ScribeUtil.WriteExposable(Current.Game, "game", true);
             File.WriteAllBytes($"game_0_{Multiplayer.username}.xml", data);
         }
-    }
 
-    [MpPatch(typeof(DebugWindowsOpener), nameof(DebugWindowsOpener.DevToolStarterOnGUI))]
-    static class AddDebugButtonPatch
-    {
-        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+        static void PrintStatic()
         {
-            bool found = false;
+            var builder = new StringBuilder();
 
-            foreach (CodeInstruction inst in insts)
-            {
-                if (!found && inst.opcode == OpCodes.Stloc_1)
-                {
-                    yield return new CodeInstruction(OpCodes.Ldc_I4_1);
-                    yield return new CodeInstruction(OpCodes.Add);
-                    found = true;
-                }
+            foreach (var type in typeof(Game).Assembly.GetTypes())
+                if (!type.IsGenericTypeDefinition && type.Namespace != null && (type.Namespace.StartsWith("RimWorld") || type.Namespace.StartsWith("Verse")))
+                    foreach (var field in type.GetFields(BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public))
+                        if (!field.IsLiteral)
+                            builder.AppendLine($"{field.FieldType} {type}::{field.Name}: {field.GetValue(null)}");
 
-                yield return inst;
-            }
-        }
-    }
-
-    [MpPatch(typeof(DebugWindowsOpener), nameof(DebugWindowsOpener.DrawButtons))]
-    static class DebugButtonsPatch
-    {
-        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
-        {
-            var list = new List<CodeInstruction>(insts);
-
-            var labels = list.Last().labels;
-            list.RemoveLast();
-
-            list.Add(
-                new CodeInstruction(OpCodes.Ldloc_0) { labels = labels },
-                new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(DebugButtonsPatch), nameof(Draw))),
-                new CodeInstruction(OpCodes.Ret)
-            );
-
-            return list;
-        }
-
-        static void Draw(WidgetRow row)
-        {
-            //if (row.ButtonIcon(TexButton.Paste, "Hot swap."))
-                //HotSwap.DoHotSwap();
+            Log.Message(builder.ToString());
         }
     }
 

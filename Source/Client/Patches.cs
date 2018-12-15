@@ -1634,9 +1634,25 @@ namespace Multiplayer.Client
     [MpPatch(typeof(SubcameraDriver), nameof(SubcameraDriver.UpdatePositions))]
     [MpPatch(typeof(Prefs), nameof(Prefs.Save))]
     [MpPatch(typeof(FloatMenuOption), nameof(FloatMenuOption.SetSizeMode))]
+    [MpPatch(typeof(Section), nameof(Section.RegenerateAllLayers))]
+    [MpPatch(typeof(Section), nameof(Section.RegenerateLayers))]
+    [MpPatch(typeof(SectionLayer), nameof(SectionLayer.DrawLayer))]
+    [MpPatch(typeof(Map), nameof(Map.MapUpdate))]
     static class CancelForArbiter
     {
         static bool Prefix() => !Multiplayer.arbiterInstance;
+    }
+
+    [HarmonyPatch(typeof(WorldRenderer), MethodType.Constructor)]
+    static class CancelWorldRendererCtor
+    {
+        static bool Prefix() => !Multiplayer.arbiterInstance;
+
+        static void Postfix(WorldRenderer __instance)
+        {
+            if (Multiplayer.arbiterInstance)
+                __instance.layers = new List<WorldLayer>();
+        }
     }
 
     [MpPatch(typeof(Prefs), "get_" + nameof(Prefs.VolumeGame))]
@@ -1826,12 +1842,21 @@ namespace Multiplayer.Client
         }
     }
 
+    [HarmonyPatch(typeof(StoreUtility), nameof(StoreUtility.TryFindBestBetterStoreCellForWorker))]
+    static class FindBestStorageCellMarker
+    {
+        public static bool executing;
+
+        static void Prefix() => executing = true;
+        static void Postfix() => executing = false;
+    }
+
     [HarmonyPatch(typeof(RandomNumberGenerator_BasicHash), nameof(RandomNumberGenerator_BasicHash.GetHash))]
     static class RandGetHashPatch
     {
         static void Postfix()
         {
-            //return;
+            if (!MpVersion.IsDebug) return;
 
             if (Multiplayer.Client == null) return;
             if (RandPatches.Ignore) return;
@@ -1842,6 +1867,7 @@ namespace Multiplayer.Client
             if (!WildAnimalSpawnerTickMarker.ticking &&
                 !WildPlantSpawnerTickMarker.ticking &&
                 !SteadyEnvironmentEffectsTickMarker.ticking &&
+                !FindBestStorageCellMarker.executing &&
                 ThingContext.Current?.def != ThingDefOf.SteamGeyser)
                 Multiplayer.game.sync.TryAddStackTrace();
         }

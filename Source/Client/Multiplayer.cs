@@ -86,6 +86,8 @@ namespace Multiplayer.Client
             MpLog.info = str => Log.Message($"{username} {TickPatch.Timer} {str}");
             MpLog.error = str => Log.Error(str);
 
+            Log.Message("vsync " + QualitySettings.vSyncCount);
+
             GenCommandLine.TryGetCommandLineArg("username", out username);
             if (username == null)
                 username = SteamUtility.SteamPersonaName;
@@ -239,29 +241,6 @@ namespace Multiplayer.Client
 
         public static XmlDocument SaveAndReload()
         {
-            /*if (serverThread != null)
-            {
-                Map map = Find.Maps[0];
-                List<Region> regions = new List<Region>(map.regionGrid.AllRegions);
-                foreach (Region region in regions)
-                {
-                    region.id = map.cellIndices.CellToIndex(region.AnyCell);
-                    region.cachedCellCount = -1;
-                    region.precalculatedHashCode = Gen.HashCombineInt(region.id, 1295813358);
-                    region.closedIndex = new uint[RegionTraverser.NumWorkers];
-
-                    if (region.Room != null)
-                    {
-                        region.Room.ID = region.id;
-                        region.Room.Group.ID = region.id;
-                    }
-                }
-
-                StringBuilder builder = new StringBuilder();
-                SimpleProfiler.DumpMemory(Find.Maps[0].spawnedThings, builder);
-                File.WriteAllText("memory_save", builder.ToString());
-            }*/
-
             reloading = true;
 
             WorldGrid worldGridSaved = Find.WorldGrid;
@@ -316,49 +295,6 @@ namespace Multiplayer.Client
 
             SaveCompression.doSaveCompression = false;
             reloading = false;
-
-            /*if (serverThread != null)
-            {
-                Map map = Find.Maps[0];
-                List<Region> regions = new List<Region>(map.regionGrid.AllRegions);
-                foreach (Region region in regions)
-                {
-                    region.id = map.cellIndices.CellToIndex(region.AnyCell);
-                    region.cachedCellCount = -1;
-                    region.precalculatedHashCode = Gen.HashCombineInt(region.id, 1295813358);
-                    region.closedIndex = new uint[RegionTraverser.NumWorkers];
-
-                    if (region.Room != null)
-                    {
-                        region.Room.ID = region.id;
-                        region.Room.Group.ID = region.id;
-                    }
-                }
-
-                TickList[] tickLists = new[] {
-                    Find.Maps[0].AsyncTime().tickListLong,
-                    Find.Maps[0].AsyncTime().tickListRare,
-                    Find.Maps[0].AsyncTime().tickListNormal
-                };
-
-                foreach (TickList list in tickLists)
-                {
-                    for (int i = 0; i < list.thingsToRegister.Count; i++)
-                    {
-                        list.BucketOf(list.thingsToRegister[i]).Add(list.thingsToRegister[i]);
-                    }
-                    list.thingsToRegister.Clear();
-                    for (int j = 0; j < list.thingsToDeregister.Count; j++)
-                    {
-                        list.BucketOf(list.thingsToDeregister[j]).Remove(list.thingsToDeregister[j]);
-                    }
-                    list.thingsToDeregister.Clear();
-                }
-
-                StringBuilder builder = new StringBuilder();
-                SimpleProfiler.DumpMemory(Find.Maps[0].spawnedThings, builder);
-                File.WriteAllText("memory_reload", builder.ToString());
-            }*/
 
             return gameDoc;
         }
@@ -772,9 +708,12 @@ namespace Multiplayer.Client
 
             DebugTools.curTool = null;
             PortraitsCache.Clear();
+            RealTime.moteList.Clear();
 
             Room.nextRoomID = 1;
+            RoomGroup.nextRoomGroupID = 1;
             Region.nextId = 1;
+            ListerHaulables.groupCycleIndex = 0;
 
             ZoneColorUtility.nextGrowingZoneColorIndex = 0;
             ZoneColorUtility.nextStorageZoneColorIndex = 0;

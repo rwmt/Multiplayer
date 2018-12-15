@@ -17,6 +17,7 @@ using Verse.Steam;
 namespace Multiplayer.Client
 {
     [StaticConstructorOnStartup]
+    [HotSwappable]
     public class ServerBrowser : Window
     {
         private NetManager net;
@@ -118,7 +119,8 @@ namespace Multiplayer.Client
                 mpReplays.Add(
                     new SaveFile(Path.GetFileNameWithoutExtension(file.Name), true, file)
                     {
-                        gameName = replay.info.name
+                        gameName = replay.info.name,
+                        protocol = replay.info.protocol
                     }
                 );
             }
@@ -293,6 +295,18 @@ namespace Multiplayer.Client
                 {
                     GUI.color = saveFile.VersionColor;
                     Widgets.Label(infoText.Down(16), (saveFile.rwVersion ?? "???").Truncate(110));
+                }
+
+                if (saveFile.replay && saveFile.protocol != MpVersion.Protocol)
+                {
+                    GUI.color = new Color(0.8f, 0, 0);
+                    var outdated = new Rect(infoText.x - 70, infoText.y + 8f, 70, 24f);
+                    Widgets.Label(outdated, "(Outdated)");
+
+                    TooltipHandler.TipRegion(
+                        outdated,
+                        $"This replay was made for protocol version {saveFile.protocol}, but you are running version {MpVersion.Protocol}."
+                     );
                 }
 
                 Text.Font = GameFont.Small;
@@ -599,6 +613,8 @@ namespace Multiplayer.Client
         public string gameName;
         public string rwVersion;
 
+        public int protocol;
+
         public Color VersionColor
         {
             get
@@ -606,17 +622,13 @@ namespace Multiplayer.Client
                 if (rwVersion == null)
                     return Color.red;
 
-                if (VersionControl.MajorFromVersionString(rwVersion) != VersionControl.CurrentMajor || VersionControl.MinorFromVersionString(rwVersion) != VersionControl.CurrentMinor)
-                {
-                    if (BackCompatibility.IsSaveCompatibleWith(rwVersion))
-                        return Color.yellow;
-                    return Color.red;
-                }
+                if (VersionControl.MajorFromVersionString(rwVersion) == VersionControl.CurrentMajor && VersionControl.MinorFromVersionString(rwVersion) == VersionControl.CurrentMinor)
+                    return new Color(0.6f, 0.6f, 0.6f);
 
-                if (VersionControl.BuildFromVersionString(rwVersion) != VersionControl.CurrentBuild)
+                if (BackCompatibility.IsSaveCompatibleWith(rwVersion))
                     return Color.yellow;
 
-                return new Color(0.6f, 0.6f, 0.6f);
+                return Color.red;
             }
         }
 
