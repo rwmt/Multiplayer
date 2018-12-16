@@ -35,7 +35,7 @@ namespace Multiplayer.Client
                 conn.State = ConnectionStateEnum.ClientJoining;
                 Multiplayer.session.client = conn;
 
-                MpLog.Log("Client connected");
+                MpLog.Log("Net client connected");
             };
 
             listener.PeerDisconnectedEvent += (peer, info) =>
@@ -58,7 +58,7 @@ namespace Multiplayer.Client
                 ConnectionStatusListeners.TryNotifyAll_Disconnected();
 
                 OnMainThread.StopMultiplayer();
-                MpLog.Log("Client disconnected");
+                MpLog.Log("Net client disconnected");
             };
 
             listener.NetworkReceiveEvent += (peer, reader, method) =>

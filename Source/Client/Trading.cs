@@ -85,13 +85,9 @@ namespace Multiplayer.Client
             }
         }
 
+        // todo come back to it when the map doesn't get paused during trading
         private void StartWaitingJobs()
         {
-            if (playerNegotiator.Spawned && trader is Pawn traderPawn && traderPawn.Spawned)
-            {
-                playerNegotiator.jobs.StartJob(new Job(JobDefOf.Wait, 10, true) { count = 1234, targetA = traderPawn }, JobCondition.InterruptForced);
-                traderPawn.jobs.StartJob(new Job(JobDefOf.Wait, 10, true) { count = 1234, targetA = playerNegotiator }, JobCondition.InterruptForced);
-            }
         }
 
         public bool ShouldCancel()
@@ -392,38 +388,13 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(JobDriver_Wait), nameof(JobDriver_Wait.DecorateWaitToil))]
-    static class TradingWaitJobToil
-    {
-        static void Postfix(Toil wait)
-        {
-            wait.AddPreTickAction(() =>
-            {
-                Job job = wait.actor.CurJob;
-                if (job.count == 1234 && Multiplayer.WorldComp.trading.Any(s => s.playerNegotiator == wait.actor || s.trader == wait.actor))
-                {
-                    job.startTick = Find.TickManager.TicksGame + 1; // Don't expire while trading
-                }
-            });
-        }
-    }
-
-    [HarmonyPatch(typeof(JobDriver_Wait), nameof(JobDriver_Wait.GetReport))]
-    static class TradingWaitJobReport
-    {
-        static void Postfix(JobDriver_Wait __instance, ref string __result)
-        {
-            if (__instance.job.count == 1234)
-                __result = "Negotiating trade";
-        }
-    }
-
     [HarmonyPatch(typeof(IncidentWorker_TraderCaravanArrival), nameof(IncidentWorker_TraderCaravanArrival.TryExecuteWorker))]
     static class ArriveAtCenter
     {
         static void Prefix(IncidentParms parms)
         {
-            parms.spawnCenter = (parms.target as Map).Center;
+            if (MpVersion.IsDebug && Prefs.DevMode)
+                parms.spawnCenter = (parms.target as Map).Center;
         }
     }
 

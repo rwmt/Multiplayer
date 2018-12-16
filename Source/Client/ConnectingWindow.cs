@@ -49,7 +49,7 @@ namespace Multiplayer.Client
 
         public override void PostClose()
         {
-            Multiplayer.Client?.Close();
+            OnMainThread.StopMultiplayer();
 
             if (returnToServerBrowser)
                 Find.WindowStack.Add(new ServerBrowser());

@@ -400,6 +400,8 @@ namespace Multiplayer.Client
                     {
                         Close(false);
 
+                        Log.Message("Connecting to steam friend");
+
                         Find.WindowStack.Add(new SteamConnectingWindow(friend.serverHost) { returnToServerBrowser = true });
 
                         SteamConnection conn = new SteamConnection(friend.serverHost);
@@ -445,6 +447,8 @@ namespace Multiplayer.Client
                 }
                 else
                 {
+                    Log.Message("Connecting directly");
+
                     Find.WindowStack.Add(new ConnectingWindow(address, port) { returnToServerBrowser = true });
                     Close(false);
                 }
@@ -483,6 +487,7 @@ namespace Multiplayer.Client
                 if (Widgets.ButtonText(playButton, ">>"))
                 {
                     Close(false);
+                    Log.Message("Connecting to lan server");
                     Find.WindowStack.Add(new ConnectingWindow(server.endpoint.Address, server.endpoint.Port) { returnToServerBrowser = true });
                 }
 
