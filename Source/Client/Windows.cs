@@ -99,8 +99,12 @@ namespace Multiplayer.Client
     {
         public override Vector2 InitialSize => new Vector2(550, 110);
 
-        public DesyncedWindow()
+        private string text;
+
+        public DesyncedWindow(string text)
         {
+            this.text = text;
+
             closeOnClickedOutside = false;
             closeOnAccept = false;
             closeOnCancel = false;
@@ -112,7 +116,7 @@ namespace Multiplayer.Client
             Text.Font = GameFont.Small;
 
             Text.Anchor = TextAnchor.UpperCenter;
-            Widgets.Label(new Rect(0, 0, inRect.width, 40), "The game state has desynced.");
+            Widgets.Label(new Rect(0, 0, inRect.width, 40), $"The game state has desynced.\n{text}");
             Text.Anchor = TextAnchor.UpperLeft;
 
             float buttonWidth = 120 * 4 + 10 * 3;

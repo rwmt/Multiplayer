@@ -102,6 +102,7 @@
     <Compile Include="Client\SituationalThoughts.cs" />
     <Compile Include="Client\Sync.cs" />
     <Compile Include="Client\SyncHandlers.cs" />
+    <Compile Include="Client\DesyncCheck.cs" />
     <Compile Include="Client\SyncSerialization.cs" />
     <Compile Include="Client\TileTemperatures.cs" />
     <Compile Include="Client\Trading.cs" />
