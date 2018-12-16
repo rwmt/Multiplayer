@@ -300,6 +300,8 @@ namespace Multiplayer.Common
         [PacketHandler(Packets.Client_Debug)]
         public void HandleDebug(ByteReader data)
         {
+            if (!MpVersion.IsDebug) return;
+
             Server.PlayingPlayers.FirstOrDefault(p => p.IsArbiter)?.SendPacket(Packets.Server_Debug, data.ReadRaw(data.Left));
         }
     }

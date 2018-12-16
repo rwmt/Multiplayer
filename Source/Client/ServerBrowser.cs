@@ -313,7 +313,12 @@ namespace Multiplayer.Client
                 GUI.color = Color.white;
 
                 if (Widgets.ButtonInvisible(entryRect))
-                    selectedFile = saveFile;
+                {
+                    if (saveFile.replay && Event.current.button == 1 && MpVersion.IsDebug)
+                        Find.WindowStack.Add(new DesyncInfoWindow(Replay.ForLoading(saveFile.file)));
+                    else
+                        selectedFile = saveFile;
+                }
 
                 y += 40;
             }

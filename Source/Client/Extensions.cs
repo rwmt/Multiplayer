@@ -11,6 +11,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Xml;
 using UnityEngine;
 using Verse;
@@ -247,6 +248,11 @@ namespace Multiplayer.Client
             MemoryStream stream = new MemoryStream();
             entry.Extract(stream);
             return stream.ToArray();
+        }
+
+        public static string GetString(this ZipEntry entry)
+        {
+            return Encoding.UTF8.GetString(entry.GetBytes());
         }
 
         public static bool IsCompilerGenerated(this Type type)

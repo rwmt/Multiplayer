@@ -1,4 +1,6 @@
-﻿using Harmony;
+﻿extern alias zip;
+
+using Harmony;
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
@@ -7,12 +9,14 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using UnityEngine;
 using Verse;
 using Verse.AI;
 using Verse.Sound;
+using zip::Ionic.Zip;
 
 namespace Multiplayer.Client
 {
@@ -1119,18 +1123,23 @@ namespace Multiplayer.Client
 
                 var savedGame = ScribeUtil.WriteExposable(Verse.Current.Game, "game", true);
 
-                var zip = replay.ZipFile;
-                zip.AddEntry("sync_local", local.Serialize());
-                zip.AddEntry("sync_remote", remote.Serialize());
-                zip.AddEntry("game_snapshot", savedGame);
+                using (var zip = replay.ZipFile)
+                {
+                    zip.AddEntry("sync_local", local.Serialize());
+                    zip.AddEntry("sync_remote", remote.Serialize());
+                    zip.AddEntry("game_snapshot", savedGame);
 
-                var desyncInfo = new ByteWriter();
-                desyncInfo.WriteBool(Multiplayer.session.ArbiterPlaying);
-                desyncInfo.WriteInt32(lastValidTick);
-                desyncInfo.WriteBool(lastValidArbiter);
+                    var desyncInfo = new ByteWriter();
+                    desyncInfo.WriteBool(Multiplayer.session.ArbiterPlaying);
+                    desyncInfo.WriteInt32(lastValidTick);
+                    desyncInfo.WriteBool(lastValidArbiter);
+                    desyncInfo.WriteString(MpVersion.Version);
+                    desyncInfo.WriteBool(MpVersion.IsDebug);
+                    desyncInfo.WriteBool(Prefs.DevMode);
 
-                zip.AddEntry("desync_info", desyncInfo.GetArray());
-                zip.Save();
+                    zip.AddEntry("desync_info", desyncInfo.GetArray());
+                    zip.Save();
+                }
             }
             catch (Exception e)
             {
@@ -1224,7 +1233,7 @@ namespace Multiplayer.Client
             if (!cmds.SequenceEqual(other.cmds))
                 return "Random state from commands doesn't match";
 
-            if (!traceHashes.SequenceEqual(other.traceHashes))
+            if (traceHashes.Any() && other.traceHashes.Any() && !traceHashes.SequenceEqual(other.traceHashes))
                 return "Trace hashes don't match";
 
             return null;
@@ -1294,6 +1303,80 @@ namespace Multiplayer.Client
         public SyncMapInfo(int mapId)
         {
             this.mapId = mapId;
+        }
+    }
+
+    public class DesyncInfoWindow : Window
+    {
+        public override Vector2 InitialSize => new Vector2(600, 300);
+
+        private Vector2 scroll;
+        private string text;
+
+        public DesyncInfoWindow(Replay replay)
+        {
+            absorbInputAroundWindow = true;
+            doCloseX = true;
+
+            var text = new StringBuilder();
+
+            using (var zip = replay.ZipFile)
+            {
+                try
+                {
+                    text.AppendLine("[info]");
+                    text.AppendLine(zip["info"].GetString());
+                    text.AppendLine();
+                }
+                catch { }
+
+                try
+                {
+                    PrintSyncInfo(text, zip, "sync_local");
+                }
+                catch { }
+
+                try
+                {
+                    PrintSyncInfo(text, zip, "sync_remote");
+                }
+                catch { }
+
+                try
+                {
+                    text.AppendLine("[desync_info]");
+                    var desyncInfo = new ByteReader(zip["desync_info"].GetBytes());
+                    text.AppendLine($"Arbiter online: {desyncInfo.ReadBool()}");
+                    text.AppendLine($"Last valid tick: {desyncInfo.ReadInt32()}");
+                    text.AppendLine($"Last valid arbiter online: {desyncInfo.ReadBool()}");
+                    text.AppendLine($"Mod version: {desyncInfo.ReadString()}");
+                    text.AppendLine($"Mod is debug: {desyncInfo.ReadBool()}");
+                    text.AppendLine($"Dev mode: {desyncInfo.ReadBool()}");
+                }
+                catch { }
+            }
+
+            this.text = text.ToString();
+        }
+
+        private void PrintSyncInfo(StringBuilder text, ZipFile zip, string file)
+        {
+            text.AppendLine($"[{file}]");
+
+            var sync = SyncInfo.Deserialize(new ByteReader(zip[file].GetBytes()));
+            text.AppendLine($"Start: {sync.startTick}");
+            text.AppendLine($"Map count: {sync.maps.Count}");
+            text.AppendLine($"Last map state: {sync.maps.Select(m => $"{m.mapId}/{m.map.LastOrDefault()}/{m.map.Count}").ToStringSafeEnumerable()}");
+            text.AppendLine($"Last world state: {sync.world.LastOrDefault()}/{sync.world.Count}");
+            text.AppendLine($"Last cmd state: {sync.cmds.LastOrDefault()}/{sync.cmds.Count}");
+            text.AppendLine($"Trace hashes: {sync.traceHashes.Count}");
+
+            text.AppendLine();
+        }
+
+        public override void DoWindowContents(Rect inRect)
+        {
+            Widgets.TextAreaScrollable(inRect, text, ref scroll);
         }
     }
 

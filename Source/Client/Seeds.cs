@@ -154,24 +154,6 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(Pawn_DrawTracker), MethodType.Constructor, new[] { typeof(Pawn) })]
-    static class SeedDrawTrackerCtor
-    {
-        static void Prefix(Pawn pawn, ref bool __state)
-        {
-            if (Multiplayer.Client == null) return;
-
-            Rand.PushState(pawn.thingIDNumber);
-            __state = true;
-        }
-
-        static void Postfix(bool __state)
-        {
-            if (!__state) return;
-            Rand.PopState();
-        }
-    }
-
     public static class PatchThingMethods
     {
         public static void Prefix(Thing __instance, ref Container<Map>? __state)

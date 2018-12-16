@@ -204,42 +204,4 @@ namespace Multiplayer.Client
         }
     }
 
-    // Fixes performance of the options screen
-    [HarmonyPatch(typeof(PrefsData), nameof(Prefs.Apply))]
-    static class PrefsCache
-    {
-        static bool initialized;
-
-        static bool customCursorEnabled;
-        static int screenWidth;
-        static int screenHeight;
-        static bool fullscreen;
-        static bool runInBackground;
-        static float volumeGame;
-
-        static bool Prefix(PrefsData __instance)
-        {
-            return
-                !initialized ||
-                customCursorEnabled != Prefs.CustomCursorEnabled ||
-                screenWidth != Prefs.ScreenWidth ||
-                screenHeight != Prefs.ScreenHeight ||
-                fullscreen != Prefs.FullScreen ||
-                runInBackground != Prefs.RunInBackground ||
-                volumeGame != Prefs.VolumeGame;
-
-        }
-
-        static void Postfix(PrefsData __instance)
-        {
-            initialized = true;
-            customCursorEnabled = Prefs.CustomCursorEnabled;
-            screenWidth = Prefs.ScreenWidth;
-            screenHeight = Prefs.ScreenHeight;
-            fullscreen = Prefs.FullScreen;
-            runInBackground = Prefs.RunInBackground;
-            volumeGame = Prefs.VolumeGame;
-        }
-    }
-
 }
