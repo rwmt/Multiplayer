@@ -152,7 +152,7 @@ namespace Multiplayer.Common
                 lastKeepAlive.Restart();
             }
 
-            if (lastAutosave >= settings.autosaveInterval * 60 * 60)
+            if (settings.autosaveInterval > 0 && lastAutosave >= settings.autosaveInterval * 60 * 60)
             {
                 DoAutosave();
                 lastAutosave = 0;
