@@ -189,6 +189,7 @@ namespace Multiplayer.Client
                 if (session?.localSettings != null && session.localSettings.steam && !session.pendingSteam.Contains(req.m_steamIDRemote))
                 {
                     session.pendingSteam.Add(req.m_steamIDRemote);
+                    session.hasUnread = true;
                     SteamFriends.RequestUserInformation(req.m_steamIDRemote, true);
                 }
             });
@@ -209,23 +210,19 @@ namespace Multiplayer.Client
             {
                 if (session == null) return;
 
-                CSteamID remoteId = fail.m_steamIDRemote;
-                EP2PSessionError error = (EP2PSessionError)fail.m_eP2PSessionError;
+                var remoteId = fail.m_steamIDRemote;
+                var error = (EP2PSessionError)fail.m_eP2PSessionError;
 
-                if (Client is SteamConnection clientConn && clientConn.remoteId == remoteId)
-                {
-                    session.disconnectNetReason = error == EP2PSessionError.k_EP2PSessionErrorTimeout ? "Connection timed out" : "Connection error";
-                    ConnectionStatusListeners.TryNotifyAll_Disconnected();
-                    OnMainThread.StopMultiplayer();
-                }
+                if (Client is SteamBaseConn clientConn && clientConn.remoteId == remoteId)
+                    clientConn.OnError(error);
 
                 if (LocalServer == null) return;
 
                 LocalServer.Enqueue(() =>
                 {
-                    var player = LocalServer.FindPlayer(p => p.conn is SteamConnection conn && conn.remoteId == remoteId);
-                    if (player != null)
-                        LocalServer.OnDisconnected(player.conn);
+                    var conn = LocalServer.players.Select(p => p.conn).OfType<SteamBaseConn>().FirstOrDefault(c => c.remoteId == remoteId);
+                    if (conn != null)
+                        conn.OnError(error);
                 });
             });
         }

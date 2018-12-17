@@ -110,6 +110,9 @@ namespace Multiplayer.Common
 
         public virtual void Send(Packets id, byte[] message, bool reliable = true)
         {
+            if (state == ConnectionStateEnum.Disconnected)
+                return;
+
             byte[] full = new byte[1 + message.Length];
             full[0] = (byte)(Convert.ToByte(id) & 0x3F);
             message.CopyTo(full, 1);
@@ -123,6 +126,9 @@ namespace Multiplayer.Common
 
         public virtual void SendFragmented(Packets id, byte[] message)
         {
+            if (state == ConnectionStateEnum.Disconnected)
+                return;
+
             for (int i = 0; i < message.Length; i += FragmentSize)
             {
                 int len = Math.Min(FragmentSize, message.Length - i);
@@ -135,7 +141,7 @@ namespace Multiplayer.Common
             }
         }
 
-        public abstract void SendRaw(byte[] raw, bool reliable = true);
+        protected abstract void SendRaw(byte[] raw, bool reliable = true);
 
         private ByteWriter fragmented;
 
@@ -152,11 +158,17 @@ namespace Multiplayer.Common
             byte msgId = (byte)(info & 0x3F);
             byte fragState = (byte)(info & 0xC0);
 
+            HandleReceive(msgId, fragState, reader, reliable);
+        }
+
+        protected virtual void HandleReceive(int msgId, int fragState, ByteReader reader, bool reliable)
+        {
             if (msgId < 0 || msgId >= MpConnectionState.packetHandlers.Length)
                 throw new Exception($"Bad packet id {msgId}");
 
             Packets packetType = (Packets)msgId;
-            var handler = MpConnectionState.packetHandlers[(int)state, msgId];
+
+            var handler = MpConnectionState.packetHandlers[(int)state, (int)packetType];
             if (handler == null)
             {
                 if (reliable)
@@ -206,7 +218,7 @@ namespace Multiplayer.Common
             this.peer = peer;
         }
 
-        public override void SendRaw(byte[] raw, bool reliable)
+        protected override void SendRaw(byte[] raw, bool reliable)
         {
             peer.Send(raw, reliable ? DeliveryMethod.ReliableOrdered : DeliveryMethod.Unreliable);
         }

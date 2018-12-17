@@ -315,6 +315,7 @@ namespace Multiplayer.Common
         Status
     }
 
+    // Unused
     public class ServerSteamState : MpConnectionState
     {
         public ServerSteamState(IConnection conn) : base(conn)

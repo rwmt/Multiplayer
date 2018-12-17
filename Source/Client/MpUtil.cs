@@ -96,6 +96,14 @@ namespace Multiplayer.Client
                 return Dns.GetHostEntry(Dns.GetHostName()).AddressList.FirstOrDefault(i => i.AddressFamily == AddressFamily.InterNetwork).ToString();
             }
         }
+
+        public static byte[] CleanSteamNet(int channel)
+        {
+            byte[] last = null;
+            while (SteamNetworking.IsP2PPacketAvailable(out uint size, channel))
+                SteamNetworking.ReadP2PPacket(last = new byte[size], size, out uint sizeRead, out CSteamID remote, channel);
+            return last;
+        }
     }
 
     public static class SteamImages

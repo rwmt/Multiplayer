@@ -205,8 +205,8 @@ namespace Multiplayer.Client
             LocalClientConnection localClient = new LocalClientConnection(Multiplayer.username);
             LocalServerConnection localServerConn = new LocalServerConnection(Multiplayer.username);
 
-            localServerConn.client = localClient;
-            localClient.server = localServerConn;
+            localServerConn.clientSide = localClient;
+            localClient.serverSide = localServerConn;
 
             localClient.State = ConnectionStateEnum.ClientPlaying;
             localServerConn.State = ConnectionStateEnum.ServerPlaying;
@@ -243,7 +243,7 @@ namespace Multiplayer.Client
 
     public class LocalClientConnection : IConnection
     {
-        public LocalServerConnection server;
+        public LocalServerConnection serverSide;
 
         public override int Latency { get => 0; set { } }
 
@@ -252,13 +252,13 @@ namespace Multiplayer.Client
             this.username = username;
         }
 
-        public override void SendRaw(byte[] raw, bool reliable)
+        protected override void SendRaw(byte[] raw, bool reliable)
         {
             Multiplayer.LocalServer.Enqueue(() =>
             {
                 try
                 {
-                    server.HandleReceive(raw, reliable);
+                    serverSide.HandleReceive(raw, reliable);
                 }
                 catch (Exception e)
                 {
@@ -279,7 +279,7 @@ namespace Multiplayer.Client
 
     public class LocalServerConnection : IConnection
     {
-        public LocalClientConnection client;
+        public LocalClientConnection clientSide;
 
         public override int Latency { get => 0; set { } }
 
@@ -288,13 +288,13 @@ namespace Multiplayer.Client
             this.username = username;
         }
 
-        public override void SendRaw(byte[] raw, bool reliable)
+        protected override void SendRaw(byte[] raw, bool reliable)
         {
             OnMainThread.Enqueue(() =>
             {
                 try
                 {
-                    client.HandleReceive(raw, reliable);
+                    clientSide.HandleReceive(raw, reliable);
                 }
                 catch (Exception e)
                 {
@@ -313,28 +313,83 @@ namespace Multiplayer.Client
         }
     }
 
-    public class SteamConnection : IConnection
+    public abstract class SteamBaseConn : IConnection
     {
         public readonly CSteamID remoteId;
 
-        public SteamConnection(CSteamID remoteId)
+        public SteamBaseConn(CSteamID remoteId)
         {
             this.remoteId = remoteId;
         }
 
-        public override void SendRaw(byte[] raw, bool reliable)
+        protected override void SendRaw(byte[] raw, bool reliable)
         {
             SteamNetworking.SendP2PPacket(remoteId, raw, (uint)raw.Length, reliable ? EP2PSend.k_EP2PSendReliable : EP2PSend.k_EP2PSendUnreliable, reliable ? 0 : 1);
         }
 
         public override void Close()
         {
-            SteamNetworking.CloseP2PSessionWithUser(remoteId);
+            Send(Packets.Special_Steam_Disconnect);
         }
+
+        protected override void HandleReceive(int msgId, int fragState, ByteReader reader, bool reliable)
+        {
+            if (msgId == (int)Packets.Special_Steam_Disconnect)
+            {
+                OnDisconnect();
+                Close();
+            }
+            else
+            {
+                base.HandleReceive(msgId, fragState, reader, reliable);
+            }
+        }
+
+        public virtual void OnError(EP2PSessionError error)
+        {
+            OnDisconnect();
+        }
+
+        protected abstract void OnDisconnect();
 
         public override string ToString()
         {
             return $"SteamP2P ({remoteId}) ({username})";
+        }
+    }
+
+    public class SteamClientConn : SteamBaseConn
+    {
+        public SteamClientConn(CSteamID remoteId) : base(remoteId)
+        {
+            MpUtil.CleanSteamNet(0);
+            MpUtil.CleanSteamNet(1);
+
+            SteamNetworking.SendP2PPacket(remoteId, new byte[0], 0, EP2PSend.k_EP2PSendReliable, 2);
+        }
+
+        public override void OnError(EP2PSessionError error)
+        {
+            Multiplayer.session.disconnectNetReason = error == EP2PSessionError.k_EP2PSessionErrorTimeout ? "Connection timed out" : "Connection error";
+            base.OnError(error);
+        }
+
+        protected override void OnDisconnect()
+        {
+            ConnectionStatusListeners.TryNotifyAll_Disconnected();
+            OnMainThread.StopMultiplayer();
+        }
+    }
+
+    public class SteamServerConn : SteamBaseConn
+    {
+        public SteamServerConn(CSteamID remoteId) : base(remoteId)
+        {
+        }
+
+        protected override void OnDisconnect()
+        {
+            serverPlayer.Server.OnDisconnected(this);
         }
     }
 

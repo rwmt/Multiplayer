@@ -246,14 +246,9 @@ namespace Multiplayer.Common
                 player.conn.Send(id, data, reliable);
         }
 
-        public ServerPlayer FindPlayer(Predicate<ServerPlayer> match)
-        {
-            return players.Find(match);
-        }
-
         public ServerPlayer GetPlayer(string username)
         {
-            return FindPlayer(player => player.Username == username);
+            return players.Find(player => player.Username == username);
         }
 
         public IdBlock NextIdBlock(int blockSize = 30000)

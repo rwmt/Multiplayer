@@ -34,7 +34,8 @@
         Server_Pause,
         Server_Debug,
 
-        Count
+        Count,
+        Special_Steam_Disconnect
     }
 
     public enum ConnectionStateEnum : byte

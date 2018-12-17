@@ -400,11 +400,11 @@ namespace Multiplayer.Client
                     {
                         Close(false);
 
-                        Log.Message("Connecting to steam friend");
+                        Log.Message("Connecting through Steam");
 
                         Find.WindowStack.Add(new SteamConnectingWindow(friend.serverHost) { returnToServerBrowser = true });
 
-                        SteamConnection conn = new SteamConnection(friend.serverHost);
+                        var conn = new SteamClientConn(friend.serverHost);
                         conn.username = Multiplayer.username;
                         Multiplayer.session = new MultiplayerSession();
                         Multiplayer.session.client = conn;

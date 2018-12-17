@@ -203,7 +203,7 @@ namespace Multiplayer.Client
 
     public class ReplayConnection : IConnection
     {
-        public override void SendRaw(byte[] raw, bool reliable)
+        protected override void SendRaw(byte[] raw, bool reliable)
         {
         }
 

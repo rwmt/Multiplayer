@@ -136,6 +136,9 @@ namespace Multiplayer.Client
 
         private static void PostLoad()
         {
+            // If the client gets disconnected during loading
+            if (Multiplayer.Client == null) return;
+
             OnMainThread.cachedAtTime = TickPatch.Timer;
             Multiplayer.session.replayTimerStart = TickPatch.Timer;
 
@@ -286,7 +289,7 @@ namespace Multiplayer.Client
         {
             string key = data.ReadString();
             string[] args = data.ReadPrefixedStrings();
-            
+
             Messages.Message(key.Translate(Array.ConvertAll(args, s => (NamedArgument)s)), MessageTypeDefOf.SilentInput, false);
         }
 
@@ -315,7 +318,7 @@ namespace Multiplayer.Client
         {
             int tick = data.ReadInt32();
             var info = Multiplayer.game.sync.buffer.FirstOrDefault(b => b.startTick == tick);
-            
+
             File.WriteAllText("arbiter_traces.txt", info?.traces.Join(delimiter: "\n\n") ?? "null");
         }
 
@@ -334,7 +337,7 @@ namespace Multiplayer.Client
     {
         public ClientSteamState(IConnection connection) : base(connection)
         {
-            connection.Send(Packets.Client_SteamRequest);
+            //connection.Send(Packets.Client_SteamRequest);
         }
 
         [PacketHandler(Packets.Server_SteamAccept)]

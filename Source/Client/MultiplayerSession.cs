@@ -52,8 +52,8 @@ namespace Multiplayer.Client
         {
             if (client != null)
             {
-                client.State = ConnectionStateEnum.Disconnected;
                 client.Close();
+                client.State = ConnectionStateEnum.Disconnected;
             }
 
             if (localServer != null)

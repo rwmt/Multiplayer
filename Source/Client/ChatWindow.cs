@@ -1,4 +1,5 @@
 ﻿using Multiplayer.Common;
+using RimWorld;
 using Steamworks;
 using System;
 using System.Collections.Generic;
@@ -11,6 +12,7 @@ using Verse.Steam;
 namespace Multiplayer.Client
 {
     [StaticConstructorOnStartup]
+    [HotSwappable]
     public class ChatWindow : Window
     {
         public override Vector2 InitialSize => new Vector2(640f, 460f);
@@ -103,6 +105,8 @@ namespace Multiplayer.Client
         {
             SteamNetworking.AcceptP2PSessionWithUser(id);
             Multiplayer.session.pendingSteam.Remove(id);
+
+            Messages.Message("Player accepted", MessageTypeDefOf.PositiveEvent, false);
         }
 
         private Color GetColor(PlayerStatus status)
