@@ -20,4 +20,7 @@
   
   <MpArbiterDesc>A game instance which runs in the background and helps with desync solving.</MpArbiterDesc>
   
+  <MpReplayOutdated>(Outdated)</MpReplayOutdated>
+  <MpReplayOutdatedDesc>This replay was made for protocol version {0}, but you are running version {1}.\n\nThe replay might not play correctly.</MpReplayOutdatedDesc>
+  
 </LanguageData>

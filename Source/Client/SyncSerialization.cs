@@ -144,8 +144,16 @@ namespace Multiplayer.Client
             }
         };
 
-        private static Type[] storageParents = GenTypes.AllTypes.Where(t => typeof(IStoreSettingsParent).IsAssignableFrom(t)).ToArray();
-        private static Type[] plantToGrowSettables = GenTypes.AllTypes.Where(t => typeof(IPlantToGrowSettable).IsAssignableFrom(t)).ToArray();
+        public static Type[] storageParents = AllImplementations(typeof(IStoreSettingsParent));
+        public static Type[] plantToGrowSettables = AllImplementations(typeof(IPlantToGrowSettable));
+
+        private static Type[] AllImplementations(Type type)
+        {
+            return GenTypes.AllTypes
+                .Where(t => t != type && type.IsAssignableFrom(t))
+                .OrderBy(t => t.IsInterface)
+                .ToArray();
+        }
 
         public static MultiTarget thingFilterTarget = new MultiTarget()
         {
@@ -535,9 +543,9 @@ namespace Multiplayer.Client
 
                 throw new SerializationException("No reader for type " + type);
             }
-            catch
+            catch (Exception e)
             {
-                MpLog.Error($"Error reading type: {type}");
+                MpLog.Error($"Error reading type: {type}, {e}");
                 throw;
             }
         }
@@ -937,9 +945,9 @@ namespace Multiplayer.Client
                     throw new SerializationException("No writer for type " + type);
                 }
             }
-            catch
+            catch (Exception e)
             {
-                MpLog.Error($"Error writing type: {type}, obj: {obj}");
+                MpLog.Error($"Error writing type: {type}, obj: {obj}, {e}");
                 throw;
             }
             finally
@@ -985,6 +993,7 @@ namespace Multiplayer.Client
                 {
                     type = impls[i];
                     index = i;
+                    break;
                 }
             }
         }
@@ -995,7 +1004,7 @@ namespace Multiplayer.Client
             if (t != null)
                 return t;
 
-            for (IThingHolder parentHolder = thing.ParentHolder; parentHolder != null; parentHolder = parentHolder.ParentHolder)
+            for (var parentHolder = thing.ParentHolder; parentHolder != null; parentHolder = parentHolder.ParentHolder)
                 if (parentHolder is T t2)
                     return t2;
 
@@ -1006,7 +1015,7 @@ namespace Multiplayer.Client
         {
             StringBuilder builder = new StringBuilder(thing.ToString());
 
-            for (IThingHolder parentHolder = thing.ParentHolder; parentHolder != null; parentHolder = parentHolder.ParentHolder)
+            for (var parentHolder = thing.ParentHolder; parentHolder != null; parentHolder = parentHolder.ParentHolder)
             {
                 builder.Insert(0, "=>");
                 builder.Insert(0, parentHolder.ToString());

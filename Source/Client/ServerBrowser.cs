@@ -299,13 +299,13 @@ namespace Multiplayer.Client
 
                 if (saveFile.replay && saveFile.protocol != MpVersion.Protocol)
                 {
-                    GUI.color = new Color(0.8f, 0, 0);
+                    GUI.color = new Color(0.8f, 0.8f, 0);
                     var outdated = new Rect(infoText.x - 70, infoText.y + 8f, 70, 24f);
-                    Widgets.Label(outdated, "(Outdated)");
+                    Widgets.Label(outdated, "MpReplayOutdated".Translate());
 
                     TooltipHandler.TipRegion(
                         outdated,
-                        $"This replay was made for protocol version {saveFile.protocol}, but you are running version {MpVersion.Protocol}."
+                        "MpReplayOutdatedDesc".Translate(saveFile.protocol, MpVersion.Protocol)
                      );
                 }
 
