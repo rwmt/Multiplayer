@@ -213,6 +213,7 @@ namespace Multiplayer.Common
 
         public override void Close()
         {
+            peer.Flush();
             peer.NetManager.DisconnectPeer(peer);
         }
 

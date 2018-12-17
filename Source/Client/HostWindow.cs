@@ -32,19 +32,18 @@ namespace Multiplayer.Client
             this.file = file;
             settings.gameName = file?.gameName ?? $"{Multiplayer.username}'s game";
 
-            var localAddr = Dns.GetHostEntry(Dns.GetHostName()).AddressList.FirstOrDefault(i => i.AddressFamily == AddressFamily.InterNetwork) ?? IPAddress.Loopback;
-            settings.address = localAddr;
-            addressBuffer = localAddr.ToString();
+            var localAddr = MpUtil.GetLocalIpAddress() ?? "127.0.0.1";
+            settings.lanAddress = localAddr;
+            addressBuffer = localAddr;
 
-            settings.lan = true;
+            lan = true;
             settings.arbiter = true;
         }
 
         private ServerSettings settings = new ServerSettings();
 
-        private string addressBuffer;
-        private string maxPlayersBuffer;
-        private string autosaveBuffer;
+        private string maxPlayersBuffer, autosaveBuffer, addressBuffer;
+        private bool lan, direct;
 
         public override void DoWindowContents(Rect inRect)
         {
@@ -77,15 +76,16 @@ namespace Multiplayer.Client
             entry = entry.Down(40);*/
 
             var directLabelWidth = Text.CalcSize("Direct:  ").x;
-            CheckboxLabeled(entry.Width(130), "Direct:  ", ref settings.direct, placeTextNearCheckbox: true);
-            if (settings.direct)
-            {
-                addressBuffer = Widgets.TextField(entry.Width(130).Right(130 + 10), addressBuffer);
-            }
+            CheckboxLabeled(entry.Width(130), "Direct:  ", ref direct, placeTextNearCheckbox: true);
+            if (direct)
+                addressBuffer = Widgets.TextField(entry.Width(140).Right(130 + 10), addressBuffer);
 
             entry = entry.Down(30);
 
-            CheckboxLabeled(entry.Width(130), "LAN:  ", ref settings.lan, placeTextNearCheckbox: true);
+            var lanRect = entry.Width(130);
+            CheckboxLabeled(lanRect, "LAN:  ", ref lan, placeTextNearCheckbox: true);
+            TooltipHandler.TipRegion(lanRect, $"Broadcast the game to your local network.\n\nResolved LAN address: {settings.lanAddress}");
+
             entry = entry.Down(30);
 
             if (SteamManager.Initialized)
@@ -100,18 +100,53 @@ namespace Multiplayer.Client
 
             var buttonRect = new Rect((inRect.width - 100f) / 2f, inRect.height - 35f, 100f, 35f);
 
-            if (Widgets.ButtonText(buttonRect, "Host") &&
-                (!settings.direct || TryParseIp(addressBuffer, out settings.address, out settings.port)))
-            {
-                if (file == null)
-                    ClientUtil.HostServer(settings, false);
-                else if (file.replay)
-                    HostFromReplay(settings);
-                else
-                    HostFromSave(settings);
+            if (Widgets.ButtonText(buttonRect, "Host"))
+                TryHost();
+        }
 
-                Close(true);
+        private void TryHost()
+        {
+            if (direct && !TryParseIp(addressBuffer, out settings.bindAddress, out settings.bindPort))
+                return;
+           
+            if (!direct)
+                settings.bindAddress = null;
+
+            if (!lan)
+                settings.lanAddress = null;
+
+            if (file == null)
+                ClientUtil.HostServer(settings, false);
+            else if (file.replay)
+                HostFromReplay(settings);
+            else
+                HostFromSave(settings);
+
+            Close(true);
+        }
+
+        private bool TryParseIp(string ip, out string addr, out int port)
+        {
+            port = MultiplayerServer.DefaultPort;
+            addr = null;
+
+            string[] parts = ip.Split(':');
+
+            if (!IPAddress.TryParse(parts[0], out IPAddress ipAddr))
+            {
+                Messages.Message("MpInvalidAddress".Translate(), MessageTypeDefOf.RejectInput, false);
+                return false;
             }
+
+            addr = parts[0];
+
+            if (parts.Length >= 2 && (!int.TryParse(parts[1], out port) || port < 0 || port > ushort.MaxValue))
+            {
+                Messages.Message("MpInvalidPort".Translate(), MessageTypeDefOf.RejectInput, false);
+                return false;
+            }
+
+            return true;
         }
 
         public static void CheckboxLabeled(Rect rect, string label, ref bool checkOn, bool disabled = false, Texture2D texChecked = null, Texture2D texUnchecked = null, bool placeTextNearCheckbox = false)
@@ -139,26 +174,6 @@ namespace Multiplayer.Client
 
             Widgets.CheckboxDraw(rect.x + rect.width - 24f, rect.y, checkOn, disabled, 24f, null, null);
             Text.Anchor = anchor;
-        }
-
-        private bool TryParseIp(string ip, out IPAddress addr, out int port)
-        {
-            port = MultiplayerServer.DefaultPort;
-            string[] parts = ip.Split(':');
-
-            if (!IPAddress.TryParse(parts[0], out addr))
-            {
-                Messages.Message("MpInvalidAddress".Translate(), MessageTypeDefOf.RejectInput, false);
-                return false;
-            }
-
-            if (parts.Length >= 2 && !int.TryParse(parts[1], out port))
-            {
-                Messages.Message("MpInvalidPort".Translate(), MessageTypeDefOf.RejectInput, false);
-                return false;
-            }
-
-            return true;
         }
 
         public static string TextEntryLabeled(Rect rect, string label, string text, float labelWidth)

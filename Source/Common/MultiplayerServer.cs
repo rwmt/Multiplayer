@@ -51,12 +51,15 @@ namespace Multiplayer.Common
         public Stopwatch lastKeepAlive = Stopwatch.StartNew();
 
         private NetManager netManager;
+        private NetManager lanManager;
         private NetManager arbiter;
 
         public int nextUniqueId;
 
-        public int LocalPort => netManager.LocalPort;
+        public int NetPort => netManager.LocalPort;
+        public int LanPort => lanManager.LocalPort;
         public int ArbiterPort => arbiter.LocalPort;
+
         public bool ArbiterPlaying => PlayingPlayers.Any(p => p.IsArbiter && p.status == PlayerStatus.Playing);
 
         public MultiplayerServer(ServerSettings settings)
@@ -66,13 +69,17 @@ namespace Multiplayer.Common
             RegisterChatCmd("autosave", new ChatCmdAutosave());
             RegisterChatCmd("kick", new ChatCmdKick());
 
-            if (settings.direct || settings.lan)
+            if (settings.bindAddress != null)
                 netManager = new NetManager(new MpNetListener(this, false));
+
+            if (settings.lanAddress != null)
+                lanManager = new NetManager(new MpNetListener(this, false));
         }
 
         public void StartListening()
         {
-            netManager?.Start(settings.address, IPAddress.IPv6Any, settings.port);
+            netManager?.Start(IPAddress.Parse(settings.bindAddress), IPAddress.IPv6Any, settings.bindPort);
+            lanManager?.Start(IPAddress.Parse(settings.lanAddress), IPAddress.IPv6Any, 0);
         }
 
         public void SetupArbiterConnection()
@@ -111,14 +118,11 @@ namespace Multiplayer.Common
         {
             SendToAll(Packets.Server_DisconnectReason, new[] { "MpServerClosed" });
 
-            if (netManager != null)
-                foreach (var peer in netManager.GetPeers(ConnectionState.Connected))
-                    peer.Flush();
-
             foreach (var player in players)
                 player.conn.Close();
 
             netManager?.Stop();
+            lanManager?.Stop();
             arbiter?.Stop();
 
             instance = null;
@@ -129,7 +133,9 @@ namespace Multiplayer.Common
         public void TickNet()
         {
             netManager?.PollEvents();
+            lanManager?.PollEvents();
             arbiter?.PollEvents();
+
             queue.RunQueue();
         }
 
@@ -138,8 +144,8 @@ namespace Multiplayer.Common
             if (timer % 3 == 0)
                 SendToAll(Packets.Server_TimeControl, new object[] { timer });
 
-            if (settings.lan && timer % 60 == 0)
-                netManager.SendDiscoveryRequest(Encoding.UTF8.GetBytes("mp-server"), 5100);
+            if (settings.lanAddress != null && timer % 60 == 0)
+                lanManager.SendDiscoveryRequest(Encoding.UTF8.GetBytes("mp-server"), 5100);
 
             timer++;
 
@@ -372,12 +378,11 @@ namespace Multiplayer.Common
     public class ServerSettings
     {
         public string gameName;
-        public IPAddress address;
-        public int port;
+        public string bindAddress;
+        public int bindPort;
+        public string lanAddress;
         public int maxPlayers = 8;
         public int autosaveInterval = 8;
-        public bool direct;
-        public bool lan;
         public bool steam;
         public bool arbiter;
     }
@@ -416,16 +421,13 @@ namespace Multiplayer.Common
             catch (Exception e)
             {
                 MpLog.Error($"Error handling packet by {conn}: {e}");
-                Disconnect($"Connection error: {e.GetType().Name}");
+                Disconnect($"Receive error: {e.GetType().Name}");
             }
         }
 
         public void Disconnect(string reasonKey)
         {
             conn.Send(Packets.Server_DisconnectReason, reasonKey);
-
-            if (conn is MpNetConnection netConn)
-                netConn.peer.Flush();
 
             conn.Close();
             Server.OnDisconnected(conn);

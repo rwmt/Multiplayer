@@ -24,6 +24,7 @@ namespace Multiplayer.Client
 
             Multiplayer.session = new MultiplayerSession();
             NetManager netClient = new NetManager(listener);
+
             netClient.Start();
             netClient.ReconnectDelay = 300;
             netClient.MaxConnectAttempts = 8;
@@ -67,6 +68,11 @@ namespace Multiplayer.Client
                 Multiplayer.HandleReceive(data, method == DeliveryMethod.ReliableOrdered);
             };
 
+            listener.NetworkErrorEvent += (endpoint, error) =>
+            {
+                Log.Warning($"Net client error {error}");
+            };
+
             Multiplayer.session.netClient = netClient;
             netClient.Connect(address.ToString(), port, "");
         }
@@ -86,7 +92,7 @@ namespace Multiplayer.Client
 
         public static void HostServer(ServerSettings settings, bool replay)
         {
-            Log.Message($"Starting a server at {settings.address}:{settings.port}");
+            Log.Message($"Starting the server");
 
             MultiplayerWorldComp comp = Find.World.GetComponent<MultiplayerWorldComp>();
             Faction dummyFaction = Find.FactionManager.AllFactions.FirstOrDefault(f => f.loadID == -1);
@@ -181,8 +187,10 @@ namespace Multiplayer.Client
                 session.serverThread.Start();
 
                 string text = "Server started.";
-                if (settings.direct || settings.lan)
-                    text += $" Listening at {settings.address}:{localServer.LocalPort}";
+                if (settings.bindAddress != null)
+                    text += $" Bound to {settings.bindAddress}:{localServer.NetPort}.";
+                if (settings.lanAddress != null)
+                    text += $" LAN at {settings.lanAddress}:{localServer.LanPort}.";
 
                 Messages.Message(text, MessageTypeDefOf.SilentInput, false);
                 Log.Message(text);
