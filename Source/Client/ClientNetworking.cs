@@ -65,7 +65,7 @@ namespace Multiplayer.Client
             listener.NetworkReceiveEvent += (peer, reader, method) =>
             {
                 byte[] data = reader.GetRemainingBytes();
-                Multiplayer.HandleReceive(data, method == DeliveryMethod.ReliableOrdered);
+                Multiplayer.HandleReceive(new ByteReader(data), method == DeliveryMethod.ReliableOrdered);
             };
 
             listener.NetworkErrorEvent += (endpoint, error) =>
@@ -122,6 +122,9 @@ namespace Multiplayer.Client
             localServer.debugOnlySyncCmds = new HashSet<int>(Sync.handlers.Where(h => h.debugOnly).Select(h => h.SyncId));
             localServer.hostUsername = Multiplayer.username;
             localServer.coopFactionId = Faction.OfPlayer.loadID;
+
+            if (settings.steam)
+                localServer.NetTick += TickSteamNet;
 
             if (replay)
                 localServer.timer = TickPatch.Timer;
@@ -197,6 +200,37 @@ namespace Multiplayer.Client
             }, "MpSaving", false, null);
         }
 
+        private static void TickSteamNet(MultiplayerServer server)
+        {
+            foreach (var packet in MpUtil.ReadSteamPackets())
+            {
+                if (packet.joinPacket)
+                    MpUtil.CleanSteamNet(0);
+
+                var player = server.players.FirstOrDefault(p => p.conn is SteamBaseConn conn && conn.remoteId == packet.remote);
+
+                if (packet.joinPacket && player == null)
+                {
+                    IConnection conn = new SteamServerConn(packet.remote);
+                    conn.State = ConnectionStateEnum.ServerJoining;
+                    player = server.OnConnected(conn);
+                    player.type = PlayerType.Steam;
+
+                    player.steamId = (ulong)packet.remote;
+                    player.steamPersonaName = SteamFriends.GetFriendPersonaName(packet.remote);
+                    if (player.steamPersonaName.Length == 0)
+                        player.steamPersonaName = "[unknown]";
+
+                    conn.Send(Packets.Server_SteamAccept);
+                }
+
+                if (!packet.joinPacket && player != null)
+                {
+                    player.HandleReceive(packet.data, packet.reliable);
+                }
+            }
+        }
+
         private static void SetupLocalClient()
         {
             if (Multiplayer.session.localSettings.arbiter)
@@ -258,7 +292,7 @@ namespace Multiplayer.Client
             {
                 try
                 {
-                    serverSide.HandleReceive(raw, reliable);
+                    serverSide.HandleReceive(new ByteReader(raw), reliable);
                 }
                 catch (Exception e)
                 {
@@ -294,7 +328,7 @@ namespace Multiplayer.Client
             {
                 try
                 {
-                    clientSide.HandleReceive(raw, reliable);
+                    clientSide.HandleReceive(new ByteReader(raw), reliable);
                 }
                 catch (Exception e)
                 {
@@ -324,7 +358,11 @@ namespace Multiplayer.Client
 
         protected override void SendRaw(byte[] raw, bool reliable)
         {
-            SteamNetworking.SendP2PPacket(remoteId, raw, (uint)raw.Length, reliable ? EP2PSend.k_EP2PSendReliable : EP2PSend.k_EP2PSendUnreliable, reliable ? 0 : 1);
+            byte[] full = new byte[1 + raw.Length];
+            full[0] = reliable ? (byte)2 : (byte)0;
+            raw.CopyTo(full, 1);
+
+            SteamNetworking.SendP2PPacket(remoteId, full, (uint)full.Length, reliable ? EP2PSend.k_EP2PSendReliable : EP2PSend.k_EP2PSendUnreliable, 0);
         }
 
         public override void Close()
@@ -363,9 +401,8 @@ namespace Multiplayer.Client
         public SteamClientConn(CSteamID remoteId) : base(remoteId)
         {
             MpUtil.CleanSteamNet(0);
-            MpUtil.CleanSteamNet(1);
 
-            SteamNetworking.SendP2PPacket(remoteId, new byte[0], 0, EP2PSend.k_EP2PSendReliable, 2);
+            SteamNetworking.SendP2PPacket(remoteId, new byte[] { 1 }, 1, EP2PSend.k_EP2PSendReliable, 0);
         }
 
         public override void OnError(EP2PSessionError error)

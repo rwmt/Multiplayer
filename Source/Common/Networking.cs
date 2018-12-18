@@ -121,7 +121,7 @@ namespace Multiplayer.Common
         }
 
         // Steam doesn't like messages bigger than a megabyte
-        public const int FragmentSize = 900_000;
+        public const int FragmentSize = 300_000;
         public const int MaxPacketSize = 33_554_432;
 
         public virtual void SendFragmented(Packets id, byte[] message)
@@ -145,20 +145,19 @@ namespace Multiplayer.Common
 
         private ByteWriter fragmented;
 
-        public virtual void HandleReceive(byte[] rawData, bool reliable)
+        public virtual void HandleReceive(ByteReader data, bool reliable)
         {
             if (state == ConnectionStateEnum.Disconnected)
                 return;
 
-            if (rawData.Length == 0)
+            if (data.Left == 0)
                 throw new Exception("No packet id");
 
-            var reader = new ByteReader(rawData);
-            byte info = reader.ReadByte();
+            byte info = data.ReadByte();
             byte msgId = (byte)(info & 0x3F);
             byte fragState = (byte)(info & 0xC0);
 
-            HandleReceive(msgId, fragState, reader, reliable);
+            HandleReceive(msgId, fragState, data, reliable);
         }
 
         protected virtual void HandleReceive(int msgId, int fragState, ByteReader reader, bool reliable)
@@ -388,6 +387,8 @@ namespace Multiplayer.Common
         {
             this.array = array;
         }
+
+        public byte PeekByte() => array[index];
 
         public byte ReadByte() => array[IncrementIndex(1)];
 

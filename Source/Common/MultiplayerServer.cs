@@ -62,6 +62,8 @@ namespace Multiplayer.Common
 
         public bool ArbiterPlaying => PlayingPlayers.Any(p => p.IsArbiter && p.status == PlayerStatus.Playing);
 
+        public event Action<MultiplayerServer> NetTick;
+
         public MultiplayerServer(ServerSettings settings)
         {
             this.settings = settings;
@@ -135,6 +137,8 @@ namespace Multiplayer.Common
             netManager?.PollEvents();
             lanManager?.PollEvents();
             arbiter?.PollEvents();
+
+            NetTick?.Invoke(this);
 
             queue.RunQueue();
         }
@@ -358,7 +362,7 @@ namespace Multiplayer.Common
         public void OnNetworkReceive(NetPeer peer, NetPacketReader reader, DeliveryMethod method)
         {
             byte[] data = reader.GetRemainingBytes();
-            peer.GetConnection().serverPlayer.HandleReceive(data, method == DeliveryMethod.ReliableOrdered);
+            peer.GetConnection().serverPlayer.HandleReceive(new ByteReader(data), method == DeliveryMethod.ReliableOrdered);
         }
 
         public void OnNetworkError(IPEndPoint endPoint, SocketError socketError)
@@ -407,7 +411,7 @@ namespace Multiplayer.Common
             conn = connection;
         }
 
-        public void HandleReceive(byte[] data, bool reliable)
+        public void HandleReceive(ByteReader data, bool reliable)
         {
             try
             {

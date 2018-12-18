@@ -74,8 +74,6 @@ namespace Multiplayer.Client
     [MpPatch(typeof(OptionListingUtility), nameof(OptionListingUtility.DrawOptionListing))]
     public static class MainMenuPatch
     {
-        const string ServerClose = "Are you sure you want to close the server? Unsaved progress will be lost.";
-
         static void Prefix(Rect rect, List<ListableOption> optList)
         {
             if (!MainMenuMarker.drawing) return;
@@ -111,27 +109,43 @@ namespace Multiplayer.Client
 
                     optList.RemoveAll(opt => opt.label == "Save".Translate() || opt.label == "LoadGame".Translate());
 
-                    optList.Find(opt => opt.label == "QuitToMainMenu".Translate()).action = () =>
+                    var quitMenuLabel = "QuitToMainMenu".Translate();
+                    var saveAndQuitMenu = "SaveAndQuitToMainMenu".Translate();
+                    var quitMenu = optList.Find(opt => opt.label == quitMenuLabel || opt.label == saveAndQuitMenu);
+
+                    if (quitMenu != null)
                     {
-                        Action action = () =>
+                        quitMenu.label = quitMenuLabel;
+                        quitMenu.action = () =>
                         {
-                            OnMainThread.StopMultiplayer();
-                            GenScene.GoToMainMenu();
+                            Action action = () =>
+                            {
+                                OnMainThread.StopMultiplayer();
+                                GenScene.GoToMainMenu();
+                            };
+
+                            if (Multiplayer.LocalServer != null)
+                                Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation("MpServerCloseConfirmation".Translate(), action, true));
+                            else
+                                action();
                         };
+                    }
 
-                        if (Multiplayer.LocalServer != null)
-                            Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(ServerClose, action, true));
-                        else
-                            action();
-                    };
+                    var quitOSLabel = "QuitToOS".Translate();
+                    var saveAndQuitOSLabel = "SaveAndQuitToOS".Translate();
+                    var quitOS = optList.Find(opt => opt.label == quitOSLabel || opt.label == saveAndQuitOSLabel);
 
-                    optList.Find(opt => opt.label == "QuitToOS".Translate()).action = () =>
+                    if (quitOS != null)
                     {
-                        if (Multiplayer.LocalServer != null)
-                            Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(ServerClose, () => Root.Shutdown(), true));
-                        else
-                            Root.Shutdown();
-                    };
+                        quitOS.label = quitOSLabel;
+                        quitOS.action = () =>
+                        {
+                            if (Multiplayer.LocalServer != null)
+                                Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation("MpServerCloseConfirmation".Translate(), () => Root.Shutdown(), true));
+                            else
+                                Root.Shutdown();
+                        };
+                    }
                 }
             }
         }

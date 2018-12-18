@@ -526,7 +526,7 @@ namespace Multiplayer.Client
             }
         }
 
-        public static void HandleReceive(byte[] data, bool reliable)
+        public static void HandleReceive(ByteReader data, bool reliable)
         {
             try
             {

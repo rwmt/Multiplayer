@@ -23,4 +23,6 @@
   <MpReplayOutdated>(Outdated)</MpReplayOutdated>
   <MpReplayOutdatedDesc>This replay was made for protocol version {0}, but you are running version {1}.\n\nThe replay might not play correctly.</MpReplayOutdatedDesc>
   
+  <MpServerCloseConfirmation>Are you sure you want to close the server? Unsaved progress will be lost.</MpServerCloseConfirmation>
+  
 </LanguageData>

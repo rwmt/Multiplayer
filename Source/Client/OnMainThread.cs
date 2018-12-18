@@ -42,12 +42,10 @@ namespace Multiplayer.Client
                 SendCursor();
             }
 
-            if (SteamManager.Initialized)
-            {
-                ReadSteamPackets(2); // New connections
-                ReadSteamPackets(0); // Reliable
-                ReadSteamPackets(1); // Unreliable
-            }
+            if (Multiplayer.Client is SteamBaseConn steamConn && SteamManager.Initialized)
+                foreach (var packet in MpUtil.ReadSteamPackets())
+                    if (steamConn.remoteId == packet.remote)
+                        Multiplayer.HandleReceive(packet.data, packet.reliable);
         }
 
         private byte cursorSeq;
@@ -89,56 +87,6 @@ namespace Multiplayer.Client
                 SteamFriends.SetRichPresence("connect", null);
 
             lastSteamUpdate.Restart();
-        }
-
-        private void ReadSteamPackets(int channel)
-        {
-            while (SteamNetworking.IsP2PPacketAvailable(out uint size, channel))
-            {
-                byte[] data = new byte[size];
-                SteamNetworking.ReadP2PPacket(data, size, out uint sizeRead, out CSteamID remote, channel);
-                HandleSteamPacket(remote, data, channel);
-            }
-        }
-
-        private void HandleSteamPacket(CSteamID remote, byte[] data, int channel)
-        {
-            if (Multiplayer.Client is SteamBaseConn localConn && localConn.remoteId == remote)
-                Multiplayer.HandleReceive(data, channel == 0);
-
-            if (Multiplayer.LocalServer == null) return;
-
-            if (channel == 2)
-            {
-                MpUtil.CleanSteamNet(0);
-                MpUtil.CleanSteamNet(1);
-                MpUtil.CleanSteamNet(2);
-                SteamNetworking.CloseP2PChannelWithUser(remote, 2);
-            }
-
-            var server = Multiplayer.LocalServer;
-            server.Enqueue(() =>
-            {
-                var player = server.players.FirstOrDefault(p => p.conn is SteamBaseConn conn && conn.remoteId == remote);
-
-                if (channel == 2 && player == null)
-                {
-                    IConnection conn = new SteamServerConn(remote);
-                    conn.State = ConnectionStateEnum.ServerJoining;
-                    player = server.OnConnected(conn);
-                    player.type = PlayerType.Steam;
-
-                    player.steamId = (ulong)remote;
-                    player.steamPersonaName = SteamFriends.GetFriendPersonaName(remote);
-                    if (player.steamPersonaName.Length == 0)
-                        player.steamPersonaName = "[unknown]";
-
-                    conn.Send(Packets.Server_SteamAccept);
-                }
-
-                if (channel != 2 && player != null)
-                    player.HandleReceive(data, channel == 0);
-            });
         }
 
         private void UpdateSync()

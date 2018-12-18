@@ -1,4 +1,5 @@
 ﻿using Harmony;
+using Multiplayer.Common;
 using Steamworks;
 using System;
 using System.Collections.Generic;
@@ -97,13 +98,37 @@ namespace Multiplayer.Client
             }
         }
 
-        public static byte[] CleanSteamNet(int channel)
+        public static void CleanSteamNet(int channel)
         {
-            byte[] last = null;
             while (SteamNetworking.IsP2PPacketAvailable(out uint size, channel))
-                SteamNetworking.ReadP2PPacket(last = new byte[size], size, out uint sizeRead, out CSteamID remote, channel);
-            return last;
+                SteamNetworking.ReadP2PPacket(new byte[size], size, out uint sizeRead, out CSteamID remote, channel);
         }
+
+        public static IEnumerable<SteamPacket> ReadSteamPackets()
+        {
+            while (SteamNetworking.IsP2PPacketAvailable(out uint size, 0))
+            {
+                byte[] data = new byte[size];
+                SteamNetworking.ReadP2PPacket(data, size, out uint sizeRead, out CSteamID remote, 0);
+
+                if (data.Length <= 0) continue;
+
+                var reader = new ByteReader(data);
+                byte info = reader.ReadByte();
+                bool joinPacket = (info & 1) > 0;
+                bool reliable = (info & 2) > 0;
+
+                yield return new SteamPacket() { remote = remote, data = reader, joinPacket = joinPacket, reliable = reliable };
+            }
+        }
+    }
+
+    public struct SteamPacket
+    {
+        public CSteamID remote;
+        public ByteReader data;
+        public bool joinPacket;
+        public bool reliable;
     }
 
     public static class SteamImages

@@ -207,7 +207,7 @@ namespace Multiplayer.Client
         {
         }
 
-        public override void HandleReceive(byte[] rawData, bool reliable)
+        public override void HandleReceive(ByteReader data, bool reliable)
         {
         }
 

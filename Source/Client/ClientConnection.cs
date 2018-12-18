@@ -155,8 +155,8 @@ namespace Multiplayer.Client
         [PacketHandler(Packets.Server_DisconnectReason)]
         public void HandleDisconnectReason(ByteReader data)
         {
-            string reason = data.ReadString();
-            Multiplayer.session.disconnectServerReason = reason;
+            string reasonKey = data.ReadString();
+            Multiplayer.session.disconnectServerReason = reasonKey.Translate();
         }
     }
 
@@ -349,8 +349,8 @@ namespace Multiplayer.Client
         [PacketHandler(Packets.Server_DisconnectReason)]
         public void HandleDisconnectReason(ByteReader data)
         {
-            string reason = data.ReadString();
-            Multiplayer.session.disconnectServerReason = reason;
+            string reasonKey = data.ReadString();
+            Multiplayer.session.disconnectServerReason = reasonKey.Translate();
         }
     }
 
