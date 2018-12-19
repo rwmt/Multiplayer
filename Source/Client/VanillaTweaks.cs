@@ -68,6 +68,32 @@ namespace Multiplayer.Client
         }
     }
 
+    // Optimize trading
+    [HarmonyPatch(typeof(ThingCategoryDef))]
+    [HarmonyPatch(nameof(ThingCategoryDef.ThisAndChildCategoryDefs), MethodType.Getter)]
+    static class ThingCategoryDef_ThisAndChildCategoryDefsPatch
+    {
+        static Dictionary<ThingCategoryDef, HashSet<ThingCategoryDef>> values = new Dictionary<ThingCategoryDef, HashSet<ThingCategoryDef>>();
+
+        static bool Prefix(ThingCategoryDef __instance)
+        {
+            return !values.ContainsKey(__instance);
+        }
+
+        static void Postfix(ThingCategoryDef __instance, ref IEnumerable<ThingCategoryDef> __result)
+        {
+            if (values.TryGetValue(__instance, out HashSet<ThingCategoryDef> set))
+            {
+                __result = set;
+                return;
+            }
+
+            set = new HashSet<ThingCategoryDef>(__result);
+            values[__instance] = set;
+            __result = set;
+        }
+    }
+
     // Optimize loading
     [HarmonyPatch(typeof(GenTypes), nameof(GenTypes.GetTypeInAnyAssembly))]
     static class GetTypeInAnyAssemblyPatch

@@ -118,15 +118,11 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.Client != null && (Multiplayer.Ticking || Multiplayer.ExecutingCmds))
             {
-                var a = action;
-                action = () =>
-                {
-                    Rand.PushState(4);
-                    a();
-                    Rand.PopState();
-                };
+                action = PushState + action + Rand.PopState;
             }
         }
+
+        static void PushState() => Rand.PushState(4);
     }
 
     // Seed the rotation random

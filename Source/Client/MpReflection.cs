@@ -106,6 +106,15 @@ namespace Multiplayer.Client
             return memberPath;
         }
 
+        public static string RemoveType(string memberPath)
+        {
+            string[] parts = memberPath.Split(new[] { '/' }, 2, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length <= 1 || !parts[0].Contains('.'))
+                return memberPath;
+
+            return parts[1];
+        }
+
         private static void InitPropertyOrField(string memberPath)
         {
             if (getters.ContainsKey(memberPath))

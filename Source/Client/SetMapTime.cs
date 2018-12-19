@@ -33,7 +33,7 @@ namespace Multiplayer.Client
         static void Postfix(PrevTime? __state) => __state?.Set();
     }
 
-    [HarmonyPatch(typeof(PortraitsCache), nameof(PortraitsCache.IsAnimated))]
+    [MpPatch(typeof(PortraitsCache), nameof(PortraitsCache.IsAnimated))]
     static class PawnPortraitMapTime
     {
         static void Prefix(Pawn pawn, ref PrevTime? __state)

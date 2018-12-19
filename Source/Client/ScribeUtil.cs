@@ -194,10 +194,11 @@ namespace Multiplayer.Client
             Log.Message("Cross ref supply: " + sharedCrossRefs.Dict.Count + " " + sharedCrossRefs.Dict.Last() + " " + Faction.OfPlayer);
         }
 
-        public static byte[] WriteExposable(IExposable element, string name = RootNode, bool indent = false)
+        public static byte[] WriteExposable(IExposable element, string name = RootNode, bool indent = false, Action beforeElement = null)
         {
             StartWriting(indent);
             Scribe.EnterNode(RootNode);
+            beforeElement?.Invoke();
             Scribe_Deep.Look(ref element, name);
             return FinishWriting();
         }

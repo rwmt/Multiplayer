@@ -448,10 +448,24 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(ColonistBar), nameof(ColonistBar.ColonistBarOnGUI))]
-    [StaticConstructorOnStartup]
     public static class ColonistBarTimeControl
     {
-        static void Postfix()
+        static void Prefix(ref bool __state)
+        {
+            if (Event.current.type == EventType.MouseDown || Event.current.type == EventType.MouseUp)
+            {
+                DrawButtons();
+                __state = true;
+            }
+        }
+
+        static void Postfix(bool __state)
+        {
+            if (!__state)
+                DrawButtons();
+        }
+
+        static void DrawButtons()
         {
             if (Multiplayer.Client == null) return;
 
@@ -459,7 +473,7 @@ namespace Multiplayer.Client
             if (bar.Entries.Count == 0 || bar.Entries.Last().group == 0) return;
 
             int curGroup = -1;
-            foreach (ColonistBar.Entry entry in bar.Entries)
+            foreach (var entry in bar.Entries)
             {
                 if (entry.map == null || curGroup == entry.group) continue;
 

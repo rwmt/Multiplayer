@@ -1827,20 +1827,45 @@ namespace Multiplayer.Client
         }
     }
 
+    [HarmonyPatch(typeof(LongEventHandler), nameof(LongEventHandler.QueueLongEvent), new[] { typeof(Action), typeof(string), typeof(bool), typeof(Action<Exception>) })]
+    static class MarkLongEvents
+    {
+        private static MethodInfo MarkerMethod = AccessTools.Method(typeof(MarkLongEvents), nameof(Marker));
+
+        static void Prefix(ref Action action)
+        {
+            if (Multiplayer.Client != null && (Multiplayer.Ticking || Multiplayer.ExecutingCmds))
+            {
+                action += Marker;
+            }
+        }
+
+        private static void Marker() { }
+
+        public static bool IsTickMarked(Action action)
+        {
+            return (action as MulticastDelegate)?.GetInvocationList()?.Any(d => d.Method == MarkerMethod) ?? false;
+        }
+    }
+
     [HarmonyPatch(typeof(LongEventHandler), nameof(LongEventHandler.LongEventsUpdate))]
     static class NewLongEvent
     {
+        public static bool currentEventWasMarked;
+
         static void Prefix(ref bool __state)
         {
             __state = LongEventHandler.currentEvent == null;
+            currentEventWasMarked = MarkLongEvents.IsTickMarked(LongEventHandler.currentEvent?.eventAction);
         }
 
         static void Postfix(bool __state)
         {
-            if (Multiplayer.Client == null) return;
-            if (TickPatch.skipTo >= 0 || Multiplayer.IsReplay) return;
+            currentEventWasMarked = false;
 
-            if (__state && LongEventHandler.currentEvent != null)
+            if (Multiplayer.Client == null) return;
+
+            if (__state && MarkLongEvents.IsTickMarked(LongEventHandler.currentEvent?.eventAction))
                 Multiplayer.Client.Send(Packets.Client_Pause, new object[] { true });
         }
     }
@@ -1850,10 +1875,8 @@ namespace Multiplayer.Client
     {
         static void Postfix()
         {
-            if (Multiplayer.Client == null) return;
-            if (TickPatch.skipTo >= 0 || Multiplayer.IsReplay) return;
-
-            Multiplayer.Client.Send(Packets.Client_Pause, new object[] { false });
+            if (Multiplayer.Client != null && NewLongEvent.currentEventWasMarked)
+                Multiplayer.Client.Send(Packets.Client_Pause, new object[] { false });
         }
     }
 

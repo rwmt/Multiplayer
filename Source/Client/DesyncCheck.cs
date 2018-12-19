@@ -102,7 +102,7 @@ namespace Multiplayer.Client
                 var replay = Replay.ForSaving(desyncFile, Multiplayer.DesyncsDir);
                 replay.WriteCurrentData();
 
-                var savedGame = ScribeUtil.WriteExposable(Verse.Current.Game, "game", true);
+                var savedGame = ScribeUtil.WriteExposable(Verse.Current.Game, "game", true, ScribeMetaHeaderUtility.WriteMetaHeader);
 
                 using (var zip = replay.ZipFile)
                 {

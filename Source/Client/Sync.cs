@@ -362,6 +362,7 @@ namespace Multiplayer.Client
         }
     }
 
+    [HotSwappable]
     public class SyncDelegate : SyncHandler, ISyncMethod
     {
         public readonly Type delegateType;
@@ -463,6 +464,7 @@ namespace Multiplayer.Client
             for (int i = 0; i < fieldPaths.Length; i++)
             {
                 string path = fieldPaths[i];
+                string noTypePath = MpReflection.RemoveType(path);
                 Type fieldType = fieldTypes[i];
                 object value;
 
@@ -473,17 +475,17 @@ namespace Multiplayer.Client
 
                 if (value == null)
                 {
-                    if (cancelIfAnyNullBlacklist != null && !cancelIfAnyNullBlacklist.Contains(path))
+                    if (cancelIfAnyNullBlacklist != null && !cancelIfAnyNullBlacklist.Contains(noTypePath))
                         return;
 
                     if (path.EndsWith("$this"))
                         return;
 
-                    if (cancelIfNull != null && cancelIfNull.Contains(path))
+                    if (cancelIfNull != null && cancelIfNull.Contains(noTypePath))
                         return;
                 }
 
-                if (removeNullsFromLists != null && removeNullsFromLists.Contains(path) && value is IList list)
+                if (removeNullsFromLists != null && removeNullsFromLists.Contains(noTypePath) && value is IList list)
                     list.RemoveNulls();
 
                 MpReflection.SetValue(target, path, value);

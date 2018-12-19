@@ -466,18 +466,25 @@ namespace Multiplayer.Client
                     harmony.Patch(AccessTools.Method(typeof(MapInterface), m), setMapTimePrefix, setMapTimePostfix);
 
                 var windowMethods = new[] { "DoWindowContents", "WindowUpdate" };
-
                 foreach (string m in windowMethods)
                     harmony.Patch(typeof(MainTabWindow_Inspect).GetMethod(m), setMapTimePrefix, setMapTimePostfix);
 
-                foreach (Type t in typeof(InspectTabBase).AllSubtypesAndSelf())
+                foreach (var t in typeof(InspectTabBase).AllSubtypesAndSelf())
                 {
-                    MethodInfo method = t.GetMethod("FillTab", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
+                    var method = t.GetMethod("FillTab", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
                     if (method != null && !method.IsAbstract)
                         harmony.Patch(method, setMapTimePrefix, setMapTimePostfix);
                 }
 
-                harmony.Patch(AccessTools.Method(typeof(SoundRoot), nameof(SoundRoot.Update)), setMapTimePrefix, setMapTimePostfix);
+                harmony.Patch(
+                    AccessTools.Method(typeof(SoundRoot), nameof(SoundRoot.Update)), 
+                    setMapTimePrefix, setMapTimePostfix
+                );
+
+                harmony.Patch(
+                    AccessTools.Method(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.ChoicesAtFor)),
+                    setMapTimePrefix, setMapTimePostfix
+                );
             }
         }
 
