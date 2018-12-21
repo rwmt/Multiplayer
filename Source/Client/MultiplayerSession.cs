@@ -81,7 +81,7 @@ namespace Multiplayer.Client
 
         public void AddMsg(string msg)
         {
-            AddMsg(new ChatMsg_Text(msg, DateTime.Now));
+            AddMsg(new ChatMsg_Text(msg));
         }
 
         public void AddMsg(ChatMsg msg)

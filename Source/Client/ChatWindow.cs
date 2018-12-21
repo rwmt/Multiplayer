@@ -215,7 +215,9 @@ namespace Multiplayer.Client
                 float textWidth = Text.CalcSize(msg.Msg).x + 15;
 
                 Rect msgRect = new Rect(20f, yPos, width, height);
-                if (Mouse.IsOver(msgRect))
+                bool mouseOver = Mouse.IsOver(msgRect);
+
+                if (mouseOver)
                 {
                     GUI.DrawTexture(msgRect, SelectedMsg);
 
@@ -231,8 +233,14 @@ namespace Multiplayer.Client
 
                 msgRect.width = Math.Min(textWidth, msgRect.width);
 
+                if (mouseOver && msg.Clickable)
+                    GUI.color = new Color(0.8f, 0.8f, 1);
+
                 GUI.SetNextControlName("chat_msg_" + i++);
                 Widgets.TextArea(msgRect, msg.Msg, true);
+
+                if (mouseOver && msg.Clickable)
+                    GUI.color = Color.white;
 
                 GUI.skin.settings.cursorColor = cursorColor;
 
@@ -294,7 +302,14 @@ namespace Multiplayer.Client
     {
         public virtual bool Clickable => false;
         public abstract string Msg { get; }
-        public abstract DateTime TimeStamp { get; }
+        public virtual DateTime TimeStamp => timestamp;
+
+        private DateTime timestamp;
+
+        public ChatMsg()
+        {
+            timestamp = DateTime.Now;
+        }
 
         public virtual void Click() { }
     }
@@ -302,15 +317,30 @@ namespace Multiplayer.Client
     public class ChatMsg_Text : ChatMsg
     {
         private string msg;
-        private DateTime timestamp;
-
         public override string Msg => msg;
-        public override DateTime TimeStamp => timestamp;
 
-        public ChatMsg_Text(string msg, DateTime timestamp)
+        public ChatMsg_Text(string msg)
         {
             this.msg = msg;
-            this.timestamp = timestamp;
         }
     }
+
+    public class ChatMsg_Url : ChatMsg
+    {
+        public override string Msg => url;
+        public override bool Clickable => true;
+
+        private string url;
+
+        public ChatMsg_Url(string url)
+        {
+            this.url = url;
+        }
+
+        public override void Click()
+        {
+            Application.OpenURL(url);
+        }
+    }
+
 }

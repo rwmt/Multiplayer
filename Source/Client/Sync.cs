@@ -362,7 +362,6 @@ namespace Multiplayer.Client
         }
     }
 
-    [HotSwappable]
     public class SyncDelegate : SyncHandler, ISyncMethod
     {
         public readonly Type delegateType;

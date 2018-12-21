@@ -405,7 +405,7 @@ namespace Multiplayer.Client
                 var randPatchPrefix = new HarmonyMethod(typeof(RandPatches).GetMethod("Prefix"));
                 var randPatchPostfix = new HarmonyMethod(typeof(RandPatches).GetMethod("Postfix"));
 
-                var subSustainerCtor = typeof(SubSustainer).GetConstructor(new[] { typeof(Sustainer), typeof(SubSoundDef) });
+                var subSustainerStart = AccessTools.Method(typeof(SubSustainer), "<SubSustainer>m__0");
                 var sampleCtor = typeof(Sample).GetConstructor(new[] { typeof(SubSoundDef) });
                 var subSoundPlay = typeof(SubSoundDef).GetMethod("TryPlay");
                 var effecterTick = typeof(Effecter).GetMethod("EffectTick");
@@ -413,8 +413,10 @@ namespace Multiplayer.Client
                 var effecterCleanup = typeof(Effecter).GetMethod("Cleanup");
                 var randomBoltMesh = typeof(LightningBoltMeshPool).GetProperty("RandomBoltMesh").GetGetMethod();
                 var drawTrackerCtor = typeof(Pawn_DrawTracker).GetConstructor(new[] { typeof(Pawn) });
+                var resolveAllGraphics = typeof(PawnGraphicSet).GetMethod("ResolveAllGraphics");
+                var resolveApparelGraphics = typeof(PawnGraphicSet).GetMethod("ResolveApparelGraphics");
 
-                var effectMethods = new MethodBase[] { subSustainerCtor, sampleCtor, subSoundPlay, effecterTick, effecterTrigger, effecterCleanup, randomBoltMesh, drawTrackerCtor };
+                var effectMethods = new MethodBase[] { subSustainerStart, sampleCtor, subSoundPlay, effecterTick, effecterTrigger, effecterCleanup, randomBoltMesh, drawTrackerCtor, resolveAllGraphics, resolveApparelGraphics };
                 var moteMethods = typeof(MoteMaker).GetMethods(BindingFlags.Static | BindingFlags.Public);
 
                 foreach (MethodBase m in effectMethods.Concat(moteMethods))

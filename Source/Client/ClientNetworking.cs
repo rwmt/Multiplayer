@@ -176,6 +176,10 @@ namespace Multiplayer.Client
 
             Find.MainTabsRoot.EscapeCurrentTab(false);
 
+            Multiplayer.session.AddMsg("Wiki on desyncs:");
+            Multiplayer.session.AddMsg(new ChatMsg_Url("https://github.com/Zetrith/Multiplayer/wiki/Desyncs"));
+            Multiplayer.session.hasUnread = false;
+
             LongEventHandler.QueueLongEvent(() =>
             {
                 Multiplayer.CacheGameData(Multiplayer.SaveAndReload());
@@ -255,7 +259,6 @@ namespace Multiplayer.Client
         private static void StartArbiter()
         {
             Multiplayer.session.AddMsg("The Arbiter instance is starting...");
-            Multiplayer.session.hasUnread = false;
 
             Multiplayer.LocalServer.SetupArbiterConnection();
 

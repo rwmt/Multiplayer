@@ -41,8 +41,9 @@ namespace Multiplayer.Client
                 yield return comp;
                 yield return comp.ticker;
 
-                foreach (Map map in Find.Maps)
-                    yield return map.AsyncTime();
+                var maps = Find.Maps;
+                for (int i = maps.Count - 1; i >= 0; i--)
+                    yield return maps[i].AsyncTime();
             }
         }
 
@@ -822,11 +823,11 @@ namespace Multiplayer.Client
 
             CommandType cmdType = cmd.type;
 
+            var prevMap = Current.Game.CurrentMap;
+            Current.Game.currentMapIndex = (sbyte)map.Index;
+
             executingCmdMap = map;
             TickPatch.currentExecutingCmdIssuedBySelf = cmd.issuedBySelf && TickPatch.skipTo < 0;
-
-            CurrentMapGetPatch.currentMap = map;
-            CurrentMapSetPatch.ignore = true;
 
             PreContext();
             map.PushFaction(cmd.GetFaction());
@@ -902,14 +903,31 @@ namespace Multiplayer.Client
                 if (!TickPatch.currentExecutingCmdIssuedBySelf)
                     Find.Selector.selected = prevSelected;
 
-                CurrentMapSetPatch.ignore = false;
-                CurrentMapGetPatch.currentMap = null;
                 map.PopFaction();
                 PostContext();
+
                 TickPatch.currentExecutingCmdIssuedBySelf = false;
                 executingCmdMap = null;
 
+                TrySetCurrentMap(prevMap);
+
                 Multiplayer.game.sync.TryAddCmd(randState);
+            }
+        }
+
+        private static void TrySetCurrentMap(Map map)
+        {
+            if (!Find.Maps.Contains(map))
+            {
+                if (Find.Maps.Any())
+                    Current.Game.CurrentMap = Find.Maps[0];
+                else
+                    Current.Game.CurrentMap = null;
+                Find.World.renderer.wantedMode = WorldRenderMode.Planet;
+            }
+            else
+            {
+                Current.Game.CurrentMap = map;
             }
         }
 
