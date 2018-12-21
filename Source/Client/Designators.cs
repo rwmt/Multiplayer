@@ -24,7 +24,7 @@ namespace Multiplayer.Client
 
     public static class DesignatorPatches
     {
-        public static bool DesignateSingleCell(Designator __instance, [HarmonyArgument(0)] IntVec3 cell)
+        public static bool DesignateSingleCell(Designator __instance, IntVec3 __0)
         {
             if (!Multiplayer.ShouldSync) return true;
 
@@ -35,7 +35,7 @@ namespace Multiplayer.Client
             writer.LogNode("Designate single cell: " + designator.GetType());
 
             WriteData(writer, DesignatorMode.SingleCell, designator);
-            Sync.WriteSync(writer, cell);
+            Sync.WriteSync(writer, __0);
 
             Multiplayer.Client.SendCommand(CommandType.Designator, map.uniqueID, writer.GetArray());
             Multiplayer.PacketLog.nodes.Add(writer.current);
@@ -43,19 +43,19 @@ namespace Multiplayer.Client
             return false;
         }
 
-        public static bool DesignateMultiCell(Designator __instance, [HarmonyArgument(0)] IEnumerable<IntVec3> cells)
+        public static bool DesignateMultiCell(Designator __instance, IEnumerable<IntVec3> __0)
         {
             if (!Multiplayer.ShouldSync) return true;
 
             // No cells implies Finalize(false), which currently doesn't cause side effects
-            if (cells.Count() == 0) return true;
+            if (__0.Count() == 0) return true;
 
             Designator designator = __instance;
 
             Map map = Find.CurrentMap;
             LoggingByteWriter writer = new LoggingByteWriter();
             writer.LogNode("Designate multi cell: " + designator.GetType());
-            IntVec3[] cellArray = cells.ToArray();
+            IntVec3[] cellArray = __0.ToArray();
 
             WriteData(writer, DesignatorMode.MultiCell, designator);
             Sync.WriteSync(writer, cellArray);
@@ -66,7 +66,7 @@ namespace Multiplayer.Client
             return false;
         }
 
-        public static bool DesignateThing(Designator __instance, [HarmonyArgument(0)] Thing thing)
+        public static bool DesignateThing(Designator __instance, Thing __0)
         {
             if (!Multiplayer.ShouldSync) return true;
 
@@ -74,15 +74,15 @@ namespace Multiplayer.Client
 
             Map map = Find.CurrentMap;
             LoggingByteWriter writer = new LoggingByteWriter();
-            writer.LogNode("Designate thing: " + thing + " " + designator.GetType());
+            writer.LogNode("Designate thing: " + __0 + " " + designator.GetType());
 
             WriteData(writer, DesignatorMode.Thing, designator);
-            Sync.WriteSync(writer, thing);
+            Sync.WriteSync(writer, __0);
 
             Multiplayer.Client.SendCommand(CommandType.Designator, map.uniqueID, writer.GetArray());
             Multiplayer.PacketLog.nodes.Add(writer.current);
 
-            MoteMaker.ThrowMetaPuffs(thing);
+            MoteMaker.ThrowMetaPuffs(__0);
 
             return false;
         }

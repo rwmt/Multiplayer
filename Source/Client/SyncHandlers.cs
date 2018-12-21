@@ -677,18 +677,18 @@ namespace Multiplayer.Client
             syncingActions = true;
         }
 
-        public static void SyncAction1_Postfix(object __instance, [HarmonyArgument(0)] object arg0, ref object __result, MethodBase __originalMethod, bool __state)
+        public static void SyncAction1_Postfix(object __instance, object __0, ref object __result, MethodBase __originalMethod, bool __state)
         {
-            SyncAction2_Postfix(__instance, arg0, null, ref __result, __originalMethod, __state);
+            SyncAction2_Postfix(__instance, __0, null, ref __result, __originalMethod, __state);
         }
 
-        public static void SyncAction2_Postfix(object __instance, [HarmonyArgument(0)] object arg0, [HarmonyArgument(1)] object arg1, ref object __result, MethodBase __originalMethod, bool __state)
+        public static void SyncAction2_Postfix(object __instance, object __0, object __1, ref object __result, MethodBase __originalMethod, bool __state)
         {
             if (!__state)
             {
                 syncingActions = false;
                 if (Multiplayer.ShouldSync && !wantOriginal && !syncingActions)
-                    __result = syncActions[__originalMethod].DoSync(__instance, arg0, arg1);
+                    __result = syncActions[__originalMethod].DoSync(__instance, __0, __1);
             }
         }
     }
