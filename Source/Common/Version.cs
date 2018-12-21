@@ -2,8 +2,8 @@
 {
     public static class MpVersion
     {
-        public const string Version = "0.1.7";
-        public const int Protocol = 6;
+        public const string Version = "0.1.8";
+        public const int Protocol = 7;
 
 #if DEBUG
         public const bool IsDebug = true;

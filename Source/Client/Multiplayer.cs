@@ -455,18 +455,6 @@ namespace Multiplayer.Client
                 var setMapTimePrefix = new HarmonyMethod(AccessTools.Method(typeof(SetMapTimeForUI), "Prefix"));
                 var setMapTimePostfix = new HarmonyMethod(AccessTools.Method(typeof(SetMapTimeForUI), "Postfix"));
 
-                var mapInterfaceMethods = new[]
-                {
-                    nameof(MapInterface.MapInterfaceOnGUI_BeforeMainTabs),
-                    nameof(MapInterface.MapInterfaceOnGUI_AfterMainTabs),
-                    nameof(MapInterface.HandleMapClicks),
-                    nameof(MapInterface.HandleLowPriorityInput),
-                    nameof(MapInterface.MapInterfaceUpdate)
-                };
-
-                foreach (string m in mapInterfaceMethods)
-                    harmony.Patch(AccessTools.Method(typeof(MapInterface), m), setMapTimePrefix, setMapTimePostfix);
-
                 var windowMethods = new[] { "DoWindowContents", "WindowUpdate" };
                 foreach (string m in windowMethods)
                     harmony.Patch(typeof(MainTabWindow_Inspect).GetMethod(m), setMapTimePrefix, setMapTimePostfix);
@@ -477,16 +465,6 @@ namespace Multiplayer.Client
                     if (method != null && !method.IsAbstract)
                         harmony.Patch(method, setMapTimePrefix, setMapTimePostfix);
                 }
-
-                harmony.Patch(
-                    AccessTools.Method(typeof(SoundRoot), nameof(SoundRoot.Update)), 
-                    setMapTimePrefix, setMapTimePostfix
-                );
-
-                harmony.Patch(
-                    AccessTools.Method(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.ChoicesAtFor)),
-                    setMapTimePrefix, setMapTimePostfix
-                );
             }
         }
 

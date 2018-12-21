@@ -132,29 +132,4 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(Game))]
-    [HarmonyPatch(nameof(Game.CurrentMap), MethodType.Getter)]
-    public static class CurrentMapGetPatch
-    {
-        public static Map currentMap;
-
-        static void Postfix(ref Map __result)
-        {
-            if (currentMap != null)
-                __result = currentMap;
-        }
-    }
-
-    [HarmonyPatch(typeof(Game))]
-    [HarmonyPatch(nameof(Game.CurrentMap), MethodType.Setter)]
-    [HarmonyPriority(Priority.First)]
-    public static class CurrentMapSetPatch
-    {
-        public static bool ignore;
-
-        static bool Prefix()
-        {
-            return !ignore;
-        }
-    }
 }

@@ -10,6 +10,14 @@ using Verse.Sound;
 
 namespace Multiplayer.Client
 {
+    // Set the map time for GUI methods depending on it
+    [MpPatch(typeof(MapInterface), nameof(MapInterface.MapInterfaceOnGUI_BeforeMainTabs))]
+    [MpPatch(typeof(MapInterface), nameof(MapInterface.MapInterfaceOnGUI_AfterMainTabs))]
+    [MpPatch(typeof(MapInterface), nameof(MapInterface.HandleMapClicks))]
+    [MpPatch(typeof(MapInterface), nameof(MapInterface.HandleLowPriorityInput))]
+    [MpPatch(typeof(MapInterface), nameof(MapInterface.MapInterfaceUpdate))]
+    [MpPatch(typeof(SoundRoot), nameof(SoundRoot.Update))]
+    [MpPatch(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.ChoicesAtFor))]
     static class SetMapTimeForUI
     {
         static void Prefix(ref PrevTime? __state)
@@ -81,7 +89,8 @@ namespace Multiplayer.Client
         static void Postfix(PrevTime? __state) => __state?.Set();
     }
 
-    [HarmonyPatch(typeof(Sustainer), nameof(Sustainer.SustainerUpdate))]
+    [MpPatch(typeof(Sustainer), nameof(Sustainer.SustainerUpdate))]
+    [MpPatch(typeof(Sustainer), "<Sustainer>m__0")]
     static class SustainerUpdateMapTime
     {
         static void Prefix(Sustainer __instance, ref PrevTime? __state)
