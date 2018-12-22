@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<LanguageData>
+
+  <MpSimulating>Simulation en cours</MpSimulating>
+  <MpLoading>Chargement</MpLoading>
+  <MpSaving>Sauvegarde</MpSaving>
+  
+  <MpInvalidPort>Port Invalide</MpInvalidPort>
+  <MpInvalidAddress>Adresse Invalide</MpInvalidAddress>
+  
+  <MpWrongProtocol>Version de protocole incorrect</MpWrongProtocol>
+  <MpServerClosed>Serveur fermé</MpServerClosed>
+
+  <MpInvalidUsernameAlreadyPlaying>Pseudo déjà connecté</MpInvalidUsernameAlreadyPlaying>
+  <MpInvalidUsernameChars>Pseudo comportant des charactères invalides</MpInvalidUsernameChars>
+  <MpInvalidUsernameLength>Longueur du pseudo invalide</MpInvalidUsernameLength>
+  
+  <MpPlayerConnected>{0} a rejoint</MpPlayerConnected>
+  <MpPlayerDisconnected>{0} a quitté</MpPlayerDisconnected>
+  
+  <MpArbiterDesc>Une instance du jeu tournant dans le fond et qui aide avec les problèmes de désynchronisation.</MpArbiterDesc>
+  
+  <MpReplayOutdated>(Obsolète)</MpReplayOutdated>
+  <MpReplayOutdatedDesc>Ce replay été compatible avec la version du protocole {0}, mais vous avez la version {1}.\n\nLe replay peut ne pas jouer correctement.\nLes incompatibilitées possibles sont listées dans l'historique des versions.</MpReplayOutdatedDesc>
+  
+  <MpServerCloseConfirmation>Êtes-vous sûr(e) de vouloir fermer le serveur ? Tout progrès non sauvegardé sera perdu.</MpServerCloseConfirmation>
+  
+</LanguageData>
