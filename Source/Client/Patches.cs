@@ -344,8 +344,7 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(MainButtonsRoot))]
-    [HarmonyPatch(nameof(MainButtonsRoot.MainButtonsOnGUI))]
+    [HarmonyPatch(typeof(MainButtonsRoot), nameof(MainButtonsRoot.MainButtonsOnGUI))]
     [HotSwappable]
     public static class MainButtonsPatch
     {
@@ -461,12 +460,21 @@ namespace Multiplayer.Client
             }
         }
 
+        const float TimelineMargin = 50f;
+        const float TimelineHeight = 35f;
+
         static void DrawTimeline()
         {
-            const float margin = 50f;
-            const float height = 35f;
+            Rect rect = new Rect(TimelineMargin, UI.screenHeight - 35f - TimelineHeight - 10f - 30f, UI.screenWidth - TimelineMargin * 2, TimelineHeight + 30f);
+            Find.WindowStack.ImmediateWindow(TimelineWindowId, rect, WindowLayer.SubSuper, DrawTimelineWindow, doBackground: false, shadowAlpha: 0);
+        }
 
-            Rect rect = new Rect(margin, UI.screenHeight - 35f - height - 10f, UI.screenWidth - margin * 2, height);
+        public static readonly Texture2D OrbitalBeaconIcon = ContentFinder<Texture2D>.Get("Things/Building/Misc/DropBeacon");
+
+        static void DrawTimelineWindow()
+        {
+            Rect rect = new Rect(0, 30f, UI.screenWidth - TimelineMargin * 2, TimelineHeight);
+
             Widgets.DrawBoxSolid(rect, new Color(0.6f, 0.6f, 0.6f, 0.8f));
 
             int timerStart = Multiplayer.session.replayTimerStart >= 0 ? Multiplayer.session.replayTimerStart : OnMainThread.cachedAtTime;
@@ -477,20 +485,31 @@ namespace Multiplayer.Client
             float progressX = rect.xMin + progress * rect.width;
             Widgets.DrawLine(new Vector2(progressX, rect.yMin), new Vector2(progressX, rect.yMax), Color.green, 7f);
 
+            float mouseX = Event.current.mousePosition.x;
+            ReplayEvent mouseEvent = null;
+
             foreach (var ev in Multiplayer.session.events)
             {
                 if (ev.time < timerStart || ev.time > timerEnd)
                     continue;
 
                 var pointX = rect.xMin + (ev.time - timerStart) / (float)timeLen * rect.width;
+
+                GUI.DrawTexture(new Rect(pointX - 12f, rect.yMin - 24f, 24f, 24f), ev.name == "Raid" ? SettlementBase.AttackCommand : OrbitalBeaconIcon);
                 Widgets.DrawLine(new Vector2(pointX, rect.yMin), new Vector2(pointX, rect.yMax), ev.color, 5f);
+
+                if (Mouse.IsOver(rect) && Math.Abs(mouseX - pointX) < 10)
+                {
+                    mouseX = pointX;
+                    mouseEvent = ev;
+                }
             }
 
             if (Mouse.IsOver(rect))
             {
-                float mouseX = Event.current.mousePosition.x;
                 float mouseProgress = (mouseX - rect.xMin) / rect.width;
                 int mouseTimer = timerStart + (int)(timeLen * mouseProgress);
+
                 Widgets.DrawLine(new Vector2(mouseX, rect.yMin), new Vector2(mouseX, rect.yMax), Color.blue, 3f);
 
                 if (Event.current.type == EventType.MouseUp)
@@ -506,13 +525,18 @@ namespace Multiplayer.Client
                 if (Event.current.isMouse)
                     Event.current.Use();
 
-                // Drawing directly so there's no delay between the mouseover and showing
-                ActiveTip tip = new ActiveTip(new TipSignal($"Tick {mouseTimer}", 215462143));
-                tip.DrawTooltip(GenUI.GetMouseAttachedWindowPos(tip.TipRect.x, tip.TipRect.y));
+                string tooltip = $"Tick {mouseTimer}";
+                if (mouseEvent != null)
+                    tooltip = $"{mouseEvent.name}\n{tooltip}";
+
+                TooltipHandler.TipRegion(rect, new TipSignal(tooltip, 215462143));
+                // No delay between the mouseover and showing
+                if (TooltipHandler.activeTips.TryGetValue(215462143, out ActiveTip tip))
+                    tip.firstTriggerTime = 0;
             }
 
-            Widgets.DrawLine(new Vector2(rect.xMin, rect.yMin), new Vector2(rect.xMin, rect.yMax), Color.white, 4f);
-            Widgets.DrawLine(new Vector2(rect.xMax, rect.yMin), new Vector2(rect.xMax, rect.yMax), Color.white, 4f);
+            Widgets.DrawLine(new Vector2(rect.xMin + 2f, rect.yMin), new Vector2(rect.xMin + 2f, rect.yMax), Color.white, 4f);
+            Widgets.DrawLine(new Vector2(rect.xMax - 2f, rect.yMin), new Vector2(rect.xMax - 2f, rect.yMax), Color.white, 4f);
 
             if (TickPatch.skipTo >= 0)
             {
@@ -523,12 +547,13 @@ namespace Multiplayer.Client
         }
 
         public const int SkippingWindowId = 26461263;
+        public const int TimelineWindowId = 5723681;
 
         static void DrawSkippingWindow()
         {
             if (TickPatch.skipTo < 0) return;
 
-            string text = "Simulating" + MpUtil.FixedEllipsis();
+            string text = $"Simulating{MpUtil.FixedEllipsis()}";
             float textWidth = Text.CalcSize(text).x;
             float windowWidth = Math.Max(240f, textWidth + 40f);
             Rect rect = new Rect(0, 0, windowWidth, 75f).CenterOn(new Rect(0, 0, UI.screenWidth, UI.screenHeight));
@@ -723,7 +748,7 @@ namespace Multiplayer.Client
         {
             return Multiplayer.Client == null || !Multiplayer.ShouldSync;
         }
-        
+
         static void Postfix(ref int __result)
         {
             if (Multiplayer.Client == null) return;

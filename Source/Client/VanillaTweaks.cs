@@ -212,6 +212,12 @@ namespace Multiplayer.Client
         static EventType Process(EventType type) => type == EventType.layout ? EventType.repaint : type;
     }
 
+    [HarmonyPatch(typeof(Widgets), nameof(Widgets.DrawLine))]
+    static class DrawLineOnlyOnRepaint
+    {
+        static bool Prefix() => Event.current.type == EventType.repaint;
+    }
+
     // Use a simpler shader for plants when possible
     [HarmonyPatch(typeof(Prefs), nameof(Prefs.PlantWindSway), MethodType.Setter)]
     static class PlantWindSwayPatch

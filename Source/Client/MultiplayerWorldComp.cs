@@ -13,7 +13,6 @@ using Verse.AI;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
     public class MultiplayerWorldComp : WorldComponent, ITickable
     {
         public static bool tickingWorld;
