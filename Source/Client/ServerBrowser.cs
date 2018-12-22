@@ -1,4 +1,6 @@
-﻿using LiteNetLib;
+﻿extern alias zip;
+
+using LiteNetLib;
 using Multiplayer.Common;
 using RimWorld;
 using Steamworks;
@@ -13,6 +15,7 @@ using System.Xml;
 using UnityEngine;
 using Verse;
 using Verse.Steam;
+using zip::Ionic.Zip;
 
 namespace Multiplayer.Client
 {
@@ -315,12 +318,70 @@ namespace Multiplayer.Client
                 if (Widgets.ButtonInvisible(entryRect))
                 {
                     if (saveFile.replay && Event.current.button == 1 && MpVersion.IsDebug)
-                        Find.WindowStack.Add(new DesyncInfoWindow(Replay.ForLoading(saveFile.file)));
+                        Find.WindowStack.Add(new DebugTextWindow(GetDebugString(Replay.ForLoading(saveFile.file))));
                     else
                         selectedFile = saveFile;
                 }
 
                 y += 40;
+            }
+        }
+
+        private static string GetDebugString(Replay replay)
+        {
+            var text = new StringBuilder();
+
+            using (var zip = replay.ZipFile)
+            {
+                try
+                {
+                    text.AppendLine("[info]");
+                    text.AppendLine(zip["info"].GetString());
+                    text.AppendLine();
+                }
+                catch { }
+
+                try
+                {
+                    PrintSyncInfo(text, zip, "sync_local");
+                }
+                catch { }
+
+                try
+                {
+                    PrintSyncInfo(text, zip, "sync_remote");
+                }
+                catch { }
+
+                try
+                {
+                    text.AppendLine("[desync_info]");
+                    var desyncInfo = new ByteReader(zip["desync_info"].GetBytes());
+                    text.AppendLine($"Arbiter online: {desyncInfo.ReadBool()}");
+                    text.AppendLine($"Last valid tick: {desyncInfo.ReadInt32()}");
+                    text.AppendLine($"Last valid arbiter online: {desyncInfo.ReadBool()}");
+                    text.AppendLine($"Mod version: {desyncInfo.ReadString()}");
+                    text.AppendLine($"Mod is debug: {desyncInfo.ReadBool()}");
+                    text.AppendLine($"Dev mode: {desyncInfo.ReadBool()}");
+                }
+                catch { }
+            }
+
+            return text.ToString();
+
+            void PrintSyncInfo(StringBuilder builder, ZipFile zip, string file)
+            {
+                builder.AppendLine($"[{file}]");
+
+                var sync = SyncInfo.Deserialize(new ByteReader(zip[file].GetBytes()));
+                builder.AppendLine($"Start: {sync.startTick}");
+                builder.AppendLine($"Map count: {sync.maps.Count}");
+                builder.AppendLine($"Last map state: {sync.maps.Select(m => $"{m.mapId}/{m.map.LastOrDefault()}/{m.map.Count}").ToStringSafeEnumerable()}");
+                builder.AppendLine($"Last world state: {sync.world.LastOrDefault()}/{sync.world.Count}");
+                builder.AppendLine($"Last cmd state: {sync.cmds.LastOrDefault()}/{sync.cmds.Count}");
+                builder.AppendLine($"Trace hashes: {sync.traceHashes.Count}");
+
+                builder.AppendLine();
             }
         }
 

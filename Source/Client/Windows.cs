@@ -216,4 +216,25 @@ namespace Multiplayer.Client
         }
     }
 
+    public class DebugTextWindow : Window
+    {
+        public override Vector2 InitialSize => new Vector2(600, 300);
+
+        private Vector2 scroll;
+        private string text;
+
+        public DebugTextWindow(string text)
+        {
+            absorbInputAroundWindow = true;
+            doCloseX = true;
+
+            this.text = text;
+        }
+
+        public override void DoWindowContents(Rect inRect)
+        {
+            Widgets.TextAreaScrollable(inRect, text, ref scroll);
+        }
+    }
+
 }

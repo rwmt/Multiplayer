@@ -284,12 +284,48 @@ namespace Multiplayer.Client
 
             if (currentMsg.NullOrEmpty()) return;
 
-            if (Multiplayer.Client == null)
+            if (currentMsg == "/steaminfo")
+                OpenSteamDebug();
+            else if (Multiplayer.Client == null)
                 Multiplayer.session.AddMsg(Multiplayer.username + ": " + currentMsg);
             else
                 Multiplayer.Client.Send(Packets.Client_Chat, currentMsg);
 
             currentMsg = "";
+        }
+
+        private void OpenSteamDebug()
+        {
+            var text = new StringBuilder();
+
+            if (Multiplayer.session != null)
+            {
+                foreach (var remote in Multiplayer.session.knownUsers)
+                {
+                    text.AppendLine(SteamFriends.GetFriendPersonaName(remote));
+                    text.AppendLine(remote.ToString());
+
+                    if (SteamNetworking.GetP2PSessionState(remote, out P2PSessionState_t state))
+                    {
+                        text.AppendLine($"Active: {state.m_bConnectionActive}");
+                        text.AppendLine($"Connecting: {state.m_bConnecting}");
+                        text.AppendLine($"Error: {state.m_eP2PSessionError}");
+                        text.AppendLine($"Using relay: {state.m_bUsingRelay}");
+                        text.AppendLine($"Bytes to send: {state.m_nBytesQueuedForSend}");
+                        text.AppendLine($"Packets to send: {state.m_nPacketsQueuedForSend}");
+                        text.AppendLine($"Remote IP: {state.m_nRemoteIP}");
+                        text.AppendLine($"Remote port: {state.m_nRemotePort}");
+                    }
+                    else
+                    {
+                        text.AppendLine("No connection");
+                    }
+
+                    text.Append("\n");
+                }
+            }
+
+            Find.WindowStack.Add(new DebugTextWindow(text.ToString()));
         }
 
         public void OnChatReceived()

@@ -189,6 +189,7 @@ namespace Multiplayer.Client
                 if (session?.localSettings != null && session.localSettings.steam && !session.pendingSteam.Contains(req.m_steamIDRemote))
                 {
                     session.pendingSteam.Add(req.m_steamIDRemote);
+                    session.knownUsers.Add(req.m_steamIDRemote);
                     session.hasUnread = true;
                     SteamFriends.RequestUserInformation(req.m_steamIDRemote, true);
                 }
