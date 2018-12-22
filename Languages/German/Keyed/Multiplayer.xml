@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<LanguageData>
+
+  <MpSimulating>Simulieren</MpSimulating>
+  <MpLoading>Laden</MpLoading>
+  <MpSaving>Speichern</MpSaving>
+
+  <MpInvalidPort>Ungültiger Port</MpInvalidPort>
+  <MpInvalidAddress>Ungültige Addresse</MpInvalidAddress>
+
+  <MpWrongProtocol>Falsche Protokoll Version</MpWrongProtocol>
+  <MpServerClosed>Server geschlossen</MpServerClosed>
+
+  <MpInvalidUsernameAlreadyPlaying>Username bereits online</MpInvalidUsernameAlreadyPlaying>
+  <MpInvalidUsernameChars>Username hat ungültige Schriftzeichen</MpInvalidUsernameChars>
+  <MpInvalidUsernameLength>Username hat eine ungültige Länge</MpInvalidUsernameLength>
+
+  <MpPlayerConnected>{0} ist beigetreten</MpPlayerConnected>
+  <MpPlayerDisconnected>{0} ist ausgetreten</MpPlayerDisconnected>
+
+  <MpArbiterDesc>Eine Spielinstanz welche im Hintergrund läuft um Desync Probleme zu beheben.</MpArbiterDesc>
+
+  <MpReplayOutdated>(Veraltet)</MpReplayOutdated>
+  <MpReplayOutdatedDesc>Dieses Replay wurde für Protokoll Version {0} gemacht, du nutzt allerdings Version {1}.\n\nDas Replay könnte fehlerhaft abspielen.\nMögliche Inkompatibilitäten sind in der Release History aufgeführt.</MpReplayOutdatedDesc>
+
+  <MpServerCloseConfirmation>Bist du sicher, dass du den Server schließen möchtest? Ungespeicherter Fortschritt geht verloren.</MpServerCloseConfirmation>
+
+</LanguageData>
