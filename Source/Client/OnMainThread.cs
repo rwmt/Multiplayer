@@ -162,7 +162,7 @@ namespace Multiplayer.Client
             }
         }
 
-        public static void ClearCaches()
+        private static void ClearCaches()
         {
             cachedAtTime = 0;
             cachedGameData = null;

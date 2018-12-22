@@ -1,8 +1,10 @@
-﻿using RimWorld;
+﻿using Multiplayer.Common;
+using RimWorld;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text;
 using Verse;
 
@@ -18,17 +20,23 @@ namespace Multiplayer.Client
 
             var menu = __instance;
 
-            menu.DebugAction("Save game", SaveGame);
-            menu.DebugAction("Print static", PrintStatic);
+            menu.DoLabel("Local");
+
+            menu.DebugAction("Save game", SaveGameLocal);
+            menu.DebugAction("Print static fields", PrintStaticFields);
+
+            if (!MpVersion.IsDebug) return;
 
             menu.DoLabel("Multiplayer");
 
             menu.DebugToolMap("T: Destroy thing", DestroyThing);
             menu.DebugToolMap("T: Mental state", DoMentalState);
 
-            menu.DebugAction("Save map", SaveMap);
+            menu.DebugAction("Save game for everyone", SaveGameCmd);
             menu.DebugAction("Advance time", AdvanceTime);
-            DoMapIncidentDebugAction(menu);
+
+            DoIncidentDebugAction(menu, (Find.WorldSelector.SingleSelectedObject as IIncidentTarget) ?? Find.CurrentMap);
+            DoIncidentDebugAction(menu, Find.World);
         }
 
         [SyncMethod(SyncContext.MapMouseCell)]
@@ -39,11 +47,9 @@ namespace Multiplayer.Client
                 pawn.mindState.mentalStateHandler.TryStartMentalState(DefDatabase<MentalStateDef>.GetNamed("TargetedTantrum"), forceWake: true);
         }
 
-        private static void DoMapIncidentDebugAction(Dialog_DebugActionsMenu menu)
+        private static void DoIncidentDebugAction(Dialog_DebugActionsMenu menu, IIncidentTarget target)
         {
-            var target = Find.CurrentMap;
-
-            menu.DebugAction("Do incident on map", () =>
+            menu.DebugAction($"Incident on {target}", () =>
             {
                 var list = new List<DebugMenuOption>();
                 foreach (var localDef2 in DefDatabase<IncidentDef>.AllDefs.Where(d => d.TargetAllowed(target)).OrderBy(d => d.defName))
@@ -62,7 +68,7 @@ namespace Multiplayer.Client
                             parms = storytellerComp.GenerateParms(localDef.category, parms.target);
                         }
 
-                        ExecuteMapIncident(localDef, parms);
+                        ExecuteIncident(localDef, parms);
                     }));
                 }
 
@@ -70,9 +76,9 @@ namespace Multiplayer.Client
             });
         }
 
-        [SyncMethod(SyncContext.CurrentMap, new[] { typeof(IncidentDef), typeof(Expose<IncidentParms>) })]
+        [SyncMethod(args: new[] { typeof(IncidentDef), typeof(Expose<IncidentParms>) })]
         [SyncDebugOnly]
-        private static void ExecuteMapIncident(IncidentDef def, IncidentParms parms)
+        private static void ExecuteIncident(IncidentDef def, IncidentParms parms)
         {
             def.Worker.TryExecute(parms);
         }
@@ -87,7 +93,7 @@ namespace Multiplayer.Client
 
         [SyncMethod]
         [SyncDebugOnly]
-        static void SaveMap()
+        static void SaveGameCmd()
         {
             Map map = Find.Maps[0];
             byte[] mapData = ScribeUtil.WriteExposable(Current.Game, "map", true);
@@ -106,20 +112,20 @@ namespace Multiplayer.Client
             }
         }
 
-        static void SaveGame()
+        static void SaveGameLocal()
         {
             byte[] data = ScribeUtil.WriteExposable(Current.Game, "game", true);
             File.WriteAllBytes($"game_0_{Multiplayer.username}.xml", data);
         }
 
-        static void PrintStatic()
+        static void PrintStaticFields()
         {
             var builder = new StringBuilder();
 
             foreach (var type in typeof(Game).Assembly.GetTypes())
-                if (!type.IsGenericTypeDefinition && type.Namespace != null && (type.Namespace.StartsWith("RimWorld") || type.Namespace.StartsWith("Verse")))
-                    foreach (var field in type.GetFields(BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public))
-                        if (!field.IsLiteral)
+                if (!type.IsGenericTypeDefinition && type.Namespace != null && (type.Namespace.StartsWith("RimWorld") || type.Namespace.StartsWith("Verse")) && !type.HasAttribute<DefOf>() && !type.HasAttribute<CompilerGeneratedAttribute>())
+                    foreach (var field in type.GetFields(BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.DeclaredOnly))
+                        if (!field.IsLiteral && !field.IsInitOnly && !field.HasAttribute<CompilerGeneratedAttribute>())
                             builder.AppendLine($"{field.FieldType} {type}::{field.Name}: {field.GetValue(null)}");
 
             Log.Message(builder.ToString());

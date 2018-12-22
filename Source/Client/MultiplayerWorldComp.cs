@@ -13,6 +13,7 @@ using Verse.AI;
 
 namespace Multiplayer.Client
 {
+    [HotSwappable]
     public class MultiplayerWorldComp : WorldComponent, ITickable
     {
         public static bool tickingWorld;
@@ -71,6 +72,11 @@ namespace Multiplayer.Client
         public override void ExposeData()
         {
             Scribe_Values.Look(ref TickPatch.Timer, "timer");
+
+            string randStateStr = randState.ToString();
+            Scribe_Values.Look(ref randStateStr, "randState", "2");
+            if (Scribe.mode == LoadSaveMode.LoadingVars)
+                ulong.TryParse(randStateStr, out randState);
 
             TimeSpeed timeSpeed = Find.TickManager.CurTimeSpeed;
             Scribe_Values.Look(ref timeSpeed, "timeSpeed");
@@ -337,6 +343,7 @@ namespace Multiplayer.Client
         public void DirtyTradeForSpawnedThing(Thing t)
         {
             if (t == null) return;
+
             foreach (MpTradeSession session in trading.Where(s => s.playerNegotiator.Map == t.Map))
                 session.deal.recacheThings.Add(t);
         }

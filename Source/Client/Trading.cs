@@ -114,11 +114,12 @@ namespace Multiplayer.Client
         [SyncMethod]
         public void TryExecute()
         {
+            SetTradeSession(this);
+
             deal.recacheColony = true;
             deal.recacheTrader = true;
             deal.Recache();
 
-            SetTradeSession(this);
             bool executed = deal.TryExecute(out bool traded);
             SetTradeSession(null);
 

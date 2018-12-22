@@ -808,6 +808,11 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref mapTicks, "mapTicks");
             Scribe_Deep.Look(ref storyteller, "storyteller");
             Scribe_Values.Look(ref timeSpeedInt, "timeSpeed");
+
+            string randStateStr = randState.ToString();
+            Scribe_Values.Look(ref randStateStr, "randState", "1");
+            if (Scribe.mode == LoadSaveMode.LoadingVars)
+                ulong.TryParse(randStateStr, out randState);
         }
 
         public override void FinalizeInit()
@@ -835,8 +840,7 @@ namespace Multiplayer.Client
             context.map = map;
 
             List<object> prevSelected = Find.Selector.selected;
-            if (!TickPatch.currentExecutingCmdIssuedBySelf)
-                Find.Selector.selected = new List<object>();
+            Find.Selector.selected = new List<object>();
 
             bool devMode = Prefs.data.devMode;
             Prefs.data.devMode = MpVersion.IsDebug;
@@ -900,8 +904,7 @@ namespace Multiplayer.Client
             {
                 Prefs.data.devMode = devMode;
 
-                if (!TickPatch.currentExecutingCmdIssuedBySelf)
-                    Find.Selector.selected = prevSelected;
+                Find.Selector.selected = prevSelected;
 
                 map.PopFaction();
                 PostContext();

@@ -719,6 +719,11 @@ namespace Multiplayer.Client
 
         private static int localIds = -1;
 
+        static bool Prefix()
+        {
+            return Multiplayer.Client == null || !Multiplayer.ShouldSync;
+        }
+        
         static void Postfix(ref int __result)
         {
             if (Multiplayer.Client == null) return;
@@ -1978,6 +1983,20 @@ namespace Multiplayer.Client
         static int Value(Bill bill, Pawn pawn)
         {
             return FloatMenuMakerMap.makingFor == pawn ? bill.lastIngredientSearchFailTicks : 0;
+        }
+    }
+
+    [HarmonyPatch(typeof(Archive), "<Add>m__2")]
+    static class SortArchivablesById
+    {
+        static void Postfix(IArchivable x, ref int __result)
+        {
+            if (x is ArchivedDialog dialog)
+                __result = dialog.ID;
+            else if (x is Letter letter)
+                __result = letter.ID;
+            else if (x is Message msg)
+                __result = msg.ID;
         }
     }
 
