@@ -267,11 +267,11 @@ namespace Multiplayer.Client
                             }
                         }
 
-                        XmlDocument doc = Multiplayer.SaveAndReload();
-                        Multiplayer.CacheGameData(doc);
+                        XmlDocument doc = SaveLoad.SaveAndReload();
+                        SaveLoad.CacheGameData(doc);
 
                         if (TickPatch.skipTo < 0 && !Multiplayer.IsReplay && (Multiplayer.LocalServer != null || Multiplayer.arbiterInstance))
-                            Multiplayer.SendCurrentGameData(true);
+                            SaveLoad.SendCurrentGameData(true);
                     }, "MpSaving", false, null);
                 }
             }

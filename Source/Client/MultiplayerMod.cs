@@ -76,6 +76,8 @@ namespace Multiplayer.Client
             DoUsernameField(listing);
 
             listing.CheckboxLabeled("Show player cursors", ref settings.showCursors);
+            listing.CheckboxLabeled("Auto-accept Steam", ref settings.autoAcceptSteam, "Automatically accept any incoming Steam connection requests");
+
             listing.End();
         }
 
@@ -101,11 +103,13 @@ namespace Multiplayer.Client
     {
         public string username;
         public bool showCursors = true;
+        public bool autoAcceptSteam;
 
         public override void ExposeData()
         {
             Scribe_Values.Look(ref username, "username");
             Scribe_Values.Look(ref showCursors, "showCursors", true);
+            Scribe_Values.Look(ref autoAcceptSteam, "autoAcceptSteam");
         }
     }
 }

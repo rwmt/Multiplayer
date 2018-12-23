@@ -182,8 +182,8 @@ namespace Multiplayer.Client
 
             LongEventHandler.QueueLongEvent(() =>
             {
-                Multiplayer.CacheGameData(Multiplayer.SaveAndReload());
-                Multiplayer.SendCurrentGameData(false);
+                SaveLoad.CacheGameData(SaveLoad.SaveAndReload());
+                SaveLoad.SendCurrentGameData(false);
 
                 localServer.StartListening();
 

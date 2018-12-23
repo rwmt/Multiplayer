@@ -287,4 +287,90 @@ namespace Multiplayer.Client
         }
     }
 
+    public static class DesyncDebugInfo
+    {
+        public static string Get(Replay replay)
+        {
+            var text = new StringBuilder();
+
+            using (var zip = replay.ZipFile)
+            {
+                try
+                {
+                    text.AppendLine("[info]");
+                    text.AppendLine(zip["info"].GetString());
+                    text.AppendLine();
+                }
+                catch { }
+
+                SyncInfo local = null;
+                try
+                {
+                    local = PrintSyncInfo(text, zip, "sync_local");
+                }
+                catch { }
+
+                SyncInfo remote = null;
+                try
+                {
+                    remote = PrintSyncInfo(text, zip, "sync_remote");
+                }
+                catch { }
+
+                try
+                {
+                    text.AppendLine("[desync_info]");
+                    var desyncInfo = new ByteReader(zip["desync_info"].GetBytes());
+                    text.AppendLine($"Arbiter online: {desyncInfo.ReadBool()}");
+                    text.AppendLine($"Last valid tick: {desyncInfo.ReadInt32()}");
+                    text.AppendLine($"Last valid arbiter online: {desyncInfo.ReadBool()}");
+                    text.AppendLine($"Mod version: {desyncInfo.ReadString()}");
+                    text.AppendLine($"Mod is debug: {desyncInfo.ReadBool()}");
+                    text.AppendLine($"Dev mode: {desyncInfo.ReadBool()}");
+                    text.AppendLine();
+                }
+                catch { }
+
+                if (local != null && remote != null)
+                {
+                    text.AppendLine("[compare]");
+
+                    for (int i = 0; i < Math.Min(local.maps.Count, remote.maps.Count); i++)
+                    {
+                        var localMap = local.maps[i].map;
+                        var remoteMap = remote.maps[i].map;
+                        bool equal = localMap.SequenceEqual(remoteMap);
+                        text.AppendLine($"Map {local.maps[i].mapId}: {equal}");
+
+                        if (!equal)
+                            for (int j = 0; j < Math.Min(localMap.Count, remoteMap.Count); j++)
+                                text.AppendLine($"{localMap[j]} {remoteMap[j]} {(localMap[j] != remoteMap[j] ? "x" : "")}");
+                    }
+
+                    text.AppendLine($"World: {local.world.SequenceEqual(remote.world)}");
+                    text.AppendLine($"Cmds: {local.cmds.SequenceEqual(remote.cmds)}");
+                }
+            }
+
+            return text.ToString();
+
+            SyncInfo PrintSyncInfo(StringBuilder builder, ZipFile zip, string file)
+            {
+                builder.AppendLine($"[{file}]");
+
+                var sync = SyncInfo.Deserialize(new ByteReader(zip[file].GetBytes()));
+                builder.AppendLine($"Start: {sync.startTick}");
+                builder.AppendLine($"Map count: {sync.maps.Count}");
+                builder.AppendLine($"Last map state: {sync.maps.Select(m => $"{m.mapId}/{m.map.LastOrDefault()}/{m.map.Count}").ToStringSafeEnumerable()}");
+                builder.AppendLine($"Last world state: {sync.world.LastOrDefault()}/{sync.world.Count}");
+                builder.AppendLine($"Last cmd state: {sync.cmds.LastOrDefault()}/{sync.cmds.Count}");
+                builder.AppendLine($"Trace hashes: {sync.traceHashes.Count}");
+
+                builder.AppendLine();
+
+                return sync;
+            }
+        }
+    }
+
 }

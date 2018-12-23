@@ -128,7 +128,7 @@ namespace Multiplayer.Client
             {
                 LongEventHandler.QueueLongEvent(() =>
                 {
-                    Multiplayer.LoadInMainThread(LoadPatch.gameToLoad);
+                    SaveLoad.LoadInMainThread(LoadPatch.gameToLoad);
                     PostLoad();
                 }, "MpLoading", false, null);
             }

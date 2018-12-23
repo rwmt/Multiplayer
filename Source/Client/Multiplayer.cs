@@ -188,9 +188,14 @@ namespace Multiplayer.Client
             {
                 if (session?.localSettings != null && session.localSettings.steam && !session.pendingSteam.Contains(req.m_steamIDRemote))
                 {
-                    session.pendingSteam.Add(req.m_steamIDRemote);
+                    if (MultiplayerMod.settings.autoAcceptSteam)
+                        SteamNetworking.AcceptP2PSessionWithUser(req.m_steamIDRemote);
+                    else
+                        session.pendingSteam.Add(req.m_steamIDRemote);
+
                     session.knownUsers.Add(req.m_steamIDRemote);
                     session.hasUnread = true;
+
                     SteamFriends.RequestUserInformation(req.m_steamIDRemote, true);
                 }
             });
@@ -226,158 +231,6 @@ namespace Multiplayer.Client
                         conn.OnError(error);
                 });
             });
-        }
-
-        public static XmlDocument SaveGame()
-        {
-            //SaveCompression.doSaveCompression = true;
-
-            ScribeUtil.StartWritingToDoc();
-
-            Scribe.EnterNode("savegame");
-            ScribeMetaHeaderUtility.WriteMetaHeader();
-            Scribe.EnterNode("game");
-            int currentMapIndex = Current.Game.currentMapIndex;
-            Scribe_Values.Look(ref currentMapIndex, "currentMapIndex", -1);
-            Current.Game.ExposeSmallComponents();
-            World world = Current.Game.World;
-            Scribe_Deep.Look(ref world, "world");
-            List<Map> maps = Find.Maps;
-            Scribe_Collections.Look(ref maps, "maps", LookMode.Deep);
-            Find.CameraDriver.Expose();
-            Scribe.ExitNode();
-
-            SaveCompression.doSaveCompression = false;
-
-            return ScribeUtil.FinishWritingToDoc();
-        }
-
-        public static XmlDocument SaveAndReload()
-        {
-            reloading = true;
-
-            WorldGrid worldGridSaved = Find.WorldGrid;
-            WorldRenderer worldRendererSaved = Find.World.renderer;
-            var tweenedPos = new Dictionary<int, Vector3>();
-            var drawers = new Dictionary<int, MapDrawer>();
-            int localFactionId = RealPlayerFaction.loadID;
-            var mapCmds = new Dictionary<int, Queue<ScheduledCommand>>();
-
-            //RealPlayerFaction = DummyFaction;
-
-            foreach (Map map in Find.Maps)
-            {
-                drawers[map.uniqueID] = map.mapDrawer;
-                //RebuildRegionsAndRoomsPatch.copyFrom[map.uniqueID] = map.regionGrid;
-
-                foreach (Pawn p in map.mapPawns.AllPawnsSpawned)
-                    tweenedPos[p.thingIDNumber] = p.drawer.tweener.tweenedPos;
-
-                mapCmds[map.uniqueID] = map.AsyncTime().cmds;
-            }
-
-            mapCmds[ScheduledCommand.Global] = WorldComp.cmds;
-
-            Stopwatch watch = Stopwatch.StartNew();
-            XmlDocument gameDoc = SaveGame();
-            Log.Message("Saving took " + watch.ElapsedMilliseconds);
-
-            MapDrawerRegenPatch.copyFrom = drawers;
-            WorldGridCachePatch.copyFrom = worldGridSaved;
-            WorldRendererCachePatch.copyFrom = worldRendererSaved;
-
-            LoadInMainThread(gameDoc);
-
-            RealPlayerFaction = Find.FactionManager.GetById(localFactionId);
-
-            foreach (Map m in Find.Maps)
-            {
-                foreach (Pawn p in m.mapPawns.AllPawnsSpawned)
-                {
-                    if (tweenedPos.TryGetValue(p.thingIDNumber, out Vector3 v))
-                    {
-                        p.drawer.tweener.tweenedPos = v;
-                        p.drawer.tweener.lastDrawFrame = Time.frameCount;
-                    }
-                }
-
-                m.AsyncTime().cmds = mapCmds[m.uniqueID];
-            }
-
-            WorldComp.cmds = mapCmds[ScheduledCommand.Global];
-
-            SaveCompression.doSaveCompression = false;
-            reloading = false;
-
-            return gameDoc;
-        }
-
-        public static void LoadInMainThread(XmlDocument gameDoc)
-        {
-            var watch = Stopwatch.StartNew();
-            MemoryUtility.ClearAllMapsAndWorld();
-
-            LoadPatch.gameToLoad = gameDoc;
-
-            CancelRootPlayStartLongEvents.cancel = true;
-            Find.Root.Start();
-            CancelRootPlayStartLongEvents.cancel = false;
-
-            SavedGameLoaderNow.LoadGameFromSaveFileNow(null);
-
-            Log.Message("Loading took " + watch.ElapsedMilliseconds);
-        }
-
-        public static void CacheGameData(XmlDocument doc)
-        {
-            XmlNode gameNode = doc.DocumentElement["game"];
-            XmlNode mapsNode = gameNode["maps"];
-
-            OnMainThread.cachedMapData.Clear();
-            OnMainThread.cachedMapCmds.Clear();
-
-            foreach (XmlNode mapNode in mapsNode)
-            {
-                int id = int.Parse(mapNode["uniqueID"].InnerText);
-                byte[] mapData = ScribeUtil.XmlToByteArray(mapNode);
-                OnMainThread.cachedMapData[id] = mapData;
-                OnMainThread.cachedMapCmds[id] = new List<ScheduledCommand>(Find.Maps.First(m => m.uniqueID == id).AsyncTime().cmds);
-            }
-
-            gameNode["currentMapIndex"].RemoveFromParent();
-            mapsNode.RemoveAll();
-
-            byte[] gameData = ScribeUtil.XmlToByteArray(doc);
-            OnMainThread.cachedAtTime = TickPatch.Timer;
-            OnMainThread.cachedGameData = gameData;
-            OnMainThread.cachedMapCmds[ScheduledCommand.Global] = new List<ScheduledCommand>(WorldComp.cmds);
-        }
-
-        public static void SendCurrentGameData(bool async)
-        {
-            var mapsData = new Dictionary<int, byte[]>(OnMainThread.cachedMapData);
-            var gameData = OnMainThread.cachedGameData;
-
-            void Send()
-            {
-                var writer = new ByteWriter();
-
-                writer.WriteInt32(mapsData.Count);
-                foreach (var mapData in mapsData)
-                {
-                    writer.WriteInt32(mapData.Key);
-                    writer.WritePrefixedBytes(GZipStream.CompressBuffer(mapData.Value));
-                }
-
-                writer.WritePrefixedBytes(GZipStream.CompressBuffer(gameData));
-
-                Client.SendFragmented(Packets.Client_AutosavedData, writer.GetArray());
-            };
-
-            if (async)
-                ThreadPool.QueueUserWorkItem(c => Send());
-            else
-                Send();
         }
 
         private static void DoPatches()

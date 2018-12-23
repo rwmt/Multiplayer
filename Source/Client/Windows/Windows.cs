@@ -69,21 +69,6 @@ namespace Multiplayer.Client
         }
     }
 
-    public class Dialog_JumpTo : Dialog_Rename
-    {
-        private Action<string> action;
-
-        public Dialog_JumpTo(Action<string> action)
-        {
-            this.action = action;
-        }
-
-        public override void SetName(string name)
-        {
-            action(name);
-        }
-    }
-
     public class DesyncedWindow : Window
     {
         public override Vector2 InitialSize => new Vector2(550, 110);

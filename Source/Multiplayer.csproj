@@ -69,16 +69,18 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Client\Blueprints.cs" />
+    <Compile Include="Client\CacheForReloading.cs" />
     <Compile Include="Client\CaravanForming.cs" />
-    <Compile Include="Client\ChatWindow.cs" />
+    <Compile Include="Client\Windows\ChatWindow.cs" />
     <Compile Include="Client\ClientConnection.cs" />
     <Compile Include="Client\ClientNetworking.cs" />
-    <Compile Include="Client\ConnectingWindow.cs" />
+    <Compile Include="Client\Windows\ConnectingWindow.cs" />
     <Compile Include="Client\CrossRefs.cs" />
     <Compile Include="Client\DebugTools.cs" />
     <Compile Include="Client\Designators.cs" />
     <Compile Include="Client\Extensions.cs" />
-    <Compile Include="Client\HostWindow.cs" />
+    <Compile Include="Client\Windows\HostWindow.cs" />
+    <Compile Include="Client\MainButtons.cs" />
     <Compile Include="Client\MapAsyncTime.cs" />
     <Compile Include="Client\MpPatch.cs" />
     <Compile Include="Client\MpReflection.cs" />
@@ -92,11 +94,13 @@
     <Compile Include="Client\OnMainThread.cs" />
     <Compile Include="Client\Patches.cs" />
     <Compile Include="Client\PersistentDialogs.cs" />
+    <Compile Include="Client\PlayerCursors.cs" />
     <Compile Include="Client\Replays.cs" />
     <Compile Include="Client\SaveCompression.cs" />
+    <Compile Include="Client\SaveLoad.cs" />
     <Compile Include="Client\ScribeUtil.cs" />
     <Compile Include="Client\Seeds.cs" />
-    <Compile Include="Client\ServerBrowser.cs" />
+    <Compile Include="Client\Windows\ServerBrowser.cs" />
     <Compile Include="Client\SetMapTime.cs" />
     <Compile Include="Client\SimpleProfiler.cs" />
     <Compile Include="Client\SituationalThoughts.cs" />
@@ -108,7 +112,7 @@
     <Compile Include="Client\Trading.cs" />
     <Compile Include="Client\TradingUI.cs" />
     <Compile Include="Client\VanillaTweaks.cs" />
-    <Compile Include="Client\Windows.cs" />
+    <Compile Include="Client\Windows\Windows.cs" />
     <Compile Include="Common\ChatCommands.cs" />
     <Compile Include="Common\Commands.cs" />
     <Compile Include="Common\Extensions.cs" />
