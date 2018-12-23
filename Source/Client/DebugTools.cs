@@ -35,7 +35,12 @@ namespace Multiplayer.Client
             menu.DebugAction("Save game for everyone", SaveGameCmd);
             menu.DebugAction("Advance time", AdvanceTime);
 
-            DoIncidentDebugAction(menu, (Find.WorldSelector.SingleSelectedObject as IIncidentTarget) ?? Find.CurrentMap);
+            if (Find.CurrentMap != null)
+                DoIncidentDebugAction(menu, Find.CurrentMap);
+
+            if (Find.WorldSelector.SingleSelectedObject is IIncidentTarget target)
+                DoIncidentDebugAction(menu, target);
+
             DoIncidentDebugAction(menu, Find.World);
         }
 

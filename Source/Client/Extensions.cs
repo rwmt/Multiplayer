@@ -266,6 +266,16 @@ namespace Multiplayer.Client
             return false;
         }
 
+        public static bool HasAttribute<T>(this ICustomAttributeProvider provider) where T : Attribute
+        {
+            var attrs = provider.GetCustomAttributes(false);
+            if (attrs.Length == 0) return false;
+            for (int i = 0; i < attrs.Length; i++)
+                if (attrs[i] is T)
+                    return true;
+            return false;
+        }
+
         public static void RemoveNulls(this IList list)
         {
             for (int i = list.Count - 1; i > 0; i--)
@@ -329,6 +339,11 @@ namespace Multiplayer.Client
                 process.Kill();
             }
             catch { }
+        }
+        
+        public static string MethodDesc(this MethodBase method)
+        {
+            return $"{method.DeclaringType.Namespace}.{method.DeclaringType.Name}::{method.Name}({method.GetParameters().Join(p => $"{p.ParameterType.Namespace}.{p.ParameterType.Name}")})";
         }
 
     }

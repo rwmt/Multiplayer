@@ -185,6 +185,9 @@ namespace Multiplayer.Client
                 else if (session.uiDirty)
                 {
                     CountToTransferChanged();
+                    startingTile = session.startingTile;
+                    destinationTile = session.destinationTile;
+
                     session.uiDirty = false;
                 }
 

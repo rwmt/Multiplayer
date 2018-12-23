@@ -383,14 +383,17 @@ namespace Multiplayer.Client
 
                 text.Append($" d: {Find.CurrentMap.designationManager.allDesignations.Count}");
 
-                int faction = Find.CurrentMap.info.parent.Faction.loadID;
-                MultiplayerMapComp comp = Find.CurrentMap.GetComponent<MultiplayerMapComp>();
-                FactionMapData data = comp.factionMapData.GetValueSafe(faction);
-
-                if (data != null)
+                if (Find.CurrentMap.ParentFaction != null)
                 {
-                    text.Append($" h: {data.listerHaulables.ThingsPotentiallyNeedingHauling().Count}");
-                    text.Append($" sg: {data.haulDestinationManager.AllGroupsListForReading.Count}");
+                    int faction = Find.CurrentMap.ParentFaction.loadID;
+                    MultiplayerMapComp comp = Find.CurrentMap.GetComponent<MultiplayerMapComp>();
+                    FactionMapData data = comp.factionMapData.GetValueSafe(faction);
+
+                    if (data != null)
+                    {
+                        text.Append($" h: {data.listerHaulables.ThingsPotentiallyNeedingHauling().Count}");
+                        text.Append($" sg: {data.haulDestinationManager.AllGroupsListForReading.Count}");
+                    }
                 }
 
                 text.Append($" {Multiplayer.GlobalIdBlock.current}");
@@ -399,7 +402,7 @@ namespace Multiplayer.Client
                 text.Append($"\n{((uint)async.randState)} {(uint)(async.randState >> 32)}");
                 text.Append($"\n{(uint)Multiplayer.WorldComp.randState} {(uint)(Multiplayer.WorldComp.randState >> 32)}");
                 text.Append($"\n{async.cmds.Count} {Multiplayer.WorldComp.cmds.Count} {async.slower.ForcedNormalSpeed}");
-
+                
                 Rect rect1 = new Rect(80f, 110f, 330f, Text.CalcHeight(text.ToString(), 330f));
                 Widgets.Label(rect1, text.ToString());
             }
@@ -594,20 +597,6 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(Settlement))]
-    [HarmonyPatch(nameof(Settlement.ShouldRemoveMapNow))]
-    public static class ShouldRemoveMapPatch
-    {
-        static bool Prefix() => Multiplayer.Client == null;
-    }
-
-    [HarmonyPatch(typeof(SettlementDefeatUtility))]
-    [HarmonyPatch(nameof(SettlementDefeatUtility.CheckDefeated))]
-    public static class CheckDefeatedPatch
-    {
-        static bool Prefix() => Multiplayer.Client == null;
-    }
-
     [HarmonyPatch(typeof(Pawn_JobTracker))]
     [HarmonyPatch(nameof(Pawn_JobTracker.StartJob))]
     public static class JobTrackerStart
@@ -725,7 +714,7 @@ namespace Multiplayer.Client
     [HarmonyPatch(nameof(GameEnder.CheckOrUpdateGameOver))]
     public static class GameEnderPatch
     {
-        static bool Prefix() => false;
+        static bool Prefix() => Multiplayer.Client == null;
     }
 
     [HarmonyPatch(typeof(UniqueIDsManager))]

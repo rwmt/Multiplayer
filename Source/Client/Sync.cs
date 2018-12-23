@@ -177,7 +177,7 @@ namespace Multiplayer.Client
         public readonly string instancePath;
 
         public readonly MethodInfo method;
-        public Type[] argTypes;
+        public SyncType[] argTypes;
 
         private int minTime = 100; // Milliseconds between resends
         private long lastSendTime;
@@ -189,7 +189,7 @@ namespace Multiplayer.Client
         private Action<object, object[]> beforeCall;
         private Action<object, object[]> afterCall;
 
-        public SyncMethod(int syncId, Type targetType, string instancePath, string methodName, Type[] argTypes) : base(syncId)
+        public SyncMethod(int syncId, Type targetType, string instancePath, string methodName, SyncType[] argTypes) : base(syncId)
         {
             this.targetType = targetType;
 
@@ -200,23 +200,30 @@ namespace Multiplayer.Client
                 instanceType = MpReflection.PathType(this.instancePath);
             }
 
-            method = AccessTools.Method(instanceType, methodName, argTypes != null ? Sync.TranslateArgTypes(argTypes) : null) ?? throw new Exception($"Couldn't find method {instanceType}::{methodName}");
+            method = AccessTools.Method(instanceType, methodName, argTypes != null ? argTypes.Select(t => t.type).ToArray() : null) ?? throw new Exception($"Couldn't find method {instanceType}::{methodName}");
             this.argTypes = CheckArgs(argTypes);
         }
 
-        public SyncMethod(int syncId, Type targetType, MethodInfo method, Type[] argTypes) : base(syncId)
+        public SyncMethod(int syncId, Type targetType, MethodInfo method, SyncType[] argTypes) : base(syncId)
         {
             this.method = method;
             this.targetType = targetType;
             this.argTypes = CheckArgs(argTypes);
         }
 
-        private Type[] CheckArgs(Type[] argTypes)
+        private SyncType[] CheckArgs(SyncType[] argTypes)
         {
             if (argTypes == null || argTypes.Length == 0)
-                return method.GetParameters().Types();
+            {
+                return method
+                    .GetParameters()
+                    .Select(p => new SyncType(p.ParameterType) { expose = p.HasAttribute<SyncExposeAttribute>() })
+                    .ToArray();
+            }
             else if (argTypes.Length != method.GetParameters().Length)
+            {
                 throw new Exception("Wrong parameter count for method " + method);
+            }
 
             return argTypes;
         }
@@ -252,8 +259,7 @@ namespace Multiplayer.Client
 
             for (int i = 0; i < argTypes.Length; i++)
             {
-                Type type = argTypes[i];
-                Sync.WriteSyncObject(writer, args[i], type);
+                Sync.WriteSyncObject(writer, args[i], argTypes[i]);
                 if (context.map is Map newMap)
                 {
                     if (map != null && map != newMap)
@@ -351,7 +357,13 @@ namespace Multiplayer.Client
             return this;
         }
 
-        public static SyncMethod Register(Type type, string methodOrPropertyName, Type[] argTypes = null)
+        public SyncMethod ExposeParameter(int index)
+        {
+            argTypes[index].expose = true;
+            return this;
+        }
+
+        public static SyncMethod Register(Type type, string methodOrPropertyName, SyncType[] argTypes = null)
         {
             return Sync.RegisterSyncMethod(type, methodOrPropertyName, argTypes);
         }
@@ -610,8 +622,8 @@ namespace Multiplayer.Client
             Sync.WriteSync(writer, arg0);
             Sync.WriteSync(writer, arg1);
 
-            writer.WriteInt32(original.Method.DeclaringType.MetadataToken);
-            writer.WriteInt32(original.Method.MetadataToken);
+            writer.WriteInt32(GenText.StableStringHash(original.Method.MethodDesc()));
+            Log.Message(original.Method.MethodDesc());
 
             int mapId = writer.MpContext().map?.uniqueID ?? -1;
 
@@ -627,10 +639,9 @@ namespace Multiplayer.Client
             B arg0 = Sync.ReadSync<B>(data);
             C arg1 = Sync.ReadSync<C>(data);
 
-            int typeMeta = data.ReadInt32();
-            int methodMeta = data.ReadInt32();
+            int descHash = data.ReadInt32();
 
-            var action = func(target, arg0, arg1).Select(t => actionGetter(t)).FirstOrDefault(a => a.Method.DeclaringType.MetadataToken == typeMeta && a.Method.MetadataToken == methodMeta);
+            var action = func(target, arg0, arg1).Select(t => actionGetter(t)).FirstOrDefault(a => GenText.StableStringHash(a.Method.MethodDesc()) == descHash);
             action?.Invoke();
         }
 
@@ -762,19 +773,19 @@ namespace Multiplayer.Client
             }
         }
 
-        public static SyncMethod Method(Type targetType, string methodName, Type[] argTypes = null)
+        public static SyncMethod Method(Type targetType, string methodName, SyncType[] argTypes = null)
         {
             return Method(targetType, null, methodName, argTypes);
         }
 
-        public static SyncMethod Method(Type targetType, string instancePath, string methodName, Type[] argTypes = null)
+        public static SyncMethod Method(Type targetType, string instancePath, string methodName, SyncType[] argTypes = null)
         {
             SyncMethod handler = new SyncMethod(handlers.Count, targetType, instancePath, methodName, argTypes);
             handlers.Add(handler);
             return handler;
         }
 
-        public static SyncMethod[] MethodMultiTarget(MultiTarget targetType, string methodName, Type[] argTypes = null)
+        public static SyncMethod[] MethodMultiTarget(MultiTarget targetType, string methodName, SyncType[] argTypes = null)
         {
             return targetType.Select(type => Method(type.First, type.Second, methodName, argTypes)).ToArray();
         }
@@ -853,9 +864,9 @@ namespace Multiplayer.Client
             return handler;
         }
 
-        public static SyncMethod RegisterSyncMethod(Type type, string methodOrPropertyName, Type[] argTypes = null)
+        public static SyncMethod RegisterSyncMethod(Type type, string methodOrPropertyName, SyncType[] argTypes = null)
         {
-            MethodInfo method = AccessTools.Method(type, methodOrPropertyName, argTypes != null ? TranslateArgTypes(argTypes) : null);
+            MethodInfo method = AccessTools.Method(type, methodOrPropertyName, argTypes != null ? argTypes.Select(t => t.type).ToArray() : null);
 
             if (method == null)
             {
@@ -885,21 +896,7 @@ namespace Multiplayer.Client
             }
         }
 
-        public static Type[] TranslateArgTypes(Type[] argTypes)
-        {
-            return argTypes.Select(t =>
-            {
-                if (t.IsGenericType)
-                {
-                    if (t.GetGenericTypeDefinition() == typeof(Expose<>))
-                        return t.GetGenericArguments()[0];
-                }
-
-                return t;
-            }).ToArray();
-        }
-
-        public static SyncMethod RegisterSyncMethod(MethodInfo method, Type[] argTypes)
+        public static SyncMethod RegisterSyncMethod(MethodInfo method, SyncType[] argTypes)
         {
             MpUtil.MarkNoInlining(method);
 
@@ -1140,7 +1137,22 @@ namespace Multiplayer.Client
     {
     }
 
-    public class Expose<T> { }
+    public struct SyncType
+    {
+        public readonly Type type;
+        public bool expose;
+
+        public SyncType(Type type)
+        {
+            this.type = type;
+            this.expose = false;
+        }
+
+        public static implicit operator SyncType(Type type)
+        {
+            return new SyncType(type);
+        }
+    }
 
     public class MultiTarget : IEnumerable<Pair<Type, string>>
     {
@@ -1368,7 +1380,7 @@ namespace Multiplayer.Client
     {
         private List<SyncMethod> methods = new List<SyncMethod>();
 
-        public void Add(string methodName, params Type[] argTypes)
+        public void Add(string methodName, params SyncType[] argTypes)
         {
             methods.Add(Sync.Method(null, methodName, argTypes));
         }
@@ -1380,7 +1392,7 @@ namespace Multiplayer.Client
 
             foreach (SyncMethod method in methods)
             {
-                if (Enumerable.SequenceEqual(method.argTypes, args.Select(o => o.GetType()), TypeComparer.INSTANCE))
+                if (Enumerable.SequenceEqual(method.argTypes.Select(t => t.type), args.Select(o => o.GetType()), TypeComparer.INSTANCE))
                 {
                     method.DoSync(target, args);
                     return true;

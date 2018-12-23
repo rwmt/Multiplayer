@@ -196,10 +196,11 @@ namespace Multiplayer.Client
 
         private static T GetDefById<T>(ushort id) where T : Def, new() => DefDatabase<T>.GetByShortHash(id);
 
-        public static object ReadSyncObject(ByteReader data, Type type)
+        public static object ReadSyncObject(ByteReader data, SyncType syncType)
         {
             MpContext context = data.MpContext();
             Map map = context.map;
+            Type type = syncType.type;
 
             try
             {
@@ -210,6 +211,14 @@ namespace Multiplayer.Client
                 else if (type.IsByRef)
                 {
                     return null;
+                }
+                else if (syncType.expose)
+                {
+                    if (!typeof(IExposable).IsAssignableFrom(type))
+                        throw new SerializationException($"Type {type} can't be exposed because it isn't IExposable");
+
+                    byte[] exposableData = data.ReadPrefixedBytes();
+                    return ReadExposable.MakeGenericMethod(type).Invoke(null, new[] { exposableData, null });
                 }
                 else if (typeof(IntVec3) == type)
                 {
@@ -268,12 +277,6 @@ namespace Multiplayer.Client
 
                         Type nullableType = type.GetGenericArguments()[0];
                         return Activator.CreateInstance(type, ReadSyncObject(data, nullableType));
-                    }
-                    else if (type.GetGenericTypeDefinition() == typeof(Expose<>))
-                    {
-                        Type exposableType = type.GetGenericArguments()[0];
-                        byte[] exposableData = data.ReadPrefixedBytes();
-                        return ReadExposable.MakeGenericMethod(exposableType).Invoke(null, new[] { exposableData, null });
                     }
                 }
                 else if (typeof(ThinkNode).IsAssignableFrom(type))
@@ -550,6 +553,11 @@ namespace Multiplayer.Client
             }
         }
 
+        public static object[] ReadSyncObjects(ByteReader data, IEnumerable<SyncType> spec)
+        {
+            return spec.Select(type => ReadSyncObject(data, type)).ToArray();
+        }
+
         public static object[] ReadSyncObjects(ByteReader data, IEnumerable<Type> spec)
         {
             return spec.Select(type => ReadSyncObject(data, type)).ToArray();
@@ -560,12 +568,16 @@ namespace Multiplayer.Client
             WriteSyncObject(data, obj, typeof(T));
         }
 
-        public static void WriteSyncObject(ByteWriter data, object obj, Type type)
+        public static void WriteSyncObject(ByteWriter data, object obj, SyncType syncType)
         {
             MpContext context = data.MpContext();
+            Type type = syncType.type;
 
             LoggingByteWriter log = data as LoggingByteWriter;
             log?.LogEnter(type.FullName + ": " + (obj ?? "null"));
+
+            if (obj != null && !type.IsAssignableFrom(obj.GetType()))
+                throw new SerializationException($"Serializing with type {type} but got object of type {obj.GetType()}");
 
             try
             {
@@ -574,6 +586,14 @@ namespace Multiplayer.Client
                 }
                 else if (type.IsByRef)
                 {
+                }
+                else if (syncType.expose)
+                {
+                    if (!typeof(IExposable).IsAssignableFrom(type))
+                        throw new SerializationException($"Type {type} can't be exposed because it isn't IExposable");
+
+                    IExposable exposable = obj as IExposable;
+                    data.WritePrefixedBytes(ScribeUtil.WriteExposable(exposable));
                 }
                 else if (typeof(IntVec3) == type)
                 {
@@ -653,15 +673,6 @@ namespace Multiplayer.Client
                     Type nullableType = type.GetGenericArguments()[0];
                     if (hasValue)
                         WriteSyncObject(data, obj.GetPropertyOrField("Value"), nullableType);
-                }
-                else if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Expose<>))
-                {
-                    Type exposableType = type.GetGenericArguments()[0];
-                    if (!exposableType.IsAssignableFrom(obj.GetType()))
-                        throw new SerializationException($"Expose<> types {obj.GetType()} and {exposableType} don't match");
-
-                    IExposable exposable = obj as IExposable;
-                    data.WritePrefixedBytes(ScribeUtil.WriteExposable(exposable));
                 }
                 else if (typeof(ThinkNode).IsAssignableFrom(type))
                 {

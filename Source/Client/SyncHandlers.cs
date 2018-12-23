@@ -345,17 +345,17 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(Pawn_FoodRestrictionTracker), nameof(Pawn_FoodRestrictionTracker.CurrentFoodRestriction)).CancelIfAnyArgNull();
             SyncMethod.Register(typeof(Pawn_PlayerSettings), nameof(Pawn_PlayerSettings.AreaRestriction));
             SyncMethod.Register(typeof(Pawn_PlayerSettings), nameof(Pawn_PlayerSettings.Master));
-            SyncMethod.Register(typeof(Pawn), nameof(Pawn.Name), new[] { typeof(Expose<Name>) });
+            SyncMethod.Register(typeof(Pawn), nameof(Pawn.Name)).ExposeParameter(0);
             SyncMethod.Register(typeof(StorageSettings), nameof(StorageSettings.Priority));
             SyncMethod.Register(typeof(CompForbiddable), nameof(CompForbiddable.Forbidden));
 
             SyncMethod.Register(typeof(Pawn_TimetableTracker), nameof(Pawn_TimetableTracker.SetAssignment));
             SyncMethod.Register(typeof(Pawn_WorkSettings), nameof(Pawn_WorkSettings.SetPriority));
-            SyncMethod.Register(typeof(Pawn_JobTracker), nameof(Pawn_JobTracker.TryTakeOrderedJob), new[] { typeof(Expose<Job>), typeof(JobTag) }).SetContext(SyncContext.QueueOrder_Down);
-            SyncMethod.Register(typeof(Pawn_JobTracker), nameof(Pawn_JobTracker.TryTakeOrderedJobPrioritizedWork), new[] { typeof(Expose<Job>), typeof(WorkGiver), typeof(IntVec3) }).SetContext(SyncContext.QueueOrder_Down);
+            SyncMethod.Register(typeof(Pawn_JobTracker), nameof(Pawn_JobTracker.TryTakeOrderedJob)).SetContext(SyncContext.QueueOrder_Down).ExposeParameter(0);
+            SyncMethod.Register(typeof(Pawn_JobTracker), nameof(Pawn_JobTracker.TryTakeOrderedJobPrioritizedWork)).SetContext(SyncContext.QueueOrder_Down).ExposeParameter(0);
             SyncMethod.Register(typeof(Pawn_TrainingTracker), nameof(Pawn_TrainingTracker.SetWantedRecursive));
             SyncMethod.Register(typeof(Zone), nameof(Zone.Delete));
-            SyncMethod.Register(typeof(BillStack), nameof(BillStack.AddBill), new[] { typeof(Expose<Bill>) }); // Only used for pasting
+            SyncMethod.Register(typeof(BillStack), nameof(BillStack.AddBill)).ExposeParameter(0); // Only used for pasting
             SyncMethod.Register(typeof(BillStack), nameof(BillStack.Delete)).CancelIfAnyArgNull();
             SyncMethod.Register(typeof(BillStack), nameof(BillStack.Reorder)).CancelIfAnyArgNull();
             SyncMethod.Register(typeof(Bill_Production), nameof(Bill_Production.SetStoreMode));
@@ -394,8 +394,8 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(Building_ShipComputerCore), nameof(Building_ShipComputerCore.TryLaunch));
             SyncMethod.Register(typeof(CompPower), nameof(CompPower.TryManualReconnect));
             SyncMethod.Register(typeof(CompTempControl), nameof(CompTempControl.InterfaceChangeTargetTemperature));
-            SyncMethod.Register(typeof(CompTransporter), nameof(CompTransporter.CancelLoad), new Type[0]);
-            SyncMethod.Register(typeof(StorageSettings), nameof(StorageSettings.CopyFrom), new[] { typeof(Expose<StorageSettings>) });
+            SyncMethod.Register(typeof(CompTransporter), nameof(CompTransporter.CancelLoad), new SyncType[0]);
+            SyncMethod.Register(typeof(StorageSettings), nameof(StorageSettings.CopyFrom)).ExposeParameter(0);
             SyncMethod.Register(typeof(Command_SetTargetFuelLevel), "<ProcessInput>m__2"); // Set target fuel level from Dialog_Slider
             SyncMethod.Register(typeof(ITab_Pawn_Gear), nameof(ITab_Pawn_Gear.InterfaceDrop)).SetContext(SyncContext.MapSelected | SyncContext.QueueOrder_Down).CancelIfAnyArgNull().CancelIfNoSelectedMapObjects();
             SyncMethod.Register(typeof(ITab_Pawn_Gear), nameof(ITab_Pawn_Gear.InterfaceIngest)).SetContext(SyncContext.MapSelected | SyncContext.QueueOrder_Down).CancelIfAnyArgNull().CancelIfNoSelectedMapObjects();
@@ -519,9 +519,9 @@ namespace Multiplayer.Client
 
     public static class SyncThingFilters
     {
-        static SyncMethod[] SyncThingFilterAllowThing = Sync.MethodMultiTarget(Sync.thingFilterTarget, "SetAllow", new[] { typeof(ThingDef), typeof(bool) });
-        static SyncMethod[] SyncThingFilterAllowSpecial = Sync.MethodMultiTarget(Sync.thingFilterTarget, "SetAllow", new[] { typeof(SpecialThingFilterDef), typeof(bool) });
-        static SyncMethod[] SyncThingFilterAllowStuffCategory = Sync.MethodMultiTarget(Sync.thingFilterTarget, "SetAllow", new[] { typeof(StuffCategoryDef), typeof(bool) });
+        static SyncMethod[] SyncThingFilterAllowThing = Sync.MethodMultiTarget(Sync.thingFilterTarget, "SetAllow", new SyncType[] { typeof(ThingDef), typeof(bool) });
+        static SyncMethod[] SyncThingFilterAllowSpecial = Sync.MethodMultiTarget(Sync.thingFilterTarget, "SetAllow", new SyncType[] { typeof(SpecialThingFilterDef), typeof(bool) });
+        static SyncMethod[] SyncThingFilterAllowStuffCategory = Sync.MethodMultiTarget(Sync.thingFilterTarget, "SetAllow", new SyncType[] { typeof(StuffCategoryDef), typeof(bool) });
 
         [MpPrefix(typeof(ThingFilter), "SetAllow", new[] { typeof(StuffCategoryDef), typeof(bool) })]
         static bool ThingFilter_SetAllow(StuffCategoryDef cat, bool allow)
