@@ -51,7 +51,6 @@ namespace Multiplayer.Client
         public static Faction DummyFaction => game.dummyFaction;
         public static MultiplayerWorldComp WorldComp => game.worldComp;
 
-        // Null during loading
         public static Faction RealPlayerFaction
         {
             get => Client != null ? game.RealPlayerFaction : Faction.OfPlayer;
@@ -94,6 +93,7 @@ namespace Multiplayer.Client
             if (SteamManager.Initialized)
                 InitSteam();
 
+            Log.Message($"Multiplayer version {MpVersion.Version}");
             Log.Message($"Player's username: {username}");
             Log.Message($"Processor: {SystemInfo.processorType}");
 

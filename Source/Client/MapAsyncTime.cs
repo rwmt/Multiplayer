@@ -930,7 +930,7 @@ namespace Multiplayer.Client
             }
             else
             {
-                Current.Game.CurrentMap = map;
+                Current.Game.currentMapIndex = (sbyte)map.Index;
             }
         }
 

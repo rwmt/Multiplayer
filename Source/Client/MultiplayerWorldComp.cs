@@ -117,6 +117,11 @@ namespace Multiplayer.Client
                     factionData = new Dictionary<int, FactionWorldData>();
             }
 
+            if (Scribe.mode == LoadSaveMode.LoadingVars && Multiplayer.session != null && Multiplayer.game != null)
+            {
+                Multiplayer.game.myFactionLoading = Find.FactionManager.GetById(Multiplayer.session.myFactionId);
+            }
+
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
                 factionData[currentFactionId] = FactionWorldData.FromCurrent(currentFactionId);

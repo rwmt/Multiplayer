@@ -87,7 +87,7 @@ namespace Multiplayer.Common
             ByteWriter writer = new ByteWriter();
 
             writer.WriteInt32(factionId);
-            writer.WriteInt32(MultiplayerServer.instance.timer);
+            writer.WriteInt32(MultiplayerServer.instance.gameTimer);
             writer.WritePrefixedBytes(MultiplayerServer.instance.savedGame);
 
             writer.WriteInt32(MultiplayerServer.instance.mapCmds.Count);

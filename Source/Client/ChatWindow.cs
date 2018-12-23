@@ -321,7 +321,7 @@ namespace Multiplayer.Client
                         text.AppendLine("No connection");
                     }
 
-                    text.Append("\n");
+                    text.AppendLine();
                 }
             }
 

@@ -37,7 +37,7 @@ namespace Multiplayer.Common
         public IEnumerable<ServerPlayer> PlayingPlayers => players.Where(p => p.IsPlaying);
 
         public string hostUsername;
-        public int timer;
+        public int gameTimer;
         public bool paused;
         public ActionQueue queue = new ActionQueue();
         public ServerSettings settings;
@@ -130,7 +130,7 @@ namespace Multiplayer.Common
             instance = null;
         }
 
-        private int lastAutosave;
+        private int netTimer;
 
         public void TickNet()
         {
@@ -141,19 +141,13 @@ namespace Multiplayer.Common
             NetTick?.Invoke(this);
 
             queue.RunQueue();
-        }
 
-        public void Tick()
-        {
-            if (timer % 3 == 0)
-                SendToAll(Packets.Server_TimeControl, new object[] { timer });
-
-            if (settings.lanAddress != null && timer % 60 == 0)
+            if (lanManager != null && netTimer % 60 == 0)
                 lanManager.SendDiscoveryRequest(Encoding.UTF8.GetBytes("mp-server"), 5100);
 
-            timer++;
+            netTimer++;
 
-            if (timer % 180 == 0)
+            if (netTimer % 180 == 0)
             {
                 SendLatencies();
 
@@ -161,6 +155,16 @@ namespace Multiplayer.Common
                 SendToAll(Packets.Server_KeepAlive, new object[] { keepAliveId });
                 lastKeepAlive.Restart();
             }
+        }
+
+        private int lastAutosave;
+
+        public void Tick()
+        {
+            if (gameTimer % 3 == 0)
+                SendToAll(Packets.Server_TimeControl, new object[] { gameTimer });
+
+            gameTimer++;
 
             if (settings.autosaveInterval > 0 && lastAutosave >= settings.autosaveInterval * 60 * 60)
             {
@@ -273,7 +277,7 @@ namespace Multiplayer.Common
                     return;
             }
 
-            byte[] toSave = new ScheduledCommand(cmd, timer, factionId, mapId, data).Serialize();
+            byte[] toSave = new ScheduledCommand(cmd, gameTimer, factionId, mapId, data).Serialize();
 
             // todo cull target players if not global
             mapCmds.GetOrAddNew(mapId).Add(toSave);

@@ -238,6 +238,7 @@ namespace Multiplayer.Client
         }
     }
 
+    // LinkGrid is one building per cell, so only the player faction's blueprints are shown and linked
     [HarmonyPatch(typeof(LinkGrid), nameof(LinkGrid.Notify_LinkerCreatedOrDestroyed))]
     static class LinkGridBlueprintPatch
     {

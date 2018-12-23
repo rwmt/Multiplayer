@@ -46,7 +46,7 @@
 
         ServerJoining,
         ServerPlaying,
-        ServerSteam,
+        ServerSteam, // unused
 
         Count,
         Disconnected

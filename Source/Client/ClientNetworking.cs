@@ -127,7 +127,7 @@ namespace Multiplayer.Client
                 localServer.NetTick += TickSteamNet;
 
             if (replay)
-                localServer.timer = TickPatch.Timer;
+                localServer.gameTimer = TickPatch.Timer;
 
             MultiplayerServer.instance = localServer;
             session.localServer = localServer;

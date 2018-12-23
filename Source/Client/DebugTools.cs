@@ -76,9 +76,9 @@ namespace Multiplayer.Client
             });
         }
 
-        [SyncMethod(args: new[] { typeof(IncidentDef), typeof(Expose<IncidentParms>) })]
+        [SyncMethod]
         [SyncDebugOnly]
-        private static void ExecuteIncident(IncidentDef def, IncidentParms parms)
+        private static void ExecuteIncident(IncidentDef def, [SyncExpose] IncidentParms parms)
         {
             def.Worker.TryExecute(parms);
         }

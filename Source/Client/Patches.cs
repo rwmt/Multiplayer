@@ -352,6 +352,21 @@ namespace Multiplayer.Client
         {
             Text.Font = GameFont.Small;
 
+            DoDebugInfo();
+
+            if (Multiplayer.IsReplay || TickPatch.skipTo >= 0)
+            {
+                DrawTimeline();
+                DrawSkippingWindow();
+            }
+
+            DoButtons();
+
+            return Find.Maps.Count > 0;
+        }
+
+        static void DoDebugInfo()
+        {
             if (MpVersion.IsDebug && Multiplayer.Client != null)
             {
                 int timerLag = (TickPatch.tickUntil - TickPatch.Timer);
@@ -388,16 +403,6 @@ namespace Multiplayer.Client
                 Rect rect1 = new Rect(80f, 110f, 330f, Text.CalcHeight(text.ToString(), 330f));
                 Widgets.Label(rect1, text.ToString());
             }
-
-            if (Multiplayer.IsReplay || TickPatch.skipTo >= 0)
-            {
-                DrawTimeline();
-                DrawSkippingWindow();
-            }
-
-            DoButtons();
-
-            return Find.Maps.Count > 0;
         }
 
         static void DoButtons()
@@ -469,8 +474,6 @@ namespace Multiplayer.Client
             Find.WindowStack.ImmediateWindow(TimelineWindowId, rect, WindowLayer.SubSuper, DrawTimelineWindow, doBackground: false, shadowAlpha: 0);
         }
 
-        public static readonly Texture2D OrbitalBeaconIcon = ContentFinder<Texture2D>.Get("Things/Building/Misc/DropBeacon");
-
         static void DrawTimelineWindow()
         {
             Rect rect = new Rect(0, 30f, UI.screenWidth - TimelineMargin * 2, TimelineHeight);
@@ -480,6 +483,9 @@ namespace Multiplayer.Client
             int timerStart = Multiplayer.session.replayTimerStart >= 0 ? Multiplayer.session.replayTimerStart : OnMainThread.cachedAtTime;
             int timerEnd = Multiplayer.session.replayTimerEnd >= 0 ? Multiplayer.session.replayTimerEnd : TickPatch.tickUntil;
             int timeLen = timerEnd - timerStart;
+
+            Widgets.DrawLine(new Vector2(rect.xMin + 2f, rect.yMin), new Vector2(rect.xMin + 2f, rect.yMax), Color.white, 4f);
+            Widgets.DrawLine(new Vector2(rect.xMax - 2f, rect.yMin), new Vector2(rect.xMax - 2f, rect.yMax), Color.white, 4f);
 
             float progress = (TickPatch.Timer - timerStart) / (float)timeLen;
             float progressX = rect.xMin + progress * rect.width;
@@ -495,7 +501,7 @@ namespace Multiplayer.Client
 
                 var pointX = rect.xMin + (ev.time - timerStart) / (float)timeLen * rect.width;
 
-                GUI.DrawTexture(new Rect(pointX - 12f, rect.yMin - 24f, 24f, 24f), ev.name == "Raid" ? SettlementBase.AttackCommand : OrbitalBeaconIcon);
+                //GUI.DrawTexture(new Rect(pointX - 12f, rect.yMin - 24f, 24f, 24f), texture);
                 Widgets.DrawLine(new Vector2(pointX, rect.yMin), new Vector2(pointX, rect.yMax), ev.color, 5f);
 
                 if (Mouse.IsOver(rect) && Math.Abs(mouseX - pointX) < 10)
@@ -534,9 +540,6 @@ namespace Multiplayer.Client
                 if (TooltipHandler.activeTips.TryGetValue(215462143, out ActiveTip tip))
                     tip.firstTriggerTime = 0;
             }
-
-            Widgets.DrawLine(new Vector2(rect.xMin + 2f, rect.yMin), new Vector2(rect.xMin + 2f, rect.yMax), Color.white, 4f);
-            Widgets.DrawLine(new Vector2(rect.xMax - 2f, rect.yMin), new Vector2(rect.xMax - 2f, rect.yMax), Color.white, 4f);
 
             if (TickPatch.skipTo >= 0)
             {
@@ -1236,8 +1239,9 @@ namespace Multiplayer.Client
         static void Prefix()
         {
             if (Multiplayer.Client == null) return;
-            if (Scribe.mode != LoadSaveMode.LoadingVars) return;
-            Multiplayer.game = new MultiplayerGame();
+
+            if (Scribe.mode == LoadSaveMode.LoadingVars)
+                Multiplayer.game = new MultiplayerGame();
         }
     }
 

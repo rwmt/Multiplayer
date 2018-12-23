@@ -166,10 +166,11 @@ namespace Multiplayer.Client
 
         public Faction dummyFaction;
         private Faction myFaction;
+        public Faction myFactionLoading;
 
         public Faction RealPlayerFaction
         {
-            get => myFaction;
+            get => myFaction ?? myFactionLoading;
 
             set
             {

@@ -878,7 +878,7 @@ namespace Multiplayer.Client
                     if (!method.TryGetAttribute(out SyncMethodAttribute syncAttr))
                         continue;
 
-                    var syncMethod = RegisterSyncMethod(method, syncAttr.args);
+                    var syncMethod = RegisterSyncMethod(method, null);
                     syncMethod.context = syncAttr.context;
                     syncMethod.debugOnly = method.HasAttribute<SyncDebugOnlyAttribute>();
                 }
@@ -1123,17 +1123,20 @@ namespace Multiplayer.Client
     public class SyncMethodAttribute : Attribute
     {
         public SyncContext context;
-        public Type[] args;
 
-        public SyncMethodAttribute(SyncContext context = SyncContext.None, Type[] args = null)
+        public SyncMethodAttribute(SyncContext context = SyncContext.None)
         {
             this.context = context;
-            this.args = args;
         }
     }
 
     [AttributeUsage(AttributeTargets.Method)]
     public class SyncDebugOnlyAttribute : Attribute
+    {
+    }
+
+    [AttributeUsage(AttributeTargets.Parameter)]
+    public class SyncExposeAttribute : Attribute
     {
     }
 

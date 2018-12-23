@@ -341,15 +341,17 @@ namespace Multiplayer.Client
                 }
                 catch { }
 
+                SyncInfo local = null;
                 try
                 {
-                    PrintSyncInfo(text, zip, "sync_local");
+                    local = PrintSyncInfo(text, zip, "sync_local");
                 }
                 catch { }
 
+                SyncInfo remote = null;
                 try
                 {
-                    PrintSyncInfo(text, zip, "sync_remote");
+                    remote = PrintSyncInfo(text, zip, "sync_remote");
                 }
                 catch { }
 
@@ -363,13 +365,34 @@ namespace Multiplayer.Client
                     text.AppendLine($"Mod version: {desyncInfo.ReadString()}");
                     text.AppendLine($"Mod is debug: {desyncInfo.ReadBool()}");
                     text.AppendLine($"Dev mode: {desyncInfo.ReadBool()}");
+                    text.AppendLine();
                 }
                 catch { }
+
+                if (local != null && remote != null)
+                {
+                    text.AppendLine("[compare]");
+
+                    for (int i = 0; i < Math.Min(local.maps.Count, remote.maps.Count); i++)
+                    {
+                        var localMap = local.maps[i].map;
+                        var remoteMap = remote.maps[i].map;
+                        bool equal = localMap.SequenceEqual(remoteMap);
+                        text.AppendLine($"Map {local.maps[i].mapId}: {equal}");
+
+                        if (!equal)
+                            for (int j = 0; j < Math.Min(localMap.Count, remoteMap.Count); j++)
+                                text.AppendLine($"{localMap[j]} {remoteMap[j]} {(localMap[j] != remoteMap[j] ? "x" : "")}");
+                    }
+
+                    text.AppendLine($"World: {local.world.SequenceEqual(remote.world)}");
+                    text.AppendLine($"Cmds: {local.cmds.SequenceEqual(remote.cmds)}");
+                }
             }
 
             return text.ToString();
 
-            void PrintSyncInfo(StringBuilder builder, ZipFile zip, string file)
+            SyncInfo PrintSyncInfo(StringBuilder builder, ZipFile zip, string file)
             {
                 builder.AppendLine($"[{file}]");
 
@@ -382,6 +405,8 @@ namespace Multiplayer.Client
                 builder.AppendLine($"Trace hashes: {sync.traceHashes.Count}");
 
                 builder.AppendLine();
+
+                return sync;
             }
         }
 
