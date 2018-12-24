@@ -27,8 +27,8 @@ namespace Multiplayer.Client
     {
         static void Postfix(ref bool __result)
         {
-            //if (Multiplayer.Client != null)
-            __result = false;
+            if (MpVersion.IsDebug)
+                __result = false;
         }
     }
 

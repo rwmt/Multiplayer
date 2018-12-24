@@ -73,7 +73,7 @@ namespace Multiplayer.Client
                             parms = storytellerComp.GenerateParms(localDef.category, parms.target);
                         }
 
-                        ExecuteIncident(localDef, parms);
+                        ExecuteIncident(localDef, parms, target as Map);
                     }));
                 }
 
@@ -83,7 +83,7 @@ namespace Multiplayer.Client
 
         [SyncMethod]
         [SyncDebugOnly]
-        private static void ExecuteIncident(IncidentDef def, [SyncExpose] IncidentParms parms)
+        private static void ExecuteIncident(IncidentDef def, [SyncExpose] IncidentParms parms, [SyncContextMap] Map map)
         {
             def.Worker.TryExecute(parms);
         }

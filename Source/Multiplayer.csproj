@@ -72,6 +72,7 @@
     <Compile Include="Client\CacheForReloading.cs" />
     <Compile Include="Client\CaravanForming.cs" />
     <Compile Include="Client\SteamIntegration.cs" />
+    <Compile Include="Client\SyncTemplates.cs" />
     <Compile Include="Client\Windows\ChatWindow.cs" />
     <Compile Include="Client\ClientConnection.cs" />
     <Compile Include="Client\ClientNetworking.cs" />

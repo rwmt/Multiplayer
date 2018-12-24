@@ -168,7 +168,7 @@ namespace Multiplayer.Client
     {
         int SyncId { get; }
 
-        bool DoSync(object target, params object[] args);
+        bool DoSync(object target, object[] args);
     }
 
     public class SyncMethod : SyncHandler, ISyncMethod
@@ -215,10 +215,7 @@ namespace Multiplayer.Client
         {
             if (argTypes == null || argTypes.Length == 0)
             {
-                return method
-                    .GetParameters()
-                    .Select(p => new SyncType(p.ParameterType) { expose = p.HasAttribute<SyncExposeAttribute>() })
-                    .ToArray();
+                return method.GetParameters().Select(p => (SyncType)p).ToArray();
             }
             else if (argTypes.Length != method.GetParameters().Length)
             {
@@ -259,7 +256,12 @@ namespace Multiplayer.Client
 
             for (int i = 0; i < argTypes.Length; i++)
             {
-                Sync.WriteSyncObject(writer, args[i], argTypes[i]);
+                var argType = argTypes[i];
+                Sync.WriteSyncObject(writer, args[i], argType);
+
+                if (argType.contextMap && args[i] is Map contextMap)
+                    map = contextMap;
+
                 if (context.map is Map newMap)
                 {
                     if (map != null && map != newMap)
@@ -720,7 +722,7 @@ namespace Multiplayer.Client
         public static List<SyncHandler> handlers = new List<SyncHandler>();
         public static List<SyncField> bufferedFields = new List<SyncField>();
 
-        private static Dictionary<MethodBase, ISyncMethod> syncMethods = new Dictionary<MethodBase, ISyncMethod>();
+        public static Dictionary<MethodBase, ISyncMethod> syncMethods = new Dictionary<MethodBase, ISyncMethod>();
 
         public static Dictionary<SyncField, Dictionary<Pair<object, object>, BufferData>> bufferedChanges = new Dictionary<SyncField, Dictionary<Pair<object, object>, BufferData>>();
         private static Stack<FieldData> watchedStack = new Stack<FieldData>();
@@ -857,9 +859,7 @@ namespace Multiplayer.Client
             syncMethods[handler.method] = handler;
             handlers.Add(handler);
 
-            HarmonyMethod transpiler = new HarmonyMethod(typeof(Sync), nameof(Sync.SyncMethodTranspiler));
-            transpiler.priority = Priority.First;
-            Multiplayer.harmony.Patch(method, null, null, transpiler);
+            PatchMethodForSync(method);
 
             return handler;
         }
@@ -904,82 +904,20 @@ namespace Multiplayer.Client
             syncMethods[method] = handler;
             handlers.Add(handler);
 
-            HarmonyMethod transpiler = new HarmonyMethod(typeof(Sync), nameof(Sync.SyncMethodTranspiler));
-            transpiler.priority = Priority.First;
-            Multiplayer.harmony.Patch(method, null, null, transpiler);
+            PatchMethodForSync(method);
 
             return handler;
         }
 
-        private static void DoSyncMethod(int index, object instance, object[] args)
+        private static void PatchMethodForSync(MethodBase method)
         {
-            ((ISyncMethod)handlers[index]).DoSync(instance, args);
-        }
+            var prefixMethod = AccessTools.Method(typeof(SyncTemplates), $"Prefix_{method.GetParameters().Length}");
+            if (prefixMethod == null)
+                throw new Exception($"No prefix method for {method.GetParameters().Length} parameters.");
 
-        private static MethodInfo DoSyncMethodInfo = AccessTools.Method(typeof(Sync), nameof(Sync.DoSyncMethod));
-        private static MethodInfo ShouldSyncMethod = AccessTools.Property(typeof(Multiplayer), nameof(Multiplayer.ShouldSync)).GetGetMethod();
-
-        // Cancels execution and sends the method with its arguments over the network if Multiplayer.ShouldSync
-        private static IEnumerable<CodeInstruction> SyncMethodTranspiler(MethodBase original, ILGenerator gen, IEnumerable<CodeInstruction> insts)
-        {
-            Label jump = gen.DefineLabel();
-
-            LocalBuilder retLocal = null;
-            Type retType = (original as MethodInfo)?.ReturnType;
-            if (retType != null && retType != typeof(void))
-                retLocal = gen.DeclareLocal(retType);
-
-            yield return new CodeInstruction(OpCodes.Call, ShouldSyncMethod);
-            yield return new CodeInstruction(OpCodes.Brfalse, jump);
-
-            yield return new CodeInstruction(OpCodes.Ldc_I4, syncMethods[original].SyncId);
-
-            if (!original.IsStatic)
-                yield return new CodeInstruction(OpCodes.Ldarg_0);
-            else
-                yield return new CodeInstruction(OpCodes.Ldnull);
-
-            int len = original.GetParameters().Length;
-            yield return new CodeInstruction(OpCodes.Ldc_I4, len);
-            yield return new CodeInstruction(OpCodes.Newarr, typeof(object));
-
-            for (int i = 0; i < len; i++)
-            {
-                Type paramType = original.GetParameters()[i].ParameterType;
-
-                yield return new CodeInstruction(OpCodes.Dup);
-                yield return new CodeInstruction(OpCodes.Ldc_I4, i);
-
-                if (paramType.IsByRef)
-                {
-                    // todo value types?
-                    yield return new CodeInstruction(OpCodes.Ldnull);
-                }
-                else
-                {
-                    yield return new CodeInstruction(OpCodes.Ldarg, (original.IsStatic ? i : i + 1));
-                    if (paramType.IsValueType)
-                        yield return new CodeInstruction(OpCodes.Box, paramType);
-                }
-
-                yield return new CodeInstruction(OpCodes.Stelem, typeof(object));
-            }
-
-            yield return new CodeInstruction(OpCodes.Call, DoSyncMethodInfo);
-
-            if (retLocal != null)
-            {
-                yield return new CodeInstruction(OpCodes.Ldloca, retLocal.LocalIndex);
-                yield return new CodeInstruction(OpCodes.Initobj, retType);
-                yield return new CodeInstruction(OpCodes.Ldloc, retLocal.LocalIndex);
-            }
-
-            yield return new CodeInstruction(OpCodes.Ret);
-
-            insts.First().labels.Add(jump);
-
-            foreach (CodeInstruction inst in insts)
-                yield return inst;
+            HarmonyMethod prefix = new HarmonyMethod(prefixMethod);
+            prefix.priority = Priority.First;
+            Multiplayer.harmony.Patch(method, prefix);
         }
 
         public static void ApplyWatchFieldPatches(Type type)
@@ -1133,7 +1071,12 @@ namespace Multiplayer.Client
     }
 
     [AttributeUsage(AttributeTargets.Parameter)]
-    public class SyncExposeAttribute : Attribute
+    public class SyncExpose : Attribute
+    {
+    }
+
+    [AttributeUsage(AttributeTargets.Parameter)]
+    public class SyncContextMap : Attribute
     {
     }
 
@@ -1141,11 +1084,18 @@ namespace Multiplayer.Client
     {
         public readonly Type type;
         public bool expose;
+        public bool contextMap;
 
         public SyncType(Type type)
         {
             this.type = type;
             this.expose = false;
+            contextMap = false;
+        }
+
+        public static implicit operator SyncType(ParameterInfo param)
+        {
+            return new SyncType(param.ParameterType) { expose = param.HasAttribute<SyncExpose>(), contextMap = param.HasAttribute<SyncContextMap>() };
         }
 
         public static implicit operator SyncType(Type type)

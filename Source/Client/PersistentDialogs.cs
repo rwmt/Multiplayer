@@ -392,6 +392,7 @@ namespace Multiplayer.Client
         static bool Prefix(Window window)
         {
             var map = Multiplayer.MapContext;
+
             if (map != null && window.GetType() == typeof(Dialog_NodeTreeWithFactionInfo))
             {
                 var dialog = (Dialog_NodeTreeWithFactionInfo)window;
@@ -420,7 +421,8 @@ namespace Multiplayer.Client
             if (Multiplayer.Client == null) return true;
             if (__instance.GetType() != typeof(Dialog_NodeTreeWithFactionInfo)) return true;
 
-            if (Multiplayer.ShouldSync)
+            var session = PersistentDialog.FindDialog(__instance);
+            if (session != null && Multiplayer.ShouldSync)
             {
                 Find.World.renderer.wantedMode = WorldRenderMode.Planet;
                 return false;
@@ -450,10 +452,10 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.ShouldSync)
             {
-                var dialog = PersistentDialog.FindDialog(__instance.dialog);
-                if (dialog == null) return true;
+                var session = PersistentDialog.FindDialog(__instance.dialog);
+                if (session == null) return true;
 
-                dialog.Click(dialog.ver, dialog.dialog.curNode.options.IndexOf(__instance));
+                session.Click(session.ver, session.dialog.curNode.options.IndexOf(__instance));
 
                 return false;
             }

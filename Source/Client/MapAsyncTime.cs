@@ -979,22 +979,25 @@ namespace Multiplayer.Client
 
             try
             {
-                if (!SetDesignatorState(designator, data)) return;
-
                 if (mode == DesignatorMode.SingleCell)
                 {
                     IntVec3 cell = Sync.ReadSync<IntVec3>(data);
+                    if (!SetDesignatorState(designator, data)) return;
+
                     designator.DesignateSingleCell(cell);
                     designator.Finalize(true);
                 }
                 else if (mode == DesignatorMode.MultiCell)
                 {
                     IntVec3[] cells = Sync.ReadSync<IntVec3[]>(data);
+                    if (!SetDesignatorState(designator, data)) return;
+
                     designator.DesignateMultiCell(cells);
                 }
                 else if (mode == DesignatorMode.Thing)
                 {
                     Thing thing = Sync.ReadSync<Thing>(data);
+                    if (!SetDesignatorState(designator, data)) return;
 
                     if (thing != null)
                     {
@@ -1035,6 +1038,13 @@ namespace Multiplayer.Client
                 Thing thing = Sync.ReadSync<Thing>(data);
                 if (thing == null) return false;
                 DesignatorInstallPatch.thingToInstall = thing;
+            }
+
+            if (designator is Designator_Zone)
+            {
+                Zone zone = Sync.ReadSync<Zone>(data);
+                if (zone == null) return false;
+                Find.Selector.selected.Add(zone);
             }
 
             return true;

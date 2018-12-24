@@ -34,8 +34,8 @@ namespace Multiplayer.Client
             LoggingByteWriter writer = new LoggingByteWriter();
             writer.LogNode("Designate single cell: " + designator.GetType());
 
-            WriteData(writer, DesignatorMode.SingleCell, designator);
             Sync.WriteSync(writer, __0);
+            WriteData(writer, DesignatorMode.SingleCell, designator);
 
             Multiplayer.Client.SendCommand(CommandType.Designator, map.uniqueID, writer.GetArray());
             Multiplayer.PacketLog.nodes.Add(writer.current);
@@ -57,8 +57,8 @@ namespace Multiplayer.Client
             writer.LogNode("Designate multi cell: " + designator.GetType());
             IntVec3[] cellArray = __0.ToArray();
 
-            WriteData(writer, DesignatorMode.MultiCell, designator);
             Sync.WriteSync(writer, cellArray);
+            WriteData(writer, DesignatorMode.MultiCell, designator);
 
             Multiplayer.Client.SendCommand(CommandType.Designator, map.uniqueID, writer.GetArray());
             Multiplayer.PacketLog.nodes.Add(writer.current);
@@ -76,8 +76,8 @@ namespace Multiplayer.Client
             LoggingByteWriter writer = new LoggingByteWriter();
             writer.LogNode("Designate thing: " + __0 + " " + designator.GetType());
 
-            WriteData(writer, DesignatorMode.Thing, designator);
             Sync.WriteSync(writer, __0);
+            WriteData(writer, DesignatorMode.Thing, designator);
 
             Multiplayer.Client.SendCommand(CommandType.Designator, map.uniqueID, writer.GetArray());
             Multiplayer.PacketLog.nodes.Add(writer.current);
@@ -103,6 +103,9 @@ namespace Multiplayer.Client
 
             if (designator is Designator_Install)
                 Sync.WriteSync(data, ThingToInstall());
+
+            if (designator is Designator_Zone)
+                Sync.WriteSync(data, Find.Selector.SelectedZone);
         }
 
         private static Thing ThingToInstall()

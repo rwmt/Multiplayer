@@ -165,7 +165,10 @@ namespace Multiplayer.Client
                     Replay.LoadReplay(replay, true, () =>
                     {
                         var rand = Find.Maps.Select(m => m.AsyncTime().randState).Select(s => $"{(uint)s} {s >> 32}");
-                        Log.Message($"map rand {rand.ToStringSafeEnumerable()} | {TickPatch.Timer} | {Find.Maps.Select(m => m.AsyncTime().mapTicks).ToStringSafeEnumerable()}");
+
+                        Log.Message($"timer {TickPatch.Timer}");
+                        Log.Message($"world rand {(uint)WorldComp.randState} {WorldComp.randState >> 32}");
+                        Log.Message($"map rand {rand.ToStringSafeEnumerable()} | {Find.Maps.Select(m => m.AsyncTime().mapTicks).ToStringSafeEnumerable()}");
                     });
                 }, "Replay", false, null);
             }
