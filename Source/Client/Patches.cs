@@ -1062,7 +1062,7 @@ namespace Multiplayer.Client
 
             if (window is Dialog_SplitCaravan)
             {
-                Messages.Message("Not available in multiplayer.", MessageTypeDefOf.RejectInput, false);
+                Messages.Message("MpNotAvailable".Translate(), MessageTypeDefOf.RejectInput, false);
                 return false;
             }
 
@@ -1282,7 +1282,7 @@ namespace Multiplayer.Client
         static bool Prefix()
         {
             if (Multiplayer.Client == null) return true;
-            Messages.Message("Not available in multiplayer.", MessageTypeDefOf.RejectInput, false);
+            Messages.Message("MpNotAvailable".Translate(), MessageTypeDefOf.RejectInput, false);
             return false;
         }
     }

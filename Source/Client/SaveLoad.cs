@@ -323,23 +323,23 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(Map), nameof(Map.MapPostTick))]
+    [HarmonyPatch(typeof(MapComponentUtility), nameof(MapComponentUtility.MapComponentTick))]
     static class CompMapTick
     {
-        static void Postfix(Map __instance)
+        static void Postfix(Map map)
         {
             if (Multiplayer.Client == null) return;
-            __instance.MpComp()?.DoTick();
+            map.MpComp()?.DoTick();
         }
     }
 
-    [HarmonyPatch(typeof(Map), nameof(Map.FinalizeInit))]
+    [HarmonyPatch(typeof(MapComponentUtility), nameof(MapComponentUtility.FinalizeInit))]
     static class CompFinalizeInit
     {
-        static void Postfix(Map __instance)
+        static void Postfix(Map map)
         {
             if (Multiplayer.Client == null) return;
-            __instance.AsyncTime()?.FinalizeInit();
+            map.AsyncTime()?.FinalizeInit();
         }
     }
 

@@ -94,4 +94,6 @@
   <MpMultiplayer>Multiplayer</MpMultiplayer>
   <MpSingleplayer>Singleplayer</MpSingleplayer>
   
+  <MpNotAvailable>Not available in multiplayer.</MpNotAvailable>
+  
 </LanguageData>

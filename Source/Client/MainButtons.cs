@@ -117,7 +117,7 @@ namespace Multiplayer.Client
         static void IndicatorInfo(out Color color, out string text)
         {
             int behind = TickPatch.tickUntil - TickPatch.Timer;
-            text = "MpTicksBehind.".Translate(behind);
+            text = "MpTicksBehind".Translate(behind);
 
             if (behind > 30)
             {
