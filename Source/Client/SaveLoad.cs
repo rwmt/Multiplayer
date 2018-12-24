@@ -1,6 +1,7 @@
 ﻿using Harmony;
 using Ionic.Zlib;
 using Multiplayer.Common;
+using RimWorld;
 using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
@@ -15,6 +16,7 @@ using Verse.Profile;
 
 namespace Multiplayer.Client
 {
+    [HotSwappable]
     public static class SaveLoad
     {
         public static XmlDocument SaveAndReload()
@@ -80,6 +82,12 @@ namespace Multiplayer.Client
         public static void LoadInMainThread(XmlDocument gameDoc)
         {
             var watch = Stopwatch.StartNew();
+
+            // todo destroy other game objects?
+            UnityEngine.Object.Destroy(Find.MusicManagerPlay.audioSource.gameObject);
+            UnityEngine.Object.Destroy(Find.SoundRoot.sourcePool.sourcePoolCamera.cameraSourcesContainer);
+            UnityEngine.Object.Destroy(Find.SoundRoot.sourcePool.sourcePoolWorld.sourcesWorld[0].gameObject);
+
             MemoryUtility.ClearAllMapsAndWorld();
 
             LoadPatch.gameToLoad = gameDoc;
@@ -195,20 +203,133 @@ namespace Multiplayer.Client
 
             Log.Message("Game loaded");
 
-            LongEventHandler.ExecuteWhenFinished(() =>
+            if (Multiplayer.Client != null)
             {
-                // Inits all caches
-                foreach (ITickable tickable in TickPatch.AllTickables.Where(t => !(t is ConstantTicker)))
-                    tickable.Tick();
-
-                if (!Current.Game.Maps.Any())
+                LongEventHandler.ExecuteWhenFinished(() =>
                 {
-                    MemoryUtility.UnloadUnusedUnityAssets();
-                    Find.World.renderer.RegenerateAllLayersNow();
-                }
-            });
+                    // Inits all caches
+                    foreach (ITickable tickable in TickPatch.AllTickables.Where(t => !(t is ConstantTicker)))
+                        tickable.Tick();
+
+                    if (!Current.Game.Maps.Any())
+                    {
+                        MemoryUtility.UnloadUnusedUnityAssets();
+                        Find.World.renderer.RegenerateAllLayersNow();
+                    }
+                });
+            }
 
             return false;
         }
     }
+
+    [HarmonyPatch(typeof(Game), nameof(Game.ExposeSmallComponents))]
+    static class GameExposeComponentsPatch
+    {
+        static void Prefix()
+        {
+            if (Multiplayer.Client == null) return;
+
+            if (Scribe.mode == LoadSaveMode.LoadingVars)
+                Multiplayer.game = new MultiplayerGame();
+        }
+    }
+
+    [HarmonyPatch(typeof(MemoryUtility), nameof(MemoryUtility.ClearAllMapsAndWorld))]
+    static class ClearAllPatch
+    {
+        static void Postfix()
+        {
+            Multiplayer.game = null;
+        }
+    }
+
+    [HarmonyPatch(typeof(FactionManager), nameof(FactionManager.RecacheFactions))]
+    static class RecacheFactionsPatch
+    {
+        static void Postfix()
+        {
+            if (Multiplayer.Client == null) return;
+            Multiplayer.game.dummyFaction = Find.FactionManager.GetById(-1);
+        }
+    }
+
+    [HarmonyPatch(typeof(World), nameof(World.ExposeComponents))]
+    static class SaveWorldComp
+    {
+        static void Postfix(World __instance)
+        {
+            if (Multiplayer.Client == null) return;
+
+            if (Scribe.mode == LoadSaveMode.LoadingVars || Scribe.mode == LoadSaveMode.Saving)
+            {
+                Scribe_Deep.Look(ref Multiplayer.game.worldComp, "mpWorldComp", __instance);
+
+                if (Multiplayer.game.worldComp == null)
+                {
+                    Log.Error("No MultiplayerWorldComp during loading/saving");
+                    Multiplayer.game.worldComp = new MultiplayerWorldComp(__instance);
+                }
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(Map), nameof(Map.ExposeComponents))]
+    static class SaveMapComps
+    {
+        static void Postfix(Map __instance)
+        {
+            if (Multiplayer.Client == null) return;
+
+            var asyncTime = __instance.AsyncTime();
+            var comp = __instance.MpComp();
+
+            if (Scribe.mode == LoadSaveMode.LoadingVars || Scribe.mode == LoadSaveMode.Saving)
+            {
+                Scribe_Deep.Look(ref asyncTime, "mpAsyncTime", __instance);
+                Scribe_Deep.Look(ref comp, "mpMapComp", __instance);
+            }
+
+            if (Scribe.mode == LoadSaveMode.LoadingVars)
+            {
+                if (asyncTime == null)
+                {
+                    Log.Error($"{typeof(MapAsyncTimeComp)} missing during loading");
+                    // This is just so the game doesn't completely freeze
+                    asyncTime = new MapAsyncTimeComp(__instance);
+                }
+
+                Multiplayer.game.asyncTimeComps.Add(asyncTime);
+
+                if (comp == null)
+                {
+                    Log.Error($"{typeof(MultiplayerMapComp)} missing during loading");
+                    comp = new MultiplayerMapComp(__instance);
+                }
+
+                Multiplayer.game.mapComps.Add(comp);
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(Map), nameof(Map.MapPostTick))]
+    static class CompMapTick
+    {
+        static void Postfix(Map __instance)
+        {
+            if (Multiplayer.Client == null) return;
+            __instance.MpComp()?.DoTick();
+        }
+    }
+
+    [HarmonyPatch(typeof(Map), nameof(Map.FinalizeInit))]
+    static class CompFinalizeInit
+    {
+        static void Postfix(Map __instance)
+        {
+            if (Multiplayer.Client == null) return;
+            __instance.AsyncTime()?.FinalizeInit();
+        }
+    }
+
 }

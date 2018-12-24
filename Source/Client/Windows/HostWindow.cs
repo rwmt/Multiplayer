@@ -226,11 +226,10 @@ namespace Multiplayer.Client
 
         private void HostFromReplay(ServerSettings settings)
         {
+            TickPatch.disableSkipCancel = true;
+
             Replay.LoadReplay(file.fileName, true, () =>
             {
-                var timer = TickPatch.Timer;
-                OnMainThread.StopMultiplayer();
-                TickPatch.Timer = timer;
                 ClientUtil.HostServer(settings, true);
             });
         }

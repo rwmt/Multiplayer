@@ -162,6 +162,8 @@ namespace Multiplayer.Client
         public SyncInfoBuffer sync = new SyncInfoBuffer();
 
         public MultiplayerWorldComp worldComp;
+        public List<MultiplayerMapComp> mapComps = new List<MultiplayerMapComp>();
+        public List<MapAsyncTimeComp> asyncTimeComps = new List<MapAsyncTimeComp>();
         public SharedCrossRefs sharedCrossRefs = new SharedCrossRefs();
 
         public Faction dummyFaction;

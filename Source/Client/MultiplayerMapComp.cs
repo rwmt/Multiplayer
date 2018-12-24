@@ -11,9 +11,11 @@ using Verse;
 
 namespace Multiplayer.Client
 {
-    public class MultiplayerMapComp : MapComponent
+    public class MultiplayerMapComp : IExposable
     {
         public static bool tickingFactions;
+
+        public Map map;
 
         //public IdBlock mapIdBlock;
         public Dictionary<int, FactionMapData> factionMapData = new Dictionary<int, FactionMapData>();
@@ -24,8 +26,9 @@ namespace Multiplayer.Client
         // for SaveCompression
         public List<Thing> tempLoadedThings;
 
-        public MultiplayerMapComp(Map map) : base(map)
+        public MultiplayerMapComp(Map map)
         {
+            this.map = map;
         }
 
         public void CreateCaravanFormingSession(bool reform, Action onClosed, bool mapAboutToBeRemoved)
@@ -34,7 +37,7 @@ namespace Multiplayer.Client
             caravanForming = new CaravanFormingSession(map, reform, onClosed, mapAboutToBeRemoved);
         }
 
-        public override void MapComponentTick()
+        public void DoTick()
         {
             if (Multiplayer.Client == null) return;
 
@@ -65,7 +68,7 @@ namespace Multiplayer.Client
             map.listerFilthInHomeArea = data.listerFilthInHomeArea;
         }
 
-        public override void ExposeData()
+        public void ExposeData()
         {
             // Data marker
             if (Scribe.mode == LoadSaveMode.Saving)

@@ -13,7 +13,7 @@ using Verse.AI;
 
 namespace Multiplayer.Client
 {
-    public class MultiplayerWorldComp : WorldComponent, ITickable
+    public class MultiplayerWorldComp : IExposable, ITickable
     {
         public static bool tickingWorld;
         public static bool executingCmdWorld;
@@ -56,6 +56,7 @@ namespace Multiplayer.Client
 
         public Dictionary<int, FactionWorldData> factionData = new Dictionary<int, FactionWorldData>();
 
+        public World world;
         public ConstantTicker ticker = new ConstantTicker();
         public IdBlock globalIdBlock;
         public ulong randState = 2;
@@ -64,11 +65,12 @@ namespace Multiplayer.Client
 
         public Queue<ScheduledCommand> cmds = new Queue<ScheduledCommand>();
 
-        public MultiplayerWorldComp(World world) : base(world)
+        public MultiplayerWorldComp(World world)
         {
+            this.world = world;
         }
 
-        public override void ExposeData()
+        public void ExposeData()
         {
             Scribe_Values.Look(ref TickPatch.Timer, "timer");
 

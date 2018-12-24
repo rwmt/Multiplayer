@@ -72,6 +72,7 @@ namespace Multiplayer.Client
     }
 
     [MpPatch(typeof(OptionListingUtility), nameof(OptionListingUtility.DrawOptionListing))]
+    [HotSwappable]
     public static class MainMenuPatch
     {
         static void Prefix(Rect rect, List<ListableOption> optList)
@@ -94,7 +95,7 @@ namespace Multiplayer.Client
             {
                 if (Multiplayer.session == null)
                 {
-                    optList.Insert(0, new ListableOption("Host a server", () =>
+                    optList.Insert(0, new ListableOption("MpHostServer".Translate(), () =>
                     {
                         Find.WindowStack.Add(new HostWindow());
                     }));
@@ -102,10 +103,14 @@ namespace Multiplayer.Client
 
                 if (Multiplayer.Client != null)
                 {
-                    optList.Insert(0, new ListableOption("Save replay", () =>
-                    {
-                        Find.WindowStack.Add(new Dialog_SaveReplay());
-                    }));
+                    ListableOption firstOption = null;
+
+                    if (!Multiplayer.IsReplay)
+                        firstOption = new ListableOption("MpSaveReplay".Translate(), () => Find.WindowStack.Add(new Dialog_SaveReplay()));
+                    else
+                        firstOption = new ListableOption("MpConvert".Translate(), ConvertToSingleplayer);
+
+                    optList.Insert(0, firstOption);
 
                     optList.RemoveAll(opt => opt.label == "Save".Translate() || opt.label == "LoadGame".Translate());
 
@@ -148,6 +153,27 @@ namespace Multiplayer.Client
                     }
                 }
             }
+        }
+
+        private static void ConvertToSingleplayer()
+        {
+            LongEventHandler.QueueLongEvent(() =>
+            {
+                Find.GameInfo.permadeathMode = false;
+                // todo handle the other faction def too
+                Multiplayer.DummyFaction.def = FactionDefOf.Ancients;
+
+                OnMainThread.StopMultiplayer();
+
+                var doc = SaveLoad.SaveGame();
+                MemoryUtility.ClearAllMapsAndWorld();
+
+                Current.Game = new Game();
+                Current.Game.InitData = new GameInitData();
+                Current.Game.InitData.gameToLoad = "play";
+
+                LoadPatch.gameToLoad = doc;
+            }, "Play", "MpConverting", true, null);
         }
     }
 
@@ -777,47 +803,6 @@ namespace Multiplayer.Client
         static void Postfix() => loading = false;
     }
 
-    [HarmonyPatch(typeof(Game), nameof(Game.ExposeSmallComponents))]
-    static class GameExposeComponentsPatch
-    {
-        static void Prefix()
-        {
-            if (Multiplayer.Client == null) return;
-
-            if (Scribe.mode == LoadSaveMode.LoadingVars)
-                Multiplayer.game = new MultiplayerGame();
-        }
-    }
-
-    [HarmonyPatch(typeof(MemoryUtility), nameof(MemoryUtility.ClearAllMapsAndWorld))]
-    static class ClearAllPatch
-    {
-        static void Postfix()
-        {
-            Multiplayer.game = null;
-        }
-    }
-
-    [HarmonyPatch(typeof(FactionManager), nameof(FactionManager.RecacheFactions))]
-    static class RecacheFactionsPatch
-    {
-        static void Postfix()
-        {
-            if (Multiplayer.Client == null) return;
-            Multiplayer.game.dummyFaction = Find.FactionManager.GetById(-1);
-        }
-    }
-
-    [HarmonyPatch(typeof(World), nameof(World.ExposeComponents))]
-    static class WorldExposeComponentsPatch
-    {
-        static void Postfix()
-        {
-            if (Multiplayer.Client == null) return;
-            Multiplayer.game.worldComp = Find.World.GetComponent<MultiplayerWorldComp>();
-        }
-    }
-
     [MpPatch(typeof(SoundStarter), nameof(SoundStarter.PlayOneShot))]
     [MpPatch(typeof(Command_SetPlantToGrow), nameof(Command_SetPlantToGrow.WarnAsAppropriate))]
     [MpPatch(typeof(TutorUtility), nameof(TutorUtility.DoModalDialogIfNotKnown))]
@@ -1028,7 +1013,7 @@ namespace Multiplayer.Client
         static void Postfix()
         {
             if (Multiplayer.Client == null) return;
-            Log.Message("Uniq ids " + Multiplayer.GlobalIdBlock.current);
+            Log.Message("Unique ids " + Multiplayer.GlobalIdBlock.current);
             Log.Message("Rand " + Rand.StateCompressed);
         }
 
@@ -1038,16 +1023,19 @@ namespace Multiplayer.Client
             Log.Message("Uniq ids " + Multiplayer.GlobalIdBlock.current);
             Log.Message("Rand " + Rand.StateCompressed);
 
-            MapAsyncTimeComp async = map.AsyncTime();
-            MultiplayerMapComp mapComp = map.MpComp();
-            Faction dummyFaction = Multiplayer.DummyFaction;
+            var async = new MapAsyncTimeComp(map);
+            Multiplayer.game.asyncTimeComps.Add(async);
+
+            var mapComp = new MultiplayerMapComp(map);
+            Multiplayer.game.mapComps.Add(mapComp);
 
             mapComp.factionMapData[Faction.OfPlayer.loadID] = FactionMapData.FromMap(map, Faction.OfPlayer.loadID);
 
+            Faction dummyFaction = Multiplayer.DummyFaction;
             mapComp.factionMapData[dummyFaction.loadID] = FactionMapData.New(dummyFaction.loadID, map);
             mapComp.factionMapData[dummyFaction.loadID].areaManager.AddStartingAreas();
 
-            async.mapTicks = Find.Maps.Select(m => m.AsyncTime().mapTicks).Max();
+            async.mapTicks = Find.Maps.Select(m => m.AsyncTime()?.mapTicks).Max() ?? Find.TickManager.TicksGame;
             async.storyteller = new Storyteller(Find.Storyteller.def, Find.Storyteller.difficulty);
         }
     }

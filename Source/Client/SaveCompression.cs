@@ -131,7 +131,7 @@ namespace Multiplayer.Client
                 if ((t = LoadPlant(map, plantData, cell)) != null) loadedThings.Add(t);
             }
 
-            map.GetComponent<MultiplayerMapComp>().tempLoadedThings = loadedThings;
+            map.MpComp().tempLoadedThings = loadedThings;
         }
 
         private static Thing LoadRock(Map map, BinaryReader reader, IntVec3 cell)
@@ -300,7 +300,7 @@ namespace Multiplayer.Client
         {
             if (!SaveCompression.doSaveCompression) return;
 
-            MultiplayerMapComp comp = __instance.map.GetComponent<MultiplayerMapComp>();
+            MultiplayerMapComp comp = __instance.map.MpComp();
             __result = comp.tempLoadedThings;
             comp.tempLoadedThings = null;
         }

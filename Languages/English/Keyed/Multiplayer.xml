@@ -25,4 +25,10 @@
   
   <MpServerCloseConfirmation>Are you sure you want to close the server? Unsaved progress will be lost.</MpServerCloseConfirmation>
   
+  <MpHostServer>Host a server</MpHostServer>
+  <MpSaveReplay>Save replay</MpSaveReplay>
+  
+  <MpConvert>Convert to singleplayer</MpConvert>
+  <MpConverting>Converting</MpConverting>
+  
 </LanguageData>

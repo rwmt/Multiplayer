@@ -16,6 +16,7 @@ using Verse;
 
 namespace Multiplayer.Client
 {
+    [HotSwappable]
     public static class ClientUtil
     {
         public static void TryConnect(IPAddress address, int port)
@@ -90,28 +91,11 @@ namespace Multiplayer.Client
             }
         }
 
-        public static void HostServer(ServerSettings settings, bool replay)
+        public static void HostServer(ServerSettings settings, bool fromReplay)
         {
             Log.Message($"Starting the server");
 
-            MultiplayerWorldComp comp = Find.World.GetComponent<MultiplayerWorldComp>();
-            Faction dummyFaction = Find.FactionManager.AllFactions.FirstOrDefault(f => f.loadID == -1);
-
-            if (dummyFaction == null)
-            {
-                dummyFaction = new Faction() { loadID = -1, def = Multiplayer.DummyFactionDef };
-                dummyFaction.Name = "Multiplayer dummy faction";
-
-                foreach (Faction other in Find.FactionManager.AllFactionsListForReading)
-                    dummyFaction.TryMakeInitialRelationsWith(other);
-
-                Find.FactionManager.Add(dummyFaction);
-
-                comp.factionData[dummyFaction.loadID] = FactionWorldData.New(dummyFaction.loadID);
-            }
-
-            Faction.OfPlayer.Name = $"{Multiplayer.username}'s faction";
-            comp.factionData[Faction.OfPlayer.loadID] = FactionWorldData.FromCurrent();
+            OnMainThread.ClearCaches();
 
             var session = Multiplayer.session = new MultiplayerSession();
             session.myFactionId = Faction.OfPlayer.loadID;
@@ -126,46 +110,14 @@ namespace Multiplayer.Client
             if (settings.steam)
                 localServer.NetTick += TickSteamNet;
 
-            if (replay)
+            if (fromReplay)
                 localServer.gameTimer = TickPatch.Timer;
 
             MultiplayerServer.instance = localServer;
             session.localServer = localServer;
 
-            Multiplayer.game = new MultiplayerGame
-            {
-                dummyFaction = dummyFaction,
-                worldComp = comp
-            };
-
-            if (!replay)
-            {
-                localServer.nextUniqueId = GetMaxUniqueId();
-                comp.globalIdBlock = localServer.NextIdBlock(1_000_000_000);
-
-                foreach (FactionWorldData data in comp.factionData.Values)
-                {
-                    foreach (DrugPolicy p in data.drugPolicyDatabase.policies)
-                        p.uniqueId = Multiplayer.GlobalIdBlock.NextId();
-
-                    foreach (Outfit o in data.outfitDatabase.outfits)
-                        o.uniqueId = Multiplayer.GlobalIdBlock.NextId();
-
-                    foreach (FoodRestriction o in data.foodRestrictionDatabase.foodRestrictions)
-                        o.id = Multiplayer.GlobalIdBlock.NextId();
-                }
-
-                foreach (Map map in Find.Maps)
-                {
-                    //mapComp.mapIdBlock = localServer.NextIdBlock();
-
-                    BeforeMapGeneration.SetupMap(map);
-
-                    MapAsyncTimeComp async = map.AsyncTime();
-                    async.mapTicks = Find.TickManager.TicksGame;
-                    async.TimeSpeed = Find.TickManager.CurTimeSpeed;
-                }
-            }
+            if (!fromReplay)
+                SetupGame();
 
             Find.PlaySettings.usePlanetDayNightSystem = false;
 
@@ -202,6 +154,61 @@ namespace Multiplayer.Client
                 Messages.Message(text, MessageTypeDefOf.SilentInput, false);
                 Log.Message(text);
             }, "MpSaving", false, null);
+        }
+
+        private static void SetupGame()
+        {
+            MultiplayerWorldComp comp = new MultiplayerWorldComp(Find.World);
+            Faction dummyFaction = Find.FactionManager.AllFactions.FirstOrDefault(f => f.loadID == -1);
+
+            if (dummyFaction == null)
+            {
+                dummyFaction = new Faction() { loadID = -1, def = Multiplayer.DummyFactionDef };
+
+                foreach (Faction other in Find.FactionManager.AllFactionsListForReading)
+                    dummyFaction.TryMakeInitialRelationsWith(other);
+
+                Find.FactionManager.Add(dummyFaction);
+
+                comp.factionData[dummyFaction.loadID] = FactionWorldData.New(dummyFaction.loadID);
+            }
+
+            dummyFaction.Name = "Multiplayer dummy faction";
+            dummyFaction.def = Multiplayer.DummyFactionDef;
+
+            Faction.OfPlayer.Name = $"{Multiplayer.username}'s faction";
+            comp.factionData[Faction.OfPlayer.loadID] = FactionWorldData.FromCurrent();
+
+            Multiplayer.game = new MultiplayerGame
+            {
+                dummyFaction = dummyFaction,
+                worldComp = comp
+            };
+
+            comp.globalIdBlock = new IdBlock(GetMaxUniqueId(), 1_000_000_000);
+
+            foreach (FactionWorldData data in comp.factionData.Values)
+            {
+                foreach (DrugPolicy p in data.drugPolicyDatabase.policies)
+                    p.uniqueId = Multiplayer.GlobalIdBlock.NextId();
+
+                foreach (Outfit o in data.outfitDatabase.outfits)
+                    o.uniqueId = Multiplayer.GlobalIdBlock.NextId();
+
+                foreach (FoodRestriction o in data.foodRestrictionDatabase.foodRestrictions)
+                    o.id = Multiplayer.GlobalIdBlock.NextId();
+            }
+
+            foreach (Map map in Find.Maps)
+            {
+                //mapComp.mapIdBlock = localServer.NextIdBlock();
+
+                BeforeMapGeneration.SetupMap(map);
+
+                MapAsyncTimeComp async = map.AsyncTime();
+                async.mapTicks = Find.TickManager.TicksGame;
+                async.TimeSpeed = Find.TickManager.CurTimeSpeed;
+            }
         }
 
         private static void TickSteamNet(MultiplayerServer server)

@@ -45,7 +45,7 @@ namespace Multiplayer.Client
             if (faction == null) return;
 
             Multiplayer.WorldComp?.SetFaction(faction);
-            map?.GetComponent<MultiplayerMapComp>().SetFaction(faction);
+            map?.MpComp().SetFaction(faction);
         }
 
         public static void PushFaction(this Map map, int factionId)
@@ -71,7 +71,7 @@ namespace Multiplayer.Client
             if (faction == null) return;
 
             Multiplayer.WorldComp?.SetFaction(faction);
-            map?.GetComponent<MultiplayerMapComp>().SetFaction(faction);
+            map?.MpComp().SetFaction(faction);
         }
 
         public static Map GetMap(this ScheduledCommand cmd)
@@ -93,12 +93,12 @@ namespace Multiplayer.Client
 
         public static MapAsyncTimeComp AsyncTime(this Map map)
         {
-            return map.GetComponent<MapAsyncTimeComp>();
+            return Multiplayer.game?.asyncTimeComps.Find(c => c.map == map);
         }
 
         public static MultiplayerMapComp MpComp(this Map map)
         {
-            return map.GetComponent<MultiplayerMapComp>();
+            return Multiplayer.game?.mapComps.Find(c => c.map == map);
         }
 
         public static T ThingReplacement<T>(this Map map, T thing) where T : Thing

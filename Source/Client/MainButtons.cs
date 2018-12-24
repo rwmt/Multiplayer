@@ -43,7 +43,7 @@ namespace Multiplayer.Client
 
             if (MpVersion.IsDebug && Multiplayer.Client != null && Find.CurrentMap != null)
             {
-                var async = Find.CurrentMap.GetComponent<MapAsyncTimeComp>();
+                var async = Find.CurrentMap.AsyncTime();
                 StringBuilder text = new StringBuilder();
                 text.Append(async.mapTicks);
 
@@ -52,7 +52,7 @@ namespace Multiplayer.Client
                 if (Find.CurrentMap.ParentFaction != null)
                 {
                     int faction = Find.CurrentMap.ParentFaction.loadID;
-                    MultiplayerMapComp comp = Find.CurrentMap.GetComponent<MultiplayerMapComp>();
+                    MultiplayerMapComp comp = Find.CurrentMap.MpComp();
                     FactionMapData data = comp.factionMapData.GetValueSafe(faction);
 
                     if (data != null)
@@ -145,6 +145,8 @@ namespace Multiplayer.Client
 
         static void DrawTimelineWindow()
         {
+            if (Multiplayer.Client == null) return;
+
             Rect rect = new Rect(0, 30f, UI.screenWidth - TimelineMargin * 2, TimelineHeight);
 
             Widgets.DrawBoxSolid(rect, new Color(0.6f, 0.6f, 0.6f, 0.8f));
@@ -223,14 +225,14 @@ namespace Multiplayer.Client
 
         static void DrawSkippingWindow()
         {
-            if (TickPatch.skipTo < 0) return;
+            if (Multiplayer.Client == null || TickPatch.skipTo < 0) return;
 
             string text = $"Simulating{MpUtil.FixedEllipsis()}";
             float textWidth = Text.CalcSize(text).x;
             float windowWidth = Math.Max(240f, textWidth + 40f);
             Rect rect = new Rect(0, 0, windowWidth, 75f).CenterOn(new Rect(0, 0, UI.screenWidth, UI.screenHeight));
 
-            if (Multiplayer.IsReplay && Event.current.type == EventType.KeyUp && Event.current.keyCode == KeyCode.Escape)
+            if (Multiplayer.IsReplay && !TickPatch.disableSkipCancel && Event.current.type == EventType.KeyUp && Event.current.keyCode == KeyCode.Escape)
             {
                 TickPatch.ClearSkipping();
                 Event.current.Use();

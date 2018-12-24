@@ -54,7 +54,7 @@ namespace Multiplayer.Common
         private NetManager lanManager;
         private NetManager arbiter;
 
-        public int nextUniqueId;
+        public int nextUniqueId; // currently unused
 
         public int NetPort => netManager.LocalPort;
         public int LanPort => lanManager.LocalPort;

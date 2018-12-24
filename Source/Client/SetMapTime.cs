@@ -114,6 +114,28 @@ namespace Multiplayer.Client
         static void Postfix(PrevTime? __state) => __state?.Set();
     }
 
+    [HarmonyPatch(typeof(TipSignal), MethodType.Constructor, new[] { typeof(Func<string>), typeof(int) })]
+    static class TipSignalCtor
+    {
+        static void Prefix(ref Func<string> textGetter)
+        {
+            if (Multiplayer.Client == null) return;
+
+            var current = PrevTime.Current();
+            var getter = textGetter;
+
+            textGetter = () =>
+            {
+                var prev = PrevTime.Current();
+                current.Set();
+                string s = getter();
+                prev.Set();
+
+                return s;
+            };
+        }
+    }
+
     public struct PrevTime
     {
         public int ticks;
@@ -127,16 +149,21 @@ namespace Multiplayer.Client
             Find.TickManager.curTimeSpeed = speed;
         }
 
-        public static PrevTime? GetAndSetToMap(Map map)
+        public static PrevTime Current()
         {
-            if (map == null) return null;
-
-            PrevTime prev = new PrevTime()
+            return new PrevTime()
             {
                 ticks = Find.TickManager.ticksGameInt,
                 speed = Find.TickManager.curTimeSpeed,
                 slower = Find.TickManager.slower
             };
+        }
+
+        public static PrevTime? GetAndSetToMap(Map map)
+        {
+            if (map == null) return null;
+
+            PrevTime prev = Current();
 
             var man = Find.TickManager;
             var comp = map.AsyncTime();

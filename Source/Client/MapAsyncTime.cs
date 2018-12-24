@@ -29,6 +29,7 @@ namespace Multiplayer.Client
 
         public static TimeSpeed replayTimeSpeed;
 
+        public static bool disableSkipCancel;
         public static bool skipToTickUntil;
         public static int skipTo = -1;
         public static Action afterSkip;
@@ -89,6 +90,7 @@ namespace Multiplayer.Client
             skipToTickUntil = false;
             accumulator = 0;
             afterSkip = null;
+            disableSkipCancel = false;
         }
 
         static ITickable CurrentTickable()
@@ -371,7 +373,7 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.Client == null) return true;
 
-            MapAsyncTimeComp comp = t.Map.GetComponent<MapAsyncTimeComp>();
+            MapAsyncTimeComp comp = t.Map.AsyncTime();
             TickerType tickerType = t.def.tickerType;
 
             if (tickerType == TickerType.Normal)
@@ -392,7 +394,7 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.Client == null) return true;
 
-            MapAsyncTimeComp comp = t.Map.GetComponent<MapAsyncTimeComp>();
+            MapAsyncTimeComp comp = t.Map.AsyncTime();
             TickerType tickerType = t.def.tickerType;
 
             if (tickerType == TickerType.Normal)
@@ -628,7 +630,7 @@ namespace Multiplayer.Client
         }
     }
 
-    public class MapAsyncTimeComp : MapComponent, ITickable
+    public class MapAsyncTimeComp : IExposable, ITickable
     {
         public static Map tickingMap;
         public static Map executingCmdMap;
@@ -680,6 +682,7 @@ namespace Multiplayer.Client
 
         public Queue<ScheduledCommand> Cmds { get => cmds; }
 
+        public Map map;
         public int mapTicks;
         private TimeSpeed timeSpeedInt;
         public bool forcedNormalSpeed;
@@ -696,8 +699,9 @@ namespace Multiplayer.Client
 
         public Queue<ScheduledCommand> cmds = new Queue<ScheduledCommand>();
 
-        public MapAsyncTimeComp(Map map) : base(map)
+        public MapAsyncTimeComp(Map map)
         {
+            this.map = map;
         }
 
         public void Tick()
@@ -803,7 +807,7 @@ namespace Multiplayer.Client
             //map.PopFaction();
         }
 
-        public override void ExposeData()
+        public void ExposeData()
         {
             Scribe_Values.Look(ref mapTicks, "mapTicks");
             Scribe_Deep.Look(ref storyteller, "storyteller");
@@ -815,10 +819,10 @@ namespace Multiplayer.Client
                 ulong.TryParse(randStateStr, out randState);
         }
 
-        public override void FinalizeInit()
+        public void FinalizeInit()
         {
             cmds = new Queue<ScheduledCommand>(OnMainThread.cachedMapCmds.GetValueSafe(map.uniqueID) ?? new List<ScheduledCommand>());
-            Log.Message("init map with cmds " + cmds.Count);
+            Log.Message($"Init map with cmds {cmds.Count}");
         }
 
         public void ExecuteCmd(ScheduledCommand cmd)

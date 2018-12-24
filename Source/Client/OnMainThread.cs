@@ -143,6 +143,8 @@ namespace Multiplayer.Client
                 Multiplayer.session = null;
             }
 
+            Multiplayer.game = null;
+
             TickPatch.ClearSkipping();
             TickPatch.Timer = 0;
             TickPatch.tickUntil = 0;
@@ -162,7 +164,7 @@ namespace Multiplayer.Client
             }
         }
 
-        private static void ClearCaches()
+        public static void ClearCaches()
         {
             cachedAtTime = 0;
             cachedGameData = null;
