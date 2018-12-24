@@ -739,6 +739,8 @@ namespace Multiplayer.Client
 
             SyncDelegate.Register(typeof(CaravanVisitUtility), "<TradeCommand>c__AnonStorey0", "<>m__0").CancelIfAnyFieldNull();     // Caravan trade with settlement
             SyncDelegate.Register(typeof(FactionGiftUtility), "<OfferGiftsCommand>c__AnonStorey0", "<>m__0").CancelIfAnyFieldNull(); // Caravan offer gifts
+
+            SyncDelegate.Register(typeof(Building_Bed), "<GetFloatMenuOptions>c__Iterator2+<GetFloatMenuOptions>c__AnonStorey4", "<>m__0", new[] { "myPawn", "<>f__ref$2/$this" }).CancelIfAnyFieldNull(); // Use medical bed
         }
 
         [MpPrefix(typeof(FormCaravanComp), "<GetGizmos>c__Iterator0+<GetGizmos>c__AnonStorey1", "<>m__0")]

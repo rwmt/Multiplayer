@@ -1060,4 +1060,12 @@ namespace Multiplayer.Client
             Add(typeof(T), (data, o) => writer(data, (T)o));
         }
     }
+
+    public class SerializationException : Exception
+    {
+        public SerializationException(string msg) : base(msg)
+        {
+        }
+    }
+
 }

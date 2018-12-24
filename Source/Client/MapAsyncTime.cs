@@ -846,7 +846,9 @@ namespace Multiplayer.Client
             List<object> prevSelected = Find.Selector.selected;
             Find.Selector.selected = new List<object>();
 
-            bool devMode = Prefs.data.devMode;
+            SelectorDeselectPatch.deselected = new List<object>();
+
+            bool prevDevMode = Prefs.data.devMode;
             Prefs.data.devMode = MpVersion.IsDebug;
 
             try
@@ -906,7 +908,11 @@ namespace Multiplayer.Client
             }
             finally
             {
-                Prefs.data.devMode = devMode;
+                Prefs.data.devMode = prevDevMode;
+
+                foreach (var deselected in SelectorDeselectPatch.deselected)
+                    prevSelected.Remove(deselected);
+                SelectorDeselectPatch.deselected = null;
 
                 Find.Selector.selected = prevSelected;
 
@@ -979,10 +985,11 @@ namespace Multiplayer.Client
 
             try
             {
+                if (!SetDesignatorState(designator, data)) return;
+
                 if (mode == DesignatorMode.SingleCell)
                 {
                     IntVec3 cell = Sync.ReadSync<IntVec3>(data);
-                    if (!SetDesignatorState(designator, data)) return;
 
                     designator.DesignateSingleCell(cell);
                     designator.Finalize(true);
@@ -990,20 +997,16 @@ namespace Multiplayer.Client
                 else if (mode == DesignatorMode.MultiCell)
                 {
                     IntVec3[] cells = Sync.ReadSync<IntVec3[]>(data);
-                    if (!SetDesignatorState(designator, data)) return;
 
                     designator.DesignateMultiCell(cells);
                 }
                 else if (mode == DesignatorMode.Thing)
                 {
                     Thing thing = Sync.ReadSync<Thing>(data);
-                    if (!SetDesignatorState(designator, data)) return;
+                    if (thing == null) return;
 
-                    if (thing != null)
-                    {
-                        designator.DesignateThing(thing);
-                        designator.Finalize(true);
-                    }
+                    designator.DesignateThing(thing);
+                    designator.Finalize(true);
                 }
             }
             finally
@@ -1043,8 +1046,8 @@ namespace Multiplayer.Client
             if (designator is Designator_Zone)
             {
                 Zone zone = Sync.ReadSync<Zone>(data);
-                if (zone == null) return false;
-                Find.Selector.selected.Add(zone);
+                if (zone != null)
+                    Find.Selector.selected.Add(zone);
             }
 
             return true;

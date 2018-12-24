@@ -1,6 +1,7 @@
 ﻿using LiteNetLib;
 using Multiplayer.Common;
 using RimWorld;
+using RimWorld.BaseGen;
 using Steamworks;
 using System;
 using System.Collections.Generic;
@@ -226,6 +227,12 @@ namespace Multiplayer.Client
                     field.SetValue(null, default(bool));
 
             typeof(DebugSettings).TypeInitializer.Invoke(null, null);
+
+            foreach (var resolver in DefDatabase<RuleDef>.AllDefs.SelectMany(r => r.resolvers))
+                if (resolver is SymbolResolver_EdgeThing edgeThing)
+                    edgeThing.randomRotations = new List<int>() { 0, 1, 2, 3 };
+
+            typeof(SymbolResolver_SingleThing).TypeInitializer.Invoke(null, null);
         }
     }
 }

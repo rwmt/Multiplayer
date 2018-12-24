@@ -4,15 +4,11 @@ using RimWorld;
 using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
-using System.Text;
 using System.Text.RegularExpressions;
-using System.Xml;
 using UnityEngine;
 using Verse;
 using Verse.AI;
@@ -1520,6 +1516,30 @@ namespace Multiplayer.Client
                 __result = letter.ID;
             else if (x is Message msg)
                 __result = msg.ID;
+        }
+    }
+
+    [HarmonyPatch(typeof(DangerWatcher), nameof(DangerWatcher.DangerRating), MethodType.Getter)]
+    static class DangerRatingPatch
+    {
+        static bool Prefix() => !Multiplayer.ShouldSync;
+
+        static void Postfix(DangerWatcher __instance, ref StoryDanger __result)
+        {
+            if (Multiplayer.ShouldSync)
+                __result = __instance.dangerRatingInt;
+        }
+    }
+
+    [HarmonyPatch(typeof(Selector), nameof(Selector.Deselect))]
+    static class SelectorDeselectPatch
+    {
+        public static List<object> deselected;
+
+        static void Prefix(object obj)
+        {
+            if (deselected != null)
+                deselected.Add(obj);
         }
     }
 

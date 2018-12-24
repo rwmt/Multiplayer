@@ -105,7 +105,7 @@ namespace Multiplayer.Common
                 while (lag >= timePerTick)
                 {
                     TickNet();
-                    if (!paused)
+                    if (!paused && PlayingPlayers.Any(p => !p.IsArbiter && p.status == PlayerStatus.Playing))
                         Tick();
                     lag -= timePerTick;
                 }
