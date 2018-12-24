@@ -536,7 +536,7 @@ namespace Multiplayer.Client
                 {
                     CSteamID friend = SteamFriends.GetFriendByIndex(i, EFriendFlags.k_EFriendFlagImmediate);
                     SteamFriends.GetFriendGamePlayed(friend, out FriendGameInfo_t friendGame);
-                    bool playingRimworld = friendGame.m_gameID.AppID() == Multiplayer.RimWorldAppId;
+                    bool playingRimworld = friendGame.m_gameID.AppID() == SteamIntegration.RimWorldAppId;
                     if (!playingRimworld) continue;
 
                     int avatar = SteamFriends.GetSmallFriendAvatar(friend);
@@ -545,8 +545,8 @@ namespace Multiplayer.Client
 
                     CSteamID serverHost = CSteamID.Nil;
                     if (connectValue != null &&
-                        connectValue.Contains(Multiplayer.SteamConnectStart) &&
-                        ulong.TryParse(connectValue.Substring(Multiplayer.SteamConnectStart.Length), out ulong hostId))
+                        connectValue.Contains(SteamIntegration.SteamConnectStart) &&
+                        ulong.TryParse(connectValue.Substring(SteamIntegration.SteamConnectStart.Length), out ulong hostId))
                     {
                         serverHost = (CSteamID)hostId;
                     }

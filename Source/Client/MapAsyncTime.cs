@@ -771,14 +771,14 @@ namespace Multiplayer.Client
             map.glowGrid.GlowGridUpdate_First();
         }
 
-        private PrevTime? prevTime;
+        private TimeSnapshot? prevTime;
         private Storyteller prevStoryteller;
 
         public void PreContext()
         {
             //map.PushFaction(map.ParentFaction);
 
-            prevTime = PrevTime.GetAndSetToMap(map);
+            prevTime = TimeSnapshot.GetAndSetFromMap(map);
 
             prevStoryteller = Current.Game.storyteller;
             Current.Game.storyteller = storyteller;

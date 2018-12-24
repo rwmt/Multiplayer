@@ -12,17 +12,17 @@ namespace Multiplayer.Client
     [HarmonyPatch(nameof(TileTemperaturesComp.CachedTileTemperatureData.CheckCache))]
     static class CachedTileTemperatureData_CheckCache
     {
-        static void Prefix(int ___tile, ref PrevTime? __state)
+        static void Prefix(int ___tile, ref TimeSnapshot? __state)
         {
             if (Multiplayer.Client == null) return;
 
             Map map = Current.Game.FindMap(___tile);
             if (map == null) return;
 
-            __state = PrevTime.GetAndSetToMap(map);
+            __state = TimeSnapshot.GetAndSetFromMap(map);
         }
 
-        static void Postfix(PrevTime? __state) => __state?.Set();
+        static void Postfix(TimeSnapshot? __state) => __state?.Set();
     }
 
     [HarmonyPatch(typeof(TileTemperaturesComp), nameof(TileTemperaturesComp.RetrieveCachedData))]

@@ -108,7 +108,7 @@ namespace Multiplayer.Client
             localServer.coopFactionId = Faction.OfPlayer.loadID;
 
             if (settings.steam)
-                localServer.NetTick += TickSteamNet;
+                localServer.NetTick += SteamIntegration.ServerSteamNetTick;
 
             if (fromReplay)
                 localServer.gameTimer = TickPatch.Timer;
@@ -208,37 +208,6 @@ namespace Multiplayer.Client
                 MapAsyncTimeComp async = map.AsyncTime();
                 async.mapTicks = Find.TickManager.TicksGame;
                 async.TimeSpeed = Find.TickManager.CurTimeSpeed;
-            }
-        }
-
-        private static void TickSteamNet(MultiplayerServer server)
-        {
-            foreach (var packet in MpUtil.ReadSteamPackets())
-            {
-                if (packet.joinPacket)
-                    MpUtil.CleanSteamNet(0);
-
-                var player = server.players.FirstOrDefault(p => p.conn is SteamBaseConn conn && conn.remoteId == packet.remote);
-
-                if (packet.joinPacket && player == null)
-                {
-                    IConnection conn = new SteamServerConn(packet.remote);
-                    conn.State = ConnectionStateEnum.ServerJoining;
-                    player = server.OnConnected(conn);
-                    player.type = PlayerType.Steam;
-
-                    player.steamId = (ulong)packet.remote;
-                    player.steamPersonaName = SteamFriends.GetFriendPersonaName(packet.remote);
-                    if (player.steamPersonaName.Length == 0)
-                        player.steamPersonaName = "[unknown]";
-
-                    conn.Send(Packets.Server_SteamAccept);
-                }
-
-                if (!packet.joinPacket && player != null)
-                {
-                    player.HandleReceive(packet.data, packet.reliable);
-                }
             }
         }
 
@@ -410,7 +379,7 @@ namespace Multiplayer.Client
     {
         public SteamClientConn(CSteamID remoteId) : base(remoteId)
         {
-            MpUtil.CleanSteamNet(0);
+            SteamIntegration.CleanChannel(0);
 
             SteamNetworking.SendP2PPacket(remoteId, new byte[] { 1 }, 1, EP2PSend.k_EP2PSendReliable, 0);
         }

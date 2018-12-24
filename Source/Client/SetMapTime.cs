@@ -20,98 +20,98 @@ namespace Multiplayer.Client
     [MpPatch(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.ChoicesAtFor))]
     static class SetMapTimeForUI
     {
-        static void Prefix(ref PrevTime? __state)
+        static void Prefix(ref TimeSnapshot? __state)
         {
             if (Multiplayer.Client == null || WorldRendererUtility.WorldRenderedNow || Find.CurrentMap == null) return;
-            __state = PrevTime.GetAndSetToMap(Find.CurrentMap);
+            __state = TimeSnapshot.GetAndSetFromMap(Find.CurrentMap);
         }
 
-        static void Postfix(PrevTime? __state) => __state?.Set();
+        static void Postfix(TimeSnapshot? __state) => __state?.Set();
     }
 
     [HarmonyPatch(typeof(Map), nameof(Map.MapUpdate))]
     static class MapUpdateTimePatch
     {
-        static void Prefix(Map __instance, ref PrevTime? __state)
+        static void Prefix(Map __instance, ref TimeSnapshot? __state)
         {
             if (Multiplayer.Client == null) return;
-            __state = PrevTime.GetAndSetToMap(__instance);
+            __state = TimeSnapshot.GetAndSetFromMap(__instance);
         }
 
-        static void Postfix(PrevTime? __state) => __state?.Set();
+        static void Postfix(TimeSnapshot? __state) => __state?.Set();
     }
 
     [MpPatch(typeof(PortraitsCache), nameof(PortraitsCache.IsAnimated))]
     static class PawnPortraitMapTime
     {
-        static void Prefix(Pawn pawn, ref PrevTime? __state)
+        static void Prefix(Pawn pawn, ref TimeSnapshot? __state)
         {
             if (Multiplayer.Client == null || Current.ProgramState != ProgramState.Playing) return;
-            __state = PrevTime.GetAndSetToMap(pawn.MapHeld);
+            __state = TimeSnapshot.GetAndSetFromMap(pawn.MapHeld);
         }
 
-        static void Postfix(PrevTime? __state) => __state?.Set();
+        static void Postfix(TimeSnapshot? __state) => __state?.Set();
     }
 
     [HarmonyPatch(typeof(PawnRenderer), nameof(PawnRenderer.RenderPortrait))]
     static class PawnRenderPortraitMapTime
     {
-        static void Prefix(PawnRenderer __instance, ref PrevTime? __state)
+        static void Prefix(PawnRenderer __instance, ref TimeSnapshot? __state)
         {
             if (Multiplayer.Client == null || Current.ProgramState != ProgramState.Playing) return;
-            __state = PrevTime.GetAndSetToMap(__instance.pawn.MapHeld);
+            __state = TimeSnapshot.GetAndSetFromMap(__instance.pawn.MapHeld);
         }
 
-        static void Postfix(PrevTime? __state) => __state?.Set();
+        static void Postfix(TimeSnapshot? __state) => __state?.Set();
     }
 
     [HarmonyPatch(typeof(PawnTweener), nameof(PawnTweener.PreDrawPosCalculation))]
     static class PreDrawPosCalculationMapTime
     {
-        static void Prefix(PawnTweener __instance, ref PrevTime? __state)
+        static void Prefix(PawnTweener __instance, ref TimeSnapshot? __state)
         {
             if (Multiplayer.Client == null || Current.ProgramState != ProgramState.Playing) return;
-            __state = PrevTime.GetAndSetToMap(__instance.pawn.Map);
+            __state = TimeSnapshot.GetAndSetFromMap(__instance.pawn.Map);
         }
 
-        static void Postfix(PrevTime? __state) => __state?.Set();
+        static void Postfix(TimeSnapshot? __state) => __state?.Set();
     }
 
     [HarmonyPatch(typeof(DangerWatcher), nameof(DangerWatcher.DangerRating), MethodType.Getter)]
     static class DangerRatingMapTime
     {
-        static void Prefix(DangerWatcher __instance, ref PrevTime? __state)
+        static void Prefix(DangerWatcher __instance, ref TimeSnapshot? __state)
         {
             if (Multiplayer.Client == null) return;
-            __state = PrevTime.GetAndSetToMap(__instance.map);
+            __state = TimeSnapshot.GetAndSetFromMap(__instance.map);
         }
 
-        static void Postfix(PrevTime? __state) => __state?.Set();
+        static void Postfix(TimeSnapshot? __state) => __state?.Set();
     }
 
     [MpPatch(typeof(Sustainer), nameof(Sustainer.SustainerUpdate))]
     [MpPatch(typeof(Sustainer), "<Sustainer>m__0")]
     static class SustainerUpdateMapTime
     {
-        static void Prefix(Sustainer __instance, ref PrevTime? __state)
+        static void Prefix(Sustainer __instance, ref TimeSnapshot? __state)
         {
             if (Multiplayer.Client == null) return;
-            __state = PrevTime.GetAndSetToMap(__instance.info.Maker.Map);
+            __state = TimeSnapshot.GetAndSetFromMap(__instance.info.Maker.Map);
         }
 
-        static void Postfix(PrevTime? __state) => __state?.Set();
+        static void Postfix(TimeSnapshot? __state) => __state?.Set();
     }
 
     [HarmonyPatch(typeof(Sample), nameof(Sample.Update))]
     static class SampleUpdateMapTime
     {
-        static void Prefix(Sample __instance, ref PrevTime? __state)
+        static void Prefix(Sample __instance, ref TimeSnapshot? __state)
         {
             if (Multiplayer.Client == null) return;
-            __state = PrevTime.GetAndSetToMap(__instance.Map);
+            __state = TimeSnapshot.GetAndSetFromMap(__instance.Map);
         }
 
-        static void Postfix(PrevTime? __state) => __state?.Set();
+        static void Postfix(TimeSnapshot? __state) => __state?.Set();
     }
 
     [HarmonyPatch(typeof(TipSignal), MethodType.Constructor, new[] { typeof(Func<string>), typeof(int) })]
@@ -121,12 +121,12 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.Client == null) return;
 
-            var current = PrevTime.Current();
+            var current = TimeSnapshot.Current();
             var getter = textGetter;
 
             textGetter = () =>
             {
-                var prev = PrevTime.Current();
+                var prev = TimeSnapshot.Current();
                 current.Set();
                 string s = getter();
                 prev.Set();
@@ -136,7 +136,7 @@ namespace Multiplayer.Client
         }
     }
 
-    public struct PrevTime
+    public struct TimeSnapshot
     {
         public int ticks;
         public TimeSpeed speed;
@@ -149,9 +149,9 @@ namespace Multiplayer.Client
             Find.TickManager.curTimeSpeed = speed;
         }
 
-        public static PrevTime Current()
+        public static TimeSnapshot Current()
         {
-            return new PrevTime()
+            return new TimeSnapshot()
             {
                 ticks = Find.TickManager.ticksGameInt,
                 speed = Find.TickManager.curTimeSpeed,
@@ -159,11 +159,11 @@ namespace Multiplayer.Client
             };
         }
 
-        public static PrevTime? GetAndSetToMap(Map map)
+        public static TimeSnapshot? GetAndSetFromMap(Map map)
         {
             if (map == null) return null;
 
-            PrevTime prev = Current();
+            TimeSnapshot prev = Current();
 
             var man = Find.TickManager;
             var comp = map.AsyncTime();

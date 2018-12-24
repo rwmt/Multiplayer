@@ -67,16 +67,7 @@ namespace Multiplayer.Client
         public static string ReplaysDir => GenFilePaths.FolderUnderSaveData("MpReplays");
         public static string DesyncsDir => GenFilePaths.FolderUnderSaveData("MpDesyncs");
 
-        public static Callback<P2PSessionRequest_t> sessionReqCallback;
-        public static Callback<P2PSessionConnectFail_t> p2pFail;
-        public static Callback<FriendRichPresenceUpdate_t> friendRchpUpdate;
-        public static Callback<GameRichPresenceJoinRequested_t> gameJoinReq;
-        public static Callback<PersonaStateChange_t> personaChange;
-        public static AppId_t RimWorldAppId;
-
         public static Stopwatch Clock = Stopwatch.StartNew();
-
-        public const string SteamConnectStart = " -mpserver=";
 
         static Multiplayer()
         {
@@ -91,7 +82,7 @@ namespace Multiplayer.Client
             SimpleProfiler.Init(username);
 
             if (SteamManager.Initialized)
-                InitSteam();
+                SteamIntegration.InitCallbacks();
 
             Log.Message($"Multiplayer version {MpVersion.Version}");
             Log.Message($"Player's username: {username}");
@@ -178,59 +169,6 @@ namespace Multiplayer.Client
                     });
                 }, "Replay", false, null);
             }
-        }
-
-        private static void InitSteam()
-        {
-            RimWorldAppId = SteamUtils.GetAppID();
-
-            sessionReqCallback = Callback<P2PSessionRequest_t>.Create(req =>
-            {
-                if (session?.localSettings != null && session.localSettings.steam && !session.pendingSteam.Contains(req.m_steamIDRemote))
-                {
-                    if (MultiplayerMod.settings.autoAcceptSteam)
-                        SteamNetworking.AcceptP2PSessionWithUser(req.m_steamIDRemote);
-                    else
-                        session.pendingSteam.Add(req.m_steamIDRemote);
-
-                    session.knownUsers.Add(req.m_steamIDRemote);
-                    session.hasUnread = true;
-
-                    SteamFriends.RequestUserInformation(req.m_steamIDRemote, true);
-                }
-            });
-
-            friendRchpUpdate = Callback<FriendRichPresenceUpdate_t>.Create(update =>
-            {
-            });
-
-            gameJoinReq = Callback<GameRichPresenceJoinRequested_t>.Create(req =>
-            {
-            });
-
-            personaChange = Callback<PersonaStateChange_t>.Create(change =>
-            {
-            });
-
-            p2pFail = Callback<P2PSessionConnectFail_t>.Create(fail =>
-            {
-                if (session == null) return;
-
-                var remoteId = fail.m_steamIDRemote;
-                var error = (EP2PSessionError)fail.m_eP2PSessionError;
-
-                if (Client is SteamBaseConn clientConn && clientConn.remoteId == remoteId)
-                    clientConn.OnError(error);
-
-                if (LocalServer == null) return;
-
-                LocalServer.Enqueue(() =>
-                {
-                    var conn = LocalServer.players.Select(p => p.conn).OfType<SteamBaseConn>().FirstOrDefault(c => c.remoteId == remoteId);
-                    if (conn != null)
-                        conn.OnError(error);
-                });
-            });
         }
 
         private static void DoPatches()

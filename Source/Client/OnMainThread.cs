@@ -30,7 +30,7 @@ namespace Multiplayer.Client
             queue.RunQueue();
 
             if (SteamManager.Initialized)
-                UpdateRichPresence();
+                SteamIntegration.UpdateRichPresence();
 
             if (Multiplayer.Client == null) return;
 
@@ -43,7 +43,7 @@ namespace Multiplayer.Client
             }
 
             if (Multiplayer.Client is SteamBaseConn steamConn && SteamManager.Initialized)
-                foreach (var packet in MpUtil.ReadSteamPackets())
+                foreach (var packet in SteamIntegration.ReadPackets())
                     if (steamConn.remoteId == packet.remote)
                         Multiplayer.HandleReceive(packet.data, packet.reliable);
         }
@@ -73,20 +73,6 @@ namespace Multiplayer.Client
             }
 
             Multiplayer.Client.Send(Packets.Client_Cursor, writer.GetArray(), reliable: false);
-        }
-
-        private Stopwatch lastSteamUpdate = Stopwatch.StartNew();
-
-        private void UpdateRichPresence()
-        {
-            if (lastSteamUpdate.ElapsedMilliseconds < 1000) return;
-
-            if (Multiplayer.session?.localSettings?.steam ?? false)
-                SteamFriends.SetRichPresence("connect", $"{Multiplayer.SteamConnectStart}{SteamUser.GetSteamID()}");
-            else
-                SteamFriends.SetRichPresence("connect", null);
-
-            lastSteamUpdate.Restart();
         }
 
         private void UpdateSync()
