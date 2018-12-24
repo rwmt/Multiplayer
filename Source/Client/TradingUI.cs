@@ -110,7 +110,7 @@ namespace Multiplayer.Client
                     Rect traderTimeRect = traderNameRect.Up(traderNameRect.height - 5f);
 
                     Text.Anchor = TextAnchor.LowerRight;
-                    Widgets.Label(traderTimeRect, $"Leaves in {traderLeavingIn?.ToStringTicksToPeriod()}");
+                    Widgets.Label(traderTimeRect, "MpTraderLeavesIn".Translate(traderLeavingIn?.ToStringTicksToPeriod()));
                     Text.Anchor = TextAnchor.UpperLeft;
                 }
 

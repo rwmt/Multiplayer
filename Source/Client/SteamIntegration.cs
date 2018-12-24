@@ -94,7 +94,7 @@ namespace Multiplayer.Client
             }
         }
 
-        public static void CleanChannel(int channel)
+        public static void ClearChannel(int channel)
         {
             while (SteamNetworking.IsP2PPacketAvailable(out uint size, channel))
                 SteamNetworking.ReadP2PPacket(new byte[size], size, out uint sizeRead, out CSteamID remote, channel);
@@ -105,7 +105,7 @@ namespace Multiplayer.Client
             foreach (var packet in ReadPackets())
             {
                 if (packet.joinPacket)
-                    CleanChannel(0);
+                    ClearChannel(0);
 
                 var player = server.players.FirstOrDefault(p => p.conn is SteamBaseConn conn && conn.remoteId == packet.remote);
 

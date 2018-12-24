@@ -379,7 +379,7 @@ namespace Multiplayer.Client
     {
         public SteamClientConn(CSteamID remoteId) : base(remoteId)
         {
-            SteamIntegration.CleanChannel(0);
+            SteamIntegration.ClearChannel(0);
 
             SteamNetworking.SendP2PPacket(remoteId, new byte[] { 1 }, 1, EP2PSend.k_EP2PSendReliable, 0);
         }

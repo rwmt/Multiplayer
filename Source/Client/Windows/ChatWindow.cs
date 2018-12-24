@@ -70,7 +70,7 @@ namespace Multiplayer.Client
             inRect.yMin += 30f;
 
             DrawList(
-                $"Players ({Multiplayer.session.players.Count}):",
+                "MpChatPlayers".Translate(Multiplayer.session.players.Count),
                 Multiplayer.session.players,
                 p => $"{p.username} ({p.latency}ms)",
                 ref inRect,
@@ -90,14 +90,14 @@ namespace Multiplayer.Client
             inRect.yMin += 10f;
 
             DrawList(
-                "Accept Steam players",
+                "MpSteamAcceptTitle".Translate(),
                 Multiplayer.session.pendingSteam,
                 SteamFriends.GetFriendPersonaName,
                 ref inRect,
                 ref steamScroll,
                 AcceptSteamPlayer,
                 true,
-                "Click to accept"
+                "MpSteamAcceptDesc".Translate()
             );
         }
 
@@ -106,7 +106,7 @@ namespace Multiplayer.Client
             SteamNetworking.AcceptP2PSessionWithUser(id);
             Multiplayer.session.pendingSteam.Remove(id);
 
-            Messages.Message("Player accepted", MessageTypeDefOf.PositiveEvent, false);
+            Messages.Message("MpSteamAccepted".Translate(), MessageTypeDefOf.PositiveEvent, false);
         }
 
         private Color GetColor(PlayerStatus status)
@@ -252,7 +252,7 @@ namespace Multiplayer.Client
 
             Widgets.EndScrollView();
 
-            if (Widgets.ButtonText(new Rect(textField.xMax + 5f, textField.y, 55f, textField.height), "Send"))
+            if (Widgets.ButtonText(new Rect(textField.xMax + 5f, textField.y, 55f, textField.height), "MpSend".Translate()))
                 SendMsg();
 
             GUI.EndGroup();

@@ -75,8 +75,8 @@ namespace Multiplayer.Client
 
             DoUsernameField(listing);
 
-            listing.CheckboxLabeled("Show player cursors", ref settings.showCursors);
-            listing.CheckboxLabeled("Auto-accept Steam", ref settings.autoAcceptSteam, "Automatically accept any incoming Steam connection requests");
+            listing.CheckboxLabeled("MpShowPlayerCursors".Translate(), ref settings.showCursors);
+            listing.CheckboxLabeled("MpAutoAcceptSteam".Translate(), ref settings.autoAcceptSteam, "MpAutoAcceptSteamDesc".Translate());
 
             listing.End();
         }
@@ -85,7 +85,7 @@ namespace Multiplayer.Client
         {
             GUI.SetNextControlName("UsernameField");
 
-            string username = listing.TextEntryLabeled("Username:  ", settings.username);
+            string username = listing.TextEntryLabeled($"{"MpUsername".Translate()}:  ", settings.username);
             if (username.Length <= 15 && ServerJoiningState.UsernamePattern.IsMatch(username))
             {
                 settings.username = username;

@@ -65,10 +65,10 @@ namespace Multiplayer.Client
         {
             List<TabRecord> tabs = new List<TabRecord>()
             {
-                new TabRecord("LAN", () => tab = Tabs.Lan,  tab == Tabs.Lan),
-                new TabRecord("Direct", () => tab = Tabs.Direct, tab == Tabs.Direct),
-                new TabRecord("Steam", () => tab = Tabs.Steam, tab == Tabs.Steam),
-                new TabRecord("Host", () => tab = Tabs.Host, tab == Tabs.Host),
+                new TabRecord("MpLan".Translate(), () => tab = Tabs.Lan,  tab == Tabs.Lan),
+                new TabRecord("MpDirect".Translate(), () => tab = Tabs.Direct, tab == Tabs.Direct),
+                new TabRecord("MpSteam".Translate(), () => tab = Tabs.Steam, tab == Tabs.Steam),
+                new TabRecord("MpHostTab".Translate(), () => tab = Tabs.Host, tab == Tabs.Host),
             };
 
             inRect.yMin += 35f;
@@ -173,8 +173,8 @@ namespace Multiplayer.Client
 
             float y = 0;
             Text.Font = GameFont.Medium;
-            float textHeight1 = Text.CalcHeight("Multiplayer", inRect.width);
-            Widgets.Label(viewRect.Right(18f), "Multiplayer");
+            float textHeight1 = Text.CalcHeight("MpMultiplayer".Translate(), inRect.width);
+            Widgets.Label(viewRect.Right(18f), "MpMultiplayer".Translate());
             Text.Font = GameFont.Small;
             y += textHeight1 + 10;
 
@@ -191,8 +191,8 @@ namespace Multiplayer.Client
 
             viewRect.y = y;
             Text.Font = GameFont.Medium;
-            float textHeight2 = Text.CalcHeight("Singleplayer", inRect.width);
-            Widgets.Label(viewRect.Right(18), "Singleplayer");
+            float textHeight2 = Text.CalcHeight("MpSingleplayer".Translate(), inRect.width);
+            Widgets.Label(viewRect.Right(18), "MpSingleplayer".Translate());
             Text.Font = GameFont.Small;
             y += textHeight2 + 10;
 
@@ -207,7 +207,7 @@ namespace Multiplayer.Client
             if (selectedFile == null)
             {
                 Text.Anchor = TextAnchor.MiddleCenter;
-                Widgets.Label(new Rect(outRect.x, outRect.yMax, outRect.width, 80), "Nothing selected");
+                Widgets.Label(new Rect(outRect.x, outRect.yMax, outRect.width, 80), "MpNothingSelected".Translate());
                 Text.Anchor = TextAnchor.UpperLeft;
             }
             else
@@ -229,7 +229,7 @@ namespace Multiplayer.Client
         {
             if (file.replay)
             {
-                if (Widgets.ButtonText(new Rect(width, 0, 120, 40), "Watch"))
+                if (Widgets.ButtonText(new Rect(width, 0, 120, 40), "MpWatchReplay".Translate()))
                 {
                     Close(false);
                     Replay.LoadReplay(file.fileName);
@@ -238,7 +238,7 @@ namespace Multiplayer.Client
                 width += 120 + 10;
             }
 
-            if (Widgets.ButtonText(new Rect(width, 0, 120, 40), "Host"))
+            if (Widgets.ButtonText(new Rect(width, 0, 120, 40), "MpHostButton".Translate()))
             {
                 Close(false);
                 Find.WindowStack.Add(new HostWindow(file) { returnToServerBrowser = true });
@@ -246,7 +246,7 @@ namespace Multiplayer.Client
 
             width += 120 + 10;
 
-            if (Widgets.ButtonText(new Rect(width, 0, 120, 40), "Delete"))
+            if (Widgets.ButtonText(new Rect(width, 0, 120, 40), "Delete".Translate()))
             {
                 Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation("ConfirmDelete".Translate(file.fileName), () =>
                 {
@@ -352,9 +352,9 @@ namespace Multiplayer.Client
         {
             string info = null;
             if (!SteamManager.Initialized)
-                info = "Not connected to Steam";
+                info = "MpNotConnectedToSteam".Translate();
             else if (friends.Count == 0)
-                info = "No friends currently playing RimWorld";
+                info = "MpNoFriendsPlaying".Translate();
 
             if (info != null)
             {
@@ -390,7 +390,7 @@ namespace Multiplayer.Client
 
                 GUI.color = SteamGreen;
                 Text.Font = GameFont.Tiny;
-                Widgets.Label(entryRect.Right(45).Down(8), "Playing RimWorld");
+                Widgets.Label(entryRect.Right(45).Down(8), "MpPlayingRimWorld".Translate());
                 Text.Font = GameFont.Small;
                 GUI.color = Color.white;
 
@@ -399,7 +399,7 @@ namespace Multiplayer.Client
                 if (friend.serverHost != CSteamID.Nil)
                 {
                     Rect playButton = new Rect(entryRect.xMax - 85, entryRect.y + 5, 80, 40 - 10);
-                    if (Widgets.ButtonText(playButton, "Join"))
+                    if (Widgets.ButtonText(playButton, "MpJoinButton".Translate()))
                     {
                         Close(false);
 
@@ -417,7 +417,7 @@ namespace Multiplayer.Client
                 else
                 {
                     Rect playButton = new Rect(entryRect.xMax - 125, entryRect.y + 5, 120, 40 - 10);
-                    Widgets.ButtonText(playButton, "Not in multiplayer", false, false, false);
+                    Widgets.ButtonText(playButton, "MpNotInMultiplayer".Translate(), false, false, false);
                 }
 
                 Text.Anchor = TextAnchor.UpperLeft;
@@ -435,7 +435,7 @@ namespace Multiplayer.Client
         {
             ip = Widgets.TextField(new Rect(inRect.center.x - 200 / 2, 15f, 200, 35f), ip);
 
-            if (Widgets.ButtonText(new Rect(inRect.center.x - 100f / 2, 60f, 100f, 35f), "Connect"))
+            if (Widgets.ButtonText(new Rect(inRect.center.x - 100f / 2, 60f, 100f, 35f), "MpConnectButton".Translate()))
             {
                 int port = MultiplayerServer.DefaultPort;
                 string[] ipport = ip.Split(':');
@@ -446,7 +446,7 @@ namespace Multiplayer.Client
 
                 if (!IPAddress.TryParse(ipport[0], out IPAddress address))
                 {
-                    Messages.Message("Invalid IP address.", MessageTypeDefOf.RejectInput, false);
+                    Messages.Message("MpInvalidAddress".Translate(), MessageTypeDefOf.RejectInput, false);
                 }
                 else
                 {
@@ -461,7 +461,7 @@ namespace Multiplayer.Client
         private void DrawLan(Rect inRect)
         {
             Text.Anchor = TextAnchor.MiddleCenter;
-            Widgets.Label(new Rect(inRect.x, 8f, inRect.width, 40), "Searching" + MpUtil.FixedEllipsis());
+            Widgets.Label(new Rect(inRect.x, 8f, inRect.width, 40), "MpLanSearching".Translate() + MpUtil.FixedEllipsis());
             Text.Anchor = TextAnchor.UpperLeft;
             inRect.yMin += 40f;
 
@@ -527,44 +527,43 @@ namespace Multiplayer.Client
 
         private void UpdateSteam()
         {
-            if (Multiplayer.Clock.ElapsedMilliseconds - lastFriendUpdate > 2000)
+            if (Multiplayer.Clock.ElapsedMilliseconds - lastFriendUpdate < 2000) return;
+
+            friends.Clear();
+
+            int friendCount = SteamFriends.GetFriendCount(EFriendFlags.k_EFriendFlagImmediate);
+            for (int i = 0; i < friendCount; i++)
             {
-                friends.Clear();
+                CSteamID friend = SteamFriends.GetFriendByIndex(i, EFriendFlags.k_EFriendFlagImmediate);
+                SteamFriends.GetFriendGamePlayed(friend, out FriendGameInfo_t friendGame);
+                bool playingRimworld = friendGame.m_gameID.AppID() == SteamIntegration.RimWorldAppId;
+                if (!playingRimworld) continue;
 
-                int friendCount = SteamFriends.GetFriendCount(EFriendFlags.k_EFriendFlagImmediate);
-                for (int i = 0; i < friendCount; i++)
+                int avatar = SteamFriends.GetSmallFriendAvatar(friend);
+                string username = SteamFriends.GetFriendPersonaName(friend);
+                string connectValue = SteamFriends.GetFriendRichPresence(friend, "connect");
+
+                CSteamID serverHost = CSteamID.Nil;
+                if (connectValue != null &&
+                    connectValue.Contains(SteamIntegration.SteamConnectStart) &&
+                    ulong.TryParse(connectValue.Substring(SteamIntegration.SteamConnectStart.Length), out ulong hostId))
                 {
-                    CSteamID friend = SteamFriends.GetFriendByIndex(i, EFriendFlags.k_EFriendFlagImmediate);
-                    SteamFriends.GetFriendGamePlayed(friend, out FriendGameInfo_t friendGame);
-                    bool playingRimworld = friendGame.m_gameID.AppID() == SteamIntegration.RimWorldAppId;
-                    if (!playingRimworld) continue;
-
-                    int avatar = SteamFriends.GetSmallFriendAvatar(friend);
-                    string username = SteamFriends.GetFriendPersonaName(friend);
-                    string connectValue = SteamFriends.GetFriendRichPresence(friend, "connect");
-
-                    CSteamID serverHost = CSteamID.Nil;
-                    if (connectValue != null &&
-                        connectValue.Contains(SteamIntegration.SteamConnectStart) &&
-                        ulong.TryParse(connectValue.Substring(SteamIntegration.SteamConnectStart.Length), out ulong hostId))
-                    {
-                        serverHost = (CSteamID)hostId;
-                    }
-
-                    friends.Add(new SteamPersona()
-                    {
-                        id = friend,
-                        avatar = avatar,
-                        username = username,
-                        playingRimworld = playingRimworld,
-                        serverHost = serverHost,
-                    });
+                    serverHost = (CSteamID)hostId;
                 }
 
-                friends.SortByDescending(f => f.serverHost != CSteamID.Nil);
-
-                lastFriendUpdate = Multiplayer.Clock.ElapsedMilliseconds;
+                friends.Add(new SteamPersona()
+                {
+                    id = friend,
+                    avatar = avatar,
+                    username = username,
+                    playingRimworld = playingRimworld,
+                    serverHost = serverHost,
+                });
             }
+
+            friends.SortByDescending(f => f.serverHost != CSteamID.Nil);
+
+            lastFriendUpdate = Multiplayer.Clock.ElapsedMilliseconds;
         }
 
         public override void PostClose()

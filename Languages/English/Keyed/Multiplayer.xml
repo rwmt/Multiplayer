@@ -31,4 +31,67 @@
   <MpConvert>Convert to singleplayer</MpConvert>
   <MpConverting>Converting</MpConverting>
   
+  <MpUsername>Username</MpUsername>
+  <MpShowPlayerCursors>Show player cursors</MpShowPlayerCursors>
+  <MpAutoAcceptSteam>Auto-accept Steam</MpAutoAcceptSteam>
+  <MpAutoAcceptSteamDesc>Automatically accept any incoming Steam connection requests.</MpAutoAcceptSteamDesc>
+  
+  <MpTraderLeavesIn>Leaves in {0}</MpTraderLeavesIn>
+  
+  <MpChatButton>Chat</MpChatButton>
+  <MpTradingButton>Trading</MpTradingButton>
+  
+  <MpChatPlayers>Players ({0}):</MpChatPlayers>
+  <MpSend>Send</MpSend>
+  <MpSteamAcceptTitle>Accept Steam players</MpSteamAcceptTitle>
+  <MpSteamAcceptDesc>Click to accept</MpSteamAcceptDesc>
+  <MpSteamAccepted>Player accepted</MpSteamAccepted>
+  
+  <MpConnectingTo>Connecting to {0}:{1}</MpConnectingTo>
+  <MpConnected>Connected.</MpConnected>
+  
+  <MpSteamConnectingTo>Connecting to a game hosted by {0}</MpSteamConnectingTo>
+  <MpSteamConnectingWaiting>Waiting for host to accept</MpSteamConnectingWaiting>
+  
+  <MpTicksBehind>You are {0} ticks behind.</MpTicksBehind>
+  <MpLowerGameSpeed>Consider lowering the game speed.</MpLowerGameSpeed>
+  
+  <MpDesynced>The game state has desynced.</MpDesynced>
+  <MpTryResync>Try resync</MpTryResync>
+  
+  <MpSaveReplayAs>Save replay as</MpSaveReplayAs>
+  <MpWillOverwrite>Will overwrite</MpWillOverwrite>
+  <MpReplaySaved>Replay saved</MpReplaySaved>
+  
+  <MpGameName>Game name</MpGameName>
+  <MpMaxPlayers>Max players</MpMaxPlayers>
+  <MpAutosaveEvery>Autosave every</MpAutosaveEvery>
+  <MpAutosaveMinutes>minutes</MpAutosaveMinutes>
+  <MpLanDesc>Broadcast the game to your local network.\n\nResolved LAN address: {0}</MpLanDesc>
+  
+  <MpHostButton>Host</MpHostButton>
+  <MpWatchReplay>Watch</MpWatchReplay>
+  <MpNothingSelected>Nothing selected</MpNothingSelected>
+  
+  <MpHostIngame>Host from this game</MpHostIngame>
+  <MpHostReplay>Host from a replay</MpHostReplay>
+  <MpHostSavefile>Host from a savefile</MpHostSavefile>
+  
+  <MpJoinButton>Join</MpJoinButton>
+  <MpConnectButton>Connect</MpConnectButton>
+  <MpLanSearching>Searching</MpLanSearching>
+  
+  <MpNotConnectedToSteam>Not connected to Steam</MpNotConnectedToSteam>
+  <MpNoFriendsPlaying>No friends currently playing RimWorld</MpNoFriendsPlaying>
+  <MpPlayingRimWorld>Playing RimWorld</MpPlayingRimWorld>
+  <MpNotInMultiplayer>Not in multiplayer</MpNotInMultiplayer>
+  
+  <MpLan>LAN</MpLan>
+  <MpDirect>Direct</MpDirect>
+  <MpSteam>Steam</MpSteam>
+  <MpHostTab>Host</MpHostTab>
+  
+  <MpMultiplayer>Multiplayer</MpMultiplayer>
+  <MpSingleplayer>Singleplayer</MpSingleplayer>
+  
 </LanguageData>

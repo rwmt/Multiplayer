@@ -41,7 +41,7 @@ namespace Multiplayer.Client
             Text.Anchor = TextAnchor.UpperLeft;
 
             Rect buttonRect = new Rect((inRect.width - buttonWidth) / 2f, inRect.height - buttonHeight - 10f, buttonWidth, buttonHeight);
-            if (Widgets.ButtonText(buttonRect, "Cancel", true, false, true))
+            if (Widgets.ButtonText(buttonRect, "CancelButton".Translate(), true, false, true))
             {
                 Close();
             }
@@ -55,21 +55,24 @@ namespace Multiplayer.Client
                 Find.WindowStack.Add(new ServerBrowser());
         }
 
-        public void Connected() => result = "Connected.";
+        public void Connected() => result = "MpConnected".Translate();
         public void Disconnected() => result = Multiplayer.session.disconnectServerReason ?? Multiplayer.session.disconnectNetReason;
     }
 
     public class ConnectingWindow : BaseConnectingWindow
     {
-        public override string ConnectingString => $"Connecting to {address}:{port}";
+        public override string ConnectingString => "MpConnectingTo".Translate(addressStr, port);
 
         private IPAddress address;
         private int port;
+        private string addressStr;
 
         public ConnectingWindow(IPAddress address, int port)
         {
             this.address = address;
             this.port = port;
+
+            addressStr = address?.ToString();
 
             ClientUtil.TryConnect(address, port);
         }
@@ -77,7 +80,7 @@ namespace Multiplayer.Client
 
     public class SteamConnectingWindow : BaseConnectingWindow
     {
-        public override string ConnectingString => (host.NullOrEmpty() ? "" : $"Connecting to a game hosted by {host}\n") + "Waiting for host to accept";
+        public override string ConnectingString => (host.NullOrEmpty() ? "" : $"{"MpSteamConnectingTo".Translate(host)}\n") + "MpSteamConnectingWaiting".Translate();
 
         public CSteamID hostId;
         public string host;
@@ -120,7 +123,7 @@ namespace Multiplayer.Client
             Text.Anchor = TextAnchor.UpperLeft;
 
             Rect buttonRect = new Rect((inRect.width - ButtonWidth) / 2f, inRect.height - ButtonHeight - 10f, ButtonWidth, ButtonHeight);
-            if (Widgets.ButtonText(buttonRect, "Quit to main menu", true, false, true))
+            if (Widgets.ButtonText(buttonRect, "QuitToMainMenu".Translate(), true, false, true))
             {
                 GenScene.GoToMainMenu();
             }

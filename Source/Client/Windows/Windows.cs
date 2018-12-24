@@ -90,7 +90,7 @@ namespace Multiplayer.Client
             Text.Font = GameFont.Small;
 
             Text.Anchor = TextAnchor.UpperCenter;
-            Widgets.Label(new Rect(0, 0, inRect.width, 40), $"The game state has desynced.\n{text}");
+            Widgets.Label(new Rect(0, 0, inRect.width, 40), $"{"MpDesynced".Translate()}\n{text}");
             Text.Anchor = TextAnchor.UpperLeft;
 
             float buttonWidth = 120 * 4 + 10 * 3;
@@ -99,7 +99,7 @@ namespace Multiplayer.Client
             GUI.BeginGroup(buttonRect);
 
             float x = 0;
-            if (Widgets.ButtonText(new Rect(x, 0, 120, 35), "Try resync"))
+            if (Widgets.ButtonText(new Rect(x, 0, 120, 35), "MpTryResync".Translate()))
             {
                 TickPatch.skipToTickUntil = true;
                 TickPatch.skipTo = 0;
@@ -110,15 +110,15 @@ namespace Multiplayer.Client
             }
             x += 120 + 10;
 
-            if (Widgets.ButtonText(new Rect(x, 0, 120, 35), "Save"))
+            if (Widgets.ButtonText(new Rect(x, 0, 120, 35), "Save".Translate()))
                 Find.WindowStack.Add(new Dialog_SaveReplay());
             x += 120 + 10;
 
-            if (Widgets.ButtonText(new Rect(x, 0, 120, 35), "Chat"))
+            if (Widgets.ButtonText(new Rect(x, 0, 120, 35), "MpChatButton".Translate()))
                 Find.WindowStack.Add(new ChatWindow() { closeOnClickedOutside = true, absorbInputAroundWindow = true });
             x += 120 + 10;
 
-            if (Widgets.ButtonText(new Rect(x, 0, 120, 35), "Quit"))
+            if (Widgets.ButtonText(new Rect(x, 0, 120, 35), "Quit".Translate()))
             {
                 OnMainThread.StopMultiplayer();
                 GenScene.GoToMainMenu();
@@ -148,7 +148,7 @@ namespace Multiplayer.Client
 
         public override void DoWindowContents(Rect inRect)
         {
-            Widgets.Label(new Rect(0, 15f, inRect.width, 35f), "Save replay as");
+            Widgets.Label(new Rect(0, 15f, inRect.width, 35f), "MpSaveReplayAs".Translate());
 
             GUI.SetNextControlName("RenameField");
             string text = Widgets.TextField(new Rect(0, 25 + 15f, inRect.width, 35f), curName);
@@ -161,7 +161,7 @@ namespace Multiplayer.Client
             if (fileExists)
             {
                 Text.Font = GameFont.Tiny;
-                Widgets.Label(new Rect(0, 25 + 15 + 35, inRect.width, 35f), "Will overwrite");
+                Widgets.Label(new Rect(0, 25 + 15 + 35, inRect.width, 35f), "MpWillOverwrite".Translate());
                 Text.Font = GameFont.Small;
             }
 
@@ -171,7 +171,7 @@ namespace Multiplayer.Client
                 focused = true;
             }
 
-            if (Widgets.ButtonText(new Rect(0f, inRect.height - 35f - 5f, 120f, 35f).CenteredOnXIn(inRect), "OK", true, false, true))
+            if (Widgets.ButtonText(new Rect(0f, inRect.height - 35f - 5f, 120f, 35f).CenteredOnXIn(inRect), "OK".Translate(), true, false, true))
                 TrySave();
         }
 
@@ -190,7 +190,7 @@ namespace Multiplayer.Client
                 new FileInfo(Path.Combine(Multiplayer.ReplaysDir, $"{curName}.zip")).Delete();
                 Replay.ForSaving(curName).WriteCurrentData();
                 Close();
-                Messages.Message("Replay saved", MessageTypeDefOf.SilentInput, false);
+                Messages.Message("MpReplaySaved".Translate(), MessageTypeDefOf.SilentInput, false);
             }
             catch (Exception e)
             {

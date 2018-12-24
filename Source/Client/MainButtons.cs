@@ -83,7 +83,7 @@ namespace Multiplayer.Client
             {
                 var btnRect = new Rect(UI.screenWidth - btnWidth - 10f, y, btnWidth, 25f);
 
-                if (Widgets.ButtonText(btnRect, $"Chat{(Multiplayer.session.hasUnread ? "*" : "")}"))
+                if (Widgets.ButtonText(btnRect, $"{"MpChatButton".Translate()}{(Multiplayer.session.hasUnread ? "*" : "")}"))
                     Find.WindowStack.Add(new ChatWindow());
 
                 if (TickPatch.skipTo < 0)
@@ -108,7 +108,7 @@ namespace Multiplayer.Client
 
             if (Multiplayer.Client != null && Multiplayer.WorldComp.trading.Any())
             {
-                if (Widgets.ButtonText(new Rect(UI.screenWidth - btnWidth - 10f, y, btnWidth, 25f), "Trading"))
+                if (Widgets.ButtonText(new Rect(UI.screenWidth - btnWidth - 10f, y, btnWidth, 25f), "MpTradingButton".Translate()))
                     Find.WindowStack.Add(new TradingWindow());
                 y += 25f;
             }
@@ -117,12 +117,12 @@ namespace Multiplayer.Client
         static void IndicatorInfo(out Color color, out string text)
         {
             int behind = TickPatch.tickUntil - TickPatch.Timer;
-            text = $"You are {behind} ticks behind.";
+            text = "MpTicksBehind.".Translate(behind);
 
             if (behind > 30)
             {
                 color = new Color(0.9f, 0, 0);
-                text += "\n\nConsider lowering the game speed.";
+                text += $"\n\n{"MpLowerGameSpeed".Translate()}";
             }
             else if (behind > 15)
             {
@@ -227,7 +227,7 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.Client == null || TickPatch.skipTo < 0) return;
 
-            string text = $"Simulating{MpUtil.FixedEllipsis()}";
+            string text = $"{"MpSimulating".Translate()}{MpUtil.FixedEllipsis()}";
             float textWidth = Text.CalcSize(text).x;
             float windowWidth = Math.Max(240f, textWidth + 40f);
             Rect rect = new Rect(0, 0, windowWidth, 75f).CenterOn(new Rect(0, 0, UI.screenWidth, UI.screenHeight));

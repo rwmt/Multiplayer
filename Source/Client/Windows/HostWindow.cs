@@ -49,7 +49,16 @@ namespace Multiplayer.Client
         {
             Text.Font = GameFont.Medium;
             Text.Anchor = TextAnchor.UpperCenter;
-            Widgets.Label(inRect.Down(0), $"Host from {(file == null ? "this game" : (file.replay ? "a replay" : "a savefile"))}");
+            string title;
+
+            if (file == null)
+                title = "MpHostIngame".Translate();
+            else if (file.replay)
+                title = "MpHostReplay".Translate();
+            else
+                title = "MpHostSavefile".Translate();
+
+            Widgets.Label(inRect.Down(0), title);
             Text.Anchor = TextAnchor.UpperLeft;
             Text.Font = GameFont.Small;
 
@@ -57,14 +66,14 @@ namespace Multiplayer.Client
 
             var labelWidth = 100f;
 
-            settings.gameName = TextEntryLabeled(entry, "Game name:  ", settings.gameName, labelWidth);
+            settings.gameName = TextEntryLabeled(entry, $"{"MpGameName".Translate()}:  ", settings.gameName, labelWidth);
             entry = entry.Down(40);
 
-            TextFieldNumericLabeled(entry.Width(labelWidth + 30f), "Max players:  ", ref settings.maxPlayers, ref maxPlayersBuffer, labelWidth, 0, 999);
+            TextFieldNumericLabeled(entry.Width(labelWidth + 30f), $"{"MpMaxPlayers".Translate()}:  ", ref settings.maxPlayers, ref maxPlayersBuffer, labelWidth, 0, 999);
 
-            TextFieldNumericLabeled(entry.Right(200f).Width(labelWidth + 35f), "Autosave every ", ref settings.autosaveInterval, ref autosaveBuffer, labelWidth + 5f, 0, 999);
+            TextFieldNumericLabeled(entry.Right(200f).Width(labelWidth + 35f), $"{"MpAutosaveEvery".Translate()} ", ref settings.autosaveInterval, ref autosaveBuffer, labelWidth + 5f, 0, 999);
             Text.Anchor = TextAnchor.MiddleLeft;
-            Widgets.Label(entry.Right(200f).Right(labelWidth + 35f), " minutes");
+            Widgets.Label(entry.Right(200f).Right(labelWidth + 35f), $" {"MpAutosaveMinutes".Translate()}");
             Text.Anchor = TextAnchor.UpperLeft;
             entry = entry.Down(40);
 
@@ -75,22 +84,23 @@ namespace Multiplayer.Client
                 password = TextEntryLabeled(entry.Width(200), "Password:  ", password, labelWidth);
             entry = entry.Down(40);*/
 
-            var directLabelWidth = Text.CalcSize("Direct:  ").x;
-            CheckboxLabeled(entry.Width(130), "Direct:  ", ref direct, placeTextNearCheckbox: true);
+            var directLabel = $"{"MpDirect".Translate()}:  ";
+            var directLabelWidth = Text.CalcSize(directLabel).x;
+            CheckboxLabeled(entry.Width(130), directLabel, ref direct, placeTextNearCheckbox: true);
             if (direct)
                 addressBuffer = Widgets.TextField(entry.Width(140).Right(130 + 10), addressBuffer);
 
             entry = entry.Down(30);
 
             var lanRect = entry.Width(130);
-            CheckboxLabeled(lanRect, "LAN:  ", ref lan, placeTextNearCheckbox: true);
-            TooltipHandler.TipRegion(lanRect, $"Broadcast the game to your local network.\n\nResolved LAN address: {settings.lanAddress}");
+            CheckboxLabeled(lanRect, $"{"MpLan".Translate()}:  ", ref lan, placeTextNearCheckbox: true);
+            TooltipHandler.TipRegion(lanRect, "MpLanDesc".Translate(settings.lanAddress));
 
             entry = entry.Down(30);
 
             if (SteamManager.Initialized)
             {
-                CheckboxLabeled(entry.Width(130), "Steam:  ", ref settings.steam, placeTextNearCheckbox: true);
+                CheckboxLabeled(entry.Width(130), $"{"MpSteam".Translate()}:  ", ref settings.steam, placeTextNearCheckbox: true);
                 entry = entry.Down(30);
             }
 
@@ -100,7 +110,7 @@ namespace Multiplayer.Client
 
             var buttonRect = new Rect((inRect.width - 100f) / 2f, inRect.height - 35f, 100f, 35f);
 
-            if (Widgets.ButtonText(buttonRect, "Host"))
+            if (Widgets.ButtonText(buttonRect, "MpHostButton".Translate()))
                 TryHost();
         }
 

@@ -83,11 +83,7 @@ namespace Multiplayer.Client
         {
             var watch = Stopwatch.StartNew();
 
-            // todo destroy other game objects?
-            UnityEngine.Object.Destroy(Find.MusicManagerPlay.audioSource.gameObject);
-            UnityEngine.Object.Destroy(Find.SoundRoot.sourcePool.sourcePoolCamera.cameraSourcesContainer);
-            UnityEngine.Object.Destroy(Find.SoundRoot.sourcePool.sourcePoolWorld.sourcesWorld[0].gameObject);
-
+            ClearState();
             MemoryUtility.ClearAllMapsAndWorld();
 
             LoadPatch.gameToLoad = gameDoc;
@@ -99,6 +95,21 @@ namespace Multiplayer.Client
             SavedGameLoaderNow.LoadGameFromSaveFileNow(null);
 
             Log.Message("Loading took " + watch.ElapsedMilliseconds);
+        }
+
+        private static void ClearState()
+        {
+            if (Find.MusicManagerPlay != null)
+            {
+                // todo destroy other game objects?
+                UnityEngine.Object.Destroy(Find.MusicManagerPlay.audioSource?.gameObject);
+                UnityEngine.Object.Destroy(Find.SoundRoot.sourcePool.sourcePoolCamera.cameraSourcesContainer);
+                UnityEngine.Object.Destroy(Find.SoundRoot.sourcePool.sourcePoolWorld.sourcesWorld[0].gameObject);
+            }
+            else if (Find.MusicManagerEntry != null)
+            {
+                UnityEngine.Object.Destroy(Find.MusicManagerEntry.audioSource?.gameObject);
+            }
         }
 
         public static XmlDocument SaveGame()
