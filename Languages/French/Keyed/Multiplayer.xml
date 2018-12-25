@@ -25,4 +25,75 @@
   
   <MpServerCloseConfirmation>Êtes-vous sûr(e) de vouloir fermer le serveur ? Tout progrès non sauvegardé sera perdu.</MpServerCloseConfirmation>
   
+  <MpHostServer>Héberger un serveur</MpHostServer>
+  <MpSaveReplay>Sauvegarder le replay</MpSaveReplay>
+  
+  <MpConvert>Convertir en partie solo</MpConvert>
+  <MpConverting>Conversion</MpConverting>
+  
+  <MpUsername>Pseudo</MpUsername>
+  <MpShowPlayerCursors>Montrer les curseurs des joueurs</MpShowPlayerCursors>
+  <MpAutoAcceptSteam>Acceptation Automatique Steam</MpAutoAcceptSteam>
+  <MpAutoAcceptSteamDesc>Accepte automatiquement tout requête de connection via Steam.</MpAutoAcceptSteamDesc>
+  
+  <MpTraderLeavesIn>Part dans {0}</MpTraderLeavesIn>
+  
+  <MpChatButton>Chat</MpChatButton>
+  <MpTradingButton>Commerce</MpTradingButton>
+  
+  <MpChatPlayers>Joueurs ({0}):</MpChatPlayers>
+  <MpSend>Envoyer</MpSend>
+  <MpSteamAcceptTitle>Accepter les joueurs Steam</MpSteamAcceptTitle>
+  <MpSteamAcceptDesc>Cliquez pour accepter</MpSteamAcceptDesc>
+  <MpSteamAccepted>Joueur accepté</MpSteamAccepted>
+  
+  <MpConnectingTo>Connection à {0}:{1}</MpConnectingTo>
+  <MpConnected>Connecté.</MpConnected>
+  
+  <MpSteamConnectingTo>Connection à une partie hébergée par {0}</MpSteamConnectingTo>
+  <MpSteamConnectingWaiting>En attente de la confirmation de l'hôte</MpSteamConnectingWaiting>
+  
+  <MpTicksBehind>Vous avez {0} ticks de retard.</MpTicksBehind>
+  <MpLowerGameSpeed>Envisagez de diminuer la vitesse du jeu.</MpLowerGameSpeed>
+  
+  <MpDesynced>La partie a été désynchronisée.</MpDesynced>
+  <MpTryResync>Essayer de resynchroniser</MpTryResync>
+  
+  <MpSaveReplayAs>Sauvegarder le replay en tant que</MpSaveReplayAs>
+  <MpWillOverwrite>Écrasera</MpWillOverwrite>
+  <MpReplaySaved>Replay enregistré</MpReplaySaved>
+  
+  <MpGameName>Nom de la partie</MpGameName>
+  <MpMaxPlayers>Joueurs maximum</MpMaxPlayers>
+  <MpAutosaveEvery>Fréquence sauvegarde auto</MpAutosaveEvery>
+  <MpAutosaveMinutes>minutes</MpAutosaveMinutes>
+  <MpLanDesc>Diffuser la partie sur votre réseau local.\n\n Adresse LAN déterminée: {0}</MpLanDesc>
+  
+  <MpHostButton>Héberger</MpHostButton>
+  <MpWatchReplay>Regarder</MpWatchReplay>
+  <MpNothingSelected>Rien de sélectionné</MpNothingSelected>
+  
+  <MpHostIngame>Héberger depuis cette partie</MpHostIngame>
+  <MpHostReplay>Héberger depuis un replay</MpHostReplay>
+  <MpHostSavefile>Héberger depuis une sauvegarde</MpHostSavefile>
+  
+  <MpJoinButton>Rejoindre</MpJoinButton>
+  <MpConnectButton>Se connecter</MpConnectButton>
+  <MpLanSearching>Recherche</MpLanSearching>
+  
+  <MpNotConnectedToSteam>Pas connecté(e) à Steam</MpNotConnectedToSteam>
+  <MpNoFriendsPlaying>Aucun ami ne joue actuellement à RimWorld</MpNoFriendsPlaying>
+  <MpPlayingRimWorld>Entrain de jouer à RimWorld</MpPlayingRimWorld>
+  <MpNotInMultiplayer>Pas dans le Multijoueur</MpNotInMultiplayer>
+  
+  <MpLan>LAN</MpLan>
+  <MpDirect>Directe</MpDirect>
+  <MpSteam>Steam</MpSteam>
+  <MpHostTab>Héberger</MpHostTab>
+  
+  <MpMultiplayer>Multijoueur</MpMultiplayer>
+  <MpSingleplayer>Solo</MpSingleplayer>
+  
+  <MpNotAvailable>Non disponible en multijoueur.</MpNotAvailable>
+  
 </LanguageData>
