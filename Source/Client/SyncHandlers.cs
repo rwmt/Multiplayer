@@ -267,7 +267,7 @@ namespace Multiplayer.Client
         [MpPrefix(typeof(TransferableUIUtility), "DoCountAdjustInterface")]
         static void TransferableAdjustTo(Transferable trad)
         {
-            var session = MpTradeSession.current ?? (ISessionWithTransferables)MpFormingCaravanWindow.drawing?.Session;
+            var session = MpTradeSession.current ?? (ISessionWithTransferables)MpFormingCaravanWindow.drawing?.Session ?? MpLoadTransportersWindow.drawing?.Session;
             if (session != null)
                 SyncTradeableCount.Watch(new MpTransferableReference(session, trad));
         }
@@ -415,6 +415,7 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(WITab_Caravan_Gear), nameof(WITab_Caravan_Gear.MoveDraggedItemToInventory)).SetContext(SyncContext.WorldSelected).CancelIfNoSelectedWorldObjects();
 
             SyncMethod.Register(typeof(InstallBlueprintUtility), nameof(InstallBlueprintUtility.CancelBlueprintsFor)).CancelIfAnyArgNull();
+            SyncMethod.Register(typeof(Command_LoadToTransporter), nameof(Command_LoadToTransporter.ProcessInput));
         }
 
         static SyncField SyncTimetable = Sync.Field(typeof(Pawn), "timetable", "times");
@@ -741,6 +742,11 @@ namespace Multiplayer.Client
             SyncDelegate.Register(typeof(FactionGiftUtility), "<OfferGiftsCommand>c__AnonStorey0", "<>m__0").CancelIfAnyFieldNull(); // Caravan offer gifts
 
             SyncDelegate.Register(typeof(Building_Bed), "<GetFloatMenuOptions>c__Iterator2+<GetFloatMenuOptions>c__AnonStorey4", "<>m__0", new[] { "myPawn", "<>f__ref$2/$this" }).CancelIfAnyFieldNull(); // Use medical bed
+
+            SyncDelegate.Register(typeof(CompRefuelable), "<CompGetGizmosExtra>c__Iterator0", "<>m__0", new[] { "$this" }).SetDebugOnly(); // Set fuel to 0
+            SyncDelegate.Register(typeof(CompRefuelable), "<CompGetGizmosExtra>c__Iterator0", "<>m__2", new[] { "$this" }).SetDebugOnly(); // Set fuel to max
+
+            SyncDelegate.Register(typeof(ITab_TransporterContents), "<DoItemsLists>c__AnonStorey1", "<>m__0").SetContext(SyncContext.MapSelected); // Discard loaded thing
         }
 
         [MpPrefix(typeof(FormCaravanComp), "<GetGizmos>c__Iterator0+<GetGizmos>c__AnonStorey1", "<>m__0")]

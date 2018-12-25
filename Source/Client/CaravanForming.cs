@@ -140,7 +140,7 @@ namespace Multiplayer.Client
 
         public Transferable GetTransferableByThingId(int thingId)
         {
-            return transferables.FirstOrDefault(tr => tr.things.Any(t => t.thingIDNumber == thingId));
+            return transferables.Find(tr => tr.things.Any(t => t.thingIDNumber == thingId));
         }
 
         public void Notify_CountChanged(Transferable tr)
@@ -153,8 +153,6 @@ namespace Multiplayer.Client
     {
         public static MpFormingCaravanWindow drawing;
 
-        private bool sessionRemoved;
-
         public CaravanFormingSession Session => map.MpComp().caravanForming;
 
         public MpFormingCaravanWindow(Map map, bool reform = false, Action onClosed = null, bool mapAboutToBeRemoved = false) : base(map, reform, onClosed, mapAboutToBeRemoved)
@@ -165,7 +163,7 @@ namespace Multiplayer.Client
         {
             base.PostClose();
 
-            if (!sessionRemoved)
+            if (Session != null)
                 Find.World.renderer.wantedMode = WorldRenderMode.Planet;
         }
 
@@ -179,7 +177,6 @@ namespace Multiplayer.Client
 
                 if (session == null)
                 {
-                    sessionRemoved = true;
                     Close();
                 }
                 else if (session.uiDirty)

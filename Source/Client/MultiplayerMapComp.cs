@@ -21,6 +21,7 @@ namespace Multiplayer.Client
         public Dictionary<int, FactionMapData> factionMapData = new Dictionary<int, FactionMapData>();
 
         public CaravanFormingSession caravanForming;
+        public TransporterLoading transporterLoading;
         public List<PersistentDialog> mapDialogs = new List<PersistentDialog>();
 
         // for SaveCompression
@@ -35,6 +36,12 @@ namespace Multiplayer.Client
         {
             if (caravanForming != null) return;
             caravanForming = new CaravanFormingSession(map, reform, onClosed, mapAboutToBeRemoved);
+        }
+
+        public void CreateTransporterLoadingSession(List<CompTransporter> transporters)
+        {
+            if (transporterLoading != null) return;
+            transporterLoading = new TransporterLoading(map, transporters);
         }
 
         public void DoTick()
@@ -78,6 +85,7 @@ namespace Multiplayer.Client
             }
 
             Scribe_Deep.Look(ref caravanForming, "caravanFormingSession", map);
+            Scribe_Deep.Look(ref transporterLoading, "transporterLoading", map);
 
             Scribe_Collections.Look(ref mapDialogs, "mapDialogs", LookMode.Deep, map);
             if (Scribe.mode == LoadSaveMode.LoadingVars && mapDialogs == null)
@@ -205,6 +213,11 @@ namespace Multiplayer.Client
             {
                 if (!Find.WindowStack.IsOpen(typeof(MpFormingCaravanWindow)))
                     comp.caravanForming.OpenWindow(false);
+            }
+            else if (comp.transporterLoading != null)
+            {
+                if (!Find.WindowStack.IsOpen(typeof(MpLoadTransportersWindow)))
+                    comp.transporterLoading.OpenWindow(false);
             }
             else if (Multiplayer.WorldComp.trading.FirstOrDefault(t => t.playerNegotiator.Map == comp.map) is MpTradeSession trading)
             {

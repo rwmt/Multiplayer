@@ -1272,17 +1272,6 @@ namespace Multiplayer.Client
         static bool Prefix() => Multiplayer.Client == null || Event.current.type == EventType.Repaint || Event.current.type == EventType.Layout;
     }
 
-    [HarmonyPatch(typeof(Command_LoadToTransporter), nameof(Command_LoadToTransporter.ProcessInput))]
-    static class DisableTransporterLoading
-    {
-        static bool Prefix()
-        {
-            if (Multiplayer.Client == null) return true;
-            Messages.Message("MpNotAvailable".Translate(), MessageTypeDefOf.RejectInput, false);
-            return false;
-        }
-    }
-
     [HarmonyPatch(typeof(LongEventHandler), nameof(LongEventHandler.LongEventsUpdate))]
     static class ArbiterLongEventPatch
     {

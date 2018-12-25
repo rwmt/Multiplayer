@@ -29,6 +29,7 @@ namespace Multiplayer.Client
             var drawers = new Dictionary<int, MapDrawer>();
             int localFactionId = Multiplayer.RealPlayerFaction.loadID;
             var mapCmds = new Dictionary<int, Queue<ScheduledCommand>>();
+            var planetRenderMode = Find.World.renderer.wantedMode;
 
             //RealPlayerFaction = DummyFaction;
 
@@ -71,6 +72,8 @@ namespace Multiplayer.Client
                 m.AsyncTime().cmds = mapCmds[m.uniqueID];
             }
 
+            Find.World.renderer.wantedMode = planetRenderMode;
+
             Multiplayer.WorldComp.cmds = mapCmds[ScheduledCommand.Global];
 
             SaveCompression.doSaveCompression = false;
@@ -105,10 +108,6 @@ namespace Multiplayer.Client
                 UnityEngine.Object.Destroy(Find.MusicManagerPlay.audioSource?.gameObject);
                 UnityEngine.Object.Destroy(Find.SoundRoot.sourcePool.sourcePoolCamera.cameraSourcesContainer);
                 UnityEngine.Object.Destroy(Find.SoundRoot.sourcePool.sourcePoolWorld.sourcesWorld[0].gameObject);
-            }
-            else if (Find.MusicManagerEntry != null)
-            {
-                UnityEngine.Object.Destroy(Find.MusicManagerEntry.audioSource?.gameObject);
             }
         }
 
