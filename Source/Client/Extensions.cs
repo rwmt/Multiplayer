@@ -243,6 +243,15 @@ namespace Multiplayer.Client
             return hash;
         }
 
+        public static int Hash(this MethodBase[] methods)
+        {
+            int hash = 0;
+            for (int i = 0; i < methods.Length; i++)
+                hash = Gen.HashCombineInt(hash, methods[i].MetadataToken);
+
+            return hash;
+        }
+
         public static byte[] GetBytes(this ZipEntry entry)
         {
             MemoryStream stream = new MemoryStream();

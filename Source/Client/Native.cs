@@ -1,11 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 
 namespace Multiplayer.Client
 {
+    delegate bool walk_stack(IntPtr methodHandle, int native, int il, bool managed, IntPtr data);
+
     static class Native
     {
         [DllImport("mono.dll")]
@@ -15,7 +19,7 @@ namespace Multiplayer.Client
         static extern IntPtr mono_debug_print_stack_frame(IntPtr methodHandle, int codePtr, IntPtr domainHandle);
 
         [DllImport("mono.dll")]
-        static extern IntPtr mono_domain_get();
+        public static extern IntPtr mono_domain_get();
 
         [DllImport("mono.dll")]
         static extern IntPtr mono_debug_init(int format);
@@ -31,5 +35,8 @@ namespace Multiplayer.Client
 
         [DllImport("mono.dll")]
         static extern IntPtr mono_type_get_class(IntPtr typeHandle);
+
+        [DllImport("mono.dll")]
+        public static extern void mono_stack_walk(IntPtr walkFunc, IntPtr data);
     }
 }

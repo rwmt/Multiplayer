@@ -130,7 +130,7 @@ namespace Multiplayer.Common
             instance = null;
         }
 
-        private int netTimer;
+        public int netTimer;
 
         public void TickNet()
         {
@@ -248,10 +248,11 @@ namespace Multiplayer.Common
             SendToAll(id, ByteWriter.GetBytes(data));
         }
 
-        public void SendToAll(Packets id, byte[] data, bool reliable = true)
+        public void SendToAll(Packets id, byte[] data, bool reliable = true, ServerPlayer excluding = null)
         {
             foreach (ServerPlayer player in PlayingPlayers)
-                player.conn.Send(id, data, reliable);
+                if (player != excluding)
+                    player.conn.Send(id, data, reliable);
         }
 
         public ServerPlayer GetPlayer(string username)
@@ -400,6 +401,8 @@ namespace Multiplayer.Common
         public ulong steamId;
         public string steamPersonaName = "";
 
+        public int lastCursorTick = -1;
+
         public string Username => conn.username;
         public int Latency => conn.Latency;
         public int FactionId => MultiplayerServer.instance.playerFactions[Username];
@@ -441,9 +444,9 @@ namespace Multiplayer.Common
             SendPacket(Packets.Server_Chat, new[] { msg });
         }
 
-        public void SendPacket(Packets packet, byte[] data)
+        public void SendPacket(Packets packet, byte[] data, bool reliable = true)
         {
-            conn.Send(packet, data);
+            conn.Send(packet, data, reliable);
         }
 
         public void SendPacket(Packets packet, object[] data)

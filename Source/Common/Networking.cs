@@ -121,7 +121,7 @@ namespace Multiplayer.Common
         }
 
         // Steam doesn't like messages bigger than a megabyte
-        public const int FragmentSize = 300_000;
+        public const int FragmentSize = 50_000;
         public const int MaxPacketSize = 33_554_432;
 
         public virtual void SendFragmented(Packets id, byte[] message)

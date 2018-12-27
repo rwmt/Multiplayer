@@ -6,6 +6,7 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Threading;
 using Verse;
 
 namespace Multiplayer.Client
@@ -15,7 +16,6 @@ namespace Multiplayer.Client
     {
         static void Postfix(Dialog_DebugActionsMenu __instance)
         {
-            if (Multiplayer.Client == null) return;
             if (Current.ProgramState != ProgramState.Playing) return;
 
             var menu = __instance;
@@ -24,7 +24,10 @@ namespace Multiplayer.Client
 
             menu.DebugAction("Save game", SaveGameLocal);
             menu.DebugAction("Print static fields", PrintStaticFields);
+            menu.DebugAction("Queue incident", QueueIncident);
+            menu.DebugAction("Blocking long event", BlockingLongEvent);
 
+            if (Multiplayer.Client == null) return;
             if (!MpVersion.IsDebug) return;
 
             menu.DoLabel("Multiplayer");
@@ -73,7 +76,7 @@ namespace Multiplayer.Client
                             parms = storytellerComp.GenerateParms(localDef.category, parms.target);
                         }
 
-                        ExecuteIncident(localDef, parms, target as Map);
+                        ExecuteIncident(localDef, parms, target);
                     }));
                 }
 
@@ -83,7 +86,7 @@ namespace Multiplayer.Client
 
         [SyncMethod]
         [SyncDebugOnly]
-        private static void ExecuteIncident(IncidentDef def, [SyncExpose] IncidentParms parms, [SyncContextMap] Map map)
+        private static void ExecuteIncident(IncidentDef def, [SyncExpose] IncidentParms parms, [SyncContextMap] object map)
         {
             def.Worker.TryExecute(parms);
         }
@@ -134,6 +137,16 @@ namespace Multiplayer.Client
                             builder.AppendLine($"{field.FieldType} {type}::{field.Name}: {field.GetValue(null)}");
 
             Log.Message(builder.ToString());
+        }
+
+        static void QueueIncident()
+        {
+            Find.Storyteller.incidentQueue.Add(IncidentDefOf.TraderCaravanArrival, Find.TickManager.TicksGame + 600, new IncidentParms() { target = Find.CurrentMap });
+        }
+
+        static void BlockingLongEvent()
+        {
+            LongEventHandler.QueueLongEvent(() => Thread.Sleep(60 * 1000), "Blocking", false, null);
         }
     }
 

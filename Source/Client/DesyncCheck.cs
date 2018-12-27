@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using UnityEngine;
 using Verse;
@@ -133,7 +134,7 @@ namespace Multiplayer.Client
 
         private void PrintTrace(SyncInfo local, SyncInfo remote)
         {
-            File.WriteAllText("host_traces.txt", local.traces.Join(delimiter: "\n\n"));
+            File.WriteAllText("host_traces.txt", local.TracesToString());
             Multiplayer.Client.Send(Packets.Client_Debug, local.startTick);
         }
 
@@ -171,11 +172,13 @@ namespace Multiplayer.Client
             Current.GetForMap(map).Add((uint)(state >> 32));
         }
 
+        private static MethodBase TickPatchTick = AccessTools.Method(typeof(TickPatch), nameof(TickPatch.Tick));
+
         public void TryAddStackTrace()
         {
             if (!ShouldCollect) return;
 
-            var trace = new StackTrace(4);
+            var trace = MpUtil.FastStackTrace(6, TickPatchTick);
             Current.traces.Add(trace);
             current.traceHashes.Add(trace.Hash());
         }
@@ -189,7 +192,7 @@ namespace Multiplayer.Client
         public List<uint> world = new List<uint>();
         public List<SyncMapInfo> maps = new List<SyncMapInfo>();
 
-        public List<StackTrace> traces = new List<StackTrace>();
+        public List<MethodBase[]> traces = new List<MethodBase[]>();
         public List<int> traceHashes = new List<int>();
 
         public SyncInfo(int startTick)
@@ -273,6 +276,11 @@ namespace Multiplayer.Client
                 maps = maps,
                 traceHashes = traceHashes
             };
+        }
+
+        public string TracesToString()
+        {
+            return traces.Join(a => a.Join(m => m.MethodDesc(), "\n"), delimiter: "\n\n");
         }
     }
 

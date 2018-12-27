@@ -244,7 +244,7 @@ namespace Multiplayer.Client
                 SyncDrugPolicyEntryBuffered.Watch(policy, i);
             }
         }
-        
+
         [MpPrefix(typeof(Prefs), "set_DevMode")]
         [MpPrefix(typeof(DebugWindowsOpener), "ToggleGodMode")]
         static void SetGodMode()

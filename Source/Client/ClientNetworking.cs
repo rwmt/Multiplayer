@@ -132,6 +132,12 @@ namespace Multiplayer.Client
             Multiplayer.session.AddMsg(new ChatMsg_Url("https://github.com/Zetrith/Multiplayer/wiki/Desyncs"));
             Multiplayer.session.hasUnread = false;
 
+            var timeSpeed = Prefs.data.pauseOnLoad ? TimeSpeed.Paused : TimeSpeed.Normal;
+
+            Multiplayer.WorldComp.TimeSpeed = timeSpeed;
+            foreach (var map in Find.Maps)
+                map.AsyncTime().TimeSpeed = timeSpeed;
+
             LongEventHandler.QueueLongEvent(() =>
             {
                 SaveLoad.CacheGameData(SaveLoad.SaveAndReload());

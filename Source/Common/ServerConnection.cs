@@ -222,6 +222,8 @@ namespace Multiplayer.Common
         [PacketHandler(Packets.Client_Cursor)]
         public void HandleCursor(ByteReader data)
         {
+            if (Player.lastCursorTick == Server.netTimer) return;
+
             var writer = new ByteWriter();
 
             byte seq = data.ReadByte();
@@ -242,7 +244,9 @@ namespace Multiplayer.Common
                 writer.WriteShort(z);
             }
 
-            Server.SendToAll(Packets.Server_Cursor, writer.GetArray(), reliable: false);
+            Player.lastCursorTick = Server.netTimer;
+
+            Server.SendToAll(Packets.Server_Cursor, writer.GetArray(), reliable: false, excluding: Player);
         }
 
         [PacketHandler(Packets.Client_IdBlockRequest)]

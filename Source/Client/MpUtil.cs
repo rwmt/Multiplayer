@@ -4,13 +4,17 @@ using Steamworks;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
+using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
 using System.Text;
+using System.Threading;
 using UnityEngine;
 using Verse;
 
@@ -97,6 +101,35 @@ namespace Multiplayer.Client
             {
                 return Dns.GetHostEntry(Dns.GetHostName()).AddressList.FirstOrDefault(i => i.AddressFamily == AddressFamily.InterNetwork).ToString();
             }
+        }
+
+        private static List<MethodBase> methods = new List<MethodBase>(10);
+        private static int depth;
+        private static IntPtr upToHandle;
+        private static IntPtr walkPtr = Marshal.GetFunctionPointerForDelegate((walk_stack)WalkStack);
+
+        // Not thread safe
+        public static MethodBase[] FastStackTrace(int skip = 0, MethodBase upTo = null)
+        {
+            depth = 0;
+            methods.Clear();
+
+            upToHandle = IntPtr.Zero;
+            if (upTo != null)
+                upToHandle = upTo.MethodHandle.Value;
+
+            Native.mono_stack_walk(walkPtr, (IntPtr)skip);
+
+            return methods.ToArray();
+        }
+
+        private static bool WalkStack(IntPtr methodHandle, int native, int il, bool managed, IntPtr skip)
+        {
+            depth++;
+            //if (depth > (int)skip)
+            //    methods.Add(MethodBase.GetMethodFromHandle(new RuntimeMethodHandle(methodHandle), new RuntimeTypeHandle()));
+            if (methodHandle == upToHandle) return true;
+            return false;
         }
     }
 

@@ -20,7 +20,6 @@ namespace Multiplayer.Client
 {
     [MpPatch(typeof(Map), nameof(Map.MapPreTick))]
     [MpPatch(typeof(Map), nameof(Map.MapPostTick))]
-    [MpPatch(typeof(TickList), nameof(TickList.Tick))]
     static class CancelMapManagersTick
     {
         static bool Prefix() => Multiplayer.Client == null || MapAsyncTimeComp.tickingMap != null;
@@ -78,7 +77,7 @@ namespace Multiplayer.Client
     {
         static bool Prefix(Thing t)
         {
-            if (Multiplayer.Client == null) return true;
+            if (Multiplayer.Client == null || t.Map == null) return true;
 
             MapAsyncTimeComp comp = t.Map.AsyncTime();
             TickerType tickerType = t.def.tickerType;
@@ -99,7 +98,7 @@ namespace Multiplayer.Client
     {
         static bool Prefix(Thing t)
         {
-            if (Multiplayer.Client == null) return true;
+            if (Multiplayer.Client == null || t.Map == null) return true;
 
             MapAsyncTimeComp comp = t.Map.AsyncTime();
             TickerType tickerType = t.def.tickerType;
@@ -156,6 +155,16 @@ namespace Multiplayer.Client
             TimeControl.SendTimeChange(__state, newSpeed);
         }
     }
+    
+    [HarmonyPatch(typeof(ColonistBar), nameof(ColonistBar.ShowGroupFrames), MethodType.Getter)]
+    static class AlwaysShowColonistBarFrames
+    {
+        static void Postfix(ref bool __result)
+        {
+            if (Multiplayer.Client == null) return;
+            __result = true;
+        }
+    }
 
     [HarmonyPatch(typeof(ColonistBar), nameof(ColonistBar.ColonistBarOnGUI))]
     public static class ColonistBarTimeControl
@@ -180,7 +189,7 @@ namespace Multiplayer.Client
             if (Multiplayer.Client == null) return;
 
             ColonistBar bar = Find.ColonistBar;
-            if (bar.Entries.Count == 0 || bar.Entries.Last().group == 0) return;
+            if (bar.Entries.Count == 0) return;
 
             int curGroup = -1;
             foreach (var entry in bar.Entries)
@@ -254,36 +263,41 @@ namespace Multiplayer.Client
     [HarmonyPatch(typeof(PawnTweener), nameof(PawnTweener.PreDrawPosCalculation))]
     static class PreDrawCalcMarker
     {
-        public static bool calculating;
-
-        static void Prefix() => calculating = true;
-        static void Postfix() => calculating = false;
+        public static Pawn calculating;
+        
+        static void Prefix(PawnTweener __instance) => calculating = __instance.pawn;
+        static void Postfix() => calculating = null;
     }
 
     [HarmonyPatch(typeof(TickManager), nameof(TickManager.TickRateMultiplier), MethodType.Getter)]
-    static class TickRateMultiplierDuringReplay
+    static class TickRateMultiplierPatch
     {
         static void Postfix(ref float __result)
         {
-            if (!PreDrawCalcMarker.calculating) return;
+            if (PreDrawCalcMarker.calculating == null) return;
             if (Multiplayer.Client == null) return;
             if (WorldRendererUtility.WorldRenderedNow) return;
-            if (!Multiplayer.IsReplay) return;
 
-            __result = TickPatch.skipTo >= 0 ? 6 : Find.CurrentMap.AsyncTime().TickRateMultiplier(TickPatch.replayTimeSpeed);
+            var map = PreDrawCalcMarker.calculating.Map ?? Find.CurrentMap;
+            var asyncTime = map.AsyncTime();
+            var timeSpeed = Multiplayer.IsReplay ? TickPatch.replayTimeSpeed : asyncTime.TimeSpeed;
+
+            __result = TickPatch.skipTo >= 0 ? 6 : asyncTime.TickRateMultiplier(timeSpeed);
         }
     }
 
     [HarmonyPatch(typeof(TickManager), nameof(TickManager.Paused), MethodType.Getter)]
-    static class TickManagerPausedDuringReplay
+    static class TickManagerPausedPatch
     {
         static void Postfix(ref bool __result)
         {
             if (Multiplayer.Client == null) return;
             if (WorldRendererUtility.WorldRenderedNow) return;
-            if (!Multiplayer.IsReplay) return;
 
-            __result = Find.CurrentMap.AsyncTime().TickRateMultiplier(TickPatch.replayTimeSpeed) == 0;
+            var asyncTime = Find.CurrentMap.AsyncTime();
+            var timeSpeed = Multiplayer.IsReplay ? TickPatch.replayTimeSpeed : asyncTime.TimeSpeed;
+
+            __result = asyncTime.TickRateMultiplier(timeSpeed) == 0;
         }
     }
 
@@ -395,6 +409,7 @@ namespace Multiplayer.Client
         public bool forcedNormalSpeed;
 
         public Storyteller storyteller;
+        public StoryWatcher storyWatcher;
         public TimeSlower slower = new TimeSlower();
 
         public TickList tickListNormal = new TickList(TickerType.Normal);

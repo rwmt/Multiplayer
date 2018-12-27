@@ -141,10 +141,16 @@ namespace Multiplayer.Client
                         quitOS.label = quitOSLabel;
                         quitOS.action = () =>
                         {
-                            if (Multiplayer.LocalServer != null)
-                                Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation("MpServerCloseConfirmation".Translate(), () => Root.Shutdown(), true));
-                            else
+                            Action action = () =>
+                            {
+                                OnMainThread.StopMultiplayer();
                                 Root.Shutdown();
+                            };
+
+                            if (Multiplayer.LocalServer != null)
+                                Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation("MpServerCloseConfirmation".Translate(), action, true));
+                            else
+                                action();
                         };
                     }
                 }
@@ -1033,6 +1039,7 @@ namespace Multiplayer.Client
 
             async.mapTicks = Find.Maps.Select(m => m.AsyncTime()?.mapTicks).Max() ?? Find.TickManager.TicksGame;
             async.storyteller = new Storyteller(Find.Storyteller.def, Find.Storyteller.difficulty);
+            async.storyWatcher = new StoryWatcher();
         }
     }
 

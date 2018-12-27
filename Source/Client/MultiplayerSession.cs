@@ -38,6 +38,7 @@ namespace Multiplayer.Client
         public bool allowSteam;
         public List<CSteamID> pendingSteam = new List<CSteamID>();
         public List<CSteamID> knownUsers = new List<CSteamID>();
+        public Thread steamNet;
 
         public const int MaxMessages = 200;
         public List<ChatMsg> messages = new List<ChatMsg>();

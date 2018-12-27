@@ -322,7 +322,7 @@ namespace Multiplayer.Client
             int tick = data.ReadInt32();
             var info = Multiplayer.game.sync.buffer.FirstOrDefault(b => b.startTick == tick);
 
-            File.WriteAllText("arbiter_traces.txt", info?.traces.Join(delimiter: "\n\n") ?? "null");
+            File.WriteAllText("arbiter_traces.txt", info?.TracesToString() ?? "null");
         }
 
         public void Connected()

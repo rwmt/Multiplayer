@@ -126,7 +126,7 @@ namespace Multiplayer.Client
                     if (tickable.TimePerTick(tickable.TimeSpeed) == 0) continue;
                     tickable.RealTimeToTickThrough += 1f;
 
-                    Tick(tickable);
+                    TickTickable(tickable);
                 }
 
                 accumulator -= 1 * ReplayMultiplier();
@@ -140,7 +140,7 @@ namespace Multiplayer.Client
             }
         }
 
-        private static void Tick(ITickable tickable)
+        private static void TickTickable(ITickable tickable)
         {
             while (tickable.RealTimeToTickThrough >= 0)
             {

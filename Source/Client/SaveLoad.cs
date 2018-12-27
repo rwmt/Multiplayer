@@ -108,6 +108,9 @@ namespace Multiplayer.Client
                 UnityEngine.Object.Destroy(Find.MusicManagerPlay.audioSource?.gameObject);
                 UnityEngine.Object.Destroy(Find.SoundRoot.sourcePool.sourcePoolCamera.cameraSourcesContainer);
                 UnityEngine.Object.Destroy(Find.SoundRoot.sourcePool.sourcePoolWorld.sourcesWorld[0].gameObject);
+
+                foreach (var sustainer in Find.SoundRoot.sustainerManager.AllSustainers.ToList())
+                    sustainer.Cleanup();
             }
         }
 

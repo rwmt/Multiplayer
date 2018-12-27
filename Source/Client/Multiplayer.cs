@@ -100,12 +100,33 @@ namespace Multiplayer.Client
 
             CollectCursorIcons();
 
-            harmony.DoAllMpPatches();
+            try
+            {
+                harmony.DoAllMpPatches();
+            }
+            catch (Exception e)
+            {
+                Log.Error($"Exception during MpPatchin:g {e}");
+            }
 
-            SyncHandlers.Init();
-            Sync.RegisterAllSyncMethods();
+            try
+            {
+                SyncHandlers.Init();
+                Sync.RegisterAllSyncMethods();
+            }
+            catch (Exception e)
+            {
+                Log.Error($"Exception during Sync initialization: {e}");
+            }
 
-            DoPatches();
+            try
+            {
+                DoPatches();
+            }
+            catch (Exception e)
+            {
+                Log.Error($"Exception during patching: {e}");
+            }
 
             Log.messageQueue.maxMessages = 1000;
 

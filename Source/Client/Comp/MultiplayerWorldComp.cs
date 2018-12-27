@@ -81,7 +81,8 @@ namespace Multiplayer.Client
 
             TimeSpeed timeSpeed = Find.TickManager.CurTimeSpeed;
             Scribe_Values.Look(ref timeSpeed, "timeSpeed");
-            Find.TickManager.CurTimeSpeed = timeSpeed;
+            if (Scribe.mode == LoadSaveMode.LoadingVars)
+                Find.TickManager.CurTimeSpeed = timeSpeed;
 
             ExposeFactionData();
 
@@ -251,8 +252,6 @@ namespace Multiplayer.Client
 
                 if (cmdType == CommandType.Autosave)
                 {
-                    Multiplayer.WorldComp.TimeSpeed = TimeSpeed.Paused;
-
                     LongEventHandler.QueueLongEvent(() =>
                     {
                         if (Multiplayer.LocalServer != null && TickPatch.skipTo < 0 && !Multiplayer.IsReplay)

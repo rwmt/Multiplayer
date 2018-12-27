@@ -221,6 +221,8 @@ namespace Multiplayer.Client
             if (recacheThings.Count > 0)
                 CheckReassign();
 
+            UpdateCurrencyCount();
+
             uiShouldReset = UIShouldReset.Full;
             recacheThings.Clear();
             recacheColony = false;
