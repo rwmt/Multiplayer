@@ -18,7 +18,7 @@ namespace Multiplayer.Client
 {
     public abstract class SyncHandler
     {
-        private readonly int syncId;
+        public readonly int syncId;
 
         public int SyncId => syncId;
 
@@ -43,7 +43,7 @@ namespace Multiplayer.Client
         public readonly string memberPath;
         public readonly Type fieldType;
         public readonly Type indexType;
-
+        
         public bool bufferChanges;
         public bool inGameLoop;
 
@@ -200,7 +200,7 @@ namespace Multiplayer.Client
                 instanceType = MpReflection.PathType(this.instancePath);
             }
 
-            method = AccessTools.Method(instanceType, methodName, argTypes != null ? argTypes.Select(t => t.type).ToArray() : null) ?? throw new Exception($"Couldn't find method {instanceType}::{methodName}");
+            method = AccessTools.Method(instanceType, methodName, argTypes?.Select(t => t.type).ToArray()) ?? throw new Exception($"Couldn't find method {instanceType}::{methodName}");
             this.argTypes = CheckArgs(argTypes);
         }
 

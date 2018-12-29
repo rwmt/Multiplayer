@@ -155,7 +155,7 @@ namespace Multiplayer.Client
             TimeControl.SendTimeChange(__state, newSpeed);
         }
     }
-    
+
     [HarmonyPatch(typeof(ColonistBar), nameof(ColonistBar.ShowGroupFrames), MethodType.Getter)]
     static class AlwaysShowColonistBarFrames
     {
@@ -211,6 +211,7 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(MainButtonWorker), nameof(MainButtonWorker.DoButton))]
+    [HotSwappable]
     static class MainButtonWorldTimeControl
     {
         static void Prefix(MainButtonWorker __instance, Rect rect, ref Rect? __state)
@@ -264,7 +265,7 @@ namespace Multiplayer.Client
     static class PreDrawCalcMarker
     {
         public static Pawn calculating;
-        
+
         static void Prefix(PawnTweener __instance) => calculating = __instance.pawn;
         static void Postfix() => calculating = null;
     }
@@ -301,8 +302,8 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(Storyteller))]
-    [HarmonyPatch(nameof(Storyteller.StorytellerTick))]
+    [HarmonyPatch(typeof(Storyteller), nameof(Storyteller.StorytellerTick))]
+    [HarmonyPatch(typeof(StoryWatcher), nameof(StoryWatcher.StoryWatcherTick))]
     public class StorytellerTickPatch
     {
         static bool Prefix()
@@ -446,6 +447,7 @@ namespace Multiplayer.Client
                 TickMapTrading();
 
                 storyteller.StorytellerTick();
+                storyWatcher.StoryWatcherTick();
 
                 map.MapPostTick();
 
@@ -495,6 +497,7 @@ namespace Multiplayer.Client
 
         private TimeSnapshot? prevTime;
         private Storyteller prevStoryteller;
+        private StoryWatcher prevStoryWatcher;
 
         public void PreContext()
         {
@@ -503,7 +506,10 @@ namespace Multiplayer.Client
             prevTime = TimeSnapshot.GetAndSetFromMap(map);
 
             prevStoryteller = Current.Game.storyteller;
+            prevStoryWatcher = Current.Game.storyWatcher;
+
             Current.Game.storyteller = storyteller;
+            Current.Game.storyWatcher = storyWatcher;
 
             //UniqueIdsPatch.CurrentBlock = map.MpComp().mapIdBlock;
             UniqueIdsPatch.CurrentBlock = Multiplayer.GlobalIdBlock;
@@ -520,6 +526,7 @@ namespace Multiplayer.Client
             UniqueIdsPatch.CurrentBlock = null;
 
             Current.Game.storyteller = prevStoryteller;
+            Current.Game.storyWatcher = prevStoryWatcher;
 
             prevTime?.Set();
 
@@ -532,13 +539,15 @@ namespace Multiplayer.Client
         public void ExposeData()
         {
             Scribe_Values.Look(ref mapTicks, "mapTicks");
-            Scribe_Deep.Look(ref storyteller, "storyteller");
             Scribe_Values.Look(ref timeSpeedInt, "timeSpeed");
 
-            string randStateStr = randState.ToString();
-            Scribe_Values.Look(ref randStateStr, "randState", "1");
-            if (Scribe.mode == LoadSaveMode.LoadingVars)
-                ulong.TryParse(randStateStr, out randState);
+            Scribe_Deep.Look(ref storyteller, "storyteller");
+
+            Scribe_Deep.Look(ref storyWatcher, "storyWatcher");
+            if (Scribe.mode == LoadSaveMode.LoadingVars && storyWatcher == null)
+                storyWatcher = new StoryWatcher();
+
+            ScribeUtil.LookULong(ref randState, "randState", 1);
         }
 
         public void FinalizeInit()

@@ -16,7 +16,6 @@ using Verse;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
     public static class ClientUtil
     {
         public static void TryConnect(IPAddress address, int port)
@@ -119,6 +118,9 @@ namespace Multiplayer.Client
             if (!fromReplay)
                 SetupGame();
 
+            foreach (var tickable in TickPatch.AllTickables)
+                tickable.Cmds.Clear();
+
             Find.PlaySettings.usePlanetDayNightSystem = false;
 
             Multiplayer.RealPlayerFaction = Faction.OfPlayer;
@@ -143,19 +145,22 @@ namespace Multiplayer.Client
                 SaveLoad.CacheGameData(SaveLoad.SaveAndReload());
                 SaveLoad.SendCurrentGameData(false);
 
-                localServer.StartListening();
+                var netStarted = localServer.StartListeningNet();
+                var lanStarted = localServer.StartListeningLan();
+
+                string text = "Server started.";
+
+                if (netStarted != null)
+                    text += (netStarted.Value ? $" Direct at {settings.bindAddress}:{localServer.NetPort}." : " Couldn't bind direct.");
+
+                if (lanStarted != null)
+                    text += (lanStarted.Value ? $" LAN at {settings.lanAddress}:{localServer.LanPort}." : " Couldn't bind LAN.");
 
                 session.serverThread = new Thread(localServer.Run)
                 {
                     Name = "Local server thread"
                 };
                 session.serverThread.Start();
-
-                string text = "Server started.";
-                if (settings.bindAddress != null)
-                    text += $" Bound to {settings.bindAddress}:{localServer.NetPort}.";
-                if (settings.lanAddress != null)
-                    text += $" LAN at {settings.lanAddress}:{localServer.LanPort}.";
 
                 Messages.Message(text, MessageTypeDefOf.SilentInput, false);
                 Log.Message(text);

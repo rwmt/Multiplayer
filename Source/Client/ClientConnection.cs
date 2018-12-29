@@ -163,7 +163,6 @@ namespace Multiplayer.Client
         }
     }
 
-    [HotSwappable]
     public class ClientPlayingState : MpConnectionState, IConnectionStatusListener
     {
         public ClientPlayingState(IConnection connection) : base(connection)
@@ -304,6 +303,7 @@ namespace Multiplayer.Client
         }
 
         [PacketHandler(Packets.Server_SyncInfo)]
+        [IsFragmented]
         public void HandleDesyncCheck(ByteReader data)
         {
             Multiplayer.game?.sync.Add(SyncInfo.Deserialize(data));

@@ -3,6 +3,9 @@
 <Manifest>
   <identifier>Multiplayer</identifier>
   <version>0.2</version>
-  <manifestUri>https://github.com/Zetrith/Multiplayer/master/About/Manifest.xml</manifestUri>
+  <manifestUri>https://raw.githubusercontent.com/Zetrith/Multiplayer/master/About/Manifest.xml</manifestUri>
   <downloadUri>https://github.com/Zetrith/Multiplayer/releases/latest</downloadUri>
+  <loadBefore>
+	<li>HugsLib</li>
+  </loadBefore>
 </Manifest>

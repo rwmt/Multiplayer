@@ -69,6 +69,8 @@ namespace Multiplayer.Client
 
         public static Stopwatch Clock = Stopwatch.StartNew();
 
+        public static HashSet<string> xmlMods = new HashSet<string>();
+
         static Multiplayer()
         {
             if (GenCommandLine.CommandLineArgPassed("profiler"))
@@ -78,6 +80,13 @@ namespace Multiplayer.Client
             MpLog.error = str => Log.Error(str);
 
             SetUsername();
+
+            foreach (var mod in ModLister.AllInstalledMods)
+            {
+                var assemblies = new DirectoryInfo(Path.Combine(mod.RootDir.FullName, "Assemblies"));
+                if (!assemblies.Exists || !assemblies.GetFiles("*.*", SearchOption.AllDirectories).Any())
+                    xmlMods.Add(mod.RootDir.FullName);
+            }
 
             SimpleProfiler.Init(username);
 
@@ -106,7 +115,7 @@ namespace Multiplayer.Client
             }
             catch (Exception e)
             {
-                Log.Error($"Exception during MpPatchin:g {e}");
+                Log.Error($"Exception during MpPatching: {e}");
             }
 
             try
@@ -149,7 +158,7 @@ namespace Multiplayer.Client
 
             if (GenCommandLine.TryGetCommandLineArg("username", out string username))
                 Multiplayer.username = username;
-            else if (Multiplayer.username == null || MpVersion.IsDebug)
+            else if (Multiplayer.username == null || Multiplayer.username.Length < 3 || MpVersion.IsDebug)
                 Multiplayer.username = "Player" + Rand.Range(0, 9999);
         }
 
@@ -193,6 +202,18 @@ namespace Multiplayer.Client
                     });
                 }, "Replay", false, null);
             }
+
+            if (GenCommandLine.CommandLineArgPassed("printsync"))
+            {
+                ExtendDirectXmlSaver.extend = true;
+                DirectXmlSaver.SaveDataObject(new SyncContainer(), "SyncHandlers.xml");
+                ExtendDirectXmlSaver.extend = false;
+            }
+        }
+
+        public class SyncContainer
+        {
+            public List<SyncHandler> handlers = Sync.handlers;
         }
 
         private static void DoPatches()
@@ -281,6 +302,17 @@ namespace Multiplayer.Client
                     if (method != null && !method.IsAbstract)
                         harmony.Patch(method, setMapTimePrefix, setMapTimePostfix);
                 }
+            }
+
+            // Compat with Fluffy's mod loader
+            var fluffysModButtonType = MpReflection.GetTypeByName("ModManager.ModButton_Installed");
+            if (fluffysModButtonType != null)
+            {
+                harmony.Patch(
+                    fluffysModButtonType.GetMethod("DoModButton"),
+                    new HarmonyMethod(typeof(PageModsPatch), nameof(PageModsPatch.ModManager_ButtonPrefix)),
+                    new HarmonyMethod(typeof(PageModsPatch), nameof(PageModsPatch.Postfix))
+                );
             }
         }
 

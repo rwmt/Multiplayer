@@ -10,7 +10,6 @@ using Verse;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
     public class MultiplayerMod : Mod
     {
         public static HarmonyInstance harmony = HarmonyInstance.Create("multiplayer");

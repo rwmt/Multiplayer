@@ -223,7 +223,7 @@ namespace Multiplayer.Client
                 if (sync.ShouldCollect && TickPatch.Timer % 30 == 0 && sync.current != null)
                 {
                     if (Multiplayer.LocalServer != null || Multiplayer.arbiterInstance)
-                        Multiplayer.Client.Send(Packets.Client_SyncInfo, sync.current.Serialize());
+                        Multiplayer.Client.SendFragmented(Packets.Client_SyncInfo, sync.current.Serialize());
 
                     sync.Add(sync.current);
                     sync.current = null;

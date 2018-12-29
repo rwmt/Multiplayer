@@ -9,6 +9,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Xml;
 using UnityEngine;
 using Verse;
 using zip::Ionic.Zip;
@@ -118,6 +119,7 @@ namespace Multiplayer.Client
                     desyncInfo.WriteString(MpVersion.Version);
                     desyncInfo.WriteBool(MpVersion.IsDebug);
                     desyncInfo.WriteBool(Prefs.DevMode);
+                    desyncInfo.WriteInt32(Multiplayer.session.players.Count);
 
                     zip.AddEntry("desync_info", desyncInfo.GetArray());
                     zip.Save();
@@ -305,11 +307,31 @@ namespace Multiplayer.Client
             {
                 try
                 {
+                    text.AppendLine($"[header]");
+
+                    using (var reader = new XmlTextReader(new MemoryStream(zip["game_snapshot"].GetBytes())))
+                    {
+                        reader.ReadToNextElement();
+                        reader.ReadToNextElement();
+
+                        text.AppendLine(reader.ReadOuterXml());
+                    }
+                }
+                catch (Exception e)
+                {
+                    text.AppendLine(e.Message);
+                }
+
+                text.AppendLine();
+
+                try
+                {
                     text.AppendLine("[info]");
                     text.AppendLine(zip["info"].GetString());
-                    text.AppendLine();
                 }
                 catch { }
+
+                text.AppendLine();
 
                 SyncInfo local = null;
                 try
@@ -318,12 +340,16 @@ namespace Multiplayer.Client
                 }
                 catch { }
 
+                text.AppendLine();
+
                 SyncInfo remote = null;
                 try
                 {
                     remote = PrintSyncInfo(text, zip, "sync_remote");
                 }
                 catch { }
+
+                text.AppendLine();
 
                 try
                 {
@@ -335,9 +361,11 @@ namespace Multiplayer.Client
                     text.AppendLine($"Mod version: {desyncInfo.ReadString()}");
                     text.AppendLine($"Mod is debug: {desyncInfo.ReadBool()}");
                     text.AppendLine($"Dev mode: {desyncInfo.ReadBool()}");
-                    text.AppendLine();
+                    text.AppendLine($"Player count: {desyncInfo.ReadInt32()}");
                 }
                 catch { }
+
+                text.AppendLine();
 
                 if (local != null && remote != null)
                 {
@@ -373,8 +401,6 @@ namespace Multiplayer.Client
                 builder.AppendLine($"Last world state: {sync.world.LastOrDefault()}/{sync.world.Count}");
                 builder.AppendLine($"Last cmd state: {sync.cmds.LastOrDefault()}/{sync.cmds.Count}");
                 builder.AppendLine($"Trace hashes: {sync.traceHashes.Count}");
-
-                builder.AppendLine();
 
                 return sync;
             }

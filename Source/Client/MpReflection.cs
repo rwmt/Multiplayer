@@ -384,12 +384,6 @@ namespace Multiplayer.Client
             MpReflection.SetValue(obj, memberPath, value, index);
         }
 
-        private static readonly MethodInfo exposeSmallComps = AccessTools.Method(typeof(Game), "ExposeSmallComponents");
-        public static void ExposeSmallComponents(this Game game)
-        {
-            exposeSmallComps.Invoke(game, null);
-        }
-
         public static bool IsStatic(this MemberInfo member)
         {
             if (member is FieldInfo field)

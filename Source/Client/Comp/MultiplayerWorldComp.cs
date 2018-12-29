@@ -74,10 +74,7 @@ namespace Multiplayer.Client
         {
             Scribe_Values.Look(ref TickPatch.Timer, "timer");
 
-            string randStateStr = randState.ToString();
-            Scribe_Values.Look(ref randStateStr, "randState", "2");
-            if (Scribe.mode == LoadSaveMode.LoadingVars)
-                ulong.TryParse(randStateStr, out randState);
+            ScribeUtil.LookULong(ref randState, "randState", 2);
 
             TimeSpeed timeSpeed = Find.TickManager.CurTimeSpeed;
             Scribe_Values.Look(ref timeSpeed, "timeSpeed");
@@ -269,7 +266,9 @@ namespace Multiplayer.Client
                         }
 
                         XmlDocument doc = SaveLoad.SaveAndReload();
-                        SaveLoad.CacheGameData(doc);
+
+                        if (!Multiplayer.session.desynced)
+                            SaveLoad.CacheGameData(doc);
 
                         if (TickPatch.skipTo < 0 && !Multiplayer.IsReplay && (Multiplayer.LocalServer != null || Multiplayer.arbiterInstance))
                             SaveLoad.SendCurrentGameData(true);

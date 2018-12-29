@@ -11,7 +11,6 @@ using Verse.Steam;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
     public class OnMainThread : MonoBehaviour
     {
         public static ActionQueue queue = new ActionQueue();

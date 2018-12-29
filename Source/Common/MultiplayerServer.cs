@@ -78,10 +78,14 @@ namespace Multiplayer.Common
                 lanManager = new NetManager(new MpNetListener(this, false));
         }
 
-        public void StartListening()
+        public bool? StartListeningNet()
         {
-            netManager?.Start(IPAddress.Parse(settings.bindAddress), IPAddress.IPv6Any, settings.bindPort);
-            lanManager?.Start(IPAddress.Parse(settings.lanAddress), IPAddress.IPv6Any, 0);
+            return netManager?.Start(IPAddress.Parse(settings.bindAddress), IPAddress.IPv6Any, settings.bindPort);
+        }
+
+        public bool? StartListeningLan()
+        {
+            return lanManager?.Start(IPAddress.Parse(settings.lanAddress), IPAddress.IPv6Any, 0);
         }
 
         public void SetupArbiterConnection()
@@ -339,7 +343,7 @@ namespace Multiplayer.Common
                 return;
             }
 
-            req.Accept();
+            //req.Accept();
         }
 
         public void OnPeerConnected(NetPeer peer)
@@ -427,7 +431,7 @@ namespace Multiplayer.Common
             catch (Exception e)
             {
                 MpLog.Error($"Error handling packet by {conn}: {e}");
-                Disconnect($"Receive error: {e.GetType().Name}");
+                Disconnect($"Receive error: {e.GetType().Name}: {e.Message}");
             }
         }
 

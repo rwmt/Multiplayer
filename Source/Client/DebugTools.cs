@@ -112,10 +112,10 @@ namespace Multiplayer.Client
         [SyncDebugOnly]
         static void AdvanceTime()
         {
-            int to = 148 * 1000;
+            int to = 322 * 1000;
             if (Find.TickManager.TicksGame < to)
             {
-                Find.TickManager.ticksGameInt = to;
+                //Find.TickManager.ticksGameInt = to;
                 Find.Maps[0].AsyncTime().mapTicks = to;
             }
         }

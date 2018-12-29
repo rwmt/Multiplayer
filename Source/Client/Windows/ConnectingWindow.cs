@@ -9,7 +9,6 @@ using Verse;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
     public abstract class BaseConnectingWindow : Window, IConnectionStatusListener
     {
         public override Vector2 InitialSize => new Vector2(300f, 150f);

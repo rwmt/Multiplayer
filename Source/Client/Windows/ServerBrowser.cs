@@ -20,7 +20,6 @@ using zip::Ionic.Zip;
 namespace Multiplayer.Client
 {
     [StaticConstructorOnStartup]
-    [HotSwappable]
     public class ServerBrowser : Window
     {
         private NetManager net;
@@ -535,8 +534,10 @@ namespace Multiplayer.Client
             for (int i = 0; i < friendCount; i++)
             {
                 CSteamID friend = SteamFriends.GetFriendByIndex(i, EFriendFlags.k_EFriendFlagImmediate);
+
                 SteamFriends.GetFriendGamePlayed(friend, out FriendGameInfo_t friendGame);
                 bool playingRimworld = friendGame.m_gameID.AppID() == SteamIntegration.RimWorldAppId;
+
                 if (!playingRimworld) continue;
 
                 int avatar = SteamFriends.GetSmallFriendAvatar(friend);

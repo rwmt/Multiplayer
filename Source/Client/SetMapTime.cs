@@ -20,12 +20,14 @@ namespace Multiplayer.Client
     [MpPatch(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.ChoicesAtFor))]
     static class SetMapTimeForUI
     {
+        [HarmonyPriority(MpPriority.MpFirst)]
         static void Prefix(ref TimeSnapshot? __state)
         {
             if (Multiplayer.Client == null || WorldRendererUtility.WorldRenderedNow || Find.CurrentMap == null) return;
             __state = TimeSnapshot.GetAndSetFromMap(Find.CurrentMap);
         }
 
+        [HarmonyPriority(MpPriority.MpLast)]
         static void Postfix(TimeSnapshot? __state) => __state?.Set();
     }
 

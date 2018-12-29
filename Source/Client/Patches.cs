@@ -4,11 +4,13 @@ using RimWorld;
 using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
+using System.Xml.Linq;
 using UnityEngine;
 using Verse;
 using Verse.AI;
@@ -84,29 +86,27 @@ namespace Multiplayer.Client
                     {
                         Find.WindowStack.Add(new ServerBrowser());
                     }));
+
+                    rect.height += 45f;
                 }
             }
 
             if (optList.Any(opt => opt.label == "ReviewScenario".Translate()))
             {
                 if (Multiplayer.session == null)
-                {
-                    optList.Insert(0, new ListableOption("MpHostServer".Translate(), () =>
-                    {
-                        Find.WindowStack.Add(new HostWindow());
-                    }));
-                }
+                    optList.Insert(0, new ListableOption("MpHostServer".Translate(), () => Find.WindowStack.Add(new HostWindow())));
 
                 if (Multiplayer.Client != null)
                 {
-                    ListableOption firstOption = null;
-
                     if (!Multiplayer.IsReplay)
-                        firstOption = new ListableOption("MpSaveReplay".Translate(), () => Find.WindowStack.Add(new Dialog_SaveReplay()));
+                    {
+                        optList.Insert(0, new ListableOption("MpSaveReplay".Translate(), () => Find.WindowStack.Add(new Dialog_SaveReplay())));
+                    }
                     else
-                        firstOption = new ListableOption("MpConvert".Translate(), ConvertToSingleplayer);
-
-                    optList.Insert(0, firstOption);
+                    {
+                        optList.Insert(0, new ListableOption("MpConvert".Translate(), ConvertToSingleplayer));
+                        optList.Insert(0, new ListableOption("MpHostServer".Translate(), () => ClientUtil.HostServer(new ServerSettings(), true)));
+                    }
 
                     optList.RemoveAll(opt => opt.label == "Save".Translate() || opt.label == "LoadGame".Translate());
 
@@ -1536,6 +1536,134 @@ namespace Multiplayer.Client
         {
             if (deselected != null)
                 deselected.Add(obj);
+        }
+    }
+
+    [HarmonyPatch(typeof(LetterStack), nameof(LetterStack.ReceiveLetter), typeof(Letter), typeof(string))]
+    static class log1
+    {
+        static void Prefix(Letter let)
+        {
+            MpLog.Log("letter sound " + let.def.arriveSound);
+        }
+    }
+
+    [HarmonyPatch(typeof(SoundStarter), nameof(SoundStarter.PlayOneShotOnCamera))]
+    static class log2
+    {
+        public static bool playing;
+
+        static void Prefix(SoundDef soundDef)
+        {
+            if (soundDef.defName.StartsWith("LetterArrive_"))
+            {
+                Log.Message($"play sound {soundDef} {UnityData.IsInMainThread} {Multiplayer.ExecutingCmds} {new StackTrace()} {Find.SoundRoot.sourcePool.GetSource(true)}");
+                playing = true;
+            }
+        }
+
+        static void Postfix() => playing = false;
+    }
+
+    [HarmonyPatch(typeof(SampleOneShotManager), nameof(SampleOneShotManager.CanAddPlayingOneShot))]
+    static class log3
+    {
+        static void Postfix(SoundDef def, ref bool __result)
+        {
+            if (def.defName.StartsWith("LetterArrive_"))
+                Log.Message($"play sound {def} {__result}");
+        }
+    }
+
+    [HarmonyPatch(typeof(SoundSlotManager), nameof(SoundSlotManager.Notify_Played))]
+    static class log4
+    {
+        static void Postfix()
+        {
+            if (log2.playing)
+                Log.Message($"Notify_Played");
+        }
+    }
+
+    [HarmonyPatch(typeof(Page_ModsConfig), nameof(Page_ModsConfig.DoModRow))]
+    static class PageModsPatch
+    {
+        public static string currentXMLMod;
+        public static Dictionary<string, string> truncatedStrings;
+
+        static void Prefix(Page_ModsConfig __instance, ModMetaData mod)
+        {
+            ModManager_ButtonPrefix(mod, __instance.truncatedModNamesCache);
+        }
+
+        public static void ModManager_ButtonPrefix(ModMetaData ____selected, Dictionary<string, string> ____modNameTruncationCache)
+        {
+            if (!Input.GetKey(KeyCode.LeftShift)) return;
+
+            var mod = ____selected;
+            if (Multiplayer.xmlMods.Contains(mod.RootDir.FullName))
+            {
+                currentXMLMod = mod.Name;
+                truncatedStrings = ____modNameTruncationCache;
+            }
+        }
+
+        public static void Postfix()
+        {
+            currentXMLMod = null;
+            truncatedStrings = null;
+        }
+    }
+
+    [HarmonyPatch(typeof(Widgets), nameof(Widgets.Label), typeof(Rect), typeof(string))]
+    static class WidgetsLabelPatch
+    {
+        static void Prefix(ref Rect rect, ref string label)
+        {
+            if (PageModsPatch.currentXMLMod == null) return;
+
+            if (label == PageModsPatch.currentXMLMod || PageModsPatch.truncatedStrings.TryGetValue(PageModsPatch.currentXMLMod, out string truncated) && truncated == label)
+            {
+                rect.width += 50;
+                label = "<b>[XML]</b> " + label;
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(DirectXmlSaver), nameof(DirectXmlSaver.XElementFromObject), typeof(object), typeof(Type), typeof(string), typeof(FieldInfo), typeof(bool))]
+    static class ExtendDirectXmlSaver
+    {
+        public static bool extend;
+
+        static bool Prefix(object obj, Type expectedType, string nodeName, FieldInfo owningField, ref XElement __result)
+        {
+            if (!extend) return true;
+            if (obj == null) return true;
+
+            if (obj is Array arr)
+            {
+                var elementType = arr.GetType().GetElementType();
+                var listType = typeof(List<>).MakeGenericType(elementType);
+                __result = DirectXmlSaver.XElementFromObject(Activator.CreateInstance(listType, arr), listType, nodeName, owningField);
+                return false;
+            }
+
+            string content = null;
+
+            if (obj is Type type)
+                content = type.FullName;
+            else if (obj is MethodBase method)
+                content = method.MethodDesc();
+            else if (obj is Delegate del)
+                content = del.Method.MethodDesc();
+
+            if (content != null)
+            {
+                __result = new XElement(nodeName, content);
+                return false;
+            }
+
+            return true;
         }
     }
 

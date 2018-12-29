@@ -113,6 +113,9 @@ namespace Multiplayer.Common
             if (state == ConnectionStateEnum.Disconnected)
                 return;
 
+            if (message.Length > FragmentSize)
+                throw new PacketSendException($"Packet {id} too big for sending ({message.Length}>{FragmentSize})");
+
             byte[] full = new byte[1 + message.Length];
             full[0] = (byte)(Convert.ToByte(id) & 0x3F);
             message.CopyTo(full, 1);
@@ -135,7 +138,7 @@ namespace Multiplayer.Common
                 int fragState = i + FragmentSize >= message.Length ? 0x80 : 0x40;
                 byte[] full = new byte[1 + len];
                 full[0] = (byte)((Convert.ToByte(id) & 0x3F) | fragState);
-                message.SubArray(i, len).CopyTo(full, 1);
+                Array.Copy(message, i, full, 1, len);
 
                 SendRaw(full);
             }
@@ -143,15 +146,13 @@ namespace Multiplayer.Common
 
         protected abstract void SendRaw(byte[] raw, bool reliable = true);
 
-        private ByteWriter fragmented;
-
         public virtual void HandleReceive(ByteReader data, bool reliable)
         {
             if (state == ConnectionStateEnum.Disconnected)
                 return;
 
             if (data.Left == 0)
-                throw new Exception("No packet id");
+                throw new PacketReadException("No packet id");
 
             byte info = data.ReadByte();
             byte msgId = (byte)(info & 0x3F);
@@ -160,10 +161,12 @@ namespace Multiplayer.Common
             HandleReceive(msgId, fragState, data, reliable);
         }
 
+        private ByteWriter fragmented;
+
         protected virtual void HandleReceive(int msgId, int fragState, ByteReader reader, bool reliable)
         {
             if (msgId < 0 || msgId >= MpConnectionState.packetHandlers.Length)
-                throw new Exception($"Bad packet id {msgId}");
+                throw new PacketReadException($"Bad packet id {msgId}");
 
             Packets packetType = (Packets)msgId;
 
@@ -171,13 +174,13 @@ namespace Multiplayer.Common
             if (handler == null)
             {
                 if (reliable)
-                    throw new Exception($"No handler for packet {packetType} in state {state}");
+                    throw new PacketReadException($"No handler for packet {packetType} in state {state}");
                 else
                     return;
             }
 
             if (reader.Left > FragmentSize)
-                throw new Exception($"Packet too big {reader.Left}>{FragmentSize}");
+                throw new PacketReadException($"Packet {packetType} too big {reader.Left}>{FragmentSize}");
 
             if (fragState == 0)
             {
@@ -185,7 +188,7 @@ namespace Multiplayer.Common
             }
             else if (!handler.fragment)
             {
-                throw new Exception($"Packet {packetType} can't be fragmented");
+                throw new PacketReadException($"Packet {packetType} can't be fragmented");
             }
             else
             {
@@ -195,7 +198,7 @@ namespace Multiplayer.Common
                 fragmented.WriteRaw(reader.ReadRaw(reader.Left));
 
                 if (fragmented.Position > MaxPacketSize)
-                    throw new Exception($"Full packet too big {fragmented.Position}>{MaxPacketSize}");
+                    throw new PacketReadException($"Full packet {packetType} too big {fragmented.Position}>{MaxPacketSize}");
 
                 if (fragState == 0x80)
                 {
@@ -206,6 +209,20 @@ namespace Multiplayer.Common
         }
 
         public abstract void Close();
+    }
+
+    public class PacketReadException : Exception
+    {
+        public PacketReadException(string msg) : base(msg)
+        {
+        }
+    }
+
+    public class PacketSendException : Exception
+    {
+        public PacketSendException(string msg) : base(msg)
+        {
+        }
     }
 
     public class MpNetConnection : IConnection
@@ -415,8 +432,11 @@ namespace Multiplayer.Common
         public string ReadString(int maxLen = 32767)
         {
             int bytes = ReadInt32();
+
+            if (bytes < 0)
+                throw new ReaderException($"String byte length ({bytes}<0)");
             if (bytes > maxLen)
-                throw new Exception($"String too long ({bytes}>{maxLen})");
+                throw new ReaderException($"String too long ({bytes}>{maxLen})");
 
             string result = Encoding.UTF8.GetString(array, index, bytes);
             index += bytes;
@@ -425,14 +445,17 @@ namespace Multiplayer.Common
 
         public byte[] ReadRaw(int len)
         {
-            return array.SubArray(IncrementIndex(len), len); ;
+            return array.SubArray(IncrementIndex(len), len);
         }
 
         public byte[] ReadPrefixedBytes(int maxLen = int.MaxValue)
         {
             int len = ReadInt32();
-            if (len > maxLen)
-                throw new Exception($"Byte array too long ({len}>{maxLen})");
+
+            if (len < 0)
+                throw new ReaderException($"Byte array length ({len}<0)");
+            if (len >= maxLen)
+                throw new ReaderException($"Byte array too long ({len}>{maxLen})");
 
             return ReadRaw(len);
         }
@@ -469,6 +492,20 @@ namespace Multiplayer.Common
             int i = index;
             index += size;
             return i;
+        }
+    }
+
+    public class ReaderException : Exception
+    {
+        public ReaderException(string msg) : base(msg)
+        {
+        }
+    }
+
+    public class WriterException : Exception
+    {
+        public WriterException(string msg) : base(msg)
+        {
         }
     }
 

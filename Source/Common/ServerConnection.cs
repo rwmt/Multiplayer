@@ -279,6 +279,7 @@ namespace Multiplayer.Common
         }
 
         [PacketHandler(Packets.Client_SyncInfo)]
+        [IsFragmented]
         public void HandleDesyncCheck(ByteReader data)
         {
             var arbiter = Server.ArbiterPlaying;
@@ -287,7 +288,7 @@ namespace Multiplayer.Common
 
             var raw = data.ReadRaw(data.Left);
             foreach (var p in Server.PlayingPlayers.Where(p => !p.IsArbiter))
-                p.SendPacket(Packets.Server_SyncInfo, raw);
+                p.conn.SendFragmented(Packets.Server_SyncInfo, raw);
         }
 
         [PacketHandler(Packets.Client_Pause)]

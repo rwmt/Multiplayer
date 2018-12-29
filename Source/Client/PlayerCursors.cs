@@ -11,7 +11,6 @@ using Verse;
 namespace Multiplayer.Client
 {
     [HarmonyPatch(typeof(Targeter), nameof(Targeter.TargeterOnGUI))]
-    [HotSwappable]
     static class DrawPlayerCursors
     {
         static void Postfix()

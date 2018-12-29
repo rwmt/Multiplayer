@@ -16,7 +16,6 @@ using Verse.Steam;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
     public class HostWindow : Window
     {
         public override Vector2 InitialSize => new Vector2(450f, 320f);

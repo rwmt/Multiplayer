@@ -368,5 +368,13 @@ namespace Multiplayer.Client
         {
             Scribe_Deep.Look(ref t, label);
         }
+
+        public static void LookULong(ref ulong value, string label, ulong defaultValue = 0)
+        {
+            string valueStr = value.ToString();
+            Scribe_Values.Look(ref valueStr, label, defaultValue.ToString());
+            if (Scribe.mode == LoadSaveMode.LoadingVars)
+                ulong.TryParse(valueStr, out value);
+        }
     }
 }
