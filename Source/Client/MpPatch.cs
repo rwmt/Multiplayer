@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using Verse;
 
 namespace Multiplayer.Client
 {
@@ -284,7 +285,7 @@ namespace Multiplayer.Client
 
     public static class MpPriority
     {
-        public const int MpLast = Priority.Last - 1;
+        public const int MpLast = Priority.Last - 2;
         public const int MpFirst = Priority.First + 1;
     }
 

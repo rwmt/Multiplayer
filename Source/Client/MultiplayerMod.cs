@@ -26,7 +26,7 @@ namespace Multiplayer.Client
 
         private void EarlyMarkNoInline()
         {
-            foreach (var type in MpUtil.AllModTypes())
+            foreach (var type in typeof(Multiplayer).Assembly.GetTypes())
             {
                 MpPatchExtensions.DoMpPatches(null, type)?.ForEach(m => MpUtil.MarkNoInlining(m));
 

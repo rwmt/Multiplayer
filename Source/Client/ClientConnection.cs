@@ -19,10 +19,13 @@ namespace Multiplayer.Client
 {
     public class ClientJoiningState : MpConnectionState
     {
+        public JoiningState state;
+
         public ClientJoiningState(IConnection connection) : base(connection)
         {
             connection.Send(Packets.Client_Defs, MpVersion.Protocol);
 
+            state = JoiningState.Connected;
             ConnectionStatusListeners.TryNotifyAll_Connected();
         }
 
@@ -33,6 +36,8 @@ namespace Multiplayer.Client
 
             connection.Send(Packets.Client_Username, Multiplayer.username);
             connection.Send(Packets.Client_RequestWorld);
+
+            state = JoiningState.Downloading;
         }
 
         [PacketHandler(Packets.Server_WorldData)]
@@ -161,6 +166,11 @@ namespace Multiplayer.Client
             string reasonKey = data.ReadString();
             Multiplayer.session.disconnectServerReason = reasonKey.Translate();
         }
+    }
+
+    public enum JoiningState
+    {
+        Connected, Downloading
     }
 
     public class ClientPlayingState : MpConnectionState, IConnectionStatusListener

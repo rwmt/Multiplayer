@@ -107,10 +107,28 @@ namespace Multiplayer.Client
         private static int depth;
         private static IntPtr upToHandle;
         private static IntPtr walkPtr = Marshal.GetFunctionPointerForDelegate((walk_stack)WalkStack);
+        private static Func<IntPtr, MethodBase> methodHandleToMethodBase;
 
         // Not thread safe
         public static MethodBase[] FastStackTrace(int skip = 0, MethodBase upTo = null)
         {
+            if (methodHandleToMethodBase == null)
+            {
+                var dyn = new DynamicMethod("MethodHandleToMethodBase", typeof(MethodBase), new[] { typeof(IntPtr) });
+                var il = dyn.GetILGenerator();
+                var local = il.DeclareLocal(typeof(RuntimeTypeHandle));
+
+                il.Emit(OpCodes.Ldarg_0);
+                il.Emit(OpCodes.Newobj, AccessTools.Constructor(typeof(RuntimeMethodHandle), new[] { typeof(IntPtr) }));
+                il.Emit(OpCodes.Ldloca_S, local);
+                il.Emit(OpCodes.Initobj, typeof(RuntimeTypeHandle));
+                il.Emit(OpCodes.Ldloc_S, local);
+                il.Emit(OpCodes.Call, AccessTools.Method(typeof(MethodBase), nameof(MethodBase.GetMethodFromHandle), new[] { typeof(RuntimeMethodHandle), typeof(RuntimeTypeHandle) }));
+                il.Emit(OpCodes.Ret);
+
+                methodHandleToMethodBase = (Func<IntPtr, MethodBase>)dyn.CreateDelegate(typeof(Func<IntPtr, MethodBase>));
+            }
+
             depth = 0;
             methods.Clear();
 
@@ -126,8 +144,8 @@ namespace Multiplayer.Client
         private static bool WalkStack(IntPtr methodHandle, int native, int il, bool managed, IntPtr skip)
         {
             depth++;
-            //if (depth > (int)skip)
-            //    methods.Add(MethodBase.GetMethodFromHandle(new RuntimeMethodHandle(methodHandle), new RuntimeTypeHandle()));
+            if (depth > (int)skip)
+                methods.Add(methodHandleToMethodBase(methodHandle));
             if (methodHandle == upToHandle) return true;
             return false;
         }

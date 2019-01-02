@@ -35,7 +35,7 @@ namespace Multiplayer.Client
                         session.pendingSteam.Add(req.m_steamIDRemote);
 
                     session.knownUsers.Add(req.m_steamIDRemote);
-                    session.hasUnread = true;
+                    session.NotifyChat();
 
                     SteamFriends.RequestUserInformation(req.m_steamIDRemote, true);
                 }

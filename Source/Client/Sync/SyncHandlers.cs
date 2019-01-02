@@ -108,6 +108,8 @@ namespace Multiplayer.Client
 
         public static SyncField SyncTradeableCount = Sync.Field(typeof(MpTransferableReference), "CountToTransfer").SetBufferChanges().PostApply(TransferableCount_PostApply);
 
+        public static SyncField SyncBillPaused = Sync.Field(typeof(Bill_Production), nameof(Bill_Production.paused)).SetBufferChanges().SetVersion(1);
+
         [MpPrefix(typeof(HealthCardUtility), "DrawOverviewTab")]
         static void HealthCardUtility(Pawn pawn)
         {
@@ -278,6 +280,14 @@ namespace Multiplayer.Client
             SyncBeCarried.Watch(p);
         }
 
+        [MpPrefix(typeof(Bill), nameof(Bill.DoInterface))]
+        [MpPrefix(typeof(Bill_Production), nameof(Bill_Production.ShouldDoNow))]
+        static void WatchBillPaused(Bill __instance)
+        {
+            if (__instance is Bill_Production)
+                SyncBillPaused.Watch(__instance);
+        }
+
         static void UseWorkPriorities_PostApply(object target, object value)
         {
             // From MainTabWindow_Work.DoManualPrioritiesCheckbox
@@ -416,6 +426,8 @@ namespace Multiplayer.Client
 
             SyncMethod.Register(typeof(InstallBlueprintUtility), nameof(InstallBlueprintUtility.CancelBlueprintsFor)).CancelIfAnyArgNull();
             SyncMethod.Register(typeof(Command_LoadToTransporter), nameof(Command_LoadToTransporter.ProcessInput));
+
+            SyncMethod.Register(typeof(TradeRequestComp), nameof(TradeRequestComp.Fulfill)).CancelIfAnyArgNull().SetVersion(1);
         }
 
         static SyncField SyncTimetable = Sync.Field(typeof(Pawn), "timetable", "times");
@@ -664,7 +676,7 @@ namespace Multiplayer.Client
 
         static SyncAction<T, A, B, C> RegisterActions<T, A, B, C>(Func<A, B, C, IEnumerable<T>> func, ActionGetter<T> actionGetter)
         {
-            var sync = new SyncAction<T, A, B, C>(Sync.handlers.Count, func, actionGetter);
+            var sync = new SyncAction<T, A, B, C>(func, actionGetter);
             Sync.handlers.Add(sync);
 
             return sync;
@@ -719,13 +731,13 @@ namespace Multiplayer.Client
 
             SyncDelegate.Register(typeof(CompFlickable), "<CompGetGizmosExtra>c__Iterator0", "<>m__1", thisField); // Toggle flick designation
             SyncDelegate.Register(typeof(Pawn_PlayerSettings), "<GetGizmos>c__Iterator0", "<>m__1", thisField);    // Toggle release animals
-            SyncDelegate.Register(typeof(Building_TurretGun), "<GetGizmos>c__Iterator0", "<>m__1", thisField);     // Toggle turret hold fire
+            SyncDelegate.Register(typeof(Building_TurretGun), "<GetGizmos>c__Iterator0", "<>m__2", thisField);     // Toggle turret hold fire
             SyncDelegate.Register(typeof(Building_Trap), "<GetGizmos>c__Iterator0", "<>m__1", thisField);          // Toggle trap auto-rearm
             SyncDelegate.Register(typeof(Building_Door), "<GetGizmos>c__Iterator0", "<>m__1", thisField);          // Toggle door hold open
             SyncDelegate.Register(typeof(Zone_Growing), "<GetGizmos>c__Iterator0", "<>m__1", thisField);           // Toggle zone allow sow
 
             SyncDelegate.Register(typeof(PriorityWork), "<GetGizmos>c__Iterator0", "<>m__0", thisField);                // Clear prioritized work
-            SyncDelegate.Register(typeof(Building_TurretGun), "<GetGizmos>c__Iterator0", "<>m__0", thisField);          // Reset forced target
+            SyncDelegate.Register(typeof(Building_TurretGun), "<GetGizmos>c__Iterator0", "<>m__1", thisField);          // Reset forced target
             SyncDelegate.Register(typeof(UnfinishedThing), "<GetGizmos>c__Iterator0", "<>m__0", thisField);             // Cancel unfinished thing
             SyncDelegate.Register(typeof(CompTempControl), "<CompGetGizmosExtra>c__Iterator0", "<>m__0", thisField);    // Reset temperature
             SyncDelegate.Register(typeof(CompTargetable), "<SelectedUseOption>c__AnonStorey0", "<>m__0");               // Use targetable
@@ -782,6 +794,7 @@ namespace Multiplayer.Client
 
             if (TickPatch.currentExecutingCmdIssuedBySelf)
             {
+                MapAsyncTimeComp.keepTheMap = true;
                 Current.Game.CurrentMap = comp.map;
                 Find.World.renderer.wantedMode = WorldRenderMode.None;
             }

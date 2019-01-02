@@ -1,11 +1,15 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 
 <Manifest>
+
   <identifier>Multiplayer</identifier>
-  <version>0.2</version>
+  <version>0.3</version>
   <manifestUri>https://raw.githubusercontent.com/Zetrith/Multiplayer/master/About/Manifest.xml</manifestUri>
   <downloadUri>https://github.com/Zetrith/Multiplayer/releases/latest</downloadUri>
+
+  <!-- Multiplayer should be placed right below Core -->
   <loadBefore>
 	<li>HugsLib</li>
   </loadBefore>
+
 </Manifest>

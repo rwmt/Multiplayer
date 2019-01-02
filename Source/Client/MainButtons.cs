@@ -1,6 +1,7 @@
 ﻿using Harmony;
 using Multiplayer.Common;
 using RimWorld;
+using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -62,12 +63,12 @@ namespace Multiplayer.Client
                     }
                 }
 
-                text.Append($" {Multiplayer.GlobalIdBlock.current}");
+                text.Append($" {Multiplayer.GlobalIdBlock.blockStart + Multiplayer.GlobalIdBlock.current}");
 
                 text.Append($"\n{Sync.bufferedChanges.Sum(kv => kv.Value.Count)}");
                 text.Append($"\n{((uint)async.randState)} {(uint)(async.randState >> 32)}");
                 text.Append($"\n{(uint)Multiplayer.WorldComp.randState} {(uint)(Multiplayer.WorldComp.randState >> 32)}");
-                text.Append($"\n{async.cmds.Count} {Multiplayer.WorldComp.cmds.Select(c => $"{c.type} {c.ticks}").ToStringSafeEnumerable()} {async.slower.ForcedNormalSpeed}");
+                text.Append($"\n{async.cmds.Count} {Multiplayer.WorldComp.cmds.Count} {async.slower.forceNormalSpeedUntil} {Multiplayer.WorldComp.asyncTime}");
 
                 Rect rect1 = new Rect(80f, 110f, 330f, Text.CalcHeight(text.ToString(), 330f));
                 Widgets.Label(rect1, text.ToString());
@@ -77,13 +78,18 @@ namespace Multiplayer.Client
         static void DoButtons()
         {
             float y = 10f;
-            const float btnWidth = 60f;
+            const float btnHeight = 27f;
+            const float btnWidth = 75f;
 
             if (Multiplayer.session != null && !Multiplayer.IsReplay)
             {
-                var btnRect = new Rect(UI.screenWidth - btnWidth - 10f, y, btnWidth, 25f);
+                var btnRect = new Rect(UI.screenWidth - btnWidth - 10f, y, btnWidth, btnHeight);
 
-                if (Widgets.ButtonText(btnRect, $"{"MpChatButton".Translate()}{(Multiplayer.session.hasUnread ? "*" : "")}"))
+                var chatColor = Multiplayer.session.players.Any(p => p.status == PlayerStatus.Desynced) ? "#ff5555" : "#dddddd";
+                var hasUnread = Multiplayer.session.hasUnread ? "*" : "";
+                var chatLabel = $"{"MpChatButton".Translate()} <color={chatColor}>({Multiplayer.session.players.Count})</color>{hasUnread}";
+
+                if (Widgets.ButtonText(btnRect, chatLabel))
                     Find.WindowStack.Add(new ChatWindow());
 
                 if (TickPatch.skipTo < 0)
@@ -96,21 +102,21 @@ namespace Multiplayer.Client
                     TooltipHandler.TipRegion(indRect, new TipSignal(text, 31641624));
                 }
 
-                y += 25f;
+                y += btnHeight;
             }
 
             if (MpVersion.IsDebug && Multiplayer.PacketLog != null)
             {
-                if (Widgets.ButtonText(new Rect(UI.screenWidth - btnWidth - 10f, y, btnWidth, 25f), "Packets"))
+                if (Widgets.ButtonText(new Rect(UI.screenWidth - btnWidth - 10f, y, btnWidth, btnHeight), "Packets"))
                     Find.WindowStack.Add(Multiplayer.PacketLog);
-                y += 25f;
+                y += btnHeight;
             }
 
             if (Multiplayer.Client != null && Multiplayer.WorldComp.trading.Any())
             {
-                if (Widgets.ButtonText(new Rect(UI.screenWidth - btnWidth - 10f, y, btnWidth, 25f), "MpTradingButton".Translate()))
+                if (Widgets.ButtonText(new Rect(UI.screenWidth - btnWidth - 10f, y, btnWidth, btnHeight), "MpTradingButton".Translate()))
                     Find.WindowStack.Add(new TradingWindow());
-                y += 25f;
+                y += btnHeight;
             }
         }
 
@@ -232,7 +238,7 @@ namespace Multiplayer.Client
             float windowWidth = Math.Max(240f, textWidth + 40f);
             Rect rect = new Rect(0, 0, windowWidth, 75f).CenterOn(new Rect(0, 0, UI.screenWidth, UI.screenHeight));
 
-            if (Multiplayer.IsReplay && !TickPatch.disableSkipCancel && Event.current.type == EventType.KeyUp && Event.current.keyCode == KeyCode.Escape)
+            if (Multiplayer.IsReplay && !TickPatch.forceSkip && Event.current.type == EventType.KeyUp && Event.current.keyCode == KeyCode.Escape)
             {
                 TickPatch.ClearSkipping();
                 Event.current.Use();
@@ -250,6 +256,7 @@ namespace Multiplayer.Client
 
     [MpPatch(typeof(MouseoverReadout), nameof(MouseoverReadout.MouseoverReadoutOnGUI))]
     [MpPatch(typeof(GlobalControls), nameof(GlobalControls.GlobalControlsOnGUI))]
+    [MpPatch(typeof(WorldGlobalControls), nameof(WorldGlobalControls.WorldGlobalControlsOnGUI))]
     static class MakeSpaceForReplayTimeline
     {
         static void Prefix()

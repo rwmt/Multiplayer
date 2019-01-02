@@ -70,7 +70,6 @@ namespace Multiplayer.Client
     }
 
     [MpPatch(typeof(OptionListingUtility), nameof(OptionListingUtility.DrawOptionListing))]
-    [HotSwappable]
     public static class MainMenuPatch
     {
         static void Prefix(Rect rect, List<ListableOption> optList)
@@ -96,17 +95,15 @@ namespace Multiplayer.Client
                 if (Multiplayer.session == null)
                     optList.Insert(0, new ListableOption("MpHostServer".Translate(), () => Find.WindowStack.Add(new HostWindow())));
 
+                if (MpVersion.IsDebug && Multiplayer.IsReplay)
+                    optList.Insert(0, new ListableOption("MpHostServer".Translate(), () => Find.WindowStack.Add(new HostWindow(withSimulation: true))));
+
                 if (Multiplayer.Client != null)
                 {
                     if (!Multiplayer.IsReplay)
-                    {
                         optList.Insert(0, new ListableOption("MpSaveReplay".Translate(), () => Find.WindowStack.Add(new Dialog_SaveReplay())));
-                    }
                     else
-                    {
                         optList.Insert(0, new ListableOption("MpConvert".Translate(), ConvertToSingleplayer));
-                        optList.Insert(0, new ListableOption("MpHostServer".Translate(), () => ClientUtil.HostServer(new ServerSettings(), true)));
-                    }
 
                     optList.RemoveAll(opt => opt.label == "Save".Translate() || opt.label == "LoadGame".Translate());
 
@@ -117,19 +114,7 @@ namespace Multiplayer.Client
                     if (quitMenu != null)
                     {
                         quitMenu.label = quitMenuLabel;
-                        quitMenu.action = () =>
-                        {
-                            Action action = () =>
-                            {
-                                OnMainThread.StopMultiplayer();
-                                GenScene.GoToMainMenu();
-                            };
-
-                            if (Multiplayer.LocalServer != null)
-                                Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation("MpServerCloseConfirmation".Translate(), action, true));
-                            else
-                                action();
-                        };
+                        quitMenu.action = AskQuitToMainMenu;
                     }
 
                     var quitOSLabel = "QuitToOS".Translate();
@@ -155,6 +140,20 @@ namespace Multiplayer.Client
                     }
                 }
             }
+        }
+
+        public static void AskQuitToMainMenu()
+        {
+            void Quit()
+            {
+                OnMainThread.StopMultiplayer();
+                GenScene.GoToMainMenu();
+            };
+
+            if (Multiplayer.LocalServer != null)
+                Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation("MpServerCloseConfirmation".Translate(), Quit, true));
+            else
+                Quit();
         }
 
         private static void ConvertToSingleplayer()
@@ -187,7 +186,7 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.Client == null) return;
 
-            if (Multiplayer.ShouldSync)
+            if (Multiplayer.InInterface)
             {
                 Log.Warning($"Started a job {newJob} on pawn {__instance.pawn} from the interface!");
                 return;
@@ -320,7 +319,7 @@ namespace Multiplayer.Client
 
         static bool Prefix()
         {
-            return Multiplayer.Client == null || !Multiplayer.ShouldSync;
+            return Multiplayer.Client == null || !Multiplayer.InInterface;
         }
 
         static void Postfix(ref int __result)
@@ -338,10 +337,17 @@ namespace Multiplayer.Client
 
             __result = currentBlock.NextId();*/
 
-            if (Multiplayer.ShouldSync)
+            if (Multiplayer.InInterface)
+            {
                 __result = localIds--;
+            }
             else
+            {
                 __result = Multiplayer.GlobalIdBlock.NextId();
+
+                if (MpVersion.IsDebug)
+                    Multiplayer.game.sync.TryAddStackTrace();
+            }
 
             //MpLog.Log("got new id " + __result);
 
@@ -465,7 +471,7 @@ namespace Multiplayer.Client
         // Give the root position during ticking
         static void Postfix(PawnTweener __instance, ref Vector3 __result)
         {
-            if (Multiplayer.Client == null || Multiplayer.ShouldSync) return;
+            if (Multiplayer.Client == null || Multiplayer.InInterface) return;
             __result = __instance.TweenedPosRoot();
         }
     }
@@ -912,7 +918,7 @@ namespace Multiplayer.Client
     [HarmonyPatch(typeof(Pawn_MeleeVerbs), nameof(Pawn_MeleeVerbs.TryGetMeleeVerb))]
     static class TryGetMeleeVerbPatch
     {
-        static bool Cancel => Multiplayer.Client != null && Multiplayer.ShouldSync;
+        static bool Cancel => Multiplayer.Client != null && Multiplayer.InInterface;
 
         static bool Prefix()
         {
@@ -1037,7 +1043,7 @@ namespace Multiplayer.Client
             mapComp.factionMapData[dummyFaction.loadID] = FactionMapData.New(dummyFaction.loadID, map);
             mapComp.factionMapData[dummyFaction.loadID].areaManager.AddStartingAreas();
 
-            async.mapTicks = Find.Maps.Select(m => m.AsyncTime()?.mapTicks).Max() ?? Find.TickManager.TicksGame;
+            async.mapTicks = Find.Maps.Where(m => m != map).Select(m => m.AsyncTime()?.mapTicks).Max() ?? Find.TickManager.TicksGame;
             async.storyteller = new Storyteller(Find.Storyteller.def, Find.Storyteller.difficulty);
             async.storyWatcher = new StoryWatcher();
         }
@@ -1048,7 +1054,7 @@ namespace Multiplayer.Client
     {
         static void Postfix(ref bool __result)
         {
-            if (!Multiplayer.ShouldSync)
+            if (!Multiplayer.InInterface)
                 __result = false;
         }
     }
@@ -1127,30 +1133,6 @@ namespace Multiplayer.Client
     static class WealthWatcherRecalc
     {
         static bool Prefix() => Multiplayer.Client == null || !Multiplayer.ShouldSync;
-    }
-
-    [HarmonyPatch(typeof(ThinkTreeKeyAssigner), nameof(ThinkTreeKeyAssigner.NextUnusedKeyFor))]
-    static class ThinkTreeKeys
-    {
-        static MethodInfo RandInt = AccessTools.Method(typeof(Rand), "get_Int");
-
-        // Replaces (^= Rand.Int) with (++)
-        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
-        {
-            foreach (var inst in insts)
-            {
-                if (inst.operand == RandInt)
-                {
-                    yield return new CodeInstruction(OpCodes.Ldc_I4_1);
-                    continue;
-                }
-
-                if (inst.opcode == OpCodes.Xor)
-                    inst.opcode = OpCodes.Add;
-
-                yield return inst;
-            }
-        }
     }
 
     static class CaptureThingSetMakers
@@ -1427,7 +1409,7 @@ namespace Multiplayer.Client
             if (!MpVersion.IsDebug) return;
 
             if (Multiplayer.Client == null) return;
-            if (RandPatches.Ignore) return;
+            if (Rand.stateStack.Count > 1) return;
             if (TickPatch.skipTo >= 0 || Multiplayer.IsReplay) return;
 
             if (!Multiplayer.Ticking && !Multiplayer.ExecutingCmds) return;
@@ -1518,11 +1500,11 @@ namespace Multiplayer.Client
     [HarmonyPatch(typeof(DangerWatcher), nameof(DangerWatcher.DangerRating), MethodType.Getter)]
     static class DangerRatingPatch
     {
-        static bool Prefix() => !Multiplayer.ShouldSync;
+        static bool Prefix() => !Multiplayer.InInterface;
 
         static void Postfix(DangerWatcher __instance, ref StoryDanger __result)
         {
-            if (Multiplayer.ShouldSync)
+            if (Multiplayer.InInterface)
                 __result = __instance.dangerRatingInt;
         }
     }
@@ -1536,52 +1518,6 @@ namespace Multiplayer.Client
         {
             if (deselected != null)
                 deselected.Add(obj);
-        }
-    }
-
-    [HarmonyPatch(typeof(LetterStack), nameof(LetterStack.ReceiveLetter), typeof(Letter), typeof(string))]
-    static class log1
-    {
-        static void Prefix(Letter let)
-        {
-            MpLog.Log("letter sound " + let.def.arriveSound);
-        }
-    }
-
-    [HarmonyPatch(typeof(SoundStarter), nameof(SoundStarter.PlayOneShotOnCamera))]
-    static class log2
-    {
-        public static bool playing;
-
-        static void Prefix(SoundDef soundDef)
-        {
-            if (soundDef.defName.StartsWith("LetterArrive_"))
-            {
-                Log.Message($"play sound {soundDef} {UnityData.IsInMainThread} {Multiplayer.ExecutingCmds} {new StackTrace()} {Find.SoundRoot.sourcePool.GetSource(true)}");
-                playing = true;
-            }
-        }
-
-        static void Postfix() => playing = false;
-    }
-
-    [HarmonyPatch(typeof(SampleOneShotManager), nameof(SampleOneShotManager.CanAddPlayingOneShot))]
-    static class log3
-    {
-        static void Postfix(SoundDef def, ref bool __result)
-        {
-            if (def.defName.StartsWith("LetterArrive_"))
-                Log.Message($"play sound {def} {__result}");
-        }
-    }
-
-    [HarmonyPatch(typeof(SoundSlotManager), nameof(SoundSlotManager.Notify_Played))]
-    static class log4
-    {
-        static void Postfix()
-        {
-            if (log2.playing)
-                Log.Message($"Notify_Played");
         }
     }
 
@@ -1665,6 +1601,65 @@ namespace Multiplayer.Client
 
             return true;
         }
+    }
+
+    [HarmonyPatch(typeof(TickManager), nameof(TickManager.Pause))]
+    static class TickManagerPausePatch
+    {
+        static bool Prefix() => Multiplayer.Client == null;
+    }
+
+    [HarmonyPatch(typeof(WorldRoutePlanner), nameof(WorldRoutePlanner.ShouldStop), MethodType.Getter)]
+    static class RoutePlanner_ShouldStop_Patch
+    {
+        static void Postfix(WorldRoutePlanner __instance, ref bool __result)
+        {
+            if (Multiplayer.Client == null) return;
+
+            // Ignore pause
+            if (__result && __instance.active && WorldRendererUtility.WorldRenderedNow)
+                __result = false;
+        }
+    }
+
+    [HarmonyPatch(typeof(Caravan), nameof(Caravan.ImmobilizedByMass), MethodType.Getter)]
+    static class ImmobilizedByMass_Patch
+    {
+        static bool Prefix() => !Multiplayer.InInterface;
+    }
+
+    [HarmonyPatch(typeof(GUI), nameof(GUI.skin), MethodType.Getter)]
+    static class GUISkinArbiter_Patch
+    {
+        static bool Prefix(ref GUISkin __result)
+        {
+            if (!Multiplayer.arbiterInstance) return true;
+            __result = ScriptableObject.CreateInstance<GUISkin>();
+            return false;
+        }
+    }
+
+    [HarmonyPatch(typeof(Building_CommsConsole), nameof(Building_CommsConsole.GetFloatMenuOptions))]
+    static class FactionCallNotice
+    {
+        static void Postfix(ref IEnumerable<FloatMenuOption> __result)
+        {
+            if (Multiplayer.Client != null)
+                __result = __result.Concat(new FloatMenuOption("MpCallingFactionNotAvailable".Translate(), null));
+        }
+    }
+
+    [HarmonyPatch(typeof(PawnGenerator), nameof(PawnGenerator.GeneratePawn), typeof(PawnGenerationRequest))]
+    static class CancelSyncDuringPawnGeneration
+    {
+        static void Prefix() => Multiplayer.dontSync = true;
+        static void Postfix() => Multiplayer.dontSync = false;
+    }
+
+    [HarmonyPatch(typeof(StoryWatcher_PopAdaptation), nameof(StoryWatcher_PopAdaptation.Notify_PawnEvent))]
+    static class CancelStoryWatcherEventInInterface
+    {
+        static bool Prefix() => !Multiplayer.InInterface;
     }
 
 }

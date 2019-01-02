@@ -18,23 +18,17 @@ namespace Multiplayer.Client
 {
     public abstract class SyncHandler
     {
-        public readonly int syncId;
-
-        public int SyncId => syncId;
+        public int syncId = -1;
 
         public SyncContext context;
         public bool debugOnly;
+        public int version;
 
-        protected SyncHandler(int syncId)
+        protected SyncHandler()
         {
-            this.syncId = syncId;
         }
 
         public abstract void Handle(ByteReader data);
-
-        public override int GetHashCode() => syncId;
-
-        public override bool Equals(object obj) => (obj as SyncHandler)?.syncId == syncId;
     }
 
     public class SyncField : SyncHandler
@@ -43,7 +37,7 @@ namespace Multiplayer.Client
         public readonly string memberPath;
         public readonly Type fieldType;
         public readonly Type indexType;
-        
+
         public bool bufferChanges;
         public bool inGameLoop;
 
@@ -52,7 +46,7 @@ namespace Multiplayer.Client
         private Action<object, object> preApply;
         private Action<object, object> postApply;
 
-        public SyncField(int syncId, Type targetType, string memberPath) : base(syncId)
+        public SyncField(Type targetType, string memberPath)
         {
             this.targetType = targetType;
             this.memberPath = targetType + "/" + memberPath;
@@ -72,7 +66,7 @@ namespace Multiplayer.Client
             MpContext context = writer.MpContext();
             writer.LogNode("Sync field " + memberPath);
 
-            writer.WriteInt32(SyncId);
+            writer.WriteInt32(syncId);
 
             int mapId = ScheduledCommand.Global;
             if (targetType != null)
@@ -118,6 +112,12 @@ namespace Multiplayer.Client
             MpReflection.SetValue(target, memberPath, value, index);
 
             postApply?.Invoke(target, value);
+        }
+
+        public SyncField SetVersion(int version)
+        {
+            this.version = version;
+            return this;
         }
 
         public SyncField PreApply(Action<object, object> action)
@@ -166,8 +166,6 @@ namespace Multiplayer.Client
 
     public interface ISyncMethod
     {
-        int SyncId { get; }
-
         bool DoSync(object target, object[] args);
     }
 
@@ -189,7 +187,7 @@ namespace Multiplayer.Client
         private Action<object, object[]> beforeCall;
         private Action<object, object[]> afterCall;
 
-        public SyncMethod(int syncId, Type targetType, string instancePath, string methodName, SyncType[] argTypes) : base(syncId)
+        public SyncMethod(Type targetType, string instancePath, string methodName, SyncType[] argTypes)
         {
             this.targetType = targetType;
 
@@ -204,7 +202,7 @@ namespace Multiplayer.Client
             this.argTypes = CheckArgs(argTypes);
         }
 
-        public SyncMethod(int syncId, Type targetType, MethodInfo method, SyncType[] argTypes) : base(syncId)
+        public SyncMethod(Type targetType, MethodInfo method, SyncType[] argTypes)
         {
             this.method = method;
             this.targetType = targetType;
@@ -241,7 +239,7 @@ namespace Multiplayer.Client
             MpContext context = writer.MpContext();
             writer.LogNode("Sync method " + method.FullDescription());
 
-            writer.WriteInt32(SyncId);
+            writer.WriteInt32(syncId);
 
             Sync.WriteContext(this, writer);
 
@@ -329,6 +327,12 @@ namespace Multiplayer.Client
             return this;
         }
 
+        public SyncMethod SetVersion(int version)
+        {
+            this.version = version;
+            return this;
+        }
+
         public SyncMethod SetDebugOnly()
         {
             debugOnly = true;
@@ -392,7 +396,7 @@ namespace Multiplayer.Client
 
         public MethodInfo patch;
 
-        public SyncDelegate(int syncId, Type delegateType, MethodInfo method, string[] fieldPaths) : base(syncId)
+        public SyncDelegate(Type delegateType, MethodInfo method, string[] fieldPaths)
         {
             this.delegateType = delegateType;
             this.method = method;
@@ -439,7 +443,7 @@ namespace Multiplayer.Client
             writer.LogNode($"Sync delegate: {delegateType} method: {method}");
             writer.LogNode("Patch: " + patch?.FullDescription());
 
-            writer.WriteInt32(SyncId);
+            writer.WriteInt32(syncId);
 
             Sync.WriteContext(this, writer);
 
@@ -577,7 +581,7 @@ namespace Multiplayer.Client
         private Func<A, B, C, IEnumerable<T>> func;
         private ActionGetter<T> actionGetter;
 
-        public SyncAction(int syncId, Func<A, B, C, IEnumerable<T>> func, ActionGetter<T> actionGetter) : base(syncId)
+        public SyncAction(Func<A, B, C, IEnumerable<T>> func, ActionGetter<T> actionGetter)
         {
             this.func = func;
             this.actionGetter = actionGetter;
@@ -618,7 +622,7 @@ namespace Multiplayer.Client
             MpContext context = writer.MpContext();
             writer.LogNode("Sync action");
 
-            writer.WriteInt32(SyncId);
+            writer.WriteInt32(syncId);
 
             Sync.WriteSync(writer, target);
             Sync.WriteSync(writer, arg0);
@@ -674,6 +678,11 @@ namespace Multiplayer.Client
                 }
             }
         }
+
+        public override string ToString()
+        {
+            return "SyncAction";
+        }
     }
 
     public class FieldData
@@ -726,6 +735,14 @@ namespace Multiplayer.Client
 
         public static Dictionary<SyncField, Dictionary<Pair<object, object>, BufferData>> bufferedChanges = new Dictionary<SyncField, Dictionary<Pair<object, object>, BufferData>>();
         private static Stack<FieldData> watchedStack = new Stack<FieldData>();
+
+        public static void InitHandlers()
+        {
+            handlers.SortStable((a, b) => a.version.CompareTo(b.version));
+
+            for (int i = 0; i < handlers.Count; i++)
+                handlers[i].syncId = i;
+        }
 
         public static void FieldWatchPrefix()
         {
@@ -782,7 +799,7 @@ namespace Multiplayer.Client
 
         public static SyncMethod Method(Type targetType, string instancePath, string methodName, SyncType[] argTypes = null)
         {
-            SyncMethod handler = new SyncMethod(handlers.Count, targetType, instancePath, methodName, argTypes);
+            SyncMethod handler = new SyncMethod(targetType, instancePath, methodName, argTypes);
             handlers.Add(handler);
             return handler;
         }
@@ -799,7 +816,7 @@ namespace Multiplayer.Client
 
         public static SyncField Field(Type targetType, string instancePath, string fieldName)
         {
-            SyncField handler = new SyncField(handlers.Count, targetType, instancePath + "/" + fieldName);
+            SyncField handler = new SyncField(targetType, instancePath + "/" + fieldName);
             handlers.Add(handler);
             return handler;
         }
@@ -855,7 +872,7 @@ namespace Multiplayer.Client
 
             MpUtil.MarkNoInlining(method);
 
-            SyncDelegate handler = new SyncDelegate(handlers.Count, type, method, fields);
+            SyncDelegate handler = new SyncDelegate(type, method, fields);
             syncMethods[handler.method] = handler;
             handlers.Add(handler);
 
@@ -900,7 +917,7 @@ namespace Multiplayer.Client
         {
             MpUtil.MarkNoInlining(method);
 
-            SyncMethod handler = new SyncMethod(handlers.Count, (method.IsStatic ? null : method.DeclaringType), method, argTypes);
+            SyncMethod handler = new SyncMethod((method.IsStatic ? null : method.DeclaringType), method, argTypes);
             syncMethods[method] = handler;
             handlers.Add(handler);
 

@@ -12,6 +12,7 @@ using System.Text;
 using System.Threading;
 using UnityEngine;
 using Verse;
+using Verse.Sound;
 
 namespace Multiplayer.Client
 {
@@ -31,6 +32,7 @@ namespace Multiplayer.Client
         public List<ReplayEvent> events = new List<ReplayEvent>();
 
         public bool desynced;
+        public bool resyncing;
 
         public string disconnectNetReason;
         public string disconnectServerReason;
@@ -82,23 +84,30 @@ namespace Multiplayer.Client
             return players.FirstOrDefault(p => p.id == id);
         }
 
-        public void AddMsg(string msg)
+        public void AddMsg(string msg, bool notify = true)
         {
-            AddMsg(new ChatMsg_Text(msg));
+            AddMsg(new ChatMsg_Text(msg), notify);
         }
 
-        public void AddMsg(ChatMsg msg)
+        public void AddMsg(ChatMsg msg, bool notify = true)
         {
-            var window = Find.WindowStack.WindowOfType<ChatWindow>();
-            if (window == null)
-                hasUnread = true;
-            else
+            var window = ChatWindow.Opened;
+
+            if (window != null)
                 window.OnChatReceived();
+            else if (notify)
+                NotifyChat();
 
             messages.Add(msg);
 
             if (messages.Count > MaxMessages)
                 messages.RemoveAt(0);
+        }
+
+        public void NotifyChat()
+        {
+            hasUnread = true;
+            SoundDefOf.PageChange.PlayOneShotOnCamera(null);
         }
     }
 
@@ -203,14 +212,6 @@ namespace Multiplayer.Client
             TradeSession.deal = null;
             TradeSession.giftMode = false;
 
-            foreach (var maker in CaptureThingSetMakers.captured)
-            {
-                if (maker is ThingSetMaker_Nutrition n)
-                    n.nextSeed = 1;
-                if (maker is ThingSetMaker_MarketValue m)
-                    m.nextSeed = 1;
-            }
-
             DebugTools.curTool = null;
             PortraitsCache.Clear();
             RealTime.moteList.Clear();
@@ -223,6 +224,8 @@ namespace Multiplayer.Client
             ZoneColorUtility.nextGrowingZoneColorIndex = 0;
             ZoneColorUtility.nextStorageZoneColorIndex = 0;
 
+            SetThingMakerSeed(1);
+
             foreach (var field in typeof(DebugSettings).GetFields(BindingFlags.Public | BindingFlags.Static))
                 if (!field.IsLiteral && field.FieldType == typeof(bool))
                     field.SetValue(null, default(bool));
@@ -234,6 +237,17 @@ namespace Multiplayer.Client
                     edgeThing.randomRotations = new List<int>() { 0, 1, 2, 3 };
 
             typeof(SymbolResolver_SingleThing).TypeInitializer.Invoke(null, null);
+        }
+
+        public void SetThingMakerSeed(int seed)
+        {
+            foreach (var maker in CaptureThingSetMakers.captured)
+            {
+                if (maker is ThingSetMaker_Nutrition n)
+                    n.nextSeed = seed;
+                if (maker is ThingSetMaker_MarketValue m)
+                    m.nextSeed = seed;
+            }
         }
     }
 }

@@ -349,12 +349,47 @@ namespace Multiplayer.Client
             }
             catch { }
         }
-        
+
         public static string MethodDesc(this MethodBase method)
         {
             return $"{method.DeclaringType.Namespace}.{method.DeclaringType.Name}::{method.Name}({method.GetParameters().Join(p => $"{p.ParameterType.Namespace}.{p.ParameterType.Name}")})";
         }
 
+        public static void Add_KeepRect(this WindowStack windows, Window window)
+        {
+            var rect = window.windowRect;
+            windows.Add(window);
+            window.windowRect = rect;
+        }
+
+        public static string[] ReadStrings(this XmlReader reader)
+        {
+            var sub = reader.ReadSubtree();
+
+            var names = new List<string>();
+            while (sub.ReadToFollowing("li"))
+                names.Add(reader.ReadString());
+
+            sub.Close();
+
+            return names.ToArray();
+        }
+    }
+
+    public static class ClientDataExtensions
+    {
+        public static void WriteRect(this ByteWriter data, Rect rect)
+        {
+            data.WriteFloat(rect.x);
+            data.WriteFloat(rect.y);
+            data.WriteFloat(rect.width);
+            data.WriteFloat(rect.height);
+        }
+
+        public static Rect ReadRect(this ByteReader data)
+        {
+            return new Rect(data.ReadFloat(), data.ReadFloat(), data.ReadFloat(), data.ReadFloat());
+        }
     }
 
 }

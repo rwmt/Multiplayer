@@ -2,15 +2,16 @@
 using RimWorld;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using UnityEngine;
 using Verse;
+using Verse.Profile;
 
 namespace Multiplayer.Client
 {
-    // Currently unused
     public static class SaveCompression
     {
         public static bool doSaveCompression;
@@ -22,13 +23,13 @@ namespace Multiplayer.Client
 
         public static void Save(Map map)
         {
-            if (Scribe.mode != LoadSaveMode.Saving) return;
-
-            map.compressor.compressibilityDecider = new CompressibilityDecider(map);
+            var decider = new CompressibilityDecider(map);
+            map.compressor.compressibilityDecider = decider;
+            decider.DetermineReferences();
 
             BinaryWriter rockData = new BinaryWriter(new MemoryStream());
-            BinaryWriter plantData = new BinaryWriter(new MemoryStream());
             BinaryWriter rockRubbleData = new BinaryWriter(new MemoryStream());
+            BinaryWriter plantData = new BinaryWriter(new MemoryStream());
 
             int cells = map.info.NumCells;
             for (int i = 0; i < cells; i++)
@@ -40,15 +41,15 @@ namespace Multiplayer.Client
             }
 
             SaveBinary(rockData, CompressedRocks);
-            SaveBinary(plantData, CompressedPlants);
             SaveBinary(rockRubbleData, CompressedRockRubble);
+            SaveBinary(plantData, CompressedPlants);
         }
 
         private static void SaveRock(Map map, BinaryWriter writer, IntVec3 cell)
         {
             Thing thing = map.thingGrid.ThingsListAt(cell).Find(IsSaveRock);
 
-            if (thing != null)
+            if (thing != null && thing.IsSaveCompressible())
             {
                 writer.Write(thing.def.shortHash);
                 writer.Write(thing.thingIDNumber);
@@ -63,7 +64,7 @@ namespace Multiplayer.Client
         {
             Filth thing = (Filth)map.thingGrid.ThingsListAt(cell).Find(IsSaveRockRubble);
 
-            if (thing != null)
+            if (thing != null && thing.IsSaveCompressible())
             {
                 writer.Write(thing.def.shortHash);
                 writer.Write(thing.thingIDNumber);
@@ -80,25 +81,29 @@ namespace Multiplayer.Client
         {
             Plant thing = (Plant)map.thingGrid.ThingsListAt(cell).Find(IsSavePlant);
 
-            if (thing != null)
+            if (thing != null && thing.IsSaveCompressible())
             {
                 writer.Write(thing.def.shortHash);
                 writer.Write(thing.thingIDNumber);
                 writer.Write(thing.HitPoints);
 
-                writer.Write(thing.Growth);
+                byte growth = (byte)Math.Ceiling(thing.Growth * 255);
+                writer.Write(growth);
                 writer.Write(thing.Age);
 
-                bool saveNext = thing.unlitTicks != 0 || thing.madeLeaflessTick != -99999;
+                bool hasUnlit = thing.unlitTicks != 0;
+                bool hasLeaflessTick = thing.madeLeaflessTick != -99999;
+
                 byte field = (byte)(thing.sown ? 1 : 0);
-                field |= (byte)(saveNext ? 2 : 0);
+                field |= (byte)(hasUnlit ? 2 : 0);
+                field |= (byte)(hasLeaflessTick ? 4 : 0);
                 writer.Write(field);
 
-                if (saveNext)
-                {
+                if (hasUnlit)
                     writer.Write(thing.unlitTicks);
+
+                if (hasLeaflessTick)
                     writer.Write(thing.madeLeaflessTick);
-                }
             }
             else
             {
@@ -108,16 +113,14 @@ namespace Multiplayer.Client
 
         public static void Load(Map map)
         {
-            if (Scribe.mode != LoadSaveMode.LoadingVars) return;
-
             thingDefsByShortHash = new Dictionary<ushort, ThingDef>();
 
             foreach (ThingDef thingDef in DefDatabase<ThingDef>.AllDefs)
                 thingDefsByShortHash[thingDef.shortHash] = thingDef;
 
             BinaryReader rockData = LoadBinary(CompressedRocks);
-            BinaryReader plantData = LoadBinary(CompressedPlants);
             BinaryReader rockRubbleData = LoadBinary(CompressedRockRubble);
+            BinaryReader plantData = LoadBinary(CompressedPlants);
             List<Thing> loadedThings = new List<Thing>();
 
             int cells = map.info.NumCells;
@@ -126,12 +129,18 @@ namespace Multiplayer.Client
                 IntVec3 cell = map.cellIndices.IndexToCell(i);
                 Thing t;
 
-                if ((t = LoadRock(map, rockData, cell)) != null) loadedThings.Add(t);
-                if ((t = LoadRockRubble(map, rockRubbleData, cell)) != null) loadedThings.Add(t);
-                if ((t = LoadPlant(map, plantData, cell)) != null) loadedThings.Add(t);
+                if (rockData != null && (t = LoadRock(map, rockData, cell)) != null) loadedThings.Add(t);
+                if (rockRubbleData != null && (t = LoadPlant(map, plantData, cell)) != null) loadedThings.Add(t);
+                if (plantData != null && (t = LoadRockRubble(map, rockRubbleData, cell)) != null) loadedThings.Add(t);
             }
 
-            map.MpComp().tempLoadedThings = loadedThings;
+            for (int i = 0; i < loadedThings.Count; i++)
+            {
+                var thing = loadedThings[i];
+                Scribe.loader.crossRefs.loadedObjectDirectory.RegisterLoaded(thing);
+            }
+
+            DecompressedThingsPatch.thingsToSpawn[map.uniqueID] = loadedThings;
         }
 
         private static Thing LoadRock(Map map, BinaryReader reader, IntVec3 cell)
@@ -183,20 +192,24 @@ namespace Multiplayer.Client
 
             int id = reader.ReadInt32();
             int hitPoints = reader.ReadInt32();
-            float growth = reader.ReadSingle();
+
+            byte growthByte = reader.ReadByte();
+            float growth = growthByte / 255f;
+
             int age = reader.ReadInt32();
 
             byte field = reader.ReadByte();
             bool sown = (field & 1) != 0;
-            bool loadNext = (field & 2) != 0;
+            bool hasUnlit = (field & 2) != 0;
+            bool hasLeafless = (field & 4) != 0;
 
             int plantUnlitTicks = 0;
             int plantMadeLeaflessTick = -99999;
-            if (loadNext)
-            {
+
+            if (hasUnlit)
                 plantUnlitTicks = reader.ReadInt32();
+            if (hasLeafless)
                 plantMadeLeaflessTick = reader.ReadInt32();
-            }
 
             ThingDef def = thingDefsByShortHash[defId];
 
@@ -264,6 +277,8 @@ namespace Multiplayer.Client
         {
             byte[] arr = null;
             DataExposeUtility.ByteArray(ref arr, label);
+            if (arr == null) return null;
+
             return new BinaryReader(new MemoryStream(arr));
         }
     }
@@ -272,12 +287,7 @@ namespace Multiplayer.Client
     [HarmonyPatch(nameof(MapFileCompressor.BuildCompressedString))]
     public static class SaveCompressPatch
     {
-        static bool Prefix(MapFileCompressor __instance)
-        {
-            if (!SaveCompression.doSaveCompression) return true;
-            SaveCompression.Save(__instance.map);
-            return false;
-        }
+        static bool Prefix(MapFileCompressor __instance) => !SaveCompression.doSaveCompression;
     }
 
     [HarmonyPatch(typeof(MapFileCompressor))]
@@ -287,7 +297,12 @@ namespace Multiplayer.Client
         static bool Prefix(MapFileCompressor __instance)
         {
             if (!SaveCompression.doSaveCompression) return true;
-            SaveCompression.Load(__instance.map);
+
+            if (Scribe.mode == LoadSaveMode.LoadingVars)
+                SaveCompression.Load(__instance.map);
+            else if (Scribe.mode == LoadSaveMode.Saving)
+                SaveCompression.Save(__instance.map);
+
             return false;
         }
     }
@@ -296,13 +311,24 @@ namespace Multiplayer.Client
     [HarmonyPatch(nameof(MapFileCompressor.ThingsToSpawnAfterLoad))]
     public static class DecompressedThingsPatch
     {
+        public static Dictionary<int, List<Thing>> thingsToSpawn = new Dictionary<int, List<Thing>>();
+
         static void Postfix(MapFileCompressor __instance, ref IEnumerable<Thing> __result)
         {
             if (!SaveCompression.doSaveCompression) return;
 
-            MultiplayerMapComp comp = __instance.map.MpComp();
-            __result = comp.tempLoadedThings;
-            comp.tempLoadedThings = null;
+            int mapId = __instance.map.uniqueID;
+            __result = thingsToSpawn[mapId];
+            thingsToSpawn.Remove(mapId);
+        }
+    }
+
+    [HarmonyPatch(typeof(MemoryUtility), nameof(MemoryUtility.ClearAllMapsAndWorld))]
+    static class ClearAllThingsToSpawnPatch
+    {
+        static void Prefix()
+        {
+            DecompressedThingsPatch.thingsToSpawn.Clear();
         }
     }
 
@@ -324,7 +350,8 @@ namespace Multiplayer.Client
 
             if (!t.Spawned) return;
 
-            __result = (SaveCompression.IsSavePlant(t) || SaveCompression.IsSaveRock(t) || SaveCompression.IsSaveRockRubble(t)) && !Referenced(t);
+            var mpCompressible = SaveCompression.IsSavePlant(t) || SaveCompression.IsSaveRock(t) || SaveCompression.IsSaveRockRubble(t);
+            __result = mpCompressible && !Referenced(t);
         }
 
         static bool Referenced(Thing t)

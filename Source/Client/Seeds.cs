@@ -176,28 +176,9 @@ namespace Multiplayer.Client
 
     public static class RandPatches
     {
-        private static int nesting;
-
-        public static bool Ignore
-        {
-            get => nesting > 0;
-            set
-            {
-                if (value)
-                {
-                    nesting++;
-                }
-                else if (nesting > 0)
-                {
-                    nesting--;
-                }
-            }
-        }
-
         public static void Prefix(ref bool __state)
         {
             Rand.PushState();
-            Ignore = true;
             __state = true;
         }
 
@@ -206,7 +187,6 @@ namespace Multiplayer.Client
             if (__state)
             {
                 Rand.PopState();
-                Ignore = false;
             }
         }
     }

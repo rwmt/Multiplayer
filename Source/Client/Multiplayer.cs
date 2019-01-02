@@ -16,6 +16,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Xml;
@@ -62,7 +63,8 @@ namespace Multiplayer.Client
         public static Map MapContext => MapAsyncTimeComp.tickingMap ?? MapAsyncTimeComp.executingCmdMap;
 
         public static bool dontSync;
-        public static bool ShouldSync => Client != null && !Ticking && !ExecutingCmds && !reloading && Current.ProgramState == ProgramState.Playing && LongEventHandler.currentEvent == null && !dontSync;
+        public static bool ShouldSync => InInterface && !dontSync;
+        public static bool InInterface => Client != null && !Ticking && !ExecutingCmds && !reloading && Current.ProgramState == ProgramState.Playing && LongEventHandler.currentEvent == null;
 
         public static string ReplaysDir => GenFilePaths.FolderUnderSaveData("MpReplays");
         public static string DesyncsDir => GenFilePaths.FolderUnderSaveData("MpDesyncs");
@@ -139,6 +141,9 @@ namespace Multiplayer.Client
 
             Log.messageQueue.maxMessages = 1000;
 
+            // todo run it later
+            Sync.InitHandlers();
+
             HandleCommandLine();
         }
 
@@ -199,6 +204,8 @@ namespace Multiplayer.Client
                         Log.Message($"timer {TickPatch.Timer}");
                         Log.Message($"world rand {(uint)WorldComp.randState} {WorldComp.randState >> 32}");
                         Log.Message($"map rand {rand.ToStringSafeEnumerable()} | {Find.Maps.Select(m => m.AsyncTime().mapTicks).ToStringSafeEnumerable()}");
+
+                        Application.Quit();
                     });
                 }, "Replay", false, null);
             }

@@ -343,7 +343,7 @@ namespace Multiplayer.Common
                 return;
             }
 
-            //req.Accept();
+            req.Accept();
         }
 
         public void OnPeerConnected(NetPeer peer)

@@ -54,7 +54,7 @@ namespace Multiplayer.Client
             WriteInfo();
         }
 
-        private byte[] SerializeCmds(List<ScheduledCommand> cmds)
+        public static byte[] SerializeCmds(List<ScheduledCommand> cmds)
         {
             ByteWriter writer = new ByteWriter();
 
@@ -65,7 +65,7 @@ namespace Multiplayer.Client
             return writer.GetArray();
         }
 
-        private List<ScheduledCommand> DeserializeCmds(byte[] data)
+        public static List<ScheduledCommand> DeserializeCmds(byte[] data)
         {
             var reader = new ByteReader(data);
 
@@ -150,13 +150,16 @@ namespace Multiplayer.Client
 
             var replay = ForLoading(name);
             replay.LoadInfo();
-            replay.LoadCurrentData(0);
+
+            var sectionIndex = toEnd ? (replay.info.sections.Count - 1) : 0;
+            replay.LoadCurrentData(sectionIndex);
+
             // todo ensure everything is read correctly
 
             session.myFactionId = replay.info.playerFaction;
-            session.replayTimerStart = replay.info.sections[0].start;
+            session.replayTimerStart = replay.info.sections[sectionIndex].start;
 
-            int tickUntil = replay.info.sections[0].end;
+            int tickUntil = replay.info.sections[sectionIndex].end;
             session.replayTimerEnd = tickUntil;
             TickPatch.tickUntil = tickUntil;
 

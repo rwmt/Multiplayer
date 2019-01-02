@@ -112,6 +112,8 @@ namespace Multiplayer.Client
                     zip.AddEntry("sync_remote", remote.Serialize());
                     zip.AddEntry("game_snapshot", savedGame);
 
+                    zip.AddEntry("static_fields", DebugToolsListing_Patch.StaticFieldsToString());
+
                     var desyncInfo = new ByteWriter();
                     desyncInfo.WriteBool(Multiplayer.session.ArbiterPlaying);
                     desyncInfo.WriteInt32(lastValidTick);
@@ -176,14 +178,20 @@ namespace Multiplayer.Client
 
         private static MethodBase TickPatchTick = AccessTools.Method(typeof(TickPatch), nameof(TickPatch.Tick));
 
-        public void TryAddStackTrace()
+        public void TryAddStackTrace(string info = null, bool doTrace = true)
         {
             if (!ShouldCollect) return;
 
-            var trace = MpUtil.FastStackTrace(6, TickPatchTick);
-            Current.traces.Add(trace);
-            current.traceHashes.Add(trace.Hash());
+            var trace = doTrace ? MpUtil.FastStackTrace(4) : new MethodBase[0];
+            Current.traces.Add(new TraceInfo() { trace = trace, info = info });
+            current.traceHashes.Add(trace.Hash() ^ (info?.GetHashCode() ?? 0));
         }
+    }
+
+    public class TraceInfo
+    {
+        public MethodBase[] trace;
+        public string info;
     }
 
     public class SyncInfo
@@ -194,7 +202,7 @@ namespace Multiplayer.Client
         public List<uint> world = new List<uint>();
         public List<SyncMapInfo> maps = new List<SyncMapInfo>();
 
-        public List<MethodBase[]> traces = new List<MethodBase[]>();
+        public List<TraceInfo> traces = new List<TraceInfo>();
         public List<int> traceHashes = new List<int>();
 
         public SyncInfo(int startTick)
@@ -282,7 +290,7 @@ namespace Multiplayer.Client
 
         public string TracesToString()
         {
-            return traces.Join(a => a.Join(m => m.MethodDesc(), "\n"), delimiter: "\n\n");
+            return traces.Join(a => a.info + "\n" + a.trace.Join(m => m.MethodDesc(), "\n"), delimiter: "\n\n");
         }
     }
 
@@ -386,9 +394,39 @@ namespace Multiplayer.Client
                     text.AppendLine($"World: {local.world.SequenceEqual(remote.world)}");
                     text.AppendLine($"Cmds: {local.cmds.SequenceEqual(remote.cmds)}");
                 }
+
+                text.AppendLine();
+
+                try
+                {
+                    text.AppendLine("[map_cmds]");
+                    foreach (var cmd in Replay.DeserializeCmds(zip["maps/000_0_cmds"].GetBytes()))
+                        PrintCmdInfo(text, cmd);
+                }
+                catch { }
+
+                text.AppendLine();
+
+                try
+                {
+                    text.AppendLine("[world_cmds]");
+                    foreach (var cmd in Replay.DeserializeCmds(zip["world/000_cmds"].GetBytes()))
+                        PrintCmdInfo(text, cmd);
+                }
+                catch { }
             }
 
             return text.ToString();
+
+            void PrintCmdInfo(StringBuilder builder, ScheduledCommand cmd)
+            {
+                builder.Append($"{cmd.type} {cmd.ticks} {cmd.mapId} {cmd.factionId}");
+
+                if (cmd.type == CommandType.Sync)
+                    builder.Append($" {Sync.handlers[BitConverter.ToInt32(cmd.data, 0)]}");
+
+                builder.AppendLine();
+            }
 
             SyncInfo PrintSyncInfo(StringBuilder builder, ZipFile zip, string file)
             {

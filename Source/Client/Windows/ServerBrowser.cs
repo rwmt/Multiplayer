@@ -6,6 +6,7 @@ using RimWorld;
 using Steamworks;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -15,11 +16,13 @@ using System.Xml;
 using UnityEngine;
 using Verse;
 using Verse.Steam;
+using Harmony;
 using zip::Ionic.Zip;
 
 namespace Multiplayer.Client
 {
     [StaticConstructorOnStartup]
+    [HotSwappable]
     public class ServerBrowser : Window
     {
         private NetManager net;
@@ -46,8 +49,6 @@ namespace Multiplayer.Client
 
             doCloseX = true;
             closeOnAccept = false;
-
-            ReloadFiles();
         }
 
         private Vector2 lanScroll;
@@ -91,6 +92,7 @@ namespace Multiplayer.Client
 
         private List<SaveFile> spSaves = new List<SaveFile>();
         private List<SaveFile> mpReplays = new List<SaveFile>();
+        private bool filesRead;
 
         private void ReloadFiles()
         {
@@ -101,12 +103,12 @@ namespace Multiplayer.Client
 
             foreach (FileInfo file in GenFilePaths.AllSavedGameFiles)
             {
-                spSaves.Add(
-                    new SaveFile(Path.GetFileNameWithoutExtension(file.Name), false, file)
-                    {
-                        rwVersion = ScribeMetaHeaderUtility.GameVersionOf(file)
-                    }
-                );
+                var saveFile = new SaveFile(Path.GetFileNameWithoutExtension(file.Name), false, file);
+
+                using (var stream = file.OpenRead())
+                    ReadSaveInfo(stream, out saveFile.rwVersion, out saveFile.modNames, out saveFile.modIds);
+
+                spSaves.Add(saveFile);
             }
 
             var replaysDir = new DirectoryInfo(GenFilePaths.FolderUnderSaveData("MpReplays"));
@@ -118,35 +120,38 @@ namespace Multiplayer.Client
                 var replay = Replay.ForLoading(file);
                 replay.LoadInfo();
 
-                mpReplays.Add(
-                    new SaveFile(Path.GetFileNameWithoutExtension(file.Name), true, file)
-                    {
-                        gameName = replay.info.name,
-                        protocol = replay.info.protocol
-                    }
-                );
+                var saveFile = new SaveFile(Path.GetFileNameWithoutExtension(file.Name), true, file)
+                {
+                    gameName = replay.info.name,
+                    protocol = replay.info.protocol
+                };
+
+                mpReplays.Add(saveFile);
+
+                using (var zip = replay.ZipFile)
+                    ReadSaveInfo(zip["world/000_save"].OpenReader(), out saveFile.rwVersion, out saveFile.modNames, out saveFile.modIds);
             }
         }
 
-        private string GetWorldName(FileInfo file)
+        private void ReadSaveInfo(Stream stream, out string rwVersion, out string[] modNames, out string[] modIds)
         {
-            using (var stream = new StreamReader(file.FullName))
-            {
-                using (var reader = new XmlTextReader(stream))
-                {
-                    var result =
-                        reader.
-                        ReadToNextElement()?. // savedGame
-                        ReadToNextElement()?. // meta
-                        SkipContents().
-                        ReadToNextElement()?. // game
-                        ReadToNextElement("world")?.
-                        ReadToNextElement("info")?.
-                        ReadToNextElement("name")?.
-                        ReadFirstText();
+            rwVersion = null;
+            modNames = new string[0];
+            modIds = new string[0];
 
-                    return result;
-                }
+            using (var reader = new XmlTextReader(stream))
+            {
+                reader.ReadToNextElement(); // savedGame
+                reader.ReadToNextElement(); // meta
+
+                reader.ReadToDescendant("gameVersion");
+                rwVersion = VersionControl.VersionStringWithoutRev(reader.ReadString());
+
+                reader.ReadToNextSibling("modIds");
+                modIds = reader.ReadStrings();
+
+                reader.ReadToNextSibling("modNames");
+                modNames = reader.ReadStrings();
             }
         }
 
@@ -158,6 +163,12 @@ namespace Multiplayer.Client
 
         private void DrawHost(Rect inRect)
         {
+            if (!filesRead)
+            {
+                ReloadFiles();
+                filesRead = true;
+            }
+
             inRect.y += 8;
 
             float margin = 80;
@@ -307,7 +318,7 @@ namespace Multiplayer.Client
 
                     TooltipHandler.TipRegion(
                         outdated,
-                        "MpReplayOutdatedDesc".Translate(saveFile.protocol, MpVersion.Protocol)
+                        $"{"MpReplayOutdatedDesc1".Translate(saveFile.protocol, MpVersion.Protocol)}\n\n{"MpReplayOutdatedDesc2".Translate()}\n{"MpReplayOutdatedDesc3".Translate()}"
                      );
                 }
 
@@ -316,32 +327,34 @@ namespace Multiplayer.Client
 
                 if (Widgets.ButtonInvisible(entryRect))
                 {
-                    if (saveFile.replay && Event.current.button == 1 && MpVersion.IsDebug)
-                        Find.WindowStack.Add(new DebugTextWindow(DesyncDebugInfo.Get(Replay.ForLoading(saveFile.file))));
-                    else
+                    if (Event.current.button == 0)
                         selectedFile = saveFile;
+                    else
+                        Find.WindowStack.Add(new FloatMenu(SaveFloatMenu(saveFile).ToList()));
                 }
 
                 y += 40;
             }
         }
 
-        private bool ButtonImage(Rect rect, Texture2D image, Color imageColor, Vector2? imageSize)
+        private IEnumerable<FloatMenuOption> SaveFloatMenu(SaveFile save)
         {
-            bool result = Widgets.ButtonText(rect, string.Empty, true, false, true);
-            Rect position;
-            if (imageSize != null)
-                position = new Rect(Mathf.Floor(rect.x + rect.width / 2f - imageSize.Value.x / 2f), Mathf.Floor(rect.y + rect.height / 2f - imageSize.Value.y / 2f), imageSize.Value.x, imageSize.Value.y);
-            else
-                position = rect;
+            var saveMods = new StringBuilder();
+            for (int i = 0; i < save.modIds.Length; i++)
+                saveMods.Append($"{save.modNames[i]}\n");
 
-            GUI.color = Color.black;
-            GUI.DrawTexture(position.Down(1).Right(1), image);
-            GUI.color = imageColor;
-            GUI.DrawTexture(position, image);
-            GUI.color = Color.white;
+            var activeMods = LoadedModManager.RunningModsListForReading.Join(m => m.Name, "\n");
 
-            return result;
+            yield return new FloatMenuOption("Mod list", () =>
+            {
+                Find.WindowStack.Add(new TwoTextAreas_Window($"RimWorld {save.rwVersion}\nSave mod list:\n\n{saveMods}", $"RimWorld {VersionControl.CurrentVersionString}\nActive mod list:\n\n{activeMods}"));
+            });
+
+            if (MpVersion.IsDebug)
+                yield return new FloatMenuOption("Debug info", () =>
+                {
+                    Find.WindowStack.Add(new DebugTextWindow(DesyncDebugInfo.Get(Replay.ForLoading(save.file))));
+                });
         }
 
         private List<SteamPersona> friends = new List<SteamPersona>();
@@ -624,7 +637,10 @@ namespace Multiplayer.Client
         public FileInfo file;
 
         public string gameName;
+
         public string rwVersion;
+        public string[] modNames;
+        public string[] modIds;
 
         public int protocol;
 

@@ -31,15 +31,18 @@ namespace Multiplayer.Client
         static void Postfix(TimeSnapshot? __state) => __state?.Set();
     }
 
-    [HarmonyPatch(typeof(Map), nameof(Map.MapUpdate))]
+    [MpPatch(typeof(Map), nameof(Map.MapUpdate))]
+    [MpPatch(typeof(Map), nameof(Map.FinalizeLoading))]
     static class MapUpdateTimePatch
     {
+        [HarmonyPriority(MpPriority.MpFirst)]
         static void Prefix(Map __instance, ref TimeSnapshot? __state)
         {
             if (Multiplayer.Client == null) return;
             __state = TimeSnapshot.GetAndSetFromMap(__instance);
         }
 
+        [HarmonyPriority(MpPriority.MpLast)]
         static void Postfix(TimeSnapshot? __state) => __state?.Set();
     }
 

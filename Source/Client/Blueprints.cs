@@ -248,7 +248,8 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(Designator_Build), nameof(Designator_Build.DesignateSingleCell))]
+    // todo revisit for pvp
+    //[HarmonyPatch(typeof(Designator_Build), nameof(Designator_Build.DesignateSingleCell))]
     static class DisableInstaBuild
     {
         static MethodInfo GetStatValueAbstract = AccessTools.Method(typeof(StatExtension), nameof(StatExtension.GetStatValueAbstract));

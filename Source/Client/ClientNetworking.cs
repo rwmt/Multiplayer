@@ -1,4 +1,5 @@
 ﻿using Harmony;
+using Ionic.Zlib;
 using LiteNetLib;
 using Multiplayer.Common;
 using RimWorld;
@@ -90,11 +91,9 @@ namespace Multiplayer.Client
             }
         }
 
-        public static void HostServer(ServerSettings settings, bool fromReplay)
+        public static void HostServer(ServerSettings settings, bool fromReplay, bool withSimulation = false)
         {
             Log.Message($"Starting the server");
-
-            OnMainThread.ClearCaches();
 
             var session = Multiplayer.session = new MultiplayerSession();
             session.myFactionId = Faction.OfPlayer.loadID;
@@ -102,7 +101,19 @@ namespace Multiplayer.Client
             session.gameName = settings.gameName;
 
             var localServer = new MultiplayerServer(settings);
-            localServer.debugOnlySyncCmds = new HashSet<int>(Sync.handlers.Where(h => h.debugOnly).Select(h => h.SyncId));
+
+            if (withSimulation)
+            {
+                localServer.savedGame = GZipStream.CompressBuffer(OnMainThread.cachedGameData);
+                localServer.mapData = OnMainThread.cachedMapData.ToDictionary(kv => kv.Key, kv => GZipStream.CompressBuffer(kv.Value));
+                localServer.mapCmds = OnMainThread.cachedMapCmds.ToDictionary(kv => kv.Key, kv => kv.Value.Select(c => c.Serialize()).ToList());
+            }
+            else
+            {
+                OnMainThread.ClearCaches();
+            }
+
+            localServer.debugOnlySyncCmds = new HashSet<int>(Sync.handlers.Where(h => h.debugOnly).Select(h => h.syncId));
             localServer.hostUsername = Multiplayer.username;
             localServer.coopFactionId = Faction.OfPlayer.loadID;
 
@@ -130,21 +141,32 @@ namespace Multiplayer.Client
 
             Find.MainTabsRoot.EscapeCurrentTab(false);
 
-            Multiplayer.session.AddMsg("Wiki on desyncs:");
-            Multiplayer.session.AddMsg(new ChatMsg_Url("https://github.com/Zetrith/Multiplayer/wiki/Desyncs"));
-            Multiplayer.session.hasUnread = false;
+            Multiplayer.session.AddMsg("Wiki on desyncs:", false);
+            Multiplayer.session.AddMsg(new ChatMsg_Url("https://github.com/Zetrith/Multiplayer/wiki/Desyncs"), false);
 
-            var timeSpeed = Prefs.data.pauseOnLoad ? TimeSpeed.Paused : TimeSpeed.Normal;
-
-            Multiplayer.WorldComp.TimeSpeed = timeSpeed;
-            foreach (var map in Find.Maps)
-                map.AsyncTime().TimeSpeed = timeSpeed;
-
-            LongEventHandler.QueueLongEvent(() =>
+            if (withSimulation)
             {
-                SaveLoad.CacheGameData(SaveLoad.SaveAndReload());
-                SaveLoad.SendCurrentGameData(false);
+                StartServerThread();
+            }
+            else
+            {
+                var timeSpeed = Prefs.data.pauseOnLoad ? TimeSpeed.Paused : TimeSpeed.Normal;
 
+                Multiplayer.WorldComp.TimeSpeed = timeSpeed;
+                foreach (var map in Find.Maps)
+                    map.AsyncTime().TimeSpeed = timeSpeed;
+
+                LongEventHandler.QueueLongEvent(() =>
+                {
+                    SaveLoad.CacheGameData(SaveLoad.SaveAndReload());
+                    SaveLoad.SendCurrentGameData(false);
+
+                    StartServerThread();
+                }, "MpSaving", false, null);
+            }
+
+            void StartServerThread()
+            {
                 var netStarted = localServer.StartListeningNet();
                 var lanStarted = localServer.StartListeningLan();
 
@@ -164,7 +186,7 @@ namespace Multiplayer.Client
 
                 Messages.Message(text, MessageTypeDefOf.SilentInput, false);
                 Log.Message(text);
-            }, "MpSaving", false, null);
+            }
         }
 
         private static void SetupGame()
@@ -245,7 +267,7 @@ namespace Multiplayer.Client
 
         private static void StartArbiter()
         {
-            Multiplayer.session.AddMsg("The Arbiter instance is starting...");
+            Multiplayer.session.AddMsg("The Arbiter instance is starting...", false);
 
             Multiplayer.LocalServer.SetupArbiterConnection();
 

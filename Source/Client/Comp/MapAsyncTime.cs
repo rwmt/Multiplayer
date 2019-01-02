@@ -115,6 +115,7 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(TimeControls), nameof(TimeControls.DoTimeControlsGUI))]
+    [HotSwappable]
     public static class TimeControlPatch
     {
         private static TimeSpeed prevSpeed;
@@ -126,7 +127,7 @@ namespace Multiplayer.Client
             if (!WorldRendererUtility.WorldRenderedNow && Find.CurrentMap == null) return;
 
             ITickable tickable = Multiplayer.WorldComp;
-            if (!WorldRendererUtility.WorldRenderedNow)
+            if (!WorldRendererUtility.WorldRenderedNow && Multiplayer.WorldComp.asyncTime)
                 tickable = Find.CurrentMap.AsyncTime();
 
             TimeSpeed speed = tickable.TimeSpeed;
@@ -140,9 +141,18 @@ namespace Multiplayer.Client
             __state = tickable;
         }
 
-        static void Postfix(ITickable __state)
+        static void Postfix(ITickable __state, Rect timerRect)
         {
             if (__state == null) return;
+
+            Rect rect = new Rect(timerRect.x, timerRect.y, TimeControls.TimeButSize.x, TimeControls.TimeButSize.y);
+            float normalSpeed = __state.ActualRateMultiplier(TimeSpeed.Normal);
+            float fastSpeed = __state.ActualRateMultiplier(TimeSpeed.Fast);
+
+            if (normalSpeed == 0f) // Completely paused
+                Widgets.DrawLineHorizontal(rect.x + rect.width, rect.y + rect.height / 2f, rect.width * 3f);
+            else if (normalSpeed == fastSpeed)  // Slowed down
+                Widgets.DrawLineHorizontal(rect.x + rect.width * 2f, rect.y + rect.height / 2f, rect.width * 2f);
 
             TimeSpeed newSpeed = Find.TickManager.CurTimeSpeed;
             Find.TickManager.CurTimeSpeed = savedSpeed;
@@ -186,7 +196,7 @@ namespace Multiplayer.Client
 
         static void DrawButtons()
         {
-            if (Multiplayer.Client == null) return;
+            if (Multiplayer.Client == null || !Multiplayer.WorldComp.asyncTime) return;
 
             ColonistBar bar = Find.ColonistBar;
             if (bar.Entries.Count == 0) return;
@@ -211,7 +221,6 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(MainButtonWorker), nameof(MainButtonWorker.DoButton))]
-    [HotSwappable]
     static class MainButtonWorldTimeControl
     {
         static void Prefix(MainButtonWorker __instance, Rect rect, ref Rect? __state)
@@ -220,6 +229,7 @@ namespace Multiplayer.Client
             if (__instance.def != MainButtonDefOf.World) return;
             if (__instance.Disabled) return;
             if (Find.CurrentMap == null) return;
+            if (!Multiplayer.WorldComp.asyncTime) return;
 
             Rect button = new Rect(rect.xMax - TimeControls.TimeButSize.x - 5f, rect.y + (rect.height - TimeControls.TimeButSize.y) / 2f, TimeControls.TimeButSize.x, TimeControls.TimeButSize.y);
             __state = button;
@@ -283,7 +293,7 @@ namespace Multiplayer.Client
             var asyncTime = map.AsyncTime();
             var timeSpeed = Multiplayer.IsReplay ? TickPatch.replayTimeSpeed : asyncTime.TimeSpeed;
 
-            __result = TickPatch.skipTo >= 0 ? 6 : asyncTime.TickRateMultiplier(timeSpeed);
+            __result = TickPatch.skipTo >= 0 ? 6 : asyncTime.ActualRateMultiplier(timeSpeed);
         }
     }
 
@@ -298,7 +308,7 @@ namespace Multiplayer.Client
             var asyncTime = Find.CurrentMap.AsyncTime();
             var timeSpeed = Multiplayer.IsReplay ? TickPatch.replayTimeSpeed : asyncTime.TimeSpeed;
 
-            __result = asyncTime.TickRateMultiplier(timeSpeed) == 0;
+            __result = asyncTime.ActualRateMultiplier(timeSpeed) == 0;
         }
     }
 
@@ -347,6 +357,7 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.Client == null) return;
 
+            // The newly generated map
             var map = Find.Maps.Last();
             map.AsyncTime().slower.SignalForceNormalSpeedShort();
         }
@@ -356,13 +367,6 @@ namespace Multiplayer.Client
     {
         public static Map tickingMap;
         public static Map executingCmdMap;
-
-        public float TimePerTick(TimeSpeed speed)
-        {
-            if (TickRateMultiplier(speed) == 0f)
-                return 0f;
-            return 1f / TickRateMultiplier(speed);
-        }
 
         public float TickRateMultiplier(TimeSpeed speed)
         {
@@ -398,7 +402,7 @@ namespace Multiplayer.Client
             set => timeSpeedInt = value;
         }
 
-        public bool Paused => TickRateMultiplier(TimeSpeed) == 0f;
+        public bool Paused => this.ActualRateMultiplier(TimeSpeed) == 0f;
 
         public float RealTimeToTickThrough { get; set; }
 
@@ -556,6 +560,8 @@ namespace Multiplayer.Client
             Log.Message($"Init map with cmds {cmds.Count}");
         }
 
+        public static bool keepTheMap;
+
         public void ExecuteCmd(ScheduledCommand cmd)
         {
             ByteReader data = new ByteReader(cmd.data);
@@ -563,6 +569,7 @@ namespace Multiplayer.Client
 
             CommandType cmdType = cmd.type;
 
+            keepTheMap = false;
             var prevMap = Current.Game.CurrentMap;
             Current.Game.currentMapIndex = (sbyte)map.Index;
 
@@ -594,7 +601,7 @@ namespace Multiplayer.Client
                     HandleMapFactionData(cmd, data);
                 }
 
-                if (cmdType == CommandType.MapTimeSpeed)
+                if (cmdType == CommandType.MapTimeSpeed && Multiplayer.WorldComp.asyncTime)
                 {
                     TimeSpeed speed = (TimeSpeed)data.ReadByte();
                     TimeSpeed = speed;
@@ -653,7 +660,10 @@ namespace Multiplayer.Client
                 TickPatch.currentExecutingCmdIssuedBySelf = false;
                 executingCmdMap = null;
 
-                TrySetCurrentMap(prevMap);
+                if (!keepTheMap)
+                    TrySetCurrentMap(prevMap);
+
+                keepTheMap = false;
 
                 Multiplayer.game.sync.TryAddCmd(randState);
             }

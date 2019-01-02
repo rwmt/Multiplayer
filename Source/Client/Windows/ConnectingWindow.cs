@@ -13,21 +13,25 @@ namespace Multiplayer.Client
     {
         public override Vector2 InitialSize => new Vector2(300f, 150f);
 
-        public virtual bool Ellipsis => result == null;
+        public virtual bool IsConnecting => result == null;
         public abstract string ConnectingString { get; }
 
         public bool returnToServerBrowser;
 
-        public string result;
+        protected string result;
 
         public BaseConnectingWindow()
         {
             closeOnAccept = false;
+            closeOnCancel = false;
         }
 
         public override void DoWindowContents(Rect inRect)
         {
-            string label = Ellipsis ? (ConnectingString + MpUtil.FixedEllipsis()) : result;
+            string label = IsConnecting ? (ConnectingString + MpUtil.FixedEllipsis()) : result;
+
+            if (Multiplayer.Client?.StateObj is ClientJoiningState joining && joining.state == JoiningState.Downloading)
+                label = $"MpDownloading".Translate(Multiplayer.Client.FragmentProgress);
 
             const float buttonHeight = 40f;
             const float buttonWidth = 120f;

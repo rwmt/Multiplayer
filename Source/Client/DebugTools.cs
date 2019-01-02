@@ -1,5 +1,6 @@
 ﻿using Multiplayer.Common;
 using RimWorld;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -128,15 +129,30 @@ namespace Multiplayer.Client
 
         static void PrintStaticFields()
         {
+            Log.Message(StaticFieldsToString());
+        }
+
+        public static string StaticFieldsToString()
+        {
             var builder = new StringBuilder();
+
+            object FieldValue(FieldInfo field)
+            {
+                var value = field.GetValue(null);
+                if (value is ICollection col)
+                    return col.Count;
+                if (field.Name.ToLowerInvariant().Contains("path") && value is string path && (path.Contains("/") || path.Contains("\\")))
+                    return "[x]";
+                return value;
+            }
 
             foreach (var type in typeof(Game).Assembly.GetTypes())
                 if (!type.IsGenericTypeDefinition && type.Namespace != null && (type.Namespace.StartsWith("RimWorld") || type.Namespace.StartsWith("Verse")) && !type.HasAttribute<DefOf>() && !type.HasAttribute<CompilerGeneratedAttribute>())
                     foreach (var field in type.GetFields(BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.DeclaredOnly))
                         if (!field.IsLiteral && !field.IsInitOnly && !field.HasAttribute<CompilerGeneratedAttribute>())
-                            builder.AppendLine($"{field.FieldType} {type}::{field.Name}: {field.GetValue(null)}");
+                            builder.AppendLine($"{field.FieldType} {type}::{field.Name}: {FieldValue(field)}");
 
-            Log.Message(builder.ToString());
+            return builder.ToString();
         }
 
         static void QueueIncident()

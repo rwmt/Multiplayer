@@ -26,28 +26,28 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(TileTemperaturesComp), nameof(TileTemperaturesComp.RetrieveCachedData))]
-    static class RetrieveCachedDataPatch
+    static class RetrieveCachedData_Patch
     {
-        static void Prefix(TileTemperaturesComp __instance, int tile, ref bool __state)
+        static bool Prefix(TileTemperaturesComp __instance, int tile, ref TileTemperaturesComp.CachedTileTemperatureData __result)
         {
-            if (Multiplayer.Client == null) return;
-
-            var cache = __instance.cache;
-            __state = cache[tile] == null;
-
-            if (!Multiplayer.ShouldSync && cache[tile]?.twelfthlyTempAverages.Length == 13)
+            if (Multiplayer.InInterface && __instance != Multiplayer.WorldComp.uiTemperatures)
             {
-                cache[tile] = null;
-                __instance.usedSlots.Remove(tile);
+                __result = Multiplayer.WorldComp.uiTemperatures.RetrieveCachedData(tile);
+                return false;
             }
-        }
 
-        static void Postfix(TileTemperaturesComp __instance, int tile, bool __state)
-        {
-            if (__state && Multiplayer.ShouldSync)
-            {
-                Array.Resize(ref __instance.cache[tile].twelfthlyTempAverages, 13);
-            }
+            return true;
         }
     }
+
+    [HarmonyPatch(typeof(TileTemperaturesComp), nameof(TileTemperaturesComp.WorldComponentTick))]
+    static class TileTemperaturesTick_Patch
+    {
+        static void Prefix(TileTemperaturesComp __instance)
+        {
+            if (Multiplayer.InInterface && __instance != Multiplayer.WorldComp.uiTemperatures)
+                Multiplayer.WorldComp.uiTemperatures.WorldComponentTick();
+        }
+    }
+
 }

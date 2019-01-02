@@ -16,20 +16,26 @@ using Verse.Steam;
 
 namespace Multiplayer.Client
 {
+    [HotSwappable]
     public class HostWindow : Window
     {
-        public override Vector2 InitialSize => new Vector2(450f, 320f);
+        public override Vector2 InitialSize => new Vector2(450f, height + 45f);
 
         private SaveFile file;
         public bool returnToServerBrowser;
+        private bool withSimulation;
+        private bool asyncTime;
 
-        public HostWindow(SaveFile file = null)
+        private float height;
+
+        public HostWindow(SaveFile file = null, bool withSimulation = false)
         {
             closeOnAccept = false;
             doCloseX = true;
 
+            this.withSimulation = withSimulation;
             this.file = file;
-            settings.gameName = file?.gameName ?? $"{Multiplayer.username}'s game";
+            settings.gameName = file?.gameName ?? Multiplayer.session?.gameName ?? $"{Multiplayer.username}'s game";
 
             var localAddr = MpUtil.GetLocalIpAddress() ?? "127.0.0.1";
             settings.lanAddress = localAddr;
@@ -93,7 +99,7 @@ namespace Multiplayer.Client
 
             var lanRect = entry.Width(130);
             CheckboxLabeled(lanRect, $"{"MpLan".Translate()}:  ", ref lan, placeTextNearCheckbox: true);
-            TooltipHandler.TipRegion(lanRect, "MpLanDesc".Translate(settings.lanAddress));
+            TooltipHandler.TipRegion(lanRect, $"{"MpLanDesc1".Translate()}\n\n{"MpLanDesc2".Translate(settings.lanAddress)}");
 
             entry = entry.Down(30);
 
@@ -107,6 +113,19 @@ namespace Multiplayer.Client
             CheckboxLabeled(entry.Width(130), "The Arbiter:  ", ref settings.arbiter, placeTextNearCheckbox: true);
             entry = entry.Down(30);
 
+            if (MpVersion.IsDebug)
+            {
+                TooltipHandler.TipRegion(entry.Width(130), $"{"MpAsyncTimeDesc".Translate()}\n\n{"MpExperimentalFeature".Translate()}");
+                CheckboxLabeled(entry.Width(130), "Async time:  ", ref asyncTime, placeTextNearCheckbox: true);
+                entry = entry.Down(30);
+            }
+
+            if (Event.current.type == EventType.layout && height != entry.yMax)
+            {
+                height = entry.yMax;
+                SetInitialSizeAndPosition();
+            }
+
             var buttonRect = new Rect((inRect.width - 100f) / 2f, inRect.height - 35f, 100f, 35f);
 
             if (Widgets.ButtonText(buttonRect, "MpHostButton".Translate()))
@@ -117,17 +136,23 @@ namespace Multiplayer.Client
         {
             if (direct && !TryParseIp(addressBuffer, out settings.bindAddress, out settings.bindPort))
                 return;
-           
+
+            if (settings.gameName.NullOrEmpty())
+            {
+                Messages.Message("MpInvalidGameName".Translate(), MessageTypeDefOf.RejectInput, false);
+                return;
+            }
+
             if (!direct)
                 settings.bindAddress = null;
 
             if (!lan)
                 settings.lanAddress = null;
 
-            if (file == null)
-                ClientUtil.HostServer(settings, false);
-            else if (file.replay)
+            if (file?.replay ?? Multiplayer.IsReplay)
                 HostFromReplay(settings);
+            else if (file == null)
+                ClientUtil.HostServer(settings, false);
             else
                 HostFromSave(settings);
 
@@ -235,12 +260,17 @@ namespace Multiplayer.Client
 
         private void HostFromReplay(ServerSettings settings)
         {
-            TickPatch.disableSkipCancel = true;
+            void ReplayLoaded() => ClientUtil.HostServer(settings, true, withSimulation);
 
-            Replay.LoadReplay(file.fileName, true, () =>
+            if (file != null)
             {
-                ClientUtil.HostServer(settings, true);
-            });
+                TickPatch.forceSkip = true;
+                Replay.LoadReplay(file.fileName, true, ReplayLoaded);
+            }
+            else
+            {
+                ReplayLoaded();
+            }
         }
     }
 }

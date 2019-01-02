@@ -22,13 +22,17 @@ namespace Multiplayer.Client
         {
             Multiplayer.reloading = true;
 
-            WorldGrid worldGridSaved = Find.WorldGrid;
-            WorldRenderer worldRendererSaved = Find.World.renderer;
+            var worldGridSaved = Find.WorldGrid;
+            var worldRendererSaved = Find.World.renderer;
             var tweenedPos = new Dictionary<int, Vector3>();
             var drawers = new Dictionary<int, MapDrawer>();
-            int localFactionId = Multiplayer.RealPlayerFaction.loadID;
+            var localFactionId = Multiplayer.RealPlayerFaction.loadID;
             var mapCmds = new Dictionary<int, Queue<ScheduledCommand>>();
             var planetRenderMode = Find.World.renderer.wantedMode;
+            var chatWindow = ChatWindow.Opened;
+
+            var selectedData = new ByteWriter();
+            Sync.WriteSync(selectedData, Find.Selector.selected.OfType<ISelectable>().ToList());
 
             //RealPlayerFaction = DummyFaction;
 
@@ -71,11 +75,15 @@ namespace Multiplayer.Client
                 m.AsyncTime().cmds = mapCmds[m.uniqueID];
             }
 
-            Find.World.renderer.wantedMode = planetRenderMode;
+            if (chatWindow != null)
+                Find.WindowStack.Add_KeepRect(chatWindow);
 
+            var selectedReader = new ByteReader(selectedData.GetArray()) { context = new MpContext() { map = Find.CurrentMap } };
+            Find.Selector.selected = Sync.ReadSync<List<ISelectable>>(selectedReader).NotNull().Cast<object>().ToList();
+
+            Find.World.renderer.wantedMode = planetRenderMode;
             Multiplayer.WorldComp.cmds = mapCmds[ScheduledCommand.Global];
 
-            SaveCompression.doSaveCompression = false;
             Multiplayer.reloading = false;
 
             return gameDoc;
@@ -94,6 +102,7 @@ namespace Multiplayer.Client
             Find.Root.Start();
             CancelRootPlayStartLongEvents.cancel = false;
 
+            // SaveCompression enabled in the patch
             SavedGameLoaderNow.LoadGameFromSaveFileNow(null);
 
             Log.Message("Loading took " + watch.ElapsedMilliseconds);
@@ -115,7 +124,7 @@ namespace Multiplayer.Client
 
         public static XmlDocument SaveGame()
         {
-            //SaveCompression.doSaveCompression = true;
+            SaveCompression.doSaveCompression = true;
 
             ScribeUtil.StartWritingToDoc();
 
@@ -201,8 +210,7 @@ namespace Multiplayer.Client
         {
             if (gameToLoad == null) return true;
 
-            bool prevCompress = SaveCompression.doSaveCompression;
-            //SaveCompression.doSaveCompression = true;
+            SaveCompression.doSaveCompression = true;
 
             ScribeUtil.StartLoading(gameToLoad);
             ScribeMetaHeaderUtility.LoadGameDataHeader(ScribeMetaHeaderUtility.ScribeHeaderMode.Map, false);
@@ -210,7 +218,7 @@ namespace Multiplayer.Client
             Current.Game = new Game();
             Current.Game.LoadGame(); // calls Scribe.loader.FinalizeLoading()
 
-            SaveCompression.doSaveCompression = prevCompress;
+            SaveCompression.doSaveCompression = false;
             gameToLoad = null;
 
             Log.Message("Game loaded");
@@ -325,7 +333,7 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(MapComponentUtility), nameof(MapComponentUtility.MapComponentTick))]
-    static class CompMapTick
+    static class MapCompTick
     {
         static void Postfix(Map map)
         {
@@ -335,12 +343,22 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(MapComponentUtility), nameof(MapComponentUtility.FinalizeInit))]
-    static class CompFinalizeInit
+    static class MapCompFinalizeInit
     {
         static void Postfix(Map map)
         {
             if (Multiplayer.Client == null) return;
             map.AsyncTime()?.FinalizeInit();
+        }
+    }
+
+    [HarmonyPatch(typeof(WorldComponentUtility), nameof(WorldComponentUtility.FinalizeInit))]
+    static class WorldCompFinalizeInit
+    {
+        static void Postfix()
+        {
+            if (Multiplayer.Client == null) return;
+            Multiplayer.WorldComp.FinalizeInit();
         }
     }
 

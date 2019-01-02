@@ -7,6 +7,7 @@
   
   <MpInvalidPort>Invalid port</MpInvalidPort>
   <MpInvalidAddress>Invalid address</MpInvalidAddress>
+  <MpInvalidGameName>Invalid game name</MpInvalidGameName>
   
   <MpWrongProtocol>Wrong protocol version</MpWrongProtocol>
   <MpServerClosed>Server closed</MpServerClosed>
@@ -18,10 +19,10 @@
   <MpPlayerConnected>{0} has joined</MpPlayerConnected>
   <MpPlayerDisconnected>{0} has left</MpPlayerDisconnected>
   
-  <MpArbiterDesc>A game instance which runs in the background and helps with desync solving.</MpArbiterDesc>
-  
   <MpReplayOutdated>(Outdated)</MpReplayOutdated>
-  <MpReplayOutdatedDesc>This replay was made for protocol version {0}, but you are running version {1}.\n\nThe replay might not play correctly.\nPossible incompatibilities are listed with the release history.</MpReplayOutdatedDesc>
+  <MpReplayOutdatedDesc1>This replay was made for protocol version {0}, but you are running version {1}.</MpReplayOutdatedDesc1>
+  <MpReplayOutdatedDesc2>The replay might not play correctly.</MpReplayOutdatedDesc2>
+  <MpReplayOutdatedDesc3>Possible incompatibilities are listed with the release history.</MpReplayOutdatedDesc3>
   
   <MpServerCloseConfirmation>Are you sure you want to close the server? Unsaved progress will be lost.</MpServerCloseConfirmation>
   
@@ -49,6 +50,7 @@
   
   <MpConnectingTo>Connecting to {0}:{1}</MpConnectingTo>
   <MpConnected>Connected.</MpConnected>
+  <MpDownloading>Downloading ({0}%)</MpDownloading>
   
   <MpSteamConnectingTo>Connecting to a game hosted by {0}</MpSteamConnectingTo>
   <MpSteamConnectingWaiting>Waiting for host to accept</MpSteamConnectingWaiting>
@@ -67,7 +69,11 @@
   <MpMaxPlayers>Max players</MpMaxPlayers>
   <MpAutosaveEvery>Autosave every</MpAutosaveEvery>
   <MpAutosaveMinutes>minutes</MpAutosaveMinutes>
-  <MpLanDesc>Broadcast the game to your local network.\n\nResolved LAN address: {0}</MpLanDesc>
+  <MpLanDesc1>Broadcast the game to your local network.</MpLanDesc1>
+  <MpLanDesc2>Resolved LAN address: {0}</MpLanDesc2>
+  <MpArbiterDesc>A game instance which runs in the background and helps with desync solving.</MpArbiterDesc>
+  <MpAsyncTimeDesc>Separate time controls for each map and the planet.</MpAsyncTimeDesc>
+  <MpExperimentalFeature>Experimental feature</MpExperimentalFeature>
   
   <MpHostButton>Host</MpHostButton>
   <MpWatchReplay>Watch</MpWatchReplay>
@@ -95,5 +101,6 @@
   <MpSingleplayer>Singleplayer</MpSingleplayer>
   
   <MpNotAvailable>Not available in multiplayer.</MpNotAvailable>
+  <MpCallingFactionNotAvailable>Calling other factions is currently not available in multiplayer.</MpCallingFactionNotAvailable>
   
 </LanguageData>

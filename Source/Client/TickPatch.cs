@@ -23,7 +23,7 @@ namespace Multiplayer.Client
 
         public static TimeSpeed replayTimeSpeed;
 
-        public static bool disableSkipCancel;
+        public static bool forceSkip;
         public static bool skipToTickUntil;
         public static int skipTo = -1;
         public static Action afterSkip;
@@ -41,6 +41,9 @@ namespace Multiplayer.Client
                     yield return maps[i].AsyncTime();
             }
         }
+
+        static Stopwatch updateTimer = Stopwatch.StartNew();
+        public static double lastUpdateTook;
 
         static bool Prefix()
         {
@@ -72,7 +75,9 @@ namespace Multiplayer.Client
             }
 
             SimpleProfiler.Start();
+            updateTimer.Restart();
             Tick();
+            lastUpdateTook = updateTimer.ElapsedMillisDouble();
             SimpleProfiler.Pause();
 
             return false;
@@ -84,7 +89,7 @@ namespace Multiplayer.Client
             skipToTickUntil = false;
             accumulator = 0;
             afterSkip = null;
-            disableSkipCancel = false;
+            forceSkip = false;
         }
 
         static ITickable CurrentTickable()
@@ -106,9 +111,7 @@ namespace Multiplayer.Client
 
         public static void Tick()
         {
-            var watch = Stopwatch.StartNew();
-
-            while ((skipTo < 0 && accumulator > 0) || (skipTo >= 0 && Timer < skipTo && watch.ElapsedMilliseconds < 25))
+            while ((skipTo < 0 && accumulator > 0) || (skipTo >= 0 && Timer < skipTo && updateTimer.ElapsedMilliseconds < 30))
             {
                 int curTimer = Timer;
 
@@ -171,7 +174,22 @@ namespace Multiplayer.Client
             if (tickable.TimePerTick(tickable.TimeSpeed) == 0f)
                 return 1 / 100f; // So paused sections of the timeline are skipped through
 
-            return tickable.TimePerTick(replayTimeSpeed) / tickable.TimePerTick(tickable.TimeSpeed);
+            return tickable.ActualRateMultiplier(tickable.TimeSpeed) / tickable.ActualRateMultiplier(replayTimeSpeed);
+        }
+
+        public static float TimePerTick(this ITickable tickable, TimeSpeed speed)
+        {
+            if (tickable.ActualRateMultiplier(speed) == 0f)
+                return 0f;
+            return 1f / tickable.ActualRateMultiplier(speed);
+        }
+
+        public static float ActualRateMultiplier(this ITickable tickable, TimeSpeed speed)
+        {
+            if (Multiplayer.WorldComp.asyncTime)
+                return tickable.TickRateMultiplier(speed);
+
+            return Find.Maps.Select(m => (ITickable)m.AsyncTime()).Concat(Multiplayer.WorldComp).Select(t => t.TickRateMultiplier(speed)).Min();
         }
     }
 
@@ -183,7 +201,7 @@ namespace Multiplayer.Client
 
         Queue<ScheduledCommand> Cmds { get; }
 
-        float TimePerTick(TimeSpeed speed);
+        float TickRateMultiplier(TimeSpeed speed);
 
         void Tick();
 
@@ -197,13 +215,13 @@ namespace Multiplayer.Client
         public float RealTimeToTickThrough { get; set; }
         public TimeSpeed TimeSpeed => TimeSpeed.Normal;
         public Queue<ScheduledCommand> Cmds => cmds;
-        public Queue<ScheduledCommand> cmds = new Queue<ScheduledCommand>();
+        private Queue<ScheduledCommand> cmds = new Queue<ScheduledCommand>();
 
         public void ExecuteCmd(ScheduledCommand cmd)
         {
         }
 
-        public float TimePerTick(TimeSpeed speed) => 1f;
+        public float TickRateMultiplier(TimeSpeed speed) => 1f;
 
         public void Tick()
         {

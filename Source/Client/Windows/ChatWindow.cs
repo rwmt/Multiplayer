@@ -14,6 +14,8 @@ namespace Multiplayer.Client
     [StaticConstructorOnStartup]
     public class ChatWindow : Window
     {
+        public static ChatWindow Opened => Find.WindowStack?.WindowOfType<ChatWindow>();
+
         public override Vector2 InitialSize => new Vector2(640f, 460f);
 
         private static readonly Texture2D SelectedMsg = SolidColorMaterials.NewSolidColorTexture(new Color(0.17f, 0.17f, 0.17f, 0.85f));

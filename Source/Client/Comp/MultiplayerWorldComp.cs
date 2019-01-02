@@ -20,14 +20,7 @@ namespace Multiplayer.Client
 
         public float RealTimeToTickThrough { get; set; }
 
-        public float TimePerTick(TimeSpeed speed)
-        {
-            if (TickRateMultiplier(speed) == 0f)
-                return 0f;
-            return 1f / TickRateMultiplier(speed);
-        }
-
-        private float TickRateMultiplier(TimeSpeed speed)
+        public float TickRateMultiplier(TimeSpeed speed)
         {
             switch (speed)
             {
@@ -60,6 +53,8 @@ namespace Multiplayer.Client
         public ConstantTicker ticker = new ConstantTicker();
         public IdBlock globalIdBlock;
         public ulong randState = 2;
+        public bool asyncTime;
+        public TileTemperaturesComp uiTemperatures;
 
         public List<MpTradeSession> trading = new List<MpTradeSession>();
 
@@ -68,12 +63,13 @@ namespace Multiplayer.Client
         public MultiplayerWorldComp(World world)
         {
             this.world = world;
+            this.uiTemperatures = new TileTemperaturesComp(world);
         }
 
         public void ExposeData()
         {
             Scribe_Values.Look(ref TickPatch.Timer, "timer");
-
+            Scribe_Values.Look(ref asyncTime, "asyncTime", true, true);
             ScribeUtil.LookULong(ref randState, "randState", 2);
 
             TimeSpeed timeSpeed = Find.TickManager.CurTimeSpeed;
@@ -219,7 +215,12 @@ namespace Multiplayer.Client
                 if (cmdType == CommandType.WorldTimeSpeed)
                 {
                     TimeSpeed speed = (TimeSpeed)data.ReadByte();
+
                     Multiplayer.WorldComp.TimeSpeed = speed;
+
+                    if (!asyncTime)
+                        foreach (var map in Find.Maps)
+                            map.AsyncTime().TimeSpeed = speed;
 
                     MpLog.Log("Set world speed " + speed + " " + TickPatch.Timer + " " + Find.TickManager.TicksGame);
                 }
@@ -249,30 +250,7 @@ namespace Multiplayer.Client
 
                 if (cmdType == CommandType.Autosave)
                 {
-                    LongEventHandler.QueueLongEvent(() =>
-                    {
-                        if (Multiplayer.LocalServer != null && TickPatch.skipTo < 0 && !Multiplayer.IsReplay)
-                        {
-                            try
-                            {
-                                var replay = Replay.ForSaving(AutosaveFile());
-                                replay.File.Delete();
-                                replay.WriteCurrentData();
-                            }
-                            catch (Exception e)
-                            {
-                                Log.Error($"Autosave file writing failed: {e}");
-                            }
-                        }
-
-                        XmlDocument doc = SaveLoad.SaveAndReload();
-
-                        if (!Multiplayer.session.desynced)
-                            SaveLoad.CacheGameData(doc);
-
-                        if (TickPatch.skipTo < 0 && !Multiplayer.IsReplay && (Multiplayer.LocalServer != null || Multiplayer.arbiterInstance))
-                            SaveLoad.SendCurrentGameData(true);
-                    }, "MpSaving", false, null);
+                    LongEventHandler.QueueLongEvent(DoAutosave, "MpSaving", false, null);
                 }
             }
             catch (Exception e)
@@ -292,7 +270,52 @@ namespace Multiplayer.Client
             }
         }
 
-        private string AutosaveFile()
+        private static void DoAutosave()
+        {
+            var autosaveFile = AutosaveFile();
+            var written = false;
+
+            if (Multiplayer.LocalServer != null && TickPatch.skipTo < 0 && !Multiplayer.IsReplay)
+            {
+                try
+                {
+                    var replay = Replay.ForSaving(autosaveFile);
+                    replay.File.Delete();
+                    replay.WriteCurrentData();
+                    written = true;
+                }
+                catch (Exception e)
+                {
+                    Log.Error($"Writing first section of an the autosave failed: {e}");
+                }
+            }
+
+            XmlDocument doc = SaveLoad.SaveAndReload();
+
+            if (!Multiplayer.session.resyncing)
+            {
+                SaveLoad.CacheGameData(doc);
+
+                if (written)
+                {
+                    try
+                    {
+                        var replay = Replay.ForSaving(autosaveFile);
+                        replay.LoadInfo();
+                        replay.WriteCurrentData();
+                    }
+                    catch (Exception e)
+                    {
+                        Log.Error($"Writing second section of the autosave failed: {e}");
+                    }
+                }
+            }
+
+            if (TickPatch.skipTo < 0 && !Multiplayer.IsReplay && (Multiplayer.LocalServer != null || Multiplayer.arbiterInstance))
+                SaveLoad.SendCurrentGameData(true);
+        }
+
+        private static string AutosaveFile()
         {
             return Enumerable
                 .Range(1, 5)
@@ -346,10 +369,15 @@ namespace Multiplayer.Client
 
         public void DirtyTradeForSpawnedThing(Thing t)
         {
-            if (t == null) return;
+            if (t == null || !t.Spawned) return;
 
             foreach (MpTradeSession session in trading.Where(s => s.playerNegotiator.Map == t.Map))
                 session.deal.recacheThings.Add(t);
+        }
+
+        public void FinalizeInit()
+        {
+            Multiplayer.game.SetThingMakerSeed((int)(randState >> 32));
         }
 
         public override string ToString()

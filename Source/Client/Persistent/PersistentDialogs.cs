@@ -338,10 +338,10 @@ namespace Multiplayer.Client
                 }
                 else if (mode == (LookMode)101)
                 {
-                    var del = (Delegate)value;
-
                     if (Scribe.mode == LoadSaveMode.Saving)
                     {
+                        var del = (Delegate)value;
+
                         ScribeUtil.LookValue(del.Method.DeclaringType.FullName, "methodType");
                         ScribeUtil.LookValue(del.Method.Name, "methodName");
 
@@ -361,11 +361,11 @@ namespace Multiplayer.Client
                         if (targetIndex != -1)
                         {
                             object target = parent.fieldValues[targetIndex].value;
-                            del = Delegate.CreateDelegate(type, target, methodName);
+                            value = Delegate.CreateDelegate(type, target, methodName);
                         }
                         else
                         {
-                            del = Delegate.CreateDelegate(type, GenTypes.GetTypeInAnyAssembly(methodType), methodName);
+                            value = Delegate.CreateDelegate(type, GenTypes.GetTypeInAnyAssembly(methodType), methodName);
                         }
                     }
                 }

@@ -103,7 +103,14 @@ namespace Multiplayer.Client
             {
                 TickPatch.skipToTickUntil = true;
                 TickPatch.skipTo = 0;
-                TickPatch.afterSkip = () => Multiplayer.Client.Send(Packets.Client_WorldReady);
+                Multiplayer.session.resyncing = true;
+
+                TickPatch.afterSkip = () =>
+                {
+                    Multiplayer.session.resyncing = false;
+                    Multiplayer.Client.Send(Packets.Client_WorldReady);
+                };
+
                 Multiplayer.session.desynced = false;
 
                 ClientJoiningState.ReloadGame(OnMainThread.cachedMapData.Keys.ToList(), false);
@@ -119,10 +126,7 @@ namespace Multiplayer.Client
             x += 120 + 10;
 
             if (Widgets.ButtonText(new Rect(x, 0, 120, 35), "Quit".Translate()))
-            {
-                OnMainThread.StopMultiplayer();
-                GenScene.GoToMainMenu();
-            }
+                MainMenuPatch.AskQuitToMainMenu();
 
             GUI.EndGroup();
         }
@@ -203,7 +207,7 @@ namespace Multiplayer.Client
 
     public class DebugTextWindow : Window
     {
-        public override Vector2 InitialSize => new Vector2(600, 300);
+        public override Vector2 InitialSize => new Vector2(800, 450);
 
         private Vector2 scroll;
         private string text;
@@ -219,6 +223,32 @@ namespace Multiplayer.Client
         public override void DoWindowContents(Rect inRect)
         {
             Widgets.TextAreaScrollable(inRect, text, ref scroll);
+        }
+    }
+
+    public class TwoTextAreas_Window : Window
+    {
+        public override Vector2 InitialSize => new Vector2(600, 300);
+
+        private Vector2 scroll1;
+        private Vector2 scroll2;
+
+        private string left;
+        private string right;
+
+        public TwoTextAreas_Window(string left, string right)
+        {
+            absorbInputAroundWindow = true;
+            doCloseX = true;
+
+            this.left = left;
+            this.right = right;
+        }
+
+        public override void DoWindowContents(Rect inRect)
+        {
+            Widgets.TextAreaScrollable(inRect.LeftHalf(), left, ref scroll1);
+            Widgets.TextAreaScrollable(inRect.RightHalf(), right, ref scroll2);
         }
     }
 

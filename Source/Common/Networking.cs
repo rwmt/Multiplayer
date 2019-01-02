@@ -127,20 +127,36 @@ namespace Multiplayer.Common
         public const int FragmentSize = 50_000;
         public const int MaxPacketSize = 33_554_432;
 
+        private const int FRAG_NONE = 0x0;
+        private const int FRAG_MORE = 0x40;
+        private const int FRAG_END = 0x80;
+
         public virtual void SendFragmented(Packets id, byte[] message)
         {
             if (state == ConnectionStateEnum.Disconnected)
                 return;
 
-            for (int i = 0; i < message.Length; i += FragmentSize)
+            int read = 0;
+            while (read < message.Length)
             {
-                int len = Math.Min(FragmentSize, message.Length - i);
-                int fragState = i + FragmentSize >= message.Length ? 0x80 : 0x40;
-                byte[] full = new byte[1 + len];
-                full[0] = (byte)((Convert.ToByte(id) & 0x3F) | fragState);
-                Array.Copy(message, i, full, 1, len);
+                int len = Math.Min(FragmentSize, message.Length - read);
+                int fragState = (read + len >= message.Length) ? FRAG_END : FRAG_MORE;
+                byte state = (byte)((Convert.ToByte(id) & 0x3F) | fragState);
 
-                SendRaw(full);
+                var writer = new ByteWriter(1 + 4 + len);
+
+                // Write the packet id and fragment state: MORE or END
+                writer.WriteByte(state);
+
+                // Send the message length with the first packet
+                if (read == 0) writer.WriteInt32(message.Length);
+
+                // Copy the message fragment
+                writer.WriteFrom(message, read, len);
+
+                SendRaw(writer.GetArray());
+
+                read += len;
             }
         }
 
@@ -162,6 +178,9 @@ namespace Multiplayer.Common
         }
 
         private ByteWriter fragmented;
+        private int fullSize; // For information, doesn't affect anything
+
+        public int FragmentProgress => (fragmented?.Position * 100 / fullSize) ?? 0;
 
         protected virtual void HandleReceive(int msgId, int fragState, ByteReader reader, bool reliable)
         {
@@ -179,10 +198,13 @@ namespace Multiplayer.Common
                     return;
             }
 
+            if (fragState != FRAG_NONE && fragmented == null)
+                fullSize = reader.ReadInt32();
+
             if (reader.Left > FragmentSize)
                 throw new PacketReadException($"Packet {packetType} too big {reader.Left}>{FragmentSize}");
 
-            if (fragState == 0)
+            if (fragState == FRAG_NONE)
             {
                 handler.method.Invoke(stateObj, new object[] { reader });
             }
@@ -200,7 +222,7 @@ namespace Multiplayer.Common
                 if (fragmented.Position > MaxPacketSize)
                     throw new PacketReadException($"Full packet {packetType} too big {fragmented.Position}>{MaxPacketSize}");
 
-                if (fragState == 0x80)
+                if (fragState == FRAG_END)
                 {
                     handler.method.Invoke(stateObj, new object[] { new ByteReader(fragmented.GetArray()) });
                     fragmented = null;
@@ -256,7 +278,7 @@ namespace Multiplayer.Common
         private MemoryStream stream;
         public object context;
 
-        public long Position => stream.Position;
+        public int Position => (int)stream.Position;
 
         public ByteWriter(int capacity = 0)
         {
@@ -308,6 +330,11 @@ namespace Multiplayer.Common
         public virtual void WriteRaw(byte[] bytes)
         {
             stream.Write(bytes);
+        }
+
+        public virtual void WriteFrom(byte[] buffer, int offset, int length)
+        {
+            stream.Write(buffer, offset, length);
         }
 
         public virtual ByteWriter WriteString(string s)
