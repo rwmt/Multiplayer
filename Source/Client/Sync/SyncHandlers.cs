@@ -428,6 +428,8 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(Command_LoadToTransporter), nameof(Command_LoadToTransporter.ProcessInput));
 
             SyncMethod.Register(typeof(TradeRequestComp), nameof(TradeRequestComp.Fulfill)).CancelIfAnyArgNull().SetVersion(1);
+
+            SyncMethod.Register(typeof(CompLaunchable), nameof(CompLaunchable.TryLaunch)).ExposeParameter(1).SetVersion(2);
         }
 
         static SyncField SyncTimetable = Sync.Field(typeof(Pawn), "timetable", "times");

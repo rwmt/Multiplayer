@@ -44,6 +44,7 @@ namespace Multiplayer.Client
 
         public const int MaxMessages = 200;
         public List<ChatMsg> messages = new List<ChatMsg>();
+        public Rect chatPos;
         public bool hasUnread;
 
         public MultiplayerServer localServer;
@@ -113,11 +114,14 @@ namespace Multiplayer.Client
 
     public class PlayerInfo
     {
+        public static readonly Vector3 Invalid = new Vector3(-1, 0, -1);
+
         public int id;
         public string username;
         public int latency;
         public PlayerType type;
         public PlayerStatus status;
+        public Color color;
 
         public ulong steamId;
         public string steamPersonaName;
@@ -129,6 +133,7 @@ namespace Multiplayer.Client
         public double updatedAt;
         public double lastDelta;
         public byte cursorIcon;
+        public Vector3 dragStart = Invalid;
 
         private PlayerInfo(int id, string username, int latency, PlayerType type)
         {
@@ -136,16 +141,6 @@ namespace Multiplayer.Client
             this.username = username;
             this.latency = latency;
             this.type = type;
-        }
-
-        public override bool Equals(object obj)
-        {
-            return obj is PlayerInfo info && info.id == id;
-        }
-
-        public override int GetHashCode()
-        {
-            return id;
         }
 
         public static PlayerInfo Read(ByteReader data)
@@ -159,11 +154,14 @@ namespace Multiplayer.Client
             var steamId = data.ReadULong();
             var steamName = data.ReadString();
 
+            var color = new Color(data.ReadByte() / 255f, data.ReadByte() / 255f, data.ReadByte() / 255f);
+
             return new PlayerInfo(id, username, latency, type)
             {
                 status = status,
                 steamId = steamId,
-                steamPersonaName = steamName
+                steamPersonaName = steamName,
+                color = color,
             };
         }
     }

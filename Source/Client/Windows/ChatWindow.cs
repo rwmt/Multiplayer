@@ -12,6 +12,7 @@ using Verse.Steam;
 namespace Multiplayer.Client
 {
     [StaticConstructorOnStartup]
+    [HotSwappable]
     public class ChatWindow : Window
     {
         public static ChatWindow Opened => Find.WindowStack?.WindowOfType<ChatWindow>();
@@ -27,6 +28,8 @@ namespace Multiplayer.Client
         private string currentMsg = "";
         private bool hasBeenFocused;
 
+        public override float Margin => 0f;
+
         public ChatWindow()
         {
             absorbInputAroundWindow = false;
@@ -34,15 +37,36 @@ namespace Multiplayer.Client
             soundClose = null;
             preventCameraMotion = false;
             focusWhenOpened = true;
-            doCloseX = true;
             closeOnClickedOutside = false;
             closeOnAccept = false;
             resizeable = true;
             onlyOneOfTypeAllowed = true;
+            closeOnCancel = false;
+
+            if (!Multiplayer.session.desynced)
+            {
+                layer = WindowLayer.GameUI;
+                doWindowBackground = !MultiplayerMod.settings.transparentChat;
+                drawShadow = doWindowBackground;
+            }
         }
 
         public override void DoWindowContents(Rect inRect)
         {
+            if (MultiplayerMod.settings.transparentChat && !Mouse.IsOver(inRect))
+            {
+                GUI.contentColor = new Color(1, 1, 1, 0.8f);
+                GUI.backgroundColor = new Color(1, 1, 1, 0.8f);
+            }
+
+            if (!drawShadow)
+                Widgets.DrawShadowAround(inRect);
+
+            if (Widgets.CloseButtonFor(inRect))
+                Close();
+
+            inRect = inRect.ContractedBy(18f);
+
             Multiplayer.session.hasUnread = false;
 
             Text.Font = GameFont.Small;
@@ -63,6 +87,12 @@ namespace Multiplayer.Client
             GUI.BeginGroup(new Rect(chat.xMax + 10f, chat.y, infoWidth, inRect.height));
             DrawInfo(new Rect(0, 0, infoWidth, inRect.height));
             GUI.EndGroup();
+
+            if (KeyBindingDefOf.Cancel.KeyDownEvent && Find.WindowStack.focusedWindow == this)
+            {
+                Close(true);
+                Event.current.Use();
+            }
         }
 
         private void DrawInfo(Rect inRect)
@@ -73,11 +103,13 @@ namespace Multiplayer.Client
             DrawList(
                 "MpChatPlayers".Translate(Multiplayer.session.players.Count),
                 Multiplayer.session.players,
-                p => $"{p.username} ({p.latency}ms)",
+                p => $"  {p.username} ({p.latency}ms)",
                 ref inRect,
                 ref playerListScroll,
                 extra: (p, rect) =>
                 {
+                    Widgets.DrawRectFast(new Rect(rect.x, rect.y, 3f, rect.height), p.color * new Color(0.8f, 0.8f, 0.8f));
+
                     if (p.type == PlayerType.Steam)
                     {
                         var steamIcon = new Rect(rect.xMax - 24f, 0, 24f, 24f);
@@ -194,6 +226,7 @@ namespace Multiplayer.Client
         {
             Rect outRect = new Rect(0f, 0f, inRect.width, inRect.height - 30f);
             Rect viewRect = new Rect(0f, 0f, inRect.width - 16f, messagesHeight + 10f);
+
             float width = viewRect.width;
             Rect textField = new Rect(20f, outRect.yMax + 5f, width - 70f, 25f);
 
@@ -212,27 +245,23 @@ namespace Multiplayer.Client
 
             foreach (ChatMsg msg in Multiplayer.session.messages)
             {
-                float height = Text.CalcHeight(msg.Msg, width);
+                float height = Text.CalcHeight(msg.Msg, width - 20f);
                 float textWidth = Text.CalcSize(msg.Msg).x + 15;
+                Rect msgRect = new Rect(20f, yPos, width - 20f, height);
 
-                Rect msgRect = new Rect(20f, yPos, width, height);
-                bool mouseOver = Mouse.IsOver(msgRect);
-
-                if (mouseOver)
+                if (Mouse.IsOver(msgRect))
                 {
                     GUI.DrawTexture(msgRect, SelectedMsg);
 
                     if (msg.TimeStamp != null)
                         TooltipHandler.TipRegion(msgRect, msg.TimeStamp.ToLongTimeString());
-
-                    if (msg.Clickable && Event.current.type == EventType.MouseUp)
-                        msg.Click();
                 }
 
                 Color cursorColor = GUI.skin.settings.cursorColor;
                 GUI.skin.settings.cursorColor = new Color(0, 0, 0, 0);
 
                 msgRect.width = Math.Min(textWidth, msgRect.width);
+                bool mouseOver = Mouse.IsOver(msgRect);
 
                 if (mouseOver && msg.Clickable)
                     GUI.color = new Color(0.8f, 0.8f, 1);
@@ -241,7 +270,12 @@ namespace Multiplayer.Client
                 Widgets.TextArea(msgRect, msg.Msg, true);
 
                 if (mouseOver && msg.Clickable)
+                {
                     GUI.color = Color.white;
+
+                    if (Event.current.type == EventType.MouseUp)
+                        msg.Click();
+                }
 
                 GUI.skin.settings.cursorColor = cursorColor;
 
@@ -285,7 +319,7 @@ namespace Multiplayer.Client
 
             if (currentMsg.NullOrEmpty()) return;
 
-            if (currentMsg == "/netinfo")
+            if (MpVersion.IsDebug && currentMsg == "/netinfo")
                 Find.WindowStack.Add(new DebugTextWindow(NetInfoText()));
             else if (Multiplayer.Client == null)
                 Multiplayer.session.AddMsg(Multiplayer.username + ": " + currentMsg);
@@ -342,6 +376,12 @@ namespace Multiplayer.Client
         public void OnChatReceived()
         {
             chatScroll.y = messagesHeight;
+        }
+
+        public override void PostClose()
+        {
+            if (Multiplayer.session != null)
+                Multiplayer.session.chatPos = windowRect;
         }
     }
 

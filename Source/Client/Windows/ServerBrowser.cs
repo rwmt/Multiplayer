@@ -144,6 +144,8 @@ namespace Multiplayer.Client
                 reader.ReadToNextElement(); // savedGame
                 reader.ReadToNextElement(); // meta
 
+                if (reader.Name != "meta") return;
+
                 reader.ReadToDescendant("gameVersion");
                 rwVersion = VersionControl.VersionStringWithoutRev(reader.ReadString());
 
@@ -345,9 +347,14 @@ namespace Multiplayer.Client
 
             var activeMods = LoadedModManager.RunningModsListForReading.Join(m => m.Name, "\n");
 
-            yield return new FloatMenuOption("Mod list", () =>
+            yield return new FloatMenuOption("See mod list", () =>
             {
                 Find.WindowStack.Add(new TwoTextAreas_Window($"RimWorld {save.rwVersion}\nSave mod list:\n\n{saveMods}", $"RimWorld {VersionControl.CurrentVersionString}\nActive mod list:\n\n{activeMods}"));
+            });
+
+            yield return new FloatMenuOption("Rename", () =>
+            {
+                Find.WindowStack.Add(new Dialog_RenameFile(save.file, () => ReloadFiles()));
             });
 
             if (MpVersion.IsDebug)

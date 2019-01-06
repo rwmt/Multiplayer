@@ -69,6 +69,12 @@ namespace Multiplayer.Client
         static void Postfix() => ticking = false;
     }
 
+    [MpPatch(typeof(MainMenuDrawer), nameof(MainMenuDrawer.DoMainMenuControls))]
+    public static class MainMenu_AddHeight
+    {
+        static void Prefix(ref Rect rect) => rect.height += 45f;
+    }
+
     [MpPatch(typeof(OptionListingUtility), nameof(OptionListingUtility.DrawOptionListing))]
     public static class MainMenuPatch
     {
@@ -85,8 +91,6 @@ namespace Multiplayer.Client
                     {
                         Find.WindowStack.Add(new ServerBrowser());
                     }));
-
-                    rect.height += 45f;
                 }
             }
 
@@ -126,16 +130,10 @@ namespace Multiplayer.Client
                         quitOS.label = quitOSLabel;
                         quitOS.action = () =>
                         {
-                            Action action = () =>
-                            {
-                                OnMainThread.StopMultiplayer();
-                                Root.Shutdown();
-                            };
-
                             if (Multiplayer.LocalServer != null)
-                                Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation("MpServerCloseConfirmation".Translate(), action, true));
+                                Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation("MpServerCloseConfirmation".Translate(), Root.Shutdown, true));
                             else
-                                action();
+                                Root.Shutdown();
                         };
                     }
                 }
@@ -144,16 +142,10 @@ namespace Multiplayer.Client
 
         public static void AskQuitToMainMenu()
         {
-            void Quit()
-            {
-                OnMainThread.StopMultiplayer();
-                GenScene.GoToMainMenu();
-            };
-
             if (Multiplayer.LocalServer != null)
-                Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation("MpServerCloseConfirmation".Translate(), Quit, true));
+                Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation("MpServerCloseConfirmation".Translate(), GenScene.GoToMainMenu, true));
             else
-                Quit();
+                GenScene.GoToMainMenu();
         }
 
         private static void ConvertToSingleplayer()
@@ -175,6 +167,16 @@ namespace Multiplayer.Client
 
                 LoadPatch.gameToLoad = doc;
             }, "Play", "MpConverting", true, null);
+        }
+    }
+
+    [MpPatch(typeof(GenScene), nameof(GenScene.GoToMainMenu))]
+    [MpPatch(typeof(Root), nameof(Root.Shutdown))]
+    static class Shutdown_Quit_Patch
+    {
+        static void Prefix()
+        {
+            OnMainThread.StopMultiplayer();
         }
     }
 
@@ -871,17 +873,6 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(TutorSystem))]
-    [HarmonyPatch(nameof(TutorSystem.AdaptiveTrainingEnabled), MethodType.Getter)]
-    static class DisableAdaptiveLearningPatch
-    {
-        static void Postfix(ref bool __result)
-        {
-            if (Multiplayer.Client != null)
-                __result = false;
-        }
-    }
-
     [HarmonyPatch(typeof(Root_Play), nameof(Root_Play.Start))]
     static class RootPlayStartMarker
     {
@@ -1146,131 +1137,6 @@ namespace Multiplayer.Client
         }
     }
 
-    [MpPatch(typeof(SubcameraDriver), nameof(SubcameraDriver.UpdatePositions))]
-    [MpPatch(typeof(PortraitsCache), nameof(PortraitsCache.Get))]
-    static class RenderTextureCreatePatch
-    {
-        static MethodInfo IsCreated = AccessTools.Method(typeof(RenderTexture), "IsCreated");
-        static FieldInfo ArbiterField = AccessTools.Field(typeof(Multiplayer), nameof(Multiplayer.arbiterInstance));
-
-        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
-        {
-            foreach (var inst in insts)
-            {
-                yield return inst;
-
-                if (inst.operand == IsCreated)
-                {
-                    yield return new CodeInstruction(OpCodes.Ldsfld, ArbiterField);
-                    yield return new CodeInstruction(OpCodes.Or);
-                }
-            }
-        }
-    }
-
-    [MpPatch(typeof(WaterInfo), nameof(WaterInfo.SetTextures))]
-    [MpPatch(typeof(SubcameraDriver), nameof(SubcameraDriver.UpdatePositions))]
-    [MpPatch(typeof(Prefs), nameof(Prefs.Save))]
-    [MpPatch(typeof(FloatMenuOption), nameof(FloatMenuOption.SetSizeMode))]
-    [MpPatch(typeof(Section), nameof(Section.RegenerateAllLayers))]
-    [MpPatch(typeof(Section), nameof(Section.RegenerateLayers))]
-    [MpPatch(typeof(SectionLayer), nameof(SectionLayer.DrawLayer))]
-    [MpPatch(typeof(Map), nameof(Map.MapUpdate))]
-    static class CancelForArbiter
-    {
-        static bool Prefix() => !Multiplayer.arbiterInstance;
-    }
-
-    [HarmonyPatch(typeof(WorldRenderer), MethodType.Constructor)]
-    static class CancelWorldRendererCtor
-    {
-        static bool Prefix() => !Multiplayer.arbiterInstance;
-
-        static void Postfix(WorldRenderer __instance)
-        {
-            if (Multiplayer.arbiterInstance)
-                __instance.layers = new List<WorldLayer>();
-        }
-    }
-
-    [MpPatch(typeof(Prefs), "get_" + nameof(Prefs.VolumeGame))]
-    [MpPatch(typeof(Prefs), nameof(Prefs.Save))]
-    static class CancelDuringSkipping
-    {
-        static bool Prefix() => TickPatch.skipTo < 0;
-    }
-
-    [HarmonyPatch(typeof(LetterStack), nameof(LetterStack.LetterStackUpdate))]
-    static class CloseLetters
-    {
-        static void Postfix(LetterStack __instance)
-        {
-            if (Multiplayer.Client == null) return;
-            if (TickPatch.skipTo < 0 && !Multiplayer.arbiterInstance) return;
-
-            for (int i = __instance.letters.Count - 1; i >= 0; i--)
-            {
-                var letter = __instance.letters[i];
-                if (letter is ChoiceLetter choice && choice.Choices.Any(c => c.action?.Method == choice.Option_Close.action.Method) && Time.time - letter.arrivalTime > 4)
-                    __instance.RemoveLetter(letter);
-            }
-        }
-    }
-
-    [HarmonyPatch(typeof(Prefs), nameof(Prefs.MaxNumberOfPlayerSettlements), MethodType.Getter)]
-    static class MaxColoniesPatch
-    {
-        static void Postfix(ref int __result)
-        {
-            if (Multiplayer.Client != null)
-                __result = 5;
-        }
-    }
-
-    [HarmonyPatch(typeof(Prefs), nameof(Prefs.RunInBackground), MethodType.Getter)]
-    static class RunInBackgroundPatch
-    {
-        static void Postfix(ref bool __result)
-        {
-            if (Multiplayer.Client != null)
-                __result = true;
-        }
-    }
-
-    [MpPatch(typeof(Prefs), "get_" + nameof(Prefs.PauseOnLoad))]
-    [MpPatch(typeof(Prefs), "get_" + nameof(Prefs.PauseOnError))]
-    [MpPatch(typeof(Prefs), "get_" + nameof(Prefs.PauseOnUrgentLetter))]
-    static class PrefGettersInMultiplayer
-    {
-        static bool Prefix() => Multiplayer.Client == null;
-    }
-
-    [MpPatch(typeof(Prefs), "set_" + nameof(Prefs.PauseOnLoad))]
-    [MpPatch(typeof(Prefs), "set_" + nameof(Prefs.PauseOnError))]
-    [MpPatch(typeof(Prefs), "set_" + nameof(Prefs.PauseOnUrgentLetter))]
-    [MpPatch(typeof(Prefs), "set_" + nameof(Prefs.MaxNumberOfPlayerSettlements))]
-    [MpPatch(typeof(Prefs), "set_" + nameof(Prefs.RunInBackground))]
-    static class PrefSettersInMultiplayer
-    {
-        static bool Prefix() => Multiplayer.Client == null;
-    }
-
-    [HarmonyPatch(typeof(StorytellerUI), nameof(StorytellerUI.DrawStorytellerSelectionInterface))]
-    static class DisableStorytellerSelection
-    {
-        static bool Prefix() => Multiplayer.Client == null || Event.current.type == EventType.Repaint || Event.current.type == EventType.Layout;
-    }
-
-    [HarmonyPatch(typeof(LongEventHandler), nameof(LongEventHandler.LongEventsUpdate))]
-    static class ArbiterLongEventPatch
-    {
-        static void Postfix()
-        {
-            if (Multiplayer.arbiterInstance && LongEventHandler.currentEvent != null)
-                LongEventHandler.currentEvent.alreadyDisplayed = true;
-        }
-    }
-
     [HarmonyPatch(typeof(FloodFillerFog), nameof(FloodFillerFog.FloodUnfog))]
     static class FloodUnfogPatch
     {
@@ -1529,17 +1395,17 @@ namespace Multiplayer.Client
 
         static void Prefix(Page_ModsConfig __instance, ModMetaData mod)
         {
-            ModManager_ButtonPrefix(mod, __instance.truncatedModNamesCache);
+            ModManager_ButtonPrefix(null, mod, __instance.truncatedModNamesCache);
         }
 
-        public static void ModManager_ButtonPrefix(ModMetaData ____selected, Dictionary<string, string> ____modNameTruncationCache)
+        public static void ModManager_ButtonPrefix(object __instance, ModMetaData ____selected, Dictionary<string, string> ____modNameTruncationCache)
         {
             if (!Input.GetKey(KeyCode.LeftShift)) return;
 
             var mod = ____selected;
             if (Multiplayer.xmlMods.Contains(mod.RootDir.FullName))
             {
-                currentXMLMod = mod.Name;
+                currentXMLMod = __instance == null ? mod.Name : (string)__instance.GetPropertyOrField("TrimmedName");
                 truncatedStrings = ____modNameTruncationCache;
             }
         }
@@ -1626,17 +1492,6 @@ namespace Multiplayer.Client
     static class ImmobilizedByMass_Patch
     {
         static bool Prefix() => !Multiplayer.InInterface;
-    }
-
-    [HarmonyPatch(typeof(GUI), nameof(GUI.skin), MethodType.Getter)]
-    static class GUISkinArbiter_Patch
-    {
-        static bool Prefix(ref GUISkin __result)
-        {
-            if (!Multiplayer.arbiterInstance) return true;
-            __result = ScriptableObject.CreateInstance<GUISkin>();
-            return false;
-        }
     }
 
     [HarmonyPatch(typeof(Building_CommsConsole), nameof(Building_CommsConsole.GetFloatMenuOptions))]

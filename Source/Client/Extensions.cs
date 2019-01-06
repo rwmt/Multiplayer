@@ -390,6 +390,12 @@ namespace Multiplayer.Client
         {
             return new Rect(data.ReadFloat(), data.ReadFloat(), data.ReadFloat(), data.ReadFloat());
         }
+
+        public static void WriteVectorXZ(this ByteWriter data, Vector3 vec)
+        {
+            data.WriteShort((short)(vec.x * 10f));
+            data.WriteShort((short)(vec.z * 10f));
+        }
     }
 
 }

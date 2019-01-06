@@ -25,6 +25,19 @@ namespace Multiplayer.Common
             connection.Send(Packets.Server_DefsOK, Server.settings.gameName);
         }
 
+        private static ColorRGB[] PlayerColors = new ColorRGB[]
+        {
+            new ColorRGB(179,  77, 0),
+            new ColorRGB(204, 204, 0),
+            new ColorRGB( 25, 204, 0),
+            new ColorRGB( 25, 115, 0),
+            new ColorRGB(  0, 128, 255),
+            new ColorRGB( 51,  51, 255),
+            new ColorRGB(102,   0, 255)
+        };
+
+        private static Dictionary<string, ColorRGB> givenColors = new Dictionary<string, ColorRGB>();
+
         [PacketHandler(Packets.Client_Username)]
         public void HandleClientUsername(ByteReader data)
         {
@@ -55,6 +68,13 @@ namespace Multiplayer.Common
 
             Server.SendNotification("MpPlayerConnected", Player.Username);
             Server.SendChat($"{Player.Username} has joined.");
+
+            if (!Player.IsArbiter)
+            {
+                if (!givenColors.TryGetValue(username, out ColorRGB color))
+                    givenColors[username] = color = PlayerColors[givenColors.Count % PlayerColors.Length];
+                Player.color = color;
+            }
 
             var writer = new ByteWriter();
             writer.WriteByte((byte)PlayerListAction.Add);
@@ -242,6 +262,15 @@ namespace Multiplayer.Common
                 writer.WriteByte(icon);
                 writer.WriteShort(x);
                 writer.WriteShort(z);
+
+                short dragX = data.ReadShort();
+                writer.WriteShort(dragX);
+
+                if (dragX != -1)
+                {
+                    short dragZ = data.ReadShort();
+                    writer.WriteShort(dragZ);
+                }
             }
 
             Player.lastCursorTick = Server.netTimer;

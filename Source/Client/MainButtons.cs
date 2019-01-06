@@ -79,18 +79,26 @@ namespace Multiplayer.Client
         {
             float y = 10f;
             const float btnHeight = 27f;
-            const float btnWidth = 75f;
+            const float btnWidth = 80f;
 
-            if (Multiplayer.session != null && !Multiplayer.IsReplay)
+            var session = Multiplayer.session;
+
+            if (session != null && !Multiplayer.IsReplay)
             {
                 var btnRect = new Rect(UI.screenWidth - btnWidth - 10f, y, btnWidth, btnHeight);
 
-                var chatColor = Multiplayer.session.players.Any(p => p.status == PlayerStatus.Desynced) ? "#ff5555" : "#dddddd";
-                var hasUnread = Multiplayer.session.hasUnread ? "*" : "";
-                var chatLabel = $"{"MpChatButton".Translate()} <color={chatColor}>({Multiplayer.session.players.Count})</color>{hasUnread}";
+                var chatColor = session.players.Any(p => p.status == PlayerStatus.Desynced) ? "#ff5555" : "#dddddd";
+                var hasUnread = session.hasUnread ? "*" : "";
+                var chatLabel = $"{"MpChatButton".Translate()} <color={chatColor}>({session.players.Count})</color>{hasUnread}";
 
                 if (Widgets.ButtonText(btnRect, chatLabel))
-                    Find.WindowStack.Add(new ChatWindow());
+                {
+                    var chatWindow = new ChatWindow();
+                    Find.WindowStack.Add(chatWindow);
+
+                    if (session.chatPos != default(Rect))
+                        chatWindow.windowRect = session.chatPos;
+                }
 
                 if (TickPatch.skipTo < 0)
                 {
@@ -105,9 +113,9 @@ namespace Multiplayer.Client
                 y += btnHeight;
             }
 
-            if (MpVersion.IsDebug && Multiplayer.PacketLog != null)
+            if ((MpVersion.IsDebug || Multiplayer.enablePacketLog) && Multiplayer.PacketLog != null)
             {
-                if (Widgets.ButtonText(new Rect(UI.screenWidth - btnWidth - 10f, y, btnWidth, btnHeight), "Packets"))
+                if (Widgets.ButtonText(new Rect(UI.screenWidth - btnWidth - 10f, y, btnWidth, btnHeight), $"Packet ({Multiplayer.PacketLog.nodes.Count})"))
                     Find.WindowStack.Add(Multiplayer.PacketLog);
                 y += btnHeight;
             }

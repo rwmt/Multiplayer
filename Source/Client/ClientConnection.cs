@@ -275,6 +275,19 @@ namespace Multiplayer.Client
             player.cursor = new Vector3(x, 0, z);
             player.updatedAt = Multiplayer.Clock.ElapsedMillisDouble();
             player.cursorIcon = icon;
+
+            short dragXRaw = data.ReadShort();
+            if (dragXRaw != -1)
+            {
+                float dragX = dragXRaw / 10f;
+                float dragZ = data.ReadShort() / 10f;
+
+                player.dragStart = new Vector3(dragX, 0, dragZ);
+            }
+            else
+            {
+                player.dragStart = PlayerInfo.Invalid;
+            }
         }
 
         [PacketHandler(Packets.Server_MapResponse)]

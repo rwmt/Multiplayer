@@ -132,60 +132,67 @@ namespace Multiplayer.Client
         }
     }
 
-    public class Dialog_SaveReplay : Window
+    public abstract class MpTextInput : Window
     {
         public override Vector2 InitialSize => new Vector2(350f, 175f);
 
-        private string curName;
-        private bool fileExists;
-        private bool focused;
+        public string curName;
+        public string title;
+        private bool opened;
 
-        public Dialog_SaveReplay()
+        public MpTextInput()
         {
             closeOnClickedOutside = true;
             doCloseX = true;
             absorbInputAroundWindow = true;
             closeOnAccept = true;
-
-            curName = Multiplayer.session.gameName;
         }
 
         public override void DoWindowContents(Rect inRect)
         {
-            Widgets.Label(new Rect(0, 15f, inRect.width, 35f), "MpSaveReplayAs".Translate());
+            Widgets.Label(new Rect(0, 15f, inRect.width, 35f), title);
 
             GUI.SetNextControlName("RenameField");
             string text = Widgets.TextField(new Rect(0, 25 + 15f, inRect.width, 35f), curName);
-            if (curName != text && text.Length < 30 || !focused)
-            {
+            if ((curName != text || !opened) && Validate(text))
                 curName = text;
-                fileExists = new FileInfo(Path.Combine(Multiplayer.ReplaysDir, $"{curName}.zip")).Exists;
-            }
 
-            if (fileExists)
-            {
-                Text.Font = GameFont.Tiny;
-                Widgets.Label(new Rect(0, 25 + 15 + 35, inRect.width, 35f), "MpWillOverwrite".Translate());
-                Text.Font = GameFont.Small;
-            }
+            DrawExtra(inRect);
 
-            if (!focused)
+            if (!opened)
             {
                 UI.FocusControl("RenameField", this);
-                focused = true;
+                opened = true;
             }
 
             if (Widgets.ButtonText(new Rect(0f, inRect.height - 35f - 5f, 120f, 35f).CenteredOnXIn(inRect), "OK".Translate(), true, false, true))
-                TrySave();
+                Accept();
         }
 
         public override void OnAcceptKeyPressed()
         {
-            if (TrySave())
+            if (Accept())
                 base.OnAcceptKeyPressed();
         }
 
-        private bool TrySave()
+        public abstract bool Accept();
+
+        public virtual bool Validate(string str) => true;
+
+        public virtual void DrawExtra(Rect inRect) { }
+    }
+
+    public class Dialog_SaveReplay : MpTextInput
+    {
+        private bool fileExists;
+
+        public Dialog_SaveReplay()
+        {
+            title = "MpSaveReplayAs".Translate();
+            curName = Multiplayer.session.gameName;
+        }
+
+        public override bool Accept()
         {
             if (curName.Length == 0) return false;
 
@@ -202,6 +209,71 @@ namespace Multiplayer.Client
             }
 
             return true;
+        }
+
+        public override bool Validate(string str)
+        {
+            if (str.Length > 30)
+                return false;
+
+            fileExists = new FileInfo(Path.Combine(Multiplayer.ReplaysDir, $"{curName}.zip")).Exists;
+            return true;
+        }
+
+        public override void DrawExtra(Rect inRect)
+        {
+            if (fileExists)
+            {
+                Text.Font = GameFont.Tiny;
+                Widgets.Label(new Rect(0, 25 + 15 + 35, inRect.width, 35f), "MpWillOverwrite".Translate());
+                Text.Font = GameFont.Small;
+            }
+        }
+    }
+
+    public class Dialog_RenameFile : MpTextInput
+    {
+        private FileInfo file;
+        private Action success;
+
+        public Dialog_RenameFile(FileInfo file, Action success = null)
+        {
+            title = "Rename file to";
+
+            this.file = file;
+            this.success = success;
+
+            curName = Path.GetFileNameWithoutExtension(file.Name);
+        }
+
+        public override bool Accept()
+        {
+            if (curName.Length == 0)
+                return false;
+
+            string newPath = Path.Combine(file.Directory.FullName, curName + file.Extension);
+
+            if (newPath == file.FullName)
+                return true;
+
+            try
+            {
+                file.MoveTo(newPath);
+                Close();
+                success?.Invoke();
+
+                return true;
+            }
+            catch (IOException e)
+            {
+                Messages.Message(e is DirectoryNotFoundException ? "Error renaming." : "File already exists.", MessageTypeDefOf.RejectInput, false);
+                return false;
+            }
+        }
+
+        public override bool Validate(string str)
+        {
+            return str.Length < 30;
         }
     }
 

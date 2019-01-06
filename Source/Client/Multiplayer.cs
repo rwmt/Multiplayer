@@ -42,6 +42,7 @@ namespace Multiplayer.Client
         public static string username;
         public static bool arbiterInstance;
         public static HarmonyInstance harmony => MultiplayerMod.harmony;
+        public static bool enablePacketLog;
 
         public static bool reloading;
 
@@ -215,6 +216,11 @@ namespace Multiplayer.Client
                 ExtendDirectXmlSaver.extend = true;
                 DirectXmlSaver.SaveDataObject(new SyncContainer(), "SyncHandlers.xml");
                 ExtendDirectXmlSaver.extend = false;
+            }
+
+            if (GenCommandLine.CommandLineArgPassed("packetlog"))
+            {
+                enablePacketLog = true;
             }
         }
 

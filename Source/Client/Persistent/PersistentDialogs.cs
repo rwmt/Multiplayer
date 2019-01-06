@@ -437,6 +437,8 @@ namespace Multiplayer.Client
     {
         static void Postfix(Window window)
         {
+            if (Multiplayer.Client == null) return;
+
             if (Multiplayer.ShouldSync) return;
             if (window.GetType() != typeof(Dialog_NodeTreeWithFactionInfo)) return;
 

@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection.Emit;
+using System.Runtime.CompilerServices;
 using System.Text;
 using UnityEngine;
 using Verse;
@@ -31,90 +32,21 @@ namespace Multiplayer.Client
     [HarmonyPatch(nameof(WindowStack.CloseWindowsBecauseClicked))]
     public static class WindowFocusPatch
     {
-        static void Prefix(Window clickedWindow)
+        static void Prefix(WindowStack __instance, Window clickedWindow)
         {
             for (int i = Find.WindowStack.Windows.Count - 1; i >= 0; i--)
             {
                 Window window = Find.WindowStack.Windows[i];
-                if (window == clickedWindow || window.closeOnClickedOutside) break;
+                __instance.focusedWindow = window;
+
+                if (window == clickedWindow || window.closeOnClickedOutside) return;
                 UI.UnfocusCurrentControl();
             }
+
+            __instance.focusedWindow = null;
         }
     }
 
-    // Optimize trading
-    [HarmonyPatch(typeof(ThingCategoryDef))]
-    [HarmonyPatch(nameof(ThingCategoryDef.DescendantThingDefs), MethodType.Getter)]
-    static class ThingCategoryDef_DescendantThingDefsPatch
-    {
-        static Dictionary<ThingCategoryDef, HashSet<ThingDef>> values = new Dictionary<ThingCategoryDef, HashSet<ThingDef>>();
-
-        static bool Prefix(ThingCategoryDef __instance)
-        {
-            return !values.ContainsKey(__instance);
-        }
-
-        static void Postfix(ThingCategoryDef __instance, ref IEnumerable<ThingDef> __result)
-        {
-            if (values.TryGetValue(__instance, out HashSet<ThingDef> set))
-            {
-                __result = set;
-                return;
-            }
-
-            set = new HashSet<ThingDef>(__result);
-            values[__instance] = set;
-            __result = set;
-        }
-    }
-
-    // Optimize trading
-    [HarmonyPatch(typeof(ThingCategoryDef))]
-    [HarmonyPatch(nameof(ThingCategoryDef.ThisAndChildCategoryDefs), MethodType.Getter)]
-    static class ThingCategoryDef_ThisAndChildCategoryDefsPatch
-    {
-        static Dictionary<ThingCategoryDef, HashSet<ThingCategoryDef>> values = new Dictionary<ThingCategoryDef, HashSet<ThingCategoryDef>>();
-
-        static bool Prefix(ThingCategoryDef __instance)
-        {
-            return !values.ContainsKey(__instance);
-        }
-
-        static void Postfix(ThingCategoryDef __instance, ref IEnumerable<ThingCategoryDef> __result)
-        {
-            if (values.TryGetValue(__instance, out HashSet<ThingCategoryDef> set))
-            {
-                __result = set;
-                return;
-            }
-
-            set = new HashSet<ThingCategoryDef>(__result);
-            values[__instance] = set;
-            __result = set;
-        }
-    }
-
-    // Optimize loading
-    [HarmonyPatch(typeof(GenTypes), nameof(GenTypes.GetTypeInAnyAssembly))]
-    static class GetTypeInAnyAssemblyPatch
-    {
-        public static Dictionary<string, Type> results = new Dictionary<string, Type>();
-
-        static bool Prefix(string typeName, ref Type __state)
-        {
-            return !results.TryGetValue(typeName, out __state);
-        }
-
-        static void Postfix(string typeName, ref Type __result, Type __state)
-        {
-            if (__state == null)
-                results[typeName] = __result;
-            else
-                __result = __state;
-        }
-    }
-
-    // Optimize loading
     [HarmonyPatch(typeof(GenTypes), nameof(GenTypes.AllLeafSubclasses))]
     static class AllLeafSubclassesPatch
     {
@@ -136,16 +68,6 @@ namespace Multiplayer.Client
         static void Postfix(Type baseType, ref IEnumerable<Type> __result)
         {
             __result = baseType.AllSubclasses().Where(t => !hasSubclasses.Contains(t));
-        }
-    }
-
-    [HarmonyPatch(typeof(ModAssemblyHandler), nameof(ModAssemblyHandler.ReloadAll))]
-    static class ReloadAllAssembliesPatch
-    {
-        static void Postfix()
-        {
-            GetTypeInAnyAssemblyPatch.results.Clear();
-            AllLeafSubclassesPatch.hasSubclasses = null;
         }
     }
 

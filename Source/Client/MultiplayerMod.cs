@@ -1,10 +1,17 @@
 ﻿using Harmony;
+using Harmony.ILCopying;
 using Multiplayer.Common;
 using RimWorld;
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
+using System.Reflection;
+using System.Reflection.Emit;
 using System.Text;
+using System.Xml;
 using UnityEngine;
 using Verse;
 
@@ -42,11 +49,52 @@ namespace Multiplayer.Client
 
         private void EarlyPatches()
         {
+            foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                var firstMethod = asm.GetType("Harmony.AccessTools")?.GetMethod("FirstMethod");
+                if (firstMethod != null)
+                    harmony.Patch(firstMethod, new HarmonyMethod(typeof(AccessTools_FirstMethod_Patch), "Prefix"));
+            }
+
             {
                 var prefix = new HarmonyMethod(AccessTools.Method(typeof(CaptureThingSetMakers), "Prefix"));
                 harmony.Patch(AccessTools.Constructor(typeof(ThingSetMaker_MarketValue)), prefix);
                 harmony.Patch(AccessTools.Constructor(typeof(ThingSetMaker_Nutrition)), prefix);
             }
+
+            harmony.Patch(
+                AccessTools.Method(typeof(ThingCategoryDef), "get_DescendantThingDefs"),
+                new HarmonyMethod(typeof(ThingCategoryDef_DescendantThingDefsPatch), "Prefix"),
+                new HarmonyMethod(typeof(ThingCategoryDef_DescendantThingDefsPatch), "Postfix")
+            );
+
+            harmony.Patch(
+                AccessTools.Method(typeof(ThingCategoryDef), "get_ThisAndChildCategoryDefs"),
+                new HarmonyMethod(typeof(ThingCategoryDef_ThisAndChildCategoryDefsPatch), "Prefix"),
+                new HarmonyMethod(typeof(ThingCategoryDef_ThisAndChildCategoryDefsPatch), "Postfix")
+            );
+
+            harmony.Patch(
+                AccessTools.Method(typeof(GenTypes), nameof(GenTypes.GetTypeInAnyAssembly)),
+                new HarmonyMethod(typeof(GetTypeInAnyAssemblyPatch), "Prefix"),
+                new HarmonyMethod(typeof(GetTypeInAnyAssemblyPatch), "Postfix")
+            );
+
+            harmony.Patch(
+                AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.ParseAndProcessXML)),
+                transpiler: new HarmonyMethod(typeof(ParseAndProcessXml_Patch), "Transpiler")
+            );
+
+            harmony.Patch(
+                AccessTools.Method(typeof(XmlNode), "get_ChildNodes"),
+                postfix: new HarmonyMethod(typeof(XmlNodeListPatch), nameof(XmlNodeListPatch.XmlNode_ChildNodes_Postfix))
+            );
+
+            harmony.Patch(
+                AccessTools.Method(typeof(XmlInheritance), nameof(XmlInheritance.TryRegisterAllFrom)),
+                new HarmonyMethod(typeof(XmlInheritance_Patch), "Prefix"),
+                new HarmonyMethod(typeof(XmlInheritance_Patch), "Postfix")
+            );
         }
 
         private void EarlyInit()
@@ -76,6 +124,7 @@ namespace Multiplayer.Client
 
             listing.CheckboxLabeled("MpShowPlayerCursors".Translate(), ref settings.showCursors);
             listing.CheckboxLabeled("MpAutoAcceptSteam".Translate(), ref settings.autoAcceptSteam, "MpAutoAcceptSteamDesc".Translate());
+            listing.CheckboxLabeled("Transparent chat", ref settings.transparentChat);
 
             listing.End();
         }
@@ -103,12 +152,14 @@ namespace Multiplayer.Client
         public string username;
         public bool showCursors = true;
         public bool autoAcceptSteam;
+        public bool transparentChat;
 
         public override void ExposeData()
         {
             Scribe_Values.Look(ref username, "username");
             Scribe_Values.Look(ref showCursors, "showCursors", true);
             Scribe_Values.Look(ref autoAcceptSteam, "autoAcceptSteam");
+            Scribe_Values.Look(ref transparentChat, "transparentChat");
         }
     }
 }

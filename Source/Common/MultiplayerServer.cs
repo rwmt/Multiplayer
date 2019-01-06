@@ -354,7 +354,10 @@ namespace Multiplayer.Common
 
             var player = server.OnConnected(conn);
             if (arbiter)
+            {
                 player.type = PlayerType.Arbiter;
+                player.color = new ColorRGB(128, 128, 128);
+            }
         }
 
         public void OnPeerDisconnected(NetPeer peer, DisconnectInfo disconnectInfo)
@@ -395,12 +398,25 @@ namespace Multiplayer.Common
         public bool arbiter;
     }
 
+    public struct ColorRGB
+    {
+        public byte r, g, b;
+
+        public ColorRGB(byte r, byte g, byte b)
+        {
+            this.r = r;
+            this.g = g;
+            this.b = b;
+        }
+    }
+
     public class ServerPlayer
     {
         public int id;
         public IConnection conn;
         public PlayerType type;
         public PlayerStatus status;
+        public ColorRGB color;
 
         public ulong steamId;
         public string steamPersonaName = "";
@@ -482,6 +498,10 @@ namespace Multiplayer.Common
             writer.WriteByte((byte)status);
             writer.WriteULong(steamId);
             writer.WriteString(steamPersonaName);
+
+            writer.WriteByte(color.r);
+            writer.WriteByte(color.g);
+            writer.WriteByte(color.b);
 
             return writer.GetArray();
         }

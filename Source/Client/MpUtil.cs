@@ -34,10 +34,23 @@ namespace Multiplayer.Client
 
         public static IEnumerable<Type> AllModTypes()
         {
-            foreach (ModContentPack mod in LoadedModManager.RunningMods)
-                for (int i = 0; i < mod.assemblies.loadedAssemblies.Count; i++)
-                    foreach (Type t in mod.assemblies.loadedAssemblies[i].GetTypes())
+            foreach (var asm in LoadedModManager.RunningMods.SelectMany(m => m.assemblies.loadedAssemblies))
+            {
+                Type[] types = null;
+
+                try
+                {
+                    types = asm.GetTypes();
+                }
+                catch (ReflectionTypeLoadException)
+                {
+                    Log.Error($"Exception getting types in assembly {asm}");
+                }
+
+                if (types != null)
+                    foreach (Type t in types)
                         yield return t;
+            }
         }
 
         public unsafe static void MarkNoInlining(MethodBase method)
@@ -106,11 +119,12 @@ namespace Multiplayer.Client
         private static List<MethodBase> methods = new List<MethodBase>(10);
         private static int depth;
         private static IntPtr upToHandle;
+        private static int max;
         private static IntPtr walkPtr = Marshal.GetFunctionPointerForDelegate((walk_stack)WalkStack);
         private static Func<IntPtr, MethodBase> methodHandleToMethodBase;
 
         // Not thread safe
-        public static MethodBase[] FastStackTrace(int skip = 0, MethodBase upTo = null)
+        public static MethodBase[] FastStackTrace(int skip = 0, MethodBase upTo = null, int max = 0)
         {
             if (methodHandleToMethodBase == null)
             {
@@ -132,6 +146,8 @@ namespace Multiplayer.Client
             depth = 0;
             methods.Clear();
 
+            MpUtil.max = max;
+
             upToHandle = IntPtr.Zero;
             if (upTo != null)
                 upToHandle = upTo.MethodHandle.Value;
@@ -146,7 +162,7 @@ namespace Multiplayer.Client
             depth++;
             if (depth > (int)skip)
                 methods.Add(methodHandleToMethodBase(methodHandle));
-            if (methodHandle == upToHandle) return true;
+            if (methodHandle == upToHandle || depth == max) return true;
             return false;
         }
     }
@@ -253,6 +269,21 @@ namespace Multiplayer.Client
         IEnumerator IEnumerable.GetEnumerator()
         {
             return list.GetEnumerator();
+        }
+    }
+
+    public class DefaultComparer<T> : IEqualityComparer<T>
+    {
+        public static DefaultComparer<T> Instance = new DefaultComparer<T>();
+
+        public bool Equals(T x, T y)
+        {
+            return object.Equals(x, y);
+        }
+
+        public int GetHashCode(T obj)
+        {
+            return RuntimeHelpers.GetHashCode(obj);
         }
     }
 

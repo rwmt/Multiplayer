@@ -63,8 +63,12 @@ namespace Multiplayer.Client
                 int iconId = icon == null ? 0 : !Multiplayer.icons.Contains(icon) ? 0 : Multiplayer.icons.IndexOf(icon);
                 writer.WriteByte((byte)iconId);
 
-                writer.WriteShort((short)(UI.MouseMapPosition().x * 10f));
-                writer.WriteShort((short)(UI.MouseMapPosition().z * 10f));
+                writer.WriteVectorXZ(UI.MouseMapPosition());
+
+                if (Find.Selector.dragBox.active)
+                    writer.WriteVectorXZ(Find.Selector.dragBox.start);
+                else
+                    writer.WriteShort(-1);
             }
             else
             {

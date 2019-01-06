@@ -11,6 +11,7 @@ using Verse;
 namespace Multiplayer.Client
 {
     [HarmonyPatch(typeof(Targeter), nameof(Targeter.TargeterOnGUI))]
+    [HotSwappable]
     static class DrawPlayerCursors
     {
         static void Postfix()
@@ -24,7 +25,7 @@ namespace Multiplayer.Client
                 if (player.username == Multiplayer.username) continue;
                 if (player.map != curMap) continue;
 
-                GUI.color = new Color(1, 1, 1, 0.5f);
+                GUI.color = player.color * new Color(1, 1, 1, 0.5f);
                 var pos = Vector3.Lerp(player.lastCursor, player.cursor, (float)(Multiplayer.Clock.ElapsedMillisDouble() - player.updatedAt) / 50f).MapToUIPosition();
 
                 var icon = Multiplayer.icons.ElementAtOrDefault(player.cursorIcon);
@@ -38,9 +39,15 @@ namespace Multiplayer.Client
                 Text.Font = GameFont.Small;
 
                 if (icon != null && Multiplayer.iconInfos[player.cursorIcon].hasStuff)
-                    GUI.color = new Color(0.5f, 0.4f, 0.26f, 0.5f);
+                    GUI.color = new Color(0.5f, 0.4f, 0.26f, 0.5f); // Stuff color for wood
 
                 GUI.DrawTexture(iconRect, drawIcon);
+
+                if (player.dragStart != PlayerInfo.Invalid)
+                {
+                    GUI.color = player.color * new Color(1, 1, 1, 0.2f);
+                    Widgets.DrawBox(new Rect() { min = player.dragStart.MapToUIPosition(), max = pos }, 2);
+                }
 
                 GUI.color = Color.white;
             }
