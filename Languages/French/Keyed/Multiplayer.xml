@@ -7,8 +7,9 @@
   
   <MpInvalidPort>Port Invalide</MpInvalidPort>
   <MpInvalidAddress>Adresse Invalide</MpInvalidAddress>
+  <MpInvalidGameName>Nom de partie invalide</MpInvalidGameName>
   
-  <MpWrongProtocol>Version de protocole incorrect</MpWrongProtocol>
+  <MpWrongProtocol>Version de protocole incorrecte</MpWrongProtocol>
   <MpServerClosed>Serveur fermé</MpServerClosed>
 
   <MpInvalidUsernameAlreadyPlaying>Pseudo déjà connecté</MpInvalidUsernameAlreadyPlaying>
@@ -18,10 +19,10 @@
   <MpPlayerConnected>{0} a rejoint</MpPlayerConnected>
   <MpPlayerDisconnected>{0} a quitté</MpPlayerDisconnected>
   
-  <MpArbiterDesc>Une instance du jeu tournant dans le fond et qui aide avec les problèmes de désynchronisation.</MpArbiterDesc>
-  
   <MpReplayOutdated>(Obsolète)</MpReplayOutdated>
-  <MpReplayOutdatedDesc>Ce replay été compatible avec la version du protocole {0}, mais vous avez la version {1}.\n\nLe replay peut ne pas jouer correctement.\nLes incompatibilitées possibles sont listées dans l'historique des versions.</MpReplayOutdatedDesc>
+  <MpReplayOutdatedDesc1>Ce replay était compatible avec la version du protocole {0}, mais vous avez la version {1}.</MpReplayOutdatedDesc1>
+  <MpReplayOutdatedDesc2>Le replay peut ne pas jouer correctement.</MpReplayOutdatedDesc2>
+  <MpReplayOutdatedDesc3>Les incompatibilitées possibles sont listées dans l'historique des versions.</MpReplayOutdatedDesc3>
   
   <MpServerCloseConfirmation>Êtes-vous sûr(e) de vouloir fermer le serveur ? Tout progrès non sauvegardé sera perdu.</MpServerCloseConfirmation>
   
@@ -49,6 +50,7 @@
   
   <MpConnectingTo>Connection à {0}:{1}</MpConnectingTo>
   <MpConnected>Connecté.</MpConnected>
+  <MpDownloading>Téléchargement ({0}%)</MpDownloading>
   
   <MpSteamConnectingTo>Connection à une partie hébergée par {0}</MpSteamConnectingTo>
   <MpSteamConnectingWaiting>En attente de la confirmation de l'hôte</MpSteamConnectingWaiting>
@@ -67,7 +69,11 @@
   <MpMaxPlayers>Joueurs maximum</MpMaxPlayers>
   <MpAutosaveEvery>Fréquence sauvegarde auto</MpAutosaveEvery>
   <MpAutosaveMinutes>minutes</MpAutosaveMinutes>
-  <MpLanDesc>Diffuser la partie sur votre réseau local.\n\n Adresse LAN déterminée: {0}</MpLanDesc>
+  <MpLanDesc1>Diffuser la partie sur votre réseau local.</MpLanDesc1>
+  <MpLanDesc2>Adresse LAN déterminée: {0}</MpLanDesc2>
+  <MpArbiterDesc>Une instance du jeu tournant dans le fond et qui aide avec les problèmes de désynchronisation.</MpArbiterDesc>
+  <MpAsyncTimeDesc>Sépare les controles du temps for chaque map et la planète.</MpAsyncTimeDesc>
+  <MpExperimentalFeature>Fonctionnalitée expérimentale</MpExperimentalFeature>
   
   <MpHostButton>Héberger</MpHostButton>
   <MpWatchReplay>Regarder</MpWatchReplay>
@@ -94,6 +100,7 @@
   <MpMultiplayer>Multijoueur</MpMultiplayer>
   <MpSingleplayer>Solo</MpSingleplayer>
   
-  <MpNotAvailable>Non disponible en multijoueur.</MpNotAvailable>
+ <MpNotAvailable>Non disponible en multijoueur.</MpNotAvailable>
+ <MpCallingFactionNotAvailable>Appeler d'autres factions est actuellement impossible en Multijoueur.</MpCallingFactionNotAvailable>
   
 </LanguageData>
