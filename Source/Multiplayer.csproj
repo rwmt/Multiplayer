@@ -86,6 +86,7 @@
     <Compile Include="Client\DebugTools.cs" />
     <Compile Include="Client\Designators.cs" />
     <Compile Include="Client\Extensions.cs" />
+    <Compile Include="Client\Windows\DisconnectedWindow.cs" />
     <Compile Include="Client\Windows\HostWindow.cs" />
     <Compile Include="Client\MainButtons.cs" />
     <Compile Include="Client\Comp\MapAsyncTime.cs" />

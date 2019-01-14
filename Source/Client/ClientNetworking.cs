@@ -11,6 +11,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
+using System.Text;
 using System.Threading;
 using System.Xml;
 using Verse;
@@ -21,74 +22,15 @@ namespace Multiplayer.Client
     {
         public static void TryConnect(IPAddress address, int port)
         {
-            EventBasedNetListener listener = new EventBasedNetListener();
-
             Multiplayer.session = new MultiplayerSession();
-            NetManager netClient = new NetManager(listener);
+            NetManager netClient = new NetManager(new MpClientNetListener());
 
             netClient.Start();
             netClient.ReconnectDelay = 300;
             netClient.MaxConnectAttempts = 8;
 
-            listener.PeerConnectedEvent += peer =>
-            {
-                IConnection conn = new MpNetConnection(peer);
-                conn.username = Multiplayer.username;
-                conn.State = ConnectionStateEnum.ClientJoining;
-                Multiplayer.session.client = conn;
-
-                MpLog.Log("Net client connected");
-            };
-
-            listener.PeerDisconnectedEvent += (peer, info) =>
-            {
-                string reason;
-
-                if (info.AdditionalData.AvailableBytes > 0)
-                {
-                    reason = info.AdditionalData.GetString();
-                }
-                else
-                {
-                    reason = DisconnectReasonString(info.Reason);
-                    if (info.SocketErrorCode != SocketError.Success)
-                        reason += ": " + info.SocketErrorCode;
-                }
-
-                Multiplayer.session.disconnectNetReason = reason;
-
-                ConnectionStatusListeners.TryNotifyAll_Disconnected();
-
-                OnMainThread.StopMultiplayer();
-                MpLog.Log("Net client disconnected");
-            };
-
-            listener.NetworkReceiveEvent += (peer, reader, method) =>
-            {
-                byte[] data = reader.GetRemainingBytes();
-                Multiplayer.HandleReceive(new ByteReader(data), method == DeliveryMethod.ReliableOrdered);
-            };
-
-            listener.NetworkErrorEvent += (endpoint, error) =>
-            {
-                Log.Warning($"Net client error {error}");
-            };
-
             Multiplayer.session.netClient = netClient;
             netClient.Connect(address.ToString(), port, "");
-        }
-
-        private static string DisconnectReasonString(DisconnectReason reason)
-        {
-            switch (reason)
-            {
-                case DisconnectReason.ConnectionFailed: return "Connection failed";
-                case DisconnectReason.ConnectionRejected: return "Connection rejected";
-                case DisconnectReason.Timeout: return "Timed out";
-                case DisconnectReason.HostUnreachable: return "Host unreachable";
-                case DisconnectReason.InvalidProtocol: return "Invalid library protocol";
-                default: return "Disconnected";
-            }
         }
 
         public static void HostServer(ServerSettings settings, bool fromReplay, bool withSimulation = false)
@@ -259,7 +201,6 @@ namespace Multiplayer.Client
             localServerConn.State = ConnectionStateEnum.ServerPlaying;
 
             var serverPlayer = Multiplayer.LocalServer.OnConnected(localServerConn);
-            serverPlayer.color = new ColorRGB(255, 0, 0);
             serverPlayer.status = PlayerStatus.Playing;
             serverPlayer.SendPlayerList();
 
@@ -288,6 +229,58 @@ namespace Multiplayer.Client
         }
     }
 
+    public class MpClientNetListener : INetEventListener
+    {
+        public void OnPeerConnected(NetPeer peer)
+        {
+            IConnection conn = new MpNetConnection(peer);
+            conn.username = Multiplayer.username;
+            conn.State = ConnectionStateEnum.ClientJoining;
+            Multiplayer.session.client = conn;
+
+            MpLog.Log("Net client connected");
+        }
+
+        public void OnNetworkError(IPEndPoint endPoint, SocketError error)
+        {
+            Log.Warning($"Net client error {error}");
+        }
+
+        public void OnNetworkReceive(NetPeer peer, NetPacketReader reader, DeliveryMethod method)
+        {
+            byte[] data = reader.GetRemainingBytes();
+            Multiplayer.HandleReceive(new ByteReader(data), method == DeliveryMethod.ReliableOrdered);
+        }
+
+        public void OnPeerDisconnected(NetPeer peer, DisconnectInfo info)
+        {
+            var reader = new ByteReader(info.AdditionalData.GetRemainingBytes());
+            Multiplayer.session.HandleDisconnectReason((MpDisconnectReason)reader.ReadByte(), reader.ReadPrefixedBytes());
+
+            ConnectionStatusListeners.TryNotifyAll_Disconnected();
+
+            OnMainThread.StopMultiplayer();
+            MpLog.Log("Net client disconnected");
+        }
+
+        private static string DisconnectReasonString(DisconnectReason reason)
+        {
+            switch (reason)
+            {
+                case DisconnectReason.ConnectionFailed: return "Connection failed";
+                case DisconnectReason.ConnectionRejected: return "Connection rejected";
+                case DisconnectReason.Timeout: return "Timed out";
+                case DisconnectReason.HostUnreachable: return "Host unreachable";
+                case DisconnectReason.InvalidProtocol: return "Invalid library protocol";
+                default: return "Disconnected";
+            }
+        }
+
+        public void OnConnectionRequest(ConnectionRequest request) { }
+        public void OnNetworkLatencyUpdate(NetPeer peer, int latency) { }
+        public void OnNetworkReceiveUnconnected(IPEndPoint remoteEndPoint, NetPacketReader reader, UnconnectedMessageType messageType) { }
+    }
+
     public class LocalClientConnection : IConnection
     {
         public LocalServerConnection serverSide;
@@ -309,12 +302,12 @@ namespace Multiplayer.Client
                 }
                 catch (Exception e)
                 {
-                    Log.Error($"Exception handling packet by {this}: {e}");
+                    Log.Error($"Exception handling packet by {serverSide}: {e}");
                 }
             });
         }
 
-        public override void Close()
+        public override void Close(MpDisconnectReason reason, byte[] data)
         {
         }
 
@@ -345,12 +338,12 @@ namespace Multiplayer.Client
                 }
                 catch (Exception e)
                 {
-                    Log.Error($"Exception handling packet by {this}: {e}");
+                    Log.Error($"Exception handling packet by {clientSide}: {e}");
                 }
             });
         }
 
-        public override void Close()
+        public override void Close(MpDisconnectReason reason, byte[] data)
         {
         }
 
@@ -378,9 +371,9 @@ namespace Multiplayer.Client
             SteamNetworking.SendP2PPacket(remoteId, full, (uint)full.Length, reliable ? EP2PSend.k_EP2PSendReliable : EP2PSend.k_EP2PSendUnreliable, 0);
         }
 
-        public override void Close()
+        public override void Close(MpDisconnectReason reason, byte[] data)
         {
-            Send(Packets.Special_Steam_Disconnect);
+            Send(Packets.Special_Steam_Disconnect, GetDisconnectBytes(reason, data));
         }
 
         protected override void HandleReceive(int msgId, int fragState, ByteReader reader, bool reliable)
@@ -388,7 +381,6 @@ namespace Multiplayer.Client
             if (msgId == (int)Packets.Special_Steam_Disconnect)
             {
                 OnDisconnect();
-                Close();
             }
             else
             {
@@ -418,9 +410,17 @@ namespace Multiplayer.Client
             SteamNetworking.SendP2PPacket(remoteId, new byte[] { 1 }, 1, EP2PSend.k_EP2PSendReliable, 0);
         }
 
+        protected override void HandleReceive(int msgId, int fragState, ByteReader reader, bool reliable)
+        {
+            if (msgId == (int)Packets.Special_Steam_Disconnect)
+                Multiplayer.session.HandleDisconnectReason((MpDisconnectReason)reader.ReadByte(), reader.ReadPrefixedBytes());
+
+            base.HandleReceive(msgId, fragState, reader, reliable);
+        }
+
         public override void OnError(EP2PSessionError error)
         {
-            Multiplayer.session.disconnectNetReason = error == EP2PSessionError.k_EP2PSessionErrorTimeout ? "Connection timed out" : "Connection error";
+            Multiplayer.session.disconnectReason = error == EP2PSessionError.k_EP2PSessionErrorTimeout ? "Connection timed out" : "Connection error";
             base.OnError(error);
         }
 

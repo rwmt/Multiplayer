@@ -801,6 +801,23 @@ namespace Multiplayer.Client
                 Find.World.renderer.wantedMode = WorldRenderMode.None;
             }
         }
+
+        [MpPostfix(typeof(CaravanVisitUtility), nameof(CaravanVisitUtility.TradeCommand))]
+        static void ReopenTradingWindowLocally(Caravan caravan, Command __result)
+        {
+            var original = ((Command_Action)__result).action;
+
+            ((Command_Action)__result).action = () =>
+            {
+                if (Multiplayer.Client != null && Multiplayer.WorldComp.trading.Any(t => t.trader == CaravanVisitUtility.SettlementVisitedNow(caravan)))
+                {
+                    Find.WindowStack.Add(new TradingWindow());
+                    return;
+                }
+
+                original();
+            };
+        }
     }
 
     public static class SyncMarkers

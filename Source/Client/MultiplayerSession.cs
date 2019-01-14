@@ -16,7 +16,7 @@ using Verse.Sound;
 
 namespace Multiplayer.Client
 {
-    public class MultiplayerSession
+    public class MultiplayerSession : IConnectionStatusListener
     {
         public string gameName;
 
@@ -34,8 +34,8 @@ namespace Multiplayer.Client
         public bool desynced;
         public bool resyncing;
 
-        public string disconnectNetReason;
-        public string disconnectServerReason;
+        public string disconnectReason;
+        public string disconnectInfo;
 
         public bool allowSteam;
         public List<CSteamID> pendingSteam = new List<CSteamID>();
@@ -82,7 +82,7 @@ namespace Multiplayer.Client
 
         public PlayerInfo GetPlayerInfo(int id)
         {
-            return players.FirstOrDefault(p => p.id == id);
+            return players.Find(p => p.id == id);
         }
 
         public void AddMsg(string msg, bool notify = true)
@@ -110,6 +110,34 @@ namespace Multiplayer.Client
             hasUnread = true;
             SoundDefOf.PageChange.PlayOneShotOnCamera(null);
         }
+
+        public void HandleDisconnectReason(MpDisconnectReason reason, byte[] data)
+        {
+            string reasonKey = null;
+            string desc = null;
+
+            if (reason == MpDisconnectReason.Generic) reasonKey = Encoding.UTF8.GetString(data);
+            else if (reason == MpDisconnectReason.Protocol) { reasonKey = "MpWrongProtocol"; desc = "MpWrongModVersionInfo"; }
+            else if (reason == MpDisconnectReason.UsernameLength) { reasonKey = "MpInvalidUsernameLength"; desc = "MpChangeUsernameInfo"; }
+            else if (reason == MpDisconnectReason.UsernameChars) { reasonKey = "MpInvalidUsernameChars"; desc = "MpChangeUsernameInfo"; }
+            else if (reason == MpDisconnectReason.UsernameAlreadyOnline) { reasonKey = "MpInvalidUsernameAlreadyPlaying"; desc = "MpChangeUsernameInfo"; }
+            else if (reason == MpDisconnectReason.ServerClosed) reasonKey = "MpServerClosed";
+            else if (reason == MpDisconnectReason.ServerFull) reasonKey = "MpServerFull";
+            else if (reason == MpDisconnectReason.Kick) reasonKey = "MpKicked";
+
+            disconnectReason = reasonKey?.Translate();
+            disconnectInfo = desc?.Translate();
+        }
+
+        public void Connected()
+        {
+        }
+
+        public void Disconnected()
+        {
+            Find.WindowStack.windows.Clear();
+            Find.WindowStack.Add(new DisconnectedWindow(disconnectReason, disconnectInfo) { returnToServerBrowser = Multiplayer.Client.State != ConnectionStateEnum.ClientPlaying });
+        }
     }
 
     public class PlayerInfo
@@ -121,7 +149,6 @@ namespace Multiplayer.Client
         public int latency;
         public PlayerType type;
         public PlayerStatus status;
-        public Color color;
 
         public ulong steamId;
         public string steamPersonaName;
@@ -134,6 +161,8 @@ namespace Multiplayer.Client
         public double lastDelta;
         public byte cursorIcon;
         public Vector3 dragStart = Invalid;
+
+        public Dictionary<int, float> selectedThings = new Dictionary<int, float>();
 
         private PlayerInfo(int id, string username, int latency, PlayerType type)
         {
@@ -154,14 +183,11 @@ namespace Multiplayer.Client
             var steamId = data.ReadULong();
             var steamName = data.ReadString();
 
-            var color = new Color(data.ReadByte() / 255f, data.ReadByte() / 255f, data.ReadByte() / 255f);
-
             return new PlayerInfo(id, username, latency, type)
             {
                 status = status,
                 steamId = steamId,
-                steamPersonaName = steamName,
-                color = color,
+                steamPersonaName = steamName
             };
         }
     }

@@ -19,13 +19,12 @@ namespace Multiplayer.Client
 {
     public class ClientJoiningState : MpConnectionState
     {
-        public JoiningState state;
+        public JoiningState state = JoiningState.Connected;
 
         public ClientJoiningState(IConnection connection) : base(connection)
         {
-            connection.Send(Packets.Client_Defs, MpVersion.Protocol);
+            connection.Send(Packets.Client_Protocol, MpVersion.Protocol);
 
-            state = JoiningState.Connected;
             ConnectionStatusListeners.TryNotifyAll_Connected();
         }
 
@@ -35,7 +34,6 @@ namespace Multiplayer.Client
             Multiplayer.session.gameName = data.ReadString();
 
             connection.Send(Packets.Client_Username, Multiplayer.username);
-            connection.Send(Packets.Client_RequestWorld);
 
             state = JoiningState.Downloading;
         }
@@ -83,8 +81,12 @@ namespace Multiplayer.Client
 
             TickPatch.tickUntil = tickUntil;
 
-            TickPatch.skipToTickUntil = true;
-            TickPatch.afterSkip = () => Multiplayer.Client.Send(Packets.Client_WorldReady);
+            TickPatch.SkipTo(
+                toTickUntil: true, 
+                onFinish: () => Multiplayer.Client.Send(Packets.Client_WorldReady), 
+                cancelButtonKey: "Quit", 
+                onCancel: GenScene.GoToMainMenu
+            );
 
             ReloadGame(mapsToLoad);
         }
@@ -159,13 +161,6 @@ namespace Multiplayer.Client
             Multiplayer.WorldComp.cmds = new Queue<ScheduledCommand>(OnMainThread.cachedMapCmds.GetValueSafe(ScheduledCommand.Global) ?? new List<ScheduledCommand>());
             // Map cmds are added in MapAsyncTimeComp.FinalizeInit
         }
-
-        [PacketHandler(Packets.Server_DisconnectReason)]
-        public void HandleDisconnectReason(ByteReader data)
-        {
-            string reasonKey = data.ReadString();
-            Multiplayer.session.disconnectServerReason = reasonKey.Translate();
-        }
     }
 
     public enum JoiningState
@@ -173,7 +168,7 @@ namespace Multiplayer.Client
         Connected, Downloading
     }
 
-    public class ClientPlayingState : MpConnectionState, IConnectionStatusListener
+    public class ClientPlayingState : MpConnectionState
     {
         public ClientPlayingState(IConnection connection) : base(connection)
         {
@@ -254,7 +249,7 @@ namespace Multiplayer.Client
         public void HandleCursor(ByteReader data)
         {
             int playerId = data.ReadInt32();
-            var player = Multiplayer.session.players.Find(p => p.id == playerId);
+            var player = Multiplayer.session.GetPlayerInfo(playerId);
             if (player == null) return;
 
             byte seq = data.ReadByte();
@@ -290,6 +285,27 @@ namespace Multiplayer.Client
             }
         }
 
+        [PacketHandler(Packets.Server_Selected)]
+        public void HandleSelected(ByteReader data)
+        {
+            int playerId = data.ReadInt32();
+            var player = Multiplayer.session.GetPlayerInfo(playerId);
+            if (player == null) return;
+
+            bool reset = data.ReadBool();
+
+            if (reset)
+                player.selectedThings.Clear();
+
+            int[] add = data.ReadPrefixedInts();
+            for (int i = 0; i < add.Length; i++)
+                player.selectedThings[add[i]] = Time.realtimeSinceStartup;
+
+            int[] remove = data.ReadPrefixedInts();
+            for (int i = 0; i < remove.Length; i++)
+                player.selectedThings.Remove(remove[i]);
+        }
+
         [PacketHandler(Packets.Server_MapResponse)]
         public void HandleMapResponse(ByteReader data)
         {
@@ -318,13 +334,6 @@ namespace Multiplayer.Client
             Messages.Message(key.Translate(Array.ConvertAll(args, s => (NamedArgument)s)), MessageTypeDefOf.SilentInput, false);
         }
 
-        [PacketHandler(Packets.Server_DisconnectReason)]
-        public void HandleDisconnectReason(ByteReader data)
-        {
-            string reasonKey = data.ReadString();
-            Multiplayer.session.disconnectServerReason = reasonKey.Translate();
-        }
-
         [PacketHandler(Packets.Server_SyncInfo)]
         [IsFragmented]
         public void HandleDesyncCheck(ByteReader data)
@@ -347,16 +356,6 @@ namespace Multiplayer.Client
 
             File.WriteAllText("arbiter_traces.txt", info?.TracesToString() ?? "null");
         }
-
-        public void Connected()
-        {
-        }
-
-        public void Disconnected()
-        {
-            Find.WindowStack.windows.Clear();
-            Find.WindowStack.Add(new DisconnectedWindow(Multiplayer.session.disconnectServerReason ?? Multiplayer.session.disconnectNetReason));
-        }
     }
 
     public class ClientSteamState : MpConnectionState
@@ -370,13 +369,6 @@ namespace Multiplayer.Client
         public void HandleSteamAccept(ByteReader data)
         {
             connection.State = ConnectionStateEnum.ClientJoining;
-        }
-
-        [PacketHandler(Packets.Server_DisconnectReason)]
-        public void HandleDisconnectReason(ByteReader data)
-        {
-            string reasonKey = data.ReadString();
-            Multiplayer.session.disconnectServerReason = reasonKey.Translate();
         }
     }
 
@@ -399,6 +391,9 @@ namespace Multiplayer.Client
 
                 if (Multiplayer.Client?.StateObj is IConnectionStatusListener state)
                     yield return state;
+
+                if (Multiplayer.session != null)
+                    yield return Multiplayer.session;
             }
         }
 

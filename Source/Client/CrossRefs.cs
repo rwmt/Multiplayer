@@ -15,7 +15,10 @@ namespace Multiplayer.Client
             if (Multiplayer.game == null) return;
 
             if (__instance.def.HasThingIDNumber)
+            {
                 ScribeUtil.sharedCrossRefs.RegisterLoaded(__instance);
+                ThingsById.Register(__instance);
+            }
         }
     }
 
@@ -26,7 +29,9 @@ namespace Multiplayer.Client
         static void Postfix(Thing __instance)
         {
             if (Multiplayer.game == null) return;
+
             ScribeUtil.sharedCrossRefs.Unregister(__instance);
+            ThingsById.Unregister(__instance);
         }
     }
 
@@ -167,7 +172,10 @@ namespace Multiplayer.Client
         static void Prefix(Map map)
         {
             if (Multiplayer.game == null) return;
+
             ScribeUtil.sharedCrossRefs.UnregisterAllFrom(map);
+            ThingsById.UnregisterAllFrom(map);
+
             ScribeUtil.sharedCrossRefs.Unregister(map);
         }
     }
@@ -206,12 +214,12 @@ namespace Multiplayer.Client
             if (reffable == null) return false;
 
             string key = reffable.GetUniqueLoadID();
-            if (ScribeUtil.sharedCrossRefs.Dict.ContainsKey(key)) return false;
+            if (ScribeUtil.sharedCrossRefs.allObjectsByLoadID.ContainsKey(key)) return false;
 
             if (Scribe.mode == LoadSaveMode.ResolvingCrossRefs)
                 ScribeUtil.sharedCrossRefs.tempKeys.Add(key);
 
-            ScribeUtil.sharedCrossRefs.Dict.Add(key, reffable);
+            ScribeUtil.sharedCrossRefs.allObjectsByLoadID.Add(key, reffable);
 
             return false;
         }
@@ -226,10 +234,7 @@ namespace Multiplayer.Client
             if (!(__instance is SharedCrossRefs)) return true;
 
             Scribe.loader.crossRefs.loadedObjectDirectory = ScribeUtil.defaultCrossRefs;
-
-            foreach (string temp in ScribeUtil.sharedCrossRefs.tempKeys)
-                ScribeUtil.sharedCrossRefs.Unregister(temp);
-            ScribeUtil.sharedCrossRefs.tempKeys.Clear();
+            ScribeUtil.sharedCrossRefs.UnregisterAllTemp();
 
             return false;
         }

@@ -2,6 +2,7 @@
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
+using Steamworks;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -624,15 +625,14 @@ namespace Multiplayer.Client
     [HarmonyPatch(nameof(KeyBindingDef.IsDownEvent), MethodType.Getter)]
     public static class KeyIsDownPatch
     {
-        public static bool? result;
-        public static KeyBindingDef forKey;
+        public static bool? shouldQueue;
 
-        static bool Prefix(KeyBindingDef __instance) => !(__instance == forKey && result.HasValue);
+        static bool Prefix(KeyBindingDef __instance) => !(__instance == KeyBindingDefOf.QueueOrder && shouldQueue.HasValue);
 
         static void Postfix(KeyBindingDef __instance, ref bool __result)
         {
-            if (__instance == forKey && result.HasValue)
-                __result = result.Value;
+            if (__instance == KeyBindingDefOf.QueueOrder && shouldQueue.HasValue)
+                __result = shouldQueue.Value;
         }
     }
 
@@ -928,6 +928,12 @@ namespace Multiplayer.Client
         }
     }
 
+    [HarmonyPatch(typeof(ThingGrid), nameof(ThingGrid.Register))]
+    static class DontEnlistNonSaveableThings
+    {
+        static bool Prefix(Thing t) => t.def.isSaveable;
+    }
+
     [HarmonyPatch(typeof(ThingWithComps))]
     [HarmonyPatch(nameof(ThingWithComps.InitializeComps))]
     static class InitializeCompsPatch
@@ -1012,6 +1018,7 @@ namespace Multiplayer.Client
         static void Postfix()
         {
             if (Multiplayer.Client == null) return;
+
             Log.Message("Unique ids " + Multiplayer.GlobalIdBlock.current);
             Log.Message("Rand " + Rand.StateCompressed);
         }
@@ -1117,7 +1124,7 @@ namespace Multiplayer.Client
     [MpPatch(typeof(CameraJumper), nameof(CameraJumper.TryJump), new[] { typeof(GlobalTargetInfo) })]
     static class NoCameraJumpingDuringSkipping
     {
-        static bool Prefix() => TickPatch.skipTo < 0;
+        static bool Prefix() => !TickPatch.Skipping;
     }
 
     [HarmonyPatch(typeof(WealthWatcher), nameof(WealthWatcher.ForceRecount))]
@@ -1276,7 +1283,7 @@ namespace Multiplayer.Client
 
             if (Multiplayer.Client == null) return;
             if (Rand.stateStack.Count > 1) return;
-            if (TickPatch.skipTo >= 0 || Multiplayer.IsReplay) return;
+            if (TickPatch.Skipping || Multiplayer.IsReplay) return;
 
             if (!Multiplayer.Ticking && !Multiplayer.ExecutingCmds) return;
 

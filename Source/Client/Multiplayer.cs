@@ -17,6 +17,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Xml;
@@ -198,7 +199,7 @@ namespace Multiplayer.Client
             {
                 LongEventHandler.QueueLongEvent(() =>
                 {
-                    Replay.LoadReplay(replay, true, () =>
+                    Replay.LoadReplay(Replay.ReplayFile(replay), true, () =>
                     {
                         var rand = Find.Maps.Select(m => m.AsyncTime().randState).Select(s => $"{(uint)s} {s >> 32}");
 
@@ -263,10 +264,8 @@ namespace Multiplayer.Client
                 var effecterCleanup = typeof(Effecter).GetMethod("Cleanup");
                 var randomBoltMesh = typeof(LightningBoltMeshPool).GetProperty("RandomBoltMesh").GetGetMethod();
                 var drawTrackerCtor = typeof(Pawn_DrawTracker).GetConstructor(new[] { typeof(Pawn) });
-                var resolveAllGraphics = typeof(PawnGraphicSet).GetMethod("ResolveAllGraphics");
-                var resolveApparelGraphics = typeof(PawnGraphicSet).GetMethod("ResolveApparelGraphics");
 
-                var effectMethods = new MethodBase[] { subSustainerStart, sampleCtor, subSoundPlay, effecterTick, effecterTrigger, effecterCleanup, randomBoltMesh, drawTrackerCtor, resolveAllGraphics, resolveApparelGraphics };
+                var effectMethods = new MethodBase[] { subSustainerStart, sampleCtor, subSoundPlay, effecterTick, effecterTrigger, effecterCleanup, randomBoltMesh, drawTrackerCtor };
                 var moteMethods = typeof(MoteMaker).GetMethods(BindingFlags.Static | BindingFlags.Public);
 
                 foreach (MethodBase m in effectMethods.Concat(moteMethods))

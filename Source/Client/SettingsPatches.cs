@@ -32,7 +32,7 @@ namespace Multiplayer.Client
     [MpPatch(typeof(Prefs), nameof(Prefs.Save))]
     static class CancelDuringSkipping
     {
-        static bool Prefix() => TickPatch.skipTo < 0;
+        static bool Prefix() => !TickPatch.Skipping;
     }
 
     [HarmonyPatch(typeof(Prefs), nameof(Prefs.MaxNumberOfPlayerSettlements), MethodType.Getter)]
@@ -61,6 +61,16 @@ namespace Multiplayer.Client
     static class PrefGettersInMultiplayer
     {
         static bool Prefix() => Multiplayer.Client == null;
+    }
+
+    [MpPatch(typeof(Prefs), "get_" + nameof(Prefs.PauseOnUrgentLetter))]
+    static class PauseOnUrgentLetterInMultiplayer
+    {
+        static void Postfix(ref bool __result)
+        {
+            if (Multiplayer.Client != null)
+                __result = true;
+        }
     }
 
     [MpPatch(typeof(Prefs), "set_" + nameof(Prefs.PauseOnLoad))]

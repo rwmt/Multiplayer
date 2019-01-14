@@ -17,6 +17,7 @@ using Verse;
 
 namespace Multiplayer.Client
 {
+    [HotSwappable]
     public class MultiplayerMod : Mod
     {
         public static HarmonyInstance harmony = HarmonyInstance.Create("multiplayer");
@@ -114,6 +115,8 @@ namespace Multiplayer.Client
             }
         }
 
+        private string slotsBuffer;
+
         public override void DoSettingsWindowContents(Rect inRect)
         {
             var listing = new Listing_Standard();
@@ -124,7 +127,8 @@ namespace Multiplayer.Client
 
             listing.CheckboxLabeled("MpShowPlayerCursors".Translate(), ref settings.showCursors);
             listing.CheckboxLabeled("MpAutoAcceptSteam".Translate(), ref settings.autoAcceptSteam, "MpAutoAcceptSteamDesc".Translate());
-            listing.CheckboxLabeled("Transparent chat", ref settings.transparentChat);
+            listing.CheckboxLabeled("MpTransparentChat".Translate(), ref settings.transparentChat);
+            listing.TextFieldNumericLabeled("MpAutosaveSlots".Translate() + ":  ", ref settings.autosaveSlots, ref slotsBuffer, 1f, 99f);
 
             listing.End();
         }
@@ -133,7 +137,7 @@ namespace Multiplayer.Client
         {
             GUI.SetNextControlName("UsernameField");
 
-            string username = listing.TextEntryLabeled($"{"MpUsername".Translate()}:  ", settings.username);
+            string username = listing.TextEntryLabeled("MpUsername".Translate() + ":  ", settings.username);
             if (username.Length <= 15 && ServerJoiningState.UsernamePattern.IsMatch(username))
             {
                 settings.username = username;
@@ -153,6 +157,7 @@ namespace Multiplayer.Client
         public bool showCursors = true;
         public bool autoAcceptSteam;
         public bool transparentChat;
+        public int autosaveSlots = 5;
 
         public override void ExposeData()
         {
@@ -160,6 +165,7 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref showCursors, "showCursors", true);
             Scribe_Values.Look(ref autoAcceptSteam, "autoAcceptSteam");
             Scribe_Values.Look(ref transparentChat, "transparentChat");
+            Scribe_Values.Look(ref autosaveSlots, "autosaveSlots");
         }
     }
 }

@@ -23,10 +23,15 @@ namespace Multiplayer.Client
 
         public static TimeSpeed replayTimeSpeed;
 
-        public static bool forceSkip;
-        public static bool skipToTickUntil;
+        static bool skipToTickUntil;
         public static int skipTo = -1;
-        public static Action afterSkip;
+        static Action afterSkip;
+        public static bool canESCSkip;
+        public static Action cancelSkip;
+        public static string skipCancelButtonKey;
+        public static string skippingTextKey;
+
+        public static bool Skipping => skipTo >= 0;
 
         public static IEnumerable<ITickable> AllTickables
         {
@@ -83,13 +88,27 @@ namespace Multiplayer.Client
             return false;
         }
 
+        public static void SkipTo(int ticks = 0, bool toTickUntil = false, Action onFinish = null, Action onCancel = null, string cancelButtonKey = null, bool canESC = false, string simTextKey = null)
+        {
+            skipTo = ticks;
+            skipToTickUntil = toTickUntil;
+            afterSkip = onFinish;
+            cancelSkip = onCancel;
+            canESCSkip = canESC;
+            skipCancelButtonKey = cancelButtonKey ?? "CancelButton";
+            skippingTextKey = simTextKey ?? "MpSimulating";
+        }
+
         public static void ClearSkipping()
         {
             skipTo = -1;
             skipToTickUntil = false;
             accumulator = 0;
             afterSkip = null;
-            forceSkip = false;
+            cancelSkip = null;
+            canESCSkip = false;
+            skipCancelButtonKey = null;
+            skippingTextKey = null;
         }
 
         static ITickable CurrentTickable()
@@ -111,7 +130,7 @@ namespace Multiplayer.Client
 
         public static void Tick()
         {
-            while ((skipTo < 0 && accumulator > 0) || (skipTo >= 0 && Timer < skipTo && updateTimer.ElapsedMilliseconds < 30))
+            while ((!Skipping && accumulator > 0) || (Skipping && Timer < skipTo && updateTimer.ElapsedMilliseconds < 25))
             {
                 int curTimer = Timer;
 
@@ -165,7 +184,7 @@ namespace Multiplayer.Client
 
         private static float ReplayMultiplier()
         {
-            if (!Multiplayer.IsReplay || skipTo >= 0) return 1f;
+            if (!Multiplayer.IsReplay || Skipping) return 1f;
 
             if (replayTimeSpeed == TimeSpeed.Paused)
                 return 0f;

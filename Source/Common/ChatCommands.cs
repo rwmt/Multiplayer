@@ -66,7 +66,7 @@ namespace Multiplayer.Common
                 return;
             }
 
-            toKick.Disconnect("MpKicked");
+            toKick.Disconnect(MpDisconnectReason.Kick);
         }
     }
 }

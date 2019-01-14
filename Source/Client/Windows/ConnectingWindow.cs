@@ -1,4 +1,5 @@
-﻿using Steamworks;
+﻿using Multiplayer.Common;
+using Steamworks;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -19,6 +20,7 @@ namespace Multiplayer.Client
         public bool returnToServerBrowser;
 
         protected string result;
+        protected string desc;
 
         public BaseConnectingWindow()
         {
@@ -38,8 +40,8 @@ namespace Multiplayer.Client
 
             Rect textRect = inRect;
             textRect.yMax -= (buttonHeight + 10f);
-            float textWidth = Text.CalcSize(label).x;
             Text.Anchor = TextAnchor.MiddleCenter;
+
             Widgets.Label(textRect, label);
             Text.Anchor = TextAnchor.UpperLeft;
 
@@ -59,7 +61,7 @@ namespace Multiplayer.Client
         }
 
         public void Connected() => result = "MpConnected".Translate();
-        public void Disconnected() => result = Multiplayer.session.disconnectServerReason ?? Multiplayer.session.disconnectNetReason;
+        public void Disconnected() { }
     }
 
     public class ConnectingWindow : BaseConnectingWindow
@@ -92,44 +94,6 @@ namespace Multiplayer.Client
         {
             this.hostId = hostId;
             host = SteamFriends.GetFriendPersonaName(hostId);
-        }
-    }
-
-    public class DisconnectedWindow : Window
-    {
-        public override Vector2 InitialSize => new Vector2(300f, 150f);
-
-        private string reason;
-
-        public DisconnectedWindow(string reason)
-        {
-            this.reason = reason;
-
-            closeOnAccept = false;
-            closeOnCancel = false;
-            closeOnClickedOutside = false;
-            forcePause = true;
-            absorbInputAroundWindow = true;
-        }
-
-        public override void DoWindowContents(Rect inRect)
-        {
-            const float ButtonWidth = 140f;
-            const float ButtonHeight = 40f;
-
-            Text.Font = GameFont.Small;
-
-            Text.Anchor = TextAnchor.MiddleCenter;
-            Rect labelRect = inRect;
-            labelRect.yMax -= ButtonHeight;
-            Widgets.Label(labelRect, reason);
-            Text.Anchor = TextAnchor.UpperLeft;
-
-            Rect buttonRect = new Rect((inRect.width - ButtonWidth) / 2f, inRect.height - ButtonHeight - 10f, ButtonWidth, ButtonHeight);
-            if (Widgets.ButtonText(buttonRect, "QuitToMainMenu".Translate(), true, false, true))
-            {
-                GenScene.GoToMainMenu();
-            }
         }
     }
 

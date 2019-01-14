@@ -22,7 +22,6 @@ using zip::Ionic.Zip;
 namespace Multiplayer.Client
 {
     [StaticConstructorOnStartup]
-    [HotSwappable]
     public class ServerBrowser : Window
     {
         private NetManager net;
@@ -112,15 +111,15 @@ namespace Multiplayer.Client
             }
 
             var replaysDir = new DirectoryInfo(GenFilePaths.FolderUnderSaveData("MpReplays"));
-            if (!replaysDir.Exists)
-                replaysDir.Create();
 
-            foreach (var file in replaysDir.GetFiles("*.zip").OrderByDescending(f => f.LastWriteTime))
+            foreach (var file in replaysDir.GetFiles("*.zip", MpVersion.IsDebug ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly).OrderByDescending(f => f.LastWriteTime))
             {
                 var replay = Replay.ForLoading(file);
                 replay.LoadInfo();
 
-                var saveFile = new SaveFile(Path.GetFileNameWithoutExtension(file.Name), true, file)
+                var displayName = Path.ChangeExtension(file.FullName.Substring(Multiplayer.ReplaysDir.Length + 1), null);
+
+                var saveFile = new SaveFile(displayName, true, file)
                 {
                     gameName = replay.info.name,
                     protocol = replay.info.protocol
@@ -219,7 +218,10 @@ namespace Multiplayer.Client
             if (selectedFile == null)
             {
                 Text.Anchor = TextAnchor.MiddleCenter;
-                Widgets.Label(new Rect(outRect.x, outRect.yMax, outRect.width, 80), "MpNothingSelected".Translate());
+
+                bool noSaves = spSaves.Count == 0 && mpReplays.Count == 0;
+                Widgets.Label(new Rect(outRect.x, outRect.yMax, outRect.width, 80), noSaves ? "MpNoSaves".Translate() : "MpNothingSelected".Translate());
+
                 Text.Anchor = TextAnchor.UpperLeft;
             }
             else
@@ -244,7 +246,7 @@ namespace Multiplayer.Client
                 if (Widgets.ButtonText(new Rect(width, 0, 120, 40), "MpWatchReplay".Translate()))
                 {
                     Close(false);
-                    Replay.LoadReplay(file.fileName);
+                    Replay.LoadReplay(file.file);
                 }
 
                 width += 120 + 10;
@@ -260,7 +262,7 @@ namespace Multiplayer.Client
 
             if (Widgets.ButtonText(new Rect(width, 0, 120, 40), "Delete".Translate()))
             {
-                Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation("ConfirmDelete".Translate(file.fileName), () =>
+                Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation("ConfirmDelete".Translate(file.displayName), () =>
                 {
                     file.file.Delete();
                     ReloadFiles();
@@ -293,7 +295,7 @@ namespace Multiplayer.Client
                 }
 
                 Text.Anchor = TextAnchor.MiddleLeft;
-                Widgets.Label(entryRect.Right(10), saveFile.fileName);
+                Widgets.Label(entryRect.Right(10), saveFile.displayName);
                 Text.Anchor = TextAnchor.UpperLeft;
 
                 GUI.color = new Color(0.6f, 0.6f, 0.6f);
@@ -343,9 +345,14 @@ namespace Multiplayer.Client
         {
             var saveMods = new StringBuilder();
             for (int i = 0; i < save.modIds.Length; i++)
-                saveMods.Append($"{save.modNames[i]}\n");
+            {
+                var modName = save.modNames[i];
+                var modId = save.modIds[i];
+                var prefix = ModLister.AllInstalledMods.Any(m => m.Identifier == modId) ? "+" : "-";
+                saveMods.Append($"{prefix} {modName}\n");
+            }
 
-            var activeMods = LoadedModManager.RunningModsListForReading.Join(m => m.Name, "\n");
+            var activeMods = LoadedModManager.RunningModsListForReading.Join(m => "+ " + m.Name, "\n");
 
             yield return new FloatMenuOption("See mod list", () =>
             {
@@ -639,7 +646,7 @@ namespace Multiplayer.Client
 
     public class SaveFile
     {
-        public string fileName;
+        public string displayName;
         public bool replay;
         public FileInfo file;
 
@@ -668,9 +675,9 @@ namespace Multiplayer.Client
             }
         }
 
-        public SaveFile(string fileName, bool replay, FileInfo file)
+        public SaveFile(string displayName, bool replay, FileInfo file)
         {
-            this.fileName = fileName;
+            this.displayName = displayName;
             this.replay = replay;
             this.file = file;
         }

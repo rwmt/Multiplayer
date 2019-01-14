@@ -88,8 +88,8 @@ namespace Multiplayer.Client
             while (SteamNetworking.IsP2PPacketAvailable(out uint size, 0))
             {
                 byte[] data = new byte[size];
-                SteamNetworking.ReadP2PPacket(data, size, out uint sizeRead, out CSteamID remote, 0);
 
+                if (!SteamNetworking.ReadP2PPacket(data, size, out uint sizeRead, out CSteamID remote, 0)) continue;
                 if (data.Length <= 0) continue;
 
                 var reader = new ByteReader(data);
@@ -139,15 +139,23 @@ namespace Multiplayer.Client
         }
 
         private static Stopwatch lastSteamUpdate = Stopwatch.StartNew();
+        private static bool lastSteam;
 
         public static void UpdateRichPresence()
         {
             if (lastSteamUpdate.ElapsedMilliseconds < 1000) return;
 
-            if (Multiplayer.session?.localSettings?.steam ?? false)
-                SteamFriends.SetRichPresence("connect", $"{SteamConnectStart}{SteamUser.GetSteamID()}");
-            else
-                SteamFriends.SetRichPresence("connect", null);
+            bool steam = Multiplayer.session?.localSettings?.steam ?? false;
+
+            if (steam != lastSteam)
+            {
+                if (steam)
+                    SteamFriends.SetRichPresence("connect", $"{SteamConnectStart}{SteamUser.GetSteamID()}");
+                else
+                    SteamFriends.SetRichPresence("connect", null);
+
+                lastSteam = steam;
+            }
 
             lastSteamUpdate.Restart();
         }

@@ -115,7 +115,15 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(TimeControls), nameof(TimeControls.DoTimeControlsGUI))]
-    [HotSwappable]
+    static class TimeControlsMarker
+    {
+        public static bool drawingTimeControls;
+
+        static void Prefix() => drawingTimeControls = true;
+        static void Postfix() => drawingTimeControls = false;
+    }
+
+    [HarmonyPatch(typeof(TimeControls), nameof(TimeControls.DoTimeControlsGUI))]
     public static class TimeControlPatch
     {
         private static TimeSpeed prevSpeed;
@@ -163,6 +171,30 @@ namespace Multiplayer.Client
                 TickPatch.replayTimeSpeed = newSpeed;
 
             TimeControl.SendTimeChange(__state, newSpeed);
+        }
+    }
+
+    [HarmonyPatch(typeof(TickManager), nameof(TickManager.DoSingleTick))]
+    static class DoSingleTickShortcut
+    {
+        static bool Prefix()
+        {
+            if (Multiplayer.Client == null || !TimeControlsMarker.drawingTimeControls)
+                return true;
+
+            if (TickPatch.Timer < TickPatch.tickUntil)
+            {
+                var replaySpeed = TickPatch.replayTimeSpeed;
+                TickPatch.replayTimeSpeed = TimeSpeed.Normal;
+                TickPatch.accumulator = 1;
+
+                TickPatch.Tick();
+
+                TickPatch.accumulator = 0;
+                TickPatch.replayTimeSpeed = replaySpeed;
+            }
+
+            return false;
         }
     }
 
@@ -293,7 +325,7 @@ namespace Multiplayer.Client
             var asyncTime = map.AsyncTime();
             var timeSpeed = Multiplayer.IsReplay ? TickPatch.replayTimeSpeed : asyncTime.TimeSpeed;
 
-            __result = TickPatch.skipTo >= 0 ? 6 : asyncTime.ActualRateMultiplier(timeSpeed);
+            __result = TickPatch.Skipping ? 6 : asyncTime.ActualRateMultiplier(timeSpeed);
         }
     }
 
@@ -574,7 +606,7 @@ namespace Multiplayer.Client
             Current.Game.currentMapIndex = (sbyte)map.Index;
 
             executingCmdMap = map;
-            TickPatch.currentExecutingCmdIssuedBySelf = cmd.issuedBySelf && TickPatch.skipTo < 0;
+            TickPatch.currentExecutingCmdIssuedBySelf = cmd.issuedBySelf && !TickPatch.Skipping;
 
             PreContext();
             map.PushFaction(cmd.GetFaction());

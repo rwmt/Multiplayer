@@ -20,7 +20,7 @@ namespace Multiplayer.Client
     {
         public List<SyncInfo> buffer = new List<SyncInfo>();
 
-        public bool ShouldCollect => !Multiplayer.IsReplay && TickPatch.skipTo < 0;
+        public bool ShouldCollect => !Multiplayer.IsReplay && !TickPatch.Skipping;
 
         public SyncInfo current;
         private SyncInfo Current
@@ -101,7 +101,7 @@ namespace Multiplayer.Client
             {
                 var desyncFile = PrepareNextDesyncFile();
 
-                var replay = Replay.ForSaving(desyncFile, Multiplayer.DesyncsDir);
+                var replay = Replay.ForSaving(Replay.ReplayFile(desyncFile, Multiplayer.DesyncsDir));
                 replay.WriteCurrentData();
 
                 var savedGame = ScribeUtil.WriteExposable(Verse.Current.Game, "game", true, ScribeMetaHeaderUtility.WriteMetaHeader);

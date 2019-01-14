@@ -11,12 +11,11 @@ using Verse;
 namespace Multiplayer.Client
 {
     [HarmonyPatch(typeof(Targeter), nameof(Targeter.TargeterOnGUI))]
-    [HotSwappable]
     static class DrawPlayerCursors
     {
         static void Postfix()
         {
-            if (Multiplayer.Client == null || !MultiplayerMod.settings.showCursors || TickPatch.skipTo >= 0) return;
+            if (Multiplayer.Client == null || !MultiplayerMod.settings.showCursors || TickPatch.Skipping) return;
 
             var curMap = Find.CurrentMap.Index;
 
@@ -25,7 +24,7 @@ namespace Multiplayer.Client
                 if (player.username == Multiplayer.username) continue;
                 if (player.map != curMap) continue;
 
-                GUI.color = player.color * new Color(1, 1, 1, 0.5f);
+                GUI.color = new Color(1, 1, 1, 0.5f);
                 var pos = Vector3.Lerp(player.lastCursor, player.cursor, (float)(Multiplayer.Clock.ElapsedMillisDouble() - player.updatedAt) / 50f).MapToUIPosition();
 
                 var icon = Multiplayer.icons.ElementAtOrDefault(player.cursorIcon);
@@ -45,7 +44,7 @@ namespace Multiplayer.Client
 
                 if (player.dragStart != PlayerInfo.Invalid)
                 {
-                    GUI.color = player.color * new Color(1, 1, 1, 0.2f);
+                    GUI.color = new Color(1, 1, 1, 0.2f);
                     Widgets.DrawBox(new Rect() { min = player.dragStart.MapToUIPosition(), max = pos }, 2);
                 }
 
@@ -53,4 +52,72 @@ namespace Multiplayer.Client
             }
         }
     }
+
+    [HarmonyPatch(typeof(SelectionDrawer), nameof(SelectionDrawer.DrawSelectionOverlays))]
+    [StaticConstructorOnStartup]
+    static class SelectionBoxPatch
+    {
+        static Material GraySelection = MaterialPool.MatFrom("UI/Overlays/SelectionBracket", ShaderDatabase.MetaOverlay, new Color(0.9f, 0.9f, 0.9f, 0.5f));
+        static HashSet<int> drawnThisUpdate = new HashSet<int>();
+        static Dictionary<object, float> selTimes = new Dictionary<object, float>();
+
+        static void Postfix()
+        {
+            if (Multiplayer.Client == null) return;
+
+            foreach (var t in Find.Selector.SelectedObjects.OfType<Thing>())
+                drawnThisUpdate.Add(t.thingIDNumber);
+
+            foreach (var player in Multiplayer.session.players)
+            {
+                foreach (var sel in player.selectedThings)
+                {
+                    if (!drawnThisUpdate.Add(sel.Key)) continue;
+
+                    var thing = ThingsById.thingsById[sel.Key];
+
+                    selTimes[thing] = sel.Value;
+                    SelectionDrawerUtility.CalculateSelectionBracketPositionsWorld(SelectionDrawer.bracketLocs, thing, thing.DrawPos, thing.RotatedSize.ToVector2(), selTimes, Vector2.one, 1f);
+                    selTimes.Clear();
+
+                    for (int i = 0; i < 4; i++)
+                    {
+                        Quaternion rotation = Quaternion.AngleAxis(-i * 90, Vector3.up);
+                        Graphics.DrawMesh(MeshPool.plane10, SelectionDrawer.bracketLocs[i], rotation, GraySelection, 0);
+                    }
+                }
+            }
+
+            drawnThisUpdate.Clear();
+        }
+    }
+
+    [HarmonyPatch(typeof(InspectPaneFiller), nameof(InspectPaneFiller.DrawInspectStringFor))]
+    static class DrawInspectPaneStringMarker
+    {
+        public static ISelectable drawingFor;
+
+        static void Prefix(ISelectable sel) => drawingFor = sel;
+        static void Postfix() => drawingFor = null;
+    }
+
+    [HarmonyPatch(typeof(InspectPaneFiller), nameof(InspectPaneFiller.DrawInspectString))]
+    static class DrawInspectStringPatch
+    {
+        static void Prefix(ref string str)
+        {
+            if (Multiplayer.Client == null) return;
+            if (!(DrawInspectPaneStringMarker.drawingFor is Thing thing)) return;
+
+            List<string> players = new List<string>();
+
+            foreach (var player in Multiplayer.session.players)
+                if (player.selectedThings.ContainsKey(thing.thingIDNumber))
+                    players.Add(player.username);
+
+            if (players.Count > 0)
+                str += $"\nSelected by: {players.Join()}";
+        }
+    }
+
 }

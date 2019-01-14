@@ -14,21 +14,16 @@ namespace Multiplayer.Client
 {
     public class Replay
     {
-        public readonly string fileName;
+        private FileInfo file;
         public ReplayInfo info = new ReplayInfo();
 
-        private string folder;
-
-        private Replay(string fileName, string folder = null)
+        private Replay(FileInfo file)
         {
-            this.fileName = fileName;
-            this.folder = folder;
+            this.file = file;
         }
 
-        private string FilePath => Path.Combine(folder ?? Multiplayer.ReplaysDir, $"{fileName}.zip");
-
-        public FileInfo File => new FileInfo(FilePath);
-        public ZipFile ZipFile => new ZipFile(FilePath);
+        public FileInfo File => file;
+        public ZipFile ZipFile => new ZipFile(file.FullName);
 
         public void WriteCurrentData()
         {
@@ -121,19 +116,15 @@ namespace Multiplayer.Client
             }
         }
 
-        public static Replay ForLoading(string fileName)
-        {
-            return new Replay(fileName);
-        }
+        public static FileInfo ReplayFile(string fileName, string folder = null) => new FileInfo(Path.Combine(folder ?? Multiplayer.ReplaysDir, $"{fileName}.zip"));
 
-        public static Replay ForLoading(FileInfo file)
-        {
-            return new Replay(Path.GetFileNameWithoutExtension(file.Name));
-        }
+        public static Replay ForLoading(string fileName) => new Replay(ReplayFile(fileName));
+        public static Replay ForLoading(FileInfo file) => new Replay(file);
 
-        public static Replay ForSaving(string fileName, string folder = null)
+        public static Replay ForSaving(string fileName) => ForSaving(ReplayFile(fileName));
+        public static Replay ForSaving(FileInfo file)
         {
-            var replay = new Replay(fileName, folder);
+            var replay = new Replay(file);
             replay.info.name = Multiplayer.session.gameName;
             replay.info.playerFaction = Multiplayer.session.myFactionId;
             replay.info.protocol = MpVersion.Protocol;
@@ -141,14 +132,14 @@ namespace Multiplayer.Client
             return replay;
         }
 
-        public static void LoadReplay(string name, bool toEnd = false, Action after = null)
+        public static void LoadReplay(FileInfo file, bool toEnd = false, Action after = null, Action cancel = null, string simTextKey = null)
         {
             var session = Multiplayer.session = new MultiplayerSession();
             session.client = new ReplayConnection();
             session.client.State = ConnectionStateEnum.ClientPlaying;
             session.replay = true;
 
-            var replay = ForLoading(name);
+            var replay = ForLoading(file);
             replay.LoadInfo();
 
             var sectionIndex = toEnd ? (replay.info.sections.Count - 1) : 0;
@@ -163,8 +154,7 @@ namespace Multiplayer.Client
             session.replayTimerEnd = tickUntil;
             TickPatch.tickUntil = tickUntil;
 
-            TickPatch.skipTo = toEnd ? tickUntil : session.replayTimerStart;
-            TickPatch.afterSkip = after;
+            TickPatch.SkipTo(toEnd ? tickUntil : session.replayTimerStart, onFinish: after, onCancel: cancel, simTextKey: simTextKey);
 
             ClientJoiningState.ReloadGame(OnMainThread.cachedMapData.Keys.ToList());
         }
@@ -213,7 +203,7 @@ namespace Multiplayer.Client
         {
         }
 
-        public override void Close()
+        public override void Close(MpDisconnectReason reason, byte[] data)
         {
         }
     }

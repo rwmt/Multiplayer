@@ -12,7 +12,6 @@ using Verse;
 namespace Multiplayer.Client
 {
     [HarmonyPatch(typeof(MainButtonsRoot), nameof(MainButtonsRoot.MainButtonsOnGUI))]
-    [HotSwappable]
     public static class MainButtonsPatch
     {
         static bool Prefix()
@@ -21,7 +20,7 @@ namespace Multiplayer.Client
 
             DoDebugInfo();
 
-            if (Multiplayer.IsReplay || TickPatch.skipTo >= 0)
+            if (Multiplayer.IsReplay || TickPatch.Skipping)
             {
                 DrawTimeline();
                 DrawSkippingWindow();
@@ -100,7 +99,7 @@ namespace Multiplayer.Client
                         chatWindow.windowRect = session.chatPos;
                 }
 
-                if (TickPatch.skipTo < 0)
+                if (!TickPatch.Skipping)
                 {
                     IndicatorInfo(out Color color, out string text);
 
@@ -117,6 +116,7 @@ namespace Multiplayer.Client
             {
                 if (Widgets.ButtonText(new Rect(UI.screenWidth - btnWidth - 10f, y, btnWidth, btnHeight), $"Packet ({Multiplayer.PacketLog.nodes.Count})"))
                     Find.WindowStack.Add(Multiplayer.PacketLog);
+
                 y += btnHeight;
             }
 
@@ -205,7 +205,7 @@ namespace Multiplayer.Client
 
                 if (Event.current.type == EventType.MouseUp)
                 {
-                    TickPatch.skipTo = mouseTimer;
+                    TickPatch.SkipTo(mouseTimer, canESC: true);
 
                     if (mouseTimer < TickPatch.Timer)
                     {
@@ -226,7 +226,7 @@ namespace Multiplayer.Client
                     tip.firstTriggerTime = 0;
             }
 
-            if (TickPatch.skipTo >= 0)
+            if (TickPatch.Skipping)
             {
                 float pct = (TickPatch.skipTo - timerStart) / (float)timeLen;
                 float skipToX = rect.xMin + rect.width * pct;
@@ -239,14 +239,15 @@ namespace Multiplayer.Client
 
         static void DrawSkippingWindow()
         {
-            if (Multiplayer.Client == null || TickPatch.skipTo < 0) return;
+            if (Multiplayer.Client == null || !TickPatch.Skipping) return;
 
-            string text = $"{"MpSimulating".Translate()}{MpUtil.FixedEllipsis()}";
+            string text = $"{TickPatch.skippingTextKey.Translate()}{MpUtil.FixedEllipsis()}";
             float textWidth = Text.CalcSize(text).x;
             float windowWidth = Math.Max(240f, textWidth + 40f);
-            Rect rect = new Rect(0, 0, windowWidth, 75f).CenterOn(new Rect(0, 0, UI.screenWidth, UI.screenHeight));
+            float windowHeight = TickPatch.cancelSkip != null ? 100f : 75f;
+            Rect rect = new Rect(0, 0, windowWidth, windowHeight).CenterOn(new Rect(0, 0, UI.screenWidth, UI.screenHeight));
 
-            if (Multiplayer.IsReplay && !TickPatch.forceSkip && Event.current.type == EventType.KeyUp && Event.current.keyCode == KeyCode.Escape)
+            if (Multiplayer.IsReplay && TickPatch.canESCSkip && Event.current.type == EventType.KeyUp && Event.current.keyCode == KeyCode.Escape)
             {
                 TickPatch.ClearSkipping();
                 Event.current.Use();
@@ -254,10 +255,20 @@ namespace Multiplayer.Client
 
             Find.WindowStack.ImmediateWindow(SkippingWindowId, rect, WindowLayer.Super, () =>
             {
+                var textRect = rect.AtZero();
+                if (TickPatch.cancelSkip != null)
+                {
+                    textRect.yMin += 5f;
+                    textRect.height -= 50f;
+                }
+
                 Text.Anchor = TextAnchor.MiddleCenter;
                 Text.Font = GameFont.Small;
-                Widgets.Label(rect.AtZero(), text);
+                Widgets.Label(textRect, text);
                 Text.Anchor = TextAnchor.UpperLeft;
+
+                if (TickPatch.cancelSkip != null && Widgets.ButtonText(new Rect(0, textRect.yMax, 100f, 35f).CenteredOnXIn(textRect), TickPatch.skipCancelButtonKey.Translate()))
+                    TickPatch.cancelSkip();
             }, absorbInputAroundWindow: true);
         }
     }

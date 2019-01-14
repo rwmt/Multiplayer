@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 
@@ -12,31 +13,18 @@ namespace Multiplayer.Common
         {
         }
 
-        [PacketHandler(Packets.Client_Defs)]
+        [PacketHandler(Packets.Client_Protocol)]
         public void HandleDefs(ByteReader data)
         {
             int clientProtocol = data.ReadInt32();
             if (clientProtocol != MpVersion.Protocol)
             {
-                Player.Disconnect("MpWrongProtocol");
+                Player.Disconnect(MpDisconnectReason.Protocol);
                 return;
             }
 
             connection.Send(Packets.Server_DefsOK, Server.settings.gameName);
         }
-
-        private static ColorRGB[] PlayerColors = new ColorRGB[]
-        {
-            new ColorRGB(179,  77, 0),
-            new ColorRGB(204, 204, 0),
-            new ColorRGB( 25, 204, 0),
-            new ColorRGB( 25, 115, 0),
-            new ColorRGB(  0, 128, 255),
-            new ColorRGB( 51,  51, 255),
-            new ColorRGB(102,   0, 255)
-        };
-
-        private static Dictionary<string, ColorRGB> givenColors = new Dictionary<string, ColorRGB>();
 
         [PacketHandler(Packets.Client_Username)]
         public void HandleClientUsername(ByteReader data)
@@ -48,19 +36,19 @@ namespace Multiplayer.Common
 
             if (username.Length < 3 || username.Length > 15)
             {
-                Player.Disconnect("MpInvalidUsernameLength");
+                Player.Disconnect(MpDisconnectReason.UsernameLength);
                 return;
             }
 
             if (!Player.IsArbiter && !UsernamePattern.IsMatch(username))
             {
-                Player.Disconnect("MpInvalidUsernameChars");
+                Player.Disconnect(MpDisconnectReason.UsernameChars);
                 return;
             }
 
             if (Server.GetPlayer(username) != null)
             {
-                Player.Disconnect("MpInvalidUsernameAlreadyPlaying");
+                Player.Disconnect(MpDisconnectReason.UsernameAlreadyOnline);
                 return;
             }
 
@@ -69,22 +57,16 @@ namespace Multiplayer.Common
             Server.SendNotification("MpPlayerConnected", Player.Username);
             Server.SendChat($"{Player.Username} has joined.");
 
-            if (!Player.IsArbiter)
-            {
-                if (!givenColors.TryGetValue(username, out ColorRGB color))
-                    givenColors[username] = color = PlayerColors[givenColors.Count % PlayerColors.Length];
-                Player.color = color;
-            }
-
             var writer = new ByteWriter();
             writer.WriteByte((byte)PlayerListAction.Add);
             writer.WriteRaw(Player.SerializePlayerInfo());
 
             Server.SendToAll(Packets.Server_PlayerList, writer.GetArray());
+
+            SendWorldData();
         }
 
-        [PacketHandler(Packets.Client_RequestWorld)]
-        public void HandleWorldRequest(ByteReader data)
+        private void SendWorldData()
         {
             int factionId = MultiplayerServer.instance.coopFactionId;
             MultiplayerServer.instance.playerFactions[connection.username] = factionId;
@@ -276,6 +258,21 @@ namespace Multiplayer.Common
             Player.lastCursorTick = Server.netTimer;
 
             Server.SendToAll(Packets.Server_Cursor, writer.GetArray(), reliable: false, excluding: Player);
+        }
+
+        [PacketHandler(Packets.Client_Selected)]
+        public void HandleSelected(ByteReader data)
+        {
+            bool reset = data.ReadBool();
+
+            var writer = new ByteWriter();
+
+            writer.WriteInt32(Player.id);
+            writer.WriteBool(reset);
+            writer.WritePrefixedInts(data.ReadPrefixedInts(100));
+            writer.WritePrefixedInts(data.ReadPrefixedInts(100));
+
+            Server.SendToAll(Packets.Server_Selected, writer.GetArray(), excluding: Player);
         }
 
         [PacketHandler(Packets.Client_IdBlockRequest)]

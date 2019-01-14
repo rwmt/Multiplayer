@@ -16,7 +16,6 @@ using Verse.Steam;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
     public class HostWindow : Window
     {
         public override Vector2 InitialSize => new Vector2(450f, height + 45f);
@@ -249,7 +248,7 @@ namespace Multiplayer.Client
                 MemoryUtility.ClearAllMapsAndWorld();
                 Current.Game = new Game();
                 Current.Game.InitData = new GameInitData();
-                Current.Game.InitData.gameToLoad = file.fileName;
+                Current.Game.InitData.gameToLoad = file.displayName;
 
                 LongEventHandler.ExecuteWhenFinished(() =>
                 {
@@ -264,8 +263,7 @@ namespace Multiplayer.Client
 
             if (file != null)
             {
-                TickPatch.forceSkip = true;
-                Replay.LoadReplay(file.fileName, true, ReplayLoaded);
+                Replay.LoadReplay(file.file, true, ReplayLoaded, cancel: GenScene.GoToMainMenu, simTextKey: "MpSimulatingServer");
             }
             else
             {

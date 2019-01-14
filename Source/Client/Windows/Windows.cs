@@ -101,15 +101,18 @@ namespace Multiplayer.Client
             float x = 0;
             if (Widgets.ButtonText(new Rect(x, 0, 120, 35), "MpTryResync".Translate()))
             {
-                TickPatch.skipToTickUntil = true;
-                TickPatch.skipTo = 0;
                 Multiplayer.session.resyncing = true;
 
-                TickPatch.afterSkip = () =>
-                {
-                    Multiplayer.session.resyncing = false;
-                    Multiplayer.Client.Send(Packets.Client_WorldReady);
-                };
+                TickPatch.SkipTo(
+                    toTickUntil: true,
+                    onFinish: () =>
+                    {
+                        Multiplayer.session.resyncing = false;
+                        Multiplayer.Client.Send(Packets.Client_WorldReady);
+                    },
+                    cancelButtonKey: "Quit",
+                    onCancel: GenScene.GoToMainMenu
+                );
 
                 Multiplayer.session.desynced = false;
 
@@ -277,24 +280,46 @@ namespace Multiplayer.Client
         }
     }
 
+    [HotSwappable]
     public class DebugTextWindow : Window
     {
         public override Vector2 InitialSize => new Vector2(800, 450);
 
         private Vector2 scroll;
-        private string text;
+        private List<string> lines;
+
+        private float fullHeight;
 
         public DebugTextWindow(string text)
         {
             absorbInputAroundWindow = true;
             doCloseX = true;
 
-            this.text = text;
+            lines = text.Split('\n').ToList();
         }
 
         public override void DoWindowContents(Rect inRect)
         {
-            Widgets.TextAreaScrollable(inRect, text, ref scroll);
+            const float offsetY = -5f;
+
+            if (Event.current.type == EventType.layout)
+            {
+                fullHeight = 0;
+                foreach (var str in lines)
+                    fullHeight += Text.CalcHeight(str, inRect.width) + offsetY;
+            }
+
+            var viewRect = new Rect(0f, 0f, inRect.width - 16f, Mathf.Max(fullHeight + 10f, inRect.height));
+            Widgets.BeginScrollView(inRect, ref scroll, viewRect, true);
+
+            foreach (var str in lines)
+            {
+                float h = Text.CalcHeight(str, viewRect.width);
+                Widgets.TextArea(new Rect(viewRect.x, viewRect.y, viewRect.width, h), str, true);
+                viewRect.y += h + offsetY;
+            }
+
+            Widgets.EndScrollView();
         }
     }
 

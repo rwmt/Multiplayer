@@ -10,6 +10,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using UnityEngine;
 using Verse;
+using Verse.Grammar;
 
 namespace Multiplayer.Client
 {
@@ -152,6 +153,7 @@ namespace Multiplayer.Client
 
     public static class PatchThingMethods
     {
+        [HarmonyPriority(MpPriority.MpFirst)]
         public static void Prefix(Thing __instance, ref Container<Map>? __state)
         {
             if (Multiplayer.Client == null) return;
@@ -163,6 +165,7 @@ namespace Multiplayer.Client
                 __instance.Map.PushFaction(__instance.Faction);
         }
 
+        [HarmonyPriority(MpPriority.MpLast)]
         public static void Postfix(Thing __instance, Container<Map>? __state)
         {
             if (__state == null) return;
@@ -176,18 +179,57 @@ namespace Multiplayer.Client
 
     public static class RandPatches
     {
+        [HarmonyPriority(MpPriority.MpFirst)]
         public static void Prefix(ref bool __state)
         {
             Rand.PushState();
             __state = true;
         }
 
+        [HarmonyPriority(MpPriority.MpLast)]
         public static void Postfix(bool __state)
         {
             if (__state)
-            {
                 Rand.PopState();
-            }
         }
     }
+
+    [HarmonyPatch(typeof(GrammarResolver), nameof(GrammarResolver.Resolve))]
+    static class SeedGrammar
+    {
+        [HarmonyPriority(MpPriority.MpFirst)]
+        static void Prefix(ref bool __state)
+        {
+            Rand.Element(0, 0);
+            Rand.PushState();
+            __state = true;
+        }
+
+        [HarmonyPriority(MpPriority.MpLast)]
+        static void Postfix(bool __state)
+        {
+            if (__state)
+                Rand.PopState();
+        }
+    }
+
+    [MpPatch(typeof(PawnGraphicSet), nameof(PawnGraphicSet.ResolveAllGraphics))]
+    [MpPatch(typeof(PawnGraphicSet), nameof(PawnGraphicSet.ResolveApparelGraphics))]
+    static class SeedPawnGraphics
+    {
+        [HarmonyPriority(MpPriority.MpFirst)]
+        static void Prefix(PawnGraphicSet __instance, ref bool __state)
+        {
+            Rand.PushState(__instance.pawn.thingIDNumber);
+            __state = true;
+        }
+
+        [HarmonyPriority(MpPriority.MpLast)]
+        static void Postfix(bool __state)
+        {
+            if (__state)
+                Rand.PopState();
+        }
+    }
+
 }

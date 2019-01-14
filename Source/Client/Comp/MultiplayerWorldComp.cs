@@ -197,7 +197,7 @@ namespace Multiplayer.Client
             ByteReader data = new ByteReader(cmd.data);
 
             executingCmdWorld = true;
-            TickPatch.currentExecutingCmdIssuedBySelf = cmd.issuedBySelf && TickPatch.skipTo < 0;
+            TickPatch.currentExecutingCmdIssuedBySelf = cmd.issuedBySelf && !TickPatch.Skipping;
 
             PreContext();
             FactionContext.Push(cmd.GetFaction());
@@ -275,7 +275,7 @@ namespace Multiplayer.Client
             var autosaveFile = AutosaveFile();
             var written = false;
 
-            if (Multiplayer.LocalServer != null && TickPatch.skipTo < 0 && !Multiplayer.IsReplay)
+            if (Multiplayer.LocalServer != null && !TickPatch.Skipping && !Multiplayer.IsReplay)
             {
                 try
                 {
@@ -311,7 +311,7 @@ namespace Multiplayer.Client
                 }
             }
 
-            if (TickPatch.skipTo < 0 && !Multiplayer.IsReplay && (Multiplayer.LocalServer != null || Multiplayer.arbiterInstance))
+            if (!TickPatch.Skipping && !Multiplayer.IsReplay && (Multiplayer.LocalServer != null || Multiplayer.arbiterInstance))
                 SaveLoad.SendCurrentGameData(true);
         }
 

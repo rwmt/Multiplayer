@@ -105,8 +105,15 @@ namespace Multiplayer.Client
                 return traderPawn.Position.DistanceToSquared(playerNegotiator.Position) > 2 * 2;
             }
 
-            if (trader is SettlementBase traderBase && playerNegotiator.GetCaravan() == null)
-                return true;
+            if (trader is SettlementBase traderBase)
+            {
+                var caravan = playerNegotiator.GetCaravan();
+                if (caravan == null)
+                    return true;
+
+                if (CaravanVisitUtility.SettlementVisitedNow(caravan) != traderBase)
+                    return true;
+            }
 
             return false;
         }
@@ -396,8 +403,8 @@ namespace Multiplayer.Client
     {
         static void Prefix(IncidentParms parms)
         {
-            if (MpVersion.IsDebug && Prefs.DevMode)
-                parms.spawnCenter = (parms.target as Map).Center;
+            //if (MpVersion.IsDebug && Prefs.DevMode)
+            //    parms.spawnCenter = (parms.target as Map).Center;
         }
     }
 

@@ -11,6 +11,7 @@ using Verse.Steam;
 
 namespace Multiplayer.Client
 {
+    [HotSwappable]
     public class OnMainThread : MonoBehaviour
     {
         public static ActionQueue queue = new ActionQueue();
@@ -35,16 +36,28 @@ namespace Multiplayer.Client
 
             UpdateSync();
 
-            if (!Multiplayer.arbiterInstance && Application.isFocused && Time.realtimeSinceStartup - lastCursorSend > 0.05f && TickPatch.skipTo < 0)
-            {
-                lastCursorSend = Time.realtimeSinceStartup;
-                SendCursor();
-            }
+            if (!Multiplayer.arbiterInstance && Application.isFocused && !TickPatch.Skipping && !Multiplayer.session.desynced)
+                SendVisuals();
 
             if (Multiplayer.Client is SteamBaseConn steamConn && SteamManager.Initialized)
                 foreach (var packet in SteamIntegration.ReadPackets())
                     if (steamConn.remoteId == packet.remote)
                         Multiplayer.HandleReceive(packet.data, packet.reliable);
+        }
+
+        private void SendVisuals()
+        {
+            if (Time.realtimeSinceStartup - lastCursorSend > 0.05f)
+            {
+                lastCursorSend = Time.realtimeSinceStartup;
+                SendCursor();
+            }
+
+            if (Time.realtimeSinceStartup - lastSelectedSend > 0.2f)
+            {
+                lastSelectedSend = Time.realtimeSinceStartup;
+                SendSelected();
+            }
         }
 
         private byte cursorSeq;
@@ -65,7 +78,7 @@ namespace Multiplayer.Client
 
                 writer.WriteVectorXZ(UI.MouseMapPosition());
 
-                if (Find.Selector.dragBox.active)
+                if (Find.Selector.dragBox.IsValidAndActive)
                     writer.WriteVectorXZ(Find.Selector.dragBox.start);
                 else
                     writer.WriteShort(-1);
@@ -76,6 +89,44 @@ namespace Multiplayer.Client
             }
 
             Multiplayer.Client.Send(Packets.Client_Cursor, writer.GetArray(), reliable: false);
+        }
+
+        private HashSet<int> lastSelected = new HashSet<int>();
+        private float lastSelectedSend;
+        private int lastMap;
+
+        private void SendSelected()
+        {
+            if (Current.ProgramState != ProgramState.Playing) return;
+
+            var writer = new ByteWriter();
+
+            int mapId = Find.CurrentMap?.Index ?? -1;
+            if (WorldRendererUtility.WorldRenderedNow) mapId = -1;
+
+            bool reset = false;
+
+            if (mapId != lastMap)
+            {
+                reset = true;
+                lastMap = mapId;
+                lastSelected.Clear();
+            }
+
+            var selected = new HashSet<int>(Find.Selector.selected.OfType<Thing>().Select(t => t.thingIDNumber));
+
+            var add = new List<int>(selected.Except(lastSelected));
+            var remove = new List<int>(lastSelected.Except(selected));
+
+            if (!reset && add.Count == 0 && remove.Count == 0) return;
+
+            writer.WriteBool(reset);
+            writer.WritePrefixedInts(add);
+            writer.WritePrefixedInts(remove);
+
+            lastSelected = selected;
+
+            Multiplayer.Client.Send(Packets.Client_Selected, writer.GetArray());
         }
 
         private void UpdateSync()

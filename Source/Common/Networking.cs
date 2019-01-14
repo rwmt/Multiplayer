@@ -131,6 +131,7 @@ namespace Multiplayer.Common
         private const int FRAG_MORE = 0x40;
         private const int FRAG_END = 0x80;
 
+        // All fragmented packets need to be sent from the same thread
         public virtual void SendFragmented(Packets id, byte[] message)
         {
             if (state == ConnectionStateEnum.Disconnected)
@@ -230,7 +231,28 @@ namespace Multiplayer.Common
             }
         }
 
-        public abstract void Close();
+        public abstract void Close(MpDisconnectReason reason = MpDisconnectReason.Generic, byte[] data = null);
+
+        public static byte[] GetDisconnectBytes(MpDisconnectReason reason, byte[] data = null)
+        {
+            var writer = new ByteWriter();
+            writer.WriteByte((byte)reason);
+            writer.WritePrefixedBytes(data ?? new byte[0]);
+            return writer.GetArray();
+        }
+    }
+
+    public enum MpDisconnectReason : byte
+    {
+        Generic,
+        Protocol,
+        Defs,
+        UsernameLength,
+        UsernameChars,
+        UsernameAlreadyOnline,
+        ServerClosed,
+        ServerFull,
+        Kick,
     }
 
     public class PacketReadException : Exception
@@ -261,10 +283,10 @@ namespace Multiplayer.Common
             peer.Send(raw, reliable ? DeliveryMethod.ReliableOrdered : DeliveryMethod.Unreliable);
         }
 
-        public override void Close()
+        public override void Close(MpDisconnectReason reason, byte[] data)
         {
             peer.Flush();
-            peer.NetManager.DisconnectPeer(peer);
+            peer.NetManager.DisconnectPeer(peer, GetDisconnectBytes(reason, data));
         }
 
         public override string ToString()
@@ -487,12 +509,19 @@ namespace Multiplayer.Common
             return ReadRaw(len);
         }
 
-        public int[] ReadPrefixedInts()
+        public int[] ReadPrefixedInts(int maxLen = int.MaxValue)
         {
             int len = ReadInt32();
+
+            if (len < 0)
+                throw new ReaderException($"Int array length ({len}<0)");
+            if (len >= maxLen)
+                throw new ReaderException($"Int array too long ({len}>{maxLen})");
+
             int[] result = new int[len];
             for (int i = 0; i < len; i++)
                 result[i] = ReadInt32();
+
             return result;
         }
 

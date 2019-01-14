@@ -2,9 +2,9 @@
 {
     public enum Packets : byte
     {
+        Client_Protocol,
         Client_Defs,
         Client_Username,
-        Client_RequestWorld,
         Client_WorldReady,
         Client_Command,
         Client_AutosavedData,
@@ -17,7 +17,9 @@
         Client_Desynced,
         Client_Pause,
         Client_Debug,
+        Client_Selected,
 
+        Server_ModList,
         Server_DefsOK,
         Server_WorldData,
         Server_Command,
@@ -28,14 +30,14 @@
         Server_PlayerList,
         Server_KeepAlive,
         Server_SteamAccept,
-        Server_DisconnectReason,
         Server_SyncInfo,
         Server_Cursor,
         Server_Pause,
         Server_Debug,
+        Server_Selected,
 
         Count,
-        Special_Steam_Disconnect
+        Special_Steam_Disconnect = 63 // Also the max packet id
     }
 
     public enum ConnectionStateEnum : byte

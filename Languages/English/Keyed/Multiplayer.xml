@@ -2,6 +2,7 @@
 <LanguageData>
 
   <MpSimulating>Simulating</MpSimulating>
+  <MpSimulatingServer>Simulating the server</MpSimulatingServer>
   <MpLoading>Loading</MpLoading>
   <MpSaving>Saving</MpSaving>
   
@@ -10,11 +11,16 @@
   <MpInvalidGameName>Invalid game name</MpInvalidGameName>
   
   <MpWrongProtocol>Wrong protocol version</MpWrongProtocol>
+  <MpWrongModVersionInfo>Make sure you are using the same Multiplayer version as the host.</MpWrongModVersionInfo>
+  
   <MpServerClosed>Server closed</MpServerClosed>
+  <MpServerFull>Server is full</MpServerFull>
+  <MpKicked>You've been kicked</MpKicked>
 
   <MpInvalidUsernameAlreadyPlaying>Username already online</MpInvalidUsernameAlreadyPlaying>
   <MpInvalidUsernameChars>Username has invalid characters</MpInvalidUsernameChars>
   <MpInvalidUsernameLength>Username has invalid length</MpInvalidUsernameLength>
+  <MpChangeUsernameInfo>You can change your username in the mod settings.</MpChangeUsernameInfo>
   
   <MpPlayerConnected>{0} has joined</MpPlayerConnected>
   <MpPlayerDisconnected>{0} has left</MpPlayerDisconnected>
@@ -36,6 +42,9 @@
   <MpShowPlayerCursors>Show player cursors</MpShowPlayerCursors>
   <MpAutoAcceptSteam>Auto-accept Steam</MpAutoAcceptSteam>
   <MpAutoAcceptSteamDesc>Automatically accept any incoming Steam connection requests.</MpAutoAcceptSteamDesc>
+  <MpTransparentChat>Transparent chat</MpTransparentChat>
+  <MpAutosaveSlots>Autosave slots</MpAutosaveSlots>
+  <MpAutosaveSlotsDesc>How many autosave files to keep.</MpAutosaveSlotsDesc>
   
   <MpTraderLeavesIn>Leaves in {0}</MpTraderLeavesIn>
   
@@ -46,7 +55,7 @@
   <MpSend>Send</MpSend>
   <MpSteamAcceptTitle>Accept Steam players</MpSteamAcceptTitle>
   <MpSteamAcceptDesc>Click to accept</MpSteamAcceptDesc>
-  <MpSteamAccepted>Player accepted</MpSteamAccepted>
+  <MpSteamAccepted>Player has been accepted</MpSteamAccepted>
   
   <MpConnectingTo>Connecting to {0}:{1}</MpConnectingTo>
   <MpConnected>Connected.</MpConnected>
@@ -78,6 +87,7 @@
   <MpHostButton>Host</MpHostButton>
   <MpWatchReplay>Watch</MpWatchReplay>
   <MpNothingSelected>Nothing selected</MpNothingSelected>
+  <MpNoSaves>Multiplayer can only be played from already existing saves</MpNoSaves>
   
   <MpHostIngame>Host from this game</MpHostIngame>
   <MpHostReplay>Host from a replay</MpHostReplay>

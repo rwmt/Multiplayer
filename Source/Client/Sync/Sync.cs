@@ -979,6 +979,8 @@ namespace Multiplayer.Client
             List<object> prevSelected = Find.Selector.selected;
             List<WorldObject> prevWorldSelected = Find.WorldSelector.selected;
 
+            bool shouldQueue = false;
+
             if (handler.context != SyncContext.None)
             {
                 if (handler.context.HasFlag(SyncContext.MapMouseCell))
@@ -1000,12 +1002,10 @@ namespace Multiplayer.Client
                 }
 
                 if (handler.context.HasFlag(SyncContext.QueueOrder_Down))
-                {
-                    bool shouldQueue = data.ReadBool();
-                    KeyIsDownPatch.result = shouldQueue;
-                    KeyIsDownPatch.forKey = KeyBindingDefOf.QueueOrder;
-                }
+                    shouldQueue = data.ReadBool();
             }
+
+            KeyIsDownPatch.shouldQueue = shouldQueue;
 
             try
             {
@@ -1014,8 +1014,7 @@ namespace Multiplayer.Client
             finally
             {
                 MouseCellPatch.result = null;
-                KeyIsDownPatch.result = null;
-                KeyIsDownPatch.forKey = null;
+                KeyIsDownPatch.shouldQueue = null;
                 Find.Selector.selected = prevSelected;
                 Find.WorldSelector.selected = prevWorldSelected;
             }

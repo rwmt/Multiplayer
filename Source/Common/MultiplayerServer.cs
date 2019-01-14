@@ -122,10 +122,8 @@ namespace Multiplayer.Common
 
         private void Stop()
         {
-            SendToAll(Packets.Server_DisconnectReason, new[] { "MpServerClosed" });
-
             foreach (var player in players)
-                player.conn.Close();
+                player.conn.Close(MpDisconnectReason.ServerClosed);
 
             netManager?.Stop();
             lanManager?.Stop();
@@ -337,9 +335,7 @@ namespace Multiplayer.Common
         {
             if (!arbiter && server.settings.maxPlayers > 0 && server.players.Count(p => !p.IsArbiter) >= server.settings.maxPlayers)
             {
-                var writer = new ByteWriter();
-                writer.WriteString("Server is full");
-                req.Reject(writer.GetArray());
+                req.Reject(IConnection.GetDisconnectBytes(MpDisconnectReason.ServerFull));
                 return;
             }
 
@@ -356,7 +352,6 @@ namespace Multiplayer.Common
             if (arbiter)
             {
                 player.type = PlayerType.Arbiter;
-                player.color = new ColorRGB(128, 128, 128);
             }
         }
 
@@ -377,13 +372,8 @@ namespace Multiplayer.Common
             peer.GetConnection().serverPlayer.HandleReceive(new ByteReader(data), method == DeliveryMethod.ReliableOrdered);
         }
 
-        public void OnNetworkError(IPEndPoint endPoint, SocketError socketError)
-        {
-        }
-
-        public void OnNetworkReceiveUnconnected(IPEndPoint remoteEndPoint, NetPacketReader reader, UnconnectedMessageType messageType)
-        {
-        }
+        public void OnNetworkError(IPEndPoint endPoint, SocketError socketError) { }
+        public void OnNetworkReceiveUnconnected(IPEndPoint remoteEndPoint, NetPacketReader reader, UnconnectedMessageType messageType) { }
     }
 
     public class ServerSettings
@@ -416,7 +406,6 @@ namespace Multiplayer.Common
         public IConnection conn;
         public PlayerType type;
         public PlayerStatus status;
-        public ColorRGB color;
 
         public ulong steamId;
         public string steamPersonaName = "";
@@ -453,9 +442,12 @@ namespace Multiplayer.Common
 
         public void Disconnect(string reasonKey)
         {
-            conn.Send(Packets.Server_DisconnectReason, reasonKey);
+            Disconnect(MpDisconnectReason.Generic, Encoding.UTF8.GetBytes(reasonKey));
+        }
 
-            conn.Close();
+        public void Disconnect(MpDisconnectReason reason, byte[] data = null)
+        {
+            conn.Close(reason, data);
             Server.OnDisconnected(conn);
         }
 
@@ -498,10 +490,6 @@ namespace Multiplayer.Common
             writer.WriteByte((byte)status);
             writer.WriteULong(steamId);
             writer.WriteString(steamPersonaName);
-
-            writer.WriteByte(color.r);
-            writer.WriteByte(color.g);
-            writer.WriteByte(color.b);
 
             return writer.GetArray();
         }

@@ -16,21 +16,49 @@ namespace Multiplayer.Client
         // Used in CrossRefs patches
         public HashSet<string> tempKeys = new HashSet<string>();
 
-        public Dictionary<string, ILoadReferenceable> Dict => allObjectsByLoadID;
-
-        public void Unregister(ILoadReferenceable thing)
+        public void Unregister(ILoadReferenceable reffable)
         {
-            Unregister(thing.GetUniqueLoadID());
+            allObjectsByLoadID.Remove(reffable.GetUniqueLoadID());
         }
 
-        public void Unregister(string key)
+        public void UnregisterAllTemp()
         {
-            Dict.Remove(key);
+            foreach (var key in tempKeys)
+                allObjectsByLoadID.Remove(key);
+
+            tempKeys.Clear();
         }
 
         public void UnregisterAllFrom(Map map)
         {
-            Dict.RemoveAll(x => x.Value is Thing t && t.Map == map);
+            foreach (var val in allObjectsByLoadID.Values)
+            {
+                if (val is Thing thing && thing.Map == map ||
+                    val is PassingShip ship && ship.Map == map ||
+                    val is Bill bill && bill.Map == map
+                )
+                    Unregister(val);
+            }
+        }
+    }
+
+    public static class ThingsById
+    {
+        public static Dictionary<int, Thing> thingsById = new Dictionary<int, Thing>();
+
+        public static void Register(Thing t)
+        {
+            thingsById[t.thingIDNumber] = t;
+        }
+
+        public static void Unregister(Thing t)
+        {
+            thingsById.Remove(t.thingIDNumber);
+        }
+
+        public static void UnregisterAllFrom(Map map)
+        {
+            thingsById.RemoveAll((id, thing) => thing.Map == map);
         }
     }
 
@@ -191,7 +219,7 @@ namespace Multiplayer.Client
 
             Scribe.loader.crossRefs.loadedObjectDirectory = sharedCrossRefs;
 
-            Log.Message("Cross ref supply: " + sharedCrossRefs.Dict.Count + " " + sharedCrossRefs.Dict.Last() + " " + Faction.OfPlayer);
+            Log.Message($"Cross ref supply: {sharedCrossRefs.allObjectsByLoadID.Count} {sharedCrossRefs.allObjectsByLoadID.LastOrDefault()} {Faction.OfPlayer}");
         }
 
         public static byte[] WriteExposable(IExposable element, string name = RootNode, bool indent = false, Action beforeElement = null)

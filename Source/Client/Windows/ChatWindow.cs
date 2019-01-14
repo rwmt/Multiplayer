@@ -12,7 +12,6 @@ using Verse.Steam;
 namespace Multiplayer.Client
 {
     [StaticConstructorOnStartup]
-    [HotSwappable]
     public class ChatWindow : Window
     {
         public static ChatWindow Opened => Find.WindowStack?.WindowOfType<ChatWindow>();
@@ -103,13 +102,11 @@ namespace Multiplayer.Client
             DrawList(
                 "MpChatPlayers".Translate(Multiplayer.session.players.Count),
                 Multiplayer.session.players,
-                p => $"  {p.username} ({p.latency}ms)",
+                p => $"{p.username} ({p.latency}ms)",
                 ref inRect,
                 ref playerListScroll,
                 extra: (p, rect) =>
                 {
-                    Widgets.DrawRectFast(new Rect(rect.x, rect.y, 3f, rect.height), p.color * new Color(0.8f, 0.8f, 0.8f));
-
                     if (p.type == PlayerType.Steam)
                     {
                         var steamIcon = new Rect(rect.xMax - 24f, 0, 24f, 24f);

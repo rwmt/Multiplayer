@@ -23,6 +23,7 @@ namespace Multiplayer.Client
         {
             if (done) return;
             GUI.skin.font = Text.fontStyles[1].font;
+            Text.fontStyles[1].font.fontNames = new string[] { "arial", "arialbd", "ariali", "arialbi" };
             done = true;
         }
     }
@@ -102,6 +103,8 @@ namespace Multiplayer.Client
     {
         static void Prefix(Window __instance)
         {
+            if (Current.ProgramState == ProgramState.Entry) return;
+
             if (__instance.ID == -LongEventWindowPreventCameraMotion.LongEventWindowId ||
                 __instance.ID == -MainButtonsPatch.SkippingWindowId ||
                 __instance is DisconnectedWindow ||

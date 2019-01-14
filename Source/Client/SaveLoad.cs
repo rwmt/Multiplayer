@@ -189,7 +189,9 @@ namespace Multiplayer.Client
 
                 writer.WritePrefixedBytes(GZipStream.CompressBuffer(gameData));
 
-                Multiplayer.Client.SendFragmented(Packets.Client_AutosavedData, writer.GetArray());
+                byte[] data = writer.GetArray();
+
+                OnMainThread.Enqueue(() => Multiplayer.Client.SendFragmented(Packets.Client_AutosavedData, data));
             };
 
             if (async)
