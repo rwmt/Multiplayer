@@ -83,7 +83,7 @@ namespace Multiplayer.Client
             writer.LogNode("Map id: " + mapId);
             Multiplayer.PacketLog.nodes.Add(writer.current);
 
-            Multiplayer.Client.SendCommand(CommandType.Sync, mapId, writer.GetArray());
+            Multiplayer.Client.SendCommand(CommandType.Sync, mapId, writer.ToArray());
 
             return true;
         }
@@ -272,7 +272,7 @@ namespace Multiplayer.Client
             writer.LogNode("Map id: " + mapId);
             Multiplayer.PacketLog.nodes.Add(writer.current);
 
-            Multiplayer.Client.SendCommand(CommandType.Sync, mapId, writer.GetArray());
+            Multiplayer.Client.SendCommand(CommandType.Sync, mapId, writer.ToArray());
 
             lastSendTime = Utils.MillisNow;
 
@@ -469,7 +469,7 @@ namespace Multiplayer.Client
             writer.LogNode("Map id: " + mapId);
             Multiplayer.PacketLog.nodes.Add(writer.current);
 
-            Multiplayer.Client.SendCommand(CommandType.Sync, mapId, writer.GetArray());
+            Multiplayer.Client.SendCommand(CommandType.Sync, mapId, writer.ToArray());
 
             return true;
         }
@@ -636,7 +636,7 @@ namespace Multiplayer.Client
             writer.LogNode("Map id: " + mapId);
             Multiplayer.PacketLog.nodes.Add(writer.current);
 
-            Multiplayer.Client.SendCommand(CommandType.Sync, mapId, writer.GetArray());
+            Multiplayer.Client.SendCommand(CommandType.Sync, mapId, writer.ToArray());
         }
 
         public override void Handle(ByteReader data)

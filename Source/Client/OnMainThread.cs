@@ -88,7 +88,7 @@ namespace Multiplayer.Client
                 writer.WriteByte(byte.MaxValue);
             }
 
-            Multiplayer.Client.Send(Packets.Client_Cursor, writer.GetArray(), reliable: false);
+            Multiplayer.Client.Send(Packets.Client_Cursor, writer.ToArray(), reliable: false);
         }
 
         private HashSet<int> lastSelected = new HashSet<int>();
@@ -126,7 +126,7 @@ namespace Multiplayer.Client
 
             lastSelected = selected;
 
-            Multiplayer.Client.Send(Packets.Client_Selected, writer.GetArray());
+            Multiplayer.Client.Send(Packets.Client_Selected, writer.ToArray());
         }
 
         private void UpdateSync()

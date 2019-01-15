@@ -487,7 +487,7 @@ namespace Multiplayer.Common
             foreach (var player in Server.PlayingPlayers)
                 writer.WriteRaw(player.SerializePlayerInfo());
 
-            conn.Send(Packets.Server_PlayerList, writer.GetArray());
+            conn.Send(Packets.Server_PlayerList, writer.ToArray());
         }
 
         public byte[] SerializePlayerInfo()
@@ -502,7 +502,7 @@ namespace Multiplayer.Common
             writer.WriteULong(steamId);
             writer.WriteString(steamPersonaName);
 
-            return writer.GetArray();
+            return writer.ToArray();
         }
 
         public void UpdateStatus(PlayerStatus status)
@@ -558,7 +558,7 @@ namespace Multiplayer.Common
             writer.WriteInt32(mapId);
             writer.WriteInt32(current);
 
-            return writer.GetArray();
+            return writer.ToArray();
         }
 
         public static IdBlock Deserialize(ByteReader data)

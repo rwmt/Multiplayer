@@ -78,7 +78,7 @@ namespace Multiplayer.Client
             if (chatWindow != null)
                 Find.WindowStack.Add_KeepRect(chatWindow);
 
-            var selectedReader = new ByteReader(selectedData.GetArray()) { context = new MpContext() { map = Find.CurrentMap } };
+            var selectedReader = new ByteReader(selectedData.ToArray()) { context = new MpContext() { map = Find.CurrentMap } };
             Find.Selector.selected = Sync.ReadSync<List<ISelectable>>(selectedReader).NotNull().Cast<object>().ToList();
 
             Find.World.renderer.wantedMode = planetRenderMode;
@@ -189,7 +189,7 @@ namespace Multiplayer.Client
 
                 writer.WritePrefixedBytes(GZipStream.CompressBuffer(gameData));
 
-                byte[] data = writer.GetArray();
+                byte[] data = writer.ToArray();
 
                 OnMainThread.Enqueue(() => Multiplayer.Client.SendFragmented(Packets.Client_AutosavedData, data));
             };

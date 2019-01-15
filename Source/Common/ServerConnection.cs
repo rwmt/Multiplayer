@@ -62,7 +62,7 @@ namespace Multiplayer.Common
 
             if (disconnect)
             {
-                Player.Disconnect(MpDisconnectReason.Defs, response.GetArray());
+                Player.Disconnect(MpDisconnectReason.Defs, response.ToArray());
                 return;
             }
 
@@ -104,7 +104,7 @@ namespace Multiplayer.Common
             writer.WriteByte((byte)PlayerListAction.Add);
             writer.WriteRaw(Player.SerializePlayerInfo());
 
-            Server.SendToAll(Packets.Server_PlayerList, writer.GetArray());
+            Server.SendToAll(Packets.Server_PlayerList, writer.ToArray());
 
             SendWorldData();
         }
@@ -165,7 +165,7 @@ namespace Multiplayer.Common
 
             connection.State = ConnectionStateEnum.ServerPlaying;
 
-            byte[] packetData = writer.GetArray();
+            byte[] packetData = writer.ToArray();
             connection.SendFragmented(Packets.Server_WorldData, packetData);
 
             Player.SendPlayerList();
@@ -308,7 +308,7 @@ namespace Multiplayer.Common
 
             Player.lastCursorTick = Server.netTimer;
 
-            Server.SendToAll(Packets.Server_Cursor, writer.GetArray(), reliable: false, excluding: Player);
+            Server.SendToAll(Packets.Server_Cursor, writer.ToArray(), reliable: false, excluding: Player);
         }
 
         [PacketHandler(Packets.Client_Selected)]
@@ -323,7 +323,7 @@ namespace Multiplayer.Common
             writer.WritePrefixedInts(data.ReadPrefixedInts(100));
             writer.WritePrefixedInts(data.ReadPrefixedInts(100));
 
-            Server.SendToAll(Packets.Server_Selected, writer.GetArray(), excluding: Player);
+            Server.SendToAll(Packets.Server_Selected, writer.ToArray(), excluding: Player);
         }
 
         [PacketHandler(Packets.Client_IdBlockRequest)]

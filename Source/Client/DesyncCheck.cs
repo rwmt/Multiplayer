@@ -123,7 +123,7 @@ namespace Multiplayer.Client
                     desyncInfo.WriteBool(Prefs.DevMode);
                     desyncInfo.WriteInt32(Multiplayer.session.players.Count);
 
-                    zip.AddEntry("desync_info", desyncInfo.GetArray());
+                    zip.AddEntry("desync_info", desyncInfo.ToArray());
                     zip.Save();
                 }
             }
@@ -258,7 +258,7 @@ namespace Multiplayer.Client
 
             writer.WritePrefixedInts(traceHashes);
 
-            return writer.GetArray();
+            return writer.ToArray();
         }
 
         public static SyncInfo Deserialize(ByteReader data)

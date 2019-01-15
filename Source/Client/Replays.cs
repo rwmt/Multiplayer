@@ -57,7 +57,7 @@ namespace Multiplayer.Client
             foreach (var cmd in cmds)
                 writer.WritePrefixedBytes(cmd.Serialize());
 
-            return writer.GetArray();
+            return writer.ToArray();
         }
 
         public static List<ScheduledCommand> DeserializeCmds(byte[] data)

@@ -37,7 +37,7 @@ namespace Multiplayer.Client
             WriteData(writer, DesignatorMode.SingleCell, designator);
             Sync.WriteSync(writer, __0);
 
-            Multiplayer.Client.SendCommand(CommandType.Designator, map.uniqueID, writer.GetArray());
+            Multiplayer.Client.SendCommand(CommandType.Designator, map.uniqueID, writer.ToArray());
             Multiplayer.PacketLog.nodes.Add(writer.current);
 
             return false;
@@ -60,7 +60,7 @@ namespace Multiplayer.Client
             WriteData(writer, DesignatorMode.MultiCell, designator);
             Sync.WriteSync(writer, cellArray);
 
-            Multiplayer.Client.SendCommand(CommandType.Designator, map.uniqueID, writer.GetArray());
+            Multiplayer.Client.SendCommand(CommandType.Designator, map.uniqueID, writer.ToArray());
             Multiplayer.PacketLog.nodes.Add(writer.current);
 
             return false;
@@ -79,7 +79,7 @@ namespace Multiplayer.Client
             WriteData(writer, DesignatorMode.Thing, designator);
             Sync.WriteSync(writer, __0);
 
-            Multiplayer.Client.SendCommand(CommandType.Designator, map.uniqueID, writer.GetArray());
+            Multiplayer.Client.SendCommand(CommandType.Designator, map.uniqueID, writer.ToArray());
             Multiplayer.PacketLog.nodes.Add(writer.current);
 
             MoteMaker.ThrowMetaPuffs(__0);

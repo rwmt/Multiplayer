@@ -47,7 +47,7 @@ namespace Multiplayer.Client
                 response.WriteInt32(kv.Value.hash);
             }
 
-            connection.Send(Packets.Client_Defs, response.GetArray());
+            connection.Send(Packets.Client_Defs, response.ToArray());
         }
 
         [PacketHandler(Packets.Server_DefsOK)]

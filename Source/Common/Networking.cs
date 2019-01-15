@@ -155,7 +155,7 @@ namespace Multiplayer.Common
                 // Copy the message fragment
                 writer.WriteFrom(message, read, len);
 
-                SendRaw(writer.GetArray());
+                SendRaw(writer.ToArray());
 
                 read += len;
             }
@@ -225,7 +225,7 @@ namespace Multiplayer.Common
 
                 if (fragState == FRAG_END)
                 {
-                    handler.method.Invoke(stateObj, new object[] { new ByteReader(fragmented.GetArray()) });
+                    handler.method.Invoke(stateObj, new object[] { new ByteReader(fragmented.ToArray()) });
                     fragmented = null;
                 }
             }
@@ -238,7 +238,7 @@ namespace Multiplayer.Common
             var writer = new ByteWriter();
             writer.WriteByte((byte)reason);
             writer.WritePrefixedBytes(data ?? new byte[0]);
-            return writer.GetArray();
+            return writer.ToArray();
         }
     }
 
@@ -425,7 +425,7 @@ namespace Multiplayer.Common
             }
         }
 
-        public byte[] GetArray()
+        public byte[] ToArray()
         {
             return stream.ToArray();
         }
@@ -435,7 +435,7 @@ namespace Multiplayer.Common
             var writer = new ByteWriter();
             foreach (object o in data)
                 writer.Write(o);
-            return writer.GetArray();
+            return writer.ToArray();
         }
     }
 

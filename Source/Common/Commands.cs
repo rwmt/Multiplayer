@@ -56,7 +56,7 @@ namespace Multiplayer.Common
             writer.WriteInt32(mapId);
             writer.WritePrefixedBytes(data);
 
-            return writer.GetArray();
+            return writer.ToArray();
         }
 
         public static ScheduledCommand Deserialize(ByteReader data)
