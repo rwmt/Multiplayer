@@ -81,13 +81,18 @@ namespace Multiplayer.Client
             }
         }
 
-        public void LoadInfo()
+        public bool LoadInfo()
         {
             using (var zip = ZipFile)
             {
-                var doc = ScribeUtil.LoadDocument(zip["info"].GetBytes());
+                var infoFile = zip["info"];
+                if (infoFile == null) return false;
+
+                var doc = ScribeUtil.LoadDocument(infoFile.GetBytes());
                 info = DirectXmlToObject.ObjectFromXml<ReplayInfo>(doc.DocumentElement, true);
             }
+
+            return true;
         }
 
         public void LoadCurrentData(int sectionId)

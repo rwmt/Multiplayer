@@ -124,10 +124,12 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(TimeControls), nameof(TimeControls.DoTimeControlsGUI))]
+    [HotSwappable]
     public static class TimeControlPatch
     {
         private static TimeSpeed prevSpeed;
         private static TimeSpeed savedSpeed;
+        private static bool keyPressed;
 
         static void Prefix(ref ITickable __state)
         {
@@ -146,6 +148,7 @@ namespace Multiplayer.Client
 
             Find.TickManager.CurTimeSpeed = speed;
             prevSpeed = speed;
+            keyPressed = Event.current.isKey;
             __state = tickable;
         }
 
@@ -169,6 +172,10 @@ namespace Multiplayer.Client
 
             if (Multiplayer.IsReplay)
                 TickPatch.replayTimeSpeed = newSpeed;
+
+            // Prevent multiple players changing the speed too quickly
+            if (keyPressed && Time.realtimeSinceStartup - MultiplayerWorldComp.lastSpeedChange < 0.4f)
+                return;
 
             TimeControl.SendTimeChange(__state, newSpeed);
         }

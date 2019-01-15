@@ -13,6 +13,11 @@
   <MpWrongProtocol>Wrong protocol version</MpWrongProtocol>
   <MpWrongModVersionInfo>Make sure you are using the same Multiplayer version as the host.</MpWrongModVersionInfo>
   
+  <MpWrongDefs>Mod definition mismatch</MpWrongDefs>
+  <MpWrongDefsInfo>Make sure your installed mods, their versions and order match the host's.</MpWrongDefsInfo>
+  <MpModList>Mod list</MpModList>
+  <MpSeeModList>See mod list</MpSeeModList>
+  
   <MpServerClosed>Server closed</MpServerClosed>
   <MpServerFull>Server is full</MpServerFull>
   <MpKicked>You've been kicked</MpKicked>
@@ -43,6 +48,7 @@
   <MpAutoAcceptSteam>Auto-accept Steam</MpAutoAcceptSteam>
   <MpAutoAcceptSteamDesc>Automatically accept any incoming Steam connection requests.</MpAutoAcceptSteamDesc>
   <MpTransparentChat>Transparent chat</MpTransparentChat>
+  
   <MpAutosaveSlots>Autosave slots</MpAutosaveSlots>
   <MpAutosaveSlotsDesc>How many autosave files to keep.</MpAutosaveSlotsDesc>
   

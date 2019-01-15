@@ -73,8 +73,7 @@ namespace Multiplayer.Client
                 foreach (var sel in player.selectedThings)
                 {
                     if (!drawnThisUpdate.Add(sel.Key)) continue;
-
-                    var thing = ThingsById.thingsById[sel.Key];
+                    if (!ThingsById.thingsById.TryGetValue(sel.Key, out Thing thing)) continue;
 
                     selTimes[thing] = sel.Value;
                     SelectionDrawerUtility.CalculateSelectionBracketPositionsWorld(SelectionDrawer.bracketLocs, thing, thing.DrawPos, thing.RotatedSize.ToVector2(), selTimes, Vector2.one, 1f);

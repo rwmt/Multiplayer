@@ -28,6 +28,28 @@ namespace Multiplayer.Client
             ConnectionStatusListeners.TryNotifyAll_Connected();
         }
 
+        [PacketHandler(Packets.Server_ModList)]
+        public void HandleModList(ByteReader data)
+        {
+            Multiplayer.session.mods.remoteRwVersion = data.ReadString();
+            Multiplayer.session.mods.remoteModNames = data.ReadPrefixedStrings();
+
+            var defs = ClientUtil.CollectDefInfos();
+            Multiplayer.session.mods.defInfo = defs;
+
+            var response = new ByteWriter();
+            response.WriteInt32(defs.Count);
+
+            foreach (var kv in defs)
+            {
+                response.WriteString(kv.Key);
+                response.WriteInt32(kv.Value.count);
+                response.WriteInt32(kv.Value.hash);
+            }
+
+            connection.Send(Packets.Client_Defs, response.GetArray());
+        }
+
         [PacketHandler(Packets.Server_DefsOK)]
         public void HandleDefsOK(ByteReader data)
         {
@@ -82,9 +104,9 @@ namespace Multiplayer.Client
             TickPatch.tickUntil = tickUntil;
 
             TickPatch.SkipTo(
-                toTickUntil: true, 
-                onFinish: () => Multiplayer.Client.Send(Packets.Client_WorldReady), 
-                cancelButtonKey: "Quit", 
+                toTickUntil: true,
+                onFinish: () => Multiplayer.Client.Send(Packets.Client_WorldReady),
+                cancelButtonKey: "Quit",
                 onCancel: GenScene.GoToMainMenu
             );
 

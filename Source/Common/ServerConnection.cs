@@ -14,12 +14,55 @@ namespace Multiplayer.Common
         }
 
         [PacketHandler(Packets.Client_Protocol)]
-        public void HandleDefs(ByteReader data)
+        public void HandleProtocol(ByteReader data)
         {
             int clientProtocol = data.ReadInt32();
             if (clientProtocol != MpVersion.Protocol)
             {
                 Player.Disconnect(MpDisconnectReason.Protocol);
+                return;
+            }
+
+            connection.Send(Packets.Server_ModList, Server.rwVersion, Server.modNames);
+        }
+
+        [PacketHandler(Packets.Client_Defs)]
+        public void HandleDefs(ByteReader data)
+        {
+            var count = data.ReadInt32();
+            if (count > 512)
+            {
+                Player.Disconnect(MpDisconnectReason.Generic);
+                return;
+            }
+
+            var response = new ByteWriter();
+            var disconnect = false;
+
+            for (int i = 0; i < count; i++)
+            {
+                var defType = data.ReadString(128);
+                var defCount = data.ReadInt32();
+                var defHash = data.ReadInt32();
+
+                var status = DefCheckStatus.OK;
+
+                if (!Server.defInfos.TryGetValue(defType, out DefInfo info))
+                    status = DefCheckStatus.Not_Found;
+                else if (info.count != defCount)
+                    status = DefCheckStatus.Count_Diff;
+                else if (info.hash != defHash)
+                    status = DefCheckStatus.Hash_Diff;
+
+                if (status != DefCheckStatus.OK)
+                    disconnect = true;
+
+                response.WriteByte((byte)status);
+            }
+
+            if (disconnect)
+            {
+                Player.Disconnect(MpDisconnectReason.Defs, response.GetArray());
                 return;
             }
 
@@ -129,6 +172,14 @@ namespace Multiplayer.Common
 
             MpLog.Log("World response sent: " + packetData.Length);
         }
+    }
+
+    public enum DefCheckStatus : byte
+    {
+        OK,
+        Not_Found,
+        Count_Diff,
+        Hash_Diff,
     }
 
     public class ServerPlayingState : MpConnectionState

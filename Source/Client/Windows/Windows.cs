@@ -280,7 +280,25 @@ namespace Multiplayer.Client
         }
     }
 
-    [HotSwappable]
+    public class TextAreaWindow : Window
+    {
+        private string text;
+        private Vector2 scroll;
+
+        public TextAreaWindow(string text)
+        {
+            this.text = text;
+
+            absorbInputAroundWindow = true;
+            doCloseX = true;
+        }
+
+        public override void DoWindowContents(Rect inRect)
+        {
+            Widgets.TextAreaScrollable(inRect, text, ref scroll);
+        }
+    }
+
     public class DebugTextWindow : Window
     {
         public override Vector2 InitialSize => new Vector2(800, 450);

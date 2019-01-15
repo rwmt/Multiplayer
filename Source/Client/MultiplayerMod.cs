@@ -124,11 +124,11 @@ namespace Multiplayer.Client
             listing.ColumnWidth = 220f;
 
             DoUsernameField(listing);
+            listing.TextFieldNumericLabeled("MpAutosaveSlots".Translate() + ":  ", ref settings.autosaveSlots, ref slotsBuffer, 1f, 99f);
 
             listing.CheckboxLabeled("MpShowPlayerCursors".Translate(), ref settings.showCursors);
             listing.CheckboxLabeled("MpAutoAcceptSteam".Translate(), ref settings.autoAcceptSteam, "MpAutoAcceptSteamDesc".Translate());
             listing.CheckboxLabeled("MpTransparentChat".Translate(), ref settings.transparentChat);
-            listing.TextFieldNumericLabeled("MpAutosaveSlots".Translate() + ":  ", ref settings.autosaveSlots, ref slotsBuffer, 1f, 99f);
 
             listing.End();
         }
@@ -165,7 +165,7 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref showCursors, "showCursors", true);
             Scribe_Values.Look(ref autoAcceptSteam, "autoAcceptSteam");
             Scribe_Values.Look(ref transparentChat, "transparentChat");
-            Scribe_Values.Look(ref autosaveSlots, "autosaveSlots");
+            Scribe_Values.Look(ref autosaveSlots, "autosaveSlots", 5);
         }
     }
 }

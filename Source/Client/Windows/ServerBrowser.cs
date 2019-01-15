@@ -115,7 +115,7 @@ namespace Multiplayer.Client
             foreach (var file in replaysDir.GetFiles("*.zip", MpVersion.IsDebug ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly).OrderByDescending(f => f.LastWriteTime))
             {
                 var replay = Replay.ForLoading(file);
-                replay.LoadInfo();
+                if (!replay.LoadInfo()) continue;
 
                 var displayName = Path.ChangeExtension(file.FullName.Substring(Multiplayer.ReplaysDir.Length + 1), null);
 
@@ -354,12 +354,12 @@ namespace Multiplayer.Client
 
             var activeMods = LoadedModManager.RunningModsListForReading.Join(m => "+ " + m.Name, "\n");
 
-            yield return new FloatMenuOption("See mod list", () =>
+            yield return new FloatMenuOption("MpSeeModList".Translate(), () =>
             {
                 Find.WindowStack.Add(new TwoTextAreas_Window($"RimWorld {save.rwVersion}\nSave mod list:\n\n{saveMods}", $"RimWorld {VersionControl.CurrentVersionString}\nActive mod list:\n\n{activeMods}"));
             });
 
-            yield return new FloatMenuOption("Rename", () =>
+            yield return new FloatMenuOption("Rename".Translate(), () =>
             {
                 Find.WindowStack.Add(new Dialog_RenameFile(save.file, () => ReloadFiles()));
             });

@@ -8,6 +8,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Xml;
+using UnityEngine;
 using Verse;
 using Verse.AI;
 
@@ -191,6 +192,8 @@ namespace Multiplayer.Client
             SyncResearch.researchSpeed = data.researchSpeed;
         }
 
+        public static float lastSpeedChange;
+
         public void ExecuteCmd(ScheduledCommand cmd)
         {
             CommandType cmdType = cmd.type;
@@ -219,8 +222,13 @@ namespace Multiplayer.Client
                     Multiplayer.WorldComp.TimeSpeed = speed;
 
                     if (!asyncTime)
+                    {
                         foreach (var map in Find.Maps)
                             map.AsyncTime().TimeSpeed = speed;
+
+                        if (!cmd.issuedBySelf)
+                            lastSpeedChange = Time.realtimeSinceStartup;
+                    }
 
                     MpLog.Log("Set world speed " + speed + " " + TickPatch.Timer + " " + Find.TickManager.TicksGame);
                 }
@@ -286,7 +294,7 @@ namespace Multiplayer.Client
                 }
                 catch (Exception e)
                 {
-                    Log.Error($"Writing first section of an the autosave failed: {e}");
+                    Log.Error($"Writing first section of the autosave failed: {e}");
                 }
             }
 
@@ -318,7 +326,7 @@ namespace Multiplayer.Client
         private static string AutosaveFile()
         {
             return Enumerable
-                .Range(1, 5)
+                .Range(1, MultiplayerMod.settings.autosaveSlots)
                 .Select(i => $"Autosave-{i}")
                 .OrderBy(s => new FileInfo(Path.Combine(Multiplayer.ReplaysDir, $"{s}.zip")).LastWriteTime)
                 .First();

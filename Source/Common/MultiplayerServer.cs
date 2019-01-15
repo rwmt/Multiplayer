@@ -56,6 +56,10 @@ namespace Multiplayer.Common
 
         public int nextUniqueId; // currently unused
 
+        public string rwVersion;
+        public string[] modNames;
+        public Dictionary<string, DefInfo> defInfos;
+
         public int NetPort => netManager.LocalPort;
         public int LanPort => lanManager.LocalPort;
         public int ArbiterPort => arbiter.LocalPort;
@@ -374,6 +378,13 @@ namespace Multiplayer.Common
 
         public void OnNetworkError(IPEndPoint endPoint, SocketError socketError) { }
         public void OnNetworkReceiveUnconnected(IPEndPoint remoteEndPoint, NetPacketReader reader, UnconnectedMessageType messageType) { }
+    }
+
+    public class DefInfo
+    {
+        public int count;
+        public int hash;
+        public DefCheckStatus status;
     }
 
     public class ServerSettings

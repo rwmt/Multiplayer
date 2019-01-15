@@ -105,6 +105,7 @@ namespace Multiplayer.Client
                 p => $"{p.username} ({p.latency}ms)",
                 ref inRect,
                 ref playerListScroll,
+                ClickPlayer,
                 extra: (p, rect) =>
                 {
                     if (p.type == PlayerType.Steam)
@@ -129,6 +130,17 @@ namespace Multiplayer.Client
                 true,
                 "MpSteamAcceptDesc".Translate()
             );
+        }
+
+        private void ClickPlayer(PlayerInfo p)
+        {
+            if (p.id == 0 && Event.current.button == 1)
+            {
+                Find.WindowStack.Add(new FloatMenu(new List<FloatMenuOption>()
+                {
+                    new FloatMenuOption("MpSeeModList".Translate(), () => DefMismatchWindow.ShowModList(Multiplayer.session.mods))
+                }));
+            }
         }
 
         private void AcceptSteamPlayer(CSteamID id)

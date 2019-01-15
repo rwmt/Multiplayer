@@ -108,7 +108,15 @@ namespace Multiplayer.Client
 
         public static SyncField SyncTradeableCount = Sync.Field(typeof(MpTransferableReference), "CountToTransfer").SetBufferChanges().PostApply(TransferableCount_PostApply);
 
+        // 1
         public static SyncField SyncBillPaused = Sync.Field(typeof(Bill_Production), nameof(Bill_Production.paused)).SetBufferChanges().SetVersion(1);
+
+        // 3
+        public static SyncField SyncOutfitLabel = Sync.Field(typeof(Outfit), "label").SetBufferChanges().SetVersion(3);
+        public static SyncField SyncDrugPolicyLabel = Sync.Field(typeof(DrugPolicy), "label").SetBufferChanges().SetVersion(3);
+        public static SyncField SyncFoodRestrictionLabel = Sync.Field(typeof(FoodRestriction), "label").SetBufferChanges().SetVersion(3);
+        public static SyncField SyncStorytellerDef = Sync.Field(typeof(Storyteller), "def").SetVersion(3);
+        public static SyncField SyncStorytellerDifficulty = Sync.Field(typeof(Storyteller), "difficulty").SetVersion(3);
 
         [MpPrefix(typeof(HealthCardUtility), "DrawOverviewTab")]
         static void HealthCardUtility(Pawn pawn)
@@ -288,6 +296,21 @@ namespace Multiplayer.Client
                 SyncBillPaused.Watch(__instance);
         }
 
+        [MpPrefix(typeof(Dialog_ManageOutfits), "DoNameInputRect")]
+        [MpPrefix(typeof(Dialog_ManageDrugPolicies), "DoNameInputRect")]
+        [MpPrefix(typeof(Dialog_ManageFoodRestrictions), "DoNameInputRect")]
+        static void WatchPolicyLabels()
+        {
+            if (SyncMarkers.dialogOutfit != null)
+                SyncOutfitLabel.Watch(SyncMarkers.dialogOutfit);
+
+            if (SyncMarkers.drugPolicy != null)
+                SyncDrugPolicyLabel.Watch(SyncMarkers.drugPolicy);
+
+            if (SyncMarkers.foodRestriction != null)
+                SyncFoodRestrictionLabel.Watch(SyncMarkers.foodRestriction);
+        }
+
         static void UseWorkPriorities_PostApply(object target, object value)
         {
             // From MainTabWindow_Work.DoManualPrioritiesCheckbox
@@ -427,9 +450,14 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(InstallBlueprintUtility), nameof(InstallBlueprintUtility.CancelBlueprintsFor)).CancelIfAnyArgNull();
             SyncMethod.Register(typeof(Command_LoadToTransporter), nameof(Command_LoadToTransporter.ProcessInput));
 
+            // 1
             SyncMethod.Register(typeof(TradeRequestComp), nameof(TradeRequestComp.Fulfill)).CancelIfAnyArgNull().SetVersion(1);
 
+            // 2
             SyncMethod.Register(typeof(CompLaunchable), nameof(CompLaunchable.TryLaunch)).ExposeParameter(1).SetVersion(2);
+
+            // 3
+            SyncMethod.Register(typeof(OutfitForcedHandler), nameof(OutfitForcedHandler.Reset)).SetVersion(3);
         }
 
         static SyncField SyncTimetable = Sync.Field(typeof(Pawn), "timetable", "times");
@@ -828,6 +856,7 @@ namespace Multiplayer.Client
         public static IStoreSettingsParent tabStorage;
         public static Bill billConfig;
         public static Outfit dialogOutfit;
+        public static DrugPolicy drugPolicy;
         public static FoodRestriction foodRestriction;
 
         public static object ThingFilterOwner => tabStorage ?? billConfig ?? dialogOutfit ?? (object)foodRestriction;
@@ -861,6 +890,12 @@ namespace Multiplayer.Client
 
         [MpPostfix(typeof(Dialog_ManageOutfits), "DoWindowContents")]
         static void ManageOutfit_Postfix() => dialogOutfit = null;
+
+        [MpPrefix(typeof(Dialog_ManageDrugPolicies), "DoWindowContents")]
+        static void ManageDrugPolicy_Prefix(Dialog_ManageDrugPolicies __instance) => drugPolicy = __instance.SelectedPolicy;
+
+        [MpPostfix(typeof(Dialog_ManageOutfits), "DoWindowContents")]
+        static void ManageDrugPolicy_Postfix() => drugPolicy = null;
 
         [MpPrefix(typeof(Dialog_ManageFoodRestrictions), "DoWindowContents")]
         static void ManageFoodRestriction_Prefix(Dialog_ManageFoodRestrictions __instance) => foodRestriction = __instance.SelectedFoodRestriction;

@@ -15,6 +15,7 @@ using System.Text;
 using System.Threading;
 using System.Xml;
 using Verse;
+using Verse.Sound;
 
 namespace Multiplayer.Client
 {
@@ -58,6 +59,10 @@ namespace Multiplayer.Client
             localServer.debugOnlySyncCmds = new HashSet<int>(Sync.handlers.Where(h => h.debugOnly).Select(h => h.syncId));
             localServer.hostUsername = Multiplayer.username;
             localServer.coopFactionId = Faction.OfPlayer.loadID;
+
+            localServer.rwVersion = session.mods.remoteRwVersion = VersionControl.CurrentVersionString;
+            localServer.modNames = session.mods.remoteModNames = LoadedModManager.RunningModsListForReading.Select(m => m.Name).ToArray();
+            localServer.defInfos = session.mods.defInfo = CollectDefInfos();
 
             if (settings.steam)
                 localServer.NetTick += SteamIntegration.ServerSteamNetTick;
@@ -129,6 +134,52 @@ namespace Multiplayer.Client
                 Messages.Message(text, MessageTypeDefOf.SilentInput, false);
                 Log.Message(text);
             }
+        }
+
+        private static HashSet<Type> IgnoredVanillaDefTypes = new HashSet<Type>
+        {
+            typeof(FeatureDef), typeof(HairDef),
+            typeof(MainButtonDef), typeof(PawnTableDef),
+            typeof(TransferableSorterDef), typeof(ConceptDef),
+            typeof(InstructionDef), typeof(EffecterDef),
+            typeof(ImpactSoundTypeDef), typeof(KeyBindingCategoryDef),
+            typeof(KeyBindingDef), typeof(RulePackDef),
+            typeof(ScatterableDef), typeof(ShaderTypeDef),
+            typeof(SongDef), typeof(SoundDef),
+            typeof(SubcameraDef)
+        };
+
+        public static Dictionary<string, DefInfo> CollectDefInfos()
+        {
+            var dict = new Dictionary<string, DefInfo>();
+
+            int TypeHash(Type type) => GenText.StableStringHash(type.FullName);
+
+            dict["ThingComp"] = GetDefInfo(Sync.thingCompTypes, TypeHash);
+            dict["Designator"] = GetDefInfo(Sync.designatorTypes, TypeHash);
+            dict["WorldObjectComp"] = GetDefInfo(Sync.worldObjectCompTypes, TypeHash);
+            dict["IStoreSettingsParent"] = GetDefInfo(Sync.storageParents, TypeHash);
+            dict["IPlantToGrowSettable"] = GetDefInfo(Sync.plantToGrowSettables, TypeHash);
+
+            foreach (var defType in GenTypes.AllLeafSubclasses(typeof(Def)))
+            {
+                if (defType.Assembly != typeof(Game).Assembly) continue;
+                if (IgnoredVanillaDefTypes.Contains(defType)) continue;
+
+                var defs = GenDefDatabase.GetAllDefsInDatabaseForDef(defType);
+                dict.Add(defType.Name, GetDefInfo(defs, d => GenText.StableStringHash(d.defName)));
+            }
+
+            return dict;
+        }
+
+        private static DefInfo GetDefInfo<T>(IEnumerable<T> types, Func<T, int> hash)
+        {
+            return new DefInfo()
+            {
+                count = types.Count(),
+                hash = types.Aggregate(0, (h, t) => Gen.HashCombineInt(h, hash(t)))
+            };
         }
 
         private static void SetupGame()
@@ -420,7 +471,7 @@ namespace Multiplayer.Client
 
         public override void OnError(EP2PSessionError error)
         {
-            Multiplayer.session.disconnectReason = error == EP2PSessionError.k_EP2PSessionErrorTimeout ? "Connection timed out" : "Connection error";
+            Multiplayer.session.disconnectReasonKey = error == EP2PSessionError.k_EP2PSessionErrorTimeout ? "Connection timed out" : "Connection error";
             base.OnError(error);
         }
 

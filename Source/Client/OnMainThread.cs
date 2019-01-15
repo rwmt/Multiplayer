@@ -140,7 +140,7 @@ namespace Multiplayer.Client
                     if (CheckShouldRemove(f, k, data))
                         return true;
 
-                    if (Utils.MillisNow - data.timestamp > 200)
+                    if (!data.sent && Utils.MillisNow - data.timestamp > 200)
                     {
                         f.DoSync(k.first, data.toSend, k.second);
                         data.sent = true;
@@ -154,7 +154,7 @@ namespace Multiplayer.Client
 
         public static bool CheckShouldRemove(SyncField field, Pair<object, object> target, BufferData data)
         {
-            if (Equals(data.toSend, data.actualValue))
+            if (data.sent && Equals(data.toSend, data.actualValue))
                 return true;
 
             object currentValue = target.first.GetPropertyOrField(field.memberPath, target.second);

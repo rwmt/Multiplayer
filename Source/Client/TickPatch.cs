@@ -283,7 +283,7 @@ namespace Multiplayer.Client
                     if (OnMainThread.CheckShouldRemove(f, k, data))
                         return true;
 
-                    if (TickPatch.Timer - data.timestamp > 30)
+                    if (!data.sent && TickPatch.Timer - data.timestamp > 30)
                     {
                         f.DoSync(k.first, data.toSend, k.second);
                         data.sent = true;

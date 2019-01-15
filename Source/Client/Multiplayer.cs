@@ -264,8 +264,9 @@ namespace Multiplayer.Client
                 var effecterCleanup = typeof(Effecter).GetMethod("Cleanup");
                 var randomBoltMesh = typeof(LightningBoltMeshPool).GetProperty("RandomBoltMesh").GetGetMethod();
                 var drawTrackerCtor = typeof(Pawn_DrawTracker).GetConstructor(new[] { typeof(Pawn) });
+                var randomHair = typeof(PawnHairChooser).GetMethod("RandomHairDefFor");
 
-                var effectMethods = new MethodBase[] { subSustainerStart, sampleCtor, subSoundPlay, effecterTick, effecterTrigger, effecterCleanup, randomBoltMesh, drawTrackerCtor };
+                var effectMethods = new MethodBase[] { subSustainerStart, sampleCtor, subSoundPlay, effecterTick, effecterTrigger, effecterCleanup, randomBoltMesh, drawTrackerCtor, randomHair };
                 var moteMethods = typeof(MoteMaker).GetMethods(BindingFlags.Static | BindingFlags.Public);
 
                 foreach (MethodBase m in effectMethods.Concat(moteMethods))

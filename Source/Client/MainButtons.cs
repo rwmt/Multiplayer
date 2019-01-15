@@ -12,6 +12,7 @@ using Verse;
 namespace Multiplayer.Client
 {
     [HarmonyPatch(typeof(MainButtonsRoot), nameof(MainButtonsRoot.MainButtonsOnGUI))]
+    [HotSwappable]
     public static class MainButtonsPatch
     {
         static bool Prefix()
