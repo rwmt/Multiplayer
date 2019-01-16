@@ -41,11 +41,13 @@ namespace Multiplayer.Common
         public bool paused;
         public ActionQueue queue = new ActionQueue();
         public ServerSettings settings;
+        public bool debugMode;
 
         public volatile bool running = true;
 
         private Dictionary<string, ChatCmdHandler> chatCmds = new Dictionary<string, ChatCmdHandler>();
         public HashSet<int> debugOnlySyncCmds = new HashSet<int>();
+        public HashSet<int> hostOnlySyncCmds = new HashSet<int>();
 
         public int keepAliveId;
         public Stopwatch lastKeepAlive = Stopwatch.StartNew();
@@ -277,10 +279,17 @@ namespace Multiplayer.Common
 
         public void SendCommand(CommandType cmd, int factionId, int mapId, byte[] data, ServerPlayer sourcePlayer = null)
         {
-            if (sourcePlayer != null && cmd == CommandType.Sync)
+            if (sourcePlayer != null)
             {
-                int syncId = BitConverter.ToInt32(data, 0);
-                if (!MpVersion.IsDebug && debugOnlySyncCmds.Contains(syncId))
+                bool debugCmd =
+                    cmd == CommandType.DebugTools ||
+                    cmd == CommandType.Sync && debugOnlySyncCmds.Contains(BitConverter.ToInt32(data, 0));
+
+                if (!debugMode && debugCmd)
+                    return;
+
+                bool hostOnly = cmd == CommandType.Sync && hostOnlySyncCmds.Contains(BitConverter.ToInt32(data, 0));
+                if (!sourcePlayer.IsHost && hostOnly)
                     return;
             }
 

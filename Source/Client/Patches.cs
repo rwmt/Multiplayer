@@ -608,13 +608,24 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(UI))]
-    [HarmonyPatch(nameof(UI.MouseCell))]
+    [HarmonyPatch(typeof(UI), nameof(UI.MouseCell))]
     public static class MouseCellPatch
     {
         public static IntVec3? result;
 
         static void Postfix(ref IntVec3 __result)
+        {
+            if (result.HasValue)
+                __result = result.Value;
+        }
+    }
+
+    [HarmonyPatch(typeof(GenWorld), nameof(GenWorld.MouseTile))]
+    public static class MouseTilePatch
+    {
+        public static int? result;
+
+        static void Postfix(ref int __result)
         {
             if (result.HasValue)
                 __result = result.Value;

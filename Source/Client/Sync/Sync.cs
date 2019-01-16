@@ -22,6 +22,7 @@ namespace Multiplayer.Client
 
         public SyncContext context;
         public bool debugOnly;
+        public bool hostOnly;
         public int version;
 
         protected SyncHandler()
@@ -155,6 +156,12 @@ namespace Multiplayer.Client
         public SyncField SetDebugOnly()
         {
             debugOnly = true;
+            return this;
+        }
+
+        public SyncField SetHostOnly()
+        {
+            hostOnly = true;
             return this;
         }
 

@@ -20,7 +20,7 @@ namespace Multiplayer.Client
     {
         public List<SyncInfo> buffer = new List<SyncInfo>();
 
-        public bool ShouldCollect => !Multiplayer.IsReplay && !TickPatch.Skipping;
+        public bool ShouldCollect => !Multiplayer.IsReplay;
 
         public SyncInfo current;
         private SyncInfo Current
@@ -86,6 +86,7 @@ namespace Multiplayer.Client
 
         private void OnDesynced(SyncInfo one, SyncInfo two, string error)
         {
+            if (TickPatch.Skipping) return;
             if (Multiplayer.session.desynced) return;
 
             Multiplayer.Client.Send(Packets.Client_Desynced);
@@ -112,7 +113,7 @@ namespace Multiplayer.Client
                     zip.AddEntry("sync_remote", remote.Serialize());
                     zip.AddEntry("game_snapshot", savedGame);
 
-                    zip.AddEntry("static_fields", DebugToolsListing_Patch.StaticFieldsToString());
+                    zip.AddEntry("static_fields", MpDebugTools.StaticFieldsToString());
 
                     var desyncInfo = new ByteWriter();
                     desyncInfo.WriteBool(Multiplayer.session.ArbiterPlaying);
@@ -122,6 +123,7 @@ namespace Multiplayer.Client
                     desyncInfo.WriteBool(MpVersion.IsDebug);
                     desyncInfo.WriteBool(Prefs.DevMode);
                     desyncInfo.WriteInt32(Multiplayer.session.players.Count);
+                    desyncInfo.WriteBool(Multiplayer.WorldComp.debugMode);
 
                     zip.AddEntry("desync_info", desyncInfo.ToArray());
                     zip.Save();
@@ -161,18 +163,21 @@ namespace Multiplayer.Client
         public void TryAddCmd(ulong state)
         {
             if (!ShouldCollect) return;
+            Current.TryMarkSimulating();
             Current.cmds.Add((uint)(state >> 32));
         }
 
         public void TryAddWorld(ulong state)
         {
             if (!ShouldCollect) return;
+            Current.TryMarkSimulating();
             Current.world.Add((uint)(state >> 32));
         }
 
         public void TryAddMap(int map, ulong state)
         {
             if (!ShouldCollect) return;
+            Current.TryMarkSimulating();
             Current.GetForMap(map).Add((uint)(state >> 32));
         }
 
@@ -181,6 +186,8 @@ namespace Multiplayer.Client
         public void TryAddStackTrace(string info = null, bool doTrace = true)
         {
             if (!ShouldCollect) return;
+
+            Current.TryMarkSimulating();
 
             var trace = doTrace ? MpUtil.FastStackTrace(4) : new MethodBase[0];
             Current.traces.Add(new TraceInfo() { trace = trace, info = info });
@@ -197,6 +204,7 @@ namespace Multiplayer.Client
     public class SyncInfo
     {
         public bool local;
+
         public int startTick;
         public List<uint> cmds = new List<uint>();
         public List<uint> world = new List<uint>();
@@ -204,6 +212,7 @@ namespace Multiplayer.Client
 
         public List<TraceInfo> traces = new List<TraceInfo>();
         public List<int> traceHashes = new List<int>();
+        public bool simulating;
 
         public SyncInfo(int startTick)
         {
@@ -227,7 +236,7 @@ namespace Multiplayer.Client
             if (!cmds.SequenceEqual(other.cmds))
                 return "Random state from commands doesn't match";
 
-            if (traceHashes.Any() && other.traceHashes.Any() && !traceHashes.SequenceEqual(other.traceHashes))
+            if (!simulating && !other.simulating && traceHashes.Any() && other.traceHashes.Any() && !traceHashes.SequenceEqual(other.traceHashes))
                 return "Trace hashes don't match";
 
             return null;
@@ -257,6 +266,7 @@ namespace Multiplayer.Client
             }
 
             writer.WritePrefixedInts(traceHashes);
+            writer.WriteBool(simulating);
 
             return writer.ToArray();
         }
@@ -278,14 +288,22 @@ namespace Multiplayer.Client
             }
 
             var traceHashes = new List<int>(data.ReadPrefixedInts());
+            var playing = data.ReadBool();
 
             return new SyncInfo(startTick)
             {
                 cmds = cmds,
                 world = world,
                 maps = maps,
-                traceHashes = traceHashes
+                traceHashes = traceHashes,
+                simulating = playing
             };
+        }
+
+        public void TryMarkSimulating()
+        {
+            if (TickPatch.Skipping)
+                simulating = true;
         }
 
         public string TracesToString()
@@ -370,6 +388,7 @@ namespace Multiplayer.Client
                     text.AppendLine($"Mod is debug: {desyncInfo.ReadBool()}");
                     text.AppendLine($"Dev mode: {desyncInfo.ReadBool()}");
                     text.AppendLine($"Player count: {desyncInfo.ReadInt32()}");
+                    text.AppendLine($"Game debug mode: {desyncInfo.ReadBool()}");
                 }
                 catch { }
 
@@ -434,6 +453,7 @@ namespace Multiplayer.Client
 
                 var sync = SyncInfo.Deserialize(new ByteReader(zip[file].GetBytes()));
                 builder.AppendLine($"Start: {sync.startTick}");
+                builder.AppendLine($"Was simulating: {sync.simulating}");
                 builder.AppendLine($"Map count: {sync.maps.Count}");
                 builder.AppendLine($"Last map state: {sync.maps.Select(m => $"{m.mapId}/{m.map.LastOrDefault()}/{m.map.Count}").ToStringSafeEnumerable()}");
                 builder.AppendLine($"Last world state: {sync.world.LastOrDefault()}/{sync.world.Count}");

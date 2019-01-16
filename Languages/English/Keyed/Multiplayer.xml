@@ -34,6 +34,7 @@
   <MpReplayOutdatedDesc1>This replay was made for protocol version {0}, but you are running version {1}.</MpReplayOutdatedDesc1>
   <MpReplayOutdatedDesc2>The replay might not play correctly.</MpReplayOutdatedDesc2>
   <MpReplayOutdatedDesc3>Possible incompatibilities are listed with the release history.</MpReplayOutdatedDesc3>
+  <MpReplayOutdatedDesc4>This file contains additional information and hosting from it should work fine.</MpReplayOutdatedDesc4>
   
   <MpServerCloseConfirmation>Are you sure you want to close the server? Unsaved progress will be lost.</MpServerCloseConfirmation>
   
@@ -72,6 +73,7 @@
   
   <MpTicksBehind>You are {0} ticks behind.</MpTicksBehind>
   <MpLowerGameSpeed>Consider lowering the game speed.</MpLowerGameSpeed>
+  <MpForceCatchUp>Click to force catch up.</MpForceCatchUp>
   
   <MpDesynced>The game state has desynced.</MpDesynced>
   <MpTryResync>Try resync</MpTryResync>
@@ -118,5 +120,8 @@
   
   <MpNotAvailable>Not available in multiplayer.</MpNotAvailable>
   <MpCallingFactionNotAvailable>Calling other factions is currently not available in multiplayer.</MpCallingFactionNotAvailable>
+  
+  <MpAggressiveTicking>Aggressive ticking</MpAggressiveTicking>
+  <MpAggressiveTickingDesc>Always try to automatically catch up with the server at the cost of FPS.</MpAggressiveTickingDesc>
   
 </LanguageData>

@@ -1,6 +1,8 @@
 ﻿extern alias zip;
 
 using Harmony;
+using Harmony.ILCopying;
+using Ionic.Crc;
 using Ionic.Zlib;
 using LiteNetLib;
 using Multiplayer.Common;
@@ -16,6 +18,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
+using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -43,7 +46,7 @@ namespace Multiplayer.Client
         public static string username;
         public static bool arbiterInstance;
         public static HarmonyInstance harmony => MultiplayerMod.harmony;
-        public static bool enablePacketLog;
+        public static bool enableSyncLog;
 
         public static bool reloading;
 
@@ -87,8 +90,7 @@ namespace Multiplayer.Client
 
             foreach (var mod in ModLister.AllInstalledMods)
             {
-                var assemblies = new DirectoryInfo(Path.Combine(mod.RootDir.FullName, "Assemblies"));
-                if (!assemblies.Exists || !assemblies.GetFiles("*.*", SearchOption.AllDirectories).Any())
+                if (!mod.ModAssemblies().Any())
                     xmlMods.Add(mod.RootDir.FullName);
             }
 
@@ -219,9 +221,9 @@ namespace Multiplayer.Client
                 ExtendDirectXmlSaver.extend = false;
             }
 
-            if (GenCommandLine.CommandLineArgPassed("packetlog"))
+            if (GenCommandLine.CommandLineArgPassed("logsync"))
             {
-                enablePacketLog = true;
+                enableSyncLog = true;
             }
         }
 

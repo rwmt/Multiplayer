@@ -8,12 +8,14 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading;
 using UnityEngine;
 using Verse;
 
 namespace Multiplayer.Client
 {
     [HarmonyPatch(typeof(TickManager), nameof(TickManager.TickManagerUpdate))]
+    [HotSwappable]
     public static class TickPatch
     {
         public static double accumulator;
@@ -57,15 +59,19 @@ namespace Multiplayer.Client
             if (Multiplayer.session.desynced) return false;
 
             double delta = Time.deltaTime * 60.0;
-            if (delta > 3)
-                delta = 3;
+            int maxDelta = MultiplayerMod.settings.aggressiveTicking ? 6 : 3;
+
+            if (delta > maxDelta)
+                delta = maxDelta;
 
             accumulator += delta;
 
+            float okDelta = MultiplayerMod.settings.aggressiveTicking ? 2.5f : 1.8f;
+
             if (Timer >= tickUntil)
                 accumulator = 0;
-            else if (!Multiplayer.IsReplay && delta < 1.5 && tickUntil - Timer > 6)
-                accumulator += Math.Min(100, tickUntil - Timer - 6);
+            else if (!Multiplayer.IsReplay && delta < okDelta && tickUntil - Timer > 6)
+                accumulator += Math.Min(80, tickUntil - Timer - 6);
 
             if (Multiplayer.IsReplay && replayTimeSpeed == TimeSpeed.Paused)
                 accumulator = 0;
@@ -73,11 +79,7 @@ namespace Multiplayer.Client
             if (skipToTickUntil)
                 skipTo = tickUntil;
 
-            if (skipTo >= 0 && Timer >= skipTo)
-            {
-                afterSkip?.Invoke();
-                ClearSkipping();
-            }
+            CheckFinishSkipping();
 
             SimpleProfiler.Start();
             updateTimer.Restart();
@@ -85,7 +87,21 @@ namespace Multiplayer.Client
             lastUpdateTook = updateTimer.ElapsedMillisDouble();
             SimpleProfiler.Pause();
 
+            CheckFinishSkipping();
+
+            if (Timer > tickUntil)
+                Log.Message($"over {Timer} {tickUntil}");
+
             return false;
+        }
+
+        private static void CheckFinishSkipping()
+        {
+            if (skipTo >= 0 && Timer >= skipTo)
+            {
+                afterSkip?.Invoke();
+                ClearSkipping();
+            }
         }
 
         public static void SkipTo(int ticks = 0, bool toTickUntil = false, Action onFinish = null, Action onCancel = null, string cancelButtonKey = null, bool canESC = false, string simTextKey = null)
@@ -259,7 +275,7 @@ namespace Multiplayer.Client
                 var sync = Multiplayer.game.sync;
                 if (sync.ShouldCollect && TickPatch.Timer % 30 == 0 && sync.current != null)
                 {
-                    if (Multiplayer.LocalServer != null || Multiplayer.arbiterInstance)
+                    if (!TickPatch.Skipping && (Multiplayer.LocalServer != null || Multiplayer.arbiterInstance))
                         Multiplayer.Client.SendFragmented(Packets.Client_SyncInfo, sync.current.Serialize());
 
                     sync.Add(sync.current);

@@ -216,6 +216,7 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(ColonistBar), nameof(ColonistBar.ColonistBarOnGUI))]
+    [HotSwappable]
     public static class ColonistBarTimeControl
     {
         static void Prefix(ref bool __state)
@@ -235,7 +236,7 @@ namespace Multiplayer.Client
 
         static void DrawButtons()
         {
-            if (Multiplayer.Client == null || !Multiplayer.WorldComp.asyncTime) return;
+            if (Multiplayer.Client == null) return;
 
             ColonistBar bar = Find.ColonistBar;
             if (bar.Entries.Count == 0) return;
@@ -250,9 +251,18 @@ namespace Multiplayer.Client
                     alpha = 0.75f;
 
                 Rect rect = bar.drawer.GroupFrameRect(entry.group);
-
                 Rect button = new Rect(rect.x - TimeControls.TimeButSize.x / 2f, rect.yMax - TimeControls.TimeButSize.y / 2f, TimeControls.TimeButSize.x, TimeControls.TimeButSize.y);
-                TimeControl.TimeControlButton(button, entry.map.AsyncTime(), alpha);
+                var asyncTime = entry.map.AsyncTime();
+
+                if (Multiplayer.WorldComp.asyncTime)
+                {
+                    TimeControl.TimeControlButton(button, asyncTime, alpha);
+                }
+                else if (asyncTime.TickRateMultiplier(TimeSpeed.Normal) == 0f) // Blocking pause
+                {
+                    Widgets.DrawRectFast(button, new Color(1f, 0.5f, 0.5f, 0.4f * alpha));
+                    Widgets.ButtonImage(button, TexButton.SpeedButtonTextures[0]);
+                }
 
                 curGroup = entry.group;
             }
@@ -399,6 +409,52 @@ namespace Multiplayer.Client
             // The newly generated map
             var map = Find.Maps.Last();
             map.AsyncTime().slower.SignalForceNormalSpeedShort();
+        }
+    }
+
+    [HarmonyPatch(typeof(StorytellerUtility), nameof(StorytellerUtility.DefaultParmsNow))]
+    static class MapContextIncidentParms
+    {
+        static void Prefix(IIncidentTarget target, ref Map __state)
+        {
+            if (MultiplayerWorldComp.tickingWorld && target is Map map)
+            {
+                MapAsyncTimeComp.tickingMap = map;
+                map.AsyncTime().PreContext();
+                __state = map;
+            }
+        }
+
+        static void Postfix(Map __state)
+        {
+            if (__state != null)
+            {
+                __state.AsyncTime().PostContext();
+                MapAsyncTimeComp.tickingMap = null;
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(IncidentWorker), nameof(IncidentWorker.TryExecute))]
+    static class MapContextIncidentExecute
+    {
+        static void Prefix(IncidentParms parms, ref Map __state)
+        {
+            if (MultiplayerWorldComp.tickingWorld && parms.target is Map map)
+            {
+                MapAsyncTimeComp.tickingMap = map;
+                map.AsyncTime().PreContext();
+                __state = map;
+            }
+        }
+
+        static void Postfix(Map __state)
+        {
+            if (__state != null)
+            {
+                __state.AsyncTime().PostContext();
+                MapAsyncTimeComp.tickingMap = null;
+            }
         }
     }
 
@@ -626,13 +682,18 @@ namespace Multiplayer.Client
             SelectorDeselectPatch.deselected = new List<object>();
 
             bool prevDevMode = Prefs.data.devMode;
-            Prefs.data.devMode = MpVersion.IsDebug;
+            Prefs.data.devMode = Multiplayer.WorldComp.debugMode;
 
             try
             {
                 if (cmdType == CommandType.Sync)
                 {
                     Sync.HandleCmd(data);
+                }
+
+                if (cmdType == CommandType.DebugTools)
+                {
+                    MpDebugTools.HandleCmd(data);
                 }
 
                 if (cmdType == CommandType.CreateMapFactionData)

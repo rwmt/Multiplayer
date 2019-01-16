@@ -66,7 +66,7 @@ namespace Multiplayer.Common
                 return;
             }
 
-            connection.Send(Packets.Server_DefsOK, Server.settings.gameName);
+            connection.Send(Packets.Server_DefsOK, Server.settings.gameName, Player.id);
         }
 
         [PacketHandler(Packets.Client_Username)]

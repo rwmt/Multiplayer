@@ -54,6 +54,7 @@ namespace Multiplayer.Client
         public void HandleDefsOK(ByteReader data)
         {
             Multiplayer.session.gameName = data.ReadString();
+            Multiplayer.session.playerId = data.ReadInt32();
 
             connection.Send(Packets.Client_Username, Multiplayer.username);
 

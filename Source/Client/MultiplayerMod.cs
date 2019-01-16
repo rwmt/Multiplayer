@@ -129,13 +129,16 @@ namespace Multiplayer.Client
             listing.CheckboxLabeled("MpShowPlayerCursors".Translate(), ref settings.showCursors);
             listing.CheckboxLabeled("MpAutoAcceptSteam".Translate(), ref settings.autoAcceptSteam, "MpAutoAcceptSteamDesc".Translate());
             listing.CheckboxLabeled("MpTransparentChat".Translate(), ref settings.transparentChat);
+            listing.CheckboxLabeled("MpAggressiveTicking".Translate(), ref settings.aggressiveTicking, "MpAggressiveTickingDesc".Translate());
 
             listing.End();
         }
 
+        const string UsernameField = "UsernameField";
+
         private void DoUsernameField(Listing_Standard listing)
         {
-            GUI.SetNextControlName("UsernameField");
+            GUI.SetNextControlName(UsernameField);
 
             string username = listing.TextEntryLabeled("MpUsername".Translate() + ":  ", settings.username);
             if (username.Length <= 15 && ServerJoiningState.UsernamePattern.IsMatch(username))
@@ -144,7 +147,7 @@ namespace Multiplayer.Client
                 Multiplayer.username = username;
             }
 
-            if (Multiplayer.Client != null && GUI.GetNameOfFocusedControl() == "UsernameField")
+            if (Multiplayer.Client != null && GUI.GetNameOfFocusedControl() == UsernameField)
                 UI.UnfocusCurrentControl();
         }
 
@@ -158,6 +161,7 @@ namespace Multiplayer.Client
         public bool autoAcceptSteam;
         public bool transparentChat;
         public int autosaveSlots = 5;
+        public bool aggressiveTicking;
 
         public override void ExposeData()
         {
@@ -166,6 +170,7 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref autoAcceptSteam, "autoAcceptSteam");
             Scribe_Values.Look(ref transparentChat, "transparentChat");
             Scribe_Values.Look(ref autosaveSlots, "autosaveSlots", 5);
+            Scribe_Values.Look(ref aggressiveTicking, "aggressiveTicking");
         }
     }
 }

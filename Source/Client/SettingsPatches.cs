@@ -83,10 +83,4 @@ namespace Multiplayer.Client
         static bool Prefix() => Multiplayer.Client == null;
     }
 
-    [HarmonyPatch(typeof(StorytellerUI), nameof(StorytellerUI.DrawStorytellerSelectionInterface))]
-    static class DisableStorytellerSelection
-    {
-        static bool Prefix() => Multiplayer.Client == null || Event.current.type == EventType.Repaint || Event.current.type == EventType.Layout;
-    }
-
 }

@@ -60,6 +60,7 @@ namespace Multiplayer.Client
             { data => (data.MpContext().map).areaManager },
             { data => (data.MpContext().map).MpComp() },
             { data => Find.WorldSelector },
+            { data => Find.Storyteller },
             {
                 data =>
                 {
@@ -144,6 +145,7 @@ namespace Multiplayer.Client
             { (ByteWriter data, AreaManager areas) => data.MpContext().map = areas.map },
             { (ByteWriter data, MultiplayerMapComp comp) => data.MpContext().map = comp.map },
             { (ByteWriter data, WorldSelector selector) => {} },
+            { (ByteWriter data, Storyteller storyteller) => {} },
             { (ByteWriter data, PersistentDialog session) => { data.MpContext().map = session.map; data.WriteInt32(session.id); } },
             { (ByteWriter data, MpTradeSession session) => data.WriteInt32(session.sessionId) },
             { (ByteWriter data, CaravanFormingSession session) => { data.MpContext().map = session.map; data.WriteInt32(session.sessionId); } },

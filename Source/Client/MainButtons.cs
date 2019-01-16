@@ -81,11 +81,13 @@ namespace Multiplayer.Client
             const float btnHeight = 27f;
             const float btnWidth = 80f;
 
+            float x = UI.screenWidth - btnWidth - 10f;
+
             var session = Multiplayer.session;
 
             if (session != null && !Multiplayer.IsReplay)
             {
-                var btnRect = new Rect(UI.screenWidth - btnWidth - 10f, y, btnWidth, btnHeight);
+                var btnRect = new Rect(x, y, btnWidth, btnHeight);
 
                 var chatColor = session.players.Any(p => p.status == PlayerStatus.Desynced) ? "#ff5555" : "#dddddd";
                 var hasUnread = session.hasUnread ? "*" : "";
@@ -102,10 +104,15 @@ namespace Multiplayer.Client
 
                 if (!TickPatch.Skipping)
                 {
-                    IndicatorInfo(out Color color, out string text);
+                    IndicatorInfo(out Color color, out string text, out bool slow);
 
                     var indRect = new Rect(btnRect.x - 25f - 5f + 6f / 2f, btnRect.y + 6f / 2f, 19f, 19f);
-                    Widgets.DrawRectFast(new Rect(btnRect.x - 25f - 5f + 2f / 2f, btnRect.y + 2f / 2f, 23f, 23f), new Color(color.r * 0.6f, color.g * 0.6f, color.b * 0.6f));
+                    var biggerRect = new Rect(btnRect.x - 25f - 5f + 2f / 2f, btnRect.y + 2f / 2f, 23f, 23f);
+
+                    if (slow && Widgets.ButtonInvisible(biggerRect))
+                        TickPatch.SkipTo(toTickUntil: true, canESC: true);
+
+                    Widgets.DrawRectFast(biggerRect, new Color(color.r * 0.6f, color.g * 0.6f, color.b * 0.6f));
                     Widgets.DrawRectFast(indRect, color);
                     TooltipHandler.TipRegion(indRect, new TipSignal(text, 31641624));
                 }
@@ -113,9 +120,9 @@ namespace Multiplayer.Client
                 y += btnHeight;
             }
 
-            if ((MpVersion.IsDebug || Multiplayer.enablePacketLog) && Multiplayer.PacketLog != null)
+            if ((MpVersion.IsDebug || Multiplayer.enableSyncLog) && Multiplayer.PacketLog != null)
             {
-                if (Widgets.ButtonText(new Rect(UI.screenWidth - btnWidth - 10f, y, btnWidth, btnHeight), $"Packet ({Multiplayer.PacketLog.nodes.Count})"))
+                if (Widgets.ButtonText(new Rect(x, y, btnWidth, btnHeight), $"Sync ({Multiplayer.PacketLog.nodes.Count})"))
                     Find.WindowStack.Add(Multiplayer.PacketLog);
 
                 y += btnHeight;
@@ -123,21 +130,32 @@ namespace Multiplayer.Client
 
             if (Multiplayer.Client != null && Multiplayer.WorldComp.trading.Any())
             {
-                if (Widgets.ButtonText(new Rect(UI.screenWidth - btnWidth - 10f, y, btnWidth, btnHeight), "MpTradingButton".Translate()))
+                if (Widgets.ButtonText(new Rect(x, y, btnWidth, btnHeight), "MpTradingButton".Translate()))
                     Find.WindowStack.Add(new TradingWindow());
                 y += btnHeight;
             }
+
+            //if (Multiplayer.Client != null && Multiplayer.WorldComp.debugMode)
+            {
+                Text.Font = GameFont.Tiny;
+                Text.Anchor = TextAnchor.MiddleCenter;
+                Widgets.Label(new Rect(x, y, btnWidth, 30f), $"Debug mode {TickPatch.lastUpdateTook} {TickPatch.Timer}");
+                Text.Anchor = TextAnchor.UpperLeft;
+                Text.Font = GameFont.Small;
+            }
         }
 
-        static void IndicatorInfo(out Color color, out string text)
+        static void IndicatorInfo(out Color color, out string text, out bool slow)
         {
             int behind = TickPatch.tickUntil - TickPatch.Timer;
             text = "MpTicksBehind".Translate(behind);
+            slow = false;
 
             if (behind > 30)
             {
                 color = new Color(0.9f, 0, 0);
-                text += $"\n\n{"MpLowerGameSpeed".Translate()}";
+                text += "\n\n" + "MpLowerGameSpeed".Translate() + "\n" + "MpForceCatchUp".Translate();
+                slow = true;
             }
             else if (behind > 15)
             {
@@ -248,7 +266,7 @@ namespace Multiplayer.Client
             float windowHeight = TickPatch.cancelSkip != null ? 100f : 75f;
             Rect rect = new Rect(0, 0, windowWidth, windowHeight).CenterOn(new Rect(0, 0, UI.screenWidth, UI.screenHeight));
 
-            if (Multiplayer.IsReplay && TickPatch.canESCSkip && Event.current.type == EventType.KeyUp && Event.current.keyCode == KeyCode.Escape)
+            if (TickPatch.canESCSkip && Event.current.type == EventType.KeyUp && Event.current.keyCode == KeyCode.Escape)
             {
                 TickPatch.ClearSkipping();
                 Event.current.Use();

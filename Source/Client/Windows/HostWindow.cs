@@ -24,6 +24,7 @@ namespace Multiplayer.Client
         public bool returnToServerBrowser;
         private bool withSimulation;
         private bool asyncTime;
+        private bool debugMode;
 
         private float height;
 
@@ -42,6 +43,9 @@ namespace Multiplayer.Client
 
             lan = true;
             settings.arbiter = true;
+
+            if (MpVersion.IsDebug)
+                debugMode = true;
         }
 
         private ServerSettings settings = new ServerSettings();
@@ -112,10 +116,16 @@ namespace Multiplayer.Client
             CheckboxLabeled(entry.Width(130), "The Arbiter:  ", ref settings.arbiter, placeTextNearCheckbox: true);
             entry = entry.Down(30);
 
-            if (MpVersion.IsDebug)
+            /*if (MpVersion.IsDebug)
             {
                 TooltipHandler.TipRegion(entry.Width(130), $"{"MpAsyncTimeDesc".Translate()}\n\n{"MpExperimentalFeature".Translate()}");
                 CheckboxLabeled(entry.Width(130), "Async time:  ", ref asyncTime, placeTextNearCheckbox: true);
+                entry = entry.Down(30);
+            }*/
+
+            if (Prefs.DevMode)
+            {
+                CheckboxLabeled(entry.Width(130), "Debug mode:  ", ref debugMode, placeTextNearCheckbox: true);
                 entry = entry.Down(30);
             }
 
@@ -252,14 +262,14 @@ namespace Multiplayer.Client
 
                 LongEventHandler.ExecuteWhenFinished(() =>
                 {
-                    LongEventHandler.QueueLongEvent(() => ClientUtil.HostServer(settings, false), "MpLoading", false, null);
+                    LongEventHandler.QueueLongEvent(() => ClientUtil.HostServer(settings, false, debugMode: debugMode), "MpLoading", false, null);
                 });
             }, "Play", "LoadingLongEvent", true, null);
         }
 
         private void HostFromReplay(ServerSettings settings)
         {
-            void ReplayLoaded() => ClientUtil.HostServer(settings, true, withSimulation);
+            void ReplayLoaded() => ClientUtil.HostServer(settings, true, withSimulation, debugMode: debugMode);
 
             if (file != null)
             {

@@ -1,4 +1,5 @@
 ﻿using Harmony;
+using Harmony.ILCopying;
 using Multiplayer.Common;
 using Steamworks;
 using System;
@@ -164,6 +165,14 @@ namespace Multiplayer.Client
                 methods.Add(methodHandleToMethodBase(methodHandle));
             if (methodHandle == upToHandle || depth == max) return true;
             return false;
+        }
+
+        public static List<ILInstruction> GetInstructions(MethodBase method)
+        {
+            var insts = new MethodBodyReader(method, null);
+            insts.SetPropertyOrField("locals", null);
+            insts.ReadInstructions();
+            return (List<ILInstruction>)insts.GetPropertyOrField("ilInstructions");
         }
     }
 

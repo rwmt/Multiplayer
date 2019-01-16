@@ -14,6 +14,7 @@ namespace Multiplayer.Common
 
         // Mixed scope
         Sync,
+        DebugTools,
 
         // Map scope
         MapTimeSpeed,

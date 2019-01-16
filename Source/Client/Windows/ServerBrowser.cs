@@ -22,6 +22,7 @@ using zip::Ionic.Zip;
 namespace Multiplayer.Client
 {
     [StaticConstructorOnStartup]
+    [HotSwappable]
     public class ServerBrowser : Window
     {
         private NetManager net;
@@ -122,7 +123,8 @@ namespace Multiplayer.Client
                 var saveFile = new SaveFile(displayName, true, file)
                 {
                     gameName = replay.info.name,
-                    protocol = replay.info.protocol
+                    protocol = replay.info.protocol,
+                    replaySections = replay.info.sections.Count
                 };
 
                 mpReplays.Add(saveFile);
@@ -316,14 +318,20 @@ namespace Multiplayer.Client
 
                 if (saveFile.replay && saveFile.protocol != MpVersion.Protocol)
                 {
-                    GUI.color = new Color(0.8f, 0.8f, 0);
+                    bool autosave = saveFile.replaySections > 1;
+
+                    GUI.color = autosave ? new Color(0.8f, 0.8f, 0, 0.6f) : new Color(0.8f, 0.8f, 0);
                     var outdated = new Rect(infoText.x - 70, infoText.y + 8f, 70, 24f);
                     Widgets.Label(outdated, "MpReplayOutdated".Translate());
 
+                    string text = "MpReplayOutdatedDesc1".Translate(saveFile.protocol, MpVersion.Protocol) + "\n\n" + "MpReplayOutdatedDesc2".Translate() + "\n" + "MpReplayOutdatedDesc3".Translate();
+                    if (autosave)
+                        text += "\n\n" + "MpReplayOutdatedDesc4".Translate();
+
                     TooltipHandler.TipRegion(
                         outdated,
-                        $"{"MpReplayOutdatedDesc1".Translate(saveFile.protocol, MpVersion.Protocol)}\n\n{"MpReplayOutdatedDesc2".Translate()}\n{"MpReplayOutdatedDesc3".Translate()}"
-                     );
+                        text
+                    );
                 }
 
                 Text.Font = GameFont.Small;
@@ -455,14 +463,16 @@ namespace Multiplayer.Client
             Widgets.EndScrollView();
         }
 
-        private string ip = "127.0.0.1";
+        private string ipBuffer = "127.0.0.1";
 
         private void DrawDirect(Rect inRect)
         {
-            ip = Widgets.TextField(new Rect(inRect.center.x - 200 / 2, 15f, 200, 35f), ip);
+            ipBuffer = Widgets.TextField(new Rect(inRect.center.x - 200 / 2, 15f, 200, 35f), ipBuffer);
 
             if (Widgets.ButtonText(new Rect(inRect.center.x - 100f / 2, 60f, 100f, 35f), "MpConnectButton".Translate()))
             {
+                string ip = ipBuffer.Trim();
+
                 int port = MultiplayerServer.DefaultPort;
                 string[] ipport = ip.Split(':');
                 if (ipport.Length == 2)
@@ -648,6 +658,7 @@ namespace Multiplayer.Client
     {
         public string displayName;
         public bool replay;
+        public int replaySections;
         public FileInfo file;
 
         public string gameName;

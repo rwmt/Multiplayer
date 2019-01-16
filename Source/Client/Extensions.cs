@@ -374,6 +374,14 @@ namespace Multiplayer.Client
 
             return names.ToArray();
         }
+
+        public static FileInfo[] ModAssemblies(this ModMetaData mod)
+        {
+            var assemblies = new DirectoryInfo(Path.Combine(mod.RootDir.FullName, "Assemblies"));
+            if (!assemblies.Exists)
+                return new FileInfo[0];
+            return assemblies.GetFiles("*.*", SearchOption.AllDirectories).Where(f => f.Extension.ToLower() == ".dll").ToArray();
+        }
     }
 
     public static class ClientDataExtensions

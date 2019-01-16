@@ -34,7 +34,7 @@ namespace Multiplayer.Client
             netClient.Connect(address.ToString(), port, "");
         }
 
-        public static void HostServer(ServerSettings settings, bool fromReplay, bool withSimulation = false)
+        public static void HostServer(ServerSettings settings, bool fromReplay, bool withSimulation = false, bool debugMode = false)
         {
             Log.Message($"Starting the server");
 
@@ -56,7 +56,9 @@ namespace Multiplayer.Client
                 OnMainThread.ClearCaches();
             }
 
+            localServer.debugMode = debugMode;
             localServer.debugOnlySyncCmds = new HashSet<int>(Sync.handlers.Where(h => h.debugOnly).Select(h => h.syncId));
+            localServer.hostOnlySyncCmds = new HashSet<int>(Sync.handlers.Where(h => h.hostOnly).Select(h => h.syncId));
             localServer.hostUsername = Multiplayer.username;
             localServer.coopFactionId = Faction.OfPlayer.loadID;
 
@@ -102,6 +104,8 @@ namespace Multiplayer.Client
                 Multiplayer.WorldComp.TimeSpeed = timeSpeed;
                 foreach (var map in Find.Maps)
                     map.AsyncTime().TimeSpeed = timeSpeed;
+
+                Multiplayer.WorldComp.debugMode = debugMode;
 
                 LongEventHandler.QueueLongEvent(() =>
                 {

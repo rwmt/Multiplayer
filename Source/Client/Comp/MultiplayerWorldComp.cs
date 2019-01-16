@@ -55,6 +55,7 @@ namespace Multiplayer.Client
         public IdBlock globalIdBlock;
         public ulong randState = 2;
         public bool asyncTime;
+        public bool debugMode;
         public TileTemperaturesComp uiTemperatures;
 
         public List<MpTradeSession> trading = new List<MpTradeSession>();
@@ -70,7 +71,8 @@ namespace Multiplayer.Client
         public void ExposeData()
         {
             Scribe_Values.Look(ref TickPatch.Timer, "timer");
-            Scribe_Values.Look(ref asyncTime, "asyncTime", true, true);
+            Scribe_Values.Look(ref asyncTime, "asyncTime", true, true); // Enable async time on old saves
+            Scribe_Values.Look(ref debugMode, "debugMode");
             ScribeUtil.LookULong(ref randState, "randState", 2);
 
             TimeSpeed timeSpeed = Find.TickManager.CurTimeSpeed;
@@ -206,13 +208,18 @@ namespace Multiplayer.Client
             FactionContext.Push(cmd.GetFaction());
 
             bool devMode = Prefs.data.devMode;
-            Prefs.data.devMode = MpVersion.IsDebug;
+            Prefs.data.devMode = Multiplayer.WorldComp.debugMode;
 
             try
             {
                 if (cmdType == CommandType.Sync)
                 {
                     Sync.HandleCmd(data);
+                }
+
+                if (cmdType == CommandType.DebugTools)
+                {
+                    MpDebugTools.HandleCmd(data);
                 }
 
                 if (cmdType == CommandType.WorldTimeSpeed)

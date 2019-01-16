@@ -112,11 +112,35 @@ namespace Multiplayer.Client
         public static SyncField SyncBillPaused = Sync.Field(typeof(Bill_Production), nameof(Bill_Production.paused)).SetBufferChanges().SetVersion(1);
 
         // 2
-        public static SyncField SyncOutfitLabel = Sync.Field(typeof(Outfit), "label").SetBufferChanges().SetVersion(3);
-        public static SyncField SyncDrugPolicyLabel = Sync.Field(typeof(DrugPolicy), "label").SetBufferChanges().SetVersion(3);
-        public static SyncField SyncFoodRestrictionLabel = Sync.Field(typeof(FoodRestriction), "label").SetBufferChanges().SetVersion(3);
-        public static SyncField SyncStorytellerDef = Sync.Field(typeof(Storyteller), "def").SetVersion(3);
-        public static SyncField SyncStorytellerDifficulty = Sync.Field(typeof(Storyteller), "difficulty").SetVersion(3);
+        public static SyncField SyncOutfitLabel = Sync.Field(typeof(Outfit), "label").SetBufferChanges().SetVersion(2);
+        public static SyncField SyncDrugPolicyLabel = Sync.Field(typeof(DrugPolicy), "label").SetBufferChanges().SetVersion(2);
+        public static SyncField SyncFoodRestrictionLabel = Sync.Field(typeof(FoodRestriction), "label").SetBufferChanges().SetVersion(2);
+        public static SyncField SyncStorytellerDef = Sync.Field(typeof(Storyteller), "def").SetHostOnly().PostApply(StorytellerDef_Post).SetVersion(2);
+        public static SyncField SyncStorytellerDifficulty = Sync.Field(typeof(Storyteller), "difficulty").SetHostOnly().PostApply(StorytellerDifficutly_Post).SetVersion(2);
+
+        [MpPrefix(typeof(StorytellerUI), nameof(StorytellerUI.DrawStorytellerSelectionInterface))]
+        static void ChangeStoryteller()
+        {
+            SyncStorytellerDef.Watch(Find.Storyteller);
+            SyncStorytellerDifficulty.Watch(Find.Storyteller);
+        }
+
+        static void StorytellerDef_Post(object target, object value)
+        {
+            Find.Storyteller.Notify_DefChanged();
+
+            foreach (var comp in Multiplayer.game.asyncTimeComps)
+            {
+                comp.storyteller.def = Find.Storyteller.def;
+                comp.storyteller.Notify_DefChanged();
+            }
+        }
+
+        static void StorytellerDifficutly_Post(object target, object value)
+        {
+            foreach (var comp in Multiplayer.game.asyncTimeComps)
+                comp.storyteller.difficulty = Find.Storyteller.difficulty;
+        }
 
         [MpPrefix(typeof(HealthCardUtility), "DrawOverviewTab")]
         static void HealthCardUtility(Pawn pawn)

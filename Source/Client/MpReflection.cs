@@ -146,6 +146,8 @@ namespace Multiplayer.Client
                         members.Add(memberFound);
                         hasSetter = true;
                         indexTypes[memberPath] = typeof(int);
+
+                        continue;
                     }
                     else
                     {
@@ -159,6 +161,8 @@ namespace Multiplayer.Client
                         currentType = indexer.PropertyType;
                         hasSetter = indexer.GetSetMethod(true) != null;
                         indexTypes[memberPath] = indexType;
+
+                        continue;
                     }
                 }
                 else
@@ -172,6 +176,7 @@ namespace Multiplayer.Client
                             members.Add(field);
                             currentType = field.FieldType;
                             hasSetter = true;
+                            continue;
                         }
 
                         PropertyInfo property = AccessTools.Property(currentType, part);
@@ -181,6 +186,7 @@ namespace Multiplayer.Client
                             members.Add(property);
                             currentType = property.PropertyType;
                             hasSetter = property.GetSetMethod(true) != null;
+                            continue;
                         }
                     }
 
@@ -191,11 +197,11 @@ namespace Multiplayer.Client
                         members.Add(method);
                         currentType = method.ReturnType;
                         hasSetter = false;
+                        continue;
                     }
                 }
 
-                if (memberFound == null)
-                    throw new Exception($"Member {part} not found in path: {memberPath}, current type: {currentType}");
+                throw new Exception($"Member {part} not found in path: {memberPath}, current type: {currentType}");
             }
 
             MemberInfo lastMember = members.Last();

@@ -19,6 +19,7 @@ namespace Multiplayer.Client
     public class MultiplayerSession : IConnectionStatusListener
     {
         public string gameName;
+        public int playerId;
 
         public IConnection client;
         public NetManager netClient;
@@ -227,6 +228,8 @@ namespace Multiplayer.Client
         public Faction dummyFaction;
         private Faction myFaction;
         public Faction myFactionLoading;
+
+        public Dictionary<int, PlayerDebugState> playerDebugState = new Dictionary<int, PlayerDebugState>();
 
         public Faction RealPlayerFaction
         {
