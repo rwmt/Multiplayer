@@ -375,9 +375,12 @@ namespace Multiplayer.Client
             return names.ToArray();
         }
 
-        public static FileInfo[] ModAssemblies(this ModMetaData mod)
+        public static FileInfo[] ModAssemblies(this ModMetaData mod) => ModAssemblies(mod.RootDir.FullName);
+        public static FileInfo[] ModAssemblies(this ModContentPack mod) => ModAssemblies(mod.RootDir);
+
+        private static FileInfo[] ModAssemblies(string modRoot)
         {
-            var assemblies = new DirectoryInfo(Path.Combine(mod.RootDir.FullName, "Assemblies"));
+            var assemblies = new DirectoryInfo(Path.Combine(modRoot, "Assemblies"));
             if (!assemblies.Exists)
                 return new FileInfo[0];
             return assemblies.GetFiles("*.*", SearchOption.AllDirectories).Where(f => f.Extension.ToLower() == ".dll").ToArray();

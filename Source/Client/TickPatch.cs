@@ -89,9 +89,6 @@ namespace Multiplayer.Client
 
             CheckFinishSkipping();
 
-            if (Timer > tickUntil)
-                Log.Message($"over {Timer} {tickUntil}");
-
             return false;
         }
 

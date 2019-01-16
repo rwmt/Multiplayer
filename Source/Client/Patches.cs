@@ -90,7 +90,10 @@ namespace Multiplayer.Client
                 {
                     optList.Insert(newColony + 1, new ListableOption("Multiplayer", () =>
                     {
-                        Find.WindowStack.Add(new ServerBrowser());
+                        if (Prefs.DevMode && Event.current.button == 1)
+                            Find.WindowStack.Add(new DebugTextWindow("[name | id | assembly hash]\n" + LoadedModManager.RunningMods.Select((m, index) => $"{m.Name} | {m.Identifier} | {Multiplayer.modAssemblyHashes[index]}").Join(delimiter: "\n")));
+                        else
+                            Find.WindowStack.Add(new ServerBrowser());
                     }));
                 }
             }

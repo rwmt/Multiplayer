@@ -1,6 +1,7 @@
 ﻿extern alias zip;
 
 using Multiplayer.Common;
+using RimWorld;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -15,7 +16,7 @@ namespace Multiplayer.Client
     public class Replay
     {
         private FileInfo file;
-        public ReplayInfo info = new ReplayInfo();
+        public ReplayInfo info;
 
         private Replay(FileInfo file)
         {
@@ -123,16 +124,25 @@ namespace Multiplayer.Client
 
         public static FileInfo ReplayFile(string fileName, string folder = null) => new FileInfo(Path.Combine(folder ?? Multiplayer.ReplaysDir, $"{fileName}.zip"));
 
-        public static Replay ForLoading(string fileName) => new Replay(ReplayFile(fileName));
+        public static Replay ForLoading(string fileName) => ForLoading(ReplayFile(fileName));
         public static Replay ForLoading(FileInfo file) => new Replay(file);
 
         public static Replay ForSaving(string fileName) => ForSaving(ReplayFile(fileName));
         public static Replay ForSaving(FileInfo file)
         {
-            var replay = new Replay(file);
-            replay.info.name = Multiplayer.session.gameName;
-            replay.info.playerFaction = Multiplayer.session.myFactionId;
-            replay.info.protocol = MpVersion.Protocol;
+            var replay = new Replay(file)
+            {
+                info = new ReplayInfo()
+                {
+                    name = Multiplayer.session.gameName,
+                    playerFaction = Multiplayer.session.myFactionId,
+                    protocol = MpVersion.Protocol,
+                    rwVersion = VersionControl.CurrentVersionStringWithRev,
+                    modIds = LoadedModManager.RunningModsListForReading.Select(m => m.Identifier).ToList(),
+                    modNames = LoadedModManager.RunningModsListForReading.Select(m => m.Name).ToList(),
+                    modAssemblyHashes = Multiplayer.modAssemblyHashes.ToList(),
+                }
+            };
 
             return replay;
         }
@@ -173,6 +183,11 @@ namespace Multiplayer.Client
 
         public List<ReplaySection> sections = new List<ReplaySection>();
         public List<ReplayEvent> events = new List<ReplayEvent>();
+
+        public string rwVersion;
+        public List<string> modIds;
+        public List<string> modNames;
+        public List<int> modAssemblyHashes;
     }
 
     public class ReplaySection

@@ -77,6 +77,7 @@ namespace Multiplayer.Client
         public static Stopwatch Clock = Stopwatch.StartNew();
 
         public static HashSet<string> xmlMods = new HashSet<string>();
+        public static int[] modAssemblyHashes;
 
         static Multiplayer()
         {
@@ -93,6 +94,8 @@ namespace Multiplayer.Client
                 if (!mod.ModAssemblies().Any())
                     xmlMods.Add(mod.RootDir.FullName);
             }
+
+            modAssemblyHashes = LoadedModManager.RunningModsListForReading.Select(m => m.ModAssemblies().Select(f => new CRC32().GetCrc32(f.OpenRead())).Aggregate(0, (a, b) => Gen.HashCombineInt(a, b))).ToArray();
 
             SimpleProfiler.Init(username);
 

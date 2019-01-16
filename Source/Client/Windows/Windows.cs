@@ -304,12 +304,14 @@ namespace Multiplayer.Client
         public override Vector2 InitialSize => new Vector2(800, 450);
 
         private Vector2 scroll;
+        private string text;
         private List<string> lines;
 
         private float fullHeight;
 
         public DebugTextWindow(string text)
         {
+            this.text = text;
             absorbInputAroundWindow = true;
             doCloseX = true;
 
@@ -327,7 +329,15 @@ namespace Multiplayer.Client
                     fullHeight += Text.CalcHeight(str, inRect.width) + offsetY;
             }
 
+            Text.Font = GameFont.Tiny;
+
+            if (Widgets.ButtonText(new Rect(0, 0, 55f, 20f), "Copy all"))
+                GUIUtility.systemCopyBuffer = text;
+
+            Text.Font = GameFont.Small;
+
             var viewRect = new Rect(0f, 0f, inRect.width - 16f, Mathf.Max(fullHeight + 10f, inRect.height));
+            inRect.y += 30f;
             Widgets.BeginScrollView(inRect, ref scroll, viewRect, true);
 
             foreach (var str in lines)

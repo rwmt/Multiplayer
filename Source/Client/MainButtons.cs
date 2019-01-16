@@ -135,11 +135,11 @@ namespace Multiplayer.Client
                 y += btnHeight;
             }
 
-            //if (Multiplayer.Client != null && Multiplayer.WorldComp.debugMode)
+            if (Multiplayer.Client != null && Multiplayer.WorldComp.debugMode)
             {
                 Text.Font = GameFont.Tiny;
                 Text.Anchor = TextAnchor.MiddleCenter;
-                Widgets.Label(new Rect(x, y, btnWidth, 30f), $"Debug mode {TickPatch.lastUpdateTook} {TickPatch.Timer}");
+                Widgets.Label(new Rect(x, y, btnWidth, 30f), $"Debug mode");
                 Text.Anchor = TextAnchor.UpperLeft;
                 Text.Font = GameFont.Small;
             }

@@ -43,6 +43,7 @@ namespace Multiplayer.Client
             { data => ReadSync<Pawn>(data)?.drugs },
             { data => ReadSync<Pawn>(data)?.foodRestriction },
             { data => ReadSync<Pawn>(data)?.training },
+            { data => ReadSync<Pawn>(data)?.story },
             { data => ReadSync<Pawn>(data)?.outfits?.forcedHandler },
             { data => ReadSync<Caravan>(data)?.pather },
             { data => new FloatRange(data.ReadFloat(), data.ReadFloat()) },
@@ -128,6 +129,7 @@ namespace Multiplayer.Client
             { (ByteWriter data, Pawn_DrugPolicyTracker comp) => WriteSync(data, comp.pawn) },
             { (ByteWriter data, Pawn_FoodRestrictionTracker comp) => WriteSync(data, comp.pawn) },
             { (ByteWriter data, Pawn_TrainingTracker comp) => WriteSync(data, comp.pawn) },
+            { (ByteWriter data, Pawn_StoryTracker comp) => WriteSync(data, comp.pawn) },
             { (ByteWriter data, OutfitForcedHandler comp) => WriteSync(data, comp.forcedAps.Select(a => a.Wearer).FirstOrDefault()) }, // this is fine, theoretically
             { (ByteWriter data, Caravan_PathFollower follower) => WriteSync(data, follower.caravan) },
             { (ByteWriter data, FloatRange range) => { data.WriteFloat(range.min); data.WriteFloat(range.max); }},
@@ -435,8 +437,7 @@ namespace Multiplayer.Client
                         }
                     }
 
-                    ThingDef def = ReadSync<ThingDef>(data);
-                    return map.listerThings.ThingsOfDef(def).Find(t => t.thingIDNumber == thingId);
+                    return ThingsById.thingsById.GetValueSafe(thingId);
                 }
                 else if (typeof(WorldObject).IsAssignableFrom(type))
                 {
@@ -880,9 +881,6 @@ namespace Multiplayer.Client
                             return;
                         }
                     }
-
-                    if (thing.Spawned)
-                        WriteSync(data, thing.def);
                 }
                 else if (typeof(WorldObject).IsAssignableFrom(type))
                 {
