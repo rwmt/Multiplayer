@@ -220,7 +220,7 @@ namespace Multiplayer.Common
             return conn.serverPlayer;
         }
 
-        public void OnDisconnected(IConnection conn)
+        public void OnDisconnected(IConnection conn, MpDisconnectReason reason)
         {
             if (conn.State == ConnectionStateEnum.Disconnected) return;
 
@@ -243,7 +243,7 @@ namespace Multiplayer.Common
 
             conn.State = ConnectionStateEnum.Disconnected;
 
-            MpLog.Log($"Disconnected: {conn}");
+            MpLog.Log($"Disconnected ({reason}): {conn}");
         }
 
         public void SendToAll(Packets id)
@@ -371,7 +371,7 @@ namespace Multiplayer.Common
         public void OnPeerDisconnected(NetPeer peer, DisconnectInfo disconnectInfo)
         {
             IConnection conn = peer.GetConnection();
-            server.OnDisconnected(conn);
+            server.OnDisconnected(conn, MpDisconnectReason.ClientLeft);
         }
 
         public void OnNetworkLatencyUpdate(NetPeer peer, int latency)
@@ -468,7 +468,7 @@ namespace Multiplayer.Common
         public void Disconnect(MpDisconnectReason reason, byte[] data = null)
         {
             conn.Close(reason, data);
-            Server.OnDisconnected(conn);
+            Server.OnDisconnected(conn, reason);
         }
 
         public void SendChat(string msg)

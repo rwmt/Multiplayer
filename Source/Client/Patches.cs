@@ -830,6 +830,7 @@ namespace Multiplayer.Client
     [MpPatch(typeof(SoundStarter), nameof(SoundStarter.PlayOneShot))]
     [MpPatch(typeof(Command_SetPlantToGrow), nameof(Command_SetPlantToGrow.WarnAsAppropriate))]
     [MpPatch(typeof(TutorUtility), nameof(TutorUtility.DoModalDialogIfNotKnown))]
+    [MpPatch(typeof(CameraJumper), nameof(CameraJumper.TryHideWorld))]
     static class CancelFeedbackNotTargetedAtMe
     {
         public static bool Cancel =>
@@ -838,6 +839,18 @@ namespace Multiplayer.Client
             !TickPatch.currentExecutingCmdIssuedBySelf;
 
         static bool Prefix() => !Cancel;
+    }
+
+    [HarmonyPatch(typeof(Targeter), nameof(Targeter.BeginTargeting), typeof(TargetingParameters), typeof(Action<LocalTargetInfo>), typeof(Pawn), typeof(Action), typeof(Texture2D))]
+    static class CancelBeginTargeting
+    {
+        static bool Prefix()
+        {
+            if (TickPatch.currentExecutingCmdIssuedBySelf && MapAsyncTimeComp.executingCmdMap != null)
+                MapAsyncTimeComp.keepTheMap = true;
+
+            return !CancelFeedbackNotTargetedAtMe.Cancel;
+        }
     }
 
     [MpPatch(typeof(MoteMaker), nameof(MoteMaker.MakeStaticMote), new[] { typeof(IntVec3), typeof(Map), typeof(ThingDef), typeof(float) })]
@@ -1058,6 +1071,9 @@ namespace Multiplayer.Client
             async.mapTicks = Find.Maps.Where(m => m != map).Select(m => m.AsyncTime()?.mapTicks).Max() ?? Find.TickManager.TicksGame;
             async.storyteller = new Storyteller(Find.Storyteller.def, Find.Storyteller.difficulty);
             async.storyWatcher = new StoryWatcher();
+
+            if (!Multiplayer.WorldComp.asyncTime)
+                async.TimeSpeed = Find.TickManager.CurTimeSpeed;
         }
     }
 

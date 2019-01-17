@@ -2,7 +2,7 @@
 {
     public static class MpVersion
     {
-        public const string Version = "0.4.1";
+        public const string Version = "0.4.2";
         public const int Protocol = 11;
 
 #if DEBUG

@@ -494,7 +494,7 @@ namespace Multiplayer.Client
 
         protected override void OnDisconnect()
         {
-            serverPlayer.Server.OnDisconnected(this);
+            serverPlayer.Server.OnDisconnected(this, MpDisconnectReason.ClientLeft);
         }
     }
 

@@ -74,6 +74,7 @@ namespace Multiplayer.Client
                 {
                     if (!drawnThisUpdate.Add(sel.Key)) continue;
                     if (!ThingsById.thingsById.TryGetValue(sel.Key, out Thing thing)) continue;
+                    if (thing.Map != Find.CurrentMap) continue;
 
                     selTimes[thing] = sel.Value;
                     SelectionDrawerUtility.CalculateSelectionBracketPositionsWorld(SelectionDrawer.bracketLocs, thing, thing.DrawPos, thing.RotatedSize.ToVector2(), selTimes, Vector2.one, 1f);

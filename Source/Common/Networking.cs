@@ -253,6 +253,7 @@ namespace Multiplayer.Common
         ServerClosed,
         ServerFull,
         Kick,
+        ClientLeft,
     }
 
     public class PacketReadException : Exception

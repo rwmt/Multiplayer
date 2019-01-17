@@ -152,6 +152,8 @@ namespace Multiplayer.Client
             Sync.InitHandlers();
 
             HandleCommandLine();
+
+            RuntimeHelpers.RunClassConstructor(typeof(Text).TypeHandle);
         }
 
         private static void SetUsername()
@@ -174,6 +176,11 @@ namespace Multiplayer.Client
                 Multiplayer.username = "Player" + Rand.Range(0, 9999);
         }
 
+        private static void DoubleLongEvent(Action action, string textKey)
+        {
+            LongEventHandler.QueueLongEvent(() => LongEventHandler.QueueLongEvent(action, textKey, false, null), textKey, false, null);
+        }
+
         private static void HandleCommandLine()
         {
             if (GenCommandLine.TryGetCommandLineArg("connect", out string ip))
@@ -190,7 +197,7 @@ namespace Multiplayer.Client
                     int.TryParse(split[1], out port);
 
                 if (IPAddress.TryParse(ip, out IPAddress addr))
-                    LongEventHandler.QueueLongEvent(() => ClientUtil.TryConnect(addr, port), "Connecting", false, null);
+                    DoubleLongEvent(() => ClientUtil.TryConnect(addr, port), "Connecting");
             }
 
             if (GenCommandLine.CommandLineArgPassed("arbiter"))
@@ -202,7 +209,7 @@ namespace Multiplayer.Client
 
             if (GenCommandLine.TryGetCommandLineArg("replay", out string replay))
             {
-                LongEventHandler.QueueLongEvent(() =>
+                DoubleLongEvent(() =>
                 {
                     Replay.LoadReplay(Replay.ReplayFile(replay), true, () =>
                     {
@@ -214,7 +221,7 @@ namespace Multiplayer.Client
 
                         Application.Quit();
                     });
-                }, "Replay", false, null);
+                }, "Replay");
             }
 
             if (GenCommandLine.CommandLineArgPassed("printsync"))
@@ -332,6 +339,16 @@ namespace Multiplayer.Client
                     new HarmonyMethod(typeof(PageModsPatch), nameof(PageModsPatch.Postfix))
                 );
             }
+
+            var cancelForArbiter = new HarmonyMethod(typeof(CancelForArbiter), "Prefix");
+
+            var prisonLaborBehavior = MpReflection.GetTypeByName("PrisonLabor.Behaviour_MotivationIcon");
+            if (prisonLaborBehavior != null)
+                harmony.Patch(prisonLaborBehavior.GetMethod("Update", new Type[0]), cancelForArbiter);
+
+            var prisonLaborPawnIcons = MpReflection.GetTypeByName("PrisonLabor.Core.GUI_Components.PawnIcons") ?? MpReflection.GetTypeByName("PrisonLabor.MapComponent_Icons");
+            if (prisonLaborPawnIcons != null)
+                harmony.Patch(prisonLaborPawnIcons.GetMethod("MapComponentTick", new Type[0]), cancelForArbiter);
         }
 
         public static UniqueList<Texture2D> icons = new UniqueList<Texture2D>();

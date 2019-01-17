@@ -12,7 +12,7 @@ using Verse;
 
 namespace Multiplayer.Client
 {
-    [HarmonyPatch(typeof(GUI), nameof(GUI.skin), MethodType.Getter)]
+    [MpPatch(typeof(GUI), "get_" + nameof(GUI.skin))]
     static class GUISkinArbiter_Patch
     {
         static bool Prefix(ref GUISkin __result)
@@ -53,6 +53,7 @@ namespace Multiplayer.Client
     [MpPatch(typeof(Section), nameof(Section.RegenerateLayers))]
     [MpPatch(typeof(SectionLayer), nameof(SectionLayer.DrawLayer))]
     [MpPatch(typeof(Map), nameof(Map.MapUpdate))]
+    [MpPatch(typeof(GUIStyle), nameof(GUIStyle.CalcSize))]
     static class CancelForArbiter
     {
         static bool Prefix() => !Multiplayer.arbiterInstance;

@@ -31,7 +31,7 @@ namespace Multiplayer.Client
 
         public void UnregisterAllFrom(Map map)
         {
-            foreach (var val in allObjectsByLoadID.Values)
+            foreach (var val in allObjectsByLoadID.Values.ToArray())
             {
                 if (val is Thing thing && thing.Map == map ||
                     val is PassingShip ship && ship.Map == map ||
