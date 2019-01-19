@@ -11,7 +11,7 @@
   <MpInvalidGameName>Invalid game name</MpInvalidGameName>
   
   <MpWrongProtocol>Wrong protocol version</MpWrongProtocol>
-  <MpWrongModVersionInfo>Make sure you are using the same Multiplayer version as the host.</MpWrongModVersionInfo>
+  <MpWrongMultiplayerVersionInfo>The server is hosted on Multiplayer {0} (protocol {1}).</MpWrongMultiplayerVersionInfo>
   
   <MpWrongDefs>Mod definition mismatch</MpWrongDefs>
   <MpWrongDefsInfo>Make sure your installed mods, their versions and order match the host's.</MpWrongDefsInfo>

@@ -19,7 +19,7 @@ namespace Multiplayer.Common
             int clientProtocol = data.ReadInt32();
             if (clientProtocol != MpVersion.Protocol)
             {
-                Player.Disconnect(MpDisconnectReason.Protocol);
+                Player.Disconnect(MpDisconnectReason.Protocol, ByteWriter.GetBytes(MpVersion.Version, MpVersion.Protocol));
                 return;
             }
 
