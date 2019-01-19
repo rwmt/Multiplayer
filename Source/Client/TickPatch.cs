@@ -66,12 +66,12 @@ namespace Multiplayer.Client
 
             accumulator += delta;
 
-            float okDelta = MultiplayerMod.settings.aggressiveTicking ? 2.5f : 1.8f;
+            float okDelta = MultiplayerMod.settings.aggressiveTicking ? 2.5f : 1.7f;
 
             if (Timer >= tickUntil)
                 accumulator = 0;
             else if (!Multiplayer.IsReplay && delta < okDelta && tickUntil - Timer > 6)
-                accumulator += Math.Min(80, tickUntil - Timer - 6);
+                accumulator += Math.Min(60, tickUntil - Timer - 6);
 
             if (Multiplayer.IsReplay && replayTimeSpeed == TimeSpeed.Paused)
                 accumulator = 0;

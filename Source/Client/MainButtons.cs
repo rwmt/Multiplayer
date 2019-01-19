@@ -29,6 +29,16 @@ namespace Multiplayer.Client
 
             DoButtons();
 
+            if (Multiplayer.Client != null && !Multiplayer.IsReplay && Multiplayer.ToggleChatDef.KeyDownEvent)
+            {
+                Event.current.Use();
+
+                if (ChatWindow.Opened != null)
+                    ChatWindow.Opened.Close();
+                else
+                    OpenChat();
+            }
+
             return Find.Maps.Count > 0;
         }
 
@@ -75,6 +85,15 @@ namespace Multiplayer.Client
             }
         }
 
+        static void OpenChat()
+        {
+            var chatWindow = new ChatWindow();
+            Find.WindowStack.Add(chatWindow);
+
+            if (Multiplayer.session.chatPos != default(Rect))
+                chatWindow.windowRect = Multiplayer.session.chatPos;
+        }
+
         static void DoButtons()
         {
             float y = 10f;
@@ -94,13 +113,7 @@ namespace Multiplayer.Client
                 var chatLabel = $"{"MpChatButton".Translate()} <color={chatColor}>({session.players.Count})</color>{hasUnread}";
 
                 if (Widgets.ButtonText(btnRect, chatLabel))
-                {
-                    var chatWindow = new ChatWindow();
-                    Find.WindowStack.Add(chatWindow);
-
-                    if (session.chatPos != default(Rect))
-                        chatWindow.windowRect = session.chatPos;
-                }
+                    OpenChat();
 
                 if (!TickPatch.Skipping)
                 {
@@ -300,13 +313,13 @@ namespace Multiplayer.Client
         static void Prefix()
         {
             if (Multiplayer.IsReplay)
-                UI.screenHeight -= 45;
+                UI.screenHeight -= 60;
         }
 
         static void Postfix()
         {
             if (Multiplayer.IsReplay)
-                UI.screenHeight += 45;
+                UI.screenHeight += 60;
         }
     }
 }

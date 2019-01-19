@@ -106,7 +106,7 @@ namespace Multiplayer.Client
                 var saveFile = new SaveFile(Path.GetFileNameWithoutExtension(file.Name), false, file);
 
                 using (var stream = file.OpenRead())
-                    ReadSaveInfo(stream, out saveFile.rwVersion, out saveFile.modNames, out saveFile.modIds);
+                    ReadSaveInfo(stream, saveFile);
 
                 spSaves.Add(saveFile);
             }
@@ -129,17 +129,23 @@ namespace Multiplayer.Client
 
                 mpReplays.Add(saveFile);
 
-                using (var zip = replay.ZipFile)
-                    ReadSaveInfo(zip["world/000_save"].OpenReader(), out saveFile.rwVersion, out saveFile.modNames, out saveFile.modIds);
+                if (!replay.info.rwVersion.NullOrEmpty())
+                {
+                    saveFile.rwVersion = replay.info.rwVersion;
+                    saveFile.modIds = replay.info.modIds.ToArray();
+                    saveFile.modNames = replay.info.modNames.ToArray();
+                    saveFile.modAssemblyHashes = replay.info.modAssemblyHashes.ToArray();
+                }
+                else
+                {
+                    using (var zip = replay.ZipFile)
+                        ReadSaveInfo(zip["world/000_save"].OpenReader(), saveFile);
+                }
             }
         }
 
-        private void ReadSaveInfo(Stream stream, out string rwVersion, out string[] modNames, out string[] modIds)
+        private void ReadSaveInfo(Stream stream, SaveFile save)
         {
-            rwVersion = null;
-            modNames = new string[0];
-            modIds = new string[0];
-
             using (var reader = new XmlTextReader(stream))
             {
                 reader.ReadToNextElement(); // savedGame
@@ -148,14 +154,16 @@ namespace Multiplayer.Client
                 if (reader.Name != "meta") return;
 
                 reader.ReadToDescendant("gameVersion");
-                rwVersion = VersionControl.VersionStringWithoutRev(reader.ReadString());
+                save.rwVersion = VersionControl.VersionStringWithoutRev(reader.ReadString());
 
                 reader.ReadToNextSibling("modIds");
-                modIds = reader.ReadStrings();
+                save.modIds = reader.ReadStrings();
 
                 reader.ReadToNextSibling("modNames");
-                modNames = reader.ReadStrings();
+                save.modNames = reader.ReadStrings();
             }
+
+            save.modAssemblyHashes = new int[save.modNames.Length];
         }
 
         private bool mpCollapsed, spCollapsed;
@@ -372,11 +380,22 @@ namespace Multiplayer.Client
                 Find.WindowStack.Add(new Dialog_RenameFile(save.file, () => ReloadFiles()));
             });
 
-            if (MpVersion.IsDebug)
-                yield return new FloatMenuOption("Debug info", () =>
+            if (!MpVersion.IsDebug) yield break;
+
+            yield return new FloatMenuOption("Debug info", () =>
+            {
+                Find.WindowStack.Add(new DebugTextWindow(DesyncDebugInfo.Get(Replay.ForLoading(save.file))));
+            });
+
+            yield return new FloatMenuOption("Subscribe to Steam mods", () =>
+            {
+                for (int i = 0; i < save.modIds.Length; i++)
                 {
-                    Find.WindowStack.Add(new DebugTextWindow(DesyncDebugInfo.Get(Replay.ForLoading(save.file))));
-                });
+                    if (!ulong.TryParse(save.modIds[i], out ulong id)) continue;
+                    Log.Message($"Subscribed to: {save.modNames[i]}");
+                    SteamUGC.SubscribeItem(new PublishedFileId_t(id));
+                }
+            });
         }
 
         private List<SteamPersona> friends = new List<SteamPersona>();
@@ -664,8 +683,9 @@ namespace Multiplayer.Client
         public string gameName;
 
         public string rwVersion;
-        public string[] modNames;
-        public string[] modIds;
+        public string[] modNames = new string[0];
+        public string[] modIds = new string[0];
+        public int[] modAssemblyHashes = new int[0];
 
         public int protocol;
 

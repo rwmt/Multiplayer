@@ -65,10 +65,13 @@ namespace Multiplayer.Client
             return (T)FormatterServices.GetUninitializedObject(typeof(T));
         }
 
-        // Copied from Harmony
+        // Copied from Harmony.PatchProcessor
         public static MethodBase GetOriginalMethod(HarmonyMethod attr)
         {
             if (attr.declaringType == null) return null;
+
+            if (attr.methodType == null)
+                attr.methodType = MethodType.Normal;
 
             switch (attr.methodType)
             {

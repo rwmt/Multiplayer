@@ -91,7 +91,7 @@ namespace Multiplayer.Client
                     optList.Insert(newColony + 1, new ListableOption("Multiplayer", () =>
                     {
                         if (Prefs.DevMode && Event.current.button == 1)
-                            Find.WindowStack.Add(new DebugTextWindow("[name | id | assembly hash]\n" + LoadedModManager.RunningMods.Select((m, index) => $"{m.Name} | {m.Identifier} | {Multiplayer.modAssemblyHashes[index]}").Join(delimiter: "\n")));
+                            Find.WindowStack.Add(new DebugTextWindow("[name | id | assembly hash]\n" + LoadedModManager.RunningMods.Select((m, index) => $"{m.Name} | {m.Identifier} | {Multiplayer.enabledModAssemblyHashes[index]}").Join(delimiter: "\n")));
                         else
                             Find.WindowStack.Add(new ServerBrowser());
                     }));

@@ -12,6 +12,7 @@ using Verse.Steam;
 namespace Multiplayer.Client
 {
     [StaticConstructorOnStartup]
+    [HotSwappable]
     public class ChatWindow : Window
     {
         public static ChatWindow Opened => Find.WindowStack?.WindowOfType<ChatWindow>();
@@ -233,6 +234,12 @@ namespace Multiplayer.Client
 
         private void DrawChat(Rect inRect)
         {
+            if ((Event.current.type == EventType.mouseDown || KeyBindingDefOf.Cancel.KeyDownEvent) && !GUI.GetNameOfFocusedControl().NullOrEmpty())
+            {
+                Event.current.Use();
+                UI.UnfocusCurrentControl();
+            }
+
             Rect outRect = new Rect(0f, 0f, inRect.width, inRect.height - 30f);
             Rect viewRect = new Rect(0f, 0f, inRect.width - 16f, messagesHeight + 10f);
 
@@ -301,10 +308,7 @@ namespace Multiplayer.Client
 
             GUI.EndGroup();
 
-            if (Event.current.type == EventType.mouseDown && !GUI.GetNameOfFocusedControl().NullOrEmpty())
-                UI.UnfocusCurrentControl();
-
-            if (!hasBeenFocused)
+            if (!hasBeenFocused && Event.current.type == EventType.repaint)
             {
                 chatScroll.y = messagesHeight;
 

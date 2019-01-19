@@ -140,7 +140,7 @@ namespace Multiplayer.Client
                     rwVersion = VersionControl.CurrentVersionStringWithRev,
                     modIds = LoadedModManager.RunningModsListForReading.Select(m => m.Identifier).ToList(),
                     modNames = LoadedModManager.RunningModsListForReading.Select(m => m.Name).ToList(),
-                    modAssemblyHashes = Multiplayer.modAssemblyHashes.ToList(),
+                    modAssemblyHashes = Multiplayer.enabledModAssemblyHashes.ToList(),
                 }
             };
 

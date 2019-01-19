@@ -34,7 +34,7 @@ namespace Multiplayer.Client
             Multiplayer.session.mods.remoteRwVersion = data.ReadString();
             Multiplayer.session.mods.remoteModNames = data.ReadPrefixedStrings();
 
-            var defs = ClientUtil.CollectDefInfos();
+            var defs = Multiplayer.localDefInfos;
             Multiplayer.session.mods.defInfo = defs;
 
             var response = new ByteWriter();

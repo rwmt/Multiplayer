@@ -2,6 +2,7 @@
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
+using Steamworks;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -11,33 +12,56 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
+using System.Xml.Linq;
 using Verse;
 
 namespace Multiplayer.Client
 {
     [MpPatch(typeof(Dialog_DebugActionsMenu), nameof(Dialog_DebugActionsMenu.DoListingItems))]
+    [HotSwappable]
     static class MpDebugTools
     {
         static void Postfix(Dialog_DebugActionsMenu __instance)
         {
-            if (Current.ProgramState != ProgramState.Playing) return;
-
             var menu = __instance;
+
+            if (MpVersion.IsDebug)
+            {
+                menu.DoLabel("Entry tools");
+                menu.DebugAction("Entry action", EntryAction);
+            }
+
+            if (Current.ProgramState != ProgramState.Playing)
+                return;
 
             menu.DoLabel("Local");
 
             menu.DebugAction("Save game", SaveGameLocal);
             menu.DebugAction("Print static fields", PrintStaticFields);
-            menu.DebugAction("Queue incident", QueueIncident);
-            menu.DebugAction("Blocking long event", BlockingLongEvent);
+
+            if (MpVersion.IsDebug)
+            {
+                menu.DebugAction("Queue incident", QueueIncident);
+                menu.DebugAction("Blocking long event", BlockingLongEvent);
+            }
 
             if (Multiplayer.Client == null) return;
-            if (!MpVersion.IsDebug) return;
 
-            menu.DoLabel("Multiplayer");
+            if (MpVersion.IsDebug)
+            {
+                menu.DoLabel("Multiplayer");
 
-            menu.DebugAction("Save game for everyone", SaveGameCmd);
-            menu.DebugAction("Advance time", AdvanceTime);
+                menu.DebugAction("Save game for everyone", SaveGameCmd);
+                menu.DebugAction("Advance time", AdvanceTime);
+            }
+        }
+
+        public static void EntryAction()
+        {
+            foreach (var def in DefDatabase<ThingDef>.AllDefs)
+            {
+                Log.Message($"{def.modContentPack?.Name} {def} {def.shortHash} {def.index}");
+            }
         }
 
         [SyncMethod]

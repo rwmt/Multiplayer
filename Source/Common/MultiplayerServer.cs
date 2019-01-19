@@ -393,7 +393,7 @@ namespace Multiplayer.Common
     {
         public int count;
         public int hash;
-        public DefCheckStatus status;
+        public DefCheckStatus status; // only used by client's DefMismatchWindow
     }
 
     public class ServerSettings

@@ -156,7 +156,7 @@ namespace Multiplayer.Client
     {
         static Dictionary<Type, MethodInfo[]> typeMethods = new Dictionary<Type, MethodInfo[]>();
 
-        static bool Prefix(Type type, Func<MethodInfo, bool> predicate, ref MethodInfo __result)
+        public static bool Prefix(Type type, Func<MethodInfo, bool> predicate, ref MethodInfo __result)
         {
             if (type == null || predicate == null) return false;
 

@@ -161,7 +161,7 @@ namespace Multiplayer.Client
             if (file?.replay ?? Multiplayer.IsReplay)
                 HostFromReplay(settings);
             else if (file == null)
-                ClientUtil.HostServer(settings, false);
+                ClientUtil.HostServer(settings, false, debugMode: debugMode);
             else
                 HostFromSave(settings);
 
@@ -273,7 +273,13 @@ namespace Multiplayer.Client
 
             if (file != null)
             {
-                Replay.LoadReplay(file.file, true, ReplayLoaded, cancel: GenScene.GoToMainMenu, simTextKey: "MpSimulatingServer");
+                Replay.LoadReplay(
+                    file.file, 
+                    true, 
+                    ReplayLoaded, 
+                    cancel: GenScene.GoToMainMenu, 
+                    simTextKey: "MpSimulatingServer"
+                );
             }
             else
             {

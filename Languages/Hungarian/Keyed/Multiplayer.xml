@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<LanguageData>
+
+  <MpSimulating>Szimuláció</MpSimulating>
+  <MpSimulatingServer>Szerver szimulációja</MpSimulatingServer>
+  <MpLoading>Töltés</MpLoading>
+  <MpSaving>Mentés</MpSaving>
+  
+  <MpInvalidPort>Rossz port</MpInvalidPort>
+  <MpInvalidAddress>Rossz cím</MpInvalidAddress>
+  <MpInvalidGameName>Rossz játéknév</MpInvalidGameName>
+  
+  <MpWrongProtocol>Rossz protokoll verzió</MpWrongProtocol>
+  <MpWrongModVersionInfo>Ugyan azt a Multiplayer mod verziót használd, mint a host!</MpWrongModVersionInfo>
+  
+  <MpWrongDefs>Nem egyeznek a modok</MpWrongDefs>
+  <MpWrongDefsInfo>A modoknak, és azok betöltési sorrendjének egyezniük kell a hosttal.</MpWrongDefsInfo>
+  <MpModList>Mod lista</MpModList>
+  <MpSeeModList>Mod lista megtekintése</MpSeeModList>
+  
+  <MpServerClosed>Bezárt a szerver</MpServerClosed>
+  <MpServerFull>A szerver tele van</MpServerFull>
+  <MpKicked>Ki lettél rúgva</MpKicked>
+
+  <MpInvalidUsernameAlreadyPlaying>Ez a felhasználónév már használatban van</MpInvalidUsernameAlreadyPlaying>
+  <MpInvalidUsernameChars>A felhasználónévben nem megengedett karakterek vannak</MpInvalidUsernameChars>
+  <MpInvalidUsernameLength>A felhasználónév hossza nem megfelelő</MpInvalidUsernameLength>
+  <MpChangeUsernameInfo>A Beállítások -> Mod beállításokban megváltoztathatod a felhasználónevedet.</MpChangeUsernameInfo>
+  
+  <MpPlayerConnected>{0} csatlakozott</MpPlayerConnected>
+  <MpPlayerDisconnected>{0} kilépett</MpPlayerDisconnected>
+  
+  <MpReplayOutdated>(Régi)</MpReplayOutdated>
+  <MpReplayOutdatedDesc1>Ez a visszajátszás a következő verzióhoz van: {0}, a te verziód azonban: {1}.</MpReplayOutdatedDesc1>
+  <MpReplayOutdatedDesc2>Nem biztos, hogy ez a visszajátszás megfelelően fog működni.</MpReplayOutdatedDesc2>
+  <MpReplayOutdatedDesc3>A lehetséges inkompatibilitásból eredő hibák a release historyban megtalálhatóak.</MpReplayOutdatedDesc3>
+  <MpReplayOutdatedDesc4>Ebben a fájlban több információ van, így ebből hostolva működnie kéne rendesen.</MpReplayOutdatedDesc4>
+  
+  <MpServerCloseConfirmation>Biztos bezárod a szervert? Minden nem elmentett változás elveszik.</MpServerCloseConfirmation>
+  
+  <MpHostServer>Szerver hosztolása</MpHostServer>
+  <MpSaveReplay>Mentés</MpSaveReplay>
+  
+  <MpConvert>Egyjátékossá konvertálás</MpConvert>
+  <MpConverting>Konvertálás</MpConverting>
+  
+  <MpUsername>Felhasználónév</MpUsername>
+  <MpShowPlayerCursors>Többiek kurzorának mutatása</MpShowPlayerCursors>
+  <MpAutoAcceptSteam>Steam csatlakozás automatikus elfogadása</MpAutoAcceptSteam>
+  <MpAutoAcceptSteamDesc>Minden steam csatlakozás automatikusan el lesz fogadva.</MpAutoAcceptSteamDesc>
+  <MpTransparentChat>Átlátszó üzenetablak</MpTransparentChat>
+  
+  <MpAutosaveSlots>Automatikus mentések száma</MpAutosaveSlots>
+  <MpAutosaveSlotsDesc>Mennyi automatikus mentés legyen elmentve, mielőtt a legrégebbi törlésre kerül.</MpAutosaveSlotsDesc>
+  
+  <MpTraderLeavesIn>Elmegy: {0}</MpTraderLeavesIn>
+  
+  <MpChatButton>Üzenetek</MpChatButton>
+  <MpTradingButton>Kereskedés</MpTradingButton>
+  
+  <MpChatPlayers>Játékosok ({0}):</MpChatPlayers>
+  <MpSend>Küld</MpSend>
+  <MpSteamAcceptTitle>Steam játékosok elfogadása</MpSteamAcceptTitle>
+  <MpSteamAcceptDesc>Katt az elfogadáshoz</MpSteamAcceptDesc>
+  <MpSteamAccepted>Játékos elfogadva</MpSteamAccepted>
+  
+  <MpConnectingTo>Csatlakozás a következőhöz: {0}:{1}</MpConnectingTo>
+  <MpConnected>Csatlakozva.</MpConnected>
+  <MpDownloading>Letöltés ({0}%)</MpDownloading>
+  
+  <MpSteamConnectingTo>Csatlakozás {0} játékához</MpSteamConnectingTo>
+  <MpSteamConnectingWaiting>Várakozás a host elfogadására</MpSteamConnectingWaiting>
+  
+  <MpTicksBehind>{0} tick-el vagy lemaradva.</MpTicksBehind>
+  <MpLowerGameSpeed>Ajánlott a játéksebesség csökkentése.</MpLowerGameSpeed>
+  <MpForceCatchUp>Kattints ide, hogy azonnal felzárkózz.</MpForceCatchUp>
+  
+  <MpDesynced>A játékok nincsenek szinkronban.</MpDesynced>
+  <MpTryResync>Szinkronizálás</MpTryResync>
+  
+  <MpSaveReplayAs>Visszajátszás mentése mint</MpSaveReplayAs>
+  <MpWillOverwrite>Felül lesz írva</MpWillOverwrite>
+  <MpReplaySaved>Visszajátszás elmentve</MpReplaySaved>
+  
+  <MpGameName>Játék neve</MpGameName>
+  <MpMaxPlayers>Max játékosok</MpMaxPlayers>
+  <MpAutosaveEvery>Automatikus mentés</MpAutosaveEvery>
+  <MpAutosaveMinutes>percenként</MpAutosaveMinutes>
+  <MpLanDesc1>A játék hírdetése helyi hálózaton</MpLanDesc1>
+  <MpLanDesc2>LAN cím: {0}</MpLanDesc2>
+  <MpArbiterDesc>Egy játékfolyamat, ami a háttérben futva segít a szinkronizáció megtartásában.</MpArbiterDesc>
+  <MpAsyncTimeDesc>Külön időirányítás a különböző pályákhoz, és a bolygóhoz.</MpAsyncTimeDesc>
+  <MpExperimentalFeature>Kísérleti funkció</MpExperimentalFeature>
+  
+  <MpHostButton>Host</MpHostButton>
+  <MpWatchReplay>Megnéz</MpWatchReplay>
+  <MpNothingSelected>Semmi sincs kijelölve</MpNothingSelected>
+  <MpNoSaves>A többjátékos mód csak meglévő mentésekből játszható</MpNoSaves>
+  
+  <MpHostIngame>Host ebből a játékból</MpHostIngame>
+  <MpHostReplay>Host egy visszajátszásból</MpHostReplay>
+  <MpHostSavefile>Host egy mentésből</MpHostSavefile>
+  
+  <MpJoinButton>Csatlakozás</MpJoinButton>
+  <MpConnectButton>Kapcsolódás</MpConnectButton>
+  <MpLanSearching>Keresés</MpLanSearching>
+  
+  <MpNotConnectedToSteam>Nincs kapcsolat steammel</MpNotConnectedToSteam>
+  <MpNoFriendsPlaying>Jelenleg nem játszanak barátaid a játékkal</MpNoFriendsPlaying>
+  <MpPlayingRimWorld>RimWorldel játszik</MpPlayingRimWorld>
+  <MpNotInMultiplayer>Nincs többjátékos módban</MpNotInMultiplayer>
+  
+  <MpLan>LAN</MpLan>
+  <MpDirect>Közvetlen</MpDirect>
+  <MpSteam>Steam</MpSteam>
+  <MpHostTab>Host</MpHostTab>
+  
+  <MpMultiplayer>Többjátékos</MpMultiplayer>
+  <MpSingleplayer>Egyjátékos</MpSingleplayer>
+  
+  <MpNotAvailable>Nem támogatott a többjátékos módban.</MpNotAvailable>
+  <MpCallingFactionNotAvailable>Többiek hívása nem támogatott a többjátékos módban. (Kereskedőket lehet.)</MpCallingFactionNotAvailable>
+  
+  <MpAggressiveTicking>Aggresszív felzárkózás</MpAggressiveTicking>
+  <MpAggressiveTickingDesc>Folyamatosan próbáljon meg a szerverhez felzárkózni a játék. (FPS csökkenhet!)</MpAggressiveTickingDesc>
+  
+</LanguageData>
