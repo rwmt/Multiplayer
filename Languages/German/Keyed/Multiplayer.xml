@@ -2,15 +2,25 @@
 <LanguageData>
 
   <MpSimulating>Simulieren</MpSimulating>
+  <MpSimulatingServer>Simuliert den Server</MpSimulatingServer>
   <MpLoading>Laden</MpLoading>
   <MpSaving>Speichern</MpSaving>
 
   <MpInvalidPort>Ungültiger Port</MpInvalidPort>
   <MpInvalidAddress>Ungültige Addresse</MpInvalidAddress>
-
+  <MpInvalidGameName>Ungültiger Spielname</MpInvalidGameName>
+  
   <MpWrongProtocol>Falsche Protokoll Version</MpWrongProtocol>
+  <MpWrongModVersionInfo>Stell sicher, dass Du dieselbe Mehrspieler Version hat wie der Host.</MpWrongModVersionInfo>
+  
+  <MpWrongDefs>Die Mods stimmen nicht überein</MpWrongDefs>
+  <MpModList>Mod liste</MpModList>
+  <MpSeeModList>Siehe mod liste</MpSeeModList>
+  
   <MpServerClosed>Server geschlossen</MpServerClosed>
-
+  <MpServerFull>Der Server ist voll.</MpServerFull>
+  <MpKicked>Du wurdest aus dem Spiel gekickt</MpKicked>
+  
   <MpInvalidUsernameAlreadyPlaying>Username bereits online</MpInvalidUsernameAlreadyPlaying>
   <MpInvalidUsernameChars>Username hat ungültige Schriftzeichen</MpInvalidUsernameChars>
   <MpInvalidUsernameLength>Username hat eine ungültige Länge</MpInvalidUsernameLength>
@@ -21,8 +31,58 @@
   <MpArbiterDesc>Eine Spielinstanz welche im Hintergrund läuft um Desync Probleme zu beheben.</MpArbiterDesc>
 
   <MpReplayOutdated>(Veraltet)</MpReplayOutdated>
-  <MpReplayOutdatedDesc>Dieses Replay wurde für Protokoll Version {0} gemacht, du nutzt allerdings Version {1}.\n\nDas Replay könnte fehlerhaft abspielen.\nMögliche Inkompatibilitäten sind in der Release History aufgeführt.</MpReplayOutdatedDesc>
-
+  <MpReplayOutdatedDesc1>Dieses Replay wurde für Protokoll Version {0} gemacht, du nutzt allerdings Version {1}.\n\nDas Replay könnte fehlerhaft abspielen.\nMögliche Inkompatibilitäten sind in der Release History aufgeführt.</MpReplayOutdatedDesc>
+  <MpReplayOutdatedDesc2>Dieses Replay wird möglicherweise nicht richtig abgespielt.</MpReplayOutdatedDesc2>
+  <MpReplayOutdatedDesc3>Mögliche Inkompatibilität wurde in der Version History gelistet.</MpReplayOutdatedDesc3>
+  <MpReplayOutdatedDesc4>Diese Datei enthält zusätzliche Informationen, das Hosten von dieser Datei sollte trotzdem problemlos funktionieren.</MpReplayOutdatedDesc4>
+  
   <MpServerCloseConfirmation>Bist du sicher, dass du den Server schließen möchtest? Ungespeicherter Fortschritt geht verloren.</MpServerCloseConfirmation>
-
+  
+  <MpHostServer>Ein Server hosten</MpHostServer>
+  <MpSaveReplay>Wiederholung speichern</MpSaveReplay>
+  
+  <MpConvert>Konvertiere zu Singleplayer</MpConvert>
+  <MpConverting>Konvertiere</MpConverting>
+  
+   <MpGameName>Spielname</MpGameName>
+  <MpMaxPlayers>Max. Spieler</MpMaxPlayers>
+  <MpAutosaveEvery>Automatisches Speichern jede</MpAutosaveEvery>
+  <MpAutosaveMinutes>minuten</MpAutosaveMinutes>
+  <MpLanDesc1>Übertragen Sie das Spiel in Ihr lokales Netzwerk.</MpLanDesc1>
+  <MpLanDesc2>Aufgelöste LAN adresse: {0}</MpLanDesc2>
+  <MpArbiterDesc>Eine Spielinstance, welche im Hintergrund arbeitet und dabei hilft desync probleme zu beheben.</MpArbiterDesc>
+  <MpAsyncTimeDesc>Separate Zeitsteuerungen für jede Karte und den Planeten.</MpAsyncTimeDesc>
+  <MpExperimentalFeature>Experimentelle Funktionen</MpExperimentalFeature>
+  
+  <MpHostButton>Hoste</MpHostButton>
+  <MpWatchReplay>Angucken</MpWatchReplay>
+  <MpNothingSelected>Nichts ausgewählt</MpNothingSelected>
+  <MpNoSaves>Mehrspieler kann nur von gespielten Speicherständen, gespielt werden</MpNoSaves>
+  
+  <MpHostIngame>Hoste von diesem Spiel</MpHostIngame>
+  <MpHostReplay>Hoste von einer Wiederholung</MpHostReplay>
+  <MpHostSavefile>Hoste von einer Speicherdatei</MpHostSavefile>
+  
+  <MpJoinButton>Beitreten</MpJoinButton>
+  <MpConnectButton>Verbinde</MpConnectButton>
+  <MpLanSearching>Sucht</MpLanSearching>
+  
+  <MpNotConnectedToSteam>Du bist nicht mit Steam verbunden.</MpNotConnectedToSteam>
+  <MpNoFriendsPlaying>Es Spielen zurzeit keine Freunde RimWorld</MpNoFriendsPlaying>
+  <MpPlayingRimWorld>Spielt RimWorld</MpPlayingRimWorld>
+  <MpNotInMultiplayer>Nicht verfügbar im Mehrspieler-Modus</MpNotInMultiplayer>
+  
+  <MpLan>LAN</MpLan>
+  <MpDirect>Direkt</MpDirect>
+  <MpSteam>Steam</MpSteam>
+  <MpHostTab>Hosten</MpHostTab>
+  
+  <MpMultiplayer>Mehrspieler-Modus</MpMultiplayer>
+  <MpSingleplayer>Einzelspieler-Modus</MpSingleplayer>
+  
+  <MpNotAvailable>Nicht verfügbar im Mehrspielermodus.</MpNotAvailable>
+  <MpCallingFactionNotAvailable>Das Anrufen anderer Fraktionen ist im Mehrspieler-Modus derzeit nicht möglich.</MpCallingFactionNotAvailable>
+  
+  <MpAggressiveTicking>Aggressives ticking</MpAggressiveTicking>
+  <MpAggressiveTickingDesc>Versucht immer, auf Kosten von FPS, den Server aufzuholen.</MpAggressiveTickingDesc>
 </LanguageData>
