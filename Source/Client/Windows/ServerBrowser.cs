@@ -21,7 +21,6 @@ using zip::Ionic.Zip;
 
 namespace Multiplayer.Client
 {
-    [StaticConstructorOnStartup]
     [HotSwappable]
     public class ServerBrowser : Window
     {
@@ -463,7 +462,10 @@ namespace Multiplayer.Client
                         var conn = new SteamClientConn(friend.serverHost);
                         conn.username = Multiplayer.username;
                         Multiplayer.session = new MultiplayerSession();
+
                         Multiplayer.session.client = conn;
+                        Multiplayer.session.ReapplyPrefs();
+
                         conn.State = ConnectionStateEnum.ClientSteam;
                     }
                 }

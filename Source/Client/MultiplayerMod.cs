@@ -10,6 +10,8 @@ using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Xml;
 using UnityEngine;
@@ -23,11 +25,10 @@ namespace Multiplayer.Client
         public static HarmonyInstance harmony = HarmonyInstance.Create("multiplayer");
         public static MpSettings settings;
 
-        public MultiplayerMod(ModContentPack pack) : base(pack)
+        public unsafe MultiplayerMod(ModContentPack pack) : base(pack)
         {
             EarlyMarkNoInline(typeof(Multiplayer).Assembly);
             EarlyPatches();
-            EarlyInit();
 
             settings = GetSettings<MpSettings>();
         }
@@ -105,23 +106,6 @@ namespace Multiplayer.Client
                 new HarmonyMethod(typeof(XmlInheritance_Patch), "Prefix"),
                 new HarmonyMethod(typeof(XmlInheritance_Patch), "Postfix")
             );
-        }
-
-        private void EarlyInit()
-        {
-            foreach (var thingMaker in DefDatabase<ThingSetMakerDef>.AllDefs)
-            {
-                CaptureThingSetMakers.captured.Add(thingMaker.root);
-
-                if (thingMaker.root is ThingSetMaker_Sum sum)
-                    sum.options.Select(o => o.thingSetMaker).Do(CaptureThingSetMakers.captured.Add);
-
-                if (thingMaker.root is ThingSetMaker_Conditional cond)
-                    CaptureThingSetMakers.captured.Add(cond.thingSetMaker);
-
-                if (thingMaker.root is ThingSetMaker_RandomOption rand)
-                    rand.options.Select(o => o.thingSetMaker).Do(CaptureThingSetMakers.captured.Add);
-            }
         }
 
         private string slotsBuffer;

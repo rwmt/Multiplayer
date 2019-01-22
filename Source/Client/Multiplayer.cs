@@ -220,10 +220,10 @@ namespace Multiplayer.Client
                 {
                     Replay.LoadReplay(Replay.ReplayFile(replay), true, () =>
                     {
-                        var rand = Find.Maps.Select(m => m.AsyncTime().randState).Select(s => $"{(uint)s} {s >> 32}");
+                        var rand = Find.Maps.Select(m => m.AsyncTime().randState).Select(s => $"{s} {(uint)s} {s >> 32}");
 
                         Log.Message($"timer {TickPatch.Timer}");
-                        Log.Message($"world rand {(uint)WorldComp.randState} {WorldComp.randState >> 32}");
+                        Log.Message($"world rand {WorldComp.randState} {(uint)WorldComp.randState} {WorldComp.randState >> 32}");
                         Log.Message($"map rand {rand.ToStringSafeEnumerable()} | {Find.Maps.Select(m => m.AsyncTime().mapTicks).ToStringSafeEnumerable()}");
 
                         Application.Quit();
@@ -439,6 +439,10 @@ namespace Multiplayer.Client
             dict["WorldObjectComp"] = GetDefInfo(Sync.worldObjectCompTypes, TypeHash);
             dict["IStoreSettingsParent"] = GetDefInfo(Sync.storageParents, TypeHash);
             dict["IPlantToGrowSettable"] = GetDefInfo(Sync.plantToGrowSettables, TypeHash);
+
+            dict["GameComponent"] = GetDefInfo(Sync.gameCompTypes, TypeHash);
+            dict["WorldComponent"] = GetDefInfo(Sync.worldCompTypes, TypeHash);
+            dict["MapComponent"] = GetDefInfo(Sync.mapCompTypes, TypeHash);
 
             foreach (var defType in GenTypes.AllLeafSubclasses(typeof(Def)))
             {

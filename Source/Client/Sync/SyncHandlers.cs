@@ -279,8 +279,8 @@ namespace Multiplayer.Client
             }
         }
 
+        [MpPrefix(typeof(DebugWindowsOpener), nameof(DebugWindowsOpener.ToggleGodMode))]
         [MpPrefix(typeof(Prefs), "set_DevMode")]
-        [MpPrefix(typeof(DebugWindowsOpener), "ToggleGodMode")]
         static void SetGodMode()
         {
             SyncGodMode.Watch();

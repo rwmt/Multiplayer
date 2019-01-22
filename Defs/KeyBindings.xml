@@ -5,7 +5,7 @@
   <KeyBindingDef ParentName="GameKeyBinding">
     <defName>MpToggleChat</defName>
     <label>toggle chat</label>
-    <defaultKeyCodeA>T</defaultKeyCodeA>
+    <defaultKeyCodeA>Equals</defaultKeyCodeA>
   </KeyBindingDef>
 
 </Defs>

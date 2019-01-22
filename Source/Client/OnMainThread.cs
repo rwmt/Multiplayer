@@ -181,6 +181,7 @@ namespace Multiplayer.Client
             {
                 Multiplayer.session.Stop();
                 Multiplayer.session = null;
+                Prefs.Apply();
             }
 
             Multiplayer.game = null;

@@ -214,6 +214,7 @@ namespace Multiplayer.Client
             serverPlayer.SendPlayerList();
 
             Multiplayer.session.client = localClient;
+            Multiplayer.session.ReapplyPrefs();
         }
 
         private static void StartArbiter()
@@ -245,7 +246,9 @@ namespace Multiplayer.Client
             IConnection conn = new MpNetConnection(peer);
             conn.username = Multiplayer.username;
             conn.State = ConnectionStateEnum.ClientJoining;
+
             Multiplayer.session.client = conn;
+            Multiplayer.session.ReapplyPrefs();
 
             MpLog.Log("Net client connected");
         }

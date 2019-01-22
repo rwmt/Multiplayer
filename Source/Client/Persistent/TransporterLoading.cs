@@ -215,7 +215,6 @@ namespace Multiplayer.Client
             if (__instance is MpLoadTransportersWindow mp && mp.itemsReady)
             {
                 mp.transferables = mp.Session.transferables;
-                Log.Message("set items");
                 return false;
             }
 

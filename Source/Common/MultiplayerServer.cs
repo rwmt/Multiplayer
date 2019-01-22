@@ -185,7 +185,17 @@ namespace Multiplayer.Common
 
         private void SendLatencies()
         {
-            SendToAll(Packets.Server_PlayerList, new object[] { (byte)PlayerListAction.Latencies, PlayingPlayers.Select(p => p.Latency).ToArray() });
+            var writer = new ByteWriter();
+            writer.WriteByte((byte)PlayerListAction.Latencies);
+
+            writer.WriteInt32(PlayingPlayers.Count());
+            foreach (var player in PlayingPlayers)
+            {
+                writer.WriteInt32(player.Latency);
+                writer.WriteInt32(player.ticksBehind);
+            }
+
+            SendToAll(Packets.Server_PlayerList, writer.ToArray());
         }
 
         public bool DoAutosave()
@@ -426,6 +436,7 @@ namespace Multiplayer.Common
         public IConnection conn;
         public PlayerType type;
         public PlayerStatus status;
+        public int ticksBehind;
 
         public ulong steamId;
         public string steamPersonaName = "";
@@ -510,6 +521,7 @@ namespace Multiplayer.Common
             writer.WriteByte((byte)status);
             writer.WriteULong(steamId);
             writer.WriteString(steamPersonaName);
+            writer.WriteInt32(ticksBehind);
 
             return writer.ToArray();
         }

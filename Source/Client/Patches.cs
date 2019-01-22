@@ -1,4 +1,5 @@
 ﻿using Harmony;
+using Harmony.ILCopying;
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
@@ -947,11 +948,7 @@ namespace Multiplayer.Client
         static void Postfix(Pawn_MeleeVerbs __instance, Thing target, ref Verb __result)
         {
             if (Cancel)
-            {
-                __result =
-                    __instance.GetUpdatedAvailableVerbsList(false).FirstOrDefault(ve => ve.GetSelectionWeight(target) != 0).verb ??
-                    __instance.GetUpdatedAvailableVerbsList(true).FirstOrDefault(ve => ve.GetSelectionWeight(target) != 0).verb;
-            }
+                __result = __instance.GetUpdatedAvailableVerbsList(false).FirstOrDefault(ve => ve.GetSelectionWeight(target) != 0).verb;
         }
     }
 
@@ -1552,6 +1549,12 @@ namespace Multiplayer.Client
     static class CancelStoryWatcherEventInInterface
     {
         static bool Prefix() => !Multiplayer.InInterface;
+    }
+
+    [HarmonyPatch(typeof(DesignationDragger), nameof(DesignationDragger.UpdateDragCellsIfNeeded))]
+    static class CancelUpdateDragCellsIfNeeded
+    {
+        static bool Prefix() => !Multiplayer.ExecutingCmds;
     }
 
 }

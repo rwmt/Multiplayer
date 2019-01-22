@@ -208,7 +208,9 @@ namespace Multiplayer.Client
         public void HandleKeepAlive(ByteReader data)
         {
             int id = data.ReadInt32();
-            connection.Send(Packets.Client_KeepAlive, id);
+            int ticksBehind = TickPatch.tickUntil - TickPatch.Timer;
+
+            connection.Send(Packets.Client_KeepAlive, id, (ticksBehind << 1) | (TickPatch.Skipping ? 1 : 0));
         }
 
         [PacketHandler(Packets.Server_Command)]
@@ -245,10 +247,14 @@ namespace Multiplayer.Client
             }
             else if (action == PlayerListAction.Latencies)
             {
-                int[] latencies = data.ReadPrefixedInts();
+                int count = data.ReadInt32();
 
-                for (int i = 0; i < Multiplayer.session.players.Count; i++)
-                    Multiplayer.session.players[i].latency = latencies[i];
+                for (int i = 0; i < count; i++)
+                {
+                    var player = Multiplayer.session.players[i];
+                    player.latency = data.ReadInt32();
+                    player.ticksBehind = data.ReadInt32();
+                }
             }
             else if (action == PlayerListAction.Status)
             {

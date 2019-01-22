@@ -63,16 +63,6 @@ namespace Multiplayer.Client
         static bool Prefix() => Multiplayer.Client == null;
     }
 
-    [MpPatch(typeof(Prefs), "get_" + nameof(Prefs.PauseOnUrgentLetter))]
-    static class PauseOnUrgentLetterInMultiplayer
-    {
-        static void Postfix(ref bool __result)
-        {
-            if (Multiplayer.Client != null)
-                __result = true;
-        }
-    }
-
     [MpPatch(typeof(Prefs), "set_" + nameof(Prefs.PauseOnLoad))]
     [MpPatch(typeof(Prefs), "set_" + nameof(Prefs.PauseOnError))]
     [MpPatch(typeof(Prefs), "set_" + nameof(Prefs.PauseOnUrgentLetter))]

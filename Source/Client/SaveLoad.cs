@@ -102,6 +102,9 @@ namespace Multiplayer.Client
             Find.Root.Start();
             CancelRootPlayStartLongEvents.cancel = false;
 
+            //foreach (var alert in ((UIRoot_Play)Find.UIRoot).alerts.AllAlerts)
+            //    alert.lastBellTime = float.NaN;
+
             // SaveCompression enabled in the patch
             SavedGameLoaderNow.LoadGameFromSaveFileNow(null);
 
@@ -361,6 +364,16 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.Client == null) return;
             Multiplayer.WorldComp.FinalizeInit();
+        }
+    }
+
+    [HarmonyPatch(typeof(Alert), nameof(Alert.Notify_Started))]
+    static class FixAlertBellTime
+    {
+        static void Postfix(Alert __instance)
+        {
+            if (__instance.lastBellTime == float.NaN)
+                __instance.lastBellTime = Time.realtimeSinceStartup;
         }
     }
 

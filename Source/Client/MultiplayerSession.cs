@@ -165,6 +165,11 @@ namespace Multiplayer.Client
             else
                 Find.WindowStack.Add(new DefMismatchWindow(mods));
         }
+
+        public void ReapplyPrefs()
+        {
+            Application.runInBackground = true;
+        }
     }
 
     public class SessionModInfo
@@ -181,6 +186,7 @@ namespace Multiplayer.Client
         public int id;
         public string username;
         public int latency;
+        public int ticksBehind;
         public PlayerType type;
         public PlayerStatus status;
 
@@ -217,11 +223,14 @@ namespace Multiplayer.Client
             var steamId = data.ReadULong();
             var steamName = data.ReadString();
 
+            var ticksBehind = data.ReadInt32();
+
             return new PlayerInfo(id, username, latency, type)
             {
                 status = status,
                 steamId = steamId,
-                steamPersonaName = steamName
+                steamPersonaName = steamName,
+                ticksBehind = ticksBehind
             };
         }
     }

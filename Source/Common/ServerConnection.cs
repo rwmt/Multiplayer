@@ -345,10 +345,14 @@ namespace Multiplayer.Common
         [PacketHandler(Packets.Client_KeepAlive)]
         public void HandleClientKeepAlive(ByteReader data)
         {
+            int id = data.ReadInt32();
+            int ticksBehind = data.ReadInt32();
+
+            Player.ticksBehind = ticksBehind;
+
             // Latency already handled by LiteNetLib
             if (connection is MpNetConnection) return;
 
-            int id = data.ReadInt32();
             if (MultiplayerServer.instance.keepAliveId == id)
                 connection.Latency = (int)MultiplayerServer.instance.lastKeepAlive.ElapsedMilliseconds / 2;
             else

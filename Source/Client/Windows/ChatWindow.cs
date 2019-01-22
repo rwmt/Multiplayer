@@ -112,9 +112,16 @@ namespace Multiplayer.Client
                     if (p.type == PlayerType.Steam)
                     {
                         var steamIcon = new Rect(rect.xMax - 24f, 0, 24f, 24f);
+                        rect.width -= 24f;
                         GUI.DrawTexture(steamIcon, ContentSourceUtility.ContentSourceIcon_SteamWorkshop);
-                        TooltipHandler.TipRegion(steamIcon, $"{p.steamPersonaName}\n{p.steamId}");
+                        TooltipHandler.TipRegion(steamIcon, new TipSignal($"{p.steamPersonaName}\n{p.steamId}", p.id));
                     }
+
+                    string toolTip = $"{p.ticksBehind >> 1} ticks behind";
+                    if ((p.ticksBehind & 1) != 0)
+                        toolTip += "\n(Simulating)";
+
+                    TooltipHandler.TipRegion(rect, new TipSignal(toolTip, p.id));
                 },
                 entryLabelColor: e => GetColor(e.status)
             );

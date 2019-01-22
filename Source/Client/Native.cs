@@ -25,6 +25,9 @@ namespace Multiplayer.Client
         static extern IntPtr mono_debug_init(int format);
 
         [DllImport("mono.dll")]
+        public static extern void mono_set_defaults(IntPtr verboseLevel, int opts);
+
+        [DllImport("mono.dll")]
         static extern IntPtr mono_debug_open_image_from_memory(IntPtr imageHandle, IntPtr contents, IntPtr size);
 
         [DllImport("mono.dll")]
@@ -35,6 +38,15 @@ namespace Multiplayer.Client
 
         [DllImport("mono.dll")]
         static extern IntPtr mono_type_get_class(IntPtr typeHandle);
+
+        [DllImport("mono.dll")]
+        public static extern IntPtr mono_method_get_header(IntPtr methodHandle);
+
+        [DllImport("mono.dll")]
+        public static unsafe extern int mono_method_get_flags(IntPtr methodHandle, int* iflags);
+
+        [DllImport("mono.dll")]
+        public static extern IntPtr mono_method_header_get_code(IntPtr header, IntPtr codeSize, IntPtr maxStack);
 
         [DllImport("mono.dll")]
         public static extern void mono_stack_walk(IntPtr walkFunc, IntPtr data);

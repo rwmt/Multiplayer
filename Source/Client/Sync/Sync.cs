@@ -741,7 +741,7 @@ namespace Multiplayer.Client
         public static Dictionary<MethodBase, ISyncMethod> syncMethods = new Dictionary<MethodBase, ISyncMethod>();
 
         public static Dictionary<SyncField, Dictionary<Pair<object, object>, BufferData>> bufferedChanges = new Dictionary<SyncField, Dictionary<Pair<object, object>, BufferData>>();
-        private static Stack<FieldData> watchedStack = new Stack<FieldData>();
+        public static Stack<FieldData> watchedStack = new Stack<FieldData>();
 
         public static void InitHandlers()
         {
@@ -765,10 +765,12 @@ namespace Multiplayer.Client
             while (watchedStack.Count > 0)
             {
                 FieldData data = watchedStack.Pop();
+
                 if (data == null)
                     break; // The marker
 
                 SyncField handler = data.handler;
+
                 object newValue = MpReflection.GetValue(data.target, handler.memberPath, data.index);
                 bool changed = !Equals(newValue, data.oldValue);
                 var cache = (handler.bufferChanges && !Multiplayer.IsReplay) ? bufferedChanges.GetValueSafe(handler) : null;
@@ -947,14 +949,16 @@ namespace Multiplayer.Client
         public static void ApplyWatchFieldPatches(Type type)
         {
             HarmonyMethod prefix = new HarmonyMethod(AccessTools.Method(typeof(Sync), nameof(Sync.FieldWatchPrefix)));
-            prefix.priority = Priority.First;
+            prefix.priority = MpPriority.MpFirst;
             HarmonyMethod postfix = new HarmonyMethod(AccessTools.Method(typeof(Sync), nameof(Sync.FieldWatchPostfix)));
-            postfix.priority = Priority.Last;
+            postfix.priority = MpPriority.MpLast;
 
             foreach (MethodBase toPatch in type.GetDeclaredMethods())
             {
                 foreach (var attr in toPatch.AllAttributes<MpPrefix>())
+                {
                     Multiplayer.harmony.Patch(attr.Method, prefix, postfix);
+                }
             }
         }
 

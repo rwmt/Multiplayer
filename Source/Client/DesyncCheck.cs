@@ -140,7 +140,7 @@ namespace Multiplayer.Client
 
         private void PrintTrace(SyncInfo local, SyncInfo remote)
         {
-            File.WriteAllText("host_traces.txt", local.TracesToString());
+            File.WriteAllText("local_traces.txt", local.TracesToString());
             Multiplayer.Client.Send(Packets.Client_Debug, local.startTick);
         }
 

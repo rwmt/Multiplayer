@@ -187,6 +187,10 @@ namespace Multiplayer.Client
         public static Type[] designatorTypes = typeof(Designator).AllSubclassesNonAbstract().ToArray();
         public static Type[] worldObjectCompTypes = typeof(WorldObjectComp).AllSubclassesNonAbstract().ToArray();
 
+        public static Type[] gameCompTypes = typeof(GameComponent).AllSubclassesNonAbstract().ToArray();
+        public static Type[] worldCompTypes = typeof(WorldComponent).AllSubclassesNonAbstract().ToArray();
+        public static Type[] mapCompTypes = typeof(MapComponent).AllSubclassesNonAbstract().ToArray();
+
         private static Type[] supportedThingHolders = new[]
         {
             typeof(Map),
@@ -422,6 +426,9 @@ namespace Multiplayer.Client
                     if (!context.syncingThingParent)
                     {
                         byte implIndex = data.ReadByte();
+                        if (implIndex == byte.MaxValue)
+                            return null;
+
                         Type implType = supportedThingHolders[implIndex];
 
                         if (implType != typeof(Map))
@@ -858,18 +865,22 @@ namespace Multiplayer.Client
 
                         if (thing.Spawned)
                             holder = thing.Map;
-                        else if (thing.ParentHolder is ThingComp thingComp)
+                        /*else if (thing.ParentHolder is ThingComp thingComp)
                             holder = thingComp;
                         else if (ThingOwnerUtility.GetFirstSpawnedParentThing(thing) is Thing parentThing)
                             holder = parentThing;
                         else if (GetAnyParent<WorldObject>(thing) is WorldObject worldObj)
                             holder = worldObj;
                         else if (GetAnyParent<WorldObjectComp>(thing) is WorldObjectComp worldObjComp)
-                            holder = worldObjComp;
+                            holder = worldObjComp;*/
 
                         GetImpl(holder, supportedThingHolders, out Type implType, out int index);
                         if (index == -1)
-                            throw new SerializationException($"Thing {ThingHolderString(thing)} is inaccessible");
+                        {
+                            data.WriteByte(byte.MaxValue);
+                            Log.Error($"Thing {ThingHolderString(thing)} is inaccessible");
+                            return;
+                        }
 
                         data.WriteByte((byte)index);
 
