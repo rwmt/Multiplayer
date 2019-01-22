@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<LanguageData>
+
+  <MpSimulating>Симулирование</MpSimulating>
+  <MpSimulatingServer>Симулирование сервера</MpSimulatingServer>
+  <MpLoading>Загрузка</MpLoading>
+  <MpSaving>Сохранение</MpSaving>
+  
+  <MpInvalidPort>Неверный порт</MpInvalidPort>
+  <MpInvalidAddress>Неверный адрес</MpInvalidAddress>
+  <MpInvalidGameName>Неверное игровое имя</MpInvalidGameName>
+  
+  <MpWrongProtocol>Неверная версия протокола</MpWrongProtocol>
+  <MpWrongModVersionInfo>Удостоверьтесь что вы используете одинаковые версии Мультиплеера с хостом.</MpWrongModVersionInfo>
+  
+  <MpWrongDefs>Несоответствие определений в моде</MpWrongDefs>
+  <MpWrongDefsInfo>Удостоверьтесь что ваши установленные моды, их версии и порядок совпадают с таковыми у хоста.</MpWrongDefsInfo>
+  <MpModList>Список модов</MpModList>
+  <MpSeeModList>Посмотреть список модов</MpSeeModList>
+  
+  <MpServerClosed>Сервер закрыт</MpServerClosed>
+  <MpServerFull>Сервер полон</MpServerFull>
+  <MpKicked>Вас кикнули</MpKicked>
+
+  <MpInvalidUsernameAlreadyPlaying>Пользователь с таким именем уже есть онлайн</MpInvalidUsernameAlreadyPlaying>
+  <MpInvalidUsernameChars>В имени пользователя содержатся недопустимые символы</MpInvalidUsernameChars>
+  <MpInvalidUsernameLength>Недопустимая длина имени пользователя</MpInvalidUsernameLength>
+  <MpChangeUsernameInfo>Вы можете изменить имя пользователя .</MpChangeUsernameInfo>
+  
+  <MpPlayerConnected>{0} вошел</MpPlayerConnected>
+  <MpPlayerDisconnected>{0} вышел</MpPlayerDisconnected>
+  
+  <MpReplayOutdated>(Устаревшая)</MpReplayOutdated>
+  <MpReplayOutdatedDesc1>Этот реплей был сделан для версии протокола {0}, а ваша версия {1}.</MpReplayOutdatedDesc1>
+  <MpReplayOutdatedDesc2>Реплей сожет исполняться неправильно.</MpReplayOutdatedDesc2>
+  <MpReplayOutdatedDesc3>Возможное несовместимости указаны в списке релизов.</MpReplayOutdatedDesc3>
+  <MpReplayOutdatedDesc4>Данный файл содержит доп информацию и хостить с него можно.</MpReplayOutdatedDesc4>
+  
+  <MpServerCloseConfirmation>Вы уверены что хотите закрыть сервер? Несохраненный прогресс будет потерян.</MpServerCloseConfirmation>
+  
+  <MpHostServer>Хостить сервер</MpHostServer>
+  <MpSaveReplay>Сохранить реплей</MpSaveReplay>
+  
+  <MpConvert>Конвертировать в синглплеер</MpConvert>
+  <MpConverting>Конвертирование</MpConverting>
+  
+  <MpUsername>Имя пользователя</MpUsername>
+  <MpShowPlayerCursors>Показывать курсоры пользователей</MpShowPlayerCursors>
+  <MpAutoAcceptSteam>Авто-принятие Steam</MpAutoAcceptSteam>
+  <MpAutoAcceptSteamDesc>Автоматически принимать все входящие запросы на соединения через Steam.</MpAutoAcceptSteamDesc>
+  <MpTransparentChat>Открытый чат</MpTransparentChat>
+  
+  <MpAutosaveSlots>Слоты автосохранений</MpAutosaveSlots>
+  <MpAutosaveSlotsDesc>Сколько файлов автосохранений содержать.</MpAutosaveSlotsDesc>
+  
+  <MpTraderLeavesIn>Покинет через {0}</MpTraderLeavesIn>
+  
+  <MpChatButton>Чат</MpChatButton>
+  <MpTradingButton>Торговля</MpTradingButton>
+  
+  <MpChatPlayers>Игроки ({0}):</MpChatPlayers>
+  <MpSend>Послать</MpSend>
+  <MpSteamAcceptTitle>Принять Steam игроков</MpSteamAcceptTitle>
+  <MpSteamAcceptDesc>Нажмите чтобы принять</MpSteamAcceptDesc>
+  <MpSteamAccepted>Игрок был принят</MpSteamAccepted>
+  
+  <MpConnectingTo>Соединение с {0}:{1}</MpConnectingTo>
+  <MpConnected>Соединен.</MpConnected>
+  <MpDownloading>Скачивание ({0}%)</MpDownloading>
+  
+  <MpSteamConnectingTo>Соединение с игрой, которую хостит {0}</MpSteamConnectingTo>
+  <MpSteamConnectingWaiting>Ожидание принятия хостом</MpSteamConnectingWaiting>
+  
+  <MpTicksBehind>Вы в {0} тактах позади.</MpTicksBehind>
+  <MpLowerGameSpeed>Обдумайте уменьшение скорости игры.</MpLowerGameSpeed>
+  <MpForceCatchUp>Нажмите чтобы force catch up.</MpForceCatchUp>
+  
+  <MpDesynced>Игра десинхронизирована.</MpDesynced>
+  <MpTryResync>Попробовать ресинхр.</MpTryResync>
+  
+  <MpSaveReplayAs>Сохранить реплей как</MpSaveReplayAs>
+  <MpWillOverwrite>Будет перезаписан</MpWillOverwrite>
+  <MpReplaySaved>Реплей сохранен</MpReplaySaved>
+  
+  <MpGameName>Название игры</MpGameName>
+  <MpMaxPlayers>Макс. игроков</MpMaxPlayers>
+  <MpAutosaveEvery>Автосохранение кажд.</MpAutosaveEvery>
+  <MpAutosaveMinutes>минут</MpAutosaveMinutes>
+  <MpLanDesc1>Броадкастить игровую сессию по LAN.</MpLanDesc1>
+  <MpLanDesc2>Вычисленный LAN адрес: {0}</MpLanDesc2>
+  <MpArbiterDesc>Игра, которая запускается в трее и помогает с десинхронизацией.</MpArbiterDesc>
+  <MpAsyncTimeDesc>Разделить контроль времени для каждой карты и планеты.</MpAsyncTimeDesc>
+  <MpExperimentalFeature>Экспериментальная фича</MpExperimentalFeature>
+  
+  <MpHostButton>Хостить</MpHostButton>
+  <MpWatchReplay>Наблюдать</MpWatchReplay>
+  <MpNothingSelected>Ничего не выбрано</MpNothingSelected>
+  <MpNoSaves>Мультиплеер может быть запущен только с уже имеющихся сейвов</MpNoSaves>
+  
+  <MpHostIngame>Хостить данную игру</MpHostIngame>
+  <MpHostReplay>Хостить из реплея</MpHostReplay>
+  <MpHostSavefile>Хостить из файла сохранений</MpHostSavefile>
+  
+  <MpJoinButton>Войти</MpJoinButton>
+  <MpConnectButton>Присоединиться</MpConnectButton>
+  <MpLanSearching>Поиск</MpLanSearching>
+  
+  <MpNotConnectedToSteam>Нет соединения со Steam</MpNotConnectedToSteam>
+  <MpNoFriendsPlaying>Никто из друзей сейчас не играет в RimWorld</MpNoFriendsPlaying>
+  <MpPlayingRimWorld>Играет в RimWorld</MpPlayingRimWorld>
+  <MpNotInMultiplayer>Не в мультиплеере</MpNotInMultiplayer>
+  
+  <MpLan>LAN</MpLan>
+  <MpDirect>Прямое</MpDirect>
+  <MpSteam>Steam</MpSteam>
+  <MpHostTab>Хостить</MpHostTab>
+  
+  <MpMultiplayer>Мультиплеер</MpMultiplayer>
+  <MpSingleplayer>Одиночная</MpSingleplayer>
+  
+  <MpNotAvailable>Недоступно в мультиплеере.</MpNotAvailable>
+  <MpCallingFactionNotAvailable>Называть иные фракции недоступно в мультиплеере.</MpCallingFactionNotAvailable>
+  
+  <MpAggressiveTicking>Агрессивные такты</MpAggressiveTicking>
+  <MpAggressiveTickingDesc>Всегда пытаться автоматически догонять сервер ценой частоты кадров.</MpAggressiveTickingDesc>
+  
+</LanguageData>
