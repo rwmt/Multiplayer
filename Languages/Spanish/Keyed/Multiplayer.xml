@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<LanguageData>
+
+  <MpSimulating>Simulando</MpSimulating>
+  <MpSimulatingServer>Simulando el servidor</MpSimulatingServer>
+  <MpLoading>Cargando</MpLoading>
+  <MpSaving>Guardando</MpSaving>
+  
+  <MpInvalidPort>Puerto Inválido</MpInvalidPort>
+  <MpInvalidAddress>Dirección inválida</MpInvalidAddress>
+  <MpInvalidGameName>Nombre de juego inválido</MpInvalidGameName>
+  
+  <MpWrongProtocol>Versión errónea de protocolo</MpWrongProtocol>
+  <MpWrongMultiplayerVersionInfo>El servidor está alojado en multijugador {0} (protocolo {1}).</MpWrongMultiplayerVersionInfo>
+  
+  <MpWrongDefs>Definición del mod incompatible</MpWrongDefs>
+  <MpWrongDefsInfo>Asegúrate que los mods instalados, sus versiones y el orden concuerdan con el anfitrión.</MpWrongDefsInfo>
+  <MpModList>Lista de mods</MpModList>
+  <MpSeeModList>Ver lista de mods</MpSeeModList>
+  
+  <MpServerClosed>Servidor cerrado</MpServerClosed>
+  <MpServerFull>Servidor está lleno</MpServerFull>
+  <MpKicked>Te han expulsado</MpKicked>
+
+  <MpInvalidUsernameAlreadyPlaying>Usuario ya está en línea</MpInvalidUsernameAlreadyPlaying>
+  <MpInvalidUsernameChars>Usuario tiene caracteres inválidos</MpInvalidUsernameChars>
+  <MpInvalidUsernameLength>Username has invalid length</MpInvalidUsernameLength>
+  <MpChangeUsernameInfo>Puedes cambiar tu usuario en los ajustes del mod.</MpChangeUsernameInfo>
+  
+  <MpPlayerConnected>{0} se ha unido</MpPlayerConnected>
+  <MpPlayerDisconnected>{0} se ha desconectado</MpPlayerDisconnected>
+  
+  <MpReplayOutdated>(Desactualizado)</MpReplayOutdated>
+  <MpReplayOutdatedDesc1>Esta repetición fue hecha para el protocolo de versión {0}, pero estás usando la versión {1}.</MpReplayOutdatedDesc1>
+  <MpReplayOutdatedDesc2>Puede que la repetición no se reproduzca correctamente.</MpReplayOutdatedDesc2>
+  <MpReplayOutdatedDesc3>Posibles incopatibilidades están listadas con el historial de lanzamientos.</MpReplayOutdatedDesc3>
+  <MpReplayOutdatedDesc4>Este archivo contiene información adicional y alojar de este debería funcionar bien.</MpReplayOutdatedDesc4>
+  
+  <MpServerCloseConfirmation>¿Estás seguro que quieres cerrar el servidor? El progreso sin guardar se perderá.</MpServerCloseConfirmation>
+  
+  <MpHostServer>Alojar un servidor</MpHostServer>
+  <MpSaveReplay>Salvar repetición</MpSaveReplay>
+  
+  <MpConvert>Convertir a un solo jugador</MpConvert>
+  <MpConverting>Convirtiendo</MpConverting>
+  
+  <MpUsername>Usuario</MpUsername>
+  <MpShowPlayerCursors>Mostrar cursor de jugadores</MpShowPlayerCursors>
+  <MpAutoAcceptSteam>Auto-aceptar Steam</MpAutoAcceptSteam>
+  <MpAutoAcceptSteamDesc>Aceptar automáticamente cualquier solicitud de conexión de Steam.</MpAutoAcceptSteamDesc>
+  <MpTransparentChat>Chat transparente</MpTransparentChat>
+  
+  <MpAutosaveSlots>Espacios para guardado automático</MpAutosaveSlots>
+  <MpAutosaveSlotsDesc>Cuantos archivos mantener para guardado automático.</MpAutosaveSlotsDesc>
+  
+  <MpTraderLeavesIn>Se va en {0}</MpTraderLeavesIn>
+  
+  <MpChatButton>Chat</MpChatButton>
+  <MpTradingButton>Intercambiar</MpTradingButton>
+  
+  <MpChatPlayers>Jugadores ({0}):</MpChatPlayers>
+  <MpSend>Enviar</MpSend>
+  <MpSteamAcceptTitle>Aceptar jugadores de Steam</MpSteamAcceptTitle>
+  <MpSteamAcceptDesc>Click para aceptar</MpSteamAcceptDesc>
+  <MpSteamAccepted>Jugador ha sido aceptado</MpSteamAccepted>
+  
+  <MpConnectingTo>Conectando a {0}:{1}</MpConnectingTo>
+  <MpConnected>Conectado.</MpConnected>
+  <MpDownloading>Descargando ({0}%)</MpDownloading>
+  
+  <MpSteamConnectingTo>Conectando a un juego alojado por {0}</MpSteamConnectingTo>
+  <MpSteamConnectingWaiting>Esperando que el anfitrión acepte</MpSteamConnectingWaiting>
+  
+  <MpTicksBehind>Estás {0} ticks atrasado.</MpTicksBehind>
+  <MpLowerGameSpeed>Considera bajar la velocidad del juego.</MpLowerGameSpeed>
+  <MpForceCatchUp>Click para alcanzar forzosamente.</MpForceCatchUp>
+  
+  <MpDesynced>El estado del juego se ha desincronizado.</MpDesynced>
+  <MpTryResync>Intentar resincronizar</MpTryResync>
+  
+  <MpSaveReplayAs>Salvar repetición como</MpSaveReplayAs>
+  <MpWillOverwrite>Sobrescribirá</MpWillOverwrite>
+  <MpReplaySaved>Repetición</MpReplaySaved>
+  
+  <MpGameName>Nombre del juego</MpGameName>
+  <MpMaxPlayers>Máximo de jugadores</MpMaxPlayers>
+  <MpAutosaveEvery>Auto salvar cada</MpAutosaveEvery>
+  <MpAutosaveMinutes>minutos</MpAutosaveMinutes>
+  <MpLanDesc1>Transmitir el juego a tu red local.</MpLanDesc1>
+  <MpLanDesc2>Dirección LAN resuelta: {0}</MpLanDesc2>
+  <MpArbiterDesc>Una instancia del juego que corre en segundo plano y ayuda resolver problemas de sincronía.</MpArbiterDesc>
+  <MpAsyncTimeDesc>Separar los controles de tiempo para cada mapa y el planeta.</MpAsyncTimeDesc>
+  <MpExperimentalFeature>Funcionalidad experimental</MpExperimentalFeature>
+  
+  <MpHostButton>Anfitrión</MpHostButton>
+  <MpWatchReplay>Ver</MpWatchReplay>
+  <MpNothingSelected>Nada seleccionado</MpNothingSelected>
+  <MpNoSaves>Multijugador solo se puede jugar desde una partida previamente guardada.</MpNoSaves>
+  
+  <MpHostIngame>Alojar desde esta partida</MpHostIngame>
+  <MpHostReplay>Alojar desde una repetición</MpHostReplay>
+  <MpHostSavefile>Alojar desde un archivo</MpHostSavefile>
+  
+  <MpJoinButton>Unirse</MpJoinButton>
+  <MpConnectButton>Conectar</MpConnectButton>
+  <MpLanSearching>Buscando</MpLanSearching>
+  
+  <MpNotConnectedToSteam>No conectado a Steam</MpNotConnectedToSteam>
+  <MpNoFriendsPlaying>Ningún amigo está jugando RimWorld actualmente</MpNoFriendsPlaying>
+  <MpPlayingRimWorld>Jugando RimWorld</MpPlayingRimWorld>
+  <MpNotInMultiplayer>No está en multijugador</MpNotInMultiplayer>
+  
+  <MpLan>LAN</MpLan>
+  <MpDirect>Directo</MpDirect>
+  <MpSteam>Steam</MpSteam>
+  <MpHostTab>Alojar</MpHostTab>
+  
+  <MpMultiplayer>Multijugador</MpMultiplayer>
+  <MpSingleplayer>Un solo jugador</MpSingleplayer>
+  
+  <MpNotAvailable>No disponible para multijugador.</MpNotAvailable>
+  <MpCallingFactionNotAvailable>Contactar a otras facciones aún no está disponible en multijugador.</MpCallingFactionNotAvailable>
+  
+  <MpAggressiveTicking>Ticking agresivo</MpAggressiveTicking>
+  <MpAggressiveTickingDesc>Siempre intentar automáticamente alcanzar el servidor pero sacrificando FPS.</MpAggressiveTickingDesc>
+  
+</LanguageData>
