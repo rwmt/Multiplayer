@@ -40,6 +40,9 @@ namespace Multiplayer.Client
         static extern IntPtr mono_type_get_class(IntPtr typeHandle);
 
         [DllImport("mono.dll")]
+        public static extern IntPtr mono_valloc(IntPtr addr, IntPtr length, IntPtr flags);
+
+        [DllImport("mono.dll")]
         public static extern IntPtr mono_method_get_header(IntPtr methodHandle);
 
         [DllImport("mono.dll")]

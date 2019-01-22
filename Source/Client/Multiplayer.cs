@@ -46,7 +46,6 @@ namespace Multiplayer.Client
         public static string username;
         public static bool arbiterInstance;
         public static HarmonyInstance harmony => MultiplayerMod.harmony;
-        public static bool enableSyncLog;
 
         public static bool reloading;
 
@@ -57,6 +56,8 @@ namespace Multiplayer.Client
         public static IdBlock GlobalIdBlock => game.worldComp.globalIdBlock;
         public static Faction DummyFaction => game.dummyFaction;
         public static MultiplayerWorldComp WorldComp => game.worldComp;
+
+        public static bool ShowDevInfo => MpVersion.IsDebug || (Prefs.DevMode && MultiplayerMod.settings.showDevInfo);
 
         public static Faction RealPlayerFaction
         {
@@ -237,11 +238,6 @@ namespace Multiplayer.Client
                 DirectXmlSaver.SaveDataObject(new SyncContainer(), "SyncHandlers.xml");
                 ExtendDirectXmlSaver.extend = false;
             }
-
-            if (GenCommandLine.CommandLineArgPassed("logsync"))
-            {
-                enableSyncLog = true;
-            }
         }
 
         public class SyncContainer
@@ -336,26 +332,7 @@ namespace Multiplayer.Client
                 }
             }
 
-            // Compat with Fluffy's mod loader
-            var fluffysModButtonType = MpReflection.GetTypeByName("ModManager.ModButton_Installed");
-            if (fluffysModButtonType != null)
-            {
-                harmony.Patch(
-                    fluffysModButtonType.GetMethod("DoModButton"),
-                    new HarmonyMethod(typeof(PageModsPatch), nameof(PageModsPatch.ModManager_ButtonPrefix)),
-                    new HarmonyMethod(typeof(PageModsPatch), nameof(PageModsPatch.Postfix))
-                );
-            }
-
-            var cancelForArbiter = new HarmonyMethod(typeof(CancelForArbiter), "Prefix");
-
-            var prisonLaborBehavior = MpReflection.GetTypeByName("PrisonLabor.Behaviour_MotivationIcon");
-            if (prisonLaborBehavior != null)
-                harmony.Patch(prisonLaborBehavior.GetMethod("Update", new Type[0]), cancelForArbiter);
-
-            var prisonLaborPawnIcons = MpReflection.GetTypeByName("PrisonLabor.Core.GUI_Components.PawnIcons") ?? MpReflection.GetTypeByName("PrisonLabor.MapComponent_Icons");
-            if (prisonLaborPawnIcons != null)
-                harmony.Patch(prisonLaborPawnIcons.GetMethod("MapComponentTick", new Type[0]), cancelForArbiter);
+            ModPatches.Init();
         }
 
         public static UniqueList<Texture2D> icons = new UniqueList<Texture2D>();

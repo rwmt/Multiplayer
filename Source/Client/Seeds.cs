@@ -194,13 +194,15 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(GrammarResolver), nameof(GrammarResolver.Resolve))]
+    [MpPatch(typeof(GrammarResolver), nameof(GrammarResolver.Resolve))]
+    [MpPatch(typeof(PawnBioAndNameGenerator), nameof(PawnBioAndNameGenerator.GeneratePawnName))]
+    [MpPatch(typeof(NameGenerator), nameof(NameGenerator.GenerateName), new[] { typeof(RulePackDef), typeof(Predicate<string>), typeof(bool), typeof(string), typeof(string) })]
     static class SeedGrammar
     {
         [HarmonyPriority(MpPriority.MpFirst)]
         static void Prefix(ref bool __state)
         {
-            Rand.Element(0, 0);
+            Rand.Element(0, 0); // advance the rng
             Rand.PushState();
             __state = true;
         }

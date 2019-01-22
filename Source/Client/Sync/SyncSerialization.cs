@@ -865,14 +865,14 @@ namespace Multiplayer.Client
 
                         if (thing.Spawned)
                             holder = thing.Map;
-                        /*else if (thing.ParentHolder is ThingComp thingComp)
+                        else if (thing.ParentHolder is ThingComp thingComp)
                             holder = thingComp;
                         else if (ThingOwnerUtility.GetFirstSpawnedParentThing(thing) is Thing parentThing)
                             holder = parentThing;
                         else if (GetAnyParent<WorldObject>(thing) is WorldObject worldObj)
                             holder = worldObj;
                         else if (GetAnyParent<WorldObjectComp>(thing) is WorldObjectComp worldObjComp)
-                            holder = worldObjComp;*/
+                            holder = worldObjComp;
 
                         GetImpl(holder, supportedThingHolders, out Type implType, out int index);
                         if (index == -1)

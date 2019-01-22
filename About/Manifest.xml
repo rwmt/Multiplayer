@@ -3,7 +3,7 @@
 <Manifest>
 
   <identifier>Multiplayer</identifier>
-  <version>0.4.3</version>
+  <version>0.4.4</version>
   <manifestUri>https://raw.githubusercontent.com/Zetrith/Multiplayer/master/About/Manifest.xml</manifestUri>
   <downloadUri>https://github.com/Zetrith/Multiplayer/releases/latest</downloadUri>
 

@@ -25,7 +25,7 @@ namespace Multiplayer.Client
         public static HarmonyInstance harmony = HarmonyInstance.Create("multiplayer");
         public static MpSettings settings;
 
-        public unsafe MultiplayerMod(ModContentPack pack) : base(pack)
+        public MultiplayerMod(ModContentPack pack) : base(pack)
         {
             EarlyMarkNoInline(typeof(Multiplayer).Assembly);
             EarlyPatches();
@@ -124,6 +124,9 @@ namespace Multiplayer.Client
             listing.CheckboxLabeled("MpTransparentChat".Translate(), ref settings.transparentChat);
             listing.CheckboxLabeled("MpAggressiveTicking".Translate(), ref settings.aggressiveTicking, "MpAggressiveTickingDesc".Translate());
 
+            if (Prefs.DevMode)
+                listing.CheckboxLabeled("Show debug info", ref settings.showDevInfo);
+
             listing.End();
         }
 
@@ -172,6 +175,7 @@ namespace Multiplayer.Client
         public bool transparentChat;
         public int autosaveSlots = 5;
         public bool aggressiveTicking;
+        public bool showDevInfo;
 
         public override void ExposeData()
         {
@@ -181,6 +185,7 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref transparentChat, "transparentChat");
             Scribe_Values.Look(ref autosaveSlots, "autosaveSlots", 5);
             Scribe_Values.Look(ref aggressiveTicking, "aggressiveTicking");
+            Scribe_Values.Look(ref showDevInfo, "showDevInfo");
         }
     }
 }

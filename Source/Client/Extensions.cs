@@ -91,6 +91,13 @@ namespace Multiplayer.Client
             dict.RemoveAll(p => predicate(p.Key, p.Value));
         }
 
+        public static void RemoveAll<T>(this List<T> list, Func<T, int, bool> predicate)
+        {
+            for (int i = list.Count - 1; i >= 0; i--)
+                if (predicate(list[i], i))
+                    list.RemoveAt(i);
+        }
+
         public static MapAsyncTimeComp AsyncTime(this Map map)
         {
             return Multiplayer.game?.asyncTimeComps.Find(c => c.map == map);

@@ -17,7 +17,6 @@ namespace Multiplayer.Client
         private static Callback<FriendRichPresenceUpdate_t> friendRchpUpdate;
         private static Callback<GameRichPresenceJoinRequested_t> gameJoinReq;
         private static Callback<PersonaStateChange_t> personaChange;
-        private static Callback<DownloadItemResult_t> downloadItem;
 
         public static AppId_t RimWorldAppId;
 
@@ -76,10 +75,6 @@ namespace Multiplayer.Client
                     if (conn != null)
                         conn.OnError(error);
                 });
-            });
-
-            downloadItem = Callback<DownloadItemResult_t>.Create(result =>
-            {
             });
         }
 

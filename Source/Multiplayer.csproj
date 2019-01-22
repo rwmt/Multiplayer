@@ -71,6 +71,7 @@
     <Compile Include="Client\ArbiterPatches.cs" />
     <Compile Include="Client\Blueprints.cs" />
     <Compile Include="Client\CacheForReloading.cs" />
+    <Compile Include="Client\ModPatches.cs" />
     <Compile Include="Client\Optimizations.cs" />
     <Compile Include="Client\SettingsPatches.cs" />
     <Compile Include="Client\TickPatch.cs" />

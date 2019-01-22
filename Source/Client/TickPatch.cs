@@ -41,7 +41,6 @@ namespace Multiplayer.Client
             {
                 MultiplayerWorldComp comp = Multiplayer.WorldComp;
                 yield return comp;
-                yield return comp.ticker;
 
                 var maps = Find.Maps;
                 for (int i = maps.Count - 1; i >= 0; i--)
@@ -137,7 +136,6 @@ namespace Multiplayer.Client
         static void Postfix()
         {
             if (Multiplayer.Client == null || Find.CurrentMap == null) return;
-
             Shader.SetGlobalFloat(ShaderPropertyIDs.GameSeconds, Find.CurrentMap.AsyncTime().mapTicks.TicksToSeconds());
         }
 
@@ -164,10 +162,12 @@ namespace Multiplayer.Client
                     TickTickable(tickable);
                 }
 
+                ConstantTicker.Tick();
+
                 accumulator -= 1 * ReplayMultiplier();
                 Timer += 1;
 
-                if (Timer >= tickUntil || LongEventHandler.eventQueue.Count > 0)
+                if (Multiplayer.session.desynced || Timer >= tickUntil || LongEventHandler.eventQueue.Count > 0)
                 {
                     accumulator = 0;
                     return;
@@ -240,22 +240,11 @@ namespace Multiplayer.Client
         void ExecuteCmd(ScheduledCommand cmd);
     }
 
-    public class ConstantTicker : ITickable
+    public static class ConstantTicker
     {
         public static bool ticking;
 
-        public float RealTimeToTickThrough { get; set; }
-        public TimeSpeed TimeSpeed => TimeSpeed.Normal;
-        public Queue<ScheduledCommand> Cmds => cmds;
-        private Queue<ScheduledCommand> cmds = new Queue<ScheduledCommand>();
-
-        public void ExecuteCmd(ScheduledCommand cmd)
-        {
-        }
-
-        public float TickRateMultiplier(TimeSpeed speed) => 1f;
-
-        public void Tick()
+        public static void Tick()
         {
             ticking = true;
 
@@ -264,10 +253,10 @@ namespace Multiplayer.Client
                 //TickResearch();
 
                 // Not really deterministic but here for possible future server-side game state verification
-                Extensions.PushFaction(null, Multiplayer.RealPlayerFaction);
-                TickSync();
+                //Extensions.PushFaction(null, Multiplayer.RealPlayerFaction);
+                //TickSync();
                 //SyncResearch.ConstantTick();
-                Extensions.PopFaction();
+                //Extensions.PopFaction();
 
                 var sync = Multiplayer.game.sync;
                 if (sync.ShouldCollect && TickPatch.Timer % 30 == 0 && sync.current != null)
@@ -313,7 +302,7 @@ namespace Multiplayer.Client
             relations = new Pawn_RelationsTracker(dummyPawn),
         };
 
-        public void TickResearch()
+        public static void TickResearch()
         {
             MultiplayerWorldComp comp = Multiplayer.WorldComp;
             foreach (FactionWorldData factionData in comp.factionData.Values)

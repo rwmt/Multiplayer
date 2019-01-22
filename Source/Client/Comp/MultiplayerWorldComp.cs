@@ -51,7 +51,6 @@ namespace Multiplayer.Client
         public Dictionary<int, FactionWorldData> factionData = new Dictionary<int, FactionWorldData>();
 
         public World world;
-        public ConstantTicker ticker = new ConstantTicker();
         public IdBlock globalIdBlock;
         public ulong randState = 2;
         public bool asyncTime;

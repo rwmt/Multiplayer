@@ -63,7 +63,7 @@ namespace Multiplayer.Client
 
         static void Postfix()
         {
-            if (Multiplayer.Client == null) return;
+            if (Multiplayer.Client == null || TickPatch.Skipping) return;
 
             foreach (var t in Find.Selector.SelectedObjects.OfType<Thing>())
                 drawnThisUpdate.Add(t.thingIDNumber);

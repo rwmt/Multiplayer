@@ -381,9 +381,12 @@ namespace Multiplayer.Client
         public void HandleDebug(ByteReader data)
         {
             int tick = data.ReadInt32();
+            int start = data.ReadInt32();
+            int end = data.ReadInt32();
             var info = Multiplayer.game.sync.buffer.FirstOrDefault(b => b.startTick == tick);
 
-            File.WriteAllText("arbiter_traces.txt", info?.TracesToString() ?? "null");
+            Log.Message($"{info?.traces.Count} arbiter traces");
+            File.WriteAllText("arbiter_traces.txt", info?.TracesToString(start, end) ?? "null");
         }
     }
 

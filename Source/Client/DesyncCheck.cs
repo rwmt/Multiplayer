@@ -44,6 +44,8 @@ namespace Multiplayer.Client
 
         public void Add(SyncInfo info)
         {
+            if (Multiplayer.session.desynced) return;
+
             if (buffer.Count == 0)
             {
                 buffer.Add(info);
@@ -73,7 +75,8 @@ namespace Multiplayer.Client
                     if (error != null)
                     {
                         MpLog.Log($"Desynced {lastValidTick}: {error}");
-                        OnDesynced(first, info, error);
+                        Multiplayer.session.desynced = true;
+                        OnMainThread.Enqueue(() => OnDesynced(first, info, error));
                     }
                     else
                     {
@@ -87,10 +90,8 @@ namespace Multiplayer.Client
         private void OnDesynced(SyncInfo one, SyncInfo two, string error)
         {
             if (TickPatch.Skipping) return;
-            if (Multiplayer.session.desynced) return;
 
             Multiplayer.Client.Send(Packets.Client_Desynced);
-            Multiplayer.session.desynced = true;
 
             var local = one.local ? one : two;
             var remote = !one.local ? one : two;
@@ -140,8 +141,23 @@ namespace Multiplayer.Client
 
         private void PrintTrace(SyncInfo local, SyncInfo remote)
         {
-            File.WriteAllText("local_traces.txt", local.TracesToString());
-            Multiplayer.Client.Send(Packets.Client_Debug, local.startTick);
+            Log.Message($"Printing {local.traces.Count} traces");
+
+            int diffAt = -1;
+            int count = Math.Min(local.traceHashes.Count, remote.traceHashes.Count);
+
+            for (int i = 0; i < count; i++)
+                if (local.traceHashes[i] != remote.traceHashes[i])
+                {
+                    diffAt = i;
+                    break;
+                }
+
+            if (diffAt == -1)
+                diffAt = count;
+
+            File.WriteAllText("local_traces.txt", local.TracesToString(diffAt - 40, diffAt + 40));
+            Multiplayer.Client.Send(Packets.Client_Debug, local.startTick, diffAt - 40, diffAt + 40);
         }
 
         private string PrepareNextDesyncFile()
@@ -306,9 +322,9 @@ namespace Multiplayer.Client
                 simulating = true;
         }
 
-        public string TracesToString()
+        public string TracesToString(int start, int end)
         {
-            return traces.Join(a => a.info + "\n" + a.trace.Join(m => m.MethodDesc(), "\n"), delimiter: "\n\n");
+            return traces.Skip(Math.Max(0, start)).Take(end - start).Join(a => a.info + "\n" + a.trace.Join(m => m.MethodDesc(), "\n"), delimiter: "\n\n");
         }
     }
 

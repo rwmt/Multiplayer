@@ -44,7 +44,7 @@ namespace Multiplayer.Client
 
         static void DoDebugInfo()
         {
-            if (MpVersion.IsDebug && Multiplayer.Client != null)
+            if (Multiplayer.ShowDevInfo && Multiplayer.Client != null)
             {
                 int timerLag = (TickPatch.tickUntil - TickPatch.Timer);
                 string text = $"{Find.TickManager.TicksGame} {TickPatch.Timer} {TickPatch.tickUntil} {timerLag} {Time.deltaTime * 60f}";
@@ -52,7 +52,7 @@ namespace Multiplayer.Client
                 Widgets.Label(rect, text);
             }
 
-            if (MpVersion.IsDebug && Multiplayer.Client != null && Find.CurrentMap != null)
+            if (Multiplayer.ShowDevInfo && Multiplayer.Client != null && Find.CurrentMap != null)
             {
                 var async = Find.CurrentMap.AsyncTime();
                 StringBuilder text = new StringBuilder();
@@ -133,7 +133,7 @@ namespace Multiplayer.Client
                 y += btnHeight;
             }
 
-            if ((MpVersion.IsDebug || Multiplayer.enableSyncLog) && Multiplayer.PacketLog != null)
+            if (Multiplayer.ShowDevInfo && Multiplayer.PacketLog != null)
             {
                 if (Widgets.ButtonText(new Rect(x, y, btnWidth, btnHeight), $"Sync ({Multiplayer.PacketLog.nodes.Count})"))
                     Find.WindowStack.Add(Multiplayer.PacketLog);

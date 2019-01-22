@@ -254,8 +254,10 @@ namespace Multiplayer.Client
             {
                 if (Widgets.ButtonText(new Rect(width, 0, 120, 40), "MpWatchReplay".Translate()))
                 {
-                    Close(false);
-                    Replay.LoadReplay(file.file);
+                    CheckGameVersionAndMods(
+                        file,
+                        () => { Close(false); Replay.LoadReplay(file.file); }
+                    );
                 }
 
                 width += 120 + 10;
@@ -263,8 +265,10 @@ namespace Multiplayer.Client
 
             if (Widgets.ButtonText(new Rect(width, 0, 120, 40), "MpHostButton".Translate()))
             {
-                Close(false);
-                Find.WindowStack.Add(new HostWindow(file) { returnToServerBrowser = true });
+                CheckGameVersionAndMods(
+                    file, 
+                    () => { Close(false); Find.WindowStack.Add(new HostWindow(file) { returnToServerBrowser = true }); }
+                );
             }
 
             width += 120 + 10;
@@ -279,6 +283,26 @@ namespace Multiplayer.Client
             }
 
             width += 120;
+        }
+        
+        private static void CheckGameVersionAndMods(SaveFile file, Action action)
+        {
+            ScribeMetaHeaderUtility.lastMode = ScribeMetaHeaderUtility.ScribeHeaderMode.Map;
+            ScribeMetaHeaderUtility.loadedGameVersion = file.rwVersion;
+            ScribeMetaHeaderUtility.loadedModIdsList = file.modIds.ToList();
+            ScribeMetaHeaderUtility.loadedModNamesList = file.modNames.ToList();
+
+            if (!ScribeMetaHeaderUtility.TryCreateDialogsForVersionMismatchWarnings(action))
+            {
+                action();
+            }
+            else
+            {
+                Find.WindowStack.Windows
+                    .OfType<Dialog_MessageBox>()
+                    .Where(w => w.buttonAText == "LoadAnyway".Translate())
+                    .Do(w => w.buttonAText = "Continue anyway");
+            }
         }
 
         private void DrawSaveList(List<SaveFile> saves, float width, ref float y)
@@ -328,17 +352,14 @@ namespace Multiplayer.Client
                     bool autosave = saveFile.replaySections > 1;
 
                     GUI.color = autosave ? new Color(0.8f, 0.8f, 0, 0.6f) : new Color(0.8f, 0.8f, 0);
-                    var outdated = new Rect(infoText.x - 70, infoText.y + 8f, 70, 24f);
+                    var outdated = new Rect(infoText.x - 80, infoText.y + 8f, 80, 24f);
                     Widgets.Label(outdated, "MpReplayOutdated".Translate());
 
                     string text = "MpReplayOutdatedDesc1".Translate(saveFile.protocol, MpVersion.Protocol) + "\n\n" + "MpReplayOutdatedDesc2".Translate() + "\n" + "MpReplayOutdatedDesc3".Translate();
                     if (autosave)
                         text += "\n\n" + "MpReplayOutdatedDesc4".Translate();
 
-                    TooltipHandler.TipRegion(
-                        outdated,
-                        text
-                    );
+                    TooltipHandler.TipRegion(outdated, text);
                 }
 
                 Text.Font = GameFont.Small;
@@ -490,7 +511,9 @@ namespace Multiplayer.Client
         {
             ipBuffer = Widgets.TextField(new Rect(inRect.center.x - 200 / 2, 15f, 200, 35f), ipBuffer);
 
-            if (Widgets.ButtonText(new Rect(inRect.center.x - 100f / 2, 60f, 100f, 35f), "MpConnectButton".Translate()))
+            const float btnWidth = 115f;
+
+            if (Widgets.ButtonText(new Rect(inRect.center.x - btnWidth / 2, 60f, btnWidth, 35f), "MpConnectButton".Translate()))
             {
                 string ip = ipBuffer.Trim();
 
