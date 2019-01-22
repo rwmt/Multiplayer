@@ -23,6 +23,17 @@ namespace Multiplayer.Client
 {
     public static class MpUtil
     {
+        static Func<ICustomAttributeProvider, Type, bool> IsDefinedInternal;
+
+        // Doesn't load the type
+        public static bool HasAttr(ICustomAttributeProvider provider, Type attrType)
+        {
+            if (IsDefinedInternal == null)
+                IsDefinedInternal = (Func<ICustomAttributeProvider, Type, bool>)Delegate.CreateDelegate(typeof(Func<ICustomAttributeProvider, Type, bool>), AccessTools.Method(Type.GetType("System.MonoCustomAttrs"), "IsDefinedInternal"));
+
+            return IsDefinedInternal(provider, attrType);
+        }
+
         public static string FixedEllipsis()
         {
             int num = Mathf.FloorToInt(Time.realtimeSinceStartup) % 3;

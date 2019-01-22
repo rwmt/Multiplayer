@@ -46,6 +46,14 @@ namespace Multiplayer.Client
                 PatchIfExists("PawnsAreCapable.FloatMenuMakerMap_ChoicesAtFor", "Prefix", transpiler: pawnsAreCapablePatch);
                 PatchIfExists("PawnsAreCapable.FloatMenuMakerMap_ChoicesAtFor", "Postfix", transpiler: pawnsAreCapablePatch);
             }
+
+            var randPatchPrefix = new HarmonyMethod(typeof(RandPatches), "Prefix");
+            var randPatchPostfix = new HarmonyMethod(typeof(RandPatches), "Postfix");
+
+            // Facial Stuff compat
+            {
+                PatchIfExists("FacialStuff.Harmony.HarmonyPatchesFS", "TryInteractWith_Postfix", randPatchPrefix, randPatchPostfix);
+            }
         }
 
         static MethodInfo SetPriorityMethod = AccessTools.Method(typeof(Pawn_WorkSettings), nameof(Pawn_WorkSettings.SetPriority));

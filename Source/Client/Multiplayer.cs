@@ -80,6 +80,7 @@ namespace Multiplayer.Client
 
         public static HashSet<string> xmlMods = new HashSet<string>();
         public static int[] enabledModAssemblyHashes;
+        public static int[] enabledAboutHashes;
         public static Dictionary<string, DefInfo> localDefInfos;
 
         static Multiplayer()
@@ -101,7 +102,8 @@ namespace Multiplayer.Client
                     xmlMods.Add(mod.RootDir.FullName);
             }
 
-            enabledModAssemblyHashes = LoadedModManager.RunningModsListForReading.Select(m => m.ModAssemblies().Select(f => new CRC32().GetCrc32(f.OpenRead())).Aggregate(0, (a, b) => Gen.HashCombineInt(a, b))).ToArray();
+            enabledModAssemblyHashes = LoadedModManager.RunningModsListForReading.Select(m => m.ModAssemblies().CRC32()).ToArray();
+            enabledAboutHashes = LoadedModManager.RunningModsListForReading.Select(m => new DirectoryInfo(Path.Combine(m.RootDir, "About")).GetFiles().CRC32()).ToArray();
 
             SimpleProfiler.Init(username);
 
@@ -268,8 +270,8 @@ namespace Multiplayer.Client
 
             // Remove side effects from methods which are non-deterministic during ticking (e.g. camera dependent motes and sound effects)
             {
-                var randPatchPrefix = new HarmonyMethod(typeof(RandPatches).GetMethod("Prefix"));
-                var randPatchPostfix = new HarmonyMethod(typeof(RandPatches).GetMethod("Postfix"));
+                var randPatchPrefix = new HarmonyMethod(typeof(RandPatches), "Prefix");
+                var randPatchPostfix = new HarmonyMethod(typeof(RandPatches), "Postfix");
 
                 var subSustainerStart = AccessTools.Method(typeof(SubSustainer), "<SubSustainer>m__0");
                 var sampleCtor = typeof(Sample).GetConstructor(new[] { typeof(SubSoundDef) });

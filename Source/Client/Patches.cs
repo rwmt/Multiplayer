@@ -78,6 +78,7 @@ namespace Multiplayer.Client
     }
 
     [MpPatch(typeof(OptionListingUtility), nameof(OptionListingUtility.DrawOptionListing))]
+    [HotSwappable]
     public static class MainMenuPatch
     {
         static void Prefix(Rect rect, List<ListableOption> optList)
@@ -92,7 +93,7 @@ namespace Multiplayer.Client
                     optList.Insert(newColony + 1, new ListableOption("Multiplayer", () =>
                     {
                         if (Prefs.DevMode && Event.current.button == 1)
-                            Find.WindowStack.Add(new DebugTextWindow("[name | id | assembly hash]\n" + LoadedModManager.RunningMods.Select((m, index) => $"{m.Name} | {m.Identifier} | {Multiplayer.enabledModAssemblyHashes[index]}").Join(delimiter: "\n")));
+                            ShowModDebugInfo();
                         else
                             Find.WindowStack.Add(new ServerBrowser());
                     }));
@@ -143,6 +144,19 @@ namespace Multiplayer.Client
                     }
                 }
             }
+        }
+
+        static void ShowModDebugInfo()
+        {
+            var mods = LoadedModManager.RunningModsListForReading;
+
+            DebugTables.MakeTablesDialog(
+                mods.Select((mod, i) => i),
+                new TableDataGetter<int>($"Mod name {new string(' ', 20)}", i => mods[i].Name),
+                new TableDataGetter<int>($"Mod id {new string(' ', 20)}", i => mods[i].Identifier),
+                new TableDataGetter<int>($"Assembly hash {new string(' ', 10)}", i => Multiplayer.enabledModAssemblyHashes[i]),
+                new TableDataGetter<int>($"About hash {new string(' ', 10)}", i => Multiplayer.enabledAboutHashes[i])
+            );
         }
 
         public static void AskQuitToMainMenu()

@@ -912,6 +912,9 @@ namespace Multiplayer.Client
             {
                 foreach (MethodInfo method in type.GetDeclaredMethods())
                 {
+                    if (!MpUtil.HasAttr(method, typeof(SyncMethodAttribute)))
+                        continue;
+
                     if (!method.TryGetAttribute(out SyncMethodAttribute syncAttr))
                         continue;
 

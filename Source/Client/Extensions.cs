@@ -1,6 +1,7 @@
 ﻿extern alias zip;
 
 using Harmony;
+using Ionic.Crc;
 using Multiplayer.Common;
 using RimWorld;
 using System;
@@ -391,6 +392,11 @@ namespace Multiplayer.Client
             if (!assemblies.Exists)
                 return new FileInfo[0];
             return assemblies.GetFiles("*.*", SearchOption.AllDirectories).Where(f => f.Extension.ToLower() == ".dll").ToArray();
+        }
+
+        public static int CRC32(this FileInfo[] files)
+        {
+            return files.Select(f => new CRC32().GetCrc32(f.OpenRead())).Aggregate(0, (a, b) => Gen.HashCombineInt(a, b));
         }
     }
 
