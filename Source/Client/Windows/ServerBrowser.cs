@@ -531,6 +531,7 @@ namespace Multiplayer.Client
                     Log.Message("Connecting directly");
 
                     Find.WindowStack.Add(new ConnectingWindow(address, port) { returnToServerBrowser = true });
+                    MultiplayerMod.settings.Write();
                     Close(false);
                 }
             }
