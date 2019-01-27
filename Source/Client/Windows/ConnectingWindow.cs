@@ -66,7 +66,7 @@ namespace Multiplayer.Client
 
     public class ConnectingWindow : BaseConnectingWindow
     {
-        public override string ConnectingString => "MpConnectingTo".Translate(address, port);
+        public override string ConnectingString => string.Format("MpConnectingTo".Translate("{0}", port), address);
 
         private string address;
         private int port;

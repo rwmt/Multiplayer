@@ -525,6 +525,7 @@ namespace Multiplayer.Client
                 try
                 {
                     Find.WindowStack.Add(new ConnectingWindow(hostport[0], port) { returnToServerBrowser = true });
+                    MultiplayerMod.settings.Write();
                     Close(false);
                 }
                 catch (Exception)
