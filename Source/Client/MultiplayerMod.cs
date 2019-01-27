@@ -176,6 +176,7 @@ namespace Multiplayer.Client
         public int autosaveSlots = 5;
         public bool aggressiveTicking;
         public bool showDevInfo;
+        public string serverAddress;
 
         public override void ExposeData()
         {
@@ -186,6 +187,7 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref autosaveSlots, "autosaveSlots", 5);
             Scribe_Values.Look(ref aggressiveTicking, "aggressiveTicking");
             Scribe_Values.Look(ref showDevInfo, "showDevInfo");
+            Scribe_Values.Look(ref serverAddress, "serverAddress", "127.0.0.1");
         }
     }
 }
