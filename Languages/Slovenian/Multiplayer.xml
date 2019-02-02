@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<LanguageData>
+
+  <MpSimulating>Simuliranje</MpSimulating>
+  <MpSimulatingServer>Simuliranje Strežnika</MpSimulatingServer>
+  <MpLoading>Nalaganje</MpLoading>
+  <MpSaving>Shranjevanje</MpSaving>
+  
+  <MpInvalidPort>Napačna vrata</MpInvalidPort>
+  <MpInvalidAddress>Napačen naslov</MpInvalidAddress>
+  <MpInvalidGameName>Napačeno ime igre</MpInvalidGameName>
+  
+  <MpWrongProtocol>Napačna verzija protokola</MpWrongProtocol>
+  <MpWrongMultiplayerVersionInfo>Strežnik gostuje na večih igralcih {0} (protokol {1}).</MpWrongMultiplayerVersionInfo>
+  
+  <MpWrongDefs>Neusklajenost definicije modifikacije</MpWrongDefs>
+  <MpWrongDefsInfo>Zagotovi da so naložene modifikacije, njihove verzije in zaporedje v skladu s strežnikom</MpWrongDefsInfo>
+  <MpModList>Seznam modifikacij</MpModList>
+  <MpSeeModList>Poglej seznam modifikacij</MpSeeModList>
+  
+  <MpServerClosed>Strežnik je zaprt</MpServerClosed>
+  <MpServerFull>Strežnik je poln</MpServerFull>
+  <MpKicked>Bili ste izvrženi</MpKicked>
+
+  <MpInvalidUsernameAlreadyPlaying>Uporabniško ime je če aktivno</MpInvalidUsernameAlreadyPlaying>
+  <MpInvalidUsernameChars>Uporabniško ime vsebuje ne veljavne znake</MpInvalidUsernameChars>
+  <MpInvalidUsernameLength>Uporabniško ime je ne veljavne dolžine</MpInvalidUsernameLength>
+  <MpChangeUsernameInfo>Uporabniško ime lahko spremenite v nastavitvah modifikacije.</MpChangeUsernameInfo>
+  
+  <MpPlayerConnected>{0} se je pridružil</MpPlayerConnected>
+  <MpPlayerDisconnected>{0} je zapustil</MpPlayerDisconnected>
+  
+  <MpReplayOutdated>(Zastarelo)</MpReplayOutdated>
+  <MpReplayOutdatedDesc1>Ta ponovitev je bila narejena za protokol verzije {0}, toda ti uporabljaš verzijo {1}.</MpReplayOutdatedDesc1>
+  <MpReplayOutdatedDesc2>Ponovitev mogoče ne bo delovala pravilno.</MpReplayOutdatedDesc2>
+  <MpReplayOutdatedDesc3>Možne neskladnosti so zapisane pri zgodovini objave.</MpReplayOutdatedDesc3>
+  <MpReplayOutdatedDesc4>This file contains additional information and hosting from it should work fine.</MpReplayOutdatedDesc4>
+  <MpReplayOutdatedDesc4>Ta datoteka vsebuje dodatne informacije in gostovanje z njo bi naj delovati.</MpReplayOutdatedDesc4>
+  
+  <MpServerCloseConfirmation>Ali ste prepričani da želite zapreti server? Ne shranjeni napredek bo izgubljen.</MpServerCloseConfirmation>
+  
+  <MpHostServer>Gostuj strežnik</MpHostServer>
+  <MpSaveReplay>Shrani ponovitev</MpSaveReplay>
+  
+  <MpConvert>Pretvori na enega igralca</MpConvert>
+  <MpConverting>Pretvarjam</MpConverting>
+  
+  <MpUsername>Uporabniško ime</MpUsername>
+  <MpShowPlayerCursors>Pokaži kazalce igralca</MpShowPlayerCursors>
+  <MpAutoAcceptSteam>Samodejno sprejmi Steam</MpAutoAcceptSteam>
+  <MpAutoAcceptSteamDesc>Samodejno sprejmi katerokoli prihajajočo Steam prošnjo za povezavo</MpAutoAcceptSteamDesc>
+  <MpTransparentChat>Transparentni pogovor</MpTransparentChat>
+  
+  <MpAutosaveSlots>Reža za samodejno</MpAutosaveSlots>
+  <MpAutosaveSlotsDesc>Koliko samodejnih shranjevanj naj ohranim?</MpAutosaveSlotsDesc>
+  
+  <MpTraderLeavesIn>Zapusti čez {0}</MpTraderLeavesIn>
+  
+  <MpChatButton>Pogovor</MpChatButton>
+  <MpTradingButton>Trgovanje</MpTradingButton>
+  
+  <MpChatPlayers>Igralci ({0}):</MpChatPlayers>
+  <MpSend>Pošlji</MpSend>
+  <MpSteamAcceptTitle>Sprejmi Steam igralce</MpSteamAcceptTitle>
+  <MpSteamAcceptDesc>Pritisni za sprejem</MpSteamAcceptDesc>
+  <MpSteamAccepted>Igralec je bil sprejet</MpSteamAccepted>
+  
+  <MpConnectingTo>Povezovanje na {0}:{1}</MpConnectingTo>
+  <MpConnected>Povezan.</MpConnected>
+  <MpDownloading>Prenašanje ({0}%)</MpDownloading>
+  
+  <MpSteamConnectingTo>Povezovanje na igro ki jo gosti {0}</MpSteamConnectingTo>
+  <MpSteamConnectingWaiting>Počakaj da strežnik sprejme</MpSteamConnectingWaiting>
+  
+  <MpTicksBehind>Zaostajaš za {0} klikov.</MpTicksBehind>
+  <MpLowerGameSpeed>Mogoče zmanjšaj hitrost igre.</MpLowerGameSpeed>
+  <MpForceCatchUp>Pritisni za prisilno uskladitev.</MpForceCatchUp>
+  
+  <MpDesynced>Stanje igre je ne sinhrono.</MpDesynced>
+  <MpTryResync>Probaj ponovno uskladitev</MpTryResync>
+  
+  <MpSaveReplayAs>Shrani ponovitev kot</MpSaveReplayAs>
+  <MpWillOverwrite>Prepisali boste</MpWillOverwrite>
+  <MpReplaySaved>Ponovitev shranjena</MpReplaySaved>
+  
+  <MpGameName>Ime igre</MpGameName>
+  <MpMaxPlayers>Največ igralcev</MpMaxPlayers>
+  <MpAutosaveEvery>Samodejno shranjevanje vsake</MpAutosaveEvery>
+  <MpAutosaveMinutes>minute</MpAutosaveMinutes>
+  <MpLanDesc1>Gostuj igro na lokalnem omrežju.</MpLanDesc1>
+  <MpLanDesc2>Razrešen LAN naslov: {0}</MpLanDesc2>
+  <MpArbiterDesc>Instanca igre ki teče v ozadju in pomaga s reševanjem ne skladnosti.</MpArbiterDesc>
+  <MpAsyncTimeDesc>Posamezne kontrole za čas za vsak zemljevid in planet.</MpAsyncTimeDesc>
+  <MpExperimentalFeature>Eksperimentalne funkcije</MpExperimentalFeature>
+  
+  <MpHostButton>Gostuj</MpHostButton>
+  <MpWatchReplay>Gledaj</MpWatchReplay>
+  <MpNothingSelected>Nič ni izbrano</MpNothingSelected>
+  <MpNoSaves>Z večimi igralci lahko igrate samo z že obstoječimi shranjenimi igrami</MpNoSaves>
+  
+  <MpHostIngame>Gostuj s to igro</MpHostIngame>
+  <MpHostReplay>Gostuj s ponovitve</MpHostReplay>
+  <MpHostSavefile>Gostuj s shranjene datoteke</MpHostSavefile>
+  
+  <MpJoinButton>Pridruži se</MpJoinButton>
+  <MpConnectButton>Poveži</MpConnectButton>
+  <MpLanSearching>Iskanje</MpLanSearching>
+  
+  <MpNotConnectedToSteam>Niste povezani s Steam</MpNotConnectedToSteam>
+  <MpNoFriendsPlaying>Noben prijatelj trenutno ne igra na več igralcev</MpNoFriendsPlaying>
+  <MpPlayingRimWorld>Igranje RimWorld</MpPlayingRimWorld>
+  <MpNotInMultiplayer>Ne igraš na več igralcev</MpNotInMultiplayer>
+  
+  <MpLan>LAN</MpLan>
+  <MpDirect>Direktno</MpDirect>
+  <MpSteam>Steam</MpSteam>
+  <MpHostTab>Gostuj</MpHostTab>
+  
+  <MpMultiplayer>Več igralcev</MpMultiplayer>
+  <MpSingleplayer>En igralec</MpSingleplayer>
+  
+  <MpNotAvailable>Ni navoljo z večimi igralci.</MpNotAvailable>
+  <MpCallingFactionNotAvailable>Klicanje drugih frakcij trenutno ni navoljo z večimi igralci.</MpCallingFactionNotAvailable>
+  
+  <MpAggressiveTicking>Agresivno tiktakanje</MpAggressiveTicking>
+  <MpAggressiveTickingDesc>Always try to automatically catch up with the server at the cost of FPS.</MpAggressiveTickingDesc>
+  <MpAggressiveTickingDesc>Vedno probavaj dohiteti strežnik v zameno za FPS.</MpAggressiveTickingDesc>
+  
+</LanguageData>
