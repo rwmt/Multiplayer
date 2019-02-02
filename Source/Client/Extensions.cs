@@ -396,7 +396,16 @@ namespace Multiplayer.Client
 
         public static int CRC32(this FileInfo[] files)
         {
-            return files.Select(f => new CRC32().GetCrc32(f.OpenRead())).Aggregate(0, (a, b) => Gen.HashCombineInt(a, b));
+            return files.Select(f =>
+            {
+                using (var stream = f.OpenRead())
+                    return new CRC32().GetCrc32(stream);
+            }).AggregateHash();
+        }
+
+        public static int AggregateHash(this IEnumerable<int> e)
+        {
+            return e.Aggregate(0, (a, b) => Gen.HashCombineInt(a, b));
         }
     }
 

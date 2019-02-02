@@ -12,6 +12,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
+using System.Xml;
 using System.Xml.Linq;
 using UnityEngine;
 using Verse;
@@ -154,8 +155,9 @@ namespace Multiplayer.Client
                 mods.Select((mod, i) => i),
                 new TableDataGetter<int>($"Mod name {new string(' ', 20)}", i => mods[i].Name),
                 new TableDataGetter<int>($"Mod id {new string(' ', 20)}", i => mods[i].Identifier),
-                new TableDataGetter<int>($"Assembly hash {new string(' ', 10)}", i => Multiplayer.enabledModAssemblyHashes[i]),
-                new TableDataGetter<int>($"About hash {new string(' ', 10)}", i => Multiplayer.enabledAboutHashes[i])
+                new TableDataGetter<int>($"Assembly hash {new string(' ', 10)}", i => Multiplayer.enabledModAssemblyHashes[i].assemblyHash),
+                new TableDataGetter<int>($"XML hash {new string(' ', 10)}", i => Multiplayer.enabledModAssemblyHashes[i].xmlHash),
+                new TableDataGetter<int>($"About hash {new string(' ', 10)}", i => Multiplayer.enabledModAssemblyHashes[i].aboutHash)
             );
         }
 

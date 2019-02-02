@@ -144,7 +144,13 @@ namespace Multiplayer.Client
             if (reason == MpDisconnectReason.Defs)
             {
                 foreach (var local in mods.defInfo)
-                    local.Value.status = (DefCheckStatus)reader.ReadByte();
+                {
+                    var status = (DefCheckStatus)reader.ReadByte();
+                    local.Value.status = status;
+
+                    if (MultiplayerMod.arbiterInstance && status != DefCheckStatus.OK)
+                        Log.Message($"{local.Key}: {status}");
+                }
             }
 
             disconnectReason = reason;
@@ -257,10 +263,7 @@ namespace Multiplayer.Client
             set
             {
                 myFaction = value;
-                Faction.OfPlayer.def = Multiplayer.FactionDef;
-                value.def = FactionDefOf.PlayerColony;
-                Find.FactionManager.ofPlayer = value;
-
+                FactionContext.Set(value);
                 worldComp.SetFaction(value);
 
                 foreach (Map m in Find.Maps)

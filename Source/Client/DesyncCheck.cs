@@ -45,6 +45,7 @@ namespace Multiplayer.Client
         public void Add(SyncInfo info)
         {
             if (Multiplayer.session.desynced) return;
+            if (TickPatch.Skipping) return;
 
             if (buffer.Count == 0)
             {
@@ -89,8 +90,6 @@ namespace Multiplayer.Client
 
         private void OnDesynced(SyncInfo one, SyncInfo two, string error)
         {
-            if (TickPatch.Skipping) return;
-
             Multiplayer.Client.Send(Packets.Client_Desynced);
 
             var local = one.local ? one : two;
@@ -113,8 +112,6 @@ namespace Multiplayer.Client
                     zip.AddEntry("sync_local", local.Serialize());
                     zip.AddEntry("sync_remote", remote.Serialize());
                     zip.AddEntry("game_snapshot", savedGame);
-
-                    zip.AddEntry("static_fields", MpDebugTools.StaticFieldsToString());
 
                     var desyncInfo = new ByteWriter();
                     desyncInfo.WriteBool(Multiplayer.session.ArbiterPlaying);

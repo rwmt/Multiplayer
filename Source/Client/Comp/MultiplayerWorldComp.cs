@@ -325,7 +325,7 @@ namespace Multiplayer.Client
                 }
             }
 
-            if (!TickPatch.Skipping && !Multiplayer.IsReplay && (Multiplayer.LocalServer != null || Multiplayer.arbiterInstance))
+            if (!TickPatch.Skipping && !Multiplayer.IsReplay && (Multiplayer.LocalServer != null || MultiplayerMod.arbiterInstance))
                 SaveLoad.SendCurrentGameData(true);
         }
 

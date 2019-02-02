@@ -361,14 +361,11 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(Storyteller), nameof(Storyteller.StorytellerTick))]
-    [HarmonyPatch(typeof(StoryWatcher), nameof(StoryWatcher.StoryWatcherTick))]
+    [MpPatch(typeof(Storyteller), nameof(Storyteller.StorytellerTick))]
+    [MpPatch(typeof(StoryWatcher), nameof(StoryWatcher.StoryWatcherTick))]
     public class StorytellerTickPatch
     {
-        static bool Prefix()
-        {
-            return Multiplayer.Client == null || Multiplayer.Ticking;
-        }
+        static bool Prefix() => Multiplayer.Client == null || Multiplayer.Ticking;
     }
 
     [HarmonyPatch(typeof(Storyteller))]
@@ -407,8 +404,7 @@ namespace Multiplayer.Client
             if (Multiplayer.Client == null) return;
 
             // The newly generated map
-            var map = Find.Maps.Last();
-            map.AsyncTime().slower.SignalForceNormalSpeedShort();
+            Find.Maps.LastOrDefault()?.AsyncTime().slower.SignalForceNormalSpeedShort();
         }
     }
 

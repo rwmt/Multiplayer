@@ -307,8 +307,7 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(MapFileCompressor))]
-    [HarmonyPatch(nameof(MapFileCompressor.ThingsToSpawnAfterLoad))]
+    [HarmonyPatch(typeof(MapFileCompressor), nameof(MapFileCompressor.ThingsToSpawnAfterLoad))]
     public static class DecompressedThingsPatch
     {
         public static Dictionary<int, List<Thing>> thingsToSpawn = new Dictionary<int, List<Thing>>();
@@ -316,17 +315,23 @@ namespace Multiplayer.Client
         static void Postfix(MapFileCompressor __instance, ref IEnumerable<Thing> __result)
         {
             if (!SaveCompression.doSaveCompression) return;
+            __result = thingsToSpawn[__instance.map.uniqueID];
+        }
+    }
 
-            int mapId = __instance.map.uniqueID;
-            __result = thingsToSpawn[mapId];
-            thingsToSpawn.Remove(mapId);
+    [HarmonyPatch(typeof(Map), nameof(Map.FinalizeLoading))]
+    static class ClearThingsToSpawn
+    {
+        static void Postfix(Map __instance)
+        {
+            DecompressedThingsPatch.thingsToSpawn.Remove(__instance.uniqueID);
         }
     }
 
     [HarmonyPatch(typeof(MemoryUtility), nameof(MemoryUtility.ClearAllMapsAndWorld))]
-    static class ClearAllThingsToSpawnPatch
+    static class ClearAllThingsToSpawn
     {
-        static void Prefix()
+        static void Postfix()
         {
             DecompressedThingsPatch.thingsToSpawn.Clear();
         }

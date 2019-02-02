@@ -25,8 +25,13 @@ namespace Multiplayer.Client
         public static HarmonyInstance harmony = HarmonyInstance.Create("multiplayer");
         public static MpSettings settings;
 
+        public static bool arbiterInstance;
+
         public MultiplayerMod(ModContentPack pack) : base(pack)
         {
+            if (GenCommandLine.CommandLineArgPassed("arbiter"))
+                arbiterInstance = true;
+
             EarlyMarkNoInline(typeof(Multiplayer).Assembly);
             EarlyPatches();
 
@@ -106,6 +111,23 @@ namespace Multiplayer.Client
                 new HarmonyMethod(typeof(XmlInheritance_Patch), "Prefix"),
                 new HarmonyMethod(typeof(XmlInheritance_Patch), "Postfix")
             );
+
+            harmony.Patch(
+                AccessTools.Constructor(typeof(LoadableXmlAsset), new[] { typeof(string), typeof(string), typeof(string) }),
+                new HarmonyMethod(typeof(LoadableXmlAssetCtorPatch), "Prefix")
+            );
+
+            harmony.Patch(
+                AccessTools.Method(typeof(ModMetaData), "<Init>m__1"),
+                new HarmonyMethod(typeof(ModPreviewImagePatch), "Prefix")
+            );
+
+            // Might fix some mod desyncs
+            harmony.Patch(
+                AccessTools.Constructor(typeof(Def), new Type[0]),
+                new HarmonyMethod(typeof(RandPatches), nameof(RandPatches.Prefix)),
+                new HarmonyMethod(typeof(RandPatches), nameof(RandPatches.Postfix))
+            );
         }
 
         private string slotsBuffer;
@@ -148,6 +170,21 @@ namespace Multiplayer.Client
         }
 
         public override string SettingsCategory() => "Multiplayer";
+    }
+
+    static class LoadableXmlAssetCtorPatch
+    {
+        public static List<Pair<LoadableXmlAsset, int>> xmlAssetHashes = new List<Pair<LoadableXmlAsset, int>>();
+
+        static void Prefix(LoadableXmlAsset __instance, string contents)
+        {
+            xmlAssetHashes.Add(new Pair<LoadableXmlAsset, int>(__instance, GenText.StableStringHash(contents)));
+        }
+    }
+
+    static class ModPreviewImagePatch
+    {
+        static bool Prefix() => !MpVersion.IsDebug && !MultiplayerMod.arbiterInstance;
     }
 
     static class PatchHarmony

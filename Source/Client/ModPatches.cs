@@ -40,7 +40,7 @@ namespace Multiplayer.Client
             // PawnsAreCapable compat
             // Replace workSettings.SetPriority(def, p) with (workSettings.priorities[def] = p)
             // Minimizes side effects and goes around syncing
-            // Also caches the dictionary to improve performance
+            // Also cache the dictionary to improve performance
             {
                 var pawnsAreCapablePatch = new HarmonyMethod(typeof(ModPatches), nameof(PawnsAreCapable_FloatMenu_Patch_Transpiler));
                 PatchIfExists("PawnsAreCapable.FloatMenuMakerMap_ChoicesAtFor", "Prefix", transpiler: pawnsAreCapablePatch);

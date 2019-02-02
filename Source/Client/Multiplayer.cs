@@ -44,7 +44,6 @@ namespace Multiplayer.Client
         public static bool IsReplay => session?.replay ?? false;
 
         public static string username;
-        public static bool arbiterInstance;
         public static HarmonyInstance harmony => MultiplayerMod.harmony;
 
         public static bool reloading;
@@ -79,17 +78,13 @@ namespace Multiplayer.Client
         public static Stopwatch Clock = Stopwatch.StartNew();
 
         public static HashSet<string> xmlMods = new HashSet<string>();
-        public static int[] enabledModAssemblyHashes;
-        public static int[] enabledAboutHashes;
+        public static List<ModHashes> enabledModAssemblyHashes = new List<ModHashes>();
         public static Dictionary<string, DefInfo> localDefInfos;
 
         static Multiplayer()
         {
             if (GenCommandLine.CommandLineArgPassed("profiler"))
                 SimpleProfiler.CheckAvailable();
-
-            if (GenCommandLine.CommandLineArgPassed("arbiter"))
-                arbiterInstance = true;
 
             MpLog.info = str => Log.Message($"{username} {TickPatch.Timer} {str}");
             MpLog.error = str => Log.Error(str);
@@ -101,9 +96,6 @@ namespace Multiplayer.Client
                 if (!mod.ModAssemblies().Any())
                     xmlMods.Add(mod.RootDir.FullName);
             }
-
-            enabledModAssemblyHashes = LoadedModManager.RunningModsListForReading.Select(m => m.ModAssemblies().CRC32()).ToArray();
-            enabledAboutHashes = LoadedModManager.RunningModsListForReading.Select(m => new DirectoryInfo(Path.Combine(m.RootDir, "About")).GetFiles().CRC32()).ToArray();
 
             SimpleProfiler.Init(username);
 
@@ -125,6 +117,7 @@ namespace Multiplayer.Client
             MpConnectionState.SetImplementation(ConnectionStateEnum.ClientPlaying, typeof(ClientPlayingState));
 
             CollectCursorIcons();
+            Sync.CollectTypes();
 
             try
             {
@@ -159,11 +152,15 @@ namespace Multiplayer.Client
             // todo run it later
             Sync.InitHandlers();
 
-            DoubleLongEvent(() => localDefInfos = CollectDefInfos(), "Loading"); // right before the arbiter connects
+            DoubleLongEvent(() =>
+            {
+                CollectDefInfos();
+                CollectModHashes();
+            }, "Loading"); // right before the arbiter connects
 
             HandleCommandLine();
 
-            if (arbiterInstance)
+            if (MultiplayerMod.arbiterInstance)
                 RuntimeHelpers.RunClassConstructor(typeof(Text).TypeHandle);
         }
 
@@ -404,10 +401,10 @@ namespace Multiplayer.Client
             typeof(KeyBindingDef), typeof(RulePackDef),
             typeof(ScatterableDef), typeof(ShaderTypeDef),
             typeof(SongDef), typeof(SoundDef),
-            typeof(SubcameraDef)
+            typeof(SubcameraDef), typeof(PawnColumnDef)
         };
 
-        private static Dictionary<string, DefInfo> CollectDefInfos()
+        private static void CollectDefInfos()
         {
             var dict = new Dictionary<string, DefInfo>();
 
@@ -423,6 +420,9 @@ namespace Multiplayer.Client
             dict["WorldComponent"] = GetDefInfo(Sync.worldCompTypes, TypeHash);
             dict["MapComponent"] = GetDefInfo(Sync.mapCompTypes, TypeHash);
 
+            dict["PawnBio"] = GetDefInfo(SolidBioDatabase.allBios, b => b.name.GetHashCode());
+            dict["Backstory"] = GetDefInfo(BackstoryDatabase.allBackstories.Keys, b => b.GetHashCode());
+
             foreach (var defType in GenTypes.AllLeafSubclasses(typeof(Def)))
             {
                 if (defType.Assembly != typeof(Game).Assembly) continue;
@@ -432,7 +432,23 @@ namespace Multiplayer.Client
                 dict.Add(defType.Name, GetDefInfo(defs, d => GenText.StableStringHash(d.defName)));
             }
 
-            return dict;
+            localDefInfos = dict;
+        }
+
+        private static void CollectModHashes()
+        {
+            foreach (var mod in LoadedModManager.RunningModsListForReading)
+            {
+                var hashes = new ModHashes()
+                {
+                    assemblyHash = mod.ModAssemblies().CRC32(),
+                    xmlHash = LoadableXmlAssetCtorPatch.xmlAssetHashes.Where(p => p.First.mod == mod).Select(p => p.Second).AggregateHash(),
+                    aboutHash = new DirectoryInfo(Path.Combine(mod.RootDir, "About")).GetFiles().CRC32()
+                };
+                enabledModAssemblyHashes.Add(hashes);
+            }
+
+            LoadableXmlAssetCtorPatch.xmlAssetHashes.Clear();
         }
 
         private static DefInfo GetDefInfo<T>(IEnumerable<T> types, Func<T, int> hash)
@@ -440,26 +456,32 @@ namespace Multiplayer.Client
             return new DefInfo()
             {
                 count = types.Count(),
-                hash = types.Aggregate(0, (h, t) => Gen.HashCombineInt(h, hash(t)))
+                hash = types.Select(t => hash(t)).AggregateHash()
             };
         }
+    }
+
+    public class ModHashes
+    {
+        public int assemblyHash, xmlHash, aboutHash;
     }
 
     public static class FactionContext
     {
         private static Stack<Faction> stack = new Stack<Faction>();
 
-        public static Faction Push(Faction faction)
+        public static Faction Push(Faction newFaction)
         {
-            if (faction == null || (faction.def != Multiplayer.FactionDef && faction.def != FactionDefOf.PlayerColony))
+            if (newFaction == null || (newFaction.def != Multiplayer.FactionDef && !newFaction.def.isPlayer))
             {
                 stack.Push(null);
                 return null;
             }
 
             stack.Push(Find.FactionManager.OfPlayer);
-            Set(faction);
-            return faction;
+            Set(newFaction);
+
+            return newFaction;
         }
 
         public static Faction Pop()
@@ -470,11 +492,13 @@ namespace Multiplayer.Client
             return f;
         }
 
-        private static void Set(Faction faction)
+        public static void Set(Faction newFaction)
         {
-            Find.FactionManager.OfPlayer.def = Multiplayer.FactionDef;
-            faction.def = FactionDefOf.PlayerColony;
-            Find.FactionManager.ofPlayer = faction;
+            var playerFaction = Find.FactionManager.OfPlayer;
+            var factionDef = playerFaction.def;
+            playerFaction.def = Multiplayer.FactionDef;
+            newFaction.def = factionDef;
+            Find.FactionManager.ofPlayer = newFaction;
         }
     }
 

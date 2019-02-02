@@ -36,7 +36,7 @@ namespace Multiplayer.Client
 
             UpdateSync();
 
-            if (!Multiplayer.arbiterInstance && Application.isFocused && !TickPatch.Skipping && !Multiplayer.session.desynced)
+            if (!MultiplayerMod.arbiterInstance && Application.isFocused && !TickPatch.Skipping && !Multiplayer.session.desynced)
                 SendVisuals();
 
             if (Multiplayer.Client is SteamBaseConn steamConn && SteamManager.Initialized)
@@ -198,9 +198,9 @@ namespace Multiplayer.Client
 
             ClearCaches();
 
-            if (Multiplayer.arbiterInstance)
+            if (MultiplayerMod.arbiterInstance)
             {
-                Multiplayer.arbiterInstance = false;
+                MultiplayerMod.arbiterInstance = false;
                 Application.Quit();
             }
         }

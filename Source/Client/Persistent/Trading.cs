@@ -661,6 +661,8 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.Client == null) return;
             if (__state == __instance.AgeBiologicalYears) return;
+
+            // todo?
         }
     }
 
@@ -694,8 +696,8 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.Client == null) return;
 
-            __result = t.Spawned;
-            reason = null;
+            //__result = t.Spawned;
+            //reason = null;
         }
     }
 }

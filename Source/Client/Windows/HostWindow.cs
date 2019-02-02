@@ -16,6 +16,7 @@ using Verse.Steam;
 
 namespace Multiplayer.Client
 {
+    [HotSwappable]
     public class HostWindow : Window
     {
         public override Vector2 InitialSize => new Vector2(450f, height + 45f);
@@ -72,14 +73,14 @@ namespace Multiplayer.Client
 
             var entry = new Rect(0, 45, inRect.width, 30f);
 
-            var labelWidth = 100f;
+            var labelWidth = 110f;
 
             settings.gameName = TextEntryLabeled(entry, $"{"MpGameName".Translate()}:  ", settings.gameName, labelWidth);
             entry = entry.Down(40);
 
             TextFieldNumericLabeled(entry.Width(labelWidth + 30f), $"{"MpMaxPlayers".Translate()}:  ", ref settings.maxPlayers, ref maxPlayersBuffer, labelWidth, 0, 999);
 
-            TextFieldNumericLabeled(entry.Right(200f).Width(labelWidth + 35f), $"{"MpAutosaveEvery".Translate()} ", ref settings.autosaveInterval, ref autosaveBuffer, labelWidth + 5f, 0, 999);
+            TextFieldNumericLabeled(entry.Right(150f).Width(labelWidth + 85f), $"{"MpAutosaveEvery".Translate()} ", ref settings.autosaveInterval, ref autosaveBuffer, labelWidth + 50f, 0, 999);
             Text.Anchor = TextAnchor.MiddleLeft;
             Widgets.Label(entry.Right(200f).Right(labelWidth + 35f), $" {"MpAutosaveMinutes".Translate()}");
             Text.Anchor = TextAnchor.UpperLeft;
@@ -92,15 +93,17 @@ namespace Multiplayer.Client
                 password = TextEntryLabeled(entry.Width(200), "Password:  ", password, labelWidth);
             entry = entry.Down(40);*/
 
+            var checkboxWidth = labelWidth + 30f;
+
             var directLabel = $"{"MpDirect".Translate()}:  ";
             var directLabelWidth = Text.CalcSize(directLabel).x;
-            CheckboxLabeled(entry.Width(130), directLabel, ref direct, placeTextNearCheckbox: true);
+            CheckboxLabeled(entry.Width(checkboxWidth), directLabel, ref direct, placeTextNearCheckbox: true);
             if (direct)
-                addressBuffer = Widgets.TextField(entry.Width(140).Right(130 + 10), addressBuffer);
+                addressBuffer = Widgets.TextField(entry.Width(checkboxWidth + 10).Right(checkboxWidth + 10), addressBuffer);
 
             entry = entry.Down(30);
 
-            var lanRect = entry.Width(130);
+            var lanRect = entry.Width(checkboxWidth);
             CheckboxLabeled(lanRect, $"{"MpLan".Translate()}:  ", ref lan, placeTextNearCheckbox: true);
             TooltipHandler.TipRegion(lanRect, $"{"MpLanDesc1".Translate()}\n\n{"MpLanDesc2".Translate(settings.lanAddress)}");
 
@@ -108,24 +111,24 @@ namespace Multiplayer.Client
 
             if (SteamManager.Initialized)
             {
-                CheckboxLabeled(entry.Width(130), $"{"MpSteam".Translate()}:  ", ref settings.steam, placeTextNearCheckbox: true);
+                CheckboxLabeled(entry.Width(checkboxWidth), $"{"MpSteam".Translate()}:  ", ref settings.steam, placeTextNearCheckbox: true);
                 entry = entry.Down(30);
             }
 
-            TooltipHandler.TipRegion(entry.Width(130), "MpArbiterDesc".Translate());
-            CheckboxLabeled(entry.Width(130), "The Arbiter:  ", ref settings.arbiter, placeTextNearCheckbox: true);
+            TooltipHandler.TipRegion(entry.Width(checkboxWidth), "MpArbiterDesc".Translate());
+            CheckboxLabeled(entry.Width(checkboxWidth), "The Arbiter:  ", ref settings.arbiter, placeTextNearCheckbox: true);
             entry = entry.Down(30);
 
             /*if (MpVersion.IsDebug)
             {
-                TooltipHandler.TipRegion(entry.Width(130), $"{"MpAsyncTimeDesc".Translate()}\n\n{"MpExperimentalFeature".Translate()}");
-                CheckboxLabeled(entry.Width(130), "Async time:  ", ref asyncTime, placeTextNearCheckbox: true);
+                TooltipHandler.TipRegion(entry.Width(checkboxWidth), $"{"MpAsyncTimeDesc".Translate()}\n\n{"MpExperimentalFeature".Translate()}");
+                CheckboxLabeled(entry.Width(checkboxWidth), "Async time:  ", ref asyncTime, placeTextNearCheckbox: true);
                 entry = entry.Down(30);
             }*/
 
             if (Prefs.DevMode)
             {
-                CheckboxLabeled(entry.Width(130), "Debug mode:  ", ref debugMode, placeTextNearCheckbox: true);
+                CheckboxLabeled(entry.Width(checkboxWidth), "Debug mode:  ", ref debugMode, placeTextNearCheckbox: true);
                 entry = entry.Down(30);
             }
 

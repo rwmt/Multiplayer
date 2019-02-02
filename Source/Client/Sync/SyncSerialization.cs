@@ -164,8 +164,8 @@ namespace Multiplayer.Client
             }
         };
 
-        public static Type[] storageParents = AllImplementations(typeof(IStoreSettingsParent));
-        public static Type[] plantToGrowSettables = AllImplementations(typeof(IPlantToGrowSettable));
+        public static Type[] storageParents;
+        public static Type[] plantToGrowSettables;
 
         private static Type[] AllImplementations(Type type)
         {
@@ -183,13 +183,27 @@ namespace Multiplayer.Client
             { typeof(FoodRestriction), "filter" }
         };
 
-        public static Type[] thingCompTypes = typeof(ThingComp).AllSubclassesNonAbstract().ToArray();
-        public static Type[] designatorTypes = typeof(Designator).AllSubclassesNonAbstract().ToArray();
-        public static Type[] worldObjectCompTypes = typeof(WorldObjectComp).AllSubclassesNonAbstract().ToArray();
+        public static Type[] thingCompTypes;
+        public static Type[] designatorTypes;
+        public static Type[] worldObjectCompTypes;
 
-        public static Type[] gameCompTypes = typeof(GameComponent).AllSubclassesNonAbstract().ToArray();
-        public static Type[] worldCompTypes = typeof(WorldComponent).AllSubclassesNonAbstract().ToArray();
-        public static Type[] mapCompTypes = typeof(MapComponent).AllSubclassesNonAbstract().ToArray();
+        public static Type[] gameCompTypes;
+        public static Type[] worldCompTypes;
+        public static Type[] mapCompTypes;
+
+        public static void CollectTypes()
+        {
+            storageParents = AllImplementations(typeof(IStoreSettingsParent));
+            plantToGrowSettables = AllImplementations(typeof(IPlantToGrowSettable));
+
+            thingCompTypes = typeof(ThingComp).AllSubclassesNonAbstract().ToArray();
+            designatorTypes = typeof(Designator).AllSubclassesNonAbstract().ToArray();
+            worldObjectCompTypes = typeof(WorldObjectComp).AllSubclassesNonAbstract().ToArray();
+
+            gameCompTypes = typeof(GameComponent).AllSubclassesNonAbstract().ToArray();
+            worldCompTypes = typeof(WorldComponent).AllSubclassesNonAbstract().ToArray();
+            mapCompTypes = typeof(MapComponent).AllSubclassesNonAbstract().ToArray();
+        }
 
         private static Type[] supportedThingHolders = new[]
         {

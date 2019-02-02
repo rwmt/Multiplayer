@@ -58,10 +58,11 @@ namespace Multiplayer.Client
 
         public static void EntryAction()
         {
-            foreach (var def in DefDatabase<ThingDef>.AllDefs)
-            {
-                Log.Message($"{def.modContentPack?.Name} {def} {def.shortHash} {def.index}");
-            }
+            Log.Message(
+                GenDefDatabase.GetAllDefsInDatabaseForDef(typeof(TerrainDef))
+                .Select(def => $"{def.modContentPack?.Name} {def} {def.shortHash} {def.index}")
+                .Join(delimiter: "\n")
+            );
         }
 
         [SyncMethod]
@@ -77,11 +78,13 @@ namespace Multiplayer.Client
         [SyncDebugOnly]
         static void AdvanceTime()
         {
+            File.WriteAllLines($"{Multiplayer.username}_all_static.txt", new string[] { AllModStatics() });
+
             int to = 322 * 1000;
             if (Find.TickManager.TicksGame < to)
             {
                 //Find.TickManager.ticksGameInt = to;
-                Find.Maps[0].AsyncTime().mapTicks = to;
+                //Find.Maps[0].AsyncTime().mapTicks = to;
             }
         }
 
@@ -93,10 +96,26 @@ namespace Multiplayer.Client
 
         static void PrintStaticFields()
         {
-            Log.Message(StaticFieldsToString());
+            Log.Message(StaticFieldsToString(typeof(Game).Assembly, type => type.Namespace.StartsWith("RimWorld") || type.Namespace.StartsWith("Verse")));
         }
 
-        public static string StaticFieldsToString()
+        public static string AllModStatics()
+        {
+            var builder = new StringBuilder();
+
+            foreach (var mod in LoadedModManager.RunningModsListForReading)
+            {
+                builder.AppendLine("======== ").Append(mod.Name).AppendLine();
+                foreach (var asm in mod.assemblies.loadedAssemblies)
+                {
+                    builder.AppendLine(StaticFieldsToString(asm, t => !t.Namespace.StartsWith("Harmony") && !t.Namespace.StartsWith("Multiplayer")));
+                }
+            }
+
+            return builder.ToString();
+        }
+
+        public static string StaticFieldsToString(Assembly asm, Predicate<Type> typeValidator)
         {
             var builder = new StringBuilder();
 
@@ -110,8 +129,8 @@ namespace Multiplayer.Client
                 return value;
             }
 
-            foreach (var type in typeof(Game).Assembly.GetTypes())
-                if (!type.IsGenericTypeDefinition && type.Namespace != null && (type.Namespace.StartsWith("RimWorld") || type.Namespace.StartsWith("Verse")) && !type.HasAttribute<DefOf>() && !type.HasAttribute<CompilerGeneratedAttribute>())
+            foreach (var type in asm.GetTypes())
+                if (!type.IsGenericTypeDefinition && type.Namespace != null && typeValidator(type) && !type.HasAttribute<DefOf>() && !type.HasAttribute<CompilerGeneratedAttribute>())
                     foreach (var field in type.GetFields(BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.DeclaredOnly))
                         if (!field.IsLiteral && !field.IsInitOnly && !field.HasAttribute<CompilerGeneratedAttribute>())
                             builder.AppendLine($"{field.FieldType} {type}::{field.Name}: {FieldValue(field)}");
@@ -339,7 +358,11 @@ namespace Multiplayer.Client
             if (Current.ProgramState == ProgramState.Playing && !Multiplayer.WorldComp.debugMode) return true;
 
             var originalAction = (action.Target as DebugListerContext)?.originalAction ?? action;
-            int hash = Gen.HashCombineInt(GenText.StableStringHash(originalAction.Method.MethodDesc()), GenText.StableStringHash(label));
+
+            int hash = Gen.HashCombineInt(
+                GenText.StableStringHash(originalAction.Method.MethodDesc()), 
+                GenText.StableStringHash(label)
+            );
 
             if (Multiplayer.ExecutingCmds)
             {
