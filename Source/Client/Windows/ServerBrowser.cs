@@ -505,17 +505,15 @@ namespace Multiplayer.Client
             Widgets.EndScrollView();
         }
 
-        private string ipBuffer = "127.0.0.1";
-
         private void DrawDirect(Rect inRect)
         {
-            ipBuffer = Widgets.TextField(new Rect(inRect.center.x - 200 / 2, 15f, 200, 35f), ipBuffer);
+            MultiplayerMod.settings.serverAddress = Widgets.TextField(new Rect(inRect.center.x - 200 / 2, 15f, 200, 35f), MultiplayerMod.settings.serverAddress);
 
             const float btnWidth = 115f;
 
             if (Widgets.ButtonText(new Rect(inRect.center.x - btnWidth / 2, 60f, btnWidth, 35f), "MpConnectButton".Translate()))
             {
-                string ip = ipBuffer.Trim();
+                string ip = MultiplayerMod.settings.serverAddress.Trim();
 
                 int port = MultiplayerServer.DefaultPort;
                 string[] ipport = ip.Split(':');
@@ -533,6 +531,7 @@ namespace Multiplayer.Client
                     Log.Message("Connecting directly");
 
                     Find.WindowStack.Add(new ConnectingWindow(address, port) { returnToServerBrowser = true });
+                    MultiplayerMod.settings.Write();
                     Close(false);
                 }
             }
