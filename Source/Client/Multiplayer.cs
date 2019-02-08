@@ -204,8 +204,7 @@ namespace Multiplayer.Client
                 if (split.Length == 2)
                     int.TryParse(split[1], out port);
 
-                if (IPAddress.TryParse(ip, out IPAddress addr))
-                    DoubleLongEvent(() => ClientUtil.TryConnect(addr, port), "Connecting");
+                DoubleLongEvent(() => ClientUtil.TryConnect(ip, port), "Connecting");
             }
 
             if (GenCommandLine.CommandLineArgPassed("arbiter"))

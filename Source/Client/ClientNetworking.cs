@@ -21,7 +21,7 @@ namespace Multiplayer.Client
 {
     public static class ClientUtil
     {
-        public static void TryConnect(IPAddress address, int port)
+        public static void TryConnect(string address, int port)
         {
             Multiplayer.session = new MultiplayerSession();
             NetManager netClient = new NetManager(new MpClientNetListener());
@@ -31,7 +31,7 @@ namespace Multiplayer.Client
             netClient.MaxConnectAttempts = 8;
 
             Multiplayer.session.netClient = netClient;
-            netClient.Connect(address.ToString(), port, "");
+            netClient.Connect(address, port, "");
         }
 
         public static void HostServer(ServerSettings settings, bool fromReplay, bool withSimulation = false, bool debugMode = false)
