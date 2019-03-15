@@ -33,7 +33,7 @@
   <MpReplayOutdated>(Desactualizado)</MpReplayOutdated>
   <MpReplayOutdatedDesc1>Esta repetición fue hecha para el protocolo de versión {0}, pero estás usando la versión {1}.</MpReplayOutdatedDesc1>
   <MpReplayOutdatedDesc2>Puede que la repetición no se reproduzca correctamente.</MpReplayOutdatedDesc2>
-  <MpReplayOutdatedDesc3>Posibles incopatibilidades están listadas con el historial de lanzamientos.</MpReplayOutdatedDesc3>
+  <MpReplayOutdatedDesc3>Posibles incompatibilidades están listadas con el historial de lanzamientos.</MpReplayOutdatedDesc3>
   <MpReplayOutdatedDesc4>Este archivo contiene información adicional y alojar de este debería funcionar bien.</MpReplayOutdatedDesc4>
   
   <MpServerCloseConfirmation>¿Estás seguro que quieres cerrar el servidor? El progreso sin guardar se perderá.</MpServerCloseConfirmation>
@@ -80,7 +80,7 @@
   
   <MpSaveReplayAs>Salvar repetición como</MpSaveReplayAs>
   <MpWillOverwrite>Sobrescribirá</MpWillOverwrite>
-  <MpReplaySaved>Repetición</MpReplaySaved>
+  <MpReplaySaved>Repetición salva</MpReplaySaved>
   
   <MpGameName>Nombre del juego</MpGameName>
   <MpMaxPlayers>Máximo de jugadores</MpMaxPlayers>
