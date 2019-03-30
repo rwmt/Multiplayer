@@ -14,6 +14,7 @@
   <MpWrongModVersionInfo>Stell sicher, dass Du dieselbe Mehrspieler Version hat wie der Host.</MpWrongModVersionInfo>
   
   <MpWrongDefs>Die Mods stimmen nicht überein</MpWrongDefs>
+  <MpWrongDefsInfo>Stelle sicher, dass die installierten Mods, deren Versionen und die Reihenfolge gleich wie beim Host ist.</MpWrongDefsInfo>
   <MpModList>Mod liste</MpModList>
   <MpSeeModList>Siehe mod liste</MpSeeModList>
   
@@ -24,11 +25,10 @@
   <MpInvalidUsernameAlreadyPlaying>Username bereits online</MpInvalidUsernameAlreadyPlaying>
   <MpInvalidUsernameChars>Username hat ungültige Schriftzeichen</MpInvalidUsernameChars>
   <MpInvalidUsernameLength>Username hat eine ungültige Länge</MpInvalidUsernameLength>
+  <MpChangeUsernameInfo>Du kannst deinen Nutzernamen in den Modeinstellungen ändern.</MpChangeUsernameInfo>
 
   <MpPlayerConnected>{0} ist beigetreten</MpPlayerConnected>
   <MpPlayerDisconnected>{0} ist ausgetreten</MpPlayerDisconnected>
-
-  <MpArbiterDesc>Eine Spielinstanz welche im Hintergrund läuft um Desync Probleme zu beheben.</MpArbiterDesc>
 
   <MpReplayOutdated>(Veraltet)</MpReplayOutdated>
   <MpReplayOutdatedDesc1>Dieses Replay wurde für Protokoll Version {0} gemacht, du nutzt allerdings Version {1}.\n\nDas Replay könnte fehlerhaft abspielen.\nMögliche Inkompatibilitäten sind in der Release History aufgeführt.</MpReplayOutdatedDesc>
@@ -44,7 +44,45 @@
   <MpConvert>Konvertiere zu Singleplayer</MpConvert>
   <MpConverting>Konvertiere</MpConverting>
   
-   <MpGameName>Spielname</MpGameName>
+  <MpUsername>Spielername</MpUsername>
+  <MpShowPlayerCursors>Mauszeiger anderer Spieler zeigen</MpShowPlayerCursors>
+  <MpAutoAcceptSteam>Steam-Anfragen automatisch akzeptieren</MpAutoAcceptSteam>
+  <MpAutoAcceptSteamDesc>Eingehende Anfragen von Steam Verbindungen automatisch akzeptieren.</MpAutoAcceptSteamDesc>
+  <MpTransparentChat>Transparenter Chat</MpTransparentChat>
+  
+  <MpAutosaveSlots>Autosave Speicherplätze</MpAutosaveSlots>
+  <MpAutosaveSlotsDesc>Wie viele Autosave Dateien sollen behalten werden.</MpAutosaveSlotsDesc>
+  
+  <MpTraderLeavesIn>Verlässt in {0}</MpTraderLeavesIn>
+  
+  <MpChatButton>Chat</MpChatButton>
+  <MpTradingButton>Handeln</MpTradingButton>
+  
+  <MpChatPlayers>Spieler ({0}):</MpChatPlayers>
+  <MpSend>Senden</MpSend>
+  <MpSteamAcceptTitle>Steam Spieler akzeptieren</MpSteamAcceptTitle>
+  <MpSteamAcceptDesc>Klicken um zu akzeptieren</MpSteamAcceptDesc>
+  <MpSteamAccepted>Spieler wurde akzeptiert</MpSteamAccepted>
+  
+  <MpConnectingTo>Verbinde zu {0}:{1}</MpConnectingTo>
+  <MpConnected>Verbunden.</MpConnected>
+  <MpDownloading>Herunterladen ({0}%)</MpDownloading>
+  
+  <MpSteamConnectingTo>Verbinde zu Spiel gehostet von {0}</MpSteamConnectingTo>
+  <MpSteamConnectingWaiting>Warte auf die Akzeptanz vom Host</MpSteamConnectingWaiting>
+  
+  <MpTicksBehind>Du bist {0} Ticks zurück.</MpTicksBehind>
+  <MpLowerGameSpeed>Überlege die Spielgeschwindigkeit zu verlangsamen.</MpLowerGameSpeed>
+  <MpForceCatchUp>Klicke hier um das Aufholen zu erzwingen.</MpForceCatchUp>
+  
+  <MpDesynced>Der Status des Spiels ist nicht mehr synchron.</MpDesynced>
+  <MpTryResync>Versuche zu synchronisieren</MpTryResync>
+  
+  <MpSaveReplayAs>Speiche Aufzeichnung als</MpSaveReplayAs>
+  <MpWillOverwrite>Wird überschrieben</MpWillOverwrite>
+  <MpReplaySaved>Aufzeichnung gespeichert</MpReplaySaved>
+  
+  <MpGameName>Spielname</MpGameName>
   <MpMaxPlayers>Max. Spieler</MpMaxPlayers>
   <MpAutosaveEvery>Automatisches Speichern jede</MpAutosaveEvery>
   <MpAutosaveMinutes>minuten</MpAutosaveMinutes>
@@ -85,4 +123,5 @@
   
   <MpAggressiveTicking>Aggressives ticking</MpAggressiveTicking>
   <MpAggressiveTickingDesc>Versucht immer, auf Kosten von FPS, den Server aufzuholen.</MpAggressiveTickingDesc>
+  
 </LanguageData>
