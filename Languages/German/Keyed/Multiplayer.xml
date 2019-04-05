@@ -31,7 +31,7 @@
   <MpPlayerDisconnected>{0} ist ausgetreten</MpPlayerDisconnected>
 
   <MpReplayOutdated>(Veraltet)</MpReplayOutdated>
-  <MpReplayOutdatedDesc1>Dieses Replay wurde für Protokoll Version {0} gemacht, du nutzt allerdings Version {1}.\n\nDas Replay könnte fehlerhaft abspielen.\nMögliche Inkompatibilitäten sind in der Release History aufgeführt.</MpReplayOutdatedDesc>
+  <MpReplayOutdatedDesc1>Dieses Replay wurde für Protokoll Version {0} gemacht, du nutzt allerdings Version {1}.\n\nDas Replay könnte fehlerhaft abspielen.\nMögliche Inkompatibilitäten sind in der Release History aufgeführt.</MpReplayOutdatedDesc1>
   <MpReplayOutdatedDesc2>Dieses Replay wird möglicherweise nicht richtig abgespielt.</MpReplayOutdatedDesc2>
   <MpReplayOutdatedDesc3>Mögliche Inkompatibilität wurde in der Version History gelistet.</MpReplayOutdatedDesc3>
   <MpReplayOutdatedDesc4>Diese Datei enthält zusätzliche Informationen, das Hosten von dieser Datei sollte trotzdem problemlos funktionieren.</MpReplayOutdatedDesc4>
