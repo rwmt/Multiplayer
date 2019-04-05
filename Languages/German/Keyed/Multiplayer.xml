@@ -11,12 +11,12 @@
   <MpInvalidGameName>Ungültiger Spielname</MpInvalidGameName>
   
   <MpWrongProtocol>Falsche Protokoll Version</MpWrongProtocol>
-  <MpWrongModVersionInfo>Stell sicher, dass Du dieselbe Mehrspieler Version hat wie der Host.</MpWrongModVersionInfo>
+  <MpWrongModVersionInfo>Stell sicher, dass du dieselbe Mehrspieler Version hast wie der Host.</MpWrongModVersionInfo>
   
   <MpWrongDefs>Die Mods stimmen nicht überein</MpWrongDefs>
   <MpWrongDefsInfo>Stelle sicher, dass die installierten Mods, deren Versionen und die Reihenfolge gleich wie beim Host ist.</MpWrongDefsInfo>
-  <MpModList>Mod liste</MpModList>
-  <MpSeeModList>Siehe mod liste</MpSeeModList>
+  <MpModList>Mod-Liste</MpModList>
+  <MpSeeModList>Siehe Mod-Liste</MpSeeModList>
   
   <MpServerClosed>Server geschlossen</MpServerClosed>
   <MpServerFull>Der Server ist voll.</MpServerFull>
@@ -25,7 +25,7 @@
   <MpInvalidUsernameAlreadyPlaying>Username bereits online</MpInvalidUsernameAlreadyPlaying>
   <MpInvalidUsernameChars>Username hat ungültige Schriftzeichen</MpInvalidUsernameChars>
   <MpInvalidUsernameLength>Username hat eine ungültige Länge</MpInvalidUsernameLength>
-  <MpChangeUsernameInfo>Du kannst deinen Nutzernamen in den Modeinstellungen ändern.</MpChangeUsernameInfo>
+  <MpChangeUsernameInfo>Du kannst deinen Usernamen in den Mod-Einstellungen ändern.</MpChangeUsernameInfo>
 
   <MpPlayerConnected>{0} ist beigetreten</MpPlayerConnected>
   <MpPlayerDisconnected>{0} ist ausgetreten</MpPlayerDisconnected>
@@ -38,7 +38,7 @@
   
   <MpServerCloseConfirmation>Bist du sicher, dass du den Server schließen möchtest? Ungespeicherter Fortschritt geht verloren.</MpServerCloseConfirmation>
   
-  <MpHostServer>Ein Server hosten</MpHostServer>
+  <MpHostServer>Einen Server hosten</MpHostServer>
   <MpSaveReplay>Wiederholung speichern</MpSaveReplay>
   
   <MpConvert>Konvertiere zu Singleplayer</MpConvert>
@@ -78,24 +78,24 @@
   <MpDesynced>Der Status des Spiels ist nicht mehr synchron.</MpDesynced>
   <MpTryResync>Versuche zu synchronisieren</MpTryResync>
   
-  <MpSaveReplayAs>Speiche Aufzeichnung als</MpSaveReplayAs>
+  <MpSaveReplayAs>Speichere Aufzeichnung als</MpSaveReplayAs>
   <MpWillOverwrite>Wird überschrieben</MpWillOverwrite>
   <MpReplaySaved>Aufzeichnung gespeichert</MpReplaySaved>
   
   <MpGameName>Spielname</MpGameName>
   <MpMaxPlayers>Max. Spieler</MpMaxPlayers>
   <MpAutosaveEvery>Automatisches Speichern jede</MpAutosaveEvery>
-  <MpAutosaveMinutes>minuten</MpAutosaveMinutes>
+  <MpAutosaveMinutes>Minuten</MpAutosaveMinutes>
   <MpLanDesc1>Übertragen Sie das Spiel in Ihr lokales Netzwerk.</MpLanDesc1>
   <MpLanDesc2>Aufgelöste LAN adresse: {0}</MpLanDesc2>
-  <MpArbiterDesc>Eine Spielinstance, welche im Hintergrund arbeitet und dabei hilft desync probleme zu beheben.</MpArbiterDesc>
+  <MpArbiterDesc>Eine Spielinstance, welche im Hintergrund arbeitet und dabei hilft desync Probleme zu beheben.</MpArbiterDesc>
   <MpAsyncTimeDesc>Separate Zeitsteuerungen für jede Karte und den Planeten.</MpAsyncTimeDesc>
   <MpExperimentalFeature>Experimentelle Funktionen</MpExperimentalFeature>
   
   <MpHostButton>Hoste</MpHostButton>
-  <MpWatchReplay>Angucken</MpWatchReplay>
+  <MpWatchReplay>Anschauen</MpWatchReplay>
   <MpNothingSelected>Nichts ausgewählt</MpNothingSelected>
-  <MpNoSaves>Mehrspieler kann nur von gespielten Speicherständen, gespielt werden</MpNoSaves>
+  <MpNoSaves>Mehrspieler kann nur von bereits existierenden Speicherständen gespielt werden.</MpNoSaves>
   
   <MpHostIngame>Hoste von diesem Spiel</MpHostIngame>
   <MpHostReplay>Hoste von einer Wiederholung</MpHostReplay>
@@ -110,7 +110,7 @@
   <MpPlayingRimWorld>Spielt RimWorld</MpPlayingRimWorld>
   <MpNotInMultiplayer>Nicht verfügbar im Mehrspieler-Modus</MpNotInMultiplayer>
   
-  <MpPauseOnAutosave>Pause on Autosave</MpPauseOnAutosave>
+  <MpPauseOnAutosave>Pausieren bei Autosave</MpPauseOnAutosave>
   <MpLan>LAN</MpLan>
   <MpDirect>Direkt</MpDirect>
   <MpSteam>Steam</MpSteam>
@@ -122,7 +122,7 @@
   <MpNotAvailable>Nicht verfügbar im Mehrspielermodus.</MpNotAvailable>
   <MpCallingFactionNotAvailable>Das Anrufen anderer Fraktionen ist im Mehrspieler-Modus derzeit nicht möglich.</MpCallingFactionNotAvailable>
   
-  <MpAggressiveTicking>Aggressives ticking</MpAggressiveTicking>
-  <MpAggressiveTickingDesc>Versucht immer, auf Kosten von FPS, den Server aufzuholen.</MpAggressiveTickingDesc>
+  <MpAggressiveTicking>Aggressives Ticking</MpAggressiveTicking>
+  <MpAggressiveTickingDesc>Versucht immer, auf Kosten von FPS, mit dem Server aufzuholen.</MpAggressiveTickingDesc>
   
 </LanguageData>
