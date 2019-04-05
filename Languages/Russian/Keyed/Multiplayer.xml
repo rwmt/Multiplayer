@@ -110,6 +110,7 @@
   <MpPlayingRimWorld>Играет в RimWorld</MpPlayingRimWorld>
   <MpNotInMultiplayer>Не в мультиплеере</MpNotInMultiplayer>
   
+  <MpPauseOnAutosave>Pause on Autosave</MpPauseOnAutosave>
   <MpLan>LAN</MpLan>
   <MpDirect>Прямое</MpDirect>
   <MpSteam>Steam</MpSteam>

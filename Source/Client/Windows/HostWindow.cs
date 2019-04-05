@@ -95,6 +95,13 @@ namespace Multiplayer.Client
 
             var checkboxWidth = labelWidth + 30f;
 
+            var pauseOnAutosaveLabel = $"{"MpPauseOnAutosave".Translate()}:  ";
+            var pauseOnAutosaveLabelWidth = Text.CalcSize(pauseOnAutosaveLabel).x;
+            var pauseOnAutosaveCheckboxWidth = pauseOnAutosaveLabelWidth + 30f;
+            CheckboxLabeled(entry.Width(pauseOnAutosaveCheckboxWidth), pauseOnAutosaveLabel, ref settings.pauseOnAutosave, placeTextNearCheckbox: true);
+
+            entry = entry.Down(30);
+
             var directLabel = $"{"MpDirect".Translate()}:  ";
             var directLabelWidth = Text.CalcSize(directLabel).x;
             CheckboxLabeled(entry.Width(checkboxWidth), directLabel, ref direct, placeTextNearCheckbox: true);

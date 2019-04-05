@@ -203,6 +203,9 @@ namespace Multiplayer.Common
             if (tmpMapCmds != null)
                 return false;
 
+            if (settings.pauseOnAutosave)
+                SendCommand(CommandType.WorldTimeSpeed, ScheduledCommand.NoFaction, ScheduledCommand.Global, new byte[] { (byte)Verse.TimeSpeed.Paused });
+
             SendCommand(CommandType.Autosave, ScheduledCommand.NoFaction, ScheduledCommand.Global, new byte[0]);
             tmpMapCmds = new Dictionary<int, List<byte[]>>();
 
@@ -414,6 +417,7 @@ namespace Multiplayer.Common
         public string lanAddress;
         public int maxPlayers = 8;
         public int autosaveInterval = 8;
+        public bool pauseOnAutosave = false;
         public bool steam;
         public bool arbiter;
     }

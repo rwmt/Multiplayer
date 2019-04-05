@@ -110,6 +110,7 @@
   <MpPlayingRimWorld>玩RimWorld</MpPlayingRimWorld>
   <MpNotInMultiplayer>不在多人游戏中</MpNotInMultiplayer>
   
+  <MpPauseOnAutosave>Pause on Autosave</MpPauseOnAutosave>
   <MpLan>LAN本地</MpLan>
   <MpDirect>Direct直连</MpDirect>
   <MpSteam>Steam</MpSteam>

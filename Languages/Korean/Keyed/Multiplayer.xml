@@ -110,6 +110,7 @@
   <MpPlayingRimWorld>림월드 플레이 중</MpPlayingRimWorld>
   <MpNotInMultiplayer>멀티중 아님</MpNotInMultiplayer>
 
+  <MpPauseOnAutosave>Pause on Autosave</MpPauseOnAutosave>
   <MpLan>LAN</MpLan>
   <MpDirect>직접 연결</MpDirect>
   <MpSteam>스팀</MpSteam>
