@@ -85,7 +85,7 @@
   <MpGameName>서버 제목</MpGameName>
   <MpMaxPlayers>최대 플레이어</MpMaxPlayers>
   <MpAutosaveEvery>매 </MpAutosaveEvery>
-  <MpAutosaveMinutes>분 마다 자동저장</MpAutosaveMinutes>
+  <MpAutosaveDays>매일 자동 저장</MpAutosaveDays>
   <MpLanDesc1>로컬 네트워크에 서버를 엽니다.</MpLanDesc1>
   <MpLanDesc2>현재 LAN 주소: {0}</MpLanDesc2>
   <MpArbiterDesc>접속을 유지해주는 게임 내 시스템입니다.</MpArbiterDesc>
@@ -112,6 +112,8 @@
 
   <MpPauseOnAutosave>Pause on Autosave</MpPauseOnAutosave>
   <MpAppendNameToAutosave>Append Name to Autosave</MpAppendNameToAutosave>
+  <MpPauseAutosaveCounter>Pause autosave counter</MpPauseAutosaveCounter>
+  <MpPauseAutosaveCounterDesc>Pauses the counter along with the game preventing autosaving while time is paused.</MpPauseAutosaveCounterDesc>
   <MpLan>LAN</MpLan>
   <MpDirect>직접 연결</MpDirect>
   <MpSteam>스팀</MpSteam>

@@ -85,7 +85,7 @@
   <MpGameName>Название игры</MpGameName>
   <MpMaxPlayers>Макс. игроков</MpMaxPlayers>
   <MpAutosaveEvery>Автосохранение кажд.</MpAutosaveEvery>
-  <MpAutosaveMinutes>минут</MpAutosaveMinutes>
+  <MpAutosaveDays>дней</MpAutosaveDays>
   <MpLanDesc1>Броадкастить игровую сессию по LAN.</MpLanDesc1>
   <MpLanDesc2>Вычисленный LAN адрес: {0}</MpLanDesc2>
   <MpArbiterDesc>Игра, которая запускается в трее и помогает с десинхронизацией.</MpArbiterDesc>
@@ -112,6 +112,8 @@
   
   <MpPauseOnAutosave>Pause on Autosave</MpPauseOnAutosave>
   <MpAppendNameToAutosave>Append Name to Autosave</MpAppendNameToAutosave>
+  <MpPauseAutosaveCounter>Pause autosave counter</MpPauseAutosaveCounter>
+  <MpPauseAutosaveCounterDesc>Pauses the counter along with the game preventing autosaving while time is paused.</MpPauseAutosaveCounterDesc>
   <MpLan>LAN</MpLan>
   <MpDirect>Прямое</MpDirect>
   <MpSteam>Steam</MpSteam>

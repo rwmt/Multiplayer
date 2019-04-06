@@ -85,7 +85,7 @@
   <MpGameName>Nome do jogo</MpGameName>
   <MpMaxPlayers>Máximo de jogadores</MpMaxPlayers>
   <MpAutosaveEvery>Salvamento automático a cada</MpAutosaveEvery>
-  <MpAutosaveMinutes>minutos</MpAutosaveMinutes>
+  <MpAutosaveDays>dias</MpAutosaveDays>
   <MpLanDesc1>Transmitir o jogo à sua rede local.</MpLanDesc1>
   <MpLanDesc2>Endereço de LAN resolvido: {0}</MpLanDesc2>
   <MpArbiterDesc>Uma instância do jogo que é executada em segundo plano e ajuda na solução de dessincronização.</MpArbiterDesc>
@@ -112,6 +112,8 @@
   
   <MpPauseOnAutosave>Pause on Autosave</MpPauseOnAutosave>
   <MpAppendNameToAutosave>Append Name to Autosave</MpAppendNameToAutosave>
+  <MpPauseAutosaveCounter>Pause autosave counter</MpPauseAutosaveCounter>
+  <MpPauseAutosaveCounterDesc>Pauses the counter along with the game preventing autosaving while time is paused.</MpPauseAutosaveCounterDesc>
   <MpLan>LAN</MpLan>
   <MpDirect>Direto</MpDirect>
   <MpSteam>Steam</MpSteam>

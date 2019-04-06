@@ -85,7 +85,7 @@
   <MpGameName>游戏名</MpGameName>
   <MpMaxPlayers>最多玩家</MpMaxPlayers>
   <MpAutosaveEvery>自动保存每</MpAutosaveEvery>
-  <MpAutosaveMinutes>分钟</MpAutosaveMinutes>
+  <MpAutosaveDays>天</MpAutosaveDays>
   <MpLanDesc1>播放游戏到本地网络</MpLanDesc1>
   <MpLanDesc2>本地地址: {0}</MpLanDesc2>
   <MpArbiterDesc>Arbiter在游戏后端帮用户同步</MpArbiterDesc>
@@ -112,6 +112,8 @@
   
   <MpPauseOnAutosave>Pause on Autosave</MpPauseOnAutosave>
   <MpAppendNameToAutosave>Append Name to Autosave</MpAppendNameToAutosave>
+  <MpPauseAutosaveCounter>Pause autosave counter</MpPauseAutosaveCounter>
+  <MpPauseAutosaveCounterDesc>Pauses the counter along with the game preventing autosaving while time is paused.</MpPauseAutosaveCounterDesc>
   <MpLan>LAN本地</MpLan>
   <MpDirect>Direct直连</MpDirect>
   <MpSteam>Steam</MpSteam>

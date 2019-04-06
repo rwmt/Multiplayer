@@ -151,6 +151,8 @@ namespace Multiplayer.Client
             var appendNameToAutosaveCheckboxWidth = appendNameToAutosaveLabelWidth + 30f;
             listing.CheckboxLabeled(appendNameToAutosaveLabel, ref settings.appendNameToAutosave);
 
+            listing.CheckboxLabeled("MpPauseAutosaveCounter".Translate(), ref settings.pauseAutosaveCounter, "MpPauseAutosaveCounterDesc".Translate());
+
             if (Prefs.DevMode)
                 listing.CheckboxLabeled("Show debug info", ref settings.showDevInfo);
 
@@ -220,6 +222,7 @@ namespace Multiplayer.Client
         public bool showDevInfo;
         public string serverAddress;
         public bool appendNameToAutosave;
+        public bool pauseAutosaveCounter;
 
         public override void ExposeData()
         {
@@ -231,6 +234,7 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref aggressiveTicking, "aggressiveTicking");
             Scribe_Values.Look(ref showDevInfo, "showDevInfo");
             Scribe_Values.Look(ref serverAddress, "serverAddress", "127.0.0.1");
+            Scribe_Values.Look(ref pauseAutosaveCounter, "pauseAutosaveCounter", true);
         }
     }
 }

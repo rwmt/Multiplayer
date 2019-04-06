@@ -82,7 +82,7 @@ namespace Multiplayer.Client
 
             TextFieldNumericLabeled(entry.Right(150f).Width(labelWidth + 85f), $"{"MpAutosaveEvery".Translate()} ", ref settings.autosaveInterval, ref autosaveBuffer, labelWidth + 50f, 0, 999);
             Text.Anchor = TextAnchor.MiddleLeft;
-            Widgets.Label(entry.Right(200f).Right(labelWidth + 35f), $" {"MpAutosaveMinutes".Translate()}");
+            Widgets.Label(entry.Right(200f).Right(labelWidth + 35f), $" {"MpAutosaveDays".Translate()}");
             Text.Anchor = TextAnchor.UpperLeft;
             entry = entry.Down(40);
 
@@ -242,7 +242,7 @@ namespace Multiplayer.Client
             return Widgets.TextField(fieldRect, text);
         }
 
-        public static void TextFieldNumericLabeled(Rect rect, string label, ref int val, ref string buffer, float labelWidth, float min = 0, float max = float.MaxValue)
+        public static void TextFieldNumericLabeled<T>(Rect rect, string label, ref T val, ref string buffer, float labelWidth, float min = 0, float max = float.MaxValue) where T : struct
         {
             Rect labelRect = rect;
             labelRect.width = labelWidth;
@@ -252,7 +252,7 @@ namespace Multiplayer.Client
             Text.Anchor = TextAnchor.MiddleRight;
             Widgets.Label(labelRect, label);
             Text.Anchor = anchor;
-            Widgets.TextFieldNumeric(fieldRect, ref val, ref buffer, min, max);
+            Widgets.TextFieldNumeric<T>(fieldRect, ref val, ref buffer, min, max);
         }
 
         public override void PostClose()

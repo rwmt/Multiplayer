@@ -86,7 +86,7 @@
   <MpGameName>Ime igre</MpGameName>
   <MpMaxPlayers>Največ igralcev</MpMaxPlayers>
   <MpAutosaveEvery>Samodejno shranjevanje vsake</MpAutosaveEvery>
-  <MpAutosaveMinutes>minute</MpAutosaveMinutes>
+  <MpAutosaveDays>dnevi</MpAutosaveDays>
   <MpLanDesc1>Gostuj igro na lokalnem omrežju.</MpLanDesc1>
   <MpLanDesc2>Razrešen LAN naslov: {0}</MpLanDesc2>
   <MpArbiterDesc>Instanca igre ki teče v ozadju in pomaga s reševanjem ne skladnosti.</MpArbiterDesc>
@@ -113,6 +113,8 @@
   
   <MpPauseOnAutosave>Pause on Autosave</MpPauseOnAutosave>
   <MpAppendNameToAutosave>Append Name to Autosave</MpAppendNameToAutosave>
+  <MpPauseAutosaveCounter>Pause autosave counter</MpPauseAutosaveCounter>
+  <MpPauseAutosaveCounterDesc>Pauses the counter along with the game preventing autosaving while time is paused.</MpPauseAutosaveCounterDesc>
   <MpLan>LAN</MpLan>
   <MpDirect>Direktno</MpDirect>
   <MpSteam>Steam</MpSteam>

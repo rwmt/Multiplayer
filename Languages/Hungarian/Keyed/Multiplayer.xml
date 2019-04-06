@@ -85,7 +85,7 @@
   <MpGameName>Játék neve</MpGameName>
   <MpMaxPlayers>Max játékosok</MpMaxPlayers>
   <MpAutosaveEvery>Automatikus mentés</MpAutosaveEvery>
-  <MpAutosaveMinutes>percenként</MpAutosaveMinutes>
+  <MpAutosaveDays>napok</MpAutosaveDays>
   <MpLanDesc1>A játék hírdetése helyi hálózaton</MpLanDesc1>
   <MpLanDesc2>LAN cím: {0}</MpLanDesc2>
   <MpArbiterDesc>Egy játékfolyamat, ami a háttérben futva segít a szinkronizáció megtartásában.</MpArbiterDesc>
@@ -112,6 +112,8 @@
   
   <MpPauseOnAutosave>Pause on Autosave</MpPauseOnAutosave>
   <MpAppendNameToAutosave>Append Name to Autosave</MpAppendNameToAutosave>
+  <MpPauseAutosaveCounter>Pause autosave counter</MpPauseAutosaveCounter>
+  <MpPauseAutosaveCounterDesc>Pauses the counter along with the game preventing autosaving while time is paused.</MpPauseAutosaveCounterDesc>
   <MpLan>LAN</MpLan>
   <MpDirect>Közvetlen</MpDirect>
   <MpSteam>Steam</MpSteam>
