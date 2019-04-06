@@ -146,6 +146,11 @@ namespace Multiplayer.Client
             listing.CheckboxLabeled("MpTransparentChat".Translate(), ref settings.transparentChat);
             listing.CheckboxLabeled("MpAggressiveTicking".Translate(), ref settings.aggressiveTicking, "MpAggressiveTickingDesc".Translate());
 
+            var appendNameToAutosaveLabel = $"{"MpAppendNameToAutosave".Translate()}:  ";
+            var appendNameToAutosaveLabelWidth = Text.CalcSize(appendNameToAutosaveLabel).x;
+            var appendNameToAutosaveCheckboxWidth = appendNameToAutosaveLabelWidth + 30f;
+            listing.CheckboxLabeled(appendNameToAutosaveLabel, ref settings.appendNameToAutosave);
+
             if (Prefs.DevMode)
                 listing.CheckboxLabeled("Show debug info", ref settings.showDevInfo);
 
@@ -214,6 +219,7 @@ namespace Multiplayer.Client
         public bool aggressiveTicking;
         public bool showDevInfo;
         public string serverAddress;
+        public bool appendNameToAutosave;
 
         public override void ExposeData()
         {

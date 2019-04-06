@@ -111,6 +111,7 @@
   <MpNotInMultiplayer>不在多人游戏中</MpNotInMultiplayer>
   
   <MpPauseOnAutosave>Pause on Autosave</MpPauseOnAutosave>
+  <MpAppendNameToAutosave>Append Name to Autosave</MpAppendNameToAutosave>
   <MpLan>LAN本地</MpLan>
   <MpDirect>Direct直连</MpDirect>
   <MpSteam>Steam</MpSteam>

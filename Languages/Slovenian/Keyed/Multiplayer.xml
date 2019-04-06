@@ -112,6 +112,7 @@
   <MpNotInMultiplayer>Ne igraš na več igralcev</MpNotInMultiplayer>
   
   <MpPauseOnAutosave>Pause on Autosave</MpPauseOnAutosave>
+  <MpAppendNameToAutosave>Append Name to Autosave</MpAppendNameToAutosave>
   <MpLan>LAN</MpLan>
   <MpDirect>Direktno</MpDirect>
   <MpSteam>Steam</MpSteam>

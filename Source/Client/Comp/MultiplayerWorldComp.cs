@@ -331,9 +331,16 @@ namespace Multiplayer.Client
 
         private static string AutosaveFile()
         {
+            var autosavePrefix = "Autosave-";
+
+            if (MultiplayerMod.settings.appendNameToAutosave)
+            {
+                autosavePrefix += $"{Multiplayer.session.gameName}-";
+            }
+
             return Enumerable
                 .Range(1, MultiplayerMod.settings.autosaveSlots)
-                .Select(i => $"Autosave-{i}")
+                .Select(i => $"{autosavePrefix}{i}")
                 .OrderBy(s => new FileInfo(Path.Combine(Multiplayer.ReplaysDir, $"{s}.zip")).LastWriteTime)
                 .First();
         }

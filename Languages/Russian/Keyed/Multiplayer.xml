@@ -111,6 +111,7 @@
   <MpNotInMultiplayer>Не в мультиплеере</MpNotInMultiplayer>
   
   <MpPauseOnAutosave>Pause on Autosave</MpPauseOnAutosave>
+  <MpAppendNameToAutosave>Append Name to Autosave</MpAppendNameToAutosave>
   <MpLan>LAN</MpLan>
   <MpDirect>Прямое</MpDirect>
   <MpSteam>Steam</MpSteam>

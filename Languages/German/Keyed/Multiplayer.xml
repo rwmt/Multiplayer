@@ -110,7 +110,9 @@
   <MpPlayingRimWorld>Spielt RimWorld</MpPlayingRimWorld>
   <MpNotInMultiplayer>Nicht verfügbar im Mehrspieler-Modus</MpNotInMultiplayer>
   
-  <MpPauseOnAutosave>Pausieren bei Autosave</MpPauseOnAutosave>
+  <MpPauseOnAutosave>Pausieren bei Autosave</MpPauseOnAutosave>  
+  <MpAppendNameToAutosave>Append Name to Autosave</MpAppendNameToAutosave>
+
   <MpLan>LAN</MpLan>
   <MpDirect>Direkt</MpDirect>
   <MpSteam>Steam</MpSteam>

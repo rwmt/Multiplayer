@@ -111,6 +111,7 @@
   <MpNotInMultiplayer>멀티중 아님</MpNotInMultiplayer>
 
   <MpPauseOnAutosave>Pause on Autosave</MpPauseOnAutosave>
+  <MpAppendNameToAutosave>Append Name to Autosave</MpAppendNameToAutosave>
   <MpLan>LAN</MpLan>
   <MpDirect>직접 연결</MpDirect>
   <MpSteam>스팀</MpSteam>

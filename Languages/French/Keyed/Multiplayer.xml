@@ -93,6 +93,7 @@
   <MpNotInMultiplayer>Pas dans le Multijoueur</MpNotInMultiplayer>
   
   <MpPauseOnAutosave>Pause on Autosave</MpPauseOnAutosave>
+  <MpAppendNameToAutosave>Append Name to Autosave</MpAppendNameToAutosave>
   <MpLan>LAN</MpLan>
   <MpDirect>Directe</MpDirect>
   <MpSteam>Steam</MpSteam>
