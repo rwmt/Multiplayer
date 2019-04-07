@@ -223,9 +223,14 @@ namespace Multiplayer.Client
 
             Multiplayer.LocalServer.SetupArbiterConnection();
 
+            string args = $"-batchmode -nographics -arbiter -logfile arbiter_log.txt -connect=127.0.0.1:{Multiplayer.LocalServer.ArbiterPort}";
+
+            if(GenCommandLine.TryGetCommandLineArg("savedatafolder", out string saveDataFolder))
+                args += $" -savedatafolder=\"{saveDataFolder}\"";
+
             Multiplayer.session.arbiter = Process.Start(
                 Process.GetCurrentProcess().MainModule.FileName,
-                $"-batchmode -nographics -arbiter -logfile arbiter_log.txt -connect=127.0.0.1:{Multiplayer.LocalServer.ArbiterPort}"
+                args
             );
         }
 
