@@ -220,9 +220,10 @@ namespace Multiplayer.Client
         public int autosaveSlots = 5;
         public bool aggressiveTicking;
         public bool showDevInfo;
-        public string serverAddress;
+        public string serverAddress = "127.0.0.1";
         public bool appendNameToAutosave;
-        public bool pauseAutosaveCounter;
+        public bool pauseAutosaveCounter = true;
+        public ServerSettings serverSettings;
 
         public override void ExposeData()
         {
@@ -234,7 +235,13 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref aggressiveTicking, "aggressiveTicking");
             Scribe_Values.Look(ref showDevInfo, "showDevInfo");
             Scribe_Values.Look(ref serverAddress, "serverAddress", "127.0.0.1");
+            Scribe_Values.Look(ref appendNameToAutosave, "appendNameToAutosave", false);
             Scribe_Values.Look(ref pauseAutosaveCounter, "pauseAutosaveCounter", true);
+
+            Scribe_Deep.Look(ref serverSettings, "serverSettings");
+
+            if (serverSettings == null)
+                serverSettings = new ServerSettings();
         }
     }
 }

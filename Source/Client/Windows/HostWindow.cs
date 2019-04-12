@@ -29,10 +29,14 @@ namespace Multiplayer.Client
 
         private float height;
 
+        private ServerSettings settings;
+
         public HostWindow(SaveFile file = null, bool withSimulation = false)
         {
             closeOnAccept = false;
             doCloseX = true;
+
+            settings = MultiplayerMod.settings.serverSettings;
 
             this.withSimulation = withSimulation;
             this.file = file;
@@ -40,19 +44,12 @@ namespace Multiplayer.Client
 
             var localAddr = MpUtil.GetLocalIpAddress() ?? "127.0.0.1";
             settings.lanAddress = localAddr;
-            addressBuffer = localAddr;
-
-            lan = true;
-            settings.arbiter = true;
 
             if (MpVersion.IsDebug)
                 debugMode = true;
         }
 
-        private ServerSettings settings = new ServerSettings();
-
-        private string maxPlayersBuffer, autosaveBuffer, addressBuffer;
-        private bool lan, direct;
+        private string maxPlayersBuffer, autosaveBuffer;
 
         public override void DoWindowContents(Rect inRect)
         {
@@ -80,7 +77,7 @@ namespace Multiplayer.Client
 
             TextFieldNumericLabeled(entry.Width(labelWidth + 30f), $"{"MpMaxPlayers".Translate()}:  ", ref settings.maxPlayers, ref maxPlayersBuffer, labelWidth, 0, 999);
 
-            TextFieldNumericLabeled(entry.Right(150f).Width(labelWidth + 85f), $"{"MpAutosaveEvery".Translate()} ", ref settings.autosaveInterval, ref autosaveBuffer, labelWidth + 50f, 0, 999);
+            TextFieldNumericLabeled(entry.Right(150f).Width(labelWidth + 85f), $"{"MpAutosaveEvery".Translate()} ", ref settings.autosaveInterval, ref autosaveBuffer, labelWidth + 45f, 0, 999);
             Text.Anchor = TextAnchor.MiddleLeft;
             Widgets.Label(entry.Right(200f).Right(labelWidth + 35f), $" {"MpAutosaveDays".Translate()}");
             Text.Anchor = TextAnchor.UpperLeft;
@@ -104,14 +101,14 @@ namespace Multiplayer.Client
 
             var directLabel = $"{"MpDirect".Translate()}:  ";
             var directLabelWidth = Text.CalcSize(directLabel).x;
-            CheckboxLabeled(entry.Width(checkboxWidth), directLabel, ref direct, placeTextNearCheckbox: true);
-            if (direct)
-                addressBuffer = Widgets.TextField(entry.Width(checkboxWidth + 10).Right(checkboxWidth + 10), addressBuffer);
+            CheckboxLabeled(entry.Width(checkboxWidth), directLabel, ref settings.direct, placeTextNearCheckbox: true);
+            if (settings.direct)
+                settings.directAddress = Widgets.TextField(entry.Width(checkboxWidth + 10).Right(checkboxWidth + 10), settings.directAddress);
 
             entry = entry.Down(30);
 
             var lanRect = entry.Width(checkboxWidth);
-            CheckboxLabeled(lanRect, $"{"MpLan".Translate()}:  ", ref lan, placeTextNearCheckbox: true);
+            CheckboxLabeled(lanRect, $"{"MpLan".Translate()}:  ", ref settings.lan, placeTextNearCheckbox: true);
             TooltipHandler.TipRegion(lanRect, $"{"MpLanDesc1".Translate()}\n\n{"MpLanDesc2".Translate(settings.lanAddress)}");
 
             entry = entry.Down(30);
@@ -148,12 +145,15 @@ namespace Multiplayer.Client
             var buttonRect = new Rect((inRect.width - 100f) / 2f, inRect.height - 35f, 100f, 35f);
 
             if (Widgets.ButtonText(buttonRect, "MpHostButton".Translate()))
+            {
+                LoadedModManager.GetMod<MultiplayerMod>().WriteSettings();
                 TryHost();
+            }
         }
 
         private void TryHost()
         {
-            if (direct && !TryParseIp(addressBuffer, out settings.bindAddress, out settings.bindPort))
+            if (settings.direct && !TryParseIp(settings.directAddress, out settings.bindAddress, out settings.bindPort))
                 return;
 
             if (settings.gameName.NullOrEmpty())
@@ -162,10 +162,10 @@ namespace Multiplayer.Client
                 return;
             }
 
-            if (!direct)
+            if (!settings.direct)
                 settings.bindAddress = null;
 
-            if (!lan)
+            if (!settings.lan)
                 settings.lanAddress = null;
 
             if (file?.replay ?? Multiplayer.IsReplay)
