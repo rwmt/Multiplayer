@@ -235,7 +235,6 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref aggressiveTicking, "aggressiveTicking");
             Scribe_Values.Look(ref showDevInfo, "showDevInfo");
             Scribe_Values.Look(ref serverAddress, "serverAddress", "127.0.0.1");
-            Scribe_Values.Look(ref appendNameToAutosave, "appendNameToAutosave", false);
             Scribe_Values.Look(ref pauseAutosaveCounter, "pauseAutosaveCounter", true);
 
             Scribe_Deep.Look(ref serverSettings, "serverSettings");
