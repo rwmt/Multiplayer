@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<LanguageData>
+
+  <MpSimulating>Simuleren</MpSimulating>
+  <MpSimulatingServer>Simuleren van de server</MpSimulatingServer>
+  <MpLoading>Bezig met opslaan</MpLoading>
+  <MpSaving>Aan het opslaan</MpSaving>
+  
+  <MpInvalidPort>Ongeldige poort</MpInvalidPort>
+  <MpInvalidAddress>Ongeldig adres</MpInvalidAddress>
+  <MpInvalidGameName>Ongeldige spelnaam</MpInvalidGameName>
+  
+  <MpWrongProtocol>Verkeerde protocolversie</MpWrongProtocol>
+  <MpWrongMultiplayerVersionInfo>De server wordt gehost op Multiplayer {0} (protocol {1}).</MpWrongMultiplayerVersionInfo>
+  
+  <MpWrongDefs>Modeldefinitie komt niet overeen</MpWrongDefs>
+  <MpWrongDefsInfo>Zorg ervoor dat uw geïnstalleerde mods, hun versie en hun volgorde overeen komen met die van de host.</MpWrongDefsInfo>
+  <MpModList>Wijzigingslijst</MpModList>
+  <MpSeeModList>Zie wijzigingslijst</MpSeeModList>
+  
+  <MpServerClosed>Server gesloten</MpServerClosed>
+  <MpServerFull>De server is vol</MpServerFull>
+  <MpKicked>Je bent gekickt van de server</MpKicked>
+
+  <MpInvalidUsernameAlreadyPlaying>Gebruiker is al aanwezig in de game</MpInvalidUsernameAlreadyPlaying>
+  <MpInvalidUsernameChars>Gebruikersnaam bevat ongeldige tekens</MpInvalidUsernameChars>
+  <MpInvalidUsernameLength>Gebruikersnaam heeft een ongeldige lengte</MpInvalidUsernameLength>
+  <MpChangeUsernameInfo>U kunt uw gebruikersnaam wijzigen in de wijzigingsinstellingen.</MpChangeUsernameInfo>
+  
+  <MpPlayerConnected>{0} heeft zich aangesloten</MpPlayerConnected>
+  <MpPlayerDisconnected>{0} is vertrokken</MpPlayerDisconnected>
+  
+  <MpReplayOutdated>"Niet up-to-date"</MpReplayOutdated>
+  <MpReplayOutdatedDesc1>Deze herhaling is gemaakt voor de protocolversie {0}, maar je bent bezig met de versie die je gebruikt... {1}.</MpReplayOutdatedDesc1>
+  <MpReplayOutdatedDesc2>De herhalingen worden mogelijks niet correct afgespeeld.</MpReplayOutdatedDesc2>
+  <MpReplayOutdatedDesc3>Mogelijke incompatibiliteiten worden vermeld in het releaseverleden.</MpReplayOutdatedDesc3>
+  <MpReplayOutdatedDesc4>Dit bestand bevat aanvullende informatie en de hosting ervan zou goed moeten werken.</MpReplayOutdatedDesc4>
+  
+  <MpServerCloseConfirmation>Weet u zeker dat u de server wilt sluiten? Onbewaarde vooruitgang zal verloren gaan.</MpServerCloseConfirmation>
+  
+  <MpHostServer>Host een server</MpHostServer>
+  <MpSaveReplay>Opslaan van herhaling</MpSaveReplay>
+  
+  <MpConvert>Omzetten naar singleplayer</MpConvert>
+  <MpConverting>Aan het omzetten</MpConverting>
+  
+  <MpUsername>Gebruikersnaam</MpUsername>
+  <MpShowPlayerCursors>Toon cursors van spelers</MpShowPlayerCursors>
+  <MpAutoAcceptSteam>Auto-accepteren Steam</MpAutoAcceptSteam>
+  <MpAutoAcceptSteamDesc>Accepteer automatisch alle inkomende aanvragen voor een Steamverbinding.</MpAutoAcceptSteamDesc>
+  <MpTransparentChat>Transparante chat</MpTransparentChat>
+  
+  <MpAutosaveSlots>Autosave Slots</MpAutosaveSlots>
+  <MpAutosaveSlotsDesc>Hoeveel autosave-bestanden te bewaren.</MpAutosaveSlotsDesc>
+  
+  <MpTraderLeavesIn>Handelaar vertrekt in {0}</MpTraderLeavesIn>
+  
+  <MpChatButton>Chat</MpChatButton>
+  <MpTradingButton>Handel</MpTradingButton>
+  
+  <MpChatPlayers>Spelers ({0}):</MpChatPlayers>
+  <MpSend>Verzenden</MpSend>
+  <MpSteamAcceptTitle>Steam-spelers accepteren</MpSteamAcceptTitle>
+  <MpSteamAcceptDesc>Klik om te accepteren</MpSteamAcceptDesc>
+  <MpSteamAccepted>Speler is geaccepteerd</MpSteamAccepted>
+  
+  <MpConnectingTo>Verbonden maken met {0}:{1}</MpConnectingTo>
+  <MpConnected>Aangesloten.</MpConnected>
+  <MpDownloading>Downloaden ({0}%)</MpDownloading>
+  
+  <MpSteamConnectingTo>Een verbinding met {0} aan het maken</MpSteamConnectingTo>
+  <MpSteamConnectingWaiting>We wachten op een bevestiging van de host</MpSteamConnectingWaiting>
+  
+  <MpTicksBehind>U bent {0} ticks vroeger.</MpTicksBehind>
+  <MpLowerGameSpeed>Overweeg de spelsnelheid te verlagen.</MpLowerGameSpeed>
+  <MpForceCatchUp>Klik om achterstand inhalen te forceren.</MpForceCatchUp>
+  
+  <MpDesynced>De staat van het spel is niet (meer) gesynchroniseerd.</MpDesynced>
+  <MpTryResync>Probeer hersynchronisatie</MpTryResync>
+  
+  <MpSaveReplayAs>Sla replay op als</MpSaveReplayAs>
+  <MpWillOverwrite>Dit zal overschreven worden:</MpWillOverwrite>
+  <MpReplaySaved>Replay opgeslagen</MpReplaySaved>
+  
+  <MpGameName>Naam van dit spel</MpGameName>
+  <MpMaxPlayers>Limiet van spelers</MpMaxPlayers>
+  <MpAutosaveEvery>Automatisch opslaan elke</MpAutosaveEvery>
+  <MpAutosaveMinutes>Minuten</MpAutosaveMinutes>
+  <MpLanDesc1>Host dit spel uit op uw lokaal netwerk</MpLanDesc1>
+  <MpLanDesc2>Lokaal netwerkadres gevonden: {0}</MpLanDesc2>
+  <MpArbiterDesc>Een proces dat draait op de achtergrond en helpt met de detectie van desyncs</MpArbiterDesc>
+  <MpAsyncTimeDesc>Afzonderlijke tijdcontroles voor elke kaart en de planeet.</MpAsyncTimeDesc>
+  <MpExperimentalFeature>Experimentele eigenschappen</MpExperimentalFeature>
+  
+  <MpHostButton>Hosten</MpHostButton>
+  <MpWatchReplay>Kijken</MpWatchReplay>
+  <MpNothingSelected>Niets geselecteerd</MpNothingSelected>
+  <MpNoSaves>Multiplayermodus kan alleen gebruikt worden bij spellen die al bestaan</MpNoSaves>
+  
+  <MpHostIngame>Uit dit spel hosten</MpHostIngame>
+  <MpHostReplay>Uit een herhaling hosten</MpHostReplay>
+  <MpHostSavefile>Host vanuit bestaande savefile</MpHostSavefile>
+  
+  <MpJoinButton>Join</MpJoinButton>
+  <MpConnectButton>Verbinden</MpConnectButton>
+  <MpLanSearching>Aan het zoeken</MpLanSearching>
+  
+  <MpNotConnectedToSteam>Niet verbonden met Steam</MpNotConnectedToSteam>
+  <MpNoFriendsPlaying>Geen vrienden die nu aan het spelen zijn</MpNoFriendsPlaying>
+  <MpPlayingRimWorld>RimWorld aan het spelen</MpPlayingRimWorld>
+  <MpNotInMultiplayer>Niet in multiplayer</MpNotInMultiplayer>
+  
+  <MpPauseOnAutosave>Pauze op Autosave</MpPauseOnAutosave>
+  <MpLan>LAN</MpLan>
+  <MpDirect>Direct</MpDirect>
+  <MpSteam>Steam</MpSteam>
+  <MpHostTab>Hosten</MpHostTab>
+  
+  <MpMultiplayer>Multiplayermodus</MpMultiplayer>
+  <MpSingleplayer>Singleplayermodus</MpSingleplayer>
+  
+  <MpNotAvailable>Niet beschikbaar in de meerspelerstand.</MpNotAvailable>
+  <MpCallingFactionNotAvailable>Andere facties contacteren is momenteel niet mogelijk in Multiplayer.</MpCallingFactionNotAvailable>
+  
+  <MpAggressiveTicking>Agressief tikken</MpAggressiveTicking>
+  <MpAggressiveTickingDesc>Probeer altijd automatisch de server in te halen op kosten op kosten van FPS.</MpAggressiveTickingDesc>
+  
+</LanguageData>
+
+<!-- With help from Janssent11041, Darkness and Ghost. -->
