@@ -10,6 +10,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Xml;
+using RimWorld;
 using UnityEngine;
 using Verse;
 using zip::Ionic.Zip;
@@ -92,6 +93,7 @@ namespace Multiplayer.Client
         {
             Multiplayer.Client.Send(Packets.Client_Desynced);
 
+            //Identify which of the two sync infos is local, and which is the remote.
             var local = one.local ? one : two;
             var remote = !one.local ? one : two;
 
@@ -100,30 +102,60 @@ namespace Multiplayer.Client
 
             try
             {
+                //Get the filename of the next desync file to create.
                 var desyncFile = PrepareNextDesyncFile();
 
+                //Initialize the Replay object.
                 var replay = Replay.ForSaving(Replay.ReplayFile(desyncFile, Multiplayer.DesyncsDir));
+                
+                //Write the universal replay data (i.e. world and map folders, and the info file) so this desync can be reviewed as a standard replay.
                 replay.WriteCurrentData();
 
+                //Dump our current game object.
                 var savedGame = ScribeUtil.WriteExposable(Verse.Current.Game, "game", true, ScribeMetaHeaderUtility.WriteMetaHeader);
 
                 using (var zip = replay.ZipFile)
                 {
+                    //Write the local sync data
                     zip.AddEntry("sync_local", local.Serialize());
+                    //Write the remote sync data
                     zip.AddEntry("sync_remote", remote.Serialize());
+                    //Dump the entire save file to the zip.
                     zip.AddEntry("game_snapshot", savedGame);
 
-                    var desyncInfo = new ByteWriter();
-                    desyncInfo.WriteBool(Multiplayer.session.ArbiterPlaying);
-                    desyncInfo.WriteInt32(lastValidTick);
-                    desyncInfo.WriteBool(lastValidArbiter);
-                    desyncInfo.WriteString(MpVersion.Version);
-                    desyncInfo.WriteBool(MpVersion.IsDebug);
-                    desyncInfo.WriteBool(Prefs.DevMode);
-                    desyncInfo.WriteInt32(Multiplayer.session.players.Count);
-                    desyncInfo.WriteBool(Multiplayer.WorldComp.debugMode);
+                    //Prepare the desync info
+                    var desyncInfo = new StringBuilder();
 
-                    zip.AddEntry("desync_info", desyncInfo.ToArray());
+                    desyncInfo.AppendLine("###Tick Data###")
+                        .AppendLine($"Arbiter Connected And Playing|||{Multiplayer.session.ArbiterPlaying}")
+                        .AppendLine($"Last Valid Tick - Local|||{lastValidTick}")
+                        .AppendLine($"Last Valid Tick - Arbiter|||{lastValidArbiter}")
+                        .AppendLine("\n###Version Data###")
+                        .AppendLine($"Multiplayer Mod Version|||{MpVersion.Version}")
+                        .AppendLine($"Rimworld Version and Rev|||{VersionControl.CurrentVersionStringWithRev}")
+                        .AppendLine("\n###Debug Options###")
+                        .AppendLine($"Multiplayer Debug Build - Client|||{MpVersion.IsDebug}")
+                        .AppendLine($"Multiplayer Debug Build - Host|||{Multiplayer.WorldComp.debugMode}")
+                        .AppendLine($"Rimworld Developer Mode - Client|||{Prefs.DevMode}")
+                        .AppendLine("\n###Server Info###")
+                        .AppendLine($"Player Count|||{Multiplayer.session.players.Count}")
+                        .AppendLine("\n###CPU Info###")
+                        .AppendLine($"Processor Name|||{SystemInfo.processorType}")
+                        .AppendLine($"Processor Speed (MHz)|||{SystemInfo.processorFrequency}")
+                        .AppendLine($"Thread Count|||{SystemInfo.processorCount}")
+                        .AppendLine("\n###GPU Info###")
+                        .AppendLine($"GPU Family|||{SystemInfo.graphicsDeviceVendor}")
+                        .AppendLine($"GPU Type|||{SystemInfo.graphicsDeviceType}")
+                        .AppendLine($"GPU Name|||{SystemInfo.graphicsDeviceName}")
+                        .AppendLine($"GPU VRAM|||{SystemInfo.graphicsMemorySize}")
+                        .AppendLine("\n###RAM Info###")
+                        .AppendLine($"Physical Memory Present|||{SystemInfo.systemMemorySize}")
+                        .AppendLine("\n###OS Info###")
+                        .AppendLine($"OS Type|||{SystemInfo.operatingSystemFamily}")
+                        .AppendLine($"OS Name and Version|||{SystemInfo.operatingSystem}");
+
+                    //Save debug info to the zip
+                    zip.AddEntry("desync_info", desyncInfo.ToString());
                     zip.Save();
                 }
             }
@@ -393,15 +425,22 @@ namespace Multiplayer.Client
                 try
                 {
                     text.AppendLine("[desync_info]");
-                    var desyncInfo = new ByteReader(zip["desync_info"].GetBytes());
-                    text.AppendLine($"Arbiter online: {desyncInfo.ReadBool()}");
-                    text.AppendLine($"Last valid tick: {desyncInfo.ReadInt32()}");
-                    text.AppendLine($"Last valid arbiter online: {desyncInfo.ReadBool()}");
-                    text.AppendLine($"Mod version: {desyncInfo.ReadString()}");
-                    text.AppendLine($"Mod is debug: {desyncInfo.ReadBool()}");
-                    text.AppendLine($"Dev mode: {desyncInfo.ReadBool()}");
-                    text.AppendLine($"Player count: {desyncInfo.ReadInt32()}");
-                    text.AppendLine($"Game debug mode: {desyncInfo.ReadBool()}");
+                    
+                    //Backwards compatibility!
+                    if (zip["desync_info"].GetString().StartsWith("###"))
+                        text.AppendLine(zip["desync_info"].GetString());
+                    else
+                    {
+                        var desyncInfo = new ByteReader(zip["desync_info"].GetBytes());
+                        text.AppendLine($"Arbiter online: {desyncInfo.ReadBool()}");
+                        text.AppendLine($"Last valid tick: {desyncInfo.ReadInt32()}");
+                        text.AppendLine($"Last valid arbiter online: {desyncInfo.ReadBool()}");
+                        text.AppendLine($"Mod version: {desyncInfo.ReadString()}");
+                        text.AppendLine($"Mod is debug: {desyncInfo.ReadBool()}");
+                        text.AppendLine($"Dev mode: {desyncInfo.ReadBool()}");
+                        text.AppendLine($"Player count: {desyncInfo.ReadInt32()}");
+                        text.AppendLine($"Game debug mode: {desyncInfo.ReadBool()}");
+                    }
                 }
                 catch { }
 
