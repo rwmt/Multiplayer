@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+
+  <MpSimulating>Simulerer</MpSimulating>
+  <MpSimulatingServer>Simulerer serveren</MpSimulatingServer>
+  <MpLoading>Indlæser</MpLoading>
+  <MpSaving>Gemmer</MpSaving>
+  
+  <MpInvalidPort>Ugyldig port</MpInvalidPort>
+  <MpInvalidAddress>Ugyldig addresse</MpInvalidAddress>
+  <MpInvalidGameName>Ugyldig spil navn</MpInvalidGameName>
+  
+  <MpWrongProtocol>Forkert protokolversion</MpWrongProtocol>
+  <MpWrongMultiplayerVersionInfo>Denne server er hostet på Multiplayer {0} (protocol {1}).</MpWrongMultiplayerVersionInfo>
+  
+  <MpWrongDefs>Mod definition matcher ikke</MpWrongDefs>
+  <MpWrongDefsInfo>Sørge for at dine installerede mods versioner og ordre matcher værtens.</MpWrongDefsInfo>
+  <MpModList>Mod liste</MpModList>
+  <MpSeeModList>Se mod liste</MpSeeModList>
+  
+  <MpServerClosed>Serveren lukkede</MpServerClosed>
+  <MpServerFull>Serveren er fyldt</MpServerFull>
+  <MpKicked>Du er blevet smidt ud</MpKicked>
+
+  <MpInvalidUsernameAlreadyPlaying>Brugernavn allerede online</MpInvalidUsernameAlreadyPlaying>
+  <MpInvalidUsernameChars>Brugernavn bruger ugyldige tegn</MpInvalidUsernameChars>
+  <MpInvalidUsernameLength>Brugernavn har ugyldig længde</MpInvalidUsernameLength>
+  <MpChangeUsernameInfo>Du kan ændre dit brugernavn i mod indstillingerne.</MpChangeUsernameInfo>
+  
+  <MpPlayerConnected>{0} har tilsluttet serveren</MpPlayerConnected>
+  <MpPlayerDisconnected>{0} har forladt serveren</MpPlayerDisconnected>
+  
+  <MpReplayOutdated>(Forældet)</MpReplayOutdated>
+  <MpReplayOutdatedDesc1>Dette replay var lavet til protocol version {0}, men du bruger version {1}.</MpReplayOutdatedDesc1>
+  <MpReplayOutdatedDesc2>Dette replay vil måske ikke virke ordentligt.</MpReplayOutdatedDesc2>
+  <MpReplayOutdatedDesc3>Der kan være mulige inkompatibiliteter som er er beskrevet sammen med frigivelseshistoriken af modden.</MpReplayOutdatedDesc3>
+  <MpReplayOutdatedDesc4>Denne fil indeholder yderligere information og skulle gerne virke fint hvis der startes en server fra den.</MpReplayOutdatedDesc4>
+  
+  <MpServerCloseConfirmation>Er du sikker på at du vil lukke serveren? Alle ændringer der ikke er blevet gemt vil gå tabt.</MpServerCloseConfirmation>
+  
+  <MpHostServer>Start en server</MpHostServer>
+  <MpSaveReplay>Gem replay</MpSaveReplay>
+  
+  <MpConvert>Konverter til singleplayer</MpConvert>
+  <MpConverting>Konvertere</MpConverting>
+  
+  <MpUsername>Brugernavn</MpUsername>
+  <MpShowPlayerCursors>Vis spillernes markører</MpShowPlayerCursors>
+  <MpAutoAcceptSteam>Auto-accepter Steam</MpAutoAcceptSteam>
+  <MpAutoAcceptSteamDesc>Accepter automatisk alle indgående Steam anmodninger om at oprette forbindelse til spillet.</MpAutoAcceptSteamDesc>
+  <MpTransparentChat>Gennemsigtig chat</MpTransparentChat>
+  
+  <MpAutosaveSlots>Slots for auto-saves</MpAutosaveSlots>
+  <MpAutosaveSlotsDesc>Hvor mange auto-saves der skal beholdes ad gangen.</MpAutosaveSlotsDesc>
+  
+  <MpTraderLeavesIn>Forlader om {0}</MpTraderLeavesIn>
+  
+  <MpChatButton>Chat</MpChatButton>
+  <MpTradingButton>Handle</MpTradingButton>
+  
+  <MpChatPlayers>Spillere ({0}):</MpChatPlayers>
+  <MpSend>Send</MpSend>
+  <MpSteamAcceptTitle>Accepter Steam brugere</MpSteamAcceptTitle>
+  <MpSteamAcceptDesc>Click for at acceptere</MpSteamAcceptDesc>
+  <MpSteamAccepted>Bruger er blevet accepteret</MpSteamAccepted>
+  
+  <MpConnectingTo>Tilslutter til {0}:{1}</MpConnectingTo>
+  <MpConnected>Tilsluttet.</MpConnected>
+  <MpDownloading>Downloader ({0}%)</MpDownloading>
+  
+  <MpSteamConnectingTo>Tilslutter til et spil startet af {0}</MpSteamConnectingTo>
+  <MpSteamConnectingWaiting>Venter på at værten acceptere</MpSteamConnectingWaiting>
+  
+  <MpTicksBehind>Du er {0} ticks bagud.</MpTicksBehind>
+  <MpLowerGameSpeed>Overvej at sænke spillets hastighed.</MpLowerGameSpeed>
+  <MpForceCatchUp>Klik for at tvinge indhentelse.</MpForceCatchUp>
+  
+  <MpDesynced>Spillet har desynkroniseret.</MpDesynced>
+  <MpTryResync>Prøv på at resynkronisere</MpTryResync>
+  
+  <MpSaveReplayAs>Gem replay som</MpSaveReplayAs>
+  <MpWillOverwrite>Vil overskrive</MpWillOverwrite>
+  <MpReplaySaved>Replay gemt</MpReplaySaved>
+  
+  <MpGameName>Spil navn</MpGameName>
+  <MpMaxPlayers>Maks antal spillere</MpMaxPlayers>
+  <MpAutosaveEvery>Auto-save hver</MpAutosaveEvery>
+  <MpAutosaveMinutes>dage</MpAutosaveMinutes>
+  <MpLanDesc1>Transmiter spillet på dit lokale netværk.</MpLanDesc1>
+  <MpLanDesc2>Løste LAN addresse: {0}</MpLanDesc2>
+  <MpArbiterDesc>En seperat process af spillet som køre i baggrunden og hjælper med at løse problemer relateret til desynkronisering.</MpArbiterDesc>
+  <MpAsyncTimeDesc>Separat tidskontrol for planeten og hver koloni.</MpAsyncTimeDesc>
+  <MpExperimentalFeature>Eksperimental funktion</MpExperimentalFeature>
+  
+  <MpHostButton>Host</MpHostButton>
+  <MpWatchReplay>Se på</MpWatchReplay>
+  <MpNothingSelected>Intet markeret</MpNothingSelected>
+  <MpNoSaves>Multiplayer kan kun afspilles fra allerede eksisterende spil/saves</MpNoSaves>
+  
+  <MpHostIngame>Host dette spil</MpHostIngame>
+  <MpHostReplay>Host et replay</MpHostReplay>
+  <MpHostSavefile>Host et save</MpHostSavefile>
+  
+  <MpJoinButton>Tilslut</MpJoinButton>
+  <MpConnectButton>Opret forbindelse</MpConnectButton>
+  <MpLanSearching>Søger</MpLanSearching>
+  
+  <MpNotConnectedToSteam>Ikke forbundet til Steam</MpNotConnectedToSteam>
+  <MpNoFriendsPlaying>Ingen venner spiller på nuværende tidspunkt RimWorld</MpNoFriendsPlaying>
+  <MpPlayingRimWorld>Spiller RimWorld</MpPlayingRimWorld>
+  <MpNotInMultiplayer>Ikke i multiplayer</MpNotInMultiplayer>
+  
+  <MpPauseOnAutosave>Pauser spillet når der auto-saves</MpPauseOnAutosave>
+  <MpAppendNameToAutosave>Tilføj et navn til auto-save</MpAppendNameToAutosave>
+  <MpPauseAutosaveCounter>Pauser auto-save tælleren</MpPauseAutosaveCounter>
+  <MpPauseAutosaveCounterDesc>Pauser tælleren og foryder auto-saving mens spillet er på pause.</MpPauseAutosaveCounterDesc>
+  
+  <MpLan>LAN</MpLan>
+  <MpDirect>Direkte</MpDirect>
+  <MpSteam>Steam</MpSteam>
+  <MpHostTab>Host</MpHostTab>
+  
+  <MpMultiplayer>Multiplayer</MpMultiplayer>
+  <MpSingleplayer>Singleplayer</MpSingleplayer>
+  
+  <MpNotAvailable>Ikke tilgængeligt i multiplayer.</MpNotAvailable>
+  <MpCallingFactionNotAvailable>Opkald til andre fraktioner er i øjeblikket ikke tilgængeligt i multiplayer.</MpCallingFactionNotAvailable>
+  
+  <MpAggressiveTicking>Aggressiv ticking</MpAggressiveTicking>
+  <MpAggressiveTickingDesc>Prøv altid på at indhente serveren selv på bekostning af FPS.</MpAggressiveTickingDesc>
+  
+</LanguageData>
