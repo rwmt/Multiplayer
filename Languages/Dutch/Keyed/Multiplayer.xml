@@ -31,7 +31,7 @@
   <MpPlayerDisconnected>{0} is vertrokken</MpPlayerDisconnected>
   
   <MpReplayOutdated>"Niet up-to-date"</MpReplayOutdated>
-  <MpReplayOutdatedDesc1>Deze herhaling is gemaakt voor de protocolversie {0}, maar je bent bezig met de versie die je gebruikt... {1}.</MpReplayOutdatedDesc1>
+  <MpReplayOutdatedDesc1>Deze herhaling is gemaakt voor de protocolversie {0}, maar u gebruikt versie {1}.</MpReplayOutdatedDesc1>
   <MpReplayOutdatedDesc2>De herhalingen worden mogelijks niet correct afgespeeld.</MpReplayOutdatedDesc2>
   <MpReplayOutdatedDesc3>Mogelijke incompatibiliteiten worden vermeld in het releaseverleden.</MpReplayOutdatedDesc3>
   <MpReplayOutdatedDesc4>Dit bestand bevat aanvullende informatie en de hosting ervan zou goed moeten werken.</MpReplayOutdatedDesc4>
