@@ -84,8 +84,8 @@
 
   <MpGameName>서버 제목</MpGameName>
   <MpMaxPlayers>최대 플레이어</MpMaxPlayers>
-  <MpAutosaveEvery>매 </MpAutosaveEvery>
-  <MpAutosaveDays>매일 자동 저장</MpAutosaveDays>
+  <MpAutosaveEvery>자동저장 </MpAutosaveEvery>
+  <MpAutosaveMinutes>분 마다</MpAutosaveMinutes>
   <MpLanDesc1>로컬 네트워크에 서버를 엽니다.</MpLanDesc1>
   <MpLanDesc2>현재 LAN 주소: {0}</MpLanDesc2>
   <MpArbiterDesc>접속을 유지해주는 게임 내 시스템입니다.</MpArbiterDesc>
@@ -98,7 +98,7 @@
   <MpNoSaves>멀티플레이는 이미 만들어진 세이브에서만 플레이 가능합니다.</MpNoSaves>
 
   <MpHostIngame>현재 게임에서 서버 열기</MpHostIngame>
-  <MpHostReplay>퀵세이브로 서버 열기</MpHostReplay>
+  <MpHostReplay>퀵세이브에서 서버 열기</MpHostReplay>
   <MpHostSavefile>세이브에서 서버 열기</MpHostSavefile>
 
   <MpJoinButton>접속</MpJoinButton>
@@ -110,10 +110,11 @@
   <MpPlayingRimWorld>림월드 플레이 중</MpPlayingRimWorld>
   <MpNotInMultiplayer>멀티중 아님</MpNotInMultiplayer>
 
-  <MpPauseOnAutosave>Pause on Autosave</MpPauseOnAutosave>
+  <MpPauseOnAutosave>자동저장 후 일시정지</MpPauseOnAutosave>
   <MpAppendNameToAutosave>Append Name to Autosave</MpAppendNameToAutosave>
   <MpPauseAutosaveCounter>Pause autosave counter</MpPauseAutosaveCounter>
   <MpPauseAutosaveCounterDesc>Pauses the counter along with the game preventing autosaving while time is paused.</MpPauseAutosaveCounterDesc>
+  <MpPauseOnAutosave>자동저장 시 일시정지</MpPauseOnAutosave> 
   <MpLan>LAN</MpLan>
   <MpDirect>직접 연결</MpDirect>
   <MpSteam>스팀</MpSteam>
