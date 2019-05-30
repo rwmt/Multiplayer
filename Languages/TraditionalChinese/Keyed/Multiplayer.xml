@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<LanguageData>
+
+  <MpSimulating>遊戲模擬中</MpSimulating>
+  <MpSimulatingServer>伺服器正在模擬中</MpSimulatingServer>
+  <MpLoading>讀取中</MpLoading>
+  <MpSaving>儲存中</MpSaving>
+  
+  <MpInvalidPort>無效的連接埠</MpInvalidPort>
+  <MpInvalidAddress>無效的IP位址</MpInvalidAddress>
+  <MpInvalidGameName>無效的遊戲名稱</MpInvalidGameName>
+  
+  <MpWrongProtocol>協定版本錯誤</MpWrongProtocol>
+  <MpWrongMultiplayerVersionInfo>這個伺服器運行在 {0} ({1}協定)</MpWrongMultiplayerVersionInfo>
+  
+  <MpWrongDefs>模組設置有問題</MpWrongDefs>
+  <MpWrongDefsInfo>請確認你安裝的模組版本與伺服器的模組版本一致</MpWrongDefsInfo>
+  <MpModList>模組列表</MpModList>
+  <MpSeeModList>查看模組列表</MpSeeModList>
+  
+  <MpServerClosed>伺服器已關閉</MpServerClosed>
+  <MpServerFull>伺服器人數已達上限</MpServerFull>
+  <MpKicked>已從伺服器被踢除</MpKicked>
+
+  <MpInvalidUsernameAlreadyPlaying>玩家名稱重複</MpInvalidUsernameAlreadyPlaying>
+  <MpInvalidUsernameChars>玩家名稱中含有非法字元</MpInvalidUsernameChars>
+  <MpInvalidUsernameLength>無效的玩家名稱長度</MpInvalidUsernameLength>
+  <MpChangeUsernameInfo>在模組設定介面中可以修改玩家名稱</MpChangeUsernameInfo>
+  
+  <MpPlayerConnected>{0} 加入伺服器</MpPlayerConnected>
+  <MpPlayerDisconnected>{0} 離開伺服器</MpPlayerDisconnected>
+  
+  <MpReplayOutdated>(版本已過期)</MpReplayOutdated>
+  <MpReplayOutdatedDesc1>重播用協定 {0} 版本，但是你用協定 {1} 版本</MpReplayOutdatedDesc1>
+  <MpReplayOutdatedDesc2>無法進行重播</MpReplayOutdatedDesc2>
+  <MpReplayOutdatedDesc3>不支援的模組能在發佈歷史中查看</MpReplayOutdatedDesc3>
+  <MpReplayOutdatedDesc4>本文檔中含有多餘訊息，伺服器可能無法正常啟動</MpReplayOutdatedDesc4>
+  
+  <MpServerCloseConfirmation>確定要關閉伺服器嗎？ 未儲存的資訊將消失</MpServerCloseConfirmation>
+  
+  <MpHostServer>主持伺服器</MpHostServer>
+  <MpSaveReplay>儲存重播</MpSaveReplay>
+  
+  <MpConvert>切換至單人遊戲</MpConvert>
+  <MpConverting>切換中</MpConverting>
+  
+  <MpUsername>玩家名稱</MpUsername>
+  <MpShowPlayerCursors>顯示玩家指標</MpShowPlayerCursors>
+  <MpAutoAcceptSteam>自動接受 Steam 加入請求</MpAutoAcceptSteam>
+  <MpAutoAcceptSteamDesc>自動接受任何 Steam 加入請求</MpAutoAcceptSteamDesc>
+  <MpTransparentChat>聊天視窗透明化</MpTransparentChat>
+  
+  <MpAutosaveSlots>自動儲存的列表</MpAutosaveSlots>
+  <MpAutosaveSlotsDesc>留存的自動儲存數量</MpAutosaveSlotsDesc>
+  
+  <MpTraderLeavesIn>{0} 後離開</MpTraderLeavesIn>
+  
+  <MpChatButton>聊天</MpChatButton>
+  <MpTradingButton>交易</MpTradingButton>
+  
+  <MpChatPlayers>玩家 ({0}):</MpChatPlayers>
+  <MpSend>傳送</MpSend>
+  <MpSteamAcceptTitle>接受Steam玩家</MpSteamAcceptTitle>
+  <MpSteamAcceptDesc>按此接受</MpSteamAcceptDesc>
+  <MpSteamAccepted>玩家已被接受</MpSteamAccepted>
+  
+  <MpConnectingTo>連線到 {0}:{1}</MpConnectingTo>
+  <MpConnected>連線成功</MpConnected>
+  <MpDownloading>下載中 ({0}%)</MpDownloading>
+  
+  <MpSteamConnectingTo>連線到 {0} 的伺服器</MpSteamConnectingTo>
+  <MpSteamConnectingWaiting>等待伺服器端接受連線</MpSteamConnectingWaiting>
+  
+  <MpTicksBehind>已落後 {0} Ticks</MpTicksBehind>
+  <MpLowerGameSpeed>請降低遊戲速度</MpLowerGameSpeed>
+  <MpForceCatchUp>按此與伺服器進行手動同步</MpForceCatchUp>
+  
+  <MpDesynced>伺服器已不同步(Desynced)</MpDesynced>
+  <MpTryResync>請重新同步(Resync)</MpTryResync>
+  
+  <MpSaveReplayAs>儲存重播為</MpSaveReplayAs>
+  <MpWillOverwrite>將進行覆蓋</MpWillOverwrite>
+  <MpReplaySaved>已儲存重播</MpReplaySaved>
+  
+  <MpGameName>伺服器名稱</MpGameName>
+  <MpMaxPlayers>最大玩家數量</MpMaxPlayers>
+  <MpAutosaveEvery>自動儲存每</MpAutosaveEvery>
+  <MpAutosaveMinutes>分鐘</MpAutosaveMinutes>
+  <MpLanDesc1>主持重播遊戲至區域網路</MpLanDesc1>
+  <MpLanDesc2>區域網路IP位址: {0}</MpLanDesc2>
+  <MpArbiterDesc>Arbiter在伺服器後端協助玩家同步</MpArbiterDesc>
+  <MpAsyncTimeDesc>每個地圖和地區的時間控制皆不同</MpAsyncTimeDesc>
+  <MpExperimentalFeature>測試功能</MpExperimentalFeature>
+  
+  <MpHostButton>啟動伺服器</MpHostButton>
+  <MpWatchReplay>查看重播</MpWatchReplay>
+  <MpNothingSelected>沒有選取</MpNothingSelected>
+  <MpNoSaves>多人遊戲必須從遊戲存檔中啟動</MpNoSaves>
+  
+  <MpHostIngame>以當前遊戲啟動伺服器</MpHostIngame>
+  <MpHostReplay>以此重播啟動伺服器</MpHostReplay>
+  <MpHostSavefile>以此遊戲存檔啟動伺服器</MpHostSavefile>
+  
+  <MpJoinButton>加入遊戲</MpJoinButton>
+  <MpConnectButton>伺服器連線中</MpConnectButton>
+  <MpLanSearching>伺服器搜尋中</MpLanSearching>
+  
+  <MpNotConnectedToSteam>未連接Steam</MpNotConnectedToSteam>
+  <MpNoFriendsPlaying>現在沒有好友正在遊玩RimWorld</MpNoFriendsPlaying>
+  <MpPlayingRimWorld>正在游玩RimWorld</MpPlayingRimWorld>
+  <MpNotInMultiplayer>目前未進行多人遊戲</MpNotInMultiplayer>
+  
+  <MpPauseOnAutosave>自動儲存時暫停遊戲</MpPauseOnAutosave>
+  <MpLan>區域網路</MpLan>
+  <MpDirect>直接連線</MpDirect>
+  <MpSteam>Steam</MpSteam>
+  <MpHostTab>主持伺服器</MpHostTab>
+  
+  <MpMultiplayer>多人遊戲</MpMultiplayer>
+  <MpSingleplayer>單人遊戲</MpSingleplayer>
+  
+  <MpNotAvailable>不支援多人遊戲</MpNotAvailable>
+  <MpCallingFactionNotAvailable>多人遊戲時不支援呼叫其他勢力</MpCallingFactionNotAvailable>
+  
+  <MpAggressiveTicking>加速 Tick</MpAggressiveTicking>
+  <MpAggressiveTickingDesc>嘗試和伺服器進行同步(將降低FPS)</MpAggressiveTickingDesc>
+  
+</LanguageData>
