@@ -91,12 +91,6 @@ namespace Multiplayer.Client
             );
 
             harmony.Patch(
-                AccessTools.Method(typeof(GenTypes), nameof(GenTypes.GetTypeInAnyAssembly)),
-                new HarmonyMethod(typeof(GetTypeInAnyAssemblyPatch), "Prefix"),
-                new HarmonyMethod(typeof(GetTypeInAnyAssemblyPatch), "Postfix")
-            );
-
-            harmony.Patch(
                 AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.ParseAndProcessXML)),
                 transpiler: new HarmonyMethod(typeof(ParseAndProcessXml_Patch), "Transpiler")
             );
@@ -115,11 +109,6 @@ namespace Multiplayer.Client
             harmony.Patch(
                 AccessTools.Constructor(typeof(LoadableXmlAsset), new[] { typeof(string), typeof(string), typeof(string) }),
                 new HarmonyMethod(typeof(LoadableXmlAssetCtorPatch), "Prefix")
-            );
-
-            harmony.Patch(
-                AccessTools.Method(typeof(ModMetaData), "<Init>m__1"),
-                new HarmonyMethod(typeof(ModPreviewImagePatch), "Prefix")
             );
 
             // Might fix some mod desyncs

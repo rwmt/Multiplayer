@@ -6,7 +6,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
-using System.Text;
 using System.Xml;
 using Verse;
 
@@ -92,24 +91,6 @@ namespace Multiplayer.Client
             set = new HashSet<ThingCategoryDef>(__result, DefaultComparer<ThingCategoryDef>.Instance);
             values[__instance] = set;
             __result = set;
-        }
-    }
-
-    static class GetTypeInAnyAssemblyPatch
-    {
-        public static Dictionary<string, Type> results = new Dictionary<string, Type>();
-
-        static bool Prefix(string typeName, ref Type __state)
-        {
-            return !results.TryGetValue(typeName, out __state);
-        }
-
-        static void Postfix(string typeName, ref Type __result, Type __state)
-        {
-            if (__state == null)
-                results[typeName] = __result;
-            else
-                __result = __state;
         }
     }
 
