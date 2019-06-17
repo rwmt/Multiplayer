@@ -1,9 +1,12 @@
-﻿namespace Multiplayer.Common
+namespace Multiplayer.Common
 {
     public static class MpVersion
     {
-        public const string Version = "0.4.7.1";
-        public const int Protocol = 16;
+        public const string Version = "0.4.8";
+        public const string API = "0.1";
+        public const int Protocol = 17;
+
+        public const string apiAssemblyName = "0MultiplayerAPI";
 
 #if DEBUG
         public const bool IsDebug = true;

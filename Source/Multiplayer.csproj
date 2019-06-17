@@ -133,6 +133,17 @@
     <Compile Include="Common\ServerConnection.cs" />
     <Compile Include="Common\Version.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Common\MultiplayerAPIBridge.cs" />
+    <Compile Include="Client\Sync\SyncWorkers.cs" />
+    <Compile Include="Common\DynDelegate.cs" />
+    <Compile Include="Client\Sync\SyncDictionary.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="MultiplayerAPI.csproj">
+      <Project>{1DF67DDA-04CB-4DDF-B867-4C0E152BC959}</Project>
+      <Name>MultiplayerAPI</Name>
+      <Private>False</Private>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>

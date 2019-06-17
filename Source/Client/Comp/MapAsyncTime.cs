@@ -817,8 +817,13 @@ namespace Multiplayer.Client
         private void HandleDesignator(ScheduledCommand command, ByteReader data)
         {
             DesignatorMode mode = Sync.ReadSync<DesignatorMode>(data);
-            Designator designator = Sync.ReadSync<Designator>(data);
-            if (designator == null) return;
+            ushort desId = Sync.ReadSync<ushort>(data);
+            Type desType = Sync.designatorTypes[desId];
+
+            Designator designator = Sync.ReadSyncObject(data, desType) as Designator;
+            if (designator == null) {
+                designator = (Designator) Activator.CreateInstance(desType);
+            }
 
             try
             {

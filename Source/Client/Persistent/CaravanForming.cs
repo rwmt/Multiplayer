@@ -1,4 +1,5 @@
 ﻿using Harmony;
+using Multiplayer.API;
 using RimWorld;
 using RimWorld.Planet;
 using System;
@@ -104,8 +105,7 @@ namespace Multiplayer.Client
                 Remove();
         }
 
-        [SyncMethod]
-        [SyncDebugOnly]
+        [SyncMethod(debugOnly = true)]
         public void DebugTryFormCaravanInstantly()
         {
             if (PrepareDummyDialog().DebugTryFormCaravanInstantly())

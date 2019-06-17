@@ -131,7 +131,7 @@ namespace Multiplayer.Client
             try
             {
                 SyncHandlers.Init();
-                Sync.RegisterAllSyncMethods();
+                Sync.RegisterAllAttributes();
             }
             catch (Exception e)
             {
@@ -149,13 +149,12 @@ namespace Multiplayer.Client
 
             Log.messageQueue.maxMessages = 1000;
 
-            // todo run it later
-            Sync.InitHandlers();
-
             DoubleLongEvent(() =>
             {
                 CollectDefInfos();
                 CollectModHashes();
+
+                Sync.InitHandlers();
             }, "Loading"); // right before the arbiter connects
 
             HandleCommandLine();

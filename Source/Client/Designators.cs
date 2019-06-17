@@ -89,8 +89,11 @@ namespace Multiplayer.Client
 
         private static void WriteData(ByteWriter data, DesignatorMode mode, Designator designator)
         {
+            Type designatorType = designator.GetType();
+
             Sync.WriteSync(data, mode);
-            Sync.WriteSync(data, designator);
+            Sync.WriteSync(data, (ushort) Array.IndexOf(Sync.designatorTypes, designatorType));
+            Sync.WriteSyncObject(data, designator, designatorType);
 
             if (designator is Designator_AreaAllowed)
                 Sync.WriteSync(data, Designator_AreaAllowed.SelectedArea);

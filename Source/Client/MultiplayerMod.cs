@@ -35,7 +35,15 @@ namespace Multiplayer.Client
             EarlyMarkNoInline(typeof(Multiplayer).Assembly);
             EarlyPatches();
 
+            CheckInterfaceVersions();
+
             settings = GetSettings<MpSettings>();
+
+#if DEBUG
+            LongEventHandler.ExecuteWhenFinished(() => { 
+                Log.Message("== Structure == \n" + Sync.syncWorkers.PrintStructure());
+            });
+#endif
         }
 
         public static void EarlyMarkNoInline(Assembly asm)
@@ -172,6 +180,34 @@ namespace Multiplayer.Client
         }
 
         public override string SettingsCategory() => "Multiplayer";
+
+        static void CheckInterfaceVersions()
+        {
+            var mpAssembly = AppDomain.CurrentDomain.GetAssemblies().First(a => a.GetName().Name == "Multiplayer");
+            var curVersion = new System.Version(
+                (mpAssembly.GetCustomAttributes(typeof(AssemblyFileVersionAttribute), false)[0] as AssemblyFileVersionAttribute).Version
+            );
+
+            Log.Message($"Current API version: {curVersion}");
+
+            foreach (var mod in LoadedModManager.RunningMods) {
+                if (!mod.LoadedAnyAssembly)
+                    continue;
+
+                Assembly assembly = mod.assemblies.loadedAssemblies.FirstOrDefault(a => a.GetName().Name == MpVersion.apiAssemblyName);
+
+                if (assembly != null) {
+                    var version = new Version(FileVersionInfo.GetVersionInfo(System.IO.Path.Combine(mod.AssembliesFolder, $"{MpVersion.apiAssemblyName}.dll")).FileVersion);
+
+                    Log.Message($"Mod {mod.Name} has API client ({version})");
+
+                    if (curVersion > version)
+                        Log.Warning($"Mod {mod.Name} uses an older API version (mod: {version}, current: {curVersion})");
+                    else if (curVersion < version)
+                        Log.Error($"Mod {mod.Name} uses a newer API version! (mod: {version}, current: {curVersion})\nMake sure the Multiplayer mod is up to date");
+                }
+            }
+        }
     }
 
     static class XmlAssetsInModFolderPatch

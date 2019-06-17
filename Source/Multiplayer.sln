@@ -5,6 +5,8 @@ VisualStudioVersion = 15.0.27428.2015
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Multiplayer", "Multiplayer.csproj", "{562CC73B-D52D-4615-B8AA-BCE875838D24}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "API", "MultiplayerAPI.csproj", "{1DF67DDA-04CB-4DDF-B867-4C0E152BC959}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{562CC73B-D52D-4615-B8AA-BCE875838D24}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{562CC73B-D52D-4615-B8AA-BCE875838D24}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{562CC73B-D52D-4615-B8AA-BCE875838D24}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1DF67DDA-04CB-4DDF-B867-4C0E152BC959}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1DF67DDA-04CB-4DDF-B867-4C0E152BC959}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1DF67DDA-04CB-4DDF-B867-4C0E152BC959}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1DF67DDA-04CB-4DDF-B867-4C0E152BC959}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

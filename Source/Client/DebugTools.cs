@@ -1,4 +1,5 @@
 ﻿using Harmony;
+using Multiplayer.API;
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
@@ -65,8 +66,7 @@ namespace Multiplayer.Client
             );
         }
 
-        [SyncMethod]
-        [SyncDebugOnly]
+        [SyncMethod(debugOnly = true)]
         static void SaveGameCmd()
         {
             Map map = Find.Maps[0];
@@ -74,8 +74,7 @@ namespace Multiplayer.Client
             File.WriteAllBytes($"map_0_{Multiplayer.username}.xml", mapData);
         }
 
-        [SyncMethod]
-        [SyncDebugOnly]
+        [SyncMethod(debugOnly = true)]
         static void AdvanceTime()
         {
             File.WriteAllLines($"{Multiplayer.username}_all_static.txt", new string[] { AllModStatics() });

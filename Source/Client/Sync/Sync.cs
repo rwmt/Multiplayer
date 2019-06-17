@@ -1,4 +1,5 @@
 ﻿using Harmony;
+using Multiplayer.API;
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
@@ -32,7 +33,7 @@ namespace Multiplayer.Client
         public abstract void Handle(ByteReader data);
     }
 
-    public class SyncField : SyncHandler
+    public class SyncField : SyncHandler, ISyncField
     {
         public readonly Type targetType;
         public readonly string memberPath;
@@ -115,25 +116,42 @@ namespace Multiplayer.Client
             postApply?.Invoke(target, value);
         }
 
-        public SyncField SetVersion(int version)
+        public void Watch(object target = null, object index = null)
+        {
+            if (!(inGameLoop || Multiplayer.ShouldSync))
+                return;
+
+            object value;
+
+            if (bufferChanges && Sync.bufferedChanges[this].TryGetValue(new Pair<object, object>(target, index), out BufferData cached)) {
+                value = cached.toSend;
+                target.SetPropertyOrField(memberPath, value, index);
+            } else {
+                value = target.GetPropertyOrField(memberPath, index);
+            }
+
+            Sync.watchedStack.Push(new FieldData(this, target, value, index));
+        }
+
+        public ISyncField SetVersion(int version)
         {
             this.version = version;
             return this;
         }
 
-        public SyncField PreApply(Action<object, object> action)
+        public ISyncField PreApply(Action<object, object> action)
         {
             preApply = action;
             return this;
         }
 
-        public SyncField PostApply(Action<object, object> action)
+        public ISyncField PostApply(Action<object, object> action)
         {
             postApply = action;
             return this;
         }
 
-        public SyncField SetBufferChanges()
+        public ISyncField SetBufferChanges()
         {
             Sync.bufferedChanges[this] = new Dictionary<Pair<object, object>, BufferData>();
             Sync.bufferedFields.Add(this);
@@ -141,25 +159,25 @@ namespace Multiplayer.Client
             return this;
         }
 
-        public SyncField InGameLoop()
+        public ISyncField InGameLoop()
         {
             inGameLoop = true;
             return this;
         }
 
-        public SyncField CancelIfValueNull()
+        public ISyncField CancelIfValueNull()
         {
             cancelIfValueNull = true;
             return this;
         }
 
-        public SyncField SetDebugOnly()
+        public ISyncField SetDebugOnly()
         {
             debugOnly = true;
             return this;
         }
 
-        public SyncField SetHostOnly()
+        public ISyncField SetHostOnly()
         {
             hostOnly = true;
             return this;
@@ -169,11 +187,6 @@ namespace Multiplayer.Client
         {
             return $"SyncField {memberPath}";
         }
-    }
-
-    public interface ISyncMethod
-    {
-        bool DoSync(object target, object[] args);
     }
 
     public class SyncMethod : SyncHandler, ISyncMethod
@@ -322,55 +335,61 @@ namespace Multiplayer.Client
             afterCall?.Invoke(target, args);
         }
 
-        public SyncMethod MinTime(int time)
+        public ISyncMethod MinTime(int time)
         {
             minTime = time;
             return this;
         }
 
-        public SyncMethod SetContext(SyncContext context)
+        public ISyncMethod SetContext(SyncContext context)
         {
             this.context = context;
             return this;
         }
 
-        public SyncMethod SetVersion(int version)
+        public ISyncMethod SetVersion(int version)
         {
             this.version = version;
             return this;
         }
 
-        public SyncMethod SetDebugOnly()
+        public ISyncMethod SetDebugOnly()
         {
             debugOnly = true;
             return this;
         }
 
-        public SyncMethod SetPreInvoke(Action<object, object[]> action)
+        public ISyncMethod SetPreInvoke(Action<object, object[]> action)
         {
             beforeCall = action;
             return this;
         }
 
-        public SyncMethod CancelIfAnyArgNull()
+        public ISyncMethod SetPostInvoke(Action<object, object[]> action)
+        {
+            afterCall = action;
+            return this;
+        }
+
+        public ISyncMethod CancelIfAnyArgNull()
         {
             cancelIfAnyArgNull = true;
             return this;
         }
 
-        public SyncMethod CancelIfNoSelectedMapObjects()
+        public ISyncMethod CancelIfNoSelectedMapObjects()
         {
             cancelIfNoSelectedMapObjects = true;
             return this;
         }
 
-        public SyncMethod CancelIfNoSelectedWorldObjects()
+        public ISyncMethod CancelIfNoSelectedWorldObjects()
         {
             cancelIfNoSelectedWorldObjects = true;
             return this;
         }
 
-        public SyncMethod ExposeParameter(int index)
+        public ISyncMethod ExposeParameter(int index)
         {
             argTypes[index].expose = true;
             return this;
@@ -387,7 +406,7 @@ namespace Multiplayer.Client
         }
     }
 
-    public class SyncDelegate : SyncHandler, ISyncMethod
+    public class SyncDelegate : SyncHandler, ISyncDelegate
     {
         public readonly Type delegateType;
         public readonly MethodInfo method;
@@ -410,21 +429,16 @@ namespace Multiplayer.Client
 
             argTypes = method.GetParameters().Types();
 
-            if (fieldPaths == null)
-            {
+            if (fieldPaths == null) {
                 List<string> fieldList = new List<string>();
                 Sync.AllDelegateFieldsRecursive(delegateType, path => { fieldList.Add(path); return false; });
                 this.fieldPaths = fieldList.ToArray();
-            }
-            else
-            {
+            } else {
                 var temp = new UniqueList<string>();
-                foreach (string path in fieldPaths.Select(p => MpReflection.AppendType(p, delegateType)))
-                {
+                foreach (string path in fieldPaths.Select(p => MpReflection.AppendType(p, delegateType))) {
                     string[] parts = path.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
                     string increment = parts[0] + "/" + parts[1];
-                    for (int i = 2; i < parts.Length; i++)
-                    {
+                    for (int i = 2; i < parts.Length; i++) {
                         if (!MpReflection.PathType(increment).IsCompilerGenerated())
                             break;
                         temp.Add(increment);
@@ -458,15 +472,13 @@ namespace Multiplayer.Client
 
             IEnumerable<object> fields = fieldPaths.Select(p => delegateInstance.GetPropertyOrField(p));
 
-            EnumerableHelper.ProcessCombined(fields.Concat(args), fieldTypes.Concat(argTypes), (obj, type) =>
-            {
+            EnumerableHelper.ProcessCombined(fields.Concat(args), fieldTypes.Concat(argTypes), (obj, type) => {
                 if (type.IsCompilerGenerated())
                     return;
 
                 Sync.WriteSyncObject(writer, obj, type);
 
-                if (context.map is Map map)
-                {
+                if (context.map is Map map) {
                     if (mapId != ScheduledCommand.Global && mapId != map.uniqueID)
                         throw new Exception("SyncDelegate map mismatch");
                     mapId = map.uniqueID;
@@ -485,8 +497,7 @@ namespace Multiplayer.Client
         {
             object target = Activator.CreateInstance(delegateType);
 
-            for (int i = 0; i < fieldPaths.Length; i++)
-            {
+            for (int i = 0; i < fieldPaths.Length; i++) {
                 string path = fieldPaths[i];
                 string noTypePath = MpReflection.RemoveType(path);
                 Type fieldType = fieldTypes[i];
@@ -497,8 +508,7 @@ namespace Multiplayer.Client
                 else
                     value = Sync.ReadSyncObject(data, fieldType);
 
-                if (value == null)
-                {
+                if (value == null) {
                     if (cancelIfAnyNullBlacklist != null && !cancelIfAnyNullBlacklist.Contains(noTypePath))
                         return;
 
@@ -524,31 +534,31 @@ namespace Multiplayer.Client
             method.Invoke(target, parameters);
         }
 
-        public SyncDelegate SetContext(SyncContext context)
+        public ISyncDelegate SetContext(SyncContext context)
         {
             this.context = context;
             return this;
         }
 
-        public SyncDelegate CancelIfAnyFieldNull(params string[] without)
+        public ISyncDelegate CancelIfAnyFieldNull(params string[] without)
         {
             cancelIfAnyNullBlacklist = without;
             return this;
         }
 
-        public SyncDelegate CancelIfFieldsNull(params string[] whitelist)
+        public ISyncDelegate CancelIfFieldsNull(params string[] whitelist)
         {
             cancelIfNull = whitelist;
             return this;
         }
 
-        public SyncDelegate CancelIfNoSelectedObjects()
+        public ISyncDelegate CancelIfNoSelectedObjects()
         {
             cancelIfNoSelectedObjects = true;
             return this;
         }
 
-        public SyncDelegate RemoveNullsFromLists(params string[] listFields)
+        public ISyncDelegate RemoveNullsFromLists(params string[] listFields)
         {
             removeNullsFromLists = listFields;
             return this;
@@ -564,7 +574,7 @@ namespace Multiplayer.Client
             return Sync.RegisterSyncDelegate(inType, nestedType, methodName, fields);
         }
 
-        public SyncDelegate SetDebugOnly()
+        public ISyncDelegate SetDebugOnly()
         {
             debugOnly = true;
             return this;
@@ -598,12 +608,10 @@ namespace Multiplayer.Client
         {
             SyncActions.wantOriginal = true;
 
-            try
-            {
+            try {
                 int i = 0;
 
-                foreach (T t in func(target, arg0, arg1))
-                {
+                foreach (T t in func(target, arg0, arg1)) {
                     int j = i;
                     i++;
                     var original = actionGetter(t);
@@ -611,16 +619,14 @@ namespace Multiplayer.Client
 
                     yield return t;
                 }
-            }
-            finally
-            {
+            } finally {
                 SyncActions.wantOriginal = false;
             }
         }
 
         public IEnumerable DoSync(object target, object arg0, object arg1)
         {
-            return DoSync((A)target, (B)arg0, (C)arg1);
+            return DoSync((A) target, (B) arg0, (C) arg1);
         }
 
         private void ActualSync(A target, B arg0, C arg1, Action original)
@@ -660,12 +666,10 @@ namespace Multiplayer.Client
 
         public void PatchAll(string methodName)
         {
-            foreach (var type in typeof(A).AllSubtypesAndSelf())
-            {
+            foreach (var type in typeof(A).AllSubtypesAndSelf()) {
                 if (type.IsAbstract) continue;
 
-                foreach (var method in type.GetDeclaredMethods().Where(m => m.Name == methodName))
-                {
+                foreach (var method in type.GetDeclaredMethods().Where(m => m.Name == methodName)) {
                     HarmonyMethod prefix = new HarmonyMethod(typeof(SyncActions), nameof(SyncActions.SyncAction_Prefix));
                     prefix.priority = MpPriority.MpFirst;
 
@@ -680,7 +684,7 @@ namespace Multiplayer.Client
 
                     postfix.priority = MpPriority.MpLast;
 
-                    Multiplayer.harmony.Patch(method, prefix, postfix);
+                    MultiplayerMod.harmony.Patch(method, prefix, postfix);
                     SyncActions.syncActions[method] = this;
                 }
             }
@@ -722,23 +726,14 @@ namespace Multiplayer.Client
         }
     }
 
-    [Flags]
-    public enum SyncContext
-    {
-        None = 0,
-        MapMouseCell = 1,
-        MapSelected = 2,
-        WorldSelected = 4,
-        QueueOrder_Down = 8,
-        CurrentMap = 16,
-    }
-
     public static partial class Sync
     {
         public static List<SyncHandler> handlers = new List<SyncHandler>();
         public static List<SyncField> bufferedFields = new List<SyncField>();
 
-        public static Dictionary<MethodBase, ISyncMethod> syncMethods = new Dictionary<MethodBase, ISyncMethod>();
+        public static Dictionary<MethodBase, ISyncCall> syncMethods = new Dictionary<MethodBase, ISyncCall>();
+
+        static Dictionary<string, SyncField> registeredSyncFields = new Dictionary<string, SyncField>();
 
         public static Dictionary<SyncField, Dictionary<Pair<object, object>, BufferData>> bufferedChanges = new Dictionary<SyncField, Dictionary<Pair<object, object>, BufferData>>();
         public static Stack<FieldData> watchedStack = new Stack<FieldData>();
@@ -762,8 +757,7 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.Client == null) return;
 
-            while (watchedStack.Count > 0)
-            {
+            while (watchedStack.Count > 0) {
                 FieldData data = watchedStack.Pop();
 
                 if (data == null)
@@ -775,8 +769,7 @@ namespace Multiplayer.Client
                 bool changed = !Equals(newValue, data.oldValue);
                 var cache = (handler.bufferChanges && !Multiplayer.IsReplay) ? bufferedChanges.GetValueSafe(handler) : null;
 
-                if (cache != null && cache.TryGetValue(new Pair<object, object>(data.target, data.index), out BufferData cached))
-                {
+                if (cache != null && cache.TryGetValue(new Pair<object, object>(data.target, data.index), out BufferData cached)) {
                     if (changed && cached.sent)
                         cached.sent = false;
 
@@ -787,13 +780,10 @@ namespace Multiplayer.Client
 
                 if (!changed) continue;
 
-                if (cache != null)
-                {
+                if (cache != null) {
                     BufferData bufferData = new BufferData(data.oldValue, newValue);
                     cache[new Pair<object, object>(data.target, data.index)] = bufferData;
-                }
-                else
-                {
+                } else {
                     handler.DoSync(data.target, newValue, data.index);
                 }
 
@@ -845,8 +835,7 @@ namespace Multiplayer.Client
             if (path.NullOrEmpty())
                 path = type.ToString();
 
-            foreach (FieldInfo field in type.GetDeclaredInstanceFields())
-            {
+            foreach (FieldInfo field in type.GetDeclaredInstanceFields()) {
                 string curPath = path + "/" + field.Name;
 
                 if (getter(curPath))
@@ -860,6 +849,30 @@ namespace Multiplayer.Client
             }
 
             return false;
+        }
+
+        public static ISyncField RegisterSyncField(Type targetType, string fieldName)
+        {
+            SyncField sf = Field(targetType, null, fieldName);
+
+            registeredSyncFields.Add(targetType + "/" + fieldName, sf);
+
+            return sf;
+        }
+
+        public static ISyncField RegisterSyncField(FieldInfo field)
+        {
+            string memberPath = field.ReflectedType + "/" + field.Name;
+            SyncField sf;
+            if (field.IsStatic) {
+                sf = Field(null, null, memberPath);
+            } else {
+                sf = Field(field.ReflectedType, null, field.Name);
+            }
+
+            registeredSyncFields.Add(memberPath, sf);
+
+            return sf;
         }
 
         public static SyncDelegate RegisterSyncDelegate(Type type, string nestedType, string method)
@@ -894,8 +907,7 @@ namespace Multiplayer.Client
         {
             MethodInfo method = AccessTools.Method(type, methodOrPropertyName, argTypes != null ? argTypes.Select(t => t.type).ToArray() : null);
 
-            if (method == null)
-            {
+            if (method == null) {
                 PropertyInfo property = AccessTools.Property(type, methodOrPropertyName);
                 method = property.GetSetMethod();
             }
@@ -906,23 +918,111 @@ namespace Multiplayer.Client
             return RegisterSyncMethod(method, argTypes);
         }
 
-        public static void RegisterAllSyncMethods()
+        /// <summary>
+        /// Registers all declared attributes SyncMethods and SyncFields in every assembly
+        /// </summary>
+        internal static void RegisterAllAttributes()
         {
-            foreach (Type type in MpUtil.AllModTypes())
-            {
-                foreach (MethodInfo method in type.GetDeclaredMethods())
-                {
-                    if (!MpUtil.HasAttr(method, typeof(SyncMethodAttribute)))
-                        continue;
-
-                    if (!method.TryGetAttribute(out SyncMethodAttribute syncAttr))
-                        continue;
-
-                    var syncMethod = RegisterSyncMethod(method, null);
-                    syncMethod.context = syncAttr.context;
-                    syncMethod.debugOnly = method.HasAttribute<SyncDebugOnlyAttribute>();
+            foreach (Type type in MpUtil.AllModTypes()) {
+                foreach (MethodInfo method in type.GetDeclaredMethods()) {
+                    if (method.TryGetAttribute(out SyncMethodAttribute sma)) {
+                        RegisterSyncMethod(method, sma);
+                    } else if (method.TryGetAttribute(out SyncWorkerAttribute swa)) {
+                        RegisterSyncWorker(method, isImplicit: swa.isImplicit, shouldConstruct: swa.shouldConstruct);
+                    }
+                }
+                foreach (FieldInfo field in type.GetDeclaredInstanceFields()) {
+                    if (field.TryGetAttribute(out SyncFieldAttribute sfa)) {
+                        RegisterSyncField(field, sfa);
+                    }
                 }
             }
+        }
+
+        static void RegisterSyncMethod(MethodInfo method, SyncMethodAttribute attribute)
+        {
+            int[] exposeParameters = attribute.exposeParameters;
+            int paramNum = method.GetParameters().Length;
+
+            if (exposeParameters != null) {
+                if (exposeParameters.Length != paramNum) {
+                    Log.Error($"Failed to register a method: Invalid number of parameters to expose in SyncMethod attribute applied to {method.DeclaringType.FullName}::{method}. Expected {paramNum}, got {exposeParameters.Length}");
+                    return;
+                } else if (exposeParameters.Any(p => p < 0 || p >= paramNum)) {
+                    Log.Error($"Failed to register a method: One or more indexes of parameters to expose in SyncMethod attribute applied to {method.DeclaringType.FullName}::{method} is invalid.");
+                    return;
+                }
+            }
+
+            var sm = RegisterSyncMethod(method, (SyncType[]) null);
+            sm.context = attribute.context;
+            sm.debugOnly = attribute.debugOnly;
+
+            sm.SetContext(attribute.context);
+
+            if (attribute.cancelIfAnyArgNull)
+                sm.CancelIfAnyArgNull();
+
+            if (attribute.cancelIfNoSelectedMapObjects)
+                sm.CancelIfNoSelectedMapObjects();
+
+            if (attribute.cancelIfNoSelectedWorldObjects)
+                sm.CancelIfNoSelectedWorldObjects();
+
+            if (attribute.debugOnly)
+                sm.SetDebugOnly();
+
+            if (exposeParameters != null) {
+                int i = 0;
+
+                try {
+                    for (; i < exposeParameters.Length; i++) {
+                        Log.Message($"Exposing parameter {exposeParameters[i]}");
+                        sm.ExposeParameter(exposeParameters[i]);
+                    }
+                } catch (Exception exc) {
+                    Log.Error($"An exception occurred while exposing parameter {i} ({method.GetParameters()[i]}) for method {method.DeclaringType.FullName}::{method}: {exc}");
+                }
+            }
+        }
+
+        public static SyncField GetRegisteredSyncField(Type target, string name)
+        {
+            string memberPath = target + "/" + name;
+
+            if (registeredSyncFields.TryGetValue(memberPath, out SyncField cached))
+                return cached;
+
+            var syncField = handlers.OfType<SyncField>().FirstOrDefault(sf => sf.memberPath == memberPath);
+
+            registeredSyncFields[memberPath] = syncField;
+            return syncField;
+        }
+
+        static void RegisterSyncField(FieldInfo field, SyncFieldAttribute attribute)
+        {
+            SyncField sf = Field(field.ReflectedType, field.Name);
+
+            registeredSyncFields.Add(field.ReflectedType + "/" + field.Name, sf);
+            Log.Message(field.ReflectedType + "/" + field.Name);
+
+            if (attribute.cancelIfValueNull)
+                sf.CancelIfValueNull();
+
+            if (attribute.inGameLoop)
+                sf.InGameLoop();
+
+            if (attribute.bufferChanges)
+                sf.SetBufferChanges();
+
+            if (attribute.debugOnly)
+                sf.SetDebugOnly();
+
+            if (attribute.hostOnly)
+                sf.SetHostOnly();
+
+            if (attribute.version > 0)
+                sf.SetVersion(attribute.version);
         }
 
         public static SyncMethod RegisterSyncMethod(MethodInfo method, SyncType[] argTypes)
@@ -938,6 +1038,80 @@ namespace Multiplayer.Client
             return handler;
         }
 
+        public static void RegisterSyncWorker(MethodInfo method, Type targetType = null, bool isImplicit = false, bool shouldConstruct = false)
+        {
+            Type[] parameters = method.GetParameters().Select(p => p.ParameterType).ToArray();
+
+            if (!method.IsStatic) {
+                Log.Error($"Error in {method.DeclaringType.FullName}::{method}: SyncWorker method has to be static.");
+                return;
+            }
+
+            if (parameters.Length != 2) {
+                Log.Error($"Error in {method.DeclaringType.FullName}::{method}: SyncWorker method has an invalid number of parameters.");
+                return;
+            }
+
+            if (parameters[0] != typeof(SyncWorker)) {
+                Log.Error($"Error in {method.DeclaringType.FullName}::{method}: SyncWorker method has an invalid first parameter (got {parameters[0]}, expected ISyncWorker).");
+                return;
+            }
+
+            if (targetType != null && parameters[1].IsAssignableFrom(targetType)) {
+                Log.Error($"Error in {method.DeclaringType.FullName}::{method}: SyncWorker method has an invalid second parameter (got {parameters[1]}, expected {targetType} or assignable).");
+                return;
+            }
+
+            if (!parameters[1].IsByRef) {
+                Log.Error($"Error in {method.DeclaringType.FullName}::{method}: SyncWorker method has an invalid second parameter, should be a ref.");
+                return;
+            }
+
+            var type = targetType ?? parameters[1].GetElementType();
+
+            if (isImplicit) {
+                if (method.ReturnType != typeof(bool)) {
+                    Log.Error($"Error in {method.DeclaringType.FullName}::{method}: SyncWorker set as implicit (or the argument type is an interface) requires bool type as a return value.");
+                    return;
+                }
+            } else if (method.ReturnType != typeof(void)) {
+                Log.Error($"Error in {method.DeclaringType.FullName}::{method}: SyncWorker set as explicit should have void as a return value.");
+                return;
+            }
+
+            SyncWorkerEntry entry = syncWorkers.GetOrAddEntry(type, isImplicit: isImplicit, shouldConstruct: shouldConstruct);
+
+            entry.Add(method);
+
+            if (!(isImplicit || type.IsInterface) && entry.SyncWorkerCount > 1) {
+                Log.Warning($"Warning in {method.DeclaringType.FullName}::{method}: type {type} has already registered an explicit SyncWorker, the code in this method may be not used.");
+            }
+
+            Log.Message($"Registered a SyncWorker {method.DeclaringType.FullName}::{method} for type {type} in assembly {method.DeclaringType.Assembly.GetName().Name}");
+        }
+
+        public static void RegisterSyncWorker<T>(SyncWorkerDelegate<T> syncWorkerDelegate, Type targetType = null, bool isImplicit = false, bool shouldConstruct = false)
+        {
+            MethodInfo method = syncWorkerDelegate.Method;
+
+            Type[] parameters = method.GetParameters().Select(p => p.ParameterType).ToArray();
+
+            if (targetType != null && parameters[1].IsAssignableFrom(targetType)) {
+                Log.Error($"Error in {method.DeclaringType.FullName}::{method}: SyncWorker method has an invalid second parameter (got {parameters[1]}, expected {targetType} or assignable).");
+                return;
+            }
+
+            var type = targetType ?? typeof(T);
+
+            SyncWorkerEntry entry = syncWorkers.GetOrAddEntry(type, isImplicit: isImplicit, shouldConstruct: shouldConstruct);
+
+            entry.Add(syncWorkerDelegate);
+
+            if (!(isImplicit || type.IsInterface) && entry.SyncWorkerCount > 1) {
+                Log.Warning($"Warning in {method.DeclaringType.FullName}::{method}: type {type} has already registered an explicit SyncWorker, the code in this method may be not used.");
+            }
+        }
+
         private static void PatchMethodForSync(MethodBase method)
         {
             var prefixMethod = AccessTools.Method(typeof(SyncTemplates), $"Prefix_{method.GetParameters().Length}");
@@ -946,7 +1120,7 @@ namespace Multiplayer.Client
 
             HarmonyMethod prefix = new HarmonyMethod(prefixMethod);
             prefix.priority = Priority.First;
-            Multiplayer.harmony.Patch(method, prefix);
+            MultiplayerMod.harmony.Patch(method, prefix);
         }
 
         public static void ApplyWatchFieldPatches(Type type)
@@ -956,33 +1130,11 @@ namespace Multiplayer.Client
             HarmonyMethod postfix = new HarmonyMethod(AccessTools.Method(typeof(Sync), nameof(Sync.FieldWatchPostfix)));
             postfix.priority = MpPriority.MpLast;
 
-            foreach (MethodBase toPatch in type.GetDeclaredMethods())
-            {
-                foreach (var attr in toPatch.AllAttributes<MpPrefix>())
-                {
-                    Multiplayer.harmony.Patch(attr.Method, prefix, postfix);
+            foreach (MethodBase toPatch in type.GetDeclaredMethods()) {
+                foreach (var attr in toPatch.AllAttributes<MpPrefix>()) {
+                    MultiplayerMod.harmony.Patch(attr.Method, prefix, postfix);
                 }
             }
-        }
-
-        public static void Watch(this SyncField field, object target = null, object index = null)
-        {
-            if (!(field.inGameLoop || Multiplayer.ShouldSync))
-                return;
-
-            object value;
-
-            if (field.bufferChanges && bufferedChanges[field].TryGetValue(new Pair<object, object>(target, index), out BufferData cached))
-            {
-                value = cached.toSend;
-                target.SetPropertyOrField(field.memberPath, value, index);
-            }
-            else
-            {
-                value = target.GetPropertyOrField(field.memberPath, index);
-            }
-
-            watchedStack.Push(new FieldData(field, target, value, index));
         }
 
         public static void HandleCmd(ByteReader data)
@@ -995,22 +1147,18 @@ namespace Multiplayer.Client
 
             bool shouldQueue = false;
 
-            if (handler.context != SyncContext.None)
-            {
-                if (handler.context.HasFlag(SyncContext.MapMouseCell))
-                {
+            if (handler.context != SyncContext.None) {
+                if (handler.context.HasFlag(SyncContext.MapMouseCell)) {
                     IntVec3 mouseCell = ReadSync<IntVec3>(data);
                     MouseCellPatch.result = mouseCell;
                 }
 
-                if (handler.context.HasFlag(SyncContext.MapSelected))
-                {
+                if (handler.context.HasFlag(SyncContext.MapSelected)) {
                     List<ISelectable> selected = ReadSync<List<ISelectable>>(data);
                     Find.Selector.selected = selected.Cast<object>().NotNull().ToList();
                 }
 
-                if (handler.context.HasFlag(SyncContext.WorldSelected))
-                {
+                if (handler.context.HasFlag(SyncContext.WorldSelected)) {
                     List<ISelectable> selected = ReadSync<List<ISelectable>>(data);
                     Find.WorldSelector.selected = selected.Cast<WorldObject>().NotNull().ToList();
                 }
@@ -1021,12 +1169,9 @@ namespace Multiplayer.Client
 
             KeyIsDownPatch.shouldQueue = shouldQueue;
 
-            try
-            {
+            try {
                 handler.Handle(data);
-            }
-            finally
-            {
+            } finally {
                 MouseCellPatch.result = null;
                 KeyIsDownPatch.shouldQueue = null;
                 Find.Selector.selected = prevSelected;
@@ -1041,8 +1186,7 @@ namespace Multiplayer.Client
             if (handler.context.HasFlag(SyncContext.CurrentMap))
                 data.MpContext().map = Find.CurrentMap;
 
-            if (handler.context.HasFlag(SyncContext.MapMouseCell))
-            {
+            if (handler.context.HasFlag(SyncContext.MapMouseCell)) {
                 data.MpContext().map = Find.CurrentMap;
                 WriteSync(data, UI.MouseCell());
             }
@@ -1063,7 +1207,7 @@ namespace Multiplayer.Client
         public static void Watch(this SyncField[] group, object target = null, int index = -1)
         {
             foreach (SyncField field in group)
-                if (field.targetType == null || field.targetType.IsInstanceOfType (target))
+                if (field.targetType == null || field.targetType.IsInstanceOfType(target))
                     field.Watch(target, index);
         }
 
@@ -1081,56 +1225,6 @@ namespace Multiplayer.Client
             foreach (SyncField field in group)
                 field.SetBufferChanges();
             return group;
-        }
-    }
-
-    [AttributeUsage(AttributeTargets.Method)]
-    public class SyncMethodAttribute : Attribute
-    {
-        public SyncContext context;
-
-        public SyncMethodAttribute(SyncContext context = SyncContext.None)
-        {
-            this.context = context;
-        }
-    }
-
-    [AttributeUsage(AttributeTargets.Method)]
-    public class SyncDebugOnlyAttribute : Attribute
-    {
-    }
-
-    [AttributeUsage(AttributeTargets.Parameter)]
-    public class SyncExpose : Attribute
-    {
-    }
-
-    [AttributeUsage(AttributeTargets.Parameter)]
-    public class SyncContextMap : Attribute
-    {
-    }
-
-    public struct SyncType
-    {
-        public readonly Type type;
-        public bool expose;
-        public bool contextMap;
-
-        public SyncType(Type type)
-        {
-            this.type = type;
-            this.expose = false;
-            contextMap = false;
-        }
-
-        public static implicit operator SyncType(ParameterInfo param)
-        {
-            return new SyncType(param.ParameterType) { expose = param.HasAttribute<SyncExpose>(), contextMap = param.HasAttribute<SyncContextMap>() };
-        }
-
-        public static implicit operator SyncType(Type type)
-        {
-            return new SyncType(type);
         }
     }
 
@@ -1279,10 +1373,8 @@ namespace Multiplayer.Client
             if (!Multiplayer.ShouldSync)
                 return false;
 
-            foreach (SyncMethod method in methods)
-            {
-                if (Enumerable.SequenceEqual(method.argTypes.Select(t => t.type), args.Select(o => o.GetType()), TypeComparer.INSTANCE))
-                {
+            foreach (SyncMethod method in methods) {
+                if (Enumerable.SequenceEqual(method.argTypes.Select(t => t.type), args.Select(o => o.GetType()), TypeComparer.INSTANCE)) {
                     method.DoSync(target, args);
                     return true;
                 }

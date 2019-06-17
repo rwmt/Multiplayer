@@ -216,45 +216,6 @@ namespace Multiplayer.Client
         }
     }
 
-    public class OrderedDict<K, V> : IEnumerable
-    {
-        private List<K> list = new List<K>();
-        private Dictionary<K, V> dict = new Dictionary<K, V>();
-
-        public K this[int index]
-        {
-            get => list[index];
-        }
-
-        public V this[K key]
-        {
-            get => dict[key];
-        }
-
-        public void Add(K key, V value)
-        {
-            dict.Add(key, value);
-            list.Add(key);
-        }
-
-        public void Insert(int index, K key, V value)
-        {
-            dict.Add(key, value);
-            list.Insert(index, key);
-        }
-
-        public bool TryGetValue(K key, out V value)
-        {
-            value = default(V);
-            return dict.TryGetValue(key, out value);
-        }
-
-        IEnumerator IEnumerable.GetEnumerator()
-        {
-            return dict.GetEnumerator();
-        }
-    }
-
     public class UniqueList<T> : IEnumerable<T>
     {
         private List<T> list = new List<T>();

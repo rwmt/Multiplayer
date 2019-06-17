@@ -1,4 +1,5 @@
 ﻿using Harmony;
+using Multiplayer.API;
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
@@ -32,17 +33,17 @@ namespace Multiplayer.Client
 
     public static class SyncFieldsPatches
     {
-        public static SyncField SyncMedCare = Sync.Field(typeof(Pawn), "playerSettings", "medCare");
-        public static SyncField SyncSelfTend = Sync.Field(typeof(Pawn), "playerSettings", "selfTend");
-        public static SyncField SyncHostilityResponse = Sync.Field(typeof(Pawn), "playerSettings", "hostilityResponse");
-        public static SyncField SyncInteractionMode = Sync.Field(typeof(Pawn), "guest", "interactionMode");
-        public static SyncField SyncBeCarried = Sync.Field(typeof(Pawn), "health", "beCarriedByCaravanIfSick");
+        public static ISyncField SyncMedCare = Sync.Field(typeof(Pawn), "playerSettings", "medCare");
+        public static ISyncField SyncSelfTend = Sync.Field(typeof(Pawn), "playerSettings", "selfTend");
+        public static ISyncField SyncHostilityResponse = Sync.Field(typeof(Pawn), "playerSettings", "hostilityResponse");
+        public static ISyncField SyncInteractionMode = Sync.Field(typeof(Pawn), "guest", "interactionMode");
+        public static ISyncField SyncBeCarried = Sync.Field(typeof(Pawn), "health", "beCarriedByCaravanIfSick");
 
-        public static SyncField SyncGodMode = Sync.Field(null, "Verse.DebugSettings/godMode").SetDebugOnly();
-        public static SyncField SyncResearchProject = Sync.Field(null, "Verse.Find/ResearchManager/currentProj");
-        public static SyncField SyncUseWorkPriorities = Sync.Field(null, "Verse.Current/Game/playSettings", "useWorkPriorities").PostApply(UseWorkPriorities_PostApply);
-        public static SyncField SyncAutoHomeArea = Sync.Field(null, "Verse.Current/Game/playSettings", "autoHomeArea");
-        public static SyncField SyncAutoRebuild = Sync.Field(null, "Verse.Current/Game/playSettings", "autoRebuild");
+        public static ISyncField SyncGodMode = Sync.Field(null, "Verse.DebugSettings/godMode").SetDebugOnly();
+        public static ISyncField SyncResearchProject = Sync.Field(null, "Verse.Find/ResearchManager/currentProj");
+        public static ISyncField SyncUseWorkPriorities = Sync.Field(null, "Verse.Current/Game/playSettings", "useWorkPriorities").PostApply(UseWorkPriorities_PostApply);
+        public static ISyncField SyncAutoHomeArea = Sync.Field(null, "Verse.Current/Game/playSettings", "autoHomeArea");
+        public static ISyncField SyncAutoRebuild = Sync.Field(null, "Verse.Current/Game/playSettings", "autoRebuild");
         public static SyncField[] SyncDefaultCare = Sync.Fields(
             null,
             "Verse.Current/Game/playSettings",
@@ -60,16 +61,16 @@ namespace Multiplayer.Client
         public static SyncField[] SyncThingFilterQuality =
             Sync.FieldMultiTarget(Sync.thingFilterTarget, "AllowedQualityLevels").SetBufferChanges();
 
-        public static SyncField SyncBillSuspended = Sync.Field(typeof(Bill), "suspended");
-        public static SyncField SyncIngredientSearchRadius = Sync.Field(typeof(Bill), "ingredientSearchRadius").SetBufferChanges();
-        public static SyncField SyncBillSkillRange = Sync.Field(typeof(Bill), "allowedSkillRange").SetBufferChanges();
+        public static ISyncField SyncBillSuspended = Sync.Field(typeof(Bill), "suspended");
+        public static ISyncField SyncIngredientSearchRadius = Sync.Field(typeof(Bill), "ingredientSearchRadius").SetBufferChanges();
+        public static ISyncField SyncBillSkillRange = Sync.Field(typeof(Bill), "allowedSkillRange").SetBufferChanges();
 
-        public static SyncField SyncBillIncludeZone = Sync.Field(typeof(Bill_Production), "includeFromZone");
-        public static SyncField SyncBillIncludeHpRange = Sync.Field(typeof(Bill_Production), "hpRange").SetBufferChanges();
-        public static SyncField SyncBillIncludeQualityRange = Sync.Field(typeof(Bill_Production), "qualityRange").SetBufferChanges();
-        public static SyncField SyncBillPawnRestriction = Sync.Field(typeof(Bill), "pawnRestriction");
+        public static ISyncField SyncBillIncludeZone = Sync.Field(typeof(Bill_Production), "includeFromZone");
+        public static ISyncField SyncBillIncludeHpRange = Sync.Field(typeof(Bill_Production), "hpRange").SetBufferChanges();
+        public static ISyncField SyncBillIncludeQualityRange = Sync.Field(typeof(Bill_Production), "qualityRange").SetBufferChanges();
+        public static ISyncField SyncBillPawnRestriction = Sync.Field(typeof(Bill), "pawnRestriction");
 
-        public static SyncField SyncZoneLabel = Sync.Field(typeof(Zone), "label");
+        public static ISyncField SyncZoneLabel = Sync.Field(typeof(Zone), "label");
 
         public static SyncField[] SyncBillProduction = Sync.Fields(
             typeof(Bill_Production),
@@ -106,17 +107,17 @@ namespace Multiplayer.Client
             "onlyIfJoyBelow"
         ).SetBufferChanges();
 
-        public static SyncField SyncTradeableCount = Sync.Field(typeof(MpTransferableReference), "CountToTransfer").SetBufferChanges().PostApply(TransferableCount_PostApply);
+        public static ISyncField SyncTradeableCount = Sync.Field(typeof(MpTransferableReference), "CountToTransfer").SetBufferChanges().PostApply(TransferableCount_PostApply);
 
         // 1
-        public static SyncField SyncBillPaused = Sync.Field(typeof(Bill_Production), nameof(Bill_Production.paused)).SetBufferChanges().SetVersion(1);
+        public static ISyncField SyncBillPaused = Sync.Field(typeof(Bill_Production), nameof(Bill_Production.paused)).SetBufferChanges().SetVersion(1);
 
         // 2
-        public static SyncField SyncOutfitLabel = Sync.Field(typeof(Outfit), "label").SetBufferChanges().SetVersion(2);
-        public static SyncField SyncDrugPolicyLabel = Sync.Field(typeof(DrugPolicy), "label").SetBufferChanges().SetVersion(2);
-        public static SyncField SyncFoodRestrictionLabel = Sync.Field(typeof(FoodRestriction), "label").SetBufferChanges().SetVersion(2);
-        public static SyncField SyncStorytellerDef = Sync.Field(typeof(Storyteller), "def").SetHostOnly().PostApply(StorytellerDef_Post).SetVersion(2);
-        public static SyncField SyncStorytellerDifficulty = Sync.Field(typeof(Storyteller), "difficulty").SetHostOnly().PostApply(StorytellerDifficutly_Post).SetVersion(2);
+        public static ISyncField SyncOutfitLabel = Sync.Field(typeof(Outfit), "label").SetBufferChanges().SetVersion(2);
+        public static ISyncField SyncDrugPolicyLabel = Sync.Field(typeof(DrugPolicy), "label").SetBufferChanges().SetVersion(2);
+        public static ISyncField SyncFoodRestrictionLabel = Sync.Field(typeof(FoodRestriction), "label").SetBufferChanges().SetVersion(2);
+        public static ISyncField SyncStorytellerDef = Sync.Field(typeof(Storyteller), "def").SetHostOnly().PostApply(StorytellerDef_Post).SetVersion(2);
+        public static ISyncField SyncStorytellerDifficulty = Sync.Field(typeof(Storyteller), "difficulty").SetHostOnly().PostApply(StorytellerDifficutly_Post).SetVersion(2);
 
         [MpPrefix(typeof(StorytellerUI), nameof(StorytellerUI.DrawStorytellerSelectionInterface))]
         static void ChangeStoryteller()
@@ -953,7 +954,7 @@ namespace Multiplayer.Client
 
         // Set by faction context
         public static ResearchSpeed researchSpeed;
-        public static SyncField SyncResearchSpeed =
+        public static ISyncField SyncResearchSpeed =
             Sync.Field(null, "Multiplayer.Client.SyncResearch/researchSpeed/[]").SetBufferChanges().InGameLoop();
 
         public static void ConstantTick()
