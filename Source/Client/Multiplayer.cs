@@ -1,4 +1,4 @@
-﻿extern alias zip;
+extern alias zip;
 
 using Harmony;
 using Harmony.ILCopying;
@@ -135,7 +135,7 @@ namespace Multiplayer.Client
                 var asm = Assembly.GetExecutingAssembly();
 
                 Sync.RegisterAllAttributes(asm);
-
+                PersistentDialog.BindAll(asm);
             }
             catch (Exception e)
             {

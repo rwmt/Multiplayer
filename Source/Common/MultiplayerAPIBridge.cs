@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Reflection;
 
 using Multiplayer.API;
@@ -63,7 +63,7 @@ namespace Multiplayer.Common
         public void RegisterAll(Assembly assembly)
         {
             Sync.RegisterAllAttributes(assembly);
-
+            PersistentDialog.BindAll(assembly);
         }
 
         public ISyncField RegisterSyncField(Type targetType, string memberPath)
