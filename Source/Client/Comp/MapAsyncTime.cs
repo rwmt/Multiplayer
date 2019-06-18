@@ -413,6 +413,10 @@ namespace Multiplayer.Client
     {
         static void Prefix(IIncidentTarget target, ref Map __state)
         {
+            // This may be running inside a context already
+            if (MapAsyncTimeComp.tickingMap != null)
+                return;
+
             if (MultiplayerWorldComp.tickingWorld && target is Map map)
             {
                 MapAsyncTimeComp.tickingMap = map;
