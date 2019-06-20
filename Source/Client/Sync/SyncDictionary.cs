@@ -574,6 +574,10 @@ namespace Multiplayer.Client
 
             #region Maps
             {
+                (ByteWriter data, Map map) => data.MpContext().map = map,
+                (ByteReader data) => (data.MpContext().map)
+            },
+            {
                 (ByteWriter data, AreaManager areas) => data.MpContext().map = areas.map,
                 (ByteReader data) => (data.MpContext().map).areaManager
             },

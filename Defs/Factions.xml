@@ -5,7 +5,7 @@
 	<defName>MultiplayerColony</defName>
 	<label>multiplayer</label>
     <description>Multiplayer faction</description>
-	
+    <isPlayer>true</isPlayer>
     <basicMemberKind>Colonist</basicMemberKind>
     <pawnsPlural>colonists</pawnsPlural>
     <techLevel>Industrial</techLevel>
