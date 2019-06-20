@@ -108,6 +108,21 @@ namespace Multiplayer.API
         public static void WatchEnd() => Sync.WatchEnd();
 
         /// <summary>
+        /// Searches current assembly for MPAPI annotations and registers them
+        /// <see cref="SyncMethodAttribute"/>
+        /// <see cref="SyncFieldAttribute"/>
+        /// </summary>
+        public static void RegisterAll() => Sync.RegisterAll();
+
+        /// <summary>
+        /// Searches the given assembly for MPAPI annotations and registers them
+        /// <param name="assembly">The assembly</param>
+        /// <see cref="SyncMethodAttribute"/>
+        /// <see cref="SyncFieldAttribute"/>
+        /// </summary>
+        public static void RegisterAll(Assembly assembly) => Sync.RegisterAll(assembly);
+
+        /// <summary>
         /// Registers a field for syncing and returns it's <see cref="ISyncField"/>.
         /// </summary>
         /// <remarks>

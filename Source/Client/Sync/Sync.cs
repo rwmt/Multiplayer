@@ -919,11 +919,11 @@ namespace Multiplayer.Client
         }
 
         /// <summary>
-        /// Registers all declared attributes SyncMethods and SyncFields in every assembly
+        /// Registers all declared attributes SyncMethods and SyncFields in the assembly
         /// </summary>
-        internal static void RegisterAllAttributes()
+        internal static void RegisterAllAttributes(Assembly asm)
         {
-            foreach (Type type in MpUtil.AllModTypes()) {
+            foreach (Type type in asm.GetTypes()) {
                 foreach (MethodInfo method in type.GetDeclaredMethods()) {
                     if (method.TryGetAttribute(out SyncMethodAttribute sma)) {
                         RegisterSyncMethod(method, sma);

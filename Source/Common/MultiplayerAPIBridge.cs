@@ -53,6 +53,19 @@ namespace Multiplayer.Common
             Sync.FieldWatchPostfix();
         }
 
+        public void RegisterAll()
+        {
+            var method = new System.Diagnostics.StackTrace().GetFrame(1).GetMethod();
+            var assembly = method.ReflectedType.Assembly;
+            RegisterAll(assembly);
+        }
+
+        public void RegisterAll(Assembly assembly)
+        {
+            Sync.RegisterAllAttributes(assembly);
+
+        }
+
         public ISyncField RegisterSyncField(Type targetType, string memberPath)
         {
             return Sync.RegisterSyncField(targetType, memberPath);

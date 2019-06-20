@@ -131,7 +131,11 @@ namespace Multiplayer.Client
             try
             {
                 SyncHandlers.Init();
-                Sync.RegisterAllAttributes();
+
+                var asm = Assembly.GetExecutingAssembly();
+
+                Sync.RegisterAllAttributes(asm);
+
             }
             catch (Exception e)
             {

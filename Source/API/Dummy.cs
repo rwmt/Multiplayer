@@ -43,6 +43,16 @@ namespace Multiplayer.API
             throw new UninitializedAPI();
         }
 
+        public void RegisterAll()
+        {
+            throw new UninitializedAPI();
+        }
+
+        public void RegisterAll(Assembly assembly)
+        {
+            throw new UninitializedAPI();
+        }
+
         public ISyncField RegisterSyncField(Type targetType, string memberPath)
         {
             throw new UninitializedAPI();
