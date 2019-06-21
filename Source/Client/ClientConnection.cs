@@ -367,7 +367,7 @@ namespace Multiplayer.Client
         [IsFragmented]
         public void HandleDesyncCheck(ByteReader data)
         {
-            Multiplayer.game?.sync.Add(SyncInfo.Deserialize(data));
+            Multiplayer.game?.sync.AddClientOpinionAndCheckDesync(ClientSyncOpinion.Deserialize(data));
         }
 
         [PacketHandler(Packets.Server_Pause)]
@@ -383,10 +383,10 @@ namespace Multiplayer.Client
             int tick = data.ReadInt32();
             int start = data.ReadInt32();
             int end = data.ReadInt32();
-            var info = Multiplayer.game.sync.buffer.FirstOrDefault(b => b.startTick == tick);
+            var info = Multiplayer.game.sync.knownClientOpinions.FirstOrDefault(b => b.startTick == tick);
 
-            Log.Message($"{info?.traces.Count} arbiter traces");
-            File.WriteAllText("arbiter_traces.txt", info?.TracesToString(start, end) ?? "null");
+            Log.Message($"{info?.desyncStackTraces.Count} arbiter traces");
+            File.WriteAllText("arbiter_traces.txt", info?.GetFormattedStackTracesForRange(start, end) ?? "null");
         }
     }
 

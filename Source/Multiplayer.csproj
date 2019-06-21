@@ -72,6 +72,11 @@
     <Compile Include="Client\Blueprints.cs" />
     <Compile Include="Client\CacheForReloading.cs" />
     <Compile Include="Client\ConstantTicker.cs" />
+    <Compile Include="Client\Desyncs\ClientSyncOpinion.cs" />
+    <Compile Include="Client\Desyncs\MapRandomStateData.cs" />
+    <Compile Include="Client\Desyncs\StackTraceLogItem.cs" />
+    <Compile Include="Client\Desyncs\SyncCoordinator.cs" />
+    <Compile Include="Client\Desyncs\UserReadableDesyncInfo.cs" />
     <Compile Include="Client\ModPatches.cs" />
     <Compile Include="Client\Optimizations.cs" />
     <Compile Include="Client\SettingsPatches.cs" />
@@ -116,7 +121,6 @@
     <Compile Include="Client\SituationalThoughts.cs" />
     <Compile Include="Client\Sync\Sync.cs" />
     <Compile Include="Client\Sync\SyncHandlers.cs" />
-    <Compile Include="Client\DesyncCheck.cs" />
     <Compile Include="Client\Sync\SyncSerialization.cs" />
     <Compile Include="Client\TileTemperatures.cs" />
     <Compile Include="Client\Persistent\Trading.cs" />

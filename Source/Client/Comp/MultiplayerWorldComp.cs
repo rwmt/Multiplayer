@@ -141,7 +141,7 @@ namespace Multiplayer.Client
                 PostContext();
                 tickingWorld = false;
 
-                Multiplayer.game.sync.TryAddWorld(randState);
+                Multiplayer.game.sync.TryAddWorldRandomState(randState);
             }
         }
 
@@ -280,7 +280,7 @@ namespace Multiplayer.Client
                 TickPatch.currentExecutingCmdIssuedBySelf = false;
                 executingCmdWorld = false;
 
-                Multiplayer.game.sync.TryAddCmd(randState);
+                Multiplayer.game.sync.TryAddCommandRandomState(randState);
             }
         }
 

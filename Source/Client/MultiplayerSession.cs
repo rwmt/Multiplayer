@@ -243,7 +243,7 @@ namespace Multiplayer.Client
 
     public class MultiplayerGame
     {
-        public SyncInfoBuffer sync = new SyncInfoBuffer();
+        public SyncCoordinator sync = new SyncCoordinator();
 
         public MultiplayerWorldComp worldComp;
         public List<MultiplayerMapComp> mapComps = new List<MultiplayerMapComp>();

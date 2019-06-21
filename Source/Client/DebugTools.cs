@@ -1,4 +1,4 @@
-﻿using Harmony;
+using Harmony;
 using Multiplayer.API;
 using Multiplayer.Common;
 using RimWorld;

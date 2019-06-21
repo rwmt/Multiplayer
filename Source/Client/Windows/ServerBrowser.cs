@@ -428,7 +428,7 @@ namespace Multiplayer.Client
 
             yield return new FloatMenuOption("Debug info", () =>
             {
-                Find.WindowStack.Add(new DebugTextWindow(DesyncDebugInfo.Get(Replay.ForLoading(save.file))));
+                Find.WindowStack.Add(new DebugTextWindow(UserReadableDesyncInfo.GenerateFromReplay(Replay.ForLoading(save.file))));
             });
 
             yield return new FloatMenuOption("Subscribe to Steam mods", () =>
