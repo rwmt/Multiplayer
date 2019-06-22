@@ -261,3 +261,4 @@ __pycache__/
 *.pyc
 
 Assemblies/Multiplayer.dll
+Assemblies/0MultiplayerAPI.dll

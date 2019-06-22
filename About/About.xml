@@ -1,8 +1,11 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <ModMetaData>
   <name>Multiplayer</name>
   <supportedVersions><li>1.0</li></supportedVersions>
   <author>Zetrith</author>
-  <url>https://ludeon.com/forums/index.php?topic=47445.0</url>
-  <description>Multiplayer mod. This is version {{version}}</description>
+  <url>https://github.com/rwmt/Multiplayer</url>
+  <description>&lt;color=red&gt;&lt;b&gt;Important: &lt;/b&gt; This mod should be loaded right after Core and before HugsLib to work properly!&lt;/color&gt;\n
+Multiplayer mod for rimworld.
+This is version 0.4.8
+  </description>
 </ModMetaData>

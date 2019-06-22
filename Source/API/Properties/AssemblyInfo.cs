@@ -5,12 +5,12 @@ using Multiplayer.API;
 // Information about this assembly is defined by the following attributes. 
 // Change them to the values specific to your project.
 
-[assembly: AssemblyTitle("API")]
+[assembly: AssemblyTitle("Multiplayer API")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("")]
-[assembly: AssemblyProduct("")]
-[assembly: AssemblyCopyright("")]
+[assembly: AssemblyProduct("Multiplayer")]
+[assembly: AssemblyCopyright("Copyright ©  2019")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
@@ -18,7 +18,7 @@ using Multiplayer.API;
 // The form "{Major}.{Minor}.*" will automatically update the build and revision,
 // and "{Major}.{Minor}.{Build}.*" will update just the revision.
 
-[assembly: AssemblyVersion("0.4.8.0")]
+[assembly: AssemblyVersion(MP.API)]
 [assembly: AssemblyFileVersion(MP.API)]
 
 // The following attributes are used to specify the signing key for the assembly, 
