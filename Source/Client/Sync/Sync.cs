@@ -931,7 +931,7 @@ namespace Multiplayer.Client
                         RegisterSyncWorker(method, isImplicit: swa.isImplicit, shouldConstruct: swa.shouldConstruct);
                     }
                 }
-                foreach (FieldInfo field in type.GetDeclaredInstanceFields()) {
+                foreach (FieldInfo field in AccessTools.GetDeclaredFields(type)) {
                     if (field.TryGetAttribute(out SyncFieldAttribute sfa)) {
                         RegisterSyncField(field, sfa);
                     }
