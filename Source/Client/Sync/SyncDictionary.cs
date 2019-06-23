@@ -281,6 +281,10 @@ namespace Multiplayer.Client
                     return def.Worker;
                 }, true
             },
+            {
+                (ByteWriter data, TradeRequestComp trade) => WriteSync(data, trade.parent),
+                (ByteReader data) => ReadSync<WorldObject>(data).GetComponent<TradeRequestComp>()
+            },
             #endregion
 
             #region Ranges
