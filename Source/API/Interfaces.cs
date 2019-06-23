@@ -462,7 +462,6 @@ namespace Multiplayer.API
         void Watch(string memberPath, object target = null, object index = null);
         void WatchEnd();
 
-        void RegisterAll();
         void RegisterAll(Assembly assembly);
 
         ISyncField RegisterSyncField(Type targetType, string memberPath);

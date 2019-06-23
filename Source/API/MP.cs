@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 
@@ -112,7 +113,7 @@ namespace Multiplayer.API
         /// <see cref="SyncMethodAttribute"/>
         /// <see cref="SyncFieldAttribute"/>
         /// </summary>
-        public static void RegisterAll() => Sync.RegisterAll();
+        public static void RegisterAll() => RegisterAll(new StackTrace().GetFrame(1).GetMethod().ReflectedType.Assembly);
 
         /// <summary>
         /// Searches the given assembly for MPAPI annotations and registers them
