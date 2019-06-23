@@ -39,11 +39,11 @@ namespace Multiplayer.Client
 
             settings = GetSettings<MpSettings>();
 
-#if DEBUG
-            LongEventHandler.ExecuteWhenFinished(() => { 
-                Log.Message("== Structure == \n" + Sync.syncWorkers.PrintStructure());
-            });
-#endif
+            if (MpVersion.IsDebug) {
+                LongEventHandler.ExecuteWhenFinished(() => {
+                    Log.Message("== Structure == \n" + Sync.syncWorkers.PrintStructure());
+                });
+            }
         }
 
         public static void EarlyMarkNoInline(Assembly asm)

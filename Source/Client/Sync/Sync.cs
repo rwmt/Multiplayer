@@ -1004,7 +1004,10 @@ namespace Multiplayer.Client
             SyncField sf = Field(field.ReflectedType, field.Name);
 
             registeredSyncFields.Add(field.ReflectedType + "/" + field.Name, sf);
-            Log.Message(field.ReflectedType + "/" + field.Name);
+
+            if (MpVersion.IsDebug) { 
+                Log.Message($"Registered Field: {field.ReflectedType}/{field.Name}");
+            }
 
             if (attribute.cancelIfValueNull)
                 sf.CancelIfValueNull();
