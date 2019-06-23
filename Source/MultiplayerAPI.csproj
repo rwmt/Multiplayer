@@ -28,11 +28,11 @@
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="Assembly-CSharp_public">
-      <HintPath>..\References\Assembly-CSharp_public.dll</HintPath>
+      <HintPath>..\..\..\RimWorldWin64_Data\Managed\Assembly-CSharp_public.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="UnityEngine">
-      <HintPath>..\References\UnityEngine.dll</HintPath>
+      <HintPath>..\..\..\RimWorldWin64_Data\Managed\UnityEngine.dll</HintPath>
       <Private>False</Private>
     </Reference>
   </ItemGroup>
