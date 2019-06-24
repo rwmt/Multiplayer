@@ -21,25 +21,31 @@ namespace Multiplayer.Common
             Sync.FieldWatchPrefix();
         }
 
-        public void Watch(Type targetType, string fieldName, object index = null)
+        public void Watch(Type targetType, string fieldName, object target = null, object index = null)
         {
             var syncField = Sync.GetRegisteredSyncField(targetType, fieldName);
 
             if (syncField == null) {
-                throw new ArgumentException($"{targetType}/{fieldName} not found");
+                throw new ArgumentException($"{targetType}/{fieldName} not found in {target}");
             }
 
-            syncField.Watch(null, index);
+            syncField.Watch(target, index);
         }
 
         public void Watch(object target, string fieldName, object index = null)
         {
-            Watch(fieldName, target, index);
+            var syncField = Sync.GetRegisteredSyncField(target.GetType(), fieldName);
+
+            if (syncField == null) {
+                throw new ArgumentException($"{fieldName} not found in {target}");
+            }
+
+            syncField.Watch(target, index);
         }
 
         public void Watch(string memberPath, object target = null, object index = null)
         {
-            var syncField = Sync.GetRegisteredSyncField(target?.GetType(), memberPath);
+            var syncField = Sync.GetRegisteredSyncField(memberPath);
 
             if (syncField == null) {
                 throw new ArgumentException($"{memberPath} not found");

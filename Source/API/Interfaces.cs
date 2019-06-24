@@ -457,7 +457,7 @@ namespace Multiplayer.API
         string PlayerName { get; }
 
         void WatchBegin();
-        void Watch(Type targetType, string fieldName, object index = null);
+        void Watch(Type targetType, string fieldName, object target = null, object index = null);
         void Watch(object target, string fieldName, object index = null);
         void Watch(string memberPath, object target = null, object index = null);
         void WatchEnd();

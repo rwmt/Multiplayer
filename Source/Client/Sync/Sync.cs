@@ -988,8 +988,11 @@ namespace Multiplayer.Client
 
         public static SyncField GetRegisteredSyncField(Type target, string name)
         {
-            string memberPath = target + "/" + name;
+            return GetRegisteredSyncField(target + "/" + name);
+        }
 
+        public static SyncField GetRegisteredSyncField(string memberPath)
+        {
             if (registeredSyncFields.TryGetValue(memberPath, out SyncField cached))
                 return cached;
 
