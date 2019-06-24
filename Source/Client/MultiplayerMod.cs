@@ -194,6 +194,9 @@ namespace Multiplayer.Client
                 if (!mod.LoadedAnyAssembly)
                     continue;
 
+                if (mod.Name == "Multiplayer")
+                    continue;
+
                 Assembly assembly = mod.assemblies.loadedAssemblies.FirstOrDefault(a => a.GetName().Name == MpVersion.apiAssemblyName);
 
                 if (assembly != null) {
