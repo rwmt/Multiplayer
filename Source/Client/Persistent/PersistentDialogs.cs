@@ -651,12 +651,9 @@ namespace Multiplayer.Client
 
             if (!Multiplayer.ShouldSync) return true;
 
-            var session = PersistentDialog.FindDialog(__instance);
-            if (session == null) {
+            if (PersistentDialog.FindDialog(__instance) == null) {
                 return true;
             }
-
-            Find.World.renderer.wantedMode = WorldRenderMode.Planet;
 
             return false;
         }
