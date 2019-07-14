@@ -8,12 +8,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using System.Reflection.Emit;
-using System.Runtime.InteropServices;
-using System.Runtime.Serialization;
-using System.Text;
 using Verse;
-using Verse.AI;
 
 namespace Multiplayer.Client
 {
@@ -1123,13 +1118,7 @@ namespace Multiplayer.Client
 
         private static void PatchMethodForSync(MethodBase method)
         {
-            var prefixMethod = AccessTools.Method(typeof(SyncTemplates), $"Prefix_{method.GetParameters().Length}");
-            if (prefixMethod == null)
-                throw new Exception($"No prefix method for {method.GetParameters().Length} parameters.");
-
-            HarmonyMethod prefix = new HarmonyMethod(prefixMethod);
-            prefix.priority = Priority.First;
-            MultiplayerMod.harmony.Patch(method, prefix);
+            MultiplayerMod.harmony.Patch(method, transpiler: SyncTemplates.CreateTranspiler());
         }
 
         public static void ApplyWatchFieldPatches(Type type)
