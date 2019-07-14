@@ -63,6 +63,19 @@ namespace Multiplayer.Client
                     return new IntVec3(x, y, z);
                 }
             },
+            {
+                (SyncWorker sync, ref Vector2 vec)  => {
+                    sync.Bind(ref vec.x);
+                    sync.Bind(ref vec.y);
+                }
+            },
+            {
+                (SyncWorker sync, ref Vector3 vec)  => {
+                    sync.Bind(ref vec.x);
+                    sync.Bind(ref vec.y);
+                    sync.Bind(ref vec.z);
+                }
+            },
             #endregion
 
             #region Templates
@@ -88,6 +101,13 @@ namespace Multiplayer.Client
 
             { (SyncWorker sync, ref Event s)  => { } },
 
+            #endregion
+
+            #region System
+            {
+                (ByteWriter data, Type type) => data.WriteString(type.FullName),
+                (ByteReader data) => AccessTools.TypeByName(data.ReadString())
+            },
             #endregion
 
             #region Pawns
