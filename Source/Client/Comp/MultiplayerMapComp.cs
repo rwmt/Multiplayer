@@ -209,7 +209,7 @@ namespace Multiplayer.Client
                 // This makes it so only one of the same type should open
                 // They're blocking windows
                 foreach(var a in comp.mapDialogs) {
-                    if (Find.WindowStack.IsOpen(a.GetType())) {
+                    if (Find.WindowStack.IsOpen(a.Dialog.GetType())) {
                         return;
                     }
                 }
