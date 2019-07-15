@@ -3,7 +3,7 @@
 <Manifest>
 
   <identifier>Multiplayer</identifier>
-  <version>0.4.8</version>
+  <version>0.4.8.3</version>
   <manifestUri>https://raw.githubusercontent.com/rwmt/Multiplayer/master/About/Manifest.xml</manifestUri>
   <downloadUri>https://github.com/rwmt/Multiplayer/releases/latest</downloadUri>
 
