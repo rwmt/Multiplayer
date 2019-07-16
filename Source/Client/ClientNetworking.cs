@@ -90,8 +90,8 @@ namespace Multiplayer.Client
 
             Find.MainTabsRoot.EscapeCurrentTab(false);
 
-            Multiplayer.session.AddMsg("Wiki on desyncs:", false);
-            Multiplayer.session.AddMsg(new ChatMsg_Url("https://github.com/Zetrith/Multiplayer/wiki/Desyncs"), false);
+            Multiplayer.session.AddMsg("If you are having a issue with the mod and would like some help resolving it, then please reach out to us on our discord server:", false);
+            Multiplayer.session.AddMsg(new ChatMsg_Url("https://discord.gg/S4bxXpv"), false);
 
             if (withSimulation)
             {
