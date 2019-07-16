@@ -36,7 +36,8 @@ namespace Multiplayer.Client
             foreach (var pInfo in parameter) {
                 var argIndex = idx++ + (original.IsStatic ? 0 : 1);
                 var pType = pInfo.ParameterType;
-                if (pInfo.IsOut || pInfo.IsRetval) {
+                if (pInfo.IsOut) {
+                    pType = pType.GetElementType();
                     yield return new CodeInstruction(OpCodes.Ldarg, argIndex);
                     yield return CreateDefaultCodes(gen, pType).Last();
                     if (AccessTools.IsClass(pType))
@@ -69,13 +70,14 @@ namespace Multiplayer.Client
                 yield return new CodeInstruction(OpCodes.Dup);
                 yield return new CodeInstruction(OpCodes.Ldc_I4, arrayIdx++);
                 yield return new CodeInstruction(OpCodes.Ldarg, argIndex);
-                if (pInfo.IsOut || pInfo.IsRetval) {
-                    if (pType.IsValueType)
+                if (pType.IsByRef) {
+                    pType = pType.GetElementType();
+                    if (pType.IsValueType) {
                         yield return new CodeInstruction(OpCodes.Ldobj, pType);
-                    else
-                        yield return new CodeInstruction(OpCodes.Ldind_Ref);
-                }
-                if (pType.IsValueType)
+                        yield return new CodeInstruction(OpCodes.Box, pType);
+                    } else
+                        yield return new CodeInstruction(OpCodes.Ldind_Ref, pType);
+                } else if (pType.IsValueType)
                     yield return new CodeInstruction(OpCodes.Box, pType);
                 yield return new CodeInstruction(OpCodes.Stelem_Ref);
             }
@@ -93,7 +95,8 @@ namespace Multiplayer.Client
 
         static IEnumerable<CodeInstruction> CreateDefaultCodes(ILGenerator generator, Type type)
         {
-            if (type.IsByRef) type = type.GetElementType();
+            if (type.IsByRef)
+                type = type.GetElementType();
 
             if (AccessTools.IsClass(type)) {
                 yield return new CodeInstruction(OpCodes.Ldnull);
