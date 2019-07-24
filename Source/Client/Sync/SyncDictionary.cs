@@ -813,7 +813,11 @@ namespace Multiplayer.Client
             #region Interfaces
             {
                 (ByteWriter data, ISelectable obj) => {
-                    if (obj is Thing thing)
+                    if (obj == null)
+                    {
+                        WriteSync(data, ISelectableImpl.None);
+                    }
+                    else if (obj is Thing thing)
                     {
                         WriteSync(data, ISelectableImpl.Thing);
                         WriteSync(data, thing);
@@ -830,12 +834,14 @@ namespace Multiplayer.Client
                     }
                     else
                     {
-                        throw new SerializationException($"Unknown ISelectable type: {obj?.GetType()}");
+                        throw new SerializationException($"Unknown ISelectable type: {obj.GetType()}");
                     }
                 },
                 (ByteReader data) => {                
                     ISelectableImpl impl = ReadSync<ISelectableImpl>(data);
 
+                    if (impl == ISelectableImpl.None)
+                        return null;
                     if (impl == ISelectableImpl.Thing)
                         return ReadSync<Thing>(data);
                     if (impl == ISelectableImpl.Zone)

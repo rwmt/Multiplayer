@@ -83,7 +83,7 @@ namespace Multiplayer.Client
 
         enum ISelectableImpl : byte
         {
-            Thing, Zone, WorldObject
+            None, Thing, Zone, WorldObject
         }
 
         private static MethodInfo GetDefByIdMethod = AccessTools.Method(typeof(Sync), nameof(Sync.GetDefById));
