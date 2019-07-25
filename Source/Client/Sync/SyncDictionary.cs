@@ -780,13 +780,11 @@ namespace Multiplayer.Client
 
                     int sessionId = data.ReadInt32();
                     var session = GetSessions(map).FirstOrDefault(s => s.SessionId == sessionId);
-                    if (session == null) return null;
 
                     int thingId = data.ReadInt32();
                     if (thingId == -1) return null;
 
                     var transferable = session.GetTransferableByThingId(thingId);
-                    if (transferable == null) return null;
 
                     return new MpTransferableReference(session, transferable);
                 }

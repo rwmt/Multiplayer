@@ -466,7 +466,14 @@ namespace Multiplayer.Client
         public float TickRateMultiplier(TimeSpeed speed)
         {
             var comp = map.MpComp();
-            if (comp.transporterLoading != null || comp.caravanForming != null || comp.mapDialogs.Any() || Multiplayer.WorldComp.trading.Any(t => t.playerNegotiator.Map == map))
+
+            var enforcePause = comp.transporterLoading != null ||
+                comp.caravanForming != null || 
+                comp.mapDialogs.Any() || 
+                Multiplayer.WorldComp.trading.Any(t => t.playerNegotiator.Map == map) || 
+                Multiplayer.WorldComp.splitSession != null;
+
+            if (enforcePause)
                 return 0f;
 
             if (mapTicks < slower.forceNormalSpeedUntil)

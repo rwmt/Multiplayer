@@ -1101,23 +1101,6 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(WindowStack), nameof(WindowStack.Add))]
-    static class DisableCaravanSplit
-    {
-        static bool Prefix(Window window)
-        {
-            if (Multiplayer.Client == null) return true;
-
-            if (window is Dialog_SplitCaravan)
-            {
-                Messages.Message("MpNotAvailable".Translate(), MessageTypeDefOf.RejectInput, false);
-                return false;
-            }
-
-            return true;
-        }
-    }
-
     [MpPatch(typeof(IncidentWorker_CaravanMeeting), nameof(IncidentWorker_CaravanMeeting.CanFireNowSub))]
     [MpPatch(typeof(IncidentWorker_CaravanDemand), nameof(IncidentWorker_CaravanDemand.CanFireNowSub))]
     [MpPatch(typeof(IncidentWorker_RansomDemand), nameof(IncidentWorker_RansomDemand.CanFireNowSub))]

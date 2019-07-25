@@ -80,6 +80,9 @@
     <Compile Include="Client\Desyncs\UserReadableDesyncInfo.cs" />
     <Compile Include="Client\ModPatches.cs" />
     <Compile Include="Client\Optimizations.cs" />
+    <Compile Include="Client\Persistent\CaravanSplittingPatches.cs" />
+    <Compile Include="Client\Persistent\CaravanSplittingProxy.cs" />
+    <Compile Include="Client\Persistent\CaravanSplittingSession.cs" />
     <Compile Include="Client\SettingsPatches.cs" />
     <Compile Include="Client\TickPatch.cs" />
     <Compile Include="Client\Persistent\CaravanForming.cs" />

@@ -11,6 +11,7 @@ using System.Xml;
 using UnityEngine;
 using Verse;
 using Verse.AI;
+using Multiplayer.Client.Persistent;
 
 namespace Multiplayer.Client
 {
@@ -58,6 +59,7 @@ namespace Multiplayer.Client
         public TileTemperaturesComp uiTemperatures;
 
         public List<MpTradeSession> trading = new List<MpTradeSession>();
+        public CaravanSplittingSession splitSession;
 
         public Queue<ScheduledCommand> cmds = new Queue<ScheduledCommand>();
 

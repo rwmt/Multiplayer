@@ -486,6 +486,9 @@ namespace Multiplayer.Client
             foreach (var s in Multiplayer.WorldComp.trading)
                 yield return s;
 
+            if (Multiplayer.WorldComp.splitSession != null)
+                yield return Multiplayer.WorldComp.splitSession;
+
             if (map == null) yield break;
             var mapComp = map.MpComp();
 
