@@ -13,9 +13,11 @@ using System.Net.Sockets;
 using System.Reflection;
 using System.Text;
 using System.Threading;
+using System.ComponentModel;
 using System.Xml;
 using Verse;
 using Verse.Sound;
+using UnityEngine;
 
 namespace Multiplayer.Client
 {
@@ -225,13 +227,42 @@ namespace Multiplayer.Client
 
             string args = $"-batchmode -nographics -arbiter -logfile arbiter_log.txt -connect=127.0.0.1:{Multiplayer.LocalServer.ArbiterPort}";
 
-            if(GenCommandLine.TryGetCommandLineArg("savedatafolder", out string saveDataFolder))
+            if (GenCommandLine.TryGetCommandLineArg("savedatafolder", out string saveDataFolder))
                 args += $" -savedatafolder=\"{saveDataFolder}\"";
 
-            Multiplayer.session.arbiter = Process.Start(
-                Process.GetCurrentProcess().MainModule.FileName,
-                args
-            );
+            string ArbiterInstancePath;
+
+            switch (Application.platform)
+            {
+                case RuntimePlatform.OSXPlayer:
+                    ArbiterInstancePath = Application.dataPath + "/MacOS/" + Process.GetCurrentProcess().MainModule.ModuleName;
+                    break;
+                /*                case RuntimePlatform.LinuxPlayer:
+                                    ArbiterInstancePath = "";
+                                    break;*/
+                //case RuntimePlatform.WindowsPlayer:
+                default:
+                    ArbiterInstancePath = Process.GetCurrentProcess().MainModule.FileName;
+                    break;
+            }
+
+            try
+            {
+                Multiplayer.session.arbiter = Process.Start(
+                    ArbiterInstancePath,
+                    args
+                );
+            }
+            catch (Exception ex)
+            {
+                Multiplayer.session.AddMsg("Arbiter failed to start.", false);
+                Log.Error("Arbiter failed to start.", false);
+                Log.Error(ex.ToString());
+                if (ex.InnerException is Win32Exception)
+                {
+                    Log.Error("Win32 Error Code: " + ((Win32Exception)ex).NativeErrorCode.ToString());
+                }
+            }
         }
 
         private static int GetMaxUniqueId()
