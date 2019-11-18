@@ -112,9 +112,10 @@ namespace Multiplayer.Client
                 if (Multiplayer.Client != null)
                 {
                     if (!Multiplayer.IsReplay)
+                    {
                         optList.Insert(0, new ListableOption("MpSaveReplay".Translate(), () => Find.WindowStack.Add(new Dialog_SaveReplay())));
-                    else
-                        optList.Insert(0, new ListableOption("MpConvert".Translate(), ConvertToSingleplayer));
+                    }
+                    optList.Insert(0, new ListableOption("MpConvert".Translate(), ConvertToSingleplayer));
 
                     optList.RemoveAll(opt => opt.label == "Save".Translate() || opt.label == "LoadGame".Translate());
 
