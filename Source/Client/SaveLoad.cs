@@ -377,4 +377,28 @@ namespace Multiplayer.Client
         }
     }
 
+    [HarmonyPatch(typeof(LoadedObjectDirectory), nameof(LoadedObjectDirectory.RegisterLoaded))]
+    static class FixRegisterLoaded
+    {
+        static bool Prefix(LoadedObjectDirectory __instance, ref ILoadReferenceable reffable)
+        {
+            string text = "[excepted]";
+            try
+            {
+                text = reffable.GetUniqueLoadID();
+            }
+            catch (Exception)
+            {
+
+            }
+
+            ILoadReferenceable loadReferenceable;
+            if (__instance.allObjectsByLoadID.TryGetValue(text, out loadReferenceable))
+            {
+                return false;
+            }
+            return true;
+        }
+    }
+
 }
