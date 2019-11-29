@@ -1,5 +1,4 @@
-﻿using Harmony;
-using Ionic.Zlib;
+﻿using Ionic.Zlib;
 using LiteNetLib;
 using Multiplayer.Common;
 using RimWorld;
@@ -11,12 +10,9 @@ using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
-using System.Text;
 using System.Threading;
 using System.ComponentModel;
-using System.Xml;
 using Verse;
-using Verse.Sound;
 using UnityEngine;
 
 namespace Multiplayer.Client
@@ -230,26 +226,17 @@ namespace Multiplayer.Client
             if (GenCommandLine.TryGetCommandLineArg("savedatafolder", out string saveDataFolder))
                 args += $" -savedatafolder=\"{saveDataFolder}\"";
 
-            string ArbiterInstancePath;
-
-            switch (Application.platform)
-            {
-                case RuntimePlatform.OSXPlayer:
-                    ArbiterInstancePath = Application.dataPath + "/MacOS/" + Process.GetCurrentProcess().MainModule.ModuleName;
-                    break;
-                /*                case RuntimePlatform.LinuxPlayer:
-                                    ArbiterInstancePath = "";
-                                    break;*/
-                //case RuntimePlatform.WindowsPlayer:
-                default:
-                    ArbiterInstancePath = Process.GetCurrentProcess().MainModule.FileName;
-                    break;
+            string arbiterInstancePath;
+            if (Application.platform == RuntimePlatform.OSXPlayer) {
+                arbiterInstancePath = Application.dataPath + "/MacOS/" + Process.GetCurrentProcess().MainModule.ModuleName;
+            } else {
+                arbiterInstancePath = Process.GetCurrentProcess().MainModule.FileName;
             }
 
             try
             {
                 Multiplayer.session.arbiter = Process.Start(
-                    ArbiterInstancePath,
+                    arbiterInstancePath,
                     args
                 );
             }
