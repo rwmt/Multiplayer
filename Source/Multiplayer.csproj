@@ -67,6 +67,9 @@
       <HintPath>..\..\..\RimWorldWin64_Data\Managed\UnityEngine.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="0MultiplayerAPI">
+      <HintPath>..\Assemblies\0MultiplayerAPI.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Client\ArbiterPatches.cs" />
@@ -146,15 +149,5 @@
     <Compile Include="Common\DynDelegate.cs" />
     <Compile Include="Client\Sync\SyncDictionary.cs" />
   </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="MultiplayerAPI.csproj">
-      <Project>{1DF67DDA-04CB-4DDF-B867-4C0E152BC959}</Project>
-      <Name>MultiplayerAPI</Name>
-      <Private>False</Private>
-    </ProjectReference>
-  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <PropertyGroup>
-    <PreBuildEvent>"$(ProjectDir)..\Publicise\Publicise.exe" "$(ProjectDir)..\..\..\RimWorldWin64_Data\Managed\Assembly-CSharp.dll" "$(ProjectDir)..\Publicise"</PreBuildEvent>
-  </PropertyGroup>
 </Project>
