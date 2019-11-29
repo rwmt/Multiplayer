@@ -10,7 +10,7 @@ namespace Multiplayer.Client
     public static class SyncTemplates
     {
         public static HarmonyMethod CreateTranspiler() => new HarmonyMethod(m_Transpiler) {
-            priority = Priority.First
+            prioritiy = Priority.First
         };
 
         static bool General(string typeName, int token, object instance, object[] args)

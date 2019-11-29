@@ -666,7 +666,7 @@ namespace Multiplayer.Client
 
                 foreach (var method in type.GetDeclaredMethods().Where(m => m.Name == methodName)) {
                     HarmonyMethod prefix = new HarmonyMethod(typeof(SyncActions), nameof(SyncActions.SyncAction_Prefix));
-                    prefix.priority = MpPriority.MpFirst;
+                    prefix.prioritiy = MpPriority.MpFirst;
 
                     HarmonyMethod postfix;
 
@@ -677,7 +677,7 @@ namespace Multiplayer.Client
                     else
                         throw new Exception($"Too many arguments to patch {method.FullDescription()}");
 
-                    postfix.priority = MpPriority.MpLast;
+                    postfix.prioritiy = MpPriority.MpLast;
 
                     MultiplayerMod.harmony.Patch(method, prefix, postfix);
                     SyncActions.syncActions[method] = this;
@@ -1124,9 +1124,9 @@ namespace Multiplayer.Client
         public static void ApplyWatchFieldPatches(Type type)
         {
             HarmonyMethod prefix = new HarmonyMethod(AccessTools.Method(typeof(Sync), nameof(Sync.FieldWatchPrefix)));
-            prefix.priority = MpPriority.MpFirst;
+            prefix.prioritiy = MpPriority.MpFirst;
             HarmonyMethod postfix = new HarmonyMethod(AccessTools.Method(typeof(Sync), nameof(Sync.FieldWatchPostfix)));
-            postfix.priority = MpPriority.MpLast;
+            postfix.prioritiy = MpPriority.MpLast;
 
             foreach (MethodBase toPatch in type.GetDeclaredMethods()) {
                 foreach (var attr in toPatch.AllAttributes<MpPrefix>()) {
