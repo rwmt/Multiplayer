@@ -15,31 +15,32 @@
   
   <MpWrongDefs>Modeldefinitie komt niet overeen</MpWrongDefs>
   <MpWrongDefsInfo>Zorg ervoor dat uw geïnstalleerde mods, hun versie en hun volgorde overeen komen met die van de host.</MpWrongDefsInfo>
-  <MpModList>Wijzigingslijst</MpModList>
-  <MpSeeModList>Zie wijzigingslijst</MpSeeModList>
+  <MpModList>Modlijst</MpModList>
+  <MpSeeModList>Zie modlijst</MpSeeModList>
   
   <MpServerClosed>Server gesloten</MpServerClosed>
   <MpServerFull>De server is vol</MpServerFull>
   <MpKicked>Je bent gekickt van de server</MpKicked>
 
-  <MpInvalidUsernameAlreadyPlaying>Gebruiker is al aanwezig in de game</MpInvalidUsernameAlreadyPlaying>
+  <MpInvalidUsernameAlreadyPlaying>Gebruikersnaam is al aanwezig in de game</MpInvalidUsernameAlreadyPlaying>
   <MpInvalidUsernameChars>Gebruikersnaam bevat ongeldige tekens</MpInvalidUsernameChars>
   <MpInvalidUsernameLength>Gebruikersnaam heeft een ongeldige lengte</MpInvalidUsernameLength>
-  <MpChangeUsernameInfo>U kunt uw gebruikersnaam wijzigen in de wijzigingsinstellingen.</MpChangeUsernameInfo>
+  <MpChangeUsernameInfo>U kunt uw gebruikersnaam wijzigen onder Mod instellingen.</MpChangeUsernameInfo>
   
   <MpPlayerConnected>{0} heeft zich aangesloten</MpPlayerConnected>
   <MpPlayerDisconnected>{0} is vertrokken</MpPlayerDisconnected>
   
-  <MpReplayOutdated>"Niet up-to-date"</MpReplayOutdated>
-  <MpReplayOutdatedDesc1>Deze herhaling is gemaakt voor de protocolversie {0}, maar u gebruikt versie {1}.</MpReplayOutdatedDesc1>
-  <MpReplayOutdatedDesc2>De herhalingen worden mogelijks niet correct afgespeeld.</MpReplayOutdatedDesc2>
+  <MpReplayOutdated>(verouderd)</MpReplayOutdated>
+  <MpReplayOutdatedDesc1>Deze replay is gemaakt voor de protocolversie {0}, maar de versie die je nu gebruikt is {1}.</MpReplayOutdatedDesc1>
+  <MpReplayOutdatedDesc2>De replay kan mogelijk niet correct worden afgespeeld.</MpReplayOutdatedDesc2>
+
   <MpReplayOutdatedDesc3>Mogelijke incompatibiliteiten worden vermeld in het releaseverleden.</MpReplayOutdatedDesc3>
   <MpReplayOutdatedDesc4>Dit bestand bevat aanvullende informatie en de hosting ervan zou goed moeten werken.</MpReplayOutdatedDesc4>
   
-  <MpServerCloseConfirmation>Weet u zeker dat u de server wilt sluiten? Onbewaarde vooruitgang zal verloren gaan.</MpServerCloseConfirmation>
+  <MpServerCloseConfirmation>Weet u zeker dat u de server wilt sluiten? Niet opgeslagen vooruitgang zal verloren gaan.</MpServerCloseConfirmation>
   
   <MpHostServer>Host een server</MpHostServer>
-  <MpSaveReplay>Opslaan van herhaling</MpSaveReplay>
+  <MpSaveReplay>Opslaan van replay</MpSaveReplay>
   
   <MpConvert>Omzetten naar singleplayer</MpConvert>
   <MpConverting>Aan het omzetten</MpConverting>
@@ -47,7 +48,7 @@
   <MpUsername>Gebruikersnaam</MpUsername>
   <MpShowPlayerCursors>Toon cursors van spelers</MpShowPlayerCursors>
   <MpAutoAcceptSteam>Auto-accepteren Steam</MpAutoAcceptSteam>
-  <MpAutoAcceptSteamDesc>Accepteer automatisch alle inkomende aanvragen voor een Steamverbinding.</MpAutoAcceptSteamDesc>
+  <MpAutoAcceptSteamDesc>Accepteer automatisch alle inkomende Steamverbinding aanvragen.</MpAutoAcceptSteamDesc>
   <MpTransparentChat>Transparante chat</MpTransparentChat>
   
   <MpAutosaveSlots>Autosave Slots</MpAutosaveSlots>
@@ -64,67 +65,68 @@
   <MpSteamAcceptDesc>Klik om te accepteren</MpSteamAcceptDesc>
   <MpSteamAccepted>Speler is geaccepteerd</MpSteamAccepted>
   
-  <MpConnectingTo>Verbonden maken met {0}:{1}</MpConnectingTo>
+  <MpConnectingTo>Verbinding maken met {0}:{1}</MpConnectingTo>
   <MpConnected>Aangesloten.</MpConnected>
   <MpDownloading>Downloaden ({0}%)</MpDownloading>
   
-  <MpSteamConnectingTo>Een verbinding met {0} aan het maken</MpSteamConnectingTo>
-  <MpSteamConnectingWaiting>We wachten op een bevestiging van de host</MpSteamConnectingWaiting>
+  <MpSteamConnectingTo>Aan het verbinden met spel gehost door {0}</MpSteamConnectingTo>
+  <MpSteamConnectingWaiting>Wachten op bevestiging van de host</MpSteamConnectingWaiting>
   
-  <MpTicksBehind>U bent {0} ticks vroeger.</MpTicksBehind>
+  <MpTicksBehind>U ligt {0} ticks achter.</MpTicksBehind>
   <MpLowerGameSpeed>Overweeg de spelsnelheid te verlagen.</MpLowerGameSpeed>
-  <MpForceCatchUp>Klik om achterstand inhalen te forceren.</MpForceCatchUp>
+  <MpForceCatchUp>Klik om achterstand-inhalen te forceren.</MpForceCatchUp>
   
   <MpDesynced>De staat van het spel is niet (meer) gesynchroniseerd.</MpDesynced>
   <MpTryResync>Probeer hersynchronisatie</MpTryResync>
   
   <MpSaveReplayAs>Sla replay op als</MpSaveReplayAs>
-  <MpWillOverwrite>Dit zal overschreven worden:</MpWillOverwrite>
+  <MpWillOverwrite>Zal overschrijven als nodig:</MpWillOverwrite>
   <MpReplaySaved>Replay opgeslagen</MpReplaySaved>
   
-  <MpGameName>Naam van dit spel</MpGameName>
-  <MpMaxPlayers>Limiet van spelers</MpMaxPlayers>
-  <MpAutosaveEvery>Automatisch opslaan elke</MpAutosaveEvery>
+  <MpGameName>Spelnaam</MpGameName>
+  <MpMaxPlayers>Spelerslimiet</MpMaxPlayers>
+  <MpAutosaveEvery>Autosave om de</MpAutosaveEvery>
   <MpAutosaveMinutes>Minuten</MpAutosaveMinutes>
-  <MpLanDesc1>Host dit spel uit op uw lokaal netwerk</MpLanDesc1>
-  <MpLanDesc2>Lokaal netwerkadres gevonden: {0}</MpLanDesc2>
-  <MpArbiterDesc>Een proces dat draait op de achtergrond en helpt met de detectie van desyncs</MpArbiterDesc>
+  <MpLanDesc1>Host dit spel binnen uw lokaal netwerk</MpLanDesc1>
+  <MpLanDesc2>Gevonden lokaal netwerkadres: {0}</MpLanDesc2>
+  <MpArbiterDesc>Een proces dat op de achtergrond draait en helpt met het verhelpen van desyncs</MpArbiterDesc>
   <MpAsyncTimeDesc>Afzonderlijke tijdcontroles voor elke kaart en de planeet.</MpAsyncTimeDesc>
-  <MpExperimentalFeature>Experimentele eigenschappen</MpExperimentalFeature>
+  <MpExperimentalFeature>Experimentele functies</MpExperimentalFeature>
   
   <MpHostButton>Hosten</MpHostButton>
   <MpWatchReplay>Kijken</MpWatchReplay>
   <MpNothingSelected>Niets geselecteerd</MpNothingSelected>
-  <MpNoSaves>Multiplayermodus kan alleen gebruikt worden bij spellen die al bestaan</MpNoSaves>
+  <MpNoSaves>Er kan alleen Multiplayer gespeeld worden uit bestaande opgeslagen spellen</MpNoSaves>
   
-  <MpHostIngame>Uit dit spel hosten</MpHostIngame>
-  <MpHostReplay>Uit een herhaling hosten</MpHostReplay>
-  <MpHostSavefile>Host vanuit bestaande savefile</MpHostSavefile>
+  <MpHostIngame>Hosten vanuit dit spel</MpHostIngame>
+  <MpHostReplay>Hosten vanuit een replay</MpHostReplay>
+  <MpHostSavefile>Host vanuit opgeslagen spel</MpHostSavefile>
   
-  <MpJoinButton>Join</MpJoinButton>
+  <MpJoinButton>Verbind</MpJoinButton>
   <MpConnectButton>Verbinden</MpConnectButton>
   <MpLanSearching>Aan het zoeken</MpLanSearching>
   
   <MpNotConnectedToSteam>Niet verbonden met Steam</MpNotConnectedToSteam>
-  <MpNoFriendsPlaying>Geen vrienden die nu aan het spelen zijn</MpNoFriendsPlaying>
+  <MpNoFriendsPlaying>Geen vrienden die nu Rimworld spelen</MpNoFriendsPlaying>
   <MpPlayingRimWorld>RimWorld aan het spelen</MpPlayingRimWorld>
   <MpNotInMultiplayer>Niet in multiplayer</MpNotInMultiplayer>
   
-  <MpPauseOnAutosave>Pauze op Autosave</MpPauseOnAutosave>
+  <MpPauseOnAutosave>Pauzeer tijdens Autosave</MpPauseOnAutosave>
   <MpLan>LAN</MpLan>
   <MpDirect>Direct</MpDirect>
   <MpSteam>Steam</MpSteam>
   <MpHostTab>Hosten</MpHostTab>
   
-  <MpMultiplayer>Multiplayermodus</MpMultiplayer>
-  <MpSingleplayer>Singleplayermodus</MpSingleplayer>
+  <MpMultiplayer>Multiplayer</MpMultiplayer>
+  <MpSingleplayer>Singleplayer</MpSingleplayer>
   
-  <MpNotAvailable>Niet beschikbaar in de meerspelerstand.</MpNotAvailable>
+  <MpNotAvailable>Niet beschikbaar in multiplayer.</MpNotAvailable>
   <MpCallingFactionNotAvailable>Andere facties contacteren is momenteel niet mogelijk in Multiplayer.</MpCallingFactionNotAvailable>
   
   <MpAggressiveTicking>Agressief tikken</MpAggressiveTicking>
-  <MpAggressiveTickingDesc>Probeer altijd automatisch de server in te halen op kosten op kosten van FPS.</MpAggressiveTickingDesc>
+  <MpAggressiveTickingDesc>Probeer altijd automatisch gelijk te blijven met de server op kosten op kosten van FPS.</MpAggressiveTickingDesc>
   
 </LanguageData>
 
-<!-- With help from Janssent11041, Darkness and Ghost. -->
+<!-- v0.1 14-04-2019 With help from Janssent11041, Darkness and Ghost. -->
+<!-- v0.2 06-05-2019 Updated by Epeirios -->
