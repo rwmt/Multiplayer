@@ -208,6 +208,7 @@ namespace Multiplayer.Client
             localServerConn.State = ConnectionStateEnum.ServerPlaying;
 
             var serverPlayer = Multiplayer.LocalServer.OnConnected(localServerConn);
+            serverPlayer.color = new ColorRGB(255, 0, 0);
             serverPlayer.status = PlayerStatus.Playing;
             serverPlayer.SendPlayerList();
 

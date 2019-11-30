@@ -385,6 +385,7 @@ namespace Multiplayer.Common
             if (arbiter)
             {
                 player.type = PlayerType.Arbiter;
+                player.color = new ColorRGB(128, 128, 128);
             }
         }
 
@@ -465,6 +466,7 @@ namespace Multiplayer.Common
         public IConnection conn;
         public PlayerType type;
         public PlayerStatus status;
+        public ColorRGB color;
         public int ticksBehind;
 
         public ulong steamId;
@@ -551,6 +553,9 @@ namespace Multiplayer.Common
             writer.WriteULong(steamId);
             writer.WriteString(steamPersonaName);
             writer.WriteInt32(ticksBehind);
+            writer.WriteByte(color.r);
+            writer.WriteByte(color.g);
+            writer.WriteByte(color.b);
 
             return writer.ToArray();
         }

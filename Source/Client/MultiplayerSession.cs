@@ -195,6 +195,7 @@ namespace Multiplayer.Client
         public int ticksBehind;
         public PlayerType type;
         public PlayerStatus status;
+        public Color color;
 
         public ulong steamId;
         public string steamPersonaName;
@@ -231,11 +232,14 @@ namespace Multiplayer.Client
 
             var ticksBehind = data.ReadInt32();
 
+            var color = new Color(data.ReadByte() / 255f, data.ReadByte() / 255f, data.ReadByte() / 255f);
+
             return new PlayerInfo(id, username, latency, type)
             {
                 status = status,
                 steamId = steamId,
                 steamPersonaName = steamName,
+                color = color,
                 ticksBehind = ticksBehind
             };
         }
