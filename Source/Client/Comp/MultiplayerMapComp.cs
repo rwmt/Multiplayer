@@ -206,16 +206,10 @@ namespace Multiplayer.Client
 
             if (comp.mapDialogs.Any())
             {
-                // This makes it so only one of the same type should open
-                // They're blocking windows
-                foreach(var a in comp.mapDialogs) {
-                    if (Find.WindowStack.IsOpen(a.GetType())) {
-                        return;
-                    }
-                }
-
-                Find.WindowStack.Add(comp.mapDialogs.First().Dialog);
-            }
+				//If NO mapdialogs (Dialog_NodeTrees) are open, add the first one to the window stack
+				if (!Find.WindowStack.IsOpen(typeof(Dialog_NodeTree)))
+					Find.WindowStack.Add(comp.mapDialogs.First().Dialog);
+			}
             else if (comp.caravanForming != null)
             {
                 if (!Find.WindowStack.IsOpen(typeof(MpFormingCaravanWindow)))
