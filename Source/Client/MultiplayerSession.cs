@@ -22,13 +22,13 @@ namespace Multiplayer.Client
         public string gameName;
         public int playerId;
 
-        public IConnection client;
+		public IConnection client;
         public NetManager netClient;
         public PacketLogWindow packetLog = new PacketLogWindow();
         public int myFactionId;
         public List<PlayerInfo> players = new List<PlayerInfo>();
 
-        public bool replay;
+		public bool replay;
         public int replayTimerStart = -1;
         public int replayTimerEnd = -1;
         public List<ReplayEvent> events = new List<ReplayEvent>();
@@ -58,8 +58,10 @@ namespace Multiplayer.Client
 
         public Process arbiter;
         public bool ArbiterPlaying => players.Any(p => p.type == PlayerType.Arbiter && p.status == PlayerStatus.Playing);
+		
+		public float lastSpeedPrefChange;
 
-        public void Stop()
+		public void Stop()
         {
             if (client != null)
             {
@@ -200,7 +202,8 @@ namespace Multiplayer.Client
         public string steamPersonaName;
 
         public byte cursorSeq;
-        public byte map = byte.MaxValue;
+		public TimeSpeed? speedPref;
+		public byte map = byte.MaxValue;
         public Vector3 cursor;
         public Vector3 lastCursor;
         public double updatedAt;

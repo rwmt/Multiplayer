@@ -127,34 +127,42 @@ namespace Multiplayer.Client
     [HotSwappable]
     public static class TimeControlPatch
     {
-        private static TimeSpeed prevSpeed;
         private static TimeSpeed savedSpeed;
-        private static bool keyPressed;
+		private static TimeSpeed? prevSpeedPref;
 
-        static void Prefix(ref ITickable __state)
-        {
+		static void Prefix(ref ITickable __state)
+		{
             if (Multiplayer.Client == null) return;
             if (!WorldRendererUtility.WorldRenderedNow && Find.CurrentMap == null) return;
 
-            ITickable tickable = Multiplayer.WorldComp;
+			PlayerInfo player = Multiplayer.session.GetPlayerInfo(Multiplayer.session.playerId);
+			if (player == null) return;
+
+			ITickable tickable = Multiplayer.WorldComp;
             if (!WorldRendererUtility.WorldRenderedNow && Multiplayer.WorldComp.asyncTime)
                 tickable = Find.CurrentMap.AsyncTime();
 
-            TimeSpeed speed = tickable.TimeSpeed;
-            if (Multiplayer.IsReplay)
-                speed = TickPatch.replayTimeSpeed;
+			//Save the game speed (TickManager.CurTimeSpeed)
+			savedSpeed = Find.TickManager.CurTimeSpeed;
 
-            savedSpeed = Find.TickManager.CurTimeSpeed;
+			TimeSpeed? speedPref = player.speedPref;
 
-            Find.TickManager.CurTimeSpeed = speed;
-            prevSpeed = speed;
-            keyPressed = Event.current.isKey;
+			if (Multiplayer.IsReplay)
+				speedPref = TickPatch.replayTimeSpeed;
+
+			if (speedPref.HasValue)
+			{
+				// And set the game speed (TickManager.CurTimeSpeed) to the player's speedPref instead
+				Find.TickManager.CurTimeSpeed = speedPref.Value;
+				prevSpeedPref = speedPref;
+			}
+
             __state = tickable;
         }
 
         static void Postfix(ITickable __state, Rect timerRect)
-        {
-            if (__state == null) return;
+		{
+			if (__state == null) return;
 
             Rect rect = new Rect(timerRect.x, timerRect.y, TimeControls.TimeButSize.x, TimeControls.TimeButSize.y);
             float normalSpeed = __state.ActualRateMultiplier(TimeSpeed.Normal);
@@ -165,19 +173,19 @@ namespace Multiplayer.Client
             else if (normalSpeed == fastSpeed)  // Slowed down
                 Widgets.DrawLineHorizontal(rect.x + rect.width * 2f, rect.y + rect.height / 2f, rect.width * 2f);
 
-            TimeSpeed newSpeed = Find.TickManager.CurTimeSpeed;
-            Find.TickManager.CurTimeSpeed = savedSpeed;
+			// If the player has changed their TickManager.CurTimeSpeed, that's a preference change! 
+            TimeSpeed newSpeedPref = Find.TickManager.CurTimeSpeed;
+			//Now put game speed back to what it was (we want to calculate the lowest speed with SendSpeedPrefChange)
+			Find.TickManager.CurTimeSpeed = savedSpeed;
+			
+			//If player's speed preference hasn't changed, bail out
+			if (prevSpeedPref.HasValue && prevSpeedPref == newSpeedPref) return;
 
-            if (prevSpeed == newSpeed) return;
+			if (Multiplayer.IsReplay)
+                TickPatch.replayTimeSpeed = newSpeedPref;
 
-            if (Multiplayer.IsReplay)
-                TickPatch.replayTimeSpeed = newSpeed;
-
-            // Prevent multiple players changing the speed too quickly
-            if (keyPressed && Time.realtimeSinceStartup - MultiplayerWorldComp.lastSpeedChange < 0.4f)
-                return;
-
-            TimeControl.SendTimeChange(__state, newSpeed);
+			//If it HAS changed, send the player's speed preference to everyone else (also applies new lowest speed if required)
+            TimeControl.SendSpeedPrefChange(__state, newSpeedPref);
         }
     }
 
@@ -306,19 +314,28 @@ namespace Multiplayer.Client
             if (Widgets.ButtonImage(button, TexButton.SpeedButtonTextures[speed]))
             {
                 int dir = Event.current.button == 0 ? 1 : -1;
-                SendTimeChange(tickable, (TimeSpeed)GenMath.PositiveMod(speed + dir, (int)TimeSpeed.Ultrafast));
+				SendSpeedPrefChange(tickable, (TimeSpeed)GenMath.PositiveMod(speed + dir, (int)TimeSpeed.Ultrafast));
                 Event.current.Use();
             }
         }
 
-        public static void SendTimeChange(ITickable tickable, TimeSpeed newSpeed)
-        {
-            if (tickable is MultiplayerWorldComp)
-                Multiplayer.Client.SendCommand(CommandType.WorldTimeSpeed, ScheduledCommand.Global, (byte)newSpeed);
-            else if (tickable is MapAsyncTimeComp comp)
-                Multiplayer.Client.SendCommand(CommandType.MapTimeSpeed, comp.map.uniqueID, (byte)newSpeed);
-        }
-    }
+		public static void SendSpeedPrefChange(ITickable tickable, TimeSpeed newSpeedPref)
+		{
+			//Prevent THIS player from spamming new time preferences too quickly
+			if (Time.realtimeSinceStartup - Multiplayer.session.lastSpeedPrefChange < 0.1f) return;
+			Multiplayer.session.lastSpeedPrefChange = Time.realtimeSinceStartup;
+
+			//Update the player's speed preference immediately to this new speed
+			PlayerInfo player = Multiplayer.session.GetPlayerInfo(Multiplayer.session.playerId);
+			if (player == null) return;
+			player.speedPref = newSpeedPref;
+
+			//Lets everyone else know the player's speed pref has changed
+			LoggingByteWriter writer = new LoggingByteWriter();
+			writer.WriteInt32((int)newSpeedPref);
+			Multiplayer.Client.Send(Packets.Client_TimeSpeedPref, writer.ToArray(), reliable: false);
+		}
+	}
 
     [HarmonyPatch(typeof(PawnTweener), nameof(PawnTweener.PreDrawPosCalculation))]
     static class PreDrawCalcMarker

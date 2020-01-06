@@ -148,7 +148,39 @@ namespace Multiplayer.Client
                 y += btnHeight;
             }
 
-            if (Multiplayer.Client != null && Multiplayer.WorldComp.debugMode)
+			//Draw multiplayer speed preferences
+			if (session != null && !Multiplayer.IsReplay)
+			{
+				float rightX = UI.screenWidth - TimeControls.TimeButSize.x - 10f;
+
+				TimeSpeed[] speeds = new[] { TimeSpeed.Superfast, TimeSpeed.Fast, TimeSpeed.Normal, TimeSpeed.Paused };
+
+				for (int i = 0; i < speeds.Length; i++)
+				{
+					TimeSpeed speed = speeds[i];
+					Rect button = new Rect(rightX - (i * TimeControls.TimeButSize.x), y, TimeControls.TimeButSize.x, TimeControls.TimeButSize.y);
+					Widgets.ButtonImage(button, TexButton.SpeedButtonTextures[(int)speed]);
+
+					Widgets.DrawRectFast(button, new Color(0f, 0f, 0f, 0.4f));
+					//Highlight the current lowest speed
+					if (speed == Find.TickManager.curTimeSpeed) Widgets.DrawRectFast(button, new Color(0f, 0f, 0f, 0.2f));
+
+					string[] playersWithTimeSpeedPref = session.players
+						.Where(p => p.speedPref == speed)
+						.Select(p => p.username)
+						.ToArray();
+
+					Text.Font = GameFont.Small;
+					Text.Anchor = TextAnchor.MiddleCenter;
+					Widgets.Label(button, playersWithTimeSpeedPref.Count().ToString());
+					string playerNames = string.Join(Environment.NewLine, playersWithTimeSpeedPref);
+					TooltipHandler.TipRegion(button, new TipSignal(playerNames));
+				}
+
+				y += TimeControls.TimeButSize.y;
+			}
+
+			if (Multiplayer.Client != null && Multiplayer.WorldComp.debugMode)
             {
                 Text.Font = GameFont.Tiny;
                 Text.Anchor = TextAnchor.MiddleCenter;

@@ -36,8 +36,13 @@ namespace Multiplayer.Common
 
         public List<ServerPlayer> players = new List<ServerPlayer>();
         public IEnumerable<ServerPlayer> PlayingPlayers => players.Where(p => p.IsPlaying);
+		public TimeSpeed LowestSpeedPref => players
+			.Where(p => p.type != PlayerType.Arbiter && p.speedPref.HasValue)
+			.Select(p => p.speedPref.Value)
+			.DefaultIfEmpty(TimeSpeed.Normal)
+			.Min();
 
-        public string hostUsername;
+		public string hostUsername;
         public int gameTimer;
         public bool paused;
         public ActionQueue queue = new ActionQueue();
@@ -471,6 +476,8 @@ namespace Multiplayer.Common
         public string steamPersonaName = "";
 
         public int lastCursorTick = -1;
+
+		public TimeSpeed? speedPref;
 
         public string Username => conn.username;
         public int Latency => conn.Latency;

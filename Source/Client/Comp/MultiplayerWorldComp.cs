@@ -193,8 +193,6 @@ namespace Multiplayer.Client
             SyncResearch.researchSpeed = data.researchSpeed;
         }
 
-        public static float lastSpeedChange;
-
         public void ExecuteCmd(ScheduledCommand cmd)
         {
             CommandType cmdType = cmd.type;
@@ -231,9 +229,6 @@ namespace Multiplayer.Client
                     {
                         foreach (var map in Find.Maps)
                             map.AsyncTime().TimeSpeed = speed;
-
-                        if (!cmd.issuedBySelf)
-                            lastSpeedChange = Time.realtimeSinceStartup;
                     }
 
                     MpLog.Log("Set world speed " + speed + " " + TickPatch.Timer + " " + Find.TickManager.TicksGame);

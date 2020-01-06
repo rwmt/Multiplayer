@@ -274,7 +274,17 @@ namespace Multiplayer.Client
             Multiplayer.session.AddMsg(msg);
         }
 
-        [PacketHandler(Packets.Server_Cursor)]
+		[PacketHandler(Packets.Server_TimeSpeedPref)]
+		public void HandleTimeSpeedPref(ByteReader data)
+		{
+			int playerId = data.ReadInt32();
+			var player = Multiplayer.session.GetPlayerInfo(playerId);
+			if (player == null) return;
+
+			player.speedPref = (TimeSpeed)data.ReadInt32();
+		}
+
+		[PacketHandler(Packets.Server_Cursor)]
         public void HandleCursor(ByteReader data)
         {
             int playerId = data.ReadInt32();

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using Verse;
 
 namespace Multiplayer.Common
 {
@@ -311,7 +312,39 @@ namespace Multiplayer.Common
             Server.SendToAll(Packets.Server_Cursor, writer.ToArray(), reliable: false, excluding: Player);
         }
 
-        [PacketHandler(Packets.Client_Selected)]
+		[PacketHandler(Packets.Client_TimeSpeedPref)]
+		public void HandleTimeSpeedPref(ByteReader data)
+		{
+			var writer = new ByteWriter();
+
+			int speedPref = data.ReadInt32();
+
+			writer.WriteInt32(Player.id);
+			writer.WriteInt32(speedPref);
+
+			//TODO for MapAsyncTimeComp time, include the mapId in the preference sending
+			Server.SendToAll(Packets.Server_TimeSpeedPref, writer.ToArray(), reliable: false, excluding: Player);
+
+			//Find the lowest speed pref
+			TimeSpeed prevLowestSpeedPref = Server.LowestSpeedPref;
+			Player.speedPref = (TimeSpeed)speedPref;
+			TimeSpeed newLowestSpeedPref = Server.LowestSpeedPref;
+
+			if (newLowestSpeedPref == prevLowestSpeedPref) return;
+
+			//If it is different to what the previous lowest time speed is, send a time change command to everyone
+			Server.SendCommand(CommandType.WorldTimeSpeed, ScheduledCommand.NoFaction, ScheduledCommand.Global, new byte[] { (byte)newLowestSpeedPref });
+
+			//TODO - for MapAsyncTime, each player may need to have a speed preference for each map id, which is sent up in the pref packet.
+			//Code below can check if a map ID is included and use CommandType.MapTimeSpeed instead
+
+			//if (tickable is MultiplayerWorldComp)
+			//	Server.SendCommand(CommandType.WorldTimeSpeed, ScheduledCommand.Global, (byte)lowestSpeedPref);
+			//else if (tickable is MapAsyncTimeComp comp)
+			//	Server.SendCommand(CommandType.MapTimeSpeed, comp.map.uniqueID, (byte)lowestSpeedPref);
+		}
+
+		[PacketHandler(Packets.Client_Selected)]
         public void HandleSelected(ByteReader data)
         {
             bool reset = data.ReadBool();
