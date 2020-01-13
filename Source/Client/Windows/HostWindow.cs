@@ -13,6 +13,7 @@ using Verse;
 using Verse.Profile;
 using Verse.Sound;
 using Verse.Steam;
+using Multiplayer.Client;
 
 namespace Multiplayer.Client
 {
@@ -24,7 +25,6 @@ namespace Multiplayer.Client
         private SaveFile file;
         public bool returnToServerBrowser;
         private bool withSimulation;
-        private bool asyncTime;
         private bool debugMode;
 
         private float height;
@@ -121,20 +121,20 @@ namespace Multiplayer.Client
 
             if (MpVersion.IsDebug)
             {
-                // Arbiter
-                {
-                    TooltipHandler.TipRegion(entry.Width(checkboxWidth), "MpArbiterDesc".Translate());
-                    CheckboxLabeled(entry.Width(checkboxWidth), "The Arbiter:  ", ref settings.arbiter, placeTextNearCheckbox: true);
-                    entry = entry.Down(30);
-                }
+             // Arbiter
 
-                // AsyncTime
-                {
-                    TooltipHandler.TipRegion(entry.Width(checkboxWidth), $"{"MpAsyncTimeDesc".Translate()}\n\n{"MpExperimentalFeature".Translate()}");
-                    CheckboxLabeled(entry.Width(checkboxWidth), "Async time:  ", ref asyncTime, placeTextNearCheckbox: true);
-                    entry = entry.Down(30);
-                }
+                TooltipHandler.TipRegion(entry.Width(checkboxWidth), "MpArbiterDesc".Translate());
+                CheckboxLabeled(entry.Width(checkboxWidth), "The Arbiter:  ", ref settings.arbiter, placeTextNearCheckbox: true);
+                entry = entry.Down(30);
+
             }
+            
+            // AsyncTime
+            TooltipHandler.TipRegion(entry.Width(checkboxWidth), $"{"MpAsyncTimeDesc".Translate()}\n\n{"MpExperimentalFeature".Translate()}");
+            CheckboxLabeled(entry.Width(checkboxWidth), "Async time:  ", ref MultiplayerWorldComp.asyncTime, placeTextNearCheckbox: true);
+            entry = entry.Down(30);
+
+
 
             if (Prefs.DevMode)
             {

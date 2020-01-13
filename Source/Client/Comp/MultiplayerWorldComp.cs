@@ -54,7 +54,7 @@ namespace Multiplayer.Client
         public World world;
         public IdBlock globalIdBlock;
         public ulong randState = 2;
-        public bool asyncTime;
+        public static bool asyncTime;
         public bool debugMode;
         public TileTemperaturesComp uiTemperatures;
 
