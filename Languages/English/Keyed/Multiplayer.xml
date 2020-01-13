@@ -31,15 +31,15 @@
   <MpPlayerDisconnected>{0} has left</MpPlayerDisconnected>
   
   <MpReplayOutdated>(Outdated)</MpReplayOutdated>
-  <MpReplayOutdatedDesc1>This replay was made for protocol version {0}, but you are running version {1}.</MpReplayOutdatedDesc1>
-  <MpReplayOutdatedDesc2>The replay might not play correctly.</MpReplayOutdatedDesc2>
+  <MpReplayOutdatedDesc1>This save was made for protocol version {0}, but you are running version {1}.</MpReplayOutdatedDesc1>
+  <MpReplayOutdatedDesc2>The save might not play correctly.</MpReplayOutdatedDesc2>
   <MpReplayOutdatedDesc3>Possible incompatibilities are listed with the release history.</MpReplayOutdatedDesc3>
   <MpReplayOutdatedDesc4>This file contains additional information and hosting from it should work fine.</MpReplayOutdatedDesc4>
   
   <MpServerCloseConfirmation>Are you sure you want to close the server? Unsaved progress will be lost.</MpServerCloseConfirmation>
   
   <MpHostServer>Host a server</MpHostServer>
-  <MpSaveReplay>Save replay</MpSaveReplay>
+  <MpSaveReplay>Save</MpSaveReplay>
   
   <MpConvert>Convert to singleplayer</MpConvert>
   <MpConverting>Converting</MpConverting>
@@ -78,7 +78,7 @@
   <MpDesynced>The game state has desynced.</MpDesynced>
   <MpTryResync>Try resync</MpTryResync>
   
-  <MpSaveReplayAs>Save replay as</MpSaveReplayAs>
+  <MpSaveReplayAs>Save as</MpSaveReplayAs>
   <MpWillOverwrite>Will overwrite</MpWillOverwrite>
   <MpReplaySaved>Replay saved</MpReplaySaved>
   
@@ -98,7 +98,7 @@
   <MpNoSaves>Multiplayer can only be played from already existing saves</MpNoSaves>
   
   <MpHostIngame>Host from this game</MpHostIngame>
-  <MpHostReplay>Host from a replay</MpHostReplay>
+  <MpHostReplay>Host from a save</MpHostReplay>
   <MpHostSavefile>Host from a savefile</MpHostSavefile>
   
   <MpJoinButton>Join</MpJoinButton>
@@ -114,6 +114,7 @@
   <MpAppendNameToAutosave>Append Name to Autosave</MpAppendNameToAutosave>
   <MpPauseAutosaveCounter>Pause autosave counter</MpPauseAutosaveCounter>
   <MpPauseAutosaveCounterDesc>Pauses the counter along with the game preventing autosaving while time is paused.</MpPauseAutosaveCounterDesc>
+  
   <MpLan>LAN</MpLan>
   <MpDirect>Direct</MpDirect>
   <MpSteam>Steam</MpSteam>
