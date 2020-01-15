@@ -383,15 +383,17 @@ namespace Multiplayer.Client
             return names.ToArray();
         }
 
+        // Find all DLL libraries in "Assemblies" directory
         public static FileInfo[] ModAssemblies(this ModMetaData mod) => ModAssemblies(mod.RootDir.FullName);
         public static FileInfo[] ModAssemblies(this ModContentPack mod) => ModAssemblies(mod.RootDir);
 
         private static FileInfo[] ModAssemblies(string modRoot)
         {
-            var assemblies = new DirectoryInfo(Path.Combine(modRoot, "Assemblies"));
-            if (!assemblies.Exists)
-                return new FileInfo[0];
-            return assemblies.GetFiles("*.*", SearchOption.AllDirectories).Where(f => f.Extension.ToLower() == ".dll").ToArray();
+            String[] paths = { "Assemblies", "1.0/Assemblies" };
+            return paths.Select(path => new DirectoryInfo(Path.Combine(modRoot, path)))
+                 .Where(folder => folder.Exists)
+                 .SelectMany(folder => folder.GetFiles("*.*", SearchOption.AllDirectories).Where(f => f.Extension.ToLower() == ".dll"))
+                 .ToArray();
         }
 
         public static int CRC32(this FileInfo[] files)
