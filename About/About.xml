@@ -4,7 +4,7 @@
   <supportedVersions><li>1.0</li></supportedVersions>
   <author>Zetrith</author>
   <url>https://github.com/rwmt/Multiplayer</url>
-  <description>&lt;color=red&gt;&lt;b&gt;Important: &lt;/b&gt; This mod should be loaded right after Core and before HugsLib to work properly!&lt;/color&gt;\n
+  <description>&lt;color=red&gt;&lt;b&gt;Important: &lt;/b&gt; This mod should be loaded right after Core to work properly! If you are using HugsLib it needs to be loaded after this mod. &lt;/color&gt;\n
 Multiplayer mod for rimworld.
 This is version 0.4.8.3
   </description>
