@@ -261,3 +261,8 @@ __pycache__/
 *.pyc
 
 /Assemblies
+/Source/Publicise-1.0.0.zip
+/Source/publicise_hash.txt
+/Source/Publicise.exe
+/Source/LICENSE
+/Source/dnlib.dll

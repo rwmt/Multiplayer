@@ -1,37 +1,53 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net35</TargetFramework>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-    <OutputPath>..\Assemblies\</OutputPath>
-    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
-    <DebugType>None</DebugType>
-  </PropertyGroup>
-  <ItemGroup>
-    <PackageReference Include="RimWorld.MultiplayerAPI" Version="0.1.0" />
-    <PackageReference Include="Lib.Harmony" Version="1.2.0.1" />
-    <PackageReference Include="LiteNetLib" Version="0.8.3.1" />
-    <PackageReference Include="DotNetZip.Reduced" Version="1.9.1.8" />
-    <Reference Include="Assembly-CSharp-firstpass">
-      <HintPath>..\..\..\RimWorldWin64_Data\Managed\Assembly-CSharp-firstpass.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="Assembly-CSharp_public">
-      <HintPath>..\..\..\RimWorldWin64_Data\Managed\Assembly-CSharp_public.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="UnityEngine">
-      <HintPath>..\..\..\RimWorldWin64_Data\Managed\UnityEngine.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-  </ItemGroup>
+	<PropertyGroup>
+		<TargetFramework>net35</TargetFramework>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+		<OutputPath>..\Assemblies\</OutputPath>
+		<AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+		<AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+		<DebugType>None</DebugType>
+	</PropertyGroup>
+	<ItemGroup>
+		<PackageReference Include="RimWorld.MultiplayerAPI" Version="0.1.0" />
+		<PackageReference Include="Lib.Harmony" Version="1.2.0.1" />
+		<PackageReference Include="LiteNetLib" Version="0.8.3.1" />
+		<PackageReference Include="DotNetZip.Reduced" Version="1.9.1.8" />
 
-  <Target Name="ChangeAliasesOfNugetRefs" BeforeTargets="FindReferenceAssembliesForReferences;ResolveReferences">
-    <ItemGroup>
-      <ReferencePath Condition="'%(FileName)' == 'Ionic.Zip.Reduced'">
-        <Aliases>zip</Aliases>
-      </ReferencePath>
-    </ItemGroup>
-  </Target>
+		<Reference Include="Assembly-CSharp-firstpass">
+			<HintPath>..\..\..\RimWorldWin64_Data\Managed\Assembly-CSharp-firstpass.dll</HintPath>
+			<Private>False</Private>
+		</Reference>
+		<Reference Include="Assembly-CSharp_public">
+			<HintPath>..\..\..\RimWorldWin64_Data\Managed\Assembly-CSharp_public.dll</HintPath>
+			<Private>False</Private>
+		</Reference>
+		<Reference Include="UnityEngine">
+			<HintPath>..\..\..\RimWorldWin64_Data\Managed\UnityEngine.dll</HintPath>
+			<Private>False</Private>
+		</Reference>
+	</ItemGroup>
+	<Target Name="Publicise" BeforeTargets="BeforeBuild">
+        <DownloadFile Condition="!Exists('$(MSBuildProjectDirectory)\Publicise-1.0.0.zip')"
+            SourceUrl="https://github.com/rwmt/Publicise/releases/download/1.0.0/Publicise-1.0.0.zip"
+            DestinationFolder="$(MSBuildProjectDirectory)">
+        <Output TaskParameter="DownloadedFile" ItemName="Content" />
+      </DownloadFile>
+		<Unzip
+			Condition="!Exists('$(MSBuildProjectDirectory)\Publicise.exe') Or !Exists('$(MSBuildProjectDirectory)\dnlib.dll')"
+            SourceFiles="$(MSBuildProjectDirectory)\Publicise-1.0.0.zip"
+            DestinationFolder="$(MSBuildProjectDirectory)"
+            OverwriteReadOnlyFiles="true"
+        />
+		<Exec WorkingDirectory="$(MSBuildProjectDirectory)" Command="Publicise.exe  ..\..\..\RimWorldWin64_Data\Managed\Assembly-CSharp.dll ..\..\..\RimWorldWin64_Data\Managed\" />
+	
+	</Target>
+
+	<Target Name="ChangeAliasesOfNugetRefs" BeforeTargets="FindReferenceAssembliesForReferences;ResolveReferences">
+		<ItemGroup>
+			<ReferencePath Condition="'%(FileName)' == 'Ionic.Zip.Reduced'">
+				<Aliases>zip</Aliases>
+			</ReferencePath>
+		</ItemGroup>
+	</Target>
 </Project>
