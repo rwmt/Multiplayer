@@ -115,6 +115,9 @@
   <MpPauseAutosaveCounter>Pause autosave counter</MpPauseAutosaveCounter>
   <MpPauseAutosaveCounterDesc>Pauses the counter along with the game preventing autosaving while time is paused.</MpPauseAutosaveCounterDesc>
   
+  <MpArbiterSetting>Arbiter setting</MpArbiterSetting>
+  <MpArbiterSettingDesc>Leave this as disabled, if you enable this you will not get any support from us.</MpArbiterSettingDesc>
+  
   <MpLan>LAN</MpLan>
   <MpDirect>Direct</MpDirect>
   <MpSteam>Steam</MpSteam>
