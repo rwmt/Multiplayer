@@ -149,6 +149,8 @@ namespace Multiplayer.Client
             listing.CheckboxLabeled("MpTransparentChat".Translate(), ref settings.transparentChat);
             listing.CheckboxLabeled("MpAggressiveTicking".Translate(), ref settings.aggressiveTicking, "MpAggressiveTickingDesc".Translate());
 
+            listing.CheckboxLabeled("MpArbiterSetting".Translate(), ref settings.arbiterSetting, "MpArbiterSettingDesc".Translate());
+
             var appendNameToAutosaveLabel = $"{"MpAppendNameToAutosave".Translate()}:  ";
             var appendNameToAutosaveLabelWidth = Text.CalcSize(appendNameToAutosaveLabel).x;
             var appendNameToAutosaveCheckboxWidth = appendNameToAutosaveLabelWidth + 30f;
@@ -271,6 +273,7 @@ namespace Multiplayer.Client
         public bool appendNameToAutosave;
         public bool pauseAutosaveCounter = true;
         public ServerSettings serverSettings;
+        public bool arbiterSetting;
 
         public override void ExposeData()
         {
@@ -283,6 +286,8 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref showDevInfo, "showDevInfo");
             Scribe_Values.Look(ref serverAddress, "serverAddress", "127.0.0.1");
             Scribe_Values.Look(ref pauseAutosaveCounter, "pauseAutosaveCounter", true);
+
+            Scribe_Values.Look(ref arbiterSetting, "arbiterSetting");
 
             Scribe_Deep.Look(ref serverSettings, "serverSettings");
 

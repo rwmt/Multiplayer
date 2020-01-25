@@ -119,7 +119,7 @@ namespace Multiplayer.Client
                 entry = entry.Down(30);
             }
 
-            if (MpVersion.IsDebug)
+            if (MultiplayerMod.settings.arbiterSetting)
             {
              // Arbiter
 
