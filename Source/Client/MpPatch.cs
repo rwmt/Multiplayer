@@ -1,4 +1,4 @@
-﻿using Harmony;
+﻿using HarmonyLib;
 using Multiplayer.Common;
 using System;
 using System.Collections.Generic;
@@ -94,7 +94,7 @@ namespace Multiplayer.Client
 
     public static class MpPatchExtensions
     {
-        public static void DoAllMpPatches(this HarmonyInstance harmony)
+        public static void DoAllMpPatches(this Harmony harmony)
         {
             foreach (Type type in Assembly.GetCallingAssembly().GetTypes())
             {
@@ -103,7 +103,7 @@ namespace Multiplayer.Client
         }
 
         // Use null as harmony instance to just collect the methods
-        public static List<MethodBase> DoMpPatches(this HarmonyInstance harmony, Type type)
+        public static List<MethodBase> DoMpPatches(this Harmony harmony, Type type)
         {
             List<MethodBase> result = null;
 
@@ -113,7 +113,7 @@ namespace Multiplayer.Client
                 var toPatch = attr.Method;
 
                 if (harmony != null)
-                    new PatchProcessor(harmony, type, attr.HarmonyMethod).Patch();
+                    new PatchProcessor(harmony, toPatch).Patch();
 
                 if (result == null)
                     result = new List<MethodBase>();

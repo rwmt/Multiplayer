@@ -37,7 +37,7 @@ namespace Multiplayer.Client
             foreach (LogNode node in nodes)
                 Draw(node, 0, ref nodeRect);
 
-            if (Event.current.type == EventType.layout)
+            if (Event.current.type == EventType.Layout)
                 logHeight = (int)nodeRect.y;
 
             Widgets.EndScrollView();
@@ -363,7 +363,7 @@ namespace Multiplayer.Client
         {
             const float offsetY = -5f;
 
-            if (Event.current.type == EventType.layout)
+            if (Event.current.type == EventType.Layout)
             {
                 fullHeight = 0;
                 foreach (var str in lines)

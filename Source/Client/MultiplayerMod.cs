@@ -1,28 +1,25 @@
-﻿using Harmony;
-using Harmony.ILCopying;
-using Multiplayer.Common;
-using RimWorld;
-using System;
-using System.Collections;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
-using System.Text;
 using System.Xml;
+
+using HarmonyLib;
+
+using RimWorld;
 using UnityEngine;
 using Verse;
+
+using Multiplayer.Common;
 
 namespace Multiplayer.Client
 {
     [HotSwappable]
     public class MultiplayerMod : Mod
     {
-        public static HarmonyInstance harmony = HarmonyInstance.Create("multiplayer");
+        public static Harmony harmony = new Harmony("multiplayer");
         public static MpSettings settings;
 
         public static bool arbiterInstance;
@@ -32,7 +29,7 @@ namespace Multiplayer.Client
             if (GenCommandLine.CommandLineArgPassed("arbiter"))
                 arbiterInstance = true;
 
-            EarlyMarkNoInline(typeof(Multiplayer).Assembly);
+            //EarlyMarkNoInline(typeof(Multiplayer).Assembly);
             EarlyPatches();
 
             CheckInterfaceVersions();
@@ -45,7 +42,7 @@ namespace Multiplayer.Client
                 });
             }
         }
-
+        /*
         public static void EarlyMarkNoInline(Assembly asm)
         {
             foreach (var type in asm.GetTypes())
@@ -60,7 +57,7 @@ namespace Multiplayer.Client
                         MpUtil.MarkNoInlining(original);
                 }
             }
-        }
+        }*/
 
         private void EarlyPatches()
         {
@@ -75,9 +72,11 @@ namespace Multiplayer.Client
 
                 if (asm == typeof(HarmonyPatch).Assembly) continue;
 
+                /*
                 var emitCallParameter = asm.GetType("Harmony.MethodPatcher")?.GetMethod("EmitCallParameter", AccessTools.all);
                 if (emitCallParameter != null)
                     harmony.Patch(emitCallParameter, new HarmonyMethod(typeof(PatchHarmony), emitCallParameter.GetParameters().Length == 4 ? nameof(PatchHarmony.EmitCallParamsPrefix4) : nameof(PatchHarmony.EmitCallParamsPrefix5)));
+                 */                   
             }
 
             {
@@ -240,7 +239,7 @@ namespace Multiplayer.Client
     {
         static bool Prefix() => !MpVersion.IsDebug && !MultiplayerMod.arbiterInstance;
     }
-
+    /*
     static class PatchHarmony
     {
         static MethodInfo mpEmitCallParam = AccessTools.Method(typeof(MethodPatcher), "EmitCallParameter");
@@ -257,7 +256,7 @@ namespace Multiplayer.Client
             return false;
         }
     }
-
+    */
     public class MpSettings : ModSettings
     {
         public string username;

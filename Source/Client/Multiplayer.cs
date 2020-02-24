@@ -1,7 +1,6 @@
-extern alias zip;
+﻿//extern alias zip;
 
-using Harmony;
-using Harmony.ILCopying;
+using HarmonyLib;
 using Ionic.Crc;
 using Ionic.Zlib;
 using LiteNetLib;
@@ -44,7 +43,7 @@ namespace Multiplayer.Client
         public static bool IsReplay => session?.replay ?? false;
 
         public static string username;
-        public static HarmonyInstance harmony => MultiplayerMod.harmony;
+        public static Harmony harmony => MultiplayerMod.harmony;
 
         public static bool reloading;
 

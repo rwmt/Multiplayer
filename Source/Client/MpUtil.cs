@@ -1,11 +1,6 @@
-﻿using Harmony;
-using Harmony.ILCopying;
-using Multiplayer.Common;
-using Steamworks;
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
@@ -14,8 +9,9 @@ using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
-using System.Text;
-using System.Threading;
+
+using HarmonyLib;
+
 using UnityEngine;
 using Verse;
 
@@ -186,13 +182,14 @@ namespace Multiplayer.Client
             return false;
         }
 
+        /*
         public static List<ILInstruction> GetInstructions(MethodBase method)
         {
             var insts = new MethodBodyReader(method, null);
             insts.SetPropertyOrField("locals", null);
             insts.ReadInstructions();
             return (List<ILInstruction>)insts.GetPropertyOrField("ilInstructions");
-        }
+        }*/
     }
 
     [AttributeUsage(AttributeTargets.Class)]

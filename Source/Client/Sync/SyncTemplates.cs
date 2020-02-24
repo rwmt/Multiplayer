@@ -3,14 +3,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
-using Harmony;
+using HarmonyLib;
 
 namespace Multiplayer.Client
 {
     public static class SyncTemplates
     {
         public static HarmonyMethod CreateTranspiler() => new HarmonyMethod(m_Transpiler) {
-            prioritiy = Priority.First
+            priority = Priority.First
         };
 
         static bool General(string typeName, int token, object instance, object[] args)
