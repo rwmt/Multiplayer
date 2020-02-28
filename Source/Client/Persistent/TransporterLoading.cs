@@ -286,7 +286,7 @@ namespace Multiplayer.Client
         }
     }
 
-    [MpPatch(typeof(ITab_ContentsTransporter), "<DoItemsLists>c__AnonStorey0", "<>m__0")]
+    [MpPatch(typeof(ITab_ContentsTransporter), "<>c__DisplayClass7_0", "<DoItemsLists>b__0")]
     static class TransporterContents_DiscardToLoad
     {
         static bool Prefix(int x)

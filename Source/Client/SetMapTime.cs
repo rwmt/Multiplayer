@@ -95,7 +95,7 @@ namespace Multiplayer.Client
     }
 
     [MpPatch(typeof(Sustainer), nameof(Sustainer.SustainerUpdate))]
-    [MpPatch(typeof(Sustainer), "<Sustainer>m__0")]
+    [MpPatch(typeof(Sustainer), "<.ctor>b__15_0")]
     static class SustainerUpdateMapTime
     {
         static void Prefix(Sustainer __instance, ref TimeSnapshot? __state)
