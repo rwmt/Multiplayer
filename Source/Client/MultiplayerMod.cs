@@ -190,7 +190,7 @@ namespace Multiplayer.Client
             Log.Message($"Current API version: {curVersion}");
 
             foreach (var mod in LoadedModManager.RunningMods) {
-                if (!mod.LoadedAnyAssembly)
+                if (mod.assemblies.loadedAssemblies.NullOrEmpty())
                     continue;
 
                 if (mod.Name == "Multiplayer")
@@ -199,7 +199,7 @@ namespace Multiplayer.Client
                 Assembly assembly = mod.assemblies.loadedAssemblies.FirstOrDefault(a => a.GetName().Name == MpVersion.apiAssemblyName);
 
                 if (assembly != null) {
-                    var version = new Version(FileVersionInfo.GetVersionInfo(System.IO.Path.Combine(mod.AssembliesFolder, $"{MpVersion.apiAssemblyName}.dll")).FileVersion);
+                    var version = new Version(FileVersionInfo.GetVersionInfo(assembly.Location).FileVersion);
 
                     Log.Message($"Mod {mod.Name} has API client ({version})");
 

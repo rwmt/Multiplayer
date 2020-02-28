@@ -57,7 +57,7 @@ namespace Multiplayer.Client
 
     [MpPatch(typeof(Prefs), "get_" + nameof(Prefs.PauseOnLoad))]
     [MpPatch(typeof(Prefs), "get_" + nameof(Prefs.PauseOnError))]
-    [MpPatch(typeof(Prefs), "get_" + nameof(Prefs.PauseOnUrgentLetter))]
+    [MpPatch(typeof(Prefs), "get_" + nameof(Prefs.AutomaticPauseMode))]
     static class PrefGettersInMultiplayer
     {
         static bool Prefix() => Multiplayer.Client == null;
@@ -65,7 +65,7 @@ namespace Multiplayer.Client
 
     [MpPatch(typeof(Prefs), "set_" + nameof(Prefs.PauseOnLoad))]
     [MpPatch(typeof(Prefs), "set_" + nameof(Prefs.PauseOnError))]
-    [MpPatch(typeof(Prefs), "set_" + nameof(Prefs.PauseOnUrgentLetter))]
+    [MpPatch(typeof(Prefs), "set_" + nameof(Prefs.AutomaticPauseMode))]
     [MpPatch(typeof(Prefs), "set_" + nameof(Prefs.MaxNumberOfPlayerSettlements))]
     [MpPatch(typeof(Prefs), "set_" + nameof(Prefs.RunInBackground))]
     static class PrefSettersInMultiplayer

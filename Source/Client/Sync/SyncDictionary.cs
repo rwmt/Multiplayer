@@ -359,8 +359,8 @@ namespace Multiplayer.Client
                 (ByteReader data) => new ITab_Pawn_Gear()
             },
             {
-                (ByteWriter data, ITab_TransporterContents tab) => { },
-                (ByteReader data) => new ITab_TransporterContents()
+                (ByteWriter data, ITab_ContentsTransporter tab) => { },
+                (ByteReader data) => new ITab_ContentsTransporter()
             },
             #endregion
 

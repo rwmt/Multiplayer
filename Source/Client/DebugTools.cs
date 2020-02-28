@@ -193,7 +193,7 @@ namespace Multiplayer.Client
 
             try
             {
-                if (source == DebugSource.ListingMap)
+                /*if (source == DebugSource.ListingMap)
                 {
                     new Dialog_DebugActionsMenu().DoListingItems_MapActions();
                     new Dialog_DebugActionsMenu().DoListingItems_MapTools();
@@ -206,7 +206,8 @@ namespace Multiplayer.Client
                 {
                     new Dialog_DebugActionsMenu().DoListingItems_AllModePlayActions();
                 }
-                else if (source == DebugSource.Lister)
+                else*/
+                if (source == DebugSource.Lister)
                 {
                     var options = (state.window as List<DebugMenuOption>) ?? new List<DebugMenuOption>();
                     new Dialog_DebugOptionListLister(options).DoListingItems();
@@ -302,7 +303,7 @@ namespace Multiplayer.Client
         FloatMenu,
     }
 
-    [HarmonyPatch(typeof(Dialog_DebugActionsMenu), nameof(Dialog_DebugActionsMenu.DoListingItems_AllModePlayActions))]
+    //[HarmonyPatch(typeof(Dialog_DebugActionsMenu), nameof(Dialog_DebugActionsMenu.DoListingItems_AllModePlayActions))]
     static class ListingPlayMarker
     {
         public static bool drawing;
@@ -311,7 +312,7 @@ namespace Multiplayer.Client
         static void Postfix() => drawing = false;
     }
 
-    [HarmonyPatch(typeof(Dialog_DebugActionsMenu), nameof(Dialog_DebugActionsMenu.DoListingItems_World))]
+    //[HarmonyPatch(typeof(Dialog_DebugActionsMenu), nameof(Dialog_DebugActionsMenu.DoListingItems_World))]
     static class ListingWorldMarker
     {
         public static bool drawing;
@@ -320,8 +321,8 @@ namespace Multiplayer.Client
         static void Postfix() => drawing = false;
     }
 
-    [MpPatch(typeof(Dialog_DebugActionsMenu), nameof(Dialog_DebugActionsMenu.DoIncidentDebugAction))]
-    [MpPatch(typeof(Dialog_DebugActionsMenu), nameof(Dialog_DebugActionsMenu.DoIncidentWithPointsAction))]
+    //[MpPatch(typeof(Dialog_DebugActionsMenu), nameof(Dialog_DebugActionsMenu.DoIncidentDebugAction))]
+    //[MpPatch(typeof(Dialog_DebugActionsMenu), nameof(Dialog_DebugActionsMenu.DoIncidentWithPointsAction))]
     static class ListingIncidentMarker
     {
         public static IIncidentTarget target;
@@ -330,8 +331,8 @@ namespace Multiplayer.Client
         static void Postfix() => target = null;
     }
 
-    [MpPatch(typeof(Dialog_DebugActionsMenu), nameof(Dialog_DebugActionsMenu.DoListingItems_MapActions))]
-    [MpPatch(typeof(Dialog_DebugActionsMenu), nameof(Dialog_DebugActionsMenu.DoListingItems_MapTools))]
+    //[MpPatch(typeof(Dialog_DebugActionsMenu), nameof(Dialog_DebugActionsMenu.DoListingItems_MapActions))]
+    //[MpPatch(typeof(Dialog_DebugActionsMenu), nameof(Dialog_DebugActionsMenu.DoListingItems_MapTools))]
     static class ListingMapMarker
     {
         public static bool drawing;

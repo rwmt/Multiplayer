@@ -106,7 +106,7 @@ namespace Multiplayer.Client
                 return traderPawn.Position.DistanceToSquared(playerNegotiator.Position) > 2 * 2;
             }
 
-            if (trader is SettlementBase traderBase)
+            if (trader is Settlement traderBase)
             {
                 var caravan = playerNegotiator.GetCaravan();
                 if (caravan == null)
@@ -558,7 +558,7 @@ namespace Multiplayer.Client
                 if (trader != null)
                     Multiplayer.WorldComp.DirtyTraderTradeForTrader(trader);
             }
-            else if (__instance.owner is SettlementBase_TraderTracker trader)
+            else if (__instance.owner is Settlement_TraderTracker trader)
             {
                 Multiplayer.WorldComp.DirtyTraderTradeForTrader(trader.settlement);
             }
@@ -619,10 +619,10 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(SettlementBase_TraderTracker), nameof(SettlementBase_TraderTracker.TraderTrackerTick))]
+    [HarmonyPatch(typeof(Settlement_TraderTracker), nameof(Settlement_TraderTracker.TraderTrackerTick))]
     static class DontDestroyStockWhileTrading
     {
-        static bool Prefix(SettlementBase_TraderTracker __instance)
+        static bool Prefix(Settlement_TraderTracker __instance)
         {
             return Multiplayer.Client == null || !Multiplayer.WorldComp.trading.Any(t => t.trader == __instance.settlement);
         }

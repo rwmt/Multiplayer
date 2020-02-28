@@ -408,7 +408,7 @@ namespace Multiplayer.Client
             {
                 var modName = save.modNames[i];
                 var modId = save.modIds[i];
-                var prefix = ModLister.AllInstalledMods.Any(m => m.Identifier == modId) ? "+" : "-";
+                var prefix = ModLister.AllInstalledMods.Any(m => m.PackageId == modId) ? "+" : "-";
                 saveMods.Append($"{prefix} {modName}\n");
             }
 

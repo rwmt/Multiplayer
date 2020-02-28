@@ -154,7 +154,7 @@ namespace Multiplayer.Client
             DebugTables.MakeTablesDialog(
                 mods.Select((mod, i) => i),
                 new TableDataGetter<int>($"Mod name {new string(' ', 20)}", i => mods[i].Name),
-                new TableDataGetter<int>($"Mod id {new string(' ', 20)}", i => mods[i].Identifier),
+                new TableDataGetter<int>($"Mod id {new string(' ', 20)}", i => mods[i].PackageId),
                 new TableDataGetter<int>($"Assembly hash {new string(' ', 10)}", i => Multiplayer.enabledModAssemblyHashes[i].assemblyHash),
                 new TableDataGetter<int>($"XML hash {new string(' ', 10)}", i => Multiplayer.enabledModAssemblyHashes[i].xmlHash),
                 new TableDataGetter<int>($"About hash {new string(' ', 10)}", i => Multiplayer.enabledModAssemblyHashes[i].aboutHash)
@@ -1023,7 +1023,7 @@ namespace Multiplayer.Client
             int i = 0;
             while (i < list.Count)
             {
-                int index = Mathf.Abs(Rand.random.GetInt(iters--) % (i + 1));
+                int index = Mathf.Abs(MurmurHash.GetInt(Rand.seed, iters--) % (i + 1));
                 T value = list[index];
                 list[index] = list[i];
                 list[i] = value;

@@ -138,7 +138,7 @@ namespace Multiplayer.Client
                     playerFaction = Multiplayer.session.myFactionId,
                     protocol = MpVersion.Protocol,
                     rwVersion = VersionControl.CurrentVersionStringWithRev,
-                    modIds = LoadedModManager.RunningModsListForReading.Select(m => m.Identifier).ToList(),
+                    modIds = LoadedModManager.RunningModsListForReading.Select(m => m.PackageId).ToList(),
                     modNames = LoadedModManager.RunningModsListForReading.Select(m => m.Name).ToList(),
                     modAssemblyHashes = Multiplayer.enabledModAssemblyHashes.Select(h => h.assemblyHash).ToList(),
                 }
