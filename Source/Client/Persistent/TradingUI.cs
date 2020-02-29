@@ -402,7 +402,6 @@ namespace Multiplayer.Client
 
     [MpPatch(typeof(Dialog_Trade), "<DoWindowContents>b__60_0")]
     [MpPatch(typeof(Dialog_Trade), "<DoWindowContents>b__60_1")]
-    [MpPatch(typeof(Dialog_Trade), "<DoWindowContents>b__60_2")]
     static class FixTradeSorters
     {
         static void Prefix(ref bool __state)

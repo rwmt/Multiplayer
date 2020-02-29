@@ -128,7 +128,7 @@ namespace Multiplayer.Client
                 if (inst.opcode == OpCodes.Call && inst.operand == SpawningWipes)
                 {
                     yield return new CodeInstruction(OpCodes.Ldarg_2);
-                    yield return new CodeInstruction(OpCodes.Ldloc_2);
+                    yield return new CodeInstruction(OpCodes.Ldloc_3);
                     yield return new CodeInstruction(OpCodes.Call, CanPlaceBlueprintAtPatch.ShouldIgnore2Method);
                     yield return new CodeInstruction(OpCodes.Not);
                     yield return new CodeInstruction(OpCodes.And);
@@ -151,7 +151,7 @@ namespace Multiplayer.Client
                 if (inst.opcode == OpCodes.Call && inst.operand == SpawningWipes)
                 {
                     yield return new CodeInstruction(OpCodes.Ldarg_2);
-                    yield return new CodeInstruction(OpCodes.Ldloc_3);
+                    yield return new CodeInstruction(OpCodes.Ldloc_S, 4);
                     yield return new CodeInstruction(OpCodes.Call, CanPlaceBlueprintAtPatch.ShouldIgnore2Method);
                     yield return new CodeInstruction(OpCodes.Not);
                     yield return new CodeInstruction(OpCodes.And);
@@ -177,8 +177,8 @@ namespace Multiplayer.Client
                 {
                     yield return new CodeInstruction(OpCodes.Ldarg_0);
                     yield return new CodeInstruction(OpCodes.Ldfld, ThingDefField);
-                    yield return new CodeInstruction(OpCodes.Ldloc_S, 5);
-                    yield return new CodeInstruction(OpCodes.Ldloc_S, 6);
+                    yield return new CodeInstruction(OpCodes.Ldloc_3);
+                    yield return new CodeInstruction(OpCodes.Ldloc_S, 4);
                     yield return new CodeInstruction(OpCodes.Callvirt, ThingListGet);
                     yield return new CodeInstruction(OpCodes.Call, CanPlaceBlueprintAtPatch.ShouldIgnore2Method);
                     yield return new CodeInstruction(OpCodes.Not);

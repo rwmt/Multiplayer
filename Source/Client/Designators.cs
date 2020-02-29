@@ -87,6 +87,16 @@ namespace Multiplayer.Client
             return false;
         }
 
+        // DesignateFinalizer ignores unimplemented Designate* methods
+        public static Exception DesignateFinalizer(Exception __exception)
+        {
+            if (__exception is NotImplementedException) {
+                return null;
+            }
+
+            return __exception;
+        }
+
         private static void WriteData(ByteWriter data, DesignatorMode mode, Designator designator)
         {
             Type designatorType = designator.GetType();

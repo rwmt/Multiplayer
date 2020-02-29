@@ -48,6 +48,12 @@
     <PackageReference Include="Lib.Harmony" Version="2.0.0.7" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Remove="Client\Blueprints.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Client\Blueprints.cs" Condition=" '$(EnableDefaultCompileItems)' == 'true' " />
+  </ItemGroup>
   <Target Name="ChangeAliasesOfNugetRefs" BeforeTargets="FindReferenceAssembliesForReferences;ResolveReferences">
     <ItemGroup>
       <ReferencePath Condition="'%(FileName)' == 'Ionic.Zip.Reduced'">
