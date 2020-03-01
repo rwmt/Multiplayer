@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Reflection;
 using HarmonyLib;
 using Multiplayer.API;
 using RimWorld;
@@ -206,10 +207,15 @@ namespace Multiplayer.Client
         }
     }
 
-    [MpPatch(typeof(Dialog_LoadTransporters), nameof(Dialog_LoadTransporters.AddPawnsToTransferables))]
-    [MpPatch(typeof(Dialog_LoadTransporters), nameof(Dialog_LoadTransporters.AddItemsToTransferables))]
+    [HarmonyPatch]
     static class CancelAddItems
     {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(Dialog_LoadTransporters), nameof(Dialog_LoadTransporters.AddPawnsToTransferables));
+            yield return AccessTools.Method(typeof(Dialog_LoadTransporters), nameof(Dialog_LoadTransporters.AddItemsToTransferables));
+        }
+
         static bool Prefix(Dialog_LoadTransporters __instance)
         {
             if (__instance is MpLoadTransportersWindow mp && mp.itemsReady)
@@ -286,9 +292,18 @@ namespace Multiplayer.Client
         }
     }
 
-    [MpPatch(typeof(ITab_ContentsTransporter), "<>c__DisplayClass7_0", "<DoItemsLists>b__0")]
+    [HarmonyPatch]
     static class TransporterContents_DiscardToLoad
     {
+        static MethodBase TargetMethod()
+        {
+            List<Type> nestedPrivateTypes = new List<Type>(typeof(ITab_ContentsTransporter).GetNestedTypes(BindingFlags.NonPublic));
+
+            Type cType = nestedPrivateTypes.Find(t => t.Name.Equals("<>c__DisplayClass7_0"));
+
+            return AccessTools.Method(cType, "<DoItemsLists>b__0");
+        }
+
         static bool Prefix(int x)
         {
             if (Multiplayer.Client == null) return true;

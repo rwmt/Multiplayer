@@ -121,15 +121,6 @@ namespace Multiplayer.Client
 
             try
             {
-                harmony.DoAllMpPatches();
-            }
-            catch (Exception e)
-            {
-                Log.Error($"Exception during MpPatching: {e}");
-            }
-
-            try
-            {
                 SyncHandlers.Init();
 
                 var asm = Assembly.GetExecutingAssembly();

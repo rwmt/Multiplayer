@@ -32,10 +32,15 @@ namespace Multiplayer.Client
         }
     }
 
-    [MpPatch(typeof(MainMenuDrawer), nameof(MainMenuDrawer.DoMainMenuControls))]
+    [HarmonyPatch]
     public static class MainMenuMarker
     {
         public static bool drawing;
+
+        static MethodBase TargetMethod()
+        {
+            return AccessTools.Method(typeof(MainMenuDrawer), nameof(MainMenuDrawer.DoMainMenuControls));
+        }
 
         static void Prefix() => drawing = true;
         static void Postfix() => drawing = false;
@@ -71,16 +76,26 @@ namespace Multiplayer.Client
         static void Postfix() => ticking = false;
     }
 
-    [MpPatch(typeof(MainMenuDrawer), nameof(MainMenuDrawer.DoMainMenuControls))]
+    [HarmonyPatch]
     public static class MainMenu_AddHeight
     {
+        static MethodBase TargetMethod()
+        {
+            return AccessTools.Method(typeof(MainMenuDrawer), nameof(MainMenuDrawer.DoMainMenuControls));
+        }
+
         static void Prefix(ref Rect rect) => rect.height += 45f;
     }
 
-    [MpPatch(typeof(OptionListingUtility), nameof(OptionListingUtility.DrawOptionListing))]
+    [HarmonyPatch]
     [HotSwappable]
     public static class MainMenuPatch
     {
+        static MethodBase TargetMethod()
+        {
+            return AccessTools.Method(typeof(OptionListingUtility), nameof(OptionListingUtility.DrawOptionListing));
+        }
+
         static void Prefix(Rect rect, List<ListableOption> optList)
         {
             if (!MainMenuMarker.drawing) return;
@@ -190,11 +205,15 @@ namespace Multiplayer.Client
             }, "Play", "MpConverting", true, null);
         }
     }
-
-    [MpPatch(typeof(GenScene), nameof(GenScene.GoToMainMenu))]
-    [MpPatch(typeof(Root), nameof(Root.Shutdown))]
+    [HarmonyPatch]
     static class Shutdown_Quit_Patch
     {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(GenScene), nameof(GenScene.GoToMainMenu));
+            yield return AccessTools.Method(typeof(Root), nameof(Root.Shutdown));
+        }
+
         static void Prefix()
         {
             OnMainThread.StopMultiplayer();
@@ -760,11 +779,16 @@ namespace Multiplayer.Client
         }
     }
 
-    [MpPatch(typeof(OutfitDatabase), nameof(OutfitDatabase.GenerateStartingOutfits))]
-    [MpPatch(typeof(DrugPolicyDatabase), nameof(DrugPolicyDatabase.GenerateStartingDrugPolicies))]
-    [MpPatch(typeof(FoodRestrictionDatabase), nameof(FoodRestrictionDatabase.GenerateStartingFoodRestrictions))]
+    [HarmonyPatch]
     static class CancelReinitializationDuringLoading
     {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(OutfitDatabase), nameof(OutfitDatabase.GenerateStartingOutfits));
+            yield return AccessTools.Method(typeof(DrugPolicyDatabase), nameof(DrugPolicyDatabase.GenerateStartingDrugPolicies));
+            yield return AccessTools.Method(typeof(FoodRestrictionDatabase), nameof(FoodRestrictionDatabase.GenerateStartingFoodRestrictions));
+        }
+
         static bool Prefix() => Scribe.mode != LoadSaveMode.LoadingVars;
     }
 
@@ -870,12 +894,16 @@ namespace Multiplayer.Client
         static void Postfix() => loading = false;
     }
 
-    [MpPatch(typeof(SoundStarter), nameof(SoundStarter.PlayOneShot))]
-    [MpPatch(typeof(Command_SetPlantToGrow), nameof(Command_SetPlantToGrow.WarnAsAppropriate))]
-    [MpPatch(typeof(TutorUtility), nameof(TutorUtility.DoModalDialogIfNotKnown))]
-    [MpPatch(typeof(CameraJumper), nameof(CameraJumper.TryHideWorld))]
+    [HarmonyPatch]
     static class CancelFeedbackNotTargetedAtMe
     {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(SoundStarter), nameof(SoundStarter.PlayOneShot));
+            yield return AccessTools.Method(typeof(Command_SetPlantToGrow), nameof(Command_SetPlantToGrow.WarnAsAppropriate));
+            yield return AccessTools.Method(typeof(TutorUtility), nameof(TutorUtility.DoModalDialogIfNotKnown));
+            yield return AccessTools.Method(typeof(CameraJumper), nameof(CameraJumper.TryHideWorld));
+        }
         public static bool Cancel =>
             Multiplayer.Client != null &&
             Multiplayer.ExecutingCmds &&
@@ -896,10 +924,15 @@ namespace Multiplayer.Client
         }
     }
 
-    [MpPatch(typeof(MoteMaker), nameof(MoteMaker.MakeStaticMote), new[] {typeof(IntVec3), typeof(Map), typeof(ThingDef), typeof(float)})]
-    [MpPatch(typeof(MoteMaker), nameof(MoteMaker.MakeStaticMote), new[] {typeof(Vector3), typeof(Map), typeof(ThingDef), typeof(float)})]
+    [HarmonyPatch]
     static class CancelMotesNotTargetedAtMe
     {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(MoteMaker), nameof(MoteMaker.MakeStaticMote), new[] {typeof(IntVec3), typeof(Map), typeof(ThingDef), typeof(float)});
+            yield return AccessTools.Method(typeof(MoteMaker), nameof(MoteMaker.MakeStaticMote), new[] {typeof(Vector3), typeof(Map), typeof(ThingDef), typeof(float)});
+        }
+
         static bool Prefix(ThingDef moteDef)
         {
             if (moteDef == ThingDefOf.Mote_FeedbackGoto)
@@ -919,11 +952,16 @@ namespace Multiplayer.Client
         }
     }
 
-    [MpPatch(typeof(Messages), nameof(Messages.Message), new[] {typeof(string), typeof(MessageTypeDef), typeof(bool)})]
-    [MpPatch(typeof(Messages), nameof(Messages.Message), new[] {typeof(string), typeof(LookTargets), typeof(MessageTypeDef), typeof(bool)})]
+    [HarmonyPatch]
     static class MessagesMarker
     {
         public static bool? historical;
+
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(Messages), nameof(Messages.Message), new[] {typeof(string), typeof(MessageTypeDef), typeof(bool)});
+            yield return AccessTools.Method(typeof(Messages), nameof(Messages.Message), new[] {typeof(string), typeof(LookTargets), typeof(MessageTypeDef), typeof(bool)});
+        }
 
         static void Prefix(bool historical) => MessagesMarker.historical = historical;
         static void Postfix() => historical = null;
@@ -1126,11 +1164,15 @@ namespace Multiplayer.Client
         }
     }
 
-    [MpPatch(typeof(IncidentWorker_CaravanMeeting), nameof(IncidentWorker_CaravanMeeting.CanFireNowSub))]
-    [MpPatch(typeof(IncidentWorker_CaravanDemand), nameof(IncidentWorker_CaravanDemand.CanFireNowSub))]
-    [MpPatch(typeof(IncidentWorker_RansomDemand), nameof(IncidentWorker_RansomDemand.CanFireNowSub))]
+    [HarmonyPatch]
     static class CancelIncidents
     {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(IncidentWorker_CaravanMeeting), nameof(IncidentWorker_CaravanMeeting.CanFireNowSub));
+            yield return AccessTools.Method(typeof(IncidentWorker_CaravanDemand), nameof(IncidentWorker_CaravanDemand.CanFireNowSub));
+            yield return AccessTools.Method(typeof(IncidentWorker_RansomDemand), nameof(IncidentWorker_RansomDemand.CanFireNowSub));
+        }
         static void Postfix(ref bool __result)
         {
             if (Multiplayer.Client != null)
@@ -1168,11 +1210,15 @@ namespace Multiplayer.Client
         static bool Prefix() => Multiplayer.Client == null;
     }
 
-    [MpPatch(typeof(CameraJumper), nameof(CameraJumper.TrySelect))]
-    [MpPatch(typeof(CameraJumper), nameof(CameraJumper.TryJumpAndSelect))]
-    [MpPatch(typeof(CameraJumper), nameof(CameraJumper.TryJump), new[] {typeof(GlobalTargetInfo)})]
+    [HarmonyPatch]
     static class NoCameraJumpingDuringSkipping
     {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(CameraJumper), nameof(CameraJumper.TrySelect));
+            yield return AccessTools.Method(typeof(CameraJumper), nameof(CameraJumper.TryJumpAndSelect));
+            yield return AccessTools.Method(typeof(CameraJumper), nameof(CameraJumper.TryJump), new[] {typeof(GlobalTargetInfo)});
+        }
         static bool Prefix() => !TickPatch.Skipping;
     }
 
@@ -1550,11 +1596,16 @@ namespace Multiplayer.Client
         static bool Prefix(Pawn_PlayerSettings __instance, Area value) => __instance.AreaRestriction != value;
     }
 
-    [MpPatch(typeof(GlobalTargetInfo), nameof(GlobalTargetInfo.GetHashCode))]
-    [MpPatch(typeof(TargetInfo), nameof(TargetInfo.GetHashCode))]
+    [HarmonyPatch]
     static class PatchTargetInfoHashCodes
     {
         static MethodInfo Combine = AccessTools.Method(typeof(Gen), nameof(Gen.HashCombine)).MakeGenericMethod(typeof(Map));
+
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(GlobalTargetInfo), nameof(GlobalTargetInfo.GetHashCode));
+            yield return AccessTools.Method(typeof(TargetInfo), nameof(TargetInfo.GetHashCode));
+        }
 
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
         {

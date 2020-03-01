@@ -12,9 +12,14 @@ using Verse;
 
 namespace Multiplayer.Client
 {
-    [MpPatch(typeof(GUI), "get_" + nameof(GUI.skin))]
+    [HarmonyPatch]
     static class GUISkinArbiter_Patch
     {
+        static MethodBase TargetMethod()
+        {
+            return AccessTools.Method(typeof(GUI), "get_" + nameof(GUI.skin));
+        }
+
         static bool Prefix(ref GUISkin __result)
         {
             if (!MultiplayerMod.arbiterInstance) return true;
@@ -23,12 +28,17 @@ namespace Multiplayer.Client
         }
     }
 
-    [MpPatch(typeof(SubcameraDriver), nameof(SubcameraDriver.UpdatePositions))]
-    [MpPatch(typeof(PortraitsCache), nameof(PortraitsCache.Get))]
+    [HarmonyPatch]
     static class RenderTextureCreatePatch
     {
         static MethodInfo IsCreated = AccessTools.Method(typeof(RenderTexture), "IsCreated");
         static FieldInfo ArbiterField = AccessTools.Field(typeof(MultiplayerMod), nameof(MultiplayerMod.arbiterInstance));
+
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(SubcameraDriver), nameof(SubcameraDriver.UpdatePositions));
+            yield return AccessTools.Method(typeof(PortraitsCache), nameof(PortraitsCache.Get));
+        }
 
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
         {
@@ -45,17 +55,22 @@ namespace Multiplayer.Client
         }
     }
 
-    [MpPatch(typeof(WaterInfo), nameof(WaterInfo.SetTextures))]
-    [MpPatch(typeof(SubcameraDriver), nameof(SubcameraDriver.UpdatePositions))]
-    [MpPatch(typeof(Prefs), nameof(Prefs.Save))]
-    [MpPatch(typeof(FloatMenuOption), nameof(FloatMenuOption.SetSizeMode))]
-    [MpPatch(typeof(Section), nameof(Section.RegenerateAllLayers))]
-    [MpPatch(typeof(Section), nameof(Section.RegenerateLayers))]
-    [MpPatch(typeof(SectionLayer), nameof(SectionLayer.DrawLayer))]
-    [MpPatch(typeof(Map), nameof(Map.MapUpdate))]
-    [MpPatch(typeof(GUIStyle), nameof(GUIStyle.CalcSize))]
+    [HarmonyPatch]
     static class CancelForArbiter
     {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(WaterInfo), nameof(WaterInfo.SetTextures));
+            yield return AccessTools.Method(typeof(SubcameraDriver), nameof(SubcameraDriver.UpdatePositions));
+            yield return AccessTools.Method(typeof(Prefs), nameof(Prefs.Save));
+            yield return AccessTools.Method(typeof(FloatMenuOption), nameof(FloatMenuOption.SetSizeMode));
+            yield return AccessTools.Method(typeof(Section), nameof(Section.RegenerateAllLayers));
+            yield return AccessTools.Method(typeof(Section), nameof(Section.RegenerateLayers));
+            yield return AccessTools.Method(typeof(SectionLayer), nameof(SectionLayer.DrawLayer));
+            yield return AccessTools.Method(typeof(Map), nameof(Map.MapUpdate));
+            yield return AccessTools.Method(typeof(GUIStyle), nameof(GUIStyle.CalcSize));
+        }
+
         static bool Prefix() => !MultiplayerMod.arbiterInstance;
     }
 

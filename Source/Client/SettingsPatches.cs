@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Reflection;
 using UnityEngine;
 using Verse;
 
@@ -28,10 +29,15 @@ namespace Multiplayer.Client
         static bool Setter_Prefix() => Multiplayer.Client == null;
     }
 
-    [MpPatch(typeof(Prefs), "get_" + nameof(Prefs.VolumeGame))]
-    [MpPatch(typeof(Prefs), nameof(Prefs.Save))]
+    [HarmonyPatch]
     static class CancelDuringSkipping
     {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(Prefs), "get_" + nameof(Prefs.VolumeGame));
+            yield return AccessTools.Method(typeof(Prefs), nameof(Prefs.Save));
+        }
+
         static bool Prefix() => !TickPatch.Skipping;
     }
 
@@ -55,21 +61,29 @@ namespace Multiplayer.Client
         }
     }
 
-    [MpPatch(typeof(Prefs), "get_" + nameof(Prefs.PauseOnLoad))]
-    [MpPatch(typeof(Prefs), "get_" + nameof(Prefs.PauseOnError))]
-    [MpPatch(typeof(Prefs), "get_" + nameof(Prefs.AutomaticPauseMode))]
+    [HarmonyPatch]
     static class PrefGettersInMultiplayer
     {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(Prefs), "get_" + nameof(Prefs.PauseOnLoad));
+            yield return AccessTools.Method(typeof(Prefs), "get_" + nameof(Prefs.PauseOnError));
+            yield return AccessTools.Method(typeof(Prefs), "get_" + nameof(Prefs.AutomaticPauseMode));
+        }
         static bool Prefix() => Multiplayer.Client == null;
     }
 
-    [MpPatch(typeof(Prefs), "set_" + nameof(Prefs.PauseOnLoad))]
-    [MpPatch(typeof(Prefs), "set_" + nameof(Prefs.PauseOnError))]
-    [MpPatch(typeof(Prefs), "set_" + nameof(Prefs.AutomaticPauseMode))]
-    [MpPatch(typeof(Prefs), "set_" + nameof(Prefs.MaxNumberOfPlayerSettlements))]
-    [MpPatch(typeof(Prefs), "set_" + nameof(Prefs.RunInBackground))]
+    [HarmonyPatch]
     static class PrefSettersInMultiplayer
     {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(Prefs), "set_" + nameof(Prefs.PauseOnLoad));
+            yield return AccessTools.Method(typeof(Prefs), "set_" + nameof(Prefs.PauseOnError));
+            yield return AccessTools.Method(typeof(Prefs), "set_" + nameof(Prefs.AutomaticPauseMode));
+            yield return AccessTools.Method(typeof(Prefs), "set_" + nameof(Prefs.MaxNumberOfPlayerSettlements));
+            yield return AccessTools.Method(typeof(Prefs), "set_" + nameof(Prefs.RunInBackground));
+        }
         static bool Prefix() => Multiplayer.Client == null;
     }
 
