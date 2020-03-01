@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
@@ -227,11 +228,16 @@ namespace Multiplayer.Client
 
     static class LoadableXmlAssetCtorPatch
     {
-        public static List<Pair<LoadableXmlAsset, int>> xmlAssetHashes = new List<Pair<LoadableXmlAsset, int>>();
+        public static ConcurrentBag<Pair<LoadableXmlAsset, int>> xmlAssetHashes = new ConcurrentBag<Pair<LoadableXmlAsset, int>>();
 
         static void Prefix(LoadableXmlAsset __instance, string contents)
         {
             xmlAssetHashes.Add(new Pair<LoadableXmlAsset, int>(__instance, GenText.StableStringHash(contents)));
+        }
+
+        public static void clearHashBag()
+        {
+            xmlAssetHashes = new ConcurrentBag<Pair<LoadableXmlAsset, int>>();
         }
     }
 

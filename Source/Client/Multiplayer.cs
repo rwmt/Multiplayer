@@ -10,6 +10,7 @@ using RimWorld.Planet;
 using Steamworks;
 using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Pipes;
@@ -509,7 +510,7 @@ namespace Multiplayer.Client
                 enabledModAssemblyHashes.Add(hashes);
             }
 
-            LoadableXmlAssetCtorPatch.xmlAssetHashes.Clear();
+            LoadableXmlAssetCtorPatch.clearHashBag();
         }
 
         private static DefInfo GetDefInfo<T>(IEnumerable<T> types, Func<T, int> hash)
