@@ -10,6 +10,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
+using System.Reflection;
 using UnityEngine;
 using Verse;
 using Verse.AI;
@@ -18,10 +19,15 @@ using zip::Ionic.Zip;
 
 namespace Multiplayer.Client
 {
-    [MpPatch(typeof(Map), nameof(Map.MapPreTick))]
-    [MpPatch(typeof(Map), nameof(Map.MapPostTick))]
+    [HarmonyPatch]
     static class CancelMapManagersTick
     {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(Map), nameof(Map.MapPreTick));
+            yield return AccessTools.Method(typeof(Map), nameof(Map.MapPostTick));
+        }
+
         static bool Prefix() => Multiplayer.Client == null || MapAsyncTimeComp.tickingMap != null;
     }
 
@@ -40,12 +46,17 @@ namespace Multiplayer.Client
         static void Postfix() => updating = false;
     }
 
-    [MpPatch(typeof(PowerNetManager), nameof(PowerNetManager.UpdatePowerNetsAndConnections_First))]
-    [MpPatch(typeof(GlowGrid), nameof(GlowGrid.GlowGridUpdate_First))]
-    [MpPatch(typeof(RegionGrid), nameof(RegionGrid.UpdateClean))]
-    [MpPatch(typeof(RegionAndRoomUpdater), nameof(RegionAndRoomUpdater.TryRebuildDirtyRegionsAndRooms))]
+    [HarmonyPatch]
     static class CancelMapManagersUpdate
     {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(PowerNetManager), nameof(PowerNetManager.UpdatePowerNetsAndConnections_First));
+            yield return AccessTools.Method(typeof(GlowGrid), nameof(GlowGrid.GlowGridUpdate_First));
+            yield return AccessTools.Method(typeof(RegionGrid), nameof(RegionGrid.UpdateClean));
+            yield return AccessTools.Method(typeof(RegionAndRoomUpdater), nameof(RegionAndRoomUpdater.TryRebuildDirtyRegionsAndRooms));
+        }
+        
         static bool Prefix() => Multiplayer.Client == null || !MapUpdateMarker.updating;
     }
 
@@ -361,10 +372,15 @@ namespace Multiplayer.Client
         }
     }
 
-    [MpPatch(typeof(Storyteller), nameof(Storyteller.StorytellerTick))]
-    [MpPatch(typeof(StoryWatcher), nameof(StoryWatcher.StoryWatcherTick))]
+    [HarmonyPatch]
     public class StorytellerTickPatch
     {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(Storyteller), nameof(Storyteller.StorytellerTick));
+            yield return AccessTools.Method(typeof(StoryWatcher), nameof(StoryWatcher.StoryWatcherTick));
+        }
+
         static bool Prefix() => Multiplayer.Client == null || Multiplayer.Ticking;
     }
 

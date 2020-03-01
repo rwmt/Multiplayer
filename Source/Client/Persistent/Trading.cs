@@ -456,12 +456,16 @@ namespace Multiplayer.Client
         }
     }
 
-    [MpPatch(typeof(HaulDestinationManager), nameof(HaulDestinationManager.AddHaulDestination))]
-    [MpPatch(typeof(HaulDestinationManager), nameof(HaulDestinationManager.RemoveHaulDestination))]
-    [MpPatch(typeof(HaulDestinationManager), nameof(HaulDestinationManager.SetCellFor))]
-    [MpPatch(typeof(HaulDestinationManager), nameof(HaulDestinationManager.ClearCellFor))]
+    [HarmonyPatch]
     static class HaulDestinationChanged
     {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(HaulDestinationManager), nameof(HaulDestinationManager.AddHaulDestination));
+            yield return AccessTools.Method(typeof(HaulDestinationManager), nameof(HaulDestinationManager.RemoveHaulDestination));
+            yield return AccessTools.Method(typeof(HaulDestinationManager), nameof(HaulDestinationManager.SetCellFor));
+            yield return AccessTools.Method(typeof(HaulDestinationManager), nameof(HaulDestinationManager.ClearCellFor));
+        }
         static void Postfix(HaulDestinationManager __instance)
         {
             if (Multiplayer.Client != null)
@@ -479,10 +483,14 @@ namespace Multiplayer.Client
         }
     }
 
-    [MpPatch(typeof(ListerThings), nameof(ListerThings.Add))]
-    [MpPatch(typeof(ListerThings), nameof(ListerThings.Remove))]
+    [HarmonyPatch]
     static class ListerThingsChangedItem
     {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(ListerThings), nameof(ListerThings.Add));
+            yield return AccessTools.Method(typeof(ListerThings), nameof(ListerThings.Remove));
+        }
         static void Postfix(ListerThings __instance, Thing t)
         {
             if (Multiplayer.Client == null) return;
@@ -491,10 +499,14 @@ namespace Multiplayer.Client
         }
     }
 
-    [MpPatch(typeof(Pawn_HealthTracker), nameof(Pawn_HealthTracker.MakeDowned))]
-    [MpPatch(typeof(Pawn_HealthTracker), nameof(Pawn_HealthTracker.MakeUndowned))]
+    [HarmonyPatch]
     static class PawnDownedStateChanged
     {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(Pawn_HealthTracker), nameof(Pawn_HealthTracker.MakeDowned));
+            yield return AccessTools.Method(typeof(Pawn_HealthTracker), nameof(Pawn_HealthTracker.MakeUndowned));
+        }
         static void Postfix(Pawn_HealthTracker __instance)
         {
             if (Multiplayer.Client != null)
@@ -535,11 +547,15 @@ namespace Multiplayer.Client
         }
     }
 
-    [MpPatch(typeof(ThingOwner), nameof(ThingOwner.NotifyAdded))]
-    [MpPatch(typeof(ThingOwner), nameof(ThingOwner.NotifyAddedAndMergedWith))]
-    [MpPatch(typeof(ThingOwner), nameof(ThingOwner.NotifyRemoved))]
+    [HarmonyPatch]
     static class ThingOwner_ChangedPatch
     {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(ThingOwner), nameof(ThingOwner.NotifyAdded));
+            yield return AccessTools.Method(typeof(ThingOwner), nameof(ThingOwner.NotifyAddedAndMergedWith));
+            yield return AccessTools.Method(typeof(ThingOwner), nameof(ThingOwner.NotifyRemoved));
+        }
         static void Postfix(ThingOwner __instance)
         {
             if (Multiplayer.Client == null) return;
@@ -569,10 +585,14 @@ namespace Multiplayer.Client
         }
     }
 
-    [MpPatch(typeof(Lord), nameof(Lord.AddPawn))]
-    [MpPatch(typeof(Lord), nameof(Lord.Notify_PawnLost))]
+    [HarmonyPatch]
     static class Lord_TradeChanged
     {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(Lord), nameof(Lord.AddPawn));
+            yield return AccessTools.Method(typeof(Lord), nameof(Lord.Notify_PawnLost));
+        }
         static void Postfix(Lord __instance)
         {
             if (Multiplayer.Client == null) return;
@@ -591,10 +611,14 @@ namespace Multiplayer.Client
         }
     }
 
-    [MpPatch(typeof(MentalStateHandler), nameof(MentalStateHandler.TryStartMentalState))]
-    [MpPatch(typeof(MentalStateHandler), nameof(MentalStateHandler.ClearMentalStateDirect))]
+    [HarmonyPatch]
     static class MentalStateChanged
     {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(MentalStateHandler), nameof(MentalStateHandler.TryStartMentalState));
+            yield return AccessTools.Method(typeof(MentalStateHandler), nameof(MentalStateHandler.ClearMentalStateDirect));
+        }
         static void Postfix(MentalStateHandler __instance)
         {
             if (Multiplayer.Client == null) return;

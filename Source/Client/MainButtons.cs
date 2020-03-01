@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Reflection;
 using UnityEngine;
 using Verse;
 
@@ -305,11 +306,16 @@ namespace Multiplayer.Client
         }
     }
 
-    [MpPatch(typeof(MouseoverReadout), nameof(MouseoverReadout.MouseoverReadoutOnGUI))]
-    [MpPatch(typeof(GlobalControls), nameof(GlobalControls.GlobalControlsOnGUI))]
-    [MpPatch(typeof(WorldGlobalControls), nameof(WorldGlobalControls.WorldGlobalControlsOnGUI))]
+    [HarmonyPatch]
     static class MakeSpaceForReplayTimeline
     {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(MouseoverReadout), nameof(MouseoverReadout.MouseoverReadoutOnGUI));
+            yield return AccessTools.Method(typeof(GlobalControls), nameof(GlobalControls.GlobalControlsOnGUI));
+            yield return AccessTools.Method(typeof(WorldGlobalControls), nameof(WorldGlobalControls.WorldGlobalControlsOnGUI));
+        }
+
         static void Prefix()
         {
             if (Multiplayer.IsReplay)
