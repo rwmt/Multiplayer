@@ -17,7 +17,7 @@ namespace Multiplayer.Client
     {
         static MethodBase TargetMethod()
         {
-            return AccessTools.Method(typeof(GUI), nameof(GUI.skin));
+            return AccessTools.Method(typeof(GUI), "get_" + nameof(GUI.skin));
         }
 
         static bool Prefix(ref GUISkin __result)
