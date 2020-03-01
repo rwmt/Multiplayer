@@ -3,6 +3,7 @@ using Multiplayer.Common;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -50,7 +51,7 @@ namespace Multiplayer.Client
 
     static class ThingCategoryDef_DescendantThingDefsPatch
     {
-        static Dictionary<ThingCategoryDef, HashSet<ThingDef>> values = new Dictionary<ThingCategoryDef, HashSet<ThingDef>>(DefaultComparer<ThingCategoryDef>.Instance);
+        static ConcurrentDictionary<ThingCategoryDef, HashSet<ThingDef>> values = new ConcurrentDictionary<ThingCategoryDef, HashSet<ThingDef>>(DefaultComparer<ThingCategoryDef>.Instance);
 
         static bool Prefix(ThingCategoryDef __instance)
         {
