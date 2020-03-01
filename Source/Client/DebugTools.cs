@@ -18,7 +18,7 @@ using Verse;
 
 namespace Multiplayer.Client
 {
-    [MpPatch(typeof(Dialog_DebugActionsMenu), nameof(Dialog_DebugActionsMenu.DoListingItems))]
+    [HarmonyPatch(typeof(Dialog_DebugActionsMenu), nameof(Dialog_DebugActionsMenu.DoListingItems))]
     [HotSwappable]
     static class MpDebugTools
     {
@@ -341,10 +341,15 @@ namespace Multiplayer.Client
         static void Postfix() => drawing = false;
     }
 
-    [MpPatch(typeof(Dialog_DebugOptionLister), nameof(Dialog_DebugOptionLister.DoGap))]
-    [MpPatch(typeof(Dialog_DebugOptionLister), nameof(Dialog_DebugOptionLister.DoLabel))]
+    [HarmonyPatch]
     static class CancelDebugDrawing
     {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(Dialog_DebugOptionLister), nameof(Dialog_DebugOptionLister.DoGap));
+            yield return AccessTools.Method(typeof(Dialog_DebugOptionLister), nameof(Dialog_DebugOptionLister.DoLabel));
+        }
+
         static bool Prefix() => !Multiplayer.ExecutingCmds;
     }
 
@@ -395,10 +400,15 @@ namespace Multiplayer.Client
         }
     }
 
-    [MpPatch(typeof(Dialog_DebugOptionLister), nameof(Dialog_DebugOptionLister.DebugToolMap))]
-    [MpPatch(typeof(Dialog_DebugOptionLister), nameof(Dialog_DebugOptionLister.DebugToolWorld))]
+    [HarmonyPatch]
     static class DebugToolPatch
     {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(Dialog_DebugOptionLister), nameof(Dialog_DebugOptionLister.DebugToolMap));
+            yield return AccessTools.Method(typeof(Dialog_DebugOptionLister), nameof(Dialog_DebugOptionLister.DebugToolWorld));
+        }
+
         static bool Prefix(Dialog_DebugOptionLister __instance, string label, Action toolAction, ref Container<DebugTool>? __state)
         {
             if (Multiplayer.Client == null) return true;

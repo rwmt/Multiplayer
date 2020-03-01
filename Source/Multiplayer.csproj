@@ -45,7 +45,7 @@
       <HintPath>..\..\..\RimWorldWin64_Data\Managed\UnityEngine.AudioModule.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <PackageReference Include="Lib.Harmony" Version="2.0.0.7" />
+    <PackageReference Include="Lib.Harmony" Version="2.0.0.8" />
   </ItemGroup>
 
   <ItemGroup>

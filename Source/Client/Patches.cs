@@ -2,16 +2,13 @@
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
-using Steamworks;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
-using System.Xml;
 using System.Xml.Linq;
 using UnityEngine;
 using Verse;
@@ -32,15 +29,10 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch]
+    [HarmonyPatch(typeof(MainMenuDrawer), nameof(MainMenuDrawer.DoMainMenuControls))]
     public static class MainMenuMarker
     {
         public static bool drawing;
-
-        static MethodBase TargetMethod()
-        {
-            return AccessTools.Method(typeof(MainMenuDrawer), nameof(MainMenuDrawer.DoMainMenuControls));
-        }
 
         static void Prefix() => drawing = true;
         static void Postfix() => drawing = false;
@@ -76,26 +68,16 @@ namespace Multiplayer.Client
         static void Postfix() => ticking = false;
     }
 
-    [HarmonyPatch]
+    [HarmonyPatch(typeof(MainMenuDrawer), nameof(MainMenuDrawer.DoMainMenuControls))]
     public static class MainMenu_AddHeight
     {
-        static MethodBase TargetMethod()
-        {
-            return AccessTools.Method(typeof(MainMenuDrawer), nameof(MainMenuDrawer.DoMainMenuControls));
-        }
-
         static void Prefix(ref Rect rect) => rect.height += 45f;
     }
 
-    [HarmonyPatch]
+    [HarmonyPatch(typeof(OptionListingUtility), nameof(OptionListingUtility.DrawOptionListing))]
     [HotSwappable]
     public static class MainMenuPatch
     {
-        static MethodBase TargetMethod()
-        {
-            return AccessTools.Method(typeof(OptionListingUtility), nameof(OptionListingUtility.DrawOptionListing));
-        }
-
         static void Prefix(Rect rect, List<ListableOption> optList)
         {
             if (!MainMenuMarker.drawing) return;
@@ -516,8 +498,7 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(Thing))]
-    [HarmonyPatch(nameof(Thing.ExposeData))]
+    [HarmonyPatch(typeof(Thing), nameof(Thing.ExposeData))]
     public static class PawnExposeDataFirst
     {
         public static Container<Map>? state;
@@ -534,8 +515,7 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(Pawn))]
-    [HarmonyPatch(nameof(Pawn.ExposeData))]
+    [HarmonyPatch(typeof(Pawn), nameof(Pawn.ExposeData))]
     public static class PawnExposeDataLast
     {
         static void Postfix()
@@ -549,8 +529,7 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(Pawn_NeedsTracker))]
-    [HarmonyPatch(nameof(Pawn_NeedsTracker.AddOrRemoveNeedsAsAppropriate))]
+    [HarmonyPatch(typeof(Pawn_NeedsTracker), nameof(Pawn_NeedsTracker.AddOrRemoveNeedsAsAppropriate))]
     public static class AddRemoveNeeds
     {
         static void Prefix(Pawn_NeedsTracker __instance)
@@ -559,8 +538,8 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(PawnTweener))]
-    [HarmonyPatch(nameof(PawnTweener.PreDrawPosCalculation))]
+    // why patch it if it's commented out?
+    //[HarmonyPatch(typeof(PawnTweener), nameof(PawnTweener.PreDrawPosCalculation))]
     public static class PreDrawPosCalcPatch
     {
         static void Prefix()
@@ -576,8 +555,7 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(TickManager))]
-    [HarmonyPatch(nameof(TickManager.TickRateMultiplier), MethodType.Getter)]
+    [HarmonyPatch(typeof(TickManager), nameof(TickManager.TickRateMultiplier), MethodType.Getter)]
     public static class TickRatePatch
     {
         static bool Prefix(TickManager __instance, ref float __result)
@@ -616,8 +594,7 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(Log))]
-    [HarmonyPatch(nameof(Log.Warning))]
+    [HarmonyPatch(typeof(Log), nameof(Log.Warning))]
     public static class CrossRefWarningPatch
     {
         private static Regex regex = new Regex(@"^Could not resolve reference to object with loadID ([\w.-]*) of type ([\w.<>+]*)\. Was it compressed away");
@@ -669,8 +646,7 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(KeyBindingDef))]
-    [HarmonyPatch(nameof(KeyBindingDef.IsDownEvent), MethodType.Getter)]
+    [HarmonyPatch(typeof(KeyBindingDef), nameof(KeyBindingDef.IsDownEvent), MethodType.Getter)]
     public static class KeyIsDownPatch
     {
         public static bool? shouldQueue;
@@ -1038,8 +1014,7 @@ namespace Multiplayer.Client
         static bool Prefix(Thing t) => t.def.isSaveable;
     }
 
-    [HarmonyPatch(typeof(ThingWithComps))]
-    [HarmonyPatch(nameof(ThingWithComps.InitializeComps))]
+    [HarmonyPatch(typeof(ThingWithComps), nameof(ThingWithComps.InitializeComps))]
     static class InitializeCompsPatch
     {
         static void Postfix(ThingWithComps __instance)

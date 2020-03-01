@@ -37,34 +37,19 @@ namespace Multiplayer.Client
 
             settings = GetSettings<MpSettings>();
 
-            if (MpVersion.IsDebug) {
-                LongEventHandler.ExecuteWhenFinished(() => {
-                    Log.Message("== Structure == \n" + Sync.syncWorkers.PrintStructure());
-                });
-            }
+            LongEventHandler.ExecuteWhenFinished(() => {
+                // Double Execute ensures it'll run last.
+                LongEventHandler.ExecuteWhenFinished(LatePatches);
+            });
         }
-        /*
-        public static void EarlyMarkNoInline(Assembly asm)
-        {
-            foreach (var type in asm.GetTypes())
-            {
-                MpPatchExtensions.DoMpPatches(null, type)?.ForEach(m => MpUtil.MarkNoInlining(m));
-
-                var harmonyMethods = type.GetHarmonyMethods();
-                if (harmonyMethods?.Count > 0)
-                {
-                    var original = MpUtil.GetOriginalMethod(HarmonyMethod.Merge(harmonyMethods));
-                    if (original != null)
-                        MpUtil.MarkNoInlining(original);
-                }
-            }
-        }*/
 
         private void EarlyPatches()
         {
             // special case?
-            MpUtil.MarkNoInlining(AccessTools.Method(typeof(OutfitForcedHandler), nameof(OutfitForcedHandler.Reset)));
+            // Harmony 2.0 should be handling NoInlining already... test without
+            //MpUtil.MarkNoInlining(AccessTools.Method(typeof(OutfitForcedHandler), nameof(OutfitForcedHandler.Reset)));
 
+            // TODO: 20200229 must evaluate if this is still required
             foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
             {
                 var firstMethod = asm.GetType("Harmony.AccessTools")?.GetMethod("FirstMethod");
@@ -86,17 +71,7 @@ namespace Multiplayer.Client
                 harmony.Patch(AccessTools.Constructor(typeof(ThingSetMaker_Nutrition)), prefix);
             }
 
-            harmony.Patch(
-                AccessTools.Method(typeof(ThingCategoryDef), "get_DescendantThingDefs"),
-                new HarmonyMethod(typeof(ThingCategoryDef_DescendantThingDefsPatch), "Prefix"),
-                new HarmonyMethod(typeof(ThingCategoryDef_DescendantThingDefsPatch), "Postfix")
-            );
-
-            harmony.Patch(
-                AccessTools.Method(typeof(ThingCategoryDef), "get_ThisAndChildCategoryDefs"),
-                new HarmonyMethod(typeof(ThingCategoryDef_ThisAndChildCategoryDefsPatch), "Prefix"),
-                new HarmonyMethod(typeof(ThingCategoryDef_ThisAndChildCategoryDefsPatch), "Postfix")
-            );
+            // TODO: 20200229 Some of the patches below should be moved to late load.
 
             harmony.Patch(
                 AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.ParseAndProcessXML)),
@@ -131,6 +106,27 @@ namespace Multiplayer.Client
                 new HarmonyMethod(typeof(RandPatches), nameof(RandPatches.Prefix)),
                 new HarmonyMethod(typeof(RandPatches), nameof(RandPatches.Postfix))
             );
+        }
+
+        private void LatePatches()
+        {
+            // optimization, cache DescendantThingDefs
+            harmony.Patch(
+                AccessTools.Method(typeof(ThingCategoryDef), "get_DescendantThingDefs"),
+                new HarmonyMethod(typeof(ThingCategoryDef_DescendantThingDefsPatch), "Prefix"),
+                new HarmonyMethod(typeof(ThingCategoryDef_DescendantThingDefsPatch), "Postfix")
+            );
+
+            // optimization, cache ThisAndChildCategoryDefs
+            harmony.Patch(
+                AccessTools.Method(typeof(ThingCategoryDef), "get_ThisAndChildCategoryDefs"),
+                new HarmonyMethod(typeof(ThingCategoryDef_ThisAndChildCategoryDefsPatch), "Prefix"),
+                new HarmonyMethod(typeof(ThingCategoryDef_ThisAndChildCategoryDefsPatch), "Postfix")
+            );
+
+            if (MpVersion.IsDebug) {
+                Log.Message("== Structure == \n" + Sync.syncWorkers.PrintStructure());
+            }
         }
 
         private string slotsBuffer;
@@ -228,16 +224,21 @@ namespace Multiplayer.Client
 
     static class LoadableXmlAssetCtorPatch
     {
-        public static ConcurrentBag<Pair<LoadableXmlAsset, int>> xmlAssetHashes = new ConcurrentBag<Pair<LoadableXmlAsset, int>>();
+        static ConcurrentBag<Pair<LoadableXmlAsset, int>> xmlAssetHashes = new ConcurrentBag<Pair<LoadableXmlAsset, int>>();
 
         static void Prefix(LoadableXmlAsset __instance, string contents)
         {
             xmlAssetHashes.Add(new Pair<LoadableXmlAsset, int>(__instance, GenText.StableStringHash(contents)));
         }
 
-        public static void clearHashBag()
+        public static int AggregateHash(ModContentPack mod)
         {
-            xmlAssetHashes = new ConcurrentBag<Pair<LoadableXmlAsset, int>>();
+            return xmlAssetHashes.Where(p => p.First.mod == mod).Select(p => p.Second).AggregateHash();
+        }
+
+        public static void ClearHashBag()
+        {
+            xmlAssetHashes = null;
         }
     }
 

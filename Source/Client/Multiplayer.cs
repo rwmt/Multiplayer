@@ -1,32 +1,18 @@
 ﻿//extern alias zip;
 
-using HarmonyLib;
-using Ionic.Crc;
-using Ionic.Zlib;
-using LiteNetLib;
-using Multiplayer.Common;
-using RimWorld;
-using RimWorld.Planet;
-using Steamworks;
 using System;
 using System.Collections.Generic;
-using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.IO;
-using System.IO.Pipes;
 using System.Linq;
-using System.Net;
-using System.Net.Sockets;
 using System.Reflection;
-using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
-using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading;
-using System.Xml;
+using HarmonyLib;
+using Multiplayer.Common;
+using RimWorld;
 using UnityEngine;
 using Verse;
-using Verse.Profile;
 using Verse.Sound;
 using Verse.Steam;
 
@@ -131,6 +117,12 @@ namespace Multiplayer.Client
             catch (Exception e)
             {
                 Log.Error($"Exception during Sync initialization: {e}");
+            }
+
+            try {
+                harmony.DoAllMpPatches();
+            } catch (Exception e) {
+                Log.Error($"Exception during MpPatching: {e}");
             }
 
             try
@@ -495,13 +487,13 @@ namespace Multiplayer.Client
                 var hashes = new ModHashes()
                 {
                     assemblyHash = mod.ModAssemblies().CRC32(),
-                    xmlHash = LoadableXmlAssetCtorPatch.xmlAssetHashes.Where(p => p.First.mod == mod).Select(p => p.Second).AggregateHash(),
+                    xmlHash = LoadableXmlAssetCtorPatch.AggregateHash(mod),
                     aboutHash = new DirectoryInfo(Path.Combine(mod.RootDir, "About")).GetFiles().CRC32()
                 };
                 enabledModAssemblyHashes.Add(hashes);
             }
 
-            LoadableXmlAssetCtorPatch.clearHashBag();
+            LoadableXmlAssetCtorPatch.ClearHashBag();
         }
 
         private static DefInfo GetDefInfo<T>(IEnumerable<T> types, Func<T, int> hash)
