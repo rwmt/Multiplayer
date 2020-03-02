@@ -88,7 +88,7 @@ namespace Multiplayer.Client
 
         private static MethodInfo GetDefByIdMethod = AccessTools.Method(typeof(Sync), nameof(Sync.GetDefById));
 
-        private static T GetDefById<T>(ushort id) where T : Def, new() => DefDatabase<T>.GetByShortHash(id);
+        public static T GetDefById<T>(ushort id) where T : Def => DefDatabase<T>.GetByShortHash(id);
 
         public static object ReadSyncObject(ByteReader data, SyncType syncType)
         {
