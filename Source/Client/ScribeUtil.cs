@@ -73,8 +73,7 @@ namespace Multiplayer.Client
 
         public static bool loading;
 
-        public static Type XmlNodeWriter = AccessTools.TypeByName("System.Xml.XmlNodeWriter");
-        public static PropertyInfo GetDocumentProperty = AccessTools.Property(XmlNodeWriter, "Document");
+        static string filename;
 
         public static void StartWriting(bool indent = false)
         {
@@ -105,20 +104,17 @@ namespace Multiplayer.Client
 
         public static void StartWritingToDoc()
         {
-            Scribe.mode = LoadSaveMode.Saving;
-            XmlWriter writer = (XmlWriter)Activator.CreateInstance(XmlNodeWriter);
-            Scribe.saver.writer = writer;
-            writer.WriteStartDocument();
+            filename = Guid.NewGuid().ToString() + ".rws";
+
+            Scribe.saver.InitSaving(Path.GetTempPath() + filename, "savegame");
         }
 
         public static XmlDocument FinishWritingToDoc()
         {
-            XmlWriter writer = Scribe.saver.writer;
-            XmlDocument doc = (XmlDocument)GetDocumentProperty.GetValue(writer, null);
-            Scribe.saver.writer = null;
-            Scribe.saver.ExitNode();
-            writer.WriteEndDocument();
             Scribe.saver.FinalizeSaving();
+
+            var doc = new XmlDocument();
+            doc.Load(Path.GetTempPath() + filename);
             return doc;
         }
 
