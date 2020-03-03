@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<LanguageData>
+
+  <MpSimulating>Симуляція</MpSimulating>
+  <MpSimulatingServer>Симуляція сервера</MpSimulatingServer>
+  <MpLoading>Завантаження</MpLoading>
+  <MpSaving>Збереження</MpSaving>
+  
+  <MpInvalidPort>Невірний порт</MpInvalidPort>
+  <MpInvalidAddress>Невірний адрес</MpInvalidAddress>
+  <MpInvalidGameName>Поганий нікнейм</MpInvalidGameName>
+  
+  <MpWrongProtocol>Невірна версія протокола</MpWrongProtocol>
+  <MpWrongModVersionInfo>Переконайтеся, що ви використовуєте однакові версії Мультіплеер з хостом.</MpWrongModVersionInfo>
+  
+  <MpWrongDefs>Невідповідність визначень в моді</MpWrongDefs>
+  <MpWrongDefsInfo>Переконайтеся що ваші встановлені моди, їх версії і порядок збігаються з такими у хоста.</MpWrongDefsInfo>
+  <MpModList>Список модів</MpModList>
+  <MpSeeModList>Подивитися список модів</MpSeeModList>
+  
+  <MpServerClosed>Сервер закритий</MpServerClosed>
+  <MpServerFull>Сервер повний</MpServerFull>
+  <MpKicked>вас кікнулі</MpKicked>
+
+  <MpInvalidUsernameAlreadyPlaying>Користувач з таким ім'ям вже є онлайн</MpInvalidUsernameAlreadyPlaying>
+  <MpInvalidUsernameChars>В імені користувача містяться неприпустимі символи</MpInvalidUsernameChars>
+  <MpInvalidUsernameLength>Неприпустима довжина імені користувача</MpInvalidUsernameLength>
+  <MpChangeUsernameInfo>Ви можете змінити ім'я користувача.</MpChangeUsernameInfo>
+  
+  <MpPlayerConnected>{0} увійшов</MpPlayerConnected>
+  <MpPlayerDisconnected>{0} вийшов</MpPlayerDisconnected>
+  
+  <MpReplayOutdated>(застаріла)</MpReplayOutdated>
+  <MpReplayOutdatedDesc1>Цей реплєї був зроблений для версії протоколу {0}, а ваша версія {1}.</MpReplayOutdatedDesc1>
+  <MpReplayOutdatedDesc2>Реплєї може виконуватися неправильно..</MpReplayOutdatedDesc2>
+  <MpReplayOutdatedDesc3>Можливе несумісності вказані в списку релізів.</MpReplayOutdatedDesc3>
+  <MpReplayOutdatedDesc4>Даний файл містить додаткову інформацію і хостити з ним можливо.</MpReplayOutdatedDesc4>
+  
+  <MpServerCloseConfirmation>Ви впевнені що хочете закрити сервер? Незбережений прогрес буде втрачено.</MpServerCloseConfirmation>
+  
+  <MpHostServer>хостити сервер</MpHostServer>
+  <MpSaveReplay>зберегти реплей</MpSaveReplay>
+  
+  <MpConvert>Конвертувати в сінглплеєр</MpConvert>
+  <MpConverting>Конвертація</MpConverting>
+  
+  <MpUsername>Ім'я користувача</MpUsername>
+  <MpShowPlayerCursors>Показувати курсори користувачів</MpShowPlayerCursors>
+  <MpAutoAcceptSteam>Авто-прийняття Steam</MpAutoAcceptSteam>
+  <MpAutoAcceptSteamDesc>Автоматично приймати всі вхідні запити на з'єднання через Steam.</MpAutoAcceptSteamDesc>
+  <MpTransparentChat>Відкритий чат</MpTransparentChat>
+  
+  <MpAutosaveSlots>Слоти автозбереження</MpAutosaveSlots>
+  <MpAutosaveSlotsDesc>Скільки файлів автозбереження вмістити./MpAutosaveSlotsDesc>
+  
+  <MpTraderLeavesIn>Покине через {0}</MpTraderLeavesIn>
+  
+  <MpChatButton>Чат</MpChatButton>
+  <MpTradingButton>Торгівля</MpTradingButton>
+  
+  <MpChatPlayers>Гравці ({0}):</MpChatPlayers>
+  <MpSend>Відіслати</MpSend>
+  <MpSteamAcceptTitle>Прийняти Steam гравців</MpSteamAcceptTitle>
+  <MpSteamAcceptDesc>Нажміть щоб прийняти</MpSteamAcceptDesc>
+  <MpSteamAccepted>Гравець не прийнят</MpSteamAccepted>
+  
+  <MpConnectingTo>З'єднання з {0}:{1}</MpConnectingTo>
+  <MpConnected>З'єднаний.</MpConnected>
+  <MpDownloading>Завантаження ({0}%)</MpDownloading>
+  
+  <MpSteamConnectingTo>З'єднання з грою, яку хостить {0}</MpSteamConnectingTo>
+  <MpSteamConnectingWaiting>Очікування прийняття хостом</MpSteamConnectingWaiting>
+  
+  <MpTicksBehind>{0} тактів різниця між вами та хостом.</MpTicksBehind>
+  <MpLowerGameSpeed>Необхідно зменшети швидкість гри.</MpLowerGameSpeed>
+  <MpForceCatchUp>Нажміть щоб force catch up.</MpForceCatchUp>
+  
+  <MpDesynced>Гра десинхронізована.</MpDesynced>
+  <MpTryResync>Спроба синхронізації.</MpTryResync>
+  
+  <MpSaveReplayAs>Зберегти як реплей</MpSaveReplayAs>
+  <MpWillOverwrite>Буде перезаписан</MpWillOverwrite>
+  <MpReplaySaved>Реплей збережений</MpReplaySaved>
+  
+  <MpGameName>Назва гри</MpGameName>
+  <MpMaxPlayers>Макс. гравців</MpMaxPlayers>
+  <MpAutosaveEvery>Автозбереження кожні</MpAutosaveEvery>
+  <MpAutosaveDays>днів</MpAutosaveDays>
+  <MpLanDesc1>Бродксастити сесію на LAN.</MpLanDesc1>
+  <MpLanDesc2>Вирахованний LAN адрес: {0}</MpLanDesc2>
+  <MpArbiterDesc>Гра, Вона запускається в треє і допомагає з десинхронізацією.</MpArbiterDesc>
+  <MpAsyncTimeDesc>Розділити контроль часу для кожної карти і планети.</MpAsyncTimeDesc>
+  <MpExperimentalFeature>експериментальна фіча</MpExperimentalFeature>
+  
+  <MpHostButton>Хостити</MpHostButton>
+  <MpWatchReplay>Наблюдати</MpWatchReplay>
+  <MpNothingSelected>Нічего не вибрано</MpNothingSelected>
+  <MpNoSaves>Мультіплеєр можливо бути запущено тільки с вже існуючими сейвами</MpNoSaves>
+  
+  <MpHostIngame>Хостити дану гру</MpHostIngame>
+  <MpHostReplay>Хостити із реплея</MpHostReplay>
+  <MpHostSavefile>Хостити із файла збережень</MpHostSavefile>
+  
+  <MpJoinButton>Увійти</MpJoinButton>
+  <MpConnectButton>Приєднатися</MpConnectButton>
+  <MpLanSearching>Пошук</MpLanSearching>
+  
+  <MpNotConnectedToSteam>Нема з'єднання зі Steam</MpNotConnectedToSteam>
+  <MpNoFriendsPlaying>Ніхто з друзів не грає в RimWorld</MpNoFriendsPlaying>
+  <MpPlayingRimWorld>Грає в RimWorld</MpPlayingRimWorld>
+  <MpNotInMultiplayer>Не в мультиплеєрі</MpNotInMultiplayer>
+  
+  <MpPauseOnAutosave>Pause on Autosave</MpPauseOnAutosave>
+  <MpAppendNameToAutosave>Append Name to Autosave</MpAppendNameToAutosave>
+  <MpPauseAutosaveCounter>Pause autosave counter</MpPauseAutosaveCounter>
+  <MpPauseAutosaveCounterDesc>Pauses the counter along with the game preventing autosaving while time is paused.</MpPauseAutosaveCounterDesc>
+  <MpLan>LAN</MpLan>
+  <MpDirect>Пряме</MpDirect>
+  <MpSteam>Steam</MpSteam>
+  <MpHostTab>Хостити</MpHostTab>
+  
+  <MpMultiplayer>Мультіплеєр</MpMultiplayer>
+  <MpSingleplayer>Сінглплеєр</MpSingleplayer>
+  
+  <MpNotAvailable>Недоступно в мультиплеєрі.</MpNotAvailable>
+  <MpCallingFactionNotAvailable>Називати чужі фракції недоступно в мультиплеєрі.</MpCallingFactionNotAvailable>
+  
+  <MpAggressiveTicking>Агресивні такти</MpAggressiveTicking>
+  <MpAggressiveTickingDesc>Завжди намагатися автоматично наздоганяти сервер ціною частоти кадрів.</MpAggressiveTickingDesc>
+  
+</LanguageData>
