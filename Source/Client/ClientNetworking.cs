@@ -236,10 +236,9 @@ namespace Multiplayer.Client
 
             try
             {
-                Multiplayer.session.arbiter = Process.Start(
-                    arbiterInstancePath,
-                    args
-                );
+                ProcessStartInfo start = new ProcessStartInfo(arbiterInstancePath,args);
+                start.CreateNoWindow = false;
+                Multiplayer.session.arbiter = Process.Start(start);
             }
             catch (Exception ex)
             {
