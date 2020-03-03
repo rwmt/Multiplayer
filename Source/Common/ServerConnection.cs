@@ -340,8 +340,8 @@ namespace Multiplayer.Common
 
             writer.WriteInt32(Player.id);
             writer.WriteBool(reset);
-            writer.WritePrefixedInts(data.ReadPrefixedInts(100));
-            writer.WritePrefixedInts(data.ReadPrefixedInts(100));
+            writer.WritePrefixedInts(data.ReadPrefixedInts(200));
+            writer.WritePrefixedInts(data.ReadPrefixedInts(200));
 
             Server.SendToAll(Packets.Server_Selected, writer.ToArray(), excluding: Player);
         }
