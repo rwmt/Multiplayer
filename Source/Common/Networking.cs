@@ -521,7 +521,7 @@ namespace Multiplayer.Common
 
             if (len < 0)
                 throw new ReaderException($"Int array length ({len}<0)");
-            if (len >= maxLen)
+            if (len > maxLen)
                 throw new ReaderException($"Int array too long ({len}>{maxLen})");
 
             int[] result = new int[len];
