@@ -222,8 +222,19 @@ namespace Multiplayer.Client
 
             Multiplayer.LocalServer.SetupArbiterConnection();
 
-            string args = $"-batchmode -nographics -arbiter -logfile arbiter_log.txt -connect=127.0.0.1:{Multiplayer.LocalServer.ArbiterPort}";
+            string args = $"";
 
+            //I am not sure why i have to do it this way but any other way of appending or or other modification leads to it not working.
+            if (Application.platform  == RuntimePlatform.WindowsPlayer)
+            {
+                //Verse.Log.Message("Applying Fix.");
+                args = $"-batchmode -nographics -force-gfx-direct -arbiter -logfile arbiter_log.txt -connect=127.0.0.1:{Multiplayer.LocalServer.ArbiterPort}";
+            }
+            else
+            {
+                //Verse.Log.Message("Not Applying Fix.");
+                args = $"-batchmode -nographics -arbiter -logfile arbiter_log.txt -connect=127.0.0.1:{Multiplayer.LocalServer.ArbiterPort}";
+            }
             if (GenCommandLine.TryGetCommandLineArg("savedatafolder", out string saveDataFolder))
                 args += $" -savedatafolder=\"{saveDataFolder}\"";
 
