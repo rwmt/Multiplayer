@@ -218,6 +218,11 @@ namespace Multiplayer.Client
                     return res;
                 }
 
+                if (type.GetGenericTypeDefinition() == typeof(Predicate<>))
+                {
+                    return null;
+                }
+
                 throw new SerializationException("No reader for type " + type);
             }
             catch (Exception e)
@@ -395,6 +400,10 @@ namespace Multiplayer.Client
                 {
                     syncWorkerEntry.Invoke(new WritingSyncWorker(data), ref obj);
 
+                    return;
+                }
+
+                if (type.GetGenericTypeDefinition() == typeof(Predicate<>)) {
                     return;
                 }
 
