@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net472</TargetFramework>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -13,6 +13,7 @@
     <PackageReference Include="RimWorld.MultiplayerAPI" Version="0.2.0" />
     <PackageReference Include="LiteNetLib" Version="0.8.3.1" />
     <PackageReference Include="DotNetZip.Reduced" Version="1.9.1.8" />
+
     <Reference Include="Assembly-CSharp-firstpass">
       <HintPath>..\..\..\RimWorldWin64_Data\Managed\Assembly-CSharp-firstpass.dll</HintPath>
       <Private>False</Private>
@@ -47,6 +48,21 @@
     </Reference>
     <PackageReference Include="Lib.Harmony" Version="2.0.0.8" />
   </ItemGroup>
+  <Target Name="Publicise" BeforeTargets="BeforeBuild">
+    <DownloadFile Condition="!Exists('$(MSBuildProjectDirectory)\Publicise-1.0.0.zip')"
+        SourceUrl="https://github.com/rwmt/Publicise/releases/download/1.0.0/Publicise-1.0.0.zip"
+        DestinationFolder="$(MSBuildProjectDirectory)">
+      <Output TaskParameter="DownloadedFile" ItemName="Content" />
+    </DownloadFile>
+    <Unzip
+			Condition="!Exists('$(MSBuildProjectDirectory)\Publicise.exe') Or !Exists('$(MSBuildProjectDirectory)\dnlib.dll')"
+            SourceFiles="$(MSBuildProjectDirectory)\Publicise-1.0.0.zip"
+            DestinationFolder="$(MSBuildProjectDirectory)"
+            OverwriteReadOnlyFiles="true"
+        />
+    <Exec WorkingDirectory="$(MSBuildProjectDirectory)" Command="Publicise.exe  ..\..\..\RimWorldWin64_Data\Managed\Assembly-CSharp.dll ..\..\..\RimWorldWin64_Data\Managed\" />
+
+  </Target>
 
   <ItemGroup>
     <Compile Remove="Client\Blueprints.cs" />
