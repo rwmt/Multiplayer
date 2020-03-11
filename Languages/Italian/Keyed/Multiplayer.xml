@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <LanguageData>
 
-  <MpSimulating>Simulazione</MpSimulating>
-  <MpSimulatingServer>Simulazione del server</MpSimulatingServer>
+  <MpSimulating>Simulando</MpSimulating>
+  <MpSimulatingServer>Simulando il server</MpSimulatingServer>
   <MpLoading>Caricamento in corso</MpLoading>
   <MpSaving>Salvataggio</MpSaving>
   
   <MpInvalidPort>Porta non valida</MpInvalidPort>
   <MpInvalidAddress>Indirizzo non valido</MpInvalidAddress>
-  <MpInvalidGameName>Nome del gioco non valido</MpInvalidGameName>
+  <MpInvalidGameName>Nome della partita non valido</MpInvalidGameName>
   
   <MpWrongProtocol>Versione protocollo errata</MpWrongProtocol>
   <MpWrongMultiplayerVersionInfo>Il server è ospitato su Multiplayer {0} (protocollo {1}).</MpWrongMultiplayerVersionInfo>
@@ -20,21 +20,21 @@
   
   <MpServerClosed>Server chiuso</MpServerClosed>
   <MpServerFull>Il server è pieno</MpServerFull>
-  <MpKicked>Sei stato preso a calci</MpKicked>
+  <MpKicked>Sei stato espulso</MpKicked>
 
   <MpInvalidUsernameAlreadyPlaying>Nome utente già online</MpInvalidUsernameAlreadyPlaying>
   <MpInvalidUsernameChars>Il nome utente ha caratteri non validi</MpInvalidUsernameChars>
   <MpInvalidUsernameLength>Il nome utente ha una lunghezza non valida</MpInvalidUsernameLength>
   <MpChangeUsernameInfo>Puoi modificare il tuo nome utente nelle impostazioni della mod.</MpChangeUsernameInfo>
   
-  <MpPlayerConnected>{0} ha aderito</MpPlayerConnected>
-  <MpPlayerDisconnected>{0} se n'è andato</MpPlayerDisconnected>
+  <MpPlayerConnected>{0} si è connesso</MpPlayerConnected>
+  <MpPlayerDisconnected>{0} si è disconnesso</MpPlayerDisconnected>
   
-  <MpReplayOutdated>(Antiquato)</MpReplayOutdated>
+  <MpReplayOutdated>(Vecchio)</MpReplayOutdated>
   <MpReplayOutdatedDesc1>Questo replay è stato creato per la versione del protocollo {0}, ma stai eseguendo la versione {1}.</MpReplayOutdatedDesc1>
   <MpReplayOutdatedDesc2>Il replay potrebbe non essere riprodotto correttamente.</MpReplayOutdatedDesc2>
   <MpReplayOutdatedDesc3>Le possibili incompatibilità sono elencate con la cronologia delle versioni.</MpReplayOutdatedDesc3>
-  <MpReplayOutdatedDesc4>Questo file contiene informazioni aggiuntive e l'hosting da esso dovrebbe funzionare correttamente.</MpReplayOutdatedDesc4>
+  <MpReplayOutdatedDesc4>Questo file contiene informazioni aggiuntive e ospitare un server da esso dovrebbe funzionare correttamente.</MpReplayOutdatedDesc4>
   
   <MpServerCloseConfirmation>Sei sicuro di voler chiudere il server? I progressi non salvati andranno persi.</MpServerCloseConfirmation>
   
@@ -42,40 +42,40 @@
   <MpSaveReplay>Salva replay</MpSaveReplay>
   
   <MpConvert>Converti in giocatore singolo</MpConvert>
-  <MpConverting>Conversione</MpConverting>
+  <MpConverting>Convertendo</MpConverting>
   
   <MpUsername>Nome utente</MpUsername>
-  <MpShowPlayerCursors>Mostra i cursori del giocatore</MpShowPlayerCursors>
-  <MpAutoAcceptSteam>Accetta automaticamente Steam</MpAutoAcceptSteam>
+  <MpShowPlayerCursors>Mostra i cursori dei giocatori</MpShowPlayerCursors>
+  <MpAutoAcceptSteam>Accetta automaticamente da Steam</MpAutoAcceptSteam>
   <MpAutoAcceptSteamDesc>Accetta automaticamente qualsiasi richiesta di connessione Steam in arrivo.</MpAutoAcceptSteamDesc>
   <MpTransparentChat>Chat trasparente</MpTransparentChat>
   
   <MpAutosaveSlots>Slot di salvataggio automatico</MpAutosaveSlots>
   <MpAutosaveSlotsDesc>Quanti file di salvataggio automatico conservare.</MpAutosaveSlotsDesc>
   
-  <MpTraderLeavesIn>Foglie tra {0}</MpTraderLeavesIn>
+  <MpTraderLeavesIn>Parte tra {0}</MpTraderLeavesIn>
   
-  <MpChatButton>Chiacchieraret</MpChatButton>
+  <MpChatButton>Chiacchiera</MpChatButton>
   <MpTradingButton>Commercio</MpTradingButton>
   
   <MpChatPlayers>Giocatori ({0}):</MpChatPlayers>
-  <MpSend>Spedire</MpSend>
+  <MpSend>Manda</MpSend>
   <MpSteamAcceptTitle>Accetta i giocatori di Steam</MpSteamAcceptTitle>
   <MpSteamAcceptDesc>Clicca per accettare</MpSteamAcceptDesc>
   <MpSteamAccepted>Il giocatore è stato accettato</MpSteamAccepted>
   
   <MpConnectingTo>Connessione a {0}: {1}</MpConnectingTo>
-  <MpConnected>Collegato.</MpConnected>
-  <MpDownloading>Scaricamento ({0}%)</MpDownloading>
+  <MpConnected>Connesso.</MpConnected>
+  <MpDownloading>Scaricando ({0}%)</MpDownloading>
   
-  <MpSteamConnectingTo>Connessione a un gioco ospitato da {0}</MpSteamConnectingTo>
+  <MpSteamConnectingTo>Connessione a una partita ospitatata da {0}</MpSteamConnectingTo>
   <MpSteamConnectingWaiting>In attesa che l'host accetti</MpSteamConnectingWaiting>
   
-  <MpTicksBehind>Hai {0} segni di spunta dietro.</MpTicksBehind>
-  <MpLowerGameSpeed>Valuta di ridurre la velocità di gioco.</MpLowerGameSpeed>
+  <MpTicksBehind>Sei indietro di {0} Tick.</MpTicksBehind>
+  <MpLowerGameSpeed>Considera ridurre la velocità di gioco.</MpLowerGameSpeed>
   <MpForceCatchUp>Fai clic per forzare il recupero.</MpForceCatchUp>
   
-  <MpDesynced>Lo stato del gioco è stato desincronizzato.</MpDesynced>
+  <MpDesynced>Lo stato del gioco si è desincronizzato.</MpDesynced>
   <MpTryResync>Prova a risincronizzare</MpTryResync>
   
   <MpSaveReplayAs>Salva replay come</MpSaveReplayAs>
@@ -86,28 +86,28 @@
   <MpMaxPlayers>Giocatori massimi</MpMaxPlayers>
   <MpAutosaveEvery>Salvataggio automatico ogni</MpAutosaveEvery>
   <MpAutosaveDays>giorni</MpAutosaveDays>
-  <MpLanDesc1>Trasmetti il gioco alla tua rete locale.</MpLanDesc1>
+  <MpLanDesc1>Trasmetti il gioco sulla tua rete locale.</MpLanDesc1>
   <MpLanDesc2>Indirizzo LAN risolto: {0}</MpLanDesc2>
-  <MpArbiterDesc>Un'istanza di gioco che viene eseguita in background e aiuta nella risoluzione desincronizzata.</MpArbiterDesc>
-  <MpAsyncTimeDesc>Controlli temporali separati per ciascuna mappa e il pianeta.</MpAsyncTimeDesc>
+  <MpArbiterDesc>Un'istanza di gioco che viene eseguita in background e aiuta nella risoluzione di desincronizzazioni.</MpArbiterDesc>
+  <MpAsyncTimeDesc>Controlli temporali separati per ciascuna mappa e per il pianeta.</MpAsyncTimeDesc>
   <MpExperimentalFeature>Caratteristica sperimentale</MpExperimentalFeature>
   
-  <MpHostButton>Ospite</MpHostButton>
-  <MpWatchReplay>Orologio</MpWatchReplay>
+  <MpHostButton>Ospita</MpHostButton>
+  <MpWatchReplay>Guarda</MpWatchReplay>
   <MpNothingSelected>Niente di selezionato</MpNothingSelected>
   <MpNoSaves>Il multiplayer può essere giocato solo da salvataggi già esistenti</MpNoSaves>
   
-  <MpHostIngame>Presentatore di questo gioco</MpHostIngame>
-  <MpHostReplay>Host da un replay</MpHostReplay>
-  <MpHostSavefile>Host da un file di salvataggio</MpHostSavefile>
+  <MpHostIngame>Ospita questa partita</MpHostIngame>
+  <MpHostReplay>Ospita da un replay</MpHostReplay>
+  <MpHostSavefile>Ospita da un file di salvataggio</MpHostSavefile>
   
-  <MpJoinButton>Aderire</MpJoinButton>
-  <MpConnectButton>Collegare</MpConnectButton>
-  <MpLanSearching>Ricerca</MpLanSearching>
+  <MpJoinButton>Unisciti</MpJoinButton>
+  <MpConnectButton>Connetti</MpConnectButton>
+  <MpLanSearching>Cercando</MpLanSearching>
   
   <MpNotConnectedToSteam>Non connesso a Steam</MpNotConnectedToSteam>
   <MpNoFriendsPlaying>Nessun amico sta giocando a RimWorld</MpNoFriendsPlaying>
-  <MpPlayingRimWorld>Giocare a RimWorld</MpPlayingRimWorld>
+  <MpPlayingRimWorld>Giocando a RimWorld</MpPlayingRimWorld>
   <MpNotInMultiplayer>Non in multiplayer</MpNotInMultiplayer>
   
   <MpPauseOnAutosave>Pausa su salvataggio automatico</MpPauseOnAutosave>
@@ -117,7 +117,7 @@
   <MpLan>LAN</MpLan>
   <MpDirect>Diretto</MpDirect>
   <MpSteam>Steam</MpSteam>
-  <MpHostTab>Ospite</MpHostTab>
+  <MpHostTab>Ospita</MpHostTab>
   
   <MpMultiplayer>Multigiocatore</MpMultiplayer>
   <MpSingleplayer>Giocatore singolo</MpSingleplayer>
