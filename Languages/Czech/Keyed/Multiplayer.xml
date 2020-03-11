@@ -19,7 +19,7 @@
    <MpInvalidUsernameAlreadyPlaying>Hráč s tímto uživatelským jménem je již připojen</MpInvalidUsernameAlreadyPlaying>
    <MpInvalidUsernameChars>Uživatelské jméno obsahuje neplatné znaky</MpInvalidUsernameChars>
    <MpInvalidUsernameLength>Uživatelské jméno má neplatnou délku</MpInvalidUsernameLength>
-   <MpChangeUsernameInfo>Můžete změnit své uživatelské jméno v nastavení mod.</MpChangeUsernameInfo>
+   <MpChangeUsernameInfo>Své uživatelské jméno můžete změnit v nastavení módu.</MpChangeUsernameInfo>
    <MpPlayerConnected>Připojil se {0}</MpPlayerConnected>
    <MpPlayerDisconnected>{0} odešel</MpPlayerDisconnected>
    <MpReplayOutdated>(Zastaralý)</MpReplayOutdated>
