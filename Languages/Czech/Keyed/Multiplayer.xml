@@ -11,7 +11,7 @@
    <MpWrongMultiplayerVersionInfo>Server je hostován na multiplayeri {0} (protokol {1})</MpWrongMultiplayerVersionInfo>
    <MpWrongDefs>Neshoda definic modů</MpWrongDefs>
    <MpWrongDefsInfo>Ujistěte se, že nainstalované režimy, jejich verze a pořadí odpovídají hostitelským.</MpWrongDefsInfo>
-   <MpModList>Seznam mod</MpModList>
+   <MpModList>Seznam módů</MpModList>
    <MpSeeModList>Viz seznam mod</MpSeeModList>
    <MpServerClosed>Server uzavřen</MpServerClosed>
    <MpServerFull>Server plný</MpServerFull>
