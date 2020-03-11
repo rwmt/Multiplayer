@@ -92,7 +92,7 @@
    <MpSteam>Steam</MpSteam>
    <MpHostTab>Hostitel</MpHostTab>
    <MpMultiplayer>Multiplayer</MpMultiplayer>
-   <MpSingleplayer>Singleplayer</MpSingleplayer>
+   <MpSingleplayer>Hra jednoho hráče</MpSingleplayer>
    <MpNotAvailable>Není k dispozici v multiplayeri.</MpNotAvailable>
    <MpCallingFactionNotAvailable>Volání dalších frakcí není v současné době k dispozici pro více hráčů.</MpCallingFactionNotAvailable>
    <MpAggressiveTicking>Agresivní tikání</MpAggressiveTicking>
