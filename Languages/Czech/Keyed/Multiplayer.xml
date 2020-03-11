@@ -10,7 +10,7 @@
    <MpWrongProtocol>Nesprávná verze protokolu</MpWrongProtocol>
    <MpWrongMultiplayerVersionInfo>Server je založen na verzi {0} (protokol {1}) Multiplayer módu</MpWrongMultiplayerVersionInfo>
    <MpWrongDefs>Neshoda definic modů</MpWrongDefs>
-   <MpWrongDefsInfo>Ujistěte se, že nainstalované režimy, jejich verze a pořadí odpovídají hostitelským.</MpWrongDefsInfo>
+   <MpWrongDefsInfo>Ujistěte se, že nainstalované módy, jejich verze a pořadí se shodují hostitelem.</MpWrongDefsInfo>
    <MpModList>Seznam módů</MpModList>
    <MpSeeModList>Viz seznam módů</MpSeeModList>
    <MpServerClosed>Server uzavřen</MpServerClosed>
