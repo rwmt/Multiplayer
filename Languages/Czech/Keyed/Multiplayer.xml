@@ -21,7 +21,7 @@
    <MpInvalidUsernameLength>Uživatelské jméno má neplatnou délku</MpInvalidUsernameLength>
    <MpChangeUsernameInfo>Své uživatelské jméno můžete změnit v nastavení módu.</MpChangeUsernameInfo>
    <MpPlayerConnected>Hráč {0} se připojil</MpPlayerConnected>
-   <MpPlayerDisconnected>{0} odešel</MpPlayerDisconnected>
+   <MpPlayerDisconnected>Hráč {0} se odpojil</MpPlayerDisconnected>
    <MpReplayOutdated>(Zastaralý)</MpReplayOutdated>
    <MpReplayOutdatedDesc1>Toto přehrání bylo provedeno pro verzi protokolu {0}, ale používáte verzi {1}.</MpReplayOutdatedDesc1>
    <MpReplayOutdatedDesc2>Přehrávání se nemusí přehrát správně.</MpReplayOutdatedDesc2>
