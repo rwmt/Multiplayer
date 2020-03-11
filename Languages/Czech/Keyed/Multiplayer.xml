@@ -44,7 +44,7 @@
    <MpTradingButton>Obchodování</MpTradingButton>
    <MpChatPlayers>Hráči ({0}):</MpChatPlayers>
    <MpSend>Poslat</MpSend>
-   <MpSteamAcceptTitle>Přijměte hráče Steam</MpSteamAcceptTitle>
+   <MpSteamAcceptTitle>Příjmout hráče ze Steamu</MpSteamAcceptTitle>
    <MpSteamAcceptDesc>Klepnutím přijměte</MpSteamAcceptDesc>
    <MpSteamAccepted>Hráč byl přijat</MpSteamAccepted>
    <MpConnectingTo>Připojování k {0}: {1}</MpConnectingTo>
