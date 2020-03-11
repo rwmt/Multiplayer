@@ -15,7 +15,7 @@
    <MpSeeModList>Viz seznam módů</MpSeeModList>
    <MpServerClosed>Server uzavřen</MpServerClosed>
    <MpServerFull>Server je plný</MpServerFull>
-   <MpKicked>Byl jsi kopl</MpKicked>
+   <MpKicked>Byl jsi vyhozen</MpKicked>
    <MpInvalidUsernameAlreadyPlaying>Hráč s tímto uživatelským jménem je již připojen</MpInvalidUsernameAlreadyPlaying>
    <MpInvalidUsernameChars>Uživatelské jméno obsahuje neplatné znaky</MpInvalidUsernameChars>
    <MpInvalidUsernameLength>Uživatelské jméno má neplatnou délku</MpInvalidUsernameLength>
