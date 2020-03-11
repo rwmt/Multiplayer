@@ -93,7 +93,7 @@
    <MpHostTab>Hostitel</MpHostTab>
    <MpMultiplayer>Multiplayer</MpMultiplayer>
    <MpSingleplayer>Hra jednoho hráče</MpSingleplayer>
-   <MpNotAvailable>Není k dispozici v multiplayeri.</MpNotAvailable>
+   <MpNotAvailable>Není k dispozici ve hře více hráčů.</MpNotAvailable>
    <MpCallingFactionNotAvailable>Volání dalších frakcí není v současné době k dispozici pro více hráčů.</MpCallingFactionNotAvailable>
    <MpAggressiveTicking>Agresivní tikání</MpAggressiveTicking>
    <MpAggressiveTickingDesc>Vždy se pokuste automaticky dohonit server za cenu FPS.</MpAggressiveTickingDesc>
