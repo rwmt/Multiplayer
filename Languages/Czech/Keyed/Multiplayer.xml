@@ -8,7 +8,7 @@
    <MpInvalidAddress>Neplatná adresa</MpInvalidAddress>
    <MpInvalidGameName>Neplatný název hry</MpInvalidGameName>
    <MpWrongProtocol>Nesprávná verze protokolu</MpWrongProtocol>
-   <MpWrongMultiplayerVersionInfo>Server je hostován na multiplayeri {0} (protokol {1})</MpWrongMultiplayerVersionInfo>
+   <MpWrongMultiplayerVersionInfo>Server je založen na verzi {0} (protokol {1}) Multiplayer módu</MpWrongMultiplayerVersionInfo>
    <MpWrongDefs>Neshoda definic modů</MpWrongDefs>
    <MpWrongDefsInfo>Ujistěte se, že nainstalované režimy, jejich verze a pořadí odpovídají hostitelským.</MpWrongDefsInfo>
    <MpModList>Seznam módů</MpModList>
