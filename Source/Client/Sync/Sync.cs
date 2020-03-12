@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using Multiplayer.API;
 using Multiplayer.Common;
 using RimWorld;
@@ -832,6 +832,11 @@ namespace Multiplayer.Client
 
             foreach (FieldInfo field in type.GetDeclaredInstanceFields()) {
                 string curPath = path + "/" + field.Name;
+
+                //In the case of GoTo, the Action is being its own field this fixes
+                //todo set this to check for the Action being self-referential
+                if (field.FieldType == typeof(Action))
+                    continue;
 
                 if (getter(curPath))
                     return true;
