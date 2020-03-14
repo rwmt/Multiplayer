@@ -250,7 +250,7 @@ namespace Multiplayer.Client
                     report.Add((type, e));
                 }
             });
-            foreach (var entry in report) {
+            foreach(var entry in report) {
                 if (entry.Item2 != null) {
                     Log.Error($"FAIL: {entry.Item1} with {entry.Item2.InnerException}");
                 } else if (false) {
@@ -335,7 +335,6 @@ namespace Multiplayer.Client
                                 Log.Error($"FAIL: {method.GetType().FullName}:{method.Name} with {e.InnerException}");
                             }
                         }
-
                     }
                 }
             }
