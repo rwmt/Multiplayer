@@ -15,9 +15,6 @@ using UnityEngine;
 using Verse;
 using Verse.Sound;
 using Verse.Steam;
-using System.Runtime.InteropServices;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace Multiplayer.Client
 {
@@ -69,14 +66,6 @@ namespace Multiplayer.Client
         public static HashSet<string> xmlMods = new HashSet<string>();
         public static List<ModHashes> enabledModAssemblyHashes = new List<ModHashes>();
         public static Dictionary<string, DefInfo> localDefInfos;
-
-        [System.Runtime.InteropServices.DllImport("user32.dll")]
-        private static extern System.IntPtr GetActiveWindow();
-
-        public static System.IntPtr GetWindowHandle()
-        {
-            return GetActiveWindow();
-        }
 
         static Multiplayer()
         {
@@ -130,12 +119,9 @@ namespace Multiplayer.Client
                 Log.Error($"Exception during Sync initialization: {e}");
             }
 
-            try
-            {
+            try {
                 harmony.DoAllMpPatches();
-            }
-            catch (Exception e)
-            {
+            } catch (Exception e) {
                 Log.Error($"Exception during MpPatching: {e}");
             }
 
@@ -162,7 +148,6 @@ namespace Multiplayer.Client
 
             if (MultiplayerMod.arbiterInstance)
                 RuntimeHelpers.RunClassConstructor(typeof(Text).TypeHandle);
-
         }
 
         private static void SetUsername()
@@ -189,7 +174,6 @@ namespace Multiplayer.Client
         {
             LongEventHandler.QueueLongEvent(() => LongEventHandler.QueueLongEvent(action, textKey, false, null), textKey, false, null);
         }
-
 
         private static void HandleCommandLine()
         {
@@ -257,27 +241,19 @@ namespace Multiplayer.Client
 
             // this is a temporary report, must be removed or made debug only
             var report = new List<(Type, Exception)>();
-            Assembly.GetCallingAssembly().GetTypes().Do(delegate (Type type)
-            {
-                try
-                {
+            Assembly.GetCallingAssembly().GetTypes().Do(delegate (Type type) {
+                try {
                     harmony.CreateClassProcessor(type).Patch();
 
                     report.Add((type, null));
-                }
-                catch (Exception e)
-                {
+                } catch (Exception e) {
                     report.Add((type, e));
                 }
             });
-            foreach (var entry in report)
-            {
-                if (entry.Item2 != null)
-                {
+            foreach(var entry in report) {
+                if (entry.Item2 != null) {
                     Log.Error($"FAIL: {entry.Item1} with {entry.Item2.InnerException}");
-                }
-                else if (false)
-                {
+                } else if (false) {
                     Log.Message($"PASS: {entry.Item1}");
                 }
             }
@@ -301,12 +277,9 @@ namespace Multiplayer.Client
                         if (method == null) continue;
 
                         MethodInfo prefix = AccessTools.Method(typeof(DesignatorPatches), m);
-                        try
-                        {
+                        try {
                             harmony.Patch(method, new HarmonyMethod(prefix), null, null, new HarmonyMethod(designatorFinalizer));
-                        }
-                        catch (Exception e)
-                        {
+                        } catch (Exception e) {
                             Log.Error($"FAIL: {t.FullName}:{method.Name} with {e.InnerException}");
                         }
                     }
@@ -333,14 +306,10 @@ namespace Multiplayer.Client
                 var effectMethods = new MethodBase[] { subSustainerStart, sampleCtor, subSoundPlay, effecterTick, effecterTrigger, effecterCleanup, randomBoltMesh, drawTrackerCtor, randomHair };
                 var moteMethods = typeof(MoteMaker).GetMethods(BindingFlags.Static | BindingFlags.Public);
 
-                foreach (MethodBase m in effectMethods.Concat(moteMethods))
-                {
-                    try
-                    {
+                foreach (MethodBase m in effectMethods.Concat(moteMethods)) {
+                    try {
                         harmony.Patch(m, randPatchPrefix, randPatchPostfix);
-                    }
-                    catch (Exception e)
-                    {
+                    } catch (Exception e) {
                         Log.Error($"FAIL: {m.GetType().FullName}:{m.Name} with {e.InnerException}");
                     }
                 }
@@ -360,18 +329,14 @@ namespace Multiplayer.Client
                     foreach (string m in thingMethods)
                     {
                         MethodInfo method = t.GetMethod(m, BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly);
-                        if (method != null)
-                        {
-                            try
-                            {
+                        if (method != null) {
+                            try {
                                 harmony.Patch(method, thingMethodPrefix, thingMethodPostfix);
-                            }
-                            catch (Exception e)
-                            {
+                            } catch (Exception e) {
                                 Log.Error($"FAIL: {method.GetType().FullName}:{method.Name} with {e.InnerException}");
                             }
                         }
-
+                        
                     }
                 }
             }
@@ -402,14 +367,10 @@ namespace Multiplayer.Client
                 foreach (var t in typeof(InspectTabBase).AllSubtypesAndSelf())
                 {
                     var method = t.GetMethod("FillTab", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
-                    if (method != null && !method.IsAbstract)
-                    {
-                        try
-                        {
+                    if (method != null && !method.IsAbstract) {
+                        try {
                             harmony.Patch(method, setMapTimePrefix, setMapTimePostfix);
-                        }
-                        catch (Exception e)
-                        {
+                        } catch (Exception e) {
                             Log.Error($"FAIL: {method.GetType().FullName}:{method.Name} with {e.InnerException}");
                         }
                     }
