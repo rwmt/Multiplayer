@@ -20,7 +20,7 @@ namespace Multiplayer.Client
         [DllImport("User32")]
         private static extern IntPtr FindWindowA(string lpClassName, string lpWindowName);
         [DllImport("User32")]
-        static extern bool SetForegroundWindow(IntPtr hWnd);
+        private static extern bool SetForegroundWindow(IntPtr hWnd);
 
         internal static void Execute()
         {
