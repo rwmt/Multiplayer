@@ -336,7 +336,7 @@ namespace Multiplayer.Client
                                 Log.Error($"FAIL: {method.GetType().FullName}:{method.Name} with {e.InnerException}");
                             }
                         }
-
+                        
                     }
                 }
             }
