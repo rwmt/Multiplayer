@@ -332,7 +332,6 @@ namespace Multiplayer.Client
                         Log.Error($"FAIL: {m.GetType().FullName}:{m.Name} with {e.InnerException}");
                     }
                 }
-
             }
 
             Log.Message("non-deterministic patches");
