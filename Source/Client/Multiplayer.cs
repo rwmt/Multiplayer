@@ -15,9 +15,6 @@ using UnityEngine;
 using Verse;
 using Verse.Sound;
 using Verse.Steam;
-using System.Runtime.InteropServices;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace Multiplayer.Client
 {
@@ -69,14 +66,6 @@ namespace Multiplayer.Client
         public static HashSet<string> xmlMods = new HashSet<string>();
         public static List<ModHashes> enabledModAssemblyHashes = new List<ModHashes>();
         public static Dictionary<string, DefInfo> localDefInfos;
-
-        [System.Runtime.InteropServices.DllImport("user32.dll")]
-        private static extern System.IntPtr GetActiveWindow();
-
-        public static System.IntPtr GetWindowHandle()
-        {
-            return GetActiveWindow();
-        }
 
         static Multiplayer()
         {
@@ -162,7 +151,6 @@ namespace Multiplayer.Client
 
             if (MultiplayerMod.arbiterInstance)
                 RuntimeHelpers.RunClassConstructor(typeof(Text).TypeHandle);
-
         }
 
         private static void SetUsername()
