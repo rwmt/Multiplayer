@@ -19,8 +19,6 @@ namespace Multiplayer.Client
         private static extern int ShowWindow(int hwnd, int nCmdShow);
         [DllImport("User32")]
         private static extern IntPtr FindWindowA(string lpClassName, string lpWindowName);
-        [DllImport("User32")]
-        private static extern bool SetForegroundWindow(IntPtr hWnd);
 
         internal static void HideArbiter()
         {
@@ -32,7 +30,6 @@ namespace Multiplayer.Client
         {
             IntPtr rimworldhWnPtrd = FindWindowA(LpRimworldClassName, LpWindowName);
             ShowWindow(rimworldhWnPtrd.ToInt32(), SW_MAXIMIZE);
-            SetForegroundWindow(rimworldhWnPtrd);
         }
         
     }
