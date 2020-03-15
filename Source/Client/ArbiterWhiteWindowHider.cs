@@ -10,7 +10,7 @@ namespace Multiplayer.Client
     internal class ArbiterWhiteWindowHider
     {
         private const int SW_HIDE = 0;
-        private const int SW_MAXIMIZED = 3;
+        private const int SW_MAXIMIZE = 3;
         private const string LpWindowName = "Rimworld by Ludeon Studios";
         private const string LpBatchModeClassName = "Unity.BatchModeWindow";
         private const string LpRimworldClassName = "UnityWndClass";
@@ -22,12 +22,16 @@ namespace Multiplayer.Client
         [DllImport("User32")]
         private static extern bool SetForegroundWindow(IntPtr hWnd);
 
-        internal static void Execute()
+        internal static void HideArbiter()
         {
             IntPtr arbiterhWndPtr = FindWindowA(LpBatchModeClassName, LpWindowName);
             ShowWindow(arbiterhWndPtr.ToInt32(), SW_HIDE);
+        }
+
+        internal static void FocusRimworld()
+        {
             IntPtr rimworldhWnPtrd = FindWindowA(LpRimworldClassName, LpWindowName);
-            ShowWindow(rimworldhWnPtrd.ToInt32(), SW_MAXIMIZED);
+            ShowWindow(rimworldhWnPtrd.ToInt32(), SW_MAXIMIZE);
             SetForegroundWindow(rimworldhWnPtrd);
         }
         
