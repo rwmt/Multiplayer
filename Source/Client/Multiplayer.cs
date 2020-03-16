@@ -69,10 +69,6 @@ namespace Multiplayer.Client
 
         static Multiplayer()
         {
-            // As soon as arbiter instance is started put focus back to the main game
-            if (GenCommandLine.CommandLineArgPassed("arbiter"))
-                ArbiterWhiteWindowHider.FocusRimworld();
-
             if (GenCommandLine.CommandLineArgPassed("profiler"))
                 SimpleProfiler.CheckAvailable();
 
@@ -204,6 +200,7 @@ namespace Multiplayer.Client
                 if (Environment.OSVersion.Platform.Equals(PlatformID.Win32NT))
                 {
                     ArbiterWhiteWindowHider.HideArbiter();
+                    ArbiterWhiteWindowHider.FocusRimworld();
                 }
             }
 
