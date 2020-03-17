@@ -197,11 +197,6 @@ namespace Multiplayer.Client
             {
                 username = "The Arbiter";
                 Prefs.VolumeGame = 0;
-                if (Environment.OSVersion.Platform.Equals(PlatformID.Win32NT))
-                {
-                    ArbiterWhiteWindowHider.HideArbiter();
-                    ArbiterWhiteWindowHider.FocusRimworld();
-                }
             }
 
             if (GenCommandLine.TryGetCommandLineArg("replay", out string replay))

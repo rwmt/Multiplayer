@@ -240,6 +240,7 @@ namespace Multiplayer.Client
                     arbiterInstancePath,
                     args
                 );
+                ArbiterWhiteWindowHider.HideArbiterProcess();
             }
             catch (Exception ex)
             {
