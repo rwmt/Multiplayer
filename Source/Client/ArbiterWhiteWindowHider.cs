@@ -44,7 +44,6 @@ namespace Multiplayer.Client
                     var completed = false;
                     while (!completed)
                     {
-
                         ArbiterWhiteWindowHider.FocusRimworld();
                         ArbiterWhiteWindowHider.HideArbiter();
                         completed = Multiplayer.session?.arbiter != null && !Multiplayer.session.ArbiterPlaying;
