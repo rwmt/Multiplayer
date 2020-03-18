@@ -1,6 +1,8 @@
-﻿using System;
+﻿using Multiplayer.Common;
+using System;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using Verse;
 
 namespace Multiplayer.Client
 {
@@ -30,7 +32,7 @@ namespace Multiplayer.Client
         private static bool CheckIfArbiterVisible()
         {
             IntPtr arbiterhWndPtr = FindWindowA(LpBatchModeClassName, LpWindowName);
-            return !arbiterhWndPtr.Equals(IntPtr.Zero);
+            return arbiterhWndPtr != IntPtr.Zero;
         }
 
         private static void FocusRimworld()
@@ -38,26 +40,28 @@ namespace Multiplayer.Client
             IntPtr rimworldhWnPtrd = FindWindowA(LpRimworldClassName, LpWindowName);
             ShowWindow(rimworldhWnPtrd.ToInt32(), SW_MAXIMIZE);
         }
-        
+
         internal static void HideArbiterProcess()
         {
             Task.Run(() =>
             {
                 if (Environment.OSVersion.Platform.Equals(PlatformID.Win32NT))
                 {
-                    var arbiterVisible = false;
-                    while (arbiterVisible == false)
+                    var arbiterHidden = false;
+                    while (!arbiterHidden)
                     {
-                        arbiterVisible = ArbiterWhiteWindowHider.CheckIfArbiterVisible();
-                        if (arbiterVisible)
+                        if (CheckIfArbiterVisible())
                         {
                             ArbiterWhiteWindowHider.FocusRimworld();
                             ArbiterWhiteWindowHider.HideArbiter();
+                            arbiterHidden = true;
                         }
+                        Task.Delay(25);
                     }
                 }
             });
         }
-
     }
+
 }
+
