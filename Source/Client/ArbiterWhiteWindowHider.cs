@@ -48,7 +48,7 @@ namespace Multiplayer.Client
                         ArbiterWhiteWindowHider.FocusRimworld();
                         ArbiterWhiteWindowHider.HideArbiter();
                         completed = Multiplayer.session?.arbiter != null && !Multiplayer.session.ArbiterPlaying;
-                        Task.Delay(25);
+                        Task.Delay(1);
                     }
                 });
             }
