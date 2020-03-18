@@ -29,12 +29,6 @@ namespace Multiplayer.Client
             ShowWindow(arbiterhWndPtr.ToInt32(), SW_HIDE);
         }
 
-        private static bool CheckIfArbiterVisible()
-        {
-            IntPtr arbiterhWndPtr = FindWindowA(LpBatchModeClassName, LpWindowName);
-            return arbiterhWndPtr != IntPtr.Zero;
-        }
-
         private static void FocusRimworld()
         {
             IntPtr rimworldhWnPtrd = FindWindowA(LpRimworldClassName, LpWindowName);
@@ -43,23 +37,21 @@ namespace Multiplayer.Client
 
         internal static void HideArbiterProcess()
         {
-            Task.Run(() =>
+            if (Environment.OSVersion.Platform.Equals(PlatformID.Win32NT))
             {
-                if (Environment.OSVersion.Platform.Equals(PlatformID.Win32NT))
+                Task.Run(() =>
                 {
-                    var arbiterHidden = false;
-                    while (!arbiterHidden)
+                    var completed = false;
+                    while (!completed)
                     {
-                        if (CheckIfArbiterVisible())
-                        {
-                            ArbiterWhiteWindowHider.FocusRimworld();
-                            ArbiterWhiteWindowHider.HideArbiter();
-                            arbiterHidden = true;
-                        }
+
+                        ArbiterWhiteWindowHider.FocusRimworld();
+                        ArbiterWhiteWindowHider.HideArbiter();
+                        completed = Multiplayer.session?.arbiter != null && !Multiplayer.session.ArbiterPlaying;
                         Task.Delay(25);
                     }
-                }
-            });
+                });
+            }
         }
     }
 
