@@ -39,16 +39,15 @@ namespace Multiplayer.Client
         {
             if (Environment.OSVersion.Platform.Equals(PlatformID.Win32NT))
             {
-                Task.Run(() =>
+                Task.Run(async () =>
                 {
-                    var completed = false;
-                    while (!completed)
+                    do 
                     {
                         ArbiterWhiteWindowHider.FocusRimworld();
                         ArbiterWhiteWindowHider.HideArbiter();
-                        completed = Multiplayer.session?.arbiter != null && !Multiplayer.session.ArbiterPlaying;
-                        Task.Delay(1);
+                        await Task.Delay(1);
                     }
+                    while (Multiplayer.session?.arbiter != null && !Multiplayer.session.ArbiterPlaying) ;
                 });
             }
         }
