@@ -23,10 +23,10 @@ namespace Multiplayer.Client
         [DllImport("User32")]
         private static extern IntPtr FindWindowA(string lpClassName, string lpWindowName);
 
-        private static void HideArbiter()
+        private static bool HideArbiter()
         {
             IntPtr arbiterhWndPtr = FindWindowA(LpBatchModeClassName, LpWindowName);
-            ShowWindow(arbiterhWndPtr.ToInt32(), SW_HIDE);
+            return ShowWindow(arbiterhWndPtr.ToInt32(), SW_HIDE) != 0;
         }
 
         private static void FocusRimworld()
@@ -41,10 +41,24 @@ namespace Multiplayer.Client
             {
                 Task.Run(async () =>
                 {
+                    // re-focus main window now that Arbiter's been started
+                    await Task.Delay(1);
+                    ArbiterWhiteWindowHider.FocusRimworld();
+                    // try a few more times, as the auto-save on load seems to vary in duration
+                    await Task.Delay(100);
+                    ArbiterWhiteWindowHider.FocusRimworld();
+                    await Task.Delay(100);
+                    ArbiterWhiteWindowHider.FocusRimworld();
+                    await Task.Delay(100);
+                    ArbiterWhiteWindowHider.FocusRimworld();
+
+                    // Wait for Arbiter to open its own window, then hide it
                     do 
                     {
-                        ArbiterWhiteWindowHider.FocusRimworld();
-                        ArbiterWhiteWindowHider.HideArbiter();
+                        if (ArbiterWhiteWindowHider.HideArbiter()) {
+                            ArbiterWhiteWindowHider.FocusRimworld();
+                        }
+
                         await Task.Delay(1);
                     }
                     while (Multiplayer.session?.arbiter != null && !Multiplayer.session.ArbiterPlaying) ;
