@@ -179,10 +179,8 @@ namespace Multiplayer.Client
 
         static void CheckInterfaceVersions()
         {
-            var mpAssembly = AppDomain.CurrentDomain.GetAssemblies().First(a => a.GetName().Name == "Multiplayer");
-            var curVersion = new System.Version(
-                (mpAssembly.GetCustomAttributes(typeof(AssemblyFileVersionAttribute), false)[0] as AssemblyFileVersionAttribute).Version
-            );
+            var mpApiAssembly = AppDomain.CurrentDomain.GetAssemblies().First(a => a.GetName().Name == MpVersion.apiAssemblyName);
+            var curVersion = mpApiAssembly.GetName().Version;
 
             Log.Message($"Current API version: {curVersion}");
 
@@ -196,8 +194,7 @@ namespace Multiplayer.Client
                 Assembly assembly = mod.assemblies.loadedAssemblies.FirstOrDefault(a => a.GetName().Name == MpVersion.apiAssemblyName);
 
                 if (assembly != null) {
-                    var version = new Version(FileVersionInfo.GetVersionInfo(assembly.Location).FileVersion);
-
+                    var version = assembly.GetName().Version;
                     Log.Message($"Mod {mod.Name} has API client ({version})");
 
                     if (curVersion > version)
