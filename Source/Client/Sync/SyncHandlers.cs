@@ -787,13 +787,13 @@ namespace Multiplayer.Client
 
             SyncMethod.Register(typeof(CompFlickable), "<CompGetGizmosExtra>b__20_1"); // Toggle flick designation
             SyncMethod.Register(typeof(Pawn_PlayerSettings), "<GetGizmos>b__31_1");    // Toggle release animals
-            SyncMethod.Register(typeof(Building_TurretGun), "<GetGizmos>b__57_2");     // Toggle turret hold fire
+            SyncMethod.Register(typeof(Building_TurretGun), "<GetGizmos>b__58_2");     // Toggle turret hold fire
             SyncMethod.Register(typeof(Building_Trap), "<GetGizmos>b__23_1");          // Toggle trap auto-rearm
             SyncMethod.Register(typeof(Building_Door), "<GetGizmos>b__57_1");          // Toggle door hold open
             SyncMethod.Register(typeof(Zone_Growing), "<GetGizmos>b__13_1");           // Toggle zone allow sow
 
             SyncMethod.Register(typeof(PriorityWork), "<GetGizmos>b__17_0");                // Clear prioritized work
-            SyncMethod.Register(typeof(Building_TurretGun), "<GetGizmos>b__57_1");          // Reset forced target
+            SyncMethod.Register(typeof(Building_TurretGun), "<GetGizmos>b__58_1");          // Reset forced target
             SyncMethod.Register(typeof(UnfinishedThing), "<GetGizmos>b__27_0");             // Cancel unfinished thing
             SyncMethod.Register(typeof(CompTempControl), "<CompGetGizmosExtra>b__8_2");     // Reset temperature
 
