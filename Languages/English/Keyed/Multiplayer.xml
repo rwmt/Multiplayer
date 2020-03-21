@@ -77,6 +77,7 @@
   
   <MpDesynced>The game state has desynced.</MpDesynced>
   <MpTryResync>Try resync</MpTryResync>
+  <MpTryRehost>Rehost</MpTryRehost>
   
   <MpSaveReplayAs>Save replay as</MpSaveReplayAs>
   <MpWillOverwrite>Will overwrite</MpWillOverwrite>
