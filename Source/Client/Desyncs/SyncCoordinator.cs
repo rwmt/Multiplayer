@@ -119,8 +119,10 @@ namespace Multiplayer.Client
             var remote = !oldOpinion.isLocalClientsOpinion ? oldOpinion : newOpinion;
 
             //Print arbiter desync stacktrace if it exists
-            if (local.desyncStackTraces.Any())
-                SaveStackTracesToDisk(local, remote); // todo: save these traces into the Desync.zip too
+            var desyncStackTrace = "";
+            if (local.desyncStackTraces.Any()) {
+                desyncStackTrace = SaveStackTracesToDisk(local, remote);
+            }
 
             try
             {
@@ -183,6 +185,10 @@ namespace Multiplayer.Client
                     //Save debug info to the zip
                     zip.AddEntry("desync_info", desyncInfo.ToString());
 
+                    if (desyncStackTrace != "") {
+                        zip.AddEntry("desync_traces.txt", desyncStackTrace);
+                    }
+
                     zip.Save();
                 }
             }
@@ -201,7 +207,7 @@ namespace Multiplayer.Client
         /// </summary>
         /// <param name="local">The local client's opinion, to dump the stacks from</param>
         /// <param name="remote">A remote client's opinion, used to find where the desync occurred</param>
-        private void SaveStackTracesToDisk(ClientSyncOpinion local, ClientSyncOpinion remote)
+        private string SaveStackTracesToDisk(ClientSyncOpinion local, ClientSyncOpinion remote)
         {
             Log.Message($"Saving {local.desyncStackTraces.Count} traces to disk");
 
@@ -228,6 +234,8 @@ namespace Multiplayer.Client
 
             //Trigger a call to ClientConnection#HandleDebug on the arbiter instance so that arbiter_traces.txt is saved too
             Multiplayer.Client.Send(Packets.Client_Debug, local.startTick, diffAt);
+
+            return traceMessage;
         }
 
         private string FindFileNameForNextDesyncFile()
