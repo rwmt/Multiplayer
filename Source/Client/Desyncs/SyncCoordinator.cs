@@ -120,7 +120,7 @@ namespace Multiplayer.Client
 
             //Print arbiter desync stacktrace if it exists
             if (local.desyncStackTraces.Any())
-                SaveStackTracesToDisk(local, remote);
+                SaveStackTracesToDisk(local, remote); // todo: save these traces into the Desync.zip too
 
             try
             {
@@ -217,14 +217,17 @@ namespace Multiplayer.Client
                     break;
                 }
 
-            if (diffAt == -1)
+            var traceMessage = "";
+            if (diffAt == -1) {
+                traceMessage = "Note: trace hashes are equal between local and remote\n\n";
                 diffAt = count;
+            }
 
-            //Dump the stack traces to disk
-            File.WriteAllText("local_traces.txt", local.GetFormattedStackTracesForRange(diffAt - 40, diffAt + 40));
+            traceMessage += local.GetFormattedStackTracesForRange(diffAt);
+            File.WriteAllText("local_traces.txt", traceMessage);
 
             //Trigger a call to ClientConnection#HandleDebug on the arbiter instance so that arbiter_traces.txt is saved too
-            Multiplayer.Client.Send(Packets.Client_Debug, local.startTick, diffAt - 40, diffAt + 40);
+            Multiplayer.Client.Send(Packets.Client_Debug, local.startTick, diffAt);
         }
 
         private string FindFileNameForNextDesyncFile()
@@ -285,21 +288,45 @@ namespace Multiplayer.Client
         /// Logs the current stack so that in the event of a desync we have some stack traces.
         /// </summary>
         /// <param name="info">Any additional message to be logged with the stack</param>
-        /// <param name="doTrace">Set to false to not actually log a stack, only the message</param>
-        public void TryAddStackTraceForDesyncLog(string info = null, bool doTrace = true)
+        public void TryAddStackTraceForDesyncLog(string info = null)
         {
             if (!ShouldCollect) return;
 
             CurrentOpinion.TryMarkSimulating();
 
             //Get the current stack trace
-            var trace = doTrace ? MpUtil.FastStackTrace(4) : new MethodBase[0];
+            var trace = new System.Diagnostics.StackTrace(2, true);
+            var hash = trace.Hash() ^ (info?.GetHashCode() ?? 0);
 
-            //Add it to the list
-            CurrentOpinion.desyncStackTraces.Add(new StackTraceLogItem {stackTrace = trace, additionalInfo = info});
+            CurrentOpinion.desyncStackTraces.Add(new StackTraceLogItem {
+                stackTrace = trace,
+                tick = TickPatch.Timer,
+                hash = hash,
+                additionalInfo = info,
+            });
 
-            //Calculate its hash and add it, for comparison with other opinions.
-            currentOpinion.desyncStackTraceHashes.Add(trace.Hash() ^ (info?.GetHashCode() ?? 0));
+            // Track & network trace hash, for comparison with other opinions.
+            currentOpinion.desyncStackTraceHashes.Add(hash);
+        }
+
+        public static bool ShouldAddStackTraceForDesyncLog()
+        {
+            if (Multiplayer.Client == null) return false;
+            if (!Multiplayer.game?.worldComp?.debugMode ?? false) return false; // only log if debugging enabled
+            if (Rand.stateStack.Count > 1) return false;
+            if (TickPatch.Skipping || Multiplayer.IsReplay) return false;
+
+            if (!Multiplayer.Ticking && !Multiplayer.ExecutingCmds) return false;
+
+            if (!WildAnimalSpawnerTickMarker.ticking &&
+                !WildPlantSpawnerTickMarker.ticking &&
+                !SteadyEnvironmentEffectsTickMarker.ticking &&
+                !FindBestStorageCellMarker.executing &&
+                ThingContext.Current?.def != ThingDefOf.SteamGeyser) {
+                return true;
+            }
+
+            return false;
         }
     }
 }

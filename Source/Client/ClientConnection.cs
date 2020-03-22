@@ -381,12 +381,11 @@ namespace Multiplayer.Client
         public void HandleDebug(ByteReader data)
         {
             int tick = data.ReadInt32();
-            int start = data.ReadInt32();
-            int end = data.ReadInt32();
+            int diffAt = data.ReadInt32();
             var info = Multiplayer.game.sync.knownClientOpinions.FirstOrDefault(b => b.startTick == tick);
 
             Log.Message($"{info?.desyncStackTraces.Count} arbiter traces");
-            File.WriteAllText("arbiter_traces.txt", info?.GetFormattedStackTracesForRange(start, end) ?? "null");
+            File.WriteAllText("arbiter_traces.txt", info?.GetFormattedStackTracesForRange(diffAt) ?? "null");
         }
     }
 

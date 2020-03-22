@@ -540,15 +540,7 @@ namespace Multiplayer.Client
         public TickList tickListLong = new TickList(TickerType.Long);
 
         // Shared random state for ticking and commands
-        private ulong _randState = 1;
-
-        public ulong randState {
-            get => _randState;
-            set {
-                Log.Message("inside setter!");
-                _randState = value;
-            }
-        }
+        public ulong randState = 1;
 
         public Queue<ScheduledCommand> cmds = new Queue<ScheduledCommand>();
 
@@ -677,7 +669,7 @@ namespace Multiplayer.Client
             if (Scribe.mode == LoadSaveMode.LoadingVars && storyWatcher == null)
                 storyWatcher = new StoryWatcher();
 
-            ScribeUtil.LookULong(ref _randState, "randState", 1);
+            ScribeUtil.LookULong(ref randState, "randState", 1);
         }
 
         public void FinalizeInit()
