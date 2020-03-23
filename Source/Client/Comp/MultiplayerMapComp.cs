@@ -207,8 +207,9 @@ namespace Multiplayer.Client
             if (comp.mapDialogs.Any())
             {
                 //If NO mapdialogs (Dialog_NodeTrees) are open, add the first one to the window stack
-                if (!Find.WindowStack.IsOpen(typeof(Dialog_NodeTree)))
-                    Find.WindowStack.Add(comp.mapDialogs.First().Dialog);Find.WindowStack.Add(comp.mapDialogs.First().Dialog);
+                if (!Find.WindowStack.IsOpen(typeof(Dialog_NodeTree))) {
+                    Find.WindowStack.Add(comp.mapDialogs.First().Dialog);
+                }
             }
             else if (comp.caravanForming != null)
             {
