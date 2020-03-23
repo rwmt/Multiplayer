@@ -320,7 +320,7 @@ namespace Multiplayer.Client
         public static bool ShouldAddStackTraceForDesyncLog()
         {
             if (Multiplayer.Client == null) return false;
-            if (!Multiplayer.game?.worldComp?.debugMode ?? false) return false; // only log if debugging enabled
+            if (!Multiplayer.game?.worldComp?.logDesyncTraces ?? false) return false; // only log if debugging enabled in Host Server menu
             if (Rand.stateStack.Count > 1) return false;
             if (TickPatch.Skipping || Multiplayer.IsReplay) return false;
 

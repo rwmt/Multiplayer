@@ -32,7 +32,7 @@ namespace Multiplayer.Client
             netClient.Connect(address, port, "");
         }
 
-        public static void HostServer(ServerSettings settings, bool fromReplay, bool withSimulation = false, bool debugMode = false)
+        public static void HostServer(ServerSettings settings, bool fromReplay, bool withSimulation = false, bool debugMode = false, bool logDesyncTraces = false)
         {
             Log.Message($"Starting the server");
 
@@ -104,6 +104,7 @@ namespace Multiplayer.Client
                     map.AsyncTime().TimeSpeed = timeSpeed;
 
                 Multiplayer.WorldComp.debugMode = debugMode;
+                Multiplayer.WorldComp.logDesyncTraces = logDesyncTraces;
 
                 LongEventHandler.QueueLongEvent(() =>
                 {

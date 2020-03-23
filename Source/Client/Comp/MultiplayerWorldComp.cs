@@ -56,6 +56,7 @@ namespace Multiplayer.Client
         public ulong randState = 2;
         public bool asyncTime;
         public bool debugMode;
+        public bool logDesyncTraces;
         public TileTemperaturesComp uiTemperatures;
 
         public List<MpTradeSession> trading = new List<MpTradeSession>();
@@ -74,6 +75,7 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref TickPatch.Timer, "timer");
             Scribe_Values.Look(ref asyncTime, "asyncTime", true, true); // Enable async time on old saves
             Scribe_Values.Look(ref debugMode, "debugMode");
+            Scribe_Values.Look(ref logDesyncTraces, "logDesyncTraces");
             ScribeUtil.LookULong(ref randState, "randState", 2);
 
             TimeSpeed timeSpeed = Find.TickManager.CurTimeSpeed;

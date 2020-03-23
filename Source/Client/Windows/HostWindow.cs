@@ -26,6 +26,7 @@ namespace Multiplayer.Client
         private bool withSimulation;
         private bool asyncTime;
         private bool debugMode;
+        private bool logDesyncTraces;
 
         private float height;
 
@@ -45,8 +46,10 @@ namespace Multiplayer.Client
             var localAddr = MpUtil.GetLocalIpAddress() ?? "127.0.0.1";
             settings.lanAddress = localAddr;
 
-            if (MpVersion.IsDebug)
+            if (MpVersion.IsDebug) {
                 debugMode = true;
+                logDesyncTraces = true;
+            }
         }
 
         private string maxPlayersBuffer, autosaveBuffer;
@@ -136,6 +139,10 @@ namespace Multiplayer.Client
                 }
             }
 
+            TooltipHandler.TipRegion(entry.Width(checkboxWidth), $"{"MpLogDesyncTracesDesc".Translate()}\n\n{"MpExperimentalFeature".Translate()}");
+            CheckboxLabeled(entry.Width(checkboxWidth), $"{"MpLogDesyncTraces".Translate()}:  ", ref logDesyncTraces, placeTextNearCheckbox: true);
+            entry = entry.Down(30);
+
             if (Prefs.DevMode)
             {
                 CheckboxLabeled(entry.Width(checkboxWidth), "Debug mode:  ", ref debugMode, placeTextNearCheckbox: true);
@@ -177,7 +184,7 @@ namespace Multiplayer.Client
             if (file?.replay ?? Multiplayer.IsReplay)
                 HostFromReplay(settings);
             else if (file == null)
-                ClientUtil.HostServer(settings, false, debugMode: debugMode);
+                ClientUtil.HostServer(settings, false, debugMode: debugMode, logDesyncTraces: logDesyncTraces);
             else
                 HostFromSave(settings);
 
@@ -278,14 +285,14 @@ namespace Multiplayer.Client
 
                 LongEventHandler.ExecuteWhenFinished(() =>
                 {
-                    LongEventHandler.QueueLongEvent(() => ClientUtil.HostServer(settings, false, debugMode: debugMode), "MpLoading", false, null);
+                    LongEventHandler.QueueLongEvent(() => ClientUtil.HostServer(settings, false, debugMode: debugMode, logDesyncTraces: logDesyncTraces), "MpLoading", false, null);
                 });
             }, "Play", "LoadingLongEvent", true, null);
         }
 
         private void HostFromReplay(ServerSettings settings)
         {
-            void ReplayLoaded() => ClientUtil.HostServer(settings, true, withSimulation, debugMode: debugMode);
+            void ReplayLoaded() => ClientUtil.HostServer(settings, true, withSimulation, debugMode: debugMode, logDesyncTraces: logDesyncTraces);
 
             if (file != null)
             {
