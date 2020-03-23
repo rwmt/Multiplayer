@@ -77,6 +77,7 @@
   
   <MpDesynced>The game state has desynced.</MpDesynced>
   <MpTryResync>Try resync</MpTryResync>
+  <MpTryRehost>Rehost</MpTryRehost>
   
   <MpSaveReplayAs>Save replay as</MpSaveReplayAs>
   <MpWillOverwrite>Will overwrite</MpWillOverwrite>
@@ -90,6 +91,8 @@
   <MpLanDesc2>Resolved LAN address: {0}</MpLanDesc2>
   <MpArbiterDesc>A game instance which runs in the background and helps with desync solving.</MpArbiterDesc>
   <MpAsyncTimeDesc>Separate time controls for each map and the planet.</MpAsyncTimeDesc>
+  <MpLogDesyncTraces>Log Desync Traces</MpLogDesyncTraces>
+  <MpLogDesyncTracesDesc>Log extra stacktraces for troubleshooting desyncs; may impact performance</MpLogDesyncTracesDesc>
   <MpExperimentalFeature>Experimental feature</MpExperimentalFeature>
   
   <MpHostButton>Host</MpHostButton>

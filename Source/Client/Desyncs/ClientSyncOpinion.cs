@@ -113,18 +113,18 @@ namespace Multiplayer.Client
                 simulating = true;
         }
 
-        /// <summary>
-        /// Returns a string form of 
-        /// </summary>
-        /// <param name="start"></param>
-        /// <param name="end"></param>
-        /// <returns></returns>
-        public string GetFormattedStackTracesForRange(int start, int end)
+        public string GetFormattedStackTracesForRange(int diffAt)
         {
-            return desyncStackTraces
-                .Skip(Math.Max(0, start))
+            var start = Math.Max(0, diffAt - 40);
+            var end = diffAt + 40;
+            var traceId = start;
+
+            return
+                $"Trace of first desynced map random state:\n{diffAt} {desyncStackTraces[diffAt].ToString()}\n\n\nContext Traces:\n" +
+                desyncStackTraces
+                .Skip(start)
                 .Take(end - start)
-                .Join(a => a.additionalInfo + "\n" + a.stackTrace.Join(m => m.MethodDesc(), "\n"), delimiter: "\n\n");
+                .Join(a => traceId++ + " " + a.ToString(), delimiter: "\n\n");
         }
     }
 }

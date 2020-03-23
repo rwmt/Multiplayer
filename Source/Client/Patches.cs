@@ -1346,24 +1346,22 @@ namespace Multiplayer.Client
         static void Postfix() => executing = false;
     }
 
-    // Debugging class, do not include, affects performance - notfood
-    //[HarmonyPatch(typeof(RandomNumberGenerator_BasicHash), nameof(RandomNumberGenerator_BasicHash.GetHash))]
-    static class RandGetHashPatch
+    [HarmonyPatch(typeof(Rand))]
+    static class RandGetValuePatch
     {
-        static void Postfix()
-        {
-            if (Multiplayer.Client == null) return;
-            if (Rand.stateStack.Count > 1) return;
-            if (TickPatch.Skipping || Multiplayer.IsReplay) return;
-
-            if (!Multiplayer.Ticking && !Multiplayer.ExecutingCmds) return;
-
-            if (!WildAnimalSpawnerTickMarker.ticking &&
-                !WildPlantSpawnerTickMarker.ticking &&
-                !SteadyEnvironmentEffectsTickMarker.ticking &&
-                !FindBestStorageCellMarker.executing &&
-                ThingContext.Current?.def != ThingDefOf.SteamGeyser)
+        [HarmonyPostfix]
+        [HarmonyPatch(nameof(Rand.Value), MethodType.Getter)]
+        static void ValuePostfix() {
+            if (SyncCoordinator.ShouldAddStackTraceForDesyncLog()) {
                 Multiplayer.game.sync.TryAddStackTraceForDesyncLog();
+            }
+        }
+        [HarmonyPostfix]
+        [HarmonyPatch(nameof(Rand.Int), MethodType.Getter)]
+        static void IntPostfix() {
+            if (SyncCoordinator.ShouldAddStackTraceForDesyncLog()) {
+                Multiplayer.game.sync.TryAddStackTraceForDesyncLog();
+            }
         }
     }
 
