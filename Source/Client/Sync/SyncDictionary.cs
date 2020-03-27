@@ -307,6 +307,19 @@ namespace Multiplayer.Client
             },
             #endregion
 
+            #region Quests
+            {
+                (ByteWriter data, Quest quest) => {
+                    data.WriteInt32(quest.id);
+                },
+                (ByteReader data) => {
+                    int questId = data.ReadInt32();
+                    return Find.QuestManager.QuestsListForReading.FirstOrDefault(possibleQuest => possibleQuest.id == questId);
+                },
+                true
+            },
+            #endregion
+
             #region Ranges
             {
                 (ByteWriter data, FloatRange range) => {
