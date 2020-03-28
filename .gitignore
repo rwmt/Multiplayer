@@ -260,7 +260,7 @@ paket-files/
 __pycache__/
 *.pyc
 
-/Assemblies
+Assemblies/
 /Source/Publicise-1.0.0.zip
 /Source/publicise_hash.txt
 /Source/Publicise.exe

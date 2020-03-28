@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Defs>
+
+  <FactionDef>
+	<defName>MultiplayerColony</defName>
+	<label>multiplayer</label>
+    <description>Multiplayer faction</description>
+    <isPlayer>true</isPlayer>
+    <basicMemberKind>Colonist</basicMemberKind>
+    <pawnsPlural>colonists</pawnsPlural>
+    <techLevel>Industrial</techLevel>
+    <backstoryCategories>
+      <li>Civil</li>
+    </backstoryCategories>
+	
+    <expandingIconTexture>World/WorldObjects/Expanding/Town</expandingIconTexture>
+    <homeIconPath>World/WorldObjects/DefaultSettlement</homeIconPath>
+    <colorSpectrum>
+      <li>(0.607, 0.847, 0)</li>
+    </colorSpectrum>
+	
+    <playerInitialSettlementNameMaker>NamerInitialSettlementColony</playerInitialSettlementNameMaker>
+	<factionNameMaker>NamerFactionOutlander</factionNameMaker>
+    <settlementNameMaker>NamerSettlementOutlander</settlementNameMaker>
+	
+	<startingResearchTags>
+		<li>ClassicStart</li>
+	</startingResearchTags>
+	<hairTags>
+		<li>Urban</li>
+	</hairTags>
+	<apparelStuffFilter>
+		<thingDefs>
+			<li>Synthread</li>
+		</thingDefs>
+	</apparelStuffFilter>
+  </FactionDef>
+  
+  <FactionDef>
+	<defName>MultiplayerDummy</defName>
+	<label>multiplayer dummy</label>
+    <description>Multiplayer dummy faction</description>
+	<hidden>true</hidden>
+	
+    <basicMemberKind>Colonist</basicMemberKind>
+    <pawnsPlural>colonists</pawnsPlural>
+    <techLevel>Industrial</techLevel>
+    <backstoryCategories>
+      <li>Civil</li>
+    </backstoryCategories>
+	
+    <expandingIconTexture>World/WorldObjects/Expanding/Town</expandingIconTexture>
+    <homeIconPath>World/WorldObjects/DefaultSettlement</homeIconPath>
+    <colorSpectrum>
+      <li>(0.607, 0.847, 0)</li>
+    </colorSpectrum>
+	
+    <playerInitialSettlementNameMaker>NamerInitialSettlementColony</playerInitialSettlementNameMaker>
+	<factionNameMaker>NamerFactionOutlander</factionNameMaker>
+    <settlementNameMaker>NamerSettlementOutlander</settlementNameMaker>
+	
+	<startingResearchTags>
+		<li>ClassicStart</li>
+	</startingResearchTags>
+	<hairTags>
+		<li>Urban</li>
+	</hairTags>
+	<apparelStuffFilter>
+		<thingDefs>
+			<li>Synthread</li>
+		</thingDefs>
+	</apparelStuffFilter>
+  </FactionDef>
+
+</Defs>

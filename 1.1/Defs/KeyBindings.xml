@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<Defs>
+
+  <KeyBindingDef ParentName="GameKeyBinding">
+    <defName>MpToggleChat</defName>
+    <label>toggle chat</label>
+    <defaultKeyCodeA>Equals</defaultKeyCodeA>
+  </KeyBindingDef>
+
+</Defs>
