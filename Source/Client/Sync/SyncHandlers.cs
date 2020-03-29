@@ -782,7 +782,7 @@ namespace Multiplayer.Client
 
             SyncDelegate.Register(typeof(HealthCardUtility), "<>c__DisplayClass26_0", "<GenerateSurgeryOption>b__1").CancelIfAnyFieldNull(without: "part");      // Add medical bill
             SyncDelegate.Register(typeof(Command_SetPlantToGrow), "<>c__DisplayClass5_0", "<ProcessInput>b__2");                                                // Set plant to grow
-            SyncDelegate.Register(typeof(Building_Bed), "<>c__DisplayClass39_0", "<ToggleForPrisonersByInterface>b__1").RemoveNullsFromLists("bedsToAffect");    // Toggle bed for prisoners
+            SyncDelegate.Register(typeof(Building_Bed), "<>c__DisplayClass39_0", "<ToggleForPrisonersByInterface>b__0").RemoveNullsFromLists("bedsToAffect");    // Toggle bed for prisoners
             SyncDelegate.Register(typeof(ITab_Bills), "<>c__DisplayClass10_0", "<FillTab>b__1").SetContext(SyncContext.MapSelected).CancelIfNoSelectedObjects(); // Add bill
 
             SyncDelegate.Register(typeof(CompLongRangeMineralScanner), "<>c__DisplayClass7_0", "<CompGetGizmosExtra>b__1").SetContext(SyncContext.MapSelected); // Select mineral to scan for
