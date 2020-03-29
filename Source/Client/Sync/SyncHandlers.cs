@@ -248,6 +248,8 @@ namespace Multiplayer.Client
         }
 
         [MpPrefix(typeof(BillRepeatModeUtility), "<>c__DisplayClass0_0", "<MakeConfigFloatMenu>b__0")]
+        [MpPrefix(typeof(BillRepeatModeUtility), "<>c__DisplayClass0_0", "<MakeConfigFloatMenu>b__1")]
+        [MpPrefix(typeof(BillRepeatModeUtility), "<>c__DisplayClass0_0", "<MakeConfigFloatMenu>b__2")]
         static void BillRepeatMode(object __instance)
         {
             SyncBillProduction.Watch(__instance.GetPropertyOrField("bill"));
