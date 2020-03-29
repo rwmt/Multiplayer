@@ -193,18 +193,32 @@ namespace Multiplayer.Client
                 if (mod.Name == "Multiplayer")
                     continue;
 
+                // Test if mod is using multiplayer api
                 Assembly assembly = mod.assemblies.loadedAssemblies.FirstOrDefault(a => a.GetName().Name == MpVersion.apiAssemblyName);
-
-                if (assembly != null) {
-                    var version = new Version(FileVersionInfo.GetVersionInfo(assembly.Location).FileVersion);
-
-                    Log.Message($"Mod {mod.Name} has API client ({version})");
-
-                    if (curVersion > version)
-                        Log.Warning($"Mod {mod.Name} uses an older API version (mod: {version}, current: {curVersion})");
-                    else if (curVersion < version)
-                        Log.Error($"Mod {mod.Name} uses a newer API version! (mod: {version}, current: {curVersion})\nMake sure the Multiplayer mod is up to date");
+                if (assembly == null) {
+                    continue;
                 }
+
+                // Retrieve the original dll
+                var info = mod.ModListAssemblies()
+                    .Select(f => FileVersionInfo.GetVersionInfo(f.FullName))
+                    .FirstOrDefault(v => v.ProductName == "Multiplayer");
+
+                if (info == null) {
+                    // There is certain mods that don't include the API, namely compat
+                    // Can we test them?
+                    continue;
+                }
+
+                var version = new Version(info.FileVersion);
+
+                Log.Message($"Mod {mod.Name} has API client ({version})");
+
+                if (curVersion > version)
+                    Log.Warning($"Mod {mod.Name} uses an older API version (mod: {version}, current: {curVersion})");
+                else if (curVersion < version)
+                    Log.Error($"Mod {mod.Name} uses a newer API version! (mod: {version}, current: {curVersion})\nMake sure the Multiplayer mod is up to date");
+            
             }
         }
     }

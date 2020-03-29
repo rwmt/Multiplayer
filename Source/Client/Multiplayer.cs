@@ -79,7 +79,7 @@ namespace Multiplayer.Client
 
             foreach (var mod in ModLister.AllInstalledMods)
             {
-                if (!mod.ModAssemblies().Any())
+                if (!mod.ModHasAssemblies())
                     xmlMods.Add(mod.RootDir.FullName);
             }
 
@@ -486,7 +486,7 @@ namespace Multiplayer.Client
             {
                 var hashes = new ModHashes()
                 {
-                    assemblyHash = mod.ModAssemblies().CRC32(),
+                    assemblyHash = mod.ModListAssemblies().CRC32(),
                     xmlHash = LoadableXmlAssetCtorPatch.AggregateHash(mod),
                     aboutHash = new DirectoryInfo(Path.Combine(mod.RootDir, "About")).GetFiles().CRC32()
                 };
