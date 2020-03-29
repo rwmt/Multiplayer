@@ -194,8 +194,7 @@ namespace Multiplayer.Client
                     continue;
 
                 // Test if mod is using multiplayer api
-                Assembly assembly = mod.assemblies.loadedAssemblies.FirstOrDefault(a => a.GetName().Name == MpVersion.apiAssemblyName);
-                if (assembly == null) {
+                if (!mod.assemblies.loadedAssemblies.Any(a => a.GetName().Name == MpVersion.apiAssemblyName)) {
                     continue;
                 }
 
@@ -205,7 +204,7 @@ namespace Multiplayer.Client
                     .FirstOrDefault(v => v.ProductName == "Multiplayer");
 
                 if (info == null) {
-                    // There is certain mods that don't include the API, namely compat
+                    // There are certain mods that don't include the API, namely compat
                     // Can we test them?
                     continue;
                 }
