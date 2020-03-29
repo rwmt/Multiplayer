@@ -250,7 +250,7 @@ namespace Multiplayer.Client
             var traceToHash = new StringBuilder();
             for (int i = 0; i < trace.FrameCount; i++) {
                 var method = trace.GetFrame(i).GetMethod();
-                traceToHash.AppendLine(methodNameCleaner.Replace(method.ToString(), ""));
+                traceToHash.Append(methodNameCleaner.Replace(method.ToString(), "") + "\n");
             }
 
             return traceToHash.ToString().GetHashCode();
