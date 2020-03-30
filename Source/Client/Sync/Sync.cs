@@ -833,6 +833,9 @@ namespace Multiplayer.Client
             foreach (FieldInfo field in type.GetDeclaredInstanceFields()) {
                 string curPath = path + "/" + field.Name;
 
+                if (typeof(Delegate).IsAssignableFrom(field.FieldType))
+                    continue;
+
                 if (getter(curPath))
                     return true;
 
