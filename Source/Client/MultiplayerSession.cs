@@ -181,6 +181,8 @@ namespace Multiplayer.Client
     {
         public string remoteRwVersion;
         public string[] remoteModNames;
+        public string[] remoteModIds;
+        public ulong[] remoteWorkshopModIds;
         public Dictionary<string, DefInfo> defInfo;
     }
 

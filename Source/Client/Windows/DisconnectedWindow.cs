@@ -1,4 +1,5 @@
-﻿using HarmonyLib;
+﻿using System;
+using HarmonyLib;
 using Multiplayer.Common;
 using RimWorld;
 using System.Linq;
@@ -70,7 +71,7 @@ namespace Multiplayer.Client
 
     public class DefMismatchWindow : DisconnectedWindow
     {
-        public override Vector2 InitialSize => new Vector2(310f + 18 * 2, 160f);
+        public override Vector2 InitialSize => new Vector2(460f + 18 * 2, 160f);
 
         private SessionModInfo mods;
 
@@ -98,8 +99,29 @@ namespace Multiplayer.Client
 
             if (Widgets.ButtonText(btnRect, "MpModList".Translate()))
                 ShowModList(mods);
-
             btnRect.x += btnWidth + gap;
+
+            btnRect.width = 140f;
+            if (Widgets.ButtonText(btnRect, "MpSyncModList".Translate())) {
+                Log.Message("MP remote host's modIds: " + string.Join(", ", mods.remoteModIds));
+                Log.Message("MP remote host's workshopIds: " + string.Join(", ", mods.remoteWorkshopModIds));
+
+                LongEventHandler.QueueLongEvent(() => {
+                    ModManagement.DownloadWorkshopMods(mods.remoteWorkshopModIds);
+                    try {
+                        ModManagement.RebuildModsList();
+                        ModsConfig.SetActiveToList(mods.remoteModIds.ToList());
+                        ModsConfig.Save();
+                        ModsConfig.RestartFromChangedMods();
+                    }
+                    catch (Exception e) {
+                        Log.Error($"MP mod sync error: {e.GetType()} {e.Message}");
+                    }
+                }, "MPDownloadingWorkshopMods", true, null);
+            }
+
+            btnRect.x += btnRect.width + gap;
+            btnRect.width = btnWidth;
 
             if (Widgets.ButtonText(btnRect, "CloseButton".Translate()))
                 Close();

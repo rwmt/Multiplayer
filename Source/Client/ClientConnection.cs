@@ -33,6 +33,8 @@ namespace Multiplayer.Client
         {
             Multiplayer.session.mods.remoteRwVersion = data.ReadString();
             Multiplayer.session.mods.remoteModNames = data.ReadPrefixedStrings();
+            Multiplayer.session.mods.remoteModIds = data.ReadPrefixedStrings();
+            Multiplayer.session.mods.remoteWorkshopModIds = data.ReadPrefixedULongs();
 
             var defs = Multiplayer.localDefInfos;
             Multiplayer.session.mods.defInfo = defs;

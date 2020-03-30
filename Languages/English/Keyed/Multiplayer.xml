@@ -16,7 +16,9 @@
   <MpWrongDefs>Mod definition mismatch</MpWrongDefs>
   <MpWrongDefsInfo>Make sure your installed mods, their versions and order match the host's.</MpWrongDefsInfo>
   <MpModList>Mod list</MpModList>
+  <MpSyncModList>Autosync Mod List</MpSyncModList>
   <MpSeeModList>See mod list</MpSeeModList>
+  <MPDownloadingWorkshopMods>Downloading Workshop Mods</MPDownloadingWorkshopMods>
   
   <MpServerClosed>Server closed</MpServerClosed>
   <MpServerFull>Server is full</MpServerFull>

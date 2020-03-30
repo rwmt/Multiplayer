@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using Verse;
 
 namespace Multiplayer.Common
 {
@@ -388,6 +389,10 @@ namespace Multiplayer.Common
             {
                 WriteLong(@long);
             }
+            else if (obj is ulong @ulong)
+            {
+                WriteULong(@ulong);
+            }
             else if (obj is byte @byte)
             {
                 WriteByte(@byte);
@@ -423,6 +428,9 @@ namespace Multiplayer.Common
                 Write(list.Count);
                 foreach (object o in list)
                     Write(o);
+            }
+            else {
+                Log.Error($"MP ByteWriter.Write: Unknown type {obj.GetType().ToString()}");
             }
         }
 
@@ -537,6 +545,16 @@ namespace Multiplayer.Common
             uint[] result = new uint[len];
             for (int i = 0; i < len; i++)
                 result[i] = ReadUInt32();
+            return result;
+        }
+
+        public ulong[] ReadPrefixedULongs()
+        {
+            int len = ReadInt32();
+            ulong[] result = new ulong[len];
+            for (int i = 0; i < len; i++) {
+                result[i] = ReadULong();
+            }
             return result;
         }
 
