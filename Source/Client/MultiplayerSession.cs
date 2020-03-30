@@ -16,7 +16,6 @@ using Verse.Sound;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
     public class MultiplayerSession : IConnectionStatusListener
     {
         public string gameName;

@@ -14,7 +14,6 @@ using Verse;
 namespace Multiplayer.Client
 {
     [HarmonyPatch(typeof(TickManager), nameof(TickManager.TickManagerUpdate))]
-    [HotSwappable]
     public static class TickPatch
     {
         public static double accumulator;

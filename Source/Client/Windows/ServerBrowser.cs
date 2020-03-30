@@ -21,7 +21,6 @@ using zip::Ionic.Zip;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
     public class ServerBrowser : Window
     {
         private NetManager net;

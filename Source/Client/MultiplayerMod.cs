@@ -17,7 +17,6 @@ using Multiplayer.Common;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
     public class MultiplayerMod : Mod
     {
         public static Harmony harmony = new Harmony("multiplayer");

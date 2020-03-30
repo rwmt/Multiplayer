@@ -75,7 +75,6 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(OptionListingUtility), nameof(OptionListingUtility.DrawOptionListing))]
-    [HotSwappable]
     public static class MainMenuPatch
     {
         static void Prefix(Rect rect, List<ListableOption> optList)

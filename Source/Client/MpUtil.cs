@@ -128,11 +128,6 @@ namespace Multiplayer.Client
         }
     }
 
-    [AttributeUsage(AttributeTargets.Class)]
-    public class HotSwappableAttribute : Attribute
-    {
-    }
-
     public struct Container<T>
     {
         private readonly T _value;

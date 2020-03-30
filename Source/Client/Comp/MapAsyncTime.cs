@@ -135,7 +135,6 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(TimeControls), nameof(TimeControls.DoTimeControlsGUI))]
-    [HotSwappable]
     public static class TimeControlPatch
     {
         private static TimeSpeed prevSpeed;
@@ -227,7 +226,6 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(ColonistBar), nameof(ColonistBar.ColonistBarOnGUI))]
-    [HotSwappable]
     public static class ColonistBarTimeControl
     {
         static void Prefix(ref bool __state)

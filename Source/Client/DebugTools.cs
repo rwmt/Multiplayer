@@ -19,7 +19,6 @@ using Verse;
 namespace Multiplayer.Client
 {
     [HarmonyPatch(typeof(Dialog_DebugActionsMenu), nameof(Dialog_DebugActionsMenu.DoListingItems))]
-    [HotSwappable]
     static class MpDebugTools
     {
         static void Postfix(Dialog_DebugActionsMenu __instance)
@@ -354,7 +353,6 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(Dialog_DebugOptionLister), nameof(Dialog_DebugOptionLister.DebugAction))]
-    [HotSwappable]
     static class DebugActionPatch
     {
         static bool Prefix(Dialog_DebugOptionLister __instance, string label, ref Action action)

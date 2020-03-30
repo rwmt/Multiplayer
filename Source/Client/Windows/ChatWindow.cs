@@ -12,7 +12,6 @@ using Verse.Steam;
 namespace Multiplayer.Client
 {
     [StaticConstructorOnStartup]
-    [HotSwappable]
     public class ChatWindow : Window
     {
         public static ChatWindow Opened => Find.WindowStack?.WindowOfType<ChatWindow>();
