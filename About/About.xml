@@ -3,13 +3,28 @@
   <packageId>rwmt.Multiplayer</packageId>
   <name>Multiplayer</name>
   <supportedVersions>
-    <li>1.0</li>
     <li>1.1</li>
   </supportedVersions>
   <author>Zetrith</author>
   <url>https://github.com/rwmt/Multiplayer</url>
-  <description>&lt;color=red&gt;&lt;b&gt;Important: &lt;/b&gt; This mod should be loaded right after Core and before HugsLib to work properly!&lt;/color&gt;\n
+  <description>&lt;color=red&gt;&lt;b&gt;Important: &lt;/b&gt; This mod should be loaded as early as possible to work properly!&lt;/color&gt;\n
 Multiplayer mod for rimworld.
-This is version 0.4.8.3
+This is version 0.5-alpha
   </description>
+  <modDependencies>
+    <li>
+      <packageId>brrainz.harmony</packageId>
+      <displayName>Harmony</displayName>
+      <downloadUrl>https://github.com/pardeike/Harmony/releases/</downloadUrl>
+      <steamWorkshopUrl>steam://url/CommunityFilePage/2009463077</steamWorkshopUrl>
+    </li>
+  </modDependencies>
+  <loadAfter>
+    <li>Ludeon.RimWorld</li>
+    <li>Ludeon.RimWorld.Royalty</li>
+    <li>brrainz.harmony</li>
+  </loadAfter>
+  <loadBefore>
+    <li>UnlimitedHugs.HugsLib</li>
+  </loadBefore>
 </ModMetaData>
