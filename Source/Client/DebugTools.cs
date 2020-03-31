@@ -1,151 +1,19 @@
-﻿using HarmonyLib;
-using Multiplayer.API;
-using Multiplayer.Common;
-using RimWorld;
-using RimWorld.Planet;
-using Steamworks;
-using System;
-using System.Collections;
+﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading;
-using System.Xml.Linq;
+
+using HarmonyLib;
+using Multiplayer.Common;
+
+using RimWorld;
+using RimWorld.Planet;
 using Verse;
 
 namespace Multiplayer.Client
 {
-    [HarmonyPatch(typeof(Dialog_DebugActionsMenu), nameof(Dialog_DebugActionsMenu.DoListingItems))]
     static class MpDebugTools
     {
-        static void Postfix(Dialog_DebugActionsMenu __instance)
-        {
-            var menu = __instance;
-
-            if (MpVersion.IsDebug)
-            {
-                menu.DoLabel("Entry tools");
-                menu.DebugAction("Entry action", EntryAction);
-            }
-
-            if (Current.ProgramState != ProgramState.Playing)
-                return;
-
-            menu.DoLabel("Local");
-
-            menu.DebugAction("Save game", SaveGameLocal);
-            menu.DebugAction("Print static fields", PrintStaticFields);
-
-            if (MpVersion.IsDebug)
-            {
-                menu.DebugAction("Queue incident", QueueIncident);
-                menu.DebugAction("Blocking long event", BlockingLongEvent);
-            }
-
-            if (Multiplayer.Client == null) return;
-
-            if (MpVersion.IsDebug)
-            {
-                menu.DoLabel("Multiplayer");
-
-                menu.DebugAction("Save game for everyone", SaveGameCmd);
-                menu.DebugAction("Advance time", AdvanceTime);
-            }
-        }
-
-        public static void EntryAction()
-        {
-            Log.Message(
-                GenDefDatabase.GetAllDefsInDatabaseForDef(typeof(TerrainDef))
-                .Select(def => $"{def.modContentPack?.Name} {def} {def.shortHash} {def.index}")
-                .Join(delimiter: "\n")
-            );
-        }
-
-        [SyncMethod(debugOnly = true)]
-        static void SaveGameCmd()
-        {
-            Map map = Find.Maps[0];
-            byte[] mapData = ScribeUtil.WriteExposable(Current.Game, "map", true);
-            File.WriteAllBytes($"map_0_{Multiplayer.username}.xml", mapData);
-        }
-
-        [SyncMethod(debugOnly = true)]
-        static void AdvanceTime()
-        {
-            File.WriteAllLines($"{Multiplayer.username}_all_static.txt", new string[] { AllModStatics() });
-
-            int to = 322 * 1000;
-            if (Find.TickManager.TicksGame < to)
-            {
-                //Find.TickManager.ticksGameInt = to;
-                //Find.Maps[0].AsyncTime().mapTicks = to;
-            }
-        }
-
-        static void SaveGameLocal()
-        {
-            byte[] data = ScribeUtil.WriteExposable(Current.Game, "game", true);
-            File.WriteAllBytes($"game_0_{Multiplayer.username}.xml", data);
-        }
-
-        static void PrintStaticFields()
-        {
-            Log.Message(StaticFieldsToString(typeof(Game).Assembly, type => type.Namespace.StartsWith("RimWorld") || type.Namespace.StartsWith("Verse")));
-        }
-
-        public static string AllModStatics()
-        {
-            var builder = new StringBuilder();
-
-            foreach (var mod in LoadedModManager.RunningModsListForReading)
-            {
-                builder.AppendLine("======== ").Append(mod.Name).AppendLine();
-                foreach (var asm in mod.assemblies.loadedAssemblies)
-                {
-                    builder.AppendLine(StaticFieldsToString(asm, t => !t.Namespace.StartsWith("Harmony") && !t.Namespace.StartsWith("Multiplayer")));
-                }
-            }
-
-            return builder.ToString();
-        }
-
-        public static string StaticFieldsToString(Assembly asm, Predicate<Type> typeValidator)
-        {
-            var builder = new StringBuilder();
-
-            object FieldValue(FieldInfo field)
-            {
-                var value = field.GetValue(null);
-                if (value is ICollection col)
-                    return col.Count;
-                if (field.Name.ToLowerInvariant().Contains("path") && value is string path && (path.Contains("/") || path.Contains("\\")))
-                    return "[x]";
-                return value;
-            }
-
-            foreach (var type in asm.GetTypes())
-                if (!type.IsGenericTypeDefinition && type.Namespace != null && typeValidator(type) && !type.HasAttribute<DefOf>() && !type.HasAttribute<CompilerGeneratedAttribute>())
-                    foreach (var field in type.GetFields(BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.DeclaredOnly))
-                        if (!field.IsLiteral && !field.IsInitOnly && !field.HasAttribute<CompilerGeneratedAttribute>())
-                            builder.AppendLine($"{field.FieldType} {type}::{field.Name}: {FieldValue(field)}");
-
-            return builder.ToString();
-        }
-
-        static void QueueIncident()
-        {
-            Find.Storyteller.incidentQueue.Add(IncidentDefOf.TraderCaravanArrival, Find.TickManager.TicksGame + 600, new IncidentParms() { target = Find.CurrentMap });
-        }
-
-        static void BlockingLongEvent()
-        {
-            LongEventHandler.QueueLongEvent(() => Thread.Sleep(60 * 1000), "Blocking", false, null);
-        }
-
         public static int currentPlayer;
         public static int currentHash;
 
@@ -192,20 +60,6 @@ namespace Multiplayer.Client
 
             try
             {
-                /*if (source == DebugSource.ListingMap)
-                {
-                    new Dialog_DebugActionsMenu().DoListingItems_MapActions();
-                    new Dialog_DebugActionsMenu().DoListingItems_MapTools();
-                }
-                else if (source == DebugSource.ListingWorld)
-                {
-                    new Dialog_DebugActionsMenu().DoListingItems_World();
-                }
-                else if (source == DebugSource.ListingPlay)
-                {
-                    new Dialog_DebugActionsMenu().DoListingItems_AllModePlayActions();
-                }
-                else*/
                 if (source == DebugSource.Lister)
                 {
                     var options = (state.window as List<DebugMenuOption>) ?? new List<DebugMenuOption>();
@@ -302,7 +156,7 @@ namespace Multiplayer.Client
         FloatMenu,
     }
 
-    //[HarmonyPatch(typeof(Dialog_DebugActionsMenu), nameof(Dialog_DebugActionsMenu.DoListingItems_AllModePlayActions))]
+    [HarmonyPatch(typeof(Dialog_DebugActionsMenu), nameof(Dialog_DebugActionsMenu.DoListingItems))]
     static class ListingPlayMarker
     {
         public static bool drawing;
@@ -311,7 +165,7 @@ namespace Multiplayer.Client
         static void Postfix() => drawing = false;
     }
 
-    //[HarmonyPatch(typeof(Dialog_DebugActionsMenu), nameof(Dialog_DebugActionsMenu.DoListingItems_World))]
+    [HarmonyPatch(typeof(Dialog_DebugOptionLister), nameof(Dialog_DebugOptionLister.DebugToolWorld))]
     static class ListingWorldMarker
     {
         public static bool drawing;
@@ -320,21 +174,31 @@ namespace Multiplayer.Client
         static void Postfix() => drawing = false;
     }
 
-    //[MpPatch(typeof(Dialog_DebugActionsMenu), nameof(Dialog_DebugActionsMenu.DoIncidentDebugAction))]
-    //[MpPatch(typeof(Dialog_DebugActionsMenu), nameof(Dialog_DebugActionsMenu.DoIncidentWithPointsAction))]
+    [HarmonyPatch]
     static class ListingIncidentMarker
     {
         public static IIncidentTarget target;
+
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(DebugActionsIncidents), nameof(DebugActionsIncidents.DoIncidentDebugAction));
+            yield return AccessTools.Method(typeof(DebugActionsIncidents), nameof(DebugActionsIncidents.DoIncidentWithPointsAction));
+        }
 
         static void Prefix(IIncidentTarget target) => ListingIncidentMarker.target = target;
         static void Postfix() => target = null;
     }
 
-    //[MpPatch(typeof(Dialog_DebugActionsMenu), nameof(Dialog_DebugActionsMenu.DoListingItems_MapActions))]
-    //[MpPatch(typeof(Dialog_DebugActionsMenu), nameof(Dialog_DebugActionsMenu.DoListingItems_MapTools))]
+    [HarmonyPatch]
     static class ListingMapMarker
     {
         public static bool drawing;
+
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(Dialog_DebugOptionLister), nameof(Dialog_DebugOptionLister.DebugToolMap));
+            yield return AccessTools.Method(typeof(Dialog_DebugOptionLister), nameof(Dialog_DebugOptionLister.DebugToolMapForPawns));
+        }
 
         static void Prefix() => drawing = true;
         static void Postfix() => drawing = false;
@@ -445,7 +309,7 @@ namespace Multiplayer.Client
                     DebugTools.curTool = null;
                 }
 
-                if (__instance is Dialog_DebugOptionListLister lister)
+                else if (__instance is Dialog_DebugOptionListLister lister)
                 {
                     var context = (DebugListerContext)toolAction.Target;
                     MpDebugTools.SendCmd(DebugSource.Lister, hash, context.map);
