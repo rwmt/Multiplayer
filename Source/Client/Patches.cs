@@ -1590,6 +1590,6 @@ namespace Multiplayer.Client
             }
         }
 
-        static int CombineHashes(int seed, Map map) => Gen.HashCombineInt(seed, map.uniqueID);
+        static int CombineHashes(int seed, Map map) => Gen.HashCombineInt(seed, map?.uniqueID ?? -1);
     }
 }
