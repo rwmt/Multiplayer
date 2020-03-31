@@ -60,7 +60,19 @@ namespace Multiplayer.Client
 
             try
             {
-                if (source == DebugSource.Lister)
+                if (source == DebugSource.ListingMap)
+                {
+                    new Dialog_DebugActionsMenu().DoListingItems();
+                }
+                else if (source == DebugSource.ListingWorld)
+                {
+                    new Dialog_DebugActionsMenu().DoListingItems();
+                }
+                else if (source == DebugSource.ListingPlay)
+                {
+                    new Dialog_DebugActionsMenu().DoListingItems();
+                }
+                else if (source == DebugSource.Lister)
                 {
                     var options = (state.window as List<DebugMenuOption>) ?? new List<DebugMenuOption>();
                     new Dialog_DebugOptionListLister(options).DoListingItems();
