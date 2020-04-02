@@ -819,6 +819,9 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(CompRefuelable), "<CompGetGizmosExtra>b__42_2").SetDebugOnly(); // Set fuel to 0
             SyncMethod.Register(typeof(CompRefuelable), "<CompGetGizmosExtra>b__42_4").SetDebugOnly(); // Set fuel to max
 
+            SyncMethod.Register(typeof(CompShuttle), "<CompGetGizmosExtra>b__39_1"); // Toggle autoload
+            SyncMethod.Register(typeof(CompShuttle), "<CompGetGizmosExtra>b__39_2"); // Send shuttle
+
             SyncDelegate.Register(typeof(ITab_ContentsTransporter), "<>c__DisplayClass7_0", "<DoItemsLists>b__0").SetContext(SyncContext.MapSelected); // Discard loaded thing
         }
 
