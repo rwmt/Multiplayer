@@ -229,6 +229,52 @@ namespace Multiplayer.Client
                     return billStack.Bills.Find(bill => bill.loadID == id);
                 }, true
             },
+            {
+                (ByteWriter data, Verb_CastAbility verb) => {
+                    if (verb.DirectOwner is Pawn pawn) {
+                        WriteSync(data, VerbOwnerType.Pawn);
+                        WriteSync(data, pawn);
+                    }
+                    else if (verb.DirectOwner is Ability ability) {
+                        WriteSync(data, VerbOwnerType.Ability);
+                        WriteSync(data, ability.pawn);
+                        WriteSync(data, ability.UniqueVerbOwnerID());
+                    }
+                    else {
+                        Log.Warning($"MP SyncDictionary.Verb_CastAbility: skipping unknown DirectOwner {verb.loadID} {verb.DirectOwner}");
+                        WriteSync(data, VerbOwnerType.None);
+                        return;
+                    }
+
+                    data.WriteString(verb.loadID);
+                },
+                (ByteReader data) => {
+                    var ownerType = ReadSync<VerbOwnerType>(data);
+                    if (ownerType == VerbOwnerType.None) {
+                        return null;
+                    }
+
+                    IVerbOwner verbOwner;
+                    if (ownerType == VerbOwnerType.Pawn) {
+                        verbOwner = ReadSync<Pawn>(data);
+                    }
+                    else if (ownerType == VerbOwnerType.Ability) {
+                        var pawn = ReadSync<Pawn>(data);
+                        var uniqueVerbOwnerID = data.ReadString();
+
+                        verbOwner = pawn.abilities.abilities.Find(ab => ab.UniqueVerbOwnerID() == uniqueVerbOwnerID);
+                        if (verbOwner == null) {
+                            return null;
+                        }
+                    }
+                    else {
+                        return null;
+                    }
+
+                    var loadID = data.ReadString();
+                    return (Verb_CastAbility) verbOwner.VerbTracker.AllVerbs.Find(ve => ve.loadID == loadID);
+                }
+            },
             #endregion
 
             #region AI

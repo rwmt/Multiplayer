@@ -479,6 +479,7 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(Command_LoadToTransporter), nameof(Command_LoadToTransporter.ProcessInput));
 
             SyncMethod.Register(typeof(Quest), nameof(Quest.Accept));
+            SyncMethod.Register(typeof(Verb_CastAbility), nameof(Verb_CastAbility.OrderForceTarget));
 
             // 1
             SyncMethod.Register(typeof(TradeRequestComp), nameof(TradeRequestComp.Fulfill)).CancelIfAnyArgNull().SetVersion(1);

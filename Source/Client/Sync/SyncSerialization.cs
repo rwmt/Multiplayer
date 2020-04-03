@@ -86,6 +86,11 @@ namespace Multiplayer.Client
             None, Thing, Zone, WorldObject
         }
 
+        enum VerbOwnerType : byte
+        {
+            None, Pawn, Ability
+        }
+
         private static MethodInfo GetDefByIdMethod = AccessTools.Method(typeof(Sync), nameof(Sync.GetDefById));
 
         public static T GetDefById<T>(ushort id) where T : Def => DefDatabase<T>.GetByShortHash(id);
