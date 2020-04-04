@@ -229,6 +229,57 @@ namespace Multiplayer.Client
                     return billStack.Bills.Find(bill => bill.loadID == id);
                 }, true
             },
+            {
+                (ByteWriter data, Ability ability) => {
+                    WriteSync(data, ability.pawn);
+                    WriteSync(data, ability.UniqueVerbOwnerID());
+                },
+                (ByteReader data) => {
+                    var pawn = ReadSync<Pawn>(data);
+                    var uniqueVerbOwnerID = data.ReadString();
+
+                    return pawn.abilities.abilities.Find(ab => ab.UniqueVerbOwnerID() == uniqueVerbOwnerID);
+                }, true
+            },
+            {
+                (ByteWriter data, Verb_CastAbility verb) => {
+                    if (verb.DirectOwner is Pawn pawn) {
+                        WriteSync(data, VerbOwnerType.Pawn);
+                        WriteSync(data, pawn);
+                    }
+                    else if (verb.DirectOwner is Ability ability) {
+                        WriteSync(data, VerbOwnerType.Ability);
+                        WriteSync(data, ability);
+                    }
+                    else {
+                        Log.Warning($"MP SyncDictionary.Verb_CastAbility: skipping unknown DirectOwner {verb.loadID} {verb.DirectOwner}");
+                        WriteSync(data, VerbOwnerType.None);
+                        return;
+                    }
+
+                    data.WriteString(verb.loadID);
+                },
+                (ByteReader data) => {
+                    var ownerType = ReadSync<VerbOwnerType>(data);
+                    if (ownerType == VerbOwnerType.None) {
+                        return null;
+                    }
+
+                    IVerbOwner verbOwner = null;
+                    if (ownerType == VerbOwnerType.Pawn) {
+                        verbOwner = ReadSync<Pawn>(data);
+                    }
+                    else if (ownerType == VerbOwnerType.Ability) {
+                        verbOwner = ReadSync<Ability>(data);
+                    }
+                    if (verbOwner == null) {
+                        return null;
+                    }
+
+                    var loadID = data.ReadString();
+                    return (Verb_CastAbility) verbOwner.VerbTracker.AllVerbs.Find(ve => ve.loadID == loadID);
+                }
+            },
             #endregion
 
             #region AI

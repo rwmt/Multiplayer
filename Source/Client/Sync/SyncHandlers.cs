@@ -38,6 +38,7 @@ namespace Multiplayer.Client
         public static ISyncField SyncHostilityResponse = Sync.Field(typeof(Pawn), "playerSettings", "hostilityResponse");
         public static ISyncField SyncInteractionMode = Sync.Field(typeof(Pawn), "guest", "interactionMode");
         public static ISyncField SyncBeCarried = Sync.Field(typeof(Pawn), "health", "beCarriedByCaravanIfSick");
+        public static ISyncField SyncPsychicEntropyLimit = Sync.Field(typeof(Pawn), "psychicEntropy", "limitEntropyAmount");
 
         public static ISyncField SyncGodMode = Sync.Field(null, "Verse.DebugSettings/godMode").SetDebugOnly();
         public static ISyncField SyncResearchProject = Sync.Field(null, "Verse.Find/ResearchManager/currentProj");
@@ -189,6 +190,14 @@ namespace Multiplayer.Client
         static void MedicalDefaults()
         {
             SyncDefaultCare.Watch();
+        }
+
+        [MpPrefix(typeof(PsychicEntropyGizmo), nameof(PsychicEntropyGizmo.GizmoOnGUI))]
+        static void PsychicEntropyLimiterToggle(PsychicEntropyGizmo __instance)
+        {
+            if (__instance?.tracker?.Pawn != null) {
+                SyncPsychicEntropyLimit.Watch(__instance.tracker.Pawn);
+            }
         }
 
         [MpPrefix(typeof(Widgets), "CheckboxLabeled")]
@@ -479,6 +488,7 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(Command_LoadToTransporter), nameof(Command_LoadToTransporter.ProcessInput));
 
             SyncMethod.Register(typeof(Quest), nameof(Quest.Accept));
+            SyncMethod.Register(typeof(Verb_CastAbility), nameof(Verb_CastAbility.OrderForceTarget));
 
             // 1
             SyncMethod.Register(typeof(TradeRequestComp), nameof(TradeRequestComp.Fulfill)).CancelIfAnyArgNull().SetVersion(1);
