@@ -230,6 +230,18 @@ namespace Multiplayer.Client
                 }, true
             },
             {
+                (ByteWriter data, Ability ability) => {
+                    WriteSync(data, ability.pawn);
+                    WriteSync(data, ability.UniqueVerbOwnerID());
+                },
+                (ByteReader data) => {
+                    var pawn = ReadSync<Pawn>(data);
+                    var uniqueVerbOwnerID = data.ReadString();
+
+                    return pawn.abilities.abilities.Find(ab => ab.UniqueVerbOwnerID() == uniqueVerbOwnerID);
+                }, true
+            },
+            {
                 (ByteWriter data, Verb_CastAbility verb) => {
                     if (verb.DirectOwner is Pawn pawn) {
                         WriteSync(data, VerbOwnerType.Pawn);
@@ -237,8 +249,7 @@ namespace Multiplayer.Client
                     }
                     else if (verb.DirectOwner is Ability ability) {
                         WriteSync(data, VerbOwnerType.Ability);
-                        WriteSync(data, ability.pawn);
-                        WriteSync(data, ability.UniqueVerbOwnerID());
+                        WriteSync(data, ability);
                     }
                     else {
                         Log.Warning($"MP SyncDictionary.Verb_CastAbility: skipping unknown DirectOwner {verb.loadID} {verb.DirectOwner}");
@@ -254,20 +265,14 @@ namespace Multiplayer.Client
                         return null;
                     }
 
-                    IVerbOwner verbOwner;
+                    IVerbOwner verbOwner = null;
                     if (ownerType == VerbOwnerType.Pawn) {
                         verbOwner = ReadSync<Pawn>(data);
                     }
                     else if (ownerType == VerbOwnerType.Ability) {
-                        var pawn = ReadSync<Pawn>(data);
-                        var uniqueVerbOwnerID = data.ReadString();
-
-                        verbOwner = pawn.abilities.abilities.Find(ab => ab.UniqueVerbOwnerID() == uniqueVerbOwnerID);
-                        if (verbOwner == null) {
-                            return null;
-                        }
+                        verbOwner = ReadSync<Ability>(data);
                     }
-                    else {
+                    if (verbOwner == null) {
                         return null;
                     }
 
