@@ -3,7 +3,6 @@
   <packageId>rwmt.Multiplayer</packageId>
   <name>Multiplayer</name>
   <supportedVersions>
-    <li>1.0</li>
     <li>1.1</li>
   </supportedVersions>
   <author>Zetrith</author>

@@ -2,6 +2,7 @@
 
 mkdir -p Multiplayer
 cp -r About Languages Multiplayer/
+sed -i "/<supportedVersions>/ a \ \ \ \ <li>1.0</li>" Multiplayer/About/About.xml
 
 rm -rf Multiplayer/1.1
 mkdir -p Multiplayer/1.1
