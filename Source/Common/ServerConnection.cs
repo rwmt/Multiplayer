@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using Verse;
 
 namespace Multiplayer.Common
 {
@@ -66,7 +68,40 @@ namespace Multiplayer.Common
                 return;
             }
 
-            connection.Send(Packets.Server_DefsOK, Server.settings.gameName, Player.id);
+            var modConfigFiles = GetSyncableConfigFiles()
+                .ToDictionary(
+                    file => file.FullName
+                        .Substring(GenFilePaths.SaveDataFolderPath.Length + 1) // trim up to base savedata dir, eg. Config/Mod_7535268789_SettingController.xml
+                        .Replace('\\', '/'), // normalize directory separator to /
+                    file => file.OpenText().ReadToEnd()
+                );
+
+            Log.Message($"Lookin at files, {modConfigFiles.Keys.Count}"); // debug
+            foreach (KeyValuePair<string, string> modConfigFile in modConfigFiles) {
+                Log.Message(modConfigFile.Key + ": " + modConfigFile.Value); // debug
+            }
+
+            connection.Send(Packets.Server_DefsOK, Server.settings.gameName, Player.id, modConfigFiles.Keys.ToArray(),
+                modConfigFiles.Values.ToArray());
+        }
+
+        public static IEnumerable<FileInfo> GetSyncableConfigFiles()
+        {
+            return new DirectoryInfo(GenFilePaths.ConfigFolderPath)
+                .GetFiles("*.xml", SearchOption.AllDirectories)
+                .Concat(new DirectoryInfo(GenFilePaths.FolderUnderSaveData("HugsLib")).GetFiles("*.xml",
+                    SearchOption.AllDirectories))
+                .Where(FilterNonSyncedConfigFiles);
+        }
+
+        public static bool FilterNonSyncedConfigFiles(FileInfo file)
+        {
+            return file.Name != "KeyPrefs.xml"
+                   && file.Name != "Knowledge.xml"
+                   && file.Name != "ModsConfig.xml" // already synced at earlier step
+                   && file.Name != "Prefs.xml" // base game stuff: volume, resolution, etc
+                   && file.Name != "LastSeenNews.xml"
+                   && !file.DirectoryName.Contains("RimHUD");
         }
 
         private static ColorRGB[] PlayerColors = new ColorRGB[]

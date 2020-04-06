@@ -64,10 +64,55 @@ namespace Multiplayer.Client
         {
             Multiplayer.session.gameName = data.ReadString();
             Multiplayer.session.playerId = data.ReadInt32();
+            this.HandleModConfigFiles(data.ReadPrefixedStrings(), data.ReadPrefixedStrings());
 
             connection.Send(Packets.Client_Username, Multiplayer.username);
 
             state = JoiningState.Downloading;
+        }
+
+        private void HandleModConfigFiles(string[] fileNames, string[] fileDatas)
+        {
+            if (MultiplayerMod.arbiterInstance) {
+                return;
+            }
+
+            var localConfigsBackupDir = GenFilePaths.FolderUnderSaveData("LocalConfigsBackup");
+            DirectoryInfo localConfigsBackupDirInfo = new DirectoryInfo(localConfigsBackupDir);
+            if (localConfigsBackupDirInfo.GetDirectories().Length > 0) {
+                var newName = $"LocalConfigsBackup-{DateTime.Now:yyyy-MM-ddTHH-mm-ss}";
+                Log.Warning($"MP Connect: LocalConfigsBackup already exists; moving current configs to '{newName}'");
+                localConfigsBackupDir = GenFilePaths.FolderUnderSaveData(newName);
+            }
+
+            var localModConfigFiles = ServerJoiningState.GetSyncableConfigFiles();
+            foreach (var file in localModConfigFiles) {
+                var newFilePath = Path.Combine(
+                    localConfigsBackupDir,
+                    file.FullName
+                        .Substring(GenFilePaths.SaveDataFolderPath.Length + 1)
+                        .Replace('\\', Path.DirectorySeparatorChar)
+                );
+                Directory.GetParent(newFilePath).Create();
+                file.MoveTo(newFilePath);
+            }
+
+            var hostModConfigFiles = fileNames
+                .Zip(fileDatas, (k, v) => new {k, v})
+                .ToDictionary(x => x.k, x => x.v);
+
+            Log.Message($"client Lookin at files, ${hostModConfigFiles.Keys.Count}"); // debug
+            foreach (KeyValuePair<string, string> modConfigFile in hostModConfigFiles) {
+                Log.Message(modConfigFile.Key + ": " + modConfigFile.Value); // debug
+
+                File.WriteAllText(
+                    Path.Combine(
+                        GenFilePaths.SaveDataFolderPath,
+                        modConfigFile.Key.Replace('\\', Path.DirectorySeparatorChar)
+                    ),
+                    modConfigFile.Value
+                );
+            }
         }
 
         [PacketHandler(Packets.Server_WorldData)]
