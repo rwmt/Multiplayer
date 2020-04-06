@@ -831,6 +831,9 @@ namespace Multiplayer.Client
 
             SyncMethod.Register(typeof(CompShuttle), "<CompGetGizmosExtra>b__39_1"); // Toggle autoload
             SyncMethod.Register(typeof(CompShuttle), "<CompGetGizmosExtra>b__39_2"); // Send shuttle
+            SyncMethod.Register(typeof(MonumentMarker), "<GetGizmos>b__27_1"); // Build Monument Quest - Monument Marker: cancel/remove marker
+            SyncDelegate.Register(typeof(MonumentMarker), "<>c__DisplayClass27_0", "<GetGizmos>b__3"); // Build Monument Quest - Monument Marker: place blueprints
+            SyncMethod.Register(typeof(MonumentMarker), "<GetGizmos>b__27_4"); // Build Monument Quest - Monument Marker: dev build all
 
             SyncDelegate.Register(typeof(ITab_ContentsTransporter), "<>c__DisplayClass7_0", "<DoItemsLists>b__0").SetContext(SyncContext.MapSelected); // Discard loaded thing
         }
