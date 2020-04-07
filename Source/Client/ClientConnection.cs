@@ -64,17 +64,40 @@ namespace Multiplayer.Client
         {
             Multiplayer.session.gameName = data.ReadString();
             Multiplayer.session.playerId = data.ReadInt32();
-            this.HandleModConfigFiles(data.ReadPrefixedStrings(), data.ReadPrefixedStrings());
+            var modConfigsMatch = this.HandleModConfigFiles(data.ReadPrefixedStrings(), data.ReadPrefixedStrings());
+            if (!modConfigsMatch) {
+                connection.Close();
+                connection.State = ConnectionStateEnum.Disconnected;
+                Find.WindowStack.Add((Window) new Dialog_MessageBox("ModsChanged".Translate(), (string) null,
+                    (Action) (() =>
+                        GenCommandLine.Restart()
+                    ), (string) null, (Action) null, (string) null, false, (Action) null, (Action) null));
+                return;
+            }
 
             connection.Send(Packets.Client_Username, Multiplayer.username);
 
             state = JoiningState.Downloading;
         }
 
-        private void HandleModConfigFiles(string[] fileNames, string[] fileDatas)
+        private bool HandleModConfigFiles(string[] fileNames, string[] fileDatas)
         {
             if (MultiplayerMod.arbiterInstance) {
-                return;
+                return true;
+            }
+
+            var hostModConfigFiles = fileNames
+                .Zip(fileDatas, (k, v) => new {k, v})
+                .ToDictionary(x => x.k, x => x.v);
+            Log.Message($"client Lookin at files, ${hostModConfigFiles.Keys.Count}"); // debug
+
+            var localModConfigFiles = ServerJoiningState.GetSyncableConfigFiles().ToArray();
+            var localModConfigContents = localModConfigFiles.ToDictionary(
+                file => ModConfigFileRelative(file.FullName, true),
+                file => File.ReadAllText(file.FullName)
+            );
+            if (FileSetsMatch(localModConfigContents, hostModConfigFiles)) {
+                return true;
             }
 
             var localConfigsBackupDir = GenFilePaths.FolderUnderSaveData("LocalConfigsBackup");
@@ -85,34 +108,54 @@ namespace Multiplayer.Client
                 localConfigsBackupDir = GenFilePaths.FolderUnderSaveData(newName);
             }
 
-            var localModConfigFiles = ServerJoiningState.GetSyncableConfigFiles();
             foreach (var file in localModConfigFiles) {
                 var newFilePath = Path.Combine(
                     localConfigsBackupDir,
-                    file.FullName
-                        .Substring(GenFilePaths.SaveDataFolderPath.Length + 1)
-                        .Replace('\\', Path.DirectorySeparatorChar)
+                    ModConfigFileRelative(file.FullName, false)
                 );
                 Directory.GetParent(newFilePath).Create();
                 file.MoveTo(newFilePath);
             }
 
-            var hostModConfigFiles = fileNames
-                .Zip(fileDatas, (k, v) => new {k, v})
-                .ToDictionary(x => x.k, x => x.v);
-
-            Log.Message($"client Lookin at files, ${hostModConfigFiles.Keys.Count}"); // debug
-            foreach (KeyValuePair<string, string> modConfigFile in hostModConfigFiles) {
-                Log.Message(modConfigFile.Key + ": " + modConfigFile.Value); // debug
+            foreach (var modConfigData in hostModConfigFiles) {
+                Log.Message(modConfigData.Key + ": " + modConfigData.Value); // debug
 
                 File.WriteAllText(
                     Path.Combine(
                         GenFilePaths.SaveDataFolderPath,
-                        modConfigFile.Key.Replace('\\', Path.DirectorySeparatorChar)
+                        modConfigData.Key.Replace('/', Path.DirectorySeparatorChar)
                     ),
-                    modConfigFile.Value
+                    modConfigData.Value
                 );
             }
+
+            return false;
+        }
+
+        private static bool FileSetsMatch(Dictionary<string, string> localFiles, Dictionary<string, string> hostFiles)
+        {
+            foreach (var hostModEntry in hostFiles) {
+                var fileName = hostModEntry.Key;
+                Log.Message("on client, host v: " + fileName + ": " + hostModEntry.Value); // debug
+                var localFileContents = "";
+                localFiles.TryGetValue(fileName, out localFileContents);
+                Log.Message("on client, client v: " + fileName + ": " + localFileContents); // debug
+
+                if (hostModEntry.Value != localFileContents) {
+                    Log.Message($"MP Connect: client mod configs don't match server {fileName}");
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private static string ModConfigFileRelative(string modConfigFile, bool normalizeSeparators)
+        {
+            var relative = modConfigFile
+                .Substring(GenFilePaths.SaveDataFolderPath.Length + 1);
+            return normalizeSeparators
+                ? relative.Replace('\\', '/')
+                : relative.Replace('/', Path.DirectorySeparatorChar);
         }
 
         [PacketHandler(Packets.Server_WorldData)]
