@@ -91,6 +91,91 @@ namespace Multiplayer.Client
                 .Invoke(obj: null, parameters: new object[] { });
         }
 
+        public static void ApplyHostModConfigFiles()
+        {
+            var hostModConfigFiles = Multiplayer.session.mods.remoteModConfigs;
+            if (CheckModConfigsMatch(hostModConfigFiles)) {
+                return;
+            }
+
+            var localConfigsBackupDir = GenFilePaths.FolderUnderSaveData("LocalConfigsBackup");
+            DirectoryInfo localConfigsBackupDirInfo = new DirectoryInfo(localConfigsBackupDir);
+            if (localConfigsBackupDirInfo.GetDirectories().Length > 0) {
+                var newName = $"LocalConfigsBackup-{DateTime.Now:yyyy-MM-ddTHH-mm-ss}";
+                Log.Warning($"MP Connect: LocalConfigsBackup already exists; moving current configs to '{newName}'");
+                localConfigsBackupDir = GenFilePaths.FolderUnderSaveData(newName);
+            }
+
+            foreach (var modConfigData in hostModConfigFiles) {
+                var relativeFilePath = modConfigData.Key.Replace('/', Path.DirectorySeparatorChar);
+                var filePath = Path.Combine(GenFilePaths.SaveDataFolderPath, relativeFilePath);
+                if (File.Exists(filePath)) {
+                    var backupFilePath = Path.Combine(localConfigsBackupDir, relativeFilePath);
+                    Directory.GetParent(backupFilePath).Create();
+                    File.Move(filePath, backupFilePath);
+                }
+                File.WriteAllText(filePath, modConfigData.Value);
+            }
+        }
+
+        public static bool CheckModConfigsMatch(Dictionary<string, string> hostFiles)
+        {
+            if (MultiplayerMod.arbiterInstance) {
+                return true;
+            }
+
+            foreach (var hostModEntry in hostFiles) {
+                var hostFileName = hostModEntry.Key;
+                var localFileName = Path.Combine(
+                    GenFilePaths.SaveDataFolderPath,
+                    hostFileName.Replace('/', Path.DirectorySeparatorChar)
+                );
+                if (!File.Exists(localFileName)) {
+                    Log.Message($"MP Connect: client mod configs don't match server {hostFileName}");
+                    return false;
+                }
+
+                var localFileContents = File.ReadAllText(localFileName);
+                if (hostModEntry.Value != localFileContents) {
+                    Log.Message($"MP Connect: client mod configs don't match server {hostFileName}");
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        public static Dictionary<string, string> GetSyncableConfigFiles()
+        {
+            return new DirectoryInfo(GenFilePaths.ConfigFolderPath)
+                .GetFiles("*.xml", SearchOption.AllDirectories)
+                .Concat(new DirectoryInfo(GenFilePaths.FolderUnderSaveData("HugsLib")).GetFiles("*.xml",
+                    SearchOption.AllDirectories))
+                .Where(FilterNonSyncedConfigFiles)
+                .ToDictionary(
+                    file => ModManagement.ModConfigFileRelative(file.FullName, true),
+                    file => file.OpenText().ReadToEnd()
+                );
+        }
+
+        public static bool FilterNonSyncedConfigFiles(FileInfo file)
+        {
+            return file.Name != "KeyPrefs.xml"
+                   && file.Name != "Knowledge.xml"
+                   && file.Name != "ModsConfig.xml" // already synced at earlier step
+                   && file.Name != "Prefs.xml" // base game stuff: volume, resolution, etc
+                   && file.Name != "LastSeenNews.xml"
+                   && !file.DirectoryName.Contains("RimHUD");
+        }
+
+        public static string ModConfigFileRelative(string modConfigFile, bool normalizeSeparators)
+        {
+            // trim up to base savedata dir, eg. Config/Mod_7535268789_SettingController.xml
+            var relative = modConfigFile.Substring(GenFilePaths.SaveDataFolderPath.Length + 1);
+            return normalizeSeparators
+                ? relative.Replace('\\', '/') // normalize directory separator to /
+                : relative.Replace('/', Path.DirectorySeparatorChar);
+        }
+
         /// Extension of <see cref="ModsConfig.RestartFromChangedMods"/>) with -connect
         public static void PromptRestartAndReconnect(string address, int port)
         {
