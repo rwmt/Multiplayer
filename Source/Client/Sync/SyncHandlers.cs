@@ -826,7 +826,9 @@ namespace Multiplayer.Client
 
             SyncDelegate.Register(typeof(Building_Bed), "<>c__DisplayClass41_0", "<GetFloatMenuOptions>b__0").CancelIfAnyFieldNull(); // Use medical bed
 
+            SyncMethod.Register(typeof(CompRefuelable), "<CompGetGizmosExtra>b__42_1"); // Toggle Auto-refuel
             SyncMethod.Register(typeof(CompRefuelable), "<CompGetGizmosExtra>b__42_2").SetDebugOnly(); // Set fuel to 0
+            SyncMethod.Register(typeof(CompRefuelable), "<CompGetGizmosExtra>b__42_3").SetDebugOnly(); // Set fuel to 0.1
             SyncMethod.Register(typeof(CompRefuelable), "<CompGetGizmosExtra>b__42_4").SetDebugOnly(); // Set fuel to max
 
             SyncMethod.Register(typeof(CompShuttle), "<CompGetGizmosExtra>b__39_1"); // Toggle autoload
