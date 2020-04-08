@@ -8,6 +8,8 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
+using RestSharp;
 using HarmonyLib;
 using Multiplayer.Common;
 using RimWorld;
@@ -66,6 +68,7 @@ namespace Multiplayer.Client
         public static HashSet<string> xmlMods = new HashSet<string>();
         public static List<ModHashes> enabledModAssemblyHashes = new List<ModHashes>();
         public static Dictionary<string, DefInfo> localDefInfos;
+        public static Dictionary<int, int> modsCompatibility = new Dictionary<int, int>();
 
         static Multiplayer()
         {
@@ -146,8 +149,43 @@ namespace Multiplayer.Client
 
             HandleCommandLine();
 
-            if (MultiplayerMod.arbiterInstance)
+            if (MultiplayerMod.arbiterInstance) {
                 RuntimeHelpers.RunClassConstructor(typeof(Text).TypeHandle);
+            }
+            else {
+                UpdateModCompatibilityDb();
+            }
+        }
+
+        private static void UpdateModCompatibilityDb()
+        {
+            Task.Run(() => {
+                var sheetId = "1jaDxV8F7bcz4E9zeIRmZGKuaX7d0kvWWq28aKckISaY";
+                var googleApiKey = "AIzaSyBfgSntgjLAUgUQjfkSsIOaGiUji9BJVwk"; // plz don't abuse
+                var client = new RestClient("https://sheets.googleapis.com/v4/spreadsheets/");
+                try {
+                    var rawResponse = client.Get(new RestRequest($"{sheetId}/values/A3%3AC?majorDimension=COLUMNS&valueRenderOption=UNFORMATTED_VALUE&key={googleApiKey}", DataFormat.Json));
+                    var responseData = SimpleJson.DeserializeObject<GoogleSheetsResponse>(rawResponse.Content);
+                    var compatRatings = responseData.values[0]; // column 0: compatibility 0-4
+                    var workshopIds = responseData.values[2]; // column 2: workshop ID (eg. 2009463077)
+
+                    modsCompatibility.Clear();
+                    for (var i = 0; i <= workshopIds.Count; i++) {
+                        try {
+                            modsCompatibility.Add(
+                                Convert.ToInt32(workshopIds[i]),
+                                Convert.ToInt32(compatRatings[i])
+                            );
+                        }
+                        catch {
+                            // there are some bad rows in the spreadsheet, skip
+                        }
+                    }
+                }
+                catch (Exception e) {
+                    Log.Warning($"MP: updating mod compatibility list failed {e.Message} {e.StackTrace}");
+                }
+            });
         }
 
         private static void SetUsername()
@@ -504,6 +542,13 @@ namespace Multiplayer.Client
                 hash = types.Select(t => hash(t)).AggregateHash()
             };
         }
+    }
+
+    public class GoogleSheetsResponse
+    {
+        public string range;
+        public string majorDimension;
+        public List<List<object>> values;
     }
 
     public class ModHashes

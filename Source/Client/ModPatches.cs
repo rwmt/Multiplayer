@@ -98,7 +98,8 @@ namespace Multiplayer.Client
     [HarmonyPatch(typeof(Page_ModsConfig), nameof(Page_ModsConfig.DoModRow))]
     static class PageModsPatch
     {
-        public static string currentXMLMod;
+        public static string currentModName;
+        public static string currentModCompat;
         public static Dictionary<string, string> truncatedStrings;
 
         static void Prefix(Page_ModsConfig __instance, ModMetaData mod)
@@ -111,17 +112,34 @@ namespace Multiplayer.Client
             if (!Input.GetKey(KeyCode.LeftShift)) return;
 
             var mod = ____selected;
-            if (Multiplayer.xmlMods.Contains(mod.RootDir.FullName))
-            {
-                currentXMLMod = __instance == null ? mod.Name : (string)__instance.GetPropertyOrField("TrimmedName");
-                truncatedStrings = ____modNameTruncationCache;
+            currentModName = __instance == null ? mod.Name : (string)__instance.GetPropertyOrField("TrimmedName");
+            truncatedStrings = ____modNameTruncationCache;
+            if (Multiplayer.xmlMods.Contains(mod.RootDir.FullName)) {
+                currentModCompat = "XML";
+            }
+
+            if (Multiplayer.modsCompatibility.ContainsKey((int) mod.publishedFileIdInt.m_PublishedFileId)) {
+                var compat = Multiplayer.modsCompatibility[(int) mod.publishedFileIdInt.m_PublishedFileId];
+                if (compat == 1) {
+                    currentModCompat = $"<color=red>{compat}</color>";
+                } else if (compat == 2) {
+                    currentModCompat = $"<color=orange>{compat}</color>";
+                } else if (compat == 3) {
+                    currentModCompat = $"<color=yellow>{compat}</color>";
+                } else if (compat == 4) {
+                    currentModCompat = $"<color=green>{compat}</color>";
+                }
+                else {
+                    currentModCompat = $"<color=grey>{compat}</color>";
+                }
             }
         }
 
         public static void Postfix()
         {
-            currentXMLMod = null;
+            currentModName = null;
             truncatedStrings = null;
+            currentModCompat = null;
         }
     }
 
@@ -130,12 +148,12 @@ namespace Multiplayer.Client
     {
         static void Prefix(ref Rect rect, ref string label)
         {
-            if (PageModsPatch.currentXMLMod == null) return;
+            if (PageModsPatch.currentModName == null || PageModsPatch.currentModCompat == null) return;
 
-            if (label == PageModsPatch.currentXMLMod || PageModsPatch.truncatedStrings.TryGetValue(PageModsPatch.currentXMLMod, out string truncated) && truncated == label)
+            if (label == PageModsPatch.currentModName || PageModsPatch.truncatedStrings.TryGetValue(PageModsPatch.currentModName, out string truncated) && truncated == label)
             {
                 rect.width += 50;
-                label = "<b>[XML]</b> " + label;
+                label = $"<b>[{PageModsPatch.currentModCompat}]</b> {label}";
             }
         }
     }
