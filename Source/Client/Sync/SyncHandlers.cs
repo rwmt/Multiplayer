@@ -56,6 +56,9 @@ namespace Multiplayer.Client
             "defaultCareForHostileFaction"
         ).SetBufferChanges();
 
+        public static ISyncField SyncFactionAcceptRoyalFavor = Sync.Field(typeof(Faction), nameof(Faction.allowRoyalFavorRewards));
+        public static ISyncField SyncFactionAcceptGoodwill = Sync.Field(typeof(Faction), nameof(Faction.allowGoodwillRewards));
+
         public static SyncField[] SyncThingFilterHitPoints =
             Sync.FieldMultiTarget(Sync.thingFilterTarget, "AllowedHitPointsPercents").SetBufferChanges();
 
@@ -160,6 +163,16 @@ namespace Multiplayer.Client
             Pawn pawn = __instance.SelPawn;
             SyncMedCare.Watch(pawn);
             SyncInteractionMode.Watch(pawn);
+        }
+
+        [MpPrefix(typeof(Dialog_RewardPrefsConfig), nameof(Dialog_RewardPrefsConfig.DoWindowContents))]
+        static void Dialog_RewardPrefsConfigPatches()
+        {
+            IEnumerable<Faction> visibleInViewOrder = Find.FactionManager.AllFactionsVisibleInViewOrder;
+            foreach (Faction faction in visibleInViewOrder) {
+                SyncFactionAcceptRoyalFavor.Watch(faction);
+                SyncFactionAcceptGoodwill.Watch(faction);
+            }
         }
 
         [MpPostfix(typeof(Dialog_BillConfig), nameof(Dialog_BillConfig.GeneratePawnRestrictionOptions))]
