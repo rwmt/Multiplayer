@@ -371,6 +371,19 @@ namespace Multiplayer.Client
             },
             #endregion
 
+            #region Factions
+            {
+                (ByteWriter data, Faction quest) => {
+                    data.WriteInt32(quest.loadID);
+                },
+                (ByteReader data) => {
+                    int loadID = data.ReadInt32();
+                    return Find.FactionManager.AllFactions.FirstOrDefault(possibleFaction => possibleFaction.loadID == loadID);
+                },
+                true
+            },
+            #endregion
+
             #region Ranges
             {
                 (ByteWriter data, FloatRange range) => {
