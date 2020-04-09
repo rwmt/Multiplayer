@@ -56,6 +56,7 @@ namespace Multiplayer.Client
             "defaultCareForHostileFaction"
         ).SetBufferChanges();
 
+        public static ISyncField SyncQuestDismissed = Sync.Field(typeof(Quest), nameof(Quest.dismissed));
         public static ISyncField SyncFactionAcceptRoyalFavor = Sync.Field(typeof(Faction), nameof(Faction.allowRoyalFavorRewards));
         public static ISyncField SyncFactionAcceptGoodwill = Sync.Field(typeof(Faction), nameof(Faction.allowGoodwillRewards));
 
@@ -163,6 +164,12 @@ namespace Multiplayer.Client
             Pawn pawn = __instance.SelPawn;
             SyncMedCare.Watch(pawn);
             SyncInteractionMode.Watch(pawn);
+        }
+
+        [MpPrefix(typeof(MainTabWindow_Quests), nameof(MainTabWindow_Quests.DoDismissButton))]
+        static void MainTabWindow_Quests__DoDismissButtonPatch(Quest ___selected)
+        {
+            SyncQuestDismissed.Watch(___selected);
         }
 
         [MpPrefix(typeof(Dialog_RewardPrefsConfig), nameof(Dialog_RewardPrefsConfig.DoWindowContents))]
