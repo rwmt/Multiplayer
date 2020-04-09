@@ -114,12 +114,16 @@ namespace Multiplayer.Client
             var mod = ____selected;
             currentModName = __instance == null ? mod.Name : (string)__instance.GetPropertyOrField("TrimmedName");
             truncatedStrings = ____modNameTruncationCache;
-            if (Multiplayer.xmlMods.Contains(mod.RootDir.FullName)) {
-                currentModCompat = "XML";
+            if (mod.IsCoreMod || mod.Name == "Harmony") {
+                currentModCompat = "<color=green>4</color>";
+            } else if (mod.Official) { // eg. Royalty
+                currentModCompat = "<color=yellow>3</color>";
+            } else if (Multiplayer.xmlMods.Contains(mod.RootDir.FullName)) {
+                currentModCompat = "<color=green>5</color>";
             }
 
-            if (Multiplayer.modsCompatibility.ContainsKey((int) mod.publishedFileIdInt.m_PublishedFileId)) {
-                var compat = Multiplayer.modsCompatibility[(int) mod.publishedFileIdInt.m_PublishedFileId];
+            if (Multiplayer.modsCompatibility.ContainsKey(mod.publishedFileIdInt.ToString())) {
+                var compat = Multiplayer.modsCompatibility[mod.publishedFileIdInt.ToString()];
                 if (compat == 1) {
                     currentModCompat = $"<color=red>{compat}</color>";
                 } else if (compat == 2) {

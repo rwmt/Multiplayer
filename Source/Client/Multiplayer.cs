@@ -68,7 +68,7 @@ namespace Multiplayer.Client
         public static HashSet<string> xmlMods = new HashSet<string>();
         public static List<ModHashes> enabledModAssemblyHashes = new List<ModHashes>();
         public static Dictionary<string, DefInfo> localDefInfos;
-        public static Dictionary<int, int> modsCompatibility = new Dictionary<int, int>();
+        public static Dictionary<string, int> modsCompatibility = new Dictionary<string, int>();  // workshopID: compatNumber [0-4]
 
         static Multiplayer()
         {
@@ -160,27 +160,11 @@ namespace Multiplayer.Client
         private static void UpdateModCompatibilityDb()
         {
             Task.Run(() => {
-                var sheetId = "1jaDxV8F7bcz4E9zeIRmZGKuaX7d0kvWWq28aKckISaY";
-                var googleApiKey = "AIzaSyBfgSntgjLAUgUQjfkSsIOaGiUji9BJVwk"; // plz don't abuse
-                var client = new RestClient("https://sheets.googleapis.com/v4/spreadsheets/");
+                var client = new RestClient("http://neb.nebtown.info:51412/mod-compatibility?version=1.1");
                 try {
-                    var rawResponse = client.Get(new RestRequest($"{sheetId}/values/A3%3AC?majorDimension=COLUMNS&valueRenderOption=UNFORMATTED_VALUE&key={googleApiKey}", DataFormat.Json));
-                    var responseData = SimpleJson.DeserializeObject<GoogleSheetsResponse>(rawResponse.Content);
-                    var compatRatings = responseData.values[0]; // column 0: compatibility 0-4
-                    var workshopIds = responseData.values[2]; // column 2: workshop ID (eg. 2009463077)
-
-                    modsCompatibility.Clear();
-                    for (var i = 0; i <= workshopIds.Count; i++) {
-                        try {
-                            modsCompatibility.Add(
-                                Convert.ToInt32(workshopIds[i]),
-                                Convert.ToInt32(compatRatings[i])
-                            );
-                        }
-                        catch {
-                            // there are some bad rows in the spreadsheet, skip
-                        }
-                    }
+                    var rawResponse = client.Get(new RestRequest($"", DataFormat.Json));
+                    modsCompatibility = SimpleJson.DeserializeObject<Dictionary<string, int>>(rawResponse.Content);
+                    Log.Message($"MP: successfully fetched {modsCompatibility.Count} mods compatibility info");
                 }
                 catch (Exception e) {
                     Log.Warning($"MP: updating mod compatibility list failed {e.Message} {e.StackTrace}");
@@ -370,7 +354,6 @@ namespace Multiplayer.Client
                                 Log.Error($"FAIL: {method.GetType().FullName}:{method.Name} with {e.InnerException}");
                             }
                         }
-                        
                     }
                 }
             }
@@ -542,13 +525,6 @@ namespace Multiplayer.Client
                 hash = types.Select(t => hash(t)).AggregateHash()
             };
         }
-    }
-
-    public class GoogleSheetsResponse
-    {
-        public string range;
-        public string majorDimension;
-        public List<List<object>> values;
     }
 
     public class ModHashes
