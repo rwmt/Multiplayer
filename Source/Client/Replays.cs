@@ -141,6 +141,7 @@ namespace Multiplayer.Client
                     modIds = LoadedModManager.RunningModsListForReading.Select(m => m.PackageId).ToList(),
                     modNames = LoadedModManager.RunningModsListForReading.Select(m => m.Name).ToList(),
                     modAssemblyHashes = Multiplayer.enabledModAssemblyHashes.Select(h => h.assemblyHash).ToList(),
+                    asyncTime = MultiplayerWorldComp.asyncTime,
                 }
             };
 
@@ -188,6 +189,9 @@ namespace Multiplayer.Client
         public List<string> modIds;
         public List<string> modNames;
         public List<int> modAssemblyHashes;
+
+        /// copied here for easy reading, source of truth is <see cref="MultiplayerWorldComp.asyncTime"/>
+        public bool asyncTime;
     }
 
     public class ReplaySection

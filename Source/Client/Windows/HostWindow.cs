@@ -26,6 +26,7 @@ namespace Multiplayer.Client
         private bool withSimulation;
         private bool debugMode;
         private bool logDesyncTraces;
+        private bool asyncTimeLocked;
 
         private float height;
 
@@ -41,6 +42,11 @@ namespace Multiplayer.Client
             this.withSimulation = withSimulation;
             this.file = file;
             settings.gameName = file?.gameName ?? Multiplayer.session?.gameName ?? $"{Multiplayer.username}'s game";
+
+            MultiplayerWorldComp.asyncTime = file?.asyncTime ?? false;
+            if (file?.asyncTime ?? false) {
+                asyncTimeLocked = true; // once enabled in a save, cannot be disabled
+            }
 
             var localAddr = MpUtil.GetLocalIpAddress() ?? "127.0.0.1";
             settings.lanAddress = localAddr;
@@ -134,7 +140,7 @@ namespace Multiplayer.Client
             // AsyncTime
             {
                 TooltipHandler.TipRegion(entry.Width(checkboxWidth), $"{"MpAsyncTimeDesc".Translate()}\n\n{"MpExperimentalFeature".Translate()}");
-                CheckboxLabeled(entry.Width(checkboxWidth), "Async time:  ", ref MultiplayerWorldComp.asyncTime, placeTextNearCheckbox: true);
+                CheckboxLabeled(entry.Width(checkboxWidth), "Async time:  ", ref MultiplayerWorldComp.asyncTime, placeTextNearCheckbox: true, disabled: asyncTimeLocked);
                 entry = entry.Down(30);
             }
 

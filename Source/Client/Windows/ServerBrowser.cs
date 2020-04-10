@@ -138,6 +138,7 @@ namespace Multiplayer.Client
                         saveFile.modIds = replay.info.modIds.ToArray();
                         saveFile.modNames = replay.info.modNames.ToArray();
                         saveFile.modAssemblyHashes = replay.info.modAssemblyHashes.ToArray();
+                        saveFile.asyncTime = replay.info.asyncTime;
                     }
                     else
                     {
@@ -733,6 +734,7 @@ namespace Multiplayer.Client
         public int[] modAssemblyHashes = new int[0];
 
         public int protocol;
+        public bool asyncTime;
 
         public bool Valid => rwVersion != null;
 
