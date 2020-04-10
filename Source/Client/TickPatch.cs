@@ -237,17 +237,4 @@ namespace Multiplayer.Client
 
         void ExecuteCmd(ScheduledCommand cmd);
     }
-
-    [HarmonyPatch(typeof(Prefs))]
-    [HarmonyPatch(nameof(Prefs.PauseOnLoad), MethodType.Getter)]
-    public static class CancelSingleTick
-    {
-        // Cancel ticking after loading as its handled seperately
-        static void Postfix(ref bool __result)
-        {
-            if (Multiplayer.Client != null)
-                __result = false;
-        }
-    }
-
 }
