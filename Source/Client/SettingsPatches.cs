@@ -66,11 +66,35 @@ namespace Multiplayer.Client
     {
         static IEnumerable<MethodBase> TargetMethods()
         {
-            yield return AccessTools.Method(typeof(Prefs), "get_" + nameof(Prefs.PauseOnLoad));
             yield return AccessTools.Method(typeof(Prefs), "get_" + nameof(Prefs.PauseOnError));
             yield return AccessTools.Method(typeof(Prefs), "get_" + nameof(Prefs.AutomaticPauseMode));
         }
         static bool Prefix() => Multiplayer.Client == null;
+    }
+
+    // Force PauseOnLoad off in Multiplayer: misaligned settings cause immediate desyncs on load
+    [HarmonyPatch(typeof(Prefs), "get_" + nameof(Prefs.PauseOnLoad))]
+    static class PauseOnErrorGetter
+    {
+        static bool Prefix(ref bool __result) {
+            if (Multiplayer.Client != null) {
+                __result = false;
+                return false;
+            }
+
+            return true;
+        }
+    }
+
+
+    [HarmonyPatch(typeof(Prefs), "set_" + nameof(Prefs.PauseOnLoad))]
+    static class PauseOnErrorSetter
+    {
+        static void Prefix(ref bool value) {
+            if (Multiplayer.Client != null) {
+                value = false; // force parameter to false
+            }
+        }
     }
 
     [HarmonyPatch]
@@ -78,7 +102,6 @@ namespace Multiplayer.Client
     {
         static IEnumerable<MethodBase> TargetMethods()
         {
-            yield return AccessTools.Method(typeof(Prefs), "set_" + nameof(Prefs.PauseOnLoad));
             yield return AccessTools.Method(typeof(Prefs), "set_" + nameof(Prefs.PauseOnError));
             yield return AccessTools.Method(typeof(Prefs), "set_" + nameof(Prefs.AutomaticPauseMode));
             yield return AccessTools.Method(typeof(Prefs), "set_" + nameof(Prefs.MaxNumberOfPlayerSettlements));

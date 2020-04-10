@@ -97,7 +97,7 @@ namespace Multiplayer.Client
             }
             else
             {
-                var timeSpeed = Prefs.data.pauseOnLoad ? TimeSpeed.Paused : TimeSpeed.Normal;
+                var timeSpeed = TimeSpeed.Paused;
 
                 Multiplayer.WorldComp.TimeSpeed = timeSpeed;
                 foreach (var map in Find.Maps)
