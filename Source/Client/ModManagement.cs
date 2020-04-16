@@ -98,13 +98,7 @@ namespace Multiplayer.Client
                 return;
             }
 
-            var localConfigsBackupDir = GenFilePaths.FolderUnderSaveData("LocalConfigsBackup");
-            DirectoryInfo localConfigsBackupDirInfo = new DirectoryInfo(localConfigsBackupDir);
-            if (localConfigsBackupDirInfo.GetDirectories().Length > 0) {
-                var newName = $"LocalConfigsBackup-{DateTime.Now:yyyy-MM-ddTHH-mm-ss}";
-                Log.Warning($"MP Connect: LocalConfigsBackup already exists; moving current configs to '{newName}'");
-                localConfigsBackupDir = GenFilePaths.FolderUnderSaveData(newName);
-            }
+            var localConfigsBackupDir = GenFilePaths.FolderUnderSaveData($"LocalConfigsBackup-{DateTime.Now:yyyy-MM-ddTHH-mm-ss}");
 
             foreach (var modConfigData in hostModConfigFiles) {
                 var relativeFilePath = modConfigData.Key.Replace('/', Path.DirectorySeparatorChar);
@@ -114,8 +108,50 @@ namespace Multiplayer.Client
                     Directory.GetParent(backupFilePath).Create();
                     File.Move(filePath, backupFilePath);
                 }
+                else {
+                    Directory.GetParent(filePath).Create();
+                }
                 File.WriteAllText(filePath, modConfigData.Value);
             }
+
+            File.Copy(
+                Path.Combine(GenFilePaths.SaveDataFolderPath, "Config", "ModsConfig.xml"),
+                Path.Combine(localConfigsBackupDir, "Config", "ModsConfig.xml")
+            );
+        }
+
+        public static void RestoreConfigBackup(DirectoryInfo backupDir)
+        {
+            var backupFiles = backupDir.GetFiles("*.xml", SearchOption.AllDirectories);
+
+            foreach (var backupFile in backupFiles) {
+                var relativePath = backupFile.FullName.Substring(backupDir.FullName.Length + 1);
+                var actualFilePath = Path.Combine(GenFilePaths.SaveDataFolderPath, relativePath);
+                if (File.Exists(actualFilePath)) {
+                    File.Delete(actualFilePath);
+                }
+                else {
+                    Directory.GetParent(actualFilePath).Create();
+                }
+                File.Move(backupFile.FullName, actualFilePath);
+            }
+
+            backupDir.Delete(true);
+        }
+
+        public static bool HasRecentConfigBackup()
+        {
+            return new DirectoryInfo(GenFilePaths.SaveDataFolderPath)
+                .GetDirectories("LocalConfigsBackup-*", SearchOption.TopDirectoryOnly)
+                .Any(dir => dir.CreationTime.AddDays(-14) <= DateTime.Now);
+        }
+
+        public static DirectoryInfo GetMostRecentConfigBackup()
+        {
+            return new DirectoryInfo(GenFilePaths.SaveDataFolderPath)
+                .GetDirectories("LocalConfigsBackup-*", SearchOption.TopDirectoryOnly)
+                .OrderByDescending(dir => dir.CreationTime)
+                .First();
         }
 
         public static bool CheckModConfigsMatch(Dictionary<string, string> hostFiles)
@@ -164,10 +200,11 @@ namespace Multiplayer.Client
                    && file.Name != "ModsConfig.xml" // already synced at earlier step
                    && file.Name != "Prefs.xml" // base game stuff: volume, resolution, etc
                    && file.Name != "LastSeenNews.xml"
+                   && !file.Name.EndsWith("MultiplayerMod.xml") // contains username
                    && !file.DirectoryName.Contains("RimHUD");
         }
 
-        public static string ModConfigFileRelative(string modConfigFile, bool normalizeSeparators)
+        private static string ModConfigFileRelative(string modConfigFile, bool normalizeSeparators)
         {
             // trim up to base savedata dir, eg. Config/Mod_7535268789_SettingController.xml
             var relative = modConfigFile.Substring(GenFilePaths.SaveDataFolderPath.Length + 1);
