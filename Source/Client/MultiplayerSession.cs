@@ -288,7 +288,7 @@ namespace Multiplayer.Client
             TradeSession.giftMode = false;
 
             DebugTools.curTool = null;
-            PortraitsCache.Clear();
+            // PortraitsCache.Clear(); // seems to cause crashes the second time we load a save as of V1.1
             RealTime.moteList.Clear();
 
             Room.nextRoomID = 1;
