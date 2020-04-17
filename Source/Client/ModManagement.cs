@@ -200,7 +200,10 @@ namespace Multiplayer.Client
                    && file.Name != "ModsConfig.xml" // already synced at earlier step
                    && file.Name != "Prefs.xml" // base game stuff: volume, resolution, etc
                    && file.Name != "LastSeenNews.xml"
+                   && file.Name != "ColourPicker.xml"
                    && !file.Name.EndsWith("MultiplayerMod.xml") // contains username
+                   && !file.Name.EndsWith("ModManager.xml")
+                   && !file.Name.EndsWith("ModSwitch.xml")
                    && !file.DirectoryName.Contains("RimHUD");
         }
 

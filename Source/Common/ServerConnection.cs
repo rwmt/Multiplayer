@@ -1,9 +1,11 @@
-﻿using System;
+﻿using Ionic.Zlib;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Multiplayer.Client;
+using RestSharp;
 using Verse;
 
 namespace Multiplayer.Common
@@ -27,15 +29,17 @@ namespace Multiplayer.Common
             }
 
             var modConfigFiles = ModManagement.GetSyncableConfigFiles();
+            // Compress configs, to keep packet size < 50kb limit. JSON encode first, as the many tiny files are better compressed together
+            var modConfigsCompressed = GZipStream.CompressString(SimpleJson.SerializeObject(modConfigFiles));
             if (MpVersion.IsDebug) {
                 Log.Message($"Sending {modConfigFiles.Keys.Count} mod config files");
                 foreach (KeyValuePair<string, string> modConfigFile in modConfigFiles) {
                     Log.Message(modConfigFile.Key + ": " + modConfigFile.Value.Length);
                 }
+                Log.Message($"modConfigsCompressed size: {modConfigsCompressed.Length}");
             }
 
-            connection.Send(Packets.Server_ModList, Server.rwVersion, Server.modNames, Server.modIds, Server.workshopModIds,
-                modConfigFiles.Keys.ToArray(), modConfigFiles.Values.ToArray());
+            connection.Send(Packets.Server_ModList, Server.rwVersion, Server.modNames, Server.modIds, Server.workshopModIds, modConfigsCompressed);
         }
 
         [PacketHandler(Packets.Client_Defs)]

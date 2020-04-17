@@ -11,6 +11,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Xml;
+using RestSharp;
 using UnityEngine;
 using Verse;
 using Verse.Profile;
@@ -36,11 +37,8 @@ namespace Multiplayer.Client
             Multiplayer.session.mods.remoteModIds = data.ReadPrefixedStrings();
             Multiplayer.session.mods.remoteWorkshopModIds = data.ReadPrefixedULongs();
 
-            var remoteModConfigFilenames = data.ReadPrefixedStrings();
-            var remoteModConfigContents = data.ReadPrefixedStrings();
-            Multiplayer.session.mods.remoteModConfigs = remoteModConfigFilenames
-                .Zip(remoteModConfigContents, (k, v) => new {k, v})
-                .ToDictionary(x => x.k, x => x.v);
+            var modConfigsCompressed = data.ReadPrefixedBytes();
+            Multiplayer.session.mods.remoteModConfigs = SimpleJson.DeserializeObject<Dictionary<string, string>>(GZipStream.UncompressString(modConfigsCompressed));
 
             var defs = Multiplayer.localDefInfos;
             Multiplayer.session.mods.defInfo = defs;
