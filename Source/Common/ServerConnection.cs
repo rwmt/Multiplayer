@@ -23,7 +23,7 @@ namespace Multiplayer.Common
                 return;
             }
 
-            connection.Send(Packets.Server_ModList, Server.rwVersion, Server.modNames);
+            connection.Send(Packets.Server_ModList, Server.rwVersion, Server.modNames, Server.modIds, Server.workshopModIds);
         }
 
         [PacketHandler(Packets.Client_Defs)]

@@ -62,7 +62,11 @@ namespace Multiplayer.Client
 
             localServer.rwVersion = session.mods.remoteRwVersion = VersionControl.CurrentVersionString;
             localServer.modNames = session.mods.remoteModNames = LoadedModManager.RunningModsListForReading.Select(m => m.Name).ToArray();
+            localServer.modIds = session.mods.remoteModIds = LoadedModManager.RunningModsListForReading.Select(m => m.PackageId).ToArray();
+            localServer.workshopModIds = session.mods.remoteWorkshopModIds = ModManagement.GetEnabledWorkshopMods().ToArray();
             localServer.defInfos = session.mods.defInfo = Multiplayer.localDefInfos;
+            Log.Message($"MP Host modIds: {string.Join(", ", localServer.modIds)}");
+            Log.Message($"MP Host workshopIds: {string.Join(", ", localServer.workshopModIds)}");
 
             if (settings.steam)
                 localServer.NetTick += SteamIntegration.ServerSteamNetTick;

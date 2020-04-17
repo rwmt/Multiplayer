@@ -61,6 +61,8 @@ namespace Multiplayer.Common
 
         public string rwVersion;
         public string[] modNames;
+        public string[] modIds;
+        public ulong[] workshopModIds;
         public Dictionary<string, DefInfo> defInfos;
 
         public int NetPort => netManager.LocalPort;
