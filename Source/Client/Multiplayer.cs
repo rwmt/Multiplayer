@@ -160,7 +160,7 @@ namespace Multiplayer.Client
         private static void UpdateModCompatibilityDb()
         {
             Task.Run(() => {
-                var client = new RestClient("http://neb.nebtown.info:51412/mod-compatibility?version=1.1");
+                var client = new RestClient("https://bot.rimworldmultiplayer.com/mod-compatibility?version=1.1");
                 try {
                     var rawResponse = client.Get(new RestRequest($"", DataFormat.Json));
                     modsCompatibility = SimpleJson.DeserializeObject<Dictionary<string, int>>(rawResponse.Content);
