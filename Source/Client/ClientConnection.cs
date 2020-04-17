@@ -39,6 +39,10 @@ namespace Multiplayer.Client
             var defs = Multiplayer.localDefInfos;
             Multiplayer.session.mods.defInfo = defs;
 
+            var endPoint = Multiplayer.session.netClient.FirstPeer.EndPoint;
+            Multiplayer.session.mods.remoteAddress = endPoint.Address.ToString();
+            Multiplayer.session.mods.remotePort = endPoint.Port;
+
             var response = new ByteWriter();
             response.WriteInt32(defs.Count);
 
@@ -376,7 +380,7 @@ namespace Multiplayer.Client
         public void HandlePause(ByteReader data)
         {
             bool pause = data.ReadBool();
-            // This packet doesn't get processed in time during a synchronous long event 
+            // This packet doesn't get processed in time during a synchronous long event
         }
 
         [PacketHandler(Packets.Server_Debug)]

@@ -184,6 +184,8 @@ namespace Multiplayer.Client
         public string[] remoteModIds;
         public ulong[] remoteWorkshopModIds;
         public Dictionary<string, DefInfo> defInfo;
+        public string remoteAddress;
+        public int remotePort;
     }
 
     public class PlayerInfo

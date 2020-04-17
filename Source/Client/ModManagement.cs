@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -67,6 +68,43 @@ namespace Multiplayer.Client
             typeof(WorkshopItems)
                 .GetMethod("RebuildItemsList", BindingFlags.Static | BindingFlags.NonPublic)
                 .Invoke(obj: null, parameters: new object[] { });
+        }
+
+        /// Extension of <see cref="ModsConfig.RestartFromChangedMods"/>) with -connect
+        public static void PromptRestartAndReconnect(string address, int port)
+        {
+            // todo: clear -connect after launching? hmm, or patch ModsConfig.Restart to exclude it?
+            // todo: if launched normally, prompt to return to backed up configs (and enabled mods?)
+            Find.WindowStack.Add((Window) new Dialog_MessageBox("ModsChanged".Translate(), (string) null,
+                (Action) (() => {
+                    string[] commandLineArgs = Environment.GetCommandLineArgs();
+                    string processFilename = commandLineArgs[0];
+                    string arguments = "";
+                    for (int index = 1; index < commandLineArgs.Length; ++index) {
+                        if (string.Compare(commandLineArgs[index], "-connect", true) == 0) {
+                            continue; // skip any existing -connect command
+                        }
+                        if (!arguments.NullOrEmpty()) {
+                            arguments += " ";
+                        }
+                        arguments += "\"" + commandLineArgs[index].Replace("\"", "\\\"") + "\"";
+                    }
+                    if (address != null) {
+                        arguments += $" -connect={address}:{port}";
+                    }
+
+                    new Process()
+                    {
+                        StartInfo = new ProcessStartInfo(processFilename, arguments)
+                    }.Start();
+                    Root.Shutdown();
+                    LongEventHandler.QueueLongEvent((Action) (() => Thread.Sleep(10000)), "Restarting", true, (Action<Exception>) null, true);
+                }), (string) null, (Action) null, (string) null, false, (Action) null, (Action) null));
+        }
+
+        public static void PromptRestart()
+        {
+            PromptRestartAndReconnect(null, 0);
         }
     }
 }

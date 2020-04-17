@@ -112,12 +112,12 @@ namespace Multiplayer.Client
                         ModManagement.RebuildModsList();
                         ModsConfig.SetActiveToList(mods.remoteModIds.ToList());
                         ModsConfig.Save();
-                        ModsConfig.RestartFromChangedMods();
+                        ModManagement.PromptRestartAndReconnect(mods.remoteAddress, mods.remotePort);
                     }
                     catch (Exception e) {
                         Log.Error($"MP mod sync error: {e.GetType()} {e.Message}");
                     }
-                }, "MPDownloadingWorkshopMods", true, null);
+                }, "MpDownloadingWorkshopMods", true, null);
             }
 
             btnRect.x += btnRect.width + gap;

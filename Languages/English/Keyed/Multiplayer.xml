@@ -18,7 +18,7 @@
   <MpModList>Mod list</MpModList>
   <MpSyncModList>Autosync Mod List</MpSyncModList>
   <MpSeeModList>See mod list</MpSeeModList>
-  <MPDownloadingWorkshopMods>Downloading Workshop Mods</MPDownloadingWorkshopMods>
+  <MpDownloadingWorkshopMods>Downloading Workshop Mods</MpDownloadingWorkshopMods>
   
   <MpServerClosed>Server closed</MpServerClosed>
   <MpServerFull>Server is full</MpServerFull>
