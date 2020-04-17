@@ -8,6 +8,8 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
+using RestSharp;
 using HarmonyLib;
 using Multiplayer.Common;
 using RimWorld;
@@ -66,6 +68,7 @@ namespace Multiplayer.Client
         public static HashSet<string> xmlMods = new HashSet<string>();
         public static List<ModHashes> enabledModAssemblyHashes = new List<ModHashes>();
         public static Dictionary<string, DefInfo> localDefInfos;
+        public static Dictionary<string, int> modsCompatibility = new Dictionary<string, int>();  // workshopID: compatNumber [0-4]
 
         static Multiplayer()
         {
@@ -146,8 +149,27 @@ namespace Multiplayer.Client
 
             HandleCommandLine();
 
-            if (MultiplayerMod.arbiterInstance)
+            if (MultiplayerMod.arbiterInstance) {
                 RuntimeHelpers.RunClassConstructor(typeof(Text).TypeHandle);
+            }
+            else {
+                UpdateModCompatibilityDb();
+            }
+        }
+
+        private static void UpdateModCompatibilityDb()
+        {
+            Task.Run(() => {
+                var client = new RestClient("https://bot.rimworldmultiplayer.com/mod-compatibility?version=1.1");
+                try {
+                    var rawResponse = client.Get(new RestRequest($"", DataFormat.Json));
+                    modsCompatibility = SimpleJson.DeserializeObject<Dictionary<string, int>>(rawResponse.Content);
+                    Log.Message($"MP: successfully fetched {modsCompatibility.Count} mods compatibility info");
+                }
+                catch (Exception e) {
+                    Log.Warning($"MP: updating mod compatibility list failed {e.Message} {e.StackTrace}");
+                }
+            });
         }
 
         private static void SetUsername()
@@ -332,7 +354,6 @@ namespace Multiplayer.Client
                                 Log.Error($"FAIL: {method.GetType().FullName}:{method.Name} with {e.InnerException}");
                             }
                         }
-                        
                     }
                 }
             }
