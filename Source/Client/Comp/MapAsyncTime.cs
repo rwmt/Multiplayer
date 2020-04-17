@@ -147,7 +147,7 @@ namespace Multiplayer.Client
             if (!WorldRendererUtility.WorldRenderedNow && Find.CurrentMap == null) return;
 
             ITickable tickable = Multiplayer.WorldComp;
-            if (!WorldRendererUtility.WorldRenderedNow && Multiplayer.WorldComp.asyncTime)
+            if (!WorldRendererUtility.WorldRenderedNow && MultiplayerWorldComp.asyncTime)
                 tickable = Find.CurrentMap.AsyncTime();
 
             TimeSpeed speed = tickable.TimeSpeed;
@@ -263,7 +263,7 @@ namespace Multiplayer.Client
                 Rect button = new Rect(rect.x - TimeControls.TimeButSize.x / 2f, rect.yMax - TimeControls.TimeButSize.y / 2f, TimeControls.TimeButSize.x, TimeControls.TimeButSize.y);
                 var asyncTime = entry.map.AsyncTime();
 
-                if (Multiplayer.WorldComp.asyncTime)
+                if (MultiplayerWorldComp.asyncTime)
                 {
                     TimeControl.TimeControlButton(button, asyncTime, alpha);
                 }
@@ -287,7 +287,7 @@ namespace Multiplayer.Client
             if (__instance.def != MainButtonDefOf.World) return;
             if (__instance.Disabled) return;
             if (Find.CurrentMap == null) return;
-            if (!Multiplayer.WorldComp.asyncTime) return;
+            if (!MultiplayerWorldComp.asyncTime) return;
 
             Rect button = new Rect(rect.xMax - TimeControls.TimeButSize.x - 5f, rect.y + (rect.height - TimeControls.TimeButSize.y) / 2f, TimeControls.TimeButSize.x, TimeControls.TimeButSize.y);
             __state = button;
@@ -722,7 +722,7 @@ namespace Multiplayer.Client
                     HandleMapFactionData(cmd, data);
                 }
 
-                if (cmdType == CommandType.MapTimeSpeed && Multiplayer.WorldComp.asyncTime)
+                if (cmdType == CommandType.MapTimeSpeed && MultiplayerWorldComp.asyncTime)
                 {
                     TimeSpeed speed = (TimeSpeed)data.ReadByte();
                     TimeSpeed = speed;

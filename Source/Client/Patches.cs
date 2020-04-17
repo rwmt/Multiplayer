@@ -1123,7 +1123,7 @@ namespace Multiplayer.Client
             async.storyteller = new Storyteller(Find.Storyteller.def, Find.Storyteller.difficulty);
             async.storyWatcher = new StoryWatcher();
 
-            if (!Multiplayer.WorldComp.asyncTime)
+            if (!MultiplayerWorldComp.asyncTime)
                 async.TimeSpeed = Find.TickManager.CurTimeSpeed;
         }
     }
