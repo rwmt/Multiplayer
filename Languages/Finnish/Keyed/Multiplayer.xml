@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<LanguageData>
+
+  <MpSimulating>Simuloidaan</MpSimulating>
+  <MpSimulatingServer>Simuloidaan palvelinta</MpSimulatingServer>
+  <MpLoading>Ladataan</MpLoading>
+  <MpSaving>Tallennetaan</MpSaving>
+
+  <MpInvalidPort>Virheellinen portti</MpInvalidPort>
+  <MpInvalidAddress>Virheellinen osoite</MpInvalidAddress>
+  <MpInvalidGameName>Virheellinen pelin nimi</MpInvalidGameName>
+
+  <MpWrongProtocol>Väärä protokollaversio</MpWrongProtocol>
+  <MpWrongMultiplayerVersionInfo>Palvelinta isännöidään moninpelissä {0} (protokolla {1}).</MpWrongMultiplayerVersionInfo>
+
+  <MpWrongDefs>Lisäosa-määritelmän virhe</MpWrongDefs>
+  <MpWrongDefsInfo>Varmista että asentamasi lisäosat, niiden versiot ja järjestys täsmäävät isäntäpalvelimeen.</MpWrongDefsInfo>
+  <MpModList>Lisäosa lista</MpModList>
+  <MpSeeModList>Katso lisäosa lista</MpSeeModList>
+
+  <MpServerClosed>Palvelin suljettu</MpServerClosed>
+  <MpServerFull>Palvelin on täynnä</MpServerFull>
+  <MpKicked>Sinut on poistettu pelistä</MpKicked>
+
+  <MpInvalidUsernameAlreadyPlaying>Käyttäjänimi on jo verkossa</MpInvalidUsernameAlreadyPlaying>
+  <MpInvalidUsernameChars>Käyttäjänimessä on virheellisiä merkkejä</MpInvalidUsernameChars>
+  <MpInvalidUsernameLength>Käyttäjänimen pituus ei kelpaa</MpInvalidUsernameLength>
+  <MpChangeUsernameInfo>Voit vaihtaa käyttäjänimesi lisäosan asetuksista.</MpChangeUsernameInfo>
+
+  <MpPlayerConnected>{0} liittyi</MpPlayerConnected>
+  <MpPlayerDisconnected>{0} poistui</MpPlayerDisconnected>
+
+  <MpReplayOutdated>(Vanhentunut)</MpReplayOutdated>
+  <MpReplayOutdatedDesc1>Tämä tallennus tehtiin protokollaversiolle {0}, mutta sinun versiosi on {0}.</MpReplayOutdatedDesc1>
+  <MpReplayOutdatedDesc2>Tallennus ei ehkä toimi oikein.</MpReplayOutdatedDesc2>
+  <MpReplayOutdatedDesc3>Mahdolliset yhteensopivuusongelmat ovat lueteltu julkaisuhistorian mukana.</MpReplayOutdatedDesc3>
+  <MpReplayOutdatedDesc4>Tämä tiedosto sisältää lisätietoja ja siitä isännöiminen pitäisi toimia hyvin.</MpReplayOutdatedDesc4>
+
+  <MpServerCloseConfirmation>Haluatko varmasti sulkea palvelimen? Tallentamaton edistys menetetään.</MpServerCloseConfirmation>
+
+  <MpHostServer>Luo palvelin</MpHostServer>
+  <MpSaveReplay>Tallenna</MpSaveReplay>
+
+  <MpConvert>Muunna yksinpeliksi</MpConvert>
+  <MpConverting>Muunnetaan</MpConverting>
+
+  <MpUsername>Käyttäjänimi</MpUsername>
+  <MpShowPlayerCursors>Näytä pelaajien kursorit</MpShowPlayerCursors>
+  <MpAutoAcceptSteam>Hyväksy Steam automaattisesti</MpAutoAcceptSteam>
+  <MpAutoAcceptSteamDesc>Hyväksy kaikki Steam yhteyspyynnöt automaattisesti.</MpAutoAcceptSteamDesc>
+  <MpTransparentChat>Läpinäkyvä chat-ikkuna</MpTransparentChat>
+
+  <MpAutosaveSlots>Automaattiset tallennuspaikat</MpAutosaveSlots>
+  <MpAutosaveSlotsDesc>Kuinka monta automaattista tallennustiedostoa säilytetään.</MpAutosaveSlotsDesc>
+
+  <MpTraderLeavesIn>Poistuu {0}</MpTraderLeavesIn>
+
+  <MpChatButton>Keskustelu</MpChatButton>
+  <MpTradingButton>Käydään kauppaa</MpTradingButton>
+
+  <MpChatPlayers>Pelaajat ({0}):</MpChatPlayers>
+  <MpSend>Lähetä</MpSend>
+  <MpSteamAcceptTitle>Hyväksy Steam pelaajat</MpSteamAcceptTitle>
+  <MpSteamAcceptDesc>Hyväksy klikkaamalla</MpSteamAcceptDesc>
+  <MpSteamAccepted>Pelaaja hyväksytty</MpSteamAccepted>
+
+  <MpConnectingTo>Yhdistetään {0}:{1}</MpConnectingTo>
+  <MpConnected>Yhdistetty.</MpConnected>
+  <MpDownloading>Ladataan ({0}%)</MpDownloading>
+
+  <MpSteamConnectingTo>Yhdistetään peliin jonka isäntänä on {0}</MpSteamConnectingTo>
+  <MpSteamConnectingWaiting>Odotetaan yhteyspyyntöä</MpSteamConnectingWaiting>
+
+  <MpTicksBehind>Olet {0} tikkiä jäljessä.</MpTicksBehind>
+  <MpLowerGameSpeed>Harkitse pelin nopeuden laskemista.</MpLowerGameSpeed>
+  <MpForceCatchUp>Klikkaa pakottaaksesi tavoittaminen.</MpForceCatchUp>
+
+  <MpDesynced>Pelin tila epäsynkronoitui.</MpDesynced>
+  <MpTryResync>Yritä uudelleen synkronointia</MpTryResync>
+
+  <MpSaveReplayAs>Tallenna nimellä</MpSaveReplayAs>
+  <MpWillOverwrite>Korvaa</MpWillOverwrite>
+  <MpReplaySaved>Uusinta tallennettu</MpReplaySaved>
+
+  <MpGameName>Pelin nimi</MpGameName>
+  <MpMaxPlayers>Pelaajien enimmäismäärä</MpMaxPlayers>
+  <MpAutosaveEvery>Tallenna automaattisesti joka</MpAutosaveEvery>
+  <MpAutosaveDays>päivä</MpAutosaveDays>
+  <MpLanDesc1>Lähetä peli lähiverkkoosi.</MpLanDesc1>
+  <MpLanDesc2>LAN-osoite: {0}</MpLanDesc2>
+  <MpArbiterDesc>Pelin instanssi joka pyörii taustalla ja auttaa epäsynkronoinnin korjaamiseen.</MpArbiterDesc>
+  <MpAsyncTimeDesc>Erilliset nopeus kontrollit jokaiselle kartalle ja planeetalle.</MpAsyncTimeDesc>
+  <MpExperimentalFeature>Kokeellinen ominaisuus</MpExperimentalFeature>
+
+  <MpHostButton>Luo moninpeli</MpHostButton>
+  <MpWatchReplay>Katso</MpWatchReplay>
+  <MpNothingSelected>Mitään ei ole valittuna</MpNothingSelected>
+  <MpNoSaves>Moninpeliä voidaan pelata ainoastaan jo olemassa olevista tallennuksista</MpNoSaves>
+
+  <MpHostIngame>Luo moninpeli tästä pelistä</MpHostIngame>
+  <MpHostReplay>Luo moninpeli tallennuksesta</MpHostReplay>
+  <MpHostSavefile>Luo moninpeli tallennetusta tiedostosta</MpHostSavefile>
+
+  <MpJoinButton>Liity</MpJoinButton>
+  <MpConnectButton>Yhdistä</MpConnectButton>
+  <MpLanSearching>Haetaan</MpLanSearching>
+
+  <MpNotConnectedToSteam>Ei yhteyttä Steamiin</MpNotConnectedToSteam>
+  <MpNoFriendsPlaying>Kukaan ystävistäsi ei pelaa tällä hetkellä RimWorldia</MpNoFriendsPlaying>
+  <MpPlayingRimWorld>Pelaa RimWorldia</MpPlayingRimWorld>
+  <MpNotInMultiplayer>Ei moninpelissä</MpNotInMultiplayer>
+
+  <MpPauseOnAutosave>Keskeytä automaattisen tallennuksen ajaksi</MpPauseOnAutosave>
+  <MpAppendNameToAutosave>Lisää nimi automaattiseen tallennukseen</MpAppendNameToAutosave>
+  <MpPauseAutosaveCounter>Keskeytä automaattitallennuslaskuri</MpPauseAutosaveCounter>
+  <MpPauseAutosaveCounterDesc>Keskeyttää laskurin pelin mukana estääkseen automaattitallennuksen, kun pelin eteneminen on keskeytetty.</MpPauseAutosaveCounterDesc>
+
+  <MpArbiterSetting>Arbiter-asetukset</MpArbiterSetting>
+  <MpArbiterSettingDesc>Pidä tämä pois päältä, jos otat sen käyttöön et saa tukea meiltä.</MpArbiterSettingDesc>
+
+  <MpLan>LAN</MpLan>
+  <MpDirect>Suora yhteys</MpDirect>
+  <MpSteam>Steam</MpSteam>
+  <MpHostTab>Luo moninpeli</MpHostTab>
+
+  <MpMultiplayer>Moninpeli</MpMultiplayer>
+  <MpSingleplayer>Yksinpeli</MpSingleplayer>
+
+  <MpNotAvailable>Ei saatavilla moninpelissä.</MpNotAvailable>
+  <MpCallingFactionNotAvailable>Toisille ryhmille soittaminen ei ole saatavilla moninpelissä.</MpCallingFactionNotAvailable>
+
+  <MpAggressiveTicking>Agressiivinen tavoittaminen</MpAggressiveTicking>
+  <MpAggressiveTickingDesc>Pyri aina automaattisesti tavoittamaan palvelin, vaikka FPS saattaa kärsiä.</MpAggressiveTickingDesc>
+
+</LanguageData>
