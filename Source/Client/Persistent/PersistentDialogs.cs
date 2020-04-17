@@ -165,7 +165,7 @@ namespace Multiplayer.Client
         /// <param name="dialog">Any window</param>
         public static PersistentDialog FindDialog(Window dialog)
         {
-            return Find.Maps.SelectMany(m => m.MpComp().mapDialogs).FirstOrDefault(d => d.Dialog == dialog);
+            return Find.Maps?.SelectMany(m => m.MpComp().mapDialogs).FirstOrDefault(d => d.Dialog == dialog);
         }
 
         /// <summary>

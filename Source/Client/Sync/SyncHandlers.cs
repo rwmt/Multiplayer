@@ -468,6 +468,8 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(Building_Bed), nameof(Building_Bed.Medical));
             SyncMethod.Register(typeof(CompAssignableToPawn_Grave), nameof(CompAssignableToPawn_Grave.TryAssignPawn)).CancelIfAnyArgNull();
             SyncMethod.Register(typeof(CompAssignableToPawn_Grave), nameof(CompAssignableToPawn_Grave.TryUnassignPawn)).CancelIfAnyArgNull();
+            SyncMethod.Register(typeof(CompAssignableToPawn_Throne), nameof(CompAssignableToPawn_Throne.TryAssignPawn)).CancelIfAnyArgNull();
+            SyncMethod.Register(typeof(CompAssignableToPawn_Throne), nameof(CompAssignableToPawn_Throne.TryUnassignPawn)).CancelIfAnyArgNull();
             SyncMethod.Register(typeof(PawnColumnWorker_Designator), nameof(PawnColumnWorker_Designator.SetValue)).CancelIfAnyArgNull(); // Virtual but currently not overriden by any subclasses
             SyncMethod.Register(typeof(PawnColumnWorker_FollowDrafted), nameof(PawnColumnWorker_FollowDrafted.SetValue)).CancelIfAnyArgNull();
             SyncMethod.Register(typeof(PawnColumnWorker_FollowFieldwork), nameof(PawnColumnWorker_FollowFieldwork.SetValue)).CancelIfAnyArgNull();
@@ -509,6 +511,7 @@ namespace Multiplayer.Client
 
             SyncMethod.Register(typeof(Quest), nameof(Quest.Accept));
             SyncMethod.Register(typeof(Verb_CastAbility), nameof(Verb_CastAbility.OrderForceTarget));
+            SyncMethod.Register(typeof(RoyalTitlePermitWorker_CallAid), nameof(RoyalTitlePermitWorker_CallAid.CallAid)).CancelIfAnyArgNull();
 
             // 1
             SyncMethod.Register(typeof(TradeRequestComp), nameof(TradeRequestComp.Fulfill)).CancelIfAnyArgNull().SetVersion(1);

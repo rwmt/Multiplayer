@@ -665,6 +665,18 @@ namespace Multiplayer.Client
             },
             #endregion
 
+            #region RoyalTitlePermitWorker
+            {
+                (ByteWriter data, RoyalTitlePermitWorker worker) => {
+                    WriteSync(data, worker.def);
+                },
+                (ByteReader data) => {
+                    RoyalTitlePermitDef def = ReadSync<RoyalTitlePermitDef>(data);
+                    return def?.Worker;
+                }, true
+            },
+            #endregion
+
             #region Databases
 
             { (SyncWorker data, ref OutfitDatabase db) => db = Current.Game.outfitDatabase },
