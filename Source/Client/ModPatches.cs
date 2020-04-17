@@ -23,7 +23,7 @@ namespace Multiplayer.Client
             {
                 harmony.Patch(
                     fluffysModButtonType.GetMethod("DoModButton"),
-                    new HarmonyMethod(typeof(PageModsPatch), nameof(PageModsPatch.ModManager_ButtonPrefix)),
+                    new HarmonyMethod(typeof(PageModsPatch), nameof(PageModsPatch.FluffyModManager_DoModButton)),
                     new HarmonyMethod(typeof(PageModsPatch), nameof(PageModsPatch.Postfix))
                 );
             }
@@ -102,40 +102,57 @@ namespace Multiplayer.Client
         public static string currentModCompat;
         public static Dictionary<string, string> truncatedStrings;
 
-        static void Prefix(Page_ModsConfig __instance, ModMetaData mod)
+        static void Prefix(Page_ModsConfig __instance, ModMetaData mod, Rect r)
         {
-            ModManager_ButtonPrefix(null, mod, __instance.truncatedModNamesCache);
+            ModManager_ButtonPrefix(null, mod, r, __instance.truncatedModNamesCache);
         }
 
-        public static void ModManager_ButtonPrefix(object __instance, ModMetaData ____selected, Dictionary<string, string> ____modNameTruncationCache)
+        public static void FluffyModManager_DoModButton(object __instance, ModMetaData ____selected, Rect canvas, Dictionary<string, string> ____modNameTruncationCache)
+        {
+            ModManager_ButtonPrefix(__instance, ____selected, canvas, ____modNameTruncationCache);
+        }
+
+        public static void ModManager_ButtonPrefix(object __instance, ModMetaData ____selected, Rect rect, Dictionary<string, string> ____modNameTruncationCache)
         {
             if (!Input.GetKey(KeyCode.LeftShift)) return;
 
+            var tooltip = "";
             var mod = ____selected;
             currentModName = __instance == null ? mod.Name : (string)__instance.GetPropertyOrField("TrimmedName");
             truncatedStrings = ____modNameTruncationCache;
-            if (mod.IsCoreMod || mod.Name == "Harmony") {
+            if (mod.IsCoreMod || mod.Official || mod.Name == "Harmony") {
                 currentModCompat = "<color=green>4</color>";
-            } else if (mod.Official) { // eg. Royalty
-                currentModCompat = "<color=yellow>3</color>";
+                tooltip = "4 = Everything works (official content)";
             } else if (Multiplayer.xmlMods.Contains(mod.RootDir.FullName)) {
-                currentModCompat = "<color=green>5</color>";
+                currentModCompat = "<color=green>4</color>";
+                tooltip = "4 = Everything works (XML-only mod)";
             }
 
             if (Multiplayer.modsCompatibility.ContainsKey(mod.publishedFileIdInt.ToString())) {
                 var compat = Multiplayer.modsCompatibility[mod.publishedFileIdInt.ToString()];
                 if (compat == 1) {
                     currentModCompat = $"<color=red>{compat}</color>";
+                    tooltip = "1 = Does not work";
                 } else if (compat == 2) {
                     currentModCompat = $"<color=orange>{compat}</color>";
+                    tooltip = "2 = Partially works, but major features don't work";
                 } else if (compat == 3) {
                     currentModCompat = $"<color=yellow>{compat}</color>";
+                    tooltip = "3 = Mostly works, some minor features don't work";
                 } else if (compat == 4) {
                     currentModCompat = $"<color=green>{compat}</color>";
+                    tooltip = "4 = Everything works";
                 }
                 else {
                     currentModCompat = $"<color=grey>{compat}</color>";
+                    tooltip = "0 = Unknown; please report findings to #mod-report in our Discord";
                 }
+            }
+
+            if (tooltip != "") {
+                var tooltipRect = new Rect(rect);
+                tooltipRect.xMax = tooltipRect.xMin + 50f;
+                TooltipHandler.TipRegion(tooltipRect, new TipSignal($"Multiplayer Compatibility: {tooltip}", mod.GetHashCode() * 3312));
             }
         }
 
