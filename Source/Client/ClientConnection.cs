@@ -39,9 +39,12 @@ namespace Multiplayer.Client
             var defs = Multiplayer.localDefInfos;
             Multiplayer.session.mods.defInfo = defs;
 
-            var endPoint = Multiplayer.session.netClient.FirstPeer.EndPoint;
-            Multiplayer.session.mods.remoteAddress = endPoint.Address.ToString();
-            Multiplayer.session.mods.remotePort = endPoint.Port;
+            var endPoint = Multiplayer.session?.netClient?.FirstPeer?.EndPoint;
+            if (endPoint?.Address != null) {
+                // todo: why is this sometimes null? It means the "auto reconnect after changing mods" won't work
+                Multiplayer.session.mods.remoteAddress = endPoint.Address.ToString();
+                Multiplayer.session.mods.remotePort = endPoint.Port;
+            }
 
             var response = new ByteWriter();
             response.WriteInt32(defs.Count);
