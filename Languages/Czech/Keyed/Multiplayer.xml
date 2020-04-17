@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LanguageData>
+   <MpSimulating>Simulace</MpSimulating>
+   <MpSimulatingServer>Simulace serveru</MpSimulatingServer>
+   <MpLoading>Načítání</MpLoading>
+   <MpSaving>Ukládání</MpSaving>
+   <MpInvalidPort>Neplatný port</MpInvalidPort>
+   <MpInvalidAddress>Neplatná adresa</MpInvalidAddress>
+   <MpInvalidGameName>Neplatný název hry</MpInvalidGameName>
+   <MpWrongProtocol>Nesprávná verze protokolu</MpWrongProtocol>
+   <MpWrongMultiplayerVersionInfo>Server je založen na verzi {0} (protokol {1}) Multiplayer módu</MpWrongMultiplayerVersionInfo>
+   <MpWrongDefs>Neshoda definic modů</MpWrongDefs>
+   <MpWrongDefsInfo>Ujistěte se, že nainstalované módy, jejich verze a pořadí se shodují hostitelem.</MpWrongDefsInfo>
+   <MpModList>Seznam módů</MpModList>
+   <MpSeeModList>Viz seznam módů</MpSeeModList>
+   <MpServerClosed>Server uzavřen</MpServerClosed>
+   <MpServerFull>Server je plný</MpServerFull>
+   <MpKicked>Byl jsi vyhozen</MpKicked>
+   <MpInvalidUsernameAlreadyPlaying>Hráč s tímto uživatelským jménem je již připojen</MpInvalidUsernameAlreadyPlaying>
+   <MpInvalidUsernameChars>Uživatelské jméno obsahuje neplatné znaky</MpInvalidUsernameChars>
+   <MpInvalidUsernameLength>Uživatelské jméno má neplatnou délku</MpInvalidUsernameLength>
+   <MpChangeUsernameInfo>Své uživatelské jméno můžete změnit v nastavení módu.</MpChangeUsernameInfo>
+   <MpPlayerConnected>Hráč {0} se připojil</MpPlayerConnected>
+   <MpPlayerDisconnected>Hráč {0} se odpojil</MpPlayerDisconnected>
+   <MpReplayOutdated>(Zastaralý)</MpReplayOutdated>
+   <MpReplayOutdatedDesc1>Tento replay byl vytvořen pro verzi protokolu {0}, ale vy používáte verzi {1}.</MpReplayOutdatedDesc1>
+   <MpReplayOutdatedDesc2>Replay se nemusí přehrát správně.</MpReplayOutdatedDesc2>
+   <MpReplayOutdatedDesc3>Možné nekompatibility jsou uvedeny v historii vydání.</MpReplayOutdatedDesc3>
+   <MpReplayOutdatedDesc4>Tento soubor obsahuje další informace a hosting z něj by měl fungovat dobře.</MpReplayOutdatedDesc4>
+   <MpServerCloseConfirmation>Opravdu chcete server ukončit? Neuložený pokrok bude ztracen.</MpServerCloseConfirmation>
+   <MpHostServer>Založit server</MpHostServer>
+   <MpSaveReplay>Uložit replay</MpSaveReplay>
+   <MpConvert>Převést na hru pro jednoho hráče</MpConvert>
+   <MpConverting>Převádí se</MpConverting>
+   <MpUsername>Uživatelské jméno</MpUsername>
+   <MpShowPlayerCursors>Zobrazit kurzory hráče</MpShowPlayerCursors>
+   <MpAutoAcceptSteam>Automaticky přijímat Steam</MpAutoAcceptSteam>
+   <MpAutoAcceptSteamDesc>Automaticky přijímat všechny příchozí Steam žádosti o připojení.</MpAutoAcceptSteamDesc>
+   <MpTransparentChat>Průhledné okno chatu</MpTransparentChat>
+   <MpAutosaveSlots>Počet slotů pro automatické ukládání</MpAutosaveSlots>
+   <MpAutosaveSlotsDesc>Kolik souborů automatického uložení bude zachováno.</MpAutosaveSlotsDesc>
+   <MpTraderLeavesIn>Odchází za {0}</MpTraderLeavesIn>
+   <MpChatButton>Chat</MpChatButton>
+   <MpTradingButton>Obchodování</MpTradingButton>
+   <MpChatPlayers>Hráči ({0}):</MpChatPlayers>
+   <MpSend>Poslat</MpSend>
+   <MpSteamAcceptTitle>Příjmout hráče ze Steamu</MpSteamAcceptTitle>
+   <MpSteamAcceptDesc>Klepnutím přijměte</MpSteamAcceptDesc>
+   <MpSteamAccepted>Hráč byl přijat</MpSteamAccepted>
+   <MpConnectingTo>Připojování k {0}: {1}</MpConnectingTo>
+   <MpConnected>Připojeno.</MpConnected>
+   <MpDownloading>Stahování ({0}%)</MpDownloading>
+   <MpSteamConnectingTo>Připojuje se ke hře založené hráčem {0}</MpSteamConnectingTo>
+   <MpSteamConnectingWaiting>Čekání na přijetí hostitelem serveru</MpSteamConnectingWaiting>
+   <MpTicksBehind>Jste {0} tiků pozadu.</MpTicksBehind>
+   <MpLowerGameSpeed>Zvažte snížení rychlosti hry.</MpLowerGameSpeed>
+   <MpForceCatchUp>Kliknutím vynutíte dohnání času.</MpForceCatchUp>
+   <MpDesynced>Stav hry se desynchronizoval.</MpDesynced>
+   <MpTryResync>Zkuste se znovu synchronizovat</MpTryResync>
+   <MpSaveReplayAs>Uložit replay jako</MpSaveReplayAs>
+   <MpWillOverwrite>Přepíše se</MpWillOverwrite>
+   <MpReplaySaved>Replay byl uložen</MpReplaySaved>
+   <MpGameName>Název hry</MpGameName>
+   <MpMaxPlayers>Maximální počet hráčů</MpMaxPlayers>
+   <MpAutosaveEvery>Automaticky ukládat každý</MpAutosaveEvery>
+   <MpAutosaveDays>dny</MpAutosaveDays>
+   <MpLanDesc1>Vysílejte hru do místní sítě.</MpLanDesc1>
+   <MpLanDesc2>Vaše LAN adresa: {0}</MpLanDesc2>
+   <MpArbiterDesc>Herní instance, která běží na pozadí a pomáhá s řešením desynchronizace.</MpArbiterDesc>
+   <MpAsyncTimeDesc>Samostatné časové kontroly pro každou mapu a planetu.</MpAsyncTimeDesc>
+   <MpExperimentalFeature>Experimentální funkce</MpExperimentalFeature>
+   <MpHostButton>Hostitel</MpHostButton>
+   <MpWatchReplay>Sledovat</MpWatchReplay>
+   <MpNothingSelected>Nic nebylo vybráno</MpNothingSelected>
+   <MpNoSaves>Hru více hráčů lze hrát pouze z již existujících uložení</MpNoSaves>
+   <MpHostIngame>Založit z tého hry</MpHostIngame>
+   <MpHostReplay>Založit z replaye</MpHostReplay>
+   <MpHostSavefile>Založit z úloženého souboru</MpHostSavefile>
+   <MpJoinButton>Připojit</MpJoinButton>
+   <MpConnectButton>Připojit</MpConnectButton>
+   <MpLanSearching>Vyhledávání</MpLanSearching>
+   <MpNotConnectedToSteam>Není připojen ke službě Steam</MpNotConnectedToSteam>
+   <MpNoFriendsPlaying>RimWorld v současné době nehrají žádní přátelé</MpNoFriendsPlaying>
+   <MpPlayingRimWorld>Hraje RimWorld</MpPlayingRimWorld>
+   <MpNotInMultiplayer>Není ve hře více hráčů</MpNotInMultiplayer>
+   <MpPauseOnAutosave>Pauza při automatickém ukládání</MpPauseOnAutosave>
+   <MpAppendNameToAutosave>Připojte název k automatickému ukládání</MpAppendNameToAutosave>
+   <MpPauseAutosaveCounter>Pozastavte čítač automatického ukládání</MpPauseAutosaveCounter>
+   <MpPauseAutosaveCounterDesc>Pozastaví čítač spolu s hrou, tím zabrání automatickému ukládání při pozastaveném čase.</MpPauseAutosaveCounterDesc>
+   <MpLan>LAN</MpLan>
+   <MpDirect>Přímé připojení</MpDirect>
+   <MpSteam>Steam</MpSteam>
+   <MpHostTab>Založit</MpHostTab>
+   <MpMultiplayer>Hra více hráčů</MpMultiplayer>
+   <MpSingleplayer>Hra jednoho hráče</MpSingleplayer>
+   <MpNotAvailable>Není k dispozici ve hře více hráčů.</MpNotAvailable>
+   <MpCallingFactionNotAvailable>Volání dalších frakcí není v současné době k dispozici ve hře pro více hráčů.</MpCallingFactionNotAvailable>
+   <MpAggressiveTicking>Agresivní tikání</MpAggressiveTicking>
+   <MpAggressiveTickingDesc>Vždy se pokusit automaticky dohnat server i za cenu ztráty FPS.</MpAggressiveTickingDesc>
+</LanguageData>
