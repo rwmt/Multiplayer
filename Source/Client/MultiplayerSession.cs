@@ -16,7 +16,6 @@ using Verse.Sound;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
     public class MultiplayerSession : IConnectionStatusListener
     {
         public string gameName;
@@ -182,7 +181,11 @@ namespace Multiplayer.Client
     {
         public string remoteRwVersion;
         public string[] remoteModNames;
+        public string[] remoteModIds;
+        public ulong[] remoteWorkshopModIds;
         public Dictionary<string, DefInfo> defInfo;
+        public string remoteAddress;
+        public int remotePort;
     }
 
     public class PlayerInfo
@@ -195,6 +198,7 @@ namespace Multiplayer.Client
         public int ticksBehind;
         public PlayerType type;
         public PlayerStatus status;
+        public Color color;
 
         public ulong steamId;
         public string steamPersonaName;
@@ -231,11 +235,14 @@ namespace Multiplayer.Client
 
             var ticksBehind = data.ReadInt32();
 
+            var color = new Color(data.ReadByte() / 255f, data.ReadByte() / 255f, data.ReadByte() / 255f);
+
             return new PlayerInfo(id, username, latency, type)
             {
                 status = status,
                 steamId = steamId,
                 steamPersonaName = steamName,
+                color = color,
                 ticksBehind = ticksBehind
             };
         }
@@ -285,7 +292,7 @@ namespace Multiplayer.Client
             TradeSession.giftMode = false;
 
             DebugTools.curTool = null;
-            PortraitsCache.Clear();
+            // PortraitsCache.Clear(); // seems to cause crashes the second time we load a save as of V1.1
             RealTime.moteList.Clear();
 
             Room.nextRoomID = 1;
@@ -297,6 +304,8 @@ namespace Multiplayer.Client
             ZoneColorUtility.nextStorageZoneColorIndex = 0;
 
             SetThingMakerSeed(1);
+
+            Prefs.PauseOnLoad = false; // causes immediate desyncs on load if misaligned between host and clients
 
             foreach (var field in typeof(DebugSettings).GetFields(BindingFlags.Public | BindingFlags.Static))
                 if (!field.IsLiteral && field.FieldType == typeof(bool))

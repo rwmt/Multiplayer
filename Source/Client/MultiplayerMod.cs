@@ -1,28 +1,25 @@
-﻿using Harmony;
-using Harmony.ILCopying;
-using Multiplayer.Common;
-using RimWorld;
-using System;
-using System.Collections;
+﻿using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Diagnostics;
-using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
-using System.Text;
 using System.Xml;
+
+using HarmonyLib;
+
+using RimWorld;
 using UnityEngine;
 using Verse;
 
+using Multiplayer.Common;
+
 namespace Multiplayer.Client
 {
-    [HotSwappable]
     public class MultiplayerMod : Mod
     {
-        public static HarmonyInstance harmony = HarmonyInstance.Create("multiplayer");
+        public static Harmony harmony = new Harmony("multiplayer");
         public static MpSettings settings;
 
         public static bool arbiterInstance;
@@ -32,41 +29,26 @@ namespace Multiplayer.Client
             if (GenCommandLine.CommandLineArgPassed("arbiter"))
                 arbiterInstance = true;
 
-            EarlyMarkNoInline(typeof(Multiplayer).Assembly);
+            //EarlyMarkNoInline(typeof(Multiplayer).Assembly);
             EarlyPatches();
 
             CheckInterfaceVersions();
 
             settings = GetSettings<MpSettings>();
 
-            if (MpVersion.IsDebug) {
-                LongEventHandler.ExecuteWhenFinished(() => {
-                    Log.Message("== Structure == \n" + Sync.syncWorkers.PrintStructure());
-                });
-            }
-        }
-
-        public static void EarlyMarkNoInline(Assembly asm)
-        {
-            foreach (var type in asm.GetTypes())
-            {
-                MpPatchExtensions.DoMpPatches(null, type)?.ForEach(m => MpUtil.MarkNoInlining(m));
-
-                var harmonyMethods = type.GetHarmonyMethods();
-                if (harmonyMethods?.Count > 0)
-                {
-                    var original = MpUtil.GetOriginalMethod(HarmonyMethod.Merge(harmonyMethods));
-                    if (original != null)
-                        MpUtil.MarkNoInlining(original);
-                }
-            }
+            LongEventHandler.ExecuteWhenFinished(() => {
+                // Double Execute ensures it'll run last.
+                LongEventHandler.ExecuteWhenFinished(LatePatches);
+            });
         }
 
         private void EarlyPatches()
         {
             // special case?
-            MpUtil.MarkNoInlining(AccessTools.Method(typeof(OutfitForcedHandler), nameof(OutfitForcedHandler.Reset)));
+            // Harmony 2.0 should be handling NoInlining already... test without
+            //MpUtil.MarkNoInlining(AccessTools.Method(typeof(OutfitForcedHandler), nameof(OutfitForcedHandler.Reset)));
 
+            // TODO: 20200229 must evaluate if this is still required
             foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
             {
                 var firstMethod = asm.GetType("Harmony.AccessTools")?.GetMethod("FirstMethod");
@@ -75,9 +57,11 @@ namespace Multiplayer.Client
 
                 if (asm == typeof(HarmonyPatch).Assembly) continue;
 
+                /*
                 var emitCallParameter = asm.GetType("Harmony.MethodPatcher")?.GetMethod("EmitCallParameter", AccessTools.all);
                 if (emitCallParameter != null)
                     harmony.Patch(emitCallParameter, new HarmonyMethod(typeof(PatchHarmony), emitCallParameter.GetParameters().Length == 4 ? nameof(PatchHarmony.EmitCallParamsPrefix4) : nameof(PatchHarmony.EmitCallParamsPrefix5)));
+                 */                   
             }
 
             {
@@ -86,17 +70,7 @@ namespace Multiplayer.Client
                 harmony.Patch(AccessTools.Constructor(typeof(ThingSetMaker_Nutrition)), prefix);
             }
 
-            harmony.Patch(
-                AccessTools.Method(typeof(ThingCategoryDef), "get_DescendantThingDefs"),
-                new HarmonyMethod(typeof(ThingCategoryDef_DescendantThingDefsPatch), "Prefix"),
-                new HarmonyMethod(typeof(ThingCategoryDef_DescendantThingDefsPatch), "Postfix")
-            );
-
-            harmony.Patch(
-                AccessTools.Method(typeof(ThingCategoryDef), "get_ThisAndChildCategoryDefs"),
-                new HarmonyMethod(typeof(ThingCategoryDef_ThisAndChildCategoryDefsPatch), "Prefix"),
-                new HarmonyMethod(typeof(ThingCategoryDef_ThisAndChildCategoryDefsPatch), "Postfix")
-            );
+            // TODO: 20200229 Some of the patches below should be moved to late load.
 
             harmony.Patch(
                 AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.ParseAndProcessXML)),
@@ -131,6 +105,27 @@ namespace Multiplayer.Client
                 new HarmonyMethod(typeof(RandPatches), nameof(RandPatches.Prefix)),
                 new HarmonyMethod(typeof(RandPatches), nameof(RandPatches.Postfix))
             );
+        }
+
+        private void LatePatches()
+        {
+            // optimization, cache DescendantThingDefs
+            harmony.Patch(
+                AccessTools.Method(typeof(ThingCategoryDef), "get_DescendantThingDefs"),
+                new HarmonyMethod(typeof(ThingCategoryDef_DescendantThingDefsPatch), "Prefix"),
+                new HarmonyMethod(typeof(ThingCategoryDef_DescendantThingDefsPatch), "Postfix")
+            );
+
+            // optimization, cache ThisAndChildCategoryDefs
+            harmony.Patch(
+                AccessTools.Method(typeof(ThingCategoryDef), "get_ThisAndChildCategoryDefs"),
+                new HarmonyMethod(typeof(ThingCategoryDef_ThisAndChildCategoryDefsPatch), "Prefix"),
+                new HarmonyMethod(typeof(ThingCategoryDef_ThisAndChildCategoryDefsPatch), "Postfix")
+            );
+
+            if (MpVersion.IsDebug) {
+                Log.Message("== Structure == \n" + Sync.syncWorkers.PrintStructure());
+            }
         }
 
         private string slotsBuffer;
@@ -191,24 +186,37 @@ namespace Multiplayer.Client
             Log.Message($"Current API version: {curVersion}");
 
             foreach (var mod in LoadedModManager.RunningMods) {
-                if (!mod.LoadedAnyAssembly)
+                if (mod.assemblies.loadedAssemblies.NullOrEmpty())
                     continue;
 
                 if (mod.Name == "Multiplayer")
                     continue;
 
-                Assembly assembly = mod.assemblies.loadedAssemblies.FirstOrDefault(a => a.GetName().Name == MpVersion.apiAssemblyName);
-
-                if (assembly != null) {
-                    var version = new Version(FileVersionInfo.GetVersionInfo(System.IO.Path.Combine(mod.AssembliesFolder, $"{MpVersion.apiAssemblyName}.dll")).FileVersion);
-
-                    Log.Message($"Mod {mod.Name} has API client ({version})");
-
-                    if (curVersion > version)
-                        Log.Warning($"Mod {mod.Name} uses an older API version (mod: {version}, current: {curVersion})");
-                    else if (curVersion < version)
-                        Log.Error($"Mod {mod.Name} uses a newer API version! (mod: {version}, current: {curVersion})\nMake sure the Multiplayer mod is up to date");
+                // Test if mod is using multiplayer api
+                if (!mod.assemblies.loadedAssemblies.Any(a => a.GetName().Name == MpVersion.apiAssemblyName)) {
+                    continue;
                 }
+
+                // Retrieve the original dll
+                var info = mod.ModListAssemblies()
+                    .Select(f => FileVersionInfo.GetVersionInfo(f.FullName))
+                    .FirstOrDefault(v => v.ProductName == "Multiplayer");
+
+                if (info == null) {
+                    // There are certain mods that don't include the API, namely compat
+                    // Can we test them?
+                    continue;
+                }
+
+                var version = new Version(info.FileVersion);
+
+                Log.Message($"Mod {mod.Name} has API client ({version})");
+
+                if (curVersion > version)
+                    Log.Warning($"Mod {mod.Name} uses an older API version (mod: {version}, current: {curVersion})");
+                else if (curVersion < version)
+                    Log.Error($"Mod {mod.Name} uses a newer API version! (mod: {version}, current: {curVersion})\nMake sure the Multiplayer mod is up to date");
+            
             }
         }
     }
@@ -228,11 +236,21 @@ namespace Multiplayer.Client
 
     static class LoadableXmlAssetCtorPatch
     {
-        public static List<Pair<LoadableXmlAsset, int>> xmlAssetHashes = new List<Pair<LoadableXmlAsset, int>>();
+        static ConcurrentBag<Pair<LoadableXmlAsset, int>> xmlAssetHashes = new ConcurrentBag<Pair<LoadableXmlAsset, int>>();
 
         static void Prefix(LoadableXmlAsset __instance, string contents)
         {
             xmlAssetHashes.Add(new Pair<LoadableXmlAsset, int>(__instance, GenText.StableStringHash(contents)));
+        }
+
+        public static int AggregateHash(ModContentPack mod)
+        {
+            return xmlAssetHashes.Where(p => p.First.mod == mod).Select(p => p.Second).AggregateHash();
+        }
+
+        public static void ClearHashBag()
+        {
+            xmlAssetHashes = null;
         }
     }
 
@@ -240,7 +258,7 @@ namespace Multiplayer.Client
     {
         static bool Prefix() => !MpVersion.IsDebug && !MultiplayerMod.arbiterInstance;
     }
-
+    /*
     static class PatchHarmony
     {
         static MethodInfo mpEmitCallParam = AccessTools.Method(typeof(MethodPatcher), "EmitCallParameter");
@@ -257,7 +275,7 @@ namespace Multiplayer.Client
             return false;
         }
     }
-
+    */
     public class MpSettings : ModSettings
     {
         public string username;
@@ -265,7 +283,7 @@ namespace Multiplayer.Client
         public bool autoAcceptSteam;
         public bool transparentChat;
         public int autosaveSlots = 5;
-        public bool aggressiveTicking;
+        public bool aggressiveTicking = true;
         public bool showDevInfo;
         public string serverAddress = "127.0.0.1";
         public bool appendNameToAutosave;
@@ -279,7 +297,7 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref autoAcceptSteam, "autoAcceptSteam");
             Scribe_Values.Look(ref transparentChat, "transparentChat");
             Scribe_Values.Look(ref autosaveSlots, "autosaveSlots", 5);
-            Scribe_Values.Look(ref aggressiveTicking, "aggressiveTicking");
+            Scribe_Values.Look(ref aggressiveTicking, "aggressiveTicking", true);
             Scribe_Values.Look(ref showDevInfo, "showDevInfo");
             Scribe_Values.Look(ref serverAddress, "serverAddress", "127.0.0.1");
             Scribe_Values.Look(ref pauseAutosaveCounter, "pauseAutosaveCounter", true);

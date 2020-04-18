@@ -1,4 +1,4 @@
-﻿using Harmony;
+﻿using HarmonyLib;
 using Ionic.Zlib;
 using Multiplayer.Common;
 using RimWorld;
@@ -33,9 +33,18 @@ namespace Multiplayer.Client
         {
             Multiplayer.session.mods.remoteRwVersion = data.ReadString();
             Multiplayer.session.mods.remoteModNames = data.ReadPrefixedStrings();
+            Multiplayer.session.mods.remoteModIds = data.ReadPrefixedStrings();
+            Multiplayer.session.mods.remoteWorkshopModIds = data.ReadPrefixedULongs();
 
             var defs = Multiplayer.localDefInfos;
             Multiplayer.session.mods.defInfo = defs;
+
+            var endPoint = Multiplayer.session?.netClient?.FirstPeer?.EndPoint;
+            if (endPoint?.Address != null) {
+                // todo: why is this sometimes null? It means the "auto reconnect after changing mods" won't work
+                Multiplayer.session.mods.remoteAddress = endPoint.Address.ToString();
+                Multiplayer.session.mods.remotePort = endPoint.Port;
+            }
 
             var response = new ByteWriter();
             response.WriteInt32(defs.Count);
@@ -374,19 +383,18 @@ namespace Multiplayer.Client
         public void HandlePause(ByteReader data)
         {
             bool pause = data.ReadBool();
-            // This packet doesn't get processed in time during a synchronous long event 
+            // This packet doesn't get processed in time during a synchronous long event
         }
 
         [PacketHandler(Packets.Server_Debug)]
         public void HandleDebug(ByteReader data)
         {
             int tick = data.ReadInt32();
-            int start = data.ReadInt32();
-            int end = data.ReadInt32();
+            int diffAt = data.ReadInt32();
             var info = Multiplayer.game.sync.knownClientOpinions.FirstOrDefault(b => b.startTick == tick);
 
             Log.Message($"{info?.desyncStackTraces.Count} arbiter traces");
-            File.WriteAllText("arbiter_traces.txt", info?.GetFormattedStackTracesForRange(start, end) ?? "null");
+            File.WriteAllText("arbiter_traces.txt", info?.GetFormattedStackTracesForRange(diffAt) ?? "null");
         }
     }
 

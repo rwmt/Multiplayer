@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using Harmony;
+using HarmonyLib;
 using Multiplayer.API;
 using Multiplayer.Common;
 using RimWorld;
@@ -229,6 +229,57 @@ namespace Multiplayer.Client
                     return billStack.Bills.Find(bill => bill.loadID == id);
                 }, true
             },
+            {
+                (ByteWriter data, Ability ability) => {
+                    WriteSync(data, ability.pawn);
+                    WriteSync(data, ability.UniqueVerbOwnerID());
+                },
+                (ByteReader data) => {
+                    var pawn = ReadSync<Pawn>(data);
+                    var uniqueVerbOwnerID = data.ReadString();
+
+                    return pawn.abilities.abilities.Find(ab => ab.UniqueVerbOwnerID() == uniqueVerbOwnerID);
+                }, true
+            },
+            {
+                (ByteWriter data, Verb_CastAbility verb) => {
+                    if (verb.DirectOwner is Pawn pawn) {
+                        WriteSync(data, VerbOwnerType.Pawn);
+                        WriteSync(data, pawn);
+                    }
+                    else if (verb.DirectOwner is Ability ability) {
+                        WriteSync(data, VerbOwnerType.Ability);
+                        WriteSync(data, ability);
+                    }
+                    else {
+                        Log.Warning($"MP SyncDictionary.Verb_CastAbility: skipping unknown DirectOwner {verb.loadID} {verb.DirectOwner}");
+                        WriteSync(data, VerbOwnerType.None);
+                        return;
+                    }
+
+                    data.WriteString(verb.loadID);
+                },
+                (ByteReader data) => {
+                    var ownerType = ReadSync<VerbOwnerType>(data);
+                    if (ownerType == VerbOwnerType.None) {
+                        return null;
+                    }
+
+                    IVerbOwner verbOwner = null;
+                    if (ownerType == VerbOwnerType.Pawn) {
+                        verbOwner = ReadSync<Pawn>(data);
+                    }
+                    else if (ownerType == VerbOwnerType.Ability) {
+                        verbOwner = ReadSync<Ability>(data);
+                    }
+                    if (verbOwner == null) {
+                        return null;
+                    }
+
+                    var loadID = data.ReadString();
+                    return (Verb_CastAbility) verbOwner.VerbTracker.AllVerbs.Find(ve => ve.loadID == loadID);
+                }
+            },
             #endregion
 
             #region AI
@@ -307,6 +358,32 @@ namespace Multiplayer.Client
             },
             #endregion
 
+            #region Quests
+            {
+                (ByteWriter data, Quest quest) => {
+                    data.WriteInt32(quest.id);
+                },
+                (ByteReader data) => {
+                    int questId = data.ReadInt32();
+                    return Find.QuestManager.QuestsListForReading.FirstOrDefault(possibleQuest => possibleQuest.id == questId);
+                },
+                true
+            },
+            #endregion
+
+            #region Factions
+            {
+                (ByteWriter data, Faction quest) => {
+                    data.WriteInt32(quest.loadID);
+                },
+                (ByteReader data) => {
+                    int loadID = data.ReadInt32();
+                    return Find.FactionManager.AllFactions.FirstOrDefault(possibleFaction => possibleFaction.loadID == loadID);
+                },
+                true
+            },
+            #endregion
+
             #region Ranges
             {
                 (ByteWriter data, FloatRange range) => {
@@ -359,8 +436,8 @@ namespace Multiplayer.Client
                 (ByteReader data) => new ITab_Pawn_Gear()
             },
             {
-                (ByteWriter data, ITab_TransporterContents tab) => { },
-                (ByteReader data) => new ITab_TransporterContents()
+                (ByteWriter data, ITab_ContentsTransporter tab) => { },
+                (ByteReader data) => new ITab_ContentsTransporter()
             },
             #endregion
 
@@ -588,6 +665,18 @@ namespace Multiplayer.Client
             },
             #endregion
 
+            #region RoyalTitlePermitWorker
+            {
+                (ByteWriter data, RoyalTitlePermitWorker worker) => {
+                    WriteSync(data, worker.def);
+                },
+                (ByteReader data) => {
+                    RoyalTitlePermitDef def = ReadSync<RoyalTitlePermitDef>(data);
+                    return def?.Worker;
+                }, true
+            },
+            #endregion
+
             #region Databases
 
             { (SyncWorker data, ref OutfitDatabase db) => db = Current.Game.outfitDatabase },
@@ -780,13 +869,11 @@ namespace Multiplayer.Client
 
                     int sessionId = data.ReadInt32();
                     var session = GetSessions(map).FirstOrDefault(s => s.SessionId == sessionId);
-                    if (session == null) return null;
 
                     int thingId = data.ReadInt32();
                     if (thingId == -1) return null;
 
                     var transferable = session.GetTransferableByThingId(thingId);
-                    if (transferable == null) return null;
 
                     return new MpTransferableReference(session, transferable);
                 }
@@ -815,7 +902,11 @@ namespace Multiplayer.Client
             #region Interfaces
             {
                 (ByteWriter data, ISelectable obj) => {
-                    if (obj is Thing thing)
+                    if (obj == null)
+                    {
+                        WriteSync(data, ISelectableImpl.None);
+                    }
+                    else if (obj is Thing thing)
                     {
                         WriteSync(data, ISelectableImpl.Thing);
                         WriteSync(data, thing);
@@ -832,12 +923,14 @@ namespace Multiplayer.Client
                     }
                     else
                     {
-                        throw new SerializationException($"Unknown ISelectable type: {obj?.GetType()}");
+                        throw new SerializationException($"Unknown ISelectable type: {obj.GetType()}");
                     }
                 },
                 (ByteReader data) => {                
                     ISelectableImpl impl = ReadSync<ISelectableImpl>(data);
 
+                    if (impl == ISelectableImpl.None)
+                        return null;
                     if (impl == ISelectableImpl.Thing)
                         return ReadSync<Thing>(data);
                     if (impl == ISelectableImpl.Zone)

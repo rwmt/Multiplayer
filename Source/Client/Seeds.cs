@@ -1,4 +1,4 @@
-﻿using Harmony;
+﻿using HarmonyLib;
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
@@ -112,7 +112,7 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(LongEventHandler), nameof(LongEventHandler.QueueLongEvent), new[] { typeof(Action), typeof(string), typeof(bool), typeof(Action<Exception>) })]
+    [HarmonyPatch(typeof(LongEventHandler), nameof(LongEventHandler.QueueLongEvent), new[] { typeof(Action), typeof(string), typeof(bool), typeof(Action<Exception>), typeof(bool) })]
     static class SeedLongEvents
     {
         static void Prefix(ref Action action)
@@ -194,12 +194,17 @@ namespace Multiplayer.Client
         }
     }
 
-    [MpPatch(typeof(GrammarResolver), nameof(GrammarResolver.Resolve))]
-    [MpPatch(typeof(PawnBioAndNameGenerator), nameof(PawnBioAndNameGenerator.GeneratePawnName))]
-    [MpPatch(typeof(NameGenerator), nameof(NameGenerator.GenerateName), new[] { typeof(RulePackDef), typeof(Predicate<string>), typeof(bool), typeof(string), typeof(string) })]
+    [HarmonyPatch]
     static class SeedGrammar
     {
-        [HarmonyPriority(MpPriority.MpFirst)]
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(GrammarResolver), nameof(GrammarResolver.Resolve));
+            yield return AccessTools.Method(typeof(PawnBioAndNameGenerator), nameof(PawnBioAndNameGenerator.GeneratePawnName));
+            yield return AccessTools.Method(typeof(NameGenerator), nameof(NameGenerator.GenerateName), new[] { typeof(RulePackDef), typeof(Predicate<string>), typeof(bool), typeof(string), typeof(string) });
+        }
+
+        [HarmonyPriority(Priority.First + 1)]
         static void Prefix(ref bool __state)
         {
             Rand.Element(0, 0); // advance the rng
@@ -207,7 +212,7 @@ namespace Multiplayer.Client
             __state = true;
         }
 
-        [HarmonyPriority(MpPriority.MpLast)]
+        [HarmonyPriority(Priority.Last - 1)]
         static void Postfix(bool __state)
         {
             if (__state)
@@ -215,18 +220,23 @@ namespace Multiplayer.Client
         }
     }
 
-    [MpPatch(typeof(PawnGraphicSet), nameof(PawnGraphicSet.ResolveAllGraphics))]
-    [MpPatch(typeof(PawnGraphicSet), nameof(PawnGraphicSet.ResolveApparelGraphics))]
+    [HarmonyPatch]
     static class SeedPawnGraphics
     {
-        [HarmonyPriority(MpPriority.MpFirst)]
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(PawnGraphicSet), nameof(PawnGraphicSet.ResolveAllGraphics));
+            yield return AccessTools.Method(typeof(PawnGraphicSet), nameof(PawnGraphicSet.ResolveApparelGraphics));
+        }
+
+        [HarmonyPriority(Priority.First + 1)]
         static void Prefix(PawnGraphicSet __instance, ref bool __state)
         {
             Rand.PushState(__instance.pawn.thingIDNumber);
             __state = true;
         }
 
-        [HarmonyPriority(MpPriority.MpLast)]
+        [HarmonyPriority(Priority.Last - 1)]
         static void Postfix(bool __state)
         {
             if (__state)

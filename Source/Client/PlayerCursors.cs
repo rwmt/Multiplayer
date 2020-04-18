@@ -1,4 +1,4 @@
-﻿using Harmony;
+﻿using HarmonyLib;
 using Multiplayer.Common;
 using RimWorld;
 using System;
@@ -24,7 +24,7 @@ namespace Multiplayer.Client
                 if (player.username == Multiplayer.username) continue;
                 if (player.map != curMap) continue;
 
-                GUI.color = new Color(1, 1, 1, 0.5f);
+                GUI.color = player.color * new Color(1, 1, 1, 0.5f);
                 var pos = Vector3.Lerp(player.lastCursor, player.cursor, (float)(Multiplayer.Clock.ElapsedMillisDouble() - player.updatedAt) / 50f).MapToUIPosition();
 
                 var icon = Multiplayer.icons.ElementAtOrDefault(player.cursorIcon);
@@ -44,7 +44,7 @@ namespace Multiplayer.Client
 
                 if (player.dragStart != PlayerInfo.Invalid)
                 {
-                    GUI.color = new Color(1, 1, 1, 0.2f);
+                    GUI.color = player.color * new Color(1, 1, 1, 0.2f);
                     Widgets.DrawBox(new Rect() { min = player.dragStart.MapToUIPosition(), max = pos }, 2);
                 }
 

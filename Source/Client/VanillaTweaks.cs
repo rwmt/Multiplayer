@@ -1,4 +1,4 @@
-﻿using Harmony;
+﻿using HarmonyLib;
 using RimWorld;
 using RimWorld.Planet;
 using System;
@@ -134,13 +134,13 @@ namespace Multiplayer.Client
             }
         }
 
-        static EventType Process(EventType type) => type == EventType.layout ? EventType.repaint : type;
+        static EventType Process(EventType type) => type == EventType.Layout ? EventType.Repaint : type;
     }
 
     [HarmonyPatch(typeof(Widgets), nameof(Widgets.DrawLine))]
     static class DrawLineOnlyOnRepaint
     {
-        static bool Prefix() => Event.current.type == EventType.repaint;
+        static bool Prefix() => Event.current.type == EventType.Repaint;
     }
 
     // Use a simpler shader for plants when possible

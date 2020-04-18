@@ -1,6 +1,6 @@
 ﻿extern alias zip;
 
-using Harmony;
+using HarmonyLib;
 using Ionic.Crc;
 using Multiplayer.Common;
 using RimWorld;
@@ -13,6 +13,7 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Xml;
 using UnityEngine;
 using Verse;
@@ -22,6 +23,8 @@ namespace Multiplayer.Client
 {
     public static class Extensions
     {
+        private static Regex methodNameCleaner = new Regex(@"(\?[0-9\-]+)");
+
         public static IEnumerable<T> NotNull<T>(this IEnumerable<T> e)
         {
             return e.Where(t => t != null);
@@ -244,20 +247,13 @@ namespace Multiplayer.Client
 
         public static int Hash(this StackTrace trace)
         {
-            int hash = 0;
-            for (int i = 0; i < trace.GetFrames().Length; i++)
-                hash = Gen.HashCombineInt(hash, trace.GetFrames()[i].GetMethod().MetadataToken);
+            var traceToHash = new StringBuilder();
+            for (int i = 0; i < trace.FrameCount; i++) {
+                var method = trace.GetFrame(i).GetMethod();
+                traceToHash.Append(methodNameCleaner.Replace(method.ToString(), "") + "\n");
+            }
 
-            return hash;
-        }
-
-        public static int Hash(this MethodBase[] methods)
-        {
-            int hash = 0;
-            for (int i = 0; i < methods.Length; i++)
-                hash = Gen.HashCombineInt(hash, methods[i].MetadataToken);
-
-            return hash;
+            return traceToHash.ToString().GetHashCode();
         }
 
         public static byte[] GetBytes(this ZipEntry entry)
@@ -383,18 +379,17 @@ namespace Multiplayer.Client
             return names.ToArray();
         }
 
-        public static FileInfo[] ModAssemblies(this ModMetaData mod) => ModAssemblies(mod.RootDir.FullName);
-        public static FileInfo[] ModAssemblies(this ModContentPack mod) => ModAssemblies(mod.RootDir);
-
-        private static FileInfo[] ModAssemblies(string modRoot)
-        {
-            var assemblies = new DirectoryInfo(Path.Combine(modRoot, "Assemblies"));
-            if (!assemblies.Exists)
-                return new FileInfo[0];
-            return assemblies.GetFiles("*.*", SearchOption.AllDirectories).Where(f => f.Extension.ToLower() == ".dll").ToArray();
+        public static bool ModHasAssemblies(this ModMetaData mod) {
+            return Directory.EnumerateFiles(mod.RootDir.FullName, "*.dll", SearchOption.AllDirectories).Any();
         }
 
-        public static int CRC32(this FileInfo[] files)
+        public static IEnumerable<FileInfo> ModListAssemblies(this ModContentPack mod)
+        {
+            return ModContentPack.GetAllFilesForModPreserveOrder(mod, "Assemblies/", (string e) => e.ToLower() == ".dll", null)
+                    .Select(t => t.Item2);
+        }
+
+        public static int CRC32(this IEnumerable<FileInfo> files)
         {
             return files.Select(f =>
             {

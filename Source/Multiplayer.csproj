@@ -1,54 +1,27 @@
-<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+<Project Sdk="Microsoft.NET.Sdk">
+  
   <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{562CC73B-D52D-4615-B8AA-BCE875838D24}</ProjectGuid>
-    <OutputType>Library</OutputType>
-    <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Multiplayer</RootNamespace>
-    <AssemblyName>Multiplayer</AssemblyName>
-    <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
-    <FileAlignment>512</FileAlignment>
+    <TargetFramework>net472</TargetFramework>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <OutputPath>..\Assemblies\</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+    <DebugType>None</DebugType>
     <ReleaseVersion>0.4.8</ReleaseVersion>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <DebugSymbols>false</DebugSymbols>
-    <DebugType>none</DebugType>
-    <Optimize>true</Optimize>
-    <OutputPath>..\Assemblies\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <DebugType>none</DebugType>
-    <Optimize>true</Optimize>
-    <OutputPath>..\Assemblies\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-  </PropertyGroup>
-  <PropertyGroup>
-    <RunPostBuildEvent>Always</RunPostBuildEvent>
-  </PropertyGroup>
+  
   <ItemGroup>
-    <Reference Include="0Harmony">
-      <HintPath>..\Assemblies\0Harmony.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="1LiteNetLib">
-      <HintPath>..\Assemblies\1LiteNetLib.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="4Ionic.Zip.Reduced">
-      <HintPath>..\Assemblies\4Ionic.Zip.Reduced.dll</HintPath>
-      <Aliases>zip</Aliases>
-      <Private>False</Private>
-    </Reference>
+    
+    <!-- Nuget dependencies -->
+    <PackageReference Include="Publicise.MSBuild.Task" Version="1.*" />
+    <PackageReference Include="RestSharp" Version="106.10.1" />
+    <PackageReference Include="RimWorld.MultiplayerAPI" Version="0.2.0" />
+    <PackageReference Include="Lib.Harmony" Version="2.0.0.8" />
+    <PackageReference Include="LiteNetLib" Version="0.8.3.1" />
+    <PackageReference Include="DotNetZip.Reduced" Version="1.9.1.8" />
+    
+    <!-- Local dependencies -->
     <Reference Include="Assembly-CSharp-firstpass">
       <HintPath>..\..\..\RimWorldWin64_Data\Managed\Assembly-CSharp-firstpass.dll</HintPath>
       <Private>False</Private>
@@ -57,101 +30,47 @@
       <HintPath>..\..\..\RimWorldWin64_Data\Managed\Assembly-CSharp_public.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Xml.Linq" />
-    <Reference Include="System.Data.DataSetExtensions" />
-    <Reference Include="System.Data" />
-    <Reference Include="System.Xml" />
+    <Reference Include="UnityEngine.IMGUIModule">
+      <HintPath>..\..\..\RimWorldWin64_Data\Managed\UnityEngine.IMGUIModule.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>..\..\..\RimWorldWin64_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
     <Reference Include="UnityEngine">
       <HintPath>..\..\..\RimWorldWin64_Data\Managed\UnityEngine.dll</HintPath>
       <Private>False</Private>
     </Reference>
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Include="Client\ArbiterPatches.cs" />
-    <Compile Include="Client\Blueprints.cs" />
-    <Compile Include="Client\CacheForReloading.cs" />
-    <Compile Include="Client\ConstantTicker.cs" />
-    <Compile Include="Client\Desyncs\ClientSyncOpinion.cs" />
-    <Compile Include="Client\Desyncs\MapRandomStateData.cs" />
-    <Compile Include="Client\Desyncs\StackTraceLogItem.cs" />
-    <Compile Include="Client\Desyncs\SyncCoordinator.cs" />
-    <Compile Include="Client\Desyncs\UserReadableDesyncInfo.cs" />
-    <Compile Include="Client\ModPatches.cs" />
-    <Compile Include="Client\Optimizations.cs" />
-    <Compile Include="Client\SettingsPatches.cs" />
-    <Compile Include="Client\TickPatch.cs" />
-    <Compile Include="Client\Persistent\CaravanForming.cs" />
-    <Compile Include="Client\SteamIntegration.cs" />
-    <Compile Include="Client\Sync\SyncTemplates.cs" />
-    <Compile Include="Client\Persistent\TransporterLoading.cs" />
-    <Compile Include="Client\Windows\ChatWindow.cs" />
-    <Compile Include="Client\ClientConnection.cs" />
-    <Compile Include="Client\ClientNetworking.cs" />
-    <Compile Include="Client\Windows\ConnectingWindow.cs" />
-    <Compile Include="Client\CrossRefs.cs" />
-    <Compile Include="Client\DebugTools.cs" />
-    <Compile Include="Client\Designators.cs" />
-    <Compile Include="Client\Extensions.cs" />
-    <Compile Include="Client\Windows\DisconnectedWindow.cs" />
-    <Compile Include="Client\Windows\HostWindow.cs" />
-    <Compile Include="Client\MainButtons.cs" />
-    <Compile Include="Client\Comp\MapAsyncTime.cs" />
-    <Compile Include="Client\MpPatch.cs" />
-    <Compile Include="Client\MpReflection.cs" />
-    <Compile Include="Client\MpUtil.cs" />
-    <Compile Include="Client\Multiplayer.cs" />
-    <Compile Include="Client\Comp\MultiplayerMapComp.cs" />
-    <Compile Include="Client\MultiplayerMod.cs" />
-    <Compile Include="Client\MultiplayerSession.cs" />
-    <Compile Include="Client\Comp\MultiplayerWorldComp.cs" />
-    <Compile Include="Client\Native.cs" />
-    <Compile Include="Client\OnMainThread.cs" />
-    <Compile Include="Client\Patches.cs" />
-    <Compile Include="Client\Persistent\PersistentDialogs.cs" />
-    <Compile Include="Client\PlayerCursors.cs" />
-    <Compile Include="Client\Replays.cs" />
-    <Compile Include="Client\SaveCompression.cs" />
-    <Compile Include="Client\SaveLoad.cs" />
-    <Compile Include="Client\ScribeUtil.cs" />
-    <Compile Include="Client\Seeds.cs" />
-    <Compile Include="Client\Windows\ServerBrowser.cs" />
-    <Compile Include="Client\SetMapTime.cs" />
-    <Compile Include="Client\SimpleProfiler.cs" />
-    <Compile Include="Client\SituationalThoughts.cs" />
-    <Compile Include="Client\Sync\Sync.cs" />
-    <Compile Include="Client\Sync\SyncHandlers.cs" />
-    <Compile Include="Client\Sync\SyncSerialization.cs" />
-    <Compile Include="Client\TileTemperatures.cs" />
-    <Compile Include="Client\Persistent\Trading.cs" />
-    <Compile Include="Client\Persistent\TradingUI.cs" />
-    <Compile Include="Client\VanillaTweaks.cs" />
-    <Compile Include="Client\Windows\Windows.cs" />
-    <Compile Include="Common\ChatCommands.cs" />
-    <Compile Include="Common\Commands.cs" />
-    <Compile Include="Common\Extensions.cs" />
-    <Compile Include="Common\MpLog.cs" />
-    <Compile Include="Common\MultiplayerServer.cs" />
-    <Compile Include="Common\Networking.cs" />
-    <Compile Include="Common\Packets.cs" />
-    <Compile Include="Common\ServerConnection.cs" />
-    <Compile Include="Common\Version.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Common\MultiplayerAPIBridge.cs" />
-    <Compile Include="Client\Sync\SyncWorkers.cs" />
-    <Compile Include="Common\DynDelegate.cs" />
-    <Compile Include="Client\Sync\SyncDictionary.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="MultiplayerAPI.csproj">
-      <Project>{1DF67DDA-04CB-4DDF-B867-4C0E152BC959}</Project>
-      <Name>MultiplayerAPI</Name>
+    <Reference Include="UnityEngine.TextRenderingModule">
+      <HintPath>..\..\..\RimWorldWin64_Data\Managed\UnityEngine.TextRenderingModule.dll</HintPath>
       <Private>False</Private>
-    </ProjectReference>
+    </Reference>
+    <Reference Include="UnityEngine.InputLegacyModule">
+      <HintPath>..\..\..\RimWorldWin64_Data\Managed\UnityEngine.InputLegacyModule.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="UnityEngine.AudioModule">
+      <HintPath>..\..\..\RimWorldWin64_Data\Managed\UnityEngine.AudioModule.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    
   </ItemGroup>
-  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <PropertyGroup>
-    <PreBuildEvent>"$(ProjectDir)..\Publicise\Publicise.exe" "$(ProjectDir)..\..\..\RimWorldWin64_Data\Managed\Assembly-CSharp.dll" "$(ProjectDir)..\Publicise"</PreBuildEvent>
-  </PropertyGroup>
+  
+  <ItemGroup>
+    <None Remove=".editorconfig" />
+  </ItemGroup>
+  
+  <Target Name="Publicise" BeforeTargets="BeforeBuild">
+    <Publicise AssemblyPath="..\..\..\RimWorldWin64_Data\Managed\Assembly-CSharp.dll" OutputPath="..\..\..\RimWorldWin64_Data\Managed\" />
+  </Target>
+  
+  <Target Name="ChangeAliasesOfNugetRefs" BeforeTargets="FindReferenceAssembliesForReferences;ResolveReferences">
+    <ItemGroup>
+      <ReferencePath Condition="'%(FileName)' == 'Ionic.Zip.Reduced'">
+        <Aliases>zip</Aliases>
+      </ReferencePath>
+    </ItemGroup>
+  </Target>
+  
 </Project>

@@ -23,7 +23,7 @@ namespace Multiplayer.Common
                 return;
             }
 
-            connection.Send(Packets.Server_ModList, Server.rwVersion, Server.modNames);
+            connection.Send(Packets.Server_ModList, Server.rwVersion, Server.modNames, Server.modIds, Server.workshopModIds);
         }
 
         [PacketHandler(Packets.Client_Defs)]
@@ -69,6 +69,19 @@ namespace Multiplayer.Common
             connection.Send(Packets.Server_DefsOK, Server.settings.gameName, Player.id);
         }
 
+        private static ColorRGB[] PlayerColors = new ColorRGB[]
+{
+            new ColorRGB(179,  77, 0),
+            new ColorRGB(204, 204, 0),
+            new ColorRGB( 25, 204, 0),
+            new ColorRGB( 25, 115, 0),
+            new ColorRGB(  0, 128, 255),
+            new ColorRGB( 51,  51, 255),
+            new ColorRGB(102,   0, 255)
+};
+
+        private static Dictionary<string, ColorRGB> givenColors = new Dictionary<string, ColorRGB>();
+
         [PacketHandler(Packets.Client_Username)]
         public void HandleClientUsername(ByteReader data)
         {
@@ -99,6 +112,13 @@ namespace Multiplayer.Common
 
             Server.SendNotification("MpPlayerConnected", Player.Username);
             Server.SendChat($"{Player.Username} has joined.");
+
+            if (!Player.IsArbiter)
+            {
+                if (!givenColors.TryGetValue(username, out ColorRGB color))
+                    givenColors[username] = color = PlayerColors[givenColors.Count % PlayerColors.Length];
+                Player.color = color;
+            }
 
             var writer = new ByteWriter();
             writer.WriteByte((byte)PlayerListAction.Add);
@@ -320,8 +340,8 @@ namespace Multiplayer.Common
 
             writer.WriteInt32(Player.id);
             writer.WriteBool(reset);
-            writer.WritePrefixedInts(data.ReadPrefixedInts(100));
-            writer.WritePrefixedInts(data.ReadPrefixedInts(100));
+            writer.WritePrefixedInts(data.ReadPrefixedInts(200));
+            writer.WritePrefixedInts(data.ReadPrefixedInts(200));
 
             Server.SendToAll(Packets.Server_Selected, writer.ToArray(), excluding: Player);
         }

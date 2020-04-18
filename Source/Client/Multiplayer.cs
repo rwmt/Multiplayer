@@ -1,32 +1,20 @@
-extern alias zip;
+﻿//extern alias zip;
 
-using Harmony;
-using Harmony.ILCopying;
-using Ionic.Crc;
-using Ionic.Zlib;
-using LiteNetLib;
-using Multiplayer.Common;
-using RimWorld;
-using RimWorld.Planet;
-using Steamworks;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.IO.Pipes;
 using System.Linq;
-using System.Net;
-using System.Net.Sockets;
 using System.Reflection;
-using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
-using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading;
-using System.Xml;
+using System.Threading.Tasks;
+using RestSharp;
+using HarmonyLib;
+using Multiplayer.Common;
+using RimWorld;
 using UnityEngine;
 using Verse;
-using Verse.Profile;
 using Verse.Sound;
 using Verse.Steam;
 
@@ -44,7 +32,7 @@ namespace Multiplayer.Client
         public static bool IsReplay => session?.replay ?? false;
 
         public static string username;
-        public static HarmonyInstance harmony => MultiplayerMod.harmony;
+        public static Harmony harmony => MultiplayerMod.harmony;
 
         public static bool reloading;
 
@@ -80,6 +68,7 @@ namespace Multiplayer.Client
         public static HashSet<string> xmlMods = new HashSet<string>();
         public static List<ModHashes> enabledModAssemblyHashes = new List<ModHashes>();
         public static Dictionary<string, DefInfo> localDefInfos;
+        public static Dictionary<string, int> modsCompatibility = new Dictionary<string, int>();  // workshopID: compatNumber [0-4]
 
         static Multiplayer()
         {
@@ -93,7 +82,7 @@ namespace Multiplayer.Client
 
             foreach (var mod in ModLister.AllInstalledMods)
             {
-                if (!mod.ModAssemblies().Any())
+                if (!mod.ModHasAssemblies())
                     xmlMods.Add(mod.RootDir.FullName);
             }
 
@@ -121,15 +110,6 @@ namespace Multiplayer.Client
 
             try
             {
-                harmony.DoAllMpPatches();
-            }
-            catch (Exception e)
-            {
-                Log.Error($"Exception during MpPatching: {e}");
-            }
-
-            try
-            {
                 SyncHandlers.Init();
 
                 var asm = Assembly.GetExecutingAssembly();
@@ -140,6 +120,12 @@ namespace Multiplayer.Client
             catch (Exception e)
             {
                 Log.Error($"Exception during Sync initialization: {e}");
+            }
+
+            try {
+                harmony.DoAllMpPatches();
+            } catch (Exception e) {
+                Log.Error($"Exception during MpPatching: {e}");
             }
 
             try
@@ -163,8 +149,27 @@ namespace Multiplayer.Client
 
             HandleCommandLine();
 
-            if (MultiplayerMod.arbiterInstance)
+            if (MultiplayerMod.arbiterInstance) {
                 RuntimeHelpers.RunClassConstructor(typeof(Text).TypeHandle);
+            }
+            else {
+                UpdateModCompatibilityDb();
+            }
+        }
+
+        private static void UpdateModCompatibilityDb()
+        {
+            Task.Run(() => {
+                var client = new RestClient("https://bot.rimworldmultiplayer.com/mod-compatibility?version=1.1");
+                try {
+                    var rawResponse = client.Get(new RestRequest($"", DataFormat.Json));
+                    modsCompatibility = SimpleJson.DeserializeObject<Dictionary<string, int>>(rawResponse.Content);
+                    Log.Message($"MP: successfully fetched {modsCompatibility.Count} mods compatibility info");
+                }
+                catch (Exception e) {
+                    Log.Warning($"MP: updating mod compatibility list failed {e.Message} {e.StackTrace}");
+                }
+            });
         }
 
         private static void SetUsername()
@@ -248,11 +253,39 @@ namespace Multiplayer.Client
 
         private static void DoPatches()
         {
-            harmony.PatchAll();
+            //harmony.PatchAll();
+
+            Log.Message("Anotated patches");
+
+            // this is a temporary report, must be removed or made debug only
+            var report = new List<(Type, Exception)>();
+            Assembly.GetCallingAssembly().GetTypes().Do(delegate (Type type) {
+                try {
+                    harmony.CreateClassProcessor(type).Patch();
+
+                    report.Add((type, null));
+                } catch (Exception e) {
+                    report.Add((type, e));
+                }
+            });
+            foreach(var entry in report) {
+                if (entry.Item2 != null) {
+                    Log.Error($"FAIL: {entry.Item1} with {entry.Item2.InnerException}");
+                } else if (false) {
+                    Log.Message($"PASS: {entry.Item1}");
+                }
+            }
+
+            Log.Message("General designation patches");
 
             // General designation handling
             {
-                var designatorMethods = new[] { "DesignateSingleCell", "DesignateMultiCell", "DesignateThing" };
+                var designatorFinalizer = AccessTools.Method(typeof(DesignatorPatches), "DesignateFinalizer");
+                var designatorMethods = new[] {
+                     "DesignateSingleCell",
+                     "DesignateMultiCell",
+                     "DesignateThing",
+                     };
 
                 foreach (Type t in typeof(Designator).AllSubtypesAndSelf())
                 {
@@ -262,32 +295,46 @@ namespace Multiplayer.Client
                         if (method == null) continue;
 
                         MethodInfo prefix = AccessTools.Method(typeof(DesignatorPatches), m);
-                        harmony.Patch(method, new HarmonyMethod(prefix), null, null);
+                        try {
+                            harmony.Patch(method, new HarmonyMethod(prefix), null, null, new HarmonyMethod(designatorFinalizer));
+                        } catch (Exception e) {
+                            Log.Error($"FAIL: {t.FullName}:{method.Name} with {e.InnerException}");
+                        }
                     }
                 }
             }
+
+            Log.Message("non-deterministic patches");
 
             // Remove side effects from methods which are non-deterministic during ticking (e.g. camera dependent motes and sound effects)
             {
                 var randPatchPrefix = new HarmonyMethod(typeof(RandPatches), "Prefix");
                 var randPatchPostfix = new HarmonyMethod(typeof(RandPatches), "Postfix");
 
-                var subSustainerStart = AccessTools.Method(typeof(SubSustainer), "<SubSustainer>m__0");
+                var subSustainerStart = AccessTools.Method(typeof(SubSustainer), "<.ctor>b__12_0");
                 var sampleCtor = typeof(Sample).GetConstructor(new[] { typeof(SubSoundDef) });
-                var subSoundPlay = typeof(SubSoundDef).GetMethod("TryPlay");
-                var effecterTick = typeof(Effecter).GetMethod("EffectTick");
-                var effecterTrigger = typeof(Effecter).GetMethod("Trigger");
-                var effecterCleanup = typeof(Effecter).GetMethod("Cleanup");
-                var randomBoltMesh = typeof(LightningBoltMeshPool).GetProperty("RandomBoltMesh").GetGetMethod();
+                var subSoundPlay = typeof(SubSoundDef).GetMethod(nameof(SubSoundDef.TryPlay));
+                var effecterTick = typeof(Effecter).GetMethod(nameof(Effecter.EffectTick));
+                var effecterTrigger = typeof(Effecter).GetMethod(nameof(Effecter.Trigger));
+                var effecterCleanup = typeof(Effecter).GetMethod(nameof(Effecter.Cleanup));
+                var randomBoltMesh = typeof(LightningBoltMeshPool).GetProperty(nameof(LightningBoltMeshPool.RandomBoltMesh)).GetGetMethod();
                 var drawTrackerCtor = typeof(Pawn_DrawTracker).GetConstructor(new[] { typeof(Pawn) });
-                var randomHair = typeof(PawnHairChooser).GetMethod("RandomHairDefFor");
+                var randomHair = typeof(PawnHairChooser).GetMethod(nameof(PawnHairChooser.RandomHairDefFor));
 
                 var effectMethods = new MethodBase[] { subSustainerStart, sampleCtor, subSoundPlay, effecterTick, effecterTrigger, effecterCleanup, randomBoltMesh, drawTrackerCtor, randomHair };
                 var moteMethods = typeof(MoteMaker).GetMethods(BindingFlags.Static | BindingFlags.Public);
 
-                foreach (MethodBase m in effectMethods.Concat(moteMethods))
-                    harmony.Patch(m, randPatchPrefix, randPatchPostfix);
+                foreach (MethodBase m in effectMethods.Concat(moteMethods)) {
+                    try {
+                        harmony.Patch(m, randPatchPrefix, randPatchPostfix);
+                    } catch (Exception e) {
+                        Log.Error($"FAIL: {m.GetType().FullName}:{m.Name} with {e.InnerException}");
+                    }
+                }
+
             }
+
+            Log.Message("non-deterministic patches");
 
             // Set ThingContext and FactionContext (for pawns and buildings) in common Thing methods
             {
@@ -300,11 +347,18 @@ namespace Multiplayer.Client
                     foreach (string m in thingMethods)
                     {
                         MethodInfo method = t.GetMethod(m, BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly);
-                        if (method != null)
-                            harmony.Patch(method, thingMethodPrefix, thingMethodPostfix);
+                        if (method != null) {
+                            try {
+                                harmony.Patch(method, thingMethodPrefix, thingMethodPostfix);
+                            } catch (Exception e) {
+                                Log.Error($"FAIL: {method.GetType().FullName}:{method.Name} with {e.InnerException}");
+                            }
+                        }
                     }
                 }
             }
+
+            Log.Message("floating point patches");
 
             // Full precision floating point saving
             {
@@ -315,6 +369,8 @@ namespace Multiplayer.Client
                 harmony.Patch(valueSaveMethod.MakeGenericMethod(typeof(double)), doubleSavePrefix, null);
                 harmony.Patch(valueSaveMethod.MakeGenericMethod(typeof(float)), floatSavePrefix, null);
             }
+
+            Log.Message("map time gui patches");
 
             // Set the map time for GUI methods depending on it
             {
@@ -328,10 +384,18 @@ namespace Multiplayer.Client
                 foreach (var t in typeof(InspectTabBase).AllSubtypesAndSelf())
                 {
                     var method = t.GetMethod("FillTab", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
-                    if (method != null && !method.IsAbstract)
-                        harmony.Patch(method, setMapTimePrefix, setMapTimePostfix);
+                    if (method != null && !method.IsAbstract) {
+                        try {
+                            harmony.Patch(method, setMapTimePrefix, setMapTimePostfix);
+                        } catch (Exception e) {
+                            Log.Error($"FAIL: {method.GetType().FullName}:{method.Name} with {e.InnerException}");
+                        }
+                    }
+
                 }
             }
+
+            Log.Message("Mod patches");
 
             ModPatches.Init();
         }
@@ -443,14 +507,14 @@ namespace Multiplayer.Client
             {
                 var hashes = new ModHashes()
                 {
-                    assemblyHash = mod.ModAssemblies().CRC32(),
-                    xmlHash = LoadableXmlAssetCtorPatch.xmlAssetHashes.Where(p => p.First.mod == mod).Select(p => p.Second).AggregateHash(),
+                    assemblyHash = mod.ModListAssemblies().CRC32(),
+                    xmlHash = LoadableXmlAssetCtorPatch.AggregateHash(mod),
                     aboutHash = new DirectoryInfo(Path.Combine(mod.RootDir, "About")).GetFiles().CRC32()
                 };
                 enabledModAssemblyHashes.Add(hashes);
             }
 
-            LoadableXmlAssetCtorPatch.xmlAssetHashes.Clear();
+            LoadableXmlAssetCtorPatch.ClearHashBag();
         }
 
         private static DefInfo GetDefInfo<T>(IEnumerable<T> types, Func<T, int> hash)

@@ -1,4 +1,4 @@
-﻿using Harmony;
+﻿using HarmonyLib;
 using Multiplayer.Common;
 using RimWorld;
 using System;
@@ -85,6 +85,16 @@ namespace Multiplayer.Client
             MoteMaker.ThrowMetaPuffs(__0);
 
             return false;
+        }
+
+        // DesignateFinalizer ignores unimplemented Designate* methods
+        public static Exception DesignateFinalizer(Exception __exception)
+        {
+            if (__exception is NotImplementedException) {
+                return null;
+            }
+
+            return __exception;
         }
 
         private static void WriteData(ByteWriter data, DesignatorMode mode, Designator designator)

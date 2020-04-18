@@ -1,4 +1,4 @@
-﻿using Harmony;
+﻿using HarmonyLib;
 using Multiplayer.Common;
 using System;
 using System.Collections.Generic;
@@ -12,7 +12,7 @@ namespace Multiplayer.Client
     /// <summary>
     /// Applies a normal Harmony patch, but allows multiple targets
     /// </summary>
-    [AttributeUsage(AttributeTargets.Class, AllowMultiple = true, Inherited = false)]
+    [AttributeUsage(AttributeTargets.Method, AllowMultiple = true, Inherited = false)]
     public class MpPatch : Attribute
     {
         private Type type;
@@ -94,7 +94,12 @@ namespace Multiplayer.Client
 
     public static class MpPatchExtensions
     {
-        public static void DoAllMpPatches(this HarmonyInstance harmony)
+        class Entry : System.Dynamic.DynamicObject
+        {
+
+        }
+
+            public static void DoAllMpPatches(this Harmony harmony)
         {
             foreach (Type type in Assembly.GetCallingAssembly().GetTypes())
             {
@@ -103,34 +108,26 @@ namespace Multiplayer.Client
         }
 
         // Use null as harmony instance to just collect the methods
-        public static List<MethodBase> DoMpPatches(this HarmonyInstance harmony, Type type)
+        public static List<MethodBase> DoMpPatches(this Harmony harmony, Type type)
         {
             List<MethodBase> result = null;
-
-            // On whole type
-            foreach (var attr in type.AllAttributes<MpPatch>())
-            {
-                var toPatch = attr.Method;
-
-                if (harmony != null)
-                    new PatchProcessor(harmony, type, attr.HarmonyMethod).Patch();
-
-                if (result == null)
-                    result = new List<MethodBase>();
-
-                result.Add(toPatch);
-            }
 
             // On methods
             foreach (var m in type.GetDeclaredMethods().Where(m => m.IsStatic))
             {
-                foreach (MpPatch attr in m.AllAttributes<MpPatch>())
-                {
+                foreach (MpPatch attr in m.AllAttributes<MpPatch>()) {
                     var toPatch = attr.Method;
                     HarmonyMethod patch = new HarmonyMethod(m);
 
-                    if (harmony != null)
-                        harmony.Patch(toPatch, (attr is MpPrefix) ? patch : null, (attr is MpPostfix) ? patch : null, (attr is MpTranspiler) ? patch : null);
+                    if (harmony != null) {
+                        try {
+                            harmony.Patch(toPatch, (attr is MpPrefix) ? patch : null, (attr is MpPostfix) ? patch : null, (attr is MpTranspiler) ? patch : null);
+
+                            //Log.Message($"{toPatch.DeclaringType.FullName}:{toPatch.Name}");
+                        } catch(Exception e) {
+                            Log.Error($"{toPatch.DeclaringType.FullName}:{toPatch.Name}\n\t{e.InnerException}");
+                        }
+                    }
 
                     if (result == null)
                         result = new List<MethodBase>();

@@ -1,4 +1,4 @@
-﻿using Harmony;
+﻿using HarmonyLib;
 using Multiplayer.API;
 using Multiplayer.Common;
 using RimWorld;
@@ -83,12 +83,17 @@ namespace Multiplayer.Client
 
         enum ISelectableImpl : byte
         {
-            Thing, Zone, WorldObject
+            None, Thing, Zone, WorldObject
+        }
+
+        enum VerbOwnerType : byte
+        {
+            None, Pawn, Ability
         }
 
         private static MethodInfo GetDefByIdMethod = AccessTools.Method(typeof(Sync), nameof(Sync.GetDefById));
 
-        private static T GetDefById<T>(ushort id) where T : Def, new() => DefDatabase<T>.GetByShortHash(id);
+        public static T GetDefById<T>(ushort id) where T : Def => DefDatabase<T>.GetByShortHash(id);
 
         public static object ReadSyncObject(ByteReader data, SyncType syncType)
         {
@@ -485,6 +490,9 @@ namespace Multiplayer.Client
         {
             foreach (var s in Multiplayer.WorldComp.trading)
                 yield return s;
+
+            if (Multiplayer.WorldComp.splitSession != null)
+                yield return Multiplayer.WorldComp.splitSession;
 
             if (map == null) yield break;
             var mapComp = map.MpComp();

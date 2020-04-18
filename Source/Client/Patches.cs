@@ -1,18 +1,14 @@
-﻿using Harmony;
-using Harmony.ILCopying;
+﻿using HarmonyLib;
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
-using Steamworks;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
-using System.Xml;
 using System.Xml.Linq;
 using UnityEngine;
 using Verse;
@@ -33,7 +29,7 @@ namespace Multiplayer.Client
         }
     }
 
-    [MpPatch(typeof(MainMenuDrawer), nameof(MainMenuDrawer.DoMainMenuControls))]
+    [HarmonyPatch(typeof(MainMenuDrawer), nameof(MainMenuDrawer.DoMainMenuControls))]
     public static class MainMenuMarker
     {
         public static bool drawing;
@@ -72,14 +68,13 @@ namespace Multiplayer.Client
         static void Postfix() => ticking = false;
     }
 
-    [MpPatch(typeof(MainMenuDrawer), nameof(MainMenuDrawer.DoMainMenuControls))]
+    [HarmonyPatch(typeof(MainMenuDrawer), nameof(MainMenuDrawer.DoMainMenuControls))]
     public static class MainMenu_AddHeight
     {
         static void Prefix(ref Rect rect) => rect.height += 45f;
     }
 
-    [MpPatch(typeof(OptionListingUtility), nameof(OptionListingUtility.DrawOptionListing))]
-    [HotSwappable]
+    [HarmonyPatch(typeof(OptionListingUtility), nameof(OptionListingUtility.DrawOptionListing))]
     public static class MainMenuPatch
     {
         static void Prefix(Rect rect, List<ListableOption> optList)
@@ -112,9 +107,10 @@ namespace Multiplayer.Client
                 if (Multiplayer.Client != null)
                 {
                     if (!Multiplayer.IsReplay)
+                    {
                         optList.Insert(0, new ListableOption("MpSaveReplay".Translate(), () => Find.WindowStack.Add(new Dialog_SaveReplay())));
-                    else
-                        optList.Insert(0, new ListableOption("MpConvert".Translate(), ConvertToSingleplayer));
+                    }
+                    optList.Insert(0, new ListableOption("MpConvert".Translate(), ConvertToSingleplayer));
 
                     optList.RemoveAll(opt => opt.label == "Save".Translate() || opt.label == "LoadGame".Translate());
 
@@ -154,7 +150,7 @@ namespace Multiplayer.Client
             DebugTables.MakeTablesDialog(
                 mods.Select((mod, i) => i),
                 new TableDataGetter<int>($"Mod name {new string(' ', 20)}", i => mods[i].Name),
-                new TableDataGetter<int>($"Mod id {new string(' ', 20)}", i => mods[i].Identifier),
+                new TableDataGetter<int>($"Mod id {new string(' ', 20)}", i => mods[i].PackageId),
                 new TableDataGetter<int>($"Assembly hash {new string(' ', 10)}", i => Multiplayer.enabledModAssemblyHashes[i].assemblyHash),
                 new TableDataGetter<int>($"XML hash {new string(' ', 10)}", i => Multiplayer.enabledModAssemblyHashes[i].xmlHash),
                 new TableDataGetter<int>($"About hash {new string(' ', 10)}", i => Multiplayer.enabledModAssemblyHashes[i].aboutHash)
@@ -190,11 +186,15 @@ namespace Multiplayer.Client
             }, "Play", "MpConverting", true, null);
         }
     }
-
-    [MpPatch(typeof(GenScene), nameof(GenScene.GoToMainMenu))]
-    [MpPatch(typeof(Root), nameof(Root.Shutdown))]
+    [HarmonyPatch]
     static class Shutdown_Quit_Patch
     {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(GenScene), nameof(GenScene.GoToMainMenu));
+            yield return AccessTools.Method(typeof(Root), nameof(Root.Shutdown));
+        }
+
         static void Prefix()
         {
             OnMainThread.StopMultiplayer();
@@ -497,8 +497,7 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(Thing))]
-    [HarmonyPatch(nameof(Thing.ExposeData))]
+    [HarmonyPatch(typeof(Thing), nameof(Thing.ExposeData))]
     public static class PawnExposeDataFirst
     {
         public static Container<Map>? state;
@@ -515,8 +514,7 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(Pawn))]
-    [HarmonyPatch(nameof(Pawn.ExposeData))]
+    [HarmonyPatch(typeof(Pawn), nameof(Pawn.ExposeData))]
     public static class PawnExposeDataLast
     {
         static void Postfix()
@@ -530,8 +528,7 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(Pawn_NeedsTracker))]
-    [HarmonyPatch(nameof(Pawn_NeedsTracker.AddOrRemoveNeedsAsAppropriate))]
+    [HarmonyPatch(typeof(Pawn_NeedsTracker), nameof(Pawn_NeedsTracker.AddOrRemoveNeedsAsAppropriate))]
     public static class AddRemoveNeeds
     {
         static void Prefix(Pawn_NeedsTracker __instance)
@@ -540,8 +537,8 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(PawnTweener))]
-    [HarmonyPatch(nameof(PawnTweener.PreDrawPosCalculation))]
+    // why patch it if it's commented out?
+    //[HarmonyPatch(typeof(PawnTweener), nameof(PawnTweener.PreDrawPosCalculation))]
     public static class PreDrawPosCalcPatch
     {
         static void Prefix()
@@ -557,8 +554,7 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(TickManager))]
-    [HarmonyPatch(nameof(TickManager.TickRateMultiplier), MethodType.Getter)]
+    [HarmonyPatch(typeof(TickManager), nameof(TickManager.TickRateMultiplier), MethodType.Getter)]
     public static class TickRatePatch
     {
         static bool Prefix(TickManager __instance, ref float __result)
@@ -597,8 +593,7 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(Log))]
-    [HarmonyPatch(nameof(Log.Warning))]
+    [HarmonyPatch(typeof(Log), nameof(Log.Warning))]
     public static class CrossRefWarningPatch
     {
         private static Regex regex = new Regex(@"^Could not resolve reference to object with loadID ([\w.-]*) of type ([\w.<>+]*)\. Was it compressed away");
@@ -650,8 +645,7 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(KeyBindingDef))]
-    [HarmonyPatch(nameof(KeyBindingDef.IsDownEvent), MethodType.Getter)]
+    [HarmonyPatch(typeof(KeyBindingDef), nameof(KeyBindingDef.IsDownEvent), MethodType.Getter)]
     public static class KeyIsDownPatch
     {
         public static bool? shouldQueue;
@@ -725,9 +719,34 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(Pawn_ApparelTracker), "<SortWornApparelIntoDrawOrder>m__0")]
+    [HarmonyPatch]
     static class FixApparelSort
     {
+        static MethodBase TargetMethod()
+        {
+            // Get all non public types, including compiler types
+            List<Type> nestedPrivateTypes = new List<Type>(typeof(Pawn_ApparelTracker).GetNestedTypes(BindingFlags.NonPublic));
+
+            // There are two of these in 1.1, <GetGizmos> and <>c. Pluck the one we want for sort inner
+            Type cType = nestedPrivateTypes.Find(t => t.Name.Equals("<>c"));
+
+            return AccessTools.Method(cType, "<SortWornApparelIntoDrawOrder>b__50_0");
+        }
+
+        private static MethodBase Inner(Type arg)
+        {
+            if (!arg.IsAutoClass) {
+                return null;
+            }
+            return AccessTools.FirstMethod(arg, Name);
+        }
+
+        private static bool Name(MethodInfo arg)
+        {
+            Log.Message($"name: {arg.Name}");
+            return arg.Name.Contains("<SortWornApparelIntoDrawOrder>");
+        }
+
         static void Postfix(Apparel a, Apparel b, ref int __result)
         {
             if (__result == 0)
@@ -735,11 +754,16 @@ namespace Multiplayer.Client
         }
     }
 
-    [MpPatch(typeof(OutfitDatabase), nameof(OutfitDatabase.GenerateStartingOutfits))]
-    [MpPatch(typeof(DrugPolicyDatabase), nameof(DrugPolicyDatabase.GenerateStartingDrugPolicies))]
-    [MpPatch(typeof(FoodRestrictionDatabase), nameof(FoodRestrictionDatabase.GenerateStartingFoodRestrictions))]
+    [HarmonyPatch]
     static class CancelReinitializationDuringLoading
     {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(OutfitDatabase), nameof(OutfitDatabase.GenerateStartingOutfits));
+            yield return AccessTools.Method(typeof(DrugPolicyDatabase), nameof(DrugPolicyDatabase.GenerateStartingDrugPolicies));
+            yield return AccessTools.Method(typeof(FoodRestrictionDatabase), nameof(FoodRestrictionDatabase.GenerateStartingFoodRestrictions));
+        }
+
         static bool Prefix() => Scribe.mode != LoadSaveMode.LoadingVars;
     }
 
@@ -845,12 +869,16 @@ namespace Multiplayer.Client
         static void Postfix() => loading = false;
     }
 
-    [MpPatch(typeof(SoundStarter), nameof(SoundStarter.PlayOneShot))]
-    [MpPatch(typeof(Command_SetPlantToGrow), nameof(Command_SetPlantToGrow.WarnAsAppropriate))]
-    [MpPatch(typeof(TutorUtility), nameof(TutorUtility.DoModalDialogIfNotKnown))]
-    [MpPatch(typeof(CameraJumper), nameof(CameraJumper.TryHideWorld))]
+    [HarmonyPatch]
     static class CancelFeedbackNotTargetedAtMe
     {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(SoundStarter), nameof(SoundStarter.PlayOneShot));
+            yield return AccessTools.Method(typeof(Command_SetPlantToGrow), nameof(Command_SetPlantToGrow.WarnAsAppropriate));
+            yield return AccessTools.Method(typeof(TutorUtility), nameof(TutorUtility.DoModalDialogIfNotKnown));
+            yield return AccessTools.Method(typeof(CameraJumper), nameof(CameraJumper.TryHideWorld));
+        }
         public static bool Cancel =>
             Multiplayer.Client != null &&
             Multiplayer.ExecutingCmds &&
@@ -871,10 +899,15 @@ namespace Multiplayer.Client
         }
     }
 
-    [MpPatch(typeof(MoteMaker), nameof(MoteMaker.MakeStaticMote), new[] {typeof(IntVec3), typeof(Map), typeof(ThingDef), typeof(float)})]
-    [MpPatch(typeof(MoteMaker), nameof(MoteMaker.MakeStaticMote), new[] {typeof(Vector3), typeof(Map), typeof(ThingDef), typeof(float)})]
+    [HarmonyPatch]
     static class CancelMotesNotTargetedAtMe
     {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(MoteMaker), nameof(MoteMaker.MakeStaticMote), new[] {typeof(IntVec3), typeof(Map), typeof(ThingDef), typeof(float)});
+            yield return AccessTools.Method(typeof(MoteMaker), nameof(MoteMaker.MakeStaticMote), new[] {typeof(Vector3), typeof(Map), typeof(ThingDef), typeof(float)});
+        }
+
         static bool Prefix(ThingDef moteDef)
         {
             if (moteDef == ThingDefOf.Mote_FeedbackGoto)
@@ -894,11 +927,16 @@ namespace Multiplayer.Client
         }
     }
 
-    [MpPatch(typeof(Messages), nameof(Messages.Message), new[] {typeof(string), typeof(MessageTypeDef), typeof(bool)})]
-    [MpPatch(typeof(Messages), nameof(Messages.Message), new[] {typeof(string), typeof(LookTargets), typeof(MessageTypeDef), typeof(bool)})]
+    [HarmonyPatch]
     static class MessagesMarker
     {
         public static bool? historical;
+
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(Messages), nameof(Messages.Message), new[] {typeof(string), typeof(MessageTypeDef), typeof(bool)});
+            yield return AccessTools.Method(typeof(Messages), nameof(Messages.Message), new[] {typeof(string), typeof(LookTargets), typeof(MessageTypeDef), typeof(bool)});
+        }
 
         static void Prefix(bool historical) => MessagesMarker.historical = historical;
         static void Postfix() => historical = null;
@@ -927,7 +965,7 @@ namespace Multiplayer.Client
         static void Postfix() => starting = false;
     }
 
-    [HarmonyPatch(typeof(LongEventHandler), nameof(LongEventHandler.QueueLongEvent), new[] {typeof(Action), typeof(string), typeof(bool), typeof(Action<Exception>)})]
+    [HarmonyPatch(typeof(LongEventHandler), nameof(LongEventHandler.QueueLongEvent), new[] { typeof(Action), typeof(string), typeof(bool), typeof(Action<Exception>), typeof(bool) })]
     static class CancelRootPlayStartLongEvents
     {
         public static bool cancel;
@@ -975,8 +1013,7 @@ namespace Multiplayer.Client
         static bool Prefix(Thing t) => t.def.isSaveable;
     }
 
-    [HarmonyPatch(typeof(ThingWithComps))]
-    [HarmonyPatch(nameof(ThingWithComps.InitializeComps))]
+    [HarmonyPatch(typeof(ThingWithComps), nameof(ThingWithComps.InitializeComps))]
     static class InitializeCompsPatch
     {
         static void Postfix(ThingWithComps __instance)
@@ -1023,7 +1060,7 @@ namespace Multiplayer.Client
             int i = 0;
             while (i < list.Count)
             {
-                int index = Mathf.Abs(Rand.random.GetInt(iters--) % (i + 1));
+                int index = Mathf.Abs(MurmurHash.GetInt(Rand.seed, iters--) % (i + 1));
                 T value = list[index];
                 list[index] = list[i];
                 list[i] = value;
@@ -1086,7 +1123,7 @@ namespace Multiplayer.Client
             async.storyteller = new Storyteller(Find.Storyteller.def, Find.Storyteller.difficulty);
             async.storyWatcher = new StoryWatcher();
 
-            if (!Multiplayer.WorldComp.asyncTime)
+            if (!MultiplayerWorldComp.asyncTime)
                 async.TimeSpeed = Find.TickManager.CurTimeSpeed;
         }
     }
@@ -1101,28 +1138,15 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(WindowStack), nameof(WindowStack.Add))]
-    static class DisableCaravanSplit
-    {
-        static bool Prefix(Window window)
-        {
-            if (Multiplayer.Client == null) return true;
-
-            if (window is Dialog_SplitCaravan)
-            {
-                Messages.Message("MpNotAvailable".Translate(), MessageTypeDefOf.RejectInput, false);
-                return false;
-            }
-
-            return true;
-        }
-    }
-
-    [MpPatch(typeof(IncidentWorker_CaravanMeeting), nameof(IncidentWorker_CaravanMeeting.CanFireNowSub))]
-    [MpPatch(typeof(IncidentWorker_CaravanDemand), nameof(IncidentWorker_CaravanDemand.CanFireNowSub))]
-    [MpPatch(typeof(IncidentWorker_RansomDemand), nameof(IncidentWorker_RansomDemand.CanFireNowSub))]
+    [HarmonyPatch]
     static class CancelIncidents
     {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(IncidentWorker_CaravanMeeting), nameof(IncidentWorker_CaravanMeeting.CanFireNowSub));
+            yield return AccessTools.Method(typeof(IncidentWorker_CaravanDemand), nameof(IncidentWorker_CaravanDemand.CanFireNowSub));
+            yield return AccessTools.Method(typeof(IncidentWorker_RansomDemand), nameof(IncidentWorker_RansomDemand.CanFireNowSub));
+        }
         static void Postfix(ref bool __result)
         {
             if (Multiplayer.Client != null)
@@ -1160,11 +1184,15 @@ namespace Multiplayer.Client
         static bool Prefix() => Multiplayer.Client == null;
     }
 
-    [MpPatch(typeof(CameraJumper), nameof(CameraJumper.TrySelect))]
-    [MpPatch(typeof(CameraJumper), nameof(CameraJumper.TryJumpAndSelect))]
-    [MpPatch(typeof(CameraJumper), nameof(CameraJumper.TryJump), new[] {typeof(GlobalTargetInfo)})]
+    [HarmonyPatch]
     static class NoCameraJumpingDuringSkipping
     {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(CameraJumper), nameof(CameraJumper.TrySelect));
+            yield return AccessTools.Method(typeof(CameraJumper), nameof(CameraJumper.TryJumpAndSelect));
+            yield return AccessTools.Method(typeof(CameraJumper), nameof(CameraJumper.TryJump), new[] {typeof(GlobalTargetInfo)});
+        }
         static bool Prefix() => !TickPatch.Skipping;
     }
 
@@ -1243,7 +1271,7 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(LongEventHandler), nameof(LongEventHandler.QueueLongEvent), new[] {typeof(Action), typeof(string), typeof(bool), typeof(Action<Exception>)})]
+    [HarmonyPatch(typeof(LongEventHandler), nameof(LongEventHandler.QueueLongEvent), new[] { typeof(Action), typeof(string), typeof(bool), typeof(Action<Exception>), typeof(bool) })]
     static class MarkLongEvents
     {
         private static MethodInfo MarkerMethod = AccessTools.Method(typeof(MarkLongEvents), nameof(Marker));
@@ -1298,7 +1326,7 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(LongEventHandler), nameof(LongEventHandler.QueueLongEvent), new[] {typeof(Action), typeof(string), typeof(bool), typeof(Action<Exception>)})]
+    [HarmonyPatch(typeof(LongEventHandler), nameof(LongEventHandler.QueueLongEvent), new[] { typeof(Action), typeof(string), typeof(bool), typeof(Action<Exception>), typeof(bool) })]
     static class LongEventAlwaysSync
     {
         static void Prefix(ref bool doAsynchronously)
@@ -1317,24 +1345,22 @@ namespace Multiplayer.Client
         static void Postfix() => executing = false;
     }
 
-    // Debugging class, do not include, affects performance - notfood
-    //[HarmonyPatch(typeof(RandomNumberGenerator_BasicHash), nameof(RandomNumberGenerator_BasicHash.GetHash))]
-    static class RandGetHashPatch
+    [HarmonyPatch(typeof(Rand))]
+    static class RandGetValuePatch
     {
-        static void Postfix()
-        {
-            if (Multiplayer.Client == null) return;
-            if (Rand.stateStack.Count > 1) return;
-            if (TickPatch.Skipping || Multiplayer.IsReplay) return;
-
-            if (!Multiplayer.Ticking && !Multiplayer.ExecutingCmds) return;
-
-            if (!WildAnimalSpawnerTickMarker.ticking &&
-                !WildPlantSpawnerTickMarker.ticking &&
-                !SteadyEnvironmentEffectsTickMarker.ticking &&
-                !FindBestStorageCellMarker.executing &&
-                ThingContext.Current?.def != ThingDefOf.SteamGeyser)
+        [HarmonyPostfix]
+        [HarmonyPatch(nameof(Rand.Value), MethodType.Getter)]
+        static void ValuePostfix() {
+            if (SyncCoordinator.ShouldAddStackTraceForDesyncLog()) {
                 Multiplayer.game.sync.TryAddStackTraceForDesyncLog();
+            }
+        }
+        [HarmonyPostfix]
+        [HarmonyPatch(nameof(Rand.Int), MethodType.Getter)]
+        static void IntPostfix() {
+            if (SyncCoordinator.ShouldAddStackTraceForDesyncLog()) {
+                Multiplayer.game.sync.TryAddStackTraceForDesyncLog();
+            }
         }
     }
 
@@ -1398,9 +1424,20 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(Archive), "<Add>m__2")]
+    [HarmonyPatch]
     static class SortArchivablesById
     {
+        static MethodBase TargetMethod()
+        {
+            // Get all non public types, including compiler types
+            List<Type> nestedPrivateTypes = new List<Type>(typeof(Archive).GetNestedTypes(BindingFlags.NonPublic));
+
+            // There are two of these in 1.1, <GetGizmos> and <>c. Pluck the one we want for sort inner
+            Type cType = nestedPrivateTypes.Find(t => t.Name.Equals("<>c"));
+
+            return AccessTools.Method(cType, "<Add>b__6_0");
+        }
+
         static void Postfix(IArchivable x, ref int __result)
         {
             if (x is ArchivedDialog dialog)
@@ -1531,11 +1568,16 @@ namespace Multiplayer.Client
         static bool Prefix(Pawn_PlayerSettings __instance, Area value) => __instance.AreaRestriction != value;
     }
 
-    [MpPatch(typeof(GlobalTargetInfo), nameof(GlobalTargetInfo.GetHashCode))]
-    [MpPatch(typeof(TargetInfo), nameof(TargetInfo.GetHashCode))]
+    [HarmonyPatch]
     static class PatchTargetInfoHashCodes
     {
         static MethodInfo Combine = AccessTools.Method(typeof(Gen), nameof(Gen.HashCombine)).MakeGenericMethod(typeof(Map));
+
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(GlobalTargetInfo), nameof(GlobalTargetInfo.GetHashCode));
+            yield return AccessTools.Method(typeof(TargetInfo), nameof(TargetInfo.GetHashCode));
+        }
 
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
         {
@@ -1548,6 +1590,6 @@ namespace Multiplayer.Client
             }
         }
 
-        static int CombineHashes(int seed, Map map) => Gen.HashCombineInt(seed, map.uniqueID);
+        static int CombineHashes(int seed, Map map) => Gen.HashCombineInt(seed, map?.uniqueID ?? -1);
     }
 }

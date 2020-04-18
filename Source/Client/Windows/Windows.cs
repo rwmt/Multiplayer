@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using UnityEngine;
 using Verse;
+using Verse.Profile;
 
 namespace Multiplayer.Client
 {
@@ -36,7 +37,7 @@ namespace Multiplayer.Client
             foreach (LogNode node in nodes)
                 Draw(node, 0, ref nodeRect);
 
-            if (Event.current.type == EventType.layout)
+            if (Event.current.type == EventType.Layout)
                 logHeight = (int)nodeRect.y;
 
             Widgets.EndScrollView();
@@ -71,7 +72,7 @@ namespace Multiplayer.Client
 
     public class DesyncedWindow : Window
     {
-        public override Vector2 InitialSize => new Vector2(550, 110);
+        public override Vector2 InitialSize => new Vector2(680, 110);
 
         private string text;
 
@@ -93,7 +94,7 @@ namespace Multiplayer.Client
             Widgets.Label(new Rect(0, 0, inRect.width, 40), $"{"MpDesynced".Translate()}\n{text}");
             Text.Anchor = TextAnchor.UpperLeft;
 
-            float buttonWidth = 120 * 4 + 10 * 3;
+            float buttonWidth = 120 * 5 + 10 * 4;
             var buttonRect = new Rect((inRect.width - buttonWidth) / 2, 40, buttonWidth, 35);
 
             GUI.BeginGroup(buttonRect);
@@ -120,6 +121,16 @@ namespace Multiplayer.Client
             }
             x += 120 + 10;
 
+
+            //REHOST
+            if (Widgets.ButtonText(new Rect(x, 0, 120, 35), "MpTryRehost".Translate()))
+            {
+                Rehost();
+            }
+            x += 120 + 10;
+            //REHOST
+
+
             if (Widgets.ButtonText(new Rect(x, 0, 120, 35), "Save".Translate()))
                 Find.WindowStack.Add(new Dialog_SaveReplay());
             x += 120 + 10;
@@ -132,6 +143,36 @@ namespace Multiplayer.Client
                 MainMenuPatch.AskQuitToMainMenu();
 
             GUI.EndGroup();
+        }
+
+        private static void Rehost()
+        {
+            LongEventHandler.QueueLongEvent(() =>
+            {
+                Find.GameInfo.permadeathMode = false;
+                // todo handle the other faction def too
+                Multiplayer.DummyFaction.def = FactionDefOf.Ancients;
+
+                OnMainThread.StopMultiplayer();
+
+                var doc = SaveLoad.SaveGame();
+                MemoryUtility.ClearAllMapsAndWorld();
+
+                Current.Game = new Game();
+                Current.Game.InitData = new GameInitData();
+                Current.Game.InitData.gameToLoad = "play";
+
+                LoadPatch.gameToLoad = doc;
+
+                LongEventHandler.ExecuteWhenFinished(() =>
+                {
+                    HostWindow window = new HostWindow(null, true);
+                    window.forcePause = true;
+                    window.absorbInputAroundWindow = true;
+                    Find.WindowStack.Add(window);
+                });
+
+            }, "Play", "MpConverting", true, null);
         }
     }
 
@@ -322,7 +363,7 @@ namespace Multiplayer.Client
         {
             const float offsetY = -5f;
 
-            if (Event.current.type == EventType.layout)
+            if (Event.current.type == EventType.Layout)
             {
                 fullHeight = 0;
                 foreach (var str in lines)

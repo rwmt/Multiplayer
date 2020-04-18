@@ -1,4 +1,4 @@
-﻿using Harmony;
+﻿using HarmonyLib;
 using Multiplayer.API;
 using Multiplayer.Common;
 using RimWorld;
@@ -247,10 +247,19 @@ namespace Multiplayer.Client
         }
     }
 
-    [MpPatch(typeof(JobDriver_TradeWithPawn), "<MakeNewToils>c__Iterator0+<MakeNewToils>c__AnonStorey1", "<>m__1")]
+    [HarmonyPatch]
     static class ShowTradingWindow
     {
         public static int tradeJobStartedByMe = -1;
+
+        static MethodBase TargetMethod()
+        {
+            List<Type> nestedPrivateTypes = new List<Type>(typeof(JobDriver_TradeWithPawn).GetNestedTypes(BindingFlags.NonPublic));
+
+            Type cType = nestedPrivateTypes.Find(t => t.Name.Equals("<>c__DisplayClass3_0"));
+
+            return AccessTools.Method(cType, "<MakeNewToils>b__1");
+        }
 
         static void Prefix(Toil ___trade)
         {
@@ -400,10 +409,14 @@ namespace Multiplayer.Client
         }
     }
 
-    [MpPatch(typeof(Dialog_Trade), "<DoWindowContents>m__8")]
-    [MpPatch(typeof(Dialog_Trade), "<DoWindowContents>m__9")]
+    [HarmonyPatch]
     static class FixTradeSorters
     {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(Dialog_Trade), "<DoWindowContents>b__60_0");
+            yield return AccessTools.Method(typeof(Dialog_Trade), "<DoWindowContents>b__60_1");
+        }
         static void Prefix(ref bool __state)
         {
             TradingWindow trading = Find.WindowStack.WindowOfType<TradingWindow>();

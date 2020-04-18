@@ -1,26 +1,32 @@
-﻿using Harmony;
+﻿using HarmonyLib;
 using RimWorld;
 using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Reflection;
 using Verse;
 using Verse.Sound;
 
 namespace Multiplayer.Client
 {
     // Set the map time for GUI methods depending on it
-    [MpPatch(typeof(MapInterface), nameof(MapInterface.MapInterfaceOnGUI_BeforeMainTabs))]
-    [MpPatch(typeof(MapInterface), nameof(MapInterface.MapInterfaceOnGUI_AfterMainTabs))]
-    [MpPatch(typeof(MapInterface), nameof(MapInterface.HandleMapClicks))]
-    [MpPatch(typeof(MapInterface), nameof(MapInterface.HandleLowPriorityInput))]
-    [MpPatch(typeof(MapInterface), nameof(MapInterface.MapInterfaceUpdate))]
-    [MpPatch(typeof(SoundRoot), nameof(SoundRoot.Update))]
-    [MpPatch(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.ChoicesAtFor))]
+    [HarmonyPatch]
     static class SetMapTimeForUI
     {
-        [HarmonyPriority(MpPriority.MpFirst)]
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(MapInterface), nameof(MapInterface.MapInterfaceOnGUI_BeforeMainTabs));
+            yield return AccessTools.Method(typeof(MapInterface), nameof(MapInterface.MapInterfaceOnGUI_AfterMainTabs));
+            yield return AccessTools.Method(typeof(MapInterface), nameof(MapInterface.HandleMapClicks));
+            yield return AccessTools.Method(typeof(MapInterface), nameof(MapInterface.HandleLowPriorityInput));
+            yield return AccessTools.Method(typeof(MapInterface), nameof(MapInterface.MapInterfaceUpdate));
+            yield return AccessTools.Method(typeof(SoundRoot), nameof(SoundRoot.Update));
+            yield return AccessTools.Method(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.ChoicesAtFor));
+        }
+
+        [HarmonyPriority(Priority.First + 1)]
         static void Prefix(ref TimeSnapshot? __state)
         {
             if (Multiplayer.Client == null || WorldRendererUtility.WorldRenderedNow || Find.CurrentMap == null) return;
@@ -31,24 +37,34 @@ namespace Multiplayer.Client
         static void Postfix(TimeSnapshot? __state) => __state?.Set();
     }
 
-    [MpPatch(typeof(Map), nameof(Map.MapUpdate))]
-    [MpPatch(typeof(Map), nameof(Map.FinalizeLoading))]
+    [HarmonyPatch]
     static class MapUpdateTimePatch
     {
-        [HarmonyPriority(MpPriority.MpFirst)]
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(Map), nameof(Map.MapUpdate));
+            yield return AccessTools.Method(typeof(Map), nameof(Map.FinalizeLoading));
+        }
+
+        [HarmonyPriority(Priority.First + 1)]
         static void Prefix(Map __instance, ref TimeSnapshot? __state)
         {
             if (Multiplayer.Client == null) return;
             __state = TimeSnapshot.GetAndSetFromMap(__instance);
         }
 
-        [HarmonyPriority(MpPriority.MpLast)]
+        [HarmonyPriority(Priority.Last - 1)]
         static void Postfix(TimeSnapshot? __state) => __state?.Set();
     }
 
-    [MpPatch(typeof(PortraitsCache), nameof(PortraitsCache.IsAnimated))]
+    [HarmonyPatch]
     static class PawnPortraitMapTime
     {
+        static MethodBase TargetMethod()
+        {
+            return AccessTools.Method(typeof(PortraitsCache), nameof(PortraitsCache.IsAnimated));
+        }
+
         static void Prefix(Pawn pawn, ref TimeSnapshot? __state)
         {
             if (Multiplayer.Client == null || Current.ProgramState != ProgramState.Playing) return;
@@ -94,10 +110,15 @@ namespace Multiplayer.Client
         static void Postfix(TimeSnapshot? __state) => __state?.Set();
     }
 
-    [MpPatch(typeof(Sustainer), nameof(Sustainer.SustainerUpdate))]
-    [MpPatch(typeof(Sustainer), "<Sustainer>m__0")]
+    [HarmonyPatch]
     static class SustainerUpdateMapTime
     {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(Sustainer), nameof(Sustainer.SustainerUpdate));
+            yield return AccessTools.Method(typeof(Sustainer), "<.ctor>b__15_0");
+        }
+
         static void Prefix(Sustainer __instance, ref TimeSnapshot? __state)
         {
             if (Multiplayer.Client == null) return;

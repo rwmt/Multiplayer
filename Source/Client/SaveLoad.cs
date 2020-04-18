@@ -1,4 +1,4 @@
-﻿using Harmony;
+﻿using HarmonyLib;
 using Ionic.Zlib;
 using Multiplayer.Common;
 using RimWorld;
@@ -131,7 +131,6 @@ namespace Multiplayer.Client
 
             ScribeUtil.StartWritingToDoc();
 
-            Scribe.EnterNode("savegame");
             ScribeMetaHeaderUtility.WriteMetaHeader();
             Scribe.EnterNode("game");
             int currentMapIndex = Current.Game.currentMapIndex;
@@ -142,7 +141,6 @@ namespace Multiplayer.Client
             List<Map> maps = Find.Maps;
             Scribe_Collections.Look(ref maps, "maps", LookMode.Deep);
             Find.CameraDriver.Expose();
-            Scribe.ExitNode();
 
             SaveCompression.doSaveCompression = false;
 
@@ -374,6 +372,30 @@ namespace Multiplayer.Client
         {
             if (__instance.lastBellTime == float.NaN)
                 __instance.lastBellTime = Time.realtimeSinceStartup;
+        }
+    }
+
+    [HarmonyPatch(typeof(LoadedObjectDirectory), nameof(LoadedObjectDirectory.RegisterLoaded))]
+    static class FixRegisterLoaded
+    {
+        static bool Prefix(LoadedObjectDirectory __instance, ref ILoadReferenceable reffable)
+        {
+            string text = "[excepted]";
+            try
+            {
+                text = reffable.GetUniqueLoadID();
+            }
+            catch (Exception)
+            {
+
+            }
+
+            ILoadReferenceable loadReferenceable;
+            if (__instance.allObjectsByLoadID.TryGetValue(text, out loadReferenceable))
+            {
+                return false;
+            }
+            return true;
         }
     }
 

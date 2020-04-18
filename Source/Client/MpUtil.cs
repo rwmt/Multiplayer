@@ -1,11 +1,6 @@
-﻿using Harmony;
-using Harmony.ILCopying;
-using Multiplayer.Common;
-using Steamworks;
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
@@ -14,8 +9,9 @@ using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
-using System.Text;
-using System.Threading;
+
+using HarmonyLib;
+
 using UnityEngine;
 using Verse;
 
@@ -130,74 +126,6 @@ namespace Multiplayer.Client
                 return Dns.GetHostEntry(Dns.GetHostName()).AddressList.FirstOrDefault(i => i.AddressFamily == AddressFamily.InterNetwork).ToString();
             }
         }
-
-        private static List<MethodBase> methods = new List<MethodBase>(10);
-        private static int depth;
-        private static IntPtr upToHandle;
-        private static int max;
-        private static IntPtr walkPtr = Marshal.GetFunctionPointerForDelegate((walk_stack)WalkStack);
-        private static Func<IntPtr, MethodBase> methodHandleToMethodBase;
-
-        public static MethodBase MethodHandleToMethodBase(IntPtr methodHandle)
-        {
-            if (methodHandleToMethodBase == null)
-            {
-                var dyn = new DynamicMethod("MethodHandleToMethodBase", typeof(MethodBase), new[] { typeof(IntPtr) });
-                var il = dyn.GetILGenerator();
-                var local = il.DeclareLocal(typeof(RuntimeTypeHandle));
-
-                il.Emit(OpCodes.Ldarg_0);
-                il.Emit(OpCodes.Newobj, AccessTools.Constructor(typeof(RuntimeMethodHandle), new[] { typeof(IntPtr) }));
-                il.Emit(OpCodes.Ldloca_S, local);
-                il.Emit(OpCodes.Initobj, typeof(RuntimeTypeHandle));
-                il.Emit(OpCodes.Ldloc_S, local);
-                il.Emit(OpCodes.Call, AccessTools.Method(typeof(MethodBase), nameof(MethodBase.GetMethodFromHandle), new[] { typeof(RuntimeMethodHandle), typeof(RuntimeTypeHandle) }));
-                il.Emit(OpCodes.Ret);
-
-                methodHandleToMethodBase = (Func<IntPtr, MethodBase>)dyn.CreateDelegate(typeof(Func<IntPtr, MethodBase>));
-            }
-
-            return methodHandleToMethodBase(methodHandle);
-        }
-
-        // Not thread safe
-        public static MethodBase[] FastStackTrace(int skip = 0, MethodBase upTo = null, int max = 0)
-        {
-            depth = 0;
-            methods.Clear();
-
-            MpUtil.max = max;
-
-            upToHandle = IntPtr.Zero;
-            if (upTo != null)
-                upToHandle = upTo.MethodHandle.Value;
-
-            Native.mono_stack_walk(walkPtr, (IntPtr)skip);
-
-            return methods.ToArray();
-        }
-
-        private static bool WalkStack(IntPtr methodHandle, int native, int il, bool managed, IntPtr skip)
-        {
-            depth++;
-            if (depth > (int)skip)
-                methods.Add(MethodHandleToMethodBase(methodHandle));
-            if (methodHandle == upToHandle || depth == max) return true;
-            return false;
-        }
-
-        public static List<ILInstruction> GetInstructions(MethodBase method)
-        {
-            var insts = new MethodBodyReader(method, null);
-            insts.SetPropertyOrField("locals", null);
-            insts.ReadInstructions();
-            return (List<ILInstruction>)insts.GetPropertyOrField("ilInstructions");
-        }
-    }
-
-    [AttributeUsage(AttributeTargets.Class)]
-    public class HotSwappableAttribute : Attribute
-    {
     }
 
     public struct Container<T>

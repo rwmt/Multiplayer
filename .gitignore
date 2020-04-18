@@ -260,5 +260,11 @@ paket-files/
 __pycache__/
 *.pyc
 
-Assemblies/Multiplayer.dll
-Assemblies/0MultiplayerAPI.dll
+/Assemblies
+/Source/Publicise-1.0.0.zip
+/Source/publicise_hash.txt
+/Source/Publicise.exe
+/Source/LICENSE
+/Source/dnlib.dll
+/Multiplayer
+Multiplayer.zip

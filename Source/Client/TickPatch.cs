@@ -1,6 +1,6 @@
 ﻿extern alias zip;
 
-using Harmony;
+using HarmonyLib;
 using Multiplayer.Common;
 using RimWorld.Planet;
 using System;
@@ -14,7 +14,6 @@ using Verse;
 namespace Multiplayer.Client
 {
     [HarmonyPatch(typeof(TickManager), nameof(TickManager.TickManagerUpdate))]
-    [HotSwappable]
     public static class TickPatch
     {
         public static double accumulator;
@@ -217,7 +216,7 @@ namespace Multiplayer.Client
 
         public static float ActualRateMultiplier(this ITickable tickable, TimeSpeed speed)
         {
-            if (Multiplayer.WorldComp.asyncTime)
+            if (MultiplayerWorldComp.asyncTime)
                 return tickable.TickRateMultiplier(speed);
 
             return Find.Maps.Select(m => (ITickable)m.AsyncTime()).Concat(Multiplayer.WorldComp).Select(t => t.TickRateMultiplier(speed)).Min();
@@ -238,17 +237,4 @@ namespace Multiplayer.Client
 
         void ExecuteCmd(ScheduledCommand cmd);
     }
-
-    [HarmonyPatch(typeof(Prefs))]
-    [HarmonyPatch(nameof(Prefs.PauseOnLoad), MethodType.Getter)]
-    public static class CancelSingleTick
-    {
-        // Cancel ticking after loading as its handled seperately
-        static void Postfix(ref bool __result)
-        {
-            if (Multiplayer.Client != null)
-                __result = false;
-        }
-    }
-
 }

@@ -1,4 +1,4 @@
-﻿using Harmony;
+﻿using HarmonyLib;
 using Multiplayer.API;
 using Multiplayer.Common;
 using RimWorld;
@@ -38,6 +38,7 @@ namespace Multiplayer.Client
         public static ISyncField SyncHostilityResponse = Sync.Field(typeof(Pawn), "playerSettings", "hostilityResponse");
         public static ISyncField SyncInteractionMode = Sync.Field(typeof(Pawn), "guest", "interactionMode");
         public static ISyncField SyncBeCarried = Sync.Field(typeof(Pawn), "health", "beCarriedByCaravanIfSick");
+        public static ISyncField SyncPsychicEntropyLimit = Sync.Field(typeof(Pawn), "psychicEntropy", "limitEntropyAmount");
 
         public static ISyncField SyncGodMode = Sync.Field(null, "Verse.DebugSettings/godMode").SetDebugOnly();
         public static ISyncField SyncResearchProject = Sync.Field(null, "Verse.Find/ResearchManager/currentProj");
@@ -54,6 +55,10 @@ namespace Multiplayer.Client
             "defaultCareForNeutralFaction",
             "defaultCareForHostileFaction"
         ).SetBufferChanges();
+
+        public static ISyncField SyncQuestDismissed = Sync.Field(typeof(Quest), nameof(Quest.dismissed));
+        public static ISyncField SyncFactionAcceptRoyalFavor = Sync.Field(typeof(Faction), nameof(Faction.allowRoyalFavorRewards));
+        public static ISyncField SyncFactionAcceptGoodwill = Sync.Field(typeof(Faction), nameof(Faction.allowGoodwillRewards));
 
         public static SyncField[] SyncThingFilterHitPoints =
             Sync.FieldMultiTarget(Sync.thingFilterTarget, "AllowedHitPointsPercents").SetBufferChanges();
@@ -161,6 +166,22 @@ namespace Multiplayer.Client
             SyncInteractionMode.Watch(pawn);
         }
 
+        [MpPrefix(typeof(MainTabWindow_Quests), nameof(MainTabWindow_Quests.DoDismissButton))]
+        static void MainTabWindow_Quests__DoDismissButtonPatch(Quest ___selected)
+        {
+            SyncQuestDismissed.Watch(___selected);
+        }
+
+        [MpPrefix(typeof(Dialog_RewardPrefsConfig), nameof(Dialog_RewardPrefsConfig.DoWindowContents))]
+        static void Dialog_RewardPrefsConfigPatches()
+        {
+            IEnumerable<Faction> visibleInViewOrder = Find.FactionManager.AllFactionsVisibleInViewOrder;
+            foreach (Faction faction in visibleInViewOrder) {
+                SyncFactionAcceptRoyalFavor.Watch(faction);
+                SyncFactionAcceptGoodwill.Watch(faction);
+            }
+        }
+
         [MpPostfix(typeof(Dialog_BillConfig), nameof(Dialog_BillConfig.GeneratePawnRestrictionOptions))]
         static IEnumerable<DropdownMenuElement<Pawn>> BillPawnRestrictions_Postfix(IEnumerable<DropdownMenuElement<Pawn>> __result, Bill ___bill)
         {
@@ -189,6 +210,14 @@ namespace Multiplayer.Client
         static void MedicalDefaults()
         {
             SyncDefaultCare.Watch();
+        }
+
+        [MpPrefix(typeof(PsychicEntropyGizmo), nameof(PsychicEntropyGizmo.GizmoOnGUI))]
+        static void PsychicEntropyLimiterToggle(PsychicEntropyGizmo __instance)
+        {
+            if (__instance?.tracker?.Pawn != null) {
+                SyncPsychicEntropyLimit.Watch(__instance.tracker.Pawn);
+            }
         }
 
         [MpPrefix(typeof(Widgets), "CheckboxLabeled")]
@@ -247,9 +276,9 @@ namespace Multiplayer.Client
             }
         }
 
-        [MpPrefix(typeof(BillRepeatModeUtility), "<MakeConfigFloatMenu>c__AnonStorey0", "<>m__0")]
-        [MpPrefix(typeof(BillRepeatModeUtility), "<MakeConfigFloatMenu>c__AnonStorey0", "<>m__1")]
-        [MpPrefix(typeof(BillRepeatModeUtility), "<MakeConfigFloatMenu>c__AnonStorey0", "<>m__2")]
+        [MpPrefix(typeof(BillRepeatModeUtility), "<>c__DisplayClass0_0", "<MakeConfigFloatMenu>b__0")]
+        [MpPrefix(typeof(BillRepeatModeUtility), "<>c__DisplayClass0_0", "<MakeConfigFloatMenu>b__1")]
+        [MpPrefix(typeof(BillRepeatModeUtility), "<>c__DisplayClass0_0", "<MakeConfigFloatMenu>b__2")]
         static void BillRepeatMode(object __instance)
         {
             SyncBillProduction.Watch(__instance.GetPropertyOrField("bill"));
@@ -302,7 +331,10 @@ namespace Multiplayer.Client
         [MpPrefix(typeof(TransferableUIUtility), "DoCountAdjustInterface")]
         static void TransferableAdjustTo(Transferable trad)
         {
-            var session = MpTradeSession.current ?? (ISessionWithTransferables)MpFormingCaravanWindow.drawing?.Session ?? MpLoadTransportersWindow.drawing?.Session;
+            var session = MpTradeSession.current ??
+                (Multiplayer.Client != null ? Multiplayer.WorldComp.splitSession : null) ??
+                (ISessionWithTransferables)MpFormingCaravanWindow.drawing?.Session ??
+                MpLoadTransportersWindow.drawing?.Session;
             if (session != null)
                 SyncTradeableCount.Watch(new MpTransferableReference(session, trad));
         }
@@ -431,11 +463,13 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(FoodRestrictionDatabase), nameof(FoodRestrictionDatabase.MakeNewFoodRestriction));
             SyncMethod.Register(typeof(FoodRestrictionDatabase), nameof(FoodRestrictionDatabase.TryDelete)).CancelIfAnyArgNull();
 
-            SyncMethod.Register(typeof(Building_Bed), nameof(Building_Bed.TryAssignPawn)).CancelIfAnyArgNull();
-            SyncMethod.Register(typeof(Building_Bed), nameof(Building_Bed.TryUnassignPawn)).CancelIfAnyArgNull();
+            SyncMethod.Register(typeof(CompAssignableToPawn_Bed), nameof(CompAssignableToPawn_Bed.TryAssignPawn)).CancelIfAnyArgNull();
+            SyncMethod.Register(typeof(CompAssignableToPawn_Bed), nameof(CompAssignableToPawn_Bed.TryUnassignPawn)).CancelIfAnyArgNull();
             SyncMethod.Register(typeof(Building_Bed), nameof(Building_Bed.Medical));
-            SyncMethod.Register(typeof(Building_Grave), nameof(Building_Grave.TryAssignPawn)).CancelIfAnyArgNull();
-            SyncMethod.Register(typeof(Building_Grave), nameof(Building_Grave.TryUnassignPawn)).CancelIfAnyArgNull();
+            SyncMethod.Register(typeof(CompAssignableToPawn_Grave), nameof(CompAssignableToPawn_Grave.TryAssignPawn)).CancelIfAnyArgNull();
+            SyncMethod.Register(typeof(CompAssignableToPawn_Grave), nameof(CompAssignableToPawn_Grave.TryUnassignPawn)).CancelIfAnyArgNull();
+            SyncMethod.Register(typeof(CompAssignableToPawn_Throne), nameof(CompAssignableToPawn_Throne.TryAssignPawn)).CancelIfAnyArgNull();
+            SyncMethod.Register(typeof(CompAssignableToPawn_Throne), nameof(CompAssignableToPawn_Throne.TryUnassignPawn)).CancelIfAnyArgNull();
             SyncMethod.Register(typeof(PawnColumnWorker_Designator), nameof(PawnColumnWorker_Designator.SetValue)).CancelIfAnyArgNull(); // Virtual but currently not overriden by any subclasses
             SyncMethod.Register(typeof(PawnColumnWorker_FollowDrafted), nameof(PawnColumnWorker_FollowDrafted.SetValue)).CancelIfAnyArgNull();
             SyncMethod.Register(typeof(PawnColumnWorker_FollowFieldwork), nameof(PawnColumnWorker_FollowFieldwork.SetValue)).CancelIfAnyArgNull();
@@ -454,7 +488,7 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(CompTempControl), nameof(CompTempControl.InterfaceChangeTargetTemperature));
             SyncMethod.Register(typeof(CompTransporter), nameof(CompTransporter.CancelLoad), new SyncType[0]);
             SyncMethod.Register(typeof(StorageSettings), nameof(StorageSettings.CopyFrom)).ExposeParameter(0);
-            SyncMethod.Register(typeof(Command_SetTargetFuelLevel), "<ProcessInput>m__2"); // Set target fuel level from Dialog_Slider
+            SyncMethod.Register(typeof(Command_SetTargetFuelLevel), "<ProcessInput>b__2_2"); // Set target fuel level from Dialog_Slider
             SyncMethod.Register(typeof(ITab_Pawn_Gear), nameof(ITab_Pawn_Gear.InterfaceDrop)).SetContext(SyncContext.MapSelected | SyncContext.QueueOrder_Down).CancelIfAnyArgNull().CancelIfNoSelectedMapObjects();
             SyncMethod.Register(typeof(ITab_Pawn_Gear), nameof(ITab_Pawn_Gear.InterfaceIngest)).SetContext(SyncContext.MapSelected | SyncContext.QueueOrder_Down).CancelIfAnyArgNull().CancelIfNoSelectedMapObjects();
 
@@ -474,6 +508,10 @@ namespace Multiplayer.Client
 
             SyncMethod.Register(typeof(InstallBlueprintUtility), nameof(InstallBlueprintUtility.CancelBlueprintsFor)).CancelIfAnyArgNull();
             SyncMethod.Register(typeof(Command_LoadToTransporter), nameof(Command_LoadToTransporter.ProcessInput));
+
+            SyncMethod.Register(typeof(Quest), nameof(Quest.Accept));
+            SyncMethod.Register(typeof(Verb_CastAbility), nameof(Verb_CastAbility.OrderForceTarget));
+            SyncMethod.Register(typeof(RoyalTitlePermitWorker_CallAid), nameof(RoyalTitlePermitWorker_CallAid.CallAid)).CancelIfAnyArgNull();
 
             // 1
             SyncMethod.Register(typeof(TradeRequestComp), nameof(TradeRequestComp.Fulfill)).CancelIfAnyArgNull().SetVersion(1);
@@ -771,54 +809,61 @@ namespace Multiplayer.Client
         {
             SyncContext mouseKeyContext = SyncContext.QueueOrder_Down | SyncContext.MapMouseCell;
 
-            SyncDelegate.Register(typeof(FloatMenuMakerMap), "<GotoLocationOption>c__AnonStorey1C", "<>m__0").CancelIfAnyFieldNull().SetContext(mouseKeyContext);  // Goto
-            SyncDelegate.Register(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey3", "<>m__0").CancelIfAnyFieldNull().SetContext(mouseKeyContext);   // Arrest
-            SyncDelegate.Register(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey7", "<>m__0").CancelIfAnyFieldNull().SetContext(mouseKeyContext);   // Rescue
-            SyncDelegate.Register(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey7", "<>m__1").CancelIfAnyFieldNull().SetContext(mouseKeyContext);   // Capture
-            SyncDelegate.Register(typeof(FloatMenuMakerMap), "<AddHumanlikeOrders>c__AnonStorey9", "<>m__0").CancelIfAnyFieldNull().SetContext(mouseKeyContext);   // Carry to cryptosleep casket
+            SyncDelegate.Register(typeof(FloatMenuMakerMap), "<>c__DisplayClass9_0", "<GotoLocationOption>b__0").CancelIfAnyFieldNull().SetContext(mouseKeyContext);  // Goto
+            SyncDelegate.Register(typeof(FloatMenuMakerMap), "<>c__DisplayClass5_1", "<AddHumanlikeOrders>b__0").CancelIfAnyFieldNull().SetContext(mouseKeyContext);   // Arrest
+            SyncDelegate.Register(typeof(FloatMenuMakerMap), "<>c__DisplayClass5_6", "<AddHumanlikeOrders>b__4").CancelIfAnyFieldNull().SetContext(mouseKeyContext);   // Rescue
+            SyncDelegate.Register(typeof(FloatMenuMakerMap), "<>c__DisplayClass5_6", "<AddHumanlikeOrders>b__5").CancelIfAnyFieldNull().SetContext(mouseKeyContext);   // Capture
+            SyncDelegate.Register(typeof(FloatMenuMakerMap), "<>c__DisplayClass5_8", "<AddHumanlikeOrders>b__6").CancelIfAnyFieldNull().SetContext(mouseKeyContext);   // Carry to cryptosleep casket
 
-            SyncDelegate.Register(typeof(HealthCardUtility), "<GenerateSurgeryOption>c__AnonStorey4", "<>m__0").CancelIfAnyFieldNull(without: "part");      // Add medical bill
-            SyncDelegate.Register(typeof(Command_SetPlantToGrow), "<ProcessInput>c__AnonStorey0", "<>m__0");                                                // Set plant to grow
-            SyncDelegate.Register(typeof(Building_Bed), "<ToggleForPrisonersByInterface>c__AnonStorey3", "<>m__0").RemoveNullsFromLists("bedsToAffect");    // Toggle bed for prisoners
-            SyncDelegate.Register(typeof(ITab_Bills), "<FillTab>c__AnonStorey0", "<>m__0").SetContext(SyncContext.MapSelected).CancelIfNoSelectedObjects(); // Add bill
+            SyncDelegate.Register(typeof(HealthCardUtility), "<>c__DisplayClass26_0", "<GenerateSurgeryOption>b__1").CancelIfAnyFieldNull(without: "part");      // Add medical bill
+            SyncDelegate.Register(typeof(Command_SetPlantToGrow), "<>c__DisplayClass5_0", "<ProcessInput>b__2");                                                // Set plant to grow
+            SyncDelegate.Register(typeof(Building_Bed), "<>c__DisplayClass39_0", "<ToggleForPrisonersByInterface>b__0").RemoveNullsFromLists("bedsToAffect");    // Toggle bed for prisoners
+            SyncDelegate.Register(typeof(ITab_Bills), "<>c__DisplayClass10_0", "<FillTab>b__1").SetContext(SyncContext.MapSelected).CancelIfNoSelectedObjects(); // Add bill
 
-            SyncDelegate.Register(typeof(CompLongRangeMineralScanner), "<CompGetGizmosExtra>c__Iterator0+<CompGetGizmosExtra>c__AnonStorey1", "<>m__0").SetContext(SyncContext.MapSelected); // Select mineral to scan for
+            SyncDelegate.Register(typeof(CompLongRangeMineralScanner), "<>c__DisplayClass7_0", "<CompGetGizmosExtra>b__1").SetContext(SyncContext.MapSelected); // Select mineral to scan for
 
-            string[] thisField = new[] { "$this" };
+            SyncMethod.Register(typeof(CompFlickable), "<CompGetGizmosExtra>b__20_1"); // Toggle flick designation
+            SyncMethod.Register(typeof(Pawn_PlayerSettings), "<GetGizmos>b__31_1");    // Toggle release animals
+            SyncMethod.Register(typeof(Building_TurretGun), "<GetGizmos>b__58_2");     // Toggle turret hold fire
+            SyncMethod.Register(typeof(Building_Trap), "<GetGizmos>b__23_1");          // Toggle trap auto-rearm
+            SyncMethod.Register(typeof(Building_Door), "<GetGizmos>b__57_1");          // Toggle door hold open
+            SyncMethod.Register(typeof(Zone_Growing), "<GetGizmos>b__13_1");           // Toggle zone allow sow
 
-            SyncDelegate.Register(typeof(CompFlickable), "<CompGetGizmosExtra>c__Iterator0", "<>m__1", thisField); // Toggle flick designation
-            SyncDelegate.Register(typeof(Pawn_PlayerSettings), "<GetGizmos>c__Iterator0", "<>m__1", thisField);    // Toggle release animals
-            SyncDelegate.Register(typeof(Building_TurretGun), "<GetGizmos>c__Iterator0", "<>m__2", thisField);     // Toggle turret hold fire
-            SyncDelegate.Register(typeof(Building_Trap), "<GetGizmos>c__Iterator0", "<>m__1", thisField);          // Toggle trap auto-rearm
-            SyncDelegate.Register(typeof(Building_Door), "<GetGizmos>c__Iterator0", "<>m__1", thisField);          // Toggle door hold open
-            SyncDelegate.Register(typeof(Zone_Growing), "<GetGizmos>c__Iterator0", "<>m__1", thisField);           // Toggle zone allow sow
+            SyncMethod.Register(typeof(PriorityWork), "<GetGizmos>b__17_0");                // Clear prioritized work
+            SyncMethod.Register(typeof(Building_TurretGun), "<GetGizmos>b__58_1");          // Reset forced target
+            SyncMethod.Register(typeof(UnfinishedThing), "<GetGizmos>b__27_0");             // Cancel unfinished thing
+            SyncMethod.Register(typeof(CompTempControl), "<CompGetGizmosExtra>b__8_2");     // Reset temperature
 
-            SyncDelegate.Register(typeof(PriorityWork), "<GetGizmos>c__Iterator0", "<>m__0", thisField);                // Clear prioritized work
-            SyncDelegate.Register(typeof(Building_TurretGun), "<GetGizmos>c__Iterator0", "<>m__1", thisField);          // Reset forced target
-            SyncDelegate.Register(typeof(UnfinishedThing), "<GetGizmos>c__Iterator0", "<>m__0", thisField);             // Cancel unfinished thing
-            SyncDelegate.Register(typeof(CompTempControl), "<CompGetGizmosExtra>c__Iterator0", "<>m__0", thisField);    // Reset temperature
-            SyncDelegate.Register(typeof(CompTargetable), "<SelectedUseOption>c__AnonStorey0", "<>m__0");               // Use targetable
+            SyncDelegate.Register(typeof(CompTargetable), "<>c__DisplayClass6_0", "<SelectedUseOption>b__0");           // Use targetable
 
-            SyncDelegate.Register(typeof(Designator), "<>c__Iterator0+<>c__AnonStorey1", "<>m__0", new[] { "<>f__ref$0/$this", "things" }); // Designate all
-            SyncDelegate.Register(typeof(Designator), "<>c__Iterator0+<>c__AnonStorey2", "<>m__0", new[] { "<>f__ref$0/$this", "<>f__ref$3/designation", "designations" }); // Remove all designations
+            SyncDelegate.Register(typeof(Designator), "<>c__DisplayClass30_1", "<get_RightClickFloatMenuOptions>b__0"); // Designate all
+            SyncDelegate.Register(typeof(Designator), "<>c__DisplayClass30_2", "<get_RightClickFloatMenuOptions>b__1"); // Remove all designations
 
-            SyncDelegate.Register(typeof(CaravanAbandonOrBanishUtility), "<TryAbandonOrBanishViaInterface>c__AnonStorey0", "<>m__1", new[] { "caravan", "t" }).CancelIfAnyFieldNull();      // Abandon caravan thing
-            SyncDelegate.Register(typeof(CaravanAbandonOrBanishUtility), "<TryAbandonOrBanishViaInterface>c__AnonStorey1", "<>m__0", new[] { "caravan", "t" }).CancelIfAnyFieldNull();      // Abandon caravan transferable
-            SyncDelegate.Register(typeof(CaravanAbandonOrBanishUtility), "<TryAbandonSpecificCountViaInterface>c__AnonStorey2", "<>m__0", new[] { "caravan", "t" }).CancelIfAnyFieldNull(); // Abandon thing specific count
-            SyncDelegate.Register(typeof(CaravanAbandonOrBanishUtility), "<TryAbandonSpecificCountViaInterface>c__AnonStorey3", "<>m__0", new[] { "caravan", "t" }).CancelIfAnyFieldNull(); // Abandon transferable specific count
+            SyncDelegate.Register(typeof(CaravanAbandonOrBanishUtility), "<>c__DisplayClass0_0", "<TryAbandonOrBanishViaInterface>b__1").CancelIfAnyFieldNull();      // Abandon caravan thing
+            SyncDelegate.Register(typeof(CaravanAbandonOrBanishUtility), "<>c__DisplayClass1_0", "<TryAbandonOrBanishViaInterface>b__0").CancelIfAnyFieldNull();      // Abandon caravan transferable
+            SyncDelegate.Register(typeof(CaravanAbandonOrBanishUtility), "<>c__DisplayClass2_0", "<TryAbandonSpecificCountViaInterface>b__0").CancelIfAnyFieldNull(); // Abandon thing specific count
+            SyncDelegate.Register(typeof(CaravanAbandonOrBanishUtility), "<>c__DisplayClass3_0", "<TryAbandonSpecificCountViaInterface>b__0").CancelIfAnyFieldNull(); // Abandon transferable specific count
 
-            SyncDelegate.Register(typeof(CaravanVisitUtility), "<TradeCommand>c__AnonStorey0", "<>m__0").CancelIfAnyFieldNull();     // Caravan trade with settlement
-            SyncDelegate.Register(typeof(FactionGiftUtility), "<OfferGiftsCommand>c__AnonStorey0", "<>m__0").CancelIfAnyFieldNull(); // Caravan offer gifts
+            SyncDelegate.Register(typeof(CaravanVisitUtility), "<>c__DisplayClass2_0", "<TradeCommand>b__0").CancelIfAnyFieldNull();     // Caravan trade with settlement
+            SyncDelegate.Register(typeof(FactionGiftUtility), "<>c__DisplayClass1_0", "<OfferGiftsCommand>b__0").CancelIfAnyFieldNull(); // Caravan offer gifts
 
-            SyncDelegate.Register(typeof(Building_Bed), "<GetFloatMenuOptions>c__Iterator2+<GetFloatMenuOptions>c__AnonStorey4", "<>m__0", new[] { "myPawn", "<>f__ref$2/$this" }).CancelIfAnyFieldNull(); // Use medical bed
+            SyncDelegate.Register(typeof(Building_Bed), "<>c__DisplayClass41_0", "<GetFloatMenuOptions>b__0").CancelIfAnyFieldNull(); // Use medical bed
 
-            SyncDelegate.Register(typeof(CompRefuelable), "<CompGetGizmosExtra>c__Iterator0", "<>m__0", new[] { "$this" }).SetDebugOnly(); // Set fuel to 0
-            SyncDelegate.Register(typeof(CompRefuelable), "<CompGetGizmosExtra>c__Iterator0", "<>m__2", new[] { "$this" }).SetDebugOnly(); // Set fuel to max
+            SyncMethod.Register(typeof(CompRefuelable), "<CompGetGizmosExtra>b__42_1"); // Toggle Auto-refuel
+            SyncMethod.Register(typeof(CompRefuelable), "<CompGetGizmosExtra>b__42_2").SetDebugOnly(); // Set fuel to 0
+            SyncMethod.Register(typeof(CompRefuelable), "<CompGetGizmosExtra>b__42_3").SetDebugOnly(); // Set fuel to 0.1
+            SyncMethod.Register(typeof(CompRefuelable), "<CompGetGizmosExtra>b__42_4").SetDebugOnly(); // Set fuel to max
 
-            SyncDelegate.Register(typeof(ITab_TransporterContents), "<DoItemsLists>c__AnonStorey1", "<>m__0").SetContext(SyncContext.MapSelected); // Discard loaded thing
+            SyncMethod.Register(typeof(CompShuttle), "<CompGetGizmosExtra>b__39_1"); // Toggle autoload
+            SyncMethod.Register(typeof(CompShuttle), "<CompGetGizmosExtra>b__39_2"); // Send shuttle
+            SyncMethod.Register(typeof(MonumentMarker), "<GetGizmos>b__27_1"); // Build Monument Quest - Monument Marker: cancel/remove marker
+            SyncDelegate.Register(typeof(MonumentMarker), "<>c__DisplayClass27_0", "<GetGizmos>b__3"); // Build Monument Quest - Monument Marker: place blueprints
+            SyncMethod.Register(typeof(MonumentMarker), "<GetGizmos>b__27_4"); // Build Monument Quest - Monument Marker: dev build all
+
+            SyncDelegate.Register(typeof(ITab_ContentsTransporter), "<>c__DisplayClass7_0", "<DoItemsLists>b__0").SetContext(SyncContext.MapSelected); // Discard loaded thing
         }
 
-        [MpPrefix(typeof(FormCaravanComp), "<GetGizmos>c__Iterator0+<GetGizmos>c__AnonStorey1", "<>m__0")]
+        [MpPrefix(typeof(FormCaravanComp), "<>c__DisplayClass9_0", "<GetGizmos>b__0")]
         static bool GizmoFormCaravan(MapParent ___mapParent)
         {
             if (Multiplayer.Client == null) return true;
@@ -826,7 +871,7 @@ namespace Multiplayer.Client
             return false;
         }
 
-        [MpPrefix(typeof(FormCaravanComp), "<GetGizmos>c__Iterator0+<GetGizmos>c__AnonStorey1", "<>m__1")]
+        [MpPrefix(typeof(FormCaravanComp), "<>c__DisplayClass9_0", "<GetGizmos>b__1")]
         static bool GizmoRefomCaravan(MapParent ___mapParent)
         {
             if (Multiplayer.Client == null) return true;
@@ -894,10 +939,10 @@ namespace Multiplayer.Client
         [MpPostfix(typeof(MainTabWindow_Work), "DoManualPrioritiesCheckbox")]
         static void ManualPriorities_Postfix() => manualPriorities = false;
 
-        [MpPrefix(typeof(JobDriver_Research), "<MakeNewToils>c__Iterator0+<MakeNewToils>c__AnonStorey1", "<>m__0")]
+        [MpPrefix(typeof(JobDriver_Research), "<>c__DisplayClass6_0", "<MakeNewToils>b__0")]
         static void ResearchToil_Prefix() => researchToil = true;
 
-        [MpPostfix(typeof(JobDriver_Research), "<MakeNewToils>c__Iterator0+<MakeNewToils>c__AnonStorey1", "<>m__0")]
+        [MpPostfix(typeof(JobDriver_Research), "<>c__DisplayClass6_0", "<MakeNewToils>b__0")]
         static void ResearchToil_Postfix() => researchToil = false;
 
         [MpPrefix(typeof(ITab_Storage), "FillTab")]

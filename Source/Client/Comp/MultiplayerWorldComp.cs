@@ -1,4 +1,4 @@
-﻿using Harmony;
+﻿using HarmonyLib;
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
@@ -11,6 +11,7 @@ using System.Xml;
 using UnityEngine;
 using Verse;
 using Verse.AI;
+using Multiplayer.Client.Persistent;
 
 namespace Multiplayer.Client
 {
@@ -53,11 +54,13 @@ namespace Multiplayer.Client
         public World world;
         public IdBlock globalIdBlock;
         public ulong randState = 2;
-        public bool asyncTime;
+        public static bool asyncTime;
         public bool debugMode;
+        public bool logDesyncTraces;
         public TileTemperaturesComp uiTemperatures;
 
         public List<MpTradeSession> trading = new List<MpTradeSession>();
+        public CaravanSplittingSession splitSession;
 
         public Queue<ScheduledCommand> cmds = new Queue<ScheduledCommand>();
 
@@ -70,8 +73,16 @@ namespace Multiplayer.Client
         public void ExposeData()
         {
             Scribe_Values.Look(ref TickPatch.Timer, "timer");
-            Scribe_Values.Look(ref asyncTime, "asyncTime", true, true); // Enable async time on old saves
+            bool asyncTimeInSave = asyncTime;
+            Scribe_Values.Look(ref asyncTimeInSave, "asyncTime", true, true); // default true to Enable async time on old saves
+            if (Scribe.mode == LoadSaveMode.LoadingVars) {
+                if (asyncTimeInSave) {
+                    // it was previously on, and cannot be turned off, so override the menu setting for this save
+                    asyncTime = asyncTimeInSave;
+                }
+            }
             Scribe_Values.Look(ref debugMode, "debugMode");
+            Scribe_Values.Look(ref logDesyncTraces, "logDesyncTraces");
             ScribeUtil.LookULong(ref randState, "randState", 2);
 
             TimeSpeed timeSpeed = Find.TickManager.CurTimeSpeed;

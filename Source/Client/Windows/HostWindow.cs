@@ -13,10 +13,10 @@ using Verse;
 using Verse.Profile;
 using Verse.Sound;
 using Verse.Steam;
+using Multiplayer.Client;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
     public class HostWindow : Window
     {
         public override Vector2 InitialSize => new Vector2(450f, height + 45f);
@@ -24,8 +24,9 @@ namespace Multiplayer.Client
         private SaveFile file;
         public bool returnToServerBrowser;
         private bool withSimulation;
-        private bool asyncTime;
         private bool debugMode;
+        private bool logDesyncTraces;
+        private bool asyncTimeLocked;
 
         private float height;
 
@@ -42,11 +43,18 @@ namespace Multiplayer.Client
             this.file = file;
             settings.gameName = file?.gameName ?? Multiplayer.session?.gameName ?? $"{Multiplayer.username}'s game";
 
+            MultiplayerWorldComp.asyncTime = file?.asyncTime ?? false;
+            if (file?.asyncTime ?? false) {
+                asyncTimeLocked = true; // once enabled in a save, cannot be disabled
+            }
+
             var localAddr = MpUtil.GetLocalIpAddress() ?? "127.0.0.1";
             settings.lanAddress = localAddr;
 
-            if (MpVersion.IsDebug)
+            if (MpVersion.IsDebug) {
                 debugMode = true;
+                logDesyncTraces = true;
+            }
         }
 
         private string maxPlayersBuffer, autosaveBuffer;
@@ -119,16 +127,26 @@ namespace Multiplayer.Client
                 entry = entry.Down(30);
             }
 
-            TooltipHandler.TipRegion(entry.Width(checkboxWidth), "MpArbiterDesc".Translate());
-            CheckboxLabeled(entry.Width(checkboxWidth), "The Arbiter:  ", ref settings.arbiter, placeTextNearCheckbox: true);
-            entry = entry.Down(30);
+            if (MpVersion.IsDebug)
+            {
+                // Arbiter
+                {
+                    TooltipHandler.TipRegion(entry.Width(checkboxWidth), "MpArbiterDesc".Translate());
+                    CheckboxLabeled(entry.Width(checkboxWidth), "The Arbiter:  ", ref settings.arbiter, placeTextNearCheckbox: true);
+                    entry = entry.Down(30);
+                }
+            }
 
-            /*if (MpVersion.IsDebug)
+            // AsyncTime
             {
                 TooltipHandler.TipRegion(entry.Width(checkboxWidth), $"{"MpAsyncTimeDesc".Translate()}\n\n{"MpExperimentalFeature".Translate()}");
-                CheckboxLabeled(entry.Width(checkboxWidth), "Async time:  ", ref asyncTime, placeTextNearCheckbox: true);
+                CheckboxLabeled(entry.Width(checkboxWidth), "Async time:  ", ref MultiplayerWorldComp.asyncTime, placeTextNearCheckbox: true, disabled: asyncTimeLocked);
                 entry = entry.Down(30);
-            }*/
+            }
+
+            TooltipHandler.TipRegion(entry.Width(checkboxWidth), $"{"MpLogDesyncTracesDesc".Translate()}\n\n{"MpExperimentalFeature".Translate()}");
+            CheckboxLabeled(entry.Width(checkboxWidth), $"{"MpLogDesyncTraces".Translate()}:  ", ref logDesyncTraces, placeTextNearCheckbox: true);
+            entry = entry.Down(30);
 
             if (Prefs.DevMode)
             {
@@ -136,7 +154,7 @@ namespace Multiplayer.Client
                 entry = entry.Down(30);
             }
 
-            if (Event.current.type == EventType.layout && height != entry.yMax)
+            if (Event.current.type == EventType.Layout && height != entry.yMax)
             {
                 height = entry.yMax;
                 SetInitialSizeAndPosition();
@@ -171,7 +189,7 @@ namespace Multiplayer.Client
             if (file?.replay ?? Multiplayer.IsReplay)
                 HostFromReplay(settings);
             else if (file == null)
-                ClientUtil.HostServer(settings, false, debugMode: debugMode);
+                ClientUtil.HostServer(settings, false, debugMode: debugMode, logDesyncTraces: logDesyncTraces);
             else
                 HostFromSave(settings);
 
@@ -272,22 +290,22 @@ namespace Multiplayer.Client
 
                 LongEventHandler.ExecuteWhenFinished(() =>
                 {
-                    LongEventHandler.QueueLongEvent(() => ClientUtil.HostServer(settings, false, debugMode: debugMode), "MpLoading", false, null);
+                    LongEventHandler.QueueLongEvent(() => ClientUtil.HostServer(settings, false, debugMode: debugMode, logDesyncTraces: logDesyncTraces), "MpLoading", false, null);
                 });
             }, "Play", "LoadingLongEvent", true, null);
         }
 
         private void HostFromReplay(ServerSettings settings)
         {
-            void ReplayLoaded() => ClientUtil.HostServer(settings, true, withSimulation, debugMode: debugMode);
+            void ReplayLoaded() => ClientUtil.HostServer(settings, true, withSimulation, debugMode: debugMode, logDesyncTraces: logDesyncTraces);
 
             if (file != null)
             {
                 Replay.LoadReplay(
-                    file.file, 
-                    true, 
-                    ReplayLoaded, 
-                    cancel: GenScene.GoToMainMenu, 
+                    file.file,
+                    true,
+                    ReplayLoaded,
+                    cancel: GenScene.GoToMainMenu,
                     simTextKey: "MpSimulatingServer"
                 );
             }

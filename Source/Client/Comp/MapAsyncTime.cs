@@ -1,6 +1,6 @@
 ﻿extern alias zip;
 
-using Harmony;
+using HarmonyLib;
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
@@ -10,6 +10,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
+using System.Reflection;
 using UnityEngine;
 using Verse;
 using Verse.AI;
@@ -18,10 +19,15 @@ using zip::Ionic.Zip;
 
 namespace Multiplayer.Client
 {
-    [MpPatch(typeof(Map), nameof(Map.MapPreTick))]
-    [MpPatch(typeof(Map), nameof(Map.MapPostTick))]
+    [HarmonyPatch]
     static class CancelMapManagersTick
     {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(Map), nameof(Map.MapPreTick));
+            yield return AccessTools.Method(typeof(Map), nameof(Map.MapPostTick));
+        }
+
         static bool Prefix() => Multiplayer.Client == null || MapAsyncTimeComp.tickingMap != null;
     }
 
@@ -40,12 +46,17 @@ namespace Multiplayer.Client
         static void Postfix() => updating = false;
     }
 
-    [MpPatch(typeof(PowerNetManager), nameof(PowerNetManager.UpdatePowerNetsAndConnections_First))]
-    [MpPatch(typeof(GlowGrid), nameof(GlowGrid.GlowGridUpdate_First))]
-    [MpPatch(typeof(RegionGrid), nameof(RegionGrid.UpdateClean))]
-    [MpPatch(typeof(RegionAndRoomUpdater), nameof(RegionAndRoomUpdater.TryRebuildDirtyRegionsAndRooms))]
+    [HarmonyPatch]
     static class CancelMapManagersUpdate
     {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(PowerNetManager), nameof(PowerNetManager.UpdatePowerNetsAndConnections_First));
+            yield return AccessTools.Method(typeof(GlowGrid), nameof(GlowGrid.GlowGridUpdate_First));
+            yield return AccessTools.Method(typeof(RegionGrid), nameof(RegionGrid.UpdateClean));
+            yield return AccessTools.Method(typeof(RegionAndRoomUpdater), nameof(RegionAndRoomUpdater.TryRebuildDirtyRegionsAndRooms));
+        }
+        
         static bool Prefix() => Multiplayer.Client == null || !MapUpdateMarker.updating;
     }
 
@@ -124,7 +135,6 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(TimeControls), nameof(TimeControls.DoTimeControlsGUI))]
-    [HotSwappable]
     public static class TimeControlPatch
     {
         private static TimeSpeed prevSpeed;
@@ -137,7 +147,7 @@ namespace Multiplayer.Client
             if (!WorldRendererUtility.WorldRenderedNow && Find.CurrentMap == null) return;
 
             ITickable tickable = Multiplayer.WorldComp;
-            if (!WorldRendererUtility.WorldRenderedNow && Multiplayer.WorldComp.asyncTime)
+            if (!WorldRendererUtility.WorldRenderedNow && MultiplayerWorldComp.asyncTime)
                 tickable = Find.CurrentMap.AsyncTime();
 
             TimeSpeed speed = tickable.TimeSpeed;
@@ -216,7 +226,6 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(ColonistBar), nameof(ColonistBar.ColonistBarOnGUI))]
-    [HotSwappable]
     public static class ColonistBarTimeControl
     {
         static void Prefix(ref bool __state)
@@ -254,7 +263,7 @@ namespace Multiplayer.Client
                 Rect button = new Rect(rect.x - TimeControls.TimeButSize.x / 2f, rect.yMax - TimeControls.TimeButSize.y / 2f, TimeControls.TimeButSize.x, TimeControls.TimeButSize.y);
                 var asyncTime = entry.map.AsyncTime();
 
-                if (Multiplayer.WorldComp.asyncTime)
+                if (MultiplayerWorldComp.asyncTime)
                 {
                     TimeControl.TimeControlButton(button, asyncTime, alpha);
                 }
@@ -278,7 +287,7 @@ namespace Multiplayer.Client
             if (__instance.def != MainButtonDefOf.World) return;
             if (__instance.Disabled) return;
             if (Find.CurrentMap == null) return;
-            if (!Multiplayer.WorldComp.asyncTime) return;
+            if (!MultiplayerWorldComp.asyncTime) return;
 
             Rect button = new Rect(rect.xMax - TimeControls.TimeButSize.x - 5f, rect.y + (rect.height - TimeControls.TimeButSize.y) / 2f, TimeControls.TimeButSize.x, TimeControls.TimeButSize.y);
             __state = button;
@@ -361,10 +370,15 @@ namespace Multiplayer.Client
         }
     }
 
-    [MpPatch(typeof(Storyteller), nameof(Storyteller.StorytellerTick))]
-    [MpPatch(typeof(StoryWatcher), nameof(StoryWatcher.StoryWatcherTick))]
+    [HarmonyPatch]
     public class StorytellerTickPatch
     {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(Storyteller), nameof(Storyteller.StorytellerTick));
+            yield return AccessTools.Method(typeof(StoryWatcher), nameof(StoryWatcher.StoryWatcherTick));
+        }
+
         static bool Prefix() => Multiplayer.Client == null || Multiplayer.Ticking;
     }
 
@@ -466,7 +480,14 @@ namespace Multiplayer.Client
         public float TickRateMultiplier(TimeSpeed speed)
         {
             var comp = map.MpComp();
-            if (comp.transporterLoading != null || comp.caravanForming != null || comp.mapDialogs.Any() || Multiplayer.WorldComp.trading.Any(t => t.playerNegotiator.Map == map))
+
+            var enforcePause = comp.transporterLoading != null ||
+                comp.caravanForming != null || 
+                comp.mapDialogs.Any() || 
+                Multiplayer.WorldComp.trading.Any(t => t.playerNegotiator.Map == map) || 
+                Multiplayer.WorldComp.splitSession != null;
+
+            if (enforcePause)
                 return 0f;
 
             if (mapTicks < slower.forceNormalSpeedUntil)
@@ -701,7 +722,7 @@ namespace Multiplayer.Client
                     HandleMapFactionData(cmd, data);
                 }
 
-                if (cmdType == CommandType.MapTimeSpeed && Multiplayer.WorldComp.asyncTime)
+                if (cmdType == CommandType.MapTimeSpeed && MultiplayerWorldComp.asyncTime)
                 {
                     TimeSpeed speed = (TimeSpeed)data.ReadByte();
                     TimeSpeed = speed;
@@ -812,7 +833,7 @@ namespace Multiplayer.Client
                 comp.factionMapData[factionId] = factionMapData;
 
                 factionMapData.areaManager.AddStartingAreas();
-                map.pawnDestinationReservationManager.RegisterFaction(faction);
+                map.pawnDestinationReservationManager.GetPawnDestinationSetFor(faction);
 
                 MpLog.Log($"New map faction data for {faction.GetUniqueLoadID()}");
             }

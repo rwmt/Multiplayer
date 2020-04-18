@@ -16,12 +16,11 @@ using System.Xml;
 using UnityEngine;
 using Verse;
 using Verse.Steam;
-using Harmony;
+using HarmonyLib;
 using zip::Ionic.Zip;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
     public class ServerBrowser : Window
     {
         private NetManager net;
@@ -139,6 +138,7 @@ namespace Multiplayer.Client
                         saveFile.modIds = replay.info.modIds.ToArray();
                         saveFile.modNames = replay.info.modNames.ToArray();
                         saveFile.modAssemblyHashes = replay.info.modAssemblyHashes.ToArray();
+                        saveFile.asyncTime = replay.info.asyncTime;
                     }
                     else
                     {
@@ -231,7 +231,7 @@ namespace Multiplayer.Client
             if (!spCollapsed)
                 DrawSaveList(spSaves, viewRect.width, ref y);
 
-            if (Event.current.type == EventType.layout)
+            if (Event.current.type == EventType.Layout)
                 hostHeight = y;
 
             Widgets.EndScrollView();
@@ -253,7 +253,7 @@ namespace Multiplayer.Client
                 DrawFileButtons(selectedFile, ref width);
                 GUI.EndGroup();
 
-                if (Event.current.type == EventType.layout)
+                if (Event.current.type == EventType.Layout)
                 {
                     fileButtonsWidth = width;
                 }
@@ -408,7 +408,7 @@ namespace Multiplayer.Client
             {
                 var modName = save.modNames[i];
                 var modId = save.modIds[i];
-                var prefix = ModLister.AllInstalledMods.Any(m => m.Identifier == modId) ? "+" : "-";
+                var prefix = ModLister.AllInstalledMods.Any(m => m.PackageId == modId) ? "+" : "-";
                 saveMods.Append($"{prefix} {modName}\n");
             }
 
@@ -479,7 +479,7 @@ namespace Multiplayer.Client
                 if (i % 2 == 0)
                     Widgets.DrawAltRect(entryRect);
 
-                if (Event.current.type == EventType.repaint)
+                if (Event.current.type == EventType.Repaint)
                     GUI.DrawTextureWithTexCoords(new Rect(5, entryRect.y + 4, 32, 32), SteamImages.GetTexture(friend.avatar), new Rect(0, 1, 1, -1));
 
                 Text.Anchor = TextAnchor.MiddleLeft;
@@ -734,6 +734,7 @@ namespace Multiplayer.Client
         public int[] modAssemblyHashes = new int[0];
 
         public int protocol;
+        public bool asyncTime;
 
         public bool Valid => rwVersion != null;
 

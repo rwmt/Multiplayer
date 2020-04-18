@@ -1,4 +1,4 @@
-﻿using Harmony;
+﻿using HarmonyLib;
 using RimWorld;
 using System;
 using System.Collections.Generic;
@@ -20,69 +20,83 @@ namespace Multiplayer.Client
     static class CanPlaceBlueprintAtPatch
     {
         static MethodInfo CanPlaceBlueprintOver = AccessTools.Method(typeof(GenConstruct), nameof(GenConstruct.CanPlaceBlueprintOver));
-        public static MethodInfo ShouldIgnore1Method = AccessTools.Method(typeof(CanPlaceBlueprintAtPatch), nameof(ShouldIgnore), new[] { typeof(Thing) });
-        public static MethodInfo ShouldIgnore2Method = AccessTools.Method(typeof(CanPlaceBlueprintAtPatch), nameof(ShouldIgnore), new[] { typeof(ThingDef), typeof(Thing) });
+        public static MethodInfo ShouldIgnore1Method = AccessTools.Method(typeof(CanPlaceBlueprintAtPatch), nameof(ShouldIgnore1));
+        public static MethodInfo ShouldIgnore2Method = AccessTools.Method(typeof(CanPlaceBlueprintAtPatch), nameof(ShouldIgnore2));
 
-        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> e, MethodBase method)
         {
-            foreach (CodeInstruction inst in insts)
-            {
-                yield return inst;
+            List <CodeInstruction> insts = e.ToList();
+            for (int i = 0; i < insts.Count; i++) {
+                var cur = insts[i];
 
-                if (inst.opcode == OpCodes.Call && inst.operand == CanPlaceBlueprintOver)
+                yield return cur;
+
+                if (cur.opcode == OpCodes.Call && cur.operand == CanPlaceBlueprintOver)
                 {
-                    yield return new CodeInstruction(OpCodes.Ldloc_S, 22);
+                    var thingToIgnoreIndex = insts[i - 2].operand;
+
+                    insts[i + 1].opcode = OpCodes.Brtrue;
+
+                    yield return new CodeInstruction(OpCodes.Ldloc_S, thingToIgnoreIndex);
                     yield return new CodeInstruction(OpCodes.Call, ShouldIgnore1Method);
                     yield return new CodeInstruction(OpCodes.Or);
                 }
             }
         }
 
-        static bool ShouldIgnore(ThingDef newThing, Thing oldThing) => newThing.IsBlueprint && ShouldIgnore(oldThing);
+        static bool ShouldIgnore2(ThingDef newThing, Thing oldThing) => newThing.IsBlueprint && ShouldIgnore1(oldThing);
 
-        static bool ShouldIgnore(Thing oldThing) => oldThing.def.IsBlueprint && oldThing.Faction != Faction.OfPlayer;
+        static bool ShouldIgnore1(Thing oldThing) => oldThing.def.IsBlueprint && oldThing.Faction != Faction.OfPlayer;
     }
+
 
     [HarmonyPatch(typeof(GenConstruct), nameof(GenConstruct.CanPlaceBlueprintAt))]
     static class CanPlaceBlueprintAtPatch2
     {
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> e, MethodBase original)
         {
-            List<CodeInstruction> insts = (List<CodeInstruction>)e;
+            byte thingToIgnore_Ldarg_S = (byte) original.GetParameters().FirstIndexOf(p => p.Name == "thingToIgnore");
+
+            if (thingToIgnore_Ldarg_S < 1) {
+                Log.Error($"FAIL: {nameof(CanPlaceBlueprintAtPatch2)} can't find thingToIgnore");
+                return e;
+            }
+
+            List<CodeInstruction> insts = e.ToList();
 
             int loop1 = new CodeFinder(original, insts).
                 Forward(OpCodes.Ldstr, "IdenticalThingExists").
-                Backward(OpCodes.Ldarg_S, (byte)5);
+                Backward(OpCodes.Ldarg_S, thingToIgnore_Ldarg_S);
 
             insts.Insert(
                 loop1 - 1,
-                new CodeInstruction(OpCodes.Ldloc_S, 5),
+                new CodeInstruction(OpCodes.Ldloc_S, insts[loop1 - 1].operand),
                 new CodeInstruction(OpCodes.Call, CanPlaceBlueprintAtPatch.ShouldIgnore1Method),
-                new CodeInstruction(OpCodes.Brtrue, insts[loop1 + 2].operand)
+                new CodeInstruction(OpCodes.Brtrue, insts[loop1 + 1].operand)
             );
 
             int loop2 = new CodeFinder(original, insts).
                 Forward(OpCodes.Ldstr, "InteractionSpotBlocked").
-                Backward(OpCodes.Ldarg_S, (byte)5);
+                Backward(OpCodes.Ldarg_S, thingToIgnore_Ldarg_S);
 
             insts.Insert(
                 loop2 - 3,
-                new CodeInstruction(OpCodes.Ldloc_S, 8),
-                new CodeInstruction(OpCodes.Ldloc_S, 9),
+                new CodeInstruction(OpCodes.Ldloc_S, insts[loop2 - 3].operand),
+                new CodeInstruction(OpCodes.Ldloc_S, insts[loop2 - 2].operand),
                 new CodeInstruction(OpCodes.Callvirt, SpawnBuildingAsPossiblePatch.ThingListGet),
                 new CodeInstruction(OpCodes.Call, CanPlaceBlueprintAtPatch.ShouldIgnore1Method),
-                new CodeInstruction(OpCodes.Brtrue, insts[loop2 + 2].operand)
+                new CodeInstruction(OpCodes.Brtrue, insts[loop2 + 1].operand)
             );
 
             int loop3 = new CodeFinder(original, insts).
                 Forward(OpCodes.Ldstr, "WouldBlockInteractionSpot").
-                Backward(OpCodes.Ldarg_S, (byte)5);
+                Backward(OpCodes.Ldarg_S, thingToIgnore_Ldarg_S);
 
             insts.Insert(
                 loop3 - 1,
-                new CodeInstruction(OpCodes.Ldloc_S, 14),
+                new CodeInstruction(OpCodes.Ldloc_S, insts[loop3 - 1].operand),
                 new CodeInstruction(OpCodes.Call, CanPlaceBlueprintAtPatch.ShouldIgnore1Method),
-                new CodeInstruction(OpCodes.Brtrue, insts[loop3 + 2].operand)
+                new CodeInstruction(OpCodes.Brtrue, insts[loop3 + 1].operand)
             );
 
             return insts;
@@ -128,7 +142,7 @@ namespace Multiplayer.Client
                 if (inst.opcode == OpCodes.Call && inst.operand == SpawningWipes)
                 {
                     yield return new CodeInstruction(OpCodes.Ldarg_2);
-                    yield return new CodeInstruction(OpCodes.Ldloc_2);
+                    yield return new CodeInstruction(OpCodes.Ldloc_3);
                     yield return new CodeInstruction(OpCodes.Call, CanPlaceBlueprintAtPatch.ShouldIgnore2Method);
                     yield return new CodeInstruction(OpCodes.Not);
                     yield return new CodeInstruction(OpCodes.And);
@@ -151,7 +165,7 @@ namespace Multiplayer.Client
                 if (inst.opcode == OpCodes.Call && inst.operand == SpawningWipes)
                 {
                     yield return new CodeInstruction(OpCodes.Ldarg_2);
-                    yield return new CodeInstruction(OpCodes.Ldloc_3);
+                    yield return new CodeInstruction(OpCodes.Ldloc_S, 4);
                     yield return new CodeInstruction(OpCodes.Call, CanPlaceBlueprintAtPatch.ShouldIgnore2Method);
                     yield return new CodeInstruction(OpCodes.Not);
                     yield return new CodeInstruction(OpCodes.And);
@@ -177,8 +191,8 @@ namespace Multiplayer.Client
                 {
                     yield return new CodeInstruction(OpCodes.Ldarg_0);
                     yield return new CodeInstruction(OpCodes.Ldfld, ThingDefField);
-                    yield return new CodeInstruction(OpCodes.Ldloc_S, 5);
-                    yield return new CodeInstruction(OpCodes.Ldloc_S, 6);
+                    yield return new CodeInstruction(OpCodes.Ldloc_3);
+                    yield return new CodeInstruction(OpCodes.Ldloc_S, 4);
                     yield return new CodeInstruction(OpCodes.Callvirt, ThingListGet);
                     yield return new CodeInstruction(OpCodes.Call, CanPlaceBlueprintAtPatch.ShouldIgnore2Method);
                     yield return new CodeInstruction(OpCodes.Not);
@@ -267,8 +281,7 @@ namespace Multiplayer.Client
         static float WorkToBuild() => Multiplayer.Client == null ? 0f : -1f;
     }
 
-    [HarmonyPatch(typeof(Frame))]
-    [HarmonyPatch(nameof(Frame.WorkToBuild), MethodType.Getter)]
+    [HarmonyPatch(typeof(Frame), nameof(Frame.WorkToBuild), MethodType.Getter)]
     static class NoZeroWorkFrames
     {
         static void Postfix(ref float __result)

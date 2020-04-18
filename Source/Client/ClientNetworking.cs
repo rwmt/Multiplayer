@@ -1,5 +1,4 @@
-﻿using Harmony;
-using Ionic.Zlib;
+﻿using Ionic.Zlib;
 using LiteNetLib;
 using Multiplayer.Common;
 using RimWorld;
@@ -11,11 +10,10 @@ using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
-using System.Text;
 using System.Threading;
-using System.Xml;
+using System.ComponentModel;
 using Verse;
-using Verse.Sound;
+using UnityEngine;
 
 namespace Multiplayer.Client
 {
@@ -34,7 +32,7 @@ namespace Multiplayer.Client
             netClient.Connect(address, port, "");
         }
 
-        public static void HostServer(ServerSettings settings, bool fromReplay, bool withSimulation = false, bool debugMode = false)
+        public static void HostServer(ServerSettings settings, bool fromReplay, bool withSimulation = false, bool debugMode = false, bool logDesyncTraces = false)
         {
             Log.Message($"Starting the server");
 
@@ -64,7 +62,11 @@ namespace Multiplayer.Client
 
             localServer.rwVersion = session.mods.remoteRwVersion = VersionControl.CurrentVersionString;
             localServer.modNames = session.mods.remoteModNames = LoadedModManager.RunningModsListForReading.Select(m => m.Name).ToArray();
+            localServer.modIds = session.mods.remoteModIds = LoadedModManager.RunningModsListForReading.Select(m => m.PackageId).ToArray();
+            localServer.workshopModIds = session.mods.remoteWorkshopModIds = ModManagement.GetEnabledWorkshopMods().ToArray();
             localServer.defInfos = session.mods.defInfo = Multiplayer.localDefInfos;
+            Log.Message($"MP Host modIds: {string.Join(", ", localServer.modIds)}");
+            Log.Message($"MP Host workshopIds: {string.Join(", ", localServer.workshopModIds)}");
 
             if (settings.steam)
                 localServer.NetTick += SteamIntegration.ServerSteamNetTick;
@@ -90,8 +92,8 @@ namespace Multiplayer.Client
 
             Find.MainTabsRoot.EscapeCurrentTab(false);
 
-            Multiplayer.session.AddMsg("Wiki on desyncs:", false);
-            Multiplayer.session.AddMsg(new ChatMsg_Url("https://github.com/Zetrith/Multiplayer/wiki/Desyncs"), false);
+            Multiplayer.session.AddMsg("If you are having a issue with the mod and would like some help resolving it, then please reach out to us on our discord server:", false);
+            Multiplayer.session.AddMsg(new ChatMsg_Url("https://discord.gg/S4bxXpv"), false);
 
             if (withSimulation)
             {
@@ -99,13 +101,14 @@ namespace Multiplayer.Client
             }
             else
             {
-                var timeSpeed = Prefs.data.pauseOnLoad ? TimeSpeed.Paused : TimeSpeed.Normal;
+                var timeSpeed = TimeSpeed.Paused;
 
                 Multiplayer.WorldComp.TimeSpeed = timeSpeed;
                 foreach (var map in Find.Maps)
                     map.AsyncTime().TimeSpeed = timeSpeed;
 
                 Multiplayer.WorldComp.debugMode = debugMode;
+                Multiplayer.WorldComp.logDesyncTraces = logDesyncTraces;
 
                 LongEventHandler.QueueLongEvent(() =>
                 {
@@ -210,6 +213,7 @@ namespace Multiplayer.Client
             localServerConn.State = ConnectionStateEnum.ServerPlaying;
 
             var serverPlayer = Multiplayer.LocalServer.OnConnected(localServerConn);
+            serverPlayer.color = new ColorRGB(255, 0, 0);
             serverPlayer.status = PlayerStatus.Playing;
             serverPlayer.SendPlayerList();
 
@@ -225,13 +229,34 @@ namespace Multiplayer.Client
 
             string args = $"-batchmode -nographics -arbiter -logfile arbiter_log.txt -connect=127.0.0.1:{Multiplayer.LocalServer.ArbiterPort}";
 
-            if(GenCommandLine.TryGetCommandLineArg("savedatafolder", out string saveDataFolder))
+            if (GenCommandLine.TryGetCommandLineArg("savedatafolder", out string saveDataFolder))
                 args += $" -savedatafolder=\"{saveDataFolder}\"";
 
-            Multiplayer.session.arbiter = Process.Start(
-                Process.GetCurrentProcess().MainModule.FileName,
-                args
-            );
+            string arbiterInstancePath;
+            if (Application.platform == RuntimePlatform.OSXPlayer) {
+                arbiterInstancePath = Application.dataPath + "/MacOS/" + Process.GetCurrentProcess().MainModule.ModuleName;
+            } else {
+                arbiterInstancePath = Process.GetCurrentProcess().MainModule.FileName;
+            }
+
+            try
+            {
+                Multiplayer.session.arbiter = Process.Start(
+                    arbiterInstancePath,
+                    args
+                );
+                ArbiterWhiteWindowHider.HideArbiterProcess();
+            }
+            catch (Exception ex)
+            {
+                Multiplayer.session.AddMsg("Arbiter failed to start.", false);
+                Log.Error("Arbiter failed to start.", false);
+                Log.Error(ex.ToString());
+                if (ex.InnerException is Win32Exception)
+                {
+                    Log.Error("Win32 Error Code: " + ((Win32Exception)ex).NativeErrorCode.ToString());
+                }
+            }
         }
 
         private static int GetMaxUniqueId()
