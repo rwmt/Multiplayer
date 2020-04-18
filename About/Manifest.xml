@@ -3,13 +3,8 @@
 <Manifest>
 
   <identifier>Multiplayer</identifier>
-  <version>0.4.8.3</version>
+  <version>0.5-BETA</version>
   <manifestUri>https://raw.githubusercontent.com/rwmt/Multiplayer/master/About/Manifest.xml</manifestUri>
   <downloadUri>https://github.com/rwmt/Multiplayer/releases/latest</downloadUri>
-
-  <!-- Multiplayer should be placed right below Core -->
-  <loadBefore>
-    <li>HugsLib</li>
-  </loadBefore>
 
 </Manifest>

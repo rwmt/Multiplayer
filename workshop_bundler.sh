@@ -1,9 +1,12 @@
 #!/bin/bash
 
+VERSION=$(grep -Po '(?<=Version = ")[0-9\.]+' Source/Common/Version.cs)
+
 mkdir -p Multiplayer
 cp -r About Languages Multiplayer/
 sed -i "/<supportedVersions>/ a \ \ \ \ <li>1.0</li>" Multiplayer/About/About.xml
-sed -i "s/This is version .*\$/This is version $(grep -Po '(?<=Version = ")[0-9\.]+' Source/Common/Version.cs)./" Multiplayer/About/About.xml
+sed -i "s/This is version .*\$/This is version ${VERSION}./" Multiplayer/About/About.xml
+sed -i "s/<version>.*<\/version>\$/<version>${VERSION}<\/version>/" Multiplayer/About/Manifest.xml
 
 rm -rf Multiplayer/1.1
 mkdir -p Multiplayer/1.1
