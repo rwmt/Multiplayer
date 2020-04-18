@@ -119,6 +119,9 @@
   <MpAppendNameToAutosave>Append Name to Autosave</MpAppendNameToAutosave>
   <MpPauseAutosaveCounter>Pause autosave counter</MpPauseAutosaveCounter>
   <MpPauseAutosaveCounterDesc>Pauses the counter along with the game preventing autosaving while time is paused.</MpPauseAutosaveCounterDesc>
+  <MpShowModCompatibility>Show Mod Compatibility</MpShowModCompatibility>
+  <MpShowModCompatibilityDesc>Enables showing of [4] crowd-sourced compatibility scores in Mods manager</MpShowModCompatibilityDesc>
+
   <MpLan>LAN</MpLan>
   <MpDirect>Direct</MpDirect>
   <MpSteam>Steam</MpSteam>
