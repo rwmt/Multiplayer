@@ -5,6 +5,8 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
+using System.Threading.Tasks;
+using RestSharp;
 using Steamworks;
 using Verse;
 using Verse.Steam;
@@ -13,6 +15,25 @@ namespace Multiplayer.Client
 {
     public static class ModManagement
     {
+        public static void UpdateModCompatibilityDb()
+        {
+            if (!MultiplayerMod.settings.showModCompatibility) {
+                return;
+            }
+
+            Task.Run(() => {
+                var client = new RestClient("https://bot.rimworldmultiplayer.com/mod-compatibility?version=1.1");
+                try {
+                    var rawResponse = client.Get(new RestRequest($"", DataFormat.Json));
+                    Multiplayer.modsCompatibility = SimpleJson.DeserializeObject<Dictionary<string, int>>(rawResponse.Content);
+                    Log.Message($"MP: successfully fetched {Multiplayer.modsCompatibility.Count} mods compatibility info");
+                }
+                catch (Exception e) {
+                    Log.Warning($"MP: updating mod compatibility list failed {e.Message} {e.StackTrace}");
+                }
+            });
+        }
+
         public static List<ulong> GetEnabledWorkshopMods() {
             var enabledModIds = LoadedModManager.RunningModsListForReading.Select(m => m.PackageId).ToArray();
             var allWorkshopItems =

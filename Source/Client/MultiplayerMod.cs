@@ -150,6 +150,7 @@ namespace Multiplayer.Client
             listing.CheckboxLabeled(appendNameToAutosaveLabel, ref settings.appendNameToAutosave);
 
             listing.CheckboxLabeled("MpPauseAutosaveCounter".Translate(), ref settings.pauseAutosaveCounter, "MpPauseAutosaveCounterDesc".Translate());
+            listing.CheckboxLabeled("MpShowModCompatibility".Translate(), ref settings.showModCompatibility, "MpShowModCompatibilityDesc".Translate());
 
             if (Prefs.DevMode)
                 listing.CheckboxLabeled("Show debug info", ref settings.showDevInfo);
@@ -288,6 +289,7 @@ namespace Multiplayer.Client
         public string serverAddress = "127.0.0.1";
         public bool appendNameToAutosave;
         public bool pauseAutosaveCounter = true;
+        public bool showModCompatibility = true;
         public ServerSettings serverSettings;
 
         public override void ExposeData()
@@ -301,11 +303,16 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref showDevInfo, "showDevInfo");
             Scribe_Values.Look(ref serverAddress, "serverAddress", "127.0.0.1");
             Scribe_Values.Look(ref pauseAutosaveCounter, "pauseAutosaveCounter", true);
+            Scribe_Values.Look(ref showModCompatibility, "showModCompatibility", true);
 
             Scribe_Deep.Look(ref serverSettings, "serverSettings");
 
             if (serverSettings == null)
                 serverSettings = new ServerSettings();
+
+            if (Scribe.mode == LoadSaveMode.Saving && showModCompatibility && Multiplayer.modsCompatibility.Count == 0) {
+                ModManagement.UpdateModCompatibilityDb();
+            }
         }
     }
 }
