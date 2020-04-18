@@ -28,7 +28,7 @@ namespace Multiplayer.Common
                 return;
             }
 
-            var modConfigFiles = ModManagement.GetSyncableConfigFiles();
+            var modConfigFiles = MultiplayerMod.settings.syncModConfigs ? ModManagement.GetSyncableConfigFiles() : new Dictionary<string, string>();
             // Compress configs, to keep packet size < 50kb limit. JSON encode first, as the many tiny files are better compressed together
             var modConfigsCompressed = GZipStream.CompressString(SimpleJson.SerializeObject(modConfigFiles));
             if (MpVersion.IsDebug) {
