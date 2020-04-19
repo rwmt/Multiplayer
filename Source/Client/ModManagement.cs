@@ -99,6 +99,7 @@ namespace Multiplayer.Client
             }
 
             var localConfigsBackupDir = GenFilePaths.FolderUnderSaveData($"LocalConfigsBackup-{DateTime.Now:yyyy-MM-ddTHH-mm-ss}");
+            (new DirectoryInfo(Path.Combine(localConfigsBackupDir, "Config"))).Create();
 
             foreach (var modConfigData in hostModConfigFiles) {
                 var relativeFilePath = modConfigData.Key.Replace('/', Path.DirectorySeparatorChar);
