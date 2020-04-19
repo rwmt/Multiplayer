@@ -745,7 +745,7 @@ namespace Multiplayer.Client
         static void ThingFilter_AllowCategory_Helper(ThingFilter filter, ThingCategoryDef categoryDef, bool allow, ThingFilter parentfilter, IEnumerable<ThingDef> forceHiddenDefs, IEnumerable<SpecialThingFilterDef> forceHiddenFilters)
         {
             Listing_TreeThingFilter listing = new Listing_TreeThingFilter(filter, parentfilter, forceHiddenDefs, forceHiddenFilters, null);
-            listing.CalculateHiddenSpecialFilters();
+            listing.CalculateHiddenSpecialFilters(new TreeNode_ThingCategory(categoryDef));
             filter.SetAllow(categoryDef, allow, forceHiddenDefs, listing.hiddenSpecialFilters);
         }
     }
