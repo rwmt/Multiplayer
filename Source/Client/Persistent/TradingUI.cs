@@ -416,6 +416,7 @@ namespace Multiplayer.Client
         {
             yield return AccessTools.Method(typeof(Dialog_Trade), "<DoWindowContents>b__60_0");
             yield return AccessTools.Method(typeof(Dialog_Trade), "<DoWindowContents>b__60_1");
+            yield return AccessTools.Method(typeof(Tradeable), nameof(Tradeable.GetPriceTooltip));
         }
         static void Prefix(ref bool __state)
         {
