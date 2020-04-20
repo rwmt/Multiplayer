@@ -373,13 +373,19 @@ namespace Multiplayer.Client
     [HarmonyPatch]
     public class StorytellerTickPatch
     {
+        public static bool updating;
         static IEnumerable<MethodBase> TargetMethods()
         {
             yield return AccessTools.Method(typeof(Storyteller), nameof(Storyteller.StorytellerTick));
             yield return AccessTools.Method(typeof(StoryWatcher), nameof(StoryWatcher.StoryWatcherTick));
         }
 
-        static bool Prefix() => Multiplayer.Client == null || Multiplayer.Ticking;
+        static bool Prefix() {
+            updating = true;
+            return Multiplayer.Client == null || Multiplayer.Ticking;
+        }
+
+        static void Postfix() => updating = false;
     }
 
     [HarmonyPatch(typeof(Storyteller))]
@@ -404,6 +410,23 @@ namespace Multiplayer.Client
                         __result.Add(caravan);
 
                 __result.Add(Find.World);
+            }
+        }
+    }
+
+    // The MP Mod's ticker calls Storyteller.StorytellerTick() on both the World and each Map, each tick
+    // This patch aims to ensure each "spawn raid" Quest is only triggered once, to prevent 2x or 3x sized raids
+    [HarmonyPatch(typeof(Quest), nameof(Quest.PartsListForReading), MethodType.Getter)]
+    public class QuestPartsListForReadingPatch
+    {
+        static void Postfix(ref List<QuestPart> __result) {
+            if (StorytellerTickPatch.updating) {
+                __result = __result.Where(questPart => {
+                    if (questPart is QuestPart_ThreatsGenerator questPartThreatsGenerator) {
+                        return questPartThreatsGenerator?.mapParent?.Map == Multiplayer.MapContext;
+                    }
+                    return true;
+                }).ToList();
             }
         }
     }
