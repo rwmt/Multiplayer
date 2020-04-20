@@ -91,9 +91,12 @@ namespace Multiplayer.Client
                 .Invoke(obj: null, parameters: new object[] { });
         }
 
-        public static void ApplyHostModConfigFiles()
+        public static void ApplyHostModConfigFiles(Dictionary<string, string> hostModConfigFiles)
         {
-            var hostModConfigFiles = Multiplayer.session.mods.remoteModConfigs;
+            if (hostModConfigFiles == null) {
+                Log.Warning("MP: hostModConfigFiles is null");
+                return;
+            }
             if (CheckModConfigsMatch(hostModConfigFiles)) {
                 return;
             }
