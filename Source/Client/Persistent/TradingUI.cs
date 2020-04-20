@@ -434,6 +434,30 @@ namespace Multiplayer.Client
         }
     }
 
+    // Ensure valid MpTradeSession is used when rendering the 'price'/currency overlay;
+    // return "" when session's closed to fix null exceptions when second client closes trade while first has tooltip open
+    [HarmonyPatch(typeof(Tradeable), nameof(Tradeable.GetPriceTooltip))]
+    static class GetPriceTooltipPatch
+    {
+        static bool Prefix(ref bool __state, ref string __result)
+        {
+            TradingWindow trading = Find.WindowStack.WindowOfType<TradingWindow>();
+            if (trading == null || Multiplayer.WorldComp.trading[trading.selectedTab] == null) {
+                __result = "";
+                return false;
+            }
+            MpTradeSession.SetTradeSession(Multiplayer.WorldComp.trading[trading.selectedTab]);
+            __state = true;
+            return true;
+        }
+
+        static void Postfix(bool __state)
+        {
+            if (__state)
+                MpTradeSession.SetTradeSession(null);
+        }
+    }
+
     [HarmonyPatch(typeof(Dialog_Trade), nameof(Dialog_Trade.CacheTradeables))]
     static class CacheTradeablesPatch
     {
