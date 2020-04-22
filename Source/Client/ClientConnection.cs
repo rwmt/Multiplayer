@@ -30,6 +30,7 @@ namespace Multiplayer.Client
         }
 
         [PacketHandler(Packets.Server_ModList)]
+        [IsFragmented]
         public void HandleModList(ByteReader data)
         {
             Multiplayer.session.mods.remoteRwVersion = data.ReadString();

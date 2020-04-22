@@ -39,7 +39,7 @@ namespace Multiplayer.Common
                 Log.Message($"modConfigsCompressed size: {modConfigsCompressed.Length}");
             }
 
-            connection.Send(Packets.Server_ModList, Server.rwVersion, Server.modNames, Server.modIds, Server.workshopModIds, modConfigsCompressed);
+            connection.SendFragmented(Packets.Server_ModList, Server.rwVersion, Server.modNames, Server.modIds, Server.workshopModIds, modConfigsCompressed);
         }
 
         [PacketHandler(Packets.Client_Defs)]

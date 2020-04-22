@@ -214,6 +214,8 @@ namespace Multiplayer.Client
                    && !file.Name.EndsWith("MultiplayerMod.xml") // contains username
                    && !file.Name.EndsWith("ModManager.xml")
                    && !file.Name.EndsWith("ModSwitch.xml")
+                   && file.Name.IndexOf("backup", StringComparison.OrdinalIgnoreCase) == -1
+                   && file.DirectoryName.IndexOf("backup", StringComparison.OrdinalIgnoreCase) == -1
                    && !file.DirectoryName.Contains("RimHUD");
         }
 
