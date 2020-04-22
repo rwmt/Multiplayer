@@ -44,6 +44,7 @@ namespace Multiplayer.Client
             Multiplayer.session.mods.defInfo = defs;
 
             if (!ModManagement.CheckModConfigsMatch(Multiplayer.session.mods.remoteModConfigs)) {
+                Log.Message("MP: Mod Configs Mismatch, disconnecting");
                 connection.Close();
                 connection.State = ConnectionStateEnum.Disconnected;
                 Multiplayer.session.disconnectReason = MpDisconnectReason.Defs;

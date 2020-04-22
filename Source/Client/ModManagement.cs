@@ -53,9 +53,12 @@ namespace Multiplayer.Client
         }
 
         public static void DownloadWorkshopMods(ulong[] workshopModIds) {
+            var missingWorkshopModIds = workshopModIds.Where(workshopModId
+                => ModLister.AllInstalledMods.All(modMetaData => modMetaData.GetPublishedFileId().m_PublishedFileId != workshopModId)
+            ).ToList();
             try {
                 var downloadInProgress = new List<PublishedFileId_t>();
-                foreach (var workshopModId in workshopModIds) {
+                foreach (var workshopModId in missingWorkshopModIds) {
                     var publishedFileId = new PublishedFileId_t(workshopModId);
                     var itemState = (EItemState) SteamUGC.GetItemState(publishedFileId);
                     if (!itemState.HasFlag(EItemState.k_EItemStateInstalled | EItemState.k_EItemStateSubscribed)) {
@@ -79,7 +82,10 @@ namespace Multiplayer.Client
                 }
             }
             catch (InvalidOperationException e) {
-                Log.Error($"MP Workshop mod sync error: {e.Message}");
+                foreach (var workshopModId in missingWorkshopModIds) {
+                    Log.Message($"Missing mod ID: ${workshopModId}");
+                }
+                Log.Warning($"MP Workshop mod download error: {e.Message} - continuing with local mods only");
             }
         }
 
