@@ -83,7 +83,7 @@ namespace Multiplayer.Client
             { (SyncWorker sync, ref object obj)  => { } },
             {
                 (ByteWriter data, object obj) => {
-            
+
                 },
                 (ByteReader data) => {
                     return null;
@@ -238,7 +238,9 @@ namespace Multiplayer.Client
                     var pawn = ReadSync<Pawn>(data);
                     var uniqueVerbOwnerID = data.ReadString();
 
-                    return pawn.abilities.abilities.Find(ab => ab.UniqueVerbOwnerID() == uniqueVerbOwnerID);
+                    var ability = pawn.abilities.abilities.Find(ab => ab.UniqueVerbOwnerID() == uniqueVerbOwnerID);
+                    var unused = ability.EffectComps; // this getter lazy-initializes ability.effectComps: required for using Vertigo Pulse
+                    return ability;
                 }, true
             },
             {
@@ -926,7 +928,7 @@ namespace Multiplayer.Client
                         throw new SerializationException($"Unknown ISelectable type: {obj.GetType()}");
                     }
                 },
-                (ByteReader data) => {                
+                (ByteReader data) => {
                     ISelectableImpl impl = ReadSync<ISelectableImpl>(data);
 
                     if (impl == ISelectableImpl.None)
