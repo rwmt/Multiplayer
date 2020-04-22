@@ -183,6 +183,7 @@ namespace Multiplayer.Client
         public string[] remoteModNames;
         public string[] remoteModIds;
         public ulong[] remoteWorkshopModIds;
+        public Dictionary<string, string> remoteModConfigs;
         public Dictionary<string, DefInfo> defInfo;
         public string remoteAddress;
         public int remotePort;

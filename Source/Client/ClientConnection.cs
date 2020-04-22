@@ -11,6 +11,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Xml;
+using RestSharp;
 using UnityEngine;
 using Verse;
 using Verse.Profile;
@@ -29,6 +30,7 @@ namespace Multiplayer.Client
         }
 
         [PacketHandler(Packets.Server_ModList)]
+        [IsFragmented]
         public void HandleModList(ByteReader data)
         {
             Multiplayer.session.mods.remoteRwVersion = data.ReadString();
@@ -36,14 +38,19 @@ namespace Multiplayer.Client
             Multiplayer.session.mods.remoteModIds = data.ReadPrefixedStrings();
             Multiplayer.session.mods.remoteWorkshopModIds = data.ReadPrefixedULongs();
 
+            var modConfigsCompressed = data.ReadPrefixedBytes();
+            Multiplayer.session.mods.remoteModConfigs = SimpleJson.DeserializeObject<Dictionary<string, string>>(GZipStream.UncompressString(modConfigsCompressed));
+
             var defs = Multiplayer.localDefInfos;
             Multiplayer.session.mods.defInfo = defs;
 
-            var endPoint = Multiplayer.session?.netClient?.FirstPeer?.EndPoint;
-            if (endPoint?.Address != null) {
-                // todo: why is this sometimes null? It means the "auto reconnect after changing mods" won't work
-                Multiplayer.session.mods.remoteAddress = endPoint.Address.ToString();
-                Multiplayer.session.mods.remotePort = endPoint.Port;
+            if (!ModManagement.CheckModConfigsMatch(Multiplayer.session.mods.remoteModConfigs)) {
+                Log.Message("MP: Mod Configs Mismatch, disconnecting");
+                connection.Close();
+                connection.State = ConnectionStateEnum.Disconnected;
+                Multiplayer.session.disconnectReason = MpDisconnectReason.Defs;
+                Multiplayer.session.Disconnected();
+                return;
             }
 
             var response = new ByteWriter();

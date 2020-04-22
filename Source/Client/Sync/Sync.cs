@@ -1141,7 +1141,14 @@ namespace Multiplayer.Client
         public static void HandleCmd(ByteReader data)
         {
             int syncId = data.ReadInt32();
-            SyncHandler handler = handlers[syncId];
+            SyncHandler handler;
+            try {
+                handler = handlers[syncId];
+            }
+            catch (ArgumentOutOfRangeException) {
+                Log.Error($"Error: invalid syncId {syncId}/{handlers.Count}, this implies mismatched mods, ensure your versions match! Stacktrace follows.");
+                throw;
+            }
 
             List<object> prevSelected = Find.Selector.selected;
             List<WorldObject> prevWorldSelected = Find.WorldSelector.selected;

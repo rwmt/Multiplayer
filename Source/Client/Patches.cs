@@ -86,13 +86,23 @@ namespace Multiplayer.Client
                 int newColony = optList.FindIndex(opt => opt.label == "NewColony".Translate());
                 if (newColony != -1)
                 {
-                    optList.Insert(newColony + 1, new ListableOption("Multiplayer", () =>
+                    optList.Insert(newColony + 1, new ListableOption("MpMultiplayer".Translate(), () =>
                     {
                         if (Prefs.DevMode && Event.current.button == 1)
                             ShowModDebugInfo();
                         else
                             Find.WindowStack.Add(new ServerBrowser());
                     }));
+                }
+
+                int optionsIndex = optList.FindIndex(opt => opt.label == "Options".Translate());
+                if (optionsIndex != -1 && ModManagement.HasRecentConfigBackup()) {
+                    var option = new ListableOption("MpRestoreLastConfigs".Translate(), () => {
+                        ModManagement.RestoreConfigBackup(ModManagement.GetMostRecentConfigBackup());
+                        ModManagement.PromptRestart();
+                    });
+                    option.minHeight = 30f;
+                    optList.Insert(optionsIndex + 1, option);
                 }
             }
 

@@ -108,6 +108,7 @@ namespace Multiplayer.Client
 
                 LongEventHandler.QueueLongEvent(() => {
                     ModManagement.DownloadWorkshopMods(mods.remoteWorkshopModIds);
+                    ModManagement.ApplyHostModConfigFiles(mods.remoteModConfigs);
                     try {
                         ModManagement.RebuildModsList();
                         ModsConfig.SetActiveToList(mods.remoteModIds.ToList());

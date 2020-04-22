@@ -19,6 +19,7 @@
   <MpSyncModList>Autosync Mod List</MpSyncModList>
   <MpSeeModList>See mod list</MpSeeModList>
   <MpDownloadingWorkshopMods>Downloading Workshop Mods</MpDownloadingWorkshopMods>
+  <MpRestoreLastConfigs>Restore Last Configs</MpRestoreLastConfigs>
   
   <MpServerClosed>Server closed</MpServerClosed>
   <MpServerFull>Server is full</MpServerFull>
@@ -50,6 +51,8 @@
   <MpShowPlayerCursors>Show player cursors</MpShowPlayerCursors>
   <MpAutoAcceptSteam>Auto-accept Steam</MpAutoAcceptSteam>
   <MpAutoAcceptSteamDesc>Automatically accept any incoming Steam connection requests.</MpAutoAcceptSteamDesc>
+  <MpSyncModConfigs>Sync Mod Configs</MpSyncModConfigs>
+  <MpSyncModConfigsDesc>Forces clients to download the same mod configs as the host; reduces desyncs</MpSyncModConfigsDesc>
   <MpTransparentChat>Transparent chat</MpTransparentChat>
   
   <MpAutosaveSlots>Autosave slots</MpAutosaveSlots>
