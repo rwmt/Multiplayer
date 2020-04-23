@@ -15,8 +15,13 @@
   
   <MpWrongDefs>Mod definition mismatch</MpWrongDefs>
   <MpWrongDefsInfo>Make sure your installed mods, their versions and order match the host's.</MpWrongDefsInfo>
+  <MpWrongModConfigs>Mod configs mismatch</MpWrongModConfigs>
+  <MpWrongModConfigsInfo>Your mod configs differ from the host's, sync them for best results.</MpWrongModConfigsInfo>
   <MpModList>Mod list</MpModList>
-  <MpSyncModList>Autosync Mod List</MpSyncModList>
+  <MpSyncModsAndConfigs>Sync Mods &amp; Configs</MpSyncModsAndConfigs>
+  <MpSyncMods>Sync Mods</MpSyncMods>
+  <MpSyncModConfigs>Sync Mod Configs</MpSyncModConfigs>
+  <MpSyncModConfigsDesc>Forces clients to download the same mod configs as the host; reduces desyncs</MpSyncModConfigsDesc>
   <MpSeeModList>See mod list</MpSeeModList>
   <MpDownloadingWorkshopMods>Downloading Workshop Mods</MpDownloadingWorkshopMods>
   <MpRestoreLastConfigs>Restore Last Configs</MpRestoreLastConfigs>
@@ -51,8 +56,6 @@
   <MpShowPlayerCursors>Show player cursors</MpShowPlayerCursors>
   <MpAutoAcceptSteam>Auto-accept Steam</MpAutoAcceptSteam>
   <MpAutoAcceptSteamDesc>Automatically accept any incoming Steam connection requests.</MpAutoAcceptSteamDesc>
-  <MpSyncModConfigs>Sync Mod Configs</MpSyncModConfigs>
-  <MpSyncModConfigsDesc>Forces clients to download the same mod configs as the host; reduces desyncs</MpSyncModConfigsDesc>
   <MpTransparentChat>Transparent chat</MpTransparentChat>
   
   <MpAutosaveSlots>Autosave slots</MpAutosaveSlots>

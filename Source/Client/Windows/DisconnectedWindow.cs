@@ -12,8 +12,8 @@ namespace Multiplayer.Client
     {
         public override Vector2 InitialSize => new Vector2(300f, 150f);
 
-        private string reason;
-        private string desc;
+        protected string reason;
+        protected string desc;
 
         public bool returnToServerBrowser;
 
@@ -71,7 +71,7 @@ namespace Multiplayer.Client
 
     public class DefMismatchWindow : DisconnectedWindow
     {
-        public override Vector2 InitialSize => new Vector2(460f + 18 * 2, 160f);
+        public override Vector2 InitialSize => new Vector2(310f + 18 * 2, 160f);
 
         private SessionModInfo mods;
 
@@ -101,29 +101,6 @@ namespace Multiplayer.Client
                 ShowModList(mods);
             btnRect.x += btnWidth + gap;
 
-            btnRect.width = 140f;
-            if (Widgets.ButtonText(btnRect, "MpSyncModList".Translate())) {
-                Log.Message("MP remote host's modIds: " + string.Join(", ", mods.remoteModIds));
-                Log.Message("MP remote host's workshopIds: " + string.Join(", ", mods.remoteWorkshopModIds));
-
-                LongEventHandler.QueueLongEvent(() => {
-                    ModManagement.DownloadWorkshopMods(mods.remoteWorkshopModIds);
-                    ModManagement.ApplyHostModConfigFiles(mods.remoteModConfigs);
-                    try {
-                        ModManagement.RebuildModsList();
-                        ModsConfig.SetActiveToList(mods.remoteModIds.ToList());
-                        ModsConfig.Save();
-                        ModManagement.PromptRestartAndReconnect(mods.remoteAddress, mods.remotePort);
-                    }
-                    catch (Exception e) {
-                        Log.Error($"MP mod sync error: {e.GetType()} {e.Message}");
-                    }
-                }, "MpDownloadingWorkshopMods", true, null);
-            }
-
-            btnRect.x += btnRect.width + gap;
-            btnRect.width = btnWidth;
-
             if (Widgets.ButtonText(btnRect, "CloseButton".Translate()))
                 Close();
         }
@@ -137,4 +114,152 @@ namespace Multiplayer.Client
         }
     }
 
+    public class ModsMismatchWindow : DisconnectedWindow
+    {
+        private SessionModInfo mods;
+        private bool modsMatch;
+        private bool modConfigsMatch;
+        private Action continueConnecting;
+        private bool shouldCloseConnection = true;
+
+        public ModsMismatchWindow(SessionModInfo mods, Action continueConnecting)
+            : base("MpWrongDefs".Translate(), "MpWrongDefsInfo".Translate())
+        {
+            this.mods = mods;
+            this.continueConnecting = continueConnecting;
+            returnToServerBrowser = true;
+            modsMatch = ModManagement.ModsMatch(mods.remoteModIds);
+            modConfigsMatch = ModManagement.CheckModConfigsMatch(mods.remoteModConfigs);
+            if (modsMatch) {
+                reason = "MpWrongModConfigs".Translate();
+                desc = "MpWrongModConfigsInfo".Translate();
+            }
+        }
+
+        public override Vector2 InitialSize {
+            get {
+                float buttonsWidth;
+                if (!modsMatch) {
+                    buttonsWidth = !modConfigsMatch ? 460f : 290f;
+                }
+                else {
+                    buttonsWidth = 460f;
+                }
+                return new Vector2(buttonsWidth + 20 + 18 * 2, 160f);
+            }
+        }
+
+        public override void DrawButtons(Rect inRect)
+        {
+            var btnWidth = 90f;
+            var gap = 10f;
+
+            Rect btnRect = new Rect(gap, inRect.height - ButtonHeight - 10f, btnWidth, ButtonHeight);
+
+            if (!modsMatch) {
+                if (Widgets.ButtonText(btnRect, "MpModList".Translate())) {
+                    ShowModList(mods);
+                }
+                btnRect.x += btnWidth + gap;
+
+                if (!modConfigsMatch) {
+                    btnRect.width = 160f;
+                    if (Widgets.ButtonText(btnRect, "MpSyncModsAndConfigs".Translate())) {
+                        SyncModsAndConfigs(true);
+                    }
+                    btnRect.x += btnRect.width + gap;
+                    btnRect.width = btnWidth;
+                }
+
+                if (Widgets.ButtonText(btnRect, "MpSyncMods".Translate())) {
+                    SyncModsAndConfigs(false);
+                }
+                btnRect.x += btnWidth + gap;
+            }
+            else {
+                if (Widgets.ButtonText(btnRect, "MpConnectButton".Translate())) {
+                    shouldCloseConnection = false;
+                    returnToServerBrowser = false;
+                    Close();
+                    continueConnecting();
+                }
+                btnRect.x += btnWidth + gap;
+
+                if (Widgets.ButtonText(btnRect, "Details".Translate())) {
+                    ShowConfigsList(mods);
+                }
+                btnRect.x += btnWidth + gap;
+
+                btnRect.width = 160f;
+                if (Widgets.ButtonText(btnRect, "MpSyncModConfigs".Translate())) {
+                    SyncModsAndConfigs(true);
+                }
+                btnRect.x += btnRect.width + gap;
+                btnRect.width = btnWidth;
+            }
+
+            if (Widgets.ButtonText(btnRect, "CloseButton".Translate())) {
+                Close();
+            }
+        }
+
+        private void SyncModsAndConfigs(bool syncConfigs) {
+            Log.Message("MP remote host's modIds: " + string.Join(", ", mods.remoteModIds));
+            Log.Message("MP remote host's workshopIds: " + string.Join(", ", mods.remoteWorkshopModIds));
+
+            LongEventHandler.QueueLongEvent(() => {
+                try {
+                    ModManagement.DownloadWorkshopMods(mods.remoteWorkshopModIds);
+                }
+                catch (InvalidOperationException e) {
+                    Log.Warning($"MP Workshop mod download error: {e.Message}");
+                    var missingMods = ModManagement.GetNotInstalledMods(mods.remoteModIds).ToList();
+                    if (missingMods.Any()) {
+                        Find.WindowStack.Add(new DebugTextWindow(
+                            $"Failed to connect to Workshop.\nThe following mods are missing, please install them:\n"
+                            + missingMods.Join(s => $"- {s}", "\n")
+                        ));
+                        return;
+                    }
+                }
+
+                try {
+                    ModManagement.RebuildModsList();
+                    ModsConfig.SetActiveToList(mods.remoteModIds.ToList());
+                    ModsConfig.Save();
+                    if (syncConfigs) {
+                        ModManagement.ApplyHostModConfigFiles(mods.remoteModConfigs);
+                    }
+                    ModManagement.PromptRestartAndReconnect(mods.remoteAddress, mods.remotePort);
+                }
+                catch (Exception e) {
+                    Log.Error($"MP mod sync error: {e.GetType()} {e.Message}");
+                    Find.WindowStack.Add(new DebugTextWindow($"Failed to sync mods: {e.GetType()} {e.Message}"));
+                }
+            }, "MpDownloadingWorkshopMods", true, null);
+        }
+
+        private static void ShowModList(SessionModInfo mods)
+        {
+            var activeMods = LoadedModManager.RunningModsListForReading.Join(m => "+ " + m.Name, "\n");
+            var serverMods = mods.remoteModNames.Join(name => (ModLister.AllInstalledMods.Any(m => m.Name == name) ? "+ " : "- ") + name, delimiter: "\n");
+
+            Find.WindowStack.Add(new TwoTextAreas_Window($"RimWorld {mods.remoteRwVersion}\nServer mod list:\n\n{serverMods}", $"RimWorld {VersionControl.CurrentVersionString}\nActive mod list:\n\n{activeMods}"));
+        }
+
+        private static void ShowConfigsList(SessionModInfo mods)
+        {
+            var mismatchedModConfigs = ModManagement.GetMismatchedModConfigs(mods.remoteModConfigs);
+
+            Find.WindowStack.Add(new DebugTextWindow($"Mismatched mod configs:\n\n{mismatchedModConfigs.Join(file => "+ " + file, "\n")}"));
+        }
+
+        public override void PostClose()
+        {
+            base.PostClose();
+            if (shouldCloseConnection) {
+                OnMainThread.StopMultiplayer();
+            }
+        }
+    }
 }

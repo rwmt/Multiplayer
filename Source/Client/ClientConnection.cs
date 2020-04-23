@@ -41,22 +41,31 @@ namespace Multiplayer.Client
             var modConfigsCompressed = data.ReadPrefixedBytes();
             Multiplayer.session.mods.remoteModConfigs = SimpleJson.DeserializeObject<Dictionary<string, string>>(GZipStream.UncompressString(modConfigsCompressed));
 
-            var defs = Multiplayer.localDefInfos;
-            Multiplayer.session.mods.defInfo = defs;
+            Multiplayer.session.mods.defInfo = Multiplayer.localDefInfos;
 
-            if (!ModManagement.CheckModConfigsMatch(Multiplayer.session.mods.remoteModConfigs)) {
-                Log.Message("MP: Mod Configs Mismatch, disconnecting");
-                connection.Close();
-                connection.State = ConnectionStateEnum.Disconnected;
-                Multiplayer.session.disconnectReason = MpDisconnectReason.Defs;
-                Multiplayer.session.Disconnected();
+            var modsMatch = ModManagement.ModsMatch(Multiplayer.session.mods.remoteModIds);
+            var modConfigsMatch = ModManagement.CheckModConfigsMatch(Multiplayer.session.mods.remoteModConfigs);
+            if (!modsMatch || !modConfigsMatch) {
+                if (!modConfigsMatch) {
+                    Log.Message($"MP Connect: client mod configs don't match server: {ModManagement.GetMismatchedModConfigs(Multiplayer.session.mods.remoteModConfigs).ToCommaList()}");
+                }
+                Find.WindowStack.windows.Clear();
+                Find.WindowStack.Add(new ModsMismatchWindow(
+                    Multiplayer.session.mods,
+                    SendClientDefs
+                ));
                 return;
             }
 
-            var response = new ByteWriter();
-            response.WriteInt32(defs.Count);
+            SendClientDefs();
+        }
 
-            foreach (var kv in defs)
+        public void SendClientDefs()
+        {
+            var response = new ByteWriter();
+            response.WriteInt32(Multiplayer.localDefInfos.Count);
+
+            foreach (var kv in Multiplayer.localDefInfos)
             {
                 response.WriteString(kv.Key);
                 response.WriteInt32(kv.Value.count);
