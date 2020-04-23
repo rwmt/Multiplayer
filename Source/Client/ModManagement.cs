@@ -52,40 +52,45 @@ namespace Multiplayer.Client
             return workshopModIds;
         }
 
+        public static bool ModsMatch(IEnumerable<string> remoteModIds) {
+            var localModIds = LoadedModManager.RunningModsListForReading.Select(m => m.PackageId).ToList();
+            var set = remoteModIds.ToHashSet();
+            set.SymmetricExceptWith(localModIds);
+            return !set.Any();
+        }
+
+        public static IEnumerable<string> GetNotInstalledMods(IEnumerable<string> remoteModIds) {
+            return remoteModIds.Except(ModLister.AllInstalledMods.Select(modInfo => modInfo.PackageId));
+        }
+
+        /// <exception cref="InvalidOperationException">Thrown if Steamworks fails (eg. when running non-steam)</exception>
         public static void DownloadWorkshopMods(ulong[] workshopModIds) {
             var missingWorkshopModIds = workshopModIds.Where(workshopModId
                 => ModLister.AllInstalledMods.All(modMetaData => modMetaData.GetPublishedFileId().m_PublishedFileId != workshopModId)
             ).ToList();
-            try {
-                var downloadInProgress = new List<PublishedFileId_t>();
-                foreach (var workshopModId in missingWorkshopModIds) {
-                    var publishedFileId = new PublishedFileId_t(workshopModId);
-                    var itemState = (EItemState) SteamUGC.GetItemState(publishedFileId);
-                    if (!itemState.HasFlag(EItemState.k_EItemStateInstalled | EItemState.k_EItemStateSubscribed)) {
-                        Log.Message($"Starting workshop download {publishedFileId}");
-                        SteamUGC.SubscribeItem(publishedFileId);
-                        downloadInProgress.Add(publishedFileId);
-                    }
-                }
 
-                // wait for all workshop downloads to complete
-                while (downloadInProgress.Count > 0) {
-                    var publishedFileId = downloadInProgress.First();
-                    var itemState = (EItemState) SteamUGC.GetItemState(publishedFileId);
-                    if (itemState.HasFlag(EItemState.k_EItemStateInstalled | EItemState.k_EItemStateSubscribed)) {
-                        downloadInProgress.RemoveAt(0);
-                    }
-                    else {
-                        Log.Message($"Waiting for workshop download {publishedFileId} status {itemState}");
-                        Thread.Sleep(200);
-                    }
+            var downloadInProgress = new List<PublishedFileId_t>();
+            foreach (var workshopModId in missingWorkshopModIds) {
+                var publishedFileId = new PublishedFileId_t(workshopModId);
+                var itemState = (EItemState) SteamUGC.GetItemState(publishedFileId);
+                if (!itemState.HasFlag(EItemState.k_EItemStateInstalled | EItemState.k_EItemStateSubscribed)) {
+                    Log.Message($"Starting workshop download {publishedFileId}");
+                    SteamUGC.SubscribeItem(publishedFileId);
+                    downloadInProgress.Add(publishedFileId);
                 }
             }
-            catch (InvalidOperationException e) {
-                foreach (var workshopModId in missingWorkshopModIds) {
-                    Log.Message($"Missing mod ID: ${workshopModId}");
+
+            // wait for all workshop downloads to complete
+            while (downloadInProgress.Count > 0) {
+                var publishedFileId = downloadInProgress.First();
+                var itemState = (EItemState) SteamUGC.GetItemState(publishedFileId);
+                if (itemState.HasFlag(EItemState.k_EItemStateInstalled | EItemState.k_EItemStateSubscribed)) {
+                    downloadInProgress.RemoveAt(0);
                 }
-                Log.Warning($"MP Workshop mod download error: {e.Message} - continuing with local mods only");
+                else {
+                    Log.Message($"Waiting for workshop download {publishedFileId} status {itemState}");
+                    Thread.Sleep(200);
+                }
             }
         }
 
@@ -164,12 +169,12 @@ namespace Multiplayer.Client
                 .First();
         }
 
-        public static bool CheckModConfigsMatch(Dictionary<string, string> hostFiles)
+        public static List<string> GetMismatchedModConfigs(Dictionary<string, string> hostFiles)
         {
+            var mismatchedFiles = new List<string>();
             if (MultiplayerMod.arbiterInstance) {
-                return true;
+                return mismatchedFiles;
             }
-
             foreach (var hostModEntry in hostFiles) {
                 var hostFileName = hostModEntry.Key;
                 var localFileName = Path.Combine(
@@ -177,16 +182,26 @@ namespace Multiplayer.Client
                     hostFileName.Replace('/', Path.DirectorySeparatorChar)
                 );
                 if (!File.Exists(localFileName)) {
-                    Log.Message($"MP Connect: client mod configs don't match server {hostFileName}");
-                    return false;
+                    mismatchedFiles.Add(hostFileName);
+                    continue;
                 }
 
                 var localFileContents = File.ReadAllText(localFileName);
                 if (hostModEntry.Value != localFileContents) {
-                    Log.Message($"MP Connect: client mod configs don't match server {hostFileName}");
-                    return false;
+                    mismatchedFiles.Add(hostFileName);
+                    continue;
                 }
             }
+
+            return mismatchedFiles;
+        }
+
+        public static bool CheckModConfigsMatch(Dictionary<string, string> hostFiles)
+        {
+            if (GetMismatchedModConfigs(hostFiles).Any()) {
+                return false;
+            }
+
             return true;
         }
 
@@ -212,6 +227,12 @@ namespace Multiplayer.Client
                    && file.Name != "LastSeenNews.xml"
                    && file.Name != "ColourPicker.xml"
                    && !file.Name.EndsWith("MultiplayerMod.xml") // contains username
+                   && !file.Name.EndsWith("TwitchToolkit.xml") // contains username
+                   && !file.Name.EndsWith("DubsMintMinimapMod.xml")
+                   && !file.Name.EndsWith("DubsMintMenusMod.xml")
+                   && !file.Name.EndsWith("CameraPlusMain.xml")
+                   && !file.Name.EndsWith("GraphicSetter.xml")
+                   && !file.Name.EndsWith("Moody.xml")
                    && !file.Name.EndsWith("ModManager.xml")
                    && !file.Name.EndsWith("ModSwitch.xml")
                    && file.Name.IndexOf("backup", StringComparison.OrdinalIgnoreCase) == -1
