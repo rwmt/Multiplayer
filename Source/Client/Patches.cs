@@ -1627,7 +1627,6 @@ namespace Multiplayer.Client
             // if a song is being played, lets notify the clients of the song
             ByteWriter data = new ByteWriter();
             data.WriteFloat(__instance.audioSource.time);
-            data.WriteInt32(__instance.lastStartedSong.clipPath.Length);
             data.WriteString(__instance.lastStartedSong.clipPath);
 
             MultiplayerServer.instance.SendCommand(CommandType.SongUpdate, ScheduledCommand.NoFaction, ScheduledCommand.Global, data.ToArray());

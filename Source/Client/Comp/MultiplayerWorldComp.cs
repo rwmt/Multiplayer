@@ -397,25 +397,18 @@ namespace Multiplayer.Client
         private void HandleSongUpdate(ScheduledCommand command, ByteReader data)
         {
             float time = data.ReadFloat();
-            int maxlen = data.ReadInt32();
+            string path = data.ReadString();
 
-            if (maxlen > 64)
+            SongDef requestedSong = DefDatabase<SongDef>.defsList.Find(song => song.clipPath.Equals(path)); 
+            if (requestedSong == null)
             {
-                Log.Error($"Song Path Len Exceeded Max: {maxlen}");
-                return;
-            }
-
-            string path = data.ReadString(maxlen);
-
-            IEnumerable<SongDef> source = from x in DefDatabase<SongDef>.defsList where x.clipPath.Equals(path) select x;
-            if (source.Count() != 1)
-            {
-                Log.Error($"Song Path Count is: {source.Count()} for song \"{path}\"");
+                Log.Error($"Could not find SongDef for song with path: \"{path}\"");
                 return;
             }
 
             Log.Message($"Playing received song \"{path}\" at time {time}");
-            Find.MusicManagerPlay.ForceStartSong(source.First(), false);
+            Find.MusicManagerPlay.MusicUpdate();
+            Find.MusicManagerPlay.ForceStartSong(requestedSong, false);
             Find.MusicManagerPlay.audioSource.time = time;
         }
 
