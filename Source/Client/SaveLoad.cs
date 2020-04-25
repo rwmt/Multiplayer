@@ -30,6 +30,8 @@ namespace Multiplayer.Client
             var mapCmds = new Dictionary<int, Queue<ScheduledCommand>>();
             var planetRenderMode = Find.World.renderer.wantedMode;
             var chatWindow = ChatWindow.Opened;
+            var oldSong = Find.MusicManagerPlay.lastStartedSong;
+            var oldSongTime = Find.MusicManagerPlay.audioSource?.time;
 
             var selectedData = new ByteWriter();
             Sync.WriteSync(selectedData, Find.Selector.selected.OfType<ISelectable>().ToList());
@@ -77,6 +79,15 @@ namespace Multiplayer.Client
 
             if (chatWindow != null)
                 Find.WindowStack.Add_KeepRect(chatWindow);
+
+            if (oldSong != null && oldSongTime != null) {
+                // resume previous music track
+                Find.MusicManagerPlay.MusicUpdate(); // seems to need to run for a tick after a reload to avoid null exceptions
+                Find.MusicManagerPlay.ForceStartSong(oldSong, false);
+                Find.MusicManagerPlay.songWasForced = false; // make it look like this song was chosen naturally, so the leadin to the next song is smooth
+                Find.MusicManagerPlay.recentSongs.Dequeue();
+                Find.MusicManagerPlay.audioSource.time = (float) oldSongTime;
+            }
 
             var selectedReader = new ByteReader(selectedData.ToArray()) { context = new MpContext() { map = Find.CurrentMap } };
             Find.Selector.selected = Sync.ReadSync<List<ISelectable>>(selectedReader).NotNull().Cast<object>().ToList();
