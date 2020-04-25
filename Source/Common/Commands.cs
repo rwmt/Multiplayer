@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 namespace Multiplayer.Common
 {
@@ -11,6 +11,7 @@ namespace Multiplayer.Common
         GlobalIdBlock,
         FactionOnline,
         FactionOffline,
+        SongUpdate,
 
         // Mixed scope
         Sync,

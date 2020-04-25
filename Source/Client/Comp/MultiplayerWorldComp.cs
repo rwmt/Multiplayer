@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
@@ -277,6 +277,15 @@ namespace Multiplayer.Client
                 {
                     LongEventHandler.QueueLongEvent(DoAutosave, "MpSaving", false, null);
                 }
+
+                if (cmdType == CommandType.SongUpdate)
+                {
+                    // Only clients should handle SongUpdate commands
+                    if (MultiplayerServer.instance == null)
+                    {
+                        HandleSongUpdate(cmd, data);
+                    }
+                }
             }
             catch (Exception e)
             {
@@ -383,6 +392,31 @@ namespace Multiplayer.Client
 
                 MpLog.Log($"New faction {faction.GetUniqueLoadID()}");
             }
+        }
+
+        private void HandleSongUpdate(ScheduledCommand command, ByteReader data)
+        {
+            float time = data.ReadFloat();
+            int maxlen = data.ReadInt32();
+
+            if (maxlen > 64)
+            {
+                Log.Error($"Song Path Len Exceeded Max: {maxlen}");
+                return;
+            }
+
+            string path = data.ReadString(maxlen);
+
+            IEnumerable<SongDef> source = from x in DefDatabase<SongDef>.defsList where x.clipPath.Equals(path) select x;
+            if (source.Count() != 1)
+            {
+                Log.Error($"Song Path Count is: {source.Count()} for song \"{path}\"");
+                return;
+            }
+
+            Log.Message($"Playing received song \"{path}\" at time {time}");
+            Find.MusicManagerPlay.ForceStartSong(source.First(), false);
+            Find.MusicManagerPlay.audioSource.time = time;
         }
 
         public void DirtyColonyTradeForMap(Map map)

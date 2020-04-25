@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
@@ -1592,4 +1592,48 @@ namespace Multiplayer.Client
 
         static int CombineHashes(int seed, Map map) => Gen.HashCombineInt(seed, map?.uniqueID ?? -1);
     }
+
+    [HarmonyPatch(typeof(MusicManagerPlay), nameof(MusicManagerPlay.StartNewSong))]
+    static class StartNewSongPatch
+    {
+        static bool should_update_song = false;
+
+        static bool Prefix(MusicManagerPlay __instance)
+        {
+            // If we aren't in a session, perform as always.
+            if (Multiplayer.session == null || Multiplayer.Client == null)
+            {
+                return true;
+            }
+
+            // If we are in a session but are not the host, only play forced songs.
+            if (MultiplayerServer.instance == null)
+            {
+                return __instance.forcedNextSong != null;
+            }
+
+            should_update_song = true;
+            return true;
+        }
+
+        static void Postfix(MusicManagerPlay __instance)
+        { 
+            if (!should_update_song)
+            {
+                return;
+            }
+
+            // We are now in a multiplayer session, and are the host.
+            // if a song is being played, lets notify the clients of the song
+            ByteWriter data = new ByteWriter();
+            data.WriteFloat(__instance.audioSource.time);
+            data.WriteInt32(__instance.lastStartedSong.clipPath.Length);
+            data.WriteString(__instance.lastStartedSong.clipPath);
+
+            MultiplayerServer.instance.SendCommand(CommandType.SongUpdate, ScheduledCommand.NoFaction, ScheduledCommand.Global, data.ToArray());
+
+            should_update_song = false;
+        }
+    }
+
 }
