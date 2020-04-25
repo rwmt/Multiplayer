@@ -244,6 +244,15 @@ namespace Multiplayer.Client
                 }, true
             },
             {
+                (ByteWriter data, CompAbilityEffect_WithDest compAbilityEffect) => {
+                    WriteSync(data, compAbilityEffect.parent);
+                },
+                (ByteReader data) => {
+                    var ability = ReadSync<Ability>(data);
+                    return ability.CompOfType<CompAbilityEffect_WithDest>();
+                }
+            },
+            {
                 (ByteWriter data, Verb_CastAbility verb) => {
                     if (verb.DirectOwner is Pawn pawn) {
                         WriteSync(data, VerbOwnerType.Pawn);
