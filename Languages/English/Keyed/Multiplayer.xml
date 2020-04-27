@@ -135,5 +135,6 @@
   
   <MpAggressiveTicking>Aggressive ticking</MpAggressiveTicking>
   <MpAggressiveTickingDesc>Always try to automatically catch up with the server at the cost of FPS.</MpAggressiveTickingDesc>
+  <MpMultiplayerCompatibility>MP Compatibility</MpMultiplayerCompatibility>
   
 </LanguageData>

@@ -309,10 +309,6 @@ namespace Multiplayer.Client
 
             if (serverSettings == null)
                 serverSettings = new ServerSettings();
-
-            if (Scribe.mode == LoadSaveMode.Saving && showModCompatibility && Multiplayer.modsCompatibility.Count == 0) {
-                ModManagement.UpdateModCompatibilityDb();
-            }
         }
     }
 }

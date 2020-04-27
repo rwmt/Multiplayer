@@ -66,7 +66,6 @@ namespace Multiplayer.Client
         public static HashSet<string> xmlMods = new HashSet<string>();
         public static List<ModHashes> enabledModAssemblyHashes = new List<ModHashes>();
         public static Dictionary<string, DefInfo> localDefInfos;
-        public static Dictionary<string, int> modsCompatibility = new Dictionary<string, int>();  // workshopID: compatNumber [0-4]
 
         static Multiplayer()
         {
@@ -149,9 +148,6 @@ namespace Multiplayer.Client
 
             if (MultiplayerMod.arbiterInstance) {
                 RuntimeHelpers.RunClassConstructor(typeof(Text).TypeHandle);
-            }
-            else {
-                ModManagement.UpdateModCompatibilityDb();
             }
         }
 
