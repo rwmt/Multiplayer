@@ -128,8 +128,10 @@ namespace Multiplayer.Client
                 tooltip = "4 = Everything works (XML-only mod)";
             }
 
-            if (Multiplayer.modsCompatibility.ContainsKey(mod.publishedFileIdInt.ToString())) {
-                var compat = Multiplayer.modsCompatibility[mod.publishedFileIdInt.ToString()];
+            ModCompatibility modCompatibility = ModCompatibilityManager.LookupByWorkshopId(mod.GetPublishedFileId())
+                                                ?? ModCompatibilityManager.LookupByName(mod.Name); // fallback to inaccurate Name for local/non-steam installs
+            if (modCompatibility != null) {
+                var compat = modCompatibility.status;
                 if (compat == 1) {
                     currentModCompat = $"<color=red>{compat}</color>";
                     tooltip = "1 = Does not work";
@@ -147,12 +149,16 @@ namespace Multiplayer.Client
                     currentModCompat = $"<color=grey>{compat}</color>";
                     tooltip = "0 = Unknown; please report findings to #mod-report in our Discord";
                 }
+
+                if (modCompatibility.notes != "") {
+                    tooltip += $"\n\n{modCompatibility.notes}";
+                }
             }
 
             if (tooltip != "") {
                 var tooltipRect = new Rect(rect);
                 tooltipRect.xMax = tooltipRect.xMin + 50f;
-                TooltipHandler.TipRegion(tooltipRect, new TipSignal($"Multiplayer Compatibility: {tooltip}", mod.GetHashCode() * 3312));
+                TooltipHandler.TipRegion(tooltipRect, new TipSignal($"{"MpMultiplayerCompatibility".Translate()}: {tooltip}", mod.GetHashCode() * 3312));
             }
         }
 
