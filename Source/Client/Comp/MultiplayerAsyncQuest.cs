@@ -1,92 +1,86 @@
 using HarmonyLib;
 using RimWorld;
 using RimWorld.Planet;
+using RimWorld.QuestGen;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Verse;
 
 namespace Multiplayer.Client.Comp
 {
-#if false
+
     [HarmonyPatch(typeof(Quest), nameof(Quest.TicksSinceAppeared), MethodType.Getter)]
-    static class SetTicksSinceAppearedForQuestsBasedOnMap
+    static class SetContextForQuestTicksSinceAppeared
     {
-        static bool Prefix(Quest __instance, ref int __result)
+        static void Prefix(Quest __instance, ref MapAsyncTimeComp __state)
         {
-            __result = MultiplayerAsyncQuest.SetAsyncTimeIfNotExistWorldTime(__instance, __instance.appearanceTick);
-            return true;
+            __state = MultiplayerAsyncQuest.GetAsyncTimeCompOrNullForQuest(__instance);
+            __state?.PreContext();
+        }
+
+        static void Postfix(MapAsyncTimeComp __state)
+        {
+            __state?.PostContext();
         }
     }
 
     [HarmonyPatch(typeof(Quest), nameof(Quest.TicksSinceAccepted), MethodType.Getter)]
-    static class SetTicksSinceAcceptedForQuestsBasedOnMap
+    static class SetContextForQuestTicksSinceAccepted
     {
-        static bool Prefix(Quest __instance, ref int __result)
+        static void Prefix(Quest __instance, ref MapAsyncTimeComp __state)
         {
-            if (__instance.acceptanceTick >= 0)
-            {
-                __result = MultiplayerAsyncQuest.SetAsyncTimeIfNotExistWorldTime(__instance, __instance.acceptanceTick);
-            }
-            else
-            {
-                __result = -1;
-            }
-            return true;
+            __state = MultiplayerAsyncQuest.GetAsyncTimeCompOrNullForQuest(__instance);
+            __state?.PreContext();
+        }
+
+        static void Postfix(MapAsyncTimeComp __state)
+        {
+            __state?.PostContext();
         }
     }
 
     [HarmonyPatch(typeof(Quest), nameof(Quest.TicksSinceCleanup), MethodType.Getter)]
-    static class SetTicksSinceCleanupForQuestsBasedOnMap
+    static class SetContextForQuestTicksSinceCleanup
     {
-        static bool Prefix(Quest __instance, ref int __result)
+        static void Prefix(Quest __instance, ref MapAsyncTimeComp __state)
         {
-            if (!__instance.cleanedUp)
-            {
-                __result = -1;
-                return true;
-            }
+            __state = MultiplayerAsyncQuest.GetAsyncTimeCompOrNullForQuest(__instance);
+            __state?.PreContext();
+        }
 
-            __result = MultiplayerAsyncQuest.SetAsyncTimeIfNotExistWorldTime(__instance, __instance.cleanupTick);
-            return true;
+        static void Postfix(MapAsyncTimeComp __state)
+        {
+            __state?.PostContext();
         }
     }
-
+#if false
     [HarmonyPatch(typeof(Quest), nameof(Quest.SetInitiallyAccepted))]
-    static class SetInitiallyAcceptedForQuestsBasedOnMap
+    static class SetContextForQuestSetInitiallyAccepted
     {
-        static bool Prefix(Quest __instance)
+        static void Prefix(Quest __instance, ref MapAsyncTimeComp __state)
         {
-            __instance.acceptanceTick = MultiplayerAsyncQuest.SetAsyncTimeIfNotExistWorldTime(__instance);
-            __instance.ticksUntilAcceptanceExpiry = -1;
-            __instance.initiallyAccepted = true;
-            return true;
+            __state = MultiplayerAsyncQuest.GetAsyncTimeCompOrNullForQuest(__instance);
+            __state?.PreContext();
+        }
+
+        static void Postfix(MapAsyncTimeComp __state)
+        {
+            __state?.PostContext();
         }
     }
 
     [HarmonyPatch(typeof(Quest), nameof(Quest.CleanupQuestParts))]
-    static class SetCleanupQuestPartsForQuestsBasedOnMap
+    static class SetContextForQusetCleanupQuestParts
     {
-        static bool Prefix(Quest __instance)
+        static void Prefix(Quest __instance, ref MapAsyncTimeComp __state)
         {
-            if (__instance.cleanedUp)
-            {
-                return true;
-            }
-            __instance.cleanupTick = MultiplayerAsyncQuest.SetAsyncTimeIfNotExistWorldTime(__instance);
-            for (int i = 0; i < __instance.parts.Count; i++)
-            {
-                try
-                {
-                    __instance.parts[i].Cleanup();
-                }
-                catch (Exception arg)
-                {
-                    Log.Error("Error in QuestPart cleanup: " + arg, false);
-                }
-            }
-            __instance.cleanedUp = true;
-            return true;
+            __state = MultiplayerAsyncQuest.GetAsyncTimeCompOrNullForQuest(__instance);
+            __state?.PreContext();
+        }
+
+        static void Postfix(MapAsyncTimeComp __state)
+        {
+            __state?.PostContext();
         }
     }
 #endif
@@ -113,75 +107,46 @@ namespace Multiplayer.Client.Comp
 
         public static Dictionary<Quest, MapAsyncTimeComp> QuestAsyncTime = new Dictionary<Quest, MapAsyncTimeComp>();
 
-        static bool Prefix(Quest __instance, Pawn by)
+        static void Prefix(Quest __instance, ref MapAsyncTimeComp __state)
         {
-            if (__instance.State != QuestState.NotYetAccepted)
-            {
-                return true;
-            }
+            //Make sure quest is accepted and async time is enabled and there are parts to this quest
+            if (__instance.State != QuestState.NotYetAccepted || !MultiplayerWorldComp.asyncTime || __instance.parts == null) return;
 
             //Have to cache this since its a lookup
             MapAsyncTimeComp mapAsyncTimeComp = null;
 
-            //Only attempt this if asyncTime is enabled
-            if (MultiplayerWorldComp.asyncTime)
+            //Really terrible way to determine if any quest parts have a map which also has an async time
+            foreach (var part in __instance.parts.Where(x => x != null && mapParentQuestPartTypes.Contains(x.GetType())))
             {
-                //Really terrible way to determine if a any quest parts have a map which also has an async time
-                if (__instance.parts != null)
+                if (part.GetType().GetField("mapParent")?.GetValue(part) is MapParent mapParent)
                 {
-                    foreach (var part in __instance.parts.Where(x => mapParentQuestPartTypes.Contains(x.GetType())))
-                    {
-                        var mapParent = part.GetType().GetField("mapParent").GetValue(part) as MapParent;
-                        if (mapParent != null)
-                        {
-                            mapAsyncTimeComp = GetAsyncTimeFromMapParent(mapParent);
-                            if (mapAsyncTimeComp != null) break;
-                        }
-                    }
+                    mapAsyncTimeComp = GetAsyncTimeFromMapParent(mapParent);
+                    if (mapAsyncTimeComp != null) break;
                 }
             }
 
-            //Doesn't have a targetted map so using world time
-            if (mapAsyncTimeComp == null)
-            {
-                Log.Message($"Could Not Find AsyncTimeMap!", true);
-                __instance.acceptanceTick = Find.TickManager.TicksGame;
-            }
             //Does have a targetted map so using that maps AsyncTime
-            else
+            if (mapAsyncTimeComp != null)
             {
+                mapAsyncTimeComp.PreContext();
                 QuestAsyncTime[__instance] = mapAsyncTimeComp;
-                __instance.acceptanceTick = mapAsyncTimeComp.mapTicks;
+                __state = mapAsyncTimeComp;
             }
-
-            __instance.accepterPawn = by;
-            __instance.dismissed = false;
-            __instance.Initiate();
-            return true;
         }
+
+        static void Postfix(MapAsyncTimeComp __state) => __state?.PostContext();
 
         public static MapAsyncTimeComp GetAsyncTimeFromMapParent(MapParent mapParent)
-        {
-            if (!mapParent.Map.IsPlayerHome) return null;
-            var mapAsyncTimeComp = mapParent.Map.AsyncTime();
-            if (mapAsyncTimeComp != null) Log.Message($"Found AsyncTimeMap - Name: {mapParent.Label}", true);
-            return mapAsyncTimeComp;
-        }
+            => mapParent.Map.IsPlayerHome ? mapParent.Map.AsyncTime() : null;
     }
 
     public static class MultiplayerAsyncQuest
     {
-        public static int SetAsyncTimeIfNotExistWorldTime(Quest quest, int tick = 0)
+        public static MapAsyncTimeComp GetAsyncTimeCompOrNullForQuest(Quest quest)
         {
-            if (MultiplayerWorldComp.asyncTime && SetTicksForQuestsBasedOnMap.QuestAsyncTime.TryGetValue(quest, out var mapAsyncTimeComp))
-            {
-                return mapAsyncTimeComp.mapTicks - tick;
-            }
-            //Uses world time if it can't find async time for this quest
-            else
-            {
-                return Find.TickManager.TicksGame - tick;
-            }
+            if (!MultiplayerWorldComp.asyncTime || quest == null) return null;
+            SetTicksForQuestsBasedOnMap.QuestAsyncTime.TryGetValue(quest, out var mapAsyncTimeComp);
+            return mapAsyncTimeComp;
         }
     }
 }
