@@ -15,6 +15,8 @@ namespace Multiplayer.Client.Comp
     {
         static void Postfix(ref Quest __result)
         {
+            if (!MultiplayerWorldComp.asyncTime) return;
+
             MultiplayerAsyncQuest.CacheQuest(__result);
         }
     }
@@ -25,6 +27,8 @@ namespace Multiplayer.Client.Comp
     {
         static bool Prefix()
         {
+            if (!MultiplayerWorldComp.asyncTime) return true;
+
             //Only tick world quest during world time
             foreach (var quest in MultiplayerAsyncQuest.WorldQuests)
             {
@@ -41,6 +45,8 @@ namespace Multiplayer.Client.Comp
     {
         static void Postfix()
         {
+            if (!MultiplayerWorldComp.asyncTime) return;
+
             foreach (var quest in Find.QuestManager.QuestsListForReading)
             {
                 MultiplayerAsyncQuest.CacheQuest(quest);
@@ -53,6 +59,8 @@ namespace Multiplayer.Client.Comp
     {
         static void Prefix(Quest __instance, ref MapAsyncTimeComp __state)
         {
+            if (!MultiplayerWorldComp.asyncTime) return;
+
             __state = MultiplayerAsyncQuest.GetCachedMapAsyncTimeCompForQuest(__instance);
             __state?.PreContext();
         }
@@ -68,6 +76,8 @@ namespace Multiplayer.Client.Comp
     {
         static void Prefix(Quest __instance, ref MapAsyncTimeComp __state)
         {
+            if (!MultiplayerWorldComp.asyncTime) return;
+
             __state = MultiplayerAsyncQuest.GetCachedMapAsyncTimeCompForQuest(__instance);
             __state?.PreContext();
         }
@@ -83,6 +93,8 @@ namespace Multiplayer.Client.Comp
     {
         static void Prefix(Quest __instance, ref MapAsyncTimeComp __state)
         {
+            if (!MultiplayerWorldComp.asyncTime) return;
+
             __state = MultiplayerAsyncQuest.GetCachedMapAsyncTimeCompForQuest(__instance);
             __state?.PreContext();
         }
@@ -98,6 +110,8 @@ namespace Multiplayer.Client.Comp
     {
         static void Prefix(Quest __instance, ref MapAsyncTimeComp __state)
         {
+            if (!MultiplayerWorldComp.asyncTime) return;
+
             __state = MultiplayerAsyncQuest.GetCachedMapAsyncTimeCompForQuest(__instance);
             __state?.PreContext();
         }
@@ -113,6 +127,8 @@ namespace Multiplayer.Client.Comp
     {
         static void Prefix(Quest __instance, ref MapAsyncTimeComp __state)
         {
+            if (!MultiplayerWorldComp.asyncTime) return;
+
             __state = MultiplayerAsyncQuest.GetCachedMapAsyncTimeCompForQuest(__instance);
             __state?.PreContext();
         }
