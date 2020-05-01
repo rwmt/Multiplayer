@@ -10,6 +10,21 @@ using Verse;
 
 namespace Multiplayer.Client.Comp
 {
+    [HarmonyPatch(typeof(SettlementAbandonUtility), nameof(SettlementAbandonUtility.Abandon))]
+    static class RemoveMapCacheOnAbandon
+    {
+        static void Prefix(MapParent mapParent)
+        {
+            if (!MultiplayerWorldComp.asyncTime) return;
+
+            var mapAsyncTimeComp = mapParent.Map.AsyncTime();
+            if (mapAsyncTimeComp != null)
+            {
+                MultiplayerAsyncQuest.RemoveCachedMap(mapAsyncTimeComp);
+            }
+        }
+    }
+
     [HarmonyPatch(typeof(QuestGen), nameof(QuestGen.Generate))]
     static class CacheQuestAfterGeneration
     {
@@ -30,15 +45,12 @@ namespace Multiplayer.Client.Comp
             if (!MultiplayerWorldComp.asyncTime) return true;
 
             //Only tick world quest during world time
-            foreach (var quest in MultiplayerAsyncQuest.WorldQuests)
-            {
-                quest.QuestTick();
-            }
+            MultiplayerAsyncQuest.TickWorldQuests();
             return false;
         }
     }
 
-    //Cache all quests on game load
+    //Clear Cache then Cache all quests on game load
     [HarmonyPatch(typeof(Game), nameof(Game.FinalizeInit))]
     [HarmonyPriority(Priority.Last)]
     static class SetupAsyncTimeLookupForQuests
@@ -46,6 +58,8 @@ namespace Multiplayer.Client.Comp
         static void Postfix()
         {
             if (!MultiplayerWorldComp.asyncTime) return;
+
+            MultiplayerAsyncQuest.Reset();
 
             foreach (var quest in Find.QuestManager.QuestsListForReading)
             {
@@ -61,7 +75,7 @@ namespace Multiplayer.Client.Comp
         {
             if (!MultiplayerWorldComp.asyncTime) return;
 
-            __state = MultiplayerAsyncQuest.GetCachedMapAsyncTimeCompForQuest(__instance);
+            __state = MultiplayerAsyncQuest.TryGetCachedQuestMap(__instance);
             __state?.PreContext();
         }
 
@@ -78,7 +92,7 @@ namespace Multiplayer.Client.Comp
         {
             if (!MultiplayerWorldComp.asyncTime) return;
 
-            __state = MultiplayerAsyncQuest.GetCachedMapAsyncTimeCompForQuest(__instance);
+            __state = MultiplayerAsyncQuest.TryGetCachedQuestMap(__instance);
             __state?.PreContext();
         }
 
@@ -95,7 +109,7 @@ namespace Multiplayer.Client.Comp
         {
             if (!MultiplayerWorldComp.asyncTime) return;
 
-            __state = MultiplayerAsyncQuest.GetCachedMapAsyncTimeCompForQuest(__instance);
+            __state = MultiplayerAsyncQuest.TryGetCachedQuestMap(__instance);
             __state?.PreContext();
         }
 
@@ -112,7 +126,7 @@ namespace Multiplayer.Client.Comp
         {
             if (!MultiplayerWorldComp.asyncTime) return;
 
-            __state = MultiplayerAsyncQuest.GetCachedMapAsyncTimeCompForQuest(__instance);
+            __state = MultiplayerAsyncQuest.TryGetCachedQuestMap(__instance);
             __state?.PreContext();
         }
 
@@ -123,13 +137,13 @@ namespace Multiplayer.Client.Comp
     }
 
     [HarmonyPatch(typeof(Quest), nameof(Quest.CleanupQuestParts))]
-    static class SetContextForQusetCleanupQuestParts
+    static class SetContextForQuestCleanupQuestParts
     {
         static void Prefix(Quest __instance, ref MapAsyncTimeComp __state)
         {
             if (!MultiplayerWorldComp.asyncTime) return;
 
-            __state = MultiplayerAsyncQuest.GetCachedMapAsyncTimeCompForQuest(__instance);
+            __state = MultiplayerAsyncQuest.TryGetCachedQuestMap(__instance);
             __state?.PreContext();
         }
 
@@ -140,7 +154,7 @@ namespace Multiplayer.Client.Comp
     }
 
     [HarmonyPatch(typeof(Quest), nameof(Quest.Accept))]
-    public static class SetTicksForQuestsBasedOnMap
+    public static class SetContextForAccept
     {
         static void Prefix(Quest __instance, ref MapAsyncTimeComp __state)
         {
@@ -156,12 +170,11 @@ namespace Multiplayer.Client.Comp
 
     public static class MultiplayerAsyncQuest
     {
-        //Should probably move this to its own class so its not a dictionary of lists.
-        public static Dictionary<MapAsyncTimeComp, List<Quest>> QuestMapAsyncTimeCompsCache = new Dictionary<MapAsyncTimeComp, List<Quest>>();
-        public static List<Quest> WorldQuests = new List<Quest>();
+        private static readonly Dictionary<MapAsyncTimeComp, List<Quest>> mapQuestsCache = new Dictionary<MapAsyncTimeComp, List<Quest>>();
+        private static readonly List<Quest> worldQuestsCache = new List<Quest>();
 
         //List of quest parts that have mapParent as field
-        public static List<Type> mapParentQuestPartTypes = new List<Type>()
+        private static readonly List<Type> questPartsToCheck = new List<Type>()
         {
             typeof(QuestPart_DropPods),
             typeof(QuestPart_SpawnThing),
@@ -179,10 +192,22 @@ namespace Multiplayer.Client.Comp
             typeof(QuestPart_PawnsAvailable)
         };
 
-        public static MapAsyncTimeComp GetCachedMapAsyncTimeCompForQuest(Quest quest)
+        public static void RemoveCachedMap(MapAsyncTimeComp mapAsyncTimeComp)
+        {
+            mapQuestsCache.Remove(mapAsyncTimeComp);
+        }
+
+        public static List<Quest> TryGetQuestsForMap(MapAsyncTimeComp mapAsyncTimeComp)
+        {
+            if (!MultiplayerWorldComp.asyncTime || mapAsyncTimeComp == null) return null;
+            mapQuestsCache.TryGetValue(mapAsyncTimeComp, out var quests);
+            return quests;
+        }
+
+        public static MapAsyncTimeComp TryGetCachedQuestMap(Quest quest)
         {
             if (!MultiplayerWorldComp.asyncTime || quest == null) return null;
-            return QuestMapAsyncTimeCompsCache.FirstOrDefault(x => x.Value.Contains(quest)).Key;
+            return mapQuestsCache.FirstOrDefault(x => x.Value.Contains(quest)).Key;
         }
 
         public static MapAsyncTimeComp CacheQuest(Quest quest)
@@ -190,19 +215,19 @@ namespace Multiplayer.Client.Comp
             if (!MultiplayerWorldComp.asyncTime || quest == null) return null;
 
             //Check if quest targets players map
-            var mapAsyncTimeComp = GetMapAsyncTimeCompForQuest(quest);
+            var mapAsyncTimeComp = TryGetQuestMap(quest);
 
             //if it does add it to the cache for that map
             if (mapAsyncTimeComp != null)
             {
-                AddOrInsertNewQuestMapAsyncTimeComp(mapAsyncTimeComp, quest);
+                UpsertQuestMap(mapAsyncTimeComp, quest);
                 if (MpVersion.IsDebug)
                     Log.Message($"Info: Found AsyncTimeMap: '{mapAsyncTimeComp.map.Parent.Label}' for Quest: '{quest.name}'");
             }
             //if it doesn't add it to the world quest list
             else
             {
-                WorldQuests.Add(quest);
+                worldQuestsCache.Add(quest);
                 if (MpVersion.IsDebug)
                     Log.Message($"Info: Could not find AsyncTimeMap for Quest: '{quest.name}'");
             }
@@ -210,10 +235,36 @@ namespace Multiplayer.Client.Comp
             return mapAsyncTimeComp;
         }
 
-        private static MapAsyncTimeComp GetMapAsyncTimeCompForQuest(Quest quest)
+        //Clears all cached quest as this class is static
+        public static void Reset()
+        {
+            mapQuestsCache.Clear();
+            worldQuestsCache.Clear();
+        }
+
+        public static void TickWorldQuests()
+        {
+            foreach (var quest in worldQuestsCache)
+            {
+                quest.QuestTick();
+            }
+        }
+
+        public static void TickMapQuests(MapAsyncTimeComp mapAsyncTimeComp)
+        {
+            if (mapQuestsCache.TryGetValue(mapAsyncTimeComp, out var quests))
+            {
+                foreach (var quest in quests)
+                {
+                    quest.QuestTick();
+                }
+            }
+        }
+
+        private static MapAsyncTimeComp TryGetQuestMap(Quest quest)
         {
             //Really terrible way to determine if any quest parts have a map which also has an async time
-            foreach (var part in quest.parts.Where(x => x != null && mapParentQuestPartTypes.Contains(x.GetType())))
+            foreach (var part in quest.parts.Where(x => x != null && questPartsToCheck.Contains(x.GetType())))
             {
                 if (part.GetType().GetField("mapParent")?.GetValue(part) is MapParent mapParent)
                 {
@@ -225,15 +276,18 @@ namespace Multiplayer.Client.Comp
             return null;
         }
 
-        private static void AddOrInsertNewQuestMapAsyncTimeComp(MapAsyncTimeComp mapAsyncTimeComp, Quest quest)
+        private static void UpsertQuestMap(MapAsyncTimeComp mapAsyncTimeComp, Quest quest)
         {
-            if (QuestMapAsyncTimeCompsCache.TryGetValue(mapAsyncTimeComp, out var quests))
+            if (mapQuestsCache.TryGetValue(mapAsyncTimeComp, out var quests))
             {
-                quests.Add(quest);
+                if (!quests.Contains(quest))
+                {
+                    quests.Add(quest);
+                }
             }
             else
             {
-                QuestMapAsyncTimeCompsCache[mapAsyncTimeComp] = new List<Quest> { quest };
+                mapQuestsCache[mapAsyncTimeComp] = new List<Quest> { quest };
             }
         }
     }

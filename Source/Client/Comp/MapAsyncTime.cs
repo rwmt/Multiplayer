@@ -977,13 +977,8 @@ namespace Multiplayer.Client
         public void QuestManagerTickAsyncTime()
         {
             if (!MultiplayerWorldComp.asyncTime || Paused) return;
-            if (MultiplayerAsyncQuest.QuestMapAsyncTimeCompsCache.TryGetValue(this, out var quests))
-            {
-                foreach (var quest in quests)
-                {
-                    quest.QuestTick();
-                }
-            }
+
+            MultiplayerAsyncQuest.TickMapQuests(this);
         }
     }
 
