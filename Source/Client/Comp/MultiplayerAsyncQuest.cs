@@ -143,8 +143,9 @@ namespace Multiplayer.Client.Comp
             if (mapQuestsCache.TryGetValue(mapAsyncTimeComp, out var quests))
             {
                 worldQuestsCache.AddRange(quests);
-                return true;
+                return mapQuestsCache.Remove(mapAsyncTimeComp);
             }
+
             return false;
         }
 
