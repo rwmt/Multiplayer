@@ -165,10 +165,12 @@ namespace Multiplayer.Client
         {
             Find.WindowStack.windows.Clear();
 
-            if (disconnectReason != MpDisconnectReason.Defs)
-                Find.WindowStack.Add(new DisconnectedWindow(disconnectReasonKey, disconnectInfo) { returnToServerBrowser = Multiplayer.Client.State != ConnectionStateEnum.ClientPlaying });
-            else
+            if (disconnectReason == MpDisconnectReason.Defs) {
                 Find.WindowStack.Add(new DefMismatchWindow(mods));
+            }
+            else {
+                Find.WindowStack.Add(new DisconnectedWindow(disconnectReasonKey, disconnectInfo) {returnToServerBrowser = Multiplayer.Client.State != ConnectionStateEnum.ClientPlaying});
+            }
         }
 
         public void ReapplyPrefs()
@@ -183,6 +185,7 @@ namespace Multiplayer.Client
         public string[] remoteModNames;
         public string[] remoteModIds;
         public ulong[] remoteWorkshopModIds;
+        public Dictionary<string, string> remoteModConfigs;
         public Dictionary<string, DefInfo> defInfo;
         public string remoteAddress;
         public int remotePort;

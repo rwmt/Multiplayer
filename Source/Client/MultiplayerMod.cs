@@ -143,6 +143,7 @@ namespace Multiplayer.Client
             listing.CheckboxLabeled("MpAutoAcceptSteam".Translate(), ref settings.autoAcceptSteam, "MpAutoAcceptSteamDesc".Translate());
             listing.CheckboxLabeled("MpTransparentChat".Translate(), ref settings.transparentChat);
             listing.CheckboxLabeled("MpAggressiveTicking".Translate(), ref settings.aggressiveTicking, "MpAggressiveTickingDesc".Translate());
+            listing.CheckboxLabeled("MpSyncModConfigs".Translate(), ref settings.syncModConfigs, "MpSyncModConfigsDesc".Translate());
 
             var appendNameToAutosaveLabel = $"{"MpAppendNameToAutosave".Translate()}:  ";
             var appendNameToAutosaveLabelWidth = Text.CalcSize(appendNameToAutosaveLabel).x;
@@ -285,6 +286,7 @@ namespace Multiplayer.Client
         public bool transparentChat;
         public int autosaveSlots = 5;
         public bool aggressiveTicking = true;
+        public bool syncModConfigs = true;
         public bool showDevInfo;
         public string serverAddress = "127.0.0.1";
         public bool appendNameToAutosave;
@@ -300,6 +302,7 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref transparentChat, "transparentChat");
             Scribe_Values.Look(ref autosaveSlots, "autosaveSlots", 5);
             Scribe_Values.Look(ref aggressiveTicking, "aggressiveTicking", true);
+            Scribe_Values.Look(ref syncModConfigs, "syncModConfigs", true);
             Scribe_Values.Look(ref showDevInfo, "showDevInfo");
             Scribe_Values.Look(ref serverAddress, "serverAddress", "127.0.0.1");
             Scribe_Values.Look(ref pauseAutosaveCounter, "pauseAutosaveCounter", true);

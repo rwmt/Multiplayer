@@ -11,6 +11,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Xml;
+using RestSharp;
 using UnityEngine;
 using Verse;
 using Verse.Profile;
@@ -29,6 +30,7 @@ namespace Multiplayer.Client
         }
 
         [PacketHandler(Packets.Server_ModList)]
+        [IsFragmented]
         public void HandleModList(ByteReader data)
         {
             Multiplayer.session.mods.remoteRwVersion = data.ReadString();
@@ -36,20 +38,34 @@ namespace Multiplayer.Client
             Multiplayer.session.mods.remoteModIds = data.ReadPrefixedStrings();
             Multiplayer.session.mods.remoteWorkshopModIds = data.ReadPrefixedULongs();
 
-            var defs = Multiplayer.localDefInfos;
-            Multiplayer.session.mods.defInfo = defs;
+            var modConfigsCompressed = data.ReadPrefixedBytes();
+            Multiplayer.session.mods.remoteModConfigs = SimpleJson.DeserializeObject<Dictionary<string, string>>(GZipStream.UncompressString(modConfigsCompressed));
 
-            var endPoint = Multiplayer.session?.netClient?.FirstPeer?.EndPoint;
-            if (endPoint?.Address != null) {
-                // todo: why is this sometimes null? It means the "auto reconnect after changing mods" won't work
-                Multiplayer.session.mods.remoteAddress = endPoint.Address.ToString();
-                Multiplayer.session.mods.remotePort = endPoint.Port;
+            Multiplayer.session.mods.defInfo = Multiplayer.localDefInfos;
+
+            var modsMatch = ModManagement.ModsMatch(Multiplayer.session.mods.remoteModIds);
+            var modConfigsMatch = ModManagement.CheckModConfigsMatch(Multiplayer.session.mods.remoteModConfigs);
+            if (!modsMatch || !modConfigsMatch) {
+                if (!modConfigsMatch) {
+                    Log.Message($"MP Connect: client mod configs don't match server: {ModManagement.GetMismatchedModConfigs(Multiplayer.session.mods.remoteModConfigs).ToCommaList()}");
+                }
+                Find.WindowStack.windows.Clear();
+                Find.WindowStack.Add(new ModsMismatchWindow(
+                    Multiplayer.session.mods,
+                    SendClientDefs
+                ));
+                return;
             }
 
-            var response = new ByteWriter();
-            response.WriteInt32(defs.Count);
+            SendClientDefs();
+        }
 
-            foreach (var kv in defs)
+        public void SendClientDefs()
+        {
+            var response = new ByteWriter();
+            response.WriteInt32(Multiplayer.localDefInfos.Count);
+
+            foreach (var kv in Multiplayer.localDefInfos)
             {
                 response.WriteString(kv.Key);
                 response.WriteInt32(kv.Value.count);
