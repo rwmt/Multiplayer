@@ -6,10 +6,12 @@ using RimWorld.QuestGen;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using Verse;
 
 namespace Multiplayer.Client.Comp
 {
+
     [HarmonyPatch(typeof(SettlementAbandonUtility), nameof(SettlementAbandonUtility.Abandon))]
     static class RemoveMapCacheOnAbandon
     {
@@ -68,77 +70,18 @@ namespace Multiplayer.Client.Comp
         }
     }
 
-    [HarmonyPatch(typeof(Quest), nameof(Quest.TicksSinceAppeared), MethodType.Getter)]
-    static class SetContextForQuestTicksSinceAppeared
+    [HarmonyPatch]
+    static class SetContextForQuest
     {
-        static void Prefix(Quest __instance, ref MapAsyncTimeComp __state)
+        static IEnumerable<MethodInfo> TargetMethod()
         {
-            if (!MultiplayerWorldComp.asyncTime) return;
-
-            __state = MultiplayerAsyncQuest.TryGetCachedQuestMap(__instance);
-            __state?.PreContext();
+            yield return AccessTools.Method(typeof(Quest), nameof(Quest.TicksSinceAppeared));
+            yield return AccessTools.Method(typeof(Quest), nameof(Quest.TicksSinceAccepted));
+            yield return AccessTools.Method(typeof(Quest), nameof(Quest.TicksSinceCleanup));
+            yield return AccessTools.Method(typeof(Quest), nameof(Quest.SetInitiallyAccepted));
+            yield return AccessTools.Method(typeof(Quest), nameof(Quest.CleanupQuestParts));
         }
 
-        static void Postfix(MapAsyncTimeComp __state)
-        {
-            __state?.PostContext();
-        }
-    }
-
-    [HarmonyPatch(typeof(Quest), nameof(Quest.TicksSinceAccepted), MethodType.Getter)]
-    static class SetContextForQuestTicksSinceAccepted
-    {
-        static void Prefix(Quest __instance, ref MapAsyncTimeComp __state)
-        {
-            if (!MultiplayerWorldComp.asyncTime) return;
-
-            __state = MultiplayerAsyncQuest.TryGetCachedQuestMap(__instance);
-            __state?.PreContext();
-        }
-
-        static void Postfix(MapAsyncTimeComp __state)
-        {
-            __state?.PostContext();
-        }
-    }
-
-    [HarmonyPatch(typeof(Quest), nameof(Quest.TicksSinceCleanup), MethodType.Getter)]
-    static class SetContextForQuestTicksSinceCleanup
-    {
-        static void Prefix(Quest __instance, ref MapAsyncTimeComp __state)
-        {
-            if (!MultiplayerWorldComp.asyncTime) return;
-
-            __state = MultiplayerAsyncQuest.TryGetCachedQuestMap(__instance);
-            __state?.PreContext();
-        }
-
-        static void Postfix(MapAsyncTimeComp __state)
-        {
-            __state?.PostContext();
-        }
-    }
-
-    [HarmonyPatch(typeof(Quest), nameof(Quest.SetInitiallyAccepted))]
-    static class SetContextForQuestSetInitiallyAccepted
-    {
-        static void Prefix(Quest __instance, ref MapAsyncTimeComp __state)
-        {
-            if (!MultiplayerWorldComp.asyncTime) return;
-
-            __state = MultiplayerAsyncQuest.TryGetCachedQuestMap(__instance);
-            __state?.PreContext();
-        }
-
-        static void Postfix(MapAsyncTimeComp __state)
-        {
-            __state?.PostContext();
-        }
-    }
-
-    [HarmonyPatch(typeof(Quest), nameof(Quest.CleanupQuestParts))]
-    static class SetContextForQuestCleanupQuestParts
-    {
         static void Prefix(Quest __instance, ref MapAsyncTimeComp __state)
         {
             if (!MultiplayerWorldComp.asyncTime) return;
