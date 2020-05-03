@@ -15,10 +15,16 @@
 
   <MpWrongDefs>Mods stimmen nicht überein</MpWrongDefs>
   <MpWrongDefsInfo>Stelle sicher, dass die installierten Mods, deren Versionen und die Reihenfolge mit den Mods des Hosts übereinstimmen.</MpWrongDefsInfo>
+  <MpWrongModConfigs>Mod-Konfigurationen stimmen nicht überein</MpWrongModConfigs>
+  <MpWrongModConfigsInfo>Deine Mod-Konfigurationen stimmen nicht mit denen vom Host überein. Synchronisiere sie, um die Stabilität zu verbessern.</MpWrongModConfigsInfo>
   <MpModList>Mod-Liste</MpModList>
-  <MpSyncModList>Mod-Liste automatisch synchronisieren</MpSyncModList>
+  <MpSyncModsAndConfigs>Mods &amp; Konfigurationen synchronisieren</MpSyncModsAndConfigs>
+  <MpSyncMods>Mods synchronisieren</MpSyncMods>
+  <MpSyncModConfigs>Mod-Konfigurationen synchronisieren</MpSyncModConfigs>
+  <MpSyncModConfigsDesc>Erzwingt, dass Clients dieselben Mod-Konfigurationen herunterladen wie der Host (reduziert Desynchronisierungen)</MpSyncModConfigsDesc>
   <MpSeeModList>Mod-Liste anzeigen</MpSeeModList>
   <MpDownloadingWorkshopMods>Workshop-Mods herunterladen</MpDownloadingWorkshopMods>
+  <MpRestoreLastConfigs>Letzte Konfigurationen wiederherstellen</MpRestoreLastConfigs>
   
   <MpServerClosed>Server geschlossen</MpServerClosed>
   <MpServerFull>Server ist voll</MpServerFull>
