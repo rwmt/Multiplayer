@@ -275,7 +275,7 @@ namespace Multiplayer.Client
 
                 if (cmdType == CommandType.Autosave)
                 {
-                    LongEventHandler.QueueLongEvent(DoAutosave, "MpSaving", false, null);
+                    LongEventHandler.QueueLongEvent(() => DoAutosave(data.ReadString()), "MpSaving", false, null);
                 }
             }
             catch (Exception e)
@@ -295,9 +295,9 @@ namespace Multiplayer.Client
             }
         }
 
-        private static void DoAutosave()
+        private static void DoAutosave(string saveName="")
         {
-            var autosaveFile = AutosaveFile();
+            var autosaveFile = saveName != "" ? saveName : AutosaveFile();
             var written = false;
 
             if (Multiplayer.LocalServer != null && !TickPatch.Skipping && !Multiplayer.IsReplay)
