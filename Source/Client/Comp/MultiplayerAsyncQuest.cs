@@ -15,11 +15,11 @@ namespace Multiplayer.Client.Comp
     [HarmonyPatch(typeof(SettlementAbandonUtility), nameof(SettlementAbandonUtility.Abandon))]
     static class RemoveMapCacheOnAbandon
     {
-        static void Prefix(MapParent mapParent)
+        static void Prefix(MapParent settlement)
         {
             if (!MultiplayerWorldComp.asyncTime) return;
 
-            var mapAsyncTimeComp = mapParent.Map.AsyncTime();
+            var mapAsyncTimeComp = settlement.Map.AsyncTime();
             if (mapAsyncTimeComp != null)
             {
                 MultiplayerAsyncQuest.TryRemoveCachedMap(mapAsyncTimeComp);
