@@ -73,11 +73,11 @@ namespace Multiplayer.Client.Comp
     [HarmonyPatch]
     static class SetContextForQuest
     {
-        static IEnumerable<MethodInfo> TargetMethod()
+        static IEnumerable<MethodInfo> TargetMethods()
         {
-            yield return AccessTools.Method(typeof(Quest), nameof(Quest.TicksSinceAppeared));
-            yield return AccessTools.Method(typeof(Quest), nameof(Quest.TicksSinceAccepted));
-            yield return AccessTools.Method(typeof(Quest), nameof(Quest.TicksSinceCleanup));
+            yield return AccessTools.Method(typeof(Quest), "get_" + nameof(Quest.TicksSinceAppeared));
+            yield return AccessTools.Method(typeof(Quest), "get_" + nameof(Quest.TicksSinceAccepted));
+            yield return AccessTools.Method(typeof(Quest), "get_" + nameof(Quest.TicksSinceCleanup));
             yield return AccessTools.Method(typeof(Quest), nameof(Quest.SetInitiallyAccepted));
             yield return AccessTools.Method(typeof(Quest), nameof(Quest.CleanupQuestParts));
         }
