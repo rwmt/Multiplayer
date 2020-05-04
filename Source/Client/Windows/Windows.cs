@@ -228,7 +228,9 @@ namespace Multiplayer.Client
 
     public class Dialog_SaveReplay : MpTextInput
     {
+        public override Vector2 InitialSize => new Vector2(350f, 205f);
         private bool fileExists;
+        private bool fullSave; // triggers an Autosave
 
         public Dialog_SaveReplay()
         {
@@ -242,8 +244,13 @@ namespace Multiplayer.Client
 
             try
             {
-                new FileInfo(Path.Combine(Multiplayer.ReplaysDir, $"{curName}.zip")).Delete();
-                Replay.ForSaving(curName).WriteCurrentData();
+                if (Multiplayer.LocalServer != null && fullSave) {
+                    Multiplayer.LocalServer.DoAutosave(curName);
+                } else {
+                    new FileInfo(Path.Combine(Multiplayer.ReplaysDir, $"{curName}.zip")).Delete();
+                    Replay.ForSaving(curName).WriteCurrentData();
+                }
+
                 Close();
                 Messages.Message("MpReplaySaved".Translate(), MessageTypeDefOf.SilentInput, false);
             }
@@ -262,6 +269,17 @@ namespace Multiplayer.Client
 
             fileExists = new FileInfo(Path.Combine(Multiplayer.ReplaysDir, $"{curName}.zip")).Exists;
             return true;
+        }
+
+        public override void DoWindowContents(Rect inRect)
+        {
+            base.DoWindowContents(inRect);
+
+            var entry = new Rect(0f, 95f, 120f, 30f);
+            if (Multiplayer.LocalServer != null) {
+                TooltipHandler.TipRegion(entry, "MpFullSaveDesc".Translate());
+                HostWindow.CheckboxLabeled(entry, "MpFullSave".Translate(), ref fullSave, placeTextNearCheckbox: true);
+            }
         }
 
         public override void DrawExtra(Rect inRect)

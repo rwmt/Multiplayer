@@ -206,7 +206,7 @@ namespace Multiplayer.Common
             SendToAll(Packets.Server_PlayerList, writer.ToArray());
         }
 
-        public bool DoAutosave()
+        public bool DoAutosave(string saveName = "")
         {
             if (tmpMapCmds != null)
                 return false;
@@ -214,7 +214,9 @@ namespace Multiplayer.Common
             if (settings.pauseOnAutosave)
                 SendCommand(CommandType.WorldTimeSpeed, ScheduledCommand.NoFaction, ScheduledCommand.Global, new byte[] { (byte)Verse.TimeSpeed.Paused });
 
-            SendCommand(CommandType.Autosave, ScheduledCommand.NoFaction, ScheduledCommand.Global, new byte[0]);
+            ByteWriter writer = new ByteWriter();
+            writer.WriteString(saveName);
+            SendCommand(CommandType.Autosave, ScheduledCommand.NoFaction, ScheduledCommand.Global, writer.ToArray());
             tmpMapCmds = new Dictionary<int, List<byte[]>>();
 
             SendChat("Autosaving...");

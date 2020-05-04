@@ -48,6 +48,8 @@
   
   <MpHostServer>Host a server</MpHostServer>
   <MpSaveReplay>Save replay</MpSaveReplay>
+  <MpFullSave>Full Save</MpFullSave>
+  <MpFullSaveDesc>Full saves load faster, but save slower, and are only available to the Host</MpFullSaveDesc>
   
   <MpConvert>Convert to singleplayer</MpConvert>
   <MpConverting>Converting</MpConverting>
