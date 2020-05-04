@@ -394,7 +394,7 @@ namespace Multiplayer.Client
 
     public class TwoTextAreas_Window : Window
     {
-        public override Vector2 InitialSize => new Vector2(600, 300);
+        public override Vector2 InitialSize => new Vector2(600, 500);
 
         private Vector2 scroll1;
         private Vector2 scroll2;

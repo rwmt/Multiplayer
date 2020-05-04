@@ -52,34 +52,45 @@ namespace Multiplayer.Client
             return workshopModIds;
         }
 
-        public static void DownloadWorkshopMods(ulong[] workshopModIds) {
-            try {
-                var downloadInProgress = new List<PublishedFileId_t>();
-                foreach (var workshopModId in workshopModIds) {
-                    var publishedFileId = new PublishedFileId_t(workshopModId);
-                    var itemState = (EItemState) SteamUGC.GetItemState(publishedFileId);
-                    if (!itemState.HasFlag(EItemState.k_EItemStateInstalled | EItemState.k_EItemStateSubscribed)) {
-                        Log.Message($"Starting workshop download {publishedFileId}");
-                        SteamUGC.SubscribeItem(publishedFileId);
-                        downloadInProgress.Add(publishedFileId);
-                    }
-                }
+        public static bool ModsMatch(IEnumerable<string> remoteModIds) {
+            var localModIds = LoadedModManager.RunningModsListForReading.Select(m => m.PackageId).ToList();
+            var set = remoteModIds.ToHashSet();
+            set.SymmetricExceptWith(localModIds);
+            return !set.Any();
+        }
 
-                // wait for all workshop downloads to complete
-                while (downloadInProgress.Count > 0) {
-                    var publishedFileId = downloadInProgress.First();
-                    var itemState = (EItemState) SteamUGC.GetItemState(publishedFileId);
-                    if (itemState.HasFlag(EItemState.k_EItemStateInstalled | EItemState.k_EItemStateSubscribed)) {
-                        downloadInProgress.RemoveAt(0);
-                    }
-                    else {
-                        Log.Message($"Waiting for workshop download {publishedFileId} status {itemState}");
-                        Thread.Sleep(200);
-                    }
+        public static IEnumerable<string> GetNotInstalledMods(IEnumerable<string> remoteModIds) {
+            return remoteModIds.Except(ModLister.AllInstalledMods.Select(modInfo => modInfo.PackageId));
+        }
+
+        /// <exception cref="InvalidOperationException">Thrown if Steamworks fails (eg. when running non-steam)</exception>
+        public static void DownloadWorkshopMods(ulong[] workshopModIds) {
+            var missingWorkshopModIds = workshopModIds.Where(workshopModId
+                => ModLister.AllInstalledMods.All(modMetaData => modMetaData.GetPublishedFileId().m_PublishedFileId != workshopModId)
+            ).ToList();
+
+            var downloadInProgress = new List<PublishedFileId_t>();
+            foreach (var workshopModId in missingWorkshopModIds) {
+                var publishedFileId = new PublishedFileId_t(workshopModId);
+                var itemState = (EItemState) SteamUGC.GetItemState(publishedFileId);
+                if (!itemState.HasFlag(EItemState.k_EItemStateInstalled | EItemState.k_EItemStateSubscribed)) {
+                    Log.Message($"Starting workshop download {publishedFileId}");
+                    SteamUGC.SubscribeItem(publishedFileId);
+                    downloadInProgress.Add(publishedFileId);
                 }
             }
-            catch (InvalidOperationException e) {
-                Log.Error($"MP Workshop mod sync error: {e.Message}");
+
+            // wait for all workshop downloads to complete
+            while (downloadInProgress.Count > 0) {
+                var publishedFileId = downloadInProgress.First();
+                var itemState = (EItemState) SteamUGC.GetItemState(publishedFileId);
+                if (itemState.HasFlag(EItemState.k_EItemStateInstalled | EItemState.k_EItemStateSubscribed)) {
+                    downloadInProgress.RemoveAt(0);
+                }
+                else {
+                    Log.Message($"Waiting for workshop download {publishedFileId} status {itemState}");
+                    Thread.Sleep(200);
+                }
             }
         }
 
@@ -89,6 +100,153 @@ namespace Multiplayer.Client
             typeof(WorkshopItems)
                 .GetMethod("RebuildItemsList", BindingFlags.Static | BindingFlags.NonPublic)
                 .Invoke(obj: null, parameters: new object[] { });
+        }
+
+        public static void ApplyHostModConfigFiles(Dictionary<string, string> hostModConfigFiles)
+        {
+            if (hostModConfigFiles == null) {
+                Log.Warning("MP: hostModConfigFiles is null");
+                return;
+            }
+            if (CheckModConfigsMatch(hostModConfigFiles)) {
+                return;
+            }
+
+            var localConfigsBackupDir = GenFilePaths.FolderUnderSaveData($"LocalConfigsBackup-{DateTime.Now:yyyy-MM-ddTHH-mm-ss}");
+            (new DirectoryInfo(Path.Combine(localConfigsBackupDir, "Config"))).Create();
+
+            foreach (var modConfigData in hostModConfigFiles) {
+                var relativeFilePath = modConfigData.Key.Replace('/', Path.DirectorySeparatorChar);
+                var filePath = Path.Combine(GenFilePaths.SaveDataFolderPath, relativeFilePath);
+                if (File.Exists(filePath)) {
+                    var backupFilePath = Path.Combine(localConfigsBackupDir, relativeFilePath);
+                    Directory.GetParent(backupFilePath).Create();
+                    File.Move(filePath, backupFilePath);
+                }
+                else {
+                    Directory.GetParent(filePath).Create();
+                }
+                File.WriteAllText(filePath, modConfigData.Value);
+            }
+
+            File.Copy(
+                Path.Combine(GenFilePaths.SaveDataFolderPath, "Config", "ModsConfig.xml"),
+                Path.Combine(localConfigsBackupDir, "Config", "ModsConfig.xml")
+            );
+        }
+
+        public static void RestoreConfigBackup(DirectoryInfo backupDir)
+        {
+            var backupFiles = backupDir.GetFiles("*.xml", SearchOption.AllDirectories);
+
+            foreach (var backupFile in backupFiles) {
+                var relativePath = backupFile.FullName.Substring(backupDir.FullName.Length + 1);
+                var actualFilePath = Path.Combine(GenFilePaths.SaveDataFolderPath, relativePath);
+                if (File.Exists(actualFilePath)) {
+                    File.Delete(actualFilePath);
+                }
+                else {
+                    Directory.GetParent(actualFilePath).Create();
+                }
+                File.Move(backupFile.FullName, actualFilePath);
+            }
+
+            backupDir.Delete(true);
+        }
+
+        public static bool HasRecentConfigBackup()
+        {
+            return new DirectoryInfo(GenFilePaths.SaveDataFolderPath)
+                .GetDirectories("LocalConfigsBackup-*", SearchOption.TopDirectoryOnly)
+                .Any(dir => dir.CreationTime.AddDays(-14) <= DateTime.Now);
+        }
+
+        public static DirectoryInfo GetMostRecentConfigBackup()
+        {
+            return new DirectoryInfo(GenFilePaths.SaveDataFolderPath)
+                .GetDirectories("LocalConfigsBackup-*", SearchOption.TopDirectoryOnly)
+                .OrderByDescending(dir => dir.CreationTime)
+                .First();
+        }
+
+        public static List<string> GetMismatchedModConfigs(Dictionary<string, string> hostFiles)
+        {
+            var mismatchedFiles = new List<string>();
+            if (MultiplayerMod.arbiterInstance) {
+                return mismatchedFiles;
+            }
+            foreach (var hostModEntry in hostFiles) {
+                var hostFileName = hostModEntry.Key;
+                var localFileName = Path.Combine(
+                    GenFilePaths.SaveDataFolderPath,
+                    hostFileName.Replace('/', Path.DirectorySeparatorChar)
+                );
+                if (!File.Exists(localFileName)) {
+                    mismatchedFiles.Add(hostFileName);
+                    continue;
+                }
+
+                var localFileContents = File.ReadAllText(localFileName);
+                if (hostModEntry.Value != localFileContents) {
+                    mismatchedFiles.Add(hostFileName);
+                    continue;
+                }
+            }
+
+            return mismatchedFiles;
+        }
+
+        public static bool CheckModConfigsMatch(Dictionary<string, string> hostFiles)
+        {
+            if (GetMismatchedModConfigs(hostFiles).Any()) {
+                return false;
+            }
+
+            return true;
+        }
+
+        public static Dictionary<string, string> GetSyncableConfigFiles()
+        {
+            return new DirectoryInfo(GenFilePaths.ConfigFolderPath)
+                .GetFiles("*.xml", SearchOption.AllDirectories)
+                .Concat(new DirectoryInfo(GenFilePaths.FolderUnderSaveData("HugsLib")).GetFiles("*.xml",
+                    SearchOption.AllDirectories))
+                .Where(FilterNonSyncedConfigFiles)
+                .ToDictionary(
+                    file => ModManagement.ModConfigFileRelative(file.FullName, true),
+                    file => file.OpenText().ReadToEnd()
+                );
+        }
+
+        public static bool FilterNonSyncedConfigFiles(FileInfo file)
+        {
+            return file.Name != "KeyPrefs.xml"
+                   && file.Name != "Knowledge.xml"
+                   && file.Name != "ModsConfig.xml" // already synced at earlier step
+                   && file.Name != "Prefs.xml" // base game stuff: volume, resolution, etc
+                   && file.Name != "LastSeenNews.xml"
+                   && file.Name != "ColourPicker.xml"
+                   && !file.Name.EndsWith("MultiplayerMod.xml") // contains username
+                   && !file.Name.EndsWith("TwitchToolkit.xml") // contains username
+                   && !file.Name.EndsWith("DubsMintMinimapMod.xml")
+                   && !file.Name.EndsWith("DubsMintMenusMod.xml")
+                   && !file.Name.EndsWith("CameraPlusMain.xml")
+                   && !file.Name.EndsWith("GraphicSetter.xml")
+                   && !file.Name.EndsWith("Moody.xml")
+                   && !file.Name.EndsWith("ModManager.xml")
+                   && !file.Name.EndsWith("ModSwitch.xml")
+                   && file.Name.IndexOf("backup", StringComparison.OrdinalIgnoreCase) == -1
+                   && file.DirectoryName.IndexOf("backup", StringComparison.OrdinalIgnoreCase) == -1
+                   && !file.DirectoryName.Contains("RimHUD");
+        }
+
+        private static string ModConfigFileRelative(string modConfigFile, bool normalizeSeparators)
+        {
+            // trim up to base savedata dir, eg. Config/Mod_7535268789_SettingController.xml
+            var relative = modConfigFile.Substring(GenFilePaths.SaveDataFolderPath.Length + 1);
+            return normalizeSeparators
+                ? relative.Replace('\\', '/') // normalize directory separator to /
+                : relative.Replace('/', Path.DirectorySeparatorChar);
         }
 
         /// Extension of <see cref="ModsConfig.RestartFromChangedMods"/>) with -connect

@@ -161,6 +161,10 @@ namespace Multiplayer.Common
                 read += len;
             }
         }
+        public virtual void SendFragmented(Packets id, params object[] msg)
+        {
+            SendFragmented(id, ByteWriter.GetBytes(msg));
+        }
 
         protected abstract void SendRaw(byte[] raw, bool reliable = true);
 

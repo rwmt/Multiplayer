@@ -22,6 +22,8 @@ namespace Multiplayer.Client
         public static void TryConnect(string address, int port)
         {
             Multiplayer.session = new MultiplayerSession();
+            Multiplayer.session.mods.remoteAddress = address;
+            Multiplayer.session.mods.remotePort = port;
             NetManager netClient = new NetManager(new MpClientNetListener());
 
             netClient.Start();
