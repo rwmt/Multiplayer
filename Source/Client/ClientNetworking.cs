@@ -108,6 +108,7 @@ namespace Multiplayer.Client
                 Multiplayer.WorldComp.TimeSpeed = timeSpeed;
                 foreach (var map in Find.Maps)
                     map.AsyncTime().TimeSpeed = timeSpeed;
+                Multiplayer.WorldComp.UpdateTimeSpeed();
 
                 Multiplayer.WorldComp.debugMode = debugMode;
                 Multiplayer.WorldComp.logDesyncTraces = logDesyncTraces;
@@ -198,6 +199,7 @@ namespace Multiplayer.Client
                 async.mapTicks = Find.TickManager.TicksGame;
                 async.TimeSpeed = Find.TickManager.CurTimeSpeed;
             }
+            Multiplayer.WorldComp.UpdateTimeSpeed();
         }
 
         private static void SetupLocalClient()
