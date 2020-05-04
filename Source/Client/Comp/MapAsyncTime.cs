@@ -708,6 +708,7 @@ namespace Multiplayer.Client
 
             CommandType cmdType = cmd.type;
 
+            var updateWorldTime = false;
             keepTheMap = false;
             var prevMap = Current.Game.CurrentMap;
             Current.Game.currentMapIndex = (sbyte)map.Index;
@@ -749,6 +750,7 @@ namespace Multiplayer.Client
                 {
                     TimeSpeed speed = (TimeSpeed)data.ReadByte();
                     TimeSpeed = speed;
+                    updateWorldTime = true;
 
                     MpLog.Log("Set map time speed " + speed);
                 }
@@ -806,6 +808,9 @@ namespace Multiplayer.Client
 
                 if (!keepTheMap)
                     TrySetCurrentMap(prevMap);
+                if (updateWorldTime) {
+                    Multiplayer.WorldComp.UpdateTimeSpeed();
+                }
 
                 keepTheMap = false;
 
