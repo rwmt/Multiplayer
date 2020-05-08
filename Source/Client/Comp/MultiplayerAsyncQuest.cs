@@ -164,11 +164,7 @@ namespace Multiplayer.Client.Comp
         /// <param name="quest">Quest to remove</param>
         /// <returns>If quest is found in cache</returns>
         public static bool TryRemoveCachedQuest(Quest quest)
-        {
-            var mapQuestBool = mapQuestsCache.SingleOrDefault(x => x.Value.Contains(quest)).Value?.Remove(quest) ?? false;
-            var worldQuestBool = worldQuestsCache.Remove(quest);
-            return mapQuestBool || worldQuestBool; //is there a way to not short circuit...then we can avoid allocation here
-        }
+            => mapQuestsCache.SingleOrDefault(x => x.Value.Contains(quest)).Value?.Remove(quest) ?? false | worldQuestsCache.Remove(quest);
 
         /// <summary>
         /// Attempts to get the MapAsyncTimeComp cached for that quest
