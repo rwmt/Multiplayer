@@ -94,7 +94,7 @@ namespace Multiplayer.Client.Comp
     }
 
     [HarmonyPatch(typeof(Quest), nameof(Quest.Accept))]
-    public static class SetContextForAccept
+    static class SetContextForAccept
     {
         static void Prefix(Quest __instance, ref MapAsyncTimeComp __state)
         {
@@ -106,6 +106,15 @@ namespace Multiplayer.Client.Comp
         }
 
         static void Postfix(MapAsyncTimeComp __state) => __state?.PostContext();
+    }
+
+    [HarmonyPatch(typeof(Quest), nameof(Quest.End))]
+    static class RemoveQuestFromCacheOnQuestEnd
+    {
+        static void Postfix(Quest __instance)
+        {
+            MultiplayerAsyncQuest.TryRemoveCachedQuest(__instance);
+        }
     }
 
     public static class MultiplayerAsyncQuest
@@ -147,6 +156,18 @@ namespace Multiplayer.Client.Comp
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// Tries to remove Quest from Map and World cache
+        /// </summary>
+        /// <param name="quest">Quest to remove</param>
+        /// <returns>If quest is found in cache</returns>
+        public static bool TryRemoveCachedQuest(Quest quest)
+        {
+            var mapQuestBool = mapQuestsCache.SingleOrDefault(x => x.Value.Contains(quest)).Value?.Remove(quest) ?? false;
+            var worldQuestBool = worldQuestsCache.Remove(quest);
+            return mapQuestBool || worldQuestBool; //is there a way to not short circuit...then we can avoid allocation here
         }
 
         /// <summary>
@@ -259,7 +280,7 @@ namespace Multiplayer.Client.Comp
         private static void UpsertQuestMap(MapAsyncTimeComp mapAsyncTimeComp, Quest quest)
         {
             //if there is more then one map with the quest something went wrong - removes quest object incase it changes map
-            mapQuestsCache.SingleOrDefault(x => x.Value.Contains(quest)).Value?.Remove(quest);
+            TryRemoveCachedQuest(quest);
 
             if (mapQuestsCache.TryGetValue(mapAsyncTimeComp, out var quests))
             {
