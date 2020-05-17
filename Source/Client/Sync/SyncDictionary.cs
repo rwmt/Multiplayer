@@ -518,6 +518,16 @@ namespace Multiplayer.Client
                     return command;
                 }
             },
+            {
+                (ByteWriter data, Command_Ability command) => {
+                    WriteSync(data, command.ability);
+                },
+                (ByteReader data) => {
+                    Ability ability = ReadSync<Ability>(data);
+
+                    return new Command_Ability(ability);
+                }
+            },
             #endregion
 
             #region Designators
