@@ -155,12 +155,16 @@ namespace Multiplayer.Client
         {
             Multiplayer.username = MultiplayerMod.settings.username;
 
-            if (Multiplayer.username == null && SteamManager.Initialized)
+            if (Multiplayer.username == null)
             {
-                Multiplayer.username = SteamUtility.SteamPersonaName;
+                if (SteamManager.Initialized) {
+                    Multiplayer.username = SteamUtility.SteamPersonaName;
+                } else {
+                    Multiplayer.username = NameGenerator.GenerateName(RulePackDefOf.NamerTraderGeneral);
+                }
+
                 Multiplayer.username = new Regex("[^a-zA-Z0-9_]").Replace(Multiplayer.username, string.Empty);
                 Multiplayer.username = Multiplayer.username.TrimmedToLength(15);
-
                 MultiplayerMod.settings.username = Multiplayer.username;
                 MultiplayerMod.settings.Write();
             }
