@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -115,8 +115,9 @@ namespace Multiplayer.Client
 
         public string GetFormattedStackTracesForRange(int diffAt)
         {
-            var start = Math.Max(0, diffAt - 40);
-            var end = diffAt + 40;
+
+            var start = Math.Max(0, diffAt - MultiplayerMod.settings.desyncTracesRadius);
+            var end = diffAt + MultiplayerMod.settings.desyncTracesRadius;
             var traceId = start;
 
             return

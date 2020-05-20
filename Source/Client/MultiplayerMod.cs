@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Diagnostics;
@@ -129,6 +129,7 @@ namespace Multiplayer.Client
         }
 
         private string slotsBuffer;
+        private string desyncRadiusBuffer;
 
         public override void DoSettingsWindowContents(Rect inRect)
         {
@@ -154,7 +155,10 @@ namespace Multiplayer.Client
             listing.CheckboxLabeled("MpShowModCompatibility".Translate(), ref settings.showModCompatibility, "MpShowModCompatibilityDesc".Translate());
 
             if (Prefs.DevMode)
+            {
                 listing.CheckboxLabeled("Show debug info", ref settings.showDevInfo);
+                listing.TextFieldNumericLabeled("Desync Radius:  ", ref settings.desyncTracesRadius, ref desyncRadiusBuffer, 1f, 200f);
+            }
 
             listing.End();
         }
@@ -288,6 +292,7 @@ namespace Multiplayer.Client
         public bool aggressiveTicking = true;
         public bool syncModConfigs = true;
         public bool showDevInfo;
+        public int desyncTracesRadius = 40;
         public string serverAddress = "127.0.0.1";
         public bool appendNameToAutosave;
         public bool pauseAutosaveCounter = true;
@@ -304,6 +309,7 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref aggressiveTicking, "aggressiveTicking", true);
             Scribe_Values.Look(ref syncModConfigs, "syncModConfigs", true);
             Scribe_Values.Look(ref showDevInfo, "showDevInfo");
+            Scribe_Values.Look(ref desyncTracesRadius, "desyncTracesRadius", 40);
             Scribe_Values.Look(ref serverAddress, "serverAddress", "127.0.0.1");
             Scribe_Values.Look(ref pauseAutosaveCounter, "pauseAutosaveCounter", true);
             Scribe_Values.Look(ref showModCompatibility, "showModCompatibility", true);
