@@ -297,7 +297,7 @@ namespace Multiplayer.Client
         public bool appendNameToAutosave;
         public bool pauseAutosaveCounter = true;
         public bool showModCompatibility = true;
-        public ServerSettings serverSettings;
+        public ServerSettings serverSettings = new ServerSettings();
 
         public override void ExposeData()
         {
