@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -70,7 +71,7 @@ namespace Multiplayer.Client
         }
 
         [DebugAction(DebugActionCategories.Mods, "Print static fields (mods)", allowedGameStates = AllowedGameStates.Entry)]
-        public static string AllModStatics()
+        public static void AllModStatics()
         {
             var builder = new StringBuilder();
 
@@ -81,7 +82,7 @@ namespace Multiplayer.Client
                 }
             }
 
-            return builder.ToString();
+            Log.Message(builder.ToString(), true);
         }
 
         static string StaticFieldsToString(Assembly asm, Predicate<Type> typeValidator)
@@ -107,6 +108,39 @@ namespace Multiplayer.Client
             return builder.ToString();
         }
 
+        [DebugAction(MultiplayerCategory, "Print Patched Hashes", allowedGameStates = AllowedGameStates.Entry)]
+        public static void SaveHashes()
+        {
+            var builder = new StringBuilder();
+
+            // We only care about transpiled methods that aren't part of MP.
+            var query = Multiplayer.harmony.GetPatchedMethods()
+                .Where(m => !m.DeclaringType.Namespace.StartsWith("Multiplayer") &&
+                    !Harmony.GetPatchInfo(m).Transpilers.NullOrEmpty());
+                
+            foreach (var method in query) {
+                builder.Append(GetMethodHash(method));
+                builder.Append(" ");
+                builder.Append(method.DeclaringType.FullName);
+                builder.Append(":");
+                builder.Append(method.Name);
+                builder.AppendLine();
+            }
+
+            Log.Message(builder.ToString());
+        }
+
+        static string GetMethodHash(MethodBase method)
+        {
+            var toHash = new List<byte>();
+            foreach(var ins in PatchProcessor.GetOriginalInstructions(method)) {
+                toHash.Add(Encoding.UTF8.GetBytes(ins.opcode.Name + ins.operand));
+            }
+
+            using (var sha256 = System.Security.Cryptography.SHA256.Create()) {
+                return Convert.ToBase64String(sha256.ComputeHash(toHash.ToArray()));
+            }
+        }
 #endif
 
     }
