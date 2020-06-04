@@ -61,6 +61,7 @@
   
   <ItemGroup>
     <None Remove=".editorconfig" />
+    <None Remove="mono_crash.*.json" />
   </ItemGroup>
   
   <Target Name="Publicise" BeforeTargets="BeforeBuild">
