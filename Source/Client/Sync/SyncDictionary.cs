@@ -389,6 +389,19 @@ namespace Multiplayer.Client
                 },
                 true
             },
+            {
+                (ByteWriter data, QuestPart part) => {
+                    WriteSync(data, part.quest);
+                    WriteSync(data, part.Index);
+                },
+                (ByteReader data) => {
+                    var quest = ReadSync<Quest>(data);
+                    int index = ReadSync<int>(data);
+
+                    return quest.parts[index];
+                },
+                true
+            },
             #endregion
 
             #region Factions

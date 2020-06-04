@@ -1602,4 +1602,41 @@ namespace Multiplayer.Client
 
         static int CombineHashes(int seed, Map map) => Gen.HashCombineInt(seed, map?.uniqueID ?? -1);
     }
+
+    [HarmonyPatch]
+    static class PatchQuestChoices
+    {
+        // It's the only method with a Choice
+        static MethodBase TargetMethod()
+        {
+            return AccessTools.FirstMethod(
+                AccessTools.FirstInner(typeof(MainTabWindow_Quests),
+                    t => t.GetFields().Any(f => f.Name == "localChoice")
+                ), m => !m.IsConstructor);
+        }
+
+        static bool Prefix(QuestPart_Choice.Choice ___localChoice)
+        {
+            if (Multiplayer.Client == null) return true;
+
+            foreach(var part in Find.QuestManager.quests.SelectMany(q => q.parts).OfType<QuestPart_Choice>()) {
+                int index = part.choices.IndexOf(___localChoice);
+
+                if (index >= 0) {
+                    Choose(part, index);
+                    return false;
+                }
+            }
+
+            // Should not happen!
+            Log.Error("Multiplayer :: Choice without QuestPart_Choice... you're about to desync.");
+            return true;
+        }
+
+        // Registered in SyncHandlers.cs SyncPatches
+        internal static void Choose(QuestPart_Choice part, int index)
+        {
+            part.Choose(part.choices[index]);
+        }
+    }
 }
