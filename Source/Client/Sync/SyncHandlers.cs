@@ -510,6 +510,8 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(Command_LoadToTransporter), nameof(Command_LoadToTransporter.ProcessInput));
 
             SyncMethod.Register(typeof(Quest), nameof(Quest.Accept));
+            SyncMethod.Register(typeof(PatchQuestChoices), nameof(PatchQuestChoices.Choose));
+
             SyncMethod.Register(typeof(Command_Ability), nameof(Command_Ability.ProcessInput)); // self cast psychic abilities
             SyncMethod.Register(typeof(Verb_CastAbility), nameof(Verb_CastAbility.OrderForceTarget)); // single target Psychic abilities
             SyncMethod.Register(typeof(CompAbilityEffect_WithDest), nameof(CompAbilityEffect_WithDest.OrderForceTarget)); // Psychic abilities with a source + destination, such as Skip (warp enemy to target place)
