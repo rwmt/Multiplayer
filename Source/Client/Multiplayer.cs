@@ -236,30 +236,33 @@ namespace Multiplayer.Client
 
         private static void DoPatches()
         {
-            //harmony.PatchAll();
+            bool categoryNeedsAnnouncement = true;
+            string category = null;
 
-            Log.Message("Anotated patches");
+            void SetCategory(string str)
+            {
+                categoryNeedsAnnouncement = true;
+                category = str;
+            }
+            void LogError(string str)
+            {
+                if (categoryNeedsAnnouncement) {
+                    Log.Message($"Multiplayer :: {category}");
+                }
+                Log.Error(str);
+            }
 
-            // this is a temporary report, must be removed or made debug only
-            var report = new List<(Type, Exception)>();
+            SetCategory("Anotated patches");
+
             Assembly.GetCallingAssembly().GetTypes().Do(delegate (Type type) {
                 try {
                     harmony.CreateClassProcessor(type).Patch();
-
-                    report.Add((type, null));
                 } catch (Exception e) {
-                    report.Add((type, e));
+                    LogError($"FAIL: {type} with {e.InnerException}");
                 }
             });
-            foreach(var entry in report) {
-                if (entry.Item2 != null) {
-                    Log.Error($"FAIL: {entry.Item1} with {entry.Item2.InnerException}");
-                } else if (false) {
-                    Log.Message($"PASS: {entry.Item1}");
-                }
-            }
 
-            Log.Message("General designation patches");
+            SetCategory("General designation patches");
 
             // General designation handling
             {
@@ -281,13 +284,13 @@ namespace Multiplayer.Client
                         try {
                             harmony.Patch(method, new HarmonyMethod(prefix), null, null, new HarmonyMethod(designatorFinalizer));
                         } catch (Exception e) {
-                            Log.Error($"FAIL: {t.FullName}:{method.Name} with {e.InnerException}");
+                            LogError($"FAIL: {t.FullName}:{method.Name} with {e.InnerException}");
                         }
                     }
                 }
             }
 
-            Log.Message("non-deterministic patches");
+            SetCategory("Non-deterministic patches 1");
 
             // Remove side effects from methods which are non-deterministic during ticking (e.g. camera dependent motes and sound effects)
             {
@@ -311,13 +314,13 @@ namespace Multiplayer.Client
                     try {
                         harmony.Patch(m, randPatchPrefix, randPatchPostfix);
                     } catch (Exception e) {
-                        Log.Error($"FAIL: {m.GetType().FullName}:{m.Name} with {e.InnerException}");
+                        LogError($"FAIL: {m.GetType().FullName}:{m.Name} with {e.InnerException}");
                     }
                 }
 
             }
 
-            Log.Message("non-deterministic patches");
+            SetCategory("Non-deterministic patches 2");
 
             // Set ThingContext and FactionContext (for pawns and buildings) in common Thing methods
             {
@@ -334,14 +337,12 @@ namespace Multiplayer.Client
                             try {
                                 harmony.Patch(method, thingMethodPrefix, thingMethodPostfix);
                             } catch (Exception e) {
-                                Log.Error($"FAIL: {method.GetType().FullName}:{method.Name} with {e.InnerException}");
+                                LogError($"FAIL: {method.GetType().FullName}:{method.Name} with {e.InnerException}");
                             }
                         }
                     }
                 }
             }
-
-            Log.Message("floating point patches");
 
             // Full precision floating point saving
             {
@@ -353,7 +354,7 @@ namespace Multiplayer.Client
                 harmony.Patch(valueSaveMethod.MakeGenericMethod(typeof(float)), floatSavePrefix, null);
             }
 
-            Log.Message("map time gui patches");
+            SetCategory("Map time gui patches");
 
             // Set the map time for GUI methods depending on it
             {
@@ -371,16 +372,19 @@ namespace Multiplayer.Client
                         try {
                             harmony.Patch(method, setMapTimePrefix, setMapTimePostfix);
                         } catch (Exception e) {
-                            Log.Error($"FAIL: {method.GetType().FullName}:{method.Name} with {e.InnerException}");
+                            LogError($"FAIL: {method.GetType().FullName}:{method.Name} with {e.InnerException}");
                         }
                     }
 
                 }
             }
 
-            Log.Message("Mod patches");
-
-            ModPatches.Init();
+            SetCategory("Mod patches");
+            try {
+                ModPatches.Init();
+            } catch(Exception e) {
+                LogError($"FAIL with {e}");
+            }
         }
 
         public static UniqueList<Texture2D> icons = new UniqueList<Texture2D>();
