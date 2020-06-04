@@ -39,6 +39,7 @@ namespace Multiplayer.Client
         public static ISyncField SyncInteractionMode = Sync.Field(typeof(Pawn), "guest", "interactionMode");
         public static ISyncField SyncBeCarried = Sync.Field(typeof(Pawn), "health", "beCarriedByCaravanIfSick");
         public static ISyncField SyncPsychicEntropyLimit = Sync.Field(typeof(Pawn), "psychicEntropy", "limitEntropyAmount");
+        public static ISyncField SyncPsychicEntropyTargetFocus = Sync.Field(typeof(Pawn), "psychicEntropy", "targetPsyfocus").SetBufferChanges();
 
         public static ISyncField SyncGodMode = Sync.Field(null, "Verse.DebugSettings/godMode").SetDebugOnly();
         public static ISyncField SyncResearchProject = Sync.Field(null, "Verse.Find/ResearchManager/currentProj");
@@ -217,6 +218,7 @@ namespace Multiplayer.Client
         {
             if (__instance?.tracker?.Pawn != null) {
                 SyncPsychicEntropyLimit.Watch(__instance.tracker.Pawn);
+                SyncPsychicEntropyTargetFocus.Watch(__instance.tracker.pawn);
             }
         }
 
