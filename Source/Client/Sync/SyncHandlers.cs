@@ -467,9 +467,19 @@ namespace Multiplayer.Client
 
             SyncMethod.Register(typeof(Building_Bed), nameof(Building_Bed.Medical));
 
-            foreach (var type in typeof(CompAssignableToPawn).AllSubclasses()) {
-                SyncMethod.Register(type, nameof(CompAssignableToPawn.TryAssignPawn)).CancelIfAnyArgNull();
-                SyncMethod.Register(type, nameof(CompAssignableToPawn.TryUnassignPawn)).CancelIfAnyArgNull();
+            {
+                void RegisterIfDeclaredByType(Type type, string methodName)
+                {
+                    var assign = AccessTools.Method(type, methodName);
+                    if (assign.DeclaringType == type) {
+                        Sync.RegisterSyncMethod(assign).CancelIfAnyArgNull();
+                    }
+                }
+
+                foreach (var type in typeof(CompAssignableToPawn).AllSubtypesAndSelf()) {
+                    RegisterIfDeclaredByType(type, nameof(CompAssignableToPawn.TryAssignPawn));
+                    RegisterIfDeclaredByType(type, nameof(CompAssignableToPawn.TryUnassignPawn));
+                }
             }
 
             SyncMethod.Register(typeof(PawnColumnWorker_Designator), nameof(PawnColumnWorker_Designator.SetValue)).CancelIfAnyArgNull(); // Virtual but currently not overriden by any subclasses

@@ -1032,7 +1032,7 @@ namespace Multiplayer.Client
                 sf.SetVersion(attribute.version);
         }
 
-        public static SyncMethod RegisterSyncMethod(MethodInfo method, SyncType[] argTypes)
+        public static SyncMethod RegisterSyncMethod(MethodInfo method, SyncType[] argTypes = null)
         {
             MpUtil.MarkNoInlining(method);
 
