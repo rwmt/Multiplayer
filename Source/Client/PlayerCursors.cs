@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using Multiplayer.Common;
 using RimWorld;
 using System;
@@ -57,7 +57,8 @@ namespace Multiplayer.Client
     [StaticConstructorOnStartup]
     static class SelectionBoxPatch
     {
-        static Material GraySelection = MaterialPool.MatFrom("UI/Overlays/SelectionBracket", ShaderDatabase.MetaOverlay, new Color(0.9f, 0.9f, 0.9f, 0.5f));
+        static Material graySelection = MaterialPool.MatFrom("UI/Overlays/SelectionBracket", ShaderDatabase.MetaOverlay);
+        static MaterialPropertyBlock propBlock = new MaterialPropertyBlock();
         static HashSet<int> drawnThisUpdate = new HashSet<int>();
         static Dictionary<object, float> selTimes = new Dictionary<object, float>();
 
@@ -83,7 +84,8 @@ namespace Multiplayer.Client
                     for (int i = 0; i < 4; i++)
                     {
                         Quaternion rotation = Quaternion.AngleAxis(-i * 90, Vector3.up);
-                        Graphics.DrawMesh(MeshPool.plane10, SelectionDrawer.bracketLocs[i], rotation, GraySelection, 0);
+                        propBlock.SetColor("_Color", player.color * new Color(1, 1, 1, 0.5f));
+                        Graphics.DrawMesh(MeshPool.plane10, SelectionDrawer.bracketLocs[i], rotation, graySelection, 0, null, 0, propBlock);
                     }
                 }
             }

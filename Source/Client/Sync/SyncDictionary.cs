@@ -253,6 +253,15 @@ namespace Multiplayer.Client
                 }
             },
             {
+                (ByteWriter data, CompAbilityEffect_StartSpeech compAbilityEffect) => {
+                    WriteSync(data, compAbilityEffect.parent);
+                },
+                (ByteReader data) => {
+                    var ability = ReadSync<Ability>(data);
+                    return ability.CompOfType<CompAbilityEffect_StartSpeech>();
+                }
+            },
+            {
                 (ByteWriter data, Verb_CastAbility verb) => {
                     if (verb.DirectOwner is Pawn pawn) {
                         WriteSync(data, VerbOwnerType.Pawn);
@@ -377,6 +386,19 @@ namespace Multiplayer.Client
                 (ByteReader data) => {
                     int questId = data.ReadInt32();
                     return Find.QuestManager.QuestsListForReading.FirstOrDefault(possibleQuest => possibleQuest.id == questId);
+                },
+                true
+            },
+            {
+                (ByteWriter data, QuestPart part) => {
+                    WriteSync(data, part.quest);
+                    WriteSync(data, part.Index);
+                },
+                (ByteReader data) => {
+                    var quest = ReadSync<Quest>(data);
+                    int index = ReadSync<int>(data);
+
+                    return quest.parts[index];
                 },
                 true
             },
@@ -507,6 +529,16 @@ namespace Multiplayer.Client
                     };
 
                     return command;
+                }
+            },
+            {
+                (ByteWriter data, Command_Ability command) => {
+                    WriteSync(data, command.ability);
+                },
+                (ByteReader data) => {
+                    Ability ability = ReadSync<Ability>(data);
+
+                    return new Command_Ability(ability);
                 }
             },
             #endregion

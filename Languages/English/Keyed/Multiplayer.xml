@@ -48,6 +48,8 @@
   
   <MpHostServer>Host a server</MpHostServer>
   <MpSaveReplay>Save replay</MpSaveReplay>
+  <MpFullSave>Full Save</MpFullSave>
+  <MpFullSaveDesc>Full saves load faster, but save slower, and are only available to the Host</MpFullSaveDesc>
   
   <MpConvert>Convert to singleplayer</MpConvert>
   <MpConverting>Converting</MpConverting>
@@ -97,7 +99,8 @@
   <MpAutosaveDays>days</MpAutosaveDays>
   <MpLanDesc1>Broadcast the game to your local network.</MpLanDesc1>
   <MpLanDesc2>Resolved LAN address: {0}</MpLanDesc2>
-  <MpArbiterDesc>A game instance which runs in the background and helps with desync solving.</MpArbiterDesc>
+  <MpRunArbiter>Run Arbiter</MpRunArbiter>
+  <MpArbiterDesc>A background game instance which helps with desync detection/solving. Running without Arbiter is unsupported.</MpArbiterDesc>
   <MpAsyncTimeDesc>Separate time controls for each map and the planet.</MpAsyncTimeDesc>
   <MpLogDesyncTraces>Log Desync Traces</MpLogDesyncTraces>
   <MpLogDesyncTracesDesc>Log extra stacktraces for troubleshooting desyncs; may impact performance</MpLogDesyncTracesDesc>
@@ -141,5 +144,6 @@
   
   <MpAggressiveTicking>Aggressive ticking</MpAggressiveTicking>
   <MpAggressiveTickingDesc>Always try to automatically catch up with the server at the cost of FPS.</MpAggressiveTickingDesc>
+  <MpMultiplayerCompatibility>MP Compatibility</MpMultiplayerCompatibility>
   
 </LanguageData>

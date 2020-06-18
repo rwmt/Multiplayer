@@ -1,4 +1,4 @@
-﻿extern alias zip;
+extern alias zip;
 
 using HarmonyLib;
 using Multiplayer.Common;
@@ -16,6 +16,7 @@ using Verse;
 using Verse.AI;
 using Verse.Sound;
 using zip::Ionic.Zip;
+using Multiplayer.Client.Comp;
 
 namespace Multiplayer.Client
 {
@@ -56,7 +57,7 @@ namespace Multiplayer.Client
             yield return AccessTools.Method(typeof(RegionGrid), nameof(RegionGrid.UpdateClean));
             yield return AccessTools.Method(typeof(RegionAndRoomUpdater), nameof(RegionAndRoomUpdater.TryRebuildDirtyRegionsAndRooms));
         }
-        
+
         static bool Prefix() => Multiplayer.Client == null || !MapUpdateMarker.updating;
     }
 
@@ -380,7 +381,8 @@ namespace Multiplayer.Client
             yield return AccessTools.Method(typeof(StoryWatcher), nameof(StoryWatcher.StoryWatcherTick));
         }
 
-        static bool Prefix() {
+        static bool Prefix()
+        {
             updating = true;
             return Multiplayer.Client == null || Multiplayer.Ticking;
         }
@@ -419,10 +421,13 @@ namespace Multiplayer.Client
     [HarmonyPatch(typeof(Quest), nameof(Quest.PartsListForReading), MethodType.Getter)]
     public class QuestPartsListForReadingPatch
     {
-        static void Postfix(ref List<QuestPart> __result) {
-            if (StorytellerTickPatch.updating) {
+        static void Postfix(ref List<QuestPart> __result)
+        {
+            if (StorytellerTickPatch.updating)
+            {
                 __result = __result.Where(questPart => {
-                    if (questPart is QuestPart_ThreatsGenerator questPartThreatsGenerator) {
+                    if (questPart is QuestPart_ThreatsGenerator questPartThreatsGenerator)
+                    {
                         return questPartThreatsGenerator?.mapParent?.Map == Multiplayer.MapContext;
                     }
                     return true;
@@ -505,9 +510,9 @@ namespace Multiplayer.Client
             var comp = map.MpComp();
 
             var enforcePause = comp.transporterLoading != null ||
-                comp.caravanForming != null || 
-                comp.mapDialogs.Any() || 
-                Multiplayer.WorldComp.trading.Any(t => t.playerNegotiator.Map == map) || 
+                comp.caravanForming != null ||
+                comp.mapDialogs.Any() ||
+                Multiplayer.WorldComp.trading.Any(t => t.playerNegotiator.Map == map) ||
                 Multiplayer.WorldComp.splitSession != null;
 
             if (enforcePause)
@@ -591,6 +596,8 @@ namespace Multiplayer.Client
 
                 storyteller.StorytellerTick();
                 storyWatcher.StoryWatcherTick();
+
+                QuestManagerTickAsyncTime();
 
                 map.MapPostTick();
 
@@ -708,6 +715,7 @@ namespace Multiplayer.Client
 
             CommandType cmdType = cmd.type;
 
+            var updateWorldTime = false;
             keepTheMap = false;
             var prevMap = Current.Game.CurrentMap;
             Current.Game.currentMapIndex = (sbyte)map.Index;
@@ -749,6 +757,7 @@ namespace Multiplayer.Client
                 {
                     TimeSpeed speed = (TimeSpeed)data.ReadByte();
                     TimeSpeed = speed;
+                    updateWorldTime = true;
 
                     MpLog.Log("Set map time speed " + speed);
                 }
@@ -806,6 +815,9 @@ namespace Multiplayer.Client
 
                 if (!keepTheMap)
                     TrySetCurrentMap(prevMap);
+                if (updateWorldTime) {
+                    Multiplayer.WorldComp.UpdateTimeSpeed();
+                }
 
                 keepTheMap = false;
 
@@ -869,8 +881,9 @@ namespace Multiplayer.Client
             Type desType = Sync.designatorTypes[desId];
 
             Designator designator = Sync.ReadSyncObject(data, desType) as Designator;
-            if (designator == null) {
-                designator = (Designator) Activator.CreateInstance(desType);
+            if (designator == null)
+            {
+                designator = (Designator)Activator.CreateInstance(desType);
             }
 
             try
@@ -964,6 +977,13 @@ namespace Multiplayer.Client
         public override string ToString()
         {
             return $"{nameof(MapAsyncTimeComp)}_{map}";
+        }
+
+        public void QuestManagerTickAsyncTime()
+        {
+            if (!MultiplayerWorldComp.asyncTime || Paused) return;
+
+            MultiplayerAsyncQuest.TickMapQuests(this);
         }
     }
 

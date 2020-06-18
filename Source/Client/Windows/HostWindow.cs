@@ -127,16 +127,6 @@ namespace Multiplayer.Client
                 entry = entry.Down(30);
             }
 
-            if (MpVersion.IsDebug)
-            {
-                // Arbiter
-                {
-                    TooltipHandler.TipRegion(entry.Width(checkboxWidth), "MpArbiterDesc".Translate());
-                    CheckboxLabeled(entry.Width(checkboxWidth), "The Arbiter:  ", ref settings.arbiter, placeTextNearCheckbox: true);
-                    entry = entry.Down(30);
-                }
-            }
-
             // AsyncTime
             {
                 TooltipHandler.TipRegion(entry.Width(checkboxWidth), $"{"MpAsyncTimeDesc".Translate()}\n\n{"MpExperimentalFeature".Translate()}");
@@ -147,6 +137,13 @@ namespace Multiplayer.Client
             TooltipHandler.TipRegion(entry.Width(checkboxWidth), $"{"MpLogDesyncTracesDesc".Translate()}\n\n{"MpExperimentalFeature".Translate()}");
             CheckboxLabeled(entry.Width(checkboxWidth), $"{"MpLogDesyncTraces".Translate()}:  ", ref logDesyncTraces, placeTextNearCheckbox: true);
             entry = entry.Down(30);
+
+            // Arbiter
+            {
+                TooltipHandler.TipRegion(entry.Width(checkboxWidth), "MpArbiterDesc".Translate());
+                CheckboxLabeled(entry.Width(checkboxWidth), $"{"MpRunArbiter".Translate()}:  ", ref settings.arbiter, placeTextNearCheckbox: true);
+                entry = entry.Down(30);
+            }
 
             if (Prefs.DevMode)
             {

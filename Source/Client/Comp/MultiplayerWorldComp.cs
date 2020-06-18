@@ -19,6 +19,7 @@ namespace Multiplayer.Client
     {
         public static bool tickingWorld;
         public static bool executingCmdWorld;
+        private TimeSpeed desiredTimeSpeed = TimeSpeed.Paused;
 
         public float RealTimeToTickThrough { get; set; }
 
@@ -44,7 +45,33 @@ namespace Multiplayer.Client
         public TimeSpeed TimeSpeed
         {
             get => Find.TickManager.CurTimeSpeed;
-            set => Find.TickManager.CurTimeSpeed = value;
+            set {
+                desiredTimeSpeed = value;
+                UpdateTimeSpeed();
+            }
+        }
+
+        /**
+         * Clamps the World's TimeSpeed to be between (slowest map) and (fastest map)
+         * Caution: doesn't work if called inside a MapAsyncTime.PreContext()
+         */
+        public void UpdateTimeSpeed()
+        {
+            if (!MultiplayerWorldComp.asyncTime) {
+                Find.TickManager.CurTimeSpeed = desiredTimeSpeed;
+                return;
+            }
+
+            var mapSpeeds = Find.Maps.Select(m => m.AsyncTime().TimeSpeed)
+                .Where(timeSpeed => timeSpeed != TimeSpeed.Paused)
+                .ToList();
+            if (mapSpeeds.NullOrEmpty()) {
+                // all maps are paused = pause the world
+                Find.TickManager.CurTimeSpeed = TimeSpeed.Paused;
+            }
+            else {
+                Find.TickManager.CurTimeSpeed = (TimeSpeed)Math.Min(Math.Max((byte)desiredTimeSpeed, (byte)mapSpeeds.Min()), (byte)mapSpeeds.Max());
+            }
         }
 
         public Queue<ScheduledCommand> Cmds { get => cmds; }
@@ -275,7 +302,7 @@ namespace Multiplayer.Client
 
                 if (cmdType == CommandType.Autosave)
                 {
-                    LongEventHandler.QueueLongEvent(DoAutosave, "MpSaving", false, null);
+                    LongEventHandler.QueueLongEvent(() => DoAutosave(data.ReadString()), "MpSaving", false, null);
                 }
             }
             catch (Exception e)
@@ -295,9 +322,9 @@ namespace Multiplayer.Client
             }
         }
 
-        private static void DoAutosave()
+        private static void DoAutosave(string saveName="")
         {
-            var autosaveFile = AutosaveFile();
+            var autosaveFile = saveName != "" ? saveName : AutosaveFile();
             var written = false;
 
             if (Multiplayer.LocalServer != null && !TickPatch.Skipping && !Multiplayer.IsReplay)

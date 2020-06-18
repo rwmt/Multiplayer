@@ -39,6 +39,7 @@ namespace Multiplayer.Client
         public static ISyncField SyncInteractionMode = Sync.Field(typeof(Pawn), "guest", "interactionMode");
         public static ISyncField SyncBeCarried = Sync.Field(typeof(Pawn), "health", "beCarriedByCaravanIfSick");
         public static ISyncField SyncPsychicEntropyLimit = Sync.Field(typeof(Pawn), "psychicEntropy", "limitEntropyAmount");
+        public static ISyncField SyncPsychicEntropyTargetFocus = Sync.Field(typeof(Pawn), "psychicEntropy", "targetPsyfocus").SetBufferChanges();
 
         public static ISyncField SyncGodMode = Sync.Field(null, "Verse.DebugSettings/godMode").SetDebugOnly();
         public static ISyncField SyncResearchProject = Sync.Field(null, "Verse.Find/ResearchManager/currentProj");
@@ -217,6 +218,7 @@ namespace Multiplayer.Client
         {
             if (__instance?.tracker?.Pawn != null) {
                 SyncPsychicEntropyLimit.Watch(__instance.tracker.Pawn);
+                SyncPsychicEntropyTargetFocus.Watch(__instance.tracker.pawn);
             }
         }
 
@@ -463,13 +465,23 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(FoodRestrictionDatabase), nameof(FoodRestrictionDatabase.MakeNewFoodRestriction));
             SyncMethod.Register(typeof(FoodRestrictionDatabase), nameof(FoodRestrictionDatabase.TryDelete)).CancelIfAnyArgNull();
 
-            SyncMethod.Register(typeof(CompAssignableToPawn_Bed), nameof(CompAssignableToPawn_Bed.TryAssignPawn)).CancelIfAnyArgNull();
-            SyncMethod.Register(typeof(CompAssignableToPawn_Bed), nameof(CompAssignableToPawn_Bed.TryUnassignPawn)).CancelIfAnyArgNull();
             SyncMethod.Register(typeof(Building_Bed), nameof(Building_Bed.Medical));
-            SyncMethod.Register(typeof(CompAssignableToPawn_Grave), nameof(CompAssignableToPawn_Grave.TryAssignPawn)).CancelIfAnyArgNull();
-            SyncMethod.Register(typeof(CompAssignableToPawn_Grave), nameof(CompAssignableToPawn_Grave.TryUnassignPawn)).CancelIfAnyArgNull();
-            SyncMethod.Register(typeof(CompAssignableToPawn_Throne), nameof(CompAssignableToPawn_Throne.TryAssignPawn)).CancelIfAnyArgNull();
-            SyncMethod.Register(typeof(CompAssignableToPawn_Throne), nameof(CompAssignableToPawn_Throne.TryUnassignPawn)).CancelIfAnyArgNull();
+
+            {
+                void RegisterIfDeclaredByType(Type type, string methodName)
+                {
+                    var assign = AccessTools.Method(type, methodName);
+                    if (assign.DeclaringType == type) {
+                        Sync.RegisterSyncMethod(assign).CancelIfAnyArgNull();
+                    }
+                }
+
+                foreach (var type in typeof(CompAssignableToPawn).AllSubtypesAndSelf()) {
+                    RegisterIfDeclaredByType(type, nameof(CompAssignableToPawn.TryAssignPawn));
+                    RegisterIfDeclaredByType(type, nameof(CompAssignableToPawn.TryUnassignPawn));
+                }
+            }
+
             SyncMethod.Register(typeof(PawnColumnWorker_Designator), nameof(PawnColumnWorker_Designator.SetValue)).CancelIfAnyArgNull(); // Virtual but currently not overriden by any subclasses
             SyncMethod.Register(typeof(PawnColumnWorker_FollowDrafted), nameof(PawnColumnWorker_FollowDrafted.SetValue)).CancelIfAnyArgNull();
             SyncMethod.Register(typeof(PawnColumnWorker_FollowFieldwork), nameof(PawnColumnWorker_FollowFieldwork.SetValue)).CancelIfAnyArgNull();
@@ -510,9 +522,13 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(Command_LoadToTransporter), nameof(Command_LoadToTransporter.ProcessInput));
 
             SyncMethod.Register(typeof(Quest), nameof(Quest.Accept));
+            SyncMethod.Register(typeof(PatchQuestChoices), nameof(PatchQuestChoices.Choose));
+
+            SyncMethod.Register(typeof(Command_Ability), nameof(Command_Ability.ProcessInput)); // self cast psychic abilities
             SyncMethod.Register(typeof(Verb_CastAbility), nameof(Verb_CastAbility.OrderForceTarget)); // single target Psychic abilities
             SyncMethod.Register(typeof(CompAbilityEffect_WithDest), nameof(CompAbilityEffect_WithDest.OrderForceTarget)); // Psychic abilities with a source + destination, such as Skip (warp enemy to target place)
             SyncMethod.Register(typeof(RoyalTitlePermitWorker_CallAid), nameof(RoyalTitlePermitWorker_CallAid.CallAid)).CancelIfAnyArgNull();
+            SyncMethod.Register(typeof(CompAbilityEffect_StartSpeech), nameof(CompAbilityEffect_StartSpeech.Apply)); // Royal Pawn: Give Speech button
 
             // 1
             SyncMethod.Register(typeof(TradeRequestComp), nameof(TradeRequestComp.Fulfill)).CancelIfAnyArgNull().SetVersion(1);
@@ -825,13 +841,13 @@ namespace Multiplayer.Client
 
             SyncMethod.Register(typeof(CompFlickable), "<CompGetGizmosExtra>b__20_1"); // Toggle flick designation
             SyncMethod.Register(typeof(Pawn_PlayerSettings), "<GetGizmos>b__31_1");    // Toggle release animals
-            SyncMethod.Register(typeof(Building_TurretGun), "<GetGizmos>b__58_2");     // Toggle turret hold fire
+            SyncMethod.Register(typeof(Building_TurretGun), "<GetGizmos>b__59_2");     // Toggle turret hold fire
             SyncMethod.Register(typeof(Building_Trap), "<GetGizmos>b__23_1");          // Toggle trap auto-rearm
             SyncMethod.Register(typeof(Building_Door), "<GetGizmos>b__57_1");          // Toggle door hold open
             SyncMethod.Register(typeof(Zone_Growing), "<GetGizmos>b__13_1");           // Toggle zone allow sow
 
             SyncMethod.Register(typeof(PriorityWork), "<GetGizmos>b__17_0");                // Clear prioritized work
-            SyncMethod.Register(typeof(Building_TurretGun), "<GetGizmos>b__58_1");          // Reset forced target
+            SyncMethod.Register(typeof(Building_TurretGun), "<GetGizmos>b__59_1");          // Reset forced target
             SyncMethod.Register(typeof(UnfinishedThing), "<GetGizmos>b__27_0");             // Cancel unfinished thing
             SyncMethod.Register(typeof(CompTempControl), "<CompGetGizmosExtra>b__8_2");     // Reset temperature
 
@@ -857,9 +873,9 @@ namespace Multiplayer.Client
 
             SyncMethod.Register(typeof(CompShuttle), "<CompGetGizmosExtra>b__39_1"); // Toggle autoload
             SyncMethod.Register(typeof(CompShuttle), "<CompGetGizmosExtra>b__39_2"); // Send shuttle
-            SyncMethod.Register(typeof(MonumentMarker), "<GetGizmos>b__27_1"); // Build Monument Quest - Monument Marker: cancel/remove marker
-            SyncDelegate.Register(typeof(MonumentMarker), "<>c__DisplayClass27_0", "<GetGizmos>b__3"); // Build Monument Quest - Monument Marker: place blueprints
-            SyncMethod.Register(typeof(MonumentMarker), "<GetGizmos>b__27_4"); // Build Monument Quest - Monument Marker: dev build all
+            SyncMethod.Register(typeof(MonumentMarker), "<GetGizmos>b__28_1"); // Build Monument Quest - Monument Marker: cancel/remove marker
+            SyncDelegate.Register(typeof(MonumentMarker), "<>c__DisplayClass28_0", "<GetGizmos>b__3"); // Build Monument Quest - Monument Marker: place blueprints
+            SyncMethod.Register(typeof(MonumentMarker), "<GetGizmos>b__28_4"); // Build Monument Quest - Monument Marker: dev build all
 
             SyncDelegate.Register(typeof(ITab_ContentsTransporter), "<>c__DisplayClass7_0", "<DoItemsLists>b__0").SetContext(SyncContext.MapSelected); // Discard loaded thing
         }

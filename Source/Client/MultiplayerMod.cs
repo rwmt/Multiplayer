@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Runtime.InteropServices;
 using System.Xml;
 
 using HarmonyLib;
@@ -14,6 +15,7 @@ using UnityEngine;
 using Verse;
 
 using Multiplayer.Common;
+
 
 namespace Multiplayer.Client
 {
@@ -26,8 +28,11 @@ namespace Multiplayer.Client
 
         public MultiplayerMod(ModContentPack pack) : base(pack)
         {
-            if (GenCommandLine.CommandLineArgPassed("arbiter"))
+            if (GenCommandLine.CommandLineArgPassed("arbiter")) {
+                ArbiterWindowFix.Run();
+
                 arbiterInstance = true;
+            }
 
             //EarlyMarkNoInline(typeof(Multiplayer).Assembly);
             EarlyPatches();
@@ -56,12 +61,6 @@ namespace Multiplayer.Client
                     harmony.Patch(firstMethod, new HarmonyMethod(typeof(AccessTools_FirstMethod_Patch), nameof(AccessTools_FirstMethod_Patch.Prefix)));
 
                 if (asm == typeof(HarmonyPatch).Assembly) continue;
-
-                /*
-                var emitCallParameter = asm.GetType("Harmony.MethodPatcher")?.GetMethod("EmitCallParameter", AccessTools.all);
-                if (emitCallParameter != null)
-                    harmony.Patch(emitCallParameter, new HarmonyMethod(typeof(PatchHarmony), emitCallParameter.GetParameters().Length == 4 ? nameof(PatchHarmony.EmitCallParamsPrefix4) : nameof(PatchHarmony.EmitCallParamsPrefix5)));
-                 */                   
             }
 
             {
@@ -227,6 +226,27 @@ namespace Multiplayer.Client
         }
     }
 
+    static class ArbiterWindowFix
+    {
+        const string LpWindowName = "Rimworld by Ludeon Studios";
+        const string LpBatchModeClassName = "Unity.BatchModeWindow";
+
+        [DllImport("User32")]
+        static extern int SetParent(int hwnd, int nCmdShow);
+
+        [DllImport("User32")]
+        static extern IntPtr FindWindowA(string lpClassName, string lpWindowName);
+
+        internal static void Run()
+        {
+            if (!Environment.OSVersion.Platform.Equals(PlatformID.Win32NT)) {
+                return;
+            }
+
+            SetParent(FindWindowA(LpBatchModeClassName, LpWindowName).ToInt32(), -3);
+        }
+    }
+
     static class XmlAssetsInModFolderPatch
     {
         // Sorts the files before processing, ensures cross os compatibility
@@ -264,24 +284,7 @@ namespace Multiplayer.Client
     {
         static bool Prefix() => !MpVersion.IsDebug && !MultiplayerMod.arbiterInstance;
     }
-    /*
-    static class PatchHarmony
-    {
-        static MethodInfo mpEmitCallParam = AccessTools.Method(typeof(MethodPatcher), "EmitCallParameter");
 
-        public static bool EmitCallParamsPrefix4(ILGenerator il, MethodBase original, MethodInfo patch, Dictionary<string, LocalBuilder> variables)
-        {
-            mpEmitCallParam.Invoke(null, new object[] { il, original, patch, variables, false });
-            return false;
-        }
-
-        public static bool EmitCallParamsPrefix5(ILGenerator il, MethodBase original, MethodInfo patch, Dictionary<string, LocalBuilder> variables, bool allowFirsParamPassthrough)
-        {
-            mpEmitCallParam.Invoke(null, new object[] { il, original, patch, variables, allowFirsParamPassthrough });
-            return false;
-        }
-    }
-    */
     public class MpSettings : ModSettings
     {
         public string username;
@@ -297,7 +300,7 @@ namespace Multiplayer.Client
         public bool appendNameToAutosave;
         public bool pauseAutosaveCounter = true;
         public bool showModCompatibility = true;
-        public ServerSettings serverSettings;
+        public ServerSettings serverSettings = new ServerSettings();
 
         public override void ExposeData()
         {
@@ -318,10 +321,6 @@ namespace Multiplayer.Client
 
             if (serverSettings == null)
                 serverSettings = new ServerSettings();
-
-            if (Scribe.mode == LoadSaveMode.Saving && showModCompatibility && Multiplayer.modsCompatibility.Count == 0) {
-                ModManagement.UpdateModCompatibilityDb();
-            }
         }
     }
 }

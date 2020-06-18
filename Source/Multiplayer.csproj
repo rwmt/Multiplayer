@@ -17,7 +17,9 @@
     <PackageReference Include="Publicise.MSBuild.Task" Version="1.*" />
     <PackageReference Include="RestSharp" Version="106.10.1" />
     <PackageReference Include="RimWorld.MultiplayerAPI" Version="0.2.0" />
-    <PackageReference Include="Lib.Harmony" Version="2.0.0.8" />
+    <PackageReference Include="Lib.Harmony" Version="2.0.1">
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </PackageReference>
     <PackageReference Include="LiteNetLib" Version="0.8.3.1" />
     <PackageReference Include="DotNetZip.Reduced" Version="1.9.1.8" />
     
@@ -59,6 +61,7 @@
   
   <ItemGroup>
     <None Remove=".editorconfig" />
+    <None Remove="mono_crash.*.json" />
   </ItemGroup>
   
   <Target Name="Publicise" BeforeTargets="BeforeBuild">
