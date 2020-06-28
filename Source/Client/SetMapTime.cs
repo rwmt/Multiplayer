@@ -67,7 +67,7 @@ namespace Multiplayer.Client
 
         static void Prefix(Pawn pawn, ref TimeSnapshot? __state)
         {
-            if (Multiplayer.Client == null || Current.ProgramState != ProgramState.Playing) return;
+            if (Multiplayer.Client == null || pawn.MapHeld == null || Current.ProgramState != ProgramState.Playing) return;
             __state = TimeSnapshot.GetAndSetFromMap(pawn.MapHeld);
         }
 
