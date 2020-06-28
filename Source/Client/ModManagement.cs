@@ -214,6 +214,7 @@ namespace Multiplayer.Client
                    && !file.Name.EndsWith("Moody.xml")
                    && !file.Name.EndsWith("ModManager.xml")
                    && !file.Name.EndsWith("ModSwitch.xml")
+                   && !file.Name.EndsWith("RimConnection.xml") // contains secret key for streamer
                    && file.Name.IndexOf("backup", StringComparison.OrdinalIgnoreCase) == -1
                    && file.DirectoryName.IndexOf("backup", StringComparison.OrdinalIgnoreCase) == -1
                    && !file.DirectoryName.Contains("RimHUD");
