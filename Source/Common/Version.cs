@@ -2,7 +2,7 @@ namespace Multiplayer.Common
 {
     public static class MpVersion
     {
-        public const string Version = "0.5.1.1"; // this is copied to About.xml via workshop_bundler.sh
+        public const string Version = "0.5.1.2"; // this is copied to About.xml via workshop_bundler.sh
         public const int Protocol = 18;
 
         public const string apiAssemblyName = "0MultiplayerAPI";
