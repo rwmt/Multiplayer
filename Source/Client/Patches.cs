@@ -1639,4 +1639,11 @@ namespace Multiplayer.Client
             part.Choose(part.choices[index]);
         }
     }
+
+    [HarmonyPatch(typeof(CompAbilityEffect_Waterskip), nameof(CompAbilityEffect_Waterskip.Apply))]
+    static class FixWaterSkip {
+        // These fix the couple of Rand uses
+        static void Prefix() => Rand.PushState();
+        static void Postfix() => Rand.PopState();
+    }
 }
