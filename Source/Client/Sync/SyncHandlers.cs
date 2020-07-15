@@ -36,6 +36,8 @@ namespace Multiplayer.Client
         public static ISyncField SyncMedCare = Sync.Field(typeof(Pawn), "playerSettings", "medCare");
         public static ISyncField SyncSelfTend = Sync.Field(typeof(Pawn), "playerSettings", "selfTend");
         public static ISyncField SyncHostilityResponse = Sync.Field(typeof(Pawn), "playerSettings", "hostilityResponse");
+        public static ISyncField SyncFollowDrafted = Sync.Field(typeof(Pawn), "playerSettings", "followDrafted");
+        public static ISyncField SyncFollowFieldwork = Sync.Field(typeof(Pawn), "playerSettings", "followFieldwork");
         public static ISyncField SyncInteractionMode = Sync.Field(typeof(Pawn), "guest", "interactionMode");
         public static ISyncField SyncBeCarried = Sync.Field(typeof(Pawn), "health", "beCarriedByCaravanIfSick");
         public static ISyncField SyncPsychicEntropyLimit = Sync.Field(typeof(Pawn), "psychicEntropy", "limitEntropyAmount");
@@ -205,6 +207,13 @@ namespace Multiplayer.Client
         static IEnumerable<DropdownMenuElement<Zone_Stockpile>> BillIncludeZone_Postfix(IEnumerable<DropdownMenuElement<Zone_Stockpile>> __result, Bill ___bill)
         {
             return WatchDropdowns(() => SyncBillIncludeZone.Watch(___bill), __result);
+        }
+
+        [MpPrefix(typeof(TrainingCardUtility), nameof(TrainingCardUtility.DrawTrainingCard))]
+        static void PawnSettingFollowWatch(Pawn pawn)
+        {
+            SyncFollowDrafted.Watch(pawn);
+            SyncFollowFieldwork.Watch(pawn);
         }
 
         [MpPrefix(typeof(Dialog_MedicalDefaults), "DoWindowContents")]
