@@ -1640,37 +1640,27 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(CompAbilityEffect_Waterskip), nameof(CompAbilityEffect_Waterskip.Apply))]
-    static class FixWaterSkip {
-        // These fix the couple of Rand uses
-        static void Prefix() => Rand.PushState();
-        static void Postfix() => Rand.PopState();
+    [HarmonyPatch(typeof(MoteMaker), nameof(MoteMaker.MakeStaticMote))]
+    [HarmonyPatch(new[] {typeof(Vector3), typeof(Map), typeof(ThingDef), typeof(float)})]
+    static class FixNullMotes
+    {
+        static Dictionary<Type, Mote> cache = new Dictionary<Type, Mote>();
+        static void Postfix(ThingDef moteDef, ref Mote __result) {
+            if (__result != null) return;
 
-        // This prevents a null whenever the camera isn't on the mote, must be removed when Ludeon fixes it
-        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> codeInstructions)
-        {
-            List<CodeInstruction> insts = codeInstructions.ToList();
+            if (moteDef.mote.needsMaintenance) return;
 
-            object destination = null;
-            for(int i = 0; i < insts.Count; i++) {
-                if (insts[i].operand is MethodInfo mi && mi.Name == "op_Inequality") {
-                    destination = insts[i+1].operand;
-                    break;
-                }
+            var thingClass = moteDef.thingClass;
+
+            if (cache.TryGetValue(thingClass, out Mote value)) {
+                __result = value;
+            } else {
+                __result = (Mote) Activator.CreateInstance(thingClass);
+                
+                cache.Add(thingClass, __result);
             }
 
-            bool looking = true;
-            foreach (var inst in insts)
-            {
-                yield return inst;
-
-                if (looking && inst.operand is MethodInfo mi && mi.Name == nameof(MoteMaker.MakeStaticMote)) {
-                    yield return new CodeInstruction(OpCodes.Dup);
-                    yield return new CodeInstruction(OpCodes.Brfalse_S, destination);
-
-                    looking = false;
-                }
-            }
+            __result.def = moteDef;
         }
     }
 }
