@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using Multiplayer.API;
 using Multiplayer.Common;
 using RimWorld;
@@ -862,9 +862,6 @@ namespace Multiplayer.Client
 
             SyncDelegate.Register(typeof(CompTargetable), "<>c__DisplayClass6_0", "<SelectedUseOption>b__0");           // Use targetable
 
-            SyncDelegate.Register(typeof(Designator), "<>c__DisplayClass30_1", "<get_RightClickFloatMenuOptions>b__0"); // Designate all
-            SyncDelegate.Register(typeof(Designator), "<>c__DisplayClass30_2", "<get_RightClickFloatMenuOptions>b__1"); // Remove all designations
-
             SyncDelegate.Register(typeof(CaravanAbandonOrBanishUtility), "<>c__DisplayClass0_0", "<TryAbandonOrBanishViaInterface>b__1").CancelIfAnyFieldNull();      // Abandon caravan thing
             SyncDelegate.Register(typeof(CaravanAbandonOrBanishUtility), "<>c__DisplayClass1_0", "<TryAbandonOrBanishViaInterface>b__0").CancelIfAnyFieldNull();      // Abandon caravan transferable
             SyncDelegate.Register(typeof(CaravanAbandonOrBanishUtility), "<>c__DisplayClass2_0", "<TryAbandonSpecificCountViaInterface>b__0").CancelIfAnyFieldNull(); // Abandon thing specific count
@@ -943,6 +940,61 @@ namespace Multiplayer.Client
 
                 original();
             };
+        }
+
+        [MpPrefix(typeof(Designator), "<>c__DisplayClass30_1", "<get_RightClickFloatMenuOptions>b__0")]
+        static bool DesignateAll(object __instance, List<Thing> ___things)
+        {
+            if (Multiplayer.Client == null) return true;
+
+            var obj = __instance.GetPropertyOrField("CS$<>8__locals1");
+            var designator = (Designator)obj.GetPropertyOrField("<>4__this");
+
+            SyncDesignateAll(designator.GetType(), ___things);
+
+            return false;
+        }
+
+        [SyncMethod]
+        static void SyncDesignateAll(Type type, List<Thing> things)
+        {
+            // We don't need to sync designator itself, as we don't really care about any values in the designator itself, only the methods it overrides
+            var designator = (Designator)Activator.CreateInstance(type);
+
+            foreach (var thing in things)
+            {
+                if (!thing.Fogged() && designator.CanDesignateThing(thing).Accepted)
+                    designator.DesignateThing(thing);
+            }
+        }
+
+        [MpPrefix(typeof(Designator), "<>c__DisplayClass30_2", "<get_RightClickFloatMenuOptions>b__1")]
+        static bool RemoveAllDesignations(object __instance, List<Designation> ___designations)
+        {
+            if (Multiplayer.Client == null) return true;
+
+            var obj = __instance.GetPropertyOrField("CS$<>8__locals2");
+            var designator = (Designator)obj.GetPropertyOrField("<>4__this");
+            var designationDef = (DesignationDef)obj.GetPropertyOrField("designation");
+
+            SyncRemoveAllDesignations(designator.GetType(), ___designations, designationDef);
+
+            return false;
+        }
+
+        [SyncMethod]
+        static void SyncRemoveAllDesignations(Type type, List<Designation> designations, DesignationDef designationDef)
+        {
+            // We don't need to sync designator itself, as we don't really care about any values in the designator itself, only the methods it overrides
+            var designator = (Designator)Activator.CreateInstance(type);
+
+            for (int i = designations.Count - 1; i >= 0; i--)
+            {
+                var designation = designations[i];
+
+                if (designation.def == designationDef && designator.RemoveAllDesignationsAffects(designation.target))
+                    designator.Map.designationManager.RemoveDesignation(designation);
+            }
         }
     }
 
