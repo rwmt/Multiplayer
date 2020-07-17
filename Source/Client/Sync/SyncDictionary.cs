@@ -545,12 +545,12 @@ namespace Multiplayer.Client
 
             #region Designators
             {
-                (SyncWorker sync, ref Designator designator)  => {
+                (SyncWorker sync, ref Designator designator) => {
 
                 }, true, true // <- Implicit, ShouldConstruct
             },
             {
-                (SyncWorker sync, ref Designator_AreaAllowed area)  => {
+                (SyncWorker sync, ref Designator_AreaAllowed area) => {
                     if (sync.isWriting) {
                         sync.Write(Designator_AreaAllowed.SelectedArea);
                     } else {
@@ -559,7 +559,7 @@ namespace Multiplayer.Client
                 }, true, true // <- Implicit, ShouldConstruct
             },
             {
-                (SyncWorker sync, ref Designator_Place place)  => {
+                (SyncWorker sync, ref Designator_Place place) => {
                     if (sync.isWriting) {
                         sync.Write(place.placingRot);
                     } else {
@@ -568,7 +568,7 @@ namespace Multiplayer.Client
                 }, true, true // <- Implicit, ShouldConstruct
             },
             {
-                (SyncWorker sync, ref Designator_Zone zone)  => {
+                (SyncWorker sync, ref Designator_Zone zone) => {
                     if (sync.isWriting) {
                         sync.Write(Find.Selector.SelectedZone);
                     } else {
@@ -577,11 +577,20 @@ namespace Multiplayer.Client
                 }, true, true // <- Implicit, ShouldConstruct
             },
             {
-                (SyncWorker sync, ref Designator_Install install)  => {
+                (SyncWorker sync, ref Designator_Install install) => {
                     if (sync.isWriting) {
-                        sync.Write(DesignatorPatches.ThingToInstall());
+                        var singleSelectedThing = Find.Selector.SingleSelectedThing;
+                        if (singleSelectedThing is MinifiedThing || singleSelectedThing is Building building && building.def.Minifiable) {
+                            sync.Write(true);
+                            sync.Write(singleSelectedThing);
+                        } else {
+                            sync.Write(false);
+                        }
                     } else {
-                        DesignatorInstallPatch.thingToInstall = sync.Read<Thing>();
+                        bool hasData = sync.Read<bool>();
+                        if (hasData) {
+                            DesignatorInstallPatch.thingToInstall = sync.Read<Thing>();
+                        }
                     }
                 }, false, true // <- ShouldConstruct
             },

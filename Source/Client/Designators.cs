@@ -102,19 +102,6 @@ namespace Multiplayer.Client
             Sync.WriteSync(data, mode);
             Sync.WriteSyncObject(data, designator, designator.GetType());
         }
-
-        internal static Thing ThingToInstall()
-        {
-            Thing singleSelectedThing = Find.Selector.SingleSelectedThing;
-            if (singleSelectedThing is MinifiedThing)
-                return singleSelectedThing;
-
-            Building building = singleSelectedThing as Building;
-            if (building != null && building.def.Minifiable)
-                return singleSelectedThing;
-
-            return null;
-        }
     }
 
     [HarmonyPatch(typeof(Designator_Install))]
