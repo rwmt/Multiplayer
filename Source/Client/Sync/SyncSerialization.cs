@@ -210,12 +210,11 @@ namespace Multiplayer.Client
                     return def;
                 }
 
-                // Designator is another special case with the same issue
+                // Designators can't be handled by SyncWorkers due to the type change
                 if (typeof(Designator).IsAssignableFrom(type))
                 {
-                    // attention, replaces the type
                     ushort desId = Sync.ReadSync<ushort>(data);
-                    type = Sync.designatorTypes[desId];
+                    type = Sync.designatorTypes[desId]; // Replaces the type!
                 }
 
                 // Where the magic happens
@@ -403,11 +402,10 @@ namespace Multiplayer.Client
                     return;
                 }
 
-                // special case
+                // special case for Designators to change the type
                 if (typeof(Designator).IsAssignableFrom(type))
                 {
                     data.WriteUShort((ushort) Array.IndexOf(Sync.designatorTypes, obj.GetType()));
-                    // attention, no return
                 }
 
                 // Where the magic happens
