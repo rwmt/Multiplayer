@@ -545,18 +545,22 @@ namespace Multiplayer.Client
 
             #region Designators
             {
+                // Catch all for all Designators, merely signals to construct them
+                // We can't construct them here because we need to signal ReadSyncObject
+                // to change the type, which is not possible from a SyncWorker.
                 (SyncWorker sync, ref Designator designator) => {
 
-                }, true, true // <- Implicit, ShouldConstruct
+                }, true, true // <- Implicit ShouldConstruct
             },
             {
+                // SelectedArea is Global in RW, null is ok
                 (SyncWorker sync, ref Designator_AreaAllowed area) => {
                     if (sync.isWriting) {
                         sync.Write(Designator_AreaAllowed.SelectedArea);
                     } else {
                         Designator_AreaAllowed.selectedArea = sync.Read<Area>();
                     }
-                }, true, true // <- Implicit, ShouldConstruct
+                }, true, true // <- Implicit ShouldConstruct
             },
             {
                 (SyncWorker sync, ref Designator_Place place) => {
@@ -565,34 +569,28 @@ namespace Multiplayer.Client
                     } else {
                         place.placingRot = sync.Read<Rot4>();
                     }
-                }, true, true // <- Implicit, ShouldConstruct
+                }, true, true // <- Implicit ShouldConstruct
             },
             {
+                // Find.Selector.SelectedZone is Global in RW, null is ok
                 (SyncWorker sync, ref Designator_Zone zone) => {
                     if (sync.isWriting) {
                         sync.Write(Find.Selector.SelectedZone);
                     } else {
                         Find.Selector.selected.Add(sync.Read<Zone>());
                     }
-                }, true, true // <- Implicit, ShouldConstruct
+                }, true, true // <- Implicit ShouldConstruct
             },
             {
+                // MiniToInstallOrBuildingToReinstall uses Globals in RW, null is ok
+                // It needs a workaround
                 (SyncWorker sync, ref Designator_Install install) => {
                     if (sync.isWriting) {
-                        var singleSelectedThing = Find.Selector.SingleSelectedThing;
-                        if (singleSelectedThing is MinifiedThing || singleSelectedThing is Building building && building.def.Minifiable) {
-                            sync.Write(true);
-                            sync.Write(singleSelectedThing);
-                        } else {
-                            sync.Write(false);
-                        }
+                        sync.Write(install.MiniToInstallOrBuildingToReinstall);
                     } else {
-                        bool hasData = sync.Read<bool>();
-                        if (hasData) {
-                            DesignatorInstallPatch.thingToInstall = sync.Read<Thing>();
-                        }
+                        DesignatorInstallPatch.thingToInstall = sync.Read<Thing>();
                     }
-                }, false, true // <- ShouldConstruct
+                }, true, true // <- Implicit ShouldConstruct
             },
             {
                 (ByteWriter data, Designator_Build build) => {
