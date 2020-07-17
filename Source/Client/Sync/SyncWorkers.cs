@@ -323,7 +323,7 @@ namespace Multiplayer.Client
                         toRemove.Push(e);
                         continue;
                     }
-                    entry = e.Add(type);
+                    entry = e.Add(type, shouldConstruct);
                 }
             }
 
@@ -340,16 +340,16 @@ namespace Multiplayer.Client
             return entry;
         }
 
-        internal void Add<T>(SyncWorkerDelegate<T> action, bool isImplicit = false)
+        internal void Add<T>(SyncWorkerDelegate<T> action, bool isImplicit = false, bool shouldConstruct = false)
         {
-            var entry = GetOrAddEntry(typeof(T), isImplicit: isImplicit, shouldConstruct: false);
+            var entry = GetOrAddEntry(typeof(T), isImplicit: isImplicit, shouldConstruct: shouldConstruct);
 
             entry.Add(action);
         }
 
-        internal void Add<T>(Action<ByteWriter, T> writer, Func<ByteReader, T> reader, bool isImplicit = false)
+        internal void Add<T>(Action<ByteWriter, T> writer, Func<ByteReader, T> reader, bool isImplicit = false, bool shouldConstruct = false)
         {
-            var entry = GetOrAddEntry(typeof(T), isImplicit: isImplicit, shouldConstruct: false);
+            var entry = GetOrAddEntry(typeof(T), isImplicit: isImplicit, shouldConstruct: shouldConstruct);
 
             AddDelegate(entry, writer, reader);
         }

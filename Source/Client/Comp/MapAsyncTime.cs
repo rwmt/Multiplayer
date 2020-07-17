@@ -877,19 +877,10 @@ namespace Multiplayer.Client
         private void HandleDesignator(ScheduledCommand command, ByteReader data)
         {
             DesignatorMode mode = Sync.ReadSync<DesignatorMode>(data);
-            ushort desId = Sync.ReadSync<ushort>(data);
-            Type desType = Sync.designatorTypes[desId];
-
-            Designator designator = Sync.ReadSyncObject(data, desType) as Designator;
-            if (designator == null)
-            {
-                designator = (Designator)Activator.CreateInstance(desType);
-            }
+            Designator designator = Sync.ReadSync<Designator>(data);
 
             try
             {
-                if (!SetDesignatorState(designator, data)) return;
-
                 if (mode == DesignatorMode.SingleCell)
                 {
                     IntVec3 cell = Sync.ReadSync<IntVec3>(data);
@@ -916,44 +907,6 @@ namespace Multiplayer.Client
             {
                 DesignatorInstallPatch.thingToInstall = null;
             }
-        }
-
-        private bool SetDesignatorState(Designator designator, ByteReader data)
-        {
-            if (designator is Designator_AreaAllowed)
-            {
-                Area area = Sync.ReadSync<Area>(data);
-                if (area == null) return false;
-                Designator_AreaAllowed.selectedArea = area;
-            }
-
-            if (designator is Designator_Place place)
-            {
-                place.placingRot = Sync.ReadSync<Rot4>(data);
-            }
-
-            if (designator is Designator_Build build && build.PlacingDef.MadeFromStuff)
-            {
-                ThingDef stuffDef = Sync.ReadSync<ThingDef>(data);
-                if (stuffDef == null) return false;
-                build.stuffDef = stuffDef;
-            }
-
-            if (designator is Designator_Install)
-            {
-                Thing thing = Sync.ReadSync<Thing>(data);
-                if (thing == null) return false;
-                DesignatorInstallPatch.thingToInstall = thing;
-            }
-
-            if (designator is Designator_Zone)
-            {
-                Zone zone = Sync.ReadSync<Zone>(data);
-                if (zone != null)
-                    Find.Selector.selected.Add(zone);
-            }
-
-            return true;
         }
 
         private bool nothingHappeningCached;

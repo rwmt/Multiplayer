@@ -545,19 +545,47 @@ namespace Multiplayer.Client
 
             #region Designators
             {
-                // This is here to handle every other Designator that isn't implemented,
-                // by default they only need the type and that's being handled outside.
-                // Returning null is enough.
-                (ByteWriter data, Designator des) => {
-                    // These are handled in DesignatorPatches.WriteData
-                },
-                (ByteReader data) => {
-                    // These are handled in MapAsyncTimeComp.HandleDesignator
-                    return null;
-                }, true // <- isImplicit: true
+                (SyncWorker sync, ref Designator designator)  => {
+
+                }, true, true // <- Implicit, ShouldConstruct
             },
             {
-                // The only special case in vanilla that has arguments, mods can add their own as explicit types.
+                (SyncWorker sync, ref Designator_AreaAllowed area)  => {
+                    if (sync.isWriting) {
+                        sync.Write(Designator_AreaAllowed.SelectedArea);
+                    } else {
+                        Designator_AreaAllowed.selectedArea = sync.Read<Area>();
+                    }
+                }, true, true // <- Implicit, ShouldConstruct
+            },
+            {
+                (SyncWorker sync, ref Designator_Place place)  => {
+                    if (sync.isWriting) {
+                        sync.Write(place.placingRot);
+                    } else {
+                        place.placingRot = sync.Read<Rot4>();
+                    }
+                }, true, true // <- Implicit, ShouldConstruct
+            },
+            {
+                (SyncWorker sync, ref Designator_Zone zone)  => {
+                    if (sync.isWriting) {
+                        sync.Write(Find.Selector.SelectedZone);
+                    } else {
+                        Find.Selector.selected.Add(sync.Read<Zone>());
+                    }
+                }, true, true // <- Implicit, ShouldConstruct
+            },
+            {
+                (SyncWorker sync, ref Designator_Install install)  => {
+                    if (sync.isWriting) {
+                        sync.Write(DesignatorPatches.ThingToInstall());
+                    } else {
+                        DesignatorInstallPatch.thingToInstall = sync.Read<Thing>();
+                    }
+                }, false, true // <- ShouldConstruct
+            },
+            {
                 (ByteWriter data, Designator_Build build) => {
                     WriteSync(data, build.entDef);
                 },

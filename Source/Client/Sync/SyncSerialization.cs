@@ -210,6 +210,14 @@ namespace Multiplayer.Client
                     return def;
                 }
 
+                // Designator is another special case with the same issue
+                if (typeof(Designator).IsAssignableFrom(type))
+                {
+                    // attention, replaces the type
+                    ushort desId = Sync.ReadSync<ushort>(data);
+                    type = Sync.designatorTypes[desId];
+                }
+
                 // Where the magic happens
                 if (syncWorkers.TryGetValue(type, out var syncWorkerEntry)) 
                 {
@@ -393,6 +401,13 @@ namespace Multiplayer.Client
                     data.WriteUShort(def != null ? def.shortHash : (ushort)0);
 
                     return;
+                }
+
+                // special case
+                if (typeof(Designator).IsAssignableFrom(type))
+                {
+                    data.WriteUShort((ushort) Array.IndexOf(Sync.designatorTypes, obj.GetType()));
+                    // attention, no return
                 }
 
                 // Where the magic happens
