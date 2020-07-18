@@ -881,6 +881,8 @@ namespace Multiplayer.Client
 
             try
             {
+                if (!SetDesignatorState(designator, data)) return;
+
                 if (mode == DesignatorMode.SingleCell)
                 {
                     IntVec3 cell = Sync.ReadSync<IntVec3>(data);
@@ -907,6 +909,32 @@ namespace Multiplayer.Client
             {
                 DesignatorInstallPatch.thingToInstall = null;
             }
+        }
+
+        private bool SetDesignatorState(Designator designator, ByteReader data)
+        {
+            if (designator is Designator_AreaAllowed)
+            {
+                Area area = Sync.ReadSync<Area>(data);
+                if (area == null) return false;
+                Designator_AreaAllowed.selectedArea = area;
+            }
+
+            if (designator is Designator_Install)
+            {
+                Thing thing = Sync.ReadSync<Thing>(data);
+                if (thing == null) return false;
+                DesignatorInstallPatch.thingToInstall = thing;
+            }
+
+            if (designator is Designator_Zone)
+            {
+                Zone zone = Sync.ReadSync<Zone>(data);
+                if (zone != null)
+                    Find.Selector.selected.Add(zone);
+            }
+
+            return true;
         }
 
         private bool nothingHappeningCached;

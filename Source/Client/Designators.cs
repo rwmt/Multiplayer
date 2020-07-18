@@ -101,6 +101,18 @@ namespace Multiplayer.Client
         {
             Sync.WriteSync(data, mode);
             Sync.WriteSyncObject(data, designator, designator.GetType());
+
+            // These affect the Global context and shouldn't be SyncWorkers
+            // Read at MapAsyncTimeComp.SetDesignatorState
+
+            if (designator is Designator_AreaAllowed)
+                Sync.WriteSync(data, Designator_AreaAllowed.SelectedArea);
+
+            if (designator is Designator_Install install)
+                Sync.WriteSync(data, install.MiniToInstallOrBuildingToReinstall);
+
+            if (designator is Designator_Zone)
+                Sync.WriteSync(data, Find.Selector.SelectedZone);
         }
     }
 

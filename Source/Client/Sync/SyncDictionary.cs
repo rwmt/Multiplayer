@@ -553,42 +553,11 @@ namespace Multiplayer.Client
                 }, true, true // <- Implicit ShouldConstruct
             },
             {
-                // SelectedArea is Global in RW, null is ok
-                (SyncWorker sync, ref Designator_AreaAllowed area) => {
-                    if (sync.isWriting) {
-                        sync.Write(Designator_AreaAllowed.SelectedArea);
-                    } else {
-                        Designator_AreaAllowed.selectedArea = sync.Read<Area>();
-                    }
-                }, true, true // <- Implicit ShouldConstruct
-            },
-            {
                 (SyncWorker sync, ref Designator_Place place) => {
                     if (sync.isWriting) {
                         sync.Write(place.placingRot);
                     } else {
                         place.placingRot = sync.Read<Rot4>();
-                    }
-                }, true, true // <- Implicit ShouldConstruct
-            },
-            {
-                // Find.Selector.SelectedZone is Global in RW, null is ok
-                (SyncWorker sync, ref Designator_Zone zone) => {
-                    if (sync.isWriting) {
-                        sync.Write(Find.Selector.SelectedZone);
-                    } else {
-                        Find.Selector.selected.Add(sync.Read<Zone>());
-                    }
-                }, true, true // <- Implicit ShouldConstruct
-            },
-            {
-                // MiniToInstallOrBuildingToReinstall uses Globals in RW, null is ok
-                // It needs a workaround
-                (SyncWorker sync, ref Designator_Install install) => {
-                    if (sync.isWriting) {
-                        sync.Write(install.MiniToInstallOrBuildingToReinstall);
-                    } else {
-                        DesignatorInstallPatch.thingToInstall = sync.Read<Thing>();
                     }
                 }, true, true // <- Implicit ShouldConstruct
             },
