@@ -99,39 +99,20 @@ namespace Multiplayer.Client
 
         private static void WriteData(ByteWriter data, DesignatorMode mode, Designator designator)
         {
-            Type designatorType = designator.GetType();
-
             Sync.WriteSync(data, mode);
-            Sync.WriteSync(data, (ushort) Array.IndexOf(Sync.designatorTypes, designatorType));
-            Sync.WriteSyncObject(data, designator, designatorType);
+            Sync.WriteSyncObject(data, designator, designator.GetType());
+
+            // These affect the Global context and shouldn't be SyncWorkers
+            // Read at MapAsyncTimeComp.SetDesignatorState
 
             if (designator is Designator_AreaAllowed)
                 Sync.WriteSync(data, Designator_AreaAllowed.SelectedArea);
 
-            if (designator is Designator_Place place)
-                Sync.WriteSync(data, place.placingRot);
-
-            if (designator is Designator_Build build && build.PlacingDef.MadeFromStuff)
-                Sync.WriteSync(data, build.stuffDef);
-
-            if (designator is Designator_Install)
-                Sync.WriteSync(data, ThingToInstall());
+            if (designator is Designator_Install install)
+                Sync.WriteSync(data, install.MiniToInstallOrBuildingToReinstall);
 
             if (designator is Designator_Zone)
                 Sync.WriteSync(data, Find.Selector.SelectedZone);
-        }
-
-        private static Thing ThingToInstall()
-        {
-            Thing singleSelectedThing = Find.Selector.SingleSelectedThing;
-            if (singleSelectedThing is MinifiedThing)
-                return singleSelectedThing;
-
-            Building building = singleSelectedThing as Building;
-            if (building != null && building.def.Minifiable)
-                return singleSelectedThing;
-
-            return null;
         }
     }
 

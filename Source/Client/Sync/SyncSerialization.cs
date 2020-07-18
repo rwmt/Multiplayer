@@ -210,6 +210,13 @@ namespace Multiplayer.Client
                     return def;
                 }
 
+                // Designators can't be handled by SyncWorkers due to the type change
+                if (typeof(Designator).IsAssignableFrom(type))
+                {
+                    ushort desId = Sync.ReadSync<ushort>(data);
+                    type = Sync.designatorTypes[desId]; // Replaces the type!
+                }
+
                 // Where the magic happens
                 if (syncWorkers.TryGetValue(type, out var syncWorkerEntry)) 
                 {
@@ -393,6 +400,12 @@ namespace Multiplayer.Client
                     data.WriteUShort(def != null ? def.shortHash : (ushort)0);
 
                     return;
+                }
+
+                // special case for Designators to change the type
+                if (typeof(Designator).IsAssignableFrom(type))
+                {
+                    data.WriteUShort((ushort) Array.IndexOf(Sync.designatorTypes, obj.GetType()));
                 }
 
                 // Where the magic happens

@@ -877,14 +877,7 @@ namespace Multiplayer.Client
         private void HandleDesignator(ScheduledCommand command, ByteReader data)
         {
             DesignatorMode mode = Sync.ReadSync<DesignatorMode>(data);
-            ushort desId = Sync.ReadSync<ushort>(data);
-            Type desType = Sync.designatorTypes[desId];
-
-            Designator designator = Sync.ReadSyncObject(data, desType) as Designator;
-            if (designator == null)
-            {
-                designator = (Designator)Activator.CreateInstance(desType);
-            }
+            Designator designator = Sync.ReadSync<Designator>(data);
 
             try
             {
@@ -925,18 +918,6 @@ namespace Multiplayer.Client
                 Area area = Sync.ReadSync<Area>(data);
                 if (area == null) return false;
                 Designator_AreaAllowed.selectedArea = area;
-            }
-
-            if (designator is Designator_Place place)
-            {
-                place.placingRot = Sync.ReadSync<Rot4>(data);
-            }
-
-            if (designator is Designator_Build build && build.PlacingDef.MadeFromStuff)
-            {
-                ThingDef stuffDef = Sync.ReadSync<ThingDef>(data);
-                if (stuffDef == null) return false;
-                build.stuffDef = stuffDef;
             }
 
             if (designator is Designator_Install)

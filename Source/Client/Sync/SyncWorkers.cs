@@ -27,6 +27,8 @@ namespace Multiplayer.Client
 
         private List<SyncWorkerEntry> subclasses;
 
+        private SyncWorkerEntry parent;
+
         public int SyncWorkerCount => syncWorkers.Count();
 
         public SyncWorkerEntry(Type type, bool shouldConstruct = false)
@@ -70,6 +72,10 @@ namespace Multiplayer.Client
 
         public bool Invoke(SyncWorker worker, ref object obj)
         {
+            if (parent != null) {
+                parent.Invoke(worker, ref obj);
+            }
+
             for (int i = 0; i < syncWorkers.Count; i++) {
                 if (syncWorkers[i](worker, ref obj))
                     return true;
@@ -122,6 +128,7 @@ namespace Multiplayer.Client
                     return newEntry;
                 } else {
                     newEntry = new SyncWorkerEntry(this);
+
                     this.type = type;
 
                     this.shouldConstruct = shouldConstruct;
@@ -147,6 +154,7 @@ namespace Multiplayer.Client
                 }
 
                 var newEntry = new SyncWorkerEntry(type, shouldConstruct);
+                newEntry.parent = this;
                 subclasses.Add(newEntry);
 
                 return newEntry;
@@ -323,7 +331,7 @@ namespace Multiplayer.Client
                         toRemove.Push(e);
                         continue;
                     }
-                    entry = e.Add(type);
+                    entry = e.Add(type, shouldConstruct);
                 }
             }
 
@@ -340,16 +348,16 @@ namespace Multiplayer.Client
             return entry;
         }
 
-        internal void Add<T>(SyncWorkerDelegate<T> action, bool isImplicit = false)
+        internal void Add<T>(SyncWorkerDelegate<T> action, bool isImplicit = false, bool shouldConstruct = false)
         {
-            var entry = GetOrAddEntry(typeof(T), isImplicit: isImplicit, shouldConstruct: false);
+            var entry = GetOrAddEntry(typeof(T), isImplicit: isImplicit, shouldConstruct: shouldConstruct);
 
             entry.Add(action);
         }
 
-        internal void Add<T>(Action<ByteWriter, T> writer, Func<ByteReader, T> reader, bool isImplicit = false)
+        internal void Add<T>(Action<ByteWriter, T> writer, Func<ByteReader, T> reader, bool isImplicit = false, bool shouldConstruct = false)
         {
-            var entry = GetOrAddEntry(typeof(T), isImplicit: isImplicit, shouldConstruct: false);
+            var entry = GetOrAddEntry(typeof(T), isImplicit: isImplicit, shouldConstruct: shouldConstruct);
 
             AddDelegate(entry, writer, reader);
         }

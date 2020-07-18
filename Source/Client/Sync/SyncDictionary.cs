@@ -545,19 +545,23 @@ namespace Multiplayer.Client
 
             #region Designators
             {
-                // This is here to handle every other Designator that isn't implemented,
-                // by default they only need the type and that's being handled outside.
-                // Returning null is enough.
-                (ByteWriter data, Designator des) => {
-                    // These are handled in DesignatorPatches.WriteData
-                },
-                (ByteReader data) => {
-                    // These are handled in MapAsyncTimeComp.HandleDesignator
-                    return null;
-                }, true // <- isImplicit: true
+                // Catch all for all Designators, merely signals to construct them
+                // We can't construct them here because we need to signal ReadSyncObject
+                // to change the type, which is not possible from a SyncWorker.
+                (SyncWorker sync, ref Designator designator) => {
+
+                }, true, true // <- Implicit ShouldConstruct
             },
             {
-                // The only special case in vanilla that has arguments, mods can add their own as explicit types.
+                (SyncWorker sync, ref Designator_Place place) => {
+                    if (sync.isWriting) {
+                        sync.Write(place.placingRot);
+                    } else {
+                        place.placingRot = sync.Read<Rot4>();
+                    }
+                }, true, true // <- Implicit ShouldConstruct
+            },
+            {
                 (ByteWriter data, Designator_Build build) => {
                     WriteSync(data, build.entDef);
                 },
