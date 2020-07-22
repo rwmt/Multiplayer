@@ -562,12 +562,16 @@ namespace Multiplayer.Client
                 }, true, true // <- Implicit ShouldConstruct
             },
             {
-                (ByteWriter data, Designator_Build build) => {
-                    WriteSync(data, build.entDef);
-                },
-                (ByteReader data) => {
-                    BuildableDef def = ReadSync<BuildableDef>(data);
-                    return new Designator_Build(def);
+                (SyncWorker sync, ref Designator_Build build) => {
+                    if (sync.isWriting) {
+                        sync.Write(build.entDef);
+                        sync.Write(build.placingRot);
+                    } else {
+                        BuildableDef def = sync.Read<BuildableDef>();
+                        build = new Designator_Build(def) {
+                            placingRot = sync.Read<Rot4>()
+                        };
+                    }
                 }
             },
             #endregion
