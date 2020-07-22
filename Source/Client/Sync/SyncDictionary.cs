@@ -562,12 +562,24 @@ namespace Multiplayer.Client
                 }, true, true // <- Implicit ShouldConstruct
             },
             {
-                (ByteWriter data, Designator_Build build) => {
-                    WriteSync(data, build.entDef);
-                },
-                (ByteReader data) => {
-                    BuildableDef def = ReadSync<BuildableDef>(data);
-                    return new Designator_Build(def);
+                // Designator_Build is a Designator_Place but we aren't using Implicit
+                // We can't take part of the implicit tree because Designator_Build has an argument
+                // So we need to implement placingRot here too, until we separate instancing from decorating.
+                (SyncWorker sync, ref Designator_Build build) => {
+                    if (sync.isWriting) {
+                        sync.Write(build.PlacingDef);
+                        sync.Write(build.placingRot);
+                        if (build.PlacingDef.MadeFromStuff) {
+                            sync.Write(build.stuffDef);
+                        }
+                    } else {
+                        var def = sync.Read<BuildableDef>();
+                        build = new Designator_Build(def);
+                        build.placingRot = sync.Read<Rot4>();
+                        if (build.PlacingDef.MadeFromStuff) {
+                            build.stuffDef = sync.Read<ThingDef>();
+                        }
+                    }
                 }
             },
             #endregion
