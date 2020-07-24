@@ -740,7 +740,7 @@ namespace Multiplayer.Client
             // There are two of these in 1.1, <GetGizmos> and <>c. Pluck the one we want for sort inner
             Type cType = nestedPrivateTypes.Find(t => t.Name.Equals("<>c"));
 
-            return AccessTools.Method(cType, "<SortWornApparelIntoDrawOrder>b__50_0");
+            return AccessTools.Method(cType, "<SortWornApparelIntoDrawOrder>b__52_0");
         }
 
         private static MethodBase Inner(Type arg)

@@ -533,11 +533,13 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(Quest), nameof(Quest.Accept));
             SyncMethod.Register(typeof(PatchQuestChoices), nameof(PatchQuestChoices.Choose));
 
+            SyncMethod.Register(typeof(Verb_CastAbility), nameof(ITargetingSource.OrderForceTarget)); // single target Psychic abilities
+            SyncMethod.Register(typeof(CompAbilityEffect_WithDest), nameof(ITargetingSource.OrderForceTarget)); // Psychic abilities with a source + destination, such as Skip (warp enemy to target place)
+            SyncMethod.Register(typeof(RoyalTitlePermitWorker_CallAid), nameof(ITargetingSource.OrderForceTarget)); // CallAid
+            SyncMethod.Register(typeof(Verb_Jump), nameof(ITargetingSource.OrderForceTarget)); // Jump
+
             SyncMethod.Register(typeof(Command_Ability), nameof(Command_Ability.ProcessInput)); // self cast psychic abilities
-            SyncMethod.Register(typeof(Verb_CastAbility), nameof(Verb_CastAbility.OrderForceTarget)); // single target Psychic abilities
-            SyncMethod.Register(typeof(CompAbilityEffect_WithDest), nameof(CompAbilityEffect_WithDest.OrderForceTarget)); // Psychic abilities with a source + destination, such as Skip (warp enemy to target place)
-            SyncMethod.Register(typeof(RoyalTitlePermitWorker_CallAid), nameof(RoyalTitlePermitWorker_CallAid.CallAid_NewTemp)).CancelIfAnyArgNull();
-            SyncMethod.Register(typeof(CompAbilityEffect_StartSpeech), nameof(CompAbilityEffect_StartSpeech.Apply)); // Royal Pawn: Give Speech button
+            SyncMethod.Register(typeof(CompAbilityEffect_StartSpeech), nameof(CompAbilityEffect_StartSpeech.Apply), new SyncType[] {typeof(LocalTargetInfo), typeof(LocalTargetInfo)}); // Royal Pawn: Give Speech button
 
             // 1
             SyncMethod.Register(typeof(TradeRequestComp), nameof(TradeRequestComp.Fulfill)).CancelIfAnyArgNull().SetVersion(1);
@@ -633,7 +635,7 @@ namespace Multiplayer.Client
             __instance.draggedItem = null;
         }
 
-        [MpPrefix(typeof(Pawn_JobTracker), nameof(Pawn_JobTracker.TryTakeOrderedJob))]
+        [MpPrefix(typeof(Pawn_JobTracker), nameof(Pawn_JobTracker.TryTakeOrderedJob_NewTemp))]
         static void TryTakeOrderedJob_Prefix(Job job)
         {
             if (Multiplayer.ExecutingCmds && job.loadID < 0)
@@ -835,11 +837,11 @@ namespace Multiplayer.Client
         {
             SyncContext mouseKeyContext = SyncContext.QueueOrder_Down | SyncContext.MapMouseCell;
 
-            SyncDelegate.Register(typeof(FloatMenuMakerMap), "<>c__DisplayClass9_0", "<GotoLocationOption>b__0").CancelIfAnyFieldNull().SetContext(mouseKeyContext);  // Goto
-            SyncDelegate.Register(typeof(FloatMenuMakerMap), "<>c__DisplayClass5_1", "<AddHumanlikeOrders>b__0").CancelIfAnyFieldNull().SetContext(mouseKeyContext);   // Arrest
-            SyncDelegate.Register(typeof(FloatMenuMakerMap), "<>c__DisplayClass5_6", "<AddHumanlikeOrders>b__4").CancelIfAnyFieldNull().SetContext(mouseKeyContext);   // Rescue
-            SyncDelegate.Register(typeof(FloatMenuMakerMap), "<>c__DisplayClass5_6", "<AddHumanlikeOrders>b__5").CancelIfAnyFieldNull().SetContext(mouseKeyContext);   // Capture
-            SyncDelegate.Register(typeof(FloatMenuMakerMap), "<>c__DisplayClass5_8", "<AddHumanlikeOrders>b__6").CancelIfAnyFieldNull().SetContext(mouseKeyContext);   // Carry to cryptosleep casket
+            SyncDelegate.Register(typeof(FloatMenuMakerMap), "<>c__DisplayClass13_0", "<GotoLocationOption>b__0").CancelIfAnyFieldNull().SetContext(mouseKeyContext);  // Goto
+            SyncDelegate.Register(typeof(FloatMenuMakerMap), "<>c__DisplayClass8_1", "<AddHumanlikeOrders>b__0").CancelIfAnyFieldNull().SetContext(mouseKeyContext);   // Arrest
+            SyncDelegate.Register(typeof(FloatMenuMakerMap), "<>c__DisplayClass8_6", "<AddHumanlikeOrders>b__4").CancelIfAnyFieldNull().SetContext(mouseKeyContext);   // Rescue
+            SyncDelegate.Register(typeof(FloatMenuMakerMap), "<>c__DisplayClass8_6", "<AddHumanlikeOrders>b__5").CancelIfAnyFieldNull().SetContext(mouseKeyContext);   // Capture
+            SyncDelegate.Register(typeof(FloatMenuMakerMap), "<>c__DisplayClass8_8", "<AddHumanlikeOrders>b__6").CancelIfAnyFieldNull().SetContext(mouseKeyContext);   // Carry to cryptosleep casket
 
             SyncDelegate.Register(typeof(HealthCardUtility), "<>c__DisplayClass26_0", "<GenerateSurgeryOption>b__1").CancelIfAnyFieldNull(without: "part");      // Add medical bill
             SyncDelegate.Register(typeof(Command_SetPlantToGrow), "<>c__DisplayClass5_0", "<ProcessInput>b__2");                                                // Set plant to grow
@@ -880,11 +882,11 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(CompRefuelable), "<CompGetGizmosExtra>b__42_3").SetDebugOnly(); // Set fuel to 0.1
             SyncMethod.Register(typeof(CompRefuelable), "<CompGetGizmosExtra>b__42_4").SetDebugOnly(); // Set fuel to max
 
-            SyncMethod.Register(typeof(CompShuttle), "<CompGetGizmosExtra>b__39_1"); // Toggle autoload
-            SyncMethod.Register(typeof(CompShuttle), "<CompGetGizmosExtra>b__39_2"); // Send shuttle
-            SyncMethod.Register(typeof(MonumentMarker), "<GetGizmos>b__28_1"); // Build Monument Quest - Monument Marker: cancel/remove marker
-            SyncDelegate.Register(typeof(MonumentMarker), "<>c__DisplayClass28_0", "<GetGizmos>b__3"); // Build Monument Quest - Monument Marker: place blueprints
-            SyncMethod.Register(typeof(MonumentMarker), "<GetGizmos>b__28_4"); // Build Monument Quest - Monument Marker: dev build all
+            SyncMethod.Register(typeof(CompShuttle), "<CompGetGizmosExtra>b__54_1"); // Toggle autoload
+            SyncMethod.Register(typeof(CompShuttle), "<CompGetGizmosExtra>b__54_2"); // Send shuttle
+
+            SyncMethod.Register(typeof(MonumentMarker), "<GetGizmos>b__30_1"); // Build Monument Quest - Monument Marker: cancel/remove marker
+            SyncMethod.Register(typeof(MonumentMarker), "<GetGizmos>b__30_4").SetDebugOnly(); // Build Monument Quest - Monument Marker: dev build all
 
             SyncDelegate.Register(typeof(ITab_ContentsTransporter), "<>c__DisplayClass7_0", "<DoItemsLists>b__0").SetContext(SyncContext.MapSelected); // Discard loaded thing
         }
