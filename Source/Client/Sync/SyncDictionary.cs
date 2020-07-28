@@ -617,28 +617,6 @@ namespace Multiplayer.Client
                     return (parent.gun as ThingWithComps).TryGetComp<CompChangeableProjectile>();
                 }
             },
-            {
-                (ByteWriter data, ThingComp comp) => {
-                    if (comp != null) {
-                        data.WriteUShort((ushort)Array.IndexOf(thingCompTypes, comp.GetType()));
-                        WriteSync(data, comp.parent);
-                    } else {
-                        data.WriteUShort(ushort.MaxValue);
-                    }
-                },
-                (ByteReader data) => {
-                    ushort compTypeId = data.ReadUShort();
-                    if (compTypeId == ushort.MaxValue)
-                        return null;
-
-                    ThingWithComps parent = ReadSync<ThingWithComps>(data);
-                    if (parent == null)
-                        return null;
-
-                    Type compType = thingCompTypes[compTypeId];
-                    return parent.AllComps.Find(comp => comp.props.compClass == compType);
-                }, true
-            },
             #endregion
 
             #region Things
@@ -722,6 +700,30 @@ namespace Multiplayer.Client
                     return ThingsById.thingsById.GetValueSafe(thingId);
                 }
             },
+            {
+                (SyncWorker data, ref ThingComp comp) => {
+                    if (data.isWriting) {
+                        if (comp != null) {
+                            ushort index = (ushort)Array.IndexOf(thingCompTypes, comp.GetType());
+                            data.Write(index);
+                            data.Write(comp.parent);
+                        } else {
+                            data.Write(ushort.MaxValue);
+                        }
+                    } else {
+                        ushort index = data.Read<ushort>();
+                        if (index == ushort.MaxValue) {
+                            return;
+                        }
+                        ThingWithComps parent = data.Read<ThingWithComps>();
+                        if (parent == null) {
+                            return;
+                        }
+                        Type compType = thingCompTypes[index];
+                        comp = parent.AllComps.Find(c => c.props.compClass == compType);
+                    }
+                }, true // implicit
+            },
             #endregion
 
             #region RoyalTitlePermitWorker
@@ -757,6 +759,30 @@ namespace Multiplayer.Client
                 (ByteWriter data, MultiplayerMapComp comp) => data.MpContext().map = comp.map,
                 (ByteReader data) => (data.MpContext().map).MpComp()
             },
+            {
+                (SyncWorker data, ref MapComponent comp) => {
+                    if (data.isWriting) {
+                        if (comp != null) {
+                            ushort index = (ushort)Array.IndexOf(mapCompTypes, comp.GetType());
+                            data.Write(index);
+                            data.Write(comp.map);
+                        } else {
+                            data.Write(ushort.MaxValue);
+                        }
+                    } else {
+                        ushort index = data.Read<ushort>();
+                        if (index == ushort.MaxValue) {
+                            return;
+                        }
+                        Map map = data.Read<Map>();
+                        if (map == null) {
+                            return;
+                        }
+                        Type compType = mapCompTypes[index];
+                        comp = map.GetComponent(compType);
+                    }
+                }, true  // implicit
+            },
             #endregion
 
             #region World
@@ -773,27 +799,74 @@ namespace Multiplayer.Client
                 }
             },
             {
-                (ByteWriter data, WorldObjectComp comp) => {
-                    if (comp != null) {
-                        ushort index = (ushort)Array.IndexOf(worldObjectCompTypes, comp.GetType());
-                        data.WriteUShort(index);
-                        WriteSync(data, comp.parent);
+                (SyncWorker data, ref WorldObjectComp comp) => {
+                    if (data.isWriting) {
+                        if (comp != null) {
+                            ushort index = (ushort)Array.IndexOf(worldObjectCompTypes, comp.GetType());
+                            data.Write(index);
+                            data.Write(comp.parent);
+                        } else {
+                            data.Write(ushort.MaxValue);
+                        }
                     } else {
-                        data.WriteInt32(ushort.MaxValue);
+                        ushort index = data.Read<ushort>();
+                        if (index == ushort.MaxValue) {
+                            return;
+                        }
+                        WorldObject parent = data.Read<WorldObject>();
+                        if (parent == null) {
+                            return;
+                        }
+                        Type compType = worldObjectCompTypes[index];
+                        comp = parent.GetComponent(compType);
                     }
-                },
-                (ByteReader data) => {
-                    ushort compTypeId = data.ReadUShort();
-                    if (compTypeId == ushort.MaxValue)
-                        return null;
+                }, true // implicit
+            },
+            {
+                (SyncWorker data, ref WorldComponent comp) => {
+                    if (data.isWriting) {
+                        if (comp != null) {
+                            ushort index = (ushort)Array.IndexOf(worldCompTypes, comp.GetType());
+                            data.Write(index);
+                            data.Write(comp.world);
+                        } else {
+                            data.Write(ushort.MaxValue);
+                        }
+                    } else {
+                        ushort index = data.Read<ushort>();
+                        if (index == ushort.MaxValue) {
+                            return;
+                        }
+                        Type compType = worldCompTypes[index];
+                        World world = data.Read<World>();
+                        if (world == null) {
+                            return;
+                        }
+                        comp = world.GetComponent(compType);
+                    }
+                }, true // implicit
+            },
+            #endregion
 
-                    WorldObject parent = ReadSync<WorldObject>(data);
-                    if (parent == null)
-                        return null;
-
-                    Type compType = worldObjectCompTypes[compTypeId];
-                    return parent.AllComps.Find(comp => comp.props.compClass == compType);
-                  }
+            #region Game
+            {
+                (SyncWorker data, ref GameComponent comp) => {
+                    if (data.isWriting) {
+                        if (comp != null) {
+                            ushort index = (ushort)Array.IndexOf(gameCompTypes, comp.GetType());
+                            data.Write(index);
+                        } else {
+                            data.Write(ushort.MaxValue);
+                        }
+                    } else {
+                        ushort index = data.Read<ushort>();
+                        if (index == ushort.MaxValue) {
+                            return;
+                        }
+                        Type compType = worldCompTypes[index];
+                        comp = Current.Game.GetComponent(compType);
+                    }
+                }, true // implicit
             },
             #endregion
 
