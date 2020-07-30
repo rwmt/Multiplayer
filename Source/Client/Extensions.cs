@@ -35,9 +35,9 @@ namespace Multiplayer.Client
             return t.AllSubclasses().Concat(t);
         }
 
-        public static IEnumerable<Type> AllImplementing(this Type t)
+        public static IEnumerable<Type> AllImplementing(this Type type)
         {
-            return from x in GenTypes.AllTypes where t.IsAssignableFrom(x) select x;
+            return  GenTypes.AllTypes.Where(t => t.GetInterfaces().Contains(type));
         }
 
         // Sets the current Faction.OfPlayer

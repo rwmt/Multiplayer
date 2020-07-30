@@ -270,44 +270,72 @@ namespace Multiplayer.Client
                     }
                 }, true // implicit
             },
+            #endregion
+
+            #region Verb
             {
-                (ByteWriter data, Verb_CastAbility verb) => {
-                    if (verb.DirectOwner is Pawn pawn) {
-                        WriteSync(data, VerbOwnerType.Pawn);
-                        WriteSync(data, pawn);
-                    }
-                    else if (verb.DirectOwner is Ability ability) {
-                        WriteSync(data, VerbOwnerType.Ability);
-                        WriteSync(data, ability);
+                (SyncWorker sync, ref Verb verb)  => {
+                    if (sync.isWriting) {
+
+                        if (verb.DirectOwner is Pawn pawn) {
+                            sync.Write(VerbOwnerType.Pawn);
+                            sync.Write(pawn);
+                        }
+                        else if (verb.DirectOwner is Ability ability) {
+                            sync.Write(VerbOwnerType.Ability);
+                            sync.Write(ability);
+                        }
+                        else if (verb.DirectOwner is CompEquippable compEquipable) {
+                            sync.Write(VerbOwnerType.CompEquippable);
+                            sync.Write(compEquipable);
+                        }
+                        else if (verb.DirectOwner is CompReloadable compReloadable) {
+                            sync.Write(VerbOwnerType.CompReloadable);
+                            sync.Write(compReloadable);
+                        }
+                        else {
+                            Log.Error($"Multiplayer :: SyncDictionary.Verb: Unknown DirectOwner {verb.loadID} {verb.DirectOwner}");
+                            sync.Write(VerbOwnerType.None);
+                            return;
+                        }
+
+                        sync.Write(verb.loadID);
                     }
                     else {
-                        Log.Warning($"MP SyncDictionary.Verb_CastAbility: skipping unknown DirectOwner {verb.loadID} {verb.DirectOwner}");
-                        WriteSync(data, VerbOwnerType.None);
-                        return;
-                    }
 
-                    data.WriteString(verb.loadID);
-                },
-                (ByteReader data) => {
-                    var ownerType = ReadSync<VerbOwnerType>(data);
-                    if (ownerType == VerbOwnerType.None) {
-                        return null;
-                    }
+                        var ownerType = sync.Read<VerbOwnerType>();
+                        if (ownerType == VerbOwnerType.None) {
+                            return;
+                        }
 
-                    IVerbOwner verbOwner = null;
-                    if (ownerType == VerbOwnerType.Pawn) {
-                        verbOwner = ReadSync<Pawn>(data);
-                    }
-                    else if (ownerType == VerbOwnerType.Ability) {
-                        verbOwner = ReadSync<Ability>(data);
-                    }
-                    if (verbOwner == null) {
-                        return null;
-                    }
+                        IVerbOwner verbOwner = null;
+                        if (ownerType == VerbOwnerType.Pawn) {
+                            verbOwner = sync.Read<Pawn>();
+                        }
+                        else if (ownerType == VerbOwnerType.Ability) {
+                            verbOwner = sync.Read<Ability>();
+                        }
+                        else if (ownerType == VerbOwnerType.CompEquippable) {
+                            verbOwner = sync.Read<CompEquippable>();
+                        }
+                        else if (ownerType == VerbOwnerType.CompReloadable) {
+                            verbOwner = sync.Read<CompReloadable>();
+                        }
 
-                    var loadID = data.ReadString();
-                    return (Verb_CastAbility) verbOwner.VerbTracker.AllVerbs.Find(ve => ve.loadID == loadID);
-                }
+                        if (verbOwner == null) {
+                            Log.Error($"Multiplayer :: SyncDictionary.Verb: Unknown VerbOwnerType {ownerType}");
+                            return;
+                        }
+
+                        var loadID = sync.Read<string>();
+
+                        verb = verbOwner.VerbTracker.AllVerbs.Find(ve => ve.loadID == loadID);
+
+                        if (verb == null) {
+                            Log.Error($"Multiplayer :: SyncDictionary.Verb: Unknown verb {loadID}");
+                        }
+                    }
+                }, true // implicit
             },
             #endregion
 
@@ -737,13 +765,64 @@ namespace Multiplayer.Client
 
             #region RoyalTitlePermitWorker
             {
-                (ByteWriter data, RoyalTitlePermitWorker worker) => {
-                    WriteSync(data, worker.def);
-                },
-                (ByteReader data) => {
-                    RoyalTitlePermitDef def = ReadSync<RoyalTitlePermitDef>(data);
-                    return def?.Worker;
-                }, true
+                (SyncWorker sync, ref RoyalTitlePermitWorker worker) => {
+                    if (sync.isWriting) {
+                        sync.Write(worker.def);
+                    }
+                    else {
+                        worker = sync.Read<RoyalTitlePermitDef>().Worker;
+                    }
+                }, true // Implicit
+            },
+            {
+                // Parent: RoyalTitlePermitWorker
+                (SyncWorker sync, ref RoyalTitlePermitWorker_Targeted targeted) => {
+                    if (sync.isWriting) {
+                        sync.Write(targeted.free);
+                        sync.Write(targeted.caller);
+                        sync.Write(targeted.map);
+                    }
+                    else {
+                        targeted.free = sync.Read<bool>();
+                        targeted.caller = sync.Read<Pawn>();
+                        targeted.map = sync.Read<Map>();
+                    }
+                }, true // Implicit
+            },
+            {
+                // Parent: RoyalTitlePermitWorker_Targeted
+                (SyncWorker sync, ref RoyalTitlePermitWorker_CallAid callAid) => {
+                    if (sync.isWriting) {
+                        sync.Write(callAid.calledFaction);
+                        sync.Write(callAid.biocodeChance);
+                    }
+                    else {
+                        callAid.calledFaction = sync.Read<Faction>();
+                        callAid.biocodeChance = sync.Read<float>();
+                    }
+                }, true // Implicit
+            },
+            {
+                // Parent: RoyalTitlePermitWorker_Targeted
+                (SyncWorker sync, ref RoyalTitlePermitWorker_CallShuttle callShuttle) => {
+                    if (sync.isWriting) {
+                        sync.Write(callShuttle.calledFaction);
+                    }
+                    else {
+                        callShuttle.calledFaction = sync.Read<Faction>();
+                    }
+                }, true // Implicit
+            },
+            {
+                // Parent: RoyalTitlePermitWorker_Targeted
+                (SyncWorker sync, ref RoyalTitlePermitWorker_OrbitalStrike orbitalStrike) => {
+                    if (sync.isWriting) {
+                        sync.Write(orbitalStrike.faction);
+                    }
+                    else {
+                        orbitalStrike.faction = sync.Read<Faction>();
+                    }
+                }, true // Implicit
             },
             #endregion
 

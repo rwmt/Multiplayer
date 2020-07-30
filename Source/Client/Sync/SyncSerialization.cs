@@ -90,7 +90,7 @@ namespace Multiplayer.Client
 
         enum VerbOwnerType : byte
         {
-            None, Pawn, Ability
+            None, Pawn, Ability, CompEquippable, CompReloadable
         }
 
         private static MethodInfo GetDefByIdMethod = AccessTools.Method(typeof(Sync), nameof(Sync.GetDefById));

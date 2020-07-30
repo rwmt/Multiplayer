@@ -533,10 +533,17 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(Quest), nameof(Quest.Accept));
             SyncMethod.Register(typeof(PatchQuestChoices), nameof(PatchQuestChoices.Choose));
 
-            SyncMethod.Register(typeof(Verb_CastAbility), nameof(ITargetingSource.OrderForceTarget)); // single target Psychic abilities
-            SyncMethod.Register(typeof(CompAbilityEffect_WithDest), nameof(ITargetingSource.OrderForceTarget)); // Psychic abilities with a source + destination, such as Skip (warp enemy to target place)
-            SyncMethod.Register(typeof(RoyalTitlePermitWorker_CallAid), nameof(ITargetingSource.OrderForceTarget)); // CallAid
-            SyncMethod.Register(typeof(Verb_Jump), nameof(ITargetingSource.OrderForceTarget)); // Jump
+            {
+                var methods = typeof(ITargetingSource).AllImplementing()
+                    .Select(t => t.GetMethod(nameof(ITargetingSource.OrderForceTarget), AccessTools.allDeclared))
+                    .NotNull();
+
+                foreach(var method in methods) {
+                    Sync.RegisterSyncMethod(method);
+                }
+            }
+
+            SyncMethod.Register(typeof(RoyalTitlePermitWorker_CallLaborers), nameof(RoyalTitlePermitWorker_CallLaborers.CallLaborers));
 
             SyncMethod.Register(typeof(Command_Ability), nameof(Command_Ability.ProcessInput)); // self cast psychic abilities
             SyncMethod.Register(typeof(CompAbilityEffect_StartSpeech), nameof(CompAbilityEffect_StartSpeech.Apply), new SyncType[] {typeof(LocalTargetInfo), typeof(LocalTargetInfo)}); // Royal Pawn: Give Speech button
