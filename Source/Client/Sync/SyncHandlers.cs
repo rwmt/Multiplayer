@@ -849,6 +849,7 @@ namespace Multiplayer.Client
             SyncDelegate.Register(typeof(FloatMenuMakerMap), "<>c__DisplayClass8_6", "<AddHumanlikeOrders>b__4").CancelIfAnyFieldNull().SetContext(mouseKeyContext);   // Rescue
             SyncDelegate.Register(typeof(FloatMenuMakerMap), "<>c__DisplayClass8_6", "<AddHumanlikeOrders>b__5").CancelIfAnyFieldNull().SetContext(mouseKeyContext);   // Capture
             SyncDelegate.Register(typeof(FloatMenuMakerMap), "<>c__DisplayClass8_8", "<AddHumanlikeOrders>b__6").CancelIfAnyFieldNull().SetContext(mouseKeyContext);   // Carry to cryptosleep casket
+            SyncDelegate.Register(typeof(FloatMenuMakerMap), "<>c__DisplayClass8_9", "<AddHumanlikeOrders>b__8").CancelIfAnyFieldNull().SetContext(mouseKeyContext);   // Carry to shuttle
 
             SyncDelegate.Register(typeof(HealthCardUtility), "<>c__DisplayClass26_0", "<GenerateSurgeryOption>b__1").CancelIfAnyFieldNull(without: "part");      // Add medical bill
             SyncDelegate.Register(typeof(Command_SetPlantToGrow), "<>c__DisplayClass5_0", "<ProcessInput>b__2");                                                // Set plant to grow
