@@ -229,6 +229,9 @@ namespace Multiplayer.Client
                     return billStack.Bills.Find(bill => bill.loadID == id);
                 }, true
             },
+            #endregion
+
+            #region Abilities
             {
                 (ByteWriter data, Ability ability) => {
                     WriteSync(data, ability.pawn);
@@ -244,22 +247,28 @@ namespace Multiplayer.Client
                 }, true
             },
             {
-                (ByteWriter data, CompAbilityEffect_WithDest compAbilityEffect) => {
-                    WriteSync(data, compAbilityEffect.parent);
-                },
-                (ByteReader data) => {
-                    var ability = ReadSync<Ability>(data);
-                    return ability.CompOfType<CompAbilityEffect_WithDest>();
-                }
-            },
-            {
-                (ByteWriter data, CompAbilityEffect_StartSpeech compAbilityEffect) => {
-                    WriteSync(data, compAbilityEffect.parent);
-                },
-                (ByteReader data) => {
-                    var ability = ReadSync<Ability>(data);
-                    return ability.CompOfType<CompAbilityEffect_StartSpeech>();
-                }
+                (SyncWorker data, ref AbilityComp comp) => {
+                    if (data.isWriting) {
+                        if (comp != null) {
+                            ushort index = (ushort)Array.IndexOf(abilityCompTypes, comp.GetType());
+                            data.Write(index);
+                            data.Write(comp.parent);
+                        } else {
+                            data.Write(ushort.MaxValue);
+                        }
+                    } else {
+                        ushort index = data.Read<ushort>();
+                        if (index == ushort.MaxValue) {
+                            return;
+                        }
+                        Ability parent = data.Read<Ability>();
+                        if (parent == null) {
+                            return;
+                        }
+                        Type compType = abilityCompTypes[index];
+                        comp = parent.comps.Find(c => c.props.compClass == compType);
+                    }
+                }, true // implicit
             },
             {
                 (ByteWriter data, Verb_CastAbility verb) => {

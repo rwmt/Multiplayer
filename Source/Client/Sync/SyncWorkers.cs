@@ -423,6 +423,7 @@ namespace Multiplayer.Client
             cache[typeof(IPlantToGrowSettable)] = Sync.plantToGrowSettables;
 
             cache[typeof(ThingComp)] = Sync.thingCompTypes;
+            cache[typeof(AbilityComp)] = Sync.abilityCompTypes;
             cache[typeof(Designator)] = Sync.designatorTypes;
             cache[typeof(WorldObjectComp)] = Sync.worldObjectCompTypes;
 

@@ -464,6 +464,7 @@ namespace Multiplayer.Client
             int TypeHash(Type type) => GenText.StableStringHash(type.FullName);
 
             dict["ThingComp"] = GetDefInfo(Sync.thingCompTypes, TypeHash);
+            dict["AbilityComp"] = GetDefInfo(Sync.abilityCompTypes, TypeHash);
             dict["Designator"] = GetDefInfo(Sync.designatorTypes, TypeHash);
             dict["WorldObjectComp"] = GetDefInfo(Sync.worldObjectCompTypes, TypeHash);
             dict["IStoreSettingsParent"] = GetDefInfo(Sync.storageParents, TypeHash);
