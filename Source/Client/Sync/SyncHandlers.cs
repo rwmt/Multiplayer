@@ -477,17 +477,17 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(Building_Bed), nameof(Building_Bed.Medical));
 
             {
-                void RegisterIfDeclaredByType(Type type, string methodName)
-                {
-                    var assign = AccessTools.Method(type, methodName);
-                    if (assign.DeclaringType == type) {
-                        Sync.RegisterSyncMethod(assign).CancelIfAnyArgNull();
-                    }
-                }
+                var methodNames = new [] {
+                    nameof(CompAssignableToPawn.TryAssignPawn),
+                    nameof(CompAssignableToPawn.TryUnassignPawn),
+                };
 
-                foreach (var type in typeof(CompAssignableToPawn).AllSubtypesAndSelf()) {
-                    RegisterIfDeclaredByType(type, nameof(CompAssignableToPawn.TryAssignPawn));
-                    RegisterIfDeclaredByType(type, nameof(CompAssignableToPawn.TryUnassignPawn));
+                var methods = typeof(CompAssignableToPawn).AllSubtypesAndSelf()
+                    .SelectMany(t => methodNames.Select(n => t.GetMethod(n, AccessTools.allDeclared)))
+                    .NotNull();
+
+                foreach(var method in methods) {
+                    Sync.RegisterSyncMethod(method).CancelIfAnyArgNull();
                 }
             }
 
