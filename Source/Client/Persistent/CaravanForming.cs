@@ -5,7 +5,6 @@ using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using UnityEngine;
 using Verse;
 
@@ -47,6 +46,7 @@ namespace Multiplayer.Client
         private void AddItems()
         {
             var dialog = new MpFormingCaravanWindow(map, reform, null, mapAboutToBeRemoved);
+            dialog.autoSelectFoodAndMedicine = false;
             dialog.CalculateAndRecacheTransferables();
             transferables = dialog.transferables;
         }
@@ -60,7 +60,7 @@ namespace Multiplayer.Client
                 dialog.soundAppear = null;
             dialog.doCloseX = true;
 
-            CaravanUIUtility.CreateCaravanTransferableWidgets(transferables, out dialog.pawnsTransfer, out dialog.itemsTransfer, "FormCaravanColonyThingCountTip".Translate(), dialog.IgnoreInventoryMode, () => dialog.MassCapacity - dialog.MassUsage, dialog.AutoStripSpawnedCorpses, dialog.CurrentTile, mapAboutToBeRemoved);
+            CaravanUIUtility.CreateCaravanTransferableWidgets_NewTmp(transferables, out dialog.pawnsTransfer, out dialog.itemsTransfer, out dialog.foodAndMedicineTransfer, "FormCaravanColonyThingCountTip".Translate(), dialog.IgnoreInventoryMode, () => dialog.MassCapacity - dialog.MassUsage, dialog.AutoStripSpawnedCorpses, dialog.CurrentTile, mapAboutToBeRemoved);
             dialog.CountToTransferChanged();
 
             Find.WindowStack.Add(dialog);
@@ -73,7 +73,8 @@ namespace Multiplayer.Client
                 transferables = transferables,
                 startingTile = startingTile,
                 destinationTile = destinationTile,
-                thisWindowInstanceEverOpened = true
+                thisWindowInstanceEverOpened = true,
+                autoSelectFoodAndMedicine = false,
             };
 
             return dialog;
@@ -242,6 +243,28 @@ namespace Multiplayer.Client
                 MpFormingCaravanWindow.drawing.Session?.Reset();
                 __result = false;
             }
+        }
+    }
+
+    [HarmonyPatch(typeof(Dialog_FormCaravan), nameof(Dialog_FormCaravan.DrawAutoSelectCheckbox))]
+    static class DrawAutoSelectCheckboxPatch
+    {
+        // TODO: Sync autoSelectFoodAndMedicine
+        // This is merely hidding it and enabling manual transfer as a side effect.
+        static bool Prefix(Dialog_FormCaravan __instance, Rect rect) {
+            if (Multiplayer.ShouldSync && __instance is MpFormingCaravanWindow dialog)
+            {
+                rect.yMin += 37f;
+                rect.height = 35f;
+
+                bool autoSelectFoodAndMedicine = false;
+
+                Widgets.CheckboxLabeled(rect, "AutomaticallySelectFoodAndMedicine".Translate(), ref autoSelectFoodAndMedicine, disabled: true, placeCheckboxNearText: true);
+
+                return false;
+            }
+
+            return true;
         }
     }
 
