@@ -763,7 +763,17 @@ namespace Multiplayer.Client
             },
             #endregion
 
-            #region RoyalTitlePermitWorker
+            #region Royalty Permits
+            {
+                (SyncWorker sync, ref Pawn_RoyaltyTracker royalty) => {
+                    if (sync.isWriting) {
+                        sync.Write(royalty.pawn);
+                    }
+                    else {
+                        royalty = sync.Read<Pawn>().royalty;
+                    }
+                }
+            },
             {
                 (SyncWorker sync, ref RoyalTitlePermitWorker worker) => {
                     if (sync.isWriting) {
