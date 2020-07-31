@@ -308,7 +308,8 @@ namespace Multiplayer.Client
                 var randomHair = typeof(PawnHairChooser).GetMethod(nameof(PawnHairChooser.RandomHairDefFor));
 
                 var effectMethods = new MethodBase[] { subSustainerStart, sampleCtor, subSoundPlay, effecterTick, effecterTrigger, effecterCleanup, randomBoltMesh, drawTrackerCtor, randomHair };
-                var moteMethods = typeof(MoteMaker).GetMethods(BindingFlags.Static | BindingFlags.Public);
+                var moteMethods = typeof(MoteMaker).GetMethods(BindingFlags.Static | BindingFlags.Public)
+                    .Where(m => m.Name != "MakeBombardmentMote"); // Special case, just calls MakeBombardmentMote_NewTmp, prevents Hugslib complains
 
                 foreach (MethodBase m in effectMethods.Concat(moteMethods)) {
                     try {
