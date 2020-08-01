@@ -196,6 +196,19 @@ namespace Multiplayer.Client
                         Type nullableType = type.GetGenericArguments()[0];
                         return Activator.CreateInstance(type, ReadSyncObject(data, nullableType));
                     }
+
+                    if (genericTypeDefinition == typeof(Dictionary<,>))
+                    {
+                        Type[] arguments = type.GetGenericArguments();
+
+                        Array keys = (Array)ReadSyncObject(data, arguments[0].MakeArrayType());
+                        Array values = (Array)ReadSyncObject(data, arguments[1].MakeArrayType());
+
+                        IDictionary dictionary = (IDictionary)Activator.CreateInstance(type);
+                        for (int i = 0; i < keys.Length; i++)
+                            dictionary.Add(keys.GetValue(i), values.GetValue(i));
+                        return dictionary;
+                    }
                 }
 
                 // Def is a special case until the workers can read their own type
@@ -394,6 +407,24 @@ namespace Multiplayer.Client
                         Type nullableType = type.GetGenericArguments()[0];
                         if (hasValue)
                             WriteSyncObject(data, obj.GetPropertyOrField("Value"), nullableType);
+
+                        return;
+                    }
+
+                    if (genericTypeDefinition == typeof(Dictionary<,>))
+                    {
+                        Type[] arguments = type.GetGenericArguments();
+
+                        IDictionary dictionary = (IDictionary)obj;
+
+                        Array keyArray = Array.CreateInstance(arguments[0], dictionary.Count);
+                        dictionary.Keys.CopyTo(keyArray, 0);
+
+                        Array valueArray = Array.CreateInstance(arguments[1], dictionary.Count);
+                        dictionary.Values.CopyTo(valueArray, 0);
+
+                        WriteSyncObject(data, keyArray, keyArray.GetType());
+                        WriteSyncObject(data, valueArray, valueArray.GetType());
 
                         return;
                     }
