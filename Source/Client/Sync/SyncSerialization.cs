@@ -159,7 +159,9 @@ namespace Multiplayer.Client
 
                 if (type.IsGenericType)
                 {
-                    if (type.GetGenericTypeDefinition() == typeof(List<>))
+                    var genericTypeDefinition = type.GetGenericTypeDefinition();
+
+                    if (genericTypeDefinition == typeof(List<>))
                     {
                         ListType specialList = ReadSync<ListType>(data);
                         if (specialList == ListType.MapAllThings)
@@ -177,13 +179,13 @@ namespace Multiplayer.Client
                         return list;
                     }
 
-                    if (type.GetGenericTypeDefinition() == typeof(IEnumerable<>))
+                    if (genericTypeDefinition == typeof(IEnumerable<>))
                     {
                         Type element = type.GetGenericArguments()[0];
                         return ReadSyncObject(data, typeof(List<>).MakeGenericType(element));
                     }
 
-                    if (type.GetGenericTypeDefinition() == typeof(Nullable<>))
+                    if (genericTypeDefinition == typeof(Nullable<>))
                     {
                         bool isNull = data.ReadBool();
                         if (isNull) return null;
@@ -325,72 +327,76 @@ namespace Multiplayer.Client
                     return;
                 }
 
-                if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(List<>))
-                {
-                    ListType specialList = ListType.Normal;
-                    Type listType = type.GetGenericArguments()[0];
+                if (type.IsGenericType) {
+                    Type genericTypeDefinition = type.GetGenericTypeDefinition();
 
-                    if (listType == typeof(Thing) && obj == Find.CurrentMap.listerThings.AllThings)
+                    if (genericTypeDefinition == typeof(List<>))
                     {
-                        context.map = Find.CurrentMap;
-                        specialList = ListType.MapAllThings;
-                    }
-                    else if (listType == typeof(Designation) && obj == Find.CurrentMap.designationManager.allDesignations)
-                    {
-                        context.map = Find.CurrentMap;
-                        specialList = ListType.MapAllDesignations;
-                    }
+                        ListType specialList = ListType.Normal;
+                        Type listType = type.GetGenericArguments()[0];
 
-                    WriteSync(data, specialList);
+                        if (listType == typeof(Thing) && obj == Find.CurrentMap.listerThings.AllThings)
+                        {
+                            context.map = Find.CurrentMap;
+                            specialList = ListType.MapAllThings;
+                        }
+                        else if (listType == typeof(Designation) && obj == Find.CurrentMap.designationManager.allDesignations)
+                        {
+                            context.map = Find.CurrentMap;
+                            specialList = ListType.MapAllDesignations;
+                        }
 
-                    if (specialList == ListType.Normal)
-                    {
-                        IList list = (IList)obj;
+                        WriteSync(data, specialList);
 
-                        if (list.Count > ushort.MaxValue)
-                            throw new Exception($"Tried to serialize a {type} with too many ({list.Count}) items.");
+                        if (specialList == ListType.Normal)
+                        {
+                            IList list = (IList)obj;
 
-                        data.WriteUShort((ushort)list.Count);
-                        foreach (object e in list)
-                            WriteSyncObject(data, e, listType);
-                    }
+                            if (list.Count > ushort.MaxValue)
+                                throw new Exception($"Tried to serialize a {type} with too many ({list.Count}) items.");
 
-                    return;
-                }
+                            data.WriteUShort((ushort)list.Count);
+                            foreach (object e in list)
+                                WriteSyncObject(data, e, listType);
+                        }
 
-                if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>))
-                {
-                    bool isNull = obj == null;
-                    data.WriteBool(isNull);
-                    if (isNull) return;
-
-                    bool hasValue = (bool)obj.GetPropertyOrField("HasValue");
-                    data.WriteBool(hasValue);
-
-                    Type nullableType = type.GetGenericArguments()[0];
-                    if (hasValue)
-                        WriteSyncObject(data, obj.GetPropertyOrField("Value"), nullableType);
-
-                    return;
-                }
-
-                if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IEnumerable<>))
-                {
-                    IEnumerable e = (IEnumerable)obj;
-                    Type elementType = type.GetGenericArguments()[0];
-                    var listType = typeof(List<>).MakeGenericType(elementType);
-                    IList list = (IList)Activator.CreateInstance(listType);
-
-                    foreach (var o in e)
-                    {
-                        if (list.Count > ushort.MaxValue)
-                            throw new Exception($"Tried to serialize a {type} with too many ({list.Count}) items.");
-                        list.Add(o);
+                        return;
                     }
 
-                    WriteSyncObject(data, list, listType);
+                    if (genericTypeDefinition == typeof(IEnumerable<>))
+                    {
+                        IEnumerable e = (IEnumerable)obj;
+                        Type elementType = type.GetGenericArguments()[0];
+                        var listType = typeof(List<>).MakeGenericType(elementType);
+                        IList list = (IList)Activator.CreateInstance(listType);
 
-                    return;
+                        foreach (var o in e)
+                        {
+                            if (list.Count > ushort.MaxValue)
+                                throw new Exception($"Tried to serialize a {type} with too many ({list.Count}) items.");
+                            list.Add(o);
+                        }
+
+                        WriteSyncObject(data, list, listType);
+
+                        return;
+                    }
+
+                    if (genericTypeDefinition == typeof(Nullable<>)) 
+                    {
+                        bool isNull = obj == null;
+                        data.WriteBool(isNull);
+                        if (isNull) return;
+
+                        bool hasValue = (bool)obj.GetPropertyOrField("HasValue");
+                        data.WriteBool(hasValue);
+
+                        Type nullableType = type.GetGenericArguments()[0];
+                        if (hasValue)
+                            WriteSyncObject(data, obj.GetPropertyOrField("Value"), nullableType);
+
+                        return;
+                    }
                 }
 
                 // special case
