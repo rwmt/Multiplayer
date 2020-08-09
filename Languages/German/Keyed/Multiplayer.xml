@@ -39,7 +39,7 @@
   <MpPlayerDisconnected>{0} hat die Verbindung getrennt</MpPlayerDisconnected>
 
   <MpReplayOutdated>(Veraltet)</MpReplayOutdated>
-  <MpReplayOutdatedDesc1>Diese Aufnahme wurde für Protokollversion {0} gemacht, du nutzt allerdings Version {1}.\n\nDie Aufnahme könnte fehlerhaft abgespielt werden.\nMögliche Inkompatibilitäten sind in der Release History aufgeführt.</MpReplayOutdatedDesc1>
+  <MpReplayOutdatedDesc1>Diese Aufnahme wurde für Protokollversion {0} erstellt, du nutzt allerdings Version {1}.\n\nDie Aufnahme könnte fehlerhaft abgespielt werden.\nMögliche Inkompatibilitäten sind in der Release History aufgeführt.</MpReplayOutdatedDesc1>
   <MpReplayOutdatedDesc2>Diese Aufnahme wird möglicherweise nicht richtig abgespielt.</MpReplayOutdatedDesc2>
   <MpReplayOutdatedDesc3>Mögliche Inkompatibilitäten werden im Versionsverlauf aufgeführt.</MpReplayOutdatedDesc3>
   <MpReplayOutdatedDesc4>Diese Datei enthält zusätzliche Informationen; das Hosten von dieser Datei sollte trotzdem problemlos funktionieren.</MpReplayOutdatedDesc4>
@@ -48,7 +48,9 @@
   
   <MpHostServer>Server hosten</MpHostServer>
   <MpSaveReplay>Aufnahme speichern</MpSaveReplay>
-  
+  <MpFullSave>Vollständiger Spielstand</MpFullSave>
+  <MpFullSaveDesc>Vollständige Spielstände werden schneller geladen aber langsamer gespeichert und stehen nur dem Host zur Verfügung.</MpFullSaveDesc>
+
   <MpConvert>Zu Singleplayer konvertieren</MpConvert>
   <MpConverting>Konvertiere</MpConverting>
   
@@ -97,7 +99,8 @@
   <MpAutosaveDays>Tage</MpAutosaveDays>
   <MpLanDesc1>Spiel ins lokale Netzwerk übertragen.</MpLanDesc1>
   <MpLanDesc2>Aufgelöste LAN-Adresse: {0}</MpLanDesc2>
-  <MpArbiterDesc>Eine im Hintergrund arbeitende Spielinstanz, die hilft, Desynchronosierungsprobleme zu beheben.</MpArbiterDesc>
+  <MpRunArbiter>Benutze Kontrolleur</MpRunArbiter>
+  <MpArbiterDesc>Eine im Hintergrund arbeitende Spielinstanz, die hilft Synchronosierungsprobleme zu beheben.</MpArbiterDesc>
   <MpAsyncTimeDesc>Separate Zeitsteuerung für jede Karte und den Planeten.</MpAsyncTimeDesc>
   <MpLogDesyncTraces>Desync-Protokollierung</MpLogDesyncTraces>
   <MpLogDesyncTracesDesc>Zusätzliche Stacktraces zur Behebung von Desynchronosierungsproblemen protokollieren (Kann die Leistung beeinträchtigen)</MpLogDesyncTracesDesc>
@@ -141,5 +144,6 @@
   
   <MpAggressiveTicking>Aggressives Ticking</MpAggressiveTicking>
   <MpAggressiveTickingDesc>Versucht immer mit dem Server aufzuholen (auf Kosten von FPS).</MpAggressiveTickingDesc>
+  <MpMultiplayerCompatibility>MP Kompatibilität</MpMultiplayerCompatibility>
   
 </LanguageData>
