@@ -14,9 +14,17 @@
   <MpWrongMultiplayerVersionInfo>Ce serveur est hébergé sur Multijoueur {0} (protocol {1}).</MpWrongMultiplayerVersionInfo>
   
   <MpWrongDefs>Les mods ne sont pas les mêmes entre les joueurs</MpWrongDefs>
-  <MpWrongDefsInfo>Soyez sûr que vous avez les mêmes mods que l'hôte.</MpWrongDefsInfo>
+  <MpWrongDefsInfo>Soyez sûr que vous avez les mêmes mods que l'hôte.</MpWrongDefsInfo>  
+  <MpWrongModConfigs>Config des mods différente</MpWrongModConfigs>
+  <MpWrongModConfigsInfo>La configuration de vos mods est différente de celle de l'hôte, synchroniser les pour de meilleurs resultat.</MpWrongModConfigsInfo>
   <MpModList>Liste des mods</MpModList>
+  <MpSyncModsAndConfigs>Synchroniser les Mods &amp; Configuration</MpSyncModsAndConfigs>
+  <MpSyncMods>Synchroniser les Mods</MpSyncMods>
+  <MpSyncModConfigs>Synchroniser la Configuration des Mods</MpSyncModConfigs>
+  <MpSyncModConfigsDesc>Forcer les clients à télécharger la même configuration des mods que l'hébergeur; Réduis les désyncs</MpSyncModConfigsDesc>
   <MpSeeModList>Voir la liste des mods</MpSeeModList>
+  <MpDownloadingWorkshopMods>Téléchargement des Mods du Workshop</MpDownloadingWorkshopMods>
+  <MpRestoreLastConfigs>Restaurer l'ancienne config</MpRestoreLastConfigs>
   
   <MpServerClosed>Serveur fermé</MpServerClosed>
   <MpServerFull>Serveur plein</MpServerFull>
@@ -40,18 +48,20 @@
   
   <MpHostServer>Hébergez un serveur</MpHostServer>
   <MpSaveReplay>Sauvegarder</MpSaveReplay>
+  <MpFullSave>Sauvegarde complète</MpFullSave>
+  <MpFullSaveDesc>Une sauvegarde complète charge plus vite, mais sauvegarde moins vite, et est seulement disponible pour l'Hébergeur</MpFullSaveDesc>
   
   <MpConvert>Convertir en solo</MpConvert>
   <MpConverting>Convertion</MpConverting>
   
-  <MpUsername>Pseudo</MpUsername>
+  <MpUsername>Pseudonyme</MpUsername>
   <MpShowPlayerCursors>Montrer les curseurs des autres joueurs</MpShowPlayerCursors>
   <MpAutoAcceptSteam>Accepter automatiquement les requêtes Steam</MpAutoAcceptSteam>
   <MpAutoAcceptSteamDesc>Accepter automatiquement toutes les requêtes de connexion venant de Steam.</MpAutoAcceptSteamDesc>
   <MpTransparentChat>Chat transparent</MpTransparentChat>
   
-  <MpAutosaveSlots>Places d'auto-sauvegarde</MpAutosaveSlots>
-  <MpAutosaveSlotsDesc>Combien d'auto-sauvegardes faut-il garder ?</MpAutosaveSlotsDesc>
+  <MpAutosaveSlots>Emplacement des sauvegardes auto</MpAutosaveSlots>
+  <MpAutosaveSlotsDesc>Nombre de sauvegardes auto à garder.</MpAutosaveSlotsDesc>
   
   <MpTraderLeavesIn>Quitte dans {0}</MpTraderLeavesIn>
   
@@ -65,31 +75,35 @@
   <MpSteamAccepted>Le joueur a été accepté</MpSteamAccepted>
   
   <MpConnectingTo>Connection à {0}:{1}</MpConnectingTo>
-  <MpConnected>Connecté</MpConnected>
+  <MpConnected>Connecté.</MpConnected>
   <MpDownloading>Téléchargement ({0}%)</MpDownloading>
   
   <MpSteamConnectingTo>Connexion à une partie hébergée par {0}</MpSteamConnectingTo>
   <MpSteamConnectingWaiting>En attente de l'acceptation de l'hote</MpSteamConnectingWaiting>
   
-<MpTicksBehind>Tu as {0} ticks de retard.</MpTicksBehind>
-  <MpLowerGameSpeed>Baissez la vitesse de jeu.</MpLowerGameSpeed>
-<MpForceCatchUp>Cliquez pour rattraper votre retard.</MpForceCatchUp>
+  <MpTicksBehind>Tu as {0} ticks de retard.</MpTicksBehind>
+  <MpLowerGameSpeed>Envisager de réduire la vitesse du jeu.</MpLowerGameSpeed>
+  <MpForceCatchUp>Cliquez pour forcer le rattrapage.</MpForceCatchUp>
   
-  <MpDesynced>Vous êtes désynchronisé .</MpDesynced>
-  <MpTryResync>Essayer de se resynchro</MpTryResync>
+  <MpDesynced>Vous êtes désynchronisé.</MpDesynced>
+  <MpTryResync>Essayer de se re-synchroniser</MpTryResync>
+  <MpTryRehost>Réhéberger</MpTryRehost>
   
-  <MpSaveReplayAs>Sauvegarder en tant que</MpSaveReplayAs>
+  <MpSaveReplayAs>Sauvegarder le replay en tant que</MpSaveReplayAs>
   <MpWillOverwrite>Va écraser</MpWillOverwrite>
-  <MpReplaySaved>Sauvegardé</MpReplaySaved>
+  <MpReplaySaved>Replay Sauvegarder</MpReplaySaved>
   
   <MpGameName>Nom de la partie</MpGameName>
-  <MpMaxPlayers>Joueurs Max</MpMaxPlayers>
-  <MpAutosaveEvery>Sauvegarde automatique toute les</MpAutosaveEvery>
+  <MpMaxPlayers>Joueurs max</MpMaxPlayers>
+  <MpAutosaveEvery>Sauvegarde automatique chaque</MpAutosaveEvery>
   <MpAutosaveDays>jours</MpAutosaveDays>
   <MpLanDesc1>Jouer en LAN.</MpLanDesc1>
   <MpLanDesc2>Adresse LAN: {0}</MpLanDesc2>
-  <MpArbiterDesc>Une instance de jeu qui tourne en fond et qui aide à régler les désynchronisations.</MpArbiterDesc>
-  <MpAsyncTimeDesc>Contrôle du temps sur plusieurs cartes.</MpAsyncTimeDesc>
+  <MpRunArbiter>Lancer l'arbitre</MpRunArbiter>
+  <MpArbiterDesc>Une instance de jeu qui tourne en fond et qui aide à détecter/régler les désynchronisations. Lancer sans l'arbitre n'est pas supporter.</MpArbiterDesc>
+  <MpAsyncTimeDesc>Séparer le contrôle du temps pour chaque carte et de la planète.</MpAsyncTimeDesc>
+  <MpLogDesyncTraces>Log Desync Traces</MpLogDesyncTraces>
+  <MpLogDesyncTracesDesc>Log extra stacktraces for troubleshooting desyncs; may impact performance</MpLogDesyncTracesDesc>
   <MpExperimentalFeature>Fonctionnalités expérimentales</MpExperimentalFeature>
   
   <MpHostButton>Héberger</MpHostButton>
@@ -106,27 +120,30 @@
   <MpLanSearching>Recherche</MpLanSearching>
   
   <MpNotConnectedToSteam>Pas connecté à Steam</MpNotConnectedToSteam>
-  <MpNoFriendsPlaying>Aucun ami ne joue à Rimworld</MpNoFriendsPlaying>
-  <MpPlayingRimWorld>En jeu : Rimworld</MpPlayingRimWorld>
+  <MpNoFriendsPlaying>Aucun amis ne joue actuellement à Rimworld</MpNoFriendsPlaying>
+  <MpPlayingRimWorld>Joue à Rimworld</MpPlayingRimWorld>
   <MpNotInMultiplayer>Pas en partie multijoueur</MpNotInMultiplayer>
   
-  <MpPauseOnAutosave>Pause pendant la sauvegarde auto</MpPauseOnAutosave>
+  <MpPauseOnAutosave>Pause durant la sauvegarde automatique</MpPauseOnAutosave>
   <MpAppendNameToAutosave>Ajoute le nom à la sauvegarde auto</MpAppendNameToAutosave>
-  <MpPauseAutosaveCounter>Sauvegarde le compte des sauvegardes auto</MpPauseAutosaveCounter>
-  <MpPauseAutosaveCounterDesc>Pauses the counter along with the game preventing autosaving while time is paused.</MpPauseAutosaveCounterDesc>
-  
+  <MpPauseAutosaveCounter>Anti-autosave en pause</MpPauseAutosaveCounter>
+  <MpPauseAutosaveCounterDesc>Met en pause le minuteur d'autosave pour prévenir les sauvegardes automatiques quand le temps est en pause.</MpPauseAutosaveCounterDesc>
+  <MpShowModCompatibility>Afficher la compatibilité des mods</MpShowModCompatibility>
+  <MpShowModCompatibilityDesc>Activer l'affichage des [4] score de compatibilité du gestionnaire des mods</MpShowModCompatibilityDesc>
+
   <MpLan>LAN</MpLan>
   <MpDirect>Directe</MpDirect>
   <MpSteam>Steam</MpSteam>
   <MpHostTab>Héberger</MpHostTab>
   
   <MpMultiplayer>Multijoueur</MpMultiplayer>
-  <MpSingleplayer>Jeu solo</MpSingleplayer>
+  <MpSingleplayer>Joueur unique</MpSingleplayer>
   
   <MpNotAvailable>Pas disponible en multijoueur.</MpNotAvailable>
-<MpCallingFactionNotAvailable>Appeler d'autres factions est impossible en multijoueur.</MpCallingFactionNotAvailable>
+  <MpCallingFactionNotAvailable>Appeler d'autres factions est impossible en multijoueur.</MpCallingFactionNotAvailable>
   
   <MpAggressiveTicking>Tick agressif</MpAggressiveTicking>
-<MpAggressiveTickingDesc>Rattraper le retard sur le serveur, au prix de quelques FPS.</MpAggressiveTickingDesc>
+  <MpAggressiveTickingDesc>Rattraper le retard sur le serveur, au prix de quelques FPS.</MpAggressiveTickingDesc>
+  <MpMultiplayerCompatibility>Compatibilité MP</MpMultiplayerCompatibility>
   
 </LanguageData>
