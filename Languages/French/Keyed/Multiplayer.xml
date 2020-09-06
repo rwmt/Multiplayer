@@ -38,7 +38,7 @@
   <MpPlayerConnected>{0} a rejoint</MpPlayerConnected>
   <MpPlayerDisconnected>{0} a quitté</MpPlayerDisconnected>
   
-  <MpReplayOutdated>(Outdated)</MpReplayOutdated>
+  <MpReplayOutdated>(Obsolete)</MpReplayOutdated>
   <MpReplayOutdatedDesc1>Cette sauvegarde a été faite dans la version {0}, mais vous utilisez la version {1}.</MpReplayOutdatedDesc1>
   <MpReplayOutdatedDesc2>Cette sauvegarde n'est pas valide.</MpReplayOutdatedDesc2>
   <MpReplayOutdatedDesc3>Les incompatibilités possibles sont sur le github.</MpReplayOutdatedDesc3>
