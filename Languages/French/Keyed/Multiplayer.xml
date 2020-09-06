@@ -63,7 +63,7 @@
   <MpAutosaveSlots>Emplacement des sauvegardes auto</MpAutosaveSlots>
   <MpAutosaveSlotsDesc>Nombre de sauvegardes auto à garder.</MpAutosaveSlotsDesc>
   
-  <MpTraderLeavesIn>Quitte dans {0}</MpTraderLeavesIn>
+  <MpTraderLeavesIn>S'en va dans {0}</MpTraderLeavesIn>
   
   <MpChatButton>Chat</MpChatButton>
   <MpTradingButton>Echanges</MpTradingButton>
