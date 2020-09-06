@@ -86,7 +86,7 @@
   <MpForceCatchUp>Cliquez pour forcer le rattrapage.</MpForceCatchUp>
   
   <MpDesynced>Vous êtes désynchronisé.</MpDesynced>
-  <MpTryResync>Essayer de se re-synchroniser</MpTryResync>
+  <MpTryResync>Essayer de se resynchroniser</MpTryResync>
   <MpTryRehost>Réhéberger</MpTryRehost>
   
   <MpSaveReplayAs>Sauvegarder le replay en tant que</MpSaveReplayAs>
@@ -109,7 +109,7 @@
   <MpHostButton>Héberger</MpHostButton>
   <MpWatchReplay>Regarder</MpWatchReplay>
   <MpNothingSelected>Rien de sélectionné</MpNothingSelected>
-  <MpNoSaves>Le multijoueur ne peut être utilisé que sur des sauvegardes existantes</MpNoSaves>
+  <MpNoSaves>Aucune sauvegarde multijoueur existante</MpNoSaves>
   
   <MpHostIngame>Héberger depuis cette partie</MpHostIngame>
   <MpHostReplay>Héberger depuis une sauvegarde multijoueur</MpHostReplay>
@@ -120,7 +120,7 @@
   <MpLanSearching>Recherche</MpLanSearching>
   
   <MpNotConnectedToSteam>Pas connecté à Steam</MpNotConnectedToSteam>
-  <MpNoFriendsPlaying>Aucun amis ne joue actuellement à Rimworld</MpNoFriendsPlaying>
+  <MpNoFriendsPlaying>Aucun ami ne joue actuellement à Rimworld</MpNoFriendsPlaying>
   <MpPlayingRimWorld>Joue à Rimworld</MpPlayingRimWorld>
   <MpNotInMultiplayer>Pas en partie multijoueur</MpNotInMultiplayer>
   
@@ -143,7 +143,7 @@
   <MpCallingFactionNotAvailable>Appeler d'autres factions est impossible en multijoueur.</MpCallingFactionNotAvailable>
   
   <MpAggressiveTicking>Tick agressif</MpAggressiveTicking>
-  <MpAggressiveTickingDesc>Rattraper le retard sur le serveur, au prix de quelques FPS.</MpAggressiveTickingDesc>
+  <MpAggressiveTickingDesc>Rattrape le retard sur le serveur au prix de quelques FPS.</MpAggressiveTickingDesc>
   <MpMultiplayerCompatibility>Compatibilité MP</MpMultiplayerCompatibility>
   
 </LanguageData>
