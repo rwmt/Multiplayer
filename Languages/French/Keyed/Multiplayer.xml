@@ -50,7 +50,7 @@
   <MpSaveReplay>Sauvegarder</MpSaveReplay>
   <MpFullSave>Sauvegarde complète</MpFullSave>
   <MpFullSaveDesc>Une sauvegarde complète charge plus vite, mais sauvegarde moins vite, et est seulement disponible pour l'Hébergeur</MpFullSaveDesc>
-  
+    
   <MpConvert>Convertir en solo</MpConvert>
   <MpConverting>Convertion</MpConverting>
   
