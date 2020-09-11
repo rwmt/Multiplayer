@@ -894,8 +894,8 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(CompRefuelable), "<CompGetGizmosExtra>b__42_3").SetDebugOnly(); // Set fuel to 0.1
             SyncMethod.Register(typeof(CompRefuelable), "<CompGetGizmosExtra>b__42_4").SetDebugOnly(); // Set fuel to max
 
-            SyncMethod.Register(typeof(CompShuttle), "<CompGetGizmosExtra>b__54_1"); // Toggle autoload
-            SyncMethod.Register(typeof(CompShuttle), "<CompGetGizmosExtra>b__54_2"); // Send shuttle
+            SyncMethod.Register(typeof(CompShuttle), "<CompGetGizmosExtra>b__56_1"); // Toggle autoload
+            SyncMethod.Register(typeof(CompShuttle), "<CompGetGizmosExtra>b__56_2"); // Send shuttle
 
             SyncMethod.Register(typeof(MonumentMarker), "<GetGizmos>b__30_1"); // Build Monument Quest - Monument Marker: cancel/remove marker
             SyncMethod.Register(typeof(MonumentMarker), "<GetGizmos>b__30_4").SetDebugOnly(); // Build Monument Quest - Monument Marker: dev build all
