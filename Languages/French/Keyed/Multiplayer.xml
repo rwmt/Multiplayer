@@ -16,12 +16,12 @@
   <MpWrongDefs>Les mods ne sont pas les mêmes entre les joueurs</MpWrongDefs>
   <MpWrongDefsInfo>Soyez sûr que vous avez les mêmes mods que l'hôte.</MpWrongDefsInfo>  
   <MpWrongModConfigs>Config des mods différente</MpWrongModConfigs>
-  <MpWrongModConfigsInfo>La configuration de vos mods est différente de celle de l'hôte, synchroniser les pour de meilleurs resultat.</MpWrongModConfigsInfo>
+  <MpWrongModConfigsInfo>La configuration de vos mods est différente de celle de l'hôte, synchronisez les pour de meilleurs resultat.</MpWrongModConfigsInfo>
   <MpModList>Liste des mods</MpModList>
   <MpSyncModsAndConfigs>Synchroniser les Mods &amp; Configuration</MpSyncModsAndConfigs>
   <MpSyncMods>Synchroniser les Mods</MpSyncMods>
   <MpSyncModConfigs>Synchroniser la Configuration des Mods</MpSyncModConfigs>
-  <MpSyncModConfigsDesc>Forcer les clients à télécharger la même configuration des mods que l'hébergeur; Réduis les désyncs</MpSyncModConfigsDesc>
+  <MpSyncModConfigsDesc>Forcer les clients à télécharger la même configuration des mods que l'hébergeur; Réduit les désyncs</MpSyncModConfigsDesc>
   <MpSeeModList>Voir la liste des mods</MpSeeModList>
   <MpDownloadingWorkshopMods>Téléchargement des Mods du Workshop</MpDownloadingWorkshopMods>
   <MpRestoreLastConfigs>Restaurer l'ancienne config</MpRestoreLastConfigs>
@@ -46,7 +46,7 @@
   
   <MpServerCloseConfirmation>Voulez vous vraiment éteindre le serveur ? N'oubliez pas de sauvegarder.</MpServerCloseConfirmation>
   
-  <MpHostServer>Hébergez un serveur</MpHostServer>
+  <MpHostServer>Héberger un serveur</MpHostServer>
   <MpSaveReplay>Sauvegarder</MpSaveReplay>
   <MpFullSave>Sauvegarde complète</MpFullSave>
   <MpFullSaveDesc>Une sauvegarde complète charge plus vite, mais sauvegarde moins vite, et est seulement disponible pour l'Hébergeur</MpFullSaveDesc>
@@ -95,15 +95,15 @@
   
   <MpGameName>Nom de la partie</MpGameName>
   <MpMaxPlayers>Joueurs max</MpMaxPlayers>
-  <MpAutosaveEvery>Sauvegarde automatique chaque</MpAutosaveEvery>
-  <MpAutosaveDays>jours</MpAutosaveDays>
+  <MpAutosaveEvery>Sauvegarde automatique tout les</MpAutosaveEvery>
+  <MpAutosaveDays>jour(s)</MpAutosaveDays>
   <MpLanDesc1>Jouer en LAN.</MpLanDesc1>
   <MpLanDesc2>Adresse LAN: {0}</MpLanDesc2>
   <MpRunArbiter>Lancer l'arbitre</MpRunArbiter>
-  <MpArbiterDesc>Une instance de jeu qui tourne en fond et qui aide à détecter/régler les désynchronisations. Lancer sans l'arbitre n'est pas supporter.</MpArbiterDesc>
-  <MpAsyncTimeDesc>Séparer le contrôle du temps pour chaque carte et de la planète.</MpAsyncTimeDesc>
+  <MpArbiterDesc>Une instance de jeu qui tourne en fond et qui aide à détecter/régler les désynchronisations.</MpArbiterDesc>
+  <MpAsyncTimeDesc>Séparer le contrôle du temps pour chaque carte de la planète.</MpAsyncTimeDesc>
   <MpLogDesyncTraces>Log Desync Traces</MpLogDesyncTraces>
-  <MpLogDesyncTracesDesc>Log extra stacktraces for troubleshooting desyncs; may impact performance</MpLogDesyncTracesDesc>
+  <MpLogDesyncTracesDesc>Ajoute des logs supplémentaire dans les rapports des désynchronisations; peut impacter les performances</MpLogDesyncTracesDesc>
   <MpExperimentalFeature>Fonctionnalités expérimentales</MpExperimentalFeature>
   
   <MpHostButton>Héberger</MpHostButton>
@@ -122,17 +122,17 @@
   <MpNotConnectedToSteam>Pas connecté à Steam</MpNotConnectedToSteam>
   <MpNoFriendsPlaying>Aucun ami ne joue actuellement à Rimworld</MpNoFriendsPlaying>
   <MpPlayingRimWorld>Joue à Rimworld</MpPlayingRimWorld>
-  <MpNotInMultiplayer>Pas en partie multijoueur</MpNotInMultiplayer>
+  <MpNotInMultiplayer>Pas en multijoueur</MpNotInMultiplayer>
   
   <MpPauseOnAutosave>Pause durant la sauvegarde automatique</MpPauseOnAutosave>
   <MpAppendNameToAutosave>Ajoute le nom à la sauvegarde auto</MpAppendNameToAutosave>
   <MpPauseAutosaveCounter>Anti-autosave en pause</MpPauseAutosaveCounter>
-  <MpPauseAutosaveCounterDesc>Met en pause le minuteur d'autosave pour prévenir les sauvegardes automatiques quand le temps est en pause.</MpPauseAutosaveCounterDesc>
+  <MpPauseAutosaveCounterDesc>Met en pause le minuteur d'autosave pour éviter les sauvegardes automatiques quand le temps est en pause.</MpPauseAutosaveCounterDesc>
   <MpShowModCompatibility>Afficher la compatibilité des mods</MpShowModCompatibility>
   <MpShowModCompatibilityDesc>Activer l'affichage des [4] score de compatibilité du gestionnaire des mods</MpShowModCompatibilityDesc>
 
   <MpLan>LAN</MpLan>
-  <MpDirect>Directe</MpDirect>
+  <MpDirect>Direct<g</MpDirect>
   <MpSteam>Steam</MpSteam>
   <MpHostTab>Héberger</MpHostTab>
   
