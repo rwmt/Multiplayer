@@ -14,7 +14,7 @@
   <MpWrongMultiplayerVersionInfo>Ce serveur est hébergé sur Multijoueur {0} (protocol {1}).</MpWrongMultiplayerVersionInfo>
   
   <MpWrongDefs>Les mods ne sont pas les mêmes entre les joueurs</MpWrongDefs>
-  <MpWrongDefsInfo>Soyez sûr que vous avez les mêmes mods que l'hôte.</MpWrongDefsInfo>  
+  <MpWrongDefsInfo>Soyez sûr que vous ayez les mêmes mods que l'hôte.</MpWrongDefsInfo>  
   <MpWrongModConfigs>Config des mods différente</MpWrongModConfigs>
   <MpWrongModConfigsInfo>La configuration de vos mods est différente de celle de l'hôte, synchronisez les pour de meilleurs resultat.</MpWrongModConfigsInfo>
   <MpModList>Liste des mods</MpModList>
@@ -66,7 +66,7 @@
   <MpTraderLeavesIn>S'en va dans {0}</MpTraderLeavesIn>
   
   <MpChatButton>Chat</MpChatButton>
-  <MpTradingButton>Echanges</MpTradingButton>
+  <MpTradingButton>Échange</MpTradingButton>
   
   <MpChatPlayers>Joueurs ({0}):</MpChatPlayers>
   <MpSend>Envoyer</MpSend>
