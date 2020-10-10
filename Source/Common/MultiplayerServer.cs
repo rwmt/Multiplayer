@@ -184,7 +184,7 @@ namespace Multiplayer.Common
 
             var curSpeed = Client.Multiplayer.WorldComp.TimeSpeed;
 
-            autosaveCountdown -= (curSpeed == Verse.TimeSpeed.Paused && !Client.MultiplayerMod.settings.pauseAutosaveCounter) 
+            autosaveCountdown -= (curSpeed == Verse.TimeSpeed.Paused && !Client.MultiplayerMod.settings.pauseAutosaveCounter)
                 ? 1 : Client.Multiplayer.WorldComp.TickRateMultiplier(curSpeed);
 
             if (autosaveCountdown <= 0)
@@ -372,6 +372,7 @@ namespace Multiplayer.Common
         {
             if (!arbiter && server.settings.maxPlayers > 0 && server.players.Count(p => !p.IsArbiter) >= server.settings.maxPlayers)
             {
+                MpLog.Error("Server is full")
                 req.Reject(IConnection.GetDisconnectBytes(MpDisconnectReason.ServerFull));
                 return;
             }
