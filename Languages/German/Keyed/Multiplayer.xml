@@ -20,7 +20,7 @@
   <MpModList>Mod-Liste</MpModList>
   <MpSyncModsAndConfigs>Mods &amp; Konfigurationen synchronisieren</MpSyncModsAndConfigs>
   <MpSyncMods>Mods synchronisieren</MpSyncMods>
-  <MpSyncModConfigs>Mod-Konfigurationen synchronisieren</MpSyncModConfigs>
+  <MpSyncModConfigs>Mods synchronisieren</MpSyncModConfigs>
   <MpSyncModConfigsDesc>Erzwingt, dass Clients dieselben Mod-Konfigurationen herunterladen wie der Host (reduziert Desynchronisierungen)</MpSyncModConfigsDesc>
   <MpSeeModList>Mod-Liste anzeigen</MpSeeModList>
   <MpDownloadingWorkshopMods>Workshop-Mods herunterladen</MpDownloadingWorkshopMods>
@@ -55,13 +55,13 @@
   <MpConverting>Konvertiere</MpConverting>
   
   <MpUsername>Spielername</MpUsername>
-  <MpShowPlayerCursors>Mauszeiger anderer Spieler zeigen</MpShowPlayerCursors>
-  <MpAutoAcceptSteam>Steam-Anfragen automatisch akzeptieren</MpAutoAcceptSteam>
+  <MpShowPlayerCursors>Mauszeiger Mitspieler</MpShowPlayerCursors>
+  <MpAutoAcceptSteam>Akzeptiere Steam automatisch</MpAutoAcceptSteam>
   <MpAutoAcceptSteamDesc>Eingehende Anfragen von Verbindungen über Steam automatisch akzeptieren.</MpAutoAcceptSteamDesc>
   <MpTransparentChat>Transparenter Chat</MpTransparentChat>
   
-  <MpAutosaveSlots>Autosave-Speicherplätze</MpAutosaveSlots>
-  <MpAutosaveSlotsDesc>Wie viele Autosave-Dateien sollen behalten werden.</MpAutosaveSlotsDesc>
+  <MpAutosaveSlots>Autosaves</MpAutosaveSlots>
+  <MpAutosaveSlotsDesc>Wie viele Autosave-Spielstände sollen behalten werden.</MpAutosaveSlotsDesc>
   
   <MpTraderLeavesIn>Verlässt in {0}</MpTraderLeavesIn>
   
@@ -95,14 +95,15 @@
   
   <MpGameName>Spielname</MpGameName>
   <MpMaxPlayers>Max. Spieler</MpMaxPlayers>
-  <MpAutosaveEvery>Automatisch speichern alle</MpAutosaveEvery>
+  <MpAutosaveEvery>Erstelle Autosave alle</MpAutosaveEvery>
   <MpAutosaveDays>Tage</MpAutosaveDays>
   <MpLanDesc1>Spiel ins lokale Netzwerk übertragen.</MpLanDesc1>
   <MpLanDesc2>Aufgelöste LAN-Adresse: {0}</MpLanDesc2>
   <MpRunArbiter>Benutze Kontrolleur</MpRunArbiter>
   <MpArbiterDesc>Eine im Hintergrund arbeitende Spielinstanz, die hilft Synchronosierungsprobleme zu beheben.</MpArbiterDesc>
+  <MpAsyncTime>Asynchrone Zeit</MpAsyncTime>
   <MpAsyncTimeDesc>Separate Zeitsteuerung für jede Karte und den Planeten.</MpAsyncTimeDesc>
-  <MpLogDesyncTraces>Desync-Protokollierung</MpLogDesyncTraces>
+  <MpLogDesyncTraces>Protokollierung</MpLogDesyncTraces>
   <MpLogDesyncTracesDesc>Zusätzliche Stacktraces zur Behebung von Desynchronosierungsproblemen protokollieren (Kann die Leistung beeinträchtigen)</MpLogDesyncTracesDesc>
   <MpExperimentalFeature>Experimentelle Funktionen</MpExperimentalFeature>
   
@@ -113,7 +114,7 @@
   
   <MpHostIngame>Dieses Spiel hosten</MpHostIngame>
   <MpHostReplay>Eine Wiederholung hosten</MpHostReplay>
-  <MpHostSavefile>Eine Speicherdatei hosten</MpHostSavefile>
+  <MpHostSavefile>Einen Spielstand hosten</MpHostSavefile>
   
   <MpJoinButton>Beitreten</MpJoinButton>
   <MpConnectButton>Verbinden</MpConnectButton>
@@ -126,7 +127,7 @@
   
   <MpPauseOnAutosave>Pausieren bei Autosave</MpPauseOnAutosave>  
   <MpAppendNameToAutosave>Name an Autosave anhängen</MpAppendNameToAutosave>
-  <MpPauseAutosaveCounter>Autosave-Zähler pausieren</MpPauseAutosaveCounter>
+  <MpPauseAutosaveCounter>Pausiere Autosave-Zähler</MpPauseAutosaveCounter>
   <MpPauseAutosaveCounterDesc>Pausiert den Zähler zusammen mit dem Spiel und verhindert so automatisches Speichern, während die Zeit angehalten wird.</MpPauseAutosaveCounterDesc>
   <MpShowModCompatibility>Mod-Kompatibilität anzeigen</MpShowModCompatibility>
   <MpShowModCompatibilityDesc>Aktiviert die Anzeige von [4] crowdsourced Kompatibilitätsbewertungen im Mods-Manager</MpShowModCompatibilityDesc>
