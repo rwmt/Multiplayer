@@ -130,7 +130,7 @@ namespace Multiplayer.Client
             // AsyncTime
             {
                 TooltipHandler.TipRegion(entry.Width(checkboxWidth), $"{"MpAsyncTimeDesc".Translate()}\n\n{"MpExperimentalFeature".Translate()}");
-                CheckboxLabeled(entry.Width(checkboxWidth), "Async time:  ", ref MultiplayerWorldComp.asyncTime, placeTextNearCheckbox: true, disabled: asyncTimeLocked);
+                CheckboxLabeled(entry.Width(checkboxWidth), $"{"MpAsyncTime".Translate()}:  ", ref MultiplayerWorldComp.asyncTime, placeTextNearCheckbox: true, disabled: asyncTimeLocked);
                 entry = entry.Down(30);
             }
 
