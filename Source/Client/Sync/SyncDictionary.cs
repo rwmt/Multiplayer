@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using HarmonyLib;
@@ -833,6 +833,14 @@ namespace Multiplayer.Client
                         orbitalStrike.faction = sync.Read<Faction>();
                     }
                 }, true // Implicit
+            },
+            {
+                // Parent: RoyalTitleAwardWorker
+                (SyncWorker sync, ref RoyalTitleAwardWorker worker) =>
+                {
+                    sync.Bind(ref worker.def);
+                }, true // Implicit
+
             },
             #endregion
 
