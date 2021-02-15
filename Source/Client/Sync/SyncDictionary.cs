@@ -1215,6 +1215,17 @@ namespace Multiplayer.Client
             },
 
             #endregion
+
+            #region Color
+            {
+                (SyncWorker worker, ref Color color) => {
+                    worker.Bind(ref color.r);
+                    worker.Bind(ref color.g);
+                    worker.Bind(ref color.b);
+                    worker.Bind(ref color.a);
+                }
+            },
+            #endregion
         };
     }
 }
