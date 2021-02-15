@@ -3,12 +3,12 @@
   <packageId>rwmt.Multiplayer</packageId>
   <name>Multiplayer</name>
   <supportedVersions>
-    <li>1.1</li>
+    <li>1.2</li>
   </supportedVersions>
   <author>Zetrith</author>
   <url>https://github.com/rwmt/Multiplayer</url>
   <description>&lt;color=red&gt;&lt;b&gt;Important: &lt;/b&gt; This mod should be loaded as early as possible to work properly!
-Requires >= Rimworld v1.1.2647&lt;/color&gt;\n
+Requires >= Rimworld v1.2.2900&lt;/color&gt;\n
 Multiplayer mod for rimworld.
     
 FAQ - https://hackmd.io/@Swept/rimworldmultiplayerwiki
