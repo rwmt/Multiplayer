@@ -101,6 +101,7 @@
   <MpLanDesc2>Adresse LAN: {0}</MpLanDesc2>
   <MpRunArbiter>Lancer l'arbitre</MpRunArbiter>
   <MpArbiterDesc>Une instance de jeu qui tourne en fond et qui aide à détecter/régler les désynchronisations.</MpArbiterDesc>
+  <MpAsyncTime>Async time</MpAsyncTime>
   <MpAsyncTimeDesc>Séparer le contrôle du temps pour chaque carte de la planète.</MpAsyncTimeDesc>
   <MpLogDesyncTraces>Log Desync Traces</MpLogDesyncTraces>
   <MpLogDesyncTracesDesc>Ajoute des logs supplémentaire dans les rapports des désynchronisations; peut impacter les performances</MpLogDesyncTracesDesc>

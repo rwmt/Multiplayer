@@ -89,6 +89,7 @@
   <MpLanDesc1>Transmitir el juego a tu red local.</MpLanDesc1>
   <MpLanDesc2>Dirección LAN resuelta: {0}</MpLanDesc2>
   <MpArbiterDesc>Una instancia del juego que corre en segundo plano y ayuda resolver problemas de sincronía.</MpArbiterDesc>
+  <MpAsyncTime>Async time</MpAsyncTime>
   <MpAsyncTimeDesc>Separar los controles de tiempo para cada mapa y el planeta.</MpAsyncTimeDesc>
   <MpExperimentalFeature>Funcionalidad experimental</MpExperimentalFeature>
   

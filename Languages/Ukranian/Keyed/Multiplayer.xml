@@ -89,6 +89,7 @@
   <MpLanDesc1>Трансляція гри у вашу локальну мережу.</MpLanDesc1>
   <MpLanDesc2>Розв’язана LAN Адрес: {0}</MpLanDesc2>
   <MpArbiterDesc>Ігровий екземпляр, який працює у фоновому режимі та допомагає вирішити десинхронізацію</MpArbiterDesc>
+  <MpAsyncTime>Async time</MpAsyncTime>
   <MpAsyncTimeDesc>фішка</MpAsyncTimeDesc>
   <MpExperimentalFeature>Експериментальна фішка</MpExperimentalFeature>
 

@@ -89,6 +89,7 @@
   <MpLanDesc1>Trasmetti il gioco sulla tua rete locale.</MpLanDesc1>
   <MpLanDesc2>Indirizzo LAN risolto: {0}</MpLanDesc2>
   <MpArbiterDesc>Un'istanza di gioco che viene eseguita in background e aiuta nella risoluzione di desincronizzazioni.</MpArbiterDesc>
+  <MpAsyncTime>Async time</MpAsyncTime>
   <MpAsyncTimeDesc>Controlli temporali separati per ciascuna mappa e per il pianeta.</MpAsyncTimeDesc>
   <MpExperimentalFeature>Caratteristica sperimentale</MpExperimentalFeature>
   

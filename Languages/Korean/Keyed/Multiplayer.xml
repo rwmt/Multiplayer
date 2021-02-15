@@ -89,6 +89,7 @@
   <MpLanDesc1>로컬 네트워크에 서버를 엽니다.</MpLanDesc1>
   <MpLanDesc2>현재 LAN 주소: {0}</MpLanDesc2>
   <MpArbiterDesc>접속을 유지해주는 게임 내 시스템입니다.</MpArbiterDesc>
+  <MpAsyncTime>Async time</MpAsyncTime>
   <MpAsyncTimeDesc>시간을 맵과 행성마다 각각 따로 조절합니다.</MpAsyncTimeDesc>
   <MpExperimentalFeature>실험실</MpExperimentalFeature>
 
