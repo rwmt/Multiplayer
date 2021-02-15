@@ -17,7 +17,7 @@
     <PackageReference Include="Publicise.MSBuild.Task" Version="1.*" />
     <PackageReference Include="RestSharp" Version="106.10.1" />
     <PackageReference Include="RimWorld.MultiplayerAPI" Version="0.2.0" />
-    <PackageReference Include="Lib.Harmony" Version="2.0.2">
+    <PackageReference Include="Lib.Harmony" Version="2.0.4">
       <ExcludeAssets>runtime</ExcludeAssets>
     </PackageReference>
     <PackageReference Include="LiteNetLib" Version="0.8.3.1" />
