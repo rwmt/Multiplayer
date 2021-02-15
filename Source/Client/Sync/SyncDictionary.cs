@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using HarmonyLib;
@@ -1223,6 +1223,75 @@ namespace Multiplayer.Client
                     worker.Bind(ref color.g);
                     worker.Bind(ref color.b);
                     worker.Bind(ref color.a);
+                }
+            },
+            #endregion
+
+            #region Transport pod arrival actions
+            {
+                (ByteWriter data, TransportPodsArrivalAction_AttackSettlement arrivalAction) =>
+                {
+                    WriteSync(data, arrivalAction.settlement);
+                    WriteSync(data, arrivalAction.arrivalMode);
+                },
+                (ByteReader data) =>
+                {
+                    return new TransportPodsArrivalAction_AttackSettlement(ReadSync<Settlement>(data), ReadSync<PawnsArrivalModeDef>(data));
+                }
+            },
+            {
+                (ByteWriter data, TransportPodsArrivalAction_FormCaravan arrivalAction) => WriteSync(data, arrivalAction.arrivalMessageKey),
+                (ByteReader data) => new TransportPodsArrivalAction_FormCaravan(ReadSync<string>(data))
+            },
+            {
+                (ByteWriter data, TransportPodsArrivalAction_GiveGift arrivalAction) => WriteSync(data, arrivalAction.settlement),
+                (ByteReader data) => new TransportPodsArrivalAction_GiveGift(ReadSync<Settlement>(data))
+            },
+            {
+                (ByteWriter data, TransportPodsArrivalAction_GiveToCaravan arrivalAction) => WriteSync(data, arrivalAction.caravan),
+                (ByteReader data) => new TransportPodsArrivalAction_GiveToCaravan(ReadSync<Caravan>(data))
+            },
+            {
+                (ByteWriter data, TransportPodsArrivalAction_LandInSpecificCell arrivalAction) =>
+                {
+                    WriteSync(data, arrivalAction.mapParent);
+                    WriteSync(data, arrivalAction.cell);
+                    WriteSync(data, arrivalAction.landInShuttle);
+                },
+                (ByteReader data) => new TransportPodsArrivalAction_LandInSpecificCell(ReadSync<MapParent>(data), ReadSync<IntVec3>(data), ReadSync<bool>(data))
+            },
+            {
+                (ByteWriter data, TransportPodsArrivalAction_VisitSettlement arrivalAction) => WriteSync(data, arrivalAction.settlement),
+                (ByteReader data) => new TransportPodsArrivalAction_VisitSettlement(ReadSync<Settlement>(data))
+            },
+            {
+                (ByteWriter data, TransportPodsArrivalAction_VisitSite arrivalAction) =>
+                {
+                    WriteSync(data, arrivalAction.site);
+                    WriteSync(data, arrivalAction.arrivalMode);
+                },
+                (ByteReader data) => new TransportPodsArrivalAction_VisitSite(ReadSync<Site>(data), ReadSync<PawnsArrivalModeDef>(data))
+            },
+            {
+                (ByteWriter data, TransportPodsArrivalAction_Shuttle arrivalAction) =>
+                {
+                    WriteSync(data, arrivalAction.mapParent);
+                    WriteSync(data, arrivalAction.missionShuttleHome);
+                    WriteSync(data, arrivalAction.missionShuttleTarget);
+                    WriteSync(data, arrivalAction.sendAwayIfQuestFinished);
+                    WriteSync(data, arrivalAction.questTags);
+                },
+                (ByteReader data) =>
+                {
+                    var arrivalAction =  new TransportPodsArrivalAction_Shuttle(ReadSync<MapParent>(data))
+                    {
+                        missionShuttleHome = ReadSync<WorldObject>(data),
+                        missionShuttleTarget = ReadSync<WorldObject>(data),
+                        sendAwayIfQuestFinished = ReadSync<Quest>(data),
+                        questTags = ReadSync<List<string>>(data)
+                    };
+
+                    return arrivalAction;
                 }
             },
             #endregion
