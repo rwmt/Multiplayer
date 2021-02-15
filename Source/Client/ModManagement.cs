@@ -209,6 +209,8 @@ namespace Multiplayer.Client
                    && !file.Name.EndsWith("TwitchToolkit.xml") // contains username
                    && !file.Name.EndsWith("DubsMintMinimapMod.xml")
                    && !file.Name.EndsWith("DubsMintMenusMod.xml")
+                   && !file.Name.EndsWith("TacticalGroupsMod.xml")
+                   && !file.Name.EndsWith("RimThemes.xml")
                    && !file.Name.EndsWith("CameraPlusMain.xml")
                    && !file.Name.EndsWith("GraphicSetter.xml")
                    && !file.Name.EndsWith("Moody.xml")
