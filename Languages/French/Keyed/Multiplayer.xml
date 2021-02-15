@@ -89,6 +89,7 @@
   <MpLanDesc1>Jouer en LAN.</MpLanDesc1>
   <MpLanDesc2>Adresse LAN: {0}</MpLanDesc2>
   <MpArbiterDesc>Une instance de jeu qui tourne en fond et qui aide à régler les désynchronisations.</MpArbiterDesc>
+  <MpAsyncTime>Async time</MpAsyncTime>
   <MpAsyncTimeDesc>Contrôle du temps sur plusieurs cartes.</MpAsyncTimeDesc>
   <MpExperimentalFeature>Fonctionnalités expérimentales</MpExperimentalFeature>
   

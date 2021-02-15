@@ -98,6 +98,7 @@
   <MpLanDesc1>Vysílejte hru do místní sítě.</MpLanDesc1>
   <MpLanDesc2>Vaše LAN adresa: {0}</MpLanDesc2>
   <MpArbiterDesc>Herní instance, která běží na pozadí a pomáhá s řešením desynchronizace.</MpArbiterDesc>
+  <MpAsyncTime>Async time</MpAsyncTime>
   <MpAsyncTimeDesc>Samostatné časové kontroly pro každou mapu a planetu.</MpAsyncTimeDesc>
   <MpLogDesyncTraces>Log Desync Traces</MpLogDesyncTraces>
   <MpLogDesyncTracesDesc>Zaznamená více informací pro odhalení důvodu desynchronizace; může mít vliv na výkon</MpLogDesyncTracesDesc>

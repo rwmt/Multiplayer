@@ -89,6 +89,7 @@
   <MpLanDesc1>Udostępnij grę do sieci LAN</MpLanDesc1>
   <MpLanDesc2>Powiązany adres LAN: {0}</MpLanDesc2>
   <MpArbiterDesc>Dodatkowa instancja działająca w tle która pomaga przy synchronizacji gry</MpArbiterDesc>
+  <MpAsyncTime>Async time</MpAsyncTime>
   <MpAsyncTimeDesc>Oddzielne kontrolowanie czasu dla każdej mapy na planecie</MpAsyncTimeDesc>
   <MpExperimentalFeature>Funkcja eksperymentalna</MpExperimentalFeature>
   

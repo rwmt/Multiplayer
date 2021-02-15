@@ -90,6 +90,7 @@
   <MpLanDesc1>Host dit spel binnen uw lokaal netwerk</MpLanDesc1>
   <MpLanDesc2>Gevonden lokaal netwerkadres: {0}</MpLanDesc2>
   <MpArbiterDesc>Een proces dat op de achtergrond draait en helpt met het verhelpen van desyncs</MpArbiterDesc>
+  <MpAsyncTime>Async time</MpAsyncTime>
   <MpAsyncTimeDesc>Afzonderlijke tijdcontroles voor elke kaart en de planeet.</MpAsyncTimeDesc>
   <MpExperimentalFeature>Experimentele functies</MpExperimentalFeature>
   
