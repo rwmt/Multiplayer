@@ -1,4 +1,4 @@
-﻿//extern alias zip;
+//extern alias zip;
 
 using System;
 using System.Collections.Generic;
@@ -315,7 +315,7 @@ namespace Multiplayer.Client
                     try {
                         harmony.Patch(m, randPatchPrefix, randPatchPostfix);
                     } catch (Exception e) {
-                        LogError($"FAIL: {m.GetType().FullName}:{m.Name} with {e.InnerException}");
+                        LogError($"FAIL: {m.DeclaringType.FullName}:{m.Name} with {e.InnerException}");
                     }
                 }
 
@@ -338,7 +338,7 @@ namespace Multiplayer.Client
                             try {
                                 harmony.Patch(method, thingMethodPrefix, thingMethodPostfix);
                             } catch (Exception e) {
-                                LogError($"FAIL: {method.GetType().FullName}:{method.Name} with {e.InnerException}");
+                                LogError($"FAIL: {method.DeclaringType.FullName}:{method.Name} with {e.InnerException}");
                             }
                         }
                     }
@@ -373,7 +373,7 @@ namespace Multiplayer.Client
                         try {
                             harmony.Patch(method, setMapTimePrefix, setMapTimePostfix);
                         } catch (Exception e) {
-                            LogError($"FAIL: {method.GetType().FullName}:{method.Name} with {e.InnerException}");
+                            LogError($"FAIL: {method.DeclaringType.FullName}:{method.Name} with {e.InnerException}");
                         }
                     }
 
