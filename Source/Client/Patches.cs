@@ -4,6 +4,7 @@ using RimWorld;
 using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -121,7 +122,7 @@ namespace Multiplayer.Client
                     {
                         optList.Insert(0, new ListableOption("Save".Translate(), () => Find.WindowStack.Add(new Dialog_SaveReplay())));
                     }
-                    optList.Insert(0, new ListableOption("MpConvert".Translate(), ConvertToSingleplayer));
+                    optList.Insert(3, new ListableOption("MpConvert".Translate(), ConvertToSingleplayer));
 
                     var quitMenuLabel = "QuitToMainMenu".Translate();
                     var saveAndQuitMenu = "SaveAndQuitToMainMenu".Translate();
@@ -178,6 +179,10 @@ namespace Multiplayer.Client
         {
             LongEventHandler.QueueLongEvent(() =>
             {
+                var saveName = Multiplayer.session.gameName + "-preconvert";
+                new FileInfo(Path.Combine(Multiplayer.ReplaysDir, $"{saveName}.zip")).Delete();
+                Replay.ForSaving(saveName).WriteCurrentData();
+
                 Find.GameInfo.permadeathMode = false;
                 // todo handle the other faction def too
                 Multiplayer.DummyFaction.def = FactionDefOf.Ancients;
