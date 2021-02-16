@@ -116,13 +116,12 @@ namespace Multiplayer.Client
 
                 if (Multiplayer.Client != null)
                 {
+                    optList.RemoveAll(opt => opt.label == "Save".Translate() || opt.label == "LoadGame".Translate());
                     if (!Multiplayer.IsReplay)
                     {
-                        optList.Insert(0, new ListableOption("MpSaveReplay".Translate(), () => Find.WindowStack.Add(new Dialog_SaveReplay())));
+                        optList.Insert(0, new ListableOption("Save".Translate(), () => Find.WindowStack.Add(new Dialog_SaveReplay())));
                     }
                     optList.Insert(0, new ListableOption("MpConvert".Translate(), ConvertToSingleplayer));
-
-                    optList.RemoveAll(opt => opt.label == "Save".Translate() || opt.label == "LoadGame".Translate());
 
                     var quitMenuLabel = "QuitToMainMenu".Translate();
                     var saveAndQuitMenu = "SaveAndQuitToMainMenu".Translate();
