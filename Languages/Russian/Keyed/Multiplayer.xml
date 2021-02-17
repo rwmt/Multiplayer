@@ -89,6 +89,7 @@
   <MpLanDesc1>Сделать игровую сессию доступной по локальной сети.</MpLanDesc1>
   <MpLanDesc2>Вычисленный LAN адрес: {0}</MpLanDesc2>
   <MpArbiterDesc>Игра, которая запускается в трее и помогает с десинхронизацией.</MpArbiterDesc>
+  <MpAsyncTime>Async time</MpAsyncTime>
   <MpAsyncTimeDesc>Разделить контроль времени для каждой карты и планеты.</MpAsyncTimeDesc>
   <MpExperimentalFeature>Экспериментальная фича</MpExperimentalFeature>
 

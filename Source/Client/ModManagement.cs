@@ -209,6 +209,8 @@ namespace Multiplayer.Client
                    && !file.Name.EndsWith("TwitchToolkit.xml") // contains username
                    && !file.Name.EndsWith("DubsMintMinimapMod.xml")
                    && !file.Name.EndsWith("DubsMintMenusMod.xml")
+                   && !file.Name.EndsWith("TacticalGroupsMod.xml")
+                   && !file.Name.EndsWith("RimThemes.xml")
                    && !file.Name.EndsWith("CameraPlusMain.xml")
                    && !file.Name.EndsWith("GraphicSetter.xml")
                    && !file.Name.EndsWith("Moody.xml")
@@ -223,7 +225,7 @@ namespace Multiplayer.Client
         private static string ModConfigFileRelative(string modConfigFile, bool normalizeSeparators)
         {
             // trim up to base savedata dir, eg. Config/Mod_7535268789_SettingController.xml
-            var relative = modConfigFile.Substring(GenFilePaths.SaveDataFolderPath.Length + 1);
+            var relative = modConfigFile.Substring(Path.GetFullPath(GenFilePaths.SaveDataFolderPath).Length + 1);
             return normalizeSeparators
                 ? relative.Replace('\\', '/') // normalize directory separator to /
                 : relative.Replace('/', Path.DirectorySeparatorChar);

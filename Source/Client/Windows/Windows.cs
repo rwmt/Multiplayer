@@ -230,7 +230,7 @@ namespace Multiplayer.Client
     {
         public override Vector2 InitialSize => new Vector2(350f, 205f);
         private bool fileExists;
-        private bool fullSave; // triggers an Autosave
+        private bool fullSave = true; // triggers an Autosave
 
         public Dialog_SaveReplay()
         {

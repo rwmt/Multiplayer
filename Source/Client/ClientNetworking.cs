@@ -234,7 +234,7 @@ namespace Multiplayer.Client
             string args = $"-batchmode -nographics -arbiter -logfile arbiter_log.txt -connect=127.0.0.1:{Multiplayer.LocalServer.ArbiterPort}";
 
             if (GenCommandLine.TryGetCommandLineArg("savedatafolder", out string saveDataFolder))
-                args += $" -savedatafolder=\"{saveDataFolder}\"";
+                args += $" \"-savedatafolder={saveDataFolder}\"";
 
             string arbiterInstancePath;
             if (Application.platform == RuntimePlatform.OSXPlayer) {

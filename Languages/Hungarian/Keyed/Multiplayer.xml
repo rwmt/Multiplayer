@@ -89,6 +89,7 @@
   <MpLanDesc1>A játék hírdetése helyi hálózaton</MpLanDesc1>
   <MpLanDesc2>LAN cím: {0}</MpLanDesc2>
   <MpArbiterDesc>Egy játékfolyamat, ami a háttérben futva segít a szinkronizáció megtartásában.</MpArbiterDesc>
+  <MpAsyncTime>Async time</MpAsyncTime>
   <MpAsyncTimeDesc>Külön időirányítás a különböző pályákhoz, és a bolygóhoz.</MpAsyncTimeDesc>
   <MpExperimentalFeature>Kísérleti funkció</MpExperimentalFeature>
   

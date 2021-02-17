@@ -89,6 +89,7 @@
   <MpLanDesc1>主持重播遊戲至區域網路</MpLanDesc1>
   <MpLanDesc2>區域網路IP位址: {0}</MpLanDesc2>
   <MpArbiterDesc>Arbiter在伺服器後端協助玩家同步</MpArbiterDesc>
+  <MpAsyncTime>Async time</MpAsyncTime>
   <MpAsyncTimeDesc>每個地圖和地區的時間控制皆不同</MpAsyncTimeDesc>
   <MpExperimentalFeature>測試功能</MpExperimentalFeature>
   

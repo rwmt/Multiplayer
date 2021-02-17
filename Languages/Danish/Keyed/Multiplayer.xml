@@ -89,6 +89,7 @@
   <MpLanDesc1>Transmiter spillet på dit lokale netværk.</MpLanDesc1>
   <MpLanDesc2>Løste LAN addresse: {0}</MpLanDesc2>
   <MpArbiterDesc>En seperat process af spillet som køre i baggrunden og hjælper med at løse problemer relateret til desynkronisering.</MpArbiterDesc>
+  <MpAsyncTime>Async time</MpAsyncTime>
   <MpAsyncTimeDesc>Separat tidskontrol for planeten og hver koloni.</MpAsyncTimeDesc>
   <MpExperimentalFeature>Eksperimental funktion</MpExperimentalFeature>
   
