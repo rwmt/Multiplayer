@@ -225,7 +225,7 @@ namespace Multiplayer.Client
         private static string ModConfigFileRelative(string modConfigFile, bool normalizeSeparators)
         {
             // trim up to base savedata dir, eg. Config/Mod_7535268789_SettingController.xml
-            var relative = modConfigFile.Substring(GenFilePaths.SaveDataFolderPath.Length + 1);
+            var relative = modConfigFile.Substring(Path.GetFullPath(GenFilePaths.SaveDataFolderPath).Length + 1);
             return normalizeSeparators
                 ? relative.Replace('\\', '/') // normalize directory separator to /
                 : relative.Replace('/', Path.DirectorySeparatorChar);
