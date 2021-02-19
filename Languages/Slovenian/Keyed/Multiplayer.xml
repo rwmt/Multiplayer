@@ -90,6 +90,7 @@
   <MpLanDesc1>Gostuj igro na lokalnem omrežju.</MpLanDesc1>
   <MpLanDesc2>Razrešen LAN naslov: {0}</MpLanDesc2>
   <MpArbiterDesc>Instanca igre ki teče v ozadju in pomaga s reševanjem ne skladnosti.</MpArbiterDesc>
+  <MpAsyncTime>Async time</MpAsyncTime>
   <MpAsyncTimeDesc>Posamezne kontrole za čas za vsak zemljevid in planet.</MpAsyncTimeDesc>
   <MpExperimentalFeature>Eksperimentalne funkcije</MpExperimentalFeature>
   

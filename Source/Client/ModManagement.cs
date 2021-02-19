@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using System.Threading;
 using Steamworks;
 using Verse;
@@ -13,6 +14,7 @@ namespace Multiplayer.Client
 {
     public static class ModManagement
     {
+        private static Regex NewLinePattern = new Regex(@"\r\n?|\n");
         public static List<ulong> GetEnabledWorkshopMods() {
             var enabledModIds = LoadedModManager.RunningModsListForReading.Select(m => m.PackageId).ToArray();
             var allWorkshopItems =
@@ -165,7 +167,7 @@ namespace Multiplayer.Client
                     continue;
                 }
 
-                var localFileContents = File.ReadAllText(localFileName);
+                var localFileContents = NewLinePattern.Replace(File.ReadAllText(localFileName), "\n");
                 if (hostModEntry.Value != localFileContents) {
                     mismatchedFiles.Add(hostFileName);
                     continue;
@@ -193,7 +195,7 @@ namespace Multiplayer.Client
                 .Where(FilterNonSyncedConfigFiles)
                 .ToDictionary(
                     file => ModManagement.ModConfigFileRelative(file.FullName, true),
-                    file => file.OpenText().ReadToEnd()
+                    file => NewLinePattern.Replace(file.OpenText().ReadToEnd(), "\n")
                 );
         }
 
@@ -209,6 +211,8 @@ namespace Multiplayer.Client
                    && !file.Name.EndsWith("TwitchToolkit.xml") // contains username
                    && !file.Name.EndsWith("DubsMintMinimapMod.xml")
                    && !file.Name.EndsWith("DubsMintMenusMod.xml")
+                   && !file.Name.EndsWith("TacticalGroupsMod.xml")
+                   && !file.Name.EndsWith("RimThemes.xml")
                    && !file.Name.EndsWith("CameraPlusMain.xml")
                    && !file.Name.EndsWith("GraphicSetter.xml")
                    && !file.Name.EndsWith("Moody.xml")
@@ -223,7 +227,7 @@ namespace Multiplayer.Client
         private static string ModConfigFileRelative(string modConfigFile, bool normalizeSeparators)
         {
             // trim up to base savedata dir, eg. Config/Mod_7535268789_SettingController.xml
-            var relative = modConfigFile.Substring(GenFilePaths.SaveDataFolderPath.Length + 1);
+            var relative = modConfigFile.Substring(Path.GetFullPath(GenFilePaths.SaveDataFolderPath).Length + 1);
             return normalizeSeparators
                 ? relative.Replace('\\', '/') // normalize directory separator to /
                 : relative.Replace('/', Path.DirectorySeparatorChar);

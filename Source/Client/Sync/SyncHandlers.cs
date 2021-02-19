@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using Multiplayer.API;
 using Multiplayer.Common;
 using RimWorld;
@@ -562,6 +562,9 @@ namespace Multiplayer.Client
 
             // 3
             SyncMethod.Register(typeof(ShipUtility), nameof(ShipUtility.StartupHibernatingParts)).CancelIfAnyArgNull().SetVersion(3);
+
+            SyncMethod.Register(typeof(Verb_SmokePop), nameof(Verb_SmokePop.Pop));
+            SyncMethod.Register(typeof(Verb_DeployBroadshield), nameof(Verb_DeployBroadshield.Deploy));
         }
 
         static SyncField SyncTimetable = Sync.Field(typeof(Pawn), "timetable", "times");
@@ -854,6 +857,7 @@ namespace Multiplayer.Client
             SyncDelegate.Register(typeof(FloatMenuMakerMap), "<>c__DisplayClass8_6", "<AddHumanlikeOrders>b__5").CancelIfAnyFieldNull().SetContext(mouseKeyContext);   // Capture
             SyncDelegate.Register(typeof(FloatMenuMakerMap), "<>c__DisplayClass8_8", "<AddHumanlikeOrders>b__6").CancelIfAnyFieldNull().SetContext(mouseKeyContext);   // Carry to cryptosleep casket
             SyncDelegate.Register(typeof(FloatMenuMakerMap), "<>c__DisplayClass8_9", "<AddHumanlikeOrders>b__8").CancelIfAnyFieldNull().SetContext(mouseKeyContext);   // Carry to shuttle
+            SyncDelegate.Register(typeof(FloatMenuMakerMap), "<>c__DisplayClass8_13", "<AddHumanlikeOrders>b__14").CancelIfAnyFieldNull().SetContext(mouseKeyContext);  // Reload
 
             SyncDelegate.Register(typeof(HealthCardUtility), "<>c__DisplayClass26_0", "<GenerateSurgeryOption>b__1").CancelIfAnyFieldNull(without: "part");      // Add medical bill
             SyncDelegate.Register(typeof(Command_SetPlantToGrow), "<>c__DisplayClass5_0", "<ProcessInput>b__2");                                                // Set plant to grow

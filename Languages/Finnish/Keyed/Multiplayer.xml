@@ -89,6 +89,7 @@
   <MpLanDesc1>Lähetä peli lähiverkkoosi.</MpLanDesc1>
   <MpLanDesc2>LAN-osoite: {0}</MpLanDesc2>
   <MpArbiterDesc>Pelin instanssi joka pyörii taustalla ja auttaa epäsynkronoinnin korjaamiseen.</MpArbiterDesc>
+  <MpAsyncTime>Async time</MpAsyncTime>
   <MpAsyncTimeDesc>Erilliset nopeus kontrollit jokaiselle kartalle ja planeetalle.</MpAsyncTimeDesc>
   <MpExperimentalFeature>Kokeellinen ominaisuus</MpExperimentalFeature>
 
