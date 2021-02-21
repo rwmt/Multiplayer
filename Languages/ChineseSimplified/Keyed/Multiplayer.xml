@@ -40,7 +40,7 @@
   
   <MpReplayOutdated>(旧版本)</MpReplayOutdated>
   <MpReplayOutdatedDesc1>这次重播使用协议版本 {0}, 但是你用的是 {1} 版本.</MpReplayOutdatedDesc1>
-  <MpReplayOutdatedDesc2>无法重播不了.</MpReplayOutdatedDesc2>
+  <MpReplayOutdatedDesc2>重播可能会失败.</MpReplayOutdatedDesc2>
   <MpReplayOutdatedDesc3>不支持的插件能在发布历史里面看.</MpReplayOutdatedDesc3>
   <MpReplayOutdatedDesc4>本文件有多余信息， 开服务端应该没问题.</MpReplayOutdatedDesc4>
   
@@ -81,13 +81,13 @@
   <MpSteamConnectingTo>连接到 {0}的游戏</MpSteamConnectingTo>
   <MpSteamConnectingWaiting>等服务端的主人接受中</MpSteamConnectingWaiting>
   
-  <MpTicksBehind>你在 {0} 游戏刻后面</MpTicksBehind>
+  <MpTicksBehind>你落后了 {0} 游戏刻.</MpTicksBehind>
   <MpLowerGameSpeed>试试减速.</MpLowerGameSpeed>
   <MpForceCatchUp>点这里来和服务器手动同步</MpForceCatchUp>
   
   <MpDesynced>游戏不同步了 desynced.</MpDesynced>
   <MpTryResync>试试从新同步</MpTryResync>
-  <MpTryRehost>转换主机</MpTryRehost>
+  <MpTryRehost>重新开服</MpTryRehost>
   
   <MpSaveReplayAs>保存重播为</MpSaveReplayAs>
   <MpWillOverwrite>会覆盖</MpWillOverwrite>
@@ -99,7 +99,7 @@
   <MpAutosaveDays>天</MpAutosaveDays>
   <MpLanDesc1>播放游戏到本地网络</MpLanDesc1>
   <MpLanDesc2>本地地址: {0}</MpLanDesc2>
-  <MpRunArbiter>运行仲裁者</MpRunArbiter>
+  <MpRunArbiter>运行仲裁器</MpRunArbiter>
   <MpArbiterDesc>一个背景游戏实例，帮助不同步检测/解决。不支持在没有仲裁器的情况下运行。</MpArbiterDesc>
   <MpAsyncTime>异步时间</MpAsyncTime>
   <MpAsyncTimeDesc>每个地图和地区都有分开的时间控制</MpAsyncTimeDesc>
