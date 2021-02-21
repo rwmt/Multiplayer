@@ -15,8 +15,16 @@
   
   <MpWrongDefs>插件定义有问题</MpWrongDefs>
   <MpWrongDefsInfo>确定你安装的插件，它们的版本和服务器的版本一致</MpWrongDefsInfo>
+  <MpWrongModConfigs>插件配置不匹配</MpWrongModConfigs>
+  <MpWrongModConfigsInfo>你的插件与主机不一致，最好同步它们。</MpWrongModConfigsInfo>
   <MpModList>插件表</MpModList>
+  <MpSyncModsAndConfigs>同步插件 &amp; 配置</MpSyncModsAndConfigs>
+  <MpSyncMods>同步插件</MpSyncMods>
+  <MpSyncModConfigs>同步插件配置</MpSyncModConfigs>
+  <MpSyncModConfigsDesc>强制客户端下载与主机相同的插件配置；减少同步次数</MpSyncModConfigsDesc>
   <MpSeeModList>看插件表</MpSeeModList>
+  <MpDownloadingWorkshopMods>下载工坊插件</MpDownloadingWorkshopMods>
+  <MpRestoreLastConfigs>恢复最后一次配置</MpRestoreLastConfigs>
   
   <MpServerClosed>服务器关了</MpServerClosed>
   <MpServerFull>服务器满了</MpServerFull>
@@ -31,8 +39,8 @@
   <MpPlayerDisconnected>{0} 离开了</MpPlayerDisconnected>
   
   <MpReplayOutdated>(旧版本)</MpReplayOutdated>
-  <MpReplayOutdatedDesc1>重播用 protocol 版本 {0}, 但是你用 {1} 版本.</MpReplayOutdatedDesc1>
-  <MpReplayOutdatedDesc2>重播播放不了.</MpReplayOutdatedDesc2>
+  <MpReplayOutdatedDesc1>这次重播使用协议版本 {0}, 但是你用的是 {1} 版本.</MpReplayOutdatedDesc1>
+  <MpReplayOutdatedDesc2>无法重播不了.</MpReplayOutdatedDesc2>
   <MpReplayOutdatedDesc3>不支持的插件能在发布历史里面看.</MpReplayOutdatedDesc3>
   <MpReplayOutdatedDesc4>本文件有多余信息， 开服务端应该没问题.</MpReplayOutdatedDesc4>
   
@@ -40,6 +48,8 @@
   
   <MpHostServer>开始服务端</MpHostServer>
   <MpSaveReplay>保存重播</MpSaveReplay>
+  <MpFullSave>完全保存</MpFullSave>
+  <MpFullSaveDesc>完全保存可以更快地加载，但是保存得更慢，并且仅对主机可用</MpFullSaveDesc>
   
   <MpConvert>转换到单人游戏</MpConvert>
   <MpConverting>转化中</MpConverting>
@@ -71,12 +81,13 @@
   <MpSteamConnectingTo>连接到 {0}的游戏</MpSteamConnectingTo>
   <MpSteamConnectingWaiting>等服务端的主人接受中</MpSteamConnectingWaiting>
   
-  <MpTicksBehind>你在 {0} ticks 后面</MpTicksBehind>
+  <MpTicksBehind>你在 {0} 游戏刻后面</MpTicksBehind>
   <MpLowerGameSpeed>试试减速.</MpLowerGameSpeed>
   <MpForceCatchUp>点这里来和服务器手动同步</MpForceCatchUp>
   
   <MpDesynced>游戏不同步了 desynced.</MpDesynced>
   <MpTryResync>试试从新同步</MpTryResync>
+  <MpTryRehost>转换主机</MpTryRehost>
   
   <MpSaveReplayAs>保存重播为</MpSaveReplayAs>
   <MpWillOverwrite>会覆盖</MpWillOverwrite>
@@ -88,9 +99,12 @@
   <MpAutosaveDays>天</MpAutosaveDays>
   <MpLanDesc1>播放游戏到本地网络</MpLanDesc1>
   <MpLanDesc2>本地地址: {0}</MpLanDesc2>
-  <MpArbiterDesc>Arbiter在游戏后端帮用户同步</MpArbiterDesc>
-  <MpAsyncTime>Async time</MpAsyncTime>
+  <MpRunArbiter>运行仲裁者</MpRunArbiter>
+  <MpArbiterDesc>一个背景游戏实例，帮助不同步检测/解决。不支持在没有仲裁器的情况下运行。</MpArbiterDesc>
+  <MpAsyncTime>异步时间</MpAsyncTime>
   <MpAsyncTimeDesc>每个地图和地区都有分开的时间控制</MpAsyncTimeDesc>
+  <MpLogDesyncTraces>记录不同步跟踪</MpLogDesyncTraces>
+  <MpLogDesyncTracesDesc>记录额外的堆栈跟踪以解决同步问题；可能会影响性能</MpLogDesyncTracesDesc>
   <MpExperimentalFeature>测试功能</MpExperimentalFeature>
   
   <MpHostButton>开始服务端</MpHostButton>
@@ -111,10 +125,13 @@
   <MpPlayingRimWorld>玩RimWorld</MpPlayingRimWorld>
   <MpNotInMultiplayer>不在多人游戏中</MpNotInMultiplayer>
   
-  <MpPauseOnAutosave>Pause on Autosave</MpPauseOnAutosave>
-  <MpAppendNameToAutosave>Append Name to Autosave</MpAppendNameToAutosave>
-  <MpPauseAutosaveCounter>Pause autosave counter</MpPauseAutosaveCounter>
-  <MpPauseAutosaveCounterDesc>Pauses the counter along with the game preventing autosaving while time is paused.</MpPauseAutosaveCounterDesc>
+  <MpPauseOnAutosave>自动保存时暂停</MpPauseOnAutosave>
+  <MpAppendNameToAutosave>将名称附加到自动保存</MpAppendNameToAutosave>
+  <MpPauseAutosaveCounter>暂停自动保存计数器</MpPauseAutosaveCounter>
+  <MpPauseAutosaveCounterDesc>与游戏一起暂停计数器，防止在暂停时间时自动保存。</MpPauseAutosaveCounterDesc>
+  <MpShowModCompatibility>显示插件兼容性</MpShowModCompatibility>
+  <MpShowModCompatibilityDesc>开启在插件管理器中显示 [4] 来自社区的插件兼容性列表。</MpShowModCompatibilityDesc>
+
   <MpLan>LAN本地</MpLan>
   <MpDirect>Direct直连</MpDirect>
   <MpSteam>Steam</MpSteam>
@@ -128,5 +145,6 @@
   
   <MpAggressiveTicking>加速秒表</MpAggressiveTicking>
   <MpAggressiveTickingDesc>试着和服务器同步（会减FPS）</MpAggressiveTickingDesc>
+  <MpMultiplayerCompatibility>多人游戏兼容性</MpMultiplayerCompatibility>
   
 </LanguageData>
