@@ -1129,6 +1129,7 @@ namespace Multiplayer.Client
             },
             {
                 (ByteWriter data, TargetInfo info) => {
+                    data.WriteBool(info.HasThing);
                     if (info.HasThing) {
                         WriteSync(data, info.Thing);
                     }
