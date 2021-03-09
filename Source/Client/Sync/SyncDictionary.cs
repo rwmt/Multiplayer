@@ -1127,6 +1127,59 @@ namespace Multiplayer.Client
                         return new LocalTargetInfo(ReadSync<IntVec3>(data));
                 }
             },
+            {
+                (ByteWriter data, TargetInfo info) => {
+                    if (info.HasThing) {
+                        WriteSync(data, info.Thing);
+                    }
+                    else {
+                        WriteSync(data, info.Cell);
+                        WriteSync(data, info.Map);
+                    }
+                },
+                (ByteReader data) => {
+                    bool hasThing = data.ReadBool();
+                    if (hasThing)
+                        return new TargetInfo(ReadSync<Thing>(data));
+                    else
+                        return new TargetInfo(ReadSync<IntVec3>(data), ReadSync<Map>(data), true); // True to prevent errors/warnings if synced map was null
+                }
+            },
+            {
+                (ByteWriter data, GlobalTargetInfo info) => {
+                    if (info.HasThing) {
+                        data.WriteByte(0);
+                        WriteSync(data, info.Thing);
+                    }
+                    else if (info.Cell.IsValid) {
+                        data.WriteByte(1);
+                        WriteSync(data, info.Cell);
+                        WriteSync(data, info.Map);
+                    }
+                    else if (info.HasWorldObject) {
+                        data.WriteByte(2);
+                        WriteSync(data, info.WorldObject);
+                    }
+                    else {
+                        data.WriteByte(3);
+                        WriteSync(data, info.Tile);
+                    }
+                },
+                (ByteReader data) => {
+                    switch (data.ReadByte()) {
+                        case 0:
+                            return new GlobalTargetInfo(ReadSync<Thing>(data));
+                        case 1:
+                            return new GlobalTargetInfo(ReadSync<IntVec3>(data), ReadSync<Map>(data), true); // True to prevent errors/warnings if synced map was null
+                        case 2:
+                            return new GlobalTargetInfo(ReadSync<WorldObject>(data));
+                        case 3:
+                            return new GlobalTargetInfo(data.ReadInt32());
+                        default:
+                            return GlobalTargetInfo.Invalid;
+                    }
+                }
+            },
             #endregion
 
             #region Interfaces
