@@ -168,6 +168,9 @@ namespace Multiplayer.Client
             if (disconnectReason == MpDisconnectReason.Defs) {
                 Find.WindowStack.Add(new DefMismatchWindow(mods));
             }
+            else if (disconnectReason == MpDisconnectReason.ServerFull) {
+                Find.WindowStack.Add(new DisconnectedWindow(disconnectReasonKey, disconnectInfo));
+            }
             else {
                 Find.WindowStack.Add(new DisconnectedWindow(disconnectReasonKey, disconnectInfo) {returnToServerBrowser = Multiplayer.Client.State != ConnectionStateEnum.ClientPlaying});
             }
