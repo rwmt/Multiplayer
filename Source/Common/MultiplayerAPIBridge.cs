@@ -99,5 +99,15 @@ namespace Multiplayer.Common
         {
             Sync.RegisterSyncWorker(syncWorkerDelegate, targetType, isImplicit: isImplicit, shouldConstruct: shouldConstruct);
         }
+
+        public void RegisterDialogNodeTree(Type type, string methodOrPropertyName, SyncType[] argTypes = null)
+        {
+            Sync.RegisterSyncDialogNodeTree(type, methodOrPropertyName, argTypes);
+        }
+
+        public void RegisterDialogNodeTree(MethodInfo method)
+        {
+            Sync.RegisterSyncDialogNodeTree(method);
+        }
     }
 }
