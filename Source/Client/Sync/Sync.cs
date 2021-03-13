@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using Multiplayer.API;
 using Multiplayer.Common;
 using RimWorld;
@@ -201,6 +201,8 @@ namespace Multiplayer.Client
 
         private Action<object, object[]> beforeCall;
         private Action<object, object[]> afterCall;
+        private Func<object, object[], bool> beforeSync;
+        private Action<object, object[]> afterSync;
 
         public SyncMethod(Type targetType, string instancePath, string methodName, SyncType[] argTypes)
         {
@@ -245,6 +247,20 @@ namespace Multiplayer.Client
         {
             if (!Multiplayer.ShouldSync)
                 return false;
+            if (beforeSync?.Invoke(target, args) == false)
+            {
+                try
+                {
+                    // Prevent any potential infinite recursion
+                    Multiplayer.dontSync = true;
+                    method.Invoke(target, args);
+                }
+                finally
+                {
+                    Multiplayer.dontSync = false;
+                }
+                return false;
+            }
 
             // todo limit per specific target/argument
             //if (Utils.MillisNow - lastSendTime < minTime)
@@ -290,6 +306,8 @@ namespace Multiplayer.Client
             Multiplayer.Client.SendCommand(CommandType.Sync, mapId, writer.ToArray());
 
             lastSendTime = Utils.MillisNow;
+
+            afterSync?.Invoke(target, args);
 
             return true;
         }
@@ -363,6 +381,18 @@ namespace Multiplayer.Client
         public ISyncMethod SetPostInvoke(Action<object, object[]> action)
         {
             afterCall = action;
+            return this;
+        }
+
+        public ISyncMethod SetPreSync(Func<object, object[], bool> function)
+        {
+            beforeSync = function;
+            return this;
+        }
+
+        public ISyncMethod SetPostSync(Action<object, object[]> action)
+        {
+            afterSync = action;
             return this;
         }
 
