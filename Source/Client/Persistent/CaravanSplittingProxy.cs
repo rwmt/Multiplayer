@@ -60,6 +60,10 @@ namespace Multiplayer.Client.Persistent
             {
                 tab = Tab.Items;
             }, tab == Tab.Items));
+            tabsList.Add(new TabRecord("FoodAndMedicineTab".Translate(), delegate
+            {
+                tab = Tab.FoodAndMedicine;
+            }, tab == Tab.FoodAndMedicine));
             inRect.yMin += 119f;
             Widgets.DrawMenuSection(inRect);
             TabDrawer.DrawTabs(inRect, tabsList, 200f);
@@ -77,6 +81,9 @@ namespace Multiplayer.Client.Persistent
                     break;
                 case Tab.Items:
                     itemsTransfer.OnGUI(inRect2, out flag);
+                    break;
+                case Tab.FoodAndMedicine:
+                    foodAndMedicineTransfer.OnGUI(inRect2, out flag);
                     break;
             }
             if (flag)
