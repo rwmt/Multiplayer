@@ -148,6 +148,6 @@
   <MpMultiplayerCompatibility>MP Compatibility</MpMultiplayerCompatibility>
 
   <MpAutosaveOnDesync>Pause and autosave on desync</MpAutosaveOnDesync>
-  <MpAutosaveOnDesyncDesc>If any of the players desyncs the game will be paused and saved automatically. This should make it easier to rejoin without having to simulate the game, and could be useful if the host cannot save the game themselves.</MpAutosaveOnDesyncDesc>
+  <MpAutosaveOnDesyncDesc>If any of the players desync, the game will be paused and saved automatically. This should make it easier to rejoin without having to simulate the game, and could be useful if the host cannot save the game themselves.</MpAutosaveOnDesyncDesc>
   
 </LanguageData>
