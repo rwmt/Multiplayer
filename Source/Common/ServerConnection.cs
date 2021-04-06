@@ -236,10 +236,7 @@ namespace Multiplayer.Common
             Player.UpdateStatus(PlayerStatus.Desynced);
 
             if (MultiplayerMod.settings.autosaveOnDesync)
-            {
-                Client.Multiplayer.Client.SendCommand(CommandType.WorldTimeSpeed, ScheduledCommand.Global, (byte)TimeSpeed.Paused);
-                Client.Multiplayer.LocalServer.DoAutosave();
-            }
+                Client.Multiplayer.LocalServer.DoAutosave(forcePause: true);
         }
 
         [PacketHandler(Packets.Client_Command)]

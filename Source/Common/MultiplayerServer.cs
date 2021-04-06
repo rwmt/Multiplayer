@@ -1,4 +1,4 @@
-﻿using LiteNetLib;
+using LiteNetLib;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -206,12 +206,12 @@ namespace Multiplayer.Common
             SendToAll(Packets.Server_PlayerList, writer.ToArray());
         }
 
-        public bool DoAutosave(string saveName = "")
+        public bool DoAutosave(string saveName = "", bool forcePause = false)
         {
             if (tmpMapCmds != null)
                 return false;
 
-            if (settings.pauseOnAutosave)
+            if (settings.pauseOnAutosave || forcePause)
                 SendCommand(CommandType.WorldTimeSpeed, ScheduledCommand.NoFaction, ScheduledCommand.Global, new byte[] { (byte)Verse.TimeSpeed.Paused });
 
             ByteWriter writer = new ByteWriter();
