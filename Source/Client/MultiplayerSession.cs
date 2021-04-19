@@ -298,7 +298,7 @@ namespace Multiplayer.Client
             TradeSession.giftMode = false;
 
             DebugTools.curTool = null;
-            // PortraitsCache.Clear(); // seems to cause crashes the second time we load a save as of V1.1
+            ClearPortraits();
             RealTime.moteList.Clear();
 
             Room.nextRoomID = 1;
@@ -324,6 +324,20 @@ namespace Multiplayer.Client
                     edgeThing.randomRotations = new List<int>() { 0, 1, 2, 3 };
 
             typeof(SymbolResolver_SingleThing).TypeInitializer.Invoke(null, null);
+        }
+
+        public static void ClearPortraits()
+        {
+            foreach (var cachedPortrait in PortraitsCache.cachedPortraits)
+            {
+                foreach (var kv in cachedPortrait.CachedPortraits.ToList())
+                {
+                    var value = kv.Value;
+                    value.LastUseTime = Time.time - 2f;
+                    cachedPortrait.CachedPortraits[kv.Key] = value;
+                }
+            }
+            PortraitsCache.RemoveExpiredCachedPortraits();
         }
 
         public void SetThingMakerSeed(int seed)
