@@ -22,11 +22,19 @@ namespace Multiplayer.Client
         public static Type[] storageParents;
         public static Type[] plantToGrowSettables;
 
-        private static Type[] AllImplementations(Type type)
+        private static Type[] AllImplementationsOrdered(Type type)
         {
             return GenTypes.AllTypes
                 .Where(t => t != type && type.IsAssignableFrom(t))
                 .OrderBy(t => t.IsInterface)
+                .ThenBy(t => t.Name)
+                .ToArray();
+        }
+
+        private static Type[] AllSubclassesNonAbstractOrdered(Type type) {
+            return type
+                .AllSubclassesNonAbstract()
+                .OrderBy(t => t.Name)
                 .ToArray();
         }
 
@@ -49,17 +57,17 @@ namespace Multiplayer.Client
 
         public static void CollectTypes()
         {
-            storageParents = AllImplementations(typeof(IStoreSettingsParent));
-            plantToGrowSettables = AllImplementations(typeof(IPlantToGrowSettable));
+            storageParents = AllImplementationsOrdered(typeof(IStoreSettingsParent));
+            plantToGrowSettables = AllImplementationsOrdered(typeof(IPlantToGrowSettable));
 
-            thingCompTypes = typeof(ThingComp).AllSubclassesNonAbstract().ToArray();
-            abilityCompTypes = typeof(AbilityComp).AllSubclassesNonAbstract().ToArray();
-            designatorTypes = typeof(Designator).AllSubclassesNonAbstract().ToArray();
-            worldObjectCompTypes = typeof(WorldObjectComp).AllSubclassesNonAbstract().ToArray();
+            thingCompTypes = AllSubclassesNonAbstractOrdered(typeof(ThingComp));
+            abilityCompTypes = AllSubclassesNonAbstractOrdered(typeof(AbilityComp));
+            designatorTypes = AllSubclassesNonAbstractOrdered(typeof(Designator));
+            worldObjectCompTypes = AllSubclassesNonAbstractOrdered(typeof(WorldObjectComp));
 
-            gameCompTypes = typeof(GameComponent).AllSubclassesNonAbstract().ToArray();
-            worldCompTypes = typeof(WorldComponent).AllSubclassesNonAbstract().ToArray();
-            mapCompTypes = typeof(MapComponent).AllSubclassesNonAbstract().ToArray();
+            gameCompTypes = AllSubclassesNonAbstractOrdered(typeof(GameComponent));
+            worldCompTypes = AllSubclassesNonAbstractOrdered(typeof(WorldComponent));
+            mapCompTypes = AllSubclassesNonAbstractOrdered(typeof(MapComponent));
         }
 
         private static Type[] supportedThingHolders = new[]
