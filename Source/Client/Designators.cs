@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using Multiplayer.Common;
 using RimWorld;
 using System;
@@ -129,4 +129,39 @@ namespace Multiplayer.Client
         }
     }
 
+    [HarmonyPatch(typeof(Designator_Deconstruct))]
+    [HarmonyPatch(nameof(Designator_Deconstruct.DesignateThing))]
+    public static class DesignatorDeconstructPatch
+    {
+        static void Postfix(Thing t)
+        {
+            if (Multiplayer.Client != null)
+            {
+                Thing innerIfMinified = t.GetInnerIfMinified();
+                // All the conditions the game checks for before deconstructing the Thing instantly
+                if (DebugSettings.godMode || innerIfMinified.GetStatValue(StatDefOf.WorkToBuild, true) == 0f || t.def.IsFrame)
+                {
+                    if (Find.Selector.IsSelected(innerIfMinified) || (t != innerIfMinified && Find.Selector.IsSelected(t)))
+                    {
+                        Find.Selector.Deselect(innerIfMinified);
+                        // Just to be 100% sure there's nothing weird going on here
+                        if (t != innerIfMinified)
+                            Find.Selector.Deselect(t);
+                        Find.MainButtonsRoot.tabs.Notify_SelectedObjectDespawned();
+                    }
+                }
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(Designator_Cancel))]
+    [HarmonyPatch(nameof(Designator_Cancel.DesignateThing))]
+    public static class DesignatorCancelPatch
+    {
+        static void Postfix(Thing t)
+        {
+            if (Multiplayer.Client != null && (t is Frame || t is Blueprint))
+                Find.Selector.Deselect(t);
+        }
+    }
 }
