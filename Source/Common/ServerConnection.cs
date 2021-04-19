@@ -1,4 +1,4 @@
-﻿using Ionic.Zlib;
+using Ionic.Zlib;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -234,6 +234,9 @@ namespace Multiplayer.Common
         public void HandleDesynced(ByteReader data)
         {
             Player.UpdateStatus(PlayerStatus.Desynced);
+
+            if (MultiplayerMod.settings.autosaveOnDesync)
+                Client.Multiplayer.LocalServer.DoAutosave(forcePause: true);
         }
 
         [PacketHandler(Packets.Client_Command)]
