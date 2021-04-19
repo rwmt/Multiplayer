@@ -445,7 +445,7 @@ namespace Multiplayer.Client
             }
         }
 
-        private static HashSet<Type> IgnoredVanillaDefTypes = new HashSet<Type>
+        internal static HashSet<Type> IgnoredVanillaDefTypes = new HashSet<Type>
         {
             typeof(FeatureDef), typeof(HairDef),
             typeof(MainButtonDef), typeof(PawnTableDef),
