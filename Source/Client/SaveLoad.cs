@@ -274,6 +274,7 @@ namespace Multiplayer.Client
     {
         static void Postfix()
         {
+            Multiplayer.game?.OnDestroy();
             Multiplayer.game = null;
         }
     }

@@ -350,5 +350,11 @@ namespace Multiplayer.Client
                     m.nextSeed = seed;
             }
         }
+
+        public void OnDestroy()
+        {
+            FactionContext.Clear();
+            ThingContext.Clear();
+        }
     }
 }

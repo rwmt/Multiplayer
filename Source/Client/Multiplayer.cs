@@ -555,6 +555,11 @@ namespace Multiplayer.Client
             newFaction.def = factionDef;
             Find.FactionManager.ofPlayer = newFaction;
         }
+
+        public static void Clear()
+        {
+            stack.Clear();
+        }
     }
 
 }

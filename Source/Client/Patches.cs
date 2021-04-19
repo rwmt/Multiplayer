@@ -326,6 +326,12 @@ namespace Multiplayer.Client
         {
             stack.Pop();
         }
+
+        public static void Clear()
+        {
+            stack.Clear();
+            stack.Push(new Pair<Thing, Map>());
+        }
     }
 
     [HarmonyPatch(typeof(GameEnder))]
