@@ -834,6 +834,17 @@ namespace Multiplayer.Client
                     }
                 }, true // Implicit
             },
+            {
+                // Parent: RoyalTitlePermitWorker_Targeted
+                (SyncWorker sync, ref RoyalTitlePermitWorker_DropResources dropResources) => {
+                    if (sync.isWriting) {
+                        sync.Write(dropResources.faction);
+                    }
+                    else {
+                        dropResources.faction = sync.Read<Faction>();
+                    }
+                }, true // Implicit
+            },
             #endregion
 
             #region Databases
