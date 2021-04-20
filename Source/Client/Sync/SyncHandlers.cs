@@ -320,7 +320,7 @@ namespace Multiplayer.Client
             }
         }
 
-        [MpPrefix(typeof(DebugWindowsOpener), nameof(DebugWindowsOpener.ToggleGodMode))]
+        [MpPrefix(typeof(DebugWindowsOpener), nameof(DebugWindowsOpener.DrawButtons))]
         [MpPrefix(typeof(Prefs), "set_DevMode")]
         static void SetGodMode()
         {
