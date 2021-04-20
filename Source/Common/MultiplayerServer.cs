@@ -53,8 +53,8 @@ namespace Multiplayer.Common
         public int keepAliveId;
         public Stopwatch lastKeepAlive = Stopwatch.StartNew();
 
-        private NetManager netManager;
-        private NetManager lanManager;
+        internal NetManager netManager;
+        internal NetManager lanManager;
         private NetManager arbiter;
 
         public int nextUniqueId; // currently unused

@@ -36,7 +36,7 @@ namespace Multiplayer.Client
                 if (ChatWindow.Opened != null)
                     ChatWindow.Opened.Close();
                 else
-                    OpenChat();
+                    ChatWindow.OpenChat();
             }
 
             return Find.Maps.Count > 0;
@@ -85,15 +85,6 @@ namespace Multiplayer.Client
             }
         }
 
-        static void OpenChat()
-        {
-            var chatWindow = new ChatWindow();
-            Find.WindowStack.Add(chatWindow);
-
-            if (Multiplayer.session.chatPos != default(Rect))
-                chatWindow.windowRect = Multiplayer.session.chatPos;
-        }
-
         static void DoButtons()
         {
             float y = 10f;
@@ -113,7 +104,7 @@ namespace Multiplayer.Client
                 var chatLabel = $"{"MpChatButton".Translate()} <color={chatColor}>({session.players.Count})</color>{hasUnread}";
 
                 if (Widgets.ButtonText(btnRect, chatLabel))
-                    OpenChat();
+                    ChatWindow.OpenChat();
 
                 if (!TickPatch.Skipping)
                 {

@@ -304,6 +304,9 @@ namespace Multiplayer.Client
         public bool autosaveOnDesync = false;
         public ServerSettings serverSettings = new ServerSettings();
 
+        public Rect chatRect;
+        public Vector2 resolutionForChat;
+
         public override void ExposeData()
         {
             Scribe_Values.Look(ref username, "username");
@@ -319,6 +322,9 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref pauseAutosaveCounter, "pauseAutosaveCounter", true);
             Scribe_Values.Look(ref showModCompatibility, "showModCompatibility", true);
             Scribe_Values.Look(ref autosaveOnDesync, "autosaveOnDesync", false);
+            Scribe_Values.Look(ref resolutionForChat, "resolutionForChat");
+
+            ScribeUtil.LookRect(ref chatRect, "chatRect");
 
             Scribe_Deep.Look(ref serverSettings, "serverSettings");
 
