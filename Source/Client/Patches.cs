@@ -551,9 +551,21 @@ namespace Multiplayer.Client
     [HarmonyPatch(typeof(Pawn_NeedsTracker), nameof(Pawn_NeedsTracker.AddOrRemoveNeedsAsAppropriate))]
     public static class AddRemoveNeeds
     {
-        static void Prefix(Pawn_NeedsTracker __instance)
+        static void Prefix(Pawn ___pawn, ref Container<Map>? __state)
         {
-            //MpLog.Log("add remove needs {0} {1}", FactionContext.OfPlayer.ToString(), __instance.GetPropertyOrField("pawn"));
+            if (Multiplayer.Client != null && ___pawn.Faction != null)
+            {
+                ___pawn.Map.PushFaction(___pawn.Faction);
+                __state = ___pawn.Map;
+            }
+        }
+
+        static void Postfix(Container<Map>? __state)
+        {
+            if (__state.HasValue)
+            {
+                __state.PopFaction();
+            }
         }
     }
 
