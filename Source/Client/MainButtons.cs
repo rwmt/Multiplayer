@@ -124,11 +124,17 @@ namespace Multiplayer.Client
                 y += btnHeight;
             }
 
-            if (Multiplayer.ShowDevInfo && Multiplayer.PacketLog != null)
+            if (Multiplayer.ShowDevInfo && Multiplayer.WriterLog != null)
             {
-                if (Widgets.ButtonText(new Rect(x, y, btnWidth, btnHeight), $"Sync ({Multiplayer.PacketLog.nodes.Count})"))
-                    Find.WindowStack.Add(Multiplayer.PacketLog);
-
+                if (Widgets.ButtonText(new Rect(x, y, 80f, 27f), $"Write ({Multiplayer.WriterLog.nodes.Count})"))
+                {
+                    Find.WindowStack.Add(Multiplayer.WriterLog);
+                }
+                y += btnHeight;
+                if (Widgets.ButtonText(new Rect(x, y, 80f, 27f), $"Read ({Multiplayer.ReaderLog.nodes.Count})"))
+                {
+                    Find.WindowStack.Add(Multiplayer.ReaderLog);
+                }
                 y += btnHeight;
             }
 

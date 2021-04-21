@@ -107,6 +107,27 @@ namespace Multiplayer.Client
 
         public static object ReadSyncObject(ByteReader data, SyncType syncType)
         {
+            SyncLogger log = null;
+            if (data is LoggingByteReader logger)
+            {
+                log = logger.log;
+                log.Enter(syncType.type.FullName);
+            }
+
+            try
+            {
+                object obj = ReadSyncObjectInternal(data, syncType);
+                log?.AppendToCurrentName($": {obj}");
+                return obj;
+            }
+            finally
+            {
+                log?.Exit();
+            }
+        }
+
+        static object ReadSyncObjectInternal(ByteReader data, SyncType syncType)
+        {
             MpContext context = data.MpContext();
             Map map = context.map;
             Type type = syncType.type;
@@ -284,8 +305,8 @@ namespace Multiplayer.Client
             MpContext context = data.MpContext();
             Type type = syncType.type;
 
-            LoggingByteWriter log = data as LoggingByteWriter;
-            log?.LogEnter(type.FullName + ": " + (obj ?? "null"));
+            LoggingByteWriter logger = data as LoggingByteWriter;
+            logger?.log.Enter(type.FullName + ": " + (obj ?? "null"));
 
             if (obj != null && !type.IsAssignableFrom(obj.GetType()))
                 throw new SerializationException($"Serializing with type {type} but got object of type {obj.GetType()}");
@@ -463,7 +484,7 @@ namespace Multiplayer.Client
                     return;
                 }
 
-                log?.LogNode("No writer for " + type);
+                logger?.log.Node("No writer for " + type);
                 throw new SerializationException("No writer for type " + type);
 
             }
@@ -474,7 +495,7 @@ namespace Multiplayer.Client
             }
             finally
             {
-                log?.LogExit();
+                logger?.log.Exit();
             }
         }
 

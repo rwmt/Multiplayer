@@ -472,31 +472,31 @@ namespace Multiplayer.Common
             this.array = array;
         }
 
-        public byte PeekByte() => array[index];
+        public virtual byte PeekByte() => array[index];
 
-        public byte ReadByte() => array[IncrementIndex(1)];
+        public virtual byte ReadByte() => array[IncrementIndex(1)];
 
-        public sbyte ReadSByte() => (sbyte)array[IncrementIndex(1)];
+        public virtual sbyte ReadSByte() => (sbyte)array[IncrementIndex(1)];
 
-        public short ReadShort() => BitConverter.ToInt16(array, IncrementIndex(2));
+        public virtual short ReadShort() => BitConverter.ToInt16(array, IncrementIndex(2));
 
-        public ushort ReadUShort() => BitConverter.ToUInt16(array, IncrementIndex(2));
+        public virtual ushort ReadUShort() => BitConverter.ToUInt16(array, IncrementIndex(2));
 
-        public int ReadInt32() => BitConverter.ToInt32(array, IncrementIndex(4));
+        public virtual int ReadInt32() => BitConverter.ToInt32(array, IncrementIndex(4));
 
-        public uint ReadUInt32() => BitConverter.ToUInt32(array, IncrementIndex(4));
+        public virtual uint ReadUInt32() => BitConverter.ToUInt32(array, IncrementIndex(4));
 
-        public long ReadLong() => BitConverter.ToInt64(array, IncrementIndex(8));
+        public virtual long ReadLong() => BitConverter.ToInt64(array, IncrementIndex(8));
 
-        public ulong ReadULong() => BitConverter.ToUInt64(array, IncrementIndex(8));
+        public virtual ulong ReadULong() => BitConverter.ToUInt64(array, IncrementIndex(8));
 
-        public float ReadFloat() => BitConverter.ToSingle(array, IncrementIndex(4));
+        public virtual float ReadFloat() => BitConverter.ToSingle(array, IncrementIndex(4));
 
-        public double ReadDouble() => BitConverter.ToDouble(array, IncrementIndex(8));
+        public virtual double ReadDouble() => BitConverter.ToDouble(array, IncrementIndex(8));
 
-        public bool ReadBool() => BitConverter.ToBoolean(array, IncrementIndex(1));
+        public virtual bool ReadBool() => BitConverter.ToBoolean(array, IncrementIndex(1));
 
-        public string ReadString(int maxLen = 32767)
+        public virtual string ReadString(int maxLen = 32767)
         {
             int bytes = ReadInt32();
 
@@ -510,12 +510,12 @@ namespace Multiplayer.Common
             return result;
         }
 
-        public byte[] ReadRaw(int len)
+        public virtual byte[] ReadRaw(int len)
         {
             return array.SubArray(IncrementIndex(len), len);
         }
 
-        public byte[] ReadPrefixedBytes(int maxLen = int.MaxValue)
+        public virtual byte[] ReadPrefixedBytes(int maxLen = int.MaxValue)
         {
             int len = ReadInt32();
 
@@ -527,7 +527,7 @@ namespace Multiplayer.Common
             return ReadRaw(len);
         }
 
-        public int[] ReadPrefixedInts(int maxLen = int.MaxValue)
+        public virtual int[] ReadPrefixedInts(int maxLen = int.MaxValue)
         {
             int len = ReadInt32();
 
@@ -543,7 +543,7 @@ namespace Multiplayer.Common
             return result;
         }
 
-        public uint[] ReadPrefixedUInts()
+        public virtual uint[] ReadPrefixedUInts()
         {
             int len = ReadInt32();
             uint[] result = new uint[len];
@@ -552,7 +552,7 @@ namespace Multiplayer.Common
             return result;
         }
 
-        public ulong[] ReadPrefixedULongs()
+        public virtual ulong[] ReadPrefixedULongs()
         {
             int len = ReadInt32();
             ulong[] result = new ulong[len];
@@ -562,7 +562,7 @@ namespace Multiplayer.Common
             return result;
         }
 
-        public string[] ReadPrefixedStrings()
+        public virtual string[] ReadPrefixedStrings()
         {
             int len = ReadInt32();
             string[] result = new string[len];

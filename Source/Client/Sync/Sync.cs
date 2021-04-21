@@ -61,7 +61,7 @@ namespace Multiplayer.Client
 
             LoggingByteWriter writer = new LoggingByteWriter();
             MpContext context = writer.MpContext();
-            writer.LogNode("Sync field " + memberPath);
+            writer.log.Node("Sync field " + memberPath);
 
             writer.WriteInt32(syncId);
 
@@ -77,8 +77,8 @@ namespace Multiplayer.Client
             if (indexType != null)
                 Sync.WriteSyncObject(writer, index, indexType);
 
-            writer.LogNode("Map id: " + mapId);
-            Multiplayer.PacketLog.nodes.Add(writer.current);
+            writer.log.Node("Map id: " + mapId);
+            Multiplayer.WriterLog.nodes.Add(writer.log.current);
 
             Multiplayer.Client.SendCommand(CommandType.Sync, mapId, writer.ToArray());
 
@@ -252,7 +252,7 @@ namespace Multiplayer.Client
 
             LoggingByteWriter writer = new LoggingByteWriter();
             MpContext context = writer.MpContext();
-            writer.LogNode("Sync method " + method.FullDescription());
+            writer.log.Node("Sync method " + method.FullDescription());
 
             writer.WriteInt32(syncId);
 
@@ -284,8 +284,8 @@ namespace Multiplayer.Client
             }
 
             int mapId = map?.uniqueID ?? ScheduledCommand.Global;
-            writer.LogNode("Map id: " + mapId);
-            Multiplayer.PacketLog.nodes.Add(writer.current);
+            writer.log.Node("Map id: " + mapId);
+            Multiplayer.WriterLog.nodes.Add(writer.log.current);
 
             Multiplayer.Client.SendCommand(CommandType.Sync, mapId, writer.ToArray());
 
@@ -456,8 +456,8 @@ namespace Multiplayer.Client
 
             LoggingByteWriter writer = new LoggingByteWriter();
             MpContext context = writer.MpContext();
-            writer.LogNode($"Sync delegate: {delegateType} method: {method}");
-            writer.LogNode("Patch: " + patch?.FullDescription());
+            writer.log.Node($"Sync delegate: {delegateType} method: {method}");
+            writer.log.Node("Patch: " + patch?.FullDescription());
 
             writer.WriteInt32(syncId);
 
@@ -480,8 +480,8 @@ namespace Multiplayer.Client
                 }
             });
 
-            writer.LogNode("Map id: " + mapId);
-            Multiplayer.PacketLog.nodes.Add(writer.current);
+            writer.log.Node("Map id: " + mapId);
+            Multiplayer.WriterLog.nodes.Add(writer.log.current);
 
             Multiplayer.Client.SendCommand(CommandType.Sync, mapId, writer.ToArray());
 
@@ -628,7 +628,7 @@ namespace Multiplayer.Client
         {
             LoggingByteWriter writer = new LoggingByteWriter();
             MpContext context = writer.MpContext();
-            writer.LogNode("Sync action");
+            writer.log.Node("Sync action");
 
             writer.WriteInt32(syncId);
 
@@ -641,8 +641,8 @@ namespace Multiplayer.Client
 
             int mapId = writer.MpContext().map?.uniqueID ?? -1;
 
-            writer.LogNode("Map id: " + mapId);
-            Multiplayer.PacketLog.nodes.Add(writer.current);
+            writer.log.Node("Map id: " + mapId);
+            Multiplayer.WriterLog.nodes.Add(writer.log.current);
 
             Multiplayer.Client.SendCommand(CommandType.Sync, mapId, writer.ToArray());
         }
@@ -1259,111 +1259,6 @@ namespace Multiplayer.Client
         IEnumerator IEnumerable.GetEnumerator()
         {
             return types.GetEnumerator();
-        }
-    }
-
-    public class LoggingByteWriter : ByteWriter
-    {
-        public LogNode current = new LogNode("Root");
-
-        public override void WriteInt32(int val)
-        {
-            LogNode("int: " + val);
-            base.WriteInt32(val);
-        }
-
-        public override void WriteBool(bool val)
-        {
-            LogNode("bool: " + val);
-            base.WriteBool(val);
-        }
-
-        public override void WriteDouble(double val)
-        {
-            LogNode("double: " + val);
-            base.WriteDouble(val);
-        }
-
-        public override void WriteUShort(ushort val)
-        {
-            LogNode("ushort: " + val);
-            base.WriteUShort(val);
-        }
-
-        public override void WriteShort(short val)
-        {
-            LogNode("short: " + val);
-            base.WriteShort(val);
-        }
-
-        public override void WriteFloat(float val)
-        {
-            LogNode("float: " + val);
-            base.WriteFloat(val);
-        }
-
-        public override void WriteLong(long val)
-        {
-            LogNode("long: " + val);
-            base.WriteLong(val);
-        }
-
-        public override void WritePrefixedBytes(byte[] bytes)
-        {
-            LogEnter("byte[]");
-            base.WritePrefixedBytes(bytes);
-            LogExit();
-        }
-
-        public override ByteWriter WriteString(string s)
-        {
-            LogEnter("string: " + s);
-            base.WriteString(s);
-            LogExit();
-            return this;
-        }
-
-        public LogNode LogNode(string text)
-        {
-            LogNode node = new LogNode(text, current);
-            current.children.Add(node);
-            return node;
-        }
-
-        public void LogEnter(string text)
-        {
-            current = LogNode(text);
-        }
-
-        public void LogExit()
-        {
-            current = current.parent;
-        }
-
-        public void Print()
-        {
-            Print(current, 1);
-        }
-
-        private void Print(LogNode node, int depth)
-        {
-            Log.Message(new string(' ', depth) + node.text);
-            foreach (LogNode child in node.children)
-                Print(child, depth + 1);
-        }
-    }
-
-    public class LogNode
-    {
-        public LogNode parent;
-        public List<LogNode> children = new List<LogNode>();
-        public string text;
-        public bool expand;
-
-        public LogNode(string text, LogNode parent = null)
-        {
-            this.text = text;
-            this.parent = parent;
         }
     }
 

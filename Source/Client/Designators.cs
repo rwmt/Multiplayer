@@ -32,13 +32,13 @@ namespace Multiplayer.Client
 
             Map map = Find.CurrentMap;
             LoggingByteWriter writer = new LoggingByteWriter();
-            writer.LogNode("Designate single cell: " + designator.GetType());
+            writer.log.Node("Designate single cell: " + designator.GetType());
 
             WriteData(writer, DesignatorMode.SingleCell, designator);
             Sync.WriteSync(writer, __0);
 
             Multiplayer.Client.SendCommand(CommandType.Designator, map.uniqueID, writer.ToArray());
-            Multiplayer.PacketLog.nodes.Add(writer.current);
+            Multiplayer.WriterLog.nodes.Add(writer.log.current);
 
             return false;
         }
@@ -54,14 +54,14 @@ namespace Multiplayer.Client
 
             Map map = Find.CurrentMap;
             LoggingByteWriter writer = new LoggingByteWriter();
-            writer.LogNode("Designate multi cell: " + designator.GetType());
+            writer.log.Node("Designate multi cell: " + designator.GetType());
             IntVec3[] cellArray = __0.ToArray();
 
             WriteData(writer, DesignatorMode.MultiCell, designator);
             Sync.WriteSync(writer, cellArray);
 
             Multiplayer.Client.SendCommand(CommandType.Designator, map.uniqueID, writer.ToArray());
-            Multiplayer.PacketLog.nodes.Add(writer.current);
+            Multiplayer.WriterLog.nodes.Add(writer.log.current);
 
             return false;
         }
@@ -74,13 +74,13 @@ namespace Multiplayer.Client
 
             Map map = Find.CurrentMap;
             LoggingByteWriter writer = new LoggingByteWriter();
-            writer.LogNode("Designate thing: " + __0 + " " + designator.GetType());
+            writer.log.Node("Designate thing: " + __0 + " " + designator.GetType());
 
             WriteData(writer, DesignatorMode.Thing, designator);
             Sync.WriteSync(writer, __0);
 
             Multiplayer.Client.SendCommand(CommandType.Designator, map.uniqueID, writer.ToArray());
-            Multiplayer.PacketLog.nodes.Add(writer.current);
+            Multiplayer.WriterLog.nodes.Add(writer.log.current);
 
             MoteMaker.ThrowMetaPuffs(__0);
 

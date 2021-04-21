@@ -710,10 +710,11 @@ namespace Multiplayer.Client
 
         public void ExecuteCmd(ScheduledCommand cmd)
         {
-            ByteReader data = new ByteReader(cmd.data);
-            MpContext context = data.MpContext();
-
             CommandType cmdType = cmd.type;
+            LoggingByteReader data = new LoggingByteReader(cmd.data);
+            data.log.Node($"{cmdType} Map {map.uniqueID}");
+
+            MpContext context = data.MpContext();
 
             var updateWorldTime = false;
             keepTheMap = false;
@@ -822,6 +823,8 @@ namespace Multiplayer.Client
                 keepTheMap = false;
 
                 Multiplayer.game.sync.TryAddCommandRandomState(randState);
+
+                Multiplayer.ReaderLog.nodes.Add(data.log.current);
             }
         }
 

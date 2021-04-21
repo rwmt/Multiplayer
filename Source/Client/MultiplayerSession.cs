@@ -23,7 +23,8 @@ namespace Multiplayer.Client
 
         public IConnection client;
         public NetManager netClient;
-        public PacketLogWindow packetLog = new PacketLogWindow();
+        public PacketLogWindow writerLog = new PacketLogWindow();
+        public PacketLogWindow readerLog = new PacketLogWindow();
         public int myFactionId;
         public List<PlayerInfo> players = new List<PlayerInfo>();
 

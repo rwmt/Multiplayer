@@ -236,7 +236,8 @@ namespace Multiplayer.Client
         public void ExecuteCmd(ScheduledCommand cmd)
         {
             CommandType cmdType = cmd.type;
-            ByteReader data = new ByteReader(cmd.data);
+            LoggingByteReader data = new LoggingByteReader(cmd.data);
+            data.log.Node(cmdType + " World");
 
             executingCmdWorld = true;
             TickPatch.currentExecutingCmdIssuedBySelf = cmd.issuedBySelf && !TickPatch.Skipping;
@@ -319,6 +320,8 @@ namespace Multiplayer.Client
                 executingCmdWorld = false;
 
                 Multiplayer.game.sync.TryAddCommandRandomState(randState);
+
+                Multiplayer.ReaderLog.nodes.Add(data.log.current);
             }
         }
 

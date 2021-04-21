@@ -26,7 +26,10 @@ namespace Multiplayer.Client
 
         public static IConnection Client => session?.client;
         public static MultiplayerServer LocalServer => session?.localServer;
-        public static PacketLogWindow PacketLog => session?.packetLog;
+
+        public static PacketLogWindow WriterLog => session?.writerLog;
+        public static PacketLogWindow ReaderLog => session?.readerLog;
+
         public static bool IsReplay => session?.replay ?? false;
 
         public static string username;

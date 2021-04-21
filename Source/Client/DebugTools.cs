@@ -115,7 +115,8 @@ namespace Multiplayer.Client
 
         public static void SendCmd(DebugSource source, int hash, Map map)
         {
-            var writer = new ByteWriter();
+            var writer = new LoggingByteWriter();
+            writer.log.Node($"Debug tool {source}, map {map.ToStringSafe()}");
             int cursorX = 0, cursorZ = 0;
 
             if (map != null)
@@ -142,6 +143,7 @@ namespace Multiplayer.Client
             var mapId = map?.uniqueID ?? ScheduledCommand.Global;
 
             Multiplayer.Client.SendCommand(CommandType.DebugTools, mapId, writer.ToArray());
+            Multiplayer.WriterLog.nodes.Add(writer.log.current);
         }
 
         public static DebugSource ListingSource()
