@@ -104,6 +104,8 @@ namespace Multiplayer.Client
                 new HarmonyMethod(typeof(RandPatches), nameof(RandPatches.Prefix)),
                 new HarmonyMethod(typeof(RandPatches), nameof(RandPatches.Postfix))
             );
+
+            ForeignRand.Patch();
         }
 
         private void LatePatches()
