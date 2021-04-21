@@ -244,6 +244,27 @@ namespace Multiplayer.Client
             if (__state != null)
                 __state.PopFaction();
         }
+
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+        {
+            FieldInfo FrameCountField = AccessTools.Field(typeof(RealTime), nameof(RealTime.frameCount));
+            MethodInfo FrameCountReplacementMethod = AccessTools.Method(typeof(JobTrackerStart), nameof(FrameCountReplacement));
+
+            foreach (CodeInstruction inst in insts)
+            {
+                yield return inst;
+                if (inst.operand == FrameCountField)
+                {
+                    yield return new CodeInstruction(OpCodes.Ldarg_0);
+                    yield return new CodeInstruction(OpCodes.Call, FrameCountReplacementMethod);
+                }
+            }
+        }
+
+        static int FrameCountReplacement(int frameCount, Pawn_JobTracker tracker)
+        {
+            return tracker.pawn.Map.AsyncTime()?.eventCount ?? frameCount;
+        }
     }
 
     [HarmonyPatch(typeof(Pawn_JobTracker))]

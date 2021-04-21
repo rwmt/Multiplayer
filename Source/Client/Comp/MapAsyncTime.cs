@@ -556,6 +556,7 @@ namespace Multiplayer.Client
         public int mapTicks;
         private TimeSpeed timeSpeedInt;
         public bool forcedNormalSpeed;
+        public int eventCount;
 
         public Storyteller storyteller;
         public StoryWatcher storyWatcher;
@@ -609,6 +610,8 @@ namespace Multiplayer.Client
                 PostContext();
 
                 Multiplayer.game.sync.TryAddMapRandomState(map.uniqueID, randState);
+
+                eventCount++;
 
                 tickingMap = null;
 
@@ -823,6 +826,8 @@ namespace Multiplayer.Client
                 keepTheMap = false;
 
                 Multiplayer.game.sync.TryAddCommandRandomState(randState);
+
+                eventCount++;
 
                 Multiplayer.ReaderLog.nodes.Add(data.log.current);
             }
