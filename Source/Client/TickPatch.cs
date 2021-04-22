@@ -47,7 +47,12 @@ namespace Multiplayer.Client
         }
 
         static Stopwatch updateTimer = Stopwatch.StartNew();
+        static Stopwatch time = Stopwatch.StartNew();
+
         public static double lastUpdateTook;
+
+        [TweakValue("Multiplayer", 0f, 100f)]
+        public static float maxBehind = 6f;
 
         static bool Prefix()
         {
@@ -55,7 +60,9 @@ namespace Multiplayer.Client
             if (LongEventHandler.currentEvent != null) return false;
             if (Multiplayer.session.desynced) return false;
 
-            double delta = Time.deltaTime * 60.0;
+            double delta = time.ElapsedMillisDouble() / 1000.0 * 60.0;
+            time.Restart();
+
             int maxDelta = MultiplayerMod.settings.aggressiveTicking ? 6 : 3;
 
             if (delta > maxDelta)
@@ -67,8 +74,8 @@ namespace Multiplayer.Client
 
             if (Timer >= tickUntil)
                 accumulator = 0;
-            else if (!Multiplayer.IsReplay && delta < okDelta && tickUntil - Timer > 6)
-                accumulator += Math.Min(60, tickUntil - Timer - 6);
+            else if (!Multiplayer.IsReplay && delta < okDelta && tickUntil - Timer > maxBehind)
+                accumulator += Math.Min(60, tickUntil - Timer - maxBehind);
 
             if (Multiplayer.IsReplay && replayTimeSpeed == TimeSpeed.Paused)
                 accumulator = 0;

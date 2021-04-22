@@ -44,6 +44,8 @@ namespace Multiplayer.Common
         public ServerSettings settings;
         public bool debugMode;
 
+        public int cmdId;
+
         public volatile bool running = true;
 
         private Dictionary<string, ChatCmdHandler> chatCmds = new Dictionary<string, ChatCmdHandler>();
@@ -174,8 +176,7 @@ namespace Multiplayer.Common
 
         public void Tick()
         {
-            if (gameTimer % 3 == 0)
-                SendToAll(Packets.Server_TimeControl, new object[] { gameTimer });
+            SendToAll(Packets.Server_TimeControl, ByteWriter.GetBytes(gameTimer, cmdId), reliable: false);
 
             gameTimer++;
 
@@ -333,6 +334,8 @@ namespace Multiplayer.Common
                     sourcePlayer == player ? toSendSource : toSend
                 );
             }
+
+            cmdId++;
         }
 
         public void SendChat(string msg)

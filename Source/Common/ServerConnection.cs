@@ -199,6 +199,8 @@ namespace Multiplayer.Common
                 writer.WritePrefixedBytes(mapData);
             }
 
+            writer.WriteInt32(Server.cmdId);
+
             connection.State = ConnectionStateEnum.ServerPlaying;
 
             byte[] packetData = writer.ToArray();

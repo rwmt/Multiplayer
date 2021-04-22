@@ -21,6 +21,10 @@ namespace Multiplayer.Client
         public string gameName;
         public int playerId;
 
+        public int localCmdId;
+        public int remoteTickUntil;
+        public int remoteCmdId;
+
         public IConnection client;
         public NetManager netClient;
         public PacketLogWindow writerLog = new PacketLogWindow();
@@ -180,6 +184,14 @@ namespace Multiplayer.Client
         public void ReapplyPrefs()
         {
             Application.runInBackground = true;
+        }
+
+        public void ProcessTimeControl()
+        {
+            if (localCmdId >= remoteCmdId)
+            {
+                TickPatch.tickUntil = remoteTickUntil;
+            }
         }
     }
 
