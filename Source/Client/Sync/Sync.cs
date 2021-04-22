@@ -726,7 +726,8 @@ namespace Multiplayer.Client
         public static List<SyncHandler> handlers = new List<SyncHandler>();
         public static List<SyncField> bufferedFields = new List<SyncField>();
 
-        public static Dictionary<MethodBase, ISyncCall> syncMethods = new Dictionary<MethodBase, ISyncCall>();
+        public static Dictionary<MethodBase, int> methodBaseToInternalId = new Dictionary<MethodBase, int>();
+        public static List<ISyncCall> internalIdToSyncMethod = new List<ISyncCall>();
 
         static Dictionary<string, SyncField> registeredSyncFields = new Dictionary<string, SyncField>();
 
@@ -893,7 +894,8 @@ namespace Multiplayer.Client
             MpUtil.MarkNoInlining(method);
 
             SyncDelegate handler = new SyncDelegate(type, method, fields);
-            syncMethods[handler.method] = handler;
+            methodBaseToInternalId[handler.method] = internalIdToSyncMethod.Count;
+            internalIdToSyncMethod.Add(handler);
             handlers.Add(handler);
 
             PatchMethodForSync(method);
@@ -1037,7 +1039,8 @@ namespace Multiplayer.Client
             MpUtil.MarkNoInlining(method);
 
             SyncMethod handler = new SyncMethod((method.IsStatic ? null : method.DeclaringType), method, argTypes);
-            syncMethods[method] = handler;
+            methodBaseToInternalId[handler.method] = internalIdToSyncMethod.Count;
+            internalIdToSyncMethod.Add(handler);
             handlers.Add(handler);
 
             PatchMethodForSync(method);
