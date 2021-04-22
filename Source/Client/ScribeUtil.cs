@@ -102,17 +102,16 @@ namespace Multiplayer.Client
 
         public static void StartWritingToDoc()
         {
-            filename = Guid.NewGuid().ToString() + ".rws";
-
-            Scribe.saver.InitSaving(Path.GetTempPath() + filename, "savegame");
+            Scribe.mode = LoadSaveMode.Saving;
+            XmlWriter xmlWriter = new CustomXmlWriter();
+            Scribe.saver.writer = xmlWriter;
+            xmlWriter.WriteStartDocument();
         }
 
         public static XmlDocument FinishWritingToDoc()
         {
+            var doc = (Scribe.saver.writer as CustomXmlWriter).doc;
             Scribe.saver.FinalizeSaving();
-
-            var doc = new XmlDocument();
-            doc.Load(Path.GetTempPath() + filename);
             return doc;
         }
 
