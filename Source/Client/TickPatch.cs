@@ -84,12 +84,15 @@ namespace Multiplayer.Client
                 skipTo = tickUntil;
 
             CheckFinishSkipping();
+            if(MpVersion.IsDebug)
+                SimpleProfiler.Start();
 
-            SimpleProfiler.Start();
             updateTimer.Restart();
             Tick();
             lastUpdateTook = updateTimer.ElapsedMillisDouble();
-            SimpleProfiler.Pause();
+
+            if(MpVersion.IsDebug)
+                SimpleProfiler.Pause();
 
             CheckFinishSkipping();
 

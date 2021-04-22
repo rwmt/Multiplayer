@@ -19,7 +19,9 @@ namespace Multiplayer.Client
         {
             Text.Font = GameFont.Small;
 
-            DoDebugInfo();
+            if (MpVersion.IsDebug) {
+                DoDebugInfo();
+            }
 
             if (Multiplayer.IsReplay || TickPatch.Skipping)
             {
