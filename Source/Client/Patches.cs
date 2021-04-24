@@ -1,4 +1,5 @@
-﻿using HarmonyLib;
+using HarmonyLib;
+using Multiplayer.API;
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
@@ -1191,15 +1192,9 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch]
+    [HarmonyPatch(typeof(IncidentWorker_RansomDemand), nameof(IncidentWorker_RansomDemand.CanFireNowSub))]
     static class CancelIncidents
     {
-        static IEnumerable<MethodBase> TargetMethods()
-        {
-            yield return AccessTools.Method(typeof(IncidentWorker_CaravanMeeting), nameof(IncidentWorker_CaravanMeeting.CanFireNowSub));
-            yield return AccessTools.Method(typeof(IncidentWorker_CaravanDemand), nameof(IncidentWorker_CaravanDemand.CanFireNowSub));
-            yield return AccessTools.Method(typeof(IncidentWorker_RansomDemand), nameof(IncidentWorker_RansomDemand.CanFireNowSub));
-        }
         static void Postfix(ref bool __result)
         {
             if (Multiplayer.Client != null)
@@ -1705,5 +1700,59 @@ namespace Multiplayer.Client
 
             __result.def = moteDef;
         }
+    }
+
+    [HarmonyPatch(typeof(DiaOption), nameof(DiaOption.Activate))]
+    static class NodeTreeDialogSync
+    {
+        static bool Prefix(DiaOption __instance)
+        {
+            if (Multiplayer.session == null || !Sync.isDialogNodeTreeOpen || !(__instance.dialog is Dialog_NodeTree dialog))
+            {
+                Sync.isDialogNodeTreeOpen = false;
+                return true;
+            }
+
+            // Get the current node, find the index of the option on it, and call a (synced) method
+            var currentNode = dialog.curNode;
+            int index = currentNode.options.FindIndex(x => x == __instance);
+            if (index >= 0)
+                SyncDialogOptionByIndex(index);
+
+            return false;
+        }
+
+        [SyncMethod]
+        internal static void SyncDialogOptionByIndex(int position)
+        {
+
+            // Make sure we have the correct dialog and data
+            if (position >= 0)
+            {
+                var dialog = Find.WindowStack.WindowOfType<Dialog_NodeTree>();
+
+                if (dialog != null && position < dialog.curNode.options.Count)
+                {
+                    Sync.isDialogNodeTreeOpen = false; // Prevents infinite loop, otherwise PreSyncDialog would call this method over and over again
+                    var option = dialog.curNode.options[position]; // Get the correct DiaOption
+                    option.Activate(); // Call the Activate method to actually "press" the button
+
+                    if (!option.resolveTree) Sync.isDialogNodeTreeOpen = true; // In case dialog is still open, we mark it as such
+
+                    // Try opening the trading menu if the picked option was supposed to do so (caravan meeting, trading option)
+                    if (Multiplayer.Client != null && Multiplayer.WorldComp.trading.Any(t => t.trader is Caravan))
+                        Find.WindowStack.Add(new TradingWindow());
+                }
+                else Sync.isDialogNodeTreeOpen = false;
+            }
+            else Sync.isDialogNodeTreeOpen = false;
+        }
+    }
+
+    [HarmonyPatch(typeof(Dialog_NodeTree), nameof(Dialog_NodeTree.PostClose))]
+    static class NodeTreeDialogMarkClosed
+    {
+        // Set the dialog as closed in here as well just in case
+        static void Prefix() => Sync.isDialogNodeTreeOpen = false;
     }
 }

@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using Multiplayer.API;
 using Multiplayer.Common;
 using RimWorld;
@@ -734,6 +734,8 @@ namespace Multiplayer.Client
         public static Dictionary<SyncField, Dictionary<Pair<object, object>, BufferData>> bufferedChanges = new Dictionary<SyncField, Dictionary<Pair<object, object>, BufferData>>();
         public static Stack<FieldData> watchedStack = new Stack<FieldData>();
 
+        public static bool isDialogNodeTreeOpen = false;
+
         public static void InitHandlers()
         {
             handlers.SortStable((a, b) => a.version.CompareTo(b.version));
@@ -785,6 +787,11 @@ namespace Multiplayer.Client
 
                 MpReflection.SetValue(data.target, handler.memberPath, data.oldValue, data.index);
             }
+        }
+
+        public static void DialogNodeTreePostfix()
+        {
+            if (Multiplayer.Client != null && Find.WindowStack?.WindowOfType<Dialog_NodeTree>() != null) isDialogNodeTreeOpen = true;
         }
 
         public static SyncMethod Method(Type targetType, string methodName, SyncType[] argTypes = null)
@@ -932,6 +939,8 @@ namespace Multiplayer.Client
                         RegisterSyncMethod(method, sma);
                     } else if (method.TryGetAttribute(out SyncWorkerAttribute swa)) {
                         RegisterSyncWorker(method, isImplicit: swa.isImplicit, shouldConstruct: swa.shouldConstruct);
+                    } else if (method.TryGetAttribute(out SyncDialogNodeTreeAttribute sdnta)) {
+                        RegisterSyncDialogNodeTree(method);
                     }
                 }
                 foreach (FieldInfo field in AccessTools.GetDeclaredFields(type)) {
@@ -1122,6 +1131,31 @@ namespace Multiplayer.Client
             }
         }
 
+        public static void RegisterSyncDialogNodeTree(Type type, string methodOrPropertyName, SyncType[] argTypes = null)
+        {
+            MethodInfo method = AccessTools.Method(type, methodOrPropertyName, argTypes != null ? argTypes.Select(t => t.type).ToArray() : null);
+
+            if (method == null)
+            {
+                PropertyInfo property = AccessTools.Property(type, methodOrPropertyName);
+
+                if (property != null)
+                {
+                    method = property.GetSetMethod();
+                }
+            }
+
+            if (method == null)
+                throw new Exception($"Couldn't find method or property {methodOrPropertyName} in type {type}");
+
+            RegisterSyncDialogNodeTree(method);
+        }
+
+        public static void RegisterSyncDialogNodeTree(MethodInfo method)
+        {
+            PatchMethodForDialogNodeTreeSync(method);
+        }
+
         private static void PatchMethodForSync(MethodBase method)
         {
             MultiplayerMod.harmony.Patch(method, transpiler: SyncTemplates.CreateTranspiler());
@@ -1139,6 +1173,11 @@ namespace Multiplayer.Client
                     MultiplayerMod.harmony.Patch(attr.Method, prefix, postfix);
                 }
             }
+        }
+
+        public static void PatchMethodForDialogNodeTreeSync(MethodBase method)
+        {
+            MultiplayerMod.harmony.Patch(method, postfix: new HarmonyMethod(typeof(Sync), nameof(DialogNodeTreePostfix)));
         }
 
         public static void HandleCmd(ByteReader data)

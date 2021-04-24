@@ -565,6 +565,10 @@ namespace Multiplayer.Client
 
             SyncMethod.Register(typeof(Verb_SmokePop), nameof(Verb_SmokePop.Pop));
             SyncMethod.Register(typeof(Verb_DeployBroadshield), nameof(Verb_DeployBroadshield.Deploy));
+
+            // Dialog_NodeTree
+            Sync.RegisterSyncDialogNodeTree(typeof(IncidentWorker_CaravanMeeting), nameof(IncidentWorker_CaravanMeeting.TryExecuteWorker));
+            Sync.RegisterSyncDialogNodeTree(typeof(IncidentWorker_CaravanDemand), nameof(IncidentWorker_CaravanDemand.TryExecuteWorker));
         }
 
         static SyncField SyncTimetable = Sync.Field(typeof(Pawn), "timetable", "times");
