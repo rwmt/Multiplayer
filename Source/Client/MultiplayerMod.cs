@@ -214,15 +214,19 @@ namespace Multiplayer.Client
                     continue;
                 }
 
+                bool outdated = false;
                 var version = new Version(info.FileVersion);
-
-                Log.Message($"Mod {mod.Name} has API client ({version})");
-
-                if (curVersion > version)
-                    Log.Warning($"Mod {mod.Name} uses an older API version (mod: {version}, current: {curVersion})");
-                else if (curVersion < version)
-                    Log.Error($"Mod {mod.Name} uses a newer API version! (mod: {version}, current: {curVersion})\nMake sure the Multiplayer mod is up to date");
-            
+                if (curVersion > version) {
+                    Log.Warning($"Mod {mod.Name} uses an older API version ({version})");
+                } else if (curVersion < version) {
+                    outdated = true;
+                    Log.Error($"Mod {mod.Name} uses a newer API version! ({version})");
+                } else {
+                    Log.Message($"Mod {mod.Name} has API client ({version})");
+                }
+                if (outdated) {
+                    Log.Error("Some mod(s) are using a new API! Make sure the Multiplayer mod is up to date!");
+                }
             }
         }
     }
