@@ -242,7 +242,9 @@ namespace Multiplayer.Client
                     var uniqueVerbOwnerID = data.ReadString();
 
                     var ability = pawn.abilities.abilities.Find(ab => ab.UniqueVerbOwnerID() == uniqueVerbOwnerID);
-                    var unused = ability.EffectComps; // this getter lazy-initializes ability.effectComps: required for using Vertigo Pulse
+                    // effectComps is required for some abilities but comps can be null too
+                    ability.effectComps = ability.CompsOfType<CompAbilityEffect>()?.ToList();
+
                     return ability;
                 }, true
             },
