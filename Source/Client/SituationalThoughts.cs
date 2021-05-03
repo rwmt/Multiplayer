@@ -1,9 +1,6 @@
 ﻿using HarmonyLib;
 using RimWorld;
-using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using Verse;
 
 namespace Multiplayer.Client
@@ -38,7 +35,7 @@ namespace Multiplayer.Client
             ignore = true;
 
             SituationalThoughtHandler thoughts = __instance.pawn.GetComp<MultiplayerPawnComp>().thoughtsForInterface;
-            thoughts.Notify_SituationalThoughtsDirty();
+            thoughts?.Notify_SituationalThoughtsDirty();
 
             ignore = false;
         }
@@ -56,7 +53,7 @@ namespace Multiplayer.Client
             ignore = true;
 
             SituationalThoughtHandler thoughts = __instance.pawn.GetComp<MultiplayerPawnComp>().thoughtsForInterface;
-            thoughts.RemoveExpiredThoughtsFromCache();
+            thoughts?.RemoveExpiredThoughtsFromCache();
 
             ignore = false;
         }
@@ -76,7 +73,7 @@ namespace Multiplayer.Client
             ignore = true;
 
             SituationalThoughtHandler thoughts = __instance.pawn.GetComp<MultiplayerPawnComp>().thoughtsForInterface;
-            thoughts.AppendMoodThoughts(outThoughts);
+            thoughts?.AppendMoodThoughts(outThoughts);
 
             ignore = false;
 
@@ -98,7 +95,7 @@ namespace Multiplayer.Client
             ignore = true;
 
             SituationalThoughtHandler thoughts = __instance.pawn.GetComp<MultiplayerPawnComp>().thoughtsForInterface;
-            thoughts.AppendSocialThoughts(otherPawn, outThoughts);
+            thoughts?.AppendSocialThoughts(otherPawn, outThoughts);
 
             ignore = false;
 
