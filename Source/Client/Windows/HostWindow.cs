@@ -139,7 +139,7 @@ namespace Multiplayer.Client
             entry = entry.Down(30);
 
             // Arbiter
-            {
+            if (MpVersion.IsDebug) {
                 TooltipHandler.TipRegion(entry.Width(checkboxWidth), "MpArbiterDesc".Translate());
                 CheckboxLabeled(entry.Width(checkboxWidth), $"{"MpRunArbiter".Translate()}:  ", ref settings.arbiter, placeTextNearCheckbox: true);
                 entry = entry.Down(30);

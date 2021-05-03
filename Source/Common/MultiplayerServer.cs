@@ -438,7 +438,7 @@ namespace Multiplayer.Common
         public bool steam;
         public bool direct;
         public bool lan = true;
-        public bool arbiter = true;
+        public bool arbiter;
         public bool debugMode;
 
         public void ExposeData()
@@ -450,7 +450,6 @@ namespace Multiplayer.Common
             Scribe_Values.Look(ref steam, "steam");
             Scribe_Values.Look(ref direct, "direct");
             Scribe_Values.Look(ref lan, "lan", true);
-            Scribe_Values.Look(ref arbiter, "arbiter", true);
             Scribe_Values.Look(ref debugMode, "debugMode");
         }
     }
