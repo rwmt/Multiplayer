@@ -21,9 +21,14 @@ namespace Multiplayer.Client
         public string gameName;
         public int playerId;
 
+        public int localCmdId;
+        public int remoteTickUntil;
+        public int remoteCmdId;
+
         public IConnection client;
         public NetManager netClient;
-        public PacketLogWindow packetLog = new PacketLogWindow();
+        public PacketLogWindow writerLog = new PacketLogWindow();
+        public PacketLogWindow readerLog = new PacketLogWindow();
         public int myFactionId;
         public List<PlayerInfo> players = new List<PlayerInfo>();
 
@@ -168,6 +173,9 @@ namespace Multiplayer.Client
             if (disconnectReason == MpDisconnectReason.Defs) {
                 Find.WindowStack.Add(new DefMismatchWindow(mods));
             }
+            else if (disconnectReason == MpDisconnectReason.ServerFull) {
+                Find.WindowStack.Add(new DisconnectedWindow(disconnectReasonKey, disconnectInfo));
+            }
             else {
                 Find.WindowStack.Add(new DisconnectedWindow(disconnectReasonKey, disconnectInfo) {returnToServerBrowser = Multiplayer.Client.State != ConnectionStateEnum.ClientPlaying});
             }
@@ -176,6 +184,14 @@ namespace Multiplayer.Client
         public void ReapplyPrefs()
         {
             Application.runInBackground = true;
+        }
+
+        public void ProcessTimeControl()
+        {
+            if (localCmdId >= remoteCmdId)
+            {
+                TickPatch.tickUntil = remoteTickUntil;
+            }
         }
     }
 
@@ -295,7 +311,7 @@ namespace Multiplayer.Client
             TradeSession.giftMode = false;
 
             DebugTools.curTool = null;
-            // PortraitsCache.Clear(); // seems to cause crashes the second time we load a save as of V1.1
+            ClearPortraits();
             RealTime.moteList.Clear();
 
             Room.nextRoomID = 1;
@@ -323,6 +339,20 @@ namespace Multiplayer.Client
             typeof(SymbolResolver_SingleThing).TypeInitializer.Invoke(null, null);
         }
 
+        public static void ClearPortraits()
+        {
+            foreach (var cachedPortrait in PortraitsCache.cachedPortraits)
+            {
+                foreach (var kv in cachedPortrait.CachedPortraits.ToList())
+                {
+                    var value = kv.Value;
+                    value.LastUseTime = Time.time - 2f;
+                    cachedPortrait.CachedPortraits[kv.Key] = value;
+                }
+            }
+            PortraitsCache.RemoveExpiredCachedPortraits();
+        }
+
         public void SetThingMakerSeed(int seed)
         {
             foreach (var maker in CaptureThingSetMakers.captured)
@@ -332,6 +362,12 @@ namespace Multiplayer.Client
                 if (maker is ThingSetMaker_MarketValue m)
                     m.nextSeed = seed;
             }
+        }
+
+        public void OnDestroy()
+        {
+            FactionContext.Clear();
+            ThingContext.Clear();
         }
     }
 }

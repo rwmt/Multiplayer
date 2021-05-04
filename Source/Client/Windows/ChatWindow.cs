@@ -1,4 +1,5 @@
-﻿using Multiplayer.Common;
+﻿using LiteNetLib;
+using Multiplayer.Common;
 using RimWorld;
 using Steamworks;
 using System;
@@ -7,7 +8,6 @@ using System.Linq;
 using System.Text;
 using UnityEngine;
 using Verse;
-using Verse.Steam;
 
 namespace Multiplayer.Client
 {
@@ -20,12 +20,14 @@ namespace Multiplayer.Client
 
         private static readonly Texture2D SelectedMsg = SolidColorMaterials.NewSolidColorTexture(new Color(0.17f, 0.17f, 0.17f, 0.85f));
 
+        public bool saveSize = true;
         private Vector2 chatScroll;
         private Vector2 playerListScroll;
         private Vector2 steamScroll;
         private float messagesHeight;
         private string currentMsg = "";
         private bool hasBeenFocused;
+        private Vector2 lastResolution;
 
         public override float Margin => 0f;
 
@@ -41,6 +43,7 @@ namespace Multiplayer.Client
             resizeable = true;
             onlyOneOfTypeAllowed = true;
             closeOnCancel = false;
+            lastResolution = MpUtil.Resolution;
 
             if (!Multiplayer.session.desynced)
             {
@@ -276,7 +279,7 @@ namespace Multiplayer.Client
                     GUI.DrawTexture(msgRect, SelectedMsg);
 
                     if (msg.TimeStamp != null)
-                        TooltipHandler.TipRegion(msgRect, msg.TimeStamp.ToLongTimeString());
+                        TooltipHandler.TipRegion(msgRect, msg.TimeStamp.ToString("yyyy-MM-dd HH:mm"));
                 }
 
                 Color cursorColor = GUI.skin.settings.cursorColor;
@@ -338,8 +341,8 @@ namespace Multiplayer.Client
 
             if (currentMsg.NullOrEmpty()) return;
 
-            if (MpVersion.IsDebug && currentMsg == "/netinfo")
-                Find.WindowStack.Add(new DebugTextWindow(NetInfoText()));
+            if (currentMsg == "/netinfo")
+                Find.WindowStack.Add(new DebugTextWindow(NetInfoText(), 230, 300));
             else if (Multiplayer.Client == null)
                 Multiplayer.session.AddMsg(Multiplayer.username + ": " + currentMsg);
             else
@@ -357,12 +360,26 @@ namespace Multiplayer.Client
             var netClient = Multiplayer.session.netClient;
             if (netClient != null)
             {
-                text.AppendLine($"Bytes received: {netClient.Statistics.BytesReceived}");
-                text.AppendLine($"Bytes sent: {netClient.Statistics.BytesSent}");
-                text.AppendLine($"Packets received: {netClient.Statistics.PacketsReceived}");
-                text.AppendLine($"Packets sent: {netClient.Statistics.PacketsSent}");
-                text.AppendLine($"Packet loss percent: {netClient.Statistics.PacketLossPercent}");
-                text.AppendLine();
+                LogNetData("Client", netClient.Statistics);
+            }
+            if (Multiplayer.LocalServer != null)
+            {
+                if (Multiplayer.LocalServer.lanManager != null)
+                {
+                    LogNetData("Lan Server", Multiplayer.LocalServer.lanManager.Statistics);
+                }
+                if (Multiplayer.LocalServer.netManager != null)
+                {
+                    LogNetData("Net Server", Multiplayer.LocalServer.netManager.Statistics);
+                }
+                foreach (ServerPlayer item in Enumerable.ToList(Multiplayer.LocalServer.players))
+                {
+                    MpNetConnection mpNetConnection = item.conn as MpNetConnection;
+                    if (mpNetConnection != null)
+                    {
+                        LogNetData("Net Peer " + item.Username, mpNetConnection.peer.Statistics);
+                    }
+                }
             }
 
             foreach (var remote in Multiplayer.session.knownUsers)
@@ -390,6 +407,19 @@ namespace Multiplayer.Client
             }
 
             return text.ToString();
+
+            void LogNetData(string name, NetStatistics stats)
+            {
+                text.AppendLine(name);
+                text.AppendLine($"Bytes received: {stats.BytesReceived}");
+                text.AppendLine($"Bytes sent: {stats.BytesSent}");
+                text.AppendLine($"Packets received: {stats.PacketsReceived}");
+                text.AppendLine($"Packets sent: {stats.PacketsSent}");
+                text.AppendLine($"Packet loss: {stats.PacketLoss}");
+                text.AppendLine($"Sequenced packet loss: {stats.SequencedPacketLoss}");
+                text.AppendLine($"Packet loss percent: {stats.PacketLossPercent}");
+                text.AppendLine();
+            }
         }
 
         public void OnChatReceived()
@@ -399,8 +429,48 @@ namespace Multiplayer.Client
 
         public override void PostClose()
         {
-            if (Multiplayer.session != null)
-                Multiplayer.session.chatPos = windowRect;
+            if (Multiplayer.session != null && saveSize)
+            {
+                SaveChatSize();
+                MultiplayerMod.settings.Write();
+            }
+        }
+
+        private void SaveChatSize()
+        {
+            MultiplayerMod.settings.chatRect = windowRect;
+            MultiplayerMod.settings.resolutionForChat = MpUtil.Resolution;
+        }
+
+        public void SetSizeTo(Rect chatRect, Vector2 lastResolution)
+        {
+            windowRect = chatRect;
+            if (chatRect.center.x > lastResolution.x / 2f)
+            {
+                windowRect.x += (float)UI.screenWidth - lastResolution.x;
+            }
+            if (chatRect.center.y > lastResolution.y / 2f)
+            {
+                windowRect.y += (float)UI.screenHeight - lastResolution.y;
+            }
+        }
+
+        public override void Notify_ResolutionChanged()
+        {
+            SetSizeTo(windowRect, lastResolution);
+            lastResolution = MpUtil.Resolution;
+        }
+
+        public static void OpenChat()
+        {
+            ChatWindow chatWindow = new ChatWindow();
+
+            Find.WindowStack.Add(chatWindow);
+
+            if (MultiplayerMod.settings.chatRect != default(Rect))
+            {
+                chatWindow.SetSizeTo(MultiplayerMod.settings.chatRect, MultiplayerMod.settings.resolutionForChat);
+            }
         }
     }
 

@@ -13,18 +13,17 @@ namespace Multiplayer.Client
             priority = Priority.First
         };
 
-        static bool General(string typeName, int token, object instance, object[] args)
+        static bool General(int internalId, object instance, object[] args)
         {
             if (Multiplayer.ShouldSync) {
-                var method = AccessTools.TypeByName(typeName).Module.ResolveMethod(token);
-                Sync.syncMethods[method].DoSync(instance, args);
+                Sync.internalIdToSyncMethod[internalId].DoSync(instance, args);
                 return false;
             }
 
             return true;
         }
 
-        static readonly MethodInfo m_General = SymbolExtensions.GetMethodInfo(() => General("", 0, null, new object[0]));
+        static readonly MethodInfo m_General = SymbolExtensions.GetMethodInfo(() => General(0, null, new object[0]));
         static readonly MethodInfo m_Transpiler = SymbolExtensions.GetMethodInfo(() => Transpiler(null, null, null));
         static IEnumerable<CodeInstruction> Transpiler(MethodBase original, IEnumerable<CodeInstruction> instructions, ILGenerator gen)
         {
@@ -55,8 +54,7 @@ namespace Multiplayer.Client
                 }
             }
 
-            yield return new CodeInstruction(OpCodes.Ldstr, original.DeclaringType.FullName);
-            yield return new CodeInstruction(OpCodes.Ldc_I4, original.MetadataToken);
+            yield return new CodeInstruction(OpCodes.Ldc_I4, Sync.methodBaseToInternalId[original]);
             yield return new CodeInstruction(original.IsStatic ? OpCodes.Ldnull : OpCodes.Ldarg_0);
 
             yield return new CodeInstruction(OpCodes.Ldc_I4, parameter.Length);

@@ -21,6 +21,8 @@ namespace Multiplayer.Client
     {
         static Func<ICustomAttributeProvider, Type, bool> IsDefinedInternal;
 
+        public static Vector2 Resolution => new Vector2(UI.screenWidth, UI.screenHeight);
+
         // Doesn't load the type
         public static bool HasAttr(ICustomAttributeProvider provider, Type attrType)
         {

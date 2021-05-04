@@ -141,7 +141,7 @@ namespace Multiplayer.Client
             SaveCompression.doSaveCompression = true;
 
             ScribeUtil.StartWritingToDoc();
-
+            Scribe.EnterNode("savegame");
             ScribeMetaHeaderUtility.WriteMetaHeader();
             Scribe.EnterNode("game");
             int currentMapIndex = Current.Game.currentMapIndex;
@@ -152,6 +152,7 @@ namespace Multiplayer.Client
             List<Map> maps = Find.Maps;
             Scribe_Collections.Look(ref maps, "maps", LookMode.Deep);
             Find.CameraDriver.Expose();
+            Scribe.ExitNode();
 
             SaveCompression.doSaveCompression = false;
 
@@ -274,6 +275,7 @@ namespace Multiplayer.Client
     {
         static void Postfix()
         {
+            Multiplayer.game?.OnDestroy();
             Multiplayer.game = null;
         }
     }

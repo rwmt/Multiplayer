@@ -152,6 +152,7 @@ namespace Multiplayer.Client
 
             listing.CheckboxLabeled("MpPauseAutosaveCounter".Translate(), ref settings.pauseAutosaveCounter, "MpPauseAutosaveCounterDesc".Translate());
             listing.CheckboxLabeled("MpShowModCompatibility".Translate(), ref settings.showModCompatibility, "MpShowModCompatibilityDesc".Translate());
+            listing.CheckboxLabeled("MpAutosaveOnDesync".Translate(), ref settings.autosaveOnDesync, "MpAutosaveOnDesyncDesc".Translate());
 
             if (Prefs.DevMode)
             {
@@ -213,15 +214,19 @@ namespace Multiplayer.Client
                     continue;
                 }
 
+                bool outdated = false;
                 var version = new Version(info.FileVersion);
-
-                Log.Message($"Mod {mod.Name} has API client ({version})");
-
-                if (curVersion > version)
-                    Log.Warning($"Mod {mod.Name} uses an older API version (mod: {version}, current: {curVersion})");
-                else if (curVersion < version)
-                    Log.Error($"Mod {mod.Name} uses a newer API version! (mod: {version}, current: {curVersion})\nMake sure the Multiplayer mod is up to date");
-            
+                if (curVersion > version) {
+                    Log.Warning($"Mod {mod.Name} uses an older API version ({version})");
+                } else if (curVersion < version) {
+                    outdated = true;
+                    Log.Error($"Mod {mod.Name} uses a newer API version! ({version})");
+                } else {
+                    Log.Message($"Mod {mod.Name} has API client ({version})");
+                }
+                if (outdated) {
+                    Log.Error("Some mod(s) are using a new API! Make sure the Multiplayer mod is up to date!");
+                }
             }
         }
     }
@@ -300,7 +305,11 @@ namespace Multiplayer.Client
         public bool appendNameToAutosave;
         public bool pauseAutosaveCounter = true;
         public bool showModCompatibility = true;
+        public bool autosaveOnDesync = false;
         public ServerSettings serverSettings = new ServerSettings();
+
+        public Rect chatRect;
+        public Vector2 resolutionForChat;
 
         public override void ExposeData()
         {
@@ -316,6 +325,10 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref serverAddress, "serverAddress", "127.0.0.1");
             Scribe_Values.Look(ref pauseAutosaveCounter, "pauseAutosaveCounter", true);
             Scribe_Values.Look(ref showModCompatibility, "showModCompatibility", true);
+            Scribe_Values.Look(ref autosaveOnDesync, "autosaveOnDesync", false);
+            Scribe_Values.Look(ref resolutionForChat, "resolutionForChat");
+
+            ScribeUtil.LookRect(ref chatRect, "chatRect");
 
             Scribe_Deep.Look(ref serverSettings, "serverSettings");
 

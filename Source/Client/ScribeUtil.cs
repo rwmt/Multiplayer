@@ -1,12 +1,10 @@
-﻿using HarmonyLib;
-using Multiplayer.Common;
-using RimWorld;
+﻿using RimWorld;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Xml;
+using UnityEngine;
 using Verse;
 
 namespace Multiplayer.Client
@@ -104,17 +102,16 @@ namespace Multiplayer.Client
 
         public static void StartWritingToDoc()
         {
-            filename = Guid.NewGuid().ToString() + ".rws";
-
-            Scribe.saver.InitSaving(Path.GetTempPath() + filename, "savegame");
+            Scribe.mode = LoadSaveMode.Saving;
+            XmlWriter xmlWriter = new CustomXmlWriter();
+            Scribe.saver.writer = xmlWriter;
+            xmlWriter.WriteStartDocument();
         }
 
         public static XmlDocument FinishWritingToDoc()
         {
+            var doc = (Scribe.saver.writer as CustomXmlWriter).doc;
             Scribe.saver.FinalizeSaving();
-
-            var doc = new XmlDocument();
-            doc.Load(Path.GetTempPath() + filename);
             return doc;
         }
 
@@ -399,6 +396,13 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref valueStr, label, defaultValue.ToString());
             if (Scribe.mode == LoadSaveMode.LoadingVars)
                 ulong.TryParse(valueStr, out value);
+        }
+
+        public static void LookRect(ref Rect rect, string label)
+        {
+            Vector4 value = new Vector4(rect.x, rect.y, rect.width, rect.height);
+            Scribe_Values.Look(ref value, label);
+            rect = new Rect(value.x, value.y, value.z, value.w);
         }
     }
 }

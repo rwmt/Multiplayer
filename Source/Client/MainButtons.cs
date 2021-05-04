@@ -19,7 +19,9 @@ namespace Multiplayer.Client
         {
             Text.Font = GameFont.Small;
 
-            DoDebugInfo();
+            if (MpVersion.IsDebug) {
+                DoDebugInfo();
+            }
 
             if (Multiplayer.IsReplay || TickPatch.Skipping)
             {
@@ -36,7 +38,7 @@ namespace Multiplayer.Client
                 if (ChatWindow.Opened != null)
                     ChatWindow.Opened.Close();
                 else
-                    OpenChat();
+                    ChatWindow.OpenChat();
             }
 
             return Find.Maps.Count > 0;
@@ -85,15 +87,6 @@ namespace Multiplayer.Client
             }
         }
 
-        static void OpenChat()
-        {
-            var chatWindow = new ChatWindow();
-            Find.WindowStack.Add(chatWindow);
-
-            if (Multiplayer.session.chatPos != default(Rect))
-                chatWindow.windowRect = Multiplayer.session.chatPos;
-        }
-
         static void DoButtons()
         {
             float y = 10f;
@@ -113,7 +106,7 @@ namespace Multiplayer.Client
                 var chatLabel = $"{"MpChatButton".Translate()} <color={chatColor}>({session.players.Count})</color>{hasUnread}";
 
                 if (Widgets.ButtonText(btnRect, chatLabel))
-                    OpenChat();
+                    ChatWindow.OpenChat();
 
                 if (!TickPatch.Skipping)
                 {
@@ -133,11 +126,17 @@ namespace Multiplayer.Client
                 y += btnHeight;
             }
 
-            if (Multiplayer.ShowDevInfo && Multiplayer.PacketLog != null)
+            if (Multiplayer.ShowDevInfo && Multiplayer.WriterLog != null)
             {
-                if (Widgets.ButtonText(new Rect(x, y, btnWidth, btnHeight), $"Sync ({Multiplayer.PacketLog.nodes.Count})"))
-                    Find.WindowStack.Add(Multiplayer.PacketLog);
-
+                if (Widgets.ButtonText(new Rect(x, y, 80f, 27f), $"Write ({Multiplayer.WriterLog.nodes.Count})"))
+                {
+                    Find.WindowStack.Add(Multiplayer.WriterLog);
+                }
+                y += btnHeight;
+                if (Widgets.ButtonText(new Rect(x, y, 80f, 27f), $"Read ({Multiplayer.ReaderLog.nodes.Count})"))
+                {
+                    Find.WindowStack.Add(Multiplayer.ReaderLog);
+                }
                 y += btnHeight;
             }
 

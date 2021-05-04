@@ -26,7 +26,10 @@ namespace Multiplayer.Client
 
         public static IConnection Client => session?.client;
         public static MultiplayerServer LocalServer => session?.localServer;
-        public static PacketLogWindow PacketLog => session?.packetLog;
+
+        public static PacketLogWindow WriterLog => session?.writerLog;
+        public static PacketLogWindow ReaderLog => session?.readerLog;
+
         public static bool IsReplay => session?.replay ?? false;
 
         public static string username;
@@ -445,7 +448,7 @@ namespace Multiplayer.Client
             }
         }
 
-        private static HashSet<Type> IgnoredVanillaDefTypes = new HashSet<Type>
+        internal static HashSet<Type> IgnoredVanillaDefTypes = new HashSet<Type>
         {
             typeof(FeatureDef), typeof(HairDef),
             typeof(MainButtonDef), typeof(PawnTableDef),
@@ -554,6 +557,11 @@ namespace Multiplayer.Client
             playerFaction.def = Multiplayer.FactionDef;
             newFaction.def = factionDef;
             Find.FactionManager.ofPlayer = newFaction;
+        }
+
+        public static void Clear()
+        {
+            stack.Clear();
         }
     }
 

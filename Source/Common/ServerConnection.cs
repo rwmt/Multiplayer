@@ -1,4 +1,4 @@
-﻿using Ionic.Zlib;
+using Ionic.Zlib;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -87,13 +87,13 @@ namespace Multiplayer.Common
 
         private static ColorRGB[] PlayerColors = new ColorRGB[]
 {
-            new ColorRGB(179,  77, 0),
-            new ColorRGB(204, 204, 0),
-            new ColorRGB( 25, 204, 0),
-            new ColorRGB( 25, 115, 0),
-            new ColorRGB(  0, 128, 255),
-            new ColorRGB( 51,  51, 255),
-            new ColorRGB(102,   0, 255)
+            new ColorRGB(0,125,255),
+            new ColorRGB(255,0,0),
+            new ColorRGB(0,255,45),
+            new ColorRGB(255,0,150),
+            new ColorRGB(80,250,250),
+            new ColorRGB(200,255,75),
+            new ColorRGB(100,0,75)
 };
 
         private static Dictionary<string, ColorRGB> givenColors = new Dictionary<string, ColorRGB>();
@@ -199,6 +199,8 @@ namespace Multiplayer.Common
                 writer.WritePrefixedBytes(mapData);
             }
 
+            writer.WriteInt32(Server.cmdId);
+
             connection.State = ConnectionStateEnum.ServerPlaying;
 
             byte[] packetData = writer.ToArray();
@@ -234,6 +236,9 @@ namespace Multiplayer.Common
         public void HandleDesynced(ByteReader data)
         {
             Player.UpdateStatus(PlayerStatus.Desynced);
+
+            if (MultiplayerMod.settings.autosaveOnDesync)
+                Client.Multiplayer.LocalServer.DoAutosave(forcePause: true);
         }
 
         [PacketHandler(Packets.Client_Command)]

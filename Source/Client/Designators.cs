@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using Multiplayer.Common;
 using RimWorld;
 using System;
@@ -32,13 +32,13 @@ namespace Multiplayer.Client
 
             Map map = Find.CurrentMap;
             LoggingByteWriter writer = new LoggingByteWriter();
-            writer.LogNode("Designate single cell: " + designator.GetType());
+            writer.log.Node("Designate single cell: " + designator.GetType());
 
             WriteData(writer, DesignatorMode.SingleCell, designator);
             Sync.WriteSync(writer, __0);
 
             Multiplayer.Client.SendCommand(CommandType.Designator, map.uniqueID, writer.ToArray());
-            Multiplayer.PacketLog.nodes.Add(writer.current);
+            Multiplayer.WriterLog.nodes.Add(writer.log.current);
 
             return false;
         }
@@ -54,14 +54,14 @@ namespace Multiplayer.Client
 
             Map map = Find.CurrentMap;
             LoggingByteWriter writer = new LoggingByteWriter();
-            writer.LogNode("Designate multi cell: " + designator.GetType());
+            writer.log.Node("Designate multi cell: " + designator.GetType());
             IntVec3[] cellArray = __0.ToArray();
 
             WriteData(writer, DesignatorMode.MultiCell, designator);
             Sync.WriteSync(writer, cellArray);
 
             Multiplayer.Client.SendCommand(CommandType.Designator, map.uniqueID, writer.ToArray());
-            Multiplayer.PacketLog.nodes.Add(writer.current);
+            Multiplayer.WriterLog.nodes.Add(writer.log.current);
 
             return false;
         }
@@ -74,13 +74,13 @@ namespace Multiplayer.Client
 
             Map map = Find.CurrentMap;
             LoggingByteWriter writer = new LoggingByteWriter();
-            writer.LogNode("Designate thing: " + __0 + " " + designator.GetType());
+            writer.log.Node("Designate thing: " + __0 + " " + designator.GetType());
 
             WriteData(writer, DesignatorMode.Thing, designator);
             Sync.WriteSync(writer, __0);
 
             Multiplayer.Client.SendCommand(CommandType.Designator, map.uniqueID, writer.ToArray());
-            Multiplayer.PacketLog.nodes.Add(writer.current);
+            Multiplayer.WriterLog.nodes.Add(writer.log.current);
 
             MoteMaker.ThrowMetaPuffs(__0);
 
@@ -129,4 +129,39 @@ namespace Multiplayer.Client
         }
     }
 
+    [HarmonyPatch(typeof(Designator_Deconstruct))]
+    [HarmonyPatch(nameof(Designator_Deconstruct.DesignateThing))]
+    public static class DesignatorDeconstructPatch
+    {
+        static void Postfix(Thing t)
+        {
+            if (Multiplayer.Client != null)
+            {
+                Thing innerIfMinified = t.GetInnerIfMinified();
+                // All the conditions the game checks for before deconstructing the Thing instantly
+                if (DebugSettings.godMode || innerIfMinified.GetStatValue(StatDefOf.WorkToBuild, true) == 0f || t.def.IsFrame)
+                {
+                    if (Find.Selector.IsSelected(innerIfMinified) || (t != innerIfMinified && Find.Selector.IsSelected(t)))
+                    {
+                        Find.Selector.Deselect(innerIfMinified);
+                        // Just to be 100% sure there's nothing weird going on here
+                        if (t != innerIfMinified)
+                            Find.Selector.Deselect(t);
+                        Find.MainButtonsRoot.tabs.Notify_SelectedObjectDespawned();
+                    }
+                }
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(Designator_Cancel))]
+    [HarmonyPatch(nameof(Designator_Cancel.DesignateThing))]
+    public static class DesignatorCancelPatch
+    {
+        static void Postfix(Thing t)
+        {
+            if (Multiplayer.Client != null && (t is Frame || t is Blueprint))
+                Find.Selector.Deselect(t);
+        }
+    }
 }

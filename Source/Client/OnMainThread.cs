@@ -182,7 +182,7 @@ namespace Multiplayer.Client
                 Multiplayer.session = null;
                 Prefs.Apply();
             }
-
+            Multiplayer.game?.OnDestroy();
             Multiplayer.game = null;
 
             TickPatch.ClearSkipping();

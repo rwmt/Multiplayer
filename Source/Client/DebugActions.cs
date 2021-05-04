@@ -52,6 +52,48 @@ namespace Multiplayer.Client
             File.WriteAllBytes($"game_{Multiplayer.username}.xml", data);
         }
 
+        [DebugAction(MultiplayerCategory, "Dump Sync Types", allowedGameStates = AllowedGameStates.Entry)]
+        public static void DumpSyncTypes()
+        {
+            var dict = new Dictionary<string, Type[]>() {
+                {"ThingComp", Sync.thingCompTypes},
+                {"AbilityComp", Sync.abilityCompTypes},
+                {"Designator", Sync.designatorTypes},
+                {"WorldObjectComp", Sync.worldObjectCompTypes},
+                {"IStoreSettingsParent", Sync.storageParents},
+                {"IPlantToGrowSettable", Sync.plantToGrowSettables},
+
+                {"GameComponent", Sync.gameCompTypes},
+                {"WorldComponent", Sync.worldCompTypes},
+                {"MapComponent", Sync.mapCompTypes},
+            };
+            foreach(var kv in dict) {
+                Log.Warning($"== {kv.Key} ==");
+                Log.Message(
+                    kv.Value
+                    .Select(type => $"{type.Name}")
+                    .Join(delimiter: "\n")
+                );
+            }
+        }
+
+        [DebugAction(MultiplayerCategory, "Dump Def Types", allowedGameStates = AllowedGameStates.Entry)]
+        public static void DumpDefTypes()
+        {
+            foreach (var defType in GenTypes.AllLeafSubclasses(typeof(Def)))
+            {
+                if (defType.Assembly != typeof(Game).Assembly) continue;
+                if (Multiplayer.IgnoredVanillaDefTypes.Contains(defType)) continue;
+
+                Log.Warning($"== {defType.Name} ==");
+                Log.Message(
+                    GenDefDatabase.GetAllDefsInDatabaseForDef(defType)
+                    .Select(def => $"{def.defName}")
+                    .Join(delimiter: "\n")
+                );
+            }
+        }
+
 #if DEBUG
 
         [DebugAction(DebugActionCategories.Mods, "Log Terrain", allowedGameStates = AllowedGameStates.Entry)]

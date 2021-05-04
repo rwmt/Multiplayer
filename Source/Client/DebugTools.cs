@@ -17,6 +17,8 @@ namespace Multiplayer.Client
         public static int currentPlayer;
         public static int currentHash;
 
+        public static PlayerDebugState CurrentPlayerState => Multiplayer.game.playerDebugState.GetOrAddNew((currentPlayer == -1) ? Multiplayer.session.playerId : currentPlayer);
+
         public static void HandleCmd(ByteReader data)
         {
             currentPlayer = data.ReadInt32();
@@ -90,7 +92,8 @@ namespace Multiplayer.Client
             {
                 if (TickPatch.currentExecutingCmdIssuedBySelf && DebugTools.curTool != null && DebugTools.curTool != state.tool)
                 {
-                    var map = Multiplayer.MapContext;
+                    // Only players can enable debug tools, it should be safe...
+                    var map = state.Map;
                     prevTool = new DebugTool(DebugTools.curTool.label, () =>
                     {
                         SendCmd(DebugSource.Tool, 0, map);
@@ -104,12 +107,16 @@ namespace Multiplayer.Client
                 MouseTilePatch.result = null;
                 Find.Selector.selected = prevSelected;
                 Find.WorldSelector.selected = prevWorldSelected;
+
+                currentHash = 0;
+                currentPlayer = -1;
             }
         }
 
         public static void SendCmd(DebugSource source, int hash, Map map)
         {
-            var writer = new ByteWriter();
+            var writer = new LoggingByteWriter();
+            writer.log.Node($"Debug tool {source}, map {map.ToStringSafe()}");
             int cursorX = 0, cursorZ = 0;
 
             if (map != null)
@@ -136,6 +143,7 @@ namespace Multiplayer.Client
             var mapId = map?.uniqueID ?? ScheduledCommand.Global;
 
             Multiplayer.Client.SendCommand(CommandType.DebugTools, mapId, writer.ToArray());
+            Multiplayer.WriterLog.nodes.Add(writer.log.current);
         }
 
         public static DebugSource ListingSource()
@@ -155,6 +163,8 @@ namespace Multiplayer.Client
     {
         public object window;
         public DebugTool tool;
+        public int mapId;
+        public Map Map => Find.Maps.Find((Predicate<Map>)((Map m) => m.uniqueID == mapId));
     }
 
     public enum DebugSource
@@ -236,10 +246,8 @@ namespace Multiplayer.Client
             if (Multiplayer.Client == null) return true;
             if (Current.ProgramState == ProgramState.Playing && !Multiplayer.WorldComp.debugMode) return true;
 
-            var originalAction = (action.Target as DebugListerContext)?.originalAction ?? action;
-
             int hash = Gen.HashCombineInt(
-                GenText.StableStringHash(originalAction.Method.MethodDesc()), 
+                GenText.StableStringHash(action.Method.MethodDesc()),
                 GenText.StableStringHash(label)
             );
 
@@ -266,8 +274,7 @@ namespace Multiplayer.Client
 
             if (__instance is Dialog_DebugOptionListLister)
             {
-                var context = (DebugListerContext)action.Target;
-                action = () => MpDebugTools.SendCmd(DebugSource.Lister, hash, context.map);
+                action = () => MpDebugTools.SendCmd(DebugSource.Lister, hash, MpDebugTools.CurrentPlayerState.Map);
             }
 
             return true;
@@ -305,38 +312,35 @@ namespace Multiplayer.Client
         static void Postfix(Dialog_DebugOptionLister __instance, string label, Action toolAction, Container<DebugTool>? __state)
         {
             // New tool chosen
-            if (__state != null && DebugTools.curTool != __state?.Inner)
+            if (!__state.HasValue || DebugTools.curTool == __state?.Inner)
             {
-                var originalAction = (toolAction.Target as DebugListerContext)?.originalAction ?? toolAction;
-                int hash = Gen.HashCombineInt(GenText.StableStringHash(originalAction.Method.MethodDesc()), GenText.StableStringHash(label));
+                return;
+            }
 
-                if (__instance is Dialog_DebugActionsMenu)
+            int hash = Gen.HashCombineInt(GenText.StableStringHash(toolAction.Method.MethodDesc()), GenText.StableStringHash(label));
+
+            if (__instance is Dialog_DebugActionsMenu)
+            {
+                var source = MpDebugTools.ListingSource();
+                if (source == DebugSource.None) return;
+
+                Map map = source == DebugSource.ListingMap ? Find.CurrentMap : null;
+
+                MpDebugTools.SendCmd(source, hash, map);
+                DebugTools.curTool = null;
+            }
+
+            else if (__instance is Dialog_DebugOptionListLister lister)
+            {
+                Map map = MpDebugTools.CurrentPlayerState.Map;
+                if (ListingMapMarker.drawing)
                 {
-                    var source = MpDebugTools.ListingSource();
-                    if (source == DebugSource.None) return;
-
-                    Map map = source == DebugSource.ListingMap ? Find.CurrentMap : null;
-
-                    MpDebugTools.SendCmd(source, hash, map);
-                    DebugTools.curTool = null;
+                    map = Find.CurrentMap;
                 }
-
-                else if (__instance is Dialog_DebugOptionListLister lister)
-                {
-                    var context = (DebugListerContext)toolAction.Target;
-                    MpDebugTools.SendCmd(DebugSource.Lister, hash, context.map);
-                    DebugTools.curTool = null;
-                }
+                MpDebugTools.SendCmd(DebugSource.Lister, hash, map);
+                DebugTools.curTool = null;
             }
         }
-    }
-
-    public class DebugListerContext
-    {
-        public Map map;
-        public Action originalAction;
-
-        public void Do() { }
     }
 
     [HarmonyPatch(typeof(WindowStack), nameof(WindowStack.Add))]
@@ -353,21 +357,8 @@ namespace Multiplayer.Client
 
             if (window is Dialog_DebugOptionListLister lister)
             {
-                var options = lister.options;
-
-                if (keepOpen)
-                {
-                    lister.options = new List<DebugMenuOption>();
-
-                    foreach (var option in options)
-                    {
-                        var copy = option;
-                        copy.method = new DebugListerContext() { map = map, originalAction = copy.method }.Do;
-                        lister.options.Add(copy);
-                    }
-                }
-
-                Multiplayer.game.playerDebugState.GetOrAddNew(MpDebugTools.currentPlayer).window = options;
+                MpDebugTools.CurrentPlayerState.window = lister.options;
+                MpDebugTools.CurrentPlayerState.mapId = (map?.uniqueID ?? (-1));
                 return keepOpen;
             }
 
@@ -388,7 +379,7 @@ namespace Multiplayer.Client
                     }
                 }
 
-                Multiplayer.game.playerDebugState.GetOrAddNew(MpDebugTools.currentPlayer).window = options;
+                MpDebugTools.CurrentPlayerState.window = options;
                 return keepOpen;
             }
 

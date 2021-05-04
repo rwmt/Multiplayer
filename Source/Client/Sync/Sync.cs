@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using Multiplayer.API;
 using Multiplayer.Common;
 using RimWorld;
@@ -61,7 +61,7 @@ namespace Multiplayer.Client
 
             LoggingByteWriter writer = new LoggingByteWriter();
             MpContext context = writer.MpContext();
-            writer.LogNode("Sync field " + memberPath);
+            writer.log.Node("Sync field " + memberPath);
 
             writer.WriteInt32(syncId);
 
@@ -77,8 +77,8 @@ namespace Multiplayer.Client
             if (indexType != null)
                 Sync.WriteSyncObject(writer, index, indexType);
 
-            writer.LogNode("Map id: " + mapId);
-            Multiplayer.PacketLog.nodes.Add(writer.current);
+            writer.log.Node("Map id: " + mapId);
+            Multiplayer.WriterLog.nodes.Add(writer.log.current);
 
             Multiplayer.Client.SendCommand(CommandType.Sync, mapId, writer.ToArray());
 
@@ -252,7 +252,7 @@ namespace Multiplayer.Client
 
             LoggingByteWriter writer = new LoggingByteWriter();
             MpContext context = writer.MpContext();
-            writer.LogNode("Sync method " + method.FullDescription());
+            writer.log.Node("Sync method " + method.FullDescription());
 
             writer.WriteInt32(syncId);
 
@@ -284,8 +284,8 @@ namespace Multiplayer.Client
             }
 
             int mapId = map?.uniqueID ?? ScheduledCommand.Global;
-            writer.LogNode("Map id: " + mapId);
-            Multiplayer.PacketLog.nodes.Add(writer.current);
+            writer.log.Node("Map id: " + mapId);
+            Multiplayer.WriterLog.nodes.Add(writer.log.current);
 
             Multiplayer.Client.SendCommand(CommandType.Sync, mapId, writer.ToArray());
 
@@ -456,8 +456,8 @@ namespace Multiplayer.Client
 
             LoggingByteWriter writer = new LoggingByteWriter();
             MpContext context = writer.MpContext();
-            writer.LogNode($"Sync delegate: {delegateType} method: {method}");
-            writer.LogNode("Patch: " + patch?.FullDescription());
+            writer.log.Node($"Sync delegate: {delegateType} method: {method}");
+            writer.log.Node("Patch: " + patch?.FullDescription());
 
             writer.WriteInt32(syncId);
 
@@ -480,8 +480,8 @@ namespace Multiplayer.Client
                 }
             });
 
-            writer.LogNode("Map id: " + mapId);
-            Multiplayer.PacketLog.nodes.Add(writer.current);
+            writer.log.Node("Map id: " + mapId);
+            Multiplayer.WriterLog.nodes.Add(writer.log.current);
 
             Multiplayer.Client.SendCommand(CommandType.Sync, mapId, writer.ToArray());
 
@@ -628,7 +628,7 @@ namespace Multiplayer.Client
         {
             LoggingByteWriter writer = new LoggingByteWriter();
             MpContext context = writer.MpContext();
-            writer.LogNode("Sync action");
+            writer.log.Node("Sync action");
 
             writer.WriteInt32(syncId);
 
@@ -641,8 +641,8 @@ namespace Multiplayer.Client
 
             int mapId = writer.MpContext().map?.uniqueID ?? -1;
 
-            writer.LogNode("Map id: " + mapId);
-            Multiplayer.PacketLog.nodes.Add(writer.current);
+            writer.log.Node("Map id: " + mapId);
+            Multiplayer.WriterLog.nodes.Add(writer.log.current);
 
             Multiplayer.Client.SendCommand(CommandType.Sync, mapId, writer.ToArray());
         }
@@ -726,12 +726,15 @@ namespace Multiplayer.Client
         public static List<SyncHandler> handlers = new List<SyncHandler>();
         public static List<SyncField> bufferedFields = new List<SyncField>();
 
-        public static Dictionary<MethodBase, ISyncCall> syncMethods = new Dictionary<MethodBase, ISyncCall>();
+        public static Dictionary<MethodBase, int> methodBaseToInternalId = new Dictionary<MethodBase, int>();
+        public static List<ISyncCall> internalIdToSyncMethod = new List<ISyncCall>();
 
         static Dictionary<string, SyncField> registeredSyncFields = new Dictionary<string, SyncField>();
 
         public static Dictionary<SyncField, Dictionary<Pair<object, object>, BufferData>> bufferedChanges = new Dictionary<SyncField, Dictionary<Pair<object, object>, BufferData>>();
         public static Stack<FieldData> watchedStack = new Stack<FieldData>();
+
+        public static bool isDialogNodeTreeOpen = false;
 
         public static void InitHandlers()
         {
@@ -784,6 +787,11 @@ namespace Multiplayer.Client
 
                 MpReflection.SetValue(data.target, handler.memberPath, data.oldValue, data.index);
             }
+        }
+
+        public static void DialogNodeTreePostfix()
+        {
+            if (Multiplayer.Client != null && Find.WindowStack?.WindowOfType<Dialog_NodeTree>() != null) isDialogNodeTreeOpen = true;
         }
 
         public static SyncMethod Method(Type targetType, string methodName, SyncType[] argTypes = null)
@@ -893,7 +901,8 @@ namespace Multiplayer.Client
             MpUtil.MarkNoInlining(method);
 
             SyncDelegate handler = new SyncDelegate(type, method, fields);
-            syncMethods[handler.method] = handler;
+            methodBaseToInternalId[handler.method] = internalIdToSyncMethod.Count;
+            internalIdToSyncMethod.Add(handler);
             handlers.Add(handler);
 
             PatchMethodForSync(method);
@@ -930,6 +939,8 @@ namespace Multiplayer.Client
                         RegisterSyncMethod(method, sma);
                     } else if (method.TryGetAttribute(out SyncWorkerAttribute swa)) {
                         RegisterSyncWorker(method, isImplicit: swa.isImplicit, shouldConstruct: swa.shouldConstruct);
+                    } else if (method.TryGetAttribute(out SyncDialogNodeTreeAttribute sdnta)) {
+                        RegisterSyncDialogNodeTree(method);
                     }
                 }
                 foreach (FieldInfo field in AccessTools.GetDeclaredFields(type)) {
@@ -1037,7 +1048,8 @@ namespace Multiplayer.Client
             MpUtil.MarkNoInlining(method);
 
             SyncMethod handler = new SyncMethod((method.IsStatic ? null : method.DeclaringType), method, argTypes);
-            syncMethods[method] = handler;
+            methodBaseToInternalId[handler.method] = internalIdToSyncMethod.Count;
+            internalIdToSyncMethod.Add(handler);
             handlers.Add(handler);
 
             PatchMethodForSync(method);
@@ -1119,6 +1131,31 @@ namespace Multiplayer.Client
             }
         }
 
+        public static void RegisterSyncDialogNodeTree(Type type, string methodOrPropertyName, SyncType[] argTypes = null)
+        {
+            MethodInfo method = AccessTools.Method(type, methodOrPropertyName, argTypes != null ? argTypes.Select(t => t.type).ToArray() : null);
+
+            if (method == null)
+            {
+                PropertyInfo property = AccessTools.Property(type, methodOrPropertyName);
+
+                if (property != null)
+                {
+                    method = property.GetSetMethod();
+                }
+            }
+
+            if (method == null)
+                throw new Exception($"Couldn't find method or property {methodOrPropertyName} in type {type}");
+
+            RegisterSyncDialogNodeTree(method);
+        }
+
+        public static void RegisterSyncDialogNodeTree(MethodInfo method)
+        {
+            PatchMethodForDialogNodeTreeSync(method);
+        }
+
         private static void PatchMethodForSync(MethodBase method)
         {
             MultiplayerMod.harmony.Patch(method, transpiler: SyncTemplates.CreateTranspiler());
@@ -1136,6 +1173,11 @@ namespace Multiplayer.Client
                     MultiplayerMod.harmony.Patch(attr.Method, prefix, postfix);
                 }
             }
+        }
+
+        public static void PatchMethodForDialogNodeTreeSync(MethodBase method)
+        {
+            MultiplayerMod.harmony.Patch(method, postfix: new HarmonyMethod(typeof(Sync), nameof(DialogNodeTreePostfix)));
         }
 
         public static void HandleCmd(ByteReader data)
@@ -1259,111 +1301,6 @@ namespace Multiplayer.Client
         IEnumerator IEnumerable.GetEnumerator()
         {
             return types.GetEnumerator();
-        }
-    }
-
-    public class LoggingByteWriter : ByteWriter
-    {
-        public LogNode current = new LogNode("Root");
-
-        public override void WriteInt32(int val)
-        {
-            LogNode("int: " + val);
-            base.WriteInt32(val);
-        }
-
-        public override void WriteBool(bool val)
-        {
-            LogNode("bool: " + val);
-            base.WriteBool(val);
-        }
-
-        public override void WriteDouble(double val)
-        {
-            LogNode("double: " + val);
-            base.WriteDouble(val);
-        }
-
-        public override void WriteUShort(ushort val)
-        {
-            LogNode("ushort: " + val);
-            base.WriteUShort(val);
-        }
-
-        public override void WriteShort(short val)
-        {
-            LogNode("short: " + val);
-            base.WriteShort(val);
-        }
-
-        public override void WriteFloat(float val)
-        {
-            LogNode("float: " + val);
-            base.WriteFloat(val);
-        }
-
-        public override void WriteLong(long val)
-        {
-            LogNode("long: " + val);
-            base.WriteLong(val);
-        }
-
-        public override void WritePrefixedBytes(byte[] bytes)
-        {
-            LogEnter("byte[]");
-            base.WritePrefixedBytes(bytes);
-            LogExit();
-        }
-
-        public override ByteWriter WriteString(string s)
-        {
-            LogEnter("string: " + s);
-            base.WriteString(s);
-            LogExit();
-            return this;
-        }
-
-        public LogNode LogNode(string text)
-        {
-            LogNode node = new LogNode(text, current);
-            current.children.Add(node);
-            return node;
-        }
-
-        public void LogEnter(string text)
-        {
-            current = LogNode(text);
-        }
-
-        public void LogExit()
-        {
-            current = current.parent;
-        }
-
-        public void Print()
-        {
-            Print(current, 1);
-        }
-
-        private void Print(LogNode node, int depth)
-        {
-            Log.Message(new string(' ', depth) + node.text);
-            foreach (LogNode child in node.children)
-                Print(child, depth + 1);
-        }
-    }
-
-    public class LogNode
-    {
-        public LogNode parent;
-        public List<LogNode> children = new List<LogNode>();
-        public string text;
-        public bool expand;
-
-        public LogNode(string text, LogNode parent = null)
-        {
-            this.text = text;
-            this.parent = parent;
         }
     }
 

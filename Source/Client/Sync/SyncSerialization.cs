@@ -22,11 +22,19 @@ namespace Multiplayer.Client
         public static Type[] storageParents;
         public static Type[] plantToGrowSettables;
 
-        private static Type[] AllImplementations(Type type)
+        private static Type[] AllImplementationsOrdered(Type type)
         {
             return GenTypes.AllTypes
                 .Where(t => t != type && type.IsAssignableFrom(t))
                 .OrderBy(t => t.IsInterface)
+                .ThenBy(t => t.Name)
+                .ToArray();
+        }
+
+        private static Type[] AllSubclassesNonAbstractOrdered(Type type) {
+            return type
+                .AllSubclassesNonAbstract()
+                .OrderBy(t => t.Name)
                 .ToArray();
         }
 
@@ -49,17 +57,17 @@ namespace Multiplayer.Client
 
         public static void CollectTypes()
         {
-            storageParents = AllImplementations(typeof(IStoreSettingsParent));
-            plantToGrowSettables = AllImplementations(typeof(IPlantToGrowSettable));
+            storageParents = AllImplementationsOrdered(typeof(IStoreSettingsParent));
+            plantToGrowSettables = AllImplementationsOrdered(typeof(IPlantToGrowSettable));
 
-            thingCompTypes = typeof(ThingComp).AllSubclassesNonAbstract().ToArray();
-            abilityCompTypes = typeof(AbilityComp).AllSubclassesNonAbstract().ToArray();
-            designatorTypes = typeof(Designator).AllSubclassesNonAbstract().ToArray();
-            worldObjectCompTypes = typeof(WorldObjectComp).AllSubclassesNonAbstract().ToArray();
+            thingCompTypes = AllSubclassesNonAbstractOrdered(typeof(ThingComp));
+            abilityCompTypes = AllSubclassesNonAbstractOrdered(typeof(AbilityComp));
+            designatorTypes = AllSubclassesNonAbstractOrdered(typeof(Designator));
+            worldObjectCompTypes = AllSubclassesNonAbstractOrdered(typeof(WorldObjectComp));
 
-            gameCompTypes = typeof(GameComponent).AllSubclassesNonAbstract().ToArray();
-            worldCompTypes = typeof(WorldComponent).AllSubclassesNonAbstract().ToArray();
-            mapCompTypes = typeof(MapComponent).AllSubclassesNonAbstract().ToArray();
+            gameCompTypes = AllSubclassesNonAbstractOrdered(typeof(GameComponent));
+            worldCompTypes = AllSubclassesNonAbstractOrdered(typeof(WorldComponent));
+            mapCompTypes = AllSubclassesNonAbstractOrdered(typeof(MapComponent));
         }
 
         private static Type[] supportedThingHolders = new[]
@@ -98,6 +106,27 @@ namespace Multiplayer.Client
         public static T GetDefById<T>(ushort id) where T : Def => DefDatabase<T>.GetByShortHash(id);
 
         public static object ReadSyncObject(ByteReader data, SyncType syncType)
+        {
+            SyncLogger log = null;
+            if (data is LoggingByteReader logger)
+            {
+                log = logger.log;
+                log.Enter(syncType.type.FullName);
+            }
+
+            try
+            {
+                object obj = ReadSyncObjectInternal(data, syncType);
+                log?.AppendToCurrentName($": {obj}");
+                return obj;
+            }
+            finally
+            {
+                log?.Exit();
+            }
+        }
+
+        static object ReadSyncObjectInternal(ByteReader data, SyncType syncType)
         {
             MpContext context = data.MpContext();
             Map map = context.map;
@@ -276,8 +305,8 @@ namespace Multiplayer.Client
             MpContext context = data.MpContext();
             Type type = syncType.type;
 
-            LoggingByteWriter log = data as LoggingByteWriter;
-            log?.LogEnter(type.FullName + ": " + (obj ?? "null"));
+            LoggingByteWriter logger = data as LoggingByteWriter;
+            logger?.log.Enter(type.FullName + ": " + (obj ?? "null"));
 
             if (obj != null && !type.IsAssignableFrom(obj.GetType()))
                 throw new SerializationException($"Serializing with type {type} but got object of type {obj.GetType()}");
@@ -455,7 +484,7 @@ namespace Multiplayer.Client
                     return;
                 }
 
-                log?.LogNode("No writer for " + type);
+                logger?.log.Node("No writer for " + type);
                 throw new SerializationException("No writer for type " + type);
 
             }
@@ -466,7 +495,7 @@ namespace Multiplayer.Client
             }
             finally
             {
-                log?.LogExit();
+                logger?.log.Exit();
             }
         }
 

@@ -556,6 +556,7 @@ namespace Multiplayer.Client
         public int mapTicks;
         private TimeSpeed timeSpeedInt;
         public bool forcedNormalSpeed;
+        public int eventCount;
 
         public Storyteller storyteller;
         public StoryWatcher storyWatcher;
@@ -609,6 +610,8 @@ namespace Multiplayer.Client
                 PostContext();
 
                 Multiplayer.game.sync.TryAddMapRandomState(map.uniqueID, randState);
+
+                eventCount++;
 
                 tickingMap = null;
 
@@ -710,10 +713,11 @@ namespace Multiplayer.Client
 
         public void ExecuteCmd(ScheduledCommand cmd)
         {
-            ByteReader data = new ByteReader(cmd.data);
-            MpContext context = data.MpContext();
-
             CommandType cmdType = cmd.type;
+            LoggingByteReader data = new LoggingByteReader(cmd.data);
+            data.log.Node($"{cmdType} Map {map.uniqueID}");
+
+            MpContext context = data.MpContext();
 
             var updateWorldTime = false;
             keepTheMap = false;
@@ -822,6 +826,10 @@ namespace Multiplayer.Client
                 keepTheMap = false;
 
                 Multiplayer.game.sync.TryAddCommandRandomState(randState);
+
+                eventCount++;
+
+                Multiplayer.ReaderLog.nodes.Add(data.log.current);
             }
         }
 

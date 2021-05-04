@@ -1,4 +1,4 @@
-﻿using LiteNetLib;
+using LiteNetLib;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -44,6 +44,8 @@ namespace Multiplayer.Common
         public ServerSettings settings;
         public bool debugMode;
 
+        public int cmdId;
+
         public volatile bool running = true;
 
         private Dictionary<string, ChatCmdHandler> chatCmds = new Dictionary<string, ChatCmdHandler>();
@@ -53,8 +55,8 @@ namespace Multiplayer.Common
         public int keepAliveId;
         public Stopwatch lastKeepAlive = Stopwatch.StartNew();
 
-        private NetManager netManager;
-        private NetManager lanManager;
+        internal NetManager netManager;
+        internal NetManager lanManager;
         private NetManager arbiter;
 
         public int nextUniqueId; // currently unused
@@ -174,8 +176,7 @@ namespace Multiplayer.Common
 
         public void Tick()
         {
-            if (gameTimer % 3 == 0)
-                SendToAll(Packets.Server_TimeControl, new object[] { gameTimer });
+            SendToAll(Packets.Server_TimeControl, ByteWriter.GetBytes(gameTimer, cmdId), reliable: false);
 
             gameTimer++;
 
@@ -206,12 +207,12 @@ namespace Multiplayer.Common
             SendToAll(Packets.Server_PlayerList, writer.ToArray());
         }
 
-        public bool DoAutosave(string saveName = "")
+        public bool DoAutosave(string saveName = "", bool forcePause = false)
         {
             if (tmpMapCmds != null)
                 return false;
 
-            if (settings.pauseOnAutosave)
+            if (settings.pauseOnAutosave || forcePause)
                 SendCommand(CommandType.WorldTimeSpeed, ScheduledCommand.NoFaction, ScheduledCommand.Global, new byte[] { (byte)Verse.TimeSpeed.Paused });
 
             ByteWriter writer = new ByteWriter();
@@ -333,6 +334,8 @@ namespace Multiplayer.Common
                     sourcePlayer == player ? toSendSource : toSend
                 );
             }
+
+            cmdId++;
         }
 
         public void SendChat(string msg)
@@ -435,7 +438,7 @@ namespace Multiplayer.Common
         public bool steam;
         public bool direct;
         public bool lan = true;
-        public bool arbiter = true;
+        public bool arbiter;
         public bool debugMode;
 
         public void ExposeData()
@@ -447,7 +450,6 @@ namespace Multiplayer.Common
             Scribe_Values.Look(ref steam, "steam");
             Scribe_Values.Look(ref direct, "direct");
             Scribe_Values.Look(ref lan, "lan", true);
-            Scribe_Values.Look(ref arbiter, "arbiter", true);
             Scribe_Values.Look(ref debugMode, "debugMode");
         }
     }

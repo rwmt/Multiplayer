@@ -127,6 +127,8 @@ namespace Multiplayer.Client
                 mapsToLoad.Add(mapId);
             }
 
+            Multiplayer.session.localCmdId = data.ReadInt32();
+
             TickPatch.tickUntil = tickUntil;
 
             TickPatch.SkipTo(
@@ -226,7 +228,14 @@ namespace Multiplayer.Client
         public void HandleTimeControl(ByteReader data)
         {
             int tickUntil = data.ReadInt32();
-            TickPatch.tickUntil = tickUntil;
+            int remoteCmdId = data.ReadInt32();
+
+            if (TickPatch.tickUntil < tickUntil)
+            {
+                Multiplayer.session.remoteTickUntil = tickUntil;
+                Multiplayer.session.remoteCmdId = remoteCmdId;
+                Multiplayer.session.ProcessTimeControl();
+            }
         }
 
         [PacketHandler(Packets.Server_KeepAlive)]
@@ -244,6 +253,8 @@ namespace Multiplayer.Client
             ScheduledCommand cmd = ScheduledCommand.Deserialize(data);
             cmd.issuedBySelf = data.ReadBool();
             OnMainThread.ScheduleCommand(cmd);
+            Multiplayer.session.localCmdId++;
+            Multiplayer.session.ProcessTimeControl();
         }
 
         [PacketHandler(Packets.Server_PlayerList)]

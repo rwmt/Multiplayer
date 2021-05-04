@@ -360,7 +360,8 @@ namespace Multiplayer.Client
 
     public class DebugTextWindow : Window
     {
-        public override Vector2 InitialSize => new Vector2(800, 450);
+        private Vector2 _initialSize;
+        public override Vector2 InitialSize => _initialSize;
 
         private Vector2 scroll;
         private string text;
@@ -368,11 +369,13 @@ namespace Multiplayer.Client
 
         private float fullHeight;
 
-        public DebugTextWindow(string text)
+        public DebugTextWindow(string text, float width=800, float height=450)
         {
             this.text = text;
-            absorbInputAroundWindow = true;
+            this._initialSize = new Vector2(width, height);
+            absorbInputAroundWindow = false;
             doCloseX = true;
+            draggable = true;
 
             lines = text.Split('\n').ToList();
         }

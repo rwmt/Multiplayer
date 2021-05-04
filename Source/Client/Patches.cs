@@ -1,4 +1,5 @@
-﻿using HarmonyLib;
+using HarmonyLib;
+using Multiplayer.API;
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
@@ -244,6 +245,27 @@ namespace Multiplayer.Client
             if (__state != null)
                 __state.PopFaction();
         }
+
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+        {
+            FieldInfo FrameCountField = AccessTools.Field(typeof(RealTime), nameof(RealTime.frameCount));
+            MethodInfo FrameCountReplacementMethod = AccessTools.Method(typeof(JobTrackerStart), nameof(FrameCountReplacement));
+
+            foreach (CodeInstruction inst in insts)
+            {
+                yield return inst;
+                if (inst.operand == FrameCountField)
+                {
+                    yield return new CodeInstruction(OpCodes.Ldarg_0);
+                    yield return new CodeInstruction(OpCodes.Call, FrameCountReplacementMethod);
+                }
+            }
+        }
+
+        static int FrameCountReplacement(int frameCount, Pawn_JobTracker tracker)
+        {
+            return tracker.pawn.Map.AsyncTime()?.eventCount ?? frameCount;
+        }
     }
 
     [HarmonyPatch(typeof(Pawn_JobTracker))]
@@ -325,6 +347,12 @@ namespace Multiplayer.Client
         public static void Pop()
         {
             stack.Pop();
+        }
+
+        public static void Clear()
+        {
+            stack.Clear();
+            stack.Push(new Pair<Thing, Map>());
         }
     }
 
@@ -545,9 +573,21 @@ namespace Multiplayer.Client
     [HarmonyPatch(typeof(Pawn_NeedsTracker), nameof(Pawn_NeedsTracker.AddOrRemoveNeedsAsAppropriate))]
     public static class AddRemoveNeeds
     {
-        static void Prefix(Pawn_NeedsTracker __instance)
+        static void Prefix(Pawn ___pawn, ref Container<Map>? __state)
         {
-            //MpLog.Log("add remove needs {0} {1}", FactionContext.OfPlayer.ToString(), __instance.GetPropertyOrField("pawn"));
+            if (Multiplayer.Client != null && ___pawn.Faction != null)
+            {
+                ___pawn.Map.PushFaction(___pawn.Faction);
+                __state = ___pawn.Map;
+            }
+        }
+
+        static void Postfix(Container<Map>? __state)
+        {
+            if (__state.HasValue)
+            {
+                __state.PopFaction();
+            }
         }
     }
 
@@ -1152,15 +1192,9 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch]
+    [HarmonyPatch(typeof(IncidentWorker_RansomDemand), nameof(IncidentWorker_RansomDemand.CanFireNowSub))]
     static class CancelIncidents
     {
-        static IEnumerable<MethodBase> TargetMethods()
-        {
-            yield return AccessTools.Method(typeof(IncidentWorker_CaravanMeeting), nameof(IncidentWorker_CaravanMeeting.CanFireNowSub));
-            yield return AccessTools.Method(typeof(IncidentWorker_CaravanDemand), nameof(IncidentWorker_CaravanDemand.CanFireNowSub));
-            yield return AccessTools.Method(typeof(IncidentWorker_RansomDemand), nameof(IncidentWorker_RansomDemand.CanFireNowSub));
-        }
         static void Postfix(ref bool __result)
         {
             if (Multiplayer.Client != null)
@@ -1666,5 +1700,59 @@ namespace Multiplayer.Client
 
             __result.def = moteDef;
         }
+    }
+
+    [HarmonyPatch(typeof(DiaOption), nameof(DiaOption.Activate))]
+    static class NodeTreeDialogSync
+    {
+        static bool Prefix(DiaOption __instance)
+        {
+            if (Multiplayer.session == null || !Sync.isDialogNodeTreeOpen || !(__instance.dialog is Dialog_NodeTree dialog))
+            {
+                Sync.isDialogNodeTreeOpen = false;
+                return true;
+            }
+
+            // Get the current node, find the index of the option on it, and call a (synced) method
+            var currentNode = dialog.curNode;
+            int index = currentNode.options.FindIndex(x => x == __instance);
+            if (index >= 0)
+                SyncDialogOptionByIndex(index);
+
+            return false;
+        }
+
+        [SyncMethod]
+        internal static void SyncDialogOptionByIndex(int position)
+        {
+
+            // Make sure we have the correct dialog and data
+            if (position >= 0)
+            {
+                var dialog = Find.WindowStack.WindowOfType<Dialog_NodeTree>();
+
+                if (dialog != null && position < dialog.curNode.options.Count)
+                {
+                    Sync.isDialogNodeTreeOpen = false; // Prevents infinite loop, otherwise PreSyncDialog would call this method over and over again
+                    var option = dialog.curNode.options[position]; // Get the correct DiaOption
+                    option.Activate(); // Call the Activate method to actually "press" the button
+
+                    if (!option.resolveTree) Sync.isDialogNodeTreeOpen = true; // In case dialog is still open, we mark it as such
+
+                    // Try opening the trading menu if the picked option was supposed to do so (caravan meeting, trading option)
+                    if (Multiplayer.Client != null && Multiplayer.WorldComp.trading.Any(t => t.trader is Caravan))
+                        Find.WindowStack.Add(new TradingWindow());
+                }
+                else Sync.isDialogNodeTreeOpen = false;
+            }
+            else Sync.isDialogNodeTreeOpen = false;
+        }
+    }
+
+    [HarmonyPatch(typeof(Dialog_NodeTree), nameof(Dialog_NodeTree.PostClose))]
+    static class NodeTreeDialogMarkClosed
+    {
+        // Set the dialog as closed in here as well just in case
+        static void Prefix() => Sync.isDialogNodeTreeOpen = false;
     }
 }

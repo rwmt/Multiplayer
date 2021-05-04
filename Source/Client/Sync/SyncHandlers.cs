@@ -320,7 +320,7 @@ namespace Multiplayer.Client
             }
         }
 
-        [MpPrefix(typeof(DebugWindowsOpener), nameof(DebugWindowsOpener.ToggleGodMode))]
+        [MpPrefix(typeof(DebugWindowsOpener), nameof(DebugWindowsOpener.DrawButtons))]
         [MpPrefix(typeof(Prefs), "set_DevMode")]
         static void SetGodMode()
         {
@@ -549,8 +549,8 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(Pawn_RoyaltyTracker), nameof(Pawn_RoyaltyTracker.RefundPermits));
             SyncMethod.Register(typeof(Pawn_RoyaltyTracker), nameof(Pawn_RoyaltyTracker.SetTitle));
 
-            SyncMethod.Register(typeof(Command_Ability), nameof(Command_Ability.ProcessInput)); // self cast psychic abilities
-            SyncMethod.Register(typeof(CompAbilityEffect_StartSpeech), nameof(CompAbilityEffect_StartSpeech.Apply), new SyncType[] {typeof(LocalTargetInfo), typeof(LocalTargetInfo)}); // Royal Pawn: Give Speech button
+            SyncMethod.Register(typeof(Ability), nameof(Ability.QueueCastingJob), new SyncType[] { typeof(LocalTargetInfo), typeof(LocalTargetInfo) });
+            SyncMethod.Register(typeof(Ability), nameof(Ability.QueueCastingJob), new SyncType[] { typeof(GlobalTargetInfo) });
 
             // 1
             SyncMethod.Register(typeof(TradeRequestComp), nameof(TradeRequestComp.Fulfill)).CancelIfAnyArgNull().SetVersion(1);
@@ -565,6 +565,10 @@ namespace Multiplayer.Client
 
             SyncMethod.Register(typeof(Verb_SmokePop), nameof(Verb_SmokePop.Pop));
             SyncMethod.Register(typeof(Verb_DeployBroadshield), nameof(Verb_DeployBroadshield.Deploy));
+
+            // Dialog_NodeTree
+            Sync.RegisterSyncDialogNodeTree(typeof(IncidentWorker_CaravanMeeting), nameof(IncidentWorker_CaravanMeeting.TryExecuteWorker));
+            Sync.RegisterSyncDialogNodeTree(typeof(IncidentWorker_CaravanDemand), nameof(IncidentWorker_CaravanDemand.TryExecuteWorker));
         }
 
         static SyncField SyncTimetable = Sync.Field(typeof(Pawn), "timetable", "times");
