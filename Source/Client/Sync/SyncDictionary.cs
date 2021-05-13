@@ -159,6 +159,37 @@ namespace Multiplayer.Client
                 (ByteWriter data, OutfitForcedHandler comp) => WriteSync(data, comp.forcedAps.Select(a => a.Wearer).FirstOrDefault()),
                 (ByteReader data) => ReadSync<Pawn>(data)?.outfits?.forcedHandler
             },
+            {
+                (SyncWorker sync, ref Hediff hediff) =>
+                {
+                    if (sync.isWriting)
+                    {
+                        if (hediff.pawn == null)
+                        {
+                            Log.Error($"Hediff can't be synced, missing pawn field. {hediff}");
+                            sync.Write(false);
+                        }
+                        else if (hediff.loadID < 0)
+                        {
+                            Log.Error($"Hediff can't be synced, ID is not set. {hediff}");
+                            sync.Write(false);
+                        }
+                        else
+                        {
+                            sync.Write(true);
+                            sync.Write(hediff.pawn);
+                            sync.Write(hediff.loadID);
+                        }
+                    }
+                    else if (sync.Read<bool>())
+                    {
+                        var pawn = sync.Read<Pawn>();
+                        var id = sync.Read<int>();
+
+                        hediff = pawn.health.hediffSet.hediffs.First(x => x.loadID == id);
+                    }
+                }
+            },
             #endregion
 
             #region Policies
