@@ -164,31 +164,29 @@ namespace Multiplayer.Client
                 {
                     if (sync.isWriting)
                     {
-                        if (hediff.pawn == null)
-                        {
-                            Log.Error($"Hediff can't be synced, missing pawn field. {hediff}");
-                            sync.Write(false);
-                        }
-                        else if (hediff.loadID < 0)
-                        {
-                            Log.Error($"Hediff can't be synced, ID is not set. {hediff}");
-                            sync.Write(false);
-                        }
-                        else
-                        {
-                            sync.Write(true);
-                            sync.Write(hediff.pawn);
-                            sync.Write(hediff.loadID);
-                        }
+                        sync.Write(hediff.pawn);
+                        sync.Write(hediff.loadID);
                     }
-                    else if (sync.Read<bool>())
+                    else
                     {
                         var pawn = sync.Read<Pawn>();
+
+                        if (pawn == null)
+                        {
+                            Log.Error($"Multiplayer :: SyncDictionary.Hediff: pawn is null");
+                            return;
+                        }
+
                         var id = sync.Read<int>();
 
                         hediff = pawn.health.hediffSet.hediffs.First(x => x.loadID == id);
+
+                        if (hediff == null)
+                        {
+                            Log.Error($"Multiplayer :: SyncDictionary.Hediff: Unknown hediff {id}");
+                        }
                     }
-                }
+                }, true // implicit
             },
             #endregion
 
