@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
@@ -25,6 +25,14 @@ namespace Multiplayer.Client
 
         public float TickRateMultiplier(TimeSpeed speed)
         {
+            if (MultiplayerWorldComp.asyncTime)
+            {
+                var enforcePause = Multiplayer.WorldComp.splitSession != null;
+
+                if (enforcePause)
+                    return 0f;
+            }
+
             switch (speed)
             {
                 case TimeSpeed.Paused:
@@ -62,8 +70,9 @@ namespace Multiplayer.Client
                 return;
             }
 
-            var mapSpeeds = Find.Maps.Select(m => m.AsyncTime().TimeSpeed)
-                .Where(timeSpeed => timeSpeed != TimeSpeed.Paused)
+            var mapSpeeds = Find.Maps.Select(m => m.AsyncTime())
+                .Where(a => a.ActualRateMultiplier(a.TimeSpeed) != 0f)
+                .Select(a => a.TimeSpeed)
                 .ToList();
             if (mapSpeeds.NullOrEmpty()) {
                 // all maps are paused = pause the world
