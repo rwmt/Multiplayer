@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
@@ -32,16 +32,18 @@ namespace Multiplayer.Client
             this.map = map;
         }
 
-        public void CreateCaravanFormingSession(bool reform, Action onClosed, bool mapAboutToBeRemoved)
+        public CaravanFormingSession CreateCaravanFormingSession(bool reform, Action onClosed, bool mapAboutToBeRemoved)
         {
-            if (caravanForming != null) return;
-            caravanForming = new CaravanFormingSession(map, reform, onClosed, mapAboutToBeRemoved);
+            if (caravanForming == null)
+                caravanForming = new CaravanFormingSession(map, reform, onClosed, mapAboutToBeRemoved);
+            return caravanForming;
         }
 
-        public void CreateTransporterLoadingSession(List<CompTransporter> transporters)
+        public TransporterLoading CreateTransporterLoadingSession(List<CompTransporter> transporters)
         {
-            if (transporterLoading != null) return;
-            transporterLoading = new TransporterLoading(map, transporters);
+            if (transporterLoading == null)
+                transporterLoading = new TransporterLoading(map, transporters);
+            return transporterLoading;
         }
 
         public void DoTick()
@@ -212,22 +214,45 @@ namespace Multiplayer.Client
                     Find.WindowStack.Add(newDialog);
                 }
             }
-            else if (comp.caravanForming != null)
+        }
+    }
+
+    [HarmonyPatch(typeof(MapInterface), nameof(MapInterface.Notify_SwitchedMap))]
+    static class HandleMissingDialogsGameStart
+    {
+        static void Prefix()
+        {
+            if (Multiplayer.Client == null) return;
+
+            // Trading window on resume save
+            if (Multiplayer.WorldComp.trading.NullOrEmpty()) return;
+            if (Multiplayer.WorldComp.trading.FirstOrDefault(t => t.playerNegotiator == null) is MpTradeSession trade)
             {
-                if (!Find.WindowStack.IsOpen(typeof(MpFormingCaravanWindow)))
-                    comp.caravanForming.OpenWindow(false);
-            }
-            else if (comp.transporterLoading != null)
-            {
-                if (!Find.WindowStack.IsOpen(typeof(MpLoadTransportersWindow)))
-                    comp.transporterLoading.OpenWindow(false);
-            }
-            else if (Multiplayer.WorldComp.trading.FirstOrDefault(t => t.playerNegotiator.Map == comp.map) is MpTradeSession trading)
-            {
-                if (!Find.WindowStack.IsOpen(typeof(TradingWindow)))
-                    Find.WindowStack.Add(new TradingWindow() { selectedTab = Multiplayer.WorldComp.trading.IndexOf(trading) });
+                trade.OpenWindow();
             }
         }
     }
 
+    [HarmonyPatch(typeof(WorldInterface), nameof(WorldInterface.WorldInterfaceUpdate))]
+    static class HandleDialogsOnWorldRender
+    {
+        static void Prefix(WorldInterface __instance)
+        {
+            if (Multiplayer.Client == null) return;
+
+            if (Find.World.renderer.wantedMode == WorldRenderMode.Planet)
+            {
+                // Hide trading window for map trades
+                if (Multiplayer.WorldComp.trading.All(t => t.playerNegotiator?.Map != null))
+                {
+                    if (Find.WindowStack.IsOpen(typeof(TradingWindow)))
+                        Find.WindowStack.TryRemove(typeof(TradingWindow), doCloseSound: false);
+                }
+
+                // Hide transport loading window
+                if (Find.WindowStack.IsOpen(typeof(MpLoadTransportersWindow)))
+                    Find.WindowStack.TryRemove(typeof(MpLoadTransportersWindow), doCloseSound: false);
+            }
+        }
+    }
 }

@@ -1,4 +1,5 @@
-﻿using LiteNetLib;
+using LiteNetLib;
+using Multiplayer.Client.Windows;
 using Multiplayer.Common;
 using RimWorld;
 using Steamworks;
@@ -16,19 +17,19 @@ namespace Multiplayer.Client
     {
         public static ChatWindow Opened => Find.WindowStack?.WindowOfType<ChatWindow>();
 
-        public override Vector2 InitialSize => new Vector2(640f, 460f);
 
         private static readonly Texture2D SelectedMsg = SolidColorMaterials.NewSolidColorTexture(new Color(0.17f, 0.17f, 0.17f, 0.85f));
 
-        public bool saveSize = true;
+        private float initialWidth = 640f;
+        private float initialHeight = 460f;
         private Vector2 chatScroll;
         private Vector2 playerListScroll;
         private Vector2 steamScroll;
         private float messagesHeight;
         private string currentMsg = "";
         private bool hasBeenFocused;
-        private Vector2 lastResolution;
 
+        public override Vector2 InitialSize => new Vector2(initialWidth, initialHeight);
         public override float Margin => 0f;
 
         public ChatWindow()
@@ -40,14 +41,14 @@ namespace Multiplayer.Client
             focusWhenOpened = true;
             closeOnClickedOutside = false;
             closeOnAccept = false;
-            resizeable = true;
             onlyOneOfTypeAllowed = true;
             closeOnCancel = false;
-            lastResolution = MpUtil.Resolution;
+            resizeable = true;
+            resizer = new WindowResizer();
+            resizer.minWindowSize = new Vector2(initialWidth * 0.9f, initialHeight * 0.5f);
 
             if (!Multiplayer.session.desynced)
             {
-                layer = WindowLayer.GameUI;
                 doWindowBackground = !MultiplayerMod.settings.transparentChat;
                 drawShadow = doWindowBackground;
             }
@@ -329,10 +330,27 @@ namespace Multiplayer.Client
             }
         }
 
+        public override void Notify_ResolutionChanged()
+        {
+            this.KeepWindowOnScreen();
+        }
+
         public override void PreOpen()
         {
             base.PreOpen();
             hasBeenFocused = false;
+        }
+
+        public override void PostOpen()
+        {
+            base.PostOpen();
+            this.RestoreWindowSize();
+        }
+
+        public override void PostClose()
+        {
+            base.PostClose();
+            this.SaveWindowRect();
         }
 
         public void SendMsg()
@@ -427,50 +445,11 @@ namespace Multiplayer.Client
             chatScroll.y = messagesHeight;
         }
 
-        public override void PostClose()
-        {
-            if (Multiplayer.session != null && saveSize)
-            {
-                SaveChatSize();
-                MultiplayerMod.settings.Write();
-            }
-        }
-
-        private void SaveChatSize()
-        {
-            MultiplayerMod.settings.chatRect = windowRect;
-            MultiplayerMod.settings.resolutionForChat = MpUtil.Resolution;
-        }
-
-        public void SetSizeTo(Rect chatRect, Vector2 lastResolution)
-        {
-            windowRect = chatRect;
-            if (chatRect.center.x > lastResolution.x / 2f)
-            {
-                windowRect.x += (float)UI.screenWidth - lastResolution.x;
-            }
-            if (chatRect.center.y > lastResolution.y / 2f)
-            {
-                windowRect.y += (float)UI.screenHeight - lastResolution.y;
-            }
-        }
-
-        public override void Notify_ResolutionChanged()
-        {
-            SetSizeTo(windowRect, lastResolution);
-            lastResolution = MpUtil.Resolution;
-        }
-
         public static void OpenChat()
         {
             ChatWindow chatWindow = new ChatWindow();
 
             Find.WindowStack.Add(chatWindow);
-
-            if (MultiplayerMod.settings.chatRect != default(Rect))
-            {
-                chatWindow.SetSizeTo(MultiplayerMod.settings.chatRect, MultiplayerMod.settings.resolutionForChat);
-            }
         }
     }
 

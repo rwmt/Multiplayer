@@ -940,10 +940,11 @@ namespace Multiplayer.Client
         [SyncMethod]
         private static void CreateCaravanFormingSession(MultiplayerMapComp comp, bool reform)
         {
-            comp.CreateCaravanFormingSession(reform, null, false);
+            CaravanFormingSession session = comp.CreateCaravanFormingSession(reform, null, false);
 
             if (TickPatch.currentExecutingCmdIssuedBySelf)
             {
+                session.OpenWindow();
                 MapAsyncTimeComp.keepTheMap = true;
                 Current.Game.CurrentMap = comp.map;
                 Find.World.renderer.wantedMode = WorldRenderMode.None;

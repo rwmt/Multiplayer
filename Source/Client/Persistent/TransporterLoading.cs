@@ -1,10 +1,11 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Reflection;
 using HarmonyLib;
 using Multiplayer.API;
+using Multiplayer.Client.Windows;
 using RimWorld;
 using RimWorld.Planet;
 using UnityEngine;
@@ -114,6 +115,10 @@ namespace Multiplayer.Client
 
     public class MpLoadTransportersWindow : Dialog_LoadTransporters
     {
+        private static float initialWidth = 1024f;
+        private static float initialHeight = UI.screenHeight * 0.90f;
+        public override Vector2 InitialSize => new Vector2(initialWidth, initialHeight);
+
         public static MpLoadTransportersWindow drawing;
 
         public bool itemsReady;
@@ -122,14 +127,14 @@ namespace Multiplayer.Client
 
         public MpLoadTransportersWindow(Map map, List<CompTransporter> transporters) : base(map, transporters)
         {
-        }
-
-        public override void PostClose()
-        {
-            base.PostClose();
-
-            if (Session != null)
-                Find.World.renderer.wantedMode = WorldRenderMode.Planet;
+            doCloseX = true;
+            closeOnAccept = false;
+            absorbInputAroundWindow = false;
+            preventCameraMotion = false;
+            draggable = true;
+            resizeable = true;
+            resizer = new WindowResizer();
+            resizer.minWindowSize = new Vector2(initialWidth, initialHeight * 0.5f);
         }
 
         public override void DoWindowContents(Rect inRect)
@@ -156,6 +161,23 @@ namespace Multiplayer.Client
             {
                 drawing = null;
             }
+        }
+
+        public override void Notify_ResolutionChanged()
+        {
+            this.KeepWindowOnScreen();
+        }
+
+        public override void PostOpen()
+        {
+            base.PostOpen();
+            this.RestoreWindowSize();
+        }
+
+        public override void PostClose()
+        {
+            base.PostClose();
+            this.SaveWindowRect();
         }
     }
 
@@ -282,9 +304,8 @@ namespace Multiplayer.Client
             if (Multiplayer.ExecutingCmds || Multiplayer.Ticking)
             {
                 var comp = map.MpComp();
-                if (comp.transporterLoading == null)
-                    comp.CreateTransporterLoadingSession(transporters);
-
+                TransporterLoading loading = comp.CreateTransporterLoadingSession(transporters);
+                loading?.OpenWindow();
                 return true;
             }
 

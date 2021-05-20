@@ -306,10 +306,8 @@ namespace Multiplayer.Client
         public bool pauseAutosaveCounter = true;
         public bool showModCompatibility = true;
         public bool autosaveOnDesync = false;
+        public Dictionary<Type, Rect> windowRectLookup = new Dictionary<Type, Rect>();
         public ServerSettings serverSettings = new ServerSettings();
-
-        public Rect chatRect;
-        public Vector2 resolutionForChat;
 
         public override void ExposeData()
         {
@@ -326,10 +324,7 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref pauseAutosaveCounter, "pauseAutosaveCounter", true);
             Scribe_Values.Look(ref showModCompatibility, "showModCompatibility", true);
             Scribe_Values.Look(ref autosaveOnDesync, "autosaveOnDesync", false);
-            Scribe_Values.Look(ref resolutionForChat, "resolutionForChat");
-
-            ScribeUtil.LookRect(ref chatRect, "chatRect");
-
+            ScribeUtil.LookRectDict<Type>(ref windowRectLookup, "windowRectLookup");
             Scribe_Deep.Look(ref serverSettings, "serverSettings");
 
             if (serverSettings == null)

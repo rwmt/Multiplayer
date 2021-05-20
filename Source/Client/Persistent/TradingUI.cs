@@ -1,5 +1,6 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using Multiplayer.API;
+using Multiplayer.Client.Windows;
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
@@ -22,13 +23,21 @@ namespace Multiplayer.Client
         public static TradingWindow drawingTrade;
         public static bool cancelPressed;
 
-        public override Vector2 InitialSize => new Vector2(1024f, UI.screenHeight);
+        public static float initialWidth = 1024f;
+        public static float initialHeight = UI.screenHeight * 0.90f;
+        public override Vector2 InitialSize => new Vector2(initialWidth, initialHeight);
+
 
         public TradingWindow()
         {
             doCloseX = true;
             closeOnAccept = false;
-            absorbInputAroundWindow = true;
+            absorbInputAroundWindow = false;
+            preventCameraMotion = false;
+            draggable = true;
+            resizeable = true;
+            resizer = new WindowResizer();
+            resizer.minWindowSize = new Vector2(initialWidth, initialHeight * 0.5f);
         }
 
         public int selectedTab = -1;
@@ -152,14 +161,6 @@ namespace Multiplayer.Client
             return null;
         }
 
-        public override void PostClose()
-        {
-            base.PostClose();
-
-            if (selectedTab >= 0 && Multiplayer.WorldComp.trading.ElementAtOrDefault(selectedTab)?.playerNegotiator.Map == Find.CurrentMap)
-                Find.World.renderer.wantedMode = WorldRenderMode.Planet;
-        }
-
         private void RecreateDialog()
         {
             var session = Multiplayer.WorldComp.trading[selectedTab];
@@ -244,6 +245,23 @@ namespace Multiplayer.Client
                     if (!TradeSession.giftMode || kv.Key.FirstThingColony != null)
                         yield return kv.Key;
             }
+        }
+
+        public override void Notify_ResolutionChanged()
+        {
+            this.KeepWindowOnScreen();
+        }
+
+        public override void PostOpen()
+        {
+            base.PostOpen();
+            this.RestoreWindowSize();
+        }
+
+        public override void PostClose()
+        {
+            base.PostClose();
+            this.SaveWindowRect();
         }
     }
 

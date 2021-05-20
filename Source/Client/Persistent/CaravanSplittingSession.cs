@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using Verse;
 using RimWorld;
@@ -34,6 +34,7 @@ namespace Multiplayer.Client.Persistent
         /// The caravan being split.
         /// </summary>
         private readonly Caravan caravan;
+        public Caravan Caravan { get { return caravan; } }
 
         /// <summary>
         /// Reference to the dialog that is being displayed.
@@ -79,9 +80,9 @@ namespace Multiplayer.Client.Persistent
             dialog = PrepareDialogProxy();
             if (!sound)
                 dialog.soundAppear = null;
-            dialog.doCloseX = true;
 
-            CaravanUIUtility.CreateCaravanTransferableWidgets(transferables, out dialog.pawnsTransfer, out dialog.itemsTransfer, "SplitCaravanThingCountTip".Translate(), IgnorePawnsInventoryMode.Ignore, () => dialog.DestMassCapacity - dialog.DestMassUsage, false, caravan.Tile, false);
+            CaravanUIUtility.CreateCaravanTransferableWidgets_NewTmp(transferables, out dialog.pawnsTransfer, out dialog.itemsTransfer, out dialog.foodAndMedicineTransfer,
+                    "SplitCaravanThingCountTip".Translate(), IgnorePawnsInventoryMode.Ignore, () => dialog.DestMassCapacity - dialog.DestMassUsage, false, caravan.Tile, false);
             dialog.CountToTransferChanged();
 
             Find.WindowStack.Add(dialog);
