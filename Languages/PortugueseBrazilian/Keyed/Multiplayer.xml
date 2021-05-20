@@ -57,6 +57,8 @@
   
   <MpChatButton>Chat</MpChatButton>
   <MpTradingButton>Negociação</MpTradingButton>
+  <MpTransportLoadingButton>Carregamento de transporte</MpTransportLoadingButton>
+  <MpCaravanFormingButton>Formando Caravana</MpCaravanFormingButton>
   
   <MpChatPlayers>Jogadores ({0}):</MpChatPlayers>
   <MpSend>Enviar</MpSend>

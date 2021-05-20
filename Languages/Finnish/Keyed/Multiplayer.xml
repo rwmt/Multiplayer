@@ -57,6 +57,8 @@
 
   <MpChatButton>Keskustelu</MpChatButton>
   <MpTradingButton>Käydään kauppaa</MpTradingButton>
+  <MpTransportLoadingButton>Kuljetus Lastataan</MpTransportLoadingButton>
+  <MpCaravanFormingButton>Muodostaa asuntovaunu</MpCaravanFormingButton>
 
   <MpChatPlayers>Pelaajat ({0}):</MpChatPlayers>
   <MpSend>Lähetä</MpSend>

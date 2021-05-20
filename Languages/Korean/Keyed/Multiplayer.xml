@@ -57,6 +57,8 @@
 
   <MpChatButton>채팅</MpChatButton>
   <MpTradingButton>물물교환</MpTradingButton>
+  <MpTransportLoadingButton>운송 로딩</MpTransportLoadingButton>
+  <MpCaravanFormingButton>캐러밴 형성</MpCaravanFormingButton>
 
   <MpChatPlayers>플레이어 ({0}):</MpChatPlayers>
   <MpSend>보내기</MpSend>

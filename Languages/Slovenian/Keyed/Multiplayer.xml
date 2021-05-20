@@ -58,6 +58,8 @@
   
   <MpChatButton>Pogovor</MpChatButton>
   <MpTradingButton>Trgovanje</MpTradingButton>
+  <MpTransportLoadingButton>Transportno nalaganje</MpTransportLoadingButton>
+  <MpCaravanFormingButton>Oblikovanje karavane</MpCaravanFormingButton>
   
   <MpChatPlayers>Igralci ({0}):</MpChatPlayers>
   <MpSend>Pošlji</MpSend>

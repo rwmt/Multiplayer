@@ -57,6 +57,8 @@
   
   <MpChatButton>Chat</MpChatButton>
   <MpTradingButton>Handle</MpTradingButton>
+  <MpTransportLoadingButton>Transport Lastning</MpTransportLoadingButton>
+  <MpCaravanFormingButton>Danner campingvogn</MpCaravanFormingButton>
   
   <MpChatPlayers>Spillere ({0}):</MpChatPlayers>
   <MpSend>Send</MpSend>

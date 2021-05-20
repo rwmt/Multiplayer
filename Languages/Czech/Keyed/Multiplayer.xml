@@ -65,6 +65,8 @@
   
   <MpChatButton>Chat</MpChatButton>
   <MpTradingButton>Obchodování</MpTradingButton>
+  <MpTransportLoadingButton>Přeprava nakládky</MpTransportLoadingButton>
+  <MpCaravanFormingButton>Vytváření karavanu</MpCaravanFormingButton>
   
   <MpChatPlayers>Hráči ({0}):</MpChatPlayers>
   <MpSend>Odeslat</MpSend>
