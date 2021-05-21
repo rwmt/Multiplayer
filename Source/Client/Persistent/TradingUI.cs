@@ -163,23 +163,28 @@ namespace Multiplayer.Client
 
         private void RecreateDialog()
         {
-            var session = Multiplayer.WorldComp.trading[selectedTab];
-
             CancelDialogTradeCtor.cancel = true;
-            MpTradeSession.SetTradeSession(session);
+            try
+            {
+                var session = Multiplayer.WorldComp.trading[selectedTab];
+                MpTradeSession.SetTradeSession(session);
 
-            dialog = new Dialog_Trade(null, null);
-            dialog.giftsOnly = session.giftsOnly;
-            dialog.sorter1 = TransferableSorterDefOf.Category;
-            dialog.sorter2 = TransferableSorterDefOf.MarketValue;
-            dialog.CacheTradeables();
-            session.deal.uiShouldReset = UIShouldReset.None;
+                dialog = new Dialog_Trade(null, null);
+                dialog.giftsOnly = session.giftsOnly;
+                dialog.sorter1 = TransferableSorterDefOf.Category;
+                dialog.sorter2 = TransferableSorterDefOf.MarketValue;
+                dialog.CacheTradeables();
+                session.deal.uiShouldReset = UIShouldReset.None;
 
-            removed.Clear();
-            added.Clear();
+                removed.Clear();
+                added.Clear();
 
-            MpTradeSession.SetTradeSession(null);
-            CancelDialogTradeCtor.cancel = false;
+                MpTradeSession.SetTradeSession(null);
+            }
+            finally
+            {
+                CancelDialogTradeCtor.cancel = false;
+            }
         }
 
         public void Notify_RemovedSession(int index)
