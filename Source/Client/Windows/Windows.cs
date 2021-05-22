@@ -1,4 +1,4 @@
-﻿using Multiplayer.Common;
+using Multiplayer.Common;
 using RimWorld;
 using System;
 using System.Collections.Generic;
@@ -267,7 +267,7 @@ namespace Multiplayer.Client
             if (str.Length > 30)
                 return false;
 
-            fileExists = new FileInfo(Path.Combine(Multiplayer.ReplaysDir, $"{curName}.zip")).Exists;
+            fileExists = new FileInfo(Path.Combine(Multiplayer.ReplaysDir, $"{str}.zip")).Exists;
             return true;
         }
 
