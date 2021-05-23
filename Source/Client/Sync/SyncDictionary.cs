@@ -159,6 +159,35 @@ namespace Multiplayer.Client
                 (ByteWriter data, OutfitForcedHandler comp) => WriteSync(data, comp.forcedAps.Select(a => a.Wearer).FirstOrDefault()),
                 (ByteReader data) => ReadSync<Pawn>(data)?.outfits?.forcedHandler
             },
+            {
+                (SyncWorker sync, ref Hediff hediff) =>
+                {
+                    if (sync.isWriting)
+                    {
+                        sync.Write(hediff.pawn);
+                        sync.Write(hediff.loadID);
+                    }
+                    else
+                    {
+                        var pawn = sync.Read<Pawn>();
+
+                        if (pawn == null)
+                        {
+                            Log.Error($"Multiplayer :: SyncDictionary.Hediff: pawn is null");
+                            return;
+                        }
+
+                        var id = sync.Read<int>();
+
+                        hediff = pawn.health.hediffSet.hediffs.First(x => x.loadID == id);
+
+                        if (hediff == null)
+                        {
+                            Log.Error($"Multiplayer :: SyncDictionary.Hediff: Unknown hediff {id}");
+                        }
+                    }
+                }, true // implicit
+            },
             #endregion
 
             #region Policies
