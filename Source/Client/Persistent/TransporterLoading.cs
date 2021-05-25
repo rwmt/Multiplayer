@@ -305,7 +305,8 @@ namespace Multiplayer.Client
             {
                 var comp = map.MpComp();
                 TransporterLoading loading = comp.CreateTransporterLoadingSession(transporters);
-                loading?.OpenWindow();
+                if (TickPatch.currentExecutingCmdIssuedBySelf)
+                    loading.OpenWindow();
                 return true;
             }
 
