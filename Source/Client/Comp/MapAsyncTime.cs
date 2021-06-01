@@ -33,6 +33,7 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(Autosaver), nameof(Autosaver.AutosaverTick))]
+
     static class DisableAutosaver
     {
         static bool Prefix() => Multiplayer.Client == null;
@@ -260,21 +261,24 @@ namespace Multiplayer.Client
             foreach (var entry in bar.Entries)
             {
                 if (entry.pawn == null || entry.pawn.Dead || curGroup == entry.group) continue;
+                ITickable entryTickable = entry.map?.AsyncTime();
+                if (entryTickable == null)
+                    entryTickable = Multiplayer.WorldComp;
 
                 Rect groupBar = bar.drawer.GroupFrameRect(entry.group);
                 float drawXPos = groupBar.x;
-                bool blockingPause = IsBlockingPause(entry.map?.AsyncTime());
-                Color bgColor = blockingPause ? pauseBgColor : normalBgColor;
+                Color bgColor = (entryTickable.ActualRateMultiplier(TimeSpeed.Normal) == 0f) ? pauseBgColor : normalBgColor;
 
                 if (MultiplayerWorldComp.asyncTime)
                 {
                     Rect button = new Rect(drawXPos, groupBar.yMax, btnWidth, btnHeight);
+
                     if (entry.map != null)
                     {
-                        TimeControl.TimeControlButton(button, bgColor, entry.map.AsyncTime());
+                        TimeControl.TimeControlButton(button, bgColor, entry.map?.AsyncTime());
                         drawXPos += TimeControls.TimeButSize.x;
                     }
-                    else if(blockingPause)
+                    else if(entryTickable.ActualRateMultiplier(TimeSpeed.Normal) == 0f)
                     {
                         TimeControl.TimeIndicateBlockingPause(button, bgColor);
                         drawXPos += TimeControls.TimeButSize.x;
@@ -282,14 +286,14 @@ namespace Multiplayer.Client
                 }
                 else
                 {
-                    if (blockingPause) {
+                    if (entryTickable.TickRateMultiplier(TimeSpeed.Normal) == 0f) {
                         Rect button = new Rect(drawXPos, groupBar.yMax, btnWidth, btnHeight);
                         TimeControl.TimeIndicateBlockingPause(button, bgColor);
                         drawXPos += TimeControls.TimeButSize.x;
                     }
                 }
 
-                List<FloatMenuOption> options = GetBlockingWindowOptions(entry);
+                List<FloatMenuOption> options = GetBlockingWindowOptions(entry, entryTickable);
                 if (!options.NullOrEmpty())
                 {
                     Rect button = new Rect(drawXPos, groupBar.yMax, btnWidth, btnHeight);
@@ -306,14 +310,7 @@ namespace Multiplayer.Client
                 Find.WindowStack.Add(new FloatMenu(options));
         }
 
-        static bool IsBlockingPause(ITickable tickable)
-        {
-            if (tickable == null)
-                return Multiplayer.WorldComp.ActualRateMultiplier(TimeSpeed.Normal) == 0f;
-            return tickable.ActualRateMultiplier(TimeSpeed.Normal) == 0f;
-        }
-
-        static List<FloatMenuOption> GetBlockingWindowOptions(ColonistBar.Entry entry)
+        static List<FloatMenuOption> GetBlockingWindowOptions(ColonistBar.Entry entry, ITickable tickable)
         {
             List<FloatMenuOption> options = new List<FloatMenuOption>();
             if (entry.map == null) // World map pause
@@ -338,7 +335,7 @@ namespace Multiplayer.Client
                     }));
                 }
             }
-            else if (IsBlockingPause(entry.map?.AsyncTime())) // Blocking pause
+            else if (tickable.TickRateMultiplier(TimeSpeed.Normal) == 0f) // Blocking pause
             {
                 if (Multiplayer.WorldComp.trading.FirstOrDefault(t => t.playerNegotiator?.Map == entry.map) is MpTradeSession trade)
                 {
