@@ -54,7 +54,6 @@ namespace Multiplayer.Client
 
         public static MpTradeSession TryCreate(ITrader trader, Pawn playerNegotiator, bool giftMode)
         {
-            Log.Message($"TRY CREATE: Trader={trader}\nPawn={playerNegotiator}");
             // todo show error messages?
             if (Multiplayer.WorldComp.trading.Any(s => s.trader == trader))
                 return null;
@@ -416,9 +415,8 @@ namespace Multiplayer.Client
 
                 if (trade != null)
                 {
-                    trade.OpenWindow(); // Register blocking pause
-                    if (playerNegotiator.Map != Find.CurrentMap && !TickPatch.currentExecutingCmdIssuedBySelf)
-                        trade.CloseWindow(sound: false);
+                    if (playerNegotiator.Map == Find.CurrentMap && TickPatch.currentExecutingCmdIssuedBySelf)
+                        trade.OpenWindow();
                 }
 
                 return false;
