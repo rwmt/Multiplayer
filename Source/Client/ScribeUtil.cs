@@ -1,4 +1,5 @@
-﻿using RimWorld;
+using HarmonyLib;
+using RimWorld;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -396,6 +397,25 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref valueStr, label, defaultValue.ToString());
             if (Scribe.mode == LoadSaveMode.LoadingVars)
                 ulong.TryParse(valueStr, out value);
+        }
+
+        public static void LookRectDict<K>(ref Dictionary<K, Rect> dict, string label)
+        {
+            Dictionary<K, Vector4> backingLookup = new Dictionary<K, Vector4>();
+            foreach (K key in dict.Keys)
+            {
+                Rect r = dict[key];
+                backingLookup.Add(key, new Vector4(r.x, r.y, r.width, r.height));
+            }
+
+            ScribeUtil.LookWithValueKey<K, Vector4>(ref backingLookup, "windowRectLookup", LookMode.Value, LookMode.Value);
+
+            dict = new Dictionary<K, Rect>();
+            foreach (K key in backingLookup.Keys)
+            {
+                Vector4 v = backingLookup[key];
+                dict.Add(key, new Rect(v.x, v.y, v.z, v.w));
+            }
         }
 
         public static void LookRect(ref Rect rect, string label)

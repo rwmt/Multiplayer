@@ -1,8 +1,9 @@
-﻿using RimWorld.Planet;
+using RimWorld.Planet;
 using UnityEngine;
 using Verse;
 using Verse.Sound;
 using RimWorld;
+using Multiplayer.Client.Windows;
 
 namespace Multiplayer.Client.Persistent
 {
@@ -18,12 +19,23 @@ namespace Multiplayer.Client.Persistent
         /// </summary>
         public CaravanSplittingSession session;
 
+        public static float initialWidth = 1024f;
+        public static float initialHeight = UI.screenHeight * 0.90f;
+        public override Vector2 InitialSize => new Vector2(initialWidth, initialHeight);
+
         /// <summary>
         /// Handles creation of a CaravanSplittingProxy.
         /// </summary>
         /// <param name="caravan"></param>
         public CaravanSplittingProxy(Caravan caravan) : base(caravan)
         {
+            doCloseX = true;
+            absorbInputAroundWindow = false;
+            preventCameraMotion = false;
+            draggable = true;
+            resizeable = true;
+            resizer = new WindowResizer();
+            resizer.minWindowSize = new Vector2(initialWidth, initialHeight * 0.5f);
             this.caravan = caravan;
         }
 
@@ -91,6 +103,23 @@ namespace Multiplayer.Client.Persistent
                 CountToTransferChanged();
             }
             GUI.EndGroup();
+        }
+
+        public override void Notify_ResolutionChanged()
+        {
+            this.KeepWindowOnScreen();
+        }
+
+        public override void PostOpen()
+        {
+            base.PostOpen();
+            this.RestoreWindowSize();
+        }
+
+        public override void PostClose()
+        {
+            base.PostClose();
+            this.SaveWindowRect();
         }
 
         /// <summary>

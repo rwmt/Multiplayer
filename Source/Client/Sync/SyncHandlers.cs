@@ -660,8 +660,8 @@ namespace Multiplayer.Client
             {
                 job.loadID = Find.UniqueIDsManager.GetNextJobID();
 
-                if (job.def == JobDefOf.TradeWithPawn && TickPatch.currentExecutingCmdIssuedBySelf)
-                    ShowTradingWindow.tradeJobStartedByMe = job.loadID;
+                if ((job.def == JobDefOf.TradeWithPawn || job.def == JobDefOf.UseCommsConsole) && TickPatch.currentExecutingCmdIssuedBySelf)
+                    CancelDialogTradeCtor.tradeJobStartedByMe = job.loadID;
             }
         }
 
@@ -940,10 +940,11 @@ namespace Multiplayer.Client
         [SyncMethod]
         private static void CreateCaravanFormingSession(MultiplayerMapComp comp, bool reform)
         {
-            comp.CreateCaravanFormingSession(reform, null, false);
+            CaravanFormingSession session = comp.CreateCaravanFormingSession(reform, null, false);
 
             if (TickPatch.currentExecutingCmdIssuedBySelf)
             {
+                session.OpenWindow();
                 MapAsyncTimeComp.keepTheMap = true;
                 Current.Game.CurrentMap = comp.map;
                 Find.World.renderer.wantedMode = WorldRenderMode.None;

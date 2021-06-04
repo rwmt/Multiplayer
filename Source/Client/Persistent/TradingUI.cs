@@ -1,5 +1,6 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using Multiplayer.API;
+using Multiplayer.Client.Windows;
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
@@ -22,13 +23,21 @@ namespace Multiplayer.Client
         public static TradingWindow drawingTrade;
         public static bool cancelPressed;
 
-        public override Vector2 InitialSize => new Vector2(1024f, UI.screenHeight);
+        public static float initialWidth = 1024f;
+        public static float initialHeight = UI.screenHeight * 0.90f;
+        public override Vector2 InitialSize => new Vector2(initialWidth, initialHeight);
+
 
         public TradingWindow()
         {
             doCloseX = true;
             closeOnAccept = false;
-            absorbInputAroundWindow = true;
+            absorbInputAroundWindow = false;
+            preventCameraMotion = false;
+            draggable = true;
+            resizeable = true;
+            resizer = new WindowResizer();
+            resizer.minWindowSize = new Vector2(initialWidth, initialHeight * 0.5f);
         }
 
         public int selectedTab = -1;
@@ -152,33 +161,30 @@ namespace Multiplayer.Client
             return null;
         }
 
-        public override void PostClose()
-        {
-            base.PostClose();
-
-            if (selectedTab >= 0 && Multiplayer.WorldComp.trading.ElementAtOrDefault(selectedTab)?.playerNegotiator.Map == Find.CurrentMap)
-                Find.World.renderer.wantedMode = WorldRenderMode.Planet;
-        }
-
         private void RecreateDialog()
         {
-            var session = Multiplayer.WorldComp.trading[selectedTab];
-
             CancelDialogTradeCtor.cancel = true;
-            MpTradeSession.SetTradeSession(session);
+            try
+            {
+                var session = Multiplayer.WorldComp.trading[selectedTab];
+                MpTradeSession.SetTradeSession(session);
 
-            dialog = new Dialog_Trade(null, null);
-            dialog.giftsOnly = session.giftsOnly;
-            dialog.sorter1 = TransferableSorterDefOf.Category;
-            dialog.sorter2 = TransferableSorterDefOf.MarketValue;
-            dialog.CacheTradeables();
-            session.deal.uiShouldReset = UIShouldReset.None;
+                dialog = new Dialog_Trade(null, null);
+                dialog.giftsOnly = session.giftsOnly;
+                dialog.sorter1 = TransferableSorterDefOf.Category;
+                dialog.sorter2 = TransferableSorterDefOf.MarketValue;
+                dialog.CacheTradeables();
+                session.deal.uiShouldReset = UIShouldReset.None;
 
-            removed.Clear();
-            added.Clear();
+                removed.Clear();
+                added.Clear();
 
-            MpTradeSession.SetTradeSession(null);
-            CancelDialogTradeCtor.cancel = false;
+                MpTradeSession.SetTradeSession(null);
+            }
+            finally
+            {
+                CancelDialogTradeCtor.cancel = false;
+            }
         }
 
         public void Notify_RemovedSession(int index)
@@ -245,29 +251,22 @@ namespace Multiplayer.Client
                         yield return kv.Key;
             }
         }
-    }
 
-    [HarmonyPatch]
-    static class ShowTradingWindow
-    {
-        public static int tradeJobStartedByMe = -1;
-
-        static MethodBase TargetMethod()
+        public override void Notify_ResolutionChanged()
         {
-            List<Type> nestedPrivateTypes = new List<Type>(typeof(JobDriver_TradeWithPawn).GetNestedTypes(BindingFlags.NonPublic));
-
-            Type cType = nestedPrivateTypes.Find(t => t.Name.Equals("<>c__DisplayClass3_0"));
-
-            return AccessTools.Method(cType, "<MakeNewToils>b__1");
+            this.KeepWindowOnScreen();
         }
 
-        static void Prefix(Toil ___trade)
+        public override void PostOpen()
         {
-            if (___trade.actor.CurJob.loadID == tradeJobStartedByMe)
-            {
-                Find.WindowStack.Add(new TradingWindow());
-                tradeJobStartedByMe = -1;
-            }
+            base.PostOpen();
+            this.RestoreWindowSize();
+        }
+
+        public override void PostClose()
+        {
+            base.PostClose();
+            this.SaveWindowRect();
         }
     }
 

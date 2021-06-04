@@ -1,5 +1,6 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using Multiplayer.API;
+using Multiplayer.Client.Windows;
 using RimWorld;
 using RimWorld.Planet;
 using System;
@@ -58,7 +59,6 @@ namespace Multiplayer.Client
             var dialog = PrepareDummyDialog();
             if (!sound)
                 dialog.soundAppear = null;
-            dialog.doCloseX = true;
 
             CaravanUIUtility.CreateCaravanTransferableWidgets_NewTmp(transferables, out dialog.pawnsTransfer, out dialog.itemsTransfer, out dialog.foodAndMedicineTransfer, "FormCaravanColonyThingCountTip".Translate(), dialog.IgnoreInventoryMode, () => dialog.MassCapacity - dialog.MassUsage, dialog.AutoStripSpawnedCorpses, dialog.CurrentTile, mapAboutToBeRemoved);
             dialog.CountToTransferChanged();
@@ -156,16 +156,19 @@ namespace Multiplayer.Client
 
         public CaravanFormingSession Session => map.MpComp().caravanForming;
 
+        public static float initialWidth = 1024f;
+        public static float initialHeight = UI.screenHeight * 0.90f;
+        public override Vector2 InitialSize => new Vector2(initialWidth, initialHeight);
+
         public MpFormingCaravanWindow(Map map, bool reform = false, Action onClosed = null, bool mapAboutToBeRemoved = false) : base(map, reform, onClosed, mapAboutToBeRemoved)
         {
-        }
-
-        public override void PostClose()
-        {
-            base.PostClose();
-
-            if (Session != null)
-                Find.World.renderer.wantedMode = WorldRenderMode.Planet;
+            doCloseX = true;
+            absorbInputAroundWindow = false;
+            preventCameraMotion = false;
+            draggable = true;
+            resizeable = true;
+            resizer = new WindowResizer();
+            resizer.minWindowSize = new Vector2(initialWidth, initialHeight * 0.5f);
         }
 
         public override void DoWindowContents(Rect inRect)
@@ -195,6 +198,23 @@ namespace Multiplayer.Client
             {
                 drawing = null;
             }
+        }
+
+        public override void Notify_ResolutionChanged()
+        {
+            this.KeepWindowOnScreen();
+        }
+
+        public override void PostOpen()
+        {
+            base.PostOpen();
+            this.RestoreWindowSize();
+        }
+
+        public override void PostClose()
+        {
+            base.PostClose();
+            this.SaveWindowRect();
         }
     }
 

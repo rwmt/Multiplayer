@@ -57,6 +57,8 @@
   
   <MpChatButton>Üzenetek</MpChatButton>
   <MpTradingButton>Kereskedés</MpTradingButton>
+  <MpTransportLoadingButton>Szállítási rakodás</MpTransportLoadingButton>
+  <MpCaravanFormingButton>Karaván megalakítása</MpCaravanFormingButton>
   
   <MpChatPlayers>Játékosok ({0}):</MpChatPlayers>
   <MpSend>Küld</MpSend>

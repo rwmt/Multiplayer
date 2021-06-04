@@ -57,6 +57,8 @@
   
   <MpChatButton>Chiacchiera</MpChatButton>
   <MpTradingButton>Commercio</MpTradingButton>
+  <MpTransportLoadingButton>Caricamento di trasporto</MpTransportLoadingButton>
+  <MpCaravanFormingButton>Formare Caravan</MpCaravanFormingButton>
   
   <MpChatPlayers>Giocatori ({0}):</MpChatPlayers>
   <MpSend>Manda</MpSend>

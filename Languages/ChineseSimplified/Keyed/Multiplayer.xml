@@ -67,6 +67,8 @@
   
   <MpChatButton>聊天</MpChatButton>
   <MpTradingButton>交易</MpTradingButton>
+  <MpTransportLoadingButton>运输装载</MpTransportLoadingButton>
+  <MpCaravanFormingButton>形成商队</MpCaravanFormingButton>
   
   <MpChatPlayers>玩家 ({0}):</MpChatPlayers>
   <MpSend>发送</MpSend>

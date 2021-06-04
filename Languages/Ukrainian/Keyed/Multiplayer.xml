@@ -57,6 +57,8 @@
 
   <MpChatButton>Чат</MpChatButton>
   <MpTradingButton>Торгівля</MpTradingButton>
+  <MpTransportLoadingButton>Транспортне завантаження</MpTransportLoadingButton>
+  <MpCaravanFormingButton>Формування Каравану</MpCaravanFormingButton>
 
   <MpChatPlayers>Гравці ({0}):</MpChatPlayers>
   <MpSend>Надіслати</MpSend>
