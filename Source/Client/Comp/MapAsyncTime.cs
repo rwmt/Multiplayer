@@ -262,8 +262,7 @@ namespace Multiplayer.Client
             {
                 if (entry.pawn == null || entry.pawn.Dead || curGroup == entry.group) continue;
                 ITickable entryTickable = entry.map?.AsyncTime();
-                if (entryTickable == null)
-                    entryTickable = Multiplayer.WorldComp;
+                if (entryTickable == null) entryTickable = Multiplayer.WorldComp;
 
                 Rect groupBar = bar.drawer.GroupFrameRect(entry.group);
                 float drawXPos = groupBar.x;
@@ -275,7 +274,7 @@ namespace Multiplayer.Client
 
                     if (entry.map != null)
                     {
-                        TimeControl.TimeControlButton(button, bgColor, entry.map?.AsyncTime());
+                        TimeControl.TimeControlButton(button, bgColor, entryTickable);
                         drawXPos += TimeControls.TimeButSize.x;
                     }
                     else if(entryTickable.ActualRateMultiplier(TimeSpeed.Normal) == 0f)
@@ -284,13 +283,11 @@ namespace Multiplayer.Client
                         drawXPos += TimeControls.TimeButSize.x;
                     }
                 }
-                else
+                else if (entryTickable.TickRateMultiplier(TimeSpeed.Normal) == 0f)
                 {
-                    if (entryTickable.TickRateMultiplier(TimeSpeed.Normal) == 0f) {
-                        Rect button = new Rect(drawXPos, groupBar.yMax, btnWidth, btnHeight);
-                        TimeControl.TimeIndicateBlockingPause(button, bgColor);
-                        drawXPos += TimeControls.TimeButSize.x;
-                    }
+                    Rect button = new Rect(drawXPos, groupBar.yMax, btnWidth, btnHeight);
+                    TimeControl.TimeIndicateBlockingPause(button, bgColor);
+                    drawXPos += TimeControls.TimeButSize.x;
                 }
 
                 List<FloatMenuOption> options = GetBlockingWindowOptions(entry, entryTickable);
@@ -313,54 +310,40 @@ namespace Multiplayer.Client
         static List<FloatMenuOption> GetBlockingWindowOptions(ColonistBar.Entry entry, ITickable tickable)
         {
             List<FloatMenuOption> options = new List<FloatMenuOption>();
-            if (entry.map == null) // World map pause
+            var split = Multiplayer.WorldComp.splitSession;
+            if (split != null && split.Caravan.pawns.Contains(entry.pawn) == true)
             {
-                var split = Multiplayer.WorldComp.splitSession;
-                if (split != null && split.Caravan.pawns.Contains(entry.pawn) == true)
+                options.Add(new FloatMenuOption("SplitCaravan".Translate(), () =>
                 {
-                    options.Add(new FloatMenuOption("SplitCaravan".Translate(), () =>
-                    {
-                        SwitchMap(entry.map);
-                        CameraJumper.TryJumpAndSelect(entry.pawn);
-                        Multiplayer.WorldComp.splitSession.OpenWindow();
-                    }));
-                }
-                if (Multiplayer.WorldComp.trading.FirstOrDefault(t => t.playerNegotiator?.Map == null) is MpTradeSession trade)
-                {
-                    options.Add(new FloatMenuOption("MpTradingButton".Translate(), () =>
-                    {
-                        SwitchMap(entry.map);
-                        CameraJumper.TryJumpAndSelect(entry.pawn);
-                        Find.WindowStack.Add(new TradingWindow() { selectedTab = Multiplayer.WorldComp.trading.IndexOf(trade) });
-                    }));
-                }
+                    SwitchMap(entry.map);
+                    CameraJumper.TryJumpAndSelect(entry.pawn);
+                    Multiplayer.WorldComp.splitSession.OpenWindow();
+                }));
             }
-            else if (tickable.TickRateMultiplier(TimeSpeed.Normal) == 0f) // Blocking pause
+            if (Multiplayer.WorldComp.trading.FirstOrDefault(t => t.playerNegotiator?.Map == entry.map) is MpTradeSession trade)
             {
-                if (Multiplayer.WorldComp.trading.FirstOrDefault(t => t.playerNegotiator?.Map == entry.map) is MpTradeSession trade)
+                options.Add(new FloatMenuOption("MpTradingButton".Translate(), () =>
                 {
-                    options.Add(new FloatMenuOption("MpTradingButton".Translate(), () =>
-                    {
-                        SwitchMap(entry.map);
-                        Find.WindowStack.Add(new TradingWindow() { selectedTab = Multiplayer.WorldComp.trading.IndexOf(trade) });
-                    }));
-                }
-                if (entry.map.MpComp().transporterLoading != null)
+                    SwitchMap(entry.map);
+                    CameraJumper.TryJumpAndSelect(trade.playerNegotiator);
+                    Find.WindowStack.Add(new TradingWindow() { selectedTab = Multiplayer.WorldComp.trading.IndexOf(trade) });
+                }));
+            }
+            if (entry.map?.MpComp().transporterLoading != null)
+            {
+                options.Add(new FloatMenuOption("MpTransportLoadingButton".Translate(), () =>
                 {
-                    options.Add(new FloatMenuOption("MpTransportLoadingButton".Translate(), () =>
-                    {
-                        SwitchMap(entry.map);
-                        entry.map.MpComp().transporterLoading.OpenWindow();
-                    }));
-                }
-                if (entry.map.MpComp().caravanForming != null)
+                    SwitchMap(entry.map);
+                    entry.map.MpComp().transporterLoading.OpenWindow();
+                }));
+            }
+            if (entry.map?.MpComp().caravanForming != null)
+            {
+                options.Add(new FloatMenuOption("MpCaravanFormingButton".Translate(), () =>
                 {
-                    options.Add(new FloatMenuOption("MpCaravanFormingButton".Translate(), () =>
-                    {
-                        SwitchMap(entry.map);
-                        entry.map.MpComp().caravanForming.OpenWindow();
-                    }));
-                }
+                    SwitchMap(entry.map);
+                    entry.map.MpComp().caravanForming.OpenWindow();
+                }));
             }
 
             return options;
@@ -383,7 +366,6 @@ namespace Multiplayer.Client
     [HarmonyPatch(typeof(MainButtonWorker), nameof(MainButtonWorker.DoButton))]
     static class MainButtonWorldTimeControl
     {
-
         static void Prefix(MainButtonWorker __instance, Rect rect, ref Rect? __state)
         {
             if (Multiplayer.Client == null) return;
