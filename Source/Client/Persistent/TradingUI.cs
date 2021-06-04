@@ -270,30 +270,6 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch]
-    static class ShowTradingWindow
-    {
-        public static int tradeJobStartedByMe = -1;
-
-        static MethodBase TargetMethod()
-        {
-            List<Type> nestedPrivateTypes = new List<Type>(typeof(JobDriver_TradeWithPawn).GetNestedTypes(BindingFlags.NonPublic));
-
-            Type cType = nestedPrivateTypes.Find(t => t.Name.Equals("<>c__DisplayClass3_0"));
-
-            return AccessTools.Method(cType, "<MakeNewToils>b__1");
-        }
-
-        static void Prefix(Toil ___trade)
-        {
-            if (___trade.actor.CurJob.loadID == tradeJobStartedByMe)
-            {
-                Find.WindowStack.Add(new TradingWindow());
-                tradeJobStartedByMe = -1;
-            }
-        }
-    }
-
     [HarmonyPatch(typeof(Widgets), nameof(Widgets.ButtonText), new[] { typeof(Rect), typeof(string), typeof(bool), typeof(bool), typeof(bool) })]
     static class MakeCancelTradeButtonRed
     {

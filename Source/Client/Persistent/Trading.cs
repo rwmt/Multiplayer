@@ -404,6 +404,7 @@ namespace Multiplayer.Client
     static class CancelDialogTradeCtor
     {
         public static bool cancel;
+        public static int tradeJobStartedByMe = -1;
 
         static bool Prefix(Pawn playerNegotiator, ITrader trader, bool giftsOnly)
         {
@@ -415,9 +416,16 @@ namespace Multiplayer.Client
 
                 if (trade != null)
                 {
-                    if (playerNegotiator.Map == Find.CurrentMap && TickPatch.currentExecutingCmdIssuedBySelf)
+                    if (playerNegotiator.Map == Find.CurrentMap && playerNegotiator.CurJob.loadID == tradeJobStartedByMe)
+                    {
+                        tradeJobStartedByMe = -1;
                         trade.OpenWindow();
-                }
+                    }
+                    else if (trader is Settlement s && Find.World.renderer.wantedMode == WorldRenderMode.Planet)
+                    {
+                        trade.OpenWindow();
+                    }
+                 }
 
                 return false;
             }
