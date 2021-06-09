@@ -886,10 +886,11 @@ namespace Multiplayer.Client
         {
             DesignatorMode mode = Sync.ReadSync<DesignatorMode>(data);
             Designator designator = Sync.ReadSync<Designator>(data);
+            Area previousSelectedArea = null;
 
             try
             {
-                if (!SetDesignatorState(designator, data)) return;
+                if (!SetDesignatorState(designator, data, out previousSelectedArea)) return;
 
                 if (mode == DesignatorMode.SingleCell)
                 {
@@ -916,15 +917,23 @@ namespace Multiplayer.Client
             finally
             {
                 DesignatorInstallPatch.thingToInstall = null;
+
+                if (previousSelectedArea != null)
+                {
+                    Designator_AreaAllowed.selectedArea = previousSelectedArea;
+                }
             }
         }
 
-        private bool SetDesignatorState(Designator designator, ByteReader data)
+        private bool SetDesignatorState(Designator designator, ByteReader data, out Area previousSelectedArea)
         {
+            previousSelectedArea = null;
+
             if (designator is Designator_AreaAllowed)
             {
                 Area area = Sync.ReadSync<Area>(data);
                 if (area == null) return false;
+                previousSelectedArea = Designator_AreaAllowed.selectedArea;
                 Designator_AreaAllowed.selectedArea = area;
             }
 
