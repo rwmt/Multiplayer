@@ -886,10 +886,17 @@ namespace Multiplayer.Client
         {
             DesignatorMode mode = Sync.ReadSync<DesignatorMode>(data);
             Designator designator = Sync.ReadSync<Designator>(data);
+            Designator previousDesignator = null;
+            DesignationDragger previousDragger = null;
+            Area previousSelectedArea = null;
 
             try
             {
-                if (!SetDesignatorState(designator, data)) return;
+                if (!TickPatch.currentExecutingCmdIssuedBySelf)
+                    GetDesignatorState(out previousDesignator, out previousDragger, out previousSelectedArea);
+
+                if (!SetDesignatorState(designator, data))
+                    return;
 
                 if (mode == DesignatorMode.SingleCell)
                 {
@@ -916,11 +923,28 @@ namespace Multiplayer.Client
             finally
             {
                 DesignatorInstallPatch.thingToInstall = null;
+                if (!TickPatch.currentExecutingCmdIssuedBySelf)
+                    RestoreDesignatorState(previousDesignator, previousDragger, previousSelectedArea);
+            }
+        }
+
+        private void GetDesignatorState(out Designator previousDesignator, out DesignationDragger previousDragger, out Area previousSelectedArea)
+        {
+            previousDesignator = Find.DesignatorManager.SelectedDesignator;
+            previousDragger = new DesignationDragger();
+            previousDragger.dragging = Find.DesignatorManager.Dragger.dragging;
+            previousDragger.dragCells = Find.DesignatorManager.Dragger.dragCells;
+            previousSelectedArea = null;
+
+            if (previousDesignator is Designator_AreaAllowed)
+            {
+                previousSelectedArea = Designator_AreaAllowed.selectedArea;
             }
         }
 
         private bool SetDesignatorState(Designator designator, ByteReader data)
         {
+
             if (designator is Designator_AreaAllowed)
             {
                 Area area = Sync.ReadSync<Area>(data);
@@ -943,6 +967,17 @@ namespace Multiplayer.Client
             }
 
             return true;
+        }
+
+        private void RestoreDesignatorState(Designator previousDesignator, DesignationDragger previousDragger, Area previousSelectedArea)
+        {
+            if (previousDesignator != null) Find.DesignatorManager.selectedDesignator = previousDesignator;
+            if (previousDragger != null)
+            {
+                Find.DesignatorManager.dragger.dragCells = previousDragger.dragCells;
+                Find.DesignatorManager.dragger.dragging = previousDragger.dragging;
+            }
+            if (previousSelectedArea != null) Designator_AreaAllowed.selectedArea = previousSelectedArea;
         }
 
         private bool nothingHappeningCached;
