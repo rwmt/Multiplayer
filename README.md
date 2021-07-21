@@ -1,3 +1,7 @@
+# 1.3 is in progress
+There is no eta.
+If you're a Rimworld modder and know C# checkout our dev wiki.
+
 # Rimworld Multiplayer
 Originally created by Zetrith, The Rimworld Multiplayer Mod is now being updated and maintained by community members. The original git repo is deprecated and will not receive any updates.
 
