@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<LanguageData>
+
+  <MpSimulating>シミュレーション</MpSimulating>
+  <MpSimulatingServer>サーバーのシミュレーション</MpSimulatingServer>
+  <MpLoading>荷重</MpLoading>
+  <MpSaving>貯蓄</MpSaving>
+  
+  <MpInvalidPort>無効なポート</MpInvalidPort>
+  <MpInvalidAddress>無効なアドレス</MpInvalidAddress>
+  <MpInvalidGameName>無効なゲーム名</MpInvalidGameName>
+  
+  <MpWrongProtocol>間違ったプロトコルバージョン</MpWrongProtocol>
+  <MpWrongMultiplayerVersionInfo>サーバーはマルチプレイヤー{0}（プロトコル{1}）でホストされています。</MpWrongMultiplayerVersionInfo>
+  
+  <MpWrongDefs>MOD定義の不一致</MpWrongDefs>
+  <MpWrongDefsInfo>インストールされているMOD、それらのバージョンと注文をホストの一致させるようにしてください。</MpWrongDefsInfo>
+  <MpWrongModConfigs>MOD構成は不一致です</MpWrongModConfigs>
+  <MpWrongModConfigsInfo>MOD CONFIGSはホストとは異なり、それらを最良の結果に同期します。</MpWrongModConfigsInfo>
+  <MpModList>MODリスト</MpModList>
+  <MpSyncModsAndConfigs>同期モードと設定</MpSyncModsAndConfigs>
+  <MpSyncMods>同期モード</MpSyncMods>
+  <MpSyncModConfigs>Sync Mod Configs</MpSyncModConfigs>
+  <MpSyncModConfigsDesc>クライアントがホストと同じMOD設定をダウンロードするように強制します。Desyncsを削減します</MpSyncModConfigsDesc>
+  <MpSeeModList>MODリストを参照してください</MpSeeModList>
+  <MpDownloadingWorkshopMods>ワークショップのダウンロードのダウンロード</MpDownloadingWorkshopMods>
+  <MpRestoreLastConfigs>最後の設定を復元します</MpRestoreLastConfigs>
+  
+  <MpServerClosed>サーバーが終了しました</MpServerClosed>
+  <MpServerFull>サーバーがいっぱいです</MpServerFull>
+  <MpKicked>あなたは蹴られました</MpKicked>
+
+  <MpInvalidUsernameAlreadyPlaying>既にオンラインでユーザー名</MpInvalidUsernameAlreadyPlaying>
+  <MpInvalidUsernameChars>ユーザー名は無効な文字を持っています</MpInvalidUsernameChars>
+  <MpInvalidUsernameLength>ユーザー名は無効な長さを持っています</MpInvalidUsernameLength>
+  <MpChangeUsernameInfo>MOD設定でユーザー名を変更できます。</MpChangeUsernameInfo>
+  
+  <MpPlayerConnected>{0}が参加しました</MpPlayerConnected>
+  <MpPlayerDisconnected>{0}が左にあります</MpPlayerDisconnected>
+  
+  <MpReplayOutdated>(古くて)</MpReplayOutdated>
+  <MpReplayOutdatedDesc1>この再生はプロトコルバージョン{0}に対して行われましたが、バージョン{1}を実行しています。</MpReplayOutdatedDesc1>
+  <MpReplayOutdatedDesc2>再生が正しく遊ばないかもしれません。</MpReplayOutdatedDesc2>
+  <MpReplayOutdatedDesc3>可能な非互換性は、リリース履歴とともにリストされています。</MpReplayOutdatedDesc3>
+  <MpReplayOutdatedDesc4>このファイルには追加情報が含まれており、それから機能するはずです。</MpReplayOutdatedDesc4>
+  
+  <MpServerCloseConfirmation>サーバーを閉じてよろしいですか？未保存の進歩は失われます。</MpServerCloseConfirmation>
+  
+  <MpHostServer>サーバーをホストします</MpHostServer>
+  <MpSaveReplay>リプレイを保存します</MpSaveReplay>
+  <MpFullSave>退保</MpFullSave>
+  <MpFullSaveDesc>フルロードを速く保存しますが、遅く保存し、ホストでのみ利用可能です。</MpFullSaveDesc>
+  
+  <MpConvert>シングルプレイヤーに変換します</MpConvert>
+  <MpConverting>変わる</MpConverting>
+  
+  <MpUsername>ユーザー名</MpUsername>
+  <MpShowPlayerCursors>プレイヤーカーソルを表示します</MpShowPlayerCursors>
+  <MpAutoAcceptSteam>自動車を自動受け取る</MpAutoAcceptSteam>
+  <MpAutoAcceptSteamDesc>着信蒸気接続要求を自動的に受け入れます。</MpAutoAcceptSteamDesc>
+  <MpTransparentChat>透明猫</MpTransparentChat>
+  
+  <MpAutosaveSlots>自動スロット</MpAutosaveSlots>
+  <MpAutosaveSlotsDesc>維持するための自動保存ファイル数。</MpAutosaveSlotsDesc>
+  
+  <MpTraderLeavesIn>{0}の葉</MpTraderLeavesIn>
+  
+  <MpChatButton>チャット</MpChatButton>
+  <MpTradingButton>取引</MpTradingButton>
+  
+  <MpChatPlayers>プレーヤー ({0}):</MpChatPlayers>
+  <MpSend>送ります</MpSend>
+  <MpSteamAcceptTitle>スチームプレーヤーを受け入れます</MpSteamAcceptTitle>
+  <MpSteamAcceptDesc>クリックして受け入れます</MpSteamAcceptDesc>
+  <MpSteamAccepted>プレイヤーが受け入れられました</MpSteamAccepted>
+  
+  <MpConnectingTo>{0}への接続：{1}</MpConnectingTo>
+  <MpConnected>接続されています。</MpConnected>
+  <MpDownloading>ダウンロード ({0}%)</MpDownloading>
+  
+  <MpSteamConnectingTo>{0}がホストしているゲームに接続する</MpSteamConnectingTo>
+  <MpSteamConnectingWaiting>ホストを受け入れるのを待っています</MpSteamConnectingWaiting>
+  
+  <MpTicksBehind>あなたは{0}の目盛りです。</MpTicksBehind>
+  <MpLowerGameSpeed>ゲーム速度を下げることを検討してください。</MpLowerGameSpeed>
+  <MpForceCatchUp>クリックして追いつく。</MpForceCatchUp>
+  
+  <MpDesynced>ゲームの状態は荒廃しました。</MpDesynced>
+  <MpTryResync>再同期を試してみてください</MpTryResync>
+  <MpTryRehost>レホステージ</MpTryRehost>
+  
+  <MpSaveReplayAs>このリプレイを保存してください</MpSaveReplayAs>
+  <MpWillOverwrite>上書きします</MpWillOverwrite>
+  <MpReplaySaved>リプレイが保存されました</MpReplaySaved>
+  
+  <MpGameName>ゲーム名</MpGameName>
+  <MpMaxPlayers>マックスプレーヤー</MpMaxPlayers>
+  <MpAutosaveEvery>毎に自動保存</MpAutosaveEvery>
+  <MpAutosaveDays>日々</MpAutosaveDays>
+  <MpLanDesc1>あなたのローカルネットワークにゲームをブロードキャストしてください。</MpLanDesc1>
+  <MpLanDesc2>解決されたLANアドレス：{0}</MpLanDesc2>
+  <MpRunArbiter>arbiterを実行します</MpRunArbiter>
+  <MpArbiterDesc>DESYNC検出/解決に役立つバックグラウンドゲームインスタンス。</MpArbiterDesc>
+  <MpAsyncTime>非同期時間</MpAsyncTime>
+  <MpAsyncTimeDesc>各マップと惑星の個別の時間コントロール。</MpAsyncTimeDesc>
+  <MpLogDesyncTraces>Desyncトレースをログ</MpLogDesyncTraces>
+  <MpLogDesyncTracesDesc>Desyncsのトラブルシューティングのための追加のStackTracesをログに記録します。パフォーマンスに影響を与える可能性があります</MpLogDesyncTracesDesc>
+  <MpExperimentalFeature>実験的な特徴</MpExperimentalFeature>
+  
+  <MpHostButton>ホスト</MpHostButton>
+  <MpWatchReplay>時計</MpWatchReplay>
+  <MpNothingSelected>選択されていません</MpNothingSelected>
+  <MpNoSaves>マルチプレイヤーはすでに既存のSavesからのみ再生できます</MpNoSaves>
+  
+  <MpHostIngame>このゲームからのホスト</MpHostIngame>
+  <MpHostReplay>再生からのホスト</MpHostReplay>
+  <MpHostSavefile>保存ファイルからのホスト</MpHostSavefile>
+  
+  <MpJoinButton>加入</MpJoinButton>
+  <MpConnectButton>接続</MpConnectButton>
+  <MpLanSearching>検索</MpLanSearching>
+  
+  <MpNotConnectedToSteam>蒸気に接続されていません</MpNotConnectedToSteam>
+  <MpNoFriendsPlaying>現在Rimworldを再生している友達はいません</MpNoFriendsPlaying>
+  <MpPlayingRimWorld>リムワルドをプレイする</MpPlayingRimWorld>
+  <MpNotInMultiplayer>マルチプレイヤーではありません</MpNotInMultiplayer>
+  
+  <MpPauseOnAutosave>AutoSaveで一時停止します</MpPauseOnAutosave>
+  <MpAppendNameToAutosave>AutoSaveに名前を追加します</MpAppendNameToAutosave>
+  <MpPauseAutosaveCounter>AutoSaveカウンターを一時停止します</MpPauseAutosaveCounter>
+  <MpPauseAutosaveCounterDesc>時間が一時停止している間、自動保存を防止するゲームと共にカウンターを一時停止します。</MpPauseAutosaveCounterDesc>
+  <MpShowModCompatibility>MOD互換性を示す</MpShowModCompatibility>
+  <MpShowModCompatibilityDesc>Mods Managerの[4] Crowd-Sourceの互換性スコアを表示できるようにする</MpShowModCompatibilityDesc>
+
+  <MpLan>LAN</MpLan>
+  <MpDirect>直接</MpDirect>
+  <MpSteam>蒸気</MpSteam>
+  <MpHostTab>ホスト</MpHostTab>
+  
+  <MpMultiplayer>マルチプレイヤー</MpMultiplayer>
+  <MpSingleplayer>シングルプレーヤー</MpSingleplayer>
+  
+  <MpNotAvailable>Not available in multiplayer.</MpNotAvailable>
+  <MpCallingFactionNotAvailable>他の断面を呼び出すことは現在マルチプレイヤーで利用できません。</MpCallingFactionNotAvailable>
+  
+  <MpAggressiveTicking>積極的なティック化</MpAggressiveTicking>
+  <MpAggressiveTickingDesc>FPSのコストでサーバーに自動的に追いつくように常に試みます。</MpAggressiveTickingDesc>
+  <MpMultiplayerCompatibility>MP互換性</MpMultiplayerCompatibility>
+
+  <MpAutosaveOnDesync>desync </ mpautosaveDescync>の一時停止と自動保存
+  <mpautosaveOnDesySyncDesc>プレーヤーのいずれかがdesyncの場合、ゲームは一時停止して自動的に保存されます。これにより、ゲームをシミュレートする必要なしに再獲得しやすくなり、ホストがゲーム自体を保存できない場合に役立ちます。</MpAutosaveOnDesyncDesc>
+  
+</LanguageData>
