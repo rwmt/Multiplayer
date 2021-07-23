@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using Multiplayer.API;
 using Multiplayer.Common;
 using RimWorld;
@@ -414,8 +414,8 @@ namespace Multiplayer.Client
     {
         static IEnumerable<MethodBase> TargetMethods()
         {
-            yield return AccessTools.Method(typeof(Dialog_Trade), "<DoWindowContents>b__60_0");
-            yield return AccessTools.Method(typeof(Dialog_Trade), "<DoWindowContents>b__60_1");
+            yield return AccessTools.Method(typeof(Dialog_Trade), "<DoWindowContents>b__64_0");
+            yield return AccessTools.Method(typeof(Dialog_Trade), "<DoWindowContents>b__64_1");
         }
         static void Prefix(ref bool __state)
         {
