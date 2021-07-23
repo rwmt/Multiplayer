@@ -9,10 +9,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Serialization;
 using HarmonyLib;
-using Iced.Intel;
+//using Iced.Intel;
 using UnityEngine;
 using Verse;
-using Decoder = Iced.Intel.Decoder;
+//using Decoder = Iced.Intel.Decoder;
 
 namespace Multiplayer.Client
 {
@@ -117,7 +117,7 @@ namespace Multiplayer.Client
         }
     }
 
-    public static class IcedDisasm
+    /*public static class IcedDisasm
     {
         public unsafe static void DisasmMethod(long codeStart)
         {
@@ -179,5 +179,5 @@ namespace Multiplayer.Client
                 return val;
             }
         }
-    }
+    }*/
 }

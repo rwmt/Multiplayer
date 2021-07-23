@@ -1,5 +1,5 @@
 using HarmonyLib;
-using Iced.Intel;
+using Multiplayer.API;
 using Multiplayer.Client.Desyncs;
 using Multiplayer.Common;
 using RestSharp;
@@ -8,6 +8,7 @@ using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -476,7 +477,7 @@ namespace Multiplayer.Client
         static bool Prefix(AutoBuildRoofAreaSetter __instance, Room room, ref Map __state)
         {
             if (Multiplayer.Client == null) return true;
-            if (room.Dereferenced || room.TouchesMapEdge || room.RegionCount > 26 || room.CellCount > 320 || room.RegionType == RegionType.Portal) return false;
+            if (room.Dereferenced || room.TouchesMapEdge || room.RegionCount > 26 || room.CellCount > 320 || room.IsDoorway) return false;
 
             Map map = room.Map;
             Faction faction = null;
@@ -610,7 +611,7 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(Log), nameof(Log.Warning))]
+    //[HarmonyPatch(typeof(Log), nameof(Log.Warning))]
     public static class CrossRefWarningPatch
     {
         private static Regex regex = new Regex(@"^Could not resolve reference to object with loadID ([\w.-]*) of type ([\w.<>+]*)\. Was it compressed away");
@@ -851,8 +852,9 @@ namespace Multiplayer.Client
 
         static bool Prefix(ThingDef moteDef)
         {
-            if (moteDef == ThingDefOf.Mote_FeedbackGoto)
-                return true;
+            // TODO 1.3: handle flecks?
+            //if (moteDef == ThingDefOf.Mote_FeedbackGoto)
+            //    return true;
 
             return !CancelFeedbackNotTargetedAtMe.Cancel;
         }
@@ -1058,7 +1060,7 @@ namespace Multiplayer.Client
             InitNewMapFactionData(map, Multiplayer.DummyFaction);
 
             async.mapTicks = Find.Maps.Where(m => m != map).Select(m => m.AsyncTime()?.mapTicks).Max() ?? Find.TickManager.TicksGame;
-            async.storyteller = new Storyteller(Find.Storyteller.def, Find.Storyteller.difficulty);
+            async.storyteller = new Storyteller(Find.Storyteller.def, Find.Storyteller.difficultyDef, Find.Storyteller.difficulty);
             async.storyWatcher = new StoryWatcher();
 
             if (!MultiplayerWorldComp.asyncTime)
@@ -1574,24 +1576,6 @@ namespace Multiplayer.Client
 
     [HarmonyPatch(typeof(DiaOption), nameof(DiaOption.Activate))]
     static class NodeTreeDialogSync
-
-    [HarmonyPatch(typeof(SettlementDefeatUtility), nameof(SettlementDefeatUtility.CheckDefeated))]
-    static class CheckDefeatedPatch
-    {
-        static bool Prefix()
-        {
-            return false;
-        }
-    }
-
-    [HarmonyPatch(typeof(MapParent), nameof(MapParent.CheckRemoveMapNow))]
-    static class CheckRemoveMapNowPatch
-    {
-        static bool Prefix()
-        {
-            return false;
-        }
-    }
     {
         static bool Prefix(DiaOption __instance)
         {
@@ -1634,6 +1618,24 @@ namespace Multiplayer.Client
                 else Sync.isDialogNodeTreeOpen = false;
             }
             else Sync.isDialogNodeTreeOpen = false;
+        }
+    }
+
+    [HarmonyPatch(typeof(SettlementDefeatUtility), nameof(SettlementDefeatUtility.CheckDefeated))]
+    static class CheckDefeatedPatch
+    {
+        static bool Prefix()
+        {
+            return false;
+        }
+    }
+
+    [HarmonyPatch(typeof(MapParent), nameof(MapParent.CheckRemoveMapNow))]
+    static class CheckRemoveMapNowPatch
+    {
+        static bool Prefix()
+        {
+            return false;
         }
     }
 

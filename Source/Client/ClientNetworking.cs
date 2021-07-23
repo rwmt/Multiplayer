@@ -196,8 +196,8 @@ namespace Multiplayer.Client
 
             comp.globalIdBlock = new IdBlock(GetMaxUniqueId(), 1_000_000_000);
 
-            var opponent = NewFaction(Multiplayer.GlobalIdBlock.NextId(), "Opponent", Multiplayer.FactionDef);
-            opponent.TrySetRelationKind(Faction.OfPlayer, FactionRelationKind.Hostile, false);
+            //var opponent = NewFaction(Multiplayer.GlobalIdBlock.NextId(), "Opponent", Multiplayer.FactionDef);
+            //opponent.TrySetRelationKind(Faction.OfPlayer, FactionRelationKind.Hostile, false);
 
             foreach (FactionWorldData data in comp.factionData.Values)
             {
@@ -216,7 +216,7 @@ namespace Multiplayer.Client
                 //mapComp.mapIdBlock = localServer.NextIdBlock();
 
                 BeforeMapGeneration.SetupMap(map);
-                BeforeMapGeneration.InitNewMapFactionData(map, opponent);
+                //BeforeMapGeneration.InitNewMapFactionData(map, opponent);
 
                 MapAsyncTimeComp async = map.AsyncTime();
                 async.mapTicks = Find.TickManager.TicksGame;

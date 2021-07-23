@@ -1339,7 +1339,8 @@ namespace Multiplayer.Client
                 },
                 (ByteReader data) => new TransportPodsArrivalAction_VisitSite(ReadSync<Site>(data), ReadSync<PawnsArrivalModeDef>(data))
             },
-            {
+            // todo 1.3: was removed?
+            /*{
                 (ByteWriter data, TransportPodsArrivalAction_Shuttle arrivalAction) =>
                 {
                     WriteSync(data, arrivalAction.mapParent);
@@ -1360,7 +1361,7 @@ namespace Multiplayer.Client
 
                     return arrivalAction;
                 }
-            },
+            },*/
             #endregion
         };
     }

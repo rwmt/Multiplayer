@@ -368,7 +368,6 @@ namespace Multiplayer.Client
                 text.AppendLine($"Packets received: {stats.PacketsReceived}");
                 text.AppendLine($"Packets sent: {stats.PacketsSent}");
                 text.AppendLine($"Packet loss: {stats.PacketLoss}");
-                text.AppendLine($"Sequenced packet loss: {stats.SequencedPacketLoss}");
                 text.AppendLine($"Packet loss percent: {stats.PacketLossPercent}");
                 text.AppendLine();
             }

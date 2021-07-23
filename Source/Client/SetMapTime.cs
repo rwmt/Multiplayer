@@ -74,7 +74,8 @@ namespace Multiplayer.Client
         static void Postfix(TimeSnapshot? __state) => __state?.Set();
     }
 
-    [HarmonyPatch(typeof(PawnRenderer), nameof(PawnRenderer.RenderPortrait))]
+    // TODO 1.3: set time on the new renderer
+    //[HarmonyPatch(typeof(PawnRenderer), nameof(PawnRenderer.RenderPortrait))]
     static class PawnRenderPortraitMapTime
     {
         static void Prefix(PawnRenderer __instance, ref TimeSnapshot? __state)

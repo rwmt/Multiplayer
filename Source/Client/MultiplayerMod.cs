@@ -104,7 +104,7 @@ namespace Multiplayer.Client
                 postfix: new HarmonyMethod(typeof(DeferredStackTracing), nameof(DeferredStackTracing.Postfix))
             );*/
 
-            ForeignRand.DoPatches();
+            //ForeignRand.DoPatches();
         }
 
         static void Prefixfactionman()

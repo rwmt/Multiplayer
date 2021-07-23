@@ -79,7 +79,7 @@ namespace Multiplayer.Client
             inRect.yMin += 35f;
 
             TabDrawer.DrawTabs(inRect.LeftPartPixels(inRect.width - 50f), tabs);
-            AddChangelogButton(inRect);
+            //AddChangelogButton(inRect);
 
             GUI.BeginGroup(new Rect(0, inRect.yMin, inRect.width, inRect.height));
             {
@@ -93,13 +93,13 @@ namespace Multiplayer.Client
                     DrawSteam(groupRect);
                 else if (tab == Tabs.Host)
                     DrawHost(groupRect);
-                else if (tab == Tabs.Changelog)
-                    DrawChangelog(groupRect);
+                //else if (tab == Tabs.Changelog)
+                //    DrawChangelog(groupRect);
             }
             GUI.EndGroup();
         }
 
-        private void AddChangelogButton(Rect inRect)
+        /*private void AddChangelogButton(Rect inRect)
         {
             Text.CurFontStyle.richText = true;
 
@@ -122,7 +122,7 @@ namespace Multiplayer.Client
 
             GUI.DrawTexture(tabChangelog.center.ExpandedBy(12f), Multiplayer.Newspaper);
             GUI.color = Color.white;
-        }
+        }*/
 
         private void DrawChangelog(Rect inRect)
         {

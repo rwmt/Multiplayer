@@ -140,7 +140,7 @@ namespace Multiplayer.Client
 
             GL.PushMatrix();
             GL.MultMatrix(m);
-            Graphics.DrawTexture(screenRect, Widgets.LineTexAA, Widgets.LineRect, 0, 0, 0, 0, color, Widgets.LineMat);
+            GUI.DrawTexture(screenRect, Widgets.LineTexAA, ScaleMode.StretchToFill, true, 0f, color, 0f, 0f);
             GL.PopMatrix();
         }
 

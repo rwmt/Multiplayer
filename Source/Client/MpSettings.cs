@@ -26,9 +26,11 @@ namespace Multiplayer.Client
         public bool appendNameToAutosave;
         public bool pauseAutosaveCounter = true;
         public bool showModCompatibility = true;
-        public ServerSettings serverSettings = new ServerSettings();
+        public bool autosaveOnDesync = false;
         public Rect chatRect;
         public Vector2 resolutionForChat;
+
+        public ServerSettings serverSettings = new ServerSettings();
 
         public override void ExposeData()
         {
@@ -44,6 +46,7 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref serverAddress, "serverAddress", "127.0.0.1");
             Scribe_Values.Look(ref pauseAutosaveCounter, "pauseAutosaveCounter", true);
             Scribe_Values.Look(ref showModCompatibility, "showModCompatibility", true);
+            Scribe_Values.Look(ref autosaveOnDesync, "autosaveOnDesync", false);
             ScribeUtil.LookRect(ref chatRect, "chatRect");
             Scribe_Values.Look(ref resolutionForChat, "resolutionForChat");
 
@@ -76,6 +79,7 @@ namespace Multiplayer.Client
 
             listing.CheckboxLabeled("MpPauseAutosaveCounter".Translate(), ref pauseAutosaveCounter, "MpPauseAutosaveCounterDesc".Translate());
             listing.CheckboxLabeled("MpShowModCompatibility".Translate(), ref showModCompatibility, "MpShowModCompatibilityDesc".Translate());
+            listing.CheckboxLabeled("MpAutosaveOnDesync".Translate(), ref autosaveOnDesync, "MpAutosaveOnDesyncDesc".Translate());
 
             if (Prefs.DevMode)
             {

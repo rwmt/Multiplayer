@@ -43,7 +43,8 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(CompForbiddable), nameof(CompForbiddable.PostDraw))]
+    // todo 1.3: not needed?
+    /*[HarmonyPatch(typeof(CompForbiddable), nameof(CompForbiddable.PostDraw))]
     static class ForbiddablePostDrawPatch
     {
         [HarmonyPriority(MpPriority.MpFirst)]
@@ -58,7 +59,7 @@ namespace Multiplayer.Client
         {
             __instance.forbiddenInt = __state;
         }
-    }
+    }*/
 
     [HotSwappable]
     [HarmonyPatch(typeof(Thing), nameof(Thing.SpawnSetup))]

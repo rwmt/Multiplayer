@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
@@ -9,6 +9,7 @@ using System.Text;
 using System.Reflection;
 using UnityEngine;
 using Verse;
+using Multiplayer.Client.Desyncs;
 
 namespace Multiplayer.Client
 {

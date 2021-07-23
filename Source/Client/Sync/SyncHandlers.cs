@@ -182,7 +182,7 @@ namespace Multiplayer.Client
             SyncStorytellerDifficulty = Sync.Field(typeof(Storyteller), "difficulty").SetHostOnly().PostApply(StorytellerDifficutly_Post).SetVersion(2);
         }
 
-        [MpPrefix(typeof(StorytellerUI), nameof(StorytellerUI.DrawStorytellerSelectionInterface_NewTemp))]
+        [MpPrefix(typeof(StorytellerUI), nameof(StorytellerUI.DrawStorytellerSelectionInterface))]
         static void ChangeStoryteller()
         {
             SyncStorytellerDef.Watch(Find.Storyteller);
@@ -710,7 +710,7 @@ namespace Multiplayer.Client
             __instance.draggedItem = null;
         }
 
-        [MpPrefix(typeof(Pawn_JobTracker), nameof(Pawn_JobTracker.TryTakeOrderedJob_NewTemp))]
+        [MpPrefix(typeof(Pawn_JobTracker), nameof(Pawn_JobTracker.TryTakeOrderedJob))]
         static void TryTakeOrderedJob_Prefix(Job job)
         {
             if (Multiplayer.ExecutingCmds && job.loadID < 0)
@@ -812,51 +812,66 @@ namespace Multiplayer.Client
             return false;
         }
 
-        private static IEnumerable<SpecialThingFilterDef> OutfitSpecialFilters => SpecialThingFilterDefOf.AllowNonDeadmansApparel.ToEnumerable();
+        private static IEnumerable<SpecialThingFilterDef> OutfitSpecialFilters
+            => SpecialThingFilterDefOf.AllowNonDeadmansApparel.ToEnumerable();
 
-        private static IEnumerable<SpecialThingFilterDef> FoodSpecialFilters => SpecialThingFilterDefOf.AllowFresh.ToEnumerable();
-
-        [SyncMethod]
-        static void ThingFilter_DisallowAll_HelperStorage(IStoreSettingsParent storage) => storage.GetStoreSettings().filter.SetDisallowAll(null, null);
-
-        [SyncMethod]
-        static void ThingFilter_DisallowAll_HelperBill(Bill bill) => bill.ingredientFilter.SetDisallowAll(null, bill.recipe.forceHiddenSpecialFilters);
+        private static IEnumerable<SpecialThingFilterDef> FoodSpecialFilters
+            => SpecialThingFilterDefOf.AllowFresh.ToEnumerable();
 
         [SyncMethod]
-        static void ThingFilter_DisallowAll_HelperOutfit(Outfit outfit) => outfit.filter.SetDisallowAll(null, OutfitSpecialFilters);
+        static void ThingFilter_DisallowAll_HelperStorage(IStoreSettingsParent storage)
+            => storage.GetStoreSettings().filter.SetDisallowAll(null, null);
 
         [SyncMethod]
-        static void ThingFilter_DisallowAll_HelperFood(FoodRestriction food) => food.filter.SetDisallowAll(null, FoodSpecialFilters);
+        static void ThingFilter_DisallowAll_HelperBill(Bill bill)
+            => bill.ingredientFilter.SetDisallowAll(null, bill.recipe.forceHiddenSpecialFilters);
 
         [SyncMethod]
-        static void ThingFilter_AllowAll_HelperStorage(IStoreSettingsParent storage) => storage.GetStoreSettings().filter.SetAllowAll(storage.GetParentStoreSettings()?.filter);
+        static void ThingFilter_DisallowAll_HelperOutfit(Outfit outfit)
+            => outfit.filter.SetDisallowAll(null, OutfitSpecialFilters);
 
         [SyncMethod]
-        static void ThingFilter_AllowAll_HelperBill(Bill bill) => bill.ingredientFilter.SetAllowAll(bill.recipe.fixedIngredientFilter);
+        static void ThingFilter_DisallowAll_HelperFood(FoodRestriction food)
+            => food.filter.SetDisallowAll(null, FoodSpecialFilters);
 
         [SyncMethod]
-        static void ThingFilter_AllowAll_HelperOutfit(Outfit outfit) => outfit.filter.SetAllowAll(Dialog_ManageOutfits.apparelGlobalFilter);
+        static void ThingFilter_AllowAll_HelperStorage(IStoreSettingsParent storage)
+            => storage.GetStoreSettings().filter.SetAllowAll(storage.GetParentStoreSettings()?.filter);
 
         [SyncMethod]
-        static void ThingFilter_AllowAll_HelperFood(FoodRestriction food) => food.filter.SetAllowAll(Dialog_ManageFoodRestrictions.foodGlobalFilter);
+        static void ThingFilter_AllowAll_HelperBill(Bill bill)
+            => bill.ingredientFilter.SetAllowAll(bill.recipe.fixedIngredientFilter);
 
         [SyncMethod]
-        static void ThingFilter_AllowCategory_HelperStorage(IStoreSettingsParent storage, ThingCategoryDef categoryDef, bool allow) => ThingFilter_AllowCategory_Helper(storage.GetStoreSettings().filter, categoryDef, allow, storage.GetParentStoreSettings()?.filter, null, null);
+        static void ThingFilter_AllowAll_HelperOutfit(Outfit outfit)
+            => outfit.filter.SetAllowAll(Dialog_ManageOutfits.apparelGlobalFilter);
 
         [SyncMethod]
-        static void ThingFilter_AllowCategory_HelperBill(Bill bill, ThingCategoryDef categoryDef, bool allow) => ThingFilter_AllowCategory_Helper(bill.ingredientFilter, categoryDef, allow, bill.recipe.fixedIngredientFilter, null, bill.recipe.forceHiddenSpecialFilters);
+        static void ThingFilter_AllowAll_HelperFood(FoodRestriction food)
+            => food.filter.SetAllowAll(Dialog_ManageFoodRestrictions.foodGlobalFilter);
 
         [SyncMethod]
-        static void ThingFilter_AllowCategory_HelperOutfit(Outfit outfit, ThingCategoryDef categoryDef, bool allow) => ThingFilter_AllowCategory_Helper(outfit.filter, categoryDef, allow, Dialog_ManageOutfits.apparelGlobalFilter, null, OutfitSpecialFilters);
+        static void ThingFilter_AllowCategory_HelperStorage(IStoreSettingsParent storage, ThingCategoryDef categoryDef, bool allow)
+            => ThingFilter_AllowCategory_Helper(storage.GetStoreSettings().filter, categoryDef, allow, storage.GetParentStoreSettings()?.filter, null, null);
 
         [SyncMethod]
-        static void ThingFilter_AllowCategory_HelperFood(FoodRestriction food, ThingCategoryDef categoryDef, bool allow) => ThingFilter_AllowCategory_Helper(food.filter, categoryDef, allow, Dialog_ManageFoodRestrictions.foodGlobalFilter, null, FoodSpecialFilters);
+        static void ThingFilter_AllowCategory_HelperBill(Bill bill, ThingCategoryDef categoryDef, bool allow)
+            => ThingFilter_AllowCategory_Helper(bill.ingredientFilter, categoryDef, allow, bill.recipe.fixedIngredientFilter, null, bill.recipe.forceHiddenSpecialFilters);
+
+        [SyncMethod]
+        static void ThingFilter_AllowCategory_HelperOutfit(Outfit outfit, ThingCategoryDef categoryDef, bool allow)
+            => ThingFilter_AllowCategory_Helper(outfit.filter, categoryDef, allow, Dialog_ManageOutfits.apparelGlobalFilter, null, OutfitSpecialFilters);
+
+        [SyncMethod]
+        static void ThingFilter_AllowCategory_HelperFood(FoodRestriction food, ThingCategoryDef categoryDef, bool allow)
+            => ThingFilter_AllowCategory_Helper(food.filter, categoryDef, allow, Dialog_ManageFoodRestrictions.foodGlobalFilter, null, FoodSpecialFilters);
 
         static void ThingFilter_AllowCategory_Helper(ThingFilter filter, ThingCategoryDef categoryDef, bool allow, ThingFilter parentfilter, IEnumerable<ThingDef> forceHiddenDefs, IEnumerable<SpecialThingFilterDef> forceHiddenFilters)
         {
-            Listing_TreeThingFilter listing = new Listing_TreeThingFilter(filter, parentfilter, forceHiddenDefs, forceHiddenFilters, null);
-            listing.CalculateHiddenSpecialFilters(new TreeNode_ThingCategory(categoryDef));
-            filter.SetAllow(categoryDef, allow, forceHiddenDefs, listing.hiddenSpecialFilters);
+            // TODO 1.3: handle thing filters
+            //Listing_TreeThingFilter listing = new Listing_TreeThingFilter(filter, parentfilter, forceHiddenDefs, forceHiddenFilters, null);
+            //listing.CalculateHiddenSpecialFilters(new TreeNode_ThingCategory(categoryDef));
+            //filter.SetAllow(categoryDef, allow, forceHiddenDefs, listing.hiddenSpecialFilters);
         }
     }
 

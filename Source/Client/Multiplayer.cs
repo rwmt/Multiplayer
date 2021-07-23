@@ -377,7 +377,7 @@ namespace Multiplayer.Client
                 var effecterCleanup = typeof(Effecter).GetMethod(nameof(Effecter.Cleanup));
                 var randomBoltMesh = typeof(LightningBoltMeshPool).GetProperty(nameof(LightningBoltMeshPool.RandomBoltMesh)).GetGetMethod();
                 var drawTrackerCtor = typeof(Pawn_DrawTracker).GetConstructor(new[] { typeof(Pawn) });
-                var randomHair = typeof(PawnHairChooser).GetMethod(nameof(PawnHairChooser.RandomHairDefFor));
+                var randomHair = typeof(PawnStyleItemChooser).GetMethod(nameof(PawnStyleItemChooser.RandomHairFor));
 
                 var effectMethods = new MethodBase[] { subSustainerStart, sampleCtor, subSoundPlay, effecterTick, effecterTrigger, effecterCleanup, randomBoltMesh, drawTrackerCtor, randomHair };
                 var moteMethods = typeof(MoteMaker).GetMethods(BindingFlags.Static | BindingFlags.Public)
@@ -523,7 +523,7 @@ namespace Multiplayer.Client
             }
         }
 
-        private static HashSet<Type> IgnoredVanillaDefTypes = new HashSet<Type>
+        internal static HashSet<Type> IgnoredVanillaDefTypes = new HashSet<Type>
         {
             typeof(FeatureDef), typeof(HairDef),
             typeof(MainButtonDef), typeof(PawnTableDef),

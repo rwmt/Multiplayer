@@ -52,11 +52,11 @@ namespace Multiplayer.Client
             mapCmds[ScheduledCommand.Global] = Multiplayer.WorldComp.cmds;
 
             DeepProfiler.Start("Multiplayer SaveAndReload");
-            WriteElementPatch.cachedVals = new Dictionary<string, object>();
-            WriteElementPatch.id = 0;
+            //WriteElementPatch.cachedVals = new Dictionary<string, object>();
+            //WriteElementPatch.id = 0;
             XmlDocument gameDoc = SaveGame();
             DeepProfiler.End();
-            Log.Message($"Saving took {WriteElementPatch.cachedVals.Count} {WriteElementPatch.cachedVals.FirstOrDefault()}");
+            //Log.Message($"Saving took {WriteElementPatch.cachedVals.Count} {WriteElementPatch.cachedVals.FirstOrDefault()}");
 
             MapDrawerRegenPatch.copyFrom = drawers;
             WorldGridCachePatch.copyFrom = worldGridSaved;
@@ -73,8 +73,8 @@ namespace Multiplayer.Client
                 musicManager = Find.MusicManagerPlay;
             }
 
-            SpawnSetupPatch.total = 0;
-            SpawnSetupPatch.total2 = new long[SpawnSetupPatch.total2.Length];
+            //SpawnSetupPatch.total = 0;
+            //SpawnSetupPatch.total2 = new long[SpawnSetupPatch.total2.Length];
 
             LoadInMainThread(gameDoc);
 
@@ -109,7 +109,7 @@ namespace Multiplayer.Client
             Multiplayer.reloading = false;
             //SimpleProfiler.Pause();
 
-            Log.Message($"allocs {(double)SpawnSetupPatch.total2.Sum() / Stopwatch.Frequency * 1000} ({SpawnSetupPatch.total2.Select((l,i) => $"{SpawnSetupPatch.methods[i]}: {(double)l / Stopwatch.Frequency * 1000}").Join(delimiter: "\n")}) {SpawnSetupPatch.total} {AllocsPrefixClass.allocs} {CustomXmlElement.n} {CustomXmlElement.m} {CustomXmlElement.n - CustomXmlElement.m} {(double)CustomXmlElement.n/CustomXmlElement.m}");
+            //Log.Message($"allocs {(double)SpawnSetupPatch.total2.Sum() / Stopwatch.Frequency * 1000} ({SpawnSetupPatch.total2.Select((l,i) => $"{SpawnSetupPatch.methods[i]}: {(double)l / Stopwatch.Frequency * 1000}").Join(delimiter: "\n")}) {SpawnSetupPatch.total} {AllocsPrefixClass.allocs} {CustomXmlElement.n} {CustomXmlElement.m} {CustomXmlElement.n - CustomXmlElement.m} {(double)CustomXmlElement.n/CustomXmlElement.m}");
 
             return gameDoc;
         }

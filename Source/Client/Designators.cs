@@ -82,7 +82,7 @@ namespace Multiplayer.Client
             Multiplayer.Client.SendCommand(CommandType.Designator, map.uniqueID, writer.ToArray());
             Multiplayer.WriterLog.nodes.Add(writer.log.current);
 
-            MoteMaker.ThrowMetaPuffs(__0);
+            FleckMaker.ThrowMetaPuffs(__0);
 
             return false;
         }

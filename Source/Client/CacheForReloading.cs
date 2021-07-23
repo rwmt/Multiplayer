@@ -54,65 +54,6 @@ namespace Multiplayer.Client
         }
     }
 
-    //[HarmonyPatch(typeof(RegionAndRoomUpdater), nameof(RegionAndRoomUpdater.RebuildAllRegionsAndRooms))]
-    public static class RebuildRegionsAndRoomsPatch
-    {
-        public static Dictionary<int, RegionGrid> copyFrom = new Dictionary<int, RegionGrid>();
-
-        static bool Prefix(RegionAndRoomUpdater __instance)
-        {
-            Map map = __instance.map;
-            if (!copyFrom.TryGetValue(map.uniqueID, out RegionGrid oldRegions)) return true;
-
-            __instance.initialized = true;
-            map.temperatureCache.ResetTemperatureCache();
-
-            oldRegions.map = map; // for access to cellIndices in the iterator
-
-            foreach (Region r in oldRegions.AllRegions_NoRebuild_InvalidAllowed)
-            {
-                r.cachedAreaOverlaps = null;
-                r.cachedDangers.Clear();
-                r.mark = 0;
-                r.reachedIndex = 0;
-                r.closedIndex = new uint[RegionTraverser.NumWorkers];
-                r.cachedCellCount = -1;
-                r.mapIndex = (sbyte)map.Index;
-
-                if (r.door != null)
-                    r.door = map.ThingReplacement(r.door);
-
-                foreach (List<Thing> things in r.listerThings.listsByGroup.Concat(r.ListerThings.listsByDef.Values))
-                    if (things != null)
-                        for (int j = 0; j < things.Count; j++)
-                            if (things[j] != null)
-                                things[j] = map.ThingReplacement(things[j]);
-
-                Room rm = r.Room;
-                if (rm == null) continue;
-
-                rm.mapIndex = (sbyte)map.Index;
-                rm.cachedCellCount = -1;
-                rm.cachedOpenRoofCount = -1;
-                rm.statsAndRoleDirty = true;
-                rm.stats = new DefMap<RoomStatDef, float>();
-                rm.role = null;
-                rm.uniqueNeighbors.Clear();
-                rm.uniqueContainedThings.Clear();
-
-                RoomGroup rg = rm.groupInt;
-                rg.tempTracker.cycleIndex = 0;
-            }
-
-            for (int i = 0; i < oldRegions.regionGrid.Length; i++)
-                map.regionGrid.regionGrid[i] = oldRegions.regionGrid[i];
-
-            copyFrom.Remove(map.uniqueID);
-
-            return false;
-        }
-    }
-
     [HarmonyPatch(typeof(WorldGrid), MethodType.Constructor)]
     public static class WorldGridCachePatch
     {

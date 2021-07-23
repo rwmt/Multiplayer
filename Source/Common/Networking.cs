@@ -291,7 +291,7 @@ namespace Multiplayer.Common
 
         public override void Close(MpDisconnectReason reason, byte[] data)
         {
-            peer.Flush();
+            peer.NetManager.TriggerUpdate(); // todo: is this needed?
             peer.NetManager.DisconnectPeer(peer, GetDisconnectBytes(reason, data));
         }
 

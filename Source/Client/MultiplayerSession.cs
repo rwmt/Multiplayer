@@ -286,7 +286,7 @@ namespace Multiplayer.Client
             RealTime.moteList.Clear();
 
             Room.nextRoomID = 1;
-            RoomGroup.nextRoomGroupID = 1;
+            District.nextDistrictID = 1;
             Region.nextId = 1;
             ListerHaulables.groupCycleIndex = 0;
 

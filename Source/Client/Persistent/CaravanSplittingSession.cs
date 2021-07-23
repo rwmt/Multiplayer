@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using Verse;
 using RimWorld;
@@ -81,7 +81,19 @@ namespace Multiplayer.Client.Persistent
                 dialog.soundAppear = null;
             dialog.doCloseX = true;
 
-            CaravanUIUtility.CreateCaravanTransferableWidgets(transferables, out dialog.pawnsTransfer, out dialog.itemsTransfer, "SplitCaravanThingCountTip".Translate(), IgnorePawnsInventoryMode.Ignore, () => dialog.DestMassCapacity - dialog.DestMassUsage, false, caravan.Tile, false);
+            CaravanUIUtility.CreateCaravanTransferableWidgets(
+                transferables,
+                out dialog.pawnsTransfer,
+                out dialog.itemsTransfer,
+                out dialog.foodAndMedicineTransfer,
+                "SplitCaravanThingCountTip".Translate(),
+                IgnorePawnsInventoryMode.Ignore,
+                () => dialog.DestMassCapacity - dialog.DestMassUsage,
+                false,
+                caravan.Tile,
+                false
+            );
+
             dialog.CountToTransferChanged();
 
             Find.WindowStack.Add(dialog);
