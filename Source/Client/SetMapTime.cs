@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using RimWorld;
 using RimWorld.Planet;
 using System;
@@ -26,7 +26,7 @@ namespace Multiplayer.Client
             yield return AccessTools.Method(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.ChoicesAtFor));
         }
 
-        [HarmonyPriority(Priority.First + 1)]
+        [HarmonyPriority(MpPriority.MpFirst)]
         static void Prefix(ref TimeSnapshot? __state)
         {
             if (Multiplayer.Client == null || WorldRendererUtility.WorldRenderedNow || Find.CurrentMap == null) return;
@@ -46,14 +46,14 @@ namespace Multiplayer.Client
             yield return AccessTools.Method(typeof(Map), nameof(Map.FinalizeLoading));
         }
 
-        [HarmonyPriority(Priority.First + 1)]
+        [HarmonyPriority(MpPriority.MpFirst)]
         static void Prefix(Map __instance, ref TimeSnapshot? __state)
         {
             if (Multiplayer.Client == null) return;
             __state = TimeSnapshot.GetAndSetFromMap(__instance);
         }
 
-        [HarmonyPriority(Priority.Last - 1)]
+        [HarmonyPriority(MpPriority.MpLast)]
         static void Postfix(TimeSnapshot? __state) => __state?.Set();
     }
 

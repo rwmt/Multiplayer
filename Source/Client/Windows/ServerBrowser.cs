@@ -1,4 +1,4 @@
-﻿extern alias zip;
+extern alias zip;
 
 using LiteNetLib;
 using Multiplayer.Common;
@@ -18,12 +18,15 @@ using Verse;
 using Verse.Steam;
 using HarmonyLib;
 using zip::Ionic.Zip;
+using System.Collections.Concurrent;
+using Verse.Sound;
 
 namespace Multiplayer.Client
 {
+    [HotSwappable]
     public class ServerBrowser : Window
     {
-        private NetManager net;
+        private NetManager lanListener;
         private List<LanServer> servers = new List<LanServer>();
 
         public override Vector2 InitialSize => new Vector2(800f, 500f);
@@ -33,17 +36,21 @@ namespace Multiplayer.Client
             EventBasedNetListener listener = new EventBasedNetListener();
             listener.NetworkReceiveUnconnectedEvent += (endpoint, data, type) =>
             {
-                if (type != UnconnectedMessageType.DiscoveryRequest) return;
+                if (type != UnconnectedMessageType.Broadcast) return;
 
                 string s = Encoding.UTF8.GetString(data.GetRemainingBytes());
                 if (s == "mp-server")
                     AddOrUpdate(endpoint);
             };
 
-            net = new NetManager(listener);
-            net.DiscoveryEnabled = true;
-            net.ReuseAddress = true;
-            net.Start(5100);
+            lanListener = new NetManager(listener)
+            {
+                BroadcastReceiveEnabled = true,
+                ReuseAddress = true,
+                IPv6Enabled = IPv6Mode.Disabled
+            };
+
+            lanListener.Start(5100);
 
             doCloseX = true;
             closeOnAccept = false;
@@ -56,7 +63,7 @@ namespace Multiplayer.Client
 
         enum Tabs
         {
-            Lan, Direct, Steam, Host
+            Lan, Direct, Steam, Host, Changelog
         }
 
         public override void DoWindowContents(Rect inRect)
@@ -70,7 +77,9 @@ namespace Multiplayer.Client
             };
 
             inRect.yMin += 35f;
-            TabDrawer.DrawTabs(inRect, tabs);
+
+            TabDrawer.DrawTabs(inRect.LeftPartPixels(inRect.width - 50f), tabs);
+            AddChangelogButton(inRect);
 
             GUI.BeginGroup(new Rect(0, inRect.yMin, inRect.width, inRect.height));
             {
@@ -84,8 +93,46 @@ namespace Multiplayer.Client
                     DrawSteam(groupRect);
                 else if (tab == Tabs.Host)
                     DrawHost(groupRect);
+                else if (tab == Tabs.Changelog)
+                    DrawChangelog(groupRect);
             }
             GUI.EndGroup();
+        }
+
+        private void AddChangelogButton(Rect inRect)
+        {
+            Text.CurFontStyle.richText = true;
+
+            var tabChangelog = inRect.RightPartPixels(50f).TopPartPixels(32f).Up(31f);
+            new TabRecord("", null, tab == Tabs.Changelog).Draw(tabChangelog);
+
+            MouseoverSounds.DoRegion(tabChangelog, SoundDefOf.Mouseover_Tab);
+            if (Widgets.ButtonInvisible(tabChangelog, true))
+            {
+                SoundDefOf.RowTabSelect.PlayOneShotOnCamera();
+                tab = Tabs.Changelog;
+            }
+
+            if (Mouse.IsOver(tabChangelog))
+            {
+                GUI.color = Color.yellow;
+                tabChangelog.x += 2f;
+                tabChangelog.y -= 2f;
+            }
+
+            GUI.DrawTexture(tabChangelog.center.ExpandedBy(12f), Multiplayer.Newspaper);
+            GUI.color = Color.white;
+        }
+
+        private void DrawChangelog(Rect inRect)
+        {
+            inRect.xMin += 150f;
+            inRect.width -= 150f;
+            inRect.yMin += 25f;
+
+            Text.CurFontStyle.richText = true;
+
+            Widgets.Label(inRect, "<b><size=20>Multiplayer 0.6</size></b><color=#888888><size=12>   2020-06-31</size></color>\n- PVP\n\n\n<b><size=20>Multiplayer 0.5.1</size></b><color=#888888><size=12>   2020-05-28</size></color>\n- First version with a changelog!\n- Cool stuff");
         }
 
         private List<SaveFile> spSaves = new List<SaveFile>();
@@ -96,10 +143,15 @@ namespace Multiplayer.Client
         {
             selectedFile = null;
 
-            spSaves.Clear();
-            mpReplays.Clear();
+            spSaves = ReadSpSaves().ToList();
+            mpReplays = ReadMpSaves().ToList();
+        }
 
-            foreach (FileInfo file in GenFilePaths.AllSavedGameFiles)
+        private IEnumerable<SaveFile> ReadSpSaves()
+        {
+            var bag = new ConcurrentBag<SaveFile>();
+
+            GenThreading.ParallelForEach(GenFilePaths.AllSavedGameFiles.ToList(), file =>
             {
                 var saveFile = new SaveFile(Path.GetFileNameWithoutExtension(file.Name), false, file);
 
@@ -113,20 +165,28 @@ namespace Multiplayer.Client
                     Log.Warning("Exception loading save info of " + file.Name + ": " + ex.ToString());
                 }
 
-                spSaves.Add(saveFile);
-            }
+                bag.Add(saveFile);
+            });
 
+            return from f in bag orderby f.file.LastWriteTime descending select f;
+        }
+
+        private IEnumerable<SaveFile> ReadMpSaves()
+        {
+            var bag = new ConcurrentBag<SaveFile>();
             var replaysDir = new DirectoryInfo(GenFilePaths.FolderUnderSaveData("MpReplays"));
+            var toRead = replaysDir.GetFiles("*.zip", MpVersion.IsDebug ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly);
 
-            foreach (var file in replaysDir.GetFiles("*.zip", MpVersion.IsDebug ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly).OrderByDescending(f => f.LastWriteTime))
+            // todo remove unused threading
+            GenThreading.ParallelForEach(toRead.ToList(), file =>
             {
                 var displayName = Path.ChangeExtension(file.FullName.Substring(Multiplayer.ReplaysDir.Length + 1), null);
                 var saveFile = new SaveFile(displayName, true, file);
-                
+
                 try
                 {
                     var replay = Replay.ForLoading(file);
-                    if (!replay.LoadInfo()) continue;
+                    if (!replay.LoadInfo()) return;
 
                     saveFile.gameName = replay.info.name;
                     saveFile.protocol = replay.info.protocol;
@@ -142,8 +202,10 @@ namespace Multiplayer.Client
                     }
                     else
                     {
-                        using (var zip = replay.ZipFile)
-                            ReadSaveInfo(zip["world/000_save"].OpenReader(), saveFile);
+                        using (var zip = replay.ZipFile) {
+                            var stream = zip["world/000_save"].OpenReader();
+                            ReadSaveInfo(stream, saveFile);
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -151,8 +213,10 @@ namespace Multiplayer.Client
                     Log.Warning("Exception loading replay info of " + file.Name + ": " + ex.ToString());
                 }
 
-                mpReplays.Add(saveFile);
-            }
+                bag.Add(saveFile);
+            }, 1);
+
+            return from f in bag orderby f.file.LastWriteTime descending select f;
         }
 
         private void ReadSaveInfo(Stream stream, SaveFile save)
@@ -333,9 +397,9 @@ namespace Multiplayer.Client
 
                     var lineColor = new Color(1, 1, 1, 0.3f);
                     Widgets.DrawLine(entryRect.min, entryRect.TopRightCorner(), lineColor, 2f);
-                    Widgets.DrawLine(entryRect.min + new Vector2(2, 1), entryRect.BottomLeftCorner() + new Vector2(2, -1), lineColor, 2f);
+                    Widgets.DrawLine(entryRect.min - new Vector2(-1, -5), entryRect.BottomLeftCorner() - new Vector2(-1, -2), lineColor, 2f);
                     Widgets.DrawLine(entryRect.BottomLeftCorner(), entryRect.max, lineColor, 2f);
-                    Widgets.DrawLine(entryRect.TopRightCorner() - new Vector2(2, -1), entryRect.max - new Vector2(2, 1), lineColor, 2f);
+                    Widgets.DrawLine(entryRect.TopRightCorner() - new Vector2(1, -5), entryRect.max - new Vector2(1, -2), lineColor, 2f);
                 }
                 else if (i % 2 == 0)
                 {
@@ -350,7 +414,7 @@ namespace Multiplayer.Client
                 Text.Font = GameFont.Tiny;
 
                 var infoText = new Rect(entryRect.xMax - 120, entryRect.yMin + 3, 120, entryRect.height);
-                Widgets.Label(infoText, saveFile.file.LastWriteTime.ToString("g"));
+                Widgets.Label(infoText, saveFile.file.LastWriteTime.ToString("yyyy-MM-dd HH:mm"));
 
                 if (saveFile.gameName != null)
                 {
@@ -614,7 +678,7 @@ namespace Multiplayer.Client
 
         private void UpdateLan()
         {
-            net.PollEvents();
+            lanListener.PollEvents();
 
             for (int i = servers.Count - 1; i >= 0; i--)
             {
@@ -671,12 +735,12 @@ namespace Multiplayer.Client
 
         public override void PostClose()
         {
-            Cleanup();
+            Cleanup(false);
         }
 
-        public void Cleanup(bool sync = false)
+        public void Cleanup(bool sync)
         {
-            WaitCallback stop = s => net.Stop();
+            WaitCallback stop = s => lanListener.Stop();
 
             if (sync)
                 stop(null);

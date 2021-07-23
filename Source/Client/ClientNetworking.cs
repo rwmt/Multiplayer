@@ -1,6 +1,7 @@
-﻿using Ionic.Zlib;
+using Ionic.Zlib;
 using LiteNetLib;
 using Multiplayer.Common;
+using Multiplayer.Client.EarlyPatches;
 using RimWorld;
 using Steamworks;
 using System;
@@ -14,6 +15,7 @@ using System.Threading;
 using System.ComponentModel;
 using Verse;
 using UnityEngine;
+using System.IO;
 
 namespace Multiplayer.Client
 {
@@ -22,10 +24,17 @@ namespace Multiplayer.Client
         public static void TryConnect(string address, int port)
         {
             Multiplayer.session = new MultiplayerSession();
-            Multiplayer.session.mods.remoteAddress = address;
-            Multiplayer.session.mods.remotePort = port;
-            NetManager netClient = new NetManager(new MpClientNetListener());
 
+            // todo
+            //Multiplayer.session.mods.remoteAddress = address;
+            //Multiplayer.session.mods.remotePort = port;
+
+            NetManager netClient = new NetManager(new MpClientNetListener())
+            {
+                EnableStatistics = true,
+                IPv6Enabled = IPv6Mode.Disabled
+            };
+            
             netClient.Start();
             netClient.ReconnectDelay = 300;
             netClient.MaxConnectAttempts = 8;
@@ -57,18 +66,20 @@ namespace Multiplayer.Client
             }
 
             localServer.debugMode = debugMode;
-            localServer.debugOnlySyncCmds = new HashSet<int>(Sync.handlers.Where(h => h.debugOnly).Select(h => h.syncId));
-            localServer.hostOnlySyncCmds = new HashSet<int>(Sync.handlers.Where(h => h.hostOnly).Select(h => h.syncId));
+            localServer.debugOnlySyncCmds = Sync.handlers.Where(h => h.debugOnly).Select(h => h.syncId).ToHashSet();
+            localServer.hostOnlySyncCmds = Sync.handlers.Where(h => h.hostOnly).Select(h => h.syncId).ToHashSet();
             localServer.hostUsername = Multiplayer.username;
             localServer.coopFactionId = Faction.OfPlayer.loadID;
 
-            localServer.rwVersion = session.mods.remoteRwVersion = VersionControl.CurrentVersionString;
-            localServer.modNames = session.mods.remoteModNames = LoadedModManager.RunningModsListForReading.Select(m => m.Name).ToArray();
-            localServer.modIds = session.mods.remoteModIds = LoadedModManager.RunningModsListForReading.Select(m => m.PackageId).ToArray();
-            localServer.workshopModIds = session.mods.remoteWorkshopModIds = ModManagement.GetEnabledWorkshopMods().ToArray();
-            localServer.defInfos = session.mods.defInfo = Multiplayer.localDefInfos;
-            Log.Message($"MP Host modIds: {string.Join(", ", localServer.modIds)}");
-            Log.Message($"MP Host workshopIds: {string.Join(", ", localServer.workshopModIds)}");
+            localServer.rwVersion = /*session.mods.remoteRwVersion =*/ VersionControl.CurrentVersionString; // todo
+            // localServer.modNames = session.mods.remoteModNames = LoadedModManager.RunningModsListForReading.Select(m => m.Name).ToArray();
+            // localServer.modIds = session.mods.remoteModIds = LoadedModManager.RunningModsListForReading.Select(m => m.PackageId).ToArray();
+            // localServer.workshopModIds = session.mods.remoteWorkshopModIds = ModManagement.GetEnabledWorkshopMods().ToArray();
+            localServer.defInfos = /*session.mods.defInfo =*/ Multiplayer.localDefInfos;
+            localServer.serverData = JoinData.WriteServerData();
+            
+            //Log.Message($"MP Host modIds: {string.Join(", ", localServer.modIds)}");
+            //Log.Message($"MP Host workshopIds: {string.Join(", ", localServer.workshopModIds)}");
 
             if (settings.steam)
                 localServer.NetTick += SteamIntegration.ServerSteamNetTick;
@@ -80,7 +91,7 @@ namespace Multiplayer.Client
             session.localServer = localServer;
 
             if (!fromReplay)
-                SetupGame();
+                SetupGameFromSingleplayer();
 
             foreach (var tickable in TickPatch.AllTickables)
                 tickable.Cmds.Clear();
@@ -94,7 +105,7 @@ namespace Multiplayer.Client
 
             Find.MainTabsRoot.EscapeCurrentTab(false);
 
-            Multiplayer.session.AddMsg("If you are having a issue with the mod and would like some help resolving it, then please reach out to us on our discord server:", false);
+            Multiplayer.session.AddMsg("If you are having any issues with the mod and would like some help resolving them, then please reach out to us on our Discord server:", false);
             Multiplayer.session.AddMsg(new ChatMsg_Url("https://discord.gg/S4bxXpv"), false);
 
             if (withSimulation)
@@ -146,28 +157,36 @@ namespace Multiplayer.Client
             }
         }
 
-        private static void SetupGame()
+        private static void SetupGameFromSingleplayer()
         {
             MultiplayerWorldComp comp = new MultiplayerWorldComp(Find.World);
-            Faction dummyFaction = Find.FactionManager.AllFactions.FirstOrDefault(f => f.loadID == -1);
 
-            if (dummyFaction == null)
+            Faction NewFaction(int id, string name, FactionDef def)
             {
-                dummyFaction = new Faction() { loadID = -1, def = Multiplayer.DummyFactionDef };
+                Faction faction = Find.FactionManager.AllFactions.FirstOrDefault(f => f.loadID == id);
 
-                foreach (Faction other in Find.FactionManager.AllFactionsListForReading)
-                    dummyFaction.TryMakeInitialRelationsWith(other);
+                if (faction == null)
+                {
+                    faction = new Faction() { loadID = id, def = def };
 
-                Find.FactionManager.Add(dummyFaction);
+                    foreach (Faction other in Find.FactionManager.AllFactionsListForReading)
+                        faction.TryMakeInitialRelationsWith(other);
 
-                comp.factionData[dummyFaction.loadID] = FactionWorldData.New(dummyFaction.loadID);
+                    Find.FactionManager.Add(faction);
+
+                    comp.factionData[faction.loadID] = FactionWorldData.New(faction.loadID);
+                }
+
+                faction.Name = name;
+                faction.def = def;
+
+                return faction;
             }
 
-            dummyFaction.Name = "Multiplayer dummy faction";
-            dummyFaction.def = Multiplayer.DummyFactionDef;
+            Faction dummyFaction = NewFaction(-1, "Multiplayer dummy faction", Multiplayer.DummyFactionDef);
 
             Faction.OfPlayer.Name = $"{Multiplayer.username}'s faction";
-            comp.factionData[Faction.OfPlayer.loadID] = FactionWorldData.FromCurrent();
+            //comp.factionData[Faction.OfPlayer.loadID] = FactionWorldData.FromCurrent();
 
             Multiplayer.game = new MultiplayerGame
             {
@@ -176,6 +195,9 @@ namespace Multiplayer.Client
             };
 
             comp.globalIdBlock = new IdBlock(GetMaxUniqueId(), 1_000_000_000);
+
+            var opponent = NewFaction(Multiplayer.GlobalIdBlock.NextId(), "Opponent", Multiplayer.FactionDef);
+            opponent.TrySetRelationKind(Faction.OfPlayer, FactionRelationKind.Hostile, false);
 
             foreach (FactionWorldData data in comp.factionData.Values)
             {
@@ -194,11 +216,13 @@ namespace Multiplayer.Client
                 //mapComp.mapIdBlock = localServer.NextIdBlock();
 
                 BeforeMapGeneration.SetupMap(map);
+                BeforeMapGeneration.InitNewMapFactionData(map, opponent);
 
                 MapAsyncTimeComp async = map.AsyncTime();
                 async.mapTicks = Find.TickManager.TicksGame;
                 async.TimeSpeed = Find.TickManager.CurTimeSpeed;
             }
+
             Multiplayer.WorldComp.UpdateTimeSpeed();
         }
 
@@ -262,7 +286,7 @@ namespace Multiplayer.Client
             }
         }
 
-        private static int GetMaxUniqueId()
+        public static int GetMaxUniqueId()
         {
             return typeof(UniqueIDsManager)
                 .GetFields(BindingFlags.NonPublic | BindingFlags.Instance)
@@ -299,8 +323,22 @@ namespace Multiplayer.Client
 
         public void OnPeerDisconnected(NetPeer peer, DisconnectInfo info)
         {
-            var reader = new ByteReader(info.AdditionalData.GetRemainingBytes());
-            Multiplayer.session.HandleDisconnectReason((MpDisconnectReason)reader.ReadByte(), reader.ReadPrefixedBytes());
+            MpDisconnectReason reason;
+            byte[] data;
+
+            if (info.AdditionalData.IsNull)
+            {
+                reason = MpDisconnectReason.Generic;
+                data = new byte[0];
+            }
+            else
+            {
+                var reader = new ByteReader(info.AdditionalData.GetRemainingBytes());
+                reason = (MpDisconnectReason)reader.ReadByte();
+                data = reader.ReadPrefixedBytes();
+            }
+
+            Multiplayer.session.HandleDisconnectReason(reason, data);
 
             ConnectionStatusListeners.TryNotifyAll_Disconnected();
 
@@ -326,6 +364,7 @@ namespace Multiplayer.Client
         public void OnNetworkReceiveUnconnected(IPEndPoint remoteEndPoint, NetPacketReader reader, UnconnectedMessageType messageType) { }
     }
 
+    // Within same process
     public class LocalClientConnection : IConnection
     {
         public LocalServerConnection serverSide;
@@ -362,6 +401,7 @@ namespace Multiplayer.Client
         }
     }
 
+    // Within same process
     public class LocalServerConnection : IConnection
     {
         public LocalClientConnection clientSide;
@@ -402,9 +442,14 @@ namespace Multiplayer.Client
     {
         public readonly CSteamID remoteId;
 
-        public SteamBaseConn(CSteamID remoteId)
+        public readonly ushort recvChannel; // currently only for client
+        public readonly ushort sendChannel; // currently only for server
+
+        public SteamBaseConn(CSteamID remoteId, ushort recvChannel, ushort sendChannel)
         {
             this.remoteId = remoteId;
+            this.recvChannel = recvChannel;
+            this.sendChannel = sendChannel;
         }
 
         protected override void SendRaw(byte[] raw, bool reliable)
@@ -413,11 +458,24 @@ namespace Multiplayer.Client
             full[0] = reliable ? (byte)2 : (byte)0;
             raw.CopyTo(full, 1);
 
-            SteamNetworking.SendP2PPacket(remoteId, full, (uint)full.Length, reliable ? EP2PSend.k_EP2PSendReliable : EP2PSend.k_EP2PSendUnreliable, 0);
+            SendRawSteam(full, reliable);
+        }
+
+        public void SendRawSteam(byte[] raw, bool reliable)
+        {
+            SteamNetworking.SendP2PPacket(
+                remoteId,
+                raw,
+                (uint)raw.Length,
+                reliable ? EP2PSend.k_EP2PSendReliable : EP2PSend.k_EP2PSendUnreliable,
+                sendChannel
+            );
         }
 
         public override void Close(MpDisconnectReason reason, byte[] data)
         {
+            if (State == ConnectionStateEnum.ClientSteam) return;
+
             Send(Packets.Special_Steam_Disconnect, GetDisconnectBytes(reason, data));
         }
 
@@ -448,11 +506,10 @@ namespace Multiplayer.Client
 
     public class SteamClientConn : SteamBaseConn
     {
-        public SteamClientConn(CSteamID remoteId) : base(remoteId)
-        {
-            SteamIntegration.ClearChannel(0);
+        static ushort RandomChannelId() => (ushort)new System.Random().Next();
 
-            SteamNetworking.SendP2PPacket(remoteId, new byte[] { 1 }, 1, EP2PSend.k_EP2PSendReliable, 0);
+        public SteamClientConn(CSteamID remoteId) : base(remoteId, RandomChannelId(), 0)
+        {
         }
 
         protected override void HandleReceive(int msgId, int fragState, ByteReader reader, bool reliable)
@@ -478,7 +535,7 @@ namespace Multiplayer.Client
 
     public class SteamServerConn : SteamBaseConn
     {
-        public SteamServerConn(CSteamID remoteId) : base(remoteId)
+        public SteamServerConn(CSteamID remoteId, ushort clientChannel) : base(remoteId, 0, clientChannel)
         {
         }
 

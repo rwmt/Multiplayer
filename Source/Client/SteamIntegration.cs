@@ -1,4 +1,4 @@
-﻿using Multiplayer.Common;
+using Multiplayer.Common;
 using Steamworks;
 using System;
 using System.Collections.Generic;
@@ -10,8 +10,10 @@ using Verse;
 
 namespace Multiplayer.Client
 {
+    [HotSwappable]
     public static class SteamIntegration
     {
+        // Callbacks stored in static fields so they don't get GC'd
         private static Callback<P2PSessionRequest_t> sessionReq;
         private static Callback<P2PSessionConnectFail_t> p2pFail;
         private static Callback<FriendRichPresenceUpdate_t> friendRchpUpdate;
@@ -78,42 +80,45 @@ namespace Multiplayer.Client
             });
         }
 
-        public static IEnumerable<SteamPacket> ReadPackets()
+        public static IEnumerable<SteamPacket> ReadPackets(int recvChannel)
         {
-            while (SteamNetworking.IsP2PPacketAvailable(out uint size, 0))
+            while (SteamNetworking.IsP2PPacketAvailable(out uint size, recvChannel))
             {
                 byte[] data = new byte[size];
 
-                if (!SteamNetworking.ReadP2PPacket(data, size, out uint sizeRead, out CSteamID remote, 0)) continue;
+                if (!SteamNetworking.ReadP2PPacket(data, size, out uint sizeRead, out CSteamID remote, recvChannel)) continue;
                 if (data.Length <= 0) continue;
 
                 var reader = new ByteReader(data);
-                byte info = reader.ReadByte();
-                bool joinPacket = (info & 1) > 0;
-                bool reliable = (info & 2) > 0;
+                byte flags = reader.ReadByte();
+                bool joinPacket = (flags & 1) > 0;
+                bool reliable = (flags & 2) > 0;
+                bool hasChannel = (flags & 4) > 0;
+                ushort channel = hasChannel ? reader.ReadUShort() : (ushort)0;
 
-                yield return new SteamPacket() { remote = remote, data = reader, joinPacket = joinPacket, reliable = reliable };
+                yield return new SteamPacket() {
+                    remote = remote, data = reader, joinPacket = joinPacket, reliable = reliable, channel = channel
+                };
             }
-        }
-
-        public static void ClearChannel(int channel)
-        {
-            while (SteamNetworking.IsP2PPacketAvailable(out uint size, channel))
-                SteamNetworking.ReadP2PPacket(new byte[size], size, out uint sizeRead, out CSteamID remote, channel);
         }
 
         public static void ServerSteamNetTick(MultiplayerServer server)
         {
-            foreach (var packet in ReadPackets())
+            foreach (var packet in ReadPackets(0))
             {
-                if (packet.joinPacket)
-                    ClearChannel(0);
-
                 var player = server.players.FirstOrDefault(p => p.conn is SteamBaseConn conn && conn.remoteId == packet.remote);
 
                 if (packet.joinPacket && player == null)
                 {
-                    IConnection conn = new SteamServerConn(packet.remote);
+                    IConnection conn = new SteamServerConn(packet.remote, packet.channel);
+
+                    var preConnect = server.OnPreConnect(packet.remote);
+                    if (preConnect != null)
+                    {
+                        conn.Close(preConnect.Value);
+                        continue;
+                    }
+
                     conn.State = ConnectionStateEnum.ServerJoining;
                     player = server.OnConnected(conn);
                     player.type = PlayerType.Steam;
@@ -147,7 +152,8 @@ namespace Multiplayer.Client
                 if (steam)
                     SteamFriends.SetRichPresence("connect", $"{SteamConnectStart}{SteamUser.GetSteamID()}");
                 else
-                    SteamFriends.SetRichPresence("connect", null);
+                    // Null and empty string mentioned in the docs don't seem to work
+                    SteamFriends.SetRichPresence("connect", "nil");
 
                 lastSteam = steam;
             }
@@ -162,6 +168,7 @@ namespace Multiplayer.Client
         public ByteReader data;
         public bool joinPacket;
         public bool reliable;
+        public ushort channel;
     }
 
     public static class SteamImages

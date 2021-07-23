@@ -1,17 +1,13 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using Ionic.Zlib;
 using Multiplayer.Common;
+using RestSharp;
 using RimWorld;
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Security.Cryptography;
-using System.Text;
 using System.Xml;
-using RestSharp;
 using UnityEngine;
 using Verse;
 using Verse.Profile;
@@ -20,70 +16,67 @@ namespace Multiplayer.Client
 {
     public class ClientJoiningState : MpConnectionState
     {
-        public JoiningState state = JoiningState.Connected;
+        public JoiningState subState = JoiningState.Connected;
 
         public ClientJoiningState(IConnection connection) : base(connection)
         {
-            connection.Send(Packets.Client_Protocol, MpVersion.Protocol);
-
+            SendJoinData();
             ConnectionStatusListeners.TryNotifyAll_Connected();
         }
 
-        [PacketHandler(Packets.Server_ModList)]
-        [IsFragmented]
-        public void HandleModList(ByteReader data)
+        public void SendJoinData()
         {
-            Multiplayer.session.mods.remoteRwVersion = data.ReadString();
-            Multiplayer.session.mods.remoteModNames = data.ReadPrefixedStrings();
-            Multiplayer.session.mods.remoteModIds = data.ReadPrefixedStrings();
-            Multiplayer.session.mods.remoteWorkshopModIds = data.ReadPrefixedULongs();
-
-            var modConfigsCompressed = data.ReadPrefixedBytes();
-            Multiplayer.session.mods.remoteModConfigs = SimpleJson.DeserializeObject<Dictionary<string, string>>(GZipStream.UncompressString(modConfigsCompressed));
-
-            Multiplayer.session.mods.defInfo = Multiplayer.localDefInfos;
-
-            var modsMatch = ModManagement.ModsMatch(Multiplayer.session.mods.remoteModIds);
-            var modConfigsMatch = ModManagement.CheckModConfigsMatch(Multiplayer.session.mods.remoteModConfigs);
-            if (!modsMatch || !modConfigsMatch) {
-                if (!modConfigsMatch) {
-                    Log.Message($"MP Connect: client mod configs don't match server: {ModManagement.GetMismatchedModConfigs(Multiplayer.session.mods.remoteModConfigs).ToCommaList()}");
-                }
-                Find.WindowStack.windows.Clear();
-                Find.WindowStack.Add(new ModsMismatchWindow(
-                    Multiplayer.session.mods,
-                    SendClientDefs
-                ));
-                return;
-            }
-
-            SendClientDefs();
-        }
-
-        public void SendClientDefs()
-        {
-            var response = new ByteWriter();
-            response.WriteInt32(Multiplayer.localDefInfos.Count);
+            var defData = new ByteWriter();
+            defData.WriteInt32(Multiplayer.localDefInfos.Count);
 
             foreach (var kv in Multiplayer.localDefInfos)
             {
-                response.WriteString(kv.Key);
-                response.WriteInt32(kv.Value.count);
-                response.WriteInt32(kv.Value.hash);
+                defData.WriteString(kv.Key);
+                defData.WriteInt32(kv.Value.count);
+                defData.WriteInt32(kv.Value.hash);
             }
 
-            connection.Send(Packets.Client_Defs, response.ToArray());
+            connection.Send(Packets.Client_JoinData, MpVersion.Protocol, defData.ToArray());
         }
 
-        [PacketHandler(Packets.Server_DefsOK)]
-        public void HandleDefsOK(ByteReader data)
+        [PacketHandler(Packets.Server_JoinData)]
+        public void HandleJoinData(ByteReader data)
         {
             Multiplayer.session.gameName = data.ReadString();
             Multiplayer.session.playerId = data.ReadInt32();
 
+            var remoteInfo = new RemoteData();
+
+            remoteInfo.remoteRwVersion = data.ReadString();
+            remoteInfo.defInfo = Multiplayer.localDefInfos; // by ref, is that fine?
+
+            var defDiff = false;
+
+            foreach (var local in remoteInfo.defInfo)
+            {
+                var status = (DefCheckStatus)data.ReadByte();
+                local.Value.status = status;
+
+                if (status != DefCheckStatus.OK)
+                    defDiff = true;
+            }
+
+            JoinData.ReadServerData(data.ReadPrefixedBytes(), remoteInfo);
+
+            if (!JoinData.DataEqual(remoteInfo) || defDiff)
+            {
+                if (defDiff)
+                    OnMainThread.StopMultiplayer();
+
+                MpUtil.ClearWindowStack();
+                Find.WindowStack.Add(new MpModWindow(remoteInfo));
+
+                return;
+            }
+
             connection.Send(Packets.Client_Username, Multiplayer.username);
 
-            state = JoiningState.Downloading;
+            subState = JoiningState.Downloading;
         }
 
         [PacketHandler(Packets.Server_WorldData)]
@@ -218,6 +211,7 @@ namespace Multiplayer.Client
         Connected, Downloading
     }
 
+    [HotSwappable]
     public class ClientPlayingState : MpConnectionState
     {
         public ClientPlayingState(IConnection connection) : base(connection)
@@ -228,14 +222,13 @@ namespace Multiplayer.Client
         public void HandleTimeControl(ByteReader data)
         {
             int tickUntil = data.ReadInt32();
-            int remoteCmdId = data.ReadInt32();
+            int cmdId = data.ReadInt32();
 
-            if (TickPatch.tickUntil < tickUntil)
-            {
-                Multiplayer.session.remoteTickUntil = tickUntil;
-                Multiplayer.session.remoteCmdId = remoteCmdId;
-                Multiplayer.session.ProcessTimeControl();
-            }
+            if (TickPatch.tickUntil >= tickUntil) return;
+
+            Multiplayer.session.remoteTickUntil = tickUntil;
+            Multiplayer.session.remoteCmdId = cmdId;
+            Multiplayer.session.ProcessTimeControl();
         }
 
         [PacketHandler(Packets.Server_KeepAlive)]
@@ -253,6 +246,7 @@ namespace Multiplayer.Client
             ScheduledCommand cmd = ScheduledCommand.Deserialize(data);
             cmd.issuedBySelf = data.ReadBool();
             OnMainThread.ScheduleCommand(cmd);
+
             Multiplayer.session.localCmdId++;
             Multiplayer.session.ProcessTimeControl();
         }
@@ -419,9 +413,10 @@ namespace Multiplayer.Client
             int tick = data.ReadInt32();
             int diffAt = data.ReadInt32();
             var info = Multiplayer.game.sync.knownClientOpinions.FirstOrDefault(b => b.startTick == tick);
+            var side = MultiplayerMod.arbiterInstance ? "arbiter" : "host";
 
-            Log.Message($"{info?.desyncStackTraces.Count} arbiter traces");
-            File.WriteAllText("arbiter_traces.txt", info?.GetFormattedStackTracesForRange(diffAt) ?? "null");
+            Log.Message($"{info?.desyncStackTraces.Count} {side} traces {diffAt} / {Multiplayer.game.sync.knownClientOpinions.Select(o => o.startTick).Join()}");
+            File.WriteAllText($"{side}_traces.txt", info?.GetFormattedStackTracesForRange(diffAt) ?? "null");
         }
     }
 
@@ -429,7 +424,10 @@ namespace Multiplayer.Client
     {
         public ClientSteamState(IConnection connection) : base(connection)
         {
-            //connection.Send(Packets.Client_SteamRequest);
+            var steamConn = connection as SteamBaseConn;
+
+            // The flag byte is: joinPacket | reliable | hasChannel
+            steamConn.SendRawSteam(ByteWriter.GetBytes((byte)0b111, steamConn.recvChannel), true);
         }
 
         [PacketHandler(Packets.Server_SteamAccept)]

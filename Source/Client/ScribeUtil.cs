@@ -164,13 +164,13 @@ namespace Multiplayer.Client
 
         public static XmlDocument LoadDocument(byte[] data)
         {
-            using (MemoryStream stream = new MemoryStream(data))
-            using (XmlReader reader = XmlReader.Create(stream))
-            {
-                XmlDocument xmlDocument = new XmlDocument();
-                xmlDocument.Load(reader);
-                return xmlDocument;
-            }
+            using var stream = new MemoryStream(data);
+            using var reader = XmlReader.Create(stream);
+
+            XmlDocument xmlDocument = new XmlDocument();
+            xmlDocument.Load(reader);
+
+            return xmlDocument;
         }
 
         public static byte[] XmlToByteArray(XmlNode node, string rootNode = null, bool indent = false)
@@ -240,22 +240,11 @@ namespace Multiplayer.Client
             return element;
         }
 
-        /// <summary>
-        /// Dictionary Look with value type keys
-        /// </summary>
-        public static void LookWithValueKey<K, V>(ref Dictionary<K, V> dict, string label, LookMode valueLookMode, params object[] valueCtorArgs)
+        // Copy of RimWorld's method but with ctor args
+        public static void LookValueDeep<K, V>(ref Dictionary<K, V> dict, string label, params object[] valueCtorArgs)
         {
-            List<V> list = null;
-            LookWithValueKey(ref dict, label, valueLookMode, ref list, valueCtorArgs);
-        }
-
-        /// <summary>
-        /// Dictionary Look with value type keys
-        /// </summary>
-        public static void LookWithValueKey<K, V>(ref Dictionary<K, V> dict, string label, LookMode valueLookMode, ref List<V> valuesWorkingList, params object[] valueCtorArgs)
-        {
-            LookMode keyLookMode = LookMode.Value;
             List<K> keysWorkingList = null;
+            List<V> valuesWorkingList = null;
 
             if (Scribe.EnterNode(label))
             {
@@ -276,8 +265,8 @@ namespace Multiplayer.Client
                         }
                     }
 
-                    Scribe_Collections.Look(ref keysWorkingList, "keys", keyLookMode);
-                    Scribe_Collections.Look(ref valuesWorkingList, "values", valueLookMode, valueCtorArgs);
+                    Scribe_Collections.Look(ref keysWorkingList, "keys", LookMode.Value);
+                    Scribe_Collections.Look(ref valuesWorkingList, "values", LookMode.Deep, valueCtorArgs);
 
                     if (Scribe.mode == LoadSaveMode.Saving)
                     {
@@ -294,8 +283,7 @@ namespace Multiplayer.Client
                         }
                     }
 
-                    bool flag = keyLookMode == LookMode.Reference || valueLookMode == LookMode.Reference;
-                    if ((flag && Scribe.mode == LoadSaveMode.ResolvingCrossRefs) || (!flag && Scribe.mode == LoadSaveMode.LoadingVars))
+                    if (Scribe.mode == LoadSaveMode.LoadingVars)
                     {
                         dict.Clear();
                         if (keysWorkingList == null)

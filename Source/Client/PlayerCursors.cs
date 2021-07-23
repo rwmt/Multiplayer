@@ -25,7 +25,12 @@ namespace Multiplayer.Client
                 if (player.map != curMap) continue;
 
                 GUI.color = player.color * new Color(1, 1, 1, 0.5f);
-                var pos = Vector3.Lerp(player.lastCursor, player.cursor, (float)(Multiplayer.Clock.ElapsedMillisDouble() - player.updatedAt) / 50f).MapToUIPosition();
+
+                var pos = Vector3.Lerp(
+                    player.lastCursor,
+                    player.cursor,
+                    (float)(Multiplayer.Clock.ElapsedMillisDouble() - player.updatedAt) / 50f
+                ).MapToUIPosition();
 
                 var icon = Multiplayer.icons.ElementAtOrDefault(player.cursorIcon);
                 var drawIcon = icon ?? CustomCursor.CursorTex;

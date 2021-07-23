@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using Ionic.Zlib;
 using Multiplayer.Common;
 using RimWorld;
@@ -16,10 +16,12 @@ using Verse.Profile;
 
 namespace Multiplayer.Client
 {
+    [HotSwappable]
     public static class SaveLoad
     {
         public static XmlDocument SaveAndReload()
         {
+            //SimpleProfiler.Start();
             Multiplayer.reloading = true;
 
             var worldGridSaved = Find.WorldGrid;
@@ -30,13 +32,11 @@ namespace Multiplayer.Client
             var mapCmds = new Dictionary<int, Queue<ScheduledCommand>>();
             var planetRenderMode = Find.World.renderer.wantedMode;
             var chatWindow = ChatWindow.Opened;
-            var oldSong = Find.MusicManagerPlay.lastStartedSong;
-            var oldSongTime = Find.MusicManagerPlay.audioSource?.time;
 
             var selectedData = new ByteWriter();
             Sync.WriteSync(selectedData, Find.Selector.selected.OfType<ISelectable>().ToList());
 
-            //RealPlayerFaction = DummyFaction;
+            //Multiplayer.RealPlayerFaction = Multiplayer.DummyFaction;
 
             foreach (Map map in Find.Maps)
             {
@@ -51,15 +51,35 @@ namespace Multiplayer.Client
 
             mapCmds[ScheduledCommand.Global] = Multiplayer.WorldComp.cmds;
 
-            Stopwatch watch = Stopwatch.StartNew();
+            DeepProfiler.Start("Multiplayer SaveAndReload");
+            WriteElementPatch.cachedVals = new Dictionary<string, object>();
+            WriteElementPatch.id = 0;
             XmlDocument gameDoc = SaveGame();
-            Log.Message("Saving took " + watch.ElapsedMilliseconds);
+            DeepProfiler.End();
+            Log.Message($"Saving took {WriteElementPatch.cachedVals.Count} {WriteElementPatch.cachedVals.FirstOrDefault()}");
 
             MapDrawerRegenPatch.copyFrom = drawers;
             WorldGridCachePatch.copyFrom = worldGridSaved;
+            WorldGridExposeDataPatch.copyFrom = worldGridSaved;
             WorldRendererCachePatch.copyFrom = worldRendererSaved;
 
+            MusicManagerPlay musicManager = null;
+            if (Find.MusicManagerPlay.gameObjectCreated)
+            {
+                var musicTransform = Find.MusicManagerPlay.audioSource.transform;
+                if (musicTransform.parent == Find.Root.soundRoot.sourcePool.sourcePoolCamera.cameraSourcesContainer.transform)
+                    musicTransform.parent = musicTransform.parent.parent;
+
+                musicManager = Find.MusicManagerPlay;
+            }
+
+            SpawnSetupPatch.total = 0;
+            SpawnSetupPatch.total2 = new long[SpawnSetupPatch.total2.Length];
+
             LoadInMainThread(gameDoc);
+
+            if (musicManager != null)
+                Current.Root_Play.musicManagerPlay = musicManager;
 
             Multiplayer.RealPlayerFaction = Find.FactionManager.GetById(localFactionId);
 
@@ -80,15 +100,6 @@ namespace Multiplayer.Client
             if (chatWindow != null)
                 Find.WindowStack.Add_KeepRect(chatWindow);
 
-            if (oldSong != null && oldSongTime != null) {
-                // resume previous music track
-                Find.MusicManagerPlay.MusicUpdate(); // seems to need to run for a tick after a reload to avoid null exceptions
-                Find.MusicManagerPlay.ForceStartSong(oldSong, false);
-                Find.MusicManagerPlay.songWasForced = false; // make it look like this song was chosen naturally, so the leadin to the next song is smooth
-                Find.MusicManagerPlay.recentSongs.Dequeue();
-                Find.MusicManagerPlay.audioSource.time = (float) oldSongTime;
-            }
-
             var selectedReader = new ByteReader(selectedData.ToArray()) { context = new MpContext() { map = Find.CurrentMap } };
             Find.Selector.selected = Sync.ReadSync<List<ISelectable>>(selectedReader).NotNull().Cast<object>().ToList();
 
@@ -96,13 +107,16 @@ namespace Multiplayer.Client
             Multiplayer.WorldComp.cmds = mapCmds[ScheduledCommand.Global];
 
             Multiplayer.reloading = false;
+            //SimpleProfiler.Pause();
+
+            Log.Message($"allocs {(double)SpawnSetupPatch.total2.Sum() / Stopwatch.Frequency * 1000} ({SpawnSetupPatch.total2.Select((l,i) => $"{SpawnSetupPatch.methods[i]}: {(double)l / Stopwatch.Frequency * 1000}").Join(delimiter: "\n")}) {SpawnSetupPatch.total} {AllocsPrefixClass.allocs} {CustomXmlElement.n} {CustomXmlElement.m} {CustomXmlElement.n - CustomXmlElement.m} {(double)CustomXmlElement.n/CustomXmlElement.m}");
 
             return gameDoc;
         }
 
         public static void LoadInMainThread(XmlDocument gameDoc)
         {
-            var watch = Stopwatch.StartNew();
+            DeepProfiler.Start("Multiplayer LoadInMainThread");
 
             ClearState();
             MemoryUtility.ClearAllMapsAndWorld();
@@ -119,20 +133,23 @@ namespace Multiplayer.Client
             // SaveCompression enabled in the patch
             SavedGameLoaderNow.LoadGameFromSaveFileNow(null);
 
-            Log.Message("Loading took " + watch.ElapsedMilliseconds);
+            Log.Message($"loading stack {FactionContext.stack.Count}");
+
+            DeepProfiler.End();
         }
 
         private static void ClearState()
         {
             if (Find.MusicManagerPlay != null)
             {
-                // todo destroy other game objects?
-                UnityEngine.Object.Destroy(Find.MusicManagerPlay.audioSource?.gameObject);
-                UnityEngine.Object.Destroy(Find.SoundRoot.sourcePool.sourcePoolCamera.cameraSourcesContainer);
-                UnityEngine.Object.Destroy(Find.SoundRoot.sourcePool.sourcePoolWorld.sourcesWorld[0].gameObject);
+                var pool = Find.SoundRoot.sourcePool;
 
                 foreach (var sustainer in Find.SoundRoot.sustainerManager.AllSustainers.ToList())
                     sustainer.Cleanup();
+
+                // todo destroy other game objects?
+                UnityEngine.Object.Destroy(pool.sourcePoolCamera.cameraSourcesContainer);
+                UnityEngine.Object.Destroy(pool.sourcePoolWorld.sourcesWorld[0].gameObject);
             }
         }
 
@@ -141,6 +158,7 @@ namespace Multiplayer.Client
             SaveCompression.doSaveCompression = true;
 
             ScribeUtil.StartWritingToDoc();
+
             Scribe.EnterNode("savegame");
             ScribeMetaHeaderUtility.WriteMetaHeader();
             Scribe.EnterNode("game");
@@ -275,6 +293,7 @@ namespace Multiplayer.Client
     {
         static void Postfix()
         {
+            CacheAverageTileTemperature.Clear();
             Multiplayer.game?.OnDestroy();
             Multiplayer.game = null;
         }

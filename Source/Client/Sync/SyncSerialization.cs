@@ -107,18 +107,16 @@ namespace Multiplayer.Client
 
         public static object ReadSyncObject(ByteReader data, SyncType syncType)
         {
-            SyncLogger log = null;
-            if (data is LoggingByteReader logger)
-            {
-                log = logger.log;
-                log.Enter(syncType.type.FullName);
-            }
+            var log = (data as LoggingByteReader)?.log;
+            Type type = syncType.type;
+
+            log?.Enter(type.FullName);
 
             try
             {
-                object obj = ReadSyncObjectInternal(data, syncType);
-                log?.AppendToCurrentName($": {obj}");
-                return obj;
+                object val = ReadSyncObjectInternal(data, syncType);
+                log?.AppendToCurrentName($": {val}");
+                return val;
             }
             finally
             {
@@ -126,7 +124,7 @@ namespace Multiplayer.Client
             }
         }
 
-        static object ReadSyncObjectInternal(ByteReader data, SyncType syncType)
+        private static object ReadSyncObjectInternal(ByteReader data, SyncType syncType)
         {
             MpContext context = data.MpContext();
             Map map = context.map;
@@ -173,9 +171,9 @@ namespace Multiplayer.Client
                 }
 
                 if (type.IsEnum) {
-                    Type enumType = Enum.GetUnderlyingType(type);
+                    Type underlyingType = Enum.GetUnderlyingType(type);
 
-                    return ReadSyncObject(data, enumType);
+                    return Enum.ToObject(type, ReadSyncObject(data, underlyingType));
                 }
 
                 if (type.IsArray && type.GetArrayRank() == 1)
@@ -305,8 +303,8 @@ namespace Multiplayer.Client
             MpContext context = data.MpContext();
             Type type = syncType.type;
 
-            LoggingByteWriter logger = data as LoggingByteWriter;
-            logger?.log.Enter(type.FullName + ": " + (obj ?? "null"));
+            var log = (data as LoggingByteWriter)?.log;
+            log?.Enter($"{type.FullName}: {obj ?? "null"}");
 
             if (obj != null && !type.IsAssignableFrom(obj.GetType()))
                 throw new SerializationException($"Serializing with type {type} but got object of type {obj.GetType()}");
@@ -335,7 +333,9 @@ namespace Multiplayer.Client
                         throw new SerializationException($"Type {type} can't be exposed because it isn't IExposable");
 
                     IExposable exposable = obj as IExposable;
-                    data.WritePrefixedBytes(ScribeUtil.WriteExposable(exposable));
+                    byte[] xmlData = ScribeUtil.WriteExposable(exposable);
+                    LogXML(log, xmlData);
+                    data.WritePrefixedBytes(xmlData);
 
                     return;
                 }
@@ -484,7 +484,7 @@ namespace Multiplayer.Client
                     return;
                 }
 
-                logger?.log.Node("No writer for " + type);
+                log?.Node("No writer for " + type);
                 throw new SerializationException("No writer for type " + type);
 
             }
@@ -495,7 +495,7 @@ namespace Multiplayer.Client
             }
             finally
             {
-                logger?.log.Exit();
+                log?.Exit();
             }
         }
 
@@ -583,6 +583,36 @@ namespace Multiplayer.Client
 
             if (mapComp.transporterLoading != null)
                 yield return mapComp.transporterLoading;
+        }
+
+        private static void LogXML(SyncLogger log, byte[] xmlData)
+        {
+            if (log == null) return;
+
+            var reader = XmlReader.Create(new MemoryStream(xmlData));
+
+            while (reader.Read())
+            {
+                if (reader.NodeType == XmlNodeType.Element)
+                {
+                    string name = reader.Name;
+                    if (reader.GetAttribute("IsNull") == "True")
+                        name += " (IsNull)";
+
+                    if (reader.IsEmptyElement)
+                        log.Node(name);
+                    else
+                        log.Enter(name);
+                }
+                else if (reader.NodeType == XmlNodeType.EndElement)
+                {
+                    log.Exit();
+                }
+                else if (reader.NodeType == XmlNodeType.Text)
+                {
+                    log.AppendToCurrentName($": {reader.Value}");
+                }
+            }
         }
     }
 

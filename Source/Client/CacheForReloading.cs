@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
@@ -118,7 +118,7 @@ namespace Multiplayer.Client
     {
         public static WorldGrid copyFrom;
 
-        static bool Prefix(WorldGrid __instance, int ___cachedTraversalDistance, int ___cachedTraversalDistanceForStart, int ___cachedTraversalDistanceForEnd)
+        static bool Prefix(WorldGrid __instance, ref int ___cachedTraversalDistance, ref int ___cachedTraversalDistanceForStart, ref int ___cachedTraversalDistanceForEnd)
         {
             if (copyFrom == null) return true;
 
@@ -137,6 +137,42 @@ namespace Multiplayer.Client
             ___cachedTraversalDistanceForStart = -1;
             ___cachedTraversalDistanceForEnd = -1;
 
+            copyFrom = null;
+
+            return false;
+        }
+    }
+
+    [HarmonyPatch(typeof(WorldGrid), nameof(WorldGrid.ExposeData))]
+    public static class WorldGridExposeDataPatch
+    {
+        public static WorldGrid copyFrom;
+
+        static bool Prefix(WorldGrid __instance)
+        {
+            if (copyFrom == null) return true;
+
+            WorldGrid grid = __instance;
+
+            grid.tileBiome = copyFrom.tileBiome;
+            grid.tileElevation = copyFrom.tileElevation;
+            grid.tileHilliness = copyFrom.tileHilliness;
+            grid.tileTemperature = copyFrom.tileTemperature;
+            grid.tileRainfall = copyFrom.tileRainfall;
+            grid.tileSwampiness = copyFrom.tileSwampiness;
+            grid.tileFeature = copyFrom.tileFeature;
+            grid.tileRoadOrigins = copyFrom.tileRoadOrigins;
+            grid.tileRoadAdjacency = copyFrom.tileRoadAdjacency;
+            grid.tileRoadDef = copyFrom.tileRoadDef;
+            grid.tileRiverOrigins = copyFrom.tileRiverOrigins;
+            grid.tileRiverAdjacency = copyFrom.tileRiverAdjacency;
+            grid.tileRiverDef = copyFrom.tileRiverDef;
+
+            // This is plain old data apart from the WorldFeature feature field which is a reference
+            // It later gets reset in WorldFeatures.ExposeData though so it can be safely copied
+            grid.tiles = copyFrom.tiles;
+
+            // ExposeData runs multiple times but WorldGrid only needs LoadSaveMode.LoadingVars
             copyFrom = null;
 
             return false;

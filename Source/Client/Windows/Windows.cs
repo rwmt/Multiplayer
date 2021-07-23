@@ -136,7 +136,7 @@ namespace Multiplayer.Client
             x += 120 + 10;
 
             if (Widgets.ButtonText(new Rect(x, 0, 120, 35), "MpChatButton".Translate()))
-                Find.WindowStack.Add(new ChatWindow() { closeOnClickedOutside = true, absorbInputAroundWindow = true });
+                Find.WindowStack.Add(new ChatWindow() { closeOnClickedOutside = true, absorbInputAroundWindow = true, saveSize = false });
             x += 120 + 10;
 
             if (Widgets.ButtonText(new Rect(x, 0, 120, 35), "Quit".Translate()))

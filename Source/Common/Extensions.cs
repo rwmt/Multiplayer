@@ -18,12 +18,12 @@ namespace Multiplayer.Common
             return t.IsValueType ? Activator.CreateInstance(t) : null;
         }
 
-        public static V AddOrGet<K, V>(this Dictionary<K, V> dict, K obj, V defaultValue)
+        public static V AddOrGet<K, V>(this Dictionary<K, V> dict, K key, Func<K, V> defaultValueGetter)
         {
-            if (!dict.TryGetValue(obj, out V value))
+            if (!dict.TryGetValue(key, out V value))
             {
-                value = defaultValue;
-                dict[obj] = value;
+                value = defaultValueGetter(key);
+                dict[key] = value;
             }
 
             return value;
@@ -31,7 +31,7 @@ namespace Multiplayer.Common
 
         public static V GetOrAddNew<K, V>(this Dictionary<K, V> dict, K obj) where V : new()
         {
-            return AddOrGet(dict, obj, new V());
+            return AddOrGet(dict, obj, k => new V());
         }
 
         public static IEnumerable<T> ToEnumerable<T>(this T input)

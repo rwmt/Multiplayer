@@ -1,12 +1,10 @@
-﻿using LiteNetLib;
+using LiteNetLib;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Reflection;
 using System.Text;
-using Verse;
 
 namespace Multiplayer.Common
 {
@@ -259,6 +257,8 @@ namespace Multiplayer.Common
         ServerFull,
         Kick,
         ClientLeft,
+        Throttled,
+        Internal,
     }
 
     public class PacketReadException : Exception
@@ -433,8 +433,9 @@ namespace Multiplayer.Common
                 foreach (object o in list)
                     Write(o);
             }
-            else {
-                Log.Error($"MP ByteWriter.Write: Unknown type {obj.GetType().ToString()}");
+            else
+            {
+                MpLog.Error($"MP ByteWriter.Write: Unknown type {obj.GetType()}");
             }
         }
 

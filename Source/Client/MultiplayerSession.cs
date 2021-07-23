@@ -1,4 +1,6 @@
-﻿using LiteNetLib;
+using LiteNetLib;
+using Multiplayer.Client.Desyncs;
+using Multiplayer.Client.EarlyPatches;
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.BaseGen;
@@ -44,8 +46,6 @@ namespace Multiplayer.Client
         public string disconnectReasonKey;
         public string disconnectInfo;
 
-        public SessionModInfo mods = new SessionModInfo();
-
         public bool allowSteam;
         public List<CSteamID> pendingSteam = new List<CSteamID>();
         public List<CSteamID> knownUsers = new List<CSteamID>();
@@ -53,7 +53,6 @@ namespace Multiplayer.Client
 
         public const int MaxMessages = 200;
         public List<ChatMsg> messages = new List<ChatMsg>();
-        public Rect chatPos;
         public bool hasUnread;
 
         public MultiplayerServer localServer;
@@ -132,8 +131,8 @@ namespace Multiplayer.Client
             {
                 reasonKey = "MpWrongProtocol";
 
-                string strVersion = data.Length != 0 ? reader.ReadString() : "0.4.2";
-                int proto = data.Length != 0 ? reader.ReadInt32() : 11;
+                string strVersion = reader.ReadString();
+                int proto = reader.ReadInt32();
 
                 disconnectInfo = "MpWrongMultiplayerVersionInfo".Translate(strVersion, proto);
             }
@@ -144,18 +143,6 @@ namespace Multiplayer.Client
             if (reason == MpDisconnectReason.ServerClosed) reasonKey = "MpServerClosed";
             if (reason == MpDisconnectReason.ServerFull) reasonKey = "MpServerFull";
             if (reason == MpDisconnectReason.Kick) reasonKey = "MpKicked";
-
-            if (reason == MpDisconnectReason.Defs)
-            {
-                foreach (var local in mods.defInfo)
-                {
-                    var status = (DefCheckStatus)reader.ReadByte();
-                    local.Value.status = status;
-
-                    if (MultiplayerMod.arbiterInstance && status != DefCheckStatus.OK)
-                        Log.Message($"{local.Key}: {status}");
-                }
-            }
 
             disconnectReason = reason;
             disconnectReasonKey = reasonKey?.Translate();
@@ -168,17 +155,12 @@ namespace Multiplayer.Client
 
         public void Disconnected()
         {
-            Find.WindowStack.windows.Clear();
+            MpUtil.ClearWindowStack();
 
-            if (disconnectReason == MpDisconnectReason.Defs) {
-                Find.WindowStack.Add(new DefMismatchWindow(mods));
-            }
-            else if (disconnectReason == MpDisconnectReason.ServerFull) {
-                Find.WindowStack.Add(new DisconnectedWindow(disconnectReasonKey, disconnectInfo));
-            }
-            else {
-                Find.WindowStack.Add(new DisconnectedWindow(disconnectReasonKey, disconnectInfo) {returnToServerBrowser = Multiplayer.Client.State != ConnectionStateEnum.ClientPlaying});
-            }
+            Find.WindowStack.Add(new DisconnectedWindow(disconnectReasonKey, disconnectInfo)
+            {
+                returnToServerBrowser = Multiplayer.Client?.State != ConnectionStateEnum.ClientPlaying
+            });
         }
 
         public void ReapplyPrefs()
@@ -189,22 +171,8 @@ namespace Multiplayer.Client
         public void ProcessTimeControl()
         {
             if (localCmdId >= remoteCmdId)
-            {
                 TickPatch.tickUntil = remoteTickUntil;
-            }
         }
-    }
-
-    public class SessionModInfo
-    {
-        public string remoteRwVersion;
-        public string[] remoteModNames;
-        public string[] remoteModIds;
-        public ulong[] remoteWorkshopModIds;
-        public Dictionary<string, string> remoteModConfigs;
-        public Dictionary<string, DefInfo> defInfo;
-        public string remoteAddress;
-        public int remotePort;
     }
 
     public class PlayerInfo
@@ -267,6 +235,7 @@ namespace Multiplayer.Client
         }
     }
 
+    [HotSwappable]
     public class MultiplayerGame
     {
         public SyncCoordinator sync = new SyncCoordinator();
@@ -299,6 +268,8 @@ namespace Multiplayer.Client
 
         public MultiplayerGame()
         {
+            DeferredStackTracing.acc = 0;
+
             Toils_Ingest.cardinals = GenAdj.CardinalDirections.ToList();
             Toils_Ingest.diagonals = GenAdj.DiagonalDirections.ToList();
             GenAdj.adjRandomOrderList = null;
@@ -341,15 +312,16 @@ namespace Multiplayer.Client
 
         public static void ClearPortraits()
         {
-            foreach (var cachedPortrait in PortraitsCache.cachedPortraits)
+            foreach (var portraitParams in PortraitsCache.cachedPortraits)
             {
-                foreach (var kv in cachedPortrait.CachedPortraits.ToList())
+                foreach (var portrait in portraitParams.CachedPortraits.ToList())
                 {
-                    var value = kv.Value;
-                    value.LastUseTime = Time.time - 2f;
-                    cachedPortrait.CachedPortraits[kv.Key] = value;
+                    var cached = portrait.Value;
+                    cached.LastUseTime = Time.time - 2f; // RimWorld expires portraits that have been unused for more than 1 second
+                    portraitParams.CachedPortraits[portrait.Key] = cached;
                 }
             }
+
             PortraitsCache.RemoveExpiredCachedPortraits();
         }
 

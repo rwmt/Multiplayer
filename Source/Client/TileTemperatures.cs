@@ -1,4 +1,5 @@
-﻿using HarmonyLib;
+using HarmonyLib;
+using RimWorld;
 using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
@@ -47,6 +48,36 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.InInterface && __instance != Multiplayer.WorldComp.uiTemperatures)
                 Multiplayer.WorldComp.uiTemperatures.WorldComponentTick();
+        }
+    }
+
+    [HarmonyPatch(typeof(GenTemperature), nameof(GenTemperature.AverageTemperatureAtTileForTwelfth))]
+    static class CacheAverageTileTemperature
+    {
+        static Dictionary<int, float[]> averageTileTemps = new Dictionary<int, float[]>();
+
+        static bool Prefix(int tile, Twelfth twelfth)
+        {
+            return !averageTileTemps.TryGetValue(tile, out float[] arr) || arr[(int)twelfth] == float.NaN;
+        }
+
+        static void Postfix(int tile, Twelfth twelfth, ref float __result)
+        {
+            if (averageTileTemps.TryGetValue(tile, out float[] arr) && arr[(int)twelfth] != float.NaN)
+            {
+                __result = arr[(int)twelfth];
+                return;
+            }
+
+            if (arr == null)
+                averageTileTemps[tile] = Enumerable.Repeat(float.NaN, 12).ToArray();
+
+            averageTileTemps[tile][(int)twelfth] = __result;
+        }
+
+        public static void Clear()
+        {
+            averageTileTemps.Clear();
         }
     }
 

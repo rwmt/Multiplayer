@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using Multiplayer.Common;
 using System;
 using System.Collections.Generic;
@@ -99,7 +99,7 @@ namespace Multiplayer.Client
 
         }
 
-            public static void DoAllMpPatches(this Harmony harmony)
+        public static void DoAllMpPatches(this Harmony harmony)
         {
             foreach (Type type in Assembly.GetCallingAssembly().GetTypes())
             {
@@ -282,7 +282,7 @@ namespace Multiplayer.Client
 
     public static class MpPriority
     {
-        public const int MpLast = Priority.Last - 2;
+        public const int MpLast = Priority.Last - 2; // -1 is a special case in Harmony
         public const int MpFirst = Priority.First + 1;
     }
 

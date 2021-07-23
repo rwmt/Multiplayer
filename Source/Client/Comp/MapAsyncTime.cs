@@ -654,7 +654,7 @@ namespace Multiplayer.Client
 
         public void PreContext()
         {
-            //map.PushFaction(map.ParentFaction);
+            map.PushFaction(map.ParentFaction); // bullets?
 
             prevTime = TimeSnapshot.GetAndSetFromMap(map);
 
@@ -686,7 +686,7 @@ namespace Multiplayer.Client
             randState = Rand.StateCompressed;
             Rand.PopState();
 
-            //map.PopFaction();
+            map.PopFaction();
         }
 
         public void ExposeData()
@@ -870,14 +870,9 @@ namespace Multiplayer.Client
             Faction faction = Find.FactionManager.GetById(factionId);
             MultiplayerMapComp comp = map.MpComp();
 
-            if (!comp.factionMapData.ContainsKey(factionId))
+            if (!comp.factionData.ContainsKey(factionId))
             {
-                FactionMapData factionMapData = FactionMapData.New(factionId, map);
-                comp.factionMapData[factionId] = factionMapData;
-
-                factionMapData.areaManager.AddStartingAreas();
-                map.pawnDestinationReservationManager.GetPawnDestinationSetFor(faction);
-
+                BeforeMapGeneration.InitNewMapFactionData(map, faction);
                 MpLog.Log($"New map faction data for {faction.GetUniqueLoadID()}");
             }
         }

@@ -1,4 +1,4 @@
-﻿extern alias zip;
+extern alias zip;
 
 using Multiplayer.Common;
 using RimWorld;
@@ -7,24 +7,26 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Xml;
+using System.Xml.Serialization;
 using UnityEngine;
 using Verse;
 using zip::Ionic.Zip;
 
 namespace Multiplayer.Client
 {
+    [HotSwappable]
     public class Replay
     {
-        private FileInfo file;
         public ReplayInfo info;
 
         private Replay(FileInfo file)
         {
-            this.file = file;
+            File = file;
         }
 
-        public FileInfo File => file;
-        public ZipFile ZipFile => new ZipFile(file.FullName);
+        public FileInfo File { get; }
+        public ZipFile ZipFile => new ZipFile(File.FullName);
 
         public void WriteCurrentData()
         {
@@ -75,23 +77,19 @@ namespace Multiplayer.Client
 
         public void WriteInfo()
         {
-            using (var zip = ZipFile)
-            {
-                zip.UpdateEntry("info", DirectXmlSaver.XElementFromObject(info, typeof(ReplayInfo)).ToString());
-                zip.Save();
-            }
+            using var zip = ZipFile;
+            zip.UpdateEntry("info", DirectXmlSaver.XElementFromObject(info, typeof(ReplayInfo)).ToString());
+            zip.Save();
         }
 
         public bool LoadInfo()
         {
-            using (var zip = ZipFile)
-            {
-                var infoFile = zip["info"];
-                if (infoFile == null) return false;
+            using var zip = ZipFile;
+            var infoFile = zip["info"];
+            if (infoFile == null) return false;
 
-                var doc = ScribeUtil.LoadDocument(infoFile.GetBytes());
-                info = DirectXmlToObject.ObjectFromXml<ReplayInfo>(doc.DocumentElement, true);
-            }
+            var doc = ScribeUtil.LoadDocument(infoFile.GetBytes());
+            info = DirectXmlToObject.ObjectFromXml<ReplayInfo>(doc.DocumentElement, true);
 
             return true;
         }

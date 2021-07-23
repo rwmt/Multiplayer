@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
@@ -28,6 +28,7 @@ namespace Multiplayer.Client
 
         static void Postfix()
         {
+            Log.Message($"Game.LoadGame post rand {Rand.iterations}");
             Rand.PopState();
         }
     }
@@ -53,10 +54,11 @@ namespace Multiplayer.Client
             __state = true;
         }
 
-        static void Postfix(bool __state)
+        static void Postfix(Map __instance, bool __state)
         {
             if (__state)
             {
+                Log.Message($"Map.ExposeData post rand {__instance.uniqueID} {Scribe.mode} {Rand.iterations}");
                 Rand.PopState();
 
                 if (Scribe.mode != LoadSaveMode.LoadingVars)
@@ -82,10 +84,11 @@ namespace Multiplayer.Client
             __state = true;
         }
 
-        static void Postfix(bool __state)
+        static void Postfix(Map __instance, bool __state)
         {
             if (__state)
             {
+                Log.Message($"Map.FinalizeLoading post rand {__instance.uniqueID} {Rand.iterations}");
                 Rand.PopState();
                 UniqueIdsPatch.CurrentBlock = null;
             }
@@ -204,7 +207,7 @@ namespace Multiplayer.Client
             yield return AccessTools.Method(typeof(NameGenerator), nameof(NameGenerator.GenerateName), new[] { typeof(RulePackDef), typeof(Predicate<string>), typeof(bool), typeof(string), typeof(string) });
         }
 
-        [HarmonyPriority(Priority.First + 1)]
+        [HarmonyPriority(MpPriority.MpFirst)]
         static void Prefix(ref bool __state)
         {
             Rand.Element(0, 0); // advance the rng
@@ -212,7 +215,7 @@ namespace Multiplayer.Client
             __state = true;
         }
 
-        [HarmonyPriority(Priority.Last - 1)]
+        [HarmonyPriority(MpPriority.MpLast)]
         static void Postfix(bool __state)
         {
             if (__state)
@@ -229,14 +232,14 @@ namespace Multiplayer.Client
             yield return AccessTools.Method(typeof(PawnGraphicSet), nameof(PawnGraphicSet.ResolveApparelGraphics));
         }
 
-        [HarmonyPriority(Priority.First + 1)]
+        [HarmonyPriority(MpPriority.MpFirst)]
         static void Prefix(PawnGraphicSet __instance, ref bool __state)
         {
             Rand.PushState(__instance.pawn.thingIDNumber);
             __state = true;
         }
 
-        [HarmonyPriority(Priority.Last - 1)]
+        [HarmonyPriority(MpPriority.MpLast)]
         static void Postfix(bool __state)
         {
             if (__state)

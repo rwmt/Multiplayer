@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using HarmonyLib;
 using Multiplayer.Common;
 using RimWorld;
@@ -23,7 +23,7 @@ namespace Multiplayer.Client
             this.desc = desc;
 
             if (reason.NullOrEmpty())
-                reason = "Disconnected";
+                this.reason = "Disconnected";
 
             closeOnAccept = false;
             closeOnCancel = false;
@@ -73,9 +73,9 @@ namespace Multiplayer.Client
     {
         public override Vector2 InitialSize => new Vector2(310f + 18 * 2, 160f);
 
-        private SessionModInfo mods;
+        private RemoteData mods;
 
-        public DefMismatchWindow(SessionModInfo mods) : base("MpWrongDefs".Translate(), "MpWrongDefsInfo".Translate())
+        public DefMismatchWindow(RemoteData mods) : base("MpWrongDefs".Translate(), "MpWrongDefsInfo".Translate())
         {
             this.mods = mods;
             returnToServerBrowser = true;
@@ -105,7 +105,7 @@ namespace Multiplayer.Client
                 Close();
         }
 
-        public static void ShowModList(SessionModInfo mods)
+        public static void ShowModList(RemoteData mods)
         {
             var activeMods = LoadedModManager.RunningModsListForReading.Join(m => "+ " + m.Name, "\n");
             var serverMods = mods.remoteModNames.Join(name => (ModLister.AllInstalledMods.Any(m => m.Name == name) ? "+ " : "- ") + name, delimiter: "\n");
@@ -116,13 +116,13 @@ namespace Multiplayer.Client
 
     public class ModsMismatchWindow : DisconnectedWindow
     {
-        private SessionModInfo mods;
+        private RemoteData mods;
         private bool modsMatch;
         private bool modConfigsMatch;
         private Action continueConnecting;
         private bool shouldCloseConnection = true;
 
-        public ModsMismatchWindow(SessionModInfo mods, Action continueConnecting)
+        public ModsMismatchWindow(RemoteData mods, Action continueConnecting)
             : base("MpWrongDefs".Translate(), "MpWrongDefsInfo".Translate())
         {
             this.mods = mods;
@@ -239,7 +239,7 @@ namespace Multiplayer.Client
             }, "MpDownloadingWorkshopMods", true, null);
         }
 
-        private static void ShowModList(SessionModInfo mods)
+        private static void ShowModList(RemoteData mods)
         {
             var activeMods = LoadedModManager.RunningModsListForReading.Join(m => "+ " + m.Name, "\n");
             var serverMods = mods.remoteModNames.Join(name => (ModLister.AllInstalledMods.Any(m => m.Name == name) ? "+ " : "- ") + name, delimiter: "\n");
@@ -247,7 +247,7 @@ namespace Multiplayer.Client
             Find.WindowStack.Add(new TwoTextAreas_Window($"RimWorld {mods.remoteRwVersion}\nServer mod list:\n\n{serverMods}", $"RimWorld {VersionControl.CurrentVersionString}\nActive mod list:\n\n{activeMods}"));
         }
 
-        private static void ShowConfigsList(SessionModInfo mods)
+        private static void ShowConfigsList(RemoteData mods)
         {
             var mismatchedModConfigs = ModManagement.GetMismatchedModConfigs(mods.remoteModConfigs);
 

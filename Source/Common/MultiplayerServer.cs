@@ -55,17 +55,18 @@ namespace Multiplayer.Common
         public int keepAliveId;
         public Stopwatch lastKeepAlive = Stopwatch.StartNew();
 
-        internal NetManager netManager;
-        internal NetManager lanManager;
+        private Dictionary<object, long> lastConnection = new Dictionary<object, long>();
+        private Stopwatch clock = Stopwatch.StartNew();
+
+        public NetManager netManager;
+        public NetManager lanManager;
         private NetManager arbiter;
 
         public int nextUniqueId; // currently unused
 
         public string rwVersion;
-        public string[] modNames;
-        public string[] modIds;
-        public ulong[] workshopModIds;
         public Dictionary<string, DefInfo> defInfos;
+        public byte[] serverData;
 
         public int NetPort => netManager.LocalPort;
         public int LanPort => lanManager.LocalPort;
@@ -85,12 +86,21 @@ namespace Multiplayer.Common
             RegisterChatCmd("kick", new ChatCmdKick());
 
             if (settings.bindAddress != null)
-                netManager = new NetManager(new MpNetListener(this, false));
+                netManager = NewNetManager();
 
             if (settings.lanAddress != null)
-                lanManager = new NetManager(new MpNetListener(this, false));
+                lanManager = NewNetManager();
 
             autosaveCountdown = settings.autosaveInterval * 2500 * 24;
+        }
+
+        private NetManager NewNetManager()
+        {
+            return new NetManager(new MpNetListener(this, false))
+            {
+                EnableStatistics = true,
+                IPv6Enabled = IPv6Mode.Disabled
+            };
         }
 
         public bool? StartListeningNet()
@@ -105,7 +115,7 @@ namespace Multiplayer.Common
 
         public void SetupArbiterConnection()
         {
-            arbiter = new NetManager(new MpNetListener(this, true));
+            arbiter = new NetManager(new MpNetListener(this, true)) { IPv6Enabled = IPv6Mode.Disabled };
             arbiter.Start(IPAddress.Loopback, IPAddress.IPv6Any, 0);
         }
 
@@ -160,7 +170,7 @@ namespace Multiplayer.Common
             queue.RunQueue();
 
             if (lanManager != null && netTimer % 60 == 0)
-                lanManager.SendDiscoveryRequest(Encoding.UTF8.GetBytes("mp-server"), 5100);
+                lanManager.SendBroadcast(Encoding.UTF8.GetBytes("mp-server"), 5100);
 
             netTimer++;
 
@@ -176,7 +186,8 @@ namespace Multiplayer.Common
 
         public void Tick()
         {
-            SendToAll(Packets.Server_TimeControl, ByteWriter.GetBytes(gameTimer, cmdId), reliable: false);
+            if (gameTimer % 2 == 0)
+                SendToAll(Packets.Server_TimeControl, ByteWriter.GetBytes(gameTimer, cmdId), false);
 
             gameTimer++;
 
@@ -229,6 +240,24 @@ namespace Multiplayer.Common
         public void Enqueue(Action action)
         {
             queue.Enqueue(action);
+        }
+
+        const long ThrottleMillis = 1000;
+
+        // id can be an IPAddress or CSteamID
+        public MpDisconnectReason? OnPreConnect(object id)
+        {
+            if ((!(id is IPAddress) || !IPAddress.IsLoopback(id as IPAddress)) &&
+                settings.maxPlayers > 0 &&
+                players.Count(p => !p.IsArbiter) >= settings.maxPlayers)
+                return MpDisconnectReason.ServerFull;
+
+            if (lastConnection.TryGetValue(id, out var last) && clock.ElapsedMilliseconds - last < ThrottleMillis)
+                return MpDisconnectReason.Throttled;
+
+            lastConnection[id] = clock.ElapsedMilliseconds;
+
+            return null;
         }
 
         private int nextPlayerId;
@@ -373,9 +402,10 @@ namespace Multiplayer.Common
 
         public void OnConnectionRequest(ConnectionRequest req)
         {
-            if (!arbiter && server.settings.maxPlayers > 0 && server.players.Count(p => !p.IsArbiter) >= server.settings.maxPlayers)
+            var result = server.OnPreConnect(req.RemoteEndPoint.Address);
+            if (result != null)
             {
-                req.Reject(IConnection.GetDisconnectBytes(MpDisconnectReason.ServerFull));
+                req.Reject(IConnection.GetDisconnectBytes(result.Value));
                 return;
             }
 

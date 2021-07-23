@@ -1,6 +1,8 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
@@ -9,7 +11,7 @@ using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
-
+using System.Text;
 using HarmonyLib;
 
 using UnityEngine;
@@ -19,9 +21,9 @@ namespace Multiplayer.Client
 {
     public static class MpUtil
     {
-        static Func<ICustomAttributeProvider, Type, bool> IsDefinedInternal;
-
         public static Vector2 Resolution => new Vector2(UI.screenWidth, UI.screenHeight);
+
+        static Func<ICustomAttributeProvider, Type, bool> IsDefinedInternal;
 
         // Doesn't load the type
         public static bool HasAttr(ICustomAttributeProvider provider, Type attrType)
@@ -128,16 +130,55 @@ namespace Multiplayer.Client
                 return Dns.GetHostEntry(Dns.GetHostName()).AddressList.FirstOrDefault(i => i.AddressFamily == AddressFamily.InterNetwork).ToString();
             }
         }
+
+        public static void DrawRotatedLine(Vector2 center, float length, float width, float angle, Color color)
+        {
+            var size = new Vector2(length, width);
+            var start = center - size / 2f;
+            Rect screenRect = new Rect(start.x, start.y, length, width);
+            Matrix4x4 m = Matrix4x4.TRS(center, Quaternion.Euler(0f, 0f, angle), Vector3.one) * Matrix4x4.TRS(-center, Quaternion.identity, Vector3.one);
+
+            GL.PushMatrix();
+            GL.MultMatrix(m);
+            Graphics.DrawTexture(screenRect, Widgets.LineTexAA, Widgets.LineRect, 0, 0, 0, 0, color, Widgets.LineMat);
+            GL.PopMatrix();
+        }
+
+        public static void Label(Rect rect, string label, GameFont? font = null, TextAnchor? anchor = null, Color? color = null)
+        {
+            var prevFont = Text.Font;
+            var prevAnchor = Text.Anchor;
+            var prevColor = GUI.color;
+
+            if (font != null)
+                Text.Font = font.Value;
+
+            if (anchor != null)
+                Text.Anchor = anchor.Value;
+
+            if (color != null)
+                GUI.color = color.Value;
+
+            Widgets.Label(rect, label);
+
+            GUI.color = prevColor;
+            Text.Anchor = prevAnchor;
+            Text.Font = prevFont;
+        }
+
+        public static void ClearWindowStack()
+        {
+            Find.WindowStack.windows.Clear();
+        }
     }
 
     public struct Container<T>
     {
-        private readonly T _value;
-        public T Inner => _value;
+        public T Inner { get; }
 
         public Container(T value)
         {
-            _value = value;
+            Inner = value;
         }
 
         public static implicit operator Container<T>(T value)
@@ -204,6 +245,59 @@ namespace Multiplayer.Client
         {
             return RuntimeHelpers.GetHashCode(obj);
         }
+    }
+
+    public sealed class Utf8StringWriter : StringWriter
+    {
+        public override Encoding Encoding => Encoding.UTF8;
+    }
+
+    public class FixedSizeQueue<T> : IEnumerable<T>
+    {
+        private Queue<T> q = new Queue<T>();
+
+        public int Limit { get; set; }
+
+        public void Enqueue(T obj)
+        {
+            q.Enqueue(obj);
+            while (q.Count > Limit) q.Dequeue();
+        }
+
+        public IEnumerator<T> GetEnumerator()
+        {
+            return q.GetEnumerator();
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return q.GetEnumerator();
+        }
+    }
+
+    public class ConcurrentSet<T> : IEnumerable<T>
+    {
+        private ConcurrentDictionary<T, object> dict = new ConcurrentDictionary<T, object>();
+
+        public void Add(T t)
+        {
+            dict[t] = null;
+        }
+
+        public IEnumerator<T> GetEnumerator()
+        {
+            return dict.Keys.GetEnumerator();
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return dict.Keys.GetEnumerator();
+        }
+    }
+
+    [AttributeUsage(AttributeTargets.Class)]
+    public class HotSwappableAttribute : Attribute
+    {
     }
 
 }

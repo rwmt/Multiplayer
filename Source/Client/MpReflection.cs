@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using Multiplayer.Common;
 using System;
 using System.Collections;
@@ -390,16 +390,12 @@ namespace Multiplayer.Client
             MpReflection.SetValue(obj, memberPath, value, index);
         }
 
-        public static bool IsStatic(this MemberInfo member)
+        public static bool IsStatic(this MemberInfo member) => member switch
         {
-            if (member is FieldInfo field)
-                return field.IsStatic;
-            else if (member is PropertyInfo prop)
-                return prop.GetGetMethod(true).IsStatic;
-            else if (member is MethodInfo method)
-                return method.IsStatic;
-            else
-                return false;
-        }
+            FieldInfo field => field.IsStatic,
+            PropertyInfo prop => prop.GetGetMethod(true).IsStatic,
+            MethodInfo method => method.IsStatic,
+            _ => false,
+        };
     }
 }

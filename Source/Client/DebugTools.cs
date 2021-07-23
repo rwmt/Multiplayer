@@ -12,12 +12,13 @@ using Verse;
 
 namespace Multiplayer.Client
 {
+    [HotSwappable]
     static class MpDebugTools
     {
-        public static int currentPlayer;
+        private static int currentPlayer;
         public static int currentHash;
 
-        public static PlayerDebugState CurrentPlayerState => Multiplayer.game.playerDebugState.GetOrAddNew((currentPlayer == -1) ? Multiplayer.session.playerId : currentPlayer);
+        public static PlayerDebugState CurrentPlayerState => Multiplayer.game.playerDebugState.GetOrAddNew(currentPlayer == -1 ? Multiplayer.session.playerId : currentPlayer);
 
         public static void HandleCmd(ByteReader data)
         {
@@ -92,8 +93,7 @@ namespace Multiplayer.Client
             {
                 if (TickPatch.currentExecutingCmdIssuedBySelf && DebugTools.curTool != null && DebugTools.curTool != state.tool)
                 {
-                    // Only players can enable debug tools, it should be safe...
-                    var map = state.Map;
+                    var map = Multiplayer.MapContext;
                     prevTool = new DebugTool(DebugTools.curTool.label, () =>
                     {
                         SendCmd(DebugSource.Tool, 0, map);
@@ -140,10 +140,10 @@ namespace Multiplayer.Client
             else
                 writer.WriteInt32(Find.WorldSelector.SingleSelectedObject?.ID ?? -1);
 
-            var mapId = map?.uniqueID ?? ScheduledCommand.Global;
-
-            Multiplayer.Client.SendCommand(CommandType.DebugTools, mapId, writer.ToArray());
             Multiplayer.WriterLog.nodes.Add(writer.log.current);
+
+            var mapId = map?.uniqueID ?? ScheduledCommand.Global;
+            Multiplayer.Client.SendCommand(CommandType.DebugTools, mapId, writer.ToArray());
         }
 
         public static DebugSource ListingSource()
@@ -163,8 +163,9 @@ namespace Multiplayer.Client
     {
         public object window;
         public DebugTool tool;
+
+        public Map Map => Find.Maps.Find(m => m.uniqueID == mapId);
         public int mapId;
-        public Map Map => Find.Maps.Find((Predicate<Map>)((Map m) => m.uniqueID == mapId));
     }
 
     public enum DebugSource
@@ -183,7 +184,10 @@ namespace Multiplayer.Client
     {
         public static bool drawing;
 
+        [HarmonyPriority(MpPriority.MpFirst)]
         static void Prefix() => drawing = true;
+
+        [HarmonyPriority(MpPriority.MpLast)]
         static void Postfix() => drawing = false;
     }
 
@@ -192,7 +196,10 @@ namespace Multiplayer.Client
     {
         public static bool drawing;
 
+        [HarmonyPriority(MpPriority.MpFirst)]
         static void Prefix() => drawing = true;
+
+        [HarmonyPriority(MpPriority.MpLast)]
         static void Postfix() => drawing = false;
     }
 
@@ -207,7 +214,10 @@ namespace Multiplayer.Client
             yield return AccessTools.Method(typeof(DebugActionsIncidents), nameof(DebugActionsIncidents.DoIncidentWithPointsAction));
         }
 
+        [HarmonyPriority(MpPriority.MpFirst)]
         static void Prefix(IIncidentTarget target) => ListingIncidentMarker.target = target;
+
+        [HarmonyPriority(MpPriority.MpLast)]
         static void Postfix() => target = null;
     }
 
@@ -222,7 +232,10 @@ namespace Multiplayer.Client
             yield return AccessTools.Method(typeof(Dialog_DebugOptionLister), nameof(Dialog_DebugOptionLister.DebugToolMapForPawns_NewTmp));
         }
 
+        [HarmonyPriority(MpPriority.MpFirst)]
         static void Prefix() => drawing = true;
+
+        [HarmonyPriority(MpPriority.MpLast)]
         static void Postfix() => drawing = false;
     }
 
@@ -358,7 +371,8 @@ namespace Multiplayer.Client
             if (window is Dialog_DebugOptionListLister lister)
             {
                 MpDebugTools.CurrentPlayerState.window = lister.options;
-                MpDebugTools.CurrentPlayerState.mapId = (map?.uniqueID ?? (-1));
+                MpDebugTools.CurrentPlayerState.mapId = map?.uniqueID ?? -1;
+
                 return keepOpen;
             }
 

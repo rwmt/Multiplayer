@@ -8,6 +8,7 @@ using Verse;
 
 namespace Multiplayer.Client
 {
+    [HotSwappable]
     public class ClientSyncOpinion
     {
         public bool isLocalClientsOpinion;
@@ -121,11 +122,17 @@ namespace Multiplayer.Client
             var traceId = start;
 
             return
-                $"Trace of first desynced map random state:\n{diffAt} {desyncStackTraces[diffAt].ToString()}\n\n\nContext Traces:\n" +
+                $"Trace of first desynced map random state:\n{diffAt} {desyncStackTraces[diffAt]}\n\n\nContext Traces:\n" +
                 desyncStackTraces
                 .Skip(start)
                 .Take(end - start)
                 .Join(a => traceId++ + " " + a.ToString(), delimiter: "\n\n");
+        }
+
+        public void Clear()
+        {
+            for (int i = 0; i < desyncStackTraces.Count; i++)
+                desyncStackTraces[i].ReturnToPool();
         }
     }
 }

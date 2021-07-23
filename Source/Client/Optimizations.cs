@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using Multiplayer.Common;
 using System;
 using System.Collections;
@@ -9,15 +9,16 @@ using System.Reflection.Emit;
 using System.Xml;
 using Verse;
 
-namespace Multiplayer.Client
+namespace Multiplayer.Client.EarlyPatches
 {
+    [HarmonyPatch(typeof(XmlNode), nameof(XmlNode.ChildNodes), MethodType.Getter)]
     static class XmlNodeListPatch
     {
         public static bool optimizeXml;
         public static XmlNode node;
         public static XmlNodeList list;
 
-        public static void XmlNode_ChildNodes_Postfix(XmlNode __instance, ref XmlNodeList __result)
+        public static void Postfix(XmlNode __instance, ref XmlNodeList __result)
         {
             if (!optimizeXml) return;
 
@@ -48,52 +49,14 @@ namespace Multiplayer.Client
         }
     }
 
-    static class ThingCategoryDef_DescendantThingDefsPatch
+    [HarmonyPatch(typeof(XmlInheritance), nameof(XmlInheritance.TryRegisterAllFrom))]
+    static class XmlInheritance_Patch
     {
-        static Dictionary<ThingCategoryDef, HashSet<ThingDef>> values = new Dictionary<ThingCategoryDef, HashSet<ThingDef>>(DefaultComparer<ThingCategoryDef>.Instance);
-
-        static bool Prefix(ThingCategoryDef __instance)
-        {
-            return !values.ContainsKey(__instance);
-        }
-
-        static void Postfix(ThingCategoryDef __instance, ref IEnumerable<ThingDef> __result)
-        {
-            if (values.TryGetValue(__instance, out HashSet<ThingDef> set))
-            {
-                __result = set;
-                return;
-            }
-
-            set = new HashSet<ThingDef>(__result, DefaultComparer<ThingDef>.Instance);
-            values[__instance] = set;
-            __result = set;
-        }
+        static void Prefix() => XmlNodeListPatch.optimizeXml = true;
+        static void Postfix() => XmlNodeListPatch.optimizeXml = false;
     }
 
-    static class ThingCategoryDef_ThisAndChildCategoryDefsPatch
-    {
-        static Dictionary<ThingCategoryDef, HashSet<ThingCategoryDef>> values = new Dictionary<ThingCategoryDef, HashSet<ThingCategoryDef>>(DefaultComparer<ThingCategoryDef>.Instance);
-
-        static bool Prefix(ThingCategoryDef __instance)
-        {
-            return !values.ContainsKey(__instance);
-        }
-
-        static void Postfix(ThingCategoryDef __instance, ref IEnumerable<ThingCategoryDef> __result)
-        {
-            if (values.TryGetValue(__instance, out HashSet<ThingCategoryDef> set))
-            {
-                __result = set;
-                return;
-            }
-
-            set = new HashSet<ThingCategoryDef>(__result, DefaultComparer<ThingCategoryDef>.Instance);
-            values[__instance] = set;
-            __result = set;
-        }
-    }
-
+    [HarmonyPatch(typeof(LoadedModManager), nameof(LoadedModManager.ParseAndProcessXML))]
     static class ParseAndProcessXml_Patch
     {
         static MethodInfo XmlCount = AccessTools.Method(typeof(XmlNodeList), "get_Count");
@@ -150,10 +113,53 @@ namespace Multiplayer.Client
         }
     }
 
-    static class XmlInheritance_Patch
+}
+
+namespace Multiplayer.Client
+{
+    static class ThingCategoryDef_DescendantThingDefsPatch
     {
-        static void Prefix() => XmlNodeListPatch.optimizeXml = true;
-        static void Postfix() => XmlNodeListPatch.optimizeXml = false;
+        static Dictionary<ThingCategoryDef, HashSet<ThingDef>> values = new Dictionary<ThingCategoryDef, HashSet<ThingDef>>(DefaultComparer<ThingCategoryDef>.Instance);
+
+        static bool Prefix(ThingCategoryDef __instance)
+        {
+            return !values.ContainsKey(__instance);
+        }
+
+        static void Postfix(ThingCategoryDef __instance, ref IEnumerable<ThingDef> __result)
+        {
+            if (values.TryGetValue(__instance, out HashSet<ThingDef> set))
+            {
+                __result = set;
+                return;
+            }
+
+            set = new HashSet<ThingDef>(__result, DefaultComparer<ThingDef>.Instance);
+            values[__instance] = set;
+            __result = set;
+        }
     }
 
+    static class ThingCategoryDef_ThisAndChildCategoryDefsPatch
+    {
+        static Dictionary<ThingCategoryDef, HashSet<ThingCategoryDef>> values = new Dictionary<ThingCategoryDef, HashSet<ThingCategoryDef>>(DefaultComparer<ThingCategoryDef>.Instance);
+
+        static bool Prefix(ThingCategoryDef __instance)
+        {
+            return !values.ContainsKey(__instance);
+        }
+
+        static void Postfix(ThingCategoryDef __instance, ref IEnumerable<ThingCategoryDef> __result)
+        {
+            if (values.TryGetValue(__instance, out HashSet<ThingCategoryDef> set))
+            {
+                __result = set;
+                return;
+            }
+
+            set = new HashSet<ThingCategoryDef>(__result, DefaultComparer<ThingCategoryDef>.Instance);
+            values[__instance] = set;
+            __result = set;
+        }
+    }
 }

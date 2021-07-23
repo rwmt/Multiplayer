@@ -46,10 +46,10 @@ namespace Multiplayer.Client
 
         static void DoDebugInfo()
         {
-            if (Multiplayer.ShowDevInfo && Multiplayer.Client != null)
+            if (Multiplayer.ShowDevInfo)
             {
                 int timerLag = (TickPatch.tickUntil - TickPatch.Timer);
-                string text = $"{Find.TickManager.TicksGame} {TickPatch.Timer} {TickPatch.tickUntil} {timerLag} {Time.deltaTime * 60f}";
+                string text = $"{Faction.OfPlayer.loadID} {Multiplayer.RealPlayerFaction?.loadID} {Find.UniqueIDsManager.nextThingID} {Find.UniqueIDsManager.nextJobID} {Find.TickManager.TicksGame} {TickPatch.Timer} {TickPatch.tickUntil} {timerLag} {TickPatch.maxBehind} {Time.deltaTime * 60f} {Multiplayer.session?.localCmdId} {Multiplayer.session?.remoteCmdId} {Multiplayer.session?.remoteTickUntil}";
                 Rect rect = new Rect(80f, 60f, 330f, Text.CalcHeight(text, 330f));
                 Widgets.Label(rect, text);
             }
@@ -58,15 +58,15 @@ namespace Multiplayer.Client
             {
                 var async = Find.CurrentMap.AsyncTime();
                 StringBuilder text = new StringBuilder();
-                text.Append(async.mapTicks);
+                text.Append($"{Multiplayer.game.sync.knownClientOpinions.FirstOrDefault()?.isLocalClientsOpinion} {async.mapTicks}");
 
-                text.Append($" d: {Find.CurrentMap.designationManager.allDesignations.Count}");
+                text.Append($"z: {Find.CurrentMap.haulDestinationManager.AllHaulDestinationsListForReading.ToStringSafeEnumerable()} d: {Find.CurrentMap.designationManager.allDesignations.Count} hc: {Find.CurrentMap.listerHaulables.ThingsPotentiallyNeedingHauling().Count}");
 
                 if (Find.CurrentMap.ParentFaction != null)
                 {
                     int faction = Find.CurrentMap.ParentFaction.loadID;
                     MultiplayerMapComp comp = Find.CurrentMap.MpComp();
-                    FactionMapData data = comp.factionMapData.GetValueSafe(faction);
+                    FactionMapData data = comp.factionData.GetValueSafe(faction);
 
                     if (data != null)
                     {
@@ -77,14 +77,19 @@ namespace Multiplayer.Client
 
                 text.Append($" {Multiplayer.GlobalIdBlock.blockStart + Multiplayer.GlobalIdBlock.current}");
 
-                text.Append($"\n{Sync.bufferedChanges.Sum(kv => kv.Value.Count)}");
-                text.Append($"\n{((uint)async.randState)} {(uint)(async.randState >> 32)}");
+                text.Append($"\n{Sync.bufferedChanges.Sum(kv => kv.Value.Count)} {Find.UniqueIDsManager.nextThingID}");
+                text.Append($"\n{DeferredStackTracing.acc}");
+                text.Append($"\n{(uint)async.randState} {(uint)(async.randState >> 32)}");
                 text.Append($"\n{(uint)Multiplayer.WorldComp.randState} {(uint)(Multiplayer.WorldComp.randState >> 32)}");
                 text.Append($"\n{async.cmds.Count} {Multiplayer.WorldComp.cmds.Count} {async.slower.forceNormalSpeedUntil} {MultiplayerWorldComp.asyncTime}");
+                text.Append($"\nt{DeferredStackTracing.maxTraceDepth} p{SimplePool<StackTraceLogItemRaw>.FreeItemsCount} {DeferredStackTracingImpl.hashtableEntries}/{DeferredStackTracingImpl.hashtableSize} {DeferredStackTracingImpl.collisions}");
 
                 Rect rect1 = new Rect(80f, 110f, 330f, Text.CalcHeight(text.ToString(), 330f));
                 Widgets.Label(rect1, text.ToString());
             }
+
+            //if (Event.current.type == EventType.Repaint)
+            //    RandGetValuePatch.tracesThistick = 0;
         }
 
         static void DoButtons()
@@ -128,15 +133,14 @@ namespace Multiplayer.Client
 
             if (Multiplayer.ShowDevInfo && Multiplayer.WriterLog != null)
             {
-                if (Widgets.ButtonText(new Rect(x, y, 80f, 27f), $"Write ({Multiplayer.WriterLog.nodes.Count})"))
-                {
+                if (Widgets.ButtonText(new Rect(x, y, btnWidth, btnHeight), $"Write ({Multiplayer.WriterLog.nodes.Count})"))
                     Find.WindowStack.Add(Multiplayer.WriterLog);
-                }
+
                 y += btnHeight;
-                if (Widgets.ButtonText(new Rect(x, y, 80f, 27f), $"Read ({Multiplayer.ReaderLog.nodes.Count})"))
-                {
+
+                if (Widgets.ButtonText(new Rect(x, y, btnWidth, btnHeight), $"Read ({Multiplayer.ReaderLog.nodes.Count})"))
                     Find.WindowStack.Add(Multiplayer.ReaderLog);
-                }
+
                 y += btnHeight;
             }
 
@@ -166,7 +170,7 @@ namespace Multiplayer.Client
             if (behind > 30)
             {
                 color = new Color(0.9f, 0, 0);
-                text += "\n\n" + "MpLowerGameSpeed".Translate() + "\n" + "MpForceCatchUp".Translate();
+                text += $"\n\n{"MpLowerGameSpeed".Translate()}\n{"MpForceCatchUp".Translate()}";
                 slow = true;
             }
             else if (behind > 15)
@@ -200,12 +204,12 @@ namespace Multiplayer.Client
             int timerEnd = Multiplayer.session.replayTimerEnd >= 0 ? Multiplayer.session.replayTimerEnd : TickPatch.tickUntil;
             int timeLen = timerEnd - timerStart;
 
-            Widgets.DrawLine(new Vector2(rect.xMin + 2f, rect.yMin), new Vector2(rect.xMin + 2f, rect.yMax), Color.white, 4f);
-            Widgets.DrawLine(new Vector2(rect.xMax - 2f, rect.yMin), new Vector2(rect.xMax - 2f, rect.yMax), Color.white, 4f);
+            MpUtil.DrawRotatedLine(new Vector2(rect.xMin + 2f, rect.center.y), TimelineHeight, 20f, 90f, Color.white);
+            MpUtil.DrawRotatedLine(new Vector2(rect.xMax - 2f, rect.center.y), TimelineHeight, 20f, 90f, Color.white);
 
             float progress = (TickPatch.Timer - timerStart) / (float)timeLen;
             float progressX = rect.xMin + progress * rect.width;
-            Widgets.DrawLine(new Vector2(progressX, rect.yMin), new Vector2(progressX, rect.yMax), Color.green, 7f);
+            MpUtil.DrawRotatedLine(new Vector2((int)progressX, rect.center.y), TimelineHeight, 20f, 90f, Color.green);
 
             float mouseX = Event.current.mousePosition.x;
             ReplayEvent mouseEvent = null;
@@ -218,7 +222,7 @@ namespace Multiplayer.Client
                 var pointX = rect.xMin + (ev.time - timerStart) / (float)timeLen * rect.width;
 
                 //GUI.DrawTexture(new Rect(pointX - 12f, rect.yMin - 24f, 24f, 24f), texture);
-                Widgets.DrawLine(new Vector2(pointX, rect.yMin), new Vector2(pointX, rect.yMax), ev.color, 5f);
+                MpUtil.DrawRotatedLine(new Vector2(pointX, rect.center.y), TimelineHeight, 20f, 90f, ev.color);
 
                 if (Mouse.IsOver(rect) && Math.Abs(mouseX - pointX) < 10)
                 {
@@ -232,7 +236,7 @@ namespace Multiplayer.Client
                 float mouseProgress = (mouseX - rect.xMin) / rect.width;
                 int mouseTimer = timerStart + (int)(timeLen * mouseProgress);
 
-                Widgets.DrawLine(new Vector2(mouseX, rect.yMin), new Vector2(mouseX, rect.yMax), Color.blue, 3f);
+                MpUtil.DrawRotatedLine(new Vector2(mouseX, rect.center.y), TimelineHeight, 15f, 90f, Color.blue);
 
                 if (Event.current.type == EventType.MouseUp)
                 {
@@ -261,7 +265,7 @@ namespace Multiplayer.Client
             {
                 float pct = (TickPatch.skipTo - timerStart) / (float)timeLen;
                 float skipToX = rect.xMin + rect.width * pct;
-                Widgets.DrawLine(new Vector2(skipToX, rect.yMin), new Vector2(skipToX, rect.yMax), Color.yellow, 4f);
+                MpUtil.DrawRotatedLine(new Vector2(skipToX, rect.center.y), TimelineHeight, 15f, 90f, Color.yellow);
             }
         }
 

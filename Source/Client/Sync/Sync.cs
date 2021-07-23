@@ -61,7 +61,7 @@ namespace Multiplayer.Client
 
             LoggingByteWriter writer = new LoggingByteWriter();
             MpContext context = writer.MpContext();
-            writer.log.Node("Sync field " + memberPath);
+            writer.log.Node($"Sync field {memberPath}");
 
             writer.WriteInt32(syncId);
 
@@ -77,7 +77,7 @@ namespace Multiplayer.Client
             if (indexType != null)
                 Sync.WriteSyncObject(writer, index, indexType);
 
-            writer.log.Node("Map id: " + mapId);
+            writer.log.Node($"Map id: {mapId}");
             Multiplayer.WriterLog.nodes.Add(writer.log.current);
 
             Multiplayer.Client.SendCommand(CommandType.Sync, mapId, writer.ToArray());
@@ -507,7 +507,7 @@ namespace Multiplayer.Client
                     if (cancelIfAnyNullBlacklist != null && !cancelIfAnyNullBlacklist.Contains(noTypePath))
                         return;
 
-                    if (path.EndsWith("$this"))
+                    if (path.EndsWith("4__this"))
                         return;
 
                     if (cancelIfNull != null && cancelIfNull.Contains(noTypePath))
@@ -726,6 +726,7 @@ namespace Multiplayer.Client
         public static List<SyncHandler> handlers = new List<SyncHandler>();
         public static List<SyncField> bufferedFields = new List<SyncField>();
 
+        // Internal maps for Harmony patches
         public static Dictionary<MethodBase, int> methodBaseToInternalId = new Dictionary<MethodBase, int>();
         public static List<ISyncCall> internalIdToSyncMethod = new List<ISyncCall>();
 
@@ -736,7 +737,7 @@ namespace Multiplayer.Client
 
         public static bool isDialogNodeTreeOpen = false;
 
-        public static void InitHandlers()
+        public static void PostInitHandlers()
         {
             handlers.SortStable((a, b) => a.version.CompareTo(b.version));
 

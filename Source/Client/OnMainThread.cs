@@ -1,4 +1,4 @@
-﻿using Multiplayer.Common;
+using Multiplayer.Common;
 using RimWorld.Planet;
 using Steamworks;
 using System;
@@ -11,6 +11,7 @@ using Verse.Steam;
 
 namespace Multiplayer.Client
 {
+    [HotSwappable]
     public class OnMainThread : MonoBehaviour
     {
         public static ActionQueue queue = new ActionQueue();
@@ -39,7 +40,7 @@ namespace Multiplayer.Client
                 SendVisuals();
 
             if (Multiplayer.Client is SteamBaseConn steamConn && SteamManager.Initialized)
-                foreach (var packet in SteamIntegration.ReadPackets())
+                foreach (var packet in SteamIntegration.ReadPackets(steamConn.recvChannel))
                     if (steamConn.remoteId == packet.remote)
                         Multiplayer.HandleReceive(packet.data, packet.reliable);
         }
@@ -182,6 +183,7 @@ namespace Multiplayer.Client
                 Multiplayer.session = null;
                 Prefs.Apply();
             }
+
             Multiplayer.game?.OnDestroy();
             Multiplayer.game = null;
 

@@ -20,7 +20,7 @@
     <PackageReference Include="Lib.Harmony" Version="2.0.4">
       <ExcludeAssets>runtime</ExcludeAssets>
     </PackageReference>
-    <PackageReference Include="LiteNetLib" Version="0.8.3.1" />
+    <PackageReference Include="LiteNetLib" Version="0.9.5.1" />
     <PackageReference Include="DotNetZip.Reduced" Version="1.9.1.8" />
     
     <!-- Local dependencies -->
