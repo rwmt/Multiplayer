@@ -539,8 +539,6 @@ namespace Multiplayer.Client
             state = __instance.Map;
         }
     }
-
-    [HotSwappable]
     [HarmonyPatch(typeof(Pawn), nameof(Pawn.ExposeData))]
     public static class PawnExposeDataLast
     {

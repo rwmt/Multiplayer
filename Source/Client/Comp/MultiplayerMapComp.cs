@@ -7,7 +7,6 @@ using Verse;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
     public class MultiplayerMapComp : IExposable
     {
         public static bool tickingFactions;

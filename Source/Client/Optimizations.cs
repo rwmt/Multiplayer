@@ -56,46 +56,6 @@ namespace Multiplayer.Client.EarlyPatches
         static void Postfix() => XmlNodeListPatch.optimizeXml = false;
     }
 
-    [HarmonyPatch(typeof(LoadedModManager), nameof(LoadedModManager.ParseAndProcessXML))]
-    static class ParseAndProcessXml_Patch
-    {
-        static MethodInfo XmlCount = AccessTools.Method(typeof(XmlNodeList), "get_Count");
-        static MethodInfo XmlItem = AccessTools.Method(typeof(XmlNodeList), "get_ItemOf");
-
-        static IEnumerable<CodeInstruction> Transpiler(ILGenerator gen, IEnumerable<CodeInstruction> insts)
-        {
-            var local = gen.DeclareLocal(typeof(List<XmlNode>));
-
-            yield return new CodeInstruction(OpCodes.Ldarg_0);
-            yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(ParseAndProcessXml_Patch), nameof(XmlNodes)));
-            yield return new CodeInstruction(OpCodes.Stloc_S, local);
-
-            foreach (var inst in insts)
-            {
-                if (inst.operand == XmlCount)
-                {
-                    yield return new CodeInstruction(OpCodes.Pop);
-                    yield return new CodeInstruction(OpCodes.Ldloc_S, local);
-                    yield return new CodeInstruction(OpCodes.Call, typeof(List<XmlNode>).GetMethod("get_Count"));
-                }
-                else if (inst.operand == XmlItem)
-                {
-                    yield return new CodeInstruction(OpCodes.Pop);
-                    yield return new CodeInstruction(OpCodes.Pop);
-                    yield return new CodeInstruction(OpCodes.Ldloc_S, local);
-                    yield return new CodeInstruction(OpCodes.Ldloc_1);
-                    yield return new CodeInstruction(OpCodes.Call, typeof(List<XmlNode>).GetMethod("get_Item"));
-                }
-                else
-                {
-                    yield return inst;
-                }
-            }
-        }
-
-        static List<XmlNode> XmlNodes(XmlDocument xmlDoc) => new List<XmlNode>(xmlDoc.DocumentElement.ChildNodes.Cast<XmlNode>());
-    }
-
     static class AccessTools_FirstMethod_Patch
     {
         static Dictionary<Type, MethodInfo[]> typeMethods = new Dictionary<Type, MethodInfo[]>();

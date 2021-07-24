@@ -12,7 +12,6 @@ using Verse;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
     static class MpDebugTools
     {
         private static int currentPlayer;

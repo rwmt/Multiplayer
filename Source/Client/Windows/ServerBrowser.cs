@@ -23,7 +23,6 @@ using Verse.Sound;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
     public class ServerBrowser : Window
     {
         private NetManager lanListener;

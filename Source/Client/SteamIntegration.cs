@@ -10,7 +10,6 @@ using Verse;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
     public static class SteamIntegration
     {
         // Callbacks stored in static fields so they don't get GC'd

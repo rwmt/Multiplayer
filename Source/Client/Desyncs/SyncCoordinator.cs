@@ -17,7 +17,6 @@ using Multiplayer.Client.Desyncs;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
     public class SyncCoordinator
     {
         public bool ShouldCollect => !Multiplayer.IsReplay;

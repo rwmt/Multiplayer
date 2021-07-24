@@ -221,11 +221,7 @@ namespace Multiplayer.Client
                         bool isNull = data.ReadBool();
                         if (isNull) return null;
 
-                        bool hasValue = data.ReadBool();
-                        if (!hasValue) return Activator.CreateInstance(type);
-
-                        Type nullableType = type.GetGenericArguments()[0];
-                        return Activator.CreateInstance(type, ReadSyncObject(data, nullableType));
+                        return Activator.CreateInstance(type, ReadSyncObject(data, Nullable.GetUnderlyingType(type)));
                     }
 
                     if (genericTypeDefinition == typeof(Dictionary<,>))
@@ -434,12 +430,7 @@ namespace Multiplayer.Client
                         data.WriteBool(isNull);
                         if (isNull) return;
 
-                        bool hasValue = (bool)obj.GetPropertyOrField("HasValue");
-                        data.WriteBool(hasValue);
-
-                        Type nullableType = type.GetGenericArguments()[0];
-                        if (hasValue)
-                            WriteSyncObject(data, obj.GetPropertyOrField("Value"), nullableType);
+                        WriteSyncObject(data, obj, Nullable.GetUnderlyingType(type));
 
                         return;
                     }
@@ -492,7 +483,7 @@ namespace Multiplayer.Client
             }
             catch (Exception e)
             {
-                MpLog.Error($"Error writing type: {type}, obj: {obj}, {e}");
+                MpLog.Error($"Error writing type: {type}, obj: {obj}, obj type: {obj?.GetType()}, {e}");
                 throw;
             }
             finally

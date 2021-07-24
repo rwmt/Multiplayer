@@ -16,7 +16,6 @@ using Multiplayer.Client.Desyncs;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
     public class MultiplayerWorldComp : IExposable, ITickable
     {
         public static bool tickingWorld;

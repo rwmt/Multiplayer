@@ -235,7 +235,6 @@ namespace Multiplayer.Client
         }
     }
 
-    [HotSwappable]
     public class MultiplayerGame
     {
         public SyncCoordinator sync = new SyncCoordinator();

@@ -328,7 +328,7 @@ namespace Multiplayer.Client
 
             if (info.AdditionalData.IsNull)
             {
-                reason = MpDisconnectReason.Generic;
+                reason = MpDisconnectReason.Failed;
                 data = new byte[0];
             }
             else

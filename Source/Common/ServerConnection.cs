@@ -33,7 +33,7 @@ namespace Multiplayer.Common
             var count = data.ReadInt32();
             if (count > 512)
             {
-                Player.Disconnect(MpDisconnectReason.Generic);
+                Player.Disconnect(MpDisconnectReason.Internal);
                 return;
             }
 

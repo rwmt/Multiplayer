@@ -382,8 +382,10 @@ namespace Multiplayer.Client
                 var effectMethods = new MethodBase[] { subSustainerStart, sampleCtor, subSoundPlay, effecterTick, effecterTrigger, effecterCleanup, randomBoltMesh, drawTrackerCtor, randomHair };
                 var moteMethods = typeof(MoteMaker).GetMethods(BindingFlags.Static | BindingFlags.Public)
                     .Where(m => m.Name != "MakeBombardmentMote"); // Special case, just calls MakeBombardmentMote_NewTmp, prevents Hugslib complains
+                var fleckMethods = typeof(FleckMaker).GetMethods(BindingFlags.Static | BindingFlags.Public)
+                    .Where(m => m.ReturnType == typeof(void));
 
-                foreach (MethodBase m in effectMethods.Concat(moteMethods))
+                foreach (MethodBase m in effectMethods.Concat(moteMethods).Concat(fleckMethods))
                 {
                     try
                     {
@@ -599,7 +601,6 @@ namespace Multiplayer.Client
         public int assemblyHash, xmlHash, aboutHash;
     }
 
-    [HotSwappable]
     public static class FactionContext
     {
         public static Stack<Faction> stack = new Stack<Faction>();

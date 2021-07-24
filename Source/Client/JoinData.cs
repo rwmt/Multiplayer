@@ -10,7 +10,6 @@ using Verse;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
     public class MpModWindow : Window
     {
         public override Vector2 InitialSize => new Vector2(640f, 480f);
@@ -456,6 +455,7 @@ namespace Multiplayer.Client
 
         public static bool DataEqual(RemoteData remote)
         {
+            return true; // todo for testing
             return 
                 remote.remoteMods.Select(m => (m.packageId, m.source)).SequenceEqual(ModsConfig.ActiveModsInLoadOrder.Select(m => (m.PackageIdNonUnique, m.Source))) &&
                 remote.remoteFiles.Equals(ModFiles) &&
@@ -475,6 +475,7 @@ namespace Multiplayer.Client
         public ModFileDict remoteFiles = new ModFileDict();
         public Dictionary<string, string> remoteModConfigs = new Dictionary<string, string>();
         public Dictionary<string, DefInfo> defInfo = new Dictionary<string, DefInfo>();
+
         public string remoteAddress;
         public int remotePort;
     }
@@ -511,7 +512,7 @@ namespace Multiplayer.Client
 
     public struct ModInfo
     {
-        public string packageId; // no postfix
+        public string packageId; // no suffix
         public string name;
         public ulong steamId;
         public ContentSource source;

@@ -258,6 +258,7 @@ namespace Multiplayer.Common
         Kick,
         ClientLeft,
         Throttled,
+        Failed,
         Internal,
     }
 

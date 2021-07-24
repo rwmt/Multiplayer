@@ -184,6 +184,7 @@ namespace Multiplayer.Client
         }
     }
 
+    [HotSwappable]
     public class SyncMethod : SyncHandler, ISyncMethod
     {
         public readonly Type targetType;

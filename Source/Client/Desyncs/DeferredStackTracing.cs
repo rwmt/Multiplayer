@@ -13,8 +13,7 @@ using Verse;
 
 namespace Multiplayer.Client.Desyncs
 {
-    [HotSwappable]
-    [HarmonyPatch]
+    //[HarmonyPatch]
     static class DeferredStackTracing
     {
         public static int ignoreTraces;

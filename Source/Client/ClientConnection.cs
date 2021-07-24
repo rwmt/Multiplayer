@@ -26,17 +26,19 @@ namespace Multiplayer.Client
 
         public void SendJoinData()
         {
-            var defData = new ByteWriter();
-            defData.WriteInt32(Multiplayer.localDefInfos.Count);
+            var data = new ByteWriter();
+
+            data.WriteInt32(MpVersion.Protocol);
+            data.WriteInt32(Multiplayer.localDefInfos.Count);
 
             foreach (var kv in Multiplayer.localDefInfos)
             {
-                defData.WriteString(kv.Key);
-                defData.WriteInt32(kv.Value.count);
-                defData.WriteInt32(kv.Value.hash);
+                data.WriteString(kv.Key);
+                data.WriteInt32(kv.Value.count);
+                data.WriteInt32(kv.Value.hash);
             }
 
-            connection.Send(Packets.Client_JoinData, MpVersion.Protocol, defData.ToArray());
+            connection.Send(Packets.Client_JoinData, data.ToArray());
         }
 
         [PacketHandler(Packets.Server_JoinData)]
@@ -51,10 +53,11 @@ namespace Multiplayer.Client
             remoteInfo.defInfo = Multiplayer.localDefInfos; // by ref, is that fine?
 
             var defDiff = false;
+            var defsData = new ByteReader(data.ReadPrefixedBytes());
 
             foreach (var local in remoteInfo.defInfo)
             {
-                var status = (DefCheckStatus)data.ReadByte();
+                var status = (DefCheckStatus)defsData.ReadByte();
                 local.Value.status = status;
 
                 if (status != DefCheckStatus.OK)
@@ -211,7 +214,6 @@ namespace Multiplayer.Client
         Connected, Downloading
     }
 
-    [HotSwappable]
     public class ClientPlayingState : MpConnectionState
     {
         public ClientPlayingState(IConnection connection) : base(connection)

@@ -61,7 +61,6 @@ namespace Multiplayer.Client
         }
     }*/
 
-    [HotSwappable]
     [HarmonyPatch(typeof(Thing), nameof(Thing.SpawnSetup))]
     static class ThingSpawnSetForbidden
     {

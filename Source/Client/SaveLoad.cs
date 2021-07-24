@@ -16,7 +16,6 @@ using Verse.Profile;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
     public static class SaveLoad
     {
         public static XmlDocument SaveAndReload()

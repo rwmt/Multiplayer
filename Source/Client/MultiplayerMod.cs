@@ -84,7 +84,7 @@ namespace Multiplayer.Client
                 new HarmonyMethod(typeof(RandPatches), nameof(RandPatches.Postfix))
             );
 
-            harmony.Patch(
+            /*harmony.Patch(
                 AccessTools.PropertyGetter(typeof(Faction), nameof(Faction.OfPlayer)),
                 new HarmonyMethod(typeof(MultiplayerMod), nameof(Prefixfactionman))
             );
@@ -92,9 +92,9 @@ namespace Multiplayer.Client
             harmony.Patch(
                 AccessTools.PropertyGetter(typeof(Faction), nameof(Faction.IsPlayer)),
                 new HarmonyMethod(typeof(MultiplayerMod), nameof(Prefixfactionman))
-            );
+            );*/
 
-            /*harmony.Patch(
+            harmony.Patch(
                 AccessTools.PropertyGetter(typeof(Rand), nameof(Rand.Int)),
                 postfix: new HarmonyMethod(typeof(DeferredStackTracing), nameof(DeferredStackTracing.Postfix))
             );
@@ -102,7 +102,7 @@ namespace Multiplayer.Client
             harmony.Patch(
                 AccessTools.PropertyGetter(typeof(Rand), nameof(Rand.Value)),
                 postfix: new HarmonyMethod(typeof(DeferredStackTracing), nameof(DeferredStackTracing.Postfix))
-            );*/
+            );
 
             //ForeignRand.DoPatches();
         }

@@ -15,7 +15,6 @@ using zip::Ionic.Zip;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
     public class Replay
     {
         public ReplayInfo info;

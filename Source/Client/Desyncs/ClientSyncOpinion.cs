@@ -8,7 +8,6 @@ using Verse;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
     public class ClientSyncOpinion
     {
         public bool isLocalClientsOpinion;
