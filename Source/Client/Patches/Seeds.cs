@@ -154,32 +154,6 @@ namespace Multiplayer.Client
         }
     }
 
-    public static class PatchThingMethods
-    {
-        [HarmonyPriority(MpPriority.MpFirst)]
-        public static void Prefix(Thing __instance, ref Container<Map>? __state)
-        {
-            if (Multiplayer.Client == null) return;
-
-            __state = __instance.Map;
-            ThingContext.Push(__instance);
-
-            if (__instance.def.CanHaveFaction)
-                __instance.Map.PushFaction(__instance.Faction);
-        }
-
-        [HarmonyPriority(MpPriority.MpLast)]
-        public static void Postfix(Thing __instance, Container<Map>? __state)
-        {
-            if (__state == null) return;
-
-            if (__instance.def.CanHaveFaction)
-                __state.PopFaction();
-
-            ThingContext.Pop();
-        }
-    }
-
     public static class RandPatches
     {
         [HarmonyPriority(MpPriority.MpFirst)]

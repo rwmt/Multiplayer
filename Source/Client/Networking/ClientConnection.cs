@@ -72,7 +72,7 @@ namespace Multiplayer.Client
                     OnMainThread.StopMultiplayer();
 
                 MpUtil.ClearWindowStack();
-                Find.WindowStack.Add(new MpModWindow(remoteInfo));
+                Find.WindowStack.Add(new JoinDataWindow(remoteInfo));
 
                 return;
             }

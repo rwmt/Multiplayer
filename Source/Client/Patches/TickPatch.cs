@@ -1,4 +1,4 @@
-﻿extern alias zip;
+extern alias zip;
 
 using HarmonyLib;
 using Multiplayer.Common;
@@ -231,20 +231,5 @@ namespace Multiplayer.Client
 
             return Find.Maps.Select(m => (ITickable)m.AsyncTime()).Concat(Multiplayer.WorldComp).Select(t => t.TickRateMultiplier(speed)).Min();
         }
-    }
-
-    public interface ITickable
-    {
-        float RealTimeToTickThrough { get; set; }
-
-        TimeSpeed TimeSpeed { get; }
-
-        Queue<ScheduledCommand> Cmds { get; }
-
-        float TickRateMultiplier(TimeSpeed speed);
-
-        void Tick();
-
-        void ExecuteCmd(ScheduledCommand cmd);
     }
 }

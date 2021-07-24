@@ -69,7 +69,7 @@ namespace Multiplayer.Client
             if (respawningAfterLoad) return;
             if (Multiplayer.Client == null) return;
 
-            if (ThingContext.stack.Any(p => p.First?.def == ThingDefOf.ActiveDropPod)) return;
+            if (ThingContext.stack.Any(p => p.Item1?.def == ThingDefOf.ActiveDropPod)) return;
 
             if (__instance is ThingWithComps t && t.GetComp<CompForbiddable>() != null)
                 map.MpComp().GetCurrentCustomFactionData().unforbidden.Add(__instance);

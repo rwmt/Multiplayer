@@ -401,8 +401,8 @@ namespace Multiplayer.Client
 
             // Set ThingContext and FactionContext (for pawns and buildings) in common Thing methods
             {
-                var thingMethodPrefix = new HarmonyMethod(typeof(PatchThingMethods).GetMethod("Prefix"));
-                var thingMethodPostfix = new HarmonyMethod(typeof(PatchThingMethods).GetMethod("Postfix"));
+                var thingMethodPrefix = new HarmonyMethod(typeof(ThingMethodPatches).GetMethod("Prefix"));
+                var thingMethodPostfix = new HarmonyMethod(typeof(ThingMethodPatches).GetMethod("Postfix"));
                 var thingMethods = new[] { "Tick", "TickRare", "TickLong", "SpawnSetup", "TakeDamage", "Kill" };
 
                 foreach (Type t in typeof(Thing).AllSubtypesAndSelf())
@@ -599,50 +599,6 @@ namespace Multiplayer.Client
     public class ModHashes
     {
         public int assemblyHash, xmlHash, aboutHash;
-    }
-
-    public static class FactionContext
-    {
-        public static Stack<Faction> stack = new Stack<Faction>();
-
-        public static Faction Push(Faction newFaction)
-        {
-            if (newFaction == null || (newFaction.def != Multiplayer.FactionDef && !newFaction.def.isPlayer))
-            {
-                stack.Push(null);
-                return null;
-            }
-
-            stack.Push(Find.FactionManager.OfPlayer);
-            Set(newFaction);
-
-            return newFaction;
-        }
-
-        public static Faction Pop()
-        {
-            Faction f = stack.Pop();
-            if (f != null)
-                Set(f);
-            return f;
-        }
-
-        public static void Set(Faction newFaction)
-        {
-            var playerFaction = Find.FactionManager.OfPlayer;
-            var factionDef = playerFaction.def;
-
-            //Log.Message($"set faction {playerFaction}>{newFaction} {stack.Count}");
-
-            playerFaction.def = Multiplayer.FactionDef;
-            newFaction.def = factionDef;
-            Find.FactionManager.ofPlayer = newFaction;
-        }
-
-        public static void Clear()
-        {
-            stack.Clear();
-        }
     }
 
 }

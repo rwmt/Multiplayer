@@ -25,298 +25,6 @@ using Verse.Sound;
 
 namespace Multiplayer.Client
 {
-    [HarmonyPatch(typeof(MainMenuDrawer), nameof(MainMenuDrawer.DoMainMenuControls))]
-    public static class MainMenuMarker
-    {
-        public static bool drawing;
-
-        static void Prefix() => drawing = true;
-        static void Postfix() => drawing = false;
-    }
-
-    [HarmonyPatch(typeof(MainMenuDrawer), nameof(MainMenuDrawer.DoMainMenuControls))]
-    public static class MainMenu_AddHeight
-    {
-        static void Prefix(ref Rect rect) => rect.height += 45f;
-    }
-
-    [HarmonyPatch(typeof(OptionListingUtility), nameof(OptionListingUtility.DrawOptionListing))]
-    public static class MainMenuPatch
-    {
-        static void Prefix(Rect rect, List<ListableOption> optList)
-        {
-            if (!MainMenuMarker.drawing) return;
-
-            if (Current.ProgramState == ProgramState.Entry)
-            {
-                int newColony = optList.FindIndex(opt => opt.label == "NewColony".Translate());
-                if (newColony != -1)
-                {
-                    optList.Insert(newColony + 1, new ListableOption("MpMultiplayer".Translate(), () =>
-                    {
-                        if (Prefs.DevMode && Event.current.button == 1)
-                            ShowModDebugInfo();
-                        else
-                            Find.WindowStack.Add(new ServerBrowser());
-                    }));
-                }
-
-                int optionsIndex = optList.FindIndex(opt => opt.label == "Options".Translate());
-                if (optionsIndex != -1 && ModManagement.HasRecentConfigBackup()) {
-                    var option = new ListableOption("MpRestoreLastConfigs".Translate(), () => {
-                        ModManagement.RestoreConfigBackup(ModManagement.GetMostRecentConfigBackup());
-                        ModManagement.PromptRestart();
-                    });
-                    option.minHeight = 30f;
-                    optList.Insert(optionsIndex + 1, option);
-                }
-            }
-
-            if (optList.Any(opt => opt.label == "ReviewScenario".Translate()))
-            {
-                if (Multiplayer.session == null)
-                    optList.Insert(0, new ListableOption("MpHostServer".Translate(), () => Find.WindowStack.Add(new HostWindow())));
-
-                if (MpVersion.IsDebug && Multiplayer.IsReplay)
-                    optList.Insert(0, new ListableOption("MpHostServer".Translate(), () => Find.WindowStack.Add(new HostWindow(withSimulation: true))));
-
-                if (Multiplayer.Client != null)
-                {
-                    optList.RemoveAll(opt => opt.label == "Save".Translate() || opt.label == "LoadGame".Translate());
-                    if (!Multiplayer.IsReplay)
-                    {
-                        optList.Insert(0, new ListableOption("Save".Translate(), () => Find.WindowStack.Add(new Dialog_SaveReplay())));
-                    }
-                    optList.Insert(3, new ListableOption("MpConvert".Translate(), ConvertToSingleplayer));
-
-                    var quitMenuLabel = "QuitToMainMenu".Translate();
-                    var saveAndQuitMenu = "SaveAndQuitToMainMenu".Translate();
-                    var quitMenu = optList.Find(opt => opt.label == quitMenuLabel || opt.label == saveAndQuitMenu);
-
-                    if (quitMenu != null)
-                    {
-                        quitMenu.label = quitMenuLabel;
-                        quitMenu.action = AskQuitToMainMenu;
-                    }
-
-                    var quitOSLabel = "QuitToOS".Translate();
-                    var saveAndQuitOSLabel = "SaveAndQuitToOS".Translate();
-                    var quitOS = optList.Find(opt => opt.label == quitOSLabel || opt.label == saveAndQuitOSLabel);
-
-                    if (quitOS != null)
-                    {
-                        quitOS.label = quitOSLabel;
-                        quitOS.action = () =>
-                        {
-                            if (Multiplayer.LocalServer != null)
-                                Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation("MpServerCloseConfirmation".Translate(), Root.Shutdown, true));
-                            else
-                                Root.Shutdown();
-                        };
-                    }
-                }
-            }
-        }
-
-        static void ShowModDebugInfo()
-        {
-            var info = new RemoteData();
-            JoinData.ReadServerData(JoinData.WriteServerData(), info);
-            info.remoteFiles.Add("rwmt.multiplayer", new ModFile(){relPath="/Test/Test.xml"});
-
-            Find.WindowStack.Add(new MpModWindow(info));
-        }
-
-        public static void AskQuitToMainMenu()
-        {
-            if (Multiplayer.LocalServer != null)
-                Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation("MpServerCloseConfirmation".Translate(), GenScene.GoToMainMenu, true));
-            else
-                GenScene.GoToMainMenu();
-        }
-
-        private static void ConvertToSingleplayer()
-        {
-            LongEventHandler.QueueLongEvent(() =>
-            {
-                var saveName = Multiplayer.session.gameName + "-preconvert";
-                new FileInfo(Path.Combine(Multiplayer.ReplaysDir, $"{saveName}.zip")).Delete();
-                Replay.ForSaving(saveName).WriteCurrentData();
-
-                Find.GameInfo.permadeathMode = false;
-                // todo handle the other faction def too
-                Multiplayer.DummyFaction.def = FactionDefOf.Ancients;
-
-                OnMainThread.StopMultiplayer();
-
-                var doc = SaveLoad.SaveGame();
-                MemoryUtility.ClearAllMapsAndWorld();
-
-                Current.Game = new Game();
-                Current.Game.InitData = new GameInitData();
-                Current.Game.InitData.gameToLoad = "play";
-
-                LoadPatch.gameToLoad = doc;
-            }, "Play", "MpConverting", true, null);
-        }
-    }
-
-    [HarmonyPatch]
-    static class Shutdown_Quit_Patch
-    {
-        static IEnumerable<MethodBase> TargetMethods()
-        {
-            yield return AccessTools.Method(typeof(GenScene), nameof(GenScene.GoToMainMenu));
-            yield return AccessTools.Method(typeof(Root), nameof(Root.Shutdown));
-        }
-
-        static void Prefix()
-        {
-            OnMainThread.StopMultiplayer();
-        }
-    }
-
-    [HarmonyPatch(typeof(Pawn_JobTracker), nameof(Pawn_JobTracker.StartJob))]
-    static class JobTrackerStartFixFrames
-    {
-        static FieldInfo FrameCountField = AccessTools.Field(typeof(RealTime), nameof(RealTime.frameCount));
-        static MethodInfo FrameCountReplacementMethod = AccessTools.Method(typeof(JobTrackerStartFixFrames), nameof(FrameCountReplacement));
-
-        // Transpilers should be a last resort but there's no better way to patch this
-        // and handling this case properly might prevent some crashes and help with debugging
-        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
-        {
-            foreach (var inst in insts)
-            {
-                yield return inst;
-
-                if (inst.operand == FrameCountField)
-                {
-                    yield return new CodeInstruction(OpCodes.Ldarg_0);
-                    yield return new CodeInstruction(OpCodes.Call, FrameCountReplacementMethod);
-                }
-            }
-        }
-
-        static int FrameCountReplacement(int frameCount, Pawn_JobTracker tracker)
-        {
-            return tracker.pawn.Map.AsyncTime()?.eventCount ?? frameCount;
-        }
-    }
-
-    [HarmonyPatch(typeof(Pawn_JobTracker), nameof(Pawn_JobTracker.StartJob))]
-    public static class JobTrackerStart
-    {
-        static void Prefix(Pawn_JobTracker __instance, Job newJob, ref Container<Map>? __state)
-        {
-            if (Multiplayer.Client == null) return;
-
-            if (Multiplayer.InInterface)
-            {
-                Log.Warning($"Started a job {newJob} on pawn {__instance.pawn} from the interface!");
-                return;
-            }
-
-            Pawn pawn = __instance.pawn;
-
-            if (pawn.Faction == null || !pawn.Spawned) return;
-
-            pawn.Map.PushFaction(pawn.Faction);
-            __state = pawn.Map;
-        }
-
-        static void Postfix(Container<Map>? __state)
-        {
-            if (__state != null)
-                __state.PopFaction();
-        }
-    }
-
-    [HarmonyPatch(typeof(Pawn_JobTracker))]
-    [HarmonyPatch(nameof(Pawn_JobTracker.EndCurrentJob))]
-    public static class JobTrackerEndCurrent
-    {
-        static void Prefix(Pawn_JobTracker __instance, JobCondition condition, ref Container<Map>? __state)
-        {
-            if (Multiplayer.Client == null) return;
-            Pawn pawn = __instance.pawn;
-
-            if (pawn.Faction == null || !pawn.Spawned) return;
-
-            pawn.Map.PushFaction(pawn.Faction);
-            __state = pawn.Map;
-        }
-
-        static void Postfix(Container<Map>? __state)
-        {
-            if (__state != null)
-                __state.PopFaction();
-        }
-    }
-
-    [HarmonyPatch(typeof(Pawn_JobTracker))]
-    [HarmonyPatch(nameof(Pawn_JobTracker.CheckForJobOverride))]
-    public static class JobTrackerOverride
-    {
-        static void Prefix(Pawn_JobTracker __instance, ref Container<Map>? __state)
-        {
-            if (Multiplayer.Client == null) return;
-            Pawn pawn = __instance.pawn;
-
-            if (pawn.Faction == null || !pawn.Spawned) return;
-
-            pawn.Map.PushFaction(pawn.Faction);
-            ThingContext.Push(pawn);
-            __state = pawn.Map;
-        }
-
-        static void Postfix(Container<Map>? __state)
-        {
-            if (__state != null)
-            {
-                __state.PopFaction();
-                ThingContext.Pop();
-            }
-        }
-    }
-
-    public static class ThingContext
-    {
-        public static Stack<Pair<Thing, Map>> stack = new Stack<Pair<Thing, Map>>();
-
-        static ThingContext() => Clear();
-
-        public static Thing Current => stack.Peek().First;
-        public static Pawn CurrentPawn => Current as Pawn;
-
-        public static Map CurrentMap
-        {
-            get
-            {
-                Pair<Thing, Map> peek = stack.Peek();
-                if (peek.First != null && peek.First.Map != peek.Second)
-                    Log.ErrorOnce($"Thing {peek.First} has changed its map!", peek.First.thingIDNumber ^ 57481021);
-                return peek.Second;
-            }
-        }
-
-        public static void Push(Thing t)
-        {
-            stack.Push(new Pair<Thing, Map>(t, t.Map));
-        }
-
-        public static void Pop()
-        {
-            stack.Pop();
-        }
-
-        public static void Clear()
-        {
-            stack.Clear();
-            stack.Push(new Pair<Thing, Map>(null, null));
-        }
-    }
-
     [HarmonyPatch(typeof(GameEnder))]
     [HarmonyPatch(nameof(GameEnder.CheckOrUpdateGameOver))]
     public static class GameEnderPatch
@@ -383,39 +91,31 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(PawnComponentsUtility), nameof(PawnComponentsUtility.AddAndRemoveDynamicComponents))]
-    public static class AddAndRemoveCompsPatch
+    [HarmonyPatch(typeof(Pawn_JobTracker), nameof(Pawn_JobTracker.StartJob))]
+    static class JobTrackerStartFixFrames
     {
-        static void Prefix(Pawn pawn, ref Container<Map>? __state)
-        {
-            if (Multiplayer.Client == null || pawn.Faction == null) return;
+        static FieldInfo FrameCountField = AccessTools.Field(typeof(RealTime), nameof(RealTime.frameCount));
+        static MethodInfo FrameCountReplacementMethod = AccessTools.Method(typeof(JobTrackerStartFixFrames), nameof(FrameCountReplacement));
 
-            pawn.Map.PushFaction(pawn.Faction);
-            __state = pawn.Map;
+        // Transpilers should be a last resort but there's no better way to patch this
+        // and handling this case properly might prevent some crashes and help with debugging
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+        {
+            foreach (var inst in insts)
+            {
+                yield return inst;
+
+                if (inst.operand == FrameCountField)
+                {
+                    yield return new CodeInstruction(OpCodes.Ldarg_0);
+                    yield return new CodeInstruction(OpCodes.Call, FrameCountReplacementMethod);
+                }
+            }
         }
 
-        static void Postfix(Pawn pawn, Container<Map>? __state)
+        static int FrameCountReplacement(int frameCount, Pawn_JobTracker tracker)
         {
-            if (__state != null)
-                __state.PopFaction();
-        }
-    }
-
-    [HarmonyPatch(typeof(Pawn_NeedsTracker), nameof(Pawn_NeedsTracker.AddOrRemoveNeedsAsAppropriate))]
-    public static class AddRemoveNeedsPatch
-    {
-        static void Prefix(Pawn ___pawn, ref Container<Map>? __state)
-        {
-            if (Multiplayer.Client == null || ___pawn.Faction == null) return;
-
-            ___pawn.Map.PushFaction(___pawn.Faction);
-            __state = ___pawn.Map;
-        }
-
-        static void Postfix(Container<Map>? __state)
-        {
-            if (__state != null)
-                __state.PopFaction();
+            return tracker.pawn.Map.AsyncTime()?.eventCount ?? frameCount;
         }
     }
 
@@ -443,20 +143,6 @@ namespace Multiplayer.Client
         {
             __instance.absorbInputAroundWindow = false;
         }
-    }
-
-    [HarmonyPatch(typeof(ListerHaulables))]
-    [HarmonyPatch(nameof(ListerHaulables.ListerHaulablesTick))]
-    public static class HaulablesTickPatch
-    {
-        static bool Prefix() => Multiplayer.Client == null || MultiplayerMapComp.tickingFactions;
-    }
-
-    [HarmonyPatch(typeof(ResourceCounter))]
-    [HarmonyPatch(nameof(ResourceCounter.ResourceCounterTick))]
-    public static class ResourcesTickPatch
-    {
-        static bool Prefix() => Multiplayer.Client == null || MultiplayerMapComp.tickingFactions;
     }
 
     [HarmonyPatch(typeof(WindowStack))]
@@ -810,73 +496,14 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch]
-    static class CancelFeedbackNotTargetedAtMe
-    {
-        static IEnumerable<MethodBase> TargetMethods()
-        {
-            yield return AccessTools.Method(typeof(SoundStarter), nameof(SoundStarter.PlayOneShot));
-            yield return AccessTools.Method(typeof(Command_SetPlantToGrow), nameof(Command_SetPlantToGrow.WarnAsAppropriate));
-            yield return AccessTools.Method(typeof(TutorUtility), nameof(TutorUtility.DoModalDialogIfNotKnown));
-            yield return AccessTools.Method(typeof(CameraJumper), nameof(CameraJumper.TryHideWorld));
-        }
-        public static bool Cancel =>
-            Multiplayer.Client != null &&
-            Multiplayer.ExecutingCmds &&
-            !TickPatch.currentExecutingCmdIssuedBySelf;
-
-        static bool Prefix() => !Cancel;
-    }
-
-    [HarmonyPatch(typeof(Targeter), nameof(Targeter.BeginTargeting), typeof(TargetingParameters), typeof(Action<LocalTargetInfo>), typeof(Pawn), typeof(Action), typeof(Texture2D))]
-    static class CancelBeginTargeting
-    {
-        static bool Prefix()
-        {
-            if (TickPatch.currentExecutingCmdIssuedBySelf && MapAsyncTimeComp.executingCmdMap != null)
-                MapAsyncTimeComp.keepTheMap = true;
-
-            return !CancelFeedbackNotTargetedAtMe.Cancel;
-        }
-    }
-
-    [HarmonyPatch]
-    static class CancelMotesNotTargetedAtMe
-    {
-        static IEnumerable<MethodBase> TargetMethods()
-        {
-            yield return AccessTools.Method(typeof(MoteMaker), nameof(MoteMaker.MakeStaticMote), new[] {typeof(IntVec3), typeof(Map), typeof(ThingDef), typeof(float)});
-            yield return AccessTools.Method(typeof(MoteMaker), nameof(MoteMaker.MakeStaticMote), new[] {typeof(Vector3), typeof(Map), typeof(ThingDef), typeof(float)});
-        }
-
-        static bool Prefix(ThingDef moteDef)
-        {
-            // TODO 1.3: handle flecks?
-            //if (moteDef == ThingDefOf.Mote_FeedbackGoto)
-            //    return true;
-
-            return !CancelFeedbackNotTargetedAtMe.Cancel;
-        }
-    }
-
-    [HarmonyPatch(typeof(Messages), nameof(Messages.Message), new[] {typeof(Message), typeof(bool)})]
-    static class SilenceMessagesNotTargetedAtMe
-    {
-        static bool Prefix(bool historical)
-        {
-            bool cancel = Multiplayer.Client != null && !historical && Multiplayer.ExecutingCmds && !TickPatch.currentExecutingCmdIssuedBySelf;
-            return !cancel;
-        }
-    }
-
-    [HarmonyPatch]
     static class MessagesMarker
     {
         public static bool? historical;
 
         static IEnumerable<MethodBase> TargetMethods()
         {
-            yield return AccessTools.Method(typeof(Messages), nameof(Messages.Message), new[] {typeof(string), typeof(MessageTypeDef), typeof(bool)});
-            yield return AccessTools.Method(typeof(Messages), nameof(Messages.Message), new[] {typeof(string), typeof(LookTargets), typeof(MessageTypeDef), typeof(bool)});
+            yield return AccessTools.Method(typeof(Messages), nameof(Messages.Message), new[] { typeof(string), typeof(MessageTypeDef), typeof(bool) });
+            yield return AccessTools.Method(typeof(Messages), nameof(Messages.Message), new[] { typeof(string), typeof(LookTargets), typeof(MessageTypeDef), typeof(bool) });
         }
 
         static void Prefix(bool historical) => MessagesMarker.historical = historical;
@@ -1007,21 +634,6 @@ namespace Multiplayer.Client
                 list[i] = value;
                 i++;
             }
-        }
-    }
-
-    [HarmonyPatch(typeof(GlowGrid), MethodType.Constructor, new[] {typeof(Map)})]
-    static class GlowGridCtorPatch
-    {
-        static void Postfix(GlowGrid __instance)
-        {
-            __instance.litGlowers = new HashSet<CompGlower>(new CompGlowerEquality());
-        }
-
-        class CompGlowerEquality : IEqualityComparer<CompGlower>
-        {
-            public bool Equals(CompGlower x, CompGlower y) => x == y;
-            public int GetHashCode(CompGlower obj) => obj.parent.thingIDNumber;
         }
     }
 
@@ -1204,18 +816,6 @@ namespace Multiplayer.Client
         }
     }
 
-    // todo does this cause issues?
-    [HarmonyPatch(typeof(Tradeable), nameof(Tradeable.GetHashCode))]
-    static class TradeableHashCode
-    {
-        static bool Prefix() => false;
-
-        static void Postfix(Tradeable __instance, ref int __result)
-        {
-            __result = RuntimeHelpers.GetHashCode(__instance);
-        }
-    }
-
     [HarmonyPatch(typeof(LongEventHandler), nameof(LongEventHandler.QueueLongEvent), new[] { typeof(Action), typeof(string), typeof(bool), typeof(Action<Exception>), typeof(bool) })]
     static class MarkLongEvents
     {
@@ -1235,7 +835,7 @@ namespace Multiplayer.Client
 
         public static bool IsTickMarked(Action action)
         {
-            return (action as MulticastDelegate)?.GetInvocationList()?.Any(d => d.Method == MarkerMethod) ?? false;
+            return action?.GetInvocationList()?.Any(d => d.Method == MarkerMethod) ?? false;
         }
     }
 
@@ -1486,31 +1086,6 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch]
-    static class PatchTargetInfoHashCodes
-    {
-        static MethodInfo Combine = AccessTools.Method(typeof(Gen), nameof(Gen.HashCombine)).MakeGenericMethod(typeof(Map));
-
-        static IEnumerable<MethodBase> TargetMethods()
-        {
-            yield return AccessTools.Method(typeof(GlobalTargetInfo), nameof(GlobalTargetInfo.GetHashCode));
-            yield return AccessTools.Method(typeof(TargetInfo), nameof(TargetInfo.GetHashCode));
-        }
-
-        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
-        {
-            foreach (var inst in insts)
-            {
-                if (inst.operand == Combine)
-                    inst.operand = AccessTools.Method(typeof(PatchTargetInfoHashCodes), nameof(CombineHashes));
-
-                yield return inst;
-            }
-        }
-
-        static int CombineHashes(int seed, Map map) => Gen.HashCombineInt(seed, map?.uniqueID ?? -1);
-    }
-
-    [HarmonyPatch]
     static class PatchQuestChoices
     {
         // It's the only method with a Choice
@@ -1619,7 +1194,15 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(SettlementDefeatUtility), nameof(SettlementDefeatUtility.CheckDefeated))]
+    [HarmonyPatch(typeof(Dialog_NodeTree), nameof(Dialog_NodeTree.PostClose))]
+    static class NodeTreeDialogMarkClosed
+    {
+        // Set the dialog as closed in here as well just in case
+        static void Prefix() => Sync.isDialogNodeTreeOpen = false;
+    }
+
+    // todo: needed for multifaction
+    /*[HarmonyPatch(typeof(SettlementDefeatUtility), nameof(SettlementDefeatUtility.CheckDefeated))]
     static class CheckDefeatedPatch
     {
         static bool Prefix()
@@ -1635,12 +1218,5 @@ namespace Multiplayer.Client
         {
             return false;
         }
-    }
-
-    [HarmonyPatch(typeof(Dialog_NodeTree), nameof(Dialog_NodeTree.PostClose))]
-    static class NodeTreeDialogMarkClosed
-    {
-        // Set the dialog as closed in here as well just in case
-        static void Prefix() => Sync.isDialogNodeTreeOpen = false;
-    }
+    }*/
 }
