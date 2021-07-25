@@ -1,4 +1,4 @@
-﻿using Multiplayer.API;
+using Multiplayer.API;
 using Multiplayer.Common;
 using RimWorld;
 using System.Collections.Generic;
@@ -142,12 +142,15 @@ namespace Multiplayer.Client
         static void ThingFilter_AllowCategory_HelperFood(FoodRestriction food, ThingCategoryDef categoryDef, bool allow)
             => ThingFilter_AllowCategory_Helper(food.filter, categoryDef, allow, Dialog_ManageFoodRestrictions.foodGlobalFilter, null, FoodSpecialFilters);
 
-        static void ThingFilter_AllowCategory_Helper(ThingFilter filter, ThingCategoryDef categoryDef, bool allow, ThingFilter parentfilter, IEnumerable<ThingDef> forceHiddenDefs, IEnumerable<SpecialThingFilterDef> forceHiddenFilters)
+        static void ThingFilter_AllowCategory_Helper(ThingFilter filter, ThingCategoryDef categoryDef, bool allow, ThingFilter parentFilter, IEnumerable<ThingDef> forceHiddenDefs, IEnumerable<SpecialThingFilterDef> forceHiddenFilters)
         {
-            // TODO 1.3: handle thing filters
-            //Listing_TreeThingFilter listing = new Listing_TreeThingFilter(filter, parentfilter, forceHiddenDefs, forceHiddenFilters, null);
-            //listing.CalculateHiddenSpecialFilters(new TreeNode_ThingCategory(categoryDef));
-            //filter.SetAllow(categoryDef, allow, forceHiddenDefs, listing.hiddenSpecialFilters);
+            var node = new TreeNode_ThingCategory(categoryDef);
+            filter.SetAllow(
+                categoryDef,
+                allow,
+                forceHiddenDefs,
+                Listing_TreeThingFilter.CalculateHiddenSpecialFilters(node, parentFilter).ConcatIfNotNull(forceHiddenFilters)
+            );
         }
     }
 

@@ -14,7 +14,7 @@ namespace Multiplayer.Client
 
         public static void Init()
         {
-            SyncTimetable = Sync.Field(typeof(Pawn), "timetable", "times");
+            SyncTimetable = Sync.Field(typeof(Pawn), nameof(Pawn.timetable), nameof(Pawn_TimetableTracker.times));
 
             SyncMethod.Register(typeof(Pawn_DraftController), nameof(Pawn_DraftController.Drafted));
             SyncMethod.Register(typeof(Pawn_DraftController), nameof(Pawn_DraftController.FireAtWill));

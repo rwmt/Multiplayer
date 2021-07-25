@@ -445,8 +445,8 @@ namespace Multiplayer.Client
 
             #region Factions
             {
-                (ByteWriter data, Faction quest) => {
-                    data.WriteInt32(quest.loadID);
+                (ByteWriter data, Faction faction) => {
+                    data.WriteInt32(faction.loadID);
                 },
                 (ByteReader data) => {
                     int loadID = data.ReadInt32();
@@ -1362,6 +1362,29 @@ namespace Multiplayer.Client
                     return arrivalAction;
                 }
             },*/
+            #endregion
+
+            #region Ideology
+            {
+                (ByteWriter data, Ideo ideo) => {
+                    data.WriteInt32(ideo.id);
+                },
+                (ByteReader data) => {
+                    var id = data.ReadInt32();
+                    return Find.IdeoManager.IdeosListForReading.FirstOrDefault(i => i.id == id);
+                }
+            },
+            {
+                (ByteWriter data, Precept precept) => {
+                    WriteSync(data, precept.ideo);
+                    data.WriteInt32(precept.Id);
+                },
+                (ByteReader data) => {
+                    var ideo = ReadSync<Ideo>(data);
+                    var id = data.ReadInt32();
+                    return ideo.PreceptsListForReading.FirstOrDefault(p => p.Id == id);
+                }
+            }
             #endregion
         };
     }

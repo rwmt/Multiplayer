@@ -1,4 +1,4 @@
-﻿using Multiplayer.API;
+using Multiplayer.API;
 using RimWorld;
 using RimWorld.Planet;
 using System.Linq;
