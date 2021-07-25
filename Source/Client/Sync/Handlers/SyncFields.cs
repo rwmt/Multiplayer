@@ -64,6 +64,8 @@ namespace Multiplayer.Client
         public static ISyncField SyncStorytellerDef;
         public static ISyncField SyncStorytellerDifficulty;
 
+        public static ISyncField SyncDryadCaste;
+
         public static void Init()
         {
             SyncMedCare = Sync.Field(typeof(Pawn), "playerSettings", "medCare");
@@ -157,6 +159,8 @@ namespace Multiplayer.Client
             SyncFoodRestrictionLabel = Sync.Field(typeof(FoodRestriction), "label").SetBufferChanges().SetVersion(2);
             SyncStorytellerDef = Sync.Field(typeof(Storyteller), "def").SetHostOnly().PostApply(StorytellerDef_Post).SetVersion(2);
             SyncStorytellerDifficulty = Sync.Field(typeof(Storyteller), "difficulty").SetHostOnly().PostApply(StorytellerDifficutly_Post).SetVersion(2);
+
+            SyncDryadCaste = Sync.Field(typeof(CompTreeConnection), nameof(CompTreeConnection.desiredMode));
         }
 
         [MpPrefix(typeof(StorytellerUI), nameof(StorytellerUI.DrawStorytellerSelectionInterface))]
@@ -434,6 +438,12 @@ namespace Multiplayer.Client
                     entry.option.action = (Sync.FieldWatchPrefix + watchAction + entry.option.action + Sync.FieldWatchPostfix);
                 yield return entry;
             }
+        }
+
+        [MpPrefix(typeof(Dialog_ChangeDryadCaste), nameof(Dialog_ChangeDryadCaste.StartChange))]
+        static void WatchDryadCaste(Dialog_ChangeDryadCaste __instance)
+        {
+            SyncDryadCaste.Watch(__instance.treeConnection);
         }
     }
 
