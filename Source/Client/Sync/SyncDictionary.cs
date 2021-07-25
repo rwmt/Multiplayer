@@ -159,6 +159,17 @@ namespace Multiplayer.Client
                 (ByteWriter data, OutfitForcedHandler comp) => WriteSync(data, comp.forcedAps.Select(a => a.Wearer).FirstOrDefault()),
                 (ByteReader data) => ReadSync<Pawn>(data)?.outfits?.forcedHandler
             },
+            {
+                // We assume that the currently open tab holds the table, as it seems to only be used together with MainTabWindow_PawnTable and its subclasses
+                (ByteWriter data, PawnTable table) => WriteSync(data, Find.MainTabsRoot.OpenTab),
+                (ByteReader data) =>
+                {
+                    var tab = (MainTabWindow_PawnTable)ReadSync<MainButtonDef>(data).TabWindow;
+                    // By callinng MainButonDef.TabWindow we could end up initializing the tab window, so we should make sure the table is created as well if needed
+                    if (tab.table == null) tab.table = tab.CreateTable();
+                    return tab.table;
+                }, true
+            },
             #endregion
 
             #region Policies
