@@ -64,6 +64,8 @@ namespace Multiplayer.Client
         public static ISyncField SyncStorytellerDef;
         public static ISyncField SyncStorytellerDifficulty;
 
+        public static ISyncField SyncAnimalPenAutocut;
+
         public static void Init()
         {
             SyncMedCare = Sync.Field(typeof(Pawn), "playerSettings", "medCare");
@@ -97,8 +99,9 @@ namespace Multiplayer.Client
             SyncFactionAcceptRoyalFavor = Sync.Field(typeof(Faction), nameof(Faction.allowRoyalFavorRewards));
             SyncFactionAcceptGoodwill = Sync.Field(typeof(Faction), nameof(Faction.allowGoodwillRewards));
 
-            SyncThingFilterHitPoints = Sync.FieldMultiTarget(Sync.thingFilterTarget, "AllowedHitPointsPercents").SetBufferChanges();
-            SyncThingFilterQuality = Sync.FieldMultiTarget(Sync.thingFilterTarget, "AllowedQualityLevels").SetBufferChanges();
+            var thingFilterTarget = new MultiTarget() { { SyncThingFilters.ThingFilterTarget, "Data/Filter" } };
+            SyncThingFilterHitPoints = Sync.FieldMultiTarget(thingFilterTarget, "AllowedHitPointsPercents").SetBufferChanges();
+            SyncThingFilterQuality = Sync.FieldMultiTarget(thingFilterTarget, "AllowedQualityLevels").SetBufferChanges();
 
             SyncBillSuspended = Sync.Field(typeof(Bill), "suspended");
             SyncIngredientSearchRadius = Sync.Field(typeof(Bill), "ingredientSearchRadius").SetBufferChanges();
@@ -157,6 +160,8 @@ namespace Multiplayer.Client
             SyncFoodRestrictionLabel = Sync.Field(typeof(FoodRestriction), "label").SetBufferChanges().SetVersion(2);
             SyncStorytellerDef = Sync.Field(typeof(Storyteller), "def").SetHostOnly().PostApply(StorytellerDef_Post).SetVersion(2);
             SyncStorytellerDifficulty = Sync.Field(typeof(Storyteller), "difficulty").SetHostOnly().PostApply(StorytellerDifficutly_Post).SetVersion(2);
+
+            SyncAnimalPenAutocut = Sync.Field(typeof(CompAnimalPenMarker), nameof(CompAnimalPenMarker.autoCut));
         }
 
         [MpPrefix(typeof(StorytellerUI), nameof(StorytellerUI.DrawStorytellerSelectionInterface))]
@@ -281,13 +286,13 @@ namespace Multiplayer.Client
         [MpPrefix(typeof(ThingFilterUI), "DrawHitPointsFilterConfig")]
         static void ThingFilterHitPoints()
         {
-            SyncThingFilterHitPoints.Watch(SyncMarkers.ThingFilterOwner);
+            SyncThingFilterHitPoints.Watch(SyncMarkers.DrawnThingFilter);
         }
 
         [MpPrefix(typeof(ThingFilterUI), "DrawQualityFilterConfig")]
         static void ThingFilterQuality()
         {
-            SyncThingFilterQuality.Watch(SyncMarkers.ThingFilterOwner);
+            SyncThingFilterQuality.Watch(SyncMarkers.DrawnThingFilter);
         }
 
         [MpPrefix(typeof(Bill), "DoInterface")]
@@ -388,6 +393,12 @@ namespace Multiplayer.Client
             SyncBeCarried.Watch(p);
         }
 
+        [MpPrefix(typeof(ITab_PenAutoCut), nameof(ITab_PenAutoCut.DrawAutoCutOptions))]
+        static void DrawAutoCutOptions(CompAnimalPenMarker marker)
+        {
+            SyncAnimalPenAutocut.Watch(marker);
+        }
+
         [MpPrefix(typeof(Bill), nameof(Bill.DoInterface))]
         [MpPrefix(typeof(Bill_Production), nameof(Bill_Production.ShouldDoNow))]
         static void WatchBillPaused(Bill __instance)
@@ -402,13 +413,13 @@ namespace Multiplayer.Client
         static void WatchPolicyLabels()
         {
             if (SyncMarkers.dialogOutfit != null)
-                SyncOutfitLabel.Watch(SyncMarkers.dialogOutfit);
+                SyncOutfitLabel.Watch(SyncMarkers.dialogOutfit.Outfit);
 
             if (SyncMarkers.drugPolicy != null)
                 SyncDrugPolicyLabel.Watch(SyncMarkers.drugPolicy);
 
             if (SyncMarkers.foodRestriction != null)
-                SyncFoodRestrictionLabel.Watch(SyncMarkers.foodRestriction);
+                SyncFoodRestrictionLabel.Watch(SyncMarkers.foodRestriction.Food);
         }
 
         static void UseWorkPriorities_PostApply(object target, object value)

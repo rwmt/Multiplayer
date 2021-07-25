@@ -1378,7 +1378,7 @@ namespace Multiplayer.Client
             #region Ideology
             {
                 (ByteWriter data, Ideo ideo) => {
-                    data.WriteInt32(ideo.id);
+                    data.WriteInt32(ideo?.id ?? -1);
                 },
                 (ByteReader data) => {
                     var id = data.ReadInt32();
@@ -1387,14 +1387,15 @@ namespace Multiplayer.Client
             },
             {
                 (ByteWriter data, Precept precept) => {
-                    WriteSync(data, precept.ideo);
-                    data.WriteInt32(precept.Id);
+                    WriteSync(data, precept?.ideo);
+                    data.WriteInt32(precept?.Id ?? -1);
                 },
                 (ByteReader data) => {
                     var ideo = ReadSync<Ideo>(data);
                     var id = data.ReadInt32();
-                    return ideo.PreceptsListForReading.FirstOrDefault(p => p.Id == id);
-                }
+                    return ideo?.PreceptsListForReading.FirstOrDefault(p => p.Id == id);
+                },
+                true
             }
             #endregion
         };

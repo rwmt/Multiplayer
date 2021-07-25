@@ -1295,6 +1295,11 @@ namespace Multiplayer.Client
                 Add(multiType.First, multiType.Second + "/" + path);
         }
 
+        public void Add(Type type)
+        {
+            types.Add(new Pair<Type, string>(type, null));
+        }
+
         public IEnumerator<Pair<Type, string>> GetEnumerator()
         {
             return types.GetEnumerator();

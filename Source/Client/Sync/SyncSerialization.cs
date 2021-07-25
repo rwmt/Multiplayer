@@ -19,6 +19,11 @@ using Verse.AI.Group;
 
 namespace Multiplayer.Client
 {
+    // For a derived type, reduces to syncing the first field found
+    // Used to attach lightweight data to objects during syncing
+    // For example: public record TestWrapper(Pawn pawn); syncs the Pawn inside
+    public abstract record SyncWrapper;
+
     public static partial class Sync
     {
         public static Type[] storageParents;
@@ -39,14 +44,6 @@ namespace Multiplayer.Client
                 .OrderBy(t => t.Name)
                 .ToArray();
         }
-
-        public static MultiTarget thingFilterTarget = new MultiTarget()
-        {
-            { typeof(IStoreSettingsParent), "GetStoreSettings/filter" },
-            { typeof(Bill), "ingredientFilter" },
-            { typeof(Outfit), "filter" },
-            { typeof(FoodRestriction), "filter" }
-        };
 
         public static Type[] thingCompTypes;
         public static Type[] abilityCompTypes;
@@ -81,11 +78,6 @@ namespace Multiplayer.Client
             typeof(WorldObjectComp)
         };
 
-        public static T ReadSync<T>(ByteReader data)
-        {
-            return (T)ReadSyncObject(data, typeof(T));
-        }
-
         private static MethodInfo ReadExposable = AccessTools.Method(typeof(ScribeUtil), nameof(ScribeUtil.ReadExposable));
 
         enum ListType : byte
@@ -106,6 +98,11 @@ namespace Multiplayer.Client
         private static MethodInfo GetDefByIdMethod = AccessTools.Method(typeof(Sync), nameof(Sync.GetDefById));
 
         public static T GetDefById<T>(ushort id) where T : Def => DefDatabase<T>.GetByShortHash(id);
+
+        public static T ReadSync<T>(ByteReader data)
+        {
+            return (T)ReadSyncObject(data, typeof(T));
+        }
 
         public static object ReadSyncObject(ByteReader data, SyncType syncType)
         {
@@ -238,6 +235,13 @@ namespace Multiplayer.Client
                     }
                 }
 
+                if (typeof(SyncWrapper).IsAssignableFrom(type))
+                {
+                    var field = AccessTools.GetDeclaredFields(type)[0];
+                    var obj = ReadSyncObject(data, field.FieldType);
+                    return Activator.CreateInstance(type, obj);
+                }
+
                 // Def is a special case until the workers can read their own type
                 if (typeof(Def).IsAssignableFrom(type))
                 {
@@ -255,8 +259,8 @@ namespace Multiplayer.Client
                 // Designators can't be handled by SyncWorkers due to the type change
                 if (typeof(Designator).IsAssignableFrom(type))
                 {
-                    ushort desId = Sync.ReadSync<ushort>(data);
-                    type = Sync.designatorTypes[desId]; // Replaces the type!
+                    ushort desId = ReadSync<ushort>(data);
+                    type = designatorTypes[desId]; // Replaces the type!
                 }
 
                 // Where the magic happens
@@ -454,7 +458,14 @@ namespace Multiplayer.Client
                     }
                 }
 
-                // special case
+                if (typeof(SyncWrapper).IsAssignableFrom(type))
+                {
+                    var field = AccessTools.GetDeclaredFields(type)[0];
+                    WriteSyncObject(data, field.GetValue(obj), field.FieldType);
+                    return;
+                }
+
+                // Special case
                 if (typeof(Def).IsAssignableFrom(type))
                 {
                     Def def = obj as Def;
@@ -463,10 +474,10 @@ namespace Multiplayer.Client
                     return;
                 }
 
-                // special case for Designators to change the type
+                // Special case for Designators to change the type
                 if (typeof(Designator).IsAssignableFrom(type))
                 {
-                    data.WriteUShort((ushort) Array.IndexOf(Sync.designatorTypes, obj.GetType()));
+                    data.WriteUShort((ushort) Array.IndexOf(designatorTypes, obj.GetType()));
                 }
 
                 // Where the magic happens
