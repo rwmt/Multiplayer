@@ -66,6 +66,8 @@ namespace Multiplayer.Client
 
         public static ISyncField SyncAnimalPenAutocut;
 
+        public static SyncField[] SyncAutoSlaughter;
+
         public static void Init()
         {
             SyncMedCare = Sync.Field(typeof(Pawn), "playerSettings", "medCare");
@@ -148,6 +150,19 @@ namespace Multiplayer.Client
                 "onlyIfMoodBelow",
                 "onlyIfJoyBelow"
             ).SetBufferChanges();
+
+            // This depends on the order of AutoSlaughterManager.configs being the same on all clients
+            // It's initialized using DefDatabase<ThingDef>.AllDefs which shouldn't cause problems
+            SyncAutoSlaughter = Sync.Fields(
+                typeof(AutoSlaughterManager),
+                "configs/[]",
+                "maxTotal",
+                "maxMales",
+                "maxMalesYoung",
+                "maxFemales",
+                "maxFemalesYoung",
+                "allowSlaughterPregnant"
+            );
 
             SyncTradeableCount = Sync.Field(typeof(MpTransferableReference), "CountToTransfer").SetBufferChanges().PostApply(TransferableCount_PostApply);
 
@@ -335,7 +350,8 @@ namespace Multiplayer.Client
         [MpPrefix(typeof(ITab_Bills), "TabUpdate")]
         static void BillIngredientSearchRadius(ITab_Bills __instance)
         {
-            // Apply the buffered value for smooth rendering (doesn't actually have to sync anything here)
+            // Apply the buffered value for smooth rendering
+            // (the actual syncing happens in BillIngredientSearchRadius below)
             if (__instance.mouseoverBill is Bill mouseover)
                 SyncIngredientSearchRadius.Watch(mouseover);
         }
@@ -397,6 +413,12 @@ namespace Multiplayer.Client
         static void DrawAutoCutOptions(CompAnimalPenMarker marker)
         {
             SyncAnimalPenAutocut.Watch(marker);
+        }
+
+        [MpPrefix(typeof(Dialog_AutoSlaughter), nameof(Dialog_AutoSlaughter.DoAnimalRow))]
+        static void Dialog_AutoSlaughter_Row(Map map, AutoSlaughterConfig config)
+        {
+            SyncAutoSlaughter.Watch(map.autoSlaughterManager, map.autoSlaughterManager.configs.IndexOf(config));
         }
 
         [MpPrefix(typeof(Bill), nameof(Bill.DoInterface))]

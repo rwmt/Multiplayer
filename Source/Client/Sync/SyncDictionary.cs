@@ -878,6 +878,10 @@ namespace Multiplayer.Client
                 (ByteReader data) => (data.MpContext().map).areaManager
             },
             {
+                (ByteWriter data, AutoSlaughterManager autoSlaughter) => data.MpContext().map = autoSlaughter.map,
+                (ByteReader data) => (data.MpContext().map).autoSlaughterManager
+            },
+            {
                 (ByteWriter data, MultiplayerMapComp comp) => data.MpContext().map = comp.map,
                 (ByteReader data) => (data.MpContext().map).MpComp()
             },
