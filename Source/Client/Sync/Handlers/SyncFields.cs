@@ -68,6 +68,8 @@ namespace Multiplayer.Client
 
         public static SyncField[] SyncAutoSlaughter;
 
+        public static ISyncField SyncDesiredTreeConnectionStrength;
+
         public static void Init()
         {
             SyncMedCare = Sync.Field(typeof(Pawn), "playerSettings", "medCare");
@@ -177,6 +179,8 @@ namespace Multiplayer.Client
             SyncStorytellerDifficulty = Sync.Field(typeof(Storyteller), "difficulty").SetHostOnly().PostApply(StorytellerDifficutly_Post).SetVersion(2);
 
             SyncAnimalPenAutocut = Sync.Field(typeof(CompAnimalPenMarker), nameof(CompAnimalPenMarker.autoCut));
+
+            SyncDesiredTreeConnectionStrength = Sync.Field(typeof(CompTreeConnection), nameof(CompTreeConnection.desiredConnectionStrength));
         }
 
         [MpPrefix(typeof(StorytellerUI), nameof(StorytellerUI.DrawStorytellerSelectionInterface))]
@@ -467,6 +471,12 @@ namespace Multiplayer.Client
                     entry.option.action = (Sync.FieldWatchPrefix + watchAction + entry.option.action + Sync.FieldWatchPostfix);
                 yield return entry;
             }
+        }
+
+        [MpPrefix(typeof(Gizmo_PruningConfig), nameof(Gizmo_PruningConfig.DrawBar))]
+        static void WatchTreeConnectionStrength(Gizmo_PruningConfig __instance)
+        {
+            SyncDesiredTreeConnectionStrength.Watch(__instance.connection);
         }
     }
 
