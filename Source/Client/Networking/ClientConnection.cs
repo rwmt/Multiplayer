@@ -68,6 +68,7 @@ namespace Multiplayer.Client
 
             JoinData.ReadServerData(data.ReadPrefixedBytes(), remoteInfo);
 
+            if (false) // for testing
             if (!JoinData.DataEqual(remoteInfo) || defDiff)
             {
                 if (defDiff)

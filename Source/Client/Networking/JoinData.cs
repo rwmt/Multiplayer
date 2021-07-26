@@ -100,7 +100,6 @@ namespace Multiplayer.Client
 
         public static bool DataEqual(RemoteData remote)
         {
-            return true; // todo for testing
             return 
                 remote.remoteMods.Select(m => (m.packageId, m.source)).SequenceEqual(ModsConfig.ActiveModsInLoadOrder.Select(m => (m.PackageIdNonUnique, m.Source))) &&
                 remote.remoteFiles.Equals(ModFiles) &&
