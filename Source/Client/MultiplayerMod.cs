@@ -33,8 +33,7 @@ namespace Multiplayer.Client
         public MultiplayerMod(ModContentPack pack) : base(pack)
         {
             Native.EarlyInit();
-
-            Native.mini_parse_debug_option("disable_omit_fp");
+            DisableOmitFramePointer();
 
             if (GenCommandLine.CommandLineArgPassed("arbiter")) {
                 ArbiterWindowFix.Run();
@@ -54,6 +53,12 @@ namespace Multiplayer.Client
                 // Double Execute ensures it'll run last.
                 LongEventHandler.ExecuteWhenFinished(LatePatches);
             });
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private void DisableOmitFramePointer()
+        {
+            Native.mini_parse_debug_option("disable_omit_fp");
         }
 
         private void EarlyPatches()
