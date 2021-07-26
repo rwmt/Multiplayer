@@ -399,12 +399,54 @@ namespace Multiplayer.Client
 
         private void HandleDesignator(ScheduledCommand command, ByteReader data)
         {
-            DesignatorMode mode = Sync.ReadSync<DesignatorMode>(data);
-            Designator designator = Sync.ReadSync<Designator>(data);
+            var mode = Sync.ReadSync<DesignatorMode>(data);
+            var designator = Sync.ReadSync<Designator>(data);
+
+            Container<Area>? prevArea = null;
+            Container<Thing>? prevThing = null;
+
+            bool SetState(Designator designator, ByteReader data)
+            {
+                if (designator is Designator_AreaAllowed)
+                {
+                    Area area = Sync.ReadSync<Area>(data);
+                    if (area == null) return false;
+
+                    prevArea = Designator_AreaAllowed.selectedArea;
+                    Designator_AreaAllowed.selectedArea = area;
+                }
+
+                if (designator is Designator_Install)
+                {
+                    Thing thing = Sync.ReadSync<Thing>(data);
+                    if (thing == null) return false;
+
+                    prevThing = DesignatorInstallPatch.thingToInstall;
+                    DesignatorInstallPatch.thingToInstall = thing;
+                }
+
+                if (designator is Designator_Zone)
+                {
+                    Zone zone = Sync.ReadSync<Zone>(data);
+                    if (zone != null)
+                        Find.Selector.selected.Add(zone);
+                }
+
+                return true;
+            }
+
+            void RestoreState()
+            {
+                if (prevArea.HasValue)
+                    Designator_AreaAllowed.selectedArea = prevArea.Value.Inner;
+
+                if (prevThing.HasValue)
+                    DesignatorInstallPatch.thingToInstall = prevThing.Value.Inner;
+            }
 
             try
             {
-                if (!SetDesignatorState(designator, data)) return;
+                if (!SetState(designator, data)) return;
 
                 if (mode == DesignatorMode.SingleCell)
                 {
@@ -430,34 +472,8 @@ namespace Multiplayer.Client
             }
             finally
             {
-                DesignatorInstallPatch.thingToInstall = null;
+                RestoreState();
             }
-        }
-
-        private bool SetDesignatorState(Designator designator, ByteReader data)
-        {
-            if (designator is Designator_AreaAllowed)
-            {
-                Area area = Sync.ReadSync<Area>(data);
-                if (area == null) return false;
-                Designator_AreaAllowed.selectedArea = area;
-            }
-
-            if (designator is Designator_Install)
-            {
-                Thing thing = Sync.ReadSync<Thing>(data);
-                if (thing == null) return false;
-                DesignatorInstallPatch.thingToInstall = thing;
-            }
-
-            if (designator is Designator_Zone)
-            {
-                Zone zone = Sync.ReadSync<Zone>(data);
-                if (zone != null)
-                    Find.Selector.selected.Add(zone);
-            }
-
-            return true;
         }
 
         private bool nothingHappeningCached;

@@ -29,6 +29,7 @@ namespace Multiplayer.Client
         static void Prefix(ref Rect rect) => rect.height += 45f;
     }
 
+    [HotSwappable]
     [HarmonyPatch(typeof(OptionListingUtility), nameof(OptionListingUtility.DrawOptionListing))]
     public static class MainMenuPatch
     {
@@ -65,10 +66,16 @@ namespace Multiplayer.Client
             if (optList.Any(opt => opt.label == "ReviewScenario".Translate()))
             {
                 if (Multiplayer.session == null)
-                    optList.Insert(0, new ListableOption("MpHostServer".Translate(), () => Find.WindowStack.Add(new HostWindow())));
+                    optList.Insert(0, new ListableOption(
+                        "MpHostServer".Translate(),
+                        () => Find.WindowStack.Add(new HostWindow() { layer = WindowLayer.Super })
+                    ));
 
                 if (MpVersion.IsDebug && Multiplayer.IsReplay)
-                    optList.Insert(0, new ListableOption("MpHostServer".Translate(), () => Find.WindowStack.Add(new HostWindow(withSimulation: true))));
+                    optList.Insert(0, new ListableOption(
+                        "MpHostServer".Translate(),
+                        () => Find.WindowStack.Add(new HostWindow(withSimulation: true) { layer = WindowLayer.Super })
+                    ));
 
                 if (Multiplayer.Client != null)
                 {

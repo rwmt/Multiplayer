@@ -30,11 +30,20 @@ namespace Multiplayer.Client
 
         public static void EarlyInit()
         {
-            if (!Windows)
-                mono_dllmap_insert(IntPtr.Zero, MonoWindows, null, MonoNonWindows, null);
+            if (Linux)
+                TheLinuxWay();
+            if (OSX)
+                TheOSXWay();
 
             EarlyInitInternal();
         }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        static void TheLinuxWay() => mono_dllmap_insert_linux(IntPtr.Zero, MonoWindows, null, MonoLinux, null);
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        static void TheOSXWay() => mono_dllmap_insert_osx(IntPtr.Zero, MonoWindows, null, MonoOSX, null);
+
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static void EarlyInitInternal()
@@ -50,7 +59,7 @@ namespace Multiplayer.Client
             var threadInfoPtr = (long)(IntPtr)threadInfoField.GetValue(internalThreadField.GetValue(Thread.CurrentThread));
 
             // Struct offset found manually
-            // Navigate by "Handle Stack" string
+            // Navigate by string: "Handle Stack"
             if (Linux)
                 LmfPtr = threadInfoPtr + 0x480 - 8 * 4;
             else if (Windows)
@@ -76,10 +85,14 @@ namespace Multiplayer.Client
         }
 
         const string MonoWindows = "mono-2.0-bdwgc";
-        const string MonoNonWindows = "libmonobdwgc-2.0.so";
+        const string MonoLinux = "libmonobdwgc-2.0.so";
+        const string MonoOSX = "libmonobdwgc-2.0.dylib";
 
-        [DllImport(MonoNonWindows)]
-        private static extern void mono_dllmap_insert(IntPtr assembly, string dll, string func, string tdll, string tfunc);
+        [DllImport(MonoLinux, EntryPoint = "mono_dllmap_insert")]
+        private static extern void mono_dllmap_insert_linux(IntPtr assembly, string dll, string func, string tdll, string tfunc);
+
+        [DllImport(MonoOSX, EntryPoint = "mono_dllmap_insert")]
+        private static extern void mono_dllmap_insert_osx(IntPtr assembly, string dll, string func, string tdll, string tfunc);
 
         [DllImport(MonoWindows)]
         public static extern IntPtr mono_jit_info_table_find(IntPtr domain, IntPtr addr);
