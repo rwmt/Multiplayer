@@ -68,6 +68,10 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(MonumentMarker), "<GetGizmos>b__29_4").SetDebugOnly(); // Build Monument Quest - Monument Marker: dev build all
 
             SyncDelegate.Register(typeof(ITab_ContentsTransporter), "<>c__DisplayClass11_0", "<DoItemsLists>b__0").SetContext(SyncContext.MapSelected); // Discard loaded thing
+
+            SyncMethod.Register(typeof(CompTreeConnection), "<CompGetGizmosExtra>b__71_1").SetDebugOnly(); // Spawn dryad
+            SyncMethod.Register(typeof(CompTreeConnection), "<CompGetGizmosExtra>b__71_2").SetDebugOnly(); // Increase connection strength by 10%
+            SyncMethod.Register(typeof(CompTreeConnection), "<CompGetGizmosExtra>b__71_3").SetDebugOnly(); // Decrease connection strength by 10%
         }
 
         [MpPrefix(typeof(FormCaravanComp), "<>c__DisplayClass17_0", "<GetGizmos>b__0")]
