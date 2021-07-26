@@ -1,5 +1,6 @@
 using HarmonyLib;
 using Ionic.Zlib;
+using Multiplayer.Client.Networking;
 using Multiplayer.Common;
 using RestSharp;
 using RimWorld;
@@ -38,10 +39,11 @@ namespace Multiplayer.Client
                 data.WriteInt32(kv.Value.hash);
             }
 
-            connection.Send(Packets.Client_JoinData, data.ToArray());
+            connection.SendFragmented(Packets.Client_JoinData, data.ToArray());
         }
 
         [PacketHandler(Packets.Server_JoinData)]
+        [IsFragmented]
         public void HandleJoinData(ByteReader data)
         {
             Multiplayer.session.gameName = data.ReadString();
