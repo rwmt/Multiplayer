@@ -68,6 +68,8 @@ namespace Multiplayer.Client
 
         public static SyncField[] SyncAutoSlaughter;
 
+        public static ISyncField SyncPlantableTargetCell;
+
         public static void Init()
         {
             SyncMedCare = Sync.Field(typeof(Pawn), "playerSettings", "medCare");
@@ -177,6 +179,8 @@ namespace Multiplayer.Client
             SyncStorytellerDifficulty = Sync.Field(typeof(Storyteller), "difficulty").SetHostOnly().PostApply(StorytellerDifficutly_Post).SetVersion(2);
 
             SyncAnimalPenAutocut = Sync.Field(typeof(CompAnimalPenMarker), nameof(CompAnimalPenMarker.autoCut));
+
+            SyncPlantableTargetCell = Sync.Field(typeof(CompPlantable), nameof(CompPlantable.plantCell));
         }
 
         [MpPrefix(typeof(StorytellerUI), nameof(StorytellerUI.DrawStorytellerSelectionInterface))]
@@ -467,6 +471,14 @@ namespace Multiplayer.Client
                     entry.option.action = (Sync.FieldWatchPrefix + watchAction + entry.option.action + Sync.FieldWatchPostfix);
                 yield return entry;
             }
+        }
+
+        [MpPrefix(typeof(CompPlantable), "<BeginTargeting>b__9_0")]
+        static void WatchPlantableTargetCell(CompPlantable __instance)
+        {
+            // Sync cell to plant if it didn't require confirmation
+            // This can't be synced like the other two methods related to planting, as it has more code attached to it that we don't want to sync
+            SyncPlantableTargetCell.Watch(__instance);
         }
     }
 
