@@ -20,7 +20,7 @@ using Multiplayer.Client.Comp;
 
 namespace Multiplayer.Client
 {
-    public class MapAsyncTimeComp : IExposable, ITickable
+    public class AsyncTimeComp : IExposable, ITickable
     {
         public static Map tickingMap;
         public static Map executingCmdMap;
@@ -91,7 +91,7 @@ namespace Multiplayer.Client
 
         public Queue<ScheduledCommand> cmds = new Queue<ScheduledCommand>();
 
-        public MapAsyncTimeComp(Map map)
+        public AsyncTimeComp(Map map)
         {
             this.map = map;
         }
@@ -496,7 +496,7 @@ namespace Multiplayer.Client
 
         public override string ToString()
         {
-            return $"{nameof(MapAsyncTimeComp)}_{map}";
+            return $"{nameof(AsyncTimeComp)}_{map}";
         }
 
         public void QuestManagerTickAsyncTime()

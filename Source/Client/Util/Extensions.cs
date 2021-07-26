@@ -87,7 +87,7 @@ namespace Multiplayer.Client
             return Find.FactionManager.GetById(cmd.factionId);
         }
 
-        public static MapAsyncTimeComp AsyncTime(this Map map)
+        public static AsyncTimeComp AsyncTime(this Map map)
         {
             var list = Multiplayer.game?.asyncTimeComps;
             if (list == null) return null;

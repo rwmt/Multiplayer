@@ -660,7 +660,7 @@ namespace Multiplayer.Client
             Log.Message("Uniq ids " + Multiplayer.GlobalIdBlock.current);
             Log.Message("Rand " + Rand.StateCompressed);
 
-            var async = new MapAsyncTimeComp(map);
+            var async = new AsyncTimeComp(map);
             Multiplayer.game.asyncTimeComps.Add(async);
 
             var mapComp = new MultiplayerMapComp(map);

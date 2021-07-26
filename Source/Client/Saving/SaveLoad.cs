@@ -348,9 +348,9 @@ namespace Multiplayer.Client
             {
                 if (asyncTime == null)
                 {
-                    Log.Error($"{typeof(MapAsyncTimeComp)} missing during loading");
+                    Log.Error($"{typeof(AsyncTimeComp)} missing during loading");
                     // This is just so the game doesn't completely freeze
-                    asyncTime = new MapAsyncTimeComp(__instance);
+                    asyncTime = new AsyncTimeComp(__instance);
                 }
 
                 Multiplayer.game.asyncTimeComps.Add(asyncTime);

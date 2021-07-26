@@ -22,7 +22,7 @@ namespace Multiplayer.Client.AsyncTime
             yield return AccessTools.Method(typeof(Map), nameof(Map.MapPostTick));
         }
 
-        static bool Prefix() => Multiplayer.Client == null || MapAsyncTimeComp.tickingMap != null;
+        static bool Prefix() => Multiplayer.Client == null || AsyncTimeComp.tickingMap != null;
     }
 
     [HarmonyPatch(typeof(Autosaver), nameof(Autosaver.AutosaverTick))]
@@ -84,7 +84,7 @@ namespace Multiplayer.Client.AsyncTime
         {
             if (Multiplayer.Client == null || t.Map == null) return true;
 
-            MapAsyncTimeComp comp = t.Map.AsyncTime();
+            AsyncTimeComp comp = t.Map.AsyncTime();
             TickerType tickerType = t.def.tickerType;
 
             if (tickerType == TickerType.Normal)
@@ -105,7 +105,7 @@ namespace Multiplayer.Client.AsyncTime
         {
             if (Multiplayer.Client == null || t.Map == null) return true;
 
-            MapAsyncTimeComp comp = t.Map.AsyncTime();
+            AsyncTimeComp comp = t.Map.AsyncTime();
             TickerType tickerType = t.def.tickerType;
 
             if (tickerType == TickerType.Normal)
@@ -318,7 +318,7 @@ namespace Multiplayer.Client.AsyncTime
         {
             if (tickable is MultiplayerWorldComp)
                 Multiplayer.Client.SendCommand(CommandType.WorldTimeSpeed, ScheduledCommand.Global, (byte)newSpeed);
-            else if (tickable is MapAsyncTimeComp comp)
+            else if (tickable is AsyncTimeComp comp)
                 Multiplayer.Client.SendCommand(CommandType.MapTimeSpeed, comp.map.uniqueID, (byte)newSpeed);
         }
     }
@@ -449,12 +449,12 @@ namespace Multiplayer.Client.AsyncTime
         static void Prefix(IIncidentTarget target, ref Map __state)
         {
             // This may be running inside a context already
-            if (MapAsyncTimeComp.tickingMap != null)
+            if (AsyncTimeComp.tickingMap != null)
                 return;
 
             if (MultiplayerWorldComp.tickingWorld && target is Map map)
             {
-                MapAsyncTimeComp.tickingMap = map;
+                AsyncTimeComp.tickingMap = map;
                 map.AsyncTime().PreContext();
                 __state = map;
             }
@@ -465,7 +465,7 @@ namespace Multiplayer.Client.AsyncTime
             if (__state != null)
             {
                 __state.AsyncTime().PostContext();
-                MapAsyncTimeComp.tickingMap = null;
+                AsyncTimeComp.tickingMap = null;
             }
         }
     }
@@ -477,7 +477,7 @@ namespace Multiplayer.Client.AsyncTime
         {
             if (MultiplayerWorldComp.tickingWorld && parms.target is Map map)
             {
-                MapAsyncTimeComp.tickingMap = map;
+                AsyncTimeComp.tickingMap = map;
                 map.AsyncTime().PreContext();
                 __state = map;
             }
@@ -488,7 +488,7 @@ namespace Multiplayer.Client.AsyncTime
             if (__state != null)
             {
                 __state.AsyncTime().PostContext();
-                MapAsyncTimeComp.tickingMap = null;
+                AsyncTimeComp.tickingMap = null;
             }
         }
     }

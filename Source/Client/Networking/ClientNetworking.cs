@@ -218,7 +218,7 @@ namespace Multiplayer.Client
                 BeforeMapGeneration.SetupMap(map);
                 //BeforeMapGeneration.InitNewMapFactionData(map, opponent);
 
-                MapAsyncTimeComp async = map.AsyncTime();
+                AsyncTimeComp async = map.AsyncTime();
                 async.mapTicks = Find.TickManager.TicksGame;
                 async.TimeSpeed = Find.TickManager.CurTimeSpeed;
             }
