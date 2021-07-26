@@ -76,7 +76,7 @@ namespace Multiplayer.Client.Networking
 
     public class SteamClientConn : SteamBaseConn
     {
-        static ushort RandomChannelId() => (ushort)new System.Random().Next();
+        static ushort RandomChannelId() => (ushort)new Random().Next();
 
         public SteamClientConn(CSteamID remoteId) : base(remoteId, RandomChannelId(), 0)
         {

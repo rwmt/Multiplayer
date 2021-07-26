@@ -540,7 +540,7 @@ namespace Multiplayer.Common
 
         public void Disconnect(string reasonKey)
         {
-            Disconnect(MpDisconnectReason.Generic, Encoding.UTF8.GetBytes(reasonKey));
+            Disconnect(MpDisconnectReason.GenericKeyed, Encoding.UTF8.GetBytes(reasonKey));
         }
 
         public void Disconnect(MpDisconnectReason reason, byte[] data = null)
