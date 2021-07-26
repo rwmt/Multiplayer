@@ -170,6 +170,10 @@ namespace Multiplayer.Client
                     return tab.table;
                 }, true
             },
+            {
+                (ByteWriter data, Pawn_InventoryStockTracker inventoryTracker) => WriteSync(data, inventoryTracker.pawn),
+                (ByteReader data) => ReadSync<Pawn>(data).inventoryStock
+            },
             #endregion
 
             #region Policies
