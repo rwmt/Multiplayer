@@ -53,6 +53,10 @@ namespace Multiplayer.Client
                 // Double Execute ensures it'll run last.
                 LongEventHandler.ExecuteWhenFinished(LatePatches);
             });
+
+#if DEBUG
+            Application.logMessageReceivedThreaded -= Log.Notify_MessageReceivedThreadedInternal;
+#endif
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]

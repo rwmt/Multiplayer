@@ -156,7 +156,7 @@ namespace Multiplayer.Client
 
     public struct ModInfo
     {
-        public string packageId; // no suffix
+        public string packageId; // Mod package id with no _steam suffix
         public string name;
         public ulong steamId;
         public ContentSource source;
@@ -166,13 +166,13 @@ namespace Multiplayer.Client
 
     public struct ModFile
     {
-        public string absPath;
+        public string absPath; // Can be null on the remote side
         public string relPath;
         public int hash;
 
         public ModFile(string absPath, string relPath, int hash)
         {
-            this.absPath = absPath.NormalizePath();
+            this.absPath = absPath?.NormalizePath();
             this.relPath = relPath.NormalizePath();
             this.hash = hash;
         }

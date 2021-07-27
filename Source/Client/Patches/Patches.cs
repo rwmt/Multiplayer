@@ -1220,5 +1220,15 @@ namespace Multiplayer.Client
         }
     }*/
 
+#if DEBUG
+    [HarmonyPatch(typeof(Root), nameof(Root.CheckGlobalInit))]
+    static class DisableLogLimit
+    {
+        static void Postfix()
+        {
+            Application.logMessageReceivedThreaded -= Log.Notify_MessageReceivedThreadedInternal;
+        }
+    }
+#endif
 
 }

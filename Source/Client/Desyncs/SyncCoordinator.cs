@@ -356,13 +356,23 @@ namespace Multiplayer.Client
 
         public static string MethodNameWithIL(string rawName)
         {
-            rawName = rawName.Substring(0, rawName.LastIndexOf(']') + 1);
+            // Note: The names currently don't include IL locations
+            // at Verse.AI.JobDriver.ReadyForNextToil () [0x00000] in <c847e073cda54790b59d58357cc8cf98>:0
+            // =>
+            // at Verse.AI.JobDriver.ReadyForNextToil () [0x00000]
+            // rawName = rawName.Substring(0, rawName.LastIndexOf(']') + 1);
+
             return rawName;
         }
 
         public static string MethodNameWithoutIL(string rawName)
         {
-            rawName = rawName.Substring(0, rawName.LastIndexOf('['));
+            // Note: The names currently don't include IL locations
+            // at Verse.AI.JobDriver.ReadyForNextToil () [0x00000] in <c847e073cda54790b59d58357cc8cf98>:0
+            // =>
+            // at Verse.AI.JobDriver.ReadyForNextToil ()
+            // rawName = rawName.Substring(0, rawName.LastIndexOf('['));
+
             return rawName;
         }
     }
