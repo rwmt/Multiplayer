@@ -71,7 +71,7 @@ namespace Multiplayer.Client
             *iflags |= (ushort)MethodImplOptions.NoInlining;
         }
 
-        public static T UninitializedObject<T>()
+        public static T NewObjectNoCtor<T>()
         {
             return (T)FormatterServices.GetUninitializedObject(typeof(T));
         }

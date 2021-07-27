@@ -539,7 +539,7 @@ namespace Multiplayer.Client
                     var settables = ReadSync<List<IPlantToGrowSettable>>(data);
                     settables.RemoveAll(s => s == null);
 
-                    var command = MpUtil.UninitializedObject<Command_SetPlantToGrow>();
+                    var command = MpUtil.NewObjectNoCtor<Command_SetPlantToGrow>();
                     command.settable = settable;
                     command.settables = settables;
 
