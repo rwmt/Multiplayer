@@ -68,6 +68,8 @@ namespace Multiplayer.Client
 
         public static SyncField[] SyncAutoSlaughter;
 
+        public static ISyncField SyncNeuralSuperchargerMode;
+
         public static void Init()
         {
             SyncMedCare = Sync.Field(typeof(Pawn), "playerSettings", "medCare");
@@ -177,6 +179,8 @@ namespace Multiplayer.Client
             SyncStorytellerDifficulty = Sync.Field(typeof(Storyteller), "difficulty").SetHostOnly().PostApply(StorytellerDifficutly_Post).SetVersion(2);
 
             SyncAnimalPenAutocut = Sync.Field(typeof(CompAnimalPenMarker), nameof(CompAnimalPenMarker.autoCut));
+
+            SyncNeuralSuperchargerMode = Sync.Field(typeof(CompNeuralSupercharger), nameof(CompNeuralSupercharger.autoUseMode));
         }
 
         [MpPrefix(typeof(StorytellerUI), nameof(StorytellerUI.DrawStorytellerSelectionInterface))]
@@ -467,6 +471,15 @@ namespace Multiplayer.Client
                     entry.option.action = (Sync.FieldWatchPrefix + watchAction + entry.option.action + Sync.FieldWatchPostfix);
                 yield return entry;
             }
+        }
+
+        // Neural supercharger auto use mode syncing
+        [MpPrefix(typeof(Command_SetNeuralSuperchargerAutoUse), "<ProcessInput>b__11_0")] // Set to nobody being allowed to use
+        [MpPrefix(typeof(Command_SetNeuralSuperchargerAutoUse), "<ProcessInput>b__11_1")] // Set to use for pawns based on their beliefs
+        [MpPrefix(typeof(Command_SetNeuralSuperchargerAutoUse), "<ProcessInput>b__11_2")] // Set to use for everyone
+        static void WatchNeuralSuperchargerMode(Command_SetNeuralSuperchargerAutoUse __instance)
+        {
+            SyncNeuralSuperchargerMode.Watch(__instance.comp);
         }
     }
 

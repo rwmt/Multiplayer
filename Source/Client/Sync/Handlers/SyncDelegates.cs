@@ -68,6 +68,8 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(MonumentMarker), "<GetGizmos>b__29_4").SetDebugOnly(); // Build Monument Quest - Monument Marker: dev build all
 
             SyncDelegate.Register(typeof(ITab_ContentsTransporter), "<>c__DisplayClass11_0", "<DoItemsLists>b__0").SetContext(SyncContext.MapSelected); // Discard loaded thing
+
+            SyncMethod.Register(typeof(CompNeuralSupercharger), "<CompGetGizmosExtra>b__16_1"); // Neural supercharger: allow temporary pawns to use
         }
 
         [MpPrefix(typeof(FormCaravanComp), "<>c__DisplayClass17_0", "<GetGizmos>b__0")]
