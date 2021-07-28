@@ -68,6 +68,14 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(MonumentMarker), "<GetGizmos>b__29_4").SetDebugOnly(); // Build Monument Quest - Monument Marker: dev build all
 
             SyncDelegate.Register(typeof(ITab_ContentsTransporter), "<>c__DisplayClass11_0", "<DoItemsLists>b__0").SetContext(SyncContext.MapSelected); // Discard loaded thing
+
+            // Biosculpter pod
+            SyncDelegate.Register(typeof(CompBiosculpterPod), "<>c__DisplayClass58_0", "<CompGetGizmosExtra>b__0"); // Start cycle (should be universal for all cycle types, even modded)
+            SyncMethod.Register(typeof(CompBiosculpterPod), "<CompGetGizmosExtra>b__58_1");                         // Interrupt cucle (eject contents)
+            SyncMethod.Register(typeof(CompBiosculpterPod), "<CompGetGizmosExtra>b__58_2");                         // Cancel loading (eject contents)
+            SyncMethod.Register(typeof(CompBiosculpterPod), "<CompGetGizmosExtra>b__58_3").SetDebugOnly();          // Dev complete cycle
+            SyncMethod.Register(typeof(CompBiosculpterPod), "<CompGetGizmosExtra>b__58_4").SetDebugOnly();          // Dev advance by 1 day
+            SyncMethod.Register(typeof(CompBiosculpterPod), "<CompGetGizmosExtra>b__58_5").SetDebugOnly();          // Dev complete biotuner timer
         }
 
         [MpPrefix(typeof(FormCaravanComp), "<>c__DisplayClass17_0", "<GetGizmos>b__0")]
