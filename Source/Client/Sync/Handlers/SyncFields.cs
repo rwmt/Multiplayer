@@ -64,6 +64,10 @@ namespace Multiplayer.Client
         public static ISyncField SyncStorytellerDef;
         public static ISyncField SyncStorytellerDifficulty;
 
+        public static ISyncField SyncAnimalPenAutocut;
+
+        public static SyncField[] SyncAutoSlaughter;
+		
         public static ISyncField SyncDryadCaste;
 
         public static void Init()
@@ -99,8 +103,9 @@ namespace Multiplayer.Client
             SyncFactionAcceptRoyalFavor = Sync.Field(typeof(Faction), nameof(Faction.allowRoyalFavorRewards));
             SyncFactionAcceptGoodwill = Sync.Field(typeof(Faction), nameof(Faction.allowGoodwillRewards));
 
-            SyncThingFilterHitPoints = Sync.FieldMultiTarget(Sync.thingFilterTarget, "AllowedHitPointsPercents").SetBufferChanges();
-            SyncThingFilterQuality = Sync.FieldMultiTarget(Sync.thingFilterTarget, "AllowedQualityLevels").SetBufferChanges();
+            var thingFilterTarget = new MultiTarget() { { SyncThingFilters.ThingFilterTarget, "Data/Filter" } };
+            SyncThingFilterHitPoints = Sync.FieldMultiTarget(thingFilterTarget, "AllowedHitPointsPercents").SetBufferChanges();
+            SyncThingFilterQuality = Sync.FieldMultiTarget(thingFilterTarget, "AllowedQualityLevels").SetBufferChanges();
 
             SyncBillSuspended = Sync.Field(typeof(Bill), "suspended");
             SyncIngredientSearchRadius = Sync.Field(typeof(Bill), "ingredientSearchRadius").SetBufferChanges();
@@ -148,6 +153,19 @@ namespace Multiplayer.Client
                 "onlyIfJoyBelow"
             ).SetBufferChanges();
 
+            // This depends on the order of AutoSlaughterManager.configs being the same on all clients
+            // It's initialized using DefDatabase<ThingDef>.AllDefs which shouldn't cause problems
+            SyncAutoSlaughter = Sync.Fields(
+                typeof(AutoSlaughterManager),
+                "configs/[]",
+                "maxTotal",
+                "maxMales",
+                "maxMalesYoung",
+                "maxFemales",
+                "maxFemalesYoung",
+                "allowSlaughterPregnant"
+            );
+
             SyncTradeableCount = Sync.Field(typeof(MpTransferableReference), "CountToTransfer").SetBufferChanges().PostApply(TransferableCount_PostApply);
 
             // 1
@@ -161,6 +179,8 @@ namespace Multiplayer.Client
             SyncStorytellerDifficulty = Sync.Field(typeof(Storyteller), "difficulty").SetHostOnly().PostApply(StorytellerDifficutly_Post).SetVersion(2);
 
             SyncDryadCaste = Sync.Field(typeof(CompTreeConnection), nameof(CompTreeConnection.desiredMode));
+
+            SyncAnimalPenAutocut = Sync.Field(typeof(CompAnimalPenMarker), nameof(CompAnimalPenMarker.autoCut));
         }
 
         [MpPrefix(typeof(StorytellerUI), nameof(StorytellerUI.DrawStorytellerSelectionInterface))]
@@ -285,13 +305,13 @@ namespace Multiplayer.Client
         [MpPrefix(typeof(ThingFilterUI), "DrawHitPointsFilterConfig")]
         static void ThingFilterHitPoints()
         {
-            SyncThingFilterHitPoints.Watch(SyncMarkers.ThingFilterOwner);
+            SyncThingFilterHitPoints.Watch(SyncMarkers.DrawnThingFilter);
         }
 
         [MpPrefix(typeof(ThingFilterUI), "DrawQualityFilterConfig")]
         static void ThingFilterQuality()
         {
-            SyncThingFilterQuality.Watch(SyncMarkers.ThingFilterOwner);
+            SyncThingFilterQuality.Watch(SyncMarkers.DrawnThingFilter);
         }
 
         [MpPrefix(typeof(Bill), "DoInterface")]
@@ -334,7 +354,8 @@ namespace Multiplayer.Client
         [MpPrefix(typeof(ITab_Bills), "TabUpdate")]
         static void BillIngredientSearchRadius(ITab_Bills __instance)
         {
-            // Apply the buffered value for smooth rendering (doesn't actually have to sync anything here)
+            // Apply the buffered value for smooth rendering
+            // (the actual syncing happens in BillIngredientSearchRadius below)
             if (__instance.mouseoverBill is Bill mouseover)
                 SyncIngredientSearchRadius.Watch(mouseover);
         }
@@ -392,6 +413,18 @@ namespace Multiplayer.Client
             SyncBeCarried.Watch(p);
         }
 
+        [MpPrefix(typeof(ITab_PenAutoCut), nameof(ITab_PenAutoCut.DrawAutoCutOptions))]
+        static void DrawAutoCutOptions(CompAnimalPenMarker marker)
+        {
+            SyncAnimalPenAutocut.Watch(marker);
+        }
+
+        [MpPrefix(typeof(Dialog_AutoSlaughter), nameof(Dialog_AutoSlaughter.DoAnimalRow))]
+        static void Dialog_AutoSlaughter_Row(Map map, AutoSlaughterConfig config)
+        {
+            SyncAutoSlaughter.Watch(map.autoSlaughterManager, map.autoSlaughterManager.configs.IndexOf(config));
+        }
+
         [MpPrefix(typeof(Bill), nameof(Bill.DoInterface))]
         [MpPrefix(typeof(Bill_Production), nameof(Bill_Production.ShouldDoNow))]
         static void WatchBillPaused(Bill __instance)
@@ -406,13 +439,13 @@ namespace Multiplayer.Client
         static void WatchPolicyLabels()
         {
             if (SyncMarkers.dialogOutfit != null)
-                SyncOutfitLabel.Watch(SyncMarkers.dialogOutfit);
+                SyncOutfitLabel.Watch(SyncMarkers.dialogOutfit.Outfit);
 
             if (SyncMarkers.drugPolicy != null)
                 SyncDrugPolicyLabel.Watch(SyncMarkers.drugPolicy);
 
             if (SyncMarkers.foodRestriction != null)
-                SyncFoodRestrictionLabel.Watch(SyncMarkers.foodRestriction);
+                SyncFoodRestrictionLabel.Watch(SyncMarkers.foodRestriction.Food);
         }
 
         static void UseWorkPriorities_PostApply(object target, object value)

@@ -16,7 +16,7 @@ namespace Multiplayer.Client
 
         public MultiplayerWorldComp worldComp;
         public List<MultiplayerMapComp> mapComps = new List<MultiplayerMapComp>();
-        public List<MapAsyncTimeComp> asyncTimeComps = new List<MapAsyncTimeComp>();
+        public List<AsyncTimeComp> asyncTimeComps = new List<AsyncTimeComp>();
         public SharedCrossRefs sharedCrossRefs = new SharedCrossRefs();
 
         public Faction dummyFaction;

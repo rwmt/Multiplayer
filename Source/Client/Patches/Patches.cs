@@ -660,7 +660,7 @@ namespace Multiplayer.Client
             Log.Message("Uniq ids " + Multiplayer.GlobalIdBlock.current);
             Log.Message("Rand " + Rand.StateCompressed);
 
-            var async = new MapAsyncTimeComp(map);
+            var async = new AsyncTimeComp(map);
             Multiplayer.game.asyncTimeComps.Add(async);
 
             var mapComp = new MultiplayerMapComp(map);
@@ -1219,4 +1219,16 @@ namespace Multiplayer.Client
             return false;
         }
     }*/
+
+#if DEBUG
+    [HarmonyPatch(typeof(Root), nameof(Root.CheckGlobalInit))]
+    static class DisableLogLimit
+    {
+        static void Postfix()
+        {
+            Application.logMessageReceivedThreaded -= Log.Notify_MessageReceivedThreadedInternal;
+        }
+    }
+#endif
+
 }

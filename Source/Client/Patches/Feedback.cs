@@ -35,8 +35,8 @@ namespace Multiplayer.Client.Patches
     {
         static bool Prefix()
         {
-            if (TickPatch.currentExecutingCmdIssuedBySelf && MapAsyncTimeComp.executingCmdMap != null)
-                MapAsyncTimeComp.keepTheMap = true;
+            if (TickPatch.currentExecutingCmdIssuedBySelf && AsyncTimeComp.executingCmdMap != null)
+                AsyncTimeComp.keepTheMap = true;
 
             return !CancelFeedbackNotTargetedAtMe.Cancel;
         }

@@ -539,7 +539,7 @@ namespace Multiplayer.Client
                     var settables = ReadSync<List<IPlantToGrowSettable>>(data);
                     settables.RemoveAll(s => s == null);
 
-                    var command = MpUtil.UninitializedObject<Command_SetPlantToGrow>();
+                    var command = MpUtil.NewObjectNoCtor<Command_SetPlantToGrow>();
                     command.settable = settable;
                     command.settables = settables;
 
@@ -876,6 +876,10 @@ namespace Multiplayer.Client
             {
                 (ByteWriter data, AreaManager areas) => data.MpContext().map = areas.map,
                 (ByteReader data) => (data.MpContext().map).areaManager
+            },
+            {
+                (ByteWriter data, AutoSlaughterManager autoSlaughter) => data.MpContext().map = autoSlaughter.map,
+                (ByteReader data) => (data.MpContext().map).autoSlaughterManager
             },
             {
                 (ByteWriter data, MultiplayerMapComp comp) => data.MpContext().map = comp.map,
@@ -1378,7 +1382,7 @@ namespace Multiplayer.Client
             #region Ideology
             {
                 (ByteWriter data, Ideo ideo) => {
-                    data.WriteInt32(ideo.id);
+                    data.WriteInt32(ideo?.id ?? -1);
                 },
                 (ByteReader data) => {
                     var id = data.ReadInt32();
@@ -1387,14 +1391,15 @@ namespace Multiplayer.Client
             },
             {
                 (ByteWriter data, Precept precept) => {
-                    WriteSync(data, precept.ideo);
-                    data.WriteInt32(precept.Id);
+                    WriteSync(data, precept?.ideo);
+                    data.WriteInt32(precept?.Id ?? -1);
                 },
                 (ByteReader data) => {
                     var ideo = ReadSync<Ideo>(data);
                     var id = data.ReadInt32();
-                    return ideo.PreceptsListForReading.FirstOrDefault(p => p.Id == id);
-                }
+                    return ideo?.PreceptsListForReading.FirstOrDefault(p => p.Id == id);
+                },
+                true
             }
             #endregion
         };

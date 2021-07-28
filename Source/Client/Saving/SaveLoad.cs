@@ -16,6 +16,7 @@ using Verse.Profile;
 
 namespace Multiplayer.Client
 {
+    [HotSwappable]
     public static class SaveLoad
     {
         public static XmlDocument SaveAndReload()
@@ -113,6 +114,8 @@ namespace Multiplayer.Client
             return gameDoc;
         }
 
+        public const float SpecialBellTime = -2000f;
+
         public static void LoadInMainThread(XmlDocument gameDoc)
         {
             DeepProfiler.Start("Multiplayer LoadInMainThread");
@@ -126,8 +129,10 @@ namespace Multiplayer.Client
             Find.Root.Start();
             CancelRootPlayStartLongEvents.cancel = false;
 
-            //foreach (var alert in ((UIRoot_Play)Find.UIRoot).alerts.AllAlerts)
-            //    alert.lastBellTime = float.NaN;
+            // The SpecialBellTime is a marker value later used in FixAlertBellTime below
+            foreach (var alert in ((UIRoot_Play)Find.UIRoot).alerts.AllAlerts)
+                if (alert.Active) // todo, this is always false
+                    alert.lastBellTime = SpecialBellTime;
 
             // SaveCompression enabled in the patch
             SavedGameLoaderNow.LoadGameFromSaveFileNow(null);
@@ -348,9 +353,9 @@ namespace Multiplayer.Client
             {
                 if (asyncTime == null)
                 {
-                    Log.Error($"{typeof(MapAsyncTimeComp)} missing during loading");
+                    Log.Error($"{typeof(AsyncTimeComp)} missing during loading");
                     // This is just so the game doesn't completely freeze
-                    asyncTime = new MapAsyncTimeComp(__instance);
+                    asyncTime = new AsyncTimeComp(__instance);
                 }
 
                 Multiplayer.game.asyncTimeComps.Add(asyncTime);
@@ -399,10 +404,15 @@ namespace Multiplayer.Client
     [HarmonyPatch(typeof(Alert), nameof(Alert.Notify_Started))]
     static class FixAlertBellTime
     {
-        static void Postfix(Alert __instance)
+        static bool Prefix(Alert __instance)
         {
-            if (__instance.lastBellTime == float.NaN)
+            if (__instance.lastBellTime == SaveLoad.SpecialBellTime)
+            {
                 __instance.lastBellTime = Time.realtimeSinceStartup;
+                return false;
+            }
+
+            return true;
         }
     }
 
