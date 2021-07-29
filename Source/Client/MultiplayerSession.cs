@@ -1,13 +1,11 @@
-﻿using LiteNetLib;
+using LiteNetLib;
 using Multiplayer.Common;
 using RimWorld;
-using RimWorld.BaseGen;
 using Steamworks;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Reflection;
 using System.Text;
 using System.Threading;
 using UnityEngine;
@@ -44,8 +42,6 @@ namespace Multiplayer.Client
         public string disconnectReasonKey;
         public string disconnectInfo;
 
-        public SessionModInfo mods = new SessionModInfo();
-
         public bool allowSteam;
         public List<CSteamID> pendingSteam = new List<CSteamID>();
         public List<CSteamID> knownUsers = new List<CSteamID>();
@@ -53,7 +49,6 @@ namespace Multiplayer.Client
 
         public const int MaxMessages = 200;
         public List<ChatMsg> messages = new List<ChatMsg>();
-        public Rect chatPos;
         public bool hasUnread;
 
         public MultiplayerServer localServer;
@@ -67,7 +62,7 @@ namespace Multiplayer.Client
         {
             if (client != null)
             {
-                client.Close();
+                client.Close(MpDisconnectReason.Internal);
                 client.State = ConnectionStateEnum.Disconnected;
             }
 
@@ -126,14 +121,14 @@ namespace Multiplayer.Client
             string reasonKey = null;
             string descKey = null;
 
-            if (reason == MpDisconnectReason.Generic) reasonKey = reader.ReadString();
+            if (reason == MpDisconnectReason.GenericKeyed) reasonKey = reader.ReadString();
 
             if (reason == MpDisconnectReason.Protocol)
             {
                 reasonKey = "MpWrongProtocol";
 
-                string strVersion = data.Length != 0 ? reader.ReadString() : "0.4.2";
-                int proto = data.Length != 0 ? reader.ReadInt32() : 11;
+                string strVersion = reader.ReadString();
+                int proto = reader.ReadInt32();
 
                 disconnectInfo = "MpWrongMultiplayerVersionInfo".Translate(strVersion, proto);
             }
@@ -144,18 +139,6 @@ namespace Multiplayer.Client
             if (reason == MpDisconnectReason.ServerClosed) reasonKey = "MpServerClosed";
             if (reason == MpDisconnectReason.ServerFull) reasonKey = "MpServerFull";
             if (reason == MpDisconnectReason.Kick) reasonKey = "MpKicked";
-
-            if (reason == MpDisconnectReason.Defs)
-            {
-                foreach (var local in mods.defInfo)
-                {
-                    var status = (DefCheckStatus)reader.ReadByte();
-                    local.Value.status = status;
-
-                    if (MultiplayerMod.arbiterInstance && status != DefCheckStatus.OK)
-                        Log.Message($"{local.Key}: {status}");
-                }
-            }
 
             disconnectReason = reason;
             disconnectReasonKey = reasonKey?.Translate();
@@ -168,17 +151,12 @@ namespace Multiplayer.Client
 
         public void Disconnected()
         {
-            Find.WindowStack.windows.Clear();
+            MpUtil.ClearWindowStack();
 
-            if (disconnectReason == MpDisconnectReason.Defs) {
-                Find.WindowStack.Add(new DefMismatchWindow(mods));
-            }
-            else if (disconnectReason == MpDisconnectReason.ServerFull) {
-                Find.WindowStack.Add(new DisconnectedWindow(disconnectReasonKey, disconnectInfo));
-            }
-            else {
-                Find.WindowStack.Add(new DisconnectedWindow(disconnectReasonKey, disconnectInfo) {returnToServerBrowser = Multiplayer.Client.State != ConnectionStateEnum.ClientPlaying});
-            }
+            Find.WindowStack.Add(new DisconnectedWindow(disconnectReasonKey, disconnectInfo)
+            {
+                returnToServerBrowser = Multiplayer.Client?.State != ConnectionStateEnum.ClientPlaying
+            });
         }
 
         public void ReapplyPrefs()
@@ -189,22 +167,8 @@ namespace Multiplayer.Client
         public void ProcessTimeControl()
         {
             if (localCmdId >= remoteCmdId)
-            {
                 TickPatch.tickUntil = remoteTickUntil;
-            }
         }
-    }
-
-    public class SessionModInfo
-    {
-        public string remoteRwVersion;
-        public string[] remoteModNames;
-        public string[] remoteModIds;
-        public ulong[] remoteWorkshopModIds;
-        public Dictionary<string, string> remoteModConfigs;
-        public Dictionary<string, DefInfo> defInfo;
-        public string remoteAddress;
-        public int remotePort;
     }
 
     public class PlayerInfo
@@ -264,110 +228,6 @@ namespace Multiplayer.Client
                 color = color,
                 ticksBehind = ticksBehind
             };
-        }
-    }
-
-    public class MultiplayerGame
-    {
-        public SyncCoordinator sync = new SyncCoordinator();
-
-        public MultiplayerWorldComp worldComp;
-        public List<MultiplayerMapComp> mapComps = new List<MultiplayerMapComp>();
-        public List<MapAsyncTimeComp> asyncTimeComps = new List<MapAsyncTimeComp>();
-        public SharedCrossRefs sharedCrossRefs = new SharedCrossRefs();
-
-        public Faction dummyFaction;
-        private Faction myFaction;
-        public Faction myFactionLoading;
-
-        public Dictionary<int, PlayerDebugState> playerDebugState = new Dictionary<int, PlayerDebugState>();
-
-        public Faction RealPlayerFaction
-        {
-            get => myFaction ?? myFactionLoading;
-
-            set
-            {
-                myFaction = value;
-                FactionContext.Set(value);
-                worldComp.SetFaction(value);
-
-                foreach (Map m in Find.Maps)
-                    m.MpComp().SetFaction(value);
-            }
-        }
-
-        public MultiplayerGame()
-        {
-            Toils_Ingest.cardinals = GenAdj.CardinalDirections.ToList();
-            Toils_Ingest.diagonals = GenAdj.DiagonalDirections.ToList();
-            GenAdj.adjRandomOrderList = null;
-            CellFinder.mapEdgeCells = null;
-            CellFinder.mapSingleEdgeCells = new List<IntVec3>[4];
-
-            TradeSession.trader = null;
-            TradeSession.playerNegotiator = null;
-            TradeSession.deal = null;
-            TradeSession.giftMode = false;
-
-            DebugTools.curTool = null;
-            ClearPortraits();
-            RealTime.moteList.Clear();
-
-            Room.nextRoomID = 1;
-            RoomGroup.nextRoomGroupID = 1;
-            Region.nextId = 1;
-            ListerHaulables.groupCycleIndex = 0;
-
-            ZoneColorUtility.nextGrowingZoneColorIndex = 0;
-            ZoneColorUtility.nextStorageZoneColorIndex = 0;
-
-            SetThingMakerSeed(1);
-
-            Prefs.PauseOnLoad = false; // causes immediate desyncs on load if misaligned between host and clients
-
-            foreach (var field in typeof(DebugSettings).GetFields(BindingFlags.Public | BindingFlags.Static))
-                if (!field.IsLiteral && field.FieldType == typeof(bool))
-                    field.SetValue(null, default(bool));
-
-            typeof(DebugSettings).TypeInitializer.Invoke(null, null);
-
-            foreach (var resolver in DefDatabase<RuleDef>.AllDefs.SelectMany(r => r.resolvers))
-                if (resolver is SymbolResolver_EdgeThing edgeThing)
-                    edgeThing.randomRotations = new List<int>() { 0, 1, 2, 3 };
-
-            typeof(SymbolResolver_SingleThing).TypeInitializer.Invoke(null, null);
-        }
-
-        public static void ClearPortraits()
-        {
-            foreach (var cachedPortrait in PortraitsCache.cachedPortraits)
-            {
-                foreach (var kv in cachedPortrait.CachedPortraits.ToList())
-                {
-                    var value = kv.Value;
-                    value.LastUseTime = Time.time - 2f;
-                    cachedPortrait.CachedPortraits[kv.Key] = value;
-                }
-            }
-            PortraitsCache.RemoveExpiredCachedPortraits();
-        }
-
-        public void SetThingMakerSeed(int seed)
-        {
-            foreach (var maker in CaptureThingSetMakers.captured)
-            {
-                if (maker is ThingSetMaker_Nutrition n)
-                    n.nextSeed = seed;
-                if (maker is ThingSetMaker_MarketValue m)
-                    m.nextSeed = seed;
-            }
-        }
-
-        public void OnDestroy()
-        {
-            FactionContext.Clear();
-            ThingContext.Clear();
         }
     }
 }

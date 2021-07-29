@@ -1,4 +1,4 @@
-﻿using Multiplayer.Common;
+using Multiplayer.Common;
 using RimWorld;
 using System;
 using System.Collections.Generic;
@@ -136,7 +136,7 @@ namespace Multiplayer.Client
             x += 120 + 10;
 
             if (Widgets.ButtonText(new Rect(x, 0, 120, 35), "MpChatButton".Translate()))
-                Find.WindowStack.Add(new ChatWindow() { closeOnClickedOutside = true, absorbInputAroundWindow = true });
+                Find.WindowStack.Add(new ChatWindow() { closeOnClickedOutside = true, absorbInputAroundWindow = true, saveSize = false });
             x += 120 + 10;
 
             if (Widgets.ButtonText(new Rect(x, 0, 120, 35), "Quit".Translate()))
@@ -150,9 +150,7 @@ namespace Multiplayer.Client
             LongEventHandler.QueueLongEvent(() =>
             {
                 Find.GameInfo.permadeathMode = false;
-                // todo handle the other faction def too
-                Multiplayer.DummyFaction.def = FactionDefOf.Ancients;
-
+                
                 OnMainThread.StopMultiplayer();
 
                 var doc = SaveLoad.SaveGame();
@@ -267,7 +265,7 @@ namespace Multiplayer.Client
             if (str.Length > 30)
                 return false;
 
-            fileExists = new FileInfo(Path.Combine(Multiplayer.ReplaysDir, $"{curName}.zip")).Exists;
+            fileExists = new FileInfo(Path.Combine(Multiplayer.ReplaysDir, $"{str}.zip")).Exists;
             return true;
         }
 

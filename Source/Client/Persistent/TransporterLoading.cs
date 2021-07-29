@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -299,7 +299,7 @@ namespace Multiplayer.Client
         {
             List<Type> nestedPrivateTypes = new List<Type>(typeof(ITab_ContentsTransporter).GetNestedTypes(BindingFlags.NonPublic));
 
-            Type cType = nestedPrivateTypes.Find(t => t.Name.Equals("<>c__DisplayClass7_0"));
+            Type cType = nestedPrivateTypes.Find(t => t.Name.Equals("<>c__DisplayClass11_0"));
 
             return AccessTools.Method(cType, "<DoItemsLists>b__0");
         }

@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using Multiplayer.API;
 using RimWorld;
 using RimWorld.Planet;
@@ -46,7 +46,7 @@ namespace Multiplayer.Client
         private void AddItems()
         {
             var dialog = new MpFormingCaravanWindow(map, reform, null, mapAboutToBeRemoved);
-            dialog.autoSelectFoodAndMedicine = false;
+            dialog.autoSelectTravelSupplies = false;
             dialog.CalculateAndRecacheTransferables();
             transferables = dialog.transferables;
         }
@@ -60,7 +60,19 @@ namespace Multiplayer.Client
                 dialog.soundAppear = null;
             dialog.doCloseX = true;
 
-            CaravanUIUtility.CreateCaravanTransferableWidgets_NewTmp(transferables, out dialog.pawnsTransfer, out dialog.itemsTransfer, out dialog.foodAndMedicineTransfer, "FormCaravanColonyThingCountTip".Translate(), dialog.IgnoreInventoryMode, () => dialog.MassCapacity - dialog.MassUsage, dialog.AutoStripSpawnedCorpses, dialog.CurrentTile, mapAboutToBeRemoved);
+            CaravanUIUtility.CreateCaravanTransferableWidgets(
+                transferables,
+                out dialog.pawnsTransfer,
+                out dialog.itemsTransfer,
+                out dialog.travelSuppliesTransfer,
+                "FormCaravanColonyThingCountTip".Translate(),
+                dialog.IgnoreInventoryMode,
+                () => dialog.MassCapacity - dialog.MassUsage,
+                dialog.AutoStripSpawnedCorpses,
+                dialog.CurrentTile,
+                mapAboutToBeRemoved
+            );
+
             dialog.CountToTransferChanged();
 
             Find.WindowStack.Add(dialog);
@@ -74,7 +86,7 @@ namespace Multiplayer.Client
                 startingTile = startingTile,
                 destinationTile = destinationTile,
                 thisWindowInstanceEverOpened = true,
-                autoSelectFoodAndMedicine = false,
+                autoSelectTravelSupplies = false,
             };
 
             return dialog;

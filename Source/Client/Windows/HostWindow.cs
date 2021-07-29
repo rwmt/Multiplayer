@@ -1,4 +1,4 @@
-﻿using Multiplayer.Common;
+using Multiplayer.Common;
 using RimWorld;
 using System;
 using System.Collections.Generic;
@@ -267,7 +267,7 @@ namespace Multiplayer.Client
             Text.Anchor = TextAnchor.MiddleRight;
             Widgets.Label(labelRect, label);
             Text.Anchor = anchor;
-            Widgets.TextFieldNumeric<T>(fieldRect, ref val, ref buffer, min, max);
+            Widgets.TextFieldNumeric(fieldRect, ref val, ref buffer, min, max);
         }
 
         public override void PostClose()

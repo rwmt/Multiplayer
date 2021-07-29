@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using Multiplayer.API;
 using Multiplayer.Common;
 using RimWorld;
@@ -379,12 +379,8 @@ namespace Multiplayer.Client
     [HarmonyPatch(new[] { typeof(Pawn), typeof(ITrader), typeof(bool) })]
     static class CancelDialogTradeCtor
     {
-        public static bool cancel;
-
         static bool Prefix(Pawn playerNegotiator, ITrader trader, bool giftsOnly)
         {
-            if (cancel) return false;
-
             if (Multiplayer.ExecutingCmds || Multiplayer.Ticking)
             {
                 MpTradeSession.TryCreate(trader, playerNegotiator, giftsOnly);

@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
@@ -12,6 +12,8 @@ using UnityEngine;
 using Verse;
 using Verse.AI;
 using Multiplayer.Client.Persistent;
+using Multiplayer.Client.Desyncs;
+using Multiplayer.Client.Patches;
 
 namespace Multiplayer.Client
 {
@@ -158,8 +160,9 @@ namespace Multiplayer.Client
                 Multiplayer.game.myFactionLoading = Find.FactionManager.GetById(Multiplayer.session.myFactionId);
             }
 
-            if (Scribe.mode == LoadSaveMode.PostLoadInit)
+            if (Scribe.mode == LoadSaveMode.LoadingVars)
             {
+                // Game manager order?
                 factionData[currentFactionId] = FactionWorldData.FromCurrent(currentFactionId);
             }
         }
@@ -237,16 +240,17 @@ namespace Multiplayer.Client
         {
             CommandType cmdType = cmd.type;
             LoggingByteReader data = new LoggingByteReader(cmd.data);
-            data.log.Node(cmdType + " World");
 
             executingCmdWorld = true;
             TickPatch.currentExecutingCmdIssuedBySelf = cmd.issuedBySelf && !TickPatch.Skipping;
 
             PreContext();
-            FactionContext.Push(cmd.GetFaction());
+            Extensions.PushFaction(null, cmd.GetFaction());
 
             bool devMode = Prefs.data.devMode;
             Prefs.data.devMode = Multiplayer.WorldComp.debugMode;
+
+            var randCalls1 = DeferredStackTracing.randCalls;
 
             try
             {
@@ -286,10 +290,10 @@ namespace Multiplayer.Client
                 if (cmdType == CommandType.FactionOffline)
                 {
                     int factionId = data.ReadInt32();
-                    Multiplayer.WorldComp.factionData[factionId].online = false;
+                    //Multiplayer.WorldComp.factionData[factionId].online = false;
 
-                    if (Multiplayer.session.myFactionId == factionId)
-                        Multiplayer.RealPlayerFaction = Multiplayer.DummyFaction;
+                    //if (Multiplayer.session.myFactionId == factionId)
+                    //    Multiplayer.RealPlayerFaction = Multiplayer.DummyFaction;
                 }
 
                 if (cmdType == CommandType.FactionOnline)
@@ -314,7 +318,10 @@ namespace Multiplayer.Client
             {
                 Prefs.data.devMode = devMode;
 
-                FactionContext.Pop();
+                Log.Message($"rand calls {DeferredStackTracing.randCalls - randCalls1}");
+                Log.Message("rand state " + Rand.StateCompressed);
+
+                Extensions.PopFaction();
                 PostContext();
                 TickPatch.currentExecutingCmdIssuedBySelf = false;
                 executingCmdWorld = false;
@@ -396,7 +403,7 @@ namespace Multiplayer.Client
                 faction = new Faction
                 {
                     loadID = factionId,
-                    def = Multiplayer.FactionDef,
+                    def = FactionDefOf.PlayerColony,
                     Name = "Multiplayer faction",
                     centralMelanin = Rand.Value
                 };

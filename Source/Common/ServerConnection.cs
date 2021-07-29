@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
-using Multiplayer.Client;
 using RestSharp;
 using Verse;
 
@@ -13,13 +12,16 @@ namespace Multiplayer.Common
     public class ServerJoiningState : MpConnectionState
     {
         public static Regex UsernamePattern = new Regex(@"^[a-zA-Z0-9_]+$");
+        
+        private bool defsMismatched;
 
         public ServerJoiningState(IConnection conn) : base(conn)
         {
         }
 
-        [PacketHandler(Packets.Client_Protocol)]
-        public void HandleProtocol(ByteReader data)
+        [PacketHandler(Packets.Client_JoinData)]
+        [IsFragmented]
+        public void HandleJoinData(ByteReader data)
         {
             int clientProtocol = data.ReadInt32();
             if (clientProtocol != MpVersion.Protocol)
@@ -28,32 +30,14 @@ namespace Multiplayer.Common
                 return;
             }
 
-            var modConfigFiles = MultiplayerMod.settings.syncModConfigs ? ModManagement.GetSyncableConfigFiles() : new Dictionary<string, string>();
-            // Compress configs, to keep packet size < 50kb limit. JSON encode first, as the many tiny files are better compressed together
-            var modConfigsCompressed = GZipStream.CompressString(SimpleJson.SerializeObject(modConfigFiles));
-            if (MpVersion.IsDebug) {
-                Log.Message($"Sending {modConfigFiles.Keys.Count} mod config files");
-                foreach (KeyValuePair<string, string> modConfigFile in modConfigFiles) {
-                    Log.Message(modConfigFile.Key + ": " + modConfigFile.Value.Length);
-                }
-                Log.Message($"modConfigsCompressed size: {modConfigsCompressed.Length}");
-            }
-
-            connection.SendFragmented(Packets.Server_ModList, Server.rwVersion, Server.modNames, Server.modIds, Server.workshopModIds, modConfigsCompressed);
-        }
-
-        [PacketHandler(Packets.Client_Defs)]
-        public void HandleDefs(ByteReader data)
-        {
             var count = data.ReadInt32();
             if (count > 512)
             {
-                Player.Disconnect(MpDisconnectReason.Generic);
+                Player.Disconnect(MpDisconnectReason.Internal);
                 return;
             }
 
-            var response = new ByteWriter();
-            var disconnect = false;
+            var defsResponse = new ByteWriter();
 
             for (int i = 0; i < count; i++)
             {
@@ -71,22 +55,23 @@ namespace Multiplayer.Common
                     status = DefCheckStatus.Hash_Diff;
 
                 if (status != DefCheckStatus.OK)
-                    disconnect = true;
+                    defsMismatched = true;
 
-                response.WriteByte((byte)status);
+                defsResponse.WriteByte((byte)status);
             }
 
-            if (disconnect)
-            {
-                Player.Disconnect(MpDisconnectReason.Defs, response.ToArray());
-                return;
-            }
-
-            connection.Send(Packets.Server_DefsOK, Server.settings.gameName, Player.id);
+            connection.SendFragmented(
+                Packets.Server_JoinData,
+                Server.settings.gameName,
+                Player.id,
+                Server.rwVersion,
+                defsResponse.ToArray(),
+                Server.serverData
+            );
         }
 
         private static ColorRGB[] PlayerColors = new ColorRGB[]
-{
+        {
             new ColorRGB(0,125,255),
             new ColorRGB(255,0,0),
             new ColorRGB(0,255,45),
@@ -94,7 +79,7 @@ namespace Multiplayer.Common
             new ColorRGB(80,250,250),
             new ColorRGB(200,255,75),
             new ColorRGB(100,0,75)
-};
+        };
 
         private static Dictionary<string, ColorRGB> givenColors = new Dictionary<string, ColorRGB>();
 
@@ -237,8 +222,9 @@ namespace Multiplayer.Common
         {
             Player.UpdateStatus(PlayerStatus.Desynced);
 
-            if (MultiplayerMod.settings.autosaveOnDesync)
-                Client.Multiplayer.LocalServer.DoAutosave(forcePause: true);
+            // todo
+            //if (MultiplayerMod.settings.autosaveOnDesync)
+            //    Server.DoAutosave(forcePause: true);
         }
 
         [PacketHandler(Packets.Client_Command)]
@@ -405,11 +391,10 @@ namespace Multiplayer.Common
         public void HandleDesyncCheck(ByteReader data)
         {
             var arbiter = Server.ArbiterPlaying;
-            if (arbiter && !Player.IsArbiter) return;
-            if (!arbiter && Player.Username != Server.hostUsername) return;
+            if (arbiter ? !Player.IsArbiter : Player.Username != Server.hostUsername) return;
 
             var raw = data.ReadRaw(data.Left);
-            foreach (var p in Server.PlayingPlayers.Where(p => !p.IsArbiter))
+            foreach (var p in Server.PlayingPlayers.Where(p => !p.IsArbiter && (arbiter || !p.IsHost)))
                 p.conn.SendFragmented(Packets.Server_SyncInfo, raw);
         }
 
@@ -429,7 +414,7 @@ namespace Multiplayer.Common
         {
             if (!MpVersion.IsDebug) return;
 
-            Server.PlayingPlayers.FirstOrDefault(p => p.IsArbiter)?.SendPacket(Packets.Server_Debug, data.ReadRaw(data.Left));
+            Server.PlayingPlayers.FirstOrDefault(p => p.IsArbiter || p.IsHost)?.SendPacket(Packets.Server_Debug, data.ReadRaw(data.Left));
         }
     }
 
