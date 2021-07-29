@@ -239,9 +239,10 @@ namespace Multiplayer.Client
 
             Log.Message("Local opinions " + Multiplayer.game.sync.knownClientOpinions.Select(o => o.startTick).Join());
             traceMessage += local.GetFormattedStackTracesForRange(diffAt);
-            File.WriteAllText("local_traces.txt", traceMessage);
+            File.WriteAllText(MpUtil.RwDataFile("MP_LocalTraces.txt"), traceMessage);
 
-            //Trigger a call to ClientConnection#HandleDebug on the arbiter instance so that arbiter_traces.txt is saved too
+            // Trigger a call to ClientConnection.HandleDebug on the arbiter or host
+            // instance so that traces.txt is saved for them too
             Multiplayer.Client.Send(Packets.Client_Debug, local.startTick, diffAt);
 
             return traceMessage;
@@ -356,7 +357,8 @@ namespace Multiplayer.Client
 
         public static string MethodNameWithIL(string rawName)
         {
-            // Note: The names currently don't include IL locations
+            // Note: The names currently don't include IL locations so the code is commented out
+
             // at Verse.AI.JobDriver.ReadyForNextToil () [0x00000] in <c847e073cda54790b59d58357cc8cf98>:0
             // =>
             // at Verse.AI.JobDriver.ReadyForNextToil () [0x00000]
@@ -367,7 +369,8 @@ namespace Multiplayer.Client
 
         public static string MethodNameWithoutIL(string rawName)
         {
-            // Note: The names currently don't include IL locations
+            // Note: The names currently don't include IL locations so the code is commented out
+
             // at Verse.AI.JobDriver.ReadyForNextToil () [0x00000] in <c847e073cda54790b59d58357cc8cf98>:0
             // =>
             // at Verse.AI.JobDriver.ReadyForNextToil ()

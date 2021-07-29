@@ -162,7 +162,7 @@ namespace Multiplayer.Client
                 "maxFemales",
                 "maxFemalesYoung",
                 "allowSlaughterPregnant"
-            );
+            ).PostApply(Autoslaughter_PostApply);
 
             SyncTradeableCount = Sync.Field(typeof(MpTransferableReference), "CountToTransfer").SetBufferChanges().PostApply(TransferableCount_PostApply);
 
@@ -467,6 +467,11 @@ namespace Multiplayer.Client
                     entry.option.action = (Sync.FieldWatchPrefix + watchAction + entry.option.action + Sync.FieldWatchPostfix);
                 yield return entry;
             }
+        }
+
+        static void Autoslaughter_PostApply(object target, object value)
+        {
+            Multiplayer.MapContext.autoSlaughterManager.Notify_ConfigChanged();
         }
     }
 

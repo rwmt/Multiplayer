@@ -485,13 +485,4 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(Dialog_Trade), "<CacheTradeables>b__63_2")]
-    static class Debg
-    {
-        static void Prefix(Dialog_Trade __instance, Tradeable tr)
-        {
-            Log.Message($"{__instance}, {tr}, {__instance.quickSearchWidget}");
-        }
-    }
-
 }

@@ -24,7 +24,7 @@ namespace Multiplayer.Client
     // For example: public record TestWrapper(Pawn pawn); syncs the Pawn inside
     public abstract record SyncWrapper;
 
-    public static partial class Sync
+    public static class SyncSerialization
     {
         public static Type[] storageParents;
         public static Type[] plantToGrowSettables;
@@ -69,7 +69,7 @@ namespace Multiplayer.Client
             mapCompTypes = AllSubclassesNonAbstractOrdered(typeof(MapComponent));
         }
 
-        private static Type[] supportedThingHolders = new[]
+        internal static Type[] supportedThingHolders = new[]
         {
             typeof(Map),
             typeof(Thing),
@@ -80,22 +80,22 @@ namespace Multiplayer.Client
 
         private static MethodInfo ReadExposable = AccessTools.Method(typeof(ScribeUtil), nameof(ScribeUtil.ReadExposable));
 
-        enum ListType : byte
+        internal enum ListType : byte
         {
             Normal, MapAllThings, MapAllDesignations
         }
 
-        enum ISelectableImpl : byte
+        internal enum ISelectableImpl : byte
         {
             None, Thing, Zone, WorldObject
         }
 
-        enum VerbOwnerType : byte
+        internal enum VerbOwnerType : byte
         {
             None, Pawn, Ability, CompEquippable, CompReloadable
         }
 
-        private static MethodInfo GetDefByIdMethod = AccessTools.Method(typeof(Sync), nameof(Sync.GetDefById));
+        private static MethodInfo GetDefByIdMethod = AccessTools.Method(typeof(Sync), nameof(SyncSerialization.GetDefById));
 
         public static T GetDefById<T>(ushort id) where T : Def => DefDatabase<T>.GetByShortHash(id);
 
@@ -141,7 +141,7 @@ namespace Multiplayer.Client
                     return null;
                 }
 
-                if (syncWorkersEarly.TryGetValue(type, out SyncWorkerEntry syncWorkerEntryEarly)) {
+                if (SyncDictionary.syncWorkersEarly.TryGetValue(type, out SyncWorkerEntry syncWorkerEntryEarly)) {
                     object res = null;
 
                     if (syncWorkerEntryEarly.shouldConstruct || type.IsValueType)
@@ -264,7 +264,7 @@ namespace Multiplayer.Client
                 }
 
                 // Where the magic happens
-                if (syncWorkers.TryGetValue(type, out var syncWorkerEntry)) 
+                if (SyncDictionary.syncWorkers.TryGetValue(type, out var syncWorkerEntry)) 
                 {
                     object res = null;
 
@@ -323,7 +323,7 @@ namespace Multiplayer.Client
                     return;
                 }
 
-                if (syncWorkersEarly.TryGetValue(type, out var syncWorkerEntryEarly)) {
+                if (SyncDictionary.syncWorkersEarly.TryGetValue(type, out var syncWorkerEntryEarly)) {
                     syncWorkerEntryEarly.Invoke(new WritingSyncWorker(data), ref obj);
 
                     return;
@@ -481,7 +481,7 @@ namespace Multiplayer.Client
                 }
 
                 // Where the magic happens
-                if (syncWorkers.TryGetValue(type, out var syncWorkerEntry))
+                if (SyncDictionary.syncWorkers.TryGetValue(type, out var syncWorkerEntry))
                 {
                     syncWorkerEntry.Invoke(new WritingSyncWorker(data), ref obj);
 
@@ -503,14 +503,14 @@ namespace Multiplayer.Client
             }
         }
 
-        private static T ReadWithImpl<T>(ByteReader data, IList<Type> impls) where T : class
+        internal static T ReadWithImpl<T>(ByteReader data, IList<Type> impls) where T : class
         {
             ushort impl = data.ReadUShort();
             if (impl == ushort.MaxValue) return null;
             return (T)ReadSyncObject(data, impls[impl]);
         }
 
-        private static void WriteWithImpl<T>(ByteWriter data, object obj, IList<Type> impls) where T : class
+        internal static void WriteWithImpl<T>(ByteWriter data, object obj, IList<Type> impls) where T : class
         {
             if (obj == null)
             {
@@ -527,7 +527,7 @@ namespace Multiplayer.Client
             WriteSyncObject(data, obj, implType);
         }
 
-        private static void GetImpl(object obj, IList<Type> impls, out Type type, out int index)
+        internal static void GetImpl(object obj, IList<Type> impls, out Type type, out int index)
         {
             type = null;
             index = -1;
@@ -545,7 +545,7 @@ namespace Multiplayer.Client
             }
         }
 
-        private static T GetAnyParent<T>(Thing thing) where T : class
+        internal static T GetAnyParent<T>(Thing thing) where T : class
         {
             T t = thing as T;
             if (t != null)
@@ -558,7 +558,7 @@ namespace Multiplayer.Client
             return (T)((object)null);
         }
 
-        private static string ThingHolderString(Thing thing)
+        internal static string ThingHolderString(Thing thing)
         {
             StringBuilder builder = new StringBuilder(thing.ToString());
 
@@ -571,7 +571,7 @@ namespace Multiplayer.Client
             return builder.ToString();
         }
 
-        private static IEnumerable<ISessionWithTransferables> GetSessions(Map map)
+        internal static IEnumerable<ISessionWithTransferables> GetSessions(Map map)
         {
             foreach (var s in Multiplayer.WorldComp.trading)
                 yield return s;

@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Reflection.Emit;
 using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -22,6 +23,7 @@ namespace Multiplayer.Client.Patches
             yield return AccessTools.Method(typeof(TutorUtility), nameof(TutorUtility.DoModalDialogIfNotKnown));
             yield return AccessTools.Method(typeof(CameraJumper), nameof(CameraJumper.TryHideWorld));
         }
+
         public static bool Cancel =>
             Multiplayer.Client != null &&
             Multiplayer.ExecutingCmds &&
@@ -83,4 +85,43 @@ namespace Multiplayer.Client.Patches
             return !cancel;
         }
     }
+
+    [HarmonyPatch(typeof(DesignatorManager), nameof(DesignatorManager.Deselect))]
+    static class CancelDesignatorDeselection
+    {
+        public static bool Cancel =>
+            Multiplayer.Client != null &&
+            Multiplayer.ExecutingCmds &&
+            !TickPatch.currentExecutingCmdIssuedBySelf;
+
+        static bool Prefix() => !Cancel;
+    }
+
+    [HarmonyPatch(typeof(Thing), nameof(Thing.DeSpawn))]
+    static class AlwaysDeselectWhileDespawning
+    {
+        static MethodInfo IsSelected = AccessTools.Method(typeof(Selector), nameof(Selector.IsSelected));
+        static MethodInfo DeselectOnDespawnMethod = AccessTools.Method(typeof(AlwaysDeselectWhileDespawning), nameof(DeselectOnDespawn));
+
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+        {
+            foreach (var inst in insts)
+            {
+                if (inst.operand == IsSelected)
+                {
+                    yield return new CodeInstruction(OpCodes.Ldarg_0);
+                    yield return new CodeInstruction(OpCodes.Call, DeselectOnDespawnMethod);
+                }
+
+                yield return inst;
+            }
+        }
+
+        static void DeselectOnDespawn(Thing t)
+        {
+            if (Multiplayer.Client == null || AsyncTimeComp.prevSelected == null) return;
+            AsyncTimeComp.prevSelected.Remove(t);
+        }
+    }
+
 }
