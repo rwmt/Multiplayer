@@ -95,7 +95,7 @@ namespace Multiplayer.Client
             None, Pawn, Ability, CompEquippable, CompReloadable
         }
 
-        private static MethodInfo GetDefByIdMethod = AccessTools.Method(typeof(Sync), nameof(SyncSerialization.GetDefById));
+        private static MethodInfo GetDefByIdMethod = AccessTools.Method(typeof(SyncSerialization), nameof(SyncSerialization.GetDefById));
 
         public static T GetDefById<T>(ushort id) where T : Def => DefDatabase<T>.GetByShortHash(id);
 
