@@ -2,50 +2,60 @@
 <LanguageData>
 
   <MpSimulating>Симулювання</MpSimulating>
-  <MpSimulatingServer>Симулювання Сервера</MpSimulatingServer>
+  <MpSimulatingServer>Симулювання сервера</MpSimulatingServer>
   <MpLoading>Завантаження</MpLoading>
-  <MpSaving>Збереження Iгри</MpSaving>
+  <MpSaving>Збереження</MpSaving>
 
-  <MpInvalidPort>Неправильний Порт</MpInvalidPort>
-  <MpInvalidAddress>Неправильний Адрес</MpInvalidAddress>
-  <MpInvalidGameName>Неправильний Назви Iгри</MpInvalidGameName>
+  <MpInvalidPort>Неправильний порт</MpInvalidPort>
+  <MpInvalidAddress>Невірна адреса</MpInvalidAddress>
+  <MpInvalidGameName>Невірна назви гри</MpInvalidGameName>
 
-  <MpWrongProtocol>Неправильний версія протокола</MpWrongProtocol>
-  <MpWrongMultiplayerVersionInfo>На сервері розміщено мультиплеєр {0} (протокол {1}).</MpWrongMultiplayerVersionInfo>
+  <MpWrongProtocol>Невірна версія протоколу</MpWrongProtocol>
+  <MpWrongMultiplayerVersionInfo>Версія мультиплеєра {0} (протокол {1}).</MpWrongMultiplayerVersionInfo>
 
-  <MpWrongDefs>Невідповідність визначення моди</MpWrongDefs>
-  <MpWrongDefsInfo>Переконайтесь, що встановлені моди, їх версії та замовлення відповідають хосту.</MpWrongDefsInfo>
-  <MpModList>Список модов</MpModList>
-  <MpSeeModList>Побачити Список модов</MpSeeModList>
+  <MpWrongDefs>Версії модів не співпадають</MpWrongDefs>
+  <MpWrongDefsInfo>Впевніться, що ви встановили моди, їх версії та порядок модів як на сервері.</MpWrongDefsInfo>
+  <MpWrongModConfigs>Конфігурація модів не співпадає</MpWrongModConfigs>
+  <MpWrongModConfigsInfo>Ваші налаштування модів відрізняються від сервера. Синхронізуйте їх для кращого результату.</MpWrongModConfigsInfo>
+  <MpModList>Список модів</MpModList>
+  <MpSyncModsAndConfigs>Синхронізувати моди &amp; Налаштування</MpSyncModsAndConfigs>
+  <MpSyncMods>Синхронізувати моди</MpSyncMods>
+  <MpSyncModConfigs>Синхронізувати налаштування модів</MpSyncModConfigs>
+  <MpSyncModConfigsDesc>Зобов'язувати клієнтів завантажувати ті ж налаштування модів, що на сервері; зменшує десинхронізацію</MpSyncModConfigsDesc>
+  <MpSeeModList>Подивитися список модів</MpSeeModList>
+  <MpDownloadingWorkshopMods>Завантаження модів з Майстерні</MpDownloadingWorkshopMods>
+  <MpRestoreLastConfigs>Відновити останні налаштування</MpRestoreLastConfigs>
 
-  <MpServerClosed>Сервер закрит</MpServerClosed>
+  <MpServerClosed>Сервер закритий</MpServerClosed>
   <MpServerFull>Сервер заповнений</MpServerFull>
   <MpKicked>Вас вигнали</MpKicked>
 
-  <MpInvalidUsernameAlreadyPlaying>Ім'я користувача вже онлайн</MpInvalidUsernameAlreadyPlaying>
-  <MpInvalidUsernameChars>Ім'я користувача має недійсні символи</MpInvalidUsernameChars>
-  <MpInvalidUsernameLength>Ім'я користувача має недійсну довжину</MpInvalidUsernameLength>
-  <MpChangeUsernameInfo>Ви можете змінити своє ім'я користувача в налаштуваннях моди.</MpChangeUsernameInfo>
+  <MpInvalidUsernameAlreadyPlaying>Ім'я користувача вже зайнято</MpInvalidUsernameAlreadyPlaying>
+  <MpInvalidUsernameChars>Ім'я користувача має заборонені символи</MpInvalidUsernameChars>
+  <MpInvalidUsernameLength>Ім'я користувача має заборонену довжину</MpInvalidUsernameLength>
+  <MpChangeUsernameInfo>Ви можете змінити своє ім'я користувача в налаштуваннях моду.</MpChangeUsernameInfo>
 
   <MpPlayerConnected>{0} приєднався</MpPlayerConnected>
-  <MpPlayerDisconnected>{0} залишив</MpPlayerDisconnected>
+  <MpPlayerDisconnected>{0} відключився</MpPlayerDisconnected>
 
-  <MpReplayOutdated>(Застаріла)</MpReplayOutdated>
-  <MpReplayOutdatedDesc1>Це повторення було зроблено для версії протоколу {0}, але ви працюєте з версією {1}.</MpReplayOutdatedDesc1>
-  <MpReplayOutdatedDesc2>Повтор може відтворитись неправильно.</MpReplayOutdatedDesc2>
-  <MpReplayOutdatedDesc3>Можливі несумісності перераховані з історією випусків.</MpReplayOutdatedDesc3>
-  <MpReplayOutdatedDesc4>Цей файл містить додаткову інформацію, і хостинг з нього повинен працювати чудово.</MpReplayOutdatedDesc4>
+  <MpReplayOutdated>(Застарів)</MpReplayOutdated>
+  <MpReplayOutdatedDesc1>Цей реплей було зроблено для версії протоколу {0}, а ви використовуєте версію {1}.</MpReplayOutdatedDesc1>
+  <MpReplayOutdatedDesc2>Реплей може відтворитись неправильно.</MpReplayOutdatedDesc2>
+  <MpReplayOutdatedDesc3>Можливі несумісності перераховані в історії випусків.</MpReplayOutdatedDesc3>
+  <MpReplayOutdatedDesc4>Цей файл містить додаткову інформацію, і хостинг з нього повинен працювати правильно.</MpReplayOutdatedDesc4>
 
-  <MpServerCloseConfirmation>Ви впевнені, що хочете закрити сервер? Незбережений прогрес буде втрачений.</MpServerCloseConfirmation>
+  <MpServerCloseConfirmation>Ви впевнені, що хочете закрити сервер? Незбережений прогрес буде втрачено.</MpServerCloseConfirmation>
 
-  <MpHostServer>Хост-сервер</MpHostServer>
-  <MpSaveReplay>Збережіть гру</MpSaveReplay>
+  <MpHostServer>Запустити сервер</MpHostServer>
+  <MpSaveReplay>Зберегти гру</MpSaveReplay>
+  <MpFullSave>Повне збереження</MpFullSave>
+  <MpFullSaveDesc>Повне збереження завантажується швидше, але зберігається довше та доступне тільки для Хоста</MpFullSaveDesc>
 
   <MpConvert>Перетворити в одиночну гру</MpConvert>
   <MpConverting>Перетворення</MpConverting>
 
-  <MpUsername>Ім'я Ігрока</MpUsername>
-  <MpShowPlayerCursors>Показати курсори гравця</MpShowPlayerCursors>
+  <MpUsername>Ім'я гравця</MpUsername>
+  <MpShowPlayerCursors>Показати курсори гравців</MpShowPlayerCursors>
   <MpAutoAcceptSteam>Автоматично приймати Steam</MpAutoAcceptSteam>
   <MpAutoAcceptSteamDesc>Автоматично приймати будь-які вхідні запити на з'єднання Steam.</MpAutoAcceptSteamDesc>
   <MpTransparentChat>Прозорий чат</MpTransparentChat>
@@ -53,84 +63,91 @@
   <MpAutosaveSlots>Автоматичне збереження слотів</MpAutosaveSlots>
   <MpAutosaveSlotsDesc>Скільки файлів автоматичного збереження зберегти.</MpAutosaveSlotsDesc>
 
-  <MpTraderLeavesIn>Лишає в {0}</MpTraderLeavesIn>
+  <MpTraderLeavesIn>Залишають в {0}</MpTraderLeavesIn>
 
   <MpChatButton>Чат</MpChatButton>
   <MpTradingButton>Торгівля</MpTradingButton>
 
-  <MpChatPlayers>Гравці ({0}):</MpChatPlayers>
+  <MpChatPlayers>Гравців ({0}):</MpChatPlayers>
   <MpSend>Надіслати</MpSend>
   <MpSteamAcceptTitle>Приймайте гравців Steam</MpSteamAcceptTitle>
   <MpSteamAcceptDesc>Клацніть, щоб прийняти</MpSteamAcceptDesc>
-  <MpSteamAccepted>Гравець прийнято</MpSteamAccepted>
+  <MpSteamAccepted>Гравця прийнято</MpSteamAccepted>
 
   <MpConnectingTo>Підключення до {0}:{1}</MpConnectingTo>
   <MpConnected>Підключено.</MpConnected>
   <MpDownloading>Завантаження ({0}%)</MpDownloading>
 
-  <MpSteamConnectingTo>Підключення до гри Хоста {0}</MpSteamConnectingTo>
+  <MpSteamConnectingTo>Підключення до Хоста {0}</MpSteamConnectingTo>
   <MpSteamConnectingWaiting>В очікуванні прийому Хоста</MpSteamConnectingWaiting>
 
-  <MpTicksBehind>Ви відстали {0} кліщів.</MpTicksBehind>
-  <MpLowerGameSpeed>Розглянемо зниження швидкості гри.</MpLowerGameSpeed>
-  <MpForceCatchUp>Клацніть, щоб змусити наздогнати.</MpForceCatchUp>
+  <MpTicksBehind>Ви відстали на {0} тіків.</MpTicksBehind>
+  <MpLowerGameSpeed>Розгляньте зниження швидкості гри.</MpLowerGameSpeed>
+  <MpForceCatchUp>Клацніть, щоб примусово наздогнати.</MpForceCatchUp>
 
-  <MpDesynced>Стан гри закінчився.</MpDesynced>
+  <MpDesynced>Гра десинхронізована.</MpDesynced>
   <MpTryResync>Спробуйте повторно синхронізувати</MpTryResync>
+  <MpTryRehost>Захостити знову</MpTryRehost>
 
-  <MpSaveReplayAs>Збережено как</MpSaveReplayAs>
-  <MpWillOverwrite>Перезапишемо</MpWillOverwrite>
-  <MpReplaySaved>Відтворення збережено</MpReplaySaved>
+  <MpSaveReplayAs>Зберегти реплей як</MpSaveReplayAs>
+  <MpWillOverwrite>Перезапише</MpWillOverwrite>
+  <MpReplaySaved>Реплей збережено</MpReplaySaved>
 
   <MpGameName>Назва гри</MpGameName>
   <MpMaxPlayers>Макс гравців</MpMaxPlayers>
   <MpAutosaveEvery>Автозбереження кожного</MpAutosaveEvery>
-  <MpAutosaveDays>Днів</MpAutosaveDays>
+  <MpAutosaveDays>днів</MpAutosaveDays>
   <MpLanDesc1>Трансляція гри у вашу локальну мережу.</MpLanDesc1>
-  <MpLanDesc2>Розв’язана LAN Адрес: {0}</MpLanDesc2>
+  <MpLanDesc2>Отримана LAN адреса: {0}</MpLanDesc2>
+  <MpRunArbiter>Запустити Арбітра</MpRunArbiter>
   <MpArbiterDesc>Ігровий екземпляр, який працює у фоновому режимі та допомагає вирішити десинхронізацію</MpArbiterDesc>
-  <MpAsyncTime>Async time</MpAsyncTime>
-  <MpAsyncTimeDesc>фішка</MpAsyncTimeDesc>
-  <MpExperimentalFeature>Експериментальна фішка</MpExperimentalFeature>
+  <MpAsyncTime>Асинхронний час</MpAsyncTime>
+  <MpAsyncTimeDesc>Розділили контроль часу для кожної карти та планети</MpAsyncTimeDesc>
+  <MpLogDesyncTraces>Логувати десинхронізації</MpLogDesyncTraces>
+  <MpLogDesyncTracesDesc>Збирати додаткові логи для відлагодження проблем з десинхронізацією; може повпливати на продуктивність</MpLogDesyncTracesDesc>
+  <MpExperimentalFeature>Експериментальна опція</MpExperimentalFeature>
 
-  <MpHostButton>Хост</MpHostButton>
-  <MpWatchReplay>Дивіться</MpWatchReplay>
+  <MpHostButton>Хостити</MpHostButton>
+  <MpWatchReplay>Дивитися реплей</MpWatchReplay>
   <MpNothingSelected>Нічого не вибрано</MpNothingSelected>
   <MpNoSaves>Мультиплеєр можна відтворювати лише з уже існуючих збережень</MpNoSaves>
 
-  <MpHostIngame>Ведуча з цієї гри</MpHostIngame>
-  <MpHostReplay>Хост від повтору</MpHostReplay>
-  <MpHostSavefile>Хост із збереженого файлу</MpHostSavefile>
+  <MpHostIngame>Хостити з цієї гри</MpHostIngame>
+  <MpHostReplay>Хостити від реплею</MpHostReplay>
+  <MpHostSavefile>Хостити із збереженого файлу</MpHostSavefile>
 
-  <MpJoinButton>Приєднуйтесь</MpJoinButton>
-  <MpConnectButton>Підключення</MpConnectButton>
+  <MpJoinButton>Приєднатися</MpJoinButton>
+  <MpConnectButton>Підключитися</MpConnectButton>
   <MpLanSearching>Пошук</MpLanSearching>
 
   <MpNotConnectedToSteam>Не підключено до Steam</MpNotConnectedToSteam>
-  <MpNoFriendsPlaying>Зараз немає друзів гра RimWorld</MpNoFriendsPlaying>
+  <MpNoFriendsPlaying>Зараз немає друзів в грі RimWorld</MpNoFriendsPlaying>
   <MpPlayingRimWorld>Гра RimWorld</MpPlayingRimWorld>
   <MpNotInMultiplayer>Не в мультиплеєрі</MpNotInMultiplayer>
 
-  <MpPauseOnAutosave>Призупиніть функцію автоматичного збереження</MpPauseOnAutosave>
-  <MpAppendNameToAutosave>Додайте ім'я до автоматичного збереження</MpAppendNameToAutosave>
-  <MpPauseAutosaveCounter>Призупиніть автоматичне збереження лічильника</MpPauseAutosaveCounter>
+  <MpPauseOnAutosave>Ставити на паузу при автозбереженні</MpPauseOnAutosave>
+  <MpAppendNameToAutosave>Додавати ім'я до автоматичного збереження</MpAppendNameToAutosave>
+  <MpPauseAutosaveCounter>Призупинити лічильник збережень</MpPauseAutosaveCounter>
   <MpPauseAutosaveCounterDesc>Призупиняє лічильник разом із грою, запобігаючи автоматичному збереженню, поки час призупинено.</MpPauseAutosaveCounterDesc>
-
-  <MpArbiterSetting>Настроювання Арбитер</MpArbiterSetting>
-  <MpArbiterSettingDesc>Залиште це як відключене, якщо ввімкнути це, ви не отримаєте жодної підтримки від нас.</MpArbiterSettingDesc>
-
-  <MpLan>Місцевий</MpLan>
-  <MpDirect>Прямое</MpDirect>
+  <MpShowModCompatibility>Показати сумісність модів</MpShowModCompatibility>
+  <MpShowModCompatibilityDesc>Включає відображення [4] показників сумісності в меню Модів</MpShowModCompatibilityDesc>
+  
+  <MpLan>LAN</MpLan>
+  <MpDirect>Пряме</MpDirect>
   <MpSteam>Steam</MpSteam>
   <MpHostTab>Хост</MpHostTab>
 
-  <MpMultiplayer>Мултiплеер</MpMultiplayer>
-  <MpSingleplayer>Сiнглплеер</MpSingleplayer>
+  <MpMultiplayer>Мультиплеєр</MpMultiplayer>
+  <MpSingleplayer>Синглплеєр</MpSingleplayer>
 
   <MpNotAvailable>Недоступно в мультиплеєрі</MpNotAvailable>
   <MpCallingFactionNotAvailable>Виклик інших фракцій наразі недоступний у мультиплеєрі</MpCallingFactionNotAvailable>
 
-  <MpAggressiveTicking>Агресивне тикання</MpAggressiveTicking>
+  <MpAggressiveTicking>Агресивне тікання</MpAggressiveTicking>
   <MpAggressiveTickingDesc>Завжди намагайтеся автоматично наздогнати сервер ціною FPS.</MpAggressiveTickingDesc>
+  <MpMultiplayerCompatibility>Сумісність мультиплеєра</MpMultiplayerCompatibility>
+  
+  <MpAutosaveOnDesync>Ставити на паузу і зберігати при десинхронізації</MpAutosaveOnDesync>
+  <MpAutosaveOnDesyncDesc>Якщо хтось із гравців десинхронізувався, гра стане на паузу та збережеться автоматично. Це допоможе перепідключитися без симуляції гри і може бути корисним, якщо Хост не може самостійно зберегти гру.</MpAutosaveOnDesyncDesc>
 
 </LanguageData>
