@@ -69,6 +69,7 @@ namespace Multiplayer.Client
         public static SyncField[] SyncAutoSlaughter;
 		
         public static ISyncField SyncDryadCaste;
+        public static ISyncField SyncDesiredTreeConnectionStrength;
         public static ISyncField SyncPlantableTargetCell;
 
         public static void Init()
@@ -180,6 +181,7 @@ namespace Multiplayer.Client
             SyncStorytellerDifficulty = Sync.Field(typeof(Storyteller), "difficulty").SetHostOnly().PostApply(StorytellerDifficutly_Post).SetVersion(2);
 
             SyncDryadCaste = Sync.Field(typeof(CompTreeConnection), nameof(CompTreeConnection.desiredMode));
+            SyncDesiredTreeConnectionStrength = Sync.Field(typeof(CompTreeConnection), nameof(CompTreeConnection.desiredConnectionStrength));
             SyncPlantableTargetCell = Sync.Field(typeof(CompPlantable), nameof(CompPlantable.plantCell));
 
             SyncAnimalPenAutocut = Sync.Field(typeof(CompAnimalPenMarker), nameof(CompAnimalPenMarker.autoCut));
@@ -475,6 +477,12 @@ namespace Multiplayer.Client
             }
         }
 
+        [MpPrefix(typeof(Gizmo_PruningConfig), nameof(Gizmo_PruningConfig.DrawBar))]
+        static void WatchTreeConnectionStrength(Gizmo_PruningConfig __instance)
+        {
+            SyncDesiredTreeConnectionStrength.Watch(__instance.connection);
+		}
+			
         [MpPrefix(typeof(CompPlantable), "<BeginTargeting>b__9_0")]
         static void WatchPlantableTargetCell(CompPlantable __instance)
         {
