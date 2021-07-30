@@ -107,7 +107,7 @@ namespace Multiplayer.Client
 
             if (TickPatch.currentExecutingCmdIssuedBySelf)
             {
-                MapAsyncTimeComp.keepTheMap = true;
+                AsyncTimeComp.keepTheMap = true;
                 Current.Game.CurrentMap = comp.map;
                 Find.World.renderer.wantedMode = WorldRenderMode.None;
             }

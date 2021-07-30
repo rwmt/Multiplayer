@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
-using Multiplayer.Client;
 using RestSharp;
 using Verse;
 
@@ -21,6 +20,7 @@ namespace Multiplayer.Common
         }
 
         [PacketHandler(Packets.Client_JoinData)]
+        [IsFragmented]
         public void HandleJoinData(ByteReader data)
         {
             int clientProtocol = data.ReadInt32();
@@ -60,7 +60,7 @@ namespace Multiplayer.Common
                 defsResponse.WriteByte((byte)status);
             }
 
-            connection.Send(
+            connection.SendFragmented(
                 Packets.Server_JoinData,
                 Server.settings.gameName,
                 Player.id,
@@ -71,7 +71,7 @@ namespace Multiplayer.Common
         }
 
         private static ColorRGB[] PlayerColors = new ColorRGB[]
-{
+        {
             new ColorRGB(0,125,255),
             new ColorRGB(255,0,0),
             new ColorRGB(0,255,45),
@@ -79,7 +79,7 @@ namespace Multiplayer.Common
             new ColorRGB(80,250,250),
             new ColorRGB(200,255,75),
             new ColorRGB(100,0,75)
-};
+        };
 
         private static Dictionary<string, ColorRGB> givenColors = new Dictionary<string, ColorRGB>();
 
@@ -222,8 +222,9 @@ namespace Multiplayer.Common
         {
             Player.UpdateStatus(PlayerStatus.Desynced);
 
-            if (MultiplayerMod.settings.autosaveOnDesync)
-                Client.Multiplayer.LocalServer.DoAutosave(forcePause: true);
+            // todo
+            //if (MultiplayerMod.settings.autosaveOnDesync)
+            //    Server.DoAutosave(forcePause: true);
         }
 
         [PacketHandler(Packets.Client_Command)]

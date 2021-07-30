@@ -10,13 +10,14 @@ using UnityEngine;
 using Verse;
 using Verse.AI;
 using Verse.AI.Group;
+using static Multiplayer.Client.SyncSerialization;
 
 namespace Multiplayer.Client
 {
-    public static partial class Sync
+    public static class SyncDictionary
     {
         // These syncWorkers need very fast access, keep it small.
-        private static SyncWorkerDictionary syncWorkersEarly = new SyncWorkerDictionary()
+        internal static SyncWorkerDictionary syncWorkersEarly = new SyncWorkerDictionary()
         {
             // missing decimal and char, good?
             #region Built-in
@@ -250,17 +251,15 @@ namespace Multiplayer.Client
             {
                 (ByteWriter data, Ability ability) => {
                     WriteSync(data, ability.pawn);
-                    WriteSync(data, ability.UniqueVerbOwnerID());
+                    WriteSync(data, ability.Id);
                 },
                 (ByteReader data) => {
                     var pawn = ReadSync<Pawn>(data);
-                    var uniqueVerbOwnerID = data.ReadString();
+                    var abilityId = data.ReadInt32();
 
-                    var ability = pawn.abilities.abilities.Find(ab => ab.UniqueVerbOwnerID() == uniqueVerbOwnerID);
-                    // effectComps is required for some abilities but comps can be null too
-                    ability.effectComps = ability.CompsOfType<CompAbilityEffect>()?.ToList();
-
-                    return ability;
+                    // Note there exist temporary abilities which might get removed by the time this data is read
+                    // The returned ability can be null
+                    return pawn.abilities.allAbilitiesCached.Find(ab => ab.Id == abilityId);
                 }, true
             },
             {
@@ -543,7 +542,7 @@ namespace Multiplayer.Client
                     var settables = ReadSync<List<IPlantToGrowSettable>>(data);
                     settables.RemoveAll(s => s == null);
 
-                    var command = MpUtil.UninitializedObject<Command_SetPlantToGrow>();
+                    var command = MpUtil.NewObjectNoCtor<Command_SetPlantToGrow>();
                     command.settable = settable;
                     command.settables = settables;
 
@@ -1095,7 +1094,7 @@ namespace Multiplayer.Client
                     List<Thing> things = ReadSync<List<Thing>>(data);
 
                     TransferableImmutable tr = new TransferableImmutable();
-                    tr.things.AddRange(things.NotNull());
+                    tr.things.AddRange(things.AllNotNull());
 
                     return tr;
                 }
