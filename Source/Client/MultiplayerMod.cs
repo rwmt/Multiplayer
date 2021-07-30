@@ -33,16 +33,13 @@ namespace Multiplayer.Client
         public MultiplayerMod(ModContentPack pack) : base(pack)
         {
             Native.EarlyInit();
-
-            Native.mini_parse_debug_option("disable_omit_fp");
+            DisableOmitFramePointer();
 
             if (GenCommandLine.CommandLineArgPassed("arbiter")) {
                 ArbiterWindowFix.Run();
 
                 arbiterInstance = true;
             }
-
-            MpUtil.MarkNoInlining(AccessTools.PropertyGetter(typeof(Prefs), nameof(Prefs.PauseOnLoad)));
 
             //EarlyMarkNoInline(typeof(Multiplayer).Assembly);
             EarlyPatches();
@@ -54,6 +51,16 @@ namespace Multiplayer.Client
                 // Double Execute ensures it'll run last.
                 LongEventHandler.ExecuteWhenFinished(LatePatches);
             });
+
+#if DEBUG
+            Application.logMessageReceivedThreaded -= Log.Notify_MessageReceivedThreadedInternal;
+#endif
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private void DisableOmitFramePointer()
+        {
+            Native.mini_parse_debug_option("disable_omit_fp");
         }
 
         private void EarlyPatches()
@@ -135,7 +142,7 @@ namespace Multiplayer.Client
             );
 
             if (MpVersion.IsDebug) {
-                Log.Message("== Structure == \n" + Sync.syncWorkers.PrintStructure());
+                Log.Message("== Structure == \n" + SyncDictionary.syncWorkers.PrintStructure());
             }
         }
 

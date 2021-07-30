@@ -29,6 +29,7 @@ namespace Multiplayer.Client
         static void Prefix(ref Rect rect) => rect.height += 45f;
     }
 
+    [HotSwappable]
     [HarmonyPatch(typeof(OptionListingUtility), nameof(OptionListingUtility.DrawOptionListing))]
     public static class MainMenuPatch
     {
@@ -65,17 +66,23 @@ namespace Multiplayer.Client
             if (optList.Any(opt => opt.label == "ReviewScenario".Translate()))
             {
                 if (Multiplayer.session == null)
-                    optList.Insert(0, new ListableOption("MpHostServer".Translate(), () => Find.WindowStack.Add(new HostWindow())));
+                    optList.Insert(0, new ListableOption(
+                        "MpHostServer".Translate(),
+                        () => Find.WindowStack.Add(new HostWindow() { layer = WindowLayer.Super })
+                    ));
 
                 if (MpVersion.IsDebug && Multiplayer.IsReplay)
-                    optList.Insert(0, new ListableOption("MpHostServer".Translate(), () => Find.WindowStack.Add(new HostWindow(withSimulation: true))));
+                    optList.Insert(0, new ListableOption(
+                        "MpHostServer".Translate(),
+                        () => Find.WindowStack.Add(new HostWindow(withSimulation: true) { layer = WindowLayer.Super })
+                    ));
 
                 if (Multiplayer.Client != null)
                 {
                     optList.RemoveAll(opt => opt.label == "Save".Translate() || opt.label == "LoadGame".Translate());
                     if (!Multiplayer.IsReplay)
                     {
-                        optList.Insert(0, new ListableOption("Save".Translate(), () => Find.WindowStack.Add(new Dialog_SaveReplay())));
+                        optList.Insert(0, new ListableOption("Save".Translate(), () => Find.WindowStack.Add(new Dialog_SaveReplay() { layer = WindowLayer.Super })));
                     }
                     optList.Insert(3, new ListableOption("MpConvert".Translate(), ConvertToSingleplayer));
 
@@ -99,7 +106,7 @@ namespace Multiplayer.Client
                         quitOS.action = () =>
                         {
                             if (Multiplayer.LocalServer != null)
-                                Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation("MpServerCloseConfirmation".Translate(), Root.Shutdown, true));
+                                Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation("MpServerCloseConfirmation".Translate(), Root.Shutdown, true, layer: WindowLayer.Super));
                             else
                                 Root.Shutdown();
                         };
@@ -120,7 +127,7 @@ namespace Multiplayer.Client
         public static void AskQuitToMainMenu()
         {
             if (Multiplayer.LocalServer != null)
-                Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation("MpServerCloseConfirmation".Translate(), GenScene.GoToMainMenu, true));
+                Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation("MpServerCloseConfirmation".Translate(), GenScene.GoToMainMenu, true, layer: WindowLayer.Super));
             else
                 GenScene.GoToMainMenu();
         }
@@ -134,9 +141,7 @@ namespace Multiplayer.Client
                 Replay.ForSaving(saveName).WriteCurrentData();
 
                 Find.GameInfo.permadeathMode = false;
-                // todo handle the other faction def too
-                Multiplayer.DummyFaction.def = FactionDefOf.Ancients;
-
+                
                 OnMainThread.StopMultiplayer();
 
                 var doc = SaveLoad.SaveGame();
