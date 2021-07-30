@@ -240,7 +240,7 @@ namespace Multiplayer.Client
                 job.loadID = Find.UniqueIDsManager.GetNextJobID();
 
                 if ((job.def == JobDefOf.TradeWithPawn || job.def == JobDefOf.UseCommsConsole) && TickPatch.currentExecutingCmdIssuedBySelf)
-                    ShowTradingWindow.tradeJobStartedByMe = job.loadID;
+                    CancelDialogTradeCtor.tradeJobStartedByMe = job.loadID;
             }
         }
 

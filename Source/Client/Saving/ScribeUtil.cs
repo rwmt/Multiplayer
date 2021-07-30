@@ -396,7 +396,7 @@ namespace Multiplayer.Client
                 backingLookup.Add(key, new Vector4(r.x, r.y, r.width, r.height));
             }
 
-            ScribeUtil.LookWithValueKey<K, Vector4>(ref backingLookup, "windowRectLookup", LookMode.Value, LookMode.Value);
+            ScribeUtil.LookValueDeep<K, Vector4>(ref backingLookup, "windowRectLookup");
 
             dict = new Dictionary<K, Rect>();
             foreach (K key in backingLookup.Keys)

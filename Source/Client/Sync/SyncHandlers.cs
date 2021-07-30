@@ -600,14 +600,14 @@ namespace Multiplayer.Client
     }
 
     public class SyncAction<T, A, B, C> : SyncHandler, ISyncAction
-        private static void CreateCaravanFormingSession(MultiplayerMapComp comp, bool reform)
+    {
         private Func<A, B, C, IEnumerable<T>> func;
         private ActionGetter<T> actionGetter;
 
         public SyncAction(Func<A, B, C, IEnumerable<T>> func, ActionGetter<T> actionGetter)
-                Current.Game.CurrentMap = comp.map;
-                Find.World.renderer.wantedMode = WorldRenderMode.None;
-            }
+        {
+            this.func = func;
+            this.actionGetter = actionGetter;
         }
 
         public IEnumerable<T> DoSync(A target, B arg0, C arg1)

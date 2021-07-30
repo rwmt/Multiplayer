@@ -81,7 +81,7 @@ namespace Multiplayer.Client.Persistent
             if (!sound)
                 dialog.soundAppear = null;
 
-            CaravanUIUtility.CreateCaravanTransferableWidgets_NewTmp(
+            CaravanUIUtility.CreateCaravanTransferableWidgets(
                 transferables, 
                 out dialog.pawnsTransfer, 
                 out dialog.itemsTransfer, 
