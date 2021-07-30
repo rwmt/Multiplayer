@@ -202,7 +202,8 @@ namespace Multiplayer.Client
             if (factionData != null && factionData.online)
                 Multiplayer.RealPlayerFaction = Find.FactionManager.GetById(factionData.factionId);
             else
-                Multiplayer.RealPlayerFaction = Multiplayer.DummyFaction;
+                //Multiplayer.RealPlayerFaction = Multiplayer.DummyFaction;
+                throw new Exception("Currently not supported");
 
             // todo find a better way
             Multiplayer.game.myFactionLoading = null;
@@ -418,10 +419,14 @@ namespace Multiplayer.Client
             int tick = data.ReadInt32();
             int diffAt = data.ReadInt32();
             var info = Multiplayer.game.sync.knownClientOpinions.FirstOrDefault(b => b.startTick == tick);
-            var side = MultiplayerMod.arbiterInstance ? "arbiter" : "host";
+            var side = MultiplayerMod.arbiterInstance ? "Arbiter" : "Host";
 
             Log.Message($"{info?.desyncStackTraces.Count} {side} traces {diffAt} / {Multiplayer.game.sync.knownClientOpinions.Select(o => o.startTick).Join()}");
-            File.WriteAllText($"{side}_traces.txt", info?.GetFormattedStackTracesForRange(diffAt) ?? "null");
+
+            File.WriteAllText(
+                MpUtil.RwDataFile($"MP_{side}Traces.txt"),
+                info?.GetFormattedStackTracesForRange(diffAt) ?? "null"
+            );
         }
     }
 

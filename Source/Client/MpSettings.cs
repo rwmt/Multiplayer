@@ -26,7 +26,6 @@ namespace Multiplayer.Client
         public bool appendNameToAutosave;
         public bool pauseAutosaveCounter = true;
         public bool showModCompatibility = true;
-        public bool autosaveOnDesync = false;
         public Rect chatRect;
         public Vector2 resolutionForChat;
 
@@ -46,7 +45,6 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref serverAddress, "serverAddress", "127.0.0.1");
             Scribe_Values.Look(ref pauseAutosaveCounter, "pauseAutosaveCounter", true);
             Scribe_Values.Look(ref showModCompatibility, "showModCompatibility", true);
-            Scribe_Values.Look(ref autosaveOnDesync, "autosaveOnDesync", false);
             ScribeUtil.LookRect(ref chatRect, "chatRect");
             Scribe_Values.Look(ref resolutionForChat, "resolutionForChat");
 
@@ -73,18 +71,16 @@ namespace Multiplayer.Client
             listing.CheckboxLabeled("MpTransparentChat".Translate(), ref transparentChat);
             listing.CheckboxLabeled("MpAggressiveTicking".Translate(), ref aggressiveTicking, "MpAggressiveTickingDesc".Translate());
             listing.CheckboxLabeled("MpSyncModConfigs".Translate(), ref syncModConfigs, "MpSyncModConfigsDesc".Translate());
-
-            var appendNameToAutosaveLabel = $"{"MpAppendNameToAutosave".Translate()}:  ";
-            listing.CheckboxLabeled(appendNameToAutosaveLabel, ref appendNameToAutosave);
+            listing.CheckboxLabeled("MpAppendNameToAutosave".Translate(), ref appendNameToAutosave);
 
             listing.CheckboxLabeled("MpPauseAutosaveCounter".Translate(), ref pauseAutosaveCounter, "MpPauseAutosaveCounterDesc".Translate());
             listing.CheckboxLabeled("MpShowModCompatibility".Translate(), ref showModCompatibility, "MpShowModCompatibilityDesc".Translate());
-            listing.CheckboxLabeled("MpAutosaveOnDesync".Translate(), ref autosaveOnDesync, "MpAutosaveOnDesyncDesc".Translate());
+            //listing.CheckboxLabeled("MpAutosaveOnDesync".Translate(), ref autosaveOnDesync, "MpAutosaveOnDesyncDesc".Translate());
 
             if (Prefs.DevMode)
             {
                 listing.CheckboxLabeled("Show debug info", ref showDevInfo);
-                listing.TextFieldNumericLabeled("Desync Radius:  ", ref desyncTracesRadius, ref desyncRadiusBuffer, 1f, 200f);
+                listing.TextFieldNumericLabeled("Desync radius:  ", ref desyncTracesRadius, ref desyncRadiusBuffer, 1f, 200f);
             }
 
             listing.End();

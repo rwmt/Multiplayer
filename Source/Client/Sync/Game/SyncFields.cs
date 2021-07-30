@@ -164,7 +164,7 @@ namespace Multiplayer.Client
                 "maxFemales",
                 "maxFemalesYoung",
                 "allowSlaughterPregnant"
-            );
+            ).PostApply(Autoslaughter_PostApply);
 
             SyncTradeableCount = Sync.Field(typeof(MpTransferableReference), "CountToTransfer").SetBufferChanges().PostApply(TransferableCount_PostApply);
 
@@ -473,11 +473,15 @@ namespace Multiplayer.Client
             }
         }
 
+        static void Autoslaughter_PostApply(object target, object value)
+        {
+            Multiplayer.MapContext.autoSlaughterManager.Notify_ConfigChanged();
+        }
+
         [MpPrefix(typeof(Dialog_ChangeDryadCaste), nameof(Dialog_ChangeDryadCaste.StartChange))]
         static void WatchDryadCaste(Dialog_ChangeDryadCaste __instance)
         {
             SyncDryadCaste.Watch(__instance.treeConnection);
         }
-    }
 
 }

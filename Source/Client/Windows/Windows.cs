@@ -150,9 +150,7 @@ namespace Multiplayer.Client
             LongEventHandler.QueueLongEvent(() =>
             {
                 Find.GameInfo.permadeathMode = false;
-                // todo handle the other faction def too
-                Multiplayer.DummyFaction.def = FactionDefOf.Ancients;
-
+                
                 OnMainThread.StopMultiplayer();
 
                 var doc = SaveLoad.SaveGame();

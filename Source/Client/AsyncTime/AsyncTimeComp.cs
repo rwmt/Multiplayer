@@ -17,9 +17,11 @@ using Verse.AI;
 using Verse.Sound;
 using zip::Ionic.Zip;
 using Multiplayer.Client.Comp;
+using Multiplayer.Client.Patches;
 
 namespace Multiplayer.Client
 {
+    [HotSwappable]
     public class AsyncTimeComp : IExposable, ITickable
     {
         public static Map tickingMap;
@@ -230,6 +232,7 @@ namespace Multiplayer.Client
         }
 
         public static bool keepTheMap;
+        public static List<object> prevSelected;
 
         public void ExecuteCmd(ScheduledCommand cmd)
         {
@@ -252,7 +255,7 @@ namespace Multiplayer.Client
 
             context.map = map;
 
-            List<object> prevSelected = Find.Selector.selected;
+            prevSelected = Find.Selector.selected;
             Find.Selector.selected = new List<object>();
 
             SelectorDeselectPatch.deselected = new List<object>();
@@ -330,6 +333,9 @@ namespace Multiplayer.Client
                 SelectorDeselectPatch.deselected = null;
 
                 Find.Selector.selected = prevSelected;
+                prevSelected = null;
+
+                Find.MainButtonsRoot.tabs.Notify_SelectedObjectDespawned();
 
                 map.PopFaction();
                 PostContext();
@@ -399,17 +405,16 @@ namespace Multiplayer.Client
 
         private void HandleDesignator(ScheduledCommand command, ByteReader data)
         {
-            var mode = Sync.ReadSync<DesignatorMode>(data);
-            var designator = Sync.ReadSync<Designator>(data);
+            var mode = SyncSerialization.ReadSync<DesignatorMode>(data);
+            var designator = SyncSerialization.ReadSync<Designator>(data);
 
             Container<Area>? prevArea = null;
-            Container<Thing>? prevThing = null;
 
             bool SetState(Designator designator, ByteReader data)
             {
                 if (designator is Designator_AreaAllowed)
                 {
-                    Area area = Sync.ReadSync<Area>(data);
+                    Area area = SyncSerialization.ReadSync<Area>(data);
                     if (area == null) return false;
 
                     prevArea = Designator_AreaAllowed.selectedArea;
@@ -418,16 +423,15 @@ namespace Multiplayer.Client
 
                 if (designator is Designator_Install)
                 {
-                    Thing thing = Sync.ReadSync<Thing>(data);
+                    Thing thing = SyncSerialization.ReadSync<Thing>(data);
                     if (thing == null) return false;
 
-                    prevThing = DesignatorInstallPatch.thingToInstall;
                     DesignatorInstallPatch.thingToInstall = thing;
                 }
 
                 if (designator is Designator_Zone)
                 {
-                    Zone zone = Sync.ReadSync<Zone>(data);
+                    Zone zone = SyncSerialization.ReadSync<Zone>(data);
                     if (zone != null)
                         Find.Selector.selected.Add(zone);
                 }
@@ -440,8 +444,7 @@ namespace Multiplayer.Client
                 if (prevArea.HasValue)
                     Designator_AreaAllowed.selectedArea = prevArea.Value.Inner;
 
-                if (prevThing.HasValue)
-                    DesignatorInstallPatch.thingToInstall = prevThing.Value.Inner;
+                DesignatorInstallPatch.thingToInstall = null;
             }
 
             try
@@ -450,20 +453,20 @@ namespace Multiplayer.Client
 
                 if (mode == DesignatorMode.SingleCell)
                 {
-                    IntVec3 cell = Sync.ReadSync<IntVec3>(data);
+                    IntVec3 cell = SyncSerialization.ReadSync<IntVec3>(data);
 
                     designator.DesignateSingleCell(cell);
                     designator.Finalize(true);
                 }
                 else if (mode == DesignatorMode.MultiCell)
                 {
-                    IntVec3[] cells = Sync.ReadSync<IntVec3[]>(data);
+                    IntVec3[] cells = SyncSerialization.ReadSync<IntVec3[]>(data);
 
                     designator.DesignateMultiCell(cells);
                 }
                 else if (mode == DesignatorMode.Thing)
                 {
-                    Thing thing = Sync.ReadSync<Thing>(data);
+                    Thing thing = SyncSerialization.ReadSync<Thing>(data);
                     if (thing == null) return;
 
                     designator.DesignateThing(thing);

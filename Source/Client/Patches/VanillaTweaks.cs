@@ -1,9 +1,10 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using RimWorld;
 using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -158,6 +159,22 @@ namespace Multiplayer.Client
                     thingDef.graphicData.shaderType?.defName == "CutoutPlant"
                 )
                     thingDef.graphic.MatSingle.shader = value ? ShaderDatabase.CutoutPlant : ShaderDatabase.Cutout;
+        }
+    }
+
+    [HarmonyPatch]
+    public static class WidgetsResolveParsePatch
+    {
+        static MethodBase TargetMethod()
+        {
+            return AccessTools.Method(typeof(Widgets), nameof(Widgets.ResolveParseNow)).MakeGenericMethod(typeof(int));
+        }
+
+        // Fix input field handling
+        static void Prefix(bool force, ref int val, ref string buffer, ref string edited)
+        {
+            if (force)
+                edited = Widgets.ToStringTypedIn(val);
         }
     }
 

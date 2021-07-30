@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
-using Multiplayer.Client;
 using RestSharp;
 using Verse;
 
@@ -223,8 +222,9 @@ namespace Multiplayer.Common
         {
             Player.UpdateStatus(PlayerStatus.Desynced);
 
-            if (MultiplayerMod.settings.autosaveOnDesync)
-                Client.Multiplayer.LocalServer.DoAutosave(forcePause: true);
+            // todo
+            //if (MultiplayerMod.settings.autosaveOnDesync)
+            //    Server.DoAutosave(forcePause: true);
         }
 
         [PacketHandler(Packets.Client_Command)]

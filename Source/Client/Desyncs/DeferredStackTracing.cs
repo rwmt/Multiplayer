@@ -46,6 +46,10 @@ namespace Multiplayer.Client.Desyncs
         public static bool ShouldAddStackTraceForDesyncLog()
         {
             if (Multiplayer.Client == null) return false;
+
+            // Only log if debugging enabled in Host Server menu
+            if (!Multiplayer.game?.worldComp?.logDesyncTraces ?? false) return false;
+
             if (Rand.stateStack.Count > 1) return false;
             if (TickPatch.Skipping || Multiplayer.IsReplay) return false;
 
