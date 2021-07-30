@@ -68,7 +68,7 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(MonumentMarker), "<GetGizmos>b__29_4").SetDebugOnly(); // Build Monument Quest - Monument Marker: dev build all
 
             SyncDelegate.Register(typeof(ITab_ContentsTransporter), "<>c__DisplayClass11_0", "<DoItemsLists>b__0").SetContext(SyncContext.MapSelected); // Discard loaded thing
-
+			
             // Inventory (medicine) stock up
             SyncMethod.Register(typeof(Pawn_InventoryStockTracker), nameof(Pawn_InventoryStockTracker.SetCountForGroup));
             SyncMethod.Register(typeof(Pawn_InventoryStockTracker), nameof(Pawn_InventoryStockTracker.SetThingForGroup));
@@ -78,6 +78,11 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(CompTreeConnection), "<CompGetGizmosExtra>b__71_1").SetDebugOnly(); // Spawn dryad
             SyncMethod.Register(typeof(CompTreeConnection), "<CompGetGizmosExtra>b__71_2").SetDebugOnly(); // Increase connection strength by 10%
             SyncMethod.Register(typeof(CompTreeConnection), "<CompGetGizmosExtra>b__71_3").SetDebugOnly(); // Decrease connection strength by 10%
+
+            // (Un)assigning ideology roles
+            SyncDelegate.Register(typeof(SocialCardUtility), "<>c__DisplayClass28_0", "<DrawPawnRole>b__2"); // Unnasign role from a pawn
+            SyncDelegate.Register(typeof(SocialCardUtility), "<>c__DisplayClass28_2", "<DrawPawnRole>b__8"); // Unassign current role and assign new one to a pawn
+            SyncDelegate.Register(typeof(SocialCardUtility), "<>c__DisplayClass28_2", "<DrawPawnRole>b__9"); // Assign a role to a pawn
         }
 
         [MpPrefix(typeof(FormCaravanComp), "<>c__DisplayClass17_0", "<GetGizmos>b__0")]
