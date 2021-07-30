@@ -184,14 +184,11 @@ namespace Multiplayer.Client
                 return faction;
             }
 
-            Faction dummyFaction = NewFaction(-1, "Multiplayer dummy faction", Multiplayer.DummyFactionDef);
-
             Faction.OfPlayer.Name = $"{Multiplayer.username}'s faction";
             //comp.factionData[Faction.OfPlayer.loadID] = FactionWorldData.FromCurrent();
 
             Multiplayer.game = new MultiplayerGame
             {
-                dummyFaction = dummyFaction,
                 worldComp = comp
             };
 

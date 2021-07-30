@@ -44,7 +44,6 @@ namespace Multiplayer.Client
         [MethodImpl(MethodImplOptions.NoInlining)]
         static void TheOSXWay() => mono_dllmap_insert_osx(IntPtr.Zero, MonoWindows, null, MonoOSX, null);
 
-
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static void EarlyInitInternal()
         {
@@ -76,9 +75,11 @@ namespace Multiplayer.Client
             if (ji == IntPtr.Zero) return null;
 
             var methodPtr = mono_jit_info_get_method(ji);
-            var codeStart = mono_jit_info_get_code_start(ji);
-            var codeSize = mono_jit_info_get_code_size(ji);
-            var name = mono_debug_print_stack_frame(methodPtr, (int)(addr - (long)codeStart), domain);
+            var codeStart = (long)mono_jit_info_get_code_start(ji);
+            var codeSize = (long)mono_jit_info_get_code_size(ji);
+
+            var name = mono_debug_print_stack_frame(methodPtr, -1, domain);
+
             if (name == null || name.Length == 0) return null;
 
             return name;
@@ -123,6 +124,15 @@ namespace Multiplayer.Client
 
         [DllImport(MonoWindows)]
         public static extern IntPtr mono_class_vtable(IntPtr domain, IntPtr klass);
+
+        [DllImport(MonoWindows)]
+        public static extern string mono_method_get_reflection_name(IntPtr method);
+
+        [DllImport(MonoWindows)]
+        public static extern IntPtr mono_method_get_class(IntPtr method);
+
+        [DllImport(MonoWindows)]
+        public static extern IntPtr mono_class_get_image(IntPtr klass);
 
         public unsafe static bool CctorRan(Type t)
         {

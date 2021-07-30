@@ -71,7 +71,7 @@ namespace Multiplayer.Client
             *iflags |= (ushort)MethodImplOptions.NoInlining;
         }
 
-        public static T UninitializedObject<T>()
+        public static T NewObjectNoCtor<T>()
         {
             return (T)FormatterServices.GetUninitializedObject(typeof(T));
         }
@@ -169,6 +169,11 @@ namespace Multiplayer.Client
         public static void ClearWindowStack()
         {
             Find.WindowStack.windows.Clear();
+        }
+
+        public static string RwDataFile(string filename)
+        {
+            return Path.Combine(GenFilePaths.SaveDataFolderPath, filename);
         }
     }
 

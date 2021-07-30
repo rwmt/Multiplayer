@@ -41,8 +41,6 @@ namespace Multiplayer.Client
                 arbiterInstance = true;
             }
 
-            MpUtil.MarkNoInlining(AccessTools.PropertyGetter(typeof(Prefs), nameof(Prefs.PauseOnLoad)));
-
             //EarlyMarkNoInline(typeof(Multiplayer).Assembly);
             EarlyPatches();
             CheckInterfaceVersions();
@@ -53,6 +51,10 @@ namespace Multiplayer.Client
                 // Double Execute ensures it'll run last.
                 LongEventHandler.ExecuteWhenFinished(LatePatches);
             });
+
+#if DEBUG
+            Application.logMessageReceivedThreaded -= Log.Notify_MessageReceivedThreadedInternal;
+#endif
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
@@ -140,7 +142,7 @@ namespace Multiplayer.Client
             );
 
             if (MpVersion.IsDebug) {
-                Log.Message("== Structure == \n" + Sync.syncWorkers.PrintStructure());
+                Log.Message("== Structure == \n" + SyncDictionary.syncWorkers.PrintStructure());
             }
         }
 

@@ -82,7 +82,7 @@ namespace Multiplayer.Client
                     optList.RemoveAll(opt => opt.label == "Save".Translate() || opt.label == "LoadGame".Translate());
                     if (!Multiplayer.IsReplay)
                     {
-                        optList.Insert(0, new ListableOption("Save".Translate(), () => Find.WindowStack.Add(new Dialog_SaveReplay())));
+                        optList.Insert(0, new ListableOption("Save".Translate(), () => Find.WindowStack.Add(new Dialog_SaveReplay() { layer = WindowLayer.Super })));
                     }
                     optList.Insert(3, new ListableOption("MpConvert".Translate(), ConvertToSingleplayer));
 
@@ -106,7 +106,7 @@ namespace Multiplayer.Client
                         quitOS.action = () =>
                         {
                             if (Multiplayer.LocalServer != null)
-                                Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation("MpServerCloseConfirmation".Translate(), Root.Shutdown, true));
+                                Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation("MpServerCloseConfirmation".Translate(), Root.Shutdown, true, layer: WindowLayer.Super));
                             else
                                 Root.Shutdown();
                         };
@@ -127,7 +127,7 @@ namespace Multiplayer.Client
         public static void AskQuitToMainMenu()
         {
             if (Multiplayer.LocalServer != null)
-                Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation("MpServerCloseConfirmation".Translate(), GenScene.GoToMainMenu, true));
+                Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation("MpServerCloseConfirmation".Translate(), GenScene.GoToMainMenu, true, layer: WindowLayer.Super));
             else
                 GenScene.GoToMainMenu();
         }
@@ -141,9 +141,7 @@ namespace Multiplayer.Client
                 Replay.ForSaving(saveName).WriteCurrentData();
 
                 Find.GameInfo.permadeathMode = false;
-                // todo handle the other faction def too
-                Multiplayer.DummyFaction.def = FactionDefOf.Ancients;
-
+                
                 OnMainThread.StopMultiplayer();
 
                 var doc = SaveLoad.SaveGame();

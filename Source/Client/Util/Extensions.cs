@@ -322,7 +322,7 @@ namespace Multiplayer.Client
             }
         }
 
-        public static IEnumerable<T> NotNull<T>(this IEnumerable<T> e)
+        public static IEnumerable<T> AllNotNull<T>(this IEnumerable<T> e)
         {
             return e.Where(t => t != null);
         }

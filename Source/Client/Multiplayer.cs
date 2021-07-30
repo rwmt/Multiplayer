@@ -53,12 +53,9 @@ namespace Multiplayer.Client
 
         public static bool reloading;
 
-        public static FactionDef FactionDef = FactionDef.Named("MultiplayerColony");
-        public static FactionDef DummyFactionDef = FactionDef.Named("MultiplayerDummy");
         public static KeyBindingDef ToggleChatDef = KeyBindingDef.Named("MpToggleChat");
 
         public static IdBlock GlobalIdBlock => game.worldComp.globalIdBlock;
-        public static Faction DummyFaction => game.dummyFaction;
         public static MultiplayerWorldComp WorldComp => game.worldComp;
 
         public static bool ShowDevInfo => Prefs.DevMode && MultiplayerMod.settings.showDevInfo;
@@ -118,13 +115,13 @@ namespace Multiplayer.Client
             MpConnectionState.SetImplementation(ConnectionStateEnum.ClientPlaying, typeof(ClientPlayingState));
 
             CollectCursorIcons();
-            Sync.CollectTypes();
+            SyncSerialization.CollectTypes();
 
-            DeepProfiler.Start("Multiplayer SyncHandlers");
+            DeepProfiler.Start("Multiplayer SyncGame");
 
             try
             {
-                SyncHandlers.Init();
+                SyncGame.Init();
 
                 var asm = Assembly.GetExecutingAssembly();
 
@@ -544,16 +541,16 @@ namespace Multiplayer.Client
 
             int TypeHash(Type type) => GenText.StableStringHash(type.FullName);
 
-            dict["ThingComp"] = GetDefInfo(Sync.thingCompTypes, TypeHash);
-            dict["AbilityComp"] = GetDefInfo(Sync.abilityCompTypes, TypeHash);
-            dict["Designator"] = GetDefInfo(Sync.designatorTypes, TypeHash);
-            dict["WorldObjectComp"] = GetDefInfo(Sync.worldObjectCompTypes, TypeHash);
-            dict["IStoreSettingsParent"] = GetDefInfo(Sync.storageParents, TypeHash);
-            dict["IPlantToGrowSettable"] = GetDefInfo(Sync.plantToGrowSettables, TypeHash);
+            dict["ThingComp"] = GetDefInfo(SyncSerialization.thingCompTypes, TypeHash);
+            dict["AbilityComp"] = GetDefInfo(SyncSerialization.abilityCompTypes, TypeHash);
+            dict["Designator"] = GetDefInfo(SyncSerialization.designatorTypes, TypeHash);
+            dict["WorldObjectComp"] = GetDefInfo(SyncSerialization.worldObjectCompTypes, TypeHash);
+            dict["IStoreSettingsParent"] = GetDefInfo(SyncSerialization.storageParents, TypeHash);
+            dict["IPlantToGrowSettable"] = GetDefInfo(SyncSerialization.plantToGrowSettables, TypeHash);
 
-            dict["GameComponent"] = GetDefInfo(Sync.gameCompTypes, TypeHash);
-            dict["WorldComponent"] = GetDefInfo(Sync.worldCompTypes, TypeHash);
-            dict["MapComponent"] = GetDefInfo(Sync.mapCompTypes, TypeHash);
+            dict["GameComponent"] = GetDefInfo(SyncSerialization.gameCompTypes, TypeHash);
+            dict["WorldComponent"] = GetDefInfo(SyncSerialization.worldCompTypes, TypeHash);
+            dict["MapComponent"] = GetDefInfo(SyncSerialization.mapCompTypes, TypeHash);
 
             dict["PawnBio"] = GetDefInfo(SolidBioDatabase.allBios, b => b.name.GetHashCode());
             dict["Backstory"] = GetDefInfo(BackstoryDatabase.allBackstories.Keys, b => b.GetHashCode());
