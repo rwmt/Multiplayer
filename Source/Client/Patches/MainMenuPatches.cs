@@ -141,9 +141,7 @@ namespace Multiplayer.Client
                 Replay.ForSaving(saveName).WriteCurrentData();
 
                 Find.GameInfo.permadeathMode = false;
-                // todo handle the other faction def too
-                Multiplayer.DummyFaction.def = FactionDefOf.Ancients;
-
+                
                 OnMainThread.StopMultiplayer();
 
                 var doc = SaveLoad.SaveGame();

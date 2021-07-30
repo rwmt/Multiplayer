@@ -170,6 +170,11 @@ namespace Multiplayer.Client
         {
             Find.WindowStack.windows.Clear();
         }
+
+        public static string RwDataFile(string filename)
+        {
+            return Path.Combine(GenFilePaths.SaveDataFolderPath, filename);
+        }
     }
 
     public struct Container<T>

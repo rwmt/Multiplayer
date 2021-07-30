@@ -35,7 +35,7 @@ namespace Multiplayer.Client
             writer.log.Node("Designate single cell: " + designator.GetType());
 
             WriteData(writer, DesignatorMode.SingleCell, designator);
-            Sync.WriteSync(writer, __0);
+            SyncSerialization.WriteSync(writer, __0);
 
             Multiplayer.Client.SendCommand(CommandType.Designator, map.uniqueID, writer.ToArray());
             Multiplayer.WriterLog.nodes.Add(writer.log.current);
@@ -58,7 +58,7 @@ namespace Multiplayer.Client
             IntVec3[] cellArray = __0.ToArray();
 
             WriteData(writer, DesignatorMode.MultiCell, designator);
-            Sync.WriteSync(writer, cellArray);
+            SyncSerialization.WriteSync(writer, cellArray);
 
             Multiplayer.Client.SendCommand(CommandType.Designator, map.uniqueID, writer.ToArray());
             Multiplayer.WriterLog.nodes.Add(writer.log.current);
@@ -77,7 +77,7 @@ namespace Multiplayer.Client
             writer.log.Node("Designate thing: " + __0 + " " + designator.GetType());
 
             WriteData(writer, DesignatorMode.Thing, designator);
-            Sync.WriteSync(writer, __0);
+            SyncSerialization.WriteSync(writer, __0);
 
             Multiplayer.Client.SendCommand(CommandType.Designator, map.uniqueID, writer.ToArray());
             Multiplayer.WriterLog.nodes.Add(writer.log.current);
@@ -99,20 +99,20 @@ namespace Multiplayer.Client
 
         private static void WriteData(ByteWriter data, DesignatorMode mode, Designator designator)
         {
-            Sync.WriteSync(data, mode);
-            Sync.WriteSyncObject(data, designator, designator.GetType());
+            SyncSerialization.WriteSync(data, mode);
+            SyncSerialization.WriteSyncObject(data, designator, designator.GetType());
 
-            // These affect the Global context and shouldn't be SyncWorkers
             // Read at MapAsyncTimeComp.SetDesignatorState
+            // The reading side affects global state so these can't be SyncWorkers
 
             if (designator is Designator_AreaAllowed)
-                Sync.WriteSync(data, Designator_AreaAllowed.SelectedArea);
+                SyncSerialization.WriteSync(data, Designator_AreaAllowed.SelectedArea);
 
             if (designator is Designator_Install install)
-                Sync.WriteSync(data, install.MiniToInstallOrBuildingToReinstall);
+                SyncSerialization.WriteSync(data, install.MiniToInstallOrBuildingToReinstall);
 
             if (designator is Designator_Zone)
-                Sync.WriteSync(data, Find.Selector.SelectedZone);
+                SyncSerialization.WriteSync(data, Find.Selector.SelectedZone);
         }
     }
 
@@ -126,31 +126,6 @@ namespace Multiplayer.Client
         {
             if (thingToInstall != null)
                 __result = thingToInstall;
-        }
-    }
-
-    [HarmonyPatch(typeof(Designator_Deconstruct))]
-    [HarmonyPatch(nameof(Designator_Deconstruct.DesignateThing))]
-    public static class DesignatorDeconstructPatch
-    {
-        static void Postfix(Thing t)
-        {
-            if (Multiplayer.Client != null)
-            {
-                Thing innerIfMinified = t.GetInnerIfMinified();
-                // All the conditions the game checks for before deconstructing the Thing instantly
-                if (DebugSettings.godMode || innerIfMinified.GetStatValue(StatDefOf.WorkToBuild, true) == 0f || t.def.IsFrame)
-                {
-                    if (Find.Selector.IsSelected(innerIfMinified) || (t != innerIfMinified && Find.Selector.IsSelected(t)))
-                    {
-                        Find.Selector.Deselect(innerIfMinified);
-                        // Just to be 100% sure there's nothing weird going on here
-                        if (t != innerIfMinified)
-                            Find.Selector.Deselect(t);
-                        Find.MainButtonsRoot.tabs.Notify_SelectedObjectDespawned();
-                    }
-                }
-            }
         }
     }
 
