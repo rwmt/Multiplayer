@@ -67,6 +67,8 @@ namespace Multiplayer.Client
         public static ISyncField SyncAnimalPenAutocut;
 
         public static SyncField[] SyncAutoSlaughter;
+		
+        public static ISyncField SyncDryadCaste;
 
         public static void Init()
         {
@@ -175,6 +177,8 @@ namespace Multiplayer.Client
             SyncFoodRestrictionLabel = Sync.Field(typeof(FoodRestriction), "label").SetBufferChanges().SetVersion(2);
             SyncStorytellerDef = Sync.Field(typeof(Storyteller), "def").SetHostOnly().PostApply(StorytellerDef_Post).SetVersion(2);
             SyncStorytellerDifficulty = Sync.Field(typeof(Storyteller), "difficulty").SetHostOnly().PostApply(StorytellerDifficutly_Post).SetVersion(2);
+
+            SyncDryadCaste = Sync.Field(typeof(CompTreeConnection), nameof(CompTreeConnection.desiredMode));
 
             SyncAnimalPenAutocut = Sync.Field(typeof(CompAnimalPenMarker), nameof(CompAnimalPenMarker.autoCut));
         }
@@ -473,6 +477,11 @@ namespace Multiplayer.Client
         {
             Multiplayer.MapContext.autoSlaughterManager.Notify_ConfigChanged();
         }
-    }
+
+        [MpPrefix(typeof(Dialog_ChangeDryadCaste), nameof(Dialog_ChangeDryadCaste.StartChange))]
+        static void WatchDryadCaste(Dialog_ChangeDryadCaste __instance)
+        {
+            SyncDryadCaste.Watch(__instance.treeConnection);
+        }
 
 }
