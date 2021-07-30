@@ -67,6 +67,10 @@ namespace Multiplayer.Client
         public static ISyncField SyncAnimalPenAutocut;
 
         public static SyncField[] SyncAutoSlaughter;
+		
+        public static ISyncField SyncDryadCaste;
+        public static ISyncField SyncDesiredTreeConnectionStrength;
+        public static ISyncField SyncPlantableTargetCell;
 
         public static ISyncField SyncNeuralSuperchargerMode;
 
@@ -164,7 +168,7 @@ namespace Multiplayer.Client
                 "maxFemales",
                 "maxFemalesYoung",
                 "allowSlaughterPregnant"
-            );
+            ).PostApply(Autoslaughter_PostApply);
 
             SyncTradeableCount = Sync.Field(typeof(MpTransferableReference), "CountToTransfer").SetBufferChanges().PostApply(TransferableCount_PostApply);
 
@@ -177,6 +181,10 @@ namespace Multiplayer.Client
             SyncFoodRestrictionLabel = Sync.Field(typeof(FoodRestriction), "label").SetBufferChanges().SetVersion(2);
             SyncStorytellerDef = Sync.Field(typeof(Storyteller), "def").SetHostOnly().PostApply(StorytellerDef_Post).SetVersion(2);
             SyncStorytellerDifficulty = Sync.Field(typeof(Storyteller), "difficulty").SetHostOnly().PostApply(StorytellerDifficutly_Post).SetVersion(2);
+
+            SyncDryadCaste = Sync.Field(typeof(CompTreeConnection), nameof(CompTreeConnection.desiredMode));
+            SyncDesiredTreeConnectionStrength = Sync.Field(typeof(CompTreeConnection), nameof(CompTreeConnection.desiredConnectionStrength));
+            SyncPlantableTargetCell = Sync.Field(typeof(CompPlantable), nameof(CompPlantable.plantCell));
 
             SyncAnimalPenAutocut = Sync.Field(typeof(CompAnimalPenMarker), nameof(CompAnimalPenMarker.autoCut));
 
@@ -472,6 +480,31 @@ namespace Multiplayer.Client
                 yield return entry;
             }
         }
+			
+        [MpPrefix(typeof(Gizmo_PruningConfig), nameof(Gizmo_PruningConfig.DrawBar))]
+        static void WatchTreeConnectionStrength(Gizmo_PruningConfig __instance)
+        {
+            SyncDesiredTreeConnectionStrength.Watch(__instance.connection);
+		}
+			
+        [MpPrefix(typeof(CompPlantable), "<BeginTargeting>b__9_0")]
+        static void WatchPlantableTargetCell(CompPlantable __instance)
+        {
+            // Sync cell to plant if it didn't require confirmation
+            // This can't be synced like the other two methods related to planting, as it has more code attached to it that we don't want to sync
+            SyncPlantableTargetCell.Watch(__instance);
+        }
+
+        [MpPrefix(typeof(Dialog_ChangeDryadCaste), nameof(Dialog_ChangeDryadCaste.StartChange))]
+        static void WatchDryadCaste(Dialog_ChangeDryadCaste __instance)
+        {
+            SyncDryadCaste.Watch(__instance.treeConnection);
+        }
+		
+        static void Autoslaughter_PostApply(object target, object value)
+        {
+            Multiplayer.MapContext.autoSlaughterManager.Notify_ConfigChanged();
+        }
 
         // Neural supercharger auto use mode syncing
         [MpPrefix(typeof(Command_SetNeuralSuperchargerAutoUse), "<ProcessInput>b__11_0")] // Set to nobody being allowed to use
@@ -480,7 +513,7 @@ namespace Multiplayer.Client
         static void WatchNeuralSuperchargerMode(Command_SetNeuralSuperchargerAutoUse __instance)
         {
             SyncNeuralSuperchargerMode.Watch(__instance.comp);
-        }
+		}
     }
 
 }
