@@ -4,6 +4,7 @@ using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using Verse;
 
@@ -51,6 +52,7 @@ namespace Multiplayer.Client
         }
     }
 
+    [HotSwappable]
     [HarmonyPatch(typeof(GenTemperature), nameof(GenTemperature.AverageTemperatureAtTileForTwelfth))]
     static class CacheAverageTileTemperature
     {
@@ -58,12 +60,12 @@ namespace Multiplayer.Client
 
         static bool Prefix(int tile, Twelfth twelfth)
         {
-            return !averageTileTemps.TryGetValue(tile, out float[] arr) || arr[(int)twelfth] == float.NaN;
+            return !averageTileTemps.TryGetValue(tile, out float[] arr) || float.IsNaN(arr[(int)twelfth]);
         }
 
         static void Postfix(int tile, Twelfth twelfth, ref float __result)
         {
-            if (averageTileTemps.TryGetValue(tile, out float[] arr) && arr[(int)twelfth] != float.NaN)
+            if (averageTileTemps.TryGetValue(tile, out float[] arr) && !float.IsNaN(arr[(int)twelfth]))
             {
                 __result = arr[(int)twelfth];
                 return;
@@ -79,6 +81,18 @@ namespace Multiplayer.Client
         {
             averageTileTemps.Clear();
         }
+    }
+
+    [HarmonyPatch]
+    static class ClearTemperatureCache
+    {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(WorldGrid), nameof(WorldGrid.RawDataToTiles));
+            yield return AccessTools.Method(typeof(WorldGenStep_Terrain), nameof(WorldGenStep_Terrain.GenerateGridIntoWorld));
+        }
+
+        static void Postfix() => CacheAverageTileTemperature.Clear();
     }
 
 }

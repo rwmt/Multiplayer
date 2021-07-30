@@ -56,16 +56,16 @@ namespace Multiplayer.Client
         public static void DumpSyncTypes()
         {
             var dict = new Dictionary<string, Type[]>() {
-                {"ThingComp", Sync.thingCompTypes},
-                {"AbilityComp", Sync.abilityCompTypes},
-                {"Designator", Sync.designatorTypes},
-                {"WorldObjectComp", Sync.worldObjectCompTypes},
-                {"IStoreSettingsParent", Sync.storageParents},
-                {"IPlantToGrowSettable", Sync.plantToGrowSettables},
+                {"ThingComp", SyncSerialization.thingCompTypes},
+                {"AbilityComp", SyncSerialization.abilityCompTypes},
+                {"Designator", SyncSerialization.designatorTypes},
+                {"WorldObjectComp", SyncSerialization.worldObjectCompTypes},
+                {"IStoreSettingsParent", SyncSerialization.storageParents},
+                {"IPlantToGrowSettable", SyncSerialization.plantToGrowSettables},
 
-                {"GameComponent", Sync.gameCompTypes},
-                {"WorldComponent", Sync.worldCompTypes},
-                {"MapComponent", Sync.mapCompTypes},
+                {"GameComponent", SyncSerialization.gameCompTypes},
+                {"WorldComponent", SyncSerialization.worldCompTypes},
+                {"MapComponent", SyncSerialization.mapCompTypes},
             };
             foreach(var kv in dict) {
                 Log.Warning($"== {kv.Key} ==");
@@ -95,6 +95,17 @@ namespace Multiplayer.Client
         }
 
 #if DEBUG
+
+        [DebugOutput]
+        public unsafe static void PrintInlined()
+        {
+            foreach (var m in Harmony.GetAllPatchedMethods())
+            {
+                // method->inline_info
+                if ((*(byte*)(m.MethodHandle.Value + 32) & 1) == 1)
+                    Log.Warning($"Mono inlined {m.FullDescription()} {*(byte*)(m.MethodHandle.Value + 32) & 1} {*((ushort*)(m.MethodHandle.Value) + 1) & (ushort)MethodImplOptions.NoInlining}");
+            }
+        }
 
         [DebugAction(DebugActionCategories.Mods, "Log Terrain", allowedGameStates = AllowedGameStates.Entry)]
         public static void EntryAction()

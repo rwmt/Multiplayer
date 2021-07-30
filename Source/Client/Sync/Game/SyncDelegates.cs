@@ -68,6 +68,13 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(MonumentMarker), "<GetGizmos>b__29_4").SetDebugOnly(); // Build Monument Quest - Monument Marker: dev build all
 
             SyncDelegate.Register(typeof(ITab_ContentsTransporter), "<>c__DisplayClass11_0", "<DoItemsLists>b__0").SetContext(SyncContext.MapSelected); // Discard loaded thing
+
+            // Inventory (medicine) stock up
+            SyncMethod.Register(typeof(Pawn_InventoryStockTracker), nameof(Pawn_InventoryStockTracker.SetCountForGroup));
+            SyncMethod.Register(typeof(Pawn_InventoryStockTracker), nameof(Pawn_InventoryStockTracker.SetThingForGroup));
+
+            SyncDelegate.Register(typeof(CompPlantable), "<>c__DisplayClass9_0", "<BeginTargeting>b__3"); // Select cell to plant to after confirmation
+            SyncMethod.Register(typeof(CompPlantable), "<CompGetGizmosExtra>b__8_1"); // Cancel planting
         }
 
         [MpPrefix(typeof(FormCaravanComp), "<>c__DisplayClass17_0", "<GetGizmos>b__0")]
@@ -103,7 +110,7 @@ namespace Multiplayer.Client
 
             if (TickPatch.currentExecutingCmdIssuedBySelf)
             {
-                MapAsyncTimeComp.keepTheMap = true;
+                AsyncTimeComp.keepTheMap = true;
                 Current.Game.CurrentMap = comp.map;
                 Find.World.renderer.wantedMode = WorldRenderMode.None;
             }

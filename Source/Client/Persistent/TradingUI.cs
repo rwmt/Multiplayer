@@ -164,10 +164,10 @@ namespace Multiplayer.Client
         {
             var session = Multiplayer.WorldComp.trading[selectedTab];
 
-            CancelDialogTradeCtor.cancel = true;
             MpTradeSession.SetTradeSession(session);
 
-            dialog = new Dialog_Trade(null, null);
+            dialog = MpUtil.NewObjectNoCtor<Dialog_Trade>();
+            dialog.quickSearchWidget = new QuickSearchWidget();
             dialog.giftsOnly = session.giftsOnly;
             dialog.sorter1 = TransferableSorterDefOf.Category;
             dialog.sorter2 = TransferableSorterDefOf.MarketValue;
@@ -178,7 +178,6 @@ namespace Multiplayer.Client
             added.Clear();
 
             MpTradeSession.SetTradeSession(null);
-            CancelDialogTradeCtor.cancel = false;
         }
 
         public void Notify_RemovedSession(int index)
@@ -201,14 +200,14 @@ namespace Multiplayer.Client
             Multiplayer.WorldComp.RemoveTradeSession(session);
         }
 
-        public Dictionary<Tradeable, float> added = new Dictionary<Tradeable, float>();
-        public Dictionary<Tradeable, float> removed = new Dictionary<Tradeable, float>();
-
         private bool RemoveCachedTradeable(Tradeable t)
         {
             dialog?.cachedTradeables.Remove(t);
             return true;
         }
+
+        public Dictionary<Tradeable, float> added = new Dictionary<Tradeable, float>();
+        public Dictionary<Tradeable, float> removed = new Dictionary<Tradeable, float>();
 
         private static HashSet<Tradeable> newTradeables = new HashSet<Tradeable>();
         private static HashSet<Tradeable> oldTradeables = new HashSet<Tradeable>();
@@ -417,6 +416,7 @@ namespace Multiplayer.Client
             yield return AccessTools.Method(typeof(Dialog_Trade), "<DoWindowContents>b__64_0");
             yield return AccessTools.Method(typeof(Dialog_Trade), "<DoWindowContents>b__64_1");
         }
+
         static void Prefix(ref bool __state)
         {
             TradingWindow trading = Find.WindowStack.WindowOfType<TradingWindow>();

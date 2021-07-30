@@ -10,7 +10,7 @@ using Verse;
 
 namespace Multiplayer.Client
 {
-    public static class SyncHandlers
+    public static class SyncGame
     {
         public static void Init()
         {

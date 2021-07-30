@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -419,17 +419,17 @@ namespace Multiplayer.Client
 
         static TypeRWHelper()
         {
-            cache[typeof(IStoreSettingsParent)] = Sync.storageParents;
-            cache[typeof(IPlantToGrowSettable)] = Sync.plantToGrowSettables;
+            cache[typeof(IStoreSettingsParent)] = SyncSerialization.storageParents;
+            cache[typeof(IPlantToGrowSettable)] = SyncSerialization.plantToGrowSettables;
 
-            cache[typeof(ThingComp)] = Sync.thingCompTypes;
-            cache[typeof(AbilityComp)] = Sync.abilityCompTypes;
-            cache[typeof(Designator)] = Sync.designatorTypes;
-            cache[typeof(WorldObjectComp)] = Sync.worldObjectCompTypes;
+            cache[typeof(ThingComp)] = SyncSerialization.thingCompTypes;
+            cache[typeof(AbilityComp)] = SyncSerialization.abilityCompTypes;
+            cache[typeof(Designator)] = SyncSerialization.designatorTypes;
+            cache[typeof(WorldObjectComp)] = SyncSerialization.worldObjectCompTypes;
 
-            cache[typeof(GameComponent)] = Sync.gameCompTypes;
-            cache[typeof(WorldComponent)] = Sync.worldCompTypes;
-            cache[typeof(MapComponent)] = Sync.mapCompTypes;
+            cache[typeof(GameComponent)] = SyncSerialization.gameCompTypes;
+            cache[typeof(WorldComponent)] = SyncSerialization.worldCompTypes;
+            cache[typeof(MapComponent)] = SyncSerialization.mapCompTypes;
         }
 
         internal static void FlushCache()
@@ -478,7 +478,7 @@ namespace Multiplayer.Client
 
         public override void Bind<T>(ref T obj)
         {
-            Sync.WriteSyncObject(writer, obj, typeof(T));
+            SyncSerialization.WriteSyncObject(writer, obj, typeof(T));
         }
 
         public override void Bind(object obj, string name)
@@ -486,7 +486,7 @@ namespace Multiplayer.Client
             object value = MpReflection.GetValue(obj, name);
             Type type = value.GetType();
 
-            Sync.WriteSyncObject(writer, value, type);
+            SyncSerialization.WriteSyncObject(writer, value, type);
         }
 
         public override void Bind(ref byte obj)
@@ -573,7 +573,7 @@ namespace Multiplayer.Client
 
         public override void Bind<T>(ref T obj)
         {
-            obj = (T) Sync.ReadSyncObject(reader, typeof(T));
+            obj = (T) SyncSerialization.ReadSyncObject(reader, typeof(T));
         }
 
         public override void Bind(object obj, string name)
@@ -582,7 +582,7 @@ namespace Multiplayer.Client
 
             Type type = value.GetType();
 
-            var res = Sync.ReadSyncObject(reader, type);
+            var res = SyncSerialization.ReadSyncObject(reader, type);
 
             MpReflection.SetValue(obj, name, res);
         }

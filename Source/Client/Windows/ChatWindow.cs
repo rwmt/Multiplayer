@@ -146,11 +146,13 @@ namespace Multiplayer.Client
 
         private void ClickPlayer(PlayerInfo p)
         {
+            // todo
+            return;
+
             if (p.id == 0 && Event.current.button == 1)
             {
                 Find.WindowStack.Add(new FloatMenu(new List<FloatMenuOption>()
                 {
-                    // todo
                     //new FloatMenuOption("MpSeeModList".Translate(), () => DefMismatchWindow.ShowModList(Multiplayer.session.mods))
                 }));
             }

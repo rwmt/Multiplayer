@@ -341,9 +341,9 @@ namespace Multiplayer.Client
                 return cached;
 
             Type type =
-                AllAssemblies.Select(a => a.GetType(name)).NotNull().FirstOrDefault() ??
+                AllAssemblies.Select(a => a.GetType(name)).AllNotNull().FirstOrDefault() ??
                 Type.GetType(name) ??
-                AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType(name)).NotNull().FirstOrDefault();
+                AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType(name)).AllNotNull().FirstOrDefault();
 
             types[name] = type;
             return type;

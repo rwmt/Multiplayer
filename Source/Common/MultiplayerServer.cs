@@ -196,7 +196,7 @@ namespace Multiplayer.Common
 
             var curSpeed = Client.Multiplayer.WorldComp.TimeSpeed;
 
-            autosaveCountdown -= (curSpeed == Verse.TimeSpeed.Paused && !Client.MultiplayerMod.settings.pauseAutosaveCounter) 
+            autosaveCountdown -= (curSpeed == TimeSpeed.Paused && !Client.MultiplayerMod.settings.pauseAutosaveCounter) 
                 ? 1 : Client.Multiplayer.WorldComp.TickRateMultiplier(curSpeed);
 
             if (autosaveCountdown <= 0)
@@ -224,7 +224,7 @@ namespace Multiplayer.Common
                 return false;
 
             if (settings.pauseOnAutosave || forcePause)
-                SendCommand(CommandType.WorldTimeSpeed, ScheduledCommand.NoFaction, ScheduledCommand.Global, new byte[] { (byte)Verse.TimeSpeed.Paused });
+                SendCommand(CommandType.WorldTimeSpeed, ScheduledCommand.NoFaction, ScheduledCommand.Global, new byte[] { (byte)TimeSpeed.Paused });
 
             ByteWriter writer = new ByteWriter();
             writer.WriteString(saveName);
@@ -540,7 +540,7 @@ namespace Multiplayer.Common
 
         public void Disconnect(string reasonKey)
         {
-            Disconnect(MpDisconnectReason.Generic, Encoding.UTF8.GetBytes(reasonKey));
+            Disconnect(MpDisconnectReason.GenericKeyed, Encoding.UTF8.GetBytes(reasonKey));
         }
 
         public void Disconnect(MpDisconnectReason reason, byte[] data = null)

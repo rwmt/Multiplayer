@@ -16,6 +16,7 @@ using Verse.Profile;
 
 namespace Multiplayer.Client
 {
+    [HotSwappable]
     public static class SaveLoad
     {
         public static XmlDocument SaveAndReload()
@@ -33,7 +34,7 @@ namespace Multiplayer.Client
             var chatWindow = ChatWindow.Opened;
 
             var selectedData = new ByteWriter();
-            Sync.WriteSync(selectedData, Find.Selector.selected.OfType<ISelectable>().ToList());
+            SyncSerialization.WriteSync(selectedData, Find.Selector.selected.OfType<ISelectable>().ToList());
 
             //Multiplayer.RealPlayerFaction = Multiplayer.DummyFaction;
 
@@ -100,7 +101,7 @@ namespace Multiplayer.Client
                 Find.WindowStack.Add_KeepRect(chatWindow);
 
             var selectedReader = new ByteReader(selectedData.ToArray()) { context = new MpContext() { map = Find.CurrentMap } };
-            Find.Selector.selected = Sync.ReadSync<List<ISelectable>>(selectedReader).NotNull().Cast<object>().ToList();
+            Find.Selector.selected = SyncSerialization.ReadSync<List<ISelectable>>(selectedReader).AllNotNull().Cast<object>().ToList();
 
             Find.World.renderer.wantedMode = planetRenderMode;
             Multiplayer.WorldComp.cmds = mapCmds[ScheduledCommand.Global];
@@ -112,6 +113,8 @@ namespace Multiplayer.Client
 
             return gameDoc;
         }
+
+        public const float SpecialBellTime = -2000f;
 
         public static void LoadInMainThread(XmlDocument gameDoc)
         {
@@ -125,9 +128,6 @@ namespace Multiplayer.Client
             CancelRootPlayStartLongEvents.cancel = true;
             Find.Root.Start();
             CancelRootPlayStartLongEvents.cancel = false;
-
-            //foreach (var alert in ((UIRoot_Play)Find.UIRoot).alerts.AllAlerts)
-            //    alert.lastBellTime = float.NaN;
 
             // SaveCompression enabled in the patch
             SavedGameLoaderNow.LoadGameFromSaveFileNow(null);
@@ -298,16 +298,6 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(FactionManager), nameof(FactionManager.RecacheFactions))]
-    static class RecacheFactionsPatch
-    {
-        static void Postfix()
-        {
-            if (Multiplayer.Client == null) return;
-            Multiplayer.game.dummyFaction = Find.FactionManager.GetById(-1);
-        }
-    }
-
     [HarmonyPatch(typeof(World), nameof(World.ExposeComponents))]
     static class SaveWorldComp
     {
@@ -348,9 +338,9 @@ namespace Multiplayer.Client
             {
                 if (asyncTime == null)
                 {
-                    Log.Error($"{typeof(MapAsyncTimeComp)} missing during loading");
+                    Log.Error($"{typeof(AsyncTimeComp)} missing during loading");
                     // This is just so the game doesn't completely freeze
-                    asyncTime = new MapAsyncTimeComp(__instance);
+                    asyncTime = new AsyncTimeComp(__instance);
                 }
 
                 Multiplayer.game.asyncTimeComps.Add(asyncTime);
@@ -393,16 +383,6 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.Client == null) return;
             Multiplayer.WorldComp.FinalizeInit();
-        }
-    }
-
-    [HarmonyPatch(typeof(Alert), nameof(Alert.Notify_Started))]
-    static class FixAlertBellTime
-    {
-        static void Postfix(Alert __instance)
-        {
-            if (__instance.lastBellTime == float.NaN)
-                __instance.lastBellTime = Time.realtimeSinceStartup;
         }
     }
 

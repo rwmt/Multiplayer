@@ -32,16 +32,6 @@ namespace Multiplayer.Client.EarlyPatches
         }
     }
 
-    //[HarmonyPatch(typeof(Log), nameof(Log.ReachedMaxMessagesLimit))]
-    static class LogMaxMessagesPatch
-    {
-        public static void Postfix(ref bool __result)
-        {
-            if (MpVersion.IsDebug)
-                __result = false;
-        }
-    }
-
     [HarmonyPatch(typeof(DirectXmlLoader), nameof(DirectXmlLoader.XmlAssetsInModFolder))]
     static class XmlAssetsInModFolderPatch
     {
