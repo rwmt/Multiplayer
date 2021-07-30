@@ -1,4 +1,4 @@
-﻿//extern alias zip;
+//extern alias zip;
 
 using System.Collections.Generic;
 using RimWorld;
@@ -12,7 +12,7 @@ namespace Multiplayer.Client
 
         public static Faction Push(Faction newFaction)
         {
-            if (newFaction == null || (newFaction.def != Multiplayer.FactionDef && !newFaction.def.isPlayer))
+            if (newFaction == null || !newFaction.def.isPlayer)
             {
                 stack.Push(null);
                 return null;
@@ -34,13 +34,8 @@ namespace Multiplayer.Client
 
         public static void Set(Faction newFaction)
         {
-            var playerFaction = Find.FactionManager.OfPlayer;
-            var factionDef = playerFaction.def;
-
             //Log.Message($"set faction {playerFaction}>{newFaction} {stack.Count}");
 
-            playerFaction.def = Multiplayer.FactionDef;
-            newFaction.def = factionDef;
             Find.FactionManager.ofPlayer = newFaction;
         }
 

@@ -1,4 +1,4 @@
-﻿using Multiplayer.Client.Desyncs;
+using Multiplayer.Client.Desyncs;
 using Multiplayer.Client.EarlyPatches;
 using RimWorld;
 using RimWorld.BaseGen;
@@ -16,10 +16,9 @@ namespace Multiplayer.Client
 
         public MultiplayerWorldComp worldComp;
         public List<MultiplayerMapComp> mapComps = new List<MultiplayerMapComp>();
-        public List<MapAsyncTimeComp> asyncTimeComps = new List<MapAsyncTimeComp>();
+        public List<AsyncTimeComp> asyncTimeComps = new List<AsyncTimeComp>();
         public SharedCrossRefs sharedCrossRefs = new SharedCrossRefs();
 
-        public Faction dummyFaction;
         private Faction myFaction;
         public Faction myFactionLoading;
 

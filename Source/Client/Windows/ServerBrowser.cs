@@ -20,6 +20,7 @@ using HarmonyLib;
 using zip::Ionic.Zip;
 using System.Collections.Concurrent;
 using Verse.Sound;
+using Multiplayer.Client.Networking;
 
 namespace Multiplayer.Client
 {
@@ -434,19 +435,7 @@ namespace Multiplayer.Client
                     if (Widgets.ButtonText(playButton, "MpJoinButton".Translate()))
                     {
                         Close(false);
-
-                        Log.Message("Connecting through Steam");
-
-                        Find.WindowStack.Add(new SteamConnectingWindow(friend.serverHost) { returnToServerBrowser = true });
-
-                        var conn = new SteamClientConn(friend.serverHost);
-                        conn.username = Multiplayer.username;
-                        Multiplayer.session = new MultiplayerSession();
-
-                        Multiplayer.session.client = conn;
-                        Multiplayer.session.ReapplyPrefs();
-
-                        conn.State = ConnectionStateEnum.ClientSteam;
+                        ConnectOnSteam(friend);
                     }
                 }
                 else
@@ -462,6 +451,22 @@ namespace Multiplayer.Client
             }
 
             Widgets.EndScrollView();
+        }
+
+        private void ConnectOnSteam(SteamPersona friend)
+        {
+            Log.Message("Connecting through Steam");
+
+            Find.WindowStack.Add(new SteamConnectingWindow(friend.serverHost) { returnToServerBrowser = true });
+
+            var conn = new SteamClientConn(friend.serverHost);
+            conn.username = Multiplayer.username;
+            Multiplayer.session = new MultiplayerSession();
+
+            Multiplayer.session.client = conn;
+            Multiplayer.session.ReapplyPrefs();
+
+            conn.State = ConnectionStateEnum.ClientSteam;
         }
 
         private void DrawDirect(Rect inRect)

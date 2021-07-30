@@ -61,7 +61,7 @@ namespace Multiplayer.Client
 
                 var methods = typeof(CompAssignableToPawn).AllSubtypesAndSelf()
                     .SelectMany(t => methodNames.Select(n => t.GetMethod(n, AccessTools.allDeclared)))
-                    .NotNull();
+                    .AllNotNull();
 
                 foreach(var method in methods) {
                     Sync.RegisterSyncMethod(method).CancelIfAnyArgNull();
@@ -113,7 +113,7 @@ namespace Multiplayer.Client
             {
                 var methods = typeof(ITargetingSource).AllImplementing()
                     .Select(t => t.GetMethod(nameof(ITargetingSource.OrderForceTarget), AccessTools.allDeclared))
-                    .NotNull();
+                    .AllNotNull();
 
                 foreach(var method in methods) {
                     Sync.RegisterSyncMethod(method);

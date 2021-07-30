@@ -87,7 +87,7 @@ namespace Multiplayer.Client
             return Find.FactionManager.GetById(cmd.factionId);
         }
 
-        public static MapAsyncTimeComp AsyncTime(this Map map)
+        public static AsyncTimeComp AsyncTime(this Map map)
         {
             var list = Multiplayer.game?.asyncTimeComps;
             if (list == null) return null;
@@ -322,7 +322,7 @@ namespace Multiplayer.Client
             }
         }
 
-        public static IEnumerable<T> NotNull<T>(this IEnumerable<T> e)
+        public static IEnumerable<T> AllNotNull<T>(this IEnumerable<T> e)
         {
             return e.Where(t => t != null);
         }

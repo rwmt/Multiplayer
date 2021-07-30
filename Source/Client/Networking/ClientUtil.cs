@@ -16,6 +16,7 @@ using System.ComponentModel;
 using Verse;
 using UnityEngine;
 using System.IO;
+using Multiplayer.Client.Networking;
 
 namespace Multiplayer.Client
 {
@@ -183,14 +184,11 @@ namespace Multiplayer.Client
                 return faction;
             }
 
-            Faction dummyFaction = NewFaction(-1, "Multiplayer dummy faction", Multiplayer.DummyFactionDef);
-
             Faction.OfPlayer.Name = $"{Multiplayer.username}'s faction";
             //comp.factionData[Faction.OfPlayer.loadID] = FactionWorldData.FromCurrent();
 
             Multiplayer.game = new MultiplayerGame
             {
-                dummyFaction = dummyFaction,
                 worldComp = comp
             };
 
@@ -218,7 +216,7 @@ namespace Multiplayer.Client
                 BeforeMapGeneration.SetupMap(map);
                 //BeforeMapGeneration.InitNewMapFactionData(map, opponent);
 
-                MapAsyncTimeComp async = map.AsyncTime();
+                AsyncTimeComp async = map.AsyncTime();
                 async.mapTicks = Find.TickManager.TicksGame;
                 async.TimeSpeed = Find.TickManager.CurTimeSpeed;
             }
@@ -293,255 +291,6 @@ namespace Multiplayer.Client
                 .Where(f => f.FieldType == typeof(int))
                 .Select(f => (int)f.GetValue(Find.UniqueIDsManager))
                 .Max();
-        }
-    }
-
-    public class MpClientNetListener : INetEventListener
-    {
-        public void OnPeerConnected(NetPeer peer)
-        {
-            IConnection conn = new MpNetConnection(peer);
-            conn.username = Multiplayer.username;
-            conn.State = ConnectionStateEnum.ClientJoining;
-
-            Multiplayer.session.client = conn;
-            Multiplayer.session.ReapplyPrefs();
-
-            MpLog.Log("Net client connected");
-        }
-
-        public void OnNetworkError(IPEndPoint endPoint, SocketError error)
-        {
-            Log.Warning($"Net client error {error}");
-        }
-
-        public void OnNetworkReceive(NetPeer peer, NetPacketReader reader, DeliveryMethod method)
-        {
-            byte[] data = reader.GetRemainingBytes();
-            Multiplayer.HandleReceive(new ByteReader(data), method == DeliveryMethod.ReliableOrdered);
-        }
-
-        public void OnPeerDisconnected(NetPeer peer, DisconnectInfo info)
-        {
-            MpDisconnectReason reason;
-            byte[] data;
-
-            if (info.AdditionalData.IsNull)
-            {
-                reason = MpDisconnectReason.Failed;
-                data = new byte[0];
-            }
-            else
-            {
-                var reader = new ByteReader(info.AdditionalData.GetRemainingBytes());
-                reason = (MpDisconnectReason)reader.ReadByte();
-                data = reader.ReadPrefixedBytes();
-            }
-
-            Multiplayer.session.HandleDisconnectReason(reason, data);
-
-            ConnectionStatusListeners.TryNotifyAll_Disconnected();
-
-            OnMainThread.StopMultiplayer();
-            MpLog.Log("Net client disconnected");
-        }
-
-        private static string DisconnectReasonString(DisconnectReason reason)
-        {
-            switch (reason)
-            {
-                case DisconnectReason.ConnectionFailed: return "Connection failed";
-                case DisconnectReason.ConnectionRejected: return "Connection rejected";
-                case DisconnectReason.Timeout: return "Timed out";
-                case DisconnectReason.HostUnreachable: return "Host unreachable";
-                case DisconnectReason.InvalidProtocol: return "Invalid library protocol";
-                default: return "Disconnected";
-            }
-        }
-
-        public void OnConnectionRequest(ConnectionRequest request) { }
-        public void OnNetworkLatencyUpdate(NetPeer peer, int latency) { }
-        public void OnNetworkReceiveUnconnected(IPEndPoint remoteEndPoint, NetPacketReader reader, UnconnectedMessageType messageType) { }
-    }
-
-    // Within same process
-    public class LocalClientConnection : IConnection
-    {
-        public LocalServerConnection serverSide;
-
-        public override int Latency { get => 0; set { } }
-
-        public LocalClientConnection(string username)
-        {
-            this.username = username;
-        }
-
-        protected override void SendRaw(byte[] raw, bool reliable)
-        {
-            Multiplayer.LocalServer.Enqueue(() =>
-            {
-                try
-                {
-                    serverSide.HandleReceive(new ByteReader(raw), reliable);
-                }
-                catch (Exception e)
-                {
-                    Log.Error($"Exception handling packet by {serverSide}: {e}");
-                }
-            });
-        }
-
-        public override void Close(MpDisconnectReason reason, byte[] data)
-        {
-        }
-
-        public override string ToString()
-        {
-            return "LocalClientConn";
-        }
-    }
-
-    // Within same process
-    public class LocalServerConnection : IConnection
-    {
-        public LocalClientConnection clientSide;
-
-        public override int Latency { get => 0; set { } }
-
-        public LocalServerConnection(string username)
-        {
-            this.username = username;
-        }
-
-        protected override void SendRaw(byte[] raw, bool reliable)
-        {
-            OnMainThread.Enqueue(() =>
-            {
-                try
-                {
-                    clientSide.HandleReceive(new ByteReader(raw), reliable);
-                }
-                catch (Exception e)
-                {
-                    Log.Error($"Exception handling packet by {clientSide}: {e}");
-                }
-            });
-        }
-
-        public override void Close(MpDisconnectReason reason, byte[] data)
-        {
-        }
-
-        public override string ToString()
-        {
-            return "LocalServerConn";
-        }
-    }
-
-    public abstract class SteamBaseConn : IConnection
-    {
-        public readonly CSteamID remoteId;
-
-        public readonly ushort recvChannel; // currently only for client
-        public readonly ushort sendChannel; // currently only for server
-
-        public SteamBaseConn(CSteamID remoteId, ushort recvChannel, ushort sendChannel)
-        {
-            this.remoteId = remoteId;
-            this.recvChannel = recvChannel;
-            this.sendChannel = sendChannel;
-        }
-
-        protected override void SendRaw(byte[] raw, bool reliable)
-        {
-            byte[] full = new byte[1 + raw.Length];
-            full[0] = reliable ? (byte)2 : (byte)0;
-            raw.CopyTo(full, 1);
-
-            SendRawSteam(full, reliable);
-        }
-
-        public void SendRawSteam(byte[] raw, bool reliable)
-        {
-            SteamNetworking.SendP2PPacket(
-                remoteId,
-                raw,
-                (uint)raw.Length,
-                reliable ? EP2PSend.k_EP2PSendReliable : EP2PSend.k_EP2PSendUnreliable,
-                sendChannel
-            );
-        }
-
-        public override void Close(MpDisconnectReason reason, byte[] data)
-        {
-            if (State == ConnectionStateEnum.ClientSteam) return;
-
-            Send(Packets.Special_Steam_Disconnect, GetDisconnectBytes(reason, data));
-        }
-
-        protected override void HandleReceive(int msgId, int fragState, ByteReader reader, bool reliable)
-        {
-            if (msgId == (int)Packets.Special_Steam_Disconnect)
-            {
-                OnDisconnect();
-            }
-            else
-            {
-                base.HandleReceive(msgId, fragState, reader, reliable);
-            }
-        }
-
-        public virtual void OnError(EP2PSessionError error)
-        {
-            OnDisconnect();
-        }
-
-        protected abstract void OnDisconnect();
-
-        public override string ToString()
-        {
-            return $"SteamP2P ({remoteId}) ({username})";
-        }
-    }
-
-    public class SteamClientConn : SteamBaseConn
-    {
-        static ushort RandomChannelId() => (ushort)new System.Random().Next();
-
-        public SteamClientConn(CSteamID remoteId) : base(remoteId, RandomChannelId(), 0)
-        {
-        }
-
-        protected override void HandleReceive(int msgId, int fragState, ByteReader reader, bool reliable)
-        {
-            if (msgId == (int)Packets.Special_Steam_Disconnect)
-                Multiplayer.session.HandleDisconnectReason((MpDisconnectReason)reader.ReadByte(), reader.ReadPrefixedBytes());
-
-            base.HandleReceive(msgId, fragState, reader, reliable);
-        }
-
-        public override void OnError(EP2PSessionError error)
-        {
-            Multiplayer.session.disconnectReasonKey = error == EP2PSessionError.k_EP2PSessionErrorTimeout ? "Connection timed out" : "Connection error";
-            base.OnError(error);
-        }
-
-        protected override void OnDisconnect()
-        {
-            ConnectionStatusListeners.TryNotifyAll_Disconnected();
-            OnMainThread.StopMultiplayer();
-        }
-    }
-
-    public class SteamServerConn : SteamBaseConn
-    {
-        public SteamServerConn(CSteamID remoteId, ushort clientChannel) : base(remoteId, 0, clientChannel)
-        {
-        }
-
-        protected override void OnDisconnect()
-        {
-            serverPlayer.Server.OnDisconnected(this, MpDisconnectReason.ClientLeft);
         }
     }
 

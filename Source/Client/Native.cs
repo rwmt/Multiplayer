@@ -30,11 +30,19 @@ namespace Multiplayer.Client
 
         public static void EarlyInit()
         {
-            if (!Windows)
-                mono_dllmap_insert(IntPtr.Zero, MonoWindows, null, MonoNonWindows, null);
+            if (Linux)
+                TheLinuxWay();
+            if (OSX)
+                TheOSXWay();
 
             EarlyInitInternal();
         }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        static void TheLinuxWay() => mono_dllmap_insert_linux(IntPtr.Zero, MonoWindows, null, MonoLinux, null);
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        static void TheOSXWay() => mono_dllmap_insert_osx(IntPtr.Zero, MonoWindows, null, MonoOSX, null);
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static void EarlyInitInternal()
@@ -50,7 +58,7 @@ namespace Multiplayer.Client
             var threadInfoPtr = (long)(IntPtr)threadInfoField.GetValue(internalThreadField.GetValue(Thread.CurrentThread));
 
             // Struct offset found manually
-            // Navigate by "Handle Stack" string
+            // Navigate by string: "Handle Stack"
             if (Linux)
                 LmfPtr = threadInfoPtr + 0x480 - 8 * 4;
             else if (Windows)
@@ -67,19 +75,25 @@ namespace Multiplayer.Client
             if (ji == IntPtr.Zero) return null;
 
             var methodPtr = mono_jit_info_get_method(ji);
-            var codeStart = mono_jit_info_get_code_start(ji);
-            var codeSize = mono_jit_info_get_code_size(ji);
-            var name = mono_debug_print_stack_frame(methodPtr, (int)(addr - (long)codeStart), domain);
+            var codeStart = (long)mono_jit_info_get_code_start(ji);
+            var codeSize = (long)mono_jit_info_get_code_size(ji);
+
+            var name = mono_debug_print_stack_frame(methodPtr, -1, domain);
+
             if (name == null || name.Length == 0) return null;
 
             return name;
         }
 
         const string MonoWindows = "mono-2.0-bdwgc";
-        const string MonoNonWindows = "libmonobdwgc-2.0.so";
+        const string MonoLinux = "libmonobdwgc-2.0.so";
+        const string MonoOSX = "libmonobdwgc-2.0.dylib";
 
-        [DllImport(MonoNonWindows)]
-        private static extern void mono_dllmap_insert(IntPtr assembly, string dll, string func, string tdll, string tfunc);
+        [DllImport(MonoLinux, EntryPoint = "mono_dllmap_insert")]
+        private static extern void mono_dllmap_insert_linux(IntPtr assembly, string dll, string func, string tdll, string tfunc);
+
+        [DllImport(MonoOSX, EntryPoint = "mono_dllmap_insert")]
+        private static extern void mono_dllmap_insert_osx(IntPtr assembly, string dll, string func, string tdll, string tfunc);
 
         [DllImport(MonoWindows)]
         public static extern IntPtr mono_jit_info_table_find(IntPtr domain, IntPtr addr);
@@ -110,6 +124,15 @@ namespace Multiplayer.Client
 
         [DllImport(MonoWindows)]
         public static extern IntPtr mono_class_vtable(IntPtr domain, IntPtr klass);
+
+        [DllImport(MonoWindows)]
+        public static extern string mono_method_get_reflection_name(IntPtr method);
+
+        [DllImport(MonoWindows)]
+        public static extern IntPtr mono_method_get_class(IntPtr method);
+
+        [DllImport(MonoWindows)]
+        public static extern IntPtr mono_class_get_image(IntPtr klass);
 
         public unsafe static bool CctorRan(Type t)
         {

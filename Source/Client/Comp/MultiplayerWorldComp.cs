@@ -13,6 +13,7 @@ using Verse;
 using Verse.AI;
 using Multiplayer.Client.Persistent;
 using Multiplayer.Client.Desyncs;
+using Multiplayer.Client.Patches;
 
 namespace Multiplayer.Client
 {
@@ -402,7 +403,7 @@ namespace Multiplayer.Client
                 faction = new Faction
                 {
                     loadID = factionId,
-                    def = Multiplayer.FactionDef,
+                    def = FactionDefOf.PlayerColony,
                     Name = "Multiplayer faction",
                     centralMelanin = Rand.Value
                 };

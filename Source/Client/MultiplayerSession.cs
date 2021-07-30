@@ -62,7 +62,7 @@ namespace Multiplayer.Client
         {
             if (client != null)
             {
-                client.Close();
+                client.Close(MpDisconnectReason.Internal);
                 client.State = ConnectionStateEnum.Disconnected;
             }
 
@@ -121,7 +121,7 @@ namespace Multiplayer.Client
             string reasonKey = null;
             string descKey = null;
 
-            if (reason == MpDisconnectReason.Generic) reasonKey = reader.ReadString();
+            if (reason == MpDisconnectReason.GenericKeyed) reasonKey = reader.ReadString();
 
             if (reason == MpDisconnectReason.Protocol)
             {
