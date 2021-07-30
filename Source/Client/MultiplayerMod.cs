@@ -15,7 +15,10 @@ using UnityEngine;
 using Verse;
 
 using Multiplayer.Common;
-
+using System.Runtime.InteropServices;
+using System.Runtime.CompilerServices;
+using System.Threading;
+using Multiplayer.Client.Desyncs;
 
 namespace Multiplayer.Client
 {
@@ -25,9 +28,13 @@ namespace Multiplayer.Client
         public static MpSettings settings;
 
         public static bool arbiterInstance;
+        public static bool hasLoaded;
 
         public MultiplayerMod(ModContentPack pack) : base(pack)
         {
+            Native.EarlyInit();
+            DisableOmitFramePointer();
+
             if (GenCommandLine.CommandLineArgPassed("arbiter")) {
                 ArbiterWindowFix.Run();
 
@@ -36,7 +43,6 @@ namespace Multiplayer.Client
 
             //EarlyMarkNoInline(typeof(Multiplayer).Assembly);
             EarlyPatches();
-
             CheckInterfaceVersions();
 
             settings = GetSettings<MpSettings>();
@@ -45,6 +51,16 @@ namespace Multiplayer.Client
                 // Double Execute ensures it'll run last.
                 LongEventHandler.ExecuteWhenFinished(LatePatches);
             });
+
+#if DEBUG
+            Application.logMessageReceivedThreaded -= Log.Notify_MessageReceivedThreadedInternal;
+#endif
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private void DisableOmitFramePointer()
+        {
+            Native.mini_parse_debug_option("disable_omit_fp");
         }
 
         private void EarlyPatches()
@@ -54,49 +70,19 @@ namespace Multiplayer.Client
             //MpUtil.MarkNoInlining(AccessTools.Method(typeof(OutfitForcedHandler), nameof(OutfitForcedHandler.Reset)));
 
             // TODO: 20200229 must evaluate if this is still required
-            foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+            /*foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
             {
                 var firstMethod = asm.GetType("Harmony.AccessTools")?.GetMethod("FirstMethod");
                 if (firstMethod != null)
                     harmony.Patch(firstMethod, new HarmonyMethod(typeof(AccessTools_FirstMethod_Patch), nameof(AccessTools_FirstMethod_Patch.Prefix)));
 
                 if (asm == typeof(HarmonyPatch).Assembly) continue;
-            }
+            }*/
 
-            {
-                var prefix = new HarmonyMethod(AccessTools.Method(typeof(CaptureThingSetMakers), "Prefix"));
-                harmony.Patch(AccessTools.Constructor(typeof(ThingSetMaker_MarketValue)), prefix);
-                harmony.Patch(AccessTools.Constructor(typeof(ThingSetMaker_Nutrition)), prefix);
-            }
-
-            // TODO: 20200229 Some of the patches below should be moved to late load.
-
-            harmony.Patch(
-                AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.ParseAndProcessXML)),
-                transpiler: new HarmonyMethod(typeof(ParseAndProcessXml_Patch), "Transpiler")
-            );
-
-            harmony.Patch(
-                AccessTools.Method(typeof(XmlNode), "get_ChildNodes"),
-                postfix: new HarmonyMethod(typeof(XmlNodeListPatch), nameof(XmlNodeListPatch.XmlNode_ChildNodes_Postfix))
-            );
-
-            harmony.Patch(
-                AccessTools.Method(typeof(XmlInheritance), nameof(XmlInheritance.TryRegisterAllFrom)),
-                new HarmonyMethod(typeof(XmlInheritance_Patch), "Prefix"),
-                new HarmonyMethod(typeof(XmlInheritance_Patch), "Postfix")
-            );
-
-            harmony.Patch(
-                AccessTools.Constructor(typeof(LoadableXmlAsset), new[] { typeof(string), typeof(string), typeof(string) }),
-                new HarmonyMethod(typeof(LoadableXmlAssetCtorPatch), "Prefix")
-            );
-
-            // Cross os compatibility
-            harmony.Patch (
-                AccessTools.Method (typeof (DirectXmlLoader), nameof (DirectXmlLoader.XmlAssetsInModFolder)), null,
-                new HarmonyMethod (typeof (XmlAssetsInModFolderPatch), "Postfix")
-            );
+            Assembly.GetCallingAssembly().GetTypes().Do(type => {
+                if (type.Namespace != null && type.Namespace.EndsWith("EarlyPatches"))
+                    harmony.CreateClassProcessor(type).Patch();
+            });
 
             // Might fix some mod desyncs
             harmony.Patch(
@@ -104,6 +90,39 @@ namespace Multiplayer.Client
                 new HarmonyMethod(typeof(RandPatches), nameof(RandPatches.Prefix)),
                 new HarmonyMethod(typeof(RandPatches), nameof(RandPatches.Postfix))
             );
+
+            /*harmony.Patch(
+                AccessTools.PropertyGetter(typeof(Faction), nameof(Faction.OfPlayer)),
+                new HarmonyMethod(typeof(MultiplayerMod), nameof(Prefixfactionman))
+            );
+
+            harmony.Patch(
+                AccessTools.PropertyGetter(typeof(Faction), nameof(Faction.IsPlayer)),
+                new HarmonyMethod(typeof(MultiplayerMod), nameof(Prefixfactionman))
+            );*/
+
+            harmony.Patch(
+                AccessTools.PropertyGetter(typeof(Rand), nameof(Rand.Int)),
+                postfix: new HarmonyMethod(typeof(DeferredStackTracing), nameof(DeferredStackTracing.Postfix))
+            );
+
+            harmony.Patch(
+                AccessTools.PropertyGetter(typeof(Rand), nameof(Rand.Value)),
+                postfix: new HarmonyMethod(typeof(DeferredStackTracing), nameof(DeferredStackTracing.Postfix))
+            );
+
+            //ForeignRand.DoPatches();
+        }
+
+        static void Prefixfactionman()
+        {
+            if (Scribe.mode != LoadSaveMode.Inactive) {
+                string trace = new StackTrace().ToString();
+                if (!trace.Contains("SetInitialPsyfocusLevel") &&
+                    !trace.Contains("Pawn_NeedsTracker.ShouldHaveNeed") &&
+                    !trace.Contains("FactionManager.ExposeData"))
+                    Log.Message($"factionman call {trace}", true);
+            }
         }
 
         private void LatePatches()
@@ -123,61 +142,13 @@ namespace Multiplayer.Client
             );
 
             if (MpVersion.IsDebug) {
-                Log.Message("== Structure == \n" + Sync.syncWorkers.PrintStructure());
+                Log.Message("== Structure == \n" + SyncDictionary.syncWorkers.PrintStructure());
             }
         }
-
-        private string slotsBuffer;
-        private string desyncRadiusBuffer;
 
         public override void DoSettingsWindowContents(Rect inRect)
         {
-            var listing = new Listing_Standard();
-            listing.Begin(inRect);
-            listing.ColumnWidth = 220f;
-
-            DoUsernameField(listing);
-            listing.TextFieldNumericLabeled("MpAutosaveSlots".Translate() + ":  ", ref settings.autosaveSlots, ref slotsBuffer, 1f, 99f);
-
-            listing.CheckboxLabeled("MpShowPlayerCursors".Translate(), ref settings.showCursors);
-            listing.CheckboxLabeled("MpAutoAcceptSteam".Translate(), ref settings.autoAcceptSteam, "MpAutoAcceptSteamDesc".Translate());
-            listing.CheckboxLabeled("MpTransparentChat".Translate(), ref settings.transparentChat);
-            listing.CheckboxLabeled("MpAggressiveTicking".Translate(), ref settings.aggressiveTicking, "MpAggressiveTickingDesc".Translate());
-            listing.CheckboxLabeled("MpSyncModConfigs".Translate(), ref settings.syncModConfigs, "MpSyncModConfigsDesc".Translate());
-
-            var appendNameToAutosaveLabel = $"{"MpAppendNameToAutosave".Translate()}:  ";
-            var appendNameToAutosaveLabelWidth = Text.CalcSize(appendNameToAutosaveLabel).x;
-            var appendNameToAutosaveCheckboxWidth = appendNameToAutosaveLabelWidth + 30f;
-            listing.CheckboxLabeled(appendNameToAutosaveLabel, ref settings.appendNameToAutosave);
-
-            listing.CheckboxLabeled("MpPauseAutosaveCounter".Translate(), ref settings.pauseAutosaveCounter, "MpPauseAutosaveCounterDesc".Translate());
-            listing.CheckboxLabeled("MpShowModCompatibility".Translate(), ref settings.showModCompatibility, "MpShowModCompatibilityDesc".Translate());
-            listing.CheckboxLabeled("MpAutosaveOnDesync".Translate(), ref settings.autosaveOnDesync, "MpAutosaveOnDesyncDesc".Translate());
-
-            if (Prefs.DevMode)
-            {
-                listing.CheckboxLabeled("Show debug info", ref settings.showDevInfo);
-                listing.TextFieldNumericLabeled("Desync Radius:  ", ref settings.desyncTracesRadius, ref desyncRadiusBuffer, 1f, 200f);
-            }
-
-            listing.End();
-        }
-
-        const string UsernameField = "UsernameField";
-
-        private void DoUsernameField(Listing_Standard listing)
-        {
-            GUI.SetNextControlName(UsernameField);
-
-            string username = listing.TextEntryLabeled("MpUsername".Translate() + ":  ", settings.username);
-            if (username.Length <= 15 && ServerJoiningState.UsernamePattern.IsMatch(username))
-            {
-                settings.username = username;
-                Multiplayer.username = username;
-            }
-
-            if (Multiplayer.Client != null && GUI.GetNameOfFocusedControl() == UsernameField)
-                UI.UnfocusCurrentControl();
+            settings.DoSettingsWindowContents(inRect);
         }
 
         public override string SettingsCategory() => "Multiplayer";
@@ -189,7 +160,7 @@ namespace Multiplayer.Client
                 (mpAssembly.GetCustomAttributes(typeof(AssemblyFileVersionAttribute), false)[0] as AssemblyFileVersionAttribute).Version
             );
 
-            Log.Message($"Current API version: {curVersion}");
+            Log.Message($"Current MultiplayerAPI version: {curVersion}");
 
             foreach (var mod in LoadedModManager.RunningMods) {
                 if (mod.assemblies.loadedAssemblies.NullOrEmpty())
@@ -204,7 +175,7 @@ namespace Multiplayer.Client
                 }
 
                 // Retrieve the original dll
-                var info = mod.ModListAssemblies()
+                var info = mod.ModAssemblies()
                     .Select(f => FileVersionInfo.GetVersionInfo(f.FullName))
                     .FirstOrDefault(v => v.ProductName == "Multiplayer");
 
@@ -214,19 +185,15 @@ namespace Multiplayer.Client
                     continue;
                 }
 
-                bool outdated = false;
                 var version = new Version(info.FileVersion);
-                if (curVersion > version) {
-                    Log.Warning($"Mod {mod.Name} uses an older API version ({version})");
-                } else if (curVersion < version) {
-                    outdated = true;
-                    Log.Error($"Mod {mod.Name} uses a newer API version! ({version})");
-                } else {
-                    Log.Message($"Mod {mod.Name} has API client ({version})");
-                }
-                if (outdated) {
-                    Log.Error("Some mod(s) are using a new API! Make sure the Multiplayer mod is up to date!");
-                }
+
+                Log.Message($"Mod {mod.Name} has MultiplayerAPI client ({version})");
+
+                if (curVersion > version)
+                    Log.Warning($"Mod {mod.Name} uses an older API version (mod: {version}, current: {curVersion})");
+                else if (curVersion < version)
+                    Log.Error($"Mod {mod.Name} uses a newer API version! (mod: {version}, current: {curVersion})\nMake sure the Multiplayer mod is up to date");
+            
             }
         }
     }
@@ -252,83 +219,4 @@ namespace Multiplayer.Client
         }
     }
 
-    static class XmlAssetsInModFolderPatch
-    {
-        // Sorts the files before processing, ensures cross os compatibility
-        static IEnumerable<LoadableXmlAsset> Postfix (IEnumerable<LoadableXmlAsset> __result)
-        {
-            var array = __result.ToArray ();
-
-            Array.Sort (array, (x, y) => StringComparer.OrdinalIgnoreCase.Compare (x.name, y.name));
-
-            return array;
-        }
-    }
-
-    static class LoadableXmlAssetCtorPatch
-    {
-        static ConcurrentBag<Pair<LoadableXmlAsset, int>> xmlAssetHashes = new ConcurrentBag<Pair<LoadableXmlAsset, int>>();
-
-        static void Prefix(LoadableXmlAsset __instance, string contents)
-        {
-            xmlAssetHashes.Add(new Pair<LoadableXmlAsset, int>(__instance, GenText.StableStringHash(contents)));
-        }
-
-        public static int AggregateHash(ModContentPack mod)
-        {
-            return xmlAssetHashes.Where(p => p.First.mod == mod).Select(p => p.Second).AggregateHash();
-        }
-
-        public static void ClearHashBag()
-        {
-            xmlAssetHashes = null;
-        }
-    }
-
-    static class ModPreviewImagePatch
-    {
-        static bool Prefix() => !MpVersion.IsDebug && !MultiplayerMod.arbiterInstance;
-    }
-
-    public class MpSettings : ModSettings
-    {
-        public string username;
-        public bool showCursors = true;
-        public bool autoAcceptSteam;
-        public bool transparentChat;
-        public int autosaveSlots = 5;
-        public bool aggressiveTicking = true;
-        public bool syncModConfigs = true;
-        public bool showDevInfo;
-        public int desyncTracesRadius = 40;
-        public string serverAddress = "127.0.0.1";
-        public bool appendNameToAutosave;
-        public bool pauseAutosaveCounter = true;
-        public bool showModCompatibility = true;
-        public bool autosaveOnDesync = false;
-        public Dictionary<Type, Rect> windowRectLookup = new Dictionary<Type, Rect>();
-        public ServerSettings serverSettings = new ServerSettings();
-
-        public override void ExposeData()
-        {
-            Scribe_Values.Look(ref username, "username");
-            Scribe_Values.Look(ref showCursors, "showCursors", true);
-            Scribe_Values.Look(ref autoAcceptSteam, "autoAcceptSteam");
-            Scribe_Values.Look(ref transparentChat, "transparentChat");
-            Scribe_Values.Look(ref autosaveSlots, "autosaveSlots", 5);
-            Scribe_Values.Look(ref aggressiveTicking, "aggressiveTicking", true);
-            Scribe_Values.Look(ref syncModConfigs, "syncModConfigs", true);
-            Scribe_Values.Look(ref showDevInfo, "showDevInfo");
-            Scribe_Values.Look(ref desyncTracesRadius, "desyncTracesRadius", 40);
-            Scribe_Values.Look(ref serverAddress, "serverAddress", "127.0.0.1");
-            Scribe_Values.Look(ref pauseAutosaveCounter, "pauseAutosaveCounter", true);
-            Scribe_Values.Look(ref showModCompatibility, "showModCompatibility", true);
-            Scribe_Values.Look(ref autosaveOnDesync, "autosaveOnDesync", false);
-            ScribeUtil.LookRectDict<Type>(ref windowRectLookup, "windowRectLookup");
-            Scribe_Deep.Look(ref serverSettings, "serverSettings");
-
-            if (serverSettings == null)
-                serverSettings = new ServerSettings();
-        }
-    }
 }

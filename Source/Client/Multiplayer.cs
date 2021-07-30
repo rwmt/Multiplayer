@@ -1,17 +1,35 @@
 //extern alias zip;
 
 using System;
+using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Drawing;
+using System.Drawing.Imaging;
+using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Net.Sockets;
 using System.Reflection;
+using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Web.UI.WebControls;
+using System.Xml;
+using System.Xml.Linq;
 using HarmonyLib;
+using Multiplayer.Client.Desyncs;
+using Multiplayer.Client.EarlyPatches;
 using Multiplayer.Common;
 using RimWorld;
+using Steamworks;
 using UnityEngine;
+using UnityEngine.Scripting;
 using Verse;
 using Verse.Sound;
 using Verse.Steam;
@@ -21,15 +39,13 @@ namespace Multiplayer.Client
     [StaticConstructorOnStartup]
     public static class Multiplayer
     {
-        public static MultiplayerSession session;
         public static MultiplayerGame game;
+        public static MultiplayerSession session;
 
         public static IConnection Client => session?.client;
         public static MultiplayerServer LocalServer => session?.localServer;
-
         public static PacketLogWindow WriterLog => session?.writerLog;
         public static PacketLogWindow ReaderLog => session?.readerLog;
-
         public static bool IsReplay => session?.replay ?? false;
 
         public static string username;
@@ -37,15 +53,12 @@ namespace Multiplayer.Client
 
         public static bool reloading;
 
-        public static FactionDef FactionDef = FactionDef.Named("MultiplayerColony");
-        public static FactionDef DummyFactionDef = FactionDef.Named("MultiplayerDummy");
         public static KeyBindingDef ToggleChatDef = KeyBindingDef.Named("MpToggleChat");
 
         public static IdBlock GlobalIdBlock => game.worldComp.globalIdBlock;
-        public static Faction DummyFaction => game.dummyFaction;
         public static MultiplayerWorldComp WorldComp => game.worldComp;
 
-        public static bool ShowDevInfo => MpVersion.IsDebug || (Prefs.DevMode && MultiplayerMod.settings.showDevInfo);
+        public static bool ShowDevInfo => Prefs.DevMode && MultiplayerMod.settings.showDevInfo;
 
         public static Faction RealPlayerFaction
         {
@@ -53,9 +66,9 @@ namespace Multiplayer.Client
             set => game.RealPlayerFaction = value;
         }
 
-        public static bool ExecutingCmds => MultiplayerWorldComp.executingCmdWorld || MapAsyncTimeComp.executingCmdMap != null;
-        public static bool Ticking => MultiplayerWorldComp.tickingWorld || MapAsyncTimeComp.tickingMap != null || ConstantTicker.ticking;
-        public static Map MapContext => MapAsyncTimeComp.tickingMap ?? MapAsyncTimeComp.executingCmdMap;
+        public static bool ExecutingCmds => MultiplayerWorldComp.executingCmdWorld || AsyncTimeComp.executingCmdMap != null;
+        public static bool Ticking => MultiplayerWorldComp.tickingWorld || AsyncTimeComp.tickingMap != null || ConstantTicker.ticking;
+        public static Map MapContext => AsyncTimeComp.tickingMap ?? AsyncTimeComp.executingCmdMap;
 
         public static bool dontSync;
         public static bool ShouldSync => InInterface && !dontSync;
@@ -72,6 +85,8 @@ namespace Multiplayer.Client
 
         static Multiplayer()
         {
+            Native.InitLmfPtr();
+
             if (GenCommandLine.CommandLineArgPassed("profiler"))
                 SimpleProfiler.CheckAvailable();
 
@@ -79,12 +94,7 @@ namespace Multiplayer.Client
             MpLog.error = str => Log.Error(str);
 
             SetUsername();
-
-            foreach (var mod in ModLister.AllInstalledMods)
-            {
-                if (!mod.ModHasAssemblies())
-                    xmlMods.Add(mod.RootDir.FullName);
-            }
+            CacheXMLMods();
 
             SimpleProfiler.Init(username);
 
@@ -93,24 +103,25 @@ namespace Multiplayer.Client
 
             Log.Message($"Multiplayer version {MpVersion.Version}");
             Log.Message($"Player's username: {username}");
-            Log.Message($"Processor: {SystemInfo.processorType}");
-
+            
             PlantWindSwayPatch.Init();
 
-            var gameobject = new GameObject();
-            gameobject.AddComponent<OnMainThread>();
-            UnityEngine.Object.DontDestroyOnLoad(gameobject);
+            var persistentObj = new GameObject();
+            persistentObj.AddComponent<OnMainThread>();
+            UnityEngine.Object.DontDestroyOnLoad(persistentObj);
 
             MpConnectionState.SetImplementation(ConnectionStateEnum.ClientSteam, typeof(ClientSteamState));
             MpConnectionState.SetImplementation(ConnectionStateEnum.ClientJoining, typeof(ClientJoiningState));
             MpConnectionState.SetImplementation(ConnectionStateEnum.ClientPlaying, typeof(ClientPlayingState));
 
             CollectCursorIcons();
-            Sync.CollectTypes();
+            SyncSerialization.CollectTypes();
+
+            DeepProfiler.Start("Multiplayer SyncGame");
 
             try
             {
-                SyncHandlers.Init();
+                SyncGame.Init();
 
                 var asm = Assembly.GetExecutingAssembly();
 
@@ -122,11 +133,22 @@ namespace Multiplayer.Client
                 Log.Error($"Exception during Sync initialization: {e}");
             }
 
-            try {
+            DeepProfiler.End();
+
+            DeepProfiler.Start("Multiplayer MpPatches");
+
+            try
+            {
                 harmony.DoAllMpPatches();
-            } catch (Exception e) {
+            }
+            catch (Exception e)
+            {
                 Log.Error($"Exception during MpPatching: {e}");
             }
+
+            DeepProfiler.End();
+
+            DeepProfiler.Start("Multiplayer patches");
 
             try
             {
@@ -137,6 +159,8 @@ namespace Multiplayer.Client
                 Log.Error($"Exception during patching: {e}");
             }
 
+            DeepProfiler.End();
+
             Log.messageQueue.maxMessages = 1000;
 
             DoubleLongEvent(() =>
@@ -144,13 +168,50 @@ namespace Multiplayer.Client
                 CollectDefInfos();
                 CollectModHashes();
 
-                Sync.InitHandlers();
-            }, "Loading"); // right before the arbiter connects
+                Sync.PostInitHandlers();
+            }, "Loading"); // Right before the events from HandleCommandLine
 
             HandleCommandLine();
 
-            if (MultiplayerMod.arbiterInstance) {
+            if (MultiplayerMod.arbiterInstance)
+            {
                 RuntimeHelpers.RunClassConstructor(typeof(Text).TypeHandle);
+            }
+
+            CollectModFiles();
+
+            MultiplayerMod.hasLoaded = true;
+
+            Log.Message(GenFilePaths.ConfigFolderPath);
+            Log.Message(""+JoinData.ModConfigPaths.Count());
+        }
+
+        public static ModFileDict modFiles = new ModFileDict();
+
+        private static void CollectModFiles()
+        {
+            // todo check file path starts correctly, move to the long event?
+            foreach (var mod in LoadedModManager.RunningModsListForReading.Select(m => (m, m.ModAssemblies())))
+                foreach (var f in mod.Item2)
+                {
+                    var modId = mod.Item1.PackageIdPlayerFacing.ToLowerInvariant();
+                    var relPath = f.FullName.IgnorePrefix(mod.Item1.RootDir.NormalizePath()).NormalizePath();
+                    
+                    modFiles.Add(modId, new ModFile(f.FullName, relPath, f.CRC32()));
+                }
+
+            foreach (var kv in LoadableXmlAssetCtorPatch.xmlAssetHashes){
+                foreach (var f in kv.Value)
+                    modFiles.Add(kv.Key, f);
+            }
+        }
+
+        private static void CacheXMLMods()
+        {
+            foreach (var mod in ModLister.AllInstalledMods)
+            {
+                if (!mod.ModHasAssemblies())
+                    xmlMods.Add(mod.RootDir.FullName);
             }
         }
 
@@ -247,6 +308,7 @@ namespace Multiplayer.Client
                 categoryNeedsAnnouncement = true;
                 category = str;
             }
+
             void LogError(string str)
             {
                 if (categoryNeedsAnnouncement) {
@@ -255,9 +317,12 @@ namespace Multiplayer.Client
                 Log.Error(str);
             }
 
-            SetCategory("Anotated patches");
+            SetCategory("Annotated patches");
 
-            Assembly.GetCallingAssembly().GetTypes().Do(delegate (Type type) {
+            Assembly.GetCallingAssembly().GetTypes().Do(type => {
+                // EarlyPatches are handled in MultiplayerMod.EarlyPatches
+                if (type.Namespace != null && type.Namespace.EndsWith("EarlyPatches")) return;
+
                 try {
                     harmony.CreateClassProcessor(type).Patch();
                 } catch (Exception e) {
@@ -274,7 +339,7 @@ namespace Multiplayer.Client
                      "DesignateSingleCell",
                      "DesignateMultiCell",
                      "DesignateThing",
-                     };
+                };
 
                 foreach (Type t in typeof(Designator).AllSubtypesAndSelf())
                 {
@@ -284,7 +349,8 @@ namespace Multiplayer.Client
                         if (method == null) continue;
 
                         MethodInfo prefix = AccessTools.Method(typeof(DesignatorPatches), m);
-                        try {
+                        try
+                        {
                             harmony.Patch(method, new HarmonyMethod(prefix), null, null, new HarmonyMethod(designatorFinalizer));
                         } catch (Exception e) {
                             LogError($"FAIL: {t.FullName}:{method.Name} with {e.InnerException}");
@@ -308,14 +374,18 @@ namespace Multiplayer.Client
                 var effecterCleanup = typeof(Effecter).GetMethod(nameof(Effecter.Cleanup));
                 var randomBoltMesh = typeof(LightningBoltMeshPool).GetProperty(nameof(LightningBoltMeshPool.RandomBoltMesh)).GetGetMethod();
                 var drawTrackerCtor = typeof(Pawn_DrawTracker).GetConstructor(new[] { typeof(Pawn) });
-                var randomHair = typeof(PawnHairChooser).GetMethod(nameof(PawnHairChooser.RandomHairDefFor));
+                var randomHair = typeof(PawnStyleItemChooser).GetMethod(nameof(PawnStyleItemChooser.RandomHairFor));
 
                 var effectMethods = new MethodBase[] { subSustainerStart, sampleCtor, subSoundPlay, effecterTick, effecterTrigger, effecterCleanup, randomBoltMesh, drawTrackerCtor, randomHair };
                 var moteMethods = typeof(MoteMaker).GetMethods(BindingFlags.Static | BindingFlags.Public)
                     .Where(m => m.Name != "MakeBombardmentMote"); // Special case, just calls MakeBombardmentMote_NewTmp, prevents Hugslib complains
+                var fleckMethods = typeof(FleckMaker).GetMethods(BindingFlags.Static | BindingFlags.Public)
+                    .Where(m => m.ReturnType == typeof(void));
 
-                foreach (MethodBase m in effectMethods.Concat(moteMethods)) {
-                    try {
+                foreach (MethodBase m in effectMethods.Concat(moteMethods).Concat(fleckMethods))
+                {
+                    try
+                    {
                         harmony.Patch(m, randPatchPrefix, randPatchPostfix);
                     } catch (Exception e) {
                         LogError($"FAIL: {m.DeclaringType.FullName}:{m.Name} with {e.InnerException}");
@@ -328,8 +398,8 @@ namespace Multiplayer.Client
 
             // Set ThingContext and FactionContext (for pawns and buildings) in common Thing methods
             {
-                var thingMethodPrefix = new HarmonyMethod(typeof(PatchThingMethods).GetMethod("Prefix"));
-                var thingMethodPostfix = new HarmonyMethod(typeof(PatchThingMethods).GetMethod("Postfix"));
+                var thingMethodPrefix = new HarmonyMethod(typeof(ThingMethodPatches).GetMethod("Prefix"));
+                var thingMethodPostfix = new HarmonyMethod(typeof(ThingMethodPatches).GetMethod("Postfix"));
                 var thingMethods = new[] { "Tick", "TickRare", "TickLong", "SpawnSetup", "TakeDamage", "Kill" };
 
                 foreach (Type t in typeof(Thing).AllSubtypesAndSelf())
@@ -337,8 +407,10 @@ namespace Multiplayer.Client
                     foreach (string m in thingMethods)
                     {
                         MethodInfo method = t.GetMethod(m, BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly);
-                        if (method != null) {
-                            try {
+                        if (method != null)
+                        {
+                            try
+                            {
                                 harmony.Patch(method, thingMethodPrefix, thingMethodPostfix);
                             } catch (Exception e) {
                                 LogError($"FAIL: {method.DeclaringType.FullName}:{method.Name} with {e.InnerException}");
@@ -372,8 +444,10 @@ namespace Multiplayer.Client
                 foreach (var t in typeof(InspectTabBase).AllSubtypesAndSelf())
                 {
                     var method = t.GetMethod("FillTab", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
-                    if (method != null && !method.IsAbstract) {
-                        try {
+                    if (method != null && !method.IsAbstract)
+                    {
+                        try
+                        {
                             harmony.Patch(method, setMapTimePrefix, setMapTimePostfix);
                         } catch (Exception e) {
                             LogError($"FAIL: {method.DeclaringType.FullName}:{method.Name} with {e.InnerException}");
@@ -467,16 +541,16 @@ namespace Multiplayer.Client
 
             int TypeHash(Type type) => GenText.StableStringHash(type.FullName);
 
-            dict["ThingComp"] = GetDefInfo(Sync.thingCompTypes, TypeHash);
-            dict["AbilityComp"] = GetDefInfo(Sync.abilityCompTypes, TypeHash);
-            dict["Designator"] = GetDefInfo(Sync.designatorTypes, TypeHash);
-            dict["WorldObjectComp"] = GetDefInfo(Sync.worldObjectCompTypes, TypeHash);
-            dict["IStoreSettingsParent"] = GetDefInfo(Sync.storageParents, TypeHash);
-            dict["IPlantToGrowSettable"] = GetDefInfo(Sync.plantToGrowSettables, TypeHash);
+            dict["ThingComp"] = GetDefInfo(SyncSerialization.thingCompTypes, TypeHash);
+            dict["AbilityComp"] = GetDefInfo(SyncSerialization.abilityCompTypes, TypeHash);
+            dict["Designator"] = GetDefInfo(SyncSerialization.designatorTypes, TypeHash);
+            dict["WorldObjectComp"] = GetDefInfo(SyncSerialization.worldObjectCompTypes, TypeHash);
+            dict["IStoreSettingsParent"] = GetDefInfo(SyncSerialization.storageParents, TypeHash);
+            dict["IPlantToGrowSettable"] = GetDefInfo(SyncSerialization.plantToGrowSettables, TypeHash);
 
-            dict["GameComponent"] = GetDefInfo(Sync.gameCompTypes, TypeHash);
-            dict["WorldComponent"] = GetDefInfo(Sync.worldCompTypes, TypeHash);
-            dict["MapComponent"] = GetDefInfo(Sync.mapCompTypes, TypeHash);
+            dict["GameComponent"] = GetDefInfo(SyncSerialization.gameCompTypes, TypeHash);
+            dict["WorldComponent"] = GetDefInfo(SyncSerialization.worldCompTypes, TypeHash);
+            dict["MapComponent"] = GetDefInfo(SyncSerialization.mapCompTypes, TypeHash);
 
             dict["PawnBio"] = GetDefInfo(SolidBioDatabase.allBios, b => b.name.GetHashCode());
             dict["Backstory"] = GetDefInfo(BackstoryDatabase.allBackstories.Keys, b => b.GetHashCode());
@@ -493,22 +567,6 @@ namespace Multiplayer.Client
             localDefInfos = dict;
         }
 
-        private static void CollectModHashes()
-        {
-            foreach (var mod in LoadedModManager.RunningModsListForReading)
-            {
-                var hashes = new ModHashes()
-                {
-                    assemblyHash = mod.ModListAssemblies().CRC32(),
-                    xmlHash = LoadableXmlAssetCtorPatch.AggregateHash(mod),
-                    aboutHash = new DirectoryInfo(Path.Combine(mod.RootDir, "About")).GetFiles().CRC32()
-                };
-                enabledModAssemblyHashes.Add(hashes);
-            }
-
-            LoadableXmlAssetCtorPatch.ClearHashBag();
-        }
-
         private static DefInfo GetDefInfo<T>(IEnumerable<T> types, Func<T, int> hash)
         {
             return new DefInfo()
@@ -517,52 +575,27 @@ namespace Multiplayer.Client
                 hash = types.Select(t => hash(t)).AggregateHash()
             };
         }
+
+        public static void CollectModHashes()
+        {
+            enabledModAssemblyHashes.Clear();
+
+            foreach (var mod in LoadedModManager.RunningModsListForReading)
+            {
+                var hashes = new ModHashes()
+                {
+                    assemblyHash = mod.ModAssemblies().CRC32(),
+                    //xmlHash = LoadableXmlAssetCtorPatch.AggregateHash(mod),
+                    aboutHash = new DirectoryInfo(Path.Combine(mod.RootDir, "About")).GetFiles().CRC32()
+                };
+                enabledModAssemblyHashes.Add(hashes);
+            }
+        }
     }
 
     public class ModHashes
     {
         public int assemblyHash, xmlHash, aboutHash;
-    }
-
-    public static class FactionContext
-    {
-        private static Stack<Faction> stack = new Stack<Faction>();
-
-        public static Faction Push(Faction newFaction)
-        {
-            if (newFaction == null || (newFaction.def != Multiplayer.FactionDef && !newFaction.def.isPlayer))
-            {
-                stack.Push(null);
-                return null;
-            }
-
-            stack.Push(Find.FactionManager.OfPlayer);
-            Set(newFaction);
-
-            return newFaction;
-        }
-
-        public static Faction Pop()
-        {
-            Faction f = stack.Pop();
-            if (f != null)
-                Set(f);
-            return f;
-        }
-
-        public static void Set(Faction newFaction)
-        {
-            var playerFaction = Find.FactionManager.OfPlayer;
-            var factionDef = playerFaction.def;
-            playerFaction.def = Multiplayer.FactionDef;
-            newFaction.def = factionDef;
-            Find.FactionManager.ofPlayer = newFaction;
-        }
-
-        public static void Clear()
-        {
-            stack.Clear();
-        }
     }
 
 }

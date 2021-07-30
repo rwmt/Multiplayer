@@ -1,4 +1,4 @@
-﻿extern alias zip;
+extern alias zip;
 using HarmonyLib;
 using Multiplayer.Common;
 using System;
@@ -13,6 +13,7 @@ using RimWorld;
 using UnityEngine;
 using Verse;
 using zip::Ionic.Zip;
+using Multiplayer.Client.Desyncs;
 
 namespace Multiplayer.Client
 {
@@ -20,7 +21,7 @@ namespace Multiplayer.Client
     {
         public bool ShouldCollect => !Multiplayer.IsReplay;
 
-        private ClientSyncOpinion CurrentOpinion
+        private ClientSyncOpinion OpinionInBuilding
         {
             get
             {
@@ -66,13 +67,13 @@ namespace Multiplayer.Client
             {
                 knownClientOpinions.Add(newOpinion);
                 if (knownClientOpinions.Count > 30)
-                    knownClientOpinions.RemoveAt(0);
+                    RemoveAndClearFirst();
             }
             else
             {
                 //Remove all opinions that started before this one, as it's the most up to date one
                 while (knownClientOpinions.Count > 0 && knownClientOpinions[0].startTick < newOpinion.startTick)
-                    knownClientOpinions.RemoveAt(0);
+                    RemoveAndClearFirst();
 
                 //If there are none left, we don't need to compare this new one
                 if (knownClientOpinions.Count == 0)
@@ -82,7 +83,6 @@ namespace Multiplayer.Client
                 else if (knownClientOpinions.First().startTick == newOpinion.startTick)
                 {
                     //If these two contain the same tick range - i.e. they start at the same time, cause they should continue to the current tick, then do a comparison.
-
                     var oldOpinion = knownClientOpinions.RemoveFirst();
 
                     //Actually do the comparison to find any desync
@@ -96,12 +96,20 @@ namespace Multiplayer.Client
                     }
                     else
                     {
-                        //Update fields 
+                        //Update fields
                         lastValidTick = oldOpinion.startTick;
                         arbiterWasPlayingOnLastValidTick = Multiplayer.session.ArbiterPlaying;
+
+                        oldOpinion.Clear();
                     }
                 }
             }
+        }
+
+        private void RemoveAndClearFirst()
+        {
+            var opinion = knownClientOpinions.RemoveFirst();
+            opinion.Clear();
         }
 
         /// <summary>
@@ -197,7 +205,7 @@ namespace Multiplayer.Client
                 Log.Error($"Exception writing desync info: {e}");
             }
 
-            Find.WindowStack.windows.Clear();
+            MpUtil.ClearWindowStack();
             Find.WindowStack.Add(new DesyncedWindow(desyncMessage));
         }
 
@@ -226,13 +234,15 @@ namespace Multiplayer.Client
             var traceMessage = "";
             if (diffAt == -1) {
                 traceMessage = "Note: trace hashes are equal between local and remote\n\n";
-                diffAt = count;
+                diffAt = count - 1;
             }
 
+            Log.Message("Local opinions " + Multiplayer.game.sync.knownClientOpinions.Select(o => o.startTick).Join());
             traceMessage += local.GetFormattedStackTracesForRange(diffAt);
-            File.WriteAllText("local_traces.txt", traceMessage);
+            File.WriteAllText(MpUtil.RwDataFile("MP_LocalTraces.txt"), traceMessage);
 
-            //Trigger a call to ClientConnection#HandleDebug on the arbiter instance so that arbiter_traces.txt is saved too
+            // Trigger a call to ClientConnection.HandleDebug on the arbiter or host
+            // instance so that traces.txt is saved for them too
             Multiplayer.Client.Send(Packets.Client_Debug, local.startTick, diffAt);
 
             return traceMessage;
@@ -265,8 +275,8 @@ namespace Multiplayer.Client
         public void TryAddCommandRandomState(ulong state)
         {
             if (!ShouldCollect) return;
-            CurrentOpinion.TryMarkSimulating();
-            CurrentOpinion.commandRandomStates.Add((uint) (state >> 32));
+            OpinionInBuilding.TryMarkSimulating();
+            OpinionInBuilding.commandRandomStates.Add((uint) (state >> 32));
         }
 
         /// <summary>
@@ -276,8 +286,8 @@ namespace Multiplayer.Client
         public void TryAddWorldRandomState(ulong state)
         {
             if (!ShouldCollect) return;
-            CurrentOpinion.TryMarkSimulating();
-            CurrentOpinion.worldRandomStates.Add((uint) (state >> 32));
+            OpinionInBuilding.TryMarkSimulating();
+            OpinionInBuilding.worldRandomStates.Add((uint) (state >> 32));
         }
 
         /// <summary>
@@ -288,8 +298,8 @@ namespace Multiplayer.Client
         public void TryAddMapRandomState(int map, ulong state)
         {
             if (!ShouldCollect) return;
-            CurrentOpinion.TryMarkSimulating();
-            CurrentOpinion.GetRandomStatesForMap(map).Add((uint) (state >> 32));
+            OpinionInBuilding.TryMarkSimulating();
+            OpinionInBuilding.GetRandomStatesForMap(map).Add((uint) (state >> 32));
         }
 
         /// <summary>
@@ -300,13 +310,13 @@ namespace Multiplayer.Client
         {
             if (!ShouldCollect) return;
 
-            CurrentOpinion.TryMarkSimulating();
+            OpinionInBuilding.TryMarkSimulating();
 
             //Get the current stack trace
-            var trace = new System.Diagnostics.StackTrace(2, true);
-            var hash = trace.Hash() ^ (info?.GetHashCode() ?? 0);
+            var trace = new StackTrace(2, true);
+            var hash = trace.Hash() /*^ (info?.GetHashCode() ?? 0)*/;
 
-            CurrentOpinion.desyncStackTraces.Add(new StackTraceLogItem {
+            OpinionInBuilding.desyncStackTraces.Add(new StackTraceLogItemObj {
                 stackTrace = trace,
                 tick = TickPatch.Timer,
                 hash = hash,
@@ -314,27 +324,59 @@ namespace Multiplayer.Client
             });
 
             // Track & network trace hash, for comparison with other opinions.
-            currentOpinion.desyncStackTraceHashes.Add(hash);
+            OpinionInBuilding.desyncStackTraceHashes.Add(hash);
         }
 
-        public static bool ShouldAddStackTraceForDesyncLog()
+        public void TryAddStackTraceForDesyncLogRaw(StackTraceLogItemRaw item, int depth, int hashIn, string moreInfo = null)
         {
-            if (Multiplayer.Client == null) return false;
-            if (!Multiplayer.game?.worldComp?.logDesyncTraces ?? false) return false; // only log if debugging enabled in Host Server menu
-            if (Rand.stateStack.Count > 1) return false;
-            if (TickPatch.Skipping || Multiplayer.IsReplay) return false;
+            if (!ShouldCollect) return;
 
-            if (!Multiplayer.Ticking && !Multiplayer.ExecutingCmds) return false;
+            OpinionInBuilding.TryMarkSimulating();
 
-            if (!WildAnimalSpawnerTickMarker.ticking &&
-                !WildPlantSpawnerTickMarker.ticking &&
-                !SteadyEnvironmentEffectsTickMarker.ticking &&
-                !FindBestStorageCellMarker.executing &&
-                ThingContext.Current?.def != ThingDefOf.SteamGeyser) {
-                return true;
+            item.depth = depth;
+            item.iters = (int)Rand.iterations;
+            item.tick = TickPatch.Timer;
+            item.factionName = Faction.OfPlayer?.Name ?? string.Empty;
+            item.moreInfo = moreInfo;
+
+            var thing = ThingContext.Current;
+            if (thing != null)
+            {
+                item.thingDef = thing.def;
+                item.thingId = thing.thingIDNumber;
             }
 
-            return false;
+            var hash = Gen.HashCombineInt(hashIn, depth, item.iters, 1);
+            item.hash = hash;
+
+            OpinionInBuilding.desyncStackTraces.Add(item);
+
+            // Track & network trace hash, for comparison with other opinions.
+            OpinionInBuilding.desyncStackTraceHashes.Add(hash);
+        }
+
+        public static string MethodNameWithIL(string rawName)
+        {
+            // Note: The names currently don't include IL locations so the code is commented out
+
+            // at Verse.AI.JobDriver.ReadyForNextToil () [0x00000] in <c847e073cda54790b59d58357cc8cf98>:0
+            // =>
+            // at Verse.AI.JobDriver.ReadyForNextToil () [0x00000]
+            // rawName = rawName.Substring(0, rawName.LastIndexOf(']') + 1);
+
+            return rawName;
+        }
+
+        public static string MethodNameWithoutIL(string rawName)
+        {
+            // Note: The names currently don't include IL locations so the code is commented out
+
+            // at Verse.AI.JobDriver.ReadyForNextToil () [0x00000] in <c847e073cda54790b59d58357cc8cf98>:0
+            // =>
+            // at Verse.AI.JobDriver.ReadyForNextToil ()
+            // rawName = rawName.Substring(0, rawName.LastIndexOf('['));
+
+            return rawName;
         }
     }
 }

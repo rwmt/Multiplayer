@@ -10,13 +10,14 @@ using UnityEngine;
 using Verse;
 using Verse.AI;
 using Verse.AI.Group;
+using static Multiplayer.Client.SyncSerialization;
 
 namespace Multiplayer.Client
 {
-    public static partial class Sync
+    public static class SyncDictionary
     {
         // These syncWorkers need very fast access, keep it small.
-        private static SyncWorkerDictionary syncWorkersEarly = new SyncWorkerDictionary()
+        internal static SyncWorkerDictionary syncWorkersEarly = new SyncWorkerDictionary()
         {
             // missing decimal and char, good?
             #region Built-in
@@ -159,6 +160,17 @@ namespace Multiplayer.Client
                 (ByteWriter data, OutfitForcedHandler comp) => WriteSync(data, comp.forcedAps.Select(a => a.Wearer).FirstOrDefault()),
                 (ByteReader data) => ReadSync<Pawn>(data)?.outfits?.forcedHandler
             },
+            {
+                // We assume that the currently open tab holds the table, as it seems to only be used together with MainTabWindow_PawnTable and its subclasses
+                (ByteWriter data, PawnTable table) => WriteSync(data, Find.MainTabsRoot.OpenTab),
+                (ByteReader data) =>
+                {
+                    var tab = (MainTabWindow_PawnTable)ReadSync<MainButtonDef>(data).TabWindow;
+                    // By callinng MainButonDef.TabWindow we could end up initializing the tab window, so we should make sure the table is created as well if needed
+                    if (tab.table == null) tab.table = tab.CreateTable();
+                    return tab.table;
+                }, true
+            },
             #endregion
 
             #region Policies
@@ -235,17 +247,15 @@ namespace Multiplayer.Client
             {
                 (ByteWriter data, Ability ability) => {
                     WriteSync(data, ability.pawn);
-                    WriteSync(data, ability.UniqueVerbOwnerID());
+                    WriteSync(data, ability.Id);
                 },
                 (ByteReader data) => {
                     var pawn = ReadSync<Pawn>(data);
-                    var uniqueVerbOwnerID = data.ReadString();
+                    var abilityId = data.ReadInt32();
 
-                    var ability = pawn.abilities.abilities.Find(ab => ab.UniqueVerbOwnerID() == uniqueVerbOwnerID);
-                    // effectComps is required for some abilities but comps can be null too
-                    ability.effectComps = ability.CompsOfType<CompAbilityEffect>()?.ToList();
-
-                    return ability;
+                    // Note there exist temporary abilities which might get removed by the time this data is read
+                    // The returned ability can be null
+                    return pawn.abilities.allAbilitiesCached.Find(ab => ab.Id == abilityId);
                 }, true
             },
             {
@@ -445,8 +455,8 @@ namespace Multiplayer.Client
 
             #region Factions
             {
-                (ByteWriter data, Faction quest) => {
-                    data.WriteInt32(quest.loadID);
+                (ByteWriter data, Faction faction) => {
+                    data.WriteInt32(faction.loadID);
                 },
                 (ByteReader data) => {
                     int loadID = data.ReadInt32();
@@ -528,7 +538,7 @@ namespace Multiplayer.Client
                     var settables = ReadSync<List<IPlantToGrowSettable>>(data);
                     settables.RemoveAll(s => s == null);
 
-                    var command = MpUtil.UninitializedObject<Command_SetPlantToGrow>();
+                    var command = MpUtil.NewObjectNoCtor<Command_SetPlantToGrow>();
                     command.settable = settable;
                     command.settables = settables;
 
@@ -867,6 +877,10 @@ namespace Multiplayer.Client
                 (ByteReader data) => (data.MpContext().map).areaManager
             },
             {
+                (ByteWriter data, AutoSlaughterManager autoSlaughter) => data.MpContext().map = autoSlaughter.map,
+                (ByteReader data) => (data.MpContext().map).autoSlaughterManager
+            },
+            {
                 (ByteWriter data, MultiplayerMapComp comp) => data.MpContext().map = comp.map,
                 (ByteReader data) => (data.MpContext().map).MpComp()
             },
@@ -1076,7 +1090,7 @@ namespace Multiplayer.Client
                     List<Thing> things = ReadSync<List<Thing>>(data);
 
                     TransferableImmutable tr = new TransferableImmutable();
-                    tr.things.AddRange(things.NotNull());
+                    tr.things.AddRange(things.AllNotNull());
 
                     return tr;
                 }
@@ -1339,7 +1353,8 @@ namespace Multiplayer.Client
                 },
                 (ByteReader data) => new TransportPodsArrivalAction_VisitSite(ReadSync<Site>(data), ReadSync<PawnsArrivalModeDef>(data))
             },
-            {
+            // todo 1.3: was removed?
+            /*{
                 (ByteWriter data, TransportPodsArrivalAction_Shuttle arrivalAction) =>
                 {
                     WriteSync(data, arrivalAction.mapParent);
@@ -1360,7 +1375,31 @@ namespace Multiplayer.Client
 
                     return arrivalAction;
                 }
+            },*/
+            #endregion
+
+            #region Ideology
+            {
+                (ByteWriter data, Ideo ideo) => {
+                    data.WriteInt32(ideo?.id ?? -1);
+                },
+                (ByteReader data) => {
+                    var id = data.ReadInt32();
+                    return Find.IdeoManager.IdeosListForReading.FirstOrDefault(i => i.id == id);
+                }
             },
+            {
+                (ByteWriter data, Precept precept) => {
+                    WriteSync(data, precept?.ideo);
+                    data.WriteInt32(precept?.Id ?? -1);
+                },
+                (ByteReader data) => {
+                    var ideo = ReadSync<Ideo>(data);
+                    var id = data.ReadInt32();
+                    return ideo?.PreceptsListForReading.FirstOrDefault(p => p.Id == id);
+                },
+                true
+            }
             #endregion
         };
     }

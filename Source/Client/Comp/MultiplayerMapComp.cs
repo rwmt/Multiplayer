@@ -1,12 +1,8 @@
-using HarmonyLib;
-using Multiplayer.Common;
-using RimWorld;
-using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
-using System.Text;
+using HarmonyLib;
+using RimWorld;
 using Verse;
 
 namespace Multiplayer.Client
@@ -18,7 +14,8 @@ namespace Multiplayer.Client
         public Map map;
 
         //public IdBlock mapIdBlock;
-        public Dictionary<int, FactionMapData> factionMapData = new Dictionary<int, FactionMapData>();
+        public Dictionary<int, FactionMapData> factionData = new Dictionary<int, FactionMapData>();
+        public Dictionary<int, CustomFactionMapData> customFactionData = new Dictionary<int, CustomFactionMapData>();
 
         public CaravanFormingSession caravanForming;
         public TransporterLoading transporterLoading;
@@ -52,7 +49,7 @@ namespace Multiplayer.Client
 
             tickingFactions = true;
 
-            foreach (var data in factionMapData)
+            foreach (var data in factionData)
             {
                 map.PushFaction(data.Key);
                 data.Value.listerHaulables.ListerHaulablesTick();
@@ -65,16 +62,29 @@ namespace Multiplayer.Client
 
         public void SetFaction(Faction faction)
         {
-            if (!factionMapData.TryGetValue(faction.loadID, out FactionMapData data))
+            if (!factionData.TryGetValue(faction.loadID, out FactionMapData data))
                 return;
 
             map.designationManager = data.designationManager;
             map.areaManager = data.areaManager;
             map.zoneManager = data.zoneManager;
+
             map.haulDestinationManager = data.haulDestinationManager;
             map.listerHaulables = data.listerHaulables;
             map.resourceCounter = data.resourceCounter;
             map.listerFilthInHomeArea = data.listerFilthInHomeArea;
+            map.listerMergeables = data.listerMergeables;
+        }
+
+        public CustomFactionMapData GetCurrentCustomFactionData()
+        {
+            return customFactionData[Faction.OfPlayer.loadID];
+        }
+
+        public void Notify_ThingDespawned(Thing t)
+        {
+            foreach (var data in customFactionData.Values)
+                data.unforbidden.Remove(t);
         }
 
         public void ExposeData()
@@ -96,9 +106,10 @@ namespace Multiplayer.Client
             //Multiplayer.ExposeIdBlock(ref mapIdBlock, "mapIdBlock");
 
             ExposeFactionData();
+            ExposeCustomFactionData();
         }
 
-        private int currentFactionId;
+        public int currentFactionId;
 
         private void ExposeFactionData()
         {
@@ -107,27 +118,35 @@ namespace Multiplayer.Client
                 int currentFactionId = Faction.OfPlayer.loadID;
                 ScribeUtil.LookValue(currentFactionId, "currentFactionId");
 
-                var data = new Dictionary<int, FactionMapData>(factionMapData);
+                var data = new Dictionary<int, FactionMapData>(factionData);
                 data.Remove(currentFactionId);
-                ScribeUtil.LookWithValueKey(ref data, "factionMapData", LookMode.Deep, map);
+                ScribeUtil.LookValueDeep(ref data, "factionMapData", map);
             }
             else
             {
                 // The faction whose data is currently set
                 Scribe_Values.Look(ref currentFactionId, "currentFactionId");
 
-                ScribeUtil.LookWithValueKey(ref factionMapData, "factionMapData", LookMode.Deep, map);
-                if (factionMapData == null)
-                    factionMapData = new Dictionary<int, FactionMapData>();
+                ScribeUtil.LookValueDeep(ref factionData, "factionMapData", map);
+                if (factionData == null)
+                    factionData = new Dictionary<int, FactionMapData>();
             }
 
-            if (Scribe.mode == LoadSaveMode.PostLoadInit)
+            if (Scribe.mode == LoadSaveMode.LoadingVars)
             {
-                factionMapData[currentFactionId] = FactionMapData.FromMap(map, currentFactionId);
+                factionData[currentFactionId] = FactionMapData.NewFromMap(map, currentFactionId);
             }
+        }
+
+        private void ExposeCustomFactionData()
+        {
+            ScribeUtil.LookValueDeep(ref customFactionData, "customFactionMapData", map);
+            if (customFactionData == null)
+                customFactionData = new Dictionary<int, CustomFactionMapData>();
         }
     }
 
+    // Per-faction storage for RimWorld managers
     public class FactionMapData : IExposable
     {
         public Map map;
@@ -137,14 +156,15 @@ namespace Multiplayer.Client
         public DesignationManager designationManager;
         public AreaManager areaManager;
         public ZoneManager zoneManager;
-        public HashSet<Thing> claimed = new HashSet<Thing>();
-        public HashSet<Thing> forbidden = new HashSet<Thing>();
 
         // Not saved
         public HaulDestinationManager haulDestinationManager;
         public ListerHaulables listerHaulables;
         public ResourceCounter resourceCounter;
         public ListerFilthInHomeArea listerFilthInHomeArea;
+        public ListerMergeables listerMergeables;
+
+        private FactionMapData() { }
 
         // Loading ctor
         public FactionMapData(Map map)
@@ -155,6 +175,7 @@ namespace Multiplayer.Client
             listerHaulables = new ListerHaulables(map);
             resourceCounter = new ResourceCounter(map);
             listerFilthInHomeArea = new ListerFilthInHomeArea(map);
+            listerMergeables = new ListerMergeables(map);
         }
 
         private FactionMapData(int factionId, Map map) : this(map)
@@ -168,10 +189,14 @@ namespace Multiplayer.Client
 
         public void ExposeData()
         {
+            ExposeActor.Register(() => map.PushFaction(factionId));
+
             Scribe_Values.Look(ref factionId, "factionId");
             Scribe_Deep.Look(ref designationManager, "designationManager", map);
             Scribe_Deep.Look(ref areaManager, "areaManager", map);
             Scribe_Deep.Look(ref zoneManager, "zoneManager", map);
+
+            ExposeActor.Register(() => map.PopFaction());
         }
 
         public static FactionMapData New(int factionId, Map map)
@@ -179,7 +204,7 @@ namespace Multiplayer.Client
             return new FactionMapData(factionId, map);
         }
 
-        public static FactionMapData FromMap(Map map, int factionId)
+        public static FactionMapData NewFromMap(Map map, int factionId)
         {
             return new FactionMapData(map)
             {
@@ -193,7 +218,59 @@ namespace Multiplayer.Client
                 listerHaulables = map.listerHaulables,
                 resourceCounter = map.resourceCounter,
                 listerFilthInHomeArea = map.listerFilthInHomeArea,
+                listerMergeables = map.listerMergeables,
             };
+        }
+    }
+
+    public class CustomFactionMapData : IExposable
+    {
+        public Map map;
+        public int factionId;
+
+        public HashSet<Thing> claimed = new HashSet<Thing>();
+        public HashSet<Thing> unforbidden = new HashSet<Thing>();
+
+        // Loading ctor
+        public CustomFactionMapData(Map map)
+        {
+            this.map = map;
+        }
+
+        public void ExposeData()
+        {
+            Scribe_Values.Look(ref factionId, "factionId");
+            Scribe_Collections.Look(ref unforbidden, "unforbidden", LookMode.Reference);
+        }
+
+        public static CustomFactionMapData New(int factionId, Map map)
+        {
+            return new CustomFactionMapData(map) { factionId = factionId };
+        }
+    }
+
+    public class ExposeActor : IExposable
+    {
+        private Action action;
+
+        private ExposeActor(Action action)
+        {
+            this.action = action;
+        }
+
+        public void ExposeData()
+        {
+            if (Scribe.mode == LoadSaveMode.PostLoadInit)
+                action();
+        }
+
+        // This depends on the fact that the implementation of HashSet RimWorld currently uses
+        // "preserves" insertion order (as long as elements are only added and not removed
+        // [which is the case for Scribe managers])
+        public static void Register(Action action)
+        {
+            if (Scribe.mode == LoadSaveMode.LoadingVars)
+                Scribe.loader.initer.RegisterForPostLoadInit(new ExposeActor(action));
         }
     }
 
@@ -254,5 +331,19 @@ namespace Multiplayer.Client
                     Find.WindowStack.TryRemove(typeof(MpLoadTransportersWindow), doCloseSound: false);
             }
         }
+    }
+
+    [HarmonyPatch(typeof(ListerHaulables))]
+    [HarmonyPatch(nameof(ListerHaulables.ListerHaulablesTick))]
+    public static class HaulablesTickPatch
+    {
+        static bool Prefix() => Multiplayer.Client == null || MultiplayerMapComp.tickingFactions;
+    }
+
+    [HarmonyPatch(typeof(ResourceCounter))]
+    [HarmonyPatch(nameof(ResourceCounter.ResourceCounterTick))]
+    public static class ResourcesTickPatch
+    {
+        static bool Prefix() => Multiplayer.Client == null || MultiplayerMapComp.tickingFactions;
     }
 }

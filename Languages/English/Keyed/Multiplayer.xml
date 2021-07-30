@@ -18,9 +18,9 @@
   <MpWrongModConfigs>Mod configs mismatch</MpWrongModConfigs>
   <MpWrongModConfigsInfo>Your mod configs differ from the host's, sync them for best results.</MpWrongModConfigsInfo>
   <MpModList>Mod list</MpModList>
-  <MpSyncModsAndConfigs>Sync Mods &amp; Configs</MpSyncModsAndConfigs>
-  <MpSyncMods>Sync Mods</MpSyncMods>
-  <MpSyncModConfigs>Sync Mod Configs</MpSyncModConfigs>
+  <MpSyncModsAndConfigs>Sync Mods &amp; configs</MpSyncModsAndConfigs>
+  <MpSyncMods>Sync mods</MpSyncMods>
+  <MpSyncModConfigs>Sync mod configs</MpSyncModConfigs>
   <MpSyncModConfigsDesc>Forces clients to download the same mod configs as the host; reduces desyncs</MpSyncModConfigsDesc>
   <MpSeeModList>See mod list</MpSeeModList>
   <MpDownloadingWorkshopMods>Downloading Workshop Mods</MpDownloadingWorkshopMods>
@@ -105,7 +105,7 @@
   <MpArbiterDesc>A background game instance which helps with desync detection/solving.</MpArbiterDesc>
   <MpAsyncTime>Async time</MpAsyncTime>
   <MpAsyncTimeDesc>Separate time controls for each map and the planet.</MpAsyncTimeDesc>
-  <MpLogDesyncTraces>Log Desync Traces</MpLogDesyncTraces>
+  <MpLogDesyncTraces>Desync traces</MpLogDesyncTraces>
   <MpLogDesyncTracesDesc>Log extra stacktraces for troubleshooting desyncs; may impact performance</MpLogDesyncTracesDesc>
   <MpExperimentalFeature>Experimental feature</MpExperimentalFeature>
   
@@ -127,12 +127,12 @@
   <MpPlayingRimWorld>Playing RimWorld</MpPlayingRimWorld>
   <MpNotInMultiplayer>Not in multiplayer</MpNotInMultiplayer>
   
-  <MpPauseOnAutosave>Pause on Autosave</MpPauseOnAutosave>
-  <MpAppendNameToAutosave>Append Name to Autosave</MpAppendNameToAutosave>
+  <MpPauseOnAutosave>Pause on autosave</MpPauseOnAutosave>
+  <MpAppendNameToAutosave>Append name to autosave</MpAppendNameToAutosave>
   <MpPauseAutosaveCounter>Pause autosave counter</MpPauseAutosaveCounter>
   <MpPauseAutosaveCounterDesc>Pauses the counter along with the game preventing autosaving while time is paused.</MpPauseAutosaveCounterDesc>
-  <MpShowModCompatibility>Show Mod Compatibility</MpShowModCompatibility>
-  <MpShowModCompatibilityDesc>Enables showing of [4] crowd-sourced compatibility scores in Mods manager</MpShowModCompatibilityDesc>
+  <MpShowModCompatibility>Show mod compatibility</MpShowModCompatibility>
+  <MpShowModCompatibilityDesc>Enables showing of crowd-sourced compatibility scores in the mod manager.</MpShowModCompatibilityDesc>
 
   <MpLan>LAN</MpLan>
   <MpDirect>Direct</MpDirect>

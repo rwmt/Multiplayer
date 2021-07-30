@@ -9,6 +9,7 @@ using System.Linq;
 using System.Text;
 using UnityEngine;
 using Verse;
+using Verse.Steam;
 
 namespace Multiplayer.Client
 {
@@ -145,11 +146,14 @@ namespace Multiplayer.Client
 
         private void ClickPlayer(PlayerInfo p)
         {
+            // todo
+            return;
+
             if (p.id == 0 && Event.current.button == 1)
             {
                 Find.WindowStack.Add(new FloatMenu(new List<FloatMenuOption>()
                 {
-                    new FloatMenuOption("MpSeeModList".Translate(), () => DefMismatchWindow.ShowModList(Multiplayer.session.mods))
+                    //new FloatMenuOption("MpSeeModList".Translate(), () => DefMismatchWindow.ShowModList(Multiplayer.session.mods))
                 }));
             }
         }
@@ -359,8 +363,8 @@ namespace Multiplayer.Client
 
             if (currentMsg.NullOrEmpty()) return;
 
-            if (currentMsg == "/netinfo")
-                Find.WindowStack.Add(new DebugTextWindow(NetInfoText(), 230, 300));
+            if (MpVersion.IsDebug && currentMsg == "/netinfo")
+                Find.WindowStack.Add(new DebugTextWindow(NetInfoText()));
             else if (Multiplayer.Client == null)
                 Multiplayer.session.AddMsg(Multiplayer.username + ": " + currentMsg);
             else
@@ -375,34 +379,38 @@ namespace Multiplayer.Client
 
             var text = new StringBuilder();
 
+            void LogNetData(string name, NetStatistics stats)
+            {
+                text.AppendLine(name);
+                text.AppendLine($"Bytes received: {stats.BytesReceived}");
+                text.AppendLine($"Bytes sent: {stats.BytesSent}");
+                text.AppendLine($"Packets received: {stats.PacketsReceived}");
+                text.AppendLine($"Packets sent: {stats.PacketsSent}");
+                text.AppendLine($"Packet loss: {stats.PacketLoss}");
+                text.AppendLine($"Packet loss percent: {stats.PacketLossPercent}");
+                text.AppendLine();
+            }
+
             var netClient = Multiplayer.session.netClient;
             if (netClient != null)
-            {
                 LogNetData("Client", netClient.Statistics);
-            }
+
             if (Multiplayer.LocalServer != null)
             {
                 if (Multiplayer.LocalServer.lanManager != null)
-                {
                     LogNetData("Lan Server", Multiplayer.LocalServer.lanManager.Statistics);
-                }
+
                 if (Multiplayer.LocalServer.netManager != null)
-                {
                     LogNetData("Net Server", Multiplayer.LocalServer.netManager.Statistics);
-                }
-                foreach (ServerPlayer item in Enumerable.ToList(Multiplayer.LocalServer.players))
-                {
-                    MpNetConnection mpNetConnection = item.conn as MpNetConnection;
-                    if (mpNetConnection != null)
-                    {
-                        LogNetData("Net Peer " + item.Username, mpNetConnection.peer.Statistics);
-                    }
-                }
+
+                foreach (var p in Multiplayer.LocalServer.players.ToList())
+                    if (p.conn is MpNetConnection net)
+                        LogNetData($"Net Peer {p.Username}", net.peer.Statistics);
             }
 
             foreach (var remote in Multiplayer.session.knownUsers)
             {
-                text.AppendLine(SteamFriends.GetFriendPersonaName(remote));
+                text.AppendLine($"Steam {SteamFriends.GetFriendPersonaName(remote)}");
                 text.AppendLine(remote.ToString());
 
                 if (SteamNetworking.GetP2PSessionState(remote, out P2PSessionState_t state))
@@ -425,19 +433,6 @@ namespace Multiplayer.Client
             }
 
             return text.ToString();
-
-            void LogNetData(string name, NetStatistics stats)
-            {
-                text.AppendLine(name);
-                text.AppendLine($"Bytes received: {stats.BytesReceived}");
-                text.AppendLine($"Bytes sent: {stats.BytesSent}");
-                text.AppendLine($"Packets received: {stats.PacketsReceived}");
-                text.AppendLine($"Packets sent: {stats.PacketsSent}");
-                text.AppendLine($"Packet loss: {stats.PacketLoss}");
-                text.AppendLine($"Sequenced packet loss: {stats.SequencedPacketLoss}");
-                text.AppendLine($"Packet loss percent: {stats.PacketLossPercent}");
-                text.AppendLine();
-            }
         }
 
         public void OnChatReceived()
@@ -447,8 +442,7 @@ namespace Multiplayer.Client
 
         public static void OpenChat()
         {
-            ChatWindow chatWindow = new ChatWindow();
-
+            var chatWindow = new ChatWindow();
             Find.WindowStack.Add(chatWindow);
         }
     }

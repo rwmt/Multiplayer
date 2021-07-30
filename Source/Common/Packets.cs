@@ -2,8 +2,7 @@
 {
     public enum Packets : byte
     {
-        Client_Protocol,
-        Client_Defs,
+        Client_JoinData,
         Client_Username,
         Client_WorldReady,
         Client_Command,
@@ -19,8 +18,7 @@
         Client_Debug,
         Client_Selected,
 
-        Server_ModList,
-        Server_DefsOK,
+        Server_JoinData,
         Server_WorldData,
         Server_Command,
         Server_MapResponse,

@@ -81,8 +81,19 @@ namespace Multiplayer.Client.Persistent
             if (!sound)
                 dialog.soundAppear = null;
 
-            CaravanUIUtility.CreateCaravanTransferableWidgets_NewTmp(transferables, out dialog.pawnsTransfer, out dialog.itemsTransfer, out dialog.foodAndMedicineTransfer,
-                    "SplitCaravanThingCountTip".Translate(), IgnorePawnsInventoryMode.Ignore, () => dialog.DestMassCapacity - dialog.DestMassUsage, false, caravan.Tile, false);
+            CaravanUIUtility.CreateCaravanTransferableWidgets_NewTmp(
+                transferables, 
+                out dialog.pawnsTransfer, 
+                out dialog.itemsTransfer, 
+                out dialog.foodAndMedicineTransfer,
+                "SplitCaravanThingCountTip".Translate(), 
+                IgnorePawnsInventoryMode.Ignore, 
+                () => dialog.DestMassCapacity - dialog.DestMassUsage, 
+                false, 
+                caravan.Tile, 
+                false
+            );
+
             dialog.CountToTransferChanged();
 
             Find.WindowStack.Add(dialog);

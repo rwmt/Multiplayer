@@ -403,13 +403,10 @@ namespace Multiplayer.Client
     [HarmonyPatch(new[] { typeof(Pawn), typeof(ITrader), typeof(bool) })]
     static class CancelDialogTradeCtor
     {
-        public static bool cancel;
         public static int tradeJobStartedByMe = -1;
 
         static bool Prefix(Pawn playerNegotiator, ITrader trader, bool giftsOnly)
         {
-            if (cancel) return false;
-
             if (Multiplayer.ExecutingCmds || Multiplayer.Ticking)
             {
                 MpTradeSession trade = MpTradeSession.TryCreate(trader, playerNegotiator, giftsOnly);
