@@ -69,6 +69,7 @@ namespace Multiplayer.Client
         public static SyncField[] SyncAutoSlaughter;
 		
         public static ISyncField SyncDryadCaste;
+        public static ISyncField SyncPlantableTargetCell;
 
         public static void Init()
         {
@@ -179,6 +180,7 @@ namespace Multiplayer.Client
             SyncStorytellerDifficulty = Sync.Field(typeof(Storyteller), "difficulty").SetHostOnly().PostApply(StorytellerDifficutly_Post).SetVersion(2);
 
             SyncDryadCaste = Sync.Field(typeof(CompTreeConnection), nameof(CompTreeConnection.desiredMode));
+            SyncPlantableTargetCell = Sync.Field(typeof(CompPlantable), nameof(CompPlantable.plantCell));
 
             SyncAnimalPenAutocut = Sync.Field(typeof(CompAnimalPenMarker), nameof(CompAnimalPenMarker.autoCut));
         }
@@ -473,9 +475,12 @@ namespace Multiplayer.Client
             }
         }
 
-        static void Autoslaughter_PostApply(object target, object value)
+        [MpPrefix(typeof(CompPlantable), "<BeginTargeting>b__9_0")]
+        static void WatchPlantableTargetCell(CompPlantable __instance)
         {
-            Multiplayer.MapContext.autoSlaughterManager.Notify_ConfigChanged();
+            // Sync cell to plant if it didn't require confirmation
+            // This can't be synced like the other two methods related to planting, as it has more code attached to it that we don't want to sync
+            SyncPlantableTargetCell.Watch(__instance);
         }
 
         [MpPrefix(typeof(Dialog_ChangeDryadCaste), nameof(Dialog_ChangeDryadCaste.StartChange))]
@@ -483,5 +488,11 @@ namespace Multiplayer.Client
         {
             SyncDryadCaste.Watch(__instance.treeConnection);
         }
+		
+        static void Autoslaughter_PostApply(object target, object value)
+        {
+            Multiplayer.MapContext.autoSlaughterManager.Notify_ConfigChanged();
+        }
+    }
 
 }

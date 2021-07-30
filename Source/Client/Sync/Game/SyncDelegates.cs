@@ -72,6 +72,9 @@ namespace Multiplayer.Client
             // Inventory (medicine) stock up
             SyncMethod.Register(typeof(Pawn_InventoryStockTracker), nameof(Pawn_InventoryStockTracker.SetCountForGroup));
             SyncMethod.Register(typeof(Pawn_InventoryStockTracker), nameof(Pawn_InventoryStockTracker.SetThingForGroup));
+
+            SyncDelegate.Register(typeof(CompPlantable), "<>c__DisplayClass9_0", "<BeginTargeting>b__3"); // Select cell to plant to after confirmation
+            SyncMethod.Register(typeof(CompPlantable), "<CompGetGizmosExtra>b__8_1"); // Cancel planting
         }
 
         [MpPrefix(typeof(FormCaravanComp), "<>c__DisplayClass17_0", "<GetGizmos>b__0")]
