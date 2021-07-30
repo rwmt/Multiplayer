@@ -85,6 +85,14 @@ namespace Multiplayer.Client
             SyncDelegate.Register(typeof(SocialCardUtility), "<>c__DisplayClass28_2", "<DrawPawnRole>b__9"); // Assign a role to a pawn
 			
             SyncMethod.Register(typeof(CompNeuralSupercharger), "<CompGetGizmosExtra>b__16_1"); // Neural supercharger: allow temporary pawns to use
+
+            // Biosculpter pod
+            SyncDelegate.Register(typeof(CompBiosculpterPod), "<>c__DisplayClass58_0", "<CompGetGizmosExtra>b__0"); // Start cycle (should be universal for all cycle types, even modded)
+            SyncMethod.Register(typeof(CompBiosculpterPod), "<CompGetGizmosExtra>b__58_1");                         // Interrupt cucle (eject contents)
+            SyncMethod.Register(typeof(CompBiosculpterPod), "<CompGetGizmosExtra>b__58_2");                         // Cancel loading (eject contents)
+            SyncMethod.Register(typeof(CompBiosculpterPod), "<CompGetGizmosExtra>b__58_3").SetDebugOnly();          // Dev complete cycle
+            SyncMethod.Register(typeof(CompBiosculpterPod), "<CompGetGizmosExtra>b__58_4").SetDebugOnly();          // Dev advance by 1 day
+            SyncMethod.Register(typeof(CompBiosculpterPod), "<CompGetGizmosExtra>b__58_5").SetDebugOnly();          // Dev complete biotuner timer
         }
 
         [MpPrefix(typeof(FormCaravanComp), "<>c__DisplayClass17_0", "<GetGizmos>b__0")]
