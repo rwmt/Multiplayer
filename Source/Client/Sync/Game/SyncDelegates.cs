@@ -95,7 +95,6 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(CompBiosculpterPod), "<CompGetGizmosExtra>b__58_5").SetDebugOnly();          // Dev complete biotuner timer
 
             SyncDelegate.Register(typeof(ITab_Pawn_Visitor), "<>c__DisplayClass7_0", "<FillTab>b__1").SetContext(SyncContext.MapSelected).CancelIfNoSelectedObjects(); // Select target prisoner ideology
-
         }
 
         [MpPrefix(typeof(FormCaravanComp), "<>c__DisplayClass17_0", "<GetGizmos>b__0")]
