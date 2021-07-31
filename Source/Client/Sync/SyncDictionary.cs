@@ -526,9 +526,16 @@ namespace Multiplayer.Client
                 (ByteReader data) => new ITab_ContentsTransporter()
             },
             {
-                (ByteWriter data, ITab_Pawn_Visitor tab) => WriteSync(data, tab.GetType()),
-                (ByteReader data) => (ITab_Pawn_Visitor)Activator.CreateInstance(ReadSync<Type>(data)),
-                true // Implicit
+                (ByteWriter data, ITab_Pawn_Guest tab) => { },
+                (ByteReader data) => new ITab_Pawn_Guest()
+            },
+            {
+                (ByteWriter data, ITab_Pawn_Prisoner tab) => { },
+                (ByteReader data) => new ITab_Pawn_Prisoner()
+            },
+            {
+                (ByteWriter data, ITab_Pawn_Slave tab) => { },
+                (ByteReader data) => new ITab_Pawn_Slave()
             },
             #endregion
 
