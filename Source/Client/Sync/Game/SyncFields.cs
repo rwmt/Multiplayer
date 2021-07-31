@@ -18,6 +18,7 @@ namespace Multiplayer.Client
         public static ISyncField SyncFollowFieldwork;
         public static ISyncField SyncInteractionMode;
         public static ISyncField SyncSlaveInteractionMode;
+        public static ISyncField SyncIdeoForConversion;
         public static ISyncField SyncBeCarried;
         public static ISyncField SyncPsychicEntropyLimit;
         public static ISyncField SyncPsychicEntropyTargetFocus;
@@ -84,6 +85,7 @@ namespace Multiplayer.Client
             SyncFollowFieldwork = Sync.Field(typeof(Pawn), "playerSettings", "followFieldwork");
             SyncInteractionMode = Sync.Field(typeof(Pawn), "guest", "interactionMode");
             SyncSlaveInteractionMode = Sync.Field(typeof(Pawn), nameof(Pawn.guest), nameof(Pawn_GuestTracker.slaveInteractionMode));
+            SyncIdeoForConversion = Sync.Field(typeof(Pawn), nameof(Pawn.guest), nameof(Pawn_GuestTracker.ideoForConversion));
             SyncBeCarried = Sync.Field(typeof(Pawn), "health", "beCarriedByCaravanIfSick");
             SyncPsychicEntropyLimit = Sync.Field(typeof(Pawn), "psychicEntropy", "limitEntropyAmount");
             SyncPsychicEntropyTargetFocus = Sync.Field(typeof(Pawn), "psychicEntropy", "targetPsyfocus").SetBufferChanges();
@@ -234,6 +236,7 @@ namespace Multiplayer.Client
             SyncMedCare.Watch(pawn);
             SyncInteractionMode.Watch(pawn);
             SyncSlaveInteractionMode.Watch(pawn);
+            SyncIdeoForConversion.Watch(pawn);
         }
 
         [MpPrefix(typeof(MainTabWindow_Quests), nameof(MainTabWindow_Quests.DoDismissButton))]
