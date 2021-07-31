@@ -690,8 +690,8 @@ namespace Multiplayer.Client
     [HarmonyPatch(typeof(TransferableUtility), nameof(TransferableUtility.TransferAsOne))]
     static class TransferAsOneAgeCheck_Patch
     {
-        static MethodInfo AgeBiologicalFloat = AccessTools.Method(typeof(Pawn_AgeTracker), "get_AgeBiologicalYearsFloat");
-        static MethodInfo AgeBiologicalInt = AccessTools.Method(typeof(Pawn_AgeTracker), "get_AgeBiologicalYears");
+        static MethodInfo AgeBiologicalFloat = AccessTools.PropertyGetter(typeof(Pawn_AgeTracker), nameof(Pawn_AgeTracker.AgeBiologicalYearsFloat));
+        static MethodInfo AgeBiologicalInt = AccessTools.PropertyGetter(typeof(Pawn_AgeTracker), nameof(Pawn_AgeTracker.AgeBiologicalYears));
 
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
         {

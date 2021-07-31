@@ -70,15 +70,23 @@ namespace Multiplayer.Client.Patches
     [HarmonyPatch(typeof(PawnBioAndNameGenerator), nameof(PawnBioAndNameGenerator.TryGetRandomUnusedSolidName))]
     static class GenerateNewPawnInternalPatch
     {
+        static MethodBase FirstOrDefault = SymbolExtensions.GetMethodInfo<IEnumerable<NameTriple>>(
+            e => e.FirstOrDefault()
+        );
+
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> e)
         {
             List<CodeInstruction> insts = new List<CodeInstruction>(e);
 
-            insts.Insert(
-                insts.Count - 1,
-                new CodeInstruction(OpCodes.Ldloc_2),
-                new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(GenerateNewPawnInternalPatch), nameof(Unshuffle)).MakeGenericMethod(typeof(NameTriple)))
-            );
+            for (int i = insts.Count - 1; i >= 0; i--)
+            {
+                if (insts[i].operand == FirstOrDefault)
+                    insts.Insert(
+                       i + 1,
+                       new CodeInstruction(OpCodes.Ldloc_1),
+                       new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(GenerateNewPawnInternalPatch), nameof(Unshuffle)).MakeGenericMethod(typeof(NameTriple)))
+                   );
+            }
 
             return insts;
         }

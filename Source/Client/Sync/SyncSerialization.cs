@@ -278,9 +278,9 @@ namespace Multiplayer.Client
 
                 throw new SerializationException("No reader for type " + type);
             }
-            catch (Exception e)
+            catch
             {
-                MpLog.Error($"Error reading type: {type}, {e}");
+                MpLog.Error($"Error reading type: {type}");
                 throw;
             }
         }
@@ -490,11 +490,10 @@ namespace Multiplayer.Client
 
                 log?.Node("No writer for " + type);
                 throw new SerializationException("No writer for type " + type);
-
             }
-            catch (Exception e)
+            catch
             {
-                MpLog.Error($"Error writing type: {type}, obj: {obj}, obj type: {obj?.GetType()}, {e}");
+                MpLog.Error($"Error writing type: {type}, obj: {obj}, obj type: {obj?.GetType()}");
                 throw;
             }
             finally

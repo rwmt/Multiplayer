@@ -506,10 +506,13 @@ namespace Multiplayer.Client
         {
             int syncId = data.ReadInt32();
             SyncHandler handler;
-            try {
+
+            try
+            {
                 handler = handlers[syncId];
             }
-            catch (ArgumentOutOfRangeException) {
+            catch (ArgumentOutOfRangeException)
+            {
                 Log.Error($"Error: invalid syncId {syncId}/{handlers.Count}, this implies mismatched mods, ensure your versions match! Stacktrace follows.");
                 throw;
             }
