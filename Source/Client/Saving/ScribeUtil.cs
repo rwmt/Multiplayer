@@ -241,8 +241,15 @@ namespace Multiplayer.Client
             return element;
         }
 
-        // Copy of RimWorld's method but with ctor args
+
         public static void LookValueDeep<K, V>(ref Dictionary<K, V> dict, string label, params object[] valueCtorArgs)
+        {
+            LookValue<K, V>(ref dict, label, LookMode.Deep, valueCtorArgs);
+        }
+
+
+        // Copy of RimWorld's method but with ctor args
+        public static void LookValue<K, V>(ref Dictionary<K, V> dict, string label, LookMode valueMode, params object[] valueCtorArgs)
         {
             List<K> keysWorkingList = null;
             List<V> valuesWorkingList = null;
@@ -267,7 +274,7 @@ namespace Multiplayer.Client
                     }
 
                     Scribe_Collections.Look(ref keysWorkingList, "keys", LookMode.Value);
-                    Scribe_Collections.Look(ref valuesWorkingList, "values", LookMode.Deep, valueCtorArgs);
+                    Scribe_Collections.Look(ref valuesWorkingList, "values", valueMode, valueCtorArgs);
 
                     if (Scribe.mode == LoadSaveMode.Saving)
                     {
@@ -389,21 +396,12 @@ namespace Multiplayer.Client
 
         public static void LookRectDict<K>(ref Dictionary<K, Rect> dict, string label)
         {
-            Dictionary<K, Vector4> backingLookup = new Dictionary<K, Vector4>();
-            foreach (K key in dict.Keys)
-            {
-                Rect r = dict[key];
-                backingLookup.Add(key, new Vector4(r.x, r.y, r.width, r.height));
-            }
+            Dictionary<K, Vector4> backingLookup = dict.ToDictionary(e => e.Key, e => new Vector4(e.Value.x, e.Value.y, e.Value.width, e.Value.height));
 
-            ScribeUtil.LookValueDeep<K, Vector4>(ref backingLookup, "windowRectLookup");
+            ScribeUtil.LookValue<K, Vector4>(ref backingLookup, "windowRectLookup", LookMode.Value);
 
-            dict = new Dictionary<K, Rect>();
-            foreach (K key in backingLookup.Keys)
-            {
-                Vector4 v = backingLookup[key];
-                dict.Add(key, new Rect(v.x, v.y, v.z, v.w));
-            }
+            if (backingLookup == null) backingLookup = new Dictionary<K, Vector4>();
+            dict = backingLookup.ToDictionary(e => e.Key, e => new Rect(e.Value.x, e.Value.y, e.Value.z, e.Value.w));
         }
 
         public static void LookRect(ref Rect rect, string label)
