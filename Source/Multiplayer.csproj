@@ -13,60 +13,45 @@
   </PropertyGroup>
   
   <ItemGroup>
-    
-    <!-- Nuget dependencies -->
     <PackageReference Include="Publicise.MSBuild.Task" Version="1.*" />
     <PackageReference Include="RestSharp" Version="106.10.1" />
     <PackageReference Include="RimWorld.MultiplayerAPI" Version="0.3.0" />
-    <PackageReference Include="Lib.Harmony" Version="2.0.4">
-      <ExcludeAssets>runtime</ExcludeAssets>
-    </PackageReference>
+    <PackageReference Include="Lib.Harmony" Version="2.1.1" ExcludeAssets="runtime"/>
     <PackageReference Include="LiteNetLib" Version="0.9.5" />
     <PackageReference Include="DotNetZip.Reduced" Version="1.9.1.8" />
-    
-    <!-- Local dependencies -->
-    <Reference Include="Assembly-CSharp-firstpass">
-      <HintPath>..\..\..\RimWorldWin64_Data\Managed\Assembly-CSharp-firstpass.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="Assembly-CSharp_public">
-      <HintPath>..\..\..\RimWorldWin64_Data\Managed\Assembly-CSharp_public.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="UnityEngine.IMGUIModule">
-      <HintPath>..\..\..\RimWorldWin64_Data\Managed\UnityEngine.IMGUIModule.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="UnityEngine.CoreModule">
-      <HintPath>..\..\..\RimWorldWin64_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="UnityEngine">
-      <HintPath>..\..\..\RimWorldWin64_Data\Managed\UnityEngine.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="UnityEngine.TextRenderingModule">
-      <HintPath>..\..\..\RimWorldWin64_Data\Managed\UnityEngine.TextRenderingModule.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="UnityEngine.InputLegacyModule">
-      <HintPath>..\..\..\RimWorldWin64_Data\Managed\UnityEngine.InputLegacyModule.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="UnityEngine.AudioModule">
-      <HintPath>..\..\..\RimWorldWin64_Data\Managed\UnityEngine.AudioModule.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    
+    <PackageReference Include="Krafs.Rimworld.Ref" Version="1.3.*" GeneratePathProperty="true" />
   </ItemGroup>
   
-  <ItemGroup>
-    <None Remove=".editorconfig" />
-    <None Remove="mono_crash.*.json" />
-  </ItemGroup>
-  
-  <Target Name="Publicise" BeforeTargets="BeforeBuild">
-    <Publicise AssemblyPath="..\..\..\RimWorldWin64_Data\Managed\Assembly-CSharp.dll" OutputPath="..\..\..\RimWorldWin64_Data\Managed\" />
+  <Target Name="Publicise" BeforeTargets="UpdateReferences">
+    <PropertyGroup>
+      <AssemblyCSharp>$(PkgKrafs_Rimworld_Ref)\ref\net472\Assembly-CSharp.dll</AssemblyCSharp>
+      <PubliciseOutputPath>$(PkgKrafs_Rimworld_Ref)\ref\net472\</PubliciseOutputPath>
+      <AssemblyCSharp_Publicised>$(PubliciseOutputPath)Assembly-CSharp_public.dll</AssemblyCSharp_Publicised>
+    </PropertyGroup>
+
+    <Message Importance="High" Text="Publicising Rimworld assembly..." />
+
+    <Publicise AssemblyPath="$(AssemblyCSharp)" OutputPath="$(PubliciseOutputPath)" Condition="Exists('$(AssemblyCSharp)')" />
+
+    <Message Importance="High" Text="Adding new reference..." />
+
+    <ItemGroup>
+      <Reference Include="$(AssemblyCSharp_Publicised)">
+        <SpecificVersion>false</SpecificVersion>
+        <HintPath>$(AssemblyCSharp_Publicised)</HintPath>
+        <Implicit>true</Implicit>
+        <Private>false</Private>
+      </Reference>
+    </ItemGroup>
+    
+  </Target>
+
+  <Target Name="UpdateReferences" AfterTargets="ResolveLockFileReferences">
+    <Message Importance="High" Text="Remove old reference..." />
+
+    <ItemGroup>
+      <Reference Remove="$(PkgKrafs_Rimworld_Ref)\ref\net472\Assembly-CSharp.dll" />
+    </ItemGroup>
   </Target>
   
   <Target Name="ChangeAliasesOfNugetRefs" BeforeTargets="FindReferenceAssembliesForReferences;ResolveReferences">
