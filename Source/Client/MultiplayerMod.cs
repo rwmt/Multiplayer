@@ -41,7 +41,6 @@ namespace Multiplayer.Client
                 arbiterInstance = true;
             }
 
-            //EarlyMarkNoInline(typeof(Multiplayer).Assembly);
             EarlyPatches();
             CheckInterfaceVersions();
 
@@ -170,7 +169,7 @@ namespace Multiplayer.Client
                     continue;
 
                 // Test if mod is using multiplayer api
-                if (!mod.assemblies.loadedAssemblies.Any(a => a.GetName().Name == MpVersion.apiAssemblyName)) {
+                if (!mod.assemblies.loadedAssemblies.Any(a => a.GetName().Name == MpVersion.ApiAssemblyName)) {
                     continue;
                 }
 

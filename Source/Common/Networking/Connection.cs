@@ -4,68 +4,6 @@ using System.Reflection;
 
 namespace Multiplayer.Common
 {
-    public abstract class MpConnectionState
-    {
-        public readonly IConnection connection;
-
-        protected ServerPlayer Player => connection.serverPlayer;
-        protected MultiplayerServer Server => MultiplayerServer.instance;
-
-        public MpConnectionState(IConnection connection)
-        {
-            this.connection = connection;
-        }
-
-        public static Type[] connectionImpls = new Type[(int)ConnectionStateEnum.Count];
-        public static PacketHandlerInfo[,] packetHandlers = new PacketHandlerInfo[(int)ConnectionStateEnum.Count, (int)Packets.Count];
-
-        public static void SetImplementation(ConnectionStateEnum state, Type type)
-        {
-            if (!type.IsSubclassOf(typeof(MpConnectionState))) return;
-
-            connectionImpls[(int)state] = type;
-
-            foreach (var method in type.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly))
-            {
-                var attr = method.GetAttribute<PacketHandlerAttribute>();
-                if (attr == null)
-                    continue;
-
-                if (method.GetParameters().Length != 1 || method.GetParameters()[0].ParameterType != typeof(ByteReader))
-                    continue;
-
-                bool fragment = method.GetAttribute<IsFragmentedAttribute>() != null;
-                packetHandlers[(int)state, (int)attr.packet] = new PacketHandlerInfo(method, fragment);
-            }
-        }
-    }
-
-    public class PacketHandlerAttribute : Attribute
-    {
-        public readonly Packets packet;
-
-        public PacketHandlerAttribute(Packets packet)
-        {
-            this.packet = packet;
-        }
-    }
-
-    public class IsFragmentedAttribute : Attribute
-    {
-    }
-
-    public class PacketHandlerInfo
-    {
-        public readonly MethodInfo method;
-        public readonly bool fragment;
-
-        public PacketHandlerInfo(MethodInfo method, bool fragment)
-        {
-            this.method = method;
-            this.fragment = fragment;
-        }
-    }
-
     public abstract class IConnection
     {
         public string username;
@@ -206,9 +144,9 @@ namespace Multiplayer.Common
 
             if (fragState == FRAG_NONE)
             {
-                handler.method.Invoke(stateObj, new object[] { reader });
+                handler.Method.Invoke(stateObj, new object[] { reader });
             }
-            else if (!handler.fragment)
+            else if (!handler.Fragment)
             {
                 throw new PacketReadException($"Packet {packetType} can't be fragmented");
             }
@@ -224,7 +162,7 @@ namespace Multiplayer.Common
 
                 if (fragState == FRAG_END)
                 {
-                    handler.method.Invoke(stateObj, new object[] { new ByteReader(fragmented.ToArray()) });
+                    handler.Method.Invoke(stateObj, new object[] { new ByteReader(fragmented.ToArray()) });
                     fragmented = null;
                 }
             }
@@ -238,37 +176,6 @@ namespace Multiplayer.Common
             writer.WriteByte((byte)reason);
             writer.WritePrefixedBytes(data ?? new byte[0]);
             return writer.ToArray();
-        }
-    }
-
-    public enum MpDisconnectReason : byte
-    {
-        GenericKeyed,
-        Protocol,
-        Defs,
-        UsernameLength,
-        UsernameChars,
-        UsernameAlreadyOnline,
-        ServerClosed,
-        ServerFull,
-        Kick,
-        ClientLeft,
-        Throttled,
-        Failed,
-        Internal,
-    }
-
-    public class PacketReadException : Exception
-    {
-        public PacketReadException(string msg) : base(msg)
-        {
-        }
-    }
-
-    public class PacketSendException : Exception
-    {
-        public PacketSendException(string msg) : base(msg)
-        {
         }
     }
 

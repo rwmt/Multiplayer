@@ -33,7 +33,7 @@ namespace Multiplayer.Client.Networking
         public void OnNetworkReceive(NetPeer peer, NetPacketReader reader, DeliveryMethod method)
         {
             byte[] data = reader.GetRemainingBytes();
-            Multiplayer.HandleReceive(new ByteReader(data), method == DeliveryMethod.ReliableOrdered);
+            ClientUtil.HandleReceive(new ByteReader(data), method == DeliveryMethod.ReliableOrdered);
         }
 
         public void OnPeerDisconnected(NetPeer peer, DisconnectInfo info)
@@ -53,25 +53,12 @@ namespace Multiplayer.Client.Networking
                 data = reader.ReadPrefixedBytes();
             }
 
-            Multiplayer.session.HandleDisconnectReason(reason, data);
+            Multiplayer.session.ProcessDisconnectPacket(reason, data);
 
             ConnectionStatusListeners.TryNotifyAll_Disconnected();
 
             OnMainThread.StopMultiplayer();
             MpLog.Log("Net client disconnected");
-        }
-
-        private static string DisconnectReasonString(DisconnectReason reason)
-        {
-            switch (reason)
-            {
-                case DisconnectReason.ConnectionFailed: return "Connection failed";
-                case DisconnectReason.ConnectionRejected: return "Connection rejected";
-                case DisconnectReason.Timeout: return "Timed out";
-                case DisconnectReason.HostUnreachable: return "Host unreachable";
-                case DisconnectReason.InvalidProtocol: return "Invalid library protocol";
-                default: return "Disconnected";
-            }
         }
 
         public void OnConnectionRequest(ConnectionRequest request) { }

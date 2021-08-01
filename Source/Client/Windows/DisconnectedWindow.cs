@@ -23,7 +23,7 @@ namespace Multiplayer.Client
             this.desc = desc;
 
             if (reason.NullOrEmpty())
-                this.reason = "Disconnected";
+                this.reason = "MpDisconnected".Translate();
 
             closeOnAccept = false;
             closeOnCancel = false;

@@ -41,8 +41,9 @@ namespace Multiplayer.Client
 
             if (Multiplayer.Client is SteamBaseConn steamConn && SteamManager.Initialized)
                 foreach (var packet in SteamIntegration.ReadPackets(steamConn.recvChannel))
-                    if (steamConn.remoteId == packet.remote)
-                        Multiplayer.HandleReceive(packet.data, packet.reliable);
+                    // Note: receive can lead to disconnection
+                    if (steamConn.remoteId == packet.remote && Multiplayer.Client != null)
+                        ClientUtil.HandleReceive(packet.data, packet.reliable);
         }
 
         private void SendVisuals()

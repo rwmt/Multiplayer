@@ -1,4 +1,5 @@
 using LiteNetLib;
+using Multiplayer.Client.Networking;
 using Multiplayer.Common;
 using RimWorld;
 using Steamworks;
@@ -38,9 +39,8 @@ namespace Multiplayer.Client
         public bool desynced;
         public bool resyncing;
 
-        public MpDisconnectReason disconnectReason;
-        public string disconnectReasonKey;
-        public string disconnectInfo;
+        public string disconnectReasonTranslated;
+        public string disconnectInfoTranslated;
 
         public bool allowSteam;
         public List<CSteamID> pendingSteam = new List<CSteamID>();
@@ -115,7 +115,7 @@ namespace Multiplayer.Client
             SoundDefOf.PageChange.PlayOneShotOnCamera(null);
         }
 
-        public void HandleDisconnectReason(MpDisconnectReason reason, byte[] data)
+        public void ProcessDisconnectPacket(MpDisconnectReason reason, byte[] data)
         {
             var reader = new ByteReader(data);
             string reasonKey = null;
@@ -130,7 +130,7 @@ namespace Multiplayer.Client
                 string strVersion = reader.ReadString();
                 int proto = reader.ReadInt32();
 
-                disconnectInfo = "MpWrongMultiplayerVersionInfo".Translate(strVersion, proto);
+                disconnectInfoTranslated = "MpWrongMultiplayerVersionInfo".Translate(strVersion, proto);
             }
 
             if (reason == MpDisconnectReason.UsernameLength) { reasonKey = "MpInvalidUsernameLength"; descKey = "MpChangeUsernameInfo"; }
@@ -140,9 +140,8 @@ namespace Multiplayer.Client
             if (reason == MpDisconnectReason.ServerFull) reasonKey = "MpServerFull";
             if (reason == MpDisconnectReason.Kick) reasonKey = "MpKicked";
 
-            disconnectReason = reason;
-            disconnectReasonKey = reasonKey?.Translate();
-            disconnectInfo = disconnectInfo ?? descKey?.Translate();
+            disconnectReasonTranslated = reasonKey?.Translate();
+            disconnectInfoTranslated ??= descKey?.Translate();
         }
 
         public void Connected()
@@ -153,7 +152,7 @@ namespace Multiplayer.Client
         {
             MpUtil.ClearWindowStack();
 
-            Find.WindowStack.Add(new DisconnectedWindow(disconnectReasonKey, disconnectInfo)
+            Find.WindowStack.Add(new DisconnectedWindow(disconnectReasonTranslated, disconnectInfoTranslated)
             {
                 returnToServerBrowser = Multiplayer.Client?.State != ConnectionStateEnum.ClientPlaying
             });

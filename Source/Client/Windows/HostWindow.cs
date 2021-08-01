@@ -186,7 +186,7 @@ namespace Multiplayer.Client
             if (file?.replay ?? Multiplayer.IsReplay)
                 HostFromReplay(settings);
             else if (file == null)
-                ClientUtil.HostServer(settings, false, debugMode: debugMode, logDesyncTraces: logDesyncTraces);
+                HostUtil.HostServer(settings, false, debugMode: debugMode, logDesyncTraces: logDesyncTraces);
             else
                 HostFromSave(settings);
 
@@ -287,14 +287,14 @@ namespace Multiplayer.Client
 
                 LongEventHandler.ExecuteWhenFinished(() =>
                 {
-                    LongEventHandler.QueueLongEvent(() => ClientUtil.HostServer(settings, false, debugMode: debugMode, logDesyncTraces: logDesyncTraces), "MpLoading", false, null);
+                    LongEventHandler.QueueLongEvent(() => HostUtil.HostServer(settings, false, debugMode: debugMode, logDesyncTraces: logDesyncTraces), "MpLoading", false, null);
                 });
             }, "Play", "LoadingLongEvent", true, null);
         }
 
         private void HostFromReplay(ServerSettings settings)
         {
-            void ReplayLoaded() => ClientUtil.HostServer(settings, true, withSimulation, debugMode: debugMode, logDesyncTraces: logDesyncTraces);
+            void ReplayLoaded() => HostUtil.HostServer(settings, true, withSimulation, debugMode: debugMode, logDesyncTraces: logDesyncTraces);
 
             if (file != null)
             {

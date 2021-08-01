@@ -29,6 +29,12 @@
   <MpServerClosed>Server closed</MpServerClosed>
   <MpServerFull>Server is full</MpServerFull>
   <MpKicked>You've been kicked</MpKicked>
+  <MpDisconnected>Disconnected</MpDisconnected>
+  
+  <MpSteamTimedOut>Connection timed out</MpSteamTimedOut>
+  <MpSteamGenericError>Connection error</MpSteamGenericError>
+  <MpPacketError>Packet read error</MpPacketError>
+  <MpPacketErrorInfo>See the log for more info.</MpPacketErrorInfo>
 
   <MpInvalidUsernameAlreadyPlaying>Username already online</MpInvalidUsernameAlreadyPlaying>
   <MpInvalidUsernameChars>Username has invalid characters</MpInvalidUsernameChars>

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using Ionic.Zlib;
 using Multiplayer.Client.EarlyPatches;
 using Multiplayer.Common;
@@ -84,8 +85,10 @@ namespace Multiplayer.Client
             var configCount = data.ReadInt32();
             for (int i = 0; i < configCount; i++)
             {
+                const int MaxConfigContentLen = 8388608; // 8MB
+
                 var trimmedPath = data.ReadString();
-                var contents = data.ReadString();
+                var contents = data.ReadString(MaxConfigContentLen);
 
                 remoteInfo.remoteModConfigs[trimmedPath] = contents.Insert(0, "a"); // todo for testing
             }

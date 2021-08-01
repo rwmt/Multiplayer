@@ -5,6 +5,8 @@ namespace Multiplayer.Common
 {
     public class ByteReader
     {
+        const int DefaultMaxStringLen = 32767;
+
         private readonly byte[] array;
         private int index;
         public object context;
@@ -42,7 +44,7 @@ namespace Multiplayer.Common
 
         public virtual bool ReadBool() => BitConverter.ToBoolean(array, IncrementIndex(1));
 
-        public virtual string ReadString(int maxLen = 32767)
+        public virtual string ReadString(int maxLen = DefaultMaxStringLen)
         {
             int bytes = ReadInt32();
 
@@ -53,6 +55,7 @@ namespace Multiplayer.Common
 
             string result = Encoding.UTF8.GetString(array, index, bytes);
             index += bytes;
+
             return result;
         }
 

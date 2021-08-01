@@ -510,18 +510,6 @@ namespace Multiplayer.Client
             }
         }
 
-        public static void HandleReceive(ByteReader data, bool reliable)
-        {
-            try
-            {
-                Client.HandleReceive(data, reliable);
-            }
-            catch (Exception e)
-            {
-                Log.Error($"Exception handling packet by {Client}: {e}");
-            }
-        }
-
         internal static HashSet<Type> IgnoredVanillaDefTypes = new HashSet<Type>
         {
             typeof(FeatureDef), typeof(HairDef),
