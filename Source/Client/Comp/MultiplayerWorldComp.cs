@@ -27,6 +27,14 @@ namespace Multiplayer.Client
 
         public float TickRateMultiplier(TimeSpeed speed)
         {
+            if (MultiplayerWorldComp.asyncTime)
+            {
+                var enforcePause = Multiplayer.WorldComp.splitSession != null;
+
+                if (enforcePause)
+                    return 0f;
+            }
+
             switch (speed)
             {
                 case TimeSpeed.Paused:
@@ -64,8 +72,9 @@ namespace Multiplayer.Client
                 return;
             }
 
-            var mapSpeeds = Find.Maps.Select(m => m.AsyncTime().TimeSpeed)
-                .Where(timeSpeed => timeSpeed != TimeSpeed.Paused)
+            var mapSpeeds = Find.Maps.Select(m => m.AsyncTime())
+                .Where(a => a.ActualRateMultiplier(a.TimeSpeed) != 0f)
+                .Select(a => a.TimeSpeed)
                 .ToList();
             if (mapSpeeds.NullOrEmpty()) {
                 // all maps are paused = pause the world
@@ -77,6 +86,8 @@ namespace Multiplayer.Client
         }
 
         public Queue<ScheduledCommand> Cmds { get => cmds; }
+
+        public int TickableId => -1;
 
         public Dictionary<int, FactionWorldData> factionData = new Dictionary<int, FactionWorldData>();
 

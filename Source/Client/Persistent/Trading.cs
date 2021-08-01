@@ -52,14 +52,14 @@ namespace Multiplayer.Client
             giftsOnly = giftMode;
         }
 
-        public static void TryCreate(ITrader trader, Pawn playerNegotiator, bool giftMode)
+        public static MpTradeSession TryCreate(ITrader trader, Pawn playerNegotiator, bool giftMode)
         {
             // todo show error messages?
             if (Multiplayer.WorldComp.trading.Any(s => s.trader == trader))
-                return;
+                return null;
 
             if (Multiplayer.WorldComp.trading.Any(s => s.playerNegotiator == playerNegotiator))
-                return;
+                return null;
 
             MpTradeSession session = new MpTradeSession(trader, playerNegotiator, giftMode);
             Multiplayer.WorldComp.trading.Add(session);
@@ -84,6 +84,8 @@ namespace Multiplayer.Client
                 SetTradeSession(null);
                 CancelTradeDealReset.cancel = false;
             }
+
+            return session;
         }
 
         // todo come back to it when the map doesn't get paused during trading
@@ -94,9 +96,6 @@ namespace Multiplayer.Client
         public bool ShouldCancel()
         {
             if (!trader.CanTradeNow)
-                return true;
-
-            if (playerNegotiator.Drafted)
                 return true;
 
             if (trader is Pawn traderPawn)
@@ -161,6 +160,31 @@ namespace Multiplayer.Client
             TradeSession.deal = session?.deal;
         }
 
+        public void OpenWindow(bool sound = true)
+        {
+            int tab = Multiplayer.WorldComp.trading.IndexOf(this);
+            if (Find.WindowStack.IsOpen<TradingWindow>())
+            {
+                Find.WindowStack.WindowOfType<TradingWindow>().selectedTab = tab;
+            }
+            else
+            {
+                TradingWindow window = new TradingWindow() { selectedTab = tab };
+                if (!sound)
+                    window.soundAppear = null;
+                Find.WindowStack.Add(window);
+            }
+        }
+
+        public void CloseWindow(bool sound = true)
+        {
+            int tab = Multiplayer.WorldComp.trading.IndexOf(this);
+            if (Find.WindowStack.IsOpen<TradingWindow>())
+            {
+                Find.WindowStack.TryRemove(typeof(TradingWindow), doCloseSound: sound);
+            }
+        }
+
         public void ExposeData()
         {
             Scribe_Values.Look(ref sessionId, "sessionId");
@@ -196,6 +220,7 @@ namespace Multiplayer.Client
         }
     }
 
+    [HotSwappable]
     public class MpTradeDeal : TradeDeal, IExposable
     {
         public MpTradeSession session;
@@ -377,16 +402,28 @@ namespace Multiplayer.Client
 
     [HarmonyPatch(typeof(Dialog_Trade), MethodType.Constructor)]
     [HarmonyPatch(new[] { typeof(Pawn), typeof(ITrader), typeof(bool) })]
-    static class CancelDialogTradeCtor
+    static class DialogTradeCtorPatch
     {
+        public static int tradeJobStartedByMe = -1;
+
         static bool Prefix(Pawn playerNegotiator, ITrader trader, bool giftsOnly)
         {
             if (Multiplayer.ExecutingCmds || Multiplayer.Ticking)
             {
-                MpTradeSession.TryCreate(trader, playerNegotiator, giftsOnly);
+                MpTradeSession trade = MpTradeSession.TryCreate(trader, playerNegotiator, giftsOnly);
 
-                if (TickPatch.currentExecutingCmdIssuedBySelf)
-                    Find.WindowStack.Add(new TradingWindow());
+                if (trade != null)
+                {
+                    if (playerNegotiator.Map == Find.CurrentMap && playerNegotiator.CurJob.loadID == tradeJobStartedByMe)
+                    {
+                        tradeJobStartedByMe = -1;
+                        trade.OpenWindow();
+                    }
+                    else if (trader is Settlement && Find.World.renderer.wantedMode == WorldRenderMode.Planet)
+                    {
+                        trade.OpenWindow();
+                    }
+                 }
 
                 return false;
             }

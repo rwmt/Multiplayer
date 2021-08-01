@@ -172,14 +172,6 @@ namespace Multiplayer.Client
         {
         }
 
-        public override void PostClose()
-        {
-            base.PostClose();
-
-            if (Session != null)
-                Find.World.renderer.wantedMode = WorldRenderMode.Planet;
-        }
-
         public override void DoWindowContents(Rect inRect)
         {
             drawing = this;

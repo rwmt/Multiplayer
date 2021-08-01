@@ -26,6 +26,7 @@ namespace Multiplayer.Client.AsyncTime
     }
 
     [HarmonyPatch(typeof(Autosaver), nameof(Autosaver.AutosaverTick))]
+
     static class DisableAutosaver
     {
         static bool Prefix() => Multiplayer.Client == null;
@@ -128,12 +129,15 @@ namespace Multiplayer.Client.AsyncTime
         static void Postfix() => drawingTimeControls = false;
     }
 
+    [HotSwappable]
     [HarmonyPatch(typeof(TimeControls), nameof(TimeControls.DoTimeControlsGUI))]
     public static class TimeControlPatch
     {
         private static TimeSpeed prevSpeed;
         private static TimeSpeed savedSpeed;
         private static bool keyPressed;
+
+        public static int? tickableToHighlight;
 
         static void Prefix(ref ITickable __state)
         {
@@ -160,14 +164,22 @@ namespace Multiplayer.Client.AsyncTime
         {
             if (__state == null) return;
 
-            Rect rect = new Rect(timerRect.x, timerRect.y, TimeControls.TimeButSize.x, TimeControls.TimeButSize.y);
+            Rect btn = new Rect(timerRect.x, timerRect.y, TimeControls.TimeButSize.x, TimeControls.TimeButSize.y);
             float normalSpeed = __state.ActualRateMultiplier(TimeSpeed.Normal);
             float fastSpeed = __state.ActualRateMultiplier(TimeSpeed.Fast);
 
             if (normalSpeed == 0f) // Completely paused
-                Widgets.DrawLineHorizontal(rect.x + rect.width, rect.y + rect.height / 2f, rect.width * 3f);
+                Widgets.DrawLineHorizontal(btn.x + btn.width, btn.y + btn.height / 2f, btn.width * 3f);
             else if (normalSpeed == fastSpeed)  // Slowed down
-                Widgets.DrawLineHorizontal(rect.x + rect.width * 2f, rect.y + rect.height / 2f, rect.width * 2f);
+                Widgets.DrawLineHorizontal(btn.x + btn.width * 2f, btn.y + btn.height / 2f, btn.width * 2f);
+
+            if (Mouse.IsOver(btn.Width(btn.width * 4f)) && Event.current.type == EventType.Repaint)
+            {
+                var tickable = WorldRendererUtility.WorldRenderedNow ? Multiplayer.WorldComp : (ITickable)Find.CurrentMap.AsyncTime();
+                if (tickable != null)
+                    tickableToHighlight =
+                        tickable.ActualRateMultiplier(TimeSpeed.Normal) == 0f ? tickable.TickableId : (int?)null;
+            }
 
             TimeSpeed newSpeed = Find.TickManager.CurTimeSpeed;
             Find.TickManager.CurTimeSpeed = savedSpeed;
@@ -219,9 +231,15 @@ namespace Multiplayer.Client.AsyncTime
         }
     }
 
+    [HotSwappable]
     [HarmonyPatch(typeof(ColonistBar), nameof(ColonistBar.ColonistBarOnGUI))]
     public static class ColonistBarTimeControl
     {
+        public static Color normalBgColor = new Color(0.5f, 0.5f, 0.5f, 0.4f);
+        public static Color pauseBgColor = new Color(1f, 0.5f, 0.5f, 0.4f);
+        public static float btnWidth = TimeControls.TimeButSize.x;
+        public static float btnHeight = TimeControls.TimeButSize.y;
+
         static void Prefix(ref bool __state)
         {
             if (Event.current.type == EventType.MouseDown || Event.current.type == EventType.MouseUp)
@@ -247,27 +265,124 @@ namespace Multiplayer.Client.AsyncTime
             int curGroup = -1;
             foreach (var entry in bar.Entries)
             {
-                if (entry.map == null || curGroup == entry.group) continue;
+                if (entry.pawn == null || entry.pawn.Dead || curGroup == entry.group) continue;
 
-                float alpha = 1.0f;
-                if (entry.map != Find.CurrentMap || WorldRendererUtility.WorldRenderedNow)
-                    alpha = 0.75f;
+                ITickable entryTickable = entry.map?.AsyncTime();
+                if (entryTickable == null) entryTickable = Multiplayer.WorldComp;
 
-                Rect rect = bar.drawer.GroupFrameRect(entry.group);
-                Rect button = new Rect(rect.x - TimeControls.TimeButSize.x / 2f, rect.yMax - TimeControls.TimeButSize.y / 2f, TimeControls.TimeButSize.x, TimeControls.TimeButSize.y);
-                var asyncTime = entry.map.AsyncTime();
+                Rect groupBar = bar.drawer.GroupFrameRect(entry.group);
+                float drawXPos = groupBar.x;
+                Color bgColor = (entryTickable.ActualRateMultiplier(TimeSpeed.Normal) == 0f) ? pauseBgColor : normalBgColor;
 
                 if (MultiplayerWorldComp.asyncTime)
                 {
-                    TimeControl.TimeControlButton(button, asyncTime, alpha);
+                    Rect button = new Rect(drawXPos, groupBar.yMax, btnWidth, btnHeight);
+
+                    if (entry.map != null)
+                    {
+                        TimeControl.TimeControlButton(button, bgColor, entryTickable);
+                        drawXPos += TimeControls.TimeButSize.x;
+                    }
+                    else if (entryTickable.ActualRateMultiplier(TimeSpeed.Normal) == 0f)
+                    {
+                        TimeControl.TimeIndicateBlockingPause(button, bgColor);
+                        drawXPos += TimeControls.TimeButSize.x;
+                    }
                 }
-                else if (asyncTime.TickRateMultiplier(TimeSpeed.Normal) == 0f) // Blocking pause
+                else if (entryTickable.TickRateMultiplier(TimeSpeed.Normal) == 0f)
                 {
-                    Widgets.DrawRectFast(button, new Color(1f, 0.5f, 0.5f, 0.4f * alpha));
-                    Widgets.ButtonImage(button, TexButton.SpeedButtonTextures[0]);
+                    Rect button = new Rect(drawXPos, groupBar.yMax, btnWidth, btnHeight);
+                    TimeControl.TimeIndicateBlockingPause(button, bgColor);
+                    drawXPos += TimeControls.TimeButSize.x;
+                }
+
+                List<FloatMenuOption> options = GetBlockingWindowOptions(entry, entryTickable);
+                if (!options.NullOrEmpty())
+                {
+                    Rect button = new Rect(drawXPos, groupBar.yMax, btnWidth, btnHeight);
+                    DrawWindowShortcuts(button, bgColor, options);
+
+                    if (TimeControlPatch.tickableToHighlight != null && Event.current.type == EventType.Repaint)
+                    {
+                        if (TimeControlPatch.tickableToHighlight.Value == entryTickable.TickableId && ((int)(Time.time * 3)) % 2 == 0)
+                            Widgets.DrawBox(button, 2);
+                        TimeControlPatch.tickableToHighlight = null;
+                    }
                 }
 
                 curGroup = entry.group;
+            }
+        }
+
+        static void DrawWindowShortcuts(Rect button, Color bgColor, List<FloatMenuOption> options)
+        {
+            Widgets.DrawRectFast(button, bgColor);
+
+            if (Widgets.ButtonImage(button, TexButton.OpenStatsReport))
+            {
+                if (options.Count == 1)
+                    options[0].action();
+                else
+                    Find.WindowStack.Add(new FloatMenu(options));
+            }
+        }
+
+        static List<FloatMenuOption> GetBlockingWindowOptions(ColonistBar.Entry entry, ITickable tickable)
+        {
+            List<FloatMenuOption> options = new List<FloatMenuOption>();
+            var split = Multiplayer.WorldComp.splitSession;
+
+            if (split != null && split.Caravan.pawns.Contains(entry.pawn) == true)
+            {
+                options.Add(new FloatMenuOption("MpCaravanSplittingSession".Translate(), () =>
+                {
+                    SwitchMap(entry.map);
+                    CameraJumper.TryJumpAndSelect(entry.pawn);
+                    Multiplayer.WorldComp.splitSession.OpenWindow();
+                }));
+            }
+
+            if (Multiplayer.WorldComp.trading.FirstOrDefault(t => t.playerNegotiator?.Map == entry.map) is MpTradeSession trade)
+            {
+                options.Add(new FloatMenuOption("MpTradingSession".Translate(), () =>
+                {
+                    SwitchMap(entry.map);
+                    CameraJumper.TryJumpAndSelect(trade.playerNegotiator);
+                    Find.WindowStack.Add(new TradingWindow() { selectedTab = Multiplayer.WorldComp.trading.IndexOf(trade) });
+                }));
+            }
+
+            if (entry.map?.MpComp().transporterLoading != null)
+            {
+                options.Add(new FloatMenuOption("MpTransportLoadingSession".Translate(), () =>
+                {
+                    SwitchMap(entry.map);
+                    entry.map.MpComp().transporterLoading.OpenWindow();
+                }));
+            }
+
+            if (entry.map?.MpComp().caravanForming != null)
+            {
+                options.Add(new FloatMenuOption("MpCaravanFormingSession".Translate(), () =>
+                {
+                    SwitchMap(entry.map);
+                    entry.map.MpComp().caravanForming.OpenWindow();
+                }));
+            }
+
+            return options;
+        }
+
+        static void SwitchMap(Map map)
+        {
+            if (map == null)
+            {
+                Find.World.renderer.wantedMode = WorldRenderMode.Planet;
+            }
+            else
+            {
+                if (WorldRendererUtility.WorldRenderedNow) CameraJumper.TryHideWorld();
+                Current.Game.CurrentMap = map;
             }
         }
     }
@@ -287,7 +402,7 @@ namespace Multiplayer.Client.AsyncTime
             __state = button;
 
             if (Event.current.type == EventType.MouseDown || Event.current.type == EventType.MouseUp)
-                TimeControl.TimeControlButton(__state.Value, Multiplayer.WorldComp, 0.5f);
+                TimeControl.TimeControlButton(__state.Value, ColonistBarTimeControl.normalBgColor, Multiplayer.WorldComp);
         }
 
         static void Postfix(MainButtonWorker __instance, Rect? __state)
@@ -295,17 +410,24 @@ namespace Multiplayer.Client.AsyncTime
             if (__state == null) return;
 
             if (Event.current.type == EventType.Repaint)
-                TimeControl.TimeControlButton(__state.Value, Multiplayer.WorldComp, 0.5f);
+                TimeControl.TimeControlButton(__state.Value, ColonistBarTimeControl.normalBgColor, Multiplayer.WorldComp);
         }
     }
 
     static class TimeControl
     {
-        public static void TimeControlButton(Rect button, ITickable tickable, float alpha)
+        public static void TimeIndicateBlockingPause(Rect button, Color bgColor)
         {
-            Widgets.DrawRectFast(button, new Color(0.5f, 0.5f, 0.5f, 0.4f * alpha));
+            Widgets.DrawRectFast(button, bgColor);
+            Widgets.ButtonImage(button, TexButton.SpeedButtonTextures[0], doMouseoverSound: false);
+        }
 
+        public static void TimeControlButton(Rect button, Color bgColor, ITickable tickable)
+        {
             int speed = (int)tickable.TimeSpeed;
+            if (tickable.ActualRateMultiplier(TimeSpeed.Normal) == 0f)
+                speed = 0;
+            Widgets.DrawRectFast(button, bgColor);
             if (Widgets.ButtonImage(button, TexButton.SpeedButtonTextures[speed]))
             {
                 int dir = Event.current.button == 0 ? 1 : -1;

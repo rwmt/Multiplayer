@@ -74,6 +74,8 @@ namespace Multiplayer.Client
 
         public Queue<ScheduledCommand> Cmds { get => cmds; }
 
+        public int TickableId => map.uniqueID;
+
         public Map map;
         public int mapTicks;
         private TimeSpeed timeSpeedInt;

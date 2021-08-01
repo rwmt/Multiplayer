@@ -33,7 +33,7 @@ namespace Multiplayer.Client.Persistent
         /// <summary>
         /// The caravan being split.
         /// </summary>
-        private readonly Caravan caravan;
+        public Caravan Caravan { get; private set; }
 
         /// <summary>
         /// Reference to the dialog that is being displayed.
@@ -48,7 +48,7 @@ namespace Multiplayer.Client.Persistent
         private CaravanSplittingSession(Caravan caravan)
         {
             sessionId = Multiplayer.GlobalIdBlock.NextId();
-            this.caravan = caravan;
+            Caravan = caravan;
 
             AddItems();
         }
@@ -56,7 +56,7 @@ namespace Multiplayer.Client.Persistent
         private void AddItems()
         {
             CaravanSplittingProxy.CreatingProxy = true;
-            dialog = new CaravanSplittingProxy(caravan) {
+            dialog = new CaravanSplittingProxy(Caravan) {
                 session = this
             };
             CaravanSplittingProxy.CreatingProxy = false;
@@ -90,7 +90,7 @@ namespace Multiplayer.Client.Persistent
                 IgnorePawnsInventoryMode.Ignore,
                 () => dialog.DestMassCapacity - dialog.DestMassUsage,
                 false,
-                caravan.Tile,
+                Caravan.Tile,
                 false
             );
 
@@ -102,7 +102,7 @@ namespace Multiplayer.Client.Persistent
         private CaravanSplittingProxy PrepareDialogProxy()
         {
             CaravanSplittingProxy.CreatingProxy = true;
-            var newProxy = new CaravanSplittingProxy(caravan)
+            var newProxy = new CaravanSplittingProxy(Caravan)
             {
                 transferables = transferables,
                 session = this

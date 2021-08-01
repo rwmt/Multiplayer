@@ -124,14 +124,6 @@ namespace Multiplayer.Client
         {
         }
 
-        public override void PostClose()
-        {
-            base.PostClose();
-
-            if (Session != null)
-                Find.World.renderer.wantedMode = WorldRenderMode.Planet;
-        }
-
         public override void DoWindowContents(Rect inRect)
         {
             drawing = this;
@@ -282,9 +274,9 @@ namespace Multiplayer.Client
             if (Multiplayer.ExecutingCmds || Multiplayer.Ticking)
             {
                 var comp = map.MpComp();
-                if (comp.transporterLoading == null)
-                    comp.CreateTransporterLoadingSession(transporters);
-
+                TransporterLoading loading = comp.CreateTransporterLoadingSession(transporters);
+                if (TickPatch.currentExecutingCmdIssuedBySelf)
+                    loading.OpenWindow();
                 return true;
             }
 

@@ -72,7 +72,11 @@
   <MpTraderLeavesIn>Leaves in {0}</MpTraderLeavesIn>
   
   <MpChatButton>Chat</MpChatButton>
-  <MpTradingButton>Trading</MpTradingButton>
+  
+  <MpTradingSession>Trading session</MpTradingSession>
+  <MpTransportLoadingSession>Transport pod loading session</MpTransportLoadingSession>
+  <MpCaravanFormingSession>Caravan forming session</MpCaravanFormingSession>
+  <MpCaravanSplittingSession>Caravan splitting session</MpCaravanSplittingSession>
   
   <MpChatPlayers>Players ({0}):</MpChatPlayers>
   <MpSend>Send</MpSend>

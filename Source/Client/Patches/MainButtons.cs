@@ -16,6 +16,10 @@ namespace Multiplayer.Client
     [HarmonyPatch(typeof(MainButtonsRoot), nameof(MainButtonsRoot.MainButtonsOnGUI))]
     public static class MainButtonsPatch
     {
+        const float btnMargin = 8f;
+        const float btnHeight = 27f;
+        const float btnWidth = 80f;
+
         static bool Prefix()
         {
             Text.Font = GameFont.Small;
@@ -98,18 +102,14 @@ namespace Multiplayer.Client
 
         static void DoButtons()
         {
-            float y = 10f;
-            const float btnHeight = 27f;
-            const float btnWidth = 80f;
-
-            float x = UI.screenWidth - btnWidth - 10f;
+            float x = UI.screenWidth - btnWidth - btnMargin;
+            float y = btnMargin;
 
             var session = Multiplayer.session;
 
             if (session != null && !Multiplayer.IsReplay)
             {
                 var btnRect = new Rect(x, y, btnWidth, btnHeight);
-
                 var chatColor = session.players.Any(p => p.status == PlayerStatus.Desynced) ? "#ff5555" : "#dddddd";
                 var hasUnread = session.hasUnread ? "*" : "";
                 var chatLabel = $"{"MpChatButton".Translate()} <color={chatColor}>({session.players.Count})</color>{hasUnread}";
@@ -141,17 +141,9 @@ namespace Multiplayer.Client
                     Find.WindowStack.Add(Multiplayer.WriterLog);
 
                 y += btnHeight;
-
                 if (Widgets.ButtonText(new Rect(x, y, btnWidth, btnHeight), $"Read ({Multiplayer.ReaderLog.nodes.Count})"))
                     Find.WindowStack.Add(Multiplayer.ReaderLog);
-
-                y += btnHeight;
-            }
-
-            if (Multiplayer.Client != null && Multiplayer.WorldComp.trading.Any())
-            {
-                if (Widgets.ButtonText(new Rect(x, y, btnWidth, btnHeight), "MpTradingButton".Translate()))
-                    Find.WindowStack.Add(new TradingWindow());
+                
                 y += btnHeight;
             }
 
@@ -259,9 +251,11 @@ namespace Multiplayer.Client
                 if (mouseEvent != null)
                     tooltip = $"{mouseEvent.name}\n{tooltip}";
 
-                TooltipHandler.TipRegion(rect, new TipSignal(tooltip, 215462143));
-                // No delay between the mouseover and showing
-                if (TooltipHandler.activeTips.TryGetValue(215462143, out ActiveTip tip))
+                const int TickTipId = 215462143;
+
+                TooltipHandler.TipRegion(rect, new TipSignal(tooltip, TickTipId));
+                // Remove delay between the mouseover and showing
+                if (TooltipHandler.activeTips.TryGetValue(TickTipId, out ActiveTip tip))
                     tip.firstTriggerTime = 0;
             }
 

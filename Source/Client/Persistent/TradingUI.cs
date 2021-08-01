@@ -17,6 +17,7 @@ using Verse.AI.Group;
 
 namespace Multiplayer.Client
 {
+    [HotSwappable]
     public class TradingWindow : Window
     {
         public static TradingWindow drawingTrade;
@@ -152,14 +153,6 @@ namespace Multiplayer.Client
             return null;
         }
 
-        public override void PostClose()
-        {
-            base.PostClose();
-
-            if (selectedTab >= 0 && Multiplayer.WorldComp.trading.ElementAtOrDefault(selectedTab)?.playerNegotiator.Map == Find.CurrentMap)
-                Find.World.renderer.wantedMode = WorldRenderMode.Planet;
-        }
-
         private void RecreateDialog()
         {
             var session = Multiplayer.WorldComp.trading[selectedTab];
@@ -242,30 +235,6 @@ namespace Multiplayer.Client
                 foreach (var kv in drawingTrade.removed)
                     if (!TradeSession.giftMode || kv.Key.FirstThingColony != null)
                         yield return kv.Key;
-            }
-        }
-    }
-
-    [HarmonyPatch]
-    static class ShowTradingWindow
-    {
-        public static int tradeJobStartedByMe = -1;
-
-        static MethodBase TargetMethod()
-        {
-            List<Type> nestedPrivateTypes = new List<Type>(typeof(JobDriver_TradeWithPawn).GetNestedTypes(BindingFlags.NonPublic));
-
-            Type cType = nestedPrivateTypes.Find(t => t.Name.Equals("<>c__DisplayClass3_0"));
-
-            return AccessTools.Method(cType, "<MakeNewToils>b__1");
-        }
-
-        static void Prefix(Toil ___trade)
-        {
-            if (___trade.actor.CurJob.loadID == tradeJobStartedByMe)
-            {
-                Find.WindowStack.Add(new TradingWindow());
-                tradeJobStartedByMe = -1;
             }
         }
     }

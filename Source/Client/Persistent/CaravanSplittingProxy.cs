@@ -1,4 +1,4 @@
-﻿using RimWorld.Planet;
+using RimWorld.Planet;
 using UnityEngine;
 using Verse;
 using Verse.Sound;
