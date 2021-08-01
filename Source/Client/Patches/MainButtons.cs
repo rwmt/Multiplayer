@@ -37,7 +37,10 @@ namespace Multiplayer.Client
 
             DoButtons();
 
-            if (Multiplayer.Client != null && !Multiplayer.IsReplay && Multiplayer.ToggleChatDef.KeyDownEvent)
+            if (Multiplayer.Client != null
+                && !Multiplayer.IsReplay
+                && Multiplayer.ToggleChatDef != null
+                && Multiplayer.ToggleChatDef.KeyDownEvent)
             {
                 Event.current.Use();
 
