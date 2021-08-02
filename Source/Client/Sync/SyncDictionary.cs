@@ -1415,6 +1415,19 @@ namespace Multiplayer.Client
                     return ideo?.PreceptsListForReading.FirstOrDefault(p => p.Id == id);
                 },
                 true
+            },
+            {
+                (ByteWriter data, ShipJob job) => {
+                    WriteSync(data, job.transportShip.ShuttleComp);
+                    data.WriteInt32(job.loadID);
+                },
+                (ByteReader data) => {
+                    var ship = ReadSync<CompShuttle>(data).shipParent;
+                    var id = data.ReadInt32();
+                    if (ship.curJob?.loadID == id) return ship.curJob;
+                    return ship.shipJobs.FirstOrDefault(j => j.loadID == id);
+                },
+                true
             }
             #endregion
         };

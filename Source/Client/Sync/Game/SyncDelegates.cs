@@ -96,6 +96,9 @@ namespace Multiplayer.Client
 
             SyncDelegate.Register(typeof(ITab_Pawn_Visitor), "<>c__DisplayClass7_0", "<FillTab>b__1").SetContext(SyncContext.MapSelected).CancelIfNoSelectedObjects(); // Select target prisoner ideology
             SyncDelegate.Register(typeof(ITab_Pawn_Visitor), "<>c__DisplayClass7_1", "<FillTab>b__8").SetContext(SyncContext.MapSelected).CancelIfNoSelectedObjects(); // Cancel setting slave mode to execution
+
+            SyncMethod.Register(typeof(ShipJob_Wait), "<GetJobGizmos>b__11_0"); // Dismiss (unload) shuttle
+            SyncMethod.Register(typeof(ShipJob_Wait), "<GetJobGizmos>b__11_1"); // Send loaded shuttle
         }
 
         [MpPrefix(typeof(FormCaravanComp), "<>c__DisplayClass17_0", "<GetGizmos>b__0")]
