@@ -15,8 +15,16 @@
 
   <MpWrongDefs>모드 불일치</MpWrongDefs>
   <MpWrongDefsInfo>설치된 모드와 버전이 서버와 동일한지 확인해주세요.</MpWrongDefsInfo>
+  <MpWrongModConfigs>모드 설정 불일치</MpWrongModConfigs>
+  <MpWrongModConfigsInfo>모드의 설정이 서버와 다릅니다. 최선의 결과를 위해 설정을 동기화하세요.</MpWrongModConfigsInfo>
   <MpModList>모드 목록</MpModList>
+  <MpSyncModsAndConfigs>모드와 설정 동기화</MpSyncModsAndConfigs>
+  <MpSyncMods>모드 동기화</MpSyncMods>
+  <MpSyncModConfigs>모드 설정 동기화</MpSyncModConfigs>
+  <MpSyncModConfigsDesc>클라이언트가 서버와 같은 모드 설정을 다운로드하도록 강제합니다. 연결이 덜 끊깁니다.</MpSyncModConfigsDesc>
   <MpSeeModList>모드 목록 보기</MpSeeModList>
+  <MpDownloadingWorkshopMods>창작마당 모드 다운로드중</MpDownloadingWorkshopMods>
+  <MpRestoreLastConfigs>이전 설정으로 되돌리기</MpRestoreLastConfigs>
 
   <MpServerClosed>서버가 닫혔습니다</MpServerClosed>
   <MpServerFull>서버가 다 찼습니다</MpServerFull>
@@ -40,6 +48,8 @@
 
   <MpHostServer>서버 열기</MpHostServer>
   <MpSaveReplay>퀵세이브</MpSaveReplay>
+  <MpFullSave>풀세이브</MpFullSave>
+  <MpFullSaveDesc>풀세이브는 저장이 오래걸리지만 불러오는 속도가 빠릅니다. 서버만 할 수 있습니다.</MpFullSaveDesc>
 
   <MpConvert>싱글플레이로 변환</MpConvert>
   <MpConverting>변환하는 중</MpConverting>
@@ -77,6 +87,7 @@
 
   <MpDesynced>게임 연결이 끊겼습니다.</MpDesynced>
   <MpTryResync>다시 연결하기</MpTryResync>
+  <MpTryRehost>서버 다시 열기</MpTryRehost>
 
   <MpSaveReplayAs>퀵세이브 이름</MpSaveReplayAs>
   <MpWillOverwrite>덮어쓰기</MpWillOverwrite>
@@ -84,7 +95,8 @@
 
   <MpGameName>서버 제목</MpGameName>
   <MpMaxPlayers>최대 플레이어</MpMaxPlayers>
-  <MpAutosaveEvery>자동저장 </MpAutosaveEvery>
+  <MpAutosaveEvery>자동저장 간격</MpAutosaveEvery>
+  <MpAutosaveDays>일</MpAutosaveDays>
   <MpAutosaveMinutes>분 마다</MpAutosaveMinutes>
   <MpLanDesc1>로컬 네트워크에 서버를 엽니다.</MpLanDesc1>
   <MpLanDesc2>현재 LAN 주소: {0}</MpLanDesc2>
@@ -112,10 +124,12 @@
   <MpNotInMultiplayer>멀티중 아님</MpNotInMultiplayer>
 
   <MpPauseOnAutosave>자동저장 후 일시정지</MpPauseOnAutosave>
-  <MpAppendNameToAutosave>Append Name to Autosave</MpAppendNameToAutosave>
-  <MpPauseAutosaveCounter>Pause autosave counter</MpPauseAutosaveCounter>
-  <MpPauseAutosaveCounterDesc>Pauses the counter along with the game preventing autosaving while time is paused.</MpPauseAutosaveCounterDesc>
-  <MpPauseOnAutosave>자동저장 시 일시정지</MpPauseOnAutosave> 
+  <MpAppendNameToAutosave>자동저장에 이름 덧붙이기</MpAppendNameToAutosave>
+  <MpPauseAutosaveCounter>자동저장 카운터 일시정지</MpPauseAutosaveCounter>
+  <MpPauseAutosaveCounterDesc>일시정지한 채로 시간이 지났을 때 자동저장하지 않도록 카운터를 멈춥니다.</MpPauseAutosaveCounterDesc>
+  <MpShowModCompatibility>모드 호환성 보여주기</MpShowModCompatibility>
+  <MpShowModCompatibilityDesc>모드 관리자에서 사람들이 투표한 [4] 호환성을 보여줍니다.</MpShowModCompatibilityDesc>
+
   <MpLan>LAN</MpLan>
   <MpDirect>직접 연결</MpDirect>
   <MpSteam>스팀</MpSteam>
