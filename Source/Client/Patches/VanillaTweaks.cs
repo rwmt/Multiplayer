@@ -109,7 +109,7 @@ namespace Multiplayer.Client
             if (__instance.ID == -LongEventWindowPreventCameraMotion.LongEventWindowId ||
                 __instance.ID == -MainButtonsPatch.SkippingWindowId ||
                 __instance is DisconnectedWindow ||
-                __instance is MpFormingCaravanWindow
+                __instance is CaravanFormingProxy
             )
                 Widgets.DrawBoxSolid(new Rect(0, 0, UI.screenWidth, UI.screenHeight), new Color(0, 0, 0, 0.5f));
         }

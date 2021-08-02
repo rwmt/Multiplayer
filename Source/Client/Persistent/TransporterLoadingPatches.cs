@@ -10,153 +10,14 @@ using RimWorld.Planet;
 using UnityEngine;
 using Verse;
 
-namespace Multiplayer.Client
+namespace Multiplayer.Client.Persistent
 {
-    public class TransporterLoading : IExposable, ISessionWithTransferables
-    {
-        public int SessionId => sessionId;
-
-        public int sessionId;
-        public Map map;
-
-        public List<CompTransporter> transporters;
-        public List<ThingWithComps> pods;
-        public List<TransferableOneWay> transferables;
-
-        public bool uiDirty;
-
-        public TransporterLoading(Map map)
-        {
-            this.map = map;
-        }
-
-        public TransporterLoading(Map map, List<CompTransporter> transporters) : this(map)
-        {
-            sessionId = Multiplayer.GlobalIdBlock.NextId();
-            this.transporters = transporters;
-            pods = transporters.Select(t => t.parent).ToList();
-
-            AddItems();
-        }
-
-        private void AddItems()
-        {
-            var dialog = new MpLoadTransportersWindow(map, transporters);
-            dialog.CalculateAndRecacheTransferables();
-            transferables = dialog.transferables;
-        }
-
-        [SyncMethod]
-        public void TryAccept()
-        {
-            if (PrepareDummyDialog().TryAccept())
-                Remove();
-        }
-
-        [SyncMethod(debugOnly = true)]
-        public void DebugTryLoadInstantly()
-        {
-            if (PrepareDummyDialog().DebugTryLoadInstantly())
-                Remove();
-        }
-
-        [SyncMethod]
-        public void Reset()
-        {
-            transferables.ForEach(t => t.CountToTransfer = 0);
-            uiDirty = true;
-        }
-
-        [SyncMethod]
-        public void Remove()
-        {
-            map.MpComp().transporterLoading = null;
-        }
-
-        public void OpenWindow(bool sound = true)
-        {
-            Find.Selector.ClearSelection();
-
-            var dialog = PrepareDummyDialog();
-            if (!sound)
-                dialog.soundAppear = null;
-            dialog.doCloseX = true;
-
-            dialog.CalculateAndRecacheTransferables();
-
-            Find.WindowStack.Add(dialog);
-        }
-
-        private MpLoadTransportersWindow PrepareDummyDialog()
-        {
-            return new MpLoadTransportersWindow(map, transporters) { itemsReady = true, transferables = transferables };
-        }
-
-        public void ExposeData()
-        {
-            Scribe_Collections.Look(ref transferables, "transferables", LookMode.Deep);
-            Scribe_Collections.Look(ref pods, "transporters", LookMode.Reference);
-
-            if (Scribe.mode == LoadSaveMode.ResolvingCrossRefs)
-                transporters = pods.Select(t => t.GetComp<CompTransporter>()).ToList();
-        }
-
-        public Transferable GetTransferableByThingId(int thingId)
-        {
-            return transferables.Find(tr => tr.things.Any(t => t.thingIDNumber == thingId));
-        }
-
-        public void Notify_CountChanged(Transferable tr)
-        {
-            uiDirty = true;
-        }
-    }
-
-    public class MpLoadTransportersWindow : Dialog_LoadTransporters
-    {
-        public static MpLoadTransportersWindow drawing;
-
-        public bool itemsReady;
-
-        public TransporterLoading Session => map.MpComp().transporterLoading;
-
-        public MpLoadTransportersWindow(Map map, List<CompTransporter> transporters) : base(map, transporters)
-        {
-        }
-
-        public override void DoWindowContents(Rect inRect)
-        {
-            drawing = this;
-
-            try
-            {
-                var session = Session;
-
-                if (session == null)
-                {
-                    Close();
-                }
-                else if (session.uiDirty)
-                {
-                    CountToTransferChanged();
-                    session.uiDirty = false;
-                }
-
-                base.DoWindowContents(inRect);
-            }
-            finally
-            {
-                drawing = null;
-            }
-        }
-    }
-
     [HarmonyPatch(typeof(Widgets), nameof(Widgets.ButtonText), new[] { typeof(Rect), typeof(string), typeof(bool), typeof(bool), typeof(bool) })]
     static class MakeCancelLoadingButtonRed
     {
         static void Prefix(string label, ref bool __state)
         {
-            if (MpLoadTransportersWindow.drawing == null) return;
+            if (TransporterLoadingProxy.drawing == null) return;
             if (label != "CancelButton".Translate()) return;
 
             GUI.color = new Color(1f, 0.3f, 0.35f);
@@ -170,7 +31,7 @@ namespace Multiplayer.Client
             GUI.color = Color.white;
             if (__result)
             {
-                MpLoadTransportersWindow.drawing.Session?.Remove();
+                TransporterLoadingProxy.drawing.Session?.Remove();
                 __result = false;
             }
         }
@@ -181,7 +42,7 @@ namespace Multiplayer.Client
     {
         static void Prefix(string label, ref bool __state)
         {
-            if (MpLoadTransportersWindow.drawing == null) return;
+            if (TransporterLoadingProxy.drawing == null) return;
             if (label != "ResetButton".Translate()) return;
 
             __state = true;
@@ -193,7 +54,7 @@ namespace Multiplayer.Client
 
             if (__result)
             {
-                MpLoadTransportersWindow.drawing.Session?.Reset();
+                TransporterLoadingProxy.drawing.Session?.Reset();
                 __result = false;
             }
         }
@@ -210,7 +71,7 @@ namespace Multiplayer.Client
 
         static bool Prefix(Dialog_LoadTransporters __instance)
         {
-            if (__instance is MpLoadTransportersWindow mp && mp.itemsReady)
+            if (__instance is TransporterLoadingProxy mp && mp.itemsReady)
             {
                 mp.transferables = mp.Session.transferables;
                 return false;
@@ -225,7 +86,7 @@ namespace Multiplayer.Client
     {
         static bool Prefix(Dialog_LoadTransporters __instance)
         {
-            if (Multiplayer.ShouldSync && __instance is MpLoadTransportersWindow dialog)
+            if (Multiplayer.ShouldSync && __instance is TransporterLoadingProxy dialog)
             {
                 dialog.Session?.TryAccept();
                 return false;
@@ -240,7 +101,7 @@ namespace Multiplayer.Client
     {
         static bool Prefix(Dialog_LoadTransporters __instance)
         {
-            if (Multiplayer.ShouldSync && __instance is MpLoadTransportersWindow dialog)
+            if (Multiplayer.ShouldSync && __instance is TransporterLoadingProxy dialog)
             {
                 dialog.Session?.DebugTryLoadInstantly();
                 return false;
@@ -303,5 +164,4 @@ namespace Multiplayer.Client
             return false;
         }
     }
-
 }

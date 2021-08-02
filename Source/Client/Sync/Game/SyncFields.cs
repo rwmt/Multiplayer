@@ -415,8 +415,8 @@ namespace Multiplayer.Client
         {
             var session = MpTradeSession.current ??
                 (Multiplayer.Client != null ? Multiplayer.WorldComp.splitSession : null) ??
-                (ISessionWithTransferables)MpFormingCaravanWindow.drawing?.Session ??
-                MpLoadTransportersWindow.drawing?.Session;
+                (ISessionWithTransferables)CaravanFormingProxy.drawing?.Session ??
+                TransporterLoadingProxy.drawing?.Session;
             if (session != null)
                 SyncTradeableCount.Watch(new MpTransferableReference(session, trad));
         }

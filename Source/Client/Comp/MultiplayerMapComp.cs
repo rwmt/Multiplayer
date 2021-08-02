@@ -328,8 +328,8 @@ namespace Multiplayer.Client
                 }
 
                 // Hide transport loading window
-                if (Find.WindowStack.IsOpen(typeof(MpLoadTransportersWindow)))
-                    Find.WindowStack.TryRemove(typeof(MpLoadTransportersWindow), doCloseSound: false);
+                if (Find.WindowStack.IsOpen(typeof(TransporterLoadingProxy)))
+                    Find.WindowStack.TryRemove(typeof(TransporterLoadingProxy), doCloseSound: false);
             }
         }
     }
