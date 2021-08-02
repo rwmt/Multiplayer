@@ -87,16 +87,11 @@ namespace Multiplayer.Client
         {
             Native.InitLmfPtr();
 
-            if (GenCommandLine.CommandLineArgPassed("profiler"))
-                SimpleProfiler.CheckAvailable();
-
             MpLog.info = str => Log.Message($"{username} {TickPatch.Timer} {str}");
             MpLog.error = str => Log.Error(str);
 
             SetUsername();
             CacheXMLMods();
-
-            SimpleProfiler.Init(username);
 
             if (SteamManager.Initialized)
                 SteamIntegration.InitCallbacks();
@@ -184,6 +179,8 @@ namespace Multiplayer.Client
 
             Log.Message(GenFilePaths.ConfigFolderPath);
             Log.Message(""+JoinData.ModConfigPaths.Count());
+
+            SimpleProfiler.Print("start_prof.txt");
         }
 
         public static ModFileDict modFiles = new ModFileDict();

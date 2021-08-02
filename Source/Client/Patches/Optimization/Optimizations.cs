@@ -11,7 +11,7 @@ using Verse;
 
 namespace Multiplayer.Client.EarlyPatches
 {
-    [HarmonyPatch(typeof(XmlNode), nameof(XmlNode.ChildNodes), MethodType.Getter)]
+    //[HarmonyPatch(typeof(XmlNode), nameof(XmlNode.ChildNodes), MethodType.Getter)]
     static class XmlNodeListPatch
     {
         public static bool optimizeXml;

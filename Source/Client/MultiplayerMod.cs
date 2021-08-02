@@ -30,12 +30,23 @@ namespace Multiplayer.Client
         public static bool arbiterInstance;
         public static bool hasLoaded;
 
+        // Prevents Multiplayer.Client access prematurely triggering the static constructor on Multiplayer
+        public static bool HasClientSafe => hasLoaded && Multiplayer.Client != null;
+
         public MultiplayerMod(ModContentPack pack) : base(pack)
         {
             Native.EarlyInit();
             DisableOmitFramePointer();
 
-            if (GenCommandLine.CommandLineArgPassed("arbiter")) {
+            if (GenCommandLine.CommandLineArgPassed("profiler"))
+            {
+                SimpleProfiler.CheckAvailable();
+                Log.Message($"Profiler: {SimpleProfiler.available}");
+                SimpleProfiler.Init("prof");
+            }
+
+            if (GenCommandLine.CommandLineArgPassed("arbiter"))
+            {
                 ArbiterWindowFix.Run();
 
                 arbiterInstance = true;
