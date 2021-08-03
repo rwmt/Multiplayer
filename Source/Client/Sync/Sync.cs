@@ -53,7 +53,7 @@ namespace Multiplayer.Client
 
         static Dictionary<string, SyncField> registeredSyncFields = new Dictionary<string, SyncField>();
 
-        public static Dictionary<SyncField, Dictionary<Pair<object, object>, BufferData>> bufferedChanges = new Dictionary<SyncField, Dictionary<Pair<object, object>, BufferData>>();
+        public static Dictionary<SyncField, Dictionary<(object, object), BufferData>> bufferedChanges = new();
         public static Stack<FieldData> watchedStack = new Stack<FieldData>();
 
         public static bool isDialogNodeTreeOpen = false;
@@ -89,7 +89,7 @@ namespace Multiplayer.Client
                 bool changed = !Equals(newValue, data.oldValue);
                 var cache = (handler.bufferChanges && !Multiplayer.IsReplay) ? bufferedChanges.GetValueSafe(handler) : null;
 
-                if (cache != null && cache.TryGetValue(new Pair<object, object>(data.target, data.index), out BufferData cached)) {
+                if (cache != null && cache.TryGetValue((data.target, data.index), out BufferData cached)) {
                     if (changed && cached.sent)
                         cached.sent = false;
 
@@ -102,7 +102,7 @@ namespace Multiplayer.Client
 
                 if (cache != null) {
                     BufferData bufferData = new BufferData(data.oldValue, newValue);
-                    cache[new Pair<object, object>(data.target, data.index)] = bufferData;
+                    cache[(data.target, data.index)] = bufferData;
                 } else {
                     handler.DoSync(data.target, newValue, data.index);
                 }
@@ -113,7 +113,8 @@ namespace Multiplayer.Client
 
         public static void DialogNodeTreePostfix()
         {
-            if (Multiplayer.Client != null && Find.WindowStack?.WindowOfType<Dialog_NodeTree>() != null) isDialogNodeTreeOpen = true;
+            if (Multiplayer.Client != null && Find.WindowStack?.WindowOfType<Dialog_NodeTree>() != null)
+                isDialogNodeTreeOpen = true;
         }
 
         public static SyncMethod Method(Type targetType, string methodName, SyncType[] argTypes = null)
@@ -454,6 +455,11 @@ namespace Multiplayer.Client
             PatchMethodForDialogNodeTreeSync(method);
         }
 
+        public static void PatchMethodForDialogNodeTreeSync(MethodBase method)
+        {
+            Multiplayer.harmony.Patch(method, postfix: new HarmonyMethod(typeof(Sync), nameof(DialogNodeTreePostfix)));
+        }
+
         private static void PatchMethodForSync(MethodBase method)
         {
             Multiplayer.harmony.Patch(method, transpiler: SyncTemplates.CreateTranspiler());
@@ -471,11 +477,6 @@ namespace Multiplayer.Client
                     Multiplayer.harmony.Patch(attr.Method, prefix, postfix);
                 }
             }
-        }
-
-        public static void PatchMethodForDialogNodeTreeSync(MethodBase method)
-        {
-            Multiplayer.harmony.Patch(method, postfix: new HarmonyMethod(typeof(Sync), nameof(DialogNodeTreePostfix)));
         }
 
         public static void HandleCmd(ByteReader data)

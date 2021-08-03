@@ -29,7 +29,7 @@ namespace Multiplayer.Client.Persistent
         private Map map;
 
         private int sessionId;
-        private RitualData data;
+        public RitualData data;
 
         public int SessionId => sessionId;
 

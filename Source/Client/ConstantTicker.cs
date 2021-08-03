@@ -69,7 +69,7 @@ namespace Multiplayer.Client
 
                     if (!data.sent && TickPatch.Timer - data.timestamp > 30)
                     {
-                        f.DoSync(k.first, data.toSend, k.second);
+                        f.DoSync(k.Item1, data.toSend, k.Item2);
                         data.sent = true;
                         data.timestamp = TickPatch.Timer;
                     }

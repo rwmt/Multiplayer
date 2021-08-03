@@ -96,6 +96,26 @@ namespace Multiplayer.Client
 
             SyncDelegate.Register(typeof(ITab_Pawn_Visitor), "<>c__DisplayClass7_0", "<FillTab>b__1").SetContext(SyncContext.MapSelected).CancelIfNoSelectedObjects(); // Select target prisoner ideology
             SyncDelegate.Register(typeof(ITab_Pawn_Visitor), "<>c__DisplayClass7_1", "<FillTab>b__8").SetContext(SyncContext.MapSelected).CancelIfNoSelectedObjects(); // Cancel setting slave mode to execution
+
+            /*  
+                Ritual dialog
+
+                The UI is split into three types of groups of pawns.
+                Each has three action handlers: (drop), (leftclick), (rightclick)
+                The names in parenths indicate what is synced for the handler.
+
+                (Zero or more) roles: (local TryAssignReplace, local TryAssign), (null), (delegate)
+                Spectators: (assgn.TryAssignSpectate), (local TryAssignAnyRole), (assgn.RemoveParticipant)
+                Not participating: (assgn.RemoveParticipant), (delegate), float menus: (assgn.TryAssignSpectate, local TryAssignReplace, local TryAssign)
+            */
+            SyncDelegate.Register(typeof(Dialog_BeginRitual), "<>c__DisplayClass73_0", "<DrawPawnList>g__TryAssignReplace|4"); // local TryAssignReplace
+            SyncDelegate.Register(typeof(Dialog_BeginRitual), "<>c__DisplayClass73_0", "<DrawPawnList>g__TryAssignAnyRole|8"); // local TryAssignAnyRole
+            SyncDelegate.Register(typeof(Dialog_BeginRitual), "<>c__DisplayClass73_0", "<DrawPawnList>g__TryAssign|3"); // local TryAssignSpectate
+            SyncDelegate.Register(typeof(Dialog_BeginRitual), "<>c__DisplayClass73_0", "<DrawPawnList>b__27"); // Roles right click delegate (try assign spectate)
+            SyncDelegate.Register(typeof(Dialog_BeginRitual), "<>c__DisplayClass73_0", "<DrawPawnList>b__14"); // Not participating left click delegate (try assign any role or spectate)
+
+            SyncMethod.Register(typeof(RitualRoleAssignments), nameof(RitualRoleAssignments.TryAssignSpectate));
+            SyncMethod.Register(typeof(RitualRoleAssignments), nameof(RitualRoleAssignments.RemoveParticipant));
         }
 
         [MpPrefix(typeof(FormCaravanComp), "<>c__DisplayClass17_0", "<GetGizmos>b__0")]

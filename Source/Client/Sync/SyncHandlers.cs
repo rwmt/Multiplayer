@@ -52,7 +52,7 @@ namespace Multiplayer.Client
         }
 
         /// <summary>
-        /// Returns whether the original should cancelled
+        /// Returns whether the original should be cancelled
         /// </summary>
         public bool DoSync(object target, object value, object index = null)
         {
@@ -118,7 +118,7 @@ namespace Multiplayer.Client
 
             object value;
 
-            if (bufferChanges && Sync.bufferedChanges[this].TryGetValue(new Pair<object, object>(target, index), out BufferData cached))
+            if (bufferChanges && Sync.bufferedChanges[this].TryGetValue((target, index), out BufferData cached))
             {
                 value = cached.toSend;
                 target.SetPropertyOrField(memberPath, value, index);
@@ -151,7 +151,7 @@ namespace Multiplayer.Client
 
         public ISyncField SetBufferChanges()
         {
-            Sync.bufferedChanges[this] = new Dictionary<Pair<object, object>, BufferData>();
+            Sync.bufferedChanges[this] = new();
             Sync.bufferedFields.Add(this);
             bufferChanges = true;
             return this;
@@ -216,7 +216,9 @@ namespace Multiplayer.Client
                 instanceType = MpReflection.PathType(this.instancePath);
             }
 
-            method = AccessTools.Method(instanceType, methodName, argTypes?.Select(t => t.type).ToArray()) ?? throw new Exception($"Couldn't find method {instanceType}::{methodName}");
+            method = AccessTools.Method(instanceType, methodName, argTypes?.Select(t => t.type).ToArray())
+                ?? throw new Exception($"Couldn't find method {instanceType}::{methodName}");
+
             this.argTypes = CheckArgs(argTypes);
         }
 

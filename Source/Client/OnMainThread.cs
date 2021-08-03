@@ -143,7 +143,7 @@ namespace Multiplayer.Client
 
                     if (!data.sent && Utils.MillisNow - data.timestamp > 200)
                     {
-                        f.DoSync(k.first, data.toSend, k.second);
+                        f.DoSync(k.Item1, data.toSend, k.Item2);
                         data.sent = true;
                         data.timestamp = Utils.MillisNow;
                     }
@@ -153,12 +153,12 @@ namespace Multiplayer.Client
             }
         }
 
-        public static bool CheckShouldRemove(SyncField field, Pair<object, object> target, BufferData data)
+        public static bool CheckShouldRemove(SyncField field, (object, object) target, BufferData data)
         {
             if (data.sent && Equals(data.toSend, data.actualValue))
                 return true;
 
-            object currentValue = target.first.GetPropertyOrField(field.memberPath, target.second);
+            object currentValue = target.Item1.GetPropertyOrField(field.memberPath, target.Item2);
 
             if (!Equals(currentValue, data.actualValue))
             {

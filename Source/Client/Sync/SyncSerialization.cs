@@ -22,7 +22,7 @@ namespace Multiplayer.Client
 {
     // For a derived type, reduces to syncing the first field found
     // Used to attach lightweight data to objects during syncing
-    // For example: public record TestWrapper(Pawn pawn); syncs the Pawn inside
+    // For example: public record PawnWrapper(Pawn pawn); syncs the Pawn inside
     public abstract record SyncWrapper;
 
     public static class SyncSerialization
