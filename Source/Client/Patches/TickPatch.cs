@@ -63,14 +63,14 @@ namespace Multiplayer.Client
             double delta = time.ElapsedMillisDouble() / 1000.0 * 60.0;
             time.Restart();
 
-            int maxDelta = MultiplayerMod.settings.aggressiveTicking ? 6 : 3;
+            int maxDelta = Multiplayer.settings.aggressiveTicking ? 6 : 3;
 
             if (delta > maxDelta)
                 delta = maxDelta;
 
             accumulator += delta;
 
-            float okDelta = MultiplayerMod.settings.aggressiveTicking ? 2.5f : 1.7f;
+            float okDelta = Multiplayer.settings.aggressiveTicking ? 2.5f : 1.7f;
 
             if (Timer >= tickUntil)
                 accumulator = 0;

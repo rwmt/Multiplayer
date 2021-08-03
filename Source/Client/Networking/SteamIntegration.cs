@@ -33,7 +33,7 @@ namespace Multiplayer.Client
                 var session = Multiplayer.session;
                 if (session?.localSettings != null && session.localSettings.steam && !session.pendingSteam.Contains(req.m_steamIDRemote))
                 {
-                    if (MultiplayerMod.settings.autoAcceptSteam)
+                    if (Multiplayer.settings.autoAcceptSteam)
                         SteamNetworking.AcceptP2PSessionWithUser(req.m_steamIDRemote);
                     else
                         session.pendingSteam.Add(req.m_steamIDRemote);

@@ -26,36 +26,6 @@ namespace Multiplayer.Client
         }
     }
 
-    public class MpTransferableReference
-    {
-        public ISessionWithTransferables session;
-        public Transferable transferable;
-
-        public MpTransferableReference(ISessionWithTransferables session, Transferable transferable)
-        {
-            this.session = session;
-            this.transferable = transferable;
-        }
-
-        public int CountToTransfer
-        {
-            get => transferable.CountToTransfer;
-            set => transferable.CountToTransfer = value;
-        }
-
-        public override int GetHashCode() => transferable.GetHashCode();
-        public override bool Equals(object obj) => obj is MpTransferableReference tr && tr.transferable == transferable;
-    }
-
-    public interface ISessionWithTransferables
-    {
-        int SessionId { get; }
-
-        Transferable GetTransferableByThingId(int thingId);
-
-        void Notify_CountChanged(Transferable tr);
-    }
-
     public static class SyncMarkers
     {
         public static bool manualPriorities;

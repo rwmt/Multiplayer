@@ -20,7 +20,7 @@ namespace Multiplayer.Common
             Player.UpdateStatus(PlayerStatus.Desynced);
 
             // todo
-            //if (MultiplayerMod.settings.autosaveOnDesync)
+            //if (Multiplayer.settings.autosaveOnDesync)
             //    Server.DoAutosave(forcePause: true);
         }
 

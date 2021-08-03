@@ -1,4 +1,5 @@
-﻿using RimWorld;
+using Multiplayer.Common;
+using RimWorld;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -391,6 +392,26 @@ namespace Multiplayer.Client
             Vector4 value = new Vector4(rect.x, rect.y, rect.width, rect.height);
             Scribe_Values.Look(ref value, label);
             rect = new Rect(value.x, value.y, value.z, value.w);
+        }
+
+        public static void ExposeIdBlock(ref IdBlock block, string label)
+        {
+            if (Scribe.mode == LoadSaveMode.Saving && block != null)
+            {
+                string base64 = Convert.ToBase64String(block.Serialize());
+                Scribe_Values.Look(ref base64, label);
+            }
+
+            if (Scribe.mode == LoadSaveMode.LoadingVars)
+            {
+                string base64 = null;
+                Scribe_Values.Look(ref base64, label);
+
+                if (base64 != null)
+                    block = IdBlock.Deserialize(new ByteReader(Convert.FromBase64String(base64)));
+                else
+                    block = null;
+            }
         }
     }
 }

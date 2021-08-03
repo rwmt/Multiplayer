@@ -471,13 +471,13 @@ namespace Multiplayer.Client
 
         private void DrawDirect(Rect inRect)
         {
-            MultiplayerMod.settings.serverAddress = Widgets.TextField(new Rect(inRect.center.x - 200 / 2, 15f, 200, 35f), MultiplayerMod.settings.serverAddress);
+            Multiplayer.settings.serverAddress = Widgets.TextField(new Rect(inRect.center.x - 200 / 2, 15f, 200, 35f), Multiplayer.settings.serverAddress);
 
             const float btnWidth = 115f;
 
             if (Widgets.ButtonText(new Rect(inRect.center.x - btnWidth / 2, 60f, btnWidth, 35f), "MpConnectButton".Translate()))
             {
-                string addr = MultiplayerMod.settings.serverAddress.Trim();
+                string addr = Multiplayer.settings.serverAddress.Trim();
                 int port = MultiplayerServer.DefaultPort;
                 string[] hostport = addr.Split(':');
                 if (hostport.Length == 2)
@@ -489,7 +489,7 @@ namespace Multiplayer.Client
                 try
                 {
                     Find.WindowStack.Add(new ConnectingWindow(hostport[0], port) { returnToServerBrowser = true });
-                    MultiplayerMod.settings.Write();
+                    Multiplayer.settings.Write();
                     Close(false);
                 }
                 catch (Exception)

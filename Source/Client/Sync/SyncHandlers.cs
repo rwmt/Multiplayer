@@ -430,7 +430,7 @@ namespace Multiplayer.Client
             if (fieldPaths == null)
             {
                 List<string> fieldList = new List<string>();
-                Sync.AllDelegateFieldsRecursive(delegateType, path => { fieldList.Add(path); return false; });
+                AllDelegateFieldsRecursive(delegateType, path => { fieldList.Add(path); return false; });
                 this.fieldPaths = fieldList.ToArray();
             }
             else
@@ -590,6 +590,31 @@ namespace Multiplayer.Client
         {
             return $"SyncDelegate {method.FullDescription()}";
         }
+
+        private static bool AllDelegateFieldsRecursive(Type type, Func<string, bool> getter, string path = "")
+        {
+            if (path.NullOrEmpty())
+                path = type.ToString();
+
+            foreach (FieldInfo field in type.GetDeclaredInstanceFields())
+            {
+                string curPath = path + "/" + field.Name;
+
+                if (typeof(Delegate).IsAssignableFrom(field.FieldType))
+                    continue;
+
+                if (getter(curPath))
+                    return true;
+
+                if (!field.FieldType.IsCompilerGenerated())
+                    continue;
+
+                if (AllDelegateFieldsRecursive(field.FieldType, getter, curPath))
+                    return true;
+            }
+
+            return false;
+        }
     }
 
     public delegate ref Action ActionGetter<T>(T t);
@@ -696,7 +721,7 @@ namespace Multiplayer.Client
 
                     postfix.priority = MpPriority.MpLast;
 
-                    MultiplayerMod.harmony.Patch(method, prefix, postfix);
+                    Multiplayer.harmony.Patch(method, prefix, postfix);
                     SyncActions.syncActions[method] = this;
                 }
             }

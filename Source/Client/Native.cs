@@ -50,9 +50,11 @@ namespace Multiplayer.Client
             DomainPtr = mono_domain_get();
         }
 
-        // Always run this on the main thread
         public static void InitLmfPtr()
         {
+            if (!UnityData.IsInMainThread)
+                throw new Exception("Multiplayer.Client.Native data getter not running on the main thread!");
+
             var internalThreadField = AccessTools.Field(typeof(Thread), "internal_thread");
             var threadInfoField = AccessTools.Field(internalThreadField.FieldType, "runtime_thread_info");
             var threadInfoPtr = (long)(IntPtr)threadInfoField.GetValue(internalThreadField.GetValue(Thread.CurrentThread));

@@ -8,6 +8,7 @@ using Multiplayer.API;
 using RimWorld;
 using RimWorld.Planet;
 using Verse;
+using Multiplayer.Client.Persistent;
 
 namespace Multiplayer.Client
 {
@@ -88,7 +89,11 @@ namespace Multiplayer.Client
 
         private TransporterLoadingProxy PrepareDummyDialog()
         {
-            return new TransporterLoadingProxy(map, transporters) { itemsReady = true, transferables = transferables };
+            return new TransporterLoadingProxy(map, transporters)
+            {
+                itemsReady = true,
+                transferables = transferables
+            };
         }
 
         public void ExposeData()

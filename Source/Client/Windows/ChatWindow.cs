@@ -50,14 +50,14 @@ namespace Multiplayer.Client
             if (!Multiplayer.session.desynced)
             {
                 layer = WindowLayer.GameUI;
-                doWindowBackground = !MultiplayerMod.settings.transparentChat;
+                doWindowBackground = !Multiplayer.settings.transparentChat;
                 drawShadow = doWindowBackground;
             }
         }
 
         public override void DoWindowContents(Rect inRect)
         {
-            if (MultiplayerMod.settings.transparentChat && !Mouse.IsOver(inRect))
+            if (Multiplayer.settings.transparentChat && !Mouse.IsOver(inRect))
             {
                 GUI.contentColor = new Color(1, 1, 1, 0.8f);
                 GUI.backgroundColor = new Color(1, 1, 1, 0.8f);
@@ -428,14 +428,14 @@ namespace Multiplayer.Client
             if (Multiplayer.session != null && saveSize)
             {
                 SaveChatSize();
-                MultiplayerMod.settings.Write();
+                Multiplayer.settings.Write();
             }
         }
 
         private void SaveChatSize()
         {
-            MultiplayerMod.settings.chatRect = windowRect;
-            MultiplayerMod.settings.resolutionForChat = MpUtil.Resolution;
+            Multiplayer.settings.chatRect = windowRect;
+            Multiplayer.settings.resolutionForChat = MpUtil.Resolution;
         }
 
         public void SetSizeTo(Rect chatRect, Vector2 lastResolution)
@@ -460,8 +460,8 @@ namespace Multiplayer.Client
             var chatWindow = new ChatWindow();
             Find.WindowStack.Add(chatWindow);
 
-            if (MultiplayerMod.settings.chatRect != default)
-                chatWindow.SetSizeTo(MultiplayerMod.settings.chatRect, MultiplayerMod.settings.resolutionForChat);
+            if (Multiplayer.settings.chatRect != default)
+                chatWindow.SetSizeTo(Multiplayer.settings.chatRect, Multiplayer.settings.resolutionForChat);
         }
     }
 

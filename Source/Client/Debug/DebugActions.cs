@@ -83,7 +83,7 @@ namespace Multiplayer.Client
             foreach (var defType in GenTypes.AllLeafSubclasses(typeof(Def)))
             {
                 if (defType.Assembly != typeof(Game).Assembly) continue;
-                if (Multiplayer.IgnoredVanillaDefTypes.Contains(defType)) continue;
+                if (MultiplayerData.IgnoredVanillaDefTypes.Contains(defType)) continue;
 
                 Log.Warning($"== {defType.Name} ==");
                 Log.Message(

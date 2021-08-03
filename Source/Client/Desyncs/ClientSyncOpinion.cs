@@ -116,8 +116,8 @@ namespace Multiplayer.Client
         public string GetFormattedStackTracesForRange(int diffAt)
         {
 
-            var start = Math.Max(0, diffAt - MultiplayerMod.settings.desyncTracesRadius);
-            var end = diffAt + MultiplayerMod.settings.desyncTracesRadius;
+            var start = Math.Max(0, diffAt - Multiplayer.settings.desyncTracesRadius);
+            var end = diffAt + Multiplayer.settings.desyncTracesRadius;
             var traceId = start;
 
             return

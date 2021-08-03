@@ -36,7 +36,7 @@ namespace Multiplayer.Client
 
             UpdateSync();
 
-            if (!MultiplayerMod.arbiterInstance && Application.isFocused && !TickPatch.Skipping && !Multiplayer.session.desynced)
+            if (!Multiplayer.arbiterInstance && Application.isFocused && !TickPatch.Skipping && !Multiplayer.session.desynced)
                 SendVisuals();
 
             if (Multiplayer.Client is SteamBaseConn steamConn && SteamManager.Initialized)
@@ -74,7 +74,7 @@ namespace Multiplayer.Client
                 writer.WriteByte((byte)Find.CurrentMap.Index);
 
                 var icon = Find.MapUI?.designatorManager?.SelectedDesignator?.icon;
-                int iconId = icon == null ? 0 : !Multiplayer.icons.Contains(icon) ? 0 : Multiplayer.icons.IndexOf(icon);
+                int iconId = icon == null ? 0 : !MultiplayerData.icons.Contains(icon) ? 0 : MultiplayerData.icons.IndexOf(icon);
                 writer.WriteByte((byte)iconId);
 
                 writer.WriteVectorXZ(UI.MouseMapPosition());
@@ -200,9 +200,9 @@ namespace Multiplayer.Client
 
             ClearCaches();
 
-            if (MultiplayerMod.arbiterInstance)
+            if (Multiplayer.arbiterInstance)
             {
-                MultiplayerMod.arbiterInstance = false;
+                Multiplayer.arbiterInstance = false;
                 Application.Quit();
             }
         }

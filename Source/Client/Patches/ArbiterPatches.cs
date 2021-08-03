@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using RimWorld;
 using RimWorld.Planet;
 using System;
@@ -22,7 +22,7 @@ namespace Multiplayer.Client
 
         static bool Prefix(ref GUISkin __result)
         {
-            if (!MultiplayerMod.arbiterInstance) return true;
+            if (!Multiplayer.arbiterInstance) return true;
             __result = ScriptableObject.CreateInstance<GUISkin>();
             return false;
         }
@@ -32,7 +32,7 @@ namespace Multiplayer.Client
     static class RenderTextureCreatePatch
     {
         static MethodInfo IsCreated = AccessTools.Method(typeof(RenderTexture), "IsCreated");
-        static FieldInfo ArbiterField = AccessTools.Field(typeof(MultiplayerMod), nameof(MultiplayerMod.arbiterInstance));
+        static FieldInfo ArbiterField = AccessTools.Field(typeof(Multiplayer), nameof(Multiplayer.arbiterInstance));
 
         static IEnumerable<MethodBase> TargetMethods()
         {
@@ -71,17 +71,17 @@ namespace Multiplayer.Client
             yield return AccessTools.Method(typeof(GUIStyle), nameof(GUIStyle.CalcSize));
         }
 
-        static bool Prefix() => !MultiplayerMod.arbiterInstance;
+        static bool Prefix() => !Multiplayer.arbiterInstance;
     }
 
     [HarmonyPatch(typeof(WorldRenderer), MethodType.Constructor)]
     static class CancelWorldRendererCtor
     {
-        static bool Prefix() => !MultiplayerMod.arbiterInstance;
+        static bool Prefix() => !Multiplayer.arbiterInstance;
 
         static void Postfix(WorldRenderer __instance)
         {
-            if (MultiplayerMod.arbiterInstance)
+            if (Multiplayer.arbiterInstance)
                 __instance.layers = new List<WorldLayer>();
         }
     }
@@ -92,7 +92,7 @@ namespace Multiplayer.Client
         static void Postfix(LetterStack __instance)
         {
             if (Multiplayer.Client == null) return;
-            if (!TickPatch.Skipping && !MultiplayerMod.arbiterInstance) return;
+            if (!TickPatch.Skipping && !Multiplayer.arbiterInstance) return;
 
             for (int i = __instance.letters.Count - 1; i >= 0; i--)
             {
@@ -108,7 +108,7 @@ namespace Multiplayer.Client
     {
         static void Postfix()
         {
-            if (MultiplayerMod.arbiterInstance && LongEventHandler.currentEvent != null)
+            if (Multiplayer.arbiterInstance && LongEventHandler.currentEvent != null)
                 LongEventHandler.currentEvent.alreadyDisplayed = true;
         }
     }

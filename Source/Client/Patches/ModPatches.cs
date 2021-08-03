@@ -114,7 +114,7 @@ namespace Multiplayer.Client
 
         public static void ModManager_ButtonPrefix(object __instance, ModMetaData ____selected, Rect rect, Dictionary<string, string> ____modNameTruncationCache)
         {
-            if (!MultiplayerMod.settings.showModCompatibility) return;
+            if (!Multiplayer.settings.showModCompatibility) return;
 
             var tooltip = "";
             var mod = ____selected;

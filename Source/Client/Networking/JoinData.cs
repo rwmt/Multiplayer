@@ -97,7 +97,7 @@ namespace Multiplayer.Client
         public static ModMetaData GetInstalledMod(string id) => ModLister.GetModWithIdentifier(id, true);
         
         public static string NormalizedDataFolder => GenFilePaths.SaveDataFolderPath.NormalizePath();
-        public static ModFileDict ModFiles => Multiplayer.modFiles;
+        public static ModFileDict ModFiles => MultiplayerData.modFiles;
         public static IEnumerable<string> ModConfigPaths => MonoIOPatch.openedFiles.Where(f => f.StartsWith(NormalizedDataFolder));
         public static IEnumerable<(string, string)> ModConfigContents => ModConfigPaths.Select(p => (p.IgnorePrefix(NormalizedDataFolder), File.ReadAllText(p)));
 

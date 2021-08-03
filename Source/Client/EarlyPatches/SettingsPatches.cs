@@ -20,7 +20,7 @@ namespace Multiplayer.Client.EarlyPatches
             yield return AccessTools.PropertyGetter(typeof(Prefs), nameof(Prefs.PauseOnLoad));
         }
 
-        static bool Prefix() => !MultiplayerMod.HasClientSafe;
+        static bool Prefix() => Multiplayer.Client == null;
     }
 
     [HarmonyPatch(typeof(Prefs), nameof(Prefs.PreferredNames), MethodType.Getter)]
@@ -30,7 +30,7 @@ namespace Multiplayer.Client.EarlyPatches
 
         static void Postfix(ref List<string> __result)
         {
-            if (MultiplayerMod.HasClientSafe)
+            if (Multiplayer.Client != null)
                 __result = empty;
         }
     }
@@ -40,7 +40,7 @@ namespace Multiplayer.Client.EarlyPatches
     {
         static void Postfix(ref int __result)
         {
-            if (MultiplayerMod.HasClientSafe)
+            if (Multiplayer.Client != null)
                 __result = 5;
         }
     }
@@ -50,7 +50,7 @@ namespace Multiplayer.Client.EarlyPatches
     {
         static void Postfix(ref bool __result)
         {
-            if (MultiplayerMod.HasClientSafe)
+            if (Multiplayer.Client != null)
                 __result = true;
         }
     }
@@ -70,7 +70,7 @@ namespace Multiplayer.Client.EarlyPatches
     [HarmonyPatch(typeof(TutorSystem), nameof(TutorSystem.AdaptiveTrainingEnabled), MethodType.Getter)]
     static class DisableAdaptiveLearningPatch
     {
-        static bool Prefix() => !MultiplayerMod.HasClientSafe;
+        static bool Prefix() => Multiplayer.Client == null;
     }
 
 }

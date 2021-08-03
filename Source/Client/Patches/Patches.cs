@@ -591,7 +591,7 @@ namespace Multiplayer.Client
     static class CancelSyncDuringPawnGeneration
     {
         static void Prefix() => Multiplayer.dontSync = true;
-        static void Postfix() => Multiplayer.dontSync = false;
+        static void Finalizer() => Multiplayer.dontSync = false;
     }
 
     [HarmonyPatch(typeof(DesignationDragger), nameof(DesignationDragger.UpdateDragCellsIfNeeded))]

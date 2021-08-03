@@ -102,7 +102,7 @@ namespace Multiplayer.Client.Desyncs
 
             long ret;
             long lmfPtr = *(long*)Native.LmfPtr;
-
+            
             int depth = 0;
 
             while (true)

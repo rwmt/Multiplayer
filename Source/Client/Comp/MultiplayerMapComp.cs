@@ -2,9 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using HarmonyLib;
+using Multiplayer.Client.Persistent;
 using RimWorld;
 using RimWorld.Planet;
 using Verse;
+using static RimWorld.Dialog_BeginRitual;
 
 namespace Multiplayer.Client
 {
@@ -20,6 +22,7 @@ namespace Multiplayer.Client
 
         public CaravanFormingSession caravanForming;
         public TransporterLoading transporterLoading;
+        public RitualSession ritualSession;
         public List<PersistentDialog> mapDialogs = new List<PersistentDialog>();
 
         // for SaveCompression
@@ -42,6 +45,13 @@ namespace Multiplayer.Client
             if (transporterLoading == null)
                 transporterLoading = new TransporterLoading(map, transporters);
             return transporterLoading;
+        }
+
+        public RitualSession CreateRitualSession(RitualData data)
+        {
+            if (ritualSession == null)
+                ritualSession = new RitualSession(map, data);
+            return ritualSession;
         }
 
         public void DoTick()
@@ -99,6 +109,7 @@ namespace Multiplayer.Client
 
             Scribe_Deep.Look(ref caravanForming, "caravanFormingSession", map);
             Scribe_Deep.Look(ref transporterLoading, "transporterLoading", map);
+            Scribe_Deep.Look(ref ritualSession, "ritualSession", map);
 
             Scribe_Collections.Look(ref mapDialogs, "mapDialogs", LookMode.Deep, map);
             if (Scribe.mode == LoadSaveMode.LoadingVars && mapDialogs == null)

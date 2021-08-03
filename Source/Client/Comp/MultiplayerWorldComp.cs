@@ -139,7 +139,7 @@ namespace Multiplayer.Client
                     Log.Message("Some trading sessions had null entries");
             }
 
-            Multiplayer.ExposeIdBlock(ref globalIdBlock, "globalIdBlock");
+            ScribeUtil.ExposeIdBlock(ref globalIdBlock, "globalIdBlock");
         }
 
         private int currentFactionId;
@@ -384,7 +384,7 @@ namespace Multiplayer.Client
                 }
             }
 
-            if (!TickPatch.Skipping && !Multiplayer.IsReplay && (Multiplayer.LocalServer != null || MultiplayerMod.arbiterInstance))
+            if (!TickPatch.Skipping && !Multiplayer.IsReplay && (Multiplayer.LocalServer != null || Multiplayer.arbiterInstance))
                 SaveLoad.SendCurrentGameData(true);
         }
 
@@ -392,13 +392,13 @@ namespace Multiplayer.Client
         {
             var autosavePrefix = "Autosave-";
 
-            if (MultiplayerMod.settings.appendNameToAutosave)
+            if (Multiplayer.settings.appendNameToAutosave)
             {
                 autosavePrefix += $"{Multiplayer.session.gameName}-";
             }
 
             return Enumerable
-                .Range(1, MultiplayerMod.settings.autosaveSlots)
+                .Range(1, Multiplayer.settings.autosaveSlots)
                 .Select(i => $"{autosavePrefix}{i}")
                 .OrderBy(s => new FileInfo(Path.Combine(Multiplayer.ReplaysDir, $"{s}.zip")).LastWriteTime)
                 .First();

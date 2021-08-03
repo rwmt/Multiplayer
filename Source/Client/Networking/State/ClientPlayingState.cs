@@ -212,7 +212,7 @@ namespace Multiplayer.Client
             int tick = data.ReadInt32();
             int diffAt = data.ReadInt32();
             var info = Multiplayer.game.sync.knownClientOpinions.FirstOrDefault(b => b.startTick == tick);
-            var side = MultiplayerMod.arbiterInstance ? "Arbiter" : "Host";
+            var side = Multiplayer.arbiterInstance ? "Arbiter" : "Host";
 
             Log.Message($"{info?.desyncStackTraces.Count} {side} traces {diffAt} / {Multiplayer.game.sync.knownClientOpinions.Select(o => o.startTick).Join()}");
 

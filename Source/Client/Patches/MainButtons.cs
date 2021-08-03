@@ -38,8 +38,7 @@ namespace Multiplayer.Client
 
             if (Multiplayer.Client != null
                 && !Multiplayer.IsReplay
-                && Multiplayer.ToggleChatDef != null
-                && Multiplayer.ToggleChatDef.KeyDownEvent)
+                && MultiplayerStatic.ToggleChatDef.KeyDownEvent)
             {
                 Event.current.Use();
 

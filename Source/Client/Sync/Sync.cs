@@ -155,30 +155,6 @@ namespace Multiplayer.Client
             return memberPaths.Select(path => Field(targetType, instancePath, path)).ToArray();
         }
 
-        public static bool AllDelegateFieldsRecursive(Type type, Func<string, bool> getter, string path = "")
-        {
-            if (path.NullOrEmpty())
-                path = type.ToString();
-
-            foreach (FieldInfo field in type.GetDeclaredInstanceFields()) {
-                string curPath = path + "/" + field.Name;
-
-                if (typeof(Delegate).IsAssignableFrom(field.FieldType))
-                    continue;
-
-                if (getter(curPath))
-                    return true;
-
-                if (!field.FieldType.IsCompilerGenerated())
-                    continue;
-
-                if (AllDelegateFieldsRecursive(field.FieldType, getter, curPath))
-                    return true;
-            }
-
-            return false;
-        }
-
         public static ISyncField RegisterSyncField(Type targetType, string fieldName)
         {
             SyncField sf = Field(targetType, null, fieldName);
@@ -480,7 +456,7 @@ namespace Multiplayer.Client
 
         private static void PatchMethodForSync(MethodBase method)
         {
-            MultiplayerMod.harmony.Patch(method, transpiler: SyncTemplates.CreateTranspiler());
+            Multiplayer.harmony.Patch(method, transpiler: SyncTemplates.CreateTranspiler());
         }
 
         public static void ApplyWatchFieldPatches(Type type)
@@ -492,14 +468,14 @@ namespace Multiplayer.Client
 
             foreach (MethodBase toPatch in type.GetDeclaredMethods()) {
                 foreach (var attr in toPatch.AllAttributes<MpPrefix>()) {
-                    MultiplayerMod.harmony.Patch(attr.Method, prefix, postfix);
+                    Multiplayer.harmony.Patch(attr.Method, prefix, postfix);
                 }
             }
         }
 
         public static void PatchMethodForDialogNodeTreeSync(MethodBase method)
         {
-            MultiplayerMod.harmony.Patch(method, postfix: new HarmonyMethod(typeof(Sync), nameof(DialogNodeTreePostfix)));
+            Multiplayer.harmony.Patch(method, postfix: new HarmonyMethod(typeof(Sync), nameof(DialogNodeTreePostfix)));
         }
 
         public static void HandleCmd(ByteReader data)

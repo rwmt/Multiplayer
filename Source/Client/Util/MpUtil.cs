@@ -175,6 +175,14 @@ namespace Multiplayer.Client
         {
             return Path.Combine(GenFilePaths.SaveDataFolderPath, filename);
         }
+
+        public static To ShallowCopy<From, To>(From from, To to) where To : From
+        {
+            foreach (var f in AccessTools.GetDeclaredFields(typeof(From)))
+                f.SetValue(to, f.GetValue(from));
+
+            return to;
+        }
     }
 
     public struct Container<T>
