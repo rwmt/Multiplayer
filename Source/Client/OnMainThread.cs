@@ -136,7 +136,7 @@ namespace Multiplayer.Client
             {
                 if (f.inGameLoop) continue;
 
-                Sync.bufferedChanges[f].RemoveAll((k, data) =>
+                SyncUtil.bufferedChanges[f].RemoveAll((k, data) =>
                 {
                     if (CheckShouldRemove(f, k, data))
                         return true;
@@ -195,7 +195,7 @@ namespace Multiplayer.Client
 
             Find.WindowStack?.WindowOfType<ServerBrowser>()?.Cleanup(true);
 
-            foreach (var entry in Sync.bufferedChanges)
+            foreach (var entry in SyncUtil.bufferedChanges)
                 entry.Value.Clear();
 
             ClearCaches();

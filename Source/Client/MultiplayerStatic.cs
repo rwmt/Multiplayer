@@ -84,6 +84,7 @@ namespace Multiplayer.Client
             catch (Exception e)
             {
                 Log.Error($"Exception during Sync initialization: {e}");
+                Multiplayer.loadingErrors = true;
             }
 
             DeepProfiler.End();
@@ -97,6 +98,7 @@ namespace Multiplayer.Client
             catch (Exception e)
             {
                 Log.Error($"Exception during MpPatching: {e}");
+                Multiplayer.loadingErrors = true;
             }
 
             DeepProfiler.End();
@@ -110,6 +112,7 @@ namespace Multiplayer.Client
             catch (Exception e)
             {
                 Log.Error($"Exception during patching: {e}");
+                Multiplayer.loadingErrors = true;
             }
 
             DeepProfiler.End();
@@ -241,6 +244,7 @@ namespace Multiplayer.Client
                     Log.Message($"Multiplayer :: {category}");
                 }
                 Log.Error(str);
+                Multiplayer.loadingErrors = true;
             }
 
             var harmony = Multiplayer.harmony;

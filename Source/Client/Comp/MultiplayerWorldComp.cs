@@ -268,7 +268,7 @@ namespace Multiplayer.Client
             {
                 if (cmdType == CommandType.Sync)
                 {
-                    Sync.HandleCmd(data);
+                    SyncUtil.HandleCmd(data);
                 }
 
                 if (cmdType == CommandType.DebugTools)

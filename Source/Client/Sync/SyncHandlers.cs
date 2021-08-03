@@ -118,7 +118,7 @@ namespace Multiplayer.Client
 
             object value;
 
-            if (bufferChanges && Sync.bufferedChanges[this].TryGetValue((target, index), out BufferData cached))
+            if (bufferChanges && SyncUtil.bufferedChanges[this].TryGetValue((target, index), out BufferData cached))
             {
                 value = cached.toSend;
                 target.SetPropertyOrField(memberPath, value, index);
@@ -128,7 +128,7 @@ namespace Multiplayer.Client
                 value = target.GetPropertyOrField(memberPath, index);
             }
 
-            Sync.watchedStack.Push(new FieldData(this, target, value, index));
+            SyncUtil.watchedStack.Push(new FieldData(this, target, value, index));
         }
 
         public ISyncField SetVersion(int version)
@@ -151,7 +151,7 @@ namespace Multiplayer.Client
 
         public ISyncField SetBufferChanges()
         {
-            Sync.bufferedChanges[this] = new();
+            SyncUtil.bufferedChanges[this] = new();
             Sync.bufferedFields.Add(this);
             bufferChanges = true;
             return this;
@@ -261,7 +261,7 @@ namespace Multiplayer.Client
 
             writer.WriteInt32(syncId);
 
-            Sync.WriteContext(this, writer);
+            SyncUtil.WriteContext(this, writer);
 
             Map map = writer.MpContext().map;
 
@@ -471,7 +471,7 @@ namespace Multiplayer.Client
 
             writer.WriteInt32(syncId);
 
-            Sync.WriteContext(this, writer);
+            SyncUtil.WriteContext(this, writer);
 
             int mapId = ScheduledCommand.Global;
 

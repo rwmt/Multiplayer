@@ -84,7 +84,7 @@ namespace Multiplayer.Client
 
                 text.Append($" {Multiplayer.GlobalIdBlock.blockStart + Multiplayer.GlobalIdBlock.current}");
 
-                text.Append($"\n{Sync.bufferedChanges.Sum(kv => kv.Value.Count)} {Find.UniqueIDsManager.nextThingID}");
+                text.Append($"\n{SyncUtil.bufferedChanges.Sum(kv => kv.Value.Count)} {Find.UniqueIDsManager.nextThingID}");
                 text.Append($"\n{DeferredStackTracing.acc}");
                 text.Append($"\n{(uint)async.randState} {(uint)(async.randState >> 32)}");
                 text.Append($"\n{(uint)Multiplayer.WorldComp.randState} {(uint)(Multiplayer.WorldComp.randState >> 32)}");

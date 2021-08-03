@@ -62,7 +62,7 @@ namespace Multiplayer.Client
             {
                 if (!f.inGameLoop) continue;
 
-                Sync.bufferedChanges[f].RemoveAll((k, data) =>
+                SyncUtil.bufferedChanges[f].RemoveAll((k, data) =>
                 {
                     if (OnMainThread.CheckShouldRemove(f, k, data))
                         return true;

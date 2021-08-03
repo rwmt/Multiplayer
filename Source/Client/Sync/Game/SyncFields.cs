@@ -483,7 +483,7 @@ namespace Multiplayer.Client
             foreach (var entry in dropdowns)
             {
                 if (entry.option.action != null)
-                    entry.option.action = (Sync.FieldWatchPrefix + watchAction + entry.option.action + Sync.FieldWatchPostfix);
+                    entry.option.action = (SyncUtil.FieldWatchPrefix + watchAction + entry.option.action + SyncUtil.FieldWatchPostfix);
                 yield return entry;
             }
         }

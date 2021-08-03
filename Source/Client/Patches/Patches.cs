@@ -681,9 +681,9 @@ namespace Multiplayer.Client
     {
         static bool Prefix(DiaOption __instance)
         {
-            if (Multiplayer.session == null || !Sync.isDialogNodeTreeOpen || !(__instance.dialog is Dialog_NodeTree dialog))
+            if (Multiplayer.session == null || !SyncUtil.isDialogNodeTreeOpen || !(__instance.dialog is Dialog_NodeTree dialog))
             {
-                Sync.isDialogNodeTreeOpen = false;
+                SyncUtil.isDialogNodeTreeOpen = false;
                 return true;
             }
 
@@ -707,19 +707,19 @@ namespace Multiplayer.Client
 
                 if (dialog != null && position < dialog.curNode.options.Count)
                 {
-                    Sync.isDialogNodeTreeOpen = false; // Prevents infinite loop, otherwise PreSyncDialog would call this method over and over again
+                    SyncUtil.isDialogNodeTreeOpen = false; // Prevents infinite loop, otherwise PreSyncDialog would call this method over and over again
                     var option = dialog.curNode.options[position]; // Get the correct DiaOption
                     option.Activate(); // Call the Activate method to actually "press" the button
 
-                    if (!option.resolveTree) Sync.isDialogNodeTreeOpen = true; // In case dialog is still open, we mark it as such
+                    if (!option.resolveTree) SyncUtil.isDialogNodeTreeOpen = true; // In case dialog is still open, we mark it as such
 
                     // Try opening the trading menu if the picked option was supposed to do so (caravan meeting, trading option)
                     if (Multiplayer.Client != null && Multiplayer.WorldComp.trading.Any(t => t.trader is Caravan))
                         Find.WindowStack.Add(new TradingWindow());
                 }
-                else Sync.isDialogNodeTreeOpen = false;
+                else SyncUtil.isDialogNodeTreeOpen = false;
             }
-            else Sync.isDialogNodeTreeOpen = false;
+            else SyncUtil.isDialogNodeTreeOpen = false;
         }
     }
 
@@ -727,7 +727,7 @@ namespace Multiplayer.Client
     static class NodeTreeDialogMarkClosed
     {
         // Set the dialog as closed in here as well just in case
-        static void Prefix() => Sync.isDialogNodeTreeOpen = false;
+        static void Prefix() => SyncUtil.isDialogNodeTreeOpen = false;
     }
 
     // todo: needed for multifaction

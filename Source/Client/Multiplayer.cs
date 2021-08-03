@@ -68,6 +68,7 @@ namespace Multiplayer.Client
 
         public static bool arbiterInstance;
         public static bool hasLoaded;
+        public static bool loadingErrors;
 
         public Multiplayer(ModContentPack pack) : base(pack)
         {
