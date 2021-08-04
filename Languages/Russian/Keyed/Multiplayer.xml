@@ -23,7 +23,7 @@
   <MpSyncModsAndConfigs>Синхронизировать моды и конфигурации</MpSyncModsAndConfigs>
   <MpSyncMods>Синхронизировать моды</MpSyncMods>
   <MpSyncModConfigs>Синхронизировать конфигурации модов</MpSyncModConfigs>
-  <MpSyncModConfigsDesc>Заставляет клиентов загружать те же конфигурации модов, что и хост; уменьшает десинхронизацию</MpSyncModConfigsDesc>
+  <MpSyncModConfigsDesc>Заставляет клиентов загружать те же конфигурации модов, что и хост; уменьшает количество десинхронизаций</MpSyncModConfigsDesc>
   <MpSeeModList>Посмотреть список модов</MpSeeModList>
   <MpDownloadingWorkshopMods>Скачивание модов из мастерской</MpDownloadingWorkshopMods>
   <MpRestoreLastConfigs>Восстановить последнюю конфигурацию</MpRestoreLastConfigs>
