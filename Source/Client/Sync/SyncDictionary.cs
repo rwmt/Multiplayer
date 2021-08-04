@@ -1392,6 +1392,19 @@ namespace Multiplayer.Client
                 true
             },
             {
+                (ByteWriter data, ShipJob job) => {
+                    WriteSync(data, job.transportShip.ShuttleComp);
+                    data.WriteInt32(job.loadID);
+                },
+                (ByteReader data) => {
+                    var ship = ReadSync<CompShuttle>(data).shipParent;
+                    var id = data.ReadInt32();
+                    if (ship.curJob?.loadID == id) return ship.curJob;
+                    return ship.shipJobs.FirstOrDefault(j => j.loadID == id);
+                },
+                true
+            },
+            {
                 (ByteWriter data, RitualRoleAssignments assgn) => {
                     // In Multiplayer, RitualRoleAssignments should only be of the wrapper type MpRitualAssignments
                     var mpAssgn = assgn as MpRitualAssignments;
