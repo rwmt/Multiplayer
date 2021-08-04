@@ -37,7 +37,7 @@ namespace Multiplayer.Client
             closeOnAccept = false;
             doCloseX = true;
 
-            settings = MultiplayerMod.settings.serverSettings;
+            settings = Multiplayer.settings.serverSettings;
 
             this.withSimulation = withSimulation;
             this.file = file;
@@ -161,7 +161,7 @@ namespace Multiplayer.Client
 
             if (Widgets.ButtonText(buttonRect, "MpHostButton".Translate()))
             {
-                LoadedModManager.GetMod<MultiplayerMod>().WriteSettings();
+                LoadedModManager.GetMod<Multiplayer>().WriteSettings();
                 TryHost();
             }
         }

@@ -99,6 +99,26 @@ namespace Multiplayer.Client
 
             SyncMethod.Register(typeof(ShipJob_Wait), "<GetJobGizmos>b__11_0"); // Dismiss (unload) shuttle
             SyncMethod.Register(typeof(ShipJob_Wait), "<GetJobGizmos>b__11_1"); // Send loaded shuttle
+
+            /*  
+                Ritual dialog
+
+                The UI is split into three types of groups of pawns.
+                Each has three action handlers: (drop), (leftclick), (rightclick)
+                The names in parenths indicate what is synced for the handler.
+
+                (Zero or more) roles: (local TryAssignReplace, local TryAssign), (null), (delegate)
+                Spectators: (assgn.TryAssignSpectate), (local TryAssignAnyRole), (assgn.RemoveParticipant)
+                Not participating: (assgn.RemoveParticipant), (delegate), float menus: (assgn.TryAssignSpectate, local TryAssignReplace, local TryAssign)
+            */
+            SyncDelegate.Register(typeof(Dialog_BeginRitual), "<>c__DisplayClass73_0", "<DrawPawnList>g__TryAssignReplace|4"); // local TryAssignReplace
+            SyncDelegate.Register(typeof(Dialog_BeginRitual), "<>c__DisplayClass73_0", "<DrawPawnList>g__TryAssignAnyRole|8"); // local TryAssignAnyRole
+            SyncDelegate.Register(typeof(Dialog_BeginRitual), "<>c__DisplayClass73_0", "<DrawPawnList>g__TryAssign|3"); // local TryAssignSpectate
+            SyncDelegate.Register(typeof(Dialog_BeginRitual), "<>c__DisplayClass73_0", "<DrawPawnList>b__27"); // Roles right click delegate (try assign spectate)
+            SyncDelegate.Register(typeof(Dialog_BeginRitual), "<>c__DisplayClass73_0", "<DrawPawnList>b__14"); // Not participating left click delegate (try assign any role or spectate)
+
+            SyncMethod.Register(typeof(RitualRoleAssignments), nameof(RitualRoleAssignments.TryAssignSpectate));
+            SyncMethod.Register(typeof(RitualRoleAssignments), nameof(RitualRoleAssignments.RemoveParticipant));
         }
 
         [MpPrefix(typeof(FormCaravanComp), "<>c__DisplayClass17_0", "<GetGizmos>b__0")]

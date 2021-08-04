@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using HarmonyLib;
 using Multiplayer.API;
+using Multiplayer.Client.Persistent;
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
@@ -219,7 +220,7 @@ namespace Multiplayer.Client
             },
             {
                 (ByteWriter data, BillStack obj) => {
-                    Thing billGiver = (obj as BillStack)?.billGiver as Thing;
+                    Thing billGiver = obj?.billGiver as Thing;
                     WriteSync(data, billGiver);
                 },
                 (ByteReader data) => {
@@ -674,9 +675,7 @@ namespace Multiplayer.Client
                     throw new SerializationException("Couldn't save CompChangeableProjectile for thing " + comp.parent);
                 },
                 (ByteReader data) => {
-                    Building_TurretGun parent = ReadSync<Thing>(data) as Building_TurretGun;
-
-                    if (parent == null)
+                    if (ReadSync<Thing>(data) is not Building_TurretGun parent)
                         return null;
 
                     return (parent.gun as ThingWithComps).TryGetComp<CompChangeableProjectile>();
@@ -1296,7 +1295,6 @@ namespace Multiplayer.Client
             #endregion
 
             #region Storage
-
             {
                 (ByteWriter data, StorageSettings storage) => {
                     WriteSync(data, storage.owner);
@@ -1369,29 +1367,6 @@ namespace Multiplayer.Client
                 },
                 (ByteReader data) => new TransportPodsArrivalAction_VisitSite(ReadSync<Site>(data), ReadSync<PawnsArrivalModeDef>(data))
             },
-            // todo 1.3: was removed?
-            /*{
-                (ByteWriter data, TransportPodsArrivalAction_Shuttle arrivalAction) =>
-                {
-                    WriteSync(data, arrivalAction.mapParent);
-                    WriteSync(data, arrivalAction.missionShuttleHome);
-                    WriteSync(data, arrivalAction.missionShuttleTarget);
-                    WriteSync(data, arrivalAction.sendAwayIfQuestFinished);
-                    WriteSync(data, arrivalAction.questTags);
-                },
-                (ByteReader data) =>
-                {
-                    var arrivalAction =  new TransportPodsArrivalAction_Shuttle(ReadSync<MapParent>(data))
-                    {
-                        missionShuttleHome = ReadSync<WorldObject>(data),
-                        missionShuttleTarget = ReadSync<WorldObject>(data),
-                        sendAwayIfQuestFinished = ReadSync<Quest>(data),
-                        questTags = ReadSync<List<string>>(data)
-                    };
-
-                    return arrivalAction;
-                }
-            },*/
             #endregion
 
             #region Ideology
@@ -1428,6 +1403,36 @@ namespace Multiplayer.Client
                     return ship.shipJobs.FirstOrDefault(j => j.loadID == id);
                 },
                 true
+            },
+            {
+                (ByteWriter data, RitualRoleAssignments assgn) => {
+                    // In Multiplayer, RitualRoleAssignments should only be of the wrapper type MpRitualAssignments
+                    var mpAssgn = assgn as MpRitualAssignments;
+                    data.MpContext().map = mpAssgn.map;
+                    data.WriteInt32(mpAssgn.map.MpComp().ritualSession.SessionId);
+                },
+                (ByteReader data) => {
+                    var id = data.ReadInt32();
+                    var ritual = data.MpContext().map.MpComp().ritualSession;
+                    return ritual?.SessionId == id ? ritual.data.Assignments : null;
+                }
+            },
+            {
+                (ByteWriter data, Dialog_BeginRitual dlog) => {
+                    WriteSync(data, dlog.assignments);
+                    WriteSync(data, dlog.ritual);
+                },
+                (ByteReader data) => {
+                    var assgn = ReadSync<RitualRoleAssignments>(data);
+                    if (assgn == null) return null;
+
+                    var ritual = ReadSync<Precept_Ritual>(data); // todo handle ritual becoming null?
+                    var dlog = MpUtil.NewObjectNoCtor<Dialog_BeginRitual>();
+                    dlog.assignments = assgn;
+                    dlog.ritual = ritual;
+
+                    return dlog;
+                }
             }
             #endregion
         };

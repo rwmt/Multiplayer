@@ -153,7 +153,7 @@ namespace Multiplayer.Client
         public static List<string> GetMismatchedModConfigs(Dictionary<string, string> hostFiles)
         {
             var mismatchedFiles = new List<string>();
-            if (MultiplayerMod.arbiterInstance) {
+            if (Multiplayer.arbiterInstance) {
                 return mismatchedFiles;
             }
             foreach (var hostModEntry in hostFiles) {

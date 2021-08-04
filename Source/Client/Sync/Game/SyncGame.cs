@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Runtime.CompilerServices;
 using Verse;
 
@@ -14,46 +15,29 @@ namespace Multiplayer.Client
     {
         public static void Init()
         {
-            SyncMethods.Init();
-            SyncFields.Init();
-            SyncDelegates.Init();
-            SyncThingFilters.Init();
-            SyncActions.Init();
+            static void TryInit(string name, Action action)
+            {
+                try
+                {
+                    action();
+                }
+                catch (Exception e)
+                {
+                    Log.Error($"Exception during {name} initialization: {e}");
+                    Multiplayer.loadingErrors = true;
+                }
+            }
+
+            TryInit("SyncMethods", () => SyncMethods.Init());
+            TryInit("SyncFields", () => SyncFields.Init());
+            TryInit("SyncDelegates", () => SyncDelegates.Init());
+            TryInit("SyncThingFilters", () => SyncThingFilters.Init());
+            TryInit("SyncActions", () => SyncActions.Init());
 
             //RuntimeHelpers.RunClassConstructor(typeof(SyncResearch).TypeHandle);
 
-            Sync.ApplyWatchFieldPatches(typeof(SyncFields));
+            SyncUtil.ApplyWatchFieldPatches(typeof(SyncFields));
         }
-    }
-
-    public class MpTransferableReference
-    {
-        public ISessionWithTransferables session;
-        public Transferable transferable;
-
-        public MpTransferableReference(ISessionWithTransferables session, Transferable transferable)
-        {
-            this.session = session;
-            this.transferable = transferable;
-        }
-
-        public int CountToTransfer
-        {
-            get => transferable.CountToTransfer;
-            set => transferable.CountToTransfer = value;
-        }
-
-        public override int GetHashCode() => transferable.GetHashCode();
-        public override bool Equals(object obj) => obj is MpTransferableReference tr && tr.transferable == transferable;
-    }
-
-    public interface ISessionWithTransferables
-    {
-        int SessionId { get; }
-
-        Transferable GetTransferableByThingId(int thingId);
-
-        void Notify_CountChanged(Transferable tr);
     }
 
     public static class SyncMarkers
@@ -175,7 +159,7 @@ namespace Multiplayer.Client
         {
             if (localResearch.Count == 0) return;
 
-            Sync.FieldWatchPrefix();
+            SyncUtil.FieldWatchPrefix();
 
             foreach (int pawn in localResearch.Keys.ToList())
             {
@@ -184,7 +168,7 @@ namespace Multiplayer.Client
                 localResearch[pawn] = 0;
             }
 
-            Sync.FieldWatchPostfix();
+            SyncUtil.FieldWatchPostfix();
         }
     }
 

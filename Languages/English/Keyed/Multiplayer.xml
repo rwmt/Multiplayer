@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <LanguageData>
 
+  <MpLoadingError>Multiplayer errored during loading.\n\nThis might cause games to desync.\n\nThis is likely because this version of the mod wan't made for your version of RimWorld.\n\nUpdate/downgrade Multiplayer or RimWorld.\n\nNOTE: the game could have updated very recently and there might not be a new version of Multiplayer available yet.</MpLoadingError>
+
   <MpSimulating>Simulating</MpSimulating>
   <MpSimulatingServer>Simulating the server</MpSimulatingServer>
   <MpLoading>Loading</MpLoading>

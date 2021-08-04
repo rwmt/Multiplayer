@@ -18,6 +18,7 @@ using Verse.Sound;
 using zip::Ionic.Zip;
 using Multiplayer.Client.Comp;
 using Multiplayer.Client.Patches;
+using Multiplayer.Client.Saving;
 
 namespace Multiplayer.Client
 {
@@ -224,7 +225,7 @@ namespace Multiplayer.Client
             if (Scribe.mode == LoadSaveMode.LoadingVars && storyWatcher == null)
                 storyWatcher = new StoryWatcher();
 
-            ScribeUtil.LookULong(ref randState, "randState", 1);
+            Scribe_Custom.LookULong(ref randState, "randState", 1);
         }
 
         public void FinalizeInit()
@@ -269,7 +270,7 @@ namespace Multiplayer.Client
             {
                 if (cmdType == CommandType.Sync)
                 {
-                    Sync.HandleCmd(data);
+                    SyncUtil.HandleCmd(data);
                 }
 
                 if (cmdType == CommandType.DebugTools)

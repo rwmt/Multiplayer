@@ -55,7 +55,7 @@ namespace Multiplayer.Client.EarlyPatches
 
         static void Postfix(LoadableXmlAsset[] __result)
         {
-            if (MultiplayerMod.hasLoaded) return;
+            if (Multiplayer.hasLoaded) return;
 
             foreach (var asset in __result)
             {
@@ -105,8 +105,42 @@ namespace Multiplayer.Client.EarlyPatches
 
         static void Prefix(string filename)
         {
-            if (!MultiplayerMod.hasLoaded)
+            if (!Multiplayer.hasLoaded)
                 openedFiles.Add(filename.NormalizePath());
         }
     }
+
+    [HarmonyPatch(typeof(GenTypes), nameof(GenTypes.GetTypeInAnyAssemblyInt))]
+    static class GenTypesOptimization
+    {
+        private static Dictionary<string, Type> RWAndSystemTypes = new();
+
+        static GenTypesOptimization()
+        {
+            foreach (var type in typeof(Game).Assembly.GetTypes())
+            {
+                if (type.IsPublic)
+                    RWAndSystemTypes[type.Name] = type;
+            }
+        }
+
+        static bool Prefix(string typeName, ref Type __result)
+        {
+            if (!typeName.Contains(".") && RWAndSystemTypes.TryGetValue(typeName, out var type))
+            {
+                __result = type;
+                return false;
+            }
+
+            return true;
+        }
+    }
+
+#if DEBUG
+    [HarmonyPatch(typeof(GlobalTextureAtlasManager), nameof(GlobalTextureAtlasManager.BakeStaticAtlases))]
+    static class NoAtlases
+    {
+        static bool Prefix() => false;
+    }
+#endif
 }

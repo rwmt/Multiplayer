@@ -52,7 +52,7 @@ namespace Multiplayer.Client
         }
 
         /// <summary>
-        /// Returns whether the original should cancelled
+        /// Returns whether the original should be cancelled
         /// </summary>
         public bool DoSync(object target, object value, object index = null)
         {
@@ -118,7 +118,7 @@ namespace Multiplayer.Client
 
             object value;
 
-            if (bufferChanges && Sync.bufferedChanges[this].TryGetValue(new Pair<object, object>(target, index), out BufferData cached))
+            if (bufferChanges && SyncUtil.bufferedChanges[this].TryGetValue((target, index), out BufferData cached))
             {
                 value = cached.toSend;
                 target.SetPropertyOrField(memberPath, value, index);
@@ -128,7 +128,7 @@ namespace Multiplayer.Client
                 value = target.GetPropertyOrField(memberPath, index);
             }
 
-            Sync.watchedStack.Push(new FieldData(this, target, value, index));
+            SyncUtil.watchedStack.Push(new FieldData(this, target, value, index));
         }
 
         public ISyncField SetVersion(int version)
@@ -151,7 +151,7 @@ namespace Multiplayer.Client
 
         public ISyncField SetBufferChanges()
         {
-            Sync.bufferedChanges[this] = new Dictionary<Pair<object, object>, BufferData>();
+            SyncUtil.bufferedChanges[this] = new();
             Sync.bufferedFields.Add(this);
             bufferChanges = true;
             return this;
@@ -216,7 +216,9 @@ namespace Multiplayer.Client
                 instanceType = MpReflection.PathType(this.instancePath);
             }
 
-            method = AccessTools.Method(instanceType, methodName, argTypes?.Select(t => t.type).ToArray()) ?? throw new Exception($"Couldn't find method {instanceType}::{methodName}");
+            method = AccessTools.Method(instanceType, methodName, argTypes?.Select(t => t.type).ToArray())
+                ?? throw new Exception($"Couldn't find method {instanceType}::{methodName}");
+
             this.argTypes = CheckArgs(argTypes);
         }
 
@@ -259,7 +261,7 @@ namespace Multiplayer.Client
 
             writer.WriteInt32(syncId);
 
-            Sync.WriteContext(this, writer);
+            SyncUtil.WriteContext(this, writer);
 
             Map map = writer.MpContext().map;
 
@@ -430,7 +432,7 @@ namespace Multiplayer.Client
             if (fieldPaths == null)
             {
                 List<string> fieldList = new List<string>();
-                Sync.AllDelegateFieldsRecursive(delegateType, path => { fieldList.Add(path); return false; });
+                AllDelegateFieldsRecursive(delegateType, path => { fieldList.Add(path); return false; });
                 this.fieldPaths = fieldList.ToArray();
             }
             else
@@ -469,7 +471,7 @@ namespace Multiplayer.Client
 
             writer.WriteInt32(syncId);
 
-            Sync.WriteContext(this, writer);
+            SyncUtil.WriteContext(this, writer);
 
             int mapId = ScheduledCommand.Global;
 
@@ -590,6 +592,31 @@ namespace Multiplayer.Client
         {
             return $"SyncDelegate {method.FullDescription()}";
         }
+
+        private static bool AllDelegateFieldsRecursive(Type type, Func<string, bool> getter, string path = "")
+        {
+            if (path.NullOrEmpty())
+                path = type.ToString();
+
+            foreach (FieldInfo field in type.GetDeclaredInstanceFields())
+            {
+                string curPath = path + "/" + field.Name;
+
+                if (typeof(Delegate).IsAssignableFrom(field.FieldType))
+                    continue;
+
+                if (getter(curPath))
+                    return true;
+
+                if (!field.FieldType.IsCompilerGenerated())
+                    continue;
+
+                if (AllDelegateFieldsRecursive(field.FieldType, getter, curPath))
+                    return true;
+            }
+
+            return false;
+        }
     }
 
     public delegate ref Action ActionGetter<T>(T t);
@@ -696,7 +723,7 @@ namespace Multiplayer.Client
 
                     postfix.priority = MpPriority.MpLast;
 
-                    MultiplayerMod.harmony.Patch(method, prefix, postfix);
+                    Multiplayer.harmony.Patch(method, prefix, postfix);
                     SyncActions.syncActions[method] = this;
                 }
             }

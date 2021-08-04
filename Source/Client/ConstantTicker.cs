@@ -1,4 +1,4 @@
-﻿extern alias zip;
+extern alias zip;
 
 using HarmonyLib;
 using Multiplayer.Common;
@@ -31,7 +31,7 @@ namespace Multiplayer.Client
                 var sync = Multiplayer.game.sync;
                 if (sync.ShouldCollect && TickPatch.Timer % 30 == 0 && sync.currentOpinion != null)
                 {
-                    if (!TickPatch.Skipping && (Multiplayer.LocalServer != null || MultiplayerMod.arbiterInstance))
+                    if (!TickPatch.Skipping && (Multiplayer.LocalServer != null || Multiplayer.arbiterInstance))
                         Multiplayer.Client.SendFragmented(Packets.Client_SyncInfo, sync.currentOpinion.Serialize());
 
                     sync.AddClientOpinionAndCheckDesync(sync.currentOpinion);
@@ -62,14 +62,14 @@ namespace Multiplayer.Client
             {
                 if (!f.inGameLoop) continue;
 
-                Sync.bufferedChanges[f].RemoveAll((k, data) =>
+                SyncUtil.bufferedChanges[f].RemoveAll((k, data) =>
                 {
                     if (OnMainThread.CheckShouldRemove(f, k, data))
                         return true;
 
                     if (!data.sent && TickPatch.Timer - data.timestamp > 30)
                     {
-                        f.DoSync(k.first, data.toSend, k.second);
+                        f.DoSync(k.Item1, data.toSend, k.Item2);
                         data.sent = true;
                         data.timestamp = TickPatch.Timer;
                     }

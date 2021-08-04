@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -6,6 +6,7 @@ using System.Reflection;
 using HarmonyLib;
 
 using Multiplayer.API;
+using Multiplayer.Client.Saving;
 using Multiplayer.Common;
 
 using RimWorld;
@@ -261,7 +262,7 @@ namespace Multiplayer.Client
         {
             if (Scribe.mode == LoadSaveMode.Saving) {
                 Scribe_Values.Look(ref id, "id");
-                ScribeUtil.LookValue(dialog.soundAmbient == SoundDefOf.RadioComms_Ambience, "radioMode");
+                Scribe_Custom.LookValue(dialog.soundAmbient == SoundDefOf.RadioComms_Ambience, "radioMode");
                 Scribe_Values.Look(ref dialog.title, "title");
 
                 ExposeDataSaveLoad();
@@ -407,13 +408,13 @@ namespace Multiplayer.Client
                 {
                     Scribe_Values.Look(ref opt.text, "text");
                     Scribe_Values.Look(ref opt.resolveTree, "resolveTree");
-                    ScribeUtil.LookValue(parent.saveNodes.FindIndex(n => n.node == opt.link), "linkIndex", true);
+                    Scribe_Custom.LookValue(parent.saveNodes.FindIndex(n => n.node == opt.link), "linkIndex", true);
                     Scribe_Values.Look(ref opt.disabled, "disabled");
                     Scribe_Values.Look(ref opt.disabledReason, "disabledReason");
                     Scribe_Defs.Look(ref opt.clickSound, "clickSound");
 
-                    ScribeUtil.LookValue(parent.fieldValues.FindIndex(f => Equals(f.value, opt.action)), "actionIndex", true);
-                    ScribeUtil.LookValue(parent.fieldValues.FindIndex(f => Equals(f.value, opt.linkLateBind)), "linkLateBindIndex", true);
+                    Scribe_Custom.LookValue(parent.fieldValues.FindIndex(f => Equals(f.value, opt.action)), "actionIndex", true);
+                    Scribe_Custom.LookValue(parent.fieldValues.FindIndex(f => Equals(f.value, opt.linkLateBind)), "linkLateBindIndex", true);
                 }
 
                 if (Scribe.mode == LoadSaveMode.LoadingVars)
@@ -554,11 +555,11 @@ namespace Multiplayer.Client
                     {
                         var del = (Delegate)value;
 
-                        ScribeUtil.LookValue(del.Method.DeclaringType.FullName, "methodType");
-                        ScribeUtil.LookValue(del.Method.Name, "methodName");
+                        Scribe_Custom.LookValue(del.Method.DeclaringType.FullName, "methodType");
+                        Scribe_Custom.LookValue(del.Method.Name, "methodName");
 
                         if (del.Target != null)
-                            ScribeUtil.LookValue(parent.fieldValues.FindIndex(f => Equals(f.value, del.Target)), "targetIndex", true);
+                            Scribe_Custom.LookValue(parent.fieldValues.FindIndex(f => Equals(f.value, del.Target)), "targetIndex", true);
                     }
 
                     if (Scribe.mode == LoadSaveMode.LoadingVars)

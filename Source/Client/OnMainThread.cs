@@ -36,7 +36,7 @@ namespace Multiplayer.Client
 
             UpdateSync();
 
-            if (!MultiplayerMod.arbiterInstance && Application.isFocused && !TickPatch.Skipping && !Multiplayer.session.desynced)
+            if (!Multiplayer.arbiterInstance && Application.isFocused && !TickPatch.Skipping && !Multiplayer.session.desynced)
                 SendVisuals();
 
             if (Multiplayer.Client is SteamBaseConn steamConn && SteamManager.Initialized)
@@ -74,7 +74,7 @@ namespace Multiplayer.Client
                 writer.WriteByte((byte)Find.CurrentMap.Index);
 
                 var icon = Find.MapUI?.designatorManager?.SelectedDesignator?.icon;
-                int iconId = icon == null ? 0 : !Multiplayer.icons.Contains(icon) ? 0 : Multiplayer.icons.IndexOf(icon);
+                int iconId = icon == null ? 0 : !MultiplayerData.icons.Contains(icon) ? 0 : MultiplayerData.icons.IndexOf(icon);
                 writer.WriteByte((byte)iconId);
 
                 writer.WriteVectorXZ(UI.MouseMapPosition());
@@ -136,14 +136,14 @@ namespace Multiplayer.Client
             {
                 if (f.inGameLoop) continue;
 
-                Sync.bufferedChanges[f].RemoveAll((k, data) =>
+                SyncUtil.bufferedChanges[f].RemoveAll((k, data) =>
                 {
                     if (CheckShouldRemove(f, k, data))
                         return true;
 
                     if (!data.sent && Utils.MillisNow - data.timestamp > 200)
                     {
-                        f.DoSync(k.first, data.toSend, k.second);
+                        f.DoSync(k.Item1, data.toSend, k.Item2);
                         data.sent = true;
                         data.timestamp = Utils.MillisNow;
                     }
@@ -153,12 +153,12 @@ namespace Multiplayer.Client
             }
         }
 
-        public static bool CheckShouldRemove(SyncField field, Pair<object, object> target, BufferData data)
+        public static bool CheckShouldRemove(SyncField field, (object, object) target, BufferData data)
         {
             if (data.sent && Equals(data.toSend, data.actualValue))
                 return true;
 
-            object currentValue = target.first.GetPropertyOrField(field.memberPath, target.second);
+            object currentValue = target.Item1.GetPropertyOrField(field.memberPath, target.Item2);
 
             if (!Equals(currentValue, data.actualValue))
             {
@@ -195,14 +195,14 @@ namespace Multiplayer.Client
 
             Find.WindowStack?.WindowOfType<ServerBrowser>()?.Cleanup(true);
 
-            foreach (var entry in Sync.bufferedChanges)
+            foreach (var entry in SyncUtil.bufferedChanges)
                 entry.Value.Clear();
 
             ClearCaches();
 
-            if (MultiplayerMod.arbiterInstance)
+            if (Multiplayer.arbiterInstance)
             {
-                MultiplayerMod.arbiterInstance = false;
+                Multiplayer.arbiterInstance = false;
                 Application.Quit();
             }
         }

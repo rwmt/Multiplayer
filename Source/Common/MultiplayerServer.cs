@@ -196,7 +196,7 @@ namespace Multiplayer.Common
 
             var curSpeed = Client.Multiplayer.WorldComp.TimeSpeed;
 
-            autosaveCountdown -= (curSpeed == TimeSpeed.Paused && !Client.MultiplayerMod.settings.pauseAutosaveCounter) 
+            autosaveCountdown -= (curSpeed == TimeSpeed.Paused && !Client.Multiplayer.settings.pauseAutosaveCounter) 
                 ? 1 : Client.Multiplayer.WorldComp.TickRateMultiplier(curSpeed);
 
             if (autosaveCountdown <= 0)

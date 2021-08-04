@@ -15,7 +15,7 @@ namespace Multiplayer.Client
     {
         static void Postfix()
         {
-            if (Multiplayer.Client == null || !MultiplayerMod.settings.showCursors || TickPatch.Skipping) return;
+            if (Multiplayer.Client == null || !Multiplayer.settings.showCursors || TickPatch.Skipping) return;
 
             var curMap = Find.CurrentMap.Index;
 
@@ -32,7 +32,7 @@ namespace Multiplayer.Client
                     (float)(Multiplayer.Clock.ElapsedMillisDouble() - player.updatedAt) / 50f
                 ).MapToUIPosition();
 
-                var icon = Multiplayer.icons.ElementAtOrDefault(player.cursorIcon);
+                var icon = MultiplayerData.icons.ElementAtOrDefault(player.cursorIcon);
                 var drawIcon = icon ?? CustomCursor.CursorTex;
                 var iconRect = new Rect(pos, new Vector2(24f * drawIcon.width / drawIcon.height, 24f));
 
@@ -42,7 +42,7 @@ namespace Multiplayer.Client
                 Text.Anchor = TextAnchor.UpperLeft;
                 Text.Font = GameFont.Small;
 
-                if (icon != null && Multiplayer.iconInfos[player.cursorIcon].hasStuff)
+                if (icon != null && MultiplayerData.iconInfos[player.cursorIcon].hasStuff)
                     GUI.color = new Color(0.5f, 0.4f, 0.26f, 0.5f); // Stuff color for wood
 
                 GUI.DrawTexture(iconRect, drawIcon);

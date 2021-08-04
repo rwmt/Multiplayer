@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Multiplayer.Client.Saving;
 using Multiplayer.Common;
 using UnityEngine;
 using Verse;
@@ -45,7 +46,7 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref serverAddress, "serverAddress", "127.0.0.1");
             Scribe_Values.Look(ref pauseAutosaveCounter, "pauseAutosaveCounter", true);
             Scribe_Values.Look(ref showModCompatibility, "showModCompatibility", true);
-            ScribeUtil.LookRect(ref chatRect, "chatRect");
+            Scribe_Custom.LookRect(ref chatRect, "chatRect");
             Scribe_Values.Look(ref resolutionForChat, "resolutionForChat");
 
             Scribe_Deep.Look(ref serverSettings, "serverSettings");

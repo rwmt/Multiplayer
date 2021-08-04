@@ -1,4 +1,5 @@
 using Multiplayer.API;
+using Multiplayer.Client.Persistent;
 using RimWorld;
 using RimWorld.Planet;
 using System;
@@ -162,7 +163,7 @@ namespace Multiplayer.Client
             ).SetBufferChanges();
 
             // This depends on the order of AutoSlaughterManager.configs being the same on all clients
-            // It's initialized using DefDatabase<ThingDef>.AllDefs which shouldn't cause problems
+            // The array is initialized using DefDatabase<ThingDef>.AllDefs which shouldn't cause problems though
             SyncAutoSlaughter = Sync.Fields(
                 typeof(AutoSlaughterManager),
                 "configs/[]",
@@ -482,7 +483,7 @@ namespace Multiplayer.Client
             foreach (var entry in dropdowns)
             {
                 if (entry.option.action != null)
-                    entry.option.action = (Sync.FieldWatchPrefix + watchAction + entry.option.action + Sync.FieldWatchPostfix);
+                    entry.option.action = (SyncUtil.FieldWatchPrefix + watchAction + entry.option.action + SyncUtil.FieldWatchPostfix);
                 yield return entry;
             }
         }

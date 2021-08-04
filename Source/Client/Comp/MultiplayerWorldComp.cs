@@ -14,6 +14,7 @@ using Verse.AI;
 using Multiplayer.Client.Persistent;
 using Multiplayer.Client.Desyncs;
 using Multiplayer.Client.Patches;
+using Multiplayer.Client.Saving;
 
 namespace Multiplayer.Client
 {
@@ -123,7 +124,7 @@ namespace Multiplayer.Client
             }
             Scribe_Values.Look(ref debugMode, "debugMode");
             Scribe_Values.Look(ref logDesyncTraces, "logDesyncTraces");
-            ScribeUtil.LookULong(ref randState, "randState", 2);
+            Scribe_Custom.LookULong(ref randState, "randState", 2);
 
             TimeSpeed timeSpeed = Find.TickManager.CurTimeSpeed;
             Scribe_Values.Look(ref timeSpeed, "timeSpeed");
@@ -139,7 +140,7 @@ namespace Multiplayer.Client
                     Log.Message("Some trading sessions had null entries");
             }
 
-            Multiplayer.ExposeIdBlock(ref globalIdBlock, "globalIdBlock");
+            Scribe_Custom.LookIdBlock(ref globalIdBlock, "globalIdBlock");
         }
 
         private int currentFactionId;
@@ -149,7 +150,7 @@ namespace Multiplayer.Client
             if (Scribe.mode == LoadSaveMode.Saving)
             {
                 int currentFactionId = Faction.OfPlayer.loadID;
-                ScribeUtil.LookValue(currentFactionId, "currentFactionId");
+                Scribe_Custom.LookValue(currentFactionId, "currentFactionId");
 
                 var factionData = new Dictionary<int, FactionWorldData>(this.factionData);
                 factionData.Remove(currentFactionId);
@@ -267,7 +268,7 @@ namespace Multiplayer.Client
             {
                 if (cmdType == CommandType.Sync)
                 {
-                    Sync.HandleCmd(data);
+                    SyncUtil.HandleCmd(data);
                 }
 
                 if (cmdType == CommandType.DebugTools)
@@ -384,7 +385,7 @@ namespace Multiplayer.Client
                 }
             }
 
-            if (!TickPatch.Skipping && !Multiplayer.IsReplay && (Multiplayer.LocalServer != null || MultiplayerMod.arbiterInstance))
+            if (!TickPatch.Skipping && !Multiplayer.IsReplay && (Multiplayer.LocalServer != null || Multiplayer.arbiterInstance))
                 SaveLoad.SendCurrentGameData(true);
         }
 
@@ -392,13 +393,13 @@ namespace Multiplayer.Client
         {
             var autosavePrefix = "Autosave-";
 
-            if (MultiplayerMod.settings.appendNameToAutosave)
+            if (Multiplayer.settings.appendNameToAutosave)
             {
                 autosavePrefix += $"{Multiplayer.session.gameName}-";
             }
 
             return Enumerable
-                .Range(1, MultiplayerMod.settings.autosaveSlots)
+                .Range(1, Multiplayer.settings.autosaveSlots)
                 .Select(i => $"{autosavePrefix}{i}")
                 .OrderBy(s => new FileInfo(Path.Combine(Multiplayer.ReplaysDir, $"{s}.zip")).LastWriteTime)
                 .First();
