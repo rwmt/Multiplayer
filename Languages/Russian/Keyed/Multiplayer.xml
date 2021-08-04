@@ -13,7 +13,7 @@
   <MpInvalidGameName>Неверное игровое имя</MpInvalidGameName>
 
   <MpWrongProtocol>Неверная версия протокола</MpWrongProtocol>
-  <MpWrongMultiplayerVersionInfo>Сервер размещен в многопользовательской игре {0} (протокол {1}).</MpWrongMultiplayerVersionInfo>
+  <MpWrongMultiplayerVersionInfo>Сервер использует Мультиплеер версии {0} (протокол {1}).</MpWrongMultiplayerVersionInfo>
 
   <MpWrongDefs>Несоответствие определений в моде</MpWrongDefs>
   <MpWrongDefsInfo>Удостоверьтесь, что ваши установленные моды, их версии и порядок совпадают с таковыми у хоста.</MpWrongDefsInfo>
