@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <LanguageData>
 
+  <MpLoadingError>Ошибка при загрузки мультиплеера.\n\nЭто может привести к десинхронизации игр.\n\nСкорее всего, это связано с тем, что версия мода не подходит для вашей версии RimWorld.\n\nОбновитесь до более ранней/поздней версии мода или RimWorld.\n\nПРИМЕЧАНИЕ: RimWorld мог обновиться совсем недавно, и новая версия мода может быть еще недоступна.</MpLoadingError>
+
   <MpSimulating>Симулирование</MpSimulating>
   <MpSimulatingServer>Симулирование сервера</MpSimulatingServer>
   <MpLoading>Загрузка</MpLoading>
