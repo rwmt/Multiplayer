@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
 using System.Text;
 using System.Xml;
@@ -234,6 +235,19 @@ namespace Multiplayer.Client
                             dictionary.Add(keys.GetValue(i), values.GetValue(i));
                         return dictionary;
                     }
+
+                    if (typeof(ITuple).IsAssignableFrom(genericTypeDefinition)) // ValueTuple or Tuple
+                    {
+                        Type[] arguments = type.GetGenericArguments();
+
+                        int size = data.ReadInt32();
+                        object[] values = new object[size];
+
+                        for (int i = 0; i < size; i++)
+                            values[i] = ReadSyncObject(data, arguments[i]);
+
+                        return type.GetConstructors().First().Invoke(values);
+                    }
                 }
 
                 if (typeof(SyncWrapper).IsAssignableFrom(type))
@@ -454,6 +468,19 @@ namespace Multiplayer.Client
 
                         WriteSyncObject(data, keyArray, keyArray.GetType());
                         WriteSyncObject(data, valueArray, valueArray.GetType());
+
+                        return;
+                    }
+
+                    if (typeof(ITuple).IsAssignableFrom(genericTypeDefinition)) // ValueTuple or Tuple
+                    {
+                        Type[] arguments = type.GetGenericArguments();
+                        ITuple tuple = (ITuple)obj;
+
+                        data.WriteInt32(tuple.Length);
+
+                        for (int i = 0; i < tuple.Length; i++)
+                            WriteSyncObject(data, tuple[i], arguments[i]);
 
                         return;
                     }
