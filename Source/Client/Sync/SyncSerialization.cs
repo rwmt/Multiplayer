@@ -234,6 +234,18 @@ namespace Multiplayer.Client
                             dictionary.Add(keys.GetValue(i), values.GetValue(i));
                         return dictionary;
                     }
+
+                    if (genericTypeDefinition == typeof(Pair<,>))
+                    {
+                        Type[] arguments = type.GetGenericArguments();
+                        object[] parameters =
+                        {
+                            ReadSyncObject(data, arguments[0]),
+                            ReadSyncObject(data, arguments[1]),
+                        };
+
+                        return type.GetConstructors().First().Invoke(parameters);
+                    }
                 }
 
                 if (typeof(SyncWrapper).IsAssignableFrom(type))
@@ -454,6 +466,16 @@ namespace Multiplayer.Client
 
                         WriteSyncObject(data, keyArray, keyArray.GetType());
                         WriteSyncObject(data, valueArray, valueArray.GetType());
+
+                        return;
+                    }
+
+                    if (genericTypeDefinition == typeof(Pair<,>))
+                    {
+                        Type[] arguments = type.GetGenericArguments();
+
+                        WriteSyncObject(data, type.GetField("first", AccessTools.all).GetValue(obj), arguments[0]);
+                        WriteSyncObject(data, type.GetField("second", AccessTools.all).GetValue(obj), arguments[1]);
 
                         return;
                     }
