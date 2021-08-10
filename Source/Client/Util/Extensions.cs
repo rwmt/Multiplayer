@@ -309,6 +309,28 @@ namespace Multiplayer.Client
         {
             return str.Substring(prefix.Length);
         }
+
+        public static string[] Names(this ParameterInfo[] pinfo)
+        {
+            return pinfo.Select(pi => pi.Name).ToArray();
+        }
+
+        // Taken from Harmony, shortened the output a bit
+        public static string MpFullDescription(this MethodBase member)
+        {
+            if (member is null) return "null";
+            var returnType = AccessTools.GetReturnedType(member);
+
+            var result = new StringBuilder();
+
+            if (member.DeclaringType is object)
+                _ = result.Append($"{member.DeclaringType.FullDescription()}::");
+
+            var parameterString = member.GetParameters().Join(p => $"{p.ParameterType.FullDescription()} {p.Name}");
+            _ = result.Append($"{member.Name}({parameterString})");
+
+            return result.ToString();
+        }
     }
 
     public static class CollectionExtensions

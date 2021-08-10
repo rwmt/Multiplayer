@@ -42,7 +42,12 @@ namespace Multiplayer.Client
         private void AddItems()
         {
             var dialog = new TransporterLoadingProxy(map, transporters);
+
+            // Init code taken from Dialog_LoadTransporters.PostOpen
             dialog.CalculateAndRecacheTransferables();
+            if (dialog.CanChangeAssignedThingsAfterStarting && dialog.LoadingInProgressOrReadyToLaunch)
+                dialog.SetLoadedItemsToLoad();
+
             transferables = dialog.transferables;
         }
 
@@ -75,14 +80,10 @@ namespace Multiplayer.Client
 
         public void OpenWindow(bool sound = true)
         {
-            Find.Selector.ClearSelection();
-
             var dialog = PrepareDummyDialog();
             if (!sound)
                 dialog.soundAppear = null;
             dialog.doCloseX = true;
-
-            dialog.CalculateAndRecacheTransferables();
 
             Find.WindowStack.Add(dialog);
         }

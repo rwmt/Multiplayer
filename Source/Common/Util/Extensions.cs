@@ -1,4 +1,4 @@
-﻿using LiteNetLib;
+using LiteNetLib;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -113,24 +113,6 @@ namespace Multiplayer.Common
             foreach (byte b in ba)
                 hex.AppendFormat("{0:x2}", b);
             return hex.ToString();
-        }
-    }
-
-    public static class EnumerableHelper
-    {
-        public static void ProcessCombined<T, U>(IEnumerable<T> first, IEnumerable<U> second, Action<T, U> action)
-        {
-            using (var firstEnumerator = first.GetEnumerator())
-            using (var secondEnumerator = second.GetEnumerator())
-            {
-                bool hasFirst = true;
-                bool hasSecond = true;
-
-                while ((hasFirst && (hasFirst = firstEnumerator.MoveNext())) | (hasSecond && (hasSecond = secondEnumerator.MoveNext())))
-                {
-                    action(hasFirst ? firstEnumerator.Current : default(T), hasSecond ? secondEnumerator.Current : default(U));
-                }
-            }
         }
     }
 

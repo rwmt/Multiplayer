@@ -9,6 +9,8 @@ using Verse;
 
 namespace Multiplayer.Client
 {
+    // todo handle conversion to singleplayer and PostSplitOff
+
     [HarmonyPatch(typeof(CompForbiddable), nameof(CompForbiddable.Forbidden), MethodType.Getter)]
     static class GetForbidPatch
     {
@@ -39,27 +41,30 @@ namespace Multiplayer.Client
                 changed = value ? set.Remove(___parent) : set.Add(___parent);
             }
 
-            __instance.forbiddenInt = changed ? !value : value; // Force an update
+            // After the prefix the method early returns if (value == forbiddenInt)
+            // Setting forbiddenInt to !value forces an update (prevents the early return)
+            __instance.forbiddenInt = changed ? !value : value;
         }
     }
 
-    // todo 1.3: not needed?
-    /*[HarmonyPatch(typeof(CompForbiddable), nameof(CompForbiddable.PostDraw))]
+    [HarmonyPatch(typeof(CompForbiddable), nameof(CompForbiddable.UpdateOverlayHandle))]
     static class ForbiddablePostDrawPatch
     {
         [HarmonyPriority(MpPriority.MpFirst)]
         static void Prefix(CompForbiddable __instance, ref bool __state)
         {
+            FactionContext.Push(Multiplayer.RealPlayerFaction);
             __state = __instance.forbiddenInt;
             __instance.forbiddenInt = __instance.Forbidden;
         }
 
         [HarmonyPriority(MpPriority.MpLast)]
-        static void Postfix(CompForbiddable __instance, ref bool __state)
+        static void Postfix(CompForbiddable __instance, bool __state)
         {
             __instance.forbiddenInt = __state;
+            FactionContext.Pop();
         }
-    }*/
+    }
 
     [HarmonyPatch(typeof(Thing), nameof(Thing.SpawnSetup))]
     static class ThingSpawnSetForbidden

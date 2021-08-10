@@ -20,13 +20,9 @@ namespace Multiplayer.Client
         delegate bool SyncWorkerDelegate(SyncWorker sync, ref object obj);
 
         public Type type;
-
         public bool shouldConstruct;
-
         private List<SyncWorkerDelegate> syncWorkers;
-
         private List<SyncWorkerEntry> subclasses;
-
         private SyncWorkerEntry parent;
 
         public int SyncWorkerCount => syncWorkers.Count();
@@ -230,26 +226,24 @@ namespace Multiplayer.Client
         internal void Add<T>(SyncWorkerDelegate<T> action)
         {
             var entry = GetOrAddEntry(typeof(T), shouldConstruct: false);
-
             entry.Add(action);
         }
 
         internal void Add<T>(Action<ByteWriter, T> writer, Func<ByteReader, T> reader)
         {
             var entry = GetOrAddEntry(typeof(T), shouldConstruct: false);
-
-            AddDelegate(entry, writer, reader);
+            entry.Add(GetDelegate(writer, reader));
         }
 
-        protected static void AddDelegate<T>(SyncWorkerEntry entry, Action<ByteWriter, T> writer, Func<ByteReader, T> reader)
+        protected static SyncWorkerDelegate<T> GetDelegate<T>(Action<ByteWriter, T> writer, Func<ByteReader, T> reader)
         {
-            entry.Add((SyncWorker sync, ref T obj) => {
-                if (sync.isWriting) {
-                    writer(((WritingSyncWorker) sync).writer, obj);
-                } else {
-                    obj = reader(((ReadingSyncWorker) sync).reader);
-                }
-            });
+            return (SyncWorker sync, ref T obj) =>
+            {
+                if (sync.isWriting)
+                    writer(((WritingSyncWorker)sync).writer, obj);
+                else
+                    obj = reader(((ReadingSyncWorker)sync).reader);
+            };
         }
 
         public SyncWorkerEntry this[Type key] {
@@ -359,14 +353,12 @@ namespace Multiplayer.Client
         {
             var entry = GetOrAddEntry(typeof(T), isImplicit: isImplicit, shouldConstruct: shouldConstruct);
 
-            AddDelegate(entry, writer, reader);
+            entry.Add(GetDelegate(writer, reader));
         }
 
         public override bool TryGetValue(Type type, out SyncWorkerEntry syncWorkerEntry)
         {
-            explicitEntries.TryGetValue(type, out syncWorkerEntry);
-
-            if (syncWorkerEntry != null)
+            if (explicitEntries.TryGetValue(type, out syncWorkerEntry))
                 return true;
 
             foreach (var e in implicitEntries) {
@@ -410,6 +402,19 @@ namespace Multiplayer.Client
             }
 
             return str.ToString();
+        }
+
+        public static SyncWorkerDictionaryTree Merge(params SyncWorkerDictionaryTree[] trees)
+        {
+            var tree = new SyncWorkerDictionaryTree();
+
+            foreach (var t in trees) {
+                tree.explicitEntries.AddRange(t.explicitEntries);
+                tree.implicitEntries.AddRange(t.implicitEntries);
+                tree.interfaceEntries.AddRange(t.interfaceEntries);
+            }
+
+            return tree;
         }
     }
 
@@ -462,199 +467,6 @@ namespace Multiplayer.Client
                 types = GenTypeCache(baseType);
 
             return (ushort) types.FindIndex(type);
-        }
-    }
-
-    public class WritingSyncWorker : SyncWorker
-    {
-        internal readonly ByteWriter writer;
-        readonly int initialPos;
-
-        public WritingSyncWorker(ByteWriter writer) : base(true)
-        {
-            this.writer = writer;
-            initialPos = writer.Position;
-        }
-
-        public override void Bind<T>(ref T obj)
-        {
-            SyncSerialization.WriteSyncObject(writer, obj, typeof(T));
-        }
-
-        public override void Bind(object obj, string name)
-        {
-            object value = MpReflection.GetValue(obj, name);
-            Type type = value.GetType();
-
-            SyncSerialization.WriteSyncObject(writer, value, type);
-        }
-
-        public override void Bind(ref byte obj)
-        {
-            writer.WriteByte(obj);
-        }
-
-        public override void Bind(ref sbyte obj)
-        {
-            writer.WriteSByte(obj);
-        }
-
-        public override void Bind(ref short obj)
-        {
-            writer.WriteShort(obj);
-        }
-
-        public override void Bind(ref ushort obj)
-        {
-            writer.WriteUShort(obj);
-        }
-
-        public override void Bind(ref int obj)
-        {
-            writer.WriteInt32(obj);
-        }
-
-        public override void Bind(ref uint obj)
-        {
-            writer.WriteUInt32(obj);
-        }
-
-        public override void Bind(ref long obj)
-        {
-            writer.WriteLong(obj);
-        }
-
-        public override void Bind(ref ulong obj)
-        {
-            writer.WriteULong(obj);
-        }
-
-        public override void Bind(ref float obj)
-        {
-            writer.WriteFloat(obj);
-        }
-
-        public override void Bind(ref double obj)
-        {
-            writer.WriteDouble(obj);
-        }
-
-        public override void Bind(ref bool obj)
-        {
-            writer.WriteBool(obj);
-        }
-
-        public override void Bind(ref string obj)
-        {
-            writer.WriteString(obj);
-        }
-
-        public override void BindType<T>(ref Type type)
-        {
-            writer.WriteUShort(TypeRWHelper.GetTypeIndex(type, typeof(T)));
-        }
-
-        internal void Reset()
-        {
-            writer.SetLength(initialPos);
-        }
-    }
-
-    public class ReadingSyncWorker : SyncWorker
-    {
-        internal readonly ByteReader reader;
-        readonly int initialPos;
-
-        public ReadingSyncWorker(ByteReader reader) : base(false)
-        {
-            this.reader = reader;
-            initialPos = reader.Position;
-        }
-
-        public override void Bind<T>(ref T obj)
-        {
-            obj = (T) SyncSerialization.ReadSyncObject(reader, typeof(T));
-        }
-
-        public override void Bind(object obj, string name)
-        {
-            object value = MpReflection.GetValue(obj, name);
-
-            Type type = value.GetType();
-
-            var res = SyncSerialization.ReadSyncObject(reader, type);
-
-            MpReflection.SetValue(obj, name, res);
-        }
-
-        public override void Bind(ref byte obj)
-        {
-            obj = reader.ReadByte();
-        }
-
-        public override void Bind(ref sbyte obj)
-        {
-            obj = reader.ReadSByte();
-        }
-
-        public override void Bind(ref short obj)
-        {
-            obj = reader.ReadShort();
-        }
-
-        public override void Bind(ref ushort obj)
-        {
-            obj = reader.ReadUShort();
-        }
-
-        public override void Bind(ref int obj)
-        {
-            obj = reader.ReadInt32();
-        }
-
-        public override void Bind(ref uint obj)
-        {
-            obj = reader.ReadUInt32();
-        }
-
-        public override void Bind(ref long obj)
-        {
-            obj = reader.ReadLong();
-        }
-
-        public override void Bind(ref ulong obj)
-        {
-            obj = reader.ReadULong();
-        }
-
-        public override void Bind(ref float obj)
-        {
-            obj = reader.ReadFloat();
-        }
-
-        public override void Bind(ref double obj)
-        {
-            obj = reader.ReadDouble();
-        }
-
-        public override void Bind(ref bool obj)
-        {
-            obj = reader.ReadBool();
-        }
-
-        public override void Bind(ref string obj)
-        {
-            obj = reader.ReadString();
-        }
-
-        public override void BindType<T>(ref Type type)
-        {
-            type = TypeRWHelper.GetType(reader.ReadUShort(), typeof(T));
-        }
-
-        internal void Reset()
-        {
-            reader.Seek(initialPos);
         }
     }
 }

@@ -115,7 +115,7 @@ namespace Multiplayer.Client
         public static void SendCmd(DebugSource source, int hash, Map map)
         {
             var writer = new LoggingByteWriter();
-            writer.log.Node($"Debug tool {source}, map {map.ToStringSafe()}");
+            writer.Log.Node($"Debug tool {source}, map {map.ToStringSafe()}");
             int cursorX = 0, cursorZ = 0;
 
             if (map != null)
@@ -139,7 +139,7 @@ namespace Multiplayer.Client
             else
                 writer.WriteInt32(Find.WorldSelector.SingleSelectedObject?.ID ?? -1);
 
-            Multiplayer.WriterLog.nodes.Add(writer.log.current);
+            Multiplayer.WriterLog.AddCurrentNode(writer);
 
             var mapId = map?.uniqueID ?? ScheduledCommand.Global;
             Multiplayer.Client.SendCommand(CommandType.DebugTools, mapId, writer.ToArray());

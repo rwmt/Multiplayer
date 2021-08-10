@@ -76,6 +76,7 @@
   <MpChatButton>Chat</MpChatButton>
   
   <MpTradingSession>Trading session</MpTradingSession>
+  <MpRitualSession>Ritual setup session</MpRitualSession>
   <MpTransportLoadingSession>Transport pod loading session</MpTransportLoadingSession>
   <MpCaravanFormingSession>Caravan forming session</MpCaravanFormingSession>
   <MpCaravanSplittingSession>Caravan splitting session</MpCaravanSplittingSession>

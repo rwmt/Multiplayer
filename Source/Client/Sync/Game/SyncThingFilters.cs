@@ -80,103 +80,90 @@ namespace Multiplayer.Client
         }
     }
 
-    public abstract record ThingFilterContext : SyncWrapper
+    public abstract record ThingFilterContext : ISyncWrapper
     {
-        public record ContextData(ThingFilter Filter, ThingFilter ParentFilter, IEnumerable<SpecialThingFilterDef> HiddenFilters)
-        {
-            public ContextData(ThingFilter Filter, ThingFilter ParentFilter, SpecialThingFilterDef HiddenFilter) :
-                this(Filter, ParentFilter, HiddenFilter.ToEnumerable())
-            {
-            }
-
-            public ContextData(ThingFilter Filter, ThingFilter ParentFilter) :
-                this(Filter, ParentFilter, (IEnumerable<SpecialThingFilterDef>)null)
-            {
-            }
-        }
-
-        public abstract ContextData Data { get; }
+        public abstract ThingFilter Filter { get; }
+        public abstract ThingFilter ParentFilter { get; }
+        public virtual IEnumerable<SpecialThingFilterDef> HiddenFilters { get => null; }
 
         internal void AllowStuffCat_Helper(StuffCategoryDef cat, bool allow)
         {
-            var data = Data;
-            data.Filter.SetAllow(cat, allow);
+            Filter.SetAllow(cat, allow);
         }
 
         internal void AllowSpecial_Helper(SpecialThingFilterDef sfDef, bool allow)
         {
-            var data = Data;
-            data.Filter.SetAllow(sfDef, allow);
+            Filter.SetAllow(sfDef, allow);
         }
 
         internal void AllowThing_Helper(ThingDef thingDef, bool allow)
         {
-            var data = Data;
-            data.Filter.SetAllow(thingDef, allow);
+            Filter.SetAllow(thingDef, allow);
         }
 
         internal void DisallowAll_Helper()
         {
-            var data = Data;
-            data.Filter.SetDisallowAll(null, data.HiddenFilters);
+            Filter.SetDisallowAll(null, HiddenFilters);
         }
 
         internal void AllowAll_Helper()
         {
-            var data = Data;
-            data.Filter.SetAllowAll(data.ParentFilter);
+            Filter.SetAllowAll(ParentFilter);
         }
 
         internal void AllowCategory_Helper(ThingCategoryDef categoryDef, bool allow)
         {
-            var data = Data;
             var node = new TreeNode_ThingCategory(categoryDef);
 
-            data.Filter.SetAllow(
+            Filter.SetAllow(
                 categoryDef,
                 allow,
                 null,
                 Listing_TreeThingFilter
-                .CalculateHiddenSpecialFilters(node, data.ParentFilter)
-                .ConcatIfNotNull(data.HiddenFilters)
+                .CalculateHiddenSpecialFilters(node, ParentFilter)
+                .ConcatIfNotNull(HiddenFilters)
             );
         }
     }
 
     public record TabStorageWrapper(IStoreSettingsParent Storage) : ThingFilterContext
     {
-        public override ContextData Data =>
-            new(Storage.GetStoreSettings().filter, Storage.GetParentStoreSettings()?.filter);
+        public override ThingFilter Filter => Storage.GetStoreSettings().filter;
+        public override ThingFilter ParentFilter => Storage.GetParentStoreSettings()?.filter;
     }
 
     public record BillConfigWrapper(Bill Bill) : ThingFilterContext
     {
-        public override ContextData Data =>
-            new(Bill.ingredientFilter, Bill.recipe.fixedIngredientFilter, Bill.recipe.forceHiddenSpecialFilters);
+        public override ThingFilter Filter => Bill.ingredientFilter;
+        public override ThingFilter ParentFilter => Bill.recipe.fixedIngredientFilter;
+        public override IEnumerable<SpecialThingFilterDef> HiddenFilters => Bill.recipe.forceHiddenSpecialFilters;
     }
 
     public record OutfitWrapper(Outfit Outfit) : ThingFilterContext
     {
-        public override ContextData Data =>
-            new(Outfit.filter, Dialog_ManageOutfits.apparelGlobalFilter, SpecialThingFilterDefOf.AllowNonDeadmansApparel);
+        public override ThingFilter Filter => Outfit.filter;
+        public override ThingFilter ParentFilter => Dialog_ManageOutfits.apparelGlobalFilter;
+        public override IEnumerable<SpecialThingFilterDef> HiddenFilters => SpecialThingFilterDefOf.AllowNonDeadmansApparel.ToEnumerable();
     }
 
     public record FoodRestrictionWrapper(FoodRestriction Food) : ThingFilterContext
     {
-        public override ContextData Data =>
-            new(Food.filter, Dialog_ManageFoodRestrictions.foodGlobalFilter, SpecialThingFilterDefOf.AllowFresh);
+        public override ThingFilter Filter => Food.filter;
+        public override ThingFilter ParentFilter => Dialog_ManageFoodRestrictions.foodGlobalFilter;
+        public override IEnumerable<SpecialThingFilterDef> HiddenFilters => SpecialThingFilterDefOf.AllowFresh.ToEnumerable();
     }
 
     public record PenAnimalsWrapper(CompAnimalPenMarker Pen) : ThingFilterContext
     {
-        public override ContextData Data =>
-            new(Pen.AnimalFilter, AnimalPenUtility.GetFixedAnimalFilter());
+        public override ThingFilter Filter => Pen.AnimalFilter;
+        public override ThingFilter ParentFilter => AnimalPenUtility.GetFixedAnimalFilter();
     }
 
     public record PenAutocutWrapper(CompAnimalPenMarker Pen) : ThingFilterContext
     {
-        public override ContextData Data =>
-            new(Pen.AutoCutFilter, Pen.parent.Map.animalPenManager.GetFixedAutoCutFilter(), SpecialThingFilterDefOf.AllowFresh);
+        public override ThingFilter Filter => Pen.AutoCutFilter;
+        public override ThingFilter ParentFilter => Pen.parent.Map.animalPenManager.GetFixedAutoCutFilter();
+        public override IEnumerable<SpecialThingFilterDef> HiddenFilters => SpecialThingFilterDefOf.AllowFresh.ToEnumerable();
     }
 
 }

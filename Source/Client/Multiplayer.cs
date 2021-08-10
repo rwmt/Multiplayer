@@ -89,6 +89,8 @@ namespace Multiplayer.Client
                 arbiterInstance = true;
             }
 
+            SyncDict.Init();
+
             EarlyPatches();
             CheckInterfaceVersions();
 
@@ -154,7 +156,7 @@ namespace Multiplayer.Client
             );
 
             if (MpVersion.IsDebug) {
-                Log.Message("== Structure == \n" + SyncDictionary.syncWorkers.PrintStructure());
+                Log.Message("== Structure == \n" + SyncDict.syncWorkers.PrintStructure());
             }
         }
 

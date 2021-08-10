@@ -74,8 +74,6 @@ namespace Multiplayer.Client.Persistent
         /// </summary>
         public void OpenWindow(bool sound = true)
         {
-            Find.Selector.ClearSelection();
-
             dialog = PrepareDialogProxy();
             if (!sound)
                 dialog.soundAppear = null;

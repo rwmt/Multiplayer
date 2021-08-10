@@ -27,6 +27,17 @@ namespace Multiplayer.Client.Persistent
             this.caravan = caravan;
         }
 
+        public override void PostOpen()
+        {
+            // Taken from Window.PostOpen, overriden to remove effects of Dialog_SplitCaravan.PostOpen
+
+            if (soundAppear != null)
+                soundAppear.PlayOneShotOnCamera(null);
+
+            if (soundAmbient != null)
+                sustainerAmbient = soundAmbient.TrySpawnSustainer(SoundInfo.OnCamera(MaintenanceType.PerFrame));
+        }
+
         /// <summary>
         /// Override of Dialog_SplitCaravan.DoWindowContents that calls into this dialog's DoBottomButtons.
         /// This was needed because Dialog_SplitCaravan.DoBottomButtons isn't virtual, but needed to be overridden.

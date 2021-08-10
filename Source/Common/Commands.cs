@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 namespace Multiplayer.Common
 {
@@ -20,9 +20,7 @@ namespace Multiplayer.Common
         MapTimeSpeed,
         CreateMapFactionData,
         MapIdBlock,
-        Forbid,
         Designator,
-        SpawnPawn,
     }
 
     public class ScheduledCommand

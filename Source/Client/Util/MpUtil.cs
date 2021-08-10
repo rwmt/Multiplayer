@@ -179,7 +179,8 @@ namespace Multiplayer.Client
         public static To ShallowCopy<From, To>(From from, To to) where To : From
         {
             foreach (var f in AccessTools.GetDeclaredFields(typeof(From)))
-                f.SetValue(to, f.GetValue(from));
+                if (!f.IsStatic)
+                    f.SetValue(to, f.GetValue(from));
 
             return to;
         }

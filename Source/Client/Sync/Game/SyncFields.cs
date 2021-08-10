@@ -111,7 +111,7 @@ namespace Multiplayer.Client
             SyncFactionAcceptRoyalFavor = Sync.Field(typeof(Faction), nameof(Faction.allowRoyalFavorRewards));
             SyncFactionAcceptGoodwill = Sync.Field(typeof(Faction), nameof(Faction.allowGoodwillRewards));
 
-            var thingFilterTarget = new MultiTarget() { { SyncThingFilters.ThingFilterTarget, "Data/Filter" } };
+            var thingFilterTarget = new MultiTarget() { { SyncThingFilters.ThingFilterTarget, "Filter" } };
             SyncThingFilterHitPoints = Sync.FieldMultiTarget(thingFilterTarget, "AllowedHitPointsPercents").SetBufferChanges();
             SyncThingFilterQuality = Sync.FieldMultiTarget(thingFilterTarget, "AllowedQualityLevels").SetBufferChanges();
 

@@ -94,11 +94,6 @@ namespace Multiplayer.Client
 
     public static class MpPatchExtensions
     {
-        class Entry : System.Dynamic.DynamicObject
-        {
-
-        }
-
         public static void DoAllMpPatches(this Harmony harmony)
         {
             foreach (Type type in Assembly.GetCallingAssembly().GetTypes())

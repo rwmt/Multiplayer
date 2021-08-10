@@ -56,8 +56,6 @@ namespace Multiplayer.Client
 
             Log.Message($"Multiplayer version {MpVersion.Version}");
             Log.Message($"Player's username: {Multiplayer.username}");
-            
-            PlantWindSwayPatch.Init();
 
             var persistentObj = new GameObject();
             persistentObj.AddComponent<OnMainThread>();

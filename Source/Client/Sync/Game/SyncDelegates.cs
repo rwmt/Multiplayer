@@ -1,6 +1,8 @@
 using Multiplayer.API;
 using RimWorld;
 using RimWorld.Planet;
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using Verse;
 
@@ -64,11 +66,9 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(CompShuttle), "<CompGetGizmosExtra>b__40_1"); // Toggle autoload
             SyncMethod.Register(typeof(ShipJob_Wait), "<GetJobGizmos>b__11_1"); // Send shuttle
 
-            SyncMethod.Register(typeof(MonumentMarker), "<GetGizmos>b__29_1"); // Build Monument Quest - Monument Marker: cancel/remove marker
-            SyncMethod.Register(typeof(MonumentMarker), "<GetGizmos>b__29_4").SetDebugOnly(); // Build Monument Quest - Monument Marker: dev build all
+            SyncMethod.Register(typeof(MonumentMarker), "<GetGizmos>b__29_1");                  // Build monument quest - monument marker: cancel/remove marker
+            SyncMethod.Register(typeof(MonumentMarker), "<GetGizmos>b__29_4").SetDebugOnly();   // Build monument quest - monument marker: dev build all
 
-            SyncDelegate.Register(typeof(ITab_ContentsTransporter), "<>c__DisplayClass11_0", "<DoItemsLists>b__0").SetContext(SyncContext.MapSelected); // Discard loaded thing
-			
             // Inventory (medicine) stock up
             SyncMethod.Register(typeof(Pawn_InventoryStockTracker), nameof(Pawn_InventoryStockTracker.SetCountForGroup));
             SyncMethod.Register(typeof(Pawn_InventoryStockTracker), nameof(Pawn_InventoryStockTracker.SetThingForGroup));
@@ -103,20 +103,48 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(ShipJob_Wait), "<GetJobGizmos>b__11_0"); // Dismiss (unload) shuttle
             SyncMethod.Register(typeof(ShipJob_Wait), "<GetJobGizmos>b__11_1"); // Send loaded shuttle
 
+            InitRituals();
+        }
+
+        private static void InitRituals()
+        {
+            SyncMethod.Register(typeof(LordJob_Ritual), "<GetCancelGizmo>b__81_1"); // Cancel ritual
+            SyncDelegate.Register(typeof(LordJob_Ritual), "<>c__DisplayClass80_0", "<GetPawnGizmos>b__0"); // Make pawn leave ritual
+
+            SyncDelegate.Register(typeof(LordJob_BestowingCeremony), "<>c__DisplayClass40_0", "<GetPawnGizmos>b__2"); // Cancel ceremony
+            SyncDelegate.Register(typeof(LordJob_BestowingCeremony), "<>c__DisplayClass40_0", "<GetPawnGizmos>b__0"); // Make pawn leave ceremony
+
+            SyncDelegate.Register(typeof(LordJob_BestowingCeremony), "<>c__DisplayClass7_0", "<ExtraFloatMenuOptions>b__0"); // Begin bestowing float menu
+            SyncMethod.Register(typeof(Command_BestowerCeremony), nameof(Command_BestowerCeremony.ProcessInput)); // Begin bestowing gizmo
+
             /*  
                 Ritual dialog
 
-                The UI is split into three types of groups of pawns.
+                The UI's main interaction area is split into three types of groups of pawns.
                 Each has three action handlers: (drop), (leftclick), (rightclick)
-                The names in parenths indicate what is synced for the handler.
+                The names in parenths indicate what is synced for each handler.
 
+                <Pawn Group>: <Handlers>
                 (Zero or more) roles: (local TryAssignReplace, local TryAssign), (null), (delegate)
                 Spectators: (assgn.TryAssignSpectate), (local TryAssignAnyRole), (assgn.RemoveParticipant)
                 Not participating: (assgn.RemoveParticipant), (delegate), float menus: (assgn.TryAssignSpectate, local TryAssignReplace, local TryAssign)
             */
-            SyncDelegate.Register(typeof(Dialog_BeginRitual), "<>c__DisplayClass73_0", "<DrawPawnList>g__TryAssignReplace|4"); // local TryAssignReplace
+
+            Func<IEnumerable<RitualRole>, object, object[], IEnumerable<string>> RitualRolesWriter =
+                (roles, target, args) => roles.Select(r => r.id);
+
+            Func<IEnumerable<string>, object, object[], IEnumerable<RitualRole>> RitualRolesReader =
+                (roleIds, target, args) =>
+                {
+                    var dialog = target.GetPropertyOrField(SyncDelegate.DELEGATE_THIS) as Dialog_BeginRitual;
+                    return roleIds.Select(id => dialog.ritual.behavior.def.roles.FirstOrDefault(r => r.id == id));
+                };
+
+            SyncDelegate.Register(typeof(Dialog_BeginRitual), "<>c__DisplayClass73_0", "<DrawPawnList>g__TryAssignReplace|4") // local TryAssignReplace
+                .TransformArgument(1, RitualRolesWriter, RitualRolesReader);
             SyncDelegate.Register(typeof(Dialog_BeginRitual), "<>c__DisplayClass73_0", "<DrawPawnList>g__TryAssignAnyRole|8"); // local TryAssignAnyRole
-            SyncDelegate.Register(typeof(Dialog_BeginRitual), "<>c__DisplayClass73_0", "<DrawPawnList>g__TryAssign|3"); // local TryAssignSpectate
+            SyncDelegate.Register(typeof(Dialog_BeginRitual), "<>c__DisplayClass73_0", "<DrawPawnList>g__TryAssign|3") // local TryAssign
+                .TransformArgument(1, RitualRolesWriter, RitualRolesReader);
             SyncDelegate.Register(typeof(Dialog_BeginRitual), "<>c__DisplayClass73_0", "<DrawPawnList>b__27"); // Roles right click delegate (try assign spectate)
             SyncDelegate.Register(typeof(Dialog_BeginRitual), "<>c__DisplayClass73_0", "<DrawPawnList>b__14"); // Not participating left click delegate (try assign any role or spectate)
 

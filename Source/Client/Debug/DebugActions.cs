@@ -18,6 +18,14 @@ namespace Multiplayer.Client
     {
         const string MultiplayerCategory = "Multiplayer";
 
+        [DebugAction("General", actionType = DebugActionType.ToolMap, allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void SpawnShuttleAcceptColonists()
+        {
+            var shuttle = ThingMaker.MakeThing(ThingDefOf.Shuttle, null);
+            shuttle.TryGetComp<CompShuttle>().acceptColonists = true;
+            GenPlace.TryPlaceThing(shuttle, UI.MouseCell(), Find.CurrentMap, ThingPlaceMode.Near);
+        }
+
         [SyncMethod]
         [DebugAction(MultiplayerCategory, "Save Map", allowedGameStates = AllowedGameStates.Playing)]
         public static void SaveGameCmd()

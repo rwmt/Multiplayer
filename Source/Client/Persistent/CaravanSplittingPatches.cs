@@ -1,4 +1,4 @@
-﻿using Verse;
+using Verse;
 using RimWorld.Planet;
 using HarmonyLib;
 
@@ -28,7 +28,6 @@ namespace Multiplayer.Client.Persistent
     [HarmonyPatch(new[] { typeof(Caravan) })]
     class CancelDialogSplitCaravanCtor
     {
-
         static bool Prefix(Caravan caravan)
         {
             //When not playing multiplayer, don't modify behavior.
@@ -54,23 +53,6 @@ namespace Multiplayer.Client.Persistent
             }
 
             return false;
-        }
-    }
-    
-    /// <summary>
-    /// When a Dialog_SplitCaravan would be constructed, cancel and construct a CaravanSplittingProxy instead.
-    /// </summary>
-    [HarmonyPatch(typeof(Dialog_SplitCaravan), nameof(Dialog_SplitCaravan.PostOpen))]
-    class CancelDialogSplitCaravanPostOpen
-    {
-        static bool Prefix()
-        {
-            //When not playing multiplayer, don't modify behavior.
-            //Otherwise prevent the Dialog_SplitCaravan.PostOpen from executing.
-            //This is needed to prevent the Dialog_SplitCaravan.CalculateAndRecacheTransferables from being called,
-            //  since if it gets called the Dialog_SplitCaravan tranferrable list is replaced with a new one, 
-            //  breaking the session's reference to the current list.
-            return Multiplayer.Client == null;    
         }
     }
 }

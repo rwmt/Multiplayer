@@ -33,30 +33,6 @@ namespace Multiplayer.Client
     [HarmonyPatch(typeof(OptionListingUtility), nameof(OptionListingUtility.DrawOptionListing))]
     public static class MainMenuPatch
     {
-        class ListableOptionWithMarker : ListableOption
-        {
-            public ListableOptionWithMarker(string label, Action action, string uiHighlightTag = null) : base(label, action, uiHighlightTag)
-            {
-            }
-
-            public override float DrawOption(Vector2 pos, float width)
-            {
-                var r = base.DrawOption(pos, width);
-
-                if (Multiplayer.loadingErrors)
-                {
-                    float b = Text.CalcHeight(label, width);
-                    float num = Mathf.Max(minHeight, b);
-                    Rect rect = new Rect(pos.x, pos.y, width, num);
-                    var markerRect = new Rect(rect.xMax - 36, rect.center.y - 12, 24, 24);
-                    GUI.DrawTexture(markerRect, Widgets.CheckboxOffTex);
-                    TooltipHandler.TipRegion(markerRect, "MpLoadingError".Translate());
-                }
-
-                return r;
-            }
-        }
-
         static void Prefix(Rect rect, List<ListableOption> optList)
         {
             if (!MainMenuMarker.drawing) return;
@@ -112,22 +88,22 @@ namespace Multiplayer.Client
 
                     var quitMenuLabel = "QuitToMainMenu".Translate();
                     var saveAndQuitMenu = "SaveAndQuitToMainMenu".Translate();
-                    var quitMenu = optList.Find(opt => opt.label == quitMenuLabel || opt.label == saveAndQuitMenu);
+                    var quitMenuOpt = optList.Find(opt => opt.label == quitMenuLabel || opt.label == saveAndQuitMenu);
 
-                    if (quitMenu != null)
+                    if (quitMenuOpt != null)
                     {
-                        quitMenu.label = quitMenuLabel;
-                        quitMenu.action = AskQuitToMainMenu;
+                        quitMenuOpt.label = quitMenuLabel;
+                        quitMenuOpt.action = AskQuitToMainMenu;
                     }
 
                     var quitOSLabel = "QuitToOS".Translate();
                     var saveAndQuitOSLabel = "SaveAndQuitToOS".Translate();
-                    var quitOS = optList.Find(opt => opt.label == quitOSLabel || opt.label == saveAndQuitOSLabel);
+                    var quitOSOpt = optList.Find(opt => opt.label == quitOSLabel || opt.label == saveAndQuitOSLabel);
 
-                    if (quitOS != null)
+                    if (quitOSOpt != null)
                     {
-                        quitOS.label = quitOSLabel;
-                        quitOS.action = () =>
+                        quitOSOpt.label = quitOSLabel;
+                        quitOSOpt.action = () =>
                         {
                             if (Multiplayer.LocalServer != null)
                                 Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation("MpServerCloseConfirmation".Translate(), Root.Shutdown, true, layer: WindowLayer.Super));
@@ -165,6 +141,7 @@ namespace Multiplayer.Client
                 Replay.ForSaving(saveName).WriteCurrentData();
 
                 Find.GameInfo.permadeathMode = false;
+                HostUtil.SetAllUniqueIds(Multiplayer.GlobalIdBlock.Current);
                 
                 OnMainThread.StopMultiplayer();
 
@@ -177,6 +154,30 @@ namespace Multiplayer.Client
 
                 LoadPatch.gameToLoad = doc;
             }, "Play", "MpConverting", true, null);
+        }
+    }
+
+    class ListableOptionWithMarker : ListableOption
+    {
+        public ListableOptionWithMarker(string label, Action action, string uiHighlightTag = null) : base(label, action, uiHighlightTag)
+        {
+        }
+
+        public override float DrawOption(Vector2 pos, float width)
+        {
+            var r = base.DrawOption(pos, width);
+
+            if (Multiplayer.loadingErrors)
+            {
+                float b = Text.CalcHeight(label, width);
+                float num = Mathf.Max(minHeight, b);
+                Rect rect = new Rect(pos.x, pos.y, width, num);
+                var markerRect = new Rect(rect.xMax - 36, rect.center.y - 12, 24, 24);
+                GUI.DrawTexture(markerRect, Widgets.CheckboxOffTex);
+                TooltipHandler.TipRegion(markerRect, "MpLoadingError".Translate());
+            }
+
+            return r;
         }
     }
 

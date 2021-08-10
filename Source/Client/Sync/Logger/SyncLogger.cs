@@ -4,7 +4,9 @@ namespace Multiplayer.Client
 {
     public class SyncLogger
     {
-        public LogNode current = new LogNode("Root");
+        public const string RootNodeName = "Root";
+
+        public LogNode current = new LogNode(RootNodeName);
 
         private int stopped;
 

@@ -32,13 +32,13 @@ namespace Multiplayer.Client
 
             Map map = Find.CurrentMap;
             LoggingByteWriter writer = new LoggingByteWriter();
-            writer.log.Node("Designate single cell: " + designator.GetType());
+            writer.Log.Node("Designate single cell: " + designator.GetType());
 
             WriteData(writer, DesignatorMode.SingleCell, designator);
             SyncSerialization.WriteSync(writer, __0);
 
             Multiplayer.Client.SendCommand(CommandType.Designator, map.uniqueID, writer.ToArray());
-            Multiplayer.WriterLog.nodes.Add(writer.log.current);
+            Multiplayer.WriterLog.AddCurrentNode(writer);
 
             return false;
         }
@@ -54,14 +54,14 @@ namespace Multiplayer.Client
 
             Map map = Find.CurrentMap;
             LoggingByteWriter writer = new LoggingByteWriter();
-            writer.log.Node("Designate multi cell: " + designator.GetType());
+            writer.Log.Node("Designate multi cell: " + designator.GetType());
             IntVec3[] cellArray = __0.ToArray();
 
             WriteData(writer, DesignatorMode.MultiCell, designator);
             SyncSerialization.WriteSync(writer, cellArray);
 
             Multiplayer.Client.SendCommand(CommandType.Designator, map.uniqueID, writer.ToArray());
-            Multiplayer.WriterLog.nodes.Add(writer.log.current);
+            Multiplayer.WriterLog.AddCurrentNode(writer);
 
             return false;
         }
@@ -74,13 +74,13 @@ namespace Multiplayer.Client
 
             Map map = Find.CurrentMap;
             LoggingByteWriter writer = new LoggingByteWriter();
-            writer.log.Node("Designate thing: " + __0 + " " + designator.GetType());
+            writer.Log.Node("Designate thing: " + __0 + " " + designator.GetType());
 
             WriteData(writer, DesignatorMode.Thing, designator);
             SyncSerialization.WriteSync(writer, __0);
 
             Multiplayer.Client.SendCommand(CommandType.Designator, map.uniqueID, writer.ToArray());
-            Multiplayer.WriterLog.nodes.Add(writer.log.current);
+            Multiplayer.WriterLog.AddCurrentNode(writer);
 
             FleckMaker.ThrowMetaPuffs(__0);
 

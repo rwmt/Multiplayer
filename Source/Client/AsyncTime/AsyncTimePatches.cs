@@ -137,8 +137,6 @@ namespace Multiplayer.Client.AsyncTime
         private static TimeSpeed savedSpeed;
         private static bool keyPressed;
 
-        public static int? tickableToHighlight;
-
         static void Prefix(ref ITickable __state)
         {
             if (Multiplayer.Client == null) return;
@@ -177,7 +175,7 @@ namespace Multiplayer.Client.AsyncTime
             {
                 var tickable = WorldRendererUtility.WorldRenderedNow ? Multiplayer.WorldComp : (ITickable)Find.CurrentMap.AsyncTime();
                 if (tickable != null)
-                    tickableToHighlight =
+                    ColonistBarTimeControl.tickableToHighlight =
                         tickable.ActualRateMultiplier(TimeSpeed.Normal) == 0f ? tickable.TickableId : (int?)null;
             }
 
@@ -301,16 +299,27 @@ namespace Multiplayer.Client.AsyncTime
                 {
                     Rect button = new Rect(drawXPos, groupBar.yMax, btnWidth, btnHeight);
                     DrawWindowShortcuts(button, bgColor, options);
-
-                    if (TimeControlPatch.tickableToHighlight != null && Event.current.type == EventType.Repaint)
-                    {
-                        if (TimeControlPatch.tickableToHighlight.Value == entryTickable.TickableId && ((int)(Time.time * 3)) % 2 == 0)
-                            Widgets.DrawBox(button, 2);
-                        TimeControlPatch.tickableToHighlight = null;
-                    }
+                    TryBlinkTickable(button, entryTickable);
                 }
 
                 curGroup = entry.group;
+            }
+        }
+
+        public static int? tickableToHighlight;
+
+        static void TryBlinkTickable(Rect rect, ITickable tickable)
+        {
+            if (tickableToHighlight != null && Event.current.type == EventType.Repaint)
+            {
+                if (tickableToHighlight.Value == tickable.TickableId && ((int)(Time.time * 3)) % 2 == 0)
+                {
+                    GUI.color = Color.red;
+                    Widgets.DrawBox(rect, 2);
+                    GUI.color = Color.white;
+                }
+
+                tickableToHighlight = null;
             }
         }
 
@@ -319,12 +328,7 @@ namespace Multiplayer.Client.AsyncTime
             Widgets.DrawRectFast(button, bgColor);
 
             if (Widgets.ButtonImage(button, TexButton.OpenStatsReport))
-            {
-                if (options.Count == 1)
-                    options[0].action();
-                else
-                    Find.WindowStack.Add(new FloatMenu(options));
-            }
+                Find.WindowStack.Add(new FloatMenu(options));
         }
 
         static List<FloatMenuOption> GetBlockingWindowOptions(ColonistBar.Entry entry, ITickable tickable)
@@ -370,6 +374,15 @@ namespace Multiplayer.Client.AsyncTime
                 }));
             }
 
+            if (entry.map?.MpComp().ritualSession != null)
+            {
+                options.Add(new FloatMenuOption("MpRitualSession".Translate(), () =>
+                {
+                    SwitchMap(entry.map);
+                    entry.map.MpComp().ritualSession.OpenWindow();
+                }));
+            }
+
             return options;
         }
 
@@ -381,6 +394,7 @@ namespace Multiplayer.Client.AsyncTime
             }
             else
             {
+                Log.Message($"{Current.Game.CurrentMap} {map}");
                 if (WorldRendererUtility.WorldRenderedNow) CameraJumper.TryHideWorld();
                 Current.Game.CurrentMap = map;
             }

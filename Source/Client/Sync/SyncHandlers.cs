@@ -61,7 +61,7 @@ namespace Multiplayer.Client
 
             LoggingByteWriter writer = new LoggingByteWriter();
             MpContext context = writer.MpContext();
-            writer.log.Node($"Sync field {memberPath}");
+            writer.Log.Node(ToString());
 
             writer.WriteInt32(syncId);
 
@@ -77,8 +77,8 @@ namespace Multiplayer.Client
             if (indexType != null)
                 SyncSerialization.WriteSyncObject(writer, index, indexType);
 
-            writer.log.Node($"Map id: {mapId}");
-            Multiplayer.WriterLog.nodes.Add(writer.log.current);
+            writer.Log.Node($"Map id: {mapId}");
+            Multiplayer.WriterLog.AddCurrentNode(writer);
 
             Multiplayer.Client.SendCommand(CommandType.Sync, mapId, writer.ToArray());
 
@@ -187,6 +187,8 @@ namespace Multiplayer.Client
         }
     }
 
+    public record ArgTransformer(Type LiveType, Type NetworkType, Delegate Writer, Delegate Reader);
+
     public class SyncMethod : SyncHandler, ISyncMethod
     {
         public readonly Type targetType;
@@ -194,6 +196,8 @@ namespace Multiplayer.Client
 
         public readonly MethodInfo method;
         public SyncType[] argTypes;
+        public string[] argNames;
+        private ArgTransformer[] argTransformers;
 
         private int minTime = 100; // Milliseconds between resends
         private long lastSendTime;
@@ -205,7 +209,7 @@ namespace Multiplayer.Client
         private Action<object, object[]> beforeCall;
         private Action<object, object[]> afterCall;
 
-        public SyncMethod(Type targetType, string instancePath, string methodName, SyncType[] argTypes)
+        public SyncMethod(Type targetType, string instancePath, string methodName, SyncType[] inTypes)
         {
             this.targetType = targetType;
 
@@ -216,29 +220,30 @@ namespace Multiplayer.Client
                 instanceType = MpReflection.PathType(this.instancePath);
             }
 
-            method = AccessTools.Method(instanceType, methodName, argTypes?.Select(t => t.type).ToArray())
+            method = AccessTools.Method(instanceType, methodName, inTypes?.Select(t => t.type).ToArray())
                 ?? throw new Exception($"Couldn't find method {instanceType}::{methodName}");
 
-            this.argTypes = CheckArgs(argTypes);
+            argTypes = CheckArgs(inTypes);
+            argNames = method.GetParameters().Names();
+            argTransformers = new ArgTransformer[argTypes.Length];
         }
 
-        public SyncMethod(Type targetType, MethodInfo method, SyncType[] argTypes)
+        public SyncMethod(Type targetType, MethodInfo method, SyncType[] inTypes)
         {
             this.method = method;
             this.targetType = targetType;
-            this.argTypes = CheckArgs(argTypes);
+
+            argTypes = CheckArgs(inTypes);
+            argNames = method.GetParameters().Names();
+            argTransformers = new ArgTransformer[argTypes.Length];
         }
 
         private SyncType[] CheckArgs(SyncType[] argTypes)
         {
             if (argTypes == null || argTypes.Length == 0)
-            {
                 return method.GetParameters().Select(p => (SyncType)p).ToArray();
-            }
             else if (argTypes.Length != method.GetParameters().Length)
-            {
                 throw new Exception("Wrong parameter count for method " + method);
-            }
 
             return argTypes;
         }
@@ -257,7 +262,7 @@ namespace Multiplayer.Client
 
             LoggingByteWriter writer = new LoggingByteWriter();
             MpContext context = writer.MpContext();
-            writer.log.Node("Sync method " + method.FullDescription());
+            writer.Log.Node(ToString());
 
             writer.WriteInt32(syncId);
 
@@ -272,12 +277,20 @@ namespace Multiplayer.Client
                     map = newMap;
             }
 
-            for (int i = 0; i < argTypes.Length; i++)
+            void SyncObj(object obj, SyncType type, string debugInfo)
             {
-                var argType = argTypes[i];
-                SyncSerialization.WriteSyncObject(writer, args[i], argType);
+                writer.Log.Enter(debugInfo);
 
-                if (argType.contextMap && args[i] is Map contextMap)
+                try
+                {
+                    SyncSerialization.WriteSyncObject(writer, obj, type);
+                }
+                finally
+                {
+                    writer.Log.Exit();
+                }
+
+                if (type.contextMap && obj is Map contextMap)
                     map = contextMap;
 
                 if (context.map is Map newMap)
@@ -288,9 +301,17 @@ namespace Multiplayer.Client
                 }
             }
 
+            for (int i = 0; i < argTypes.Length; i++)
+                if (argTransformers[i] == null)
+                    SyncObj(args[i], argTypes[i], $"Arg {i} {argNames[i]}");
+
+            for (int i = 0; i < argTypes.Length; i++)
+                if (argTransformers[i] is ArgTransformer trans)
+                    SyncObj(trans.Writer.DynamicInvoke(args[i], target, args), trans.NetworkType, $"Arg {i} {argNames[i]} (transformed)");
+
             int mapId = map?.uniqueID ?? ScheduledCommand.Global;
-            writer.log.Node("Map id: " + mapId);
-            Multiplayer.WriterLog.nodes.Add(writer.log.current);
+            writer.Log.Node("Map id: " + mapId);
+            Multiplayer.WriterLog.AddCurrentNode(writer);
 
             Multiplayer.Client.SendCommand(CommandType.Sync, mapId, writer.ToArray());
 
@@ -313,13 +334,18 @@ namespace Multiplayer.Client
             if (!instancePath.NullOrEmpty())
                 target = target.GetPropertyOrField(instancePath);
 
-            object[] args = null;
-            if (argTypes != null)
-            {
-                args = SyncSerialization.ReadSyncObjects(data, argTypes);
-                if (cancelIfAnyArgNull && args.Any(a => a == null))
-                    return;
-            }
+            var args = new object[argTypes.Length];
+
+            for (int i = 0; i < argTypes.Length; i++)
+                if (argTransformers[i] == null)
+                    args[i] = SyncSerialization.ReadSyncObject(data, argTypes[i]);
+
+            for (int i = 0; i < argTypes.Length; i++)
+                if (argTransformers[i] is ArgTransformer trans)
+                    args[i] = trans.Reader.DynamicInvoke(SyncSerialization.ReadSyncObject(data, trans.NetworkType), target, args);
+
+            if (cancelIfAnyArgNull && args.Any(a => a == null))
+                return;
 
             if (context.HasFlag(SyncContext.MapSelected) && cancelIfNoSelectedMapObjects && Find.Selector.selected.Count == 0)
                 return;
@@ -395,6 +421,19 @@ namespace Multiplayer.Client
             return this;
         }
 
+        public ISyncMethod TransformArgument<Live, Networked>(
+            int index,
+            Func<Live, object, object[], Networked> writer,
+            Func<Networked, object, object[], Live> reader
+        )
+        {
+            if (argTypes[index].type != typeof(Live))
+                throw new Exception($"Arg transformer param mismatch for {this}: {argTypes[index].type} != {typeof(Live)}");
+
+            argTransformers[index] = new(typeof(Live), typeof(Networked), writer, reader);
+            return this;
+        }
+
         public static SyncMethod Register(Type type, string methodOrPropertyName, SyncType[] argTypes = null)
         {
             return Sync.RegisterSyncMethod(type, methodOrPropertyName, argTypes);
@@ -402,32 +441,37 @@ namespace Multiplayer.Client
 
         public override string ToString()
         {
-            return $"SyncMethod {method.FullDescription()}";
+            return $"SyncMethod {method.MpFullDescription()}";
         }
     }
 
     public class SyncDelegate : SyncHandler, ISyncDelegate
     {
+        public const string DELEGATE_THIS = "<>4__this";
+
         public readonly Type delegateType;
         public readonly MethodInfo method;
 
         private Type[] argTypes;
-        public string[] fieldPaths;
+        private string[] argNames;
+        private ArgTransformer[] argTransformers;
+
         private Type[] fieldTypes;
+        private string[] fieldPaths;
 
         private string[] cancelIfAnyNullBlacklist;
         private string[] cancelIfNull;
         private bool cancelIfNoSelectedObjects;
         private string[] removeNullsFromLists;
-
-        public MethodInfo patch;
-
+        
         public SyncDelegate(Type delegateType, MethodInfo method, string[] fieldPaths)
         {
             this.delegateType = delegateType;
             this.method = method;
 
             argTypes = method.GetParameters().Types();
+            argNames = method.GetParameters().Names();
+            argTransformers = new ArgTransformer[argTypes.Length];
 
             if (fieldPaths == null)
             {
@@ -466,22 +510,28 @@ namespace Multiplayer.Client
 
             LoggingByteWriter writer = new LoggingByteWriter();
             MpContext context = writer.MpContext();
-            writer.log.Node($"Sync delegate: {delegateType} method: {method}");
-            writer.log.Node("Patch: " + patch?.FullDescription());
+            writer.Log.Node(ToString());
 
             writer.WriteInt32(syncId);
-
             SyncUtil.WriteContext(this, writer);
 
             int mapId = ScheduledCommand.Global;
 
-            IEnumerable<object> fields = fieldPaths.Select(p => delegateInstance.GetPropertyOrField(p));
-
-            EnumerableHelper.ProcessCombined(fields.Concat(args), fieldTypes.Concat(argTypes), (obj, type) => {
+            void SyncObj(object obj, Type type, string debugInfo)
+            {
                 if (type.IsCompilerGenerated())
                     return;
 
-                SyncSerialization.WriteSyncObject(writer, obj, type);
+                writer.Log.Enter(debugInfo);
+
+                try
+                {
+                    SyncSerialization.WriteSyncObject(writer, obj, type);
+                }
+                finally
+                {
+                    writer.Log.Exit();
+                }
 
                 if (context.map is Map map)
                 {
@@ -489,10 +539,21 @@ namespace Multiplayer.Client
                         throw new Exception("SyncDelegate map mismatch");
                     mapId = map.uniqueID;
                 }
-            });
+            }
 
-            writer.log.Node("Map id: " + mapId);
-            Multiplayer.WriterLog.nodes.Add(writer.log.current);
+            for (int i = 0; i < fieldPaths.Length; i++)
+                SyncObj(delegateInstance.GetPropertyOrField(fieldPaths[i]), fieldTypes[i], fieldPaths[i]);
+
+            for (int i = 0; i < argTypes.Length; i++)
+                if (argTransformers[i] == null)
+                    SyncObj(args[i], argTypes[i], $"Arg {i} {argNames[i]}");
+
+            for (int i = 0; i < argTypes.Length; i++)
+                if (argTransformers[i] is ArgTransformer trans)
+                    SyncObj(trans.Writer.DynamicInvoke(args[i], delegateInstance, args), trans.NetworkType, $"Arg {i} {argNames[i]} (transformed)");
+
+            writer.Log.Node("Map id: " + mapId);
+            Multiplayer.WriterLog.AddCurrentNode(writer);
 
             Multiplayer.Client.SendCommand(CommandType.Sync, mapId, writer.ToArray());
 
@@ -520,7 +581,7 @@ namespace Multiplayer.Client
                     if (cancelIfAnyNullBlacklist != null && !cancelIfAnyNullBlacklist.Contains(noTypePath))
                         return;
 
-                    if (path.EndsWith("4__this"))
+                    if (path.EndsWith(DELEGATE_THIS))
                         return;
 
                     if (cancelIfNull != null && cancelIfNull.Contains(noTypePath))
@@ -536,10 +597,18 @@ namespace Multiplayer.Client
             if (context.HasFlag(SyncContext.MapSelected) && cancelIfNoSelectedObjects && Find.Selector.selected.Count == 0)
                 return;
 
-            object[] parameters = SyncSerialization.ReadSyncObjects(data, argTypes);
+            var args = new object[argTypes.Length];
+
+            for (int i = 0; i < argTypes.Length; i++)
+                if (argTransformers[i] == null)
+                    args[i] = SyncSerialization.ReadSyncObject(data, argTypes[i]);
+
+            for (int i = 0; i < argTypes.Length; i++)
+                if (argTransformers[i] is ArgTransformer trans)
+                    args[i] = trans.Reader.DynamicInvoke(SyncSerialization.ReadSyncObject(data, trans.NetworkType), target, args);
 
             MpLog.Log("Invoked delegate method " + method + " " + delegateType);
-            method.Invoke(target, parameters);
+            method.Invoke(target, args);
         }
 
         public ISyncDelegate SetContext(SyncContext context)
@@ -588,9 +657,22 @@ namespace Multiplayer.Client
             return this;
         }
 
+        public ISyncDelegate TransformArgument<Live, Networked>(
+            int index,
+            Func<Live, object, object[], Networked> writer,
+            Func<Networked, object, object[], Live> reader
+        )
+        {
+            if (argTypes[index] != typeof(Live))
+                throw new Exception($"Arg transformer param mismatch for {this}: {argTypes[index]} != {typeof(Live)}");
+
+            argTransformers[index] = new(typeof(Live), typeof(Networked), writer, reader);
+            return this;
+        }
+
         public override string ToString()
         {
-            return $"SyncDelegate {method.FullDescription()}";
+            return $"SyncDelegate {method.MpFullDescription()}";
         }
 
         private static bool AllDelegateFieldsRecursive(Type type, Func<string, bool> getter, string path = "")
@@ -670,7 +752,7 @@ namespace Multiplayer.Client
         {
             LoggingByteWriter writer = new LoggingByteWriter();
             MpContext context = writer.MpContext();
-            writer.log.Node("Sync action");
+            writer.Log.Node("Sync action");
 
             writer.WriteInt32(syncId);
 
@@ -683,8 +765,8 @@ namespace Multiplayer.Client
 
             int mapId = writer.MpContext().map?.uniqueID ?? -1;
 
-            writer.log.Node("Map id: " + mapId);
-            Multiplayer.WriterLog.nodes.Add(writer.log.current);
+            writer.Log.Node("Map id: " + mapId);
+            Multiplayer.WriterLog.AddCurrentNode(writer);
 
             Multiplayer.Client.SendCommand(CommandType.Sync, mapId, writer.ToArray());
         }

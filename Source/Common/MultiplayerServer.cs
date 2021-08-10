@@ -502,8 +502,10 @@ namespace Multiplayer.Common
         public int blockSize;
         public int mapId = -1;
 
-        public int current;
+        public int currentWithinBlock;
         public bool overflowHandled;
+
+        public int Current => blockStart + currentWithinBlock;
 
         public IdBlock(int blockStart, int blockSize, int mapId = -1)
         {
@@ -515,8 +517,8 @@ namespace Multiplayer.Common
         public int NextId()
         {
             // Overflows should be handled by the caller
-            current++;
-            return blockStart + current;
+            currentWithinBlock++;
+            return blockStart + currentWithinBlock;
         }
 
         public byte[] Serialize()
@@ -525,7 +527,7 @@ namespace Multiplayer.Common
             writer.WriteInt32(blockStart);
             writer.WriteInt32(blockSize);
             writer.WriteInt32(mapId);
-            writer.WriteInt32(current);
+            writer.WriteInt32(currentWithinBlock);
 
             return writer.ToArray();
         }
@@ -533,7 +535,7 @@ namespace Multiplayer.Common
         public static IdBlock Deserialize(ByteReader data)
         {
             IdBlock block = new IdBlock(data.ReadInt32(), data.ReadInt32(), data.ReadInt32());
-            block.current = data.ReadInt32();
+            block.currentWithinBlock = data.ReadInt32();
             return block;
         }
     }

@@ -15,103 +15,10 @@ using static Multiplayer.Client.SyncSerialization;
 
 namespace Multiplayer.Client
 {
-    public static class SyncDictionary
+    public static class SyncDictRimWorld
     {
-        // These syncWorkers need very fast access, keep it small.
-        internal static SyncWorkerDictionary syncWorkersEarly = new SyncWorkerDictionary()
-        {
-            // missing decimal and char, good?
-            #region Built-in
-
-            { (SyncWorker sync, ref bool b   ) =>  sync.Bind(ref b) },
-            { (SyncWorker sync, ref byte b   ) =>  sync.Bind(ref b) },
-            { (SyncWorker sync, ref sbyte b  ) =>  sync.Bind(ref b) },
-            { (SyncWorker sync, ref double d ) =>  sync.Bind(ref d) },
-            { (SyncWorker sync, ref float f  ) =>  sync.Bind(ref f) },
-            { (SyncWorker sync, ref int i    ) =>  sync.Bind(ref i) },
-            { (SyncWorker sync, ref uint i   ) =>  sync.Bind(ref i) },
-            { (SyncWorker sync, ref long l   ) =>  sync.Bind(ref l) },
-            { (SyncWorker sync, ref ulong l  ) =>  sync.Bind(ref l) },
-            { (SyncWorker sync, ref short s  ) =>  sync.Bind(ref s) },
-            { (SyncWorker sync, ref ushort s ) =>  sync.Bind(ref s) },
-            { (SyncWorker sync, ref string t ) =>  sync.Bind(ref t) },
-
-            #endregion
-
-            #region Structs
-            {
-                (ByteWriter data, Rot4 rot) => data.WriteByte(rot.AsByte),
-                (ByteReader data) => new Rot4(data.ReadByte())
-            },
-            {
-                (ByteWriter data, IntVec3 vec) => {
-                    if (vec.y < 0) {
-                        data.WriteShort(-1);
-                    }
-                    else {
-                        data.WriteShort((short)vec.y);
-                        data.WriteShort((short)vec.x);
-                        data.WriteShort((short)vec.z);
-                    }
-                },
-                (ByteReader data) => {
-                    short y = data.ReadShort();
-                    if (y < 0)
-                      return IntVec3.Invalid;
-
-                    short x = data.ReadShort();
-                    short z = data.ReadShort();
-
-                    return new IntVec3(x, y, z);
-                }
-            },
-            {
-                (SyncWorker sync, ref Vector2 vec)  => {
-                    sync.Bind(ref vec.x);
-                    sync.Bind(ref vec.y);
-                }
-            },
-            {
-                (SyncWorker sync, ref Vector3 vec)  => {
-                    sync.Bind(ref vec.x);
-                    sync.Bind(ref vec.y);
-                    sync.Bind(ref vec.z);
-                }
-            },
-            #endregion
-
-            #region Templates
-            /*
-            { (SyncWorker sync, ref object obj)  => { } },
-            {
-                (ByteWriter data, object obj) => {
-
-                },
-                (ByteReader data) => {
-                    return null;
-                }
-            },
-            */
-            #endregion
-        };
-
-        // Here you can stuff anything, you break it down and you build it on the other side
-        // Append a true to the entry to make it work implicitly to all its children Types
         internal static SyncWorkerDictionaryTree syncWorkers = new SyncWorkerDictionaryTree()
         {
-            #region Ignored
-
-            { (SyncWorker sync, ref Event s)  => { } },
-
-            #endregion
-
-            #region System
-            {
-                (ByteWriter data, Type type) => data.WriteString(type.FullName),
-                (ByteReader data) => AccessTools.TypeByName(data.ReadString())
-            },
-            #endregion
-
             #region Pawns
             {
                 (ByteWriter data, PriorityWork work) => WriteSync(data, work.pawn),
@@ -475,48 +382,6 @@ namespace Multiplayer.Client
             },
             #endregion
 
-            #region Ranges
-            {
-                (ByteWriter data, FloatRange range) => {
-                    data.WriteFloat(range.min);
-                    data.WriteFloat(range.max);
-                },
-                (ByteReader data) => new FloatRange(data.ReadFloat(), data.ReadFloat())
-            },
-            {
-                (ByteWriter data, IntRange range) => {
-                    data.WriteInt32(range.min);
-                    data.WriteInt32(range.max);
-                },
-                (ByteReader data) => new IntRange(data.ReadInt32(), data.ReadInt32())
-            },
-            {
-                (ByteWriter data, QualityRange range) => {
-                    WriteSync(data, range.min);
-                    WriteSync(data, range.max);
-                },
-                (ByteReader data) => new QualityRange(ReadSync<QualityCategory>(data), ReadSync<QualityCategory>(data))
-            },
-            #endregion
-
-            #region Names
-            {
-                (ByteWriter data, NameSingle name) => {
-                    data.WriteString(name.nameInt);
-                    data.WriteBool(name.numerical);
-                },
-                (ByteReader data) => new NameSingle(data.ReadString(), data.ReadBool())
-            },
-            {
-                (ByteWriter data, NameTriple name) => {
-                    data.WriteString(name.firstInt);
-                    data.WriteString(name.nickInt);
-                    data.WriteString(name.lastInt);
-                },
-                (ByteReader data) => new NameTriple(data.ReadString(), data.ReadString(), data.ReadString())
-            },
-            #endregion
-
             #region Tabs
             {
                 (ByteWriter data, ITab_Bills tab) => { },
@@ -642,6 +507,7 @@ namespace Multiplayer.Client
                         if (build.PlacingDef.MadeFromStuff) {
                             sync.Write(build.stuffDef);
                         }
+                        sync.Write(build.sourcePrecept);
                     } else {
                         var def = sync.Read<BuildableDef>();
                         build = new Designator_Build(def);
@@ -649,13 +515,13 @@ namespace Multiplayer.Client
                         if (build.PlacingDef.MadeFromStuff) {
                             build.stuffDef = sync.Read<ThingDef>();
                         }
+                        build.sourcePrecept = sync.Read<Precept_Building>();
                     }
                 }
             },
             #endregion
 
             #region ThingComps
-
             {
                 (ByteWriter data, CompChangeableProjectile comp) => {
                     if (comp == null)
@@ -791,90 +657,6 @@ namespace Multiplayer.Client
                         comp = parent.AllComps.Find(c => c.props.compClass == compType);
                     }
                 }, true // implicit
-            },
-            #endregion
-
-            #region Royalty Permits
-            {
-                (SyncWorker sync, ref Pawn_RoyaltyTracker royalty) => {
-                    if (sync.isWriting) {
-                        sync.Write(royalty.pawn);
-                    }
-                    else {
-                        royalty = sync.Read<Pawn>().royalty;
-                    }
-                }
-            },
-            {
-                (SyncWorker sync, ref RoyalTitlePermitWorker worker) => {
-                    if (sync.isWriting) {
-                        sync.Write(worker.def);
-                    }
-                    else {
-                        worker = sync.Read<RoyalTitlePermitDef>().Worker;
-                    }
-                }, true // Implicit
-            },
-            {
-                // Parent: RoyalTitlePermitWorker
-                (SyncWorker sync, ref RoyalTitlePermitWorker_Targeted targeted) => {
-                    if (sync.isWriting) {
-                        sync.Write(targeted.free);
-                        sync.Write(targeted.caller);
-                        sync.Write(targeted.map);
-                    }
-                    else {
-                        targeted.free = sync.Read<bool>();
-                        targeted.caller = sync.Read<Pawn>();
-                        targeted.map = sync.Read<Map>();
-                    }
-                }, true // Implicit
-            },
-            {
-                // Parent: RoyalTitlePermitWorker_Targeted
-                (SyncWorker sync, ref RoyalTitlePermitWorker_CallAid callAid) => {
-                    if (sync.isWriting) {
-                        sync.Write(callAid.calledFaction);
-                        sync.Write(callAid.biocodeChance);
-                    }
-                    else {
-                        callAid.calledFaction = sync.Read<Faction>();
-                        callAid.biocodeChance = sync.Read<float>();
-                    }
-                }, true // Implicit
-            },
-            {
-                // Parent: RoyalTitlePermitWorker_Targeted
-                (SyncWorker sync, ref RoyalTitlePermitWorker_CallShuttle callShuttle) => {
-                    if (sync.isWriting) {
-                        sync.Write(callShuttle.calledFaction);
-                    }
-                    else {
-                        callShuttle.calledFaction = sync.Read<Faction>();
-                    }
-                }, true // Implicit
-            },
-            {
-                // Parent: RoyalTitlePermitWorker_Targeted
-                (SyncWorker sync, ref RoyalTitlePermitWorker_OrbitalStrike orbitalStrike) => {
-                    if (sync.isWriting) {
-                        sync.Write(orbitalStrike.faction);
-                    }
-                    else {
-                        orbitalStrike.faction = sync.Read<Faction>();
-                    }
-                }, true // Implicit
-            },
-            {
-                // Parent: RoyalTitlePermitWorker_Targeted
-                (SyncWorker sync, ref RoyalTitlePermitWorker_DropResources dropResources) => {
-                    if (sync.isWriting) {
-                        sync.Write(dropResources.faction);
-                    }
-                    else {
-                        dropResources.faction = sync.Read<Faction>();
-                    }
-                }, true // Implicit
             },
             #endregion
 
@@ -1057,105 +839,6 @@ namespace Multiplayer.Client
 
             #endregion
 
-            #region Multiplayer Sessions
-            {
-                (ByteWriter data, PersistentDialog session) => {
-                    data.MpContext().map = session.map;
-                    data.WriteInt32(session.id);
-                },
-                (ByteReader data) => {
-                    int id = data.ReadInt32();
-                    return data.MpContext().map.MpComp().mapDialogs.FirstOrDefault(s => s.id == id);
-                }
-            },
-            {
-                (ByteWriter data, MpTradeSession session) => data.WriteInt32(session.sessionId),
-                (ByteReader data) => {
-                    int id = data.ReadInt32();
-                    return Multiplayer.WorldComp.trading.FirstOrDefault(s => s.sessionId == id);
-                }
-            },
-            {
-                (ByteWriter data, CaravanFormingSession session) => {
-                    data.MpContext().map = session.map;
-                    data.WriteInt32(session.sessionId);
-                },
-                (ByteReader data) => {
-                    int id = data.ReadInt32();
-                    var session = data.MpContext().map.MpComp().caravanForming;
-                    return session?.sessionId == id ? session : null;
-                }
-            },
-            {
-                (ByteWriter data, TransporterLoading session) => {
-                    data.MpContext().map = session.map;
-                    data.WriteInt32(session.sessionId);
-                },
-                (ByteReader data) => {
-                    int id = data.ReadInt32();
-                    var session = data.MpContext().map.MpComp().transporterLoading;
-                    return session?.sessionId == id? session : null;
-                }
-            },
-            #endregion
-
-            #region Multiplayer Transferables
-            {
-                // todo find a better way
-                (ByteWriter data, TransferableImmutable tr) => {
-                    WriteSync(data, tr.things);
-                },
-                (ByteReader data) => {
-                    List<Thing> things = ReadSync<List<Thing>>(data);
-
-                    TransferableImmutable tr = new TransferableImmutable();
-                    tr.things.AddRange(things.AllNotNull());
-
-                    return tr;
-                }
-            },
-            {
-                (ByteWriter data, MpTransferableReference reference) => {
-                    data.WriteInt32(reference.session.SessionId);
-
-                    Transferable tr = reference.transferable;
-
-                    if (tr == null) {
-                        data.WriteInt32(-1);
-                        return;
-                    }
-
-                    Thing thing;
-                    if (tr is Tradeable trad)
-                        thing = trad.FirstThingTrader ?? trad.FirstThingColony;
-                    else if (tr is TransferableOneWay oneWay)
-                        thing = oneWay.AnyThing;
-                    else
-                        throw new Exception($"Syncing unsupported transferable type {reference?.GetType()}");
-
-                    MpContext context = data.MpContext();
-
-                    if (thing.Spawned)
-                        context.map = thing.Map;
-
-                    data.WriteInt32(thing.thingIDNumber);
-                },
-                (ByteReader data) => {
-                    var map = data.MpContext().map;
-
-                    int sessionId = data.ReadInt32();
-                    var session = GetSessions(map).FirstOrDefault(s => s.SessionId == sessionId);
-
-                    int thingId = data.ReadInt32();
-                    if (thingId == -1) return null;
-
-                    var transferable = session.GetTransferableByThingId(thingId);
-
-                    return new MpTransferableReference(session, transferable);
-                }
-            },
-            #endregion
-
             #region Targets
             {
                 (ByteWriter data, LocalTargetInfo info) => {
@@ -1315,17 +998,6 @@ namespace Multiplayer.Client
 
             #endregion
 
-            #region Color
-            {
-                (SyncWorker worker, ref Color color) => {
-                    worker.Bind(ref color.r);
-                    worker.Bind(ref color.g);
-                    worker.Bind(ref color.b);
-                    worker.Bind(ref color.a);
-                }
-            },
-            #endregion
-
             #region Transport pod arrival actions
             {
                 (ByteWriter data, TransportPodsArrivalAction_AttackSettlement arrivalAction) =>
@@ -1371,73 +1043,6 @@ namespace Multiplayer.Client
                 },
                 (ByteReader data) => new TransportPodsArrivalAction_VisitSite(ReadSync<Site>(data), ReadSync<PawnsArrivalModeDef>(data))
             },
-            #endregion
-
-            #region Ideology
-            {
-                (ByteWriter data, Ideo ideo) => {
-                    data.WriteInt32(ideo?.id ?? -1);
-                },
-                (ByteReader data) => {
-                    var id = data.ReadInt32();
-                    return Find.IdeoManager.IdeosListForReading.FirstOrDefault(i => i.id == id);
-                }
-            },
-            {
-                (ByteWriter data, Precept precept) => {
-                    WriteSync(data, precept?.ideo);
-                    data.WriteInt32(precept?.Id ?? -1);
-                },
-                (ByteReader data) => {
-                    var ideo = ReadSync<Ideo>(data);
-                    var id = data.ReadInt32();
-                    return ideo?.PreceptsListForReading.FirstOrDefault(p => p.Id == id);
-                },
-                true
-            },
-            {
-                (ByteWriter data, ShipJob job) => {
-                    WriteSync(data, job.transportShip.ShuttleComp);
-                    data.WriteInt32(job.loadID);
-                },
-                (ByteReader data) => {
-                    var ship = ReadSync<CompShuttle>(data).shipParent;
-                    var id = data.ReadInt32();
-                    if (ship.curJob?.loadID == id) return ship.curJob;
-                    return ship.shipJobs.FirstOrDefault(j => j.loadID == id);
-                },
-                true
-            },
-            {
-                (ByteWriter data, RitualRoleAssignments assgn) => {
-                    // In Multiplayer, RitualRoleAssignments should only be of the wrapper type MpRitualAssignments
-                    var mpAssgn = assgn as MpRitualAssignments;
-                    data.MpContext().map = mpAssgn.map;
-                    data.WriteInt32(mpAssgn.map.MpComp().ritualSession.SessionId);
-                },
-                (ByteReader data) => {
-                    var id = data.ReadInt32();
-                    var ritual = data.MpContext().map.MpComp().ritualSession;
-                    return ritual?.SessionId == id ? ritual.data.Assignments : null;
-                }
-            },
-            {
-                (ByteWriter data, Dialog_BeginRitual dlog) => {
-                    WriteSync(data, dlog.assignments);
-                    WriteSync(data, dlog.ritual);
-                },
-                (ByteReader data) => {
-                    var assgn = ReadSync<RitualRoleAssignments>(data);
-                    if (assgn == null) return null;
-
-                    var ritual = ReadSync<Precept_Ritual>(data); // todo handle ritual becoming null?
-                    var dlog = MpUtil.NewObjectNoCtor<Dialog_BeginRitual>();
-                    dlog.assignments = assgn;
-                    dlog.ritual = ritual;
-
-                    return dlog;
-                }
-            }
             #endregion
         };
     }

@@ -54,8 +54,6 @@ namespace Multiplayer.Client
 
         public void OpenWindow(bool sound = true)
         {
-            Find.Selector.ClearSelection();
-
             var dialog = PrepareDummyDialog();
             if (!sound)
                 dialog.soundAppear = null;

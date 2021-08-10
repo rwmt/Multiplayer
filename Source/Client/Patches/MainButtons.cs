@@ -82,7 +82,7 @@ namespace Multiplayer.Client
                     }
                 }
 
-                text.Append($" {Multiplayer.GlobalIdBlock.blockStart + Multiplayer.GlobalIdBlock.current}");
+                text.Append($" {Multiplayer.GlobalIdBlock.Current}");
 
                 text.Append($"\n{SyncUtil.bufferedChanges.Sum(kv => kv.Value.Count)} {Find.UniqueIDsManager.nextThingID}");
                 text.Append($"\n{DeferredStackTracing.acc}");
@@ -136,11 +136,11 @@ namespace Multiplayer.Client
 
             if (Multiplayer.ShowDevInfo && Multiplayer.WriterLog != null)
             {
-                if (Widgets.ButtonText(new Rect(x, y, btnWidth, btnHeight), $"Write ({Multiplayer.WriterLog.nodes.Count})"))
+                if (Widgets.ButtonText(new Rect(x, y, btnWidth, btnHeight), $"Write ({Multiplayer.WriterLog.NodeCount})"))
                     Find.WindowStack.Add(Multiplayer.WriterLog);
 
                 y += btnHeight;
-                if (Widgets.ButtonText(new Rect(x, y, btnWidth, btnHeight), $"Read ({Multiplayer.ReaderLog.nodes.Count})"))
+                if (Widgets.ButtonText(new Rect(x, y, btnWidth, btnHeight), $"Read ({Multiplayer.ReaderLog.NodeCount})"))
                     Find.WindowStack.Add(Multiplayer.ReaderLog);
                 
                 y += btnHeight;

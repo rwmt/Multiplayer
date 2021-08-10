@@ -2,64 +2,64 @@ using Multiplayer.Common;
 
 namespace Multiplayer.Client
 {
-    public class LoggingByteWriter : ByteWriter
+    public class LoggingByteWriter : ByteWriter, IHasLogger
     {
-        public SyncLogger log = new SyncLogger();
+        public SyncLogger Log { get; } = new SyncLogger();
 
         public override void WriteInt32(int val)
 		{
-			log.Node("int: " + val.ToString());
+			Log.Node("int: " + val.ToString());
 			base.WriteInt32(val);
 		}
 
 		public override void WriteBool(bool val)
 		{
-			log.Node("bool: " + val.ToString());
+			Log.Node("bool: " + val.ToString());
 			base.WriteBool(val);
 		}
 
 		public override void WriteDouble(double val)
 		{
-			log.Node("double: " + val.ToString());
+			Log.Node("double: " + val.ToString());
 			base.WriteDouble(val);
 		}
 
 		public override void WriteUShort(ushort val)
 		{
-			log.Node("ushort: " + val.ToString());
+			Log.Node("ushort: " + val.ToString());
 			base.WriteUShort(val);
 		}
 
 		public override void WriteShort(short val)
 		{
-			log.Node("short: " + val.ToString());
+			Log.Node("short: " + val.ToString());
 			base.WriteShort(val);
 		}
 
 		public override void WriteFloat(float val)
 		{
-			log.Node("float: " + val.ToString());
+			Log.Node("float: " + val.ToString());
 			base.WriteFloat(val);
 		}
 
 		public override void WriteLong(long val)
 		{
-			log.Node("long: " + val.ToString());
+			Log.Node("long: " + val.ToString());
 			base.WriteLong(val);
 		}
 
 		public override void WritePrefixedBytes(byte[] bytes)
 		{
-			log.Enter("byte[]");
+			Log.Enter("byte[]");
 			base.WritePrefixedBytes(bytes);
-			log.Exit();
+			Log.Exit();
 		}
 
 		public override ByteWriter WriteString(string s)
 		{
-			log.Enter("string: " + s);
+			Log.Enter("string: " + s);
 			base.WriteString(s);
-			log.Exit();
+			Log.Exit();
 			return this;
 		}
     }

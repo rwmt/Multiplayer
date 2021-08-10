@@ -156,23 +156,19 @@ namespace Multiplayer.Client.Persistent
 
     [HarmonyPatch(typeof(Dialog_FormCaravan), MethodType.Constructor)]
     [HarmonyPatch(new[] { typeof(Map), typeof(bool), typeof(Action), typeof(bool) })]
-    static class CancelDialogFormCaravanCtor
+    static class DialogFormCaravanCtorPatch
     {
-        static bool Prefix(Dialog_FormCaravan __instance, Map map, bool reform, Action onClosed, bool mapAboutToBeRemoved)
+        static void Prefix(Dialog_FormCaravan __instance, Map map, bool reform, Action onClosed, bool mapAboutToBeRemoved)
         {
             if (__instance.GetType() != typeof(Dialog_FormCaravan))
-                return true;
+                return;
 
             if (Multiplayer.ExecutingCmds || Multiplayer.Ticking)
             {
                 var comp = map.MpComp();
                 if (comp.caravanForming == null)
                     comp.CreateCaravanFormingSession(reform, onClosed, mapAboutToBeRemoved);
-
-                return true;
             }
-
-            return true;
         }
     }
 

@@ -28,7 +28,7 @@ namespace Multiplayer.Client
 
         public float TickRateMultiplier(TimeSpeed speed)
         {
-            if (MultiplayerWorldComp.asyncTime)
+            if (asyncTime)
             {
                 var enforcePause = Multiplayer.WorldComp.splitSession != null;
 
@@ -252,6 +252,7 @@ namespace Multiplayer.Client
         {
             CommandType cmdType = cmd.type;
             LoggingByteReader data = new LoggingByteReader(cmd.data);
+            data.Log.Node($"{cmdType} Global");
 
             executingCmdWorld = true;
             TickPatch.currentExecutingCmdIssuedBySelf = cmd.issuedBySelf && !TickPatch.Skipping;
@@ -268,7 +269,8 @@ namespace Multiplayer.Client
             {
                 if (cmdType == CommandType.Sync)
                 {
-                    SyncUtil.HandleCmd(data);
+                    var handler = SyncUtil.HandleCmd(data);
+                    data.Log.current.text = handler.ToString();
                 }
 
                 if (cmdType == CommandType.DebugTools)
@@ -340,7 +342,7 @@ namespace Multiplayer.Client
 
                 Multiplayer.game.sync.TryAddCommandRandomState(randState);
 
-                Multiplayer.ReaderLog.nodes.Add(data.log.current);
+                Multiplayer.ReaderLog.AddCurrentNode(data);
             }
         }
 

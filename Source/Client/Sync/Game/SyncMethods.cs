@@ -124,7 +124,11 @@ namespace Multiplayer.Client
 
             SyncMethod.Register(typeof(Pawn_RoyaltyTracker), nameof(Pawn_RoyaltyTracker.AddPermit));
             SyncMethod.Register(typeof(Pawn_RoyaltyTracker), nameof(Pawn_RoyaltyTracker.RefundPermits));
-            SyncMethod.Register(typeof(Pawn_RoyaltyTracker), nameof(Pawn_RoyaltyTracker.SetTitle));
+            SyncMethod.Register(typeof(Pawn_RoyaltyTracker), nameof(Pawn_RoyaltyTracker.SetTitle)); // Used for title renouncing
+            SyncMethod.Register(typeof(Pawn_RoyaltyTracker), nameof(Pawn_RoyaltyTracker.ResetPermitsAndPoints)); // Used for title renouncing
+
+            SyncMethod.Register(typeof(MonumentMarker), nameof(MonumentMarker.PlaceAllBlueprints));
+            SyncMethod.Register(typeof(MonumentMarker), nameof(MonumentMarker.PlaceBlueprintsSimilarTo)).ExposeParameter(0);
 
             SyncMethod.Register(typeof(Ability), nameof(Ability.QueueCastingJob), new SyncType[] { typeof(LocalTargetInfo), typeof(LocalTargetInfo) });
             SyncMethod.Register(typeof(Ability), nameof(Ability.QueueCastingJob), new SyncType[] { typeof(GlobalTargetInfo) });
@@ -152,6 +156,21 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(CompAnimalPenMarker), nameof(CompAnimalPenMarker.DesignatePlantsToCut));
 
             SyncMethod.Register(typeof(ShipJob_Wait), nameof(ShipJob_Wait.Launch)).ExposeParameter(1); // Launch the (Royalty) shuttle
+
+            SyncMethod.Register(typeof(ITab_ContentsBase), nameof(ITab_ContentsBase.OnDropThing)).SetContext(SyncContext.MapSelected);
+            SyncMethod.Register(typeof(ITab_ContentsTransporter), nameof(ITab_ContentsTransporter.OnDropThing)).SetContext(SyncContext.MapSelected); // overriden ITab_ContentsBase.OnDropThing
+            SyncMethod.Register(typeof(ITab_ContentsTransporter), nameof(ITab_ContentsTransporter.OnDropToLoadThing))
+                .TransformArgument(
+                    0,
+                    (t, target, args) =>
+                        t.AnyThing.thingIDNumber,
+                    (int id, object target, object[] args) =>
+                        (target as ITab_ContentsTransporter).Transporter.leftToLoad.Find(t => t.things.Any(thing => thing.thingIDNumber == id))
+                )
+                .SetContext(SyncContext.MapSelected)
+                .CancelIfAnyArgNull();
+
+            SyncMethod.Register(typeof(Precept_Ritual), nameof(Precept_Ritual.ShowRitualBeginWindow));
         }
 
         [MpPrefix(typeof(PawnColumnWorker_CopyPasteTimetable), nameof(PawnColumnWorker_CopyPasteTimetable.PasteTo))]

@@ -87,6 +87,7 @@ namespace Multiplayer.Client
 
                     dialog.CacheTradeables();
                     dialog.CountToTransferChanged();
+
                     session.deal.uiShouldReset = UIShouldReset.None;
                 }
 

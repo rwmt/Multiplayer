@@ -320,17 +320,17 @@ namespace Multiplayer.Client
 
                         TooltipHandler.TipRegion(outdated, text);
                     }
-                }
 
-                Text.Font = GameFont.Small;
-                GUI.color = Color.white;
+                    Text.Font = GameFont.Small;
+                    GUI.color = Color.white;
 
-                if (Widgets.ButtonInvisible(entryRect))
-                {
-                    if (Event.current.button == 0)
-                        selectedFile = file;
-                    else if (data != null && data.Valid)
-                        Find.WindowStack.Add(new FloatMenu(SaveFloatMenu(data).ToList()));
+                    if (Widgets.ButtonInvisible(entryRect))
+                    {
+                        if (Event.current.button == 0)
+                            selectedFile = file;
+                        else if (data != null && data.Valid)
+                            Find.WindowStack.Add(new FloatMenu(SaveFloatMenu(data).ToList()));
+                    }
                 }
 
                 y += 40;

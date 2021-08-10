@@ -1,3 +1,4 @@
+using HarmonyLib;
 using Ionic.Zlib;
 using Multiplayer.Client.Networking;
 using Multiplayer.Common;
@@ -268,6 +269,14 @@ namespace Multiplayer.Client
                 .Where(f => f.FieldType == typeof(int))
                 .Select(f => (int)f.GetValue(Find.UniqueIDsManager))
                 .Max();
+        }
+
+        public static void SetAllUniqueIds(int value)
+        {
+            typeof(UniqueIDsManager)
+                .GetFields(BindingFlags.NonPublic | BindingFlags.Instance)
+                .Where(f => f.FieldType == typeof(int))
+                .Do(f => f.SetValue(Find.UniqueIDsManager, value));
         }
     }
 }

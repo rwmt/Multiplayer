@@ -65,14 +65,16 @@ namespace Multiplayer.Client.Persistent
     {
         static IEnumerable<MethodBase> TargetMethods()
         {
-            yield return AccessTools.Method(typeof(Dialog_LoadTransporters), nameof(Dialog_LoadTransporters.AddPawnsToTransferables));
-            yield return AccessTools.Method(typeof(Dialog_LoadTransporters), nameof(Dialog_LoadTransporters.AddItemsToTransferables));
+            yield return AccessTools.Method(typeof(Dialog_LoadTransporters), nameof(Dialog_LoadTransporters.AddToTransferables));
+            yield return AccessTools.Method(typeof(Dialog_LoadTransporters), nameof(Dialog_LoadTransporters.SetLoadedItemsToLoad));
         }
 
         static bool Prefix(Dialog_LoadTransporters __instance)
         {
             if (__instance is TransporterLoadingProxy mp && mp.itemsReady)
             {
+                // Sets the transferables list back to the session list
+                // as it gets reset in CalculateAndRecacheTransferables
                 mp.transferables = mp.Session.transferables;
                 return false;
             }
@@ -125,12 +127,12 @@ namespace Multiplayer.Client.Persistent
 
     [HarmonyPatch(typeof(Dialog_LoadTransporters), MethodType.Constructor)]
     [HarmonyPatch(new[] { typeof(Map), typeof(List<CompTransporter>) })]
-    static class CancelDialogLoadTransportersCtor
+    static class DialogLoadTransportersCtorPatch
     {
-        static bool Prefix(Dialog_LoadTransporters __instance, Map map, List<CompTransporter> transporters)
+        static void Prefix(Dialog_LoadTransporters __instance, Map map, List<CompTransporter> transporters)
         {
             if (__instance.GetType() != typeof(Dialog_LoadTransporters))
-                return true;
+                return;
 
             if (Multiplayer.ExecutingCmds || Multiplayer.Ticking)
             {
@@ -138,30 +140,7 @@ namespace Multiplayer.Client.Persistent
                 TransporterLoading loading = comp.CreateTransporterLoadingSession(transporters);
                 if (TickPatch.currentExecutingCmdIssuedBySelf)
                     loading.OpenWindow();
-                return true;
             }
-
-            return true;
-        }
-    }
-
-    [HarmonyPatch]
-    static class TransporterContents_DiscardToLoad
-    {
-        static MethodBase TargetMethod()
-        {
-            List<Type> nestedPrivateTypes = new List<Type>(typeof(ITab_ContentsTransporter).GetNestedTypes(BindingFlags.NonPublic));
-
-            Type cType = nestedPrivateTypes.Find(t => t.Name.Equals("<>c__DisplayClass11_0"));
-
-            return AccessTools.Method(cType, "<DoItemsLists>b__0");
-        }
-
-        static bool Prefix(int x)
-        {
-            if (Multiplayer.Client == null) return true;
-            Messages.Message("MpNotAvailable".Translate(), MessageTypeDefOf.RejectInput, false);
-            return false;
         }
     }
 }

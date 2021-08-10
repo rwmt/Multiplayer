@@ -132,7 +132,7 @@ namespace Multiplayer.Client
             }
         }
 
-        public static void HandleCmd(ByteReader data)
+        public static SyncHandler HandleCmd(ByteReader data)
         {
             int syncId = data.ReadInt32();
             SyncHandler handler;
@@ -189,6 +189,8 @@ namespace Multiplayer.Client
                 Find.Selector.selected = prevSelected;
                 Find.WorldSelector.selected = prevWorldSelected;
             }
+
+            return handler;
         }
 
         public static void WriteContext(SyncHandler handler, ByteWriter data)

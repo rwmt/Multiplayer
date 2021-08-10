@@ -113,20 +113,20 @@ namespace Multiplayer.Client.EarlyPatches
     [HarmonyPatch(typeof(GenTypes), nameof(GenTypes.GetTypeInAnyAssemblyInt))]
     static class GenTypesOptimization
     {
-        private static Dictionary<string, Type> RWAndSystemTypes = new();
+        private static Dictionary<string, Type> RwTypes = new();
 
         static GenTypesOptimization()
         {
             foreach (var type in typeof(Game).Assembly.GetTypes())
             {
                 if (type.IsPublic)
-                    RWAndSystemTypes[type.Name] = type;
+                    RwTypes[type.Name] = type;
             }
         }
 
         static bool Prefix(string typeName, ref Type __result)
         {
-            if (!typeName.Contains(".") && RWAndSystemTypes.TryGetValue(typeName, out var type))
+            if (!typeName.Contains(".") && RwTypes.TryGetValue(typeName, out var type))
             {
                 __result = type;
                 return false;

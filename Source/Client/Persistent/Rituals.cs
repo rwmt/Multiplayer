@@ -1,8 +1,11 @@
 using HarmonyLib;
+using Multiplayer.API;
+using Multiplayer.Client.AsyncTime;
 using RimWorld;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -24,54 +27,60 @@ namespace Multiplayer.Client.Persistent
         MpRitualAssignments Assignments
     );
 
-    public class RitualSession : IExposable, ISession
+    public class RitualSession : ISession
     {
-        private Map map;
-
-        private int sessionId;
+        public Map map;
         public RitualData data;
 
-        public int SessionId => sessionId;
+        public int SessionId { get; }
 
-        public RitualSession(Map map)
+        public RitualSession(Map map, RitualData data)
         {
+            SessionId = Multiplayer.GlobalIdBlock.NextId();
+
             this.map = map;
-        }
-
-        public RitualSession(Map map, RitualData data) : this(map)
-        {
-            sessionId = Multiplayer.GlobalIdBlock.NextId();
             this.data = data;
-            this.data.Assignments.map = map;
+            this.data.Assignments.session = this;
         }
 
-        public void ExposeData()
+        [SyncMethod]
+        public void Remove()
         {
-            Scribe_Values.Look(ref sessionId, "sessionId");
-
-            data.Assignments.map = map;
+            map.MpComp().ritualSession = null;
         }
 
-        public void OpenWindow(bool sound = true)
+        [SyncMethod]
+        public void Start()
         {
-            Find.Selector.ClearSelection();
+            if (data.Action != null && data.Action(data.Assignments))
+                Remove();
+        }
 
-            var dialog = MpUtil.NewObjectNoCtor<Dialog_BeginRitual>();
-            if (!sound)
-                dialog.soundAppear = null;
-            dialog.doCloseX = true;
-
-            dialog.ritual = data.Ritual;
-            dialog.ritualExplanation = (data.Ritual != null) ? data.Ritual.ritualExplanation : null;
-            dialog.target = data.Target;
-            dialog.obligation = data.Obligation;
-            dialog.outcome = data.Outcome;
-            dialog.extraInfos = data.ExtraInfos;
-            dialog.action = data.Action;
-            dialog.ritualLabel = data.RitualLabel;
-            dialog.confirmText = data.ConfirmText;
-            dialog.organizer = data.Organizer;
-            dialog.assignments = data.Assignments;
+        public void OpenWindow()
+        {
+            var dialog = new BeginRitualProxy(
+                null,
+                data.RitualLabel,
+                data.Ritual,
+                data.Target,
+                map,
+                data.Action,
+                data.Organizer,
+                data.Obligation,
+                null,
+                data.ConfirmText,
+                null,
+                null,
+                null,
+                data.Outcome,
+                data.ExtraInfos,
+                null
+            )
+            {
+                doCloseX = true,
+                soundClose = SoundDefOf.TabClose,
+                assignments = data.Assignments
+            };
 
             Find.WindowStack.Add(dialog);
         }
@@ -79,7 +88,80 @@ namespace Multiplayer.Client.Persistent
 
     public class MpRitualAssignments : RitualRoleAssignments
     {
-        public Map map;
+        public RitualSession session;
+    }
+
+    public class BeginRitualProxy : Dialog_BeginRitual
+    {
+        public static BeginRitualProxy drawing;
+
+        public RitualSession Session => map.MpComp().ritualSession;
+
+        public BeginRitualProxy(string header, string ritualLabel, Precept_Ritual ritual, TargetInfo target, Map map, ActionCallback action, Pawn organizer, RitualObligation obligation, Func<Pawn, bool, bool, bool> filter = null, string confirmText = null, List<Pawn> requiredPawns = null, Dictionary<string, Pawn> forcedForRole = null, string ritualName = null, RitualOutcomeEffectDef outcome = null, List<string> extraInfoText = null, Pawn selectedPawn = null) : base(header, ritualLabel, ritual, target, map, action, organizer, obligation, filter, confirmText, requiredPawns, forcedForRole, ritualName, outcome, extraInfoText, selectedPawn)
+        {
+        }
+
+        public override void DoWindowContents(Rect inRect)
+        {
+            drawing = this;
+
+            try
+            {
+                var session = Session;
+
+                if (session == null)
+                {
+                    soundClose = SoundDefOf.Click;
+                    Close();
+                }
+
+                base.DoWindowContents(inRect);
+            }
+            finally
+            {
+                drawing = null;
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(Widgets), nameof(Widgets.ButtonText), new[] { typeof(Rect), typeof(string), typeof(bool), typeof(bool), typeof(bool) })]
+    static class MakeCancelRitualButtonRed
+    {
+        static void Prefix(string label, ref bool __state)
+        {
+            if (BeginRitualProxy.drawing == null) return;
+            if (label != "CancelButton".Translate()) return;
+
+            GUI.color = new Color(1f, 0.3f, 0.35f);
+            __state = true;
+        }
+
+        static void Postfix(bool __state, ref bool __result)
+        {
+            if (!__state) return;
+
+            GUI.color = Color.white;
+            if (__result)
+            {
+                BeginRitualProxy.drawing.Session?.Remove();
+                __result = false;
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(Dialog_BeginRitual), "<DoWindowContents>g__Start|55_1")]
+    static class HandleStartRitual
+    {
+        static bool Prefix(Dialog_BeginRitual __instance)
+        {
+            if (__instance is BeginRitualProxy proxy)
+            {
+                proxy.Session.Start();
+                return false;
+            }
+
+            return true;
+        }
     }
 
     [HarmonyPatch(typeof(WindowStack), nameof(WindowStack.Add))]
@@ -87,19 +169,27 @@ namespace Multiplayer.Client.Persistent
     {
         static bool Prefix(Window window)
         {
-            if (Multiplayer.MapContext != null && window.GetType() == typeof(Dialog_BeginRitual))
-                return false;
-
-            return true;
+            return Multiplayer.Client == null || window.GetType() != typeof(Dialog_BeginRitual);
         }
     }
 
-    [HarmonyPatch(typeof(Dialog_BeginRitual), MethodType.Constructor)]
-    static class CancelDialogBeginRitualCtor
+    [HarmonyPatch(typeof(Dialog_BeginRitual), nameof(Dialog_BeginRitual.PostOpen))]
+    static class CancelDialogBeginRitualPostOpen
     {
+        static bool Prefix()
+        {
+            return Multiplayer.Client == null;
+        }
+    }
+
+    [HarmonyPatch]
+    static class DialogBeginRitualCtorPatch
+    {
+        static MethodBase TargetMethod() => AccessTools.GetDeclaredConstructors(typeof(Dialog_BeginRitual))[0];
+
         static void Postfix(Dialog_BeginRitual __instance, Func<Pawn, bool, bool, bool> filter, Map map)
         {
-            if (Multiplayer.Client == null) return;
+            if (Multiplayer.Client == null || __instance is BeginRitualProxy) return;
 
             if (Multiplayer.ExecutingCmds || Multiplayer.Ticking)
             {
@@ -108,6 +198,7 @@ namespace Multiplayer.Client.Persistent
 
                 var comp = map.MpComp();
                 if (comp.ritualSession == null)
+                {
                     comp.CreateRitualSession(new RitualData(
                         __instance.ritual,
                         __instance.target,
@@ -120,6 +211,10 @@ namespace Multiplayer.Client.Persistent
                         __instance.organizer,
                         MpUtil.ShallowCopy(__instance.assignments, new MpRitualAssignments())
                     ));
+                }
+
+                if (TickPatch.currentExecutingCmdIssuedBySelf)
+                    comp.ritualSession.OpenWindow();
             }
         }
     }

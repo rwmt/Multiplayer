@@ -99,7 +99,6 @@ namespace Multiplayer.Client
             return RegisterSyncDelegate(type, nestedType, method, null);
         }
 
-        // todo support methods with arguments (currently there has been no need for it)
         public static SyncDelegate RegisterSyncDelegate(Type inType, string nestedType, string methodName, string[] fields, Type[] args = null)
         {
             string typeName = $"{inType}+{nestedType}";
@@ -311,7 +310,7 @@ namespace Multiplayer.Client
                 return;
             }
 
-            SyncWorkerEntry entry = SyncDictionary.syncWorkers.GetOrAddEntry(type, isImplicit: isImplicit, shouldConstruct: shouldConstruct);
+            SyncWorkerEntry entry = SyncDict.syncWorkers.GetOrAddEntry(type, isImplicit: isImplicit, shouldConstruct: shouldConstruct);
 
             entry.Add(method);
 
@@ -335,7 +334,7 @@ namespace Multiplayer.Client
 
             var type = targetType ?? typeof(T);
 
-            SyncWorkerEntry entry = SyncDictionary.syncWorkers.GetOrAddEntry(type, isImplicit: isImplicit, shouldConstruct: shouldConstruct);
+            SyncWorkerEntry entry = SyncDict.syncWorkers.GetOrAddEntry(type, isImplicit: isImplicit, shouldConstruct: shouldConstruct);
 
             entry.Add(syncWorkerDelegate);
 

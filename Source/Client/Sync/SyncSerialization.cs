@@ -24,7 +24,7 @@ namespace Multiplayer.Client
     // For a derived type, reduces to syncing the first field found
     // Used to attach lightweight data to objects during syncing
     // For example: public record PawnWrapper(Pawn pawn); syncs the Pawn inside
-    public abstract record SyncWrapper;
+    public interface ISyncWrapper { }
 
     public static class SyncSerialization
     {
@@ -108,7 +108,7 @@ namespace Multiplayer.Client
 
         public static object ReadSyncObject(ByteReader data, SyncType syncType)
         {
-            var log = (data as LoggingByteReader)?.log;
+            var log = (data as LoggingByteReader)?.Log;
             Type type = syncType.type;
 
             log?.Enter(type.FullName);
@@ -143,7 +143,7 @@ namespace Multiplayer.Client
                     return null;
                 }
 
-                if (SyncDictionary.syncWorkersEarly.TryGetValue(type, out SyncWorkerEntry syncWorkerEntryEarly)) {
+                if (SyncDictFast.syncWorkers.TryGetValue(type, out SyncWorkerEntry syncWorkerEntryEarly)) {
                     object res = null;
 
                     if (syncWorkerEntryEarly.shouldConstruct || type.IsValueType)
@@ -193,18 +193,18 @@ namespace Multiplayer.Client
 
                     if (genericTypeDefinition == typeof(List<>))
                     {
-                        ListType specialList = ReadSync<ListType>(data);
-                        if (specialList == ListType.MapAllThings)
+                        ListType listType = ReadSync<ListType>(data);
+                        if (listType == ListType.MapAllThings)
                             return map.listerThings.AllThings;
 
-                        if (specialList == ListType.MapAllDesignations)
+                        if (listType == ListType.MapAllDesignations)
                             return map.designationManager.allDesignations;
 
-                        Type listType = type.GetGenericArguments()[0];
+                        Type listObjType = type.GetGenericArguments()[0];
                         ushort size = data.ReadUShort();
                         IList list = (IList)Activator.CreateInstance(type, size);
                         for (int j = 0; j < size; j++)
-                            list.Add(ReadSyncObject(data, listType));
+                            list.Add(ReadSyncObject(data, listObjType));
 
                         return list;
                     }
@@ -262,7 +262,7 @@ namespace Multiplayer.Client
                     }
                 }
 
-                if (typeof(SyncWrapper).IsAssignableFrom(type))
+                if (typeof(ISyncWrapper).IsAssignableFrom(type))
                 {
                     var field = AccessTools.GetDeclaredFields(type)[0];
                     var obj = ReadSyncObject(data, field.FieldType);
@@ -291,7 +291,7 @@ namespace Multiplayer.Client
                 }
 
                 // Where the magic happens
-                if (SyncDictionary.syncWorkers.TryGetValue(type, out var syncWorkerEntry)) 
+                if (SyncDict.syncWorkers.TryGetValue(type, out var syncWorkerEntry)) 
                 {
                     object res = null;
 
@@ -312,16 +312,6 @@ namespace Multiplayer.Client
             }
         }
 
-        public static object[] ReadSyncObjects(ByteReader data, IEnumerable<SyncType> spec)
-        {
-            return spec.Select(type => ReadSyncObject(data, type)).ToArray();
-        }
-
-        public static object[] ReadSyncObjects(ByteReader data, IEnumerable<Type> spec)
-        {
-            return spec.Select(type => ReadSyncObject(data, type)).ToArray();
-        }
-
         public static void WriteSync<T>(ByteWriter data, T obj)
         {
             WriteSyncObject(data, obj, typeof(T));
@@ -332,7 +322,7 @@ namespace Multiplayer.Client
             MpContext context = data.MpContext();
             Type type = syncType.type;
 
-            var log = (data as LoggingByteWriter)?.log;
+            var log = (data as LoggingByteWriter)?.Log;
             log?.Enter($"{type.FullName}: {obj ?? "null"}");
 
             if (obj != null && !type.IsAssignableFrom(obj.GetType()))
@@ -350,7 +340,7 @@ namespace Multiplayer.Client
                     return;
                 }
 
-                if (SyncDictionary.syncWorkersEarly.TryGetValue(type, out var syncWorkerEntryEarly)) {
+                if (SyncDictFast.syncWorkers.TryGetValue(type, out var syncWorkerEntryEarly)) {
                     syncWorkerEntryEarly.Invoke(new WritingSyncWorker(data), ref obj);
 
                     return;
@@ -405,23 +395,23 @@ namespace Multiplayer.Client
 
                     if (genericTypeDefinition == typeof(List<>))
                     {
-                        ListType specialList = ListType.Normal;
-                        Type listType = type.GetGenericArguments()[0];
+                        ListType listType = ListType.Normal;
+                        Type listObjType = type.GetGenericArguments()[0];
 
-                        if (listType == typeof(Thing) && obj == Find.CurrentMap.listerThings.AllThings)
+                        if (listObjType == typeof(Thing) && obj == Find.CurrentMap.listerThings.AllThings)
                         {
                             context.map = Find.CurrentMap;
-                            specialList = ListType.MapAllThings;
+                            listType = ListType.MapAllThings;
                         }
-                        else if (listType == typeof(Designation) && obj == Find.CurrentMap.designationManager.allDesignations)
+                        else if (listObjType == typeof(Designation) && obj == Find.CurrentMap.designationManager.allDesignations)
                         {
                             context.map = Find.CurrentMap;
-                            specialList = ListType.MapAllDesignations;
+                            listType = ListType.MapAllDesignations;
                         }
 
-                        WriteSync(data, specialList);
+                        WriteSync(data, listType);
 
-                        if (specialList == ListType.Normal)
+                        if (listType == ListType.Normal)
                         {
                             IList list = (IList)obj;
 
@@ -430,7 +420,7 @@ namespace Multiplayer.Client
 
                             data.WriteUShort((ushort)list.Count);
                             foreach (object e in list)
-                                WriteSyncObject(data, e, listType);
+                                WriteSyncObject(data, e, listObjType);
                         }
 
                         return;
@@ -508,7 +498,7 @@ namespace Multiplayer.Client
                     }
                 }
 
-                if (typeof(SyncWrapper).IsAssignableFrom(type))
+                if (typeof(ISyncWrapper).IsAssignableFrom(type))
                 {
                     var field = AccessTools.GetDeclaredFields(type)[0];
                     WriteSyncObject(data, field.GetValue(obj), field.FieldType);
@@ -531,7 +521,7 @@ namespace Multiplayer.Client
                 }
 
                 // Where the magic happens
-                if (SyncDictionary.syncWorkers.TryGetValue(type, out var syncWorkerEntry))
+                if (SyncDict.syncWorkers.TryGetValue(type, out var syncWorkerEntry))
                 {
                     syncWorkerEntry.Invoke(new WritingSyncWorker(data), ref obj);
 

@@ -34,6 +34,7 @@ namespace Multiplayer.Client
 
             var enforcePause = comp.transporterLoading != null ||
                 comp.caravanForming != null ||
+                comp.ritualSession != null ||
                 comp.mapDialogs.Any() ||
                 Multiplayer.WorldComp.trading.Any(t => t.playerNegotiator.Map == map) ||
                 Multiplayer.WorldComp.splitSession != null;
@@ -241,7 +242,7 @@ namespace Multiplayer.Client
         {
             CommandType cmdType = cmd.type;
             LoggingByteReader data = new LoggingByteReader(cmd.data);
-            data.log.Node($"{cmdType} Map {map.uniqueID}");
+            data.Log.Node($"{cmdType} Map {map.uniqueID}");
 
             MpContext context = data.MpContext();
 
@@ -270,7 +271,8 @@ namespace Multiplayer.Client
             {
                 if (cmdType == CommandType.Sync)
                 {
-                    SyncUtil.HandleCmd(data);
+                    var handler = SyncUtil.HandleCmd(data);
+                    data.Log.current.text = handler.ToString();
                 }
 
                 if (cmdType == CommandType.DebugTools)
@@ -305,20 +307,6 @@ namespace Multiplayer.Client
                 if (cmdType == CommandType.Designator)
                 {
                     HandleDesignator(cmd, data);
-                }
-
-                if (cmdType == CommandType.SpawnPawn)
-                {
-                    /*Pawn pawn = ScribeUtil.ReadExposable<Pawn>(data.ReadPrefixedBytes());
-
-                    IntVec3 spawn = CellFinderLoose.TryFindCentralCell(map, 7, 10, (IntVec3 x) => !x.Roofed(map));
-                    GenSpawn.Spawn(pawn, spawn, map);
-                    Log.Message("spawned " + pawn);*/
-                }
-
-                if (cmdType == CommandType.Forbid)
-                {
-                    //HandleForbid(cmd, data);
                 }
 
                 UpdateManagers();
@@ -358,7 +346,7 @@ namespace Multiplayer.Client
 
                 eventCount++;
 
-                Multiplayer.ReaderLog.nodes.Add(data.log.current);
+                Multiplayer.ReaderLog.AddCurrentNode(data);
             }
         }
 
@@ -376,20 +364,6 @@ namespace Multiplayer.Client
             {
                 Current.Game.currentMapIndex = (sbyte)map.Index;
             }
-        }
-
-        private void HandleForbid(ScheduledCommand cmd, ByteReader data)
-        {
-            int thingId = data.ReadInt32();
-            bool value = data.ReadBool();
-
-            ThingWithComps thing = map.listerThings.AllThings.Find(t => t.thingIDNumber == thingId) as ThingWithComps;
-            if (thing == null) return;
-
-            CompForbiddable forbiddable = thing.GetComp<CompForbiddable>();
-            if (forbiddable == null) return;
-
-            forbiddable.Forbidden = value;
         }
 
         private void HandleMapFactionData(ScheduledCommand cmd, ByteReader data)

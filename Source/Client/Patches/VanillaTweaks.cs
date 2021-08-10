@@ -144,24 +144,6 @@ namespace Multiplayer.Client
         static bool Prefix() => Event.current.type == EventType.Repaint;
     }
 
-    // Use a simpler shader for plants when possible
-    [HarmonyPatch(typeof(Prefs), nameof(Prefs.PlantWindSway), MethodType.Setter)]
-    static class PlantWindSwayPatch
-    {
-        public static void Init() => Prefix(Prefs.PlantWindSway);
-
-        static void Prefix(bool value)
-        {
-            foreach (var thingDef in DefDatabase<ThingDef>.AllDefs)
-                if (thingDef.category == ThingCategory.Plant &&
-                    thingDef.graphicData != null &&
-                    thingDef.graphicData.shaderParameters == null &&
-                    thingDef.graphicData.shaderType?.defName == "CutoutPlant"
-                )
-                    thingDef.graphic.MatSingle.shader = value ? ShaderDatabase.CutoutPlant : ShaderDatabase.Cutout;
-        }
-    }
-
     [HarmonyPatch]
     public static class WidgetsResolveParsePatch
     {

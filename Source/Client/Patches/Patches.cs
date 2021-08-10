@@ -351,14 +351,14 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.Client == null) return;
 
-            Log.Message("Unique ids " + Multiplayer.GlobalIdBlock.current);
+            Log.Message("Unique ids " + Multiplayer.GlobalIdBlock.currentWithinBlock);
             Log.Message("Rand " + Rand.StateCompressed);
         }
 
         public static void SetupMap(Map map)
         {
             Log.Message("New map " + map.uniqueID);
-            Log.Message("Uniq ids " + Multiplayer.GlobalIdBlock.current);
+            Log.Message("Uniq ids " + Multiplayer.GlobalIdBlock.currentWithinBlock);
             Log.Message("Rand " + Rand.StateCompressed);
 
             var async = new AsyncTimeComp(map);
@@ -770,4 +770,38 @@ namespace Multiplayer.Client
         [SyncMethod]
         static void SyncAddValue(CompPlantable plantable, IntVec3 newValue) => plantable.plantCells.Add(newValue);
     }
+
+    /*[HotSwappable]
+    [HarmonyPatch(typeof(WindowStack), nameof(WindowStack.Add))]
+    static class DialogStylingReplace
+    {
+        static void Prefix(ref Window window)
+        {
+            if (false && window.GetType() == typeof(Dialog_StylingStation) && window is Dialog_StylingStation dialog)
+            {
+                var pawn = new Pawn();
+
+                pawn.def = dialog.pawn.def;
+                pawn.gender = dialog.pawn.gender;
+                pawn.mapIndexOrState = dialog.pawn.mapIndexOrState;
+                pawn.Name = dialog.pawn.Name;
+
+                pawn.story = MpUtil.ShallowCopy(dialog.pawn.story, new Pawn_StoryTracker(pawn));
+                pawn.story.pawn = pawn;
+
+                pawn.style = MpUtil.ShallowCopy(dialog.pawn.style, new Pawn_StyleTracker(pawn));
+                pawn.style.pawn = pawn;
+
+                pawn.apparel = new Pawn_ApparelTracker(pawn);
+                pawn.health = new Pawn_HealthTracker(pawn);
+                pawn.stances = new Pawn_StanceTracker(pawn);
+                pawn.pather = new Pawn_PathFollower(pawn);
+                pawn.roping = new Pawn_RopeTracker(pawn);
+                pawn.mindState = new Pawn_MindState(pawn);
+
+                window = new Dialog_StylingStation(pawn, dialog.stylingStation);
+                window.doCloseX = true;
+            }
+        }
+    }*/
 }

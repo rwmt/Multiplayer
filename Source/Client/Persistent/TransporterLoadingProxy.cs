@@ -1,7 +1,8 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using RimWorld;
 using UnityEngine;
 using Verse;
+using Verse.Sound;
 
 namespace Multiplayer.Client
 {
@@ -16,7 +17,7 @@ namespace Multiplayer.Client
         public TransporterLoadingProxy(Map map, List<CompTransporter> transporters) : base(map, transporters)
         {
         }
-
+        
         public override void DoWindowContents(Rect inRect)
         {
             drawing = this;
