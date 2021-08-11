@@ -80,6 +80,7 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(CompTreeConnection), "<CompGetGizmosExtra>b__73_1").SetDebugOnly();   // Spawn dryad
             SyncMethod.Register(typeof(CompTreeConnection), "<CompGetGizmosExtra>b__73_2").SetDebugOnly();   // Increase connection strength by 10%
             SyncMethod.Register(typeof(CompTreeConnection), "<CompGetGizmosExtra>b__73_3").SetDebugOnly();   // Decrease connection strength by 10%
+            SyncMethod.Register(typeof(CompDryadHolder), "<CompGetGizmosExtra>b__17_0").SetDebugOnly();      // Complete dryad cocoon action
 
             // (Un)assigning ideology roles
             SyncDelegate.Register(typeof(SocialCardUtility), "<>c__DisplayClass28_0", "<DrawPawnRole>b__2"); // Unnasign role from a pawn
