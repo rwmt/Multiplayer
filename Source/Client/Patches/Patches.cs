@@ -749,4 +749,25 @@ namespace Multiplayer.Client
         }
     }*/
 
+    [HarmonyPatch(typeof(CompPlantable), "<BeginTargeting>b__9_0")]
+    static class AddCompPlantableTargetCell
+    {
+        static void Prefix(CompPlantable __instance, ref int __state) => __state = __instance.plantCells.Count;
+
+        static void Postfix(CompPlantable __instance, ref int __state)
+        {
+            // Check if a new value was added
+            if (__instance.plantCells.Count > __state)
+            {
+                // Get the last value, and remove it from the list
+                var newValue = __instance.plantCells.Last();
+                __instance.plantCells.RemoveLast();
+                // Add it to the list in using a synced method
+                SyncAddValue(__instance, newValue);
+            }
+        }
+
+        [SyncMethod]
+        static void SyncAddValue(CompPlantable plantable, IntVec3 newValue) => plantable.plantCells.Add(newValue);
+    }
 }

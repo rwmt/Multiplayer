@@ -248,6 +248,18 @@ namespace Multiplayer.Client
 
                         return type.GetConstructors().First().Invoke(values);
                     }
+
+                    if (genericTypeDefinition == typeof(Pair<,>))
+                    {
+                        Type[] arguments = type.GetGenericArguments();
+                        object[] parameters =
+                        {
+                            ReadSyncObject(data, arguments[0]),
+                            ReadSyncObject(data, arguments[1]),
+                        };
+
+                        return type.GetConstructors().First().Invoke(parameters);
+                    }
                 }
 
                 if (typeof(SyncWrapper).IsAssignableFrom(type))
@@ -481,6 +493,16 @@ namespace Multiplayer.Client
 
                         for (int i = 0; i < tuple.Length; i++)
                             WriteSyncObject(data, tuple[i], arguments[i]);
+
+                        return;
+                    }
+
+                    if (genericTypeDefinition == typeof(Pair<,>))
+                    {
+                        Type[] arguments = type.GetGenericArguments();
+
+                        WriteSyncObject(data, type.GetField("first", AccessTools.all).GetValue(obj), arguments[0]);
+                        WriteSyncObject(data, type.GetField("second", AccessTools.all).GetValue(obj), arguments[1]);
 
                         return;
                     }
