@@ -176,6 +176,10 @@ namespace Multiplayer.Client
                 (ByteWriter data, Pawn_InventoryStockTracker inventoryTracker) => WriteSync(data, inventoryTracker.pawn),
                 (ByteReader data) => ReadSync<Pawn>(data).inventoryStock
             },
+            {
+                (ByteWriter data, Pawn_ConnectionsTracker connectionTracker) => WriteSync(data, connectionTracker.pawn),
+                (ByteReader data) => ReadSync<Pawn>(data).connections
+            },
             #endregion
 
             #region Policies
