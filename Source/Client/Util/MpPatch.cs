@@ -20,6 +20,7 @@ namespace Multiplayer.Client
         private string methodName;
         private Type[] argTypes;
         private MethodType methodType;
+        private int? lambdaOrdinal;
 
         private MethodBase method;
 
@@ -45,25 +46,14 @@ namespace Multiplayer.Client
                 if (method != null)
                     return method;
 
-                method = MpUtil.GetOriginalMethod(HarmonyMethod);
+                if (lambdaOrdinal != null)
+                    return MpUtil.GetLambda(Type, methodName, methodType, argTypes, lambdaOrdinal.Value);
+
+                method = MpUtil.GetMethod(Type, methodName, methodType, argTypes);
                 if (method == null)
                     throw new Exception($"Couldn't find method {methodName} in type {Type}");
 
                 return method;
-            }
-        }
-
-        public HarmonyMethod HarmonyMethod
-        {
-            get
-            {
-                return new HarmonyMethod()
-                {
-                    declaringType = Type,
-                    methodName = methodName,
-                    argumentTypes = argTypes,
-                    methodType = methodType
-                };
             }
         }
 
@@ -89,6 +79,13 @@ namespace Multiplayer.Client
             this.type = type;
             this.methodType = methodType;
             this.argTypes = argTypes;
+        }
+
+        public MpPatch(Type type, string methodName, int lambdaOrdinal)
+        {
+            this.type = type;
+            this.methodName = methodName;
+            this.lambdaOrdinal = lambdaOrdinal;
         }
     }
 
@@ -116,11 +113,14 @@ namespace Multiplayer.Client
 
                     if (harmony != null) {
                         try {
-                            harmony.Patch(toPatch, (attr is MpPrefix) ? patch : null, (attr is MpPostfix) ? patch : null, (attr is MpTranspiler) ? patch : null);
-
-                            //Log.Message($"{toPatch.DeclaringType.FullName}:{toPatch.Name}");
-                        } catch(Exception e) {
-                            Log.Error($"{toPatch.DeclaringType.FullName}:{toPatch.Name}\n\t{e.InnerException}");
+                            harmony.Patch(
+                                toPatch,
+                                (attr is MpPrefix) ? patch : null,
+                                (attr is MpPostfix) ? patch : null,
+                                (attr is MpTranspiler) ? patch : null
+                            );
+                        } catch (Exception e) {
+                            Log.Error($"Couldn't MpPatch {toPatch.DeclaringType.FullName}:{toPatch.Name}\n\t{e}");
                         }
                     }
 
@@ -152,6 +152,10 @@ namespace Multiplayer.Client
         public MpPrefix(Type type, string innerType, string method) : base(type, innerType, method)
         {
         }
+
+        public MpPrefix(Type parentType, string parentMethod, int lambdaOrdinal) : base(parentType, parentMethod, lambdaOrdinal)
+        {
+        }
     }
 
     /// <summary>
@@ -169,6 +173,10 @@ namespace Multiplayer.Client
         }
 
         public MpPostfix(Type type, string innerType, string method) : base(type, innerType, method)
+        {
+        }
+
+        public MpPostfix(Type parentType, string parentMethod, int lambdaOrdinal) : base(parentType, parentMethod, lambdaOrdinal)
         {
         }
     }

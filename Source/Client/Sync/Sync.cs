@@ -102,17 +102,20 @@ namespace Multiplayer.Client
         public static SyncDelegate RegisterSyncDelegate(Type inType, string nestedType, string methodName, string[] fields, Type[] args = null)
         {
             string typeName = $"{inType}+{nestedType}";
-            Type type = MpReflection.GetTypeByName(typeName);
-            if (type == null)
+            Type delegateType = MpReflection.GetTypeByName(typeName);
+            if (delegateType == null)
                 throw new Exception($"Couldn't find type {typeName}");
 
-            MethodInfo method = AccessTools.Method(type, methodName, args);
+            MethodInfo method = AccessTools.Method(delegateType, methodName, args);
             if (method == null)
                 throw new Exception($"Couldn't find method {typeName}::{methodName}");
 
-            MpUtil.MarkNoInlining(method);
+            return RegisterSyncDelegate(method, fields);
+        }
 
-            SyncDelegate handler = new SyncDelegate(type, method, fields);
+        public static SyncDelegate RegisterSyncDelegate(MethodInfo method, string[] fields)
+        {
+            SyncDelegate handler = new SyncDelegate(method.DeclaringType, method, fields);
             methodBaseToInternalId[handler.method] = internalIdToSyncMethod.Count;
             internalIdToSyncMethod.Add(handler);
             handlers.Add(handler);

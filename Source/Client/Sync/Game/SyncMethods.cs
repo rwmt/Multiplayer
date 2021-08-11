@@ -86,7 +86,7 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(CompTempControl), nameof(CompTempControl.InterfaceChangeTargetTemperature));
             SyncMethod.Register(typeof(CompTransporter), nameof(CompTransporter.CancelLoad), new SyncType[0]);
             SyncMethod.Register(typeof(StorageSettings), nameof(StorageSettings.CopyFrom)).ExposeParameter(0);
-            SyncMethod.Register(typeof(Command_SetTargetFuelLevel), "<ProcessInput>b__2_2"); // Set target fuel level from Dialog_Slider
+            SyncMethod.Lambda(typeof(Command_SetTargetFuelLevel), nameof(Command_SetTargetFuelLevel.ProcessInput), 2); // Set target fuel level from Dialog_Slider
             SyncMethod.Register(typeof(ITab_Pawn_Gear), nameof(ITab_Pawn_Gear.InterfaceDrop)).SetContext(SyncContext.MapSelected | SyncContext.QueueOrder_Down).CancelIfAnyArgNull().CancelIfNoSelectedMapObjects();
             SyncMethod.Register(typeof(FoodUtility), nameof(FoodUtility.IngestFromInventoryNow)).SetContext(SyncContext.MapSelected | SyncContext.QueueOrder_Down).CancelIfAnyArgNull().CancelIfNoSelectedMapObjects();
 

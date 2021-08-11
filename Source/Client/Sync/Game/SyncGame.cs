@@ -65,10 +65,10 @@ namespace Multiplayer.Client
         [MpPostfix(typeof(MainTabWindow_Work), "DoManualPrioritiesCheckbox")]
         static void ManualPriorities_Postfix() => manualPriorities = false;
 
-        [MpPrefix(typeof(JobDriver_Research), "<>c__DisplayClass6_0", "<MakeNewToils>b__0")]
+        [MpPrefix(typeof(JobDriver_Research), nameof(JobDriver_Research.MakeNewToils), lambdaOrdinal: 0)]
         static void ResearchToil_Prefix() => researchToil = true;
 
-        [MpPostfix(typeof(JobDriver_Research), "<>c__DisplayClass6_0", "<MakeNewToils>b__0")]
+        [MpPostfix(typeof(JobDriver_Research), nameof(JobDriver_Research.MakeNewToils), lambdaOrdinal: 0)]
         static void ResearchToil_Postfix() => researchToil = false;
 
         [MpPostfix(typeof(Dialog_ManageOutfits), "DoWindowContents")]

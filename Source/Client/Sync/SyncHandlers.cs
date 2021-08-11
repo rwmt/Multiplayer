@@ -439,6 +439,14 @@ namespace Multiplayer.Client
             return Sync.RegisterSyncMethod(type, methodOrPropertyName, argTypes);
         }
 
+        public static SyncMethod Lambda(Type parentType, string parentMethod, int lambdaOrdinal, Type[] parentArgs = null)
+        {
+            return Sync.RegisterSyncMethod(
+                MpUtil.GetLambda(parentType, parentMethod, MethodType.Normal, parentArgs, lambdaOrdinal),
+                null
+            );
+        }
+
         public override string ToString()
         {
             return $"SyncMethod {method.MpFullDescription()}";
@@ -644,6 +652,32 @@ namespace Multiplayer.Client
         public static SyncDelegate Register(Type type, string nestedType, string method)
         {
             return Sync.RegisterSyncDelegate(type, nestedType, method);
+        }
+
+        public static SyncDelegate Lambda(Type parentType, string parentMethod, int lambdaOrdinal, Type[] parentArgs = null, MethodType parentMethodType = MethodType.Normal)
+        {
+            return Sync.RegisterSyncDelegate(
+                MpUtil.GetLambda(parentType, parentMethod, parentMethodType, parentArgs, lambdaOrdinal),
+                null
+            );
+        }
+
+        public static SyncDelegate LocalFunc(Type parentType, string parentMethod, string name, Type[] parentArgs = null)
+        {
+            if (AccessTools.Method(parentType, parentMethod, parentArgs) == null)
+                throw new Exception($"Couldn't find method {parentType}::{parentMethod}");
+
+            var lambda = parentType.GetNestedTypes(AccessTools.all).
+                SelectMany(t => t.GetDeclaredMethods()).
+                Where(m => m.Name.StartsWith($"<{parentMethod}>g__{name}|")).ToArray();
+
+            if (lambda.Count() == 0)
+                throw new Exception($"Couldn't find local function {name} in parent method {parentType}::{parentMethod}");
+
+            if (lambda.Count() > 1)
+                throw new Exception($"Ambiguous local function {name} in parent method {parentType}::{parentMethod}");
+
+            return Sync.RegisterSyncDelegate(lambda.First(), null);
         }
 
         public static SyncDelegate Register(Type inType, string nestedType, string methodName, string[] fields)

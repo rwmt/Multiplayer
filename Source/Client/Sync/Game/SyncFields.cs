@@ -356,9 +356,9 @@ namespace Multiplayer.Client
             }
         }
 
-        [MpPrefix(typeof(BillRepeatModeUtility), "<>c__DisplayClass0_0", "<MakeConfigFloatMenu>b__0")]
-        [MpPrefix(typeof(BillRepeatModeUtility), "<>c__DisplayClass0_0", "<MakeConfigFloatMenu>b__1")]
-        [MpPrefix(typeof(BillRepeatModeUtility), "<>c__DisplayClass0_0", "<MakeConfigFloatMenu>b__2")]
+        [MpPrefix(typeof(BillRepeatModeUtility), nameof(BillRepeatModeUtility.MakeConfigFloatMenu), lambdaOrdinal: 0)]
+        [MpPrefix(typeof(BillRepeatModeUtility), nameof(BillRepeatModeUtility.MakeConfigFloatMenu), lambdaOrdinal: 1)]
+        [MpPrefix(typeof(BillRepeatModeUtility), nameof(BillRepeatModeUtility.MakeConfigFloatMenu), lambdaOrdinal: 2)]
         static void BillRepeatMode(object __instance)
         {
             SyncBillProduction.Watch(__instance.GetPropertyOrField("bill"));
@@ -504,9 +504,9 @@ namespace Multiplayer.Client
         }
 
         // Neural supercharger auto use mode syncing
-        [MpPrefix(typeof(Command_SetNeuralSuperchargerAutoUse), "<ProcessInput>b__11_0")] // Set to nobody being allowed to use
-        [MpPrefix(typeof(Command_SetNeuralSuperchargerAutoUse), "<ProcessInput>b__11_1")] // Set to use for pawns based on their beliefs
-        [MpPrefix(typeof(Command_SetNeuralSuperchargerAutoUse), "<ProcessInput>b__11_2")] // Set to use for everyone
+        [MpPrefix(typeof(Command_SetNeuralSuperchargerAutoUse), nameof(Command_SetNeuralSuperchargerAutoUse.ProcessInput), 0)] // Set to nobody being allowed to use
+        [MpPrefix(typeof(Command_SetNeuralSuperchargerAutoUse), nameof(Command_SetNeuralSuperchargerAutoUse.ProcessInput), 1)] // Set to use for pawns based on their beliefs
+        [MpPrefix(typeof(Command_SetNeuralSuperchargerAutoUse), nameof(Command_SetNeuralSuperchargerAutoUse.ProcessInput), 2)] // Set to use for everyone
         static void WatchNeuralSuperchargerMode(Command_SetNeuralSuperchargerAutoUse __instance)
         {
             SyncNeuralSuperchargerMode.Watch(__instance.comp);

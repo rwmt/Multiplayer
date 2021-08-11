@@ -296,7 +296,7 @@ namespace Multiplayer.Client
                 var randPatchPrefix = new HarmonyMethod(typeof(RandPatches), "Prefix");
                 var randPatchPostfix = new HarmonyMethod(typeof(RandPatches), "Postfix");
 
-                var subSustainerStart = AccessTools.Method(typeof(SubSustainer), "<.ctor>b__12_0");
+                var subSustainerStart = MpUtil.GetLambda(typeof(SubSustainer), parentMethodType: MethodType.Constructor, parentArgs: new[] { typeof(Sustainer), typeof(SubSoundDef) });
                 var sampleCtor = typeof(Sample).GetConstructor(new[] { typeof(SubSoundDef) });
                 var subSoundPlay = typeof(SubSoundDef).GetMethod(nameof(SubSoundDef.TryPlay));
                 var effecterTick = typeof(Effecter).GetMethod(nameof(Effecter.EffectTick));

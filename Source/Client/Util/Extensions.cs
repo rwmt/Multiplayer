@@ -331,6 +331,13 @@ namespace Multiplayer.Client
 
             return result.ToString();
         }
+
+        public static string Until(this string s, char c)
+        {
+            if (s.IndexOf(c) == -1)
+                throw new Exception($"Char {c} not found in string {s}");
+            return s.Substring(0, s.IndexOf(c));
+        }
     }
 
     public static class CollectionExtensions

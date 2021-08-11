@@ -117,7 +117,7 @@ namespace Multiplayer.Client
         static IEnumerable<MethodBase> TargetMethods()
         {
             yield return AccessTools.Method(typeof(Sustainer), nameof(Sustainer.SustainerUpdate));
-            yield return AccessTools.Method(typeof(Sustainer), "<.ctor>b__15_0");
+            yield return MpUtil.GetLambda(typeof(Sustainer), parentMethodType: MethodType.Constructor, parentArgs: new[] { typeof(SoundDef), typeof(SoundInfo) });
         }
 
         static void Prefix(Sustainer __instance, ref TimeSnapshot? __state)

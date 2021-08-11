@@ -383,8 +383,8 @@ namespace Multiplayer.Client
     {
         static IEnumerable<MethodBase> TargetMethods()
         {
-            yield return AccessTools.Method(typeof(Dialog_Trade), "<DoWindowContents>b__64_0");
-            yield return AccessTools.Method(typeof(Dialog_Trade), "<DoWindowContents>b__64_1");
+            yield return MpUtil.GetLambda(typeof(Dialog_Trade), nameof(Dialog_Trade.DoWindowContents));
+            yield return MpUtil.GetLambda(typeof(Dialog_Trade), nameof(Dialog_Trade.DoWindowContents));
         }
 
         static void Prefix(ref bool __state)

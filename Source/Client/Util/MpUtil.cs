@@ -77,35 +77,32 @@ namespace Multiplayer.Client
         }
 
         // Copied from Harmony.PatchProcessor
-        public static MethodBase GetOriginalMethod(HarmonyMethod attr)
+        public static MethodBase GetMethod(Type type, string methodName, MethodType methodType, Type[] args)
         {
-            if (attr.declaringType == null) return null;
+            if (type == null) return null;
 
-            if (attr.methodType == null)
-                attr.methodType = MethodType.Normal;
-
-            switch (attr.methodType)
+            switch (methodType)
             {
                 case MethodType.Normal:
-                    if (attr.methodName == null)
+                    if (methodName == null)
                         return null;
-                    return AccessTools.DeclaredMethod(attr.declaringType, attr.methodName, attr.argumentTypes);
+                    return AccessTools.DeclaredMethod(type, methodName, args);
 
                 case MethodType.Getter:
-                    if (attr.methodName == null)
+                    if (methodName == null)
                         return null;
-                    return AccessTools.DeclaredProperty(attr.declaringType, attr.methodName).GetGetMethod(true);
+                    return AccessTools.DeclaredProperty(type, methodName).GetGetMethod(true);
 
                 case MethodType.Setter:
-                    if (attr.methodName == null)
+                    if (methodName == null)
                         return null;
-                    return AccessTools.DeclaredProperty(attr.declaringType, attr.methodName).GetSetMethod(true);
+                    return AccessTools.DeclaredProperty(type, methodName).GetSetMethod(true);
 
                 case MethodType.Constructor:
-                    return AccessTools.DeclaredConstructor(attr.declaringType, attr.argumentTypes);
+                    return AccessTools.DeclaredConstructor(type, args);
 
                 case MethodType.StaticConstructor:
-                    return AccessTools.GetDeclaredConstructors(attr.declaringType)
+                    return AccessTools.GetDeclaredConstructors(type)
                         .Where(c => c.IsStatic)
                         .FirstOrDefault();
             }
@@ -183,6 +180,61 @@ namespace Multiplayer.Client
                     f.SetValue(to, f.GetValue(from));
 
             return to;
+        }
+
+        // Based on https://github.com/dotnet/roslyn/blob/main/src/Compilers/CSharp/Portable/Symbols/Synthesized/GeneratedNameKind.cs
+        // and https://github.com/dotnet/roslyn/blob/main/src/Compilers/CSharp/Portable/Symbols/Synthesized/GeneratedNames.cs
+        public static MethodInfo GetLambda(Type parentType, string parentMethod = null, MethodType parentMethodType = MethodType.Normal, Type[] parentArgs = null , int lambdaOrdinal = 0)
+        {
+            var parent = GetMethod(parentType, parentMethod, parentMethodType, parentArgs);
+            if (parent == null)
+                throw new Exception($"Couldn't find parent method ({parentMethodType}) {parentType}::{parentMethod}");
+
+            int? parentId = null;
+
+            const string DisplayClassPrefix = "<>c__DisplayClass";
+            const string LambdaMethodInfix = ">b__";
+            const string EnumerableStateMachineInfix = ">d__";
+
+            string cur = null;
+
+            try
+            {
+                // Try extract the debug id for the parent method from its body
+                foreach (var inst in PatchProcessor.GetOriginalInstructions(parent))
+                    // Example class name: <>c__DisplayClass10_0 or <CompGetGizmosExtra>d__7
+                    if (inst.opcode == OpCodes.Newobj && inst.operand is MethodBase m && (cur = m.DeclaringType.Name) != null)
+                    {
+                        if (cur.StartsWith(DisplayClassPrefix))
+                            parentId = int.Parse(cur.Substring(DisplayClassPrefix.Length).Until('_'));
+                        else if (cur.Contains(EnumerableStateMachineInfix))
+                            parentId = int.Parse(cur.Substring(cur.IndexOf('>') + EnumerableStateMachineInfix.Length));
+                    }
+                    // Example method name: <FillTab>b__10_0
+                    else if (inst.opcode == OpCodes.Ldftn && inst.operand is MethodBase f && (cur = f.Name) != null && cur.StartsWith("<") && cur.Substring(cur.IndexOf('>')).CharacterCount('_') == 3)
+                    {
+                        parentId = int.Parse(cur.Substring(cur.IndexOf('>') + LambdaMethodInfix.Length).Until('_'));
+                    }
+            } catch (Exception e)
+            {
+                throw new Exception($"Extracting debug id for {parentType}::{parent.Name} failed at {cur} with: {e.Message}");
+            }
+
+            if (parentId == null)
+                throw new Exception($"Couldn't determine debug id for parent method {parentType}::{parent.Name}");
+
+            var displayClassPrefix = $"<>c__DisplayClass{parentId}_";
+            var lambda = parentType.GetNestedTypes(AccessTools.all).
+                Where(t => t.Name.StartsWith(displayClassPrefix)).
+                SelectMany(t => t.GetDeclaredMethods()).
+                FirstOrDefault(m => m.Name == $"<{parent.Name}>b__{lambdaOrdinal}");
+
+            lambda ??= AccessTools.Method(parentType, $"<{parent.Name}>b__{parentId}_{lambdaOrdinal}");
+
+            if (lambda == null)
+                throw new Exception($"Couldn't find lambda {lambdaOrdinal} in parent method {parentType}::{parent.Name} (parent method id: {parentId})");
+
+            return lambda;
         }
     }
 
