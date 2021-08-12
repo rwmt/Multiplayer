@@ -136,7 +136,9 @@ namespace Multiplayer.Client
                 postfix: new HarmonyMethod(typeof(DeferredStackTracing), nameof(DeferredStackTracing.Postfix))
             );
 
+#if DEBUG
             DebugPatches.Init();
+#endif
         }
 
         private void LatePatches()
