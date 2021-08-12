@@ -5,6 +5,7 @@ Originally created by Zetrith, The Rimworld Multiplayer Mod is now being updated
 [Steam Workshop ](https://steamcommunity.com/sharedfiles/filedetails/?id=1752864297)|
 [ Website ](https://rimworldmultiplayer.com)|
 [ Discord](https://discord.gg/S4bxXpv)
+[ Documentation](https://hackmd.io/@rimworldmultiplayer/docs/)
 
 ### Development
 
