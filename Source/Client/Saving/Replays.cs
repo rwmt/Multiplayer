@@ -116,6 +116,7 @@ namespace Multiplayer.Client
                     OnMainThread.cachedMapCmds[ScheduledCommand.Global] = DeserializeCmds(worldCmds.GetBytes());
 
                 OnMainThread.cachedGameData = zip[$"world/{sectionIdStr}_save"].GetBytes();
+                OnMainThread.cachedSemiPersistent = new byte[0];
             }
         }
 
