@@ -101,6 +101,9 @@ namespace Multiplayer.Client
             byte[] worldData = GZipStream.UncompressBuffer(data.ReadPrefixedBytes());
             OnMainThread.cachedGameData = worldData;
 
+            byte[] semiPersistentData = GZipStream.UncompressBuffer(data.ReadPrefixedBytes());
+            OnMainThread.cachedSemiPersistent = semiPersistentData;
+
             List<int> mapsToLoad = new List<int>();
 
             int mapCmdsCount = data.ReadInt32();
@@ -163,7 +166,9 @@ namespace Multiplayer.Client
 
         public static void ReloadGame(List<int> mapsToLoad, bool async = true)
         {
-            LoadPatch.gameToLoad = GetGameDocument(mapsToLoad);
+            var gameDoc = GetGameDocument(mapsToLoad);
+
+            LoadPatch.gameToLoad = new(gameDoc, OnMainThread.cachedSemiPersistent);
             TickPatch.replayTimeSpeed = TimeSpeed.Paused;
 
             if (async)

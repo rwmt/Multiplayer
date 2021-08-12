@@ -366,11 +366,11 @@ namespace Multiplayer.Client
                 }
             }
 
-            XmlDocument doc = SaveLoad.SaveAndReload();
+            var data = SaveLoad.SaveAndReload();
 
             if (!Multiplayer.session.resyncing)
             {
-                SaveLoad.CacheGameData(doc);
+                SaveLoad.CacheGameData(data);
 
                 if (written)
                 {

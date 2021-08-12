@@ -18,6 +18,7 @@ namespace Multiplayer.Client
 
         public static int cachedAtTime;
         public static byte[] cachedGameData;
+        public static byte[] cachedSemiPersistent;
         public static Dictionary<int, byte[]> cachedMapData = new Dictionary<int, byte[]>();
 
         // Global cmds are -1
@@ -211,6 +212,7 @@ namespace Multiplayer.Client
         {
             cachedAtTime = 0;
             cachedGameData = null;
+            cachedSemiPersistent = null;
             cachedMapData.Clear();
             cachedMapCmds.Clear();
         }

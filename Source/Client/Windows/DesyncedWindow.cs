@@ -1,4 +1,4 @@
-﻿using Multiplayer.Common;
+using Multiplayer.Common;
 using System.Linq;
 using UnityEngine;
 using Verse;
@@ -57,13 +57,13 @@ namespace Multiplayer.Client
             }
             x += 120 + 10;
 
-
+            // todo remove
             //REHOST
-            if (Widgets.ButtonText(new Rect(x, 0, 120, 35), "MpTryRehost".Translate()))
+            /*if (Widgets.ButtonText(new Rect(x, 0, 120, 35), "MpTryRehost".Translate()))
             {
                 Rehost();
             }
-            x += 120 + 10;
+            x += 120 + 10;*/
             //REHOST
 
 
@@ -79,34 +79,6 @@ namespace Multiplayer.Client
                 MainMenuPatch.AskQuitToMainMenu();
 
             GUI.EndGroup();
-        }
-
-        private static void Rehost()
-        {
-            LongEventHandler.QueueLongEvent(() =>
-            {
-                Find.GameInfo.permadeathMode = false;
-                
-                OnMainThread.StopMultiplayer();
-
-                var doc = SaveLoad.SaveGame();
-                MemoryUtility.ClearAllMapsAndWorld();
-
-                Current.Game = new Game();
-                Current.Game.InitData = new GameInitData();
-                Current.Game.InitData.gameToLoad = "play";
-
-                LoadPatch.gameToLoad = doc;
-
-                LongEventHandler.ExecuteWhenFinished(() =>
-                {
-                    HostWindow window = new HostWindow(null, true);
-                    window.forcePause = true;
-                    window.absorbInputAroundWindow = true;
-                    Find.WindowStack.Add(window);
-                });
-
-            }, "Play", "MpConverting", true, null);
         }
     }
 

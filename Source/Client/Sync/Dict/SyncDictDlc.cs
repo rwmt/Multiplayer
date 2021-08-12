@@ -110,6 +110,32 @@ namespace Multiplayer.Client
                     return lord?.LordJob as LordJob_BestowingCeremony;
                 }
             },
+            {
+                (ByteWriter data, LordToil_BestowingCeremony_Wait toil) => {
+                    WriteSync(data, toil.lord);
+                },
+                (ByteReader data) => {
+                    var lord = ReadSync<Lord>(data);
+                    return lord?.curLordToil as LordToil_BestowingCeremony_Wait;
+                }
+            },
+            {
+                (ByteWriter data, Command_BestowerCeremony cmd) => {
+                    WriteSync(data, cmd.job.lord);
+                    WriteSync(data, cmd.bestower);
+                },
+                (ByteReader data) => {
+                    var lord = ReadSync<Lord>(data);
+                    if (lord == null) return null;
+
+                    var bestower = ReadSync<Pawn>(data);
+                    if (bestower == null) return null;
+
+                    return (Command_BestowerCeremony)(lord.curLordToil as LordToil_BestowingCeremony_Wait).
+                        GetPawnGizmos(bestower).
+                        FirstOrDefault();
+                }
+            },
             #endregion
 
             #region Ideology

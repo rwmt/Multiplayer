@@ -152,7 +152,7 @@ namespace Multiplayer.Client
                 Current.Game.InitData = new GameInitData();
                 Current.Game.InitData.gameToLoad = "play";
 
-                LoadPatch.gameToLoad = doc;
+                LoadPatch.gameToLoad = new GameData(doc, new byte[0]);
             }, "Play", "MpConverting", true, null);
         }
     }

@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using RimWorld;
 using RimWorld.Planet;
 using Verse;
@@ -196,10 +196,17 @@ namespace Multiplayer.Client
         {
             ScribeUtil.sharedCrossRefs.RegisterLoaded(Find.World);
 
-            foreach (Faction f in Find.FactionManager.AllFactions)
+            foreach (var f in Find.FactionManager.AllFactions)
                 ScribeUtil.sharedCrossRefs.RegisterLoaded(f);
 
-            foreach (Map map in Find.Maps)
+            // todo
+            // Handle ideo mutation. This currently assumes that ideos are static during a game.
+            // Handling this might only be useful for debug tools
+            foreach (var ideo in Find.IdeoManager.IdeosListForReading)
+                foreach (var precept in ideo.PreceptsListForReading)
+                    ScribeUtil.sharedCrossRefs.RegisterLoaded(precept);
+
+            foreach (var map in Find.Maps)
                 ScribeUtil.sharedCrossRefs.RegisterLoaded(map);
         }
     }

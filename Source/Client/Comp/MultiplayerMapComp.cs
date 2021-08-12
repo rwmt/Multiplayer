@@ -4,10 +4,10 @@ using System.Linq;
 using HarmonyLib;
 using Multiplayer.Client.Persistent;
 using Multiplayer.Client.Saving;
+using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
 using Verse;
-using static RimWorld.Dialog_BeginRitual;
 
 namespace Multiplayer.Client
 {
@@ -110,7 +110,6 @@ namespace Multiplayer.Client
 
             Scribe_Deep.Look(ref caravanForming, "caravanFormingSession", map);
             Scribe_Deep.Look(ref transporterLoading, "transporterLoading", map);
-            Scribe_Deep.Look(ref ritualSession, "ritualSession", map);
 
             Scribe_Collections.Look(ref mapDialogs, "mapDialogs", LookMode.Deep, map);
             if (Scribe.mode == LoadSaveMode.LoadingVars && mapDialogs == null)
@@ -156,6 +155,23 @@ namespace Multiplayer.Client
             Scribe_Custom.LookValueDeep(ref customFactionData, "customFactionMapData", map);
             if (customFactionData == null)
                 customFactionData = new Dictionary<int, CustomFactionMapData>();
+        }
+
+        public void WriteSemiPersistent(ByteWriter writer)
+        {
+            writer.WriteBool(ritualSession != null);
+            if (ritualSession != null)
+                ritualSession.Write(writer);
+        }
+
+        public void ReadSemiPersistent(ByteReader reader)
+        {
+            var hasRitual = reader.ReadBool();
+            if (hasRitual)
+            {
+                ritualSession = new RitualSession(map);
+                ritualSession.Read(reader);
+            }
         }
     }
 

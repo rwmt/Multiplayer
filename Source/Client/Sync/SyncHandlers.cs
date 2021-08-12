@@ -467,7 +467,7 @@ namespace Multiplayer.Client
         private Type[] fieldTypes;
         private string[] fieldPaths;
 
-        private string[] cancelIfAnyNullBlacklist;
+        private string[] allowedNull;
         private string[] cancelIfNull;
         private bool cancelIfNoSelectedObjects;
         private string[] removeNullsFromLists;
@@ -586,17 +586,12 @@ namespace Multiplayer.Client
 
                 if (value == null)
                 {
-                    if (cancelIfAnyNullBlacklist != null && !cancelIfAnyNullBlacklist.Contains(noTypePath))
-                        return;
-
-                    if (path.EndsWith(DELEGATE_THIS))
-                        return;
-
-                    if (cancelIfNull != null && cancelIfNull.Contains(noTypePath))
-                        return;
+                    if (allowedNull != null && !allowedNull.Contains(path)) return;
+                    if (path.EndsWith(DELEGATE_THIS)) return;
+                    if (cancelIfNull != null && cancelIfNull.Contains(path)) return;
                 }
 
-                if (removeNullsFromLists != null && removeNullsFromLists.Contains(noTypePath) && value is IList list)
+                if (removeNullsFromLists != null && removeNullsFromLists.Contains(path) && value is IList list)
                     list.RemoveNulls();
 
                 MpReflection.SetValue(target, path, value);
@@ -625,15 +620,15 @@ namespace Multiplayer.Client
             return this;
         }
 
-        public ISyncDelegate CancelIfAnyFieldNull(params string[] without)
+        public ISyncDelegate CancelIfAnyFieldNull(params string[] allowed)
         {
-            cancelIfAnyNullBlacklist = without;
+            allowedNull = allowed;
             return this;
         }
 
-        public ISyncDelegate CancelIfFieldsNull(params string[] whitelist)
+        public ISyncDelegate CancelIfFieldsNull(params string[] fields)
         {
-            cancelIfNull = whitelist;
+            cancelIfNull = fields;
             return this;
         }
 
@@ -664,20 +659,10 @@ namespace Multiplayer.Client
 
         public static SyncDelegate LocalFunc(Type parentType, string parentMethod, string name, Type[] parentArgs = null)
         {
-            if (AccessTools.Method(parentType, parentMethod, parentArgs) == null)
-                throw new Exception($"Couldn't find method {parentType}::{parentMethod}");
-
-            var lambda = parentType.GetNestedTypes(AccessTools.all).
-                SelectMany(t => t.GetDeclaredMethods()).
-                Where(m => m.Name.StartsWith($"<{parentMethod}>g__{name}|")).ToArray();
-
-            if (lambda.Count() == 0)
-                throw new Exception($"Couldn't find local function {name} in parent method {parentType}::{parentMethod}");
-
-            if (lambda.Count() > 1)
-                throw new Exception($"Ambiguous local function {name} in parent method {parentType}::{parentMethod}");
-
-            return Sync.RegisterSyncDelegate(lambda.First(), null);
+            return Sync.RegisterSyncDelegate(
+                MpUtil.GetLocalFunc(parentType, parentMethod, MethodType.Normal, parentArgs, name),
+                null
+            );
         }
 
         public static SyncDelegate Register(Type inType, string nestedType, string methodName, string[] fields)
@@ -709,7 +694,7 @@ namespace Multiplayer.Client
             return $"SyncDelegate {method.MpFullDescription()}";
         }
 
-        private static bool AllDelegateFieldsRecursive(Type type, Func<string, bool> getter, string path = "")
+        public static bool AllDelegateFieldsRecursive(Type type, Func<string, bool> getter, string path = "", bool allowDelegates = false)
         {
             if (path.NullOrEmpty())
                 path = type.ToString();
@@ -718,7 +703,7 @@ namespace Multiplayer.Client
             {
                 string curPath = path + "/" + field.Name;
 
-                if (typeof(Delegate).IsAssignableFrom(field.FieldType))
+                if (!allowDelegates && typeof(Delegate).IsAssignableFrom(field.FieldType))
                     continue;
 
                 if (getter(curPath))

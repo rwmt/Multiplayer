@@ -84,7 +84,7 @@ namespace Multiplayer.Client
 
         internal enum ListType : byte
         {
-            Normal, MapAllThings, MapAllDesignations
+            Normal, MapAllThings, MapAllDesignations, Null
         }
 
         internal enum ISelectableImpl : byte
@@ -194,6 +194,9 @@ namespace Multiplayer.Client
                     if (genericTypeDefinition == typeof(List<>))
                     {
                         ListType listType = ReadSync<ListType>(data);
+                        if (listType == ListType.Null)
+                            return null;
+
                         if (listType == ListType.MapAllThings)
                             return map.listerThings.AllThings;
 
@@ -225,6 +228,9 @@ namespace Multiplayer.Client
 
                     if (genericTypeDefinition == typeof(Dictionary<,>))
                     {
+                        var notNull = data.ReadBool();
+                        if (!notNull) return null;
+
                         Type[] arguments = type.GetGenericArguments();
 
                         Array keys = (Array)ReadSyncObject(data, arguments[0].MakeArrayType());
@@ -395,6 +401,12 @@ namespace Multiplayer.Client
 
                     if (genericTypeDefinition == typeof(List<>))
                     {
+                        if (obj == null)
+                        {
+                            WriteSync(data, ListType.Null);
+                            return;
+                        }
+
                         ListType listType = ListType.Normal;
                         Type listObjType = type.GetGenericArguments()[0];
 
@@ -431,6 +443,12 @@ namespace Multiplayer.Client
                         IEnumerable e = (IEnumerable)obj;
                         Type elementType = type.GetGenericArguments()[0];
                         var listType = typeof(List<>).MakeGenericType(elementType);
+                        if (e == null)
+                        {
+                            WriteSyncObject(data, null, listType);
+                            return;
+                        }
+
                         IList list = (IList)Activator.CreateInstance(listType);
 
                         foreach (var o in e)
@@ -458,9 +476,12 @@ namespace Multiplayer.Client
 
                     if (genericTypeDefinition == typeof(Dictionary<,>))
                     {
-                        Type[] arguments = type.GetGenericArguments();
-
                         IDictionary dictionary = (IDictionary)obj;
+
+                        data.WriteBool(dictionary != null);
+                        if (dictionary == null) return;
+
+                        Type[] arguments = type.GetGenericArguments();
 
                         Array keyArray = Array.CreateInstance(arguments[0], dictionary.Count);
                         dictionary.Keys.CopyTo(keyArray, 0);

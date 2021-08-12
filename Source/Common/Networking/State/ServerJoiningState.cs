@@ -150,6 +150,7 @@ namespace Multiplayer.Common
             writer.WriteInt32(factionId);
             writer.WriteInt32(MultiplayerServer.instance.gameTimer);
             writer.WritePrefixedBytes(MultiplayerServer.instance.savedGame);
+            writer.WritePrefixedBytes(MultiplayerServer.instance.semiPersistent);
 
             writer.WriteInt32(MultiplayerServer.instance.mapCmds.Count);
 

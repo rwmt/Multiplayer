@@ -24,7 +24,7 @@ namespace Multiplayer.Client
             SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddHumanlikeOrders), 10).CancelIfAnyFieldNull().SetContext(mouseKeyContext);    // Carry to shuttle
             SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddHumanlikeOrders), 27).CancelIfAnyFieldNull().SetContext(mouseKeyContext);    // Reload
 
-            SyncDelegate.Lambda(typeof(HealthCardUtility), nameof(HealthCardUtility.GenerateSurgeryOption), 1).CancelIfAnyFieldNull(without: "part");   // Add medical bill
+            SyncDelegate.Lambda(typeof(HealthCardUtility), nameof(HealthCardUtility.GenerateSurgeryOption), 1).CancelIfAnyFieldNull(allowed: "part");   // Add medical bill
             SyncDelegate.Lambda(typeof(Command_SetPlantToGrow), nameof(Command_SetPlantToGrow.ProcessInput), 2);                                        // Set plant to grow
             SyncDelegate.Lambda(typeof(Building_Bed), nameof(Building_Bed.SetBedOwnerTypeByInterface), 0).RemoveNullsFromLists("bedsToAffect");         // Set bed owner type
             SyncDelegate.Lambda(typeof(ITab_Bills), nameof(ITab_Bills.FillTab), 2).SetContext(SyncContext.MapSelected).CancelIfNoSelectedObjects();     // Add bill
@@ -103,8 +103,8 @@ namespace Multiplayer.Client
             SyncDelegate.Lambda(typeof(ITab_Pawn_Visitor), nameof(ITab_Pawn_Visitor.FillTab), 1).SetContext(SyncContext.MapSelected).CancelIfNoSelectedObjects(); // Select target prisoner ideology
             SyncDelegate.Lambda(typeof(ITab_Pawn_Visitor), nameof(ITab_Pawn_Visitor.FillTab), 8).SetContext(SyncContext.MapSelected).CancelIfNoSelectedObjects(); // Cancel setting slave mode to execution
 
-            SyncMethod.Lambda(typeof(ShipJob_Wait), nameof(ShipJob_Wait.GetJobGizmos), 0);      // Dismiss (unload) shuttle
-            SyncMethod.Lambda(typeof(ShipJob_Wait), nameof(ShipJob_Wait.GetJobGizmos), 1);    // Send loaded shuttle
+            SyncMethod.Lambda(typeof(ShipJob_Wait), nameof(ShipJob_Wait.GetJobGizmos), 0);  // Dismiss (unload) shuttle
+            SyncMethod.Lambda(typeof(ShipJob_Wait), nameof(ShipJob_Wait.GetJobGizmos), 1);  // Send loaded shuttle
 
             InitRituals();
         }
@@ -114,11 +114,13 @@ namespace Multiplayer.Client
             SyncMethod.Lambda(typeof(LordJob_Ritual), nameof(LordJob_Ritual.GetCancelGizmo), 1);    // Cancel ritual
             SyncDelegate.Lambda(typeof(LordJob_Ritual), nameof(LordJob_Ritual.GetPawnGizmos), 0);   // Make pawn leave ritual
 
-            SyncDelegate.Lambda(typeof(LordJob_BestowingCeremony), nameof(LordJob_BestowingCeremony.GetPawnGizmos), 2);  // Cancel ceremony
+            SyncDelegate.Lambda(typeof(LordJob_BestowingCeremony), nameof(LordJob_BestowingCeremony.GetPawnGizmos), 2); // Cancel ceremony
             SyncDelegate.Lambda(typeof(LordJob_BestowingCeremony), nameof(LordJob_BestowingCeremony.GetPawnGizmos), 0); // Make pawn leave ceremony
 
             SyncDelegate.Lambda(typeof(LordToil_BestowingCeremony_Wait), nameof(LordToil_BestowingCeremony_Wait.ExtraFloatMenuOptions), 0); // Begin bestowing float menu
             SyncMethod.Register(typeof(Command_BestowerCeremony), nameof(Command_BestowerCeremony.ProcessInput)); // Begin bestowing gizmo
+
+            SyncDelegate.Lambda(typeof(CompPsylinkable), nameof(CompPsylinkable.CompFloatMenuOptions), 0); // Psylinkable begin linking
 
             /*  
                 Ritual dialog

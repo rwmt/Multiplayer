@@ -114,7 +114,9 @@ namespace Multiplayer.Client
                 var chatLabel = $"{"MpChatButton".Translate()} <color={chatColor}>({session.players.Count})</color>{hasUnread}";
 
                 if (Widgets.ButtonText(btnRect, chatLabel))
+                {
                     ChatWindow.OpenChat();
+                }
 
                 if (!TickPatch.Skipping)
                 {

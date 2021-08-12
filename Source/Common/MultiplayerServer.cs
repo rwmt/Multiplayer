@@ -26,6 +26,7 @@ namespace Multiplayer.Common
 
         public int coopFactionId;
         public byte[] savedGame; // Compressed game save
+        public byte[] semiPersistent; // Compressed semi persistent data
         public Dictionary<int, byte[]> mapData = new Dictionary<int, byte[]>(); // Map id to compressed map data
 
         public Dictionary<int, List<byte[]>> mapCmds = new Dictionary<int, List<byte[]>>(); // Map id to serialized cmds list

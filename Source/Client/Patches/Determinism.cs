@@ -218,13 +218,7 @@ namespace Multiplayer.Client.Patches
     {
         static MethodBase TargetMethod()
         {
-            // Get all non public types, including compiler types
-            List<Type> nestedPrivateTypes = new List<Type>(typeof(Archive).GetNestedTypes(BindingFlags.NonPublic));
-
-            // There are two of these in 1.1, <GetGizmos> and <>c. Pluck the one we want for sort inner
-            Type cType = nestedPrivateTypes.Find(t => t.Name.Equals("<>c"));
-
-            return AccessTools.Method(cType, "<Add>b__6_0");
+            return MpUtil.GetLambda(typeof(Archive), nameof(Archive.Add), 0);
         }
 
         static void Postfix(IArchivable x, ref int __result)

@@ -81,6 +81,8 @@
   <MpCaravanFormingSession>Caravan forming session</MpCaravanFormingSession>
   <MpCaravanSplittingSession>Caravan splitting session</MpCaravanSplittingSession>
   
+  <AnotherRitualInProgress>Can't begin ritual. Another ritual setup session is already in progress.</AnotherRitualInProgress>
+  
   <MpChatPlayers>Players ({0}):</MpChatPlayers>
   <MpSend>Send</MpSend>
   <MpSteamAcceptTitle>Accept Steam players</MpSteamAcceptTitle>

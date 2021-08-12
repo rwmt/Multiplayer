@@ -207,7 +207,6 @@ namespace Multiplayer.Client
                     Log.Warning($"Mod {mod.Name} uses an older API version (mod: {version}, current: {curVersion})");
                 else if (curVersion < version)
                     Log.Error($"Mod {mod.Name} uses a newer API version! (mod: {version}, current: {curVersion})\nMake sure the Multiplayer mod is up to date");
-            
             }
         }
     }

@@ -16,10 +16,12 @@ using Verse.Profile;
 
 namespace Multiplayer.Client
 {
+    public record GameData(XmlDocument SaveData, byte[] SemiPersistent);
+
     [HotSwappable]
     public static class SaveLoad
     {
-        public static XmlDocument SaveAndReload()
+        public static GameData SaveAndReload()
         {
             //SimpleProfiler.Start();
             Multiplayer.reloading = true;
@@ -54,7 +56,9 @@ namespace Multiplayer.Client
             DeepProfiler.Start("Multiplayer SaveAndReload");
             //WriteElementPatch.cachedVals = new Dictionary<string, object>();
             //WriteElementPatch.id = 0;
-            XmlDocument gameDoc = SaveGame();
+            var gameDoc = SaveGame();
+            var semiPersistent = WriteSemiPersistent();
+            var gameData = new GameData(gameDoc, semiPersistent);
             DeepProfiler.End();
             //Log.Message($"Saving took {WriteElementPatch.cachedVals.Count} {WriteElementPatch.cachedVals.FirstOrDefault()}");
 
@@ -76,7 +80,7 @@ namespace Multiplayer.Client
             //SpawnSetupPatch.total = 0;
             //SpawnSetupPatch.total2 = new long[SpawnSetupPatch.total2.Length];
 
-            LoadInMainThread(gameDoc);
+            LoadInMainThread(gameData);
 
             if (musicManager != null)
                 Current.Root_Play.musicManagerPlay = musicManager;
@@ -111,19 +115,17 @@ namespace Multiplayer.Client
 
             //Log.Message($"allocs {(double)SpawnSetupPatch.total2.Sum() / Stopwatch.Frequency * 1000} ({SpawnSetupPatch.total2.Select((l,i) => $"{SpawnSetupPatch.methods[i]}: {(double)l / Stopwatch.Frequency * 1000}").Join(delimiter: "\n")}) {SpawnSetupPatch.total} {AllocsPrefixClass.allocs} {CustomXmlElement.n} {CustomXmlElement.m} {CustomXmlElement.n - CustomXmlElement.m} {(double)CustomXmlElement.n/CustomXmlElement.m}");
 
-            return gameDoc;
+            return gameData;
         }
 
-        public const float SpecialBellTime = -2000f;
-
-        public static void LoadInMainThread(XmlDocument gameDoc)
+        public static void LoadInMainThread(GameData gameData)
         {
             DeepProfiler.Start("Multiplayer LoadInMainThread");
 
             ClearState();
             MemoryUtility.ClearAllMapsAndWorld();
 
-            LoadPatch.gameToLoad = gameDoc;
+            LoadPatch.gameToLoad = gameData;
 
             CancelRootPlayStartLongEvents.cancel = true;
             Find.Root.Start();
@@ -152,6 +154,39 @@ namespace Multiplayer.Client
             }
         }
 
+        public static byte[] WriteSemiPersistent()
+        {
+            var writer = new ByteWriter();
+
+            writer.WriteInt32(Find.Maps.Count);
+            foreach (var map in Find.Maps)
+            {
+                writer.WriteInt32(map.uniqueID);
+
+                var mapWriter = new ByteWriter();
+                map.MpComp().WriteSemiPersistent(mapWriter);
+                writer.WritePrefixedBytes(mapWriter.ToArray());
+            }
+
+            return writer.ToArray();
+        }
+
+        public static void ReadSemiPersistent(byte[] data)
+        {
+            if (data.Length == 0) return;
+
+            var reader = new ByteReader(data);
+
+            var mapCount = reader.ReadInt32();
+            for (int i = 0; i < mapCount; i++)
+            {
+                var mapId = reader.ReadInt32();
+                var mapData = reader.ReadPrefixedBytes();
+
+                Find.Maps.FirstOrDefault(m => m.uniqueID == mapId)?.MpComp().ReadSemiPersistent(new ByteReader(mapData));
+            }
+        }
+
         public static XmlDocument SaveGame()
         {
             SaveCompression.doSaveCompression = true;
@@ -176,9 +211,9 @@ namespace Multiplayer.Client
             return ScribeUtil.FinishWritingToDoc();
         }
 
-        public static void CacheGameData(XmlDocument doc)
+        public static void CacheGameData(GameData data)
         {
-            XmlNode gameNode = doc.DocumentElement["game"];
+            XmlNode gameNode = data.SaveData.DocumentElement["game"];
             XmlNode mapsNode = gameNode["maps"];
 
             OnMainThread.cachedMapData.Clear();
@@ -195,9 +230,10 @@ namespace Multiplayer.Client
             gameNode["currentMapIndex"].RemoveFromParent();
             mapsNode.RemoveAll();
 
-            byte[] gameData = ScribeUtil.XmlToByteArray(doc);
+            byte[] gameData = ScribeUtil.XmlToByteArray(data.SaveData);
             OnMainThread.cachedAtTime = TickPatch.Timer;
             OnMainThread.cachedGameData = gameData;
+            OnMainThread.cachedSemiPersistent = data.SemiPersistent;
             OnMainThread.cachedMapCmds[ScheduledCommand.Global] = new List<ScheduledCommand>(Multiplayer.WorldComp.cmds);
         }
 
@@ -205,6 +241,7 @@ namespace Multiplayer.Client
         {
             var mapsData = new Dictionary<int, byte[]>(OnMainThread.cachedMapData);
             var gameData = OnMainThread.cachedGameData;
+            var semiPersistent = OnMainThread.cachedSemiPersistent;
 
             void Send()
             {
@@ -218,6 +255,7 @@ namespace Multiplayer.Client
                 }
 
                 writer.WritePrefixedBytes(GZipStream.CompressBuffer(gameData));
+                writer.WritePrefixedBytes(GZipStream.CompressBuffer(semiPersistent));
 
                 byte[] data = writer.ToArray();
 
@@ -236,7 +274,7 @@ namespace Multiplayer.Client
     [HarmonyPatch(new[] { typeof(string) })]
     public static class LoadPatch
     {
-        public static XmlDocument gameToLoad;
+        public static GameData gameToLoad;
 
         static bool Prefix()
         {
@@ -244,14 +282,20 @@ namespace Multiplayer.Client
 
             SaveCompression.doSaveCompression = true;
 
-            ScribeUtil.StartLoading(gameToLoad);
-            ScribeMetaHeaderUtility.LoadGameDataHeader(ScribeMetaHeaderUtility.ScribeHeaderMode.Map, false);
-            Scribe.EnterNode("game");
-            Current.Game = new Game();
-            Current.Game.LoadGame(); // calls Scribe.loader.FinalizeLoading()
-
-            SaveCompression.doSaveCompression = false;
-            gameToLoad = null;
+            try
+            {
+                ScribeUtil.StartLoading(gameToLoad.SaveData);
+                ScribeMetaHeaderUtility.LoadGameDataHeader(ScribeMetaHeaderUtility.ScribeHeaderMode.Map, false);
+                Scribe.EnterNode("game");
+                Current.Game = new Game();
+                Current.Game.LoadGame(); // calls Scribe.loader.FinalizeLoading()
+                SaveLoad.ReadSemiPersistent(gameToLoad.SemiPersistent);
+            }
+            finally
+            {
+                SaveCompression.doSaveCompression = false;
+                gameToLoad = null;
+            }
 
             Log.Message("Game loaded");
 

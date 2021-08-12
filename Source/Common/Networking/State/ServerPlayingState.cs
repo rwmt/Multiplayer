@@ -88,6 +88,7 @@ namespace Multiplayer.Common
             }
 
             Server.savedGame = data.ReadPrefixedBytes();
+            Server.semiPersistent = data.ReadPrefixedBytes();
 
             if (Server.tmpMapCmds != null)
             {

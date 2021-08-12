@@ -1,6 +1,7 @@
 using HarmonyLib;
 using Multiplayer.API;
 using Multiplayer.Client.AsyncTime;
+using Multiplayer.Common;
 using RimWorld;
 using System;
 using System.Collections.Generic;
@@ -14,25 +15,17 @@ using static RimWorld.Dialog_BeginRitual;
 
 namespace Multiplayer.Client.Persistent
 {
-    public record RitualData(
-        Precept_Ritual Ritual,
-        TargetInfo Target,
-        RitualObligation Obligation,
-        RitualOutcomeEffectDef Outcome,
-        List<string> ExtraInfos,
-        ActionCallback Action,
-        string RitualLabel,
-        string ConfirmText,
-        Pawn Organizer,
-        MpRitualAssignments Assignments
-    );
-
     public class RitualSession : ISession
     {
         public Map map;
         public RitualData data;
 
-        public int SessionId { get; }
+        public int SessionId { get; private set; }
+
+        public RitualSession(Map map)
+        {
+            this.map = map;
+        }
 
         public RitualSession(Map map, RitualData data)
         {
@@ -83,6 +76,23 @@ namespace Multiplayer.Client.Persistent
             };
 
             Find.WindowStack.Add(dialog);
+        }
+
+        public void Write(ByteWriter writer)
+        {
+            writer.WriteInt32(SessionId);
+            writer.MpContext().map = map;
+
+            RitualData.Write(writer, data);
+        }
+
+        public void Read(ByteReader reader)
+        {
+            SessionId = reader.ReadInt32();
+            reader.MpContext().map = map;
+
+            data = RitualData.Read(reader);
+            data.Assignments.session = this;
         }
     }
 
@@ -149,9 +159,18 @@ namespace Multiplayer.Client.Persistent
         }
     }
 
-    [HarmonyPatch(typeof(Dialog_BeginRitual), "<DoWindowContents>g__Start|55_1")]
+    [HarmonyPatch]
     static class HandleStartRitual
     {
+        static MethodBase TargetMethod()
+        {
+            return MpUtil.GetLocalFunc(
+                typeof(Dialog_BeginRitual),
+                nameof(Dialog_BeginRitual.DoWindowContents),
+                localFunc: "Start"
+            );
+        }
+
         static bool Prefix(Dialog_BeginRitual __instance)
         {
             if (__instance is BeginRitualProxy proxy)
@@ -197,6 +216,15 @@ namespace Multiplayer.Client.Persistent
                 __instance.assignments.FillPawns(filter);
 
                 var comp = map.MpComp();
+
+                if (comp.ritualSession != null &&
+                    (comp.ritualSession.data.Ritual != __instance.ritual ||
+                    comp.ritualSession.data.Outcome != __instance.outcome))
+                {
+                    Messages.Message("AnotherRitualInProgress".Translate(), MessageTypeDefOf.RejectInput, false);
+                    return;
+                }
+
                 if (comp.ritualSession == null)
                 {
                     comp.CreateRitualSession(new RitualData(
