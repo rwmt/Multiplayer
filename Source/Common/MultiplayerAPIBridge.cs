@@ -18,7 +18,7 @@ namespace Multiplayer.Common
 
         public void WatchBegin()
         {
-            SyncUtil.FieldWatchPrefix();
+            SyncFieldUtil.FieldWatchPrefix();
         }
 
         public void Watch(Type targetType, string fieldName, object target = null, object index = null)
@@ -56,7 +56,7 @@ namespace Multiplayer.Common
 
         public void WatchEnd()
         {
-            SyncUtil.FieldWatchPostfix();
+            SyncFieldUtil.FieldWatchPostfix();
         }
 
         public void RegisterAll(Assembly assembly)

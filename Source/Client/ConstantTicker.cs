@@ -62,9 +62,9 @@ namespace Multiplayer.Client
             {
                 if (!f.inGameLoop) continue;
 
-                SyncUtil.bufferedChanges[f].RemoveAll((k, data) =>
+                SyncFieldUtil.bufferedChanges[f].RemoveAll((k, data) =>
                 {
-                    if (SyncUtil.CheckShouldRemove(f, k, data))
+                    if (SyncFieldUtil.CheckShouldRemove(f, k, data))
                         return true;
 
                     if (!data.sent && TickPatch.Timer - data.timestamp > 30)

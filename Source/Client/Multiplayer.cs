@@ -229,7 +229,7 @@ namespace Multiplayer.Client
 
             Find.WindowStack?.WindowOfType<ServerBrowser>()?.Cleanup(true);
 
-            foreach (var entry in SyncUtil.bufferedChanges)
+            foreach (var entry in SyncFieldUtil.bufferedChanges)
                 entry.Value.Clear();
 
             if (arbiterInstance)

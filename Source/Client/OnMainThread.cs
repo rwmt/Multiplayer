@@ -27,7 +27,7 @@ namespace Multiplayer.Client
 
             if (Multiplayer.Client == null) return;
 
-            SyncUtil.UpdateSync();
+            SyncFieldUtil.UpdateSync();
 
             if (!Multiplayer.arbiterInstance && Application.isFocused && !TickPatch.Simulating && !Multiplayer.session.desynced)
                 SendVisuals();
