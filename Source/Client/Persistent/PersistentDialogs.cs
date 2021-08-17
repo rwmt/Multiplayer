@@ -158,6 +158,8 @@ namespace Multiplayer.Client
             this.ver++;
         }
 
+        public void OpenWindow() => Find.WindowStack.Add(Dialog);
+
         /// <summary>
         /// Finds the given PersistentDialog given any dialog.
         /// </summary>
@@ -166,7 +168,7 @@ namespace Multiplayer.Client
         /// <param name="dialog">Any window</param>
         public static PersistentDialog FindDialog(Window dialog)
         {
-            return Find.Maps?.SelectMany(m => m.MpComp().mapDialogs).FirstOrDefault(d => d.Dialog == dialog);
+            return Multiplayer.WorldComp.globalDialogs.ConcatIfNotNull(Find.Maps?.SelectMany(m => m.MpComp().mapDialogs)).FirstOrDefault(d => d.Dialog == dialog);
         }
 
         /// <summary>
@@ -608,22 +610,28 @@ namespace Multiplayer.Client
     {
         static bool Prefix(Window window)
         {
-            var map = Multiplayer.MapContext;
+            if (Multiplayer.Client == null) return true;
 
-            if (map == null) return true;
+            var map = Multiplayer.MapContext;
+            var comp = map?.MpComp();
 
             PersistentDialog persistentDialog = null;
 
             window.doCloseX = true;
             window.closeOnCancel = true;
 
-            if (window is Dialog_NodeTree dialog_NodeTree) {
+            if (window is Dialog_NodeTree dialog_NodeTree)
+            {
+                // Prevent an endless loop of trying to add a dialog, which creates a new PersistentDialog, which tries to add it, which creates a new Peristent Dialog, etc.
+                if (comp?.mapDialogs.Any(d => d.Dialog == window) == true || Multiplayer.WorldComp.globalDialogs.Any(d => d.Dialog == window)) return true;
+
                 persistentDialog = PersistentDialog.CreateInstance(map, dialog_NodeTree);
             }
 
             if (persistentDialog == null) return true;
 
-            map.MpComp().mapDialogs.Add(persistentDialog);
+            if (comp != null) comp.mapDialogs.Add(persistentDialog);
+            else Multiplayer.WorldComp.globalDialogs.Add(persistentDialog);
 
             return false;
         }
@@ -672,7 +680,8 @@ namespace Multiplayer.Client
             var session = PersistentDialog.FindDialog(window);
             if (session == null) return;
 
-            session.map.MpComp().mapDialogs.Remove(session);
+            if (session.map != null) session.map.MpComp().mapDialogs.Remove(session);
+            else Multiplayer.WorldComp.globalDialogs.Remove(session);
         }
     }
 

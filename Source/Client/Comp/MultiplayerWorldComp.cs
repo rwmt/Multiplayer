@@ -30,7 +30,8 @@ namespace Multiplayer.Client
         {
             if (asyncTime)
             {
-                var enforcePause = Multiplayer.WorldComp.splitSession != null;
+                var enforcePause = Multiplayer.WorldComp.splitSession != null ||
+                    Multiplayer.WorldComp.globalDialogs.Any(); ;
 
                 if (enforcePause)
                     return 0f;
@@ -102,6 +103,7 @@ namespace Multiplayer.Client
 
         public List<MpTradeSession> trading = new List<MpTradeSession>();
         public CaravanSplittingSession splitSession;
+        public List<PersistentDialog> globalDialogs = new();
 
         public Queue<ScheduledCommand> cmds = new Queue<ScheduledCommand>();
 
@@ -141,6 +143,10 @@ namespace Multiplayer.Client
             }
 
             Scribe_Custom.LookIdBlock(ref globalIdBlock, "globalIdBlock");
+
+            Scribe_Collections.Look(ref globalDialogs, nameof(globalDialogs), LookMode.Deep, null);
+            if (Scribe.mode == LoadSaveMode.LoadingVars && globalDialogs == null)
+                globalDialogs = new();
         }
 
         private int currentFactionId;

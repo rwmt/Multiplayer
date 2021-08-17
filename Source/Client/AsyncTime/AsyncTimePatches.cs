@@ -261,6 +261,7 @@ namespace Multiplayer.Client.AsyncTime
             if (bar.Entries.Count == 0) return;
 
             int curGroup = -1;
+            bool anyCaravan = bar.Entries.Any(b => b.map == null);
             foreach (var entry in bar.Entries)
             {
                 if (entry.pawn == null || entry.pawn.Dead || curGroup == entry.group) continue;
@@ -294,7 +295,7 @@ namespace Multiplayer.Client.AsyncTime
                     drawXPos += TimeControls.TimeButSize.x;
                 }
 
-                List<FloatMenuOption> options = GetBlockingWindowOptions(entry, entryTickable);
+                List<FloatMenuOption> options = GetBlockingWindowOptions(entry, entryTickable, anyCaravan);
                 if (!options.NullOrEmpty())
                 {
                     Rect button = new Rect(drawXPos, groupBar.yMax, btnWidth, btnHeight);
@@ -331,7 +332,7 @@ namespace Multiplayer.Client.AsyncTime
                 Find.WindowStack.Add(new FloatMenu(options));
         }
 
-        static List<FloatMenuOption> GetBlockingWindowOptions(ColonistBar.Entry entry, ITickable tickable)
+        static List<FloatMenuOption> GetBlockingWindowOptions(ColonistBar.Entry entry, ITickable tickable, bool anyCaravan)
         {
             List<FloatMenuOption> options = new List<FloatMenuOption>();
             var split = Multiplayer.WorldComp.splitSession;
@@ -380,6 +381,27 @@ namespace Multiplayer.Client.AsyncTime
                 {
                     SwitchMap(entry.map);
                     entry.map.MpComp().ritualSession.OpenWindow();
+                }));
+            }
+
+            IEnumerable<PersistentDialog> dialogList;
+
+            // If the entry doesn't have a map, show global dialogs
+            if (entry.map == null) dialogList = Multiplayer.WorldComp.globalDialogs;
+            // If the entry has a map and there's an entry without one (a caravan), we show local dialogs
+            else if (anyCaravan) dialogList = entry.map?.MpComp().mapDialogs;
+            // If the entry has a map and all entries have them (no caravans), display both local and global dialogs for safety
+            else dialogList = Multiplayer.WorldComp.globalDialogs.Concat(entry.map?.MpComp().mapDialogs);
+
+            foreach (var dialog in dialogList)
+            {
+                var label = dialog.Dialog.title;
+                if (string.IsNullOrWhiteSpace(label)) label = "MpDialogSession".Translate();
+
+                options.Add(new FloatMenuOption(label, () =>
+                {
+                    SwitchMap(dialog.map);
+                    dialog.OpenWindow();
                 }));
             }
 

@@ -303,26 +303,6 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(MapDrawer), nameof(MapDrawer.DrawMapMesh))]
-    static class ForceShowDialogs
-    {
-        static void Prefix(MapDrawer __instance)
-        {
-            if (Multiplayer.Client == null) return;
-
-            var comp = __instance.map.MpComp();
-
-            if (comp.mapDialogs.Any())
-            {
-                var newDialog = comp.mapDialogs.First().Dialog;
-                //If NO mapdialogs (Dialog_NodeTrees) are open, add the first one to the window stack
-                if (!Find.WindowStack.IsOpen(typeof(Dialog_NodeTree)) && !Find.WindowStack.IsOpen(newDialog.GetType())) {
-                    Find.WindowStack.Add(newDialog);
-                }
-            }
-        }
-    }
-
     [HarmonyPatch(typeof(MapInterface), nameof(MapInterface.Notify_SwitchedMap))]
     static class HandleMissingDialogsGameStart
     {

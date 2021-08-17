@@ -147,10 +147,6 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(Verb_SmokePop), nameof(Verb_SmokePop.Pop));
             SyncMethod.Register(typeof(Verb_DeployBroadshield), nameof(Verb_DeployBroadshield.Deploy));
 
-            // Dialog_NodeTree
-            Sync.RegisterSyncDialogNodeTree(typeof(IncidentWorker_CaravanMeeting), nameof(IncidentWorker_CaravanMeeting.TryExecuteWorker));
-            Sync.RegisterSyncDialogNodeTree(typeof(IncidentWorker_CaravanDemand), nameof(IncidentWorker_CaravanDemand.TryExecuteWorker));
-
             SyncMethod.Register(typeof(CompAnimalPenMarker), nameof(CompAnimalPenMarker.RemoveForceDisplayedAnimal));
             SyncMethod.Register(typeof(CompAnimalPenMarker), nameof(CompAnimalPenMarker.AddForceDisplayedAnimal));
             SyncMethod.Register(typeof(CompAnimalPenMarker), nameof(CompAnimalPenMarker.DesignatePlantsToCut));

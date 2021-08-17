@@ -27,7 +27,10 @@ namespace Multiplayer.Client
                 },
                 (ByteReader data) => {
                     int id = data.ReadInt32();
-                    return data.MpContext().map.MpComp().mapDialogs.FirstOrDefault(s => s.id == id);
+                    if (data.MpContext().map != null)
+                        return data.MpContext().map.MpComp().mapDialogs.FirstOrDefault(s => s.id == id);
+                    else
+                        return Multiplayer.WorldComp.globalDialogs.FirstOrDefault(s => s.id == id);
                 }
             },
             {
