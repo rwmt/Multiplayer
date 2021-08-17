@@ -263,7 +263,7 @@ namespace Multiplayer.Client.AsyncTime
             int curGroup = -1;
             foreach (var entry in bar.Entries)
             {
-                if (entry.pawn == null || entry.pawn.Dead || curGroup == entry.group) continue;
+                if (curGroup == entry.group) continue;
 
                 ITickable entryTickable = entry.map?.AsyncTime();
                 if (entryTickable == null) entryTickable = Multiplayer.WorldComp;
@@ -336,7 +336,7 @@ namespace Multiplayer.Client.AsyncTime
             List<FloatMenuOption> options = new List<FloatMenuOption>();
             var split = Multiplayer.WorldComp.splitSession;
 
-            if (split != null && split.Caravan.pawns.Contains(entry.pawn) == true)
+            if (split != null && split.Caravan.pawns.Contains(entry.pawn))
             {
                 options.Add(new FloatMenuOption("MpCaravanSplittingSession".Translate(), () =>
                 {

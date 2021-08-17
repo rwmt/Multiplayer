@@ -370,7 +370,7 @@ namespace Multiplayer.Client
             #region Factions
             {
                 (ByteWriter data, Faction faction) => {
-                    data.WriteInt32(faction.loadID);
+                    data.WriteInt32(faction?.loadID ?? -1);
                 },
                 (ByteReader data) => {
                     int loadID = data.ReadInt32();
