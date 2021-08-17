@@ -2,8 +2,11 @@
 
 VERSION=$(grep -Po '(?<=Version = ")[0-9\.]+' Source/Common/Version.cs)
 
+git submodule update --init --recursive
+
 mkdir -p Multiplayer
 cp -r About Languages Multiplayer/
+rm -rf Multiplayer/Languages/.git Multiplayer/Languages/LICENSE Multiplayer/Languages/README.md
 sed -i "/<supportedVersions>/ a \ \ \ \ <li>1.1</li>" Multiplayer/About/About.xml
 sed -i "/<supportedVersions>/ a \ \ \ \ <li>1.0</li>" Multiplayer/About/About.xml
 sed -i "s/This is version .*\$/This is version ${VERSION}./" Multiplayer/About/About.xml
