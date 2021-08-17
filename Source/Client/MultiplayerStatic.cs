@@ -255,10 +255,7 @@ namespace Multiplayer.Client
 
             SetCategory("Annotated patches");
 
-            var patchesStart = Multiplayer.harmonyWatch.ElapsedMillisDouble();
             Assembly.GetCallingAssembly().GetTypes().Do(type => {
-                if (!type.IsStatic()) return;
-
                 // EarlyPatches are handled in MultiplayerMod.EarlyPatches
                 if (type.Namespace != null && type.Namespace.EndsWith("EarlyPatches")) return;
 

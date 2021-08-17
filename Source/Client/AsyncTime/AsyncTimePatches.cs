@@ -504,6 +504,7 @@ namespace Multiplayer.Client.AsyncTime
     public class StorytellerTickPatch
     {
         public static bool updating;
+
         static IEnumerable<MethodBase> TargetMethods()
         {
             yield return AccessTools.Method(typeof(Storyteller), nameof(Storyteller.StorytellerTick));

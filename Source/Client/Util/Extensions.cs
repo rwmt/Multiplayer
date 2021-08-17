@@ -341,7 +341,7 @@ namespace Multiplayer.Client
             var watch = Multiplayer.harmonyWatch;
             var prev = watch.ElapsedMillisDouble();
             watch.Start();
-            var result = harmony?.Patch(original, prefix, postfix, transpiler, finalizer);
+            var result = harmony.Patch(original, prefix, postfix, transpiler, finalizer);
             watch.Stop();
             var took = watch.ElapsedMillisDouble() - prev;
             //if (took > 15)
