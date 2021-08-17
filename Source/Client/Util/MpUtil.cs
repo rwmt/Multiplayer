@@ -71,9 +71,14 @@ namespace Multiplayer.Client
             *iflags |= (ushort)MethodImplOptions.NoInlining;
         }
 
+        public static object NewObjectNoCtor(Type type)
+        {
+            return FormatterServices.GetUninitializedObject(type);
+        }
+
         public static T NewObjectNoCtor<T>()
         {
-            return (T)FormatterServices.GetUninitializedObject(typeof(T));
+            return (T)NewObjectNoCtor(typeof(T));
         }
 
         // Copied from Harmony.PatchProcessor
@@ -188,7 +193,7 @@ namespace Multiplayer.Client
         const string LocalFunctionInfix = "g__";
         const string EnumerableStateMachineInfix = "d__";
 
-        public static MethodInfo GetLambda(Type parentType, string parentMethod = null, MethodType parentMethodType = MethodType.Normal, Type[] parentArgs = null , int lambdaOrdinal = 0)
+        public static MethodInfo GetLambda(Type parentType, string parentMethod = null, MethodType parentMethodType = MethodType.Normal, Type[] parentArgs = null, int lambdaOrdinal = 0)
         {
             var parent = GetMethod(parentType, parentMethod, parentMethodType, parentArgs);
             if (parent == null)
@@ -425,9 +430,13 @@ namespace Multiplayer.Client
         }
     }
 
-    [AttributeUsage(AttributeTargets.Class)]
+    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]
     public class HotSwappableAttribute : Attribute
     {
+        public HotSwappableAttribute()
+        {
+
+        }
     }
 
 }

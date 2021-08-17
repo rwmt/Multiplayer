@@ -56,7 +56,7 @@ namespace Multiplayer.Client.EarlyPatches
     }
 
     [HarmonyPatch]
-    static class CancelDuringSkipping
+    static class CancelDuringSimulating
     {
         static IEnumerable<MethodBase> TargetMethods()
         {
@@ -64,7 +64,7 @@ namespace Multiplayer.Client.EarlyPatches
             yield return AccessTools.Method(typeof(Prefs), nameof(Prefs.Save));
         }
 
-        static bool Prefix() => !TickPatch.Skipping;
+        static bool Prefix() => !TickPatch.Simulating;
     }
 
     [HarmonyPatch(typeof(TutorSystem), nameof(TutorSystem.AdaptiveTrainingEnabled), MethodType.Getter)]

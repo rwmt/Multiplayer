@@ -32,7 +32,7 @@ namespace Multiplayer.Client
 
         public static IEnumerable<Type> AllImplementing(this Type type)
         {
-            return  GenTypes.AllTypes.Where(t => t.GetInterfaces().Contains(type));
+            return GenTypes.AllTypes.Where(t => t.GetInterfaces().Contains(type));
         }
 
         // Sets the current Faction.OfPlayer
@@ -256,7 +256,9 @@ namespace Multiplayer.Client
 
         public static string MethodDesc(this MethodBase method)
         {
-            return $"{method.DeclaringType.Namespace}.{method.DeclaringType.Name}::{method.Name}({method.GetParameters().Join(p => $"{p.ParameterType.Namespace}.{p.ParameterType.Name}")})";
+            if (method is null) return "null";
+            var paramStr = method.GetParameters().Join(p => $"{p.ParameterType.Namespace}.{p.ParameterType.Name}");
+            return $"{method.DeclaringType.Namespace}.{method.DeclaringType.Name}::{method.Name}({paramStr})";
         }
 
         public static void Add_KeepRect(this WindowStack windows, Window window)
@@ -315,23 +317,6 @@ namespace Multiplayer.Client
             return pinfo.Select(pi => pi.Name).ToArray();
         }
 
-        // Taken from Harmony, shortened the output a bit
-        public static string MpFullDescription(this MethodBase member)
-        {
-            if (member is null) return "null";
-            var returnType = AccessTools.GetReturnedType(member);
-
-            var result = new StringBuilder();
-
-            if (member.DeclaringType is object)
-                _ = result.Append($"{member.DeclaringType.FullDescription()}::");
-
-            var parameterString = member.GetParameters().Join(p => $"{p.ParameterType.FullDescription()} {p.Name}");
-            _ = result.Append($"{member.Name}({parameterString})");
-
-            return result.ToString();
-        }
-
         public static string After(this string s, char c)
         {
             if (s.IndexOf(c) == -1)
@@ -344,6 +329,24 @@ namespace Multiplayer.Client
             if (s.IndexOf(c) == -1)
                 throw new Exception($"Char {c} not found in string {s}");
             return s.Substring(0, s.IndexOf(c));
+        }
+
+        public static string NormalizePath(this string path)
+        {
+            return path.Replace('\\', '/');
+        }
+
+        public static MethodInfo PatchMeasure(this Harmony harmony, MethodBase original, HarmonyMethod prefix = null, HarmonyMethod postfix = null, HarmonyMethod transpiler = null, HarmonyMethod finalizer = null)
+        {
+            var watch = Multiplayer.harmonyWatch;
+            var prev = watch.ElapsedMillisDouble();
+            watch.Start();
+            var result = harmony?.Patch(original, prefix, postfix, transpiler, finalizer);
+            watch.Stop();
+            var took = watch.ElapsedMillisDouble() - prev;
+            //if (took > 15)
+            //    Log.Message($"{took} ms: Patching {original.MethodDesc()}");
+            return result;
         }
     }
 
@@ -416,9 +419,9 @@ namespace Multiplayer.Client
             return enum1.ToHashSet().SetEquals(enum2);
         }
 
-        public static string NormalizePath(this string path)
+        public static IEnumerable<(A a, B b)> Zip<A, B>(this IEnumerable<A> enumA, IEnumerable<B> enumB)
         {
-            return path.Replace('\\', '/');
+            return Enumerable.Zip(enumA, enumB, (a, b) => (a, b));
         }
     }
 

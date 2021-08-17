@@ -395,6 +395,7 @@ namespace Multiplayer.Client
             FieldInfo field => field.IsStatic,
             PropertyInfo prop => prop.GetGetMethod(true).IsStatic,
             MethodInfo method => method.IsStatic,
+            TypeInfo type => type.IsAbstract && type.IsSealed,
             _ => false,
         };
     }

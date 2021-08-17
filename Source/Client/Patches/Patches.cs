@@ -443,7 +443,7 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch]
-    static class NoCameraJumpingDuringSkipping
+    static class NoCameraJumpingDuringSimulting
     {
         static IEnumerable<MethodBase> TargetMethods()
         {
@@ -451,7 +451,7 @@ namespace Multiplayer.Client
             yield return AccessTools.Method(typeof(CameraJumper), nameof(CameraJumper.TryJumpAndSelect));
             yield return AccessTools.Method(typeof(CameraJumper), nameof(CameraJumper.TryJump), new[] {typeof(GlobalTargetInfo)});
         }
-        static bool Prefix() => !TickPatch.Skipping;
+        static bool Prefix() => !TickPatch.Simulating;
     }
 
     [HarmonyPatch(typeof(LongEventHandler), nameof(LongEventHandler.QueueLongEvent), new[] { typeof(Action), typeof(string), typeof(bool), typeof(Action<Exception>), typeof(bool) })]
@@ -746,62 +746,6 @@ namespace Multiplayer.Client
         static bool Prefix()
         {
             return false;
-        }
-    }*/
-
-    [HarmonyPatch(typeof(CompPlantable), "<BeginTargeting>b__9_0")]
-    static class AddCompPlantableTargetCell
-    {
-        static void Prefix(CompPlantable __instance, ref int __state) => __state = __instance.plantCells.Count;
-
-        static void Postfix(CompPlantable __instance, ref int __state)
-        {
-            // Check if a new value was added
-            if (__instance.plantCells.Count > __state)
-            {
-                // Get the last value, and remove it from the list
-                var newValue = __instance.plantCells.Last();
-                __instance.plantCells.RemoveLast();
-                // Add it to the list in using a synced method
-                SyncAddValue(__instance, newValue);
-            }
-        }
-
-        [SyncMethod]
-        static void SyncAddValue(CompPlantable plantable, IntVec3 newValue) => plantable.plantCells.Add(newValue);
-    }
-
-    /*[HotSwappable]
-    [HarmonyPatch(typeof(WindowStack), nameof(WindowStack.Add))]
-    static class DialogStylingReplace
-    {
-        static void Prefix(ref Window window)
-        {
-            if (false && window.GetType() == typeof(Dialog_StylingStation) && window is Dialog_StylingStation dialog)
-            {
-                var pawn = new Pawn();
-
-                pawn.def = dialog.pawn.def;
-                pawn.gender = dialog.pawn.gender;
-                pawn.mapIndexOrState = dialog.pawn.mapIndexOrState;
-                pawn.Name = dialog.pawn.Name;
-
-                pawn.story = MpUtil.ShallowCopy(dialog.pawn.story, new Pawn_StoryTracker(pawn));
-                pawn.story.pawn = pawn;
-
-                pawn.style = MpUtil.ShallowCopy(dialog.pawn.style, new Pawn_StyleTracker(pawn));
-                pawn.style.pawn = pawn;
-
-                pawn.apparel = new Pawn_ApparelTracker(pawn);
-                pawn.health = new Pawn_HealthTracker(pawn);
-                pawn.stances = new Pawn_StanceTracker(pawn);
-                pawn.pather = new Pawn_PathFollower(pawn);
-                pawn.roping = new Pawn_RopeTracker(pawn);
-                pawn.mindState = new Pawn_MindState(pawn);
-
-                window = new Dialog_StylingStation(pawn, dialog.stylingStation);
-                window.doCloseX = true;
-            }
         }
     }*/
 }

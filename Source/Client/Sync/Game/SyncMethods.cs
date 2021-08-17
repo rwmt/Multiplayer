@@ -1,8 +1,11 @@
 using HarmonyLib;
 using Multiplayer.API;
+using Multiplayer.Client.Patches;
 using RimWorld;
 using RimWorld.Planet;
+using System.Collections.Generic;
 using System.Linq;
+using System.Reflection.Emit;
 using Verse;
 using Verse.AI;
 
@@ -115,12 +118,13 @@ namespace Multiplayer.Client
                     .Select(t => t.GetMethod(nameof(ITargetingSource.OrderForceTarget), AccessTools.allDeclared))
                     .AllNotNull();
 
-                foreach(var method in methods) {
+                foreach (var method in methods) {
                     Sync.RegisterSyncMethod(method);
                 }
             }
 
             SyncMethod.Register(typeof(RoyalTitlePermitWorker_CallLaborers), nameof(RoyalTitlePermitWorker_CallLaborers.CallLaborers));
+            SyncMethod.Register(typeof(RoyalTitlePermitWorker_DropResources), nameof(RoyalTitlePermitWorker_DropResources.CallResourcesToCaravan));
 
             SyncMethod.Register(typeof(Pawn_RoyaltyTracker), nameof(Pawn_RoyaltyTracker.AddPermit));
             SyncMethod.Register(typeof(Pawn_RoyaltyTracker), nameof(Pawn_RoyaltyTracker.RefundPermits));
@@ -157,20 +161,32 @@ namespace Multiplayer.Client
 
             SyncMethod.Register(typeof(ShipJob_Wait), nameof(ShipJob_Wait.Launch)).ExposeParameter(1); // Launch the (Royalty) shuttle
 
-            SyncMethod.Register(typeof(ITab_ContentsBase), nameof(ITab_ContentsBase.OnDropThing)).SetContext(SyncContext.MapSelected);
+            var TranferableOneWaySerializer = Serializer.New(
+                (TransferableOneWay t, object target, object[] args) =>
+                    ((target as ITab_ContentsTransporter).Transporter, t.AnyThing.thingIDNumber),
+                data =>
+                    data.Transporter.leftToLoad.Find(t => t.things.Any(thing => thing.thingIDNumber == data.thingIDNumber))
+            );
+
             SyncMethod.Register(typeof(ITab_ContentsTransporter), nameof(ITab_ContentsTransporter.OnDropThing)).SetContext(SyncContext.MapSelected); // overriden ITab_ContentsBase.OnDropThing
             SyncMethod.Register(typeof(ITab_ContentsTransporter), nameof(ITab_ContentsTransporter.OnDropToLoadThing))
-                .TransformArgument(
-                    0,
-                    (t, target, args) =>
-                        t.AnyThing.thingIDNumber,
-                    (int id, object target, object[] args) =>
-                        (target as ITab_ContentsTransporter).Transporter.leftToLoad.Find(t => t.things.Any(thing => thing.thingIDNumber == id))
-                )
+                .TransformArgument(0, TranferableOneWaySerializer)
                 .SetContext(SyncContext.MapSelected)
                 .CancelIfAnyArgNull();
 
             SyncMethod.Register(typeof(Precept_Ritual), nameof(Precept_Ritual.ShowRitualBeginWindow));
+
+            // Inventory (medicine) stock up
+            SyncMethod.Register(typeof(Pawn_InventoryStockTracker), nameof(Pawn_InventoryStockTracker.SetCountForGroup));
+            SyncMethod.Register(typeof(Pawn_InventoryStockTracker), nameof(Pawn_InventoryStockTracker.SetThingForGroup));
+
+            // Used by "Set to standard playstyle" in storyteller settings 
+            SyncMethod.Register(typeof(Difficulty), nameof(Difficulty.CopyFrom))
+                .SetHostOnly()
+                .TransformTarget(Serializer.New(
+                    (Difficulty d, object target, object[] args) => (object)null,
+                    d => Find.Storyteller.difficulty
+                ));
         }
 
         [MpPrefix(typeof(PawnColumnWorker_CopyPasteTimetable), nameof(PawnColumnWorker_CopyPasteTimetable.PasteTo))]
@@ -184,6 +200,31 @@ namespace Multiplayer.Client
 
         [MpPostfix(typeof(StorageSettingsClipboard), nameof(StorageSettingsClipboard.Copy))]
         static void StorageSettingsClipboardCopy_Postfix() => Multiplayer.dontSync = false;
+
+        [MpTranspiler(typeof(CompPlantable), nameof(CompPlantable.BeginTargeting), lambdaOrdinal: 0)]
+        static IEnumerable<CodeInstruction> CompPlantableTranspiler(IEnumerable<CodeInstruction> insts)
+        {
+            foreach (var inst in insts)
+            {
+                // this.plantCells.Add(t.Cell) => CompPlantable_AddCell(t.Cell, this)
+                if (inst.operand == typeof(List<IntVec3>).GetMethod("Add"))
+                {
+                    // Load this
+                    yield return new CodeInstruction(OpCodes.Ldarg_0);
+                    // Consume cell and this
+                    yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(SyncMethods), nameof(CompPlantable_AddCell)));
+                    // Pop the list
+                    yield return new CodeInstruction(OpCodes.Pop);
+                    continue;
+                }
+
+                yield return inst;
+            }
+        }
+
+        [SyncMethod]
+        static void CompPlantable_AddCell(IntVec3 newValue, CompPlantable plantable) =>
+            plantable.plantCells.Add(newValue);
 
         // ===== CALLBACKS =====
 
@@ -253,21 +294,35 @@ namespace Multiplayer.Client
             __instance.draggedItem = null;
         }
 
+        public static int tradeJobStartedByMe = -1;
+        public static int stylingStationJobStartedByMe = -1;
+
         [MpPrefix(typeof(Pawn_JobTracker), nameof(Pawn_JobTracker.TryTakeOrderedJob))]
         static void TryTakeOrderedJob_Prefix(Job job)
         {
+            // If Pawn_JobTracker.TryTakeOrderedJob is synced directly its job is created in interface code
+            // UniqueIDs assigned in the interface are always negative and specific to a client
+            // This assigns the job a proper id
+
             if (Multiplayer.ExecutingCmds && job.loadID < 0)
             {
                 job.loadID = Find.UniqueIDsManager.GetNextJobID();
 
-                if ((job.def == JobDefOf.TradeWithPawn || job.def == JobDefOf.UseCommsConsole) && TickPatch.currentExecutingCmdIssuedBySelf)
-                    DialogTradeCtorPatch.tradeJobStartedByMe = job.loadID;
+                if (!TickPatch.currentExecutingCmdIssuedBySelf)
+                    return;
+
+                if (job.def == JobDefOf.TradeWithPawn || job.def == JobDefOf.UseCommsConsole)
+                    tradeJobStartedByMe = job.loadID;
+
+                if (job.def == JobDefOf.OpenStylingStationDialog)
+                    stylingStationJobStartedByMe = job.loadID;
             }
         }
 
         [MpPrefix(typeof(BillStack), nameof(BillStack.AddBill))]
         static void AddBill_Prefix(Bill bill)
         {
+            // See the comments about job ids above
             if (Multiplayer.ExecutingCmds && bill.loadID < 0)
                 bill.loadID = Find.UniqueIDsManager.GetNextBillID();
         }

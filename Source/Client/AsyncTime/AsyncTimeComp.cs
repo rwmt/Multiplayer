@@ -231,7 +231,7 @@ namespace Multiplayer.Client
 
         public void FinalizeInit()
         {
-            cmds = new Queue<ScheduledCommand>(OnMainThread.cachedMapCmds.GetValueSafe(map.uniqueID) ?? new List<ScheduledCommand>());
+            cmds = new Queue<ScheduledCommand>(Multiplayer.session.cache.mapCmds.GetValueSafe(map.uniqueID) ?? new List<ScheduledCommand>());
             Log.Message($"Init map with cmds {cmds.Count}");
         }
 
@@ -252,7 +252,7 @@ namespace Multiplayer.Client
             Current.Game.currentMapIndex = (sbyte)map.Index;
 
             executingCmdMap = map;
-            TickPatch.currentExecutingCmdIssuedBySelf = cmd.issuedBySelf && !TickPatch.Skipping;
+            TickPatch.currentExecutingCmdIssuedBySelf = cmd.issuedBySelf && !TickPatch.Simulating;
 
             PreContext();
             map.PushFaction(cmd.GetFaction());
@@ -346,7 +346,8 @@ namespace Multiplayer.Client
 
                 eventCount++;
 
-                Multiplayer.ReaderLog.AddCurrentNode(data);
+                if (cmdType != CommandType.MapTimeSpeed)
+                    Multiplayer.ReaderLog.AddCurrentNode(data);
             }
         }
 

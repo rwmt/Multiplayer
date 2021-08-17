@@ -4,6 +4,7 @@ using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -36,13 +37,14 @@ namespace Multiplayer.Client
         public long timestamp;
         public bool sent;
 
-        public BufferData(object currentValue, object toSend)
+        public BufferData(object actualValue, object toSend)
         {
-            this.actualValue = currentValue;
+            this.actualValue = actualValue;
             this.toSend = toSend;
         }
     }
 
+    [HotSwappable]
     public static class SyncUtil
     {
         public static Dictionary<SyncField, Dictionary<(object, object), BufferData>> bufferedChanges = new();
@@ -71,7 +73,7 @@ namespace Multiplayer.Client
                 SyncField handler = data.handler;
 
                 object newValue = MpReflection.GetValue(data.target, handler.memberPath, data.index);
-                bool changed = !Equals(newValue, data.oldValue);
+                bool changed = !ValuesEqual(handler, newValue, data.oldValue);
                 var cache = (handler.bufferChanges && !Multiplayer.IsReplay) ? bufferedChanges.GetValueSafe(handler) : null;
 
                 if (cache != null && cache.TryGetValue((data.target, data.index), out BufferData cached))
@@ -79,7 +81,7 @@ namespace Multiplayer.Client
                     if (changed && cached.sent)
                         cached.sent = false;
 
-                    cached.toSend = newValue;
+                    cached.toSend = SnapshotValueIfNeeded(handler, newValue);
                     MpReflection.SetValue(data.target, handler.memberPath, cached.actualValue, data.index);
                     continue;
                 }
@@ -88,7 +90,7 @@ namespace Multiplayer.Client
 
                 if (cache != null)
                 {
-                    BufferData bufferData = new BufferData(data.oldValue, newValue);
+                    BufferData bufferData = new BufferData(data.oldValue, SnapshotValueIfNeeded(handler, newValue));
                     cache[(data.target, data.index)] = bufferData;
                 }
                 else
@@ -100,6 +102,68 @@ namespace Multiplayer.Client
             }
         }
 
+        public static void UpdateSync()
+        {
+            foreach (SyncField f in Sync.bufferedFields)
+            {
+                if (f.inGameLoop) continue;
+
+                bufferedChanges[f].RemoveAll((k, data) =>
+                {
+                    if (CheckShouldRemove(f, k, data))
+                        return true;
+
+                    if (!data.sent && Utils.MillisNow - data.timestamp > 200)
+                    {
+                        f.DoSync(k.Item1, data.toSend, k.Item2);
+                        data.sent = true;
+                        data.timestamp = Utils.MillisNow;
+                    }
+
+                    return false;
+                });
+            }
+        }
+
+        public static bool CheckShouldRemove(SyncField field, (object, object) target, BufferData data)
+        {
+            if (data.sent && ValuesEqual(field, data.toSend, data.actualValue))
+                return true;
+
+            object currentValue = target.Item1.GetPropertyOrField(field.memberPath, target.Item2);
+
+            if (!ValuesEqual(field, currentValue, data.actualValue))
+            {
+                if (data.sent)
+                    return true;
+                else
+                    data.actualValue = SnapshotValueIfNeeded(field, currentValue);
+            }
+
+            return false;
+        }
+
+        public static object SnapshotValueIfNeeded(SyncField field, object value)
+        {
+            if (field.fieldType.expose)
+                return SyncSerialization.ReadExposable(field.fieldType.type).Invoke(null, new[] { ScribeUtil.WriteExposable((IExposable)value), null });
+
+            return value;
+        }
+
+        private static bool ValuesEqual(SyncField field, object newValue, object oldValue)
+        {
+            if (field.fieldType.expose)
+            {
+                return Enumerable.SequenceEqual(
+                    ScribeUtil.WriteExposable((IExposable)newValue),
+                    ScribeUtil.WriteExposable((IExposable)oldValue)
+                );
+            }
+
+            return Equals(newValue, oldValue);
+        }
+
         internal static void DialogNodeTreePostfix()
         {
             if (Multiplayer.Client != null && Find.WindowStack?.WindowOfType<Dialog_NodeTree>() != null)
@@ -108,12 +172,12 @@ namespace Multiplayer.Client
 
         internal static void PatchMethodForDialogNodeTreeSync(MethodBase method)
         {
-            Multiplayer.harmony.Patch(method, postfix: new HarmonyMethod(typeof(SyncUtil), nameof(SyncUtil.DialogNodeTreePostfix)));
+            Multiplayer.harmony.PatchMeasure(method, postfix: new HarmonyMethod(typeof(SyncUtil), nameof(SyncUtil.DialogNodeTreePostfix)));
         }
 
         internal static void PatchMethodForSync(MethodBase method)
         {
-            Multiplayer.harmony.Patch(method, transpiler: SyncTemplates.CreateTranspiler());
+            Multiplayer.harmony.PatchMeasure(method, transpiler: SyncTemplates.CreateTranspiler());
         }
 
         internal static void ApplyWatchFieldPatches(Type type)
@@ -127,7 +191,7 @@ namespace Multiplayer.Client
             {
                 foreach (var attr in toPatch.AllAttributes<MpPrefix>())
                 {
-                    Multiplayer.harmony.Patch(attr.Method, prefix, postfix);
+                    Multiplayer.harmony.PatchMeasure(attr.Method, prefix, postfix);
                 }
             }
         }

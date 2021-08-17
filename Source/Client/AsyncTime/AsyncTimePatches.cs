@@ -481,7 +481,7 @@ namespace Multiplayer.Client.AsyncTime
             var asyncTime = map.AsyncTime();
             var timeSpeed = Multiplayer.IsReplay ? TickPatch.replayTimeSpeed : asyncTime.TimeSpeed;
 
-            __result = TickPatch.Skipping ? 6 : asyncTime.ActualRateMultiplier(timeSpeed);
+            __result = TickPatch.Simulating ? 6 : asyncTime.ActualRateMultiplier(timeSpeed);
         }
     }
 

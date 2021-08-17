@@ -69,6 +69,7 @@ namespace Multiplayer.Client
         public static bool arbiterInstance;
         public static bool hasLoaded;
         public static bool loadingErrors;
+        public static Stopwatch harmonyWatch = new Stopwatch();
 
         public Multiplayer(ModContentPack pack) : base(pack)
         {
@@ -120,18 +121,18 @@ namespace Multiplayer.Client
             });
 
             // Might fix some mod desyncs
-            harmony.Patch(
+            harmony.PatchMeasure(
                 AccessTools.Constructor(typeof(Def), new Type[0]),
                 new HarmonyMethod(typeof(RandPatches), nameof(RandPatches.Prefix)),
                 new HarmonyMethod(typeof(RandPatches), nameof(RandPatches.Postfix))
             );
 
-            harmony.Patch(
+            harmony.PatchMeasure(
                 AccessTools.PropertyGetter(typeof(Rand), nameof(Rand.Int)),
                 postfix: new HarmonyMethod(typeof(DeferredStackTracing), nameof(DeferredStackTracing.Postfix))
             );
 
-            harmony.Patch(
+            harmony.PatchMeasure(
                 AccessTools.PropertyGetter(typeof(Rand), nameof(Rand.Value)),
                 postfix: new HarmonyMethod(typeof(DeferredStackTracing), nameof(DeferredStackTracing.Postfix))
             );
@@ -144,14 +145,14 @@ namespace Multiplayer.Client
         private void LatePatches()
         {
             // optimization, cache DescendantThingDefs
-            harmony.Patch(
+            harmony.PatchMeasure(
                 AccessTools.Method(typeof(ThingCategoryDef), "get_DescendantThingDefs"),
                 new HarmonyMethod(typeof(ThingCategoryDef_DescendantThingDefsPatch), "Prefix"),
                 new HarmonyMethod(typeof(ThingCategoryDef_DescendantThingDefsPatch), "Postfix")
             );
 
             // optimization, cache ThisAndChildCategoryDefs
-            harmony.Patch(
+            harmony.PatchMeasure(
                 AccessTools.Method(typeof(ThingCategoryDef), "get_ThisAndChildCategoryDefs"),
                 new HarmonyMethod(typeof(ThingCategoryDef_ThisAndChildCategoryDefsPatch), "Prefix"),
                 new HarmonyMethod(typeof(ThingCategoryDef_ThisAndChildCategoryDefsPatch), "Postfix")
@@ -209,6 +210,32 @@ namespace Multiplayer.Client
                     Log.Warning($"Mod {mod.Name} uses an older API version (mod: {version}, current: {curVersion})");
                 else if (curVersion < version)
                     Log.Error($"Mod {mod.Name} uses a newer API version! (mod: {version}, current: {curVersion})\nMake sure the Multiplayer mod is up to date");
+            }
+        }
+
+        public static void StopMultiplayer()
+        {
+            if (session != null)
+            {
+                session.Stop();
+                session = null;
+                Prefs.Apply();
+            }
+
+            game?.OnDestroy();
+            game = null;
+
+            TickPatch.Reset();
+
+            Find.WindowStack?.WindowOfType<ServerBrowser>()?.Cleanup(true);
+
+            foreach (var entry in SyncUtil.bufferedChanges)
+                entry.Value.Clear();
+
+            if (arbiterInstance)
+            {
+                arbiterInstance = false;
+                Application.Quit();
             }
         }
     }

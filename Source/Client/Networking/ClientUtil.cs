@@ -58,7 +58,7 @@ namespace Multiplayer.Client
                 Multiplayer.session.disconnectInfoTranslated = "MpPacketErrorInfo".Translate();
 
                 ConnectionStatusListeners.TryNotifyAll_Disconnected();
-                OnMainThread.StopMultiplayer();
+                Multiplayer.StopMultiplayer();
             }
         }
     }

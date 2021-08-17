@@ -31,7 +31,7 @@ namespace Multiplayer.Client
                 var sync = Multiplayer.game.sync;
                 if (sync.ShouldCollect && TickPatch.Timer % 30 == 0 && sync.currentOpinion != null)
                 {
-                    if (!TickPatch.Skipping && (Multiplayer.LocalServer != null || Multiplayer.arbiterInstance))
+                    if (!TickPatch.Simulating && (Multiplayer.LocalServer != null || Multiplayer.arbiterInstance))
                         Multiplayer.Client.SendFragmented(Packets.Client_SyncInfo, sync.currentOpinion.Serialize());
 
                     sync.AddClientOpinionAndCheckDesync(sync.currentOpinion);
@@ -44,7 +44,7 @@ namespace Multiplayer.Client
             }
         }
 
-        // Moved from ShipCountdown because the original one is called from Update
+        // Moved from RimWorld.ShipCountdown because the original one is called from Update
         private static void TickShipCountdown()
         {
             if (ShipCountdown.timeLeft > 0f)
@@ -64,7 +64,7 @@ namespace Multiplayer.Client
 
                 SyncUtil.bufferedChanges[f].RemoveAll((k, data) =>
                 {
-                    if (OnMainThread.CheckShouldRemove(f, k, data))
+                    if (SyncUtil.CheckShouldRemove(f, k, data))
                         return true;
 
                     if (!data.sent && TickPatch.Timer - data.timestamp > 30)

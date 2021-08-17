@@ -66,7 +66,10 @@ namespace Multiplayer.Client
             MpConnectionState.SetImplementation(ConnectionStateEnum.ClientPlaying, typeof(ClientPlayingState));
 
             MultiplayerData.CollectCursorIcons();
+
+            DeepProfiler.Start("Multiplayer CollectTypes");
             SyncSerialization.CollectTypes();
+            DeepProfiler.End();
 
             DeepProfiler.Start("Multiplayer SyncGame");
 
@@ -84,6 +87,8 @@ namespace Multiplayer.Client
                 Log.Error($"Exception during Sync initialization: {e}");
                 Multiplayer.loadingErrors = true;
             }
+
+            Sync.ValidateAll();
 
             DeepProfiler.End();
 
@@ -137,7 +142,8 @@ namespace Multiplayer.Client
             Multiplayer.hasLoaded = true;
 
             Log.Message(GenFilePaths.ConfigFolderPath);
-            Log.Message(""+JoinData.ModConfigPaths.Count());
+            Log.Message(JoinData.ModConfigPaths.Count().ToString());
+            Log.Message($"Patched methods: {Multiplayer.harmony.GetPatchedMethods().Count()}");
 
             SimpleProfiler.Print("mp_prof_out.txt");
         }
@@ -249,14 +255,17 @@ namespace Multiplayer.Client
 
             SetCategory("Annotated patches");
 
+            var patchesStart = Multiplayer.harmonyWatch.ElapsedMillisDouble();
             Assembly.GetCallingAssembly().GetTypes().Do(type => {
+                if (!type.IsStatic()) return;
+
                 // EarlyPatches are handled in MultiplayerMod.EarlyPatches
                 if (type.Namespace != null && type.Namespace.EndsWith("EarlyPatches")) return;
 
                 try {
                     harmony.CreateClassProcessor(type).Patch();
                 } catch (Exception e) {
-                    LogError($"FAIL: {type} with {e.InnerException}");
+                    LogError($"FAIL: {type} with {e}");
                 }
             });
 
@@ -281,9 +290,9 @@ namespace Multiplayer.Client
                         MethodInfo prefix = AccessTools.Method(typeof(DesignatorPatches), m);
                         try
                         {
-                            harmony.Patch(method, new HarmonyMethod(prefix), null, null, new HarmonyMethod(designatorFinalizer));
+                            harmony.PatchMeasure(method, new HarmonyMethod(prefix), null, null, new HarmonyMethod(designatorFinalizer));
                         } catch (Exception e) {
-                            LogError($"FAIL: {t.FullName}:{method.Name} with {e.InnerException}");
+                            LogError($"FAIL: {t.FullName}:{method.Name} with {e}");
                         }
                     }
                 }
@@ -316,9 +325,9 @@ namespace Multiplayer.Client
                 {
                     try
                     {
-                        harmony.Patch(m, randPatchPrefix, randPatchPostfix);
+                        harmony.PatchMeasure(m, randPatchPrefix, randPatchPostfix);
                     } catch (Exception e) {
-                        LogError($"FAIL: {m.DeclaringType.FullName}:{m.Name} with {e.InnerException}");
+                        LogError($"FAIL: {m.DeclaringType.FullName}:{m.Name} with {e}");
                     }
                 }
 
@@ -341,9 +350,9 @@ namespace Multiplayer.Client
                         {
                             try
                             {
-                                harmony.Patch(method, thingMethodPrefix, thingMethodPostfix);
+                                harmony.PatchMeasure(method, thingMethodPrefix, thingMethodPostfix);
                             } catch (Exception e) {
-                                LogError($"FAIL: {method.DeclaringType.FullName}:{method.Name} with {e.InnerException}");
+                                LogError($"FAIL: {method.DeclaringType.FullName}:{method.Name} with {e}");
                             }
                         }
                     }
@@ -356,8 +365,8 @@ namespace Multiplayer.Client
                 var floatSavePrefix = new HarmonyMethod(typeof(ValueSavePatch).GetMethod(nameof(ValueSavePatch.FloatSave_Prefix)));
                 var valueSaveMethod = typeof(Scribe_Values).GetMethod(nameof(Scribe_Values.Look));
 
-                harmony.Patch(valueSaveMethod.MakeGenericMethod(typeof(double)), doubleSavePrefix, null);
-                harmony.Patch(valueSaveMethod.MakeGenericMethod(typeof(float)), floatSavePrefix, null);
+                harmony.PatchMeasure(valueSaveMethod.MakeGenericMethod(typeof(double)), doubleSavePrefix, null);
+                harmony.PatchMeasure(valueSaveMethod.MakeGenericMethod(typeof(float)), floatSavePrefix, null);
             }
 
             SetCategory("Map time gui patches");
@@ -369,7 +378,7 @@ namespace Multiplayer.Client
 
                 var windowMethods = new[] { "DoWindowContents", "WindowUpdate" };
                 foreach (string m in windowMethods)
-                    harmony.Patch(typeof(MainTabWindow_Inspect).GetMethod(m), setMapTimePrefix, setMapTimePostfix);
+                    harmony.PatchMeasure(typeof(MainTabWindow_Inspect).GetMethod(m), setMapTimePrefix, setMapTimePostfix);
 
                 foreach (var t in typeof(InspectTabBase).AllSubtypesAndSelf())
                 {
@@ -378,9 +387,9 @@ namespace Multiplayer.Client
                     {
                         try
                         {
-                            harmony.Patch(method, setMapTimePrefix, setMapTimePostfix);
+                            harmony.PatchMeasure(method, setMapTimePrefix, setMapTimePostfix);
                         } catch (Exception e) {
-                            LogError($"FAIL: {method.DeclaringType.FullName}:{method.Name} with {e.InnerException}");
+                            LogError($"FAIL: {method.DeclaringType.FullName}:{method.Name} with {e}");
                         }
                     }
 
@@ -388,11 +397,14 @@ namespace Multiplayer.Client
             }
 
             SetCategory("Mod patches");
+
             try {
                 ModPatches.Init();
             } catch(Exception e) {
                 LogError($"FAIL with {e}");
             }
+
+            SetCategory("");
         }
     }
 

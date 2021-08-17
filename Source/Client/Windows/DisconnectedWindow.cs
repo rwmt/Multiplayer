@@ -258,7 +258,7 @@ namespace Multiplayer.Client
         {
             base.PostClose();
             if (shouldCloseConnection) {
-                OnMainThread.StopMultiplayer();
+                Multiplayer.StopMultiplayer();
             }
         }
     }

@@ -16,22 +16,17 @@ namespace Multiplayer.Client
     [HarmonyPatch(typeof(TickManager), nameof(TickManager.TickManagerUpdate))]
     public static class TickPatch
     {
+        public static int Timer { get; private set; }
+
         public static double accumulator;
-        public static int Timer;
         public static int tickUntil;
         public static bool currentExecutingCmdIssuedBySelf;
 
         public static TimeSpeed replayTimeSpeed;
 
-        static bool skipToTickUntil;
-        public static int skipTo = -1;
-        static Action afterSkip;
-        public static bool canESCSkip;
-        public static Action cancelSkip;
-        public static string skipCancelButtonKey;
-        public static string skippingTextKey;
+        public static SimulatingData simulating;
 
-        public static bool Skipping => skipTo >= 0;
+        public static bool Simulating => simulating?.target != null;
 
         public static IEnumerable<ITickable> AllTickables
         {
@@ -80,10 +75,10 @@ namespace Multiplayer.Client
             if (Multiplayer.IsReplay && replayTimeSpeed == TimeSpeed.Paused)
                 accumulator = 0;
 
-            if (skipToTickUntil)
-                skipTo = tickUntil;
+            if (simulating != null && simulating.targetIsTickUntil)
+                simulating.target = tickUntil;
 
-            CheckFinishSkipping();
+            CheckFinishSimulating();
             if(MpVersion.IsDebug)
                 SimpleProfiler.Start();
 
@@ -94,41 +89,32 @@ namespace Multiplayer.Client
             if(MpVersion.IsDebug)
                 SimpleProfiler.Pause();
 
-            CheckFinishSkipping();
+            CheckFinishSimulating();
 
             return false;
         }
 
-        private static void CheckFinishSkipping()
+        private static void CheckFinishSimulating()
         {
-            if (skipTo >= 0 && Timer >= skipTo)
+            if (simulating?.target != null && Timer >= simulating.target)
             {
-                afterSkip?.Invoke();
-                ClearSkipping();
+                simulating.onFinish?.Invoke();
+                ClearSimulating();
             }
         }
 
-        public static void SkipTo(int ticks = 0, bool toTickUntil = false, Action onFinish = null, Action onCancel = null, string cancelButtonKey = null, bool canESC = false, string simTextKey = null)
+        public static void SimulateTo(int ticks = 0, bool toTickUntil = false, Action onFinish = null, Action onCancel = null, string cancelButtonKey = null, bool canESC = false, string simTextKey = null)
         {
-            skipTo = ticks;
-            skipToTickUntil = toTickUntil;
-            afterSkip = onFinish;
-            cancelSkip = onCancel;
-            canESCSkip = canESC;
-            skipCancelButtonKey = cancelButtonKey ?? "CancelButton";
-            skippingTextKey = simTextKey ?? "MpSimulating";
-        }
-
-        public static void ClearSkipping()
-        {
-            skipTo = -1;
-            skipToTickUntil = false;
-            accumulator = 0;
-            afterSkip = null;
-            cancelSkip = null;
-            canESCSkip = false;
-            skipCancelButtonKey = null;
-            skippingTextKey = null;
+            simulating = new SimulatingData()
+            {
+                target = ticks,
+                targetIsTickUntil = toTickUntil,
+                onFinish = onFinish,
+                onCancel = onCancel,
+                canESC = canESC,
+                cancelButtonKey = cancelButtonKey ?? "CancelButton",
+                simTextKey = simTextKey ?? "MpSimulating"
+            };
         }
 
         static ITickable CurrentTickable()
@@ -149,7 +135,7 @@ namespace Multiplayer.Client
 
         public static void Tick()
         {
-            while ((!Skipping && accumulator > 0) || (Skipping && Timer < skipTo && updateTimer.ElapsedMilliseconds < 25))
+            while ((!Simulating && accumulator > 0) || (Simulating && Timer < simulating.target && updateTimer.ElapsedMilliseconds < 25))
             {
                 int curTimer = Timer;
 
@@ -205,7 +191,7 @@ namespace Multiplayer.Client
 
         private static float ReplayMultiplier()
         {
-            if (!Multiplayer.IsReplay || Skipping) return 1f;
+            if (!Multiplayer.IsReplay || Simulating) return 1f;
 
             if (replayTimeSpeed == TimeSpeed.Paused)
                 return 0f;
@@ -231,5 +217,34 @@ namespace Multiplayer.Client
 
             return Find.Maps.Select(m => (ITickable)m.AsyncTime()).Concat(Multiplayer.WorldComp).Select(t => t.TickRateMultiplier(speed)).Min();
         }
+
+        public static void ClearSimulating()
+        {
+            simulating = null;
+        }
+
+        public static void Reset()
+        {
+            ClearSimulating();
+            Timer = 0;
+            tickUntil = 0;
+            accumulator = 0;
+        }
+
+        public static void SetTimer(int value)
+        {
+            Timer = value;
+        }
+    }
+
+    public class SimulatingData
+    {
+        public int? target;
+        public bool targetIsTickUntil; // overrides target with TickPatch.tickUntil
+        public Action onFinish;
+        public bool canESC;
+        public Action onCancel;
+        public string cancelButtonKey;
+        public string simTextKey;
     }
 }

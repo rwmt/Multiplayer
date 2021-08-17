@@ -92,7 +92,7 @@ namespace Multiplayer.Client
         static void Postfix(LetterStack __instance)
         {
             if (Multiplayer.Client == null) return;
-            if (!TickPatch.Skipping && !Multiplayer.arbiterInstance) return;
+            if (!TickPatch.Simulating && !Multiplayer.arbiterInstance) return;
 
             for (int i = __instance.letters.Count - 1; i >= 0; i--)
             {

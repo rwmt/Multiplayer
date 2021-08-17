@@ -26,13 +26,21 @@ namespace Multiplayer.Client
         }
 
         public abstract void Handle(ByteReader data);
+
+        public abstract void Validate();
+
+        protected void ValidateType(string desc, SyncType type)
+        {
+            if (type.type != null && !SyncSerialization.CanHandle(type))
+                throw new Exception($"Sync handler uses a non-serializable type: {type.type}. Details: {desc}");
+        }
     }
 
     public class SyncField : SyncHandler, ISyncField
     {
         public readonly Type targetType;
         public readonly string memberPath;
-        public readonly Type fieldType;
+        public SyncType fieldType;
         public readonly Type indexType;
 
         public bool bufferChanges;
@@ -125,7 +133,7 @@ namespace Multiplayer.Client
             }
             else
             {
-                value = target.GetPropertyOrField(memberPath, index);
+                value = SyncUtil.SnapshotValueIfNeeded(this, target.GetPropertyOrField(memberPath, index));
             }
 
             SyncUtil.watchedStack.Push(new FieldData(this, target, value, index));
@@ -181,23 +189,50 @@ namespace Multiplayer.Client
             return this;
         }
 
+        public ISyncField ExposeValue()
+        {
+            fieldType.expose = true;
+            return this;
+        }
+
+        public override void Validate()
+        {
+            ValidateType("Target type", targetType);
+            ValidateType("Field type", fieldType);
+            ValidateType("Index type", indexType);
+        }
+
         public override string ToString()
         {
             return $"SyncField {memberPath}";
         }
     }
 
-    public record ArgTransformer(Type LiveType, Type NetworkType, Delegate Writer, Delegate Reader);
+    public record Serializer<Live, Networked>(Func<Live, object, object[], Networked> Writer, Func<Networked, Live> Reader);
+
+    public static class Serializer
+    {
+        public static Serializer<Live, Networked> New<Live, Networked>(Func<Live, object, object[], Networked> Writer, Func<Networked, Live> Reader)
+        {
+            return new(Writer, Reader);
+        }
+    }
+
+    public record SyncTransformer(Type LiveType, Type NetworkType, Delegate Writer, Delegate Reader);
+
+    public delegate void SyncMethodWriter(object obj, SyncType type, string debugInfo);
 
     public class SyncMethod : SyncHandler, ISyncMethod
     {
         public readonly Type targetType;
-        public readonly string instancePath;
-
         public readonly MethodInfo method;
+
+        protected readonly string instancePath;
+
+        protected SyncTransformer targetTransformer;
         public SyncType[] argTypes;
-        public string[] argNames;
-        private ArgTransformer[] argTransformers;
+        protected string[] argNames;
+        protected SyncTransformer[] argTransformers;
 
         private int minTime = 100; // Milliseconds between resends
         private long lastSendTime;
@@ -209,41 +244,23 @@ namespace Multiplayer.Client
         private Action<object, object[]> beforeCall;
         private Action<object, object[]> afterCall;
 
-        public SyncMethod(Type targetType, string instancePath, string methodName, SyncType[] inTypes)
-        {
-            this.targetType = targetType;
-
-            Type instanceType = targetType;
-            if (!instancePath.NullOrEmpty())
-            {
-                this.instancePath = instanceType + "/" + instancePath;
-                instanceType = MpReflection.PathType(this.instancePath);
-            }
-
-            method = AccessTools.Method(instanceType, methodName, inTypes?.Select(t => t.type).ToArray())
-                ?? throw new Exception($"Couldn't find method {instanceType}::{methodName}");
-
-            argTypes = CheckArgs(inTypes);
-            argNames = method.GetParameters().Names();
-            argTransformers = new ArgTransformer[argTypes.Length];
-        }
-
-        public SyncMethod(Type targetType, MethodInfo method, SyncType[] inTypes)
+        public SyncMethod(Type targetType, string instancePath, MethodInfo method, SyncType[] inTypes)
         {
             this.method = method;
             this.targetType = targetType;
+            this.instancePath = instancePath;
 
-            argTypes = CheckArgs(inTypes);
+            argTypes = CheckArgs(method, inTypes);
             argNames = method.GetParameters().Names();
-            argTransformers = new ArgTransformer[argTypes.Length];
+            argTransformers = new SyncTransformer[argTypes.Length];
         }
 
-        private SyncType[] CheckArgs(SyncType[] argTypes)
+        private static SyncType[] CheckArgs(MethodInfo method, SyncType[] argTypes)
         {
             if (argTypes == null || argTypes.Length == 0)
                 return method.GetParameters().Select(p => (SyncType)p).ToArray();
-            else if (argTypes.Length != method.GetParameters().Length)
-                throw new Exception("Wrong parameter count for method " + method);
+            else if (argTypes.Select(a => a.type).Zip(method.GetParameters().Types()).Any(t => t.a != t.b))
+                throw new Exception($"Wrong parameter types for method: {method}");
 
             return argTypes;
         }
@@ -265,17 +282,9 @@ namespace Multiplayer.Client
             writer.Log.Node(ToString());
 
             writer.WriteInt32(syncId);
-
             SyncUtil.WriteContext(this, writer);
 
-            Map map = writer.MpContext().map;
-
-            if (targetType != null)
-            {
-                SyncSerialization.WriteSyncObject(writer, target, targetType);
-                if (context.map is Map newMap)
-                    map = newMap;
-            }
+            var map = context.map;
 
             void SyncObj(object obj, SyncType type, string debugInfo)
             {
@@ -296,17 +305,22 @@ namespace Multiplayer.Client
                 if (context.map is Map newMap)
                 {
                     if (map != null && map != newMap)
-                        throw new Exception($"SyncMethod map mismatch ({map?.uniqueID} and {newMap?.uniqueID})");
+                        throw new Exception($"{this}: map mismatch ({map?.uniqueID} and {newMap?.uniqueID})");
                     map = newMap;
                 }
             }
+
+            if (targetTransformer != null)
+                SyncObj(targetTransformer.Writer.DynamicInvoke(target, target, args), targetTransformer.NetworkType, "Target (transformed)");
+            else
+                WriteTarget(target, args, SyncObj);
 
             for (int i = 0; i < argTypes.Length; i++)
                 if (argTransformers[i] == null)
                     SyncObj(args[i], argTypes[i], $"Arg {i} {argNames[i]}");
 
             for (int i = 0; i < argTypes.Length; i++)
-                if (argTransformers[i] is ArgTransformer trans)
+                if (argTransformers[i] is SyncTransformer trans)
                     SyncObj(trans.Writer.DynamicInvoke(args[i], target, args), trans.NetworkType, $"Arg {i} {argNames[i]} (transformed)");
 
             int mapId = map?.uniqueID ?? ScheduledCommand.Global;
@@ -320,16 +334,22 @@ namespace Multiplayer.Client
             return true;
         }
 
+        protected virtual void WriteTarget(object target, object[] args, SyncMethodWriter writer)
+        {
+            if (targetType != null)
+                writer(target, targetType, "Target");
+        }
+
         public override void Handle(ByteReader data)
         {
-            object target = null;
+            object target;
 
-            if (targetType != null)
-            {
-                target = SyncSerialization.ReadSyncObject(data, targetType);
-                if (target == null)
-                    return;
-            }
+            if (targetTransformer != null)
+                target = targetTransformer.Reader.DynamicInvoke(SyncSerialization.ReadSyncObject(data, targetTransformer.NetworkType));
+            else
+                target = ReadTarget(data);
+
+            if (targetType != null && target == null) return;
 
             if (!instancePath.NullOrEmpty())
                 target = target.GetPropertyOrField(instancePath);
@@ -341,8 +361,8 @@ namespace Multiplayer.Client
                     args[i] = SyncSerialization.ReadSyncObject(data, argTypes[i]);
 
             for (int i = 0; i < argTypes.Length; i++)
-                if (argTransformers[i] is ArgTransformer trans)
-                    args[i] = trans.Reader.DynamicInvoke(SyncSerialization.ReadSyncObject(data, trans.NetworkType), target, args);
+                if (argTransformers[i] is SyncTransformer trans)
+                    args[i] = trans.Reader.DynamicInvoke(SyncSerialization.ReadSyncObject(data, trans.NetworkType));
 
             if (cancelIfAnyArgNull && args.Any(a => a == null))
                 return;
@@ -355,10 +375,18 @@ namespace Multiplayer.Client
 
             beforeCall?.Invoke(target, args);
 
-            MpLog.Log("Invoked " + method + " on " + target + " with " + args.Length + " params " + args.ToStringSafeEnumerable());
+            MpLog.Log($"Invoked {method} on {target} with {args.Length} params {args.ToStringSafeEnumerable()}");
             method.Invoke(target, args);
 
             afterCall?.Invoke(target, args);
+        }
+
+        protected virtual object ReadTarget(ByteReader data)
+        {
+            if (targetType != null)
+                return SyncSerialization.ReadSyncObject(data, targetType);
+
+            return null;
         }
 
         public ISyncMethod MinTime(int time)
@@ -421,16 +449,27 @@ namespace Multiplayer.Client
             return this;
         }
 
-        public ISyncMethod TransformArgument<Live, Networked>(
-            int index,
-            Func<Live, object, object[], Networked> writer,
-            Func<Networked, object, object[], Live> reader
-        )
+        public SyncMethod TransformArgument<Live, Networked>(int index, Serializer<Live, Networked> serializer)
         {
             if (argTypes[index].type != typeof(Live))
-                throw new Exception($"Arg transformer param mismatch for {this}: {argTypes[index].type} != {typeof(Live)}");
+                throw new Exception($"Arg transformer type mismatch for {this}: {argTypes[index].type} != {typeof(Live)}");
 
-            argTransformers[index] = new(typeof(Live), typeof(Networked), writer, reader);
+            argTransformers[index] = new(typeof(Live), typeof(Networked), serializer.Writer, serializer.Reader);
+            return this;
+        }
+
+        public SyncMethod TransformTarget<Live, Networked>(Serializer<Live, Networked> serializer)
+        {
+            if (targetType != typeof(Live))
+                throw new Exception($"Target transformer type mismatch for {this}: {targetType} != {typeof(Live)}");
+
+            targetTransformer = new(typeof(Live), typeof(Networked), serializer.Writer, serializer.Reader);
+            return this;
+        }
+
+        public SyncMethod SetHostOnly()
+        {
+            hostOnly = true;
             return this;
         }
 
@@ -447,50 +486,46 @@ namespace Multiplayer.Client
             );
         }
 
+        public override void Validate()
+        {
+            ValidateType("Target type", targetTransformer?.NetworkType ?? targetType);
+
+            for (int i = 0; i < argTypes.Length; i++)
+                ValidateType($"Arg {i} type", argTransformers[i]?.NetworkType ?? argTypes[i]);
+        }
+
         public override string ToString()
         {
-            return $"SyncMethod {method.MpFullDescription()}";
+            return $"SyncMethod {method.MethodDesc()}";
         }
     }
 
-    public class SyncDelegate : SyncHandler, ISyncDelegate
+    public class SyncDelegate : SyncMethod, ISyncDelegate
     {
         public const string DELEGATE_THIS = "<>4__this";
 
-        public readonly Type delegateType;
-        public readonly MethodInfo method;
-
-        private Type[] argTypes;
-        private string[] argNames;
-        private ArgTransformer[] argTransformers;
-
         private Type[] fieldTypes;
         private string[] fieldPaths;
+        private string[] fieldPathsNoTypes;
+        private SyncTransformer[] fieldTransformers;
 
         private string[] allowedNull;
         private string[] cancelIfNull;
-        private bool cancelIfNoSelectedObjects;
         private string[] removeNullsFromLists;
         
-        public SyncDelegate(Type delegateType, MethodInfo method, string[] fieldPaths)
+        public SyncDelegate(Type delegateType, MethodInfo method, string[] inPaths) :
+            base(delegateType, null, method, null)
         {
-            this.delegateType = delegateType;
-            this.method = method;
-
-            argTypes = method.GetParameters().Types();
-            argNames = method.GetParameters().Names();
-            argTransformers = new ArgTransformer[argTypes.Length];
-
-            if (fieldPaths == null)
+            if (inPaths == null)
             {
                 List<string> fieldList = new List<string>();
                 AllDelegateFieldsRecursive(delegateType, path => { fieldList.Add(path); return false; });
-                this.fieldPaths = fieldList.ToArray();
+                fieldPaths = fieldList.ToArray();
             }
             else
             {
                 var temp = new UniqueList<string>();
-                foreach (string path in fieldPaths.Select(p => MpReflection.AppendType(p, delegateType)))
+                foreach (string path in inPaths.Select(p => MpReflection.AppendType(p, delegateType)))
                 {
                     string[] parts = path.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
                     string increment = parts[0] + "/" + parts[1];
@@ -505,143 +540,102 @@ namespace Multiplayer.Client
                     temp.Add(path);
                 }
 
-                this.fieldPaths = temp.ToArray();
+                fieldPaths = temp.ToArray();
             }
 
-            fieldTypes = this.fieldPaths.Select(path => MpReflection.PathType(path)).ToArray();
+            fieldTypes = fieldPaths.Select(path => MpReflection.PathType(path)).ToArray();
+            fieldPathsNoTypes = fieldPaths.Select(path => MpReflection.RemoveType(path)).ToArray();
+            fieldTransformers = new SyncTransformer[fieldTypes.Length];
         }
 
-        public bool DoSync(object delegateInstance, object[] args)
+        protected override void WriteTarget(object target, object[] args, SyncMethodWriter writer)
         {
-            if (!Multiplayer.ShouldSync)
-                return false;
-
-            LoggingByteWriter writer = new LoggingByteWriter();
-            MpContext context = writer.MpContext();
-            writer.Log.Node(ToString());
-
-            writer.WriteInt32(syncId);
-            SyncUtil.WriteContext(this, writer);
-
-            int mapId = ScheduledCommand.Global;
-
-            void SyncObj(object obj, Type type, string debugInfo)
-            {
-                if (type.IsCompilerGenerated())
-                    return;
-
-                writer.Log.Enter(debugInfo);
-
-                try
-                {
-                    SyncSerialization.WriteSyncObject(writer, obj, type);
-                }
-                finally
-                {
-                    writer.Log.Exit();
-                }
-
-                if (context.map is Map map)
-                {
-                    if (mapId != ScheduledCommand.Global && mapId != map.uniqueID)
-                        throw new Exception("SyncDelegate map mismatch");
-                    mapId = map.uniqueID;
-                }
-            }
-
             for (int i = 0; i < fieldPaths.Length; i++)
-                SyncObj(delegateInstance.GetPropertyOrField(fieldPaths[i]), fieldTypes[i], fieldPaths[i]);
+            {
+                var val = target.GetPropertyOrField(fieldPaths[i]);
+                var type = fieldTypes[i];
+                var path = fieldPaths[i];
 
-            for (int i = 0; i < argTypes.Length; i++)
-                if (argTransformers[i] == null)
-                    SyncObj(args[i], argTypes[i], $"Arg {i} {argNames[i]}");
-
-            for (int i = 0; i < argTypes.Length; i++)
-                if (argTransformers[i] is ArgTransformer trans)
-                    SyncObj(trans.Writer.DynamicInvoke(args[i], delegateInstance, args), trans.NetworkType, $"Arg {i} {argNames[i]} (transformed)");
-
-            writer.Log.Node("Map id: " + mapId);
-            Multiplayer.WriterLog.AddCurrentNode(writer);
-
-            Multiplayer.Client.SendCommand(CommandType.Sync, mapId, writer.ToArray());
-
-            return true;
+                if (fieldTransformers[i] is SyncTransformer tr)
+                    writer(tr.Writer.DynamicInvoke(val, target, args), tr.NetworkType, path);
+                else if (!fieldTypes[i].IsCompilerGenerated())
+                    writer(val, type, path);
+            }
         }
 
-        public override void Handle(ByteReader data)
+        protected override object ReadTarget(ByteReader data)
         {
-            object target = Activator.CreateInstance(delegateType);
+            object target = Activator.CreateInstance(targetType);
 
             for (int i = 0; i < fieldPaths.Length; i++)
             {
                 string path = fieldPaths[i];
-                string noTypePath = MpReflection.RemoveType(path);
+                string noTypePath = fieldPathsNoTypes[i];
                 Type fieldType = fieldTypes[i];
                 object value;
 
-                if (fieldType.IsCompilerGenerated())
+                if (fieldTransformers[i] is SyncTransformer tr)
+                    value = tr.Reader.DynamicInvoke(SyncSerialization.ReadSyncObject(data, tr.NetworkType));
+                else if (fieldType.IsCompilerGenerated())
                     value = Activator.CreateInstance(fieldType);
                 else
                     value = SyncSerialization.ReadSyncObject(data, fieldType);
 
                 if (value == null)
                 {
-                    if (allowedNull != null && !allowedNull.Contains(path)) return;
-                    if (path.EndsWith(DELEGATE_THIS)) return;
-                    if (cancelIfNull != null && cancelIfNull.Contains(path)) return;
+                    if (allowedNull != null && !allowedNull.Contains(noTypePath)) return null;
+                    if (noTypePath.EndsWith(DELEGATE_THIS)) return null;
+                    if (cancelIfNull != null && cancelIfNull.Contains(noTypePath)) return null;
                 }
 
-                if (removeNullsFromLists != null && removeNullsFromLists.Contains(path) && value is IList list)
+                if (removeNullsFromLists != null && removeNullsFromLists.Contains(noTypePath) && value is IList list)
                     list.RemoveNulls();
 
                 MpReflection.SetValue(target, path, value);
             }
 
-            if (context.HasFlag(SyncContext.MapSelected) && cancelIfNoSelectedObjects && Find.Selector.selected.Count == 0)
-                return;
-
-            var args = new object[argTypes.Length];
-
-            for (int i = 0; i < argTypes.Length; i++)
-                if (argTransformers[i] == null)
-                    args[i] = SyncSerialization.ReadSyncObject(data, argTypes[i]);
-
-            for (int i = 0; i < argTypes.Length; i++)
-                if (argTransformers[i] is ArgTransformer trans)
-                    args[i] = trans.Reader.DynamicInvoke(SyncSerialization.ReadSyncObject(data, trans.NetworkType), target, args);
-
-            MpLog.Log("Invoked delegate method " + method + " " + delegateType);
-            method.Invoke(target, args);
-        }
-
-        public ISyncDelegate SetContext(SyncContext context)
-        {
-            this.context = context;
-            return this;
+            return target;
         }
 
         public ISyncDelegate CancelIfAnyFieldNull(params string[] allowed)
         {
+            CheckFieldsExist(allowed);
             allowedNull = allowed;
             return this;
         }
 
         public ISyncDelegate CancelIfFieldsNull(params string[] fields)
         {
+            CheckFieldsExist(fields);
             cancelIfNull = fields;
-            return this;
-        }
-
-        public ISyncDelegate CancelIfNoSelectedObjects()
-        {
-            cancelIfNoSelectedObjects = true;
             return this;
         }
 
         public ISyncDelegate RemoveNullsFromLists(params string[] listFields)
         {
+            CheckFieldsExist(listFields);
             removeNullsFromLists = listFields;
             return this;
+        }
+
+        public ISyncMethod TransformField<Live, Networked>(string field, Serializer<Live, Networked> serializer)
+        {
+            CheckFieldsExist(field);
+
+            var index = fieldPathsNoTypes.FindIndex(field);
+
+            if (fieldTypes[index] != typeof(Live))
+                throw new Exception($"Arg transformer param mismatch for {this}: {fieldTypes[index]} != {typeof(Live)}");
+
+            fieldTransformers[index] = new(typeof(Live), typeof(Networked), serializer.Writer, serializer.Reader);
+            return this;
+        }
+
+        private void CheckFieldsExist(params string[] fields)
+        {
+            foreach (var f in fields)
+                if (!fieldPathsNoTypes.Contains(f))
+                    throw new Exception($"Field with path {f} not found");
         }
 
         public static SyncDelegate Register(Type type, string nestedType, string method)
@@ -670,28 +664,21 @@ namespace Multiplayer.Client
             return Sync.RegisterSyncDelegate(inType, nestedType, methodName, fields);
         }
 
-        public ISyncDelegate SetDebugOnly()
+        public override void Validate()
         {
-            debugOnly = true;
-            return this;
-        }
+            for (int i = 0; i < fieldTypes.Length; i++)
+                if (fieldTransformers[i] is SyncTransformer tr)
+                    ValidateType($"Field {fieldPaths[i]} type", tr.NetworkType);
+                else if (!fieldTypes[i].IsCompilerGenerated())
+                    ValidateType($"Field {fieldPaths[i]} type", fieldTypes[i]);
 
-        public ISyncDelegate TransformArgument<Live, Networked>(
-            int index,
-            Func<Live, object, object[], Networked> writer,
-            Func<Networked, object, object[], Live> reader
-        )
-        {
-            if (argTypes[index] != typeof(Live))
-                throw new Exception($"Arg transformer param mismatch for {this}: {argTypes[index]} != {typeof(Live)}");
-
-            argTransformers[index] = new(typeof(Live), typeof(Networked), writer, reader);
-            return this;
+            for (int i = 0; i < argTypes.Length; i++)
+                ValidateType($"Arg {i} type", argTransformers[i]?.NetworkType ?? argTypes[i]);
         }
 
         public override string ToString()
         {
-            return $"SyncDelegate {method.MpFullDescription()}";
+            return $"SyncDelegate {method.MethodDesc()}";
         }
 
         public static bool AllDelegateFieldsRecursive(Type type, Func<string, bool> getter, string path = "", bool allowDelegates = false)
@@ -717,6 +704,24 @@ namespace Multiplayer.Client
             }
 
             return false;
+        }
+
+        public ISyncDelegate CancelIfNoSelectedObjects()
+        {
+            CancelIfNoSelectedMapObjects();
+            return this;
+        }
+
+        ISyncDelegate ISyncDelegate.SetContext(SyncContext context)
+        {
+            SetContext(context);
+            return this;
+        }
+
+        ISyncDelegate ISyncDelegate.SetDebugOnly()
+        {
+            SetDebugOnly();
+            return this;
         }
     }
 
@@ -824,10 +829,17 @@ namespace Multiplayer.Client
 
                     postfix.priority = MpPriority.MpLast;
 
-                    Multiplayer.harmony.Patch(method, prefix, postfix);
+                    Multiplayer.harmony.PatchMeasure(method, prefix, postfix);
                     SyncActions.syncActions[method] = this;
                 }
             }
+        }
+
+        public override void Validate()
+        {
+            ValidateType("Target type", typeof(A));
+            ValidateType("Arg 0 type", typeof(B));
+            ValidateType("Arg 1 type", typeof(C));
         }
 
         public override string ToString()

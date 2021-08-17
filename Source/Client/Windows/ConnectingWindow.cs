@@ -55,7 +55,7 @@ namespace Multiplayer.Client
 
         public override void PostClose()
         {
-            OnMainThread.StopMultiplayer();
+            Multiplayer.StopMultiplayer();
 
             if (returnToServerBrowser)
                 Find.WindowStack.Add(new ServerBrowser());

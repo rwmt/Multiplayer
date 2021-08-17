@@ -8,10 +8,9 @@ using System.Reflection.Emit;
 using UnityEngine;
 using Verse;
 
+#if DEBUG
 namespace Multiplayer.Client.Patches
 {
-#if DEBUG
-
     public static class DebugPatches
     {
         public static void Init()
@@ -144,6 +143,46 @@ namespace Multiplayer.Client.Patches
                .Replace("<", "[").Replace(">", "]");
         }
     }
-
-#endif
 }
+
+namespace Multiplayer.Client.EarlyPatches
+{
+    [HarmonyPatch(typeof(PatchClassProcessor), "ProcessPatchJob")]
+    static class HarmonyMeasurePatchTime
+    {
+        static void Prefix(ref double __state)
+        {
+            __state = Multiplayer.harmonyWatch.ElapsedMillisDouble();
+            Multiplayer.harmonyWatch.Start();
+        }
+
+        static void Postfix(object job, double __state)
+        {
+            Multiplayer.harmonyWatch.Stop();
+            var original = (MethodBase)Traverse.Create(job).Field("original").GetValue();
+            var took = Multiplayer.harmonyWatch.ElapsedMillisDouble() - __state;
+            //if (took > 15)
+            //    Log.Message($"{took} ms: Patching {original.MethodDesc()}");
+        }
+    }
+
+    [HarmonyPatch]
+    static class FixNewlineLogging
+    {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(Log), nameof(Log.Message), new[] { typeof(string) });
+            yield return AccessTools.Method(typeof(Log), nameof(Log.Warning), new[] { typeof(string) });
+            yield return AccessTools.Method(typeof(Log), nameof(Log.Error), new[] { typeof(string) });
+        }
+
+        static void Prefix(ref string text)
+        {
+            // On Windows, Debug.Log used by Verse.Log replaces \n with \r\n
+            // Without this patch printing \r\n results in \r\r\n
+            if (Native.Windows)
+                text = text.Replace("\r\n", "\n");
+        }
+    }
+}
+#endif

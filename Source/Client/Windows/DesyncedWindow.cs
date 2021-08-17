@@ -8,7 +8,7 @@ namespace Multiplayer.Client
 {
     public class DesyncedWindow : Window
     {
-        public override Vector2 InitialSize => new Vector2(680, 110);
+        public override Vector2 InitialSize => new Vector2(550, 110);
 
         private string text;
 
@@ -30,17 +30,17 @@ namespace Multiplayer.Client
             Widgets.Label(new Rect(0, 0, inRect.width, 40), $"{"MpDesynced".Translate()}\n{text}");
             Text.Anchor = TextAnchor.UpperLeft;
 
-            float buttonWidth = 120 * 5 + 10 * 4;
-            var buttonRect = new Rect((inRect.width - buttonWidth) / 2, 40, buttonWidth, 35);
+            const float buttonsWidth = 120 * 4 + 10 * 3;
+            var buttonsRect = new Rect((inRect.width - buttonsWidth) / 2, 40, buttonsWidth, 35);
 
-            GUI.BeginGroup(buttonRect);
+            GUI.BeginGroup(buttonsRect);
 
             float x = 0;
             if (Widgets.ButtonText(new Rect(x, 0, 120, 35), "MpTryResync".Translate()))
             {
                 Multiplayer.session.resyncing = true;
 
-                TickPatch.SkipTo(
+                TickPatch.SimulateTo(
                     toTickUntil: true,
                     onFinish: () =>
                     {
@@ -53,19 +53,9 @@ namespace Multiplayer.Client
 
                 Multiplayer.session.desynced = false;
 
-                ClientJoiningState.ReloadGame(OnMainThread.cachedMapData.Keys.ToList(), false);
+                ClientJoiningState.ReloadGame(Multiplayer.session.cache.mapData.Keys.ToList(), false);
             }
             x += 120 + 10;
-
-            // todo remove
-            //REHOST
-            /*if (Widgets.ButtonText(new Rect(x, 0, 120, 35), "MpTryRehost".Translate()))
-            {
-                Rehost();
-            }
-            x += 120 + 10;*/
-            //REHOST
-
 
             if (Widgets.ButtonText(new Rect(x, 0, 120, 35), "Save".Translate()))
                 Find.WindowStack.Add(new Dialog_SaveReplay());

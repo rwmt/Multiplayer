@@ -21,16 +21,11 @@ using Verse.AI.Group;
 
 namespace Multiplayer.Client
 {
-    // For a derived type, reduces to syncing the first field found
-    // Used to attach lightweight data to objects during syncing
-    // For example: public record PawnWrapper(Pawn pawn); syncs the Pawn inside
-    public interface ISyncWrapper { }
+    // Syncs a type with all its declared fields
+    public interface ISyncSimple { }
 
     public static class SyncSerialization
     {
-        public static Type[] storageParents;
-        public static Type[] plantToGrowSettables;
-
         private static Type[] AllImplementationsOrdered(Type type)
         {
             return GenTypes.AllTypes
@@ -46,6 +41,9 @@ namespace Multiplayer.Client
                 .OrderBy(t => t.Name)
                 .ToArray();
         }
+
+        public static Type[] storageParents;
+        public static Type[] plantToGrowSettables;
 
         public static Type[] thingCompTypes;
         public static Type[] abilityCompTypes;
@@ -80,11 +78,14 @@ namespace Multiplayer.Client
             typeof(WorldObjectComp)
         };
 
-        private static MethodInfo ReadExposable = AccessTools.Method(typeof(ScribeUtil), nameof(ScribeUtil.ReadExposable));
+        private static MethodInfo ReadExposableDefinition =
+            AccessTools.Method(typeof(ScribeUtil), nameof(ScribeUtil.ReadExposable));
 
-        internal enum ListType : byte
+        private static Dictionary<Type, MethodInfo> ReadExposableInsts = new Dictionary<Type, MethodInfo>();
+
+        public static MethodInfo ReadExposable(Type type)
         {
-            Normal, MapAllThings, MapAllDesignations, Null
+            return ReadExposableInsts.AddOrGet(type, newType => ReadExposableDefinition.MakeGenericMethod(newType));
         }
 
         internal enum ISelectableImpl : byte
@@ -100,6 +101,51 @@ namespace Multiplayer.Client
         private static MethodInfo GetDefByIdMethod = AccessTools.Method(typeof(SyncSerialization), nameof(SyncSerialization.GetDefById));
 
         public static T GetDefById<T>(ushort id) where T : Def => DefDatabase<T>.GetByShortHash(id);
+
+        public static bool CanHandle(SyncType syncType)
+        {
+            var type = syncType.type;
+
+            if (type == typeof(object))
+                return true;
+            if (type.IsByRef)
+                return true;
+            if (SyncDictFast.syncWorkers.TryGetValue(type, out _))
+                return true;
+            if (syncType.expose)
+                return typeof(IExposable).IsAssignableFrom(type);
+            if (typeof(ISynchronizable).IsAssignableFrom(type))
+                return true;
+            if (type.IsEnum)
+                return CanHandle(Enum.GetUnderlyingType(type));
+            if (type.IsArray)
+                return type.GetArrayRank() == 1 && CanHandle(type.GetElementType());
+            if (type.IsGenericType && type.GetGenericTypeDefinition() is Type gtd)
+                return
+                    (false
+                    || gtd == typeof(List<>)
+                    || gtd == typeof(IEnumerable<>)
+                    || gtd == typeof(Nullable<>)
+                    || gtd == typeof(Dictionary<,>)
+                    || gtd == typeof(Pair<,>)
+                    || typeof(ITuple).IsAssignableFrom(gtd))
+                    && CanHandleGenericArgs(type);
+            if (typeof(ISyncSimple).IsAssignableFrom(type))
+                return AccessTools.GetDeclaredFields(type).All(f => CanHandle(f.FieldType));
+            if (typeof(Def).IsAssignableFrom(type))
+                return true;
+            if (typeof(Designator).IsAssignableFrom(type))
+                return true;
+            if (SyncDict.syncWorkers.TryGetValue(type, out _))
+                return true;
+
+            return false;
+        }
+
+        private static bool CanHandleGenericArgs(Type genericType)
+        {
+            return genericType.GetGenericArguments().All(arg => CanHandle(arg));
+        }
 
         public static T ReadSync<T>(ByteReader data)
         {
@@ -160,7 +206,7 @@ namespace Multiplayer.Client
                         throw new SerializationException($"Type {type} can't be exposed because it isn't IExposable");
 
                     byte[] exposableData = data.ReadPrefixedBytes();
-                    return ReadExposable.MakeGenericMethod(type).Invoke(null, new[] { exposableData, null });
+                    return ReadExposable(type).Invoke(null, new[] { exposableData, null });
                 }
 
                 if (typeof(ISynchronizable).IsAssignableFrom(type))
@@ -177,8 +223,11 @@ namespace Multiplayer.Client
                     return Enum.ToObject(type, ReadSyncObject(data, underlyingType));
                 }
 
-                if (type.IsArray && type.GetArrayRank() == 1)
+                if (type.IsArray)
                 {
+                    if (type.GetArrayRank() != 1)
+                        throw new Exception("Multi dimensional arrays aren't supported.");
+
                     Type elementType = type.GetElementType();
                     ushort length = data.ReadUShort();
                     Array arr = Array.CreateInstance(elementType, length);
@@ -193,15 +242,8 @@ namespace Multiplayer.Client
 
                     if (genericTypeDefinition == typeof(List<>))
                     {
-                        ListType listType = ReadSync<ListType>(data);
-                        if (listType == ListType.Null)
-                            return null;
-
-                        if (listType == ListType.MapAllThings)
-                            return map.listerThings.AllThings;
-
-                        if (listType == ListType.MapAllDesignations)
-                            return map.designationManager.allDesignations;
+                        var isNull = data.ReadBool();
+                        if (isNull) return null;
 
                         Type listObjType = type.GetGenericArguments()[0];
                         ushort size = data.ReadUShort();
@@ -228,8 +270,8 @@ namespace Multiplayer.Client
 
                     if (genericTypeDefinition == typeof(Dictionary<,>))
                     {
-                        var notNull = data.ReadBool();
-                        if (!notNull) return null;
+                        var isNull = data.ReadBool();
+                        if (isNull) return null;
 
                         Type[] arguments = type.GetGenericArguments();
 
@@ -238,8 +280,25 @@ namespace Multiplayer.Client
 
                         IDictionary dictionary = (IDictionary)Activator.CreateInstance(type);
                         for (int i = 0; i < keys.Length; i++)
-                            dictionary.Add(keys.GetValue(i), values.GetValue(i));
+                        {
+                            var key = keys.GetValue(i);
+                            if (key != null)
+                                dictionary.Add(key, values.GetValue(i));
+                        }
+
                         return dictionary;
+                    }
+
+                    if (genericTypeDefinition == typeof(Pair<,>))
+                    {
+                        Type[] arguments = type.GetGenericArguments();
+                        object[] parameters =
+                        {
+                            ReadSyncObject(data, arguments[0]),
+                            ReadSyncObject(data, arguments[1]),
+                        };
+
+                        return type.GetConstructors().First().Invoke(parameters);
                     }
 
                     if (typeof(ITuple).IsAssignableFrom(genericTypeDefinition)) // ValueTuple or Tuple
@@ -254,25 +313,14 @@ namespace Multiplayer.Client
 
                         return type.GetConstructors().First().Invoke(values);
                     }
-
-                    if (genericTypeDefinition == typeof(Pair<,>))
-                    {
-                        Type[] arguments = type.GetGenericArguments();
-                        object[] parameters =
-                        {
-                            ReadSyncObject(data, arguments[0]),
-                            ReadSyncObject(data, arguments[1]),
-                        };
-
-                        return type.GetConstructors().First().Invoke(parameters);
-                    }
                 }
 
-                if (typeof(ISyncWrapper).IsAssignableFrom(type))
+                if (typeof(ISyncSimple).IsAssignableFrom(type))
                 {
-                    var field = AccessTools.GetDeclaredFields(type)[0];
-                    var obj = ReadSyncObject(data, field.FieldType);
-                    return Activator.CreateInstance(type, obj);
+                    var obj = MpUtil.NewObjectNoCtor(type);
+                    foreach (var field in AccessTools.GetDeclaredFields(type))
+                        field.SetValue(obj, ReadSyncObject(data, field.FieldType));
+                    return obj;
                 }
 
                 // Def is a special case until the workers can read their own type
@@ -381,8 +429,11 @@ namespace Multiplayer.Client
                     return;
                 }
 
-                if (type.IsArray && type.GetArrayRank() == 1)
+                if (type.IsArray)
                 {
+                    if (type.GetArrayRank() != 1)
+                        throw new Exception("Multi dimensional arrays aren't supported.");
+
                     Type elementType = type.GetElementType();
                     Array arr = (Array)obj;
 
@@ -401,39 +452,19 @@ namespace Multiplayer.Client
 
                     if (genericTypeDefinition == typeof(List<>))
                     {
+                        data.WriteBool(obj == null);
                         if (obj == null)
-                        {
-                            WriteSync(data, ListType.Null);
                             return;
-                        }
 
-                        ListType listType = ListType.Normal;
+                        IList list = (IList)obj;
                         Type listObjType = type.GetGenericArguments()[0];
 
-                        if (listObjType == typeof(Thing) && obj == Find.CurrentMap.listerThings.AllThings)
-                        {
-                            context.map = Find.CurrentMap;
-                            listType = ListType.MapAllThings;
-                        }
-                        else if (listObjType == typeof(Designation) && obj == Find.CurrentMap.designationManager.allDesignations)
-                        {
-                            context.map = Find.CurrentMap;
-                            listType = ListType.MapAllDesignations;
-                        }
+                        if (list.Count > ushort.MaxValue)
+                            throw new Exception($"Tried to serialize a {type} with too many ({list.Count}) items.");
 
-                        WriteSync(data, listType);
-
-                        if (listType == ListType.Normal)
-                        {
-                            IList list = (IList)obj;
-
-                            if (list.Count > ushort.MaxValue)
-                                throw new Exception($"Tried to serialize a {type} with too many ({list.Count}) items.");
-
-                            data.WriteUShort((ushort)list.Count);
-                            foreach (object e in list)
-                                WriteSyncObject(data, e, listObjType);
-                        }
+                        data.WriteUShort((ushort)list.Count);
+                        foreach (object e in list)
+                            WriteSyncObject(data, e, listObjType);
 
                         return;
                     }
@@ -478,7 +509,7 @@ namespace Multiplayer.Client
                     {
                         IDictionary dictionary = (IDictionary)obj;
 
-                        data.WriteBool(dictionary != null);
+                        data.WriteBool(dictionary == null);
                         if (dictionary == null) return;
 
                         Type[] arguments = type.GetGenericArguments();
@@ -495,6 +526,16 @@ namespace Multiplayer.Client
                         return;
                     }
 
+                    if (genericTypeDefinition == typeof(Pair<,>))
+                    {
+                        Type[] arguments = type.GetGenericArguments();
+
+                        WriteSyncObject(data, type.GetField("first", AccessTools.all).GetValue(obj), arguments[0]);
+                        WriteSyncObject(data, type.GetField("second", AccessTools.all).GetValue(obj), arguments[1]);
+
+                        return;
+                    }
+
                     if (typeof(ITuple).IsAssignableFrom(genericTypeDefinition)) // ValueTuple or Tuple
                     {
                         Type[] arguments = type.GetGenericArguments();
@@ -507,22 +548,12 @@ namespace Multiplayer.Client
 
                         return;
                     }
-
-                    if (genericTypeDefinition == typeof(Pair<,>))
-                    {
-                        Type[] arguments = type.GetGenericArguments();
-
-                        WriteSyncObject(data, type.GetField("first", AccessTools.all).GetValue(obj), arguments[0]);
-                        WriteSyncObject(data, type.GetField("second", AccessTools.all).GetValue(obj), arguments[1]);
-
-                        return;
-                    }
                 }
 
-                if (typeof(ISyncWrapper).IsAssignableFrom(type))
+                if (typeof(ISyncSimple).IsAssignableFrom(type))
                 {
-                    var field = AccessTools.GetDeclaredFields(type)[0];
-                    WriteSyncObject(data, field.GetValue(obj), field.FieldType);
+                    foreach (var field in AccessTools.GetDeclaredFields(type))
+                        WriteSyncObject(data, field.GetValue(obj), field.FieldType);
                     return;
                 }
 

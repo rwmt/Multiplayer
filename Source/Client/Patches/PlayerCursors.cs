@@ -15,7 +15,7 @@ namespace Multiplayer.Client
     {
         static void Postfix()
         {
-            if (Multiplayer.Client == null || !Multiplayer.settings.showCursors || TickPatch.Skipping) return;
+            if (Multiplayer.Client == null || !Multiplayer.settings.showCursors || TickPatch.Simulating) return;
 
             var curMap = Find.CurrentMap.Index;
 
@@ -69,7 +69,7 @@ namespace Multiplayer.Client
 
         static void Postfix()
         {
-            if (Multiplayer.Client == null || TickPatch.Skipping) return;
+            if (Multiplayer.Client == null || TickPatch.Simulating) return;
 
             foreach (var t in Find.Selector.SelectedObjects.OfType<Thing>())
                 drawnThisUpdate.Add(t.thingIDNumber);

@@ -5,6 +5,7 @@ using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Verse;
 
 namespace Multiplayer.Client
@@ -27,7 +28,7 @@ namespace Multiplayer.Client
             SyncDelegate.Lambda(typeof(HealthCardUtility), nameof(HealthCardUtility.GenerateSurgeryOption), 1).CancelIfAnyFieldNull(allowed: "part");   // Add medical bill
             SyncDelegate.Lambda(typeof(Command_SetPlantToGrow), nameof(Command_SetPlantToGrow.ProcessInput), 2);                                        // Set plant to grow
             SyncDelegate.Lambda(typeof(Building_Bed), nameof(Building_Bed.SetBedOwnerTypeByInterface), 0).RemoveNullsFromLists("bedsToAffect");         // Set bed owner type
-            SyncDelegate.Lambda(typeof(ITab_Bills), nameof(ITab_Bills.FillTab), 2).SetContext(SyncContext.MapSelected).CancelIfNoSelectedObjects();     // Add bill
+            SyncDelegate.Lambda(typeof(ITab_Bills), nameof(ITab_Bills.FillTab), 2).SetContext(SyncContext.MapSelected).CancelIfNoSelectedMapObjects();  // Add bill
 
             SyncDelegate.Lambda(typeof(CompLongRangeMineralScanner), nameof(CompLongRangeMineralScanner.CompGetGizmosExtra), 1).SetContext(SyncContext.MapSelected); // Select mineral to scan for
 
@@ -46,8 +47,10 @@ namespace Multiplayer.Client
 
             SyncDelegate.Lambda(typeof(CompTargetable), nameof(CompTargetable.SelectedUseOption), 0); // Use targetable
 
-            SyncDelegate.Lambda(typeof(Designator), nameof(Designator.RightClickFloatMenuOptions), 0, parentMethodType: MethodType.Getter); // Designate all
-            SyncDelegate.Lambda(typeof(Designator), nameof(Designator.RightClickFloatMenuOptions), 1, parentMethodType: MethodType.Getter); // Remove all designations
+            SyncDelegate.Lambda(typeof(Designator), nameof(Designator.RightClickFloatMenuOptions), 0, parentMethodType: MethodType.Getter) // Designate all
+                .TransformField("things", Serializer.New((List<Thing> things, object t, object[] args) => (object)null, obj => Find.CurrentMap.listerThings.AllThings));
+            SyncDelegate.Lambda(typeof(Designator), nameof(Designator.RightClickFloatMenuOptions), 1, parentMethodType: MethodType.Getter) // Remove all designations
+                .TransformField("designations", Serializer.New((List<Designation> dsgns, object t, object[] args) => (object)null, obj => Find.CurrentMap.designationManager.allDesignations));
 
             SyncDelegate.Lambda(typeof(CaravanAbandonOrBanishUtility), nameof(CaravanAbandonOrBanishUtility.TryAbandonOrBanishViaInterface), 1, new[] { typeof(Thing), typeof(Caravan) }).CancelIfAnyFieldNull(); // Abandon caravan thing
             SyncDelegate.Lambda(typeof(CaravanAbandonOrBanishUtility), nameof(CaravanAbandonOrBanishUtility.TryAbandonOrBanishViaInterface), 0, new[] { typeof(TransferableImmutable), typeof(Caravan) }).CancelIfAnyFieldNull(); // Abandon caravan transferable
@@ -68,14 +71,12 @@ namespace Multiplayer.Client
             SyncMethod.Lambda(typeof(CompShuttle), nameof(CompShuttle.CompGetGizmosExtra), 1);  // Toggle autoload
             SyncMethod.Lambda(typeof(ShipJob_Wait), nameof(ShipJob_Wait.GetJobGizmos), 1);      // Send shuttle
 
-            SyncMethod.Lambda(typeof(MonumentMarker), nameof(MonumentMarker.GetGizmos), 1);                     // Build monument quest - monument marker: cancel/remove marker
-            SyncMethod.Lambda(typeof(MonumentMarker), nameof(MonumentMarker.GetGizmos), 4).SetDebugOnly();    // Build monument quest - monument marker: dev build all
+            SyncDelegate.LocalFunc(typeof(RoyalTitlePermitWorker_CallShuttle), nameof(RoyalTitlePermitWorker_CallShuttle.CallShuttleToCaravan), "Launch").ExposeParameter(1);  // Call shuttle permit on caravan
 
-            // Inventory (medicine) stock up
-            SyncMethod.Register(typeof(Pawn_InventoryStockTracker), nameof(Pawn_InventoryStockTracker.SetCountForGroup));
-            SyncMethod.Register(typeof(Pawn_InventoryStockTracker), nameof(Pawn_InventoryStockTracker.SetThingForGroup));
+            SyncMethod.Lambda(typeof(MonumentMarker), nameof(MonumentMarker.GetGizmos), 1);                 // Build monument quest - monument marker: cancel/remove marker
+            SyncMethod.Lambda(typeof(MonumentMarker), nameof(MonumentMarker.GetGizmos), 4).SetDebugOnly();  // Build monument quest - monument marker: dev build all
 
-            SyncDelegate.Lambda(typeof(CompPlantable), nameof(CompPlantable.BeginTargeting), 3);    // Select cell to plant to after confirmation
+            SyncDelegate.Lambda(typeof(CompPlantable), nameof(CompPlantable.BeginTargeting), 3);    // Select cell to plant in with confirmation
             SyncMethod.Lambda(typeof(CompPlantable), nameof(CompPlantable.CompGetGizmosExtra), 0);  // Cancel planting all
 
             SyncMethod.Lambda(typeof(Pawn_ConnectionsTracker), nameof(Pawn_ConnectionsTracker.GetGizmos), 0);               // Return to healing pod
@@ -100,11 +101,13 @@ namespace Multiplayer.Client
             SyncMethod.Lambda(typeof(CompBiosculpterPod), nameof(CompBiosculpterPod.CompGetGizmosExtra), 4).SetDebugOnly(); // Dev advance by 1 day
             SyncMethod.Lambda(typeof(CompBiosculpterPod), nameof(CompBiosculpterPod.CompGetGizmosExtra), 5).SetDebugOnly(); // Dev complete biotuner timer
 
-            SyncDelegate.Lambda(typeof(ITab_Pawn_Visitor), nameof(ITab_Pawn_Visitor.FillTab), 1).SetContext(SyncContext.MapSelected).CancelIfNoSelectedObjects(); // Select target prisoner ideology
-            SyncDelegate.Lambda(typeof(ITab_Pawn_Visitor), nameof(ITab_Pawn_Visitor.FillTab), 8).SetContext(SyncContext.MapSelected).CancelIfNoSelectedObjects(); // Cancel setting slave mode to execution
+            SyncDelegate.Lambda(typeof(ITab_Pawn_Visitor), nameof(ITab_Pawn_Visitor.FillTab), 1).SetContext(SyncContext.MapSelected).CancelIfNoSelectedMapObjects(); // Select target prisoner ideology
+            SyncDelegate.Lambda(typeof(ITab_Pawn_Visitor), nameof(ITab_Pawn_Visitor.FillTab), 8).SetContext(SyncContext.MapSelected).CancelIfNoSelectedMapObjects(); // Cancel setting slave mode to execution
 
             SyncMethod.Lambda(typeof(ShipJob_Wait), nameof(ShipJob_Wait.GetJobGizmos), 0);  // Dismiss (unload) shuttle
             SyncMethod.Lambda(typeof(ShipJob_Wait), nameof(ShipJob_Wait.GetJobGizmos), 1);  // Send loaded shuttle
+
+            SyncMethod.Lambda(typeof(Building_PodLauncher), nameof(Building_PodLauncher.GetGizmos), 0);  // Pod launcher gizmo: Build pod
 
             InitRituals();
         }
@@ -135,21 +138,21 @@ namespace Multiplayer.Client
                 Not participating: (assgn.RemoveParticipant), (delegate), float menus: (assgn.TryAssignSpectate, local TryAssignReplace, local TryAssign)
             */
 
-            Func<IEnumerable<RitualRole>, object, object[], IEnumerable<string>> RitualRolesWriter =
-                (roles, target, args) => roles.Select(r => r.id);
-
-            Func<IEnumerable<string>, object, object[], IEnumerable<RitualRole>> RitualRolesReader =
-                (roleIds, target, args) =>
+            var RitualRolesSerializer = Serializer.New(
+                (IEnumerable<RitualRole> roles, object target, object[] args) =>
                 {
                     var dialog = target.GetPropertyOrField(SyncDelegate.DELEGATE_THIS) as Dialog_BeginRitual;
-                    return roleIds.Select(id => dialog.ritual.behavior.def.roles.FirstOrDefault(r => r.id == id));
-                };
+                    var ids = from r in roles select r.id;
+                    return (dialog.ritual.behavior.def, ids);
+                },
+                (data) => data.ids.Select(id => data.def.roles.FirstOrDefault(r => r.id == id))
+            );
 
             SyncDelegate.LocalFunc(typeof(Dialog_BeginRitual), nameof(Dialog_BeginRitual.DrawPawnList), "TryAssignReplace")
-                .TransformArgument(1, RitualRolesWriter, RitualRolesReader);
+                .TransformArgument(1, RitualRolesSerializer);
             SyncDelegate.LocalFunc(typeof(Dialog_BeginRitual), nameof(Dialog_BeginRitual.DrawPawnList), "TryAssignAnyRole");
             SyncDelegate.LocalFunc(typeof(Dialog_BeginRitual), nameof(Dialog_BeginRitual.DrawPawnList), "TryAssign")
-                .TransformArgument(1, RitualRolesWriter, RitualRolesReader);
+                .TransformArgument(1, RitualRolesSerializer);
 
             SyncDelegate.Lambda(typeof(Dialog_BeginRitual), nameof(Dialog_BeginRitual.DrawPawnList), 27); // Roles right click delegate (try assign spectate)
             SyncDelegate.Lambda(typeof(Dialog_BeginRitual), nameof(Dialog_BeginRitual.DrawPawnList), 14); // Not participating left click delegate (try assign any role or spectate)

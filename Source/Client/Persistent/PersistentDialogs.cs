@@ -614,14 +614,14 @@ namespace Multiplayer.Client
 
             PersistentDialog persistentDialog = null;
 
-            window.doCloseX = true;
-            window.closeOnCancel = true;
-
             if (window is Dialog_NodeTree dialog_NodeTree) {
                 persistentDialog = PersistentDialog.CreateInstance(map, dialog_NodeTree);
             }
 
             if (persistentDialog == null) return true;
+
+            window.doCloseX = true;
+            window.closeOnCancel = true;
 
             map.MpComp().mapDialogs.Add(persistentDialog);
 

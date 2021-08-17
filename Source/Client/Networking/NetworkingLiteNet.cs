@@ -57,7 +57,7 @@ namespace Multiplayer.Client.Networking
 
             ConnectionStatusListeners.TryNotifyAll_Disconnected();
 
-            OnMainThread.StopMultiplayer();
+            Multiplayer.StopMultiplayer();
             MpLog.Log("Net client disconnected");
         }
 

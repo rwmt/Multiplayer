@@ -84,7 +84,7 @@ namespace Multiplayer.Client
                     {
                         optList.Insert(0, new ListableOption("Save".Translate(), () => Find.WindowStack.Add(new Dialog_SaveReplay() { layer = WindowLayer.Super })));
                     }
-                    optList.Insert(3, new ListableOption("MpConvert".Translate(), ConvertToSingleplayer));
+                    optList.Insert(3, new ListableOption("MpConvertToSp".Translate(), AskConvertToSingleplayer));
 
                     var quitMenuLabel = "QuitToMainMenu".Translate();
                     var saveAndQuitMenu = "SaveAndQuitToMainMenu".Translate();
@@ -126,34 +126,56 @@ namespace Multiplayer.Client
 
         public static void AskQuitToMainMenu()
         {
-            if (Multiplayer.LocalServer != null)
-                Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation("MpServerCloseConfirmation".Translate(), GenScene.GoToMainMenu, true, layer: WindowLayer.Super));
-            else
+            if (Multiplayer.LocalServer == null)
+            {
                 GenScene.GoToMainMenu();
+                return;
+            }
+
+            Find.WindowStack.Add(
+                Dialog_MessageBox.CreateConfirmation(
+                    "MpServerCloseConfirmation".Translate(),
+                    GenScene.GoToMainMenu,
+                    true,
+                    layer: WindowLayer.Super
+                )
+            );
         }
 
-        private static void ConvertToSingleplayer()
+        private static void AskConvertToSingleplayer()
         {
-            LongEventHandler.QueueLongEvent(() =>
+            static void Convert()
             {
-                var saveName = Multiplayer.session.gameName + "-preconvert";
-                new FileInfo(Path.Combine(Multiplayer.ReplaysDir, $"{saveName}.zip")).Delete();
-                Replay.ForSaving(saveName).WriteCurrentData();
+                LongEventHandler.QueueLongEvent(() =>
+                {
+                    var saveName = Multiplayer.session.gameName + "-preconvert";
+                    new FileInfo(Path.Combine(Multiplayer.ReplaysDir, $"{saveName}.zip")).Delete();
+                    Replay.ForSaving(saveName).WriteCurrentData();
 
-                Find.GameInfo.permadeathMode = false;
-                HostUtil.SetAllUniqueIds(Multiplayer.GlobalIdBlock.Current);
-                
-                OnMainThread.StopMultiplayer();
+                    Find.GameInfo.permadeathMode = false;
+                    HostUtil.SetAllUniqueIds(Multiplayer.GlobalIdBlock.Current);
 
-                var doc = SaveLoad.SaveGame();
-                MemoryUtility.ClearAllMapsAndWorld();
+                    Multiplayer.StopMultiplayer();
 
-                Current.Game = new Game();
-                Current.Game.InitData = new GameInitData();
-                Current.Game.InitData.gameToLoad = "play";
+                    var doc = SaveLoad.SaveGame();
+                    MemoryUtility.ClearAllMapsAndWorld();
 
-                LoadPatch.gameToLoad = new GameData(doc, new byte[0]);
-            }, "Play", "MpConverting", true, null);
+                    Current.Game = new Game();
+                    Current.Game.InitData = new GameInitData();
+                    Current.Game.InitData.gameToLoad = "play";
+
+                    LoadPatch.gameToLoad = new GameData(doc, new byte[0]);
+                }, "Play", "MpConvertingToSp", true, null);
+            }
+
+            Find.WindowStack.Add(
+                Dialog_MessageBox.CreateConfirmation(
+                    Multiplayer.LocalServer != null ? "MpConvertToSpWarnHost".Translate() : "MpConvertToSpWarn".Translate(),
+                    Convert,
+                    true,
+                    layer: WindowLayer.Super
+                )
+            );
         }
     }
 
@@ -192,7 +214,7 @@ namespace Multiplayer.Client
 
         static void Prefix()
         {
-            OnMainThread.StopMultiplayer();
+            Multiplayer.StopMultiplayer();
         }
     }
 }

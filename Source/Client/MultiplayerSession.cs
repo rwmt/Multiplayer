@@ -30,6 +30,7 @@ namespace Multiplayer.Client
         public PacketLogWindow readerLog = new PacketLogWindow();
         public int myFactionId;
         public List<PlayerInfo> players = new List<PlayerInfo>();
+        public SessionCache cache = new SessionCache();
 
         public bool replay;
         public int replayTimerStart = -1;
@@ -168,6 +169,30 @@ namespace Multiplayer.Client
             if (localCmdId >= remoteCmdId)
                 TickPatch.tickUntil = remoteTickUntil;
         }
+
+        public void ScheduleCommand(ScheduledCommand cmd)
+        {
+            MpLog.Log($"Cmd: {cmd.type}, faction: {cmd.factionId}, map: {cmd.mapId}, ticks: {cmd.ticks}");
+            cache.mapCmds.GetOrAddNew(cmd.mapId).Add(cmd);
+
+            if (Current.ProgramState != ProgramState.Playing) return;
+
+            if (cmd.mapId == ScheduledCommand.Global)
+                Multiplayer.WorldComp.cmds.Enqueue(cmd);
+            else
+                cmd.GetMap()?.AsyncTime().cmds.Enqueue(cmd);
+        }
+    }
+
+    public class SessionCache
+    {
+        public int cachedAtTime;
+        public byte[] gameData;
+        public byte[] semiPersistentData;
+        public Dictionary<int, byte[]> mapData = new Dictionary<int, byte[]>();
+
+        // Global cmds are -1
+        public Dictionary<int, List<ScheduledCommand>> mapCmds = new Dictionary<int, List<ScheduledCommand>>();
     }
 
     public class PlayerInfo

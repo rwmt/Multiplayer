@@ -23,7 +23,12 @@ namespace Multiplayer.Client
         {
             Log.Message($"Starting the server");
 
-            var session = Multiplayer.session = new MultiplayerSession();
+            var session = new MultiplayerSession();
+            if (Multiplayer.session != null) // This is the case when hosting from a replay
+                session.cache = Multiplayer.session.cache;
+
+            Multiplayer.session = session;
+
             session.myFactionId = Faction.OfPlayer.loadID;
             session.localSettings = settings;
             session.gameName = settings.gameName;
@@ -32,14 +37,10 @@ namespace Multiplayer.Client
 
             if (withSimulation)
             {
-                localServer.savedGame = GZipStream.CompressBuffer(OnMainThread.cachedGameData);
-                localServer.semiPersistent = GZipStream.CompressBuffer(OnMainThread.cachedSemiPersistent);
-                localServer.mapData = OnMainThread.cachedMapData.ToDictionary(kv => kv.Key, kv => GZipStream.CompressBuffer(kv.Value));
-                localServer.mapCmds = OnMainThread.cachedMapCmds.ToDictionary(kv => kv.Key, kv => kv.Value.Select(c => c.Serialize()).ToList());
-            }
-            else
-            {
-                OnMainThread.ClearCaches();
+                localServer.savedGame = GZipStream.CompressBuffer(session.cache.gameData);
+                localServer.semiPersistent = GZipStream.CompressBuffer(session.cache.semiPersistentData);
+                localServer.mapData = session.cache.mapData.ToDictionary(kv => kv.Key, kv => GZipStream.CompressBuffer(kv.Value));
+                localServer.mapCmds = session.cache.mapCmds.ToDictionary(kv => kv.Key, kv => kv.Value.Select(c => c.Serialize()).ToList());
             }
 
             localServer.debugMode = debugMode;

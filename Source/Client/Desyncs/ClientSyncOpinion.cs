@@ -109,7 +109,7 @@ namespace Multiplayer.Client
 
         public void TryMarkSimulating()
         {
-            if (TickPatch.Skipping)
+            if (TickPatch.Simulating)
                 simulating = true;
         }
 
