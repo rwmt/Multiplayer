@@ -80,6 +80,7 @@
   <MpTransportLoadingSession>Transport pod loading session</MpTransportLoadingSession>
   <MpCaravanFormingSession>Caravan forming session</MpCaravanFormingSession>
   <MpCaravanSplittingSession>Caravan splitting session</MpCaravanSplittingSession>
+  <MpDialogSession>Dialog session</MpDialogSession>
   
   <AnotherRitualInProgress>Can't begin ritual. Another ritual setup session is already in progress.</AnotherRitualInProgress>
   
