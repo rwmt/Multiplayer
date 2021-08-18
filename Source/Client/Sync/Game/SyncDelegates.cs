@@ -39,7 +39,7 @@ namespace Multiplayer.Client
             SyncMethod.Lambda(typeof(Building_Door), nameof(Building_Door.GetGizmos), 1);               // Toggle door hold open
             SyncMethod.Lambda(typeof(Zone_Growing), nameof(Zone_Growing.GetGizmos), 1);                 // Toggle zone allow sow
             SyncMethod.Lambda(typeof(Zone_Growing), nameof(Zone_Growing.GetGizmos), 3);                 // Toggle zone allow cut
-            
+
             SyncMethod.Lambda(typeof(PriorityWork), nameof(PriorityWork.GetGizmos), 0);                 // Clear prioritized work
             SyncMethod.Lambda(typeof(Building_TurretGun), nameof(Building_TurretGun.GetGizmos), 1);     // Reset forced target
             SyncMethod.Lambda(typeof(UnfinishedThing), nameof(UnfinishedThing.GetGizmos), 0);           // Cancel unfinished thing
@@ -86,10 +86,10 @@ namespace Multiplayer.Client
             SyncMethod.Lambda(typeof(CompDryadHolder), nameof(CompDryadHolder.CompGetGizmosExtra), 0).SetDebugOnly();       // Complete dryad cocoon action
 
             // (Un)assigning ideology roles
-            SyncDelegate.Lambda(typeof(SocialCardUtility), nameof(SocialCardUtility.DrawPawnRole), 2); // Unnasign role from a pawn
+            SyncDelegate.Lambda(typeof(SocialCardUtility), nameof(SocialCardUtility.DrawPawnRole), 2); // Unassign role from a pawn
             SyncDelegate.Lambda(typeof(SocialCardUtility), nameof(SocialCardUtility.DrawPawnRole), 8); // Unassign current role and assign new one to a pawn
             SyncDelegate.Lambda(typeof(SocialCardUtility), nameof(SocialCardUtility.DrawPawnRole), 9); // Assign a role to a pawn
-			
+
             SyncMethod.Lambda(typeof(CompNeuralSupercharger), nameof(CompNeuralSupercharger.CompGetGizmosExtra), 1); // Neural supercharger: allow temporary pawns to use
 
             // Biosculpter pod
@@ -125,7 +125,7 @@ namespace Multiplayer.Client
 
             SyncDelegate.Lambda(typeof(CompPsylinkable), nameof(CompPsylinkable.CompFloatMenuOptions), 0); // Psylinkable begin linking
 
-            /*  
+            /*
                 Ritual dialog
 
                 The UI's main interaction area is split into three types of groups of pawns.

@@ -25,6 +25,7 @@ using System.Xml.Linq;
 using HarmonyLib;
 using Multiplayer.Client.Desyncs;
 using Multiplayer.Client.EarlyPatches;
+using Multiplayer.Client.Util;
 using Multiplayer.Common;
 using RimWorld;
 using Steamworks;
@@ -67,58 +68,34 @@ namespace Multiplayer.Client
 
             MultiplayerData.CollectCursorIcons();
 
-            DeepProfiler.Start("Multiplayer CollectTypes");
-            SyncSerialization.CollectTypes();
-            DeepProfiler.End();
+            using (DeepProfilerWrapper.Section("Multiplayer CollectTypes"))
+                SyncSerialization.CollectTypes();
 
-            DeepProfiler.Start("Multiplayer SyncGame");
-
-            try
-            {
+            using (DeepProfilerWrapper.Section("Multiplayer SyncGame"))
                 SyncGame.Init();
 
-                var asm = Assembly.GetExecutingAssembly();
-
-                Sync.RegisterAllAttributes(asm);
-                PersistentDialog.BindAll(asm);
-            }
-            catch (Exception e)
+            using (DeepProfilerWrapper.Section("Multiplayer Sync register attributes and validate"))
             {
-                Log.Error($"Exception during Sync initialization: {e}");
-                Multiplayer.loadingErrors = true;
+                try
+                {
+                    Sync.RegisterAllAttributes(typeof(Multiplayer).Assembly);
+                }
+                catch (Exception e)
+                {
+                    Log.Error($"Exception registering Sync attributes: {e}");
+                    Multiplayer.loadingErrors = true;
+                }
+
+                Sync.ValidateAll();
             }
 
-            Sync.ValidateAll();
+            PersistentDialog.BindAll(typeof(Multiplayer).Assembly);
 
-            DeepProfiler.End();
-
-            DeepProfiler.Start("Multiplayer MpPatches");
-
-            try
-            {
+            using (DeepProfilerWrapper.Section("Multiplayer MpPatches"))
                 Multiplayer.harmony.DoAllMpPatches();
-            }
-            catch (Exception e)
-            {
-                Log.Error($"Exception during MpPatching: {e}");
-                Multiplayer.loadingErrors = true;
-            }
 
-            DeepProfiler.End();
-
-            DeepProfiler.Start("Multiplayer patches");
-
-            try
-            {
+            using (DeepProfilerWrapper.Section("Multiplayer patches"))
                 DoPatches();
-            }
-            catch (Exception e)
-            {
-                Log.Error($"Exception during patching: {e}");
-                Multiplayer.loadingErrors = true;
-            }
-
-            DeepProfiler.End();
 
             Log.messageQueue.maxMessages = 1000;
 
@@ -143,8 +120,7 @@ namespace Multiplayer.Client
 
             Log.Message(GenFilePaths.ConfigFolderPath);
             Log.Message(JoinData.ModConfigPaths.Count().ToString());
-            Log.Message($"Patched methods: {Multiplayer.harmony.GetPatchedMethods().Count()}");
-
+            
             SimpleProfiler.Print("mp_prof_out.txt");
         }
 

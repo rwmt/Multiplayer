@@ -28,11 +28,11 @@ namespace Multiplayer.Client
                 }
             }
 
-            TryInit("SyncMethods", () => SyncMethods.Init());
-            TryInit("SyncFields", () => SyncFields.Init());
-            TryInit("SyncDelegates", () => SyncDelegates.Init());
-            TryInit("SyncThingFilters", () => SyncThingFilters.Init());
-            TryInit("SyncActions", () => SyncActions.Init());
+            TryInit("SyncMethods", SyncMethods.Init);
+            TryInit("SyncFields", SyncFields.Init);
+            TryInit("SyncDelegates", SyncDelegates.Init);
+            TryInit("SyncThingFilters", SyncThingFilters.Init);
+            TryInit("SyncActions", SyncActions.Init);
 
             //RuntimeHelpers.RunClassConstructor(typeof(SyncResearch).TypeHandle);
 

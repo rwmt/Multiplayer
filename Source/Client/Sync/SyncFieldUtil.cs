@@ -108,10 +108,9 @@ namespace Multiplayer.Client
 
         public static object SnapshotValueIfNeeded(SyncField field, object value)
         {
-            if (field.fieldType.expose)
-                return SyncSerialization.ReadExposable(field.fieldType.type).Invoke(null, new[] { ScribeUtil.WriteExposable((IExposable)value), null });
-
-            return value;
+            return field.fieldType.expose ?
+                SyncSerialization.ReadExposable(field.fieldType.type).Invoke(null, new[] { ScribeUtil.WriteExposable((IExposable)value), null })
+                : value;
         }
 
         private static bool ValuesEqual(SyncField field, object newValue, object oldValue)

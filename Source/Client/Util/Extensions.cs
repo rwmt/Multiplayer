@@ -67,7 +67,7 @@ namespace Multiplayer.Client
         public static Faction PopFaction(this Map map)
         {
             Faction faction = FactionContext.Pop();
-            if (faction == null) return faction;
+            if (faction == null) return null;
 
             Multiplayer.WorldComp?.SetFaction(faction);
             map?.MpComp().SetFaction(faction);

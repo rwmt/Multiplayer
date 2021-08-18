@@ -72,7 +72,7 @@ namespace Multiplayer.Client
         public static ISyncField SyncAnimalPenAutocut;
 
         public static SyncField[] SyncAutoSlaughter;
-		
+
         public static ISyncField SyncDryadCaste;
         public static ISyncField SyncDesiredTreeConnectionStrength;
         public static ISyncField SyncPlantCells;
@@ -381,7 +381,7 @@ namespace Multiplayer.Client
         {
             // Apply the buffered value for smooth rendering
             // (the actual syncing happens in BillIngredientSearchRadius below)
-            if (__instance.mouseoverBill is Bill mouseover)
+            if (__instance.mouseoverBill is { } mouseover)
                 SyncIngredientSearchRadius.Watch(mouseover);
         }
 
@@ -497,7 +497,7 @@ namespace Multiplayer.Client
                 yield return entry;
             }
         }
-			
+
         [MpPrefix(typeof(Gizmo_PruningConfig), nameof(Gizmo_PruningConfig.DrawBar))]
         static void WatchTreeConnectionStrength(Gizmo_PruningConfig __instance)
         {
@@ -509,7 +509,7 @@ namespace Multiplayer.Client
         {
             SyncDryadCaste.Watch(__instance.treeConnection);
         }
-		
+
         static void Autoslaughter_PostApply(object target, object value)
         {
             Multiplayer.MapContext.autoSlaughterManager.Notify_ConfigChanged();

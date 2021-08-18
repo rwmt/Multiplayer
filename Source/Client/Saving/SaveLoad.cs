@@ -443,17 +443,11 @@ namespace Multiplayer.Client
             {
                 text = reffable.GetUniqueLoadID();
             }
-            catch (Exception)
+            catch
             {
-
             }
 
-            ILoadReferenceable loadReferenceable;
-            if (__instance.allObjectsByLoadID.TryGetValue(text, out loadReferenceable))
-            {
-                return false;
-            }
-            return true;
+            return !__instance.allObjectsByLoadID.ContainsKey(text);
         }
     }
 

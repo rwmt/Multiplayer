@@ -305,13 +305,13 @@ namespace Multiplayer.Client
     [HarmonyPatch(typeof(ScreenFader), nameof(ScreenFader.SetColor))]
     static class DisableScreenFade1
     {
-        static bool Prefix() => !LongEventHandler.eventQueue.Any(e => e.eventTextKey == "MpLoading");
+        static bool Prefix() => LongEventHandler.eventQueue.All(e => e.eventTextKey == "MpLoading");
     }
 
     [HarmonyPatch(typeof(ScreenFader), nameof(ScreenFader.StartFade))]
     static class DisableScreenFade2
     {
-        static bool Prefix() => !LongEventHandler.eventQueue.Any(e => e.eventTextKey == "MpLoading");
+        static bool Prefix() => LongEventHandler.eventQueue.All(e => e.eventTextKey == "MpLoading");
     }
 
     [HarmonyPatch(typeof(ThingGrid), nameof(ThingGrid.Register))]
@@ -368,7 +368,7 @@ namespace Multiplayer.Client
             Multiplayer.game.mapComps.Add(mapComp);
 
             InitFactionDataFromMap(map, Faction.OfPlayer);
-            
+
             async.mapTicks = Find.Maps.Where(m => m != map).Select(m => m.AsyncTime()?.mapTicks).Max() ?? Find.TickManager.TicksGame;
             async.storyteller = new Storyteller(Find.Storyteller.def, Find.Storyteller.difficultyDef, Find.Storyteller.difficulty);
             async.storyWatcher = new StoryWatcher();
@@ -386,8 +386,7 @@ namespace Multiplayer.Client
 
             foreach (var t in map.listerThings.AllThings)
                 if (t is ThingWithComps tc &&
-                    tc.GetComp<CompForbiddable>() is CompForbiddable comp &&
-                    !comp.forbiddenInt)
+                    tc.GetComp<CompForbiddable>() is { forbiddenInt: false })
                     customData.unforbidden.Add(t);
         }
 
@@ -668,7 +667,7 @@ namespace Multiplayer.Client
                 __result = value;
             } else {
                 __result = (Mote) Activator.CreateInstance(thingClass);
-                
+
                 cache.Add(thingClass, __result);
             }
 

@@ -29,7 +29,7 @@ namespace Multiplayer.Client
                 var pos = Vector3.Lerp(
                     player.lastCursor,
                     player.cursor,
-                    (float)(Multiplayer.Clock.ElapsedMillisDouble() - player.updatedAt) / 50f
+                    (float)(Multiplayer.clock.ElapsedMillisDouble() - player.updatedAt) / 50f
                 ).MapToUIPosition();
 
                 var icon = MultiplayerData.icons.ElementAtOrDefault(player.cursorIcon);

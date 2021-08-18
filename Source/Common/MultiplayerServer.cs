@@ -197,7 +197,7 @@ namespace Multiplayer.Common
 
             var curSpeed = Client.Multiplayer.WorldComp.TimeSpeed;
 
-            autosaveCountdown -= (curSpeed == TimeSpeed.Paused && !Client.Multiplayer.settings.pauseAutosaveCounter) 
+            autosaveCountdown -= (curSpeed == TimeSpeed.Paused && !Client.Multiplayer.settings.pauseAutosaveCounter)
                 ? 1 : Client.Multiplayer.WorldComp.TickRateMultiplier(curSpeed);
 
             if (autosaveCountdown <= 0)
@@ -225,7 +225,7 @@ namespace Multiplayer.Common
                 return false;
 
             if (settings.pauseOnAutosave || forcePause)
-                SendCommand(CommandType.WorldTimeSpeed, ScheduledCommand.NoFaction, ScheduledCommand.Global, new byte[] { (byte)TimeSpeed.Paused });
+                SendCommand(CommandType.WorldTimeSpeed, ScheduledCommand.NoFaction, ScheduledCommand.Global, new[] { (byte)TimeSpeed.Paused });
 
             ByteWriter writer = new ByteWriter();
             writer.WriteString(saveName);
@@ -501,7 +501,7 @@ namespace Multiplayer.Common
     {
         public int blockStart;
         public int blockSize;
-        public int mapId = -1;
+        public int mapId;
 
         public int currentWithinBlock;
         public bool overflowHandled;

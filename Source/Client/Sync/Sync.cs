@@ -99,12 +99,7 @@ namespace Multiplayer.Client
             return sf;
         }
 
-        public static SyncDelegate RegisterSyncDelegate(Type type, string nestedType, string method)
-        {
-            return RegisterSyncDelegate(type, nestedType, method, null);
-        }
-
-        public static SyncDelegate RegisterSyncDelegate(Type inType, string nestedType, string methodName, string[] fields, Type[] args = null)
+        public static SyncDelegate RegisterSyncDelegate(Type inType, string nestedType, string methodName, string[] fields = null, Type[] args = null)
         {
             string typeName = $"{inType}+{nestedType}";
             Type delegateType = MpReflection.GetTypeByName(typeName);
@@ -163,6 +158,7 @@ namespace Multiplayer.Client
                         RegisterSyncDialogNodeTree(method);
                     }
                 }
+
                 foreach (FieldInfo field in AccessTools.GetDeclaredFields(type)) {
                     if (field.TryGetAttribute(out SyncFieldAttribute sfa)) {
                         RegisterSyncField(field, sfa);
@@ -209,7 +205,6 @@ namespace Multiplayer.Client
 
                 try {
                     for (; i < exposeParameters.Length; i++) {
-                        Log.Message($"Exposing parameter {exposeParameters[i]}");
                         sm.ExposeParameter(exposeParameters[i]);
                     }
                 } catch (Exception exc) {
@@ -240,7 +235,7 @@ namespace Multiplayer.Client
 
             registeredSyncFields.Add(field.ReflectedType + "/" + field.Name, sf);
 
-            if (MpVersion.IsDebug) { 
+            if (MpVersion.IsDebug) {
                 Log.Message($"Registered Field: {field.ReflectedType}/{field.Name}");
             }
 
@@ -385,7 +380,7 @@ namespace Multiplayer.Client
                     handler.Validate();
                 } catch (Exception e)
                 {
-                    Log.Error($"Sync handler {handler} validation failed: {e}");
+                    Log.Error($"{handler} validation failed: {e}");
                     Multiplayer.loadingErrors = true;
                 }
             }
@@ -471,7 +466,7 @@ namespace Multiplayer.Client
                 return false;
 
             foreach (SyncMethod method in methods) {
-                if (Enumerable.SequenceEqual(method.argTypes.Select(t => t.type), args.Select(o => o.GetType()), TypeComparer.INSTANCE)) {
+                if (Enumerable.SequenceEqual(method.argTypes.Select(t => t.type), args.Select(o => o.GetType()), TypeComparer.instance)) {
                     method.DoSync(target, args);
                     return true;
                 }
@@ -482,7 +477,7 @@ namespace Multiplayer.Client
 
         private class TypeComparer : IEqualityComparer<Type>
         {
-            public static TypeComparer INSTANCE = new TypeComparer();
+            public static TypeComparer instance = new TypeComparer();
 
             public bool Equals(Type x, Type y)
             {

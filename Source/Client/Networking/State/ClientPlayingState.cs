@@ -124,9 +124,9 @@ namespace Multiplayer.Client
 
             player.cursorSeq = seq;
             player.lastCursor = player.cursor;
-            player.lastDelta = Multiplayer.Clock.ElapsedMillisDouble() - player.updatedAt;
+            player.lastDelta = Multiplayer.clock.ElapsedMillisDouble() - player.updatedAt;
             player.cursor = new Vector3(x, 0, z);
-            player.updatedAt = Multiplayer.Clock.ElapsedMillisDouble();
+            player.updatedAt = Multiplayer.clock.ElapsedMillisDouble();
             player.cursorIcon = icon;
 
             short dragXRaw = data.ReadShort();

@@ -60,7 +60,7 @@ namespace Multiplayer.Client
         public static string ReplaysDir => GenFilePaths.FolderUnderSaveData("MpReplays");
         public static string DesyncsDir => GenFilePaths.FolderUnderSaveData("MpDesyncs");
 
-        public static Stopwatch Clock = Stopwatch.StartNew();
+        public static Stopwatch clock = Stopwatch.StartNew();
 
         public static HashSet<string> xmlMods = new HashSet<string>();
         public static List<ModHashes> enabledModAssemblyHashes = new List<ModHashes>();

@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using JetBrains.Annotations;
 using Verse;
 
 namespace Multiplayer.Client
@@ -12,7 +13,8 @@ namespace Multiplayer.Client
     /// Applies a normal Harmony patch, but allows multiple targets
     /// </summary>
     [AttributeUsage(AttributeTargets.Method, AllowMultiple = true, Inherited = false)]
-    public class MpPatch : Attribute
+    [MeansImplicitUse(ImplicitUseTargetFlags.WithMembers)]
+    public abstract class MpPatch : Attribute
     {
         private Type type;
         private string typeName;
@@ -50,37 +52,37 @@ namespace Multiplayer.Client
 
                 method = MpUtil.GetMethod(Type, methodName, methodType, argTypes);
                 if (method == null)
-                    throw new Exception($"Couldn't find method {methodName} in type {Type}");
+                    throw new MissingMethodException($"Couldn't find method {methodName} in type {Type}");
 
                 return method;
             }
         }
 
-        public MpPatch(Type type, string innerType, string methodName) : this($"{type}+{innerType}", methodName)
+        protected MpPatch(Type type, string innerType, string methodName) : this($"{type}+{innerType}", methodName)
         {
         }
 
-        public MpPatch(string typeName, string methodName)
+        protected MpPatch(string typeName, string methodName)
         {
             this.typeName = typeName;
             this.methodName = methodName;
         }
 
-        public MpPatch(Type type, string methodName, Type[] argTypes = null)
+        protected MpPatch(Type type, string methodName, Type[] argTypes = null)
         {
             this.type = type;
             this.methodName = methodName;
             this.argTypes = argTypes;
         }
 
-        public MpPatch(Type type, MethodType methodType, Type[] argTypes = null)
+        protected MpPatch(Type type, MethodType methodType, Type[] argTypes = null)
         {
             this.type = type;
             this.methodType = methodType;
             this.argTypes = argTypes;
         }
 
-        public MpPatch(Type type, string methodName, int lambdaOrdinal)
+        protected MpPatch(Type type, string methodName, int lambdaOrdinal)
         {
             this.type = type;
             this.methodName = methodName;
@@ -103,30 +105,34 @@ namespace Multiplayer.Client
         {
             List<MethodBase> result = null;
 
-            // On methods
             foreach (var m in type.GetDeclaredMethods().Where(m => m.IsStatic))
             {
                 foreach (MpPatch attr in m.AllAttributes<MpPatch>()) {
-                    var toPatch = attr.Method;
-                    HarmonyMethod patch = new HarmonyMethod(m);
+                    try
+                    {
+                        MethodBase toPatch = attr.Method;
+                        HarmonyMethod patch = new HarmonyMethod(m);
 
-                    if (harmony != null) {
-                        try {
-                            harmony.PatchMeasure(
-                                toPatch,
-                                (attr is MpPrefix) ? patch : null,
-                                (attr is MpPostfix) ? patch : null,
-                                (attr is MpTranspiler) ? patch : null
-                            );
-                        } catch (Exception e) {
-                            Log.Error($"Couldn't MpPatch {toPatch.DeclaringType.FullName}:{toPatch.Name}\n\t{e}");
+                        if (harmony != null) {
+
+                                harmony.PatchMeasure(
+                                    toPatch,
+                                    (attr is MpPrefix) ? patch : null,
+                                    (attr is MpPostfix) ? patch : null,
+                                    (attr is MpTranspiler) ? patch : null
+                                );
+
                         }
+
+                        if (result == null)
+                            result = new List<MethodBase>();
+
+                        result.Add(toPatch);
                     }
-
-                    if (result == null)
-                        result = new List<MethodBase>();
-
-                    result.Add(toPatch);
+                    catch (Exception e)
+                    {
+                        Log.Error($"MpPatch failed with exception: {e}");
+                    }
                 }
             }
 

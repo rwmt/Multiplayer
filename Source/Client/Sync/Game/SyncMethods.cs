@@ -66,7 +66,7 @@ namespace Multiplayer.Client
                     .SelectMany(t => methodNames.Select(n => t.GetMethod(n, AccessTools.allDeclared)))
                     .AllNotNull();
 
-                foreach(var method in methods) {
+                foreach (var method in methods) {
                     Sync.RegisterSyncMethod(method).CancelIfAnyArgNull();
                 }
             }
@@ -81,6 +81,7 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(Building_Casket), nameof(Building_Casket.EjectContents));
             SyncMethod.Register(typeof(Building_CryptosleepCasket), nameof(Building_CryptosleepCasket.EjectContents));
             SyncMethod.Register(typeof(Building_AncientCryptosleepCasket), nameof(Building_AncientCryptosleepCasket.EjectContents));
+            SyncMethod.Register(typeof(Building_Crate), nameof(Building_Crate.EjectContents));
 
             SyncMethod.Register(typeof(Building_OrbitalTradeBeacon), nameof(Building_OrbitalTradeBeacon.MakeMatchingStockpile));
             SyncMethod.Register(typeof(Building_SunLamp), nameof(Building_SunLamp.MakeMatchingGrowZone));
@@ -115,6 +116,7 @@ namespace Multiplayer.Client
 
             {
                 var methods = typeof(ITargetingSource).AllImplementing()
+                    .Where(t => t.Assembly == typeof(Game).Assembly)
                     .Select(t => t.GetMethod(nameof(ITargetingSource.OrderForceTarget), AccessTools.allDeclared))
                     .AllNotNull();
 

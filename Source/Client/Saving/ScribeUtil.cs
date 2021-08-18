@@ -72,8 +72,6 @@ namespace Multiplayer.Client
 
         public static bool loading;
 
-        static string filename;
-
         public static void StartWriting(bool indent = false)
         {
             stream = new MemoryStream();

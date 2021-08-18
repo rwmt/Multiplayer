@@ -120,7 +120,7 @@ namespace Multiplayer.Client
                 return CanHandle(Enum.GetUnderlyingType(type));
             if (type.IsArray)
                 return type.GetArrayRank() == 1 && CanHandle(type.GetElementType());
-            if (type.IsGenericType && type.GetGenericTypeDefinition() is Type gtd)
+            if (type.IsGenericType && type.GetGenericTypeDefinition() is { } gtd)
                 return
                     (false
                     || gtd == typeof(List<>)
@@ -173,8 +173,6 @@ namespace Multiplayer.Client
 
         private static object ReadSyncObjectInternal(ByteReader data, SyncType syncType)
         {
-            MpContext context = data.MpContext();
-            Map map = context.map;
             Type type = syncType.type;
 
             try
@@ -345,7 +343,7 @@ namespace Multiplayer.Client
                 }
 
                 // Where the magic happens
-                if (SyncDict.syncWorkers.TryGetValue(type, out var syncWorkerEntry)) 
+                if (SyncDict.syncWorkers.TryGetValue(type, out var syncWorkerEntry))
                 {
                     object res = null;
 
@@ -494,7 +492,7 @@ namespace Multiplayer.Client
                         return;
                     }
 
-                    if (genericTypeDefinition == typeof(Nullable<>)) 
+                    if (genericTypeDefinition == typeof(Nullable<>))
                     {
                         bool isNull = obj == null;
                         data.WriteBool(isNull);
@@ -530,8 +528,8 @@ namespace Multiplayer.Client
                     {
                         Type[] arguments = type.GetGenericArguments();
 
-                        WriteSyncObject(data, type.GetField("first", AccessTools.all).GetValue(obj), arguments[0]);
-                        WriteSyncObject(data, type.GetField("second", AccessTools.all).GetValue(obj), arguments[1]);
+                        WriteSyncObject(data, AccessTools.DeclaredField(type, "first").GetValue(obj), arguments[0]);
+                        WriteSyncObject(data, AccessTools.DeclaredField(type, "second").GetValue(obj), arguments[1]);
 
                         return;
                     }
@@ -560,8 +558,7 @@ namespace Multiplayer.Client
                 // Special case
                 if (typeof(Def).IsAssignableFrom(type))
                 {
-                    Def def = obj as Def;
-                    data.WriteUShort(def != null ? def.shortHash : (ushort)0);
+                    data.WriteUShort(obj is Def def ? def.shortHash : (ushort)0);
 
                     return;
                 }

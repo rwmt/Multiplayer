@@ -558,7 +558,7 @@ namespace Multiplayer.Client.AsyncTime
                 __result = __result.Where(questPart => {
                     if (questPart is QuestPart_ThreatsGenerator questPartThreatsGenerator)
                     {
-                        return questPartThreatsGenerator?.mapParent?.Map == Multiplayer.MapContext;
+                        return questPartThreatsGenerator.mapParent?.Map == Multiplayer.MapContext;
                     }
                     return true;
                 }).ToList();

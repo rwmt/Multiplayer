@@ -37,11 +37,12 @@ namespace Multiplayer.Client
         public static string FixedEllipsis()
         {
             int num = Mathf.FloorToInt(Time.realtimeSinceStartup) % 3;
-            if (num == 0)
-                return ".  ";
-            if (num == 1)
-                return ".. ";
-            return "...";
+            return num switch
+            {
+                0 => ".  ",
+                1 => ".. ",
+                _ => "..."
+            };
         }
 
         public static IEnumerable<Type> AllModTypes()
@@ -65,7 +66,7 @@ namespace Multiplayer.Client
             }
         }
 
-        public unsafe static void MarkNoInlining(MethodBase method)
+        public static unsafe void MarkNoInlining(MethodBase method)
         {
             ushort* iflags = (ushort*)(method.MethodHandle.Value) + 1;
             *iflags |= (ushort)MethodImplOptions.NoInlining;
@@ -107,9 +108,9 @@ namespace Multiplayer.Client
                     return AccessTools.DeclaredConstructor(type, args);
 
                 case MethodType.StaticConstructor:
-                    return AccessTools.GetDeclaredConstructors(type)
-                        .Where(c => c.IsStatic)
-                        .FirstOrDefault();
+                    return AccessTools
+                        .GetDeclaredConstructors(type)
+                        .FirstOrDefault(c => c.IsStatic);
             }
 
             return null;

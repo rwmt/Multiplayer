@@ -12,9 +12,9 @@ namespace Multiplayer.Client
 
     public static class Serializer
     {
-        public static Serializer<Live, Networked> New<Live, Networked>(Func<Live, object, object[], Networked> Writer, Func<Networked, Live> Reader)
+        public static Serializer<Live, Networked> New<Live, Networked>(Func<Live, object, object[], Networked> writer, Func<Networked, Live> reader)
         {
-            return new(Writer, Reader);
+            return new(writer, reader);
         }
     }
 
@@ -120,7 +120,7 @@ namespace Multiplayer.Client
                     SyncObj(args[i], argTypes[i], $"Arg {i} {argNames[i]}");
 
             for (int i = 0; i < argTypes.Length; i++)
-                if (argTransformers[i] is SyncTransformer trans)
+                if (argTransformers[i] is { } trans)
                     SyncObj(trans.Writer.DynamicInvoke(args[i], target, args), trans.NetworkType, $"Arg {i} {argNames[i]} (transformed)");
 
             int mapId = map?.uniqueID ?? ScheduledCommand.Global;
@@ -161,7 +161,7 @@ namespace Multiplayer.Client
                     args[i] = SyncSerialization.ReadSyncObject(data, argTypes[i]);
 
             for (int i = 0; i < argTypes.Length; i++)
-                if (argTransformers[i] is SyncTransformer trans)
+                if (argTransformers[i] is { } trans)
                     args[i] = trans.Reader.DynamicInvoke(SyncSerialization.ReadSyncObject(data, trans.NetworkType));
 
             if (cancelIfAnyArgNull && args.Any(a => a == null))
