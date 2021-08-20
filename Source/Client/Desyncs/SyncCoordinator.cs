@@ -197,6 +197,9 @@ namespace Multiplayer.Client
                         zip.AddEntry("desync_traces.txt", desyncStackTrace);
                     }
 
+                    var extraLogs = LogGenerator.PrepareLogData();
+                    if (extraLogs != null) zip.AddEntry("extra_logs.txt", extraLogs);
+
                     zip.Save();
                 }
             }
