@@ -10,8 +10,9 @@ using Multiplayer.Client.Saving;
 using Multiplayer.Common;
 
 using RimWorld;
-using RimWorld.Planet;
 using Verse;
+
+// ReSharper disable UnusedMember.Global
 
 namespace Multiplayer.Client
 {
@@ -43,19 +44,19 @@ namespace Multiplayer.Client
         }
     }
 
-    public class PesistentDialog_NodeTreeWithFactionInfo : PersistentDialog<Dialog_NodeTreeWithFactionInfo>
+    public class PersistentDialog_NodeTreeWithFactionInfo : PersistentDialog<Dialog_NodeTreeWithFactionInfo>
     {
         // temp vars, keep them clean
         Faction faction;
 
-        public PesistentDialog_NodeTreeWithFactionInfo(Map map) : base(map)
+        public PersistentDialog_NodeTreeWithFactionInfo(Map map) : base(map)
         {
             // Used by ScribeExtractor
         }
 
-        public PesistentDialog_NodeTreeWithFactionInfo(Map map, Dialog_NodeTreeWithFactionInfo dialog) : base(map, dialog)
+        public PersistentDialog_NodeTreeWithFactionInfo(Map map, Dialog_NodeTreeWithFactionInfo dialog) : base(map, dialog)
         {
-            // Used by PresistentDialog
+            // Used by PersistentDialog
         }
 
         protected override void ExposeDataSaveLoad()
@@ -90,7 +91,7 @@ namespace Multiplayer.Client
 
         public PersistentDialog_Negotiation(Map map, Dialog_Negotiation dialog) : base(map, dialog)
         {
-            // Used by PersistenDialog
+            // Used by PersistentDialog
         }
 
         protected override void ExposeDataSaveLoad()
@@ -123,7 +124,7 @@ namespace Multiplayer.Client
     [StaticConstructorOnStartup]
     public abstract class PersistentDialog : IExposable
     {
-        protected static readonly Dictionary<Type, Type> bindings = new Dictionary<Type, Type>();
+        protected static readonly Dictionary<Type, Type> bindings = new();
 
         public Map map;
         public int id;
@@ -140,7 +141,7 @@ namespace Multiplayer.Client
             Type target = bindings.TryGetValue(dialog.GetType());
 
             if (target == null) {
-                Log.Warning($"Unknow Window Type {target}");
+                Log.Warning($"Unknown Window Type {null}");
 
                 return null;
             }
@@ -205,7 +206,7 @@ namespace Multiplayer.Client
         }
 
         /// <summary>
-        /// Manually bind a Dialog_Nodetree to its Proxy
+        /// Manually bind a Dialog_NodeTree to its Proxy
         /// </summary>
         /// <remarks>Isn't used internally. It's here for modders.</remarks>
         /// <param name="target">Target must be implementation of Dialog_NodeTree.</param>
@@ -475,7 +476,7 @@ namespace Multiplayer.Client
                     mode = LookMode.Value;
                 else if (typeof(Def).IsAssignableFrom(type))
                     mode = LookMode.Def;
-                else if (value is Thing thing && !thing.Spawned)
+                else if (value is Thing { Spawned: false })
                     mode = LookMode.Deep;
                 else if (typeof(ILoadReferenceable).IsAssignableFrom(type))
                     mode = LookMode.Reference;
@@ -522,7 +523,7 @@ namespace Multiplayer.Client
                 }
                 else if (mode == LookMode.Deep)
                 {
-                    var args = new[] { value, "value", new object[0] };
+                    var args = new[] { value, "value", Array.Empty<object>() };
                     ScribeDeep.MakeGenericMethod(type).Invoke(null, args);
                     if (Scribe.mode == LoadSaveMode.LoadingVars)
                         value = args[0];
@@ -557,7 +558,7 @@ namespace Multiplayer.Client
                     {
                         var del = (Delegate)value;
 
-                        Scribe_Custom.LookValue(del.Method.DeclaringType.FullName, "methodType");
+                        Scribe_Custom.LookValue(del.Method.DeclaringType?.FullName, "methodType");
                         Scribe_Custom.LookValue(del.Method.Name, "methodName");
 
                         if (del.Target != null)
@@ -591,7 +592,7 @@ namespace Multiplayer.Client
         {
             public bool Equals(FieldSave x, FieldSave y)
             {
-                return Equals(x.value, y.value);
+                return Equals(x?.value, y?.value);
             }
 
             public int GetHashCode(FieldSave obj)
@@ -619,7 +620,7 @@ namespace Multiplayer.Client
 
             if (window is Dialog_NodeTree dialog_NodeTree)
             {
-                // Prevent an endless loop of trying to add a dialog, which creates a new PersistentDialog, which tries to add it, which creates a new Peristent Dialog, etc.
+                // Prevent an endless loop of trying to add a dialog, which creates a new PersistentDialog, which tries to add it, which creates a new Persistent Dialog, etc.
                 if (comp?.mapDialogs.Any(d => d.Dialog == window) == true || Multiplayer.WorldComp.globalDialogs.Any(d => d.Dialog == window)) return true;
 
                 persistentDialog = PersistentDialog.CreateInstance(map, dialog_NodeTree);
@@ -644,8 +645,7 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.Client == null) return true;
 
-            var type = __instance.GetType();
-            if ((__instance is Dialog_NodeTree)) return true;
+            if (__instance != null) return true;
 
             return !Multiplayer.ShouldSync;
         }
@@ -667,7 +667,7 @@ namespace Multiplayer.Client
             return false;
         }
     }
-
+    
     [HarmonyPatch(typeof(WindowStack), nameof(WindowStack.TryRemove), new[] { typeof(Window), typeof(bool) })]
     static class WindowStackTryRemove
     {
@@ -703,6 +703,6 @@ namespace Multiplayer.Client
             return true;
         }
     }
-
+        
     #endregion
 }
