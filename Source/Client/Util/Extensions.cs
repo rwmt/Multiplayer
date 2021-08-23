@@ -423,6 +423,29 @@ namespace Multiplayer.Client
         {
             return Enumerable.Zip(enumA, enumB, (a, b) => (a, b));
         }
+        
+        /// <summary>
+        /// Returns an enumerable as a string, joined by a separator string. By default null values appear as an empty string.
+        /// </summary>
+        /// <param name="list">A list of elements to string together</param>
+        /// <param name="separator">A string to inset between elements</param>
+        /// <param name="explicitNullValues">If true, null elements will appear as "[null]"</param>
+        public static string Join(this IEnumerable list, string separator, bool explicitNullValues = false)
+        {
+            if (list == null) return "";
+            var builder = new StringBuilder();
+            var useSeparator = false;
+            foreach (var elem in list)
+            {
+                if (useSeparator) builder.Append(separator);
+                useSeparator = true;
+                if (elem != null || explicitNullValues)
+                {
+                    builder.Append(elem != null ? elem.ToString() : "[null]");
+                }
+            }
+            return builder.ToString();
+        }
     }
 
     public static class RectExtensions
