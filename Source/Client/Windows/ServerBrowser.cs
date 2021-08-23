@@ -559,7 +559,7 @@ namespace Multiplayer.Client
             for (int i = servers.Count - 1; i >= 0; i--)
             {
                 LanServer server = servers[i];
-                if (Multiplayer.Clock.ElapsedMilliseconds - server.lastUpdate > 5000)
+                if (Multiplayer.clock.ElapsedMilliseconds - server.lastUpdate > 5000)
                     servers.RemoveAt(i);
             }
         }
@@ -568,7 +568,7 @@ namespace Multiplayer.Client
 
         private void UpdateSteam()
         {
-            if (Multiplayer.Clock.ElapsedMilliseconds - lastFriendUpdate < 2000) return;
+            if (Multiplayer.clock.ElapsedMilliseconds - lastFriendUpdate < 2000) return;
 
             friends.Clear();
 
@@ -606,7 +606,7 @@ namespace Multiplayer.Client
 
             friends.SortByDescending(f => f.serverHost != CSteamID.Nil);
 
-            lastFriendUpdate = Multiplayer.Clock.ElapsedMilliseconds;
+            lastFriendUpdate = Multiplayer.clock.ElapsedMilliseconds;
         }
 
         public override void PostClose()
@@ -633,12 +633,12 @@ namespace Multiplayer.Client
                 servers.Add(new LanServer()
                 {
                     endpoint = endpoint,
-                    lastUpdate = Multiplayer.Clock.ElapsedMilliseconds
+                    lastUpdate = Multiplayer.clock.ElapsedMilliseconds
                 });
             }
             else
             {
-                server.lastUpdate = Multiplayer.Clock.ElapsedMilliseconds;
+                server.lastUpdate = Multiplayer.clock.ElapsedMilliseconds;
             }
         }
 

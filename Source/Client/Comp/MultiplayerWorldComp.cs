@@ -115,7 +115,10 @@ namespace Multiplayer.Client
 
         public void ExposeData()
         {
-            Scribe_Values.Look(ref TickPatch.Timer, "timer");
+            var timer = TickPatch.Timer;
+            Scribe_Values.Look(ref timer, "timer");
+            TickPatch.SetTimer(timer);
+
             bool asyncTimeInSave = asyncTime;
             Scribe_Values.Look(ref asyncTimeInSave, "asyncTime", true, true); // default true to Enable async time on old saves
             if (Scribe.mode == LoadSaveMode.LoadingVars) {
@@ -261,7 +264,7 @@ namespace Multiplayer.Client
             data.Log.Node($"{cmdType} Global");
 
             executingCmdWorld = true;
-            TickPatch.currentExecutingCmdIssuedBySelf = cmd.issuedBySelf && !TickPatch.Skipping;
+            TickPatch.currentExecutingCmdIssuedBySelf = cmd.issuedBySelf && !TickPatch.Simulating;
 
             PreContext();
             Extensions.PushFaction(null, cmd.GetFaction());
@@ -348,7 +351,8 @@ namespace Multiplayer.Client
 
                 Multiplayer.game.sync.TryAddCommandRandomState(randState);
 
-                Multiplayer.ReaderLog.AddCurrentNode(data);
+                if (cmdType != CommandType.WorldTimeSpeed)
+                    Multiplayer.ReaderLog.AddCurrentNode(data);
             }
         }
 
@@ -357,7 +361,7 @@ namespace Multiplayer.Client
             var autosaveFile = saveName != "" ? saveName : AutosaveFile();
             var written = false;
 
-            if (Multiplayer.LocalServer != null && !TickPatch.Skipping && !Multiplayer.IsReplay)
+            if (Multiplayer.LocalServer != null && !TickPatch.Simulating && !Multiplayer.IsReplay)
             {
                 try
                 {
@@ -393,7 +397,7 @@ namespace Multiplayer.Client
                 }
             }
 
-            if (!TickPatch.Skipping && !Multiplayer.IsReplay && (Multiplayer.LocalServer != null || Multiplayer.arbiterInstance))
+            if (!TickPatch.Simulating && !Multiplayer.IsReplay && (Multiplayer.LocalServer != null || Multiplayer.arbiterInstance))
                 SaveLoad.SendCurrentGameData(true);
         }
 

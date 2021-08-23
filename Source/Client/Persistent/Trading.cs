@@ -405,8 +405,6 @@ namespace Multiplayer.Client
     [HarmonyPatch(new[] { typeof(Pawn), typeof(ITrader), typeof(bool) })]
     static class DialogTradeCtorPatch
     {
-        public static int tradeJobStartedByMe = -1;
-
         static bool Prefix(Pawn playerNegotiator, ITrader trader, bool giftsOnly)
         {
             if (Multiplayer.ExecutingCmds || Multiplayer.Ticking)
@@ -415,9 +413,9 @@ namespace Multiplayer.Client
 
                 if (trade != null)
                 {
-                    if (playerNegotiator.Map == Find.CurrentMap && playerNegotiator.CurJob.loadID == tradeJobStartedByMe)
+                    if (playerNegotiator.Map == Find.CurrentMap && playerNegotiator.CurJob.loadID == SyncMethods.tradeJobStartedByMe)
                     {
-                        tradeJobStartedByMe = -1;
+                        SyncMethods.tradeJobStartedByMe = -1;
                         trade.OpenWindow();
                     }
                     else if (trader is Settlement && Find.World.renderer.wantedMode == WorldRenderMode.Planet)

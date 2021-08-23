@@ -617,9 +617,6 @@ namespace Multiplayer.Client
 
             PersistentDialog persistentDialog = null;
 
-            window.doCloseX = true;
-            window.closeOnCancel = true;
-
             if (window is Dialog_NodeTree dialog_NodeTree)
             {
                 // Prevent an endless loop of trying to add a dialog, which creates a new PersistentDialog, which tries to add it, which creates a new Peristent Dialog, etc.
@@ -629,6 +626,9 @@ namespace Multiplayer.Client
             }
 
             if (persistentDialog == null) return true;
+            
+            window.doCloseX = true;
+            window.closeOnCancel = true;
 
             if (comp != null) comp.mapDialogs.Add(persistentDialog);
             else Multiplayer.WorldComp.globalDialogs.Add(persistentDialog);

@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using RimWorld;
 using System;
 using System.Collections.Generic;
@@ -21,7 +21,7 @@ namespace Multiplayer.Client
             var fluffysModButtonType = MpReflection.GetTypeByName("ModManager.ModButton_Installed");
             if (fluffysModButtonType != null)
             {
-                harmony.Patch(
+                harmony.PatchMeasure(
                     fluffysModButtonType.GetMethod("DoModButton"),
                     new HarmonyMethod(typeof(PageModsPatch), nameof(PageModsPatch.FluffyModManager_DoModButton)),
                     new HarmonyMethod(typeof(PageModsPatch), nameof(PageModsPatch.Postfix))
@@ -90,7 +90,7 @@ namespace Multiplayer.Client
             var method = AccessTools.Method(type, methodName);
             if (method == null) return;
 
-            Multiplayer.harmony.Patch(method, prefix, postfix, transpiler);
+            Multiplayer.harmony.PatchMeasure(method, prefix, postfix, transpiler);
         }
     }
 

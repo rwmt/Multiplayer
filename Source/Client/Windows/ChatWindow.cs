@@ -469,13 +469,11 @@ namespace Multiplayer.Client
     {
         public virtual bool Clickable => false;
         public abstract string Msg { get; }
-        public virtual DateTime TimeStamp => timestamp;
-
-        private DateTime timestamp;
+        public virtual DateTime TimeStamp { get; }
 
         public ChatMsg()
         {
-            timestamp = DateTime.Now;
+            TimeStamp = DateTime.Now;
         }
 
         public virtual void Click() { }
@@ -483,12 +481,11 @@ namespace Multiplayer.Client
 
     public class ChatMsg_Text : ChatMsg
     {
-        private string msg;
-        public override string Msg => msg;
+        public override string Msg { get; }
 
         public ChatMsg_Text(string msg)
         {
-            this.msg = msg;
+            this.Msg = msg;
         }
     }
 

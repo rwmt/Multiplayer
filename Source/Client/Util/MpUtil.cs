@@ -37,11 +37,12 @@ namespace Multiplayer.Client
         public static string FixedEllipsis()
         {
             int num = Mathf.FloorToInt(Time.realtimeSinceStartup) % 3;
-            if (num == 0)
-                return ".  ";
-            if (num == 1)
-                return ".. ";
-            return "...";
+            return num switch
+            {
+                0 => ".  ",
+                1 => ".. ",
+                _ => "..."
+            };
         }
 
         public static IEnumerable<Type> AllModTypes()
@@ -65,15 +66,20 @@ namespace Multiplayer.Client
             }
         }
 
-        public unsafe static void MarkNoInlining(MethodBase method)
+        public static unsafe void MarkNoInlining(MethodBase method)
         {
             ushort* iflags = (ushort*)(method.MethodHandle.Value) + 1;
             *iflags |= (ushort)MethodImplOptions.NoInlining;
         }
 
+        public static object NewObjectNoCtor(Type type)
+        {
+            return FormatterServices.GetUninitializedObject(type);
+        }
+
         public static T NewObjectNoCtor<T>()
         {
-            return (T)FormatterServices.GetUninitializedObject(typeof(T));
+            return (T)NewObjectNoCtor(typeof(T));
         }
 
         // Copied from Harmony.PatchProcessor
@@ -102,9 +108,9 @@ namespace Multiplayer.Client
                     return AccessTools.DeclaredConstructor(type, args);
 
                 case MethodType.StaticConstructor:
-                    return AccessTools.GetDeclaredConstructors(type)
-                        .Where(c => c.IsStatic)
-                        .FirstOrDefault();
+                    return AccessTools
+                        .GetDeclaredConstructors(type)
+                        .FirstOrDefault(c => c.IsStatic);
             }
 
             return null;
@@ -188,7 +194,7 @@ namespace Multiplayer.Client
         const string LocalFunctionInfix = "g__";
         const string EnumerableStateMachineInfix = "d__";
 
-        public static MethodInfo GetLambda(Type parentType, string parentMethod = null, MethodType parentMethodType = MethodType.Normal, Type[] parentArgs = null , int lambdaOrdinal = 0)
+        public static MethodInfo GetLambda(Type parentType, string parentMethod = null, MethodType parentMethodType = MethodType.Normal, Type[] parentArgs = null, int lambdaOrdinal = 0)
         {
             var parent = GetMethod(parentType, parentMethod, parentMethodType, parentArgs);
             if (parent == null)
@@ -425,9 +431,13 @@ namespace Multiplayer.Client
         }
     }
 
-    [AttributeUsage(AttributeTargets.Class)]
+    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]
     public class HotSwappableAttribute : Attribute
     {
+        public HotSwappableAttribute()
+        {
+
+        }
     }
 
 }

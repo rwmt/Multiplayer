@@ -53,8 +53,8 @@ namespace Multiplayer.Client
             //If we've already desynced, don't even bother
             if (Multiplayer.session.desynced) return;
 
-            //If we're skipping ticks, again, don't bother
-            if (TickPatch.Skipping) return;
+            //If we're simulating, again, don't bother
+            if (TickPatch.Simulating) return;
 
             //If this is the first client opinion we have nothing to compare it with, so just add it
             if (knownClientOpinions.Count == 0)
@@ -196,6 +196,9 @@ namespace Multiplayer.Client
                     if (desyncStackTrace != "") {
                         zip.AddEntry("desync_traces.txt", desyncStackTrace);
                     }
+
+                    var extraLogs = LogGenerator.PrepareLogData();
+                    if (extraLogs != null) zip.AddEntry("extra_logs.txt", extraLogs);
 
                     zip.Save();
                 }

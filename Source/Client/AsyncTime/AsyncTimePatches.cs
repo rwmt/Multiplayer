@@ -264,7 +264,7 @@ namespace Multiplayer.Client.AsyncTime
             bool anyCaravan = bar.Entries.Any(b => b.map == null);
             foreach (var entry in bar.Entries)
             {
-                if (entry.pawn == null || entry.pawn.Dead || curGroup == entry.group) continue;
+                if (curGroup == entry.group) continue;
 
                 ITickable entryTickable = entry.map?.AsyncTime();
                 if (entryTickable == null) entryTickable = Multiplayer.WorldComp;
@@ -337,7 +337,7 @@ namespace Multiplayer.Client.AsyncTime
             List<FloatMenuOption> options = new List<FloatMenuOption>();
             var split = Multiplayer.WorldComp.splitSession;
 
-            if (split != null && split.Caravan.pawns.Contains(entry.pawn) == true)
+            if (split != null && split.Caravan.pawns.Contains(entry.pawn))
             {
                 options.Add(new FloatMenuOption("MpCaravanSplittingSession".Translate(), () =>
                 {
@@ -503,7 +503,7 @@ namespace Multiplayer.Client.AsyncTime
             var asyncTime = map.AsyncTime();
             var timeSpeed = Multiplayer.IsReplay ? TickPatch.replayTimeSpeed : asyncTime.TimeSpeed;
 
-            __result = TickPatch.Skipping ? 6 : asyncTime.ActualRateMultiplier(timeSpeed);
+            __result = TickPatch.Simulating ? 6 : asyncTime.ActualRateMultiplier(timeSpeed);
         }
     }
 
@@ -526,6 +526,7 @@ namespace Multiplayer.Client.AsyncTime
     public class StorytellerTickPatch
     {
         public static bool updating;
+
         static IEnumerable<MethodBase> TargetMethods()
         {
             yield return AccessTools.Method(typeof(Storyteller), nameof(Storyteller.StorytellerTick));
@@ -579,7 +580,7 @@ namespace Multiplayer.Client.AsyncTime
                 __result = __result.Where(questPart => {
                     if (questPart is QuestPart_ThreatsGenerator questPartThreatsGenerator)
                     {
-                        return questPartThreatsGenerator?.mapParent?.Map == Multiplayer.MapContext;
+                        return questPartThreatsGenerator.mapParent?.Map == Multiplayer.MapContext;
                     }
                     return true;
                 }).ToList();

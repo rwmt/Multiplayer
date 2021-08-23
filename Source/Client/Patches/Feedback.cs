@@ -44,6 +44,15 @@ namespace Multiplayer.Client.Patches
         }
     }
 
+    [HarmonyPatch(typeof(WorldTargeter), nameof(WorldTargeter.StopTargeting))]
+    static class CancelCancelGlobalTargeting
+    {
+        static bool Prefix()
+        {
+            return !CancelFeedbackNotTargetedAtMe.Cancel;
+        }
+    }
+
     [HarmonyPatch]
     static class CancelMotesNotTargetedAtMe
     {

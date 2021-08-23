@@ -64,15 +64,18 @@ namespace Multiplayer.Client
         public static ISyncField SyncOutfitLabel;
         public static ISyncField SyncDrugPolicyLabel;
         public static ISyncField SyncFoodRestrictionLabel;
+
         public static ISyncField SyncStorytellerDef;
+        public static ISyncField SyncStorytellerDifficultyDef;
         public static ISyncField SyncStorytellerDifficulty;
 
         public static ISyncField SyncAnimalPenAutocut;
 
         public static SyncField[] SyncAutoSlaughter;
-		
+
         public static ISyncField SyncDryadCaste;
         public static ISyncField SyncDesiredTreeConnectionStrength;
+        public static ISyncField SyncPlantCells;
 
         public static ISyncField SyncNeuralSuperchargerMode;
 
@@ -183,8 +186,10 @@ namespace Multiplayer.Client
             SyncOutfitLabel = Sync.Field(typeof(Outfit), "label").SetBufferChanges().SetVersion(2);
             SyncDrugPolicyLabel = Sync.Field(typeof(DrugPolicy), "label").SetBufferChanges().SetVersion(2);
             SyncFoodRestrictionLabel = Sync.Field(typeof(FoodRestriction), "label").SetBufferChanges().SetVersion(2);
+
             SyncStorytellerDef = Sync.Field(typeof(Storyteller), "def").SetHostOnly().PostApply(StorytellerDef_Post).SetVersion(2);
-            SyncStorytellerDifficulty = Sync.Field(typeof(Storyteller), "difficulty").SetHostOnly().PostApply(StorytellerDifficutly_Post).SetVersion(2);
+            SyncStorytellerDifficultyDef = Sync.Field(typeof(Storyteller), "difficultyDef").SetHostOnly().PostApply(StorytellerDifficultyDef_Post).SetVersion(2);
+            SyncStorytellerDifficulty = Sync.Field(typeof(Storyteller), "difficulty").ExposeValue().SetHostOnly().PostApply(StorytellerDifficulty_Post).SetVersion(2);
 
             SyncDryadCaste = Sync.Field(typeof(CompTreeConnection), nameof(CompTreeConnection.desiredMode));
             SyncDesiredTreeConnectionStrength = Sync.Field(typeof(CompTreeConnection), nameof(CompTreeConnection.desiredConnectionStrength));
@@ -198,6 +203,7 @@ namespace Multiplayer.Client
         static void ChangeStoryteller()
         {
             SyncStorytellerDef.Watch(Find.Storyteller);
+            SyncStorytellerDifficultyDef.Watch(Find.Storyteller);
             SyncStorytellerDifficulty.Watch(Find.Storyteller);
         }
 
@@ -212,7 +218,13 @@ namespace Multiplayer.Client
             }
         }
 
-        static void StorytellerDifficutly_Post(object target, object value)
+        static void StorytellerDifficultyDef_Post(object target, object value)
+        {
+            foreach (var comp in Multiplayer.game.asyncTimeComps)
+                comp.storyteller.difficultyDef = Find.Storyteller.difficultyDef;
+        }
+
+        static void StorytellerDifficulty_Post(object target, object value)
         {
             foreach (var comp in Multiplayer.game.asyncTimeComps)
                 comp.storyteller.difficulty = Find.Storyteller.difficulty;
@@ -369,7 +381,7 @@ namespace Multiplayer.Client
         {
             // Apply the buffered value for smooth rendering
             // (the actual syncing happens in BillIngredientSearchRadius below)
-            if (__instance.mouseoverBill is Bill mouseover)
+            if (__instance.mouseoverBill is { } mouseover)
                 SyncIngredientSearchRadius.Watch(mouseover);
         }
 
@@ -481,11 +493,11 @@ namespace Multiplayer.Client
             foreach (var entry in dropdowns)
             {
                 if (entry.option.action != null)
-                    entry.option.action = (SyncUtil.FieldWatchPrefix + watchAction + entry.option.action + SyncUtil.FieldWatchPostfix);
+                    entry.option.action = (SyncFieldUtil.FieldWatchPrefix + watchAction + entry.option.action + SyncFieldUtil.FieldWatchPostfix);
                 yield return entry;
             }
         }
-			
+
         [MpPrefix(typeof(Gizmo_PruningConfig), nameof(Gizmo_PruningConfig.DrawBar))]
         static void WatchTreeConnectionStrength(Gizmo_PruningConfig __instance)
         {
@@ -497,7 +509,7 @@ namespace Multiplayer.Client
         {
             SyncDryadCaste.Watch(__instance.treeConnection);
         }
-		
+
         static void Autoslaughter_PostApply(object target, object value)
         {
             Multiplayer.MapContext.autoSlaughterManager.Notify_ConfigChanged();

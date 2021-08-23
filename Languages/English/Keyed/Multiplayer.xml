@@ -59,8 +59,10 @@
   <MpFullSave>Full Save</MpFullSave>
   <MpFullSaveDesc>Full saves load faster, but save slower, and are only available to the Host</MpFullSaveDesc>
   
-  <MpConvert>Convert to singleplayer</MpConvert>
-  <MpConverting>Converting</MpConverting>
+  <MpConvertToSp>Convert to singleplayer</MpConvertToSp>
+  <MpConvertToSpWarnHost>Are you sure you want to convert to singleplayer? This will close the server.</MpConvertToSpWarnHost>
+  <MpConvertToSpWarn>Are you sure you want to convert to singleplayer? You will leave the multiplayer game.</MpConvertToSpWarn>
+  <MpConvertingToSp>Converting</MpConvertingToSp>
   
   <MpUsername>Username</MpUsername>
   <MpShowPlayerCursors>Show player cursors</MpShowPlayerCursors>
@@ -82,7 +84,7 @@
   <MpCaravanSplittingSession>Caravan splitting session</MpCaravanSplittingSession>
   <MpDialogSession>Dialog session</MpDialogSession>
   
-  <AnotherRitualInProgress>Can't begin ritual. Another ritual setup session is already in progress.</AnotherRitualInProgress>
+  <MpAnotherRitualInProgress>Another ritual setup session is already in progress.</MpAnotherRitualInProgress>
   
   <MpChatPlayers>Players ({0}):</MpChatPlayers>
   <MpSend>Send</MpSend>

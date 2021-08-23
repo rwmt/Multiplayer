@@ -16,14 +16,6 @@ namespace Multiplayer.Client
     {
         public static ActionQueue queue = new ActionQueue();
 
-        public static int cachedAtTime;
-        public static byte[] cachedGameData;
-        public static byte[] cachedSemiPersistent;
-        public static Dictionary<int, byte[]> cachedMapData = new Dictionary<int, byte[]>();
-
-        // Global cmds are -1
-        public static Dictionary<int, List<ScheduledCommand>> cachedMapCmds = new Dictionary<int, List<ScheduledCommand>>();
-
         public void Update()
         {
             Multiplayer.session?.netClient?.PollEvents();
@@ -35,9 +27,9 @@ namespace Multiplayer.Client
 
             if (Multiplayer.Client == null) return;
 
-            UpdateSync();
+            SyncFieldUtil.UpdateSync();
 
-            if (!Multiplayer.arbiterInstance && Application.isFocused && !TickPatch.Skipping && !Multiplayer.session.desynced)
+            if (!Multiplayer.arbiterInstance && Application.isFocused && !TickPatch.Simulating && !Multiplayer.session.desynced)
                 SendVisuals();
 
             if (Multiplayer.Client is SteamBaseConn steamConn && SteamManager.Initialized)
@@ -131,108 +123,14 @@ namespace Multiplayer.Client
             Multiplayer.Client.Send(Packets.Client_Selected, writer.ToArray());
         }
 
-        private void UpdateSync()
-        {
-            foreach (SyncField f in Sync.bufferedFields)
-            {
-                if (f.inGameLoop) continue;
-
-                SyncUtil.bufferedChanges[f].RemoveAll((k, data) =>
-                {
-                    if (CheckShouldRemove(f, k, data))
-                        return true;
-
-                    if (!data.sent && Utils.MillisNow - data.timestamp > 200)
-                    {
-                        f.DoSync(k.Item1, data.toSend, k.Item2);
-                        data.sent = true;
-                        data.timestamp = Utils.MillisNow;
-                    }
-
-                    return false;
-                });
-            }
-        }
-
-        public static bool CheckShouldRemove(SyncField field, (object, object) target, BufferData data)
-        {
-            if (data.sent && Equals(data.toSend, data.actualValue))
-                return true;
-
-            object currentValue = target.Item1.GetPropertyOrField(field.memberPath, target.Item2);
-
-            if (!Equals(currentValue, data.actualValue))
-            {
-                if (data.sent)
-                    return true;
-                else
-                    data.actualValue = currentValue;
-            }
-
-            return false;
-        }
-
         public void OnApplicationQuit()
         {
-            StopMultiplayer();
-        }
-
-        public static void StopMultiplayer()
-        {
-            if (Multiplayer.session != null)
-            {
-                Multiplayer.session.Stop();
-                Multiplayer.session = null;
-                Prefs.Apply();
-            }
-
-            Multiplayer.game?.OnDestroy();
-            Multiplayer.game = null;
-
-            TickPatch.ClearSkipping();
-            TickPatch.Timer = 0;
-            TickPatch.tickUntil = 0;
-            TickPatch.accumulator = 0;
-
-            Find.WindowStack?.WindowOfType<ServerBrowser>()?.Cleanup(true);
-
-            foreach (var entry in SyncUtil.bufferedChanges)
-                entry.Value.Clear();
-
-            ClearCaches();
-
-            if (Multiplayer.arbiterInstance)
-            {
-                Multiplayer.arbiterInstance = false;
-                Application.Quit();
-            }
-        }
-
-        public static void ClearCaches()
-        {
-            cachedAtTime = 0;
-            cachedGameData = null;
-            cachedSemiPersistent = null;
-            cachedMapData.Clear();
-            cachedMapCmds.Clear();
+            Multiplayer.StopMultiplayer();
         }
 
         public static void Enqueue(Action action)
         {
             queue.Enqueue(action);
-        }
-
-        public static void ScheduleCommand(ScheduledCommand cmd)
-        {
-            MpLog.Log($"Cmd: {cmd.type}, faction: {cmd.factionId}, map: {cmd.mapId}, ticks: {cmd.ticks}");
-            cachedMapCmds.GetOrAddNew(cmd.mapId).Add(cmd);
-
-            if (Current.ProgramState != ProgramState.Playing) return;
-
-            if (cmd.mapId == ScheduledCommand.Global)
-                Multiplayer.WorldComp.cmds.Enqueue(cmd);
-            else
-                cmd.GetMap()?.AsyncTime().cmds.Enqueue(cmd);
         }
     }
 

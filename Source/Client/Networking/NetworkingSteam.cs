@@ -98,7 +98,7 @@ namespace Multiplayer.Client.Networking
         protected override void OnDisconnect()
         {
             ConnectionStatusListeners.TryNotifyAll_Disconnected();
-            OnMainThread.StopMultiplayer();
+            Multiplayer.StopMultiplayer();
         }
     }
 

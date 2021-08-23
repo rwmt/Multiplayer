@@ -25,6 +25,7 @@ using System.Xml.Linq;
 using HarmonyLib;
 using Multiplayer.Client.Desyncs;
 using Multiplayer.Client.EarlyPatches;
+using Multiplayer.Client.Util;
 using Multiplayer.Common;
 using RimWorld;
 using Steamworks;
@@ -66,54 +67,35 @@ namespace Multiplayer.Client
             MpConnectionState.SetImplementation(ConnectionStateEnum.ClientPlaying, typeof(ClientPlayingState));
 
             MultiplayerData.CollectCursorIcons();
-            SyncSerialization.CollectTypes();
 
-            DeepProfiler.Start("Multiplayer SyncGame");
+            using (DeepProfilerWrapper.Section("Multiplayer CollectTypes"))
+                SyncSerialization.CollectTypes();
 
-            try
-            {
+            using (DeepProfilerWrapper.Section("Multiplayer SyncGame"))
                 SyncGame.Init();
 
-                var asm = Assembly.GetExecutingAssembly();
-
-                Sync.RegisterAllAttributes(asm);
-                PersistentDialog.BindAll(asm);
-            }
-            catch (Exception e)
+            using (DeepProfilerWrapper.Section("Multiplayer Sync register attributes and validate"))
             {
-                Log.Error($"Exception during Sync initialization: {e}");
-                Multiplayer.loadingErrors = true;
+                try
+                {
+                    Sync.RegisterAllAttributes(typeof(Multiplayer).Assembly);
+                }
+                catch (Exception e)
+                {
+                    Log.Error($"Exception registering Sync attributes: {e}");
+                    Multiplayer.loadingErrors = true;
+                }
+
+                Sync.ValidateAll();
             }
 
-            DeepProfiler.End();
+            PersistentDialog.BindAll(typeof(Multiplayer).Assembly);
 
-            DeepProfiler.Start("Multiplayer MpPatches");
-
-            try
-            {
+            using (DeepProfilerWrapper.Section("Multiplayer MpPatches"))
                 Multiplayer.harmony.DoAllMpPatches();
-            }
-            catch (Exception e)
-            {
-                Log.Error($"Exception during MpPatching: {e}");
-                Multiplayer.loadingErrors = true;
-            }
 
-            DeepProfiler.End();
-
-            DeepProfiler.Start("Multiplayer patches");
-
-            try
-            {
+            using (DeepProfilerWrapper.Section("Multiplayer patches"))
                 DoPatches();
-            }
-            catch (Exception e)
-            {
-                Log.Error($"Exception during patching: {e}");
-                Multiplayer.loadingErrors = true;
-            }
-
-            DeepProfiler.End();
 
             Log.messageQueue.maxMessages = 1000;
 
@@ -137,8 +119,8 @@ namespace Multiplayer.Client
             Multiplayer.hasLoaded = true;
 
             Log.Message(GenFilePaths.ConfigFolderPath);
-            Log.Message(""+JoinData.ModConfigPaths.Count());
-
+            Log.Message(JoinData.ModConfigPaths.Count().ToString());
+            
             SimpleProfiler.Print("mp_prof_out.txt");
         }
 
@@ -256,7 +238,7 @@ namespace Multiplayer.Client
                 try {
                     harmony.CreateClassProcessor(type).Patch();
                 } catch (Exception e) {
-                    LogError($"FAIL: {type} with {e.InnerException}");
+                    LogError($"FAIL: {type} with {e}");
                 }
             });
 
@@ -281,9 +263,9 @@ namespace Multiplayer.Client
                         MethodInfo prefix = AccessTools.Method(typeof(DesignatorPatches), m);
                         try
                         {
-                            harmony.Patch(method, new HarmonyMethod(prefix), null, null, new HarmonyMethod(designatorFinalizer));
+                            harmony.PatchMeasure(method, new HarmonyMethod(prefix), null, null, new HarmonyMethod(designatorFinalizer));
                         } catch (Exception e) {
-                            LogError($"FAIL: {t.FullName}:{method.Name} with {e.InnerException}");
+                            LogError($"FAIL: {t.FullName}:{method.Name} with {e}");
                         }
                     }
                 }
@@ -316,9 +298,9 @@ namespace Multiplayer.Client
                 {
                     try
                     {
-                        harmony.Patch(m, randPatchPrefix, randPatchPostfix);
+                        harmony.PatchMeasure(m, randPatchPrefix, randPatchPostfix);
                     } catch (Exception e) {
-                        LogError($"FAIL: {m.DeclaringType.FullName}:{m.Name} with {e.InnerException}");
+                        LogError($"FAIL: {m.DeclaringType.FullName}:{m.Name} with {e}");
                     }
                 }
 
@@ -341,9 +323,9 @@ namespace Multiplayer.Client
                         {
                             try
                             {
-                                harmony.Patch(method, thingMethodPrefix, thingMethodPostfix);
+                                harmony.PatchMeasure(method, thingMethodPrefix, thingMethodPostfix);
                             } catch (Exception e) {
-                                LogError($"FAIL: {method.DeclaringType.FullName}:{method.Name} with {e.InnerException}");
+                                LogError($"FAIL: {method.DeclaringType.FullName}:{method.Name} with {e}");
                             }
                         }
                     }
@@ -356,8 +338,8 @@ namespace Multiplayer.Client
                 var floatSavePrefix = new HarmonyMethod(typeof(ValueSavePatch).GetMethod(nameof(ValueSavePatch.FloatSave_Prefix)));
                 var valueSaveMethod = typeof(Scribe_Values).GetMethod(nameof(Scribe_Values.Look));
 
-                harmony.Patch(valueSaveMethod.MakeGenericMethod(typeof(double)), doubleSavePrefix, null);
-                harmony.Patch(valueSaveMethod.MakeGenericMethod(typeof(float)), floatSavePrefix, null);
+                harmony.PatchMeasure(valueSaveMethod.MakeGenericMethod(typeof(double)), doubleSavePrefix, null);
+                harmony.PatchMeasure(valueSaveMethod.MakeGenericMethod(typeof(float)), floatSavePrefix, null);
             }
 
             SetCategory("Map time gui patches");
@@ -369,7 +351,7 @@ namespace Multiplayer.Client
 
                 var windowMethods = new[] { "DoWindowContents", "WindowUpdate" };
                 foreach (string m in windowMethods)
-                    harmony.Patch(typeof(MainTabWindow_Inspect).GetMethod(m), setMapTimePrefix, setMapTimePostfix);
+                    harmony.PatchMeasure(typeof(MainTabWindow_Inspect).GetMethod(m), setMapTimePrefix, setMapTimePostfix);
 
                 foreach (var t in typeof(InspectTabBase).AllSubtypesAndSelf())
                 {
@@ -378,9 +360,9 @@ namespace Multiplayer.Client
                     {
                         try
                         {
-                            harmony.Patch(method, setMapTimePrefix, setMapTimePostfix);
+                            harmony.PatchMeasure(method, setMapTimePrefix, setMapTimePostfix);
                         } catch (Exception e) {
-                            LogError($"FAIL: {method.DeclaringType.FullName}:{method.Name} with {e.InnerException}");
+                            LogError($"FAIL: {method.DeclaringType.FullName}:{method.Name} with {e}");
                         }
                     }
 
@@ -388,11 +370,14 @@ namespace Multiplayer.Client
             }
 
             SetCategory("Mod patches");
+
             try {
                 ModPatches.Init();
             } catch(Exception e) {
                 LogError($"FAIL with {e}");
             }
+
+            SetCategory("");
         }
     }
 

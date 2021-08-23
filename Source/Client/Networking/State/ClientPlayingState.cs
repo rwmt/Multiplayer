@@ -11,7 +11,7 @@ using Verse;
 
 namespace Multiplayer.Client
 {
-    public class ClientPlayingState : MpConnectionState
+    public class ClientPlayingState : ClientConnectionState
     {
         public ClientPlayingState(IConnection connection) : base(connection)
         {
@@ -36,7 +36,7 @@ namespace Multiplayer.Client
             int id = data.ReadInt32();
             int ticksBehind = TickPatch.tickUntil - TickPatch.Timer;
 
-            connection.Send(Packets.Client_KeepAlive, id, (ticksBehind << 1) | (TickPatch.Skipping ? 1 : 0));
+            connection.Send(Packets.Client_KeepAlive, id, (ticksBehind << 1) | (TickPatch.Simulating ? 1 : 0));
         }
 
         [PacketHandler(Packets.Server_Command)]
@@ -44,7 +44,7 @@ namespace Multiplayer.Client
         {
             ScheduledCommand cmd = ScheduledCommand.Deserialize(data);
             cmd.issuedBySelf = data.ReadBool();
-            OnMainThread.ScheduleCommand(cmd);
+            Session.ScheduleCommand(cmd);
 
             Multiplayer.session.localCmdId++;
             Multiplayer.session.ProcessTimeControl();
@@ -124,9 +124,9 @@ namespace Multiplayer.Client
 
             player.cursorSeq = seq;
             player.lastCursor = player.cursor;
-            player.lastDelta = Multiplayer.Clock.ElapsedMillisDouble() - player.updatedAt;
+            player.lastDelta = Multiplayer.clock.ElapsedMillisDouble() - player.updatedAt;
             player.cursor = new Vector3(x, 0, z);
-            player.updatedAt = Multiplayer.Clock.ElapsedMillisDouble();
+            player.updatedAt = Multiplayer.clock.ElapsedMillisDouble();
             player.cursorIcon = icon;
 
             short dragXRaw = data.ReadShort();
@@ -174,10 +174,10 @@ namespace Multiplayer.Client
             for (int j = 0; j < mapCmdsLen; j++)
                 mapCmds.Add(ScheduledCommand.Deserialize(new ByteReader(data.ReadPrefixedBytes())));
 
-            OnMainThread.cachedMapCmds[mapId] = mapCmds;
+            Session.cache.mapCmds[mapId] = mapCmds;
 
             byte[] mapData = GZipStream.UncompressBuffer(data.ReadPrefixedBytes());
-            OnMainThread.cachedMapData[mapId] = mapData;
+            Session.cache.mapData[mapId] = mapData;
 
             //ClientJoiningState.ReloadGame(TickPatch.tickUntil, Find.Maps.Select(m => m.uniqueID).Concat(mapId).ToList());
             // todo Multiplayer.client.Send(Packets.CLIENT_MAP_LOADED);

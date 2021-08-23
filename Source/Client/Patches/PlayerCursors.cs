@@ -15,7 +15,7 @@ namespace Multiplayer.Client
     {
         static void Postfix()
         {
-            if (Multiplayer.Client == null || !Multiplayer.settings.showCursors || TickPatch.Skipping) return;
+            if (Multiplayer.Client == null || !Multiplayer.settings.showCursors || TickPatch.Simulating) return;
 
             var curMap = Find.CurrentMap.Index;
 
@@ -29,7 +29,7 @@ namespace Multiplayer.Client
                 var pos = Vector3.Lerp(
                     player.lastCursor,
                     player.cursor,
-                    (float)(Multiplayer.Clock.ElapsedMillisDouble() - player.updatedAt) / 50f
+                    (float)(Multiplayer.clock.ElapsedMillisDouble() - player.updatedAt) / 50f
                 ).MapToUIPosition();
 
                 var icon = MultiplayerData.icons.ElementAtOrDefault(player.cursorIcon);
@@ -69,7 +69,7 @@ namespace Multiplayer.Client
 
         static void Postfix()
         {
-            if (Multiplayer.Client == null || TickPatch.Skipping) return;
+            if (Multiplayer.Client == null || TickPatch.Simulating) return;
 
             foreach (var t in Find.Selector.SelectedObjects.OfType<Thing>())
                 drawnThisUpdate.Add(t.thingIDNumber);

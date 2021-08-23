@@ -72,8 +72,6 @@ namespace Multiplayer.Client
 
         public static bool loading;
 
-        static string filename;
-
         public static void StartWriting(bool indent = false)
         {
             stream = new MemoryStream();
@@ -229,7 +227,7 @@ namespace Multiplayer.Client
         {
             StartLoading(data);
             SupplyCrossRefs();
-            T element = default(T);
+            T element = default;
             Scribe_Deep.Look(ref element, RootNode);
 
             beforeFinish?.Invoke(element);

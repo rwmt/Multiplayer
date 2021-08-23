@@ -7,6 +7,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Reflection;
 using Verse;
 
@@ -38,14 +39,18 @@ namespace Multiplayer.Client
 
         public static SyncMethod Method(Type targetType, string instancePath, string methodName, SyncType[] argTypes = null)
         {
-            SyncMethod handler = new SyncMethod(targetType, instancePath, methodName, argTypes);
+            var instanceType = instancePath == null ? targetType : MpReflection.PathType($"{targetType}/{instancePath}");
+            var method = AccessTools.Method(instanceType, methodName, argTypes?.Select(t => t.type).ToArray())
+                ?? throw new Exception($"Couldn't find method {instanceType}::{methodName}");
+
+            SyncMethod handler = new SyncMethod(targetType, instancePath, method, argTypes);
             handlers.Add(handler);
             return handler;
         }
 
         public static SyncMethod[] MethodMultiTarget(MultiTarget targetType, string methodName, SyncType[] argTypes = null)
         {
-            return targetType.Select(type => Method(type.First, type.Second, methodName, argTypes)).ToArray();
+            return targetType.Select(type => Method(type.Item1, type.Item2, methodName, argTypes)).ToArray();
         }
 
         public static SyncField Field(Type targetType, string fieldName)
@@ -62,7 +67,7 @@ namespace Multiplayer.Client
 
         public static SyncField[] FieldMultiTarget(MultiTarget targetType, string fieldName)
         {
-            return targetType.Select(type => Field(type.First, type.Second, fieldName)).ToArray();
+            return targetType.Select(type => Field(type.Item1, type.Item2, fieldName)).ToArray();
         }
 
         public static SyncField[] Fields(Type targetType, string instancePath, params string[] memberPaths)
@@ -94,12 +99,7 @@ namespace Multiplayer.Client
             return sf;
         }
 
-        public static SyncDelegate RegisterSyncDelegate(Type type, string nestedType, string method)
-        {
-            return RegisterSyncDelegate(type, nestedType, method, null);
-        }
-
-        public static SyncDelegate RegisterSyncDelegate(Type inType, string nestedType, string methodName, string[] fields, Type[] args = null)
+        public static SyncDelegate RegisterSyncDelegate(Type inType, string nestedType, string methodName, string[] fields = null, Type[] args = null)
         {
             string typeName = $"{inType}+{nestedType}";
             Type delegateType = MpReflection.GetTypeByName(typeName);
@@ -158,6 +158,7 @@ namespace Multiplayer.Client
                         RegisterSyncDialogNodeTree(method);
                     }
                 }
+
                 foreach (FieldInfo field in AccessTools.GetDeclaredFields(type)) {
                     if (field.TryGetAttribute(out SyncFieldAttribute sfa)) {
                         RegisterSyncField(field, sfa);
@@ -204,7 +205,6 @@ namespace Multiplayer.Client
 
                 try {
                     for (; i < exposeParameters.Length; i++) {
-                        Log.Message($"Exposing parameter {exposeParameters[i]}");
                         sm.ExposeParameter(exposeParameters[i]);
                     }
                 } catch (Exception exc) {
@@ -235,7 +235,7 @@ namespace Multiplayer.Client
 
             registeredSyncFields.Add(field.ReflectedType + "/" + field.Name, sf);
 
-            if (MpVersion.IsDebug) { 
+            if (MpVersion.IsDebug) {
                 Log.Message($"Registered Field: {field.ReflectedType}/{field.Name}");
             }
 
@@ -262,7 +262,7 @@ namespace Multiplayer.Client
         {
             MpUtil.MarkNoInlining(method);
 
-            SyncMethod handler = new SyncMethod((method.IsStatic ? null : method.DeclaringType), method, argTypes);
+            SyncMethod handler = new SyncMethod((method.IsStatic ? null : method.DeclaringType), null, method, argTypes);
             methodBaseToInternalId[handler.method] = internalIdToSyncMethod.Count;
             internalIdToSyncMethod.Add(handler);
             handlers.Add(handler);
@@ -370,6 +370,21 @@ namespace Multiplayer.Client
         {
             SyncUtil.PatchMethodForDialogNodeTreeSync(method);
         }
+
+        public static void ValidateAll()
+        {
+            foreach (var handler in handlers)
+            {
+                try
+                {
+                    handler.Validate();
+                } catch (Exception e)
+                {
+                    Log.Error($"{handler} validation failed: {e}");
+                    Multiplayer.loadingErrors = true;
+                }
+            }
+        }
     }
 
     public static class GroupExtensions
@@ -405,27 +420,27 @@ namespace Multiplayer.Client
         }
     }
 
-    public class MultiTarget : IEnumerable<Pair<Type, string>>
+    public class MultiTarget : IEnumerable<(Type, string)>
     {
-        private List<Pair<Type, string>> types = new List<Pair<Type, string>>();
+        private List<(Type, string)> types = new();
 
         public void Add(Type type, string path)
         {
-            types.Add(new Pair<Type, string>(type, path));
+            types.Add((type, path));
         }
 
         public void Add(MultiTarget type, string path)
         {
             foreach (var multiType in type)
-                Add(multiType.First, multiType.Second + "/" + path);
+                Add(multiType.Item1, multiType.Item2 + "/" + path);
         }
 
         public void Add(Type type)
         {
-            types.Add(new Pair<Type, string>(type, null));
+            types.Add((type, null));
         }
 
-        public IEnumerator<Pair<Type, string>> GetEnumerator()
+        public IEnumerator<(Type, string)> GetEnumerator()
         {
             return types.GetEnumerator();
         }
@@ -451,7 +466,7 @@ namespace Multiplayer.Client
                 return false;
 
             foreach (SyncMethod method in methods) {
-                if (Enumerable.SequenceEqual(method.argTypes.Select(t => t.type), args.Select(o => o.GetType()), TypeComparer.INSTANCE)) {
+                if (Enumerable.SequenceEqual(method.argTypes.Select(t => t.type), args.Select(o => o.GetType()), TypeComparer.instance)) {
                     method.DoSync(target, args);
                     return true;
                 }
@@ -462,7 +477,7 @@ namespace Multiplayer.Client
 
         private class TypeComparer : IEqualityComparer<Type>
         {
-            public static TypeComparer INSTANCE = new TypeComparer();
+            public static TypeComparer instance = new TypeComparer();
 
             public bool Equals(Type x, Type y)
             {

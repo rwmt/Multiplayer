@@ -80,7 +80,7 @@ namespace Multiplayer.Client
         }
     }
 
-    public abstract record ThingFilterContext : ISyncWrapper
+    public abstract record ThingFilterContext : ISyncSimple
     {
         public abstract ThingFilter Filter { get; }
         public abstract ThingFilter ParentFilter { get; }

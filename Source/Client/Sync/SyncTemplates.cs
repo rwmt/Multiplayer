@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Reflection;
 using System.Reflection.Emit;
 using HarmonyLib;
@@ -25,6 +26,7 @@ namespace Multiplayer.Client
 
         static readonly MethodInfo m_General = SymbolExtensions.GetMethodInfo(() => General(0, null, new object[0]));
         static readonly MethodInfo m_Transpiler = SymbolExtensions.GetMethodInfo(() => Transpiler(null, null, null));
+
         static IEnumerable<CodeInstruction> Transpiler(MethodBase original, IEnumerable<CodeInstruction> instructions, ILGenerator gen)
         {
             int idx;

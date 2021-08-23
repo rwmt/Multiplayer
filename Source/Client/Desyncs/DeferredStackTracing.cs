@@ -51,7 +51,7 @@ namespace Multiplayer.Client.Desyncs
             if (!Multiplayer.game?.worldComp?.logDesyncTraces ?? false) return false;
 
             if (Rand.stateStack.Count > 1) return false;
-            if (TickPatch.Skipping || Multiplayer.IsReplay) return false;
+            if (TickPatch.Simulating || Multiplayer.IsReplay) return false;
 
             if (!Multiplayer.Ticking && !Multiplayer.ExecutingCmds) return false;
 

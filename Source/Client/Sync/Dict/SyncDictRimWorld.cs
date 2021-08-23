@@ -12,6 +12,7 @@ using Verse;
 using Verse.AI;
 using Verse.AI.Group;
 using static Multiplayer.Client.SyncSerialization;
+// ReSharper disable RedundantLambdaParameterType
 
 namespace Multiplayer.Client
 {
@@ -74,9 +75,7 @@ namespace Multiplayer.Client
                 (ByteReader data) =>
                 {
                     var tab = (MainTabWindow_PawnTable)ReadSync<MainButtonDef>(data).TabWindow;
-                    // By callinng MainButonDef.TabWindow we could end up initializing the tab window, so we should make sure the table is created as well if needed
-                    if (tab.table == null) tab.table = tab.CreateTable();
-                    return tab.table;
+                    return tab.CreateTable();
                 }, true
             },
             {
@@ -372,7 +371,7 @@ namespace Multiplayer.Client
             #region Factions
             {
                 (ByteWriter data, Faction faction) => {
-                    data.WriteInt32(faction.loadID);
+                    data.WriteInt32(faction?.loadID ?? -1);
                 },
                 (ByteReader data) => {
                     int loadID = data.ReadInt32();
@@ -406,6 +405,10 @@ namespace Multiplayer.Client
             {
                 (ByteWriter data, ITab_Pawn_Slave tab) => { },
                 (ByteReader data) => new ITab_Pawn_Slave()
+            },
+            {
+                (ByteWriter data, ITab_Pawn_Visitor tab) => { },
+                (ByteReader data) => new Dummy_ITab_Pawn_Visitor()
             },
             #endregion
 
@@ -997,53 +1000,8 @@ namespace Multiplayer.Client
             },
 
             #endregion
-
-            #region Transport pod arrival actions
-            {
-                (ByteWriter data, TransportPodsArrivalAction_AttackSettlement arrivalAction) =>
-                {
-                    WriteSync(data, arrivalAction.settlement);
-                    WriteSync(data, arrivalAction.arrivalMode);
-                },
-                (ByteReader data) =>
-                {
-                    return new TransportPodsArrivalAction_AttackSettlement(ReadSync<Settlement>(data), ReadSync<PawnsArrivalModeDef>(data));
-                }
-            },
-            {
-                (ByteWriter data, TransportPodsArrivalAction_FormCaravan arrivalAction) => WriteSync(data, arrivalAction.arrivalMessageKey),
-                (ByteReader data) => new TransportPodsArrivalAction_FormCaravan(ReadSync<string>(data))
-            },
-            {
-                (ByteWriter data, TransportPodsArrivalAction_GiveGift arrivalAction) => WriteSync(data, arrivalAction.settlement),
-                (ByteReader data) => new TransportPodsArrivalAction_GiveGift(ReadSync<Settlement>(data))
-            },
-            {
-                (ByteWriter data, TransportPodsArrivalAction_GiveToCaravan arrivalAction) => WriteSync(data, arrivalAction.caravan),
-                (ByteReader data) => new TransportPodsArrivalAction_GiveToCaravan(ReadSync<Caravan>(data))
-            },
-            {
-                (ByteWriter data, TransportPodsArrivalAction_LandInSpecificCell arrivalAction) =>
-                {
-                    WriteSync(data, arrivalAction.mapParent);
-                    WriteSync(data, arrivalAction.cell);
-                    WriteSync(data, arrivalAction.landInShuttle);
-                },
-                (ByteReader data) => new TransportPodsArrivalAction_LandInSpecificCell(ReadSync<MapParent>(data), ReadSync<IntVec3>(data), ReadSync<bool>(data))
-            },
-            {
-                (ByteWriter data, TransportPodsArrivalAction_VisitSettlement arrivalAction) => WriteSync(data, arrivalAction.settlement),
-                (ByteReader data) => new TransportPodsArrivalAction_VisitSettlement(ReadSync<Settlement>(data))
-            },
-            {
-                (ByteWriter data, TransportPodsArrivalAction_VisitSite arrivalAction) =>
-                {
-                    WriteSync(data, arrivalAction.site);
-                    WriteSync(data, arrivalAction.arrivalMode);
-                },
-                (ByteReader data) => new TransportPodsArrivalAction_VisitSite(ReadSync<Site>(data), ReadSync<PawnsArrivalModeDef>(data))
-            },
-            #endregion
         };
+
+        class Dummy_ITab_Pawn_Visitor : ITab_Pawn_Visitor { }
     }
 }

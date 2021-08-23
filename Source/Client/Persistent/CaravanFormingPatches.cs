@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
 using Verse;
+using static Verse.Widgets;
 
 namespace Multiplayer.Client.Persistent
 {
@@ -36,7 +37,7 @@ namespace Multiplayer.Client.Persistent
         }
     }
 
-    [HarmonyPatch(typeof(Widgets), nameof(Widgets.ButtonText), new[] { typeof(Rect), typeof(string), typeof(bool), typeof(bool), typeof(bool) })]
+    [HarmonyPatch(typeof(Widgets), nameof(Widgets.ButtonTextWorker))]
     static class FormCaravanHandleReset
     {
         static void Prefix(string label, ref bool __state)
@@ -47,14 +48,14 @@ namespace Multiplayer.Client.Persistent
             __state = true;
         }
 
-        static void Postfix(bool __state, ref bool __result)
+        static void Postfix(bool __state, ref DraggableResult __result)
         {
             if (!__state) return;
 
-            if (__result)
+            if (__result.AnyPressed())
             {
                 CaravanFormingProxy.drawing.Session?.Reset();
-                __result = false;
+                __result = DraggableResult.Idle;
             }
         }
     }

@@ -216,32 +216,35 @@ namespace Multiplayer.Client
             XmlNode gameNode = data.SaveData.DocumentElement["game"];
             XmlNode mapsNode = gameNode["maps"];
 
-            OnMainThread.cachedMapData.Clear();
-            OnMainThread.cachedMapCmds.Clear();
+            var cache = Multiplayer.session.cache;
+
+            cache.mapData.Clear();
+            cache.mapCmds.Clear();
 
             foreach (XmlNode mapNode in mapsNode)
             {
                 int id = int.Parse(mapNode["uniqueID"].InnerText);
                 byte[] mapData = ScribeUtil.XmlToByteArray(mapNode);
-                OnMainThread.cachedMapData[id] = mapData;
-                OnMainThread.cachedMapCmds[id] = new List<ScheduledCommand>(Find.Maps.First(m => m.uniqueID == id).AsyncTime().cmds);
+                cache.mapData[id] = mapData;
+                cache.mapCmds[id] = new List<ScheduledCommand>(Find.Maps.First(m => m.uniqueID == id).AsyncTime().cmds);
             }
 
             gameNode["currentMapIndex"].RemoveFromParent();
             mapsNode.RemoveAll();
 
             byte[] gameData = ScribeUtil.XmlToByteArray(data.SaveData);
-            OnMainThread.cachedAtTime = TickPatch.Timer;
-            OnMainThread.cachedGameData = gameData;
-            OnMainThread.cachedSemiPersistent = data.SemiPersistent;
-            OnMainThread.cachedMapCmds[ScheduledCommand.Global] = new List<ScheduledCommand>(Multiplayer.WorldComp.cmds);
+            cache.cachedAtTime = TickPatch.Timer;
+            cache.gameData = gameData;
+            cache.semiPersistentData = data.SemiPersistent;
+            cache.mapCmds[ScheduledCommand.Global] = new List<ScheduledCommand>(Multiplayer.WorldComp.cmds);
         }
 
         public static void SendCurrentGameData(bool async)
         {
-            var mapsData = new Dictionary<int, byte[]>(OnMainThread.cachedMapData);
-            var gameData = OnMainThread.cachedGameData;
-            var semiPersistent = OnMainThread.cachedSemiPersistent;
+            var cache = Multiplayer.session.cache;
+            var mapsData = new Dictionary<int, byte[]>(cache.mapData);
+            var gameData = cache.gameData;
+            var semiPersistent = cache.semiPersistentData;
 
             void Send()
             {
@@ -440,17 +443,11 @@ namespace Multiplayer.Client
             {
                 text = reffable.GetUniqueLoadID();
             }
-            catch (Exception)
+            catch
             {
-
             }
 
-            ILoadReferenceable loadReferenceable;
-            if (__instance.allObjectsByLoadID.TryGetValue(text, out loadReferenceable))
-            {
-                return false;
-            }
-            return true;
+            return !__instance.allObjectsByLoadID.ContainsKey(text);
         }
     }
 

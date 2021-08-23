@@ -28,15 +28,15 @@ namespace Multiplayer.Client
                 }
             }
 
-            TryInit("SyncMethods", () => SyncMethods.Init());
-            TryInit("SyncFields", () => SyncFields.Init());
-            TryInit("SyncDelegates", () => SyncDelegates.Init());
-            TryInit("SyncThingFilters", () => SyncThingFilters.Init());
-            TryInit("SyncActions", () => SyncActions.Init());
+            TryInit("SyncMethods", SyncMethods.Init);
+            TryInit("SyncFields", SyncFields.Init);
+            TryInit("SyncDelegates", SyncDelegates.Init);
+            TryInit("SyncThingFilters", SyncThingFilters.Init);
+            TryInit("SyncActions", SyncActions.Init);
 
             //RuntimeHelpers.RunClassConstructor(typeof(SyncResearch).TypeHandle);
 
-            SyncUtil.ApplyWatchFieldPatches(typeof(SyncFields));
+            SyncFieldUtil.ApplyWatchFieldPatches(typeof(SyncFields));
         }
     }
 
@@ -159,7 +159,7 @@ namespace Multiplayer.Client
         {
             if (localResearch.Count == 0) return;
 
-            SyncUtil.FieldWatchPrefix();
+            SyncFieldUtil.FieldWatchPrefix();
 
             foreach (int pawn in localResearch.Keys.ToList())
             {
@@ -168,7 +168,7 @@ namespace Multiplayer.Client
                 localResearch[pawn] = 0;
             }
 
-            SyncUtil.FieldWatchPostfix();
+            SyncFieldUtil.FieldWatchPostfix();
         }
     }
 

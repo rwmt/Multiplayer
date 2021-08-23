@@ -28,10 +28,10 @@ namespace Multiplayer.Client
                 DoDebugInfo();
             }
 
-            if (Multiplayer.IsReplay || TickPatch.Skipping)
+            if (Multiplayer.IsReplay || TickPatch.Simulating)
             {
                 DrawTimeline();
-                DrawSkippingWindow();
+                DrawSimulatingWindow();
             }
 
             DoButtons();
@@ -84,7 +84,7 @@ namespace Multiplayer.Client
 
                 text.Append($" {Multiplayer.GlobalIdBlock.Current}");
 
-                text.Append($"\n{SyncUtil.bufferedChanges.Sum(kv => kv.Value.Count)} {Find.UniqueIDsManager.nextThingID}");
+                text.Append($"\n{SyncFieldUtil.bufferedChanges.Sum(kv => kv.Value.Count)} {Find.UniqueIDsManager.nextThingID}");
                 text.Append($"\n{DeferredStackTracing.acc}");
                 text.Append($"\n{(uint)async.randState} {(uint)(async.randState >> 32)}");
                 text.Append($"\n{(uint)Multiplayer.WorldComp.randState} {(uint)(Multiplayer.WorldComp.randState >> 32)}");
@@ -118,7 +118,7 @@ namespace Multiplayer.Client
                     ChatWindow.OpenChat();
                 }
 
-                if (!TickPatch.Skipping)
+                if (!TickPatch.Simulating)
                 {
                     IndicatorInfo(out Color color, out string text, out bool slow);
 
@@ -126,7 +126,7 @@ namespace Multiplayer.Client
                     var biggerRect = new Rect(btnRect.x - 25f - 5f + 2f / 2f, btnRect.y + 2f / 2f, 23f, 23f);
 
                     if (slow && Widgets.ButtonInvisible(biggerRect))
-                        TickPatch.SkipTo(toTickUntil: true, canESC: true);
+                        TickPatch.SimulateTo(toTickUntil: true, canESC: true);
 
                     Widgets.DrawRectFast(biggerRect, new Color(color.r * 0.6f, color.g * 0.6f, color.b * 0.6f));
                     Widgets.DrawRectFast(indRect, color);
@@ -197,8 +197,12 @@ namespace Multiplayer.Client
 
             Widgets.DrawBoxSolid(rect, new Color(0.6f, 0.6f, 0.6f, 0.8f));
 
-            int timerStart = Multiplayer.session.replayTimerStart >= 0 ? Multiplayer.session.replayTimerStart : OnMainThread.cachedAtTime;
-            int timerEnd = Multiplayer.session.replayTimerEnd >= 0 ? Multiplayer.session.replayTimerEnd : TickPatch.tickUntil;
+            int timerStart = Multiplayer.session.replayTimerStart >= 0 ?
+                Multiplayer.session.replayTimerStart : Multiplayer.session.cache.cachedAtTime;
+
+            int timerEnd = Multiplayer.session.replayTimerEnd >= 0 ?
+                Multiplayer.session.replayTimerEnd : TickPatch.tickUntil;
+
             int timeLen = timerEnd - timerStart;
 
             MpUtil.DrawRotatedLine(new Vector2(rect.xMin + 2f, rect.center.y), TimelineHeight, 20f, 90f, Color.white);
@@ -237,11 +241,11 @@ namespace Multiplayer.Client
 
                 if (Event.current.type == EventType.MouseUp)
                 {
-                    TickPatch.SkipTo(mouseTimer, canESC: true);
+                    TickPatch.SimulateTo(mouseTimer, canESC: true);
 
                     if (mouseTimer < TickPatch.Timer)
                     {
-                        ClientJoiningState.ReloadGame(OnMainThread.cachedMapData.Keys.ToList(), false);
+                        ClientJoiningState.ReloadGame(Multiplayer.session.cache.mapData.Keys.ToList(), false);
                     }
                 }
 
@@ -260,37 +264,39 @@ namespace Multiplayer.Client
                     tip.firstTriggerTime = 0;
             }
 
-            if (TickPatch.Skipping)
+            if (TickPatch.Simulating)
             {
-                float pct = (TickPatch.skipTo - timerStart) / (float)timeLen;
-                float skipToX = rect.xMin + rect.width * pct;
-                MpUtil.DrawRotatedLine(new Vector2(skipToX, rect.center.y), TimelineHeight, 15f, 90f, Color.yellow);
+                float pct = (TickPatch.simulating.target.Value - timerStart) / (float)timeLen;
+                float simulateToX = rect.xMin + rect.width * pct;
+                MpUtil.DrawRotatedLine(new Vector2(simulateToX, rect.center.y), TimelineHeight, 15f, 90f, Color.yellow);
             }
         }
 
-        public const int SkippingWindowId = 26461263;
+        public const int SimulatingWindowId = 26461263;
         public const int TimelineWindowId = 5723681;
 
-        static void DrawSkippingWindow()
+        static void DrawSimulatingWindow()
         {
-            if (Multiplayer.Client == null || !TickPatch.Skipping) return;
+            if (Multiplayer.Client == null || !TickPatch.Simulating) return;
 
-            string text = $"{TickPatch.skippingTextKey.Translate()}{MpUtil.FixedEllipsis()}";
+            string text = $"{TickPatch.simulating.simTextKey.Translate()}{MpUtil.FixedEllipsis()}";
             float textWidth = Text.CalcSize(text).x;
             float windowWidth = Math.Max(240f, textWidth + 40f);
-            float windowHeight = TickPatch.cancelSkip != null ? 100f : 75f;
+            float windowHeight = TickPatch.simulating.onCancel != null ? 100f : 75f;
             Rect rect = new Rect(0, 0, windowWidth, windowHeight).CenterOn(new Rect(0, 0, UI.screenWidth, UI.screenHeight));
 
-            if (TickPatch.canESCSkip && Event.current.type == EventType.KeyUp && Event.current.keyCode == KeyCode.Escape)
+            if (TickPatch.simulating.canESC && Event.current.type == EventType.KeyUp && Event.current.keyCode == KeyCode.Escape)
             {
-                TickPatch.ClearSkipping();
+                TickPatch.ClearSimulating();
                 Event.current.Use();
             }
 
-            Find.WindowStack.ImmediateWindow(SkippingWindowId, rect, WindowLayer.Super, () =>
+            Find.WindowStack.ImmediateWindow(SimulatingWindowId, rect, WindowLayer.Super, () =>
             {
+                if (!TickPatch.Simulating) return;
+
                 var textRect = rect.AtZero();
-                if (TickPatch.cancelSkip != null)
+                if (TickPatch.simulating.onCancel != null)
                 {
                     textRect.yMin += 5f;
                     textRect.height -= 50f;
@@ -301,8 +307,8 @@ namespace Multiplayer.Client
                 Widgets.Label(textRect, text);
                 Text.Anchor = TextAnchor.UpperLeft;
 
-                if (TickPatch.cancelSkip != null && Widgets.ButtonText(new Rect(0, textRect.yMax, 100f, 35f).CenteredOnXIn(textRect), TickPatch.skipCancelButtonKey.Translate()))
-                    TickPatch.cancelSkip();
+                if (TickPatch.simulating.onCancel != null && Widgets.ButtonText(new Rect(0, textRect.yMax, 100f, 35f).CenteredOnXIn(textRect), TickPatch.simulating.cancelButtonKey.Translate()))
+                    TickPatch.simulating.onCancel();
             }, absorbInputAroundWindow: true);
         }
     }

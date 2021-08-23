@@ -240,7 +240,7 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(Widgets), nameof(Widgets.ButtonText), new[] { typeof(Rect), typeof(string), typeof(bool), typeof(bool), typeof(bool) })]
+    [HarmonyPatch(typeof(Widgets), nameof(Widgets.ButtonTextWorker))]
     static class MakeCancelTradeButtonRed
     {
         static void Prefix(string label, ref bool __state)
