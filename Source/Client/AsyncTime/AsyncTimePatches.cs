@@ -389,12 +389,17 @@ namespace Multiplayer.Client.AsyncTime
             // If the entry doesn't have a map, show global dialogs
             if (entry.map == null) dialogList = Multiplayer.WorldComp.globalDialogs;
             // If the entry has a map and there's an entry without one (a caravan), we show local dialogs
-            else if (anyCaravan) dialogList = entry.map?.MpComp().mapDialogs;
+            else if (anyCaravan) dialogList = entry.map.MpComp().mapDialogs;
             // If the entry has a map and all entries have them (no caravans), display both local and global dialogs for safety
-            else dialogList = Multiplayer.WorldComp.globalDialogs.Concat(entry.map?.MpComp().mapDialogs);
+            else dialogList = Multiplayer.WorldComp.globalDialogs.Concat(entry.map.MpComp().mapDialogs);
 
             foreach (var dialog in dialogList)
             {
+                // Hide dialogs from letters with timeout if they still have time before being forced to make a decision
+                // No need to force show them as the user can still open them through the letter
+                if (dialog.attachedLetter is { TimeoutActive: true } && dialog.attachedLetter.disappearAtTick >= Find.TickManager.TicksGame)
+                    continue;
+
                 var label = dialog.Dialog.title;
                 if (string.IsNullOrWhiteSpace(label)) label = "MpDialogSession".Translate();
 

@@ -31,7 +31,7 @@ namespace Multiplayer.Client
             if (asyncTime)
             {
                 var enforcePause = Multiplayer.WorldComp.splitSession != null ||
-                    Multiplayer.WorldComp.globalDialogs.Any(); ;
+                    Multiplayer.WorldComp.globalDialogs.Any(d => d.attachedLetter == null || (d.attachedLetter.TimeoutActive && d.attachedLetter.disappearAtTick >= Find.TickManager.TicksGame));
 
                 if (enforcePause)
                     return 0f;

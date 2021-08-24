@@ -35,7 +35,8 @@ namespace Multiplayer.Client
             var enforcePause = comp.transporterLoading != null ||
                 comp.caravanForming != null ||
                 comp.ritualSession != null ||
-                comp.mapDialogs.Any() ||
+                comp.mapDialogs.Any(d => d.attachedLetter == null || (d.attachedLetter.TimeoutActive && d.attachedLetter.disappearAtTick <= Find.TickManager.TicksGame)) ||
+                Multiplayer.WorldComp.globalDialogs.Any(d => d.attachedLetter == null || (d.attachedLetter.TimeoutActive && d.attachedLetter.disappearAtTick <= Find.TickManager.TicksGame)) ||
                 Multiplayer.WorldComp.trading.Any(t => t.playerNegotiator.Map == map) ||
                 Multiplayer.WorldComp.splitSession != null;
 

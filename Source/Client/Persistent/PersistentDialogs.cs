@@ -61,7 +61,8 @@ namespace Multiplayer.Client
 
         protected override void ExposeDataSaveLoad()
         {
-            if (Scribe.mode == LoadSaveMode.Saving) {
+            if (Scribe.mode == LoadSaveMode.Saving)
+            {
                 faction = dialog.faction;
             }
             Scribe_References.Look(ref faction, "faction");
@@ -96,7 +97,8 @@ namespace Multiplayer.Client
 
         protected override void ExposeDataSaveLoad()
         {
-            if (Scribe.mode == LoadSaveMode.Saving) {
+            if (Scribe.mode == LoadSaveMode.Saving)
+            {
                 negotiator = dialog.negotiator;
                 faction = dialog.commTarget.GetFaction();
             }
@@ -130,6 +132,7 @@ namespace Multiplayer.Client
         public int id;
 
         public int ver;
+        public ChoiceLetter attachedLetter;
 
         protected PersistentDialog(Map map)
         {
@@ -140,13 +143,14 @@ namespace Multiplayer.Client
         {
             Type target = bindings.TryGetValue(dialog.GetType());
 
-            if (target == null) {
+            if (target == null)
+            {
                 Log.Warning($"Unknown Window Type {null}");
 
                 return null;
             }
 
-            return (PersistentDialog) Activator.CreateInstance(target, map, dialog);
+            return (PersistentDialog)Activator.CreateInstance(target, map, dialog);
         }
 
         public abstract Dialog_NodeTree Dialog { get; }
@@ -183,7 +187,8 @@ namespace Multiplayer.Client
                 .Select(type => new { dialog = FindDialogForType(type), proxy = type })
                 .Where(kvp => kvp.dialog != null);
 
-            foreach (var kvp in types) {
+            foreach (var kvp in types)
+            {
                 bindings.Add(kvp.dialog, kvp.proxy);
             }
         }
@@ -198,7 +203,8 @@ namespace Multiplayer.Client
         {
             var proxy = type.GetTypeWithGenericDefinition(typeof(PersistentDialog<>));
 
-            if (proxy == null || type.IsAbstract || type.IsInterface) {
+            if (proxy == null || type.IsAbstract || type.IsInterface)
+            {
                 return null;
             }
 
@@ -213,15 +219,18 @@ namespace Multiplayer.Client
         /// <param name="proxy">Proxy must wrap the Target.</param>
         public static void Bind(Type target, Type proxy)
         {
-            if (!(typeof(Dialog_NodeTree).IsAssignableFrom(target))) {
+            if (!(typeof(Dialog_NodeTree).IsAssignableFrom(target)))
+            {
                 throw new ArgumentException($"Registered target, {target}, was not assignable from {typeof(Dialog_NodeTree)}");
             }
 
-            if (proxy.IsInterface || proxy.IsAbstract) {
+            if (proxy.IsInterface || proxy.IsAbstract)
+            {
                 throw new ArgumentException($"Registered type, {proxy}, is interface or abstract and cannot be registered");
             }
 
-            if (!(typeof(PersistentDialog)).IsAssignableFrom(proxy)) {
+            if (!(typeof(PersistentDialog)).IsAssignableFrom(proxy))
+            {
                 throw new ArgumentException($"Registered type, {proxy}, was not assignable from {typeof(PersistentDialog)}");
             }
 
@@ -263,7 +272,8 @@ namespace Multiplayer.Client
 
         public override void ExposeData()
         {
-            if (Scribe.mode == LoadSaveMode.Saving) {
+            if (Scribe.mode == LoadSaveMode.Saving)
+            {
                 Scribe_Values.Look(ref id, "id");
                 Scribe_Custom.LookValue(dialog.soundAmbient == SoundDefOf.RadioComms_Ambience, "radioMode");
                 Scribe_Values.Look(ref dialog.title, "title");
@@ -288,7 +298,9 @@ namespace Multiplayer.Client
                 Scribe_Collections.Look(ref saveNodes, "nodes", LookMode.Deep);
 
                 Clean();
-            } else {
+            }
+            else
+            {
                 Scribe_Values.Look(ref id, "id");
                 Scribe_Values.Look(ref radioMode, "radioMode");
                 Scribe_Values.Look(ref title, "title");
@@ -301,7 +313,8 @@ namespace Multiplayer.Client
                 rootNode = saveNodes[0].node;
             }
 
-            if (Scribe.mode == LoadSaveMode.PostLoadInit) {
+            if (Scribe.mode == LoadSaveMode.PostLoadInit)
+            {
                 dialog = ExposeDataInstance(rootNode, radioMode, title);
                 dialog.doCloseX = true;
                 dialog.closeOnCancel = true;
@@ -361,14 +374,16 @@ namespace Multiplayer.Client
 
             public void ExposeData()
             {
-                if (Scribe.mode == LoadSaveMode.Saving) {
+                if (Scribe.mode == LoadSaveMode.Saving)
+                {
                     Scribe_Values.Look(ref node.text, "text");
 
                     var saveOptions = node.options.Select(o => new DiaOptionSave(parent, o)).ToList();
                     Scribe_Collections.Look(ref saveOptions, "options", LookMode.Deep);
                 }
 
-                if (Scribe.mode == LoadSaveMode.LoadingVars) {
+                if (Scribe.mode == LoadSaveMode.LoadingVars)
+                {
                     Scribe_Values.Look(ref text, "text");
                     Scribe_Collections.Look(ref saveOptions, "options", LookMode.Deep, parent);
 
@@ -613,6 +628,9 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.Client == null) return true;
 
+            var letter = ChoiceLetterOpenLetter.currentLetter;
+            ChoiceLetterOpenLetter.currentLetter = null;
+
             var map = Multiplayer.MapContext;
             var comp = map?.MpComp();
 
@@ -621,21 +639,28 @@ namespace Multiplayer.Client
             if (window is Dialog_NodeTree dialog_NodeTree)
             {
                 // Prevent an endless loop of trying to add a dialog, which creates a new PersistentDialog, which tries to add it, which creates a new Persistent Dialog, etc.
-                if (comp?.mapDialogs.Any(d => d.Dialog == window) == true || Multiplayer.WorldComp.globalDialogs.Any(d => d.Dialog == window)) return true;
+                if (comp?.mapDialogs.Any(d => d.Dialog == window) == true ||
+                    Multiplayer.WorldComp.globalDialogs.Any(d => d.Dialog == window)) return true;
 
                 persistentDialog = PersistentDialog.CreateInstance(map, dialog_NodeTree);
+                persistentDialog.attachedLetter = letter;
+
+                if (letter != null && !Multiplayer.ExecutingCmds) RegisterDialogWithLetter(letter);
             }
 
             if (persistentDialog == null) return true;
-            
+
             window.doCloseX = true;
             window.closeOnCancel = true;
 
             if (comp != null) comp.mapDialogs.Add(persistentDialog);
             else Multiplayer.WorldComp.globalDialogs.Add(persistentDialog);
 
-            return false;
+            return letter is { TimeoutActive: true } && letter.disappearAtTick >= Find.TickManager.TicksGame;
         }
+
+        [SyncMethod(exposeParameters = new[] { 0 })]
+        static void RegisterDialogWithLetter(ChoiceLetter letter) => letter.OpenLetter();
     }
 
     [HarmonyPatch(typeof(Dialog_NodeTree), nameof(Dialog_NodeTree.PreClose))]
@@ -660,14 +685,15 @@ namespace Multiplayer.Client
 
             if (!Multiplayer.ShouldSync) return true;
 
-            if (PersistentDialog.FindDialog(__instance) == null) {
+            if (PersistentDialog.FindDialog(__instance) == null)
+            {
                 return true;
             }
 
             return false;
         }
     }
-    
+
     [HarmonyPatch(typeof(WindowStack), nameof(WindowStack.TryRemove), new[] { typeof(Window), typeof(bool) })]
     static class WindowStackTryRemove
     {
@@ -703,6 +729,77 @@ namespace Multiplayer.Client
             return true;
         }
     }
-        
+
+    [HarmonyPatch(typeof(ChoiceLetter), nameof(ChoiceLetter.OpenLetter))]
+    static class ChoiceLetterOpenLetter
+    {
+        internal static ChoiceLetter currentLetter;
+
+        static bool Prefix(ChoiceLetter __instance)
+        {
+            if (Multiplayer.Client == null || __instance.ArchivedOnly) return true;
+
+            var map = Multiplayer.MapContext;
+            var comp = map?.MpComp();
+
+            var dialog = comp?.mapDialogs.FirstOrDefault(d => d.attachedLetter == __instance);
+            dialog ??= Multiplayer.WorldComp.globalDialogs.FirstOrDefault(d => d.attachedLetter == __instance);
+
+            // The dialog already exists, so we want to just open it instead of creating a new one
+            if (dialog != null)
+            {
+                dialog.OpenWindow();
+                return false;
+            }
+
+            currentLetter = __instance;
+            return true;
+        }
+
+        static void Postfix() => currentLetter = null;
+    }
+
+    // If the dialog is removed, make sure it's synced for all players, as letter being removed could be an action done by the player (right clicking the letter)
+    [HarmonyPatch(typeof(LetterStack), nameof(LetterStack.RemoveLetter))]
+    static class LetterStackRemoveLetter
+    {
+        static bool Prefix(Letter let)
+        {
+            if (Multiplayer.Client == null) return true;
+
+            if (!Multiplayer.ShouldSync) return true;
+
+            var map = Multiplayer.MapContext;
+            var comp = map?.MpComp();
+
+            var dialog = comp?.mapDialogs.FirstOrDefault(d => d.attachedLetter == let);
+
+            if (dialog != null)
+            {
+                SyncDismissLetter(dialog);
+                return false;
+            }
+
+            dialog = Multiplayer.WorldComp.globalDialogs.FirstOrDefault(d => d.attachedLetter == @let);
+
+            if (dialog != null)
+            {
+                SyncDismissLetter(dialog);
+                return false;
+            }
+
+            return true;
+        }
+
+        [SyncMethod]
+        static void SyncDismissLetter(PersistentDialog dialog)
+        {
+            if (dialog.map == null) Multiplayer.WorldComp.globalDialogs.Remove(dialog);
+            else if (dialog.map.MpComp() is { } comp) comp.mapDialogs.Remove(dialog);
+
+            Find.LetterStack.RemoveLetter(dialog.attachedLetter);
+        }
+    }
+
     #endregion
 }
