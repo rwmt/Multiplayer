@@ -115,6 +115,7 @@ namespace Multiplayer.Client
 
         private static void InitRituals()
         {
+            SyncMethod.Register(typeof(LordJob_Ritual), nameof(LordJob_Ritual.Cancel));             // Cancel ritual
             SyncDelegate.Lambda(typeof(LordJob_Ritual), nameof(LordJob_Ritual.GetPawnGizmos), 0);   // Make pawn leave ritual
 
             SyncDelegate.Lambda(typeof(LordJob_BestowingCeremony), nameof(LordJob_BestowingCeremony.GetPawnGizmos), 2); // Cancel ceremony
@@ -217,25 +218,6 @@ namespace Multiplayer.Client
                 original();
             };
         }
-
-        [MpTranspiler(typeof(LordJob_Ritual), nameof(LordJob_Ritual.GetCancelGizmo), 0)]
-        static IEnumerable<CodeInstruction> GetCancelRitualGizmoTranspiler(IEnumerable<CodeInstruction> insts)
-        {
-            var target = typeof(LordJob_Ritual).GetMethod(nameof(LordJob_Ritual.Cancel));
-            var replacement = AccessTools.Method(typeof(SyncDelegates), nameof(SyncCancelRitual));
-
-            foreach (var inst in insts)
-            {
-                // Replace original method with our own
-                if (inst.operand as MethodInfo == target)
-                    inst.operand = replacement;
-
-                yield return inst;
-            }
-        }
-
-        [SyncMethod]
-        static void SyncCancelRitual(LordJob_Ritual ritual) => ritual.Cancel();
     }
 
 }
