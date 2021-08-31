@@ -13,6 +13,7 @@ using Verse.Steam;
 
 namespace Multiplayer.Client
 {
+    [HotSwappable]
     [StaticConstructorOnStartup]
     public class ChatWindow : Window
     {
@@ -105,7 +106,7 @@ namespace Multiplayer.Client
         private void DrawInfo(Rect inRect)
         {
             Widgets.Label(inRect, Multiplayer.session.gameName);
-            inRect.yMin += 30f;
+            inRect.yMin += Text.CalcHeight(Multiplayer.session.gameName, inRect.width) + 10f;
 
             DrawList(
                 "MpChatPlayers".Translate(Multiplayer.session.players.Count),
@@ -124,7 +125,7 @@ namespace Multiplayer.Client
                         TooltipHandler.TipRegion(steamIcon, new TipSignal($"{p.steamPersonaName}\n{p.steamId}", p.id));
                     }
 
-                    string toolTip = $"{p.ticksBehind >> 1} ticks behind";
+                    string toolTip = $"{p.username}\n\nPing: {p.latency}ms\n{p.ticksBehind >> 1} ticks behind";
                     if ((p.ticksBehind & 1) != 0)
                         toolTip += "\n(Simulating)";
 
@@ -231,9 +232,8 @@ namespace Multiplayer.Client
                 if (labelColor != null)
                     GUI.color = labelColor.Value;
 
-                Text.Anchor = TextAnchor.MiddleLeft;
-                Widgets.Label(entryRect, entryLabel);
-                Text.Anchor = TextAnchor.UpperLeft;
+                using (MpStyle.Set(TextAnchor.MiddleLeft))
+                    Widgets.Label(entryRect, entryLabel.Truncate(entryRect.width));
 
                 if (labelColor != null)
                     GUI.color = prevColor;

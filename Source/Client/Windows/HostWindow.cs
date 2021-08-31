@@ -61,6 +61,8 @@ namespace Multiplayer.Client
 
         private string maxPlayersBuffer, autosaveBuffer;
 
+        private const int MaxGameNameLength = 70;
+
         public override void DoWindowContents(Rect inRect)
         {
             Text.Font = GameFont.Medium;
@@ -84,6 +86,9 @@ namespace Multiplayer.Client
 
             // Game name
             serverSettings.gameName = MpUI.TextEntryLabeled(entry, $"{"MpGameName".Translate()}:  ", serverSettings.gameName, labelWidth);
+            if (serverSettings.gameName.Length > MaxGameNameLength)
+                serverSettings.gameName = serverSettings.gameName.Substring(0, MaxGameNameLength);
+
             entry = entry.Down(40);
 
             // Max players
