@@ -34,7 +34,7 @@ namespace Multiplayer.Client
 
                 type = MpReflection.GetTypeByName(typeName);
                 if (type == null)
-                    throw new Exception("Couldn't find type " + typeName);
+                    throw new Exception($"Couldn't find type {typeName}");
 
                 return type;
             }

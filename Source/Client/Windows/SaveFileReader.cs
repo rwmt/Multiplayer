@@ -77,7 +77,6 @@ namespace Multiplayer.Client
                     saveFile.rwVersion = replay.info.rwVersion;
                     saveFile.modIds = replay.info.modIds.ToArray();
                     saveFile.modNames = replay.info.modNames.ToArray();
-                    saveFile.modAssemblyHashes = replay.info.modAssemblyHashes.ToArray();
                     saveFile.asyncTime = replay.info.asyncTime;
                 }
                 else
@@ -111,8 +110,6 @@ namespace Multiplayer.Client
 
             reader.ReadToNextSibling("modNames");
             save.modNames = reader.ReadStrings();
-
-            save.modAssemblyHashes = new int[save.modNames.Length];
         }
 
         public SaveFile GetData(FileInfo file)
@@ -140,7 +137,6 @@ namespace Multiplayer.Client
         public string rwVersion;
         public string[] modNames = new string[0];
         public string[] modIds = new string[0];
-        public int[] modAssemblyHashes = new int[0];
 
         public int protocol;
         public bool asyncTime;

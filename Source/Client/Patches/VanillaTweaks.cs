@@ -89,7 +89,7 @@ namespace Multiplayer.Client
 
         static void Postfix(int ID)
         {
-            if (ID == -LongEventWindowId || ID == -MainButtonsPatch.SimulatingWindowId)
+            if (ID == -LongEventWindowId || ID == -IngameUIPatch.SimulatingWindowId)
             {
                 var window = Find.WindowStack.windows.Find(w => w.ID == ID);
 
@@ -107,7 +107,7 @@ namespace Multiplayer.Client
             if (Current.ProgramState == ProgramState.Entry) return;
 
             if (__instance.ID == -LongEventWindowPreventCameraMotion.LongEventWindowId ||
-                __instance.ID == -MainButtonsPatch.SimulatingWindowId ||
+                __instance.ID == -IngameUIPatch.SimulatingWindowId ||
                 __instance is DisconnectedWindow ||
                 __instance is CaravanFormingProxy
             )

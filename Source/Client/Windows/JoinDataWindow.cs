@@ -1,15 +1,26 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
+using System.IO;
 using System.Linq;
+using System.Threading;
+using Multiplayer.Client.EarlyPatches;
+using Multiplayer.Client.Util;
+using Multiplayer.Common;
+using RimWorld;
+using Steamworks;
 using UnityEngine;
 using Verse;
+using Verse.Steam;
 
 namespace Multiplayer.Client
 {
+    [HotSwappable]
     public class JoinDataWindow : Window
     {
-        public override Vector2 InitialSize => new Vector2(640f, 480f);
-        
+        public override Vector2 InitialSize => new Vector2(640f, 580f);
+
         private enum Tab
         {
             General, ModList, Files, Configs
@@ -28,29 +39,53 @@ namespace Multiplayer.Client
             public List<Node> children = new List<Node>();
             public bool collapsed;
             public NodeStatus status;
-            
+
             public int[] childrenPerStatus;
             public HashSet<string> paths;
         }
 
-        enum NodeStatus{
+        enum NodeStatus
+        {
             None, Missing, Added, Modified
         }
 
         private RemoteData remote;
         private Node filesRoot;
         private Node configsRoot;
+        public string connectAnywayDisabled;
+        public Action connectAnywayCallback;
+        public Window connectAnywayWindow;
+        private ModFileDict filesForUI;
+        private bool sameMods;
+        private bool sameModLists;
 
         public JoinDataWindow(RemoteData remote)
         {
             this.remote = remote;
 
-            RefreshFiles();
-            RefreshConfigs();
+            closeOnAccept = false;
+            closeOnCancel = false;
+        }
+
+        public override void PostOpen()
+        {
+            base.PostOpen();
+
+            filesForUI = JoinData.modFilesSnapshot.CopyWithMods(remote.RemoteModIds);
+            CheckModLists();
+            RefreshFileNodes();
+            RefreshConfigNodes();
+        }
+
+        private void CheckModLists()
+        {
+            sameMods = remote.RemoteModIds.EqualAsSets(JoinData.activeModsSnapshot.Select(m => m.PackageIdNonUnique));
+            sameModLists = remote.RemoteModIds.SequenceEqual(JoinData.activeModsSnapshot.Select(m => m.PackageIdNonUnique));
         }
 
         private void AddNodesForPath(string path, Node root, NodeStatus status)
         {
+            if (status == NodeStatus.None) return;
             if (root.paths.Contains(path)) return;
 
             var arr = path.Split(new[]{'/'}, StringSplitOptions.RemoveEmptyEntries);
@@ -72,19 +107,22 @@ namespace Multiplayer.Client
                 root.childrenPerStatus[(int)status]++;
         }
 
-        private void RefreshFiles()
+        private void RefreshFileNodes()
         {
             filesRoot = new Node();
 
-            Node ModNode(string modId){
+            Node ModNode(string modId, out bool newNode)
+            {
+                newNode = false;
+
                 var mod = JoinData.GetInstalledMod(modId);
                 if (mod == null) return null;
 
                 var modNode = filesRoot.children.FirstOrDefault(n => n.id == modId);
                 if (modNode == null)
                 {
-                    modNode = new Node() { name=mod.Name, id=modId, parent=filesRoot, paths=new HashSet<string>(), childrenPerStatus=new int[4], collapsed=true };
-                    filesRoot.children.Add(modNode);
+                    modNode = new Node { name=mod.Name, id=modId, parent=filesRoot, paths=new HashSet<string>(), childrenPerStatus=new int[4], collapsed=true };
+                    newNode = true;
                 }
 
                 return modNode;
@@ -93,38 +131,46 @@ namespace Multiplayer.Client
             void AddFiles(ModFileDict one, ModFileDict two, NodeStatus notInTwo){
                 foreach (var kv in one)
                 {
-                    var modNode = ModNode(kv.Key);
+                    var modNode = ModNode(kv.Key, out bool newNode);
                     if (modNode == null) continue;
 
                     foreach (var f in kv.Value.Values){
                         var inTwo = two.GetOrDefault(kv.Key, f.relPath);
                         AddNodesForPath(
-                            f.relPath, 
-                            modNode, 
+                            f.relPath,
+                            modNode,
                             inTwo == null ? notInTwo : inTwo.Value.hash != f.hash ? NodeStatus.Modified : NodeStatus.None
                         );
                     }
+
+                    if (modNode.children.Any() && newNode)
+                        filesRoot.children.Add(modNode);
                 }
             }
 
-            AddFiles(remote.remoteFiles, JoinData.ModFiles, NodeStatus.Missing);
-            AddFiles(JoinData.ModFiles, remote.remoteFiles, NodeStatus.Added);
+            AddFiles(remote.remoteFiles, filesForUI, NodeStatus.Missing);
+            AddFiles(filesForUI, remote.remoteFiles, NodeStatus.Added);
         }
 
-        private void RefreshConfigs(){
-            configsRoot = new Node() {paths=new HashSet<string>(),depth=-1};
+        private void RefreshConfigNodes()
+        {
+            configsRoot = new Node {paths=new HashSet<string>(), depth=-1};
 
-            void AddConfigs(Dictionary<string, string> one, Dictionary<string, string> two, NodeStatus notInTwo){
-                foreach (var kv in one){
+            void AddConfigs(List<ModConfig> one, List<ModConfig> two, NodeStatus notInTwo)
+            {
+                var oneDict = one.ToDictionary(m => m.ModId + "/" + m.FileName, m => m.Contents);
+                var twoDict = two.ToDictionary(m => m.ModId + "/" + m.FileName, m => m.Contents);
+
+                foreach (var kv in oneDict){
                     AddNodesForPath(
-                        kv.Key, 
-                        configsRoot, 
-                        two.TryGetValue(kv.Key, out var t) ? (t.Equals(kv.Value) ? NodeStatus.None : NodeStatus.Modified) : notInTwo
+                        kv.Key,
+                        configsRoot,
+                        twoDict.TryGetValue(kv.Key, out var t) ? (t.Equals(kv.Value) ? NodeStatus.None : NodeStatus.Modified) : notInTwo
                     );
                 }
             }
 
-            var localConfigs = JoinData.ModConfigContents.ToDictionary(p => p.Item1, p => p.Item2);
+            var localConfigs = JoinData.GetSyncableConfigContents(remote.RemoteModIds);
 
             AddConfigs(remote.remoteModConfigs, localConfigs, NodeStatus.Missing);
             AddConfigs(localConfigs, remote.remoteModConfigs, NodeStatus.Added);
@@ -132,41 +178,162 @@ namespace Multiplayer.Client
 
         public override void DoWindowContents(Rect inRect)
         {
+            using (MpStyle.Set(TextAnchor.UpperCenter))
+            using (MpStyle.Set(GameFont.Medium))
+                Widgets.Label(inRect, "MpDataMismatch".Translate());
+
+            inRect.yMin += 35f;
             inRect.yMin += 35f;
 
             var tabsRect = inRect.TopPartPixels(inRect.height - 50f);
 
             TabDrawer.DrawTabs(tabsRect, new List<TabRecord>() {
-                new TabRecord("General", () => tab = Tab.General, tab == Tab.General),
-                new TabRecord("Mod list", () => tab = Tab.ModList, tab == Tab.ModList),
-                new TabRecord("Files", () => tab = Tab.Files, tab == Tab.Files),
-                new TabRecord("Configs", () => tab = Tab.Configs, tab == Tab.Configs)
+                new("General", () => tab = Tab.General, tab == Tab.General),
+                new("Mod list", () => tab = Tab.ModList, tab == Tab.ModList),
+                new("Files", () => tab = Tab.Files, tab == Tab.Files),
+                new("Configs", () => tab = Tab.Configs, tab == Tab.Configs)
             });
 
             GUI.BeginGroup(tabsRect);
+            {
+                var inTab = new Rect(0, 0, tabsRect.width, tabsRect.height);
 
-            var inTab = new Rect(0, 0, tabsRect.width, tabsRect.height);
+                void RefreshFiles()
+                {
+                    filesForUI = JoinData.GetModFiles(remote.RemoteModIds);
+                    RefreshFileNodes();
+                }
 
-            if (tab == Tab.Files)
-                DrawTreeTab(inTab, "Local files", filesRoot, RefreshFiles, true, "Mod file differences might cause desyncs.\nMake sure the versions of your mods match the server.");
-            else if (tab == Tab.Configs)
-                DrawTreeTab(inTab, "Local configs", configsRoot, RefreshConfigs, false, "Configuration differences can in some cases be the cause of desyncs.");
-            else if (tab == Tab.ModList)
-                DrawModList(inTab);
+                var filesInfo = "MpMismatchFilesInfo1".Translate() + "\n\n" + "MpMismatchFilesInfo2".Translate();
 
+                if (tab == Tab.Files)
+                    DrawTreeTab(inTab, "Local files", filesRoot, RefreshFiles, true, filesInfo, "Files match");
+                else if (tab == Tab.Configs)
+                    DrawTreeTab(inTab, "Local configs", configsRoot, RefreshConfigNodes, false, null, "Configs match");
+                else if (tab == Tab.ModList)
+                    DrawModList(inTab);
+                else if (tab == Tab.General)
+                    DrawGeneralTab(inTab);
+            }
             GUI.EndGroup();
 
             var btnCenter = new Rect(0, 0, 135f, 35f).CenterOn(inRect.BottomPartPixels(35f)).Up(10f);
 
-            Widgets.ButtonText(btnCenter.Left(150f), "Connect anyway");
-            Widgets.ButtonText(btnCenter, "Fix & restart");
-            Widgets.ButtonText(btnCenter.Right(150f), "Close");
+            var connectAnyway = MpUI.ButtonTextWithTip(
+                btnCenter.Left(150f),
+                "MpConnectAnyway".Translate(),
+                connectAnywayDisabled,
+                connectAnywayDisabled != null
+            );
+
+            if (connectAnyway)
+            {
+                connectAnywayCallback();
+                Find.WindowStack.Add(connectAnywayWindow);
+                Close(false);
+            }
+
+            if (MpUI.ButtonTextWithTip(btnCenter, "MpFixAndRestart".Translate(), "MpRestartNeeded".Translate()))
+                Find.WindowStack.Add(new FixAndRestartWindow(remote));
+
+            if (Widgets.ButtonText(btnCenter.Right(150f), "MpMismatchQuit".Translate()))
+            {
+                Multiplayer.StopMultiplayer();
+                Close();
+                Find.WindowStack.Add(new ServerBrowser());
+            }
+        }
+
+        private void DrawGeneralTab(Rect inRect)
+        {
+            const float rowLabelWidth = 200f;
+            const float columnWidth = 150f;
+            const float rowHeight = 30f;
+            const float modDataHeight = 26f;
+
+            inRect = inRect.ContractedBy(20);
+            inRect.yMin += 10;
+
+            GUI.BeginGroup(inRect.Height(modDataHeight * 3).Width(rowLabelWidth).CenteredOnXIn(inRect));
+            {
+                var modData = new Rect(0, 0, rowLabelWidth, modDataHeight);
+                Widgets.DrawAltRect(modData);
+                var modListsMatch = sameModLists;
+                Widgets.CheckboxLabeled(modData, "Mod list", ref modListsMatch);
+                modData = modData.Down(modDataHeight);
+
+                var modFilesMatch = !filesRoot.children.Any();
+                Widgets.CheckboxLabeled(modData, "Files", ref modFilesMatch);
+                modData = modData.Down(modDataHeight);
+
+                var modConfigsMatch = !configsRoot.children.Any();
+                Widgets.DrawAltRect(modData);
+                Widgets.CheckboxLabeled(modData, "Configs", ref modConfigsMatch);
+                modData = modData.Down(modDataHeight);
+            }
+            GUI.EndGroup();
+
+            inRect.yMin += modDataHeight * 3;
+
+            using (MpStyle.Set(GameFont.Tiny))
+            using (MpStyle.Set(TextAnchor.MiddleCenter))
+            using (MpStyle.Set(Color.grey))
+                Widgets.Label(inRect.Height(45).Width(300f).CenteredOnXIn(inRect), "See the respective tabs for more info.");
+
+            inRect.yMin += 45f;
+            inRect.yMin += 30;
+
+            using (MpStyle.Set(TextAnchor.MiddleCenter))
+            {
+                var headerRect = inRect.Height(rowHeight);
+                var serverColumn = headerRect.Right(rowLabelWidth).Width(columnWidth);
+                var clientColumn = serverColumn.Right(columnWidth);
+
+                Widgets.DrawHighlightIfMouseover(serverColumn);
+                Widgets.DrawHighlightIfMouseover(clientColumn);
+
+                using (MpStyle.Set(new Color(0.7f, 0.7f, 0.7f)))
+                {
+                    Widgets.Label(serverColumn, "Server");
+                    Widgets.Label(clientColumn, "Your client");
+                }
+
+                var checkboxColumn = clientColumn.Right(columnWidth).MaxX(inRect.xMax);
+
+                var rwVersionRect = headerRect.Down(rowHeight).Width(rowLabelWidth);
+                Widgets.DrawHighlightIfMouseover(rwVersionRect);
+                Widgets.DrawAltRect(headerRect.Down(rowHeight));
+                Widgets.Label(rwVersionRect, "RimWorld version");
+                Widgets.Label(serverColumn.Down(rowHeight), remote.remoteRwVersion);
+                Widgets.Label(clientColumn.Down(rowHeight), VersionControl.CurrentVersionString);
+
+                bool rwVersionCheck = remote.remoteRwVersion == VersionControl.CurrentVersionString;
+                Widgets.Checkbox(new Rect(0, 0, 24, 24).CenterOn(checkboxColumn.Down(rowHeight)).min, ref rwVersionCheck);
+
+                var mpVersionRect = rwVersionRect.Down(rowHeight).Width(rowLabelWidth);
+                Widgets.DrawHighlightIfMouseover(mpVersionRect);
+                Widgets.Label(mpVersionRect, "Multiplayer version");
+                Widgets.Label(serverColumn.Down(2 * rowHeight), remote.remoteMpVersion);
+                Widgets.Label(clientColumn.Down(2 * rowHeight), MpVersion.Version);
+
+                bool mpVersionCheck = remote.remoteMpVersion == MpVersion.Version;
+                Widgets.Checkbox(new Rect(0, 0, 24, 24).CenterOn(checkboxColumn.Down(2 * rowHeight)).min, ref mpVersionCheck);
+
+                inRect.yMin += rowHeight * 3 + 30f;
+            }
         }
 
         Vector2 scroll;
         int nodeCount;
 
-        private void DrawTreeTab(Rect inRect, string label, Node root, Action refresh, bool showCounts, string desc)
+        static readonly Color Red = new Color(1f, 0.25f, 0.25f);
+        static readonly Color Orange = new Color(1f, 0.5f, 0.25f);
+        static readonly Color Yellow = new Color(1f, 1f, 0.25f);
+        private const string RedStr = "ff4444";
+        private const string OrangeStr = "ff8844";
+        private const string YellowStr = "ffff44";
+
+        private void DrawTreeTab(Rect inRect, string label, Node root, Action refresh, bool showCounts, string desc, string matchDesc)
         {
             var listRect = new Rect(0, 20f, 440f, 220f);
             var labelsRect = new Rect(0, 20f, 120f, 220f);
@@ -174,17 +341,16 @@ namespace Multiplayer.Client
             var combined = new Rect(0, 15f, listRect.width + labelsRect.width + 20f, listRect.yMax).CenteredOnXIn(inRect);
 
             GUI.BeginGroup(combined);
-            
-            MpUtil.Label(new Rect(0, 0, 440f, 20f), label, GameFont.Tiny);
+
+            MpUI.Label(new Rect(0, 0, 440f, 20f), label, GameFont.Tiny);
 
             var refreshBtn = new Rect(420, 0, 20, 20);
             TooltipHandler.TipRegion(refreshBtn, "Refresh");
             if (Widgets.ButtonImage(refreshBtn, TexUI.RotRightTex, true))
                 refresh();
 
-            GUI.color = new Color(1, 1, 1, 0.1f);
-            Widgets.DrawBox(listRect);
-            GUI.color = Color.white;
+            using (MpStyle.Set(new Color(1, 1, 1, 0.1f)))
+                Widgets.DrawBox(listRect);
 
             const float modLabelHeight = 22f;
 
@@ -198,6 +364,11 @@ namespace Multiplayer.Client
 
             if (Event.current.type == EventType.Layout)
                 nodeCount = 0;
+
+            if (toDraw.Count == 0)
+                using (MpStyle.Set(TextAnchor.MiddleCenter))
+                using (MpStyle.Set(new Color(0.6f, 0.6f, 0.6f)))
+                    Widgets.Label(listRect.AtZero(), matchDesc);
 
             var scrollShown = viewRect.height > listRect.height;
 
@@ -216,23 +387,26 @@ namespace Multiplayer.Client
                 if (Widgets.ButtonInvisible(labelRect))
                     n.collapsed = !n.collapsed;
 
-                MpUtil.Label(
-                    labelRect.WithX(5 + 15f * n.depth),
+                MpUI.Label(
+                    labelRect.MinX(5 + 15f * n.depth),
                     n.DisplayName,
-                    color: 
-                        n.status == NodeStatus.Added ? Orange : 
-                        n.status == NodeStatus.Missing ? Red : 
-                        n.status == NodeStatus.Modified ? Yellow : 
-                        Color.white
+                    color:
+                        n.status switch
+                        {
+                            NodeStatus.Added => Orange,
+                            NodeStatus.Missing => Red,
+                            NodeStatus.Modified => Yellow,
+                            _ => Color.white
+                        }
                 );
 
                 if (showCounts && n.childrenPerStatus != null)
-                    MpUtil.Label(
-                        labelRect.Left(scrollShown ? 21f : 5f), 
-                        $"<color=#ff4444>{n.childrenPerStatus[1]}</color> <color=#ff8844>{n.childrenPerStatus[2]}</color> <color=#ffff44>{n.childrenPerStatus[3]}</color>",
+                    MpUI.Label(
+                        labelRect.Left(scrollShown ? 21f : 5f),
+                        $"<color=#{RedStr}>{n.childrenPerStatus[1]}</color> <color=#{OrangeStr}>{n.childrenPerStatus[2]}</color> <color=#{YellowStr}>{n.childrenPerStatus[3]}</color>",
                         anchor: TextAnchor.UpperRight
                     );
-                
+
                 i++;
             }
 
@@ -242,11 +416,11 @@ namespace Multiplayer.Client
             Widgets.EndScrollView();
 
             GUI.BeginGroup(labelsRect.Right(listRect.width + 20f));
-            
+
             Text.CurFontStyle.richText = true;
-            MpUtil.Label(
-                labelsRect,
-                "<color=#ff4444>(Missing)</color>\n<color=#ff8844>(Added)</color>\n<color=#ffff44>(Modified)</color>",
+            MpUI.Label(
+                labelsRect.AtZero(),
+                $"<color=#{RedStr}>(Missing)</color>\n<color=#{OrangeStr}>(Added)</color>\n<color=#{YellowStr}>(Modified)</color>",
                 anchor: TextAnchor.MiddleCenter
             );
 
@@ -254,11 +428,11 @@ namespace Multiplayer.Client
 
             GUI.EndGroup();
 
-            MpUtil.Label(
-                new Rect(0, combined.yMax + 15f, 360f, 50f).CenteredOnXIn(inRect),
-                desc,
-                anchor: TextAnchor.MiddleCenter
-            );
+            if (desc != null)
+                MpUI.Label(
+                    new Rect(0, combined.yMax + 15f, combined.width, 0f).MaxY(inRect.yMax).CenteredOnXIn(inRect),
+                    desc
+                );
         }
 
         Vector2 modScroll1;
@@ -266,14 +440,9 @@ namespace Multiplayer.Client
 
         const float scrollbarWidth = 16f;
 
-        static readonly Color Red = new Color(1f, 0.25f, 0.25f);
-        static readonly Color Orange = new Color(1f, 0.5f, 0.25f);
-        static readonly Color Yellow = new Color(1f, 1f, 0.25f);
-
+        [SuppressMessage("ReSharper", "PossibleMultipleEnumeration")]
         public void DrawModList(Rect inRect)
         {
-            var notInstalled = remote.remoteMods.Where(m => !m.Installed).ToList();
-
             const float modLabelHeight = 21f;
             const float selectorWidth = 160f;
             const float selectorSpacing = 20f;
@@ -286,24 +455,28 @@ namespace Multiplayer.Client
                 LeftPartPixels(selectorWidth).
                 TopPartPixels(selectorHeight + 50f);
 
+            void DrawModListItem(Vector2 topLeft, string name, ContentSource source, Color color)
+            {
+                Widgets.DrawHighlightIfMouseover(new Rect(topLeft, new(selectorWidth, modLabelHeight)));
+                GUI.DrawTexture(new Rect(topLeft + new Vector2(2, 2), new(16, 16)), source.GetIcon());
+                MpUI.Label(new Rect(topLeft + new Vector2(21, 0), new(100f, modLabelHeight + 2)), name, color: color);
+            }
+
             GUI.BeginGroup(mods1Rect);
             {
-                MpUtil.Label(new Rect(0, 0, selectorWidth, 20f), "Server mods", GameFont.Tiny, TextAnchor.MiddleCenter);
+                MpUI.Label(new Rect(0, 0, selectorWidth, 20f), "MpMismatchServerMods".Translate(), GameFont.Tiny, TextAnchor.MiddleCenter);
 
                 var selectorRect = new Rect(0, 20, selectorWidth, selectorHeight);
-                GUI.color = new Color(1, 1, 1, 0.1f);
-                Widgets.DrawBox(selectorRect);
-                GUI.color = Color.white;
-                
+                using (MpStyle.Set(new Color(1, 1, 1, 0.1f)))
+                    Widgets.DrawBox(selectorRect);
+
                 Widgets.BeginScrollView(selectorRect, ref modScroll1, new Rect(0, 0, selectorRect.width - scrollbarWidth, remote.remoteMods.Count * 1 * modLabelHeight));
 
                 int i = 0;
                 for (int j = 0; j < 1; j++)
                     foreach (var m in remote.remoteMods)
                     {
-                        Widgets.DrawHighlightIfMouseover(new Rect(0, i * modLabelHeight, selectorWidth, modLabelHeight));
-                        GUI.DrawTexture(new Rect(2f, i * modLabelHeight + 2f, 16f, 16f), m.source.GetIcon());
-                        MpUtil.Label(new Rect(modLabelHeight, i * modLabelHeight, selectorWidth, modLabelHeight), m.name, color: m.Installed ? Color.white : Red);
+                        DrawModListItem(new(0, i * modLabelHeight), m.name, m.source, m.Installed ? Color.white : Red);
                         i++;
                     }
 
@@ -317,21 +490,19 @@ namespace Multiplayer.Client
 
             GUI.BeginGroup(mods2Rect);
             {
-                MpUtil.Label(new Rect(0, 0, selectorWidth, 20f), "Your mods", GameFont.Tiny, TextAnchor.MiddleCenter);
+                MpUI.Label(new Rect(0, 0, selectorWidth, 20f), "MpMismatchLocalMods".Translate(), GameFont.Tiny, TextAnchor.MiddleCenter);
 
                 var selectorRect = new Rect(0, 20, selectorWidth, selectorHeight);
-                GUI.color = new Color(1, 1, 1, 0.1f);
-                Widgets.DrawBox(selectorRect);
-                GUI.color = Color.white;
+                using (MpStyle.Set(new Color(1, 1, 1, 0.1f)))
+                    Widgets.DrawBox(selectorRect);
 
                 Widgets.BeginScrollView(selectorRect, ref modScroll2, new Rect(0, 0, selectorRect.width - scrollbarWidth, ModsConfig.ActiveModsInLoadOrder.Count() * 1 * modLabelHeight));
-                
+
                 int i = 0;
                 for (int j = 0; j < 1; j++)
                     foreach (var m in ModsConfig.ActiveModsInLoadOrder)
                     {
-                        GUI.DrawTexture(new Rect(2f, i * modLabelHeight + 2f, 16f, 16f), m.Source.GetIcon());
-                        Widgets.Label(new Rect(modLabelHeight, i * modLabelHeight, 100f, modLabelHeight), m.Name);
+                        DrawModListItem(new(0, i * modLabelHeight), m.Name, m.Source, Color.white);
                         i++;
                     }
 
@@ -339,23 +510,160 @@ namespace Multiplayer.Client
             }
             GUI.EndGroup();
 
+            const float btnsWidth = selectorWidth + 20f;
+
             var mods3Rect = mods2Rect.
-                Right(mods1Rect.width + selectorSpacing * 2).
-                TopPartPixels(selectorHeight);
+                Right(mods1Rect.width + selectorSpacing).
+                TopPartPixels(selectorHeight)
+                .Width(btnsWidth);
 
             GUI.BeginGroup(mods3Rect);
             {
-                var a = new Rect(0, 0, selectorWidth, 35f * 2 + 10f).CenterOn(new Rect(0, 0, selectorWidth, selectorHeight));
+                var notInstalled = remote.remoteMods.Where(m => !m.Installed);
+                var notInstalledNotOnSteam = notInstalled.Where(m => !m.CanSubscribe);
+                var btns = new Rect(0, 0, btnsWidth, 35f * 2 + 10f).CenterOn(new Rect(0, 0, btnsWidth, selectorHeight));
 
-                if (Widgets.ButtonText(a.TopPartPixels(35f), "Refresh"))
+                if (Widgets.ButtonText(btns.TopPartPixels(35f), "MpMismatchModListRefresh".Translate()))
                     ModLister.RebuildModList();
 
-                Widgets.ButtonText(a.BottomPartPixels(35f), "Subscribe to missing");
+                var subscribeTip = "MpMismatchSubscribeNoSteam".Translate();
+                if (SteamManager.Initialized)
+                {
+                    subscribeTip = "MpMismatchSubscribeDesc1".Translate();
+                    if (notInstalledNotOnSteam.Any())
+                        subscribeTip += "\n\n" + "MpMismatchSubscribeDesc2".Translate();
+                }
 
-                MpUtil.Label(a.Under(25f), $"Not installed: {notInstalled.Count}", GameFont.Tiny, TextAnchor.MiddleCenter, Red);
-                MpUtil.Label(a.Under(50f), $"(not on Steam: 3)", GameFont.Tiny, TextAnchor.MiddleCenter, Red);
+                if (!notInstalled.Any())
+                    subscribeTip = "No mods are missing.";
+
+                var subscribeBtn = "MpMismatchSubscribe".Translate();
+                if (notInstalledNotOnSteam.Any())
+                    subscribeBtn += $" ({notInstalled.Count(m => m.CanSubscribe)})";
+
+                var doSubscribe = MpUI.ButtonTextWithTip(
+                    btns.BottomPartPixels(35f),
+                    subscribeBtn,
+                    subscribeTip,
+                    !SteamManager.Initialized || !notInstalled.Any()
+                );
+
+                if (doSubscribe)
+                {
+                    foreach (var m in notInstalled.Where(m => m.CanSubscribe))
+                        SteamUGC.SubscribeItem(new PublishedFileId_t(m.steamId));
+
+                    Messages.Message($"Subscribed to {notInstalled.Count(m => m.CanSubscribe)} mods", MessageTypeDefOf.PositiveEvent, false);
+                }
+
+                var infoStr = "MpMismatchModListsMatch".Translate();
+                var infoColor = Color.green;
+
+                if (!sameMods)
+                {
+                    infoStr = "MpMismatchModListsMismatch".Translate();
+                    infoColor = Red;
+                }
+                else if (!sameModLists)
+                {
+                    infoStr = "MpMismatchWrongOrder".Translate();
+                    infoColor = Yellow;
+                }
+
+                if (notInstalled.Any())
+                {
+                    infoStr = "MpMismatchNotInstalled".Translate(notInstalled.Count());
+                    infoColor = Red;
+                }
+
+                using (MpStyle.Set(GameFont.Tiny))
+                using (MpStyle.Set(TextAnchor.UpperCenter))
+                using (MpStyle.Set(infoColor))
+                    Widgets.Label(btns.Under(60f).Down(10f), infoStr);
             }
             GUI.EndGroup();
+        }
+    }
+
+    [HotSwappable]
+    public class FixAndRestartWindow : Window
+    {
+        private RemoteData data;
+        private bool applyModList = true;
+        private bool applyConfigs = true;
+
+        public override Vector2 InitialSize => new Vector2(400, 200);
+
+        public FixAndRestartWindow(RemoteData data)
+        {
+            this.data = data;
+
+            closeOnAccept = false;
+            closeOnCancel = false;
+            absorbInputAroundWindow = true;
+        }
+
+        public override void DoWindowContents(Rect inRect)
+        {
+            var line = inRect.Height(30f);
+            MpUI.CheckboxLabeledWithTip(line, "MpApplyModList".Translate(), "MpApplyModListTip".Translate(), ref applyModList);
+
+            line = line.Down(30);
+            MpUI.CheckboxLabeledWithTip(line, "MpApplyConfigs".Translate(), "MpApplyConfigsTip".Translate(), ref applyConfigs);
+
+            const float btnWidth = 110;
+            const float btnHeight = 35;
+
+            var center = new Vector2(inRect.width / 2f, inRect.yMax - btnHeight);
+            var size = new Vector2(btnWidth, btnHeight);
+            var restartBtn = new Rect(center + new Vector2(-btnWidth - 5, 0), size);
+
+            if (MpUI.ButtonTextWithTip(restartBtn, "MpMismatchRestart".Translate(), "You will be reconnected after the game finishes loading."))
+                DoRestart();
+
+            if (Widgets.ButtonText(new Rect(center + new Vector2(5, 0), size), "MpMismatchBack".Translate()))
+                Close();
+        }
+
+        private void DoRestart()
+        {
+            if (applyModList)
+            {
+                ModsConfig.SetActiveToList(data.remoteMods.Select(m =>
+                {
+                    var activeMod = ModsConfig.ActiveModsInLoadOrder.FirstOrDefault(a => a.PackageIdNonUnique == m.packageId);
+                    if (activeMod != null)
+                        return activeMod.PackageId;
+
+                    if (!m.packageId.Contains("ludeon"))
+                        return m.packageId + ModMetaData.SteamModPostfix; // Prefer the Steam version for new mods on the list
+
+                    return m.packageId;
+                }).ToList());
+
+                ModsConfig.Save();
+            }
+
+            if (applyConfigs)
+            {
+                var tempPath = GenFilePaths.FolderUnderSaveData(JoinData.TempConfigsDir);
+                var tempDir = new DirectoryInfo(tempPath);
+                tempDir.Delete(true);
+                tempDir.Create();
+
+                foreach (var config in data.remoteModConfigs)
+                    File.WriteAllText(Path.Combine(tempPath, $"{config.ModId}-{config.FileName}"), config.Contents);
+            }
+
+            var connectTo = data.remoteSteamHost != null
+                ? $"{data.remoteSteamHost}"
+                : $"{data.remoteAddress}:{data.remotePort}";
+
+            // The env variables will get inherited by the child process started in GenCommandLine.Restart
+            Environment.SetEnvironmentVariable(Multiplayer.RestartConnectVariable, connectTo);
+            Environment.SetEnvironmentVariable(Multiplayer.RestartConfigsVariable, applyConfigs ? "true" : "false");
+
+            GenCommandLine.Restart();
         }
     }
 }

@@ -43,19 +43,19 @@ namespace Multiplayer.Client
         }
     }
 
-    public class PesistentDialog_NodeTreeWithFactionInfo : PersistentDialog<Dialog_NodeTreeWithFactionInfo>
+    public class PersistentDialog_NodeTreeWithFactionInfo : PersistentDialog<Dialog_NodeTreeWithFactionInfo>
     {
         // temp vars, keep them clean
         Faction faction;
 
-        public PesistentDialog_NodeTreeWithFactionInfo(Map map) : base(map)
+        public PersistentDialog_NodeTreeWithFactionInfo(Map map) : base(map)
         {
             // Used by ScribeExtractor
         }
 
-        public PesistentDialog_NodeTreeWithFactionInfo(Map map, Dialog_NodeTreeWithFactionInfo dialog) : base(map, dialog)
+        public PersistentDialog_NodeTreeWithFactionInfo(Map map, Dialog_NodeTreeWithFactionInfo dialog) : base(map, dialog)
         {
-            // Used by PresistentDialog
+            // Used by PersistentDialog
         }
 
         protected override void ExposeDataSaveLoad()
@@ -90,7 +90,7 @@ namespace Multiplayer.Client
 
         public PersistentDialog_Negotiation(Map map, Dialog_Negotiation dialog) : base(map, dialog)
         {
-            // Used by PersistenDialog
+            // Used by PersistentDialog
         }
 
         protected override void ExposeDataSaveLoad()
@@ -140,7 +140,7 @@ namespace Multiplayer.Client
             Type target = bindings.TryGetValue(dialog.GetType());
 
             if (target == null) {
-                Log.Warning($"Unknow Window Type {target}");
+                Log.Warning($"Unknown Window Type {target}");
 
                 return null;
             }

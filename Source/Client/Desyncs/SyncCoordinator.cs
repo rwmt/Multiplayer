@@ -14,6 +14,7 @@ using UnityEngine;
 using Verse;
 using zip::Ionic.Zip;
 using Multiplayer.Client.Desyncs;
+using Multiplayer.Client.Util;
 
 namespace Multiplayer.Client
 {
@@ -208,7 +209,7 @@ namespace Multiplayer.Client
                 Log.Error($"Exception writing desync info: {e}");
             }
 
-            MpUtil.ClearWindowStack();
+            MpUI.ClearWindowStack();
             Find.WindowStack.Add(new DesyncedWindow(desyncMessage));
         }
 

@@ -15,6 +15,7 @@ using Multiplayer.Client.Persistent;
 using Multiplayer.Client.Desyncs;
 using Multiplayer.Client.Patches;
 using Multiplayer.Client.Saving;
+using Multiplayer.Client.Util;
 
 namespace Multiplayer.Client
 {
@@ -36,21 +37,15 @@ namespace Multiplayer.Client
                     return 0f;
             }
 
-            switch (speed)
+            return speed switch
             {
-                case TimeSpeed.Paused:
-                    return 0f;
-                case TimeSpeed.Normal:
-                    return 1f;
-                case TimeSpeed.Fast:
-                    return 3f;
-                case TimeSpeed.Superfast:
-                    return 6f;
-                case TimeSpeed.Ultrafast:
-                    return 15f;
-                default:
-                    return -1f;
-            }
+                TimeSpeed.Paused => 0f,
+                TimeSpeed.Normal => 1f,
+                TimeSpeed.Fast => 3f,
+                TimeSpeed.Superfast => 6f,
+                TimeSpeed.Ultrafast => 15f,
+                _ => -1f
+            };
         }
 
         public TimeSpeed TimeSpeed
@@ -68,7 +63,7 @@ namespace Multiplayer.Client
          */
         public void UpdateTimeSpeed()
         {
-            if (!MultiplayerWorldComp.asyncTime) {
+            if (!asyncTime) {
                 Find.TickManager.CurTimeSpeed = desiredTimeSpeed;
                 return;
             }
@@ -77,6 +72,7 @@ namespace Multiplayer.Client
                 .Where(a => a.ActualRateMultiplier(a.TimeSpeed) != 0f)
                 .Select(a => a.TimeSpeed)
                 .ToList();
+
             if (mapSpeeds.NullOrEmpty()) {
                 // all maps are paused = pause the world
                 Find.TickManager.CurTimeSpeed = TimeSpeed.Paused;
@@ -86,7 +82,7 @@ namespace Multiplayer.Client
             }
         }
 
-        public Queue<ScheduledCommand> Cmds { get => cmds; }
+        public Queue<ScheduledCommand> Cmds => cmds;
 
         public int TickableId => -1;
 
@@ -95,10 +91,11 @@ namespace Multiplayer.Client
         public World world;
         public IdBlock globalIdBlock;
         public ulong randState = 2;
-        public static bool asyncTime;
+        public TileTemperaturesComp uiTemperatures;
+
+        public bool asyncTime;
         public bool debugMode;
         public bool logDesyncTraces;
-        public TileTemperaturesComp uiTemperatures;
 
         public List<MpTradeSession> trading = new List<MpTradeSession>();
         public CaravanSplittingSession splitSession;
@@ -117,16 +114,10 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref timer, "timer");
             TickPatch.SetTimer(timer);
 
-            bool asyncTimeInSave = asyncTime;
-            Scribe_Values.Look(ref asyncTimeInSave, "asyncTime", true, true); // default true to Enable async time on old saves
-            if (Scribe.mode == LoadSaveMode.LoadingVars) {
-                if (asyncTimeInSave) {
-                    // it was previously on, and cannot be turned off, so override the menu setting for this save
-                    asyncTime = asyncTimeInSave;
-                }
-            }
+            Scribe_Values.Look(ref asyncTime, "asyncTime", true, true);
             Scribe_Values.Look(ref debugMode, "debugMode");
             Scribe_Values.Look(ref logDesyncTraces, "logDesyncTraces");
+
             Scribe_Custom.LookULong(ref randState, "randState", 2);
 
             TimeSpeed timeSpeed = Find.TickManager.CurTimeSpeed;
@@ -296,7 +287,7 @@ namespace Multiplayer.Client
                             lastSpeedChange = Time.realtimeSinceStartup;
                     }
 
-                    MpLog.Log("Set world speed " + speed + " " + TickPatch.Timer + " " + Find.TickManager.TicksGame);
+                    MpLog.Log($"Set world speed {speed} {TickPatch.Timer} {Find.TickManager.TicksGame}");
                 }
 
                 if (cmdType == CommandType.SetupFaction)

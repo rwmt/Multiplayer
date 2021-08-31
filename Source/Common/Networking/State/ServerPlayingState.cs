@@ -4,7 +4,7 @@ namespace Multiplayer.Common
 {
     public class ServerPlayingState : MpConnectionState
     {
-        public ServerPlayingState(IConnection conn) : base(conn)
+        public ServerPlayingState(ConnectionBase conn) : base(conn)
         {
         }
 
@@ -151,6 +151,22 @@ namespace Multiplayer.Common
             Server.SendToAll(Packets.Server_Selected, writer.ToArray(), excluding: Player);
         }
 
+        [PacketHandler(Packets.Client_Ping)]
+        public void HandlePing(ByteReader data)
+        {
+            var writer = new ByteWriter();
+
+            writer.WriteInt32(Player.id);
+
+            writer.WriteInt32(data.ReadInt32()); // Map id
+            writer.WriteInt32(data.ReadInt32()); // Planet tile
+            writer.WriteFloat(data.ReadFloat()); // X
+            writer.WriteFloat(data.ReadFloat()); // Y
+            writer.WriteFloat(data.ReadFloat()); // Z
+
+            Server.SendToAll(Packets.Server_Ping, writer.ToArray());
+        }
+
         [PacketHandler(Packets.Client_IdBlockRequest)]
         public void HandleIdBlockRequest(ByteReader data)
         {
@@ -176,7 +192,7 @@ namespace Multiplayer.Common
             Player.ticksBehind = ticksBehind;
 
             // Latency already handled by LiteNetLib
-            if (connection is MpNetConnection) return;
+            if (connection is LiteNetConnection) return;
 
             if (MultiplayerServer.instance.keepAliveId == id)
                 connection.Latency = (int)MultiplayerServer.instance.lastKeepAlive.ElapsedMilliseconds / 2;

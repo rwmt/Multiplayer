@@ -13,8 +13,10 @@
         Kick,
         ClientLeft,
         Throttled,
-        Failed,
+        NetFailed,
+        ServerPacketRead,
         Internal,
+        Generic,
     }
 
 }

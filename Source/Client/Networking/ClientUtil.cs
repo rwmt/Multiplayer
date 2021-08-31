@@ -22,26 +22,47 @@ namespace Multiplayer.Client
 {
     public static class ClientUtil
     {
-        public static void TryConnect(string address, int port)
+        public static void TryConnectWithWindow(string address, int port)
         {
-            Multiplayer.session = new MultiplayerSession();
+            Find.WindowStack.Add(new ConnectingWindow(address, port) { returnToServerBrowser = true });
 
-            // todo
-            //Multiplayer.session.mods.remoteAddress = address;
-            //Multiplayer.session.mods.remotePort = port;
+            Multiplayer.session = new MultiplayerSession
+            {
+                address = address,
+                port = port
+            };
 
             NetManager netClient = new NetManager(new MpClientNetListener())
             {
                 EnableStatistics = true,
                 IPv6Enabled = IPv6Mode.Disabled
             };
-            
+
             netClient.Start();
             netClient.ReconnectDelay = 300;
             netClient.MaxConnectAttempts = 8;
 
             Multiplayer.session.netClient = netClient;
             netClient.Connect(address, port, "");
+        }
+
+        public static void TrySteamConnectWithWindow(CSteamID user)
+        {
+            Log.Message("Connecting through Steam");
+
+            Find.WindowStack.Add(new SteamConnectingWindow(user) { returnToServerBrowser = true });
+
+            var conn = new SteamClientConn(user) { username = Multiplayer.username};
+
+            Multiplayer.session = new MultiplayerSession
+            {
+                client = conn,
+                steamHost = user
+            };
+
+            Multiplayer.session.ReapplyPrefs();
+
+            conn.State = ConnectionStateEnum.ClientSteam;
         }
 
         public static void HandleReceive(ByteReader data, bool reliable)
@@ -54,8 +75,7 @@ namespace Multiplayer.Client
             {
                 Log.Error($"Exception handling packet by {Multiplayer.Client}: {e}");
 
-                Multiplayer.session.disconnectReasonTranslated = "MpPacketError".Translate();
-                Multiplayer.session.disconnectInfoTranslated = "MpPacketErrorInfo".Translate();
+                Multiplayer.session.disconnectInfo.titleTranslated = "MpPacketErrorLocal".Translate();
 
                 ConnectionStatusListeners.TryNotifyAll_Disconnected();
                 Multiplayer.StopMultiplayer();

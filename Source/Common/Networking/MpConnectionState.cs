@@ -5,12 +5,12 @@ namespace Multiplayer.Common
 {
     public abstract class MpConnectionState
     {
-        public readonly IConnection connection;
+        public readonly ConnectionBase connection;
 
         protected ServerPlayer Player => connection.serverPlayer;
         protected MultiplayerServer Server => MultiplayerServer.instance;
 
-        public MpConnectionState(IConnection connection)
+        public MpConnectionState(ConnectionBase connection)
         {
             this.connection = connection;
         }

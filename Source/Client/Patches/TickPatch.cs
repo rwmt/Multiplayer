@@ -212,7 +212,7 @@ namespace Multiplayer.Client
 
         public static float ActualRateMultiplier(this ITickable tickable, TimeSpeed speed)
         {
-            if (MultiplayerWorldComp.asyncTime)
+            if (Multiplayer.WorldComp.asyncTime)
                 return tickable.TickRateMultiplier(speed);
 
             return Find.Maps.Select(m => (ITickable)m.AsyncTime()).Concat(Multiplayer.WorldComp).Select(t => t.TickRateMultiplier(speed)).Min();

@@ -8,7 +8,7 @@ using Verse.Sound;
 
 namespace Multiplayer.Client.Persistent
 {
-    /// <summary> 
+    /// <summary>
     /// Represents an active Caravan Split session. This session will track all the pawns and items being split.
     /// </summary>
     public class CaravanSplittingSession : IExposable, ISessionWithTransferables
@@ -21,7 +21,7 @@ namespace Multiplayer.Client.Persistent
         public int SessionId => sessionId;
 
         /// <summary>
-        /// The list of items that can be transferred, along with thier count.
+        /// The list of items that can be transferred, along with their count.
         /// </summary>
         private List<TransferableOneWay> transferables;
 
@@ -41,7 +41,7 @@ namespace Multiplayer.Client.Persistent
         public CaravanSplittingProxy dialog;
 
         /// <summary>
-        /// Handles creation of new CaravanSplittingSession. 
+        /// Handles creation of new CaravanSplittingSession.
         /// Ensures a unique Id is given to this session and creates the dialog.
         /// </summary>
         /// <param name="caravan"></param>
@@ -60,7 +60,6 @@ namespace Multiplayer.Client.Persistent
                 session = this
             };
             CaravanSplittingProxy.CreatingProxy = false;
-            dialog.doCloseX = true;
             dialog.CalculateAndRecacheTransferables();
             transferables = dialog.transferables;
 
@@ -69,7 +68,7 @@ namespace Multiplayer.Client.Persistent
 
         /// <summary>
         /// Opens the dialog for a currently ongoing session. This should only be called
-        /// when the dialog has been closed but the session still running. 
+        /// when the dialog has been closed but the session still running.
         /// I.E. one player has closed the window without accepting/cancelling the session.
         /// </summary>
         public void OpenWindow(bool sound = true)
@@ -77,7 +76,6 @@ namespace Multiplayer.Client.Persistent
             dialog = PrepareDialogProxy();
             if (!sound)
                 dialog.soundAppear = null;
-            dialog.doCloseX = true;
 
             CaravanUIUtility.CreateCaravanTransferableWidgets(
                 transferables,
@@ -150,7 +148,7 @@ namespace Multiplayer.Client.Persistent
         }
 
         /// <summary>
-        /// Cancel a splitting session without accepting it. Closes the dialog and frees Multiplayer.WorldComp.splitSession 
+        /// Cancel a splitting session without accepting it. Closes the dialog and frees Multiplayer.WorldComp.splitSession
         /// </summary>
         [SyncMethod]
         public static void CancelSplittingSession() {
@@ -161,7 +159,7 @@ namespace Multiplayer.Client.Persistent
         }
 
         /// <summary>
-        /// Resets the counts on all the tranferrables to 0.
+        /// Resets the counts on all the transferables to 0.
         /// </summary>
         [SyncMethod]
         public static void ResetSplittingSession()

@@ -11,9 +11,11 @@ using System.Text;
 using System.Threading.Tasks;
 using Verse;
 using System.IO;
+using Multiplayer.Client.Patches;
 
-namespace Multiplayer.Client.EarlyPatches
+namespace Multiplayer.Client
 {
+    [EarlyPatch]
     [HarmonyPatch]
     static class CaptureThingSetMakers
     {
@@ -32,6 +34,7 @@ namespace Multiplayer.Client.EarlyPatches
         }
     }
 
+    [EarlyPatch]
     [HarmonyPatch(typeof(DirectXmlLoader), nameof(DirectXmlLoader.XmlAssetsInModFolder))]
     static class XmlAssetsInModFolderPatch
     {
@@ -48,6 +51,7 @@ namespace Multiplayer.Client.EarlyPatches
 
     //[HarmonyPatch(typeof(LoadableXmlAsset), MethodType.Constructor)]
     //[HarmonyPatch(new[] { typeof(string), typeof(string), typeof(string) })]
+    [EarlyPatch]
     [HarmonyPatch(typeof(DirectXmlLoader), nameof(DirectXmlLoader.XmlAssetsInModFolder))]
     static class LoadableXmlAssetCtorPatch
     {
@@ -65,7 +69,7 @@ namespace Multiplayer.Client.EarlyPatches
                 if (asset.mod != null && fullPath.StartsWith(modDir))
                 {
                     var modId = asset.mod.PackageIdPlayerFacing.ToLowerInvariant();
-                    
+
                     xmlAssetHashes
                     .GetOrAdd(modId, s => new ConcurrentSet<ModFile>())
                     .Add(new ModFile(fullPath, fullPath.IgnorePrefix(modDir), new FileInfo(fullPath).CRC32()));
@@ -84,6 +88,7 @@ namespace Multiplayer.Client.EarlyPatches
         }
     }
 
+    [EarlyPatch]
     [HarmonyPatch(typeof(PlayDataLoader), nameof(PlayDataLoader.ClearAllPlayData))]
     static class LoadableXmlAssetClearPatch
     {
@@ -93,6 +98,7 @@ namespace Multiplayer.Client.EarlyPatches
         }
     }
 
+    [EarlyPatch]
     [HarmonyPatch]
     static class MonoIOPatch
     {
@@ -110,6 +116,7 @@ namespace Multiplayer.Client.EarlyPatches
         }
     }
 
+    [EarlyPatch]
     [HarmonyPatch(typeof(GenTypes), nameof(GenTypes.GetTypeInAnyAssemblyInt))]
     static class GenTypesOptimization
     {
@@ -137,6 +144,7 @@ namespace Multiplayer.Client.EarlyPatches
     }
 
 #if DEBUG
+    [EarlyPatch]
     [HarmonyPatch(typeof(GlobalTextureAtlasManager), nameof(GlobalTextureAtlasManager.BakeStaticAtlases))]
     static class NoAtlases
     {

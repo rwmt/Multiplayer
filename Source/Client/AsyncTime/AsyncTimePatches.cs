@@ -8,6 +8,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
+using Multiplayer.Client.Util;
 using UnityEngine;
 using Verse;
 
@@ -143,7 +144,7 @@ namespace Multiplayer.Client.AsyncTime
             if (!WorldRendererUtility.WorldRenderedNow && Find.CurrentMap == null) return;
 
             ITickable tickable = Multiplayer.WorldComp;
-            if (!WorldRendererUtility.WorldRenderedNow && MultiplayerWorldComp.asyncTime)
+            if (!WorldRendererUtility.WorldRenderedNow && Multiplayer.WorldComp.asyncTime)
                 tickable = Find.CurrentMap.AsyncTime();
 
             TimeSpeed speed = tickable.TimeSpeed;
@@ -170,14 +171,6 @@ namespace Multiplayer.Client.AsyncTime
                 Widgets.DrawLineHorizontal(btn.x + btn.width, btn.y + btn.height / 2f, btn.width * 3f);
             else if (normalSpeed == fastSpeed)  // Slowed down
                 Widgets.DrawLineHorizontal(btn.x + btn.width * 2f, btn.y + btn.height / 2f, btn.width * 2f);
-
-            if (Mouse.IsOver(btn.Width(btn.width * 4f)) && Event.current.type == EventType.Repaint)
-            {
-                var tickable = WorldRendererUtility.WorldRenderedNow ? Multiplayer.WorldComp : (ITickable)Find.CurrentMap.AsyncTime();
-                if (tickable != null)
-                    ColonistBarTimeControl.tickableToHighlight =
-                        tickable.ActualRateMultiplier(TimeSpeed.Normal) == 0f ? tickable.TickableId : (int?)null;
-            }
 
             TimeSpeed newSpeed = Find.TickManager.CurTimeSpeed;
             Find.TickManager.CurTimeSpeed = savedSpeed;
@@ -272,7 +265,7 @@ namespace Multiplayer.Client.AsyncTime
                 float drawXPos = groupBar.x;
                 Color bgColor = (entryTickable.ActualRateMultiplier(TimeSpeed.Normal) == 0f) ? pauseBgColor : normalBgColor;
 
-                if (MultiplayerWorldComp.asyncTime)
+                if (Multiplayer.WorldComp.asyncTime)
                 {
                     Rect button = new Rect(drawXPos, groupBar.yMax, btnWidth, btnHeight);
 
@@ -296,30 +289,9 @@ namespace Multiplayer.Client.AsyncTime
 
                 List<FloatMenuOption> options = GetBlockingWindowOptions(entry, entryTickable);
                 if (!options.NullOrEmpty())
-                {
-                    Rect button = new Rect(drawXPos, groupBar.yMax, btnWidth, btnHeight);
-                    DrawWindowShortcuts(button, bgColor, options);
-                    TryBlinkTickable(button, entryTickable);
-                }
+                    DrawWindowShortcuts(new Rect(drawXPos, groupBar.yMax, 70, btnHeight), bgColor, options);
 
                 curGroup = entry.group;
-            }
-        }
-
-        public static int? tickableToHighlight;
-
-        static void TryBlinkTickable(Rect rect, ITickable tickable)
-        {
-            if (tickableToHighlight != null && Event.current.type == EventType.Repaint)
-            {
-                if (tickableToHighlight.Value == tickable.TickableId && ((int)(Time.time * 3)) % 2 == 0)
-                {
-                    GUI.color = Color.red;
-                    Widgets.DrawBox(rect, 2);
-                    GUI.color = Color.white;
-                }
-
-                tickableToHighlight = null;
             }
         }
 
@@ -327,8 +299,9 @@ namespace Multiplayer.Client.AsyncTime
         {
             Widgets.DrawRectFast(button, bgColor);
 
-            if (Widgets.ButtonImage(button, TexButton.OpenStatsReport))
-                Find.WindowStack.Add(new FloatMenu(options));
+            using (MpStyle.Set(GameFont.Tiny))
+                if (Widgets.ButtonText(button, "Dialogs"))
+                    Find.WindowStack.Add(new FloatMenu(options));
         }
 
         static List<FloatMenuOption> GetBlockingWindowOptions(ColonistBar.Entry entry, ITickable tickable)
@@ -410,7 +383,7 @@ namespace Multiplayer.Client.AsyncTime
             if (__instance.def != MainButtonDefOf.World) return;
             if (__instance.Disabled) return;
             if (Find.CurrentMap == null) return;
-            if (!MultiplayerWorldComp.asyncTime) return;
+            if (!Multiplayer.WorldComp.asyncTime) return;
 
             Rect button = new Rect(rect.xMax - TimeControls.TimeButSize.x - 5f, rect.y + (rect.height - TimeControls.TimeButSize.y) / 2f, TimeControls.TimeButSize.x, TimeControls.TimeButSize.y);
             __state = button;

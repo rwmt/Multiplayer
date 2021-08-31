@@ -1,11 +1,11 @@
 using System;
 using System.Reflection;
-
 using Multiplayer.API;
 using Multiplayer.Client;
 
 namespace Multiplayer.Common
 {
+    // Note: the API expects this type to be Multiplayer.Common.MultiplayerAPIBridge
     public class MultiplayerAPIBridge : IAPI
     {
         public static readonly IAPI Instance = new MultiplayerAPIBridge();

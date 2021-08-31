@@ -21,6 +21,7 @@ using zip::Ionic.Zip;
 using System.Collections.Concurrent;
 using Verse.Sound;
 using Multiplayer.Client.Networking;
+using Multiplayer.Client.Util;
 
 namespace Multiplayer.Client
 {
@@ -71,10 +72,10 @@ namespace Multiplayer.Client
         {
             List<TabRecord> tabs = new List<TabRecord>()
             {
-                new TabRecord("MpLan".Translate(), () => tab = Tabs.Lan,  tab == Tabs.Lan),
-                new TabRecord("MpDirect".Translate(), () => tab = Tabs.Direct, tab == Tabs.Direct),
-                new TabRecord("MpSteam".Translate(), () => tab = Tabs.Steam, tab == Tabs.Steam),
-                new TabRecord("MpHostTab".Translate(), () => tab = Tabs.Host, tab == Tabs.Host),
+                new("MpLan".Translate(), () => tab = Tabs.Lan,  tab == Tabs.Lan),
+                new("MpDirect".Translate(), () => tab = Tabs.Direct, tab == Tabs.Direct),
+                new("MpSteam".Translate(), () => tab = Tabs.Steam, tab == Tabs.Steam),
+                new("MpHostTab".Translate(), () => tab = Tabs.Host, tab == Tabs.Host),
             };
 
             inRect.yMin += 35f;
@@ -137,8 +138,8 @@ namespace Multiplayer.Client
 
             float y = 0;
             Text.Font = GameFont.Medium;
-            float textHeight1 = Text.CalcHeight("MpMultiplayer".Translate(), inRect.width);
-            Widgets.Label(viewRect.Right(18f), "MpMultiplayer".Translate());
+            float textHeight1 = Text.CalcHeight("MpMultiplayerSaves".Translate(), inRect.width);
+            Widgets.Label(viewRect.Right(18f), "MpMultiplayerSaves".Translate());
             Text.Font = GameFont.Small;
             y += textHeight1 + 10;
 
@@ -155,8 +156,8 @@ namespace Multiplayer.Client
 
             viewRect.y = y;
             Text.Font = GameFont.Medium;
-            float textHeight2 = Text.CalcHeight("MpSingleplayer".Translate(), inRect.width);
-            Widgets.Label(viewRect.Right(18), "MpSingleplayer".Translate());
+            float textHeight2 = Text.CalcHeight("MpSingleplayerSaves".Translate(), inRect.width);
+            Widgets.Label(viewRect.Right(18), "MpSingleplayerSaves".Translate());
             Text.Font = GameFont.Small;
             y += textHeight2 + 10;
 
@@ -232,7 +233,7 @@ namespace Multiplayer.Client
 
             width += 120;
         }
-        
+
         private static void CheckGameVersionAndMods(SaveFile file, Action action)
         {
             ScribeMetaHeaderUtility.lastMode = ScribeMetaHeaderUtility.ScribeHeaderMode.Map;
@@ -324,7 +325,7 @@ namespace Multiplayer.Client
                     Text.Font = GameFont.Small;
                     GUI.color = Color.white;
 
-                    if (Widgets.ButtonInvisible(entryRect))
+                    if (Widgets.ButtonInvisible(entryRect, false))
                     {
                         if (Event.current.button == 0)
                             selectedFile = file;
@@ -435,7 +436,7 @@ namespace Multiplayer.Client
                     if (Widgets.ButtonText(playButton, "MpJoinButton".Translate()))
                     {
                         Close(false);
-                        ConnectOnSteam(friend);
+                        ClientUtil.TrySteamConnectWithWindow(friend.serverHost);
                     }
                 }
                 else
@@ -453,22 +454,6 @@ namespace Multiplayer.Client
             Widgets.EndScrollView();
         }
 
-        private void ConnectOnSteam(SteamPersona friend)
-        {
-            Log.Message("Connecting through Steam");
-
-            Find.WindowStack.Add(new SteamConnectingWindow(friend.serverHost) { returnToServerBrowser = true });
-
-            var conn = new SteamClientConn(friend.serverHost);
-            conn.username = Multiplayer.username;
-            Multiplayer.session = new MultiplayerSession();
-
-            Multiplayer.session.client = conn;
-            Multiplayer.session.ReapplyPrefs();
-
-            conn.State = ConnectionStateEnum.ClientSteam;
-        }
-
         private void DrawDirect(Rect inRect)
         {
             Multiplayer.settings.serverAddress = Widgets.TextField(new Rect(inRect.center.x - 200 / 2, 15f, 200, 35f), Multiplayer.settings.serverAddress);
@@ -479,16 +464,16 @@ namespace Multiplayer.Client
             {
                 string addr = Multiplayer.settings.serverAddress.Trim();
                 int port = MultiplayerServer.DefaultPort;
-                string[] hostport = addr.Split(':');
-                if (hostport.Length == 2)
-                    int.TryParse(hostport[1], out port);
+                string[] hostPort = addr.Split(':');
+                if (hostPort.Length == 2)
+                    int.TryParse(hostPort[1], out port);
                 else
                     port = MultiplayerServer.DefaultPort;
 
                 Log.Message("Connecting directly");
                 try
                 {
-                    Find.WindowStack.Add(new ConnectingWindow(hostport[0], port) { returnToServerBrowser = true });
+                    ClientUtil.TryConnectWithWindow(hostPort[0], port);
                     Multiplayer.settings.Write();
                     Close(false);
                 }
@@ -502,7 +487,7 @@ namespace Multiplayer.Client
         private void DrawLan(Rect inRect)
         {
             Text.Anchor = TextAnchor.MiddleCenter;
-            Widgets.Label(new Rect(inRect.x, 8f, inRect.width, 40), "MpLanSearching".Translate() + MpUtil.FixedEllipsis());
+            Widgets.Label(new Rect(inRect.x, 8f, inRect.width, 40), "MpLanSearching".Translate() + MpUI.FixedEllipsis());
             Text.Anchor = TextAnchor.UpperLeft;
             inRect.yMin += 40f;
 
@@ -532,7 +517,10 @@ namespace Multiplayer.Client
                 {
                     Close(false);
                     Log.Message("Connecting to lan server");
-                    Find.WindowStack.Add(new ConnectingWindow(server.endpoint.Address.ToString(), server.endpoint.Port) { returnToServerBrowser = true });
+
+                    var address = server.endpoint.Address.ToString();
+                    var port = server.endpoint.Port;
+                    ClientUtil.TryConnectWithWindow(address, port);
                 }
 
                 Text.Anchor = TextAnchor.UpperLeft;

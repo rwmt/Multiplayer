@@ -10,6 +10,7 @@ using Verse;
 
 namespace Multiplayer.Client
 {
+    [HotSwappable]
     public class MpSettings : ModSettings
     {
         // Remember to mirror the default values
@@ -20,17 +21,16 @@ namespace Multiplayer.Client
         public bool transparentChat = true;
         public int autosaveSlots = 5;
         public bool aggressiveTicking = true;
-        public bool syncModConfigs = true;
         public bool showDevInfo;
         public int desyncTracesRadius = 40;
         public string serverAddress = "127.0.0.1";
         public bool appendNameToAutosave;
-        public bool pauseAutosaveCounter = true;
         public bool showModCompatibility = true;
+        public bool hideTranslationMods = true;
         public Rect chatRect;
         public Vector2 resolutionForChat;
 
-        public ServerSettings serverSettings = new ServerSettings();
+        public ServerSettings serverSettings = new();
 
         public override void ExposeData()
         {
@@ -40,12 +40,11 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref transparentChat, "transparentChat", true);
             Scribe_Values.Look(ref autosaveSlots, "autosaveSlots", 5);
             Scribe_Values.Look(ref aggressiveTicking, "aggressiveTicking", true);
-            Scribe_Values.Look(ref syncModConfigs, "syncModConfigs", true);
             Scribe_Values.Look(ref showDevInfo, "showDevInfo");
             Scribe_Values.Look(ref desyncTracesRadius, "desyncTracesRadius", 40);
             Scribe_Values.Look(ref serverAddress, "serverAddress", "127.0.0.1");
-            Scribe_Values.Look(ref pauseAutosaveCounter, "pauseAutosaveCounter", true);
             Scribe_Values.Look(ref showModCompatibility, "showModCompatibility", true);
+            Scribe_Values.Look(ref hideTranslationMods, "hideTranslationMods", true);
             Scribe_Custom.LookRect(ref chatRect, "chatRect");
             Scribe_Values.Look(ref resolutionForChat, "resolutionForChat");
 
@@ -62,7 +61,7 @@ namespace Multiplayer.Client
         {
             var listing = new Listing_Standard();
             listing.Begin(inRect);
-            listing.ColumnWidth = 220f;
+            listing.ColumnWidth = 250f;
 
             DoUsernameField(listing);
             listing.TextFieldNumericLabeled("MpAutosaveSlots".Translate() + ":  ", ref autosaveSlots, ref slotsBuffer, 1f, 99f);
@@ -71,12 +70,8 @@ namespace Multiplayer.Client
             listing.CheckboxLabeled("MpAutoAcceptSteam".Translate(), ref autoAcceptSteam, "MpAutoAcceptSteamDesc".Translate());
             listing.CheckboxLabeled("MpTransparentChat".Translate(), ref transparentChat);
             listing.CheckboxLabeled("MpAggressiveTicking".Translate(), ref aggressiveTicking, "MpAggressiveTickingDesc".Translate());
-            listing.CheckboxLabeled("MpSyncModConfigs".Translate(), ref syncModConfigs, "MpSyncModConfigsDesc".Translate());
             listing.CheckboxLabeled("MpAppendNameToAutosave".Translate(), ref appendNameToAutosave);
-
-            listing.CheckboxLabeled("MpPauseAutosaveCounter".Translate(), ref pauseAutosaveCounter, "MpPauseAutosaveCounterDesc".Translate());
-            listing.CheckboxLabeled("MpShowModCompatibility".Translate(), ref showModCompatibility, "MpShowModCompatibilityDesc".Translate());
-            //listing.CheckboxLabeled("MpAutosaveOnDesync".Translate(), ref autosaveOnDesync, "MpAutosaveOnDesyncDesc".Translate());
+            listing.CheckboxLabeled("MpShowModCompat".Translate(), ref showModCompatibility, "MpShowModCompatDesc".Translate());
 
             if (Prefs.DevMode)
             {
@@ -93,13 +88,16 @@ namespace Multiplayer.Client
         {
             GUI.SetNextControlName(UsernameField);
 
-            string username = listing.TextEntryLabeled("MpUsername".Translate() + ":  ", this.username);
-            if (username.Length <= 15 && ServerJoiningState.UsernamePattern.IsMatch(username))
+            var prevField = username;
+            var fieldStr = listing.TextEntryLabeled("MpUsernameSetting".Translate() + ":  ", username);
+
+            if (prevField != fieldStr && fieldStr.Length <= 15 && ServerJoiningState.UsernamePattern.IsMatch(fieldStr))
             {
-                this.username = username;
-                Multiplayer.username = username;
+                username = fieldStr;
+                Multiplayer.username = fieldStr;
             }
 
+            // Don't allow changing the username in-game
             if (Multiplayer.Client != null && GUI.GetNameOfFocusedControl() == UsernameField)
                 UI.UnfocusCurrentControl();
         }

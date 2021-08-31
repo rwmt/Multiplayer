@@ -9,7 +9,7 @@ namespace Multiplayer.Client.Persistent
     /// <summary>
     /// Multiplayer replacement of the Dialog_SplitCaravan dialog.
     /// </summary>
-    public class CaravanSplittingProxy : Dialog_SplitCaravan
+    public class CaravanSplittingProxy : Dialog_SplitCaravan, ISwitchToMap
     {
         public static bool CreatingProxy;
 
@@ -105,7 +105,7 @@ namespace Multiplayer.Client.Persistent
         }
 
         /// <summary>
-        /// Replaces Dialog_SplitCaravan.DoBottomButtons. 
+        /// Replaces Dialog_SplitCaravan.DoBottomButtons.
         /// This is a copy of the original but with the handlers for the buttons pulled out into separate handlers.
         /// </summary>
         /// <param name="rect"></param>
@@ -143,7 +143,7 @@ namespace Multiplayer.Client.Persistent
             Rect rect4 = new Rect(x5, y3, x6, bottomButtonSize8.y);
             if (Widgets.ButtonText(rect4, "CancelButton".Translate(), true, false, true))
             {
-                CancelButtonClicked(); 
+                CancelButtonClicked();
             }
         }
 

@@ -18,7 +18,7 @@ using Verse.AI.Group;
 namespace Multiplayer.Client
 {
     [HotSwappable]
-    public class TradingWindow : Window
+    public class TradingWindow : Window, ISwitchToMap
     {
         public static TradingWindow drawingTrade;
         public static bool cancelPressed;
@@ -27,7 +27,6 @@ namespace Multiplayer.Client
 
         public TradingWindow()
         {
-            doCloseX = true;
             closeOnAccept = false;
             absorbInputAroundWindow = true;
         }

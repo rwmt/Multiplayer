@@ -14,113 +14,44 @@ namespace Multiplayer.Client
 {
     public class OnMainThread : MonoBehaviour
     {
-        public static ActionQueue queue = new ActionQueue();
+        private static ActionQueue queue = new();
+        private static List<(Action, float)> scheduled = new();
 
         public void Update()
         {
-            Multiplayer.session?.netClient?.PollEvents();
-
-            queue.RunQueue();
-
-            if (SteamManager.Initialized)
-                SteamIntegration.UpdateRichPresence();
-
-            if (Multiplayer.Client == null) return;
-
-            SyncFieldUtil.UpdateSync();
-
-            if (!Multiplayer.arbiterInstance && Application.isFocused && !TickPatch.Simulating && !Multiplayer.session.desynced)
-                SendVisuals();
-
-            if (Multiplayer.Client is SteamBaseConn steamConn && SteamManager.Initialized)
-                foreach (var packet in SteamIntegration.ReadPackets(steamConn.recvChannel))
-                    // Note: receive can lead to disconnection
-                    if (steamConn.remoteId == packet.remote && Multiplayer.Client != null)
-                        ClientUtil.HandleReceive(packet.data, packet.reliable);
-        }
-
-        private void SendVisuals()
-        {
-            if (Time.realtimeSinceStartup - lastCursorSend > 0.05f)
+            try
             {
-                lastCursorSend = Time.realtimeSinceStartup;
-                SendCursor();
-            }
+                Multiplayer.session?.netClient?.PollEvents();
+                queue.RunQueue(Log.Error);
 
-            if (Time.realtimeSinceStartup - lastSelectedSend > 0.2f)
+                for (int i = scheduled.Count - 1; i >= 0; i--)
+                    if (Time.realtimeSinceStartup > scheduled[i].Item2)
+                    {
+                        scheduled[i].Item1();
+                        scheduled.RemoveAt(i);
+                    }
+
+                if (SteamManager.Initialized)
+                    SteamIntegration.UpdateRichPresence();
+
+                if (Multiplayer.Client == null) return;
+
+                Multiplayer.session.Update();
+                SyncFieldUtil.UpdateSync();
+
+                if (!Multiplayer.arbiterInstance && Application.isFocused && !TickPatch.Simulating && !Multiplayer.session.desynced)
+                    Multiplayer.session.cursorAndPing.SendVisuals();
+
+                if (Multiplayer.Client is SteamBaseConn steamConn && SteamManager.Initialized)
+                    foreach (var packet in SteamIntegration.ReadPackets(steamConn.recvChannel))
+                        // Note: receive can lead to disconnection
+                        if (steamConn.remoteId == packet.remote && Multiplayer.Client != null)
+                            ClientUtil.HandleReceive(packet.data, packet.reliable);
+            }
+            catch (Exception e)
             {
-                lastSelectedSend = Time.realtimeSinceStartup;
-                SendSelected();
+                Log.Error($"Exception in OnMainThread: {e}");
             }
-        }
-
-        private byte cursorSeq;
-        private float lastCursorSend;
-
-        private void SendCursor()
-        {
-            var writer = new ByteWriter();
-            writer.WriteByte(cursorSeq++);
-
-            if (Find.CurrentMap != null && !WorldRendererUtility.WorldRenderedNow)
-            {
-                writer.WriteByte((byte)Find.CurrentMap.Index);
-
-                var icon = Find.MapUI?.designatorManager?.SelectedDesignator?.icon;
-                int iconId = icon == null ? 0 : !MultiplayerData.icons.Contains(icon) ? 0 : MultiplayerData.icons.IndexOf(icon);
-                writer.WriteByte((byte)iconId);
-
-                writer.WriteVectorXZ(UI.MouseMapPosition());
-
-                if (Find.Selector.dragBox.IsValidAndActive)
-                    writer.WriteVectorXZ(Find.Selector.dragBox.start);
-                else
-                    writer.WriteShort(-1);
-            }
-            else
-            {
-                writer.WriteByte(byte.MaxValue);
-            }
-
-            Multiplayer.Client.Send(Packets.Client_Cursor, writer.ToArray(), reliable: false);
-        }
-
-        private HashSet<int> lastSelected = new HashSet<int>();
-        private float lastSelectedSend;
-        private int lastMap;
-
-        private void SendSelected()
-        {
-            if (Current.ProgramState != ProgramState.Playing) return;
-
-            var writer = new ByteWriter();
-
-            int mapId = Find.CurrentMap?.Index ?? -1;
-            if (WorldRendererUtility.WorldRenderedNow) mapId = -1;
-
-            bool reset = false;
-
-            if (mapId != lastMap)
-            {
-                reset = true;
-                lastMap = mapId;
-                lastSelected.Clear();
-            }
-
-            var selected = new HashSet<int>(Find.Selector.selected.OfType<Thing>().Select(t => t.thingIDNumber));
-
-            var add = new List<int>(selected.Except(lastSelected));
-            var remove = new List<int>(lastSelected.Except(selected));
-
-            if (!reset && add.Count == 0 && remove.Count == 0) return;
-
-            writer.WriteBool(reset);
-            writer.WritePrefixedInts(add);
-            writer.WritePrefixedInts(remove);
-
-            lastSelected = selected;
-
-            Multiplayer.Client.Send(Packets.Client_Selected, writer.ToArray());
         }
 
         public void OnApplicationQuit()
@@ -131,6 +62,11 @@ namespace Multiplayer.Client
         public static void Enqueue(Action action)
         {
             queue.Enqueue(action);
+        }
+
+        public static void Schedule(Action action, float time)
+        {
+            scheduled.Add((action, Time.realtimeSinceStartup + time));
         }
     }
 

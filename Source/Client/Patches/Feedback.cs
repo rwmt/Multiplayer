@@ -64,6 +64,10 @@ namespace Multiplayer.Client.Patches
 
         static bool Prefix(ThingDef moteDef)
         {
+            // Catches ritual effect motes
+            if (moteDef.mote.solidTime >= 99999)
+                return true;
+
             return !CancelFeedbackNotTargetedAtMe.Cancel;
         }
     }

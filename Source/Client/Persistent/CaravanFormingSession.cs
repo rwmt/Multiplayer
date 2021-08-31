@@ -57,7 +57,6 @@ namespace Multiplayer.Client
             var dialog = PrepareDummyDialog();
             if (!sound)
                 dialog.soundAppear = null;
-            dialog.doCloseX = true;
 
             CaravanUIUtility.CreateCaravanTransferableWidgets(
                 transferables,
@@ -92,13 +91,13 @@ namespace Multiplayer.Client
         }
 
         [SyncMethod]
-        public void ChooseRoute(int destinationTile)
+        public void ChooseRoute(int destination)
         {
             var dialog = PrepareDummyDialog();
-            dialog.Notify_ChoseRoute(destinationTile);
+            dialog.Notify_ChoseRoute(destination);
 
             startingTile = dialog.startingTile;
-            this.destinationTile = dialog.destinationTile;
+            destinationTile = dialog.destinationTile;
 
             uiDirty = true;
         }
@@ -123,14 +122,14 @@ namespace Multiplayer.Client
             if (PrepareDummyDialog().DebugTryFormCaravanInstantly())
                 Remove();
         }
-        
+
         [SyncMethod]
         public void Reset()
         {
             transferables.ForEach(t => t.CountToTransfer = 0);
             uiDirty = true;
         }
- 
+
         [SyncMethod]
         public void Remove()
         {

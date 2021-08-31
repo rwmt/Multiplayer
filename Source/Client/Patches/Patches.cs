@@ -373,7 +373,7 @@ namespace Multiplayer.Client
             async.storyteller = new Storyteller(Find.Storyteller.def, Find.Storyteller.difficultyDef, Find.Storyteller.difficulty);
             async.storyWatcher = new StoryWatcher();
 
-            if (!MultiplayerWorldComp.asyncTime)
+            if (!Multiplayer.WorldComp.asyncTime)
                 async.TimeSpeed = Find.TickManager.CurTimeSpeed;
         }
 
@@ -442,7 +442,7 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch]
-    static class NoCameraJumpingDuringSimulting
+    static class NoCameraJumpingDuringSimulating
     {
         static IEnumerable<MethodBase> TargetMethods()
         {

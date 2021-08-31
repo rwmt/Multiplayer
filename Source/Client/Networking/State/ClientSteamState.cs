@@ -5,7 +5,7 @@ namespace Multiplayer.Client
 {
     public class ClientSteamState : MpConnectionState
     {
-        public ClientSteamState(IConnection connection) : base(connection)
+        public ClientSteamState(ConnectionBase connection) : base(connection)
         {
             var steamConn = connection as SteamBaseConn;
 

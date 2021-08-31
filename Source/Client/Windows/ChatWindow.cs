@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Multiplayer.Client.Util;
 using UnityEngine;
 using Verse;
 using Verse.Steam;
@@ -45,7 +46,9 @@ namespace Multiplayer.Client
             resizeable = true;
             onlyOneOfTypeAllowed = true;
             closeOnCancel = false;
-            lastResolution = MpUtil.Resolution;
+            resizer = new WindowResizer { minWindowSize = new Vector2(350f, 200f) };
+
+            lastResolution = MpUI.Resolution;
 
             if (!Multiplayer.session.desynced)
             {
@@ -94,7 +97,7 @@ namespace Multiplayer.Client
 
             if (KeyBindingDefOf.Cancel.KeyDownEvent && Find.WindowStack.focusedWindow == this)
             {
-                Close(true);
+                Close();
                 Event.current.Use();
             }
         }
@@ -248,11 +251,7 @@ namespace Multiplayer.Client
 
         private void DrawChat(Rect inRect)
         {
-            if ((Event.current.type == EventType.MouseDown || KeyBindingDefOf.Cancel.KeyDownEvent) && !GUI.GetNameOfFocusedControl().NullOrEmpty())
-            {
-                Event.current.Use();
-                UI.UnfocusCurrentControl();
-            }
+            MpUI.TryUnfocusCurrentNamedControl(this);
 
             Rect outRect = new Rect(0f, 0f, inRect.width, inRect.height - 30f);
             Rect viewRect = new Rect(0f, 0f, inRect.width - 16f, messagesHeight + 10f);
@@ -317,7 +316,7 @@ namespace Multiplayer.Client
 
             Widgets.EndScrollView();
 
-            if (Widgets.ButtonText(new Rect(textField.xMax + 5f, textField.y, 55f, textField.height), "MpSend".Translate()))
+            if (Widgets.ButtonText(new Rect(textField.xMax + 5f, textField.y, 55f, textField.height), "MpChatSend".Translate()))
                 SendMsg();
 
             GUI.EndGroup();
@@ -387,7 +386,7 @@ namespace Multiplayer.Client
                     LogNetData("Net Server", Multiplayer.LocalServer.netManager.Statistics);
 
                 foreach (var p in Multiplayer.LocalServer.players.ToList())
-                    if (p.conn is MpNetConnection net)
+                    if (p.conn is LiteNetConnection net)
                         LogNetData($"Net Peer {p.Username}", net.peer.Statistics);
             }
 
@@ -435,7 +434,7 @@ namespace Multiplayer.Client
         private void SaveChatSize()
         {
             Multiplayer.settings.chatRect = windowRect;
-            Multiplayer.settings.resolutionForChat = MpUtil.Resolution;
+            Multiplayer.settings.resolutionForChat = MpUI.Resolution;
         }
 
         public void SetSizeTo(Rect chatRect, Vector2 lastResolution)
@@ -452,7 +451,7 @@ namespace Multiplayer.Client
         public override void Notify_ResolutionChanged()
         {
             SetSizeTo(windowRect, lastResolution);
-            lastResolution = MpUtil.Resolution;
+            lastResolution = MpUI.Resolution;
         }
 
         public static void OpenChat()

@@ -21,30 +21,6 @@ namespace Multiplayer.Client
 {
     public static class MpUtil
     {
-        public static Vector2 Resolution => new Vector2(UI.screenWidth, UI.screenHeight);
-
-        static Func<ICustomAttributeProvider, Type, bool> IsDefinedInternal;
-
-        // Doesn't load the type
-        public static bool HasAttr(ICustomAttributeProvider provider, Type attrType)
-        {
-            if (IsDefinedInternal == null)
-                IsDefinedInternal = (Func<ICustomAttributeProvider, Type, bool>)Delegate.CreateDelegate(typeof(Func<ICustomAttributeProvider, Type, bool>), AccessTools.Method(Type.GetType("System.MonoCustomAttrs"), "IsDefinedInternal"));
-
-            return IsDefinedInternal(provider, attrType);
-        }
-
-        public static string FixedEllipsis()
-        {
-            int num = Mathf.FloorToInt(Time.realtimeSinceStartup) % 3;
-            return num switch
-            {
-                0 => ".  ",
-                1 => ".. ",
-                _ => "..."
-            };
-        }
-
         public static IEnumerable<Type> AllModTypes()
         {
             foreach (var asm in LoadedModManager.RunningMods.SelectMany(m => m.assemblies.loadedAssemblies))
@@ -134,46 +110,6 @@ namespace Multiplayer.Client
             }
         }
 
-        public static void DrawRotatedLine(Vector2 center, float length, float width, float angle, Color color)
-        {
-            var size = new Vector2(length, width);
-            var start = center - size / 2f;
-            Rect screenRect = new Rect(start.x, start.y, length, width);
-            Matrix4x4 m = Matrix4x4.TRS(center, Quaternion.Euler(0f, 0f, angle), Vector3.one) * Matrix4x4.TRS(-center, Quaternion.identity, Vector3.one);
-
-            GL.PushMatrix();
-            GL.MultMatrix(m);
-            GUI.DrawTexture(screenRect, Widgets.LineTexAA, ScaleMode.StretchToFill, true, 0f, color, 0f, 0f);
-            GL.PopMatrix();
-        }
-
-        public static void Label(Rect rect, string label, GameFont? font = null, TextAnchor? anchor = null, Color? color = null)
-        {
-            var prevFont = Text.Font;
-            var prevAnchor = Text.Anchor;
-            var prevColor = GUI.color;
-
-            if (font != null)
-                Text.Font = font.Value;
-
-            if (anchor != null)
-                Text.Anchor = anchor.Value;
-
-            if (color != null)
-                GUI.color = color.Value;
-
-            Widgets.Label(rect, label);
-
-            GUI.color = prevColor;
-            Text.Anchor = prevAnchor;
-            Text.Font = prevFont;
-        }
-
-        public static void ClearWindowStack()
-        {
-            Find.WindowStack.windows.Clear();
-        }
-
         public static string RwDataFile(string filename)
         {
             return Path.Combine(GenFilePaths.SaveDataFolderPath, filename);
@@ -221,7 +157,7 @@ namespace Multiplayer.Client
             lambda ??= AccessTools.Method(parentType, lambdaNameFull);
 
             // Non-capturing cached lambda
-            if (lambda == null && AccessTools.Inner(parentType, SharedDisplayClass) is Type sharedDisplayClass)
+            if (lambda == null && AccessTools.Inner(parentType, SharedDisplayClass) is { } sharedDisplayClass)
                 lambda = AccessTools.Method(sharedDisplayClass, lambdaNameFull);
 
             if (lambda == null)
@@ -305,6 +241,11 @@ namespace Multiplayer.Client
             }
 
             throw new Exception($"Couldn't determine debug id for parent method {method.DeclaringType}::{method.Name}");
+        }
+
+        public static string TranslateWithDoubleNewLines(string keyBase, int count)
+        {
+            return Enumerable.Range(1, count).Select(n => (keyBase + n).Translate()).Join(delimiter: "\n\n");
         }
     }
 

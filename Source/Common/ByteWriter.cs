@@ -140,7 +140,7 @@ namespace Multiplayer.Common
             }
             else
             {
-                MpLog.Error($"MP ByteWriter.Write: Unknown type {obj.GetType()}");
+                ServerLog.Error($"MP ByteWriter.Write: Unknown type {obj.GetType()}");
             }
         }
 
@@ -149,6 +149,9 @@ namespace Multiplayer.Common
             return stream.ToArray();
         }
 
+        /// <summary>
+        /// Writes all objects in the order given and returns the resulting bytes.
+        /// </summary>
         public static byte[] GetBytes(params object[] data)
         {
             var writer = new ByteWriter();

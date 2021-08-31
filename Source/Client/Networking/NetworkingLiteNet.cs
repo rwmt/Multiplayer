@@ -7,15 +7,17 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
+using Multiplayer.Client.Util;
 using Verse;
 
 namespace Multiplayer.Client.Networking
 {
+    [HotSwappable]
     public class MpClientNetListener : INetEventListener
     {
         public void OnPeerConnected(NetPeer peer)
         {
-            IConnection conn = new MpNetConnection(peer);
+            ConnectionBase conn = new LiteNetConnection(peer);
             conn.username = Multiplayer.username;
             conn.State = ConnectionStateEnum.ClientJoining;
 
@@ -27,7 +29,7 @@ namespace Multiplayer.Client.Networking
 
         public void OnNetworkError(IPEndPoint endPoint, SocketError error)
         {
-            Log.Warning($"Net client error {error}");
+            MpLog.Error($"Net client error {error}");
         }
 
         public void OnNetworkReceive(NetPeer peer, NetPacketReader reader, DeliveryMethod method)
@@ -43,8 +45,11 @@ namespace Multiplayer.Client.Networking
 
             if (info.AdditionalData.IsNull)
             {
-                reason = MpDisconnectReason.Failed;
-                data = new byte[0];
+                reason =
+                    info.Reason is DisconnectReason.DisconnectPeerCalled or DisconnectReason.RemoteConnectionClose ?
+                    MpDisconnectReason.Generic : MpDisconnectReason.NetFailed;
+
+                data = new [] { (byte)info.Reason };
             }
             else
             {
@@ -54,11 +59,10 @@ namespace Multiplayer.Client.Networking
             }
 
             Multiplayer.session.ProcessDisconnectPacket(reason, data);
-
             ConnectionStatusListeners.TryNotifyAll_Disconnected();
 
             Multiplayer.StopMultiplayer();
-            MpLog.Log("Net client disconnected");
+            MpLog.Log($"Net client disconnected {info.Reason}");
         }
 
         public void OnConnectionRequest(ConnectionRequest request) { }

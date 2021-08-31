@@ -140,8 +140,7 @@ namespace Multiplayer.Client
                     rwVersion = VersionControl.CurrentVersionStringWithRev,
                     modIds = LoadedModManager.RunningModsListForReading.Select(m => m.PackageId).ToList(),
                     modNames = LoadedModManager.RunningModsListForReading.Select(m => m.Name).ToList(),
-                    modAssemblyHashes = Multiplayer.enabledModAssemblyHashes.Select(h => h.assemblyHash).ToList(),
-                    asyncTime = MultiplayerWorldComp.asyncTime,
+                    asyncTime = Multiplayer.WorldComp.asyncTime,
                 }
             };
 
@@ -188,9 +187,8 @@ namespace Multiplayer.Client
         public string rwVersion;
         public List<string> modIds;
         public List<string> modNames;
-        public List<int> modAssemblyHashes;
+        public List<int> modAssemblyHashes; // Unused, here to satisfy DirectXmlToObject on old saves
 
-        /// copied here for easy reading, source of truth is <see cref="MultiplayerWorldComp.asyncTime"/>
         public bool asyncTime;
     }
 
@@ -217,7 +215,7 @@ namespace Multiplayer.Client
         public Color color;
     }
 
-    public class ReplayConnection : IConnection
+    public class ReplayConnection : ConnectionBase
     {
         protected override void SendRaw(byte[] raw, bool reliable)
         {

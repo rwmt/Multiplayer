@@ -80,17 +80,22 @@ namespace Multiplayer.Client.Patches
     [HarmonyPatch(typeof(GizmoGridDrawer), nameof(GizmoGridDrawer.DrawGizmoGrid))]
     static class GizmoDrawDebugInfo
     {
-        static MethodInfo GizmoOnGUI = AccessTools.Method(typeof(Gizmo), nameof(Gizmo.GizmoOnGUI), new[] { typeof(Vector2), typeof(float), typeof(GizmoRenderParms) });
-        static MethodInfo GizmoOnGUIShrunk = AccessTools.Method(typeof(Command), nameof(Command.GizmoOnGUIShrunk), new[] { typeof(Vector2), typeof(float), typeof(GizmoRenderParms) });
+        static MethodInfo GizmoOnGUI = AccessTools.Method(typeof(Gizmo), nameof(Gizmo.GizmoOnGUI),
+            new[] { typeof(Vector2), typeof(float), typeof(GizmoRenderParms) });
+
+        static MethodInfo GizmoOnGUIShrunk = AccessTools.Method(typeof(Command), nameof(Command.GizmoOnGUIShrunk),
+            new[] { typeof(Vector2), typeof(float), typeof(GizmoRenderParms) });
 
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
         {
             foreach (var inst in insts)
             {
                 if (inst.operand == GizmoOnGUI)
-                    yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(GizmoDrawDebugInfo), nameof(GizmoOnGUIProxy)));
+                    yield return new CodeInstruction(OpCodes.Call,
+                        AccessTools.Method(typeof(GizmoDrawDebugInfo), nameof(GizmoOnGUIProxy)));
                 else if (inst.operand == GizmoOnGUIShrunk)
-                    yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(GizmoDrawDebugInfo), nameof(GizmoOnGUIShrunkProxy)));
+                    yield return new CodeInstruction(OpCodes.Call,
+                        AccessTools.Method(typeof(GizmoDrawDebugInfo), nameof(GizmoOnGUIShrunkProxy)));
                 else
                     yield return inst;
             }
@@ -125,7 +130,6 @@ namespace Multiplayer.Client.Patches
         }
     }
 
-    [HotSwappable]
     [HarmonyPatch(typeof(FloatMenuOption), nameof(FloatMenuOption.DoGUI))]
     static class FloatMenuDrawDebugInfo
     {
@@ -137,16 +141,14 @@ namespace Multiplayer.Client.Patches
         internal static string DelegateMethodInfo(MethodBase m)
         {
             return
-                m == null ?
-                "No method" :
-                $"{m.DeclaringType.DeclaringType?.FullDescription()} {m.DeclaringType.FullDescription()} {m.Name}"
-               .Replace("<", "[").Replace(">", "]");
+                m == null
+                    ? "No method"
+                    : $"{m.DeclaringType.DeclaringType?.FullDescription()} {m.DeclaringType.FullDescription()} {m.Name}"
+                        .Replace("<", "[").Replace(">", "]");
         }
     }
-}
 
-namespace Multiplayer.Client.EarlyPatches
-{
+    [EarlyPatch]
     [HarmonyPatch(typeof(PatchClassProcessor), "ProcessPatchJob")]
     static class HarmonyMeasurePatchTime
     {
@@ -166,6 +168,7 @@ namespace Multiplayer.Client.EarlyPatches
         }
     }
 
+    [EarlyPatch]
     [HarmonyPatch]
     static class FixNewlineLogging
     {
@@ -182,6 +185,17 @@ namespace Multiplayer.Client.EarlyPatches
             // Without this patch printing \r\n results in \r\r\n
             if (Native.Windows)
                 text = text?.Replace("\r\n", "\n");
+        }
+    }
+
+    [HotSwappable]
+    [HarmonyPatch(typeof(Widgets), nameof(Widgets.Label), typeof(Rect), typeof(string))]
+    static class HighlightLabels
+    {
+        static void Prefix(Rect rect)
+        {
+            if (Input.GetKey(KeyCode.End))
+                Widgets.DrawBox(rect);
         }
     }
 }

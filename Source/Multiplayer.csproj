@@ -1,5 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  
+
   <PropertyGroup>
     <TargetFramework>net472</TargetFramework>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -11,11 +11,11 @@
     <DebugType>None</DebugType>
     <ReleaseVersion>0.4.8</ReleaseVersion>
   </PropertyGroup>
-  
+
   <ItemGroup>
-    
+
     <!-- Nuget dependencies -->
-    <PackageReference Include="Publicise.MSBuild.Task" Version="1.*" />
+    <PackageReference Include="Publicise.MSBuild.Task" Version="1.5.0" />
     <PackageReference Include="RestSharp" Version="106.10.1" />
     <PackageReference Include="RimWorld.MultiplayerAPI" Version="0.3.0" />
     <PackageReference Include="Lib.Harmony" Version="2.0.4">
@@ -23,7 +23,7 @@
     </PackageReference>
     <PackageReference Include="LiteNetLib" Version="0.9.5" />
     <PackageReference Include="DotNetZip.Reduced" Version="1.9.1.8" />
-    
+
     <!-- Local dependencies -->
     <Reference Include="Assembly-CSharp-firstpass">
       <HintPath>..\..\..\RimWorldWin64_Data\Managed\Assembly-CSharp-firstpass.dll</HintPath>
@@ -35,6 +35,10 @@
     </Reference>
     <Reference Include="UnityEngine.IMGUIModule">
       <HintPath>..\..\..\RimWorldWin64_Data\Managed\UnityEngine.IMGUIModule.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="UnityEngine.ImageConversionModule">
+      <HintPath>..\..\..\RimWorldWin64_Data\Managed\UnityEngine.ImageConversionModule.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="UnityEngine.CoreModule">
@@ -57,18 +61,17 @@
       <HintPath>..\..\..\RimWorldWin64_Data\Managed\UnityEngine.AudioModule.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    
   </ItemGroup>
-  
+
   <ItemGroup>
     <None Remove=".editorconfig" />
     <None Remove="mono_crash.*.json" />
   </ItemGroup>
-  
+
   <Target Name="Publicise" BeforeTargets="BeforeBuild">
     <Publicise AssemblyPath="..\..\..\RimWorldWin64_Data\Managed\Assembly-CSharp.dll" OutputPath="..\..\..\RimWorldWin64_Data\Managed\" />
   </Target>
-  
+
   <Target Name="ChangeAliasesOfNugetRefs" BeforeTargets="FindReferenceAssembliesForReferences;ResolveReferences">
     <ItemGroup>
       <ReferencePath Condition="'%(FileName)' == 'Ionic.Zip.Reduced'">
@@ -76,5 +79,5 @@
       </ReferencePath>
     </ItemGroup>
   </Target>
-  
+
 </Project>

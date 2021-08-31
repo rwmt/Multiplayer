@@ -31,16 +31,7 @@ namespace Multiplayer.Client.Patches
     static class FixApparelSort
     {
         static MethodBase TargetMethod() =>
-            typeof(Pawn_ApparelTracker).
-            GetNestedTypes(BindingFlags.NonPublic).
-            Select(t => Inner(t)).AllNotNull().FirstOrDefault();
-
-        private static MethodBase Inner(Type t)
-        {
-            if (!t.IsCompilerGenerated())
-                return null;
-            return AccessTools.FirstMethod(t, m => m.Name.Contains(nameof(Pawn_ApparelTracker.SortWornApparelIntoDrawOrder)));
-        }
+            MpUtil.GetLambda(typeof(Pawn_ApparelTracker), nameof(Pawn_ApparelTracker.SortWornApparelIntoDrawOrder), 0);
 
         static void Postfix(Apparel a, Apparel b, ref int __result)
         {

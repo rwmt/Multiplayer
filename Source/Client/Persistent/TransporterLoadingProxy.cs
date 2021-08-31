@@ -6,7 +6,7 @@ using Verse.Sound;
 
 namespace Multiplayer.Client
 {
-    public class TransporterLoadingProxy : Dialog_LoadTransporters
+    public class TransporterLoadingProxy : Dialog_LoadTransporters, ISwitchToMap
     {
         public static TransporterLoadingProxy drawing;
 
@@ -17,7 +17,7 @@ namespace Multiplayer.Client
         public TransporterLoadingProxy(Map map, List<CompTransporter> transporters) : base(map, transporters)
         {
         }
-        
+
         public override void DoWindowContents(Rect inRect)
         {
             drawing = this;

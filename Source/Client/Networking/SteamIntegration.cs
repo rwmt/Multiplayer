@@ -13,7 +13,7 @@ namespace Multiplayer.Client
 {
     public static class SteamIntegration
     {
-        // Callbacks stored in static fields so they don't get GC'd
+        // Callbacks stored in static fields so they don't get garbage collected
         private static Callback<P2PSessionRequest_t> sessionReq;
         private static Callback<P2PSessionConnectFail_t> p2pFail;
         private static Callback<FriendRichPresenceUpdate_t> friendRchpUpdate;
@@ -110,7 +110,7 @@ namespace Multiplayer.Client
 
                 if (packet.joinPacket && player == null)
                 {
-                    IConnection conn = new SteamServerConn(packet.remote, packet.channel);
+                    ConnectionBase conn = new SteamServerConn(packet.remote, packet.channel);
 
                     var preConnect = server.OnPreConnect(packet.remote);
                     if (preConnect != null)
