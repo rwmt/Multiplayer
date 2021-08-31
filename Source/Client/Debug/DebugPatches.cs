@@ -118,10 +118,10 @@ namespace Multiplayer.Client.Patches
             var info = gizmo.GetType().ToString();
 
             if (gizmo is Command_Action action)
-                info += $"\n\n{FloatMenuDrawDebugInfo.DelegateMethodInfo(action.action?.Method)}";
+                info += $"\n\n{MpUtil.DelegateMethodInfo(action.action?.Method)}";
 
             if (gizmo is Command_Toggle toggle)
-                info += $"\n\n{FloatMenuDrawDebugInfo.DelegateMethodInfo(toggle.toggleAction?.Method)}";
+                info += $"\n\n{MpUtil.DelegateMethodInfo(toggle.toggleAction?.Method)}";
 
             TooltipHandler.TipRegion(
                 new Rect(topLeft, new Vector2(gizmo.GetWidth(maxWidth), 75f)),
@@ -135,16 +135,7 @@ namespace Multiplayer.Client.Patches
     {
         static void Postfix(FloatMenuOption __instance, Rect rect)
         {
-            TooltipHandler.TipRegion(rect, DelegateMethodInfo(__instance.action?.Method));
-        }
-
-        internal static string DelegateMethodInfo(MethodBase m)
-        {
-            return
-                m == null
-                    ? "No method"
-                    : $"{m.DeclaringType.DeclaringType?.FullDescription()} {m.DeclaringType.FullDescription()} {m.Name}"
-                        .Replace("<", "[").Replace(">", "]");
+            TooltipHandler.TipRegion(rect, MpUtil.DelegateMethodInfo(__instance.action?.Method));
         }
     }
 

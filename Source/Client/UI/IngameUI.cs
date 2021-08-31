@@ -95,7 +95,7 @@ namespace Multiplayer.Client
                 text.Append($"\nt{DeferredStackTracing.maxTraceDepth} p{SimplePool<StackTraceLogItemRaw>.FreeItemsCount} {DeferredStackTracingImpl.hashtableEntries}/{DeferredStackTracingImpl.hashtableSize} {DeferredStackTracingImpl.collisions}");
 
                 text.Append(Find.WindowStack.focusedWindow is ImmediateWindow win
-                    ? $"\nImmediateWindow: {FloatMenuDrawDebugInfo.DelegateMethodInfo(win.doWindowFunc?.Method)}"
+                    ? $"\nImmediateWindow: {MpUtil.DelegateMethodInfo(win.doWindowFunc?.Method)}"
                     : $"\n{Find.WindowStack.focusedWindow}");
 
                 text.Append($"\n{UI.CurUICellSize()} {Find.WindowStack.windows.ToStringSafeEnumerable()}");

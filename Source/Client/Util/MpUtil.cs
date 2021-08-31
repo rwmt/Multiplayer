@@ -247,6 +247,15 @@ namespace Multiplayer.Client
         {
             return Enumerable.Range(1, count).Select(n => (keyBase + n).Translate()).Join(delimiter: "\n\n");
         }
+
+        public static string DelegateMethodInfo(MethodBase m)
+        {
+            return
+                m == null
+                    ? "No method"
+                    : $"{m.DeclaringType.DeclaringType?.FullDescription()} {m.DeclaringType.FullDescription()} {m.Name}"
+                        .Replace("<", "[").Replace(">", "]");
+        }
     }
 
     public struct Container<T>
