@@ -5,6 +5,7 @@ using Ionic.Crc;
 using Multiplayer.Common;
 using RimWorld;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -361,7 +362,7 @@ namespace Multiplayer.Client
             T[] vals = Enum.GetValues(typeof(T)).Cast<T>().ToArray();
             return vals[(vals.FindIndex(e) + 1) % vals.Length];
         }
-        
+
         /// <summary>
         /// Returns an enumerable as a string, joined by a separator string. By default null values appear as an empty string.
         /// </summary>
