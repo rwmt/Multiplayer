@@ -8,6 +8,17 @@ namespace Multiplayer.Client
 {
     public static class CollectionExtensions
     {
+        public static int? IndexNullable<T>(this IEnumerable<T> e, Func<T, bool> p)
+        {
+            int i = 0;
+            foreach (T obj in e)
+            {
+                if (p(obj)) return i;
+                ++i;
+            }
+            return null;
+        }
+
         public static void RemoveNulls(this IList list)
         {
             for (int i = list.Count - 1; i > 0; i--)

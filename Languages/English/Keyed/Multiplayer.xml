@@ -142,22 +142,19 @@
   <MpPlayingRimWorld>Playing RimWorld</MpPlayingRimWorld>
   <MpNotInMultiplayer>Not in multiplayer</MpNotInMultiplayer>
 
-  <!-- Save list categories -->
+  <!-- Save list -->
   <MpMultiplayerSaves>Multiplayer</MpMultiplayerSaves>
   <MpSingleplayerSaves>Singleplayer</MpSingleplayerSaves>
-
-  <!-- Save list item info -->
   <MpReplayOutdated>(Outdated)</MpReplayOutdated>
   <MpReplayOutdatedDesc1>This replay was made for protocol version {0}, but you are running version {1}.</MpReplayOutdatedDesc1>
   <MpReplayOutdatedDesc2>The replay might not play correctly.</MpReplayOutdatedDesc2>
   <MpReplayOutdatedDesc3>Possible incompatibilities are listed with the release history.</MpReplayOutdatedDesc3>
   <MpReplayOutdatedDesc4>This file contains additional information and hosting from it should work fine.</MpReplayOutdatedDesc4>
-
-  <!-- Selected save buttons -->
   <MpHostButton>Host</MpHostButton>
   <MpWatchReplay>Watch</MpWatchReplay>
   <MpNothingSelected>Nothing selected</MpNothingSelected>
   <MpNoSaves>Multiplayer can only be played from already existing saves</MpNoSaves>
+  <MpSeeModList>See mod list</MpSeeModList>
   
   <!-- Mismatch screen -->
   <MpDataMismatch>Data mismatch</MpDataMismatch>

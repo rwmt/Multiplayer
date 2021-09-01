@@ -18,6 +18,7 @@ using Verse;
 using Multiplayer.Common;
 using System.Runtime.CompilerServices;
 using System.Threading;
+using Multiplayer.Client.Comp;
 using Multiplayer.Client.Desyncs;
 using Multiplayer.Client.Patches;
 using Multiplayer.Client.Util;
@@ -44,6 +45,7 @@ namespace Multiplayer.Client
         public static bool reloading;
 
         public static IdBlock GlobalIdBlock => game.worldComp.globalIdBlock;
+        public static MultiplayerGameComp GameComp => game.gameComp;
         public static MultiplayerWorldComp WorldComp => game.worldComp;
 
         public static bool ShowDevInfo => Prefs.DevMode && settings.showDevInfo;

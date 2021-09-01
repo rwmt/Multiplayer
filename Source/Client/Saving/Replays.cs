@@ -140,7 +140,7 @@ namespace Multiplayer.Client
                     rwVersion = VersionControl.CurrentVersionStringWithRev,
                     modIds = LoadedModManager.RunningModsListForReading.Select(m => m.PackageId).ToList(),
                     modNames = LoadedModManager.RunningModsListForReading.Select(m => m.Name).ToList(),
-                    asyncTime = Multiplayer.WorldComp.asyncTime,
+                    asyncTime = Multiplayer.GameComp.asyncTime,
                 }
             };
 
@@ -169,9 +169,14 @@ namespace Multiplayer.Client
             session.replayTimerEnd = tickUntil;
             TickPatch.tickUntil = tickUntil;
 
-            TickPatch.SimulateTo(toEnd ? tickUntil : session.replayTimerStart, onFinish: after, onCancel: cancel, simTextKey: simTextKey);
+            TickPatch.SimulateTo(
+                toEnd ? tickUntil : session.replayTimerStart,
+                onFinish: after,
+                onCancel: cancel,
+                simTextKey: simTextKey
+            );
 
-            ClientJoiningState.ReloadGame(session.cache.mapData.Keys.ToList());
+            ClientJoiningState.ReloadGame(session.cache.mapData.Keys.ToList(), true, replay.info.asyncTime);
         }
     }
 

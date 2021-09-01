@@ -75,26 +75,25 @@ namespace Multiplayer.Client
                     {
                         optList.Insert(0, new ListableOption("Save".Translate(), () => Find.WindowStack.Add(new Dialog_SaveReplay() { layer = WindowLayer.Super })));
                     }
-                    optList.Insert(3, new ListableOption("MpConvertToSp".Translate(), AskConvertToSingleplayer));
 
                     var quitMenuLabel = "QuitToMainMenu".Translate();
                     var saveAndQuitMenu = "SaveAndQuitToMainMenu".Translate();
-                    var quitMenuOpt = optList.Find(opt => opt.label == quitMenuLabel || opt.label == saveAndQuitMenu);
+                    int? quitToMenuIndex = optList.IndexNullable(opt => opt.label == quitMenuLabel || opt.label == saveAndQuitMenu);
 
-                    if (quitMenuOpt != null)
+                    if (quitToMenuIndex is { } i1)
                     {
-                        quitMenuOpt.label = quitMenuLabel;
-                        quitMenuOpt.action = AskQuitToMainMenu;
+                        optList[i1].label = quitMenuLabel;
+                        optList[i1].action = AskQuitToMainMenu;
                     }
 
                     var quitOSLabel = "QuitToOS".Translate();
                     var saveAndQuitOSLabel = "SaveAndQuitToOS".Translate();
-                    var quitOSOpt = optList.Find(opt => opt.label == quitOSLabel || opt.label == saveAndQuitOSLabel);
+                    var quitOSOptIndex = optList.IndexNullable(opt => opt.label == quitOSLabel || opt.label == saveAndQuitOSLabel);
 
-                    if (quitOSOpt != null)
+                    if (quitOSOptIndex is { } i2)
                     {
-                        quitOSOpt.label = quitOSLabel;
-                        quitOSOpt.action = () =>
+                        optList[i2].label = quitOSLabel;
+                        optList[i2].action = () =>
                         {
                             if (Multiplayer.LocalServer != null)
                                 Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation("MpServerCloseConfirmation".Translate(), Root.Shutdown, true, layer: WindowLayer.Super));
@@ -102,6 +101,11 @@ namespace Multiplayer.Client
                                 Root.Shutdown();
                         };
                     }
+
+                    optList.Insert(
+                        quitToMenuIndex ?? quitOSOptIndex ?? 0,
+                        new ListableOption("MpConvertToSp".Translate(), AskConvertToSingleplayer)
+                    );
                 }
             }
         }

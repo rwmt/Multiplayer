@@ -46,9 +46,10 @@ namespace Multiplayer.Client.Desyncs
         public static bool ShouldAddStackTraceForDesyncLog()
         {
             if (Multiplayer.Client == null) return false;
+            if (Multiplayer.game == null) return false;
 
             // Only log if debugging enabled in Host Server menu
-            if (!Multiplayer.game?.worldComp?.logDesyncTraces ?? false) return false;
+            if (Multiplayer.game.gameComp.logDesyncTraces) return false;
 
             if (Rand.stateStack.Count > 1) return false;
             if (TickPatch.Simulating || Multiplayer.IsReplay) return false;
@@ -102,7 +103,7 @@ namespace Multiplayer.Client.Desyncs
 
             long ret;
             long lmfPtr = *(long*)Native.LmfPtr;
-            
+
             int depth = 0;
 
             while (true)
@@ -192,7 +193,7 @@ namespace Multiplayer.Client.Desyncs
 
             var rawName = Native.MethodNameFromAddr(ret);
             info.nameHash = rawName != null ? GenText.StableStringHash(SyncCoordinator.MethodNameWithoutIL(rawName)) : 1;
- 
+
             hashtableEntries++;
             if (hashtableEntries > hashtableSize * LoadFactor)
                 ResizeHashtable();

@@ -144,7 +144,7 @@ namespace Multiplayer.Client.AsyncTime
             if (!WorldRendererUtility.WorldRenderedNow && Find.CurrentMap == null) return;
 
             ITickable tickable = Multiplayer.WorldComp;
-            if (!WorldRendererUtility.WorldRenderedNow && Multiplayer.WorldComp.asyncTime)
+            if (!WorldRendererUtility.WorldRenderedNow && Multiplayer.GameComp.asyncTime)
                 tickable = Find.CurrentMap.AsyncTime();
 
             TimeSpeed speed = tickable.TimeSpeed;
@@ -265,7 +265,7 @@ namespace Multiplayer.Client.AsyncTime
                 float drawXPos = groupBar.x;
                 Color bgColor = (entryTickable.ActualRateMultiplier(TimeSpeed.Normal) == 0f) ? pauseBgColor : normalBgColor;
 
-                if (Multiplayer.WorldComp.asyncTime)
+                if (Multiplayer.GameComp.asyncTime)
                 {
                     Rect button = new Rect(drawXPos, groupBar.yMax, btnWidth, btnHeight);
 
@@ -383,7 +383,7 @@ namespace Multiplayer.Client.AsyncTime
             if (__instance.def != MainButtonDefOf.World) return;
             if (__instance.Disabled) return;
             if (Find.CurrentMap == null) return;
-            if (!Multiplayer.WorldComp.asyncTime) return;
+            if (!Multiplayer.GameComp.asyncTime) return;
 
             Rect button = new Rect(rect.xMax - TimeControls.TimeButSize.x - 5f, rect.y + (rect.height - TimeControls.TimeButSize.y) / 2f, TimeControls.TimeButSize.x, TimeControls.TimeButSize.y);
             __state = button;

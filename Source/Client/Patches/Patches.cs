@@ -358,7 +358,7 @@ namespace Multiplayer.Client
         public static void SetupMap(Map map)
         {
             Log.Message("New map " + map.uniqueID);
-            Log.Message("Uniq ids " + Multiplayer.GlobalIdBlock.currentWithinBlock);
+            Log.Message("Unique ids " + Multiplayer.GlobalIdBlock.currentWithinBlock);
             Log.Message("Rand " + Rand.StateCompressed);
 
             var async = new AsyncTimeComp(map);
@@ -373,7 +373,7 @@ namespace Multiplayer.Client
             async.storyteller = new Storyteller(Find.Storyteller.def, Find.Storyteller.difficultyDef, Find.Storyteller.difficulty);
             async.storyWatcher = new StoryWatcher();
 
-            if (!Multiplayer.WorldComp.asyncTime)
+            if (!Multiplayer.GameComp.asyncTime)
                 async.TimeSpeed = Find.TickManager.CurTimeSpeed;
         }
 

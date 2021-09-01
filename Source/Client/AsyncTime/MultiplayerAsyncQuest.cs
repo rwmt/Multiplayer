@@ -18,7 +18,7 @@ namespace Multiplayer.Client.Comp
         static void Prefix(MapParent settlement)
         {
             if (Multiplayer.Client == null) return;
-            if (!Multiplayer.WorldComp.asyncTime) return;
+            if (!Multiplayer.GameComp.asyncTime) return;
 
             var mapAsyncTimeComp = settlement.Map.AsyncTime();
             if (mapAsyncTimeComp != null)
@@ -34,7 +34,7 @@ namespace Multiplayer.Client.Comp
         static void Postfix(ref Quest __result)
         {
             if (Multiplayer.Client == null) return;
-            if (!Multiplayer.WorldComp.asyncTime) return;
+            if (!Multiplayer.GameComp.asyncTime) return;
 
             MultiplayerAsyncQuest.CacheQuest(__result);
         }
@@ -47,7 +47,7 @@ namespace Multiplayer.Client.Comp
         static bool Prefix()
         {
             if (Multiplayer.Client == null) return true;
-            if (!Multiplayer.WorldComp.asyncTime) return true;
+            if (!Multiplayer.GameComp.asyncTime) return true;
 
             //Only tick world quest during world time
             MultiplayerAsyncQuest.TickWorldQuests();
@@ -63,7 +63,7 @@ namespace Multiplayer.Client.Comp
         static void Postfix()
         {
             if (Multiplayer.Client == null) return;
-            if (!Multiplayer.WorldComp.asyncTime) return;
+            if (!Multiplayer.GameComp.asyncTime) return;
 
             MultiplayerAsyncQuest.Reset();
 
@@ -89,7 +89,7 @@ namespace Multiplayer.Client.Comp
         static void Prefix(Quest __instance, ref AsyncTimeComp __state)
         {
             if (Multiplayer.Client == null) return;
-            if (!Multiplayer.WorldComp.asyncTime) return;
+            if (!Multiplayer.GameComp.asyncTime) return;
 
             __state = MultiplayerAsyncQuest.TryGetCachedQuestMap(__instance);
             __state?.PreContext();
@@ -106,7 +106,7 @@ namespace Multiplayer.Client.Comp
             if (Multiplayer.Client == null) return;
 
             //Make sure quest is accepted and async time is enabled and there are parts to this quest
-            if (__instance.State != QuestState.NotYetAccepted || !Multiplayer.WorldComp.asyncTime || __instance.parts == null) return;
+            if (__instance.State != QuestState.NotYetAccepted || !Multiplayer.GameComp.asyncTime || __instance.parts == null) return;
 
             __state = MultiplayerAsyncQuest.CacheQuest(__instance);
             __state?.PreContext();
@@ -181,7 +181,7 @@ namespace Multiplayer.Client.Comp
         /// <returns>MapAsyncTimeComp for that quest or Null if not found</returns>
         public static AsyncTimeComp TryGetCachedQuestMap(Quest quest)
         {
-            if (!Multiplayer.WorldComp.asyncTime || quest == null) return null;
+            if (!Multiplayer.GameComp.asyncTime || quest == null) return null;
             return mapQuestsCache.FirstOrDefault(x => x.Value.Contains(quest)).Key;
         }
 
@@ -192,7 +192,7 @@ namespace Multiplayer.Client.Comp
         /// <returns>MapAsyncTimeComp for that quest or Null if not found</returns>
         public static AsyncTimeComp CacheQuest(Quest quest)
         {
-            if (!Multiplayer.WorldComp.asyncTime || quest == null) return null;
+            if (!Multiplayer.GameComp.asyncTime || quest == null) return null;
 
             //Check if quest targets players map
             var mapAsyncTimeComp = TryGetQuestMap(quest);

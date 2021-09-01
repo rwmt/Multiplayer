@@ -44,7 +44,7 @@ namespace Multiplayer.Client
             this.file = file;
             serverSettings.gameName = file?.gameName ?? Multiplayer.session?.gameName ?? $"{Multiplayer.username}'s game";
 
-            asyncTime = file?.asyncTime ?? Multiplayer.game?.worldComp.asyncTime ?? false;
+            asyncTime = file?.asyncTime ?? Multiplayer.game?.gameComp.asyncTime ?? false;
 
             if (asyncTime)
                 asyncTimeLocked = true; // Once enabled in a save, cannot be disabled

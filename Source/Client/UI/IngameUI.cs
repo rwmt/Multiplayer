@@ -91,7 +91,7 @@ namespace Multiplayer.Client
                 text.Append($"\n{DeferredStackTracing.acc}");
                 text.Append($"\n{(uint)async.randState} {(uint)(async.randState >> 32)}");
                 text.Append($"\n{(uint)Multiplayer.WorldComp.randState} {(uint)(Multiplayer.WorldComp.randState >> 32)}");
-                text.Append($"\n{async.cmds.Count} {Multiplayer.WorldComp.cmds.Count} {async.slower.forceNormalSpeedUntil} {Multiplayer.WorldComp.asyncTime}");
+                text.Append($"\n{async.cmds.Count} {Multiplayer.WorldComp.cmds.Count} {async.slower.forceNormalSpeedUntil} {Multiplayer.GameComp.asyncTime}");
                 text.Append($"\nt{DeferredStackTracing.maxTraceDepth} p{SimplePool<StackTraceLogItemRaw>.FreeItemsCount} {DeferredStackTracingImpl.hashtableEntries}/{DeferredStackTracingImpl.hashtableSize} {DeferredStackTracingImpl.collisions}");
 
                 text.Append(Find.WindowStack.focusedWindow is ImmediateWindow win
@@ -157,7 +157,7 @@ namespace Multiplayer.Client
                 y += btnHeight;
             }
 
-            if (Multiplayer.Client != null && Multiplayer.WorldComp.debugMode)
+            if (Multiplayer.Client != null && Multiplayer.GameComp.debugMode)
             {
                 Text.Font = GameFont.Tiny;
                 Text.Anchor = TextAnchor.MiddleCenter;
@@ -254,7 +254,7 @@ namespace Multiplayer.Client
 
                     if (mouseTimer < TickPatch.Timer)
                     {
-                        ClientJoiningState.ReloadGame(Multiplayer.session.cache.mapData.Keys.ToList(), false);
+                        ClientJoiningState.ReloadGame(Multiplayer.session.cache.mapData.Keys.ToList(), false, Multiplayer.GameComp.asyncTime);
                     }
                 }
 

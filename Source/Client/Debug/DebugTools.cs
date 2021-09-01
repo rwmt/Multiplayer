@@ -256,7 +256,7 @@ namespace Multiplayer.Client
         static bool Prefix(Dialog_DebugOptionLister __instance, string label, ref Action action)
         {
             if (Multiplayer.Client == null) return true;
-            if (Current.ProgramState == ProgramState.Playing && !Multiplayer.WorldComp.debugMode) return true;
+            if (Current.ProgramState == ProgramState.Playing && !Multiplayer.GameComp.debugMode) return true;
 
             int hash = Gen.HashCombineInt(
                 GenText.StableStringHash(action.Method.MethodDesc()),
@@ -305,7 +305,7 @@ namespace Multiplayer.Client
         static bool Prefix(Dialog_DebugOptionLister __instance, string label, Action toolAction, ref Container<DebugTool>? __state)
         {
             if (Multiplayer.Client == null) return true;
-            if (Current.ProgramState == ProgramState.Playing && !Multiplayer.WorldComp.debugMode) return true;
+            if (Current.ProgramState == ProgramState.Playing && !Multiplayer.GameComp.debugMode) return true;
 
             if (Multiplayer.ExecutingCmds)
             {
@@ -362,7 +362,7 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.Client == null) return true;
             if (!Multiplayer.ExecutingCmds) return true;
-            if (!Multiplayer.WorldComp.debugMode) return true;
+            if (!Multiplayer.GameComp.debugMode) return true;
 
             bool keepOpen = TickPatch.currentExecutingCmdIssuedBySelf;
             var map = Multiplayer.MapContext;

@@ -20,7 +20,7 @@ namespace Multiplayer.Client
 
         public void UpdatePing()
         {
-            if (MultiplayerStatic.PingKeyDef.JustPressed || Input.GetKeyDown(KeyCode.Mouse4))
+            if (!TickPatch.Simulating && (MultiplayerStatic.PingKeyDef.JustPressed || Input.GetKeyDown(KeyCode.Mouse4)))
             {
                 if (WorldRendererUtility.WorldRenderedNow)
                     PingLocation(-1, GenWorld.MouseTile(), Vector3.zero);
@@ -36,7 +36,7 @@ namespace Multiplayer.Client
                     pings.RemoveAt(i);
             }
 
-            if (Input.GetKeyDown(KeyCode.Mouse3))
+            if (!TickPatch.Simulating && Input.GetKeyDown(KeyCode.Mouse3))
             {
                 pingJumpCycle++;
 

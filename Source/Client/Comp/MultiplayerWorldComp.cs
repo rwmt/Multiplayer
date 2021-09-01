@@ -29,7 +29,7 @@ namespace Multiplayer.Client
 
         public float TickRateMultiplier(TimeSpeed speed)
         {
-            if (asyncTime)
+            if (Multiplayer.GameComp.asyncTime)
             {
                 var enforcePause = Multiplayer.WorldComp.splitSession != null;
 
@@ -63,7 +63,7 @@ namespace Multiplayer.Client
          */
         public void UpdateTimeSpeed()
         {
-            if (!asyncTime) {
+            if (!Multiplayer.GameComp.asyncTime) {
                 Find.TickManager.CurTimeSpeed = desiredTimeSpeed;
                 return;
             }
@@ -93,10 +93,6 @@ namespace Multiplayer.Client
         public ulong randState = 2;
         public TileTemperaturesComp uiTemperatures;
 
-        public bool asyncTime;
-        public bool debugMode;
-        public bool logDesyncTraces;
-
         public List<MpTradeSession> trading = new List<MpTradeSession>();
         public CaravanSplittingSession splitSession;
 
@@ -113,10 +109,6 @@ namespace Multiplayer.Client
             var timer = TickPatch.Timer;
             Scribe_Values.Look(ref timer, "timer");
             TickPatch.SetTimer(timer);
-
-            Scribe_Values.Look(ref asyncTime, "asyncTime", true, true);
-            Scribe_Values.Look(ref debugMode, "debugMode");
-            Scribe_Values.Look(ref logDesyncTraces, "logDesyncTraces");
 
             Scribe_Custom.LookULong(ref randState, "randState", 2);
 
@@ -157,8 +149,7 @@ namespace Multiplayer.Client
                 Scribe_Values.Look(ref currentFactionId, "currentFactionId");
 
                 Scribe_Collections.Look(ref factionData, "factionData", LookMode.Value, LookMode.Deep);
-                if (factionData == null)
-                    factionData = new Dictionary<int, FactionWorldData>();
+                factionData ??= new Dictionary<int, FactionWorldData>();
             }
 
             if (Scribe.mode == LoadSaveMode.LoadingVars && Multiplayer.session != null && Multiplayer.game != null)
@@ -255,7 +246,7 @@ namespace Multiplayer.Client
             Extensions.PushFaction(null, cmd.GetFaction());
 
             bool devMode = Prefs.data.devMode;
-            Prefs.data.devMode = Multiplayer.WorldComp.debugMode;
+            Prefs.data.devMode = Multiplayer.GameComp.debugMode;
 
             var randCalls1 = DeferredStackTracing.randCalls;
 
@@ -278,7 +269,7 @@ namespace Multiplayer.Client
 
                     Multiplayer.WorldComp.TimeSpeed = speed;
 
-                    if (!asyncTime)
+                    if (!Multiplayer.GameComp.asyncTime)
                     {
                         foreach (var map in Find.Maps)
                             map.AsyncTime().TimeSpeed = speed;
@@ -512,7 +503,7 @@ namespace Multiplayer.Client
             };
         }
 
-        public static FactionWorldData FromCurrent(int factionId = int.MinValue)
+        public static FactionWorldData FromCurrent(int factionId)
         {
             return new FactionWorldData()
             {

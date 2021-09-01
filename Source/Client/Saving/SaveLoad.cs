@@ -10,6 +10,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Xml;
+using Multiplayer.Client.Comp;
 using UnityEngine;
 using Verse;
 using Verse.Profile;
@@ -325,12 +326,23 @@ namespace Multiplayer.Client
     [HarmonyPatch(typeof(Game), nameof(Game.ExposeSmallComponents))]
     static class GameExposeComponentsPatch
     {
-        static void Prefix()
+        static void Prefix(Game __instance)
         {
             if (Multiplayer.Client == null) return;
 
             if (Scribe.mode == LoadSaveMode.LoadingVars)
                 Multiplayer.game = new MultiplayerGame();
+
+            if (Scribe.mode is LoadSaveMode.LoadingVars or LoadSaveMode.Saving)
+            {
+                Scribe_Deep.Look(ref Multiplayer.game.gameComp, "mpGameComp", __instance);
+
+                if (Multiplayer.game.gameComp == null)
+                {
+                    Log.Warning($"No {nameof(MultiplayerGameComp)} during loading/saving");
+                    Multiplayer.game.gameComp = new MultiplayerGameComp(__instance);
+                }
+            }
         }
     }
 
@@ -352,13 +364,13 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.Client == null) return;
 
-            if (Scribe.mode == LoadSaveMode.LoadingVars || Scribe.mode == LoadSaveMode.Saving)
+            if (Scribe.mode is LoadSaveMode.LoadingVars or LoadSaveMode.Saving)
             {
                 Scribe_Deep.Look(ref Multiplayer.game.worldComp, "mpWorldComp", __instance);
 
                 if (Multiplayer.game.worldComp == null)
                 {
-                    Log.Error("No MultiplayerWorldComp during loading/saving");
+                    Log.Warning($"No {nameof(MultiplayerWorldComp)} during loading/saving");
                     Multiplayer.game.worldComp = new MultiplayerWorldComp(__instance);
                 }
             }

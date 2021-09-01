@@ -53,7 +53,7 @@ namespace Multiplayer.Client
 
                 Multiplayer.session.desynced = false;
 
-                ClientJoiningState.ReloadGame(Multiplayer.session.cache.mapData.Keys.ToList(), false);
+                ClientJoiningState.ReloadGame(Multiplayer.session.cache.mapData.Keys.ToList(), false, false);
             }
             x += 120 + 10;
 

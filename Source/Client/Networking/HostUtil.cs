@@ -12,11 +12,13 @@ using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Multiplayer.Client.Comp;
 using UnityEngine;
 using Verse;
 
 namespace Multiplayer.Client
 {
+    [HotSwappable]
     public static class HostUtil
     {
         public static void HostServer(ServerSettings settings, bool fromReplay, bool withSimulation, bool asyncTime)
@@ -93,9 +95,9 @@ namespace Multiplayer.Client
                     map.AsyncTime().TimeSpeed = timeSpeed;
                 Multiplayer.WorldComp.UpdateTimeSpeed();
 
-                Multiplayer.WorldComp.asyncTime = asyncTime;
-                Multiplayer.WorldComp.debugMode = settings.debugMode;
-                Multiplayer.WorldComp.logDesyncTraces = settings.desyncTraces;
+                Multiplayer.GameComp.asyncTime = asyncTime;
+                Multiplayer.GameComp.debugMode = settings.debugMode;
+                Multiplayer.GameComp.logDesyncTraces = settings.desyncTraces;
 
                 LongEventHandler.QueueLongEvent(() =>
                 {
@@ -161,6 +163,7 @@ namespace Multiplayer.Client
 
             Multiplayer.game = new MultiplayerGame
             {
+                gameComp = new MultiplayerGameComp(Current.Game),
                 worldComp = comp
             };
 

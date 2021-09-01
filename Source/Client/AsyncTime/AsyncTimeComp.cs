@@ -268,7 +268,7 @@ namespace Multiplayer.Client
             SelectorDeselectPatch.deselected = new List<object>();
 
             bool prevDevMode = Prefs.data.devMode;
-            Prefs.data.devMode = Multiplayer.WorldComp.debugMode;
+            Prefs.data.devMode = Multiplayer.GameComp.debugMode;
 
             try
             {
@@ -288,7 +288,7 @@ namespace Multiplayer.Client
                     HandleMapFactionData(cmd, data);
                 }
 
-                if (cmdType == CommandType.MapTimeSpeed && Multiplayer.WorldComp.asyncTime)
+                if (cmdType == CommandType.MapTimeSpeed && Multiplayer.GameComp.asyncTime)
                 {
                     TimeSpeed speed = (TimeSpeed)data.ReadByte();
                     TimeSpeed = speed;
@@ -485,7 +485,7 @@ namespace Multiplayer.Client
 
         public void QuestManagerTickAsyncTime()
         {
-            if (!Multiplayer.WorldComp.asyncTime || Paused) return;
+            if (!Multiplayer.GameComp.asyncTime || Paused) return;
 
             MultiplayerAsyncQuest.TickMapQuests(this);
         }

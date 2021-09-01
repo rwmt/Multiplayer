@@ -172,7 +172,7 @@ namespace Multiplayer.Client
                         .AppendLine($"Rimworld Version and Rev|||{VersionControl.CurrentVersionStringWithRev}")
                         .AppendLine("\n###Debug Options###")
                         .AppendLine($"Multiplayer Debug Build - Client|||{MpVersion.IsDebug}")
-                        .AppendLine($"Multiplayer Debug Build - Host|||{Multiplayer.WorldComp.debugMode}")
+                        .AppendLine($"Multiplayer Debug Build - Host|||{Multiplayer.GameComp.debugMode}")
                         .AppendLine($"Rimworld Developer Mode - Client|||{Prefs.DevMode}")
                         .AppendLine("\n###Server Info###")
                         .AppendLine($"Player Count|||{Multiplayer.session.players.Count}")

@@ -5,6 +5,7 @@ using RimWorld.BaseGen;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Multiplayer.Client.Comp;
 using UnityEngine;
 using Verse;
 
@@ -15,6 +16,7 @@ namespace Multiplayer.Client
         public SyncCoordinator sync = new SyncCoordinator();
 
         public MultiplayerWorldComp worldComp;
+        public MultiplayerGameComp gameComp;
         public List<MultiplayerMapComp> mapComps = new List<MultiplayerMapComp>();
         public List<AsyncTimeComp> asyncTimeComps = new List<AsyncTimeComp>();
         public SharedCrossRefs sharedCrossRefs = new SharedCrossRefs();

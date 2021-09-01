@@ -162,7 +162,7 @@ namespace Multiplayer.Client
                 onCancel: GenScene.GoToMainMenu
             );
 
-            ReloadGame(mapsToLoad);
+            ReloadGame(mapsToLoad, true, false);
         }
 
         private static XmlDocument GetGameDocument(List<int> mapsToLoad)
@@ -172,38 +172,40 @@ namespace Multiplayer.Client
 
             foreach (int map in mapsToLoad)
             {
-                using (XmlReader reader = XmlReader.Create(new MemoryStream(Multiplayer.session.cache.mapData[map])))
-                {
-                    XmlNode mapNode = gameDoc.ReadNode(reader);
-                    gameNode["maps"].AppendChild(mapNode);
+                using XmlReader reader = XmlReader.Create(new MemoryStream(Multiplayer.session.cache.mapData[map]));
+                XmlNode mapNode = gameDoc.ReadNode(reader);
+                gameNode["maps"].AppendChild(mapNode);
 
-                    if (gameNode["currentMapIndex"] == null)
-                        gameNode.AddNode("currentMapIndex", map.ToString());
-                }
+                if (gameNode["currentMapIndex"] == null)
+                    gameNode.AddNode("currentMapIndex", map.ToString());
             }
 
             return gameDoc;
         }
 
-        public static void ReloadGame(List<int> mapsToLoad, bool async = true)
+        public static void ReloadGame(List<int> mapsToLoad, bool offMainThread, bool forceAsyncTime)
         {
             var gameDoc = GetGameDocument(mapsToLoad);
 
             LoadPatch.gameToLoad = new(gameDoc, Multiplayer.session.cache.semiPersistentData);
             TickPatch.replayTimeSpeed = TimeSpeed.Paused;
 
-            if (async)
+            if (offMainThread)
             {
                 LongEventHandler.QueueLongEvent(() =>
                 {
                     MemoryUtility.ClearAllMapsAndWorld();
-                    Current.Game = new Game();
-                    Current.Game.InitData = new GameInitData();
-                    Current.Game.InitData.gameToLoad = "server";
+                    Current.Game = new Game
+                    {
+                        InitData = new GameInitData
+                        {
+                            gameToLoad = "server"
+                        }
+                    };
 
                     LongEventHandler.ExecuteWhenFinished(() =>
                     {
-                        LongEventHandler.QueueLongEvent(() => PostLoad(), "MpSimulating", false, null);
+                        LongEventHandler.QueueLongEvent(() => PostLoad(forceAsyncTime), "MpSimulating", false, null);
                     });
                 }, "Play", "MpLoading", true, null);
             }
@@ -212,12 +214,12 @@ namespace Multiplayer.Client
                 LongEventHandler.QueueLongEvent(() =>
                 {
                     SaveLoad.LoadInMainThread(LoadPatch.gameToLoad);
-                    PostLoad();
+                    PostLoad(forceAsyncTime);
                 }, "MpLoading", false, null);
             }
         }
 
-        private static void PostLoad()
+        private static void PostLoad(bool forceAsyncTime)
         {
             // If the client gets disconnected during loading
             if (Multiplayer.Client == null) return;
@@ -226,7 +228,7 @@ namespace Multiplayer.Client
             Multiplayer.session.replayTimerStart = TickPatch.Timer;
 
             var factionData = Multiplayer.WorldComp.factionData.GetValueSafe(Multiplayer.session.myFactionId);
-            if (factionData != null && factionData.online)
+            if (factionData is { online: true })
                 Multiplayer.RealPlayerFaction = Find.FactionManager.GetById(factionData.factionId);
             else
                 //Multiplayer.RealPlayerFaction = Multiplayer.DummyFaction;
@@ -234,6 +236,9 @@ namespace Multiplayer.Client
 
             // todo find a better way
             Multiplayer.game.myFactionLoading = null;
+
+            if (forceAsyncTime)
+                Multiplayer.game.gameComp.asyncTime = true;
 
             Multiplayer.WorldComp.cmds = new Queue<ScheduledCommand>(Multiplayer.session.cache.mapCmds.GetValueSafe(ScheduledCommand.Global) ?? new List<ScheduledCommand>());
             // Map cmds are added in MapAsyncTimeComp.FinalizeInit
