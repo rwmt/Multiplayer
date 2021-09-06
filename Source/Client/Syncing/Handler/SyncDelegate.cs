@@ -6,6 +6,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Multiplayer.Client.Util;
 using Verse;
 
 namespace Multiplayer.Client
@@ -22,7 +23,7 @@ namespace Multiplayer.Client
         private string[] allowedNull;
         private string[] cancelIfNull;
         private string[] removeNullsFromLists;
-        
+
         public SyncDelegate(Type delegateType, MethodInfo method, string[] inPaths) :
             base(delegateType, null, method, null)
         {
@@ -156,7 +157,7 @@ namespace Multiplayer.Client
         public static SyncDelegate Lambda(Type parentType, string parentMethod, int lambdaOrdinal, Type[] parentArgs = null, MethodType parentMethodType = MethodType.Normal)
         {
             return Sync.RegisterSyncDelegate(
-                MpUtil.GetLambda(parentType, parentMethod, parentMethodType, parentArgs, lambdaOrdinal),
+                MpMethodUtil.GetLambda(parentType, parentMethod, parentMethodType, parentArgs, lambdaOrdinal),
                 null
             );
         }
@@ -164,7 +165,7 @@ namespace Multiplayer.Client
         public static SyncDelegate LocalFunc(Type parentType, string parentMethod, string name, Type[] parentArgs = null)
         {
             return Sync.RegisterSyncDelegate(
-                MpUtil.GetLocalFunc(parentType, parentMethod, MethodType.Normal, parentArgs, name),
+                MpMethodUtil.GetLocalFunc(parentType, parentMethod, MethodType.Normal, parentArgs, name),
                 null
             );
         }

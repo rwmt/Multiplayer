@@ -28,8 +28,8 @@ namespace Multiplayer.Client
     {
         private static Type[] AllImplementationsOrdered(Type type)
         {
-            return GenTypes.AllTypes
-                .Where(t => t != type && type.IsAssignableFrom(t))
+            return
+                type.AllImplementing()
                 .OrderBy(t => t.IsInterface)
                 .ThenBy(t => t.Name)
                 .ToArray();

@@ -31,6 +31,7 @@
   <MpServerFull>Server is full</MpServerFull>
   <MpKicked>You've been kicked</MpKicked>
   <MpDisconnected>Disconnected</MpDisconnected>
+  <MpDisconnectedWithInfo>Disconnected ({0})</MpDisconnectedWithInfo>
   <MpSteamTimedOut>Connection timed out</MpSteamTimedOut>
   <MpSteamGenericError>Connection error</MpSteamGenericError>
   <MpPacketErrorLocal>Local packet read error. See the log for more info.</MpPacketErrorLocal>
@@ -41,10 +42,11 @@
   <MpInvalidUsernameChars>Username has invalid characters</MpInvalidUsernameChars>
   <MpInvalidUsernameLength>Username has invalid length</MpInvalidUsernameLength>
   <MpChangeUsernameInfo>You can change your username in the mod settings.</MpChangeUsernameInfo>
-  <MpConnectAs>Connect as {0}</MpConnectAs>
+  <MpConnectAsUsername>Connect as {0}</MpConnectAsUsername>
 
   <!-- Chat -->
   <MpChatButton>Chat</MpChatButton>
+  <MpChatHotkeyInfo>Chat hotkey:</MpChatHotkeyInfo>
   <MpPlayerConnected>{0} has joined</MpPlayerConnected>
   <MpPlayerDisconnected>{0} has left</MpPlayerDisconnected>
   <MpChatPlayers>Players ({0}):</MpChatPlayers>
@@ -79,6 +81,9 @@
   <MpAppendNameToAutosave>Append name to autosave</MpAppendNameToAutosave>
   <MpShowModCompat>Show crowd-sourced compat info</MpShowModCompat>
   <MpShowModCompatDesc>Enables downloading and displaying of crowd-sourced mod compatibility info.</MpShowModCompatDesc>
+  <MpEnablePingsSetting>Enable location pings</MpEnablePingsSetting>
+  <MpPingLocButtonSetting>Ping location button</MpPingLocButtonSetting>
+  <MpJumpToPingButtonSetting>Jump to ping button</MpJumpToPingButtonSetting>
 
   <!-- Pausing sessions -->
   <MpTradingSession>Trading session</MpTradingSession>
@@ -124,6 +129,17 @@
   <MpLogDesyncTraces>Desync traces</MpLogDesyncTraces>
   <MpLogDesyncTracesDesc>Log extra stacktraces for troubleshooting desyncs; may impact performance.</MpLogDesyncTracesDesc>
   <MpExperimentalFeature>Experimental feature</MpExperimentalFeature>
+
+  <!-- Server browser info buttons -->
+  <MpCompatibilityButton>Compatibility</MpCompatibilityButton>
+  <MpWebsiteButton>Website</MpWebsiteButton>
+  <MpDiscordButton>Discord</MpDiscordButton>
+  <MpActiveConfigsButton>Active configs</MpActiveConfigsButton>
+  <MpCompatibilityButtonDesc1>Open mod compatibility information window.</MpCompatibilityButtonDesc1>
+  <MpCompatibilityButtonDesc2>Also available from the mod list.</MpCompatibilityButtonDesc2>
+  <MpLinkButtonDesc>Click to open:</MpLinkButtonDesc>
+  <MpActiveConfigsButtonDesc1>This RimWorld instance has been started with configuration files from game: {0}</MpActiveConfigsButtonDesc1>
+  <MpActiveConfigsButtonDesc2>Restart to restore your previous configs.</MpActiveConfigsButtonDesc2>
 
   <!-- Server browser tabs -->
   <MpLan>LAN</MpLan>
@@ -180,9 +196,12 @@
   <MpMismatchSubscribeNoSteam>Not connected to Steam. Missing mods have to be installed manually.</MpMismatchSubscribeNoSteam>
   <MpMismatchSubscribeDesc1>Subscribe to the missing mods on the Steam Workshop. Downloading will happen in the background.</MpMismatchSubscribeDesc1>
   <MpMismatchSubscribeDesc2>Not all of the missing mods are available on Steam. The rest have to be installed manually.</MpMismatchSubscribeDesc2>
-  <MpMismatchFilesInfo1>Mod file differences need to be resolved manually. They are usually caused by differing versions of mods or files being left behind after an update.</MpMismatchFilesInfo1>
+  <MpMismatchFilesInfo1>Mod file differences need to be resolved manually or ignored. They are usually caused by differing versions of mods or files being left behind after an update.</MpMismatchFilesInfo1>
   <MpMismatchFilesInfo2>You should try to update/reinstall the offending mods. If the differences persist even after that the host might have to do the same.</MpMismatchFilesInfo2>
-  
+  <MpMismatchFileShowPath>Hold shift to show the folder path.</MpMismatchFileShowPath>
+  <MpMismatchNodeExpand>Click to expand/collapse.</MpMismatchNodeExpand>
+  <MpMismatchFileOpenPath>Shift + click to open the folder.</MpMismatchFileOpenPath>
+
   <!-- Mod compatibility -->
   <MpModCompatButton>Multiplayer compatibility</MpModCompatButton>
   <MpModCompatTitle>Multiplayer mod compatibility</MpModCompatTitle>

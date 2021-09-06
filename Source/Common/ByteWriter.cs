@@ -22,28 +22,28 @@ namespace Multiplayer.Common
 
         public virtual void WriteSByte(sbyte val) => stream.WriteByte((byte)val);
 
-        public virtual void WriteShort(short val) => stream.Write(BitConverter.GetBytes(val));
+        public virtual void WriteShort(short val) => stream.WriteBytes(BitConverter.GetBytes(val));
 
-        public virtual void WriteUShort(ushort val) => stream.Write(BitConverter.GetBytes(val));
+        public virtual void WriteUShort(ushort val) => stream.WriteBytes(BitConverter.GetBytes(val));
 
-        public virtual void WriteInt32(int val) => stream.Write(BitConverter.GetBytes(val));
+        public virtual void WriteInt32(int val) => stream.WriteBytes(BitConverter.GetBytes(val));
 
-        public virtual void WriteUInt32(uint val) => stream.Write(BitConverter.GetBytes(val));
+        public virtual void WriteUInt32(uint val) => stream.WriteBytes(BitConverter.GetBytes(val));
 
-        public virtual void WriteLong(long val) => stream.Write(BitConverter.GetBytes(val));
+        public virtual void WriteLong(long val) => stream.WriteBytes(BitConverter.GetBytes(val));
 
-        public virtual void WriteULong(ulong val) => stream.Write(BitConverter.GetBytes(val));
+        public virtual void WriteULong(ulong val) => stream.WriteBytes(BitConverter.GetBytes(val));
 
-        public virtual void WriteFloat(float val) => stream.Write(BitConverter.GetBytes(val));
+        public virtual void WriteFloat(float val) => stream.WriteBytes(BitConverter.GetBytes(val));
 
-        public virtual void WriteDouble(double val) => stream.Write(BitConverter.GetBytes(val));
+        public virtual void WriteDouble(double val) => stream.WriteBytes(BitConverter.GetBytes(val));
 
         public virtual void WriteBool(bool val) => stream.WriteByte(val ? (byte)1 : (byte)0);
 
         public virtual void WritePrefixedBytes(byte[] bytes)
         {
             WriteInt32(bytes.Length);
-            stream.Write(bytes);
+            WriteRaw(bytes);
         }
 
         public virtual void WritePrefixedInts(IList<int> ints)
@@ -62,7 +62,7 @@ namespace Multiplayer.Common
 
         public virtual void WriteRaw(byte[] bytes)
         {
-            stream.Write(bytes);
+            stream.Write(bytes, 0, bytes.Length);
         }
 
         public virtual void WriteFrom(byte[] buffer, int offset, int length)

@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Reflection;
+using Multiplayer.Client.Util;
 using Verse;
 using Verse.Sound;
 
@@ -117,7 +118,7 @@ namespace Multiplayer.Client
         static IEnumerable<MethodBase> TargetMethods()
         {
             yield return AccessTools.Method(typeof(Sustainer), nameof(Sustainer.SustainerUpdate));
-            yield return MpUtil.GetLambda(typeof(Sustainer), parentMethodType: MethodType.Constructor, parentArgs: new[] { typeof(SoundDef), typeof(SoundInfo) });
+            yield return MpMethodUtil.GetLambda(typeof(Sustainer), parentMethodType: MethodType.Constructor, parentArgs: new[] { typeof(SoundDef), typeof(SoundInfo) });
         }
 
         static void Prefix(Sustainer __instance, ref TimeSnapshot? __state)

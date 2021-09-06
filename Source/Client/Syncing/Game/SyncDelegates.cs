@@ -48,9 +48,9 @@ namespace Multiplayer.Client
             SyncDelegate.Lambda(typeof(CompTargetable), nameof(CompTargetable.SelectedUseOption), 0); // Use targetable
 
             SyncDelegate.Lambda(typeof(Designator), nameof(Designator.RightClickFloatMenuOptions), 0, parentMethodType: MethodType.Getter) // Designate all
-                .TransformField("things", Serializer.New((List<Thing> things, object t, object[] args) => (object)null, obj => Find.CurrentMap.listerThings.AllThings));
+                .TransformField("things", Serializer.SimpleReader(() => Find.CurrentMap.listerThings.AllThings));
             SyncDelegate.Lambda(typeof(Designator), nameof(Designator.RightClickFloatMenuOptions), 1, parentMethodType: MethodType.Getter) // Remove all designations
-                .TransformField("designations", Serializer.New((List<Designation> dsgns, object t, object[] args) => (object)null, obj => Find.CurrentMap.designationManager.allDesignations));
+                .TransformField("designations", Serializer.SimpleReader(() => Find.CurrentMap.designationManager.allDesignations));
 
             SyncDelegate.Lambda(typeof(CaravanAbandonOrBanishUtility), nameof(CaravanAbandonOrBanishUtility.TryAbandonOrBanishViaInterface), 1, new[] { typeof(Thing), typeof(Caravan) }).CancelIfAnyFieldNull(); // Abandon caravan thing
             SyncDelegate.Lambda(typeof(CaravanAbandonOrBanishUtility), nameof(CaravanAbandonOrBanishUtility.TryAbandonOrBanishViaInterface), 0, new[] { typeof(TransferableImmutable), typeof(Caravan) }).CancelIfAnyFieldNull(); // Abandon caravan transferable

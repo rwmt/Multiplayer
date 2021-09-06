@@ -57,7 +57,7 @@ namespace Multiplayer.Common
         }
 
         // Steam doesn't like messages bigger than a megabyte
-        public const int FragmentSize = 50_000;
+        public const int FragmentSize = 65_536;
         public const int MaxPacketSize = 33_554_432;
 
         private const int FRAG_NONE = 0x0;

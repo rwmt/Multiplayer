@@ -34,7 +34,7 @@ namespace Multiplayer.Client
 
         public static IEnumerable<Type> AllImplementing(this Type type)
         {
-            return GenTypes.AllTypes.Where(t => t.GetInterfaces().Contains(type));
+            return Multiplayer.implementations.GetValueSafe(type) is { } list ? list : Array.Empty<Type>();
         }
 
         // Sets the current Faction.OfPlayer
@@ -385,10 +385,6 @@ namespace Multiplayer.Client
             }
             return builder.ToString();
         }
-
-        public static bool SteamModInstalled(this ModMetaData mod) =>
-            ((EItemState)SteamUGC.GetItemState(mod.GetPublishedFileId()))
-            .HasFlag(EItemState.k_EItemStateInstalled | EItemState.k_EItemStateSubscribed);
 
         public static void WriteVectorXZ(this ByteWriter data, Vector3 vec)
         {

@@ -11,7 +11,7 @@ namespace Multiplayer.Client
     {
         static FieldInfo AllGroups = AccessTools.Field(typeof(ThingListGroupHelper), nameof(ThingListGroupHelper.AllGroups));
 
-        static Dictionary<ThingDef, ThingRequestGroup[]> cache = new Dictionary<ThingDef, ThingRequestGroup[]>();
+        static Dictionary<ThingDef, ThingRequestGroup[]> cache = new();
 
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
         {
@@ -44,7 +44,7 @@ namespace Multiplayer.Client
                         list.Add(allGroups[i]);
                     }
                 }
-                value = (cache[t.def] = list.ToArray());
+                value = cache[t.def] = list.ToArray();
             }
             return value;
         }

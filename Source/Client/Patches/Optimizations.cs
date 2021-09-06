@@ -13,7 +13,7 @@ namespace Multiplayer.Client
 {
     static class ThingCategoryDef_DescendantThingDefsPatch
     {
-        static Dictionary<ThingCategoryDef, HashSet<ThingDef>> values = new Dictionary<ThingCategoryDef, HashSet<ThingDef>>(DefaultComparer<ThingCategoryDef>.Instance);
+        static Dictionary<ThingCategoryDef, HashSet<ThingDef>> values = new(DefaultComparer<ThingCategoryDef>.Instance);
 
         static bool Prefix(ThingCategoryDef __instance)
         {
@@ -36,7 +36,7 @@ namespace Multiplayer.Client
 
     static class ThingCategoryDef_ThisAndChildCategoryDefsPatch
     {
-        static Dictionary<ThingCategoryDef, HashSet<ThingCategoryDef>> values = new Dictionary<ThingCategoryDef, HashSet<ThingCategoryDef>>(DefaultComparer<ThingCategoryDef>.Instance);
+        static Dictionary<ThingCategoryDef, HashSet<ThingCategoryDef>> values = new(DefaultComparer<ThingCategoryDef>.Instance);
 
         static bool Prefix(ThingCategoryDef __instance)
         {

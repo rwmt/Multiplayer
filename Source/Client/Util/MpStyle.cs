@@ -15,7 +15,7 @@ namespace Multiplayer.Client.Util
 
     public static class MpStyle
     {
-        struct TextOptReset : IDisposable
+        public struct TextOptReset : IDisposable
         {
             public bool? wrap;
             public TextAnchor? anchor;
@@ -38,28 +38,28 @@ namespace Multiplayer.Client.Util
             }
         }
 
-        public static IDisposable Set(WordWrap wrap)
+        public static TextOptReset Set(WordWrap wrap)
         {
             var prev = Text.WordWrap;
             Text.WordWrap = wrap == WordWrap.DoWrap;
             return new TextOptReset() { wrap = prev };
         }
 
-        public static IDisposable Set(TextAnchor anchor)
+        public static TextOptReset Set(TextAnchor anchor)
         {
             var prev = Text.Anchor;
             Text.Anchor = anchor;
             return new TextOptReset() { anchor = prev };
         }
 
-        public static IDisposable Set(Color color)
+        public static TextOptReset Set(Color color)
         {
             var prev = GUI.color;
             GUI.color = color;
             return new TextOptReset() { color = prev };
         }
 
-        public static IDisposable Set(GameFont font)
+        public static TextOptReset Set(GameFont font)
         {
             var prev = Text.Font;
             Text.Font = font;

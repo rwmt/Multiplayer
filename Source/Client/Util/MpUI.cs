@@ -179,5 +179,13 @@ namespace Multiplayer.Client.Util
 
             return false;
         }
+
+        public static float LabelFlexibleWidth(Rect rect, string label)
+        {
+            var size = Text.CalcSize(label);
+            rect.width = size.x;
+            Widgets.Label(rect, label);
+            return size.x;
+        }
     }
 }

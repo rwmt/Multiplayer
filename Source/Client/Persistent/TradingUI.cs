@@ -10,6 +10,7 @@ using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Text;
+using Multiplayer.Client.Util;
 using UnityEngine;
 using Verse;
 using Verse.AI;
@@ -382,8 +383,8 @@ namespace Multiplayer.Client
     {
         static IEnumerable<MethodBase> TargetMethods()
         {
-            yield return MpUtil.GetLambda(typeof(Dialog_Trade), nameof(Dialog_Trade.DoWindowContents));
-            yield return MpUtil.GetLambda(typeof(Dialog_Trade), nameof(Dialog_Trade.DoWindowContents));
+            yield return MpMethodUtil.GetLambda(typeof(Dialog_Trade), nameof(Dialog_Trade.DoWindowContents));
+            yield return MpMethodUtil.GetLambda(typeof(Dialog_Trade), nameof(Dialog_Trade.DoWindowContents));
         }
 
         static void Prefix(ref bool __state)

@@ -29,7 +29,7 @@ namespace Multiplayer.Common
         {
             CommandType cmd = (CommandType)data.ReadInt32();
             int mapId = data.ReadInt32();
-            byte[] extra = data.ReadPrefixedBytes(32767);
+            byte[] extra = data.ReadPrefixedBytes(65535);
 
             // todo check if map id is valid for the player
 

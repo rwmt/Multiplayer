@@ -1,8 +1,10 @@
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Text;
+using HarmonyLib;
 using Ionic.Zlib;
 using Multiplayer.Client.EarlyPatches;
 using Multiplayer.Common;
@@ -10,6 +12,7 @@ using RimWorld;
 using Steamworks;
 using UnityEngine;
 using Verse;
+using Verse.Steam;
 
 namespace Multiplayer.Client
 {
@@ -148,25 +151,40 @@ namespace Multiplayer.Client
 
                 foreach (var modInstance in LoadedModManager.runningModClasses.Values)
                 {
+                    if (modInstance.modSettings == null) continue;
                     if (!mod.assemblies.loadedAssemblies.Contains(modInstance.GetType().Assembly)) continue;
 
                     var instanceName = modInstance.GetType().Name;
                     var file = LoadedModManager.GetSettingsFilename(mod.FolderName, instanceName);
 
                     if (File.Exists(file))
-                        list.Add(new ModConfig(modId, instanceName, File.ReadAllText(file)));
+                        list.Add(GetConfigCatchError(file, modId, instanceName));
                 }
             }
 
             // Special case for HugsLib
-            if (modIds.Contains("unlimitedhugs.hugslib") && GetInstalledMod("unlimitedhugs.hugslib") is { Active: true })
+            if (modIds.Contains(HugsLibId) && GetInstalledMod(HugsLibId) is { Active: true })
             {
                 var hugsConfig = Path.Combine(GenFilePaths.SaveDataFolderPath, "HugsLib", "ModSettings.xml");
                 if (File.Exists(hugsConfig))
-                    list.Add(new ModConfig(HugsLibId, HugsLibSettingsFile, File.ReadAllText(hugsConfig)));
+                    list.Add(GetConfigCatchError(hugsConfig, HugsLibId, HugsLibSettingsFile));
             }
 
             return list;
+
+            ModConfig GetConfigCatchError(string path, string id, string file)
+            {
+                try
+                {
+                    var configContents = File.ReadAllText(path);
+                    return new ModConfig(id, file, configContents);
+                }
+                catch (Exception e)
+                {
+                    Log.Error($"Exception getting config contents {file}: {e}");
+                    return new ModConfig(id, "ERROR", "");
+                }
+            }
         }
 
         public static bool CompareToLocal(RemoteData remote)
@@ -199,7 +217,6 @@ namespace Multiplayer.Client
                 var mod = GetInstalledMod(modId);
                 if (mod == null || !mod.RootDir.Exists) continue;
 
-                // The constructor calls InitLoadFolders
                 var contentPack = MultiplayerData.DummyContentPack(mod);
 
                 foreach (var asm in MultiplayerData.GetModAssemblies(contentPack))
@@ -226,6 +243,26 @@ namespace Multiplayer.Client
             foreach (var f in ModContentPack.GetAllFilesForModPreserveOrder(mod, "Patches/", f => f.ToLower() == ".xml"))
                 yield return f.Item2;
         }
+
+        private static Dictionary<string, bool> modInstalled = new();
+
+        public static bool IsModInstalledCached(string packageId)
+        {
+            if (modInstalled.TryGetValue(packageId, out var result))
+                return result;
+
+            return modInstalled[packageId] =
+                GetInstalledMod(packageId) is { } m && (!m.OnSteamWorkshop || SteamModInstalled(m));
+        }
+
+        public static void ClearInstalledCache()
+        {
+            modInstalled.Clear();
+        }
+
+        private static bool SteamModInstalled(ModMetaData mod) =>
+            ((EItemState)SteamUGC.GetItemState(mod.GetPublishedFileId()))
+            .HasFlag(EItemState.k_EItemStateInstalled | EItemState.k_EItemStateSubscribed);
     }
 
     public class RemoteData
@@ -296,9 +333,7 @@ namespace Multiplayer.Client
         public ulong steamId; // Zero means invalid
         public ContentSource source;
 
-        public bool Installed =>
-            JoinData.GetInstalledMod(packageId) is { } m
-            && (!m.OnSteamWorkshop || m.SteamModInstalled());
+        public bool Installed => JoinData.IsModInstalledCached(packageId);
 
         public bool CanSubscribe => steamId != 0;
     }
@@ -314,6 +349,15 @@ namespace Multiplayer.Client
             this.absPath = absPath?.NormalizePath();
             this.relPath = relPath.NormalizePath();
             this.hash = hash;
+        }
+    }
+
+    [HarmonyPatch(typeof(WorkshopItems), nameof(WorkshopItems.RebuildItemsList))]
+    static class ClearCacheOnWorkshopCallback
+    {
+        static void Prefix()
+        {
+            JoinData.ClearInstalledCache();
         }
     }
 }

@@ -14,7 +14,7 @@ namespace Multiplayer.Client
     [HotSwappable]
     public class ModCompatWindow : Window
     {
-        public override Vector2 InitialSize => popup ? new(600, 450) : new(1024, 720);
+        public override Vector2 InitialSize => popup ? new(600, 450) : new(900, 600);
 
         private List<ModMetaData> modsActive = new();
         private List<ModMetaData> modsInstalled = new();
@@ -83,7 +83,7 @@ namespace Multiplayer.Client
                 modsHash = ModLister.InstalledModsListHash(true);
             }
 
-            if (resizer.isResizing)
+            if (resizer is { isResizing: true })
             {
                 modNameCache.Clear();
                 notesCache.Clear();

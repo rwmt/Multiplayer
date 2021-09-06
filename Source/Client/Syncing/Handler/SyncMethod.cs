@@ -17,6 +17,11 @@ namespace Multiplayer.Client
         {
             return new(writer, reader);
         }
+
+        public static Serializer<Live, object> SimpleReader<Live>(Func<Live> reader)
+        {
+            return new((_, _, _) => null, _ => reader());
+        }
     }
 
     public record SyncTransformer(Type LiveType, Type NetworkType, Delegate Writer, Delegate Reader);
@@ -282,7 +287,7 @@ namespace Multiplayer.Client
         public static SyncMethod Lambda(Type parentType, string parentMethod, int lambdaOrdinal, Type[] parentArgs = null)
         {
             return Sync.RegisterSyncMethod(
-                MpUtil.GetLambda(parentType, parentMethod, MethodType.Normal, parentArgs, lambdaOrdinal),
+                MpMethodUtil.GetLambda(parentType, parentMethod, MethodType.Normal, parentArgs, lambdaOrdinal),
                 null
             );
         }

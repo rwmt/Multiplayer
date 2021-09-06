@@ -25,7 +25,6 @@ namespace Multiplayer.Client
         public static ISyncField SyncPsychicEntropyTargetFocus;
 
         public static ISyncField SyncGodMode;
-        public static ISyncField SyncResearchProject;
         public static ISyncField SyncUseWorkPriorities;
         public static ISyncField SyncAutoHomeArea;
         public static ISyncField SyncAutoRebuild;
@@ -94,7 +93,6 @@ namespace Multiplayer.Client
             SyncPsychicEntropyTargetFocus = Sync.Field(typeof(Pawn), "psychicEntropy", "targetPsyfocus").SetBufferChanges();
 
             SyncGodMode = Sync.Field(null, "Verse.DebugSettings/godMode").SetDebugOnly();
-            SyncResearchProject = Sync.Field(null, "Verse.Find/ResearchManager/currentProj");
             SyncUseWorkPriorities = Sync.Field(null, "Verse.Current/Game/playSettings", "useWorkPriorities").PostApply(UseWorkPriorities_PostApply);
             SyncAutoHomeArea = Sync.Field(null, "Verse.Current/Game/playSettings", "autoHomeArea");
             SyncAutoRebuild = Sync.Field(null, "Verse.Current/Game/playSettings", "autoRebuild");
@@ -408,12 +406,6 @@ namespace Multiplayer.Client
         static void SetGodMode()
         {
             SyncGodMode.Watch();
-        }
-
-        [MpPrefix(typeof(MainTabWindow_Research), "DrawLeftRect")]
-        static void ResearchTab()
-        {
-            SyncResearchProject.Watch();
         }
 
         [MpPrefix(typeof(Dialog_RenameZone), "SetName")]

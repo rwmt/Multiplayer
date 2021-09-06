@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Multiplayer.Client.Saving;
+using Multiplayer.Client.Util;
 using Multiplayer.Common;
 using UnityEngine;
 using Verse;
@@ -13,8 +14,6 @@ namespace Multiplayer.Client
     [HotSwappable]
     public class MpSettings : ModSettings
     {
-        // Remember to mirror the default values
-
         public string username;
         public bool showCursors = true;
         public bool autoAcceptSteam;
@@ -27,6 +26,9 @@ namespace Multiplayer.Client
         public bool appendNameToAutosave;
         public bool showModCompatibility = true;
         public bool hideTranslationMods = true;
+        public bool enablePings = true;
+        public KeyCode? sendPingButton = KeyCode.Mouse4;
+        public KeyCode? jumpToPingButton = KeyCode.Mouse3;
         public Rect chatRect;
         public Vector2 resolutionForChat;
 
@@ -34,6 +36,8 @@ namespace Multiplayer.Client
 
         public override void ExposeData()
         {
+            // Remember to mirror the default values
+
             Scribe_Values.Look(ref username, "username");
             Scribe_Values.Look(ref showCursors, "showCursors", true);
             Scribe_Values.Look(ref autoAcceptSteam, "autoAcceptSteam");
@@ -45,13 +49,15 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref serverAddress, "serverAddress", "127.0.0.1");
             Scribe_Values.Look(ref showModCompatibility, "showModCompatibility", true);
             Scribe_Values.Look(ref hideTranslationMods, "hideTranslationMods", true);
+            Scribe_Values.Look(ref enablePings, "enablePings", true);
+            Scribe_Values.Look(ref sendPingButton, "sendPingButton", KeyCode.Mouse4);
+            Scribe_Values.Look(ref jumpToPingButton, "jumpToPingButton", KeyCode.Mouse3);
             Scribe_Custom.LookRect(ref chatRect, "chatRect");
             Scribe_Values.Look(ref resolutionForChat, "resolutionForChat");
 
             Scribe_Deep.Look(ref serverSettings, "serverSettings");
 
-            if (serverSettings == null)
-                serverSettings = new ServerSettings();
+            serverSettings ??= new ServerSettings();
         }
 
         private string slotsBuffer;
@@ -61,7 +67,7 @@ namespace Multiplayer.Client
         {
             var listing = new Listing_Standard();
             listing.Begin(inRect);
-            listing.ColumnWidth = 250f;
+            listing.ColumnWidth = 270f;
 
             DoUsernameField(listing);
             listing.TextFieldNumericLabeled("MpAutosaveSlots".Translate() + ":  ", ref autosaveSlots, ref slotsBuffer, 1f, 99f);
@@ -72,6 +78,17 @@ namespace Multiplayer.Client
             listing.CheckboxLabeled("MpAggressiveTicking".Translate(), ref aggressiveTicking, "MpAggressiveTickingDesc".Translate());
             listing.CheckboxLabeled("MpAppendNameToAutosave".Translate(), ref appendNameToAutosave);
             listing.CheckboxLabeled("MpShowModCompat".Translate(), ref showModCompatibility, "MpShowModCompatDesc".Translate());
+            listing.CheckboxLabeled("MpEnablePingsSetting".Translate(), ref enablePings);
+
+            const string buttonOff = "Off";
+
+            using (MpStyle.Set(TextAnchor.MiddleCenter))
+                if (listing.ButtonTextLabeled("MpPingLocButtonSetting".Translate(), sendPingButton?.ToString().Insert("Mouse".Length, " ") ?? buttonOff))
+                    Find.WindowStack.Add(new FloatMenu(new List<FloatMenuOption>(ButtonChooser(b => sendPingButton = b))));
+
+            using (MpStyle.Set(TextAnchor.MiddleCenter))
+                if (listing.ButtonTextLabeled("MpJumpToPingButtonSetting".Translate(), jumpToPingButton?.ToString().Insert("Mouse".Length, " ") ?? buttonOff))
+                    Find.WindowStack.Add(new FloatMenu(new List<FloatMenuOption>(ButtonChooser(b => jumpToPingButton = b))));
 
             if (Prefs.DevMode)
             {
@@ -80,6 +97,17 @@ namespace Multiplayer.Client
             }
 
             listing.End();
+
+            IEnumerable<FloatMenuOption> ButtonChooser(Action<KeyCode?> setter)
+            {
+                yield return new FloatMenuOption(buttonOff, () => { setter(null); });
+
+                for (var btn = KeyCode.Mouse2; btn <= KeyCode.Mouse6; btn++)
+                {
+                    var b = btn;
+                    yield return new FloatMenuOption(b.ToString().Insert("Mouse".Length, " "), () => { setter(b); });
+                }
+            }
         }
 
         const string UsernameField = "UsernameField";

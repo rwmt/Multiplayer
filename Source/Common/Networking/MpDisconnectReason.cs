@@ -14,6 +14,7 @@
         ClientLeft,
         Throttled,
         NetFailed,
+        ConnectingFailed,
         ServerPacketRead,
         Internal,
         Generic,

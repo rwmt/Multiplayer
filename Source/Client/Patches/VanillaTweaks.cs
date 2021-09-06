@@ -49,30 +49,6 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(GenTypes), nameof(GenTypes.AllLeafSubclasses))]
-    static class AllLeafSubclassesPatch
-    {
-        public static HashSet<Type> hasSubclasses;
-
-        static bool Prefix()
-        {
-            if (hasSubclasses == null)
-            {
-                hasSubclasses = new HashSet<Type>();
-                foreach (Type t in GenTypes.AllTypes)
-                    if (t.BaseType != null)
-                        hasSubclasses.Add(t.BaseType);
-            }
-
-            return false;
-        }
-
-        static void Postfix(Type baseType, ref IEnumerable<Type> __result)
-        {
-            __result = baseType.AllSubclasses().Where(t => !hasSubclasses.Contains(t));
-        }
-    }
-
     [HarmonyPatch(typeof(IncidentWorker_PawnsArrive), nameof(IncidentWorker_PawnsArrive.FactionCanBeGroupSource))]
     static class FactionCanBeGroupSourcePatch
     {

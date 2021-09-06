@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using JetBrains.Annotations;
+using Multiplayer.Client.Util;
 using Verse;
 
 namespace Multiplayer.Client
@@ -48,9 +49,9 @@ namespace Multiplayer.Client
                     return method;
 
                 if (lambdaOrdinal != null)
-                    return MpUtil.GetLambda(Type, methodName, methodType, argTypes, lambdaOrdinal.Value);
+                    return MpMethodUtil.GetLambda(Type, methodName, methodType, argTypes, lambdaOrdinal.Value);
 
-                method = MpUtil.GetMethod(Type, methodName, methodType, argTypes);
+                method = MpMethodUtil.GetMethod(Type, methodName, methodType, argTypes);
                 if (method == null)
                     throw new MissingMethodException($"Couldn't find method {methodName} in type {Type}");
 

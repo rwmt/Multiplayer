@@ -20,6 +20,15 @@ namespace Multiplayer.Client
         private static Dictionary<string, bool> translationMods = new();
         public static Dictionary<string, DefInfo> localDefInfos;
 
+        public static void PrecacheMods()
+        {
+            foreach (var mod in ModLister.AllInstalledMods)
+            {
+                IsXmlMod(mod);
+                IsTranslationMod(mod);
+            }
+        }
+
         public static bool IsXmlMod(ModMetaData mod)
         {
             if (xmlMods.TryGetValue(mod.RootDir.FullName, out var xml))
@@ -33,11 +42,13 @@ namespace Multiplayer.Client
             if (translationMods.TryGetValue(mod.RootDir.FullName, out var xml))
                 return xml;
 
+            var dummyPack = DummyContentPack(mod);
+
             return translationMods[mod.RootDir.FullName] =
                 !ModHasAssemblies(mod)
-                && !ModContentPack.GetAllFilesForModPreserveOrder(DummyContentPack(mod), "Defs/", _ => true).Any()
-                && !ModContentPack.GetAllFilesForModPreserveOrder(DummyContentPack(mod), "Patches/", _ => true).Any()
-                && ModContentPack.GetAllFilesForModPreserveOrder(DummyContentPack(mod), "Languages/", _ => true).Any();
+                && !ModContentPack.GetAllFilesForModPreserveOrder(dummyPack, "Defs/", _ => true).Any()
+                && !ModContentPack.GetAllFilesForModPreserveOrder(dummyPack, "Patches/", _ => true).Any()
+                && ModContentPack.GetAllFilesForModPreserveOrder(dummyPack, "Languages/", _ => true).Any();
         }
 
         public static bool ModHasAssemblies(ModMetaData mod)
@@ -53,6 +64,7 @@ namespace Multiplayer.Client
 
         public static ModContentPack DummyContentPack(ModMetaData mod)
         {
+            // The constructor calls InitLoadFolders
             return new ModContentPack(mod.RootDir, mod.PackageId, mod.PackageIdPlayerFacing, 0, mod.Name, mod.Official);
         }
 
@@ -106,6 +118,7 @@ namespace Multiplayer.Client
             dict["WorldObjectComp"] = GetDefInfo(SyncSerialization.worldObjectCompTypes, TypeHash);
             dict["IStoreSettingsParent"] = GetDefInfo(SyncSerialization.storageParents, TypeHash);
             dict["IPlantToGrowSettable"] = GetDefInfo(SyncSerialization.plantToGrowSettables, TypeHash);
+            dict["DefTypes"] = GetDefInfo(SyncSerialization.defTypes, TypeHash);
 
             dict["GameComponent"] = GetDefInfo(SyncSerialization.gameCompTypes, TypeHash);
             dict["WorldComponent"] = GetDefInfo(SyncSerialization.worldCompTypes, TypeHash);

@@ -11,6 +11,7 @@ using Verse.AI;
 
 namespace Multiplayer.Client
 {
+    [HotSwappable]
     public static class SyncMethods
     {
         static SyncField SyncTimetable;
@@ -46,6 +47,8 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(Area), nameof(Area.Delete));
             SyncMethod.Register(typeof(Area_Allowed), nameof(Area_Allowed.SetLabel));
             SyncMethod.Register(typeof(AreaManager), nameof(AreaManager.TryMakeNewAllowed));
+            SyncMethod.Register(typeof(MainTabWindow_Research), nameof(MainTabWindow_Research.DoBeginResearch))
+                .TransformTarget(Serializer.SimpleReader(() => new MainTabWindow_Research()));
 
             SyncMethod.Register(typeof(DrugPolicyDatabase), nameof(DrugPolicyDatabase.MakeNewDrugPolicy));
             SyncMethod.Register(typeof(DrugPolicyDatabase), nameof(DrugPolicyDatabase.TryDelete)).CancelIfAnyArgNull();
@@ -185,10 +188,7 @@ namespace Multiplayer.Client
             // Used by "Set to standard playstyle" in storyteller settings
             SyncMethod.Register(typeof(Difficulty), nameof(Difficulty.CopyFrom))
                 .SetHostOnly()
-                .TransformTarget(Serializer.New(
-                    (Difficulty d, object target, object[] args) => (object)null,
-                    d => Find.Storyteller.difficulty
-                ));
+                .TransformTarget(Serializer.SimpleReader(() => Find.Storyteller.difficulty));
 
             SyncMethod.Register(typeof(IdeoDevelopmentUtility), nameof(IdeoDevelopmentUtility.ApplyChangesToIdeo))
                 .ExposeParameter(1);
@@ -307,7 +307,7 @@ namespace Multiplayer.Client
         {
             // If Pawn_JobTracker.TryTakeOrderedJob is synced directly its job is created in interface code
             // UniqueIDs assigned in the interface are always negative and specific to a client
-            // This assigns the job a proper id
+            // This assigns the job a proper id after the code is synced and no longer in the interface (Multiplayer.ExecutingCmds)
 
             if (Multiplayer.ExecutingCmds && job.loadID < 0)
             {
@@ -333,10 +333,13 @@ namespace Multiplayer.Client
         }
 
         [MpPostfix(typeof(Ideo), nameof(Ideo.CopyTo))]
-        static void GenerateNewPreceptIds(Ideo __instance)
+        static void FixIdeoAfterCopy(Ideo __instance, Ideo ideo)
         {
-            foreach (var precept in __instance.precepts)
-                precept.ID = Find.UniqueIDsManager.GetNextPreceptID();
+            if (Multiplayer.ExecutingCmds)
+            {
+                ideo.development.ideo = ideo;
+                ideo.style.ideo = ideo;
+            }
         }
     }
 

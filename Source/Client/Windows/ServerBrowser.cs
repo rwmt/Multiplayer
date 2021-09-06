@@ -68,8 +68,13 @@ namespace Multiplayer.Client
             Lan, Direct, Steam, Host
         }
 
+        private WidgetRow widgetRow = new WidgetRow();
+
         public override void DoWindowContents(Rect inRect)
         {
+            DrawInfoButtons();
+            inRect.yMin += 35f;
+
             List<TabRecord> tabs = new List<TabRecord>()
             {
                 new("MpLan".Translate(), () => tab = Tabs.Lan,  tab == Tabs.Lan),
@@ -96,6 +101,63 @@ namespace Multiplayer.Client
                     DrawHost(groupRect);
             }
             GUI.EndGroup();
+        }
+
+        private void DrawInfoButtons()
+        {
+            float x = 0;
+
+            const string WebsiteLink = "https://rimworldmultiplayer.com";
+            const string DiscordLink = "https://discord.gg/S4bxXpv";
+
+            bool Button(Texture2D icon, string labelKey, string tip, Color baseIconColor, float iconSize = 24f)
+            {
+                var label = labelKey.Translate();
+                var labelWidth = Text.CalcSize(label).x;
+                var btn = new Rect(x, 0, 24 + 1 + labelWidth, 24);
+                var mouseOver = Mouse.IsOver(btn);
+
+                MouseoverSounds.DoRegion(btn);
+                TooltipHandler.TipRegion(btn, tip);
+
+                using (MpStyle.Set(mouseOver ? Color.yellow : baseIconColor))
+                {
+                    GUI.DrawTexture(new Rect(x += (24 - iconSize) / 2, (24 - iconSize) / 2, iconSize, iconSize), icon);
+                    x += 24;
+                }
+
+                x += 1;
+
+                using (MpStyle.Set(mouseOver ? Color.yellow : Color.white))
+                using (MpStyle.Set(TextAnchor.MiddleCenter))
+                    MpUI.Label(new Rect(x, 0, labelWidth, 24f), labelKey.Translate());
+
+                x += labelWidth;
+                x += 10;
+
+                return Widgets.ButtonInvisible(btn);
+            }
+
+            const string compatLabel = "MpCompatibilityButton";
+            const string compatLabelDesc = "MpCompatibilityButtonDesc";
+
+            if (Button(TexButton.ToggleLog, compatLabel, MpUtil.TranslateWithDoubleNewLines(compatLabelDesc, 2), Color.grey, 20))
+                Find.WindowStack.Add(new ModCompatWindow(null, false, false, null));
+
+            if (Button(MultiplayerStatic.WebsiteIcon, "MpWebsiteButton", "MpLinkButtonDesc".Translate() + " " + WebsiteLink, Color.grey, 20))
+                Application.OpenURL(WebsiteLink);
+
+            if (Button(MultiplayerStatic.DiscordIcon, "MpDiscordButton", "MpLinkButtonDesc".Translate() + " " + DiscordLink, Color.white))
+                Application.OpenURL(DiscordLink);
+
+            if (false)
+                Button(
+                    TexButton.NewItem,
+                    "MpActiveConfigsButton",
+                    "MpActiveConfigsButtonDesc1".Translate("Player's game") + "\n\n" + "MpActiveConfigsButtonDesc2".Translate(),
+                    Color.grey,
+                    20
+                );
         }
 
         private bool filesRead;
@@ -137,11 +199,13 @@ namespace Multiplayer.Client
                 mpCollapsed = !mpCollapsed;
 
             float y = 0;
-            Text.Font = GameFont.Medium;
-            float textHeight1 = Text.CalcHeight("MpMultiplayerSaves".Translate(), inRect.width);
-            Widgets.Label(viewRect.Right(18f), "MpMultiplayerSaves".Translate());
-            Text.Font = GameFont.Small;
-            y += textHeight1 + 10;
+
+            using (MpStyle.Set(GameFont.Medium))
+            {
+                float textHeight1 = Text.CalcHeight("MpMultiplayerSaves".Translate(), inRect.width);
+                Widgets.Label(viewRect.Right(18f), "MpMultiplayerSaves".Translate());
+                y += textHeight1 + 10;
+            }
 
             if (!mpCollapsed)
             {
@@ -155,11 +219,12 @@ namespace Multiplayer.Client
                 spCollapsed = !spCollapsed;
 
             viewRect.y = y;
-            Text.Font = GameFont.Medium;
-            float textHeight2 = Text.CalcHeight("MpSingleplayerSaves".Translate(), inRect.width);
-            Widgets.Label(viewRect.Right(18), "MpSingleplayerSaves".Translate());
-            Text.Font = GameFont.Small;
-            y += textHeight2 + 10;
+            using (MpStyle.Set(GameFont.Medium))
+            {
+                float textHeight2 = Text.CalcHeight("MpSingleplayerSaves".Translate(), inRect.width);
+                Widgets.Label(viewRect.Right(18), "MpSingleplayerSaves".Translate());
+                y += textHeight2 + 10;
+            }
 
             if (!spCollapsed)
                 DrawSaveList(reader.SpSaves, viewRect.width, ref y);
@@ -171,12 +236,10 @@ namespace Multiplayer.Client
 
             if (selectedFile == null)
             {
-                Text.Anchor = TextAnchor.MiddleCenter;
-
                 bool noSaves = reader.SpSaves.Count == 0 && reader.MpSaves.Count == 0;
-                Widgets.Label(new Rect(outRect.x, outRect.yMax, outRect.width, 80), noSaves ? "MpNoSaves".Translate() : "MpNothingSelected".Translate());
 
-                Text.Anchor = TextAnchor.UpperLeft;
+                using (MpStyle.Set(TextAnchor.MiddleCenter))
+                    Widgets.Label(new Rect(outRect.x, outRect.yMax, outRect.width, 80), noSaves ? "MpNoSaves".Translate() : "MpNothingSelected".Translate());
             }
             else
             {
@@ -277,12 +340,11 @@ namespace Multiplayer.Client
                     Widgets.DrawAltRect(entryRect);
                 }
 
-                Text.Anchor = TextAnchor.MiddleLeft;
-                Widgets.Label(entryRect.Right(10), data?.displayName ?? "Loading...");
-                Text.Anchor = TextAnchor.UpperLeft;
+                using (MpStyle.Set(TextAnchor.MiddleLeft))
+                    Widgets.Label(entryRect.Right(10), data?.displayName ?? "Loading...");
 
-                GUI.color = new Color(0.6f, 0.6f, 0.6f);
-                Text.Font = GameFont.Tiny;
+                using var _ = MpStyle.Set(new Color(0.6f, 0.6f, 0.6f));
+                using var __ = MpStyle.Set(GameFont.Tiny);
 
                 var infoText = new Rect(entryRect.xMax - 120, entryRect.yMin + 3, 120, entryRect.height);
                 Widgets.Label(infoText, file.LastWriteTime.ToString("yyyy-MM-dd HH:mm"));
@@ -358,7 +420,7 @@ namespace Multiplayer.Client
 
             yield return new FloatMenuOption("Rename".Translate(), () =>
             {
-                Find.WindowStack.Add(new Dialog_RenameFile(save.file, () => ReloadFiles()));
+                Find.WindowStack.Add(new Dialog_RenameFile(save.file, ReloadFiles));
             });
 
             if (!MpVersion.IsDebug) yield break;
@@ -372,6 +434,7 @@ namespace Multiplayer.Client
             {
                 for (int i = 0; i < save.modIds.Length; i++)
                 {
+                    // todo these aren't steam ids
                     if (!ulong.TryParse(save.modIds[i], out ulong id)) continue;
                     Log.Message($"Subscribed to: {save.modNames[i]}");
                     SteamUGC.SubscribeItem(new PublishedFileId_t(id));
@@ -392,10 +455,9 @@ namespace Multiplayer.Client
 
             if (info != null)
             {
-                Text.Anchor = TextAnchor.MiddleCenter;
-                Widgets.Label(new Rect(0, 8, inRect.width, 40f), info);
+                using (MpStyle.Set(TextAnchor.MiddleCenter))
+                    Widgets.Label(new Rect(0, 8, inRect.width, 40f), info);
 
-                Text.Anchor = TextAnchor.UpperLeft;
                 inRect.yMin += 40f;
             }
 
@@ -419,16 +481,13 @@ namespace Multiplayer.Client
                 if (Event.current.type == EventType.Repaint)
                     GUI.DrawTextureWithTexCoords(new Rect(5, entryRect.y + 4, 32, 32), SteamImages.GetTexture(friend.avatar), new Rect(0, 1, 1, -1));
 
-                Text.Anchor = TextAnchor.MiddleLeft;
-                Widgets.Label(entryRect.Right(45).Up(5), friend.username);
+                using (MpStyle.Set(TextAnchor.MiddleLeft))
+                    Widgets.Label(entryRect.Right(45).Up(5), friend.username);
 
-                GUI.color = SteamGreen;
-                Text.Font = GameFont.Tiny;
-                Widgets.Label(entryRect.Right(45).Down(8), "MpPlayingRimWorld".Translate());
-                Text.Font = GameFont.Small;
-                GUI.color = Color.white;
-
-                Text.Anchor = TextAnchor.MiddleCenter;
+                using (MpStyle.Set(GameFont.Tiny))
+                using (MpStyle.Set(TextAnchor.MiddleLeft))
+                using (MpStyle.Set(SteamGreen))
+                    Widgets.Label(entryRect.Right(45).Down(8), "MpPlayingRimWorld".Translate());
 
                 if (friend.serverHost != CSteamID.Nil)
                 {
@@ -444,8 +503,6 @@ namespace Multiplayer.Client
                     Rect playButton = new Rect(entryRect.xMax - 125, entryRect.y + 5, 120, 40 - 10);
                     Widgets.ButtonText(playButton, "MpNotInMultiplayer".Translate(), false, false, false);
                 }
-
-                Text.Anchor = TextAnchor.UpperLeft;
 
                 y += entryRect.height;
                 i++;
@@ -486,9 +543,8 @@ namespace Multiplayer.Client
 
         private void DrawLan(Rect inRect)
         {
-            Text.Anchor = TextAnchor.MiddleCenter;
-            Widgets.Label(new Rect(inRect.x, 8f, inRect.width, 40), "MpLanSearching".Translate() + MpUI.FixedEllipsis());
-            Text.Anchor = TextAnchor.UpperLeft;
+            using (MpStyle.Set(TextAnchor.MiddleCenter))
+                Widgets.Label(new Rect(inRect.x, 8f, inRect.width, 40), "MpLanSearching".Translate() + MpUI.FixedEllipsis());
             inRect.yMin += 40f;
 
             float margin = 100;
@@ -508,10 +564,9 @@ namespace Multiplayer.Client
                 if (i % 2 == 0)
                     Widgets.DrawAltRect(entryRect);
 
-                Text.Anchor = TextAnchor.MiddleLeft;
-                Widgets.Label(entryRect.Right(5), "" + server.endpoint);
+                using (MpStyle.Set(TextAnchor.MiddleLeft))
+                    Widgets.Label(entryRect.Right(5), "" + server.endpoint);
 
-                Text.Anchor = TextAnchor.MiddleCenter;
                 Rect playButton = new Rect(entryRect.xMax - 75, entryRect.y + 5, 70, 40 - 10);
                 if (Widgets.ButtonText(playButton, ">>"))
                 {
@@ -522,8 +577,6 @@ namespace Multiplayer.Client
                     var port = server.endpoint.Port;
                     ClientUtil.TryConnectWithWindow(address, port);
                 }
-
-                Text.Anchor = TextAnchor.UpperLeft;
 
                 y += entryRect.height;
                 i++;

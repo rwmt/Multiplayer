@@ -18,6 +18,7 @@ using Verse;
 using Multiplayer.Common;
 using System.Runtime.CompilerServices;
 using System.Threading;
+using JetBrains.Annotations;
 using Multiplayer.Client.Comp;
 using Multiplayer.Client.Desyncs;
 using Multiplayer.Client.Patches;
@@ -82,6 +83,12 @@ namespace Multiplayer.Client
             Native.EarlyInit();
             DisableOmitFramePointer();
 
+            using (DeepProfilerWrapper.Section("Multiplayer CacheTypeHierarchy"))
+                CacheTypeHierarchy();
+
+            using (DeepProfilerWrapper.Section("Multiplayer CacheTypeByName"))
+                CacheTypeByName();
+
             if (GenCommandLine.CommandLineArgPassed("profiler"))
             {
                 SimpleProfiler.CheckAvailable();
@@ -139,13 +146,43 @@ namespace Multiplayer.Client
             }
         }
 
+        internal static Dictionary<Type, List<Type>> subClasses = new();
+        internal static Dictionary<Type, List<Type>> subClassesNonAbstract = new();
+        internal static Dictionary<Type, List<Type>> implementations = new();
+
+        private static void CacheTypeHierarchy()
+        {
+            foreach (var type in GenTypes.AllTypes)
+            {
+                for (var baseType = type.BaseType; baseType != null; baseType = baseType.BaseType)
+                {
+                    subClasses.GetOrAddNew(baseType).Add(type);
+                    if (!type.IsAbstract)
+                        subClassesNonAbstract.GetOrAddNew(baseType).Add(type);
+                }
+
+                foreach (var i in type.GetInterfaces())
+                    implementations.GetOrAddNew(i).Add(type);
+            }
+        }
+
+        internal static Dictionary<string, Type> typeByName = new();
+        internal static Dictionary<string, Type> typeByFullName = new();
+
+        private static void CacheTypeByName()
+        {
+            foreach (var type in GenTypes.AllTypes)
+            {
+                if (!typeByName.ContainsKey(type.Name))
+                    typeByName[type.Name] = type;
+
+                if (!typeByFullName.ContainsKey(type.Name))
+                    typeByFullName[type.FullName] = type;
+            }
+        }
+
         private static void EarlyPatches()
         {
-            Assembly.GetCallingAssembly().GetTypes().Do(type => {
-                if (type.IsDefined(typeof(EarlyPatchAttribute)))
-                    harmony.CreateClassProcessor(type).Patch();
-            });
-
             // Might fix some mod desyncs
             harmony.PatchMeasure(
                 AccessTools.Constructor(typeof(Def), new Type[0]),
@@ -153,15 +190,10 @@ namespace Multiplayer.Client
                 new HarmonyMethod(typeof(RandPatches), nameof(RandPatches.Postfix))
             );
 
-            harmony.PatchMeasure(
-                AccessTools.PropertyGetter(typeof(Rand), nameof(Rand.Int)),
-                postfix: new HarmonyMethod(typeof(DeferredStackTracing), nameof(DeferredStackTracing.Postfix))
-            );
-
-            harmony.PatchMeasure(
-                AccessTools.PropertyGetter(typeof(Rand), nameof(Rand.Value)),
-                postfix: new HarmonyMethod(typeof(DeferredStackTracing), nameof(DeferredStackTracing.Postfix))
-            );
+            Assembly.GetCallingAssembly().GetTypes().Do(type => {
+                if (type.IsDefined(typeof(EarlyPatchAttribute)))
+                    harmony.CreateClassProcessor(type).Patch();
+            });
 
 #if DEBUG
             DebugPatches.Init();

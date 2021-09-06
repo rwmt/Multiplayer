@@ -1,3 +1,4 @@
+using System;
 using HarmonyLib;
 using Multiplayer.Common;
 using RimWorld.Planet;
@@ -5,6 +6,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Runtime.CompilerServices;
 using UnityEngine;
 using Verse;
 
@@ -152,8 +154,8 @@ namespace Multiplayer.Client.Patches
         static void Postfix(object job, double __state)
         {
             Multiplayer.harmonyWatch.Stop();
-            var original = (MethodBase)Traverse.Create(job).Field("original").GetValue();
-            var took = Multiplayer.harmonyWatch.ElapsedMillisDouble() - __state;
+            //var original = (MethodBase)Traverse.Create(job).Field("original").GetValue();
+            //var took = Multiplayer.harmonyWatch.ElapsedMillisDouble() - __state;
             //if (took > 15)
             //    Log.Message($"{took} ms: Patching {original.MethodDesc()}");
         }
@@ -189,5 +191,44 @@ namespace Multiplayer.Client.Patches
                 Widgets.DrawBox(rect);
         }
     }
+
+    [EarlyPatch]
+    [HarmonyPatch(typeof(StaticConstructorOnStartupUtility), nameof(StaticConstructorOnStartupUtility.CallAll))]
+    static class TimeStaticCtors
+    {
+        static bool Prefix()
+        {
+            foreach (Type type in GenTypes.AllTypesWithAttribute<StaticConstructorOnStartup>())
+            {
+                DeepProfiler.Start($"Static ctor: {type.FullName}");
+
+                try
+                {
+                    RuntimeHelpers.RunClassConstructor(type.TypeHandle);
+                }
+                catch (Exception ex)
+                {
+                    Log.Error(string.Concat("Error in static constructor of ", type, ": ", ex));
+                }
+                finally
+                {
+                    DeepProfiler.End();
+                }
+            }
+
+            StaticConstructorOnStartupUtility.coreStaticAssetsLoaded = true;
+
+            return false;
+        }
+    }
+
+    [EarlyPatch]
+    [HarmonyPatch(typeof(GlobalTextureAtlasManager), nameof(GlobalTextureAtlasManager.BakeStaticAtlases))]
+    static class NoAtlases
+    {
+        static bool Prefix() => false;
+    }
+
+
 }
 #endif

@@ -144,7 +144,7 @@ namespace Multiplayer.Client
                 disconnectInfo.titleTranslated = "MpWrongMultiplayerVersionInfo".Translate(strVersion, proto);
             }
 
-            if (reason == MpDisconnectReason.NetFailed)
+            if (reason == MpDisconnectReason.ConnectingFailed)
             {
                 var netReason = (DisconnectReason)reader.ReadByte();
 
@@ -152,6 +152,14 @@ namespace Multiplayer.Client
                     netReason == DisconnectReason.ConnectionFailed ?
                     "MpConnectionFailed".Translate() :
                     "MpConnectionFailedWithInfo".Translate(netReason.ToString().CamelSpace().ToLowerInvariant());
+            }
+
+            if (reason == MpDisconnectReason.NetFailed)
+            {
+                var netReason = (DisconnectReason)reader.ReadByte();
+
+                disconnectInfo.titleTranslated =
+                    "MpDisconnectedWithInfo".Translate(netReason.ToString().CamelSpace().ToLowerInvariant());
             }
 
             if (reason == MpDisconnectReason.UsernameAlreadyOnline)
@@ -162,7 +170,7 @@ namespace Multiplayer.Client
                 var newName = Multiplayer.username.Substring(0, Math.Min(Multiplayer.username.Length, MultiplayerServer.MaxUsernameLength - 3));
                 newName += new Random().Next(1000);
 
-                disconnectInfo.specialButtonTranslated = "MpConnectAs".Translate(newName);
+                disconnectInfo.specialButtonTranslated = "MpConnectAsUsername".Translate(newName);
                 disconnectInfo.specialButtonAction = () => Reconnect(newName);
             }
 

@@ -7,13 +7,15 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Web.Management;
 using HarmonyLib;
+using Multiplayer.Client.Patches;
 using RimWorld;
 using Steamworks;
 using Verse;
 
 namespace Multiplayer.Client.Desyncs
 {
-    //[HarmonyPatch]
+    [EarlyPatch]
+    [HarmonyPatch]
     static class DeferredStackTracing
     {
         public static int ignoreTraces;
@@ -29,7 +31,7 @@ namespace Multiplayer.Client.Desyncs
 
         public static int acc;
 
-        public unsafe static void Postfix()
+        public static void Postfix()
         {
             if (Native.LmfPtr == 0 || !ShouldAddStackTraceForDesyncLog()) return;
 
@@ -49,7 +51,7 @@ namespace Multiplayer.Client.Desyncs
             if (Multiplayer.game == null) return false;
 
             // Only log if debugging enabled in Host Server menu
-            if (Multiplayer.game.gameComp.logDesyncTraces) return false;
+            if (!Multiplayer.game.gameComp.logDesyncTraces) return false;
 
             if (Rand.stateStack.Count > 1) return false;
             if (TickPatch.Simulating || Multiplayer.IsReplay) return false;
@@ -191,7 +193,7 @@ namespace Multiplayer.Client.Desyncs
             info.addr = ret;
             info.stackUsage = stackUsage;
 
-            var rawName = Native.MethodNameFromAddr(ret);
+            var rawName = Native.MethodNameFromAddr(ret, true);
             info.nameHash = rawName != null ? GenText.StableStringHash(SyncCoordinator.MethodNameWithoutIL(rawName)) : 1;
 
             hashtableEntries++;
@@ -266,7 +268,7 @@ namespace Multiplayer.Client.Desyncs
             if (*(byte*)start == 0x55)
                 return RBPBased;
 
-            throw new Exception($"Deferred stack tracing: Unknown function header {*start} {Native.MethodNameFromAddr(addr)}");
+            throw new Exception($"Deferred stack tracing: Unknown function header {*start} {Native.MethodNameFromAddr(addr, false)}");
         }
 
         private static unsafe void CheckRbpUsage(uint* at, ref long stackUsage)

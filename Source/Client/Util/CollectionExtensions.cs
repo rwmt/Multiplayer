@@ -90,5 +90,16 @@ namespace Multiplayer.Client
         {
             return Enumerable.Zip(enumA, enumB, (a, b) => (a, b));
         }
+
+        /// <summary>
+        /// Like ToDictionary but overrides duplicate keys
+        /// </summary>
+        public static Dictionary<K, V> ToDictionaryPermissive<T, K, V>(this IEnumerable<T> e, Func<T, K> keys, Func<T, V> values)
+        {
+            var dict = new Dictionary<K, V>();
+            foreach (var item in e)
+                dict[keys(item)] = values(item);
+            return dict;
+        }
     }
 }

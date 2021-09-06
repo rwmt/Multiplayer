@@ -34,14 +34,15 @@ namespace Multiplayer.Client
 
             public string name;
             public string id;
+            public string path;
             public int depth;
             public Node parent;
-            public List<Node> children = new List<Node>();
+            public List<Node> children = new();
             public bool collapsed;
             public NodeStatus status;
 
             public int[] childrenPerStatus;
-            public HashSet<string> paths;
+            public HashSet<string> paths = new();
         }
 
         enum NodeStatus
@@ -56,8 +57,8 @@ namespace Multiplayer.Client
         public Action connectAnywayCallback;
         public Window connectAnywayWindow;
         private ModFileDict filesForUI;
-        private bool sameMods;
-        private bool sameModLists;
+        private bool sameSetOfMods;
+        private bool modListsEqual;
 
         public JoinDataWindow(RemoteData remote)
         {
@@ -71,16 +72,19 @@ namespace Multiplayer.Client
         {
             base.PostOpen();
 
+            JoinData.ClearInstalledCache();
             filesForUI = JoinData.modFilesSnapshot.CopyWithMods(remote.RemoteModIds);
             CheckModLists();
             RefreshFileNodes();
             RefreshConfigNodes();
+
+            Log.Message($"Multiplayer: Mod mismatch window open ({DiffString()})");
         }
 
         private void CheckModLists()
         {
-            sameMods = remote.RemoteModIds.EqualAsSets(JoinData.activeModsSnapshot.Select(m => m.PackageIdNonUnique));
-            sameModLists = remote.RemoteModIds.SequenceEqual(JoinData.activeModsSnapshot.Select(m => m.PackageIdNonUnique));
+            sameSetOfMods = remote.RemoteModIds.EqualAsSets(JoinData.activeModsSnapshot.Select(m => m.PackageIdNonUnique));
+            modListsEqual = remote.RemoteModIds.SequenceEqual(JoinData.activeModsSnapshot.Select(m => m.PackageIdNonUnique));
         }
 
         private void AddNodesForPath(string path, Node root, NodeStatus status)
@@ -121,7 +125,7 @@ namespace Multiplayer.Client
                 var modNode = filesRoot.children.FirstOrDefault(n => n.id == modId);
                 if (modNode == null)
                 {
-                    modNode = new Node { name=mod.Name, id=modId, parent=filesRoot, paths=new HashSet<string>(), childrenPerStatus=new int[4], collapsed=true };
+                    modNode = new Node { name=mod.Name, id=modId, path=mod.RootDir.FullName, parent=filesRoot, childrenPerStatus=new int[4], collapsed=true };
                     newNode = true;
                 }
 
@@ -154,12 +158,12 @@ namespace Multiplayer.Client
 
         private void RefreshConfigNodes()
         {
-            configsRoot = new Node {paths=new HashSet<string>(), depth=-1};
+            configsRoot = new Node {depth=-1};
 
             void AddConfigs(List<ModConfig> one, List<ModConfig> two, NodeStatus notInTwo)
             {
-                var oneDict = one.ToDictionary(m => m.ModId + "/" + m.FileName, m => m.Contents);
-                var twoDict = two.ToDictionary(m => m.ModId + "/" + m.FileName, m => m.Contents);
+                var oneDict = one.ToDictionaryPermissive(m => m.ModId + "/" + m.FileName, m => m.Contents);
+                var twoDict = two.ToDictionaryPermissive(m => m.ModId + "/" + m.FileName, m => m.Contents);
 
                 foreach (var kv in oneDict){
                     AddNodesForPath(
@@ -228,6 +232,7 @@ namespace Multiplayer.Client
 
             if (connectAnyway)
             {
+                Log.Message($"Multiplayer: Connecting anyway ({DiffString()})");
                 connectAnywayCallback();
                 Find.WindowStack.Add(connectAnywayWindow);
                 Close(false);
@@ -244,6 +249,17 @@ namespace Multiplayer.Client
             }
         }
 
+        private string DiffString()
+        {
+            var str = "";
+            str += $"RW version match: {remote.remoteMpVersion == MpVersion.Version}, ";
+            str += $"Mod sets equal: {sameSetOfMods}, ";
+            str += $"Mod lists equal: {modListsEqual}, ";
+            str += $"Files match: {!filesRoot.children.Any()}, ";
+            str += $"Configs match: {!configsRoot.children.Any()}";
+            return str;
+        }
+
         private void DrawGeneralTab(Rect inRect)
         {
             const float rowLabelWidth = 200f;
@@ -258,7 +274,7 @@ namespace Multiplayer.Client
             {
                 var modData = new Rect(0, 0, rowLabelWidth, modDataHeight);
                 Widgets.DrawAltRect(modData);
-                var modListsMatch = sameModLists;
+                var modListsMatch = modListsEqual;
                 Widgets.CheckboxLabeled(modData, "Mod list", ref modListsMatch);
                 modData = modData.Down(modDataHeight);
 
@@ -323,7 +339,7 @@ namespace Multiplayer.Client
             }
         }
 
-        Vector2 scroll;
+        Vector2 treeScroll;
         int nodeCount;
 
         static readonly Color Red = new Color(1f, 0.25f, 0.25f);
@@ -355,7 +371,7 @@ namespace Multiplayer.Client
             const float modLabelHeight = 22f;
 
             var viewRect = new Rect(0, 0, listRect.width - scrollbarWidth, nodeCount * modLabelHeight);
-            Widgets.BeginScrollView(listRect, ref scroll, viewRect);
+            Widgets.BeginScrollView(listRect, ref treeScroll, viewRect);
 
             var toDraw = new Stack<Node>();
 
@@ -384,8 +400,31 @@ namespace Multiplayer.Client
                 var labelRect = new Rect(0, i * modLabelHeight, listRect.width, modLabelHeight);
 
                 Widgets.DrawHighlightIfMouseover(labelRect);
+
+                if (n.path != null)
+                {
+                    var nodeTip = "";
+
+                    if (Input.GetKey(KeyCode.LeftShift))
+                        nodeTip += n.path;
+                    else
+                        nodeTip += "MpMismatchFileShowPath".Translate();
+
+                    nodeTip += "\n\n";
+                    nodeTip += "MpMismatchNodeExpand".Translate();
+                    nodeTip += "\n";
+                    nodeTip += "MpMismatchFileOpenPath".Translate();
+
+                    TooltipHandler.TipRegion(labelRect, () => nodeTip, 13624604);
+                }
+
                 if (Widgets.ButtonInvisible(labelRect))
-                    n.collapsed = !n.collapsed;
+                {
+                    if (Event.current.shift && n.path != null)
+                        ShellOpenDirectory.Execute(n.path);
+                    else
+                        n.collapsed = !n.collapsed;
+                }
 
                 MpUI.Label(
                     labelRect.MinX(5 + 15f * n.depth),
@@ -435,8 +474,8 @@ namespace Multiplayer.Client
                 );
         }
 
-        Vector2 modScroll1;
-        Vector2 modScroll2;
+        Vector2 modScrollLeft;
+        Vector2 modScrollRight;
 
         const float scrollbarWidth = 16f;
 
@@ -455,11 +494,17 @@ namespace Multiplayer.Client
                 LeftPartPixels(selectorWidth).
                 TopPartPixels(selectorHeight + 50f);
 
-            void DrawModListItem(Vector2 topLeft, string name, ContentSource source, Color color)
+            void DrawModListItem(Vector2 topLeft, string name, string tip, ContentSource source, Color color, Vector2 scrollMinHeight)
             {
-                Widgets.DrawHighlightIfMouseover(new Rect(topLeft, new(selectorWidth, modLabelHeight)));
+                if (scrollMinHeight.x > topLeft.x || scrollMinHeight.x + scrollMinHeight.y < topLeft.x)
+                    return;
+
+                var itemRect = new Rect(topLeft, new(selectorWidth, modLabelHeight));
+                Widgets.DrawHighlightIfMouseover(itemRect);
+                TooltipHandler.TipRegion(itemRect, tip);
+
                 GUI.DrawTexture(new Rect(topLeft + new Vector2(2, 2), new(16, 16)), source.GetIcon());
-                MpUI.Label(new Rect(topLeft + new Vector2(21, 0), new(100f, modLabelHeight + 2)), name, color: color);
+                MpUI.Label(new Rect(topLeft + new Vector2(21, 0), new(selectorWidth - 21f - 16f, modLabelHeight + 2)), name, color: color);
             }
 
             GUI.BeginGroup(mods1Rect);
@@ -470,16 +515,23 @@ namespace Multiplayer.Client
                 using (MpStyle.Set(new Color(1, 1, 1, 0.1f)))
                     Widgets.DrawBox(selectorRect);
 
-                Widgets.BeginScrollView(selectorRect, ref modScroll1, new Rect(0, 0, selectorRect.width - scrollbarWidth, remote.remoteMods.Count * 1 * modLabelHeight));
-
-                int i = 0;
-                for (int j = 0; j < 1; j++)
-                    foreach (var m in remote.remoteMods)
-                    {
-                        DrawModListItem(new(0, i * modLabelHeight), m.name, m.source, m.Installed ? Color.white : Red);
-                        i++;
-                    }
-
+                Widgets.BeginScrollView(selectorRect, ref modScrollLeft, new Rect(0, 0, selectorRect.width - scrollbarWidth, remote.remoteMods.Count * 1 * modLabelHeight));
+                {
+                    int i = 0;
+                    for (int j = 0; j < 1; j++)
+                        foreach (var m in remote.remoteMods)
+                        {
+                            DrawModListItem(
+                                new(0, i * modLabelHeight),
+                                m.name,
+                                m.packageId,
+                                m.source,
+                                m.Installed ? Color.white : Red,
+                                new Vector2(modScrollLeft.x, selectorHeight + modLabelHeight)
+                            );
+                            i++;
+                        }
+                }
                 Widgets.EndScrollView();
             }
             GUI.EndGroup();
@@ -496,16 +548,23 @@ namespace Multiplayer.Client
                 using (MpStyle.Set(new Color(1, 1, 1, 0.1f)))
                     Widgets.DrawBox(selectorRect);
 
-                Widgets.BeginScrollView(selectorRect, ref modScroll2, new Rect(0, 0, selectorRect.width - scrollbarWidth, ModsConfig.ActiveModsInLoadOrder.Count() * 1 * modLabelHeight));
-
-                int i = 0;
-                for (int j = 0; j < 1; j++)
-                    foreach (var m in ModsConfig.ActiveModsInLoadOrder)
-                    {
-                        DrawModListItem(new(0, i * modLabelHeight), m.Name, m.Source, Color.white);
-                        i++;
-                    }
-
+                Widgets.BeginScrollView(selectorRect, ref modScrollRight, new Rect(0, 0, selectorRect.width - scrollbarWidth, ModsConfig.ActiveModsInLoadOrder.Count() * 1 * modLabelHeight));
+                {
+                    int i = 0;
+                    for (int j = 0; j < 1; j++)
+                        foreach (var m in ModsConfig.ActiveModsInLoadOrder)
+                        {
+                            DrawModListItem(
+                                new(0, i * modLabelHeight),
+                                m.Name,
+                                m.PackageIdNonUnique,
+                                m.Source,
+                                Color.white,
+                                new Vector2(modScrollRight.x, selectorHeight + modLabelHeight)
+                            );
+                            i++;
+                        }
+                }
                 Widgets.EndScrollView();
             }
             GUI.EndGroup();
@@ -524,7 +583,10 @@ namespace Multiplayer.Client
                 var btns = new Rect(0, 0, btnsWidth, 35f * 2 + 10f).CenterOn(new Rect(0, 0, btnsWidth, selectorHeight));
 
                 if (Widgets.ButtonText(btns.TopPartPixels(35f), "MpMismatchModListRefresh".Translate()))
+                {
+                    JoinData.ClearInstalledCache();
                     ModLister.RebuildModList();
+                }
 
                 var subscribeTip = "MpMismatchSubscribeNoSteam".Translate();
                 if (SteamManager.Initialized)
@@ -559,12 +621,12 @@ namespace Multiplayer.Client
                 var infoStr = "MpMismatchModListsMatch".Translate();
                 var infoColor = Color.green;
 
-                if (!sameMods)
+                if (!sameSetOfMods)
                 {
                     infoStr = "MpMismatchModListsMismatch".Translate();
                     infoColor = Red;
                 }
-                else if (!sameModLists)
+                else if (!modListsEqual)
                 {
                     infoStr = "MpMismatchWrongOrder".Translate();
                     infoColor = Yellow;

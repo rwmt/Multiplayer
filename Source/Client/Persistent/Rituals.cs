@@ -9,6 +9,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
+using Multiplayer.Client.Util;
 using UnityEngine;
 using Verse;
 using static Verse.Widgets;
@@ -163,7 +164,7 @@ namespace Multiplayer.Client.Persistent
     {
         static MethodBase TargetMethod()
         {
-            return MpUtil.GetLocalFunc(
+            return MpMethodUtil.GetLocalFunc(
                 typeof(Dialog_BeginRitual),
                 nameof(Dialog_BeginRitual.DoWindowContents),
                 localFunc: "Start"

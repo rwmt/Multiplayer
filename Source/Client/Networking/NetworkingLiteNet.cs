@@ -45,9 +45,12 @@ namespace Multiplayer.Client.Networking
 
             if (info.AdditionalData.IsNull)
             {
-                reason =
-                    info.Reason is DisconnectReason.DisconnectPeerCalled or DisconnectReason.RemoteConnectionClose ?
-                    MpDisconnectReason.Generic : MpDisconnectReason.NetFailed;
+                if (info.Reason is DisconnectReason.DisconnectPeerCalled or DisconnectReason.RemoteConnectionClose)
+                    reason = MpDisconnectReason.Generic;
+                else if (Multiplayer.Client == null)
+                    reason = MpDisconnectReason.ConnectingFailed;
+                else
+                    reason = MpDisconnectReason.NetFailed;
 
                 data = new [] { (byte)info.Reason };
             }

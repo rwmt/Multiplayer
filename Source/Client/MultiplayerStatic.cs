@@ -48,6 +48,8 @@ namespace Multiplayer.Client
 
         public static readonly Texture2D PingBase = ContentFinder<Texture2D>.Get("Multiplayer/PingBase");
         public static readonly Texture2D PingPin = ContentFinder<Texture2D>.Get("Multiplayer/PingPin");
+        public static readonly Texture2D WebsiteIcon = ContentFinder<Texture2D>.Get("Multiplayer/Website");
+        public static readonly Texture2D DiscordIcon = ContentFinder<Texture2D>.Get("Multiplayer/Discord");
 
         static MultiplayerStatic()
         {
@@ -100,7 +102,12 @@ namespace Multiplayer.Client
                 RuntimeHelpers.RunClassConstructor(typeof(Text).TypeHandle);
             }
 
-            JoinData.TakeModDataSnapshot();
+            using (DeepProfilerWrapper.Section("Multiplayer TakeModDataSnapshot"))
+                JoinData.TakeModDataSnapshot();
+
+            using (DeepProfilerWrapper.Section("MultiplayerData PrecacheMods"))
+                MultiplayerData.PrecacheMods();
+
             Multiplayer.hasLoaded = true;
             SimpleProfiler.Print("mp_prof_out.txt");
         }
@@ -143,14 +150,14 @@ namespace Multiplayer.Client
             if (!Multiplayer.restartConnect.Contains(':'))
             {
                 if (ulong.TryParse(Multiplayer.restartConnect, out ulong steamUser))
-                    DoubleLongEvent(() => ClientUtil.TrySteamConnectWithWindow((CSteamID)steamUser), "MpConnecting");
+                    DoubleLongEvent(() => ClientUtil.TrySteamConnectWithWindow((CSteamID)steamUser, false), "MpConnecting");
 
                 return;
             }
 
             var split = Multiplayer.restartConnect.Split(new[]{':'}, StringSplitOptions.RemoveEmptyEntries);
             if (split.Length == 2 && int.TryParse(split[1], out int port))
-                DoubleLongEvent(() => ClientUtil.TryConnectWithWindow(split[0], port), "MpConnecting");
+                DoubleLongEvent(() => ClientUtil.TryConnectWithWindow(split[0], port, false), "MpConnecting");
         }
 
         private static void HandleCommandLine()
@@ -168,7 +175,7 @@ namespace Multiplayer.Client
                 if (split.Length == 2)
                     int.TryParse(split[1], out port);
 
-                DoubleLongEvent(() => ClientUtil.TryConnectWithWindow(addressPort, port), "Connecting");
+                DoubleLongEvent(() => ClientUtil.TryConnectWithWindow(addressPort, port, false), "Connecting");
             }
 
             if (GenCommandLine.CommandLineArgPassed("arbiter"))
@@ -278,7 +285,7 @@ namespace Multiplayer.Client
                 var randPatchPrefix = new HarmonyMethod(typeof(RandPatches), "Prefix");
                 var randPatchPostfix = new HarmonyMethod(typeof(RandPatches), "Postfix");
 
-                var subSustainerStart = MpUtil.GetLambda(typeof(SubSustainer), parentMethodType: MethodType.Constructor, parentArgs: new[] { typeof(Sustainer), typeof(SubSoundDef) });
+                var subSustainerStart = MpMethodUtil.GetLambda(typeof(SubSustainer), parentMethodType: MethodType.Constructor, parentArgs: new[] { typeof(Sustainer), typeof(SubSoundDef) });
                 var sampleCtor = typeof(Sample).GetConstructor(new[] { typeof(SubSoundDef) });
                 var subSoundPlay = typeof(SubSoundDef).GetMethod(nameof(SubSoundDef.TryPlay));
                 var effecterTick = typeof(Effecter).GetMethod(nameof(Effecter.EffectTick));

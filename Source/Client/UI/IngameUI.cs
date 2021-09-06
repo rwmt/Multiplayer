@@ -85,7 +85,7 @@ namespace Multiplayer.Client
                     }
                 }
 
-                text.Append($" {Multiplayer.GlobalIdBlock.Current}");
+                text.Append($" {Multiplayer.GlobalIdBlock.Current} {Find.IdeoManager.IdeosInViewOrder.FirstOrDefault()?.id}");
 
                 text.Append($"\n{SyncFieldUtil.bufferedChanges.Sum(kv => kv.Value.Count)} {Find.UniqueIDsManager.nextThingID}");
                 text.Append($"\n{DeferredStackTracing.acc}");
@@ -121,6 +121,8 @@ namespace Multiplayer.Client
                 var chatColor = session.players.Any(p => p.status == PlayerStatus.Desynced) ? "#ff5555" : "#dddddd";
                 var hasUnread = session.hasUnread ? "*" : "";
                 var chatLabel = $"{"MpChatButton".Translate()} <color={chatColor}>({session.players.Count})</color>{hasUnread}";
+
+                TooltipHandler.TipRegion(btnRect, "MpChatHotkeyInfo".Translate() + " " + MultiplayerStatic.ToggleChatDef.MainKeyLabel);
 
                 if (Widgets.ButtonText(btnRect, chatLabel))
                 {

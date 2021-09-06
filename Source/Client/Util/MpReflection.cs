@@ -30,11 +30,11 @@ namespace Multiplayer.Client
             }
         }
 
-        private static Dictionary<string, Type> types = new Dictionary<string, Type>();
-        private static Dictionary<string, Type> pathTypes = new Dictionary<string, Type>();
-        private static Dictionary<string, Type> indexTypes = new Dictionary<string, Type>();
-        private static Dictionary<string, Getter> getters = new Dictionary<string, Getter>();
-        private static Dictionary<string, Setter> setters = new Dictionary<string, Setter>();
+        private static Dictionary<string, Type> types = new();
+        private static Dictionary<string, Type> pathTypes = new();
+        private static Dictionary<string, Type> indexTypes = new();
+        private static Dictionary<string, Getter> getters = new();
+        private static Dictionary<string, Setter> setters = new();
 
         /// <summary>
         /// Get the value of a static property/field in type specified by memberPath

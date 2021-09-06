@@ -22,9 +22,9 @@ namespace Multiplayer.Client
 {
     public static class ClientUtil
     {
-        public static void TryConnectWithWindow(string address, int port)
+        public static void TryConnectWithWindow(string address, int port, bool returnToServerBrowser = true)
         {
-            Find.WindowStack.Add(new ConnectingWindow(address, port) { returnToServerBrowser = true });
+            Find.WindowStack.Add(new ConnectingWindow(address, port) { returnToServerBrowser = returnToServerBrowser });
 
             Multiplayer.session = new MultiplayerSession
             {
@@ -46,11 +46,11 @@ namespace Multiplayer.Client
             netClient.Connect(address, port, "");
         }
 
-        public static void TrySteamConnectWithWindow(CSteamID user)
+        public static void TrySteamConnectWithWindow(CSteamID user, bool returnToServerBrowser = true)
         {
             Log.Message("Connecting through Steam");
 
-            Find.WindowStack.Add(new SteamConnectingWindow(user) { returnToServerBrowser = true });
+            Find.WindowStack.Add(new SteamConnectingWindow(user) { returnToServerBrowser = returnToServerBrowser });
 
             var conn = new SteamClientConn(user) { username = Multiplayer.username};
 

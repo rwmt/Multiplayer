@@ -17,6 +17,7 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
+using Multiplayer.Client.Util;
 using UnityEngine;
 using Verse;
 using Verse.AI;

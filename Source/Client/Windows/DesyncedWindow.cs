@@ -6,6 +6,7 @@ using Verse.Profile;
 
 namespace Multiplayer.Client
 {
+    [HotSwappable]
     public class DesyncedWindow : Window
     {
         public override Vector2 InitialSize => new Vector2(550, 110);
@@ -20,6 +21,10 @@ namespace Multiplayer.Client
             closeOnAccept = false;
             closeOnCancel = false;
             absorbInputAroundWindow = true;
+
+#if DEBUG
+            doCloseX = true;
+#endif
         }
 
         public override void DoWindowContents(Rect inRect)

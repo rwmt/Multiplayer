@@ -20,13 +20,16 @@ namespace Multiplayer.Client
 
         public void UpdatePing()
         {
-            if (!TickPatch.Simulating && (MultiplayerStatic.PingKeyDef.JustPressed || Input.GetKeyDown(KeyCode.Mouse4)))
-            {
-                if (WorldRendererUtility.WorldRenderedNow)
-                    PingLocation(-1, GenWorld.MouseTile(), Vector3.zero);
-                else if (Find.CurrentMap != null)
-                    PingLocation(Find.CurrentMap.uniqueID, 0, UI.MouseMapPosition());
-            }
+            var pingsEnabled = !TickPatch.Simulating && Multiplayer.settings.enablePings;
+
+            if (pingsEnabled)
+                if (MultiplayerStatic.PingKeyDef.JustPressed || Multiplayer.settings.sendPingButton is { } sendKey && Input.GetKeyDown(sendKey))
+                {
+                    if (WorldRendererUtility.WorldRenderedNow)
+                        PingLocation(-1, GenWorld.MouseTile(), Vector3.zero);
+                    else if (Find.CurrentMap != null)
+                        PingLocation(Find.CurrentMap.uniqueID, 0, UI.MouseMapPosition());
+                }
 
             for (int i = pings.Count - 1; i >= 0; i--)
             {
@@ -36,7 +39,7 @@ namespace Multiplayer.Client
                     pings.RemoveAt(i);
             }
 
-            if (!TickPatch.Simulating && Input.GetKeyDown(KeyCode.Mouse3))
+            if (pingsEnabled && Multiplayer.settings.jumpToPingButton is { } jumpKey && Input.GetKeyDown(jumpKey))
             {
                 pingJumpCycle++;
 
@@ -63,6 +66,8 @@ namespace Multiplayer.Client
 
         public void ReceivePing(int player, int map, int tile, Vector3 loc)
         {
+            if (!Multiplayer.settings.enablePings) return;
+
             pings.RemoveAll(p => p.player == player);
             pings.Add(new PingInfo { player = player, mapId = map, planetTile = tile, mapLoc = loc });
             alertHidden = false;
