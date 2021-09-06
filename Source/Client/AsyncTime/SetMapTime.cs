@@ -123,7 +123,7 @@ namespace Multiplayer.Client
 
         static void Prefix(Sustainer __instance, ref TimeSnapshot? __state)
         {
-            if (Multiplayer.Client == null) return;
+            if (Multiplayer.game == null) return;
             __state = TimeSnapshot.GetAndSetFromMap(__instance.info.Maker.Map);
         }
 
@@ -135,7 +135,7 @@ namespace Multiplayer.Client
     {
         static void Prefix(Sample __instance, ref TimeSnapshot? __state)
         {
-            if (Multiplayer.Client == null) return;
+            if (Multiplayer.game == null) return;
             __state = TimeSnapshot.GetAndSetFromMap(__instance.Map);
         }
 
@@ -147,7 +147,7 @@ namespace Multiplayer.Client
     {
         static void Prefix(ref Func<string> textGetter)
         {
-            if (Multiplayer.Client == null) return;
+            if (Multiplayer.game == null) return;
 
             var current = TimeSnapshot.Current();
             var getter = textGetter;
@@ -179,7 +179,7 @@ namespace Multiplayer.Client
 
         public static TimeSnapshot Current()
         {
-            return new TimeSnapshot()
+            return new TimeSnapshot
             {
                 ticks = Find.TickManager.ticksGameInt,
                 speed = Find.TickManager.curTimeSpeed,
