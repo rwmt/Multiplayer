@@ -11,9 +11,9 @@ using Verse;
 
 namespace Multiplayer.Client
 {
-    public class ClientPlayingState : ClientConnectionState
+    public class ClientPlayingState : ClientBaseState
     {
-        public ClientPlayingState(IConnection connection) : base(connection)
+        public ClientPlayingState(ConnectionBase connection) : base(connection)
         {
         }
 
@@ -162,6 +162,17 @@ namespace Multiplayer.Client
             int[] remove = data.ReadPrefixedInts();
             for (int i = 0; i < remove.Length; i++)
                 player.selectedThings.Remove(remove[i]);
+        }
+
+        [PacketHandler(Packets.Server_Ping)]
+        public void HandlePing(ByteReader data)
+        {
+            int player = data.ReadInt32();
+            int map = data.ReadInt32();
+            int planetTile = data.ReadInt32();
+            var loc = new Vector3(data.ReadFloat(), data.ReadFloat(), data.ReadFloat());
+
+            Session.cursorAndPing.ReceivePing(player, map, planetTile, loc);
         }
 
         [PacketHandler(Packets.Server_MapResponse)]

@@ -8,6 +8,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -15,6 +16,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml;
+using Steamworks;
 using UnityEngine;
 using Verse;
 using zip::Ionic.Zip;
@@ -32,7 +34,7 @@ namespace Multiplayer.Client
 
         public static IEnumerable<Type> AllImplementing(this Type type)
         {
-            return GenTypes.AllTypes.Where(t => t.GetInterfaces().Contains(type));
+            return Multiplayer.implementations.GetValueSafe(type) is { } list ? list : Array.Empty<Type>();
         }
 
         // Sets the current Faction.OfPlayer
@@ -125,7 +127,15 @@ namespace Multiplayer.Client
             return null;
         }
 
-        public static void SendCommand(this IConnection conn, CommandType type, int mapId, byte[] data)
+        public static Map GetById(this List<Map> maps, int mapId)
+        {
+            for (int i = 0; i < maps.Count; i++)
+                if (maps[i].uniqueID == mapId)
+                    return maps[i];
+            return null;
+        }
+
+        public static void SendCommand(this ConnectionBase conn, CommandType type, int mapId, byte[] data)
         {
             ByteWriter writer = new ByteWriter();
             writer.WriteInt32(Convert.ToInt32(type));
@@ -135,7 +145,7 @@ namespace Multiplayer.Client
             conn.Send(Packets.Client_Command, writer.ToArray());
         }
 
-        public static void SendCommand(this IConnection conn, CommandType type, int mapId, params object[] data)
+        public static void SendCommand(this ConnectionBase conn, CommandType type, int mapId, params object[] data)
         {
             SendCommand(conn, type, mapId, ByteWriter.GetBytes(data));
         }
@@ -281,25 +291,10 @@ namespace Multiplayer.Client
             return names.ToArray();
         }
 
-        public static bool ModHasAssemblies(this ModMetaData mod) {
-            return Directory.EnumerateFiles(mod.RootDir.FullName, "*.dll", SearchOption.AllDirectories).Any();
-        }
-
-        public static IEnumerable<FileInfo> ModAssemblies(this ModContentPack mod)
-        {
-            return ModContentPack.GetAllFilesForModPreserveOrder(mod, "Assemblies/", (string e) => e.ToLower() == ".dll", null)
-                    .Select(t => t.Item2);
-        }
-
         public static int CRC32(this FileInfo file)
         {
             using var stream = file.OpenRead();
             return new CRC32().GetCrc32(stream);
-        }
-
-        public static int CRC32(this IEnumerable<FileInfo> files)
-        {
-            return files.Select(CRC32).AggregateHash();
         }
 
         public static int AggregateHash(this IEnumerable<int> e)
@@ -320,15 +315,28 @@ namespace Multiplayer.Client
         public static string After(this string s, char c)
         {
             if (s.IndexOf(c) == -1)
-                throw new Exception($"Char {c} not found in string {s}");
+                throw new ArgumentException($"Char {c} not found in string {s}");
             return s.Substring(s.IndexOf(c) + 1);
         }
 
         public static string Until(this string s, char c)
         {
             if (s.IndexOf(c) == -1)
-                throw new Exception($"Char {c} not found in string {s}");
+                throw new ArgumentException($"Char {c} not found in string {s}");
             return s.Substring(0, s.IndexOf(c));
+        }
+
+        public static string CamelSpace(this string str)
+        {
+            var builder = new StringBuilder();
+            for (int i = 0; i < str.Length; i++)
+            {
+                if (i != 0 && str[i] is > 'A' and < 'Z')
+                    builder.Append(' ');
+                builder.Append(str[i]);
+            }
+
+            return builder.ToString();
         }
 
         public static string NormalizePath(this string path)
@@ -348,82 +356,13 @@ namespace Multiplayer.Client
             //    Log.Message($"{took} ms: Patching {original.MethodDesc()}");
             return result;
         }
-    }
 
-    public static class CollectionExtensions
-    {
-        public static void RemoveNulls(this IList list)
+        public static T Cycle<T>(this T e) where T : Enum
         {
-            for (int i = list.Count - 1; i > 0; i--)
-            {
-                if (list[i] == null)
-                    list.RemoveAt(i);
-            }
+            T[] vals = Enum.GetValues(typeof(T)).Cast<T>().ToArray();
+            return vals[(vals.FindIndex(e) + 1) % vals.Length];
         }
 
-        public static IEnumerable<T> AllNotNull<T>(this IEnumerable<T> e)
-        {
-            return e.Where(t => t != null);
-        }
-
-         public static void Insert<T>(this List<T> list, int index, params T[] items)
-        {
-            list.InsertRange(index, items);
-        }
-
-        public static void Add<T>(this List<T> list, params T[] items)
-        {
-            list.AddRange(items);
-        }
-
-        public static T RemoveFirst<T>(this List<T> list)
-        {
-            T elem = list[0];
-            list.RemoveAt(0);
-            return elem;
-        }
-
-        static bool ArraysEqual<T>(T[] a1, T[] a2)
-        {
-            if (ReferenceEquals(a1, a2))
-                return true;
-
-            if (a1 == null || a2 == null)
-                return false;
-
-            if (a1.Length != a2.Length)
-                return false;
-
-            EqualityComparer<T> comparer = EqualityComparer<T>.Default;
-            for (int i = 0; i < a1.Length; i++)
-                if (!comparer.Equals(a1[i], a2[i]))
-                    return false;
-
-            return true;
-        }
-
-        public static void RemoveAll<K, V>(this Dictionary<K, V> dict, Func<K, V, bool> predicate)
-        {
-            dict.RemoveAll(p => predicate(p.Key, p.Value));
-        }
-
-        public static void RemoveAll<T>(this List<T> list, Func<T, int, bool> predicate)
-        {
-            for (int i = list.Count - 1; i >= 0; i--)
-                if (predicate(list[i], i))
-                    list.RemoveAt(i);
-        }
-
-        public static bool EqualAsSets<T>(this IEnumerable<T> enum1, IEnumerable<T> enum2)
-        {
-            return enum1.ToHashSet().SetEquals(enum2);
-        }
-
-        public static IEnumerable<(A a, B b)> Zip<A, B>(this IEnumerable<A> enumA, IEnumerable<B> enumB)
-        {
-            return Enumerable.Zip(enumA, enumB, (a, b) => (a, b));
-        }
-        
         /// <summary>
         /// Returns an enumerable as a string, joined by a separator string. By default null values appear as an empty string.
         /// </summary>
@@ -445,95 +384,6 @@ namespace Multiplayer.Client
                 }
             }
             return builder.ToString();
-        }
-    }
-
-    public static class RectExtensions
-    {
-        public static Rect Under(this Rect rect, float height)
-        {
-            return new Rect(rect.xMin, rect.yMax, rect.width, height);
-        }
-
-        public static Rect Down(this Rect rect, float y)
-        {
-            rect.y += y;
-            return rect;
-        }
-
-        public static Rect Up(this Rect rect, float y)
-        {
-            rect.y -= y;
-            return rect;
-        }
-
-        public static Rect Right(this Rect rect, float x)
-        {
-            rect.x += x;
-            return rect;
-        }
-
-        public static Rect Left(this Rect rect, float x)
-        {
-            rect.x -= x;
-            return rect;
-        }
-
-        public static Rect Width(this Rect rect, float width)
-        {
-            rect.width = width;
-            return rect;
-        }
-
-        public static Rect CenterOn(this Rect rect, Rect on)
-        {
-            rect.x = on.x + (on.width - rect.width) / 2f;
-            rect.y = on.y + (on.height - rect.height) / 2f;
-            return rect;
-        }
-
-        public static Rect CenterOn(this Rect rect, Vector2 on)
-        {
-            rect.x = on.x - rect.width / 2f;
-            rect.y = on.y - rect.height / 2f;
-            return rect;
-        }
-
-        public static Vector2 BottomLeftCorner(this Rect rect)
-        {
-            return new Vector2(rect.xMin, rect.yMax);
-        }
-
-        public static Vector2 TopRightCorner(this Rect rect)
-        {
-            return new Vector2(rect.xMax, rect.yMin);
-        }
-
-        public static Rect ExpandedBy(this Vector2 center, float expand)
-        {
-            return new Rect(center.x - expand, center.y - expand, 2 * expand, 2 * expand);
-        }
-
-        public static Rect WithX(this Rect rect, float x)
-        {
-            rect.xMin = x;
-            return rect;
-        }
-    }
-
-    public static class ClientDataExtensions
-    {
-        public static void WriteRect(this ByteWriter data, Rect rect)
-        {
-            data.WriteFloat(rect.x);
-            data.WriteFloat(rect.y);
-            data.WriteFloat(rect.width);
-            data.WriteFloat(rect.height);
-        }
-
-        public static Rect ReadRect(this ByteReader data)
-        {
-            return new Rect(data.ReadFloat(), data.ReadFloat(), data.ReadFloat(), data.ReadFloat());
         }
 
         public static void WriteVectorXZ(this ByteWriter data, Vector3 vec)

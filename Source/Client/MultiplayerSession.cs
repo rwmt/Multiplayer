@@ -9,9 +9,12 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading;
+using HarmonyLib;
+using Multiplayer.Client.Util;
 using UnityEngine;
 using Verse;
 using Verse.Sound;
+using Random = System.Random;
 
 namespace Multiplayer.Client
 {
@@ -24,13 +27,14 @@ namespace Multiplayer.Client
         public int remoteTickUntil;
         public int remoteCmdId;
 
-        public IConnection client;
+        public ConnectionBase client;
         public NetManager netClient;
         public PacketLogWindow writerLog = new PacketLogWindow();
         public PacketLogWindow readerLog = new PacketLogWindow();
         public int myFactionId;
         public List<PlayerInfo> players = new List<PlayerInfo>();
         public SessionCache cache = new SessionCache();
+        public CursorAndPing cursorAndPing = new();
 
         public bool replay;
         public int replayTimerStart = -1;
@@ -40,8 +44,7 @@ namespace Multiplayer.Client
         public bool desynced;
         public bool resyncing;
 
-        public string disconnectReasonTranslated;
-        public string disconnectInfoTranslated;
+        public SessionDisconnectInfo disconnectInfo;
 
         public bool allowSteam;
         public List<CSteamID> pendingSteam = new List<CSteamID>();
@@ -58,6 +61,10 @@ namespace Multiplayer.Client
 
         public Process arbiter;
         public bool ArbiterPlaying => players.Any(p => p.type == PlayerType.Arbiter && p.status == PlayerStatus.Playing);
+
+        public string address;
+        public int port;
+        public CSteamID? steamHost;
 
         public void Stop()
         {
@@ -87,7 +94,10 @@ namespace Multiplayer.Client
 
         public PlayerInfo GetPlayerInfo(int id)
         {
-            return players.Find(p => p.id == id);
+            for (int i = 0; i < players.Count; i++)
+                if (players[i].id == id)
+                    return players[i];
+            return null;
         }
 
         public void AddMsg(string msg, bool notify = true)
@@ -119,30 +129,70 @@ namespace Multiplayer.Client
         public void ProcessDisconnectPacket(MpDisconnectReason reason, byte[] data)
         {
             var reader = new ByteReader(data);
-            string reasonKey = null;
+            string titleKey = null;
             string descKey = null;
 
-            if (reason == MpDisconnectReason.GenericKeyed) reasonKey = reader.ReadString();
+            if (reason == MpDisconnectReason.GenericKeyed) titleKey = reader.ReadString();
 
             if (reason == MpDisconnectReason.Protocol)
             {
-                reasonKey = "MpWrongProtocol";
+                titleKey = "MpWrongProtocol";
 
                 string strVersion = reader.ReadString();
                 int proto = reader.ReadInt32();
 
-                disconnectInfoTranslated = "MpWrongMultiplayerVersionInfo".Translate(strVersion, proto);
+                disconnectInfo.titleTranslated = "MpWrongMultiplayerVersionInfo".Translate(strVersion, proto);
             }
 
-            if (reason == MpDisconnectReason.UsernameLength) { reasonKey = "MpInvalidUsernameLength"; descKey = "MpChangeUsernameInfo"; }
-            if (reason == MpDisconnectReason.UsernameChars) { reasonKey = "MpInvalidUsernameChars"; descKey = "MpChangeUsernameInfo"; }
-            if (reason == MpDisconnectReason.UsernameAlreadyOnline) { reasonKey = "MpInvalidUsernameAlreadyPlaying"; descKey = "MpChangeUsernameInfo"; }
-            if (reason == MpDisconnectReason.ServerClosed) reasonKey = "MpServerClosed";
-            if (reason == MpDisconnectReason.ServerFull) reasonKey = "MpServerFull";
-            if (reason == MpDisconnectReason.Kick) reasonKey = "MpKicked";
+            if (reason == MpDisconnectReason.ConnectingFailed)
+            {
+                var netReason = (DisconnectReason)reader.ReadByte();
 
-            disconnectReasonTranslated = reasonKey?.Translate();
-            disconnectInfoTranslated ??= descKey?.Translate();
+                disconnectInfo.titleTranslated =
+                    netReason == DisconnectReason.ConnectionFailed ?
+                    "MpConnectionFailed".Translate() :
+                    "MpConnectionFailedWithInfo".Translate(netReason.ToString().CamelSpace().ToLowerInvariant());
+            }
+
+            if (reason == MpDisconnectReason.NetFailed)
+            {
+                var netReason = (DisconnectReason)reader.ReadByte();
+
+                disconnectInfo.titleTranslated =
+                    "MpDisconnectedWithInfo".Translate(netReason.ToString().CamelSpace().ToLowerInvariant());
+            }
+
+            if (reason == MpDisconnectReason.UsernameAlreadyOnline)
+            {
+                titleKey = "MpInvalidUsernameAlreadyPlaying";
+                descKey = "MpChangeUsernameInfo";
+
+                var newName = Multiplayer.username.Substring(0, Math.Min(Multiplayer.username.Length, MultiplayerServer.MaxUsernameLength - 3));
+                newName += new Random().Next(1000);
+
+                disconnectInfo.specialButtonTranslated = "MpConnectAsUsername".Translate(newName);
+                disconnectInfo.specialButtonAction = () => Reconnect(newName);
+            }
+
+            if (reason == MpDisconnectReason.UsernameLength) { titleKey = "MpInvalidUsernameLength"; descKey = "MpChangeUsernameInfo"; }
+            if (reason == MpDisconnectReason.UsernameChars) { titleKey = "MpInvalidUsernameChars"; descKey = "MpChangeUsernameInfo"; }
+            if (reason == MpDisconnectReason.ServerClosed) titleKey = "MpServerClosed";
+            if (reason == MpDisconnectReason.ServerFull) titleKey = "MpServerFull";
+            if (reason == MpDisconnectReason.Kick) titleKey = "MpKicked";
+            if (reason == MpDisconnectReason.ServerPacketRead) descKey = "MpPacketErrorRemote";
+
+            disconnectInfo.titleTranslated ??= titleKey?.Translate();
+            disconnectInfo.descTranslated ??= descKey?.Translate();
+        }
+
+        public void Reconnect(string username)
+        {
+            Multiplayer.username = username;
+
+            if (steamHost is { } host)
+                ClientUtil.TrySteamConnectWithWindow(host);
+            else
+                ClientUtil.TryConnectWithWindow(address, port);
         }
 
         public void Connected()
@@ -151,9 +201,9 @@ namespace Multiplayer.Client
 
         public void Disconnected()
         {
-            MpUtil.ClearWindowStack();
+            MpUI.ClearWindowStack();
 
-            Find.WindowStack.Add(new DisconnectedWindow(disconnectReasonTranslated, disconnectInfoTranslated)
+            Find.WindowStack.Add(new DisconnectedWindow(disconnectInfo)
             {
                 returnToServerBrowser = Multiplayer.Client?.State != ConnectionStateEnum.ClientPlaying
             });
@@ -182,6 +232,19 @@ namespace Multiplayer.Client
             else
                 cmd.GetMap()?.AsyncTime().cmds.Enqueue(cmd);
         }
+
+        public void Update()
+        {
+            cursorAndPing.UpdatePing();
+        }
+    }
+
+    public struct SessionDisconnectInfo
+    {
+        public string titleTranslated;
+        public string descTranslated;
+        public string specialButtonTranslated;
+        public Action specialButtonAction;
     }
 
     public class SessionCache

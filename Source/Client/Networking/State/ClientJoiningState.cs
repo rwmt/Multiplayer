@@ -5,7 +5,9 @@ using Multiplayer.Common;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Xml;
+using Multiplayer.Client.Util;
 using Verse;
 using Verse.Profile;
 
@@ -16,31 +18,33 @@ namespace Multiplayer.Client
         Connected, Downloading
     }
 
-    public class ClientJoiningState : ClientConnectionState
+    [HotSwappable]
+    public class ClientJoiningState : ClientBaseState
     {
         public JoiningState subState = JoiningState.Connected;
 
-        public ClientJoiningState(IConnection connection) : base(connection)
+        public ClientJoiningState(ConnectionBase connection) : base(connection)
         {
-            SendJoinData();
+            connection.Send(Packets.Client_Username, MpVersion.Protocol, Multiplayer.username);
+
             ConnectionStatusListeners.TryNotifyAll_Connected();
         }
 
-        public void SendJoinData()
+        [PacketHandler(Packets.Server_UsernameOk)]
+        public void HandleUsernameOk(ByteReader data)
         {
-            var data = new ByteWriter();
+            var writer = new ByteWriter();
 
-            data.WriteInt32(MpVersion.Protocol);
-            data.WriteInt32(Multiplayer.localDefInfos.Count);
+            writer.WriteInt32(MultiplayerData.localDefInfos.Count);
 
-            foreach (var kv in Multiplayer.localDefInfos)
+            foreach (var kv in MultiplayerData.localDefInfos)
             {
-                data.WriteString(kv.Key);
-                data.WriteInt32(kv.Value.count);
-                data.WriteInt32(kv.Value.hash);
+                writer.WriteString(kv.Key);
+                writer.WriteInt32(kv.Value.count);
+                writer.WriteInt32(kv.Value.hash);
             }
 
-            connection.SendFragmented(Packets.Client_JoinData, data.ToArray());
+            connection.SendFragmented(Packets.Client_JoinData, writer.ToArray());
         }
 
         [PacketHandler(Packets.Server_JoinData)]
@@ -50,40 +54,57 @@ namespace Multiplayer.Client
             Multiplayer.session.gameName = data.ReadString();
             Multiplayer.session.playerId = data.ReadInt32();
 
-            var remoteInfo = new RemoteData();
-
-            remoteInfo.remoteRwVersion = data.ReadString();
-            remoteInfo.defInfo = Multiplayer.localDefInfos; // by ref, is that fine?
+            var remoteInfo = new RemoteData
+            {
+                remoteRwVersion = data.ReadString(),
+                remoteMpVersion = data.ReadString(),
+                remoteAddress = Multiplayer.session.address,
+                remotePort = Multiplayer.session.port,
+                remoteSteamHost = Multiplayer.session.steamHost
+            };
 
             var defDiff = false;
             var defsData = new ByteReader(data.ReadPrefixedBytes());
 
-            foreach (var local in remoteInfo.defInfo)
+            foreach (var local in MultiplayerData.localDefInfos)
             {
                 var status = (DefCheckStatus)defsData.ReadByte();
                 local.Value.status = status;
 
-                if (status != DefCheckStatus.OK)
+                if (status != DefCheckStatus.Ok)
                     defDiff = true;
             }
 
             JoinData.ReadServerData(data.ReadPrefixedBytes(), remoteInfo);
 
-            if (false) // for testing
-            if (!JoinData.DataEqual(remoteInfo) || defDiff)
+            OnMainThread.Schedule(Complete, 0.3f);
+
+            void Complete()
             {
+                if (JoinData.CompareToLocal(remoteInfo) && !defDiff)
+                {
+                    StartDownloading();
+                    return;
+                }
+
                 if (defDiff)
                     Multiplayer.StopMultiplayer();
 
-                MpUtil.ClearWindowStack();
-                Find.WindowStack.Add(new JoinDataWindow(remoteInfo));
+                var connectingWindow = Find.WindowStack.WindowOfType<BaseConnectingWindow>();
+                MpUI.ClearWindowStack();
 
-                return;
+                Find.WindowStack.Add(new JoinDataWindow(remoteInfo){
+                    connectAnywayDisabled = defDiff ? "MpMismatchDefsDiff".Translate() : null,
+                    connectAnywayCallback = StartDownloading,
+                    connectAnywayWindow = connectingWindow
+                });
+
+                void StartDownloading()
+                {
+                    connection.Send(Packets.Client_WorldRequest);
+                    subState = JoiningState.Downloading;
+                }
             }
-
-            connection.Send(Packets.Client_Username, Multiplayer.username);
-
-            subState = JoiningState.Downloading;
         }
 
         [PacketHandler(Packets.Server_WorldData)]
@@ -141,7 +162,7 @@ namespace Multiplayer.Client
                 onCancel: GenScene.GoToMainMenu
             );
 
-            ReloadGame(mapsToLoad);
+            ReloadGame(mapsToLoad, true, false);
         }
 
         private static XmlDocument GetGameDocument(List<int> mapsToLoad)
@@ -151,38 +172,40 @@ namespace Multiplayer.Client
 
             foreach (int map in mapsToLoad)
             {
-                using (XmlReader reader = XmlReader.Create(new MemoryStream(Multiplayer.session.cache.mapData[map])))
-                {
-                    XmlNode mapNode = gameDoc.ReadNode(reader);
-                    gameNode["maps"].AppendChild(mapNode);
+                using XmlReader reader = XmlReader.Create(new MemoryStream(Multiplayer.session.cache.mapData[map]));
+                XmlNode mapNode = gameDoc.ReadNode(reader);
+                gameNode["maps"].AppendChild(mapNode);
 
-                    if (gameNode["currentMapIndex"] == null)
-                        gameNode.AddNode("currentMapIndex", map.ToString());
-                }
+                if (gameNode["currentMapIndex"] == null)
+                    gameNode.AddNode("currentMapIndex", map.ToString());
             }
 
             return gameDoc;
         }
 
-        public static void ReloadGame(List<int> mapsToLoad, bool async = true)
+        public static void ReloadGame(List<int> mapsToLoad, bool offMainThread, bool forceAsyncTime)
         {
             var gameDoc = GetGameDocument(mapsToLoad);
 
             LoadPatch.gameToLoad = new(gameDoc, Multiplayer.session.cache.semiPersistentData);
             TickPatch.replayTimeSpeed = TimeSpeed.Paused;
 
-            if (async)
+            if (offMainThread)
             {
                 LongEventHandler.QueueLongEvent(() =>
                 {
                     MemoryUtility.ClearAllMapsAndWorld();
-                    Current.Game = new Game();
-                    Current.Game.InitData = new GameInitData();
-                    Current.Game.InitData.gameToLoad = "server";
+                    Current.Game = new Game
+                    {
+                        InitData = new GameInitData
+                        {
+                            gameToLoad = "server"
+                        }
+                    };
 
                     LongEventHandler.ExecuteWhenFinished(() =>
                     {
-                        LongEventHandler.QueueLongEvent(() => PostLoad(), "MpSimulating", false, null);
+                        LongEventHandler.QueueLongEvent(() => PostLoad(forceAsyncTime), "MpSimulating", false, null);
                     });
                 }, "Play", "MpLoading", true, null);
             }
@@ -191,12 +214,12 @@ namespace Multiplayer.Client
                 LongEventHandler.QueueLongEvent(() =>
                 {
                     SaveLoad.LoadInMainThread(LoadPatch.gameToLoad);
-                    PostLoad();
+                    PostLoad(forceAsyncTime);
                 }, "MpLoading", false, null);
             }
         }
 
-        private static void PostLoad()
+        private static void PostLoad(bool forceAsyncTime)
         {
             // If the client gets disconnected during loading
             if (Multiplayer.Client == null) return;
@@ -205,7 +228,7 @@ namespace Multiplayer.Client
             Multiplayer.session.replayTimerStart = TickPatch.Timer;
 
             var factionData = Multiplayer.WorldComp.factionData.GetValueSafe(Multiplayer.session.myFactionId);
-            if (factionData != null && factionData.online)
+            if (factionData is { online: true })
                 Multiplayer.RealPlayerFaction = Find.FactionManager.GetById(factionData.factionId);
             else
                 //Multiplayer.RealPlayerFaction = Multiplayer.DummyFaction;
@@ -213,6 +236,9 @@ namespace Multiplayer.Client
 
             // todo find a better way
             Multiplayer.game.myFactionLoading = null;
+
+            if (forceAsyncTime)
+                Multiplayer.game.gameComp.asyncTime = true;
 
             Multiplayer.WorldComp.cmds = new Queue<ScheduledCommand>(Multiplayer.session.cache.mapCmds.GetValueSafe(ScheduledCommand.Global) ?? new List<ScheduledCommand>());
             // Map cmds are added in MapAsyncTimeComp.FinalizeInit

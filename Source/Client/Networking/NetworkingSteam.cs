@@ -9,7 +9,7 @@ using Verse;
 
 namespace Multiplayer.Client.Networking
 {
-    public abstract class SteamBaseConn : IConnection
+    public abstract class SteamBaseConn : ConnectionBase
     {
         public readonly CSteamID remoteId;
 
@@ -49,18 +49,6 @@ namespace Multiplayer.Client.Networking
                 Send(Packets.Special_Steam_Disconnect, GetDisconnectBytes(reason, data));
         }
 
-        protected override void HandleReceive(int msgId, int fragState, ByteReader reader, bool reliable)
-        {
-            if (msgId == (int)Packets.Special_Steam_Disconnect)
-            {
-                OnDisconnect();
-            }
-            else
-            {
-                base.HandleReceive(msgId, fragState, reader, reliable);
-            }
-        }
-
         public abstract void OnError(EP2PSessionError error);
 
         protected abstract void OnDisconnect();
@@ -82,14 +70,21 @@ namespace Multiplayer.Client.Networking
         protected override void HandleReceive(int msgId, int fragState, ByteReader reader, bool reliable)
         {
             if (msgId == (int)Packets.Special_Steam_Disconnect)
-                Multiplayer.session.ProcessDisconnectPacket((MpDisconnectReason)reader.ReadByte(), reader.ReadPrefixedBytes());
+            {
+                Multiplayer.session.ProcessDisconnectPacket(
+                    (MpDisconnectReason)reader.ReadByte(),
+                    reader.ReadPrefixedBytes()
+                );
+                OnDisconnect();
+                return;
+            }
 
             base.HandleReceive(msgId, fragState, reader, reliable);
         }
 
         public override void OnError(EP2PSessionError error)
         {
-            Multiplayer.session.disconnectReasonTranslated =
+            Multiplayer.session.disconnectInfo.titleTranslated =
                 error == EP2PSessionError.k_EP2PSessionErrorTimeout ? "MpSteamTimedOut".Translate() : "MpSteamGenericError".Translate();
 
             OnDisconnect();
@@ -106,6 +101,17 @@ namespace Multiplayer.Client.Networking
     {
         public SteamServerConn(CSteamID remoteId, ushort clientChannel) : base(remoteId, 0, clientChannel)
         {
+        }
+
+        protected override void HandleReceive(int msgId, int fragState, ByteReader reader, bool reliable)
+        {
+            if (msgId == (int)Packets.Special_Steam_Disconnect)
+            {
+                OnDisconnect();
+                return;
+            }
+
+            base.HandleReceive(msgId, fragState, reader, reliable);
         }
 
         public override void OnError(EP2PSessionError error)

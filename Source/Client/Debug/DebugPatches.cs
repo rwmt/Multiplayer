@@ -1,3 +1,4 @@
+using System;
 using HarmonyLib;
 using Multiplayer.Common;
 using RimWorld.Planet;
@@ -5,6 +6,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Runtime.CompilerServices;
 using UnityEngine;
 using Verse;
 
@@ -80,17 +82,22 @@ namespace Multiplayer.Client.Patches
     [HarmonyPatch(typeof(GizmoGridDrawer), nameof(GizmoGridDrawer.DrawGizmoGrid))]
     static class GizmoDrawDebugInfo
     {
-        static MethodInfo GizmoOnGUI = AccessTools.Method(typeof(Gizmo), nameof(Gizmo.GizmoOnGUI), new[] { typeof(Vector2), typeof(float), typeof(GizmoRenderParms) });
-        static MethodInfo GizmoOnGUIShrunk = AccessTools.Method(typeof(Command), nameof(Command.GizmoOnGUIShrunk), new[] { typeof(Vector2), typeof(float), typeof(GizmoRenderParms) });
+        static MethodInfo GizmoOnGUI = AccessTools.Method(typeof(Gizmo), nameof(Gizmo.GizmoOnGUI),
+            new[] { typeof(Vector2), typeof(float), typeof(GizmoRenderParms) });
+
+        static MethodInfo GizmoOnGUIShrunk = AccessTools.Method(typeof(Command), nameof(Command.GizmoOnGUIShrunk),
+            new[] { typeof(Vector2), typeof(float), typeof(GizmoRenderParms) });
 
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
         {
             foreach (var inst in insts)
             {
                 if (inst.operand == GizmoOnGUI)
-                    yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(GizmoDrawDebugInfo), nameof(GizmoOnGUIProxy)));
+                    yield return new CodeInstruction(OpCodes.Call,
+                        AccessTools.Method(typeof(GizmoDrawDebugInfo), nameof(GizmoOnGUIProxy)));
                 else if (inst.operand == GizmoOnGUIShrunk)
-                    yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(GizmoDrawDebugInfo), nameof(GizmoOnGUIShrunkProxy)));
+                    yield return new CodeInstruction(OpCodes.Call,
+                        AccessTools.Method(typeof(GizmoDrawDebugInfo), nameof(GizmoOnGUIShrunkProxy)));
                 else
                     yield return inst;
             }
@@ -113,10 +120,10 @@ namespace Multiplayer.Client.Patches
             var info = gizmo.GetType().ToString();
 
             if (gizmo is Command_Action action)
-                info += $"\n\n{FloatMenuDrawDebugInfo.DelegateMethodInfo(action.action?.Method)}";
+                info += $"\n\n{MpUtil.DelegateMethodInfo(action.action?.Method)}";
 
             if (gizmo is Command_Toggle toggle)
-                info += $"\n\n{FloatMenuDrawDebugInfo.DelegateMethodInfo(toggle.toggleAction?.Method)}";
+                info += $"\n\n{MpUtil.DelegateMethodInfo(toggle.toggleAction?.Method)}";
 
             TooltipHandler.TipRegion(
                 new Rect(topLeft, new Vector2(gizmo.GetWidth(maxWidth), 75f)),
@@ -125,28 +132,16 @@ namespace Multiplayer.Client.Patches
         }
     }
 
-    [HotSwappable]
     [HarmonyPatch(typeof(FloatMenuOption), nameof(FloatMenuOption.DoGUI))]
     static class FloatMenuDrawDebugInfo
     {
         static void Postfix(FloatMenuOption __instance, Rect rect)
         {
-            TooltipHandler.TipRegion(rect, DelegateMethodInfo(__instance.action?.Method));
-        }
-
-        internal static string DelegateMethodInfo(MethodBase m)
-        {
-            return
-                m == null ?
-                "No method" :
-                $"{m.DeclaringType.DeclaringType?.FullDescription()} {m.DeclaringType.FullDescription()} {m.Name}"
-               .Replace("<", "[").Replace(">", "]");
+            TooltipHandler.TipRegion(rect, MpUtil.DelegateMethodInfo(__instance.action?.Method));
         }
     }
-}
 
-namespace Multiplayer.Client.EarlyPatches
-{
+    [EarlyPatch]
     [HarmonyPatch(typeof(PatchClassProcessor), "ProcessPatchJob")]
     static class HarmonyMeasurePatchTime
     {
@@ -159,13 +154,14 @@ namespace Multiplayer.Client.EarlyPatches
         static void Postfix(object job, double __state)
         {
             Multiplayer.harmonyWatch.Stop();
-            var original = (MethodBase)Traverse.Create(job).Field("original").GetValue();
-            var took = Multiplayer.harmonyWatch.ElapsedMillisDouble() - __state;
+            //var original = (MethodBase)Traverse.Create(job).Field("original").GetValue();
+            //var took = Multiplayer.harmonyWatch.ElapsedMillisDouble() - __state;
             //if (took > 15)
             //    Log.Message($"{took} ms: Patching {original.MethodDesc()}");
         }
     }
 
+    [EarlyPatch]
     [HarmonyPatch]
     static class FixNewlineLogging
     {
@@ -184,5 +180,55 @@ namespace Multiplayer.Client.EarlyPatches
                 text = text?.Replace("\r\n", "\n");
         }
     }
+
+    [HotSwappable]
+    [HarmonyPatch(typeof(Widgets), nameof(Widgets.Label), typeof(Rect), typeof(string))]
+    static class HighlightLabels
+    {
+        static void Prefix(Rect rect)
+        {
+            if (Input.GetKey(KeyCode.End))
+                Widgets.DrawBox(rect);
+        }
+    }
+
+    [EarlyPatch]
+    [HarmonyPatch(typeof(StaticConstructorOnStartupUtility), nameof(StaticConstructorOnStartupUtility.CallAll))]
+    static class TimeStaticCtors
+    {
+        static bool Prefix()
+        {
+            foreach (Type type in GenTypes.AllTypesWithAttribute<StaticConstructorOnStartup>())
+            {
+                DeepProfiler.Start($"Static ctor: {type.FullName}");
+
+                try
+                {
+                    RuntimeHelpers.RunClassConstructor(type.TypeHandle);
+                }
+                catch (Exception ex)
+                {
+                    Log.Error(string.Concat("Error in static constructor of ", type, ": ", ex));
+                }
+                finally
+                {
+                    DeepProfiler.End();
+                }
+            }
+
+            StaticConstructorOnStartupUtility.coreStaticAssetsLoaded = true;
+
+            return false;
+        }
+    }
+
+    [EarlyPatch]
+    [HarmonyPatch(typeof(GlobalTextureAtlasManager), nameof(GlobalTextureAtlasManager.BakeStaticAtlases))]
+    static class NoAtlases
+    {
+        static bool Prefix() => false;
+    }
+
+
 }
 #endif

@@ -188,7 +188,7 @@ namespace Multiplayer.Client
             return result;
         }
 
-        private static string ListHarmonyPatches()
+        public static string ListHarmonyPatches()
         {
             var patchListing = DescribeAllPatchedMethods();
 
@@ -197,7 +197,7 @@ namespace Multiplayer.Client
                 patchListing.EndsWith("\n") ? "" : "\n",
                 HarmonyUtil.DescribeHarmonyVersions(), "\n");
         }
-        
+
         private static string ListActiveMods()
         {
             var builder = new StringBuilder();
@@ -220,7 +220,7 @@ namespace Multiplayer.Client
                     builder.Append(loadedAssembly.GetName().Name);
 
                     var (version, fileVersion) = ReadModAssembly(loadedAssembly, modContentPack);
-                    
+
                     if (version != null)
                     {
                         if (fileVersion == null) builder.AppendFormat("({0} [no file version])", version);
@@ -318,7 +318,7 @@ namespace Multiplayer.Client
             }
             return null;
         }
-        
+
         /// <summary>
         /// Reads assembly version information for a mod assembly.
         /// Mod assemblies require special treatment, since they are loaded from byte arrays and their <see cref="Assembly.Location"/> is null.

@@ -11,9 +11,11 @@ using System.Text;
 using System.Threading.Tasks;
 using Verse;
 using System.IO;
+using Multiplayer.Client.Patches;
 
-namespace Multiplayer.Client.EarlyPatches
+namespace Multiplayer.Client
 {
+    [EarlyPatch]
     [HarmonyPatch]
     static class CaptureThingSetMakers
     {
@@ -23,7 +25,7 @@ namespace Multiplayer.Client.EarlyPatches
             yield return typeof(ThingSetMaker_Nutrition).GetConstructor(new Type[0]);
         }
 
-        public static List<ThingSetMaker> captured = new List<ThingSetMaker>();
+        public static List<ThingSetMaker> captured = new();
 
         static void Prefix(ThingSetMaker __instance)
         {
@@ -32,6 +34,7 @@ namespace Multiplayer.Client.EarlyPatches
         }
     }
 
+    [EarlyPatch]
     [HarmonyPatch(typeof(DirectXmlLoader), nameof(DirectXmlLoader.XmlAssetsInModFolder))]
     static class XmlAssetsInModFolderPatch
     {
@@ -46,76 +49,13 @@ namespace Multiplayer.Client.EarlyPatches
         }
     }
 
-    //[HarmonyPatch(typeof(LoadableXmlAsset), MethodType.Constructor)]
-    //[HarmonyPatch(new[] { typeof(string), typeof(string), typeof(string) })]
-    [HarmonyPatch(typeof(DirectXmlLoader), nameof(DirectXmlLoader.XmlAssetsInModFolder))]
-    static class LoadableXmlAssetCtorPatch
-    {
-        public static ConcurrentDictionary<string, ConcurrentSet<ModFile>> xmlAssetHashes = new ConcurrentDictionary<string, ConcurrentSet<ModFile>>();
-
-        static void Postfix(LoadableXmlAsset[] __result)
-        {
-            if (Multiplayer.hasLoaded) return;
-
-            foreach (var asset in __result)
-            {
-                var fullPath = asset.FullFilePath.NormalizePath();
-                var modDir = asset.mod.RootDir.NormalizePath();
-
-                if (asset.mod != null && fullPath.StartsWith(modDir))
-                {
-                    var modId = asset.mod.PackageIdPlayerFacing.ToLowerInvariant();
-                    
-                    xmlAssetHashes
-                    .GetOrAdd(modId, s => new ConcurrentSet<ModFile>())
-                    .Add(new ModFile(fullPath, fullPath.IgnorePrefix(modDir), new FileInfo(fullPath).CRC32()));
-                }
-            }
-        }
-
-        /*public static int AggregateHash(ModContentPack mod)
-        {
-            return xmlAssetHashes.OrderBy(a => a.Item1, StringComparer.Ordinal).Where(p => p.First.mod == mod).Select(p => p.Second).AggregateHash();
-        }*/
-
-        public static void ClearHashBag()
-        {
-            //xmlAssetHashes = new ConcurrentBag<(string, int)>();
-        }
-    }
-
-    [HarmonyPatch(typeof(PlayDataLoader), nameof(PlayDataLoader.ClearAllPlayData))]
-    static class LoadableXmlAssetClearPatch
-    {
-        static void Prefix()
-        {
-            //LoadableXmlAssetCtorPatch.ClearHashBag();
-        }
-    }
-
-    [HarmonyPatch]
-    static class MonoIOPatch
-    {
-        public static ConcurrentSet<string> openedFiles = new ConcurrentSet<string>();
-
-        static IEnumerable<MethodBase> TargetMethods()
-        {
-            yield return AccessTools.TypeByName("System.IO.MonoIO").GetMethod("Open");
-        }
-
-        static void Prefix(string filename)
-        {
-            if (!Multiplayer.hasLoaded)
-                openedFiles.Add(filename.NormalizePath());
-        }
-    }
-
+    [EarlyPatch]
     [HarmonyPatch(typeof(GenTypes), nameof(GenTypes.GetTypeInAnyAssemblyInt))]
-    static class GenTypesOptimization
+    static class GenTypesGetOptimization
     {
         private static Dictionary<string, Type> RwTypes = new();
 
-        static GenTypesOptimization()
+        static GenTypesGetOptimization()
         {
             foreach (var type in typeof(Game).Assembly.GetTypes())
             {
@@ -136,11 +76,35 @@ namespace Multiplayer.Client.EarlyPatches
         }
     }
 
-#if DEBUG
-    [HarmonyPatch(typeof(GlobalTextureAtlasManager), nameof(GlobalTextureAtlasManager.BakeStaticAtlases))]
-    static class NoAtlases
+    [EarlyPatch]
+    [HarmonyPatch(typeof(GenTypes), nameof(GenTypes.AllSubclasses))]
+    static class GenTypesSubclassesOptimization
     {
-        static bool Prefix() => false;
+        static bool Prefix(Type baseType, ref List<Type> __result)
+        {
+            __result = Multiplayer.subClasses.GetOrAddNew(baseType);
+            return false;
+        }
     }
-#endif
+
+    [EarlyPatch]
+    [HarmonyPatch(typeof(GenTypes), nameof(GenTypes.AllSubclassesNonAbstract))]
+    static class GenTypesSubclassesNonAbstractOptimization
+    {
+        static bool Prefix(Type baseType, ref List<Type> __result)
+        {
+            __result = Multiplayer.subClassesNonAbstract.GetOrAddNew(baseType);
+            return false;
+        }
+    }
+
+    [EarlyPatch]
+    [HarmonyPatch(typeof(AccessTools), nameof(AccessTools.TypeByName))]
+    static class AccessToolsTypeByNamePatch
+    {
+        static bool Prefix(string name, ref Type __result)
+        {
+            return !Multiplayer.typeByFullName.TryGetValue(name, out __result) && !Multiplayer.typeByName.TryGetValue(name, out __result);
+        }
+    }
 }

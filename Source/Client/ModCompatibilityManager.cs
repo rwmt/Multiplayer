@@ -13,7 +13,7 @@ namespace Multiplayer.Client
         private static bool startedLazyFetch;
 
         private static Dictionary<long, ModCompatibility> workshopLookup = new Dictionary<long, ModCompatibility>();
-        private static Dictionary<string, ModCompatibility> nameLookup = new Dictionary<string, ModCompatibility>();
+        public static Dictionary<string, ModCompatibility> nameLookup = new Dictionary<string, ModCompatibility>();
 
         private static void UpdateModCompatibilityDb() {
             startedLazyFetch = true;
@@ -26,9 +26,10 @@ namespace Multiplayer.Client
                     Log.Message($"MP: successfully fetched {modCompatibilities.Count} mods compatibility info");
 
                     workshopLookup = modCompatibilities
+                        .Where(mod => mod.workshopId != 0)
                         .GroupBy(mod => mod.workshopId)
                         .ToDictionary(grouping => grouping.Key, grouping => grouping.First());
-                    workshopLookup.Remove(0);
+
                     nameLookup = modCompatibilities
                         .GroupBy(mod => mod.name.ToLower())
                         .ToDictionary(grouping => grouping.Key, grouping => grouping.First());

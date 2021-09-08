@@ -10,6 +10,7 @@ using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Text;
+using Multiplayer.Client.Util;
 using UnityEngine;
 using Verse;
 using Verse.AI;
@@ -18,7 +19,7 @@ using Verse.AI.Group;
 namespace Multiplayer.Client
 {
     [HotSwappable]
-    public class TradingWindow : Window
+    public class TradingWindow : Window, ISwitchToMap
     {
         public static TradingWindow drawingTrade;
         public static bool cancelPressed;
@@ -27,7 +28,6 @@ namespace Multiplayer.Client
 
         public TradingWindow()
         {
-            doCloseX = true;
             closeOnAccept = false;
             absorbInputAroundWindow = true;
         }
@@ -383,8 +383,8 @@ namespace Multiplayer.Client
     {
         static IEnumerable<MethodBase> TargetMethods()
         {
-            yield return MpUtil.GetLambda(typeof(Dialog_Trade), nameof(Dialog_Trade.DoWindowContents));
-            yield return MpUtil.GetLambda(typeof(Dialog_Trade), nameof(Dialog_Trade.DoWindowContents));
+            yield return MpMethodUtil.GetLambda(typeof(Dialog_Trade), nameof(Dialog_Trade.DoWindowContents));
+            yield return MpMethodUtil.GetLambda(typeof(Dialog_Trade), nameof(Dialog_Trade.DoWindowContents));
         }
 
         static void Prefix(ref bool __state)

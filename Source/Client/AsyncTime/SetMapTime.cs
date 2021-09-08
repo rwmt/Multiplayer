@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Reflection;
+using Multiplayer.Client.Util;
 using Verse;
 using Verse.Sound;
 
@@ -117,12 +118,12 @@ namespace Multiplayer.Client
         static IEnumerable<MethodBase> TargetMethods()
         {
             yield return AccessTools.Method(typeof(Sustainer), nameof(Sustainer.SustainerUpdate));
-            yield return MpUtil.GetLambda(typeof(Sustainer), parentMethodType: MethodType.Constructor, parentArgs: new[] { typeof(SoundDef), typeof(SoundInfo) });
+            yield return MpMethodUtil.GetLambda(typeof(Sustainer), parentMethodType: MethodType.Constructor, parentArgs: new[] { typeof(SoundDef), typeof(SoundInfo) });
         }
 
         static void Prefix(Sustainer __instance, ref TimeSnapshot? __state)
         {
-            if (Multiplayer.Client == null) return;
+            if (Multiplayer.game == null) return;
             __state = TimeSnapshot.GetAndSetFromMap(__instance.info.Maker.Map);
         }
 
@@ -134,7 +135,7 @@ namespace Multiplayer.Client
     {
         static void Prefix(Sample __instance, ref TimeSnapshot? __state)
         {
-            if (Multiplayer.Client == null) return;
+            if (Multiplayer.game == null) return;
             __state = TimeSnapshot.GetAndSetFromMap(__instance.Map);
         }
 
@@ -146,7 +147,7 @@ namespace Multiplayer.Client
     {
         static void Prefix(ref Func<string> textGetter)
         {
-            if (Multiplayer.Client == null) return;
+            if (Multiplayer.game == null) return;
 
             var current = TimeSnapshot.Current();
             var getter = textGetter;
@@ -178,7 +179,7 @@ namespace Multiplayer.Client
 
         public static TimeSnapshot Current()
         {
-            return new TimeSnapshot()
+            return new TimeSnapshot
             {
                 ticks = Find.TickManager.ticksGameInt,
                 speed = Find.TickManager.curTimeSpeed,

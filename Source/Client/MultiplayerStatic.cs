@@ -23,8 +23,11 @@ using System.Web.UI.WebControls;
 using System.Xml;
 using System.Xml.Linq;
 using HarmonyLib;
+using LiteNetLib;
+using Multiplayer.API;
 using Multiplayer.Client.Desyncs;
 using Multiplayer.Client.EarlyPatches;
+using Multiplayer.Client.Patches;
 using Multiplayer.Client.Util;
 using Multiplayer.Common;
 using RimWorld;
@@ -41,16 +44,23 @@ namespace Multiplayer.Client
     public static class MultiplayerStatic
     {
         public static KeyBindingDef ToggleChatDef = KeyBindingDef.Named("MpToggleChat");
+        public static KeyBindingDef PingKeyDef = KeyBindingDef.Named("MpPingKey");
+
+        public static readonly Texture2D PingBase = ContentFinder<Texture2D>.Get("Multiplayer/PingBase");
+        public static readonly Texture2D PingPin = ContentFinder<Texture2D>.Get("Multiplayer/PingPin");
+        public static readonly Texture2D WebsiteIcon = ContentFinder<Texture2D>.Get("Multiplayer/Website");
+        public static readonly Texture2D DiscordIcon = ContentFinder<Texture2D>.Get("Multiplayer/Discord");
 
         static MultiplayerStatic()
         {
             Native.InitLmfPtr();
 
-            MpLog.info = str => Log.Message($"{Multiplayer.username} {TickPatch.Timer} {str}");
-            MpLog.error = str => Log.Error(str);
+            // UnityEngine.Debug.Log instead of Verse.Log.Message because the server runs on its own thread
+            ServerLog.info = str => UnityEngine.Debug.Log($"MpServerLog: {str}");
+            ServerLog.error = str => UnityEngine.Debug.Log($"MpServerLog Error: {str}");
+            NetDebug.Logger = new ServerLog();
 
             SetUsername();
-            MultiplayerData.CacheXMLMods();
 
             if (SteamManager.Initialized)
                 SteamIntegration.InitCallbacks();
@@ -68,27 +78,6 @@ namespace Multiplayer.Client
 
             MultiplayerData.CollectCursorIcons();
 
-            using (DeepProfilerWrapper.Section("Multiplayer CollectTypes"))
-                SyncSerialization.CollectTypes();
-
-            using (DeepProfilerWrapper.Section("Multiplayer SyncGame"))
-                SyncGame.Init();
-
-            using (DeepProfilerWrapper.Section("Multiplayer Sync register attributes and validate"))
-            {
-                try
-                {
-                    Sync.RegisterAllAttributes(typeof(Multiplayer).Assembly);
-                }
-                catch (Exception e)
-                {
-                    Log.Error($"Exception registering Sync attributes: {e}");
-                    Multiplayer.loadingErrors = true;
-                }
-
-                Sync.ValidateAll();
-            }
-
             PersistentDialog.BindAll(typeof(Multiplayer).Assembly);
 
             using (DeepProfilerWrapper.Section("Multiplayer MpPatches"))
@@ -102,11 +91,10 @@ namespace Multiplayer.Client
             DoubleLongEvent(() =>
             {
                 MultiplayerData.CollectDefInfos();
-                MultiplayerData.CollectModHashes();
-
                 Sync.PostInitHandlers();
             }, "Loading"); // Right before the events from HandleCommandLine
 
+            HandleRestartConnect();
             HandleCommandLine();
 
             if (Multiplayer.arbiterInstance)
@@ -114,13 +102,13 @@ namespace Multiplayer.Client
                 RuntimeHelpers.RunClassConstructor(typeof(Text).TypeHandle);
             }
 
-            MultiplayerData.CollectModFiles();
+            using (DeepProfilerWrapper.Section("Multiplayer TakeModDataSnapshot"))
+                JoinData.TakeModDataSnapshot();
+
+            using (DeepProfilerWrapper.Section("MultiplayerData PrecacheMods"))
+                MultiplayerData.PrecacheMods();
 
             Multiplayer.hasLoaded = true;
-
-            Log.Message(GenFilePaths.ConfigFolderPath);
-            Log.Message(JoinData.ModConfigPaths.Count().ToString());
-            
             SimpleProfiler.Print("mp_prof_out.txt");
         }
 
@@ -153,22 +141,41 @@ namespace Multiplayer.Client
                 Multiplayer.username = "Player" + Rand.Range(0, 9999);
         }
 
+        private static void HandleRestartConnect()
+        {
+            if (Multiplayer.restartConnect == null)
+                return;
+
+            // No colon means the connect string is a steam user id
+            if (!Multiplayer.restartConnect.Contains(':'))
+            {
+                if (ulong.TryParse(Multiplayer.restartConnect, out ulong steamUser))
+                    DoubleLongEvent(() => ClientUtil.TrySteamConnectWithWindow((CSteamID)steamUser, false), "MpConnecting");
+
+                return;
+            }
+
+            var split = Multiplayer.restartConnect.Split(new[]{':'}, StringSplitOptions.RemoveEmptyEntries);
+            if (split.Length == 2 && int.TryParse(split[1], out int port))
+                DoubleLongEvent(() => ClientUtil.TryConnectWithWindow(split[0], port, false), "MpConnecting");
+        }
+
         private static void HandleCommandLine()
         {
-            if (GenCommandLine.TryGetCommandLineArg("connect", out string ip))
+            if (GenCommandLine.TryGetCommandLineArg("connect", out string addressPort) && Multiplayer.restartConnect == null)
             {
                 int port = MultiplayerServer.DefaultPort;
 
-                var split = ip.Split(':');
+                var split = addressPort.Split(':');
                 if (split.Length == 0)
-                    ip = "127.0.0.1";
+                    addressPort = "127.0.0.1";
                 else if (split.Length >= 1)
-                    ip = split[0];
+                    addressPort = split[0];
 
                 if (split.Length == 2)
                     int.TryParse(split[1], out port);
 
-                DoubleLongEvent(() => ClientUtil.TryConnect(ip, port), "Connecting");
+                DoubleLongEvent(() => ClientUtil.TryConnectWithWindow(addressPort, port, false), "Connecting");
             }
 
             if (GenCommandLine.CommandLineArgPassed("arbiter"))
@@ -233,7 +240,7 @@ namespace Multiplayer.Client
 
             Assembly.GetCallingAssembly().GetTypes().Do(type => {
                 // EarlyPatches are handled in MultiplayerMod.EarlyPatches
-                if (type.Namespace != null && type.Namespace.EndsWith("EarlyPatches")) return;
+                if (type.IsDefined(typeof(EarlyPatchAttribute))) return;
 
                 try {
                     harmony.CreateClassProcessor(type).Patch();
@@ -278,7 +285,7 @@ namespace Multiplayer.Client
                 var randPatchPrefix = new HarmonyMethod(typeof(RandPatches), "Prefix");
                 var randPatchPostfix = new HarmonyMethod(typeof(RandPatches), "Postfix");
 
-                var subSustainerStart = MpUtil.GetLambda(typeof(SubSustainer), parentMethodType: MethodType.Constructor, parentArgs: new[] { typeof(Sustainer), typeof(SubSoundDef) });
+                var subSustainerStart = MpMethodUtil.GetLambda(typeof(SubSustainer), parentMethodType: MethodType.Constructor, parentArgs: new[] { typeof(Sustainer), typeof(SubSoundDef) });
                 var sampleCtor = typeof(Sample).GetConstructor(new[] { typeof(SubSoundDef) });
                 var subSoundPlay = typeof(SubSoundDef).GetMethod(nameof(SubSoundDef.TryPlay));
                 var effecterTick = typeof(Effecter).GetMethod(nameof(Effecter.EffectTick));
@@ -367,14 +374,6 @@ namespace Multiplayer.Client
                     }
 
                 }
-            }
-
-            SetCategory("Mod patches");
-
-            try {
-                ModPatches.Init();
-            } catch(Exception e) {
-                LogError($"FAIL with {e}");
             }
 
             SetCategory("");

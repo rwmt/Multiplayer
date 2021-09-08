@@ -10,10 +10,12 @@ using HarmonyLib;
 using Multiplayer.API;
 
 using RimWorld;
+using UnityEngine;
 using Verse;
 
 namespace Multiplayer.Client
 {
+    [HotSwappable]
     static class MPDebugActions
     {
         const string MultiplayerCategory = "Multiplayer";
@@ -26,7 +28,6 @@ namespace Multiplayer.Client
             GenPlace.TryPlaceThing(shuttle, UI.MouseCell(), Find.CurrentMap, ThingPlaceMode.Near);
         }
 
-        [SyncMethod]
         [DebugAction(MultiplayerCategory, "Save Map", allowedGameStates = AllowedGameStates.Playing)]
         public static void SaveGameCmd()
         {
@@ -43,7 +44,6 @@ namespace Multiplayer.Client
             File.WriteAllBytes($"map_{map.uniqueID}_{Multiplayer.username}.xml", mapData);
         }
 
-        [SyncMethod]
         [DebugAction(MultiplayerCategory, "Save Game", allowedGameStates = AllowedGameStates.Playing)]
         public static void SaveGame()
         {
@@ -75,6 +75,7 @@ namespace Multiplayer.Client
                 {"WorldComponent", SyncSerialization.worldCompTypes},
                 {"MapComponent", SyncSerialization.mapCompTypes},
             };
+
             foreach(var kv in dict) {
                 Log.Warning($"== {kv.Key} ==");
                 Log.Message(
@@ -105,7 +106,7 @@ namespace Multiplayer.Client
 #if DEBUG
 
         [DebugOutput]
-        public unsafe static void PrintInlined()
+        public static unsafe void PrintInlined()
         {
             foreach (var m in Harmony.GetAllPatchedMethods())
             {
@@ -115,14 +116,40 @@ namespace Multiplayer.Client
             }
         }
 
-        [DebugAction(DebugActionCategories.Mods, "Log Terrain", allowedGameStates = AllowedGameStates.Entry)]
-        public static void EntryAction()
+        [DebugOutput(true)]
+        public static void PrintThingListers()
         {
-            Log.Message(
-                GenDefDatabase.GetAllDefsInDatabaseForDef(typeof(TerrainDef))
-                .Select(def => $"{def.modContentPack?.Name} {def} {def.shortHash} {def.index}")
-                .Join(delimiter: "\n")
-            );
+            var output = new StringBuilder();
+
+            void PrintLister(ListerThings lister)
+            {
+                for (int i = 0; i < lister.listsByGroup.Length; i++)
+                    if (lister.listsByGroup[i] != null)
+                    {
+                        output.Append((ThingRequestGroup)i).Append(" ");
+                        foreach (var t in lister.listsByGroup[i])
+                            output.Append(t).Append(",");
+                        output.AppendLine();
+                    }
+
+                foreach (var kv in lister.listsByDef)
+                {
+                    output.Append(kv.Key).Append(" ");
+                    foreach (var t in kv.Value)
+                        output.Append(t).Append(",");
+                    output.AppendLine();
+                }
+            }
+
+            PrintLister(Find.CurrentMap.listerThings);
+
+            foreach (var region in Find.CurrentMap.regionGrid.AllRegions)
+            {
+                output.AppendLine($"REGION {region.extentsClose} {region.AnyCell} {region.id}");
+                PrintLister(region.ListerThings);
+            }
+
+            File.WriteAllText(Application.consoleLogPath + ".regioninfo", output.ToString());
         }
 
         [DebugAction(DebugActionCategories.Mods, "Print static fields (game)", allowedGameStates = AllowedGameStates.Entry)]
@@ -143,7 +170,7 @@ namespace Multiplayer.Client
                 }
             }
 
-            Log.Message(builder.ToString(), true);
+            Log.Message(builder.ToString());
         }
 
         static string StaticFieldsToString(Assembly asm, Predicate<Type> typeValidator)
@@ -178,7 +205,7 @@ namespace Multiplayer.Client
             var query = Multiplayer.harmony.GetPatchedMethods()
                 .Where(m => !m.DeclaringType.Namespace.StartsWith("Multiplayer") &&
                     !Harmony.GetPatchInfo(m).Transpilers.NullOrEmpty());
-                
+
             foreach (var method in query) {
                 builder.Append(GetMethodHash(method));
                 builder.Append(" ");

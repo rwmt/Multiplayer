@@ -12,14 +12,16 @@ using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Multiplayer.Client.Comp;
 using UnityEngine;
 using Verse;
 
 namespace Multiplayer.Client
 {
+    [HotSwappable]
     public static class HostUtil
     {
-        public static void HostServer(ServerSettings settings, bool fromReplay, bool withSimulation = false, bool debugMode = false, bool logDesyncTraces = false)
+        public static void HostServer(ServerSettings settings, bool fromReplay, bool withSimulation, bool asyncTime)
         {
             Log.Message($"Starting the server");
 
@@ -43,21 +45,15 @@ namespace Multiplayer.Client
                 localServer.mapCmds = session.cache.mapCmds.ToDictionary(kv => kv.Key, kv => kv.Value.Select(c => c.Serialize()).ToList());
             }
 
-            localServer.debugMode = debugMode;
             localServer.debugOnlySyncCmds = Sync.handlers.Where(h => h.debugOnly).Select(h => h.syncId).ToHashSet();
             localServer.hostOnlySyncCmds = Sync.handlers.Where(h => h.hostOnly).Select(h => h.syncId).ToHashSet();
             localServer.hostUsername = Multiplayer.username;
             localServer.coopFactionId = Faction.OfPlayer.loadID;
 
-            localServer.rwVersion = /*session.mods.remoteRwVersion =*/ VersionControl.CurrentVersionString; // todo
-            // localServer.modNames = session.mods.remoteModNames = LoadedModManager.RunningModsListForReading.Select(m => m.Name).ToArray();
-            // localServer.modIds = session.mods.remoteModIds = LoadedModManager.RunningModsListForReading.Select(m => m.PackageId).ToArray();
-            // localServer.workshopModIds = session.mods.remoteWorkshopModIds = ModManagement.GetEnabledWorkshopMods().ToArray();
-            localServer.defInfos = /*session.mods.defInfo =*/ Multiplayer.localDefInfos;
+            localServer.rwVersion = VersionControl.CurrentVersionString;
+            localServer.mpVersion = MpVersion.Version;
+            localServer.defInfos = MultiplayerData.localDefInfos;
             localServer.serverData = JoinData.WriteServerData();
-
-            //Log.Message($"MP Host modIds: {string.Join(", ", localServer.modIds)}");
-            //Log.Message($"MP Host workshopIds: {string.Join(", ", localServer.workshopModIds)}");
 
             if (settings.steam)
                 localServer.NetTick += SteamIntegration.ServerSteamNetTick;
@@ -99,8 +95,9 @@ namespace Multiplayer.Client
                     map.AsyncTime().TimeSpeed = timeSpeed;
                 Multiplayer.WorldComp.UpdateTimeSpeed();
 
-                Multiplayer.WorldComp.debugMode = debugMode;
-                Multiplayer.WorldComp.logDesyncTraces = logDesyncTraces;
+                Multiplayer.GameComp.asyncTime = asyncTime;
+                Multiplayer.GameComp.debugMode = settings.debugMode;
+                Multiplayer.GameComp.logDesyncTraces = settings.desyncTraces;
 
                 LongEventHandler.QueueLongEvent(() =>
                 {
@@ -166,6 +163,7 @@ namespace Multiplayer.Client
 
             Multiplayer.game = new MultiplayerGame
             {
+                gameComp = new MultiplayerGameComp(Current.Game),
                 worldComp = comp
             };
 

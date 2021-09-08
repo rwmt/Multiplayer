@@ -65,7 +65,7 @@ namespace Multiplayer.Client
     {
         private const string RootNode = "root";
 
-        private static MemoryStream stream;
+        private static MemoryStream writingStream;
 
         public static SharedCrossRefs sharedCrossRefs => Multiplayer.game.sharedCrossRefs;
         public static LoadedObjectDirectory defaultCrossRefs;
@@ -74,7 +74,7 @@ namespace Multiplayer.Client
 
         public static void StartWriting(bool indent = false)
         {
-            stream = new MemoryStream();
+            writingStream = new MemoryStream();
 
             Scribe.mode = LoadSaveMode.Saving;
             XmlWriterSettings xmlWriterSettings = new XmlWriterSettings()
@@ -83,7 +83,7 @@ namespace Multiplayer.Client
                 OmitXmlDeclaration = true
             };
 
-            XmlWriter writer = XmlWriter.Create(stream, xmlWriterSettings);
+            XmlWriter writer = XmlWriter.Create(writingStream, xmlWriterSettings);
             Scribe.saver.writer = writer;
             writer.WriteStartDocument();
         }
@@ -92,9 +92,9 @@ namespace Multiplayer.Client
         {
             Scribe.saver.FinalizeSaving();
 
-            byte[] arr = stream.ToArray();
-            stream.Close();
-            stream = null;
+            byte[] arr = writingStream.ToArray();
+            writingStream.Close();
+            writingStream = null;
 
             return arr;
         }
@@ -180,20 +180,19 @@ namespace Multiplayer.Client
                 OmitXmlDeclaration = true
             };
 
-            using (MemoryStream stream = new MemoryStream())
-            using (XmlWriter writer = XmlWriter.Create(stream, xmlWriterSettings))
-            {
-                if (rootNode != null)
-                    writer.WriteStartElement(rootNode);
+            using MemoryStream stream = new MemoryStream();
+            using XmlWriter writer = XmlWriter.Create(stream, xmlWriterSettings);
 
-                node.WriteTo(writer);
+            if (rootNode != null)
+                writer.WriteStartElement(rootNode);
 
-                if (rootNode != null)
-                    writer.WriteEndElement();
+            node.WriteTo(writer);
 
-                writer.Flush();
-                return stream.ToArray();
-            }
+            if (rootNode != null)
+                writer.WriteEndElement();
+
+            writer.Flush();
+            return stream.ToArray();
         }
 
         public static void SupplyCrossRefs()

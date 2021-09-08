@@ -83,7 +83,6 @@ namespace Multiplayer.Client
             var dialog = PrepareDummyDialog();
             if (!sound)
                 dialog.soundAppear = null;
-            dialog.doCloseX = true;
 
             Find.WindowStack.Add(dialog);
         }

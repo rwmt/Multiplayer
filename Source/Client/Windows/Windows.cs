@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Multiplayer.Client.Util;
 using UnityEngine;
 using Verse;
 
@@ -111,7 +112,7 @@ namespace Multiplayer.Client
             var entry = new Rect(0f, 95f, 120f, 30f);
             if (Multiplayer.LocalServer != null) {
                 TooltipHandler.TipRegion(entry, "MpFullSaveDesc".Translate());
-                HostWindow.CheckboxLabeled(entry, "MpFullSave".Translate(), ref fullSave, placeTextNearCheckbox: true);
+                MpUI.CheckboxLabeled(entry, "MpFullSave".Translate(), ref fullSave, placeTextNearCheckbox: true);
             }
         }
 

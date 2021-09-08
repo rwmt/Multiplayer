@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Serialization;
 using HarmonyLib;
+using MonoMod.RuntimeDetour;
 //using Iced.Intel;
 using UnityEngine;
 using Verse;
@@ -69,22 +70,26 @@ namespace Multiplayer.Client
                 LmfPtr = threadInfoPtr + 0x448 - 8 * 4;
         }
 
-        public static string MethodNameFromAddr(long addr)
+        public static string MethodNameFromAddr(long addr, bool harmonyOriginals)
         {
             var domain = DomainPtr;
             var ji = mono_jit_info_table_find(domain, (IntPtr)addr);
 
             if (ji == IntPtr.Zero) return null;
 
-            var methodPtr = mono_jit_info_get_method(ji);
+            var ptrToPrint = mono_jit_info_get_method(ji);
             var codeStart = (long)mono_jit_info_get_code_start(ji);
-            var codeSize = (long)mono_jit_info_get_code_size(ji);
 
-            var name = mono_debug_print_stack_frame(methodPtr, -1, domain);
+            if (harmonyOriginals)
+            {
+                var original = MpUtil.GetOriginalFromHarmonyReplacement(codeStart);
+                if (original != null)
+                    ptrToPrint = original.MethodHandle.Value;
+            }
 
-            if (name == null || name.Length == 0) return null;
+            var name = mono_debug_print_stack_frame(ptrToPrint, -1, domain);
 
-            return name;
+            return string.IsNullOrEmpty(name) ? null : name;
         }
 
         const string MonoWindows = "mono-2.0-bdwgc";

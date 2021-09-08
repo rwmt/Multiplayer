@@ -1,22 +1,24 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using Multiplayer.Client;
 
 namespace Multiplayer.Common
 {
+    [HotSwappable]
     public class ServerJoiningState : MpConnectionState
     {
-        public static Regex UsernamePattern = new Regex(@"^[a-zA-Z0-9_]+$");
-        
+        public static Regex UsernamePattern = new(@"^[a-zA-Z0-9_]+$");
+
         private bool defsMismatched;
 
-        public ServerJoiningState(IConnection conn) : base(conn)
+        public ServerJoiningState(ConnectionBase conn) : base(conn)
         {
         }
 
-        [PacketHandler(Packets.Client_JoinData)]
-        [IsFragmented]
-        public void HandleJoinData(ByteReader data)
+        [PacketHandler(Packets.Client_Username)]
+        public void HandleUsername(ByteReader data)
         {
             int clientProtocol = data.ReadInt32();
             if (clientProtocol != MpVersion.Protocol)
@@ -25,68 +27,12 @@ namespace Multiplayer.Common
                 return;
             }
 
-            var count = data.ReadInt32();
-            if (count > 512)
-            {
-                Player.Disconnect("Too many defs");
-                return;
-            }
-
-            var defsResponse = new ByteWriter();
-
-            for (int i = 0; i < count; i++)
-            {
-                var defType = data.ReadString(128);
-                var defCount = data.ReadInt32();
-                var defHash = data.ReadInt32();
-
-                var status = DefCheckStatus.OK;
-
-                if (!Server.defInfos.TryGetValue(defType, out DefInfo info))
-                    status = DefCheckStatus.Not_Found;
-                else if (info.count != defCount)
-                    status = DefCheckStatus.Count_Diff;
-                else if (info.hash != defHash)
-                    status = DefCheckStatus.Hash_Diff;
-
-                if (status != DefCheckStatus.OK)
-                    defsMismatched = true;
-
-                defsResponse.WriteByte((byte)status);
-            }
-
-            connection.SendFragmented(
-                Packets.Server_JoinData,
-                Server.settings.gameName,
-                Player.id,
-                Server.rwVersion,
-                defsResponse.ToArray(),
-                Server.serverData
-            );
-        }
-
-        private static ColorRGB[] PlayerColors = new ColorRGB[]
-        {
-            new ColorRGB(0,125,255),
-            new ColorRGB(255,0,0),
-            new ColorRGB(0,255,45),
-            new ColorRGB(255,0,150),
-            new ColorRGB(80,250,250),
-            new ColorRGB(200,255,75),
-            new ColorRGB(100,0,75)
-        };
-
-        private static Dictionary<string, ColorRGB> givenColors = new Dictionary<string, ColorRGB>();
-
-        [PacketHandler(Packets.Client_Username)]
-        public void HandleClientUsername(ByteReader data)
-        {
-            if (connection.username != null && connection.username.Length != 0)
+            if (!string.IsNullOrEmpty(connection.username)) // Username already set
                 return;
 
             string username = data.ReadString();
 
-            if (username.Length < 3 || username.Length > 15)
+            if (username.Length < MultiplayerServer.MinUsernameLength || username.Length > MultiplayerServer.MaxUsernameLength)
             {
                 Player.Disconnect(MpDisconnectReason.UsernameLength);
                 return;
@@ -105,14 +51,77 @@ namespace Multiplayer.Common
             }
 
             connection.username = username;
+            connection.Send(Packets.Server_UsernameOk);
+        }
 
+        [PacketHandler(Packets.Client_JoinData)]
+        [IsFragmented]
+        public void HandleJoinData(ByteReader data)
+        {
+            var count = data.ReadInt32();
+            if (count > 512)
+            {
+                Player.Disconnect("Too many defs");
+                return;
+            }
+
+            var defsResponse = new ByteWriter();
+
+            for (int i = 0; i < count; i++)
+            {
+                var defType = data.ReadString(128);
+                var defCount = data.ReadInt32();
+                var defHash = data.ReadInt32();
+
+                var status = DefCheckStatus.Ok;
+
+                if (!Server.defInfos.TryGetValue(defType, out DefInfo info))
+                    status = DefCheckStatus.Not_Found;
+                else if (info.count != defCount)
+                    status = DefCheckStatus.Count_Diff;
+                else if (info.hash != defHash)
+                    status = DefCheckStatus.Hash_Diff;
+
+                if (status != DefCheckStatus.Ok)
+                    defsMismatched = true;
+
+                defsResponse.WriteByte((byte)status);
+            }
+
+            connection.SendFragmented(
+                Packets.Server_JoinData,
+                Server.settings.gameName,
+                Player.id,
+                Server.rwVersion,
+                Server.mpVersion,
+                defsResponse.ToArray(),
+                Server.serverData
+            );
+        }
+
+        private static ColorRGB[] PlayerColors =
+        {
+            new(0,125,255),
+            new(255,0,0),
+            new(0,255,45),
+            new(255,0,150),
+            new(80,250,250),
+            new(200,255,75),
+            new(100,0,75)
+        };
+
+        private static Dictionary<string, ColorRGB> givenColors = new();
+
+        [PacketHandler(Packets.Client_WorldRequest)]
+        public void HandleClientUsername(ByteReader data)
+        {
             Server.SendNotification("MpPlayerConnected", Player.Username);
             Server.SendChat($"{Player.Username} has joined.");
 
             if (!Player.IsArbiter)
             {
-                if (!givenColors.TryGetValue(username, out ColorRGB color))
-                    givenColors[username] = color = PlayerColors[givenColors.Count % PlayerColors.Length];
+                if (!givenColors.TryGetValue(Player.Username, out ColorRGB color))
+                    givenColors[Player.Username] = color = PlayerColors[givenColors.Count % PlayerColors.Length];
                 Player.color = color;
             }
 
@@ -189,13 +198,13 @@ namespace Multiplayer.Common
 
             Player.SendPlayerList();
 
-            MpLog.Log("World response sent: " + packetData.Length);
+            ServerLog.Log("World response sent: " + packetData.Length);
         }
     }
 
     public enum DefCheckStatus : byte
     {
-        OK,
+        Ok,
         Not_Found,
         Count_Diff,
         Hash_Diff,

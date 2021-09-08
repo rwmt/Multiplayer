@@ -1,10 +1,10 @@
-using LiteNetLib;
 using System;
 using System.Reflection;
+using Multiplayer.Client;
 
 namespace Multiplayer.Common
 {
-    public abstract class IConnection
+    public abstract class ConnectionBase
     {
         public string username;
         public ServerPlayer serverPlayer;
@@ -57,7 +57,7 @@ namespace Multiplayer.Common
         }
 
         // Steam doesn't like messages bigger than a megabyte
-        public const int FragmentSize = 50_000;
+        public const int FragmentSize = 65_536;
         public const int MaxPacketSize = 33_554_432;
 
         private const int FRAG_NONE = 0x0;
@@ -178,31 +178,4 @@ namespace Multiplayer.Common
             return writer.ToArray();
         }
     }
-
-    public class MpNetConnection : IConnection
-    {
-        public readonly NetPeer peer;
-
-        public MpNetConnection(NetPeer peer)
-        {
-            this.peer = peer;
-        }
-
-        protected override void SendRaw(byte[] raw, bool reliable)
-        {
-            peer.Send(raw, reliable ? DeliveryMethod.ReliableOrdered : DeliveryMethod.Unreliable);
-        }
-
-        public override void Close(MpDisconnectReason reason, byte[] data)
-        {
-            peer.NetManager.TriggerUpdate(); // todo: is this needed?
-            peer.NetManager.DisconnectPeer(peer, GetDisconnectBytes(reason, data));
-        }
-
-        public override string ToString()
-        {
-            return $"NetConnection ({peer.EndPoint}) ({username})";
-        }
-    }
-
 }

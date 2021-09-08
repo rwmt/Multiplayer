@@ -9,7 +9,7 @@ namespace Multiplayer.Common
     // Unused
     public class ServerSteamState : MpConnectionState
     {
-        public ServerSteamState(IConnection conn) : base(conn)
+        public ServerSteamState(ConnectionBase conn) : base(conn)
         {
         }
 

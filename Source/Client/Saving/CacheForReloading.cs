@@ -11,7 +11,7 @@ namespace Multiplayer.Client
     [HarmonyPatch(typeof(MapDrawer), nameof(MapDrawer.RegenerateEverythingNow))]
     public static class MapDrawerRegenPatch
     {
-        public static Dictionary<int, MapDrawer> copyFrom = new Dictionary<int, MapDrawer>();
+        public static Dictionary<int, MapDrawer> copyFrom = new();
 
         static bool Prefix(MapDrawer __instance)
         {

@@ -8,7 +8,7 @@ using Verse;
 
 namespace Multiplayer.Client.Networking
 {
-    public class LocalClientConnection : IConnection
+    public class LocalClientConnection : ConnectionBase
     {
         public LocalServerConnection serverSide;
 
@@ -44,7 +44,7 @@ namespace Multiplayer.Client.Networking
         }
     }
 
-    public class LocalServerConnection : IConnection
+    public class LocalServerConnection : ConnectionBase
     {
         public LocalClientConnection clientSide;
 

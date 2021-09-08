@@ -8,6 +8,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.Text;
 using System.Threading.Tasks;
+using Multiplayer.Client.Util;
 using UnityEngine;
 using Verse;
 
@@ -31,16 +32,7 @@ namespace Multiplayer.Client.Patches
     static class FixApparelSort
     {
         static MethodBase TargetMethod() =>
-            typeof(Pawn_ApparelTracker).
-            GetNestedTypes(BindingFlags.NonPublic).
-            Select(t => Inner(t)).AllNotNull().FirstOrDefault();
-
-        private static MethodBase Inner(Type t)
-        {
-            if (!t.IsCompilerGenerated())
-                return null;
-            return AccessTools.FirstMethod(t, m => m.Name.Contains(nameof(Pawn_ApparelTracker.SortWornApparelIntoDrawOrder)));
-        }
+            MpMethodUtil.GetLambda(typeof(Pawn_ApparelTracker), nameof(Pawn_ApparelTracker.SortWornApparelIntoDrawOrder), 0);
 
         static void Postfix(Apparel a, Apparel b, ref int __result)
         {
@@ -99,9 +91,7 @@ namespace Multiplayer.Client.Patches
             while (i < list.Count)
             {
                 int index = Mathf.Abs(MurmurHash.GetInt(Rand.seed, iters--) % (i + 1));
-                T value = list[index];
-                list[index] = list[i];
-                list[i] = value;
+                (list[index], list[i]) = (list[i], list[index]);
                 i++;
             }
         }
@@ -218,7 +208,7 @@ namespace Multiplayer.Client.Patches
     {
         static MethodBase TargetMethod()
         {
-            return MpUtil.GetLambda(typeof(Archive), nameof(Archive.Add), 0);
+            return MpMethodUtil.GetLambda(typeof(Archive), nameof(Archive.Add), 0);
         }
 
         static void Postfix(IArchivable x, ref int __result)

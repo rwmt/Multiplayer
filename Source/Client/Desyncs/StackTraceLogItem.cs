@@ -60,7 +60,7 @@ namespace Multiplayer.Client
                     var addr = raw[i];
 
                     if (!methodNames.TryGetValue(addr, out string method))
-                        methodNames[addr] = method = Native.MethodNameFromAddr(raw[i]);
+                        methodNames[addr] = method = Native.MethodNameFromAddr(raw[i], false);
 
                     if (method != null)
                         builder.AppendLine(SyncCoordinator.MethodNameWithIL(method));

@@ -17,7 +17,8 @@ namespace Multiplayer.Client.Comp
     {
         static void Prefix(MapParent settlement)
         {
-            if (!MultiplayerWorldComp.asyncTime) return;
+            if (Multiplayer.Client == null) return;
+            if (!Multiplayer.GameComp.asyncTime) return;
 
             var mapAsyncTimeComp = settlement.Map.AsyncTime();
             if (mapAsyncTimeComp != null)
@@ -32,7 +33,8 @@ namespace Multiplayer.Client.Comp
     {
         static void Postfix(ref Quest __result)
         {
-            if (!MultiplayerWorldComp.asyncTime) return;
+            if (Multiplayer.Client == null) return;
+            if (!Multiplayer.GameComp.asyncTime) return;
 
             MultiplayerAsyncQuest.CacheQuest(__result);
         }
@@ -44,7 +46,8 @@ namespace Multiplayer.Client.Comp
     {
         static bool Prefix()
         {
-            if (!MultiplayerWorldComp.asyncTime) return true;
+            if (Multiplayer.Client == null) return true;
+            if (!Multiplayer.GameComp.asyncTime) return true;
 
             //Only tick world quest during world time
             MultiplayerAsyncQuest.TickWorldQuests();
@@ -59,7 +62,8 @@ namespace Multiplayer.Client.Comp
     {
         static void Postfix()
         {
-            if (!MultiplayerWorldComp.asyncTime) return;
+            if (Multiplayer.Client == null) return;
+            if (!Multiplayer.GameComp.asyncTime) return;
 
             MultiplayerAsyncQuest.Reset();
 
@@ -75,16 +79,17 @@ namespace Multiplayer.Client.Comp
     {
         static IEnumerable<MethodInfo> TargetMethods()
         {
-            yield return AccessTools.Method(typeof(Quest), "get_" + nameof(Quest.TicksSinceAppeared));
-            yield return AccessTools.Method(typeof(Quest), "get_" + nameof(Quest.TicksSinceAccepted));
-            yield return AccessTools.Method(typeof(Quest), "get_" + nameof(Quest.TicksSinceCleanup));
+            yield return AccessTools.PropertyGetter(typeof(Quest), nameof(Quest.TicksSinceAppeared));
+            yield return AccessTools.PropertyGetter(typeof(Quest), nameof(Quest.TicksSinceAccepted));
+            yield return AccessTools.PropertyGetter(typeof(Quest), nameof(Quest.TicksSinceCleanup));
             yield return AccessTools.Method(typeof(Quest), nameof(Quest.SetInitiallyAccepted));
             yield return AccessTools.Method(typeof(Quest), nameof(Quest.CleanupQuestParts));
         }
 
         static void Prefix(Quest __instance, ref AsyncTimeComp __state)
         {
-            if (!MultiplayerWorldComp.asyncTime) return;
+            if (Multiplayer.Client == null) return;
+            if (!Multiplayer.GameComp.asyncTime) return;
 
             __state = MultiplayerAsyncQuest.TryGetCachedQuestMap(__instance);
             __state?.PreContext();
@@ -98,8 +103,10 @@ namespace Multiplayer.Client.Comp
     {
         static void Prefix(Quest __instance, ref AsyncTimeComp __state)
         {
+            if (Multiplayer.Client == null) return;
+
             //Make sure quest is accepted and async time is enabled and there are parts to this quest
-            if (__instance.State != QuestState.NotYetAccepted || !MultiplayerWorldComp.asyncTime || __instance.parts == null) return;
+            if (__instance.State != QuestState.NotYetAccepted || !Multiplayer.GameComp.asyncTime || __instance.parts == null) return;
 
             __state = MultiplayerAsyncQuest.CacheQuest(__instance);
             __state?.PreContext();
@@ -113,6 +120,7 @@ namespace Multiplayer.Client.Comp
     {
         static void Postfix(Quest __instance)
         {
+            if (Multiplayer.Client == null) return;
             MultiplayerAsyncQuest.TryRemoveCachedQuest(__instance);
         }
     }
@@ -170,21 +178,21 @@ namespace Multiplayer.Client.Comp
         /// Attempts to get the MapAsyncTimeComp cached for that quest
         /// </summary>
         /// <param name="quest">Quest to find MapAsyncTimeComp for</param>
-        /// <returns>MapAsycTimeComp for that quest or Null if not found</returns>
+        /// <returns>MapAsyncTimeComp for that quest or Null if not found</returns>
         public static AsyncTimeComp TryGetCachedQuestMap(Quest quest)
         {
-            if (!MultiplayerWorldComp.asyncTime || quest == null) return null;
+            if (!Multiplayer.GameComp.asyncTime || quest == null) return null;
             return mapQuestsCache.FirstOrDefault(x => x.Value.Contains(quest)).Key;
         }
 
         /// <summary>
-        /// Determines if a quest has a MapAsyncTimeComp, if it does it will cache it to the mapQuestsCache otherwise to worldQuestsCache 
+        /// Determines if a quest has a MapAsyncTimeComp, if it does it will cache it to the mapQuestsCache otherwise to worldQuestsCache
         /// </summary>
         /// <param name="quest">Quest to Cache</param>
-        /// <returns>MapAsycTimeComp for that quest or Null if not found</returns>
+        /// <returns>MapAsyncTimeComp for that quest or Null if not found</returns>
         public static AsyncTimeComp CacheQuest(Quest quest)
         {
-            if (!MultiplayerWorldComp.asyncTime || quest == null) return null;
+            if (!Multiplayer.GameComp.asyncTime || quest == null) return null;
 
             //Check if quest targets players map
             var mapAsyncTimeComp = TryGetQuestMap(quest);
@@ -252,7 +260,7 @@ namespace Multiplayer.Client.Comp
         /// Attempts to find the map the quest will target, via its Quest Parts. Filtering on Map.IsPlayerHome and then check if it contains a MapAsyncTimeComp
         /// </summary>
         /// <param name="quest">Quest to check Map Parts on</param>
-        /// <returns>MapAsycTimeComp for that quest or Null if not found</returns>
+        /// <returns>MapAsyncTimeComp for that quest or Null if not found</returns>
         private static AsyncTimeComp TryGetQuestMap(Quest quest)
         {
             //Really terrible way to determine if any quest parts have a map which also has an async time
@@ -269,13 +277,13 @@ namespace Multiplayer.Client.Comp
         }
 
         /// <summary>
-        /// Attempts to update or insert a new cache for a Map and Quest, will always attempt to remove the quest before adding incase it existed on another map.
+        /// Attempts to update or insert a new cache for a Map and Quest, will always attempt to remove the quest before adding in case it existed on another map.
         /// </summary>
         /// <param name="mapAsyncTimeComp">Map that will hold the quest</param>
         /// <param name="quest">Quest for the map</param>
         private static void UpsertQuestMap(AsyncTimeComp mapAsyncTimeComp, Quest quest)
         {
-            //if there is more then one map with the quest something went wrong - removes quest object incase it changes map
+            //if there is more then one map with the quest something went wrong - removes quest object in case it changes map
             TryRemoveCachedQuest(quest);
 
             if (mapQuestsCache.TryGetValue(mapAsyncTimeComp, out var quests))

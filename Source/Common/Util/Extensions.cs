@@ -64,15 +64,14 @@ namespace Multiplayer.Common
             return result;
         }
 
-        public static MpNetConnection GetConnection(this NetPeer peer)
+        public static LiteNetConnection GetConnection(this NetPeer peer)
         {
-            return (MpNetConnection)peer.Tag;
+            return (LiteNetConnection)peer.Tag;
         }
 
-        public static void Write(this MemoryStream stream, byte[] arr)
+        public static void WriteBytes(this MemoryStream stream, byte[] arr)
         {
-            if (arr.Length > 0)
-                stream.Write(arr, 0, arr.Length);
+            stream.Write(arr, 0, arr.Length);
         }
 
         public static IEnumerable<T> AllAttributes<T>(this MemberInfo member) where T : Attribute

@@ -17,6 +17,7 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
+using Multiplayer.Client.Util;
 using UnityEngine;
 using Verse;
 using Verse.AI;
@@ -358,7 +359,7 @@ namespace Multiplayer.Client
         public static void SetupMap(Map map)
         {
             Log.Message("New map " + map.uniqueID);
-            Log.Message("Uniq ids " + Multiplayer.GlobalIdBlock.currentWithinBlock);
+            Log.Message("Unique ids " + Multiplayer.GlobalIdBlock.currentWithinBlock);
             Log.Message("Rand " + Rand.StateCompressed);
 
             var async = new AsyncTimeComp(map);
@@ -373,7 +374,7 @@ namespace Multiplayer.Client
             async.storyteller = new Storyteller(Find.Storyteller.def, Find.Storyteller.difficultyDef, Find.Storyteller.difficulty);
             async.storyWatcher = new StoryWatcher();
 
-            if (!MultiplayerWorldComp.asyncTime)
+            if (!Multiplayer.GameComp.asyncTime)
                 async.TimeSpeed = Find.TickManager.CurTimeSpeed;
         }
 
@@ -442,7 +443,7 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch]
-    static class NoCameraJumpingDuringSimulting
+    static class NoCameraJumpingDuringSimulating
     {
         static IEnumerable<MethodBase> TargetMethods()
         {

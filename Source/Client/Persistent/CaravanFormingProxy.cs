@@ -5,7 +5,7 @@ using Verse;
 
 namespace Multiplayer.Client
 {
-    public class CaravanFormingProxy : Dialog_FormCaravan
+    public class CaravanFormingProxy : Dialog_FormCaravan, ISwitchToMap
     {
         public static CaravanFormingProxy drawing;
 

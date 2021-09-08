@@ -6,12 +6,14 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Multiplayer.Client.Util;
 using UnityEngine;
 using Verse;
 using Verse.Steam;
 
 namespace Multiplayer.Client
 {
+    [HotSwappable]
     [StaticConstructorOnStartup]
     public class ChatWindow : Window
     {
@@ -45,7 +47,9 @@ namespace Multiplayer.Client
             resizeable = true;
             onlyOneOfTypeAllowed = true;
             closeOnCancel = false;
-            lastResolution = MpUtil.Resolution;
+            resizer = new WindowResizer { minWindowSize = new Vector2(350f, 200f) };
+
+            lastResolution = MpUI.Resolution;
 
             if (!Multiplayer.session.desynced)
             {
@@ -94,7 +98,7 @@ namespace Multiplayer.Client
 
             if (KeyBindingDefOf.Cancel.KeyDownEvent && Find.WindowStack.focusedWindow == this)
             {
-                Close(true);
+                Close();
                 Event.current.Use();
             }
         }
@@ -102,7 +106,7 @@ namespace Multiplayer.Client
         private void DrawInfo(Rect inRect)
         {
             Widgets.Label(inRect, Multiplayer.session.gameName);
-            inRect.yMin += 30f;
+            inRect.yMin += Text.CalcHeight(Multiplayer.session.gameName, inRect.width) + 10f;
 
             DrawList(
                 "MpChatPlayers".Translate(Multiplayer.session.players.Count),
@@ -121,7 +125,7 @@ namespace Multiplayer.Client
                         TooltipHandler.TipRegion(steamIcon, new TipSignal($"{p.steamPersonaName}\n{p.steamId}", p.id));
                     }
 
-                    string toolTip = $"{p.ticksBehind >> 1} ticks behind";
+                    string toolTip = $"{p.username}\n\nPing: {p.latency}ms\n{p.ticksBehind >> 1} ticks behind";
                     if ((p.ticksBehind & 1) != 0)
                         toolTip += "\n(Simulating)";
 
@@ -228,9 +232,8 @@ namespace Multiplayer.Client
                 if (labelColor != null)
                     GUI.color = labelColor.Value;
 
-                Text.Anchor = TextAnchor.MiddleLeft;
-                Widgets.Label(entryRect, entryLabel);
-                Text.Anchor = TextAnchor.UpperLeft;
+                using (MpStyle.Set(TextAnchor.MiddleLeft))
+                    Widgets.Label(entryRect, entryLabel.Truncate(entryRect.width));
 
                 if (labelColor != null)
                     GUI.color = prevColor;
@@ -248,11 +251,7 @@ namespace Multiplayer.Client
 
         private void DrawChat(Rect inRect)
         {
-            if ((Event.current.type == EventType.MouseDown || KeyBindingDefOf.Cancel.KeyDownEvent) && !GUI.GetNameOfFocusedControl().NullOrEmpty())
-            {
-                Event.current.Use();
-                UI.UnfocusCurrentControl();
-            }
+            MpUI.TryUnfocusCurrentNamedControl(this);
 
             Rect outRect = new Rect(0f, 0f, inRect.width, inRect.height - 30f);
             Rect viewRect = new Rect(0f, 0f, inRect.width - 16f, messagesHeight + 10f);
@@ -317,7 +316,7 @@ namespace Multiplayer.Client
 
             Widgets.EndScrollView();
 
-            if (Widgets.ButtonText(new Rect(textField.xMax + 5f, textField.y, 55f, textField.height), "MpSend".Translate()))
+            if (Widgets.ButtonText(new Rect(textField.xMax + 5f, textField.y, 55f, textField.height), "MpChatSend".Translate()))
                 SendMsg();
 
             GUI.EndGroup();
@@ -387,7 +386,7 @@ namespace Multiplayer.Client
                     LogNetData("Net Server", Multiplayer.LocalServer.netManager.Statistics);
 
                 foreach (var p in Multiplayer.LocalServer.players.ToList())
-                    if (p.conn is MpNetConnection net)
+                    if (p.conn is LiteNetConnection net)
                         LogNetData($"Net Peer {p.Username}", net.peer.Statistics);
             }
 
@@ -435,7 +434,7 @@ namespace Multiplayer.Client
         private void SaveChatSize()
         {
             Multiplayer.settings.chatRect = windowRect;
-            Multiplayer.settings.resolutionForChat = MpUtil.Resolution;
+            Multiplayer.settings.resolutionForChat = MpUI.Resolution;
         }
 
         public void SetSizeTo(Rect chatRect, Vector2 lastResolution)
@@ -452,7 +451,7 @@ namespace Multiplayer.Client
         public override void Notify_ResolutionChanged()
         {
             SetSizeTo(windowRect, lastResolution);
-            lastResolution = MpUtil.Resolution;
+            lastResolution = MpUI.Resolution;
         }
 
         public static void OpenChat()

@@ -19,6 +19,7 @@ using zip::Ionic.Zip;
 using Multiplayer.Client.Comp;
 using Multiplayer.Client.Patches;
 using Multiplayer.Client.Saving;
+using Multiplayer.Client.Util;
 
 namespace Multiplayer.Client
 {
@@ -84,6 +85,7 @@ namespace Multiplayer.Client
         private TimeSpeed timeSpeedInt;
         public bool forcedNormalSpeed;
         public int eventCount;
+        public int autosaveCounter;
 
         public Storyteller storyteller;
         public StoryWatcher storyWatcher;
@@ -113,6 +115,7 @@ namespace Multiplayer.Client
             try
             {
                 map.MapPreTick();
+                autosaveCounter++;
                 mapTicks++;
                 Find.TickManager.ticksGameInt = mapTicks;
 
@@ -266,7 +269,7 @@ namespace Multiplayer.Client
             SelectorDeselectPatch.deselected = new List<object>();
 
             bool prevDevMode = Prefs.data.devMode;
-            Prefs.data.devMode = Multiplayer.WorldComp.debugMode;
+            Prefs.data.devMode = Multiplayer.GameComp.debugMode;
 
             try
             {
@@ -286,7 +289,7 @@ namespace Multiplayer.Client
                     HandleMapFactionData(cmd, data);
                 }
 
-                if (cmdType == CommandType.MapTimeSpeed && MultiplayerWorldComp.asyncTime)
+                if (cmdType == CommandType.MapTimeSpeed && Multiplayer.GameComp.asyncTime)
                 {
                     TimeSpeed speed = (TimeSpeed)data.ReadByte();
                     TimeSpeed = speed;
@@ -314,7 +317,7 @@ namespace Multiplayer.Client
             }
             catch (Exception e)
             {
-                Log.Error($"Map cmd exception ({cmdType}): {e}");
+                MpLog.Error($"Map cmd exception ({cmdType}): {e}");
             }
             finally
             {
@@ -483,9 +486,20 @@ namespace Multiplayer.Client
 
         public void QuestManagerTickAsyncTime()
         {
-            if (!MultiplayerWorldComp.asyncTime || Paused) return;
+            if (!Multiplayer.GameComp.asyncTime || Paused) return;
 
             MultiplayerAsyncQuest.TickMapQuests(this);
+        }
+
+        public void Update()
+        {
+            if (Multiplayer.LocalServer is { } server
+                && server.settings.autosaveUnit == AutosaveUnit.Days
+                && autosaveCounter > server.settings.autosaveInterval * 2500 * 24)
+            {
+                Multiplayer.game.asyncTimeComps.Do(m => m.autosaveCounter = 0);
+                Multiplayer.Client.Send(Packets.Client_Chat, "/autosave");
+            }
         }
     }
 

@@ -1,13 +1,14 @@
 using System;
 using System.Linq;
 using System.Text;
+using Multiplayer.Client;
 
 namespace Multiplayer.Common
 {
     public class ServerPlayer
     {
         public int id;
-        public IConnection conn;
+        public ConnectionBase conn;
         public PlayerType type;
         public PlayerStatus status;
         public ColorRGB color;
@@ -27,7 +28,7 @@ namespace Multiplayer.Common
 
         public MultiplayerServer Server => MultiplayerServer.instance;
 
-        public ServerPlayer(int id, IConnection connection)
+        public ServerPlayer(int id, ConnectionBase connection)
         {
             this.id = id;
             conn = connection;
@@ -41,14 +42,14 @@ namespace Multiplayer.Common
             }
             catch (Exception e)
             {
-                MpLog.Error($"Error handling packet by {conn}: {e}");
-                Disconnect($"Receive error: {e.GetType().Name}: {e.Message}");
+                ServerLog.Error($"Error handling packet by {conn}: {e}");
+                Disconnect(MpDisconnectReason.ServerPacketRead);
             }
         }
 
         public void Disconnect(string reasonKey)
         {
-            Disconnect(MpDisconnectReason.GenericKeyed, Encoding.UTF8.GetBytes(reasonKey));
+            Disconnect(MpDisconnectReason.GenericKeyed, ByteWriter.GetBytes(reasonKey));
         }
 
         public void Disconnect(MpDisconnectReason reason, byte[] data = null)

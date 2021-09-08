@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Text;
+using Multiplayer.Client.Util;
 using UnityEngine;
 using Verse;
 
@@ -19,9 +20,7 @@ namespace Multiplayer.Client
         public abstract string ConnectingString { get; }
 
         public bool returnToServerBrowser;
-
         protected string result;
-        protected string desc;
 
         public BaseConnectingWindow()
         {
@@ -31,9 +30,9 @@ namespace Multiplayer.Client
 
         public override void DoWindowContents(Rect inRect)
         {
-            string label = IsConnecting ? (ConnectingString + MpUtil.FixedEllipsis()) : result;
+            string label = IsConnecting ? (ConnectingString + MpUI.FixedEllipsis()) : result;
 
-            if (Multiplayer.Client?.StateObj is ClientJoiningState joining && joining.subState == JoiningState.Downloading)
+            if (Multiplayer.Client?.StateObj is ClientJoiningState { subState: JoiningState.Downloading })
                 label = $"MpDownloading".Translate(Multiplayer.Client.FragmentProgress);
 
             const float buttonHeight = 40f;
@@ -76,8 +75,6 @@ namespace Multiplayer.Client
         {
             this.address = address;
             this.port = port;
-
-            ClientUtil.TryConnect(address, port);
         }
     }
 

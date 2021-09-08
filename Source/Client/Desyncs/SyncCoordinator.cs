@@ -14,6 +14,7 @@ using UnityEngine;
 using Verse;
 using zip::Ionic.Zip;
 using Multiplayer.Client.Desyncs;
+using Multiplayer.Client.Util;
 
 namespace Multiplayer.Client
 {
@@ -171,7 +172,7 @@ namespace Multiplayer.Client
                         .AppendLine($"Rimworld Version and Rev|||{VersionControl.CurrentVersionStringWithRev}")
                         .AppendLine("\n###Debug Options###")
                         .AppendLine($"Multiplayer Debug Build - Client|||{MpVersion.IsDebug}")
-                        .AppendLine($"Multiplayer Debug Build - Host|||{Multiplayer.WorldComp.debugMode}")
+                        .AppendLine($"Multiplayer Debug Build - Host|||{Multiplayer.GameComp.debugMode}")
                         .AppendLine($"Rimworld Developer Mode - Client|||{Prefs.DevMode}")
                         .AppendLine("\n###Server Info###")
                         .AppendLine($"Player Count|||{Multiplayer.session.players.Count}")
@@ -208,7 +209,7 @@ namespace Multiplayer.Client
                 Log.Error($"Exception writing desync info: {e}");
             }
 
-            MpUtil.ClearWindowStack();
+            MpUI.ClearWindowStack();
             Find.WindowStack.Add(new DesyncedWindow(desyncMessage));
         }
 

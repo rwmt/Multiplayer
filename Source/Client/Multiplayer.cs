@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -15,20 +17,25 @@ using Verse;
 
 using Multiplayer.Common;
 using System.Runtime.CompilerServices;
+using System.Threading;
+using JetBrains.Annotations;
+using Multiplayer.Client.Comp;
 using Multiplayer.Client.Desyncs;
 using Multiplayer.Client.Patches;
+using Multiplayer.Client.Util;
+using UnityEngine.Experimental.Rendering;
 
 namespace Multiplayer.Client
 {
     public class Multiplayer : Mod
     {
-        public static Harmony harmony = new Harmony("multiplayer");
+        public static Harmony harmony = new("multiplayer");
         public static MpSettings settings;
 
         public static MultiplayerGame game;
         public static MultiplayerSession session;
 
-        public static IConnection Client => session?.client;
+        public static ConnectionBase Client => session?.client;
         public static MultiplayerServer LocalServer => session?.localServer;
         public static PacketLogWindow WriterLog => session?.writerLog;
         public static PacketLogWindow ReaderLog => session?.readerLog;
@@ -39,6 +46,7 @@ namespace Multiplayer.Client
         public static bool reloading;
 
         public static IdBlock GlobalIdBlock => game.worldComp.globalIdBlock;
+        public static MultiplayerGameComp GameComp => game.gameComp;
         public static MultiplayerWorldComp WorldComp => game.worldComp;
 
         public static bool ShowDevInfo => Prefs.DevMode && settings.showDevInfo;
@@ -62,19 +70,24 @@ namespace Multiplayer.Client
 
         public static Stopwatch clock = Stopwatch.StartNew();
 
-        public static HashSet<string> xmlMods = new HashSet<string>();
-        public static List<ModHashes> enabledModAssemblyHashes = new List<ModHashes>();
-        public static Dictionary<string, DefInfo> localDefInfos;
-
         public static bool arbiterInstance;
         public static bool hasLoaded;
         public static bool loadingErrors;
-        public static Stopwatch harmonyWatch = new Stopwatch();
+        public static Stopwatch harmonyWatch = new();
+
+        public static string restartConnect;
+        public static bool restartConfigs;
 
         public Multiplayer(ModContentPack pack) : base(pack)
         {
             Native.EarlyInit();
             DisableOmitFramePointer();
+
+            using (DeepProfilerWrapper.Section("Multiplayer CacheTypeHierarchy"))
+                CacheTypeHierarchy();
+
+            using (DeepProfilerWrapper.Section("Multiplayer CacheTypeByName"))
+                CacheTypeByName();
 
             if (GenCommandLine.CommandLineArgPassed("profiler"))
             {
@@ -86,13 +99,15 @@ namespace Multiplayer.Client
             if (GenCommandLine.CommandLineArgPassed("arbiter"))
             {
                 ArbiterWindowFix.Run();
-
                 arbiterInstance = true;
             }
+
+            ProcessEnvironment();
 
             SyncDict.Init();
 
             EarlyPatches();
+            InitSync();
             CheckInterfaceVersions();
 
             settings = GetSettings<MpSettings>();
@@ -108,18 +123,66 @@ namespace Multiplayer.Client
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        private void DisableOmitFramePointer()
+        private static void DisableOmitFramePointer()
         {
             Native.mini_parse_debug_option("disable_omit_fp");
         }
 
-        private void EarlyPatches()
-        {
-            Assembly.GetCallingAssembly().GetTypes().Do(type => {
-                if (type.Namespace != null && type.Namespace.EndsWith("EarlyPatches"))
-                    harmony.CreateClassProcessor(type).Patch();
-            });
+        public const string RestartConnectVariable = "MultiplayerRestartConnect";
+        public const string RestartConfigsVariable = "MultiplayerRestartConfigs";
 
+        private static void ProcessEnvironment()
+        {
+            if (!Environment.GetEnvironmentVariable(RestartConnectVariable).NullOrEmpty())
+            {
+                restartConnect = Environment.GetEnvironmentVariable(RestartConnectVariable);
+                Environment.SetEnvironmentVariable(RestartConnectVariable, ""); // Effectively unsets it
+            }
+
+            if (!Environment.GetEnvironmentVariable(RestartConfigsVariable).NullOrEmpty())
+            {
+                restartConfigs = Environment.GetEnvironmentVariable(RestartConfigsVariable) == "true";
+                Environment.SetEnvironmentVariable(RestartConfigsVariable, "");
+            }
+        }
+
+        internal static Dictionary<Type, List<Type>> subClasses = new();
+        internal static Dictionary<Type, List<Type>> subClassesNonAbstract = new();
+        internal static Dictionary<Type, List<Type>> implementations = new();
+
+        private static void CacheTypeHierarchy()
+        {
+            foreach (var type in GenTypes.AllTypes)
+            {
+                for (var baseType = type.BaseType; baseType != null; baseType = baseType.BaseType)
+                {
+                    subClasses.GetOrAddNew(baseType).Add(type);
+                    if (!type.IsAbstract)
+                        subClassesNonAbstract.GetOrAddNew(baseType).Add(type);
+                }
+
+                foreach (var i in type.GetInterfaces())
+                    implementations.GetOrAddNew(i).Add(type);
+            }
+        }
+
+        internal static Dictionary<string, Type> typeByName = new();
+        internal static Dictionary<string, Type> typeByFullName = new();
+
+        private static void CacheTypeByName()
+        {
+            foreach (var type in GenTypes.AllTypes)
+            {
+                if (!typeByName.ContainsKey(type.Name))
+                    typeByName[type.Name] = type;
+
+                if (!typeByFullName.ContainsKey(type.Name))
+                    typeByFullName[type.FullName] = type;
+            }
+        }
+
+        private static void EarlyPatches()
+        {
             // Might fix some mod desyncs
             harmony.PatchMeasure(
                 AccessTools.Constructor(typeof(Def), new Type[0]),
@@ -127,22 +190,32 @@ namespace Multiplayer.Client
                 new HarmonyMethod(typeof(RandPatches), nameof(RandPatches.Postfix))
             );
 
-            harmony.PatchMeasure(
-                AccessTools.PropertyGetter(typeof(Rand), nameof(Rand.Int)),
-                postfix: new HarmonyMethod(typeof(DeferredStackTracing), nameof(DeferredStackTracing.Postfix))
-            );
-
-            harmony.PatchMeasure(
-                AccessTools.PropertyGetter(typeof(Rand), nameof(Rand.Value)),
-                postfix: new HarmonyMethod(typeof(DeferredStackTracing), nameof(DeferredStackTracing.Postfix))
-            );
+            Assembly.GetCallingAssembly().GetTypes().Do(type => {
+                if (type.IsDefined(typeof(EarlyPatchAttribute)))
+                    harmony.CreateClassProcessor(type).Patch();
+            });
 
 #if DEBUG
             DebugPatches.Init();
 #endif
         }
 
-        private void LatePatches()
+        private static void InitSync()
+        {
+            using (DeepProfilerWrapper.Section("Multiplayer CollectTypes"))
+                SyncSerialization.CollectTypes();
+
+            using (DeepProfilerWrapper.Section("Multiplayer SyncGame"))
+                SyncGame.Init();
+
+            using (DeepProfilerWrapper.Section("Multiplayer Sync register attributes"))
+                Sync.RegisterAllAttributes(typeof(Multiplayer).Assembly);
+
+            using (DeepProfilerWrapper.Section("Multiplayer Sync validation"))
+                Sync.ValidateAll();
+        }
+
+        private static void LatePatches()
         {
             // optimization, cache DescendantThingDefs
             harmony.PatchMeasure(
@@ -170,7 +243,7 @@ namespace Multiplayer.Client
 
         public override string SettingsCategory() => "Multiplayer";
 
-        static void CheckInterfaceVersions()
+        private static void CheckInterfaceVersions()
         {
             var mpAssembly = AppDomain.CurrentDomain.GetAssemblies().First(a => a.GetName().Name == "Multiplayer");
             var curVersion = new Version(
@@ -192,7 +265,7 @@ namespace Multiplayer.Client
                 }
 
                 // Retrieve the original dll
-                var info = mod.ModAssemblies()
+                var info = MultiplayerData.GetModAssemblies(mod)
                     .Select(f => FileVersionInfo.GetVersionInfo(f.FullName))
                     .FirstOrDefault(v => v.ProductName == "Multiplayer");
 
@@ -237,6 +310,11 @@ namespace Multiplayer.Client
                 arbiterInstance = false;
                 Application.Quit();
             }
+        }
+
+        public static void WriteSettingsToDisk()
+        {
+            LoadedModManager.GetMod<Multiplayer>().WriteSettings();
         }
     }
 }
