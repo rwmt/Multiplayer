@@ -173,7 +173,10 @@ namespace Multiplayer.Client
         /// <param name="dialog">Any window</param>
         public static PersistentDialog FindDialog(Window dialog)
         {
-            return Multiplayer.WorldComp.globalDialogs.ConcatIfNotNull(Find.Maps?.SelectMany(m => m.MpComp().mapDialogs)).FirstOrDefault(d => d.Dialog == dialog);
+            var result = Multiplayer.WorldComp?.globalDialogs.FirstOrDefault(d => d.Dialog == dialog);
+            if (result != null) return result;
+
+            return Find.Maps?.SelectMany(m => m.MpComp().mapDialogs).FirstOrDefault(d => d.Dialog == dialog);
         }
 
         /// <summary>
