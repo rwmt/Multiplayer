@@ -659,7 +659,7 @@ namespace Multiplayer.Client
             return letter is { TimeoutActive: true } && letter.disappearAtTick >= Find.TickManager.TicksGame;
         }
 
-        [SyncMethod(exposeParameters = new[] { 0 })]
+        [SyncMethod]
         static void RegisterDialogWithLetter(ChoiceLetter letter) => letter.OpenLetter();
     }
 

@@ -998,6 +998,18 @@ namespace Multiplayer.Client
             },
 
             #endregion
+
+            #region Letter
+
+            {
+                (ByteWriter data, Letter letter) => data.WriteInt32(letter.ID),
+                (ByteReader data) =>
+                {
+                    var id = data.ReadInt32();
+                    return Find.LetterStack.letters.FirstOrDefault(l => l.ID == id);
+                }, true
+            },
+            #endregion
         };
 
         class Dummy_ITab_Pawn_Visitor : ITab_Pawn_Visitor { }
