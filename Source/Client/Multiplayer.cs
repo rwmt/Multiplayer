@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Diagnostics;
@@ -45,7 +46,7 @@ namespace Multiplayer.Client
 
         public static bool reloading;
 
-        public static IdBlock GlobalIdBlock => game.worldComp.globalIdBlock;
+        public static IdBlock GlobalIdBlock => game.gameComp.globalIdBlock;
         public static MultiplayerGameComp GameComp => game.gameComp;
         public static MultiplayerWorldComp WorldComp => game.worldComp;
 

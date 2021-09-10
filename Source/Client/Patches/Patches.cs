@@ -261,7 +261,7 @@ namespace Multiplayer.Client
             PawnSpawnSetupMarker.respawningAfterLoad = respawningAfterLoad;
         }
 
-        static void Postfix()
+        static void Finalizer()
         {
             respawningAfterLoad = false;
         }
@@ -279,7 +279,7 @@ namespace Multiplayer.Client
         public static bool loading;
 
         static void Prefix() => loading = true;
-        static void Postfix() => loading = false;
+        static void Finalizer() => loading = false;
     }
 
     [HarmonyPatch(typeof(Root_Play), nameof(Root_Play.Start))]
@@ -288,7 +288,7 @@ namespace Multiplayer.Client
         public static bool starting;
 
         static void Prefix() => starting = true;
-        static void Postfix() => starting = false;
+        static void Finalizer() => starting = false;
     }
 
     [HarmonyPatch(typeof(LongEventHandler), nameof(LongEventHandler.QueueLongEvent), new[] { typeof(Action), typeof(string), typeof(bool), typeof(Action<Exception>), typeof(bool) })]
@@ -644,7 +644,7 @@ namespace Multiplayer.Client
             return true;
         }
 
-        // Registered in SyncHandlers.cs SyncPatches
+        // Registered in SyncMethods.cs
         internal static void Choose(QuestPart_Choice part, int index)
         {
             part.Choose(part.choices[index]);
@@ -655,7 +655,7 @@ namespace Multiplayer.Client
     [HarmonyPatch(new[] {typeof(Vector3), typeof(Map), typeof(ThingDef), typeof(float)})]
     static class FixNullMotes
     {
-        static Dictionary<Type, Mote> cache = new Dictionary<Type, Mote>();
+        static Dictionary<Type, Mote> cache = new();
 
         static void Postfix(ThingDef moteDef, ref Mote __result) {
             if (__result != null) return;
@@ -728,6 +728,13 @@ namespace Multiplayer.Client
     {
         // Set the dialog as closed in here as well just in case
         static void Prefix() => SyncUtil.isDialogNodeTreeOpen = false;
+    }
+
+    [HarmonyPatch(typeof(LetterStack), nameof(LetterStack.LetterStackTick))]
+    static class LetterStackCancelTick
+    {
+        // todo close windows of timed-out letters
+        static bool Prefix() => Multiplayer.Client == null; // Cancels forced showing of timed-out letters
     }
 
     // todo: needed for multifaction

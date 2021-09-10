@@ -108,26 +108,23 @@ namespace Multiplayer.Client
 
             foreach (var m in type.GetDeclaredMethods().Where(m => m.IsStatic))
             {
-                foreach (MpPatch attr in m.AllAttributes<MpPatch>()) {
+                foreach (MpPatch attr in m.AllAttributes<MpPatch>())
+                {
                     try
                     {
                         MethodBase toPatch = attr.Method;
                         HarmonyMethod patch = new HarmonyMethod(m);
 
                         if (harmony != null) {
-
-                                harmony.PatchMeasure(
-                                    toPatch,
-                                    (attr is MpPrefix) ? patch : null,
-                                    (attr is MpPostfix) ? patch : null,
-                                    (attr is MpTranspiler) ? patch : null
-                                );
-
+                            harmony.PatchMeasure(
+                                toPatch,
+                                (attr is MpPrefix) ? patch : null,
+                                (attr is MpPostfix) ? patch : null,
+                                (attr is MpTranspiler) ? patch : null
+                            );
                         }
 
-                        if (result == null)
-                            result = new List<MethodBase>();
-
+                        result ??= new List<MethodBase>();
                         result.Add(toPatch);
                     }
                     catch (Exception e)

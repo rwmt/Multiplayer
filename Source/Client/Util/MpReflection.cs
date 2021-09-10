@@ -149,56 +149,52 @@ namespace Multiplayer.Client
 
                         continue;
                     }
-                    else
+
+                    PropertyInfo indexer = currentType.GetProperties().FirstOrDefault(p => p.GetIndexParameters().Length == 1);
+                    if (indexer == null) continue;
+
+                    Type indexType = indexer.GetIndexParameters()[0].ParameterType;
+
+                    memberFound = indexer;
+                    members.Add(indexer);
+                    currentType = indexer.PropertyType;
+                    hasSetter = indexer.GetSetMethod(true) != null;
+                    indexTypes[memberPath] = indexType;
+
+                    continue;
+                }
+
+                if (!currentType.IsInterface)
+                {
+                    FieldInfo field = AccessTools.Field(currentType, part);
+                    if (field != null)
                     {
-                        PropertyInfo indexer = currentType.GetProperties().FirstOrDefault(p => p.GetIndexParameters().Length == 1);
-                        if (indexer == null) continue;
+                        memberFound = field;
+                        members.Add(field);
+                        currentType = field.FieldType;
+                        hasSetter = true;
+                        continue;
+                    }
 
-                        Type indexType = indexer.GetIndexParameters()[0].ParameterType;
-
-                        memberFound = indexer;
-                        members.Add(indexer);
-                        currentType = indexer.PropertyType;
-                        hasSetter = indexer.GetSetMethod(true) != null;
-                        indexTypes[memberPath] = indexType;
-
+                    PropertyInfo property = AccessTools.Property(currentType, part);
+                    if (property != null)
+                    {
+                        memberFound = property;
+                        members.Add(property);
+                        currentType = property.PropertyType;
+                        hasSetter = property.GetSetMethod(true) != null;
                         continue;
                     }
                 }
-                else
+
+                MethodInfo method = AccessTools.Method(currentType, part);
+                if (method != null)
                 {
-                    if (!currentType.IsInterface)
-                    {
-                        FieldInfo field = AccessTools.Field(currentType, part);
-                        if (field != null)
-                        {
-                            memberFound = field;
-                            members.Add(field);
-                            currentType = field.FieldType;
-                            hasSetter = true;
-                            continue;
-                        }
-
-                        PropertyInfo property = AccessTools.Property(currentType, part);
-                        if (property != null)
-                        {
-                            memberFound = property;
-                            members.Add(property);
-                            currentType = property.PropertyType;
-                            hasSetter = property.GetSetMethod(true) != null;
-                            continue;
-                        }
-                    }
-
-                    MethodInfo method = AccessTools.Method(currentType, part);
-                    if (method != null)
-                    {
-                        memberFound = method;
-                        members.Add(method);
-                        currentType = method.ReturnType;
-                        hasSetter = false;
-                        continue;
-                    }
+                    memberFound = method;
+                    members.Add(method);
+                    currentType = method.ReturnType;
+                    hasSetter = false;
+                    continue;
                 }
 
                 throw new Exception($"Member {part} not found in path: {memberPath}, current type: {currentType}");
@@ -283,11 +279,7 @@ namespace Multiplayer.Client
 
                 if (member is FieldInfo field)
                 {
-                    if (field.IsStatic)
-                        gen.Emit(OpCodes.Ldsfld, field);
-                    else
-                        gen.Emit(OpCodes.Ldfld, field);
-
+                    gen.Emit(field.IsStatic ? OpCodes.Ldsfld : OpCodes.Ldfld, field);
                     memberType = field.FieldType;
                 }
                 else if (member is PropertyInfo prop)

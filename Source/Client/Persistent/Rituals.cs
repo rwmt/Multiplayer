@@ -125,6 +125,9 @@ namespace Multiplayer.Client.Persistent
                     Close();
                 }
 
+                // Make space for the "Switch to map" button
+                inRect.yMin += 20f;
+
                 base.DoWindowContents(inRect);
             }
             finally
@@ -208,7 +211,8 @@ namespace Multiplayer.Client.Persistent
 
         static void Postfix(Dialog_BeginRitual __instance, Func<Pawn, bool, bool, bool> filter, Map map)
         {
-            if (Multiplayer.Client == null || __instance is BeginRitualProxy) return;
+            if (Multiplayer.Client == null) return;
+            if (__instance is BeginRitualProxy) return;
 
             if (Multiplayer.ExecutingCmds || Multiplayer.Ticking)
             {

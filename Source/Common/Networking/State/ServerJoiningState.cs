@@ -2,11 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
-using Multiplayer.Client;
 
 namespace Multiplayer.Common
 {
-    [HotSwappable]
     public class ServerJoiningState : MpConnectionState
     {
         public static Regex UsernamePattern = new(@"^[a-zA-Z0-9_]+$");
@@ -189,7 +187,7 @@ namespace Multiplayer.Common
                 writer.WritePrefixedBytes(mapData);
             }
 
-            writer.WriteInt32(Server.cmdId);
+            writer.WriteInt32(Server.nextCmdId);
 
             connection.State = ConnectionStateEnum.ServerPlaying;
 

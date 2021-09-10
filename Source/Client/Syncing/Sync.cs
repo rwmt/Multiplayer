@@ -15,14 +15,14 @@ namespace Multiplayer.Client
 {
     public static class Sync
     {
-        public static List<SyncHandler> handlers = new List<SyncHandler>();
-        public static List<SyncField> bufferedFields = new List<SyncField>();
+        public static List<SyncHandler> handlers = new();
+        public static List<SyncField> bufferedFields = new();
 
         // Internal maps for Harmony patches
-        public static Dictionary<MethodBase, int> methodBaseToInternalId = new Dictionary<MethodBase, int>();
-        public static List<ISyncCall> internalIdToSyncMethod = new List<ISyncCall>();
+        public static Dictionary<MethodBase, int> methodBaseToInternalId = new();
+        public static List<ISyncCall> internalIdToSyncMethod = new();
 
-        static Dictionary<string, SyncField> registeredSyncFields = new Dictionary<string, SyncField>();
+        static Dictionary<string, SyncField> registeredSyncFields = new();
 
         public static void PostInitHandlers()
         {
@@ -127,7 +127,7 @@ namespace Multiplayer.Client
 
         public static SyncMethod RegisterSyncMethod(Type type, string methodOrPropertyName, SyncType[] argTypes = null)
         {
-            MethodInfo method = AccessTools.Method(type, methodOrPropertyName, argTypes != null ? argTypes.Select(t => t.type).ToArray() : null);
+            MethodInfo method = AccessTools.Method(type, methodOrPropertyName, argTypes?.Select(t => t.type).ToArray());
 
             if (method == null) {
                 PropertyInfo property = AccessTools.Property(type, methodOrPropertyName);
@@ -148,8 +148,10 @@ namespace Multiplayer.Client
         /// </summary>
         internal static void RegisterAllAttributes(Assembly asm)
         {
-            foreach (Type type in asm.GetTypes()) {
-                foreach (MethodInfo method in type.GetDeclaredMethods()) {
+            foreach (Type type in asm.GetTypes())
+            {
+                foreach (MethodInfo method in type.GetDeclaredMethods())
+                {
                     try
                     {
                         if (method.TryGetAttribute(out SyncMethodAttribute sma))
@@ -166,7 +168,8 @@ namespace Multiplayer.Client
                     }
                 }
 
-                foreach (FieldInfo field in AccessTools.GetDeclaredFields(type)) {
+                foreach (FieldInfo field in AccessTools.GetDeclaredFields(type))
+                {
                     try
                     {
                         if (field.TryGetAttribute(out SyncFieldAttribute sfa))
@@ -181,7 +184,7 @@ namespace Multiplayer.Client
             }
         }
 
-        static void RegisterSyncMethod(MethodInfo method, SyncMethodAttribute attribute)
+        private static void RegisterSyncMethod(MethodInfo method, SyncMethodAttribute attribute)
         {
             int[] exposeParameters = attribute.exposeParameters;
             int paramNum = method.GetParameters().Length;
@@ -467,7 +470,7 @@ namespace Multiplayer.Client
 
     public class MethodGroup : IEnumerable<SyncMethod>
     {
-        private List<SyncMethod> methods = new List<SyncMethod>();
+        private List<SyncMethod> methods = new();
 
         public void Add(string methodName, params SyncType[] argTypes)
         {
@@ -491,7 +494,7 @@ namespace Multiplayer.Client
 
         private class TypeComparer : IEqualityComparer<Type>
         {
-            public static TypeComparer instance = new TypeComparer();
+            public static TypeComparer instance = new();
 
             public bool Equals(Type x, Type y)
             {
@@ -514,11 +517,4 @@ namespace Multiplayer.Client
             throw new NotImplementedException();
         }
     }
-
-    public class MpContext
-    {
-        public Map map;
-        public bool syncingThingParent;
-    }
-
 }
