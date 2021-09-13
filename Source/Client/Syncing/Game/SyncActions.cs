@@ -34,7 +34,7 @@ namespace Multiplayer.Client
             return sync;
         }
 
-        public static Dictionary<MethodBase, ISyncAction> syncActions = new Dictionary<MethodBase, ISyncAction>();
+        public static Dictionary<MethodBase, ISyncAction> syncActions = new();
         public static bool wantOriginal;
         private static bool syncingActions; // Prevents from running on base methods
 

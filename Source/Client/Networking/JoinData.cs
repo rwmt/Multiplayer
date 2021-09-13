@@ -155,6 +155,8 @@ namespace Multiplayer.Client
                     if (!mod.assemblies.loadedAssemblies.Contains(modInstance.GetType().Assembly)) continue;
 
                     var instanceName = modInstance.GetType().Name;
+
+                    // This path may point to configs downloaded from the server
                     var file = LoadedModManager.GetSettingsFilename(mod.FolderName, instanceName);
 
                     if (File.Exists(file))
@@ -165,7 +167,10 @@ namespace Multiplayer.Client
             // Special case for HugsLib
             if (modIds.Contains(HugsLibId) && GetInstalledMod(HugsLibId) is { Active: true })
             {
-                var hugsConfig = Path.Combine(GenFilePaths.SaveDataFolderPath, "HugsLib", "ModSettings.xml");
+                var hugsConfig =
+                    HugsLib_OverrideConfigsPatch.HugsLibConfigOverridenPath ??
+                    Path.Combine(GenFilePaths.SaveDataFolderPath, "HugsLib", "ModSettings.xml");
+
                 if (File.Exists(hugsConfig))
                     list.Add(GetConfigCatchError(hugsConfig, HugsLibId, HugsLibSettingsFile));
             }

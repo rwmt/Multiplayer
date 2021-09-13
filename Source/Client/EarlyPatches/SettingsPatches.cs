@@ -21,6 +21,24 @@ namespace Multiplayer.Client.EarlyPatches
             yield return AccessTools.PropertyGetter(typeof(Prefs), nameof(Prefs.PauseOnError));
             yield return AccessTools.PropertyGetter(typeof(Prefs), nameof(Prefs.AutomaticPauseMode));
             yield return AccessTools.PropertyGetter(typeof(Prefs), nameof(Prefs.PauseOnLoad));
+            yield return AccessTools.PropertyGetter(typeof(Prefs), nameof(Prefs.AdaptiveTrainingEnabled));
+        }
+
+        static bool Prefix() => Multiplayer.Client == null;
+    }
+
+    [EarlyPatch]
+    [HarmonyPatch]
+    static class PrefSettersInMultiplayer
+    {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.PropertySetter(typeof(Prefs), nameof(Prefs.PauseOnError));
+            yield return AccessTools.PropertySetter(typeof(Prefs), nameof(Prefs.AutomaticPauseMode));
+            yield return AccessTools.PropertySetter(typeof(Prefs), nameof(Prefs.PauseOnLoad));
+            yield return AccessTools.PropertySetter(typeof(Prefs), nameof(Prefs.AdaptiveTrainingEnabled));
+            yield return AccessTools.PropertySetter(typeof(Prefs), nameof(Prefs.MaxNumberOfPlayerSettlements));
+            yield return AccessTools.PropertySetter(typeof(Prefs), nameof(Prefs.RunInBackground));
         }
 
         static bool Prefix() => Multiplayer.Client == null;
@@ -30,7 +48,7 @@ namespace Multiplayer.Client.EarlyPatches
     [HarmonyPatch(typeof(Prefs), nameof(Prefs.PreferredNames), MethodType.Getter)]
     static class PreferredNamesPatch
     {
-        static List<string> empty = new List<string>();
+        static List<string> empty = new();
 
         static void Postfix(ref List<string> __result)
         {
@@ -74,28 +92,26 @@ namespace Multiplayer.Client.EarlyPatches
         static bool Prefix() => !TickPatch.Simulating;
     }
 
-    [EarlyPatch]
-    [HarmonyPatch(typeof(TutorSystem), nameof(TutorSystem.AdaptiveTrainingEnabled), MethodType.Getter)]
-    static class DisableAdaptiveLearningPatch
-    {
-        static bool Prefix() => Multiplayer.Client == null;
-    }
-
     // Affects both reading and writing
     [EarlyPatch]
     [HarmonyPatch(typeof(LoadedModManager), nameof(LoadedModManager.GetSettingsFilename))]
     static class OverrideConfigsPatch
     {
+        private static Dictionary<(string, string), ModContentPack> modCache = new();
+
         static void Postfix(string modIdentifier, string modHandleName, ref string __result)
         {
             if (!Multiplayer.restartConfigs)
                 return;
 
-            var mod = LoadedModManager.RunningModsListForReading
-                .FirstOrDefault(m =>
-                    m.FolderName == modIdentifier
-                    && m.assemblies.loadedAssemblies.Any(a => a.GetTypes().Any(t => t.Name == modHandleName))
-                );
+            if (!modCache.TryGetValue((modIdentifier, modHandleName), out var mod))
+            {
+                mod = modCache[(modIdentifier, modHandleName)] =
+                    LoadedModManager.RunningModsListForReading.FirstOrDefault(m =>
+                        m.FolderName == modIdentifier
+                        && m.assemblies.loadedAssemblies.Any(a => a.GetTypes().Any(t => t.Name == modHandleName))
+                    );
+            }
 
             if (mod == null)
                 return;
@@ -117,6 +133,8 @@ namespace Multiplayer.Client.EarlyPatches
     [HarmonyPatch]
     static class HugsLib_OverrideConfigsPatch
     {
+        public static string HugsLibConfigOverridenPath;
+
         private static MethodInfo MethodToPatch = AccessTools.Method("HugsLib.Core.PersistentDataManager:GetSettingsFilePath");
 
         static bool Prepare() => MethodToPatch != null;
@@ -139,6 +157,7 @@ namespace Multiplayer.Client.EarlyPatches
             if (File.Exists(newPath))
             {
                 __instance.SetPropertyOrField("OverrideFilePath", newPath);
+                HugsLibConfigOverridenPath = newPath;
             }
         }
     }

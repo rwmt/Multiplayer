@@ -150,7 +150,7 @@ namespace Multiplayer.Client
             if (Button(MultiplayerStatic.DiscordIcon, "MpDiscordButton", "MpLinkButtonDesc".Translate() + " " + DiscordLink, Color.white))
                 Application.OpenURL(DiscordLink);
 
-            if (false)
+            if (false) // todo
                 Button(
                     TexButton.NewItem,
                     "MpActiveConfigsButton",
@@ -391,7 +391,7 @@ namespace Multiplayer.Client
                     {
                         if (Event.current.button == 0)
                             selectedFile = file;
-                        else if (data != null && data.Valid)
+                        else if (Event.current.button == 1 && data.Valid)
                             Find.WindowStack.Add(new FloatMenu(SaveFloatMenu(data).ToList()));
                     }
                 }
@@ -416,6 +416,11 @@ namespace Multiplayer.Client
             yield return new FloatMenuOption("MpSeeModList".Translate(), () =>
             {
                 Find.WindowStack.Add(new TwoTextAreas_Window($"RimWorld {save.rwVersion}\nSave mod list:\n\n{saveMods}", $"RimWorld {VersionControl.CurrentVersionString}\nActive mod list:\n\n{activeMods}"));
+            });
+
+            yield return new FloatMenuOption("MpOpenSaveFolder".Translate(), () =>
+            {
+                ShellOpenDirectory.Execute(save.file.DirectoryName);
             });
 
             yield return new FloatMenuOption("Rename".Translate(), () =>

@@ -14,7 +14,7 @@ namespace Multiplayer.Client
     {
         public static void Init()
         {
-            SyncContext mouseKeyContext = SyncContext.QueueOrder_Down | SyncContext.MapMouseCell;
+            const SyncContext mouseKeyContext = SyncContext.QueueOrder_Down | SyncContext.MapMouseCell;
 
             SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.GotoLocationOption), 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);     // Goto
             SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddHumanlikeOrders), 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);     // Arrest
@@ -85,11 +85,6 @@ namespace Multiplayer.Client
             SyncMethod.Lambda(typeof(CompTreeConnection), nameof(CompTreeConnection.CompGetGizmosExtra), 3).SetDebugOnly(); // Decrease connection strength by 10%
             SyncMethod.Lambda(typeof(CompDryadHolder), nameof(CompDryadHolder.CompGetGizmosExtra), 0).SetDebugOnly();       // Complete dryad cocoon action
 
-            // (Un)assigning ideology roles
-            SyncDelegate.Lambda(typeof(SocialCardUtility), nameof(SocialCardUtility.DrawPawnRole), 2); // Unassign role from a pawn
-            SyncDelegate.Lambda(typeof(SocialCardUtility), nameof(SocialCardUtility.DrawPawnRole), 8); // Unassign current role and assign new one to a pawn
-            SyncDelegate.Lambda(typeof(SocialCardUtility), nameof(SocialCardUtility.DrawPawnRole), 9); // Assign a role to a pawn
-
             SyncMethod.Lambda(typeof(CompNeuralSupercharger), nameof(CompNeuralSupercharger.CompGetGizmosExtra), 1); // Neural supercharger: allow temporary pawns to use
 
             // Biosculpter pod
@@ -125,12 +120,19 @@ namespace Multiplayer.Client
 
             SyncDelegate.Lambda(typeof(CompPsylinkable), nameof(CompPsylinkable.CompFloatMenuOptions), 0); // Psylinkable begin linking
 
+            SyncDelegate.Lambda(typeof(SocialCardUtility), nameof(SocialCardUtility.DrawPawnRoleSelection), 0); // Begin role change: remove role
+            SyncDelegate.Lambda(typeof(SocialCardUtility), nameof(SocialCardUtility.DrawPawnRoleSelection), 3); // Begin role change: assign role
+
+            SyncDelegate.Lambda(typeof(Dialog_BeginRitual), nameof(Dialog_BeginRitual.DrawRoleSelection), 0); // Select role: none
+            SyncDelegate.Lambda(typeof(Dialog_BeginRitual), nameof(Dialog_BeginRitual.DrawRoleSelection), 3); // Select role, set confirm text
+            SyncDelegate.Lambda(typeof(Dialog_BeginRitual), nameof(Dialog_BeginRitual.DrawRoleSelection), 4); // Select role, no confirm text
+
             /*
                 Ritual dialog
 
                 The UI's main interaction area is split into three types of groups of pawns.
                 Each has three action handlers: (drop), (leftclick), (rightclick)
-                The names in parenths indicate what is synced for each handler.
+                The names in parenths below indicate what is synced for each handler.
 
                 <Pawn Group>: <Handlers>
                 (Zero or more) roles: (local TryAssignReplace, local TryAssign), (null), (delegate)
@@ -155,7 +157,7 @@ namespace Multiplayer.Client
                 .TransformArgument(1, RitualRolesSerializer);
 
             SyncDelegate.Lambda(typeof(Dialog_BeginRitual), nameof(Dialog_BeginRitual.DrawPawnList), 27); // Roles right click delegate (try assign spectate)
-            SyncDelegate.Lambda(typeof(Dialog_BeginRitual), nameof(Dialog_BeginRitual.DrawPawnList), 14); // Not participating left click delegate (try assign any role or spectate)
+            SyncDelegate.Lambda(typeof(Dialog_BeginRitual), nameof(Dialog_BeginRitual.DrawPawnList), 15); // Not participating left click delegate (try assign any role or spectate)
 
             SyncMethod.Register(typeof(RitualRoleAssignments), nameof(RitualRoleAssignments.TryAssignSpectate));
             SyncMethod.Register(typeof(RitualRoleAssignments), nameof(RitualRoleAssignments.RemoveParticipant));

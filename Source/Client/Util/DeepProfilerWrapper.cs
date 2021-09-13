@@ -9,9 +9,7 @@ namespace Multiplayer.Client.Util
 {
     public static class DeepProfilerWrapper
     {
-        private static ProfilerDisposable instance = new();
-
-        class ProfilerDisposable : IDisposable
+        public class ProfilerDisposable : IDisposable
         {
             public void Dispose()
             {
@@ -19,10 +17,10 @@ namespace Multiplayer.Client.Util
             }
         }
 
-        public static IDisposable Section(string section)
+        public static ProfilerDisposable Section(string section)
         {
             DeepProfiler.Start(section);
-            return instance;
+            return new ProfilerDisposable();
         }
     }
 }

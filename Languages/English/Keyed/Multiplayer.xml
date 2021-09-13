@@ -173,6 +173,7 @@
   <MpNothingSelected>Nothing selected</MpNothingSelected>
   <MpNoSaves>Multiplayer can only be played from already existing saves</MpNoSaves>
   <MpSeeModList>See mod list</MpSeeModList>
+  <MpOpenSaveFolder>Open containing folder</MpOpenSaveFolder>
   
   <!-- Mismatch screen -->
   <MpDataMismatch>Data mismatch</MpDataMismatch>

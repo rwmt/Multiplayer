@@ -29,6 +29,7 @@ namespace Multiplayer.Client.Patches
             }
         }
 
+        // Start at -2 because -1 is sometimes used as the uninitialized marker
         private static int localIds = -2;
 
         static bool Prefix()

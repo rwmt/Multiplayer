@@ -163,11 +163,12 @@ namespace Multiplayer.Client
 
             Multiplayer.game = new MultiplayerGame
             {
-                gameComp = new MultiplayerGameComp(Current.Game),
+                gameComp = new MultiplayerGameComp(Current.Game)
+                {
+                    globalIdBlock = new IdBlock(GetMaxUniqueId(), 1_000_000_000)
+                },
                 worldComp = comp
             };
-
-            comp.globalIdBlock = new IdBlock(GetMaxUniqueId(), 1_000_000_000);
 
             //var opponent = NewFaction(Multiplayer.GlobalIdBlock.NextId(), "Opponent", Multiplayer.FactionDef);
             //opponent.TrySetRelationKind(Faction.OfPlayer, FactionRelationKind.Hostile, false);

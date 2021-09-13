@@ -90,7 +90,6 @@ namespace Multiplayer.Client
         public Dictionary<int, FactionWorldData> factionData = new Dictionary<int, FactionWorldData>();
 
         public World world;
-        public IdBlock globalIdBlock;
         public ulong randState = 2;
         public TileTemperaturesComp uiTemperatures;
 
@@ -127,9 +126,7 @@ namespace Multiplayer.Client
                 if (trading.RemoveAll(t => t.trader == null || t.playerNegotiator == null) > 0)
                     Log.Message("Some trading sessions had null entries");
             }
-
-            Scribe_Custom.LookIdBlock(ref globalIdBlock, "globalIdBlock");
-
+            
             Scribe_Collections.Look(ref globalDialogs, nameof(globalDialogs), LookMode.Deep, null);
             if (Scribe.mode == LoadSaveMode.LoadingVars && globalDialogs == null)
                 globalDialogs = new();
@@ -210,7 +207,7 @@ namespace Multiplayer.Client
 
         public void PreContext()
         {
-            UniqueIdsPatch.CurrentBlock = globalIdBlock;
+            UniqueIdsPatch.CurrentBlock = Multiplayer.GlobalIdBlock;
             Rand.PushState();
             Rand.StateCompressed = randState;
         }

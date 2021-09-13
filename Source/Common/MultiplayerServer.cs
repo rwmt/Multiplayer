@@ -46,7 +46,7 @@ namespace Multiplayer.Common
         public ActionQueue queue = new ActionQueue();
         public ServerSettings settings;
 
-        public int cmdId;
+        public int nextCmdId;
 
         public volatile bool running = true;
 
@@ -197,7 +197,7 @@ namespace Multiplayer.Common
         public void Tick()
         {
             if (gameTimer % 2 == 0)
-                SendToAll(Packets.Server_TimeControl, ByteWriter.GetBytes(gameTimer, cmdId), false);
+                SendToAll(Packets.Server_TimeControl, ByteWriter.GetBytes(gameTimer, nextCmdId), false);
 
             gameTimer++;
 
@@ -371,7 +371,7 @@ namespace Multiplayer.Common
                 );
             }
 
-            cmdId++;
+            nextCmdId++;
         }
 
         public void SendChat(string msg)

@@ -75,18 +75,19 @@ namespace Multiplayer.Client
             if (Multiplayer.IsReplay && replayTimeSpeed == TimeSpeed.Paused)
                 accumulator = 0;
 
-            if (simulating != null && simulating.targetIsTickUntil)
+            if (simulating is { targetIsTickUntil: true })
                 simulating.target = tickUntil;
 
             CheckFinishSimulating();
-            if(MpVersion.IsDebug)
+
+            if (MpVersion.IsDebug)
                 SimpleProfiler.Start();
 
             updateTimer.Restart();
             Tick();
             lastUpdateTook = updateTimer.ElapsedMillisDouble();
 
-            if(MpVersion.IsDebug)
+            if (MpVersion.IsDebug)
                 SimpleProfiler.Pause();
 
             CheckFinishSimulating();
@@ -240,7 +241,7 @@ namespace Multiplayer.Client
     public class SimulatingData
     {
         public int? target;
-        public bool targetIsTickUntil; // overrides target with TickPatch.tickUntil
+        public bool targetIsTickUntil; // When true, the target field is always up-to-date with TickPatch.tickUntil
         public Action onFinish;
         public bool canESC;
         public Action onCancel;

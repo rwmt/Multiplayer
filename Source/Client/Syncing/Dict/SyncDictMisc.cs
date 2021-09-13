@@ -31,7 +31,7 @@ namespace Multiplayer.Client
                 (ByteReader data) => AccessTools.TypeByName(data.ReadString())
             },
             #endregion
-			
+
 			#region Ranges
             {
                 (ByteWriter data, FloatRange range) => {
@@ -73,7 +73,16 @@ namespace Multiplayer.Client
                 (ByteReader data) => new NameTriple(data.ReadString(), data.ReadString(), data.ReadString())
             },
             #endregion
-			
+
+            #region RW Misc
+            {
+                (ByteWriter data, TaggedString str) => {
+                    data.WriteString(str.rawText);
+                },
+                (ByteReader data) => new TaggedString(data.ReadString())
+            },
+            #endregion
+
             #region Unity
             {
                 (SyncWorker worker, ref Color color) => {
