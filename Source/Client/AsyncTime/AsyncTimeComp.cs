@@ -37,7 +37,7 @@ namespace Multiplayer.Client
                 comp.caravanForming != null ||
                 comp.ritualSession != null ||
                 comp.mapDialogs.Any() ||
-                Multiplayer.WorldComp.trading.Any(t => t.playerNegotiator.Map == map) ||
+                Multiplayer.WorldComp.AnyTradeSessionsOnMap(map) ||
                 Multiplayer.WorldComp.splitSession != null;
 
             if (enforcePause)
@@ -88,16 +88,16 @@ namespace Multiplayer.Client
 
         public Storyteller storyteller;
         public StoryWatcher storyWatcher;
-        public TimeSlower slower = new TimeSlower();
+        public TimeSlower slower = new();
 
-        public TickList tickListNormal = new TickList(TickerType.Normal);
-        public TickList tickListRare = new TickList(TickerType.Rare);
-        public TickList tickListLong = new TickList(TickerType.Long);
+        public TickList tickListNormal = new(TickerType.Normal);
+        public TickList tickListRare = new(TickerType.Rare);
+        public TickList tickListLong = new(TickerType.Long);
 
         // Shared random state for ticking and commands
         public ulong randState = 1;
 
-        public Queue<ScheduledCommand> cmds = new Queue<ScheduledCommand>();
+        public Queue<ScheduledCommand> cmds = new();
 
         public AsyncTimeComp(Map map)
         {
@@ -137,11 +137,8 @@ namespace Multiplayer.Client
             finally
             {
                 PostContext();
-
                 Multiplayer.game.sync.TryAddMapRandomState(map.uniqueID, randState);
-
                 eventCount++;
-
                 tickingMap = null;
 
                 //SimpleProfiler.Pause();
@@ -234,7 +231,7 @@ namespace Multiplayer.Client
 
         public void FinalizeInit()
         {
-            cmds = new Queue<ScheduledCommand>(Multiplayer.session.cache.mapCmds.GetValueSafe(map.uniqueID) ?? new List<ScheduledCommand>());
+            cmds = new Queue<ScheduledCommand>(Multiplayer.session.dataSnapshot.mapCmds.GetValueSafe(map.uniqueID) ?? new List<ScheduledCommand>());
             Log.Message($"Init map with cmds {cmds.Count}");
         }
 
@@ -294,7 +291,7 @@ namespace Multiplayer.Client
                     TimeSpeed = speed;
                     updateWorldTime = true;
 
-                    MpLog.Log("Set map time speed " + speed);
+                    MpLog.Debug("Set map time speed " + speed);
                 }
 
                 if (cmdType == CommandType.MapIdBlock)
@@ -494,10 +491,11 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.LocalServer is { } server
                 && server.settings.autosaveUnit == AutosaveUnit.Days
+                && server.settings.autosaveInterval > 0
                 && autosaveCounter > server.settings.autosaveInterval * 2500 * 24)
             {
                 Multiplayer.game.asyncTimeComps.Do(m => m.autosaveCounter = 0);
-                Multiplayer.Client.Send(Packets.Client_Chat, "/autosave");
+                MultiplayerSession.DoAutosave();
             }
         }
     }

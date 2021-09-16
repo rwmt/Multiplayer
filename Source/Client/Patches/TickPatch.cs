@@ -20,13 +20,18 @@ namespace Multiplayer.Client
 
         public static double accumulator;
         public static int tickUntil;
+        public static int workTicks;
         public static bool currentExecutingCmdIssuedBySelf;
+        public static bool shouldPause;
+        public static int pausedAt;
 
         public static TimeSpeed replayTimeSpeed;
 
         public static SimulatingData simulating;
 
+        public static bool ShouldHandle => LongEventHandler.currentEvent == null && !Multiplayer.session.desynced;
         public static bool Simulating => simulating?.target != null;
+        public static bool Paused => shouldPause && Timer >= pausedAt && !Simulating && ShouldHandle;
 
         public static IEnumerable<ITickable> AllTickables
         {
@@ -42,9 +47,8 @@ namespace Multiplayer.Client
         }
 
         static Stopwatch updateTimer = Stopwatch.StartNew();
+        public static Stopwatch tickTimer = Stopwatch.StartNew();
         static Stopwatch time = Stopwatch.StartNew();
-
-        public static double lastUpdateTook;
 
         [TweakValue("Multiplayer", 0f, 100f)]
         public static float maxBehind = 6f;
@@ -52,8 +56,8 @@ namespace Multiplayer.Client
         static bool Prefix()
         {
             if (Multiplayer.Client == null) return true;
-            if (LongEventHandler.currentEvent != null) return false;
-            if (Multiplayer.session.desynced) return false;
+            if (!ShouldHandle) return false;
+            if (Paused) return false;
 
             double delta = time.ElapsedMillisDouble() / 1000.0 * 60.0;
             time.Restart();
@@ -83,9 +87,8 @@ namespace Multiplayer.Client
             if (MpVersion.IsDebug)
                 SimpleProfiler.Start();
 
-            updateTimer.Restart();
-            Tick();
-            lastUpdateTook = updateTimer.ElapsedMillisDouble();
+            Tick(out var worked);
+            if (worked) workTicks++;
 
             if (MpVersion.IsDebug)
                 SimpleProfiler.Pause();
@@ -104,7 +107,7 @@ namespace Multiplayer.Client
             }
         }
 
-        public static void SimulateTo(int ticks = 0, bool toTickUntil = false, Action onFinish = null, Action onCancel = null, string cancelButtonKey = null, bool canESC = false, string simTextKey = null)
+        public static void SetSimulation(int ticks = 0, bool toTickUntil = false, Action onFinish = null, Action onCancel = null, string cancelButtonKey = null, bool canESC = false, string simTextKey = null)
         {
             simulating = new SimulatingData()
             {
@@ -112,7 +115,7 @@ namespace Multiplayer.Client
                 targetIsTickUntil = toTickUntil,
                 onFinish = onFinish,
                 onCancel = onCancel,
-                canESC = canESC,
+                canEsc = canESC,
                 cancelButtonKey = cancelButtonKey ?? "CancelButton",
                 simTextKey = simTextKey ?? "MpSimulating"
             };
@@ -134,10 +137,14 @@ namespace Multiplayer.Client
             Shader.SetGlobalFloat(ShaderPropertyIDs.GameSeconds, Find.CurrentMap.AsyncTime().mapTicks.TicksToSeconds());
         }
 
-        public static void Tick()
+        public static void Tick(out bool worked)
         {
+            worked = false;
+            updateTimer.Restart();
+
             while ((!Simulating && accumulator > 0) || (Simulating && Timer < simulating.target && updateTimer.ElapsedMilliseconds < 25))
             {
+                tickTimer.Restart();
                 int curTimer = Timer;
 
                 foreach (ITickable tickable in AllTickables)
@@ -154,6 +161,7 @@ namespace Multiplayer.Client
                     if (tickable.TimePerTick(tickable.TimeSpeed) == 0) continue;
                     tickable.RealTimeToTickThrough += 1f;
 
+                    worked = true;
                     TickTickable(tickable);
                 }
 
@@ -161,6 +169,8 @@ namespace Multiplayer.Client
 
                 accumulator -= 1 * ReplayMultiplier();
                 Timer += 1;
+
+                tickTimer.Stop();
 
                 if (Multiplayer.session.desynced || Timer >= tickUntil || LongEventHandler.eventQueue.Count > 0)
                 {
@@ -216,7 +226,11 @@ namespace Multiplayer.Client
             if (Multiplayer.GameComp.asyncTime)
                 return tickable.TickRateMultiplier(speed);
 
-            return Find.Maps.Select(m => (ITickable)m.AsyncTime()).Concat(Multiplayer.WorldComp).Select(t => t.TickRateMultiplier(speed)).Min();
+            var rate = Multiplayer.WorldComp.TickRateMultiplier(speed);
+            foreach (var map in Find.Maps)
+                rate = Math.Min(rate, map.AsyncTime().TickRateMultiplier(speed));
+
+            return rate;
         }
 
         public static void ClearSimulating()
@@ -230,6 +244,8 @@ namespace Multiplayer.Client
             Timer = 0;
             tickUntil = 0;
             accumulator = 0;
+            shouldPause = false;
+            workTicks = 0;
         }
 
         public static void SetTimer(int value)
@@ -243,7 +259,7 @@ namespace Multiplayer.Client
         public int? target;
         public bool targetIsTickUntil; // When true, the target field is always up-to-date with TickPatch.tickUntil
         public Action onFinish;
-        public bool canESC;
+        public bool canEsc;
         public Action onCancel;
         public string cancelButtonKey;
         public string simTextKey;

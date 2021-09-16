@@ -14,14 +14,34 @@ namespace Multiplayer.Common
             Player.UpdateStatus(PlayerStatus.Playing);
         }
 
+        [PacketHandler(Packets.Client_RequestRejoin)]
+        public void HandleRejoin(ByteReader data)
+        {
+            connection.State = ConnectionStateEnum.ServerJoining;
+            connection.Send(Packets.Server_CanRejoin);
+        }
+
         [PacketHandler(Packets.Client_Desynced)]
         public void HandleDesynced(ByteReader data)
         {
-            Player.UpdateStatus(PlayerStatus.Desynced);
+            var tick = data.ReadInt32();
+            var diffAt = data.ReadInt32();
 
-            // todo
-            //if (Multiplayer.settings.autosaveOnDesync)
-            //    Server.DoAutosave(forcePause: true);
+            Server.playerManager.OnDesync(Player, tick, diffAt);
+        }
+
+        [PacketHandler(Packets.Client_Traces)]
+        [IsFragmented]
+        public void HandleTraces(ByteReader data)
+        {
+            var type = (TracesPacket)data.ReadInt32();
+
+            if (type == TracesPacket.Response && Player.IsHost)
+            {
+                var playerId = data.ReadInt32();
+                var traces = data.ReadPrefixedBytes();
+                Server.GetPlayer(playerId)?.SendPacket(Packets.Server_Traces, new object[] { TracesPacket.Transfer, traces });
+            }
         }
 
         [PacketHandler(Packets.Client_Command)]
@@ -33,8 +53,8 @@ namespace Multiplayer.Common
 
             // todo check if map id is valid for the player
 
-            int factionId = MultiplayerServer.instance.playerFactions[connection.username];
-            MultiplayerServer.instance.SendCommand(cmd, factionId, mapId, extra, Player);
+            int factionId = Server.playerFactions[connection.username];
+            Server.commands.Send(cmd, factionId, mapId, extra, Player);
         }
 
         public const int MaxChatMsgLength = 128;
@@ -72,13 +92,13 @@ namespace Multiplayer.Common
             }
         }
 
-        [PacketHandler(Packets.Client_AutosavedData)]
+        [PacketHandler(Packets.Client_WorldDataUpload)]
         [IsFragmented]
-        public void HandleAutosavedData(ByteReader data)
+        public void HandleWorldDataUpload(ByteReader data)
         {
             var arbiter = Server.ArbiterPlaying;
             if (arbiter && !Player.IsArbiter) return;
-            if (!arbiter && Player.Username != Server.hostUsername) return;
+            if (!arbiter && !Player.IsHost) return;
 
             int maps = data.ReadInt32();
             for (int i = 0; i < maps; i++)
@@ -90,11 +110,8 @@ namespace Multiplayer.Common
             Server.savedGame = data.ReadPrefixedBytes();
             Server.semiPersistent = data.ReadPrefixedBytes();
 
-            if (Server.tmpMapCmds != null)
-            {
-                Server.mapCmds = Server.tmpMapCmds;
-                Server.tmpMapCmds = null;
-            }
+            if (Server.CreatingJoinPoint)
+                Server.EndJoinPointCreation();
         }
 
         [PacketHandler(Packets.Client_Cursor)]
@@ -151,7 +168,7 @@ namespace Multiplayer.Common
             Server.SendToAll(Packets.Server_Selected, writer.ToArray(), excluding: Player);
         }
 
-        [PacketHandler(Packets.Client_Ping)]
+        [PacketHandler(Packets.Client_PingLocation)]
         public void HandlePing(ByteReader data)
         {
             var writer = new ByteWriter();
@@ -164,7 +181,7 @@ namespace Multiplayer.Common
             writer.WriteFloat(data.ReadFloat()); // Y
             writer.WriteFloat(data.ReadFloat()); // Z
 
-            Server.SendToAll(Packets.Server_Ping, writer.ToArray());
+            Server.SendToAll(Packets.Server_PingLocation, writer.ToArray());
         }
 
         [PacketHandler(Packets.Client_IdBlockRequest)]
@@ -188,16 +205,26 @@ namespace Multiplayer.Common
         {
             int id = data.ReadInt32();
             int ticksBehind = data.ReadInt32();
+            var simulating = data.ReadBool();
+            var workTicks = data.ReadInt32();
 
             Player.ticksBehind = ticksBehind;
+            Player.simulating = simulating;
+            Player.keepAliveAt = Server.netTimer;
+
+            if (Player.IsHost)
+                Server.workTicks = workTicks;
 
             // Latency already handled by LiteNetLib
             if (connection is LiteNetConnection) return;
 
-            if (MultiplayerServer.instance.keepAliveId == id)
-                connection.Latency = (int)MultiplayerServer.instance.lastKeepAlive.ElapsedMilliseconds / 2;
-            else
-                connection.Latency = 2000;
+            if (Player.keepAliveId == id)
+            {
+                connection.Latency = (connection.Latency * 4 + (int)Player.keepAliveTimer.ElapsedMilliseconds / 2) / 5;
+
+                Player.keepAliveId++;
+                Player.keepAliveTimer.Reset();
+            }
         }
 
         [PacketHandler(Packets.Client_SyncInfo)]
@@ -216,28 +243,27 @@ namespace Multiplayer.Common
         public void HandlePause(ByteReader data)
         {
             bool pause = data.ReadBool();
-            if (pause && Player.Username != Server.hostUsername) return;
-            if (Server.paused == pause) return;
+            Player.paused = pause;
 
-            Server.paused = pause;
-            Server.SendToAll(Packets.Server_Pause, new object[] { pause });
+            if (!pause)
+                Player.unpausedAt = Server.netTimer;
+        }
+
+        [PacketHandler(Packets.Client_Autosaving)]
+        public void HandleAutosaving(ByteReader data)
+        {
+            if (Player.IsHost && Server.settings.autoJoinPoint.HasFlag(AutoJoinPointFlags.Autosave))
+                Server.TryStartJoinPointCreation();
         }
 
         [PacketHandler(Packets.Client_Debug)]
         public void HandleDebug(ByteReader data)
         {
-            if (!MpVersion.IsDebug) return;
-
-            Server.PlayingPlayers.FirstOrDefault(p => p.IsArbiter || p.IsHost)?.SendPacket(Packets.Server_Debug, data.ReadRaw(data.Left));
         }
     }
 
-    public enum PlayerListAction : byte
+    public enum TracesPacket
     {
-        List,
-        Add,
-        Remove,
-        Latencies,
-        Status
+        Request, Response, Transfer
     }
 }

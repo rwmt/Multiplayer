@@ -19,7 +19,7 @@ namespace Multiplayer.Client
     [HotSwappable]
     public static class JoinData
     {
-        public static byte[] WriteServerData()
+        public static byte[] WriteServerData(bool writeConfigs)
         {
             var data = new ByteWriter();
 
@@ -45,14 +45,18 @@ namespace Multiplayer.Client
                 }
             }
 
-            var configs = GetSyncableConfigContents(activeModsSnapshot.Select(m => m.PackageIdNonUnique));
-
-            data.WriteInt32(configs.Count);
-            foreach (var config in configs)
+            data.WriteBool(writeConfigs);
+            if (writeConfigs)
             {
-                data.WriteString(config.ModId);
-                data.WriteString(config.FileName);
-                data.WriteString(config.Contents);
+                var configs = GetSyncableConfigContents(activeModsSnapshot.Select(m => m.PackageIdNonUnique));
+
+                data.WriteInt32(configs.Count);
+                foreach (var config in configs)
+                {
+                    data.WriteString(config.ModId);
+                    data.WriteString(config.FileName);
+                    data.WriteString(config.Contents);
+                }
             }
 
             return GZipStream.CompressBuffer(data.ToArray());
@@ -94,17 +98,21 @@ namespace Multiplayer.Client
                 }
             }
 
-            var configCount = data.ReadInt32();
-            for (int i = 0; i < configCount; i++)
+            remoteInfo.hasConfigs = data.ReadBool();
+            if (remoteInfo.hasConfigs)
             {
-                const int MaxConfigContentLen = 8388608; // 8 megabytes
+                var configCount = data.ReadInt32();
+                for (int i = 0; i < configCount; i++)
+                {
+                    const int MaxConfigContentLen = 8388608; // 8 megabytes
 
-                var modId = data.ReadString();
-                var fileName = data.ReadString();
-                var contents = data.ReadString(MaxConfigContentLen);
+                    var modId = data.ReadString();
+                    var fileName = data.ReadString();
+                    var contents = data.ReadString(MaxConfigContentLen);
 
-                remoteInfo.remoteModConfigs.Add(new ModConfig(modId, fileName, contents));
-                //remoteInfo.remoteModConfigs[trimmedPath] = remoteInfo.remoteModConfigs[trimmedPath].Insert(0, "a"); // todo for testing
+                    remoteInfo.remoteModConfigs.Add(new ModConfig(modId, fileName, contents));
+                    //remoteInfo.remoteModConfigs[trimmedPath] = remoteInfo.remoteModConfigs[trimmedPath].Insert(0, "a"); // todo for testing
+                }
             }
         }
 
@@ -201,7 +209,7 @@ namespace Multiplayer.Client
                 remote.remoteRwVersion == VersionControl.CurrentVersionString &&
                 remoteMods.SequenceEqual(localMods) &&
                 remote.remoteFiles.DictsEqual(modFilesSnapshot) &&
-                remote.remoteModConfigs.EqualAsSets(GetSyncableConfigContents(remote.RemoteModIds));
+                (!remote.hasConfigs || remote.remoteModConfigs.EqualAsSets(GetSyncableConfigContents(remote.RemoteModIds)));
         }
 
         public static List<ModMetaData> activeModsSnapshot;
@@ -278,6 +286,7 @@ namespace Multiplayer.Client
         public List<ModInfo> remoteMods = new();
         public ModFileDict remoteFiles = new();
         public List<ModConfig> remoteModConfigs = new();
+        public bool hasConfigs;
 
         public IEnumerable<string> RemoteModIds => remoteMods.Select(m => m.packageId);
 

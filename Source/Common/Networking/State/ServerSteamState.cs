@@ -1,9 +1,3 @@
-using Ionic.Zlib;
-using System;
-using System.IO;
-using RestSharp;
-using Verse;
-
 namespace Multiplayer.Common
 {
     // Unused

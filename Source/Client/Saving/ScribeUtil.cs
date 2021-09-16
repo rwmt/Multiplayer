@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Xml;
+using Multiplayer.Client.Util;
 using UnityEngine;
 using Verse;
 
@@ -57,7 +58,7 @@ namespace Multiplayer.Client
 
         public static void UnregisterAllFrom(Map map)
         {
-            thingsById.RemoveAll((id, thing) => thing.Map == map);
+            thingsById.RemoveAll(kv => kv.Value.Map == map);
         }
     }
 
@@ -205,12 +206,10 @@ namespace Multiplayer.Client
                 return;
             }
 
-            if (defaultCrossRefs == null)
-                defaultCrossRefs = Scribe.loader.crossRefs.loadedObjectDirectory;
-
+            defaultCrossRefs ??= Scribe.loader.crossRefs.loadedObjectDirectory;
             Scribe.loader.crossRefs.loadedObjectDirectory = sharedCrossRefs;
 
-            Log.Message($"Cross ref supply: {sharedCrossRefs.allObjectsByLoadID.Count} {sharedCrossRefs.allObjectsByLoadID.LastOrDefault()} {Faction.OfPlayer}");
+            MpLog.Debug($"Cross ref supply: {sharedCrossRefs.allObjectsByLoadID.Count} {sharedCrossRefs.allObjectsByLoadID.LastOrDefault()} {Faction.OfPlayer}");
         }
 
         public static byte[] WriteExposable(IExposable element, string name = RootNode, bool indent = false, Action beforeElement = null)

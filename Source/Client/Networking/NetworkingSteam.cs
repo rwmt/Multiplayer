@@ -121,7 +121,7 @@ namespace Multiplayer.Client.Networking
 
         protected override void OnDisconnect()
         {
-            serverPlayer.Server.OnDisconnected(this, MpDisconnectReason.ClientLeft);
+            serverPlayer.Server.playerManager.OnDisconnected(this, MpDisconnectReason.ClientLeft);
         }
     }
 }

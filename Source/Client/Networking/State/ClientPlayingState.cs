@@ -4,6 +4,7 @@ using Multiplayer.Common;
 using RimWorld;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using UnityEngine;
@@ -36,7 +37,11 @@ namespace Multiplayer.Client
             int id = data.ReadInt32();
             int ticksBehind = TickPatch.tickUntil - TickPatch.Timer;
 
-            connection.Send(Packets.Client_KeepAlive, id, (ticksBehind << 1) | (TickPatch.Simulating ? 1 : 0));
+            connection.Send(
+                Packets.Client_KeepAlive,
+                ByteWriter.GetBytes(id, ticksBehind, TickPatch.Simulating, TickPatch.workTicks),
+                false
+            );
         }
 
         [PacketHandler(Packets.Server_Command)]
@@ -48,6 +53,12 @@ namespace Multiplayer.Client
 
             Multiplayer.session.localCmdId++;
             Multiplayer.session.ProcessTimeControl();
+        }
+
+        [PacketHandler(Packets.Server_CanRejoin)]
+        public void HandleCanRejoin(ByteReader data)
+        {
+            MultiplayerSession.DoRejoin();
         }
 
         [PacketHandler(Packets.Server_PlayerList)]
@@ -83,6 +94,7 @@ namespace Multiplayer.Client
                     var player = Multiplayer.session.players[i];
                     player.latency = data.ReadInt32();
                     player.ticksBehind = data.ReadInt32();
+                    player.simulating = data.ReadBool();
                 }
             }
             else if (action == PlayerListAction.Status)
@@ -164,7 +176,7 @@ namespace Multiplayer.Client
                 player.selectedThings.Remove(remove[i]);
         }
 
-        [PacketHandler(Packets.Server_Ping)]
+        [PacketHandler(Packets.Server_PingLocation)]
         public void HandlePing(ByteReader data)
         {
             int player = data.ReadInt32();
@@ -185,10 +197,10 @@ namespace Multiplayer.Client
             for (int j = 0; j < mapCmdsLen; j++)
                 mapCmds.Add(ScheduledCommand.Deserialize(new ByteReader(data.ReadPrefixedBytes())));
 
-            Session.cache.mapCmds[mapId] = mapCmds;
+            Session.dataSnapshot.mapCmds[mapId] = mapCmds;
 
             byte[] mapData = GZipStream.UncompressBuffer(data.ReadPrefixedBytes());
-            Session.cache.mapData[mapId] = mapData;
+            Session.dataSnapshot.mapData[mapId] = mapData;
 
             //ClientJoiningState.ReloadGame(TickPatch.tickUntil, Find.Maps.Select(m => m.uniqueID).Concat(mapId).ToList());
             // todo Multiplayer.client.Send(Packets.CLIENT_MAP_LOADED);
@@ -214,23 +226,39 @@ namespace Multiplayer.Client
         public void HandlePause(ByteReader data)
         {
             bool pause = data.ReadBool();
-            // This packet doesn't get processed in time during a synchronous long event
+            int pausedAt = data.ReadInt32();
+
+            TickPatch.shouldPause = pause;
+            TickPatch.pausedAt = pausedAt;
+        }
+
+        [PacketHandler(Packets.Server_Traces)]
+        [IsFragmented]
+        public void HandleTraces(ByteReader data)
+        {
+            var type = (TracesPacket)data.ReadInt32();
+
+            if (type == TracesPacket.Request)
+            {
+                var tick = data.ReadInt32();
+                var diffAt = data.ReadInt32();
+                var playerId = data.ReadInt32();
+
+                var info = Multiplayer.game.sync.knownClientOpinions.FirstOrDefault(b => b.startTick == tick);
+                var response = info?.GetFormattedStackTracesForRange(diffAt);
+
+                connection.Send(Packets.Client_Traces, TracesPacket.Response, playerId, GZipStream.CompressString(response));
+            }
+            else if (type == TracesPacket.Transfer)
+            {
+                var traces = data.ReadPrefixedBytes();
+                Multiplayer.session.desyncTracesFromHost = GZipStream.UncompressString(traces);
+            }
         }
 
         [PacketHandler(Packets.Server_Debug)]
         public void HandleDebug(ByteReader data)
         {
-            int tick = data.ReadInt32();
-            int diffAt = data.ReadInt32();
-            var info = Multiplayer.game.sync.knownClientOpinions.FirstOrDefault(b => b.startTick == tick);
-            var side = Multiplayer.arbiterInstance ? "Arbiter" : "Host";
-
-            Log.Message($"{info?.desyncStackTraces.Count} {side} traces {diffAt} / {Multiplayer.game.sync.knownClientOpinions.Select(o => o.startTick).Join()}");
-
-            File.WriteAllText(
-                MpUtil.RwDataFile($"MP_{side}Traces.txt"),
-                info?.GetFormattedStackTracesForRange(diffAt) ?? "null"
-            );
         }
     }
 

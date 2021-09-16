@@ -47,9 +47,10 @@ namespace Multiplayer.Common
         public virtual string ReadString(int maxLen = DefaultMaxStringLen)
         {
             int bytes = ReadInt32();
+            if (bytes == -1) return null;
 
-            if (bytes < 0)
-                throw new ReaderException($"String byte length ({bytes}<0)");
+            if (bytes < -1)
+                throw new ReaderException($"String byte length ({bytes}<-1)");
             if (bytes > maxLen)
                 throw new ReaderException($"String too long ({bytes}>{maxLen})");
 
@@ -67,9 +68,10 @@ namespace Multiplayer.Common
         public virtual byte[] ReadPrefixedBytes(int maxLen = int.MaxValue)
         {
             int len = ReadInt32();
+            if (len == -1) return null;
 
-            if (len < 0)
-                throw new ReaderException($"Byte array length ({len}<0)");
+            if (len < -1)
+                throw new ReaderException($"Byte array length ({len}<-1)");
             if (len >= maxLen)
                 throw new ReaderException($"Byte array too long ({len}>{maxLen})");
 

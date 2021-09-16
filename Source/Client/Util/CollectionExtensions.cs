@@ -69,16 +69,48 @@ namespace Multiplayer.Client
             return true;
         }
 
-        public static void RemoveAll<K, V>(this Dictionary<K, V> dict, Func<K, V, bool> predicate)
+        public static int RemoveAll<TKey, TValue>(this Dictionary<TKey, TValue> dictionary, Func<TKey, TValue, bool> predicate)
         {
-            dict.RemoveAll(p => predicate(p.Key, p.Value));
-        }
+            List<TKey> list = null;
+            int result;
 
-        public static void RemoveAll<T>(this List<T> list, Func<T, int, bool> predicate)
-        {
-            for (int i = list.Count - 1; i >= 0; i--)
-                if (predicate(list[i], i))
-                    list.RemoveAt(i);
+            try
+            {
+                foreach (var (key, value) in dictionary)
+                {
+                    if (predicate(key, value))
+                    {
+                        list ??= SimplePool<List<TKey>>.Get();
+                        list.Add(key);
+                    }
+                }
+
+                if (list != null)
+                {
+                    int i = 0;
+                    int count = list.Count;
+                    while (i < count)
+                    {
+                        dictionary.Remove(list[i]);
+                        i++;
+                    }
+                    result = list.Count;
+                }
+                else
+                {
+                    result = 0;
+                }
+            }
+            finally
+            {
+                if (list != null)
+                {
+                    list.Clear();
+                    SimplePool<List<TKey>>.Return(list);
+                }
+            }
+
+            return result;
         }
 
         public static bool EqualAsSets<T>(this IEnumerable<T> enum1, IEnumerable<T> enum2)

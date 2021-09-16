@@ -6,6 +6,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Multiplayer.Client.Patches;
+using Multiplayer.Client.Util;
 using Verse;
 
 namespace Multiplayer.Client
@@ -47,9 +49,9 @@ namespace Multiplayer.Client
 
             SyncDelegate.Lambda(typeof(CompTargetable), nameof(CompTargetable.SelectedUseOption), 0); // Use targetable
 
-            SyncDelegate.Lambda(typeof(Designator), nameof(Designator.RightClickFloatMenuOptions), 0, parentMethodType: MethodType.Getter) // Designate all
+            SyncDelegate.LambdaInGetter(typeof(Designator), nameof(Designator.RightClickFloatMenuOptions), 0) // Designate all
                 .TransformField("things", Serializer.SimpleReader(() => Find.CurrentMap.listerThings.AllThings));
-            SyncDelegate.Lambda(typeof(Designator), nameof(Designator.RightClickFloatMenuOptions), 1, parentMethodType: MethodType.Getter) // Remove all designations
+            SyncDelegate.LambdaInGetter(typeof(Designator), nameof(Designator.RightClickFloatMenuOptions), 1) // Remove all designations
                 .TransformField("designations", Serializer.SimpleReader(() => Find.CurrentMap.designationManager.allDesignations));
 
             SyncDelegate.Lambda(typeof(CaravanAbandonOrBanishUtility), nameof(CaravanAbandonOrBanishUtility.TryAbandonOrBanishViaInterface), 1, new[] { typeof(Thing), typeof(Caravan) }).CancelIfAnyFieldNull(); // Abandon caravan thing
@@ -105,6 +107,7 @@ namespace Multiplayer.Client
             SyncMethod.Lambda(typeof(Building_PodLauncher), nameof(Building_PodLauncher.GetGizmos), 0);  // Pod launcher gizmo: Build pod
 
             InitRituals();
+            InitChoiceLetters();
         }
 
         private static void InitRituals()
@@ -161,6 +164,26 @@ namespace Multiplayer.Client
 
             SyncMethod.Register(typeof(RitualRoleAssignments), nameof(RitualRoleAssignments.TryAssignSpectate));
             SyncMethod.Register(typeof(RitualRoleAssignments), nameof(RitualRoleAssignments.RemoveParticipant));
+        }
+
+        private static void InitChoiceLetters()
+        {
+            SyncDelegate.Lambda(typeof(ChoiceLetter_ChoosePawn), nameof(ChoiceLetter_ChoosePawn.Option_ChoosePawn), 0); // Choose pawn (currently used for quest rewards)
+
+            SyncMethod.LambdaInGetter(typeof(ChoiceLetter_AcceptJoiner), nameof(ChoiceLetter_AcceptJoiner.Choices), 0); // Accept joiner
+            CloseDialogsForExpiredLetters.rejectMethods[typeof(ChoiceLetter_AcceptJoiner)] =
+                SyncMethod.LambdaInGetter(typeof(ChoiceLetter_AcceptJoiner), nameof(ChoiceLetter_AcceptJoiner.Choices), 1)
+                    .method; // Reject joiner
+
+            SyncMethod.LambdaInGetter(typeof(ChoiceLetter_AcceptVisitors), nameof(ChoiceLetter_AcceptVisitors.Option_Accept), 0); // Accept visitors join offer
+            CloseDialogsForExpiredLetters.rejectMethods[typeof(ChoiceLetter_AcceptVisitors)] =
+                SyncMethod.LambdaInGetter(typeof(ChoiceLetter_AcceptVisitors), nameof(ChoiceLetter_AcceptVisitors.Option_RejectWithCharityConfirmation), 1)
+                    .method; // Reject visitors join offer
+
+            SyncMethod.LambdaInGetter(typeof(ChoiceLetter_RansomDemand), nameof(ChoiceLetter_RansomDemand.Choices), 0); // Accept ransom demand
+            CloseDialogsForExpiredLetters.rejectMethods[typeof(ChoiceLetter_RansomDemand)] =
+                SyncMethod.LambdaInGetter(typeof(ChoiceLetter), nameof(ChoiceLetter.Option_Reject), 0)
+                    .method; // Generic reject (currently only used by ransom demand)
         }
 
         [MpPrefix(typeof(FormCaravanComp), nameof(FormCaravanComp.GetGizmos), lambdaOrdinal: 0)]

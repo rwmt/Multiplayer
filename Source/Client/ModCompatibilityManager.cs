@@ -11,9 +11,10 @@ namespace Multiplayer.Client
     public static class ModCompatibilityManager
     {
         private static bool startedLazyFetch;
+        public static bool? fetchSuccess;
 
-        private static Dictionary<long, ModCompatibility> workshopLookup = new Dictionary<long, ModCompatibility>();
-        public static Dictionary<string, ModCompatibility> nameLookup = new Dictionary<string, ModCompatibility>();
+        private static Dictionary<long, ModCompatibility> workshopLookup = new();
+        public static Dictionary<string, ModCompatibility> nameLookup = new();
 
         private static void UpdateModCompatibilityDb() {
             startedLazyFetch = true;
@@ -33,9 +34,12 @@ namespace Multiplayer.Client
                     nameLookup = modCompatibilities
                         .GroupBy(mod => mod.name.ToLower())
                         .ToDictionary(grouping => grouping.Key, grouping => grouping.First());
+
+                    fetchSuccess = true;
                 }
                 catch (Exception e) {
                     Log.Warning($"MP: updating mod compatibility list failed {e.Message} {e.StackTrace}");
+                    fetchSuccess = false;
                 }
             });
         }

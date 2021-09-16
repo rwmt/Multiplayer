@@ -160,8 +160,7 @@ namespace Multiplayer.Client
         public void WriteSemiPersistent(ByteWriter writer)
         {
             writer.WriteBool(ritualSession != null);
-            if (ritualSession != null)
-                ritualSession.Write(writer);
+            ritualSession?.Write(writer);
         }
 
         public void ReadSemiPersistent(ByteReader reader)
@@ -169,8 +168,9 @@ namespace Multiplayer.Client
             var hasRitual = reader.ReadBool();
             if (hasRitual)
             {
-                ritualSession = new RitualSession(map);
-                ritualSession.Read(reader);
+                var session = new RitualSession(map);
+                session.Read(reader);
+                ritualSession = session;
             }
         }
     }

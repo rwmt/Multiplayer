@@ -14,7 +14,8 @@
   <MpSimulatingServer>Simulating the server</MpSimulatingServer>
   <MpLoading>Loading</MpLoading>
   <MpSaving>Saving</MpSaving>
-  <MpServerCloseConfirmation>Are you sure you want to close the server? Unsaved progress will be lost.</MpServerCloseConfirmation>
+  <MpServerCloseConfirmationNoTime>Are you sure you want to close the server?</MpServerCloseConfirmationNoTime>
+  <MpServerCloseConfirmationTime>Are you sure you want to close the server? Last saved {0} ago.</MpServerCloseConfirmationTime>
   <MpTraderLeavesIn>Leaves in {0}</MpTraderLeavesIn>
   <MpNotAvailable>Not available in multiplayer.</MpNotAvailable>
   <MpCallingFactionNotAvailable>Calling other factions is currently not available in multiplayer.</MpCallingFactionNotAvailable>
@@ -57,16 +58,14 @@
 
   <!-- Ingame ESC screen -->
   <MpHostServer>Host a server</MpHostServer>
-  <MpSaveReplay>Save replay</MpSaveReplay>
-  <MpFullSave>Full Save</MpFullSave>
-  <MpFullSaveDesc>Full saves load faster, but save slower, and are only available to the Host</MpFullSaveDesc>
   <MpConvertToSp>Convert to singleplayer</MpConvertToSp>
   <MpConvertToSpWarnHost>Are you sure you want to convert to singleplayer? This will close the server.</MpConvertToSpWarnHost>
   <MpConvertToSpWarn>Are you sure you want to convert to singleplayer? You will leave the multiplayer game.</MpConvertToSpWarn>
   <MpConvertingToSp>Converting</MpConvertingToSp>
-  <MpSaveReplayAs>Save replay as</MpSaveReplayAs>
-  <MpWillOverwrite>Will overwrite</MpWillOverwrite>
-  <MpReplaySaved>Replay saved</MpReplaySaved>
+  <MpSaveGameAs>Save game as</MpSaveGameAs>
+  <MpWillOverwrite>File exists, will overwrite</MpWillOverwrite>
+  <MpGameSaved>Game saved as {0}</MpGameSaved>
+  <MpGameSaveFailed>Failed to save the game. See the log for more info.</MpGameSaveFailed>
 
   <!-- Settings -->
   <MpUsernameSetting>Username</MpUsernameSetting>
@@ -100,15 +99,16 @@
   <MpDownloading>Downloading ({0}%)</MpDownloading>
   <MpSteamConnectingTo>Connecting to a game hosted by {0}</MpSteamConnectingTo>
   <MpSteamConnectingWaiting>Waiting for host to accept</MpSteamConnectingWaiting>
+  <MpWaitingForGameData>Waiting for game data</MpWaitingForGameData>
 
   <!-- Desynced -->
   <MpDesynced>The game state has desynced.</MpDesynced>
   <MpTryResync>Try resync</MpTryResync>
-  <MpTryRehost>Rehost</MpTryRehost>
+  <MpOpenDesyncFolder>Open info folder</MpOpenDesyncFolder>
+  <MpDesyncedWaiting>Waiting for data from the host</MpDesyncedWaiting>
 
   <!-- Hosting -->
   <MpHostIngame>Host from this game</MpHostIngame>
-  <MpHostReplay>Host from a replay</MpHostReplay>
   <MpHostSavefile>Host from a savefile</MpHostSavefile>
   <MpInvalidPort>Invalid port</MpInvalidPort>
   <MpInvalidAddress>Invalid address</MpInvalidAddress>
@@ -129,15 +129,26 @@
   <MpLogDesyncTraces>Desync traces</MpLogDesyncTraces>
   <MpLogDesyncTracesDesc>Log extra stacktraces for troubleshooting desyncs; may impact performance.</MpLogDesyncTracesDesc>
   <MpExperimentalFeature>Experimental feature</MpExperimentalFeature>
+  <MpSyncConfigs>Sync configs</MpSyncConfigs>
+  <MpSyncConfigsDesc1>Toggle whether joining players can download your mod configuration files.</MpSyncConfigsDesc1>
+  <MpSyncConfigsDesc2>Enabling this can reduce the number of desyncs.</MpSyncConfigsDesc2>
+  <MpSyncConfigsDesc3>Note that some mods' config files can contain sensitive information (like API tokens).</MpSyncConfigsDesc3>
+  <MpAutoJoinPoints>Auto join-points</MpAutoJoinPoints>
+  <MpAutoJoinPointsDesc1>Toggle automatic creation of join-points.</MpAutoJoinPointsDesc1>
+  <MpAutoJoinPointsDesc2>Join-point creation is slower than saving but it speeds up joining significantly by not requiring players to simulate the game.</MpAutoJoinPointsDesc2>
+  <MpAutoJoinPointsDesc3>You can always create a join-point manually by typing /joinpoint in the chat.</MpAutoJoinPointsDesc3>
+  <MpAutoJoinPointsJoin>On join</MpAutoJoinPointsJoin>
+  <MpAutoJoinPointsDesync>On desync</MpAutoJoinPointsDesync>
+  <MpAutoJoinPointsAutosave>On autosave</MpAutoJoinPointsAutosave>
 
   <!-- Server browser info buttons -->
-  <MpCompatibilityButton>Compatibility</MpCompatibilityButton>
   <MpWebsiteButton>Website</MpWebsiteButton>
   <MpDiscordButton>Discord</MpDiscordButton>
-  <MpActiveConfigsButton>Active configs</MpActiveConfigsButton>
+  <MpLinkButtonDesc>Click to open:</MpLinkButtonDesc>
+  <MpCompatibilityButton>Compatibility</MpCompatibilityButton>
   <MpCompatibilityButtonDesc1>Open mod compatibility information window.</MpCompatibilityButtonDesc1>
   <MpCompatibilityButtonDesc2>Also available from the mod list.</MpCompatibilityButtonDesc2>
-  <MpLinkButtonDesc>Click to open:</MpLinkButtonDesc>
+  <MpActiveConfigsButton>Active configs</MpActiveConfigsButton>
   <MpActiveConfigsButtonDesc1>This RimWorld instance has been started with configuration files from game: {0}</MpActiveConfigsButtonDesc1>
   <MpActiveConfigsButtonDesc2>Restart to restore your previous configs.</MpActiveConfigsButtonDesc2>
 
@@ -197,11 +208,17 @@
   <MpMismatchSubscribeNoSteam>Not connected to Steam. Missing mods have to be installed manually.</MpMismatchSubscribeNoSteam>
   <MpMismatchSubscribeDesc1>Subscribe to the missing mods on the Steam Workshop. Downloading will happen in the background.</MpMismatchSubscribeDesc1>
   <MpMismatchSubscribeDesc2>Not all of the missing mods are available on Steam. The rest have to be installed manually.</MpMismatchSubscribeDesc2>
+  <MpMismatchLocalFiles>Local files</MpMismatchLocalFiles>
+  <MpMismatchLocalConfigs>Local configs</MpMismatchLocalConfigs>
+  <MpMismatchTreeRefresh>Refresh</MpMismatchTreeRefresh>
   <MpMismatchFilesInfo1>Mod file differences need to be resolved manually or ignored. They are usually caused by differing versions of mods or files being left behind after an update.</MpMismatchFilesInfo1>
   <MpMismatchFilesInfo2>You should try to update/reinstall the offending mods. If the differences persist even after that the host might have to do the same.</MpMismatchFilesInfo2>
   <MpMismatchFileShowPath>Hold shift to show the folder path.</MpMismatchFileShowPath>
-  <MpMismatchNodeExpand>Click to expand/collapse.</MpMismatchNodeExpand>
   <MpMismatchFileOpenPath>Shift + click to open the folder.</MpMismatchFileOpenPath>
+  <MpMismatchNodeExpand>Click to expand/collapse.</MpMismatchNodeExpand>
+  <MpConfigSyncDisabled>Config sync disabled by the host</MpConfigSyncDisabled>
+  <MpFilesMatch>Files match</MpFilesMatch>
+  <MpConfigsMatch>Configs match</MpConfigsMatch>
 
   <!-- Mod compatibility -->
   <MpModCompatButton>Multiplayer compatibility</MpModCompatButton>

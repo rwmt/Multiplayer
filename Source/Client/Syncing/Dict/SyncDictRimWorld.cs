@@ -989,14 +989,23 @@ namespace Multiplayer.Client
                 },
                 (ByteReader data) => {
                     IStoreSettingsParent parent = ReadSync<IStoreSettingsParent>(data);
-
-                    if (parent == null)
-                        return null;
-
-                    return parent.GetStoreSettings();
+                    return parent?.GetStoreSettings();
                 }
             },
+            #endregion
 
+            #region Letters
+            {
+                (ByteWriter data, Letter letter) => {
+                    WriteSync(data, letter.ID);
+                },
+                (ByteReader data) =>
+                {
+                    // Note that this only returns live (not archived) letters
+                    var id = data.ReadInt32();
+                    return Find.LetterStack.LettersListForReading.Find(l => l.ID == id);
+                }, true
+            },
             #endregion
         };
 

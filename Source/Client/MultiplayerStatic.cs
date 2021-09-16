@@ -108,7 +108,6 @@ namespace Multiplayer.Client
             using (DeepProfilerWrapper.Section("MultiplayerData PrecacheMods"))
                 MultiplayerData.PrecacheMods();
 
-            Multiplayer.hasLoaded = true;
             SimpleProfiler.Print("mp_prof_out.txt");
         }
 

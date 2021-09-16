@@ -157,6 +157,14 @@ namespace Multiplayer.Client
             );
         }
 
+        public static SyncDelegate LambdaInGetter(Type parentType, string parentMethod, int lambdaOrdinal)
+        {
+            return Sync.RegisterSyncDelegate(
+                MpMethodUtil.GetLambda(parentType, parentMethod, MethodType.Getter, null, lambdaOrdinal),
+                null
+            );
+        }
+
         public static SyncDelegate LocalFunc(Type parentType, string parentMethod, string name, Type[] parentArgs = null)
         {
             return Sync.RegisterSyncDelegate(

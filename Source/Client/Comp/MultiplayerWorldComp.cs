@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Xml;
 using UnityEngine;
 using Verse;
@@ -19,6 +20,7 @@ using Multiplayer.Client.Util;
 
 namespace Multiplayer.Client
 {
+    [HotSwappable]
     public class MultiplayerWorldComp : IExposable, ITickable
     {
         public static bool tickingWorld;
@@ -86,16 +88,16 @@ namespace Multiplayer.Client
 
         public int TickableId => -1;
 
-        public Dictionary<int, FactionWorldData> factionData = new Dictionary<int, FactionWorldData>();
+        public Dictionary<int, FactionWorldData> factionData = new();
 
         public World world;
         public ulong randState = 2;
         public TileTemperaturesComp uiTemperatures;
 
-        public List<MpTradeSession> trading = new List<MpTradeSession>();
+        public List<MpTradeSession> trading = new();
         public CaravanSplittingSession splitSession;
 
-        public Queue<ScheduledCommand> cmds = new Queue<ScheduledCommand>();
+        public Queue<ScheduledCommand> cmds = new();
 
         public MultiplayerWorldComp(World world)
         {
@@ -301,9 +303,9 @@ namespace Multiplayer.Client
                         Multiplayer.RealPlayerFaction = Find.FactionManager.AllFactionsListForReading.Find(f => f.loadID == factionId);
                 }
 
-                if (cmdType == CommandType.Autosave)
+                if (cmdType == CommandType.CreateJoinPoint)
                 {
-                    LongEventHandler.QueueLongEvent(() => DoAutosave(data.ReadString()), "MpSaving", false, null);
+                    LongEventHandler.QueueLongEvent(CreateJoinPoint, "MpSaving", false, null);
                 }
             }
             catch (Exception e)
@@ -329,65 +331,12 @@ namespace Multiplayer.Client
             }
         }
 
-        private static void DoAutosave(string saveName="")
+        private static void CreateJoinPoint()
         {
-            var autosaveFile = saveName != "" ? saveName : AutosaveFile();
-            var written = false;
-
-            if (Multiplayer.LocalServer != null && !TickPatch.Simulating && !Multiplayer.IsReplay)
-            {
-                try
-                {
-                    var replay = Replay.ForSaving(autosaveFile);
-                    replay.File.Delete();
-                    replay.WriteCurrentData();
-                    written = true;
-                }
-                catch (Exception e)
-                {
-                    Log.Error($"Writing first section of the autosave failed: {e}");
-                }
-            }
-
-            var data = SaveLoad.SaveAndReload();
-
-            if (!Multiplayer.session.resyncing)
-            {
-                SaveLoad.CacheGameData(data);
-
-                if (written)
-                {
-                    try
-                    {
-                        var replay = Replay.ForSaving(autosaveFile);
-                        replay.LoadInfo();
-                        replay.WriteCurrentData();
-                    }
-                    catch (Exception e)
-                    {
-                        Log.Error($"Writing second section of the autosave failed: {e}");
-                    }
-                }
-            }
+            Multiplayer.session.dataSnapshot = SaveLoad.CreateGameDataSnapshot(SaveLoad.SaveAndReload());
 
             if (!TickPatch.Simulating && !Multiplayer.IsReplay && (Multiplayer.LocalServer != null || Multiplayer.arbiterInstance))
-                SaveLoad.SendCurrentGameData(true);
-        }
-
-        private static string AutosaveFile()
-        {
-            var autosavePrefix = "Autosave-";
-
-            if (Multiplayer.settings.appendNameToAutosave)
-            {
-                autosavePrefix += $"{Multiplayer.session.gameName}-";
-            }
-
-            return Enumerable
-                .Range(1, Multiplayer.settings.autosaveSlots)
-                .Select(i => $"{autosavePrefix}{i}")
-                .OrderBy(s => new FileInfo(Path.Combine(Multiplayer.ReplaysDir, $"{s}.zip")).LastWriteTime)
-                .First();
+                SaveLoad.SendGameData(Multiplayer.session.dataSnapshot, true);
         }
 
         private void HandleSetupFaction(ScheduledCommand command, ByteReader data)
@@ -422,23 +371,33 @@ namespace Multiplayer.Client
         public void DirtyColonyTradeForMap(Map map)
         {
             if (map == null) return;
-            foreach (MpTradeSession session in trading.Where(s => s.playerNegotiator.Map == map))
-                session.deal.recacheColony = true;
+            foreach (MpTradeSession session in trading)
+                if (session.playerNegotiator.Map == map)
+                    session.deal.recacheColony = true;
         }
 
         public void DirtyTraderTradeForTrader(ITrader trader)
         {
             if (trader == null) return;
-            foreach (MpTradeSession session in trading.Where(s => s.trader == trader))
-                session.deal.recacheTrader = true;
+            foreach (MpTradeSession session in trading)
+                if (session.trader == trader)
+                    session.deal.recacheTrader = true;
         }
 
         public void DirtyTradeForSpawnedThing(Thing t)
         {
-            if (t == null || !t.Spawned) return;
+            if (t is not { Spawned: true }) return;
+            foreach (MpTradeSession session in trading)
+                if (session.playerNegotiator.Map == t.Map)
+                    session.deal.recacheThings.Add(t);
+        }
 
-            foreach (MpTradeSession session in trading.Where(s => s.playerNegotiator.Map == t.Map))
-                session.deal.recacheThings.Add(t);
+        public bool AnyTradeSessionsOnMap(Map map)
+        {
+            foreach (MpTradeSession session in trading)
+                if (session.playerNegotiator.Map == map)
+                    return true;
+            return false;
         }
 
         public void FinalizeInit()

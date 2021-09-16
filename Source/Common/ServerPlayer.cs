@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Linq;
 
 namespace Multiplayer.Common
@@ -11,18 +12,29 @@ namespace Multiplayer.Common
         public PlayerStatus status;
         public ColorRGB color;
         public int ticksBehind;
+        public bool simulating;
 
         public ulong steamId;
         public string steamPersonaName = "";
 
         public int lastCursorTick = -1;
 
+        public int keepAliveId;
+        public Stopwatch keepAliveTimer = Stopwatch.StartNew();
+        public int keepAliveAt;
+
+        public bool paused;
+        public int unpausedAt;
+
         public string Username => conn.username;
         public int Latency => conn.Latency;
-        public int FactionId => MultiplayerServer.instance.playerFactions[Username];
+        public int FactionId => Server.playerFactions[Username];
         public bool IsPlaying => conn.State == ConnectionStateEnum.ServerPlaying;
-        public bool IsHost => MultiplayerServer.instance.hostUsername == Username;
+        public bool IsHost => Server.hostUsername == Username;
         public bool IsArbiter => type == PlayerType.Arbiter;
+
+        public bool KeepsServerAwake =>
+            !IsArbiter && status == PlayerStatus.Playing && ticksBehind < 30 && Server.netTimer - keepAliveAt < 60;
 
         public MultiplayerServer Server => MultiplayerServer.instance;
 
@@ -53,7 +65,7 @@ namespace Multiplayer.Common
         public void Disconnect(MpDisconnectReason reason, byte[] data = null)
         {
             conn.Close(reason, data);
-            Server.OnDisconnected(conn, reason);
+            Server.playerManager.OnDisconnected(conn, reason);
         }
 
         public void SendChat(string msg)
@@ -96,11 +108,19 @@ namespace Multiplayer.Common
             writer.WriteULong(steamId);
             writer.WriteString(steamPersonaName);
             writer.WriteInt32(ticksBehind);
+            writer.WriteBool(simulating);
             writer.WriteByte(color.r);
             writer.WriteByte(color.g);
             writer.WriteByte(color.b);
 
             return writer.ToArray();
+        }
+
+        public void WriteLatencyUpdate(ByteWriter writer)
+        {
+            writer.WriteInt32(Latency);
+            writer.WriteInt32(ticksBehind);
+            writer.WriteBool(simulating);
         }
 
         public void UpdateStatus(PlayerStatus status)

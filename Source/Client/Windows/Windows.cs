@@ -9,7 +9,6 @@ using Verse;
 
 namespace Multiplayer.Client
 {
-
     public abstract class MpTextInput : Window
     {
         public override Vector2 InitialSize => new Vector2(350f, 175f);
@@ -60,16 +59,14 @@ namespace Multiplayer.Client
         public virtual void DrawExtra(Rect inRect) { }
     }
 
-    public class Dialog_SaveReplay : MpTextInput
+    public class Dialog_SaveGame : MpTextInput
     {
-        public override Vector2 InitialSize => new Vector2(350f, 205f);
         private bool fileExists;
-        private bool fullSave = true; // triggers an Autosave
 
-        public Dialog_SaveReplay()
+        public Dialog_SaveGame()
         {
-            title = "MpSaveReplayAs".Translate();
-            curName = Multiplayer.session.gameName;
+            title = "MpSaveGameAs".Translate();
+            curName = GenFile.SanitizedFileName(Multiplayer.session.gameName);
         }
 
         public override bool Accept()
@@ -78,15 +75,8 @@ namespace Multiplayer.Client
 
             try
             {
-                if (Multiplayer.LocalServer != null && fullSave) {
-                    Multiplayer.LocalServer.DoAutosave(curName);
-                } else {
-                    new FileInfo(Path.Combine(Multiplayer.ReplaysDir, $"{curName}.zip")).Delete();
-                    Replay.ForSaving(curName).WriteCurrentData();
-                }
-
+                LongEventHandler.QueueLongEvent(() => MultiplayerSession.SaveGameToFile(curName), "MpSaving", false, null);
                 Close();
-                Messages.Message("MpReplaySaved".Translate(), MessageTypeDefOf.SilentInput, false);
             }
             catch (Exception e)
             {
@@ -101,19 +91,11 @@ namespace Multiplayer.Client
             if (str.Length > 30)
                 return false;
 
+            if (GenFile.SanitizedFileName(str) != str)
+                return false;
+
             fileExists = new FileInfo(Path.Combine(Multiplayer.ReplaysDir, $"{str}.zip")).Exists;
             return true;
-        }
-
-        public override void DoWindowContents(Rect inRect)
-        {
-            base.DoWindowContents(inRect);
-
-            var entry = new Rect(0f, 95f, 120f, 30f);
-            if (Multiplayer.LocalServer != null) {
-                TooltipHandler.TipRegion(entry, "MpFullSaveDesc".Translate());
-                MpUI.CheckboxLabeled(entry, "MpFullSave".Translate(), ref fullSave, placeTextNearCheckbox: true);
-            }
         }
 
         public override void DrawExtra(Rect inRect)

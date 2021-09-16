@@ -4,9 +4,11 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
+using JetBrains.Annotations;
 
 namespace Multiplayer.Common
 {
+    [MeansImplicitUse]
     public class PacketHandlerAttribute : Attribute
     {
         public readonly Packets packet;

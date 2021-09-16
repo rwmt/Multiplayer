@@ -6,6 +6,7 @@ using Steamworks;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -13,6 +14,7 @@ using HarmonyLib;
 using Multiplayer.Client.Util;
 using UnityEngine;
 using Verse;
+using Verse.Profile;
 using Verse.Sound;
 using Random = System.Random;
 
@@ -29,30 +31,30 @@ namespace Multiplayer.Client
 
         public ConnectionBase client;
         public NetManager netClient;
-        public PacketLogWindow writerLog = new PacketLogWindow();
-        public PacketLogWindow readerLog = new PacketLogWindow();
+        public PacketLogWindow writerLog = new();
+        public PacketLogWindow readerLog = new();
         public int myFactionId;
-        public List<PlayerInfo> players = new List<PlayerInfo>();
-        public SessionCache cache = new SessionCache();
+        public List<PlayerInfo> players = new();
+        public GameDataSnapshot dataSnapshot = new();
         public CursorAndPing cursorAndPing = new();
+        public int autosaveCounter;
+        public float lastSaveAt;
+        public string desyncTracesFromHost;
 
         public bool replay;
         public int replayTimerStart = -1;
         public int replayTimerEnd = -1;
-        public List<ReplayEvent> events = new List<ReplayEvent>();
+        public List<ReplayEvent> events = new();
 
         public bool desynced;
-        public bool resyncing;
 
         public SessionDisconnectInfo disconnectInfo;
 
-        public bool allowSteam;
-        public List<CSteamID> pendingSteam = new List<CSteamID>();
-        public List<CSteamID> knownUsers = new List<CSteamID>();
-        public Thread steamNet;
+        public List<CSteamID> pendingSteam = new();
+        public List<CSteamID> knownUsers = new();
 
         public const int MaxMessages = 200;
-        public List<ChatMsg> messages = new List<ChatMsg>();
+        public List<ChatMsg> messages = new();
         public bool hasUnread;
 
         public MultiplayerServer localServer;
@@ -80,8 +82,7 @@ namespace Multiplayer.Client
                 serverThread.Join();
             }
 
-            if (netClient != null)
-                netClient.Stop();
+            netClient?.Stop();
 
             if (arbiter != null)
             {
@@ -222,8 +223,8 @@ namespace Multiplayer.Client
 
         public void ScheduleCommand(ScheduledCommand cmd)
         {
-            MpLog.Log($"Cmd: {cmd.type}, faction: {cmd.factionId}, map: {cmd.mapId}, ticks: {cmd.ticks}");
-            cache.mapCmds.GetOrAddNew(cmd.mapId).Add(cmd);
+            MpLog.Debug($"Cmd: {cmd.type}, faction: {cmd.factionId}, map: {cmd.mapId}, ticks: {cmd.ticks}");
+            dataSnapshot.mapCmds.GetOrAddNew(cmd.mapId).Add(cmd);
 
             if (Current.ProgramState != ProgramState.Playing) return;
 
@@ -237,6 +238,70 @@ namespace Multiplayer.Client
         {
             cursorAndPing.UpdatePing();
         }
+
+        public static void DoAutosave()
+        {
+            LongEventHandler.QueueLongEvent(() =>
+            {
+                SaveGameToFile(GetNextAutosaveFileName());
+                Multiplayer.Client.Send(Packets.Client_Autosaving);
+            }, "MpSaving", false, null);
+        }
+
+        private static string GetNextAutosaveFileName()
+        {
+            var autosavePrefix = "Autosave-";
+
+            if (Multiplayer.settings.appendNameToAutosave)
+                autosavePrefix += $"{GenFile.SanitizedFileName(Multiplayer.session.gameName)}-";
+
+            return Enumerable
+                .Range(1, Multiplayer.settings.autosaveSlots)
+                .Select(i => $"{autosavePrefix}{i}")
+                .OrderBy(s => new FileInfo(Path.Combine(Multiplayer.ReplaysDir, $"{s}.zip")).LastWriteTime)
+                .First();
+        }
+
+        public static void SaveGameToFile(string fileNameNoExtension)
+        {
+            try
+            {
+                new FileInfo(Path.Combine(Multiplayer.ReplaysDir, $"{fileNameNoExtension}.zip")).Delete();
+                Replay.ForSaving(fileNameNoExtension).WriteData(SaveLoad.CreateGameDataSnapshot(SaveLoad.SaveGameData()));
+                Messages.Message("MpGameSaved".Translate(fileNameNoExtension), MessageTypeDefOf.SilentInput, false);
+                Multiplayer.session.lastSaveAt = Time.realtimeSinceStartup;
+            }
+            catch (Exception e)
+            {
+                Log.Error($"Exception saving multiplayer game: {e}");
+                Messages.Message("MpGameSaveFailed".Translate(), MessageTypeDefOf.SilentInput, false);
+            }
+        }
+
+        public static void DoRejoin()
+        {
+            Multiplayer.Client.State = ConnectionStateEnum.ClientJoining;
+            Multiplayer.Client.Send(Packets.Client_WorldRequest);
+            ((ClientJoiningState)Multiplayer.Client.StateObj).subState = JoiningState.Waiting;
+
+            Multiplayer.session.desynced = false;
+
+            Log.Message("Multiplayer: rejoining");
+
+            // From GenScene.GoToMainMenu
+            LongEventHandler.ClearQueuedEvents();
+            LongEventHandler.QueueLongEvent(() =>
+            {
+                MemoryUtility.ClearAllMapsAndWorld();
+                Current.Game = null;
+
+                LongEventHandler.ExecuteWhenFinished(() =>
+                {
+                    MpUI.ClearWindowStack();
+                    Find.WindowStack.Add(new RejoiningWindow());
+                });
+            }, "Entry", "LoadingLongEvent", true, null, false);
+        }
     }
 
     public struct SessionDisconnectInfo
@@ -247,25 +312,26 @@ namespace Multiplayer.Client
         public Action specialButtonAction;
     }
 
-    public class SessionCache
+    public class GameDataSnapshot
     {
         public int cachedAtTime;
         public byte[] gameData;
         public byte[] semiPersistentData;
-        public Dictionary<int, byte[]> mapData = new Dictionary<int, byte[]>();
+        public Dictionary<int, byte[]> mapData = new();
 
         // Global cmds are -1
-        public Dictionary<int, List<ScheduledCommand>> mapCmds = new Dictionary<int, List<ScheduledCommand>>();
+        public Dictionary<int, List<ScheduledCommand>> mapCmds = new();
     }
 
     public class PlayerInfo
     {
-        public static readonly Vector3 Invalid = new Vector3(-1, 0, -1);
+        public static readonly Vector3 Invalid = new(-1, 0, -1);
 
         public int id;
         public string username;
         public int latency;
         public int ticksBehind;
+        public bool simulating;
         public PlayerType type;
         public PlayerStatus status;
         public Color color;
@@ -282,7 +348,7 @@ namespace Multiplayer.Client
         public byte cursorIcon;
         public Vector3 dragStart = Invalid;
 
-        public Dictionary<int, float> selectedThings = new Dictionary<int, float>();
+        public Dictionary<int, float> selectedThings = new();
 
         private PlayerInfo(int id, string username, int latency, PlayerType type)
         {
@@ -304,6 +370,7 @@ namespace Multiplayer.Client
             var steamName = data.ReadString();
 
             var ticksBehind = data.ReadInt32();
+            var simulating = data.ReadBool();
 
             var color = new Color(data.ReadByte() / 255f, data.ReadByte() / 255f, data.ReadByte() / 255f);
 
@@ -313,7 +380,8 @@ namespace Multiplayer.Client
                 steamId = steamId,
                 steamPersonaName = steamName,
                 color = color,
-                ticksBehind = ticksBehind
+                ticksBehind = ticksBehind,
+                simulating = simulating
             };
         }
     }

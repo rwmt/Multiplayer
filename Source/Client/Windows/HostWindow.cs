@@ -71,8 +71,6 @@ namespace Multiplayer.Client
 
             if (file == null)
                 title = "MpHostIngame".Translate();
-            else if (file.replay)
-                title = "MpHostReplay".Translate();
             else
                 title = "MpHostSavefile".Translate();
 
@@ -156,7 +154,7 @@ namespace Multiplayer.Client
                 entry = entry.Down(30);
             }
 
-            // AsyncTime
+            // Async time
             {
                 TooltipHandler.TipRegion(entry.Width(checkboxWidth), $"{"MpAsyncTimeDesc".Translate()}\n\n{"MpExperimentalFeature".Translate()}");
                 MpUI.CheckboxLabeled(entry.Width(checkboxWidth), $"{"MpAsyncTime".Translate()}:  ", ref asyncTime, placeTextNearCheckbox: true, disabled: asyncTimeLocked);
@@ -181,6 +179,56 @@ namespace Multiplayer.Client
                 MpUI.CheckboxLabeled(entry.Width(checkboxWidth), "Debug mode:  ", ref serverSettings.debugMode, placeTextNearCheckbox: true);
                 entry = entry.Down(30);
             }
+
+            // Auto join-points
+            {
+                TooltipHandler.TipRegion(entry.Width(labelWidth + 1),
+                    MpUtil.TranslateWithDoubleNewLines("MpAutoJoinPointsDesc", 3));
+
+                using (MpStyle.Set(TextAnchor.MiddleRight))
+                    MpUI.Label(entry.Width(labelWidth + 1), $"{"MpAutoJoinPoints".Translate()}:  ");
+
+                using (MpStyle.Set(TextAnchor.MiddleLeft))
+                {
+                    var flags = Enum.GetValues(typeof(AutoJoinPointFlags))
+                        .OfType<AutoJoinPointFlags>()
+                        .Where(f => serverSettings.autoJoinPoint.HasFlag(f))
+                        .Select(f => $"MpAutoJoinPoints{f}".Translate())
+                        .Join(", ");
+                    if (flags.Length == 0) flags = "Off";
+
+                    var flagsWidth = Text.CalcSize(flags).x;
+
+                    const float btnMargin = 5f;
+
+                    var flagsBtn = entry.Right(labelWidth + 10).Width(flagsWidth + btnMargin * 2);
+                    Widgets.DrawRectFast(flagsBtn.Height(24).Down(3), new Color(0.15f, 0.15f, 0.15f));
+                    Widgets.DrawHighlightIfMouseover(flagsBtn.Height(24).Down(3));
+                    MpUI.Label(entry.Right(labelWidth + 10 + btnMargin).Width(flagsWidth), flags);
+
+                    if (Widgets.ButtonInvisible(flagsBtn))
+                        Find.WindowStack.Add(new FloatMenu(Flags().ToList()));
+
+                    IEnumerable<FloatMenuOption> Flags()
+                    {
+                        foreach (var flag in Enum.GetValues(typeof(AutoJoinPointFlags)).OfType<AutoJoinPointFlags>())
+                            yield return new FloatMenuOption($"MpAutoJoinPoints{flag}".Translate(), () =>
+                            {
+                                if (serverSettings.autoJoinPoint.HasFlag(flag))
+                                    serverSettings.autoJoinPoint &= ~flag;
+                                else
+                                    serverSettings.autoJoinPoint |= flag;
+                            });
+                    }
+                }
+
+                entry = entry.Down(30);
+            }
+
+            // Sync configs
+            TooltipHandler.TipRegion(entry.Width(checkboxWidth), MpUtil.TranslateWithDoubleNewLines("MpSyncConfigsDesc", 3));
+            MpUI.CheckboxLabeled(entry.Width(checkboxWidth), $"{"MpSyncConfigs".Translate()}:  ", ref serverSettings.syncConfigs, placeTextNearCheckbox: true);
+            entry = entry.Down(30);
 
             if (Event.current.type == EventType.Layout && height != entry.yMax)
             {

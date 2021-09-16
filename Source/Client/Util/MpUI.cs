@@ -142,18 +142,18 @@ namespace Multiplayer.Client.Util
                 TooltipHandler.TipRegion(rect, new TipSignal(str, 3333));
         }
 
-        public static void CheckboxLabeledWithTip(Rect rect, string label, string tip, ref bool check)
+        public static void CheckboxLabeledWithTip(Rect rect, string label, string tip, ref bool check, bool disabled = false)
         {
             Widgets.DrawHighlightIfMouseover(rect);
             if (tip != null)
                 TooltipHandler.TipRegion(rect, tip);
-            Widgets.CheckboxLabeled(rect, label, ref check);
+            Widgets.CheckboxLabeled(rect, label, ref check, disabled);
         }
 
-        public static bool ButtonTextWithTip(Rect rect, string label, string tip, bool disabled = false)
+        public static bool ButtonTextWithTip(Rect rect, string label, string tip, bool disabled = false, int? tipId = null)
         {
             if (tip != null)
-                TooltipHandler.TipRegion(rect, tip);
+                TooltipHandler.TipRegion(rect, new TipSignal(tip, tipId ?? tip.GetHashCode()));
 
             using (MpStyle.Set(TextAnchor.MiddleCenter))
             using (MpStyle.Set(disabled ? Color.grey : Color.white))

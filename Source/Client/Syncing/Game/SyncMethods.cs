@@ -305,9 +305,9 @@ namespace Multiplayer.Client
         [MpPrefix(typeof(Pawn_JobTracker), nameof(Pawn_JobTracker.TryTakeOrderedJob))]
         static void TryTakeOrderedJob_Prefix(Job job)
         {
-            // If Pawn_JobTracker.TryTakeOrderedJob is synced directly its job is created in interface code
+            // If Pawn_JobTracker.TryTakeOrderedJob is synced directly, JobMaker.MakeJob for its job is called in interface code (outside of a synced method)
             // UniqueIDs assigned in the interface are always negative and specific to a client
-            // This assigns the job a proper id after the code is synced and no longer in the interface (Multiplayer.ExecutingCmds)
+            // This assigns the job a proper id after the code is synced and no longer in the interface (Multiplayer.ExecutingCmds is true)
 
             if (Multiplayer.ExecutingCmds && job.loadID < 0)
             {

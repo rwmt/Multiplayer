@@ -260,7 +260,7 @@ namespace Multiplayer.Client
         {
             if (file.Valid)
             {
-                if (file.replay)
+                if (file.replay && Multiplayer.ShowDevInfo)
                 {
                     if (Widgets.ButtonText(new Rect(width, 0, 120, 40), "MpWatchReplay".Translate()))
                     {

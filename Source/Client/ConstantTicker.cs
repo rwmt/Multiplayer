@@ -1,5 +1,5 @@
 extern alias zip;
-
+using System;
 using HarmonyLib;
 using Multiplayer.Common;
 using RimWorld;
@@ -27,20 +27,40 @@ namespace Multiplayer.Client
                 //Extensions.PopFaction();
 
                 TickShipCountdown();
-
-                var sync = Multiplayer.game.sync;
-                if (sync.ShouldCollect && TickPatch.Timer % 30 == 0 && sync.currentOpinion != null)
-                {
-                    if (!TickPatch.Simulating && (Multiplayer.LocalServer != null || Multiplayer.arbiterInstance))
-                        Multiplayer.Client.SendFragmented(Packets.Client_SyncInfo, sync.currentOpinion.Serialize());
-
-                    sync.AddClientOpinionAndCheckDesync(sync.currentOpinion);
-                    sync.currentOpinion = null;
-                }
+                TickSyncCoordinator();
+                TickAutosave();
             }
             finally
             {
                 ticking = false;
+            }
+        }
+
+        static void TickAutosave()
+        {
+            if (Multiplayer.LocalServer is not { } server) return;
+            if (server.settings.autosaveUnit != AutosaveUnit.Minutes) return;
+
+            var session = Multiplayer.session;
+            session.autosaveCounter++;
+
+            if (server.settings.autosaveInterval > 0 && session.autosaveCounter > server.settings.autosaveInterval * 60 * 60)
+            {
+                session.autosaveCounter = 0;
+                MultiplayerSession.DoAutosave();
+            }
+        }
+
+        static void TickSyncCoordinator()
+        {
+            var sync = Multiplayer.game.sync;
+            if (sync.ShouldCollect && TickPatch.Timer % 30 == 0 && sync.currentOpinion != null)
+            {
+                if (!TickPatch.Simulating && (Multiplayer.LocalServer != null || Multiplayer.arbiterInstance))
+                    Multiplayer.Client.SendFragmented(Packets.Client_SyncInfo, sync.currentOpinion.Serialize());
+
+                sync.AddClientOpinionAndCheckDesync(sync.currentOpinion);
+                sync.currentOpinion = null;
             }
         }
 
@@ -56,26 +76,14 @@ namespace Multiplayer.Client
             }
         }
 
+        private static Func<BufferTarget, BufferData, bool> bufferPredicate = SyncFieldUtil.BufferedChangesPruner(() => TickPatch.Timer);
+
         private static void TickSync()
         {
             foreach (SyncField f in Sync.bufferedFields)
             {
                 if (!f.inGameLoop) continue;
-
-                SyncFieldUtil.bufferedChanges[f].RemoveAll((k, data) =>
-                {
-                    if (SyncFieldUtil.CheckShouldRemove(f, k, data))
-                        return true;
-
-                    if (!data.sent && TickPatch.Timer - data.timestamp > 30)
-                    {
-                        f.DoSync(k.Item1, data.toSend, k.Item2);
-                        data.sent = true;
-                        data.timestamp = TickPatch.Timer;
-                    }
-
-                    return false;
-                });
+                SyncFieldUtil.bufferedChanges[f].RemoveAll(bufferPredicate);
             }
         }
 

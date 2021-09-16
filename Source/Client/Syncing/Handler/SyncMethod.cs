@@ -181,7 +181,7 @@ namespace Multiplayer.Client
 
             beforeCall?.Invoke(target, args);
 
-            MpLog.Log($"Invoked {method} on {target} with {args.Length} params {args.ToStringSafeEnumerable()}");
+            MpLog.Debug($"Invoked {method} on {target} with {args.Length} params {args.ToStringSafeEnumerable()}");
             method.Invoke(target, args);
 
             afterCall?.Invoke(target, args);
@@ -288,6 +288,14 @@ namespace Multiplayer.Client
         {
             return Sync.RegisterSyncMethod(
                 MpMethodUtil.GetLambda(parentType, parentMethod, MethodType.Normal, parentArgs, lambdaOrdinal),
+                null
+            );
+        }
+
+        public static SyncMethod LambdaInGetter(Type parentType, string parentMethod, int lambdaOrdinal)
+        {
+            return Sync.RegisterSyncMethod(
+                MpMethodUtil.GetLambda(parentType, parentMethod, MethodType.Getter, null, lambdaOrdinal),
                 null
             );
         }

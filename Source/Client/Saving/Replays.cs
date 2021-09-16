@@ -29,27 +29,29 @@ namespace Multiplayer.Client
 
         public void WriteCurrentData()
         {
-            var cache = Multiplayer.session.cache;
+            WriteData(Multiplayer.session.dataSnapshot);
+        }
+
+        public void WriteData(GameDataSnapshot gameData)
+        {
             string sectionId = info.sections.Count.ToString("D3");
+            using var zip = ZipFile;
 
-            using (var zip = ZipFile)
-            {
-                foreach (var kv in cache.mapData)
-                    zip.AddEntry($"maps/{sectionId}_{kv.Key}_save", kv.Value);
+            foreach (var (mapId, mapData) in gameData.mapData)
+                zip.AddEntry($"maps/{sectionId}_{mapId}_save", mapData);
 
-                foreach (var kv in cache.mapCmds)
-                    if (kv.Key >= 0)
-                        zip.AddEntry($"maps/{sectionId}_{kv.Key}_cmds", SerializeCmds(kv.Value));
+            foreach (var (mapId, mapCmdData) in gameData.mapCmds)
+                if (mapId >= 0)
+                    zip.AddEntry($"maps/{sectionId}_{mapId}_cmds", SerializeCmds(mapCmdData));
 
-                if (cache.mapCmds.TryGetValue(ScheduledCommand.Global, out var worldCmds))
-                    zip.AddEntry($"world/{sectionId}_cmds", SerializeCmds(worldCmds));
+            if (gameData.mapCmds.TryGetValue(ScheduledCommand.Global, out var worldCmds))
+                zip.AddEntry($"world/{sectionId}_cmds", SerializeCmds(worldCmds));
 
-                zip.AddEntry($"world/{sectionId}_save", cache.gameData);
-                zip.Save();
-            }
+            zip.AddEntry($"world/{sectionId}_save", gameData.gameData);
+            info.sections.Add(new ReplaySection(gameData.cachedAtTime, TickPatch.Timer));
 
-            info.sections.Add(new ReplaySection(cache.cachedAtTime, TickPatch.Timer));
-            WriteInfo();
+            zip.UpdateEntry("info", DirectXmlSaver.XElementFromObject(info, typeof(ReplayInfo)).ToString());
+            zip.Save();
         }
 
         public static byte[] SerializeCmds(List<ScheduledCommand> cmds)
@@ -75,13 +77,6 @@ namespace Multiplayer.Client
             return result;
         }
 
-        public void WriteInfo()
-        {
-            using var zip = ZipFile;
-            zip.UpdateEntry("info", DirectXmlSaver.XElementFromObject(info, typeof(ReplayInfo)).ToString());
-            zip.Save();
-        }
-
         public bool LoadInfo()
         {
             using var zip = ZipFile;
@@ -96,33 +91,35 @@ namespace Multiplayer.Client
 
         public void LoadCurrentData(int sectionId)
         {
-            var cache = Multiplayer.session.cache;
+            var dataSnapshot = new GameDataSnapshot();
             string sectionIdStr = sectionId.ToString("D3");
 
-            using (var zip = ZipFile)
+            using var zip = ZipFile;
+
+            foreach (var mapCmds in zip.SelectEntries($"name = maps/{sectionIdStr}_*_cmds"))
             {
-                foreach (var mapCmds in zip.SelectEntries($"name = maps/{sectionIdStr}_*_cmds"))
-                {
-                    int mapId = int.Parse(mapCmds.FileName.Split('_')[1]);
-                    cache.mapCmds[mapId] = DeserializeCmds(mapCmds.GetBytes());
-                }
-
-                foreach (var mapSave in zip.SelectEntries($"name = maps/{sectionIdStr}_*_save"))
-                {
-                    int mapId = int.Parse(mapSave.FileName.Split('_')[1]);
-                    cache.mapData[mapId] = mapSave.GetBytes();
-                }
-
-                var worldCmds = zip[$"world/{sectionIdStr}_cmds"];
-                if (worldCmds != null)
-                    cache.mapCmds[ScheduledCommand.Global] = DeserializeCmds(worldCmds.GetBytes());
-
-                cache.gameData = zip[$"world/{sectionIdStr}_save"].GetBytes();
-                cache.semiPersistentData = new byte[0];
+                int mapId = int.Parse(mapCmds.FileName.Split('_')[1]);
+                dataSnapshot.mapCmds[mapId] = DeserializeCmds(mapCmds.GetBytes());
             }
+
+            foreach (var mapSave in zip.SelectEntries($"name = maps/{sectionIdStr}_*_save"))
+            {
+                int mapId = int.Parse(mapSave.FileName.Split('_')[1]);
+                dataSnapshot.mapData[mapId] = mapSave.GetBytes();
+            }
+
+            var worldCmds = zip[$"world/{sectionIdStr}_cmds"];
+            if (worldCmds != null)
+                dataSnapshot.mapCmds[ScheduledCommand.Global] = DeserializeCmds(worldCmds.GetBytes());
+
+            dataSnapshot.gameData = zip[$"world/{sectionIdStr}_save"].GetBytes();
+            dataSnapshot.semiPersistentData = new byte[0];
+
+            Multiplayer.session.dataSnapshot = dataSnapshot;
         }
 
-        public static FileInfo ReplayFile(string fileName, string folder = null) => new FileInfo(Path.Combine(folder ?? Multiplayer.ReplaysDir, $"{fileName}.zip"));
+        public static FileInfo ReplayFile(string fileName, string folder = null)
+            => new(Path.Combine(folder ?? Multiplayer.ReplaysDir, $"{fileName}.zip"));
 
         public static Replay ForLoading(string fileName) => ForLoading(ReplayFile(fileName));
         public static Replay ForLoading(FileInfo file) => new Replay(file);
@@ -169,14 +166,14 @@ namespace Multiplayer.Client
             session.replayTimerEnd = tickUntil;
             TickPatch.tickUntil = tickUntil;
 
-            TickPatch.SimulateTo(
+            TickPatch.SetSimulation(
                 toEnd ? tickUntil : session.replayTimerStart,
                 onFinish: after,
                 onCancel: cancel,
                 simTextKey: simTextKey
             );
 
-            ClientJoiningState.ReloadGame(session.cache.mapData.Keys.ToList(), true, replay.info.asyncTime);
+            ClientJoiningState.ReloadGame(session.dataSnapshot.mapData.Keys.ToList(), true, replay.info.asyncTime);
         }
     }
 

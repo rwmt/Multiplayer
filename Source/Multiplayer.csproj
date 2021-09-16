@@ -14,13 +14,13 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Krafs.Publicizer" Version="1.0.0" />
+    <PackageReference Include="Krafs.Publicizer" Version="1.0.1" />
     <PackageReference Include="RestSharp" Version="106.12.0" />
     <PackageReference Include="RimWorld.MultiplayerAPI" Version="0.3.0" />
     <PackageReference Include="Lib.Harmony" Version="2.1.1" ExcludeAssets="runtime" />
     <PackageReference Include="LiteNetLib" Version="0.9.5" />
     <PackageReference Include="DotNetZip.Reduced" Version="1.9.1.8" />
-    <PackageReference Include="Krafs.Rimworld.Ref" Version="1.3.3117-beta" />
+    <PackageReference Include="Krafs.Rimworld.Ref" Version="1.3.*" />
   </ItemGroup>
 
   <ItemGroup>

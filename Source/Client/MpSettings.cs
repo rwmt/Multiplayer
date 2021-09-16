@@ -83,11 +83,11 @@ namespace Multiplayer.Client
             const string buttonOff = "Off";
 
             using (MpStyle.Set(TextAnchor.MiddleCenter))
-                if (listing.ButtonTextLabeled("MpPingLocButtonSetting".Translate(), sendPingButton?.ToString().Insert("Mouse".Length, " ") ?? buttonOff))
+                if (listing.ButtonTextLabeled("MpPingLocButtonSetting".Translate(), sendPingButton != null ? $"Mouse {sendPingButton - (int)KeyCode.Mouse0 + 1}" : buttonOff))
                     Find.WindowStack.Add(new FloatMenu(new List<FloatMenuOption>(ButtonChooser(b => sendPingButton = b))));
 
             using (MpStyle.Set(TextAnchor.MiddleCenter))
-                if (listing.ButtonTextLabeled("MpJumpToPingButtonSetting".Translate(), jumpToPingButton?.ToString().Insert("Mouse".Length, " ") ?? buttonOff))
+                if (listing.ButtonTextLabeled("MpJumpToPingButtonSetting".Translate(), jumpToPingButton != null ? $"Mouse {jumpToPingButton - (int)KeyCode.Mouse0 + 1}" : buttonOff))
                     Find.WindowStack.Add(new FloatMenu(new List<FloatMenuOption>(ButtonChooser(b => jumpToPingButton = b))));
 
             if (Prefs.DevMode)
@@ -102,10 +102,10 @@ namespace Multiplayer.Client
             {
                 yield return new FloatMenuOption(buttonOff, () => { setter(null); });
 
-                for (var btn = KeyCode.Mouse2; btn <= KeyCode.Mouse6; btn++)
+                for (var btn = 0; btn < 5; btn++)
                 {
                     var b = btn;
-                    yield return new FloatMenuOption(b.ToString().Insert("Mouse".Length, " "), () => { setter(b); });
+                    yield return new FloatMenuOption($"Mouse {b + 3}", () => { setter(KeyCode.Mouse2 + b); });
                 }
             }
         }
@@ -125,7 +125,7 @@ namespace Multiplayer.Client
                 Multiplayer.username = fieldStr;
             }
 
-            // Don't allow changing the username in-game
+            // Don't allow changing the username while playing
             if (Multiplayer.Client != null && GUI.GetNameOfFocusedControl() == UsernameField)
                 UI.UnfocusCurrentControl();
         }

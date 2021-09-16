@@ -27,7 +27,7 @@ namespace Multiplayer.Client
 
             var session = new MultiplayerSession();
             if (Multiplayer.session != null) // This is the case when hosting from a replay
-                session.cache = Multiplayer.session.cache;
+                session.dataSnapshot = Multiplayer.session.dataSnapshot;
 
             Multiplayer.session = session;
 
@@ -39,21 +39,21 @@ namespace Multiplayer.Client
 
             if (withSimulation)
             {
-                localServer.savedGame = GZipStream.CompressBuffer(session.cache.gameData);
-                localServer.semiPersistent = GZipStream.CompressBuffer(session.cache.semiPersistentData);
-                localServer.mapData = session.cache.mapData.ToDictionary(kv => kv.Key, kv => GZipStream.CompressBuffer(kv.Value));
-                localServer.mapCmds = session.cache.mapCmds.ToDictionary(kv => kv.Key, kv => kv.Value.Select(c => c.Serialize()).ToList());
+                localServer.savedGame = GZipStream.CompressBuffer(session.dataSnapshot.gameData);
+                localServer.semiPersistent = GZipStream.CompressBuffer(session.dataSnapshot.semiPersistentData);
+                localServer.mapData = session.dataSnapshot.mapData.ToDictionary(kv => kv.Key, kv => GZipStream.CompressBuffer(kv.Value));
+                localServer.mapCmds = session.dataSnapshot.mapCmds.ToDictionary(kv => kv.Key, kv => kv.Value.Select(c => c.Serialize()).ToList());
             }
 
-            localServer.debugOnlySyncCmds = Sync.handlers.Where(h => h.debugOnly).Select(h => h.syncId).ToHashSet();
-            localServer.hostOnlySyncCmds = Sync.handlers.Where(h => h.hostOnly).Select(h => h.syncId).ToHashSet();
+            localServer.commands.debugOnlySyncCmds = Sync.handlers.Where(h => h.debugOnly).Select(h => h.syncId).ToHashSet();
+            localServer.commands.hostOnlySyncCmds = Sync.handlers.Where(h => h.hostOnly).Select(h => h.syncId).ToHashSet();
             localServer.hostUsername = Multiplayer.username;
             localServer.coopFactionId = Faction.OfPlayer.loadID;
 
             localServer.rwVersion = VersionControl.CurrentVersionString;
             localServer.mpVersion = MpVersion.Version;
             localServer.defInfos = MultiplayerData.localDefInfos;
-            localServer.serverData = JoinData.WriteServerData();
+            localServer.serverData = JoinData.WriteServerData(settings.syncConfigs);
 
             if (settings.steam)
                 localServer.NetTick += SteamIntegration.ServerSteamNetTick;
@@ -101,8 +101,8 @@ namespace Multiplayer.Client
 
                 LongEventHandler.QueueLongEvent(() =>
                 {
-                    SaveLoad.CacheGameData(SaveLoad.SaveAndReload());
-                    SaveLoad.SendCurrentGameData(false);
+                    Multiplayer.session.dataSnapshot = SaveLoad.CreateGameDataSnapshot(SaveLoad.SaveAndReload());
+                    SaveLoad.SendGameData(Multiplayer.session.dataSnapshot, false);
 
                     StartServerThread();
                 }, "MpSaving", false, null);
@@ -214,7 +214,7 @@ namespace Multiplayer.Client
             localClient.State = ConnectionStateEnum.ClientPlaying;
             localServerConn.State = ConnectionStateEnum.ServerPlaying;
 
-            var serverPlayer = Multiplayer.LocalServer.OnConnected(localServerConn);
+            var serverPlayer = Multiplayer.LocalServer.playerManager.OnConnected(localServerConn);
             serverPlayer.color = new ColorRGB(255, 0, 0);
             serverPlayer.status = PlayerStatus.Playing;
             serverPlayer.SendPlayerList();

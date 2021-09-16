@@ -12,8 +12,8 @@ namespace Multiplayer.Client
 {
     public static class SyncFieldUtil
     {
-        public static Dictionary<SyncField, Dictionary<(object, object), BufferData>> bufferedChanges = new();
-        public static Stack<FieldData> watchedStack = new Stack<FieldData>();
+        public static Dictionary<SyncField, Dictionary<BufferTarget, BufferData>> bufferedChanges = new();
+        private static Stack<FieldData?> watchedStack = new();
 
         public static void FieldWatchPrefix()
         {
@@ -28,9 +28,9 @@ namespace Multiplayer.Client
 
             while (watchedStack.Count > 0)
             {
-                FieldData data = watchedStack.Pop();
+                var dataOrNull = watchedStack.Pop();
 
-                if (data == null)
+                if (dataOrNull is not { } data)
                     break; // The marker
 
                 SyncField handler = data.handler;
@@ -39,7 +39,7 @@ namespace Multiplayer.Client
                 bool changed = !ValuesEqual(handler, newValue, data.oldValue);
                 var cache = (handler.bufferChanges && !Multiplayer.IsReplay) ? bufferedChanges.GetValueSafe(handler) : null;
 
-                if (cache != null && cache.TryGetValue((data.target, data.index), out BufferData cached))
+                if (cache != null && cache.TryGetValue(new(data.target, data.index), out BufferData cached))
                 {
                     if (changed && cached.sent)
                         cached.sent = false;
@@ -53,8 +53,8 @@ namespace Multiplayer.Client
 
                 if (cache != null)
                 {
-                    BufferData bufferData = new BufferData(data.oldValue, SnapshotValueIfNeeded(handler, newValue));
-                    cache[(data.target, data.index)] = bufferData;
+                    BufferData bufferData = new BufferData(handler, data.oldValue, SnapshotValueIfNeeded(handler, newValue));
+                    cache[new(data.target, data.index)] = bufferData;
                 }
                 else
                 {
@@ -65,35 +65,46 @@ namespace Multiplayer.Client
             }
         }
 
+        public static void StackPush(SyncField field, object target, object value, object index)
+        {
+            watchedStack.Push(new FieldData(field, target, value, index));
+        }
+
+        public static Func<BufferTarget, BufferData, bool> BufferedChangesPruner(Func<long> timeGetter)
+        {
+            return (target, data) =>
+            {
+                if (CheckShouldRemove(data.field, target, data))
+                    return true;
+
+                if (!data.sent && timeGetter() - data.timestamp > 200)
+                {
+                    data.field.DoSync(target.target, data.toSend, target.index);
+                    data.sent = true;
+                    data.timestamp = timeGetter();
+                }
+
+                return false;
+            };
+        }
+
+        private static Func<BufferTarget, BufferData, bool> bufferPredicate = BufferedChangesPruner(() => Utils.MillisNow);
+
         public static void UpdateSync()
         {
             foreach (SyncField f in Sync.bufferedFields)
             {
                 if (f.inGameLoop) continue;
-
-                bufferedChanges[f].RemoveAll((k, data) =>
-                {
-                    if (CheckShouldRemove(f, k, data))
-                        return true;
-
-                    if (!data.sent && Utils.MillisNow - data.timestamp > 200)
-                    {
-                        f.DoSync(k.Item1, data.toSend, k.Item2);
-                        data.sent = true;
-                        data.timestamp = Utils.MillisNow;
-                    }
-
-                    return false;
-                });
+                bufferedChanges[f].RemoveAll(bufferPredicate);
             }
         }
 
-        public static bool CheckShouldRemove(SyncField field, (object, object) target, BufferData data)
+        public static bool CheckShouldRemove(SyncField field, BufferTarget target, BufferData data)
         {
             if (data.sent && ValuesEqual(field, data.toSend, data.actualValue))
                 return true;
 
-            object currentValue = target.Item1.GetPropertyOrField(field.memberPath, target.Item2);
+            object currentValue = target.target.GetPropertyOrField(field.memberPath, target.index);
 
             if (!ValuesEqual(field, currentValue, data.actualValue))
             {
@@ -143,12 +154,12 @@ namespace Multiplayer.Client
         }
     }
 
-    public class FieldData
+    public readonly struct FieldData
     {
-        public SyncField handler;
-        public object target;
-        public object oldValue;
-        public object index;
+        public readonly SyncField handler;
+        public readonly object target;
+        public readonly object oldValue;
+        public readonly object index;
 
         public FieldData(SyncField handler, object target, object oldValue, object index)
         {
@@ -159,15 +170,39 @@ namespace Multiplayer.Client
         }
     }
 
+    public readonly struct BufferTarget
+    {
+        public readonly object target;
+        public readonly object index;
+
+        public BufferTarget(object target, object index)
+        {
+            this.target = target;
+            this.index = index;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is BufferTarget other && Equals(target, other.target) && Equals(index, other.index);
+        }
+
+        public override int GetHashCode()
+        {
+            return Gen.HashCombineInt(target?.GetHashCode() ?? 0, index?.GetHashCode() ?? 0);
+        }
+    }
+
     public class BufferData
     {
+        public SyncField field;
         public object actualValue;
         public object toSend;
         public long timestamp;
         public bool sent;
 
-        public BufferData(object actualValue, object toSend)
+        public BufferData(SyncField field, object actualValue, object toSend)
         {
+            this.field = field;
             this.actualValue = actualValue;
             this.toSend = toSend;
         }

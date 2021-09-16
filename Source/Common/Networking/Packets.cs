@@ -10,7 +10,7 @@
         // Playing
         Client_WorldReady,
         Client_Command,
-        Client_AutosavedData,
+        Client_WorldDataUpload,
         Client_IdBlockRequest,
         Client_Chat,
         Client_KeepAlive,
@@ -21,11 +21,15 @@
         Client_Pause,
         Client_Debug,
         Client_Selected,
-        Client_Ping,
+        Client_PingLocation,
+        Client_Traces,
+        Client_Autosaving,
+        Client_RequestRejoin,
 
         // Joining
         Server_UsernameOk,
         Server_JoinData,
+        Server_WorldDataStart,
         Server_WorldData,
 
         // Playing
@@ -42,7 +46,9 @@
         Server_Pause,
         Server_Debug,
         Server_Selected,
-        Server_Ping,
+        Server_PingLocation,
+        Server_Traces,
+        Server_CanRejoin,
 
         Count,
         Special_Steam_Disconnect = 63 // Also the max packet id

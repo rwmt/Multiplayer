@@ -13,18 +13,18 @@ namespace Multiplayer.Client
 {
     public class MultiplayerGame
     {
-        public SyncCoordinator sync = new SyncCoordinator();
+        public SyncCoordinator sync = new();
 
         public MultiplayerWorldComp worldComp;
         public MultiplayerGameComp gameComp;
-        public List<MultiplayerMapComp> mapComps = new List<MultiplayerMapComp>();
-        public List<AsyncTimeComp> asyncTimeComps = new List<AsyncTimeComp>();
-        public SharedCrossRefs sharedCrossRefs = new SharedCrossRefs();
+        public List<MultiplayerMapComp> mapComps = new();
+        public List<AsyncTimeComp> asyncTimeComps = new();
+        public SharedCrossRefs sharedCrossRefs = new();
 
         private Faction myFaction;
         public Faction myFactionLoading;
 
-        public Dictionary<int, PlayerDebugState> playerDebugState = new Dictionary<int, PlayerDebugState>();
+        public Dictionary<int, PlayerDebugState> playerDebugState = new();
 
         public Faction RealPlayerFaction
         {

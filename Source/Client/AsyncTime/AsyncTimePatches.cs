@@ -202,7 +202,7 @@ namespace Multiplayer.Client.AsyncTime
                 TickPatch.replayTimeSpeed = TimeSpeed.Normal;
                 TickPatch.accumulator = 1;
 
-                TickPatch.Tick();
+                TickPatch.Tick(out _);
 
                 TickPatch.accumulator = 0;
                 TickPatch.replayTimeSpeed = replaySpeed;

@@ -4,12 +4,12 @@ using LiteNetLib;
 
 namespace Multiplayer.Common
 {
-    public class MpNetListener : INetEventListener
+    public class MpServerNetListener : INetEventListener
     {
         private MultiplayerServer server;
         private bool arbiter;
 
-        public MpNetListener(MultiplayerServer server, bool arbiter)
+        public MpServerNetListener(MultiplayerServer server, bool arbiter)
         {
             this.server = server;
             this.arbiter = arbiter;
@@ -17,7 +17,7 @@ namespace Multiplayer.Common
 
         public void OnConnectionRequest(ConnectionRequest req)
         {
-            var result = server.OnPreConnect(req.RemoteEndPoint.Address);
+            var result = server.playerManager.OnPreConnect(req.RemoteEndPoint.Address);
             if (result != null)
             {
                 req.Reject(ConnectionBase.GetDisconnectBytes(result.Value));
@@ -33,7 +33,7 @@ namespace Multiplayer.Common
             conn.State = ConnectionStateEnum.ServerJoining;
             peer.Tag = conn;
 
-            var player = server.OnConnected(conn);
+            var player = server.playerManager.OnConnected(conn);
             if (arbiter)
             {
                 player.type = PlayerType.Arbiter;
@@ -44,7 +44,7 @@ namespace Multiplayer.Common
         public void OnPeerDisconnected(NetPeer peer, DisconnectInfo disconnectInfo)
         {
             ConnectionBase conn = peer.GetConnection();
-            server.OnDisconnected(conn, MpDisconnectReason.ClientLeft);
+            server.playerManager.OnDisconnected(conn, MpDisconnectReason.ClientLeft);
         }
 
         public void OnNetworkLatencyUpdate(NetPeer peer, int latency)

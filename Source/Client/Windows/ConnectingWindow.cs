@@ -14,10 +14,10 @@ namespace Multiplayer.Client
 {
     public abstract class BaseConnectingWindow : Window, IConnectionStatusListener
     {
-        public override Vector2 InitialSize => new Vector2(400f, 150f);
+        public override Vector2 InitialSize => new(400f, 150f);
 
-        public virtual bool IsConnecting => result == null;
-        public abstract string ConnectingString { get; }
+        protected bool IsConnecting => result == null;
+        protected abstract string ConnectingString { get; }
 
         public bool returnToServerBrowser;
         protected string result;
@@ -30,10 +30,14 @@ namespace Multiplayer.Client
 
         public override void DoWindowContents(Rect inRect)
         {
-            string label = IsConnecting ? (ConnectingString + MpUI.FixedEllipsis()) : result;
+            string label;
 
-            if (Multiplayer.Client?.StateObj is ClientJoiningState { subState: JoiningState.Downloading })
-                label = $"MpDownloading".Translate(Multiplayer.Client.FragmentProgress);
+            if (Multiplayer.Client?.StateObj is ClientJoiningState { subState: JoiningState.Waiting })
+                label = "MpWaitingForGameData".Translate() + MpUI.FixedEllipsis();
+            else if (Multiplayer.Client?.StateObj is ClientJoiningState { subState: JoiningState.Downloading })
+                label = "MpDownloading".Translate(Multiplayer.Client.FragmentProgress);
+            else
+                label = IsConnecting ? (ConnectingString + MpUI.FixedEllipsis()) : result;
 
             const float buttonHeight = 40f;
             const float buttonWidth = 120f;
@@ -64,9 +68,14 @@ namespace Multiplayer.Client
         public void Disconnected() { }
     }
 
+    public class RejoiningWindow : BaseConnectingWindow
+    {
+        protected override string ConnectingString => "Joining...";
+    }
+
     public class ConnectingWindow : BaseConnectingWindow
     {
-        public override string ConnectingString => string.Format("MpConnectingTo".Translate("{0}", port), address);
+        protected override string ConnectingString => string.Format("MpConnectingTo".Translate("{0}", port), address);
 
         private string address;
         private int port;
@@ -80,15 +89,13 @@ namespace Multiplayer.Client
 
     public class SteamConnectingWindow : BaseConnectingWindow
     {
-        public override string ConnectingString => (host.NullOrEmpty() ? "" : $"{"MpSteamConnectingTo".Translate(host)}\n") + "MpSteamConnectingWaiting".Translate();
+        protected override string ConnectingString => (hostUsername.NullOrEmpty() ? "" : $"{"MpSteamConnectingTo".Translate(hostUsername)}\n") + "MpSteamConnectingWaiting".Translate();
 
-        public CSteamID hostId;
-        public string host;
+        public string hostUsername;
 
         public SteamConnectingWindow(CSteamID hostId)
         {
-            this.hostId = hostId;
-            host = SteamFriends.GetFriendPersonaName(hostId);
+            hostUsername = SteamFriends.GetFriendPersonaName(hostId);
         }
     }
 

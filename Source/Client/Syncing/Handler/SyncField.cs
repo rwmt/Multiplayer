@@ -82,7 +82,7 @@ namespace Multiplayer.Client
 
             preApply?.Invoke(target, value);
 
-            MpLog.Log($"Set {memberPath} in {target} to {value}, map {data.MpContext().map}, index {index}");
+            MpLog.Debug($"Set {memberPath} in {target} to {value}, map {data.MpContext().map}, index {index}");
             MpReflection.SetValue(target, memberPath, value, index);
 
             postApply?.Invoke(target, value);
@@ -95,7 +95,7 @@ namespace Multiplayer.Client
 
             object value;
 
-            if (bufferChanges && SyncFieldUtil.bufferedChanges[this].TryGetValue((target, index), out BufferData cached))
+            if (bufferChanges && SyncFieldUtil.bufferedChanges[this].TryGetValue(new(target, index), out BufferData cached))
             {
                 value = cached.toSend;
                 target.SetPropertyOrField(memberPath, value, index);
@@ -105,7 +105,7 @@ namespace Multiplayer.Client
                 value = SyncFieldUtil.SnapshotValueIfNeeded(this, target.GetPropertyOrField(memberPath, index));
             }
 
-            SyncFieldUtil.watchedStack.Push(new FieldData(this, target, value, index));
+            SyncFieldUtil.StackPush(this, target, value, index);
         }
 
         public ISyncField SetVersion(int version)

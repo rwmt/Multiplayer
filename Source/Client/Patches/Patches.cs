@@ -321,24 +321,6 @@ namespace Multiplayer.Client
         static bool Prefix(Thing t) => t.def.isSaveable;
     }
 
-    [HarmonyPatch(typeof(ThingWithComps), nameof(ThingWithComps.InitializeComps))]
-    static class InitializeCompsPatch
-    {
-        static void Postfix(ThingWithComps __instance)
-        {
-            if (__instance is Pawn)
-            {
-                MultiplayerPawnComp comp = new MultiplayerPawnComp() {parent = __instance};
-                __instance.AllComps.Add(comp);
-            }
-        }
-    }
-
-    public class MultiplayerPawnComp : ThingComp
-    {
-        public SituationalThoughtHandler thoughtsForInterface;
-    }
-
     [HarmonyPatch(typeof(MapGenerator), nameof(MapGenerator.GenerateMap))]
     static class BeforeMapGeneration
     {
@@ -402,16 +384,6 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(IncidentWorker_RansomDemand), nameof(IncidentWorker_RansomDemand.CanFireNowSub))]
-    static class CancelIncidents
-    {
-        static void Postfix(ref bool __result)
-        {
-            if (Multiplayer.Client != null)
-                __result = false;
-        }
-    }
-
     [HarmonyPatch(typeof(IncidentDef), nameof(IncidentDef.TargetAllowed))]
     static class GameConditionIncidentTargetPatch
     {
@@ -452,71 +424,6 @@ namespace Multiplayer.Client
             yield return AccessTools.Method(typeof(CameraJumper), nameof(CameraJumper.TryJump), new[] {typeof(GlobalTargetInfo)});
         }
         static bool Prefix() => !TickPatch.Simulating;
-    }
-
-    [HarmonyPatch(typeof(LongEventHandler), nameof(LongEventHandler.QueueLongEvent), new[] { typeof(Action), typeof(string), typeof(bool), typeof(Action<Exception>), typeof(bool) })]
-    static class MarkLongEvents
-    {
-        private static MethodInfo MarkerMethod = AccessTools.Method(typeof(MarkLongEvents), nameof(Marker));
-
-        static void Prefix(ref Action action)
-        {
-            if (Multiplayer.Client != null && (Multiplayer.Ticking || Multiplayer.ExecutingCmds))
-            {
-                action += Marker;
-            }
-        }
-
-        private static void Marker()
-        {
-        }
-
-        public static bool IsTickMarked(Action action)
-        {
-            return action?.GetInvocationList()?.Any(d => d.Method == MarkerMethod) ?? false;
-        }
-    }
-
-    [HarmonyPatch(typeof(LongEventHandler), nameof(LongEventHandler.LongEventsUpdate))]
-    static class NewLongEvent
-    {
-        public static bool currentEventWasMarked;
-
-        static void Prefix(ref bool __state)
-        {
-            __state = LongEventHandler.currentEvent == null;
-            currentEventWasMarked = MarkLongEvents.IsTickMarked(LongEventHandler.currentEvent?.eventAction);
-        }
-
-        static void Postfix(bool __state)
-        {
-            currentEventWasMarked = false;
-
-            if (Multiplayer.Client == null) return;
-
-            if (__state && MarkLongEvents.IsTickMarked(LongEventHandler.currentEvent?.eventAction))
-                Multiplayer.Client.Send(Packets.Client_Pause, new object[] {true});
-        }
-    }
-
-    [HarmonyPatch(typeof(LongEventHandler), nameof(LongEventHandler.ExecuteToExecuteWhenFinished))]
-    static class LongEventEnd
-    {
-        static void Postfix()
-        {
-            if (Multiplayer.Client != null && NewLongEvent.currentEventWasMarked)
-                Multiplayer.Client.Send(Packets.Client_Pause, new object[] {false});
-        }
-    }
-
-    [HarmonyPatch(typeof(LongEventHandler), nameof(LongEventHandler.QueueLongEvent), new[] { typeof(Action), typeof(string), typeof(bool), typeof(Action<Exception>), typeof(bool) })]
-    static class LongEventAlwaysSync
-    {
-        static void Prefix(ref bool doAsynchronously)
-        {
-            if (Multiplayer.ExecutingCmds)
-                doAsynchronously = false;
-        }
     }
 
     [HarmonyPatch(typeof(Selector), nameof(Selector.Deselect))]
@@ -728,13 +635,6 @@ namespace Multiplayer.Client
     {
         // Set the dialog as closed in here as well just in case
         static void Prefix() => SyncUtil.isDialogNodeTreeOpen = false;
-    }
-
-    [HarmonyPatch(typeof(LetterStack), nameof(LetterStack.LetterStackTick))]
-    static class LetterStackCancelTick
-    {
-        // todo close windows of timed-out letters
-        static bool Prefix() => Multiplayer.Client == null; // Cancels forced showing of timed-out letters
     }
 
     // todo: needed for multifaction

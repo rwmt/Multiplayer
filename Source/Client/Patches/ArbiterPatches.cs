@@ -86,23 +86,6 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(LetterStack), nameof(LetterStack.LetterStackUpdate))]
-    static class CloseLetters
-    {
-        static void Postfix(LetterStack __instance)
-        {
-            if (Multiplayer.Client == null) return;
-            if (!TickPatch.Simulating && !Multiplayer.arbiterInstance) return;
-
-            for (int i = __instance.letters.Count - 1; i >= 0; i--)
-            {
-                var letter = __instance.letters[i];
-                if (letter is ChoiceLetter choice && choice.Choices.Any(c => c.action?.Method == choice.Option_Close.action.Method) && Time.time - letter.arrivalTime > 4)
-                    __instance.RemoveLetter(letter);
-            }
-        }
-    }
-
     [HarmonyPatch(typeof(LongEventHandler), nameof(LongEventHandler.LongEventsUpdate))]
     static class ArbiterLongEventPatch
     {

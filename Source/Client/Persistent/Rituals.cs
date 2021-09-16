@@ -191,63 +191,46 @@ namespace Multiplayer.Client.Persistent
     {
         static bool Prefix(Window window)
         {
-            return Multiplayer.Client == null || window.GetType() != typeof(Dialog_BeginRitual);
-        }
-    }
-
-    [HarmonyPatch(typeof(Dialog_BeginRitual), nameof(Dialog_BeginRitual.PostOpen))]
-    static class CancelDialogBeginRitualPostOpen
-    {
-        static bool Prefix()
-        {
-            return Multiplayer.Client == null;
-        }
-    }
-
-    [HarmonyPatch]
-    static class DialogBeginRitualCtorPatch
-    {
-        static MethodBase TargetMethod() => AccessTools.GetDeclaredConstructors(typeof(Dialog_BeginRitual))[0];
-
-        static void Postfix(Dialog_BeginRitual __instance, Func<Pawn, bool, bool, bool> filter, Map map)
-        {
-            if (Multiplayer.Client == null) return;
-            if (__instance is BeginRitualProxy) return;
-
-            if (Multiplayer.ExecutingCmds || Multiplayer.Ticking)
+            if (Multiplayer.Client != null
+                && window.GetType() == typeof(Dialog_BeginRitual) // Doesn't let BeginRitualProxy through
+                && (Multiplayer.ExecutingCmds || Multiplayer.Ticking))
             {
-                // Completes initialization. Taken from Dialog_BeginRitual.PostOpen
-                __instance.assignments.FillPawns(filter);
+                var dialog = (Dialog_BeginRitual)window;
+                dialog.PostOpen(); // Completes initialization
 
-                var comp = map.MpComp();
+                var comp = dialog.map.MpComp();
 
                 if (comp.ritualSession != null &&
-                    (comp.ritualSession.data.Ritual != __instance.ritual ||
-                    comp.ritualSession.data.Outcome != __instance.outcome))
+                    (comp.ritualSession.data.Ritual != dialog.ritual ||
+                     comp.ritualSession.data.Outcome != dialog.outcome))
                 {
                     Messages.Message("MpAnotherRitualInProgress".Translate(), MessageTypeDefOf.RejectInput, false);
-                    return;
+                    return false;
                 }
 
                 if (comp.ritualSession == null)
                 {
                     comp.CreateRitualSession(new RitualData(
-                        __instance.ritual,
-                        __instance.target,
-                        __instance.obligation,
-                        __instance.outcome,
-                        __instance.extraInfos,
-                        __instance.action,
-                        __instance.ritualLabel,
-                        __instance.confirmText,
-                        __instance.organizer,
-                        MpUtil.ShallowCopy(__instance.assignments, new MpRitualAssignments())
+                        dialog.ritual,
+                        dialog.target,
+                        dialog.obligation,
+                        dialog.outcome,
+                        dialog.extraInfos,
+                        dialog.action,
+                        dialog.ritualLabel,
+                        dialog.confirmText,
+                        dialog.organizer,
+                        MpUtil.ShallowCopy(dialog.assignments, new MpRitualAssignments())
                     ));
                 }
 
                 if (TickPatch.currentExecutingCmdIssuedBySelf)
                     comp.ritualSession.OpenWindow();
+
+                return false;
             }
+
+            return true;
         }
     }
 

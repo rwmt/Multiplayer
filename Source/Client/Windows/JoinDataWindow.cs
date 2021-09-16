@@ -5,6 +5,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using JetBrains.Annotations;
 using Multiplayer.Client.EarlyPatches;
 using Multiplayer.Client.Util;
 using Multiplayer.Common;
@@ -176,8 +177,11 @@ namespace Multiplayer.Client
 
             var localConfigs = JoinData.GetSyncableConfigContents(remote.RemoteModIds);
 
-            AddConfigs(remote.remoteModConfigs, localConfigs, NodeStatus.Missing);
-            AddConfigs(localConfigs, remote.remoteModConfigs, NodeStatus.Added);
+            if (remote.hasConfigs)
+            {
+                AddConfigs(remote.remoteModConfigs, localConfigs, NodeStatus.Missing);
+                AddConfigs(localConfigs, remote.remoteModConfigs, NodeStatus.Added);
+            }
         }
 
         public override void DoWindowContents(Rect inRect)
@@ -208,12 +212,26 @@ namespace Multiplayer.Client
                     RefreshFileNodes();
                 }
 
-                var filesInfo = "MpMismatchFilesInfo1".Translate() + "\n\n" + "MpMismatchFilesInfo2".Translate();
-
                 if (tab == Tab.Files)
-                    DrawTreeTab(inTab, "Local files", filesRoot, RefreshFiles, true, filesInfo, "Files match");
+                    DrawTreeTab(
+                        inTab,
+                        "MpMismatchLocalFiles",
+                        filesRoot,
+                        RefreshFiles,
+                        true,
+                        MpUtil.TranslateWithDoubleNewLines("MpMismatchFilesInfo", 2),
+                        filesRoot.children.Any() ? null : "MpFilesMatch"
+                    );
                 else if (tab == Tab.Configs)
-                    DrawTreeTab(inTab, "Local configs", configsRoot, RefreshConfigNodes, false, null, "Configs match");
+                    DrawTreeTab(
+                        inTab,
+                        "MpMismatchLocalConfigs",
+                        configsRoot,
+                        RefreshConfigNodes,
+                        false,
+                        null,
+                        configsRoot.children.Any() ? null : remote.hasConfigs ? "MpConfigsMatch" : "MpConfigSyncDisabled"
+                    );
                 else if (tab == Tab.ModList)
                     DrawModList(inTab);
                 else if (tab == Tab.General)
@@ -256,6 +274,7 @@ namespace Multiplayer.Client
             str += $"Mod sets equal: {sameSetOfMods}, ";
             str += $"Mod lists equal: {modListsEqual}, ";
             str += $"Files match: {!filesRoot.children.Any()}, ";
+            str += $"Config sync enabled: {remote.hasConfigs}, ";
             str += $"Configs match: {!configsRoot.children.Any()}";
             return str;
         }
@@ -282,7 +301,7 @@ namespace Multiplayer.Client
                 Widgets.CheckboxLabeled(modData, "Files", ref modFilesMatch);
                 modData = modData.Down(modDataHeight);
 
-                var modConfigsMatch = !configsRoot.children.Any();
+                var modConfigsMatch = !remote.hasConfigs || !configsRoot.children.Any();
                 Widgets.DrawAltRect(modData);
                 Widgets.CheckboxLabeled(modData, "Configs", ref modConfigsMatch);
                 modData = modData.Down(modDataHeight);
@@ -349,7 +368,7 @@ namespace Multiplayer.Client
         private const string OrangeStr = "ff8844";
         private const string YellowStr = "ffff44";
 
-        private void DrawTreeTab(Rect inRect, string label, Node root, Action refresh, bool showCounts, string desc, string matchDesc)
+        private void DrawTreeTab(Rect inRect, string labelKey, Node root, Action refresh, bool showCounts, string desc, string treeDescKey)
         {
             var listRect = new Rect(0, 20f, 440f, 220f);
             var labelsRect = new Rect(0, 20f, 120f, 220f);
@@ -358,11 +377,11 @@ namespace Multiplayer.Client
 
             GUI.BeginGroup(combined);
 
-            MpUI.Label(new Rect(0, 0, 440f, 20f), label, GameFont.Tiny);
+            MpUI.Label(new Rect(0, 0, 440f, 20f), labelKey.Translate(), GameFont.Tiny);
 
             var refreshBtn = new Rect(420, 0, 20, 20);
-            TooltipHandler.TipRegion(refreshBtn, "Refresh");
-            if (Widgets.ButtonImage(refreshBtn, TexUI.RotRightTex, true))
+            TooltipHandler.TipRegion(refreshBtn, "MpMismatchTreeRefresh".Translate());
+            if (Widgets.ButtonImage(refreshBtn, TexUI.RotRightTex))
                 refresh();
 
             using (MpStyle.Set(new Color(1, 1, 1, 0.1f)))
@@ -373,63 +392,60 @@ namespace Multiplayer.Client
             var viewRect = new Rect(0, 0, listRect.width - scrollbarWidth, nodeCount * modLabelHeight);
             Widgets.BeginScrollView(listRect, ref treeScroll, viewRect);
 
-            var toDraw = new Stack<Node>();
-
-            foreach (var n in root.children)
-                toDraw.Push(n);
-
-            if (Event.current.type == EventType.Layout)
-                nodeCount = 0;
-
-            if (toDraw.Count == 0)
-                using (MpStyle.Set(TextAnchor.MiddleCenter))
-                using (MpStyle.Set(new Color(0.6f, 0.6f, 0.6f)))
-                    Widgets.Label(listRect.AtZero(), matchDesc);
-
-            var scrollShown = viewRect.height > listRect.height;
-
-            int i = 0;
-            while (toDraw.Count > 0)
+            if (treeDescKey == null)
             {
-                var n = toDraw.Pop();
+                var toDraw = new Stack<Node>();
 
-                if (!n.collapsed)
-                    foreach (var c in n.children)
-                        toDraw.Push(c);
+                foreach (var n in root.children)
+                    toDraw.Push(n);
 
-                var labelRect = new Rect(0, i * modLabelHeight, listRect.width, modLabelHeight);
+                if (Event.current.type == EventType.Layout)
+                    nodeCount = 0;
 
-                Widgets.DrawHighlightIfMouseover(labelRect);
+                var scrollShown = viewRect.height > listRect.height;
 
-                if (n.path != null)
+                int i = 0;
+                while (toDraw.Count > 0)
                 {
-                    var nodeTip = "";
+                    var n = toDraw.Pop();
 
-                    if (Input.GetKey(KeyCode.LeftShift))
-                        nodeTip += n.path;
-                    else
-                        nodeTip += "MpMismatchFileShowPath".Translate();
+                    if (!n.collapsed)
+                        foreach (var c in n.children)
+                            toDraw.Push(c);
 
-                    nodeTip += "\n\n";
-                    nodeTip += "MpMismatchNodeExpand".Translate();
-                    nodeTip += "\n";
-                    nodeTip += "MpMismatchFileOpenPath".Translate();
+                    var labelRect = new Rect(0, i * modLabelHeight, listRect.width, modLabelHeight);
 
-                    TooltipHandler.TipRegion(labelRect, () => nodeTip, 13624604);
-                }
+                    Widgets.DrawHighlightIfMouseover(labelRect);
 
-                if (Widgets.ButtonInvisible(labelRect))
-                {
-                    if (Event.current.shift && n.path != null)
-                        ShellOpenDirectory.Execute(n.path);
-                    else
-                        n.collapsed = !n.collapsed;
-                }
+                    if (n.path != null)
+                    {
+                        var nodeTip = "";
 
-                MpUI.Label(
-                    labelRect.MinX(5 + 15f * n.depth),
-                    n.DisplayName,
-                    color:
+                        if (Input.GetKey(KeyCode.LeftShift))
+                            nodeTip += n.path;
+                        else
+                            nodeTip += "MpMismatchFileShowPath".Translate();
+
+                        nodeTip += "\n\n";
+                        nodeTip += "MpMismatchNodeExpand".Translate();
+                        nodeTip += "\n";
+                        nodeTip += "MpMismatchFileOpenPath".Translate();
+
+                        TooltipHandler.TipRegion(labelRect, () => nodeTip, 13624604);
+                    }
+
+                    if (Widgets.ButtonInvisible(labelRect))
+                    {
+                        if (Event.current.shift && n.path != null)
+                            ShellOpenDirectory.Execute(n.path);
+                        else
+                            n.collapsed = !n.collapsed;
+                    }
+
+                    MpUI.Label(
+                        labelRect.MinX(5 + 15f * n.depth),
+                        n.DisplayName,
+                        color:
                         n.status switch
                         {
                             NodeStatus.Added => Orange,
@@ -437,20 +453,27 @@ namespace Multiplayer.Client
                             NodeStatus.Modified => Yellow,
                             _ => Color.white
                         }
-                );
-
-                if (showCounts && n.childrenPerStatus != null)
-                    MpUI.Label(
-                        labelRect.Left(scrollShown ? 21f : 5f),
-                        $"<color=#{RedStr}>{n.childrenPerStatus[1]}</color> <color=#{OrangeStr}>{n.childrenPerStatus[2]}</color> <color=#{YellowStr}>{n.childrenPerStatus[3]}</color>",
-                        anchor: TextAnchor.UpperRight
                     );
 
-                i++;
-            }
+                    if (showCounts && n.childrenPerStatus != null)
+                        MpUI.Label(
+                            labelRect.Left(scrollShown ? 21f : 5f),
+                            $"<color=#{RedStr}>{n.childrenPerStatus[1]}</color> <color=#{OrangeStr}>{n.childrenPerStatus[2]}</color> <color=#{YellowStr}>{n.childrenPerStatus[3]}</color>",
+                            anchor: TextAnchor.UpperRight
+                        );
 
-            if (Event.current.type == EventType.Layout)
-                nodeCount = i;
+                    i++;
+                }
+
+                if (Event.current.type == EventType.Layout)
+                    nodeCount = i;
+            }
+            else
+            {
+                using (MpStyle.Set(TextAnchor.MiddleCenter))
+                using (MpStyle.Set(new Color(0.6f, 0.6f, 0.6f)))
+                    Widgets.Label(listRect.AtZero(), treeDescKey.Translate());
+            }
 
             Widgets.EndScrollView();
 
@@ -652,13 +675,14 @@ namespace Multiplayer.Client
     {
         private RemoteData data;
         private bool applyModList = true;
-        private bool applyConfigs = true;
+        private bool applyConfigs;
 
         public override Vector2 InitialSize => new Vector2(400, 200);
 
         public FixAndRestartWindow(RemoteData data)
         {
             this.data = data;
+            applyConfigs = data.hasConfigs;
 
             closeOnAccept = false;
             closeOnCancel = false;
@@ -668,10 +692,21 @@ namespace Multiplayer.Client
         public override void DoWindowContents(Rect inRect)
         {
             var line = inRect.Height(30f);
-            MpUI.CheckboxLabeledWithTip(line, "MpApplyModList".Translate(), "MpApplyModListTip".Translate(), ref applyModList);
+            MpUI.CheckboxLabeledWithTip(
+                line,
+                "MpApplyModList".Translate(),
+                "MpApplyModListTip".Translate(),
+                ref applyModList
+            );
 
             line = line.Down(30);
-            MpUI.CheckboxLabeledWithTip(line, "MpApplyConfigs".Translate(), "MpApplyConfigsTip".Translate(), ref applyConfigs);
+            MpUI.CheckboxLabeledWithTip(
+                line,
+                "MpApplyConfigs".Translate(),
+                data.hasConfigs ? "MpApplyConfigsTip".Translate() : "MpConfigSyncDisabled".Translate(),
+                ref applyConfigs,
+                !data.hasConfigs
+            );
 
             const float btnWidth = 110;
             const float btnHeight = 35;

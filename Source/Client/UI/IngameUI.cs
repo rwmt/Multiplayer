@@ -32,9 +32,28 @@ namespace Multiplayer.Client
             }
 
             if (Multiplayer.IsReplay || TickPatch.Simulating)
-            {
                 DrawTimeline();
-                DrawSimulatingWindow();
+
+            if (TickPatch.Simulating)
+            {
+                HandleSimulatingEvents();
+
+                DrawModalWindow(
+                    TickPatch.simulating.simTextKey.Translate(),
+                    () => TickPatch.Simulating,
+                    TickPatch.simulating.onCancel,
+                    TickPatch.simulating.cancelButtonKey.Translate()
+                );
+            }
+
+            if (TickPatch.Paused)
+            {
+                DrawModalWindow(
+                    "Waiting for other players",
+                    () => TickPatch.Paused,
+                    MainMenuPatch.AskQuitToMainMenu,
+                    "Quit"
+                );
             }
 
             DoButtons();
@@ -54,23 +73,37 @@ namespace Multiplayer.Client
             return Find.Maps.Count > 0;
         }
 
+        private static double avgDelta;
+        private static double avgTickTime;
+
         static void DoDebugInfo()
         {
             if (Multiplayer.ShowDevInfo)
             {
                 int timerLag = (TickPatch.tickUntil - TickPatch.Timer);
-                string text = $"{Faction.OfPlayer.loadID} {Multiplayer.RealPlayerFaction?.loadID} {Find.UniqueIDsManager.nextThingID} {Find.UniqueIDsManager.nextJobID} {Find.TickManager.TicksGame} {TickPatch.Timer} {TickPatch.tickUntil} {timerLag} {TickPatch.maxBehind} {Time.deltaTime * 60f} {Multiplayer.session?.localCmdId} {Multiplayer.session?.remoteCmdId} {Multiplayer.session?.remoteTickUntil}";
-                Rect rect = new Rect(80f, 60f, 330f, Text.CalcHeight(text, 330f));
-                Widgets.Label(rect, text);
+                StringBuilder text = new StringBuilder();
+                text.Append($"{Faction.OfPlayer.loadID} {Multiplayer.RealPlayerFaction?.loadID} {Find.UniqueIDsManager.nextThingID} j:{Find.UniqueIDsManager.nextJobID} {Find.TickManager.TicksGame} {TickPatch.Timer} {TickPatch.tickUntil} {timerLag} {TickPatch.maxBehind}");
+                text.Append($"\n{Time.deltaTime * 60f:0.0000} {TickPatch.tickTimer.ElapsedMilliseconds}");
+                text.Append($"\n{avgDelta = (avgDelta * 59.0 + Time.deltaTime * 60.0) / 60.0:0.0000}");
+                text.Append($"\n{avgTickTime = (avgTickTime * 59.0 + TickPatch.tickTimer.ElapsedMilliseconds) / 60.0:0.0000} {Find.World.worldObjects.settlements.Count}");
+                text.Append($"\n{Multiplayer.session?.localCmdId} {Multiplayer.session?.remoteCmdId} {Multiplayer.session?.remoteTickUntil}");
+                Rect rect = new Rect(80f, 60f, 330f, Text.CalcHeight(text.ToString(), 330f));
+                Widgets.Label(rect, text.ToString());
+
+                if (Input.GetKey(KeyCode.End))
+                {
+                    avgDelta = 0;
+                    avgTickTime = 0;
+                }
             }
 
             if (Multiplayer.ShowDevInfo && Multiplayer.Client != null && Find.CurrentMap != null)
             {
                 var async = Find.CurrentMap.AsyncTime();
                 StringBuilder text = new StringBuilder();
-                text.Append($"{Multiplayer.game.sync.knownClientOpinions.FirstOrDefault()?.isLocalClientsOpinion} {async.mapTicks}");
+                text.Append($"{Multiplayer.game.sync.knownClientOpinions.FirstOrDefault()?.isLocalClientsOpinion} {async.mapTicks} {TickPatch.shouldPause} {TickPatch.pausedAt} ");
 
-                text.Append($"z: {Find.CurrentMap.haulDestinationManager.AllHaulDestinationsListForReading.ToStringSafeEnumerable()} d: {Find.CurrentMap.designationManager.allDesignations.Count} hc: {Find.CurrentMap.listerHaulables.ThingsPotentiallyNeedingHauling().Count}");
+                text.Append($"z: {Find.CurrentMap.haulDestinationManager.AllHaulDestinationsListForReading.Count()} d: {Find.CurrentMap.designationManager.allDesignations.Count} hc: {Find.CurrentMap.listerHaulables.ThingsPotentiallyNeedingHauling().Count}");
 
                 if (Find.CurrentMap.ParentFaction != null)
                 {
@@ -88,7 +121,7 @@ namespace Multiplayer.Client
                 text.Append($" {Multiplayer.GlobalIdBlock.Current} {Find.IdeoManager.IdeosInViewOrder.FirstOrDefault()?.id}");
 
                 text.Append($"\n{SyncFieldUtil.bufferedChanges.Sum(kv => kv.Value.Count)} {Find.UniqueIDsManager.nextThingID}");
-                text.Append($"\n{DeferredStackTracing.acc}");
+                text.Append($"\n{DeferredStackTracing.acc} {MpInput.Mouse2UpWithoutDrag} {Input.GetKeyUp(KeyCode.Mouse2)} {Input.GetKey(KeyCode.Mouse2)}");
                 text.Append($"\n{(uint)async.randState} {(uint)(async.randState >> 32)}");
                 text.Append($"\n{(uint)Multiplayer.WorldComp.randState} {(uint)(Multiplayer.WorldComp.randState >> 32)}");
                 text.Append($"\n{async.cmds.Count} {Multiplayer.WorldComp.cmds.Count} {async.slower.forceNormalSpeedUntil} {Multiplayer.GameComp.asyncTime}");
@@ -100,7 +133,7 @@ namespace Multiplayer.Client
 
                 text.Append($"\n{UI.CurUICellSize()} {Find.WindowStack.windows.ToStringSafeEnumerable()}");
 
-                Rect rect1 = new Rect(80f, 110f, 330f, Text.CalcHeight(text.ToString(), 330f));
+                Rect rect1 = new Rect(80f, 170f, 330f, Text.CalcHeight(text.ToString(), 330f));
                 Widgets.Label(rect1, text.ToString());
             }
 
@@ -137,7 +170,7 @@ namespace Multiplayer.Client
                     var biggerRect = new Rect(btnRect.x - 25f - 5f + 2f / 2f, btnRect.y + 2f / 2f, 23f, 23f);
 
                     if (slow && Widgets.ButtonInvisible(biggerRect))
-                        TickPatch.SimulateTo(toTickUntil: true, canESC: true);
+                        TickPatch.SetSimulation(toTickUntil: true, canESC: true);
 
                     Widgets.DrawRectFast(biggerRect, new Color(color.r * 0.6f, color.g * 0.6f, color.b * 0.6f));
                     Widgets.DrawRectFast(indRect, color);
@@ -202,14 +235,12 @@ namespace Multiplayer.Client
 
         static void DrawTimelineWindow()
         {
-            if (Multiplayer.Client == null) return;
-
             Rect rect = new Rect(0, 30f, UI.screenWidth - TimelineMargin * 2, TimelineHeight);
 
             Widgets.DrawBoxSolid(rect, new Color(0.6f, 0.6f, 0.6f, 0.8f));
 
             int timerStart = Multiplayer.session.replayTimerStart >= 0 ?
-                Multiplayer.session.replayTimerStart : Multiplayer.session.cache.cachedAtTime;
+                Multiplayer.session.replayTimerStart : Multiplayer.session.dataSnapshot.cachedAtTime;
 
             int timerEnd = Multiplayer.session.replayTimerEnd >= 0 ?
                 Multiplayer.session.replayTimerEnd : TickPatch.tickUntil;
@@ -252,11 +283,11 @@ namespace Multiplayer.Client
 
                 if (Event.current.type == EventType.MouseUp)
                 {
-                    TickPatch.SimulateTo(mouseTimer, canESC: true);
+                    TickPatch.SetSimulation(mouseTimer, canESC: true);
 
                     if (mouseTimer < TickPatch.Timer)
                     {
-                        ClientJoiningState.ReloadGame(Multiplayer.session.cache.mapData.Keys.ToList(), false, Multiplayer.GameComp.asyncTime);
+                        ClientJoiningState.ReloadGame(Multiplayer.session.dataSnapshot.mapData.Keys.ToList(), false, Multiplayer.GameComp.asyncTime);
                     }
                 }
 
@@ -283,31 +314,23 @@ namespace Multiplayer.Client
             }
         }
 
-        public const int SimulatingWindowId = 26461263;
+        public const int ModalWindowId = 26461263;
         public const int TimelineWindowId = 5723681;
 
-        static void DrawSimulatingWindow()
+        static void DrawModalWindow(string text, Func<bool> shouldShow, Action onCancel, string cancelButtonLabel)
         {
-            if (Multiplayer.Client == null || !TickPatch.Simulating) return;
-
-            string text = $"{TickPatch.simulating.simTextKey.Translate()}{MpUI.FixedEllipsis()}";
-            float textWidth = Text.CalcSize(text).x;
+            string textWithEllipsis = $"{text}{MpUI.FixedEllipsis()}";
+            float textWidth = Text.CalcSize(textWithEllipsis).x;
             float windowWidth = Math.Max(240f, textWidth + 40f);
-            float windowHeight = TickPatch.simulating.onCancel != null ? 100f : 75f;
-            Rect rect = new Rect(0, 0, windowWidth, windowHeight).CenterOn(new Rect(0, 0, UI.screenWidth, UI.screenHeight));
+            float windowHeight = onCancel != null ? 100f : 75f;
+            var rect = new Rect(0, 0, windowWidth, windowHeight).CenterOn(new Rect(0, 0, UI.screenWidth, UI.screenHeight));
 
-            if (TickPatch.simulating.canESC && Event.current.type == EventType.KeyUp && Event.current.keyCode == KeyCode.Escape)
+            Find.WindowStack.ImmediateWindow(ModalWindowId, rect, WindowLayer.Super, () =>
             {
-                TickPatch.ClearSimulating();
-                Event.current.Use();
-            }
-
-            Find.WindowStack.ImmediateWindow(SimulatingWindowId, rect, WindowLayer.Super, () =>
-            {
-                if (!TickPatch.Simulating) return;
+                if (!shouldShow()) return;
 
                 var textRect = rect.AtZero();
-                if (TickPatch.simulating.onCancel != null)
+                if (onCancel != null)
                 {
                     textRect.yMin += 5f;
                     textRect.height -= 50f;
@@ -318,9 +341,20 @@ namespace Multiplayer.Client
                 Widgets.Label(textRect, text);
                 Text.Anchor = TextAnchor.UpperLeft;
 
-                if (TickPatch.simulating.onCancel != null && Widgets.ButtonText(new Rect(0, textRect.yMax, 100f, 35f).CenteredOnXIn(textRect), TickPatch.simulating.cancelButtonKey.Translate()))
-                    TickPatch.simulating.onCancel();
+                var cancelBtn = new Rect(0, textRect.yMax, 100f, 35f).CenteredOnXIn(textRect);
+
+                if (onCancel != null && Widgets.ButtonText(cancelBtn, cancelButtonLabel))
+                    onCancel();
             }, absorbInputAroundWindow: true);
+        }
+
+        static void HandleSimulatingEvents()
+        {
+            if (TickPatch.simulating.canEsc && Event.current.type == EventType.KeyUp && Event.current.keyCode == KeyCode.Escape)
+            {
+                TickPatch.ClearSimulating();
+                Event.current.Use();
+            }
         }
     }
 

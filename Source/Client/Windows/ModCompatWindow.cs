@@ -105,6 +105,12 @@ namespace Multiplayer.Client
                 ref Multiplayer.settings.showModCompatibility
             );
 
+            if (ModCompatibilityManager.fetchSuccess is not true)
+                MpUI.Label(
+                    inRect.Width(300).Height(CheckboxesHeight).Right(310),
+                    ModCompatibilityManager.fetchSuccess is false ? "Loading failed." : "Loading" + MpUI.FixedEllipsis()
+                );
+
             inRect.yMin += CheckboxesHeight;
 
             // Hide translation mods

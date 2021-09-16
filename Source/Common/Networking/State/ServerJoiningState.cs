@@ -95,45 +95,32 @@ namespace Multiplayer.Common
                 defsResponse.ToArray(),
                 Server.serverData
             );
+
+            if (!defsMismatched)
+            {
+                if (Server.settings.autoJoinPoint.HasFlag(AutoJoinPointFlags.Join))
+                    Server.TryStartJoinPointCreation();
+
+                Server.playerManager.OnJoin(Player);
+            }
         }
 
-        private static ColorRGB[] PlayerColors =
-        {
-            new(0,125,255),
-            new(255,0,0),
-            new(0,255,45),
-            new(255,0,150),
-            new(80,250,250),
-            new(200,255,75),
-            new(100,0,75)
-        };
-
-        private static Dictionary<string, ColorRGB> givenColors = new();
-
         [PacketHandler(Packets.Client_WorldRequest)]
-        public void HandleClientUsername(ByteReader data)
+        public void HandleWorldRequest(ByteReader data)
         {
-            Server.SendNotification("MpPlayerConnected", Player.Username);
-            Server.SendChat($"{Player.Username} has joined.");
-
-            if (!Player.IsArbiter)
+            if (Server.CreatingJoinPoint)
             {
-                if (!givenColors.TryGetValue(Player.Username, out ColorRGB color))
-                    givenColors[Player.Username] = color = PlayerColors[givenColors.Count % PlayerColors.Length];
-                Player.color = color;
+                Server.playerManager.playersWaitingForWorldData.Add(Player.id);
+                return;
             }
-
-            var writer = new ByteWriter();
-            writer.WriteByte((byte)PlayerListAction.Add);
-            writer.WriteRaw(Player.SerializePlayerInfo());
-
-            Server.SendToAll(Packets.Server_PlayerList, writer.ToArray());
 
             SendWorldData();
         }
 
-        private void SendWorldData()
+        public void SendWorldData()
         {
+            connection.Send(Packets.Server_WorldDataStart);
+
             int factionId = MultiplayerServer.instance.coopFactionId;
             MultiplayerServer.instance.playerFactions[connection.username] = factionId;
 
@@ -149,7 +136,7 @@ namespace Multiplayer.Common
             if (Server.PlayingPlayers.Count(p => p.FactionId == factionId) == 1)
             {
                 byte[] extra = ByteWriter.GetBytes(factionId);
-                MultiplayerServer.instance.SendCommand(CommandType.FactionOnline, ScheduledCommand.NoFaction, ScheduledCommand.Global, extra);
+                Server.commands.Send(CommandType.FactionOnline, ScheduledCommand.NoFaction, ScheduledCommand.Global, extra);
             }
 
             ByteWriter writer = new ByteWriter();
@@ -187,7 +174,8 @@ namespace Multiplayer.Common
                 writer.WritePrefixedBytes(mapData);
             }
 
-            writer.WriteInt32(Server.nextCmdId);
+            writer.WriteInt32(Server.commands.NextCmdId);
+            writer.WriteBool(Server.pauseManager.Paused);
 
             connection.State = ConnectionStateEnum.ServerPlaying;
 

@@ -32,7 +32,7 @@ namespace Multiplayer.Client.Patches
     static class FixApparelSort
     {
         static MethodBase TargetMethod() =>
-            MpMethodUtil.GetLambda(typeof(Pawn_ApparelTracker), nameof(Pawn_ApparelTracker.SortWornApparelIntoDrawOrder), 0);
+            MpMethodUtil.GetLambda(typeof(Pawn_ApparelTracker), nameof(Pawn_ApparelTracker.SortWornApparelIntoDrawOrder));
 
         static void Postfix(Apparel a, Apparel b, ref int __result)
         {
@@ -208,7 +208,7 @@ namespace Multiplayer.Client.Patches
     {
         static MethodBase TargetMethod()
         {
-            return MpMethodUtil.GetLambda(typeof(Archive), nameof(Archive.Add), 0);
+            return MpMethodUtil.GetLambda(typeof(Archive), nameof(Archive.Add));
         }
 
         static void Postfix(IArchivable x, ref int __result)

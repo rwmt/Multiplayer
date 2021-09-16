@@ -72,7 +72,6 @@ namespace Multiplayer.Client
         public static Stopwatch clock = Stopwatch.StartNew();
 
         public static bool arbiterInstance;
-        public static bool hasLoaded;
         public static bool loadingErrors;
         public static Stopwatch harmonyWatch = new();
 

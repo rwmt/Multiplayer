@@ -422,7 +422,7 @@ namespace Multiplayer.Client
                     {
                         trade.OpenWindow();
                     }
-                 }
+                }
 
                 return false;
             }
@@ -680,7 +680,15 @@ namespace Multiplayer.Client
     {
         static bool Prefix(Settlement_TraderTracker __instance)
         {
-            return Multiplayer.Client == null || !Multiplayer.WorldComp.trading.Any(t => t.trader == __instance.settlement);
+            if (Multiplayer.Client != null)
+            {
+                var trading = Multiplayer.WorldComp.trading;
+                for (int i = 0; i < trading.Count; i++)
+                    if (trading[i].trader == __instance.settlement)
+                        return false;
+            }
+
+            return true;
         }
     }
 

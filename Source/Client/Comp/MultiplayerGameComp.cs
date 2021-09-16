@@ -10,7 +10,7 @@ namespace Multiplayer.Client.Comp
         public bool debugMode;
         public bool logDesyncTraces;
 
-        public IdBlock globalIdBlock;
+        public IdBlock globalIdBlock = new(int.MaxValue / 2, 1_000_000_000);
 
         public MultiplayerGameComp(Game game)
         {

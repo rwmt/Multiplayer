@@ -23,7 +23,7 @@ namespace Multiplayer.Client
             var pingsEnabled = !TickPatch.Simulating && Multiplayer.settings.enablePings;
 
             if (pingsEnabled)
-                if (MultiplayerStatic.PingKeyDef.JustPressed || Multiplayer.settings.sendPingButton is { } sendKey && Input.GetKeyDown(sendKey))
+                if (MultiplayerStatic.PingKeyDef.JustPressed || KeyDown(Multiplayer.settings.sendPingButton))
                 {
                     if (WorldRendererUtility.WorldRenderedNow)
                         PingLocation(-1, GenWorld.MouseTile(), Vector3.zero);
@@ -39,7 +39,7 @@ namespace Multiplayer.Client
                     pings.RemoveAt(i);
             }
 
-            if (pingsEnabled && Multiplayer.settings.jumpToPingButton is { } jumpKey && Input.GetKeyDown(jumpKey))
+            if (pingsEnabled && KeyDown(Multiplayer.settings.jumpToPingButton))
             {
                 pingJumpCycle++;
 
@@ -51,6 +51,16 @@ namespace Multiplayer.Client
             }
         }
 
+        private static bool KeyDown(KeyCode? keyNullable)
+        {
+            if (keyNullable is not { } key) return false;
+
+            if (keyNullable == KeyCode.Mouse2)
+                return MpInput.Mouse2UpWithoutDrag;
+
+            return Input.GetKeyDown(key);
+        }
+
         private void PingLocation(int map, int tile, Vector3 loc)
         {
             var writer = new ByteWriter();
@@ -59,7 +69,7 @@ namespace Multiplayer.Client
             writer.WriteFloat(loc.x);
             writer.WriteFloat(loc.y);
             writer.WriteFloat(loc.z);
-            Multiplayer.Client.Send(Packets.Client_Ping, writer.ToArray());
+            Multiplayer.Client.Send(Packets.Client_PingLocation, writer.ToArray());
 
             SoundDefOf.TinyBell.PlayOneShotOnCamera();
         }

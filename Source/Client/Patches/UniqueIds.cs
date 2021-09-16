@@ -151,9 +151,10 @@ namespace Multiplayer.Client.Patches
             if (Multiplayer.Client == null) return true;
 
             // Negative id means they are interface-only
-            if (archivable is Message msg && msg.ID < 0)
+            if (archivable is Message { ID: < 0 })
                 return false;
-            else if (archivable is Letter letter && letter.ID < 0)
+
+            if (archivable is Letter { ID: < 0 })
                 return false;
 
             return true;

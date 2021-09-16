@@ -15,7 +15,7 @@ namespace Multiplayer.Client
 {
     public enum JoiningState
     {
-        Connected, Downloading
+        Connected, Waiting, Downloading
     }
 
     [HotSwappable]
@@ -25,8 +25,12 @@ namespace Multiplayer.Client
 
         public ClientJoiningState(ConnectionBase connection) : base(connection)
         {
-            connection.Send(Packets.Client_Username, MpVersion.Protocol, Multiplayer.username);
 
+        }
+
+        public override void StartState()
+        {
+            connection.Send(Packets.Client_Username, MpVersion.Protocol, Multiplayer.username);
             ConnectionStatusListeners.TryNotifyAll_Connected();
         }
 
@@ -93,8 +97,13 @@ namespace Multiplayer.Client
                 var connectingWindow = Find.WindowStack.WindowOfType<BaseConnectingWindow>();
                 MpUI.ClearWindowStack();
 
+                var defDiffStr = "\n\n" + MultiplayerData.localDefInfos
+                    .Where(kv => kv.Value.status != DefCheckStatus.Ok)
+                    .Take(10)
+                    .Join(kv => $"{kv.Key}: {kv.Value.status}", "\n");
+
                 Find.WindowStack.Add(new JoinDataWindow(remoteInfo){
-                    connectAnywayDisabled = defDiff ? "MpMismatchDefsDiff".Translate() : null,
+                    connectAnywayDisabled = defDiff ? "MpMismatchDefsDiff".Translate() + defDiffStr : null,
                     connectAnywayCallback = StartDownloading,
                     connectAnywayWindow = connectingWindow
                 });
@@ -102,9 +111,15 @@ namespace Multiplayer.Client
                 void StartDownloading()
                 {
                     connection.Send(Packets.Client_WorldRequest);
-                    subState = JoiningState.Downloading;
+                    subState = JoiningState.Waiting;
                 }
             }
+        }
+
+        [PacketHandler(Packets.Server_WorldDataStart)]
+        public void HandleWorldDataStart(ByteReader data)
+        {
+            subState = JoiningState.Downloading;
         }
 
         [PacketHandler(Packets.Server_WorldData)]
@@ -119,11 +134,13 @@ namespace Multiplayer.Client
 
             int tickUntil = data.ReadInt32();
 
+            var dataSnapshot = new GameDataSnapshot();
+
             byte[] worldData = GZipStream.UncompressBuffer(data.ReadPrefixedBytes());
-            Session.cache.gameData = worldData;
+            dataSnapshot.gameData = worldData;
 
             byte[] semiPersistentData = GZipStream.UncompressBuffer(data.ReadPrefixedBytes());
-            Session.cache.semiPersistentData = semiPersistentData;
+            dataSnapshot.semiPersistentData = semiPersistentData;
 
             List<int> mapsToLoad = new List<int>();
 
@@ -137,7 +154,7 @@ namespace Multiplayer.Client
                 for (int j = 0; j < mapCmdsLen; j++)
                     mapCmds.Add(ScheduledCommand.Deserialize(new ByteReader(data.ReadPrefixedBytes())));
 
-                Session.cache.mapCmds[mapId] = mapCmds;
+                dataSnapshot.mapCmds[mapId] = mapCmds;
             }
 
             int mapDataCount = data.ReadInt32();
@@ -147,15 +164,16 @@ namespace Multiplayer.Client
                 byte[] rawMapData = data.ReadPrefixedBytes();
 
                 byte[] mapData = GZipStream.UncompressBuffer(rawMapData);
-                Session.cache.mapData[mapId] = mapData;
+                dataSnapshot.mapData[mapId] = mapData;
                 mapsToLoad.Add(mapId);
             }
 
+            Session.dataSnapshot = dataSnapshot;
             Multiplayer.session.localCmdId = data.ReadInt32();
-
+            TickPatch.shouldPause = data.ReadBool();
             TickPatch.tickUntil = tickUntil;
 
-            TickPatch.SimulateTo(
+            TickPatch.SetSimulation(
                 toTickUntil: true,
                 onFinish: () => Multiplayer.Client.Send(Packets.Client_WorldReady),
                 cancelButtonKey: "Quit",
@@ -167,12 +185,12 @@ namespace Multiplayer.Client
 
         private static XmlDocument GetGameDocument(List<int> mapsToLoad)
         {
-            XmlDocument gameDoc = ScribeUtil.LoadDocument(Multiplayer.session.cache.gameData);
+            XmlDocument gameDoc = ScribeUtil.LoadDocument(Multiplayer.session.dataSnapshot.gameData);
             XmlNode gameNode = gameDoc.DocumentElement["game"];
 
             foreach (int map in mapsToLoad)
             {
-                using XmlReader reader = XmlReader.Create(new MemoryStream(Multiplayer.session.cache.mapData[map]));
+                using XmlReader reader = XmlReader.Create(new MemoryStream(Multiplayer.session.dataSnapshot.mapData[map]));
                 XmlNode mapNode = gameDoc.ReadNode(reader);
                 gameNode["maps"].AppendChild(mapNode);
 
@@ -187,7 +205,7 @@ namespace Multiplayer.Client
         {
             var gameDoc = GetGameDocument(mapsToLoad);
 
-            LoadPatch.gameToLoad = new(gameDoc, Multiplayer.session.cache.semiPersistentData);
+            LoadPatch.gameToLoad = new(gameDoc, Multiplayer.session.dataSnapshot.semiPersistentData);
             TickPatch.replayTimeSpeed = TimeSpeed.Paused;
 
             if (offMainThread)
@@ -224,7 +242,7 @@ namespace Multiplayer.Client
             // If the client gets disconnected during loading
             if (Multiplayer.Client == null) return;
 
-            Multiplayer.session.cache.cachedAtTime = TickPatch.Timer;
+            Multiplayer.session.dataSnapshot.cachedAtTime = TickPatch.Timer;
             Multiplayer.session.replayTimerStart = TickPatch.Timer;
 
             var factionData = Multiplayer.WorldComp.factionData.GetValueSafe(Multiplayer.session.myFactionId);
@@ -240,7 +258,7 @@ namespace Multiplayer.Client
             if (forceAsyncTime)
                 Multiplayer.game.gameComp.asyncTime = true;
 
-            Multiplayer.WorldComp.cmds = new Queue<ScheduledCommand>(Multiplayer.session.cache.mapCmds.GetValueSafe(ScheduledCommand.Global) ?? new List<ScheduledCommand>());
+            Multiplayer.WorldComp.cmds = new Queue<ScheduledCommand>(Multiplayer.session.dataSnapshot.mapCmds.GetValueSafe(ScheduledCommand.Global) ?? new List<ScheduledCommand>());
             // Map cmds are added in MapAsyncTimeComp.FinalizeInit
         }
     }

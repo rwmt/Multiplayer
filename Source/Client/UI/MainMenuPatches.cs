@@ -73,7 +73,7 @@ namespace Multiplayer.Client
                     optList.RemoveAll(opt => opt.label == "Save".Translate() || opt.label == "LoadGame".Translate());
                     if (!Multiplayer.IsReplay)
                     {
-                        optList.Insert(0, new ListableOption("Save".Translate(), () => Find.WindowStack.Add(new Dialog_SaveReplay() { layer = WindowLayer.Super })));
+                        optList.Insert(0, new ListableOption("Save".Translate(), () => Find.WindowStack.Add(new Dialog_SaveGame() { layer = WindowLayer.Super })));
                     }
 
                     var quitMenuLabel = "QuitToMainMenu".Translate();
@@ -96,7 +96,7 @@ namespace Multiplayer.Client
                         optList[i2].action = () =>
                         {
                             if (Multiplayer.LocalServer != null)
-                                Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation("MpServerCloseConfirmation".Translate(), Root.Shutdown, true, layer: WindowLayer.Super));
+                                Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(GetServerCloseConfirmation(), Root.Shutdown, true, layer: WindowLayer.Super));
                             else
                                 Root.Shutdown();
                         };
@@ -113,7 +113,7 @@ namespace Multiplayer.Client
         static void ShowModDebugInfo()
         {
             var info = new RemoteData();
-            JoinData.ReadServerData(JoinData.WriteServerData(), info);
+            JoinData.ReadServerData(JoinData.WriteServerData(true), info);
             for (int i = 0; i < 200; i++)
                 info.remoteMods.Add(info.remoteMods[6]);
             info.remoteFiles.Add("rwmt.multiplayer", new ModFile() { relPath = "/Test/Test.xml" });
@@ -131,12 +131,22 @@ namespace Multiplayer.Client
 
             Find.WindowStack.Add(
                 Dialog_MessageBox.CreateConfirmation(
-                    "MpServerCloseConfirmation".Translate(),
+                    GetServerCloseConfirmation(),
                     GenScene.GoToMainMenu,
                     true,
                     layer: WindowLayer.Super
                 )
             );
+        }
+
+        static string GetServerCloseConfirmation()
+        {
+            var seconds = (int)(Time.realtimeSinceStartup - Multiplayer.session.lastSaveAt);
+            if (seconds < 10)
+                return "MpServerCloseConfirmationNoTime".Translate();
+
+            var minutes = seconds / 60;
+            return "MpServerCloseConfirmationTime".Translate(minutes > 0 ? $"{minutes}min" : $"{seconds}s");
         }
 
         private static void AskConvertToSingleplayer()
@@ -145,23 +155,32 @@ namespace Multiplayer.Client
             {
                 LongEventHandler.QueueLongEvent(() =>
                 {
-                    var saveName = Multiplayer.session.gameName + "-preconvert";
-                    new FileInfo(Path.Combine(Multiplayer.ReplaysDir, $"{saveName}.zip")).Delete();
-                    Replay.ForSaving(saveName).WriteCurrentData();
+                    try
+                    {
+                        const string suffix = "-preconvert";
+                        var saveName = $"{GenFile.SanitizedFileName(Multiplayer.session.gameName)}{suffix}";
+
+                        new FileInfo(Path.Combine(Multiplayer.ReplaysDir, saveName + ".zip")).Delete();
+                        Replay.ForSaving(saveName).WriteCurrentData();
+                    }
+                    catch (Exception e)
+                    {
+                        Log.Warning($"Convert to singleplayer failed to write pre-convert file: {e}");
+                    }
 
                     Find.GameInfo.permadeathMode = false;
                     HostUtil.SetAllUniqueIds(Multiplayer.GlobalIdBlock.Current);
 
                     Multiplayer.StopMultiplayer();
 
-                    var doc = SaveLoad.SaveGame();
+                    var doc = SaveLoad.SaveGameToDoc();
                     MemoryUtility.ClearAllMapsAndWorld();
 
                     Current.Game = new Game();
                     Current.Game.InitData = new GameInitData();
                     Current.Game.InitData.gameToLoad = "play";
 
-                    LoadPatch.gameToLoad = new GameData(doc, new byte[0]);
+                    LoadPatch.gameToLoad = new TempGameData(doc, new byte[0]);
                 }, "Play", "MpConvertingToSp", true, null);
             }
 

@@ -148,7 +148,7 @@ namespace Multiplayer.Client
 
     public static class ThingContext
     {
-        public static Stack<(Thing, Map)> stack = new Stack<(Thing, Map)>();
+        public static Stack<(Thing, Map)> stack = new();
 
         static ThingContext() => Clear();
 

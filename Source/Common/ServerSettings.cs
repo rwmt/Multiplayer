@@ -1,4 +1,5 @@
-﻿using Verse;
+﻿using System;
+using Verse;
 
 namespace Multiplayer.Common
 {
@@ -19,9 +20,13 @@ namespace Multiplayer.Common
         public bool arbiter;
         public bool debugMode;
         public bool desyncTraces;
+        public bool syncConfigs = true;
+        public AutoJoinPointFlags autoJoinPoint = AutoJoinPointFlags.Join | AutoJoinPointFlags.Desync;
 
         public void ExposeData()
         {
+            // Remember to mirror the default values
+
             Scribe_Values.Look(ref directAddress, "directAddress", $"0.0.0.0:{MultiplayerServer.DefaultPort}");
             Scribe_Values.Look(ref maxPlayers, "maxPlayers", 8);
             Scribe_Values.Look(ref autosaveInterval, "autosaveInterval", 1f);
@@ -31,11 +36,21 @@ namespace Multiplayer.Common
             Scribe_Values.Look(ref lan, "lan", true);
             Scribe_Values.Look(ref debugMode, "debugMode");
             Scribe_Values.Look(ref desyncTraces, "desyncTraces");
+            Scribe_Values.Look(ref syncConfigs, "syncConfigs", true);
+            Scribe_Values.Look(ref autoJoinPoint, "autoJoinPoint", AutoJoinPointFlags.Join | AutoJoinPointFlags.Desync);
         }
     }
 
     public enum AutosaveUnit
     {
         Days, Minutes
+    }
+
+    [Flags]
+    public enum AutoJoinPointFlags
+    {
+        Join = 1,
+        Desync = 2,
+        Autosave = 4
     }
 }

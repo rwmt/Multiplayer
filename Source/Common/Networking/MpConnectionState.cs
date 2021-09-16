@@ -15,6 +15,10 @@ namespace Multiplayer.Common
             this.connection = connection;
         }
 
+        public virtual void StartState()
+        {
+        }
+
         public static Type[] connectionImpls = new Type[(int)ConnectionStateEnum.Count];
         public static PacketHandlerInfo[,] packetHandlers = new PacketHandlerInfo[(int)ConnectionStateEnum.Count, (int)Packets.Count];
 

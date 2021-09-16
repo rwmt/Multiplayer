@@ -125,8 +125,8 @@ namespace Multiplayer.Client
                         TooltipHandler.TipRegion(steamIcon, new TipSignal($"{p.steamPersonaName}\n{p.steamId}", p.id));
                     }
 
-                    string toolTip = $"{p.username}\n\nPing: {p.latency}ms\n{p.ticksBehind >> 1} ticks behind";
-                    if ((p.ticksBehind & 1) != 0)
+                    string toolTip = $"{p.username}\n\nPing: {p.latency}ms\n{p.ticksBehind} ticks behind";
+                    if (p.simulating)
                         toolTip += "\n(Simulating)";
 
                     TooltipHandler.TipRegion(rect, new TipSignal(toolTip, p.id));
@@ -385,9 +385,10 @@ namespace Multiplayer.Client
                 if (Multiplayer.LocalServer.netManager != null)
                     LogNetData("Net Server", Multiplayer.LocalServer.netManager.Statistics);
 
-                foreach (var p in Multiplayer.LocalServer.players.ToList())
-                    if (p.conn is LiteNetConnection net)
-                        LogNetData($"Net Peer {p.Username}", net.peer.Statistics);
+                // todo thread problems?
+                // foreach (var p in Multiplayer.LocalServer.players.ToList())
+                //     if (p.conn is LiteNetConnection net)
+                //         LogNetData($"Net Peer {p.Username}", net.peer.Statistics);
             }
 
             foreach (var remote in Multiplayer.session.knownUsers)

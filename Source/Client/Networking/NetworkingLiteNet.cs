@@ -20,6 +20,7 @@ namespace Multiplayer.Client.Networking
             ConnectionBase conn = new LiteNetConnection(peer);
             conn.username = Multiplayer.username;
             conn.State = ConnectionStateEnum.ClientJoining;
+            conn.StateObj.StartState();
 
             Multiplayer.session.client = conn;
             Multiplayer.session.ReapplyPrefs();

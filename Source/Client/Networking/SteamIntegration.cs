@@ -73,7 +73,7 @@ namespace Multiplayer.Client
 
                 server.Enqueue(() =>
                 {
-                    var conn = server.players.Select(p => p.conn).OfType<SteamBaseConn>().FirstOrDefault(c => c.remoteId == remoteId);
+                    var conn = server.playerManager.Players.Select(p => p.conn).OfType<SteamBaseConn>().FirstOrDefault(c => c.remoteId == remoteId);
                     if (conn != null)
                         conn.OnError(error);
                 });
@@ -106,13 +106,14 @@ namespace Multiplayer.Client
         {
             foreach (var packet in ReadPackets(0))
             {
-                var player = server.players.FirstOrDefault(p => p.conn is SteamBaseConn conn && conn.remoteId == packet.remote);
+                var playerManager = server.playerManager;
+                var player = playerManager.Players.FirstOrDefault(p => p.conn is SteamBaseConn conn && conn.remoteId == packet.remote);
 
                 if (packet.joinPacket && player == null)
                 {
                     ConnectionBase conn = new SteamServerConn(packet.remote, packet.channel);
 
-                    var preConnect = server.OnPreConnect(packet.remote);
+                    var preConnect = playerManager.OnPreConnect(packet.remote);
                     if (preConnect != null)
                     {
                         conn.Close(preConnect.Value);
@@ -120,7 +121,7 @@ namespace Multiplayer.Client
                     }
 
                     conn.State = ConnectionStateEnum.ServerJoining;
-                    player = server.OnConnected(conn);
+                    player = playerManager.OnConnected(conn);
                     player.type = PlayerType.Steam;
 
                     player.steamId = (ulong)packet.remote;
@@ -173,7 +174,7 @@ namespace Multiplayer.Client
 
     public static class SteamImages
     {
-        public static Dictionary<int, Texture2D> cache = new Dictionary<int, Texture2D>();
+        public static Dictionary<int, Texture2D> cache = new();
 
         // Remember to flip it
         public static Texture2D GetTexture(int id)

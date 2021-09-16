@@ -17,7 +17,8 @@ namespace Multiplayer.Client
         private static int currentPlayer;
         public static int currentHash;
 
-        public static PlayerDebugState CurrentPlayerState => Multiplayer.game.playerDebugState.GetOrAddNew(currentPlayer == -1 ? Multiplayer.session.playerId : currentPlayer);
+        public static PlayerDebugState CurrentPlayerState =>
+            Multiplayer.game.playerDebugState.GetOrAddNew(currentPlayer == -1 ? Multiplayer.session.playerId : currentPlayer);
 
         public static void HandleCmd(ByteReader data)
         {

@@ -42,6 +42,12 @@ namespace Multiplayer.Common
 
         public virtual void WritePrefixedBytes(byte[] bytes)
         {
+            if (bytes == null)
+            {
+                WriteInt32(-1);
+                return;
+            }
+
             WriteInt32(bytes.Length);
             WriteRaw(bytes);
         }
@@ -72,7 +78,7 @@ namespace Multiplayer.Common
 
         public virtual ByteWriter WriteString(string s)
         {
-            WritePrefixedBytes(Encoding.UTF8.GetBytes(s));
+            WritePrefixedBytes(s == null ? null : Encoding.UTF8.GetBytes(s));
             return this;
         }
 
