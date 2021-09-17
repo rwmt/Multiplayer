@@ -18,7 +18,7 @@ namespace Multiplayer.Client
         public List<FileInfo> SpSaves { get; private set; }
         public List<FileInfo> MpSaves { get; private set; }
 
-        private ConcurrentDictionary<FileInfo, SaveFile> data = new ConcurrentDictionary<FileInfo, SaveFile>();
+        private ConcurrentDictionary<FileInfo, SaveFile> data = new();
         private Task spTask, mpTask;
 
         public void StartReading()
@@ -141,7 +141,11 @@ namespace Multiplayer.Client
         public int protocol;
         public bool asyncTime;
 
-        public bool Valid => rwVersion != null;
+        public bool HasRwVersion => rwVersion != null;
+
+        public bool MajorAndMinorVerEqualToCurrent =>
+            VersionControl.MajorFromVersionString(rwVersion) == VersionControl.CurrentMajor &&
+            VersionControl.MinorFromVersionString(rwVersion) == VersionControl.CurrentMinor;
 
         public Color VersionColor
         {
@@ -150,7 +154,7 @@ namespace Multiplayer.Client
                 if (rwVersion == null)
                     return Color.red;
 
-                if (VersionControl.MajorFromVersionString(rwVersion) == VersionControl.CurrentMajor && VersionControl.MinorFromVersionString(rwVersion) == VersionControl.CurrentMinor)
+                if (MajorAndMinorVerEqualToCurrent)
                     return new Color(0.6f, 0.6f, 0.6f);
 
                 if (BackCompatibility.IsSaveCompatibleWith(rwVersion))

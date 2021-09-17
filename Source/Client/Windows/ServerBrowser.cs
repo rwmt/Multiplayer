@@ -258,7 +258,7 @@ namespace Multiplayer.Client
 
         private void DrawFileButtons(SaveFile file, ref float width)
         {
-            if (file.Valid)
+            if (file.HasRwVersion)
             {
                 if (file.replay && Multiplayer.ShowDevInfo)
                 {
@@ -361,7 +361,7 @@ namespace Multiplayer.Client
                         Widgets.Label(infoText.Down(16), (data.rwVersion ?? "???").Truncate(110));
                     }
 
-                    if (!data.Valid)
+                    if (!data.HasRwVersion)
                     {
                         var rect = new Rect(infoText.x - 80, infoText.y + 8f, 80, 24f);
                         GUI.color = Color.red;
@@ -369,18 +369,13 @@ namespace Multiplayer.Client
                         Widgets.Label(rect, $"({"EItemUpdateStatus_k_EItemUpdateStatusInvalid".Translate()})");
                         TooltipHandler.TipRegion(rect, new TipSignal("SaveIsUnknownFormat".Translate()));
                     }
-                    else if (data.replay && data.protocol != MpVersion.Protocol)
+                    else if (data.replay && !data.MajorAndMinorVerEqualToCurrent)
                     {
-                        bool autosave = data.replaySections > 1;
-
-                        GUI.color = autosave ? new Color(0.8f, 0.8f, 0, 0.6f) : new Color(0.8f, 0.8f, 0);
+                        GUI.color = new Color(0.8f, 0.8f, 0, 0.6f);
                         var outdated = new Rect(infoText.x - 80, infoText.y + 8f, 80, 24f);
-                        Widgets.Label(outdated, "MpReplayOutdated".Translate());
+                        Widgets.Label(outdated, "MpSaveOutdated".Translate());
 
-                        string text = "MpReplayOutdatedDesc1".Translate(data.protocol, MpVersion.Protocol) + "\n\n" + "MpReplayOutdatedDesc2".Translate() + "\n" + "MpReplayOutdatedDesc3".Translate();
-                        if (autosave)
-                            text += "\n\n" + "MpReplayOutdatedDesc4".Translate();
-
+                        var text = "MpSaveOutdatedDesc".Translate(data.rwVersion, VersionControl.CurrentVersionString);
                         TooltipHandler.TipRegion(outdated, text);
                     }
 
@@ -391,7 +386,7 @@ namespace Multiplayer.Client
                     {
                         if (Event.current.button == 0)
                             selectedFile = file;
-                        else if (Event.current.button == 1 && data.Valid)
+                        else if (Event.current.button == 1 && data.HasRwVersion)
                             Find.WindowStack.Add(new FloatMenu(SaveFloatMenu(data).ToList()));
                     }
                 }
