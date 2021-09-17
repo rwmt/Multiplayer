@@ -118,16 +118,6 @@ namespace Multiplayer.Client.Saving
         }
     }
 
-    [HarmonyPatch(typeof(MapComponentUtility), nameof(MapComponentUtility.MapComponentUpdate))]
-    static class MapCompUpdate
-    {
-        static void Postfix(Map map)
-        {
-            if (Multiplayer.Client == null) return;
-            map.AsyncTime()?.Update();
-        }
-    }
-
     [HarmonyPatch(typeof(WorldComponentUtility), nameof(WorldComponentUtility.FinalizeInit))]
     static class WorldCompFinalizeInit
     {

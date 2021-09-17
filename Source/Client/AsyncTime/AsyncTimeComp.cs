@@ -84,7 +84,6 @@ namespace Multiplayer.Client
         private TimeSpeed timeSpeedInt;
         public bool forcedNormalSpeed;
         public int eventCount;
-        public int autosaveCounter;
 
         public Storyteller storyteller;
         public StoryWatcher storyWatcher;
@@ -114,7 +113,6 @@ namespace Multiplayer.Client
             try
             {
                 map.MapPreTick();
-                autosaveCounter++;
                 mapTicks++;
                 Find.TickManager.ticksGameInt = mapTicks;
 
@@ -487,18 +485,6 @@ namespace Multiplayer.Client
             if (!Multiplayer.GameComp.asyncTime || Paused) return;
 
             MultiplayerAsyncQuest.TickMapQuests(this);
-        }
-
-        public void Update()
-        {
-            if (Multiplayer.LocalServer is { } server
-                && server.settings.autosaveUnit == AutosaveUnit.Days
-                && server.settings.autosaveInterval > 0
-                && autosaveCounter > server.settings.autosaveInterval * 2500 * 24)
-            {
-                Multiplayer.game.asyncTimeComps.Do(m => m.autosaveCounter = 0);
-                MultiplayerSession.DoAutosave();
-            }
         }
     }
 

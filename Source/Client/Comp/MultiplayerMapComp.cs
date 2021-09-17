@@ -25,6 +25,7 @@ namespace Multiplayer.Client
         public TransporterLoading transporterLoading;
         public RitualSession ritualSession;
         public List<PersistentDialog> mapDialogs = new List<PersistentDialog>();
+        public int autosaveCounter;
 
         // for SaveCompression
         public List<Thing> tempLoadedThings;
@@ -57,19 +58,24 @@ namespace Multiplayer.Client
 
         public void DoTick()
         {
-            if (Multiplayer.Client == null) return;
+            autosaveCounter++;
 
             tickingFactions = true;
 
-            foreach (var data in factionData)
+            try
             {
-                map.PushFaction(data.Key);
-                data.Value.listerHaulables.ListerHaulablesTick();
-                data.Value.resourceCounter.ResourceCounterTick();
-                map.PopFaction();
+                foreach (var data in factionData)
+                {
+                    map.PushFaction(data.Key);
+                    data.Value.listerHaulables.ListerHaulablesTick();
+                    data.Value.resourceCounter.ResourceCounterTick();
+                    map.PopFaction();
+                }
             }
-
-            tickingFactions = false;
+            finally
+            {
+                tickingFactions = false;
+            }
         }
 
         public void SetFaction(Faction faction)
@@ -158,12 +164,16 @@ namespace Multiplayer.Client
 
         public void WriteSemiPersistent(ByteWriter writer)
         {
+            writer.WriteInt32(autosaveCounter);
+
             writer.WriteBool(ritualSession != null);
             ritualSession?.Write(writer);
         }
 
         public void ReadSemiPersistent(ByteReader reader)
         {
+            autosaveCounter = reader.ReadInt32();
+
             var hasRitual = reader.ReadBool();
             if (hasRitual)
             {

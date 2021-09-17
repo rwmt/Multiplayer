@@ -104,8 +104,11 @@ namespace Multiplayer.Client
 
                 Find.WindowStack.Add(new JoinDataWindow(remoteInfo){
                     connectAnywayDisabled = defDiff ? "MpMismatchDefsDiff".Translate() + defDiffStr : null,
-                    connectAnywayCallback = StartDownloading,
-                    connectAnywayWindow = connectingWindow
+                    connectAnywayCallback = () =>
+                    {
+                        Find.WindowStack.Add(connectingWindow);
+                        StartDownloading();
+                    }
                 });
 
                 void StartDownloading()
@@ -201,14 +204,14 @@ namespace Multiplayer.Client
             return gameDoc;
         }
 
-        public static void ReloadGame(List<int> mapsToLoad, bool offMainThread, bool forceAsyncTime)
+        public static void ReloadGame(List<int> mapsToLoad, bool changeScene, bool forceAsyncTime)
         {
             var gameDoc = GetGameDocument(mapsToLoad);
 
             LoadPatch.gameToLoad = new(gameDoc, Multiplayer.session.dataSnapshot.semiPersistentData);
             TickPatch.replayTimeSpeed = TimeSpeed.Paused;
 
-            if (offMainThread)
+            if (changeScene)
             {
                 LongEventHandler.QueueLongEvent(() =>
                 {

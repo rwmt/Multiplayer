@@ -307,7 +307,7 @@ namespace Multiplayer.Client
 
                 if (cmdType == CommandType.CreateJoinPoint)
                 {
-                    LongEventHandler.QueueLongEvent(CreateJoinPoint, "MpSaving", false, null);
+                    LongEventHandler.QueueLongEvent(CreateJoinPoint, "MpCreatingJoinPoint", false, null);
                 }
 
                 if (cmdType == CommandType.InitPlayerData)

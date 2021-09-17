@@ -36,15 +36,7 @@ namespace Multiplayer.Client
             }
 
             queue.RunQueue(Log.Error);
-
-            try
-            {
-                RunScheduled();
-            }
-            catch (Exception e)
-            {
-                Log.Error($"Exception running scheduled action: {e}");
-            }
+            RunScheduled();
 
             if (SteamManager.Initialized)
                 SteamIntegration.UpdateRichPresence();
@@ -73,12 +65,22 @@ namespace Multiplayer.Client
         {
             for (int i = scheduled.Count - 1; i >= 0; i--)
             {
-                var item = scheduled[i];
-                if (Time.realtimeSinceStartup > item.atTime)
+                try
                 {
-                    scheduled.RemoveAt(i);
-                    item.action();
+                    var item = scheduled[i];
+                    if (Time.realtimeSinceStartup > item.atTime)
+                    {
+                        scheduled.RemoveAt(i);
+                        item.action();
+                    }
                 }
+                catch (Exception e)
+                {
+                    Log.Error($"Exception running scheduled action: {e}");
+                }
+
+                if (scheduled.Count == 0) // The action can call ClearScheduled
+                    return;
             }
         }
 
@@ -90,6 +92,11 @@ namespace Multiplayer.Client
         public static void Schedule(Action action, float time)
         {
             scheduled.Add((action, Time.realtimeSinceStartup + time));
+        }
+
+        public static void ClearScheduled()
+        {
+            scheduled.Clear();
         }
     }
 

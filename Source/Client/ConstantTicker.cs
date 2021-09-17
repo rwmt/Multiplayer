@@ -39,15 +39,29 @@ namespace Multiplayer.Client
         static void TickAutosave()
         {
             if (Multiplayer.LocalServer is not { } server) return;
-            if (server.settings.autosaveUnit != AutosaveUnit.Minutes) return;
 
-            var session = Multiplayer.session;
-            session.autosaveCounter++;
-
-            if (server.settings.autosaveInterval > 0 && session.autosaveCounter > server.settings.autosaveInterval * 60 * 60)
+            if (server.settings.autosaveUnit == AutosaveUnit.Minutes)
             {
-                session.autosaveCounter = 0;
-                MultiplayerSession.DoAutosave();
+                var session = Multiplayer.session;
+                session.autosaveCounter++;
+
+                if (server.settings.autosaveInterval > 0 &&
+                    session.autosaveCounter > server.settings.autosaveInterval * 60 * 60)
+                {
+                    session.autosaveCounter = 0;
+                    MultiplayerSession.DoAutosave();
+                }
+            } else if (server.settings.autosaveUnit == AutosaveUnit.Days && server.settings.autosaveInterval > 0)
+            {
+                var anyMapCounterUp =
+                    Multiplayer.game.mapComps
+                    .Any(m => m.autosaveCounter > server.settings.autosaveInterval * 2500 * 24);
+
+                if (anyMapCounterUp)
+                {
+                    Multiplayer.game.mapComps.Do(m => m.autosaveCounter = 0);
+                    MultiplayerSession.DoAutosave();
+                }
             }
         }
 

@@ -50,19 +50,16 @@ namespace Multiplayer.Client
         {
             Log.Message("Connecting through Steam");
 
-            Find.WindowStack.Add(new SteamConnectingWindow(user) { returnToServerBrowser = returnToServerBrowser });
-
-            var conn = new SteamClientConn(user) { username = Multiplayer.username};
-
             Multiplayer.session = new MultiplayerSession
             {
-                client = conn,
+                client = new SteamClientConn(user) { username = Multiplayer.username },
                 steamHost = user
             };
 
-            Multiplayer.session.ReapplyPrefs();
+            Find.WindowStack.Add(new SteamConnectingWindow(user) { returnToServerBrowser = returnToServerBrowser });
 
-            conn.State = ConnectionStateEnum.ClientSteam;
+            Multiplayer.session.ReapplyPrefs();
+            Multiplayer.Client.State = ConnectionStateEnum.ClientSteam;
         }
 
         public static void HandleReceive(ByteReader data, bool reliable)

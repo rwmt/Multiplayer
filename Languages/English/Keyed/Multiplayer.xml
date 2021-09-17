@@ -14,6 +14,7 @@
   <MpSimulatingServer>Simulating the server</MpSimulatingServer>
   <MpLoading>Loading</MpLoading>
   <MpSaving>Saving</MpSaving>
+  <MpCreatingJoinPoint>Creating a join-point</MpCreatingJoinPoint>
   <MpServerCloseConfirmationNoTime>Are you sure you want to close the server?</MpServerCloseConfirmationNoTime>
   <MpServerCloseConfirmationTime>Are you sure you want to close the server? Last saved {0} ago.</MpServerCloseConfirmationTime>
   <MpTraderLeavesIn>Leaves in {0}</MpTraderLeavesIn>

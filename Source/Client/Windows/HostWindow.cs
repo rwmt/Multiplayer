@@ -191,12 +191,13 @@ namespace Multiplayer.Client
 
             entry = entry.Down(30);
 
-            // Auto join-points
-            DrawJoinPointOptions(ref entry);
-
             // Sync configs
             TooltipHandler.TipRegion(entry.Width(checkboxWidth), MpUtil.TranslateWithDoubleNewLines("MpSyncConfigsDesc", 3));
             MpUI.CheckboxLabeled(entry.Width(checkboxWidth), $"{"MpSyncConfigs".Translate()}:  ", ref serverSettings.syncConfigs, placeTextNearCheckbox: true);
+            entry = entry.Down(30);
+
+            // Auto join-points
+            DrawJoinPointOptions(entry);
             entry = entry.Down(30);
 
             if (Event.current.type == EventType.Layout && height != entry.yMax)
@@ -216,7 +217,7 @@ namespace Multiplayer.Client
 
         private static Color CustomButtonColor = new(0.15f, 0.15f, 0.15f);
 
-        private void DrawJoinPointOptions(ref Rect entry)
+        private void DrawJoinPointOptions(Rect entry)
         {
             using (MpStyle.Set(TextAnchor.MiddleRight))
                 MpUI.LabelWithTip(
@@ -246,8 +247,6 @@ namespace Multiplayer.Client
                             serverSettings.autoJoinPoint |= flag;
                     });
             }
-
-            entry = entry.Down(30);
         }
 
         private static bool CustomButton(Rect rect, string label)

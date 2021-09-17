@@ -89,8 +89,6 @@ namespace Multiplayer.Client
                 arbiter.TryKill();
                 arbiter = null;
             }
-
-            Log.Message("Multiplayer session stopped.");
         }
 
         public PlayerInfo GetPlayerInfo(int id)
@@ -264,6 +262,8 @@ namespace Multiplayer.Client
 
         public static void SaveGameToFile(string fileNameNoExtension)
         {
+            Log.Message($"Multiplayer: saving to file {fileNameNoExtension}");
+
             try
             {
                 new FileInfo(Path.Combine(Multiplayer.ReplaysDir, $"{fileNameNoExtension}.zip")).Delete();

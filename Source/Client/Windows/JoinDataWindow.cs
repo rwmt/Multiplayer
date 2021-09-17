@@ -56,7 +56,6 @@ namespace Multiplayer.Client
         private Node configsRoot;
         public string connectAnywayDisabled;
         public Action connectAnywayCallback;
-        public Window connectAnywayWindow;
         private ModFileDict filesForUI;
         private bool sameSetOfMods;
         private bool modListsEqual;
@@ -252,7 +251,6 @@ namespace Multiplayer.Client
             {
                 Log.Message($"Multiplayer: Connecting anyway ({DiffString()})");
                 connectAnywayCallback();
-                Find.WindowStack.Add(connectAnywayWindow);
                 Close(false);
             }
 
