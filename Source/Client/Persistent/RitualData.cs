@@ -10,57 +10,40 @@ using static RimWorld.Dialog_BeginRitual;
 
 namespace Multiplayer.Client.Persistent
 {
-    public record RitualData(
-        Precept_Ritual Ritual,
-        TargetInfo Target,
-        RitualObligation Obligation,
-        RitualOutcomeEffectDef Outcome,
-        List<string> ExtraInfos,
-        ActionCallback Action,
-        string RitualLabel,
-        string ConfirmText,
-        Pawn Organizer,
-        MpRitualAssignments Assignments)
+    public class RitualData : ISynchronizable
     {
-        public static void Write(ByteWriter writer, RitualData data)
-        {
-            SyncSerialization.WriteSync(writer, data.Ritual);
-            SyncSerialization.WriteSync(writer, data.Target);
-            SyncSerialization.WriteSync(writer, data.Obligation);
-            SyncSerialization.WriteSync(writer, data.Outcome);
-            SyncSerialization.WriteSync(writer, data.ExtraInfos);
-            WriteDelegate(writer, data.Action);
-            SyncSerialization.WriteSync(writer, data.RitualLabel);
-            SyncSerialization.WriteSync(writer, data.ConfirmText);
-            SyncSerialization.WriteSync(writer, data.Organizer);
-            SyncSerialization.WriteSyncObject(writer, data.Assignments, new SyncType(typeof(MpRitualAssignments)) { expose = true });
-        }
+        public Precept_Ritual ritual;
+        public TargetInfo target;
+        public RitualObligation obligation;
+        public RitualOutcomeEffectDef outcome;
+        public List<string> extraInfos;
+        public ActionCallback action;
+        public string ritualLabel;
+        public string confirmText;
+        public Pawn organizer;
+        public MpRitualAssignments assignments;
 
-        public static RitualData Read(ByteReader reader)
+        public void Sync(SyncWorker sync)
         {
-            var ritual = SyncSerialization.ReadSync<Precept_Ritual>(reader);
-            var target = SyncSerialization.ReadSync<TargetInfo>(reader);
-            var obligation = SyncSerialization.ReadSync<RitualObligation>(reader);
-            var outcome = SyncSerialization.ReadSync<RitualOutcomeEffectDef>(reader);
-            var extraInfos = SyncSerialization.ReadSync<List<string>>(reader);
-            var action = (ActionCallback)ReadDelegate(reader);
-            var label = SyncSerialization.ReadSync<string>(reader);
-            var confirmText = SyncSerialization.ReadSync<string>(reader);
-            var organizer = SyncSerialization.ReadSync<Pawn>(reader);
-            var assignments = (MpRitualAssignments)SyncSerialization.ReadSyncObject(reader, new SyncType(typeof(MpRitualAssignments)) { expose = true });
+            sync.Bind(ref ritual);
+            sync.Bind(ref target);
+            sync.Bind(ref obligation);
+            sync.Bind(ref outcome);
+            sync.Bind(ref extraInfos);
 
-            return new(
-                ritual,
-                target,
-                obligation,
-                outcome,
-                extraInfos,
-                action,
-                label,
-                confirmText,
-                organizer,
-                assignments
-            );
+            if (sync is WritingSyncWorker writer1)
+                WriteDelegate(writer1.writer, action);
+            else if (sync is ReadingSyncWorker reader)
+                action = (ActionCallback)ReadDelegate(reader.reader);
+
+            sync.Bind(ref ritualLabel);
+            sync.Bind(ref confirmText);
+            sync.Bind(ref organizer);
+
+            if (sync is WritingSyncWorker writer2)
+                writer2.Bind(ref assignments, new SyncType(typeof(MpRitualAssignments)) { expose = true });
+            else if (sync is ReadingSyncWorker reader)
+                reader.Bind(ref assignments, new SyncType(typeof(MpRitualAssignments)) { expose = true });
         }
 
         private static void WriteDelegate(ByteWriter writer, Delegate del)

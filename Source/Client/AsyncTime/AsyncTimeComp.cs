@@ -265,7 +265,8 @@ namespace Multiplayer.Client
             SelectorDeselectPatch.deselected = new List<object>();
 
             bool prevDevMode = Prefs.data.devMode;
-            Prefs.data.devMode = Multiplayer.GameComp.debugMode;
+            bool prevGodMode = DebugSettings.godMode;
+            Multiplayer.GameComp.playerData.GetValueOrDefault(cmd.playerId)?.SetContext();
 
             try
             {
@@ -317,6 +318,7 @@ namespace Multiplayer.Client
             }
             finally
             {
+                DebugSettings.godMode = prevGodMode;
                 Prefs.data.devMode = prevDevMode;
 
                 foreach (var deselected in SelectorDeselectPatch.deselected)

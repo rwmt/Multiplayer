@@ -80,7 +80,7 @@ namespace Multiplayer.Client.Util
                     SoundDefOf.Checkbox_TurnedOff.PlayOneShotOnCamera(null);
             }
 
-            Widgets.CheckboxDraw(rect.x + rect.width - 24f, rect.y, checkOn, disabled, 24f, null, null);
+            Widgets.CheckboxDraw(rect.x + rect.width - 24f, rect.y + (rect.height - 24f) / 2, checkOn, disabled, 24f, null, null);
             Text.Anchor = anchor;
         }
 
@@ -133,21 +133,33 @@ namespace Multiplayer.Client.Util
             }
         }
 
+        public static void LabelWithTip(Rect rect, string str, string tip)
+        {
+            Widgets.Label(rect, str);
+
+            if (Mouse.IsOver(rect) && tip != null)
+                TooltipHandler.TipRegion(rect, new TipSignal(tip, 3333));
+        }
+
         public static void LabelTruncatedWithTip(Rect rect, string str, Dictionary<string, string> cache)
         {
             var trunc = str.Truncate(rect.width, cache);
-            Widgets.Label(rect, trunc);
-
-            if (Mouse.IsOver(rect) && trunc != str)
-                TooltipHandler.TipRegion(rect, new TipSignal(str, 3333));
+            LabelWithTip(rect, trunc, trunc != str ? str : null);
         }
 
-        public static void CheckboxLabeledWithTip(Rect rect, string label, string tip, ref bool check, bool disabled = false)
+        public static void CheckboxLabeledWithTip(Rect rect, string label, string tip, ref bool check, bool disabled = false, bool placeTextNearCheckbox = false)
         {
             Widgets.DrawHighlightIfMouseover(rect);
             if (tip != null)
                 TooltipHandler.TipRegion(rect, tip);
-            Widgets.CheckboxLabeled(rect, label, ref check, disabled);
+            CheckboxLabeled(rect, label, ref check, disabled, placeTextNearCheckbox: placeTextNearCheckbox);
+        }
+
+        public static void CheckboxLabeledWithTipNoHighlight(Rect rect, string label, string tip, ref bool check, bool disabled = false, bool placeTextNearCheckbox = false)
+        {
+            if (tip != null)
+                TooltipHandler.TipRegion(rect, tip);
+            CheckboxLabeled(rect, label, ref check, disabled, placeTextNearCheckbox: placeTextNearCheckbox);
         }
 
         public static bool ButtonTextWithTip(Rect rect, string label, string tip, bool disabled = false, int? tipId = null)

@@ -68,7 +68,7 @@ namespace Multiplayer.Common
                 return;
             }
 
-            if (toKick.Username == Server.hostUsername)
+            if (toKick.IsHost)
             {
                 player.SendChat("You can't kick the host.");
                 return;

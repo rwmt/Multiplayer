@@ -122,14 +122,11 @@ namespace Multiplayer.Client
 
             if (Multiplayer.username == null)
             {
-                if (SteamManager.Initialized) {
-                    Multiplayer.username = SteamUtility.SteamPersonaName;
-                } else {
-                    Multiplayer.username = NameGenerator.GenerateName(RulePackDefOf.NamerTraderGeneral);
-                }
+                Multiplayer.username = SteamManager.Initialized ?
+                    SteamUtility.SteamPersonaName : NameGenerator.GenerateName(RulePackDefOf.NamerTraderGeneral);
 
                 Multiplayer.username = new Regex("[^a-zA-Z0-9_]").Replace(Multiplayer.username, string.Empty);
-                Multiplayer.username = Multiplayer.username.TrimmedToLength(15);
+                Multiplayer.username = Multiplayer.username.TrimmedToLength(MultiplayerServer.MaxUsernameLength);
                 Multiplayer.settings.username = Multiplayer.username;
                 Multiplayer.settings.Write();
             }

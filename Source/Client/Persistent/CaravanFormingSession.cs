@@ -25,6 +25,7 @@ namespace Multiplayer.Client
 
         public bool uiDirty;
 
+        public Map Map => map;
         public int SessionId => sessionId;
 
         public CaravanFormingSession(Map map)

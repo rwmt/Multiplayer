@@ -10,10 +10,17 @@ namespace Multiplayer.Client
         internal readonly ByteReader reader;
         readonly int initialPos;
 
+        internal ByteReader Reader => reader;
+
         public ReadingSyncWorker(ByteReader reader) : base(false)
         {
             this.reader = reader;
             initialPos = reader.Position;
+        }
+
+        public void Bind<T>(ref T obj, SyncType type)
+        {
+            obj = (T)SyncSerialization.ReadSyncObject(reader, type);
         }
 
         public override void Bind<T>(ref T obj)

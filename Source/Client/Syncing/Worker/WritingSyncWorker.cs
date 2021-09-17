@@ -10,10 +10,17 @@ namespace Multiplayer.Client
         internal readonly ByteWriter writer;
         readonly int initialPos;
 
+        internal ByteWriter Writer { get; }
+
         public WritingSyncWorker(ByteWriter writer) : base(true)
         {
             this.writer = writer;
             initialPos = writer.Position;
+        }
+
+        public void Bind<T>(ref T obj, SyncType type)
+        {
+            SyncSerialization.WriteSyncObject(writer, obj, type);
         }
 
         public override void Bind<T>(ref T obj)

@@ -1,6 +1,7 @@
 using Verse;
 using RimWorld.Planet;
 using HarmonyLib;
+using Multiplayer.API;
 
 namespace Multiplayer.Client.Persistent
 {
@@ -49,10 +50,25 @@ namespace Multiplayer.Client.Persistent
             }
             else
             {
-                CaravanSplittingSession.CreateSplittingSession(caravan);
+                CreateSplittingSession(caravan);
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// Factory method that creates a new CaravanSplittingSession and stores it to Multiplayer.WorldComp.splitSession
+        /// Only one caravan split session can exist at a time.
+        /// </summary>
+        /// <param name="caravan"></param>
+        [SyncMethod]
+        public static void CreateSplittingSession(Caravan caravan)
+        {
+            //Start caravan splitting session here by calling new session constructor
+            if (Multiplayer.WorldComp.splitSession == null)
+            {
+                Multiplayer.WorldComp.splitSession = new CaravanSplittingSession(caravan);
+            }
         }
     }
 }

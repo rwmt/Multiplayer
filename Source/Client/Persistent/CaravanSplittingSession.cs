@@ -19,6 +19,7 @@ namespace Multiplayer.Client.Persistent
         /// Uniquely identifies this ISessionWithTransferables
         /// </summary>
         public int SessionId => sessionId;
+        public Map Map => null;
 
         /// <summary>
         /// The list of items that can be transferred, along with their count.
@@ -45,7 +46,7 @@ namespace Multiplayer.Client.Persistent
         /// Ensures a unique Id is given to this session and creates the dialog.
         /// </summary>
         /// <param name="caravan"></param>
-        private CaravanSplittingSession(Caravan caravan)
+        public CaravanSplittingSession(Caravan caravan)
         {
             sessionId = Multiplayer.GlobalIdBlock.NextId();
             Caravan = caravan;
@@ -111,7 +112,6 @@ namespace Multiplayer.Client.Persistent
         public void ExposeData()
         {
             Scribe_Values.Look(ref sessionId, "sessionId");
-
             Scribe_Collections.Look(ref transferables, "transferables", LookMode.Deep);
         }
 
@@ -133,39 +133,22 @@ namespace Multiplayer.Client.Persistent
         }
 
         /// <summary>
-        /// Factory method that creates a new CaravanSplittingSession and stores it to Multiplayer.WorldComp.splitSession
-        /// Only one caravan split session can exist at a time.
-        /// </summary>
-        /// <param name="caravan"></param>
-        [SyncMethod]
-        public static void CreateSplittingSession(Caravan caravan)
-        {
-            //Start caravan splitting session here by calling new session constructor
-            if (Multiplayer.WorldComp.splitSession == null)
-            {
-                Multiplayer.WorldComp.splitSession = new CaravanSplittingSession(caravan);
-            }
-        }
-
-        /// <summary>
         /// Cancel a splitting session without accepting it. Closes the dialog and frees Multiplayer.WorldComp.splitSession
         /// </summary>
         [SyncMethod]
-        public static void CancelSplittingSession() {
-            if (Multiplayer.WorldComp.splitSession != null) {
-                Multiplayer.WorldComp.splitSession.dialog.Close();
-                Multiplayer.WorldComp.splitSession = null;
-            }
+        public void CancelSplittingSession() {
+            dialog.Close();
+            Multiplayer.WorldComp.splitSession = null;
         }
 
         /// <summary>
         /// Resets the counts on all the transferables to 0.
         /// </summary>
         [SyncMethod]
-        public static void ResetSplittingSession()
+        public void ResetSplittingSession()
         {
-            Multiplayer.WorldComp.splitSession.transferables.ForEach(t => t.CountToTransfer = 0);
-            Multiplayer.WorldComp.splitSession.uiDirty = true;
+            transferables.ForEach(t => t.CountToTransfer = 0);
+            uiDirty = true;
         }
 
         /// <summary>
@@ -173,12 +156,12 @@ namespace Multiplayer.Client.Persistent
         /// If the caravan fails to split, nothing will happen.
         /// </summary>
         [SyncMethod]
-        public static void AcceptSplitSession()
+        public void AcceptSplitSession()
         {
-            if ((Multiplayer.WorldComp.splitSession?.dialog.TrySplitCaravan()).Value)
+            if (dialog.TrySplitCaravan())
             {
                 SoundDefOf.Tick_High.PlayOneShotOnCamera();
-                Multiplayer.WorldComp.splitSession.dialog.Close(false);
+                dialog.Close(false);
                 Multiplayer.WorldComp.splitSession = null;
             }
         }

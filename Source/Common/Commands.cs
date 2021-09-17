@@ -9,6 +9,7 @@ namespace Multiplayer.Common
         GlobalIdBlock,
         FactionOnline,
         FactionOffline,
+        InitPlayerData,
 
         // Mixed scope
         Sync,

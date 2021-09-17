@@ -23,16 +23,22 @@ namespace Multiplayer.Common
                 bool debugCmd =
                     cmd == CommandType.DebugTools ||
                     cmd == CommandType.Sync && debugOnlySyncCmds.Contains(BitConverter.ToInt32(data, 0));
-
-                if (!server.settings.debugMode && debugCmd)
+                if (debugCmd && !CanUseDevMode(sourcePlayer))
                     return;
 
                 bool hostOnly = cmd == CommandType.Sync && hostOnlySyncCmds.Contains(BitConverter.ToInt32(data, 0));
-                if (!sourcePlayer.IsHost && hostOnly)
+                if (hostOnly && !sourcePlayer.IsHost)
                     return;
             }
 
-            byte[] toSave = new ScheduledCommand(cmd, server.gameTimer, factionId, mapId, data).Serialize();
+            byte[] toSave = ScheduledCommand.Serialize(
+                new ScheduledCommand(
+                    cmd,
+                    server.gameTimer,
+                    factionId,
+                    mapId,
+                    sourcePlayer?.id ?? ScheduledCommand.NoPlayer,
+                    data));
 
             // todo cull target players if not global
             server.mapCmds.GetOrAddNew(mapId).Add(toSave);
@@ -51,5 +57,12 @@ namespace Multiplayer.Common
 
             NextCmdId++;
         }
+
+        public bool CanUseDevMode(ServerPlayer player) =>
+            server.settings.debugMode && server.settings.devModeScope switch
+            {
+                DevModeScope.Everyone => true,
+                DevModeScope.HostOnly => player.IsHost
+            };
     }
 }

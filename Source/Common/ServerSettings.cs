@@ -19,9 +19,10 @@ namespace Multiplayer.Common
         public bool lan = true;
         public bool arbiter;
         public bool debugMode;
-        public bool desyncTraces;
+        public bool desyncTraces = true;
         public bool syncConfigs = true;
         public AutoJoinPointFlags autoJoinPoint = AutoJoinPointFlags.Join | AutoJoinPointFlags.Desync;
+        public DevModeScope devModeScope;
 
         public void ExposeData()
         {
@@ -35,9 +36,10 @@ namespace Multiplayer.Common
             Scribe_Values.Look(ref direct, "direct");
             Scribe_Values.Look(ref lan, "lan", true);
             Scribe_Values.Look(ref debugMode, "debugMode");
-            Scribe_Values.Look(ref desyncTraces, "desyncTraces");
+            Scribe_Values.Look(ref desyncTraces, "desyncTraces", true);
             Scribe_Values.Look(ref syncConfigs, "syncConfigs", true);
             Scribe_Values.Look(ref autoJoinPoint, "autoJoinPoint", AutoJoinPointFlags.Join | AutoJoinPointFlags.Desync);
+            Scribe_Values.Look(ref devModeScope, "devModeScope");
         }
     }
 
@@ -52,5 +54,10 @@ namespace Multiplayer.Common
         Join = 1,
         Desync = 2,
         Autosave = 4
+    }
+
+    public enum DevModeScope
+    {
+        HostOnly, Everyone
     }
 }

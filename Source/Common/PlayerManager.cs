@@ -116,6 +116,8 @@ namespace Multiplayer.Common
 
         public void OnJoin(ServerPlayer player)
         {
+            SendInitDataCommand(player);
+
             server.SendNotification("MpPlayerConnected", player.Username);
             server.SendChat($"{player.Username} has joined.");
 
@@ -131,6 +133,15 @@ namespace Multiplayer.Common
             writer.WriteRaw(player.SerializePlayerInfo());
 
             server.SendToAll(Packets.Server_PlayerList, writer.ToArray());
+        }
+
+        public void SendInitDataCommand(ServerPlayer player)
+        {
+            server.commands.Send(
+                CommandType.InitPlayerData,
+                ScheduledCommand.NoFaction, ScheduledCommand.Global,
+                ByteWriter.GetBytes(player.id, server.commands.CanUseDevMode(player))
+            );
         }
 
         public void OnServerStop()

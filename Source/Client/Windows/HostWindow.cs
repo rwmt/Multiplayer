@@ -62,17 +62,13 @@ namespace Multiplayer.Client
         private string maxPlayersBuffer, autosaveBuffer;
 
         private const int MaxGameNameLength = 70;
+        private const float LabelWidth = 110f;
 
         public override void DoWindowContents(Rect inRect)
         {
             Text.Font = GameFont.Medium;
             Text.Anchor = TextAnchor.UpperCenter;
-            string title;
-
-            if (file == null)
-                title = "MpHostIngame".Translate();
-            else
-                title = "MpHostSavefile".Translate();
+            string title = file == null ? "MpHostIngame".Translate() : "MpHostSavefile".Translate();
 
             // Title
             Widgets.Label(inRect.Down(0), title);
@@ -80,20 +76,19 @@ namespace Multiplayer.Client
             Text.Font = GameFont.Small;
 
             var entry = new Rect(0, 45, inRect.width, 30f);
-            var labelWidth = 110f;
 
             // Game name
-            serverSettings.gameName = MpUI.TextEntryLabeled(entry, $"{"MpGameName".Translate()}:  ", serverSettings.gameName, labelWidth);
+            serverSettings.gameName = MpUI.TextEntryLabeled(entry, $"{"MpGameName".Translate()}:  ", serverSettings.gameName, LabelWidth);
             if (serverSettings.gameName.Length > MaxGameNameLength)
                 serverSettings.gameName = serverSettings.gameName.Substring(0, MaxGameNameLength);
 
             entry = entry.Down(40);
 
             // Max players
-            MpUI.TextFieldNumericLabeled(entry.Width(labelWidth + 30f), $"{"MpMaxPlayers".Translate()}:  ", ref serverSettings.maxPlayers, ref maxPlayersBuffer, labelWidth, 0, 999);
+            MpUI.TextFieldNumericLabeled(entry.Width(LabelWidth + 30f), $"{"MpMaxPlayers".Translate()}:  ", ref serverSettings.maxPlayers, ref maxPlayersBuffer, LabelWidth, 0, 999);
 
             // Autosave interval
-            var autosaveRect = entry.MinX(entry.x + labelWidth + 30f + 10f);
+            var autosaveRect = entry.MinX(entry.x + LabelWidth + 30f + 10f);
             var autosaveKey = serverSettings.autosaveUnit == AutosaveUnit.Days
                 ? "MpAutosaveIntervalDays"
                 : "MpAutosaveIntervalMinutes";
@@ -129,7 +124,7 @@ namespace Multiplayer.Client
                 password = TextEntryLabeled(entry.Width(200), "Password:  ", password, labelWidth);
             entry = entry.Down(40);*/
 
-            var checkboxWidth = labelWidth + 30f;
+            var checkboxWidth = LabelWidth + 30f;
 
             // Direct hosting
             var directLabel = $"{"MpDirect".Translate()}:  ";
@@ -162,8 +157,13 @@ namespace Multiplayer.Client
             }
 
             // Log desync traces
-            TooltipHandler.TipRegion(entry.Width(checkboxWidth), $"{"MpLogDesyncTracesDesc".Translate()}\n\n{"MpExperimentalFeature".Translate()}");
-            MpUI.CheckboxLabeled(entry.Width(checkboxWidth), $"{"MpLogDesyncTraces".Translate()}:  ", ref serverSettings.desyncTraces, placeTextNearCheckbox: true);
+            MpUI.CheckboxLabeledWithTipNoHighlight(
+                entry.Width(checkboxWidth),
+                $"{"MpLogDesyncTraces".Translate()}:  ",
+                MpUtil.TranslateWithDoubleNewLines("MpLogDesyncTracesDesc", 2),
+                ref serverSettings.desyncTraces,
+                placeTextNearCheckbox: true
+            );
             entry = entry.Down(30);
 
             // Arbiter
@@ -173,57 +173,18 @@ namespace Multiplayer.Client
                 entry = entry.Down(30);
             }
 
-            // Debug mode
-            if (Prefs.DevMode)
-            {
-                MpUI.CheckboxLabeled(entry.Width(checkboxWidth), "Debug mode:  ", ref serverSettings.debugMode, placeTextNearCheckbox: true);
-                entry = entry.Down(30);
-            }
+            // Dev mode
+            MpUI.CheckboxLabeledWithTipNoHighlight(
+                entry.Width(checkboxWidth),
+                $"{"MpHostingDevMode".Translate()}:  ",
+                MpUtil.TranslateWithDoubleNewLines("MpHostingDevModeDesc", 2),
+                ref serverSettings.debugMode,
+                placeTextNearCheckbox: true
+            );
+            entry = entry.Down(30);
 
             // Auto join-points
-            {
-                TooltipHandler.TipRegion(entry.Width(labelWidth + 1),
-                    MpUtil.TranslateWithDoubleNewLines("MpAutoJoinPointsDesc", 3));
-
-                using (MpStyle.Set(TextAnchor.MiddleRight))
-                    MpUI.Label(entry.Width(labelWidth + 1), $"{"MpAutoJoinPoints".Translate()}:  ");
-
-                using (MpStyle.Set(TextAnchor.MiddleLeft))
-                {
-                    var flags = Enum.GetValues(typeof(AutoJoinPointFlags))
-                        .OfType<AutoJoinPointFlags>()
-                        .Where(f => serverSettings.autoJoinPoint.HasFlag(f))
-                        .Select(f => $"MpAutoJoinPoints{f}".Translate())
-                        .Join(", ");
-                    if (flags.Length == 0) flags = "Off";
-
-                    var flagsWidth = Text.CalcSize(flags).x;
-
-                    const float btnMargin = 5f;
-
-                    var flagsBtn = entry.Right(labelWidth + 10).Width(flagsWidth + btnMargin * 2);
-                    Widgets.DrawRectFast(flagsBtn.Height(24).Down(3), new Color(0.15f, 0.15f, 0.15f));
-                    Widgets.DrawHighlightIfMouseover(flagsBtn.Height(24).Down(3));
-                    MpUI.Label(entry.Right(labelWidth + 10 + btnMargin).Width(flagsWidth), flags);
-
-                    if (Widgets.ButtonInvisible(flagsBtn))
-                        Find.WindowStack.Add(new FloatMenu(Flags().ToList()));
-
-                    IEnumerable<FloatMenuOption> Flags()
-                    {
-                        foreach (var flag in Enum.GetValues(typeof(AutoJoinPointFlags)).OfType<AutoJoinPointFlags>())
-                            yield return new FloatMenuOption($"MpAutoJoinPoints{flag}".Translate(), () =>
-                            {
-                                if (serverSettings.autoJoinPoint.HasFlag(flag))
-                                    serverSettings.autoJoinPoint &= ~flag;
-                                else
-                                    serverSettings.autoJoinPoint |= flag;
-                            });
-                    }
-                }
-
-                entry = entry.Down(30);
-            }
+            DrawJoinPointOptions(ref entry);
 
             // Sync configs
             TooltipHandler.TipRegion(entry.Width(checkboxWidth), MpUtil.TranslateWithDoubleNewLines("MpSyncConfigsDesc", 3));
@@ -243,6 +204,52 @@ namespace Multiplayer.Client
             {
                 TryHost();
             }
+        }
+
+        private void DrawJoinPointOptions(ref Rect entry)
+        {
+            using (MpStyle.Set(TextAnchor.MiddleRight))
+                MpUI.LabelWithTip(
+                    entry.Width(LabelWidth + 1),
+                    $"{"MpAutoJoinPoints".Translate()}:  ",
+                    MpUtil.TranslateWithDoubleNewLines("MpAutoJoinPointsDesc", 3)
+                );
+
+            using (MpStyle.Set(TextAnchor.MiddleLeft))
+            {
+                var flags = Enum.GetValues(typeof(AutoJoinPointFlags))
+                    .OfType<AutoJoinPointFlags>()
+                    .Where(f => serverSettings.autoJoinPoint.HasFlag(f))
+                    .Select(f => $"MpAutoJoinPoints{f}".Translate())
+                    .Join(", ");
+                if (flags.Length == 0) flags = "Off";
+
+                var flagsWidth = Text.CalcSize(flags).x;
+
+                const float btnMargin = 5f;
+
+                var flagsBtn = entry.Right(LabelWidth + 10).Width(flagsWidth + btnMargin * 2);
+                Widgets.DrawRectFast(flagsBtn.Height(24).Down(3), new Color(0.15f, 0.15f, 0.15f));
+                Widgets.DrawHighlightIfMouseover(flagsBtn.Height(24).Down(3));
+                MpUI.Label(entry.Right(LabelWidth + 10 + btnMargin).Width(flagsWidth), flags);
+
+                if (Widgets.ButtonInvisible(flagsBtn))
+                    Find.WindowStack.Add(new FloatMenu(Flags().ToList()));
+
+                IEnumerable<FloatMenuOption> Flags()
+                {
+                    foreach (var flag in Enum.GetValues(typeof(AutoJoinPointFlags)).OfType<AutoJoinPointFlags>())
+                        yield return new FloatMenuOption($"MpAutoJoinPoints{flag}".Translate(), () =>
+                        {
+                            if (serverSettings.autoJoinPoint.HasFlag(flag))
+                                serverSettings.autoJoinPoint &= ~flag;
+                            else
+                                serverSettings.autoJoinPoint |= flag;
+                        });
+                }
+            }
+
+            entry = entry.Down(30);
         }
 
         private void TryHost()
@@ -265,11 +272,11 @@ namespace Multiplayer.Client
                 settingsCopy.lanAddress = null;
 
             if (file?.replay ?? Multiplayer.IsReplay)
-                HostFromReplay(settingsCopy);
+                HostFromMultiplayerSave(settingsCopy);
             else if (file == null)
                 HostUtil.HostServer(settingsCopy, false, false, asyncTime);
             else
-                HostFromSave(settingsCopy);
+                HostFromSingleplayer(settingsCopy);
 
             Close();
         }
@@ -306,7 +313,7 @@ namespace Multiplayer.Client
                 Find.WindowStack.Add(new ServerBrowser());
         }
 
-        private void HostFromSave(ServerSettings settings)
+        private void HostFromSingleplayer(ServerSettings settings)
         {
             LongEventHandler.QueueLongEvent(() =>
             {
@@ -326,7 +333,7 @@ namespace Multiplayer.Client
             }, "Play", "LoadingLongEvent", true, null);
         }
 
-        private void HostFromReplay(ServerSettings settings)
+        private void HostFromMultiplayerSave(ServerSettings settings)
         {
             void ReplayLoaded() => HostUtil.HostServer(settings, true, withSimulation, asyncTime);
 

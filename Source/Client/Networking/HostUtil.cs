@@ -21,7 +21,7 @@ namespace Multiplayer.Client
     [HotSwappable]
     public static class HostUtil
     {
-        public static void HostServer(ServerSettings settings, bool fromReplay, bool withSimulation, bool asyncTime)
+        public static void HostServer(ServerSettings settings, bool fromReplay, bool hadSimulation, bool asyncTime)
         {
             Log.Message($"Starting the server");
 
@@ -37,12 +37,12 @@ namespace Multiplayer.Client
 
             var localServer = new MultiplayerServer(settings);
 
-            if (withSimulation)
+            if (hadSimulation)
             {
                 localServer.savedGame = GZipStream.CompressBuffer(session.dataSnapshot.gameData);
                 localServer.semiPersistent = GZipStream.CompressBuffer(session.dataSnapshot.semiPersistentData);
                 localServer.mapData = session.dataSnapshot.mapData.ToDictionary(kv => kv.Key, kv => GZipStream.CompressBuffer(kv.Value));
-                localServer.mapCmds = session.dataSnapshot.mapCmds.ToDictionary(kv => kv.Key, kv => kv.Value.Select(c => c.Serialize()).ToList());
+                localServer.mapCmds = session.dataSnapshot.mapCmds.ToDictionary(kv => kv.Key, kv => kv.Value.Select(ScheduledCommand.Serialize).ToList());
             }
 
             localServer.commands.debugOnlySyncCmds = Sync.handlers.Where(h => h.debugOnly).Select(h => h.syncId).ToHashSet();
@@ -82,7 +82,7 @@ namespace Multiplayer.Client
             Multiplayer.session.AddMsg("If you are having any issues with the mod and would like some help resolving them, then please reach out to us on our Discord server:", false);
             Multiplayer.session.AddMsg(new ChatMsg_Url("https://discord.gg/S4bxXpv"), false);
 
-            if (withSimulation)
+            if (hadSimulation)
             {
                 StartServerThread();
             }
@@ -110,6 +110,8 @@ namespace Multiplayer.Client
 
             void StartServerThread()
             {
+
+
                 var netStarted = localServer.StartListeningNet();
                 var lanStarted = localServer.StartListeningLan();
 
@@ -218,6 +220,7 @@ namespace Multiplayer.Client
             serverPlayer.color = new ColorRGB(255, 0, 0);
             serverPlayer.status = PlayerStatus.Playing;
             serverPlayer.SendPlayerList();
+            Multiplayer.LocalServer.playerManager.SendInitDataCommand(serverPlayer);
 
             Multiplayer.session.client = localClient;
             Multiplayer.session.ReapplyPrefs();

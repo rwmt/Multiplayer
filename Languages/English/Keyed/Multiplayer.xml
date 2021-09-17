@@ -126,8 +126,12 @@
   <MpArbiterDesc>A background game instance which helps with desync detection/solving.</MpArbiterDesc>
   <MpAsyncTime>Async time</MpAsyncTime>
   <MpAsyncTimeDesc>Separate time controls for each map and the planet.</MpAsyncTimeDesc>
+  <MpHostingDevMode>Dev mode</MpHostingDevMode>
+  <MpHostingDevModeDesc1>Enables access to RimWorld's development mode tools.</MpHostingDevModeDesc1>
+  <MpHostingDevModeDesc2>Note: not all dev tools are usable and no support is provided for them.</MpHostingDevModeDesc2>
   <MpLogDesyncTraces>Desync traces</MpLogDesyncTraces>
-  <MpLogDesyncTracesDesc>Log extra stacktraces for troubleshooting desyncs; may impact performance.</MpLogDesyncTracesDesc>
+  <MpLogDesyncTracesDesc1>Log extra stacktraces for troubleshooting desyncs.</MpLogDesyncTracesDesc1>
+  <MpLogDesyncTracesDesc2>Does not work on 32 bit and ARM (Apple Silicon) processors.</MpLogDesyncTracesDesc2>
   <MpExperimentalFeature>Experimental feature</MpExperimentalFeature>
   <MpSyncConfigs>Sync configs</MpSyncConfigs>
   <MpSyncConfigsDesc1>Toggle whether joining players can download your mod configuration files.</MpSyncConfigsDesc1>

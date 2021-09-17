@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using HarmonyLib;
 using Multiplayer.API;
+using Multiplayer.Client.Comp;
 using Multiplayer.Client.Persistent;
 using Multiplayer.Common;
 using RimWorld;
@@ -12,12 +13,13 @@ using Verse;
 using Verse.AI;
 using Verse.AI.Group;
 using static Multiplayer.Client.SyncSerialization;
+// ReSharper disable RedundantLambdaParameterType
 
 namespace Multiplayer.Client
 {
     public static class SyncDictMultiplayer
     {
-        internal static SyncWorkerDictionaryTree syncWorkers = new SyncWorkerDictionaryTree()
+        internal static SyncWorkerDictionaryTree syncWorkers = new()
         {
             #region Multiplayer Sessions
             {
@@ -31,44 +33,15 @@ namespace Multiplayer.Client
                 }
             },
             {
-                (ByteWriter data, MpTradeSession session) => data.WriteInt32(session.sessionId),
-                (ByteReader data) => {
-                    int id = data.ReadInt32();
-                    return Multiplayer.WorldComp.trading.FirstOrDefault(s => s.sessionId == id);
-                }
-            },
-            {
-                (ByteWriter data, CaravanFormingSession session) => {
-                    data.MpContext().map = session.map;
-                    data.WriteInt32(session.sessionId);
-                },
-                (ByteReader data) => {
-                    int id = data.ReadInt32();
-                    var session = data.MpContext().map.MpComp().caravanForming;
-                    return session?.sessionId == id ? session : null;
-                }
-            },
-            {
-                (ByteWriter data, TransporterLoading session) => {
-                    data.MpContext().map = session.map;
-                    data.WriteInt32(session.sessionId);
-                },
-                (ByteReader data) => {
-                    int id = data.ReadInt32();
-                    var session = data.MpContext().map.MpComp().transporterLoading;
-                    return session?.sessionId == id ? session : null;
-                }
-            },
-            {
-                (ByteWriter data, RitualSession session) => {
-                    data.MpContext().map = session.map;
+                (ByteWriter data, ISession session) =>
+                {
+                    data.MpContext().map ??= session.Map;
                     data.WriteInt32(session.SessionId);
                 },
                 (ByteReader data) => {
                     int id = data.ReadInt32();
-                    var session = data.MpContext().map.MpComp().ritualSession;
-                    return session?.SessionId == id ? session : null;
-                }
+                    return GetSessions(data.MpContext().map).FirstOrDefault(s => s.SessionId == id);
+                }, true
             },
             #endregion
 
@@ -89,8 +62,7 @@ namespace Multiplayer.Client
             },
             {
                 (ByteWriter data, MpTransferableReference reference) => {
-                    data.WriteInt32(reference.session.SessionId);
-
+                    WriteSync(data, reference.session);
                     Transferable tr = reference.transferable;
 
                     if (tr == null) {
@@ -114,10 +86,7 @@ namespace Multiplayer.Client
                     data.WriteInt32(thing.thingIDNumber);
                 },
                 (ByteReader data) => {
-                    var map = data.MpContext().map;
-
-                    int sessionId = data.ReadInt32();
-                    var session = GetSessions(map).FirstOrDefault(s => s.SessionId == sessionId);
+                    var session = ReadSync<ISessionWithTransferables>(data);
 
                     int thingId = data.ReadInt32();
                     if (thingId == -1) return null;
@@ -126,6 +95,14 @@ namespace Multiplayer.Client
 
                     return new MpTransferableReference(session, transferable);
                 }
+            },
+            #endregion
+
+            #region Multiplayer Comps
+            {
+                (ByteWriter _, MultiplayerGameComp _) => {
+                },
+                (ByteReader _) => Multiplayer.GameComp
             },
             #endregion
         };

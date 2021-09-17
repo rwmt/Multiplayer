@@ -9,6 +9,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Xml;
+using Multiplayer.Client.Comp;
 using UnityEngine;
 using Verse;
 using Verse.AI;
@@ -244,8 +245,9 @@ namespace Multiplayer.Client
             PreContext();
             Extensions.PushFaction(null, cmd.GetFaction());
 
-            bool devMode = Prefs.data.devMode;
-            Prefs.data.devMode = Multiplayer.GameComp.debugMode;
+            bool prevDevMode = Prefs.data.devMode;
+            var prevGodMode = DebugSettings.godMode;
+            Multiplayer.GameComp.playerData.GetValueOrDefault(cmd.playerId)?.SetContext();
 
             var randCalls1 = DeferredStackTracing.randCalls;
 
@@ -307,6 +309,13 @@ namespace Multiplayer.Client
                 {
                     LongEventHandler.QueueLongEvent(CreateJoinPoint, "MpSaving", false, null);
                 }
+
+                if (cmdType == CommandType.InitPlayerData)
+                {
+                    var playerId = data.ReadInt32();
+                    var canUseDevMode = data.ReadBool();
+                    Multiplayer.GameComp.playerData[playerId] = new PlayerData { canUseDevMode = canUseDevMode };
+                }
             }
             catch (Exception e)
             {
@@ -314,7 +323,8 @@ namespace Multiplayer.Client
             }
             finally
             {
-                Prefs.data.devMode = devMode;
+                DebugSettings.godMode = prevGodMode;
+                Prefs.data.devMode = prevDevMode;
 
                 Log.Message($"rand calls {DeferredStackTracing.randCalls - randCalls1}");
                 Log.Message("rand state " + Rand.StateCompressed);

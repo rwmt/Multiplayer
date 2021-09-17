@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using Multiplayer.Client.Comp;
 using Multiplayer.Common;
 using Verse;
 
@@ -11,22 +12,32 @@ namespace Multiplayer.Client.Saving
         {
             var writer = new ByteWriter();
 
+            try
+            {
+                var gameWriter = new ByteWriter();
+                Multiplayer.GameComp.WriteSemiPersistent(gameWriter);
+                writer.WritePrefixedBytes(gameWriter.ToArray());
+            }
+            catch (Exception e)
+            {
+                Log.Error($"Exception writing semi-persistent data for game: {e}");
+            }
+
             writer.WriteInt32(Find.Maps.Count);
             foreach (var map in Find.Maps)
             {
-                writer.WriteInt32(map.uniqueID);
-                var mapWriter = new ByteWriter();
-
                 try
                 {
+                    var mapWriter = new ByteWriter();
                     map.MpComp().WriteSemiPersistent(mapWriter);
+
+                    writer.WriteInt32(map.uniqueID);
+                    writer.WritePrefixedBytes(mapWriter.ToArray());
                 }
                 catch (Exception e)
                 {
                     Log.Error($"Exception writing semi-persistent data for map {map}: {e}");
                 }
-
-                writer.WritePrefixedBytes(mapWriter.ToArray());
             }
 
             return writer.ToArray();
@@ -37,6 +48,16 @@ namespace Multiplayer.Client.Saving
             if (data.Length == 0) return;
 
             var reader = new ByteReader(data);
+            var gameData = reader.ReadPrefixedBytes();
+
+            try
+            {
+                Multiplayer.GameComp.ReadSemiPersistent(new ByteReader(gameData));
+            }
+            catch (Exception e)
+            {
+                Log.Error($"Exception reading semi-persistent data for game: {e}");
+            }
 
             var mapCount = reader.ReadInt32();
             for (int i = 0; i < mapCount; i++)

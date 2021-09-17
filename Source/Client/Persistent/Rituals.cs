@@ -21,6 +21,7 @@ namespace Multiplayer.Client.Persistent
         public Map map;
         public RitualData data;
 
+        public Map Map => map;
         public int SessionId { get; private set; }
 
         public RitualSession(Map map)
@@ -34,7 +35,7 @@ namespace Multiplayer.Client.Persistent
 
             this.map = map;
             this.data = data;
-            this.data.Assignments.session = this;
+            this.data.assignments.session = this;
         }
 
         [SyncMethod]
@@ -46,7 +47,7 @@ namespace Multiplayer.Client.Persistent
         [SyncMethod]
         public void Start()
         {
-            if (data.Action != null && data.Action(data.Assignments))
+            if (data.action != null && data.action(data.assignments))
                 Remove();
         }
 
@@ -54,24 +55,24 @@ namespace Multiplayer.Client.Persistent
         {
             var dialog = new BeginRitualProxy(
                 null,
-                data.RitualLabel,
-                data.Ritual,
-                data.Target,
+                data.ritualLabel,
+                data.ritual,
+                data.target,
                 map,
-                data.Action,
-                data.Organizer,
-                data.Obligation,
+                data.action,
+                data.organizer,
+                data.obligation,
                 null,
-                data.ConfirmText,
+                data.confirmText,
                 null,
                 null,
                 null,
-                data.Outcome,
-                data.ExtraInfos,
+                data.outcome,
+                data.extraInfos,
                 null
             )
             {
-                assignments = data.Assignments
+                assignments = data.assignments
             };
 
             Find.WindowStack.Add(dialog);
@@ -82,7 +83,7 @@ namespace Multiplayer.Client.Persistent
             writer.WriteInt32(SessionId);
             writer.MpContext().map = map;
 
-            RitualData.Write(writer, data);
+            SyncSerialization.WriteSync(writer, data);
         }
 
         public void Read(ByteReader reader)
@@ -90,8 +91,8 @@ namespace Multiplayer.Client.Persistent
             SessionId = reader.ReadInt32();
             reader.MpContext().map = map;
 
-            data = RitualData.Read(reader);
-            data.Assignments.session = this;
+            data = SyncSerialization.ReadSync<RitualData>(reader);
+            data.assignments.session = this;
         }
     }
 
@@ -201,8 +202,8 @@ namespace Multiplayer.Client.Persistent
                 var comp = dialog.map.MpComp();
 
                 if (comp.ritualSession != null &&
-                    (comp.ritualSession.data.Ritual != dialog.ritual ||
-                     comp.ritualSession.data.Outcome != dialog.outcome))
+                    (comp.ritualSession.data.ritual != dialog.ritual ||
+                     comp.ritualSession.data.outcome != dialog.outcome))
                 {
                     Messages.Message("MpAnotherRitualInProgress".Translate(), MessageTypeDefOf.RejectInput, false);
                     return false;
@@ -210,18 +211,21 @@ namespace Multiplayer.Client.Persistent
 
                 if (comp.ritualSession == null)
                 {
-                    comp.CreateRitualSession(new RitualData(
-                        dialog.ritual,
-                        dialog.target,
-                        dialog.obligation,
-                        dialog.outcome,
-                        dialog.extraInfos,
-                        dialog.action,
-                        dialog.ritualLabel,
-                        dialog.confirmText,
-                        dialog.organizer,
-                        MpUtil.ShallowCopy(dialog.assignments, new MpRitualAssignments())
-                    ));
+                    var data = new RitualData
+                    {
+                        ritual = dialog.ritual,
+                        target = dialog.target,
+                        obligation = dialog.obligation,
+                        outcome = dialog.outcome,
+                        extraInfos = dialog.extraInfos,
+                        action = dialog.action,
+                        ritualLabel = dialog.ritualLabel,
+                        confirmText = dialog.confirmText,
+                        organizer = dialog.organizer,
+                        assignments = MpUtil.ShallowCopy(dialog.assignments, new MpRitualAssignments())
+                    };
+
+                    comp.CreateRitualSession(data);
                 }
 
                 if (TickPatch.currentExecutingCmdIssuedBySelf)

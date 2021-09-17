@@ -76,7 +76,7 @@ namespace Multiplayer.Common
 
                 if (handler != null)
                 {
-                    if (handler.requiresHost && Player.Username != Server.hostUsername)
+                    if (handler.requiresHost && !Player.IsHost)
                         Player.SendChat("No permission");
                     else
                         handler.Handle(Player, parts.SubArray(1));
@@ -232,7 +232,7 @@ namespace Multiplayer.Common
         public void HandleDesyncCheck(ByteReader data)
         {
             var arbiter = Server.ArbiterPlaying;
-            if (arbiter ? !Player.IsArbiter : Player.Username != Server.hostUsername) return;
+            if (arbiter ? !Player.IsArbiter : !Player.IsHost) return;
 
             var raw = data.ReadRaw(data.Left);
             foreach (var p in Server.PlayingPlayers.Where(p => !p.IsArbiter && (arbiter || !p.IsHost)))

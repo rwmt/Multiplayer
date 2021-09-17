@@ -11,7 +11,7 @@ using Verse;
 
 namespace Multiplayer.Client
 {
-    public class MultiplayerMapComp : IExposable
+    public class MultiplayerMapComp : IExposable, IHasSemiPersistentData
     {
         public static bool tickingFactions;
 
@@ -153,8 +153,7 @@ namespace Multiplayer.Client
         private void ExposeCustomFactionData()
         {
             Scribe_Custom.LookValueDeep(ref customFactionData, "customFactionMapData", map);
-            if (customFactionData == null)
-                customFactionData = new Dictionary<int, CustomFactionMapData>();
+            customFactionData ??= new Dictionary<int, CustomFactionMapData>();
         }
 
         public void WriteSemiPersistent(ByteWriter writer)

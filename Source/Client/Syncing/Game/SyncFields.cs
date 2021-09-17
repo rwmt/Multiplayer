@@ -92,7 +92,6 @@ namespace Multiplayer.Client
             SyncPsychicEntropyLimit = Sync.Field(typeof(Pawn), "psychicEntropy", "limitEntropyAmount");
             SyncPsychicEntropyTargetFocus = Sync.Field(typeof(Pawn), "psychicEntropy", "targetPsyfocus").SetBufferChanges();
 
-            SyncGodMode = Sync.Field(null, "Verse.DebugSettings/godMode").SetDebugOnly();
             SyncUseWorkPriorities = Sync.Field(null, "Verse.Current/Game/playSettings", "useWorkPriorities").PostApply(UseWorkPriorities_PostApply);
             SyncAutoHomeArea = Sync.Field(null, "Verse.Current/Game/playSettings", "autoHomeArea");
             SyncAutoRebuild = Sync.Field(null, "Verse.Current/Game/playSettings", "autoRebuild");
@@ -399,13 +398,6 @@ namespace Multiplayer.Client
                 SyncDrugPolicyEntry.Watch(policy, i);
                 SyncDrugPolicyEntryBuffered.Watch(policy, i);
             }
-        }
-
-        [MpPrefix(typeof(DebugWindowsOpener), nameof(DebugWindowsOpener.DrawButtons))]
-        [MpPrefix(typeof(Prefs), "set_DevMode")]
-        static void SetGodMode()
-        {
-            SyncGodMode.Watch();
         }
 
         [MpPrefix(typeof(Dialog_RenameZone), "SetName")]

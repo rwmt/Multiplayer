@@ -637,6 +637,68 @@ namespace Multiplayer.Client
         static void Prefix() => SyncUtil.isDialogNodeTreeOpen = false;
     }
 
+    [HotSwappable]
+    [HarmonyPatch(typeof(UI_BackgroundMain), nameof(UI_BackgroundMain.DoOverlay))]
+    static class Ui
+    {
+        static void Prefix(Rect bgRect)
+        {
+            return;
+            const float r = 2282;
+            const float cx = r + 80, cy = r + 384;
+            const float sizeX = 8000, sizeY = 5000;
+
+            var start = Quaternion.Euler(-30, -90, 0);
+            var end = Quaternion.Euler(30, Time.time * 45f, 0);
+
+            float prevX = 0;
+            float prevY = 0;
+
+            for (float d = 0; d < 1; d += 0.01f)
+            {
+                float theta = Quaternion.Lerp(start, end, d).eulerAngles.x;
+                float phi = Quaternion.Lerp(start, end, d).eulerAngles.y;
+                float x = cx + r * Mathf.Cos(theta * Mathf.Deg2Rad) * Mathf.Sin(phi * Mathf.Deg2Rad);
+                float y = cy + r * Mathf.Sin(theta * Mathf.Deg2Rad);
+
+                if (prevX != 0 && prevY != 0)
+                {
+                    Widgets.DrawLine(
+                        bgRect.min + new Vector2(bgRect.width * prevX / sizeX, bgRect.height * prevY / sizeY),
+                        bgRect.min + new Vector2(bgRect.width * x / sizeX, bgRect.height * y / sizeY),
+                        Color.red,
+                        2f
+                    );
+                }
+
+                prevX = x;
+                prevY = y;
+            }
+        }
+    }
+
+    [HarmonyPatch]
+    static class SetGodModePatch
+    {
+        static IEnumerable<MethodInfo> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(DebugWindowsOpener), nameof(DebugWindowsOpener.DrawButtons));
+            yield return AccessTools.Method(typeof(DebugWindowsOpener), nameof(DebugWindowsOpener.DevToolStarterOnGUI));
+            yield return AccessTools.PropertySetter(typeof(Prefs), nameof(Prefs.DevMode));
+        }
+
+        static void Prefix(ref bool __state)
+        {
+            __state = DebugSettings.godMode;
+        }
+
+        static void Postfix(bool __state)
+        {
+            if (Multiplayer.Client != null && __state != DebugSettings.godMode)
+                Multiplayer.GameComp.SetGodMode(Multiplayer.session.playerId, DebugSettings.godMode);
+        }
+    }
+
     // todo: needed for multifaction
     /*[HarmonyPatch(typeof(SettlementDefeatUtility), nameof(SettlementDefeatUtility.CheckDefeated))]
     static class CheckDefeatedPatch

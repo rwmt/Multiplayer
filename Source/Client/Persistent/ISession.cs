@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Verse;
 
 namespace Multiplayer.Client.Persistent
 {
@@ -30,6 +31,8 @@ namespace Multiplayer.Client.Persistent
 
     public interface ISession
     {
+        Map Map { get; }
+
         int SessionId { get; }
     }
 

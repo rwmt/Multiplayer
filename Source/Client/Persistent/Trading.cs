@@ -39,6 +39,7 @@ namespace Multiplayer.Client
             }
         }
 
+        public Map Map => null;
         public int SessionId => sessionId;
 
         public MpTradeSession() { }

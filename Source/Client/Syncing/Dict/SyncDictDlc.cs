@@ -12,6 +12,7 @@ using Verse;
 using Verse.AI;
 using Verse.AI.Group;
 using static Multiplayer.Client.SyncSerialization;
+// ReSharper disable RedundantLambdaParameterType
 
 namespace Multiplayer.Client
 {
@@ -195,7 +196,7 @@ namespace Multiplayer.Client
                 (ByteReader data) => {
                     var id = data.ReadInt32();
                     var ritual = data.MpContext().map.MpComp().ritualSession;
-                    return ritual?.SessionId == id ? ritual.data.Assignments : null;
+                    return ritual?.SessionId == id ? ritual.data.assignments : null;
                 }
             },
             {

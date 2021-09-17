@@ -685,7 +685,7 @@ namespace Multiplayer.Client
             return builder.ToString();
         }
 
-        internal static IEnumerable<ISessionWithTransferables> GetSessions(Map map)
+        internal static IEnumerable<ISession> GetSessions(Map map)
         {
             foreach (var s in Multiplayer.WorldComp.trading)
                 yield return s;
@@ -701,6 +701,9 @@ namespace Multiplayer.Client
 
             if (mapComp.transporterLoading != null)
                 yield return mapComp.transporterLoading;
+
+            if (mapComp.ritualSession != null)
+                yield return mapComp.ritualSession;
         }
 
         private static void LogXML(SyncLogger log, byte[] xmlData)

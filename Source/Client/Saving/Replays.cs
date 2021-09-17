@@ -60,7 +60,7 @@ namespace Multiplayer.Client
 
             writer.WriteInt32(cmds.Count);
             foreach (var cmd in cmds)
-                writer.WritePrefixedBytes(cmd.Serialize());
+                writer.WritePrefixedBytes(ScheduledCommand.Serialize(cmd));
 
             return writer.ToArray();
         }

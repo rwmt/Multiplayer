@@ -15,6 +15,7 @@ namespace Multiplayer.Client
     public class TransporterLoading : IExposable, ISessionWithTransferables
     {
         public int SessionId => sessionId;
+        public Map Map => map;
 
         public int sessionId;
         public Map map;

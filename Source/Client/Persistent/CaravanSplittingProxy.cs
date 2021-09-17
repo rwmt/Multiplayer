@@ -149,18 +149,18 @@ namespace Multiplayer.Client.Persistent
 
         private void AcceptButtonClicked()
         {
-            CaravanSplittingSession.AcceptSplitSession();
+            session.AcceptSplitSession();
         }
 
         private void CancelButtonClicked()
         {
-            CaravanSplittingSession.CancelSplittingSession();
+            session.CancelSplittingSession();
         }
 
         private void ResetButtonClicked()
         {
             SoundDefOf.Tick_Low.PlayOneShotOnCamera();
-            CaravanSplittingSession.ResetSplittingSession();
+            session.ResetSplittingSession();
         }
     }
 }
