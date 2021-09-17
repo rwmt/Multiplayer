@@ -61,6 +61,7 @@ namespace Multiplayer.Client.Comp
         public void Sync(SyncWorker sync)
         {
             sync.Bind(ref canUseDevMode);
+            sync.Bind(ref godMode);
         }
 
         public void SetContext()

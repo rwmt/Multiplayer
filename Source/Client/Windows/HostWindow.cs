@@ -21,7 +21,7 @@ namespace Multiplayer.Client
     [HotSwappable]
     public class HostWindow : Window
     {
-        public override Vector2 InitialSize => new Vector2(450f, height + 45f);
+        public override Vector2 InitialSize => new(450f, height + 45f);
 
         private SaveFile file;
         public bool returnToServerBrowser;
@@ -181,6 +181,14 @@ namespace Multiplayer.Client
                 ref serverSettings.debugMode,
                 placeTextNearCheckbox: true
             );
+
+            // Dev mode scope
+            if (serverSettings.debugMode
+                && CustomButton(entry.Right(checkboxWidth + 10f), $"MpHostingDevMode{serverSettings.devModeScope}".Translate()))
+            {
+                serverSettings.devModeScope = serverSettings.devModeScope.Cycle();
+            }
+
             entry = entry.Down(30);
 
             // Auto join-points
@@ -206,6 +214,8 @@ namespace Multiplayer.Client
             }
         }
 
+        private static Color CustomButtonColor = new(0.15f, 0.15f, 0.15f);
+
         private void DrawJoinPointOptions(ref Rect entry)
         {
             using (MpStyle.Set(TextAnchor.MiddleRight))
@@ -215,41 +225,44 @@ namespace Multiplayer.Client
                     MpUtil.TranslateWithDoubleNewLines("MpAutoJoinPointsDesc", 3)
                 );
 
-            using (MpStyle.Set(TextAnchor.MiddleLeft))
+            var flags = Enum.GetValues(typeof(AutoJoinPointFlags))
+                .OfType<AutoJoinPointFlags>()
+                .Where(f => serverSettings.autoJoinPoint.HasFlag(f))
+                .Select(f => $"MpAutoJoinPoints{f}".Translate())
+                .Join(", ");
+            if (flags.Length == 0) flags = "Off";
+
+            if (CustomButton(entry.Right(LabelWidth + 10), flags))
+                Find.WindowStack.Add(new FloatMenu(Flags().ToList()));
+
+            IEnumerable<FloatMenuOption> Flags()
             {
-                var flags = Enum.GetValues(typeof(AutoJoinPointFlags))
-                    .OfType<AutoJoinPointFlags>()
-                    .Where(f => serverSettings.autoJoinPoint.HasFlag(f))
-                    .Select(f => $"MpAutoJoinPoints{f}".Translate())
-                    .Join(", ");
-                if (flags.Length == 0) flags = "Off";
-
-                var flagsWidth = Text.CalcSize(flags).x;
-
-                const float btnMargin = 5f;
-
-                var flagsBtn = entry.Right(LabelWidth + 10).Width(flagsWidth + btnMargin * 2);
-                Widgets.DrawRectFast(flagsBtn.Height(24).Down(3), new Color(0.15f, 0.15f, 0.15f));
-                Widgets.DrawHighlightIfMouseover(flagsBtn.Height(24).Down(3));
-                MpUI.Label(entry.Right(LabelWidth + 10 + btnMargin).Width(flagsWidth), flags);
-
-                if (Widgets.ButtonInvisible(flagsBtn))
-                    Find.WindowStack.Add(new FloatMenu(Flags().ToList()));
-
-                IEnumerable<FloatMenuOption> Flags()
-                {
-                    foreach (var flag in Enum.GetValues(typeof(AutoJoinPointFlags)).OfType<AutoJoinPointFlags>())
-                        yield return new FloatMenuOption($"MpAutoJoinPoints{flag}".Translate(), () =>
-                        {
-                            if (serverSettings.autoJoinPoint.HasFlag(flag))
-                                serverSettings.autoJoinPoint &= ~flag;
-                            else
-                                serverSettings.autoJoinPoint |= flag;
-                        });
-                }
+                foreach (var flag in Enum.GetValues(typeof(AutoJoinPointFlags)).OfType<AutoJoinPointFlags>())
+                    yield return new FloatMenuOption($"MpAutoJoinPoints{flag}".Translate(), () =>
+                    {
+                        if (serverSettings.autoJoinPoint.HasFlag(flag))
+                            serverSettings.autoJoinPoint &= ~flag;
+                        else
+                            serverSettings.autoJoinPoint |= flag;
+                    });
             }
 
             entry = entry.Down(30);
+        }
+
+        private static bool CustomButton(Rect rect, string label)
+        {
+            using var _ = MpStyle.Set(TextAnchor.MiddleLeft);
+            var flagsWidth = Text.CalcSize(label).x;
+
+            const float btnMargin = 5f;
+
+            var flagsBtn = rect.Width(flagsWidth + btnMargin * 2);
+            Widgets.DrawRectFast(flagsBtn.Height(24).Down(3), CustomButtonColor);
+            Widgets.DrawHighlightIfMouseover(flagsBtn.Height(24).Down(3));
+            MpUI.Label(rect.Right(btnMargin).Width(flagsWidth), label);
+
+            return Widgets.ButtonInvisible(flagsBtn);
         }
 
         private void TryHost()

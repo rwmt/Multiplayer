@@ -638,7 +638,7 @@ namespace Multiplayer.Client
                     foreach (var m in notInstalled.Where(m => m.CanSubscribe))
                         SteamUGC.SubscribeItem(new PublishedFileId_t(m.steamId));
 
-                    Messages.Message($"Subscribed to {notInstalled.Count(m => m.CanSubscribe)} mods", MessageTypeDefOf.PositiveEvent, false);
+                    Messages.Message($"Subscribed to {notInstalled.Count(m => m.CanSubscribe)} mods. Downloading in the background...", MessageTypeDefOf.PositiveEvent, false);
                 }
 
                 var infoStr = "MpMismatchModListsMatch".Translate();

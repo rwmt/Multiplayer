@@ -129,6 +129,8 @@
   <MpHostingDevMode>Dev mode</MpHostingDevMode>
   <MpHostingDevModeDesc1>Enables access to RimWorld's development mode tools.</MpHostingDevModeDesc1>
   <MpHostingDevModeDesc2>Note: not all dev tools are usable and no support is provided for them.</MpHostingDevModeDesc2>
+  <MpHostingDevModeHostOnly>Host only</MpHostingDevModeHostOnly>
+  <MpHostingDevModeEveryone>Everyone</MpHostingDevModeEveryone>
   <MpLogDesyncTraces>Desync traces</MpLogDesyncTraces>
   <MpLogDesyncTracesDesc1>Log extra stacktraces for troubleshooting desyncs.</MpLogDesyncTracesDesc1>
   <MpLogDesyncTracesDesc2>Does not work on 32 bit and ARM (Apple Silicon) processors.</MpLogDesyncTracesDesc2>

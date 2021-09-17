@@ -366,8 +366,8 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(WorkshopItems), nameof(WorkshopItems.RebuildItemsList))]
-    static class ClearCacheOnWorkshopCallback
+    [HarmonyPatch(typeof(ModLister), nameof(ModLister.RebuildModList))]
+    static class ClearCacheRebuildModList
     {
         static void Prefix()
         {
