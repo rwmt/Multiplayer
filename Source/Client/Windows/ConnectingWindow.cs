@@ -70,7 +70,7 @@ namespace Multiplayer.Client
 
     public class RejoiningWindow : BaseConnectingWindow
     {
-        protected override string ConnectingString => "Joining...";
+        protected override string ConnectingString => "MpJoining".Translate();
     }
 
     public class ConnectingWindow : BaseConnectingWindow

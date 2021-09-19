@@ -116,7 +116,7 @@ namespace Multiplayer.Client
 
         public Dialog_RenameFile(FileInfo file, Action success = null)
         {
-            title = "Rename file to";
+            title = "MpFileRename".Translate();
 
             this.file = file;
             this.success = success;

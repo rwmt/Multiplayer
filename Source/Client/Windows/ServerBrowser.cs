@@ -313,7 +313,7 @@ namespace Multiplayer.Client
                 Find.WindowStack.Windows
                     .OfType<Dialog_MessageBox>()
                     .Where(w => w.buttonAText == "LoadAnyway".Translate())
-                    .Do(w => w.buttonAText = "Continue anyway");
+                    .Do(w => w.buttonAText = "MpContinueAnyway".Translate());
             }
         }
 
@@ -418,7 +418,7 @@ namespace Multiplayer.Client
                 ShellOpenDirectory.Execute(save.file.DirectoryName);
             });
 
-            yield return new FloatMenuOption("Rename".Translate(), () =>
+            yield return new FloatMenuOption("MpFileRename".Translate(), () =>
             {
                 Find.WindowStack.Add(new Dialog_RenameFile(save.file, ReloadFiles));
             });

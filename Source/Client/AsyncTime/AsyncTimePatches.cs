@@ -300,7 +300,7 @@ namespace Multiplayer.Client.AsyncTime
             Widgets.DrawRectFast(button, bgColor);
 
             using (MpStyle.Set(GameFont.Tiny))
-                if (Widgets.ButtonText(button, "Dialogs"))
+                if (Widgets.ButtonText(button, "MpDialogsButton".Translate()))
                     Find.WindowStack.Add(new FloatMenu(options));
         }
 

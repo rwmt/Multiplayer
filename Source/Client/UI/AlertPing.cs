@@ -27,7 +27,7 @@ namespace Multiplayer.Client
 
         public override string GetLabel()
         {
-            return "Multiplayer ping";
+            return "MpAlertPing".Translate();
         }
 
         public override TaggedString GetExplanation()
@@ -36,7 +36,7 @@ namespace Multiplayer.Client
                 return "";
 
             var players = Multiplayer.session.cursorAndPing.pings.Select(p => p.PlayerInfo).AllNotNull().Join(p => p.username);
-            return $"Click to focus the camera on locations pinged by: {players}\n\nShift + click to dismiss.";
+            return $"{"MpAlertPingDesc1".Translate(players)}\n\n{"MpAlertPingDesc2".Translate()}";
         }
 
         private List<GlobalTargetInfo> culpritList = new();

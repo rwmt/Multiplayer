@@ -81,7 +81,7 @@ namespace Multiplayer.Client
             listing.CheckboxLabeled("MpAppendNameToAutosave".Translate(), ref appendNameToAutosave);
             listing.CheckboxLabeled("MpShowModCompat".Translate(), ref showModCompatibility, "MpShowModCompatDesc".Translate());
             listing.CheckboxLabeled("MpEnablePingsSetting".Translate(), ref enablePings);
-            listing.CheckboxLabeled("Show main menu animation", ref showMainMenuAnim);
+            listing.CheckboxLabeled("MpShowMainMenuAnimation".Translate(), ref showMainMenuAnim);
 
             const string buttonOff = "Off";
 

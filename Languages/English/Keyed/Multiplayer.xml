@@ -84,8 +84,15 @@
   <MpEnablePingsSetting>Enable location pings</MpEnablePingsSetting>
   <MpPingLocButtonSetting>Ping location button</MpPingLocButtonSetting>
   <MpJumpToPingButtonSetting>Jump to ping button</MpJumpToPingButtonSetting>
+  <MpShowMainMenuAnimation>Show main menu animation</MpShowMainMenuAnimation>
+  
+  <!-- Ping alert -->
+  <MpAlertPing>Multiplayer ping</MpAlertPing>
+  <MpAlertPingDesc1>Click to focus the camera on locations pinged by: {0}</MpAlertPingDesc1>
+  <MpAlertPingDesc2>Shift + click to dismiss.</MpAlertPingDesc2>
 
   <!-- Pausing sessions -->
+  <MpDialogsButton>Dialogs</MpDialogsButton>
   <MpTradingSession>Trading session</MpTradingSession>
   <MpRitualSession>Ritual setup session</MpRitualSession>
   <MpTransportLoadingSession>Transport pod loading session</MpTransportLoadingSession>
@@ -97,6 +104,7 @@
   <MpConnecting>Connecting</MpConnecting>
   <MpConnectingTo>Connecting to {0}:{1}</MpConnectingTo>
   <MpConnected>Connected.</MpConnected>
+  <MpJoining>Joining</MpJoining>
   <MpDownloading>Downloading ({0}%)</MpDownloading>
   <MpSteamConnectingTo>Connecting to a game hosted by {0}</MpSteamConnectingTo>
   <MpSteamConnectingWaiting>Waiting for host to accept</MpSteamConnectingWaiting>
@@ -187,6 +195,9 @@
   <MpNoSaves>Multiplayer can only be played from already existing saves</MpNoSaves>
   <MpSeeModList>See mod list</MpSeeModList>
   <MpOpenSaveFolder>Open containing folder</MpOpenSaveFolder>
+  <MpContinueAnyway>Continue anyway</MpContinueAnyway>
+  <MpFileRenameButton>Rename</MpFileRenameButton>
+  <MpFileRename>Rename file to</MpFileRename>
   
   <!-- Mismatch screen -->
   <MpDataMismatch>Data mismatch</MpDataMismatch>
@@ -199,7 +210,17 @@
   <MpApplyConfigsTip>The application of configs is temporary and lasts until the next game restart. None of your files will be overriden.</MpApplyConfigsTip>
   <MpApplyModList>Apply server's mod list</MpApplyModList>
   <MpApplyModListTip>Your current mod list will get overriden.</MpApplyModListTip>
+  <MpMismatchGeneral>General</MpMismatchGeneral>
+  <MpMismatchModList>Mod list</MpMismatchModList>
+  <MpMismatchFiles>Files</MpMismatchFiles>
+  <MpMismatchConfigs>Configs</MpMismatchConfigs>
+  <MpMismatchServerSide>Server</MpMismatchServerSide>
+  <MpMismatchClientSide>Your client</MpMismatchClientSide>
+  <MpMismatchSeeTabs>See the respective tabs for more info.</MpMismatchSeeTabs>
+  <MpMismatchRwVersion>RimWorld version</MpMismatchRwVersion>
+  <MpMismatchMpVersion>Multiplayer version</MpMismatchMpVersion>
   <MpMismatchRestart>Restart</MpMismatchRestart>
+  <MpMismatchRestartDesc>You will be reconnected after the game finishes loading.</MpMismatchRestartDesc>
   <MpMismatchBack>Back</MpMismatchBack>
   <MpMismatchServerMods>Server mods</MpMismatchServerMods>
   <MpMismatchLocalMods>Active mods</MpMismatchLocalMods>
@@ -209,12 +230,17 @@
   <MpMismatchWrongOrder>Mods match but their order doesn't. The game needs to be restarted.</MpMismatchWrongOrder>
   <MpMismatchModListsMatch>Mod lists match</MpMismatchModListsMatch>
   <MpMismatchSubscribe>Subscribe to missing</MpMismatchSubscribe>
+  <MpMismatchSubscribeMsg>Subscribed to {0} mods. Downloading in the background...</MpMismatchSubscribeMsg>
   <MpMismatchSubscribeNoSteam>Not connected to Steam. Missing mods have to be installed manually.</MpMismatchSubscribeNoSteam>
+  <MpMismatchSubscribeNoMissing>No mods are missing.</MpMismatchSubscribeNoMissing>
   <MpMismatchSubscribeDesc1>Subscribe to the missing mods on the Steam Workshop. Downloading will happen in the background.</MpMismatchSubscribeDesc1>
   <MpMismatchSubscribeDesc2>Not all of the missing mods are available on Steam. The rest have to be installed manually.</MpMismatchSubscribeDesc2>
   <MpMismatchLocalFiles>Local files</MpMismatchLocalFiles>
   <MpMismatchLocalConfigs>Local configs</MpMismatchLocalConfigs>
   <MpMismatchTreeRefresh>Refresh</MpMismatchTreeRefresh>
+  <MpMismatchTreeMissing>Missing</MpMismatchTreeMissing>
+  <MpMismatchTreeAdded>Added</MpMismatchTreeAdded>
+  <MpMismatchTreeModified>Modified</MpMismatchTreeModified>
   <MpMismatchFilesInfo1>Mod file differences need to be resolved manually or ignored. They are usually caused by differing versions of mods or files being left behind after an update.</MpMismatchFilesInfo1>
   <MpMismatchFilesInfo2>You should try to update/reinstall the offending mods. If the differences persist even after that the host might have to do the same.</MpMismatchFilesInfo2>
   <MpMismatchFileShowPath>Hold shift to show the folder path.</MpMismatchFileShowPath>
@@ -224,9 +250,11 @@
   <MpFilesMatch>Files match</MpFilesMatch>
   <MpConfigsMatch>Configs match</MpConfigsMatch>
 
-  <!-- Mod compatibility -->
+  <!-- Mod compatibility window -->
   <MpModCompatButton>Multiplayer compatibility</MpModCompatButton>
   <MpModCompatTitle>Multiplayer mod compatibility</MpModCompatTitle>
+  <MpModCompatLoading>Loading</MpModCompatLoading>
+  <MpModCompatLoadingFailed>Loading failed.</MpModCompatLoadingFailed>
   <MpModCompatActiveMods>Active</MpModCompatActiveMods>
   <MpModCompatInstalledMods>Installed</MpModCompatInstalledMods>
   <MpModCompatOutdatedMods>Outdated</MpModCompatOutdatedMods>

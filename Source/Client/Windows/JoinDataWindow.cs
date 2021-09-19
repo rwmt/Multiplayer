@@ -20,7 +20,7 @@ namespace Multiplayer.Client
     [HotSwappable]
     public class JoinDataWindow : Window
     {
-        public override Vector2 InitialSize => new Vector2(640f, 580f);
+        public override Vector2 InitialSize => new(640f, 580f);
 
         private enum Tab
         {
@@ -195,10 +195,10 @@ namespace Multiplayer.Client
             var tabsRect = inRect.TopPartPixels(inRect.height - 50f);
 
             TabDrawer.DrawTabs(tabsRect, new List<TabRecord>() {
-                new("General", () => tab = Tab.General, tab == Tab.General),
-                new("Mod list", () => tab = Tab.ModList, tab == Tab.ModList),
-                new("Files", () => tab = Tab.Files, tab == Tab.Files),
-                new("Configs", () => tab = Tab.Configs, tab == Tab.Configs)
+                new("MpMismatchGeneral".Translate(), () => tab = Tab.General, tab == Tab.General),
+                new("MpMismatchModList".Translate(), () => tab = Tab.ModList, tab == Tab.ModList),
+                new("MpMismatchFiles".Translate(), () => tab = Tab.Files, tab == Tab.Files),
+                new("MpMismatchConfigs".Translate(), () => tab = Tab.Configs, tab == Tab.Configs)
             });
 
             GUI.BeginGroup(tabsRect);
@@ -292,16 +292,16 @@ namespace Multiplayer.Client
                 var modData = new Rect(0, 0, rowLabelWidth, modDataHeight);
                 Widgets.DrawAltRect(modData);
                 var modListsMatch = modListsEqual;
-                Widgets.CheckboxLabeled(modData, "Mod list", ref modListsMatch);
+                Widgets.CheckboxLabeled(modData, "MpMismatchModList".Translate(), ref modListsMatch);
                 modData = modData.Down(modDataHeight);
 
                 var modFilesMatch = !filesRoot.children.Any();
-                Widgets.CheckboxLabeled(modData, "Files", ref modFilesMatch);
+                Widgets.CheckboxLabeled(modData, "MpMismatchFiles".Translate(), ref modFilesMatch);
                 modData = modData.Down(modDataHeight);
 
                 var modConfigsMatch = !remote.hasConfigs || !configsRoot.children.Any();
                 Widgets.DrawAltRect(modData);
-                Widgets.CheckboxLabeled(modData, "Configs", ref modConfigsMatch);
+                Widgets.CheckboxLabeled(modData, "MpMismatchConfigs".Translate(), ref modConfigsMatch);
                 modData = modData.Down(modDataHeight);
             }
             GUI.EndGroup();
@@ -311,7 +311,7 @@ namespace Multiplayer.Client
             using (MpStyle.Set(GameFont.Tiny))
             using (MpStyle.Set(TextAnchor.MiddleCenter))
             using (MpStyle.Set(Color.grey))
-                Widgets.Label(inRect.Height(45).Width(300f).CenteredOnXIn(inRect), "See the respective tabs for more info.");
+                Widgets.Label(inRect.Height(45).Width(300f).CenteredOnXIn(inRect), "MpMismatchSeeTabs".Translate());
 
             inRect.yMin += 45f;
             inRect.yMin += 30;
@@ -327,8 +327,8 @@ namespace Multiplayer.Client
 
                 using (MpStyle.Set(new Color(0.7f, 0.7f, 0.7f)))
                 {
-                    Widgets.Label(serverColumn, "Server");
-                    Widgets.Label(clientColumn, "Your client");
+                    Widgets.Label(serverColumn, "MpMismatchServerSide".Translate());
+                    Widgets.Label(clientColumn, "MpMismatchClientSide".Translate());
                 }
 
                 var checkboxColumn = clientColumn.Right(columnWidth).MaxX(inRect.xMax);
@@ -336,7 +336,7 @@ namespace Multiplayer.Client
                 var rwVersionRect = headerRect.Down(rowHeight).Width(rowLabelWidth);
                 Widgets.DrawHighlightIfMouseover(rwVersionRect);
                 Widgets.DrawAltRect(headerRect.Down(rowHeight));
-                Widgets.Label(rwVersionRect, "RimWorld version");
+                Widgets.Label(rwVersionRect, "MpMismatchRwVersion".Translate());
                 Widgets.Label(serverColumn.Down(rowHeight), remote.remoteRwVersion);
                 Widgets.Label(clientColumn.Down(rowHeight), VersionControl.CurrentVersionString);
 
@@ -345,7 +345,7 @@ namespace Multiplayer.Client
 
                 var mpVersionRect = rwVersionRect.Down(rowHeight).Width(rowLabelWidth);
                 Widgets.DrawHighlightIfMouseover(mpVersionRect);
-                Widgets.Label(mpVersionRect, "Multiplayer version");
+                Widgets.Label(mpVersionRect, "MpMismatchMpVersion".Translate());
                 Widgets.Label(serverColumn.Down(2 * rowHeight), remote.remoteMpVersion);
                 Widgets.Label(clientColumn.Down(2 * rowHeight), MpVersion.Version);
 
@@ -359,9 +359,9 @@ namespace Multiplayer.Client
         Vector2 treeScroll;
         int nodeCount;
 
-        static readonly Color Red = new Color(1f, 0.25f, 0.25f);
-        static readonly Color Orange = new Color(1f, 0.5f, 0.25f);
-        static readonly Color Yellow = new Color(1f, 1f, 0.25f);
+        static readonly Color Red = new(1f, 0.25f, 0.25f);
+        static readonly Color Orange = new(1f, 0.5f, 0.25f);
+        static readonly Color Yellow = new(1f, 1f, 0.25f);
         private const string RedStr = "ff4444";
         private const string OrangeStr = "ff8844";
         private const string YellowStr = "ffff44";
@@ -480,7 +480,7 @@ namespace Multiplayer.Client
             Text.CurFontStyle.richText = true;
             MpUI.Label(
                 labelsRect.AtZero(),
-                $"<color=#{RedStr}>(Missing)</color>\n<color=#{OrangeStr}>(Added)</color>\n<color=#{YellowStr}>(Modified)</color>",
+                $"<color=#{RedStr}>({"MpMismatchTreeMissing".Translate()})</color>\n<color=#{OrangeStr}>({"MpMismatchTreeAdded".Translate()})</color>\n<color=#{YellowStr}>({"MpMismatchTreeModified".Translate()})</color>",
                 anchor: TextAnchor.MiddleCenter
             );
 
@@ -618,7 +618,7 @@ namespace Multiplayer.Client
                 }
 
                 if (!notInstalled.Any())
-                    subscribeTip = "No mods are missing.";
+                    subscribeTip = "MpMismatchSubscribeNoMissing".Translate();
 
                 var subscribeBtn = "MpMismatchSubscribe".Translate();
                 if (notInstalledNotOnSteam.Any())
@@ -636,7 +636,7 @@ namespace Multiplayer.Client
                     foreach (var m in notInstalled.Where(m => m.CanSubscribe))
                         SteamUGC.SubscribeItem(new PublishedFileId_t(m.steamId));
 
-                    Messages.Message($"Subscribed to {notInstalled.Count(m => m.CanSubscribe)} mods. Downloading in the background...", MessageTypeDefOf.PositiveEvent, false);
+                    Messages.Message($"MpMismatchSubscribeMsg".Translate(notInstalled.Count(m => m.CanSubscribe)), MessageTypeDefOf.PositiveEvent, false);
                 }
 
                 var infoStr = "MpMismatchModListsMatch".Translate();
@@ -675,7 +675,7 @@ namespace Multiplayer.Client
         private bool applyModList = true;
         private bool applyConfigs;
 
-        public override Vector2 InitialSize => new Vector2(400, 200);
+        public override Vector2 InitialSize => new(400, 200);
 
         public FixAndRestartWindow(RemoteData data)
         {
@@ -713,7 +713,7 @@ namespace Multiplayer.Client
             var size = new Vector2(btnWidth, btnHeight);
             var restartBtn = new Rect(center + new Vector2(-btnWidth - 5, 0), size);
 
-            if (MpUI.ButtonTextWithTip(restartBtn, "MpMismatchRestart".Translate(), "You will be reconnected after the game finishes loading."))
+            if (MpUI.ButtonTextWithTip(restartBtn, "MpMismatchRestart".Translate(), "MpMismatchRestartDesc".Translate()))
                 DoRestart();
 
             if (Widgets.ButtonText(new Rect(center + new Vector2(5, 0), size), "MpMismatchBack".Translate()))
