@@ -50,6 +50,7 @@ namespace Multiplayer.Client
         public static readonly Texture2D PingPin = ContentFinder<Texture2D>.Get("Multiplayer/PingPin");
         public static readonly Texture2D WebsiteIcon = ContentFinder<Texture2D>.Get("Multiplayer/Website");
         public static readonly Texture2D DiscordIcon = ContentFinder<Texture2D>.Get("Multiplayer/Discord");
+        public static readonly Texture2D Pulse = ContentFinder<Texture2D>.Get("Multiplayer/Pulse");
 
         static MultiplayerStatic()
         {

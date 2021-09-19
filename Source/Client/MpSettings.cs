@@ -31,6 +31,7 @@ namespace Multiplayer.Client
         public KeyCode? jumpToPingButton = KeyCode.Mouse3;
         public Rect chatRect;
         public Vector2 resolutionForChat;
+        public bool showMainMenuAnim = true;
 
         public ServerSettings serverSettings = new();
 
@@ -54,6 +55,7 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref jumpToPingButton, "jumpToPingButton", KeyCode.Mouse3);
             Scribe_Custom.LookRect(ref chatRect, "chatRect");
             Scribe_Values.Look(ref resolutionForChat, "resolutionForChat");
+            Scribe_Values.Look(ref showMainMenuAnim, "showMainMenuAnim", true);
 
             Scribe_Deep.Look(ref serverSettings, "serverSettings");
 
@@ -79,6 +81,7 @@ namespace Multiplayer.Client
             listing.CheckboxLabeled("MpAppendNameToAutosave".Translate(), ref appendNameToAutosave);
             listing.CheckboxLabeled("MpShowModCompat".Translate(), ref showModCompatibility, "MpShowModCompatDesc".Translate());
             listing.CheckboxLabeled("MpEnablePingsSetting".Translate(), ref enablePings);
+            listing.CheckboxLabeled("Show main menu animation", ref showMainMenuAnim);
 
             const string buttonOff = "Off";
 

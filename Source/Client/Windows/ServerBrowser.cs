@@ -108,7 +108,7 @@ namespace Multiplayer.Client
             float x = 0;
 
             const string WebsiteLink = "https://rimworldmultiplayer.com";
-            const string DiscordLink = "https://discord.gg/S4bxXpv";
+            const string DiscordLink = "https://discord.gg/n5E2cb2Y4Z";
 
             bool Button(Texture2D icon, string labelKey, string tip, Color baseIconColor, float iconSize = 24f)
             {

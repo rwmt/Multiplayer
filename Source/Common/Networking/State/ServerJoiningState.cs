@@ -15,16 +15,20 @@ namespace Multiplayer.Common
         {
         }
 
+        [PacketHandler(Packets.Client_Protocol)]
+        public void HandleProtocol(ByteReader data)
+        {
+            int clientProtocol = data.ReadInt32();
+
+            if (clientProtocol != MpVersion.Protocol)
+                Player.Disconnect(MpDisconnectReason.Protocol, ByteWriter.GetBytes(MpVersion.Version, MpVersion.Protocol));
+            else
+                Player.SendPacket(Packets.Server_ProtocolOk, new byte[0]);
+        }
+
         [PacketHandler(Packets.Client_Username)]
         public void HandleUsername(ByteReader data)
         {
-            int clientProtocol = data.ReadInt32();
-            if (clientProtocol != MpVersion.Protocol)
-            {
-                Player.Disconnect(MpDisconnectReason.Protocol, ByteWriter.GetBytes(MpVersion.Version, MpVersion.Protocol));
-                return;
-            }
-
             if (!string.IsNullOrEmpty(connection.username)) // Username already set
                 return;
 

@@ -115,7 +115,7 @@ namespace Multiplayer.Client
             var info = new RemoteData();
             JoinData.ReadServerData(JoinData.WriteServerData(true), info);
             for (int i = 0; i < 200; i++)
-                info.remoteMods.Add(info.remoteMods[6]);
+                info.remoteMods.Add(info.remoteMods.Last());
             info.remoteFiles.Add("rwmt.multiplayer", new ModFile() { relPath = "/Test/Test.xml" });
 
             Find.WindowStack.Add(new JoinDataWindow(info));

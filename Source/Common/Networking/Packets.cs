@@ -2,6 +2,10 @@
 {
     public enum Packets : byte
     {
+        // Special
+        Client_Protocol, // Must be zeroth for future proofing
+        Server_SteamAccept, // Packet for the special Steam state, must be first
+
         // Joining
         Client_Username,
         Client_JoinData,
@@ -27,6 +31,7 @@
         Client_RequestRejoin,
 
         // Joining
+        Server_ProtocolOk,
         Server_UsernameOk,
         Server_JoinData,
         Server_WorldDataStart,
@@ -40,7 +45,6 @@
         Server_Chat,
         Server_PlayerList,
         Server_KeepAlive,
-        Server_SteamAccept,
         Server_SyncInfo,
         Server_Cursor,
         Server_Pause,

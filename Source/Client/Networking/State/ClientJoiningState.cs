@@ -30,8 +30,14 @@ namespace Multiplayer.Client
 
         public override void StartState()
         {
-            connection.Send(Packets.Client_Username, MpVersion.Protocol, Multiplayer.username);
+            connection.Send(Packets.Client_Protocol, MpVersion.Protocol);
             ConnectionStatusListeners.TryNotifyAll_Connected();
+        }
+
+        [PacketHandler(Packets.Server_ProtocolOk)]
+        public void HandleProtocolOk(ByteReader data)
+        {
+            connection.Send(Packets.Client_Username, Multiplayer.username);
         }
 
         [PacketHandler(Packets.Server_UsernameOk)]
