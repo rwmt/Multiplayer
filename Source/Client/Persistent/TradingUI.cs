@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using Multiplayer.API;
 using Multiplayer.Common;
 using RimWorld;
@@ -10,6 +10,7 @@ using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Text;
+using Multiplayer.Client.Util;
 using UnityEngine;
 using Verse;
 using Verse.AI;
@@ -17,7 +18,8 @@ using Verse.AI.Group;
 
 namespace Multiplayer.Client
 {
-    public class TradingWindow : Window
+    [HotSwappable]
+    public class TradingWindow : Window, ISwitchToMap
     {
         public static TradingWindow drawingTrade;
         public static bool cancelPressed;
@@ -26,7 +28,6 @@ namespace Multiplayer.Client
 
         public TradingWindow()
         {
-            doCloseX = true;
             closeOnAccept = false;
             absorbInputAroundWindow = true;
         }
@@ -86,6 +87,7 @@ namespace Multiplayer.Client
 
                     dialog.CacheTradeables();
                     dialog.CountToTransferChanged();
+
                     session.deal.uiShouldReset = UIShouldReset.None;
                 }
 
@@ -152,22 +154,14 @@ namespace Multiplayer.Client
             return null;
         }
 
-        public override void PostClose()
-        {
-            base.PostClose();
-
-            if (selectedTab >= 0 && Multiplayer.WorldComp.trading.ElementAtOrDefault(selectedTab)?.playerNegotiator.Map == Find.CurrentMap)
-                Find.World.renderer.wantedMode = WorldRenderMode.Planet;
-        }
-
         private void RecreateDialog()
         {
             var session = Multiplayer.WorldComp.trading[selectedTab];
 
-            CancelDialogTradeCtor.cancel = true;
             MpTradeSession.SetTradeSession(session);
 
-            dialog = new Dialog_Trade(null, null);
+            dialog = MpUtil.NewObjectNoCtor<Dialog_Trade>();
+            dialog.quickSearchWidget = new QuickSearchWidget();
             dialog.giftsOnly = session.giftsOnly;
             dialog.sorter1 = TransferableSorterDefOf.Category;
             dialog.sorter2 = TransferableSorterDefOf.MarketValue;
@@ -178,7 +172,6 @@ namespace Multiplayer.Client
             added.Clear();
 
             MpTradeSession.SetTradeSession(null);
-            CancelDialogTradeCtor.cancel = false;
         }
 
         public void Notify_RemovedSession(int index)
@@ -201,14 +194,14 @@ namespace Multiplayer.Client
             Multiplayer.WorldComp.RemoveTradeSession(session);
         }
 
-        public Dictionary<Tradeable, float> added = new Dictionary<Tradeable, float>();
-        public Dictionary<Tradeable, float> removed = new Dictionary<Tradeable, float>();
-
         private bool RemoveCachedTradeable(Tradeable t)
         {
             dialog?.cachedTradeables.Remove(t);
             return true;
         }
+
+        public Dictionary<Tradeable, float> added = new Dictionary<Tradeable, float>();
+        public Dictionary<Tradeable, float> removed = new Dictionary<Tradeable, float>();
 
         private static HashSet<Tradeable> newTradeables = new HashSet<Tradeable>();
         private static HashSet<Tradeable> oldTradeables = new HashSet<Tradeable>();
@@ -247,31 +240,7 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch]
-    static class ShowTradingWindow
-    {
-        public static int tradeJobStartedByMe = -1;
-
-        static MethodBase TargetMethod()
-        {
-            List<Type> nestedPrivateTypes = new List<Type>(typeof(JobDriver_TradeWithPawn).GetNestedTypes(BindingFlags.NonPublic));
-
-            Type cType = nestedPrivateTypes.Find(t => t.Name.Equals("<>c__DisplayClass3_0"));
-
-            return AccessTools.Method(cType, "<MakeNewToils>b__1");
-        }
-
-        static void Prefix(Toil ___trade)
-        {
-            if (___trade.actor.CurJob.loadID == tradeJobStartedByMe)
-            {
-                Find.WindowStack.Add(new TradingWindow());
-                tradeJobStartedByMe = -1;
-            }
-        }
-    }
-
-    [HarmonyPatch(typeof(Widgets), nameof(Widgets.ButtonText), new[] { typeof(Rect), typeof(string), typeof(bool), typeof(bool), typeof(bool) })]
+    [HarmonyPatch(typeof(Widgets), nameof(Widgets.ButtonTextWorker))]
     static class MakeCancelTradeButtonRed
     {
         static void Prefix(string label, ref bool __state)
@@ -414,9 +383,10 @@ namespace Multiplayer.Client
     {
         static IEnumerable<MethodBase> TargetMethods()
         {
-            yield return AccessTools.Method(typeof(Dialog_Trade), "<DoWindowContents>b__60_0");
-            yield return AccessTools.Method(typeof(Dialog_Trade), "<DoWindowContents>b__60_1");
+            yield return MpMethodUtil.GetLambda(typeof(Dialog_Trade), nameof(Dialog_Trade.DoWindowContents));
+            yield return MpMethodUtil.GetLambda(typeof(Dialog_Trade), nameof(Dialog_Trade.DoWindowContents));
         }
+
         static void Prefix(ref bool __state)
         {
             TradingWindow trading = Find.WindowStack.WindowOfType<TradingWindow>();

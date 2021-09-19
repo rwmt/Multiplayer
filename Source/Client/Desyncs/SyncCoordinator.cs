@@ -1,4 +1,4 @@
-﻿extern alias zip;
+extern alias zip;
 using HarmonyLib;
 using Multiplayer.Common;
 using System;
@@ -13,14 +13,17 @@ using RimWorld;
 using UnityEngine;
 using Verse;
 using zip::Ionic.Zip;
+using Multiplayer.Client.Desyncs;
+using Multiplayer.Client.Util;
 
 namespace Multiplayer.Client
 {
+    [HotSwappable]
     public class SyncCoordinator
     {
         public bool ShouldCollect => !Multiplayer.IsReplay;
 
-        private ClientSyncOpinion CurrentOpinion
+        private ClientSyncOpinion OpinionInBuilding
         {
             get
             {
@@ -36,7 +39,7 @@ namespace Multiplayer.Client
             }
         }
 
-        public readonly List<ClientSyncOpinion> knownClientOpinions = new List<ClientSyncOpinion>();
+        public readonly List<ClientSyncOpinion> knownClientOpinions = new();
 
         public ClientSyncOpinion currentOpinion;
 
@@ -52,8 +55,8 @@ namespace Multiplayer.Client
             //If we've already desynced, don't even bother
             if (Multiplayer.session.desynced) return;
 
-            //If we're skipping ticks, again, don't bother
-            if (TickPatch.Skipping) return;
+            //If we're simulating, again, don't bother
+            if (TickPatch.Simulating) return;
 
             //If this is the first client opinion we have nothing to compare it with, so just add it
             if (knownClientOpinions.Count == 0)
@@ -66,13 +69,13 @@ namespace Multiplayer.Client
             {
                 knownClientOpinions.Add(newOpinion);
                 if (knownClientOpinions.Count > 30)
-                    knownClientOpinions.RemoveAt(0);
+                    RemoveAndClearFirst();
             }
             else
             {
                 //Remove all opinions that started before this one, as it's the most up to date one
                 while (knownClientOpinions.Count > 0 && knownClientOpinions[0].startTick < newOpinion.startTick)
-                    knownClientOpinions.RemoveAt(0);
+                    RemoveAndClearFirst();
 
                 //If there are none left, we don't need to compare this new one
                 if (knownClientOpinions.Count == 0)
@@ -81,8 +84,7 @@ namespace Multiplayer.Client
                 }
                 else if (knownClientOpinions.First().startTick == newOpinion.startTick)
                 {
-                    //If these two contain the same tick range - i.e. they start at the same time, cause they should continue to the current tick, then do a comparison.
-
+                    //If these two contain the same tick range - i.e. they start at the same time, because they should continue to the current tick, then do a comparison.
                     var oldOpinion = knownClientOpinions.RemoveFirst();
 
                     //Actually do the comparison to find any desync
@@ -96,12 +98,20 @@ namespace Multiplayer.Client
                     }
                     else
                     {
-                        //Update fields 
+                        //Update fields
                         lastValidTick = oldOpinion.startTick;
                         arbiterWasPlayingOnLastValidTick = Multiplayer.session.ArbiterPlaying;
+
+                        oldOpinion.Clear();
                     }
                 }
             }
+        }
+
+        private void RemoveAndClearFirst()
+        {
+            var opinion = knownClientOpinions.RemoveFirst();
+            opinion.Clear();
         }
 
         /// <summary>
@@ -112,108 +122,25 @@ namespace Multiplayer.Client
         /// <param name="desyncMessage">The error message that explains exactly what desynced.</param>
         private void HandleDesync(ClientSyncOpinion oldOpinion, ClientSyncOpinion newOpinion, string desyncMessage)
         {
-            Multiplayer.Client.Send(Packets.Client_Desynced);
-
             //Identify which of the two sync infos is local, and which is the remote.
             var local = oldOpinion.isLocalClientsOpinion ? oldOpinion : newOpinion;
             var remote = !oldOpinion.isLocalClientsOpinion ? oldOpinion : newOpinion;
 
-            //Print arbiter desync stacktrace if it exists
-            var desyncStackTrace = "";
-            if (local.desyncStackTraces.Any()) {
-                desyncStackTrace = SaveStackTracesToDisk(local, remote);
-            }
+            var localTraces = GetDiffAndTraceMessage(local, remote, out var diffAt);
+            Multiplayer.Client.Send(Packets.Client_Desynced, local.startTick, diffAt);
+            Multiplayer.session.desyncTracesFromHost = null;
 
-            try
-            {
-                //Get the filename of the next desync file to create.
-                var desyncFilePath = FindFileNameForNextDesyncFile();
-
-                //Initialize the Replay object.
-                var replay = Replay.ForSaving(Replay.ReplayFile(desyncFilePath, Multiplayer.DesyncsDir));
-
-                //Write the universal replay data (i.e. world and map folders, and the info file) so this desync can be reviewed as a standard replay.
-                replay.WriteCurrentData();
-
-                //Dump our current game object.
-                var savedGame = ScribeUtil.WriteExposable(Current.Game, "game", true, ScribeMetaHeaderUtility.WriteMetaHeader);
-
-                using (var zip = replay.ZipFile)
-                {
-                    //Write the local sync data
-                    var syncLocal = local.Serialize();
-                    zip.AddEntry("sync_local", syncLocal);
-
-                    //Write the remote sync data
-                    var syncRemote = remote.Serialize();
-                    zip.AddEntry("sync_remote", syncRemote);
-
-                    //Dump the entire save file to the zip.
-                    zip.AddEntry("game_snapshot", savedGame);
-
-                    //Prepare the desync info
-                    var desyncInfo = new StringBuilder();
-
-                    desyncInfo.AppendLine("###Tick Data###")
-                        .AppendLine($"Arbiter Connected And Playing|||{Multiplayer.session.ArbiterPlaying}")
-                        .AppendLine($"Last Valid Tick - Local|||{lastValidTick}")
-                        .AppendLine($"Last Valid Tick - Arbiter|||{arbiterWasPlayingOnLastValidTick}")
-                        .AppendLine("\n###Version Data###")
-                        .AppendLine($"Multiplayer Mod Version|||{MpVersion.Version}")
-                        .AppendLine($"Rimworld Version and Rev|||{VersionControl.CurrentVersionStringWithRev}")
-                        .AppendLine("\n###Debug Options###")
-                        .AppendLine($"Multiplayer Debug Build - Client|||{MpVersion.IsDebug}")
-                        .AppendLine($"Multiplayer Debug Build - Host|||{Multiplayer.WorldComp.debugMode}")
-                        .AppendLine($"Rimworld Developer Mode - Client|||{Prefs.DevMode}")
-                        .AppendLine("\n###Server Info###")
-                        .AppendLine($"Player Count|||{Multiplayer.session.players.Count}")
-                        .AppendLine("\n###CPU Info###")
-                        .AppendLine($"Processor Name|||{SystemInfo.processorType}")
-                        .AppendLine($"Processor Speed (MHz)|||{SystemInfo.processorFrequency}")
-                        .AppendLine($"Thread Count|||{SystemInfo.processorCount}")
-                        .AppendLine("\n###GPU Info###")
-                        .AppendLine($"GPU Family|||{SystemInfo.graphicsDeviceVendor}")
-                        .AppendLine($"GPU Type|||{SystemInfo.graphicsDeviceType}")
-                        .AppendLine($"GPU Name|||{SystemInfo.graphicsDeviceName}")
-                        .AppendLine($"GPU VRAM|||{SystemInfo.graphicsMemorySize}")
-                        .AppendLine("\n###RAM Info###")
-                        .AppendLine($"Physical Memory Present|||{SystemInfo.systemMemorySize}")
-                        .AppendLine("\n###OS Info###")
-                        .AppendLine($"OS Type|||{SystemInfo.operatingSystemFamily}")
-                        .AppendLine($"OS Name and Version|||{SystemInfo.operatingSystem}");
-
-                    //Save debug info to the zip
-                    zip.AddEntry("desync_info", desyncInfo.ToString());
-
-                    if (desyncStackTrace != "") {
-                        zip.AddEntry("desync_traces.txt", desyncStackTrace);
-                    }
-
-                    zip.Save();
-                }
-            }
-            catch (Exception e)
-            {
-                Log.Error($"Exception writing desync info: {e}");
-            }
-
-            Find.WindowStack.windows.Clear();
-            Find.WindowStack.Add(new DesyncedWindow(desyncMessage));
+            MpUI.ClearWindowStack();
+            Find.WindowStack.Add(new DesyncedWindow(desyncMessage, localTraces));
         }
 
-        /// <summary>
-        /// Saves the local stack traces (saved by calls to <see cref="TryAddStackTraceForDesyncLog"/>) around the area
-        /// where a desync occurred to disk, and sends a packet to the arbiter (via the host) to make it do the same
-        /// </summary>
-        /// <param name="local">The local client's opinion, to dump the stacks from</param>
-        /// <param name="remote">A remote client's opinion, used to find where the desync occurred</param>
-        private string SaveStackTracesToDisk(ClientSyncOpinion local, ClientSyncOpinion remote)
+        private string GetDiffAndTraceMessage(ClientSyncOpinion local, ClientSyncOpinion remote, out int diffAt)
         {
-            Log.Message($"Saving {local.desyncStackTraces.Count} traces to disk");
-
             //Find the length of whichever stack trace is shorter.
-            int diffAt = -1;
-            int count = Math.Min(local.desyncStackTraceHashes.Count, remote.desyncStackTraceHashes.Count);
+            diffAt = -1;
+            var localCount = local.desyncStackTraceHashes.Count;
+            var remoteCount = remote.desyncStackTraceHashes.Count;
+            int count = Math.Min(localCount, remoteCount);
 
             //Find the point at which the hashes differ - this is where the desync occurred.
             for (int i = 0; i < count; i++)
@@ -224,38 +151,82 @@ namespace Multiplayer.Client
                 }
 
             var traceMessage = "";
-            if (diffAt == -1) {
+
+            if (diffAt == -1)
+            {
+                if (count == 0)
+                {
+                    diffAt = 0;
+                    return $"No traces (remote: {remoteCount}, local: {localCount})";
+                }
+
                 traceMessage = "Note: trace hashes are equal between local and remote\n\n";
-                diffAt = count;
+                diffAt = count - 1;
             }
 
             traceMessage += local.GetFormattedStackTracesForRange(diffAt);
-            File.WriteAllText("local_traces.txt", traceMessage);
-
-            //Trigger a call to ClientConnection#HandleDebug on the arbiter instance so that arbiter_traces.txt is saved too
-            Multiplayer.Client.Send(Packets.Client_Debug, local.startTick, diffAt);
-
             return traceMessage;
+        }
+
+        // Called from DesyncedWindow
+        public void WriteDesyncInfo(string localTraces)
+        {
+            var watch = Stopwatch.StartNew();
+
+            try
+            {
+                var desyncFilePath = FindFileNameForNextDesyncFile();
+                using var zip = new ZipFile(Path.Combine(Multiplayer.DesyncsDir, desyncFilePath + ".zip"));
+
+                zip.AddEntry("desync_info", GetDesyncDetails());
+                zip.AddEntry("local_traces.txt", localTraces);
+                zip.AddEntry("host_traces.txt", Multiplayer.session.desyncTracesFromHost ?? "No host traces");
+
+                var extraLogs = LogGenerator.PrepareLogData();
+                if (extraLogs != null) zip.AddEntry("local_logs.txt", extraLogs);
+
+                zip.Save();
+            }
+            catch (Exception e)
+            {
+                Log.Error($"Exception writing desync info: {e}");
+            }
+
+            Log.Message($"Desync info writing took {watch.ElapsedMilliseconds}");
         }
 
         private string FindFileNameForNextDesyncFile()
         {
+            const string FilePrefix = "Desync-";
+            const string FileExtension = ".zip";
+
             //Find all current existing desync zips
-            var files = new DirectoryInfo(Multiplayer.DesyncsDir).GetFiles("Desync-*.zip");
+            var files = new DirectoryInfo(Multiplayer.DesyncsDir).GetFiles($"{FilePrefix}*{FileExtension}" );
 
             const int MaxFiles = 10;
 
             //Delete any pushing us over the limit, and reserve room for one more
             if (files.Length > MaxFiles - 1)
-                files.OrderByDescending(f => f.LastWriteTime).Skip(MaxFiles - 1).Do(f => f.Delete());
+                files.OrderByDescending(f => f.LastWriteTime).Skip(MaxFiles - 1).Do(DeleteFileSilent);
 
             //Find the current max desync number
             int max = 0;
             foreach (var f in files)
-                if (int.TryParse(f.Name.Substring(7, f.Name.Length - 7 - 4), out int result) && result > max)
+                if (int.TryParse(f.Name.Substring(FilePrefix.Length, f.Name.Length - FilePrefix.Length - FileExtension.Length), out int result) && result > max)
                     max = result;
 
-            return $"Desync-{max + 1:00}";
+            return $"{FilePrefix}{max + 1:00}";
+        }
+
+        private static void DeleteFileSilent(FileInfo file)
+        {
+            try
+            {
+                file.Delete();
+            }
+            catch (IOException)
+            {
+            }
         }
 
         /// <summary>
@@ -265,8 +236,8 @@ namespace Multiplayer.Client
         public void TryAddCommandRandomState(ulong state)
         {
             if (!ShouldCollect) return;
-            CurrentOpinion.TryMarkSimulating();
-            CurrentOpinion.commandRandomStates.Add((uint) (state >> 32));
+            OpinionInBuilding.TryMarkSimulating();
+            OpinionInBuilding.commandRandomStates.Add((uint) (state >> 32));
         }
 
         /// <summary>
@@ -276,8 +247,8 @@ namespace Multiplayer.Client
         public void TryAddWorldRandomState(ulong state)
         {
             if (!ShouldCollect) return;
-            CurrentOpinion.TryMarkSimulating();
-            CurrentOpinion.worldRandomStates.Add((uint) (state >> 32));
+            OpinionInBuilding.TryMarkSimulating();
+            OpinionInBuilding.worldRandomStates.Add((uint) (state >> 32));
         }
 
         /// <summary>
@@ -288,8 +259,8 @@ namespace Multiplayer.Client
         public void TryAddMapRandomState(int map, ulong state)
         {
             if (!ShouldCollect) return;
-            CurrentOpinion.TryMarkSimulating();
-            CurrentOpinion.GetRandomStatesForMap(map).Add((uint) (state >> 32));
+            OpinionInBuilding.TryMarkSimulating();
+            OpinionInBuilding.GetRandomStatesForMap(map).Add((uint) (state >> 32));
         }
 
         /// <summary>
@@ -300,13 +271,13 @@ namespace Multiplayer.Client
         {
             if (!ShouldCollect) return;
 
-            CurrentOpinion.TryMarkSimulating();
+            OpinionInBuilding.TryMarkSimulating();
 
             //Get the current stack trace
-            var trace = new System.Diagnostics.StackTrace(2, true);
-            var hash = trace.Hash() ^ (info?.GetHashCode() ?? 0);
+            var trace = new StackTrace(2, true);
+            var hash = trace.Hash() /*^ (info?.GetHashCode() ?? 0)*/;
 
-            CurrentOpinion.desyncStackTraces.Add(new StackTraceLogItem {
+            OpinionInBuilding.desyncStackTraces.Add(new StackTraceLogItemObj {
                 stackTrace = trace,
                 tick = TickPatch.Timer,
                 hash = hash,
@@ -314,27 +285,95 @@ namespace Multiplayer.Client
             });
 
             // Track & network trace hash, for comparison with other opinions.
-            currentOpinion.desyncStackTraceHashes.Add(hash);
+            OpinionInBuilding.desyncStackTraceHashes.Add(hash);
         }
 
-        public static bool ShouldAddStackTraceForDesyncLog()
+        public void TryAddStackTraceForDesyncLogRaw(StackTraceLogItemRaw item, int depth, int hashIn, string moreInfo = null)
         {
-            if (Multiplayer.Client == null) return false;
-            if (!Multiplayer.game?.worldComp?.logDesyncTraces ?? false) return false; // only log if debugging enabled in Host Server menu
-            if (Rand.stateStack.Count > 1) return false;
-            if (TickPatch.Skipping || Multiplayer.IsReplay) return false;
+            if (!ShouldCollect) return;
 
-            if (!Multiplayer.Ticking && !Multiplayer.ExecutingCmds) return false;
+            OpinionInBuilding.TryMarkSimulating();
 
-            if (!WildAnimalSpawnerTickMarker.ticking &&
-                !WildPlantSpawnerTickMarker.ticking &&
-                !SteadyEnvironmentEffectsTickMarker.ticking &&
-                !FindBestStorageCellMarker.executing &&
-                ThingContext.Current?.def != ThingDefOf.SteamGeyser) {
-                return true;
+            item.depth = depth;
+            item.iters = (int)Rand.iterations;
+            item.tick = TickPatch.Timer;
+            item.factionName = Faction.OfPlayer?.Name ?? string.Empty;
+            item.moreInfo = moreInfo;
+
+            var thing = ThingContext.Current;
+            if (thing != null)
+            {
+                item.thingDef = thing.def;
+                item.thingId = thing.thingIDNumber;
             }
 
-            return false;
+            var hash = Gen.HashCombineInt(hashIn, depth, item.iters, 1);
+            item.hash = hash;
+
+            OpinionInBuilding.desyncStackTraces.Add(item);
+
+            // Track & network trace hash, for comparison with other opinions.
+            OpinionInBuilding.desyncStackTraceHashes.Add(hash);
+        }
+
+        public static string MethodNameWithIL(string rawName)
+        {
+            // Note: The names currently don't include IL locations so the code is commented out
+
+            // at Verse.AI.JobDriver.ReadyForNextToil () [0x00000] in <c847e073cda54790b59d58357cc8cf98>:0
+            // =>
+            // at Verse.AI.JobDriver.ReadyForNextToil () [0x00000]
+            // rawName = rawName.Substring(0, rawName.LastIndexOf(']') + 1);
+
+            return rawName;
+        }
+
+        public static string MethodNameWithoutIL(string rawName)
+        {
+            // Note: The names currently don't include IL locations so the code is commented out
+
+            // at Verse.AI.JobDriver.ReadyForNextToil () [0x00000] in <c847e073cda54790b59d58357cc8cf98>:0
+            // =>
+            // at Verse.AI.JobDriver.ReadyForNextToil ()
+            // rawName = rawName.Substring(0, rawName.LastIndexOf('['));
+
+            return rawName;
+        }
+
+        private string GetDesyncDetails()
+        {
+            var desyncInfo = new StringBuilder();
+
+            desyncInfo
+                .AppendLine("###Tick Data###")
+                .AppendLine($"Arbiter Connected And Playing|||{Multiplayer.session.ArbiterPlaying}")
+                .AppendLine($"Last Valid Tick - Local|||{lastValidTick}")
+                .AppendLine($"Last Valid Tick - Arbiter|||{arbiterWasPlayingOnLastValidTick}")
+                .AppendLine("\n###Version Data###")
+                .AppendLine($"Multiplayer Mod Version|||{MpVersion.Version}")
+                .AppendLine($"Rimworld Version and Rev|||{VersionControl.CurrentVersionStringWithRev}")
+                .AppendLine("\n###Debug Options###")
+                .AppendLine($"Multiplayer Debug Build - Client|||{MpVersion.IsDebug}")
+                .AppendLine($"Multiplayer Debug Mode - Host|||{Multiplayer.GameComp.debugMode}")
+                .AppendLine($"Rimworld Developer Mode - Client|||{Prefs.DevMode}")
+                .AppendLine("\n###Server Info###")
+                .AppendLine($"Player Count|||{Multiplayer.session.players.Count}")
+                .AppendLine("\n###CPU Info###")
+                .AppendLine($"Processor Name|||{SystemInfo.processorType}")
+                .AppendLine($"Processor Speed (MHz)|||{SystemInfo.processorFrequency}")
+                .AppendLine($"Thread Count|||{SystemInfo.processorCount}")
+                .AppendLine("\n###GPU Info###")
+                .AppendLine($"GPU Family|||{SystemInfo.graphicsDeviceVendor}")
+                .AppendLine($"GPU Type|||{SystemInfo.graphicsDeviceType}")
+                .AppendLine($"GPU Name|||{SystemInfo.graphicsDeviceName}")
+                .AppendLine($"GPU VRAM|||{SystemInfo.graphicsMemorySize}")
+                .AppendLine("\n###RAM Info###")
+                .AppendLine($"Physical Memory Present|||{SystemInfo.systemMemorySize}")
+                .AppendLine("\n###OS Info###")
+                .AppendLine($"OS Type|||{SystemInfo.operatingSystemFamily}")
+                .AppendLine($"OS Name and Version|||{SystemInfo.operatingSystem}");
+
+            return desyncInfo.ToString();
         }
     }
 }

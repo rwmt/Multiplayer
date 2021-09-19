@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using HarmonyLib;
 using Multiplayer.Common;
 using RimWorld;
@@ -8,22 +8,21 @@ using Verse;
 
 namespace Multiplayer.Client
 {
+    [HotSwappable]
     public class DisconnectedWindow : Window
     {
-        public override Vector2 InitialSize => new Vector2(300f, 150f);
+        public override Vector2 InitialSize => new(320f, info.specialButtonTranslated != null ? 210f : 160f);
 
-        protected string reason;
-        protected string desc;
+        protected SessionDisconnectInfo info;
 
         public bool returnToServerBrowser;
 
-        public DisconnectedWindow(string reason, string desc = null)
+        public DisconnectedWindow(SessionDisconnectInfo info)
         {
-            this.reason = reason;
-            this.desc = desc;
+            this.info = info;
 
-            if (reason.NullOrEmpty())
-                reason = "Disconnected";
+            if (this.info.titleTranslated.NullOrEmpty())
+                this.info.titleTranslated = "MpDisconnected".Translate();
 
             closeOnAccept = false;
             closeOnCancel = false;
@@ -32,7 +31,8 @@ namespace Multiplayer.Client
             absorbInputAroundWindow = true;
         }
 
-        public const float ButtonHeight = 40f;
+        const float ButtonHeight = 40f;
+        const float ButtonSpacing = 10f;
 
         public override void DoWindowContents(Rect inRect)
         {
@@ -40,25 +40,50 @@ namespace Multiplayer.Client
 
             Text.Anchor = TextAnchor.MiddleCenter;
             Rect labelRect = inRect;
-            labelRect.yMax -= ButtonHeight;
-            Widgets.Label(labelRect, desc.NullOrEmpty() ? reason : $"<b>{reason}</b>\n{desc}");
+
+            labelRect.yMax -= ButtonHeight + ButtonSpacing;
+            if (info.specialButtonTranslated != null)
+                labelRect.yMax -= ButtonHeight + ButtonSpacing;
+
+            var text = info.descTranslated.NullOrEmpty()
+                ? info.titleTranslated
+                : $"<b>{info.titleTranslated}</b>\n{info.descTranslated}";
+            Widgets.Label(labelRect, text);
+
             Text.Anchor = TextAnchor.UpperLeft;
 
             DrawButtons(inRect);
         }
 
-        public virtual void DrawButtons(Rect inRect)
+        private void DrawButtons(Rect inRect)
         {
-            var buttonWidth = Current.ProgramState == ProgramState.Entry ? 120f : 140f;
-            var buttonRect = new Rect((inRect.width - buttonWidth) / 2f, inRect.height - ButtonHeight - 10f, buttonWidth, ButtonHeight);
-            var buttonText = Current.ProgramState == ProgramState.Entry ? "CloseButton" : "QuitToMainMenu";
+            var isPlaying = Current.ProgramState != ProgramState.Entry;
+
+            var buttonWidth = isPlaying ? 140f : 120f;
+            var buttonRect = new Rect((inRect.width - buttonWidth) / 2f, inRect.height - ButtonHeight - ButtonSpacing, buttonWidth, ButtonHeight);
+            var buttonText = isPlaying ? "QuitToMainMenu" : "CloseButton";
 
             if (Widgets.ButtonText(buttonRect, buttonText.Translate()))
             {
-                if (Current.ProgramState == ProgramState.Entry)
-                    Close();
-                else
+                if (isPlaying)
                     GenScene.GoToMainMenu();
+                else
+                    Close();
+            }
+
+            if (info.specialButtonTranslated == null)
+                return;
+
+            var connectAsBtn = buttonRect;
+            connectAsBtn.y -= ButtonHeight + ButtonSpacing;
+            connectAsBtn.width = Text.CalcSize(info.specialButtonTranslated).x + 30;
+            connectAsBtn = connectAsBtn.CenteredOnXIn(buttonRect);
+
+            if (Widgets.ButtonText(connectAsBtn, info.specialButtonTranslated))
+            {
+                returnToServerBrowser = false;
+                info.specialButtonAction();
+                Close();
             }
         }
 
@@ -66,200 +91,6 @@ namespace Multiplayer.Client
         {
             if (returnToServerBrowser)
                 Find.WindowStack.Add(new ServerBrowser());
-        }
-    }
-
-    public class DefMismatchWindow : DisconnectedWindow
-    {
-        public override Vector2 InitialSize => new Vector2(310f + 18 * 2, 160f);
-
-        private SessionModInfo mods;
-
-        public DefMismatchWindow(SessionModInfo mods) : base("MpWrongDefs".Translate(), "MpWrongDefsInfo".Translate())
-        {
-            this.mods = mods;
-            returnToServerBrowser = true;
-        }
-
-        public override void DrawButtons(Rect inRect)
-        {
-            var btnWidth = 90f;
-            var gap = 10f;
-
-            Rect btnRect = new Rect(gap, inRect.height - ButtonHeight - 10f, btnWidth, ButtonHeight);
-
-            if (Widgets.ButtonText(btnRect, "Details".Translate()))
-            {
-                var defs = mods.defInfo.Where(kv => kv.Value.status != DefCheckStatus.OK).Join(kv => $"{kv.Key}: {kv.Value.status}", delimiter: "\n");
-
-                Find.WindowStack.Add(new TextAreaWindow($"Mismatches:\n\n{defs}"));
-            }
-
-            btnRect.x += btnWidth + gap;
-
-            if (Widgets.ButtonText(btnRect, "MpModList".Translate()))
-                ShowModList(mods);
-            btnRect.x += btnWidth + gap;
-
-            if (Widgets.ButtonText(btnRect, "CloseButton".Translate()))
-                Close();
-        }
-
-        public static void ShowModList(SessionModInfo mods)
-        {
-            var activeMods = LoadedModManager.RunningModsListForReading.Join(m => "+ " + m.Name, "\n");
-            var serverMods = mods.remoteModNames.Join(name => (ModLister.AllInstalledMods.Any(m => m.Name == name) ? "+ " : "- ") + name, delimiter: "\n");
-
-            Find.WindowStack.Add(new TwoTextAreas_Window($"RimWorld {mods.remoteRwVersion}\nServer mod list:\n\n{serverMods}", $"RimWorld {VersionControl.CurrentVersionString}\nActive mod list:\n\n{activeMods}"));
-        }
-    }
-
-    public class ModsMismatchWindow : DisconnectedWindow
-    {
-        private SessionModInfo mods;
-        private bool modsMatch;
-        private bool modConfigsMatch;
-        private Action continueConnecting;
-        private bool shouldCloseConnection = true;
-
-        public ModsMismatchWindow(SessionModInfo mods, Action continueConnecting)
-            : base("MpWrongDefs".Translate(), "MpWrongDefsInfo".Translate())
-        {
-            this.mods = mods;
-            this.continueConnecting = continueConnecting;
-            returnToServerBrowser = true;
-            modsMatch = ModManagement.ModsMatch(mods.remoteModIds);
-            modConfigsMatch = ModManagement.CheckModConfigsMatch(mods.remoteModConfigs);
-            if (modsMatch) {
-                reason = "MpWrongModConfigs".Translate();
-                desc = "MpWrongModConfigsInfo".Translate();
-            }
-        }
-
-        public override Vector2 InitialSize {
-            get {
-                float buttonsWidth;
-                if (!modsMatch) {
-                    buttonsWidth = !modConfigsMatch ? 460f : 290f;
-                }
-                else {
-                    buttonsWidth = 460f;
-                }
-                return new Vector2(buttonsWidth + 20 + 18 * 2, 160f);
-            }
-        }
-
-        public override void DrawButtons(Rect inRect)
-        {
-            var btnWidth = 90f;
-            var gap = 10f;
-
-            Rect btnRect = new Rect(gap, inRect.height - ButtonHeight - 10f, btnWidth, ButtonHeight);
-
-            if (!modsMatch) {
-                if (Widgets.ButtonText(btnRect, "MpModList".Translate())) {
-                    ShowModList(mods);
-                }
-                btnRect.x += btnWidth + gap;
-
-                if (!modConfigsMatch) {
-                    btnRect.width = 160f;
-                    if (Widgets.ButtonText(btnRect, "MpSyncModsAndConfigs".Translate())) {
-                        SyncModsAndConfigs(true);
-                    }
-                    btnRect.x += btnRect.width + gap;
-                    btnRect.width = btnWidth;
-                }
-
-                if (Widgets.ButtonText(btnRect, "MpSyncMods".Translate())) {
-                    SyncModsAndConfigs(false);
-                }
-                btnRect.x += btnWidth + gap;
-            }
-            else {
-                if (Widgets.ButtonText(btnRect, "MpConnectButton".Translate())) {
-                    shouldCloseConnection = false;
-                    returnToServerBrowser = false;
-                    Close();
-                    continueConnecting();
-                }
-                btnRect.x += btnWidth + gap;
-
-                if (Widgets.ButtonText(btnRect, "Details".Translate())) {
-                    ShowConfigsList(mods);
-                }
-                btnRect.x += btnWidth + gap;
-
-                btnRect.width = 160f;
-                if (Widgets.ButtonText(btnRect, "MpSyncModConfigs".Translate())) {
-                    SyncModsAndConfigs(true);
-                }
-                btnRect.x += btnRect.width + gap;
-                btnRect.width = btnWidth;
-            }
-
-            if (Widgets.ButtonText(btnRect, "CloseButton".Translate())) {
-                Close();
-            }
-        }
-
-        private void SyncModsAndConfigs(bool syncConfigs) {
-            Log.Message("MP remote host's modIds: " + string.Join(", ", mods.remoteModIds));
-            Log.Message("MP remote host's workshopIds: " + string.Join(", ", mods.remoteWorkshopModIds));
-
-            LongEventHandler.QueueLongEvent(() => {
-                try {
-                    ModManagement.DownloadWorkshopMods(mods.remoteWorkshopModIds);
-                }
-                catch (InvalidOperationException e) {
-                    Log.Warning($"MP Workshop mod download error: {e.Message}");
-                    var missingMods = ModManagement.GetNotInstalledMods(mods.remoteModIds).ToList();
-                    if (missingMods.Any()) {
-                        Find.WindowStack.Add(new DebugTextWindow(
-                            $"Failed to connect to Workshop.\nThe following mods are missing, please install them:\n"
-                            + missingMods.Join(s => $"- {s}", "\n")
-                        ));
-                        return;
-                    }
-                }
-
-                try {
-                    ModManagement.RebuildModsList();
-                    ModsConfig.SetActiveToList(mods.remoteModIds.ToList());
-                    ModsConfig.Save();
-                    if (syncConfigs) {
-                        ModManagement.ApplyHostModConfigFiles(mods.remoteModConfigs);
-                    }
-                    ModManagement.PromptRestartAndReconnect(mods.remoteAddress, mods.remotePort);
-                }
-                catch (Exception e) {
-                    Log.Error($"MP mod sync error: {e.GetType()} {e.Message}");
-                    Find.WindowStack.Add(new DebugTextWindow($"Failed to sync mods: {e.GetType()} {e.Message}"));
-                }
-            }, "MpDownloadingWorkshopMods", true, null);
-        }
-
-        private static void ShowModList(SessionModInfo mods)
-        {
-            var activeMods = LoadedModManager.RunningModsListForReading.Join(m => "+ " + m.Name, "\n");
-            var serverMods = mods.remoteModNames.Join(name => (ModLister.AllInstalledMods.Any(m => m.Name == name) ? "+ " : "- ") + name, delimiter: "\n");
-
-            Find.WindowStack.Add(new TwoTextAreas_Window($"RimWorld {mods.remoteRwVersion}\nServer mod list:\n\n{serverMods}", $"RimWorld {VersionControl.CurrentVersionString}\nActive mod list:\n\n{activeMods}"));
-        }
-
-        private static void ShowConfigsList(SessionModInfo mods)
-        {
-            var mismatchedModConfigs = ModManagement.GetMismatchedModConfigs(mods.remoteModConfigs);
-
-            Find.WindowStack.Add(new DebugTextWindow($"Mismatched mod configs:\n\n{mismatchedModConfigs.Join(file => "+ " + file, "\n")}"));
-        }
-
-        public override void PostClose()
-        {
-            base.PostClose();
-            if (shouldCloseConnection) {
-                OnMainThread.StopMultiplayer();
-            }
         }
     }
 }

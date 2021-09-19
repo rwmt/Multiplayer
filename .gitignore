@@ -268,3 +268,5 @@ __pycache__/
 /Source/dnlib.dll
 /Multiplayer
 Multiplayer.zip
+
+!Source/Client/Debug/

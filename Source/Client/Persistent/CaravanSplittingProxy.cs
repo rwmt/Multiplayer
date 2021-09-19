@@ -1,4 +1,4 @@
-﻿using RimWorld.Planet;
+using RimWorld.Planet;
 using UnityEngine;
 using Verse;
 using Verse.Sound;
@@ -9,7 +9,7 @@ namespace Multiplayer.Client.Persistent
     /// <summary>
     /// Multiplayer replacement of the Dialog_SplitCaravan dialog.
     /// </summary>
-    public class CaravanSplittingProxy : Dialog_SplitCaravan
+    public class CaravanSplittingProxy : Dialog_SplitCaravan, ISwitchToMap
     {
         public static bool CreatingProxy;
 
@@ -25,6 +25,17 @@ namespace Multiplayer.Client.Persistent
         public CaravanSplittingProxy(Caravan caravan) : base(caravan)
         {
             this.caravan = caravan;
+        }
+
+        public override void PostOpen()
+        {
+            // Taken from Window.PostOpen, overriden to remove effects of Dialog_SplitCaravan.PostOpen
+
+            if (soundAppear != null)
+                soundAppear.PlayOneShotOnCamera(null);
+
+            if (soundAmbient != null)
+                sustainerAmbient = soundAmbient.TrySpawnSustainer(SoundInfo.OnCamera(MaintenanceType.PerFrame));
         }
 
         /// <summary>
@@ -94,7 +105,7 @@ namespace Multiplayer.Client.Persistent
         }
 
         /// <summary>
-        /// Replaces Dialog_SplitCaravan.DoBottomButtons. 
+        /// Replaces Dialog_SplitCaravan.DoBottomButtons.
         /// This is a copy of the original but with the handlers for the buttons pulled out into separate handlers.
         /// </summary>
         /// <param name="rect"></param>
@@ -132,24 +143,24 @@ namespace Multiplayer.Client.Persistent
             Rect rect4 = new Rect(x5, y3, x6, bottomButtonSize8.y);
             if (Widgets.ButtonText(rect4, "CancelButton".Translate(), true, false, true))
             {
-                CancelButtonClicked(); 
+                CancelButtonClicked();
             }
         }
 
         private void AcceptButtonClicked()
         {
-            CaravanSplittingSession.AcceptSplitSession();
+            session.AcceptSplitSession();
         }
 
         private void CancelButtonClicked()
         {
-            CaravanSplittingSession.CancelSplittingSession();
+            session.CancelSplittingSession();
         }
 
         private void ResetButtonClicked()
         {
             SoundDefOf.Tick_Low.PlayOneShotOnCamera();
-            CaravanSplittingSession.ResetSplittingSession();
+            session.ResetSplittingSession();
         }
     }
 }

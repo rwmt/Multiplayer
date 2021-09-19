@@ -1,0 +1,7 @@
+<assembly name="0Harmony">
+    <member name="T:HarmonyLib.HarmonyPatch">
+        <attribute ctor="M:JetBrains.Annotations.MeansImplicitUseAttribute.#ctor(JetBrains.Annotations.ImplicitUseTargetFlags)">
+          <argument>3</argument>
+        </attribute>
+    </member>
+</assembly>

@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
@@ -7,14 +7,21 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Xml;
+using Multiplayer.Client.Comp;
 using UnityEngine;
 using Verse;
 using Verse.AI;
 using Multiplayer.Client.Persistent;
+using Multiplayer.Client.Desyncs;
+using Multiplayer.Client.Patches;
+using Multiplayer.Client.Saving;
+using Multiplayer.Client.Util;
 
 namespace Multiplayer.Client
 {
+    [HotSwappable]
     public class MultiplayerWorldComp : IExposable, ITickable
     {
         public static bool tickingWorld;
@@ -25,21 +32,23 @@ namespace Multiplayer.Client
 
         public float TickRateMultiplier(TimeSpeed speed)
         {
-            switch (speed)
+            if (Multiplayer.GameComp.asyncTime)
             {
-                case TimeSpeed.Paused:
+                var enforcePause = Multiplayer.WorldComp.splitSession != null;
+
+                if (enforcePause)
                     return 0f;
-                case TimeSpeed.Normal:
-                    return 1f;
-                case TimeSpeed.Fast:
-                    return 3f;
-                case TimeSpeed.Superfast:
-                    return 6f;
-                case TimeSpeed.Ultrafast:
-                    return 15f;
-                default:
-                    return -1f;
             }
+
+            return speed switch
+            {
+                TimeSpeed.Paused => 0f,
+                TimeSpeed.Normal => 1f,
+                TimeSpeed.Fast => 3f,
+                TimeSpeed.Superfast => 6f,
+                TimeSpeed.Ultrafast => 15f,
+                _ => -1f
+            };
         }
 
         public TimeSpeed TimeSpeed
@@ -57,14 +66,16 @@ namespace Multiplayer.Client
          */
         public void UpdateTimeSpeed()
         {
-            if (!MultiplayerWorldComp.asyncTime) {
+            if (!Multiplayer.GameComp.asyncTime) {
                 Find.TickManager.CurTimeSpeed = desiredTimeSpeed;
                 return;
             }
 
-            var mapSpeeds = Find.Maps.Select(m => m.AsyncTime().TimeSpeed)
-                .Where(timeSpeed => timeSpeed != TimeSpeed.Paused)
+            var mapSpeeds = Find.Maps.Select(m => m.AsyncTime())
+                .Where(a => a.ActualRateMultiplier(a.TimeSpeed) != 0f)
+                .Select(a => a.TimeSpeed)
                 .ToList();
+
             if (mapSpeeds.NullOrEmpty()) {
                 // all maps are paused = pause the world
                 Find.TickManager.CurTimeSpeed = TimeSpeed.Paused;
@@ -74,22 +85,20 @@ namespace Multiplayer.Client
             }
         }
 
-        public Queue<ScheduledCommand> Cmds { get => cmds; }
+        public Queue<ScheduledCommand> Cmds => cmds;
 
-        public Dictionary<int, FactionWorldData> factionData = new Dictionary<int, FactionWorldData>();
+        public int TickableId => -1;
+
+        public Dictionary<int, FactionWorldData> factionData = new();
 
         public World world;
-        public IdBlock globalIdBlock;
         public ulong randState = 2;
-        public static bool asyncTime;
-        public bool debugMode;
-        public bool logDesyncTraces;
         public TileTemperaturesComp uiTemperatures;
 
-        public List<MpTradeSession> trading = new List<MpTradeSession>();
+        public List<MpTradeSession> trading = new();
         public CaravanSplittingSession splitSession;
 
-        public Queue<ScheduledCommand> cmds = new Queue<ScheduledCommand>();
+        public Queue<ScheduledCommand> cmds = new();
 
         public MultiplayerWorldComp(World world)
         {
@@ -99,18 +108,11 @@ namespace Multiplayer.Client
 
         public void ExposeData()
         {
-            Scribe_Values.Look(ref TickPatch.Timer, "timer");
-            bool asyncTimeInSave = asyncTime;
-            Scribe_Values.Look(ref asyncTimeInSave, "asyncTime", true, true); // default true to Enable async time on old saves
-            if (Scribe.mode == LoadSaveMode.LoadingVars) {
-                if (asyncTimeInSave) {
-                    // it was previously on, and cannot be turned off, so override the menu setting for this save
-                    asyncTime = asyncTimeInSave;
-                }
-            }
-            Scribe_Values.Look(ref debugMode, "debugMode");
-            Scribe_Values.Look(ref logDesyncTraces, "logDesyncTraces");
-            ScribeUtil.LookULong(ref randState, "randState", 2);
+            var timer = TickPatch.Timer;
+            Scribe_Values.Look(ref timer, "timer");
+            TickPatch.SetTimer(timer);
+
+            Scribe_Custom.LookULong(ref randState, "randState", 2);
 
             TimeSpeed timeSpeed = Find.TickManager.CurTimeSpeed;
             Scribe_Values.Look(ref timeSpeed, "timeSpeed");
@@ -125,8 +127,6 @@ namespace Multiplayer.Client
                 if (trading.RemoveAll(t => t.trader == null || t.playerNegotiator == null) > 0)
                     Log.Message("Some trading sessions had null entries");
             }
-
-            Multiplayer.ExposeIdBlock(ref globalIdBlock, "globalIdBlock");
         }
 
         private int currentFactionId;
@@ -136,7 +136,7 @@ namespace Multiplayer.Client
             if (Scribe.mode == LoadSaveMode.Saving)
             {
                 int currentFactionId = Faction.OfPlayer.loadID;
-                ScribeUtil.LookValue(currentFactionId, "currentFactionId");
+                Scribe_Custom.LookValue(currentFactionId, "currentFactionId");
 
                 var factionData = new Dictionary<int, FactionWorldData>(this.factionData);
                 factionData.Remove(currentFactionId);
@@ -149,8 +149,7 @@ namespace Multiplayer.Client
                 Scribe_Values.Look(ref currentFactionId, "currentFactionId");
 
                 Scribe_Collections.Look(ref factionData, "factionData", LookMode.Value, LookMode.Deep);
-                if (factionData == null)
-                    factionData = new Dictionary<int, FactionWorldData>();
+                factionData ??= new Dictionary<int, FactionWorldData>();
             }
 
             if (Scribe.mode == LoadSaveMode.LoadingVars && Multiplayer.session != null && Multiplayer.game != null)
@@ -158,8 +157,9 @@ namespace Multiplayer.Client
                 Multiplayer.game.myFactionLoading = Find.FactionManager.GetById(Multiplayer.session.myFactionId);
             }
 
-            if (Scribe.mode == LoadSaveMode.PostLoadInit)
+            if (Scribe.mode == LoadSaveMode.LoadingVars)
             {
+                // Game manager order?
                 factionData[currentFactionId] = FactionWorldData.FromCurrent(currentFactionId);
             }
         }
@@ -204,7 +204,7 @@ namespace Multiplayer.Client
 
         public void PreContext()
         {
-            UniqueIdsPatch.CurrentBlock = globalIdBlock;
+            UniqueIdsPatch.CurrentBlock = Multiplayer.GlobalIdBlock;
             Rand.PushState();
             Rand.StateCompressed = randState;
         }
@@ -237,22 +237,26 @@ namespace Multiplayer.Client
         {
             CommandType cmdType = cmd.type;
             LoggingByteReader data = new LoggingByteReader(cmd.data);
-            data.log.Node(cmdType + " World");
+            data.Log.Node($"{cmdType} Global");
 
             executingCmdWorld = true;
-            TickPatch.currentExecutingCmdIssuedBySelf = cmd.issuedBySelf && !TickPatch.Skipping;
+            TickPatch.currentExecutingCmdIssuedBySelf = cmd.issuedBySelf && !TickPatch.Simulating;
 
             PreContext();
-            FactionContext.Push(cmd.GetFaction());
+            Extensions.PushFaction(null, cmd.GetFaction());
 
-            bool devMode = Prefs.data.devMode;
-            Prefs.data.devMode = Multiplayer.WorldComp.debugMode;
+            bool prevDevMode = Prefs.data.devMode;
+            var prevGodMode = DebugSettings.godMode;
+            Multiplayer.GameComp.playerData.GetValueOrDefault(cmd.playerId)?.SetContext();
+
+            var randCalls1 = DeferredStackTracing.randCalls;
 
             try
             {
                 if (cmdType == CommandType.Sync)
                 {
-                    Sync.HandleCmd(data);
+                    var handler = SyncUtil.HandleCmd(data);
+                    data.Log.current.text = handler.ToString();
                 }
 
                 if (cmdType == CommandType.DebugTools)
@@ -266,7 +270,7 @@ namespace Multiplayer.Client
 
                     Multiplayer.WorldComp.TimeSpeed = speed;
 
-                    if (!asyncTime)
+                    if (!Multiplayer.GameComp.asyncTime)
                     {
                         foreach (var map in Find.Maps)
                             map.AsyncTime().TimeSpeed = speed;
@@ -275,7 +279,7 @@ namespace Multiplayer.Client
                             lastSpeedChange = Time.realtimeSinceStartup;
                     }
 
-                    MpLog.Log("Set world speed " + speed + " " + TickPatch.Timer + " " + Find.TickManager.TicksGame);
+                    MpLog.Log($"Set world speed {speed} {TickPatch.Timer} {Find.TickManager.TicksGame}");
                 }
 
                 if (cmdType == CommandType.SetupFaction)
@@ -286,10 +290,10 @@ namespace Multiplayer.Client
                 if (cmdType == CommandType.FactionOffline)
                 {
                     int factionId = data.ReadInt32();
-                    Multiplayer.WorldComp.factionData[factionId].online = false;
+                    //Multiplayer.WorldComp.factionData[factionId].online = false;
 
-                    if (Multiplayer.session.myFactionId == factionId)
-                        Multiplayer.RealPlayerFaction = Multiplayer.DummyFaction;
+                    //if (Multiplayer.session.myFactionId == factionId)
+                    //    Multiplayer.RealPlayerFaction = Multiplayer.DummyFaction;
                 }
 
                 if (cmdType == CommandType.FactionOnline)
@@ -301,9 +305,16 @@ namespace Multiplayer.Client
                         Multiplayer.RealPlayerFaction = Find.FactionManager.AllFactionsListForReading.Find(f => f.loadID == factionId);
                 }
 
-                if (cmdType == CommandType.Autosave)
+                if (cmdType == CommandType.CreateJoinPoint)
                 {
-                    LongEventHandler.QueueLongEvent(() => DoAutosave(data.ReadString()), "MpSaving", false, null);
+                    LongEventHandler.QueueLongEvent(CreateJoinPoint, "MpCreatingJoinPoint", false, null);
+                }
+
+                if (cmdType == CommandType.InitPlayerData)
+                {
+                    var playerId = data.ReadInt32();
+                    var canUseDevMode = data.ReadBool();
+                    Multiplayer.GameComp.playerData[playerId] = new PlayerData { canUseDevMode = canUseDevMode };
                 }
             }
             catch (Exception e)
@@ -312,78 +323,30 @@ namespace Multiplayer.Client
             }
             finally
             {
-                Prefs.data.devMode = devMode;
+                DebugSettings.godMode = prevGodMode;
+                Prefs.data.devMode = prevDevMode;
 
-                FactionContext.Pop();
+                Log.Message($"rand calls {DeferredStackTracing.randCalls - randCalls1}");
+                Log.Message("rand state " + Rand.StateCompressed);
+
+                Extensions.PopFaction();
                 PostContext();
                 TickPatch.currentExecutingCmdIssuedBySelf = false;
                 executingCmdWorld = false;
 
                 Multiplayer.game.sync.TryAddCommandRandomState(randState);
 
-                Multiplayer.ReaderLog.nodes.Add(data.log.current);
+                if (cmdType != CommandType.WorldTimeSpeed)
+                    Multiplayer.ReaderLog.AddCurrentNode(data);
             }
         }
 
-        private static void DoAutosave(string saveName="")
+        private static void CreateJoinPoint()
         {
-            var autosaveFile = saveName != "" ? saveName : AutosaveFile();
-            var written = false;
+            Multiplayer.session.dataSnapshot = SaveLoad.CreateGameDataSnapshot(SaveLoad.SaveAndReload());
 
-            if (Multiplayer.LocalServer != null && !TickPatch.Skipping && !Multiplayer.IsReplay)
-            {
-                try
-                {
-                    var replay = Replay.ForSaving(autosaveFile);
-                    replay.File.Delete();
-                    replay.WriteCurrentData();
-                    written = true;
-                }
-                catch (Exception e)
-                {
-                    Log.Error($"Writing first section of the autosave failed: {e}");
-                }
-            }
-
-            XmlDocument doc = SaveLoad.SaveAndReload();
-
-            if (!Multiplayer.session.resyncing)
-            {
-                SaveLoad.CacheGameData(doc);
-
-                if (written)
-                {
-                    try
-                    {
-                        var replay = Replay.ForSaving(autosaveFile);
-                        replay.LoadInfo();
-                        replay.WriteCurrentData();
-                    }
-                    catch (Exception e)
-                    {
-                        Log.Error($"Writing second section of the autosave failed: {e}");
-                    }
-                }
-            }
-
-            if (!TickPatch.Skipping && !Multiplayer.IsReplay && (Multiplayer.LocalServer != null || MultiplayerMod.arbiterInstance))
-                SaveLoad.SendCurrentGameData(true);
-        }
-
-        private static string AutosaveFile()
-        {
-            var autosavePrefix = "Autosave-";
-
-            if (MultiplayerMod.settings.appendNameToAutosave)
-            {
-                autosavePrefix += $"{Multiplayer.session.gameName}-";
-            }
-
-            return Enumerable
-                .Range(1, MultiplayerMod.settings.autosaveSlots)
-                .Select(i => $"{autosavePrefix}{i}")
-                .OrderBy(s => new FileInfo(Path.Combine(Multiplayer.ReplaysDir, $"{s}.zip")).LastWriteTime)
-                .First();
+            if (!TickPatch.Simulating && !Multiplayer.IsReplay && (Multiplayer.LocalServer != null || Multiplayer.arbiterInstance))
+                SaveLoad.SendGameData(Multiplayer.session.dataSnapshot, true);
         }
 
         private void HandleSetupFaction(ScheduledCommand command, ByteReader data)
@@ -396,7 +359,7 @@ namespace Multiplayer.Client
                 faction = new Faction
                 {
                     loadID = factionId,
-                    def = Multiplayer.FactionDef,
+                    def = FactionDefOf.PlayerColony,
                     Name = "Multiplayer faction",
                     centralMelanin = Rand.Value
                 };
@@ -418,23 +381,33 @@ namespace Multiplayer.Client
         public void DirtyColonyTradeForMap(Map map)
         {
             if (map == null) return;
-            foreach (MpTradeSession session in trading.Where(s => s.playerNegotiator.Map == map))
-                session.deal.recacheColony = true;
+            foreach (MpTradeSession session in trading)
+                if (session.playerNegotiator.Map == map)
+                    session.deal.recacheColony = true;
         }
 
         public void DirtyTraderTradeForTrader(ITrader trader)
         {
             if (trader == null) return;
-            foreach (MpTradeSession session in trading.Where(s => s.trader == trader))
-                session.deal.recacheTrader = true;
+            foreach (MpTradeSession session in trading)
+                if (session.trader == trader)
+                    session.deal.recacheTrader = true;
         }
 
         public void DirtyTradeForSpawnedThing(Thing t)
         {
-            if (t == null || !t.Spawned) return;
+            if (t is not { Spawned: true }) return;
+            foreach (MpTradeSession session in trading)
+                if (session.playerNegotiator.Map == t.Map)
+                    session.deal.recacheThings.Add(t);
+        }
 
-            foreach (MpTradeSession session in trading.Where(s => s.playerNegotiator.Map == t.Map))
-                session.deal.recacheThings.Add(t);
+        public bool AnyTradeSessionsOnMap(Map map)
+        {
+            foreach (MpTradeSession session in trading)
+                if (session.playerNegotiator.Map == map)
+                    return true;
+            return false;
         }
 
         public void FinalizeInit()
@@ -496,7 +469,7 @@ namespace Multiplayer.Client
             };
         }
 
-        public static FactionWorldData FromCurrent(int factionId = int.MinValue)
+        public static FactionWorldData FromCurrent(int factionId)
         {
             return new FactionWorldData()
             {

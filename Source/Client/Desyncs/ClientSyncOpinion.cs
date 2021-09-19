@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using HarmonyLib;
+using JetBrains.Annotations;
 using Multiplayer.Common;
 using Verse;
 
@@ -13,12 +14,12 @@ namespace Multiplayer.Client
         public bool isLocalClientsOpinion;
 
         public int startTick;
-        public List<uint> commandRandomStates = new List<uint>();
-        public List<uint> worldRandomStates = new List<uint>();
-        public List<MapRandomStateData> mapStates = new List<MapRandomStateData>();
+        public List<uint> commandRandomStates = new();
+        public List<uint> worldRandomStates = new();
+        public List<MapRandomStateData> mapStates = new();
 
-        public List<StackTraceLogItem> desyncStackTraces = new List<StackTraceLogItem>();
-        public List<int> desyncStackTraceHashes = new List<int>();
+        public List<StackTraceLogItem> desyncStackTraces = new();
+        public List<int> desyncStackTraceHashes = new();
         public bool simulating;
 
         public ClientSyncOpinion(int startTick)
@@ -109,23 +110,29 @@ namespace Multiplayer.Client
 
         public void TryMarkSimulating()
         {
-            if (TickPatch.Skipping)
+            if (TickPatch.Simulating)
                 simulating = true;
         }
 
         public string GetFormattedStackTracesForRange(int diffAt)
         {
-
-            var start = Math.Max(0, diffAt - MultiplayerMod.settings.desyncTracesRadius);
-            var end = diffAt + MultiplayerMod.settings.desyncTracesRadius;
+            var start = Math.Max(0, diffAt - Multiplayer.settings.desyncTracesRadius);
+            var end = diffAt + Multiplayer.settings.desyncTracesRadius;
             var traceId = start;
 
             return
-                $"Trace of first desynced map random state:\n{diffAt} {desyncStackTraces[diffAt].ToString()}\n\n\nContext Traces:\n" +
+                $"Trace of first desynced map random state:\n{diffAt} {desyncStackTraces.ElementAtOrDefault(diffAt)}" +
+                "\n\nContext Traces:\n" +
                 desyncStackTraces
                 .Skip(start)
                 .Take(end - start)
-                .Join(a => traceId++ + " " + a.ToString(), delimiter: "\n\n");
+                .Join(a => traceId++ + " " + a, "\n\n");
+        }
+
+        public void Clear()
+        {
+            for (int i = 0; i < desyncStackTraces.Count; i++)
+                desyncStackTraces[i].ReturnToPool();
         }
     }
 }

@@ -1,4 +1,4 @@
-﻿using Multiplayer.Common;
+using Multiplayer.Common;
 using RimWorld;
 using System;
 using System.Collections.Generic;
@@ -14,81 +14,107 @@ using Verse.Profile;
 using Verse.Sound;
 using Verse.Steam;
 using Multiplayer.Client;
+using Multiplayer.Client.Util;
 
 namespace Multiplayer.Client
 {
+    [HotSwappable]
     public class HostWindow : Window
     {
-        public override Vector2 InitialSize => new Vector2(450f, height + 45f);
+        public override Vector2 InitialSize => new(450f, height + 45f);
 
         private SaveFile file;
         public bool returnToServerBrowser;
         private bool withSimulation;
-        private bool debugMode;
-        private bool logDesyncTraces;
+        private bool asyncTime;
         private bool asyncTimeLocked;
 
         private float height;
 
-        private ServerSettings settings;
+        private ServerSettings serverSettings;
 
         public HostWindow(SaveFile file = null, bool withSimulation = false)
         {
             closeOnAccept = false;
             doCloseX = true;
 
-            settings = MultiplayerMod.settings.serverSettings;
+            serverSettings = Multiplayer.settings.serverSettings;
 
             this.withSimulation = withSimulation;
             this.file = file;
-            settings.gameName = file?.gameName ?? Multiplayer.session?.gameName ?? $"{Multiplayer.username}'s game";
+            serverSettings.gameName = file?.gameName ?? Multiplayer.session?.gameName ?? $"{Multiplayer.username}'s game";
 
-            MultiplayerWorldComp.asyncTime = file?.asyncTime ?? false;
-            if (file?.asyncTime ?? false) {
-                asyncTimeLocked = true; // once enabled in a save, cannot be disabled
-            }
+            asyncTime = file?.asyncTime ?? Multiplayer.game?.gameComp.asyncTime ?? false;
+
+            if (asyncTime)
+                asyncTimeLocked = true; // Once enabled in a save, cannot be disabled
 
             var localAddr = MpUtil.GetLocalIpAddress() ?? "127.0.0.1";
-            settings.lanAddress = localAddr;
+            serverSettings.lanAddress = localAddr;
 
-            if (MpVersion.IsDebug) {
-                debugMode = true;
-                logDesyncTraces = true;
+            if (MpVersion.IsDebug)
+            {
+                serverSettings.debugMode = true;
+                serverSettings.desyncTraces = true;
             }
         }
 
         private string maxPlayersBuffer, autosaveBuffer;
 
+        private const int MaxGameNameLength = 70;
+        private const float LabelWidth = 110f;
+
         public override void DoWindowContents(Rect inRect)
         {
             Text.Font = GameFont.Medium;
             Text.Anchor = TextAnchor.UpperCenter;
-            string title;
+            string title = file == null ? "MpHostIngame".Translate() : "MpHostSavefile".Translate();
 
-            if (file == null)
-                title = "MpHostIngame".Translate();
-            else if (file.replay)
-                title = "MpHostReplay".Translate();
-            else
-                title = "MpHostSavefile".Translate();
-
+            // Title
             Widgets.Label(inRect.Down(0), title);
             Text.Anchor = TextAnchor.UpperLeft;
             Text.Font = GameFont.Small;
 
             var entry = new Rect(0, 45, inRect.width, 30f);
 
-            var labelWidth = 110f;
+            // Game name
+            serverSettings.gameName = MpUI.TextEntryLabeled(entry, $"{"MpGameName".Translate()}:  ", serverSettings.gameName, LabelWidth);
+            if (serverSettings.gameName.Length > MaxGameNameLength)
+                serverSettings.gameName = serverSettings.gameName.Substring(0, MaxGameNameLength);
 
-            settings.gameName = TextEntryLabeled(entry, $"{"MpGameName".Translate()}:  ", settings.gameName, labelWidth);
             entry = entry.Down(40);
 
-            TextFieldNumericLabeled(entry.Width(labelWidth + 30f), $"{"MpMaxPlayers".Translate()}:  ", ref settings.maxPlayers, ref maxPlayersBuffer, labelWidth, 0, 999);
+            // Max players
+            MpUI.TextFieldNumericLabeled(entry.Width(LabelWidth + 30f), $"{"MpMaxPlayers".Translate()}:  ", ref serverSettings.maxPlayers, ref maxPlayersBuffer, LabelWidth, 0, 999);
 
-            TextFieldNumericLabeled(entry.Right(150f).Width(labelWidth + 85f), $"{"MpAutosaveEvery".Translate()} ", ref settings.autosaveInterval, ref autosaveBuffer, labelWidth + 45f, 0, 999);
-            Text.Anchor = TextAnchor.MiddleLeft;
-            Widgets.Label(entry.Right(200f).Right(labelWidth + 35f), $" {"MpAutosaveDays".Translate()}");
-            Text.Anchor = TextAnchor.UpperLeft;
+            // Autosave interval
+            var autosaveRect = entry.MinX(entry.x + LabelWidth + 30f + 10f);
+            var autosaveKey = serverSettings.autosaveUnit == AutosaveUnit.Days
+                ? "MpAutosaveIntervalDays"
+                : "MpAutosaveIntervalMinutes";
+
+            var changeAutosaveUnit = MpUI.TextFieldNumericLabeled(
+                autosaveRect,
+                $"{autosaveKey.Translate()}: ",
+                ref serverSettings.autosaveInterval,
+                ref autosaveBuffer,
+                200f,
+                0,
+                999,
+                true,
+                MpUtil.TranslateWithDoubleNewLines("MpAutosaveIntervalDesc", 3)
+            );
+
+            if (changeAutosaveUnit)
+            {
+                serverSettings.autosaveUnit = serverSettings.autosaveUnit.Cycle();
+                serverSettings.autosaveInterval *=
+                    serverSettings.autosaveUnit == AutosaveUnit.Minutes ?
+                    8f : // Days to minutes
+                    0.125f; // Minutes to days
+                autosaveBuffer = serverSettings.autosaveInterval.ToString();
+            }
+
             entry = entry.Down(40);
 
             /*const char passChar = '\u2022';
@@ -98,58 +124,81 @@ namespace Multiplayer.Client
                 password = TextEntryLabeled(entry.Width(200), "Password:  ", password, labelWidth);
             entry = entry.Down(40);*/
 
-            var checkboxWidth = labelWidth + 30f;
+            var checkboxWidth = LabelWidth + 30f;
 
-            var pauseOnAutosaveLabel = $"{"MpPauseOnAutosave".Translate()}:  ";
-            var pauseOnAutosaveLabelWidth = Text.CalcSize(pauseOnAutosaveLabel).x;
-            var pauseOnAutosaveCheckboxWidth = pauseOnAutosaveLabelWidth + 30f;
-            CheckboxLabeled(entry.Width(pauseOnAutosaveCheckboxWidth), pauseOnAutosaveLabel, ref settings.pauseOnAutosave, placeTextNearCheckbox: true);
-
-            entry = entry.Down(30);
-
+            // Direct hosting
             var directLabel = $"{"MpDirect".Translate()}:  ";
             var directLabelWidth = Text.CalcSize(directLabel).x;
-            CheckboxLabeled(entry.Width(checkboxWidth), directLabel, ref settings.direct, placeTextNearCheckbox: true);
-            if (settings.direct)
-                settings.directAddress = Widgets.TextField(entry.Width(checkboxWidth + 10).Right(checkboxWidth + 10), settings.directAddress);
+            MpUI.CheckboxLabeled(entry.Width(checkboxWidth), directLabel, ref serverSettings.direct, placeTextNearCheckbox: true);
+            if (serverSettings.direct)
+                serverSettings.directAddress = Widgets.TextField(entry.Width(checkboxWidth + 10).Right(checkboxWidth + 10), serverSettings.directAddress);
 
             entry = entry.Down(30);
 
+            // LAN hosting
             var lanRect = entry.Width(checkboxWidth);
-            CheckboxLabeled(lanRect, $"{"MpLan".Translate()}:  ", ref settings.lan, placeTextNearCheckbox: true);
-            TooltipHandler.TipRegion(lanRect, $"{"MpLanDesc1".Translate()}\n\n{"MpLanDesc2".Translate(settings.lanAddress)}");
+            MpUI.CheckboxLabeled(lanRect, $"{"MpLan".Translate()}:  ", ref serverSettings.lan, placeTextNearCheckbox: true);
+            TooltipHandler.TipRegion(lanRect, $"{"MpLanDesc1".Translate()}\n\n{"MpLanDesc2".Translate(serverSettings.lanAddress)}");
 
             entry = entry.Down(30);
 
+            // Steam hosting
             if (SteamManager.Initialized)
             {
-                CheckboxLabeled(entry.Width(checkboxWidth), $"{"MpSteam".Translate()}:  ", ref settings.steam, placeTextNearCheckbox: true);
+                MpUI.CheckboxLabeled(entry.Width(checkboxWidth), $"{"MpSteam".Translate()}:  ", ref serverSettings.steam, placeTextNearCheckbox: true);
                 entry = entry.Down(30);
             }
 
-            // AsyncTime
+            // Async time
             {
                 TooltipHandler.TipRegion(entry.Width(checkboxWidth), $"{"MpAsyncTimeDesc".Translate()}\n\n{"MpExperimentalFeature".Translate()}");
-                CheckboxLabeled(entry.Width(checkboxWidth), $"{"MpAsyncTime".Translate()}:  ", ref MultiplayerWorldComp.asyncTime, placeTextNearCheckbox: true, disabled: asyncTimeLocked);
+                MpUI.CheckboxLabeled(entry.Width(checkboxWidth), $"{"MpAsyncTime".Translate()}:  ", ref asyncTime, placeTextNearCheckbox: true, disabled: asyncTimeLocked);
                 entry = entry.Down(30);
             }
 
-            TooltipHandler.TipRegion(entry.Width(checkboxWidth), $"{"MpLogDesyncTracesDesc".Translate()}\n\n{"MpExperimentalFeature".Translate()}");
-            CheckboxLabeled(entry.Width(checkboxWidth), $"{"MpLogDesyncTraces".Translate()}:  ", ref logDesyncTraces, placeTextNearCheckbox: true);
+            // Log desync traces
+            MpUI.CheckboxLabeledWithTipNoHighlight(
+                entry.Width(checkboxWidth),
+                $"{"MpLogDesyncTraces".Translate()}:  ",
+                MpUtil.TranslateWithDoubleNewLines("MpLogDesyncTracesDesc", 2),
+                ref serverSettings.desyncTraces,
+                placeTextNearCheckbox: true
+            );
             entry = entry.Down(30);
 
             // Arbiter
             if (MpVersion.IsDebug) {
                 TooltipHandler.TipRegion(entry.Width(checkboxWidth), "MpArbiterDesc".Translate());
-                CheckboxLabeled(entry.Width(checkboxWidth), $"{"MpRunArbiter".Translate()}:  ", ref settings.arbiter, placeTextNearCheckbox: true);
+                MpUI.CheckboxLabeled(entry.Width(checkboxWidth), $"{"MpRunArbiter".Translate()}:  ", ref serverSettings.arbiter, placeTextNearCheckbox: true);
                 entry = entry.Down(30);
             }
 
-            if (Prefs.DevMode)
+            // Dev mode
+            MpUI.CheckboxLabeledWithTipNoHighlight(
+                entry.Width(checkboxWidth),
+                $"{"MpHostingDevMode".Translate()}:  ",
+                MpUtil.TranslateWithDoubleNewLines("MpHostingDevModeDesc", 2),
+                ref serverSettings.debugMode,
+                placeTextNearCheckbox: true
+            );
+
+            // Dev mode scope
+            if (serverSettings.debugMode
+                && CustomButton(entry.Right(checkboxWidth + 10f), $"MpHostingDevMode{serverSettings.devModeScope}".Translate()))
             {
-                CheckboxLabeled(entry.Width(checkboxWidth), "Debug mode:  ", ref debugMode, placeTextNearCheckbox: true);
-                entry = entry.Down(30);
+                serverSettings.devModeScope = serverSettings.devModeScope.Cycle();
             }
+
+            entry = entry.Down(30);
+
+            // Sync configs
+            TooltipHandler.TipRegion(entry.Width(checkboxWidth), MpUtil.TranslateWithDoubleNewLines("MpSyncConfigsDesc", 3));
+            MpUI.CheckboxLabeled(entry.Width(checkboxWidth), $"{"MpSyncConfigs".Translate()}:  ", ref serverSettings.syncConfigs, placeTextNearCheckbox: true);
+            entry = entry.Down(30);
+
+            // Auto join-points
+            DrawJoinPointOptions(entry);
+            entry = entry.Down(30);
 
             if (Event.current.type == EventType.Layout && height != entry.yMax)
             {
@@ -159,38 +208,89 @@ namespace Multiplayer.Client
 
             var buttonRect = new Rect((inRect.width - 100f) / 2f, inRect.height - 35f, 100f, 35f);
 
+            // Host button
             if (Widgets.ButtonText(buttonRect, "MpHostButton".Translate()))
             {
-                LoadedModManager.GetMod<MultiplayerMod>().WriteSettings();
                 TryHost();
             }
         }
 
+        private static Color CustomButtonColor = new(0.15f, 0.15f, 0.15f);
+
+        private void DrawJoinPointOptions(Rect entry)
+        {
+            using (MpStyle.Set(TextAnchor.MiddleRight))
+                MpUI.LabelWithTip(
+                    entry.Width(LabelWidth + 1),
+                    $"{"MpAutoJoinPoints".Translate()}:  ",
+                    MpUtil.TranslateWithDoubleNewLines("MpAutoJoinPointsDesc", 3)
+                );
+
+            var flags = Enum.GetValues(typeof(AutoJoinPointFlags))
+                .OfType<AutoJoinPointFlags>()
+                .Where(f => serverSettings.autoJoinPoint.HasFlag(f))
+                .Select(f => $"MpAutoJoinPoints{f}".Translate())
+                .Join(", ");
+            if (flags.Length == 0) flags = "Off";
+
+            if (CustomButton(entry.Right(LabelWidth + 10), flags))
+                Find.WindowStack.Add(new FloatMenu(Flags().ToList()));
+
+            IEnumerable<FloatMenuOption> Flags()
+            {
+                foreach (var flag in Enum.GetValues(typeof(AutoJoinPointFlags)).OfType<AutoJoinPointFlags>())
+                    yield return new FloatMenuOption($"MpAutoJoinPoints{flag}".Translate(), () =>
+                    {
+                        if (serverSettings.autoJoinPoint.HasFlag(flag))
+                            serverSettings.autoJoinPoint &= ~flag;
+                        else
+                            serverSettings.autoJoinPoint |= flag;
+                    });
+            }
+        }
+
+        private static bool CustomButton(Rect rect, string label)
+        {
+            using var _ = MpStyle.Set(TextAnchor.MiddleLeft);
+            var flagsWidth = Text.CalcSize(label).x;
+
+            const float btnMargin = 5f;
+
+            var flagsBtn = rect.Width(flagsWidth + btnMargin * 2);
+            Widgets.DrawRectFast(flagsBtn.Height(24).Down(3), CustomButtonColor);
+            Widgets.DrawHighlightIfMouseover(flagsBtn.Height(24).Down(3));
+            MpUI.Label(rect.Right(btnMargin).Width(flagsWidth), label);
+
+            return Widgets.ButtonInvisible(flagsBtn);
+        }
+
         private void TryHost()
         {
-            if (settings.direct && !TryParseIp(settings.directAddress, out settings.bindAddress, out settings.bindPort))
+            var settingsCopy = MpUtil.ShallowCopy(serverSettings, new ServerSettings());
+
+            if (settingsCopy.direct && !TryParseIp(settingsCopy.directAddress, out settingsCopy.bindAddress, out settingsCopy.bindPort))
                 return;
 
-            if (settings.gameName.NullOrEmpty())
+            if (settingsCopy.gameName.NullOrEmpty())
             {
                 Messages.Message("MpInvalidGameName".Translate(), MessageTypeDefOf.RejectInput, false);
                 return;
             }
 
-            if (!settings.direct)
-                settings.bindAddress = null;
+            if (!settingsCopy.direct)
+                settingsCopy.bindAddress = null;
 
-            if (!settings.lan)
-                settings.lanAddress = null;
+            if (!settingsCopy.lan)
+                settingsCopy.lanAddress = null;
 
             if (file?.replay ?? Multiplayer.IsReplay)
-                HostFromReplay(settings);
+                HostFromMultiplayerSave(settingsCopy);
             else if (file == null)
-                ClientUtil.HostServer(settings, false, debugMode: debugMode, logDesyncTraces: logDesyncTraces);
+                HostUtil.HostServer(settingsCopy, false, false, asyncTime);
             else
-                HostFromSave(settings);
+                HostFromSingleplayer(settingsCopy);
 
-            Close(true);
+            Close();
         }
 
         private bool TryParseIp(string ip, out string addr, out int port)
@@ -217,84 +317,37 @@ namespace Multiplayer.Client
             return true;
         }
 
-        public static void CheckboxLabeled(Rect rect, string label, ref bool checkOn, bool disabled = false, Texture2D texChecked = null, Texture2D texUnchecked = null, bool placeTextNearCheckbox = false)
-        {
-            TextAnchor anchor = Text.Anchor;
-            Text.Anchor = TextAnchor.MiddleLeft;
-
-            if (placeTextNearCheckbox)
-            {
-                float textWidth = Text.CalcSize(label).x;
-                rect.x = rect.xMax - textWidth - 24f - 5f;
-                rect.width = textWidth + 24f + 5f;
-            }
-
-            Widgets.Label(rect, label);
-
-            if (!disabled && Widgets.ButtonInvisible(rect, false))
-            {
-                checkOn = !checkOn;
-                if (checkOn)
-                    SoundDefOf.Checkbox_TurnedOn.PlayOneShotOnCamera(null);
-                else
-                    SoundDefOf.Checkbox_TurnedOff.PlayOneShotOnCamera(null);
-            }
-
-            Widgets.CheckboxDraw(rect.x + rect.width - 24f, rect.y, checkOn, disabled, 24f, null, null);
-            Text.Anchor = anchor;
-        }
-
-        public static string TextEntryLabeled(Rect rect, string label, string text, float labelWidth)
-        {
-            Rect labelRect = rect.Rounded();
-            labelRect.width = labelWidth;
-            Rect fieldRect = rect;
-            fieldRect.xMin += labelWidth;
-            TextAnchor anchor = Text.Anchor;
-            Text.Anchor = TextAnchor.MiddleRight;
-            Widgets.Label(labelRect, label);
-            Text.Anchor = anchor;
-            return Widgets.TextField(fieldRect, text);
-        }
-
-        public static void TextFieldNumericLabeled<T>(Rect rect, string label, ref T val, ref string buffer, float labelWidth, float min = 0, float max = float.MaxValue) where T : struct
-        {
-            Rect labelRect = rect;
-            labelRect.width = labelWidth;
-            Rect fieldRect = rect;
-            fieldRect.xMin += labelWidth;
-            TextAnchor anchor = Text.Anchor;
-            Text.Anchor = TextAnchor.MiddleRight;
-            Widgets.Label(labelRect, label);
-            Text.Anchor = anchor;
-            Widgets.TextFieldNumeric<T>(fieldRect, ref val, ref buffer, min, max);
-        }
-
         public override void PostClose()
         {
+            Multiplayer.WriteSettingsToDisk();
+
             if (returnToServerBrowser)
                 Find.WindowStack.Add(new ServerBrowser());
         }
 
-        private void HostFromSave(ServerSettings settings)
+        private void HostFromSingleplayer(ServerSettings settings)
         {
             LongEventHandler.QueueLongEvent(() =>
             {
                 MemoryUtility.ClearAllMapsAndWorld();
-                Current.Game = new Game();
-                Current.Game.InitData = new GameInitData();
-                Current.Game.InitData.gameToLoad = file.displayName;
+                Current.Game = new Game
+                {
+                    InitData = new GameInitData
+                    {
+                        gameToLoad = file.displayName
+                    }
+                };
 
                 LongEventHandler.ExecuteWhenFinished(() =>
                 {
-                    LongEventHandler.QueueLongEvent(() => ClientUtil.HostServer(settings, false, debugMode: debugMode, logDesyncTraces: logDesyncTraces), "MpLoading", false, null);
+                    LongEventHandler.QueueLongEvent(() => HostUtil.HostServer(settings, false, false, asyncTime), "MpLoading", false, null);
                 });
             }, "Play", "LoadingLongEvent", true, null);
         }
 
-        private void HostFromReplay(ServerSettings settings)
+        private void HostFromMultiplayerSave(ServerSettings settings)
         {
-            void ReplayLoaded() => ClientUtil.HostServer(settings, true, withSimulation, debugMode: debugMode, logDesyncTraces: logDesyncTraces);
+            void ReplayLoaded() => HostUtil.HostServer(settings, true, withSimulation, asyncTime);
 
             if (file != null)
             {

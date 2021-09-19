@@ -1,11 +1,11 @@
 using System;
 using System.Reflection;
-
 using Multiplayer.API;
 using Multiplayer.Client;
 
 namespace Multiplayer.Common
 {
+    // Note: the API expects this type to be Multiplayer.Common.MultiplayerAPIBridge
     public class MultiplayerAPIBridge : IAPI
     {
         public static readonly IAPI Instance = new MultiplayerAPIBridge();
@@ -18,7 +18,7 @@ namespace Multiplayer.Common
 
         public void WatchBegin()
         {
-            Sync.FieldWatchPrefix();
+            SyncFieldUtil.FieldWatchPrefix();
         }
 
         public void Watch(Type targetType, string fieldName, object target = null, object index = null)
@@ -56,7 +56,7 @@ namespace Multiplayer.Common
 
         public void WatchEnd()
         {
-            Sync.FieldWatchPostfix();
+            SyncFieldUtil.FieldWatchPostfix();
         }
 
         public void RegisterAll(Assembly assembly)

@@ -1,18 +1,22 @@
-﻿using LiteNetLib;
+using LiteNetLib;
+using Multiplayer.Client.Networking;
 using Multiplayer.Common;
 using RimWorld;
-using RimWorld.BaseGen;
 using Steamworks;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Text;
 using System.Threading;
+using HarmonyLib;
+using Multiplayer.Client.Util;
 using UnityEngine;
 using Verse;
+using Verse.Profile;
 using Verse.Sound;
+using Random = System.Random;
 
 namespace Multiplayer.Client
 {
@@ -25,35 +29,32 @@ namespace Multiplayer.Client
         public int remoteTickUntil;
         public int remoteCmdId;
 
-        public IConnection client;
+        public ConnectionBase client;
         public NetManager netClient;
-        public PacketLogWindow writerLog = new PacketLogWindow();
-        public PacketLogWindow readerLog = new PacketLogWindow();
+        public PacketLogWindow writerLog = new();
+        public PacketLogWindow readerLog = new();
         public int myFactionId;
-        public List<PlayerInfo> players = new List<PlayerInfo>();
+        public List<PlayerInfo> players = new();
+        public GameDataSnapshot dataSnapshot = new();
+        public CursorAndPing cursorAndPing = new();
+        public int autosaveCounter;
+        public float lastSaveAt;
+        public string desyncTracesFromHost;
 
         public bool replay;
         public int replayTimerStart = -1;
         public int replayTimerEnd = -1;
-        public List<ReplayEvent> events = new List<ReplayEvent>();
+        public List<ReplayEvent> events = new();
 
         public bool desynced;
-        public bool resyncing;
 
-        public MpDisconnectReason disconnectReason;
-        public string disconnectReasonKey;
-        public string disconnectInfo;
+        public SessionDisconnectInfo disconnectInfo;
 
-        public SessionModInfo mods = new SessionModInfo();
-
-        public bool allowSteam;
-        public List<CSteamID> pendingSteam = new List<CSteamID>();
-        public List<CSteamID> knownUsers = new List<CSteamID>();
-        public Thread steamNet;
+        public List<CSteamID> pendingSteam = new();
+        public List<CSteamID> knownUsers = new();
 
         public const int MaxMessages = 200;
-        public List<ChatMsg> messages = new List<ChatMsg>();
-        public Rect chatPos;
+        public List<ChatMsg> messages = new();
         public bool hasUnread;
 
         public MultiplayerServer localServer;
@@ -63,11 +64,15 @@ namespace Multiplayer.Client
         public Process arbiter;
         public bool ArbiterPlaying => players.Any(p => p.type == PlayerType.Arbiter && p.status == PlayerStatus.Playing);
 
+        public string address;
+        public int port;
+        public CSteamID? steamHost;
+
         public void Stop()
         {
             if (client != null)
             {
-                client.Close();
+                client.Close(MpDisconnectReason.Internal);
                 client.State = ConnectionStateEnum.Disconnected;
             }
 
@@ -77,21 +82,21 @@ namespace Multiplayer.Client
                 serverThread.Join();
             }
 
-            if (netClient != null)
-                netClient.Stop();
+            netClient?.Stop();
 
             if (arbiter != null)
             {
                 arbiter.TryKill();
                 arbiter = null;
             }
-
-            Log.Message("Multiplayer session stopped.");
         }
 
         public PlayerInfo GetPlayerInfo(int id)
         {
-            return players.Find(p => p.id == id);
+            for (int i = 0; i < players.Count; i++)
+                if (players[i].id == id)
+                    return players[i];
+            return null;
         }
 
         public void AddMsg(string msg, bool notify = true)
@@ -120,46 +125,73 @@ namespace Multiplayer.Client
             SoundDefOf.PageChange.PlayOneShotOnCamera(null);
         }
 
-        public void HandleDisconnectReason(MpDisconnectReason reason, byte[] data)
+        public void ProcessDisconnectPacket(MpDisconnectReason reason, byte[] data)
         {
             var reader = new ByteReader(data);
-            string reasonKey = null;
+            string titleKey = null;
             string descKey = null;
 
-            if (reason == MpDisconnectReason.Generic) reasonKey = reader.ReadString();
+            if (reason == MpDisconnectReason.GenericKeyed) titleKey = reader.ReadString();
 
             if (reason == MpDisconnectReason.Protocol)
             {
-                reasonKey = "MpWrongProtocol";
+                titleKey = "MpWrongProtocol";
 
-                string strVersion = data.Length != 0 ? reader.ReadString() : "0.4.2";
-                int proto = data.Length != 0 ? reader.ReadInt32() : 11;
+                string strVersion = reader.ReadString();
+                int proto = reader.ReadInt32();
 
-                disconnectInfo = "MpWrongMultiplayerVersionInfo".Translate(strVersion, proto);
+                disconnectInfo.titleTranslated = "MpWrongMultiplayerVersionInfo".Translate(strVersion, proto);
             }
 
-            if (reason == MpDisconnectReason.UsernameLength) { reasonKey = "MpInvalidUsernameLength"; descKey = "MpChangeUsernameInfo"; }
-            if (reason == MpDisconnectReason.UsernameChars) { reasonKey = "MpInvalidUsernameChars"; descKey = "MpChangeUsernameInfo"; }
-            if (reason == MpDisconnectReason.UsernameAlreadyOnline) { reasonKey = "MpInvalidUsernameAlreadyPlaying"; descKey = "MpChangeUsernameInfo"; }
-            if (reason == MpDisconnectReason.ServerClosed) reasonKey = "MpServerClosed";
-            if (reason == MpDisconnectReason.ServerFull) reasonKey = "MpServerFull";
-            if (reason == MpDisconnectReason.Kick) reasonKey = "MpKicked";
-
-            if (reason == MpDisconnectReason.Defs)
+            if (reason == MpDisconnectReason.ConnectingFailed)
             {
-                foreach (var local in mods.defInfo)
-                {
-                    var status = (DefCheckStatus)reader.ReadByte();
-                    local.Value.status = status;
+                var netReason = (DisconnectReason)reader.ReadByte();
 
-                    if (MultiplayerMod.arbiterInstance && status != DefCheckStatus.OK)
-                        Log.Message($"{local.Key}: {status}");
-                }
+                disconnectInfo.titleTranslated =
+                    netReason == DisconnectReason.ConnectionFailed ?
+                    "MpConnectionFailed".Translate() :
+                    "MpConnectionFailedWithInfo".Translate(netReason.ToString().CamelSpace().ToLowerInvariant());
             }
 
-            disconnectReason = reason;
-            disconnectReasonKey = reasonKey?.Translate();
-            disconnectInfo = disconnectInfo ?? descKey?.Translate();
+            if (reason == MpDisconnectReason.NetFailed)
+            {
+                var netReason = (DisconnectReason)reader.ReadByte();
+
+                disconnectInfo.titleTranslated =
+                    "MpDisconnectedWithInfo".Translate(netReason.ToString().CamelSpace().ToLowerInvariant());
+            }
+
+            if (reason == MpDisconnectReason.UsernameAlreadyOnline)
+            {
+                titleKey = "MpInvalidUsernameAlreadyPlaying";
+                descKey = "MpChangeUsernameInfo";
+
+                var newName = Multiplayer.username.Substring(0, Math.Min(Multiplayer.username.Length, MultiplayerServer.MaxUsernameLength - 3));
+                newName += new Random().Next(1000);
+
+                disconnectInfo.specialButtonTranslated = "MpConnectAsUsername".Translate(newName);
+                disconnectInfo.specialButtonAction = () => Reconnect(newName);
+            }
+
+            if (reason == MpDisconnectReason.UsernameLength) { titleKey = "MpInvalidUsernameLength"; descKey = "MpChangeUsernameInfo"; }
+            if (reason == MpDisconnectReason.UsernameChars) { titleKey = "MpInvalidUsernameChars"; descKey = "MpChangeUsernameInfo"; }
+            if (reason == MpDisconnectReason.ServerClosed) titleKey = "MpServerClosed";
+            if (reason == MpDisconnectReason.ServerFull) titleKey = "MpServerFull";
+            if (reason == MpDisconnectReason.Kick) titleKey = "MpKicked";
+            if (reason == MpDisconnectReason.ServerPacketRead) descKey = "MpPacketErrorRemote";
+
+            disconnectInfo.titleTranslated ??= titleKey?.Translate();
+            disconnectInfo.descTranslated ??= descKey?.Translate();
+        }
+
+        public void Reconnect(string username)
+        {
+            Multiplayer.username = username;
+
+            if (steamHost is { } host)
+                ClientUtil.TrySteamConnectWithWindow(host);
+            else
+                ClientUtil.TryConnectWithWindow(address, port);
         }
 
         public void Connected()
@@ -168,17 +200,12 @@ namespace Multiplayer.Client
 
         public void Disconnected()
         {
-            Find.WindowStack.windows.Clear();
+            MpUI.ClearWindowStack();
 
-            if (disconnectReason == MpDisconnectReason.Defs) {
-                Find.WindowStack.Add(new DefMismatchWindow(mods));
-            }
-            else if (disconnectReason == MpDisconnectReason.ServerFull) {
-                Find.WindowStack.Add(new DisconnectedWindow(disconnectReasonKey, disconnectInfo));
-            }
-            else {
-                Find.WindowStack.Add(new DisconnectedWindow(disconnectReasonKey, disconnectInfo) {returnToServerBrowser = Multiplayer.Client.State != ConnectionStateEnum.ClientPlaying});
-            }
+            Find.WindowStack.Add(new DisconnectedWindow(disconnectInfo)
+            {
+                returnToServerBrowser = Multiplayer.Client?.State != ConnectionStateEnum.ClientPlaying
+            });
         }
 
         public void ReapplyPrefs()
@@ -189,32 +216,122 @@ namespace Multiplayer.Client
         public void ProcessTimeControl()
         {
             if (localCmdId >= remoteCmdId)
-            {
                 TickPatch.tickUntil = remoteTickUntil;
+        }
+
+        public void ScheduleCommand(ScheduledCommand cmd)
+        {
+            MpLog.Debug($"Cmd: {cmd.type}, faction: {cmd.factionId}, map: {cmd.mapId}, ticks: {cmd.ticks}");
+            dataSnapshot.mapCmds.GetOrAddNew(cmd.mapId).Add(cmd);
+
+            if (Current.ProgramState != ProgramState.Playing) return;
+
+            if (cmd.mapId == ScheduledCommand.Global)
+                Multiplayer.WorldComp.cmds.Enqueue(cmd);
+            else
+                cmd.GetMap()?.AsyncTime().cmds.Enqueue(cmd);
+        }
+
+        public void Update()
+        {
+            cursorAndPing.UpdatePing();
+        }
+
+        public static void DoAutosave()
+        {
+            LongEventHandler.QueueLongEvent(() =>
+            {
+                SaveGameToFile(GetNextAutosaveFileName());
+                Multiplayer.Client.Send(Packets.Client_Autosaving);
+            }, "MpSaving", false, null);
+        }
+
+        private static string GetNextAutosaveFileName()
+        {
+            var autosavePrefix = "Autosave-";
+
+            if (Multiplayer.settings.appendNameToAutosave)
+                autosavePrefix += $"{GenFile.SanitizedFileName(Multiplayer.session.gameName)}-";
+
+            return Enumerable
+                .Range(1, Multiplayer.settings.autosaveSlots)
+                .Select(i => $"{autosavePrefix}{i}")
+                .OrderBy(s => new FileInfo(Path.Combine(Multiplayer.ReplaysDir, $"{s}.zip")).LastWriteTime)
+                .First();
+        }
+
+        public static void SaveGameToFile(string fileNameNoExtension)
+        {
+            Log.Message($"Multiplayer: saving to file {fileNameNoExtension}");
+
+            try
+            {
+                new FileInfo(Path.Combine(Multiplayer.ReplaysDir, $"{fileNameNoExtension}.zip")).Delete();
+                Replay.ForSaving(fileNameNoExtension).WriteData(SaveLoad.CreateGameDataSnapshot(SaveLoad.SaveGameData()));
+                Messages.Message("MpGameSaved".Translate(fileNameNoExtension), MessageTypeDefOf.SilentInput, false);
+                Multiplayer.session.lastSaveAt = Time.realtimeSinceStartup;
             }
+            catch (Exception e)
+            {
+                Log.Error($"Exception saving multiplayer game: {e}");
+                Messages.Message("MpGameSaveFailed".Translate(), MessageTypeDefOf.SilentInput, false);
+            }
+        }
+
+        public static void DoRejoin()
+        {
+            Multiplayer.Client.State = ConnectionStateEnum.ClientJoining;
+            Multiplayer.Client.Send(Packets.Client_WorldRequest);
+            ((ClientJoiningState)Multiplayer.Client.StateObj).subState = JoiningState.Waiting;
+
+            Multiplayer.session.desynced = false;
+
+            Log.Message("Multiplayer: rejoining");
+
+            // From GenScene.GoToMainMenu
+            LongEventHandler.ClearQueuedEvents();
+            LongEventHandler.QueueLongEvent(() =>
+            {
+                MemoryUtility.ClearAllMapsAndWorld();
+                Current.Game = null;
+
+                LongEventHandler.ExecuteWhenFinished(() =>
+                {
+                    MpUI.ClearWindowStack();
+                    Find.WindowStack.Add(new RejoiningWindow());
+                });
+            }, "Entry", "LoadingLongEvent", true, null, false);
         }
     }
 
-    public class SessionModInfo
+    public struct SessionDisconnectInfo
     {
-        public string remoteRwVersion;
-        public string[] remoteModNames;
-        public string[] remoteModIds;
-        public ulong[] remoteWorkshopModIds;
-        public Dictionary<string, string> remoteModConfigs;
-        public Dictionary<string, DefInfo> defInfo;
-        public string remoteAddress;
-        public int remotePort;
+        public string titleTranslated;
+        public string descTranslated;
+        public string specialButtonTranslated;
+        public Action specialButtonAction;
+    }
+
+    public class GameDataSnapshot
+    {
+        public int cachedAtTime;
+        public byte[] gameData;
+        public byte[] semiPersistentData;
+        public Dictionary<int, byte[]> mapData = new();
+
+        // Global cmds are -1
+        public Dictionary<int, List<ScheduledCommand>> mapCmds = new();
     }
 
     public class PlayerInfo
     {
-        public static readonly Vector3 Invalid = new Vector3(-1, 0, -1);
+        public static readonly Vector3 Invalid = new(-1, 0, -1);
 
         public int id;
         public string username;
         public int latency;
         public int ticksBehind;
+        public bool simulating;
         public PlayerType type;
         public PlayerStatus status;
         public Color color;
@@ -231,7 +348,7 @@ namespace Multiplayer.Client
         public byte cursorIcon;
         public Vector3 dragStart = Invalid;
 
-        public Dictionary<int, float> selectedThings = new Dictionary<int, float>();
+        public Dictionary<int, float> selectedThings = new();
 
         private PlayerInfo(int id, string username, int latency, PlayerType type)
         {
@@ -253,6 +370,7 @@ namespace Multiplayer.Client
             var steamName = data.ReadString();
 
             var ticksBehind = data.ReadInt32();
+            var simulating = data.ReadBool();
 
             var color = new Color(data.ReadByte() / 255f, data.ReadByte() / 255f, data.ReadByte() / 255f);
 
@@ -262,112 +380,9 @@ namespace Multiplayer.Client
                 steamId = steamId,
                 steamPersonaName = steamName,
                 color = color,
-                ticksBehind = ticksBehind
+                ticksBehind = ticksBehind,
+                simulating = simulating
             };
-        }
-    }
-
-    public class MultiplayerGame
-    {
-        public SyncCoordinator sync = new SyncCoordinator();
-
-        public MultiplayerWorldComp worldComp;
-        public List<MultiplayerMapComp> mapComps = new List<MultiplayerMapComp>();
-        public List<MapAsyncTimeComp> asyncTimeComps = new List<MapAsyncTimeComp>();
-        public SharedCrossRefs sharedCrossRefs = new SharedCrossRefs();
-
-        public Faction dummyFaction;
-        private Faction myFaction;
-        public Faction myFactionLoading;
-
-        public Dictionary<int, PlayerDebugState> playerDebugState = new Dictionary<int, PlayerDebugState>();
-
-        public Faction RealPlayerFaction
-        {
-            get => myFaction ?? myFactionLoading;
-
-            set
-            {
-                myFaction = value;
-                FactionContext.Set(value);
-                worldComp.SetFaction(value);
-
-                foreach (Map m in Find.Maps)
-                    m.MpComp().SetFaction(value);
-            }
-        }
-
-        public MultiplayerGame()
-        {
-            Toils_Ingest.cardinals = GenAdj.CardinalDirections.ToList();
-            Toils_Ingest.diagonals = GenAdj.DiagonalDirections.ToList();
-            GenAdj.adjRandomOrderList = null;
-            CellFinder.mapEdgeCells = null;
-            CellFinder.mapSingleEdgeCells = new List<IntVec3>[4];
-
-            TradeSession.trader = null;
-            TradeSession.playerNegotiator = null;
-            TradeSession.deal = null;
-            TradeSession.giftMode = false;
-
-            DebugTools.curTool = null;
-            ClearPortraits();
-            RealTime.moteList.Clear();
-
-            Room.nextRoomID = 1;
-            RoomGroup.nextRoomGroupID = 1;
-            Region.nextId = 1;
-            ListerHaulables.groupCycleIndex = 0;
-
-            ZoneColorUtility.nextGrowingZoneColorIndex = 0;
-            ZoneColorUtility.nextStorageZoneColorIndex = 0;
-
-            SetThingMakerSeed(1);
-
-            Prefs.PauseOnLoad = false; // causes immediate desyncs on load if misaligned between host and clients
-
-            foreach (var field in typeof(DebugSettings).GetFields(BindingFlags.Public | BindingFlags.Static))
-                if (!field.IsLiteral && field.FieldType == typeof(bool))
-                    field.SetValue(null, default(bool));
-
-            typeof(DebugSettings).TypeInitializer.Invoke(null, null);
-
-            foreach (var resolver in DefDatabase<RuleDef>.AllDefs.SelectMany(r => r.resolvers))
-                if (resolver is SymbolResolver_EdgeThing edgeThing)
-                    edgeThing.randomRotations = new List<int>() { 0, 1, 2, 3 };
-
-            typeof(SymbolResolver_SingleThing).TypeInitializer.Invoke(null, null);
-        }
-
-        public static void ClearPortraits()
-        {
-            foreach (var cachedPortrait in PortraitsCache.cachedPortraits)
-            {
-                foreach (var kv in cachedPortrait.CachedPortraits.ToList())
-                {
-                    var value = kv.Value;
-                    value.LastUseTime = Time.time - 2f;
-                    cachedPortrait.CachedPortraits[kv.Key] = value;
-                }
-            }
-            PortraitsCache.RemoveExpiredCachedPortraits();
-        }
-
-        public void SetThingMakerSeed(int seed)
-        {
-            foreach (var maker in CaptureThingSetMakers.captured)
-            {
-                if (maker is ThingSetMaker_Nutrition n)
-                    n.nextSeed = seed;
-                if (maker is ThingSetMaker_MarketValue m)
-                    m.nextSeed = seed;
-            }
-        }
-
-        public void OnDestroy()
-        {
-            FactionContext.Clear();
-            ThingContext.Clear();
         }
     }
 }

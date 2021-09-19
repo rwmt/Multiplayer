@@ -1,4 +1,4 @@
-﻿using LiteNetLib;
+using LiteNetLib;
 using Multiplayer.Common;
 using RimWorld;
 using Steamworks;
@@ -6,11 +6,14 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Multiplayer.Client.Util;
 using UnityEngine;
 using Verse;
+using Verse.Steam;
 
 namespace Multiplayer.Client
 {
+    [HotSwappable]
     [StaticConstructorOnStartup]
     public class ChatWindow : Window
     {
@@ -21,6 +24,7 @@ namespace Multiplayer.Client
         private static readonly Texture2D SelectedMsg = SolidColorMaterials.NewSolidColorTexture(new Color(0.17f, 0.17f, 0.17f, 0.85f));
 
         public bool saveSize = true;
+
         private Vector2 chatScroll;
         private Vector2 playerListScroll;
         private Vector2 steamScroll;
@@ -43,19 +47,21 @@ namespace Multiplayer.Client
             resizeable = true;
             onlyOneOfTypeAllowed = true;
             closeOnCancel = false;
-            lastResolution = MpUtil.Resolution;
+            resizer = new WindowResizer { minWindowSize = new Vector2(350f, 200f) };
+
+            lastResolution = MpUI.Resolution;
 
             if (!Multiplayer.session.desynced)
             {
                 layer = WindowLayer.GameUI;
-                doWindowBackground = !MultiplayerMod.settings.transparentChat;
+                doWindowBackground = !Multiplayer.settings.transparentChat;
                 drawShadow = doWindowBackground;
             }
         }
 
         public override void DoWindowContents(Rect inRect)
         {
-            if (MultiplayerMod.settings.transparentChat && !Mouse.IsOver(inRect))
+            if (Multiplayer.settings.transparentChat && !Mouse.IsOver(inRect))
             {
                 GUI.contentColor = new Color(1, 1, 1, 0.8f);
                 GUI.backgroundColor = new Color(1, 1, 1, 0.8f);
@@ -92,7 +98,7 @@ namespace Multiplayer.Client
 
             if (KeyBindingDefOf.Cancel.KeyDownEvent && Find.WindowStack.focusedWindow == this)
             {
-                Close(true);
+                Close();
                 Event.current.Use();
             }
         }
@@ -100,7 +106,7 @@ namespace Multiplayer.Client
         private void DrawInfo(Rect inRect)
         {
             Widgets.Label(inRect, Multiplayer.session.gameName);
-            inRect.yMin += 30f;
+            inRect.yMin += Text.CalcHeight(Multiplayer.session.gameName, inRect.width) + 10f;
 
             DrawList(
                 "MpChatPlayers".Translate(Multiplayer.session.players.Count),
@@ -119,8 +125,8 @@ namespace Multiplayer.Client
                         TooltipHandler.TipRegion(steamIcon, new TipSignal($"{p.steamPersonaName}\n{p.steamId}", p.id));
                     }
 
-                    string toolTip = $"{p.ticksBehind >> 1} ticks behind";
-                    if ((p.ticksBehind & 1) != 0)
+                    string toolTip = $"{p.username}\n\nPing: {p.latency}ms\n{p.ticksBehind} ticks behind";
+                    if (p.simulating)
                         toolTip += "\n(Simulating)";
 
                     TooltipHandler.TipRegion(rect, new TipSignal(toolTip, p.id));
@@ -144,11 +150,14 @@ namespace Multiplayer.Client
 
         private void ClickPlayer(PlayerInfo p)
         {
+            // todo
+            return;
+
             if (p.id == 0 && Event.current.button == 1)
             {
                 Find.WindowStack.Add(new FloatMenu(new List<FloatMenuOption>()
                 {
-                    new FloatMenuOption("MpSeeModList".Translate(), () => DefMismatchWindow.ShowModList(Multiplayer.session.mods))
+                    //new FloatMenuOption("MpSeeModList".Translate(), () => DefMismatchWindow.ShowModList(Multiplayer.session.mods))
                 }));
             }
         }
@@ -223,9 +232,8 @@ namespace Multiplayer.Client
                 if (labelColor != null)
                     GUI.color = labelColor.Value;
 
-                Text.Anchor = TextAnchor.MiddleLeft;
-                Widgets.Label(entryRect, entryLabel);
-                Text.Anchor = TextAnchor.UpperLeft;
+                using (MpStyle.Set(TextAnchor.MiddleLeft))
+                    Widgets.Label(entryRect, entryLabel.Truncate(entryRect.width));
 
                 if (labelColor != null)
                     GUI.color = prevColor;
@@ -243,11 +251,7 @@ namespace Multiplayer.Client
 
         private void DrawChat(Rect inRect)
         {
-            if ((Event.current.type == EventType.MouseDown || KeyBindingDefOf.Cancel.KeyDownEvent) && !GUI.GetNameOfFocusedControl().NullOrEmpty())
-            {
-                Event.current.Use();
-                UI.UnfocusCurrentControl();
-            }
+            MpUI.TryUnfocusCurrentNamedControl(this);
 
             Rect outRect = new Rect(0f, 0f, inRect.width, inRect.height - 30f);
             Rect viewRect = new Rect(0f, 0f, inRect.width - 16f, messagesHeight + 10f);
@@ -312,7 +316,7 @@ namespace Multiplayer.Client
 
             Widgets.EndScrollView();
 
-            if (Widgets.ButtonText(new Rect(textField.xMax + 5f, textField.y, 55f, textField.height), "MpSend".Translate()))
+            if (Widgets.ButtonText(new Rect(textField.xMax + 5f, textField.y, 55f, textField.height), "MpChatSend".Translate()))
                 SendMsg();
 
             GUI.EndGroup();
@@ -341,8 +345,8 @@ namespace Multiplayer.Client
 
             if (currentMsg.NullOrEmpty()) return;
 
-            if (currentMsg == "/netinfo")
-                Find.WindowStack.Add(new DebugTextWindow(NetInfoText(), 230, 300));
+            if (MpVersion.IsDebug && currentMsg == "/netinfo")
+                Find.WindowStack.Add(new DebugTextWindow(NetInfoText()));
             else if (Multiplayer.Client == null)
                 Multiplayer.session.AddMsg(Multiplayer.username + ": " + currentMsg);
             else
@@ -357,34 +361,39 @@ namespace Multiplayer.Client
 
             var text = new StringBuilder();
 
+            void LogNetData(string name, NetStatistics stats)
+            {
+                text.AppendLine(name);
+                text.AppendLine($"Bytes received: {stats.BytesReceived}");
+                text.AppendLine($"Bytes sent: {stats.BytesSent}");
+                text.AppendLine($"Packets received: {stats.PacketsReceived}");
+                text.AppendLine($"Packets sent: {stats.PacketsSent}");
+                text.AppendLine($"Packet loss: {stats.PacketLoss}");
+                text.AppendLine($"Packet loss percent: {stats.PacketLossPercent}");
+                text.AppendLine();
+            }
+
             var netClient = Multiplayer.session.netClient;
             if (netClient != null)
-            {
                 LogNetData("Client", netClient.Statistics);
-            }
+
             if (Multiplayer.LocalServer != null)
             {
                 if (Multiplayer.LocalServer.lanManager != null)
-                {
                     LogNetData("Lan Server", Multiplayer.LocalServer.lanManager.Statistics);
-                }
+
                 if (Multiplayer.LocalServer.netManager != null)
-                {
                     LogNetData("Net Server", Multiplayer.LocalServer.netManager.Statistics);
-                }
-                foreach (ServerPlayer item in Enumerable.ToList(Multiplayer.LocalServer.players))
-                {
-                    MpNetConnection mpNetConnection = item.conn as MpNetConnection;
-                    if (mpNetConnection != null)
-                    {
-                        LogNetData("Net Peer " + item.Username, mpNetConnection.peer.Statistics);
-                    }
-                }
+
+                // todo thread problems?
+                // foreach (var p in Multiplayer.LocalServer.players.ToList())
+                //     if (p.conn is LiteNetConnection net)
+                //         LogNetData($"Net Peer {p.Username}", net.peer.Statistics);
             }
 
             foreach (var remote in Multiplayer.session.knownUsers)
             {
-                text.AppendLine(SteamFriends.GetFriendPersonaName(remote));
+                text.AppendLine($"Steam {SteamFriends.GetFriendPersonaName(remote)}");
                 text.AppendLine(remote.ToString());
 
                 if (SteamNetworking.GetP2PSessionState(remote, out P2PSessionState_t state))
@@ -407,19 +416,6 @@ namespace Multiplayer.Client
             }
 
             return text.ToString();
-
-            void LogNetData(string name, NetStatistics stats)
-            {
-                text.AppendLine(name);
-                text.AppendLine($"Bytes received: {stats.BytesReceived}");
-                text.AppendLine($"Bytes sent: {stats.BytesSent}");
-                text.AppendLine($"Packets received: {stats.PacketsReceived}");
-                text.AppendLine($"Packets sent: {stats.PacketsSent}");
-                text.AppendLine($"Packet loss: {stats.PacketLoss}");
-                text.AppendLine($"Sequenced packet loss: {stats.SequencedPacketLoss}");
-                text.AppendLine($"Packet loss percent: {stats.PacketLossPercent}");
-                text.AppendLine();
-            }
         }
 
         public void OnChatReceived()
@@ -432,45 +428,40 @@ namespace Multiplayer.Client
             if (Multiplayer.session != null && saveSize)
             {
                 SaveChatSize();
-                MultiplayerMod.settings.Write();
+                Multiplayer.settings.Write();
             }
         }
 
         private void SaveChatSize()
         {
-            MultiplayerMod.settings.chatRect = windowRect;
-            MultiplayerMod.settings.resolutionForChat = MpUtil.Resolution;
+            Multiplayer.settings.chatRect = windowRect;
+            Multiplayer.settings.resolutionForChat = MpUI.Resolution;
         }
 
         public void SetSizeTo(Rect chatRect, Vector2 lastResolution)
         {
             windowRect = chatRect;
+
             if (chatRect.center.x > lastResolution.x / 2f)
-            {
-                windowRect.x += (float)UI.screenWidth - lastResolution.x;
-            }
+                windowRect.x += UI.screenWidth - lastResolution.x;
+
             if (chatRect.center.y > lastResolution.y / 2f)
-            {
-                windowRect.y += (float)UI.screenHeight - lastResolution.y;
-            }
+                windowRect.y += UI.screenHeight - lastResolution.y;
         }
 
         public override void Notify_ResolutionChanged()
         {
             SetSizeTo(windowRect, lastResolution);
-            lastResolution = MpUtil.Resolution;
+            lastResolution = MpUI.Resolution;
         }
 
         public static void OpenChat()
         {
-            ChatWindow chatWindow = new ChatWindow();
-
+            var chatWindow = new ChatWindow();
             Find.WindowStack.Add(chatWindow);
 
-            if (MultiplayerMod.settings.chatRect != default(Rect))
-            {
-                chatWindow.SetSizeTo(MultiplayerMod.settings.chatRect, MultiplayerMod.settings.resolutionForChat);
-            }
+            if (Multiplayer.settings.chatRect != default)
+                chatWindow.SetSizeTo(Multiplayer.settings.chatRect, Multiplayer.settings.resolutionForChat);
         }
     }
 
@@ -478,13 +469,11 @@ namespace Multiplayer.Client
     {
         public virtual bool Clickable => false;
         public abstract string Msg { get; }
-        public virtual DateTime TimeStamp => timestamp;
-
-        private DateTime timestamp;
+        public virtual DateTime TimeStamp { get; }
 
         public ChatMsg()
         {
-            timestamp = DateTime.Now;
+            TimeStamp = DateTime.Now;
         }
 
         public virtual void Click() { }
@@ -492,12 +481,11 @@ namespace Multiplayer.Client
 
     public class ChatMsg_Text : ChatMsg
     {
-        private string msg;
-        public override string Msg => msg;
+        public override string Msg { get; }
 
         public ChatMsg_Text(string msg)
         {
-            this.msg = msg;
+            this.Msg = msg;
         }
     }
 

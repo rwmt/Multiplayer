@@ -1,73 +1,37 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  
+
   <PropertyGroup>
     <TargetFramework>net472</TargetFramework>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <LangVersion>9.0</LangVersion>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <OutputPath>..\Assemblies\</OutputPath>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
     <DebugType>None</DebugType>
     <ReleaseVersion>0.4.8</ReleaseVersion>
+    <PublicizeAsReferenceAssemblies>false</PublicizeAsReferenceAssemblies>
   </PropertyGroup>
-  
+
   <ItemGroup>
-    
-    <!-- Nuget dependencies -->
-    <PackageReference Include="Publicise.MSBuild.Task" Version="1.*" />
-    <PackageReference Include="RestSharp" Version="106.10.1" />
+    <PackageReference Include="Krafs.Publicizer" Version="1.0.1" />
+    <PackageReference Include="RestSharp" Version="106.12.0" />
     <PackageReference Include="RimWorld.MultiplayerAPI" Version="0.3.0" />
-    <PackageReference Include="Lib.Harmony" Version="2.0.4">
-      <ExcludeAssets>runtime</ExcludeAssets>
-    </PackageReference>
-    <PackageReference Include="LiteNetLib" Version="0.8.3.1" />
+    <PackageReference Include="Lib.Harmony" Version="2.1.1" ExcludeAssets="runtime" />
+    <PackageReference Include="LiteNetLib" Version="0.9.5" />
     <PackageReference Include="DotNetZip.Reduced" Version="1.9.1.8" />
-    
-    <!-- Local dependencies -->
-    <Reference Include="Assembly-CSharp-firstpass">
-      <HintPath>..\..\..\RimWorldWin64_Data\Managed\Assembly-CSharp-firstpass.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="Assembly-CSharp_public">
-      <HintPath>..\..\..\RimWorldWin64_Data\Managed\Assembly-CSharp_public.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="UnityEngine.IMGUIModule">
-      <HintPath>..\..\..\RimWorldWin64_Data\Managed\UnityEngine.IMGUIModule.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="UnityEngine.CoreModule">
-      <HintPath>..\..\..\RimWorldWin64_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="UnityEngine">
-      <HintPath>..\..\..\RimWorldWin64_Data\Managed\UnityEngine.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="UnityEngine.TextRenderingModule">
-      <HintPath>..\..\..\RimWorldWin64_Data\Managed\UnityEngine.TextRenderingModule.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="UnityEngine.InputLegacyModule">
-      <HintPath>..\..\..\RimWorldWin64_Data\Managed\UnityEngine.InputLegacyModule.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="UnityEngine.AudioModule">
-      <HintPath>..\..\..\RimWorldWin64_Data\Managed\UnityEngine.AudioModule.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    
+    <PackageReference Include="Krafs.Rimworld.Ref" Version="1.3.*" />
   </ItemGroup>
-  
+
   <ItemGroup>
     <None Remove=".editorconfig" />
     <None Remove="mono_crash.*.json" />
   </ItemGroup>
-  
-  <Target Name="Publicise" BeforeTargets="BeforeBuild">
-    <Publicise AssemblyPath="..\..\..\RimWorldWin64_Data\Managed\Assembly-CSharp.dll" OutputPath="..\..\..\RimWorldWin64_Data\Managed\" />
-  </Target>
-  
+
+  <ItemGroup>
+    <Publicize Include="Assembly-CSharp;0Harmony" />
+  </ItemGroup>
+
   <Target Name="ChangeAliasesOfNugetRefs" BeforeTargets="FindReferenceAssembliesForReferences;ResolveReferences">
     <ItemGroup>
       <ReferencePath Condition="'%(FileName)' == 'Ionic.Zip.Reduced'">
@@ -75,5 +39,5 @@
       </ReferencePath>
     </ItemGroup>
   </Target>
-  
+
 </Project>
