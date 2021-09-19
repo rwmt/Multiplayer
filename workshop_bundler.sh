@@ -7,14 +7,19 @@ git submodule update --init --recursive
 mkdir -p Multiplayer
 cp -r About Languages Multiplayer/
 rm -rf Multiplayer/Languages/.git Multiplayer/Languages/LICENSE Multiplayer/Languages/README.md
+sed -i "/<supportedVersions>/ a \ \ \ \ <li>1.2</li>" Multiplayer/About/About.xml
 sed -i "/<supportedVersions>/ a \ \ \ \ <li>1.1</li>" Multiplayer/About/About.xml
 sed -i "/<supportedVersions>/ a \ \ \ \ <li>1.0</li>" Multiplayer/About/About.xml
 sed -i "s/This is version .*\$/This is version ${VERSION}./" Multiplayer/About/About.xml
 sed -i "s/<version>.*<\/version>\$/<version>${VERSION}<\/version>/" Multiplayer/About/Manifest.xml
 
-rm -rf Multiplayer/1.2
+rm -rf Multiplayer/1.3
+mkdir -p Multiplayer/1.3
+cp -r Assemblies Defs Multiplayer/1.3/
+
 mkdir -p Multiplayer/1.2
-cp -r Assemblies Defs Multiplayer/1.2/
+git --work-tree=Multiplayer/1.2 checkout origin/rw-1.2 -- Assemblies Defs
+git reset Assemblies Defs
 
 mkdir -p Multiplayer/1.1
 git --work-tree=Multiplayer/1.1 checkout origin/rw-1.1 -- Assemblies Defs
