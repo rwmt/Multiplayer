@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using HarmonyLib;
+using Multiplayer.Client.Patches;
 using Multiplayer.Client.Util;
 using RimWorld;
 using UnityEngine;
@@ -15,19 +16,23 @@ namespace Multiplayer.Client
     [StaticConstructorOnStartup]
     static class MainMenuAnimation
     {
-        static Texture2D texture = new(8000, 5000, TextureFormat.RGBA32, false);
+        static Texture2D texture;
 
         const float r = 2282;
         const float cx = r + 80, cy = r + 384;
-        const float sizeX = 8000, sizeY = 5000;
+        const float origWidth = 8000, origHeight = 5000;
 
         static MainMenuAnimation()
         {
+            texture = new(8000, 5000, TextureFormat.RGBA32, false);
             RegenTexture();
         }
 
         static void Prefix(UI_BackgroundMain __instance, Rect bgRect)
         {
+            if (Input.GetKeyDown(KeyCode.KeypadPeriod))
+                DoMainMenuPatch.hideMainMenu = !DoMainMenuPatch.hideMainMenu;
+
             if (!Multiplayer.settings.showMainMenuAnim
                 || __instance.overrideBGImage != null && __instance.overrideBGImage != UI_BackgroundMain.BGPlanet)
                 return;
@@ -45,7 +50,8 @@ namespace Multiplayer.Client
             if (Time.frameCount % 5 == 0)
             {
                 var edge = edges.RandomElement();
-                pulses.Add(new Pulse(edge.v1, edge.v2) { easeIn = true});
+                var rand = Rand.Bool;
+                pulses.Add(new Pulse(rand ? edge.v2 : edge.v1, rand ? edge.v1 : edge.v2) { starting = true });
             }
 
             DrawPulses(bgRect);
@@ -62,14 +68,11 @@ namespace Multiplayer.Client
                 {
                     pulses.RemoveAt(i);
 
-                    if (!pulse.easeOut)
-                    {
-                        var ends = edges.Where(e => e.Contains(pulse.end)).SelectMany(e => e).ToHashSet();
-                        ends.Remove(pulse.end);
-                        ends.Remove(pulse.start);
-                        if (ends.Any())
-                            pulses.Add(new Pulse(pulse.end, ends.RandomElement()) { easeOut = Rand.Value < 0.7f});
-                    }
+                    if (!pulse.EaseOut)
+                        pulses.Add(new Pulse(pulse.end, pulse.nextEnd)
+                        {
+                            ending = Rand.Value < 0.4f
+                        });
                 }
 
                 var start = Quaternion.Euler(pulse.start.theta, pulse.start.phi, 0);
@@ -78,9 +81,9 @@ namespace Multiplayer.Client
                 var x = pulse.progress;
 
                 var progress =
-                    pulse.easeIn && pulse.easeOut ? x < 0.5 ? 2 * x * x : 1 - (float)Math.Pow(-2 * x + 2, 2) / 2 :
-                    pulse.easeIn ? x * x :
-                    pulse.easeOut ? 1 - (1 - x) * (1 - x) :
+                    pulse.EaseIn && pulse.EaseOut ? x < 0.5 ? 2 * x * x : 1 - (float)Math.Pow(-2 * x + 2, 2) / 2 :
+                    pulse.EaseIn ? x * x :
+                    pulse.EaseOut ? 1 - (1 - x) * (1 - x) :
                     x;
 
                 float theta = Quaternion.Lerp(start, end, progress).eulerAngles.x;
@@ -91,14 +94,14 @@ namespace Multiplayer.Client
 
                 const float alphaEase = 0.3f;
                 var alpha =
-                    pulse.easeIn && x < alphaEase ? x / alphaEase :
-                    pulse.easeOut && x > 1f - alphaEase ? (1 - x) / alphaEase :
+                    pulse.EaseIn && x < alphaEase ? x / alphaEase :
+                    pulse.EaseOut && x > 1f - alphaEase ? (1 - x) / alphaEase :
                     1;
 
                 using (MpStyle.Set(new Color(1, 1, 1, alpha)))
                     GUI.DrawTexture(
                         new Rect(
-                            bgRect.min + GetPos(bgRect, posX, posY),
+                            GetPos(bgRect, posX, posY),
                             new(6, 6)
                         ),
                         MultiplayerStatic.Pulse
@@ -106,8 +109,34 @@ namespace Multiplayer.Client
             }
         }
 
+        static Vert GetNewEnd(Pulse pulse)
+        {
+            Vert newEnd = null;
+            var attempts = 0;
+
+            while (newEnd == null && attempts < 20)
+            {
+                var randEdge = edges.RandomElement();
+                var otherVert = randEdge.OtherVert(pulse.end);
+                if (otherVert != null && otherVert != pulse.start && otherVert != pulse.end)
+                    newEnd = otherVert;
+                attempts++;
+            }
+
+            return newEnd;
+        }
+
+        const float rotate = 35f;
+        const float maskTheta = 10;
+
         static void DrawEdges(Rect bgRect)
         {
+            {
+                var proj1 = r * Project(maskTheta, -90).RotatedBy(rotate) + new Vector2(cx, cy);
+                var proj2 = r * Project(maskTheta, 90).RotatedBy(rotate) + new Vector2(cx, cy);
+                Widgets.DrawLine(GetPos(bgRect, proj1.x, proj1.y), GetPos(bgRect, proj2.x, proj2.y), Color.blue, 2f);
+            }
+
             foreach (var e in edges)
             {
                 var start = Quaternion.Euler(e.v1.theta, e.v1.phi, 0);
@@ -127,8 +156,8 @@ namespace Multiplayer.Client
 
                     if (prevX != 0 && prevY != 0)
                     {
-                        var lineStart = bgRect.min + GetPos(bgRect, prevX, prevY);
-                        var lineEnd = bgRect.min + GetPos(bgRect, x, y);
+                        var lineStart = GetPos(bgRect, prevX, prevY);
+                        var lineEnd = GetPos(bgRect, x, y);
 
                         if (d == 0.5f)
                             MpUI.Label(new Rect(lineStart, new(100, 100)), $"{e.dist}", GameFont.Tiny);
@@ -151,7 +180,7 @@ namespace Multiplayer.Client
         }
 
         private static List<Vert> verts = new();
-        private static HashSet<Edge> edges = new();
+        private static List<Edge> edges = new();
         private static List<Pulse> pulses = new();
 
         static void Mst()
@@ -159,7 +188,7 @@ namespace Multiplayer.Client
             foreach (var v in verts)
             {
                 v.cost = float.PositiveInfinity;
-                v.other = null;
+                v.costVert = null;
             }
 
             var q = verts.ToList();
@@ -169,8 +198,8 @@ namespace Multiplayer.Client
                 var v = q.MinBy(a => a.cost);
                 q.Remove(v);
 
-                if (v.other != null)
-                    edges.Add(new Edge(v, v.other));
+                if (v.costVert != null)
+                    edges.Add(new Edge(v, v.costVert));
 
                 foreach (var w in q)
                 {
@@ -178,7 +207,7 @@ namespace Multiplayer.Client
                     if (dist < w.cost)
                     {
                         w.cost = dist;
-                        w.other = v;
+                        w.costVert = v;
                     }
                 }
             }
@@ -196,7 +225,7 @@ namespace Multiplayer.Client
 
         static Vector2 GetPos(Rect rect, float x, float y)
         {
-            return new Vector2(rect.width * x / sizeX, rect.height * y / sizeY);
+            return rect.min + new Vector2(rect.width * x / origWidth, rect.height * y / origHeight);
         }
 
         static Vector2 Project(float theta, float phi)
@@ -215,7 +244,7 @@ namespace Multiplayer.Client
             verts.Add(new Vert { theta = 60, phi = 34 });
             verts.Add(new Vert { theta = -4, phi = -68 });
             verts.Add(new Vert { theta = -2, phi = -68 });
-            verts.Add(new Vert { theta = -4, phi = -50 });
+            verts.Add(new Vert { theta = 4, phi = -50 });
             verts.Add(new Vert { theta = 18, phi = -61 });
 
             edges.Clear();
@@ -226,73 +255,77 @@ namespace Multiplayer.Client
                 cols[i] = new Color(0, 0, 0, 0);
             texture.SetPixels(cols);
 
-            if (true)
-                // Cities
-                for (int i = 0; i < 20; i++)
+            // Cities
+            for (int i = 0; i < 20;)
+            {
+                float cityTheta = Rand.Range(maskTheta, 75f);
+                float cityPhi = Rand.Range(-75f, 75f);
+
+                // ugh
+                var pr = Project(cityTheta, cityPhi).RotatedBy(rotate);
+                var inv = InverseSpherical(pr.x, pr.y, 1f);
+                cityTheta = inv.x;
+                cityPhi = inv.y;
+
+                var cityXY = r * Project(cityTheta, cityPhi) + new Vector2(cx, cy);
+                const float maskR = 2160;
+                if ((new Vector2(520 + maskR, 64 + maskR) - cityXY).magnitude < maskR)
+                    continue;
+
+                var blobs = Rand.RangeInclusive(2, 4);
+                if (Rand.Value < 0.15) blobs += Rand.RangeInclusive(2, 3);
+
+                Vector2? lit = null;
+
+                // Blobs
+                for (int k = 0; k < blobs; k++)
                 {
-                    float cityTheta = Rand.Range(20f, 75f);
-                    float cityPhi = Rand.Range(-75f, 75f);
+                    var blobSpan = 2.5f + Math.Max(0, (blobs - 3) * 0.25f);
+                    float theta = cityTheta + Rand.Range(-blobSpan, blobSpan);
+                    float phi = cityPhi + Rand.Range(-blobSpan, blobSpan);
 
-                    // ugh
-                    var pr = Project(cityTheta, cityPhi).RotatedBy(45f);
-                    var inv = InverseSpherical(pr.x, pr.y, 1f);
-                    cityTheta = inv.x;
-                    cityPhi = inv.y;
-
-                    var blobs = Rand.RangeInclusive(2, 4);
-                    if (Rand.Value < 0.15) blobs += Rand.RangeInclusive(2, 3);
-
-                    Vector2? lit = null;
-                    int lits = 0;
-
-                    // Blobs
-                    for (int k = 0; k < blobs; k++)
+                    // Dots
+                    for (int j = 0; j < 7; j++)
                     {
-                        const int height = 5000;
-                        var blobSpan = 2.5f + Math.Max(0, (blobs - 3) * 0.25f);
-                        float theta = cityTheta + Rand.Range(-blobSpan, blobSpan);
-                        float phi = cityPhi + Rand.Range(-blobSpan, blobSpan);
+                        var blobSize = j == 0 || Rand.Value < 0.3f ? 15 : 10;
 
-                        // Dots
-                        for (int j = 0; j < 7; j++)
-                        {
-                            var blobSize = j == 0 || Rand.Value < 0.3f ? 15 : 10;
+                        float dotTheta = Rand.Range(-1f, 1f);
+                        float dotPhi = Rand.Range(-1f, 1f);
 
-                            float dotTheta = Rand.Range(-1f, 1f);
-                            float dotPhi = Rand.Range(-1f, 1f);
+                        for (int x = -blobSize; x <= blobSize; x++)
+                        for (int y = -blobSize; y <= blobSize; y++)
+                            if (x * x + y * y < blobSize * blobSize)
+                            {
+                                var proj = Project(theta + dotTheta, phi + dotPhi);
+                                float centerX = cx + r * proj.x;
+                                float centerY = cy + r * proj.y;
 
-                            for (int x = -blobSize; x <= blobSize; x++)
-                            for (int y = -blobSize; y <= blobSize; y++)
-                                if (x * x + y * y < blobSize * blobSize)
+                                var pos = GetPos(new Rect(0, 0, origWidth, origHeight), centerX, centerY);
+
+                                var c = 1 - new Vector2(x,y).magnitude / blobSize;
+                                var fromCenter = 1 - new Vector2(dotTheta, dotPhi).magnitude / 2;
+                                var fromCenter2 = 1 - new Vector2(theta - cityTheta, phi - cityPhi).magnitude / 5;
+                                var a = c * fromCenter * fromCenter2;
+
+                                if (j == 0) a *= 3f;
+                                else if (a > 0.4) a *= 2f;
+
+                                var color = new Color(0.93f, 0.75f, 0.55f, a * a * 2);
+                                texture.SetPixel((int)pos.x + x, (int)origHeight - (int)pos.y + y, color);
+
+                                if (color.a >= 1 && lit == null)
                                 {
-                                    var proj = Project(theta + dotTheta, phi + dotPhi);
-                                    float centerX = cx + r * proj.x;
-                                    float centerY = cy + r * proj.y;
-
-                                    var pos = GetPos(new Rect(0, 0, 8000, height), centerX, centerY);
-
-                                    var c = 1 - new Vector2(x,y).magnitude / blobSize;
-                                    var fromCenter = 1 - new Vector2(dotTheta, dotPhi).magnitude / 2;
-                                    var fromCenter2 = 1 - new Vector2(theta - cityTheta, phi - cityPhi).magnitude / 5;
-                                    var a = c * fromCenter * fromCenter2;
-
-                                    if (j == 0) a *= 3f;
-                                    else if (a > 0.4) a *= 2f;
-
-                                    var color = new Color(0.93f, 0.75f, 0.55f, a * a * 2);
-                                    texture.SetPixel((int)pos.x + x, height - (int)pos.y + y, color);
-
-                                    if (color.a >= 1 && lit == null)
-                                    {
-                                        lit = new Vector2(theta + dotTheta, phi + dotPhi);
-                                    }
+                                    lit = new Vector2(theta + dotTheta, phi + dotPhi);
                                 }
-                        }
+                            }
                     }
-
-                    if (lit != null)
-                        verts.Add(new Vert { theta = lit.Value.x, phi = lit.Value.y });
                 }
+
+                if (lit != null)
+                    verts.Add(new Vert { theta = lit.Value.x, phi = lit.Value.y });
+
+                i++;
+            }
 
             texture.Apply();
 
@@ -305,10 +338,10 @@ namespace Multiplayer.Client
             public float phi;
 
             public float cost;
-            public Vert other;
+            public Vert costVert;
         }
 
-        class Edge : IEnumerable<Vert>
+        class Edge
         {
             public readonly Vert v1, v2;
             public readonly float dist;
@@ -328,12 +361,6 @@ namespace Multiplayer.Client
                     || Equals(v1, other.v2) && Equals(v2, other.v1);
             }
 
-            public IEnumerator<Vert> GetEnumerator()
-            {
-                yield return v1;
-                yield return v2;
-            }
-
             public override bool Equals(object obj)
             {
                 if (ReferenceEquals(null, obj)) return false;
@@ -346,9 +373,9 @@ namespace Multiplayer.Client
                 return v1.GetHashCode() * v2.GetHashCode();
             }
 
-            IEnumerator IEnumerable.GetEnumerator()
+            public Vert OtherVert(Vert v)
             {
-                return GetEnumerator();
+                return v1 == v ? v2 : v2 == v ? v1 : null;
             }
         }
 
@@ -359,8 +386,12 @@ namespace Multiplayer.Client
             public Vert end;
             public float dist;
 
-            public bool easeIn;
-            public bool easeOut;
+            public bool starting;
+            public bool ending;
+            public Vert nextEnd;
+
+            public bool EaseIn => starting;
+            public bool EaseOut => ending || nextEnd == null;
 
             public Pulse(Vert start, Vert end)
             {
@@ -368,7 +399,20 @@ namespace Multiplayer.Client
                 this.end = end;
 
                 dist = SphereDist(start.theta, start.phi, end.theta, end.phi);
+                nextEnd = GetNewEnd(this);
             }
+        }
+    }
+
+    [HarmonyPatch(typeof(UIRoot_Entry), nameof(UIRoot_Entry.ShouldDoMainMenu), MethodType.Getter)]
+    static class DoMainMenuPatch
+    {
+        public static bool hideMainMenu;
+
+        static void Postfix(ref bool __result)
+        {
+            if (hideMainMenu)
+                __result = false;
         }
     }
 }

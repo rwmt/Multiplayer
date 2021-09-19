@@ -102,6 +102,8 @@ namespace Multiplayer.Client
                 arbiterInstance = true;
             }
 
+            settings = GetSettings<MpSettings>();
+
             ProcessEnvironment();
 
             SyncDict.Init();
@@ -109,8 +111,6 @@ namespace Multiplayer.Client
             EarlyPatches();
             InitSync();
             CheckInterfaceVersions();
-
-            settings = GetSettings<MpSettings>();
 
             LongEventHandler.ExecuteWhenFinished(() => {
                 // Double Execute ensures it'll run last.
