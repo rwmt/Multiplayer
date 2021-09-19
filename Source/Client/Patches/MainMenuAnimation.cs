@@ -37,8 +37,10 @@ namespace Multiplayer.Client
 
             GUI.DrawTexture(bgRect, texture, ScaleMode.ScaleToFit);
 
+#if DEBUG
             if (Input.GetKey(KeyCode.LeftShift))
                 DrawEdges(bgRect);
+#endif
 
             if (Time.frameCount % 5 == 0)
             {
@@ -113,7 +115,6 @@ namespace Multiplayer.Client
 
                 float prevX = 0;
                 float prevY = 0;
-                var dist = Math.Abs(SphereDist(e.v1.theta, e.v1.phi, e.v2.theta, e.v2.phi));
 
                 for (float d = 0; d <= 1; d += 0.25f)
                 {
