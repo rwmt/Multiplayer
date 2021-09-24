@@ -58,7 +58,7 @@ namespace Multiplayer.Client
                 }
                 else
                 {
-                    handler.DoSync(data.target, newValue, data.index);
+                    handler.DoSyncCatch(data.target, newValue, data.index);
                 }
 
                 MpReflection.SetValue(data.target, handler.memberPath, data.oldValue, data.index);
@@ -79,7 +79,9 @@ namespace Multiplayer.Client
 
                 if (!data.sent && timeGetter() - data.timestamp > 200)
                 {
-                    data.field.DoSync(target.target, data.toSend, target.index);
+                    if (data.field.DoSyncCatch(target.target, data.toSend, target.index) is false)
+                        return true;
+
                     data.sent = true;
                     data.timestamp = timeGetter();
                 }
@@ -88,7 +90,8 @@ namespace Multiplayer.Client
             };
         }
 
-        private static Func<BufferTarget, BufferData, bool> bufferPredicate = BufferedChangesPruner(() => Utils.MillisNow);
+        private static Func<BufferTarget, BufferData, bool> bufferPredicate =
+            BufferedChangesPruner(() => Utils.MillisNow);
 
         public static void UpdateSync()
         {
@@ -110,8 +113,7 @@ namespace Multiplayer.Client
             {
                 if (data.sent)
                     return true;
-                else
-                    data.actualValue = SnapshotValueIfNeeded(field, currentValue);
+                data.actualValue = SnapshotValueIfNeeded(field, currentValue);
             }
 
             return false;
@@ -119,9 +121,11 @@ namespace Multiplayer.Client
 
         public static object SnapshotValueIfNeeded(SyncField field, object value)
         {
-            return field.fieldType.expose ?
-                SyncSerialization.ReadExposable(field.fieldType.type).Invoke(null, new[] { ScribeUtil.WriteExposable((IExposable)value), null })
-                : value;
+            if (field.fieldType.expose)
+                return SyncSerialization.ReadExposable(field.fieldType.type)
+                    .Invoke(null, new[] { ScribeUtil.WriteExposable((IExposable)value), null });
+
+            return value;
         }
 
         private static bool ValuesEqual(SyncField field, object newValue, object oldValue)

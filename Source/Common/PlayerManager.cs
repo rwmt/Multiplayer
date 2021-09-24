@@ -37,6 +37,9 @@ namespace Multiplayer.Common
         // id can be an IPAddress or CSteamID
         public MpDisconnectReason? OnPreConnect(object id)
         {
+            if (server.FullyStarted is false)
+                return MpDisconnectReason.ServerStarting;
+
             if (id is IPAddress addr && IPAddress.IsLoopback(addr))
                 return null;
 
@@ -73,8 +76,9 @@ namespace Multiplayer.Common
             ServerPlayer player = conn.serverPlayer;
             Players.Remove(player);
 
-            if (player.IsPlaying)
+            if (player.hasJoined)
             {
+                // todo check player.IsPlaying?
                 if (Players.All(p => p.FactionId != player.FactionId))
                 {
                     byte[] data = ByteWriter.GetBytes(player.FactionId);
@@ -116,6 +120,8 @@ namespace Multiplayer.Common
 
         public void OnJoin(ServerPlayer player)
         {
+            player.hasJoined = true;
+
             SendInitDataCommand(player);
 
             server.SendNotification("MpPlayerConnected", player.Username);
@@ -148,6 +154,8 @@ namespace Multiplayer.Common
         {
             foreach (var player in Players)
                 player.conn.Close(MpDisconnectReason.ServerClosed);
+
+            Players.Clear();
         }
 
         public ServerPlayer GetPlayer(string username)

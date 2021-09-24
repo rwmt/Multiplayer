@@ -202,12 +202,9 @@ namespace Multiplayer.Client
 
         public static bool CompareToLocal(RemoteData remote)
         {
-            var remoteMods = remote.remoteMods.Select(m => (m.packageId, m.source));
-            var localMods = activeModsSnapshot.Select(m => (m.PackageIdNonUnique, m.Source));
-
             return
                 remote.remoteRwVersion == VersionControl.CurrentVersionString &&
-                remoteMods.SequenceEqual(localMods) &&
+                remote.CompareMods(activeModsSnapshot) == ModListDiff.None &&
                 remote.remoteFiles.DictsEqual(modFilesSnapshot) &&
                 (!remote.hasConfigs || remote.remoteModConfigs.EqualAsSets(GetSyncableConfigContents(remote.RemoteModIds)));
         }
@@ -293,6 +290,25 @@ namespace Multiplayer.Client
         public string remoteAddress;
         public int remotePort;
         public CSteamID? remoteSteamHost;
+
+        public ModListDiff CompareMods(List<ModMetaData> localMods)
+        {
+            var mods1 = remoteMods.Select(m => (m.packageId, m.source));
+            var mods2 = localMods.Select(m => (m.PackageIdNonUnique, m.Source));
+
+            if (!mods1.EqualAsSets(mods2))
+                return ModListDiff.NoMatchAsSets;
+
+            if (!RemoteModIds.SequenceEqual(localMods.Select(m => m.PackageIdNonUnique)))
+                return ModListDiff.WrongOrder;
+
+            return ModListDiff.None;
+        }
+    }
+
+    public enum ModListDiff
+    {
+        None, NoMatchAsSets, WrongOrder
     }
 
     public record ModConfig(string ModId, string FileName, string Contents);

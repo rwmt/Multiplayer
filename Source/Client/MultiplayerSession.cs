@@ -57,9 +57,7 @@ namespace Multiplayer.Client
         public List<ChatMsg> messages = new();
         public bool hasUnread;
 
-        public MultiplayerServer localServer;
-        public Thread serverThread;
-        public ServerSettings localSettings;
+        public ServerSettings localServerSettings;
 
         public Process arbiter;
         public bool ArbiterPlaying => players.Any(p => p.type == PlayerType.Arbiter && p.status == PlayerStatus.Playing);
@@ -74,12 +72,6 @@ namespace Multiplayer.Client
             {
                 client.Close(MpDisconnectReason.Internal);
                 client.State = ConnectionStateEnum.Disconnected;
-            }
-
-            if (localServer != null)
-            {
-                localServer.running = false;
-                serverThread.Join();
             }
 
             netClient?.Stop();
@@ -177,6 +169,7 @@ namespace Multiplayer.Client
             if (reason == MpDisconnectReason.UsernameChars) { titleKey = "MpInvalidUsernameChars"; descKey = "MpChangeUsernameInfo"; }
             if (reason == MpDisconnectReason.ServerClosed) titleKey = "MpServerClosed";
             if (reason == MpDisconnectReason.ServerFull) titleKey = "MpServerFull";
+            if (reason == MpDisconnectReason.ServerStarting) titleKey = "MpDisconnectServerStarting";
             if (reason == MpDisconnectReason.Kick) titleKey = "MpKicked";
             if (reason == MpDisconnectReason.ServerPacketRead) descKey = "MpPacketErrorRemote";
 

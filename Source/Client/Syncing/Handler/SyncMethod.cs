@@ -9,13 +9,21 @@ using Verse;
 
 namespace Multiplayer.Client
 {
-    public record Serializer<Live, Networked>(Func<Live, object, object[], Networked> Writer, Func<Networked, Live> Reader);
+    public record Serializer<Live, Networked>(
+        Func<Live, object, object[], Networked> Writer, // (live, target, args) => networked
+        Func<Networked, Live> Reader // (networked) => live
+    );
 
     public static class Serializer
     {
         public static Serializer<Live, Networked> New<Live, Networked>(Func<Live, object, object[], Networked> writer, Func<Networked, Live> reader)
         {
             return new(writer, reader);
+        }
+
+        public static Serializer<Live, Networked> New<Live, Networked>(Func<Live, Networked> writer, Func<Networked, Live> reader)
+        {
+            return new((live, _, _) => writer(live), reader);
         }
 
         public static Serializer<Live, object> SimpleReader<Live>(Func<Live> reader)

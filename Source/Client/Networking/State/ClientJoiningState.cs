@@ -186,7 +186,7 @@ namespace Multiplayer.Client
                 toTickUntil: true,
                 onFinish: () => Multiplayer.Client.Send(Packets.Client_WorldReady),
                 cancelButtonKey: "Quit",
-                onCancel: GenScene.GoToMainMenu
+                onCancel: GenScene.GoToMainMenu // Calls StopMultiplayer through a patch
             );
 
             ReloadGame(mapsToLoad, true, false);

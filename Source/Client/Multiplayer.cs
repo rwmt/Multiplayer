@@ -37,7 +37,7 @@ namespace Multiplayer.Client
         public static MultiplayerSession session;
 
         public static ConnectionBase Client => session?.client;
-        public static MultiplayerServer LocalServer => session?.localServer;
+        public static MultiplayerServer LocalServer { get; set; }
         public static PacketLogWindow WriterLog => session?.writerLog;
         public static PacketLogWindow ReaderLog => session?.readerLog;
         public static bool IsReplay => session?.replay ?? false;
@@ -64,7 +64,13 @@ namespace Multiplayer.Client
 
         public static bool dontSync;
         public static bool ShouldSync => InInterface && !dontSync;
-        public static bool InInterface => Client != null && !Ticking && !ExecutingCmds && !reloading && Current.ProgramState == ProgramState.Playing && LongEventHandler.currentEvent == null;
+        public static bool InInterface =>
+            Client != null
+            && !Ticking
+            && !ExecutingCmds
+            && !reloading
+            && Current.ProgramState == ProgramState.Playing
+            && LongEventHandler.currentEvent == null;
 
         public static string ReplaysDir => GenFilePaths.FolderUnderSaveData("MpReplays");
         public static string DesyncsDir => GenFilePaths.FolderUnderSaveData("MpDesyncs");
@@ -298,6 +304,14 @@ namespace Multiplayer.Client
                 session.Stop();
                 session = null;
                 Prefs.Apply();
+            }
+
+            if (LocalServer != null)
+            {
+                LocalServer.running = false;
+                LocalServer.serverThread?.Join();
+                LocalServer.TryStop();
+                LocalServer = null;
             }
 
             game?.OnDestroy();

@@ -57,8 +57,7 @@ namespace Multiplayer.Client
         public string connectAnywayDisabled;
         public Action connectAnywayCallback;
         private ModFileDict filesForUI;
-        private bool sameSetOfMods;
-        private bool modListsEqual;
+        private ModListDiff modListDiff;
 
         public JoinDataWindow(RemoteData remote)
         {
@@ -83,8 +82,7 @@ namespace Multiplayer.Client
 
         private void CheckModLists()
         {
-            sameSetOfMods = remote.RemoteModIds.EqualAsSets(JoinData.activeModsSnapshot.Select(m => m.PackageIdNonUnique));
-            modListsEqual = remote.RemoteModIds.SequenceEqual(JoinData.activeModsSnapshot.Select(m => m.PackageIdNonUnique));
+            modListDiff = remote.CompareMods(JoinData.activeModsSnapshot);
         }
 
         private void AddNodesForPath(string path, Node root, NodeStatus status)
@@ -269,8 +267,7 @@ namespace Multiplayer.Client
         {
             var str = "";
             str += $"RW version match: {remote.remoteMpVersion == MpVersion.Version}, ";
-            str += $"Mod sets equal: {sameSetOfMods}, ";
-            str += $"Mod lists equal: {modListsEqual}, ";
+            str += $"Mod list diff: {modListDiff}, ";
             str += $"Files match: {!filesRoot.children.Any()}, ";
             str += $"Config sync enabled: {remote.hasConfigs}, ";
             str += $"Configs match: {!configsRoot.children.Any()}";
@@ -291,7 +288,7 @@ namespace Multiplayer.Client
             {
                 var modData = new Rect(0, 0, rowLabelWidth, modDataHeight);
                 Widgets.DrawAltRect(modData);
-                var modListsMatch = modListsEqual;
+                var modListsMatch = modListDiff == ModListDiff.None;
                 Widgets.CheckboxLabeled(modData, "MpMismatchModList".Translate(), ref modListsMatch);
                 modData = modData.Down(modDataHeight);
 
@@ -642,12 +639,12 @@ namespace Multiplayer.Client
                 var infoStr = "MpMismatchModListsMatch".Translate();
                 var infoColor = Color.green;
 
-                if (!sameSetOfMods)
+                if (modListDiff == ModListDiff.NoMatchAsSets)
                 {
                     infoStr = "MpMismatchModListsMismatch".Translate();
                     infoColor = Red;
                 }
-                else if (!modListsEqual)
+                else if (modListDiff == ModListDiff.WrongOrder)
                 {
                     infoStr = "MpMismatchWrongOrder".Translate();
                     infoColor = Yellow;

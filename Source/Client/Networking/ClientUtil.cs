@@ -35,7 +35,7 @@ namespace Multiplayer.Client
             NetManager netClient = new NetManager(new MpClientNetListener())
             {
                 EnableStatistics = true,
-                IPv6Enabled = IPv6Mode.Disabled
+                IPv6Enabled = IPv6Mode.SeparateSocket
             };
 
             netClient.Start();

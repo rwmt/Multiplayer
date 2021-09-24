@@ -8,6 +8,7 @@ using Multiplayer.Client.Util;
 using RimWorld;
 using UnityEngine;
 using Verse;
+using Random = System.Random;
 
 namespace Multiplayer.Client
 {
@@ -21,6 +22,10 @@ namespace Multiplayer.Client
         const float r = 2282;
         const float cx = r + 80, cy = r + 384;
         const float origWidth = 8000, origHeight = 5000;
+
+        // The background might be drawn at the same time as the loading of a map on a different thread calls Verse.Rand
+        // Verse.Rand can't be used here because it isn't thread-safe
+        private static Random rand = new();
 
         static MainMenuAnimation()
         {
@@ -49,9 +54,9 @@ namespace Multiplayer.Client
 
             if (Time.frameCount % 5 == 0)
             {
-                var edge = edges.RandomElement();
-                var rand = Rand.Bool;
-                pulses.Add(new Pulse(rand ? edge.v2 : edge.v1, rand ? edge.v1 : edge.v2) { starting = true });
+                var edge = edges[rand.Next(edges.Count())];
+                var switchEndpoints = rand.NextDouble() < 0.5;
+                pulses.Add(new Pulse(switchEndpoints ? edge.v2 : edge.v1, switchEndpoints ? edge.v1 : edge.v2) { starting = true });
             }
 
             DrawPulses(bgRect);
@@ -71,7 +76,7 @@ namespace Multiplayer.Client
                     if (!pulse.EaseOut)
                         pulses.Add(new Pulse(pulse.end, pulse.nextEnd)
                         {
-                            ending = Rand.Value < 0.4f
+                            ending = rand.NextDouble() < 0.4f
                         });
                 }
 
@@ -116,7 +121,7 @@ namespace Multiplayer.Client
 
             while (newEnd == null && attempts < 20)
             {
-                var randEdge = edges.RandomElement();
+                var randEdge = edges[rand.Next(edges.Count())];
                 var otherVert = randEdge.OtherVert(pulse.end);
                 if (otherVert != null && otherVert != pulse.start && otherVert != pulse.end)
                     newEnd = otherVert;
@@ -258,8 +263,8 @@ namespace Multiplayer.Client
             // Cities
             for (int i = 0; i < 20;)
             {
-                float cityTheta = Rand.Range(maskTheta, 75f);
-                float cityPhi = Rand.Range(-75f, 75f);
+                float cityTheta = rand.Range(maskTheta, 75f);
+                float cityPhi = rand.Range(-75f, 75f);
 
                 // ugh
                 var pr = Project(cityTheta, cityPhi).RotatedBy(rotate);
@@ -272,8 +277,8 @@ namespace Multiplayer.Client
                 if ((new Vector2(520 + maskR, 64 + maskR) - cityXY).magnitude < maskR)
                     continue;
 
-                var blobs = Rand.RangeInclusive(2, 4);
-                if (Rand.Value < 0.15) blobs += Rand.RangeInclusive(2, 3);
+                var blobs = rand.Next(2, 5);
+                if (rand.NextDouble() < 0.15) blobs += rand.Next(2, 4);
 
                 Vector2? lit = null;
 
@@ -281,16 +286,16 @@ namespace Multiplayer.Client
                 for (int k = 0; k < blobs; k++)
                 {
                     var blobSpan = 2.5f + Math.Max(0, (blobs - 3) * 0.25f);
-                    float theta = cityTheta + Rand.Range(-blobSpan, blobSpan);
-                    float phi = cityPhi + Rand.Range(-blobSpan, blobSpan);
+                    float theta = cityTheta + rand.Range(-blobSpan, blobSpan);
+                    float phi = cityPhi + rand.Range(-blobSpan, blobSpan);
 
                     // Dots
                     for (int j = 0; j < 7; j++)
                     {
-                        var blobSize = j == 0 || Rand.Value < 0.3f ? 15 : 10;
+                        var blobSize = j == 0 || rand.NextDouble() < 0.3f ? 15 : 10;
 
-                        float dotTheta = Rand.Range(-1f, 1f);
-                        float dotPhi = Rand.Range(-1f, 1f);
+                        float dotTheta = rand.Range(-1f, 1f);
+                        float dotPhi = rand.Range(-1f, 1f);
 
                         for (int x = -blobSize; x <= blobSize; x++)
                         for (int y = -blobSize; y <= blobSize; y++)

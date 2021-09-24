@@ -77,11 +77,7 @@ namespace Multiplayer.Client
 
         public static ISyncField RegisterSyncField(Type targetType, string fieldName)
         {
-            SyncField sf = Field(targetType, null, fieldName);
-
-            registeredSyncFields.Add(targetType + "/" + fieldName, sf);
-
-            return sf;
+            return RegisterSyncField(AccessTools.Field(targetType, fieldName));
         }
 
         public static ISyncField RegisterSyncField(FieldInfo field)
@@ -279,7 +275,7 @@ namespace Multiplayer.Client
         {
             MpUtil.MarkNoInlining(method);
 
-            SyncMethod handler = new SyncMethod((method.IsStatic ? null : method.DeclaringType), null, method, argTypes);
+            SyncMethod handler = new SyncMethod(method.IsStatic ? null : method.DeclaringType, null, method, argTypes);
             methodBaseToInternalId[handler.method] = internalIdToSyncMethod.Count;
             internalIdToSyncMethod.Add(handler);
             handlers.Add(handler);

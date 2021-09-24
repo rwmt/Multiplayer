@@ -32,6 +32,7 @@ namespace Multiplayer.Client
         public Rect chatRect;
         public Vector2 resolutionForChat;
         public bool showMainMenuAnim = true;
+        public DesyncTracingMode desyncTracingMode = DesyncTracingMode.Fast;
 
         public ServerSettings serverSettings = new();
 
@@ -58,7 +59,6 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref showMainMenuAnim, "showMainMenuAnim", true);
 
             Scribe_Deep.Look(ref serverSettings, "serverSettings");
-
             serverSettings ??= new ServerSettings();
         }
 
@@ -97,6 +97,12 @@ namespace Multiplayer.Client
             {
                 listing.CheckboxLabeled("Show debug info", ref showDevInfo);
                 listing.TextFieldNumericLabeled("Desync radius:  ", ref desyncTracesRadius, ref desyncRadiusBuffer, 1f, 200f);
+
+#if DEBUG
+                using (MpStyle.Set(TextAnchor.MiddleCenter))
+                    if (listing.ButtonTextLabeled("Desync tracing mode", desyncTracingMode.ToString()))
+                        desyncTracingMode = desyncTracingMode.Cycle();
+#endif
             }
 
             listing.End();
@@ -132,6 +138,11 @@ namespace Multiplayer.Client
             if (Multiplayer.Client != null && GUI.GetNameOfFocusedControl() == UsernameField)
                 UI.UnfocusCurrentControl();
         }
+    }
+
+    public enum DesyncTracingMode
+    {
+        None, Fast, Slow
     }
 
 }

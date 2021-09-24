@@ -4,8 +4,10 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Net;
+using System.Net.Sockets;
 using System.Text;
 using System.Threading;
+using Multiplayer.Common.Util;
 
 namespace Multiplayer.Common
 {
@@ -23,6 +25,7 @@ namespace Multiplayer.Common
         public const int DefaultPort = 30502;
         public const int MaxUsernameLength = 15;
         public const int MinUsernameLength = 3;
+        public const char EndpointSeparator = '&';
 
         public int coopFactionId;
         public byte[] savedGame; // Compressed game save
@@ -39,6 +42,7 @@ namespace Multiplayer.Common
         public PauseManager pauseManager;
         public CommandHandler commands;
         public PlayerManager playerManager;
+        public NetMan net;
         public IEnumerable<ServerPlayer> PlayingPlayers => playerManager.PlayingPlayers;
 
         public string hostUsername;
@@ -47,13 +51,9 @@ namespace Multiplayer.Common
         public ActionQueue queue = new();
         public ServerSettings settings;
 
-        public volatile bool running = true;
+        public volatile bool running;
 
         private Dictionary<string, ChatCmdHandler> chatCmds = new();
-
-        public NetManager netManager;
-        public NetManager lanManager;
-        private NetManager arbiter;
 
         public int nextUniqueId; // currently unused
 
@@ -62,14 +62,13 @@ namespace Multiplayer.Common
         public Dictionary<string, DefInfo> defInfos;
         public byte[] serverData;
 
-        public int NetPort => netManager.LocalPort;
-        public int LanPort => lanManager.LocalPort;
-        public int ArbiterPort => arbiter.LocalPort;
+        public Thread serverThread;
+        public event Action<MultiplayerServer> TickEvent;
 
         public bool ArbiterPlaying => PlayingPlayers.Any(p => p.IsArbiter && p.status == PlayerStatus.Playing);
         public ServerPlayer HostPlayer => PlayingPlayers.First(p => p.IsHost);
 
-        public event Action<MultiplayerServer> NetTick;
+        public bool FullyStarted => running && savedGame != null;
 
         public MultiplayerServer(ServerSettings settings)
         {
@@ -78,41 +77,11 @@ namespace Multiplayer.Common
             pauseManager = new PauseManager(this);
             commands = new CommandHandler(this);
             playerManager = new PlayerManager(this);
+            net = new NetMan(this);
 
             RegisterChatCmd("autosave", new ChatCmdAutosave());
             RegisterChatCmd("joinpoint", new ChatCmdJoinPoint());
             RegisterChatCmd("kick", new ChatCmdKick());
-
-            if (settings.bindAddress != null)
-                netManager = CreateNetManager();
-
-            if (settings.lanAddress != null)
-                lanManager = CreateNetManager();
-        }
-
-        private NetManager CreateNetManager()
-        {
-            return new NetManager(new MpServerNetListener(this, false))
-            {
-                EnableStatistics = true,
-                IPv6Enabled = IPv6Mode.Disabled
-            };
-        }
-
-        public bool? StartListeningNet()
-        {
-            return netManager?.Start(IPAddress.Parse(settings.bindAddress), IPAddress.IPv6Any, settings.bindPort);
-        }
-
-        public bool? StartListeningLan()
-        {
-            return lanManager?.Start(IPAddress.Parse(settings.lanAddress), IPAddress.IPv6Any, 0);
-        }
-
-        public void SetupArbiterConnection()
-        {
-            arbiter = new NetManager(new MpServerNetListener(this, true)) { IPv6Enabled = IPv6Mode.Disabled };
-            arbiter.Start(IPAddress.Loopback, IPAddress.IPv6Any, 0);
         }
 
         public void Run()
@@ -133,7 +102,11 @@ namespace Multiplayer.Common
 
                     while (lag >= timePerTick)
                     {
-                        TickNet();
+                        queue.RunQueue(ServerLog.Error);
+                        TickEvent?.Invoke(this);
+                        net.TickNet();
+                        pauseManager.Tick();
+
                         if (!pauseManager.Paused && PlayingPlayers.Any(p => p.KeepsServerAwake))
                             Tick();
                         lag -= timePerTick;
@@ -147,48 +120,22 @@ namespace Multiplayer.Common
                 }
             }
 
-            Stop();
+            try
+            {
+                TryStop();
+            }
+            catch (Exception e)
+            {
+                ServerLog.Log($"Exception stopping the server: {e}");
+            }
         }
 
-        private void Stop()
+        public void TryStop()
         {
             playerManager.OnServerStop();
-
-            netManager?.Stop();
-            lanManager?.Stop();
-            arbiter?.Stop();
+            net.OnServerStop();
 
             instance = null;
-        }
-
-        public int netTimer;
-
-        public void TickNet()
-        {
-            netManager?.PollEvents();
-            lanManager?.PollEvents();
-            arbiter?.PollEvents();
-
-            NetTick?.Invoke(this);
-
-            queue.RunQueue(ServerLog.Error);
-
-            if (lanManager != null && netTimer % 60 == 0)
-                lanManager.SendBroadcast(Encoding.UTF8.GetBytes("mp-server"), 5100);
-
-            netTimer++;
-
-            if (netTimer % 60 == 0)
-                playerManager.SendLatencies();
-
-            if (netTimer % 30 == 0)
-                foreach (var player in PlayingPlayers)
-                    player.SendPacket(Packets.Server_KeepAlive, ByteWriter.GetBytes(player.keepAliveId), false);
-
-            pauseManager.Tick();
-
-            if (netTimer % 2 == 0)
-                SendToAll(Packets.Server_TimeControl, ByteWriter.GetBytes(gameTimer, commands.NextCmdId), false);
         }
 
         public void Tick()
@@ -283,7 +230,7 @@ namespace Multiplayer.Common
             chatCmds[cmdName] = handler;
         }
 
-        public ChatCmdHandler GetCmdHandler(string cmdName)
+        public ChatCmdHandler GetChatCmdHandler(string cmdName)
         {
             chatCmds.TryGetValue(cmdName, out ChatCmdHandler handler);
             return handler;

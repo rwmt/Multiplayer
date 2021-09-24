@@ -6,8 +6,6 @@ namespace Multiplayer.Common
     public class ServerSettings : IExposable
     {
         public string gameName;
-        public string bindAddress;
-        public int bindPort;
         public string lanAddress;
 
         public string directAddress = $"0.0.0.0:{MultiplayerServer.DefaultPort}";

@@ -168,7 +168,7 @@ namespace Multiplayer.Client
 
             var TransferableOneWaySerializer = Serializer.New(
                 (TransferableOneWay t, object target, object[] args) =>
-                    ((target as ITab_ContentsTransporter).Transporter, t.AnyThing.thingIDNumber),
+                    (((ITab_ContentsTransporter)target).Transporter, t.AnyThing.thingIDNumber),
                 data =>
                     data.Transporter.leftToLoad.Find(t => t.things.Any(thing => thing.thingIDNumber == data.thingIDNumber))
             );

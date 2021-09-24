@@ -2,6 +2,7 @@ using Multiplayer.API;
 using Multiplayer.Common;
 using System;
 using Multiplayer.Client.Util;
+using Verse;
 
 namespace Multiplayer.Client
 {
@@ -60,6 +61,20 @@ namespace Multiplayer.Client
             Multiplayer.Client.SendCommand(CommandType.Sync, mapId, writer.ToArray());
 
             return true;
+        }
+
+        public bool DoSyncCatch(object target, object value, object index = null)
+        {
+            try
+            {
+                DoSync(target, value, index);
+                return true;
+            }
+            catch (Exception e)
+            {
+                Log.Error($"Error syncing field {this}: {e}");
+                return false;
+            }
         }
 
         public override void Handle(ByteReader data)

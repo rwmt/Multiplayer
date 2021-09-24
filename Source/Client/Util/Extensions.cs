@@ -20,6 +20,7 @@ using Steamworks;
 using UnityEngine;
 using Verse;
 using zip::Ionic.Zip;
+using Random = System.Random;
 
 namespace Multiplayer.Client
 {
@@ -390,6 +391,11 @@ namespace Multiplayer.Client
         {
             data.WriteShort((short)(vec.x * 10f));
             data.WriteShort((short)(vec.z * 10f));
+        }
+
+        public static float Range(this Random rand, float start, float end)
+        {
+            return (float)(start + rand.NextDouble() * (end - start));
         }
     }
 

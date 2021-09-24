@@ -85,7 +85,7 @@ namespace Multiplayer.Client
         private static MethodInfo ReadExposableDefinition =
             AccessTools.Method(typeof(ScribeUtil), nameof(ScribeUtil.ReadExposable));
 
-        private static Dictionary<Type, MethodInfo> ReadExposableInsts = new Dictionary<Type, MethodInfo>();
+        private static Dictionary<Type, MethodInfo> ReadExposableInsts = new();
 
         public static MethodInfo ReadExposable(Type type)
         {

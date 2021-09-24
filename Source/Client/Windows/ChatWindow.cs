@@ -379,11 +379,11 @@ namespace Multiplayer.Client
 
             if (Multiplayer.LocalServer != null)
             {
-                if (Multiplayer.LocalServer.lanManager != null)
-                    LogNetData("Lan Server", Multiplayer.LocalServer.lanManager.Statistics);
+                if (Multiplayer.LocalServer.net.lanManager != null)
+                    LogNetData("Lan Server", Multiplayer.LocalServer.net.lanManager.Statistics);
 
-                if (Multiplayer.LocalServer.netManager != null)
-                    LogNetData("Net Server", Multiplayer.LocalServer.netManager.Statistics);
+                //if (Multiplayer.LocalServer.net.netManager != null)
+                //    LogNetData("Net Server", Multiplayer.LocalServer.net.netManager.Statistics);
 
                 // todo thread problems?
                 // foreach (var p in Multiplayer.LocalServer.players.ToList())

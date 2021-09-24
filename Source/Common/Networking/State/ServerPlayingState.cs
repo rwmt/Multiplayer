@@ -72,7 +72,7 @@ namespace Multiplayer.Common
             {
                 var cmd = msg.Substring(1);
                 var parts = cmd.Split(' ');
-                var handler = Server.GetCmdHandler(parts[0]);
+                var handler = Server.GetChatCmdHandler(parts[0]);
 
                 if (handler != null)
                 {
@@ -117,7 +117,7 @@ namespace Multiplayer.Common
         [PacketHandler(Packets.Client_Cursor)]
         public void HandleCursor(ByteReader data)
         {
-            if (Player.lastCursorTick == Server.netTimer) return;
+            if (Player.lastCursorTick == Server.net.NetTimer) return;
 
             var writer = new ByteWriter();
 
@@ -148,7 +148,7 @@ namespace Multiplayer.Common
                 }
             }
 
-            Player.lastCursorTick = Server.netTimer;
+            Player.lastCursorTick = Server.net.NetTimer;
 
             Server.SendToAll(Packets.Server_Cursor, writer.ToArray(), reliable: false, excluding: Player);
         }
@@ -210,7 +210,7 @@ namespace Multiplayer.Common
 
             Player.ticksBehind = ticksBehind;
             Player.simulating = simulating;
-            Player.keepAliveAt = Server.netTimer;
+            Player.keepAliveAt = Server.net.NetTimer;
 
             if (Player.IsHost)
                 Server.workTicks = workTicks;
@@ -246,7 +246,7 @@ namespace Multiplayer.Common
             Player.paused = pause;
 
             if (!pause)
-                Player.unpausedAt = Server.netTimer;
+                Player.unpausedAt = Server.net.NetTimer;
         }
 
         [PacketHandler(Packets.Client_Autosaving)]

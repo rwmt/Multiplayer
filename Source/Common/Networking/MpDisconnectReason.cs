@@ -4,10 +4,10 @@
     {
         GenericKeyed,
         Protocol,
-        Defs,
         UsernameLength,
         UsernameChars,
         UsernameAlreadyOnline,
+        Generic,
         ServerClosed,
         ServerFull,
         Kick,
@@ -17,7 +17,7 @@
         ConnectingFailed,
         ServerPacketRead,
         Internal,
-        Generic,
+        ServerStarting
     }
 
 }

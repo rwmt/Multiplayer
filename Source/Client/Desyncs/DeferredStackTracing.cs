@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Web.Management;
 using HarmonyLib;
@@ -33,7 +34,8 @@ namespace Multiplayer.Client.Desyncs
 
         public static void Postfix()
         {
-            if (Native.LmfPtr == 0 || !ShouldAddStackTraceForDesyncLog()) return;
+            if (Native.LmfPtr == 0) return;
+            if (!ShouldAddStackTraceForDesyncLog()) return;
 
             var logItem = SimplePool<StackTraceLogItemRaw>.Get();
             var trace = logItem.raw;
@@ -48,6 +50,7 @@ namespace Multiplayer.Client.Desyncs
         public static bool ShouldAddStackTraceForDesyncLog()
         {
             if (Multiplayer.Client == null) return false;
+            if (Multiplayer.settings.desyncTracingMode == DesyncTracingMode.None) return false;
             if (Multiplayer.game == null) return false;
 
             // Only log if debugging enabled in Host Server menu

@@ -11,6 +11,7 @@ namespace Multiplayer.Common
         public PlayerType type;
         public PlayerStatus status;
         public ColorRGB color;
+        public bool hasJoined;
         public int ticksBehind;
         public bool simulating;
 
@@ -34,7 +35,7 @@ namespace Multiplayer.Common
         public bool IsArbiter => type == PlayerType.Arbiter;
 
         public bool KeepsServerAwake =>
-            !IsArbiter && status == PlayerStatus.Playing && ticksBehind < 30 && Server.netTimer - keepAliveAt < 60;
+            !IsArbiter && status == PlayerStatus.Playing && ticksBehind < 30 && Server.net.NetTimer - keepAliveAt < 60;
 
         public MultiplayerServer Server => MultiplayerServer.instance;
 

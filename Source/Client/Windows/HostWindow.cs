@@ -15,6 +15,7 @@ using Verse.Sound;
 using Verse.Steam;
 using Multiplayer.Client;
 using Multiplayer.Client.Util;
+using Multiplayer.Common.Util;
 
 namespace Multiplayer.Client
 {
@@ -131,7 +132,7 @@ namespace Multiplayer.Client
             var directLabelWidth = Text.CalcSize(directLabel).x;
             MpUI.CheckboxLabeled(entry.Width(checkboxWidth), directLabel, ref serverSettings.direct, placeTextNearCheckbox: true);
             if (serverSettings.direct)
-                serverSettings.directAddress = Widgets.TextField(entry.Width(checkboxWidth + 10).Right(checkboxWidth + 10), serverSettings.directAddress);
+                serverSettings.directAddress = Widgets.TextField(entry.Right(checkboxWidth + 10).MaxX(inRect.xMax), serverSettings.directAddress);
 
             entry = entry.Down(30);
 
@@ -266,55 +267,76 @@ namespace Multiplayer.Client
 
         private void TryHost()
         {
-            var settingsCopy = MpUtil.ShallowCopy(serverSettings, new ServerSettings());
+            var settings = MpUtil.ShallowCopy(serverSettings, new ServerSettings());
 
-            if (settingsCopy.direct && !TryParseIp(settingsCopy.directAddress, out settingsCopy.bindAddress, out settingsCopy.bindPort))
+            if (settings.direct && TryParseEndpoints(serverSettings.directAddress) is false)
                 return;
 
-            if (settingsCopy.gameName.NullOrEmpty())
+            if (settings.gameName.NullOrEmpty())
             {
                 Messages.Message("MpInvalidGameName".Translate(), MessageTypeDefOf.RejectInput, false);
                 return;
             }
 
-            if (!settingsCopy.direct)
-                settingsCopy.bindAddress = null;
-
-            if (!settingsCopy.lan)
-                settingsCopy.lanAddress = null;
+            if (TryStartLocalServer(settings) is false)
+                return;
 
             if (file?.replay ?? Multiplayer.IsReplay)
-                HostFromMultiplayerSave(settingsCopy);
+                HostFromMultiplayerSave(settings);
             else if (file == null)
-                HostUtil.HostServer(settingsCopy, false, false, asyncTime);
+                HostUtil.HostServer(settings, false, false, asyncTime);
             else
-                HostFromSingleplayer(settingsCopy);
+                HostFromSingleplayer(settings);
 
             Close();
         }
 
-        private bool TryParseIp(string ip, out string addr, out int port)
+        static bool TryParseEndpoints(string endpoints)
         {
-            port = MultiplayerServer.DefaultPort;
-            addr = null;
+            var split = endpoints.Split(MultiplayerServer.EndpointSeparator);
+            var success = true;
 
-            string[] parts = ip.Split(':');
+            foreach (var endpoint in split)
+                if (!Endpoints.TryParse(endpoint, MultiplayerServer.DefaultPort, out _))
+                {
+                    Messages.Message(
+                        "MpInvalidEndpoint".Translate(endpoint),
+                        MessageTypeDefOf.RejectInput,
+                        false
+                    );
+                    success = false;
+                }
 
-            if (!IPAddress.TryParse(parts[0], out IPAddress ipAddr))
+            return success;
+        }
+
+        static bool TryStartLocalServer(ServerSettings settings)
+        {
+            var localServer = new MultiplayerServer(settings);
+            localServer.net.StartNet();
+
+            var failed = false;
+
+            if (settings.direct && localServer.net.netManagers.Any(m => m.Item2.IsRunning is false))
             {
-                Messages.Message("MpInvalidAddress".Translate(), MessageTypeDefOf.RejectInput, false);
-                return false;
+                foreach (var (endpoint, man) in localServer.net.netManagers)
+                    if (man.IsRunning is false)
+                        Messages.Message("Failed to bind direct on " + endpoint, MessageTypeDefOf.RejectInput, false);
+                failed = true;
             }
 
-            addr = parts[0];
-
-            if (parts.Length >= 2 && (!int.TryParse(parts[1], out port) || port < 0 || port > ushort.MaxValue))
+            if (settings.lan && !localServer.net.lanManager.IsRunning)
             {
-                Messages.Message("MpInvalidPort".Translate(), MessageTypeDefOf.RejectInput, false);
-                return false;
+                Messages.Message("Failed to bind LAN on " + settings.lanAddress, MessageTypeDefOf.RejectInput, false);
+                failed = true;
             }
 
-            return true;
+            if (failed)
+                localServer.net.StopNet();
+            else
+                Multiplayer.LocalServer = localServer;
+
+            return !failed;
         }
 
         public override void PostClose()
@@ -355,8 +377,8 @@ namespace Multiplayer.Client
                     file.file,
                     true,
                     ReplayLoaded,
-                    cancel: GenScene.GoToMainMenu,
-                    simTextKey: "MpSimulatingServer"
+                    GenScene.GoToMainMenu,
+                    "MpSimulatingServer"
                 );
             }
             else

@@ -30,7 +30,7 @@ namespace Multiplayer.Common
             if (!Paused && Server.HostPlayer.paused)
                 Paused = true;
 
-            if (Paused && !Server.HostPlayer.paused && (!Server.PlayingPlayers.Any(p => p.paused) || Server.netTimer - Server.HostPlayer.unpausedAt > MaxPauseWaitTime))
+            if (Paused && !Server.HostPlayer.paused && (!Server.PlayingPlayers.Any(p => p.paused) || Server.net.NetTimer - Server.HostPlayer.unpausedAt > MaxPauseWaitTime))
                 Paused = false;
         }
     }

@@ -32,10 +32,12 @@ namespace Multiplayer.Client
             Multiplayer.session = session;
 
             session.myFactionId = Faction.OfPlayer.loadID;
-            session.localSettings = settings;
+            session.localServerSettings = settings;
             session.gameName = settings.gameName;
 
-            var localServer = new MultiplayerServer(settings);
+            // Server already pre-inited in HostWindow
+            var localServer = Multiplayer.LocalServer;
+            MultiplayerServer.instance = Multiplayer.LocalServer;
 
             if (hadSimulation)
             {
@@ -56,13 +58,10 @@ namespace Multiplayer.Client
             localServer.serverData = JoinData.WriteServerData(settings.syncConfigs);
 
             if (settings.steam)
-                localServer.NetTick += SteamIntegration.ServerSteamNetTick;
+                localServer.TickEvent += SteamIntegration.ServerSteamNetTick;
 
             if (fromReplay)
                 localServer.gameTimer = TickPatch.Timer;
-
-            MultiplayerServer.instance = localServer;
-            session.localServer = localServer;
 
             if (!fromReplay)
                 SetupGameFromSingleplayer();
@@ -88,11 +87,10 @@ namespace Multiplayer.Client
             }
             else
             {
-                var timeSpeed = TimeSpeed.Paused;
-
-                Multiplayer.WorldComp.TimeSpeed = timeSpeed;
+                Multiplayer.WorldComp.TimeSpeed = TimeSpeed.Paused;
                 foreach (var map in Find.Maps)
-                    map.AsyncTime().TimeSpeed = timeSpeed;
+                    map.AsyncTime().TimeSpeed = TimeSpeed.Paused;
+
                 Multiplayer.WorldComp.UpdateTimeSpeed();
 
                 Multiplayer.GameComp.asyncTime = asyncTime;
@@ -110,25 +108,15 @@ namespace Multiplayer.Client
 
             void StartServerThread()
             {
+                localServer.running = true;
 
-
-                var netStarted = localServer.StartListeningNet();
-                var lanStarted = localServer.StartListeningLan();
-
-                string text = "Server started.";
-
-                if (netStarted != null)
-                    text += (netStarted.Value ? $" Direct at {settings.bindAddress}:{localServer.NetPort}." : " Couldn't bind direct.");
-
-                if (lanStarted != null)
-                    text += (lanStarted.Value ? $" LAN at {settings.lanAddress}:{localServer.LanPort}." : " Couldn't bind LAN.");
-
-                session.serverThread = new Thread(localServer.Run)
+                Multiplayer.LocalServer.serverThread = new Thread(localServer.Run)
                 {
                     Name = "Local server thread"
                 };
-                session.serverThread.Start();
+                Multiplayer.LocalServer.serverThread.Start();
 
+                const string text = "Server started.";
                 Messages.Message(text, MessageTypeDefOf.SilentInput, false);
                 Log.Message(text);
             }
@@ -204,7 +192,7 @@ namespace Multiplayer.Client
 
         private static void SetupLocalClient()
         {
-            if (Multiplayer.session.localSettings.arbiter)
+            if (Multiplayer.session.localServerSettings.arbiter)
                 StartArbiter();
 
             LocalClientConnection localClient = new LocalClientConnection(Multiplayer.username);
@@ -230,9 +218,9 @@ namespace Multiplayer.Client
         {
             Multiplayer.session.AddMsg("The Arbiter instance is starting...", false);
 
-            Multiplayer.LocalServer.SetupArbiterConnection();
+            Multiplayer.LocalServer.net.SetupArbiterConnection();
 
-            string args = $"-batchmode -nographics -arbiter -logfile arbiter_log.txt -connect=127.0.0.1:{Multiplayer.LocalServer.ArbiterPort}";
+            string args = $"-batchmode -nographics -arbiter -logfile arbiter_log.txt -connect=127.0.0.1:{Multiplayer.LocalServer.net.ArbiterPort}";
 
             if (GenCommandLine.TryGetCommandLineArg("savedatafolder", out string saveDataFolder))
                 args += $" \"-savedatafolder={saveDataFolder}\"";

@@ -22,6 +22,7 @@ using System.Collections.Concurrent;
 using Verse.Sound;
 using Multiplayer.Client.Networking;
 using Multiplayer.Client.Util;
+using Multiplayer.Common.Util;
 
 namespace Multiplayer.Client
 {
@@ -519,18 +520,29 @@ namespace Multiplayer.Client
 
             if (Widgets.ButtonText(new Rect(inRect.center.x - btnWidth / 2, 60f, btnWidth, 35f), "MpConnectButton".Translate()))
             {
-                string addr = Multiplayer.settings.serverAddress.Trim();
-                int port = MultiplayerServer.DefaultPort;
-                string[] hostPort = addr.Split(':');
-                if (hostPort.Length == 2)
-                    int.TryParse(hostPort[1], out port);
+                var addr = Multiplayer.settings.serverAddress.Trim();
+                var port = MultiplayerServer.DefaultPort;
+
+                // If IPv4 or IPv6 address with optional port
+                if (Endpoints.TryParse(addr, MultiplayerServer.DefaultPort, out var endpoint))
+                {
+                    addr = endpoint.Address.ToString();
+                    port = endpoint.Port;
+                }
+                // Hostname with optional port
                 else
-                    port = MultiplayerServer.DefaultPort;
+                {
+                    var split = addr.Split(':');
+                    addr = split[0];
+                    if (split.Length == 2 && int.TryParse(split[1], out var parsedPort) && parsedPort is > IPEndPoint.MinPort and < IPEndPoint.MaxPort)
+                        port = parsedPort;
+                }
 
                 Log.Message("Connecting directly");
+
                 try
                 {
-                    ClientUtil.TryConnectWithWindow(hostPort[0], port);
+                    ClientUtil.TryConnectWithWindow(addr, port);
                     Multiplayer.settings.Write();
                     Close(false);
                 }
