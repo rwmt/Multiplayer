@@ -37,6 +37,30 @@ namespace Multiplayer.Client
             return (T)NewObjectNoCtor(typeof(T));
         }
 
+        private static bool ipv6;
+        private static bool ipv6Checked;
+
+        // Socket.OSSupportsIPv6 doesn't seem to work
+        public static bool SupportsIPv6()
+        {
+            if (!ipv6Checked)
+            {
+                try
+                {
+                    new Socket(AddressFamily.InterNetworkV6, SocketType.Dgram, ProtocolType.Udp);
+                    ipv6 = true;
+                }
+                catch
+                {
+                    ipv6 = false;
+                }
+
+                ipv6Checked = true;
+            }
+
+            return ipv6;
+        }
+
         // https://stackoverflow.com/a/27376368
         public static string GetLocalIpAddress()
         {

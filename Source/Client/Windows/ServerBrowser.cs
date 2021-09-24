@@ -546,9 +546,10 @@ namespace Multiplayer.Client
                     Multiplayer.settings.Write();
                     Close(false);
                 }
-                catch (Exception)
+                catch (Exception e)
                 {
                     Messages.Message("MpInvalidAddress".Translate(), MessageTypeDefOf.RejectInput, false);
+                    Log.Error($"Exception while connecting directly {e}");
                 }
             }
         }

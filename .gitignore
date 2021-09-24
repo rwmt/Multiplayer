@@ -267,6 +267,6 @@ __pycache__/
 /Source/LICENSE
 /Source/dnlib.dll
 /Multiplayer
-Multiplayer.zip
+Multiplayer*.zip
 
 !Source/Client/Debug/

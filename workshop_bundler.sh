@@ -2,6 +2,10 @@
 
 VERSION=$(grep -Po '(?<=Version = ")[0-9\.]+' Source/Common/Version.cs)
 
+cd Source
+dotnet build --configuration Release
+cd ..
+
 git submodule update --init --recursive
 
 mkdir -p Multiplayer
@@ -30,7 +34,7 @@ mkdir -p Multiplayer/1.0
 git --work-tree=Multiplayer/1.0 checkout origin/rw-1.0 -- Assemblies Defs Languages
 git reset Assemblies Defs Languages
 
-rm -f Multiplayer.zip
-zip -r -q Multiplayer.zip Multiplayer
+rm -f Multiplayer-v$VERSION.zip
+zip -r -q Multiplayer-v$VERSION.zip Multiplayer
 
-echo "Ok, $PWD/Multiplayer.zip ready for uploading to Workshop"
+echo "Ok, $PWD/Multiplayer-v$VERSION.zip ready for uploading to Workshop"

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using HarmonyLib;
 using Multiplayer.Client.Patches;
@@ -255,10 +256,7 @@ namespace Multiplayer.Client
             edges.Clear();
             pulses.Clear();
 
-            var cols = texture.GetPixels();
-            for (int i = 0; i < cols.Length; i++)
-                cols[i] = new Color(0, 0, 0, 0);
-            texture.SetPixels(cols);
+            var colors = new Color[8000 * 5000];
 
             // Cities
             for (int i = 0; i < 20;)
@@ -316,7 +314,9 @@ namespace Multiplayer.Client
                                 else if (a > 0.4) a *= 2f;
 
                                 var color = new Color(0.93f, 0.75f, 0.55f, a * a * 2);
-                                texture.SetPixel((int)pos.x + x, (int)origHeight - (int)pos.y + y, color);
+                                var pixelX = (int)pos.x + x;
+                                var pixelY = (int)origHeight - (int)pos.y + y;
+                                colors[pixelX + pixelY * 8000] = color;
 
                                 if (color.a >= 1 && lit == null)
                                 {
@@ -332,6 +332,7 @@ namespace Multiplayer.Client
                 i++;
             }
 
+            texture.SetPixels(colors);
             texture.Apply();
 
             Mst();
