@@ -67,7 +67,7 @@ namespace Multiplayer.Client
             else if (Windows)
                 LmfPtr = threadInfoPtr + 0x448 - 8 * 4;
             else if (OSX)
-                LmfPtr = threadInfoPtr + 0x448 - 8 * 4;
+                LmfPtr = threadInfoPtr + 0x418 - 8 * 4;
         }
 
         public static string MethodNameFromAddr(long addr, bool harmonyOriginals)
