@@ -52,5 +52,10 @@ namespace Multiplayer.Common
 
             return new ScheduledCommand(cmd, ticks, factionId, mapId, playerId, extraBytes);
         }
+
+        public override string ToString()
+        {
+            return $"Cmd: {type}, faction: {factionId}, map: {mapId}, ticks: {ticks}, player: {playerId}";
+        }
     }
 }

@@ -153,6 +153,8 @@ namespace Multiplayer.Client
                     {
                         ScheduledCommand cmd = tickable.Cmds.Dequeue();
                         tickable.ExecuteCmd(cmd);
+
+                        if (LongEventHandler.eventQueue.Count > 0) return; // Yield to e.g. join-point creation
                     }
                 }
 

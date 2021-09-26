@@ -132,7 +132,13 @@ namespace Multiplayer.Client
                 string strVersion = reader.ReadString();
                 int proto = reader.ReadInt32();
 
-                disconnectInfo.titleTranslated = "MpWrongMultiplayerVersionInfo".Translate(strVersion, proto);
+                disconnectInfo.wideWindow = true;
+                disconnectInfo.descTranslated = "MpWrongMultiplayerVersionInfo".Translate(strVersion, proto, MpVersion.Version);
+
+                if (proto < MpVersion.Protocol)
+                    disconnectInfo.descTranslated += "\n" + "MpWrongVersionUpdateInfoHost".Translate();
+                else
+                    disconnectInfo.descTranslated += "\n" + "MpWrongVersionUpdateInfo".Translate();
             }
 
             if (reason == MpDisconnectReason.ConnectingFailed)
@@ -214,7 +220,7 @@ namespace Multiplayer.Client
 
         public void ScheduleCommand(ScheduledCommand cmd)
         {
-            MpLog.Debug($"Cmd: {cmd.type}, faction: {cmd.factionId}, map: {cmd.mapId}, ticks: {cmd.ticks}");
+            MpLog.Debug(cmd.ToString());
             dataSnapshot.mapCmds.GetOrAddNew(cmd.mapId).Add(cmd);
 
             if (Current.ProgramState != ProgramState.Playing) return;
@@ -303,6 +309,7 @@ namespace Multiplayer.Client
         public string descTranslated;
         public string specialButtonTranslated;
         public Action specialButtonAction;
+        public bool wideWindow;
     }
 
     public class GameDataSnapshot

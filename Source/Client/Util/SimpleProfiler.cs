@@ -3,6 +3,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using UnityEngine;
@@ -35,17 +36,20 @@ namespace Multiplayer.Client
         public static bool available;
         public static bool running;
 
+        [MethodImpl(MethodImplOptions.NoInlining)]
         public static void CheckAvailable()
         {
             available = GetModuleHandle("simple_profiler.dll").ToInt32() != 0;
         }
 
+        [MethodImpl(MethodImplOptions.NoInlining)]
         public static void Init(string id)
         {
             if (!available) return;
             init_profiler(id);
         }
 
+        [MethodImpl(MethodImplOptions.NoInlining)]
         public static void Start()
         {
             if (!available) return;
@@ -53,6 +57,7 @@ namespace Multiplayer.Client
             running = true;
         }
 
+        [MethodImpl(MethodImplOptions.NoInlining)]
         public static void Pause()
         {
             if (!available) return;
@@ -60,6 +65,7 @@ namespace Multiplayer.Client
             running = false;
         }
 
+        [MethodImpl(MethodImplOptions.NoInlining)]
         public static void Print(string file)
         {
             if (!available) return;

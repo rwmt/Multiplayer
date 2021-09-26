@@ -209,7 +209,7 @@ namespace Multiplayer.Client
         private static void InitSync()
         {
             using (DeepProfilerWrapper.Section("Multiplayer CollectTypes"))
-                SyncSerialization.CollectTypes();
+                SyncSerialization.Init();
 
             using (DeepProfilerWrapper.Section("Multiplayer SyncGame"))
                 SyncGame.Init();

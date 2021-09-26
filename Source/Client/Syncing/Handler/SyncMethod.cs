@@ -36,6 +36,7 @@ namespace Multiplayer.Client
 
     public delegate void SyncMethodWriter(object obj, SyncType type, string debugInfo);
 
+    [HotSwappable]
     public class SyncMethod : SyncHandler, ISyncMethod
     {
         public readonly Type targetType;
@@ -163,7 +164,11 @@ namespace Multiplayer.Client
             else
                 target = ReadTarget(data);
 
-            if (targetType != null && target == null) return;
+            if (targetType != null && target == null)
+            {
+                MpLog.Debug($"SyncMethod {this} read target null");
+                return;
+            }
 
             if (!instancePath.NullOrEmpty())
                 target = target.GetPropertyOrField(instancePath);

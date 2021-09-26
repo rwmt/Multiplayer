@@ -117,6 +117,7 @@ namespace Multiplayer.Client
             for (int i = 0; i < 200; i++)
                 info.remoteMods.Add(info.remoteMods.Last());
             info.remoteFiles.Add("rwmt.multiplayer", new ModFile() { relPath = "/Test/Test.xml" });
+            //info.remoteFiles.Add("ludeon.rimworld", new ModFile() { relPath = "/Test/Test.xml" });
 
             Find.WindowStack.Add(new JoinDataWindow(info));
         }

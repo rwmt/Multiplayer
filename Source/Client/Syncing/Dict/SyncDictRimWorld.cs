@@ -12,6 +12,7 @@ using Verse;
 using Verse.AI;
 using Verse.AI.Group;
 using static Multiplayer.Client.SyncSerialization;
+using static Multiplayer.Client.ImplSerialization;
 // ReSharper disable RedundantLambdaParameterType
 
 namespace Multiplayer.Client

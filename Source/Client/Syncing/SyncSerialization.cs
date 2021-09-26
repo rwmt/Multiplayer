@@ -26,85 +26,11 @@ namespace Multiplayer.Client
 
     public static class SyncSerialization
     {
-        private static Type[] AllImplementationsOrdered(Type type)
+        public static void Init()
         {
-            return
-                type.AllImplementing()
-                .OrderBy(t => t.IsInterface)
-                .ThenBy(t => t.Name)
-                .ToArray();
+            ImplSerialization.Init();
+            DefSerialization.Init();
         }
-
-        private static Type[] AllSubclassesNonAbstractOrdered(Type type) {
-            return type
-                .AllSubclassesNonAbstract()
-                .OrderBy(t => t.Name)
-                .ToArray();
-        }
-
-        public static Type[] storageParents;
-        public static Type[] plantToGrowSettables;
-
-        public static Type[] thingCompTypes;
-        public static Type[] abilityCompTypes;
-        public static Type[] designatorTypes;
-        public static Type[] worldObjectCompTypes;
-
-        public static Type[] gameCompTypes;
-        public static Type[] worldCompTypes;
-        public static Type[] mapCompTypes;
-
-        public static Type[] defTypes;
-
-        public static void CollectTypes()
-        {
-            storageParents = AllImplementationsOrdered(typeof(IStoreSettingsParent));
-            plantToGrowSettables = AllImplementationsOrdered(typeof(IPlantToGrowSettable));
-
-            thingCompTypes = AllSubclassesNonAbstractOrdered(typeof(ThingComp));
-            abilityCompTypes = AllSubclassesNonAbstractOrdered(typeof(AbilityComp));
-            designatorTypes = AllSubclassesNonAbstractOrdered(typeof(Designator));
-            worldObjectCompTypes = AllSubclassesNonAbstractOrdered(typeof(WorldObjectComp));
-
-            gameCompTypes = AllSubclassesNonAbstractOrdered(typeof(GameComponent));
-            worldCompTypes = AllSubclassesNonAbstractOrdered(typeof(WorldComponent));
-            mapCompTypes = AllSubclassesNonAbstractOrdered(typeof(MapComponent));
-
-            defTypes = AllSubclassesNonAbstractOrdered(typeof(Def));
-        }
-
-        internal static Type[] supportedThingHolders =
-        {
-            typeof(Map),
-            typeof(Thing),
-            typeof(ThingComp),
-            typeof(WorldObject),
-            typeof(WorldObjectComp)
-        };
-
-        private static MethodInfo ReadExposableDefinition =
-            AccessTools.Method(typeof(ScribeUtil), nameof(ScribeUtil.ReadExposable));
-
-        private static Dictionary<Type, MethodInfo> ReadExposableInsts = new();
-
-        public static MethodInfo ReadExposable(Type type)
-        {
-            return ReadExposableInsts.AddOrGet(type, newType => ReadExposableDefinition.MakeGenericMethod(newType));
-        }
-
-        internal enum ISelectableImpl : byte
-        {
-            None, Thing, Zone, WorldObject
-        }
-
-        internal enum VerbOwnerType : byte
-        {
-            None, Pawn, Ability, CompEquippable, CompReloadable
-        }
-
-        private static MethodInfo GetDefByIdMethod = AccessTools.Method(typeof(SyncSerialization), nameof(GetDefById));
-
-        public static T GetDefById<T>(ushort id) where T : Def => DefDatabase<T>.GetByShortHash(id);
 
         public static bool CanHandle(SyncType syncType)
         {
@@ -206,7 +132,7 @@ namespace Multiplayer.Client
                         throw new SerializationException($"Type {type} can't be exposed because it isn't IExposable");
 
                     byte[] exposableData = data.ReadPrefixedBytes();
-                    return ReadExposable(type).Invoke(null, new[] { exposableData, null });
+                    return ExposableSerialization.ReadExposable(type, exposableData);
                 }
 
                 if (typeof(ISynchronizable).IsAssignableFrom(type))
@@ -337,9 +263,10 @@ namespace Multiplayer.Client
                         return null;
 
                     ushort shortHash = data.ReadUShort();
-                    var defType = defTypes[defTypeIndex];
 
-                    var def = (Def)GetDefByIdMethod.MakeGenericMethod(defType).Invoke(null, new object[] { shortHash });
+                    var defType = DefSerialization.DefTypes[defTypeIndex];
+                    var def = DefSerialization.GetDef(defType, shortHash);
+
                     if (def == null)
                         throw new SerializationException($"Couldn't find {defType} with short hash {shortHash}");
 
@@ -350,7 +277,7 @@ namespace Multiplayer.Client
                 if (typeof(Designator).IsAssignableFrom(type))
                 {
                     ushort desId = ReadSync<ushort>(data);
-                    type = designatorTypes[desId]; // Replaces the type!
+                    type = ImplSerialization.designatorTypes[desId]; // Replaces the type!
                 }
 
                 // Where the magic happens
@@ -579,7 +506,7 @@ namespace Multiplayer.Client
                         return;
                     }
 
-                    var defTypeIndex = Array.IndexOf(defTypes, def.GetType());
+                    var defTypeIndex = Array.IndexOf(DefSerialization.DefTypes, def.GetType());
                     if (defTypeIndex == -1)
                         throw new SerializationException($"Unknown def type {def.GetType()}");
 
@@ -592,7 +519,7 @@ namespace Multiplayer.Client
                 // Special case for Designators to change the type
                 if (typeof(Designator).IsAssignableFrom(type))
                 {
-                    data.WriteUShort((ushort) Array.IndexOf(designatorTypes, obj.GetType()));
+                    data.WriteUShort((ushort) Array.IndexOf(ImplSerialization.designatorTypes, obj.GetType()));
                 }
 
                 // Where the magic happens
@@ -617,59 +544,16 @@ namespace Multiplayer.Client
             }
         }
 
-        internal static T ReadWithImpl<T>(ByteReader data, IList<Type> impls) where T : class
-        {
-            ushort impl = data.ReadUShort();
-            if (impl == ushort.MaxValue) return null;
-            return (T)ReadSyncObject(data, impls[impl]);
-        }
-
-        internal static void WriteWithImpl<T>(ByteWriter data, object obj, IList<Type> impls) where T : class
-        {
-            if (obj == null)
-            {
-                data.WriteUShort(ushort.MaxValue);
-                return;
-            }
-
-            GetImpl(obj, impls, out Type implType, out int impl);
-
-            if (implType == null)
-                throw new SerializationException($"Unknown {typeof(T)} implementation type {obj.GetType()}");
-
-            data.WriteUShort((ushort)impl);
-            WriteSyncObject(data, obj, implType);
-        }
-
-        internal static void GetImpl(object obj, IList<Type> impls, out Type type, out int index)
-        {
-            type = null;
-            index = -1;
-
-            if (obj == null) return;
-
-            for (int i = 0; i < impls.Count; i++)
-            {
-                if (impls[i].IsAssignableFrom(obj.GetType()))
-                {
-                    type = impls[i];
-                    index = i;
-                    break;
-                }
-            }
-        }
-
         internal static T GetAnyParent<T>(Thing thing) where T : class
         {
-            T t = thing as T;
-            if (t != null)
+            if (thing is T t)
                 return t;
 
             for (var parentHolder = thing.ParentHolder; parentHolder != null; parentHolder = parentHolder.ParentHolder)
                 if (parentHolder is T t2)
                     return t2;
 
-            return (T)((object)null);
+            return null;
         }
 
         internal static string ThingHolderString(Thing thing)

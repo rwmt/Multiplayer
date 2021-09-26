@@ -269,7 +269,7 @@ namespace Multiplayer.Client
 
             if (syncWorkerEntry != null)
                 return true;
-                
+
             return false;
         }
 
@@ -424,17 +424,17 @@ namespace Multiplayer.Client
 
         static TypeRWHelper()
         {
-            cache[typeof(IStoreSettingsParent)] = SyncSerialization.storageParents;
-            cache[typeof(IPlantToGrowSettable)] = SyncSerialization.plantToGrowSettables;
+            cache[typeof(IStoreSettingsParent)] = ImplSerialization.storageParents;
+            cache[typeof(IPlantToGrowSettable)] = ImplSerialization.plantToGrowSettables;
 
-            cache[typeof(ThingComp)] = SyncSerialization.thingCompTypes;
-            cache[typeof(AbilityComp)] = SyncSerialization.abilityCompTypes;
-            cache[typeof(Designator)] = SyncSerialization.designatorTypes;
-            cache[typeof(WorldObjectComp)] = SyncSerialization.worldObjectCompTypes;
+            cache[typeof(ThingComp)] = ImplSerialization.thingCompTypes;
+            cache[typeof(AbilityComp)] = ImplSerialization.abilityCompTypes;
+            cache[typeof(Designator)] = ImplSerialization.designatorTypes;
+            cache[typeof(WorldObjectComp)] = ImplSerialization.worldObjectCompTypes;
 
-            cache[typeof(GameComponent)] = SyncSerialization.gameCompTypes;
-            cache[typeof(WorldComponent)] = SyncSerialization.worldCompTypes;
-            cache[typeof(MapComponent)] = SyncSerialization.mapCompTypes;
+            cache[typeof(GameComponent)] = ImplSerialization.gameCompTypes;
+            cache[typeof(WorldComponent)] = ImplSerialization.worldCompTypes;
+            cache[typeof(MapComponent)] = ImplSerialization.mapCompTypes;
         }
 
         internal static void FlushCache()

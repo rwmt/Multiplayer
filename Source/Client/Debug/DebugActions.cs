@@ -65,16 +65,16 @@ namespace Multiplayer.Client
         public static void DumpSyncTypes()
         {
             var dict = new Dictionary<string, Type[]>() {
-                {"ThingComp", SyncSerialization.thingCompTypes},
-                {"AbilityComp", SyncSerialization.abilityCompTypes},
-                {"Designator", SyncSerialization.designatorTypes},
-                {"WorldObjectComp", SyncSerialization.worldObjectCompTypes},
-                {"IStoreSettingsParent", SyncSerialization.storageParents},
-                {"IPlantToGrowSettable", SyncSerialization.plantToGrowSettables},
+                {"ThingComp", ImplSerialization.thingCompTypes},
+                {"AbilityComp", ImplSerialization.abilityCompTypes},
+                {"Designator", ImplSerialization.designatorTypes},
+                {"WorldObjectComp", ImplSerialization.worldObjectCompTypes},
+                {"IStoreSettingsParent", ImplSerialization.storageParents},
+                {"IPlantToGrowSettable", ImplSerialization.plantToGrowSettables},
 
-                {"GameComponent", SyncSerialization.gameCompTypes},
-                {"WorldComponent", SyncSerialization.worldCompTypes},
-                {"MapComponent", SyncSerialization.mapCompTypes},
+                {"GameComponent", ImplSerialization.gameCompTypes},
+                {"WorldComponent", ImplSerialization.worldCompTypes},
+                {"MapComponent", ImplSerialization.mapCompTypes},
             };
 
             foreach(var kv in dict) {

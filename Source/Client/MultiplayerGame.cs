@@ -70,8 +70,6 @@ namespace Multiplayer.Client
 
             SetThingMakerSeed(1);
 
-            Prefs.PauseOnLoad = false; // causes immediate desyncs on load if misaligned between host and clients
-
             foreach (var field in typeof(DebugSettings).GetFields(BindingFlags.Public | BindingFlags.Static))
                 if (!field.IsLiteral && field.FieldType == typeof(bool))
                     field.SetValue(null, default(bool));

@@ -109,7 +109,8 @@ namespace Multiplayer.Client
             using (DeepProfilerWrapper.Section("MultiplayerData PrecacheMods"))
                 MultiplayerData.PrecacheMods();
 
-            SimpleProfiler.Print("mp_prof_out.txt");
+            if (GenCommandLine.CommandLineArgPassed("profiler"))
+                SimpleProfiler.Print("mp_prof_out.txt");
         }
 
         private static void DoubleLongEvent(Action action, string textKey)

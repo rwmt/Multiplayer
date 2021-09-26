@@ -112,17 +112,17 @@ namespace Multiplayer.Client
 
             int TypeHash(Type type) => GenText.StableStringHash(type.FullName);
 
-            dict["ThingComp"] = GetDefInfo(SyncSerialization.thingCompTypes, TypeHash);
-            dict["AbilityComp"] = GetDefInfo(SyncSerialization.abilityCompTypes, TypeHash);
-            dict["Designator"] = GetDefInfo(SyncSerialization.designatorTypes, TypeHash);
-            dict["WorldObjectComp"] = GetDefInfo(SyncSerialization.worldObjectCompTypes, TypeHash);
-            dict["IStoreSettingsParent"] = GetDefInfo(SyncSerialization.storageParents, TypeHash);
-            dict["IPlantToGrowSettable"] = GetDefInfo(SyncSerialization.plantToGrowSettables, TypeHash);
-            dict["DefTypes"] = GetDefInfo(SyncSerialization.defTypes, TypeHash);
+            dict["ThingComp"] = GetDefInfo(ImplSerialization.thingCompTypes, TypeHash);
+            dict["AbilityComp"] = GetDefInfo(ImplSerialization.abilityCompTypes, TypeHash);
+            dict["Designator"] = GetDefInfo(ImplSerialization.designatorTypes, TypeHash);
+            dict["WorldObjectComp"] = GetDefInfo(ImplSerialization.worldObjectCompTypes, TypeHash);
+            dict["IStoreSettingsParent"] = GetDefInfo(ImplSerialization.storageParents, TypeHash);
+            dict["IPlantToGrowSettable"] = GetDefInfo(ImplSerialization.plantToGrowSettables, TypeHash);
+            dict["DefTypes"] = GetDefInfo(DefSerialization.DefTypes, TypeHash);
 
-            dict["GameComponent"] = GetDefInfo(SyncSerialization.gameCompTypes, TypeHash);
-            dict["WorldComponent"] = GetDefInfo(SyncSerialization.worldCompTypes, TypeHash);
-            dict["MapComponent"] = GetDefInfo(SyncSerialization.mapCompTypes, TypeHash);
+            dict["GameComponent"] = GetDefInfo(ImplSerialization.gameCompTypes, TypeHash);
+            dict["WorldComponent"] = GetDefInfo(ImplSerialization.worldCompTypes, TypeHash);
+            dict["MapComponent"] = GetDefInfo(ImplSerialization.mapCompTypes, TypeHash);
 
             dict["PawnBio"] = GetDefInfo(SolidBioDatabase.allBios, b => b.name.GetHashCode());
             dict["Backstory"] = GetDefInfo(BackstoryDatabase.allBackstories.Keys, b => b.GetHashCode());

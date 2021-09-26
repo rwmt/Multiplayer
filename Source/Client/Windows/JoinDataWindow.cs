@@ -20,7 +20,7 @@ namespace Multiplayer.Client
     [HotSwappable]
     public class JoinDataWindow : Window
     {
-        public override Vector2 InitialSize => new(640f, 580f);
+        public override Vector2 InitialSize => new(660f, 610f);
 
         private enum Tab
         {
@@ -216,7 +216,12 @@ namespace Multiplayer.Client
                         filesRoot,
                         RefreshFiles,
                         true,
-                        MpUtil.TranslateWithDoubleNewLines("MpMismatchFilesInfo", 2),
+                        "MpMismatchFilesInfo".Translate() +
+                        "\n\n" +
+                        "MpMismatchFilesInfoMods".Translate() +
+                        (string)(HasCoreMismatches() ? "\n\n" + "MpMismatchFilesInfoCore".Translate() : "") +
+                        "\n\n" +
+                        "MpMismatchFilesInfoHost".Translate(),
                         filesRoot.children.Any() ? null : "MpFilesMatch"
                     );
                 else if (tab == Tab.Configs)
@@ -262,6 +267,8 @@ namespace Multiplayer.Client
                 Find.WindowStack.Add(new ServerBrowser());
             }
         }
+
+        private bool HasCoreMismatches() => filesRoot.children.Any(c => c.id.Contains("ludeon"));
 
         private string DiffString()
         {
@@ -353,8 +360,10 @@ namespace Multiplayer.Client
             }
         }
 
-        Vector2 treeScroll;
-        int nodeCount;
+        private Vector2 treeScroll;
+        private int nodeCount;
+        private Vector2 descScroll;
+        private Dictionary<string, float> strHeight = new();
 
         static readonly Color Red = new(1f, 0.25f, 0.25f);
         static readonly Color Orange = new(1f, 0.5f, 0.25f);
@@ -486,10 +495,17 @@ namespace Multiplayer.Client
             GUI.EndGroup();
 
             if (desc != null)
-                MpUI.Label(
-                    new Rect(0, combined.yMax + 15f, combined.width, 0f).MaxY(inRect.yMax).CenteredOnXIn(inRect),
-                    desc
-                );
+            {
+                var scrollOut = new Rect(0, combined.yMax + 15f, combined.width, 0f).MaxY(inRect.yMax).CenteredOnXIn(inRect);
+                var height = Text.CalcHeight(desc, scrollOut.width - 16f);
+                var descRect = scrollOut.Width(scrollOut.width - 16f).Height(height);
+
+                Widgets.BeginScrollView(scrollOut, ref descScroll, descRect);
+                {
+                    MpUI.Label(descRect, desc);
+                }
+                Widgets.EndScrollView();
+            }
         }
 
         Vector2 modScrollLeft;

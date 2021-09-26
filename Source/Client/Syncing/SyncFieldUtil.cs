@@ -122,8 +122,7 @@ namespace Multiplayer.Client
         public static object SnapshotValueIfNeeded(SyncField field, object value)
         {
             if (field.fieldType.expose)
-                return SyncSerialization.ReadExposable(field.fieldType.type)
-                    .Invoke(null, new[] { ScribeUtil.WriteExposable((IExposable)value), null });
+                return ExposableSerialization.ReadExposable(field.fieldType.type, ScribeUtil.WriteExposable((IExposable)value));
 
             return value;
         }
