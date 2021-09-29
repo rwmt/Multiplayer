@@ -9,7 +9,6 @@ using System.Threading.Tasks;
 using UnityEngine;
 using Verse;
 using Verse.AI;
-using static Verse.Widgets;
 
 namespace Multiplayer.Client.Patches
 {
@@ -109,36 +108,40 @@ namespace Multiplayer.Client.Patches
     [HarmonyPatch(typeof(Widgets), nameof(Widgets.ButtonTextWorker))]
     internal static class StylingDialog_HandleAccept
     {
-        static void Postfix(string label, ref DraggableResult __result)
+        static void Postfix(string label, ref Widgets.DraggableResult __result)
         {
             if (StylingDialog_Marker.drawing == null) return;
             if (Multiplayer.Client == null) return;
 
             if (label == "Accept".Translate() && __result.AnyPressed())
             {
-                var dia = StylingDialog_Marker.drawing;
-                var pawn = dia.pawn;
-
-                StylingDialog_Accept(
-                    new StylingData()
-                    {
-                        pawn = ((StylingDialog_DummyPawn)pawn).origPawn,
-                        stylingStation = dia.stylingStation,
-                        hadStylingStation = dia.stylingStation != null,
-                        hair = pawn.story.hairDef,
-                        beard = pawn.style.beardDef,
-                        faceTattoo = pawn.style.FaceTattoo,
-                        bodyTattoo = pawn.style.BodyTattoo,
-                        hairColor = dia.desiredHairColor,
-                        apparelColors = dia.apparelColors
-                    }
-                );
-
-                dia.Reset(false);
-                dia.Close();
-
-                __result = DraggableResult.Idle;
+                OnAccept();
+                __result = Widgets.DraggableResult.Idle;
             }
+        }
+
+        static void OnAccept()
+        {
+            var dia = StylingDialog_Marker.drawing;
+            var pawn = dia.pawn;
+
+            StylingDialog_Accept(
+                new StylingData()
+                {
+                    pawn = ((StylingDialog_DummyPawn)pawn).origPawn,
+                    stylingStation = dia.stylingStation,
+                    hadStylingStation = dia.stylingStation != null,
+                    hair = pawn.story.hairDef,
+                    beard = pawn.style.beardDef,
+                    faceTattoo = pawn.style.FaceTattoo,
+                    bodyTattoo = pawn.style.BodyTattoo,
+                    hairColor = dia.desiredHairColor,
+                    apparelColors = dia.apparelColors
+                }
+            );
+
+            dia.Reset(false);
+            dia.Close();
         }
 
         [SyncMethod]

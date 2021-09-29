@@ -129,7 +129,8 @@ namespace Multiplayer.Client
                     }
                     catch (Exception e)
                     {
-                        Log.Error($"MpPatch failed with exception: {e}");
+                        Log.Error($"MpPatch {m.DeclaringType}.{m.Name} failed with exception: {e}");
+                        Multiplayer.loadingErrors = true;
                     }
                 }
             }
