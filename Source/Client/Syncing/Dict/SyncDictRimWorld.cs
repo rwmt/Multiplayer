@@ -1008,6 +1008,24 @@ namespace Multiplayer.Client
                 }, true
             },
             #endregion
+
+            #region PassingShip
+            {
+                (ByteWriter data, PassingShip ship) =>
+                {
+                    WriteSync(data, ship.Map);
+                    if (ship.Map != null) data.WriteInt32(ship.loadID);
+                },
+                (ByteReader data) =>
+                {
+                    var map = ReadSync<Map>(data);
+                    if (map == null) return null;
+
+                    var id = data.ReadInt32();
+                    return map.passingShipManager.passingShips.FirstOrDefault(s => s.loadID == id);
+                }, true // Implicit
+            },
+            #endregion
         };
 
         class Dummy_ITab_Pawn_Visitor : ITab_Pawn_Visitor { }
