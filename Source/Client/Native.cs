@@ -78,14 +78,7 @@ namespace Multiplayer.Client
             if (ji == IntPtr.Zero) return null;
 
             var ptrToPrint = mono_jit_info_get_method(ji);
-            var codeStart = (long)mono_jit_info_get_code_start(ji);
-
-            if (harmonyOriginals)
-            {
-                var original = MpUtil.GetOriginalFromHarmonyReplacement(codeStart);
-                if (original != null)
-                    ptrToPrint = original.MethodHandle.Value;
-            }
+            // todo: we once had a way to get the original unpatched method names, but Harmony removed it
 
             var name = mono_debug_print_stack_frame(ptrToPrint, -1, domain);
 

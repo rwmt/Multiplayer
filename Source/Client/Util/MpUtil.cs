@@ -106,15 +106,6 @@ namespace Multiplayer.Client
                     : $"{m.DeclaringType.DeclaringType?.FullDescription()} {m.DeclaringType.FullDescription()} {m.Name}"
                         .Replace("<", "[").Replace(">", "]");
         }
-
-        public static MethodBase GetOriginalFromHarmonyReplacement(long replacementAddr)
-        {
-            return HarmonySharedState.WithState(() =>
-            {
-                return HarmonySharedState.originals
-                    .FirstOrDefault(kv => kv.Key.GetNativeStart().ToInt64() == replacementAddr).Value;
-            });
-        }
     }
 
     public struct Container<T>
