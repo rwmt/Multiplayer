@@ -106,6 +106,14 @@ namespace Multiplayer.Client
                     : $"{m.DeclaringType.DeclaringType?.FullDescription()} {m.DeclaringType.FullDescription()} {m.Name}"
                         .Replace("<", "[").Replace(">", "]");
         }
+
+        public static MethodBase GetOriginalFromHarmonyReplacement(long replacementAddr)
+        {
+            // Todo: this is using a non-public API of Harmony, we should refactor to use https://harmony.pardeike.net/api/HarmonyLib.Harmony.html#HarmonyLib_Harmony_GetOriginalMethod_System_Reflection_MethodInfo_
+            // as pardeike suggested in https://github.com/rwmt/Multiplayer/pull/270#issuecomment-1003298289
+            return HarmonySharedState.originals
+                .FirstOrDefault(kv => kv.Key.GetNativeStart().ToInt64() == replacementAddr).Value;
+        }
     }
 
     public struct Container<T>
