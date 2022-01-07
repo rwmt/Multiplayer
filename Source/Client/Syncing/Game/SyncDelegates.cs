@@ -9,7 +9,6 @@ using System.Threading.Tasks;
 using Multiplayer.Client.Patches;
 using Multiplayer.Client.Util;
 using Verse;
-using FloatMenuMakerMap = RimWorld.FloatMenuMakerMap;
 
 namespace Multiplayer.Client
 {
