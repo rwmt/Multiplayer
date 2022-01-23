@@ -1,6 +1,7 @@
-﻿using Verse;
+using Verse;
 using RimWorld.Planet;
 using HarmonyLib;
+using Multiplayer.API;
 
 namespace Multiplayer.Client.Persistent
 {
@@ -28,7 +29,6 @@ namespace Multiplayer.Client.Persistent
     [HarmonyPatch(new[] { typeof(Caravan) })]
     class CancelDialogSplitCaravanCtor
     {
-
         static bool Prefix(Caravan caravan)
         {
             //When not playing multiplayer, don't modify behavior.
@@ -50,27 +50,25 @@ namespace Multiplayer.Client.Persistent
             }
             else
             {
-                CaravanSplittingSession.CreateSplittingSession(caravan);
+                CreateSplittingSession(caravan);
             }
 
             return false;
         }
-    }
-    
-    /// <summary>
-    /// When a Dialog_SplitCaravan would be constructed, cancel and construct a CaravanSplittingProxy instead.
-    /// </summary>
-    [HarmonyPatch(typeof(Dialog_SplitCaravan), nameof(Dialog_SplitCaravan.PostOpen))]
-    class CancelDialogSplitCaravanPostOpen
-    {
-        static bool Prefix()
+
+        /// <summary>
+        /// Factory method that creates a new CaravanSplittingSession and stores it to Multiplayer.WorldComp.splitSession
+        /// Only one caravan split session can exist at a time.
+        /// </summary>
+        /// <param name="caravan"></param>
+        [SyncMethod]
+        public static void CreateSplittingSession(Caravan caravan)
         {
-            //When not playing multiplayer, don't modify behavior.
-            //Otherwise prevent the Dialog_SplitCaravan.PostOpen from executing.
-            //This is needed to prevent the Dialog_SplitCaravan.CalculateAndRecacheTransferables from being called,
-            //  since if it gets called the Dialog_SplitCaravan tranferrable list is replaced with a new one, 
-            //  breaking the session's reference to the current list.
-            return Multiplayer.Client == null;    
+            //Start caravan splitting session here by calling new session constructor
+            if (Multiplayer.WorldComp.splitSession == null)
+            {
+                Multiplayer.WorldComp.splitSession = new CaravanSplittingSession(caravan);
+            }
         }
     }
 }

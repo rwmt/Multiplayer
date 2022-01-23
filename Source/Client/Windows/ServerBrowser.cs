@@ -1,4 +1,4 @@
-﻿extern alias zip;
+extern alias zip;
 
 using LiteNetLib;
 using Multiplayer.Common;
@@ -18,12 +18,18 @@ using Verse;
 using Verse.Steam;
 using HarmonyLib;
 using zip::Ionic.Zip;
+using System.Collections.Concurrent;
+using Verse.Sound;
+using Multiplayer.Client.Networking;
+using Multiplayer.Client.Util;
+using Multiplayer.Common.Util;
 
 namespace Multiplayer.Client
 {
+    [HotSwappable]
     public class ServerBrowser : Window
     {
-        private NetManager net;
+        private NetManager lanListener;
         private List<LanServer> servers = new List<LanServer>();
 
         public override Vector2 InitialSize => new Vector2(800f, 500f);
@@ -33,17 +39,21 @@ namespace Multiplayer.Client
             EventBasedNetListener listener = new EventBasedNetListener();
             listener.NetworkReceiveUnconnectedEvent += (endpoint, data, type) =>
             {
-                if (type != UnconnectedMessageType.DiscoveryRequest) return;
+                if (type != UnconnectedMessageType.Broadcast) return;
 
                 string s = Encoding.UTF8.GetString(data.GetRemainingBytes());
                 if (s == "mp-server")
                     AddOrUpdate(endpoint);
             };
 
-            net = new NetManager(listener);
-            net.DiscoveryEnabled = true;
-            net.ReuseAddress = true;
-            net.Start(5100);
+            lanListener = new NetManager(listener)
+            {
+                BroadcastReceiveEnabled = true,
+                ReuseAddress = true,
+                IPv6Enabled = IPv6Mode.Disabled
+            };
+
+            lanListener.Start(5100);
 
             doCloseX = true;
             closeOnAccept = false;
@@ -59,17 +69,23 @@ namespace Multiplayer.Client
             Lan, Direct, Steam, Host
         }
 
+        private WidgetRow widgetRow = new WidgetRow();
+
         public override void DoWindowContents(Rect inRect)
         {
+            DrawInfoButtons();
+            inRect.yMin += 35f;
+
             List<TabRecord> tabs = new List<TabRecord>()
             {
-                new TabRecord("MpLan".Translate(), () => tab = Tabs.Lan,  tab == Tabs.Lan),
-                new TabRecord("MpDirect".Translate(), () => tab = Tabs.Direct, tab == Tabs.Direct),
-                new TabRecord("MpSteam".Translate(), () => tab = Tabs.Steam, tab == Tabs.Steam),
-                new TabRecord("MpHostTab".Translate(), () => tab = Tabs.Host, tab == Tabs.Host),
+                new("MpLan".Translate(), () => tab = Tabs.Lan,  tab == Tabs.Lan),
+                new("MpDirect".Translate(), () => tab = Tabs.Direct, tab == Tabs.Direct),
+                new("MpSteam".Translate(), () => tab = Tabs.Steam, tab == Tabs.Steam),
+                new("MpHostTab".Translate(), () => tab = Tabs.Host, tab == Tabs.Host),
             };
 
             inRect.yMin += 35f;
+
             TabDrawer.DrawTabs(inRect, tabs);
 
             GUI.BeginGroup(new Rect(0, inRect.yMin, inRect.width, inRect.height));
@@ -88,99 +104,79 @@ namespace Multiplayer.Client
             GUI.EndGroup();
         }
 
-        private List<SaveFile> spSaves = new List<SaveFile>();
-        private List<SaveFile> mpReplays = new List<SaveFile>();
+        private void DrawInfoButtons()
+        {
+            float x = 0;
+
+            const string WebsiteLink = "https://rimworldmultiplayer.com";
+            const string DiscordLink = "https://discord.gg/n5E2cb2Y4Z";
+
+            bool Button(Texture2D icon, string labelKey, string tip, Color baseIconColor, float iconSize = 24f)
+            {
+                var label = labelKey.Translate();
+                var labelWidth = Text.CalcSize(label).x;
+                var btn = new Rect(x, 0, 24 + 1 + labelWidth, 24);
+                var mouseOver = Mouse.IsOver(btn);
+
+                MouseoverSounds.DoRegion(btn);
+                TooltipHandler.TipRegion(btn, tip);
+
+                using (MpStyle.Set(mouseOver ? Color.yellow : baseIconColor))
+                {
+                    GUI.DrawTexture(new Rect(x += (24 - iconSize) / 2, (24 - iconSize) / 2, iconSize, iconSize), icon);
+                    x += 24;
+                }
+
+                x += 1;
+
+                using (MpStyle.Set(mouseOver ? Color.yellow : Color.white))
+                using (MpStyle.Set(TextAnchor.MiddleCenter))
+                    MpUI.Label(new Rect(x, 0, labelWidth, 24f), labelKey.Translate());
+
+                x += labelWidth;
+                x += 10;
+
+                return Widgets.ButtonInvisible(btn);
+            }
+
+            const string compatLabel = "MpCompatibilityButton";
+            const string compatLabelDesc = "MpCompatibilityButtonDesc";
+
+            if (Button(TexButton.ToggleLog, compatLabel, MpUtil.TranslateWithDoubleNewLines(compatLabelDesc, 2), Color.grey, 20))
+                Find.WindowStack.Add(new ModCompatWindow(null, false, false, null));
+
+            if (Button(MultiplayerStatic.WebsiteIcon, "MpWebsiteButton", "MpLinkButtonDesc".Translate() + " " + WebsiteLink, Color.grey, 20))
+                Application.OpenURL(WebsiteLink);
+
+            if (Button(MultiplayerStatic.DiscordIcon, "MpDiscordButton", "MpLinkButtonDesc".Translate() + " " + DiscordLink, Color.white))
+                Application.OpenURL(DiscordLink);
+
+            if (false) // todo
+                Button(
+                    TexButton.NewItem,
+                    "MpActiveConfigsButton",
+                    "MpActiveConfigsButtonDesc1".Translate("Player's game") + "\n\n" + "MpActiveConfigsButtonDesc2".Translate(),
+                    Color.grey,
+                    20
+                );
+        }
+
         private bool filesRead;
+        private SaveFileReader reader;
 
         private void ReloadFiles()
         {
             selectedFile = null;
+            reader?.WaitTasks();
 
-            spSaves.Clear();
-            mpReplays.Clear();
-
-            foreach (FileInfo file in GenFilePaths.AllSavedGameFiles)
-            {
-                var saveFile = new SaveFile(Path.GetFileNameWithoutExtension(file.Name), false, file);
-
-                try
-                {
-                    using (var stream = file.OpenRead())
-                        ReadSaveInfo(stream, saveFile);
-                }
-                catch (Exception ex)
-                {
-                    Log.Warning("Exception loading save info of " + file.Name + ": " + ex.ToString());
-                }
-
-                spSaves.Add(saveFile);
-            }
-
-            var replaysDir = new DirectoryInfo(GenFilePaths.FolderUnderSaveData("MpReplays"));
-
-            foreach (var file in replaysDir.GetFiles("*.zip", MpVersion.IsDebug ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly).OrderByDescending(f => f.LastWriteTime))
-            {
-                var displayName = Path.ChangeExtension(file.FullName.Substring(Multiplayer.ReplaysDir.Length + 1), null);
-                var saveFile = new SaveFile(displayName, true, file);
-                
-                try
-                {
-                    var replay = Replay.ForLoading(file);
-                    if (!replay.LoadInfo()) continue;
-
-                    saveFile.gameName = replay.info.name;
-                    saveFile.protocol = replay.info.protocol;
-                    saveFile.replaySections = replay.info.sections.Count;
-
-                    if (!replay.info.rwVersion.NullOrEmpty())
-                    {
-                        saveFile.rwVersion = replay.info.rwVersion;
-                        saveFile.modIds = replay.info.modIds.ToArray();
-                        saveFile.modNames = replay.info.modNames.ToArray();
-                        saveFile.modAssemblyHashes = replay.info.modAssemblyHashes.ToArray();
-                        saveFile.asyncTime = replay.info.asyncTime;
-                    }
-                    else
-                    {
-                        using (var zip = replay.ZipFile)
-                            ReadSaveInfo(zip["world/000_save"].OpenReader(), saveFile);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Log.Warning("Exception loading replay info of " + file.Name + ": " + ex.ToString());
-                }
-
-                mpReplays.Add(saveFile);
-            }
-        }
-
-        private void ReadSaveInfo(Stream stream, SaveFile save)
-        {
-            using (var reader = new XmlTextReader(stream))
-            {
-                reader.ReadToNextElement(); // savedGame
-                reader.ReadToNextElement(); // meta
-
-                if (reader.Name != "meta") return;
-
-                reader.ReadToDescendant("gameVersion");
-                save.rwVersion = VersionControl.VersionStringWithoutRev(reader.ReadString());
-
-                reader.ReadToNextSibling("modIds");
-                save.modIds = reader.ReadStrings();
-
-                reader.ReadToNextSibling("modNames");
-                save.modNames = reader.ReadStrings();
-            }
-
-            save.modAssemblyHashes = new int[save.modNames.Length];
+            reader = new SaveFileReader();
+            reader.StartReading();
         }
 
         private bool mpCollapsed, spCollapsed;
         private float hostHeight;
 
-        private SaveFile selectedFile;
+        private FileInfo selectedFile;
         private float fileButtonsWidth;
 
         private void DrawHost(Rect inRect)
@@ -204,15 +200,17 @@ namespace Multiplayer.Client
                 mpCollapsed = !mpCollapsed;
 
             float y = 0;
-            Text.Font = GameFont.Medium;
-            float textHeight1 = Text.CalcHeight("MpMultiplayer".Translate(), inRect.width);
-            Widgets.Label(viewRect.Right(18f), "MpMultiplayer".Translate());
-            Text.Font = GameFont.Small;
-            y += textHeight1 + 10;
+
+            using (MpStyle.Set(GameFont.Medium))
+            {
+                float textHeight1 = Text.CalcHeight("MpMultiplayerSaves".Translate(), inRect.width);
+                Widgets.Label(viewRect.Right(18f), "MpMultiplayerSaves".Translate());
+                y += textHeight1 + 10;
+            }
 
             if (!mpCollapsed)
             {
-                DrawSaveList(mpReplays, viewRect.width, ref y);
+                DrawSaveList(reader.MpSaves, viewRect.width, ref y);
                 y += 25;
             }
 
@@ -222,14 +220,15 @@ namespace Multiplayer.Client
                 spCollapsed = !spCollapsed;
 
             viewRect.y = y;
-            Text.Font = GameFont.Medium;
-            float textHeight2 = Text.CalcHeight("MpSingleplayer".Translate(), inRect.width);
-            Widgets.Label(viewRect.Right(18), "MpSingleplayer".Translate());
-            Text.Font = GameFont.Small;
-            y += textHeight2 + 10;
+            using (MpStyle.Set(GameFont.Medium))
+            {
+                float textHeight2 = Text.CalcHeight("MpSingleplayerSaves".Translate(), inRect.width);
+                Widgets.Label(viewRect.Right(18), "MpSingleplayerSaves".Translate());
+                y += textHeight2 + 10;
+            }
 
             if (!spCollapsed)
-                DrawSaveList(spSaves, viewRect.width, ref y);
+                DrawSaveList(reader.SpSaves, viewRect.width, ref y);
 
             if (Event.current.type == EventType.Layout)
                 hostHeight = y;
@@ -238,19 +237,17 @@ namespace Multiplayer.Client
 
             if (selectedFile == null)
             {
-                Text.Anchor = TextAnchor.MiddleCenter;
+                bool noSaves = reader.SpSaves.Count == 0 && reader.MpSaves.Count == 0;
 
-                bool noSaves = spSaves.Count == 0 && mpReplays.Count == 0;
-                Widgets.Label(new Rect(outRect.x, outRect.yMax, outRect.width, 80), noSaves ? "MpNoSaves".Translate() : "MpNothingSelected".Translate());
-
-                Text.Anchor = TextAnchor.UpperLeft;
+                using (MpStyle.Set(TextAnchor.MiddleCenter))
+                    Widgets.Label(new Rect(outRect.x, outRect.yMax, outRect.width, 80), noSaves ? "MpNoSaves".Translate() : "MpNothingSelected".Translate());
             }
             else
             {
                 float width = 0;
 
                 GUI.BeginGroup(new Rect(outRect.x + (outRect.width - fileButtonsWidth) / 2, outRect.yMax + 20, fileButtonsWidth, 40));
-                DrawFileButtons(selectedFile, ref width);
+                DrawFileButtons(reader.GetData(selectedFile), ref width);
                 GUI.EndGroup();
 
                 if (Event.current.type == EventType.Layout)
@@ -262,9 +259,9 @@ namespace Multiplayer.Client
 
         private void DrawFileButtons(SaveFile file, ref float width)
         {
-            if (file.Valid)
+            if (file.HasRwVersion)
             {
-                if (file.replay)
+                if (file.replay && Multiplayer.ShowDevInfo)
                 {
                     if (Widgets.ButtonText(new Rect(width, 0, 120, 40), "MpWatchReplay".Translate()))
                     {
@@ -293,13 +290,14 @@ namespace Multiplayer.Client
                 Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation("ConfirmDelete".Translate(file.displayName), () =>
                 {
                     file.file.Delete();
-                    ReloadFiles();
+                    reader.RemoveFile(file.file);
+                    selectedFile = null;
                 }, true));
             }
 
             width += 120;
         }
-        
+
         private static void CheckGameVersionAndMods(SaveFile file, Action action)
         {
             ScribeMetaHeaderUtility.lastMode = ScribeMetaHeaderUtility.ScribeHeaderMode.Map;
@@ -316,85 +314,82 @@ namespace Multiplayer.Client
                 Find.WindowStack.Windows
                     .OfType<Dialog_MessageBox>()
                     .Where(w => w.buttonAText == "LoadAnyway".Translate())
-                    .Do(w => w.buttonAText = "Continue anyway");
+                    .Do(w => w.buttonAText = "MpContinueAnyway".Translate());
             }
         }
 
-        private void DrawSaveList(List<SaveFile> saves, float width, ref float y)
+        private void DrawSaveList(List<FileInfo> saves, float width, ref float y)
         {
             for (int i = 0; i < saves.Count; i++)
             {
-                var saveFile = saves[i];
+                var file = saves[i];
+                var data = reader.GetData(file);
                 Rect entryRect = new Rect(0, y, width, 40);
 
-                if (saveFile == selectedFile)
+                if (file == selectedFile)
                 {
                     Widgets.DrawRectFast(entryRect, new Color(1f, 1f, 0.7f, 0.1f));
 
                     var lineColor = new Color(1, 1, 1, 0.3f);
                     Widgets.DrawLine(entryRect.min, entryRect.TopRightCorner(), lineColor, 2f);
-                    Widgets.DrawLine(entryRect.min + new Vector2(2, 1), entryRect.BottomLeftCorner() + new Vector2(2, -1), lineColor, 2f);
+                    Widgets.DrawLine(entryRect.min - new Vector2(-1, -5), entryRect.BottomLeftCorner() - new Vector2(-1, -2), lineColor, 2f);
                     Widgets.DrawLine(entryRect.BottomLeftCorner(), entryRect.max, lineColor, 2f);
-                    Widgets.DrawLine(entryRect.TopRightCorner() - new Vector2(2, -1), entryRect.max - new Vector2(2, 1), lineColor, 2f);
+                    Widgets.DrawLine(entryRect.TopRightCorner() - new Vector2(1, -5), entryRect.max - new Vector2(1, -2), lineColor, 2f);
                 }
                 else if (i % 2 == 0)
                 {
                     Widgets.DrawAltRect(entryRect);
                 }
 
-                Text.Anchor = TextAnchor.MiddleLeft;
-                Widgets.Label(entryRect.Right(10), saveFile.displayName);
-                Text.Anchor = TextAnchor.UpperLeft;
+                using (MpStyle.Set(TextAnchor.MiddleLeft))
+                    Widgets.Label(entryRect.Right(10), data?.displayName ?? "Loading...");
 
-                GUI.color = new Color(0.6f, 0.6f, 0.6f);
-                Text.Font = GameFont.Tiny;
+                using var _ = MpStyle.Set(new Color(0.6f, 0.6f, 0.6f));
+                using var __ = MpStyle.Set(GameFont.Tiny);
 
                 var infoText = new Rect(entryRect.xMax - 120, entryRect.yMin + 3, 120, entryRect.height);
-                Widgets.Label(infoText, saveFile.file.LastWriteTime.ToString("g"));
+                Widgets.Label(infoText, file.LastWriteTime.ToString("yyyy-MM-dd HH:mm"));
 
-                if (saveFile.gameName != null)
+                if (data != null)
                 {
-                    Widgets.Label(infoText.Down(16), saveFile.gameName.Truncate(110));
-                }
-                else
-                {
-                    GUI.color = saveFile.VersionColor;
-                    Widgets.Label(infoText.Down(16), (saveFile.rwVersion ?? "???").Truncate(110));                        
-                }
+                    if (data.gameName != null)
+                    {
+                        Widgets.Label(infoText.Down(16), data.gameName.Truncate(110));
+                    }
+                    else
+                    {
+                        GUI.color = data.VersionColor;
+                        Widgets.Label(infoText.Down(16), (data.rwVersion ?? "???").Truncate(110));
+                    }
 
-                if (!saveFile.Valid)
-                {
-                    var rect = new Rect(infoText.x - 80, infoText.y + 8f, 80, 24f);
-                    GUI.color = Color.red;
+                    if (!data.HasRwVersion)
+                    {
+                        var rect = new Rect(infoText.x - 80, infoText.y + 8f, 80, 24f);
+                        GUI.color = Color.red;
 
-                    Widgets.Label(rect, $"({"EItemUpdateStatus_k_EItemUpdateStatusInvalid".Translate()})");
-                    TooltipHandler.TipRegion(rect, new TipSignal("SaveIsUnknownFormat".Translate()));
-                }
-                else if (saveFile.replay && saveFile.protocol != MpVersion.Protocol)
-                {
-                    bool autosave = saveFile.replaySections > 1;
+                        Widgets.Label(rect, $"({"EItemUpdateStatus_k_EItemUpdateStatusInvalid".Translate()})");
+                        TooltipHandler.TipRegion(rect, new TipSignal("SaveIsUnknownFormat".Translate()));
+                    }
+                    else if (data.replay && !data.MajorAndMinorVerEqualToCurrent)
+                    {
+                        GUI.color = new Color(0.8f, 0.8f, 0, 0.6f);
+                        var outdated = new Rect(infoText.x - 80, infoText.y + 8f, 80, 24f);
+                        Widgets.Label(outdated, "MpSaveOutdated".Translate());
 
-                    GUI.color = autosave ? new Color(0.8f, 0.8f, 0, 0.6f) : new Color(0.8f, 0.8f, 0);
-                    var outdated = new Rect(infoText.x - 80, infoText.y + 8f, 80, 24f);
-                    Widgets.Label(outdated, "MpReplayOutdated".Translate());
+                        var text = "MpSaveOutdatedDesc".Translate(data.rwVersion, VersionControl.CurrentVersionString);
+                        TooltipHandler.TipRegion(outdated, text);
+                    }
 
-                    string text = "MpReplayOutdatedDesc1".Translate(saveFile.protocol, MpVersion.Protocol) + "\n\n" + "MpReplayOutdatedDesc2".Translate() + "\n" + "MpReplayOutdatedDesc3".Translate();
-                    if (autosave)
-                        text += "\n\n" + "MpReplayOutdatedDesc4".Translate();
+                    Text.Font = GameFont.Small;
+                    GUI.color = Color.white;
 
-                    TooltipHandler.TipRegion(outdated, text);
-                }
-
-
-                Text.Font = GameFont.Small;
-                GUI.color = Color.white;
-
-                if (Widgets.ButtonInvisible(entryRect))
-                {
-                    if (Event.current.button == 0)
-                        selectedFile = saveFile;
-                    else if(saveFile.Valid)
-                        Find.WindowStack.Add(new FloatMenu(SaveFloatMenu(saveFile).ToList()));
+                    if (Widgets.ButtonInvisible(entryRect, false))
+                    {
+                        if (Event.current.button == 0)
+                            selectedFile = file;
+                        else if (Event.current.button == 1 && data.HasRwVersion)
+                            Find.WindowStack.Add(new FloatMenu(SaveFloatMenu(data).ToList()));
+                    }
                 }
 
                 y += 40;
@@ -419,9 +414,14 @@ namespace Multiplayer.Client
                 Find.WindowStack.Add(new TwoTextAreas_Window($"RimWorld {save.rwVersion}\nSave mod list:\n\n{saveMods}", $"RimWorld {VersionControl.CurrentVersionString}\nActive mod list:\n\n{activeMods}"));
             });
 
-            yield return new FloatMenuOption("Rename".Translate(), () =>
+            yield return new FloatMenuOption("MpOpenSaveFolder".Translate(), () =>
             {
-                Find.WindowStack.Add(new Dialog_RenameFile(save.file, () => ReloadFiles()));
+                ShellOpenDirectory.Execute(save.file.DirectoryName);
+            });
+
+            yield return new FloatMenuOption("MpFileRename".Translate(), () =>
+            {
+                Find.WindowStack.Add(new Dialog_RenameFile(save.file, ReloadFiles));
             });
 
             if (!MpVersion.IsDebug) yield break;
@@ -435,6 +435,7 @@ namespace Multiplayer.Client
             {
                 for (int i = 0; i < save.modIds.Length; i++)
                 {
+                    // todo these aren't steam ids
                     if (!ulong.TryParse(save.modIds[i], out ulong id)) continue;
                     Log.Message($"Subscribed to: {save.modNames[i]}");
                     SteamUGC.SubscribeItem(new PublishedFileId_t(id));
@@ -455,10 +456,9 @@ namespace Multiplayer.Client
 
             if (info != null)
             {
-                Text.Anchor = TextAnchor.MiddleCenter;
-                Widgets.Label(new Rect(0, 8, inRect.width, 40f), info);
+                using (MpStyle.Set(TextAnchor.MiddleCenter))
+                    Widgets.Label(new Rect(0, 8, inRect.width, 40f), info);
 
-                Text.Anchor = TextAnchor.UpperLeft;
                 inRect.yMin += 40f;
             }
 
@@ -482,16 +482,13 @@ namespace Multiplayer.Client
                 if (Event.current.type == EventType.Repaint)
                     GUI.DrawTextureWithTexCoords(new Rect(5, entryRect.y + 4, 32, 32), SteamImages.GetTexture(friend.avatar), new Rect(0, 1, 1, -1));
 
-                Text.Anchor = TextAnchor.MiddleLeft;
-                Widgets.Label(entryRect.Right(45).Up(5), friend.username);
+                using (MpStyle.Set(TextAnchor.MiddleLeft))
+                    Widgets.Label(entryRect.Right(45).Up(5), friend.username);
 
-                GUI.color = SteamGreen;
-                Text.Font = GameFont.Tiny;
-                Widgets.Label(entryRect.Right(45).Down(8), "MpPlayingRimWorld".Translate());
-                Text.Font = GameFont.Small;
-                GUI.color = Color.white;
-
-                Text.Anchor = TextAnchor.MiddleCenter;
+                using (MpStyle.Set(GameFont.Tiny))
+                using (MpStyle.Set(TextAnchor.MiddleLeft))
+                using (MpStyle.Set(SteamGreen))
+                    Widgets.Label(entryRect.Right(45).Down(8), "MpPlayingRimWorld".Translate());
 
                 if (friend.serverHost != CSteamID.Nil)
                 {
@@ -499,19 +496,7 @@ namespace Multiplayer.Client
                     if (Widgets.ButtonText(playButton, "MpJoinButton".Translate()))
                     {
                         Close(false);
-
-                        Log.Message("Connecting through Steam");
-
-                        Find.WindowStack.Add(new SteamConnectingWindow(friend.serverHost) { returnToServerBrowser = true });
-
-                        var conn = new SteamClientConn(friend.serverHost);
-                        conn.username = Multiplayer.username;
-                        Multiplayer.session = new MultiplayerSession();
-
-                        Multiplayer.session.client = conn;
-                        Multiplayer.session.ReapplyPrefs();
-
-                        conn.State = ConnectionStateEnum.ClientSteam;
+                        ClientUtil.TrySteamConnectWithWindow(friend.serverHost);
                     }
                 }
                 else
@@ -519,8 +504,6 @@ namespace Multiplayer.Client
                     Rect playButton = new Rect(entryRect.xMax - 125, entryRect.y + 5, 120, 40 - 10);
                     Widgets.ButtonText(playButton, "MpNotInMultiplayer".Translate(), false, false, false);
                 }
-
-                Text.Anchor = TextAnchor.UpperLeft;
 
                 y += entryRect.height;
                 i++;
@@ -531,39 +514,50 @@ namespace Multiplayer.Client
 
         private void DrawDirect(Rect inRect)
         {
-            MultiplayerMod.settings.serverAddress = Widgets.TextField(new Rect(inRect.center.x - 200 / 2, 15f, 200, 35f), MultiplayerMod.settings.serverAddress);
+            Multiplayer.settings.serverAddress = Widgets.TextField(new Rect(inRect.center.x - 200 / 2, 15f, 200, 35f), Multiplayer.settings.serverAddress);
 
             const float btnWidth = 115f;
 
             if (Widgets.ButtonText(new Rect(inRect.center.x - btnWidth / 2, 60f, btnWidth, 35f), "MpConnectButton".Translate()))
             {
-                string addr = MultiplayerMod.settings.serverAddress.Trim();
-                int port = MultiplayerServer.DefaultPort;
-                string[] hostport = addr.Split(':');
-                if (hostport.Length == 2)
-                    int.TryParse(hostport[1], out port);
+                var addr = Multiplayer.settings.serverAddress.Trim();
+                var port = MultiplayerServer.DefaultPort;
+
+                // If IPv4 or IPv6 address with optional port
+                if (Endpoints.TryParse(addr, MultiplayerServer.DefaultPort, out var endpoint))
+                {
+                    addr = endpoint.Address.ToString();
+                    port = endpoint.Port;
+                }
+                // Hostname with optional port
                 else
-                    port = MultiplayerServer.DefaultPort;
+                {
+                    var split = addr.Split(':');
+                    addr = split[0];
+                    if (split.Length == 2 && int.TryParse(split[1], out var parsedPort) && parsedPort is > IPEndPoint.MinPort and < IPEndPoint.MaxPort)
+                        port = parsedPort;
+                }
 
                 Log.Message("Connecting directly");
+
                 try
                 {
-                    Find.WindowStack.Add(new ConnectingWindow(hostport[0], port) { returnToServerBrowser = true });
-                    MultiplayerMod.settings.Write();
+                    ClientUtil.TryConnectWithWindow(addr, port);
+                    Multiplayer.settings.Write();
                     Close(false);
                 }
-                catch (Exception)
+                catch (Exception e)
                 {
                     Messages.Message("MpInvalidAddress".Translate(), MessageTypeDefOf.RejectInput, false);
+                    Log.Error($"Exception while connecting directly {e}");
                 }
             }
         }
 
         private void DrawLan(Rect inRect)
         {
-            Text.Anchor = TextAnchor.MiddleCenter;
-            Widgets.Label(new Rect(inRect.x, 8f, inRect.width, 40), "MpLanSearching".Translate() + MpUtil.FixedEllipsis());
-            Text.Anchor = TextAnchor.UpperLeft;
+            using (MpStyle.Set(TextAnchor.MiddleCenter))
+                Widgets.Label(new Rect(inRect.x, 8f, inRect.width, 40), "MpLanSearching".Translate() + MpUI.FixedEllipsis());
             inRect.yMin += 40f;
 
             float margin = 100;
@@ -583,19 +577,19 @@ namespace Multiplayer.Client
                 if (i % 2 == 0)
                     Widgets.DrawAltRect(entryRect);
 
-                Text.Anchor = TextAnchor.MiddleLeft;
-                Widgets.Label(entryRect.Right(5), "" + server.endpoint);
+                using (MpStyle.Set(TextAnchor.MiddleLeft))
+                    Widgets.Label(entryRect.Right(5), "" + server.endpoint);
 
-                Text.Anchor = TextAnchor.MiddleCenter;
                 Rect playButton = new Rect(entryRect.xMax - 75, entryRect.y + 5, 70, 40 - 10);
                 if (Widgets.ButtonText(playButton, ">>"))
                 {
                     Close(false);
                     Log.Message("Connecting to lan server");
-                    Find.WindowStack.Add(new ConnectingWindow(server.endpoint.Address.ToString(), server.endpoint.Port) { returnToServerBrowser = true });
-                }
 
-                Text.Anchor = TextAnchor.UpperLeft;
+                    var address = server.endpoint.Address.ToString();
+                    var port = server.endpoint.Port;
+                    ClientUtil.TryConnectWithWindow(address, port);
+                }
 
                 y += entryRect.height;
                 i++;
@@ -614,12 +608,12 @@ namespace Multiplayer.Client
 
         private void UpdateLan()
         {
-            net.PollEvents();
+            lanListener.PollEvents();
 
             for (int i = servers.Count - 1; i >= 0; i--)
             {
                 LanServer server = servers[i];
-                if (Multiplayer.Clock.ElapsedMilliseconds - server.lastUpdate > 5000)
+                if (Multiplayer.clock.ElapsedMilliseconds - server.lastUpdate > 5000)
                     servers.RemoveAt(i);
             }
         }
@@ -628,7 +622,7 @@ namespace Multiplayer.Client
 
         private void UpdateSteam()
         {
-            if (Multiplayer.Clock.ElapsedMilliseconds - lastFriendUpdate < 2000) return;
+            if (Multiplayer.clock.ElapsedMilliseconds - lastFriendUpdate < 2000) return;
 
             friends.Clear();
 
@@ -666,17 +660,17 @@ namespace Multiplayer.Client
 
             friends.SortByDescending(f => f.serverHost != CSteamID.Nil);
 
-            lastFriendUpdate = Multiplayer.Clock.ElapsedMilliseconds;
+            lastFriendUpdate = Multiplayer.clock.ElapsedMilliseconds;
         }
 
         public override void PostClose()
         {
-            Cleanup();
+            Cleanup(false);
         }
 
-        public void Cleanup(bool sync = false)
+        public void Cleanup(bool sync)
         {
-            WaitCallback stop = s => net.Stop();
+            WaitCallback stop = s => lanListener.Stop();
 
             if (sync)
                 stop(null);
@@ -693,12 +687,12 @@ namespace Multiplayer.Client
                 servers.Add(new LanServer()
                 {
                     endpoint = endpoint,
-                    lastUpdate = Multiplayer.Clock.ElapsedMilliseconds
+                    lastUpdate = Multiplayer.clock.ElapsedMilliseconds
                 });
             }
             else
             {
-                server.lastUpdate = Multiplayer.Clock.ElapsedMilliseconds;
+                server.lastUpdate = Multiplayer.clock.ElapsedMilliseconds;
             }
         }
 
@@ -717,50 +711,6 @@ namespace Multiplayer.Client
 
         public bool playingRimworld;
         public CSteamID serverHost = CSteamID.Nil;
-    }
-
-    public class SaveFile
-    {
-        public string displayName;
-        public bool replay;
-        public int replaySections;
-        public FileInfo file;
-
-        public string gameName;
-
-        public string rwVersion;
-        public string[] modNames = new string[0];
-        public string[] modIds = new string[0];
-        public int[] modAssemblyHashes = new int[0];
-
-        public int protocol;
-        public bool asyncTime;
-
-        public bool Valid => rwVersion != null;
-
-        public Color VersionColor
-        {
-            get
-            {
-                if (rwVersion == null)
-                    return Color.red;
-
-                if (VersionControl.MajorFromVersionString(rwVersion) == VersionControl.CurrentMajor && VersionControl.MinorFromVersionString(rwVersion) == VersionControl.CurrentMinor)
-                    return new Color(0.6f, 0.6f, 0.6f);
-
-                if (BackCompatibility.IsSaveCompatibleWith(rwVersion))
-                    return Color.yellow;
-
-                return Color.red;
-            }
-        }
-
-        public SaveFile(string displayName, bool replay, FileInfo file)
-        {
-            this.displayName = displayName;
-            this.replay = replay;
-            this.file = file;
-        }
     }
 
 }

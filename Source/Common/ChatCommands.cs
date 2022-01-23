@@ -26,15 +26,23 @@ namespace Multiplayer.Common
 
     public class ChatCmdAutosave : ChatCmdHandler
     {
-        public ChatCmdAutosave()
+        public override void Handle(ServerPlayer player, string[] args)
+        {
+            player.SendChat("Do you mean /joinpoint?");
+        }
+    }
+
+    public class ChatCmdJoinPoint : ChatCmdHandler
+    {
+        public ChatCmdJoinPoint()
         {
             requiresHost = true;
         }
 
         public override void Handle(ServerPlayer player, string[] args)
         {
-            if (!Server.DoAutosave())
-                player.SendChat("Autosave already in progress.");
+            if (!Server.TryStartJoinPointCreation(true))
+                player.SendChat("Join point creation already in progress.");
         }
     }
 
@@ -60,7 +68,7 @@ namespace Multiplayer.Common
                 return;
             }
 
-            if (toKick.Username == Server.hostUsername)
+            if (toKick.IsHost)
             {
                 player.SendChat("You can't kick the host.");
                 return;

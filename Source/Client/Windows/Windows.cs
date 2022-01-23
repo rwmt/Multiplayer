@@ -1,181 +1,14 @@
-﻿using Multiplayer.Common;
 using RimWorld;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Multiplayer.Client.Util;
 using UnityEngine;
 using Verse;
-using Verse.Profile;
 
 namespace Multiplayer.Client
 {
-    public class PacketLogWindow : Window
-    {
-        public override Vector2 InitialSize => new Vector2(UI.screenWidth / 2f, UI.screenHeight / 2f);
-
-        public List<LogNode> nodes = new List<LogNode>();
-        private int logHeight;
-        private Vector2 scrollPos;
-
-        public PacketLogWindow()
-        {
-            doCloseX = true;
-        }
-
-        public override void DoWindowContents(Rect rect)
-        {
-            GUI.BeginGroup(rect);
-
-            Text.Font = GameFont.Tiny;
-            Rect outRect = new Rect(0f, 0f, rect.width, rect.height - 30f);
-            Rect viewRect = new Rect(0f, 0f, rect.width - 16f, logHeight + 10f);
-
-            Widgets.BeginScrollView(outRect, ref scrollPos, viewRect);
-
-            Rect nodeRect = new Rect(0f, 0f, viewRect.width, 20f);
-            foreach (LogNode node in nodes)
-                Draw(node, 0, ref nodeRect);
-
-            if (Event.current.type == EventType.Layout)
-                logHeight = (int)nodeRect.y;
-
-            Widgets.EndScrollView();
-
-            GUI.EndGroup();
-        }
-
-        public void Draw(LogNode node, int depth, ref Rect rect)
-        {
-            string text = node.text;
-            if (depth == 0)
-                text = node.children[0].text;
-
-            rect.x = depth * 15;
-            if (node.children.Count > 0)
-            {
-                Widgets.Label(rect, node.expand ? "[-]" : "[+]");
-                rect.x += 15;
-            }
-
-            rect.height = Text.CalcHeight(text, rect.width);
-            Widgets.Label(rect, text);
-            if (Widgets.ButtonInvisible(rect))
-                node.expand = !node.expand;
-            rect.y += (int)rect.height;
-
-            if (node.expand)
-                foreach (LogNode child in node.children)
-                    Draw(child, depth + 1, ref rect);
-        }
-    }
-
-    public class DesyncedWindow : Window
-    {
-        public override Vector2 InitialSize => new Vector2(680, 110);
-
-        private string text;
-
-        public DesyncedWindow(string text)
-        {
-            this.text = text;
-
-            closeOnClickedOutside = false;
-            closeOnAccept = false;
-            closeOnCancel = false;
-            absorbInputAroundWindow = true;
-        }
-
-        public override void DoWindowContents(Rect inRect)
-        {
-            Text.Font = GameFont.Small;
-
-            Text.Anchor = TextAnchor.UpperCenter;
-            Widgets.Label(new Rect(0, 0, inRect.width, 40), $"{"MpDesynced".Translate()}\n{text}");
-            Text.Anchor = TextAnchor.UpperLeft;
-
-            float buttonWidth = 120 * 5 + 10 * 4;
-            var buttonRect = new Rect((inRect.width - buttonWidth) / 2, 40, buttonWidth, 35);
-
-            GUI.BeginGroup(buttonRect);
-
-            float x = 0;
-            if (Widgets.ButtonText(new Rect(x, 0, 120, 35), "MpTryResync".Translate()))
-            {
-                Multiplayer.session.resyncing = true;
-
-                TickPatch.SkipTo(
-                    toTickUntil: true,
-                    onFinish: () =>
-                    {
-                        Multiplayer.session.resyncing = false;
-                        Multiplayer.Client.Send(Packets.Client_WorldReady);
-                    },
-                    cancelButtonKey: "Quit",
-                    onCancel: GenScene.GoToMainMenu
-                );
-
-                Multiplayer.session.desynced = false;
-
-                ClientJoiningState.ReloadGame(OnMainThread.cachedMapData.Keys.ToList(), false);
-            }
-            x += 120 + 10;
-
-
-            //REHOST
-            if (Widgets.ButtonText(new Rect(x, 0, 120, 35), "MpTryRehost".Translate()))
-            {
-                Rehost();
-            }
-            x += 120 + 10;
-            //REHOST
-
-
-            if (Widgets.ButtonText(new Rect(x, 0, 120, 35), "Save".Translate()))
-                Find.WindowStack.Add(new Dialog_SaveReplay());
-            x += 120 + 10;
-
-            if (Widgets.ButtonText(new Rect(x, 0, 120, 35), "MpChatButton".Translate()))
-                Find.WindowStack.Add(new ChatWindow() { closeOnClickedOutside = true, absorbInputAroundWindow = true });
-            x += 120 + 10;
-
-            if (Widgets.ButtonText(new Rect(x, 0, 120, 35), "Quit".Translate()))
-                MainMenuPatch.AskQuitToMainMenu();
-
-            GUI.EndGroup();
-        }
-
-        private static void Rehost()
-        {
-            LongEventHandler.QueueLongEvent(() =>
-            {
-                Find.GameInfo.permadeathMode = false;
-                // todo handle the other faction def too
-                Multiplayer.DummyFaction.def = FactionDefOf.Ancients;
-
-                OnMainThread.StopMultiplayer();
-
-                var doc = SaveLoad.SaveGame();
-                MemoryUtility.ClearAllMapsAndWorld();
-
-                Current.Game = new Game();
-                Current.Game.InitData = new GameInitData();
-                Current.Game.InitData.gameToLoad = "play";
-
-                LoadPatch.gameToLoad = doc;
-
-                LongEventHandler.ExecuteWhenFinished(() =>
-                {
-                    HostWindow window = new HostWindow(null, true);
-                    window.forcePause = true;
-                    window.absorbInputAroundWindow = true;
-                    Find.WindowStack.Add(window);
-                });
-
-            }, "Play", "MpConverting", true, null);
-        }
-    }
-
     public abstract class MpTextInput : Window
     {
         public override Vector2 InitialSize => new Vector2(350f, 175f);
@@ -226,16 +59,14 @@ namespace Multiplayer.Client
         public virtual void DrawExtra(Rect inRect) { }
     }
 
-    public class Dialog_SaveReplay : MpTextInput
+    public class Dialog_SaveGame : MpTextInput
     {
-        public override Vector2 InitialSize => new Vector2(350f, 205f);
         private bool fileExists;
-        private bool fullSave = true; // triggers an Autosave
 
-        public Dialog_SaveReplay()
+        public Dialog_SaveGame()
         {
-            title = "MpSaveReplayAs".Translate();
-            curName = Multiplayer.session.gameName;
+            title = "MpSaveGameAs".Translate();
+            curName = GenFile.SanitizedFileName(Multiplayer.session.gameName);
         }
 
         public override bool Accept()
@@ -244,15 +75,8 @@ namespace Multiplayer.Client
 
             try
             {
-                if (Multiplayer.LocalServer != null && fullSave) {
-                    Multiplayer.LocalServer.DoAutosave(curName);
-                } else {
-                    new FileInfo(Path.Combine(Multiplayer.ReplaysDir, $"{curName}.zip")).Delete();
-                    Replay.ForSaving(curName).WriteCurrentData();
-                }
-
+                LongEventHandler.QueueLongEvent(() => MultiplayerSession.SaveGameToFile(curName), "MpSaving", false, null);
                 Close();
-                Messages.Message("MpReplaySaved".Translate(), MessageTypeDefOf.SilentInput, false);
             }
             catch (Exception e)
             {
@@ -267,19 +91,11 @@ namespace Multiplayer.Client
             if (str.Length > 30)
                 return false;
 
-            fileExists = new FileInfo(Path.Combine(Multiplayer.ReplaysDir, $"{curName}.zip")).Exists;
+            if (GenFile.SanitizedFileName(str) != str)
+                return false;
+
+            fileExists = new FileInfo(Path.Combine(Multiplayer.ReplaysDir, $"{str}.zip")).Exists;
             return true;
-        }
-
-        public override void DoWindowContents(Rect inRect)
-        {
-            base.DoWindowContents(inRect);
-
-            var entry = new Rect(0f, 95f, 120f, 30f);
-            if (Multiplayer.LocalServer != null) {
-                TooltipHandler.TipRegion(entry, "MpFullSaveDesc".Translate());
-                HostWindow.CheckboxLabeled(entry, "MpFullSave".Translate(), ref fullSave, placeTextNearCheckbox: true);
-            }
         }
 
         public override void DrawExtra(Rect inRect)
@@ -300,7 +116,7 @@ namespace Multiplayer.Client
 
         public Dialog_RenameFile(FileInfo file, Action success = null)
         {
-            title = "Rename file to";
+            title = "MpFileRename".Translate();
 
             this.file = file;
             this.success = success;

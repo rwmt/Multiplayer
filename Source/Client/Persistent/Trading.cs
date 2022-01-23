@@ -1,5 +1,6 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using Multiplayer.API;
+using Multiplayer.Client.Persistent;
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
@@ -38,6 +39,7 @@ namespace Multiplayer.Client
             }
         }
 
+        public Map Map => null;
         public int SessionId => sessionId;
 
         public MpTradeSession() { }
@@ -52,14 +54,14 @@ namespace Multiplayer.Client
             giftsOnly = giftMode;
         }
 
-        public static void TryCreate(ITrader trader, Pawn playerNegotiator, bool giftMode)
+        public static MpTradeSession TryCreate(ITrader trader, Pawn playerNegotiator, bool giftMode)
         {
             // todo show error messages?
             if (Multiplayer.WorldComp.trading.Any(s => s.trader == trader))
-                return;
+                return null;
 
             if (Multiplayer.WorldComp.trading.Any(s => s.playerNegotiator == playerNegotiator))
-                return;
+                return null;
 
             MpTradeSession session = new MpTradeSession(trader, playerNegotiator, giftMode);
             Multiplayer.WorldComp.trading.Add(session);
@@ -84,6 +86,8 @@ namespace Multiplayer.Client
                 SetTradeSession(null);
                 CancelTradeDealReset.cancel = false;
             }
+
+            return session;
         }
 
         // todo come back to it when the map doesn't get paused during trading
@@ -94,9 +98,6 @@ namespace Multiplayer.Client
         public bool ShouldCancel()
         {
             if (!trader.CanTradeNow)
-                return true;
-
-            if (playerNegotiator.Drafted)
                 return true;
 
             if (trader is Pawn traderPawn)
@@ -161,6 +162,31 @@ namespace Multiplayer.Client
             TradeSession.deal = session?.deal;
         }
 
+        public void OpenWindow(bool sound = true)
+        {
+            int tab = Multiplayer.WorldComp.trading.IndexOf(this);
+            if (Find.WindowStack.IsOpen<TradingWindow>())
+            {
+                Find.WindowStack.WindowOfType<TradingWindow>().selectedTab = tab;
+            }
+            else
+            {
+                TradingWindow window = new TradingWindow() { selectedTab = tab };
+                if (!sound)
+                    window.soundAppear = null;
+                Find.WindowStack.Add(window);
+            }
+        }
+
+        public void CloseWindow(bool sound = true)
+        {
+            int tab = Multiplayer.WorldComp.trading.IndexOf(this);
+            if (Find.WindowStack.IsOpen<TradingWindow>())
+            {
+                Find.WindowStack.TryRemove(typeof(TradingWindow), doCloseSound: sound);
+            }
+        }
+
         public void ExposeData()
         {
             Scribe_Values.Look(ref sessionId, "sessionId");
@@ -196,6 +222,7 @@ namespace Multiplayer.Client
         }
     }
 
+    [HotSwappable]
     public class MpTradeDeal : TradeDeal, IExposable
     {
         public MpTradeSession session;
@@ -377,20 +404,26 @@ namespace Multiplayer.Client
 
     [HarmonyPatch(typeof(Dialog_Trade), MethodType.Constructor)]
     [HarmonyPatch(new[] { typeof(Pawn), typeof(ITrader), typeof(bool) })]
-    static class CancelDialogTradeCtor
+    static class DialogTradeCtorPatch
     {
-        public static bool cancel;
-
         static bool Prefix(Pawn playerNegotiator, ITrader trader, bool giftsOnly)
         {
-            if (cancel) return false;
-
             if (Multiplayer.ExecutingCmds || Multiplayer.Ticking)
             {
-                MpTradeSession.TryCreate(trader, playerNegotiator, giftsOnly);
+                MpTradeSession trade = MpTradeSession.TryCreate(trader, playerNegotiator, giftsOnly);
 
-                if (TickPatch.currentExecutingCmdIssuedBySelf)
-                    Find.WindowStack.Add(new TradingWindow());
+                if (trade != null)
+                {
+                    if (playerNegotiator.Map == Find.CurrentMap && playerNegotiator.CurJob.loadID == SyncMethods.tradeJobStartedByMe)
+                    {
+                        SyncMethods.tradeJobStartedByMe = -1;
+                        trade.OpenWindow();
+                    }
+                    else if (trader is Settlement && Find.World.renderer.wantedMode == WorldRenderMode.Planet)
+                    {
+                        trade.OpenWindow();
+                    }
+                }
 
                 return false;
             }
@@ -648,7 +681,15 @@ namespace Multiplayer.Client
     {
         static bool Prefix(Settlement_TraderTracker __instance)
         {
-            return Multiplayer.Client == null || !Multiplayer.WorldComp.trading.Any(t => t.trader == __instance.settlement);
+            if (Multiplayer.Client != null)
+            {
+                var trading = Multiplayer.WorldComp.trading;
+                for (int i = 0; i < trading.Count; i++)
+                    if (trading[i].trader == __instance.settlement)
+                        return false;
+            }
+
+            return true;
         }
     }
 
@@ -694,8 +735,8 @@ namespace Multiplayer.Client
     [HarmonyPatch(typeof(TransferableUtility), nameof(TransferableUtility.TransferAsOne))]
     static class TransferAsOneAgeCheck_Patch
     {
-        static MethodInfo AgeBiologicalFloat = AccessTools.Method(typeof(Pawn_AgeTracker), "get_AgeBiologicalYearsFloat");
-        static MethodInfo AgeBiologicalInt = AccessTools.Method(typeof(Pawn_AgeTracker), "get_AgeBiologicalYears");
+        static MethodInfo AgeBiologicalFloat = AccessTools.PropertyGetter(typeof(Pawn_AgeTracker), nameof(Pawn_AgeTracker.AgeBiologicalYearsFloat));
+        static MethodInfo AgeBiologicalInt = AccessTools.PropertyGetter(typeof(Pawn_AgeTracker), nameof(Pawn_AgeTracker.AgeBiologicalYears));
 
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
         {
