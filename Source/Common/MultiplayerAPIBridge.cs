@@ -109,5 +109,10 @@ namespace Multiplayer.Common
         {
             Sync.RegisterSyncDialogNodeTree(method);
         }
+
+        public void RegisterPauseEnforcer(PauseEnforcerDelegate pauseEnforcer)
+        {
+            AsyncTimeComp.pauseEnforcers.Add(pauseEnforcer);
+        }
     }
 }

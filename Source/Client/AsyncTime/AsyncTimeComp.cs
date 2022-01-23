@@ -11,6 +11,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Reflection;
+using Multiplayer.API;
 using UnityEngine;
 using Verse;
 using Verse.AI;
@@ -28,6 +29,7 @@ namespace Multiplayer.Client
     {
         public static Map tickingMap;
         public static Map executingCmdMap;
+        public static List<PauseEnforcerDelegate> pauseEnforcers = new();
 
         public float TickRateMultiplier(TimeSpeed speed)
         {
@@ -38,11 +40,12 @@ namespace Multiplayer.Client
                 comp.ritualSession != null ||
                 comp.mapDialogs.Any() ||
                 Multiplayer.WorldComp.AnyTradeSessionsOnMap(map) ||
-                Multiplayer.WorldComp.splitSession != null;
+                Multiplayer.WorldComp.splitSession != null ||
+                pauseEnforcers.Any(x => x(map));
 
             if (enforcePause)
                 return 0f;
-
+            
             if (mapTicks < slower.forceNormalSpeedUntil)
                 return speed == TimeSpeed.Paused ? 0 : 1;
 
