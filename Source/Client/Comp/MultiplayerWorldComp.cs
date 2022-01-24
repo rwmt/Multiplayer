@@ -35,7 +35,7 @@ namespace Multiplayer.Client
             if (Multiplayer.GameComp.asyncTime)
             {
                 var enforcePause = Multiplayer.WorldComp.splitSession != null ||
-                    AsyncTimeComp.pauseEnforcers.Any(x => x(null));
+                    AsyncTimeComp.pauseLocks.Any(x => x(null));
                 
                 if (enforcePause)
                     return 0f;

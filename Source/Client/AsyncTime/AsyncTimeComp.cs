@@ -29,7 +29,7 @@ namespace Multiplayer.Client
     {
         public static Map tickingMap;
         public static Map executingCmdMap;
-        public static List<PauseEnforcerDelegate> pauseEnforcers = new();
+        public static List<PauseLockDelegate> pauseLocks = new();
 
         public float TickRateMultiplier(TimeSpeed speed)
         {
@@ -41,7 +41,7 @@ namespace Multiplayer.Client
                 comp.mapDialogs.Any() ||
                 Multiplayer.WorldComp.AnyTradeSessionsOnMap(map) ||
                 Multiplayer.WorldComp.splitSession != null ||
-                pauseEnforcers.Any(x => x(map));
+                pauseLocks.Any(x => x(map));
 
             if (enforcePause)
                 return 0f;
