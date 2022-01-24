@@ -25,6 +25,7 @@ namespace Multiplayer.Client
             SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddHumanlikeOrders), 7).CancelIfAnyFieldNull().SetContext(mouseKeyContext);     // Capture prisoner
             SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddHumanlikeOrders), 8).CancelIfAnyFieldNull().SetContext(mouseKeyContext);     // Carry to cryptosleep casket
             SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddHumanlikeOrders), 10).CancelIfAnyFieldNull().SetContext(mouseKeyContext);    // Carry to shuttle
+            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddHumanlikeOrders), 15).CancelIfAnyFieldNull().SetContext(mouseKeyContext);    // Extract relic to inventory
             SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddHumanlikeOrders), 27).CancelIfAnyFieldNull().SetContext(mouseKeyContext);    // Reload
 
             SyncDelegate.Lambda(typeof(HealthCardUtility), nameof(HealthCardUtility.GenerateSurgeryOption), 1).CancelIfAnyFieldNull(allowed: "part");   // Add medical bill
@@ -246,6 +247,20 @@ namespace Multiplayer.Client
 
                 original();
             };
+        }
+
+        [MpPrefix(typeof(JobDriver_EmptyThingContainer), nameof(JobDriver_EmptyThingContainer.MakeNewToils))]
+        private static void RestoreMissingThingAfterSync(JobDriver_EmptyThingContainer __instance)
+        {
+            if (Multiplayer.session == null)
+                return;
+
+            // After syncing the job order to extract the relict to an area, the second parameter (relic) is missing
+            // It's most likely some issue with syncing, but I'm unable to fix it. Right now it still writes a warning, but it works.
+            // If you're able to fix it then feel free to remove this prefix.
+            var comp = __instance.job.targetA.Thing.TryGetComp<CompThingContainer>();
+            if (comp != null)
+                __instance.job.targetB = comp.ContainedThing;
         }
     }
 
