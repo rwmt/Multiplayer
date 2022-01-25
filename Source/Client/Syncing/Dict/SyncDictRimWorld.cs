@@ -116,6 +116,18 @@ namespace Multiplayer.Client
                     }
                 }, true // implicit
             },
+            {
+                (ByteWriter data, Need need) =>
+                {
+                    WriteSync(data, need.pawn);
+                    WriteSync(data, need.def);
+                },
+                (ByteReader data) =>
+                {
+                    var pawn = ReadSync<Pawn>(data);
+                    return pawn.needs.TryGetNeed(ReadSync<NeedDef>(data));
+                }, true // implicit
+            },
             #endregion
 
             #region Policies
