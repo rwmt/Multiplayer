@@ -92,11 +92,21 @@ namespace Multiplayer.Client
                 {
                     if (sync.isWriting)
                     {
-                        sync.Write(hediff.pawn);
-                        sync.Write(hediff.loadID);
+                        if (hediff != null)
+                        {
+                            sync.Write(hediff.loadID);
+                            sync.Write(hediff.pawn);
+                        }
+                        else
+                            sync.Write(int.MaxValue);
                     }
                     else
                     {
+                        var id = sync.Read<int>();
+
+                        if (id == int.MaxValue)
+                            return;
+
                         var pawn = sync.Read<Pawn>();
 
                         if (pawn == null)
@@ -104,8 +114,6 @@ namespace Multiplayer.Client
                             Log.Error($"Multiplayer :: SyncDictionary.Hediff: pawn is null");
                             return;
                         }
-
-                        var id = sync.Read<int>();
 
                         hediff = pawn.health.hediffSet.hediffs.First(x => x.loadID == id);
 
