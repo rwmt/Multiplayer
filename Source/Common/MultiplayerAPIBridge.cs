@@ -109,5 +109,10 @@ namespace Multiplayer.Common
         {
             Sync.RegisterSyncDialogNodeTree(method);
         }
+
+        public void RegisterPauseLock(PauseLockDelegate pauseLock)
+        {
+            AsyncTimeComp.pauseLocks.Add(pauseLock);
+        }
     }
 }

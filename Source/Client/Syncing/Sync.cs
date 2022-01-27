@@ -156,6 +156,8 @@ namespace Multiplayer.Client
                             RegisterSyncWorker(method, isImplicit: swa.isImplicit, shouldConstruct: swa.shouldConstruct);
                         else if (method.TryGetAttribute(out SyncDialogNodeTreeAttribute sdnta))
                             RegisterSyncDialogNodeTree(method);
+                        else if (method.TryGetAttribute(out PauseLockAttribute pea))
+                            RegisterPauseLock(method);
                     }
                     catch (Exception e)
                     {
@@ -382,6 +384,16 @@ namespace Multiplayer.Client
         public static void RegisterSyncDialogNodeTree(MethodInfo method)
         {
             SyncUtil.PatchMethodForDialogNodeTreeSync(method);
+        }
+
+        public static void RegisterPauseLock(MethodInfo method)
+        {
+            var pauseLock = AccessTools.MethodDelegate<PauseLockAttribute>(method);
+
+            if (pauseLock == null)
+                throw new Exception($"Couldn't generate pause lock delegate from {method.DeclaringType?.FullName}:{method.Name}");
+
+            AsyncTimeComp.pauseLocks.Add(pauseLock);
         }
 
         public static void ValidateAll()
