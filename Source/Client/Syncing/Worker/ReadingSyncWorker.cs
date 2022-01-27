@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 using Multiplayer.API;
 using Multiplayer.Common;
@@ -18,7 +18,7 @@ namespace Multiplayer.Client
             initialPos = reader.Position;
         }
 
-        public void Bind<T>(ref T obj, SyncType type)
+        public override void Bind<T>(ref T obj, SyncType type)
         {
             obj = (T)SyncSerialization.ReadSyncObject(reader, type);
         }

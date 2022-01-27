@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 using Multiplayer.API;
 using Multiplayer.Common;
@@ -18,7 +18,7 @@ namespace Multiplayer.Client
             initialPos = writer.Position;
         }
 
-        public void Bind<T>(ref T obj, SyncType type)
+        public override void Bind<T>(ref T obj, SyncType type)
         {
             SyncSerialization.WriteSyncObject(writer, obj, type);
         }
