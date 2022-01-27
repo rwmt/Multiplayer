@@ -16,6 +16,10 @@ namespace Multiplayer.Common
 
         public string PlayerName => Client.Multiplayer.username;
 
+        public bool IsExecutingSyncCommand => Client.Multiplayer.ExecutingCmds;
+
+        public bool IsExecutingSyncCommandIssuedBySelf => TickPatch.currentExecutingCmdIssuedBySelf;
+
         public void WatchBegin()
         {
             SyncFieldUtil.FieldWatchPrefix();
