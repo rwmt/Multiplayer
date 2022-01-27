@@ -388,7 +388,7 @@ namespace Multiplayer.Client
 
         public static void RegisterPauseLock(MethodInfo method)
         {
-            var pauseLock = AccessTools.MethodDelegate<PauseLockAttribute>(method);
+            var pauseLock = AccessTools.MethodDelegate<PauseLockDelegate>(method);
 
             if (pauseLock == null)
                 throw new Exception($"Couldn't generate pause lock delegate from {method.DeclaringType?.FullName}:{method.Name}");
