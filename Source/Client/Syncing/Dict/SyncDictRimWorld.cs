@@ -807,7 +807,6 @@ namespace Multiplayer.Client
                         if (comp != null) {
                             ushort index = (ushort)Array.IndexOf(worldCompTypes, comp.GetType());
                             data.Write(index);
-                            data.Write(comp.world);
                         } else {
                             data.Write(ushort.MaxValue);
                         }
@@ -817,11 +816,7 @@ namespace Multiplayer.Client
                             return;
                         }
                         Type compType = worldCompTypes[index];
-                        World world = data.Read<World>();
-                        if (world == null) {
-                            return;
-                        }
-                        comp = world.GetComponent(compType);
+                        comp = Find.World.GetComponent(compType);
                     }
                 }, true // implicit
             },
