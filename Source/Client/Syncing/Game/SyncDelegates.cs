@@ -115,6 +115,9 @@ namespace Multiplayer.Client
             SyncMethod.Lambda(typeof(Pawn_CarryTracker), nameof(Pawn_CarryTracker.GetGizmos), 0)
                 .TransformTarget(Serializer.New(t => t.pawn, (Pawn p) => p.carryTracker));  // Drop carried pawn
 
+            SyncDelegate.Lambda(typeof(Ability), nameof(Ability.QueueCastingJob), 0, new[] { typeof(LocalTargetInfo), typeof(LocalTargetInfo) });
+            SyncDelegate.Lambda(typeof(Ability), nameof(Ability.QueueCastingJob), 0, new[] { typeof(GlobalTargetInfo) });
+
             InitRituals();
             InitChoiceLetters();
         }
