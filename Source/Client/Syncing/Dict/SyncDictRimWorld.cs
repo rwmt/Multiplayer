@@ -136,6 +136,10 @@ namespace Multiplayer.Client
                     return pawn.needs.TryGetNeed(ReadSync<NeedDef>(data));
                 }, true // implicit
             },
+            {
+                (ByteWriter data, Pawn_MindState mindState) => WriteSync(data, mindState.pawn),
+                (ByteReader data) => ReadSync<Pawn>(data).mindState
+            },
             #endregion
 
             #region Policies
