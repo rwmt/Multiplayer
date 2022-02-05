@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -30,7 +30,7 @@ namespace Multiplayer.Client.Patches
     [HarmonyPatch(typeof(ChoiceLetter), nameof(ChoiceLetter.OpenLetter))]
     static class CloseDialogsForExpiredLetters
     {
-        public static Dictionary<Type, MethodInfo> rejectMethods = new();
+        public static Dictionary<Type, FastInvokeHandler> rejectMethods = new();
 
         static bool Prefix(ChoiceLetter __instance)
         {
@@ -40,7 +40,7 @@ namespace Multiplayer.Client.Patches
                 && __instance.disappearAtTick == Find.TickManager.TicksGame + 1
                 && rejectMethods.TryGetValue(__instance.GetType(), out var method))
             {
-                method.Invoke(__instance, new object[0]);
+                method.Invoke(__instance);
                 return false;
             }
 

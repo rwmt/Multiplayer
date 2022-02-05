@@ -142,7 +142,7 @@ namespace Multiplayer.Common
 
             if (fragState == FRAG_NONE)
             {
-                handler.Method.Invoke(stateObj, new object[] { reader });
+                handler.Method.Invoke(stateObj, reader);
             }
             else if (!handler.Fragment)
             {
@@ -160,7 +160,7 @@ namespace Multiplayer.Common
 
                 if (fragState == FRAG_END)
                 {
-                    handler.Method.Invoke(stateObj, new object[] { new ByteReader(fragmented.ToArray()) });
+                    handler.Method.Invoke(stateObj, new ByteReader(fragmented.ToArray()));
                     fragmented = null;
                 }
             }
