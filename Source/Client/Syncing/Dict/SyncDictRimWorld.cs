@@ -770,6 +770,10 @@ namespace Multiplayer.Client
 
             #region World
             {
+                (ByteWriter data, World world) => { },
+                (ByteReader data) => Find.World
+            },
+            {
                 (ByteWriter data, WorldObject worldObj) => {
                     data.WriteInt32(worldObj?.ID ?? -1);
                 },
