@@ -24,7 +24,10 @@ namespace Multiplayer.Client
                 if (player.username == Multiplayer.username) continue;
                 if (player.map != curMap) continue;
 
-                GUI.color = player.color * new Color(1, 1, 1, 0.5f);
+                if (Multiplayer.settings.transparentPlayerCursors)
+                    GUI.color = player.color * new Color(1, 1, 1, 0.5f);
+                else
+                    GUI.color = player.color * new Color(1, 1, 1, 1);
 
                 var pos = Vector3.Lerp(
                     player.lastCursor,

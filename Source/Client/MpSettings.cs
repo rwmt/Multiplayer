@@ -33,6 +33,7 @@ namespace Multiplayer.Client
         public Vector2 resolutionForChat;
         public bool showMainMenuAnim = true;
         public DesyncTracingMode desyncTracingMode = DesyncTracingMode.Fast;
+        public bool transparentPlayerCursors = true;
 
         public ServerSettings serverSettings = new();
 
@@ -57,6 +58,7 @@ namespace Multiplayer.Client
             Scribe_Custom.LookRect(ref chatRect, "chatRect");
             Scribe_Values.Look(ref resolutionForChat, "resolutionForChat");
             Scribe_Values.Look(ref showMainMenuAnim, "showMainMenuAnim", true);
+            Scribe_Values.Look(ref transparentPlayerCursors, "transparentPlayerCursors", true);
 
             Scribe_Deep.Look(ref serverSettings, "serverSettings");
             serverSettings ??= new ServerSettings();
@@ -75,6 +77,7 @@ namespace Multiplayer.Client
             listing.TextFieldNumericLabeled("MpAutosaveSlots".Translate() + ":  ", ref autosaveSlots, ref slotsBuffer, 1f, 99f);
 
             listing.CheckboxLabeled("MpShowPlayerCursors".Translate(), ref showCursors);
+            listing.CheckboxLabeled("MpPlayerCursorTransparency".Translate(), ref transparentPlayerCursors);
             listing.CheckboxLabeled("MpAutoAcceptSteam".Translate(), ref autoAcceptSteam, "MpAutoAcceptSteamDesc".Translate());
             listing.CheckboxLabeled("MpTransparentChat".Translate(), ref transparentChat);
             listing.CheckboxLabeled("MpAggressiveTicking".Translate(), ref aggressiveTicking, "MpAggressiveTickingDesc".Translate());
