@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -33,6 +34,22 @@ namespace Multiplayer.Client
         public Vector2 resolutionForChat;
         public bool showMainMenuAnim = true;
         public DesyncTracingMode desyncTracingMode = DesyncTracingMode.Fast;
+        public List<ColorRGB> playerColors = new(DefaultPlayerColors);
+        private (string r, string g, string b)[] colorsBuffer = { };
+
+        private Vector2 scrollPosition = Vector2.zero;
+        private SettingsPage currentPage = SettingsPage.General;
+
+        private static readonly ColorRGB[] DefaultPlayerColors =
+        {
+            new(0,125,255),
+            new(255,0,0),
+            new(0,255,45),
+            new(255,0,150),
+            new(80,250,250),
+            new(200,255,75),
+            new(100,0,75)
+        };
 
         public ServerSettings serverSettings = new();
 
@@ -58,6 +75,12 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref resolutionForChat, "resolutionForChat");
             Scribe_Values.Look(ref showMainMenuAnim, "showMainMenuAnim", true);
 
+            Scribe_Collections.Look(ref playerColors, "playerColors", LookMode.Deep);
+            if (playerColors.NullOrEmpty())
+                playerColors = new List<ColorRGB>(DefaultPlayerColors);
+            if (Scribe.mode == LoadSaveMode.PostLoadInit)
+                PlayerManager.PlayerColors = playerColors.ToArray();
+
             Scribe_Deep.Look(ref serverSettings, "serverSettings");
             serverSettings ??= new ServerSettings();
         }
@@ -66,6 +89,38 @@ namespace Multiplayer.Client
         private string desyncRadiusBuffer;
 
         public void DoSettingsWindowContents(Rect inRect)
+        {
+            var buttonPos = new Rect(inRect.xMax - 150, inRect.yMin + 10, 125, 32);
+            Widgets.Dropdown(buttonPos, currentPage, x => x, GeneratePageMenu, $"MpSettingsPage{currentPage}".Translate());
+
+            switch (currentPage)
+            {
+                default:
+                case SettingsPage.General:
+                    DoGeneralSettings(inRect, buttonPos);
+                    break;
+                case SettingsPage.Color:
+                    DoColorContents(inRect, buttonPos);
+                    break;
+            }
+        }
+
+        private IEnumerable<Widgets.DropdownMenuElement<SettingsPage>> GeneratePageMenu(SettingsPage p)
+        {
+            return from SettingsPage page in Enum.GetValues(typeof(SettingsPage))
+                   where page != p
+                   select new Widgets.DropdownMenuElement<SettingsPage>
+                   {
+                       option = new FloatMenuOption($"MpSettingsPage{page}".Translate(), () =>
+                       {
+                           currentPage = page;
+                           scrollPosition = Vector2.zero;
+                       }),
+                       payload = page,
+                   };
+        }
+
+        public void DoGeneralSettings(Rect inRect, Rect pageButtonPos)
         {
             var listing = new Listing_Standard();
             listing.Begin(inRect);
@@ -119,6 +174,85 @@ namespace Multiplayer.Client
             }
         }
 
+        private void DoColorContents(Rect inRect, Rect pageButtonPos)
+        {
+            var viewRect = new Rect(inRect)
+            {
+                height = (playerColors.Count + 1) * 32f,
+                width = inRect.width - 20f,
+            };
+
+            var rect = new Rect(pageButtonPos.xMin - 150, pageButtonPos.yMin, 125, 32);
+            if (Widgets.ButtonText(rect, "MpResetColors".Translate()))
+            {
+                playerColors = new List<ColorRGB>(DefaultPlayerColors);
+                PlayerManager.PlayerColors = playerColors.ToArray();
+            }
+
+            if (playerColors.Count != colorsBuffer.Length)
+            {
+                colorsBuffer = new (string r, string g, string b)[playerColors.Count];
+            }
+
+            Widgets.BeginScrollView(inRect, ref scrollPosition, viewRect);
+
+            var toRemove = -1;
+            for (var i = 0; i < playerColors.Count; i++)
+            {
+                var colors = playerColors[i];
+                if (DrawColorRow(i * 32 + 120, ref colors, ref colorsBuffer[i], out var edited))
+                    toRemove = i;
+                if (edited)
+                {
+                    playerColors[i] = colors;
+                    PlayerManager.PlayerColors = playerColors.ToArray();
+                }
+            }
+
+            rect = new Rect(402, playerColors.Count * 32 + 118, 32, 32);
+            if (Widgets.ButtonText(rect, "+"))
+            {
+                playerColors.Add(new ColorRGB((byte)Rand.RangeInclusive(0, 255), (byte)Rand.RangeInclusive(0, 255), (byte)Rand.RangeInclusive(0, 255)));
+                PlayerManager.PlayerColors = playerColors.ToArray();
+            }
+
+            Widgets.EndScrollView();
+
+            if (toRemove >= 0)
+            {
+                playerColors.RemoveAt(toRemove);
+                PlayerManager.PlayerColors = playerColors.ToArray();
+            }
+        }
+
+        private bool DrawColorRow(int pos, ref ColorRGB color, ref (string r, string g, string b) buffer, out bool edited)
+        {
+            var (r, g, b) = ((int)color.r, (int)color.g, (int)color.b);
+            var rect = new Rect(10, pos, 100, 28);
+            Widgets.TextFieldNumericLabeled(rect, "R", ref r, ref buffer.r, 0, 255);
+            rect = new Rect(120, pos, 100, 28);
+            Widgets.TextFieldNumericLabeled(rect, "G", ref g, ref buffer.g, 0, 255);
+            rect = new Rect(230, pos, 100, 28);
+            Widgets.TextFieldNumericLabeled(rect, "B", ref b, ref buffer.b, 0, 255);
+
+            rect = new Rect(350, pos - 2, 32, 32);
+            Widgets.DrawBoxSolid(rect, color);
+
+            if (color.r != r || color.g != g || color.b != b)
+            {
+                color = new ColorRGB((byte)r, (byte)g, (byte)b);
+                edited = true;
+            }
+            else edited = false;
+
+            if (playerColors.Count > 1)
+            {
+                rect = new Rect(402, pos - 2, 32, 32);
+                return Widgets.ButtonText(rect, "-");
+            }
+            return false;
+        }
+
         const string UsernameField = "UsernameField";
 
         private void DoUsernameField(Listing_Standard listing)
@@ -138,11 +272,15 @@ namespace Multiplayer.Client
             if (Multiplayer.Client != null && GUI.GetNameOfFocusedControl() == UsernameField)
                 UI.UnfocusCurrentControl();
         }
+
+        private enum SettingsPage
+        {
+            General, Color,
+        }
     }
 
     public enum DesyncTracingMode
     {
         None, Fast, Slow
     }
-
 }
