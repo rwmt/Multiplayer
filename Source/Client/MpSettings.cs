@@ -57,6 +57,7 @@ namespace Multiplayer.Client
             Scribe_Custom.LookRect(ref chatRect, "chatRect");
             Scribe_Values.Look(ref resolutionForChat, "resolutionForChat");
             Scribe_Values.Look(ref showMainMenuAnim, "showMainMenuAnim", true);
+            Scribe_Values.Look(ref appendNameToAutosave, "appendNameToAutosave");
 
             Scribe_Deep.Look(ref serverSettings, "serverSettings");
             serverSettings ??= new ServerSettings();
