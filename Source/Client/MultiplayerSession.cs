@@ -11,6 +11,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using HarmonyLib;
+using Multiplayer.API;
 using Multiplayer.Client.Util;
 using UnityEngine;
 using Verse;
@@ -323,7 +324,7 @@ namespace Multiplayer.Client
         public Dictionary<int, List<ScheduledCommand>> mapCmds = new();
     }
 
-    public class PlayerInfo
+    public class PlayerInfo : IPlayerInfo
     {
         public static readonly Vector3 Invalid = new(-1, 0, -1);
 
@@ -349,6 +350,21 @@ namespace Multiplayer.Client
         public Vector3 dragStart = Invalid;
 
         public Dictionary<int, float> selectedThings = new();
+
+        public int Id => id;
+        public string Username => username;
+        public bool IsArbiter => type == PlayerType.Arbiter;
+        public int CurrentMapIndex => map;
+        public Map CurrentMap => Find.Maps.GetById(map);
+        public IReadOnlyList<int> SelectedThingsByIds => selectedThings
+            .Select(x => x.Key)
+            .ToList()
+            .AsReadOnly();
+        public IReadOnlyList<Thing> SelectedThings => selectedThings
+            .Select(x => ThingsById.thingsById.TryGetValue(x.Key, out var thing) ? thing : null)
+            .Where(x => x != null)
+            .ToList()
+            .AsReadOnly();
 
         private PlayerInfo(int id, string username, int latency, PlayerType type)
         {

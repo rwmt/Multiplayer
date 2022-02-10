@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using Multiplayer.API;
 using Multiplayer.Client;
+using Verse;
 
 namespace Multiplayer.Common
 {
@@ -117,6 +119,26 @@ namespace Multiplayer.Common
         public void RegisterPauseLock(PauseLockDelegate pauseLock)
         {
             AsyncTimeComp.pauseLocks.Add(pauseLock);
+        }
+
+        public Thing GetThingById(int id)
+        {
+            return ThingsById.thingsById[id];
+        }
+
+        public bool TryGetThingById(int id, out Thing value)
+        {
+            return ThingsById.thingsById.TryGetValue(id, out value);
+        }
+
+        public IReadOnlyList<IPlayerInfo> GetPlayers()
+        {
+            return Client.Multiplayer.session.players.AsReadOnly();
+        }
+
+        public IPlayerInfo GetPlayerById(int id)
+        {
+            return Client.Multiplayer.session.GetPlayerInfo(id);
         }
     }
 }
