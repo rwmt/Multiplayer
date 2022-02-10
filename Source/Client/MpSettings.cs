@@ -212,7 +212,16 @@ namespace Multiplayer.Client
             rect = new Rect(402, playerColors.Count * 32 + 118, 32, 32);
             if (Widgets.ButtonText(rect, "+"))
             {
-                playerColors.Add(new ColorRGB((byte)Rand.RangeInclusive(0, 255), (byte)Rand.RangeInclusive(0, 255), (byte)Rand.RangeInclusive(0, 255)));
+                // Try using seeded random, so if we're currently inside MP session, it won't mess with RNG state
+                if (Find.TickManager?.TicksGame > 0)
+                {
+                    Rand.PushState(Find.TickManager.TicksGame);
+                    playerColors.Add(new ColorRGB((byte)Rand.RangeInclusive(0, 255), (byte)Rand.RangeInclusive(0, 255), (byte)Rand.RangeInclusive(0, 255)));
+                    Rand.PopState();
+                }
+                // As a fallback if TickManager is null (shouldn't be) or TicksGame is a default value, use unseeded random
+                else
+                    playerColors.Add(new ColorRGB((byte)Rand.RangeInclusive(0, 255), (byte)Rand.RangeInclusive(0, 255), (byte)Rand.RangeInclusive(0, 255)));
                 PlayerManager.PlayerColors = playerColors.ToArray();
             }
 
