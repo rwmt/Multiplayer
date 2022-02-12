@@ -20,6 +20,8 @@ namespace Multiplayer.Common
 
         public bool IsExecutingSyncCommandIssuedBySelf => TickPatch.currentExecutingCmdIssuedBySelf;
 
+        public IThingFilterAPI ThingFilters { get; } = new ThingFilterBridge();
+
         public void WatchBegin()
         {
             SyncFieldUtil.FieldWatchPrefix();
@@ -29,7 +31,8 @@ namespace Multiplayer.Common
         {
             var syncField = Sync.GetRegisteredSyncField(targetType, fieldName);
 
-            if (syncField == null) {
+            if (syncField == null)
+            {
                 throw new ArgumentException($"{targetType}/{fieldName} not found in {target}");
             }
 
@@ -40,7 +43,8 @@ namespace Multiplayer.Common
         {
             var syncField = Sync.GetRegisteredSyncField(target.GetType(), fieldName);
 
-            if (syncField == null) {
+            if (syncField == null)
+            {
                 throw new ArgumentException($"{fieldName} not found in {target}");
             }
 
@@ -51,7 +55,8 @@ namespace Multiplayer.Common
         {
             var syncField = Sync.GetRegisteredSyncField(memberPath);
 
-            if (syncField == null) {
+            if (syncField == null)
+            {
                 throw new ArgumentException($"{memberPath} not found");
             }
 
@@ -117,6 +122,26 @@ namespace Multiplayer.Common
         public void RegisterPauseLock(PauseLockDelegate pauseLock)
         {
             AsyncTimeComp.pauseLocks.Add(pauseLock);
+        }
+    }
+
+    public class ThingFilterBridge : IThingFilterAPI
+    {
+        public void RegisterThingFilterTarget(Type type)
+        {
+            SyncThingFilters.ThingFilterTarget.Add(type);
+            SyncThingFilters.Init();
+        }
+
+        public void RegisterThingFilterTarget<T>() where T : ThingFilterContext
+        {
+            SyncThingFilters.ThingFilterTarget.Add(typeof(T));
+            SyncThingFilters.Init();
+        }
+
+        public void RegisterThingFilterListener(GetThingFilter context)
+        {
+            SyncMarkers.thingFilters.Add(context);
         }
     }
 }

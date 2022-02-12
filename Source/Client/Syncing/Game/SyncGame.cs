@@ -53,10 +53,11 @@ namespace Multiplayer.Client
         public static FoodRestrictionWrapper foodRestriction;
         public static PenAutocutWrapper penAutocut;
         public static PenAnimalsWrapper penAnimals;
+        public static List<GetThingFilter> thingFilters = new();
 
         public static ThingFilterContext DrawnThingFilter =>
             !drawingThingFilter ? null :
-            tabStorage ?? billConfig ?? dialogOutfit ?? foodRestriction ?? penAutocut ?? (ThingFilterContext)penAnimals;
+            tabStorage ?? billConfig ?? dialogOutfit ?? foodRestriction ?? penAutocut ?? penAnimals ?? thingFilters.Select(x => x()).FirstOrDefault(x => x != null);
 
         #region Misc Markers
         [MpPrefix(typeof(MainTabWindow_Work), "DoManualPrioritiesCheckbox")]

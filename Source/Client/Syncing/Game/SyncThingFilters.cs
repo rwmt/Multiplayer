@@ -80,52 +80,6 @@ namespace Multiplayer.Client
         }
     }
 
-    public abstract record ThingFilterContext : ISyncSimple
-    {
-        public abstract ThingFilter Filter { get; }
-        public abstract ThingFilter ParentFilter { get; }
-        public virtual IEnumerable<SpecialThingFilterDef> HiddenFilters { get => null; }
-
-        internal void AllowStuffCat_Helper(StuffCategoryDef cat, bool allow)
-        {
-            Filter.SetAllow(cat, allow);
-        }
-
-        internal void AllowSpecial_Helper(SpecialThingFilterDef sfDef, bool allow)
-        {
-            Filter.SetAllow(sfDef, allow);
-        }
-
-        internal void AllowThing_Helper(ThingDef thingDef, bool allow)
-        {
-            Filter.SetAllow(thingDef, allow);
-        }
-
-        internal void DisallowAll_Helper()
-        {
-            Filter.SetDisallowAll(null, HiddenFilters);
-        }
-
-        internal void AllowAll_Helper()
-        {
-            Filter.SetAllowAll(ParentFilter);
-        }
-
-        internal void AllowCategory_Helper(ThingCategoryDef categoryDef, bool allow)
-        {
-            var node = new TreeNode_ThingCategory(categoryDef);
-
-            Filter.SetAllow(
-                categoryDef,
-                allow,
-                null,
-                Listing_TreeThingFilter
-                .CalculateHiddenSpecialFilters(node, ParentFilter)
-                .ConcatIfNotNull(HiddenFilters)
-            );
-        }
-    }
-
     public record TabStorageWrapper(IStoreSettingsParent Storage) : ThingFilterContext
     {
         public override ThingFilter Filter => Storage.GetStoreSettings().filter;

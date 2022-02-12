@@ -21,9 +21,6 @@ using Verse.AI.Group;
 
 namespace Multiplayer.Client
 {
-    // Syncs a type with all its declared fields
-    public interface ISyncSimple { }
-
     public static class SyncSerialization
     {
         public static void Init()
