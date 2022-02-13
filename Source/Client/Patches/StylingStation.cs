@@ -52,6 +52,10 @@ namespace Multiplayer.Client.Patches
             pawn.pather = new Pawn_PathFollower(pawn);
             pawn.roping = new Pawn_RopeTracker(pawn);
             pawn.mindState = new Pawn_MindState(pawn);
+            pawn.ideo = new Pawn_IdeoTracker(pawn)
+            {
+                ideo = dialog.pawn.ideo.ideo
+            };
 
             window = new Dialog_StylingStation(pawn, dialog.stylingStation);
 
