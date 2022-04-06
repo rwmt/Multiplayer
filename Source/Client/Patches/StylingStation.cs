@@ -64,7 +64,7 @@ namespace Multiplayer.Client.Patches
             pawn.mindState = new Pawn_MindState(pawn);
             pawn.ideo = new Pawn_IdeoTracker(pawn)
             {
-                ideo = dialog.pawn.ideo.ideo
+                ideo = dialogPawn.ideo.ideo
             };
 
             return new Dialog_StylingStation(pawn, stylingStation);
