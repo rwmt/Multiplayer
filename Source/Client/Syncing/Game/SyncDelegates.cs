@@ -185,17 +185,17 @@ namespace Multiplayer.Client
             SyncMethod.LambdaInGetter(typeof(ChoiceLetter_AcceptJoiner), nameof(ChoiceLetter_AcceptJoiner.Choices), 0); // Accept joiner
             CloseDialogsForExpiredLetters.rejectMethods[typeof(ChoiceLetter_AcceptJoiner)] =
                 SyncMethod.LambdaInGetter(typeof(ChoiceLetter_AcceptJoiner), nameof(ChoiceLetter_AcceptJoiner.Choices), 1)
-                    .method; // Reject joiner
+                    .methodDelegate; // Reject joiner
 
             SyncMethod.LambdaInGetter(typeof(ChoiceLetter_AcceptVisitors), nameof(ChoiceLetter_AcceptVisitors.Option_Accept), 0); // Accept visitors join offer
             CloseDialogsForExpiredLetters.rejectMethods[typeof(ChoiceLetter_AcceptVisitors)] =
                 SyncMethod.LambdaInGetter(typeof(ChoiceLetter_AcceptVisitors), nameof(ChoiceLetter_AcceptVisitors.Option_RejectWithCharityConfirmation), 1)
-                    .method; // Reject visitors join offer
+                    .methodDelegate; // Reject visitors join offer
 
             SyncMethod.LambdaInGetter(typeof(ChoiceLetter_RansomDemand), nameof(ChoiceLetter_RansomDemand.Choices), 0); // Accept ransom demand
             CloseDialogsForExpiredLetters.rejectMethods[typeof(ChoiceLetter_RansomDemand)] =
                 SyncMethod.LambdaInGetter(typeof(ChoiceLetter), nameof(ChoiceLetter.Option_Reject), 0)
-                    .method; // Generic reject (currently only used by ransom demand)
+                    .methodDelegate; // Generic reject (currently only used by ransom demand)
         }
 
         [MpPrefix(typeof(FormCaravanComp), nameof(FormCaravanComp.GetGizmos), lambdaOrdinal: 0)]
