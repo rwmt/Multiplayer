@@ -9,7 +9,7 @@
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
     <DebugType>None</DebugType>
-    <ReleaseVersion>0.6.1</ReleaseVersion>
+    <ReleaseVersion>0.6.2</ReleaseVersion>
     <PublicizeAsReferenceAssemblies>false</PublicizeAsReferenceAssemblies>
   </PropertyGroup>
 
