@@ -75,6 +75,7 @@ namespace Multiplayer.Client
             Scribe_Custom.LookRect(ref chatRect, "chatRect");
             Scribe_Values.Look(ref resolutionForChat, "resolutionForChat");
             Scribe_Values.Look(ref showMainMenuAnim, "showMainMenuAnim", true);
+            Scribe_Values.Look(ref appendNameToAutosave, "appendNameToAutosave");
             Scribe_Values.Look(ref transparentPlayerCursors, "transparentPlayerCursors", true);
 
             Scribe_Collections.Look(ref playerColors, "playerColors", LookMode.Deep);
