@@ -115,6 +115,19 @@ namespace Multiplayer.Client
             SyncMethod.Lambda(typeof(Pawn_CarryTracker), nameof(Pawn_CarryTracker.GetGizmos), 0)
                 .TransformTarget(Serializer.New(t => t.pawn, (Pawn p) => p.carryTracker));  // Drop carried pawn
 
+            // CompSpawner
+            SyncMethod.Lambda(typeof(CompSpawner), nameof(CompSpawner.CompGetGizmosExtra), 0).SetDebugOnly();
+            SyncMethod.Lambda(typeof(CompSpawnerHives), nameof(CompSpawnerHives.CompGetGizmosExtra), 0).SetDebugOnly();
+            SyncMethod.Lambda(typeof(CompSpawnerItems), nameof(CompSpawnerItems.CompGetGizmosExtra), 0).SetDebugOnly();
+            SyncMethod.Lambda(typeof(CompSpawnerPawn), nameof(CompSpawnerPawn.CompGetGizmosExtra), 0).SetDebugOnly();
+
+            SyncMethod.Lambda(typeof(CompCanBeDormant), nameof(CompCanBeDormant.CompGetGizmosExtra), 0).SetDebugOnly();
+            SyncMethod.Lambda(typeof(CompSendSignalOnCountdown), nameof(CompSendSignalOnCountdown.CompGetGizmosExtra), 0).SetDebugOnly();
+
+            // CompRechargeable
+            SyncMethod.Lambda(typeof(CompRechargeable), nameof(CompRechargeable.CompGetGizmosExtra), 0).SetDebugOnly(); // Recharge
+            SyncMethod.Register(typeof(CompRechargeable), nameof(CompRechargeable.Discharge)).SetDebugOnly();
+
             SyncDelegate.Lambda(typeof(Ability), nameof(Ability.QueueCastingJob), 0, new[] { typeof(LocalTargetInfo), typeof(LocalTargetInfo) });
             SyncDelegate.Lambda(typeof(Ability), nameof(Ability.QueueCastingJob), 0, new[] { typeof(GlobalTargetInfo) });
 

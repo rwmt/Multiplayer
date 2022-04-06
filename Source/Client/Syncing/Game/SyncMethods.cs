@@ -189,6 +189,8 @@ namespace Multiplayer.Client
 
             SyncMethod.Register(typeof(IdeoDevelopmentUtility), nameof(IdeoDevelopmentUtility.ApplyChangesToIdeo))
                 .ExposeParameter(1);
+
+            SyncMethod.Register(typeof(CompPawnSpawnOnWakeup), nameof(CompPawnSpawnOnWakeup.Spawn)).SetDebugOnly();
         }
 
         [MpPrefix(typeof(PawnColumnWorker_CopyPasteTimetable), nameof(PawnColumnWorker_CopyPasteTimetable.PasteTo))]
