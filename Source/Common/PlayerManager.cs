@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Net;
@@ -105,7 +105,7 @@ namespace Multiplayer.Common
                 server.TryStartJoinPointCreation(true);
         }
 
-        private static readonly ColorRGB[] PlayerColors =
+        public static ColorRGB[] PlayerColors =
         {
             new(0,125,255),
             new(255,0,0),
@@ -116,7 +116,7 @@ namespace Multiplayer.Common
             new(100,0,75)
         };
 
-        private static Dictionary<string, ColorRGB> givenColors = new();
+        public static Dictionary<string, ColorRGB> givenColors = new();
 
         public void OnJoin(ServerPlayer player)
         {

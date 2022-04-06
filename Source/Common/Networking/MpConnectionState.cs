@@ -1,5 +1,6 @@
-﻿using System;
+using System;
 using System.Reflection;
+using HarmonyLib;
 
 namespace Multiplayer.Common
 {
@@ -38,7 +39,7 @@ namespace Multiplayer.Common
                     continue;
 
                 bool fragment = method.GetAttribute<IsFragmentedAttribute>() != null;
-                packetHandlers[(int)state, (int)attr.packet] = new PacketHandlerInfo(method, fragment);
+                packetHandlers[(int)state, (int)attr.packet] = new PacketHandlerInfo(MethodInvoker.GetHandler(method), fragment);
             }
         }
     }
