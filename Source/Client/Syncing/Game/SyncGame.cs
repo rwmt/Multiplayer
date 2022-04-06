@@ -80,8 +80,13 @@ namespace Multiplayer.Client
 
         #region ThingFilter Markers
         [MpPrefix(typeof(ITab_Storage), "FillTab")]
-        static void TabStorageFillTab_Prefix(ITab_Storage __instance) =>
+        static void TabStorageFillTab_Prefix(ITab_Storage __instance)
+        {
+            var selThing = __instance.SelStoreSettingsParent;
+            if (selThing is Thing {Map: null} or ThingComp {parent: {Map: null}})
+                return;
             tabStorage = new(__instance.SelStoreSettingsParent);
+        }
 
         [MpPostfix(typeof(ITab_Storage), "FillTab")]
         static void TabStorageFillTab_Postfix() => tabStorage = null;
