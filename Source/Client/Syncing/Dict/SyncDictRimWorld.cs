@@ -136,6 +136,10 @@ namespace Multiplayer.Client
                     return pawn.needs.TryGetNeed(ReadSync<NeedDef>(data));
                 }, true // implicit
             },
+            {
+                (ByteWriter data, Pawn_MindState mindState) => WriteSync(data, mindState.pawn),
+                (ByteReader data) => ReadSync<Pawn>(data).mindState
+            },
             #endregion
 
             #region Policies
@@ -694,6 +698,9 @@ namespace Multiplayer.Client
                             ushort index = (ushort)Array.IndexOf(thingCompTypes, comp.GetType());
                             data.Write(index);
                             data.Write(comp.parent);
+                            var tempComp = comp;
+                            var compIndex = comp.parent.AllComps.Where(x => x.props.compClass == tempComp.props.compClass).FirstIndexOf(x => x == tempComp);
+                            data.Write((ushort)compIndex);
                         } else {
                             data.Write(ushort.MaxValue);
                         }
@@ -707,7 +714,11 @@ namespace Multiplayer.Client
                             return;
                         }
                         Type compType = thingCompTypes[index];
-                        comp = parent.AllComps.Find(c => c.props.compClass == compType);
+                        var compIndex = data.Read<ushort>();
+                        if (compIndex <= 0)
+                            comp = parent.AllComps.Find(c => c.props.compClass == compType);
+                        else
+                            comp = parent.AllComps.Where(c => c.props.compClass == compType).ElementAt(compIndex);
                     }
                 }, true // implicit
             },
@@ -765,6 +776,10 @@ namespace Multiplayer.Client
             #endregion
 
             #region World
+            {
+                (ByteWriter data, World world) => { },
+                (ByteReader data) => Find.World
+            },
             {
                 (ByteWriter data, WorldObject worldObj) => {
                     data.WriteInt32(worldObj?.ID ?? -1);
