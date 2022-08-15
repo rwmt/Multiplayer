@@ -82,10 +82,15 @@ namespace Multiplayer.Client
         [MpPrefix(typeof(ITab_Storage), "FillTab")]
         static void TabStorageFillTab_Prefix(ITab_Storage __instance)
         {
-            var selThing = __instance.SelStoreSettingsParent;
-            if (selThing is Thing {Map: null} or ThingComp {parent: {Map: null}})
+            var selThing = __instance.SelObject;
+            var selParent = __instance.SelStoreSettingsParent;
+            // If SelStoreSettingsParent is null, just return early. There'll be nothing to sync.
+            // The map could potentially be null - for example, if we're syncing mortar. The mortar hun itself
+            // holds the store settings, and turret guns don't have a map/location assigned - so we sync their parent.
+            // Because of that, we check if the parent is not null.
+            if (selParent == null || selThing is Thing { Map: null } or ThingComp { parent: { Map: null } })
                 return;
-            tabStorage = new(__instance.SelStoreSettingsParent);
+            tabStorage = new(selParent);
         }
 
         [MpPostfix(typeof(ITab_Storage), "FillTab")]
