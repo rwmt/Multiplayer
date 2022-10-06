@@ -146,6 +146,16 @@ namespace Multiplayer.Client
             SyncDelegate.Lambda(typeof(Dialog_StyleSelection), nameof(Dialog_StyleSelection.DoWindowContents), 2); // Add style
 
             SyncDelegate.Lambda(typeof(CompActivable_RocketswarmLauncher), nameof(CompActivable_RocketswarmLauncher.TargetLocation), 0);
+            SyncDelegate.Lambda(typeof(CompAtomizer), nameof(CompAtomizer.CompGetGizmosExtra), 3).SetDebugOnly(); // Set next atomization
+            SyncDelegate.Lambda(typeof(CompBandNode), nameof(CompBandNode.CompGetGizmosExtra), 7); // Select pawn to tune to
+            SyncDelegate.Lambda(typeof(CompDissolution), nameof(CompDissolution.CompGetGizmosExtra), 4).SetDebugOnly(); // Set next dissolve time
+            SyncDelegate.Lambda(typeof(CompPollutionPump), nameof(CompPollutionPump.CompGetGizmosExtra), 1).SetDebugOnly(); // Set next pollution cycle
+            SyncDelegate.Lambda(typeof(CompToxifier), nameof(CompToxifier.CompGetGizmosExtra), 3).SetDebugOnly(); // Set next pollution time
+            SyncDelegate.Lambda(typeof(Gene_Deathrest), nameof(Gene_Deathrest.GetGizmos), 5).SetDebugOnly(); // Set capacity
+
+            // Mechanitor
+            SyncDelegate.Lambda(typeof(MechanitorUtility), nameof(MechanitorUtility.GetMechGizmos), 1).SetDebugOnly(); // Recruit
+            SyncDelegate.Lambda(typeof(MechanitorUtility), nameof(MechanitorUtility.GetMechGizmos), 2).SetDebugOnly(); // Kill
 
             InitRituals();
             InitChoiceLetters();
