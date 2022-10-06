@@ -226,6 +226,11 @@ namespace Multiplayer.Client
                     return lord?.LordJob as LordJob_Ritual;
                 }
             },
+            {
+                // This dialog has nothing of interest to us besides the methods which we need for syncing
+                (ByteWriter _, Dialog_StyleSelection _) => { },
+                (ByteReader _) => new Dialog_StyleSelection()
+            },
             #endregion
         };
 	}
