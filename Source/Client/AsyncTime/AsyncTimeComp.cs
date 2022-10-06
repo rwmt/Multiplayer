@@ -173,6 +173,8 @@ namespace Multiplayer.Client
 
             map.powerNetManager.UpdatePowerNetsAndConnections_First();
             map.glowGrid.GlowGridUpdate_First();
+
+            map.postTickVisuals.ProcessPostTickVisuals();
         }
 
         private TimeSnapshot? prevTime;
