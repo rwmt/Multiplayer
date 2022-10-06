@@ -1,5 +1,4 @@
 using Multiplayer.Client.Desyncs;
-using Multiplayer.Client.EarlyPatches;
 using RimWorld;
 using RimWorld.BaseGen;
 using System.Collections.Generic;
@@ -24,7 +23,7 @@ namespace Multiplayer.Client
         private Faction myFaction;
         public Faction myFactionLoading;
 
-        public Dictionary<int, PlayerDebugState> playerDebugState = new();
+        // public Dictionary<int, PlayerDebugState> playerDebugState = new();
 
         public Faction RealPlayerFaction
         {
@@ -85,13 +84,13 @@ namespace Multiplayer.Client
 
         public static void ClearPortraits()
         {
-            foreach (var portraitParams in PortraitsCache.cachedPortraits)
+            foreach (var (_, cachedPortraits) in PortraitsCache.cachedPortraits)
             {
-                foreach (var portrait in portraitParams.CachedPortraits.ToList())
+                foreach (var portrait in cachedPortraits.ToList())
                 {
                     var cached = portrait.Value;
                     cached.LastUseTime = Time.time - 2f; // RimWorld expires portraits that have been unused for more than 1 second
-                    portraitParams.CachedPortraits[portrait.Key] = cached;
+                    cachedPortraits[portrait.Key] = cached;
                 }
             }
 

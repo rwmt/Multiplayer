@@ -43,6 +43,22 @@ namespace Multiplayer.Client
                 drawing = null;
             }
         }
+
+        // This method was removed in 1.4
+        public void CountToTransferChanged()
+        {
+            massUsageDirty = true;
+            massCapacityDirty = true;
+            tilesPerDayDirty = true;
+            daysWorthOfFoodDirty = true;
+            foragedFoodPerDayDirty = true;
+            visibilityDirty = true;
+            ticksToArriveDirty = true;
+            if (autoSelectTravelSupplies)
+            {
+                SelectApproximateBestTravelSupplies();
+            }
+        }
     }
 
 }

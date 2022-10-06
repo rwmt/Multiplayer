@@ -391,7 +391,7 @@ namespace Multiplayer.Client
     }
 
     [HotSwappable]
-    [HarmonyPatch(typeof(Page_ModsConfig), nameof(Page_ModsConfig.DoWindowContents))]
+    // [HarmonyPatch(typeof(Page_ModsConfig), nameof(Page_ModsConfig.DoWindowContents))]
     static class PageModsConfigAddButton
     {
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)

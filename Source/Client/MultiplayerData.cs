@@ -1,13 +1,9 @@
-using Multiplayer.Client.EarlyPatches;
 using Multiplayer.Common;
 using RimWorld;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Web.ModelBinding;
 using UnityEngine;
 using Verse;
 using Verse.Sound;
@@ -68,7 +64,7 @@ namespace Multiplayer.Client
             return new ModContentPack(mod.RootDir, mod.PackageId, mod.PackageIdPlayerFacing, 0, mod.Name, mod.Official);
         }
 
-        public static UniqueList<Texture2D> icons = new();
+        public static UniqueList<Texture> icons = new();
         public static UniqueList<IconInfo> iconInfos = new();
 
         public class IconInfo
@@ -125,7 +121,6 @@ namespace Multiplayer.Client
             dict["MapComponent"] = GetDefInfo(ImplSerialization.mapCompTypes, TypeHash);
 
             dict["PawnBio"] = GetDefInfo(SolidBioDatabase.allBios, b => b.name.GetHashCode());
-            dict["Backstory"] = GetDefInfo(BackstoryDatabase.allBackstories.Keys, b => b.GetHashCode());
 
             foreach (var defType in GenTypes.AllLeafSubclasses(typeof(Def)))
             {

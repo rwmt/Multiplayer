@@ -36,7 +36,7 @@ namespace Multiplayer.Client
             {
                 var enforcePause = Multiplayer.WorldComp.splitSession != null ||
                     AsyncTimeComp.pauseLocks.Any(x => x(null));
-                
+
                 if (enforcePause)
                     return 0f;
             }
@@ -260,10 +260,10 @@ namespace Multiplayer.Client
                     data.Log.current.text = handler.ToString();
                 }
 
-                if (cmdType == CommandType.DebugTools)
-                {
-                    MpDebugTools.HandleCmd(data);
-                }
+                // if (cmdType == CommandType.DebugTools)
+                // {
+                //     MpDebugTools.HandleCmd(data);
+                // }
 
                 if (cmdType == CommandType.WorldTimeSpeed)
                 {
@@ -362,7 +362,6 @@ namespace Multiplayer.Client
                     loadID = factionId,
                     def = FactionDefOf.PlayerColony,
                     Name = "Multiplayer faction",
-                    centralMelanin = Rand.Value
                 };
 
                 Find.FactionManager.Add(faction);

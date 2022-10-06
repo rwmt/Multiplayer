@@ -198,7 +198,6 @@ namespace Multiplayer.Client.Patches
                 else
                 {
                     pawn.style.Notify_StyleItemChanged();
-                    dialog.MakeHairFilth();
                 }
             }
             dialog.ApplyApparelColors();
@@ -216,7 +215,7 @@ namespace Multiplayer.Client.Patches
                 nameof(Building_StylingStation.GetFloatMenuOptions), lambdaOrdinal: 0);
 
             stylingStationField = AccessTools.FieldRefAccess<Building_StylingStation>(method.DeclaringType, "<>4__this");
-            
+
             return method;
         }
 

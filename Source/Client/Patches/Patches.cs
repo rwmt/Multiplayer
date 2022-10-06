@@ -420,7 +420,7 @@ namespace Multiplayer.Client
         {
             yield return AccessTools.Method(typeof(CameraJumper), nameof(CameraJumper.TrySelect));
             yield return AccessTools.Method(typeof(CameraJumper), nameof(CameraJumper.TryJumpAndSelect));
-            yield return AccessTools.Method(typeof(CameraJumper), nameof(CameraJumper.TryJump), new[] {typeof(GlobalTargetInfo)});
+            yield return AccessTools.Method(typeof(CameraJumper), nameof(CameraJumper.TryJump), new[] {typeof(GlobalTargetInfo), typeof(CameraJumper.MovementMode)});
         }
         static bool Prefix() => !TickPatch.Simulating;
     }
@@ -558,7 +558,7 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(MoteMaker), nameof(MoteMaker.MakeStaticMote))]
-    [HarmonyPatch(new[] {typeof(Vector3), typeof(Map), typeof(ThingDef), typeof(float)})]
+    [HarmonyPatch(new[] {typeof(Vector3), typeof(Map), typeof(ThingDef), typeof(float), typeof(bool)})]
     static class FixNullMotes
     {
         static Dictionary<Type, Mote> cache = new();

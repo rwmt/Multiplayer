@@ -45,7 +45,7 @@ namespace Multiplayer.Client
 
             if (enforcePause)
                 return 0f;
-            
+
             if (mapTicks < slower.forceNormalSpeedUntil)
                 return speed == TimeSpeed.Paused ? 0 : 1;
 
@@ -277,10 +277,10 @@ namespace Multiplayer.Client
                     data.Log.current.text = handler.ToString();
                 }
 
-                if (cmdType == CommandType.DebugTools)
-                {
-                    MpDebugTools.HandleCmd(data);
-                }
+                // if (cmdType == CommandType.DebugTools)
+                // {
+                //     MpDebugTools.HandleCmd(data);
+                // }
 
                 if (cmdType == CommandType.CreateMapFactionData)
                 {
