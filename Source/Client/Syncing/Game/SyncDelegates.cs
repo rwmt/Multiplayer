@@ -157,6 +157,13 @@ namespace Multiplayer.Client
             SyncDelegate.Lambda(typeof(MechanitorUtility), nameof(MechanitorUtility.GetMechGizmos), 1).SetDebugOnly(); // Recruit
             SyncDelegate.Lambda(typeof(MechanitorUtility), nameof(MechanitorUtility.GetMechGizmos), 2).SetDebugOnly(); // Kill
 
+            // Glower
+            SyncMethod.Register(typeof(CompGlower), nameof(CompGlower.SetGlowColorInternal)); // Set color gizmo - will send a separate command per selected glower. Could be fixed with a transpiler for Dialog_GlowerColorPicker
+            // Both of those could be handled by SetGlowColorInternal, but we sync them separately to limit the amount of commands sent.
+            // With those synced, it'll only send number of commands equal to the selected glowers. Without it, it'll do the same, but repeat it for every single selected glower.
+            SyncDelegate.Lambda(typeof(CompGlower), nameof(CompGlower.CompGetGizmosExtra), 2).SetContext(SyncContext.MapSelected); // Paste color
+            SyncDelegate.Lambda(typeof(CompGlower), nameof(CompGlower.CompGetGizmosExtra), 3).SetContext(SyncContext.MapSelected); // Toggle darklight
+
             InitRituals();
             InitChoiceLetters();
         }

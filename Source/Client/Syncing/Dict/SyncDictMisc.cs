@@ -81,6 +81,15 @@ namespace Multiplayer.Client
                 },
                 (ByteReader data) => new TaggedString(data.ReadString())
             },
+            {
+                (SyncWorker worker, ref ColorInt color) =>
+                {
+                    worker.Bind(ref color.r);
+                    worker.Bind(ref color.g);
+                    worker.Bind(ref color.b);
+                    worker.Bind(ref color.a);
+                }
+            },
             #endregion
 
             #region Unity
