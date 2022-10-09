@@ -113,8 +113,8 @@ namespace Multiplayer.Client
             SyncMethod.Lambda(typeof(CompBiosculpterPod), nameof(CompBiosculpterPod.CompGetGizmosExtra), 8).SetDebugOnly(); // Dev complete biotuner timer
             SyncMethod.Lambda(typeof(CompBiosculpterPod), nameof(CompBiosculpterPod.CompGetGizmosExtra), 9).SetDebugOnly(); // Dev fill nutrition and ingredients
 
-            SyncDelegate.Lambda(typeof(ITab_Pawn_Visitor), nameof(ITab_Pawn_Visitor.FillTab), 1).SetContext(SyncContext.MapSelected).CancelIfNoSelectedMapObjects(); // Select target prisoner ideology
-            SyncDelegate.Lambda(typeof(ITab_Pawn_Visitor), nameof(ITab_Pawn_Visitor.FillTab), 8).SetContext(SyncContext.MapSelected).CancelIfNoSelectedMapObjects(); // Cancel setting slave mode to execution
+            SyncDelegate.Lambda(typeof(ITab_Pawn_Visitor), nameof(ITab_Pawn_Visitor.FillTab), 3).SetContext(SyncContext.MapSelected).CancelIfNoSelectedMapObjects();  // Select target prisoner ideology
+            SyncDelegate.Lambda(typeof(ITab_Pawn_Visitor), nameof(ITab_Pawn_Visitor.FillTab), 10).SetContext(SyncContext.MapSelected).CancelIfNoSelectedMapObjects(); // Cancel setting slave mode to execution
 
             SyncMethod.Lambda(typeof(ShipJob_Wait), nameof(ShipJob_Wait.GetJobGizmos), 0);  // Dismiss (unload) shuttle
             SyncMethod.Lambda(typeof(ShipJob_Wait), nameof(ShipJob_Wait.GetJobGizmos), 1);  // Send loaded shuttle
