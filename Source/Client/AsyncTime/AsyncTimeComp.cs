@@ -131,6 +131,9 @@ namespace Multiplayer.Client
                 QuestManagerTickAsyncTime();
 
                 map.MapPostTick();
+                Find.TickManager.ticksThisFrame = 1;
+                map.postTickVisuals.ProcessPostTickVisuals();
+                Find.TickManager.ticksThisFrame = 0;
 
                 UpdateManagers();
                 CacheNothingHappening();
@@ -173,8 +176,6 @@ namespace Multiplayer.Client
 
             map.powerNetManager.UpdatePowerNetsAndConnections_First();
             map.glowGrid.GlowGridUpdate_First();
-
-            map.postTickVisuals.ProcessPostTickVisuals();
         }
 
         private TimeSnapshot? prevTime;

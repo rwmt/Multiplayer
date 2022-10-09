@@ -165,7 +165,6 @@ namespace Multiplayer.Client
 
                     worked = true;
                     TickTickable(tickable);
-                    Find.TickManager.ticksThisFrame = 0;
                 }
 
                 ConstantTicker.Tick();
@@ -187,7 +186,6 @@ namespace Multiplayer.Client
         {
             while (tickable.RealTimeToTickThrough >= 0)
             {
-                Find.TickManager.ticksThisFrame++;
                 float timePerTick = tickable.TimePerTick(tickable.TimeSpeed);
                 if (timePerTick == 0) break;
 
