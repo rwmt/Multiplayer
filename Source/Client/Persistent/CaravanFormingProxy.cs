@@ -29,7 +29,7 @@ namespace Multiplayer.Client
                 }
                 else if (session.uiDirty)
                 {
-                    CountToTransferChanged();
+                    Notify_TransferablesChanged();
                     startingTile = session.startingTile;
                     destinationTile = session.destinationTile;
 
@@ -41,22 +41,6 @@ namespace Multiplayer.Client
             finally
             {
                 drawing = null;
-            }
-        }
-
-        // This method was removed in 1.4
-        public void CountToTransferChanged()
-        {
-            massUsageDirty = true;
-            massCapacityDirty = true;
-            tilesPerDayDirty = true;
-            daysWorthOfFoodDirty = true;
-            foragedFoodPerDayDirty = true;
-            visibilityDirty = true;
-            ticksToArriveDirty = true;
-            if (autoSelectTravelSupplies)
-            {
-                SelectApproximateBestTravelSupplies();
             }
         }
     }
