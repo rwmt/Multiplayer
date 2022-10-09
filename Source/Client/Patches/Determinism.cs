@@ -133,8 +133,8 @@ namespace Multiplayer.Client.Patches
 
                 if (inst.operand == CellRectContains)
                 {
-                    yield return new CodeInstruction(OpCodes.Ldc_I4_0);
-                    yield return new CodeInstruction(OpCodes.And);
+                    yield return new CodeInstruction(OpCodes.Ldc_I4_1);
+                    yield return new CodeInstruction(OpCodes.Or);
                 }
             }
         }
