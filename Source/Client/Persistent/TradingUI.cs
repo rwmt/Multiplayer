@@ -223,20 +223,24 @@ namespace Multiplayer.Client
             newTradeables.Clear();
         }
 
-        public static IEnumerable<Tradeable> AllTradeables()
+        public static List<Tradeable> AllTradeables()
         {
+            var list = new List<Tradeable>();
+
             foreach (Tradeable t in TradeSession.deal.AllTradeables)
             {
                 if (!TradeSession.giftMode || t.FirstThingColony != null)
-                    yield return t;
+                    list.Add(t);
             }
 
             if (drawingTrade != null)
             {
                 foreach (var kv in drawingTrade.removed)
                     if (!TradeSession.giftMode || kv.Key.FirstThingColony != null)
-                        yield return kv.Key;
+                        list.Add(kv.Key);
             }
+
+            return list;
         }
     }
 
