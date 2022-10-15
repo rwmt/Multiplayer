@@ -536,7 +536,7 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.Client == null) return true;
 
-            foreach(var part in Find.QuestManager.quests.SelectMany(q => q.parts).OfType<QuestPart_Choice>()) {
+            foreach(var part in Find.QuestManager.QuestsListForReading.SelectMany(q => q.parts).OfType<QuestPart_Choice>()) {
                 int index = part.choices.IndexOf(___localChoice);
 
                 if (index >= 0) {
