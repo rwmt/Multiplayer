@@ -292,14 +292,17 @@ namespace Multiplayer.Client
                 var randomBoltMesh = typeof(LightningBoltMeshPool).GetProperty(nameof(LightningBoltMeshPool.RandomBoltMesh)).GetGetMethod();
                 var drawTrackerCtor = typeof(Pawn_DrawTracker).GetConstructor(new[] { typeof(Pawn) });
                 var randomHair = typeof(PawnStyleItemChooser).GetMethod(nameof(PawnStyleItemChooser.RandomHairFor));
+                var cannotAssignReason = typeof(Dialog_BeginRitual).GetMethod(nameof(Dialog_BeginRitual.CannotAssignReason), BindingFlags.NonPublic | BindingFlags.Instance);
+                var canEverSpectate = typeof(RitualRoleAssignments).GetMethod(nameof(RitualRoleAssignments.CanEverSpectate));
 
                 var effectMethods = new MethodBase[] { subSustainerStart, sampleCtor, subSoundPlay, effecterTick, effecterTrigger, effecterCleanup, randomBoltMesh, drawTrackerCtor, randomHair };
                 var moteMethods = typeof(MoteMaker).GetMethods(BindingFlags.Static | BindingFlags.Public)
                     .Where(m => m.Name != "MakeBombardmentMote"); // Special case, just calls MakeBombardmentMote_NewTmp, prevents Hugslib complains
                 var fleckMethods = typeof(FleckMaker).GetMethods(BindingFlags.Static | BindingFlags.Public)
                     .Where(m => m.ReturnType == typeof(void));
+                var ritualMethods = new[] { cannotAssignReason, canEverSpectate };
 
-                foreach (MethodBase m in effectMethods.Concat(moteMethods).Concat(fleckMethods))
+                foreach (MethodBase m in effectMethods.Concat(moteMethods).Concat(fleckMethods).Concat(ritualMethods))
                 {
                     try
                     {
