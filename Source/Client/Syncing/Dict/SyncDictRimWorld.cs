@@ -1037,6 +1037,16 @@ namespace Multiplayer.Client
                     return ReadWithImpl<IThingHolder>(data, supportedThingHolders);
                 }
             },
+            {
+                (ByteWriter data, IStorageGroupMember obj) =>
+                {
+                    if (obj is Thing thing)
+                        WriteSync(data, thing);
+                    else
+                        throw new SerializationException($"Unknown IStorageGroupMember type: {obj.GetType()}");
+                },
+                (ByteReader data) => (IStorageGroupMember)ReadSync<Thing>(data)
+            },
 
             #endregion
 
@@ -1049,6 +1059,10 @@ namespace Multiplayer.Client
                     IStoreSettingsParent parent = ReadSync<IStoreSettingsParent>(data);
                     return parent?.GetStoreSettings();
                 }
+            },
+            {
+                (ByteWriter data, StorageGroup group) => WriteSync(data, group.members.First()),
+                (ByteReader data) => ReadSync<IStorageGroupMember>(data).Group
             },
             #endregion
 

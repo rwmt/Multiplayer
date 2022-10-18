@@ -164,6 +164,18 @@ namespace Multiplayer.Client
             SyncDelegate.Lambda(typeof(CompGlower), nameof(CompGlower.CompGetGizmosExtra), 2).SetContext(SyncContext.MapSelected); // Paste color
             SyncDelegate.Lambda(typeof(CompGlower), nameof(CompGlower.CompGetGizmosExtra), 3).SetContext(SyncContext.MapSelected); // Toggle darklight
 
+            // Storage groups
+            SyncDelegate.Lambda(typeof(StorageGroupUtility), nameof(StorageGroupUtility.StorageGroupMemberGizmos), 2); // Unlink
+            SyncDelegate.Lambda(typeof(StorageGroupUtility), nameof(StorageGroupUtility.StorageGroupMemberGizmos), 0)  // Link
+                .TransformField("member", Serializer.New(
+                    (IStorageGroupMember member) => (member, StorageGroupUtility.tmpMembers),
+                    (data) =>
+                    {
+                        StorageGroupUtility.tmpMembers.Clear();
+                        StorageGroupUtility.tmpMembers.AddRange(data.tmpMembers);
+                        return data.member;
+                    }));
+
             InitRituals();
             InitChoiceLetters();
         }
