@@ -74,7 +74,7 @@ namespace Multiplayer.Client.Persistent
 
                 bool autoSelectFoodAndMedicine = false;
 
-                Widgets.CheckboxLabeled(rect, "AutomaticallySelectFoodAndMedicine".Translate(), ref autoSelectFoodAndMedicine, disabled: true, placeCheckboxNearText: true);
+                Widgets.CheckboxLabeled(rect, "AutomaticallySelectTravelSupplies".Translate(), ref autoSelectFoodAndMedicine, disabled: true, placeCheckboxNearText: true);
 
                 return false;
             }

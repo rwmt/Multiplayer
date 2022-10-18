@@ -266,13 +266,9 @@ namespace Multiplayer.Client
                             sync.Write(VerbOwnerType.Ability);
                             sync.Write(ability);
                         }
-                        else if (verb.DirectOwner is CompEquippable compEquippable) {
-                            sync.Write(VerbOwnerType.CompEquippable);
-                            sync.Write(compEquippable);
-                        }
-                        else if (verb.DirectOwner is CompReloadable compReloadable) {
-                            sync.Write(VerbOwnerType.CompReloadable);
-                            sync.Write(compReloadable);
+                        else if (verb.DirectOwner is ThingComp thingComp) {
+                            sync.Write(VerbOwnerType.ThingComp);
+                            sync.Write(thingComp);
                         }
                         else {
                             Log.Error($"Multiplayer :: SyncDictionary.Verb: Unknown DirectOwner {verb.loadID} {verb.DirectOwner}");
@@ -296,11 +292,8 @@ namespace Multiplayer.Client
                         else if (ownerType == VerbOwnerType.Ability) {
                             verbOwner = sync.Read<Ability>();
                         }
-                        else if (ownerType == VerbOwnerType.CompEquippable) {
-                            verbOwner = sync.Read<CompEquippable>();
-                        }
-                        else if (ownerType == VerbOwnerType.CompReloadable) {
-                            verbOwner = sync.Read<CompReloadable>();
+                        else if (ownerType == VerbOwnerType.ThingComp) {
+                            verbOwner = sync.Read<ThingComp>() as IVerbOwner;
                         }
 
                         if (verbOwner == null) {

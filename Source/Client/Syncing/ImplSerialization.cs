@@ -38,7 +38,7 @@ namespace Multiplayer.Client
 
         internal enum VerbOwnerType : byte
         {
-            None, Pawn, Ability, CompEquippable, CompReloadable
+            None, Pawn, Ability, ThingComp
         }
 
         public static void Init()
