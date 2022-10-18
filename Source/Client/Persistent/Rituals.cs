@@ -259,5 +259,15 @@ namespace Multiplayer.Client.Persistent
             => ability.QueueCastingJob(target, destination);
     }
 
+    // Fixes the issue where the pawn list gets reset to default every time you re-open the dialog.
+    // Additionally, due to the pawns being assigned to spectating first in PostOpen through RitualRoleAssignments.TryAssignSpectate,
+    // a method which we sync, it called that method after the pawns had their forced assignments. This could cause situations like
+    // no pawn being selected for the leader/throne speech ritual (being forced as a spectator instead). This fixes that issue as well.
+    [HarmonyPatch(typeof(Dialog_BeginRitual), nameof(Dialog_BeginRitual.PostOpen))]
+    static class PreventRepeatedRitualPostOpenCalls
+    {
+        static bool Prefix() => Multiplayer.Client == null || Multiplayer.ExecutingCmds;
+    }
+
 
 }
