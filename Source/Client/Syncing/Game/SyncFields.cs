@@ -545,7 +545,6 @@ namespace Multiplayer.Client
         [MpPrefix(typeof(Dialog_RechargeSettings), nameof(Dialog_RechargeSettings.DoWindowContents))]
         static void WatchRechargeSettings(Dialog_RechargeSettings __instance)
         {
-            Log.WarningOnce("Watching", __instance.ID);
             SyncMechRechargeThresholds.Watch(__instance.controlGroup);
         }
     }
