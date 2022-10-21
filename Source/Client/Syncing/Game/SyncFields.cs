@@ -83,6 +83,8 @@ namespace Multiplayer.Client
 
         public static ISyncField SyncNeedLevel;
 
+        public static ISyncField SyncMechRechargeThresholds;
+
         public static void Init()
         {
             SyncMedCare = Sync.Field(typeof(Pawn), "playerSettings", "medCare");
@@ -205,6 +207,8 @@ namespace Multiplayer.Client
             SyncGeneResource = Sync.Field(typeof(Gene_Resource), nameof(Gene_Resource.targetValue)).SetBufferChanges();
 
             SyncNeedLevel = Sync.Field(typeof(Need), nameof(Need.curLevelInt)).SetDebugOnly();
+
+            SyncMechRechargeThresholds = Sync.Field(typeof(MechanitorControlGroup), nameof(MechanitorControlGroup.mechRechargeThresholds));
         }
 
         [MpPrefix(typeof(StorytellerUI), nameof(StorytellerUI.DrawStorytellerSelectionInterface))]
@@ -530,6 +534,13 @@ namespace Multiplayer.Client
         static void SyncNeedLevelValueChange(Need __instance)
         {
             SyncNeedLevel.Watch(__instance);
+        }
+
+        [MpPrefix(typeof(Dialog_RechargeSettings), nameof(Dialog_RechargeSettings.DoWindowContents))]
+        static void WatchRechargeSettings(Dialog_RechargeSettings __instance)
+        {
+            Log.WarningOnce("Watching", __instance.ID);
+            SyncMechRechargeThresholds.Watch(__instance.controlGroup);
         }
     }
 

@@ -258,7 +258,8 @@ namespace Multiplayer.Client
                      "DesignateThing",
                 };
 
-                foreach (Type t in typeof(Designator).AllSubtypesAndSelf())
+                foreach (Type t in typeof(Designator).AllSubtypesAndSelf()
+                             .Except(typeof(Designator_MechControlGroup))) // Opens float menu, sync that instead
                 {
                     foreach (string m in designatorMethods)
                     {

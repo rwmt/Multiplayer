@@ -256,6 +256,20 @@ namespace Multiplayer.Client
                     return gene.gizmo;
                 }
             },
+            {
+                (ByteWriter data, MechanitorControlGroup group) =>
+                {
+                    WriteSync(data, group.tracker.Pawn);
+                    data.WriteInt32(group.tracker.controlGroups.IndexOf(group));
+                },
+                (ByteReader data) =>
+                {
+                    var mechanitor = ReadSync<Pawn>(data).mechanitor;
+                    var index = data.ReadInt32();
+
+                    return mechanitor.controlGroups[index];
+                }
+            },
             #endregion
         };
 	}
