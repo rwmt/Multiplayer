@@ -300,7 +300,8 @@ namespace Multiplayer.Client
                     .Where(m => m.Name != "MakeBombardmentMote"); // Special case, just calls MakeBombardmentMote_NewTmp, prevents Hugslib complains
                 var fleckMethods = typeof(FleckMaker).GetMethods(BindingFlags.Static | BindingFlags.Public)
                     .Where(m => m.ReturnType == typeof(void))
-                    .AddItem(typeof(FleckThrown).GetMethod(nameof(FleckThrown.TimeInterval)));
+                    .Concat(typeof(FleckManager).GetMethods() // FleckStatic uses Rand in Setup method, FleckThrown uses RandomInRange in TimeInterval. May as well catch all in case mods do the same.
+                        .Where(m => m.ReturnType == typeof(void)));
                 var ritualMethods = new[] { cannotAssignReason, canEverSpectate };
 
                 foreach (MethodBase m in effectMethods.Concat(moteMethods).Concat(fleckMethods).Concat(ritualMethods))
