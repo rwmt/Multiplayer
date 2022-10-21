@@ -246,4 +246,33 @@ namespace Multiplayer.Client
             return false;
         }
     }
+
+    [HarmonyPatch(typeof(ThingOwner))]
+    [HarmonyPatch(nameof(ThingOwner.NotifyAdded))]
+    public static class ThingOwnerAdd
+    {
+        static void Postfix(Thing item)
+        {
+            if (Multiplayer.game == null) return;
+
+            if (item.def.HasThingIDNumber)
+            {
+                ScribeUtil.sharedCrossRefs.RegisterLoaded(item);
+                ThingsById.Register(item);
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(ThingOwner))]
+    [HarmonyPatch(nameof(ThingOwner.NotifyRemoved))]
+    public static class ThingOwnerRemove
+    {
+        static void Postfix(Thing item)
+        {
+            if (Multiplayer.game == null) return;
+
+            ScribeUtil.sharedCrossRefs.Unregister(item);
+            ThingsById.Unregister(item);
+        }
+    }
 }
