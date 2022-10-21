@@ -150,7 +150,7 @@ namespace Multiplayer.Client
                 "limitToAllowedStuff"
             );
 
-             SyncDrugPolicyEntry = Sync.Fields(
+            SyncDrugPolicyEntry = Sync.Fields(
                 typeof(DrugPolicy),
                 "entriesInt/[]",
                 "allowedForAddiction",
@@ -497,7 +497,7 @@ namespace Multiplayer.Client
         static void WatchTreeConnectionStrength(Gizmo_PruningConfig __instance)
         {
             SyncDesiredTreeConnectionStrength.Watch(__instance.connection);
-		}
+        }
 
         [MpPrefix(typeof(Dialog_ChangeDryadCaste), nameof(Dialog_ChangeDryadCaste.StartChange))]
         static void WatchDryadCaste(Dialog_ChangeDryadCaste __instance)
