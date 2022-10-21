@@ -81,6 +81,8 @@ namespace Multiplayer.Client
         public static ISyncField SyncGeneGizmoResource;
         public static ISyncField SyncGeneResource;
 
+        public static ISyncField SyncNeedLevel;
+
         public static void Init()
         {
             SyncMedCare = Sync.Field(typeof(Pawn), "playerSettings", "medCare");
@@ -201,6 +203,8 @@ namespace Multiplayer.Client
 
             SyncGeneGizmoResource = Sync.Field(typeof(GeneGizmo_Resource), nameof(GeneGizmo_Resource.targetValuePct)).SetBufferChanges();
             SyncGeneResource = Sync.Field(typeof(Gene_Resource), nameof(Gene_Resource.targetValue)).SetBufferChanges();
+
+            SyncNeedLevel = Sync.Field(typeof(Need), nameof(Need.curLevelInt)).SetDebugOnly();
         }
 
         [MpPrefix(typeof(StorytellerUI), nameof(StorytellerUI.DrawStorytellerSelectionInterface))]
@@ -520,6 +524,12 @@ namespace Multiplayer.Client
         {
             SyncGeneGizmoResource.Watch(__instance);
             SyncGeneResource.Watch(__instance.gene);
+        }
+
+        [MpPrefix(typeof(Need), nameof(Need.DrawOnGUI))]
+        static void SyncNeedLevelValueChange(Need __instance)
+        {
+            SyncNeedLevel.Watch(__instance);
         }
     }
 
