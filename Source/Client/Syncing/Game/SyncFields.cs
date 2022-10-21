@@ -23,6 +23,7 @@ namespace Multiplayer.Client
         public static ISyncField SyncBeCarried;
         public static ISyncField SyncPsychicEntropyLimit;
         public static ISyncField SyncPsychicEntropyTargetFocus;
+        public static ISyncField SyncGuiltAwaitingExecution;
 
         public static ISyncField SyncGodMode;
         public static ISyncField SyncUseWorkPriorities;
@@ -98,6 +99,7 @@ namespace Multiplayer.Client
             SyncBeCarried = Sync.Field(typeof(Pawn), "health", "beCarriedByCaravanIfSick");
             SyncPsychicEntropyLimit = Sync.Field(typeof(Pawn), "psychicEntropy", "limitEntropyAmount");
             SyncPsychicEntropyTargetFocus = Sync.Field(typeof(Pawn), "psychicEntropy", "targetPsyfocus").SetBufferChanges();
+            SyncGuiltAwaitingExecution = Sync.Field(typeof(Pawn), nameof(Pawn.guilt), nameof(Pawn_GuiltTracker.awaitingExecution));
 
             SyncUseWorkPriorities = Sync.Field(null, "Verse.Current/Game/playSettings", "useWorkPriorities").PostApply(UseWorkPriorities_PostApply);
             SyncAutoHomeArea = Sync.Field(null, "Verse.Current/Game/playSettings", "autoHomeArea");
@@ -202,13 +204,6 @@ namespace Multiplayer.Client
             SyncAnimalPenAutocut = Sync.Field(typeof(CompAnimalPenMarker), nameof(CompAnimalPenMarker.autoCut));
 
             SyncNeuralSuperchargerMode = Sync.Field(typeof(CompNeuralSupercharger), nameof(CompNeuralSupercharger.autoUseMode));
-
-            SyncGeneGizmoResource = Sync.Field(typeof(GeneGizmo_Resource), nameof(GeneGizmo_Resource.targetValuePct)).SetBufferChanges();
-            SyncGeneResource = Sync.Field(typeof(Gene_Resource), nameof(Gene_Resource.targetValue)).SetBufferChanges();
-
-            SyncNeedLevel = Sync.Field(typeof(Need), nameof(Need.curLevelInt)).SetDebugOnly();
-
-            SyncMechRechargeThresholds = Sync.Field(typeof(MechanitorControlGroup), nameof(MechanitorControlGroup.mechRechargeThresholds));
         }
 
         [MpPrefix(typeof(StorytellerUI), nameof(StorytellerUI.DrawStorytellerSelectionInterface))]
@@ -521,6 +516,12 @@ namespace Multiplayer.Client
         static void WatchNeuralSuperchargerMode(Command_SetNeuralSuperchargerAutoUse __instance)
         {
             SyncNeuralSuperchargerMode.Watch(__instance.comp);
+		}
+
+        [MpPrefix(typeof(CharacterCardUtility), nameof(CharacterCardUtility.DrawCharacterCard))]
+        static void WatchAwaitingExecution(Pawn pawn)
+        {
+            SyncGuiltAwaitingExecution.Watch(pawn);
         }
 
         [MpPrefix(typeof(GeneGizmo_Resource), nameof(GeneGizmo_Resource.GizmoOnGUI))]
