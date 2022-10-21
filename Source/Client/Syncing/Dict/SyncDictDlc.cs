@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using Multiplayer.API;
 using Multiplayer.Client.Persistent;
@@ -241,6 +242,19 @@ namespace Multiplayer.Client
 
                     return pawn.genes.GetGene(geneDef);
                 }, true // implicit
+            },
+            {
+                (ByteWriter data, GeneGizmo_Resource gizmo) => WriteSync(data, gizmo.gene),
+                (ByteReader data) =>
+                {
+                    var gene = ReadSync<Gene_Resource>(data);
+                    // Normally created inside of Gene_Resource.GetGizmos
+                    // Alternatively we could iterating through that enumerable to make it initialize - which should handle situations of mods (or updates)
+                    // making custom gizmo initialization - this would end up with messier looking code.
+                    gene.gizmo ??= (GeneGizmo_Resource)Activator.CreateInstance(gene.def.resourceGizmoType, gene, gene.DrainGenes, gene.BarColor, gene.BarHighlightColor);
+
+                    return gene.gizmo;
+                }
             },
             #endregion
         };

@@ -78,6 +78,9 @@ namespace Multiplayer.Client
 
         public static ISyncField SyncNeuralSuperchargerMode;
 
+        public static ISyncField SyncGeneGizmoResource;
+        public static ISyncField SyncGeneResource;
+
         public static void Init()
         {
             SyncMedCare = Sync.Field(typeof(Pawn), "playerSettings", "medCare");
@@ -195,6 +198,9 @@ namespace Multiplayer.Client
             SyncAnimalPenAutocut = Sync.Field(typeof(CompAnimalPenMarker), nameof(CompAnimalPenMarker.autoCut));
 
             SyncNeuralSuperchargerMode = Sync.Field(typeof(CompNeuralSupercharger), nameof(CompNeuralSupercharger.autoUseMode));
+
+            SyncGeneGizmoResource = Sync.Field(typeof(GeneGizmo_Resource), nameof(GeneGizmo_Resource.targetValuePct)).SetBufferChanges();
+            SyncGeneResource = Sync.Field(typeof(Gene_Resource), nameof(Gene_Resource.targetValue)).SetBufferChanges();
         }
 
         [MpPrefix(typeof(StorytellerUI), nameof(StorytellerUI.DrawStorytellerSelectionInterface))]
@@ -507,7 +513,14 @@ namespace Multiplayer.Client
         static void WatchNeuralSuperchargerMode(Command_SetNeuralSuperchargerAutoUse __instance)
         {
             SyncNeuralSuperchargerMode.Watch(__instance.comp);
-		}
+        }
+
+        [MpPrefix(typeof(GeneGizmo_Resource), nameof(GeneGizmo_Resource.GizmoOnGUI))]
+        static void SyncGeneResourceChange(GeneGizmo_Resource __instance)
+        {
+            SyncGeneGizmoResource.Watch(__instance);
+            SyncGeneResource.Watch(__instance.gene);
+        }
     }
 
 }
