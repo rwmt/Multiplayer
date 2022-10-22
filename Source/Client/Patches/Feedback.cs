@@ -137,4 +137,12 @@ namespace Multiplayer.Client.Patches
         }
     }
 
+    [HarmonyPatch(typeof(Bill), nameof(Bill.CreateNoPawnsWithSkillDialog))]
+    static class CancelNoPawnWithSkillDialog
+    {
+        static bool Prefix() =>
+            Multiplayer.Client == null ||
+            TickPatch.currentExecutingCmdIssuedBySelf;
+    }
+
 }
