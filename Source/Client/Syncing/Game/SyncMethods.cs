@@ -227,6 +227,7 @@ namespace Multiplayer.Client
             SyncMethod.Lambda(typeof(CompTurretGun), nameof(CompTurretGun.CompGetGizmosExtra), 1); // Toggle fire at will
 
             // Gene Assembler
+            SyncMethod.Register(typeof(Building_GeneAssembler), nameof(Building_GeneAssembler.Start));
             SyncMethod.Register(typeof(Building_GeneAssembler), nameof(Building_GeneAssembler.Reset));
             SyncMethod.Register(typeof(Building_GeneAssembler), nameof(Building_GeneAssembler.Finish)).SetDebugOnly();
 
