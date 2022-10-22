@@ -76,6 +76,7 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(PawnColumnWorker_Designator), nameof(PawnColumnWorker_Designator.SetValue)).CancelIfAnyArgNull(); // Virtual but currently not overriden by any subclasses
             SyncMethod.Register(typeof(PawnColumnWorker_FollowDrafted), nameof(PawnColumnWorker_FollowDrafted.SetValue)).CancelIfAnyArgNull();
             SyncMethod.Register(typeof(PawnColumnWorker_FollowFieldwork), nameof(PawnColumnWorker_FollowFieldwork.SetValue)).CancelIfAnyArgNull();
+            SyncMethod.Register(typeof(PawnColumnWorker_Sterilize), nameof(PawnColumnWorker_Sterilize.SetValue)).CancelIfAnyArgNull(); // Will sync even without this, but this will set the column to dirty
             SyncMethod.Register(typeof(CompGatherSpot), nameof(CompGatherSpot.Active));
             SyncMethod.Register(typeof(Building_BlastingCharge), nameof(Building_BlastingCharge.Command_Detonate));
 
