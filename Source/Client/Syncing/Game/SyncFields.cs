@@ -85,6 +85,7 @@ namespace Multiplayer.Client
         public static ISyncField SyncNeedLevel;
 
         public static ISyncField SyncMechRechargeThresholds;
+        public static ISyncField SyncMechAutoRepair;
 
         public static void Init()
         {
@@ -211,6 +212,7 @@ namespace Multiplayer.Client
             SyncNeedLevel = Sync.Field(typeof(Need), nameof(Need.curLevelInt)).SetDebugOnly();
 
             SyncMechRechargeThresholds = Sync.Field(typeof(MechanitorControlGroup), nameof(MechanitorControlGroup.mechRechargeThresholds));
+            SyncMechAutoRepair = Sync.Field(typeof(CompMechRepairable), nameof(CompMechRepairable.autoRepair));
         }
 
         [MpPrefix(typeof(StorytellerUI), nameof(StorytellerUI.DrawStorytellerSelectionInterface))]
@@ -548,6 +550,14 @@ namespace Multiplayer.Client
         static void WatchRechargeSettings(Dialog_RechargeSettings __instance)
         {
             SyncMechRechargeThresholds.Watch(__instance.controlGroup);
+        }
+
+        [MpPrefix(typeof(PawnColumnWorker_AutoRepair), nameof(PawnColumnWorker_AutoRepair.DoCell))]
+        static void WatchMechAutoRepair(Pawn pawn)
+        {
+            var comp = pawn.GetComp<CompMechRepairable>();
+            if (comp != null)
+                SyncMechAutoRepair.Watch(comp);
         }
     }
 
