@@ -173,6 +173,9 @@ namespace Multiplayer.Client
             SyncMethod.Lambda(typeof(HumanOvum), nameof(HumanOvum.GetGizmos), 1); // Cancel
             SyncDelegate.LocalFunc(typeof(HumanOvum), nameof(HumanOvum.CanFertilizeFloatOption), "TakeJob"); // Order job and set the fertilizing pawn field
 
+            SyncDelegate.Lambda(typeof(Xenogerm), nameof(Xenogerm.SetTargetPawn), 1); // Select the target - sets up operation (which was synced) and some extra data (which wasn't)
+            SyncMethod.Lambda(typeof(Xenogerm), nameof(Xenogerm.GetGizmos), 2);
+
             InitRituals();
             InitChoiceLetters();
         }
