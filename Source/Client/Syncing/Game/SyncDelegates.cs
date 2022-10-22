@@ -3,9 +3,11 @@ using RimWorld;
 using RimWorld.Planet;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
+using System.Reflection.Emit;
+using HarmonyLib;
 using Multiplayer.Client.Patches;
 using Verse;
-using Verse.AI;
 
 namespace Multiplayer.Client
 {
@@ -165,6 +167,11 @@ namespace Multiplayer.Client
                         return data.member;
                     }));
 
+            SyncMethod.Lambda(typeof(HumanEmbryo), nameof(HumanEmbryo.GetGizmos), 2); // Cancel
+            SyncDelegate.Lambda(typeof(HumanEmbryo), nameof(HumanEmbryo.CanImplantFloatOption), 1); // Order operation and set the implant target field
+            SyncMethod.Lambda(typeof(HumanOvum), nameof(HumanOvum.GetGizmos), 1); // Cancel
+            SyncDelegate.LocalFunc(typeof(HumanOvum), nameof(HumanOvum.CanFertilizeFloatOption), "TakeJob"); // Order job and set the fertilizing pawn field
+
             InitRituals();
             InitChoiceLetters();
         }
@@ -300,6 +307,45 @@ namespace Multiplayer.Client
 
                 original();
             };
+        }
+
+        // Target method can either open a confirmation dialog, or just create the bill outright and then set the implant target field.
+        // Transpiler replaces the part where it creates the operation and sets the target with our synced method.
+        [MpTranspiler(typeof(HumanEmbryo), nameof(HumanEmbryo.CanImplantFloatOption), 0)]
+        static IEnumerable<CodeInstruction> HumanEmbryoTranspiler(IEnumerable<CodeInstruction> insts, ILGenerator gen, MethodBase original)
+        {
+            OpCode? prevCode = null;
+
+            foreach (var ci in insts)
+            {
+                if (prevCode == OpCodes.Ret)
+                {
+                    // After encountering the first return - insert our method and return early, ignoring the original code we don't care for
+                    var pawnField = AccessTools.Field(original.DeclaringType, "pawn");
+                    var embryoField = AccessTools.Field(original.DeclaringType, SyncDelegate.DELEGATE_THIS);
+                    var ourMethod = AccessTools.Method(typeof(SyncDelegates), nameof(SyncedCreateImplantEmbryoBill));
+
+                    yield return new CodeInstruction(OpCodes.Ldarg_0).MoveLabelsFrom(ci);
+                    yield return new CodeInstruction(OpCodes.Ldfld, pawnField);
+                    yield return new CodeInstruction(OpCodes.Ldarg_0);
+                    yield return new CodeInstruction(OpCodes.Ldfld, embryoField);
+                    yield return new CodeInstruction(OpCodes.Call, ourMethod);
+                    yield return new CodeInstruction(OpCodes.Ret);
+
+                    yield break;
+                }
+
+                prevCode = ci.opcode;
+                yield return ci;
+
+            }
+        }
+
+        [SyncMethod]
+        static void SyncedCreateImplantEmbryoBill(Pawn pawn, HumanEmbryo embryo)
+        {
+            HealthCardUtility.CreateSurgeryBill(pawn, RecipeDefOf.ImplantEmbryo, null, new List<Thing> { embryo });
+            embryo.implantTarget = pawn;
         }
     }
 
