@@ -161,6 +161,7 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(CompAnimalPenMarker), nameof(CompAnimalPenMarker.RemoveForceDisplayedAnimal));
             SyncMethod.Register(typeof(CompAnimalPenMarker), nameof(CompAnimalPenMarker.AddForceDisplayedAnimal));
             SyncMethod.Register(typeof(CompAutoCut), nameof(CompAutoCut.DesignatePlantsToCut));
+            SyncMethod.Lambda(typeof(Plant), nameof(Plant.GetGizmos), 0);
 
             SyncMethod.Register(typeof(ShipJob_Wait), nameof(ShipJob_Wait.Launch)).ExposeParameter(1); // Launch the (Royalty) shuttle
 
