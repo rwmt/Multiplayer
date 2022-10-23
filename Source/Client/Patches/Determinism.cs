@@ -1,13 +1,10 @@
 using HarmonyLib;
 using RimWorld;
 using RimWorld.Planet;
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
-using System.Text;
-using System.Threading.Tasks;
 using Multiplayer.Client.Util;
 using UnityEngine;
 using Verse;
@@ -123,7 +120,7 @@ namespace Multiplayer.Client.Patches
         }
     }
 
-    [HarmonyPatch(typeof(Pawn_DrawTracker), nameof(Pawn_DrawTracker.DrawTrackerTick))]
+    [HarmonyPatch(typeof(Pawn), nameof(Pawn.ProcessPostTickVisuals))]
     static class DrawTrackerTickPatch
     {
         static MethodInfo CellRectContains = AccessTools.Method(typeof(CellRect), nameof(CellRect.Contains));
@@ -172,36 +169,36 @@ namespace Multiplayer.Client.Patches
         }
     }
 
-    [HarmonyPatch(typeof(WorkGiver_DoBill), nameof(WorkGiver_DoBill.StartOrResumeBillJob))]
-    static class StartOrResumeBillPatch
-    {
-        static FieldInfo LastFailTicks = AccessTools.Field(typeof(Bill), nameof(Bill.lastIngredientSearchFailTicks));
-
-        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts, MethodBase original)
-        {
-            var list = new List<CodeInstruction>(insts);
-
-            int index = new CodeFinder(original, list).Forward(OpCodes.Stfld, LastFailTicks).Advance(-1);
-            if (list[index].opcode != OpCodes.Ldc_I4_0)
-                throw new Exception("Wrong code");
-
-            list.RemoveAt(index);
-
-            list.Insert(
-                index,
-                new CodeInstruction(OpCodes.Ldloc_1),
-                new CodeInstruction(OpCodes.Ldarg_1),
-                new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(StartOrResumeBillPatch), nameof(Value)))
-            );
-
-            return list;
-        }
-
-        static int Value(Bill bill, Pawn pawn)
-        {
-            return FloatMenuMakerMap.makingFor == pawn ? bill.lastIngredientSearchFailTicks : 0;
-        }
-    }
+    // [HarmonyPatch(typeof(WorkGiver_DoBill), nameof(WorkGiver_DoBill.StartOrResumeBillJob))]
+    // static class StartOrResumeBillPatch
+    // {
+    //     static FieldInfo LastFailTicks = AccessTools.Field(typeof(Bill), nameof(Bill.lastIngredientSearchFailTicks));
+    //
+    //     static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts, MethodBase original)
+    //     {
+    //         var list = new List<CodeInstruction>(insts);
+    //
+    //         int index = new CodeFinder(original, list).Forward(OpCodes.Stfld, LastFailTicks).Advance(-1);
+    //         if (list[index].opcode != OpCodes.Ldc_I4_0)
+    //             throw new Exception("Wrong code");
+    //
+    //         list.RemoveAt(index);
+    //
+    //         list.Insert(
+    //             index,
+    //             new CodeInstruction(OpCodes.Ldloc_1),
+    //             new CodeInstruction(OpCodes.Ldarg_1),
+    //             new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(StartOrResumeBillPatch), nameof(Value)))
+    //         );
+    //
+    //         return list;
+    //     }
+    //
+    //     static int Value(Bill bill, Pawn pawn)
+    //     {
+    //         return FloatMenuMakerMap.makingFor == pawn ? bill.lastIngredientSearchFailTicks : 0;
+    //     }
+    // }
 
     [HarmonyPatch]
     static class SortArchivablesById

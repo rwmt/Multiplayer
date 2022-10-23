@@ -29,7 +29,7 @@ namespace Multiplayer.Client
                 }
                 else if (session.uiDirty)
                 {
-                    CountToTransferChanged();
+                    Notify_TransferablesChanged();
                     startingTile = session.startingTile;
                     destinationTile = session.destinationTile;
 

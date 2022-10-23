@@ -1,6 +1,5 @@
 using HarmonyLib;
 using Multiplayer.API;
-using Multiplayer.Client.Patches;
 using RimWorld;
 using RimWorld.Planet;
 using System.Collections.Generic;
@@ -77,6 +76,7 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(PawnColumnWorker_Designator), nameof(PawnColumnWorker_Designator.SetValue)).CancelIfAnyArgNull(); // Virtual but currently not overriden by any subclasses
             SyncMethod.Register(typeof(PawnColumnWorker_FollowDrafted), nameof(PawnColumnWorker_FollowDrafted.SetValue)).CancelIfAnyArgNull();
             SyncMethod.Register(typeof(PawnColumnWorker_FollowFieldwork), nameof(PawnColumnWorker_FollowFieldwork.SetValue)).CancelIfAnyArgNull();
+            SyncMethod.Register(typeof(PawnColumnWorker_Sterilize), nameof(PawnColumnWorker_Sterilize.SetValue)).CancelIfAnyArgNull(); // Will sync even without this, but this will set the column to dirty
             SyncMethod.Register(typeof(CompGatherSpot), nameof(CompGatherSpot.Active));
             SyncMethod.Register(typeof(Building_BlastingCharge), nameof(Building_BlastingCharge.Command_Detonate));
 
@@ -119,6 +119,7 @@ namespace Multiplayer.Client
 
             {
                 var methods = typeof(ITargetingSource).AllImplementing()
+                    .Except(typeof(CompActivable_RocketswarmLauncher)) // Skip it, as all it does is open another targeter
                     .Where(t => t.Assembly == typeof(Game).Assembly)
                     .Select(t => t.GetMethod(nameof(ITargetingSource.OrderForceTarget), AccessTools.allDeclared))
                     .AllNotNull();
@@ -159,7 +160,8 @@ namespace Multiplayer.Client
 
             SyncMethod.Register(typeof(CompAnimalPenMarker), nameof(CompAnimalPenMarker.RemoveForceDisplayedAnimal));
             SyncMethod.Register(typeof(CompAnimalPenMarker), nameof(CompAnimalPenMarker.AddForceDisplayedAnimal));
-            SyncMethod.Register(typeof(CompAnimalPenMarker), nameof(CompAnimalPenMarker.DesignatePlantsToCut));
+            SyncMethod.Register(typeof(CompAutoCut), nameof(CompAutoCut.DesignatePlantsToCut));
+            SyncMethod.Lambda(typeof(Plant), nameof(Plant.GetGizmos), 0);
 
             SyncMethod.Register(typeof(ShipJob_Wait), nameof(ShipJob_Wait.Launch)).ExposeParameter(1); // Launch the (Royalty) shuttle
 
@@ -190,7 +192,109 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(IdeoDevelopmentUtility), nameof(IdeoDevelopmentUtility.ApplyChangesToIdeo))
                 .ExposeParameter(1);
 
+            // A lot of dev mode gizmos
             SyncMethod.Register(typeof(CompPawnSpawnOnWakeup), nameof(CompPawnSpawnOnWakeup.Spawn)).SetDebugOnly();
+            SyncMethod.Lambda(typeof(Building_FermentingBarrel), nameof(Building_FermentingBarrel.GetGizmos), 0).SetDebugOnly(); // Set progress to 1
+            SyncMethod.Lambda(typeof(Building_FermentingBarrel), nameof(Building_FermentingBarrel.GetGizmos), 1).SetDebugOnly(); // Fill
+            SyncMethod.Lambda(typeof(CompBandNode), nameof(CompBandNode.CompGetGizmosExtra), 8).SetDebugOnly(); // Complete tuning
+            SyncMethod.Lambda(typeof(CompCauseGameCondition_ForceWeather), nameof(CompCauseGameCondition_ForceWeather.CompGetGizmosExtra), 0).SetDebugOnly(); // Change to next weather
+            SyncMethod.Lambda(typeof(CompCauseGameCondition_PsychicEmanation), nameof(CompCauseGameCondition_PsychicEmanation.CompGetGizmosExtra), 0).SetDebugOnly(); // Change gender
+            SyncMethod.Lambda(typeof(CompCauseGameCondition_PsychicEmanation), nameof(CompCauseGameCondition_PsychicEmanation.CompGetGizmosExtra), 1).SetDebugOnly(); // Increase intensity
+            SyncMethod.Lambda(typeof(CompCauseGameCondition_PsychicSuppression), nameof(CompCauseGameCondition_PsychicSuppression.CompGetGizmosExtra), 0).SetDebugOnly(); // Change gender
+            SyncMethod.Register(typeof(CompCauseGameCondition_TemperatureOffset), nameof(CompCauseGameCondition_TemperatureOffset.SetTemperatureOffset)).SetDebugOnly();
+            SyncMethod.Register(typeof(CompDamageOnInterval), nameof(CompDamageOnInterval.Damage)).SetDebugOnly();
+            SyncMethod.Lambda(typeof(CompDeepDrill), nameof(CompDeepDrill.CompGetGizmosExtra), 0).SetDebugOnly();
+            SyncMethod.Lambda(typeof(CompDissolution), nameof(CompDissolution.CompGetGizmosExtra), 0).SetDebugOnly(); // Dissolution event
+            SyncMethod.Lambda(typeof(CompDissolution), nameof(CompDissolution.CompGetGizmosExtra), 1).SetDebugOnly(); // Dissolution event until destroyed
+            SyncMethod.Lambda(typeof(CompDissolution), nameof(CompDissolution.CompGetGizmosExtra), 2).SetDebugOnly(); // Dissolution progress +25%
+            SyncMethod.Lambda(typeof(CompEggContainer), nameof(CompEggContainer.CompGetGizmosExtra), 0).SetDebugOnly(); // Fill with eggs
+            SyncMethod.Lambda(typeof(CompExplosive), nameof(CompExplosive.CompGetGizmosExtra), 0).SetDebugOnly(); // Trigger countdown
+            SyncMethod.Lambda(typeof(CompHackable), nameof(CompHackable.CompGetGizmosExtra), 0).SetDebugOnly(); // Hack +10%
+            SyncMethod.Lambda(typeof(CompHackable), nameof(CompHackable.CompGetGizmosExtra), 1).SetDebugOnly(); // Complete hack
+            SyncMethod.Register(typeof(CompPolluteOverTime), nameof(CompPolluteOverTime.Pollute)).SetDebugOnly();
+            SyncMethod.Register(typeof(CompPollutionPump), nameof(CompPollutionPump.Pump)).SetDebugOnly();
+            SyncMethod.Lambda(typeof(CompProjectileInterceptor), nameof(CompProjectileInterceptor.CompGetGizmosExtra), 0).SetDebugOnly(); // Reset cooldown
+            SyncMethod.Lambda(typeof(CompProjectileInterceptor), nameof(CompProjectileInterceptor.CompGetGizmosExtra), 2).SetDebugOnly(); // Toggle intercept non-hostile
+            SyncMethod.Lambda(typeof(CompReloadable), nameof(CompReloadable.CompGetWornGizmosExtra), 0).SetDebugOnly(); // Reload to full
+            SyncMethod.Lambda(typeof(CompScanner), nameof(CompScanner.CompGetGizmosExtra), 0).SetDebugOnly(); // Find now
+            SyncMethod.Lambda(typeof(CompTerrainPump), nameof(CompTerrainPump.CompGetGizmosExtra), 0).SetDebugOnly(); // Progress 1 day
+            SyncMethod.Register(typeof(CompToxifier), nameof(CompToxifier.PolluteNextCell)).SetDebugOnly();
+            SyncMethod.Lambda(typeof(MinifiedTree), nameof(MinifiedThing.GetGizmos), 0).SetDebugOnly(); // Destroy
+            SyncMethod.Lambda(typeof(MinifiedTree), nameof(MinifiedThing.GetGizmos), 1).SetDebugOnly(); // Die in 1 hour
+            SyncMethod.Lambda(typeof(MinifiedTree), nameof(MinifiedThing.GetGizmos), 2).SetDebugOnly(); // Die in 1 day
+
+            SyncMethod.Register(typeof(Blueprint_Build), nameof(Blueprint_Build.ChangeStyleOfAllSelected)).SetContext(SyncContext.MapSelected);
+            SyncMethod.Lambda(typeof(CompTurretGun), nameof(CompTurretGun.CompGetGizmosExtra), 1); // Toggle fire at will
+
+            // Gene Assembler
+            SyncMethod.Register(typeof(Building_GeneAssembler), nameof(Building_GeneAssembler.Start));
+            SyncMethod.Register(typeof(Building_GeneAssembler), nameof(Building_GeneAssembler.Reset));
+            SyncMethod.Register(typeof(Building_GeneAssembler), nameof(Building_GeneAssembler.Finish)).SetDebugOnly();
+
+            // Gene Extractor
+            SyncMethod.Register(typeof(Building_GeneExtractor), nameof(Building_GeneExtractor.Cancel));
+            SyncMethod.Lambda(typeof(Building_GeneExtractor), nameof(Building_GeneExtractor.GetGizmos), 2); // Cancel load
+            SyncMethod.Register(typeof(Building_GeneExtractor), nameof(Building_GeneExtractor.Finish)).SetDebugOnly();
+
+            // Growth Vat
+            SyncMethod.Lambda(typeof(Building_GrowthVat), nameof(Building_GrowthVat.GetGizmos), 1); // Cancel growth
+            SyncMethod.Lambda(typeof(Building_GrowthVat), nameof(Building_GrowthVat.GetGizmos), 6); // Cancel load
+            SyncMethod.Register(typeof(Building_GrowthVat), nameof(Building_GrowthVat.SelectEmbryo));
+            SyncMethod.Lambda(typeof(Building_GrowthVat), nameof(Building_GrowthVat.GetGizmos), 3).SetDebugOnly(); // Advance 1 year
+            SyncMethod.Lambda(typeof(Building_GrowthVat), nameof(Building_GrowthVat.GetGizmos), 4).SetDebugOnly(); // Advance gestation 1 day
+            SyncMethod.Lambda(typeof(Building_GrowthVat), nameof(Building_GrowthVat.GetGizmos), 5).SetDebugOnly(); // Embryo birth now
+            SyncMethod.Lambda(typeof(Building_GrowthVat), nameof(Building_GrowthVat.GetGizmos), 11).SetDebugOnly(); // Fill nutrition
+            SyncMethod.Lambda(typeof(Building_GrowthVat), nameof(Building_GrowthVat.GetGizmos), 12).SetDebugOnly(); // Empty nutrition
+            SyncMethod.Register(typeof(Hediff_VatLearning), nameof(Hediff_VatLearning.Learn)).SetDebugOnly(); // Called by Building_GrowthVat gizmo
+
+            // Subcore Scanner
+            SyncMethod.Lambda(typeof(Building_SubcoreScanner), nameof(Building_SubcoreScanner.GetGizmos), 1); // Initialize
+            SyncMethod.Register(typeof(Building_SubcoreScanner), nameof(Building_SubcoreScanner.EjectContents)); // Cancel load
+            SyncMethod.Lambda(typeof(Building_SubcoreScanner), nameof(Building_SubcoreScanner.GetGizmos), 5).SetDebugOnly(); // Enable/disable ingredients
+            SyncMethod.Lambda(typeof(Building_SubcoreScanner), nameof(Building_SubcoreScanner.GetGizmos), 6).SetDebugOnly(); // Complete
+
+            // Used by Gene Extractor, Growth Vat, Subcore Scanner, possibly others
+            foreach (var type in typeof(Building_Enterable).AllSubtypesAndSelf())
+            {
+                var method = AccessTools.DeclaredMethod(type, nameof(Building_Enterable.SelectPawn));
+                if (method != null && !method.IsAbstract)
+                    Sync.RegisterSyncMethod(method);
+            }
+
+            // Mechs
+            // Charger
+            SyncMethod.Lambda(typeof(Building_MechCharger), nameof(Building_MechCharger.GetGizmos), 0).SetDebugOnly(); // Waste 100%
+            SyncMethod.Lambda(typeof(Building_MechCharger), nameof(Building_MechCharger.GetGizmos), 1).SetDebugOnly(); // Waste 25%
+            SyncMethod.Lambda(typeof(Building_MechCharger), nameof(Building_MechCharger.GetGizmos), 2).SetDebugOnly(); // Waste 0%
+            SyncMethod.Register(typeof(Building_MechCharger), nameof(Building_MechCharger.GenerateWastePack)).SetDebugOnly(); // Generate waste, lambdaOrdinal: 3
+            SyncMethod.Lambda(typeof(Building_MechCharger), nameof(Building_MechCharger.GetGizmos), 4).SetDebugOnly(); // Charge 100%
+            // Gestator
+            SyncMethod.Lambda(typeof(Building_MechGestator), nameof(Building_MechGestator.GetGizmos), 0).SetDebugOnly(); // Generate 5 waste
+            SyncMethod.Lambda(typeof(Building_MechGestator), nameof(Building_MechGestator.GetGizmos), 1).SetDebugOnly(); // Forming cycle +25%
+            SyncMethod.Lambda(typeof(Building_MechGestator), nameof(Building_MechGestator.GetGizmos), 2).SetDebugOnly(); // Complete cycle
+            SyncMethod.Register(typeof(Bill_Mech), nameof(Bill_Mech.ForceCompleteAllCycles)).SetDebugOnly(); // Called from Building_MechGestator.GetGizmos
+            // Carrier
+            SyncMethod.Register(typeof(CompMechCarrier), nameof(CompMechCarrier.TrySpawnPawns));
+            SyncMethod.Lambda(typeof(CompMechCarrier), nameof(CompMechCarrier.CompGetGizmosExtra), 2).SetDebugOnly(); // Reset cooldown
+            // Power Cell
+            SyncMethod.Lambda(typeof(CompMechPowerCell), nameof(CompMechPowerCell.CompGetGizmosExtra), 0).SetDebugOnly(); // Power left 0%
+            SyncMethod.Lambda(typeof(CompMechPowerCell), nameof(CompMechPowerCell.CompGetGizmosExtra), 1).SetDebugOnly(); // Power left 100%
+            // Repairable
+            SyncMethod.Lambda(typeof(CompMechRepairable), nameof(CompMechRepairable.CompGetGizmosExtra), 1); // Toggle auto repair
+
+            // Atomizer
+            SyncMethod.Lambda(typeof(CompAtomizer), nameof(CompAtomizer.CompGetGizmosExtra), 1); // Auto load
+            SyncMethod.Register(typeof(CompAtomizer), nameof(CompAtomizer.EjectContents));
+            SyncMethod.Register(typeof(CompAtomizer), nameof(CompAtomizer.DoAtomize)).SetDebugOnly();
+
+            // Genepack Container
+            SyncMethod.Register(typeof(CompGenepackContainer), nameof(CompGenepackContainer.EjectContents));
+            SyncMethod.Lambda(typeof(CompGenepackContainer), nameof(CompGenepackContainer.CompGetGizmosExtra), 1).SetDebugOnly(); // Fill with new packs
+
+            // Deathrest Gene
+            SyncMethod.Register(typeof(Gene_Deathrest), nameof(Gene_Deathrest.Wake));
+            SyncMethod.Lambda(typeof(Gene_Deathrest), nameof(Gene_Deathrest.GetGizmos), 2); // Auto wake
+            SyncMethod.Lambda(typeof(Gene_Deathrest), nameof(Gene_Deathrest.GetGizmos), 3).SetDebugOnly(); // Wake and apply bonuses
         }
 
         [MpPrefix(typeof(PawnColumnWorker_CopyPasteTimetable), nameof(PawnColumnWorker_CopyPasteTimetable.PasteTo))]

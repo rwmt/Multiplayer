@@ -59,7 +59,7 @@ namespace Multiplayer.Client.Patches
         static IEnumerable<MethodBase> TargetMethods()
         {
             yield return AccessTools.Method(typeof(MoteMaker), nameof(MoteMaker.MakeStaticMote), new[] { typeof(IntVec3), typeof(Map), typeof(ThingDef), typeof(float) });
-            yield return AccessTools.Method(typeof(MoteMaker), nameof(MoteMaker.MakeStaticMote), new[] { typeof(Vector3), typeof(Map), typeof(ThingDef), typeof(float) });
+            yield return AccessTools.Method(typeof(MoteMaker), nameof(MoteMaker.MakeStaticMote), new[] { typeof(Vector3), typeof(Map), typeof(ThingDef), typeof(float), typeof(bool) });
         }
 
         static bool Prefix(ThingDef moteDef)
@@ -135,6 +135,14 @@ namespace Multiplayer.Client.Patches
             if (Multiplayer.Client == null || AsyncTimeComp.prevSelected == null) return;
             AsyncTimeComp.prevSelected.Remove(t);
         }
+    }
+
+    [HarmonyPatch(typeof(Bill), nameof(Bill.CreateNoPawnsWithSkillDialog))]
+    static class CancelNoPawnWithSkillDialog
+    {
+        static bool Prefix() =>
+            Multiplayer.Client == null ||
+            TickPatch.currentExecutingCmdIssuedBySelf;
     }
 
 }

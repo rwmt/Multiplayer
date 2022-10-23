@@ -1,15 +1,10 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
-using HarmonyLib;
 using Multiplayer.API;
 using Multiplayer.Client.Persistent;
 using Multiplayer.Common;
 using RimWorld;
-using RimWorld.Planet;
-using UnityEngine;
 using Verse;
-using Verse.AI;
 using Verse.AI.Group;
 using static Multiplayer.Client.SyncSerialization;
 // ReSharper disable RedundantLambdaParameterType
@@ -224,6 +219,55 @@ namespace Multiplayer.Client
                 (ByteReader data) => {
                     var lord = ReadSync<Lord>(data);
                     return lord?.LordJob as LordJob_Ritual;
+                }
+            },
+            {
+                // This dialog has nothing of interest to us besides the methods which we need for syncing
+                (ByteWriter _, Dialog_StyleSelection _) => { },
+                (ByteReader _) => new Dialog_StyleSelection()
+            },
+            #endregion
+
+            #region Biotech
+            {
+                (ByteWriter data, Gene gene) =>
+                {
+                    WriteSync(data, gene.def);
+                    WriteSync(data, gene.pawn);
+                },
+                (ByteReader data) =>
+                {
+                    var geneDef = ReadSync<GeneDef>(data);
+                    var pawn = ReadSync<Pawn>(data);
+
+                    return pawn.genes.GetGene(geneDef);
+                }, true // implicit
+            },
+            {
+                (ByteWriter data, GeneGizmo_Resource gizmo) => WriteSync(data, gizmo.gene),
+                (ByteReader data) =>
+                {
+                    var gene = ReadSync<Gene_Resource>(data);
+                    // Normally created inside of Gene_Resource.GetGizmos
+                    // Alternatively we could iterating through that enumerable to make it initialize - which should handle situations of mods (or updates)
+                    // making custom gizmo initialization - this would end up with messier looking code.
+                    gene.gizmo ??= (GeneGizmo_Resource)Activator.CreateInstance(gene.def.resourceGizmoType, gene, gene.DrainGenes, gene.BarColor, gene.BarHighlightColor);
+
+                    return gene.gizmo;
+                }
+            },
+            {
+                (ByteWriter data, MechanitorControlGroup group) =>
+                {
+                    WriteSync(data, group.tracker.Pawn);
+                    data.WriteInt32(group.tracker.controlGroups.IndexOf(group));
+                },
+                (ByteReader data) =>
+                {
+                    var mechanitor = ReadSync<Pawn>(data).mechanitor;
+                    var index = data.ReadInt32();
+
+                    return mechanitor.controlGroups[index];
                 }
             },
             #endregion

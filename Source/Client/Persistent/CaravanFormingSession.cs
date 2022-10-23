@@ -72,7 +72,7 @@ namespace Multiplayer.Client
                 mapAboutToBeRemoved
             );
 
-            dialog.CountToTransferChanged();
+            dialog.Notify_TransferablesChanged();
 
             Find.WindowStack.Add(dialog);
         }

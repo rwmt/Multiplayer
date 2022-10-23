@@ -45,7 +45,7 @@ namespace Multiplayer.Client
 
             if (enforcePause)
                 return 0f;
-            
+
             if (mapTicks < slower.forceNormalSpeedUntil)
                 return speed == TimeSpeed.Paused ? 0 : 1;
 
@@ -131,6 +131,9 @@ namespace Multiplayer.Client
                 QuestManagerTickAsyncTime();
 
                 map.MapPostTick();
+                Find.TickManager.ticksThisFrame = 1;
+                map.postTickVisuals.ProcessPostTickVisuals();
+                Find.TickManager.ticksThisFrame = 0;
 
                 UpdateManagers();
                 CacheNothingHappening();
@@ -277,10 +280,10 @@ namespace Multiplayer.Client
                     data.Log.current.text = handler.ToString();
                 }
 
-                if (cmdType == CommandType.DebugTools)
-                {
-                    MpDebugTools.HandleCmd(data);
-                }
+                // if (cmdType == CommandType.DebugTools)
+                // {
+                //     MpDebugTools.HandleCmd(data);
+                // }
 
                 if (cmdType == CommandType.CreateMapFactionData)
                 {

@@ -1,13 +1,12 @@
-using HarmonyLib;
 using Multiplayer.API;
 using RimWorld;
 using RimWorld.Planet;
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
+using System.Reflection;
+using System.Reflection.Emit;
+using HarmonyLib;
 using Multiplayer.Client.Patches;
-using Multiplayer.Client.Util;
 using Verse;
 
 namespace Multiplayer.Client
@@ -19,19 +18,20 @@ namespace Multiplayer.Client
             const SyncContext mouseKeyContext = SyncContext.QueueOrder_Down | SyncContext.MapMouseCell;
 
             SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.GotoLocationOption), 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);     // Goto
-            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddHumanlikeOrders), 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);     // Arrest
-            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddHumanlikeOrders), 5).CancelIfAnyFieldNull().SetContext(mouseKeyContext);     // Rescue
-            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddHumanlikeOrders), 6).CancelIfAnyFieldNull().SetContext(mouseKeyContext);     // Capture slave
-            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddHumanlikeOrders), 7).CancelIfAnyFieldNull().SetContext(mouseKeyContext);     // Capture prisoner
-            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddHumanlikeOrders), 8).CancelIfAnyFieldNull().SetContext(mouseKeyContext);     // Carry to cryptosleep casket
-            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddHumanlikeOrders), 10).CancelIfAnyFieldNull().SetContext(mouseKeyContext);    // Carry to shuttle
-            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddHumanlikeOrders), 27).CancelIfAnyFieldNull().SetContext(mouseKeyContext);    // Reload
+            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddHumanlikeOrders), 1).CancelIfAnyFieldNull().SetContext(mouseKeyContext);     // Arrest
+            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddHumanlikeOrders), 8).CancelIfAnyFieldNull().SetContext(mouseKeyContext);     // Rescue
+            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddHumanlikeOrders), 7).CancelIfAnyFieldNull().SetContext(mouseKeyContext);     // Capture slave
+            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddHumanlikeOrders), 9).CancelIfAnyFieldNull().SetContext(mouseKeyContext);     // Capture prisoner
+            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddHumanlikeOrders), 10).CancelIfAnyFieldNull().SetContext(mouseKeyContext);    // Carry to cryptosleep casket
+            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddHumanlikeOrders), 12).CancelIfAnyFieldNull().SetContext(mouseKeyContext);    // Carry to shuttle
+            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddHumanlikeOrders), 42).CancelIfAnyFieldNull().SetContext(mouseKeyContext);    // Reload
             SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddDraftedOrders), 3).CancelIfAnyFieldNull().SetContext(mouseKeyContext);       // Drafted carry to bed
             SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddDraftedOrders), 4).CancelIfAnyFieldNull().SetContext(mouseKeyContext);       // Drafted carry to bed (arrest)
             SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddDraftedOrders), 5).CancelIfAnyFieldNull().SetContext(mouseKeyContext);       // Drafted carry to transport shuttle
             SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddDraftedOrders), 6).CancelIfAnyFieldNull().SetContext(mouseKeyContext);       // Drafted carry to cryptosleep casket
 
-            SyncDelegate.Lambda(typeof(HealthCardUtility), nameof(HealthCardUtility.GenerateSurgeryOption), 1).CancelIfAnyFieldNull(allowed: "part");   // Add medical bill
+
+            SyncDelegate.Lambda(typeof(HealthCardUtility), nameof(HealthCardUtility.GenerateSurgeryOption), 2).CancelIfAnyFieldNull(allowed: "part");   // Add medical bill
             SyncDelegate.Lambda(typeof(Command_SetPlantToGrow), nameof(Command_SetPlantToGrow.ProcessInput), 2);                                        // Set plant to grow
             SyncDelegate.Lambda(typeof(Building_Bed), nameof(Building_Bed.SetBedOwnerTypeByInterface), 0).RemoveNullsFromLists("bedsToAffect");         // Set bed owner type
             SyncDelegate.Lambda(typeof(ITab_Bills), nameof(ITab_Bills.FillTab), 2).SetContext(SyncContext.MapSelected).CancelIfNoSelectedMapObjects();  // Add bill
@@ -55,8 +55,7 @@ namespace Multiplayer.Client
 
             SyncDelegate.LambdaInGetter(typeof(Designator), nameof(Designator.RightClickFloatMenuOptions), 0) // Designate all
                 .TransformField("things", Serializer.SimpleReader(() => Find.CurrentMap.listerThings.AllThings));
-            SyncDelegate.LambdaInGetter(typeof(Designator), nameof(Designator.RightClickFloatMenuOptions), 1) // Remove all designations
-                .TransformField("designations", Serializer.SimpleReader(() => Find.CurrentMap.designationManager.allDesignations));
+            SyncDelegate.LambdaInGetter(typeof(Designator), nameof(Designator.RightClickFloatMenuOptions), 1); // Remove all designations
 
             SyncDelegate.Lambda(typeof(CaravanAbandonOrBanishUtility), nameof(CaravanAbandonOrBanishUtility.TryAbandonOrBanishViaInterface), 1, new[] { typeof(Thing), typeof(Caravan) }).CancelIfAnyFieldNull(); // Abandon caravan thing
             SyncDelegate.Lambda(typeof(CaravanAbandonOrBanishUtility), nameof(CaravanAbandonOrBanishUtility.TryAbandonOrBanishViaInterface), 0, new[] { typeof(TransferableImmutable), typeof(Caravan) }).CancelIfAnyFieldNull(); // Abandon caravan transferable
@@ -89,7 +88,6 @@ namespace Multiplayer.Client
             SyncMethod.Lambda(typeof(CompTreeConnection), nameof(CompTreeConnection.CompGetGizmosExtra), 1).SetDebugOnly(); // Spawn dryad
             SyncMethod.Lambda(typeof(CompTreeConnection), nameof(CompTreeConnection.CompGetGizmosExtra), 2).SetDebugOnly(); // Increase connection strength by 10%
             SyncMethod.Lambda(typeof(CompTreeConnection), nameof(CompTreeConnection.CompGetGizmosExtra), 3).SetDebugOnly(); // Decrease connection strength by 10%
-            SyncMethod.Lambda(typeof(CompDryadHolder), nameof(CompDryadHolder.CompGetGizmosExtra), 0).SetDebugOnly();       // Complete dryad cocoon action
 
             SyncMethod.Lambda(typeof(CompNeuralSupercharger), nameof(CompNeuralSupercharger.CompGetGizmosExtra), 1); // Neural supercharger: allow temporary pawns to use
 
@@ -104,8 +102,8 @@ namespace Multiplayer.Client
             SyncMethod.Lambda(typeof(CompBiosculpterPod), nameof(CompBiosculpterPod.CompGetGizmosExtra), 8).SetDebugOnly(); // Dev complete biotuner timer
             SyncMethod.Lambda(typeof(CompBiosculpterPod), nameof(CompBiosculpterPod.CompGetGizmosExtra), 9).SetDebugOnly(); // Dev fill nutrition and ingredients
 
-            SyncDelegate.Lambda(typeof(ITab_Pawn_Visitor), nameof(ITab_Pawn_Visitor.FillTab), 1).SetContext(SyncContext.MapSelected).CancelIfNoSelectedMapObjects(); // Select target prisoner ideology
-            SyncDelegate.Lambda(typeof(ITab_Pawn_Visitor), nameof(ITab_Pawn_Visitor.FillTab), 8).SetContext(SyncContext.MapSelected).CancelIfNoSelectedMapObjects(); // Cancel setting slave mode to execution
+            SyncDelegate.Lambda(typeof(ITab_Pawn_Visitor), nameof(ITab_Pawn_Visitor.FillTab), 3).SetContext(SyncContext.MapSelected).CancelIfNoSelectedMapObjects();  // Select target prisoner ideology
+            SyncDelegate.Lambda(typeof(ITab_Pawn_Visitor), nameof(ITab_Pawn_Visitor.FillTab), 10).SetContext(SyncContext.MapSelected).CancelIfNoSelectedMapObjects(); // Cancel setting slave mode to execution
 
             SyncMethod.Lambda(typeof(ShipJob_Wait), nameof(ShipJob_Wait.GetJobGizmos), 0);  // Dismiss (unload) shuttle
             SyncMethod.Lambda(typeof(ShipJob_Wait), nameof(ShipJob_Wait.GetJobGizmos), 1);  // Send loaded shuttle
@@ -130,6 +128,54 @@ namespace Multiplayer.Client
 
             SyncDelegate.Lambda(typeof(Ability), nameof(Ability.QueueCastingJob), 0, new[] { typeof(LocalTargetInfo), typeof(LocalTargetInfo) });
             SyncDelegate.Lambda(typeof(Ability), nameof(Ability.QueueCastingJob), 0, new[] { typeof(GlobalTargetInfo) });
+
+            // Style selection dialog
+            SyncDelegate.Lambda(typeof(Dialog_StyleSelection), nameof(Dialog_StyleSelection.DoWindowContents), 0); // Remove style
+            SyncDelegate.Lambda(typeof(Dialog_StyleSelection), nameof(Dialog_StyleSelection.DoWindowContents), 1); // Replace style
+            SyncDelegate.Lambda(typeof(Dialog_StyleSelection), nameof(Dialog_StyleSelection.DoWindowContents), 2); // Add style
+
+            SyncDelegate.Lambda(typeof(CompActivable_RocketswarmLauncher), nameof(CompActivable_RocketswarmLauncher.TargetLocation), 0);
+            SyncDelegate.Lambda(typeof(CompAtomizer), nameof(CompAtomizer.CompGetGizmosExtra), 3).SetDebugOnly(); // Set next atomization
+            SyncDelegate.Lambda(typeof(CompBandNode), nameof(CompBandNode.CompGetGizmosExtra), 7); // Select pawn to tune to
+            SyncDelegate.Lambda(typeof(CompDissolution), nameof(CompDissolution.CompGetGizmosExtra), 4).SetDebugOnly(); // Set next dissolve time
+            SyncDelegate.Lambda(typeof(CompPollutionPump), nameof(CompPollutionPump.CompGetGizmosExtra), 1).SetDebugOnly(); // Set next pollution cycle
+            SyncDelegate.Lambda(typeof(CompToxifier), nameof(CompToxifier.CompGetGizmosExtra), 3).SetDebugOnly(); // Set next pollution time
+            SyncDelegate.Lambda(typeof(Gene_Deathrest), nameof(Gene_Deathrest.GetGizmos), 5).SetDebugOnly(); // Set capacity
+
+            // Mechanitor
+            SyncDelegate.Lambda(typeof(MechanitorUtility), nameof(MechanitorUtility.GetMechGizmos), 1).SetDebugOnly(); // Recruit
+            SyncDelegate.Lambda(typeof(MechanitorUtility), nameof(MechanitorUtility.GetMechGizmos), 2).SetDebugOnly(); // Kill
+            SyncDelegate.Lambda(typeof(Designator_MechControlGroup), nameof(Designator_MechControlGroup.ProcessInput), 1).SetContext(SyncContext.MapSelected); // Assign to group
+            SyncDelegate.Lambda(typeof(MechanitorControlGroupGizmo), nameof(MechanitorControlGroupGizmo.GetWorkModeOptions), 1); // Set work mode for group
+            SyncDelegate.Lambda(typeof(PawnColumnWorker_ControlGroup), nameof(PawnColumnWorker_ControlGroup.Button_GenerateMenu), 0); // Assign to group
+            SyncDelegate.Lambda(typeof(MainTabWindow_Mechs), nameof(MainTabWindow_Mechs.DoWindowContents), 0); // Change mech color
+
+            // Glower
+            SyncMethod.Register(typeof(CompGlower), nameof(CompGlower.SetGlowColorInternal)); // Set color gizmo - will send a separate command per selected glower. Could be fixed with a transpiler for Dialog_GlowerColorPicker
+            // Both of those could be handled by SetGlowColorInternal, but we sync them separately to limit the amount of commands sent.
+            // With those synced, it'll only send number of commands equal to the selected glowers. Without it, it'll do the same, but repeat it for every single selected glower.
+            SyncDelegate.Lambda(typeof(CompGlower), nameof(CompGlower.CompGetGizmosExtra), 2).SetContext(SyncContext.MapSelected); // Paste color
+            SyncDelegate.Lambda(typeof(CompGlower), nameof(CompGlower.CompGetGizmosExtra), 3).SetContext(SyncContext.MapSelected); // Toggle darklight
+
+            // Storage groups
+            SyncDelegate.Lambda(typeof(StorageGroupUtility), nameof(StorageGroupUtility.StorageGroupMemberGizmos), 2); // Unlink
+            SyncDelegate.Lambda(typeof(StorageGroupUtility), nameof(StorageGroupUtility.StorageGroupMemberGizmos), 0)  // Link
+                .TransformField("member", Serializer.New(
+                    (IStorageGroupMember member) => (member, StorageGroupUtility.tmpMembers),
+                    (data) =>
+                    {
+                        StorageGroupUtility.tmpMembers.Clear();
+                        StorageGroupUtility.tmpMembers.AddRange(data.tmpMembers);
+                        return data.member;
+                    }));
+
+            SyncMethod.Lambda(typeof(HumanEmbryo), nameof(HumanEmbryo.GetGizmos), 2); // Cancel
+            SyncDelegate.Lambda(typeof(HumanEmbryo), nameof(HumanEmbryo.CanImplantFloatOption), 1); // Order operation and set the implant target field
+            SyncMethod.Lambda(typeof(HumanOvum), nameof(HumanOvum.GetGizmos), 1); // Cancel
+            SyncDelegate.LocalFunc(typeof(HumanOvum), nameof(HumanOvum.CanFertilizeFloatOption), "TakeJob"); // Order job and set the fertilizing pawn field
+
+            SyncDelegate.Lambda(typeof(Xenogerm), nameof(Xenogerm.SetTargetPawn), 1); // Select the target - sets up operation (which was synced) and some extra data (which wasn't)
+            SyncMethod.Lambda(typeof(Xenogerm), nameof(Xenogerm.GetGizmos), 2);
 
             InitRituals();
             InitChoiceLetters();
@@ -266,6 +312,45 @@ namespace Multiplayer.Client
 
                 original();
             };
+        }
+
+        // Target method can either open a confirmation dialog, or just create the bill outright and then set the implant target field.
+        // Transpiler replaces the part where it creates the operation and sets the target with our synced method.
+        [MpTranspiler(typeof(HumanEmbryo), nameof(HumanEmbryo.CanImplantFloatOption), 0)]
+        static IEnumerable<CodeInstruction> HumanEmbryoTranspiler(IEnumerable<CodeInstruction> insts, ILGenerator gen, MethodBase original)
+        {
+            OpCode? prevCode = null;
+
+            foreach (var ci in insts)
+            {
+                if (prevCode == OpCodes.Ret)
+                {
+                    // After encountering the first return - insert our method and return early, ignoring the original code we don't care for
+                    var pawnField = AccessTools.Field(original.DeclaringType, "pawn");
+                    var embryoField = AccessTools.Field(original.DeclaringType, SyncDelegate.DELEGATE_THIS);
+                    var ourMethod = AccessTools.Method(typeof(SyncDelegates), nameof(SyncedCreateImplantEmbryoBill));
+
+                    yield return new CodeInstruction(OpCodes.Ldarg_0).MoveLabelsFrom(ci);
+                    yield return new CodeInstruction(OpCodes.Ldfld, pawnField);
+                    yield return new CodeInstruction(OpCodes.Ldarg_0);
+                    yield return new CodeInstruction(OpCodes.Ldfld, embryoField);
+                    yield return new CodeInstruction(OpCodes.Call, ourMethod);
+                    yield return new CodeInstruction(OpCodes.Ret);
+
+                    yield break;
+                }
+
+                prevCode = ci.opcode;
+                yield return ci;
+
+            }
+        }
+
+        [SyncMethod]
+        static void SyncedCreateImplantEmbryoBill(Pawn pawn, HumanEmbryo embryo)
+        {
+            HealthCardUtility.CreateSurgeryBill(pawn, RecipeDefOf.ImplantEmbryo, null, new List<Thing> { embryo });
+            embryo.implantTarget = pawn;
         }
     }
 

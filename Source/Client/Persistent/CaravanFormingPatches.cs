@@ -12,7 +12,7 @@ using static Verse.Widgets;
 
 namespace Multiplayer.Client.Persistent
 {
-    [HarmonyPatch(typeof(Widgets), nameof(Widgets.ButtonText), new[] { typeof(Rect), typeof(string), typeof(bool), typeof(bool), typeof(bool) })]
+    [HarmonyPatch(typeof(Widgets), nameof(Widgets.ButtonText), new[] { typeof(Rect), typeof(string), typeof(bool), typeof(bool), typeof(bool), typeof(TextAnchor) })]
     static class MakeCancelFormingButtonRed
     {
         static void Prefix(string label, ref bool __state)
@@ -74,7 +74,7 @@ namespace Multiplayer.Client.Persistent
 
                 bool autoSelectFoodAndMedicine = false;
 
-                Widgets.CheckboxLabeled(rect, "AutomaticallySelectFoodAndMedicine".Translate(), ref autoSelectFoodAndMedicine, disabled: true, placeCheckboxNearText: true);
+                Widgets.CheckboxLabeled(rect, "AutomaticallySelectTravelSupplies".Translate(), ref autoSelectFoodAndMedicine, disabled: true, placeCheckboxNearText: true);
 
                 return false;
             }
@@ -156,7 +156,7 @@ namespace Multiplayer.Client.Persistent
     }
 
     [HarmonyPatch(typeof(Dialog_FormCaravan), MethodType.Constructor)]
-    [HarmonyPatch(new[] { typeof(Map), typeof(bool), typeof(Action), typeof(bool) })]
+    [HarmonyPatch(new[] { typeof(Map), typeof(bool), typeof(Action), typeof(bool), typeof(IntVec3) })]
     static class DialogFormCaravanCtorPatch
     {
         static void Prefix(Dialog_FormCaravan __instance, Map map, bool reform, Action onClosed, bool mapAboutToBeRemoved)

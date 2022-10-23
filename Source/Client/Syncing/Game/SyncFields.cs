@@ -79,6 +79,14 @@ namespace Multiplayer.Client
 
         public static ISyncField SyncNeuralSuperchargerMode;
 
+        public static ISyncField SyncGeneGizmoResource;
+        public static ISyncField SyncGeneResource;
+
+        public static ISyncField SyncNeedLevel;
+
+        public static ISyncField SyncMechRechargeThresholds;
+        public static ISyncField SyncMechAutoRepair;
+
         public static void Init()
         {
             SyncMedCare = Sync.Field(typeof(Pawn), "playerSettings", "medCare");
@@ -147,7 +155,7 @@ namespace Multiplayer.Client
                 "limitToAllowedStuff"
             );
 
-             SyncDrugPolicyEntry = Sync.Fields(
+            SyncDrugPolicyEntry = Sync.Fields(
                 typeof(DrugPolicy),
                 "entriesInt/[]",
                 "allowedForAddiction",
@@ -197,6 +205,14 @@ namespace Multiplayer.Client
             SyncAnimalPenAutocut = Sync.Field(typeof(CompAnimalPenMarker), nameof(CompAnimalPenMarker.autoCut));
 
             SyncNeuralSuperchargerMode = Sync.Field(typeof(CompNeuralSupercharger), nameof(CompNeuralSupercharger.autoUseMode));
+
+            SyncGeneGizmoResource = Sync.Field(typeof(GeneGizmo_Resource), nameof(GeneGizmo_Resource.targetValuePct)).SetBufferChanges();
+            SyncGeneResource = Sync.Field(typeof(Gene_Resource), nameof(Gene_Resource.targetValue)).SetBufferChanges();
+
+            SyncNeedLevel = Sync.Field(typeof(Need), nameof(Need.curLevelInt)).SetDebugOnly();
+
+            SyncMechRechargeThresholds = Sync.Field(typeof(MechanitorControlGroup), nameof(MechanitorControlGroup.mechRechargeThresholds));
+            SyncMechAutoRepair = Sync.Field(typeof(CompMechRepairable), nameof(CompMechRepairable.autoRepair));
         }
 
         [MpPrefix(typeof(StorytellerUI), nameof(StorytellerUI.DrawStorytellerSelectionInterface))]
@@ -489,7 +505,7 @@ namespace Multiplayer.Client
         static void WatchTreeConnectionStrength(Gizmo_PruningConfig __instance)
         {
             SyncDesiredTreeConnectionStrength.Watch(__instance.connection);
-		}
+        }
 
         [MpPrefix(typeof(Dialog_ChangeDryadCaste), nameof(Dialog_ChangeDryadCaste.StartChange))]
         static void WatchDryadCaste(Dialog_ChangeDryadCaste __instance)
@@ -515,6 +531,33 @@ namespace Multiplayer.Client
         static void WatchAwaitingExecution(Pawn pawn)
         {
             SyncGuiltAwaitingExecution.Watch(pawn);
+        }
+
+        [MpPrefix(typeof(GeneGizmo_Resource), nameof(GeneGizmo_Resource.GizmoOnGUI))]
+        static void SyncGeneResourceChange(GeneGizmo_Resource __instance)
+        {
+            SyncGeneGizmoResource.Watch(__instance);
+            SyncGeneResource.Watch(__instance.gene);
+        }
+
+        [MpPrefix(typeof(Need), nameof(Need.DrawOnGUI))]
+        static void SyncNeedLevelValueChange(Need __instance)
+        {
+            SyncNeedLevel.Watch(__instance);
+        }
+
+        [MpPrefix(typeof(Dialog_RechargeSettings), nameof(Dialog_RechargeSettings.DoWindowContents))]
+        static void WatchRechargeSettings(Dialog_RechargeSettings __instance)
+        {
+            SyncMechRechargeThresholds.Watch(__instance.controlGroup);
+        }
+
+        [MpPrefix(typeof(PawnColumnWorker_AutoRepair), nameof(PawnColumnWorker_AutoRepair.DoCell))]
+        static void WatchMechAutoRepair(Pawn pawn)
+        {
+            var comp = pawn.GetComp<CompMechRepairable>();
+            if (comp != null)
+                SyncMechAutoRepair.Watch(comp);
         }
     }
 
