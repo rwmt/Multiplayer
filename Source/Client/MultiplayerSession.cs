@@ -38,7 +38,7 @@ namespace Multiplayer.Client
         public GameDataSnapshot dataSnapshot = new();
         public CursorAndPing cursorAndPing = new();
         public int autosaveCounter;
-        public float lastSaveAt;
+        public float? lastSaveAt;
         public string desyncTracesFromHost;
 
         public bool replay;

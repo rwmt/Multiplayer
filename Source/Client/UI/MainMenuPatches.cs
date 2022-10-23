@@ -142,8 +142,8 @@ namespace Multiplayer.Client
 
         static string GetServerCloseConfirmation()
         {
-            var seconds = (int)(Time.realtimeSinceStartup - Multiplayer.session.lastSaveAt);
-            if (seconds < 10)
+            float? seconds = Time.realtimeSinceStartup - Multiplayer.session.lastSaveAt;
+            if (seconds is null or < 10)
                 return "MpServerCloseConfirmationNoTime".Translate();
 
             var minutes = seconds / 60;
