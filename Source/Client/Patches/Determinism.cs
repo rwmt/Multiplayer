@@ -262,4 +262,15 @@ namespace Multiplayer.Client.Patches
         }
     }
 
+    // In vanilla WealthWatcher.ResetStaticData depends on Def indices but it runs before they are set
+    // This patch runs it later
+    [HarmonyPatch(typeof(ShortHashGiver), nameof(ShortHashGiver.GiveAllShortHashes))]
+    static class FixWealthWatcherStaticData
+    {
+        static void Prefix()
+        {
+            WealthWatcher.ResetStaticData();
+        }
+    }
+
 }
