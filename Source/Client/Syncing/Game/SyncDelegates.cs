@@ -148,6 +148,7 @@ namespace Multiplayer.Client
             SyncDelegate.Lambda(typeof(Designator_MechControlGroup), nameof(Designator_MechControlGroup.ProcessInput), 1).SetContext(SyncContext.MapSelected); // Assign to group
             SyncDelegate.Lambda(typeof(MechanitorControlGroupGizmo), nameof(MechanitorControlGroupGizmo.GetWorkModeOptions), 1); // Set work mode for group
             SyncDelegate.Lambda(typeof(PawnColumnWorker_ControlGroup), nameof(PawnColumnWorker_ControlGroup.Button_GenerateMenu), 0); // Assign to group
+            SyncDelegate.Lambda(typeof(MainTabWindow_Mechs), nameof(MainTabWindow_Mechs.DoWindowContents), 0); // Change mech color
 
             // Glower
             SyncMethod.Register(typeof(CompGlower), nameof(CompGlower.SetGlowColorInternal)); // Set color gizmo - will send a separate command per selected glower. Could be fixed with a transpiler for Dialog_GlowerColorPicker
