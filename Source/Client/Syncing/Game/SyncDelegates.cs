@@ -145,6 +145,7 @@ namespace Multiplayer.Client
             // Mechanitor
             SyncDelegate.Lambda(typeof(MechanitorUtility), nameof(MechanitorUtility.GetMechGizmos), 1).SetDebugOnly(); // Recruit
             SyncDelegate.Lambda(typeof(MechanitorUtility), nameof(MechanitorUtility.GetMechGizmos), 2).SetDebugOnly(); // Kill
+            SyncMethod.Register(typeof(MechanitorUtility), nameof(MechanitorUtility.ForceDisconnectMechFromOverseer)); // Disconnect from overseer, only called from FloatMenuMakerMap.<>c__DisplayClass10_19.<AddHumanlikeOrders>b__25
             SyncDelegate.Lambda(typeof(Designator_MechControlGroup), nameof(Designator_MechControlGroup.ProcessInput), 1).SetContext(SyncContext.MapSelected); // Assign to group
             SyncDelegate.Lambda(typeof(MechanitorControlGroupGizmo), nameof(MechanitorControlGroupGizmo.GetWorkModeOptions), 1); // Set work mode for group
             SyncDelegate.Lambda(typeof(PawnColumnWorker_ControlGroup), nameof(PawnColumnWorker_ControlGroup.Button_GenerateMenu), 0); // Assign to group
