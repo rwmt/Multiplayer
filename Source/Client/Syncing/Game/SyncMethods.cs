@@ -298,7 +298,6 @@ namespace Multiplayer.Client
 
             // Baby feeding
             SyncMethod.Register(typeof(Pawn_MindState), nameof(Pawn_MindState.SetAutofeeder)); // Called from ITab_Pawn_Feeding.GenerateFloatMenuOption
-            SyncMethod.Register(typeof(Pawn_FoodRestrictionTracker), nameof(Pawn_FoodRestrictionTracker.SetBabyFoodAllowed)); // Called from ITab_Pawn_Feeding.FillTab
         }
 
         [MpPrefix(typeof(PawnColumnWorker_CopyPasteTimetable), nameof(PawnColumnWorker_CopyPasteTimetable.PasteTo))]
