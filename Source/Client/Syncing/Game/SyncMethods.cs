@@ -295,6 +295,10 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(Gene_Deathrest), nameof(Gene_Deathrest.Wake));
             SyncMethod.Lambda(typeof(Gene_Deathrest), nameof(Gene_Deathrest.GetGizmos), 2); // Auto wake
             SyncMethod.Lambda(typeof(Gene_Deathrest), nameof(Gene_Deathrest.GetGizmos), 3).SetDebugOnly(); // Wake and apply bonuses
+
+            // Baby feeding
+            SyncMethod.Register(typeof(Pawn_MindState), nameof(Pawn_MindState.SetAutofeeder)); // Called from ITab_Pawn_Feeding.GenerateFloatMenuOption
+            SyncMethod.Register(typeof(Pawn_FoodRestrictionTracker), nameof(Pawn_FoodRestrictionTracker.SetBabyFoodAllowed)); // Called from ITab_Pawn_Feeding.FillTab
         }
 
         [MpPrefix(typeof(PawnColumnWorker_CopyPasteTimetable), nameof(PawnColumnWorker_CopyPasteTimetable.PasteTo))]
@@ -449,6 +453,31 @@ namespace Multiplayer.Client
                 ideo.style.ideo = ideo;
             }
         }
+
+        // Syncing the method directly would end up trying to sync it every single tick, as the method is called for every single ThingDef.
+        // This will only call the synced method only if there is any need for it in the first place.
+        [MpPrefix(typeof(Pawn_FoodRestrictionTracker), nameof(Pawn_FoodRestrictionTracker.SetBabyFoodAllowed))]
+        static bool PreSetBabyFoodAllowed(Pawn_FoodRestrictionTracker __instance, ThingDef food, bool allowed)
+        {
+            // Let the method run normally if not in MP or executing commands
+            if (Multiplayer.Client == null || Multiplayer.ExecutingCmds)
+                return true;
+
+            // Ignore if def is not a baby food, as there's no point to let the method run
+            if (!ITab_Pawn_Feeding.BabyConsumableFoods.Contains(food))
+                return false;
+
+            // Sync the call if the method would do anything: allowed baby foods not set up, the def is not in the dictionary, or the value is changed
+            if (__instance.allowedBabyFoodTypes == null || !__instance.allowedBabyFoodTypes.TryGetValue(food, out var current) || current != allowed)
+                SyncedSetBabyFoodAllowed(__instance, food, allowed);
+
+            // Don't let the method run, as we'll call it through synced method - also ignore setting the value if it wasn't changed at all
+            return false;
+        }
+
+        [SyncMethod]
+        static void SyncedSetBabyFoodAllowed(Pawn_FoodRestrictionTracker tracker, ThingDef food, bool allowed)
+            => tracker.SetBabyFoodAllowed(food, allowed);
     }
 
 }
