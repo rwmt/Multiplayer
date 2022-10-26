@@ -31,17 +31,31 @@ namespace Multiplayer.Client.Patches
     static class CloseDialogsForExpiredLetters
     {
         public static Dictionary<Type, FastInvokeHandler> rejectMethods = new();
+        internal static FastInvokeHandler choseBabyColonist;
+        internal static FastInvokeHandler choseBabySlave;
 
         static bool Prefix(ChoiceLetter __instance)
         {
             // The letter is about to be force-shown by LetterStack.LetterStackTick because of expiry
             if (Multiplayer.Ticking
                 && __instance.TimeoutActive
-                && __instance.disappearAtTick == Find.TickManager.TicksGame + 1
-                && rejectMethods.TryGetValue(__instance.GetType(), out var method))
+                && __instance.disappearAtTick == Find.TickManager.TicksGame + 1)
             {
-                method.Invoke(__instance);
-                return false;
+                if (rejectMethods.TryGetValue(__instance.GetType(), out var method))
+                {
+                    method.Invoke(__instance);
+                    return false;
+                }
+                // Special case - no predefined reject option. Keep the current state (as either colonist or slave)
+                if (__instance is ChoiceLetter_BabyToChild babyToChild)
+                {
+                    if (babyToChild.bornSlave)
+                        choseBabySlave.Invoke(babyToChild);
+                    else
+                        choseBabyColonist.Invoke(babyToChild);
+
+                    return false;
+                }
             }
 
             return true;

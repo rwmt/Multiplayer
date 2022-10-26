@@ -255,6 +255,10 @@ namespace Multiplayer.Client
             CloseDialogsForExpiredLetters.rejectMethods[typeof(ChoiceLetter_RansomDemand)] =
                 SyncMethod.LambdaInGetter(typeof(ChoiceLetter), nameof(ChoiceLetter.Option_Reject), 0)
                     .methodDelegate; // Generic reject (currently only used by ransom demand)
+
+            // Special case - we could decide to treat making the baby as a colonist the default option, however I've added code to keep the current state
+            CloseDialogsForExpiredLetters.choseBabyColonist = SyncMethod.Register(typeof(ChoiceLetter_BabyToChild), nameof(ChoiceLetter_BabyToChild.ChoseColonist)).methodDelegate;
+            CloseDialogsForExpiredLetters.choseBabySlave = SyncMethod.Register(typeof(ChoiceLetter_BabyToChild), nameof(ChoiceLetter_BabyToChild.ChoseSlave)).methodDelegate;
         }
 
         [MpPrefix(typeof(FormCaravanComp), nameof(FormCaravanComp.GetGizmos), lambdaOrdinal: 0)]
