@@ -352,6 +352,54 @@ namespace Multiplayer.Client
             HealthCardUtility.CreateSurgeryBill(pawn, RecipeDefOf.ImplantEmbryo, null, new List<Thing> { embryo });
             embryo.implantTarget = pawn;
         }
+
+        // Simply syncing SetPregnancyApproach method, or the delegate that calls it, would cause issues
+        // as the pawn we'll need to sync may be on a different map (causing map mismatch error) or not be spawned
+        // (causing an error about them being inaccessible).
+        [MpTranspiler(typeof(SocialCardUtility), nameof(SocialCardUtility.DrawPregnancyApproach), 0)]
+        static IEnumerable<CodeInstruction> SocialCardSetPregnancyApproachTranspiler(IEnumerable<CodeInstruction> insts)
+        {
+            var target = AccessTools.Method(typeof(Pawn_RelationsTracker), nameof(Pawn_RelationsTracker.SetPregnancyApproach));
+            var replacement = AccessTools.Method(typeof(SyncDelegates), nameof(ReplacedSetPregnancyApproach));
+
+            foreach (var ci in insts)
+            {
+                if (ci.opcode == OpCodes.Callvirt && ci.operand is MethodInfo method && method == target)
+                {
+                    ci.opcode = OpCodes.Call;
+                    ci.operand = replacement;
+                }
+
+                yield return ci;
+            }
+        }
+
+        static void ReplacedSetPregnancyApproach(Pawn_RelationsTracker tracker, Pawn partner, PregnancyApproach mode)
+        {
+            if (Multiplayer.Client == null)
+            {
+                tracker.SetPregnancyApproach(partner, mode);
+                return;
+            }
+
+            // Work around pawn being potentially inaccessible/on a different map by getting the index of the direct relation to the pawn
+            for (var index = 0; index < tracker.DirectRelations.Count; index++)
+            {
+                var relation = tracker.DirectRelations[index];
+
+                if (relation.otherPawn == partner)
+                {
+                    SyncedSetPregnancyApproach(tracker.pawn, index, mode);
+                    return;
+                }
+            }
+
+            Log.Error($"Failed syncing {nameof(Pawn_RelationsTracker.SetPregnancyApproach)} for {tracker.pawn} and {partner}, no direct pawn relations found");
+        }
+
+        [SyncMethod]
+        static void SyncedSetPregnancyApproach(Pawn target, int index, PregnancyApproach mode)
+            => target.relations.SetPregnancyApproach(target.relations.DirectRelations[index].otherPawn, mode);
     }
 
 }
