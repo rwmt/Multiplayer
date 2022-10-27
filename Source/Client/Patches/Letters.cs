@@ -30,32 +30,37 @@ namespace Multiplayer.Client.Patches
     [HarmonyPatch(typeof(ChoiceLetter), nameof(ChoiceLetter.OpenLetter))]
     static class CloseDialogsForExpiredLetters
     {
-        public static Dictionary<Type, FastInvokeHandler> rejectMethods = new();
-        internal static FastInvokeHandler choseBabyColonist;
-        internal static FastInvokeHandler choseBabySlave;
+        public static Dictionary<Type, (MethodInfo method, FastInvokeHandler handler)> defaultChoices = new();
+
+        public static void RegisterMethod(MethodInfo method, Type dialogType = null)
+        {
+            if (method == null)
+                return;
+            if (dialogType == null)
+            {
+                if (method.DeclaringType == null)
+                    return;
+                dialogType = method.DeclaringType;
+            }
+
+            var handler = MethodInvoker.GetHandler(method);
+            defaultChoices[dialogType] = (method, handler);
+        }
 
         static bool Prefix(ChoiceLetter __instance)
         {
             // The letter is about to be force-shown by LetterStack.LetterStackTick because of expiry
             if (Multiplayer.Ticking
                 && __instance.TimeoutActive
-                && __instance.disappearAtTick == Find.TickManager.TicksGame + 1)
+                && __instance.disappearAtTick == Find.TickManager.TicksGame + 1
+                && defaultChoices.TryGetValue(__instance.GetType(), out var tuple))
             {
-                if (rejectMethods.TryGetValue(__instance.GetType(), out var method))
-                {
-                    method.Invoke(__instance);
-                    return false;
-                }
-                // Special case - no predefined reject option. Keep the current state (as either colonist or slave)
-                if (__instance is ChoiceLetter_BabyToChild babyToChild)
-                {
-                    if (babyToChild.bornSlave)
-                        choseBabySlave.Invoke(babyToChild);
-                    else
-                        choseBabyColonist.Invoke(babyToChild);
+                if (tuple.method.IsStatic)
+                    tuple.handler(null, __instance);
+                else
+                    tuple.handler(__instance);
 
-                    return false;
-                }
+                return false;
             }
 
             return true;

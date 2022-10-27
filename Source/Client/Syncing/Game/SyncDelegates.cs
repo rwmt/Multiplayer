@@ -242,23 +242,33 @@ namespace Multiplayer.Client
             SyncDelegate.Lambda(typeof(ChoiceLetter_ChoosePawn), nameof(ChoiceLetter_ChoosePawn.Option_ChoosePawn), 0); // Choose pawn (currently used for quest rewards)
 
             SyncMethod.LambdaInGetter(typeof(ChoiceLetter_AcceptJoiner), nameof(ChoiceLetter_AcceptJoiner.Choices), 0); // Accept joiner
-            CloseDialogsForExpiredLetters.rejectMethods[typeof(ChoiceLetter_AcceptJoiner)] =
+            CloseDialogsForExpiredLetters.RegisterMethod(
                 SyncMethod.LambdaInGetter(typeof(ChoiceLetter_AcceptJoiner), nameof(ChoiceLetter_AcceptJoiner.Choices), 1)
-                    .methodDelegate; // Reject joiner
+                    .method); // Reject joiner
 
             SyncMethod.LambdaInGetter(typeof(ChoiceLetter_AcceptVisitors), nameof(ChoiceLetter_AcceptVisitors.Option_Accept), 0); // Accept visitors join offer
-            CloseDialogsForExpiredLetters.rejectMethods[typeof(ChoiceLetter_AcceptVisitors)] =
+            CloseDialogsForExpiredLetters.RegisterMethod(
                 SyncMethod.LambdaInGetter(typeof(ChoiceLetter_AcceptVisitors), nameof(ChoiceLetter_AcceptVisitors.Option_RejectWithCharityConfirmation), 1)
-                    .methodDelegate; // Reject visitors join offer
+                    .method); // Reject visitors join offer
 
             SyncMethod.LambdaInGetter(typeof(ChoiceLetter_RansomDemand), nameof(ChoiceLetter_RansomDemand.Choices), 0); // Accept ransom demand
-            CloseDialogsForExpiredLetters.rejectMethods[typeof(ChoiceLetter_RansomDemand)] =
+            CloseDialogsForExpiredLetters.RegisterMethod(
                 SyncMethod.LambdaInGetter(typeof(ChoiceLetter), nameof(ChoiceLetter.Option_Reject), 0)
-                    .methodDelegate; // Generic reject (currently only used by ransom demand)
+                    .method); // Generic reject (currently only used by ransom demand)
 
             // Special case - we could decide to treat making the baby as a colonist the default option, however I've added code to keep the current state
-            CloseDialogsForExpiredLetters.choseBabyColonist = SyncMethod.Register(typeof(ChoiceLetter_BabyToChild), nameof(ChoiceLetter_BabyToChild.ChoseColonist)).methodDelegate;
-            CloseDialogsForExpiredLetters.choseBabySlave = SyncMethod.Register(typeof(ChoiceLetter_BabyToChild), nameof(ChoiceLetter_BabyToChild.ChoseSlave)).methodDelegate;
+            CloseDialogsForExpiredLetters.RegisterMethod(AccessTools.Method(typeof(SyncDelegates), nameof(SyncBabyToChildLetter)), typeof(ChoiceLetter_BabyToChild));
+            SyncMethod.Register(typeof(ChoiceLetter_BabyToChild), nameof(ChoiceLetter_BabyToChild.ChoseColonist));
+            SyncMethod.Register(typeof(ChoiceLetter_BabyToChild), nameof(ChoiceLetter_BabyToChild.ChoseSlave));
+        }
+
+        [SyncMethod]
+        static void SyncBabyToChildLetter(ChoiceLetter_BabyToChild letter)
+        {
+            if (letter.bornSlave)
+                letter.ChoseSlave();
+            else
+                letter.ChoseColonist();
         }
 
         [MpPrefix(typeof(FormCaravanComp), nameof(FormCaravanComp.GetGizmos), lambdaOrdinal: 0)]
