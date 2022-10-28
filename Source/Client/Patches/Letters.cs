@@ -79,4 +79,20 @@ namespace Multiplayer.Client.Patches
                 }) + window.innerWindowOnGUICached;
         }
     }
+
+    // ChoiceLetter_BabyBirth and ChoiceLetter_BabyToChild can be dismissed with right-click, which causes issues in MP if some of the players do it
+    [HarmonyPatch(typeof(Letter), nameof(Letter.CanDismissWithRightClick), MethodType.Getter)]
+    static class DontDismissBabyLetters
+    {
+        static bool Prefix(Letter __instance, ref bool __result)
+        {
+            if (__instance is ChoiceLetter_BabyBirth or ChoiceLetter_BabyToChild)
+            {
+                __result = false;
+                return false;
+            }
+
+            return true;
+        }
+    }
 }

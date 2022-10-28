@@ -260,15 +260,58 @@ namespace Multiplayer.Client
             CloseDialogsForExpiredLetters.RegisterMethod(AccessTools.Method(typeof(SyncDelegates), nameof(SyncBabyToChildLetter)), typeof(ChoiceLetter_BabyToChild));
             SyncMethod.Register(typeof(ChoiceLetter_BabyToChild), nameof(ChoiceLetter_BabyToChild.ChoseColonist));
             SyncMethod.Register(typeof(ChoiceLetter_BabyToChild), nameof(ChoiceLetter_BabyToChild.ChoseSlave));
+
+            // Naming the baby - use default name generation for them
+            CloseDialogsForExpiredLetters.RegisterMethod(AccessTools.Method(typeof(SyncDelegates), nameof(SyncBabyName)), typeof(ChoiceLetter_BabyBirth));
         }
 
-        [SyncMethod]
         static void SyncBabyToChildLetter(ChoiceLetter_BabyToChild letter)
         {
             if (letter.bornSlave)
                 letter.ChoseSlave();
             else
                 letter.ChoseColonist();
+        }
+
+        static void SyncBabyName(ChoiceLetter_BabyBirth letter)
+        {
+            var pawn = letter.pawn;
+
+            if (pawn.Name is not NameTriple name || name.First != "Baby".Translate().CapitalizeFirst())
+                return;
+
+            // Basically a copy using the rename option from the letter, except that instead of opening the dialog we just apply the auto-generated name
+            Rand.PushState();
+            Name nameOverride;
+            try
+            {
+                Rand.Seed = pawn.thingIDNumber;
+                nameOverride = PawnBioAndNameGenerator.GeneratePawnName(pawn, NameStyle.Full, xenotype: pawn.genes?.Xenotype);
+            }
+            finally
+            {
+                Rand.PopState();
+            }
+
+            // Includes parent names for name consideration
+            var dialog = PawnNamingUtility.NamePawnDialog(pawn, nameOverride is NameTriple tripleOverride ? tripleOverride.First : ((NameSingle)nameOverride).Name);
+            var generatedName = dialog.BuildName();
+            pawn.Name = generatedName;
+            pawn.story.Title ??= dialog.CurPawnTitle;
+            pawn.babyNamingDeadline = -1;
+
+            var message = (generatedName is NameTriple generatedTriple)
+                ? "PawnGainsName".Translate(generatedTriple.Nick, pawn.story.Title, pawn.Named("PAWN")).AdjustedFor(pawn)
+                : "PawnGainsName".Translate(dialog.CurPawnNick, pawn.story.Title, pawn.Named("PAWN")).AdjustedFor(pawn);
+            Messages.Message(message, pawn, MessageTypeDefOf.PositiveEvent, false);
+        }
+
+        // If the baby ended up being stillborn, the timer to name them is 1 tick. This patch is here to allow players in MP to actually change their name.
+        [MpPostfix(typeof(PregnancyUtility), nameof(PregnancyUtility.ApplyBirthOutcome))]
+        static void GiveTimeToNameStillborn(Thing __result)
+        {
+            if (Multiplayer.Client != null && __result is Pawn pawn && pawn.health.hediffSet.HasHediff(HediffDefOf.Stillborn))
+                pawn.babyNamingDeadline = Find.TickManager.TicksGame + 60000;
         }
 
         [MpPrefix(typeof(FormCaravanComp), nameof(FormCaravanComp.GetGizmos), lambdaOrdinal: 0)]
