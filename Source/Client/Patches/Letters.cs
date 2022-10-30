@@ -27,7 +27,7 @@ namespace Multiplayer.Client.Patches
         }
     }
 
-    [HarmonyPatch(typeof(ChoiceLetter), nameof(ChoiceLetter.OpenLetter))]
+    [HarmonyPatch]
     static class CloseDialogsForExpiredLetters
     {
         public static Dictionary<Type, (MethodInfo method, FastInvokeHandler handler)> defaultChoices = new();
@@ -47,7 +47,13 @@ namespace Multiplayer.Client.Patches
             defaultChoices[dialogType] = (method, handler);
         }
 
-        static bool Prefix(ChoiceLetter __instance)
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.DeclaredMethod(typeof(ChoiceLetter), nameof(ChoiceLetter.OpenLetter));
+            yield return AccessTools.DeclaredMethod(typeof(ChoiceLetter_GrowthMoment), nameof(ChoiceLetter_GrowthMoment.OpenLetter)); // Not a subtype of ChoiceLetter, only LetterWithTimeout
+        }
+
+        static bool Prefix(LetterWithTimeout __instance)
         {
             // The letter is about to be force-shown by LetterStack.LetterStackTick because of expiry
             if (Multiplayer.Ticking
@@ -66,7 +72,7 @@ namespace Multiplayer.Client.Patches
             return true;
         }
 
-        static void Postfix(ChoiceLetter __instance)
+        static void Postfix(LetterWithTimeout __instance)
         {
             var wasArchived = __instance.ArchivedOnly;
             var window = Find.WindowStack.WindowOfType<Dialog_NodeTreeWithFactionInfo>();
@@ -94,5 +100,25 @@ namespace Multiplayer.Client.Patches
 
             return true;
         }
+    }
+
+    // The button to apply the choices from growth moment dialog will close the letter right after applying the changes, which puts it into archive.
+    // When reading sync data we check for the letter in the letter stack, and not archive - which fails to read the letter.
+    [HarmonyPatch(typeof(LetterStack), nameof(LetterStack.RemoveLetter))]
+    static class DontRemoveGrowthMomentLetter
+    {
+        static bool Prefix(Letter let) =>
+            Multiplayer.Client == null ||
+            !IsDrawingGrowthMomentDialog.isDrawing;
+    }
+
+    [HarmonyPatch(typeof(Dialog_GrowthMomentChoices), nameof(Dialog_GrowthMomentChoices.DoWindowContents))]
+    static class IsDrawingGrowthMomentDialog
+    {
+        public static bool isDrawing = false;
+
+        static void Prefix() => isDrawing = true;
+
+        static void Postfix() => isDrawing = false;
     }
 }

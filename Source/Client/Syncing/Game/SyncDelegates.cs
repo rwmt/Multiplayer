@@ -262,7 +262,11 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(ChoiceLetter_BabyToChild), nameof(ChoiceLetter_BabyToChild.ChoseSlave));
 
             // Naming the baby - use default name generation for them
-            CloseDialogsForExpiredLetters.RegisterMethod(AccessTools.Method(typeof(SyncDelegates), nameof(SyncBabyName)), typeof(ChoiceLetter_BabyBirth));
+            CloseDialogsForExpiredLetters.RegisterMethod(AccessTools.Method(typeof(SyncDelegates), nameof(SetBabyName)), typeof(ChoiceLetter_BabyBirth));
+
+            // Growth moment for a child
+            CloseDialogsForExpiredLetters.RegisterMethod(AccessTools.Method(typeof(SyncDelegates), nameof(PickRandomTraitAndPassions)), typeof(ChoiceLetter_GrowthMoment));
+            SyncMethod.Register(typeof(ChoiceLetter_GrowthMoment), nameof(ChoiceLetter_GrowthMoment.MakeChoices)).ExposeParameter(1);
         }
 
         static void SyncBabyToChildLetter(ChoiceLetter_BabyToChild letter)
@@ -273,7 +277,7 @@ namespace Multiplayer.Client
                 letter.ChoseColonist();
         }
 
-        static void SyncBabyName(ChoiceLetter_BabyBirth letter)
+        static void SetBabyName(ChoiceLetter_BabyBirth letter)
         {
             var pawn = letter.pawn;
 
@@ -313,6 +317,33 @@ namespace Multiplayer.Client
             if (Multiplayer.Client != null && __result is Pawn pawn && pawn.health.hediffSet.HasHediff(HediffDefOf.Stillborn))
                 pawn.babyNamingDeadline = Find.TickManager.TicksGame + 60000;
         }
+
+        static void PickRandomTraitAndPassions(ChoiceLetter_GrowthMoment letter)
+        {
+            letter.TrySetChoices();
+
+            List<SkillDef> passions = null;
+            Trait trait = null;
+
+            if (letter.passionChoiceCount > 0 && letter.passionChoices != null)
+                passions = letter.passionChoices.InRandomOrder().Take(letter.passionGainsCount).ToList();
+
+            if (letter.traitChoiceCount > 0 && letter.traitChoices != null)
+                trait = letter.traitChoices.RandomElement();
+
+            letter.MakeChoices(passions, trait);
+            // Close the letter, or it may auto-open for all players.
+            Find.LetterStack.RemoveLetter(letter);
+        }
+
+        // The letter tries to generate the options when opened. Make the picks seeded, so all players will get the same ones.
+        [MpPrefix(typeof(ChoiceLetter_GrowthMoment), nameof(ChoiceLetter_GrowthMoment.TrySetChoices))]
+        static void PreLetterChoices(ChoiceLetter_GrowthMoment __instance)
+            => Rand.PushState(Gen.HashCombineInt(__instance.pawn.thingIDNumber, __instance.arrivalTick));
+
+        [MpPostfix(typeof(ChoiceLetter_GrowthMoment), nameof(ChoiceLetter_GrowthMoment.TrySetChoices))]
+        static void PostLetterChoices()
+            => Rand.PopState();
 
         [MpPrefix(typeof(FormCaravanComp), nameof(FormCaravanComp.GetGizmos), lambdaOrdinal: 0)]
         static bool GizmoFormCaravan(MapParent ___mapParent)
