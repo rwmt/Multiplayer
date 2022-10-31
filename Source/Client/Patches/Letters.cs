@@ -27,27 +27,52 @@ namespace Multiplayer.Client.Patches
         }
     }
 
-    [HarmonyPatch(typeof(ChoiceLetter), nameof(ChoiceLetter.OpenLetter))]
+    [HarmonyPatch]
     static class CloseDialogsForExpiredLetters
     {
-        public static Dictionary<Type, FastInvokeHandler> rejectMethods = new();
+        public static Dictionary<Type, (MethodInfo method, FastInvokeHandler handler)> defaultChoices = new();
 
-        static bool Prefix(ChoiceLetter __instance)
+        public static void RegisterMethod(MethodInfo method, Type dialogType = null)
+        {
+            if (method == null)
+                return;
+            if (dialogType == null)
+            {
+                if (method.DeclaringType == null)
+                    return;
+                dialogType = method.DeclaringType;
+            }
+
+            var handler = MethodInvoker.GetHandler(method);
+            defaultChoices[dialogType] = (method, handler);
+        }
+
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.DeclaredMethod(typeof(ChoiceLetter), nameof(ChoiceLetter.OpenLetter));
+            yield return AccessTools.DeclaredMethod(typeof(ChoiceLetter_GrowthMoment), nameof(ChoiceLetter_GrowthMoment.OpenLetter)); // Not a subtype of ChoiceLetter, only LetterWithTimeout
+        }
+
+        static bool Prefix(LetterWithTimeout __instance)
         {
             // The letter is about to be force-shown by LetterStack.LetterStackTick because of expiry
             if (Multiplayer.Ticking
                 && __instance.TimeoutActive
                 && __instance.disappearAtTick == Find.TickManager.TicksGame + 1
-                && rejectMethods.TryGetValue(__instance.GetType(), out var method))
+                && defaultChoices.TryGetValue(__instance.GetType(), out var tuple))
             {
-                method.Invoke(__instance);
+                if (tuple.method.IsStatic)
+                    tuple.handler(null, __instance);
+                else
+                    tuple.handler(__instance);
+
                 return false;
             }
 
             return true;
         }
 
-        static void Postfix(ChoiceLetter __instance)
+        static void Postfix(LetterWithTimeout __instance)
         {
             var wasArchived = __instance.ArchivedOnly;
             var window = Find.WindowStack.WindowOfType<Dialog_NodeTreeWithFactionInfo>();
@@ -59,5 +84,41 @@ namespace Multiplayer.Client.Patches
                         window.Close();
                 }) + window.innerWindowOnGUICached;
         }
+    }
+
+    // ChoiceLetter_BabyBirth and ChoiceLetter_BabyToChild can be dismissed with right-click, which causes issues in MP if some of the players do it
+    [HarmonyPatch(typeof(Letter), nameof(Letter.CanDismissWithRightClick), MethodType.Getter)]
+    static class DontDismissBabyLetters
+    {
+        static bool Prefix(Letter __instance, ref bool __result)
+        {
+            if (__instance is ChoiceLetter_BabyBirth or ChoiceLetter_BabyToChild)
+            {
+                __result = false;
+                return false;
+            }
+
+            return true;
+        }
+    }
+
+    // The button to apply the choices from growth moment dialog will close the letter right after applying the changes, which puts it into archive.
+    // When reading sync data we check for the letter in the letter stack, and not archive - which fails to read the letter.
+    [HarmonyPatch(typeof(LetterStack), nameof(LetterStack.RemoveLetter))]
+    static class DontRemoveGrowthMomentLetter
+    {
+        static bool Prefix(Letter let) =>
+            Multiplayer.Client == null ||
+            !IsDrawingGrowthMomentDialog.isDrawing;
+    }
+
+    [HarmonyPatch(typeof(Dialog_GrowthMomentChoices), nameof(Dialog_GrowthMomentChoices.DoWindowContents))]
+    static class IsDrawingGrowthMomentDialog
+    {
+        public static bool isDrawing = false;
+
+        static void Prefix() => isDrawing = true;
+
+        static void Postfix() => isDrawing = false;
     }
 }

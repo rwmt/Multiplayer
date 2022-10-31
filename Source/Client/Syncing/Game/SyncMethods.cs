@@ -26,7 +26,8 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(Pawn_FoodRestrictionTracker), nameof(Pawn_FoodRestrictionTracker.CurrentFoodRestriction)).CancelIfAnyArgNull();
             SyncMethod.Register(typeof(Pawn_PlayerSettings), nameof(Pawn_PlayerSettings.AreaRestriction));
             SyncMethod.Register(typeof(Pawn_PlayerSettings), nameof(Pawn_PlayerSettings.Master));
-            SyncMethod.Register(typeof(Pawn), nameof(Pawn.Name)).ExposeParameter(0);
+            SyncMethod.Register(typeof(Pawn), nameof(Pawn.Name)).ExposeParameter(0)
+                .SetPostInvoke((pawn, _) => ((Pawn)pawn).babyNamingDeadline = -1); // If a newborn was named then mark it as no longer needing to be named
             SyncMethod.Register(typeof(StorageSettings), nameof(StorageSettings.Priority));
             SyncMethod.Register(typeof(CompForbiddable), nameof(CompForbiddable.Forbidden));
 

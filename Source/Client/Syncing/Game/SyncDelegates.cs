@@ -242,20 +242,108 @@ namespace Multiplayer.Client
             SyncDelegate.Lambda(typeof(ChoiceLetter_ChoosePawn), nameof(ChoiceLetter_ChoosePawn.Option_ChoosePawn), 0); // Choose pawn (currently used for quest rewards)
 
             SyncMethod.LambdaInGetter(typeof(ChoiceLetter_AcceptJoiner), nameof(ChoiceLetter_AcceptJoiner.Choices), 0); // Accept joiner
-            CloseDialogsForExpiredLetters.rejectMethods[typeof(ChoiceLetter_AcceptJoiner)] =
+            CloseDialogsForExpiredLetters.RegisterMethod(
                 SyncMethod.LambdaInGetter(typeof(ChoiceLetter_AcceptJoiner), nameof(ChoiceLetter_AcceptJoiner.Choices), 1)
-                    .methodDelegate; // Reject joiner
+                    .method); // Reject joiner
 
             SyncMethod.LambdaInGetter(typeof(ChoiceLetter_AcceptVisitors), nameof(ChoiceLetter_AcceptVisitors.Option_Accept), 0); // Accept visitors join offer
-            CloseDialogsForExpiredLetters.rejectMethods[typeof(ChoiceLetter_AcceptVisitors)] =
+            CloseDialogsForExpiredLetters.RegisterMethod(
                 SyncMethod.LambdaInGetter(typeof(ChoiceLetter_AcceptVisitors), nameof(ChoiceLetter_AcceptVisitors.Option_RejectWithCharityConfirmation), 1)
-                    .methodDelegate; // Reject visitors join offer
+                    .method); // Reject visitors join offer
 
             SyncMethod.LambdaInGetter(typeof(ChoiceLetter_RansomDemand), nameof(ChoiceLetter_RansomDemand.Choices), 0); // Accept ransom demand
-            CloseDialogsForExpiredLetters.rejectMethods[typeof(ChoiceLetter_RansomDemand)] =
+            CloseDialogsForExpiredLetters.RegisterMethod(
                 SyncMethod.LambdaInGetter(typeof(ChoiceLetter), nameof(ChoiceLetter.Option_Reject), 0)
-                    .methodDelegate; // Generic reject (currently only used by ransom demand)
+                    .method); // Generic reject (currently only used by ransom demand)
+
+            // Special case - we could decide to treat making the baby as a colonist the default option, however I've added code to keep the current state
+            CloseDialogsForExpiredLetters.RegisterMethod(AccessTools.Method(typeof(SyncDelegates), nameof(SyncBabyToChildLetter)), typeof(ChoiceLetter_BabyToChild));
+            SyncMethod.Register(typeof(ChoiceLetter_BabyToChild), nameof(ChoiceLetter_BabyToChild.ChoseColonist));
+            SyncMethod.Register(typeof(ChoiceLetter_BabyToChild), nameof(ChoiceLetter_BabyToChild.ChoseSlave));
+
+            // Naming the baby - use default name generation for them
+            CloseDialogsForExpiredLetters.RegisterMethod(AccessTools.Method(typeof(SyncDelegates), nameof(SetBabyName)), typeof(ChoiceLetter_BabyBirth));
+
+            // Growth moment for a child
+            CloseDialogsForExpiredLetters.RegisterMethod(AccessTools.Method(typeof(SyncDelegates), nameof(PickRandomTraitAndPassions)), typeof(ChoiceLetter_GrowthMoment));
+            SyncMethod.Register(typeof(ChoiceLetter_GrowthMoment), nameof(ChoiceLetter_GrowthMoment.MakeChoices)).ExposeParameter(1);
         }
+
+        static void SyncBabyToChildLetter(ChoiceLetter_BabyToChild letter)
+        {
+            if (letter.bornSlave)
+                letter.ChoseSlave();
+            else
+                letter.ChoseColonist();
+        }
+
+        static void SetBabyName(ChoiceLetter_BabyBirth letter)
+        {
+            var pawn = letter.pawn;
+
+            if (pawn.Name is not NameTriple name || name.First != "Baby".Translate().CapitalizeFirst())
+                return;
+
+            // Basically a copy using the rename option from the letter, except that instead of opening the dialog we just apply the auto-generated name
+            Rand.PushState();
+            Name nameOverride;
+            try
+            {
+                Rand.Seed = pawn.thingIDNumber;
+                nameOverride = PawnBioAndNameGenerator.GeneratePawnName(pawn, NameStyle.Full, xenotype: pawn.genes?.Xenotype);
+            }
+            finally
+            {
+                Rand.PopState();
+            }
+
+            // Includes parent names for name consideration
+            var dialog = PawnNamingUtility.NamePawnDialog(pawn, nameOverride is NameTriple tripleOverride ? tripleOverride.First : ((NameSingle)nameOverride).Name);
+            var generatedName = dialog.BuildName();
+            pawn.Name = generatedName;
+            pawn.story.Title ??= dialog.CurPawnTitle;
+            pawn.babyNamingDeadline = -1;
+
+            var message = (generatedName is NameTriple generatedTriple)
+                ? "PawnGainsName".Translate(generatedTriple.Nick, pawn.story.Title, pawn.Named("PAWN")).AdjustedFor(pawn)
+                : "PawnGainsName".Translate(dialog.CurPawnNick, pawn.story.Title, pawn.Named("PAWN")).AdjustedFor(pawn);
+            Messages.Message(message, pawn, MessageTypeDefOf.PositiveEvent, false);
+        }
+
+        // If the baby ended up being stillborn, the timer to name them is 1 tick. This patch is here to allow players in MP to actually change their name.
+        [MpPostfix(typeof(PregnancyUtility), nameof(PregnancyUtility.ApplyBirthOutcome))]
+        static void GiveTimeToNameStillborn(Thing __result)
+        {
+            if (Multiplayer.Client != null && __result is Pawn pawn && pawn.health.hediffSet.HasHediff(HediffDefOf.Stillborn))
+                pawn.babyNamingDeadline = Find.TickManager.TicksGame + 60000;
+        }
+
+        static void PickRandomTraitAndPassions(ChoiceLetter_GrowthMoment letter)
+        {
+            letter.TrySetChoices();
+
+            List<SkillDef> passions = null;
+            Trait trait = null;
+
+            if (letter.passionChoiceCount > 0 && letter.passionChoices != null)
+                passions = letter.passionChoices.InRandomOrder().Take(letter.passionGainsCount).ToList();
+
+            if (letter.traitChoiceCount > 0 && letter.traitChoices != null)
+                trait = letter.traitChoices.RandomElement();
+
+            letter.MakeChoices(passions, trait);
+            // Close the letter, or it may auto-open for all players.
+            Find.LetterStack.RemoveLetter(letter);
+        }
+
+        // The letter tries to generate the options when opened. Make the picks seeded, so all players will get the same ones.
+        [MpPrefix(typeof(ChoiceLetter_GrowthMoment), nameof(ChoiceLetter_GrowthMoment.TrySetChoices))]
+        static void PreLetterChoices(ChoiceLetter_GrowthMoment __instance)
+            => Rand.PushState(Gen.HashCombineInt(__instance.pawn.thingIDNumber, __instance.arrivalTick));
+
+        [MpPostfix(typeof(ChoiceLetter_GrowthMoment), nameof(ChoiceLetter_GrowthMoment.TrySetChoices))]
+        static void PostLetterChoices()
+            => Rand.PopState();
 
         [MpPrefix(typeof(FormCaravanComp), nameof(FormCaravanComp.GetGizmos), lambdaOrdinal: 0)]
         static bool GizmoFormCaravan(MapParent ___mapParent)
