@@ -32,19 +32,19 @@ namespace Multiplayer.Client.Patches
     {
         public static Dictionary<Type, (MethodInfo method, FastInvokeHandler handler)> defaultChoices = new();
 
-        public static void RegisterMethod(MethodInfo method, Type dialogType = null)
+        public static void RegisterDefaultLetterChoice(MethodInfo method, Type letterType = null)
         {
             if (method == null)
                 return;
-            if (dialogType == null)
+            if (letterType == null)
             {
                 if (method.DeclaringType == null)
                     return;
-                dialogType = method.DeclaringType;
+                letterType = method.DeclaringType;
             }
 
             var handler = MethodInvoker.GetHandler(method);
-            defaultChoices[dialogType] = (method, handler);
+            defaultChoices[letterType] = (method, handler);
         }
 
         static IEnumerable<MethodBase> TargetMethods()
