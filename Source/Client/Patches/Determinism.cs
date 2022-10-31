@@ -274,4 +274,35 @@ namespace Multiplayer.Client.Patches
         }
     }
 
+    // The list of haulables can be in different order for each player, which can cause desyncs with hauling jobs.
+    // JobGiver_Haul.TryGiveJob passes that value (along with a validator) to GenClosest.ClosestThing_Global_Reachable.
+    // Inside of GenClosest method goes through all of the haulables on the map and calls the validator - but only if
+    // the current thing is closer than the last one. Because of this, the validator will be called inconsistent number
+    // of times between the players, and it so happens that the validator can contain RNG in there. In the most edge case
+    // the first player will check the closest thing first and use validator on that one, skipping the rest - while the
+    // other starts with furthest thing and each following one is closer, causing the validator call on each one of them.
+    // I believe this could also end up with situations where 2 things could end up being picked because they fit the same
+    // criteria, but ended up being picked in a different order and the other one discarded as it wasn't a better pick, only equal.
+    [HarmonyPatch(typeof(ListerHaulables), nameof(ListerHaulables.ThingsPotentiallyNeedingHauling))]
+    static class SortThingsPotentiallyNeedingHauling
+    {
+        static void Prefix(ListerHaulables __instance)
+        {
+            __instance.haulables.Sort(ThingIdComparer.Instance);
+        }
+
+        private class ThingIdComparer : IComparer<Thing>
+        {
+            public static ThingIdComparer Instance { get; } = new();
+
+            public int Compare(Thing x, Thing y)
+            {
+                if (ReferenceEquals(x, y)) return 0;
+                if (ReferenceEquals(null, y)) return 1;
+                if (ReferenceEquals(null, x)) return -1;
+                return x.thingIDNumber.CompareTo(y.thingIDNumber);
+            }
+        }
+    }
+
 }
