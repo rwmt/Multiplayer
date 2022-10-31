@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.Text;
 using System.Threading.Tasks;
+using RimWorld.Planet;
 using UnityEngine;
 using Verse;
 using Verse.Sound;
@@ -107,7 +108,10 @@ namespace Multiplayer.Client.Patches
             Multiplayer.ExecutingCmds &&
             !TickPatch.currentExecutingCmdIssuedBySelf;
 
-        static bool Prefix() => !Cancel;
+        static bool Prefix()
+        {
+            return !Cancel;
+        }
     }
 
     [HarmonyPatch(typeof(Thing), nameof(Thing.DeSpawn))]
@@ -143,6 +147,30 @@ namespace Multiplayer.Client.Patches
         static bool Prefix() =>
             Multiplayer.Client == null ||
             TickPatch.currentExecutingCmdIssuedBySelf;
+    }
+
+    [HarmonyPatch]
+    static class NoCameraJumpingDuringSimulating
+    {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(CameraJumper), nameof(CameraJumper.TrySelect));
+            yield return AccessTools.Method(typeof(CameraJumper), nameof(CameraJumper.TryJumpAndSelect));
+            yield return AccessTools.Method(typeof(CameraJumper), nameof(CameraJumper.TryJump), new[] {typeof(GlobalTargetInfo), typeof(CameraJumper.MovementMode)});
+        }
+        static bool Prefix() => !TickPatch.Simulating;
+    }
+
+    [HarmonyPatch(typeof(Selector), nameof(Selector.Deselect))]
+    static class SelectorDeselectPatch
+    {
+        public static List<object> deselected;
+
+        static void Prefix(object obj)
+        {
+            if (deselected != null)
+                deselected.Add(obj);
+        }
     }
 
 }

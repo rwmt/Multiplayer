@@ -11,7 +11,7 @@ namespace Multiplayer.Client
 
         float RealTimeToTickThrough { get; set; }
 
-        TimeSpeed TimeSpeed { get; }
+        TimeSpeed TimeSpeed { get; set; }
 
         Queue<ScheduledCommand> Cmds { get; }
 

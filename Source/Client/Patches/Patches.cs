@@ -413,30 +413,6 @@ namespace Multiplayer.Client
         static bool Prefix() => Multiplayer.Client == null;
     }
 
-    [HarmonyPatch]
-    static class NoCameraJumpingDuringSimulating
-    {
-        static IEnumerable<MethodBase> TargetMethods()
-        {
-            yield return AccessTools.Method(typeof(CameraJumper), nameof(CameraJumper.TrySelect));
-            yield return AccessTools.Method(typeof(CameraJumper), nameof(CameraJumper.TryJumpAndSelect));
-            yield return AccessTools.Method(typeof(CameraJumper), nameof(CameraJumper.TryJump), new[] {typeof(GlobalTargetInfo), typeof(CameraJumper.MovementMode)});
-        }
-        static bool Prefix() => !TickPatch.Simulating;
-    }
-
-    [HarmonyPatch(typeof(Selector), nameof(Selector.Deselect))]
-    static class SelectorDeselectPatch
-    {
-        public static List<object> deselected;
-
-        static void Prefix(object obj)
-        {
-            if (deselected != null)
-                deselected.Add(obj);
-        }
-    }
-
     [HarmonyPatch(typeof(DirectXmlSaver), nameof(DirectXmlSaver.XElementFromObject), typeof(object), typeof(Type), typeof(string), typeof(FieldInfo), typeof(bool))]
     static class ExtendDirectXmlSaver
     {

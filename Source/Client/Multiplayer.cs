@@ -292,6 +292,12 @@ namespace Multiplayer.Client
             }
         }
 
+        public static void StopMultiplayerAndClearAllWindows()
+        {
+            StopMultiplayer();
+            MpUI.ClearWindowStack();
+        }
+
         public static void StopMultiplayer()
         {
             Log.Message($"Stopping multiplayer session from {new StackTrace().GetFrame(1).GetMethod().FullDescription()}");

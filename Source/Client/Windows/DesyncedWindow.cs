@@ -58,7 +58,7 @@ namespace Multiplayer.Client
             x += 120 + 10;
 
             if (Widgets.ButtonText(new Rect(x, 0, 120, 35), "Save".Translate()))
-                Find.WindowStack.Add(new Dialog_SaveGame());
+                Find.WindowStack.Add(new SaveGameWindow(Multiplayer.session.gameName));
             x += 120 + 10;
 
             if (Widgets.ButtonText(new Rect(x, 0, 120, 35), "MpChatButton".Translate()))

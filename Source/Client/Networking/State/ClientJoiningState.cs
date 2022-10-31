@@ -25,7 +25,6 @@ namespace Multiplayer.Client
 
         public ClientJoiningState(ConnectionBase connection) : base(connection)
         {
-
         }
 
         public override void StartState()
@@ -37,7 +36,20 @@ namespace Multiplayer.Client
         [PacketHandler(Packets.Server_ProtocolOk)]
         public void HandleProtocolOk(ByteReader data)
         {
-            connection.Send(Packets.Client_Username, Multiplayer.username);
+            bool hasPassword = data.ReadBool();
+
+            if (hasPassword)
+            {
+                // Delay showing the window for better UX
+                OnMainThread.Schedule(() => Find.WindowStack.Add(new GamePasswordWindow
+                {
+                    returnToServerBrowser = Find.WindowStack.WindowOfType<BaseConnectingWindow>().returnToServerBrowser
+                }), 0.3f);
+            }
+            else
+            {
+                connection.Send(Packets.Client_Username, Multiplayer.username);
+            }
         }
 
         [PacketHandler(Packets.Server_UsernameOk)]
@@ -87,6 +99,7 @@ namespace Multiplayer.Client
 
             JoinData.ReadServerData(data.ReadPrefixedBytes(), remoteInfo);
 
+            // Delay showing the window for better UX
             OnMainThread.Schedule(Complete, 0.3f);
 
             void Complete()
@@ -98,10 +111,7 @@ namespace Multiplayer.Client
                 }
 
                 if (defDiff)
-                    Multiplayer.StopMultiplayer();
-
-                var connectingWindow = Find.WindowStack.WindowOfType<BaseConnectingWindow>();
-                MpUI.ClearWindowStack();
+                    Multiplayer.StopMultiplayerAndClearAllWindows();
 
                 var defDiffStr = "\n\n" + MultiplayerData.localDefInfos
                     .Where(kv => kv.Value.status != DefCheckStatus.Ok)
@@ -110,11 +120,7 @@ namespace Multiplayer.Client
 
                 Find.WindowStack.Add(new JoinDataWindow(remoteInfo){
                     connectAnywayDisabled = defDiff ? "MpMismatchDefsDiff".Translate() + defDiffStr : null,
-                    connectAnywayCallback = () =>
-                    {
-                        Find.WindowStack.Add(connectingWindow);
-                        StartDownloading();
-                    }
+                    connectAnywayCallback = StartDownloading
                 });
 
                 void StartDownloading()

@@ -21,6 +21,12 @@ namespace Multiplayer.Common
         public bool syncConfigs = true;
         public AutoJoinPointFlags autoJoinPoint = AutoJoinPointFlags.Join | AutoJoinPointFlags.Desync;
         public DevModeScope devModeScope;
+        public bool hasPassword;
+        public string password = "";
+        public PauseOnLetter pauseOnLetter = PauseOnLetter.AnyThreat;
+        public bool pauseOnJoin = true;
+        public bool pauseOnDesync = true;
+        public TimeControl timeControl;
 
         public void ExposeData()
         {
@@ -38,12 +44,19 @@ namespace Multiplayer.Common
             Scribe_Values.Look(ref syncConfigs, "syncConfigs", true);
             Scribe_Values.Look(ref autoJoinPoint, "autoJoinPoint", AutoJoinPointFlags.Join | AutoJoinPointFlags.Desync);
             Scribe_Values.Look(ref devModeScope, "devModeScope");
+            Scribe_Values.Look(ref hasPassword, "hasPassword");
+            Scribe_Values.Look(ref password, "password", "");
+            Scribe_Values.Look(ref pauseOnLetter, "pauseOnLetter", PauseOnLetter.AnyThreat);
+            Scribe_Values.Look(ref pauseOnJoin, "pauseOnJoin", true);
+            Scribe_Values.Look(ref pauseOnDesync, "pauseOnDesync", true);
+            Scribe_Values.Look(ref timeControl, "timeControl");
         }
     }
 
     public enum AutosaveUnit
     {
-        Days, Minutes
+        Days,
+        Minutes
     }
 
     [Flags]
@@ -56,6 +69,21 @@ namespace Multiplayer.Common
 
     public enum DevModeScope
     {
-        HostOnly, Everyone
+        HostOnly,
+        Everyone
+    }
+
+    public enum PauseOnLetter
+    {
+        Never,
+        MajorThreat,
+        AnyThreat,
+        AnyLetter
+    }
+
+    public enum TimeControl
+    {
+        EveryoneControls,
+        LowestWins
     }
 }

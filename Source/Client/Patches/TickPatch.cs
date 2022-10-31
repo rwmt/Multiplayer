@@ -125,7 +125,8 @@ namespace Multiplayer.Client
         {
             if (WorldRendererUtility.WorldRenderedNow)
                 return Multiplayer.WorldComp;
-            else if (Find.CurrentMap != null)
+
+            if (Find.CurrentMap != null)
                 return Find.CurrentMap.AsyncTime();
 
             return null;

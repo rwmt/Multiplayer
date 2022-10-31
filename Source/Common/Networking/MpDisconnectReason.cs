@@ -17,7 +17,8 @@
         ConnectingFailed,
         ServerPacketRead,
         Internal,
-        ServerStarting
+        ServerStarting,
+        BadGamePassword
     }
 
 }

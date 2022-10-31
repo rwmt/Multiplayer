@@ -79,11 +79,12 @@ namespace Multiplayer.Common
             if (player.hasJoined)
             {
                 // todo check player.IsPlaying?
-                if (Players.All(p => p.FactionId != player.FactionId))
-                {
-                    byte[] data = ByteWriter.GetBytes(player.FactionId);
-                    server.commands.Send(CommandType.FactionOffline, ScheduledCommand.NoFaction, ScheduledCommand.Global, data);
-                }
+                // todo FactionId might throw when called for not fully initialized players
+                // if (Players.All(p => p.FactionId != player.FactionId))
+                // {
+                //     byte[] data = ByteWriter.GetBytes(player.FactionId);
+                //     server.commands.Send(CommandType.FactionOffline, ScheduledCommand.NoFaction, ScheduledCommand.Global, data);
+                // }
 
                 server.SendNotification("MpPlayerDisconnected", conn.username);
                 server.SendChat($"{conn.username} has left.");
@@ -100,6 +101,9 @@ namespace Multiplayer.Common
         {
             player.UpdateStatus(PlayerStatus.Desynced);
             server.HostPlayer.SendPacket(Packets.Server_Traces, new object[] { TracesPacket.Request, tick, diffAt, player.id });
+
+            if (server.settings.pauseOnDesync)
+                server.commands.PauseAll();
 
             if (server.settings.autoJoinPoint.HasFlag(AutoJoinPointFlags.Desync))
                 server.TryStartJoinPointCreation(true);

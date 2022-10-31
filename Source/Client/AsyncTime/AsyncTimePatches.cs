@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Reflection.Emit;
 using System.Text;
 using System.Threading.Tasks;
 using Multiplayer.Client.Util;
@@ -600,6 +601,36 @@ namespace Multiplayer.Client.AsyncTime
                 __state.AsyncTime().PostContext();
                 AsyncTimeComp.tickingMap = null;
             }
+        }
+    }
+
+    [HarmonyPatch(typeof(LetterStack), nameof(LetterStack.ReceiveLetter), typeof(Letter), typeof(string))]
+    static class ReceiveLetterPause
+    {
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+        {
+            foreach (var inst in insts)
+            {
+                if (inst.operand == AccessTools.PropertyGetter(typeof(Prefs), nameof(Prefs.AutomaticPauseMode)))
+                    inst.operand = AccessTools.Method(typeof(ReceiveLetterPause), nameof(AutomaticPauseMode));
+                else if (inst.operand == AccessTools.Method(typeof(TickManager), nameof(TickManager.Pause)))
+                    inst.operand = AccessTools.Method(typeof(ReceiveLetterPause), nameof(PauseOnLetter));
+
+                yield return inst;
+            }
+        }
+
+        static AutomaticPauseMode AutomaticPauseMode()
+        {
+            return (AutomaticPauseMode) Multiplayer.GameComp.pauseOnLetter;
+        }
+
+        static void PauseOnLetter(TickManager manager)
+        {
+            if (Multiplayer.GameComp.asyncTime)
+                ((ITickable) Multiplayer.MapContext.AsyncTime() ?? Multiplayer.WorldComp).TimeSpeed = TimeSpeed.Paused;
+            else
+                Multiplayer.WorldComp.SetTimeEverywhere(TimeSpeed.Paused);
         }
     }
 }

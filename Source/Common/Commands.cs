@@ -4,6 +4,7 @@ namespace Multiplayer.Common
     {
         // Global scope
         WorldTimeSpeed,
+        PauseAll,
         CreateJoinPoint,
         SetupFaction,
         GlobalIdBlock,

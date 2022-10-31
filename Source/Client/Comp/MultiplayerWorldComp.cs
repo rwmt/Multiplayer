@@ -232,6 +232,13 @@ namespace Multiplayer.Client
             SyncResearch.researchSpeed = data.researchSpeed;
         }
 
+        public void SetTimeEverywhere(TimeSpeed speed)
+        {
+            TimeSpeed = speed;
+            foreach (var map in Find.Maps)
+                map.AsyncTime().TimeSpeed = speed;
+        }
+
         public static float lastSpeedChange;
 
         public void ExecuteCmd(ScheduledCommand cmd)
@@ -260,10 +267,10 @@ namespace Multiplayer.Client
                     data.Log.current.text = handler.ToString();
                 }
 
-                // if (cmdType == CommandType.DebugTools)
-                // {
-                //     MpDebugTools.HandleCmd(data);
-                // }
+                if (cmdType == CommandType.DebugTools)
+                {
+                    MpDebugTools.HandleCmd(data);
+                }
 
                 if (cmdType == CommandType.WorldTimeSpeed)
                 {
@@ -273,14 +280,20 @@ namespace Multiplayer.Client
 
                     if (!Multiplayer.GameComp.asyncTime)
                     {
-                        foreach (var map in Find.Maps)
-                            map.AsyncTime().TimeSpeed = speed;
+                        SetTimeEverywhere(speed);
 
                         if (!cmd.issuedBySelf)
                             lastSpeedChange = Time.realtimeSinceStartup;
                     }
 
+#if DEBUG
                     MpLog.Log($"Set world speed {speed} {TickPatch.Timer} {Find.TickManager.TicksGame}");
+#endif
+                }
+
+                if (cmdType == CommandType.PauseAll)
+                {
+                    SetTimeEverywhere(TimeSpeed.Paused);
                 }
 
                 if (cmdType == CommandType.SetupFaction)
@@ -327,8 +340,10 @@ namespace Multiplayer.Client
                 DebugSettings.godMode = prevGodMode;
                 Prefs.data.devMode = prevDevMode;
 
+#if DEBUG
                 Log.Message($"rand calls {DeferredStackTracing.randCalls - randCalls1}");
                 Log.Message("rand state " + Rand.StateCompressed);
+#endif
 
                 Extensions.PopFaction();
                 PostContext();

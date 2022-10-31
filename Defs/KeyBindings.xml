@@ -2,13 +2,30 @@
 
 <Defs>
 
-  <KeyBindingDef ParentName="GameKeyBinding">
+  <KeyBindingCategoryDef>
+    <defName>Multiplayer</defName>
+    <label>multiplayer</label>
+    <description>Controls used in multiplayer.</description>
+    <isGameUniversal>true</isGameUniversal>
+    <checkForConflicts>
+      <li>Development</li>
+      <li>Game</li>
+      <li>SelectionMisc</li>
+      <li>MainTabs</li>
+    </checkForConflicts>
+  </KeyBindingCategoryDef>
+
+  <KeyBindingDef Name="MultiplayerKeyBinding" Abstract="true">
+    <category>Multiplayer</category>
+  </KeyBindingDef>
+
+  <KeyBindingDef ParentName="MultiplayerKeyBinding">
     <defName>MpToggleChat</defName>
     <label>toggle chat</label>
     <defaultKeyCodeA>Equals</defaultKeyCodeA>
   </KeyBindingDef>
   
-  <KeyBindingDef ParentName="GameKeyBinding">
+  <KeyBindingDef ParentName="MultiplayerKeyBinding">
     <defName>MpPingKey</defName>
     <label>ping location</label>
     <defaultKeyCodeA>Keypad0</defaultKeyCodeA>

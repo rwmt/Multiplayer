@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Multiplayer.Client.Util;
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
@@ -43,17 +44,17 @@ namespace Multiplayer.Client
 
         public static void Init()
         {
-            storageParents = AllImplementationsOrdered(typeof(IStoreSettingsParent));
-            plantToGrowSettables = AllImplementationsOrdered(typeof(IPlantToGrowSettable));
+            storageParents = TypeUtil.AllImplementationsOrdered(typeof(IStoreSettingsParent));
+            plantToGrowSettables = TypeUtil.AllImplementationsOrdered(typeof(IPlantToGrowSettable));
 
-            thingCompTypes = AllSubclassesNonAbstractOrdered(typeof(ThingComp));
-            abilityCompTypes = AllSubclassesNonAbstractOrdered(typeof(AbilityComp));
-            designatorTypes = AllSubclassesNonAbstractOrdered(typeof(Designator));
-            worldObjectCompTypes = AllSubclassesNonAbstractOrdered(typeof(WorldObjectComp));
+            thingCompTypes = TypeUtil.AllSubclassesNonAbstractOrdered(typeof(ThingComp));
+            abilityCompTypes = TypeUtil.AllSubclassesNonAbstractOrdered(typeof(AbilityComp));
+            designatorTypes = TypeUtil.AllSubclassesNonAbstractOrdered(typeof(Designator));
+            worldObjectCompTypes = TypeUtil.AllSubclassesNonAbstractOrdered(typeof(WorldObjectComp));
 
-            gameCompTypes = AllSubclassesNonAbstractOrdered(typeof(GameComponent));
-            worldCompTypes = AllSubclassesNonAbstractOrdered(typeof(WorldComponent));
-            mapCompTypes = AllSubclassesNonAbstractOrdered(typeof(MapComponent));
+            gameCompTypes = TypeUtil.AllSubclassesNonAbstractOrdered(typeof(GameComponent));
+            worldCompTypes = TypeUtil.AllSubclassesNonAbstractOrdered(typeof(WorldComponent));
+            mapCompTypes = TypeUtil.AllSubclassesNonAbstractOrdered(typeof(MapComponent));
         }
 
         internal static T ReadWithImpl<T>(ByteReader data, IList<Type> impls) where T : class
@@ -96,21 +97,6 @@ namespace Multiplayer.Client
                     break;
                 }
             }
-        }
-
-        public static Type[] AllImplementationsOrdered(Type type)
-        {
-            return type.AllImplementing()
-                    .OrderBy(t => t.IsInterface)
-                    .ThenBy(t => t.Name)
-                    .ToArray();
-        }
-
-        public static Type[] AllSubclassesNonAbstractOrdered(Type type) {
-            return type
-                .AllSubclassesNonAbstract()
-                .OrderBy(t => t.Name)
-                .ToArray();
         }
     }
 }

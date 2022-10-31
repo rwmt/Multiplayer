@@ -411,7 +411,7 @@ namespace Multiplayer.Client
 
             yield return new FloatMenuOption("MpSeeModList".Translate(), () =>
             {
-                Find.WindowStack.Add(new TwoTextAreas_Window($"RimWorld {save.rwVersion}\nSave mod list:\n\n{saveMods}", $"RimWorld {VersionControl.CurrentVersionString}\nActive mod list:\n\n{activeMods}"));
+                Find.WindowStack.Add(new TwoTextAreasWindow($"RimWorld {save.rwVersion}\nSave mod list:\n\n{saveMods}", $"RimWorld {VersionControl.CurrentVersionString}\nActive mod list:\n\n{activeMods}"));
             });
 
             yield return new FloatMenuOption("MpOpenSaveFolder".Translate(), () =>
@@ -421,7 +421,7 @@ namespace Multiplayer.Client
 
             yield return new FloatMenuOption("MpFileRename".Translate(), () =>
             {
-                Find.WindowStack.Add(new Dialog_RenameFile(save.file, ReloadFiles));
+                Find.WindowStack.Add(new RenameFileWindow(save.file, ReloadFiles));
             });
 
             if (!MpVersion.IsDebug) yield break;

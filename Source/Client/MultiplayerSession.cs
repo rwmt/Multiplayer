@@ -178,6 +178,7 @@ namespace Multiplayer.Client
             if (reason == MpDisconnectReason.ServerStarting) titleKey = "MpDisconnectServerStarting";
             if (reason == MpDisconnectReason.Kick) titleKey = "MpKicked";
             if (reason == MpDisconnectReason.ServerPacketRead) descKey = "MpPacketErrorRemote";
+            if (reason == MpDisconnectReason.BadGamePassword) descKey = "MpBadGamePassword";
 
             disconnectInfo.titleTranslated ??= titleKey?.Translate();
             disconnectInfo.descTranslated ??= descKey?.Translate();

@@ -58,6 +58,16 @@ namespace Multiplayer.Common
             NextCmdId++;
         }
 
+        public void PauseAll()
+        {
+            Send(
+                CommandType.PauseAll,
+                ScheduledCommand.NoFaction,
+                ScheduledCommand.Global,
+                null
+            );
+        }
+
         public bool CanUseDevMode(ServerPlayer player) =>
             server.settings.debugMode && server.settings.devModeScope switch
             {

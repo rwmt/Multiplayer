@@ -262,8 +262,7 @@ namespace Multiplayer.Client
 
             if (Widgets.ButtonText(btnCenter.Right(150f), "MpMismatchQuit".Translate()))
             {
-                Multiplayer.StopMultiplayer();
-                Close();
+                Multiplayer.StopMultiplayerAndClearAllWindows();
                 Find.WindowStack.Add(new ServerBrowser());
             }
         }

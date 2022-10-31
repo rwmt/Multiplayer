@@ -23,7 +23,7 @@ namespace Multiplayer.Common
             if (clientProtocol != MpVersion.Protocol)
                 Player.Disconnect(MpDisconnectReason.Protocol, ByteWriter.GetBytes(MpVersion.Version, MpVersion.Protocol));
             else
-                Player.SendPacket(Packets.Server_ProtocolOk, new byte[0]);
+                Player.SendPacket(Packets.Server_ProtocolOk, new object[] { Server.settings.hasPassword });
         }
 
         [PacketHandler(Packets.Client_Username)]
@@ -31,6 +31,16 @@ namespace Multiplayer.Common
         {
             if (!string.IsNullOrEmpty(connection.username)) // Username already set
                 return;
+
+            if (Server.settings.hasPassword)
+            {
+                string password = data.ReadString();
+                if (password != Server.settings.password)
+                {
+                    Player.Disconnect(MpDisconnectReason.BadGamePassword);
+                    return;
+                }
+            }
 
             string username = data.ReadString();
 
@@ -102,6 +112,9 @@ namespace Multiplayer.Common
 
             if (!defsMismatched)
             {
+                if (Server.settings.pauseOnJoin)
+                    Server.commands.PauseAll();
+
                 if (Server.settings.autoJoinPoint.HasFlag(AutoJoinPointFlags.Join))
                     Server.TryStartJoinPointCreation();
 

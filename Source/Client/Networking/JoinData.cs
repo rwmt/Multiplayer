@@ -19,6 +19,9 @@ namespace Multiplayer.Client
     [HotSwappable]
     public static class JoinData
     {
+        public static List<ModMetaData> activeModsSnapshot;
+        public static ModFileDict modFilesSnapshot;
+
         public static byte[] WriteServerData(bool writeConfigs)
         {
             var data = new ByteWriter();
@@ -88,7 +91,6 @@ namespace Multiplayer.Client
                 {
                     var relPath = data.ReadString();
                     var hash = data.ReadInt32();
-                    //hash++;// todo for testing
                     string absPath = null;
 
                     if (mod != null)
@@ -111,7 +113,7 @@ namespace Multiplayer.Client
                     var contents = data.ReadString(MaxConfigContentLen);
 
                     remoteInfo.remoteModConfigs.Add(new ModConfig(modId, fileName, contents));
-                    //remoteInfo.remoteModConfigs[trimmedPath] = remoteInfo.remoteModConfigs[trimmedPath].Insert(0, "a"); // todo for testing
+                    //remoteInfo.remoteModConfigs[trimmedPath] = remoteInfo.remoteModConfigs[trimmedPath].Insert(0, "a"); // for testing
                 }
             }
         }
@@ -208,9 +210,6 @@ namespace Multiplayer.Client
                 remote.remoteFiles.DictsEqual(modFilesSnapshot) &&
                 (!remote.hasConfigs || remote.remoteModConfigs.EqualAsSets(GetSyncableConfigContents(remote.RemoteModIds)));
         }
-
-        public static List<ModMetaData> activeModsSnapshot;
-        public static ModFileDict modFilesSnapshot;
 
         internal static void TakeModDataSnapshot()
         {
@@ -313,6 +312,7 @@ namespace Multiplayer.Client
 
     public record ModConfig(string ModId, string FileName, string Contents);
 
+    [HotSwappable]
     public class ModFileDict : IEnumerable<KeyValuePair<string, Dictionary<string, ModFile>>>
     {
         // Mod id => (path => file)
@@ -331,7 +331,7 @@ namespace Multiplayer.Client
         public bool DictsEqual(ModFileDict other)
         {
             return files.Keys.EqualAsSets(other.files.Keys) &&
-                files.All(kv => kv.Value.Values.EqualAsSets(kv.Value.Values));
+                   files.All(kv => kv.Value.Values.EqualAsSets(other.files[kv.Key].Values));
         }
 
         public IEnumerator<KeyValuePair<string, Dictionary<string, ModFile>>> GetEnumerator()
@@ -379,6 +379,21 @@ namespace Multiplayer.Client
             this.absPath = absPath?.NormalizePath();
             this.relPath = relPath.NormalizePath();
             this.hash = hash;
+        }
+
+        public bool Equals(ModFile other)
+        {
+            return relPath == other.relPath && hash == other.hash;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is ModFile other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            return Gen.HashCombineInt(relPath.GetHashCode(), hash);
         }
     }
 

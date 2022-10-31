@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using HarmonyLib;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -57,16 +58,21 @@ namespace Multiplayer.Client.Util
             Text.Font = prevFont;
         }
 
-        public static void CheckboxLabeled(Rect rect, string label, ref bool checkOn, bool disabled = false, Texture2D texChecked = null, Texture2D texUnchecked = null, bool placeTextNearCheckbox = false)
+        public static Rect CheckboxLabeled(Rect rect, string label, ref bool checkOn, bool disabled = false, ElementOrder order = ElementOrder.Apart, float size = 24f)
         {
             TextAnchor anchor = Text.Anchor;
             Text.Anchor = TextAnchor.MiddleLeft;
 
-            if (placeTextNearCheckbox)
+            if (order == ElementOrder.Right)
             {
                 float textWidth = Text.CalcSize(label).x;
-                rect.x = rect.xMax - textWidth - 24f - 5f;
-                rect.width = textWidth + 24f + 5f;
+                rect.x = rect.xMax - textWidth - size - 5f;
+                rect.width = textWidth + size + 5f;
+            }
+            else if (order == ElementOrder.Left)
+            {
+                float textWidth = Text.CalcSize(label).x;
+                rect.width = textWidth + size + 5f;
             }
 
             Widgets.Label(rect, label);
@@ -80,8 +86,16 @@ namespace Multiplayer.Client.Util
                     SoundDefOf.Checkbox_TurnedOff.PlayOneShotOnCamera(null);
             }
 
-            Widgets.CheckboxDraw(rect.x + rect.width - 24f, rect.y + (rect.height - 24f) / 2, checkOn, disabled, 24f, null, null);
+            Widgets.CheckboxDraw(
+                rect.xMax - size,
+                rect.y + (rect.height - size) / 2,
+                checkOn,
+                disabled,
+                size);
+
             Text.Anchor = anchor;
+
+            return rect;
         }
 
         public static string TextEntryLabeled(Rect rect, string label, string text, float labelWidth)
@@ -147,19 +161,19 @@ namespace Multiplayer.Client.Util
             LabelWithTip(rect, trunc, trunc != str ? str : null);
         }
 
-        public static void CheckboxLabeledWithTip(Rect rect, string label, string tip, ref bool check, bool disabled = false, bool placeTextNearCheckbox = false)
+        public static void CheckboxLabeledWithTip(Rect rect, string label, string tip, ref bool check, bool disabled = false)
         {
             Widgets.DrawHighlightIfMouseover(rect);
             if (tip != null)
                 TooltipHandler.TipRegion(rect, tip);
-            CheckboxLabeled(rect, label, ref check, disabled, placeTextNearCheckbox: placeTextNearCheckbox);
+            CheckboxLabeled(rect, label, ref check, disabled);
         }
 
         public static void CheckboxLabeledWithTipNoHighlight(Rect rect, string label, string tip, ref bool check, bool disabled = false, bool placeTextNearCheckbox = false)
         {
             if (tip != null)
                 TooltipHandler.TipRegion(rect, tip);
-            CheckboxLabeled(rect, label, ref check, disabled, placeTextNearCheckbox: placeTextNearCheckbox);
+            CheckboxLabeled(rect, label, ref check, disabled, order: placeTextNearCheckbox ? ElementOrder.Right : ElementOrder.Apart);
         }
 
         public static bool ButtonTextWithTip(Rect rect, string label, string tip, bool disabled = false, int? tipId = null)
@@ -199,5 +213,60 @@ namespace Multiplayer.Client.Util
             Widgets.Label(rect, label);
             return size.x;
         }
+
+        public static float LabelFlexibleWidthClickable(Rect rect, string label, ref bool clicked)
+        {
+            var size = Text.CalcSize(label);
+            rect.width = size.x;
+            Widgets.DrawHighlightIfMouseover(rect);
+            clicked = Widgets.ButtonInvisible(rect, false);
+            Widgets.Label(rect, label);
+            return size.x;
+        }
+
+        const char PassChar = '\u2022';
+
+        public static void DoPasswordField(Rect rect, string controlName, ref string password)
+        {
+            password ??= "";
+
+            TextEditor te =
+                GUI.GetNameOfFocusedControl() == controlName ?
+                    (TextEditor)GUIUtility.GetStateObject(typeof(TextEditor), GUIUtility.keyboardControl) :
+                    null;
+
+            Vector2 scrollOffset = default;
+            bool keyDown = Event.current.type == EventType.KeyDown;
+            if (te != null)
+                scrollOffset = te.scrollOffset;
+
+            GUI.SetNextControlName(controlName);
+
+            if (Event.current.type is EventType.Repaint or EventType.MouseDown)
+                GUI.TextField(
+                    rect,
+                    new string(PassChar, password.Length),
+                    Text.textFieldStyles[1]
+                );
+            else
+                password =  GUI.TextField(
+                    rect,
+                    password,
+                    Text.textFieldStyles[1]
+                );
+
+            if (te != null && keyDown)
+            {
+                te.scrollOffset = scrollOffset;
+                te.text = new string(PassChar, password.Length);
+                AccessTools.Field(typeof(TextEditor), "m_RevealCursor").SetValue(te, true);
+                te.UpdateScrollOffsetIfNeeded(new Event());
+            }
+        }
+    }
+
+    public enum ElementOrder
+    {
+        Apart, Left, Right
     }
 }

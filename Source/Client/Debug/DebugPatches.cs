@@ -74,7 +74,7 @@ namespace Multiplayer.Client.Patches
         static void Postfix(ref string __result)
         {
             if (SetupQuickTestPatch.marker)
-                __result = "multiplayer1";
+                __result = "multiplayer";
         }
     }
 

@@ -548,7 +548,7 @@ namespace Multiplayer.Client
             },
             {
                 // Designator_Build is a Designator_Place but we aren't using Implicit
-                // We can't take part of the implicit tree because Designator_Build has an argument
+                // We can't take part of the implicit tree because Designator_Build ctor has an argument
                 // So we need to implement placingRot here too, until we separate instancing from decorating.
                 (SyncWorker sync, ref Designator_Build build) => {
                     if (sync.isWriting) {
@@ -568,6 +568,15 @@ namespace Multiplayer.Client
                         build.sourcePrecept = sync.Read<Precept_Building>();
                     }
                 }
+            },
+            {
+                (SyncWorker sync, ref Designator_Paint paint) => {
+                    if (sync.isWriting) {
+                        sync.Write(paint.colorDef);
+                    } else {
+                        paint.colorDef = sync.Read<ColorDef>();
+                    }
+                }, true, true // <- Implicit ShouldConstruct
             },
             #endregion
 

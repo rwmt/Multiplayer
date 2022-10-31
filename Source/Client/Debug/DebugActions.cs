@@ -17,7 +17,7 @@ using Verse;
 namespace Multiplayer.Client
 {
     [HotSwappable]
-    static class MPDebugActions
+    static class MpDebugActions
     {
         const string MultiplayerCategory = "Multiplayer";
 

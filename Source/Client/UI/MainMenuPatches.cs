@@ -73,7 +73,7 @@ namespace Multiplayer.Client
                     optList.RemoveAll(opt => opt.label == "Save".Translate() || opt.label == "LoadGame".Translate());
                     if (!Multiplayer.IsReplay)
                     {
-                        optList.Insert(0, new ListableOption("Save".Translate(), () => Find.WindowStack.Add(new Dialog_SaveGame() { layer = WindowLayer.Super })));
+                        optList.Insert(0, new ListableOption("Save".Translate(), () => Find.WindowStack.Add(new SaveGameWindow(Multiplayer.session.gameName) { layer = WindowLayer.Super })));
                     }
 
                     var quitMenuLabel = "QuitToMainMenu".Translate();
@@ -112,6 +112,9 @@ namespace Multiplayer.Client
 
         static void ShowModDebugInfo()
         {
+            Find.WindowStack.Add(new SaveGameWindow("test"));
+            return;
+
             var info = new RemoteData();
             JoinData.ReadServerData(JoinData.WriteServerData(true), info);
             for (int i = 0; i < 200; i++)

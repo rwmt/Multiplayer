@@ -48,7 +48,7 @@ namespace Multiplayer.Client
             if (!Multiplayer.ShouldSync) return true;
 
             // No cells implies Finalize(false), which currently doesn't cause side effects
-            if (__0.Count() == 0) return true;
+            if (!__0.Any()) return true;
 
             Designator designator = __instance;
 
@@ -118,7 +118,7 @@ namespace Multiplayer.Client
 
     [HarmonyPatch(typeof(Designator_Install))]
     [HarmonyPatch(nameof(Designator_Install.MiniToInstallOrBuildingToReinstall), MethodType.Getter)]
-    public static class DesignatorInstallPatch
+    public static class DesignatorInstall_SetThingToInstall
     {
         public static Thing thingToInstall;
 
@@ -137,6 +137,21 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.Client != null && (t is Frame || t is Blueprint))
                 Find.Selector.Deselect(t);
+        }
+    }
+
+    [HarmonyPatch(typeof(Designator_Install))]
+    [HarmonyPatch(nameof(Designator_Install.DesignateSingleCell))]
+    public static class DesignatorInstall_CancelBlueprints
+    {
+        // Returns bool to make it a cancellable prefix
+        static bool Prefix(Designator_Install __instance)
+        {
+            // This gets called in ProcessInput which is enough in vanilla but not with multiple players
+            Thing miniToInstallOrBuildingToReinstall = __instance.MiniToInstallOrBuildingToReinstall;
+            if (miniToInstallOrBuildingToReinstall != null)
+                InstallBlueprintUtility.CancelBlueprintsFor(miniToInstallOrBuildingToReinstall);
+            return true;
         }
     }
 }

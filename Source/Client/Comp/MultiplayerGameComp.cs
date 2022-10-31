@@ -11,6 +11,7 @@ namespace Multiplayer.Client.Comp
         public bool asyncTime;
         public bool debugMode;
         public bool logDesyncTraces;
+        public PauseOnLetter pauseOnLetter;
         public Dictionary<int, PlayerData> playerData = new(); // player id to player data
 
         public IdBlock globalIdBlock = new(int.MaxValue / 2, 1_000_000_000);
@@ -24,6 +25,7 @@ namespace Multiplayer.Client.Comp
             Scribe_Values.Look(ref asyncTime, "asyncTime", true, true);
             Scribe_Values.Look(ref debugMode, "debugMode");
             Scribe_Values.Look(ref logDesyncTraces, "logDesyncTraces");
+            Scribe_Values.Look(ref pauseOnLetter, "pauseOnLetter");
 
             Scribe_Custom.LookIdBlock(ref globalIdBlock, "globalIdBlock");
 

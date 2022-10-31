@@ -269,7 +269,7 @@ namespace Multiplayer.Client
                         MethodInfo prefix = AccessTools.Method(typeof(DesignatorPatches), m);
                         try
                         {
-                            harmony.PatchMeasure(method, new HarmonyMethod(prefix), null, null, new HarmonyMethod(designatorFinalizer));
+                            harmony.PatchMeasure(method, new HarmonyMethod(prefix) { priority = MpPriority.MpFirst }, null, null, new HarmonyMethod(designatorFinalizer));
                         } catch (Exception e) {
                             LogError($"FAIL: {t.FullName}:{method.Name} with {e}");
                         }

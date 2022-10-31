@@ -26,7 +26,12 @@ namespace Multiplayer.Client
                 Scribe.EnterNode("game");
                 Current.Game = new Game();
                 Current.Game.LoadGame(); // calls Scribe.loader.FinalizeLoading()
-                SemiPersistent.ReadSemiPersistent(gameToLoad.SemiPersistent);
+
+                // Prevent errors when the client is disconnected during loading
+                // todo revisit disconnection during loading
+                // todo loading can be async, concurrency issues
+                if (Multiplayer.Client != null)
+                    SemiPersistent.ReadSemiPersistent(gameToLoad.SemiPersistent);
             }
             finally
             {

@@ -280,10 +280,10 @@ namespace Multiplayer.Client
                     data.Log.current.text = handler.ToString();
                 }
 
-                // if (cmdType == CommandType.DebugTools)
-                // {
-                //     MpDebugTools.HandleCmd(data);
-                // }
+                if (cmdType == CommandType.DebugTools)
+                {
+                    MpDebugTools.HandleCmd(data);
+                }
 
                 if (cmdType == CommandType.CreateMapFactionData)
                 {
@@ -410,7 +410,7 @@ namespace Multiplayer.Client
                     Thing thing = SyncSerialization.ReadSync<Thing>(data);
                     if (thing == null) return false;
 
-                    DesignatorInstallPatch.thingToInstall = thing;
+                    DesignatorInstall_SetThingToInstall.thingToInstall = thing;
                 }
 
                 if (designator is Designator_Zone)
@@ -428,7 +428,7 @@ namespace Multiplayer.Client
                 if (prevArea.HasValue)
                     Designator_AreaAllowed.selectedArea = prevArea.Value.Inner;
 
-                DesignatorInstallPatch.thingToInstall = null;
+                DesignatorInstall_SetThingToInstall.thingToInstall = null;
             }
 
             try

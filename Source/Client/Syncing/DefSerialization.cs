@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Reflection;
 using HarmonyLib;
+using Multiplayer.Client.Util;
 using Multiplayer.Common;
 using Verse;
 
@@ -14,7 +15,7 @@ namespace Multiplayer.Client
 
         public static void Init()
         {
-            DefTypes = ImplSerialization.AllSubclassesNonAbstractOrdered(typeof(Def));
+            DefTypes = TypeUtil.AllSubclassesNonAbstractOrdered(typeof(Def));
 
             foreach (var defType in DefTypes)
             {
