@@ -188,7 +188,7 @@ namespace Multiplayer.Client
 
             public void Action()
             {
-                if (Multiplayer.ExecutingCmds)
+                if (Multiplayer.Client == null || Multiplayer.ExecutingCmds)
                     original();
                 else
                     MpDebugTools.SendCmd(
