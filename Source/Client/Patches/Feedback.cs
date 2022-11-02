@@ -173,4 +173,26 @@ namespace Multiplayer.Client.Patches
         }
     }
 
+    [HarmonyPatch(typeof(CompBiosculpterPod), nameof(CompBiosculpterPod.OrderToPod))]
+    static class NoBiosculpterConfirmationSyncing
+    {
+        static bool Prefix(CompBiosculpterPod_Cycle cycle, Pawn pawn, Action giveJobAct)
+        {
+            if (Multiplayer.Client == null || cycle is not CompBiosculpterPod_HealingCycle healingCycle)
+                return true; // Alternatively we could return false and invoke giveJobAct
+
+            var healingDescriptionForPawn = healingCycle.GetHealingDescriptionForPawn(pawn);
+            string text = healingDescriptionForPawn.NullOrEmpty()
+                ? "BiosculpterNoCoditionsToHeal".Translate(pawn.Named("PAWN"), healingCycle.Props.label.Named("CYCLE")).Resolve()
+                : "OnCompletionOfCycle".Translate(healingCycle.Props.label.Named("CYCLE")).Resolve() + ":\n\n" + healingDescriptionForPawn;
+
+            Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
+                text,
+                giveJobAct,
+                healingDescriptionForPawn.NullOrEmpty()));
+
+            return false;
+        }
+    }
+
 }

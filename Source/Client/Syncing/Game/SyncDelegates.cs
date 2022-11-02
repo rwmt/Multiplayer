@@ -92,8 +92,6 @@ namespace Multiplayer.Client
             SyncMethod.Lambda(typeof(CompNeuralSupercharger), nameof(CompNeuralSupercharger.CompGetGizmosExtra), 1); // Neural supercharger: allow temporary pawns to use
 
             // Biosculpter pod
-            SyncDelegate.Lambda(typeof(CompBiosculpterPod), nameof(CompBiosculpterPod.SelectPawnCycleOption), 0); // Start cycle (should be universal for all cycle types, even modded)
-
             SyncMethod.Lambda(typeof(CompBiosculpterPod), nameof(CompBiosculpterPod.CompGetGizmosExtra), 1);                // Interrupt cycle (eject contents)
             SyncMethod.Lambda(typeof(CompBiosculpterPod), nameof(CompBiosculpterPod.CompGetGizmosExtra), 3);                // Toggle auto load nutrition
             SyncMethod.Lambda(typeof(CompBiosculpterPod), nameof(CompBiosculpterPod.CompGetGizmosExtra), 5);                // Toggle auto age reversal
