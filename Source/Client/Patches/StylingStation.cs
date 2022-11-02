@@ -66,6 +66,10 @@ namespace Multiplayer.Client.Patches
             {
                 ideo = dialogPawn.ideo.ideo
             };
+            pawn.ageTracker = new Pawn_AgeTracker(pawn)
+            {
+                cachedLifeStageIndex = dialogPawn.ageTracker.cachedLifeStageIndex
+            };
 
             return new Dialog_StylingStation(pawn, stylingStation);
         }
