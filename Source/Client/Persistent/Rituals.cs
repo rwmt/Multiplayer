@@ -85,8 +85,6 @@ namespace Multiplayer.Client.Persistent
         public void Read(ByteReader reader)
         {
             SessionId = reader.ReadInt32();
-            reader.MpContext().map = map;
-
             data = SyncSerialization.ReadSync<RitualData>(reader);
             data.assignments.session = this;
         }

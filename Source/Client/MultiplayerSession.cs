@@ -133,7 +133,7 @@ namespace Multiplayer.Client
                 int proto = reader.ReadInt32();
 
                 disconnectInfo.wideWindow = true;
-                disconnectInfo.descTranslated = "MpWrongMultiplayerVersionInfo".Translate(strVersion, proto, MpVersion.Version);
+                disconnectInfo.descTranslated = "MpWrongMultiplayerVersionDesc".Translate(strVersion, proto, MpVersion.Version, MpVersion.Protocol);
 
                 if (proto < MpVersion.Protocol)
                     disconnectInfo.descTranslated += "\n" + "MpWrongVersionUpdateInfoHost".Translate();

@@ -74,7 +74,9 @@ namespace Multiplayer.Client.Saving
 
                 try
                 {
-                    map.MpComp().ReadSemiPersistent(new ByteReader(mapData));
+                    var mapReader = new ByteReader(mapData);
+                    mapReader.MpContext().map = map;
+                    map.MpComp().ReadSemiPersistent(mapReader);
                 }
                 catch (Exception e)
                 {

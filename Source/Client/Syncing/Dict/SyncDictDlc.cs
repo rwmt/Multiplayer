@@ -184,7 +184,7 @@ namespace Multiplayer.Client
             {
                 (ByteWriter data, RitualRoleAssignments assgn) => {
                     // In Multiplayer, RitualRoleAssignments should only be of the wrapper type MpRitualAssignments
-                    var mpAssgn = assgn as MpRitualAssignments;
+                    var mpAssgn = (MpRitualAssignments)assgn;
                     data.MpContext().map = mpAssgn.session.map;
                     data.WriteInt32(mpAssgn.session.SessionId);
                 },
@@ -201,13 +201,17 @@ namespace Multiplayer.Client
                     WriteSync(data, dialog.ritual);
                 },
                 (ByteReader data) => {
-                    var assgn = ReadSync<RitualRoleAssignments>(data);
+                    var assgn = ReadSync<RitualRoleAssignments>(data) as MpRitualAssignments;
                     if (assgn == null) return null;
 
                     var ritual = ReadSync<Precept_Ritual>(data); // todo handle ritual becoming null?
                     var dlog = MpUtil.NewObjectNoCtor<Dialog_BeginRitual>();
                     dlog.assignments = assgn;
                     dlog.ritual = ritual;
+                    dlog.target = assgn.session.data.target;
+
+                    // This is a cache set every frame at the top of Dialog_BeginRitual.DrawPawnList
+                    dlog.rolesGroupedTmp = (from r in assgn.AllRolesForReading group r by r.mergeId ?? r.id).ToList();
 
                     return dlog;
                 }

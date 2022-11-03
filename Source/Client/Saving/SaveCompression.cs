@@ -118,10 +118,15 @@ namespace Multiplayer.Client
             foreach (ThingDef thingDef in DefDatabase<ThingDef>.AllDefs)
                 thingDefsByShortHash[thingDef.shortHash] = thingDef;
 
+            DeepProfiler.Start("Deserializing compressed things");
             BinaryReader rockData = LoadBinary(CompressedRocks);
             BinaryReader rockRubbleData = LoadBinary(CompressedRockRubble);
             BinaryReader plantData = LoadBinary(CompressedPlants);
+            DeepProfiler.End();
+
             List<Thing> loadedThings = new List<Thing>();
+
+            DeepProfiler.Start("Creating decompressed things");
 
             int cells = map.info.NumCells;
             for (int i = 0; i < cells; i++)
@@ -130,9 +135,11 @@ namespace Multiplayer.Client
                 Thing t;
 
                 if (rockData != null && (t = LoadRock(map, rockData, cell)) != null) loadedThings.Add(t);
-                if (rockRubbleData != null && (t = LoadPlant(map, plantData, cell)) != null) loadedThings.Add(t);
-                if (plantData != null && (t = LoadRockRubble(map, rockRubbleData, cell)) != null) loadedThings.Add(t);
+                if (plantData != null && (t = LoadPlant(map, plantData, cell)) != null) loadedThings.Add(t);
+                if (rockRubbleData != null && (t = LoadRockRubble(map, rockRubbleData, cell)) != null) loadedThings.Add(t);
             }
+
+            DeepProfiler.End();
 
             for (int i = 0; i < loadedThings.Count; i++)
             {
@@ -154,9 +161,9 @@ namespace Multiplayer.Client
 
             Thing thing = (Thing)Activator.CreateInstance(def.thingClass);
             thing.def = def;
+            thing.thingIDNumber = id;
             thing.HitPoints = thing.MaxHitPoints;
 
-            thing.thingIDNumber = id;
             thing.SetPositionDirect(cell);
 
             return thing;
@@ -175,7 +182,6 @@ namespace Multiplayer.Client
 
             Filth thing = (Filth)Activator.CreateInstance(def.thingClass);
             thing.def = def;
-
             thing.thingIDNumber = id;
             thing.thickness = thickness;
             thing.growTick = growTick;
