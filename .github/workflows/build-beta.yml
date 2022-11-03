@@ -1,0 +1,44 @@
+name: Build beta
+
+env:
+  SLN_PATH: Source/
+
+on:
+  push:
+    branches:
+      - development
+    paths-ignore:
+      - 'README.md'
+
+jobs:
+  build:
+    name: Build beta
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v3
+      with:
+        submodules: recursive # Updates the Languages submodule
+      
+    - name: Setup Dotnet
+      uses: actions/setup-dotnet@v2
+      with:
+        dotnet-version: 6.0.x
+      
+    - name: Install Mod Dependencies
+      run: dotnet restore ${{ env.SLN_PATH }}
+
+    - name: Build Mod
+      run: dotnet build ${{ env.SLN_PATH }} --configuration Release --no-restore
+
+    - run: mkdir -p output/Multiplayer
+
+    - name: Move files
+      run: mv About/ Assemblies/ Defs/ Languages/ Textures/ output/Multiplayer
+
+    - name: Upload Mod Artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        name: Multiplayer-beta
+        path: |
+          output/

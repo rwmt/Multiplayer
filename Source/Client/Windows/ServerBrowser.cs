@@ -56,7 +56,6 @@ namespace Multiplayer.Client
             lanListener.Start(5100);
 
             doCloseX = true;
-            closeOnAccept = false;
         }
 
         private Vector2 lanScroll;
@@ -518,40 +517,45 @@ namespace Multiplayer.Client
 
             const float btnWidth = 115f;
 
-            if (Widgets.ButtonText(new Rect(inRect.center.x - btnWidth / 2, 60f, btnWidth, 35f), "MpConnectButton".Translate()))
+            if (Widgets.ButtonText(new Rect(inRect.center.x - btnWidth / 2, 60f, btnWidth, 35f), "MpConnectButton".Translate()) &&
+                DirectConnect(Multiplayer.settings.serverAddress.Trim()))
+                Close(false);
+        }
+
+        private static bool DirectConnect(string addr)
+        {
+            var port = MultiplayerServer.DefaultPort;
+
+            // If IPv4 or IPv6 address with optional port
+            if (Endpoints.TryParse(addr, MultiplayerServer.DefaultPort, out var endpoint))
             {
-                var addr = Multiplayer.settings.serverAddress.Trim();
-                var port = MultiplayerServer.DefaultPort;
-
-                // If IPv4 or IPv6 address with optional port
-                if (Endpoints.TryParse(addr, MultiplayerServer.DefaultPort, out var endpoint))
-                {
-                    addr = endpoint.Address.ToString();
-                    port = endpoint.Port;
-                }
-                // Hostname with optional port
-                else
-                {
-                    var split = addr.Split(':');
-                    addr = split[0];
-                    if (split.Length == 2 && int.TryParse(split[1], out var parsedPort) && parsedPort is > IPEndPoint.MinPort and < IPEndPoint.MaxPort)
-                        port = parsedPort;
-                }
-
-                Log.Message("Connecting directly");
-
-                try
-                {
-                    ClientUtil.TryConnectWithWindow(addr, port);
-                    Multiplayer.settings.Write();
-                    Close(false);
-                }
-                catch (Exception e)
-                {
-                    Messages.Message("MpInvalidAddress".Translate(), MessageTypeDefOf.RejectInput, false);
-                    Log.Error($"Exception while connecting directly {e}");
-                }
+                addr = endpoint.Address.ToString();
+                port = endpoint.Port;
             }
+            // Hostname with optional port
+            else
+            {
+                var split = addr.Split(':');
+                addr = split[0];
+                if (split.Length == 2 && int.TryParse(split[1], out var parsedPort) && parsedPort is > IPEndPoint.MinPort and < IPEndPoint.MaxPort)
+                    port = parsedPort;
+            }
+
+            Log.Message("Connecting directly");
+
+            try
+            {
+                ClientUtil.TryConnectWithWindow(addr, port);
+                Multiplayer.settings.Write();
+                return true;
+            }
+            catch (Exception e)
+            {
+                Messages.Message("MpInvalidAddress".Translate(), MessageTypeDefOf.RejectInput, false);
+                Log.Error($"Exception while connecting directly {e}");
+            }
+
+            return false;
         }
 
         private void DrawLan(Rect inRect)
@@ -700,6 +704,15 @@ namespace Multiplayer.Client
         {
             public IPEndPoint endpoint;
             public long lastUpdate;
+        }
+
+        public override void OnAcceptKeyPressed()
+        {
+            if (tab == Tabs.Direct)
+            {
+                DirectConnect(Multiplayer.settings.serverAddress.Trim());
+                Close(false);
+            }
         }
     }
 

@@ -39,13 +39,10 @@ namespace Multiplayer.Client
     static class XmlAssetsInModFolderPatch
     {
         // Sorts the files before processing, ensures cross os compatibility
-        static IEnumerable<LoadableXmlAsset> Postfix(IEnumerable<LoadableXmlAsset> __result)
+        static void Postfix(LoadableXmlAsset[] __result)
         {
-            var array = __result.ToArray();
-
-            Array.Sort(array, (x, y) => StringComparer.OrdinalIgnoreCase.Compare(x.name, y.name));
-
-            return array;
+            // This compares by absolute paths but they all have a common prefix
+            Array.Sort(__result, (x, y) => StringComparer.OrdinalIgnoreCase.Compare(x.FullFilePath, y.FullFilePath));
         }
     }
 
