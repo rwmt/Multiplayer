@@ -154,6 +154,8 @@ namespace Multiplayer.Client
 
             SyncMethod.Register(typeof(Verb_SmokePop), nameof(Verb_SmokePop.Pop));
             SyncMethod.Register(typeof(Verb_DeployBroadshield), nameof(Verb_DeployBroadshield.Deploy));
+            SyncMethod.Register(typeof(Verb_FirefoamPop), nameof(Verb_FirefoamPop.Pop));
+            SyncMethod.Register(typeof(Verb_DeployToxPack), nameof(Verb_DeployToxPack.TryDeploy));
 
             // Dialog_NodeTree
             Sync.RegisterSyncDialogNodeTree(typeof(IncidentWorker_CaravanMeeting), nameof(IncidentWorker_CaravanMeeting.TryExecuteWorker));
