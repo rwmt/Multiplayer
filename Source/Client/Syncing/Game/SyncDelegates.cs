@@ -241,30 +241,30 @@ namespace Multiplayer.Client
             SyncDelegate.Lambda(typeof(ChoiceLetter_ChoosePawn), nameof(ChoiceLetter_ChoosePawn.Option_ChoosePawn), 0); // Choose pawn (currently used for quest rewards)
 
             SyncMethod.LambdaInGetter(typeof(ChoiceLetter_AcceptJoiner), nameof(ChoiceLetter_AcceptJoiner.Choices), 0); // Accept joiner
-            CloseDialogsForExpiredLetters.RegisterMethod(
+            CloseDialogsForExpiredLetters.RegisterDefaultLetterChoice(
                 SyncMethod.LambdaInGetter(typeof(ChoiceLetter_AcceptJoiner), nameof(ChoiceLetter_AcceptJoiner.Choices), 1)
                     .method); // Reject joiner
 
             SyncMethod.LambdaInGetter(typeof(ChoiceLetter_AcceptVisitors), nameof(ChoiceLetter_AcceptVisitors.Option_Accept), 0); // Accept visitors join offer
-            CloseDialogsForExpiredLetters.RegisterMethod(
+            CloseDialogsForExpiredLetters.RegisterDefaultLetterChoice(
                 SyncMethod.LambdaInGetter(typeof(ChoiceLetter_AcceptVisitors), nameof(ChoiceLetter_AcceptVisitors.Option_RejectWithCharityConfirmation), 1)
                     .method); // Reject visitors join offer
 
             SyncMethod.LambdaInGetter(typeof(ChoiceLetter_RansomDemand), nameof(ChoiceLetter_RansomDemand.Choices), 0); // Accept ransom demand
-            CloseDialogsForExpiredLetters.RegisterMethod(
+            CloseDialogsForExpiredLetters.RegisterDefaultLetterChoice(
                 SyncMethod.LambdaInGetter(typeof(ChoiceLetter), nameof(ChoiceLetter.Option_Reject), 0)
-                    .method); // Generic reject (currently only used by ransom demand)
+                    .method, typeof(ChoiceLetter_RansomDemand)); // Generic reject (currently only used by ransom demand)
 
             // Special case - we could decide to treat making the baby as a colonist the default option, however I've added code to keep the current state
-            CloseDialogsForExpiredLetters.RegisterMethod(AccessTools.Method(typeof(SyncDelegates), nameof(SyncBabyToChildLetter)), typeof(ChoiceLetter_BabyToChild));
+            CloseDialogsForExpiredLetters.RegisterDefaultLetterChoice(AccessTools.Method(typeof(SyncDelegates), nameof(SyncBabyToChildLetter)), typeof(ChoiceLetter_BabyToChild));
             SyncMethod.Register(typeof(ChoiceLetter_BabyToChild), nameof(ChoiceLetter_BabyToChild.ChoseColonist));
             SyncMethod.Register(typeof(ChoiceLetter_BabyToChild), nameof(ChoiceLetter_BabyToChild.ChoseSlave));
 
             // Naming the baby - use default name generation for them
-            CloseDialogsForExpiredLetters.RegisterMethod(AccessTools.Method(typeof(SyncDelegates), nameof(SetBabyName)), typeof(ChoiceLetter_BabyBirth));
+            CloseDialogsForExpiredLetters.RegisterDefaultLetterChoice(AccessTools.Method(typeof(SyncDelegates), nameof(SetBabyName)), typeof(ChoiceLetter_BabyBirth));
 
             // Growth moment for a child
-            CloseDialogsForExpiredLetters.RegisterMethod(AccessTools.Method(typeof(SyncDelegates), nameof(PickRandomTraitAndPassions)), typeof(ChoiceLetter_GrowthMoment));
+            CloseDialogsForExpiredLetters.RegisterDefaultLetterChoice(AccessTools.Method(typeof(SyncDelegates), nameof(PickRandomTraitAndPassions)), typeof(ChoiceLetter_GrowthMoment));
             SyncMethod.Register(typeof(ChoiceLetter_GrowthMoment), nameof(ChoiceLetter_GrowthMoment.MakeChoices)).ExposeParameter(1);
         }
 
