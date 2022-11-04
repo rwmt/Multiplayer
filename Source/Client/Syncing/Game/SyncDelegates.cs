@@ -177,6 +177,7 @@ namespace Multiplayer.Client
 
             InitRituals();
             InitChoiceLetters();
+            InitDevTools();
         }
 
         private static void InitRituals()
@@ -342,6 +343,74 @@ namespace Multiplayer.Client
         [MpPostfix(typeof(ChoiceLetter_GrowthMoment), nameof(ChoiceLetter_GrowthMoment.TrySetChoices))]
         static void PostLetterChoices()
             => Rand.PopState();
+
+        static void InitDevTools()
+        {
+            // GeneUIUtility dev tools (used from multiple places)
+
+            // This won't be compatible with mods that use have no target and use gene overrides.
+            // Vanilla Races Expanded - Saurid is one such example.
+            var geneSetSerializer = Serializer.New(
+                (GeneSet _) =>
+                {
+                    // Delegates generally use sourcePawn instead of geneSet if it's provided
+                    if (geneUIUtilityTarget is Pawn)
+                        return (null, true);
+                    // Most likely GeneHolderBase
+                    if (geneUIUtilityTarget != null)
+                        return (geneUIUtilityTarget, true);
+
+                    return (ITab_Genes.PawnForGenes(Find.Selector.SingleSelectedThing), false);
+                },
+                ((Thing target, bool isDirectOwner) data) =>
+                {
+                    var (target, isDirectOwner) = data;
+
+                    if (isDirectOwner)
+                        return (target as GeneSetHolderBase)?.geneSet;
+
+                    if (target is Pawn pawn)
+                        return pawn.health.hediffSet.hediffs.OfType<HediffWithParents>().FirstOrDefault()?.geneSet;
+
+                    return null;
+                });
+            // Most of the methods don't use the geneSet at all, so let's not bother syncing those
+            var geneSetDontSync = Serializer.SimpleReader<GeneSet>(() => null);
+
+            SyncDelegate.Lambda(typeof(GeneUIUtility), nameof(GeneUIUtility.DoDebugButton), 4)
+                .TransformField("geneSet", geneSetDontSync).SetDebugOnly(); // Add all genes
+            SyncDelegate.Lambda(typeof(GeneUIUtility), nameof(GeneUIUtility.DoDebugButton), 6)
+                .TransformField("geneSet", geneSetDontSync).SetDebugOnly(); // Reset genes to base xenotype
+            SyncDelegate.LocalFunc(typeof(GeneUIUtility), nameof(GeneUIUtility.DoDebugButton), "AddGene")
+                .TransformField("geneSet", geneSetSerializer).SetDebugOnly(); // Add specified gene/xenogene/endogene
+            SyncDelegate.Lambda(typeof(GeneUIUtility), nameof(GeneUIUtility.DoDebugButton), 10)
+                .TransformField("CS$<>8__locals1/geneSet", geneSetDontSync).SetDebugOnly(); // Remove specified gene
+            SyncDelegate.Lambda(typeof(GeneUIUtility), nameof(GeneUIUtility.DoDebugButton), 11)
+                .TransformField("CS$<>8__locals2/geneSet", geneSetDontSync).SetDebugOnly(); // Apply specified xenotype
+            SyncDelegate.Lambda(typeof(GeneUIUtility), nameof(GeneUIUtility.DoDebugButton), 12)
+                .TransformField("CS$<>8__locals3/geneSet", geneSetSerializer).SetDebugOnly(); // Also remove specified gene
+
+            // ITab_Pawn_Gear debug tools
+            SyncDelegate.Lambda(typeof(DebugToolsPawns), nameof(DebugToolsPawns.Options_SetPrimary), 0).SetDebugOnly(); // Remove primary weapon/eqiupment
+            SyncDelegate.Lambda(typeof(DebugToolsPawns), nameof(DebugToolsPawns.Options_SetPrimary), 3).SetDebugOnly(); // Set primary weapon/eqiupment
+            SyncDelegate.Lambda(typeof(DebugToolsPawns), nameof(DebugToolsPawns.Options_Wear), 0).SetDebugOnly(); // Remove all apparel
+            SyncDelegate.Lambda(typeof(DebugToolsPawns), nameof(DebugToolsPawns.Options_Wear), 3).SetDebugOnly(); // Wear specified apparel
+            SyncDelegate.Lambda(typeof(DebugToolsPawns), nameof(DebugToolsPawns.Options_GiveToInventory), 0).SetDebugOnly(); // Clear inventory
+            SyncDelegate.Lambda(typeof(DebugToolsPawns), nameof(DebugToolsPawns.Options_GiveToInventory), 3).SetDebugOnly(); // Give specified thing
+            SyncDelegate.Lambda(typeof(DebugToolsPawns), nameof(DebugToolsPawns.PawnGearDevOptions), 3).SetDebugOnly(); // Damage random apparel
+
+            // ITab_Pawn_Health debug tools
+            SyncDelegate.Lambda(typeof(DebugTools_Health), nameof(DebugTools_Health.Options_Hediff_BodyParts), 0).SetDebugOnly(); // Add specified hediff (no body part)
+            SyncDelegate.Lambda(typeof(DebugTools_Health), nameof(DebugTools_Health.Options_Hediff_BodyParts), 2).SetDebugOnly(); // Add specified hediff to specified body part
+        }
+
+        private static Thing geneUIUtilityTarget;
+
+        [MpPrefix(typeof(GeneUIUtility), nameof(GeneUIUtility.DoDebugButton))]
+        static void GeneUIUtilityTarget(Thing target)
+        {
+            geneUIUtilityTarget = target;
+        }
 
         [MpPrefix(typeof(FormCaravanComp), nameof(FormCaravanComp.GetGizmos), lambdaOrdinal: 0)]
         static bool GizmoFormCaravan(MapParent ___mapParent)
