@@ -311,13 +311,17 @@ namespace Multiplayer.Client.AsyncTime
 
         static AutomaticPauseMode AutomaticPauseMode()
         {
-            return (AutomaticPauseMode) Multiplayer.GameComp.pauseOnLetter;
+            return Multiplayer.Client != null
+                ? (AutomaticPauseMode) Multiplayer.GameComp.pauseOnLetter
+                : Prefs.AutomaticPauseMode;
         }
 
         static void PauseOnLetter(TickManager manager)
         {
-            if (Multiplayer.GameComp.asyncTime)
-                ((ITickable) Multiplayer.MapContext.AsyncTime() ?? Multiplayer.WorldComp).TimeSpeed = TimeSpeed.Paused;
+            if (Multiplayer.Client == null)
+                manager.Pause();
+            else if (Multiplayer.GameComp.asyncTime)
+                ((ITickable)Multiplayer.MapContext.AsyncTime() ?? Multiplayer.WorldComp).TimeSpeed = TimeSpeed.Paused;
             else
                 Multiplayer.WorldComp.SetTimeEverywhere(TimeSpeed.Paused);
         }
