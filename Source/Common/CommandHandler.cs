@@ -16,7 +16,7 @@ namespace Multiplayer.Common
             this.server = server;
         }
 
-        public void Send(CommandType cmd, int factionId, int mapId, byte[] data, ServerPlayer sourcePlayer = null)
+        public void Send(CommandType cmd, int factionId, int mapId, byte[] data, ServerPlayer sourcePlayer = null, ServerPlayer fauxSource = null)
         {
             if (sourcePlayer != null)
             {
@@ -29,6 +29,10 @@ namespace Multiplayer.Common
                 bool hostOnly = cmd == CommandType.Sync && hostOnlySyncCmds.Contains(BitConverter.ToInt32(data, 0));
                 if (hostOnly && !sourcePlayer.IsHost)
                     return;
+
+                if (cmd is CommandType.MapTimeSpeed or CommandType.GlobalTimeSpeed &&
+                    server.settings.timeControl == TimeControl.HostOnly && !sourcePlayer.IsHost)
+                    return;
             }
 
             byte[] toSave = ScheduledCommand.Serialize(
@@ -37,7 +41,7 @@ namespace Multiplayer.Common
                     server.gameTimer,
                     factionId,
                     mapId,
-                    sourcePlayer?.id ?? ScheduledCommand.NoPlayer,
+                    sourcePlayer?.id ?? fauxSource?.id ?? ScheduledCommand.NoPlayer,
                     data));
 
             // todo cull target players if not global
@@ -60,12 +64,20 @@ namespace Multiplayer.Common
 
         public void PauseAll()
         {
-            Send(
-                CommandType.PauseAll,
-                ScheduledCommand.NoFaction,
-                ScheduledCommand.Global,
-                null
-            );
+            if (server.settings.timeControl == TimeControl.LowestWins)
+                Send(
+                    CommandType.TimeSpeedVote,
+                    ScheduledCommand.NoFaction,
+                    ScheduledCommand.Global,
+                    ByteWriter.GetBytes(TimeVote.ResetAll, -1)
+                );
+            else
+                Send(
+                    CommandType.PauseAll,
+                    ScheduledCommand.NoFaction,
+                    ScheduledCommand.Global,
+                    null
+                );
         }
 
         public bool CanUseDevMode(ServerPlayer player) =>

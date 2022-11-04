@@ -94,6 +94,7 @@ namespace Multiplayer.Client
         public void DoSettingsWindowContents(Rect inRect)
         {
             var buttonPos = new Rect(inRect.xMax - 150, inRect.yMin + 10, 125, 32);
+
             Widgets.Dropdown(buttonPos, currentPage, x => x, GeneratePageMenu, $"MpSettingsPage{currentPage}".Translate());
 
             switch (currentPage)
@@ -118,7 +119,10 @@ namespace Multiplayer.Client
                        {
                            currentPage = page;
                            scrollPosition = Vector2.zero;
-                       }),
+                       })
+                       {
+                           tooltip = page == SettingsPage.Color ? "MpSettingsPageColorDesc".Translate() : null
+                       },
                        payload = page,
                    };
         }

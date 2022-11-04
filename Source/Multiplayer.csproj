@@ -13,6 +13,14 @@
     <PublicizeAsReferenceAssemblies>false</PublicizeAsReferenceAssemblies>
   </PropertyGroup>
 
+  <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+    <DebugType>portable</DebugType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="..\Languages\English\**\*"/>
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Krafs.Publicizer" Version="2.0.1" />
     <PackageReference Include="RestSharp" Version="106.12.0" />

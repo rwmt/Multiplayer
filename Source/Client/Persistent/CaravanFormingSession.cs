@@ -11,7 +11,7 @@ using Verse;
 
 namespace Multiplayer.Client
 {
-    public class CaravanFormingSession : IExposable, ISessionWithTransferables
+    public class CaravanFormingSession : IExposable, ISessionWithTransferables, IPausingWithDialog
     {
         public Map map;
 

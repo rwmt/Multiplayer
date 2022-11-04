@@ -133,5 +133,11 @@ namespace Multiplayer.Client
                 dict[keys(item)] = values(item);
             return dict;
         }
+
+        public static IEnumerable<V> GetOrEmpty<K, V>(this Dictionary<K, V> dict, K key)
+        {
+            if (dict.TryGetValue(key, out var value))
+                yield return value;
+        }
     }
 }

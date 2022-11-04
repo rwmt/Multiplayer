@@ -40,7 +40,7 @@ namespace Multiplayer.Client
                 },
                 (ByteReader data) => {
                     int id = data.ReadInt32();
-                    return GetSessions(data.MpContext().map).FirstOrDefault(s => s.SessionId == id);
+                    return Multiplayer.game.GetSessions(data.MpContext().map).FirstOrDefault(s => s.SessionId == id);
                 }, true
             },
             #endregion

@@ -569,27 +569,6 @@ namespace Multiplayer.Client
             return builder.ToString();
         }
 
-        internal static IEnumerable<ISession> GetSessions(Map map)
-        {
-            foreach (var s in Multiplayer.WorldComp.trading)
-                yield return s;
-
-            if (Multiplayer.WorldComp.splitSession != null)
-                yield return Multiplayer.WorldComp.splitSession;
-
-            if (map == null) yield break;
-            var mapComp = map.MpComp();
-
-            if (mapComp.caravanForming != null)
-                yield return mapComp.caravanForming;
-
-            if (mapComp.transporterLoading != null)
-                yield return mapComp.transporterLoading;
-
-            if (mapComp.ritualSession != null)
-                yield return mapComp.ritualSession;
-        }
-
         private static void LogXML(SyncLogger log, byte[] xmlData)
         {
             if (log == null) return;

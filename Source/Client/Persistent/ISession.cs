@@ -36,6 +36,12 @@ namespace Multiplayer.Client.Persistent
         int SessionId { get; }
     }
 
+    // todo unused for now
+    public interface IPausingWithDialog
+    {
+        void OpenWindow(bool sound = true);
+    }
+
     public interface ISessionWithTransferables : ISession
     {
         Transferable GetTransferableByThingId(int thingId);

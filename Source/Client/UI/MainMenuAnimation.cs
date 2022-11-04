@@ -30,8 +30,11 @@ namespace Multiplayer.Client
 
         static MainMenuAnimation()
         {
-            texture = new(8000, 5000, TextureFormat.RGBA32, false);
-            RegenTexture();
+            using (DeepProfilerWrapper.Section("Multiplayer main menu animation texture gen"))
+            {
+                texture = new(8000, 5000, TextureFormat.RGBA32, false);
+                RegenTexture();
+            }
         }
 
         static void Prefix(UI_BackgroundMain __instance, Rect bgRect)
@@ -244,6 +247,8 @@ namespace Multiplayer.Client
 
         static void RegenTexture()
         {
+            using var _ = DeepProfilerWrapper.Section("RegenTexture");
+
             verts.Clear();
 
             // vaniller cities
@@ -332,8 +337,11 @@ namespace Multiplayer.Client
                 i++;
             }
 
-            texture.SetPixels(colors);
-            texture.Apply();
+            using (DeepProfilerWrapper.Section("SetPixels and Apply"))
+            {
+                texture.SetPixels(colors);
+                texture.Apply();
+            }
 
             Mst();
         }

@@ -67,11 +67,11 @@ namespace Multiplayer.Client
             {
                 if (source == DebugSource.Tree)
                 {
-                    var node = Dialog_Debug.GetNode(path);
+                    var node = GetNode(path);
                     if (node != null)
                     {
                         node.Enter(null);
-                        if (node.actionType > DebugActionType.Action)
+                        if (node.actionType is DebugActionType.ToolMap or DebugActionType.ToolWorld or DebugActionType.ToolMapForPawns)
                         {
                             DebugTools.curTool.clickAction();
                             DebugTools.curTool = null;
@@ -149,6 +149,36 @@ namespace Multiplayer.Client
             var mapId = map?.uniqueID ?? ScheduledCommand.Global;
             Multiplayer.Client.SendCommand(CommandType.DebugTools, mapId, writer.ToArray());
         }
+
+        // From Dialog_Debug.GetNode
+        public static DebugActionNode GetNode(string path)
+        {
+            Dialog_Debug.TrySetupNodeGraph();
+            DebugActionNode curNode = Dialog_Debug.rootNode;
+            string[] pathParts = path.Split('\\');
+            for (int i = 0; i < pathParts.Length; i++)
+            {
+                DebugActionNode node = curNode.children.FirstOrDefault(n => n.LabelAndCategory() == pathParts[i]);
+                if (node == null)
+                    return null;
+                curNode = node;
+                curNode.TrySetupChildren();
+            }
+            return curNode;
+        }
+
+        public static string LabelAndCategory(this DebugActionNode node)
+        {
+            return $"{node.label}@{node.category}";
+        }
+
+        public static string NodePath(this DebugActionNode node)
+        {
+            if (node.parent is { IsRoot: false })
+                return node.parent.NodePath() + "\\" + LabelAndCategory(node);
+
+            return LabelAndCategory(node);
+        }
     }
 
     public class PlayerDebugState
@@ -188,13 +218,13 @@ namespace Multiplayer.Client
 
             public void Action()
             {
-                if (Multiplayer.ExecutingCmds)
+                if (Multiplayer.Client == null || Multiplayer.ExecutingCmds)
                     original();
                 else
                     MpDebugTools.SendCmd(
                         DebugSource.Tree,
                         0,
-                        node.Path,
+                        node.NodePath(),
                         WorldRendererUtility.WorldRenderedNow ? null : Find.CurrentMap
                     );
             }

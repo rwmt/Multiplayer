@@ -130,6 +130,17 @@ namespace Multiplayer.Common
             this.status = status;
             Server.SendToAll(Packets.Server_PlayerList, new object[] { (byte)PlayerListAction.Status, id, (byte)status });
         }
+
+        public void ResetTimeVotes()
+        {
+            Server.commands.Send(
+                CommandType.TimeSpeedVote,
+                ScheduledCommand.NoFaction,
+                ScheduledCommand.Global,
+                ByteWriter.GetBytes(TimeVote.PlayerResetAll, -1),
+                fauxSource: this
+            );
+        }
     }
 
     public enum PlayerStatus : byte

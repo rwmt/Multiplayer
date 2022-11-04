@@ -8,6 +8,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
+using Multiplayer.Client.AsyncTime;
+using RimWorld;
 using UnityEngine;
 using Verse;
 
@@ -249,11 +251,17 @@ namespace Multiplayer.Client
             accumulator = 0;
             shouldPause = false;
             workTicks = 0;
+            TimeControlPatch.prePauseTimeSpeed = null;
         }
 
         public static void SetTimer(int value)
         {
             Timer = value;
+        }
+
+        public static ITickable TickableById(int tickableId)
+        {
+            return AllTickables.FirstOrDefault(t => t.TickableId == tickableId);
         }
     }
 

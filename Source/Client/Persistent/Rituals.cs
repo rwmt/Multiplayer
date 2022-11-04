@@ -12,7 +12,7 @@ using static Verse.Widgets;
 
 namespace Multiplayer.Client.Persistent
 {
-    public class RitualSession : ISession
+    public class RitualSession : ISession, IPausingWithDialog
     {
         public Map map;
         public RitualData data;
@@ -47,7 +47,7 @@ namespace Multiplayer.Client.Persistent
                 Remove();
         }
 
-        public void OpenWindow()
+        public void OpenWindow(bool sound = true)
         {
             var dialog = new BeginRitualProxy(
                 null,
@@ -70,6 +70,9 @@ namespace Multiplayer.Client.Persistent
             {
                 assignments = data.assignments
             };
+
+            if (!sound)
+                dialog.soundAppear = null;
 
             Find.WindowStack.Add(dialog);
         }

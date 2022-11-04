@@ -90,6 +90,8 @@ namespace Multiplayer.Common
                 server.SendChat($"{conn.username} has left.");
 
                 server.SendToAll(Packets.Server_PlayerList, new object[] { (byte)PlayerListAction.Remove, player.id });
+
+                player.ResetTimeVotes();
             }
 
             conn.State = ConnectionStateEnum.Disconnected;
@@ -101,6 +103,8 @@ namespace Multiplayer.Common
         {
             player.UpdateStatus(PlayerStatus.Desynced);
             server.HostPlayer.SendPacket(Packets.Server_Traces, new object[] { TracesPacket.Request, tick, diffAt, player.id });
+
+            player.ResetTimeVotes();
 
             if (server.settings.pauseOnDesync)
                 server.commands.PauseAll();

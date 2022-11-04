@@ -3,7 +3,8 @@ namespace Multiplayer.Common
     public enum CommandType : byte
     {
         // Global scope
-        WorldTimeSpeed,
+        GlobalTimeSpeed,
+        TimeSpeedVote,
         PauseAll,
         CreateJoinPoint,
         SetupFaction,

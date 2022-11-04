@@ -232,13 +232,6 @@ namespace Multiplayer.Client
             SyncResearch.researchSpeed = data.researchSpeed;
         }
 
-        public void SetTimeEverywhere(TimeSpeed speed)
-        {
-            TimeSpeed = speed;
-            foreach (var map in Find.Maps)
-                map.AsyncTime().TimeSpeed = speed;
-        }
-
         public static float lastSpeedChange;
 
         public void ExecuteCmd(ScheduledCommand cmd)
@@ -272,23 +265,14 @@ namespace Multiplayer.Client
                     MpDebugTools.HandleCmd(data);
                 }
 
-                if (cmdType == CommandType.WorldTimeSpeed)
+                if (cmdType == CommandType.GlobalTimeSpeed)
                 {
-                    TimeSpeed speed = (TimeSpeed)data.ReadByte();
+                    HandleTimeSpeed(cmd, data);
+                }
 
-                    Multiplayer.WorldComp.TimeSpeed = speed;
-
-                    if (!Multiplayer.GameComp.asyncTime)
-                    {
-                        SetTimeEverywhere(speed);
-
-                        if (!cmd.issuedBySelf)
-                            lastSpeedChange = Time.realtimeSinceStartup;
-                    }
-
-#if DEBUG
-                    MpLog.Log($"Set world speed {speed} {TickPatch.Timer} {Find.TickManager.TicksGame}");
-#endif
+                if (cmdType == CommandType.TimeSpeedVote)
+                {
+                    HandleTimeVote(cmd, data);
                 }
 
                 if (cmdType == CommandType.PauseAll)
@@ -340,10 +324,8 @@ namespace Multiplayer.Client
                 DebugSettings.godMode = prevGodMode;
                 Prefs.data.devMode = prevDevMode;
 
-#if DEBUG
-                Log.Message($"rand calls {DeferredStackTracing.randCalls - randCalls1}");
-                Log.Message("rand state " + Rand.StateCompressed);
-#endif
+                MpLog.Debug($"rand calls {DeferredStackTracing.randCalls - randCalls1}");
+                MpLog.Debug("rand state " + Rand.StateCompressed);
 
                 Extensions.PopFaction();
                 PostContext();
@@ -352,7 +334,7 @@ namespace Multiplayer.Client
 
                 Multiplayer.game.sync.TryAddCommandRandomState(randState);
 
-                if (cmdType != CommandType.WorldTimeSpeed)
+                if (cmdType != CommandType.GlobalTimeSpeed)
                     Multiplayer.ReaderLog.AddCurrentNode(data);
             }
         }
@@ -363,6 +345,48 @@ namespace Multiplayer.Client
 
             if (!TickPatch.Simulating && !Multiplayer.IsReplay && (Multiplayer.LocalServer != null || Multiplayer.arbiterInstance))
                 SaveLoad.SendGameData(Multiplayer.session.dataSnapshot, true);
+        }
+
+        public void SetTimeEverywhere(TimeSpeed speed)
+        {
+            foreach (var map in Find.Maps)
+                map.AsyncTime().TimeSpeed = speed;
+            TimeSpeed = speed;
+        }
+
+        private void HandleTimeSpeed(ScheduledCommand cmd, ByteReader data)
+        {
+            TimeSpeed speed = (TimeSpeed)data.ReadByte();
+
+            Multiplayer.WorldComp.TimeSpeed = speed;
+
+            if (!Multiplayer.GameComp.asyncTime)
+            {
+                SetTimeEverywhere(speed);
+
+                if (!cmd.issuedBySelf)
+                    lastSpeedChange = Time.realtimeSinceStartup;
+            }
+
+            MpLog.Debug($"Set world speed {speed} {TickPatch.Timer} {Find.TickManager.TicksGame}");
+        }
+
+        private void HandleTimeVote(ScheduledCommand cmd, ByteReader data)
+        {
+            TimeVote vote = (TimeVote)data.ReadByte();
+            int tickableId = data.ReadInt32();
+
+            if (vote >= TimeVote.Reset)
+                Multiplayer.GameComp.playerData.Do(p => p.Value.SetTimeVote(tickableId, vote));
+            else if (Multiplayer.GameComp.playerData.GetValueOrDefault(cmd.playerId) is { } playerData)
+                playerData.SetTimeVote(tickableId, vote);
+
+            if (!Multiplayer.GameComp.asyncTime || vote == TimeVote.ResetAll)
+                SetTimeEverywhere(Multiplayer.GameComp.GetLowestTimeVote(Multiplayer.WorldComp.TickableId));
+            else if (TickPatch.TickableById(tickableId) is { } tickable)
+                tickable.TimeSpeed = Multiplayer.GameComp.GetLowestTimeVote(tickableId);
+
+            UpdateTimeSpeed();
         }
 
         private void HandleSetupFaction(ScheduledCommand command, ByteReader data)

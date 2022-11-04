@@ -97,6 +97,7 @@ namespace Multiplayer.Client
                 Multiplayer.GameComp.debugMode = settings.debugMode;
                 Multiplayer.GameComp.logDesyncTraces = settings.desyncTraces;
                 Multiplayer.GameComp.pauseOnLetter = settings.pauseOnLetter;
+                Multiplayer.GameComp.timeControl = settings.timeControl;
 
                 LongEventHandler.QueueLongEvent(() =>
                 {

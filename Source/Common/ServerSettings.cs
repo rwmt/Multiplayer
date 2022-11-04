@@ -84,6 +84,7 @@ namespace Multiplayer.Common
     public enum TimeControl
     {
         EveryoneControls,
-        LowestWins
+        LowestWins,
+        HostOnly
     }
 }

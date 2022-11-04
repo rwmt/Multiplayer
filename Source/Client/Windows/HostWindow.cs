@@ -228,14 +228,10 @@ namespace Multiplayer.Client
             entry = entry.Down(30);
 
             // Time control
-            // LeftLabel(entry, $"{"MpTimeControl".Translate()}:  ");
-            // if (CustomButton(entry.Right(LabelWidth + 10), $"MpTimeControl{serverSettings.timeControl}".Translate()))
-            // {
-            //     serverSettings.timeControl = serverSettings.timeControl.Cycle();
-            //     SoundDefOf.Checkbox_TurnedOn.PlayOneShotOnCamera();
-            // }
-            //
-            // entry = entry.Down(30);
+            LeftLabel(entry, $"{"MpTimeControl".Translate()}:  ");
+            DoTimeControl(entry.Right(LabelWidth + 10));
+
+            entry = entry.Down(30);
 
             // Log desync traces
             MpUI.CheckboxLabeledWithTipNoHighlight(
@@ -301,6 +297,21 @@ namespace Multiplayer.Client
             );
 
             entry = entry.Down(30);
+        }
+
+        private void DoTimeControl(Rect entry)
+        {
+            if (CustomButton(entry, $"MpTimeControl{serverSettings.timeControl}".Translate()))
+                Find.WindowStack.Add(new FloatMenu(Options().ToList()));
+
+            IEnumerable<FloatMenuOption> Options()
+            {
+                foreach (var opt in Enum.GetValues(typeof(TimeControl)).OfType<TimeControl>())
+                    yield return new FloatMenuOption($"MpTimeControl{opt}".Translate(), () =>
+                    {
+                        serverSettings.timeControl = opt;
+                    });
+            }
         }
 
         private void DoPauseOnLetter(Rect entry)

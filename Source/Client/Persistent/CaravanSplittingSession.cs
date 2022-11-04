@@ -11,7 +11,7 @@ namespace Multiplayer.Client.Persistent
     /// <summary>
     /// Represents an active Caravan Split session. This session will track all the pawns and items being split.
     /// </summary>
-    public class CaravanSplittingSession : IExposable, ISessionWithTransferables
+    public class CaravanSplittingSession : IExposable, ISessionWithTransferables, IPausingWithDialog
     {
         private int sessionId;
 

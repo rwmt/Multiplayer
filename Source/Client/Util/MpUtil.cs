@@ -114,6 +114,11 @@ namespace Multiplayer.Client
             return HarmonySharedState.originals
                 .FirstOrDefault(kv => kv.Key.GetNativeStart().ToInt64() == replacementAddr).Value;
         }
+
+        public static string JoinStringsAtMost(this IEnumerable<string> strs, int atMost = 3)
+        {
+            return strs.Take(atMost).Join() + (strs.Count() > atMost ? "..." : "");
+        }
     }
 
     public struct Container<T>

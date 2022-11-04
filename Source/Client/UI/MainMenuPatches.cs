@@ -112,7 +112,7 @@ namespace Multiplayer.Client
 
         static void ShowModDebugInfo()
         {
-            Find.WindowStack.Add(new SaveGameWindow("test"));
+            Find.WindowStack.Add(new DisconnectedWindow(new SessionDisconnectInfo() { specialButtonTranslated = "Special btn"}));
             return;
 
             var info = new RemoteData();
