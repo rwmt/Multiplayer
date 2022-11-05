@@ -42,7 +42,14 @@ namespace Multiplayer.Client
         static void Postfix(LoadableXmlAsset[] __result)
         {
             // This compares by absolute paths but they all have a common prefix
-            Array.Sort(__result, (x, y) => StringComparer.OrdinalIgnoreCase.Compare(x.FullFilePath, y.FullFilePath));
+            // Ignore non-alphanumeric chars (only slashes?) as they might be different between OSes
+            Array.Sort(__result, (x, y) =>
+                StringComparer.OrdinalIgnoreCase.Compare(OnlyAlphanumeric(x.FullFilePath), OnlyAlphanumeric(y.FullFilePath)));
+        }
+
+        static string OnlyAlphanumeric(string str)
+        {
+            return new string(str.Where(char.IsLetterOrDigit).ToArray());
         }
     }
 
