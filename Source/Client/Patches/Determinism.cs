@@ -169,37 +169,6 @@ namespace Multiplayer.Client.Patches
         }
     }
 
-    // [HarmonyPatch(typeof(WorkGiver_DoBill), nameof(WorkGiver_DoBill.StartOrResumeBillJob))]
-    // static class StartOrResumeBillPatch
-    // {
-    //     static FieldInfo LastFailTicks = AccessTools.Field(typeof(Bill), nameof(Bill.lastIngredientSearchFailTicks));
-    //
-    //     static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts, MethodBase original)
-    //     {
-    //         var list = new List<CodeInstruction>(insts);
-    //
-    //         int index = new CodeFinder(original, list).Forward(OpCodes.Stfld, LastFailTicks).Advance(-1);
-    //         if (list[index].opcode != OpCodes.Ldc_I4_0)
-    //             throw new Exception("Wrong code");
-    //
-    //         list.RemoveAt(index);
-    //
-    //         list.Insert(
-    //             index,
-    //             new CodeInstruction(OpCodes.Ldloc_1),
-    //             new CodeInstruction(OpCodes.Ldarg_1),
-    //             new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(StartOrResumeBillPatch), nameof(Value)))
-    //         );
-    //
-    //         return list;
-    //     }
-    //
-    //     static int Value(Bill bill, Pawn pawn)
-    //     {
-    //         return FloatMenuMakerMap.makingFor == pawn ? bill.lastIngredientSearchFailTicks : 0;
-    //     }
-    // }
-
     [HarmonyPatch]
     static class SortArchivablesById
     {
@@ -271,6 +240,16 @@ namespace Multiplayer.Client.Patches
         static void Prefix()
         {
             WealthWatcher.ResetStaticData();
+        }
+    }
+
+    [HarmonyPatch(typeof(PriorityWork), nameof(PriorityWork.Clear))]
+    static class PriorityWorkClearNoInterface
+    {
+        // This can get called in the UI but has side effects
+        static bool Prefix(PriorityWork __instance)
+        {
+            return Multiplayer.Client == null || Multiplayer.ExecutingCmds;
         }
     }
 
