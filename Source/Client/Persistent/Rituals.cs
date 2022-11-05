@@ -238,4 +238,39 @@ namespace Multiplayer.Client.Persistent
         }
     }
 
+    // We do not sync Ability.QueueCastingJob - instead syncing the delegate method queueing the job.
+    // We do this to avoid confirmation dialogs from some of the abilities, like neuroquake and a few ones added in Biotech.
+    // This causes an issue with abilities like throne speech or leader speech - the ritual dialog itself is treated as the confirmation dialog.
+    // This patch exists to catch abilities that would create ritual "confirmation" dialogs, and instead syncs the call to QueueCastingJob instead.
+    // There is no need to do this for global abilities as there are none that create rituals, and (at least up to 1.4) there are no other abilities that create non-confirmation dialogs
+    [HarmonyPatch(typeof(Ability), nameof(Ability.QueueCastingJob), typeof(LocalTargetInfo), typeof(LocalTargetInfo))]
+    static class RedirectRitualDialogCast
+    {
+        static bool Prefix(Ability __instance, LocalTargetInfo target, LocalTargetInfo destination)
+        {
+            if (Multiplayer.Client == null ||
+                Multiplayer.ExecutingCmds ||
+                Multiplayer.Ticking ||
+                !__instance.EffectComps.Any(effect => effect is CompAbilityEffect_StartRitual))
+                return true;
+
+            SyncedOpenDialog(__instance, target, destination);
+            return false;
+        }
+
+        [SyncMethod]
+        static void SyncedOpenDialog(Ability ability, LocalTargetInfo target, LocalTargetInfo destination)
+            => ability.QueueCastingJob(target, destination);
+    }
+
+    // Fixes the issue where the pawn list gets reset to default every time you re-open the dialog.
+    // Additionally, due to the pawns being assigned to spectating first in PostOpen through RitualRoleAssignments.TryAssignSpectate,
+    // a method which we sync, it called that method after the pawns had their forced assignments. This could cause situations like
+    // no pawn being selected for the leader/throne speech ritual (being forced as a spectator instead). This fixes that issue as well.
+    [HarmonyPatch(typeof(Dialog_BeginRitual), nameof(Dialog_BeginRitual.PostOpen))]
+    static class PreventRepeatedRitualPostOpenCalls
+    {
+        static bool Prefix() => Multiplayer.Client == null || Multiplayer.ExecutingCmds;
+    }
+
 }

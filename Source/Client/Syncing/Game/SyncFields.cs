@@ -23,6 +23,7 @@ namespace Multiplayer.Client
         public static ISyncField SyncBeCarried;
         public static ISyncField SyncPsychicEntropyLimit;
         public static ISyncField SyncPsychicEntropyTargetFocus;
+        public static ISyncField SyncGuiltAwaitingExecution;
 
         public static ISyncField SyncGodMode;
         public static ISyncField SyncUseWorkPriorities;
@@ -91,6 +92,7 @@ namespace Multiplayer.Client
             SyncBeCarried = Sync.Field(typeof(Pawn), "health", "beCarriedByCaravanIfSick");
             SyncPsychicEntropyLimit = Sync.Field(typeof(Pawn), "psychicEntropy", "limitEntropyAmount");
             SyncPsychicEntropyTargetFocus = Sync.Field(typeof(Pawn), "psychicEntropy", "targetPsyfocus").SetBufferChanges();
+            SyncGuiltAwaitingExecution = Sync.Field(typeof(Pawn), nameof(Pawn.guilt), nameof(Pawn_GuiltTracker.awaitingExecution));
 
             SyncUseWorkPriorities = Sync.Field(null, "Verse.Current/Game/playSettings", "useWorkPriorities").PostApply(UseWorkPriorities_PostApply);
             SyncAutoHomeArea = Sync.Field(null, "Verse.Current/Game/playSettings", "autoHomeArea");
@@ -508,6 +510,11 @@ namespace Multiplayer.Client
         {
             SyncNeuralSuperchargerMode.Watch(__instance.comp);
 		}
-    }
 
+        [MpPrefix(typeof(CharacterCardUtility), nameof(CharacterCardUtility.DrawCharacterCard))]
+        static void WatchAwaitingExecution(Pawn pawn)
+        {
+            SyncGuiltAwaitingExecution.Watch(pawn);
+        }
+    }
 }
