@@ -1,11 +1,11 @@
-![baner](https://user-images.githubusercontent.com/49448379/134965756-2a30ffd9-2f6c-43d6-a2a4-584252fc2e4b.png)
+![banner](https://user-images.githubusercontent.com/49448379/134965756-2a30ffd9-2f6c-43d6-a2a4-584252fc2e4b.png)
 
 
 
-Originally created by Zetrith, The Rimworld Multiplayer Mod is now being updated and maintained by community members.
+The RimWorld Multiplayer mod allows users to play full games of Rimworld cooperatively.
 
 ## Links
-[Steam Workshop ](https://steamcommunity.com/sharedfiles/filedetails/?id=1752864297)|
+[Steam Workshop ](https://steamcommunity.com/sharedfiles/filedetails/?id=2606448745)|
 [ Website ](https://rimworldmultiplayer.com)|
 [ Discord ](https://discord.gg/S4bxXpv)|
 [ Documentation](https://hackmd.io/@rimworldmultiplayer/docs/)
@@ -22,7 +22,7 @@ Please do all pull requests to the [development](https://github.com/rwmt/Multipl
 
 ## Donations
 
- if you’re feeling generous these are people who have contributed greatly to the mod’s development and upkeep.
+If you’re feeling generous these are people who have contributed greatly to the mod’s development and upkeep.
 
 **[Zetrith](https://ko-fi.com/zetrith)** - Creator, Core, Support\
 **[NotFood](https://ko-fi.com/notfood)** - Core, Mod Compatiblity, Compatibility Commissions\
