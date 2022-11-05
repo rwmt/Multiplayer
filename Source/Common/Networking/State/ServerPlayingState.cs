@@ -19,6 +19,7 @@ namespace Multiplayer.Common
         {
             connection.State = ConnectionStateEnum.ServerJoining;
             connection.Send(Packets.Server_CanRejoin);
+            Player.ResetTimeVotes();
         }
 
         [PacketHandler(Packets.Client_Desynced)]

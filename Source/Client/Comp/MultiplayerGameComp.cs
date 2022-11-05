@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using HarmonyLib;
 using Multiplayer.API;
 using Multiplayer.Client.Saving;
 using Multiplayer.Common;
@@ -68,6 +69,11 @@ namespace Multiplayer.Client.Comp
                 .Where(v => !excludePaused || v != TimeVote.Paused)
                 .DefaultIfEmpty(TimeVote.Paused)
                 .Min();
+        }
+
+        public void ResetAllTimeVotes(int tickableId)
+        {
+            playerData.Values.Do(p => p.SetTimeVote(tickableId, TimeVote.PlayerReset));
         }
     }
 

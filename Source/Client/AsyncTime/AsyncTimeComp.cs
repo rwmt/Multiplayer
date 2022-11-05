@@ -342,9 +342,8 @@ namespace Multiplayer.Client
 
                 if (!keepTheMap)
                     TrySetCurrentMap(prevMap);
-                if (updateWorldTime) {
-                    Multiplayer.WorldComp.UpdateTimeSpeed();
-                }
+
+                Multiplayer.WorldComp.UpdateTimeSpeed(); // In case a letter pauses the map
 
                 keepTheMap = false;
 
@@ -361,10 +360,7 @@ namespace Multiplayer.Client
         {
             if (!Find.Maps.Contains(map))
             {
-                if (Find.Maps.Any())
-                    Current.Game.CurrentMap = Find.Maps[0];
-                else
-                    Current.Game.CurrentMap = null;
+                Current.Game.CurrentMap = Find.Maps.Any() ? Find.Maps[0] : null;
                 Find.World.renderer.wantedMode = WorldRenderMode.Planet;
             }
             else

@@ -186,12 +186,12 @@ public static class TimeControlPatch
     static string VoteCountDetailed()
     {
         if (!AnyVotes(Tickable.TickableId)) return "";
-        var result = "\n\n";
+        var result = "\n";
         for (var speed = TimeVote.Paused; speed <= TimeVote.Ultrafast; speed++)
         {
             var players = PlayerVotes(Tickable.TickableId, speed).JoinStringsAtMost();
             if (!players.NullOrEmpty())
-                result += $"{speed}: {players}";
+                result += $"\n{speed}: {players}";
         }
         return result;
     }

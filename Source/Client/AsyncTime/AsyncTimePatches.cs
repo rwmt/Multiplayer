@@ -319,11 +319,23 @@ namespace Multiplayer.Client.AsyncTime
         static void PauseOnLetter(TickManager manager)
         {
             if (Multiplayer.Client == null)
+            {
                 manager.Pause();
-            else if (Multiplayer.GameComp.asyncTime)
-                ((ITickable)Multiplayer.MapContext.AsyncTime() ?? Multiplayer.WorldComp).TimeSpeed = TimeSpeed.Paused;
+                return;
+            }
+
+            if (Multiplayer.GameComp.asyncTime)
+            {
+                var tickable = (ITickable)Multiplayer.MapContext.AsyncTime() ?? Multiplayer.WorldComp;
+                tickable.TimeSpeed = TimeSpeed.Paused;
+                Multiplayer.GameComp.ResetAllTimeVotes(tickable.TickableId);
+            }
             else
+            {
                 Multiplayer.WorldComp.SetTimeEverywhere(TimeSpeed.Paused);
+                foreach (var tickable in TickPatch.AllTickables)
+                    Multiplayer.GameComp.ResetAllTimeVotes(tickable.TickableId);
+            }
         }
     }
 }

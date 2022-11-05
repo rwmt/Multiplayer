@@ -150,7 +150,7 @@ namespace Multiplayer.Client
                 return "MpServerCloseConfirmationNoTime".Translate();
 
             var minutes = seconds / 60;
-            return "MpServerCloseConfirmationTime".Translate(minutes > 0 ? $"{minutes}min" : $"{seconds}s");
+            return "MpServerCloseConfirmationTime".Translate(minutes > 0 ? $"{minutes:0.00}min" : $"{seconds:0.00}s");
         }
 
         private static void AskConvertToSingleplayer()
