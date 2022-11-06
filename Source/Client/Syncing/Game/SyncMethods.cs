@@ -256,14 +256,6 @@ namespace Multiplayer.Client
             SyncMethod.Lambda(typeof(Building_SubcoreScanner), nameof(Building_SubcoreScanner.GetGizmos), 5).SetDebugOnly(); // Enable/disable ingredients
             SyncMethod.Lambda(typeof(Building_SubcoreScanner), nameof(Building_SubcoreScanner.GetGizmos), 6).SetDebugOnly(); // Complete
 
-            // Used by Gene Extractor, Growth Vat, Subcore Scanner, possibly others
-            foreach (var type in typeof(Building_Enterable).AllSubtypesAndSelf())
-            {
-                var method = AccessTools.DeclaredMethod(type, nameof(Building_Enterable.SelectPawn));
-                if (method != null && !method.IsAbstract)
-                    Sync.RegisterSyncMethod(method);
-            }
-
             // Mechs
             // Charger
             SyncMethod.Lambda(typeof(Building_MechCharger), nameof(Building_MechCharger.GetGizmos), 0).SetDebugOnly(); // Waste 100%

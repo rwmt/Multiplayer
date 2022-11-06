@@ -175,6 +175,11 @@ namespace Multiplayer.Client
             SyncDelegate.Lambda(typeof(Xenogerm), nameof(Xenogerm.SetTargetPawn), 1); // Select the target - sets up operation (which was synced) and some extra data (which wasn't)
             SyncMethod.Lambda(typeof(Xenogerm), nameof(Xenogerm.GetGizmos), 2);
 
+            // Used by Gene Extractor, Growth Vat, Subcore Scanner, possibly others
+            SyncMethod.Register(typeof(Building_Enterable), nameof(Building_Enterable.SelectPawn));
+            // GeneExtractor can create a confirmation. Either sync through the call to base class, or by syncing the delegate from confirmation.
+            SyncDelegate.Lambda(typeof(Building_GeneExtractor), nameof(Building_GeneExtractor.SelectPawn), 0);
+
             InitRituals();
             InitChoiceLetters();
             InitDevTools();
