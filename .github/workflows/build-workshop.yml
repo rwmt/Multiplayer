@@ -1,0 +1,40 @@
+name: Build workshop
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: Build workshop
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+        submodules: recursive # Updates the Languages submodule
+    
+    - name: Setup Dotnet
+      uses: actions/setup-dotnet@v2
+      with:
+        dotnet-version: 6.0.x
+      
+    - name: Run workshop bundler
+      run: ./workshop_bundler.sh
+
+    - run: mkdir -p output
+
+    - name: Move files
+      run: mv Multiplayer/ output/
+
+    - id: get_version
+      run: echo ::set-output name=VERSION::$(echo ${{ github.ref }} | cut -d / -f 3) # github.ref is refs/tags/<tag> here
+
+    - name: Upload mod artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        name: Multiplayer-${{ steps.get_version.outputs.VERSION }}
+        path: |
+          output/
