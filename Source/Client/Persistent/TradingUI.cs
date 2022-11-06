@@ -387,8 +387,8 @@ namespace Multiplayer.Client
     {
         static IEnumerable<MethodBase> TargetMethods()
         {
-            yield return MpMethodUtil.GetLambda(typeof(Dialog_Trade), nameof(Dialog_Trade.DoWindowContents));
-            yield return MpMethodUtil.GetLambda(typeof(Dialog_Trade), nameof(Dialog_Trade.DoWindowContents));
+            yield return MpMethodUtil.GetLambda(typeof(Dialog_Trade), nameof(Dialog_Trade.DoWindowContents), lambdaOrdinal: 0);
+            yield return MpMethodUtil.GetLambda(typeof(Dialog_Trade), nameof(Dialog_Trade.DoWindowContents), lambdaOrdinal: 1);
         }
 
         static void Prefix(ref bool __state)
