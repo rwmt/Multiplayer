@@ -25,6 +25,7 @@ namespace Multiplayer.Client
             { typeof(FoodRestrictionWrapper) },
             { typeof(PenAnimalsWrapper) },
             { typeof(PenAutocutWrapper) },
+            { typeof(DefaultAutocutWrapper) },
         };
 
         public static void Init()
@@ -164,6 +165,12 @@ namespace Multiplayer.Client
         public override ThingFilter Filter => Pen.AutoCutFilter;
         public override ThingFilter ParentFilter => Pen.parent.Map.animalPenManager.GetFixedAutoCutFilter();
         public override IEnumerable<SpecialThingFilterDef> HiddenFilters => SpecialThingFilterDefOf.AllowFresh.ToEnumerable();
+    }
+
+    public record DefaultAutocutWrapper(CompAutoCut AutoCut) : ThingFilterContext
+    {
+        public override ThingFilter Filter => AutoCut.AutoCutFilter;
+        public override ThingFilter ParentFilter => AutoCut.GetFixedAutoCutFilter();
     }
 
 }

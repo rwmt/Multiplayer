@@ -53,10 +53,11 @@ namespace Multiplayer.Client
         public static FoodRestrictionWrapper foodRestriction;
         public static PenAutocutWrapper penAutocut;
         public static PenAnimalsWrapper penAnimals;
+        public static DefaultAutocutWrapper windTurbine;
 
         public static ThingFilterContext DrawnThingFilter =>
             !drawingThingFilter ? null :
-            tabStorage ?? billConfig ?? dialogOutfit ?? foodRestriction ?? penAutocut ?? (ThingFilterContext)penAnimals;
+            tabStorage ?? billConfig ?? dialogOutfit ?? foodRestriction ?? penAutocut ?? penAnimals ?? (ThingFilterContext)windTurbine;
 
         #region Misc Markers
         [MpPrefix(typeof(MainTabWindow_Work), "DoManualPrioritiesCheckbox")]
@@ -130,6 +131,13 @@ namespace Multiplayer.Client
 
         [MpPostfix(typeof(ITab_PenAnimals), "FillTab")]
         static void TabPenAnimalsFillTab_Prefix() => penAnimals = null;
+
+        [MpPrefix(typeof(ITab_WindTurbineAutoCut), nameof(ITab_WindTurbineAutoCut.FillTab))]
+        static void TabWindTurbineAutocutFillTab_Prefix(ITab_WindTurbineAutoCut __instance) =>
+            windTurbine = new(__instance.AutoCut);
+
+        [MpPostfix(typeof(ITab_WindTurbineAutoCut), nameof(ITab_WindTurbineAutoCut.FillTab))]
+        static void TabWindTurbineAutocutFillTab_Postfix(ITab_WindTurbineAutoCut __instance) => windTurbine = null;
 
         [MpPrefix(typeof(ThingFilterUI), "DoThingFilterConfigWindow")]
         static void ThingFilterUI_Prefix() => drawingThingFilter = true;

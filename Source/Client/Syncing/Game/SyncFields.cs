@@ -69,7 +69,7 @@ namespace Multiplayer.Client
         public static ISyncField SyncStorytellerDifficultyDef;
         public static ISyncField SyncStorytellerDifficulty;
 
-        public static ISyncField SyncAnimalPenAutocut;
+        public static ISyncField SyncAutocutCompToggle;
 
         public static SyncField[] SyncAutoSlaughter;
 
@@ -203,7 +203,7 @@ namespace Multiplayer.Client
             SyncDryadCaste = Sync.Field(typeof(CompTreeConnection), nameof(CompTreeConnection.desiredMode));
             SyncDesiredTreeConnectionStrength = Sync.Field(typeof(CompTreeConnection), nameof(CompTreeConnection.desiredConnectionStrength));
 
-            SyncAnimalPenAutocut = Sync.Field(typeof(CompAnimalPenMarker), nameof(CompAnimalPenMarker.autoCut));
+            SyncAutocutCompToggle = Sync.Field(typeof(CompAutoCut), nameof(CompAutoCut.autoCut));
 
             SyncNeuralSuperchargerMode = Sync.Field(typeof(CompNeuralSupercharger), nameof(CompNeuralSupercharger.autoUseMode));
 
@@ -444,9 +444,15 @@ namespace Multiplayer.Client
         }
 
         [MpPrefix(typeof(ITab_PenAutoCut), nameof(ITab_PenAutoCut.DrawAutoCutOptions))]
-        static void DrawAutoCutOptions(CompAnimalPenMarker marker)
+        static void DrawAnimalPenAutoCutOptions(CompAnimalPenMarker marker)
         {
-            SyncAnimalPenAutocut.Watch(marker);
+            SyncAutocutCompToggle.Watch(marker);
+        }
+
+        [MpPrefix(typeof(ITab_WindTurbineAutoCut), nameof(ITab_WindTurbineAutoCut.DrawAutoCutOptions))]
+        static void DrawWindTurbineAutoCutOptions(CompAutoCutWindTurbine autoCut)
+        {
+            SyncAutocutCompToggle.Watch(autoCut);
         }
 
         [MpPrefix(typeof(Dialog_AutoSlaughter), nameof(Dialog_AutoSlaughter.DoAnimalRow))]
