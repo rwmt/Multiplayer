@@ -129,7 +129,7 @@ namespace Multiplayer.Client
             penAnimals = new(__instance.SelectedCompAnimalPenMarker);
 
         [MpPostfix(typeof(ITab_PenAnimals), "FillTab")]
-        static void TabPenAnimalsFillTab_Prefix() => penAnimals = null;
+        static void TabPenAnimalsFillTab_Postfix() => penAnimals = null;
 
         [MpPrefix(typeof(ThingFilterUI), "DoThingFilterConfigWindow")]
         static void ThingFilterUI_Prefix() => drawingThingFilter = true;
