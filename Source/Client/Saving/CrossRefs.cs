@@ -275,4 +275,31 @@ namespace Multiplayer.Client
             ThingsById.Unregister(item);
         }
     }
+
+    // We only care for ThingOwner<>.ExposeData, but patching it directly causes game to crash on save game load
+    [HarmonyPatch(typeof(ThingOwner), nameof(ThingOwner.ExposeData))]
+    public static class ThingOwnerExposeData
+    {
+        static void Postfix(ThingOwner __instance)
+        {
+            if (Multiplayer.Client == null || Scribe.mode != LoadSaveMode.PostLoadInit) return;
+
+            // Should we allow other subclasses of ThingOwner beside ThingOwner<>?
+            // I'm unable to find any mod that extends this class, so I can't say for certain how it would affect other mods.
+            var type = __instance.GetType();
+            if (!type.IsGenericType || !typeof(ThingOwner<>).IsAssignableFrom(type.GetGenericTypeDefinition())) return;
+
+            foreach (var item in __instance)
+            {
+                // Ignore null values and minified things with null inner thing.
+                // Since this method is called before ThingOwner<>.ExposeData,
+                // we're using data before it was cleaned up.
+                if (item != null && item is not MinifiedThing { InnerThing: null })
+                {
+                    ScribeUtil.sharedCrossRefs.RegisterLoaded(item);
+                    ThingsById.Register(item);
+                }
+            }
+        }
+    }
 }
