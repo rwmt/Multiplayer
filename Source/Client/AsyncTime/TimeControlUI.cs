@@ -109,9 +109,9 @@ public static class TimeControlPatch
         float fastSpeed = Tickable.ActualRateMultiplier(TimeSpeed.Fast);
 
         if (normalSpeed == 0f) // Completely paused
-            Widgets.DrawLineHorizontal(rect.x + rect.width, rect.y + rect.height / 2f, rect.width * 3f);
+            Widgets.DrawLineHorizontal(rect.width, rect.height / 2f, rect.width * 3f);
         else if (normalSpeed == fastSpeed) // Slowed down
-            Widgets.DrawLineHorizontal(rect.x + rect.width * 2f, rect.y + rect.height / 2f, rect.width * 2f);
+            Widgets.DrawLineHorizontal(rect.width * 2f, rect.height / 2f, rect.width * 2f);
 
         Widgets.EndGroup();
         GenUI.AbsorbClicksInRect(timerRect);
