@@ -120,7 +120,7 @@ namespace Multiplayer.Common
 
         protected virtual void HandleReceive(int msgId, int fragState, ByteReader reader, bool reliable)
         {
-            if (msgId < 0 || msgId >= MpConnectionState.packetHandlers.Length)
+            if (msgId is < 0 or >= (int)Packets.Count)
                 throw new PacketReadException($"Bad packet id {msgId}");
 
             Packets packetType = (Packets)msgId;
