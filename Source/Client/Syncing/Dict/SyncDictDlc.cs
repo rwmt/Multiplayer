@@ -274,6 +274,18 @@ namespace Multiplayer.Client
                     return mechanitor.controlGroups[index];
                 }
             },
+            {
+                (ByteWriter data, MechCarrierGizmo gizmo) =>
+                {
+                    WriteSync(data, gizmo.carrier);
+                },
+                (ByteReader data) =>
+                {
+                    var comp = ReadSync<CompMechCarrier>(data);
+                    comp.gizmo ??= new MechCarrierGizmo(comp);
+                    return comp.gizmo;
+                }
+            },
             #endregion
         };
 	}
