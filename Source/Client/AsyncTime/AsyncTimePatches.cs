@@ -329,12 +329,18 @@ namespace Multiplayer.Client.AsyncTime
                 var tickable = (ITickable)Multiplayer.MapContext.AsyncTime() ?? Multiplayer.WorldComp;
                 tickable.TimeSpeed = TimeSpeed.Paused;
                 Multiplayer.GameComp.ResetAllTimeVotes(tickable.TickableId);
+                if (tickable is AsyncTimeComp comp)
+                    comp.TrySetPrevTimeSpeed(TimeSpeed.Paused);
             }
             else
             {
                 Multiplayer.WorldComp.SetTimeEverywhere(TimeSpeed.Paused);
                 foreach (var tickable in TickPatch.AllTickables)
+                {
                     Multiplayer.GameComp.ResetAllTimeVotes(tickable.TickableId);
+                    if (tickable is AsyncTimeComp comp)
+                        comp.TrySetPrevTimeSpeed(TimeSpeed.Paused);
+                }
             }
         }
     }

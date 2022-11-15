@@ -488,6 +488,12 @@ namespace Multiplayer.Client
 
             MultiplayerAsyncQuest.TickMapQuests(this);
         }
+
+        public void TrySetPrevTimeSpeed(TimeSpeed speed)
+        {
+            if (prevTime != null)
+                prevTime = prevTime.Value with { speed = speed };
+        }
     }
 
     public enum DesignatorMode : byte
