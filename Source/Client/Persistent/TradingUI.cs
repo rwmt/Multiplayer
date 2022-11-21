@@ -459,4 +459,35 @@ namespace Multiplayer.Client
         }
     }
 
+    [HarmonyPatch]
+    static class FixAcceptOverTraderSilver
+    {
+        static MethodBase TargetMethod()
+        {
+            return MpMethodUtil.GetLambda(typeof(Dialog_Trade), nameof(Dialog_Trade.DoWindowContents), lambdaOrdinal: 2);
+        }
+
+        static void Prefix(ref bool __state)
+        {
+            if (TradeSession.deal != null) return;
+
+            TradingWindow trading = Find.WindowStack.WindowOfType<TradingWindow>();
+            if (trading != null)
+            {
+                TradingWindow.drawingTrade = trading;
+                MpTradeSession.SetTradeSession(Multiplayer.WorldComp.trading[trading.selectedTab]);
+                __state = true;
+            }
+        }
+
+        static void Postfix(bool __state)
+        {
+            if (__state)
+            {
+                TradingWindow.drawingTrade = null;
+                MpTradeSession.SetTradeSession(null);
+            }
+        }
+    }
+
 }
