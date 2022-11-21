@@ -87,6 +87,8 @@ namespace Multiplayer.Client
 
         public static ISyncField SyncMechRechargeThresholds;
         public static ISyncField SyncMechAutoRepair;
+        public static ISyncField SyncMechCarrierGizmoTargetValue;
+        public static ISyncField SyncMechCarrierMaxToFill;
 
         public static void Init()
         {
@@ -215,6 +217,8 @@ namespace Multiplayer.Client
 
             SyncMechRechargeThresholds = Sync.Field(typeof(MechanitorControlGroup), nameof(MechanitorControlGroup.mechRechargeThresholds));
             SyncMechAutoRepair = Sync.Field(typeof(CompMechRepairable), nameof(CompMechRepairable.autoRepair));
+            SyncMechCarrierGizmoTargetValue = Sync.Field(typeof(MechCarrierGizmo), nameof(MechCarrierGizmo.targetValue)).SetBufferChanges();
+            SyncMechCarrierMaxToFill = Sync.Field(typeof(CompMechCarrier), nameof(CompMechCarrier.maxToFill)).SetBufferChanges();
         }
 
         [MpPrefix(typeof(StorytellerUI), nameof(StorytellerUI.DrawStorytellerSelectionInterface))]
@@ -568,6 +572,13 @@ namespace Multiplayer.Client
             var comp = pawn.GetComp<CompMechRepairable>();
             if (comp != null)
                 SyncMechAutoRepair.Watch(comp);
+        }
+
+        [MpPrefix(typeof(MechCarrierGizmo), nameof(MechCarrierGizmo.GizmoOnGUI))]
+        static void WatchMechCarrierMaxToFill(MechCarrierGizmo __instance)
+        {
+            SyncMechCarrierGizmoTargetValue.Watch(__instance);
+            SyncMechCarrierMaxToFill.Watch(__instance.carrier);
         }
     }
 
