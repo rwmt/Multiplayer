@@ -6,8 +6,7 @@ env:
   SLN_PATH: Source/
 
 on:
-  pull_request:
-    branches: [ "development" ]
+  pull_request
 
 jobs:
   builds:
