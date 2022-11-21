@@ -146,8 +146,9 @@ namespace Multiplayer.Client
 
             Multiplayer.WriterLog.AddCurrentNode(writer);
 
-            var mapId = map?.uniqueID ?? ScheduledCommand.Global;
-            Multiplayer.Client.SendCommand(CommandType.DebugTools, mapId, writer.ToArray());
+            int mapId = map?.uniqueID ?? ScheduledCommand.Global;
+            if (!Multiplayer.GhostMode)
+                Multiplayer.Client.SendCommand(CommandType.DebugTools, mapId, writer.ToArray());
         }
 
         // From Dialog_Debug.GetNode

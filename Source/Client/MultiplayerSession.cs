@@ -56,6 +56,7 @@ namespace Multiplayer.Client
         public const int MaxMessages = 200;
         public List<ChatMsg> messages = new();
         public bool hasUnread;
+        public bool ghostModeCheckbox;
 
         public ServerSettings localServerSettings;
 

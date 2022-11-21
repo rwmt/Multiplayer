@@ -17,6 +17,12 @@ namespace Multiplayer.Client
         {
         }
 
+        protected void SendSyncCommand(int mapId, ByteWriter data)
+        {
+            if (!Multiplayer.GhostMode)
+                Multiplayer.Client.SendCommand(CommandType.Sync, mapId, data.ToArray());
+        }
+
         public abstract void Handle(ByteReader data);
 
         public abstract void Validate();

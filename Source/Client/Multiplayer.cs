@@ -51,6 +51,7 @@ namespace Multiplayer.Client
         public static MultiplayerWorldComp WorldComp => game.worldComp;
 
         public static bool ShowDevInfo => Prefs.DevMode && settings.showDevInfo;
+        public static bool GhostMode => session is { ghostModeCheckbox: true };
 
         public static Faction RealPlayerFaction
         {
@@ -326,9 +327,7 @@ namespace Multiplayer.Client
             TickPatch.Reset();
 
             Find.WindowStack?.WindowOfType<ServerBrowser>()?.Cleanup(true);
-
-            foreach (var entry in SyncFieldUtil.bufferedChanges)
-                entry.Value.Clear();
+            SyncFieldUtil.ClearAllBufferedChanges();
 
             if (arbiterInstance)
             {

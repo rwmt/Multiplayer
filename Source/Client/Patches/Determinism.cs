@@ -107,7 +107,7 @@ namespace Multiplayer.Client.Patches
     [HarmonyPatch(typeof(WealthWatcher), nameof(WealthWatcher.ForceRecount))]
     static class WealthWatcherRecalc
     {
-        static bool Prefix() => Multiplayer.Client == null || !Multiplayer.ShouldSync;
+        static bool Prefix() => Multiplayer.Client == null || !Multiplayer.InInterface;
     }
 
     [HarmonyPatch(typeof(FloodFillerFog), nameof(FloodFillerFog.FloodUnfog))]

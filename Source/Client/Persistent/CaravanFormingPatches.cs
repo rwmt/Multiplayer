@@ -67,7 +67,7 @@ namespace Multiplayer.Client.Persistent
         // This is merely hiding it and enabling manual transfer as a side effect.
         static bool Prefix(Dialog_FormCaravan __instance, Rect rect)
         {
-            if (Multiplayer.ShouldSync && __instance is CaravanFormingProxy dialog)
+            if (Multiplayer.InInterface && __instance is CaravanFormingProxy dialog)
             {
                 rect.yMin += 37f;
                 rect.height = 35f;
@@ -88,7 +88,7 @@ namespace Multiplayer.Client.Persistent
     {
         static bool Prefix(Dialog_FormCaravan __instance)
         {
-            if (Multiplayer.ShouldSync && __instance is CaravanFormingProxy dialog)
+            if (Multiplayer.InInterface && __instance is CaravanFormingProxy dialog)
             {
                 dialog.Session?.TryFormAndSendCaravan();
                 return false;
@@ -103,7 +103,7 @@ namespace Multiplayer.Client.Persistent
     {
         static bool Prefix(Dialog_FormCaravan __instance)
         {
-            if (Multiplayer.ShouldSync && __instance is CaravanFormingProxy dialog)
+            if (Multiplayer.InInterface && __instance is CaravanFormingProxy dialog)
             {
                 dialog.Session?.DebugTryFormCaravanInstantly();
                 return false;
@@ -118,7 +118,7 @@ namespace Multiplayer.Client.Persistent
     {
         static bool Prefix(Dialog_FormCaravan __instance)
         {
-            if (Multiplayer.ShouldSync && __instance is CaravanFormingProxy dialog)
+            if (Multiplayer.InInterface && __instance is CaravanFormingProxy dialog)
             {
                 dialog.Session?.TryReformCaravan();
                 return false;
@@ -133,7 +133,7 @@ namespace Multiplayer.Client.Persistent
     {
         static bool Prefix(Dialog_FormCaravan __instance, int destinationTile)
         {
-            if (Multiplayer.ShouldSync && __instance is CaravanFormingProxy dialog)
+            if (Multiplayer.InInterface && __instance is CaravanFormingProxy dialog)
             {
                 dialog.Session?.ChooseRoute(destinationTile);
                 return false;

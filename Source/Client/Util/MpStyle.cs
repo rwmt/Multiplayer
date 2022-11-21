@@ -13,57 +13,85 @@ namespace Multiplayer.Client.Util
         NoWrap, DoWrap
     }
 
-    public static class MpStyle
+    public ref struct MpStyle
     {
-        public struct TextOptReset : IDisposable
+        public bool? wrap;
+        public TextAnchor? anchor;
+        public Color? color;
+        public GameFont? font;
+
+        public void Dispose()
         {
-            public bool? wrap;
-            public TextAnchor? anchor;
-            public Color? color;
-            public GameFont? font;
+            if (wrap is { } w)
+                Text.WordWrap = w;
 
-            public void Dispose()
-            {
-                if (wrap is { } w)
-                    Text.WordWrap = w;
+            if (anchor is { } a)
+                Text.Anchor = a;
 
-                if (anchor is { } a)
-                    Text.Anchor = a;
+            if (color is { } c)
+                GUI.color = c;
 
-                if (color is { } c)
-                    GUI.color = c;
-
-                if (font is { } f)
-                    Text.Font = f;
-            }
+            if (font is { } f)
+                Text.Font = f;
         }
 
-        public static TextOptReset Set(WordWrap wrap)
+        public static MpStyle Set(WordWrap wrap)
         {
             var prev = Text.WordWrap;
             Text.WordWrap = wrap == WordWrap.DoWrap;
-            return new TextOptReset() { wrap = prev };
+            return new() { wrap = prev };
         }
 
-        public static TextOptReset Set(TextAnchor anchor)
+        public static MpStyle Set(TextAnchor anchor)
         {
             var prev = Text.Anchor;
             Text.Anchor = anchor;
-            return new TextOptReset() { anchor = prev };
+            return new() { anchor = prev };
         }
 
-        public static TextOptReset Set(Color color)
+        public static MpStyle Set(Color color)
         {
             var prev = GUI.color;
             GUI.color = color;
-            return new TextOptReset() { color = prev };
+            return new() { color = prev };
         }
 
-        public static TextOptReset Set(GameFont font)
+        public static MpStyle Set(GameFont font)
         {
             var prev = Text.Font;
             Text.Font = font;
-            return new TextOptReset() { font = prev };
+            return new() { font = prev };
+        }
+    }
+
+    public static class MpStyleExtensions
+    {
+        public static MpStyle Set(this MpStyle style, WordWrap wrap)
+        {
+            var prev = Text.WordWrap;
+            Text.WordWrap = wrap == WordWrap.DoWrap;
+            return style with { wrap = prev };
+        }
+
+        public static MpStyle Set(this MpStyle style, TextAnchor anchor)
+        {
+            var prev = Text.Anchor;
+            Text.Anchor = anchor;
+            return style with { anchor = prev };
+        }
+
+        public static MpStyle Set(this MpStyle style, Color color)
+        {
+            var prev = GUI.color;
+            GUI.color = color;
+            return style with { color = prev };
+        }
+
+        public static MpStyle Set(this MpStyle style, GameFont font)
+        {
+            var prev = Text.Font;
+            Text.Font = font;
+            return style with { font = prev };
         }
     }
 }

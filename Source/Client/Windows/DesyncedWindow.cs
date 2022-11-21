@@ -31,6 +31,8 @@ namespace Multiplayer.Client
             absorbInputAroundWindow = true;
             openedAt = Time.realtimeSinceStartup;
 
+            layer = WindowLayer.Super;
+
 #if DEBUG
             doCloseX = true;
 #endif

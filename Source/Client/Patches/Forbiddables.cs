@@ -31,7 +31,7 @@ namespace Multiplayer.Client
         static void Prefix(CompForbiddable __instance, Thing ___parent, bool value)
         {
             if (Multiplayer.Client == null) return;
-            if (Multiplayer.ShouldSync) return; // Will get synced
+            if (Multiplayer.InInterface) return; // Will get synced
 
             bool changed = false;
 

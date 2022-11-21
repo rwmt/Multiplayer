@@ -382,16 +382,18 @@ namespace Multiplayer.Client
             var geneSetDontSync = Serializer.SimpleReader<GeneSet>(() => null);
 
             SyncDelegate.Lambda(typeof(GeneUIUtility), nameof(GeneUIUtility.DoDebugButton), 4)
-                .TransformField("geneSet", geneSetDontSync).SetDebugOnly(); // Add all genes
-            SyncDelegate.Lambda(typeof(GeneUIUtility), nameof(GeneUIUtility.DoDebugButton), 6)
+                .TransformField("geneSet", geneSetDontSync).SetDebugOnly(); // Add all genes (xenogene)
+            SyncDelegate.Lambda(typeof(GeneUIUtility), nameof(GeneUIUtility.DoDebugButton), 5)
+                .TransformField("geneSet", geneSetDontSync).SetDebugOnly(); // Add all genes (endogene)
+            SyncDelegate.Lambda(typeof(GeneUIUtility), nameof(GeneUIUtility.DoDebugButton), 7)
                 .TransformField("geneSet", geneSetDontSync).SetDebugOnly(); // Reset genes to base xenotype
             SyncDelegate.LocalFunc(typeof(GeneUIUtility), nameof(GeneUIUtility.DoDebugButton), "AddGene")
                 .TransformField("geneSet", geneSetSerializer).SetDebugOnly(); // Add specified gene/xenogene/endogene
-            SyncDelegate.Lambda(typeof(GeneUIUtility), nameof(GeneUIUtility.DoDebugButton), 10)
-                .TransformField("CS$<>8__locals1/geneSet", geneSetDontSync).SetDebugOnly(); // Remove specified gene
             SyncDelegate.Lambda(typeof(GeneUIUtility), nameof(GeneUIUtility.DoDebugButton), 11)
-                .TransformField("CS$<>8__locals2/geneSet", geneSetDontSync).SetDebugOnly(); // Apply specified xenotype
+                .TransformField("CS$<>8__locals1/geneSet", geneSetDontSync).SetDebugOnly(); // Remove specified gene
             SyncDelegate.Lambda(typeof(GeneUIUtility), nameof(GeneUIUtility.DoDebugButton), 12)
+                .TransformField("CS$<>8__locals2/geneSet", geneSetDontSync).SetDebugOnly(); // Apply specified xenotype
+            SyncDelegate.Lambda(typeof(GeneUIUtility), nameof(GeneUIUtility.DoDebugButton), 13)
                 .TransformField("CS$<>8__locals3/geneSet", geneSetSerializer).SetDebugOnly(); // Also remove specified gene
 
             // ITab_Pawn_Gear debug tools

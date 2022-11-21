@@ -190,15 +190,18 @@ namespace Multiplayer.Client
                     Find.WindowStack.Add(Multiplayer.ReaderLog);
 
                 y += btnHeight;
+                var oldGhostMode = Multiplayer.session.ghostModeCheckbox;
+                Widgets.CheckboxLabeled(new Rect(x, y, btnWidth, 30f), "Ghost", ref Multiplayer.session.ghostModeCheckbox);
+                if (oldGhostMode != Multiplayer.session.ghostModeCheckbox)
+                    SyncFieldUtil.ClearAllBufferedChanges();
+
+                y += btnHeight;
             }
 
             if (Multiplayer.Client != null && Multiplayer.GameComp.debugMode)
             {
-                Text.Font = GameFont.Tiny;
-                Text.Anchor = TextAnchor.MiddleCenter;
-                Widgets.Label(new Rect(x, y, btnWidth, 30f), $"Debug mode");
-                Text.Anchor = TextAnchor.UpperLeft;
-                Text.Font = GameFont.Small;
+                using (MpStyle.Set(GameFont.Tiny).Set(TextAnchor.MiddleCenter))
+                    Widgets.Label(new Rect(x, y, btnWidth, 30f), $"Debug mode");
             }
         }
 

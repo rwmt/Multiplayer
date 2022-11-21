@@ -144,7 +144,7 @@ namespace Multiplayer.Client
             writer.Log.Node("Map id: " + mapId);
             Multiplayer.WriterLog.AddCurrentNode(writer);
 
-            Multiplayer.Client.SendCommand(CommandType.Sync, mapId, writer.ToArray());
+            SendSyncCommand(mapId, writer);
 
             lastSendTime = Utils.MillisNow;
 

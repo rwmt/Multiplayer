@@ -37,7 +37,10 @@ namespace Multiplayer.Client
 
                 object newValue = MpReflection.GetValue(data.target, handler.memberPath, data.index);
                 bool changed = !ValuesEqual(handler, newValue, data.oldValue);
-                var cache = (handler.bufferChanges && !Multiplayer.IsReplay) ? bufferedChanges.GetValueSafe(handler) : null;
+                var cache =
+                    handler.bufferChanges && !Multiplayer.IsReplay && !Multiplayer.GhostMode ?
+                        bufferedChanges.GetValueSafe(handler) :
+                        null;
 
                 if (cache != null && cache.TryGetValue(new(data.target, data.index), out BufferData cached))
                 {
@@ -154,6 +157,12 @@ namespace Multiplayer.Client
                     Multiplayer.harmony.PatchMeasure(attr.Method, prefix, postfix);
                 }
             }
+        }
+
+        public static void ClearAllBufferedChanges()
+        {
+            foreach (var entry in bufferedChanges)
+                entry.Value.Clear();
         }
     }
 

@@ -26,7 +26,7 @@ namespace Multiplayer.Client
     {
         public static bool DesignateSingleCell(Designator __instance, IntVec3 __0)
         {
-            if (!Multiplayer.ShouldSync) return true;
+            if (!Multiplayer.InInterface) return true;
 
             Designator designator = __instance;
 
@@ -37,7 +37,7 @@ namespace Multiplayer.Client
             WriteData(writer, DesignatorMode.SingleCell, designator);
             SyncSerialization.WriteSync(writer, __0);
 
-            Multiplayer.Client.SendCommand(CommandType.Designator, map.uniqueID, writer.ToArray());
+            SendSyncCommand(map.uniqueID, writer);
             Multiplayer.WriterLog.AddCurrentNode(writer);
 
             return false;
@@ -45,7 +45,7 @@ namespace Multiplayer.Client
 
         public static bool DesignateMultiCell(Designator __instance, IEnumerable<IntVec3> __0)
         {
-            if (!Multiplayer.ShouldSync) return true;
+            if (!Multiplayer.InInterface) return true;
 
             // No cells implies Finalize(false), which currently doesn't cause side effects
             if (!__0.Any()) return true;
@@ -60,7 +60,7 @@ namespace Multiplayer.Client
             WriteData(writer, DesignatorMode.MultiCell, designator);
             SyncSerialization.WriteSync(writer, cellArray);
 
-            Multiplayer.Client.SendCommand(CommandType.Designator, map.uniqueID, writer.ToArray());
+            SendSyncCommand(map.uniqueID, writer);
             Multiplayer.WriterLog.AddCurrentNode(writer);
 
             return false;
@@ -68,7 +68,7 @@ namespace Multiplayer.Client
 
         public static bool DesignateThing(Designator __instance, Thing __0)
         {
-            if (!Multiplayer.ShouldSync) return true;
+            if (!Multiplayer.InInterface) return true;
 
             Designator designator = __instance;
 
@@ -79,12 +79,18 @@ namespace Multiplayer.Client
             WriteData(writer, DesignatorMode.Thing, designator);
             SyncSerialization.WriteSync(writer, __0);
 
-            Multiplayer.Client.SendCommand(CommandType.Designator, map.uniqueID, writer.ToArray());
+            SendSyncCommand(map.uniqueID, writer);
             Multiplayer.WriterLog.AddCurrentNode(writer);
 
             FleckMaker.ThrowMetaPuffs(__0);
 
             return false;
+        }
+
+        private static void SendSyncCommand(int mapId, ByteWriter data)
+        {
+            if (!Multiplayer.GhostMode)
+                Multiplayer.Client.SendCommand(CommandType.Designator, mapId, data.ToArray());
         }
 
         // DesignateFinalizer ignores unimplemented Designate* methods
