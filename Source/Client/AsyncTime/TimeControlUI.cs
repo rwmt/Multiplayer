@@ -19,6 +19,8 @@ public static class TimeControlPatch
 {
     private static TimeVote[] GameSpeeds = { TimeVote.Paused, TimeVote.Normal, TimeVote.Fast, TimeVote.Superfast };
 
+    private static bool ShouldReset => Event.current.shift && Multiplayer.GameComp.IsLowestWins;
+
     private static ITickable Tickable =>
         !WorldRendererUtility.WorldRenderedNow && Multiplayer.GameComp.asyncTime
             ? Find.CurrentMap.AsyncTime()
@@ -78,7 +80,7 @@ public static class TimeControlPatch
                 483922
             ));
 
-            if (Widgets.ButtonInvisible(descRect, false) && Event.current.shift && Multiplayer.LocalServer != null)
+            if (Widgets.ButtonInvisible(descRect, false) && ShouldReset && Multiplayer.LocalServer != null)
                 SendTimeVote(TimeVote.Reset);
         }
 
@@ -87,7 +89,7 @@ public static class TimeControlPatch
             if (Widgets.ButtonImage(rect, TexButton.SpeedButtonTextures[(uint)speed]))
             {
                 // todo Move the host check to the server?
-                if (Event.current.shift && Multiplayer.LocalServer != null)
+                if (ShouldReset && Multiplayer.LocalServer != null)
                     SendTimeVote(TimeVote.Reset);
                 else if (speed == TimeVote.Paused)
                     SendTimeVote(TogglePaused(CurTimeSpeedUI));
@@ -126,8 +128,8 @@ public static class TimeControlPatch
 
         if (KeyBindingDefOf.TogglePause.KeyDownEvent)
         {
-            SendTimeVote(Event.current.shift ? TimeVote.PlayerReset : TogglePaused(CurTimeSpeedUI));
-            if (Event.current.shift)
+            SendTimeVote(ShouldReset ? TimeVote.PlayerReset : TogglePaused(CurTimeSpeedUI));
+            if (ShouldReset)
                 prePauseTimeSpeed = null;
         }
 
