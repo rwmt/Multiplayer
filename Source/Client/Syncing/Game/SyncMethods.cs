@@ -301,6 +301,12 @@ namespace Multiplayer.Client
 
             // Baby feeding
             SyncMethod.Register(typeof(Pawn_MindState), nameof(Pawn_MindState.SetAutofeeder)); // Called from ITab_Pawn_Feeding.GenerateFloatMenuOption
+
+            // HealthCardUtility
+            // Previously we synced the delegate which created the bill, but it has side effects to it.
+            // It can display confirmation like royal implant (no longer used?) or implanting IUD (if it would terminate pregnancy).
+            // On top of that, in case of implanting the Xenogerm recipe, it will open a dialog with list of available options.
+            SyncMethod.Register(typeof(HealthCardUtility), nameof(HealthCardUtility.CreateSurgeryBill));
         }
 
         [MpPrefix(typeof(PawnColumnWorker_CopyPasteTimetable), nameof(PawnColumnWorker_CopyPasteTimetable.PasteTo))]
