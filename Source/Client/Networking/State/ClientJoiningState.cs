@@ -185,7 +185,7 @@ namespace Multiplayer.Client
 
             Session.dataSnapshot = dataSnapshot;
             Multiplayer.session.localCmdId = data.ReadInt32();
-            TickPatch.shouldPause = data.ReadBool();
+            TickPatch.shouldFreeze = data.ReadBool();
             TickPatch.tickUntil = tickUntil;
 
             TickPatch.SetSimulation(

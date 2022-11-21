@@ -379,8 +379,8 @@ namespace Multiplayer.Client
 
             if (Multiplayer.LocalServer != null)
             {
-                if (Multiplayer.LocalServer.net.lanManager != null)
-                    LogNetData("Lan Server", Multiplayer.LocalServer.net.lanManager.Statistics);
+                if (Multiplayer.LocalServer.liteNet.lanManager != null)
+                    LogNetData("Lan Server", Multiplayer.LocalServer.liteNet.lanManager.Statistics);
 
                 //if (Multiplayer.LocalServer.net.netManager != null)
                 //    LogNetData("Net Server", Multiplayer.LocalServer.net.netManager.Statistics);

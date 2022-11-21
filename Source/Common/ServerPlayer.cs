@@ -24,8 +24,8 @@ namespace Multiplayer.Common
         public Stopwatch keepAliveTimer = Stopwatch.StartNew();
         public int keepAliveAt;
 
-        public bool paused;
-        public int unpausedAt;
+        public bool frozen;
+        public int unfrozenAt;
 
         public string Username => conn.username;
         public int Latency => conn.Latency;
@@ -35,7 +35,7 @@ namespace Multiplayer.Common
         public bool IsArbiter => type == PlayerType.Arbiter;
 
         public bool KeepsServerAwake =>
-            !IsArbiter && status == PlayerStatus.Playing && ticksBehind < 30 && Server.net.NetTimer - keepAliveAt < 60;
+            !IsArbiter && status == PlayerStatus.Playing && ticksBehind < 30 && Server.liteNet.NetTimer - keepAliveAt < 60;
 
         public MultiplayerServer Server => MultiplayerServer.instance;
 

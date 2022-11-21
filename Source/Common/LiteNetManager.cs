@@ -8,7 +8,7 @@ using Multiplayer.Common.Util;
 
 namespace Multiplayer.Common
 {
-    public class NetMan
+    public class LiteNetManager
     {
         private MultiplayerServer server;
 
@@ -20,7 +20,7 @@ namespace Multiplayer.Common
 
         public int NetTimer { get; private set; }
 
-        public NetMan(MultiplayerServer server)
+        public LiteNetManager(MultiplayerServer server)
         {
             this.server = server;
         }

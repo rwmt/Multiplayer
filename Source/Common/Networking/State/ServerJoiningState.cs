@@ -192,7 +192,7 @@ namespace Multiplayer.Common
             }
 
             writer.WriteInt32(Server.commands.NextCmdId);
-            writer.WriteBool(Server.pauseManager.Paused);
+            writer.WriteBool(Server.freezeManager.Frozen);
 
             connection.State = ConnectionStateEnum.ServerPlaying;
 

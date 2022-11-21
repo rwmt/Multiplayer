@@ -46,11 +46,11 @@ namespace Multiplayer.Client
                 );
             }
 
-            if (TickPatch.Paused)
+            if (TickPatch.Frozen)
             {
                 DrawModalWindow(
                     "Waiting for other players",
-                    () => TickPatch.Paused,
+                    () => TickPatch.Frozen,
                     MainMenuPatch.AskQuitToMainMenu,
                     "Quit"
                 );
@@ -101,7 +101,7 @@ namespace Multiplayer.Client
             {
                 var async = Find.CurrentMap.AsyncTime();
                 StringBuilder text = new StringBuilder();
-                text.Append($"{Multiplayer.game.sync.knownClientOpinions.FirstOrDefault()?.isLocalClientsOpinion} {async.mapTicks} {TickPatch.shouldPause} {TickPatch.pausedAt} ");
+                text.Append($"{Multiplayer.game.sync.knownClientOpinions.FirstOrDefault()?.isLocalClientsOpinion} {async.mapTicks} {TickPatch.shouldFreeze} {TickPatch.frozenAt} ");
 
                 text.Append($"z: {Find.CurrentMap.haulDestinationManager.AllHaulDestinationsListForReading.Count()} d: {Find.CurrentMap.designationManager.designationsByDef.Count} hc: {Find.CurrentMap.listerHaulables.ThingsPotentiallyNeedingHauling().Count}");
 

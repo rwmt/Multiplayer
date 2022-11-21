@@ -222,14 +222,14 @@ namespace Multiplayer.Client
             Multiplayer.game?.sync.AddClientOpinionAndCheckDesync(ClientSyncOpinion.Deserialize(data));
         }
 
-        [PacketHandler(Packets.Server_Pause)]
-        public void HandlePause(ByteReader data)
+        [PacketHandler(Packets.Server_Freeze)]
+        public void HandleFreze(ByteReader data)
         {
-            bool pause = data.ReadBool();
-            int pausedAt = data.ReadInt32();
+            bool frozen = data.ReadBool();
+            int frozenAt = data.ReadInt32();
 
-            TickPatch.shouldPause = pause;
-            TickPatch.pausedAt = pausedAt;
+            TickPatch.shouldFreeze = frozen;
+            TickPatch.frozenAt = frozenAt;
         }
 
         [PacketHandler(Packets.Server_Traces)]

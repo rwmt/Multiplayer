@@ -24,8 +24,8 @@ namespace Multiplayer.Client
         public static int tickUntil;
         public static int workTicks;
         public static bool currentExecutingCmdIssuedBySelf;
-        public static bool shouldPause;
-        public static int pausedAt;
+        public static bool shouldFreeze;
+        public static int frozenAt;
 
         public static TimeSpeed replayTimeSpeed;
 
@@ -33,7 +33,7 @@ namespace Multiplayer.Client
 
         public static bool ShouldHandle => LongEventHandler.currentEvent == null && !Multiplayer.session.desynced;
         public static bool Simulating => simulating?.target != null;
-        public static bool Paused => shouldPause && Timer >= pausedAt && !Simulating && ShouldHandle;
+        public static bool Frozen => shouldFreeze && Timer >= frozenAt && !Simulating && ShouldHandle;
 
         public static IEnumerable<ITickable> AllTickables
         {
@@ -59,7 +59,7 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.Client == null) return true;
             if (!ShouldHandle) return false;
-            if (Paused) return false;
+            if (Frozen) return false;
 
             double delta = time.ElapsedMillisDouble() / 1000.0 * 60.0;
             time.Restart();
@@ -249,7 +249,7 @@ namespace Multiplayer.Client
             Timer = 0;
             tickUntil = 0;
             accumulator = 0;
-            shouldPause = false;
+            shouldFreeze = false;
             workTicks = 0;
             TimeControlPatch.prePauseTimeSpeed = null;
         }

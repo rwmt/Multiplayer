@@ -118,7 +118,7 @@ namespace Multiplayer.Common
         [PacketHandler(Packets.Client_Cursor)]
         public void HandleCursor(ByteReader data)
         {
-            if (Player.lastCursorTick == Server.net.NetTimer) return;
+            if (Player.lastCursorTick == Server.liteNet.NetTimer) return;
 
             var writer = new ByteWriter();
 
@@ -149,7 +149,7 @@ namespace Multiplayer.Common
                 }
             }
 
-            Player.lastCursorTick = Server.net.NetTimer;
+            Player.lastCursorTick = Server.liteNet.NetTimer;
 
             Server.SendToAll(Packets.Server_Cursor, writer.ToArray(), reliable: false, excluding: Player);
         }
@@ -211,7 +211,7 @@ namespace Multiplayer.Common
 
             Player.ticksBehind = ticksBehind;
             Player.simulating = simulating;
-            Player.keepAliveAt = Server.net.NetTimer;
+            Player.keepAliveAt = Server.liteNet.NetTimer;
 
             if (Player.IsHost)
                 Server.workTicks = workTicks;
@@ -240,14 +240,14 @@ namespace Multiplayer.Common
                 p.conn.SendFragmented(Packets.Server_SyncInfo, raw);
         }
 
-        [PacketHandler(Packets.Client_Pause)]
-        public void HandlePause(ByteReader data)
+        [PacketHandler(Packets.Client_Freeze)]
+        public void HandleFreeze(ByteReader data)
         {
-            bool pause = data.ReadBool();
-            Player.paused = pause;
+            bool freeze = data.ReadBool();
+            Player.frozen = freeze;
 
-            if (!pause)
-                Player.unpausedAt = Server.net.NetTimer;
+            if (!freeze)
+                Player.unfrozenAt = Server.liteNet.NetTimer;
         }
 
         [PacketHandler(Packets.Client_Autosaving)]

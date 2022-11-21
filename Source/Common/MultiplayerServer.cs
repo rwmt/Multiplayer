@@ -39,10 +39,10 @@ namespace Multiplayer.Common
         // todo remove entries
         public Dictionary<string, int> playerFactions = new(); // Username to faction id
 
-        public PauseManager pauseManager;
+        public FreezeManager freezeManager;
         public CommandHandler commands;
         public PlayerManager playerManager;
-        public NetMan net;
+        public LiteNetManager liteNet;
         public IEnumerable<ServerPlayer> PlayingPlayers => playerManager.PlayingPlayers;
 
         public string hostUsername;
@@ -74,10 +74,10 @@ namespace Multiplayer.Common
         {
             this.settings = settings;
 
-            pauseManager = new PauseManager(this);
+            freezeManager = new FreezeManager(this);
             commands = new CommandHandler(this);
             playerManager = new PlayerManager(this);
-            net = new NetMan(this);
+            liteNet = new LiteNetManager(this);
 
             RegisterChatCmd("autosave", new ChatCmdAutosave());
             RegisterChatCmd("joinpoint", new ChatCmdJoinPoint());
@@ -104,10 +104,10 @@ namespace Multiplayer.Common
                     {
                         queue.RunQueue(ServerLog.Error);
                         TickEvent?.Invoke(this);
-                        net.TickNet();
-                        pauseManager.Tick();
+                        liteNet.TickNet();
+                        freezeManager.Tick();
 
-                        if (!pauseManager.Paused && PlayingPlayers.Any(p => p.KeepsServerAwake))
+                        if (!freezeManager.Frozen && PlayingPlayers.Any(p => p.KeepsServerAwake))
                             Tick();
                         lag -= timePerTick;
                     }
@@ -133,7 +133,7 @@ namespace Multiplayer.Common
         public void TryStop()
         {
             playerManager.OnServerStop();
-            net.OnServerStop();
+            liteNet.OnServerStop();
 
             instance = null;
         }

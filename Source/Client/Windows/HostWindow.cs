@@ -446,26 +446,26 @@ namespace Multiplayer.Client
         static bool TryStartLocalServer(ServerSettings settings)
         {
             var localServer = new MultiplayerServer(settings);
-            localServer.net.StartNet();
+            localServer.liteNet.StartNet();
 
             var failed = false;
 
-            if (settings.direct && localServer.net.netManagers.Any(m => m.Item2.IsRunning is false))
+            if (settings.direct && localServer.liteNet.netManagers.Any(m => m.Item2.IsRunning is false))
             {
-                foreach (var (endpoint, man) in localServer.net.netManagers)
+                foreach (var (endpoint, man) in localServer.liteNet.netManagers)
                     if (man.IsRunning is false)
                         Messages.Message("Failed to bind direct on " + endpoint, MessageTypeDefOf.RejectInput, false);
                 failed = true;
             }
 
-            if (settings.lan && !localServer.net.lanManager.IsRunning)
+            if (settings.lan && !localServer.liteNet.lanManager.IsRunning)
             {
                 Messages.Message("Failed to bind LAN on " + settings.lanAddress, MessageTypeDefOf.RejectInput, false);
                 failed = true;
             }
 
             if (failed)
-                localServer.net.StopNet();
+                localServer.liteNet.StopNet();
             else
                 Multiplayer.LocalServer = localServer;
 
