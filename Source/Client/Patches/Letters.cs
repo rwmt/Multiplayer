@@ -9,6 +9,8 @@ using Verse;
 
 namespace Multiplayer.Client.Patches
 {
+    // todo letter timeouts and async time
+
     [HarmonyPatch(typeof(LetterStack), nameof(LetterStack.LetterStackUpdate))]
     static class CloseLettersDuringSimulating
     {
@@ -120,5 +122,11 @@ namespace Multiplayer.Client.Patches
         static void Prefix() => isDrawing = true;
 
         static void Postfix() => isDrawing = false;
+    }
+
+    [HarmonyPatch(typeof(LetterStack), nameof(LetterStack.OpenAutomaticLetters))]
+    static class DontAutoOpenLettersOnTimeout
+    {
+        static bool Prefix() => Multiplayer.Client == null;
     }
 }

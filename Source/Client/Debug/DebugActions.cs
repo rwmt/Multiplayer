@@ -13,6 +13,7 @@ using Multiplayer.API;
 using RimWorld;
 using UnityEngine;
 using Verse;
+using Debug = UnityEngine.Debug;
 
 namespace Multiplayer.Client
 {
@@ -102,6 +103,39 @@ namespace Multiplayer.Client
                     .Join(delimiter: "\n")
                 );
             }
+        }
+
+        [DebugAction(MultiplayerCategory, allowedGameStates = AllowedGameStates.Playing)]
+        static void LogAllPatch()
+        {
+            foreach (var method in Assembly.GetExecutingAssembly().DefinedTypes.SelectMany(t => t.DeclaredMethods))
+                if (method.Name != "MultiplayerMethodCallLogger" &&
+                    !method.Name.StartsWith("get_") &&
+                    !method.IsGenericMethod &&
+                    method.DeclaringType?.IsGenericType is false &&
+                    method.DeclaringType?.BaseType != typeof(MulticastDelegate) &&
+                    !method.IsAbstract)
+                    Multiplayer.harmony.Patch(
+                        method,
+                        prefix: new HarmonyMethod(typeof(MpDebugActions), nameof(MultiplayerMethodCallLogger))
+                    );
+        }
+
+        [DebugAction(MultiplayerCategory, allowedGameStates = AllowedGameStates.Entry)]
+        static void LogAllPatchEntry()
+        {
+            LogAllPatch();
+        }
+
+        static void MultiplayerMethodCallLogger(MethodBase __originalMethod)
+        {
+            Debug.Log(__originalMethod.FullDescription());
+        }
+
+        [DebugAction(MultiplayerCategory, allowedGameStates = AllowedGameStates.Playing)]
+        static void Add1000TicksToTime()
+        {
+            Find.TickManager.ticksGameInt += 1000;
         }
 
 #if DEBUG

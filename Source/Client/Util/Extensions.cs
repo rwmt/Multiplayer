@@ -265,6 +265,13 @@ namespace Multiplayer.Client
             catch { }
         }
 
+        /// <summary>
+        /// Like Harmony.GeneralExtensions.FullDescription but without method type (static, abstract...) and return type
+        /// </summary>
+        /// <returns>
+        /// [namespace].[type]::[method name]([param namespace].[param type name]...)
+        /// "null" for a null method
+        /// </returns>
         public static string MethodDesc(this MethodBase method)
         {
             if (method is null) return "null";

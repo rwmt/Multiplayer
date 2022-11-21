@@ -2,6 +2,9 @@
 {
     public enum Packets : byte
     {
+        // Client_ means the origin is the client
+        // Server_ means the origin is the server
+
         // Special
         Client_Protocol, // Must be zeroth for future proofing
         Server_SteamAccept, // Packet for the special Steam state, must be first

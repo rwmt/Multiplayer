@@ -266,7 +266,7 @@ namespace Multiplayer.Client
     //[HarmonyPatch(typeof(Designator_Build), nameof(Designator_Build.DesignateSingleCell))]
     static class DisableInstaBuild
     {
-        static MethodInfo GetStatValueAbstract = AccessTools.Method(typeof(StatExtension), nameof(StatExtension.GetStatValueAbstract));
+        static MethodInfo GetStatValueAbstract = AccessTools.Method(typeof(StatExtension), nameof(StatExtension.GetStatValueAbstract), new []{ typeof(BuildableDef), typeof(StatDef), typeof(ThingDef) });
         static MethodInfo WorkToBuildMethod = AccessTools.Method(typeof(DisableInstaBuild), nameof(WorkToBuild));
 
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> e, MethodBase original)

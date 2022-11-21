@@ -253,4 +253,18 @@ namespace Multiplayer.Client.Patches
         }
     }
 
+    [HarmonyPatch(typeof(Pawn_GeneTracker), nameof(Pawn_GeneTracker.Notify_GenesChanged))]
+    static class CheckWhetherBiotechIsActive
+    {
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+        {
+            foreach (var inst in insts)
+            {
+                if (inst.operand == AccessTools.PropertyGetter(typeof(ModLister), nameof(ModLister.BiotechInstalled)))
+                    inst.operand = AccessTools.PropertyGetter(typeof(ModsConfig), nameof(ModsConfig.BiotechActive));
+                yield return inst;
+            }
+        }
+    }
+
 }
