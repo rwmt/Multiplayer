@@ -286,6 +286,18 @@ namespace Multiplayer.Client
                     return comp.gizmo;
                 }
             },
+            {
+                (ByteWriter data, Dialog_CreateXenogerm dialog) => WriteSync(data, dialog.geneAssembler),
+                (ByteReader data) =>
+                {
+                    var assembler = ReadSync<Building_GeneAssembler>(data);
+                    // Return the currently open dialog (if any) to refresh the data - else create a dummy dialog
+                    return Find.WindowStack.Windows
+                               .OfType<Dialog_CreateXenogerm>()
+                               .FirstOrDefault(d => d.geneAssembler == assembler)
+                           ?? new Dialog_CreateXenogerm(assembler);
+                }
+            },
             #endregion
         };
 	}

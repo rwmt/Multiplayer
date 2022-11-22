@@ -438,8 +438,9 @@ namespace Multiplayer.Client
                 (ByteReader data) => new ITab_Pawn_Gear()
             },
             {
-                (ByteWriter data, ITab_ContentsTransporter tab) => { },
-                (ByteReader data) => new ITab_ContentsTransporter()
+                (ByteWriter data, ITab_ContentsBase tab) => WriteSync(data, tab.GetType()),
+                (ByteReader data) => (ITab_ContentsBase)Activator.CreateInstance(ReadSync<Type>(data)),
+                true // Implicit
             },
             {
                 (ByteWriter data, ITab_Pawn_Guest tab) => { },

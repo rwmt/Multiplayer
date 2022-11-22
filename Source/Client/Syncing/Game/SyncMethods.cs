@@ -478,6 +478,60 @@ namespace Multiplayer.Client
         [SyncMethod]
         static void SyncedSetBabyFoodAllowed(Pawn_FoodRestrictionTracker tracker, ThingDef food, bool allowed)
             => tracker.SetBabyFoodAllowed(food, allowed);
+
+        [MpPrefix(typeof(ITab_ContentsGenepackHolder), nameof(ITab_ContentsGenepackHolder.DoRow))]
+        static void PreGenepackHolderDoRow(Genepack genepack, CompGenepackContainer container, bool insideContainer, ref int __state)
+        {
+            // Checkbox to autoload only displayed if it's not inside of the container already
+            if (Multiplayer.Client == null || insideContainer)
+                return;
+
+            __state = container.leftToLoad.IndexOf(genepack);
+        }
+
+        [MpPostfix(typeof(ITab_ContentsGenepackHolder), nameof(ITab_ContentsGenepackHolder.DoRow))]
+        static void PostGenepackHolderDoRow(Genepack genepack, CompGenepackContainer container, bool insideContainer, int __state)
+        {
+            if (Multiplayer.Client == null || insideContainer)
+                return;
+
+            var listPosition = container.leftToLoad.IndexOf(genepack);
+
+            // No change in state, do nothing
+            if (listPosition == __state)
+                return;
+
+            if (listPosition >= 0)
+            {
+                genepack.targetContainer = null;
+                container.leftToLoad.Remove(genepack);
+                SyncDesiredGenepackState(genepack, container, true);
+            }
+            else
+            {
+                genepack.targetContainer = container.parent;
+                container.leftToLoad.Insert(__state, genepack); // Keep the order
+                SyncDesiredGenepackState(genepack, container, false);
+            }
+        }
+
+        [SyncMethod]
+        static void SyncDesiredGenepackState(Genepack genepack, CompGenepackContainer container, bool shouldLoad)
+        {
+            if (shouldLoad)
+            {
+                if (container.CanLoadMore)
+                {
+                    genepack.targetContainer = container.parent;
+                    container.leftToLoad.Add(genepack);
+                }
+            }
+            else
+            {
+                genepack.targetContainer = null;
+                container.leftToLoad.Remove(genepack);
+            }
+        }
     }
 
 }

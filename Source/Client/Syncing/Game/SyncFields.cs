@@ -82,6 +82,7 @@ namespace Multiplayer.Client
         public static ISyncField SyncGeneGizmoResource;
         public static ISyncField SyncGeneResource;
         public static ISyncField SyncGeneHemogenAllowed;
+        public static ISyncField SyncGeneHolderAllowAll;
 
         public static ISyncField SyncNeedLevel;
 
@@ -212,6 +213,7 @@ namespace Multiplayer.Client
             SyncGeneGizmoResource = Sync.Field(typeof(GeneGizmo_Resource), nameof(GeneGizmo_Resource.targetValuePct)).SetBufferChanges();
             SyncGeneResource = Sync.Field(typeof(Gene_Resource), nameof(Gene_Resource.targetValue)).SetBufferChanges();
             SyncGeneHemogenAllowed = Sync.Field(typeof(Gene_Hemogen), nameof(Gene_Hemogen.hemogenPacksAllowed));
+            SyncGeneHolderAllowAll = Sync.Field(typeof(CompGenepackContainer), nameof(CompGenepackContainer.autoLoad));
 
             SyncNeedLevel = Sync.Field(typeof(Need), nameof(Need.curLevelInt)).SetDebugOnly();
 
@@ -552,6 +554,12 @@ namespace Multiplayer.Client
             SyncGeneResource.Watch(__instance.gene);
             if (__instance.gene is Gene_Hemogen)
                 SyncGeneHemogenAllowed.Watch(__instance.gene);
+        }
+
+        [MpPrefix(typeof(ITab_ContentsGenepackHolder), nameof(ITab_ContentsGenepackHolder.DoItemsLists))]
+        static void WatchGeneHolderAllowAll(ITab_ContentsGenepackHolder __instance)
+        {
+            SyncGeneHolderAllowAll.Watch(__instance.ContainerThing);
         }
 
         [MpPrefix(typeof(Need), nameof(Need.DrawOnGUI))]

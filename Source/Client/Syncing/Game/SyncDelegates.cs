@@ -179,6 +179,10 @@ namespace Multiplayer.Client
             // GeneExtractor can create a confirmation. Either sync through the call to base class, or by syncing the delegate from confirmation.
             SyncDelegate.Lambda(typeof(Building_GeneExtractor), nameof(Building_GeneExtractor.SelectPawn), 0);
 
+            // Genepack Container
+            SyncMethod.Register(typeof(ITab_ContentsBase), nameof(ITab_ContentsBase.OnDropThing)).SetContext(SyncContext.MapSelected); // Used by ITab_ContentsGenepackHolder
+            SyncDelegate.Lambda(typeof(Dialog_CreateXenogerm), nameof(Dialog_CreateXenogerm.DrawGenepack), 7); // Eject from container
+
             InitRituals();
             InitChoiceLetters();
             InitDevTools();
