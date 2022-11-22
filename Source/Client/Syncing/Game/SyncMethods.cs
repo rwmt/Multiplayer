@@ -282,6 +282,9 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(CompAtomizer), nameof(CompAtomizer.EjectContents));
             SyncMethod.Register(typeof(CompAtomizer), nameof(CompAtomizer.DoAtomize)).SetDebugOnly();
 
+            // Genepack
+            SyncMethod.Lambda(typeof(Genepack), nameof(Genepack.GetGizmos), 1); // Auto load
+
             // Genepack Container
             SyncMethod.Register(typeof(CompGenepackContainer), nameof(CompGenepackContainer.EjectContents));
             SyncMethod.Lambda(typeof(CompGenepackContainer), nameof(CompGenepackContainer.CompGetGizmosExtra), 1).SetDebugOnly(); // Fill with new packs
