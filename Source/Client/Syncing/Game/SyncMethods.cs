@@ -253,8 +253,8 @@ namespace Multiplayer.Client
             // Subcore Scanner
             SyncMethod.Lambda(typeof(Building_SubcoreScanner), nameof(Building_SubcoreScanner.GetGizmos), 1); // Initialize
             SyncMethod.Register(typeof(Building_SubcoreScanner), nameof(Building_SubcoreScanner.EjectContents)); // Cancel load
-            SyncMethod.Lambda(typeof(Building_SubcoreScanner), nameof(Building_SubcoreScanner.GetGizmos), 5).SetDebugOnly(); // Enable/disable ingredients
-            SyncMethod.Lambda(typeof(Building_SubcoreScanner), nameof(Building_SubcoreScanner.GetGizmos), 6).SetDebugOnly(); // Complete
+            SyncMethod.Lambda(typeof(Building_SubcoreScanner), nameof(Building_SubcoreScanner.GetGizmos), 6).SetDebugOnly(); // Enable/disable ingredients
+            SyncMethod.Lambda(typeof(Building_SubcoreScanner), nameof(Building_SubcoreScanner.GetGizmos), 7).SetDebugOnly(); // Complete
 
             // Mechs
             // Charger
