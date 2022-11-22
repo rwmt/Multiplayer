@@ -1,0 +1,8 @@
+<assembly name="Assembly-CSharp">
+    <member name="T:Verse.DebugActionAttribute">
+        <attribute ctor="M:JetBrains.Annotations.MeansImplicitUseAttribute.#ctor"/>
+    </member>
+    <member name="T:Verse.DebugOutputAttribute">
+        <attribute ctor="M:JetBrains.Annotations.MeansImplicitUseAttribute.#ctor"/>
+    </member>
+</assembly>
