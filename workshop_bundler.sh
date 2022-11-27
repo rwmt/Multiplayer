@@ -49,18 +49,15 @@ rm -f 1.4/Languages/.git 1.4/Languages/LICENSE 1.4/Languages/README.md
 
 # Past versions
 mkdir -p 1.3.3311
-git --work-tree=1.3.3311 checkout --recurse-submodules origin/rw-1.3.3311 -- Assemblies Defs Languages
-git reset Assemblies Defs Languages
+git --work-tree=1.3.3311 restore --recurse-submodules --source=origin/rw-1.3.3311 -- Assemblies Defs Languages
 rm -f 1.3.3311/Languages/.git 1.3.3311/Languages/LICENSE 1.3.3311/Languages/README.md
 
 mkdir -p 1.3
-git --work-tree=1.3 checkout --recurse-submodules origin/rw-1.3 -- Assemblies Defs Languages
-git reset Assemblies Defs Languages
+git --work-tree=1.3 restore --recurse-submodules --source=origin/rw-1.3 -- Assemblies Defs Languages
 rm -f 1.3/Languages/.git 1.3/Languages/LICENSE 1.3/Languages/README.md
 
 mkdir -p 1.2
-git --work-tree=1.2 checkout origin/rw-1.2 -- Assemblies Defs Languages
-git reset Assemblies Defs Languages
+git --work-tree=1.2 restore --source=origin/rw-1.2 -- Assemblies Defs Languages
 
 cd ..
 
