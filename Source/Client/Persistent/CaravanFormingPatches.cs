@@ -72,9 +72,13 @@ namespace Multiplayer.Client.Persistent
                 rect.yMin += 37f;
                 rect.height = 35f;
 
-                bool autoSelectFoodAndMedicine = false;
+                bool autoSelectFoodAndMedicine = dialog.autoSelectTravelSupplies;
+                dialog.travelSuppliesTransfer.readOnly = autoSelectFoodAndMedicine;
 
-                Widgets.CheckboxLabeled(rect, "AutomaticallySelectTravelSupplies".Translate(), ref autoSelectFoodAndMedicine, disabled: true, placeCheckboxNearText: true);
+                Widgets.CheckboxLabeled(rect, "AutomaticallySelectTravelSupplies".Translate(), ref dialog.autoSelectTravelSupplies, placeCheckboxNearText: true);
+
+                if (autoSelectFoodAndMedicine != dialog.autoSelectTravelSupplies)
+                    dialog.Session?.SetAutoSelectTravelSupplies(dialog.autoSelectTravelSupplies);
 
                 return false;
             }
