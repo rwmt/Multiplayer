@@ -21,7 +21,7 @@ using Multiplayer.Client.Util;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
+
     public class MultiplayerWorldComp : IExposable, ITickable
     {
         public static bool tickingWorld;
@@ -283,24 +283,6 @@ namespace Multiplayer.Client
                 if (cmdType == CommandType.SetupFaction)
                 {
                     HandleSetupFaction(cmd, data);
-                }
-
-                if (cmdType == CommandType.FactionOffline)
-                {
-                    int factionId = data.ReadInt32();
-                    //Multiplayer.WorldComp.factionData[factionId].online = false;
-
-                    //if (Multiplayer.session.myFactionId == factionId)
-                    //    Multiplayer.RealPlayerFaction = Multiplayer.DummyFaction;
-                }
-
-                if (cmdType == CommandType.FactionOnline)
-                {
-                    int factionId = data.ReadInt32();
-                    Multiplayer.WorldComp.factionData[factionId].online = true;
-
-                    if (Multiplayer.session.myFactionId == factionId)
-                        Multiplayer.RealPlayerFaction = Find.FactionManager.AllFactionsListForReading.Find(f => f.loadID == factionId);
                 }
 
                 if (cmdType == CommandType.CreateJoinPoint)

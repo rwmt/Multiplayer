@@ -27,7 +27,7 @@ namespace Multiplayer.Common
         public const int MinUsernameLength = 3;
         public const char EndpointSeparator = '&';
 
-        public int coopFactionId;
+        public int defaultFactionId;
         public byte[] savedGame; // Compressed game save
         public byte[] semiPersistent; // Compressed semi persistent data
         public Dictionary<int, byte[]> mapData = new(); // Map id to compressed map data
@@ -35,9 +35,7 @@ namespace Multiplayer.Common
         public Dictionary<int, List<byte[]>> mapCmds = new(); // Map id to serialized cmds list
         public Dictionary<int, List<byte[]>> tmpMapCmds;
         public int lastJoinPointAtWorkTicks = -1;
-
-        // todo remove entries
-        public Dictionary<string, int> playerFactions = new(); // Username to faction id
+        public List<byte[]> syncInfos = new();
 
         public FreezeManager freezeManager;
         public CommandHandler commands;
@@ -70,6 +68,10 @@ namespace Multiplayer.Common
 
         public bool FullyStarted => running && savedGame != null;
 
+        public float serverTimePerTick = 1000.0f / 60.0f;
+
+        public int NetTimer { get; private set; }
+
         public MultiplayerServer(ServerSettings settings)
         {
             this.settings = settings;
@@ -87,8 +89,7 @@ namespace Multiplayer.Common
         public void Run()
         {
             Stopwatch time = Stopwatch.StartNew();
-            double lag = 0;
-            const double timePerTick = 1000.0 / 60.0;
+            double realTime = 0;
 
             while (running)
             {
@@ -97,19 +98,20 @@ namespace Multiplayer.Common
                     double elapsed = time.ElapsedMillisDouble();
                     time.Restart();
 
-                    lag += elapsed;
-                    lag = Math.Min(lag, 1000);
+                    realTime += elapsed;
 
-                    while (lag >= timePerTick)
+                    if (realTime > 0)
                     {
                         queue.RunQueue(ServerLog.Error);
                         TickEvent?.Invoke(this);
-                        liteNet.TickNet();
+                        liteNet.Tick();
+                        TickNet();
                         freezeManager.Tick();
 
-                        if (!freezeManager.Frozen && PlayingPlayers.Any(p => p.KeepsServerAwake))
-                            Tick();
-                        lag -= timePerTick;
+                        if (!freezeManager.Frozen)
+                            gameTimer++;
+
+                        realTime -= serverTimePerTick * 1.05f;
                     }
 
                     Thread.Sleep(16);
@@ -130,17 +132,29 @@ namespace Multiplayer.Common
             }
         }
 
+        private void TickNet()
+        {
+            NetTimer++;
+
+            if (NetTimer % 60 == 0)
+                playerManager.SendLatencies();
+
+            if (NetTimer % 30 == 0)
+                foreach (var player in PlayingPlayers)
+                    player.SendPacket(Packets.Server_KeepAlive, ByteWriter.GetBytes(player.keepAliveId), false);
+
+            if (NetTimer % 2 == 0)
+                SendToAll(Packets.Server_TimeControl, ByteWriter.GetBytes(gameTimer, commands.SentCmds, serverTimePerTick), false);
+
+            serverTimePerTick = Math.Max(1000.0f / 60.0f, PlayingPlayers.Max(p => p.frameTime));
+        }
+
         public void TryStop()
         {
             playerManager.OnServerStop();
             liteNet.OnServerStop();
 
             instance = null;
-        }
-
-        public void Tick()
-        {
-            gameTimer++;
         }
 
         public bool CreatingJoinPoint => tmpMapCmds != null;

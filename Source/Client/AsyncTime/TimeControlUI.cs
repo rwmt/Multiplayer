@@ -13,7 +13,7 @@ using Verse.Sound;
 
 namespace Multiplayer.Client.AsyncTime;
 
-[HotSwappable]
+
 [HarmonyPatch(typeof(GlobalControlsUtility), nameof(GlobalControlsUtility.DoTimespeedControls))]
 public static class TimeControlPatch
 {
@@ -270,7 +270,7 @@ static class AlwaysShowColonistBarFrames
     }
 }
 
-[HotSwappable]
+
 [HarmonyPatch(typeof(ColonistBar), nameof(ColonistBar.ColonistBarOnGUI))]
 public static class ColonistBarTimeControl
 {

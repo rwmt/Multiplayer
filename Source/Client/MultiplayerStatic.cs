@@ -164,16 +164,18 @@ namespace Multiplayer.Client
             {
                 int port = MultiplayerServer.DefaultPort;
 
+                string address = null;
                 var split = addressPort.Split(':');
+
                 if (split.Length == 0)
-                    addressPort = "127.0.0.1";
+                    address = "127.0.0.1";
                 else if (split.Length >= 1)
-                    addressPort = split[0];
+                    address = split[0];
 
                 if (split.Length == 2)
                     int.TryParse(split[1], out port);
 
-                DoubleLongEvent(() => ClientUtil.TryConnectWithWindow(addressPort, port, false), "Connecting");
+                DoubleLongEvent(() => ClientUtil.TryConnectWithWindow(address, port, false), "Connecting");
             }
 
             if (GenCommandLine.CommandLineArgPassed("arbiter"))

@@ -5,10 +5,11 @@ using RimWorld;
 using RimWorld.Planet;
 using UnityEngine;
 using Verse;
+using Verse.Sound;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
+
     public class AlertPing : Alert
     {
         public AlertPing()

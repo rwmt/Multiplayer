@@ -360,8 +360,8 @@ namespace Multiplayer.Client
             var result = harmony.Patch(original, prefix, postfix, transpiler, finalizer);
             watch.Stop();
             var took = watch.ElapsedMillisDouble() - prev;
-            //if (took > 15)
-            //    Log.Message($"{took} ms: Patching {original.MethodDesc()}");
+            // if (took > 5)
+                // Log.Message($"{took} ms: Patching {original.MethodDesc()}");
             return result;
         }
 

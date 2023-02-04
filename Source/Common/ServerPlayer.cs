@@ -8,12 +8,13 @@ namespace Multiplayer.Common
     {
         public int id;
         public ConnectionBase conn;
-        public PlayerType type;
+        public PlayerType type = PlayerType.Normal;
         public PlayerStatus status;
         public ColorRGB color;
         public bool hasJoined;
         public int ticksBehind;
         public bool simulating;
+        public float frameTime;
 
         public ulong steamId;
         public string steamPersonaName = "";
@@ -29,13 +30,10 @@ namespace Multiplayer.Common
 
         public string Username => conn.username;
         public int Latency => conn.Latency;
-        public int FactionId => Server.playerFactions[Username];
+        public int FactionId { get; set; }
         public bool IsPlaying => conn.State == ConnectionStateEnum.ServerPlaying;
         public bool IsHost => Server.hostUsername == Username;
         public bool IsArbiter => type == PlayerType.Arbiter;
-
-        public bool KeepsServerAwake =>
-            !IsArbiter && status == PlayerStatus.Playing && ticksBehind < 30 && Server.liteNet.NetTimer - keepAliveAt < 60;
 
         public MultiplayerServer Server => MultiplayerServer.instance;
 
@@ -113,6 +111,7 @@ namespace Multiplayer.Common
             writer.WriteByte(color.r);
             writer.WriteByte(color.g);
             writer.WriteByte(color.b);
+            writer.WriteInt32(FactionId);
 
             return writer.ToArray();
         }

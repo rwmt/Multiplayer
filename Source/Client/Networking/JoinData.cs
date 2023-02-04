@@ -16,7 +16,7 @@ using Verse.Steam;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
+
     public static class JoinData
     {
         public static List<ModMetaData> activeModsSnapshot;
@@ -312,7 +312,6 @@ namespace Multiplayer.Client
 
     public record ModConfig(string ModId, string FileName, string Contents);
 
-    [HotSwappable]
     public class ModFileDict : IEnumerable<KeyValuePair<string, Dictionary<string, ModFile>>>
     {
         // Mod id => (path => file)

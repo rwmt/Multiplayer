@@ -21,7 +21,7 @@ using TMPro;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
+
     [StaticConstructorOnStartup]
     public class HostWindow : Window
     {

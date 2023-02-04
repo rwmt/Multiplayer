@@ -7,7 +7,7 @@ using Verse.Sound;
 
 namespace Multiplayer.Client.Util
 {
-    [HotSwappable]
+
     public static class MpUI
     {
         public static Vector2 Resolution => new Vector2(UI.screenWidth, UI.screenHeight);

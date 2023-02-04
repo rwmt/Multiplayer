@@ -17,7 +17,7 @@ using Debug = UnityEngine.Debug;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
+
     static class MpDebugActions
     {
         const string MultiplayerCategory = "Multiplayer";

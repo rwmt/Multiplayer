@@ -17,7 +17,7 @@ using Verse.Steam;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
+
     public class JoinDataWindow : Window
     {
         public override Vector2 InitialSize => new(660f, 610f);
@@ -680,7 +680,7 @@ namespace Multiplayer.Client
         }
     }
 
-    [HotSwappable]
+
     public class FixAndRestartWindow : Window
     {
         private RemoteData data;

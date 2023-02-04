@@ -4,7 +4,7 @@ using Verse;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
+
     public class PacketLogWindow : Window
     {
         public override Vector2 InitialSize => new Vector2(UI.screenWidth / 2f, UI.screenHeight / 2f);

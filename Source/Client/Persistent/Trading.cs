@@ -222,7 +222,7 @@ namespace Multiplayer.Client
         }
     }
 
-    [HotSwappable]
+
     public class MpTradeDeal : TradeDeal, IExposable
     {
         public MpTradeSession session;

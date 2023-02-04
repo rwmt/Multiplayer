@@ -10,7 +10,7 @@ using Verse.AI;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
+
     public static class SyncMethods
     {
         static SyncField SyncTimetable;

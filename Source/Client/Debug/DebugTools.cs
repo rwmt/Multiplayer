@@ -8,6 +8,7 @@ using Multiplayer.Common;
 
 using RimWorld;
 using RimWorld.Planet;
+using UnityEngine;
 using Verse;
 
 namespace Multiplayer.Client
@@ -180,6 +181,15 @@ namespace Multiplayer.Client
 
             return LabelAndCategory(node);
         }
+
+        public static bool ShouldHandle()
+        {
+#if DEBUG
+            return !Event.current.shift;
+#else
+            return true;
+#endif
+        }
     }
 
     public class PlayerDebugState
@@ -219,7 +229,7 @@ namespace Multiplayer.Client
 
             public void Action()
             {
-                if (Multiplayer.Client == null || Multiplayer.ExecutingCmds)
+                if (Multiplayer.Client == null || Multiplayer.ExecutingCmds || !MpDebugTools.ShouldHandle())
                     original();
                 else
                     MpDebugTools.SendCmd(
@@ -240,6 +250,7 @@ namespace Multiplayer.Client
             if (Multiplayer.Client == null) return true;
             if (!Multiplayer.ExecutingCmds) return true;
             if (!Multiplayer.GameComp.debugMode) return true;
+            if (!MpDebugTools.ShouldHandle()) return true;
 
             bool keepOpen = TickPatch.currentExecutingCmdIssuedBySelf;
             var map = Multiplayer.MapContext;

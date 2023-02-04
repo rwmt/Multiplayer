@@ -11,7 +11,7 @@ using Verse.Sound;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
+
     public class CursorAndPing
     {
         public List<PingInfo> pings = new();
@@ -81,6 +81,9 @@ namespace Multiplayer.Client
             pings.RemoveAll(p => p.player == player);
             pings.Add(new PingInfo { player = player, mapId = map, planetTile = tile, mapLoc = loc });
             alertHidden = false;
+
+            if (player != Multiplayer.session.playerId)
+                SoundDefOf.TinyBell.PlayOneShotOnCamera();
         }
 
         public void SendVisuals()
@@ -168,7 +171,7 @@ namespace Multiplayer.Client
         }
     }
 
-    [HotSwappable]
+
     public class PingInfo
     {
         public int player;

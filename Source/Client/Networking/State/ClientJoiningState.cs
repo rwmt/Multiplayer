@@ -18,7 +18,7 @@ namespace Multiplayer.Client
         Connected, Waiting, Downloading
     }
 
-    [HotSwappable]
+
     public class ClientJoiningState : ClientBaseState
     {
         public JoiningState subState = JoiningState.Connected;
@@ -184,9 +184,17 @@ namespace Multiplayer.Client
             }
 
             Session.dataSnapshot = dataSnapshot;
-            Multiplayer.session.localCmdId = data.ReadInt32();
+            Multiplayer.session.receivedCmds = data.ReadInt32();
             TickPatch.shouldFreeze = data.ReadBool();
             TickPatch.tickUntil = tickUntil;
+
+            int syncInfos = data.ReadInt32();
+            for (int i = 0; i < syncInfos; i++)
+                Session.initialOpinions.Add(ClientSyncOpinion.Deserialize(new ByteReader(data.ReadPrefixedBytes())));
+
+            Log.Message(syncInfos > 0
+                ? $"Initial sync opinions: {Session.initialOpinions.First().startTick}...{Session.initialOpinions.Last().startTick}"
+                : "No initial sync opinions");
 
             TickPatch.SetSimulation(
                 toTickUntil: true,
@@ -260,14 +268,7 @@ namespace Multiplayer.Client
             Multiplayer.session.dataSnapshot.cachedAtTime = TickPatch.Timer;
             Multiplayer.session.replayTimerStart = TickPatch.Timer;
 
-            var factionData = Multiplayer.WorldComp.factionData.GetValueSafe(Multiplayer.session.myFactionId);
-            if (factionData is { online: true })
-                Multiplayer.RealPlayerFaction = Find.FactionManager.GetById(factionData.factionId);
-            else
-                //Multiplayer.RealPlayerFaction = Multiplayer.DummyFaction;
-                throw new Exception("Currently not supported");
-
-            // todo find a better way
+            Multiplayer.game.ChangeRealPlayerFaction(Find.FactionManager.GetById(Multiplayer.session.myFactionId));
             Multiplayer.game.myFactionLoading = null;
 
             if (forceAsyncTime)

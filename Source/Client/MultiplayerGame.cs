@@ -26,20 +26,7 @@ namespace Multiplayer.Client
 
         public Dictionary<int, PlayerDebugState> playerDebugState = new();
 
-        public Faction RealPlayerFaction
-        {
-            get => myFaction ?? myFactionLoading;
-
-            set
-            {
-                myFaction = value;
-                FactionContext.Set(value);
-                worldComp.SetFaction(value);
-
-                foreach (Map m in Find.Maps)
-                    m.MpComp().SetFaction(value);
-            }
-        }
+        public Faction RealPlayerFaction => myFaction ?? myFactionLoading;
 
         public MultiplayerGame()
         {
@@ -81,6 +68,10 @@ namespace Multiplayer.Client
                     edgeThing.randomRotations = new List<int>() { 0, 1, 2, 3 };
 
             typeof(SymbolResolver_SingleThing).TypeInitializer.Invoke(null, null);
+
+            foreach (var initialOpinion in Multiplayer.session.initialOpinions)
+                sync.AddClientOpinionAndCheckDesync(initialOpinion);
+            Multiplayer.session.initialOpinions.Clear();
         }
 
         public static void ClearPortraits()
@@ -134,6 +125,24 @@ namespace Multiplayer.Client
 
             if (mapComp.ritualSession != null)
                 yield return mapComp.ritualSession;
+        }
+
+        public void ChangeRealPlayerFaction(int newFaction)
+        {
+            ChangeRealPlayerFaction(Find.FactionManager.GetById(newFaction));
+        }
+
+        public void ChangeRealPlayerFaction(Faction newFaction)
+        {
+            myFaction = newFaction;
+            FactionContext.Set(newFaction);
+            worldComp.SetFaction(newFaction);
+
+            foreach (Map m in Find.Maps)
+                m.MpComp().SetFaction(newFaction);
+
+            Find.ColonistBar.MarkColonistsDirty();
+            Find.CurrentMap.mapDrawer.RegenerateEverythingNow();
         }
     }
 }

@@ -7,7 +7,7 @@ using Verse;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
+
     [HarmonyPatch(typeof(ExpandableWorldObjectsUtility), nameof(ExpandableWorldObjectsUtility.ExpandableWorldObjectsOnGUI))]
     static class DrawPingPlanet
     {

@@ -30,7 +30,7 @@ namespace Multiplayer.Common
             if (!Frozen && Server.HostPlayer.frozen)
                 Frozen = true;
 
-            if (Frozen && !Server.HostPlayer.frozen && (!Server.PlayingPlayers.Any(p => p.frozen) || Server.liteNet.NetTimer - Server.HostPlayer.unfrozenAt > MaxFreezeWaitTime))
+            if (Frozen && !Server.HostPlayer.frozen && (!Server.PlayingPlayers.Any(p => p.frozen) || Server.NetTimer - Server.HostPlayer.unfrozenAt > MaxFreezeWaitTime))
                 Frozen = false;
         }
     }

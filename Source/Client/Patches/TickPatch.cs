@@ -27,6 +27,11 @@ namespace Multiplayer.Client
         public static bool shouldFreeze;
         public static int frozenAt;
 
+        private static float realTime;
+        public static float avgFrameTime;
+        public static float serverTimePerTick;
+        private static int frames;
+
         public static TimeSpeed replayTimeSpeed;
 
         public static SimulatingData simulating;
@@ -50,7 +55,6 @@ namespace Multiplayer.Client
 
         static Stopwatch updateTimer = Stopwatch.StartNew();
         public static Stopwatch tickTimer = Stopwatch.StartNew();
-        static Stopwatch time = Stopwatch.StartNew();
 
         [TweakValue("Multiplayer", 0f, 100f)]
         public static float maxBehind = 6f;
@@ -61,22 +65,26 @@ namespace Multiplayer.Client
             if (!ShouldHandle) return false;
             if (Frozen) return false;
 
-            double delta = time.ElapsedMillisDouble() / 1000.0 * 60.0;
-            time.Restart();
+            int ticksBehind = tickUntil - Timer;
+            realTime += Time.deltaTime * 1000f;
 
-            int maxDelta = Multiplayer.settings.aggressiveTicking ? 6 : 3;
-
-            if (delta > maxDelta)
-                delta = maxDelta;
-
-            accumulator += delta;
-
-            float okDelta = Multiplayer.settings.aggressiveTicking ? 2.5f : 1.7f;
+            float stpt = ticksBehind <= 3 ? serverTimePerTick * 1.2f : ticksBehind >= 7 ? serverTimePerTick * 0.8f : serverTimePerTick;
 
             if (Timer >= tickUntil)
+            {
                 accumulator = 0;
-            else if (!Multiplayer.IsReplay && delta < okDelta && tickUntil - Timer > maxBehind)
-                accumulator += Math.Min(60, tickUntil - Timer - maxBehind);
+            }
+            else if (!Multiplayer.IsReplay && realTime > 0 && stpt > 0)
+            {
+                realTime -= stpt;
+                avgFrameTime = (avgFrameTime + Time.deltaTime * 1000f) / 2f;
+                accumulator = 1;
+            }
+
+            if (frames % 3 == 0)
+                Multiplayer.Client.Send(Packets.Client_FrameTime, avgFrameTime);
+
+            frames++;
 
             if (Multiplayer.IsReplay && replayTimeSpeed == TimeSpeed.Paused)
                 accumulator = 0;
@@ -145,7 +153,7 @@ namespace Multiplayer.Client
             worked = false;
             updateTimer.Restart();
 
-            while ((!Simulating && accumulator > 0) || (Simulating && Timer < simulating.target && updateTimer.ElapsedMilliseconds < 25))
+            while (Simulating ? (Timer < simulating.target && updateTimer.ElapsedMilliseconds < 25) : (accumulator > 0))
             {
                 tickTimer.Restart();
                 int curTimer = Timer;
@@ -251,6 +259,9 @@ namespace Multiplayer.Client
             accumulator = 0;
             shouldFreeze = false;
             workTicks = 0;
+            serverTimePerTick = 0;
+            avgFrameTime = 0;
+            realTime = 0;
             TimeControlPatch.prePauseTimeSpeed = null;
         }
 

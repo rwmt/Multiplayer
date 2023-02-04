@@ -116,7 +116,7 @@ namespace Multiplayer.Client
         }
     }
 
-    /*[HotSwappable]
+    /*
     [HarmonyPatch(typeof(Thing), nameof(Thing.ExposeData))]
     public static class PawnExposeDataFirst
     {
@@ -633,23 +633,4 @@ namespace Multiplayer.Client
                 Multiplayer.GameComp.SetGodMode(Multiplayer.session.playerId, DebugSettings.godMode);
         }
     }
-
-    // todo: needed for multifaction
-    /*[HarmonyPatch(typeof(SettlementDefeatUtility), nameof(SettlementDefeatUtility.CheckDefeated))]
-    static class CheckDefeatedPatch
-    {
-        static bool Prefix()
-        {
-            return false;
-        }
-    }
-
-    [HarmonyPatch(typeof(MapParent), nameof(MapParent.CheckRemoveMapNow))]
-    static class CheckRemoveMapNowPatch
-    {
-        static bool Prefix()
-        {
-            return false;
-        }
-    }*/
 }

@@ -18,7 +18,7 @@ using Verse;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
+
     public static class HostUtil
     {
         public static void HostServer(ServerSettings settings, bool fromReplay, bool hadSimulation, bool asyncTime)
@@ -50,7 +50,7 @@ namespace Multiplayer.Client
             localServer.commands.debugOnlySyncCmds = Sync.handlers.Where(h => h.debugOnly).Select(h => h.syncId).ToHashSet();
             localServer.commands.hostOnlySyncCmds = Sync.handlers.Where(h => h.hostOnly).Select(h => h.syncId).ToHashSet();
             localServer.hostUsername = Multiplayer.username;
-            localServer.coopFactionId = Faction.OfPlayer.loadID;
+            localServer.defaultFactionId = Faction.OfPlayer.loadID;
 
             localServer.rwVersion = VersionControl.CurrentVersionString;
             localServer.mpVersion = MpVersion.Version;
@@ -71,9 +71,7 @@ namespace Multiplayer.Client
 
             Find.PlaySettings.usePlanetDayNightSystem = false;
 
-            Multiplayer.RealPlayerFaction = Faction.OfPlayer;
-            localServer.playerFactions[Multiplayer.username] = Faction.OfPlayer.loadID;
-
+            Multiplayer.game.ChangeRealPlayerFaction(Faction.OfPlayer);
             SetupLocalClient();
 
             Find.MainTabsRoot.EscapeCurrentTab(false);
@@ -136,6 +134,9 @@ namespace Multiplayer.Client
                 {
                     faction = new Faction() { loadID = id, def = def };
 
+                    faction.ideos = new FactionIdeosTracker(faction);
+                    faction.ideos.ChooseOrGenerateIdeo(new IdeoGenerationParms());
+
                     foreach (Faction other in Find.FactionManager.AllFactionsListForReading)
                         faction.TryMakeInitialRelationsWith(other);
 
@@ -162,8 +163,9 @@ namespace Multiplayer.Client
                 worldComp = comp
             };
 
-            //var opponent = NewFaction(Multiplayer.GlobalIdBlock.NextId(), "Opponent", Multiplayer.FactionDef);
-            //opponent.TrySetRelationKind(Faction.OfPlayer, FactionRelationKind.Hostile, false);
+            var opponent = NewFaction(Multiplayer.GlobalIdBlock.NextId(), "Opponent", FactionDefOf.PlayerColony);
+            opponent.hidden = true;
+            opponent.SetRelation(new FactionRelation(Faction.OfPlayer, FactionRelationKind.Hostile));
 
             foreach (FactionWorldData data in comp.factionData.Values)
             {
@@ -182,7 +184,7 @@ namespace Multiplayer.Client
                 //mapComp.mapIdBlock = localServer.NextIdBlock();
 
                 BeforeMapGeneration.SetupMap(map);
-                //BeforeMapGeneration.InitNewMapFactionData(map, opponent);
+                BeforeMapGeneration.InitNewMapFactionData(map, opponent);
 
                 AsyncTimeComp async = map.AsyncTime();
                 async.mapTicks = Find.TickManager.TicksGame;
@@ -210,6 +212,7 @@ namespace Multiplayer.Client
             serverPlayer.color = PlayerManager.PlayerColors[0];
             PlayerManager.givenColors[serverPlayer.Username] = serverPlayer.color;
             serverPlayer.status = PlayerStatus.Playing;
+            serverPlayer.FactionId = Faction.OfPlayer.loadID;
             serverPlayer.SendPlayerList();
             Multiplayer.LocalServer.playerManager.SendInitDataCommand(serverPlayer);
 

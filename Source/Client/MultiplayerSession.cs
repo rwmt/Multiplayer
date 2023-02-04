@@ -25,9 +25,9 @@ namespace Multiplayer.Client
         public string gameName;
         public int playerId;
 
-        public int localCmdId;
+        public int receivedCmds;
         public int remoteTickUntil;
-        public int remoteCmdId;
+        public int remoteSentCmds;
 
         public ConnectionBase client;
         public NetManager netClient;
@@ -40,6 +40,7 @@ namespace Multiplayer.Client
         public int autosaveCounter;
         public float? lastSaveAt;
         public string desyncTracesFromHost;
+        public List<ClientSyncOpinion> initialOpinions = new();
 
         public bool replay;
         public int replayTimerStart = -1;
@@ -216,7 +217,7 @@ namespace Multiplayer.Client
 
         public void ProcessTimeControl()
         {
-            if (localCmdId >= remoteCmdId)
+            if (receivedCmds >= remoteSentCmds)
                 TickPatch.tickUntil = remoteTickUntil;
         }
 
@@ -337,6 +338,7 @@ namespace Multiplayer.Client
         public PlayerType type;
         public PlayerStatus status;
         public Color color;
+        public int factionId;
 
         public ulong steamId;
         public string steamPersonaName;
@@ -376,6 +378,8 @@ namespace Multiplayer.Client
 
             var color = new Color(data.ReadByte() / 255f, data.ReadByte() / 255f, data.ReadByte() / 255f);
 
+            int factionId = data.ReadInt32();
+
             return new PlayerInfo(id, username, latency, type)
             {
                 status = status,
@@ -383,7 +387,8 @@ namespace Multiplayer.Client
                 steamPersonaName = steamName,
                 color = color,
                 ticksBehind = ticksBehind,
-                simulating = simulating
+                simulating = simulating,
+                factionId = factionId
             };
         }
     }

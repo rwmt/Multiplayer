@@ -33,7 +33,7 @@ namespace Multiplayer.Client
         static void Prefix(ref Rect rect) => rect.height += 45f;
     }
 
-    [HotSwappable]
+
     [HarmonyPatch(typeof(OptionListingUtility), nameof(OptionListingUtility.DrawOptionListing))]
     public static class MainMenuPatch
     {

@@ -9,7 +9,7 @@ namespace Multiplayer.Common
         public HashSet<int> debugOnlySyncCmds = new();
         public HashSet<int> hostOnlySyncCmds = new();
 
-        public int NextCmdId { get; private set; }
+        public int SentCmds { get; private set; }
 
         public CommandHandler(MultiplayerServer server)
         {
@@ -18,6 +18,9 @@ namespace Multiplayer.Common
 
         public void Send(CommandType cmd, int factionId, int mapId, byte[] data, ServerPlayer sourcePlayer = null, ServerPlayer fauxSource = null)
         {
+            if (server.freezeManager.Frozen)
+                return;
+
             if (sourcePlayer != null)
             {
                 bool debugCmd =
@@ -59,7 +62,7 @@ namespace Multiplayer.Common
                 );
             }
 
-            NextCmdId++;
+            SentCmds++;
         }
 
         public void PauseAll()

@@ -70,8 +70,8 @@ namespace Multiplayer.Common
         [IsFragmented]
         public void HandleJoinData(ByteReader data)
         {
-            var count = data.ReadInt32();
-            if (count > 512)
+            var defTypeCount = data.ReadInt32();
+            if (defTypeCount > 512)
             {
                 Player.Disconnect("Too many defs");
                 return;
@@ -79,7 +79,7 @@ namespace Multiplayer.Common
 
             var defsResponse = new ByteWriter();
 
-            for (int i = 0; i < count; i++)
+            for (int i = 0; i < defTypeCount; i++)
             {
                 var defType = data.ReadString(128);
                 var defCount = data.ReadInt32();
@@ -138,27 +138,9 @@ namespace Multiplayer.Common
         {
             connection.Send(Packets.Server_WorldDataStart);
 
-            int factionId = MultiplayerServer.instance.coopFactionId;
-            MultiplayerServer.instance.playerFactions[connection.username] = factionId;
-
-            /*if (!MultiplayerServer.instance.playerFactions.TryGetValue(connection.Username, out int factionId))
-            {
-                factionId = MultiplayerServer.instance.nextUniqueId++;
-                MultiplayerServer.instance.playerFactions[connection.Username] = factionId;
-
-                byte[] extra = ByteWriter.GetBytes(factionId);
-                MultiplayerServer.instance.SendCommand(CommandType.SETUP_FACTION, ScheduledCommand.NoFaction, ScheduledCommand.Global, extra);
-            }*/
-
-            if (Server.PlayingPlayers.Count(p => p.FactionId == factionId) == 1)
-            {
-                byte[] extra = ByteWriter.GetBytes(factionId);
-                Server.commands.Send(CommandType.FactionOnline, ScheduledCommand.NoFaction, ScheduledCommand.Global, extra);
-            }
-
             ByteWriter writer = new ByteWriter();
 
-            writer.WriteInt32(factionId);
+            writer.WriteInt32(Player.FactionId);
             writer.WriteInt32(MultiplayerServer.instance.gameTimer);
             writer.WritePrefixedBytes(MultiplayerServer.instance.savedGame);
             writer.WritePrefixedBytes(MultiplayerServer.instance.semiPersistent);
@@ -191,8 +173,12 @@ namespace Multiplayer.Common
                 writer.WritePrefixedBytes(mapData);
             }
 
-            writer.WriteInt32(Server.commands.NextCmdId);
+            writer.WriteInt32(Server.commands.SentCmds);
             writer.WriteBool(Server.freezeManager.Frozen);
+
+            writer.WriteInt32(Server.syncInfos.Count);
+            foreach (var syncInfo in Server.syncInfos)
+                writer.WritePrefixedBytes(syncInfo);
 
             connection.State = ConnectionStateEnum.ServerPlaying;
 

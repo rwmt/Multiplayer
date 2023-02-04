@@ -129,6 +129,7 @@ namespace Multiplayer.Common
         public void OnJoin(ServerPlayer player)
         {
             player.hasJoined = true;
+            player.FactionId = server.defaultFactionId;
 
             SendInitDataCommand(player);
 

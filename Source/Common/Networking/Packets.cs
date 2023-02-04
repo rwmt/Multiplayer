@@ -32,6 +32,8 @@
         Client_Traces,
         Client_Autosaving,
         Client_RequestRejoin,
+        Client_SetFaction,
+        Client_FrameTime,
 
         // Joining
         Server_ProtocolOk,
@@ -56,6 +58,7 @@
         Server_PingLocation,
         Server_Traces,
         Server_CanRejoin,
+        Server_SetFaction,
 
         Count,
         Special_Steam_Disconnect = 63 // Also the max packet id

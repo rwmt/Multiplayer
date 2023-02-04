@@ -6,7 +6,7 @@ using Verse;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
+
     [HarmonyPatch(typeof(BeautyDrawer), nameof(BeautyDrawer.BeautyDrawerOnGUI))]
     static class DrawPingMap
     {

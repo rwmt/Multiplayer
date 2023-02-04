@@ -15,20 +15,22 @@ using Multiplayer.Client.Util;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
     [HarmonyPatch(typeof(MainButtonsRoot), nameof(MainButtonsRoot.MainButtonsOnGUI))]
+    [HotSwappable]
     public static class IngameUIPatch
     {
         const float btnMargin = 8f;
         const float btnHeight = 27f;
         const float btnWidth = 80f;
 
+        public static List<Func<float, float>> upperLeftDrawers = new() { DoChatAndTicksBehind, DoDevInfo, DoDebugModeLabel };
+
         static bool Prefix()
         {
             Text.Font = GameFont.Small;
 
             if (MpVersion.IsDebug) {
-                DoDebugInfo();
+                DoDebugPrintout();
             }
 
             if (Multiplayer.IsReplay || TickPatch.Simulating)
@@ -76,7 +78,11 @@ namespace Multiplayer.Client
         private static double avgDelta;
         private static double avgTickTime;
 
-        static void DoDebugInfo()
+        private static float tps;
+        private static float lastTicksAt;
+        private static int lastTicks;
+
+        static void DoDebugPrintout()
         {
             if (Multiplayer.ShowDevInfo)
             {
@@ -86,7 +92,7 @@ namespace Multiplayer.Client
                 text.Append($"\n{Time.deltaTime * 60f:0.0000} {TickPatch.tickTimer.ElapsedMilliseconds}");
                 text.Append($"\n{avgDelta = (avgDelta * 59.0 + Time.deltaTime * 60.0) / 60.0:0.0000}");
                 text.Append($"\n{avgTickTime = (avgTickTime * 59.0 + TickPatch.tickTimer.ElapsedMilliseconds) / 60.0:0.0000} {Find.World.worldObjects.settlements.Count}");
-                text.Append($"\n{Multiplayer.session?.localCmdId} {Multiplayer.session?.remoteCmdId} {Multiplayer.session?.remoteTickUntil}");
+                text.Append($"\n{Multiplayer.session?.receivedCmds} {Multiplayer.session?.remoteSentCmds} {Multiplayer.session?.remoteTickUntil}");
                 Rect rect = new Rect(80f, 60f, 330f, Text.CalcHeight(text.ToString(), 330f));
                 Widgets.Label(rect, text.ToString());
 
@@ -101,7 +107,7 @@ namespace Multiplayer.Client
             {
                 var async = Find.CurrentMap.AsyncTime();
                 StringBuilder text = new StringBuilder();
-                text.Append($"{Multiplayer.game.sync.knownClientOpinions.FirstOrDefault()?.isLocalClientsOpinion} {async.mapTicks} {TickPatch.shouldFreeze} {TickPatch.frozenAt} ");
+                text.Append($"{Multiplayer.game.sync.knownClientOpinions.Count} {Multiplayer.game.sync.knownClientOpinions.FirstOrDefault()?.startTick} {async.mapTicks} {TickPatch.shouldFreeze} {TickPatch.frozenAt} ");
 
                 text.Append($"z: {Find.CurrentMap.haulDestinationManager.AllHaulDestinationsListForReading.Count()} d: {Find.CurrentMap.designationManager.designationsByDef.Count} hc: {Find.CurrentMap.listerHaulables.ThingsPotentiallyNeedingHauling().Count}");
 
@@ -131,54 +137,65 @@ namespace Multiplayer.Client
                     ? $"\nImmediateWindow: {MpUtil.DelegateMethodInfo(win.doWindowFunc?.Method)}"
                     : $"\n{Find.WindowStack.focusedWindow}");
 
-                text.Append($"\n{UI.CurUICellSize()} {Find.WindowStack.windows.ToStringSafeEnumerable()}");
+                text.Append($"\n{UI.CurUICellSize()} {Find.WindowStack.windows.ToStringSafeEnumerable()}\n\nMap TPS: {tps}");
 
                 Rect rect1 = new Rect(80f, 170f, 330f, Text.CalcHeight(text.ToString(), 330f));
                 Widgets.Label(rect1, text.ToString());
+
+                if (Time.time - lastTicksAt > 0.5f)
+                {
+                    tps = (tps + (async.mapTicks - lastTicks) * 2f) / 2f;
+                    lastTicks = async.mapTicks;
+                    lastTicksAt = Time.time;
+                }
             }
+
 
             //if (Event.current.type == EventType.Repaint)
             //    RandGetValuePatch.tracesThistick = 0;
         }
 
-        static void DoButtons()
+        static float DoChatAndTicksBehind(float y)
         {
-            float x = UI.screenWidth - btnWidth - btnMargin;
-            float y = btnMargin;
+            if (Multiplayer.IsReplay)
+                return 0;
 
+            float x = UI.screenWidth - btnWidth - btnMargin;
             var session = Multiplayer.session;
 
-            if (session != null && !Multiplayer.IsReplay)
+            var btnRect = new Rect(x, y, btnWidth, btnHeight);
+            var chatColor = session.players.Any(p => p.status == PlayerStatus.Desynced) ? "#ff5555" : "#dddddd";
+            var hasUnread = session.hasUnread ? "*" : "";
+            var chatLabel = $"{"MpChatButton".Translate()} <color={chatColor}>({session.players.Count})</color>{hasUnread}";
+
+            TooltipHandler.TipRegion(btnRect, "MpChatHotkeyInfo".Translate() + " " + MultiplayerStatic.ToggleChatDef.MainKeyLabel);
+
+            if (Widgets.ButtonText(btnRect, chatLabel))
             {
-                var btnRect = new Rect(x, y, btnWidth, btnHeight);
-                var chatColor = session.players.Any(p => p.status == PlayerStatus.Desynced) ? "#ff5555" : "#dddddd";
-                var hasUnread = session.hasUnread ? "*" : "";
-                var chatLabel = $"{"MpChatButton".Translate()} <color={chatColor}>({session.players.Count})</color>{hasUnread}";
-
-                TooltipHandler.TipRegion(btnRect, "MpChatHotkeyInfo".Translate() + " " + MultiplayerStatic.ToggleChatDef.MainKeyLabel);
-
-                if (Widgets.ButtonText(btnRect, chatLabel))
-                {
-                    ChatWindow.OpenChat();
-                }
-
-                if (!TickPatch.Simulating)
-                {
-                    IndicatorInfo(out Color color, out string text, out bool slow);
-
-                    var indRect = new Rect(btnRect.x - 25f - 5f + 6f / 2f, btnRect.y + 6f / 2f, 19f, 19f);
-                    var biggerRect = new Rect(btnRect.x - 25f - 5f + 2f / 2f, btnRect.y + 2f / 2f, 23f, 23f);
-
-                    if (slow && Widgets.ButtonInvisible(biggerRect))
-                        TickPatch.SetSimulation(toTickUntil: true, canESC: true);
-
-                    Widgets.DrawRectFast(biggerRect, new Color(color.r * 0.6f, color.g * 0.6f, color.b * 0.6f));
-                    Widgets.DrawRectFast(indRect, color);
-                    TooltipHandler.TipRegion(indRect, new TipSignal(text, 31641624));
-                }
-
-                y += btnHeight;
+                ChatWindow.OpenChat();
             }
+
+            if (!TickPatch.Simulating)
+            {
+                IndicatorInfo(out Color color, out string text, out bool slow);
+
+                var indRect = new Rect(btnRect.x - 25f - 5f + 6f / 2f, btnRect.y + 6f / 2f, 19f, 19f);
+                var biggerRect = new Rect(btnRect.x - 25f - 5f + 2f / 2f, btnRect.y + 2f / 2f, 23f, 23f);
+
+                if (slow && Widgets.ButtonInvisible(biggerRect))
+                    TickPatch.SetSimulation(toTickUntil: true, canESC: true);
+
+                Widgets.DrawRectFast(biggerRect, new Color(color.r * 0.6f, color.g * 0.6f, color.b * 0.6f));
+                Widgets.DrawRectFast(indRect, color);
+                TooltipHandler.TipRegion(indRect, new TipSignal(text, 31641624));
+            }
+
+            return btnHeight;
+        }
+
+        static float DoDevInfo(float y)
+        {
+            float x = UI.screenWidth - btnWidth - btnMargin;
 
             if (Multiplayer.ShowDevInfo && Multiplayer.WriterLog != null)
             {
@@ -195,14 +212,36 @@ namespace Multiplayer.Client
                 if (oldGhostMode != Multiplayer.session.ghostModeCheckbox)
                     SyncFieldUtil.ClearAllBufferedChanges();
 
-                y += btnHeight;
+                return btnHeight * 3;
             }
+
+            return 0;
+        }
+
+        static float DoDebugModeLabel(float y)
+        {
+            float x = UI.screenWidth - btnWidth - btnMargin;
 
             if (Multiplayer.Client != null && Multiplayer.GameComp.debugMode)
             {
                 using (MpStyle.Set(GameFont.Tiny).Set(TextAnchor.MiddleCenter))
                     Widgets.Label(new Rect(x, y, btnWidth, 30f), $"Debug mode");
+
+                return btnHeight;
             }
+
+            return 0;
+        }
+
+        static void DoButtons()
+        {
+            if (Multiplayer.session == null)
+                return;
+
+            float y = btnMargin;
+
+            foreach (var drawer in upperLeftDrawers)
+                y += drawer(y);
         }
 
         static void IndicatorInfo(out Color color, out string text, out bool slow)

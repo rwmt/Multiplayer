@@ -9,8 +9,6 @@ namespace Multiplayer.Common
         CreateJoinPoint,
         SetupFaction,
         GlobalIdBlock,
-        FactionOnline,
-        FactionOffline,
         InitPlayerData,
 
         // Mixed scope

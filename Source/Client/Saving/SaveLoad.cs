@@ -20,7 +20,7 @@ namespace Multiplayer.Client
 {
     public record TempGameData(XmlDocument SaveData, byte[] SemiPersistent);
 
-    [HotSwappable]
+
     public static class SaveLoad
     {
         public static TempGameData SaveAndReload()
@@ -85,7 +85,7 @@ namespace Multiplayer.Client
             if (musicManager != null)
                 Current.Root_Play.musicManagerPlay = musicManager;
 
-            Multiplayer.RealPlayerFaction = Find.FactionManager.GetById(localFactionId);
+            Multiplayer.game.ChangeRealPlayerFaction(Find.FactionManager.GetById(localFactionId));
 
             foreach (Map m in Find.Maps)
             {

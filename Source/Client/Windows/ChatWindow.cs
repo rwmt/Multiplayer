@@ -13,7 +13,7 @@ using Verse.Steam;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
+
     [StaticConstructorOnStartup]
     public class ChatWindow : Window
     {

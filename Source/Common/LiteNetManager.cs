@@ -18,14 +18,14 @@ namespace Multiplayer.Common
 
         public int ArbiterPort => arbiter.LocalPort;
 
-        public int NetTimer { get; private set; }
+        private int broadcastTimer;
 
         public LiteNetManager(MultiplayerServer server)
         {
             this.server = server;
         }
 
-        public void TickNet()
+        public void Tick()
         {
             foreach (var (_, man) in netManagers)
                 man.PollEvents();
@@ -33,20 +33,10 @@ namespace Multiplayer.Common
             lanManager?.PollEvents();
             arbiter?.PollEvents();
 
-            if (lanManager != null && NetTimer % 60 == 0)
+            if (lanManager != null && broadcastTimer % 60 == 0)
                 lanManager.SendBroadcast(Encoding.UTF8.GetBytes("mp-server"), 5100);
 
-            NetTimer++;
-
-            if (NetTimer % 60 == 0)
-                server.playerManager.SendLatencies();
-
-            if (NetTimer % 30 == 0)
-                foreach (var player in server.PlayingPlayers)
-                    player.SendPacket(Packets.Server_KeepAlive, ByteWriter.GetBytes(player.keepAliveId), false);
-
-            if (NetTimer % 2 == 0)
-                server.SendToAll(Packets.Server_TimeControl, ByteWriter.GetBytes(server.gameTimer, server.commands.NextCmdId), false);
+            broadcastTimer++;
         }
 
         public void StartNet()

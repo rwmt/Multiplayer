@@ -54,8 +54,7 @@ namespace Multiplayer.Common
 
             // todo check if map id is valid for the player
 
-            int factionId = Server.playerFactions[connection.username];
-            Server.commands.Send(cmd, factionId, mapId, extra, Player);
+            Server.commands.Send(cmd, Player.FactionId, mapId, extra, Player);
         }
 
         public const int MaxChatMsgLength = 128;
@@ -118,7 +117,7 @@ namespace Multiplayer.Common
         [PacketHandler(Packets.Client_Cursor)]
         public void HandleCursor(ByteReader data)
         {
-            if (Player.lastCursorTick == Server.liteNet.NetTimer) return;
+            if (Player.lastCursorTick == Server.NetTimer) return;
 
             var writer = new ByteWriter();
 
@@ -149,7 +148,7 @@ namespace Multiplayer.Common
                 }
             }
 
-            Player.lastCursorTick = Server.liteNet.NetTimer;
+            Player.lastCursorTick = Server.NetTimer;
 
             Server.SendToAll(Packets.Server_Cursor, writer.ToArray(), reliable: false, excluding: Player);
         }
@@ -211,7 +210,7 @@ namespace Multiplayer.Common
 
             Player.ticksBehind = ticksBehind;
             Player.simulating = simulating;
-            Player.keepAliveAt = Server.liteNet.NetTimer;
+            Player.keepAliveAt = Server.NetTimer;
 
             if (Player.IsHost)
                 Server.workTicks = workTicks;
@@ -236,6 +235,12 @@ namespace Multiplayer.Common
             if (arbiter ? !Player.IsArbiter : !Player.IsHost) return;
 
             var raw = data.ReadRaw(data.Left);
+
+            // Keep at most 10 sync infos
+            Server.syncInfos.Add(raw);
+            if (Server.syncInfos.Count > 10)
+                Server.syncInfos.RemoveAt(0);
+
             foreach (var p in Server.PlayingPlayers.Where(p => !p.IsArbiter && (arbiter || !p.IsHost)))
                 p.conn.SendFragmented(Packets.Server_SyncInfo, raw);
         }
@@ -247,7 +252,7 @@ namespace Multiplayer.Common
             Player.frozen = freeze;
 
             if (!freeze)
-                Player.unfrozenAt = Server.liteNet.NetTimer;
+                Player.unfrozenAt = Server.NetTimer;
         }
 
         [PacketHandler(Packets.Client_Autosaving)]
@@ -260,6 +265,24 @@ namespace Multiplayer.Common
         [PacketHandler(Packets.Client_Debug)]
         public void HandleDebug(ByteReader data)
         {
+        }
+
+        [PacketHandler(Packets.Client_SetFaction)]
+        public void HandleSetFaction(ByteReader data)
+        {
+            if (!Player.IsHost) return;
+
+            int player = data.ReadInt32();
+            int factionId = data.ReadInt32();
+
+            Server.GetPlayer(player).FactionId = factionId;
+            Server.SendToAll(Packets.Server_SetFaction, new object[] { player, factionId });
+        }
+
+        [PacketHandler(Packets.Client_FrameTime)]
+        public void HandleFrameTime(ByteReader data)
+        {
+            Player.frameTime = data.ReadFloat();
         }
     }
 

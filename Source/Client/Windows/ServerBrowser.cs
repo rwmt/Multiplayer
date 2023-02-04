@@ -26,7 +26,7 @@ using Multiplayer.Common.Util;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
+
     public class ServerBrowser : Window
     {
         private NetManager lanListener;

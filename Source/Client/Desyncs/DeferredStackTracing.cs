@@ -17,6 +17,7 @@ namespace Multiplayer.Client.Desyncs
 {
     [EarlyPatch]
     [HarmonyPatch]
+
     static class DeferredStackTracing
     {
         public static int ignoreTraces;
@@ -57,9 +58,10 @@ namespace Multiplayer.Client.Desyncs
             if (!Multiplayer.game.gameComp.logDesyncTraces) return false;
 
             if (Rand.stateStack.Count > 1) return false;
-            if (TickPatch.Simulating || Multiplayer.IsReplay) return false;
+            if (Multiplayer.IsReplay) return false;
 
             if (!Multiplayer.Ticking && !Multiplayer.ExecutingCmds) return false;
+            if (AsyncTimeComp.tickingMap is not { uniqueID: 0 }) return false;
 
             return ignoreTraces == 0;
         }

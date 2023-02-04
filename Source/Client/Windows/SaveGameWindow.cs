@@ -5,7 +5,7 @@ using Verse;
 
 namespace Multiplayer.Client;
 
-[HotSwappable]
+
 public class SaveGameWindow : AbstractTextInputWindow
 {
     private bool fileExists;

@@ -36,7 +36,7 @@ namespace Multiplayer.Client
 
     public delegate void SyncMethodWriter(object obj, SyncType type, string debugInfo);
 
-    [HotSwappable]
+
     public class SyncMethod : SyncHandler, ISyncMethod
     {
         public readonly Type targetType;

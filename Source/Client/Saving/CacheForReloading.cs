@@ -8,6 +8,7 @@ using Verse;
 
 namespace Multiplayer.Client
 {
+
     [HarmonyPatch(typeof(MapDrawer), nameof(MapDrawer.RegenerateEverythingNow))]
     public static class MapDrawerRegenPatch
     {

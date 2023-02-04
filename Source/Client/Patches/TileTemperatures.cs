@@ -52,7 +52,7 @@ namespace Multiplayer.Client
         }
     }
 
-    [HotSwappable]
+
     [HarmonyPatch(typeof(GenTemperature), nameof(GenTemperature.AverageTemperatureAtTileForTwelfth))]
     static class CacheAverageTileTemperature
     {

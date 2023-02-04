@@ -12,7 +12,7 @@ using Verse;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
+
     public class MpSettings : ModSettings
     {
         public string username;
@@ -20,7 +20,6 @@ namespace Multiplayer.Client
         public bool autoAcceptSteam;
         public bool transparentChat = true;
         public int autosaveSlots = 5;
-        public bool aggressiveTicking = true;
         public bool showDevInfo;
         public int desyncTracesRadius = 40;
         public string serverAddress = "127.0.0.1";
@@ -63,7 +62,6 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref autoAcceptSteam, "autoAcceptSteam");
             Scribe_Values.Look(ref transparentChat, "transparentChat", true);
             Scribe_Values.Look(ref autosaveSlots, "autosaveSlots", 5);
-            Scribe_Values.Look(ref aggressiveTicking, "aggressiveTicking", true);
             Scribe_Values.Look(ref showDevInfo, "showDevInfo");
             Scribe_Values.Look(ref desyncTracesRadius, "desyncTracesRadius", 40);
             Scribe_Values.Look(ref serverAddress, "serverAddress", "127.0.0.1");
@@ -140,7 +138,6 @@ namespace Multiplayer.Client
             listing.CheckboxLabeled("MpPlayerCursorTransparency".Translate(), ref transparentPlayerCursors);
             listing.CheckboxLabeled("MpAutoAcceptSteam".Translate(), ref autoAcceptSteam, "MpAutoAcceptSteamDesc".Translate());
             listing.CheckboxLabeled("MpTransparentChat".Translate(), ref transparentChat);
-            listing.CheckboxLabeled("MpAggressiveTicking".Translate(), ref aggressiveTicking, "MpAggressiveTickingDesc".Translate());
             listing.CheckboxLabeled("MpAppendNameToAutosave".Translate(), ref appendNameToAutosave);
             listing.CheckboxLabeled("MpShowModCompat".Translate(), ref showModCompatibility, "MpShowModCompatDesc".Translate());
             listing.CheckboxLabeled("MpEnablePingsSetting".Translate(), ref enablePings);

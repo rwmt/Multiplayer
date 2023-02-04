@@ -12,7 +12,7 @@ using Verse;
 
 namespace Multiplayer.Client.Networking
 {
-    [HotSwappable]
+
     public class MpClientNetListener : INetEventListener
     {
         public void OnPeerConnected(NetPeer peer)
@@ -30,7 +30,7 @@ namespace Multiplayer.Client.Networking
 
         public void OnNetworkError(IPEndPoint endPoint, SocketError error)
         {
-            MpLog.Error($"Net client error {error}");
+            MpLog.Warn($"Net client error {error}");
         }
 
         public void OnNetworkReceive(NetPeer peer, NetPacketReader reader, DeliveryMethod method)

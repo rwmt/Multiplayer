@@ -18,13 +18,14 @@ using Verse.AI;
 using Verse.Sound;
 using zip::Ionic.Zip;
 using Multiplayer.Client.Comp;
+using Multiplayer.Client.Desyncs;
 using Multiplayer.Client.Patches;
 using Multiplayer.Client.Saving;
 using Multiplayer.Client.Util;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
+
     public class AsyncTimeComp : IExposable, ITickable
     {
         public static Map tickingMap;

@@ -13,7 +13,7 @@ using Random = System.Random;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
+
     [HarmonyPatch(typeof(UI_BackgroundMain), nameof(UI_BackgroundMain.DoOverlay))]
     [StaticConstructorOnStartup]
     static class MainMenuAnimation

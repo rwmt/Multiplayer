@@ -12,7 +12,7 @@ using Verse.Sound;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
+
     public class ModCompatWindow : Window
     {
         public override Vector2 InitialSize => popup ? new(600, 450) : new(900, 600);
@@ -403,7 +403,7 @@ namespace Multiplayer.Client
         }
     }
 
-    [HotSwappable]
+
     [HarmonyPatch(typeof(Page_ModsConfig), nameof(Page_ModsConfig.DoBottomButtons))]
     static class PageModsConfigAddButton
     {

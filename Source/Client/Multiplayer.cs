@@ -53,11 +53,7 @@ namespace Multiplayer.Client
         public static bool ShowDevInfo => Prefs.DevMode && settings.showDevInfo;
         public static bool GhostMode => session is { ghostModeCheckbox: true };
 
-        public static Faction RealPlayerFaction
-        {
-            get => Client != null ? game.RealPlayerFaction : Faction.OfPlayer;
-            set => game.RealPlayerFaction = value;
-        }
+        public static Faction RealPlayerFaction => Client != null ? game.RealPlayerFaction : Faction.OfPlayer;
 
         public static bool ExecutingCmds => MultiplayerWorldComp.executingCmdWorld || AsyncTimeComp.executingCmdMap != null;
         public static bool Ticking => MultiplayerWorldComp.tickingWorld || AsyncTimeComp.tickingMap != null || ConstantTicker.ticking;
