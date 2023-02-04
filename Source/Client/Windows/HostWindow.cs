@@ -207,7 +207,11 @@ namespace Multiplayer.Client
                         );
                         return 50f + 6;
                     },
-                    rect => MpUI.LabelFlexibleWidthClickable(rect, autosaveUnitKey.Translate(), ref changeAutosaveUnit)
+                    rect =>
+                    {
+                        changeAutosaveUnit = CustomButton(rect, autosaveUnitKey.Translate(), out var width);
+                        return width;
+                    }
                 );
 
             if (changeAutosaveUnit)
@@ -378,6 +382,9 @@ namespace Multiplayer.Client
         }
 
         private static bool CustomButton(Rect rect, string label)
+            => CustomButton(rect, label, out _);
+
+        private static bool CustomButton(Rect rect, string label, out float width)
         {
             using var _ = MpStyle.Set(TextAnchor.MiddleLeft);
             var flagsWidth = Text.CalcSize(label).x;
@@ -388,6 +395,8 @@ namespace Multiplayer.Client
             Widgets.DrawRectFast(flagsBtn.Height(24).Down(3), CustomButtonColor);
             Widgets.DrawHighlightIfMouseover(flagsBtn.Height(24).Down(3));
             MpUI.Label(rect.Right(btnMargin).Width(flagsWidth), label);
+
+            width = flagsBtn.width;
 
             return Widgets.ButtonInvisible(flagsBtn);
         }
