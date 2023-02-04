@@ -10,16 +10,27 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.Client == null) return true;
 
-            if (__instance.CurTimeSpeed == TimeSpeed.Paused)
-                __result = 0;
-            else if (__instance.slower.ForcedNormalSpeed)
-                __result = 1;
-            else if (__instance.CurTimeSpeed == TimeSpeed.Fast)
-                __result = 3;
-            else if (__instance.CurTimeSpeed == TimeSpeed.Superfast)
-                __result = 6;
-            else
-                __result = 1;
+            switch (__instance.CurTimeSpeed, __instance.slower.ForcedNormalSpeed)
+            {
+                case (TimeSpeed.Paused, _):
+                    __result = 0;
+                    break;
+                case (_, true):
+                    __result = 1;
+                    break;
+                case (TimeSpeed.Fast, _):
+                    __result = 3;
+                    break;
+                case (TimeSpeed.Superfast, _):
+                    __result = 6;
+                    break;
+                case (TimeSpeed.Ultrafast, _):
+                    __result = 15;
+                    break;
+                default:
+                    __result = 1;
+                    break;
+            }
 
             return false;
         }
