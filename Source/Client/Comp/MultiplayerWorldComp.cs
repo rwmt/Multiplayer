@@ -27,14 +27,8 @@ namespace Multiplayer.Client
 
         public float TickRateMultiplier(TimeSpeed speed)
         {
-            if (Multiplayer.GameComp.asyncTime)
-            {
-                var enforcePause = Multiplayer.WorldComp.splitSession != null ||
-                    AsyncTimeComp.pauseLocks.Any(x => x(null));
-
-                if (enforcePause)
-                    return 0f;
-            }
+            if (IsPaused)
+                return 0f;
 
             return speed switch
             {
@@ -55,6 +49,13 @@ namespace Multiplayer.Client
                 UpdateTimeSpeed();
             }
         }
+
+        public bool IsPaused
+            => Multiplayer.GameComp.asyncTime &&
+               (Multiplayer.WorldComp.splitSession != null ||
+                AsyncTimeComp.pauseLocks.Any(x => x(null)));
+
+        public bool IsForceSlowdown => false;
 
         /**
          * Clamps the World's TimeSpeed to be between (slowest map) and (fastest map)

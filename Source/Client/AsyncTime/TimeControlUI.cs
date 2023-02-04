@@ -106,12 +106,11 @@ public static class TimeControlPatch
             rect.x += rect.width;
         }
 
-        float normalSpeed = Tickable.ActualRateMultiplier(TimeSpeed.Normal);
-        float fastSpeed = Tickable.ActualRateMultiplier(TimeSpeed.Fast);
+        TimePauseSlowdownInfo info = Tickable.IsPausedOrSlowedDown();
 
-        if (normalSpeed == 0f) // Completely paused
+        if (info == TimePauseSlowdownInfo.Paused) // Completely paused
             Widgets.DrawLineHorizontal(rect.width, rect.height / 2f, rect.width * 3f);
-        else if (normalSpeed == fastSpeed) // Slowed down
+        else if (info == TimePauseSlowdownInfo.Slowdown) // Slowed down
             Widgets.DrawLineHorizontal(rect.width * 2f, rect.height / 2f, rect.width * 2f);
 
         Widgets.EndGroup();
@@ -305,12 +304,12 @@ public static class ColonistBarTimeControl
         {
             if (curGroup == entry.group) continue;
 
-            ITickable entryTickable = entry.map?.AsyncTime();
-            if (entryTickable == null) entryTickable = Multiplayer.WorldComp;
+            ITickable entryTickable = entry.map?.AsyncTime() ?? (ITickable)Multiplayer.WorldComp;
 
             Rect groupBar = bar.drawer.GroupFrameRect(entry.group);
             float drawXPos = groupBar.x;
-            Color bgColor = (entryTickable.ActualRateMultiplier(TimeSpeed.Normal) == 0f) ? pauseBgColor : normalBgColor;
+            bool paused = entryTickable.IsPaused;
+            Color bgColor = paused ? pauseBgColor : normalBgColor;
 
             if (Multiplayer.GameComp.asyncTime)
             {
@@ -321,7 +320,7 @@ public static class ColonistBarTimeControl
                     MpTimeControls.TimeControlButton(button, bgColor, entryTickable);
                     drawXPos += TimeControls.TimeButSize.x;
                 }
-                else if (entryTickable.ActualRateMultiplier(TimeSpeed.Normal) == 0f)
+                else if (paused)
                 {
                     MpTimeControls.TimeIndicateBlockingPause(button, bgColor);
                     drawXPos += TimeControls.TimeButSize.x;

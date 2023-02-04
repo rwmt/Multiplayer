@@ -227,9 +227,10 @@ namespace Multiplayer.Client
 
         public static float TimePerTick(this ITickable tickable, TimeSpeed speed)
         {
-            if (tickable.ActualRateMultiplier(speed) == 0f)
+            var mult = tickable.ActualRateMultiplier(speed);
+            if (mult == 0f)
                 return 0f;
-            return 1f / tickable.ActualRateMultiplier(speed);
+            return 1f / mult;
         }
 
         public static float ActualRateMultiplier(this ITickable tickable, TimeSpeed speed)
@@ -242,6 +243,39 @@ namespace Multiplayer.Client
                 rate = Math.Min(rate, map.AsyncTime().TickRateMultiplier(speed));
 
             return rate;
+        }
+
+        public static TimePauseSlowdownInfo IsPausedOrSlowedDown(this ITickable tickable)
+        {
+            if (Multiplayer.GameComp.asyncTime)
+            {
+                if (tickable.IsPaused)
+                    return TimePauseSlowdownInfo.Paused;
+                if (tickable.IsForceSlowdown)
+                    return TimePauseSlowdownInfo.Slowdown;
+                return TimePauseSlowdownInfo.Normal;
+            }
+
+            if (Multiplayer.WorldComp.IsPaused)
+                return TimePauseSlowdownInfo.Paused;
+
+            // Could just use false, as it currently can not be force slowed down.
+            // If we keep this, some mods may potentially use force slowdown on world.
+            var isForceSlowdown = Multiplayer.WorldComp.IsForceSlowdown;
+
+            foreach (var map in Find.Maps)
+            {
+                var comp = map.AsyncTime();
+
+                if (comp.IsPaused)
+                    return TimePauseSlowdownInfo.Paused;
+                if (!isForceSlowdown)
+                    isForceSlowdown = comp.IsForceSlowdown;
+            }
+
+            if (isForceSlowdown)
+                return TimePauseSlowdownInfo.Slowdown;
+            return TimePauseSlowdownInfo.Normal;
         }
 
         public static void ClearSimulating()
@@ -284,4 +318,6 @@ namespace Multiplayer.Client
         public string cancelButtonKey;
         public string simTextKey;
     }
+
+    public enum TimePauseSlowdownInfo { Normal, Paused, Slowdown, }
 }

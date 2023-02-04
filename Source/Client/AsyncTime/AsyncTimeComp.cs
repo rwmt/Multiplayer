@@ -24,20 +24,10 @@ namespace Multiplayer.Client
 
         public float TickRateMultiplier(TimeSpeed speed)
         {
-            var comp = map.MpComp();
-
-            var enforcePause = comp.transporterLoading != null ||
-                comp.caravanForming != null ||
-                comp.ritualSession != null ||
-                comp.mapDialogs.Any() ||
-                Multiplayer.WorldComp.AnyTradeSessionsOnMap(map) ||
-                Multiplayer.WorldComp.splitSession != null ||
-                pauseLocks.Any(x => x(map));
-
-            if (enforcePause)
+            if (IsPaused)
                 return 0f;
 
-            if (mapTicks < slower.forceNormalSpeedUntil)
+            if (IsForceSlowdown)
                 return speed == TimeSpeed.Paused ? 0 : 1;
 
             switch (speed)
@@ -64,6 +54,24 @@ namespace Multiplayer.Client
             get => timeSpeedInt;
             set => timeSpeedInt = value;
         }
+
+        public bool IsPaused
+        {
+            get
+            {
+                var comp = map.MpComp();
+
+                return comp.transporterLoading != null ||
+                       comp.caravanForming != null ||
+                       comp.ritualSession != null ||
+                       comp.mapDialogs.Any() ||
+                       Multiplayer.WorldComp.AnyTradeSessionsOnMap(map) ||
+                       Multiplayer.WorldComp.splitSession != null ||
+                       pauseLocks.Any(x => x(map));
+            }
+        }
+
+        public bool IsForceSlowdown => mapTicks < slower.forceNormalSpeedUntil;
 
         public bool Paused => this.ActualRateMultiplier(TimeSpeed) == 0f;
 
