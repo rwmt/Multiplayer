@@ -1,7 +1,5 @@
 ﻿using System;
 using HarmonyLib;
-using Multiplayer.Client.Util;
-using UnityEngine;
 using Verse;
 
 namespace Multiplayer.Client

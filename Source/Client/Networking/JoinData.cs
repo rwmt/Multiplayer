@@ -3,16 +3,13 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
-using System.Text;
 using HarmonyLib;
 using Ionic.Zlib;
 using Multiplayer.Client.EarlyPatches;
 using Multiplayer.Common;
 using RimWorld;
 using Steamworks;
-using UnityEngine;
 using Verse;
-using Verse.Steam;
 
 namespace Multiplayer.Client
 {

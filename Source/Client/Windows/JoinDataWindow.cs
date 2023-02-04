@@ -1,12 +1,8 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
-using System.Threading;
-using JetBrains.Annotations;
-using Multiplayer.Client.EarlyPatches;
 using Multiplayer.Client.Util;
 using Multiplayer.Common;
 using RimWorld;

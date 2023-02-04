@@ -7,14 +7,11 @@ using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
-using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
 using System.Text;
 using HarmonyLib;
 using MonoMod.RuntimeDetour;
-using UnityEngine;
 using Verse;
 
 namespace Multiplayer.Client

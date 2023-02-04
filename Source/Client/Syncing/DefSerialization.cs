@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Reflection;
-using HarmonyLib;
 using Multiplayer.Client.Util;
 using Multiplayer.Common;
 using Verse;

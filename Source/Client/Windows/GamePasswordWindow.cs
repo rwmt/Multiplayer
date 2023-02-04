@@ -1,5 +1,4 @@
-﻿using Multiplayer.Client.Util;
-using Multiplayer.Common;
+﻿using Multiplayer.Common;
 using Verse;
 
 namespace Multiplayer.Client;

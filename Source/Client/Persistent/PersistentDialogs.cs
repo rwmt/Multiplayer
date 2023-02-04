@@ -10,7 +10,6 @@ using Multiplayer.Client.Saving;
 using Multiplayer.Common;
 
 using RimWorld;
-using RimWorld.Planet;
 using Verse;
 
 namespace Multiplayer.Client

@@ -3,7 +3,6 @@ using System;
 using HarmonyLib;
 using Multiplayer.Common;
 using RimWorld;
-using System.Linq;
 using Verse;
 
 namespace Multiplayer.Client

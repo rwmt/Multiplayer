@@ -1,5 +1,4 @@
-﻿using System.Web.Configuration;
-using UnityEngine;
+﻿using UnityEngine;
 
 namespace Multiplayer.Client.Util
 {

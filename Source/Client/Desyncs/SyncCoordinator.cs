@@ -1,18 +1,11 @@
 extern alias zip;
-using HarmonyLib;
 using Multiplayer.Common;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Linq;
-using System.Net;
-using System.Reflection;
-using System.Text;
 using RimWorld;
-using UnityEngine;
 using Verse;
-using zip::Ionic.Zip;
 using Multiplayer.Client.Desyncs;
 using Multiplayer.Client.Util;
 

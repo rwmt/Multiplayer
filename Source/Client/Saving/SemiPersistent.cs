@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Linq;
-using Multiplayer.Client.Comp;
 using Multiplayer.Common;
 using Verse;
 

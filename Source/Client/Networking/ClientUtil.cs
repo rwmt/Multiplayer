@@ -1,21 +1,8 @@
-using Ionic.Zlib;
 using LiteNetLib;
 using Multiplayer.Common;
-using Multiplayer.Client.EarlyPatches;
-using RimWorld;
 using Steamworks;
 using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Net;
-using System.Net.Sockets;
-using System.Reflection;
-using System.Threading;
-using System.ComponentModel;
 using Verse;
-using UnityEngine;
-using System.IO;
 using Multiplayer.Client.Networking;
 
 namespace Multiplayer.Client

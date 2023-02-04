@@ -7,9 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Threading;
 using Multiplayer.Client.AsyncTime;
-using RimWorld;
 using UnityEngine;
 using Verse;
 

@@ -10,7 +10,6 @@ using System.Reflection;
 using UnityEngine;
 using Verse;
 using Multiplayer.Client.Desyncs;
-using Multiplayer.Client.Patches;
 using Multiplayer.Client.Util;
 
 namespace Multiplayer.Client

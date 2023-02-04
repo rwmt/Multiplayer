@@ -1,23 +1,15 @@
 using HarmonyLib;
 using Multiplayer.API;
-using Multiplayer.Client.Persistent;
 using Multiplayer.Common;
-using RimWorld;
-using RimWorld.Planet;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Runtime.CompilerServices;
-using System.Runtime.Serialization;
 using System.Text;
 using System.Xml;
-using UnityEngine;
 using Verse;
-using Verse.AI;
-using Verse.AI.Group;
 
 namespace Multiplayer.Client
 {

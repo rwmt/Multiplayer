@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -8,8 +7,6 @@ using System.Runtime.CompilerServices;
 using System.Text;
 
 using HarmonyLib;
-using Multiplayer.API;
-
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -17,7 +14,6 @@ using Debug = UnityEngine.Debug;
 
 namespace Multiplayer.Client
 {
-
     static class MpDebugActions
     {
         const string MultiplayerCategory = "Multiplayer";

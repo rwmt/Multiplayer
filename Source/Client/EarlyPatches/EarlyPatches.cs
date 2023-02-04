@@ -1,16 +1,11 @@
 using HarmonyLib;
 using Multiplayer.Common;
-using Multiplayer.Client;
 using RimWorld;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
 using Verse;
-using System.IO;
 using Multiplayer.Client.Patches;
 
 namespace Multiplayer.Client

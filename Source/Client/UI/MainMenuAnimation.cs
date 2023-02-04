@@ -1,10 +1,7 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using HarmonyLib;
-using Multiplayer.Client.Patches;
 using Multiplayer.Client.Util;
 using RimWorld;
 using UnityEngine;

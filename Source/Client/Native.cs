@@ -1,15 +1,8 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
-using System.Xml.Serialization;
 using HarmonyLib;
-using MonoMod.RuntimeDetour;
 //using Iced.Intel;
 using UnityEngine;
 using Verse;

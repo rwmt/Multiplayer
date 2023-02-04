@@ -1,15 +1,8 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Collections.Concurrent;
 using System.Diagnostics;
-using System.Drawing;
-using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Reflection.Emit;
-using System.Xml;
-
 using HarmonyLib;
 
 using RimWorld;
@@ -18,13 +11,9 @@ using Verse;
 
 using Multiplayer.Common;
 using System.Runtime.CompilerServices;
-using System.Threading;
-using JetBrains.Annotations;
 using Multiplayer.Client.Comp;
-using Multiplayer.Client.Desyncs;
 using Multiplayer.Client.Patches;
 using Multiplayer.Client.Util;
-using UnityEngine.Experimental.Rendering;
 
 namespace Multiplayer.Client
 {

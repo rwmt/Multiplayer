@@ -2,12 +2,10 @@ using HarmonyLib;
 using Ionic.Zlib;
 using Multiplayer.Client.Networking;
 using Multiplayer.Common;
-using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Xml;
-using Multiplayer.Client.Util;
 using Verse;
 using Verse.Profile;
 

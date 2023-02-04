@@ -1,10 +1,8 @@
 using Multiplayer.Common;
-using System.Linq;
 using Multiplayer.Client.Desyncs;
 using Multiplayer.Client.Util;
 using UnityEngine;
 using Verse;
-using Verse.Profile;
 
 namespace Multiplayer.Client
 {
