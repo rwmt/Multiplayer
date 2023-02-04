@@ -145,7 +145,6 @@ namespace Multiplayer.Client
             if (autoSelectTravelSupplies != value)
             {
                 autoSelectTravelSupplies = value;
-                PrepareDummyDialog().SelectApproximateBestTravelSupplies();
                 uiDirty = true;
             }
         }
