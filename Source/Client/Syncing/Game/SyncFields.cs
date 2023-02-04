@@ -47,6 +47,10 @@ namespace Multiplayer.Client
         public static ISyncField SyncBillIncludeQualityRange;
         public static ISyncField SyncBillPawnRestriction;
 
+        public static ISyncField SyncBillSlavesOnly;
+        public static ISyncField SyncBillMechsOnly;
+        public static ISyncField SyncBillNonMechsOnly;
+
         public static ISyncField SyncZoneLabel;
 
         public static SyncField[] SyncBillProduction;
@@ -137,6 +141,10 @@ namespace Multiplayer.Client
             SyncBillIncludeHpRange = Sync.Field(typeof(Bill_Production), "hpRange").SetBufferChanges();
             SyncBillIncludeQualityRange = Sync.Field(typeof(Bill_Production), "qualityRange").SetBufferChanges();
             SyncBillPawnRestriction = Sync.Field(typeof(Bill), "pawnRestriction");
+
+            SyncBillSlavesOnly = Sync.Field(typeof(Bill), nameof(Bill.slavesOnly));
+            SyncBillMechsOnly = Sync.Field(typeof(Bill), nameof(Bill.mechsOnly));
+            SyncBillNonMechsOnly = Sync.Field(typeof(Bill), nameof(Bill.nonMechsOnly));
 
             SyncZoneLabel = Sync.Field(typeof(Zone), "label");
 
@@ -291,7 +299,13 @@ namespace Multiplayer.Client
         [MpPostfix(typeof(Dialog_BillConfig), nameof(Dialog_BillConfig.GeneratePawnRestrictionOptions))]
         static IEnumerable<DropdownMenuElement<Pawn>> BillPawnRestrictions_Postfix(IEnumerable<DropdownMenuElement<Pawn>> __result, Bill ___bill)
         {
-            return WatchDropdowns(() => SyncBillPawnRestriction.Watch(___bill), __result);
+            return WatchDropdowns(() =>
+            {
+                SyncBillPawnRestriction.Watch(___bill);
+                SyncBillSlavesOnly.Watch(___bill);
+                SyncBillMechsOnly.Watch(___bill);
+                SyncBillNonMechsOnly.Watch(___bill);
+            }, __result);
         }
 
         [MpPostfix(typeof(HostilityResponseModeUtility), nameof(HostilityResponseModeUtility.DrawResponseButton_GenerateMenu))]
