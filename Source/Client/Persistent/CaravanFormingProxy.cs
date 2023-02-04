@@ -32,6 +32,7 @@ namespace Multiplayer.Client
                     Notify_TransferablesChanged();
                     startingTile = session.startingTile;
                     destinationTile = session.destinationTile;
+                    autoSelectTravelSupplies = session.autoSelectTravelSupplies;
 
                     session.uiDirty = false;
                 }

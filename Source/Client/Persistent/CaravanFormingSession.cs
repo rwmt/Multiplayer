@@ -22,6 +22,7 @@ namespace Multiplayer.Client
         public int startingTile = -1;
         public int destinationTile = -1;
         public List<TransferableOneWay> transferables;
+        public bool autoSelectTravelSupplies;
 
         public bool uiDirty;
 
@@ -41,14 +42,17 @@ namespace Multiplayer.Client
             this.reform = reform;
             this.onClosed = onClosed;
             this.mapAboutToBeRemoved = mapAboutToBeRemoved;
+            autoSelectTravelSupplies = !reform;
 
             AddItems();
         }
 
         private void AddItems()
         {
-            var dialog = new CaravanFormingProxy(map, reform, null, mapAboutToBeRemoved);
-            dialog.autoSelectTravelSupplies = false;
+            var dialog = new CaravanFormingProxy(map, reform, null, mapAboutToBeRemoved)
+            {
+                autoSelectTravelSupplies = autoSelectTravelSupplies
+            };
             dialog.CalculateAndRecacheTransferables();
             transferables = dialog.transferables;
         }
@@ -85,7 +89,7 @@ namespace Multiplayer.Client
                 startingTile = startingTile,
                 destinationTile = destinationTile,
                 thisWindowInstanceEverOpened = true,
-                autoSelectTravelSupplies = false,
+                autoSelectTravelSupplies = autoSelectTravelSupplies,
             };
 
             return dialog;
@@ -136,6 +140,17 @@ namespace Multiplayer.Client
         {
             map.MpComp().caravanForming = null;
             Find.WorldRoutePlanner.Stop();
+        }
+
+        [SyncMethod]
+        public void SetAutoSelectTravelSupplies(bool value)
+        {
+            if (autoSelectTravelSupplies != value)
+            {
+                autoSelectTravelSupplies = value;
+                PrepareDummyDialog().SelectApproximateBestTravelSupplies();
+                uiDirty = true;
+            }
         }
 
         public void ExposeData()
