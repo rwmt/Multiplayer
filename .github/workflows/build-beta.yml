@@ -4,6 +4,7 @@ env:
   SLN_PATH: Source/
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - development
