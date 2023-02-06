@@ -89,6 +89,9 @@ namespace Multiplayer.Client
                 autoSelectTravelSupplies = autoSelectTravelSupplies,
             };
 
+            if (autoSelectTravelSupplies)
+                dialog.SelectApproximateBestTravelSupplies();
+
             return dialog;
         }
 
