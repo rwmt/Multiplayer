@@ -20,6 +20,7 @@ namespace Multiplayer.Client
         public int destinationTile = -1;
         public List<TransferableOneWay> transferables;
         public bool autoSelectTravelSupplies;
+        public readonly IntVec3? meetingSpot;
 
         public bool uiDirty;
 
@@ -31,7 +32,7 @@ namespace Multiplayer.Client
             this.map = map;
         }
 
-        public CaravanFormingSession(Map map, bool reform, Action onClosed, bool mapAboutToBeRemoved) : this(map)
+        public CaravanFormingSession(Map map, bool reform, Action onClosed, bool mapAboutToBeRemoved, IntVec3? meetingSpot = null) : this(map)
         {
             //sessionId = map.MpComp().mapIdBlock.NextId();
             sessionId = Multiplayer.GlobalIdBlock.NextId();
@@ -40,13 +41,14 @@ namespace Multiplayer.Client
             this.onClosed = onClosed;
             this.mapAboutToBeRemoved = mapAboutToBeRemoved;
             autoSelectTravelSupplies = !reform;
+            this.meetingSpot = meetingSpot;
 
             AddItems();
         }
 
         private void AddItems()
         {
-            var dialog = new CaravanFormingProxy(map, reform, null, mapAboutToBeRemoved)
+            var dialog = new CaravanFormingProxy(map, reform, null, mapAboutToBeRemoved, meetingSpot)
             {
                 autoSelectTravelSupplies = autoSelectTravelSupplies
             };
@@ -80,7 +82,7 @@ namespace Multiplayer.Client
 
         private CaravanFormingProxy PrepareDummyDialog()
         {
-            var dialog = new CaravanFormingProxy(map, reform, null, mapAboutToBeRemoved)
+            var dialog = new CaravanFormingProxy(map, reform, null, mapAboutToBeRemoved, meetingSpot)
             {
                 transferables = transferables,
                 startingTile = startingTile,
