@@ -225,7 +225,7 @@ namespace Multiplayer.Client
             bool frozen = data.ReadBool();
             int frozenAt = data.ReadInt32();
 
-            TickPatch.shouldFreeze = frozen;
+            TickPatch.serverFrozen = frozen;
             TickPatch.frozenAt = frozenAt;
         }
 

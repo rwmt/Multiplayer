@@ -14,6 +14,7 @@ using Verse;
 namespace Multiplayer.Client
 {
     [HarmonyPatch(typeof(TickManager), nameof(TickManager.TickManagerUpdate))]
+    [HotSwappable]
     public static class TickPatch
     {
         public static int Timer { get; private set; }
@@ -22,7 +23,7 @@ namespace Multiplayer.Client
         public static int tickUntil;
         public static int workTicks;
         public static bool currentExecutingCmdIssuedBySelf;
-        public static bool shouldFreeze;
+        public static bool serverFrozen;
         public static int frozenAt;
 
         private static float realTime;
@@ -36,7 +37,7 @@ namespace Multiplayer.Client
 
         public static bool ShouldHandle => LongEventHandler.currentEvent == null && !Multiplayer.session.desynced;
         public static bool Simulating => simulating?.target != null;
-        public static bool Frozen => shouldFreeze && Timer >= frozenAt && !Simulating && ShouldHandle;
+        public static bool Frozen => serverFrozen && Timer >= frozenAt && !Simulating && ShouldHandle;
 
         public static IEnumerable<ITickable> AllTickables
         {
@@ -255,7 +256,7 @@ namespace Multiplayer.Client
             Timer = 0;
             tickUntil = 0;
             accumulator = 0;
-            shouldFreeze = false;
+            serverFrozen = false;
             workTicks = 0;
             serverTimePerTick = 0;
             avgFrameTime = 0;

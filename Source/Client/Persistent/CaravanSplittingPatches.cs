@@ -46,7 +46,7 @@ namespace Multiplayer.Client.Persistent
             //  Otherwise, create a new session.
             if (Multiplayer.WorldComp.splitSession != null)
             {
-                Multiplayer.WorldComp.splitSession.OpenWindow(true);
+                Multiplayer.WorldComp.splitSession.OpenWindow();
             }
             else
             {

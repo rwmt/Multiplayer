@@ -9,7 +9,7 @@ namespace Multiplayer.Common
         public bool Frozen
         {
             get => frozen;
-            set
+            private set
             {
                 frozen = value;
                 Server.SendToAll(Packets.Server_Freeze, new object[] { frozen, Server.gameTimer });

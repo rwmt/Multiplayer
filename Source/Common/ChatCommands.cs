@@ -19,14 +19,6 @@
         }
     }
 
-    public class ChatCmdAutosave : ChatCmdHandler
-    {
-        public override void Handle(ServerPlayer player, string[] args)
-        {
-            player.SendChat("Do you mean /joinpoint?");
-        }
-    }
-
     public class ChatCmdJoinPoint : ChatCmdHandler
     {
         public ChatCmdJoinPoint()

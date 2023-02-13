@@ -183,7 +183,7 @@ namespace Multiplayer.Client
 
             Session.dataSnapshot = dataSnapshot;
             Multiplayer.session.receivedCmds = data.ReadInt32();
-            TickPatch.shouldFreeze = data.ReadBool();
+            TickPatch.serverFrozen = data.ReadBool();
             TickPatch.tickUntil = tickUntil;
 
             int syncInfos = data.ReadInt32();

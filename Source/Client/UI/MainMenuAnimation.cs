@@ -10,26 +10,30 @@ using Random = System.Random;
 
 namespace Multiplayer.Client
 {
-
+    [HotSwappable]
     [HarmonyPatch(typeof(UI_BackgroundMain), nameof(UI_BackgroundMain.DoOverlay))]
     [StaticConstructorOnStartup]
     static class MainMenuAnimation
     {
         static Texture2D texture;
 
-        const float r = 2282;
-        const float cx = r + 80, cy = r + 384;
+        const float r = 2282; // radius of planet
+        const float cx = r + 80, cy = r + 384; // center coords
         const float origWidth = 8000, origHeight = 5000;
+        const int texWidth = (int)cx + 1871; // max extent in the x direction
+        const int texHeight = 5000;
 
         // The background might be drawn at the same time as the loading of a map on a different thread calls Verse.Rand
         // Verse.Rand can't be used here because it isn't thread-safe
         private static Random rand = new();
 
+        private static float newPulseTimer;
+
         static MainMenuAnimation()
         {
             using (DeepProfilerWrapper.Section("Multiplayer main menu animation texture gen"))
             {
-                texture = new(8000, 5000, TextureFormat.RGBA32, false);
+                texture = new(texWidth, texHeight, TextureFormat.RGBA32, false);
                 RegenTexture();
             }
         }
@@ -46,18 +50,22 @@ namespace Multiplayer.Client
             if (Input.GetKeyDown(KeyCode.End))
                 RegenTexture();
 
-            GUI.DrawTexture(bgRect, texture, ScaleMode.ScaleToFit);
+            GUI.DrawTexture(bgRect with { width = texWidth * bgRect.width / origWidth }, texture, ScaleMode.ScaleToFit);
 
 #if DEBUG
             if (Input.GetKey(KeyCode.LeftShift))
                 DrawEdges(bgRect);
 #endif
 
-            if (Time.frameCount % 5 == 0)
+            if (Event.current.type != EventType.Repaint) return;
+
+            newPulseTimer += Time.deltaTime;
+            if (newPulseTimer > 1 / 12f)
             {
                 var edge = edges[rand.Next(edges.Count())];
                 var switchEndpoints = rand.NextDouble() < 0.5;
                 pulses.Add(new Pulse(switchEndpoints ? edge.v2 : edge.v1, switchEndpoints ? edge.v1 : edge.v2) { starting = true });
+                newPulseTimer = 0;
             }
 
             DrawPulses(bgRect);
@@ -258,7 +266,7 @@ namespace Multiplayer.Client
             edges.Clear();
             pulses.Clear();
 
-            var colors = new Color[8000 * 5000];
+            var colors = new Color[texWidth * texHeight];
 
             // Cities
             for (int i = 0; i < 20;)
@@ -272,6 +280,7 @@ namespace Multiplayer.Client
                 cityTheta = inv.x;
                 cityPhi = inv.y;
 
+                // Avoid the light side
                 var cityXY = r * Project(cityTheta, cityPhi) + new Vector2(cx, cy);
                 const float maskR = 2160;
                 if ((new Vector2(520 + maskR, 64 + maskR) - cityXY).magnitude < maskR)
@@ -297,15 +306,13 @@ namespace Multiplayer.Client
                         float dotTheta = rand.Range(-1f, 1f);
                         float dotPhi = rand.Range(-1f, 1f);
 
-                        for (int x = -blobSize; x <= blobSize; x++)
                         for (int y = -blobSize; y <= blobSize; y++)
+                        for (int x = -blobSize; x <= blobSize; x++)
                             if (x * x + y * y < blobSize * blobSize)
                             {
                                 var proj = Project(theta + dotTheta, phi + dotPhi);
                                 float centerX = cx + r * proj.x;
                                 float centerY = cy + r * proj.y;
-
-                                var pos = GetPos(new Rect(0, 0, origWidth, origHeight), centerX, centerY);
 
                                 var c = 1 - new Vector2(x,y).magnitude / blobSize;
                                 var fromCenter = 1 - new Vector2(dotTheta, dotPhi).magnitude / 2;
@@ -315,10 +322,11 @@ namespace Multiplayer.Client
                                 if (j == 0) a *= 3f;
                                 else if (a > 0.4) a *= 2f;
 
+                                var pos = new Vector2(centerX, centerY);
                                 var color = new Color(0.93f, 0.75f, 0.55f, a * a * 2);
                                 var pixelX = (int)pos.x + x;
                                 var pixelY = (int)origHeight - (int)pos.y + y;
-                                colors[pixelX + pixelY * 8000] = color;
+                                colors[pixelX + pixelY * texWidth] = color;
 
                                 if (color.a >= 1 && lit == null)
                                 {

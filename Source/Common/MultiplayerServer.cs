@@ -32,6 +32,8 @@ namespace Multiplayer.Common
         public int lastJoinPointAtWorkTicks = -1;
         public List<byte[]> syncInfos = new();
 
+        public bool CreatingJoinPoint => tmpMapCmds != null;
+
         public FreezeManager freezeManager;
         public CommandHandler commands;
         public PlayerManager playerManager;
@@ -76,7 +78,6 @@ namespace Multiplayer.Common
             playerManager = new PlayerManager(this);
             liteNet = new LiteNetManager(this);
 
-            RegisterChatCmd("autosave", new ChatCmdAutosave());
             RegisterChatCmd("joinpoint", new ChatCmdJoinPoint());
             RegisterChatCmd("kick", new ChatCmdKick());
         }
@@ -151,8 +152,6 @@ namespace Multiplayer.Common
 
             instance = null;
         }
-
-        public bool CreatingJoinPoint => tmpMapCmds != null;
 
         public bool TryStartJoinPointCreation(bool force = false)
         {

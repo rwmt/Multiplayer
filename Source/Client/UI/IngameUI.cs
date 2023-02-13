@@ -106,7 +106,7 @@ namespace Multiplayer.Client
             {
                 var async = Find.CurrentMap.AsyncTime();
                 StringBuilder text = new StringBuilder();
-                text.Append($"{Multiplayer.game.sync.knownClientOpinions.Count} {Multiplayer.game.sync.knownClientOpinions.FirstOrDefault()?.startTick} {async.mapTicks} {TickPatch.shouldFreeze} {TickPatch.frozenAt} ");
+                text.Append($"{Multiplayer.game.sync.knownClientOpinions.Count} {Multiplayer.game.sync.knownClientOpinions.FirstOrDefault()?.startTick} {async.mapTicks} {TickPatch.serverFrozen} {TickPatch.frozenAt} ");
 
                 text.Append($"z: {Find.CurrentMap.haulDestinationManager.AllHaulDestinationsListForReading.Count()} d: {Find.CurrentMap.designationManager.designationsByDef.Count} hc: {Find.CurrentMap.listerHaulables.ThingsPotentiallyNeedingHauling().Count}");
 
