@@ -1,3 +1,4 @@
+using System;
 using HarmonyLib;
 using Multiplayer.API;
 using RimWorld;
@@ -151,11 +152,6 @@ namespace Multiplayer.Client
 
             // 3
             SyncMethod.Register(typeof(ShipUtility), nameof(ShipUtility.StartupHibernatingParts)).CancelIfAnyArgNull().SetVersion(3);
-
-            SyncMethod.Register(typeof(Verb_SmokePop), nameof(Verb_SmokePop.Pop));
-            SyncMethod.Register(typeof(Verb_DeployBroadshield), nameof(Verb_DeployBroadshield.Deploy));
-            SyncMethod.Register(typeof(Verb_FirefoamPop), nameof(Verb_FirefoamPop.Pop));
-            SyncMethod.Register(typeof(Verb_DeployToxPack), nameof(Verb_DeployToxPack.TryDeploy));
 
             // Dialog_NodeTree
             Sync.RegisterSyncDialogNodeTree(typeof(IncidentWorker_CaravanMeeting), nameof(IncidentWorker_CaravanMeeting.TryExecuteWorker));
@@ -534,6 +530,36 @@ namespace Multiplayer.Client
                 genepack.targetContainer = null;
                 container.leftToLoad.Remove(genepack);
             }
+        }
+
+        [MpPrefix(typeof(Targeter), nameof(Targeter.BeginTargeting), new []{ typeof(ITargetingSource), typeof(ITargetingSource), typeof(bool), typeof(Func<LocalTargetInfo, ITargetingSource>), typeof(Action) })]
+        static bool BeginTargeting(ITargetingSource source)
+        {
+            if (Multiplayer.Client == null || source.Targetable)
+                return true;
+
+            var verb = source.GetVerb;
+            // In case both Targetable and nonInterruptingSelfCast are false, targeter makes the caster use the verb.
+            // Before this change, we were syncing the cast method this ended up calling, like smokepop (and other belt) manual uses.
+            if (verb.verbProps.nonInterruptingSelfCast)
+                SyncTargeterNonInterruptingSelfCast(verb);
+            // In case Targetable is false and nonInterruptingSelfCast is true, targeter makes the pawn start a new job.
+            // At the moment, it seems to never be the case in vanilla. However, this can happen with mods.
+            else
+                SyncTargeterInterruptingSelfCast(verb, source.CasterPawn);
+
+            return false;
+        }
+
+        [SyncMethod]
+        static void SyncTargeterNonInterruptingSelfCast(Verb verb) => verb.TryStartCastOn(verb.Caster);
+
+        [SyncMethod]
+        static void SyncTargeterInterruptingSelfCast(Verb verb, Pawn casterPawn)
+        {
+            var job = JobMaker.MakeJob(JobDefOf.UseVerbOnThing, verb.Caster);
+            job.verbToUse = verb;
+            casterPawn.jobs.StartJob(job, JobCondition.InterruptForced);
         }
     }
 
