@@ -7,8 +7,9 @@ public enum TimeVote : byte
     Fast,
     Superfast,
     Ultrafast,
-    PlayerReset,
-    PlayerResetAll,
-    Reset,
-    ResetAll
+
+    PlayerResetTickable,
+    PlayerResetGlobal,
+    ResetTickable,
+    ResetGlobal
 }

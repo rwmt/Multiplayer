@@ -3,12 +3,14 @@ using Multiplayer.Common;
 using RimWorld;
 using System.Collections.Generic;
 using System.Reflection;
+using Multiplayer.Common.Util;
 using Verse;
 
 namespace Multiplayer.Client.Patches
 {
     [HarmonyPatch(typeof(UniqueIDsManager))]
     [HarmonyPatch(nameof(UniqueIDsManager.GetNextID))]
+    [HotSwappable]
     public static class UniqueIdsPatch
     {
         private static IdBlock currentBlock;
@@ -37,8 +39,7 @@ namespace Multiplayer.Client.Patches
         {
             if (Multiplayer.Client == null) return;
 
-            /*IdBlock currentBlock = CurrentBlock;
-            if (currentBlock == null)
+            if (CurrentBlock == null)
             {
                 __result = localIds--;
                 if (!Multiplayer.ShouldSync)
@@ -46,16 +47,16 @@ namespace Multiplayer.Client.Patches
                 return;
             }
 
-            __result = currentBlock.NextId();*/
+            __result = CurrentBlock.NextId();
 
-            if (Multiplayer.InInterface)
-            {
-                __result = localIds--;
-            }
-            else
-            {
-                __result = Multiplayer.GlobalIdBlock.NextId();
-            }
+            // if (Multiplayer.InInterface)
+            // {
+            //     __result = localIds--;
+            // }
+            // else
+            // {
+            //     __result = Multiplayer.GlobalIdBlock.NextId();
+            // }
 
             //MpLog.Log("got new id " + __result);
 

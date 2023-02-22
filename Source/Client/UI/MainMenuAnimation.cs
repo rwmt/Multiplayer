@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using HarmonyLib;
 using Multiplayer.Client.Util;
+using Multiplayer.Common.Util;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -25,7 +26,7 @@ namespace Multiplayer.Client
 
         // The background might be drawn at the same time as the loading of a map on a different thread calls Verse.Rand
         // Verse.Rand can't be used here because it isn't thread-safe
-        private static Random rand = new();
+        private static Random rand = new(SystemInfo.deviceUniqueIdentifier.GetHashCode());
 
         private static float newPulseTimer;
 

@@ -4,6 +4,7 @@ using RimWorld;
 using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
+using Multiplayer.Client.Experimental;
 using UnityEngine;
 using Verse;
 using static Verse.Widgets;
@@ -35,8 +36,8 @@ namespace Multiplayer.Client
         public static ISyncField SyncFactionAcceptRoyalFavor;
         public static ISyncField SyncFactionAcceptGoodwill;
 
-        public static SyncField[] SyncThingFilterHitPoints;
-        public static SyncField[] SyncThingFilterQuality;
+        public static ISyncField SyncThingFilterHitPoints;
+        public static ISyncField SyncThingFilterQuality;
 
         public static ISyncField SyncBillSuspended;
         public static ISyncField SyncIngredientSearchRadius;
@@ -130,9 +131,8 @@ namespace Multiplayer.Client
             SyncFactionAcceptRoyalFavor = Sync.Field(typeof(Faction), nameof(Faction.allowRoyalFavorRewards));
             SyncFactionAcceptGoodwill = Sync.Field(typeof(Faction), nameof(Faction.allowGoodwillRewards));
 
-            var thingFilterTarget = new MultiTarget() { { SyncThingFilters.ThingFilterTarget, "Filter" } };
-            SyncThingFilterHitPoints = Sync.FieldMultiTarget(thingFilterTarget, "AllowedHitPointsPercents").SetBufferChanges();
-            SyncThingFilterQuality = Sync.FieldMultiTarget(thingFilterTarget, "AllowedQualityLevels").SetBufferChanges();
+            SyncThingFilterHitPoints = Sync.Field(typeof(ThingFilterContext), "Filter/AllowedHitPointsPercents").SetBufferChanges();
+            SyncThingFilterQuality = Sync.Field(typeof(ThingFilterContext), "Filter/AllowedQualityLevels").SetBufferChanges();
 
             SyncBillSuspended = Sync.Field(typeof(Bill), "suspended");
             SyncIngredientSearchRadius = Sync.Field(typeof(Bill), "ingredientSearchRadius").SetBufferChanges();
@@ -368,13 +368,13 @@ namespace Multiplayer.Client
         [MpPrefix(typeof(ThingFilterUI), "DrawHitPointsFilterConfig")]
         static void ThingFilterHitPoints()
         {
-            SyncThingFilterHitPoints.Watch(SyncMarkers.DrawnThingFilter);
+            SyncThingFilterHitPoints.Watch(ThingFilterMarkers.DrawnThingFilter);
         }
 
         [MpPrefix(typeof(ThingFilterUI), "DrawQualityFilterConfig")]
         static void ThingFilterQuality()
         {
-            SyncThingFilterQuality.Watch(SyncMarkers.DrawnThingFilter);
+            SyncThingFilterQuality.Watch(ThingFilterMarkers.DrawnThingFilter);
         }
 
         [MpPrefix(typeof(Bill), "DoInterface")]
@@ -495,13 +495,13 @@ namespace Multiplayer.Client
         static void WatchPolicyLabels()
         {
             if (SyncMarkers.dialogOutfit != null)
-                SyncOutfitLabel.Watch(SyncMarkers.dialogOutfit.Outfit);
+                SyncOutfitLabel.Watch(SyncMarkers.dialogOutfit);
 
             if (SyncMarkers.drugPolicy != null)
                 SyncDrugPolicyLabel.Watch(SyncMarkers.drugPolicy);
 
             if (SyncMarkers.foodRestriction != null)
-                SyncFoodRestrictionLabel.Watch(SyncMarkers.foodRestriction.Food);
+                SyncFoodRestrictionLabel.Watch(SyncMarkers.foodRestriction);
         }
 
         static void UseWorkPriorities_PostApply(object target, object value)

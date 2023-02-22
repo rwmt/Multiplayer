@@ -1,4 +1,5 @@
 ﻿using HarmonyLib;
+using Multiplayer.Client.AsyncTime;
 using Multiplayer.Client.Comp;
 using RimWorld.Planet;
 using Verse;
@@ -49,12 +50,13 @@ namespace Multiplayer.Client.Saving
 
             if (Scribe.mode is LoadSaveMode.LoadingVars or LoadSaveMode.Saving)
             {
-                Scribe_Deep.Look(ref Multiplayer.game.worldComp, "mpWorldComp", __instance);
+                // Node called mpWorldComp for backwards compatibility
+                Scribe_Deep.Look(ref Multiplayer.game.worldTimeComp, "mpWorldComp", __instance);
 
-                if (Multiplayer.game.worldComp == null)
+                if (Multiplayer.game.worldTimeComp == null)
                 {
-                    Log.Warning($"No {nameof(MultiplayerWorldComp)} during loading/saving");
-                    Multiplayer.game.worldComp = new MultiplayerWorldComp(__instance);
+                    Log.Warning($"No {nameof(WorldTimeComp)} during loading/saving");
+                    Multiplayer.game.worldTimeComp = new WorldTimeComp(__instance);
                 }
             }
         }
@@ -124,7 +126,7 @@ namespace Multiplayer.Client.Saving
         static void Postfix()
         {
             if (Multiplayer.Client == null) return;
-            Multiplayer.WorldComp.FinalizeInit();
+            Multiplayer.WorldTime.FinalizeInit();
         }
     }
 

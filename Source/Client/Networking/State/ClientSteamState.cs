@@ -16,8 +16,7 @@ namespace Multiplayer.Client
         [PacketHandler(Packets.Server_SteamAccept)]
         public void HandleSteamAccept(ByteReader data)
         {
-            connection.State = ConnectionStateEnum.ClientJoining;
-            connection.StateObj.StartState();
+            connection.ChangeState(ConnectionStateEnum.ClientJoining);
         }
     }
 

@@ -31,7 +31,7 @@ namespace Multiplayer.Client
                 MouseTilePatch.result = cursorX;
 
             currentHash = data.ReadInt32();
-            var path = data.ReadString();
+            var path = data.ReadStringNullable();
 
             var state = Multiplayer.game.playerDebugState.GetOrAddNew(currentPlayer);
 

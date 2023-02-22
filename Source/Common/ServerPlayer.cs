@@ -4,12 +4,12 @@ using System.Linq;
 
 namespace Multiplayer.Common
 {
-    public class ServerPlayer
+    public class ServerPlayer : IChatSource
     {
         public int id;
         public ConnectionBase conn;
         public PlayerType type = PlayerType.Normal;
-        public PlayerStatus status;
+        public PlayerStatus status = PlayerStatus.Simulating;
         public ColorRGB color;
         public bool hasJoined;
         public int ticksBehind;
@@ -31,11 +31,12 @@ namespace Multiplayer.Common
         public string Username => conn.username;
         public int Latency => conn.Latency;
         public int FactionId { get; set; }
+        public bool HasJoined => conn.State is ConnectionStateEnum.ServerLoading or ConnectionStateEnum.ServerPlaying;
         public bool IsPlaying => conn.State == ConnectionStateEnum.ServerPlaying;
         public bool IsHost => Server.hostUsername == Username;
         public bool IsArbiter => type == PlayerType.Arbiter;
 
-        public MultiplayerServer Server => MultiplayerServer.instance;
+        public MultiplayerServer Server => MultiplayerServer.instance!;
 
         public ServerPlayer(int id, ConnectionBase connection)
         {
@@ -47,7 +48,7 @@ namespace Multiplayer.Common
         {
             try
             {
-                conn.HandleReceive(data, reliable);
+                conn.HandleReceiveRaw(data, reliable);
             }
             catch (Exception e)
             {
@@ -61,15 +62,15 @@ namespace Multiplayer.Common
             Disconnect(MpDisconnectReason.GenericKeyed, ByteWriter.GetBytes(reasonKey));
         }
 
-        public void Disconnect(MpDisconnectReason reason, byte[] data = null)
+        public void Disconnect(MpDisconnectReason reason, byte[]? data = null)
         {
             conn.Close(reason, data);
-            Server.playerManager.OnDisconnected(conn, reason);
+            Server.playerManager.SetDisconnected(conn, reason);
         }
 
         public void SendChat(string msg)
         {
-            SendPacket(Packets.Server_Chat, new[] { msg });
+            SendPacket(Packets.Server_Chat, new object[] { msg });
         }
 
         public void SendPacket(Packets packet, byte[] data, bool reliable = true)
@@ -87,9 +88,9 @@ namespace Multiplayer.Common
             var writer = new ByteWriter();
 
             writer.WriteByte((byte)PlayerListAction.List);
-            writer.WriteInt32(Server.PlayingPlayers.Count());
+            writer.WriteInt32(Server.JoinedPlayers.Count());
 
-            foreach (var player in Server.PlayingPlayers)
+            foreach (var player in Server.JoinedPlayers)
                 writer.WriteRaw(player.SerializePlayerInfo());
 
             conn.Send(Packets.Server_PlayerList, writer.ToArray());
@@ -123,11 +124,11 @@ namespace Multiplayer.Common
             writer.WriteBool(simulating);
         }
 
-        public void UpdateStatus(PlayerStatus status)
+        public void UpdateStatus(PlayerStatus newStatus)
         {
-            if (this.status == status) return;
-            this.status = status;
-            Server.SendToAll(Packets.Server_PlayerList, new object[] { (byte)PlayerListAction.Status, id, (byte)status });
+            if (status == newStatus) return;
+            status = newStatus;
+            Server.SendToPlaying(Packets.Server_PlayerList, new object[] { (byte)PlayerListAction.Status, id, (byte)newStatus });
         }
 
         public void ResetTimeVotes()
@@ -136,9 +137,14 @@ namespace Multiplayer.Common
                 CommandType.TimeSpeedVote,
                 ScheduledCommand.NoFaction,
                 ScheduledCommand.Global,
-                ByteWriter.GetBytes(TimeVote.PlayerResetAll, -1),
+                ByteWriter.GetBytes(TimeVote.PlayerResetGlobal, -1),
                 fauxSource: this
             );
+        }
+
+        public void SendMsg(string msg)
+        {
+            SendChat(msg);
         }
     }
 

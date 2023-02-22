@@ -4,34 +4,35 @@ namespace Multiplayer.Common
 {
     public abstract class ConnectionBase
     {
-        public string username;
-        public ServerPlayer serverPlayer;
+        public string? username;
+        public ServerPlayer? serverPlayer;
 
         public virtual int Latency { get; set; }
 
-        public ConnectionStateEnum State
+        public ConnectionStateEnum State { get; private set; }
+        public MpConnectionState? StateObj { get; private set; }
+        public bool Lenient { get; set; }
+
+        public T? GetState<T>() where T : MpConnectionState => (T?)StateObj;
+
+        public void ChangeState(ConnectionStateEnum state)
         {
-            get => state;
+            if (StateObj != null)
+                StateObj.alive = false;
 
-            set
-            {
-                state = value;
+            State = state;
 
-                if (state == ConnectionStateEnum.Disconnected)
-                    stateObj = null;
-                else
-                    stateObj = (MpConnectionState)Activator.CreateInstance(MpConnectionState.connectionImpls[(int)value], this);
-            }
+            if (State == ConnectionStateEnum.Disconnected)
+                StateObj = null;
+            else
+                StateObj = (MpConnectionState)Activator.CreateInstance(MpConnectionState.stateImpls[(int)state], this);
+
+            StateObj?.StartState();
         }
-
-        public MpConnectionState StateObj => stateObj;
-
-        private ConnectionStateEnum state;
-        private MpConnectionState stateObj;
 
         public virtual void Send(Packets id)
         {
-            Send(id, new byte[0]);
+            Send(id, Array.Empty<byte>());
         }
 
         public virtual void Send(Packets id, params object[] msg)
@@ -41,7 +42,7 @@ namespace Multiplayer.Common
 
         public virtual void Send(Packets id, byte[] message, bool reliable = true)
         {
-            if (state == ConnectionStateEnum.Disconnected)
+            if (State == ConnectionStateEnum.Disconnected)
                 return;
 
             if (message.Length > FragmentSize)
@@ -58,27 +59,27 @@ namespace Multiplayer.Common
         public const int FragmentSize = 65_536;
         public const int MaxPacketSize = 33_554_432;
 
-        private const int FRAG_NONE = 0x0;
-        private const int FRAG_MORE = 0x40;
-        private const int FRAG_END = 0x80;
+        private const int FragNone = 0x0;
+        private const int FragMore = 0x40;
+        private const int FragEnd = 0x80;
 
         // All fragmented packets need to be sent from the same thread
         public virtual void SendFragmented(Packets id, byte[] message)
         {
-            if (state == ConnectionStateEnum.Disconnected)
+            if (State == ConnectionStateEnum.Disconnected)
                 return;
 
             int read = 0;
             while (read < message.Length)
             {
                 int len = Math.Min(FragmentSize, message.Length - read);
-                int fragState = (read + len >= message.Length) ? FRAG_END : FRAG_MORE;
-                byte state = (byte)((Convert.ToByte(id) & 0x3F) | fragState);
+                int fragState = (read + len >= message.Length) ? FragEnd : FragMore;
+                byte headerByte = (byte)((Convert.ToByte(id) & 0x3F) | fragState);
 
                 var writer = new ByteWriter(1 + 4 + len);
 
                 // Write the packet id and fragment state: MORE or END
-                writer.WriteByte(state);
+                writer.WriteByte(headerByte);
 
                 // Send the message length with the first packet
                 if (read == 0) writer.WriteInt32(message.Length);
@@ -91,6 +92,7 @@ namespace Multiplayer.Common
                 read += len;
             }
         }
+
         public virtual void SendFragmented(Packets id, params object[] msg)
         {
             SendFragmented(id, ByteWriter.GetBytes(msg));
@@ -98,9 +100,9 @@ namespace Multiplayer.Common
 
         protected abstract void SendRaw(byte[] raw, bool reliable = true);
 
-        public virtual void HandleReceive(ByteReader data, bool reliable)
+        public virtual void HandleReceiveRaw(ByteReader data, bool reliable)
         {
-            if (state == ConnectionStateEnum.Disconnected)
+            if (State == ConnectionStateEnum.Disconnected)
                 return;
 
             if (data.Left == 0)
@@ -110,39 +112,40 @@ namespace Multiplayer.Common
             byte msgId = (byte)(info & 0x3F);
             byte fragState = (byte)(info & 0xC0);
 
-            HandleReceive(msgId, fragState, data, reliable);
+            HandleReceiveMsg(msgId, fragState, data, reliable);
         }
 
-        private ByteWriter fragmented;
+        private ByteWriter? fragmented;
         private int fullSize; // For information, doesn't affect anything
 
         public int FragmentProgress => (fragmented?.Position * 100 / fullSize) ?? 0;
 
-        protected virtual void HandleReceive(int msgId, int fragState, ByteReader reader, bool reliable)
+        protected virtual void HandleReceiveMsg(int msgId, int fragState, ByteReader reader, bool reliable)
         {
             if (msgId is < 0 or >= (int)Packets.Count)
                 throw new PacketReadException($"Bad packet id {msgId}");
 
             Packets packetType = (Packets)msgId;
+            ServerLog.Verbose($"Received packet {this}: {packetType}");
 
-            var handler = MpConnectionState.packetHandlers[(int)state, (int)packetType];
+            var handler = StateObj?.GetPacketHandler(packetType) ?? MpConnectionState.packetHandlers[(int)State, (int)packetType];
             if (handler == null)
             {
-                if (reliable)
-                    throw new PacketReadException($"No handler for packet {packetType} in state {state}");
-                else
-                    return;
+                if (reliable && !Lenient)
+                    throw new PacketReadException($"No handler for packet {packetType} in state {State}");
+
+                return;
             }
 
-            if (fragState != FRAG_NONE && fragmented == null)
+            if (fragState != FragNone && fragmented == null)
                 fullSize = reader.ReadInt32();
 
             if (reader.Left > FragmentSize)
                 throw new PacketReadException($"Packet {packetType} too big {reader.Left}>{FragmentSize}");
 
-            if (fragState == FRAG_NONE)
+            if (fragState == FragNone)
             {
-                handler.Method.Invoke(stateObj, reader);
+                handler.Method.Invoke(StateObj, reader);
             }
             else if (!handler.Fragment)
             {
@@ -150,29 +153,27 @@ namespace Multiplayer.Common
             }
             else
             {
-                if (fragmented == null)
-                    fragmented = new ByteWriter(reader.Left);
-
+                fragmented ??= new ByteWriter(reader.Left);
                 fragmented.WriteRaw(reader.ReadRaw(reader.Left));
 
                 if (fragmented.Position > MaxPacketSize)
                     throw new PacketReadException($"Full packet {packetType} too big {fragmented.Position}>{MaxPacketSize}");
 
-                if (fragState == FRAG_END)
+                if (fragState == FragEnd)
                 {
-                    handler.Method.Invoke(stateObj, new ByteReader(fragmented.ToArray()));
+                    handler.Method.Invoke(StateObj, new ByteReader(fragmented.ToArray()));
                     fragmented = null;
                 }
             }
         }
 
-        public abstract void Close(MpDisconnectReason reason, byte[] data = null);
+        public abstract void Close(MpDisconnectReason reason, byte[]? data = null);
 
-        public static byte[] GetDisconnectBytes(MpDisconnectReason reason, byte[] data = null)
+        public static byte[] GetDisconnectBytes(MpDisconnectReason reason, byte[]? data = null)
         {
             var writer = new ByteWriter();
             writer.WriteByte((byte)reason);
-            writer.WritePrefixedBytes(data ?? new byte[0]);
+            writer.WritePrefixedBytes(data ?? Array.Empty<byte>());
             return writer.ToArray();
         }
     }

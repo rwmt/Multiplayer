@@ -3,6 +3,7 @@ using System.Reflection;
 using Multiplayer.API;
 using Multiplayer.Client;
 
+// ReSharper disable once CheckNamespace
 namespace Multiplayer.Common
 {
     // Note: the API expects this type to be Multiplayer.Common.MultiplayerAPIBridge

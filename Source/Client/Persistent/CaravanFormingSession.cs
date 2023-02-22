@@ -4,10 +4,12 @@ using RimWorld;
 using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
+using Multiplayer.Common.Util;
 using Verse;
 
 namespace Multiplayer.Client
 {
+    [HotSwappable]
     public class CaravanFormingSession : IExposable, ISessionWithTransferables, IPausingWithDialog
     {
         public Map map;

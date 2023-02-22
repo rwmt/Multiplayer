@@ -135,7 +135,7 @@ namespace Multiplayer.Client.AsyncTime
 
             var map = PreDrawCalcMarker.calculating.Map ?? Find.CurrentMap;
             var asyncTime = map.AsyncTime();
-            var timeSpeed = Multiplayer.IsReplay ? TickPatch.replayTimeSpeed : asyncTime.TimeSpeed;
+            var timeSpeed = Multiplayer.IsReplay ? TickPatch.replayTimeSpeed : asyncTime.DesiredTimeSpeed;
 
             __result = TickPatch.Simulating ? 6 : asyncTime.ActualRateMultiplier(timeSpeed);
         }
@@ -150,7 +150,7 @@ namespace Multiplayer.Client.AsyncTime
             if (WorldRendererUtility.WorldRenderedNow) return;
 
             var asyncTime = Find.CurrentMap.AsyncTime();
-            var timeSpeed = Multiplayer.IsReplay ? TickPatch.replayTimeSpeed : asyncTime.TimeSpeed;
+            var timeSpeed = Multiplayer.IsReplay ? TickPatch.replayTimeSpeed : asyncTime.DesiredTimeSpeed;
 
             __result = asyncTime.ActualRateMultiplier(timeSpeed) == 0;
         }
@@ -189,7 +189,7 @@ namespace Multiplayer.Client.AsyncTime
                 __result.Clear();
                 __result.Add(Multiplayer.MapContext);
             }
-            else if (MultiplayerWorldComp.tickingWorld)
+            else if (WorldTimeComp.tickingWorld)
             {
                 __result.Clear();
 
@@ -245,7 +245,7 @@ namespace Multiplayer.Client.AsyncTime
             if (AsyncTimeComp.tickingMap != null)
                 return;
 
-            if (MultiplayerWorldComp.tickingWorld && target is Map map)
+            if (WorldTimeComp.tickingWorld && target is Map map)
             {
                 AsyncTimeComp.tickingMap = map;
                 map.AsyncTime().PreContext();
@@ -268,7 +268,7 @@ namespace Multiplayer.Client.AsyncTime
     {
         static void Prefix(IncidentParms parms, ref Map __state)
         {
-            if (MultiplayerWorldComp.tickingWorld && parms.target is Map map)
+            if (WorldTimeComp.tickingWorld && parms.target is Map map)
             {
                 AsyncTimeComp.tickingMap = map;
                 map.AsyncTime().PreContext();
@@ -302,14 +302,14 @@ namespace Multiplayer.Client.AsyncTime
             }
         }
 
-        static AutomaticPauseMode AutomaticPauseMode()
+        private static AutomaticPauseMode AutomaticPauseMode()
         {
             return Multiplayer.Client != null
                 ? (AutomaticPauseMode) Multiplayer.GameComp.pauseOnLetter
                 : Prefs.AutomaticPauseMode;
         }
 
-        static void PauseOnLetter(TickManager manager)
+        private static void PauseOnLetter(TickManager manager)
         {
             if (Multiplayer.Client == null)
             {
@@ -319,21 +319,15 @@ namespace Multiplayer.Client.AsyncTime
 
             if (Multiplayer.GameComp.asyncTime)
             {
-                var tickable = (ITickable)Multiplayer.MapContext.AsyncTime() ?? Multiplayer.WorldComp;
-                tickable.TimeSpeed = TimeSpeed.Paused;
+                var tickable = (ITickable)Multiplayer.MapContext.AsyncTime() ?? Multiplayer.WorldTime;
+                tickable.SetDesiredTimeSpeed(TimeSpeed.Paused);
                 Multiplayer.GameComp.ResetAllTimeVotes(tickable.TickableId);
-                if (tickable is AsyncTimeComp comp)
-                    comp.TrySetPrevTimeSpeed(TimeSpeed.Paused);
             }
             else
             {
-                Multiplayer.WorldComp.SetTimeEverywhere(TimeSpeed.Paused);
+                Multiplayer.WorldTime.SetTimeEverywhere(TimeSpeed.Paused);
                 foreach (var tickable in TickPatch.AllTickables)
-                {
                     Multiplayer.GameComp.ResetAllTimeVotes(tickable.TickableId);
-                    if (tickable is AsyncTimeComp comp)
-                        comp.TrySetPrevTimeSpeed(TimeSpeed.Paused);
-                }
             }
         }
     }

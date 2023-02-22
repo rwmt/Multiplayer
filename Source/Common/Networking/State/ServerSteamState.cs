@@ -10,7 +10,7 @@ namespace Multiplayer.Common
         [PacketHandler(Packets.Client_SteamRequest)]
         public void HandleSteamRequest(ByteReader data)
         {
-            connection.State = ConnectionStateEnum.ServerJoining;
+            connection.ChangeState(ConnectionStateEnum.ServerJoining);
             connection.Send(Packets.Server_SteamAccept);
         }
     }

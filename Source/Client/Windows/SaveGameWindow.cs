@@ -1,60 +1,80 @@
-﻿using System;
-using System.IO;
+﻿using System.IO;
+using Multiplayer.Client.Util;
+using Multiplayer.Common.Util;
 using UnityEngine;
 using Verse;
 
 namespace Multiplayer.Client;
 
-
-public class SaveGameWindow : AbstractTextInputWindow
+[HotSwappable]
+public class SaveGameWindow : Window
 {
+    public override Vector2 InitialSize => new(350f, 175f);
+
+    private string curText;
     private bool fileExists;
 
     public SaveGameWindow(string gameName)
     {
-        title = "MpSaveGameAs".Translate();
+        closeOnClickedOutside = true;
+        doCloseX = true;
+        absorbInputAroundWindow = true;
+        closeOnAccept = true;
         curText = GenFile.SanitizedFileName(gameName);
     }
 
-    public override bool Accept()
+    public override void DoWindowContents(Rect inRect)
     {
-        if (curText.Length == 0) return false;
+        GUILayout.BeginArea(inRect.AtZero());
+        GUILayout.BeginVertical();
 
-        try
+        L.Label("MpSaveGameAs".Translate());
+
+        UpdateText(ref curText, GUILayout.TextField(curText));
+
+        using (MpStyle.Set(GameFont.Tiny))
+            L.Label(fileExists ? "MpWillOverwrite".Translate() : "");
+
+        L.BeginHorizCenter();
         {
-            LongEventHandler.QueueLongEvent(() => MultiplayerSession.SaveGameToFile(curText), "MpSaving", false, null);
+            if (L.Button("OK".Translate(), 120f))
+                Accept(false);
+
+            if (Prefs.DevMode && L.Button("Dev: save replay", 120f))
+                Accept(true);
+        }
+        L.EndHorizCenter();
+
+        GUILayout.EndVertical();
+        GUILayout.EndArea();
+    }
+
+    public override void OnAcceptKeyPressed()
+    {
+        Accept(false);
+    }
+
+    private void UpdateText(ref string value, string newValue)
+    {
+        if (newValue == value)
+            return;
+
+        if (newValue.Length > 30)
+            return;
+
+        if (!newValue.NullOrEmpty() && GenFile.SanitizedFileName(newValue) != newValue)
+            return;
+
+        fileExists = new FileInfo(Path.Combine(Multiplayer.ReplaysDir, $"{newValue}.zip")).Exists;
+        value = newValue;
+    }
+
+    private void Accept(bool currentReplay)
+    {
+        if (curText.Length != 0)
+        {
+            LongEventHandler.QueueLongEvent(() => MultiplayerSession.SaveGameToFile(curText, currentReplay), "MpSaving", false, null);
             Close();
-        }
-        catch (Exception e)
-        {
-            Log.Error($"Exception saving replay {e}");
-        }
-
-        return true;
-    }
-
-    public override bool Validate(string str)
-    {
-        if (str.Length == 0)
-            return true;
-
-        if (str.Length > 30)
-            return false;
-
-        if (GenFile.SanitizedFileName(str) != str)
-            return false;
-
-        fileExists = new FileInfo(Path.Combine(Multiplayer.ReplaysDir, $"{str}.zip")).Exists;
-        return true;
-    }
-
-    public override void DrawExtra(Rect inRect)
-    {
-        if (fileExists)
-        {
-            Text.Font = GameFont.Tiny;
-            Widgets.Label(new Rect(0, 25 + 15 + 35, inRect.width, 35f), "MpWillOverwrite".Translate());
-            Text.Font = GameFont.Small;
         }
     }
 }

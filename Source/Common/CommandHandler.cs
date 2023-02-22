@@ -1,13 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
 
 namespace Multiplayer.Common
 {
     public class CommandHandler
     {
         private MultiplayerServer server;
-        public HashSet<int> debugOnlySyncCmds = new();
-        public HashSet<int> hostOnlySyncCmds = new();
 
         public int SentCmds { get; private set; }
 
@@ -16,7 +13,7 @@ namespace Multiplayer.Common
             this.server = server;
         }
 
-        public void Send(CommandType cmd, int factionId, int mapId, byte[] data, ServerPlayer sourcePlayer = null, ServerPlayer fauxSource = null)
+        public void Send(CommandType cmd, int factionId, int mapId, byte[] data, ServerPlayer? sourcePlayer = null, ServerPlayer? fauxSource = null)
         {
             if (server.freezeManager.Frozen)
                 return;
@@ -25,11 +22,11 @@ namespace Multiplayer.Common
             {
                 bool debugCmd =
                     cmd == CommandType.DebugTools ||
-                    cmd == CommandType.Sync && debugOnlySyncCmds.Contains(BitConverter.ToInt32(data, 0));
+                    cmd == CommandType.Sync && server.initData!.DebugOnlySyncCmds.Contains(BitConverter.ToInt32(data, 0));
                 if (debugCmd && !CanUseDevMode(sourcePlayer))
                     return;
 
-                bool hostOnly = cmd == CommandType.Sync && hostOnlySyncCmds.Contains(BitConverter.ToInt32(data, 0));
+                bool hostOnly = cmd == CommandType.Sync && server.initData!.HostOnlySyncCmds.Contains(BitConverter.ToInt32(data, 0));
                 if (hostOnly && !sourcePlayer.IsHost)
                     return;
 
@@ -48,8 +45,8 @@ namespace Multiplayer.Common
                     data));
 
             // todo cull target players if not global
-            server.mapCmds.GetOrAddNew(mapId).Add(toSave);
-            server.tmpMapCmds?.GetOrAddNew(mapId).Add(toSave);
+            server.worldData.mapCmds.GetOrAddNew(mapId).Add(toSave);
+            server.worldData.tmpMapCmds?.GetOrAddNew(mapId).Add(toSave);
 
             byte[] toSend = toSave.Append(new byte[] { 0 });
             byte[] toSendSource = toSave.Append(new byte[] { 1 });
@@ -72,14 +69,14 @@ namespace Multiplayer.Common
                     CommandType.TimeSpeedVote,
                     ScheduledCommand.NoFaction,
                     ScheduledCommand.Global,
-                    ByteWriter.GetBytes(TimeVote.ResetAll, -1)
+                    ByteWriter.GetBytes(TimeVote.ResetGlobal, -1)
                 );
             else
                 Send(
                     CommandType.PauseAll,
                     ScheduledCommand.NoFaction,
                     ScheduledCommand.Global,
-                    null
+                    Array.Empty<byte>()
                 );
         }
 

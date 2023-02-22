@@ -52,12 +52,6 @@ namespace Multiplayer.Client
             Multiplayer.session.ProcessTimeControl();
         }
 
-        [PacketHandler(Packets.Server_CanRejoin)]
-        public void HandleCanRejoin(ByteReader data)
-        {
-            MultiplayerSession.DoRejoin();
-        }
-
         [PacketHandler(Packets.Server_PlayerList)]
         public void HandlePlayerList(ByteReader data)
         {
@@ -194,10 +188,10 @@ namespace Multiplayer.Client
             for (int j = 0; j < mapCmdsLen; j++)
                 mapCmds.Add(ScheduledCommand.Deserialize(new ByteReader(data.ReadPrefixedBytes())));
 
-            Session.dataSnapshot.mapCmds[mapId] = mapCmds;
+            Session.dataSnapshot.MapCmds[mapId] = mapCmds;
 
             byte[] mapData = GZipStream.UncompressBuffer(data.ReadPrefixedBytes());
-            Session.dataSnapshot.mapData[mapId] = mapData;
+            Session.dataSnapshot.MapData[mapId] = mapData;
 
             //ClientJoiningState.ReloadGame(TickPatch.tickUntil, Find.Maps.Select(m => m.uniqueID).Concat(mapId).ToList());
             // todo Multiplayer.client.Send(Packets.CLIENT_MAP_LOADED);

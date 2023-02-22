@@ -73,46 +73,7 @@ namespace Multiplayer.Client.Comp
 
         public void ResetAllTimeVotes(int tickableId)
         {
-            playerData.Values.Do(p => p.SetTimeVote(tickableId, TimeVote.PlayerReset));
-        }
-    }
-
-    public class PlayerData : ISynchronizable
-    {
-        public bool canUseDevMode;
-        public bool godMode;
-        private Dictionary<int, TimeVote> timeVotes = new();
-
-        public Dictionary<int, TimeVote> AllTimeVotes => timeVotes;
-
-        public void Sync(SyncWorker sync)
-        {
-            sync.Bind(ref canUseDevMode);
-            sync.Bind(ref godMode);
-            sync.Bind(ref timeVotes);
-        }
-
-        public void SetContext()
-        {
-            Prefs.data.devMode = canUseDevMode;
-            DebugSettings.godMode = godMode;
-        }
-
-        public void SetTimeVote(int tickableId, TimeVote vote)
-        {
-            if (vote is TimeVote.Reset or TimeVote.PlayerReset)
-                timeVotes.Remove(tickableId);
-            else if (vote is TimeVote.ResetAll or TimeVote.PlayerResetAll)
-                timeVotes.Clear();
-            else
-                timeVotes[tickableId] = vote;
-        }
-
-        public TimeVote? GetTimeVoteOrNull(int tickableId)
-        {
-            if (timeVotes.TryGetValue(tickableId, out var vote))
-                return vote;
-            return null;
+            playerData.Values.Do(p => p.SetTimeVote(tickableId, TimeVote.PlayerResetTickable));
         }
     }
 }

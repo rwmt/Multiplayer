@@ -8,6 +8,7 @@ using System.Text;
 
 using HarmonyLib;
 using RimWorld;
+using RimWorld.Planet;
 using UnityEngine;
 using Verse;
 using Debug = UnityEngine.Debug;
@@ -17,6 +18,74 @@ namespace Multiplayer.Client
     static class MpDebugActions
     {
         const string MultiplayerCategory = "Multiplayer";
+
+        [DebugAction("General", actionType = DebugActionType.ToolWorld, allowedGameStates = AllowedGameStates.PlayingOnWorld)]
+        public static void SpawnCaravans()
+        {
+            for (int a = 0; a < 10; a++)
+            {
+                int num = GenWorld.MouseTile();
+                if (Find.WorldGrid[num].biome.impassable)
+                {
+                    return;
+                }
+
+                List<Pawn> list = new List<Pawn>();
+                int num2 = Rand.RangeInclusive(1, 10);
+                for (int i = 0; i < num2; i++)
+                {
+                    Pawn pawn = PawnGenerator.GeneratePawn(Faction.OfPlayer.def.basicMemberKind, Faction.OfPlayer);
+                    list.Add(pawn);
+                    if (!pawn.WorkTagIsDisabled(WorkTags.Violent))
+                    {
+                        ThingDef thingDef = DefDatabase<ThingDef>.AllDefs.Where((ThingDef def) =>
+                                def.IsWeapon && !def.weaponTags.NullOrEmpty() &&
+                                (def.weaponTags.Contains("SimpleGun") ||
+                                 def.weaponTags.Contains(
+                                     "IndustrialGunAdvanced") ||
+                                 def.weaponTags.Contains("SpacerGun") ||
+                                 def.weaponTags.Contains(
+                                     "MedievalMeleeAdvanced") ||
+                                 def.weaponTags.Contains(
+                                     "NeolithicRangedBasic") ||
+                                 def.weaponTags.Contains(
+                                     "NeolithicRangedDecent") ||
+                                 def.weaponTags.Contains(
+                                     "NeolithicRangedHeavy")))
+                            .RandomElementWithFallback();
+                        pawn.equipment.AddEquipment(
+                            (ThingWithComps)ThingMaker.MakeThing(thingDef, GenStuff.RandomStuffFor(thingDef)));
+                    }
+                }
+
+                int num3 = Rand.RangeInclusive(-4, 10);
+                for (int j = 0; j < num3; j++)
+                {
+                    Pawn item = PawnGenerator.GeneratePawn(
+                        DefDatabase<PawnKindDef>.AllDefs
+                            .Where((PawnKindDef d) => d.RaceProps.Animal && d.RaceProps.wildness < 1f).RandomElement(),
+                        Faction.OfPlayer);
+                    list.Add(item);
+                }
+
+                Caravan caravan =
+                    CaravanMaker.MakeCaravan(list, Faction.OfPlayer, num, addToWorldPawnsIfNotAlready: true);
+
+                List<Thing> list2 = ThingSetMakerDefOf.DebugCaravanInventory.root.Generate();
+                for (int k = 0; k < list2.Count; k++)
+                {
+                    Thing thing = list2[k];
+                    if (!(thing.GetStatValue(StatDefOf.Mass) * (float)thing.stackCount >
+                          caravan.MassCapacity - caravan.MassUsage))
+                    {
+                        CaravanInventoryUtility.GiveThing(caravan, thing);
+                        continue;
+                    }
+
+                    break;
+                }
+            }
+        }
 
         [DebugAction("General", actionType = DebugActionType.ToolMap, allowedGameStates = AllowedGameStates.PlayingOnMap)]
         public static void SpawnShuttleAcceptColonists()
@@ -62,17 +131,17 @@ namespace Multiplayer.Client
         public static void DumpSyncTypes()
         {
             var dict = new Dictionary<string, Type[]>() {
-                {"ThingComp", ImplSerialization.thingCompTypes},
-                {"AbilityComp", ImplSerialization.abilityCompTypes},
-                {"Designator", ImplSerialization.designatorTypes},
-                {"WorldObjectComp", ImplSerialization.worldObjectCompTypes},
-                {"HediffComp", ImplSerialization.hediffCompTypes},
-                {"IStoreSettingsParent", ImplSerialization.storageParents},
-                {"IPlantToGrowSettable", ImplSerialization.plantToGrowSettables},
+                {"ThingComp", RwImplSerialization.thingCompTypes},
+                {"AbilityComp", RwImplSerialization.abilityCompTypes},
+                {"Designator", RwImplSerialization.designatorTypes},
+                {"WorldObjectComp", RwImplSerialization.worldObjectCompTypes},
+                {"HediffComp", RwImplSerialization.hediffCompTypes},
+                {"IStoreSettingsParent", RwImplSerialization.storageParents},
+                {"IPlantToGrowSettable", RwImplSerialization.plantToGrowSettables},
 
-                {"GameComponent", ImplSerialization.gameCompTypes},
-                {"WorldComponent", ImplSerialization.worldCompTypes},
-                {"MapComponent", ImplSerialization.mapCompTypes},
+                {"GameComponent", RwImplSerialization.gameCompTypes},
+                {"WorldComponent", RwImplSerialization.worldCompTypes},
+                {"MapComponent", RwImplSerialization.mapCompTypes},
             };
 
             foreach(var kv in dict) {

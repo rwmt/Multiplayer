@@ -1,10 +1,10 @@
-//extern alias zip;
-
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Text.RegularExpressions;
 using HarmonyLib;
 using LiteNetLib;
@@ -37,8 +37,8 @@ namespace Multiplayer.Client
             Native.InitLmfPtr();
 
             // UnityEngine.Debug.Log instead of Verse.Log.Message because the server runs on its own thread
-            ServerLog.info = str => UnityEngine.Debug.Log($"MpServerLog: {str}");
-            ServerLog.error = str => UnityEngine.Debug.Log($"MpServerLog Error: {str}");
+            ServerLog.info = str => Debug.Log($"MpServerLog: {str}");
+            ServerLog.error = str => Debug.Log($"MpServerLog Error: {str}");
             NetDebug.Logger = new ServerLog();
 
             SetUsername();
@@ -55,6 +55,7 @@ namespace Multiplayer.Client
 
             MpConnectionState.SetImplementation(ConnectionStateEnum.ClientSteam, typeof(ClientSteamState));
             MpConnectionState.SetImplementation(ConnectionStateEnum.ClientJoining, typeof(ClientJoiningState));
+            MpConnectionState.SetImplementation(ConnectionStateEnum.ClientLoading, typeof(ClientLoadingState));
             MpConnectionState.SetImplementation(ConnectionStateEnum.ClientPlaying, typeof(ClientPlayingState));
 
             MultiplayerData.CollectCursorIcons();
@@ -170,11 +171,44 @@ namespace Multiplayer.Client
                 {
                     Replay.LoadReplay(Replay.ReplayFile(replay), true, () =>
                     {
+                        string runLog = "";
+
+                        void Log(string msg)
+                        {
+                            runLog += msg + "\n";
+                        }
+
+                        var runTicks = 10000;
+                        Log($"Starting benchmark, timer {TickPatch.Timer}, map {replay}, for ticks {runTicks}");
+
+                        var tickData = TickPatch.DoBench(runTicks);
+
+                        StringBuilder benchFile = new StringBuilder();
+
+                        benchFile.Append("TickTime");
+                        // foreach (var m in PPatches.methods)
+                        //     benchFile.Append(',').Append(m.Item1 + "::" + m.Item2);
+                        benchFile.Append("\n");
+
+                        foreach (var tick in tickData)
+                        {
+                            benchFile.Append(tick.tickTime);
+                            foreach (var extra in tick.extras)
+                                benchFile.Append(',').Append(extra);
+                            benchFile.Append("\n");
+                        }
+
+                        File.WriteAllText($"benches/{GenFile.SanitizedFileName(DateTime.Now.ToString())}", benchFile.ToString());
+
                         var rand = Find.Maps.Select(m => m.AsyncTime().randState).Select(s => $"{s} {(uint)s} {s >> 32}");
 
-                        Log.Message($"timer {TickPatch.Timer}");
-                        Log.Message($"world rand {Multiplayer.WorldComp.randState} {(uint)Multiplayer.WorldComp.randState} {Multiplayer.WorldComp.randState >> 32}");
-                        Log.Message($"map rand {rand.ToStringSafeEnumerable()} | {Find.Maps.Select(m => m.AsyncTime().mapTicks).ToStringSafeEnumerable()}");
+                        Log($"timer {TickPatch.Timer}");
+                        Log($"world rand {Multiplayer.WorldTime.randState} {(uint)Multiplayer.WorldTime.randState} {Multiplayer.WorldTime.randState >> 32}");
+                        Log($"map rand {rand.ToStringSafeEnumerable()} | {Find.Maps.Select(m => m.AsyncTime().mapTicks).ToStringSafeEnumerable()}");
+                        Log($"maps {Find.Maps.Select(m => $"AllPawnsCount:{m.mapPawns.AllPawnsCount} ColonistCount:{m.mapPawns.ColonistCount}").ToStringSafeEnumerable()}");
+                        Log("");
+
+                        File.AppendAllText("benches.txt", runLog);
 
                         Application.Quit();
                     });

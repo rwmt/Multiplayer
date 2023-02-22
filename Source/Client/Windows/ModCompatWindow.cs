@@ -323,7 +323,7 @@ namespace Multiplayer.Client
         public override void PostClose()
         {
             base.PostClose();
-            Multiplayer.WriteSettingsToDisk();
+            Multiplayer.settings.Write();
         }
 
         private void RecacheMods()

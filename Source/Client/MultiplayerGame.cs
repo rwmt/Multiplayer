@@ -4,17 +4,21 @@ using RimWorld.BaseGen;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Multiplayer.Client.AsyncTime;
 using Multiplayer.Client.Comp;
 using Multiplayer.Client.Persistent;
+using Multiplayer.Common.Util;
 using UnityEngine;
 using Verse;
 
 namespace Multiplayer.Client
 {
+    [HotSwappable]
     public class MultiplayerGame
     {
         public SyncCoordinator sync = new();
 
+        public WorldTimeComp worldTimeComp;
         public MultiplayerWorldComp worldComp;
         public MultiplayerGameComp gameComp;
         public List<MultiplayerMapComp> mapComps = new();
@@ -141,8 +145,8 @@ namespace Multiplayer.Client
             foreach (Map m in Find.Maps)
                 m.MpComp().SetFaction(newFaction);
 
-            Find.ColonistBar.MarkColonistsDirty();
-            Find.CurrentMap.mapDrawer.RegenerateEverythingNow();
+            Find.ColonistBar?.MarkColonistsDirty();
+            Find.CurrentMap?.mapDrawer.RegenerateEverythingNow();
         }
     }
 }

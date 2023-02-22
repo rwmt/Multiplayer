@@ -107,7 +107,7 @@ namespace Multiplayer.Client
     {
         static IEnumerable<CodeInstruction> Transpiler(ILGenerator gen, IEnumerable<CodeInstruction> e, MethodBase original)
         {
-            List<CodeInstruction> insts = (List<CodeInstruction>)e;
+            List<CodeInstruction> insts = e.ToList();
             Label label = gen.DefineLabel();
 
             var finder = new CodeFinder(original, insts);
@@ -206,7 +206,7 @@ namespace Multiplayer.Client
     {
         static IEnumerable<CodeInstruction> Transpiler(ILGenerator gen, IEnumerable<CodeInstruction> e, MethodBase original)
         {
-            List<CodeInstruction> insts = (List<CodeInstruction>)e;
+            List<CodeInstruction> insts = e.ToList();
             Label label = gen.DefineLabel();
 
             CodeFinder finder = new CodeFinder(original, insts);
@@ -270,7 +270,7 @@ namespace Multiplayer.Client
 
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> e, MethodBase original)
         {
-            List<CodeInstruction> insts = (List<CodeInstruction>)e;
+            List<CodeInstruction> insts = e.ToList();
             int pos = new CodeFinder(original, insts).Forward(OpCodes.Call, GetStatValueAbstract);
             insts[pos + 1] = new CodeInstruction(OpCodes.Call, WorkToBuildMethod);
 

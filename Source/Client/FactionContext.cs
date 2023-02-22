@@ -1,5 +1,3 @@
-//extern alias zip;
-
 using System.Collections.Generic;
 using RimWorld;
 using Verse;

@@ -216,7 +216,7 @@ namespace Multiplayer.Client
     {
         static bool Prefix(LoadedObjectDirectory __instance, ILoadReferenceable reffable)
         {
-            if (!(__instance is SharedCrossRefs)) return true;
+            if (__instance is not SharedCrossRefs) return true;
             if (reffable == null) return false;
 
             string key = reffable.GetUniqueLoadID();
@@ -237,7 +237,7 @@ namespace Multiplayer.Client
     {
         static bool Prefix(LoadedObjectDirectory __instance)
         {
-            if (!(__instance is SharedCrossRefs)) return true;
+            if (__instance is not SharedCrossRefs) return true;
 
             Scribe.loader.crossRefs.loadedObjectDirectory = ScribeUtil.defaultCrossRefs;
             ScribeUtil.sharedCrossRefs.UnregisterAllTemp();

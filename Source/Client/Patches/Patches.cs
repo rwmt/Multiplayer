@@ -9,6 +9,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
+using Multiplayer.Common.Util;
 using UnityEngine;
 using Verse;
 using Verse.AI;
@@ -346,7 +347,7 @@ namespace Multiplayer.Client
             async.storyWatcher = new StoryWatcher();
 
             if (!Multiplayer.GameComp.asyncTime)
-                async.TimeSpeed = Find.TickManager.CurTimeSpeed;
+                async.SetDesiredTimeSpeed(Find.TickManager.CurTimeSpeed);
         }
 
         public static void InitFactionDataFromMap(Map map, Faction f)

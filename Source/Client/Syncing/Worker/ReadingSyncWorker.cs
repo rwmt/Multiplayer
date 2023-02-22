@@ -96,12 +96,12 @@ namespace Multiplayer.Client
 
         public override void Bind(ref string obj)
         {
-            obj = reader.ReadString();
+            obj = reader.ReadStringNullable();
         }
 
         public override void BindType<T>(ref Type type)
         {
-            type = TypeRWHelper.GetType(reader.ReadUShort(), typeof(T));
+            type = RwTypeHelper.GetType(reader.ReadUShort(), typeof(T));
         }
 
         internal void Reset()

@@ -118,7 +118,7 @@ namespace Multiplayer.Client
                         continue;
                     }
 
-                    conn.State = ConnectionStateEnum.ServerJoining;
+                    conn.ChangeState(ConnectionStateEnum.ServerJoining);
                     player = playerManager.OnConnected(conn);
                     player.type = PlayerType.Steam;
 

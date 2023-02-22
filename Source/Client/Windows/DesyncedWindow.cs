@@ -1,6 +1,7 @@
 using Multiplayer.Common;
 using Multiplayer.Client.Desyncs;
 using Multiplayer.Client.Util;
+using Multiplayer.Common.Util;
 using UnityEngine;
 using Verse;
 
@@ -54,8 +55,7 @@ namespace Multiplayer.Client
             if (Widgets.ButtonText(new Rect(x, 0, 120, 35), "MpTryResync".Translate()) && !rejoining)
             {
                 Log.Message("Multiplayer: requesting rejoin");
-                Multiplayer.Client.Send(Packets.Client_RequestRejoin);
-                rejoining = true;
+                MultiplayerSession.DoRejoin();
             }
 
             x += 120 + 10;

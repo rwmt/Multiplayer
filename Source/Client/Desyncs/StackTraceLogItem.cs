@@ -25,12 +25,12 @@ namespace Multiplayer.Client
 
     public class StackTraceLogItemObj : StackTraceLogItem
     {
-        public StackTrace stackTrace;
-        public string additionalInfo;
+        public string info1;
+        public string info2;
 
-        public override string AdditionalInfo => additionalInfo;
+        public override string AdditionalInfo => $"{info1} {info2}";
 
-        public override string StackTraceString { get => stackTrace.ToString(); }
+        public override string StackTraceString => "";
     }
 
     public class StackTraceLogItemRaw : StackTraceLogItem
