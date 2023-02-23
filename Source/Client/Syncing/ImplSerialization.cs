@@ -17,6 +17,7 @@ namespace Multiplayer.Client
         public static Type[] abilityCompTypes;
         public static Type[] designatorTypes;
         public static Type[] worldObjectCompTypes;
+        public static Type[] hediffCompTypes;
 
         public static Type[] gameCompTypes;
         public static Type[] worldCompTypes;
@@ -50,6 +51,7 @@ namespace Multiplayer.Client
             abilityCompTypes = TypeUtil.AllSubclassesNonAbstractOrdered(typeof(AbilityComp));
             designatorTypes = TypeUtil.AllSubclassesNonAbstractOrdered(typeof(Designator));
             worldObjectCompTypes = TypeUtil.AllSubclassesNonAbstractOrdered(typeof(WorldObjectComp));
+            hediffCompTypes = TypeUtil.AllSubclassesNonAbstractOrdered(typeof(HediffComp));
 
             gameCompTypes = TypeUtil.AllSubclassesNonAbstractOrdered(typeof(GameComponent));
             worldCompTypes = TypeUtil.AllSubclassesNonAbstractOrdered(typeof(WorldComponent));

@@ -431,6 +431,7 @@ namespace Multiplayer.Client
             cache[typeof(AbilityComp)] = ImplSerialization.abilityCompTypes;
             cache[typeof(Designator)] = ImplSerialization.designatorTypes;
             cache[typeof(WorldObjectComp)] = ImplSerialization.worldObjectCompTypes;
+            cache[typeof(HediffComp)] = ImplSerialization.hediffCompTypes;
 
             cache[typeof(GameComponent)] = ImplSerialization.gameCompTypes;
             cache[typeof(WorldComponent)] = ImplSerialization.worldCompTypes;

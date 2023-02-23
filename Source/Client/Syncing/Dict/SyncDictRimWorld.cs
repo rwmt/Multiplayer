@@ -123,6 +123,37 @@ namespace Multiplayer.Client
                 }, true // implicit
             },
             {
+                (SyncWorker data, ref HediffComp hediffComp) => {
+                    if (data.isWriting) {
+                        if (hediffComp != null) {
+                            ushort index = (ushort)Array.IndexOf(hediffCompTypes, hediffComp.GetType());
+                            data.Write(index);
+                            data.Write(hediffComp.parent);
+                            var tempComp = hediffComp;
+                            var compIndex = hediffComp.parent.comps.Where(x => x.props.compClass == tempComp.props.compClass).FirstIndexOf(x => x == tempComp);
+                            data.Write((ushort)compIndex);
+                        } else {
+                            data.Write(ushort.MaxValue);
+                        }
+                    } else {
+                        ushort index = data.Read<ushort>();
+                        if (index == ushort.MaxValue) {
+                            return;
+                        }
+                        HediffWithComps parent = data.Read<HediffWithComps>();
+                        if (parent == null) {
+                            return;
+                        }
+                        Type compType = hediffCompTypes[index];
+                        var compIndex = data.Read<ushort>();
+                        if (compIndex <= 0)
+                            hediffComp = parent.comps.Find(c => c.props.compClass == compType);
+                        else
+                            hediffComp = parent.comps.Where(c => c.props.compClass == compType).ElementAt(compIndex);
+                    }
+                }, true // implicit
+            },
+            {
                 (ByteWriter data, Need need) =>
                 {
                     WriteSync(data, need.pawn);
