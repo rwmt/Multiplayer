@@ -181,7 +181,7 @@ namespace Multiplayer.Client
 
             // Genepack Container
             SyncMethod.Register(typeof(ITab_ContentsBase), nameof(ITab_ContentsBase.OnDropThing)).SetContext(SyncContext.MapSelected); // Used by ITab_ContentsGenepackHolder
-            SyncDelegate.Lambda(typeof(Dialog_CreateXenogerm), nameof(Dialog_CreateXenogerm.DrawGenepack), 7); // Eject from container
+            SyncDelegate.Lambda(typeof(Dialog_CreateXenogerm), nameof(Dialog_CreateXenogerm.DrawGenepack), 8); // Eject from container
 
             InitRituals();
             InitChoiceLetters();
