@@ -180,7 +180,7 @@ namespace Multiplayer.Client
                     Current.Game.InitData = new GameInitData();
                     Current.Game.InitData.gameToLoad = "play";
 
-                    LoadPatch.gameToLoad = new TempGameData(doc, new byte[0]);
+                    LoadPatch.gameToLoad = new TempGameData(doc, Array.Empty<byte>());
                 }, "Play", "MpConvertingToSp", true, null);
             }
 

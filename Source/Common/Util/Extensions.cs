@@ -157,7 +157,7 @@ namespace Multiplayer.Common
                     hash.TransformBlock(data, 0, data.Length, null, 0);
                 }
 
-                hash.TransformFinalBlock(new byte[0], 0, 0);
+                hash.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
 
                 return hash.Hash;
             }

@@ -110,7 +110,7 @@ namespace Multiplayer.Client
                 dataSnapshot.mapCmds[ScheduledCommand.Global] = DeserializeCmds(worldCmds.GetBytes());
 
             dataSnapshot.gameData = zip[$"world/{sectionIdStr}_save"].GetBytes();
-            dataSnapshot.semiPersistentData = new byte[0];
+            dataSnapshot.semiPersistentData = Array.Empty<byte>();
 
             Multiplayer.session.dataSnapshot = dataSnapshot;
         }

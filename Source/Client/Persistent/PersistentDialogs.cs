@@ -519,7 +519,7 @@ namespace Multiplayer.Client
                 }
                 else if (mode == LookMode.Deep)
                 {
-                    var args = new[] { value, "value", new object[0] };
+                    var args = new[] { value, "value", Array.Empty<object>() };
                     ScribeDeep.MakeGenericMethod(type).Invoke(null, args);
                     if (Scribe.mode == LoadSaveMode.LoadingVars)
                         value = args[0];

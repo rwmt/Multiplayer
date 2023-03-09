@@ -163,7 +163,7 @@ namespace Multiplayer.Common
 
             SendChat("Creating a join point...");
 
-            commands.Send(CommandType.CreateJoinPoint, ScheduledCommand.NoFaction, ScheduledCommand.Global, new byte[0]);
+            commands.Send(CommandType.CreateJoinPoint, ScheduledCommand.NoFaction, ScheduledCommand.Global, Array.Empty<byte>());
             tmpMapCmds = new Dictionary<int, List<byte[]>>();
 
             return true;
@@ -189,7 +189,7 @@ namespace Multiplayer.Common
 
         public void SendToAll(Packets id)
         {
-            SendToAll(id, new byte[0]);
+            SendToAll(id, Array.Empty<byte>());
         }
 
         public void SendToAll(Packets id, object[] data)

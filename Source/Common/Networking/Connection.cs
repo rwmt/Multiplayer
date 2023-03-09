@@ -31,7 +31,7 @@ namespace Multiplayer.Common
 
         public virtual void Send(Packets id)
         {
-            Send(id, new byte[0]);
+            Send(id, Array.Empty<byte>());
         }
 
         public virtual void Send(Packets id, params object[] msg)
@@ -172,7 +172,7 @@ namespace Multiplayer.Common
         {
             var writer = new ByteWriter();
             writer.WriteByte((byte)reason);
-            writer.WritePrefixedBytes(data ?? new byte[0]);
+            writer.WritePrefixedBytes(data ?? Array.Empty<byte>());
             return writer.ToArray();
         }
     }
