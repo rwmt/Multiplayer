@@ -261,12 +261,12 @@ namespace Multiplayer.Client
                 }
             },
             {
-                (ByteWriter data, IGeneResourceDrain gizmo) =>
+                (ByteWriter data, IGeneResourceDrain resourceDrain) =>
                 {
-                    if (gizmo is Gene gene)
+                    if (resourceDrain is Gene gene)
                         WriteSync(data, gene);
                     else
-                        throw new Exception($"Unsupported {nameof(IGeneResourceDrain)} type: {gizmo.GetType()}");
+                        throw new Exception($"Unsupported {nameof(IGeneResourceDrain)} type: {resourceDrain.GetType()}");
                 },
                 (ByteReader data) => ReadSync<Gene>(data) as IGeneResourceDrain
             },
