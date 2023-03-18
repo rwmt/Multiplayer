@@ -157,6 +157,11 @@ namespace Multiplayer.Client.Util
                     return AccessTools
                         .GetDeclaredConstructors(type)
                         .FirstOrDefault(c => c.IsStatic);
+
+                case MethodType.Enumerator:
+                    if (methodName == null)
+                        return null;
+                    return AccessTools.EnumeratorMoveNext(AccessTools.DeclaredMethod(type, methodName, args));
             }
 
             return null;
