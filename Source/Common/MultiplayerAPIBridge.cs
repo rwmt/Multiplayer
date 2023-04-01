@@ -24,6 +24,8 @@ namespace Multiplayer.Common
 
         public bool CanUseDevMode => Client.Multiplayer.GameComp.LocalPlayerDataOrNull?.canUseDevMode ?? false;
 
+        public IThingFilterAPI ThingFilters { get; } = new ThingFilterBridge();
+
         public void WatchBegin()
         {
             SyncFieldUtil.FieldWatchPrefix();
@@ -149,5 +151,25 @@ namespace Multiplayer.Common
         }
 
         public void RegisterDefaultLetterChoice(MethodInfo method, Type letterType = null) => CloseDialogsForExpiredLetters.RegisterDefaultLetterChoice(method, letterType);
+    }
+
+    public class ThingFilterBridge : IThingFilterAPI
+    {
+        public void RegisterThingFilterTarget(Type type)
+        {
+            SyncThingFilters.ThingFilterTarget.Add(type);
+            SyncThingFilters.Init();
+        }
+
+        public void RegisterThingFilterTarget<T>() where T : ThingFilterContext
+        {
+            SyncThingFilters.ThingFilterTarget.Add(typeof(T));
+            SyncThingFilters.Init();
+        }
+
+        public void RegisterThingFilterListener(GetThingFilter context)
+        {
+            SyncMarkers.thingFilters.Add(context);
+        }
     }
 }

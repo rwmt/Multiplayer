@@ -51,10 +51,11 @@ namespace Multiplayer.Client
         public static PenAutocutWrapper penAutocut;
         public static PenAnimalsWrapper penAnimals;
         public static DefaultAutocutWrapper windTurbine;
+        public static List<GetThingFilter> thingFilters = new();
 
         public static ThingFilterContext DrawnThingFilter =>
             !drawingThingFilter ? null :
-            tabStorage ?? billConfig ?? dialogOutfit ?? foodRestriction ?? penAutocut ?? penAnimals ?? (ThingFilterContext)windTurbine;
+            tabStorage ?? billConfig ?? dialogOutfit ?? foodRestriction ?? penAutocut ?? windTurbine ?? thingFilters.Select(x => x()).FirstOrDefault(x => x != null);
 
         #region Misc Markers
         [MpPrefix(typeof(MainTabWindow_Work), "DoManualPrioritiesCheckbox")]
