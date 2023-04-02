@@ -28,7 +28,7 @@
   <ItemGroup>
     <PackageReference Include="Krafs.Publicizer" Version="2.0.1" />
     <PackageReference Include="RestSharp" Version="106.12.0" />
-    <PackageReference Include="RimWorld.MultiplayerAPI" Version="0.4.0" />
+    <PackageReference Include="RimWorld.MultiplayerAPI" Version="0.5.0" />
     <PackageReference Include="Lib.Harmony" Version="2.2.2" ExcludeAssets="runtime" />
     <PackageReference Include="LiteNetLib" Version="0.9.5.2" />
     <PackageReference Include="DotNetZip.Reduced" Version="1.9.1.8" />
