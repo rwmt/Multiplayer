@@ -60,17 +60,24 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(Building_Bed), nameof(Building_Bed.Medical));
 
             {
-                var methodNames = new [] {
-                    nameof(CompAssignableToPawn.TryAssignPawn),
-                    nameof(CompAssignableToPawn.TryUnassignPawn),
-                };
-
-                var methods = typeof(CompAssignableToPawn).AllSubtypesAndSelf()
-                    .SelectMany(t => methodNames.Select(n => t.GetMethod(n, AccessTools.allDeclared)))
+                var types = typeof(CompAssignableToPawn).AllSubtypesAndSelf().ToArray();
+                var assignMethods = types
+                    .Select(t => t.GetMethod(nameof(CompAssignableToPawn.TryAssignPawn), AccessTools.allDeclared))
+                    .AllNotNull();
+                var unassignMethods = types
+                    .Select(t => t.GetMethod(nameof(CompAssignableToPawn.TryUnassignPawn), AccessTools.allDeclared))
                     .AllNotNull();
 
-                foreach (var method in methods) {
+                var unassignSerializer = Serializer.New(
+                    (Pawn pawn, object target, object[] _) => (pawnId: pawn.thingIDNumber, target: (CompAssignableToPawn)target),
+                    tuple => tuple.target.assignedPawns.FirstOrDefault(p => p.thingIDNumber == tuple.pawnId));
+
+                foreach (var method in assignMethods) {
                     Sync.RegisterSyncMethod(method).CancelIfAnyArgNull();
+                }
+
+                foreach (var method in unassignMethods) {
+                    Sync.RegisterSyncMethod(method).TransformArgument(0, unassignSerializer).CancelIfAnyArgNull();
                 }
             }
 
