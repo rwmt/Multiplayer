@@ -15,7 +15,7 @@ namespace Multiplayer.Client
             foreach (var ping in Multiplayer.session.cursorAndPing.pings)
             {
                 if (ping.mapId != -1) continue;
-                if (Multiplayer.session.GetPlayerInfo(ping.player) is not { } player) continue;
+                if (ping.PlayerInfo is not { } player) continue;
 
                 var tileCenter = GenWorldUI.WorldToUIPosition(Find.WorldGrid.GetTileCenter(ping.planetTile));
                 const float size = 30f;

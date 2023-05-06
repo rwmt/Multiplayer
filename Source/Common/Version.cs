@@ -3,7 +3,7 @@ namespace Multiplayer.Common
     public static class MpVersion
     {
         public const string Version = "0.7.3";
-        public const int Protocol = 29;
+        public const int Protocol = 30;
 
         public const string ApiAssemblyName = "0MultiplayerAPI";
 

@@ -260,11 +260,14 @@ namespace Multiplayer.Common
         {
             if (!Player.IsHost) return;
 
-            int player = data.ReadInt32();
+            int playerId = data.ReadInt32();
             int factionId = data.ReadInt32();
 
-            Server.GetPlayer(player).FactionId = factionId;
-            Server.SendToPlaying(Packets.Server_SetFaction, new object[] { player, factionId });
+            var player = Server.GetPlayer(playerId);
+            if (player == null) return;
+
+            player.FactionId = factionId;
+            Server.SendToPlaying(Packets.Server_SetFaction, new object[] { playerId, factionId });
         }
 
         [PacketHandler(Packets.Client_FrameTime)]

@@ -19,7 +19,7 @@ namespace Multiplayer.Client
     {
         const string MultiplayerCategory = "Multiplayer";
 
-        [DebugAction("General", actionType = DebugActionType.ToolWorld, allowedGameStates = AllowedGameStates.PlayingOnWorld)]
+        [DebugAction(MultiplayerCategory, actionType = DebugActionType.ToolWorld, allowedGameStates = AllowedGameStates.PlayingOnWorld)]
         public static void SpawnCaravans()
         {
             for (int a = 0; a < 10; a++)
@@ -87,7 +87,34 @@ namespace Multiplayer.Client
             }
         }
 
-        [DebugAction("General", actionType = DebugActionType.ToolMap, allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        [DebugAction(MultiplayerCategory, "Set faction", actionType = DebugActionType.Action, allowedGameStates = AllowedGameStates.PlayingOnMap, displayPriority = 100)]
+        private static void SetFaction()
+        {
+        	DebugToolsGeneral.GenericRectTool("Set faction", rect =>
+        	{
+                List<FloatMenuOption> factionOptions = new List<FloatMenuOption>();
+                foreach (Faction faction in Find.FactionManager.AllFactionsInViewOrder)
+                {
+                    FloatMenuOption item = new FloatMenuOption(faction.Name, () =>
+                    {
+                        foreach (Thing thing in rect.SelectMany(c => Find.CurrentMap.thingGrid.ThingsAt(c)))
+                        {
+                            if (thing.def.CanHaveFaction)
+                                thing.SetFaction(faction);
+
+                            if (thing is IThingHolder holder)
+                                foreach (var heldThing in holder.GetDirectlyHeldThings())
+                                    if (heldThing.def.CanHaveFaction)
+                                        heldThing.SetFaction(faction);
+                        }
+                    });
+                    factionOptions.Add(item);
+                }
+                Find.WindowStack.Add(new FloatMenu(factionOptions));
+        	});
+        }
+
+        [DebugAction(MultiplayerCategory, actionType = DebugActionType.ToolMap, allowedGameStates = AllowedGameStates.PlayingOnMap)]
         public static void SpawnShuttleAcceptColonists()
         {
             var shuttle = ThingMaker.MakeThing(ThingDefOf.Shuttle, null);
