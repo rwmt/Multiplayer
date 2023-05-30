@@ -169,6 +169,27 @@ namespace Multiplayer.Client
             {
                 Find.TickManager.DoSingleTick();
                 TickWorldTrading();
+
+                if (ModsConfig.BiotechActive)
+                {
+                    // Vanilla puts those into a separate try/catch blocks
+                    try
+                    {
+                        CompDissolutionEffect_Goodwill.WorldUpdate();
+                    }
+                    catch (Exception e)
+                    {
+                        Log.Error(e.ToString());
+                    }
+                    try
+                    {
+                        CompDissolutionEffect_Pollution.WorldUpdate();
+                    }
+                    catch (Exception e)
+                    {
+                        Log.Error(e.ToString());
+                    }
+                }
             }
             finally
             {
