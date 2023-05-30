@@ -269,7 +269,7 @@ namespace Multiplayer.Client.Patches
     }
 
     [HarmonyPatch]
-    static class UpdateWorldStateInInterfaceOnly
+    static class UpdateWorldStateWhenTickingOnly
     {
         static IEnumerable<MethodBase> TargetMethods()
         {
