@@ -3,7 +3,6 @@
   <PropertyGroup>
     <TargetFramework>net472</TargetFramework>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <Nullable>enable</Nullable>
     <LangVersion>10</LangVersion>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
@@ -14,10 +13,16 @@
   <ItemGroup>
     <PackageReference Include="Krafs.Rimworld.Ref" Version="1.4.3704" />
     <PackageReference Include="Krafs.Publicizer" Version="2.0.1" />
+    <PackageReference Include="RimWorld.MultiplayerAPI" Version="0.4.0" />
+    <PackageReference Include="Zetrith.Prepatcher" Version="1.1.1" />
+    <PackageReference Include="RestSharp" Version="106.12.0" />
+    <PackageReference Include="Lib.Harmony" Version="2.2.2" ExcludeAssets="runtime" />
+
+    <ProjectReference Include="..\Common\Common.csproj" Private="false"  />
   </ItemGroup>
 
   <ItemGroup>
-    <Publicize Include="Assembly-CSharp" />
+    <Publicize Include="Assembly-CSharp;0Harmony" />
   </ItemGroup>
 
   <!-- Ignore any system frameworks and get the system assemblies from Krafs.Rimworld.Ref -->

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -17,6 +18,7 @@ using UnityEngine;
 using Verse;
 using Verse.Sound;
 using Verse.Steam;
+using Debug = UnityEngine.Debug;
 
 namespace Multiplayer.Client
 {
@@ -167,51 +169,67 @@ namespace Multiplayer.Client
 
             if (GenCommandLine.TryGetCommandLineArg("replay", out string replay))
             {
+                GenCommandLine.TryGetCommandLineArg("replaydata", out string replayData);
+                var replays = replay.Split(';').ToList().GetEnumerator();
+
                 DoubleLongEvent(() =>
                 {
-                    Replay.LoadReplay(Replay.ReplayFile(replay), true, () =>
+                    void LoadNextReplay()
                     {
-                        string runLog = "";
-
-                        void Log(string msg)
+                        if (!replays.MoveNext())
                         {
-                            runLog += msg + "\n";
+                            Application.Quit();
+                            return;
                         }
 
-                        var runTicks = 10000;
-                        Log($"Starting benchmark, timer {TickPatch.Timer}, map {replay}, for ticks {runTicks}");
+                        var current = replays.Current!.Split(':');
+                        int totalTicks = int.Parse(current[2]);
+                        int batchSize = int.Parse(current[3]);
+                        int ticksDone = 0;
+                        double timeSpent = 0;
 
-                        var tickData = TickPatch.DoBench(runTicks);
-
-                        StringBuilder benchFile = new StringBuilder();
-
-                        benchFile.Append("TickTime");
-                        // foreach (var m in PPatches.methods)
-                        //     benchFile.Append(',').Append(m.Item1 + "::" + m.Item2);
-                        benchFile.Append("\n");
-
-                        foreach (var tick in tickData)
+                        Replay.LoadReplay(Replay.ReplayFile(current[1]), true, () =>
                         {
-                            benchFile.Append(tick.tickTime);
-                            foreach (var extra in tick.extras)
-                                benchFile.Append(',').Append(extra);
-                            benchFile.Append("\n");
-                        }
+                            TickPatch.AllTickables.Do(t => t.SetDesiredTimeSpeed(TimeSpeed.Normal));
 
-                        File.WriteAllText($"benches/{GenFile.SanitizedFileName(DateTime.Now.ToString())}", benchFile.ToString());
+                            void TickBatch()
+                            {
+                                if (ticksDone >= totalTicks)
+                                {
+                                    if (!replayData.NullOrEmpty())
+                                    {
+                                        string output = "";
+                                        void Log(string text) => output += text + "\n";
 
-                        var rand = Find.Maps.Select(m => m.AsyncTime().randState).Select(s => $"{s} {(uint)s} {s >> 32}");
+                                        Log($"Ticks done: {ticksDone}");
+                                        Log($"TPS: {1000.0/(timeSpent / ticksDone)}");
+                                        Log($"Timer: {TickPatch.Timer}");
+                                        Log($"World: {Multiplayer.WorldTime.worldTicks}/{Multiplayer.WorldTime.randState}");
+                                        foreach (var map in Find.Maps)
+                                            Log($"Map {map.uniqueID} rand: {map.AsyncTime().mapTicks}/{map.AsyncTime().randState}");
 
-                        Log($"timer {TickPatch.Timer}");
-                        Log($"world rand {Multiplayer.WorldTime.randState} {(uint)Multiplayer.WorldTime.randState} {Multiplayer.WorldTime.randState >> 32}");
-                        Log($"map rand {rand.ToStringSafeEnumerable()} | {Find.Maps.Select(m => m.AsyncTime().mapTicks).ToStringSafeEnumerable()}");
-                        Log($"maps {Find.Maps.Select(m => $"AllPawnsCount:{m.mapPawns.AllPawnsCount} ColonistCount:{m.mapPawns.ColonistCount}").ToStringSafeEnumerable()}");
-                        Log("");
+                                        File.WriteAllText(Path.Combine(replayData, $"{current[0]}"), output);
+                                    }
 
-                        File.AppendAllText("benches.txt", runLog);
+                                    LoadNextReplay();
+                                    return;
+                                }
 
-                        Application.Quit();
-                    });
+                                OnMainThread.Enqueue(() =>
+                                {
+                                    var watch = Stopwatch.StartNew();
+                                    TickPatch.DoTicks(batchSize);
+                                    timeSpent += watch.Elapsed.TotalMilliseconds;
+                                    ticksDone += batchSize;
+                                    TickBatch();
+                                });
+                            }
+
+                            TickBatch();
+                        });
+                    }
+
+                    LoadNextReplay();
                 }, "Replay");
             }
 

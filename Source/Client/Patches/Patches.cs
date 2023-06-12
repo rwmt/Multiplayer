@@ -624,4 +624,34 @@ namespace Multiplayer.Client
                 Multiplayer.GameComp.SetGodMode(Multiplayer.session.playerId, DebugSettings.godMode);
         }
     }
+
+    [HarmonyPatch(typeof(Settlement), nameof(Settlement.Material), MethodType.Getter)]
+    static class SettlementNullFactionPatch1
+    {
+        static bool Prefix(Settlement __instance, ref Material __result)
+        {
+            if (__instance.factionInt == null)
+            {
+                __result = BaseContent.BadMat;
+                return false;
+            }
+
+            return true;
+        }
+    }
+
+    [HarmonyPatch(typeof(Settlement), nameof(Settlement.ExpandingIcon), MethodType.Getter)]
+    static class SettlementNullFactionPatch2
+    {
+        static bool Prefix(Settlement __instance, ref Texture2D __result)
+        {
+            if (__instance.factionInt == null)
+            {
+                __result = BaseContent.BadTex;
+                return false;
+            }
+
+            return true;
+        }
+    }
 }

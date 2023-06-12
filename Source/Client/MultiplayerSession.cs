@@ -333,6 +333,7 @@ namespace Multiplayer.Client
         public int latency;
         public int ticksBehind;
         public bool simulating;
+        public float frameTime;
         public PlayerType type;
         public PlayerStatus status;
         public Color color;

@@ -25,12 +25,14 @@ namespace Multiplayer.Client
         public static bool serverFrozen;
         public static int frozenAt;
 
+        public const float StandardTimePerFrame = 1000.0f / 60.0f;
+
         // Time is in milliseconds
         private static float realTime;
-        public static float avgFrameTime;
+        public static float avgFrameTime = StandardTimePerFrame;
         public static float serverTimePerTick;
 
-        private static int frames;
+        private static float frameTimeSentAt;
 
         public static TimeSpeed replayTimeSpeed;
 
@@ -55,8 +57,8 @@ namespace Multiplayer.Client
         static Stopwatch updateTimer = Stopwatch.StartNew();
         public static Stopwatch tickTimer = Stopwatch.StartNew();
 
-        [TweakValue("Multiplayer", 0f, 100f)]
-        public static float maxBehind = 6f;
+        [TweakValue("Multiplayer")]
+        public static bool doSimulate = true;
 
         static bool Prefix()
         {
@@ -73,7 +75,7 @@ namespace Multiplayer.Client
             float stpt = ticksBehind <= 3 ? serverTimePerTick * 1.2f : ticksBehind >= 7 ? serverTimePerTick * 0.8f : serverTimePerTick;
 
             if (Multiplayer.IsReplay)
-                stpt = 1000f/60f * ReplayMultiplier();
+                stpt = StandardTimePerFrame * ReplayMultiplier();
 
             if (Timer >= tickUntil)
             {
@@ -83,27 +85,20 @@ namespace Multiplayer.Client
             {
                 avgFrameTime = (avgFrameTime + Time.deltaTime * 1000f) / 2f;
 
-                if (Multiplayer.IsReplay)
-                {
-                    ticksToRun = Mathf.CeilToInt(realTime / stpt);
-                    realTime -= ticksToRun * stpt;
-                }
-                else
-                {
-                    realTime -= stpt;
-                    ticksToRun = 1;
-                }
+                ticksToRun = Multiplayer.IsReplay ? Mathf.CeilToInt(realTime / stpt) : 1;
+                realTime -= ticksToRun * stpt;
             }
 
             if (realTime > 0)
                 realTime = 0;
 
-            if (frames % 3 == 0)
+            if (Time.time - frameTimeSentAt > 32f/1000f)
+            {
                 Multiplayer.Client.Send(Packets.Client_FrameTime, avgFrameTime);
+                frameTimeSentAt = Time.time;
+            }
 
-            frames++;
-
-            if (Multiplayer.IsReplay && replayTimeSpeed == TimeSpeed.Paused)
+            if (Multiplayer.IsReplay && replayTimeSpeed == TimeSpeed.Paused || !doSimulate)
                 ticksToRun = 0;
 
             if (simulating is { targetIsTickUntil: true })
@@ -177,27 +172,13 @@ namespace Multiplayer.Client
             }
         }
 
-        public record TickData(double tickTime, int[] extras);
-        public static int[] calls = new int[1];
-
-        public static List<TickData> DoBench(int ticks)
+        public static void DoTicks(int ticks)
         {
-            var tickTimes = new List<TickData>();
-            var watch = Stopwatch.StartNew();
-
             for (int i = 0; i < ticks; i++)
             {
-                if (i % 1000 == 0)
-                    Log.Message($"{i} ticks");
-
                 bool worked = false;
-                watch.Restart();
                 DoTick(ref worked);
-                tickTimes.Add(new TickData(watch.ElapsedMillisDouble(), calls.ToArray()));
-                Array.Clear(calls, 0, calls.Length);
             }
-
-            return tickTimes;
         }
 
         // Returns whether the tick loop should stop
@@ -309,7 +290,7 @@ namespace Multiplayer.Client
             serverFrozen = false;
             workTicks = 0;
             serverTimePerTick = 0;
-            avgFrameTime = 0;
+            avgFrameTime = StandardTimePerFrame;
             realTime = 0;
             TimeControlPatch.prePauseTimeSpeed = null;
         }

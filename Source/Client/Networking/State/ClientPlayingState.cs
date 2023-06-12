@@ -86,6 +86,7 @@ namespace Multiplayer.Client
                     player.latency = data.ReadInt32();
                     player.ticksBehind = data.ReadInt32();
                     player.simulating = data.ReadBool();
+                    player.frameTime = data.ReadFloat();
                 }
             }
             else if (action == PlayerListAction.Status)

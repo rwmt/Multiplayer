@@ -14,7 +14,7 @@ public static class IngameDebug
     private static double avgDelta;
     private static double avgTickTime;
 
-    private static float tps;
+    public static float tps;
     private static float lastTicksAt;
     private static int lastTicks;
 
@@ -29,7 +29,7 @@ public static class IngameDebug
             int timerLag = (TickPatch.tickUntil - TickPatch.Timer);
             StringBuilder text = new StringBuilder();
             text.Append(
-                $"{Faction.OfPlayer.loadID} {Multiplayer.RealPlayerFaction?.loadID} {Find.UniqueIDsManager.nextThingID} j:{Find.UniqueIDsManager.nextJobID} {Find.TickManager.TicksGame} {Find.TickManager.CurTimeSpeed} {TickPatch.Timer} {TickPatch.tickUntil} {timerLag} {TickPatch.maxBehind}");
+                $"{Faction.OfPlayer.loadID} {Multiplayer.RealPlayerFaction?.loadID} {Find.UniqueIDsManager.nextThingID} j:{Find.UniqueIDsManager.nextJobID} {Find.TickManager.TicksGame} {Find.TickManager.CurTimeSpeed} {TickPatch.Timer} {TickPatch.tickUntil} {timerLag}");
             text.Append($"\n{Time.deltaTime * 60f:0.0000} {TickPatch.tickTimer.ElapsedMilliseconds}");
             text.Append($"\n{avgDelta = (avgDelta * 59.0 + Time.deltaTime * 60.0) / 60.0:0.0000}");
             text.Append(
@@ -70,7 +70,7 @@ public static class IngameDebug
             }
 
             text.Append(
-                $" {Find.CurrentMap.MpComp().mapIdBlock?.Current} {Find.IdeoManager.IdeosInViewOrder.FirstOrDefault()?.id}");
+                $" {Find.CurrentMap.Parent.IncidentTargetTags().ToStringSafeEnumerable()} {Find.IdeoManager.IdeosInViewOrder.FirstOrDefault()?.id}");
 
             text.Append(
                 $"\n{SyncFieldUtil.bufferedChanges.Sum(kv => kv.Value.Count)} {Find.UniqueIDsManager.nextThingID}");
@@ -88,7 +88,7 @@ public static class IngameDebug
                 : $"\n{Find.WindowStack.focusedWindow}");
 
             text.Append($"\n{UI.CurUICellSize()} {Find.WindowStack.windows.ToStringSafeEnumerable()}");
-            text.Append($"\n\nMap TPS: {tps}");
+            text.Append($"\n\nMap TPS: {tps:0.00}");
             text.Append($"\nDelta: {Time.deltaTime * 1000f}");
             text.Append($"\nAverage ft: {TickPatch.avgFrameTime}");
             text.Append($"\nServer tpt: {TickPatch.serverTimePerTick}");

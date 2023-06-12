@@ -38,7 +38,7 @@ namespace Multiplayer.Common
             byte[] toSave = ScheduledCommand.Serialize(
                 new ScheduledCommand(
                     cmd,
-                    server.gameTimer,
+                    server.gameTimer + 1,
                     factionId,
                     mapId,
                     sourcePlayer?.id ?? fauxSource?.id ?? ScheduledCommand.NoPlayer,

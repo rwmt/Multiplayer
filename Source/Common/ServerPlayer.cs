@@ -12,9 +12,12 @@ namespace Multiplayer.Common
         public PlayerStatus status = PlayerStatus.Simulating;
         public ColorRGB color;
         public bool hasJoined;
-        public int ticksBehind;
         public bool simulating;
         public float frameTime;
+
+        public int ticksBehind;
+        public int ticksBehindReceivedAt;
+        public int ExtrapolatedTicksBehind => ticksBehind + (Server.gameTimer - ticksBehindReceivedAt);
 
         public ulong steamId;
         public string steamPersonaName = "";
@@ -122,6 +125,7 @@ namespace Multiplayer.Common
             writer.WriteInt32(Latency);
             writer.WriteInt32(ticksBehind);
             writer.WriteBool(simulating);
+            writer.WriteFloat(frameTime);
         }
 
         public void UpdateStatus(PlayerStatus newStatus)

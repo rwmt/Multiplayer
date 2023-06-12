@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using Verse;
 using Multiplayer.Common.Util;
+using RimWorld.Planet;
 
 namespace Multiplayer.Client
 {
@@ -143,6 +144,9 @@ namespace Multiplayer.Client
             {
                 color = new Color(0.0f, 0.8f, 0.0f);
             }
+
+            if (!WorldRendererUtility.WorldRenderedNow)
+                text += $"\n\nCurrent map avg TPS: {IngameDebug.tps:0.00}";
         }
 
         private static void HandleUiEventsWhenSimulating()

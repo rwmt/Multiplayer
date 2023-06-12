@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using Verse;
 
@@ -87,6 +88,8 @@ namespace Multiplayer.Common
                 return;
 
             ServerLog.Log($"Got world upload {data.Left}");
+
+            Server.worldData.mapData = new Dictionary<int, byte[]>();
 
             int maps = data.ReadInt32();
             for (int i = 0; i < maps; i++)
@@ -197,6 +200,7 @@ namespace Multiplayer.Common
             var workTicks = data.ReadInt32();
 
             Player.ticksBehind = ticksBehind;
+            Player.ticksBehindReceivedAt = Server.gameTimer;
             Player.simulating = simulating;
             Player.keepAliveAt = Server.NetTimer;
 

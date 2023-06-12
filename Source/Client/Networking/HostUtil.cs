@@ -89,8 +89,6 @@ namespace Multiplayer.Client
             foreach (var tickable in TickPatch.AllTickables)
                 tickable.Cmds.Clear();
 
-            Find.PlaySettings.usePlanetDayNightSystem = false;
-
             Multiplayer.game.ChangeRealPlayerFaction(Faction.OfPlayer);
             Multiplayer.session.ReapplyPrefs();
 
@@ -161,9 +159,9 @@ namespace Multiplayer.Client
                 worldComp = worldComp
             };
 
-            var opponent = NewFaction(Multiplayer.GlobalIdBlock.NextId(), "Opponent", FactionDefOf.PlayerColony);
-            opponent.hidden = true;
-            opponent.SetRelation(new FactionRelation(Faction.OfPlayer, FactionRelationKind.Hostile));
+            // var opponent = NewFaction(Multiplayer.GlobalIdBlock.NextId(), "Opponent", FactionDefOf.PlayerColony);
+            // opponent.hidden = true;
+            // opponent.SetRelation(new FactionRelation(Faction.OfPlayer, FactionRelationKind.Neutral));
 
             foreach (FactionWorldData data in worldComp.factionData.Values)
             {
@@ -182,7 +180,7 @@ namespace Multiplayer.Client
                 //mapComp.mapIdBlock = localServer.NextIdBlock();
 
                 BeforeMapGeneration.SetupMap(map);
-                BeforeMapGeneration.InitNewMapFactionData(map, opponent);
+                // BeforeMapGeneration.InitNewMapFactionData(map, opponent);
 
                 AsyncTimeComp async = map.AsyncTime();
                 async.mapTicks = Find.TickManager.TicksGame;

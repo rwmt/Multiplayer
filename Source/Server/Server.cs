@@ -31,7 +31,7 @@ var consoleSource = new ConsoleSource();
 LoadSave(server, saveFile);
 server.liteNet.StartNet();
 
-new Thread(server.Run).Start();
+new Thread(server.Run) { Name = "Server thread" }.Start();
 
 while (true)
 {

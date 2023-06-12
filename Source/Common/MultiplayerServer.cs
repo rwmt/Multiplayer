@@ -34,6 +34,7 @@ namespace Multiplayer.Common
         public LiteNetManager liteNet;
         public IEnumerable<ServerPlayer> JoinedPlayers => playerManager.JoinedPlayers;
         public IEnumerable<ServerPlayer> PlayingPlayers => playerManager.PlayingPlayers;
+        public IEnumerable<ServerPlayer> PlayingIngamePlayers => playerManager.PlayingPlayers.Where(p => p.status == PlayerStatus.Playing);
 
         public string? hostUsername;
         public int gameTimer;
@@ -57,7 +58,10 @@ namespace Multiplayer.Common
 
         public bool FullyStarted => running && worldData.savedGame != null;
 
-        public float serverTimePerTick = 1000.0f / 60.0f;
+        public const float StandardTimePerTick = 1000.0f / 60.0f;
+
+        public float serverTimePerTick = StandardTimePerTick;
+        private int sentCmdsSnapshot;
 
         public int NetTimer { get; private set; }
 
@@ -83,6 +87,7 @@ namespace Multiplayer.Common
             ServerLog.Detail("Server started");
 
             Stopwatch time = Stopwatch.StartNew();
+            Stopwatch tickTime = Stopwatch.StartNew();
             double realTime = 0;
 
             while (running)
@@ -91,34 +96,50 @@ namespace Multiplayer.Common
                 {
                     double elapsed = time.ElapsedMillisDouble();
                     time.Restart();
-
                     realTime += elapsed;
 
-                    if (realTime > 0)
-                    {
-                        queue.RunQueue(ServerLog.Error);
-                        TickEvent?.Invoke(this);
-                        liteNet.Tick();
-                        TickNet();
-                        freezeManager.Tick();
+                    tickTime.Restart();
 
-                        if (!freezeManager.Frozen)
+                    freezeManager.Tick();
+                    queue.RunQueue(ServerLog.Error);
+                    TickEvent?.Invoke(this);
+                    liteNet.Tick();
+                    TickNet();
+
+                    int ticked = 0;
+                    while (realTime > 0 && ticked < 2)
+                    {
+                        if (!freezeManager.Frozen &&
+                            PlayingPlayers.Any(p => p.ExtrapolatedTicksBehind < 40) &&
+                            !PlayingIngamePlayers.Any(p => p.ExtrapolatedTicksBehind > 90))
+                        {
                             gameTimer++;
+                            sentCmdsSnapshot = commands.SentCmds;
+                        }
 
                         // Run up to three times slower depending on max ticksBehind
                         var slowdown = Math.Min(
-                            PlayingPlayers.MaxOrZero(p => p.ticksBehind) / 60f,
+                            PlayingIngamePlayers.MaxOrZero(p => p.ticksBehind) / 60f,
                             2f
                         );
                         realTime -= serverTimePerTick * (1f + slowdown);
+
+                        ticked++;
                     }
 
                     if (realTime > 0)
                         realTime = 0f;
 
-                    // The resolution (on Windows, at least) seems to be 16ms and
-                    // putting a timeout close to 16ms results in waiting ~32ms
-                    Thread.Sleep(8);
+#if DEBUG
+                    if (tickTime.ElapsedMillisDouble() > 15f)
+                        ServerLog.Log($"Server tick took {tickTime.ElapsedMillisDouble()}ms");
+#endif
+
+                    // On Windows, the clock ticks 64 times a second and sleep durations too close to a multiple of 15.625ms
+                    // tend to be rounded up so we sleep for a bit less
+                    int sleepFor = (int)Math.Floor((1000 / 30f - tickTime.ElapsedMillisDouble()) * 0.9f);
+                    if (sleepFor > 0)
+                        Thread.Sleep(sleepFor);
                 }
                 catch (Exception e)
                 {
@@ -140,20 +161,22 @@ namespace Multiplayer.Common
         {
             NetTimer++;
 
-            if (NetTimer % 60 == 0)
+            if (NetTimer % 30 == 0)
                 playerManager.SendLatencies();
 
-            if (NetTimer % 30 == 0)
+            if (NetTimer % 6 == 0)
                 foreach (var player in JoinedPlayers)
                     player.SendPacket(Packets.Server_KeepAlive, ByteWriter.GetBytes(player.keepAliveId), false);
 
-            if (NetTimer % 2 == 0)
-                SendToPlaying(Packets.Server_TimeControl, ByteWriter.GetBytes(gameTimer, commands.SentCmds, serverTimePerTick), false);
+            SendToPlaying(Packets.Server_TimeControl, ByteWriter.GetBytes(gameTimer, sentCmdsSnapshot, serverTimePerTick), false);
 
-            serverTimePerTick = Math.Max(
-                1000.0f / 60.0f,
-                PlayingPlayers.MaxOrZero(p => p.frameTime)
-            );
+            serverTimePerTick = PlayingIngamePlayers.MaxOrZero(p => p.frameTime);
+
+            if (serverTimePerTick < StandardTimePerTick)
+                serverTimePerTick = StandardTimePerTick;
+
+            if (serverTimePerTick > StandardTimePerTick * 4f)
+                serverTimePerTick = StandardTimePerTick * 4f;
         }
 
         public void TryStop()

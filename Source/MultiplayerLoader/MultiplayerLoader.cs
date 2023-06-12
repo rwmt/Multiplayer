@@ -66,7 +66,7 @@ namespace MultiplayerLoader
 
             Assembly Resolver(object _, ResolveEventArgs args)
             {
-                return assemblies.FirstOrDefault(a => a.FullName == args.Name);
+                return assemblies.Concat(Content.assemblies.loadedAssemblies).FirstOrDefault(a => a.FullName == args.Name);
             }
 
             typeof(AppDomain).GetField("AssemblyResolve", BindingFlags.Instance | BindingFlags.NonPublic)

@@ -28,22 +28,22 @@ public class SaveGameWindow : Window
         GUILayout.BeginArea(inRect.AtZero());
         GUILayout.BeginVertical();
 
-        L.Label("MpSaveGameAs".Translate());
+        MpLayout.Label("MpSaveGameAs".Translate());
 
         UpdateText(ref curText, GUILayout.TextField(curText));
 
         using (MpStyle.Set(GameFont.Tiny))
-            L.Label(fileExists ? "MpWillOverwrite".Translate() : "");
+            MpLayout.Label(fileExists ? "MpWillOverwrite".Translate() : "");
 
-        L.BeginHorizCenter();
+        MpLayout.BeginHorizCenter();
         {
-            if (L.Button("OK".Translate(), 120f))
+            if (MpLayout.Button("OK".Translate(), 120f))
                 Accept(false);
 
-            if (Prefs.DevMode && L.Button("Dev: save replay", 120f))
+            if (Prefs.DevMode && MpLayout.Button("Dev: save replay", 120f))
                 Accept(true);
         }
-        L.EndHorizCenter();
+        MpLayout.EndHorizCenter();
 
         GUILayout.EndVertical();
         GUILayout.EndArea();

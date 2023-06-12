@@ -28,16 +28,9 @@
 
   <ItemGroup>
     <PackageReference Include="Krafs.Publicizer" Version="2.0.1" />
-    <PackageReference Include="RimWorld.MultiplayerAPI" Version="0.4.0" />
     <PackageReference Include="Lib.Harmony" Version="2.2.2" ExcludeAssets="runtime" />
-    <PackageReference Include="LiteNetLib" Version="0.9.5.2" />
     <PackageReference Include="Krafs.Rimworld.Ref" Version="1.4.3704" />
-    <PackageReference Include="RestSharp" Version="106.12.0" />
-    <PackageReference Include="System.IO.Compression" Version="4.3.0" />
-
-    <PackageReference Include="dnlib" Version="3.6.0">
-      <ExcludeAssets>runtime</ExcludeAssets> <!-- compile-time only -->
-    </PackageReference>
+    <PackageReference Include="RestSharp" Version="106.12.0" ExcludeAssets="runtime" />
   </ItemGroup>
 
   <ItemGroup>
@@ -50,8 +43,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\MultiplayerLoader\MultiplayerLoader.csproj" Private="false" />
-    <ProjectReference Include="..\Common\Common.csproj" />
+    <ProjectReference Include="..\MultiplayerLoader\MultiplayerLoader.csproj" ExcludeAssets="runtime" Private="false" />
+    <ProjectReference Include="..\Common\Common.csproj" ExcludeAssets="runtime"  />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="Factions\ScenParts.cs" />
   </ItemGroup>
 
   <!-- Ignore any system frameworks and get the system assemblies from Krafs.Rimworld.Ref -->

@@ -126,6 +126,7 @@ namespace Multiplayer.Client
                     string toolTip = $"{p.username}\n\nPing: {p.latency}ms\n{p.ticksBehind} ticks behind";
                     if (p.simulating)
                         toolTip += "\n(Simulating)";
+                    toolTip += $"\nAvg frame time: {p.frameTime:0.00}ms";
 
                     TooltipHandler.TipRegion(rect, new TipSignal(toolTip, p.id));
                 },

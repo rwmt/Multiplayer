@@ -48,10 +48,11 @@ public class WorldTimeComp : IExposable, ITickable
     // Run at the speed of the fastest map
     public TimeSpeed DesiredTimeSpeed => Find.Maps.Select(m => m.AsyncTime())
         .Where(a => a.ActualRateMultiplier(a.DesiredTimeSpeed) != 0f)
-        .Max(a => a?.DesiredTimeSpeed) ?? TimeSpeed.Paused;
+        .Max(a => a?.DesiredTimeSpeed) ?? timeSpeedInt;
 
     public void SetDesiredTimeSpeed(TimeSpeed speed)
     {
+        timeSpeedInt = speed;
     }
 
     public Queue<ScheduledCommand> Cmds => cmds;

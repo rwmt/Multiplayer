@@ -3,7 +3,7 @@ using Verse;
 
 namespace Multiplayer.Client.Util;
 
-public static class L
+public static class MpLayout
 {
     public static void Label(string text)
     {
