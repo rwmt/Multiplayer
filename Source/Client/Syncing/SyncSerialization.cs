@@ -50,6 +50,7 @@ namespace Multiplayer.Client
                     || gtd == typeof(Nullable<>)
                     || gtd == typeof(Dictionary<,>)
                     || gtd == typeof(Pair<,>)
+                    || gtd == typeof(HashSet<>)
                     || typeof(ITuple).IsAssignableFrom(gtd))
                     && CanHandleGenericArgs(type);
             if (typeof(ISyncSimple).IsAssignableFrom(type))
@@ -223,6 +224,13 @@ namespace Multiplayer.Client
                         };
 
                         return type.GetConstructors().First().Invoke(parameters);
+                    }
+
+                    if (genericTypeDefinition == typeof(HashSet<>))
+                    {
+                        Type element = type.GetGenericArguments()[0];
+                        object list = ReadSyncObject(data, typeof(List<>).MakeGenericType(element));
+                        return Activator.CreateInstance(typeof(HashSet<>).MakeGenericType(element), list);
                     }
 
                     if (typeof(ITuple).IsAssignableFrom(genericTypeDefinition)) // ValueTuple or Tuple
@@ -402,7 +410,7 @@ namespace Multiplayer.Client
                         return;
                     }
 
-                    if (genericTypeDefinition == typeof(IEnumerable<>))
+                    if (genericTypeDefinition == typeof(IEnumerable<>) || genericTypeDefinition == typeof(HashSet<>))
                     {
                         IEnumerable e = (IEnumerable)obj;
                         Type elementType = type.GetGenericArguments()[0];
