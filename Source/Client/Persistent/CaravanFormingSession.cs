@@ -89,6 +89,9 @@ namespace Multiplayer.Client
                 autoSelectTravelSupplies = autoSelectTravelSupplies,
             };
 
+            if (autoSelectTravelSupplies)
+                dialog.SelectApproximateBestTravelSupplies();
+
             return dialog;
         }
 
@@ -145,7 +148,6 @@ namespace Multiplayer.Client
             if (autoSelectTravelSupplies != value)
             {
                 autoSelectTravelSupplies = value;
-                PrepareDummyDialog().SelectApproximateBestTravelSupplies();
                 uiDirty = true;
             }
         }

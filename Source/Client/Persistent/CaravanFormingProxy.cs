@@ -33,6 +33,8 @@ namespace Multiplayer.Client
                     startingTile = session.startingTile;
                     destinationTile = session.destinationTile;
                     autoSelectTravelSupplies = session.autoSelectTravelSupplies;
+                    if (autoSelectTravelSupplies)
+                        SelectApproximateBestTravelSupplies();
 
                     session.uiDirty = false;
                 }
