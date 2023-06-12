@@ -232,6 +232,12 @@ namespace Multiplayer.Client
             SyncMethod.Lambda(typeof(MinifiedTree), nameof(MinifiedThing.GetGizmos), 0).SetDebugOnly(); // Destroy
             SyncMethod.Lambda(typeof(MinifiedTree), nameof(MinifiedThing.GetGizmos), 1).SetDebugOnly(); // Die in 1 hour
             SyncMethod.Lambda(typeof(MinifiedTree), nameof(MinifiedThing.GetGizmos), 2).SetDebugOnly(); // Die in 1 day
+            SyncMethod.Lambda(typeof(Pawn), nameof(Pawn.GetGizmos), 0).SetDebugOnly(); // Psyfocus -20%
+            SyncMethod.Lambda(typeof(Pawn), nameof(Pawn.GetGizmos), 1).SetDebugOnly(); // Psyfocus +20%
+            SyncMethod.Lambda(typeof(Pawn), nameof(Pawn.GetGizmos), 2).SetDebugOnly(); // Psychic entropy -20%
+            SyncMethod.Lambda(typeof(Pawn), nameof(Pawn.GetGizmos), 3).SetDebugOnly(); // Psychic entropy +20%
+            SyncMethod.Lambda(typeof(Pawn), nameof(Pawn.GetGizmos), 6).SetDebugOnly(); // Reset faction permit cooldowns
+            SyncMethod.Lambda(typeof(Pawn), nameof(Pawn.GetGizmos), 7).SetDebugOnly(); // Reset try romance cooldown
 
             SyncMethod.Register(typeof(Blueprint_Build), nameof(Blueprint_Build.ChangeStyleOfAllSelected)).SetContext(SyncContext.MapSelected);
             SyncMethod.Lambda(typeof(CompTurretGun), nameof(CompTurretGun.CompGetGizmosExtra), 1); // Toggle fire at will
