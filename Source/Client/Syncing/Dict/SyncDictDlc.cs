@@ -98,24 +98,6 @@ namespace Multiplayer.Client
                 }, true // Implicit
             },
             {
-                (ByteWriter data, LordJob_BestowingCeremony job) => {
-                    WriteSync(data, job.lord);
-                },
-                (ByteReader data) => {
-                    var lord = ReadSync<Lord>(data);
-                    return lord?.LordJob as LordJob_BestowingCeremony;
-                }
-            },
-            {
-                (ByteWriter data, LordToil_BestowingCeremony_Wait toil) => {
-                    WriteSync(data, toil.lord);
-                },
-                (ByteReader data) => {
-                    var lord = ReadSync<Lord>(data);
-                    return lord?.curLordToil as LordToil_BestowingCeremony_Wait;
-                }
-            },
-            {
                 (ByteWriter data, Command_BestowerCeremony cmd) => {
                     WriteSync(data, cmd.job.lord);
                     WriteSync(data, cmd.bestower);
@@ -214,15 +196,6 @@ namespace Multiplayer.Client
                     dlog.rolesGroupedTmp = (from r in assgn.AllRolesForReading group r by r.mergeId ?? r.id).ToList();
 
                     return dlog;
-                }
-            },
-            {
-                (ByteWriter data, LordJob_Ritual job) => {
-                    WriteSync(data, job.lord);
-                },
-                (ByteReader data) => {
-                    var lord = ReadSync<Lord>(data);
-                    return lord?.LordJob as LordJob_Ritual;
                 }
             },
             {

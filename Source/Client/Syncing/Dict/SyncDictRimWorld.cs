@@ -324,6 +324,24 @@ namespace Multiplayer.Client
                     return map.lordManager.lords.Find(l => l.loadID == lordId);
                 }
             },
+            {
+                (ByteWriter data, LordJob job) => {
+                    WriteSync(data, job.lord);
+                },
+                (ByteReader data) => {
+                    var lord = ReadSync<Lord>(data);
+                    return lord?.LordJob;
+                }, true // Implicit
+            },
+            {
+                (ByteWriter data, LordToil toil) => {
+                    WriteSync(data, toil.lord);
+                },
+                (ByteReader data) => {
+                    var lord = ReadSync<Lord>(data);
+                    return lord?.curLordToil;
+                }, true // Implicit
+            },
             #endregion
 
             #region Records
