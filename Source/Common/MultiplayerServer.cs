@@ -130,10 +130,8 @@ namespace Multiplayer.Common
                     if (realTime > 0)
                         realTime = 0f;
 
-#if DEBUG
-                    if (tickTime.ElapsedMillisDouble() > 15f)
+                    if (MpVersion.IsDebug && tickTime.ElapsedMillisDouble() > 15f)
                         ServerLog.Log($"Server tick took {tickTime.ElapsedMillisDouble()}ms");
-#endif
 
                     // On Windows, the clock ticks 64 times a second and sleep durations too close to a multiple of 15.625ms
                     // tend to be rounded up so we sleep for a bit less

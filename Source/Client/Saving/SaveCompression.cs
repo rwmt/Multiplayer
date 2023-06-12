@@ -146,6 +146,11 @@ namespace Multiplayer.Client
             DecompressedThingsPatch.thingsToSpawn[map.uniqueID] = loadedThings;
         }
 
+        private static void WarnBadShortHash(int id, ushort defId)
+        {
+            Log.WarningOnce($"Multiplayer couldn't decompress thing id {id}: bad short hash {defId}", defId);
+        }
+
         private static Thing LoadRock(Map map, BinaryReader reader, IntVec3 cell)
         {
             ushort defId = reader.ReadUInt16();
@@ -153,7 +158,11 @@ namespace Multiplayer.Client
                 return null;
 
             int id = reader.ReadInt32();
-            ThingDef def = thingDefsByShortHash[defId];
+            if (!thingDefsByShortHash.TryGetValue(defId, out var def))
+            {
+                WarnBadShortHash(id, defId);
+                return null;
+            }
 
             Thing thing = (Thing)Activator.CreateInstance(def.thingClass);
             thing.def = def;
@@ -174,7 +183,11 @@ namespace Multiplayer.Client
             int id = reader.ReadInt32();
             byte thickness = reader.ReadByte();
             int growTick = reader.ReadInt32();
-            ThingDef def = thingDefsByShortHash[defId];
+            if (!thingDefsByShortHash.TryGetValue(defId, out var def))
+            {
+                WarnBadShortHash(id, defId);
+                return null;
+            }
 
             Filth thing = (Filth)Activator.CreateInstance(def.thingClass);
             thing.def = def;
@@ -213,7 +226,11 @@ namespace Multiplayer.Client
             if (hasLeafless)
                 plantMadeLeaflessTick = reader.ReadInt32();
 
-            ThingDef def = thingDefsByShortHash[defId];
+            if (!thingDefsByShortHash.TryGetValue(defId, out var def))
+            {
+                WarnBadShortHash(id, defId);
+                return null;
+            }
 
             Plant thing = (Plant)Activator.CreateInstance(def.thingClass);
             thing.def = def;
