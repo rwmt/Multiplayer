@@ -112,6 +112,7 @@ namespace Multiplayer.Client
             dict["AbilityComp"] = GetDefInfo(ImplSerialization.abilityCompTypes, TypeHash);
             dict["Designator"] = GetDefInfo(ImplSerialization.designatorTypes, TypeHash);
             dict["WorldObjectComp"] = GetDefInfo(ImplSerialization.worldObjectCompTypes, TypeHash);
+            dict["HediffComp"] = GetDefInfo(ImplSerialization.hediffCompTypes, TypeHash);
             dict["IStoreSettingsParent"] = GetDefInfo(ImplSerialization.storageParents, TypeHash);
             dict["IPlantToGrowSettable"] = GetDefInfo(ImplSerialization.plantToGrowSettables, TypeHash);
             dict["DefTypes"] = GetDefInfo(DefSerialization.DefTypes, TypeHash);

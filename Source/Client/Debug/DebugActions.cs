@@ -66,6 +66,7 @@ namespace Multiplayer.Client
                 {"AbilityComp", ImplSerialization.abilityCompTypes},
                 {"Designator", ImplSerialization.designatorTypes},
                 {"WorldObjectComp", ImplSerialization.worldObjectCompTypes},
+                {"HediffComp", ImplSerialization.hediffCompTypes},
                 {"IStoreSettingsParent", ImplSerialization.storageParents},
                 {"IPlantToGrowSettable", ImplSerialization.plantToGrowSettables},
 
