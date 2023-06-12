@@ -35,10 +35,10 @@ namespace Multiplayer.Client
             this.map = map;
         }
 
-        public CaravanFormingSession CreateCaravanFormingSession(bool reform, Action onClosed, bool mapAboutToBeRemoved)
+        public CaravanFormingSession CreateCaravanFormingSession(bool reform, Action onClosed, bool mapAboutToBeRemoved, IntVec3? meetingSpot = null)
         {
             if (caravanForming == null)
-                caravanForming = new CaravanFormingSession(map, reform, onClosed, mapAboutToBeRemoved);
+                caravanForming = new CaravanFormingSession(map, reform, onClosed, mapAboutToBeRemoved, meetingSpot);
             return caravanForming;
         }
 
