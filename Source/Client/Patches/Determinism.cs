@@ -6,6 +6,7 @@ using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using Multiplayer.Client.Util;
+using RimWorld.QuestGen;
 using UnityEngine;
 using Verse;
 
@@ -264,6 +265,54 @@ namespace Multiplayer.Client.Patches
                     inst.operand = AccessTools.PropertyGetter(typeof(ModsConfig), nameof(ModsConfig.BiotechActive));
                 yield return inst;
             }
+        }
+    }
+
+    [HarmonyPatch]
+    static class UpdateWorldStateWhenTickingOnly
+    {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            // Handles relation and retaliation for polluting the world
+            yield return AccessTools.DeclaredMethod(typeof(CompDissolutionEffect_Goodwill), nameof(CompDissolutionEffect_Goodwill.WorldUpdate));
+            // Handles increasing/decreasing world pollution
+            yield return AccessTools.DeclaredMethod(typeof(CompDissolutionEffect_Pollution), nameof(CompDissolutionEffect_Pollution.WorldUpdate));
+        }
+
+        static bool Prefix()
+        {
+            // In MP only allow updates from MultiplayerWorldComp:Tick()
+            return Multiplayer.Client == null || MultiplayerWorldComp.tickingWorld;
+        }
+    }
+
+    [HarmonyPatch(typeof(QuestNode_Root_PollutionRetaliation), nameof(QuestNode_Root_PollutionRetaliation.RunInt))]
+    static class ReplaceUnityRngPollutionRetaliation
+    {
+        // Simplified transpiler from MP Compat.
+        // Source: https://github.com/rwmt/Multiplayer-Compatibility/blob/2e82e71aef64c5a5a4fc879db6f49d3c20da25cb/Source/PatchingUtilities.cs#L226
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts, MethodBase original)
+        {
+            var anythingPatched = false;
+
+            var parameters = new[] { typeof(int), typeof(int) };
+            var unityRandomRangeInt = AccessTools.DeclaredMethod(typeof(UnityEngine.Random), nameof(UnityEngine.Random.Range), parameters);
+            var verseRandomRangeInt = AccessTools.DeclaredMethod(typeof(Rand), nameof(Rand.Range), parameters);
+
+            foreach (var inst in insts)
+            {
+                if ((inst.opcode == OpCodes.Call || inst.opcode == OpCodes.Callvirt) && inst.operand is MethodInfo method && method == unityRandomRangeInt)
+                {
+                    inst.opcode = OpCodes.Call;
+                    inst.operand = verseRandomRangeInt;
+
+                    anythingPatched = true;
+                }
+
+                yield return inst;
+            }
+
+            if (!anythingPatched) Log.Warning($"No Unity RNG was patched for method: {original?.FullDescription() ?? "(unknown method)"}");
         }
     }
 
