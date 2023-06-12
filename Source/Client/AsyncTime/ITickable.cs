@@ -20,5 +20,9 @@ namespace Multiplayer.Client
         void Tick();
 
         void ExecuteCmd(ScheduledCommand cmd);
+
+        bool IsPaused { get; }
+
+        bool IsForceSlowdown { get; }
     }
 }
