@@ -118,6 +118,11 @@ public static class TimeControlPatch
         GenUI.AbsorbClicksInRect(timerRect);
         UIHighlighter.HighlightOpportunity(timerRect, "TimeControls");
 
+        DoTimeControlsHotkeys();
+    }
+
+    private static void DoTimeControlsHotkeys()
+    {
         if (Event.current.type != EventType.KeyDown)
             return;
 
