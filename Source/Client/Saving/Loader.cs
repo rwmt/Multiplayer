@@ -64,7 +64,7 @@ public static class Loader
         if (forceAsyncTime)
             Multiplayer.game.gameComp.asyncTime = true;
 
-        Multiplayer.WorldTime.cmds = new Queue<ScheduledCommand>(
+        Multiplayer.AsyncWorldTime.cmds = new Queue<ScheduledCommand>(
             Multiplayer.session.dataSnapshot.MapCmds.GetValueSafe(ScheduledCommand.Global) ??
             new List<ScheduledCommand>());
         // Map cmds are added in MapAsyncTimeComp.FinalizeInit

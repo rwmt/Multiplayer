@@ -43,7 +43,7 @@ public class StorytellerPatches
                 __result.Clear();
                 __result.Add(Multiplayer.MapContext);
             }
-            else if (WorldTimeComp.tickingWorld)
+            else if (AsyncWorldTimeComp.tickingWorld)
             {
                 __result.Clear();
 
@@ -85,7 +85,7 @@ public class StorytellerPatches
             if (AsyncTimeComp.tickingMap != null)
                 return;
 
-            if (WorldTimeComp.tickingWorld && target is Map map)
+            if (AsyncWorldTimeComp.tickingWorld && target is Map map)
             {
                 AsyncTimeComp.tickingMap = map;
                 map.AsyncTime().PreContext();
@@ -108,7 +108,7 @@ public class StorytellerPatches
     {
         static void Prefix(IncidentParms parms, ref Map __state)
         {
-            if (WorldTimeComp.tickingWorld && parms.target is Map map)
+            if (AsyncWorldTimeComp.tickingWorld && parms.target is Map map)
             {
                 AsyncTimeComp.tickingMap = map;
                 map.AsyncTime().PreContext();

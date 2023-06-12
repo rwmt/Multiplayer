@@ -204,7 +204,7 @@ namespace Multiplayer.Client
                                         Log($"Ticks done: {ticksDone}");
                                         Log($"TPS: {1000.0/(timeSpent / ticksDone)}");
                                         Log($"Timer: {TickPatch.Timer}");
-                                        Log($"World: {Multiplayer.WorldTime.worldTicks}/{Multiplayer.WorldTime.randState}");
+                                        Log($"World: {Multiplayer.AsyncWorldTime.worldTicks}/{Multiplayer.AsyncWorldTime.randState}");
                                         foreach (var map in Find.Maps)
                                             Log($"Map {map.uniqueID} rand: {map.AsyncTime().mapTicks}/{map.AsyncTime().randState}");
 

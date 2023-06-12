@@ -46,7 +46,7 @@ namespace Multiplayer.Client
         {
             get
             {
-                yield return Multiplayer.WorldTime;
+                yield return Multiplayer.AsyncWorldTime;
 
                 var maps = Find.Maps;
                 for (int i = maps.Count - 1; i >= 0; i--)
@@ -146,7 +146,7 @@ namespace Multiplayer.Client
         static ITickable CurrentTickable()
         {
             if (WorldRendererUtility.WorldRenderedNow)
-                return Multiplayer.WorldTime;
+                return Multiplayer.AsyncWorldTime;
 
             if (Find.CurrentMap != null)
                 return Find.CurrentMap.AsyncTime();
@@ -269,7 +269,7 @@ namespace Multiplayer.Client
             if (Multiplayer.GameComp.asyncTime)
                 return tickable.TickRateMultiplier(speed);
 
-            var rate = Multiplayer.WorldTime.TickRateMultiplier(speed);
+            var rate = Multiplayer.AsyncWorldTime.TickRateMultiplier(speed);
             foreach (var map in Find.Maps)
                 rate = Math.Min(rate, map.AsyncTime().TickRateMultiplier(speed));
 

@@ -23,7 +23,7 @@ public static class TimeControlPatch
     private static ITickable Tickable =>
         !WorldRendererUtility.WorldRenderedNow && Multiplayer.GameComp.asyncTime
             ? Find.CurrentMap.AsyncTime()
-            : Multiplayer.WorldTime;
+            : Multiplayer.AsyncWorldTime;
 
     private static TimeVote CurTimeSpeedGame =>
         (TimeVote)(Multiplayer.IsReplay ? TickPatch.replayTimeSpeed : Tickable.DesiredTimeSpeed);
@@ -127,7 +127,7 @@ public static class TimeControlPatch
             return;
 
         // Prevent multiple players changing the speed too quickly
-        if (Time.realtimeSinceStartup - WorldTimeComp.lastSpeedChange < 0.4f)
+        if (Time.realtimeSinceStartup - AsyncWorldTimeComp.lastSpeedChange < 0.4f)
             return;
 
         if (KeyBindingDefOf.TogglePause.KeyDownEvent)
@@ -311,7 +311,7 @@ public static class ColonistBarTimeControl
             if (curGroup == entry.group) continue;
 
             ITickable entryTickable = entry.map?.AsyncTime();
-            if (entryTickable == null) entryTickable = Multiplayer.WorldTime;
+            if (entryTickable == null) entryTickable = Multiplayer.AsyncWorldTime;
 
             Rect groupBar = bar.drawer.GroupFrameRect(entry.group);
             float drawXPos = groupBar.x;
@@ -443,7 +443,7 @@ static class MainButtonWorldTimeControl
         __state = button;
 
         if (Event.current.type is EventType.MouseDown or EventType.MouseUp)
-            MpTimeControls.TimeControlButton(__state.Value, ColonistBarTimeControl.normalBgColor, Multiplayer.WorldTime);
+            MpTimeControls.TimeControlButton(__state.Value, ColonistBarTimeControl.normalBgColor, Multiplayer.AsyncWorldTime);
     }
 
     static void Postfix(MainButtonWorker __instance, Rect? __state)
@@ -451,7 +451,7 @@ static class MainButtonWorldTimeControl
         if (__state == null) return;
 
         if (Event.current.type == EventType.Repaint)
-            MpTimeControls.TimeControlButton(__state.Value, ColonistBarTimeControl.normalBgColor, Multiplayer.WorldTime);
+            MpTimeControls.TimeControlButton(__state.Value, ColonistBarTimeControl.normalBgColor, Multiplayer.AsyncWorldTime);
     }
 }
 
@@ -480,7 +480,7 @@ static class MpTimeControls
 
     public static void SendTimeChange(ITickable tickable, TimeSpeed newSpeed)
     {
-        if (tickable is WorldTimeComp)
+        if (tickable is AsyncWorldTimeComp)
             Multiplayer.Client.SendCommand(CommandType.GlobalTimeSpeed, ScheduledCommand.Global, (byte)newSpeed);
         else if (tickable is AsyncTimeComp comp)
             Multiplayer.Client.SendCommand(CommandType.MapTimeSpeed, comp.map.uniqueID, (byte)newSpeed);

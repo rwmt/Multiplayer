@@ -15,7 +15,7 @@ using Verse;
 
 namespace Multiplayer.Client.AsyncTime;
 
-public class WorldTimeComp : IExposable, ITickable
+public class AsyncWorldTimeComp : IExposable, ITickable
 {
     public static bool tickingWorld;
     public static bool executingCmdWorld;
@@ -65,7 +65,7 @@ public class WorldTimeComp : IExposable, ITickable
 
     public int worldTicks;
 
-    public WorldTimeComp(World world)
+    public AsyncWorldTimeComp(World world)
     {
         this.world = world;
     }
@@ -103,6 +103,27 @@ public class WorldTimeComp : IExposable, ITickable
             Find.TickManager.DoSingleTick();
             worldTicks++;
             Multiplayer.WorldComp.TickWorldTrading();
+
+            if (ModsConfig.BiotechActive)
+            {
+                // Vanilla puts those into a separate try/catch blocks
+                try
+                {
+                    CompDissolutionEffect_Goodwill.WorldUpdate();
+                }
+                catch (Exception e)
+                {
+                    Log.Error(e.ToString());
+                }
+                try
+                {
+                    CompDissolutionEffect_Pollution.WorldUpdate();
+                }
+                catch (Exception e)
+                {
+                    Log.Error(e.ToString());
+                }
+            }
         }
         finally
         {

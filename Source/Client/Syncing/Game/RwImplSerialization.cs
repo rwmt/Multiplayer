@@ -14,6 +14,7 @@ namespace Multiplayer.Client
         public static Type[] plantToGrowSettables;
 
         public static Type[] thingCompTypes;
+        public static Type[] hediffCompTypes;
         public static Type[] abilityCompTypes;
         public static Type[] designatorTypes;
         public static Type[] worldObjectCompTypes;
@@ -48,6 +49,7 @@ namespace Multiplayer.Client
             plantToGrowSettables = TypeUtil.AllImplementationsOrdered(typeof(IPlantToGrowSettable));
 
             thingCompTypes = TypeUtil.AllSubclassesNonAbstractOrdered(typeof(ThingComp));
+            hediffCompTypes = TypeUtil.AllSubclassesNonAbstractOrdered(typeof(HediffComp));
             abilityCompTypes = TypeUtil.AllSubclassesNonAbstractOrdered(typeof(AbilityComp));
             designatorTypes = TypeUtil.AllSubclassesNonAbstractOrdered(typeof(Designator));
             worldObjectCompTypes = TypeUtil.AllSubclassesNonAbstractOrdered(typeof(WorldObjectComp));

@@ -226,7 +226,7 @@ namespace Multiplayer.Client
             if (Current.ProgramState != ProgramState.Playing) return;
 
             if (cmd.mapId == ScheduledCommand.Global)
-                Multiplayer.WorldTime.cmds.Enqueue(cmd);
+                Multiplayer.AsyncWorldTime.cmds.Enqueue(cmd);
             else
                 cmd.GetMap()?.AsyncTime().cmds.Enqueue(cmd);
         }

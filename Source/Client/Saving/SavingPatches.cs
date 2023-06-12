@@ -51,12 +51,12 @@ namespace Multiplayer.Client.Saving
             if (Scribe.mode is LoadSaveMode.LoadingVars or LoadSaveMode.Saving)
             {
                 // Node called mpWorldComp for backwards compatibility
-                Scribe_Deep.Look(ref Multiplayer.game.worldTimeComp, "mpWorldComp", __instance);
+                Scribe_Deep.Look(ref Multiplayer.game.asyncWorldTimeComp, "mpWorldComp", __instance);
 
-                if (Multiplayer.game.worldTimeComp == null)
+                if (Multiplayer.game.asyncWorldTimeComp == null)
                 {
-                    Log.Warning($"No {nameof(WorldTimeComp)} during loading/saving");
-                    Multiplayer.game.worldTimeComp = new WorldTimeComp(__instance);
+                    Log.Warning($"No {nameof(AsyncWorldTimeComp)} during loading/saving");
+                    Multiplayer.game.asyncWorldTimeComp = new AsyncWorldTimeComp(__instance);
                 }
             }
         }
@@ -126,7 +126,7 @@ namespace Multiplayer.Client.Saving
         static void Postfix()
         {
             if (Multiplayer.Client == null) return;
-            Multiplayer.WorldTime.FinalizeInit();
+            Multiplayer.AsyncWorldTime.FinalizeInit();
         }
     }
 

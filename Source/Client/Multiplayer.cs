@@ -40,15 +40,15 @@ namespace Multiplayer.Client
         public static IdBlock GlobalIdBlock => game.gameComp.globalIdBlock;
         public static MultiplayerGameComp GameComp => game.gameComp;
         public static MultiplayerWorldComp WorldComp => game.worldComp;
-        public static WorldTimeComp WorldTime => game.worldTimeComp;
+        public static AsyncWorldTimeComp AsyncWorldTime => game.asyncWorldTimeComp;
 
         public static bool ShowDevInfo => Prefs.DevMode && settings.showDevInfo;
         public static bool GhostMode => session is { ghostModeCheckbox: true };
 
         public static Faction RealPlayerFaction => Client != null ? game.RealPlayerFaction : Faction.OfPlayer;
 
-        public static bool ExecutingCmds => WorldTimeComp.executingCmdWorld || AsyncTimeComp.executingCmdMap != null;
-        public static bool Ticking => WorldTimeComp.tickingWorld || AsyncTimeComp.tickingMap != null || ConstantTicker.ticking;
+        public static bool ExecutingCmds => AsyncWorldTimeComp.executingCmdWorld || AsyncTimeComp.executingCmdMap != null;
+        public static bool Ticking => AsyncWorldTimeComp.tickingWorld || AsyncTimeComp.tickingMap != null || ConstantTicker.ticking;
         public static Map MapContext => AsyncTimeComp.tickingMap ?? AsyncTimeComp.executingCmdMap;
 
         public static bool dontSync;

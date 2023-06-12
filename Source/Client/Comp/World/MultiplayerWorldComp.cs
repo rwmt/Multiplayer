@@ -25,7 +25,7 @@ public class MultiplayerWorldComp
         uiTemperatures = new TileTemperaturesComp(world);
     }
 
-    // Called from WorldTimeComp.ExposeData
+    // Called from AsyncWorldTimeComp.ExposeData
     public void ExposeData()
     {
         ExposeFactionData();

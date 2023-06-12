@@ -18,7 +18,7 @@ namespace Multiplayer.Client
     {
         public SyncCoordinator sync = new();
 
-        public WorldTimeComp worldTimeComp;
+        public AsyncWorldTimeComp asyncWorldTimeComp;
         public MultiplayerWorldComp worldComp;
         public MultiplayerGameComp gameComp;
         public List<MultiplayerMapComp> mapComps = new();

@@ -202,13 +202,13 @@ namespace Multiplayer.Client.AsyncTime
 
             if (Multiplayer.GameComp.asyncTime)
             {
-                var tickable = (ITickable)Multiplayer.MapContext.AsyncTime() ?? Multiplayer.WorldTime;
+                var tickable = (ITickable)Multiplayer.MapContext.AsyncTime() ?? Multiplayer.AsyncWorldTime;
                 tickable.SetDesiredTimeSpeed(TimeSpeed.Paused);
                 Multiplayer.GameComp.ResetAllTimeVotes(tickable.TickableId);
             }
             else
             {
-                Multiplayer.WorldTime.SetTimeEverywhere(TimeSpeed.Paused);
+                Multiplayer.AsyncWorldTime.SetTimeEverywhere(TimeSpeed.Paused);
                 foreach (var tickable in TickPatch.AllTickables)
                     Multiplayer.GameComp.ResetAllTimeVotes(tickable.TickableId);
             }

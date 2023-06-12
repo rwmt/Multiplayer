@@ -77,9 +77,9 @@ public static class IngameDebug
             text.Append(
                 $"\n{DeferredStackTracing.acc} {MpInput.Mouse2UpWithoutDrag} {Input.GetKeyUp(KeyCode.Mouse2)} {Input.GetKey(KeyCode.Mouse2)}");
             text.Append($"\n{(uint)async.randState} {(uint)(async.randState >> 32)}");
-            text.Append($"\n{(uint)Multiplayer.WorldTime.randState} {(uint)(Multiplayer.WorldTime.randState >> 32)}");
+            text.Append($"\n{(uint)Multiplayer.AsyncWorldTime.randState} {(uint)(Multiplayer.AsyncWorldTime.randState >> 32)}");
             text.Append(
-                $"\n{async.cmds.Count} {Multiplayer.WorldTime.cmds.Count} {async.slower.forceNormalSpeedUntil} {Multiplayer.GameComp.asyncTime}");
+                $"\n{async.cmds.Count} {Multiplayer.AsyncWorldTime.cmds.Count} {async.slower.forceNormalSpeedUntil} {Multiplayer.GameComp.asyncTime}");
             text.Append(
                 $"\nt{DeferredStackTracing.maxTraceDepth} p{SimplePool<StackTraceLogItemRaw>.FreeItemsCount} {DeferredStackTracingImpl.hashtableEntries}/{DeferredStackTracingImpl.hashtableSize} {DeferredStackTracingImpl.collisions}");
 

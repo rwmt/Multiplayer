@@ -33,8 +33,8 @@ public static class TimestampFixer
 
     public static void FixPawn(Pawn p, Map oldMap, Map newMap)
     {
-        var oldTime = oldMap?.AsyncTime().mapTicks ?? Multiplayer.WorldTime.worldTicks;
-        var newTime = newMap?.AsyncTime().mapTicks ?? Multiplayer.WorldTime.worldTicks;
+        var oldTime = oldMap?.AsyncTime().mapTicks ?? Multiplayer.AsyncWorldTime.worldTicks;
+        var newTime = newMap?.AsyncTime().mapTicks ?? Multiplayer.AsyncWorldTime.worldTicks;
         currentOffset = newTime - oldTime;
 
         MpLog.Debug($"Fixing pawn timestamps for {p} moving from {oldMap?.ToString() ?? "World"}:{oldTime} to {newMap?.ToString() ?? "World"}:{newTime}");
@@ -84,7 +84,7 @@ static class WorldPawnsRemovePawn_RememberTick
     static void Prefix(Pawn p)
     {
         if (Multiplayer.Client == null) return;
-        p.GetComp<MultiplayerPawnComp>().worldPawnRemoveTick = Multiplayer.WorldTime.worldTicks;
+        p.GetComp<MultiplayerPawnComp>().worldPawnRemoveTick = Multiplayer.AsyncWorldTime.worldTicks;
     }
 }
 
@@ -96,7 +96,7 @@ static class PawnSpawn_FixTimestamp
         if (Multiplayer.Client == null) return;
         if (__instance.Map == null) return;
 
-        if (__instance.GetComp<MultiplayerPawnComp>().worldPawnRemoveTick == Multiplayer.WorldTime.worldTicks)
+        if (__instance.GetComp<MultiplayerPawnComp>().worldPawnRemoveTick == Multiplayer.AsyncWorldTime.worldTicks)
             TimestampFixer.FixPawn(__instance, null, __instance.Map);
     }
 }

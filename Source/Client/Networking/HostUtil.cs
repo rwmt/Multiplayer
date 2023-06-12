@@ -100,7 +100,7 @@ namespace Multiplayer.Client
 
         private static async Task<GameDataSnapshot> CreateGameData(ServerSettings settings, bool asyncTime)
         {
-            Multiplayer.WorldTime.SetDesiredTimeSpeed(TimeSpeed.Paused);
+            Multiplayer.AsyncWorldTime.SetDesiredTimeSpeed(TimeSpeed.Paused);
             foreach (var map in Find.Maps)
                 map.AsyncTime().SetDesiredTimeSpeed(TimeSpeed.Paused);
 
@@ -155,7 +155,7 @@ namespace Multiplayer.Client
                 {
                     globalIdBlock = new IdBlock(GetMaxUniqueId(), 1_000_000_000)
                 },
-                worldTimeComp = new WorldTimeComp(Find.World) { worldTicks = Find.TickManager.TicksGame },
+                asyncWorldTimeComp = new AsyncWorldTimeComp(Find.World) { worldTicks = Find.TickManager.TicksGame },
                 worldComp = worldComp
             };
 

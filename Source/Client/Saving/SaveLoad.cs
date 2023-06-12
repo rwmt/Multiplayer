@@ -47,7 +47,7 @@ namespace Multiplayer.Client
                 mapCmds[map.uniqueID] = map.AsyncTime().cmds;
             }
 
-            mapCmds[ScheduledCommand.Global] = Multiplayer.WorldTime.cmds;
+            mapCmds[ScheduledCommand.Global] = Multiplayer.AsyncWorldTime.cmds;
 
             DeepProfiler.Start("Multiplayer SaveAndReload: Save");
             //WriteElementPatch.cachedVals = new Dictionary<string, object>();
@@ -102,7 +102,7 @@ namespace Multiplayer.Client
             Find.Selector.selected = SyncSerialization.ReadSync<List<ISelectable>>(selectedReader).AllNotNull().Cast<object>().ToList();
 
             Find.World.renderer.wantedMode = planetRenderMode;
-            Multiplayer.WorldTime.cmds = mapCmds[ScheduledCommand.Global];
+            Multiplayer.AsyncWorldTime.cmds = mapCmds[ScheduledCommand.Global];
 
             Multiplayer.reloading = false;
             //SimpleProfiler.Pause();
@@ -204,7 +204,7 @@ namespace Multiplayer.Client
             mapsNode.RemoveAll();
 
             byte[] gameData = ScribeUtil.XmlToByteArray(data.SaveData);
-            mapCmdsDict[ScheduledCommand.Global] = new List<ScheduledCommand>(Multiplayer.WorldTime.cmds);
+            mapCmdsDict[ScheduledCommand.Global] = new List<ScheduledCommand>(Multiplayer.AsyncWorldTime.cmds);
 
             return new GameDataSnapshot(
                 TickPatch.Timer,
