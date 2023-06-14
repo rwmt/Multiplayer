@@ -39,24 +39,24 @@ namespace Multiplayer.Client.Patches
         {
             if (Multiplayer.Client == null) return;
 
-            if (CurrentBlock == null)
-            {
-                __result = localIds--;
-                if (!Multiplayer.ShouldSync)
-                    Log.Warning("Tried to get a unique id without an id block set!");
-                return;
-            }
-
-            __result = CurrentBlock.NextId();
-
-            // if (Multiplayer.InInterface)
+            // if (currentBlockBlock == null)
             // {
             //     __result = localIds--;
+            //     if (!Multiplayer.ShouldSync)
+            //         Log.Warning("Tried to get a unique id without an id block set!");
+            //     return;
             // }
-            // else
-            // {
-            //     __result = Multiplayer.GlobalIdBlock.NextId();
-            // }
+            //
+            // __result = CurrentBlock.NextId();
+
+            if (Multiplayer.InInterface)
+            {
+                __result = localIds--;
+            }
+            else
+            {
+                __result = Multiplayer.GlobalIdBlock.NextId();
+            }
 
             //MpLog.Log("got new id " + __result);
 
