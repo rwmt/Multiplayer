@@ -61,7 +61,7 @@ namespace Multiplayer.Common
         public const float StandardTimePerTick = 1000.0f / 60.0f;
 
         public float serverTimePerTick = StandardTimePerTick;
-        private int sentCmdsSnapshot;
+        public int sentCmdsSnapshot;
 
         public int NetTimer { get; private set; }
 

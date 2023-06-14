@@ -46,7 +46,7 @@ namespace Multiplayer.Client
 
         public override string AdditionalInfo => $"{thingDef}{thingId} {factionName} {depth} {iters} {moreInfo}";
 
-        static Dictionary<long, string> methodNames = new Dictionary<long, string>();
+        static Dictionary<long, string> methodNames = new();
 
         public override string StackTraceString
         {

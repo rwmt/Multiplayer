@@ -43,9 +43,8 @@ namespace Multiplayer.Client
             if (!worldRandomStates.SequenceEqual(other.worldRandomStates))
                 return "Wrong random state for the world";
 
-            //dbg
-            // if (!commandRandomStates.SequenceEqual(other.commandRandomStates))
-            //     return "Random state from commands doesn't match";
+            if (!commandRandomStates.SequenceEqual(other.commandRandomStates))
+                return "Random state from commands doesn't match";
 
             if (!simulating && !other.simulating && desyncStackTraceHashes.Any() && other.desyncStackTraceHashes.Any() && !desyncStackTraceHashes.SequenceEqual(other.desyncStackTraceHashes))
                 return "Trace hashes don't match";

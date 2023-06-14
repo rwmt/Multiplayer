@@ -28,6 +28,8 @@ public class ServerLoadingState : AsyncConnectionState
 
         writer.WriteInt32(Player.FactionId);
         writer.WriteInt32(Server.gameTimer);
+        writer.WriteInt32(Server.sentCmdsSnapshot);
+        writer.WriteBool(Server.freezeManager.Frozen);
         writer.WritePrefixedBytes(Server.worldData.savedGame);
         writer.WritePrefixedBytes(Server.worldData.semiPersistent);
 
@@ -58,9 +60,6 @@ public class ServerLoadingState : AsyncConnectionState
             writer.WriteInt32(mapId);
             writer.WritePrefixedBytes(mapData);
         }
-
-        writer.WriteInt32(Server.commands.SentCmds);
-        writer.WriteBool(Server.freezeManager.Frozen);
 
         writer.WriteInt32(Server.worldData.syncInfos.Count);
         foreach (var syncInfo in Server.worldData.syncInfos)

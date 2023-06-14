@@ -38,6 +38,8 @@ public class ClientLoadingState : ClientBaseState
         Multiplayer.session.myFactionId = factionId;
 
         int tickUntil = data.ReadInt32();
+        int remoteSentCmds = data.ReadInt32();
+        bool serverFrozen = data.ReadBool();
 
         byte[] worldData = GZipStream.UncompressBuffer(data.ReadPrefixedBytes());
         byte[] semiPersistentData = GZipStream.UncompressBuffer(data.ReadPrefixedBytes());
@@ -80,9 +82,9 @@ public class ClientLoadingState : ClientBaseState
             mapCmdsDict
         );
 
-        Multiplayer.session.receivedCmds = data.ReadInt32();
-        TickPatch.serverFrozen = data.ReadBool();
         TickPatch.tickUntil = tickUntil;
+        Multiplayer.session.receivedCmds = remoteSentCmds;
+        TickPatch.serverFrozen = serverFrozen;
 
         int syncInfos = data.ReadInt32();
         for (int i = 0; i < syncInfos; i++)
