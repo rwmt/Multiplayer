@@ -14,7 +14,7 @@ namespace Multiplayer.Client.Patches
 
         static void Prefix(ref Action action, string textKey)
         {
-            if (Multiplayer.Client != null && (Multiplayer.Ticking || Multiplayer.ExecutingCmds || textKey == "MpSaving"))
+            if (Multiplayer.Client is { State: ConnectionStateEnum.ClientPlaying } && (Multiplayer.Ticking || Multiplayer.ExecutingCmds || textKey == "MpSaving"))
             {
                 action += Marker;
             }

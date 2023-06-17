@@ -1,4 +1,3 @@
-extern alias zip;
 using System;
 using HarmonyLib;
 using Multiplayer.Common;
@@ -35,6 +34,9 @@ namespace Multiplayer.Client
             }
         }
 
+        private const float TicksPerMinute = 60 * 60;
+        private const float TicksPerIngameDay = 2500 * 24;
+
         static void TickAutosave()
         {
             if (Multiplayer.LocalServer is not { } server) return;
@@ -45,7 +47,7 @@ namespace Multiplayer.Client
                 session.autosaveCounter++;
 
                 if (server.settings.autosaveInterval > 0 &&
-                    session.autosaveCounter > server.settings.autosaveInterval * 60 * 60)
+                    session.autosaveCounter > server.settings.autosaveInterval * TicksPerMinute)
                 {
                     session.autosaveCounter = 0;
                     MultiplayerSession.DoAutosave();
@@ -54,7 +56,7 @@ namespace Multiplayer.Client
             {
                 var anyMapCounterUp =
                     Multiplayer.game.mapComps
-                    .Any(m => m.autosaveCounter > server.settings.autosaveInterval * 2500 * 24);
+                    .Any(m => m.autosaveCounter > server.settings.autosaveInterval * TicksPerIngameDay);
 
                 if (anyMapCounterUp)
                 {
@@ -100,7 +102,7 @@ namespace Multiplayer.Client
             }
         }
 
-        private static Pawn dummyPawn = new Pawn()
+        private static Pawn dummyPawn = new()
         {
             relations = new Pawn_RelationsTracker(dummyPawn),
         };

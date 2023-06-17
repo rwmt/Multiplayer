@@ -12,7 +12,7 @@ namespace Multiplayer.Common
             private set
             {
                 frozen = value;
-                Server.SendToAll(Packets.Server_Freeze, new object[] { frozen, Server.gameTimer });
+                Server.SendToPlaying(Packets.Server_Freeze, new object[] { frozen, Server.gameTimer });
             }
         }
 
@@ -27,6 +27,9 @@ namespace Multiplayer.Common
 
         public void Tick()
         {
+            if (!Server.PlayingPlayers.Any(p => p.IsHost))
+                return;
+
             if (!Frozen && Server.HostPlayer.frozen)
                 Frozen = true;
 

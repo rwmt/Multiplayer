@@ -9,6 +9,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
+using Multiplayer.Common.Util;
 using UnityEngine;
 using Verse;
 using Verse.AI;
@@ -346,7 +347,7 @@ namespace Multiplayer.Client
             async.storyWatcher = new StoryWatcher();
 
             if (!Multiplayer.GameComp.asyncTime)
-                async.TimeSpeed = Find.TickManager.CurTimeSpeed;
+                async.SetDesiredTimeSpeed(Find.TickManager.CurTimeSpeed);
         }
 
         public static void InitFactionDataFromMap(Map map, Faction f)
@@ -621,6 +622,36 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.Client != null && __state != DebugSettings.godMode)
                 Multiplayer.GameComp.SetGodMode(Multiplayer.session.playerId, DebugSettings.godMode);
+        }
+    }
+
+    [HarmonyPatch(typeof(Settlement), nameof(Settlement.Material), MethodType.Getter)]
+    static class SettlementNullFactionPatch1
+    {
+        static bool Prefix(Settlement __instance, ref Material __result)
+        {
+            if (__instance.factionInt == null)
+            {
+                __result = BaseContent.BadMat;
+                return false;
+            }
+
+            return true;
+        }
+    }
+
+    [HarmonyPatch(typeof(Settlement), nameof(Settlement.ExpandingIcon), MethodType.Getter)]
+    static class SettlementNullFactionPatch2
+    {
+        static bool Prefix(Settlement __instance, ref Texture2D __result)
+        {
+            if (__instance.factionInt == null)
+            {
+                __result = BaseContent.BadTex;
+                return false;
+            }
+
+            return true;
         }
     }
 }

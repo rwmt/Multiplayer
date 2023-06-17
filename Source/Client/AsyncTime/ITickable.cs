@@ -1,4 +1,3 @@
-extern alias zip;
 using Multiplayer.Common;
 using System.Collections.Generic;
 using Verse;
@@ -9,11 +8,13 @@ namespace Multiplayer.Client
     {
         int TickableId { get; }
 
-        float RealTimeToTickThrough { get; set; }
-
-        TimeSpeed TimeSpeed { get; set; }
-
         Queue<ScheduledCommand> Cmds { get; }
+
+        float TimeToTickThrough { get; set; }
+
+        TimeSpeed DesiredTimeSpeed { get; }
+
+        void SetDesiredTimeSpeed(TimeSpeed speed);
 
         float TickRateMultiplier(TimeSpeed speed);
 

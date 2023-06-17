@@ -4,6 +4,7 @@ using RimWorld;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Multiplayer.Client.Experimental;
 using Multiplayer.Client.Util;
 using UnityEngine;
 using Verse;

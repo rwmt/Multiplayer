@@ -11,7 +11,6 @@ using Verse.Sound;
 
 namespace Multiplayer.Client
 {
-
     public class CursorAndPing
     {
         public List<PingInfo> pings = new();
@@ -170,7 +169,6 @@ namespace Multiplayer.Client
             Multiplayer.Client.Send(Packets.Client_Selected, writer.ToArray());
         }
     }
-
 
     public class PingInfo
     {

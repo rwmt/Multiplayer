@@ -192,12 +192,12 @@ namespace Multiplayer.Client
 
             TimeSnapshot prev = Current();
 
-            var man = Find.TickManager;
-            var comp = map.AsyncTime();
+            var tickManager = Find.TickManager;
+            var mapComp = map.AsyncTime();
 
-            man.ticksGameInt = comp.mapTicks;
-            man.slower = comp.slower;
-            man.CurTimeSpeed = comp.TimeSpeed;
+            tickManager.ticksGameInt = mapComp.mapTicks;
+            tickManager.slower = mapComp.slower;
+            tickManager.CurTimeSpeed = mapComp.DesiredTimeSpeed;
 
             return prev;
         }

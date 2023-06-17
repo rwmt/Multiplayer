@@ -1,5 +1,3 @@
-extern alias zip;
-
 using HarmonyLib;
 using Ionic.Crc;
 using Multiplayer.Common;
@@ -17,7 +15,6 @@ using System.Text.RegularExpressions;
 using System.Xml;
 using UnityEngine;
 using Verse;
-using zip::Ionic.Zip;
 using Random = System.Random;
 
 namespace Multiplayer.Client
@@ -25,16 +22,6 @@ namespace Multiplayer.Client
     public static class Extensions
     {
         private static Regex methodNameCleaner = new Regex(@"(\?[0-9\-]+)");
-
-        public static IEnumerable<Type> AllSubtypesAndSelf(this Type t)
-        {
-            return t.AllSubclasses().Concat(t);
-        }
-
-        public static IEnumerable<Type> AllImplementing(this Type type)
-        {
-            return Multiplayer.implementations.GetValueSafe(type) is { } list ? list : Array.Empty<Type>();
-        }
 
         // Sets the current Faction.OfPlayer
         // Applies faction's world components
@@ -172,18 +159,6 @@ namespace Multiplayer.Client
             }
 
             return traceToHash.ToString().GetHashCode();
-        }
-
-        public static byte[] GetBytes(this ZipEntry entry)
-        {
-            MemoryStream stream = new MemoryStream();
-            entry.Extract(stream);
-            return stream.ToArray();
-        }
-
-        public static string GetString(this ZipEntry entry)
-        {
-            return Encoding.UTF8.GetString(entry.GetBytes());
         }
 
         public static bool IsCompilerGenerated(this Type type)

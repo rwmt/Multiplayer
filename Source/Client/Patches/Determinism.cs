@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using Multiplayer.Client.AsyncTime;
 using Multiplayer.Client.Util;
 using RimWorld.QuestGen;
 using UnityEngine;
@@ -282,7 +283,7 @@ namespace Multiplayer.Client.Patches
         static bool Prefix()
         {
             // In MP only allow updates from MultiplayerWorldComp:Tick()
-            return Multiplayer.Client == null || MultiplayerWorldComp.tickingWorld;
+            return Multiplayer.Client == null || AsyncWorldTimeComp.tickingWorld;
         }
     }
 

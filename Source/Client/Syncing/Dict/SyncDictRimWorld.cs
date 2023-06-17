@@ -10,7 +10,7 @@ using Verse;
 using Verse.AI;
 using Verse.AI.Group;
 using static Multiplayer.Client.SyncSerialization;
-using static Multiplayer.Client.ImplSerialization;
+using static Multiplayer.Client.RwImplSerialization;
 // ReSharper disable RedundantLambdaParameterType
 
 namespace Multiplayer.Client
@@ -684,11 +684,11 @@ namespace Multiplayer.Client
                             holder = thing.Map;
                         else if (thing.ParentHolder is ThingComp thingComp)
                             holder = thingComp;
-                        else if (ThingOwnerUtility.GetFirstSpawnedParentThing(thing) is Thing parentThing)
+                        else if (ThingOwnerUtility.GetFirstSpawnedParentThing(thing) is { } parentThing)
                             holder = parentThing;
-                        else if (GetAnyParent<WorldObject>(thing) is WorldObject worldObj)
+                        else if (GetAnyParent<WorldObject>(thing) is { } worldObj)
                             holder = worldObj;
-                        else if (GetAnyParent<WorldObjectComp>(thing) is WorldObjectComp worldObjComp)
+                        else if (GetAnyParent<WorldObjectComp>(thing) is { } worldObjComp)
                             holder = worldObjComp;
 
                         GetImpl(holder, supportedThingHolders, out Type implType, out int index);
@@ -706,7 +706,6 @@ namespace Multiplayer.Client
                             context.syncingThingParent = true;
                             WriteSyncObject(data, holder, implType);
                             context.syncingThingParent = false;
-                            return;
                         }
                     }
                 },

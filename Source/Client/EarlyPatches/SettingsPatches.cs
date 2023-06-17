@@ -112,16 +112,16 @@ namespace Multiplayer.Client.EarlyPatches
             if (mod == null)
                 return;
 
+            if (JoinData.ignoredConfigsModIds.Contains(mod.ModMetaData.PackageIdNonUnique))
+                return;
+
             // Example: MultiplayerTempConfigs/rwmt.multiplayer-Multiplayer
             var newPath = Path.Combine(
                 GenFilePaths.FolderUnderSaveData(JoinData.TempConfigsDir),
                 GenText.SanitizeFilename(mod.PackageIdPlayerFacing.ToLowerInvariant() + "-" + modHandleName)
             );
 
-            if (File.Exists(newPath))
-            {
-                __result = newPath;
-            }
+            __result = newPath;
         }
     }
 

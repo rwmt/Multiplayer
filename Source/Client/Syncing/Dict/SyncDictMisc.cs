@@ -22,7 +22,7 @@ namespace Multiplayer.Client
             #region System
             {
                 (ByteWriter data, Type type) => data.WriteString(type.FullName),
-                (ByteReader data) => AccessTools.TypeByName(data.ReadString())
+                (ByteReader data) => AccessTools.TypeByName(data.ReadStringNullable())
             },
             #endregion
 
@@ -56,7 +56,7 @@ namespace Multiplayer.Client
                     data.WriteString(name.nameInt);
                     data.WriteBool(name.numerical);
                 },
-                (ByteReader data) => new NameSingle(data.ReadString(), data.ReadBool())
+                (ByteReader data) => new NameSingle(data.ReadStringNullable(), data.ReadBool())
             },
             {
                 (ByteWriter data, NameTriple name) => {
@@ -64,7 +64,7 @@ namespace Multiplayer.Client
                     data.WriteString(name.nickInt);
                     data.WriteString(name.lastInt);
                 },
-                (ByteReader data) => new NameTriple(data.ReadString(), data.ReadString(), data.ReadString())
+                (ByteReader data) => new NameTriple(data.ReadStringNullable(), data.ReadStringNullable(), data.ReadStringNullable())
             },
             #endregion
 
@@ -73,7 +73,7 @@ namespace Multiplayer.Client
                 (ByteWriter data, TaggedString str) => {
                     data.WriteString(str.rawText);
                 },
-                (ByteReader data) => new TaggedString(data.ReadString())
+                (ByteReader data) => new TaggedString(data.ReadStringNullable())
             },
             {
                 (SyncWorker worker, ref ColorInt color) =>

@@ -3,12 +3,14 @@ using Multiplayer.Common;
 using RimWorld;
 using System.Collections.Generic;
 using System.Reflection;
+using Multiplayer.Common.Util;
 using Verse;
 
 namespace Multiplayer.Client.Patches
 {
     [HarmonyPatch(typeof(UniqueIDsManager))]
     [HarmonyPatch(nameof(UniqueIDsManager.GetNextID))]
+    [HotSwappable]
     public static class UniqueIdsPatch
     {
         private static IdBlock currentBlock;
@@ -37,16 +39,15 @@ namespace Multiplayer.Client.Patches
         {
             if (Multiplayer.Client == null) return;
 
-            /*IdBlock currentBlock = CurrentBlock;
-            if (currentBlock == null)
-            {
-                __result = localIds--;
-                if (!Multiplayer.ShouldSync)
-                    Log.Warning("Tried to get a unique id without an id block set!");
-                return;
-            }
-
-            __result = currentBlock.NextId();*/
+            // if (currentBlockBlock == null)
+            // {
+            //     __result = localIds--;
+            //     if (!Multiplayer.ShouldSync)
+            //         Log.Warning("Tried to get a unique id without an id block set!");
+            //     return;
+            // }
+            //
+            // __result = CurrentBlock.NextId();
 
             if (Multiplayer.InInterface)
             {

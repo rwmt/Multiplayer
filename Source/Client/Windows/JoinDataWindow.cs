@@ -763,8 +763,8 @@ namespace Multiplayer.Client
                 : $"{data.remoteAddress}:{data.remotePort}";
 
             // The env variables will get inherited by the child process started in GenCommandLine.Restart
-            Environment.SetEnvironmentVariable(Multiplayer.RestartConnectVariable, connectTo);
-            Environment.SetEnvironmentVariable(Multiplayer.RestartConfigsVariable, applyConfigs ? "true" : "false");
+            Environment.SetEnvironmentVariable(EarlyInit.RestartConnectVariable, connectTo);
+            Environment.SetEnvironmentVariable(EarlyInit.RestartConfigsVariable, applyConfigs ? "true" : "false");
 
             GenCommandLine.Restart();
         }

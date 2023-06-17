@@ -1,13 +1,12 @@
 using Multiplayer.Common;
 
-namespace Multiplayer.Client
-{
-    public abstract class ClientBaseState : MpConnectionState
-    {
-        public MultiplayerSession Session => Multiplayer.session;
+namespace Multiplayer.Client;
 
-        public ClientBaseState(ConnectionBase connection) : base(connection)
-        {
-        }
+public abstract class ClientBaseState : MpConnectionState
+{
+    protected MultiplayerSession Session => Multiplayer.session;
+
+    public ClientBaseState(ConnectionBase connection) : base(connection)
+    {
     }
 }
