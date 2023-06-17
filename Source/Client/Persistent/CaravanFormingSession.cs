@@ -20,7 +20,7 @@ namespace Multiplayer.Client
         public int destinationTile = -1;
         public List<TransferableOneWay> transferables;
         public bool autoSelectTravelSupplies;
-        public readonly IntVec3? meetingSpot;
+        public IntVec3? meetingSpot;
 
         public bool uiDirty;
 
@@ -162,6 +162,8 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref mapAboutToBeRemoved, "mapAboutToBeRemoved");
             Scribe_Values.Look(ref startingTile, "startingTile");
             Scribe_Values.Look(ref destinationTile, "destinationTile");
+            Scribe_Values.Look(ref autoSelectTravelSupplies, "autoSelectTravelSupplies");
+            Scribe_Values.Look(ref meetingSpot, "meetingSpot");
 
             Scribe_Collections.Look(ref transferables, "transferables", LookMode.Deep);
         }
