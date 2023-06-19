@@ -1,24 +1,18 @@
 using HarmonyLib;
 using Multiplayer.API;
-using Multiplayer.Common;
 using RimWorld;
-using RimWorld.Planet;
-using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
-using System.Text;
 using Multiplayer.Client.Util;
 using UnityEngine;
 using Verse;
-using Verse.AI;
 using Verse.AI.Group;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
+
     public class TradingWindow : Window, ISwitchToMap
     {
         public static TradingWindow drawingTrade;
@@ -223,20 +217,24 @@ namespace Multiplayer.Client
             newTradeables.Clear();
         }
 
-        public static IEnumerable<Tradeable> AllTradeables()
+        public static List<Tradeable> AllTradeables()
         {
+            var list = new List<Tradeable>();
+
             foreach (Tradeable t in TradeSession.deal.AllTradeables)
             {
                 if (!TradeSession.giftMode || t.FirstThingColony != null)
-                    yield return t;
+                    list.Add(t);
             }
 
             if (drawingTrade != null)
             {
                 foreach (var kv in drawingTrade.removed)
                     if (!TradeSession.giftMode || kv.Key.FirstThingColony != null)
-                        yield return kv.Key;
+                        list.Add(kv.Key);
             }
+
+            return list;
         }
     }
 
@@ -383,8 +381,8 @@ namespace Multiplayer.Client
     {
         static IEnumerable<MethodBase> TargetMethods()
         {
-            yield return MpMethodUtil.GetLambda(typeof(Dialog_Trade), nameof(Dialog_Trade.DoWindowContents));
-            yield return MpMethodUtil.GetLambda(typeof(Dialog_Trade), nameof(Dialog_Trade.DoWindowContents));
+            yield return MpMethodUtil.GetLambda(typeof(Dialog_Trade), nameof(Dialog_Trade.DoWindowContents), lambdaOrdinal: 0);
+            yield return MpMethodUtil.GetLambda(typeof(Dialog_Trade), nameof(Dialog_Trade.DoWindowContents), lambdaOrdinal: 1);
         }
 
         static void Prefix(ref bool __state)
@@ -452,6 +450,37 @@ namespace Multiplayer.Client
             }
 
             return insts;
+        }
+    }
+
+    [HarmonyPatch]
+    static class FixAcceptOverTraderSilver
+    {
+        static MethodBase TargetMethod()
+        {
+            return MpMethodUtil.GetLambda(typeof(Dialog_Trade), nameof(Dialog_Trade.DoWindowContents), lambdaOrdinal: 2);
+        }
+
+        static void Prefix(ref bool __state)
+        {
+            if (TradeSession.deal != null) return;
+
+            TradingWindow trading = Find.WindowStack.WindowOfType<TradingWindow>();
+            if (trading != null)
+            {
+                TradingWindow.drawingTrade = trading;
+                MpTradeSession.SetTradeSession(Multiplayer.WorldComp.trading[trading.selectedTab]);
+                __state = true;
+            }
+        }
+
+        static void Postfix(bool __state)
+        {
+            if (__state)
+            {
+                TradingWindow.drawingTrade = null;
+                MpTradeSession.SetTradeSession(null);
+            }
         }
     }
 

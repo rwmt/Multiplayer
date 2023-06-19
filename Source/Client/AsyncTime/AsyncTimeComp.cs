@@ -1,22 +1,11 @@
-extern alias zip;
-
 using HarmonyLib;
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Text.RegularExpressions;
-using System.Threading;
-using System.Reflection;
 using Multiplayer.API;
-using UnityEngine;
 using Verse;
-using Verse.AI;
-using Verse.Sound;
-using zip::Ionic.Zip;
 using Multiplayer.Client.Comp;
 using Multiplayer.Client.Patches;
 using Multiplayer.Client.Saving;
@@ -24,7 +13,6 @@ using Multiplayer.Client.Util;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
     public class AsyncTimeComp : IExposable, ITickable
     {
         public static Map tickingMap;
@@ -45,7 +33,7 @@ namespace Multiplayer.Client
 
             if (enforcePause)
                 return 0f;
-            
+
             if (mapTicks < slower.forceNormalSpeedUntil)
                 return speed == TimeSpeed.Paused ? 0 : 1;
 
@@ -68,15 +56,16 @@ namespace Multiplayer.Client
             }
         }
 
-        public TimeSpeed TimeSpeed
+        public TimeSpeed DesiredTimeSpeed => timeSpeedInt;
+
+        public void SetDesiredTimeSpeed(TimeSpeed speed)
         {
-            get => timeSpeedInt;
-            set => timeSpeedInt = value;
+            timeSpeedInt = speed;
         }
 
-        public bool Paused => this.ActualRateMultiplier(TimeSpeed) == 0f;
+        public bool Paused => this.ActualRateMultiplier(DesiredTimeSpeed) == 0f;
 
-        public float RealTimeToTickThrough { get; set; }
+        public float TimeToTickThrough { get; set; }
 
         public Queue<ScheduledCommand> Cmds { get => cmds; }
 
@@ -131,6 +120,9 @@ namespace Multiplayer.Client
                 QuestManagerTickAsyncTime();
 
                 map.MapPostTick();
+                Find.TickManager.ticksThisFrame = 1;
+                map.postTickVisuals.ProcessPostTickVisuals();
+                Find.TickManager.ticksThisFrame = 0;
 
                 UpdateManagers();
                 CacheNothingHappening();
@@ -165,7 +157,7 @@ namespace Multiplayer.Client
 
         // These are normally called in Map.MapUpdate() and react to changes in the game state even when the game is paused (not ticking)
         // Update() methods are not deterministic, but in multiplayer all game state changes (which don't happen during ticking) happen in commands
-        // Thus these methods can be moved to Tick() and ExecuteCmd()
+        // Thus these methods can be moved to Tick() and ExecuteCmd() by way of this method
         public void UpdateManagers()
         {
             map.regionGrid.UpdateClean();
@@ -232,7 +224,10 @@ namespace Multiplayer.Client
 
         public void FinalizeInit()
         {
-            cmds = new Queue<ScheduledCommand>(Multiplayer.session.dataSnapshot.mapCmds.GetValueSafe(map.uniqueID) ?? new List<ScheduledCommand>());
+            cmds = new Queue<ScheduledCommand>(
+                Multiplayer.session.dataSnapshot?.MapCmds.GetValueSafe(map.uniqueID) ?? new List<ScheduledCommand>()
+            );
+
             Log.Message($"Init map with cmds {cmds.Count}");
         }
 
@@ -247,7 +242,6 @@ namespace Multiplayer.Client
 
             MpContext context = data.MpContext();
 
-            var updateWorldTime = false;
             keepTheMap = false;
             var prevMap = Current.Game.CurrentMap;
             Current.Game.currentMapIndex = (sbyte)map.Index;
@@ -290,8 +284,7 @@ namespace Multiplayer.Client
                 if (cmdType == CommandType.MapTimeSpeed && Multiplayer.GameComp.asyncTime)
                 {
                     TimeSpeed speed = (TimeSpeed)data.ReadByte();
-                    TimeSpeed = speed;
-                    updateWorldTime = true;
+                    SetDesiredTimeSpeed(speed);
 
                     MpLog.Debug("Set map time speed " + speed);
                 }
@@ -339,9 +332,6 @@ namespace Multiplayer.Client
 
                 if (!keepTheMap)
                     TrySetCurrentMap(prevMap);
-                if (updateWorldTime) {
-                    Multiplayer.WorldComp.UpdateTimeSpeed();
-                }
 
                 keepTheMap = false;
 
@@ -358,10 +348,7 @@ namespace Multiplayer.Client
         {
             if (!Find.Maps.Contains(map))
             {
-                if (Find.Maps.Any())
-                    Current.Game.CurrentMap = Find.Maps[0];
-                else
-                    Current.Game.CurrentMap = null;
+                Current.Game.CurrentMap = Find.Maps.Any() ? Find.Maps[0] : null;
                 Find.World.renderer.wantedMode = WorldRenderMode.Planet;
             }
             else
@@ -407,7 +394,7 @@ namespace Multiplayer.Client
                     Thing thing = SyncSerialization.ReadSync<Thing>(data);
                     if (thing == null) return false;
 
-                    DesignatorInstallPatch.thingToInstall = thing;
+                    DesignatorInstall_SetThingToInstall.thingToInstall = thing;
                 }
 
                 if (designator is Designator_Zone)
@@ -425,7 +412,7 @@ namespace Multiplayer.Client
                 if (prevArea.HasValue)
                     Designator_AreaAllowed.selectedArea = prevArea.Value.Inner;
 
-                DesignatorInstallPatch.thingToInstall = null;
+                DesignatorInstall_SetThingToInstall.thingToInstall = null;
             }
 
             try

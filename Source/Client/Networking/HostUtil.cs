@@ -1,18 +1,18 @@
 using HarmonyLib;
-using Ionic.Zlib;
 using Multiplayer.Client.Networking;
 using Multiplayer.Common;
 using RimWorld;
 using System;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Multiplayer.Client.AsyncTime;
 using Multiplayer.Client.Comp;
+using Multiplayer.Client.Util;
+using Multiplayer.Common.Util;
 using UnityEngine;
 using Verse;
 
@@ -21,10 +21,38 @@ namespace Multiplayer.Client
     [HotSwappable]
     public static class HostUtil
     {
-        public static void HostServer(ServerSettings settings, bool fromReplay, bool hadSimulation, bool asyncTime)
+        // Host entry points:
+        // - singleplayer save, server browser
+        // - singleplayer save, ingame
+        // - replay, server browser
+        // - replay, ingame
+        public static async ClientTask HostServer(ServerSettings settings, bool fromReplay, bool hadSimulation, bool asyncTime)
         {
             Log.Message($"Starting the server");
 
+            CreateSession(settings);
+
+            // Server already pre-inited in HostWindow
+            PrepareLocalServer(settings, fromReplay);
+
+            if (!fromReplay)
+                SetupGameFromSingleplayer();
+
+            CreateLocalClient();
+            PrepareGame();
+
+            Multiplayer.session.dataSnapshot = await CreateGameData(settings, asyncTime);
+
+            MakeHostOnServer();
+
+            // todo handle sending cmds for hosting from loaded replay?
+            SaveLoad.SendGameData(Multiplayer.session.dataSnapshot, false);
+
+            StartLocalServer();
+        }
+
+        private static void CreateSession(ServerSettings settings)
+        {
             var session = new MultiplayerSession();
             if (Multiplayer.session != null) // This is the case when hosting from a replay
                 session.dataSnapshot = Multiplayer.session.dataSnapshot;
@@ -34,28 +62,15 @@ namespace Multiplayer.Client
             session.myFactionId = Faction.OfPlayer.loadID;
             session.localServerSettings = settings;
             session.gameName = settings.gameName;
+        }
 
-            // Server already pre-inited in HostWindow
+        private static void PrepareLocalServer(ServerSettings settings, bool fromReplay)
+        {
             var localServer = Multiplayer.LocalServer;
             MultiplayerServer.instance = Multiplayer.LocalServer;
 
-            if (hadSimulation)
-            {
-                localServer.savedGame = GZipStream.CompressBuffer(session.dataSnapshot.gameData);
-                localServer.semiPersistent = GZipStream.CompressBuffer(session.dataSnapshot.semiPersistentData);
-                localServer.mapData = session.dataSnapshot.mapData.ToDictionary(kv => kv.Key, kv => GZipStream.CompressBuffer(kv.Value));
-                localServer.mapCmds = session.dataSnapshot.mapCmds.ToDictionary(kv => kv.Key, kv => kv.Value.Select(ScheduledCommand.Serialize).ToList());
-            }
-
-            localServer.commands.debugOnlySyncCmds = Sync.handlers.Where(h => h.debugOnly).Select(h => h.syncId).ToHashSet();
-            localServer.commands.hostOnlySyncCmds = Sync.handlers.Where(h => h.hostOnly).Select(h => h.syncId).ToHashSet();
             localServer.hostUsername = Multiplayer.username;
-            localServer.coopFactionId = Faction.OfPlayer.loadID;
-
-            localServer.rwVersion = VersionControl.CurrentVersionString;
-            localServer.mpVersion = MpVersion.Version;
-            localServer.defInfos = MultiplayerData.localDefInfos;
-            localServer.serverData = JoinData.WriteServerData(settings.syncConfigs);
+            localServer.worldData.defaultFactionId = Faction.OfPlayer.loadID;
 
             if (settings.steam)
                 localServer.TickEvent += SteamIntegration.ServerSteamNetTick;
@@ -63,68 +78,48 @@ namespace Multiplayer.Client
             if (fromReplay)
                 localServer.gameTimer = TickPatch.Timer;
 
-            if (!fromReplay)
-                SetupGameFromSingleplayer();
+            localServer.initDataSource = new TaskCompletionSource<ServerInitData>();
+            localServer.CompleteInitData(
+                ServerInitData.Deserialize(new ByteReader(ClientJoiningState.PackInitData(settings.syncConfigs)))
+            );
+        }
 
+        private static void PrepareGame()
+        {
             foreach (var tickable in TickPatch.AllTickables)
                 tickable.Cmds.Clear();
 
-            Find.PlaySettings.usePlanetDayNightSystem = false;
-
-            Multiplayer.RealPlayerFaction = Faction.OfPlayer;
-            localServer.playerFactions[Multiplayer.username] = Faction.OfPlayer.loadID;
-
-            SetupLocalClient();
+            Multiplayer.game.ChangeRealPlayerFaction(Faction.OfPlayer);
+            Multiplayer.session.ReapplyPrefs();
 
             Find.MainTabsRoot.EscapeCurrentTab(false);
 
             Multiplayer.session.AddMsg("If you are having any issues with the mod and would like some help resolving them, then please reach out to us on our Discord server:", false);
             Multiplayer.session.AddMsg(new ChatMsg_Url("https://discord.gg/S4bxXpv"), false);
+        }
 
-            if (hadSimulation)
-            {
-                StartServerThread();
-            }
-            else
-            {
-                Multiplayer.WorldComp.TimeSpeed = TimeSpeed.Paused;
-                foreach (var map in Find.Maps)
-                    map.AsyncTime().TimeSpeed = TimeSpeed.Paused;
+        private static async Task<GameDataSnapshot> CreateGameData(ServerSettings settings, bool asyncTime)
+        {
+            Multiplayer.AsyncWorldTime.SetDesiredTimeSpeed(TimeSpeed.Paused);
+            foreach (var map in Find.Maps)
+                map.AsyncTime().SetDesiredTimeSpeed(TimeSpeed.Paused);
 
-                Multiplayer.WorldComp.UpdateTimeSpeed();
+            Find.TickManager.CurTimeSpeed = TimeSpeed.Paused;
 
-                Multiplayer.GameComp.asyncTime = asyncTime;
-                Multiplayer.GameComp.debugMode = settings.debugMode;
-                Multiplayer.GameComp.logDesyncTraces = settings.desyncTraces;
+            Multiplayer.GameComp.asyncTime = asyncTime;
+            Multiplayer.GameComp.debugMode = settings.debugMode;
+            Multiplayer.GameComp.logDesyncTraces = settings.desyncTraces;
+            Multiplayer.GameComp.pauseOnLetter = settings.pauseOnLetter;
+            Multiplayer.GameComp.timeControl = settings.timeControl;
 
-                LongEventHandler.QueueLongEvent(() =>
-                {
-                    Multiplayer.session.dataSnapshot = SaveLoad.CreateGameDataSnapshot(SaveLoad.SaveAndReload());
-                    SaveLoad.SendGameData(Multiplayer.session.dataSnapshot, false);
+            await LongEventTask.ContinueInLongEvent("MpSaving", false);
 
-                    StartServerThread();
-                }, "MpSaving", false, null);
-            }
-
-            void StartServerThread()
-            {
-                localServer.running = true;
-
-                Multiplayer.LocalServer.serverThread = new Thread(localServer.Run)
-                {
-                    Name = "Local server thread"
-                };
-                Multiplayer.LocalServer.serverThread.Start();
-
-                const string text = "Server started.";
-                Messages.Message(text, MessageTypeDefOf.SilentInput, false);
-                Log.Message(text);
-            }
+            return SaveLoad.CreateGameDataSnapshot(SaveLoad.SaveAndReload());
         }
 
         private static void SetupGameFromSingleplayer()
         {
-            MultiplayerWorldComp comp = new MultiplayerWorldComp(Find.World);
+            var worldComp = new MultiplayerWorldComp(Find.World);
 
             Faction NewFaction(int id, string name, FactionDef def)
             {
@@ -134,12 +129,15 @@ namespace Multiplayer.Client
                 {
                     faction = new Faction() { loadID = id, def = def };
 
+                    faction.ideos = new FactionIdeosTracker(faction);
+                    faction.ideos.ChooseOrGenerateIdeo(new IdeoGenerationParms());
+
                     foreach (Faction other in Find.FactionManager.AllFactionsListForReading)
                         faction.TryMakeInitialRelationsWith(other);
 
                     Find.FactionManager.Add(faction);
 
-                    comp.factionData[faction.loadID] = FactionWorldData.New(faction.loadID);
+                    worldComp.factionData[faction.loadID] = FactionWorldData.New(faction.loadID);
                 }
 
                 faction.Name = name;
@@ -157,13 +155,15 @@ namespace Multiplayer.Client
                 {
                     globalIdBlock = new IdBlock(GetMaxUniqueId(), 1_000_000_000)
                 },
-                worldComp = comp
+                asyncWorldTimeComp = new AsyncWorldTimeComp(Find.World) { worldTicks = Find.TickManager.TicksGame },
+                worldComp = worldComp
             };
 
-            //var opponent = NewFaction(Multiplayer.GlobalIdBlock.NextId(), "Opponent", Multiplayer.FactionDef);
-            //opponent.TrySetRelationKind(Faction.OfPlayer, FactionRelationKind.Hostile, false);
+            // var opponent = NewFaction(Multiplayer.GlobalIdBlock.NextId(), "Opponent", FactionDefOf.PlayerColony);
+            // opponent.hidden = true;
+            // opponent.SetRelation(new FactionRelation(Faction.OfPlayer, FactionRelationKind.Neutral));
 
-            foreach (FactionWorldData data in comp.factionData.Values)
+            foreach (FactionWorldData data in worldComp.factionData.Values)
             {
                 foreach (DrugPolicy p in data.drugPolicyDatabase.policies)
                     p.uniqueId = Multiplayer.GlobalIdBlock.NextId();
@@ -180,17 +180,15 @@ namespace Multiplayer.Client
                 //mapComp.mapIdBlock = localServer.NextIdBlock();
 
                 BeforeMapGeneration.SetupMap(map);
-                //BeforeMapGeneration.InitNewMapFactionData(map, opponent);
+                // BeforeMapGeneration.InitNewMapFactionData(map, opponent);
 
                 AsyncTimeComp async = map.AsyncTime();
                 async.mapTicks = Find.TickManager.TicksGame;
-                async.TimeSpeed = Find.TickManager.CurTimeSpeed;
+                async.SetDesiredTimeSpeed(Find.TickManager.CurTimeSpeed);
             }
-
-            Multiplayer.WorldComp.UpdateTimeSpeed();
         }
 
-        private static void SetupLocalClient()
+        private static void CreateLocalClient()
         {
             if (Multiplayer.session.localServerSettings.arbiter)
                 StartArbiter();
@@ -198,29 +196,43 @@ namespace Multiplayer.Client
             LocalClientConnection localClient = new LocalClientConnection(Multiplayer.username);
             LocalServerConnection localServerConn = new LocalServerConnection(Multiplayer.username);
 
-            localServerConn.clientSide = localClient;
             localClient.serverSide = localServerConn;
+            localServerConn.clientSide = localClient;
 
-            localClient.State = ConnectionStateEnum.ClientPlaying;
-            localServerConn.State = ConnectionStateEnum.ServerPlaying;
-
-            var serverPlayer = Multiplayer.LocalServer.playerManager.OnConnected(localServerConn);
-            serverPlayer.color = new ColorRGB(255, 0, 0);
-            serverPlayer.status = PlayerStatus.Playing;
-            serverPlayer.SendPlayerList();
-            Multiplayer.LocalServer.playerManager.SendInitDataCommand(serverPlayer);
+            localClient.ChangeState(ConnectionStateEnum.ClientPlaying);
 
             Multiplayer.session.client = localClient;
-            Multiplayer.session.ReapplyPrefs();
+        }
+
+        private static void MakeHostOnServer()
+        {
+            var server = Multiplayer.LocalServer;
+            var player = server.playerManager.OnConnected(((LocalClientConnection)Multiplayer.Client).serverSide);
+            server.playerManager.MakeHost(player);
+        }
+
+        private static void StartLocalServer()
+        {
+            Multiplayer.LocalServer.running = true;
+
+            Multiplayer.localServerThread = new Thread(Multiplayer.LocalServer.Run)
+            {
+                Name = "Local server thread"
+            };
+            Multiplayer.localServerThread.Start();
+
+            const string text = "Server started.";
+            Messages.Message(text, MessageTypeDefOf.SilentInput, false);
+            Log.Message(text);
         }
 
         private static void StartArbiter()
         {
             Multiplayer.session.AddMsg("The Arbiter instance is starting...", false);
 
-            Multiplayer.LocalServer.net.SetupArbiterConnection();
+            Multiplayer.LocalServer.liteNet.SetupArbiterConnection();
 
-            string args = $"-batchmode -nographics -arbiter -logfile arbiter_log.txt -connect=127.0.0.1:{Multiplayer.LocalServer.net.ArbiterPort}";
+            string args = $"-batchmode -nographics -arbiter -logfile arbiter_log.txt -connect=127.0.0.1:{Multiplayer.LocalServer.liteNet.ArbiterPort}";
 
             if (GenCommandLine.TryGetCommandLineArg("savedatafolder", out string saveDataFolder))
                 args += $" \"-savedatafolder={saveDataFolder}\"";
@@ -228,11 +240,11 @@ namespace Multiplayer.Client
             string arbiterInstancePath;
             if (Application.platform == RuntimePlatform.OSXPlayer)
             {
-                arbiterInstancePath = Application.dataPath + "/MacOS/" + Process.GetCurrentProcess().MainModule.ModuleName;
+                arbiterInstancePath = Application.dataPath + "/MacOS/" + Process.GetCurrentProcess().MainModule!.ModuleName;
             }
             else
             {
-                arbiterInstancePath = Process.GetCurrentProcess().MainModule.FileName;
+                arbiterInstancePath = Process.GetCurrentProcess().MainModule!.FileName;
             }
 
             try
@@ -249,7 +261,7 @@ namespace Multiplayer.Client
                 Log.Error(ex.ToString());
                 if (ex.InnerException is Win32Exception)
                 {
-                    Log.Error("Win32 Error Code: " + ((Win32Exception)ex).NativeErrorCode.ToString());
+                    Log.Error("Win32 Error Code: " + ((Win32Exception)ex).NativeErrorCode);
                 }
             }
         }

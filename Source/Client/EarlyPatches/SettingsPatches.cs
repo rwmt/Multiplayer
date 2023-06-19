@@ -1,13 +1,9 @@
 using HarmonyLib;
-using RimWorld;
-using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Reflection;
 using Multiplayer.Client.Patches;
-using UnityEngine;
 using Verse;
 
 namespace Multiplayer.Client.EarlyPatches
@@ -116,16 +112,16 @@ namespace Multiplayer.Client.EarlyPatches
             if (mod == null)
                 return;
 
+            if (JoinData.ignoredConfigsModIds.Contains(mod.ModMetaData.PackageIdNonUnique))
+                return;
+
             // Example: MultiplayerTempConfigs/rwmt.multiplayer-Multiplayer
             var newPath = Path.Combine(
                 GenFilePaths.FolderUnderSaveData(JoinData.TempConfigsDir),
                 GenText.SanitizeFilename(mod.PackageIdPlayerFacing.ToLowerInvariant() + "-" + modHandleName)
             );
 
-            if (File.Exists(newPath))
-            {
-                __result = newPath;
-            }
+            __result = newPath;
         }
     }
 

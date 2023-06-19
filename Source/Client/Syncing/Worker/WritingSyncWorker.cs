@@ -98,7 +98,7 @@ namespace Multiplayer.Client
 
         public override void BindType<T>(ref Type type)
         {
-            writer.WriteUShort(TypeRWHelper.GetTypeIndex(type, typeof(T)));
+            writer.WriteUShort(RwTypeHelper.GetTypeIndex(type, typeof(T)));
         }
 
         internal void Reset()

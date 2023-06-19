@@ -1,14 +1,9 @@
-using System;
-using HarmonyLib;
-using Multiplayer.Common;
-using RimWorld;
-using System.Linq;
 using UnityEngine;
 using Verse;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
+
     public class DisconnectedWindow : Window
     {
         public override Vector2 InitialSize => new(info.wideWindow ? 430f : 320f, height);

@@ -7,6 +7,7 @@ using System.Diagnostics;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
+using RimWorld;
 using UnityEngine;
 using Verse;
 
@@ -74,11 +75,11 @@ namespace Multiplayer.Client.Patches
         static void Postfix(ref string __result)
         {
             if (SetupQuickTestPatch.marker)
-                __result = "multiplayer1";
+                __result = "multiplayer";
         }
     }
 
-    [HotSwappable]
+
     [HarmonyPatch(typeof(GizmoGridDrawer), nameof(GizmoGridDrawer.DrawGizmoGrid))]
     static class GizmoDrawDebugInfo
     {
@@ -181,7 +182,7 @@ namespace Multiplayer.Client.Patches
         }
     }
 
-    [HotSwappable]
+
     [HarmonyPatch(typeof(Widgets), nameof(Widgets.Label), typeof(Rect), typeof(string))]
     static class HighlightLabels
     {
@@ -229,6 +230,24 @@ namespace Multiplayer.Client.Patches
         static bool Prefix() => false;
     }
 
+    [HarmonyPatch(typeof(WindowStack), nameof(WindowStack.Add))]
+    static class DontShowSteamMissing
+    {
+        static bool Prefix(Window window)
+        {
+            if (window is Dialog_MessageBox msg && msg.text == "SteamClientMissing".Translate())
+                return false;
+            return true;
+        }
+    }
+
+    [HarmonyPatch(typeof(ResolutionUtility), nameof(ResolutionUtility.Update))]
+    static class DontUpdateResolution
+    {
+        // ResolutionUtility.Update changes the resolution when it's too small and saves Prefs
+        // This is annoying because it throws an exception when two clients write to the same file
+        static bool Prefix() => false;
+    }
 
 }
 #endif

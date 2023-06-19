@@ -7,14 +7,11 @@ using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
-using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
 using System.Text;
 using HarmonyLib;
 using MonoMod.RuntimeDetour;
-using UnityEngine;
 using Verse;
 
 namespace Multiplayer.Client
@@ -113,6 +110,11 @@ namespace Multiplayer.Client
             // as pardeike suggested in https://github.com/rwmt/Multiplayer/pull/270#issuecomment-1003298289
             return HarmonySharedState.originals
                 .FirstOrDefault(kv => kv.Key.GetNativeStart().ToInt64() == replacementAddr).Value;
+        }
+
+        public static string JoinStringsAtMost(this IEnumerable<string> strs, int atMost = 3)
+        {
+            return strs.Take(atMost).Join() + (strs.Count() > atMost ? "..." : "");
         }
     }
 
@@ -238,14 +240,4 @@ namespace Multiplayer.Client
             return dict.Keys.GetEnumerator();
         }
     }
-
-    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]
-    public class HotSwappableAttribute : Attribute
-    {
-        public HotSwappableAttribute()
-        {
-
-        }
-    }
-
 }

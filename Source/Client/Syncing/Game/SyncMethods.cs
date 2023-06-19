@@ -1,17 +1,17 @@
+using System;
 using HarmonyLib;
 using Multiplayer.API;
-using Multiplayer.Client.Patches;
 using RimWorld;
 using RimWorld.Planet;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection.Emit;
+using Multiplayer.Client.Util;
 using Verse;
 using Verse.AI;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
     public static class SyncMethods
     {
         static SyncField SyncTimetable;
@@ -27,7 +27,8 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(Pawn_FoodRestrictionTracker), nameof(Pawn_FoodRestrictionTracker.CurrentFoodRestriction)).CancelIfAnyArgNull();
             SyncMethod.Register(typeof(Pawn_PlayerSettings), nameof(Pawn_PlayerSettings.AreaRestriction));
             SyncMethod.Register(typeof(Pawn_PlayerSettings), nameof(Pawn_PlayerSettings.Master));
-            SyncMethod.Register(typeof(Pawn), nameof(Pawn.Name)).ExposeParameter(0);
+            SyncMethod.Register(typeof(Pawn), nameof(Pawn.Name)).ExposeParameter(0)
+                .SetPostInvoke((pawn, _) => ((Pawn)pawn).babyNamingDeadline = -1); // If a newborn was named then mark it as no longer needing to be named
             SyncMethod.Register(typeof(StorageSettings), nameof(StorageSettings.Priority));
             SyncMethod.Register(typeof(CompForbiddable), nameof(CompForbiddable.Forbidden));
 
@@ -60,23 +61,31 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(Building_Bed), nameof(Building_Bed.Medical));
 
             {
-                var methodNames = new [] {
-                    nameof(CompAssignableToPawn.TryAssignPawn),
-                    nameof(CompAssignableToPawn.TryUnassignPawn),
-                };
-
-                var methods = typeof(CompAssignableToPawn).AllSubtypesAndSelf()
-                    .SelectMany(t => methodNames.Select(n => t.GetMethod(n, AccessTools.allDeclared)))
+                var types = typeof(CompAssignableToPawn).AllSubtypesAndSelf().ToArray();
+                var assignMethods = types
+                    .Select(t => t.GetMethod(nameof(CompAssignableToPawn.TryAssignPawn), AccessTools.allDeclared))
+                    .AllNotNull();
+                var unassignMethods = types
+                    .Select(t => t.GetMethod(nameof(CompAssignableToPawn.TryUnassignPawn), AccessTools.allDeclared))
                     .AllNotNull();
 
-                foreach (var method in methods) {
+                var unassignSerializer = Serializer.New(
+                    (Pawn pawn, object target, object[] _) => (pawnId: pawn.thingIDNumber, target: (CompAssignableToPawn)target),
+                    tuple => tuple.target.assignedPawns.FirstOrDefault(p => p.thingIDNumber == tuple.pawnId));
+
+                foreach (var method in assignMethods) {
                     Sync.RegisterSyncMethod(method).CancelIfAnyArgNull();
+                }
+
+                foreach (var method in unassignMethods) {
+                    Sync.RegisterSyncMethod(method).TransformArgument(0, unassignSerializer).CancelIfAnyArgNull();
                 }
             }
 
             SyncMethod.Register(typeof(PawnColumnWorker_Designator), nameof(PawnColumnWorker_Designator.SetValue)).CancelIfAnyArgNull(); // Virtual but currently not overriden by any subclasses
             SyncMethod.Register(typeof(PawnColumnWorker_FollowDrafted), nameof(PawnColumnWorker_FollowDrafted.SetValue)).CancelIfAnyArgNull();
             SyncMethod.Register(typeof(PawnColumnWorker_FollowFieldwork), nameof(PawnColumnWorker_FollowFieldwork.SetValue)).CancelIfAnyArgNull();
+            SyncMethod.Register(typeof(PawnColumnWorker_Sterilize), nameof(PawnColumnWorker_Sterilize.SetValue)).CancelIfAnyArgNull(); // Will sync even without this, but this will set the column to dirty
             SyncMethod.Register(typeof(CompGatherSpot), nameof(CompGatherSpot.Active));
             SyncMethod.Register(typeof(Building_BlastingCharge), nameof(Building_BlastingCharge.Command_Detonate));
 
@@ -119,6 +128,7 @@ namespace Multiplayer.Client
 
             {
                 var methods = typeof(ITargetingSource).AllImplementing()
+                    .Except(typeof(CompActivable_RocketswarmLauncher)) // Skip it, as all it does is open another targeter
                     .Where(t => t.Assembly == typeof(Game).Assembly)
                     .Select(t => t.GetMethod(nameof(ITargetingSource.OrderForceTarget), AccessTools.allDeclared))
                     .AllNotNull();
@@ -139,9 +149,6 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(MonumentMarker), nameof(MonumentMarker.PlaceAllBlueprints));
             SyncMethod.Register(typeof(MonumentMarker), nameof(MonumentMarker.PlaceBlueprintsSimilarTo)).ExposeParameter(0);
 
-            SyncMethod.Register(typeof(Ability), nameof(Ability.QueueCastingJob), new SyncType[] { typeof(LocalTargetInfo), typeof(LocalTargetInfo) });
-            SyncMethod.Register(typeof(Ability), nameof(Ability.QueueCastingJob), new SyncType[] { typeof(GlobalTargetInfo) });
-
             // 1
             SyncMethod.Register(typeof(TradeRequestComp), nameof(TradeRequestComp.Fulfill)).CancelIfAnyArgNull().SetVersion(1);
 
@@ -153,16 +160,14 @@ namespace Multiplayer.Client
             // 3
             SyncMethod.Register(typeof(ShipUtility), nameof(ShipUtility.StartupHibernatingParts)).CancelIfAnyArgNull().SetVersion(3);
 
-            SyncMethod.Register(typeof(Verb_SmokePop), nameof(Verb_SmokePop.Pop));
-            SyncMethod.Register(typeof(Verb_DeployBroadshield), nameof(Verb_DeployBroadshield.Deploy));
-
             // Dialog_NodeTree
             Sync.RegisterSyncDialogNodeTree(typeof(IncidentWorker_CaravanMeeting), nameof(IncidentWorker_CaravanMeeting.TryExecuteWorker));
             Sync.RegisterSyncDialogNodeTree(typeof(IncidentWorker_CaravanDemand), nameof(IncidentWorker_CaravanDemand.TryExecuteWorker));
 
             SyncMethod.Register(typeof(CompAnimalPenMarker), nameof(CompAnimalPenMarker.RemoveForceDisplayedAnimal));
             SyncMethod.Register(typeof(CompAnimalPenMarker), nameof(CompAnimalPenMarker.AddForceDisplayedAnimal));
-            SyncMethod.Register(typeof(CompAnimalPenMarker), nameof(CompAnimalPenMarker.DesignatePlantsToCut));
+            SyncMethod.Register(typeof(CompAutoCut), nameof(CompAutoCut.DesignatePlantsToCut));
+            SyncMethod.Lambda(typeof(Plant), nameof(Plant.GetGizmos), 0);
 
             SyncMethod.Register(typeof(ShipJob_Wait), nameof(ShipJob_Wait.Launch)).ExposeParameter(1); // Launch the (Royalty) shuttle
 
@@ -192,6 +197,120 @@ namespace Multiplayer.Client
 
             SyncMethod.Register(typeof(IdeoDevelopmentUtility), nameof(IdeoDevelopmentUtility.ApplyChangesToIdeo))
                 .ExposeParameter(1);
+
+            // A lot of dev mode gizmos
+            SyncMethod.Register(typeof(CompPawnSpawnOnWakeup), nameof(CompPawnSpawnOnWakeup.Spawn)).SetDebugOnly();
+            SyncMethod.Lambda(typeof(Building_FermentingBarrel), nameof(Building_FermentingBarrel.GetGizmos), 0).SetDebugOnly(); // Set progress to 1
+            SyncMethod.Lambda(typeof(Building_FermentingBarrel), nameof(Building_FermentingBarrel.GetGizmos), 1).SetDebugOnly(); // Fill
+            SyncMethod.Lambda(typeof(CompBandNode), nameof(CompBandNode.CompGetGizmosExtra), 8).SetDebugOnly(); // Complete tuning
+            SyncMethod.Lambda(typeof(CompCauseGameCondition_ForceWeather), nameof(CompCauseGameCondition_ForceWeather.CompGetGizmosExtra), 0).SetDebugOnly(); // Change to next weather
+            SyncMethod.Lambda(typeof(CompCauseGameCondition_PsychicEmanation), nameof(CompCauseGameCondition_PsychicEmanation.CompGetGizmosExtra), 0).SetDebugOnly(); // Change gender
+            SyncMethod.Lambda(typeof(CompCauseGameCondition_PsychicEmanation), nameof(CompCauseGameCondition_PsychicEmanation.CompGetGizmosExtra), 1).SetDebugOnly(); // Increase intensity
+            SyncMethod.Lambda(typeof(CompCauseGameCondition_PsychicSuppression), nameof(CompCauseGameCondition_PsychicSuppression.CompGetGizmosExtra), 0).SetDebugOnly(); // Change gender
+            SyncMethod.Register(typeof(CompCauseGameCondition_TemperatureOffset), nameof(CompCauseGameCondition_TemperatureOffset.SetTemperatureOffset)).SetDebugOnly();
+            SyncMethod.Register(typeof(CompDamageOnInterval), nameof(CompDamageOnInterval.Damage)).SetDebugOnly();
+            SyncMethod.Lambda(typeof(CompDeepDrill), nameof(CompDeepDrill.CompGetGizmosExtra), 0).SetDebugOnly();
+            SyncMethod.Lambda(typeof(CompDissolution), nameof(CompDissolution.CompGetGizmosExtra), 0).SetDebugOnly(); // Dissolution event
+            SyncMethod.Lambda(typeof(CompDissolution), nameof(CompDissolution.CompGetGizmosExtra), 1).SetDebugOnly(); // Dissolution event until destroyed
+            SyncMethod.Lambda(typeof(CompDissolution), nameof(CompDissolution.CompGetGizmosExtra), 2).SetDebugOnly(); // Dissolution progress +25%
+            SyncMethod.Lambda(typeof(CompEggContainer), nameof(CompEggContainer.CompGetGizmosExtra), 0).SetDebugOnly(); // Fill with eggs
+            SyncMethod.Lambda(typeof(CompExplosive), nameof(CompExplosive.CompGetGizmosExtra), 0).SetDebugOnly(); // Trigger countdown
+            SyncMethod.Lambda(typeof(CompHackable), nameof(CompHackable.CompGetGizmosExtra), 0).SetDebugOnly(); // Hack +10%
+            SyncMethod.Lambda(typeof(CompHackable), nameof(CompHackable.CompGetGizmosExtra), 1).SetDebugOnly(); // Complete hack
+            SyncMethod.Register(typeof(CompPolluteOverTime), nameof(CompPolluteOverTime.Pollute)).SetDebugOnly();
+            SyncMethod.Register(typeof(CompPollutionPump), nameof(CompPollutionPump.Pump)).SetDebugOnly();
+            SyncMethod.Lambda(typeof(CompProjectileInterceptor), nameof(CompProjectileInterceptor.CompGetGizmosExtra), 0).SetDebugOnly(); // Reset cooldown
+            SyncMethod.Lambda(typeof(CompProjectileInterceptor), nameof(CompProjectileInterceptor.CompGetGizmosExtra), 2).SetDebugOnly(); // Toggle intercept non-hostile
+            SyncMethod.Lambda(typeof(CompReloadable), nameof(CompReloadable.CompGetWornGizmosExtra), 0).SetDebugOnly(); // Reload to full
+            SyncMethod.Lambda(typeof(CompScanner), nameof(CompScanner.CompGetGizmosExtra), 0).SetDebugOnly(); // Find now
+            SyncMethod.Lambda(typeof(CompTerrainPump), nameof(CompTerrainPump.CompGetGizmosExtra), 0).SetDebugOnly(); // Progress 1 day
+            SyncMethod.Register(typeof(CompToxifier), nameof(CompToxifier.PolluteNextCell)).SetDebugOnly();
+            SyncMethod.Lambda(typeof(MinifiedTree), nameof(MinifiedThing.GetGizmos), 0).SetDebugOnly(); // Destroy
+            SyncMethod.Lambda(typeof(MinifiedTree), nameof(MinifiedThing.GetGizmos), 1).SetDebugOnly(); // Die in 1 hour
+            SyncMethod.Lambda(typeof(MinifiedTree), nameof(MinifiedThing.GetGizmos), 2).SetDebugOnly(); // Die in 1 day
+            SyncMethod.Lambda(typeof(Pawn), nameof(Pawn.GetGizmos), 0).SetDebugOnly(); // Psyfocus -20%
+            SyncMethod.Lambda(typeof(Pawn), nameof(Pawn.GetGizmos), 1).SetDebugOnly(); // Psyfocus +20%
+            SyncMethod.Lambda(typeof(Pawn), nameof(Pawn.GetGizmos), 2).SetDebugOnly(); // Psychic entropy -20%
+            SyncMethod.Lambda(typeof(Pawn), nameof(Pawn.GetGizmos), 3).SetDebugOnly(); // Psychic entropy +20%
+            SyncMethod.Lambda(typeof(Pawn), nameof(Pawn.GetGizmos), 6).SetDebugOnly(); // Reset faction permit cooldowns
+            SyncMethod.Lambda(typeof(Pawn), nameof(Pawn.GetGizmos), 7).SetDebugOnly(); // Reset try romance cooldown
+
+            SyncMethod.Register(typeof(Blueprint_Build), nameof(Blueprint_Build.ChangeStyleOfAllSelected)).SetContext(SyncContext.MapSelected);
+            SyncMethod.Lambda(typeof(CompTurretGun), nameof(CompTurretGun.CompGetGizmosExtra), 1); // Toggle fire at will
+
+            // Gene Assembler
+            SyncMethod.Register(typeof(Building_GeneAssembler), nameof(Building_GeneAssembler.Start));
+            SyncMethod.Register(typeof(Building_GeneAssembler), nameof(Building_GeneAssembler.Reset));
+            SyncMethod.Register(typeof(Building_GeneAssembler), nameof(Building_GeneAssembler.Finish)).SetDebugOnly();
+
+            // Gene Extractor
+            SyncMethod.Register(typeof(Building_GeneExtractor), nameof(Building_GeneExtractor.Cancel));
+            SyncMethod.Lambda(typeof(Building_GeneExtractor), nameof(Building_GeneExtractor.GetGizmos), 2); // Cancel load
+            SyncMethod.Register(typeof(Building_GeneExtractor), nameof(Building_GeneExtractor.Finish)).SetDebugOnly();
+
+            // Growth Vat
+            SyncMethod.Lambda(typeof(Building_GrowthVat), nameof(Building_GrowthVat.GetGizmos), 1); // Cancel growth
+            SyncMethod.Lambda(typeof(Building_GrowthVat), nameof(Building_GrowthVat.GetGizmos), 6); // Cancel load
+            SyncMethod.Register(typeof(Building_GrowthVat), nameof(Building_GrowthVat.SelectEmbryo));
+            SyncMethod.Lambda(typeof(Building_GrowthVat), nameof(Building_GrowthVat.GetGizmos), 3).SetDebugOnly(); // Advance 1 year
+            SyncMethod.Lambda(typeof(Building_GrowthVat), nameof(Building_GrowthVat.GetGizmos), 4).SetDebugOnly(); // Advance gestation 1 day
+            SyncMethod.Lambda(typeof(Building_GrowthVat), nameof(Building_GrowthVat.GetGizmos), 5).SetDebugOnly(); // Embryo birth now
+            SyncMethod.Lambda(typeof(Building_GrowthVat), nameof(Building_GrowthVat.GetGizmos), 11).SetDebugOnly(); // Fill nutrition
+            SyncMethod.Lambda(typeof(Building_GrowthVat), nameof(Building_GrowthVat.GetGizmos), 12).SetDebugOnly(); // Empty nutrition
+            SyncMethod.Register(typeof(Hediff_VatLearning), nameof(Hediff_VatLearning.Learn)).SetDebugOnly(); // Called by Building_GrowthVat gizmo
+
+            // Subcore Scanner
+            SyncMethod.Lambda(typeof(Building_SubcoreScanner), nameof(Building_SubcoreScanner.GetGizmos), 1); // Initialize
+            SyncMethod.Register(typeof(Building_SubcoreScanner), nameof(Building_SubcoreScanner.EjectContents)); // Cancel load
+            SyncMethod.Lambda(typeof(Building_SubcoreScanner), nameof(Building_SubcoreScanner.GetGizmos), 6).SetDebugOnly(); // Enable/disable ingredients
+            SyncMethod.Lambda(typeof(Building_SubcoreScanner), nameof(Building_SubcoreScanner.GetGizmos), 7).SetDebugOnly(); // Complete
+
+            // Mechs
+            // Charger
+            SyncMethod.Lambda(typeof(Building_MechCharger), nameof(Building_MechCharger.GetGizmos), 0).SetDebugOnly(); // Waste 100%
+            SyncMethod.Lambda(typeof(Building_MechCharger), nameof(Building_MechCharger.GetGizmos), 1).SetDebugOnly(); // Waste 25%
+            SyncMethod.Lambda(typeof(Building_MechCharger), nameof(Building_MechCharger.GetGizmos), 2).SetDebugOnly(); // Waste 0%
+            SyncMethod.Register(typeof(Building_MechCharger), nameof(Building_MechCharger.GenerateWastePack)).SetDebugOnly(); // Generate waste, lambdaOrdinal: 3
+            SyncMethod.Lambda(typeof(Building_MechCharger), nameof(Building_MechCharger.GetGizmos), 4).SetDebugOnly(); // Charge 100%
+            // Gestator
+            SyncMethod.Lambda(typeof(Building_MechGestator), nameof(Building_MechGestator.GetGizmos), 0).SetDebugOnly(); // Generate 5 waste
+            SyncMethod.Lambda(typeof(Building_MechGestator), nameof(Building_MechGestator.GetGizmos), 1).SetDebugOnly(); // Forming cycle +25%
+            SyncMethod.Lambda(typeof(Building_MechGestator), nameof(Building_MechGestator.GetGizmos), 2).SetDebugOnly(); // Complete cycle
+            SyncMethod.Register(typeof(Bill_Mech), nameof(Bill_Mech.ForceCompleteAllCycles)).SetDebugOnly(); // Called from Building_MechGestator.GetGizmos
+            // Carrier
+            SyncMethod.Register(typeof(CompMechCarrier), nameof(CompMechCarrier.TrySpawnPawns));
+            SyncMethod.Lambda(typeof(CompMechCarrier), nameof(CompMechCarrier.CompGetGizmosExtra), 2).SetDebugOnly(); // Reset cooldown
+            // Power Cell
+            SyncMethod.Lambda(typeof(CompMechPowerCell), nameof(CompMechPowerCell.CompGetGizmosExtra), 0).SetDebugOnly(); // Power left 0%
+            SyncMethod.Lambda(typeof(CompMechPowerCell), nameof(CompMechPowerCell.CompGetGizmosExtra), 1).SetDebugOnly(); // Power left 100%
+            // Repairable
+            SyncMethod.Lambda(typeof(CompMechRepairable), nameof(CompMechRepairable.CompGetGizmosExtra), 1); // Toggle auto repair
+
+            // Atomizer
+            SyncMethod.Lambda(typeof(CompAtomizer), nameof(CompAtomizer.CompGetGizmosExtra), 1); // Auto load
+            SyncMethod.Register(typeof(CompAtomizer), nameof(CompAtomizer.EjectContents));
+            SyncMethod.Register(typeof(CompAtomizer), nameof(CompAtomizer.DoAtomize)).SetDebugOnly();
+
+            // Genepack
+            SyncMethod.Lambda(typeof(Genepack), nameof(Genepack.GetGizmos), 1); // Auto load
+
+            // Genepack Container
+            SyncMethod.Register(typeof(CompGenepackContainer), nameof(CompGenepackContainer.EjectContents));
+            SyncMethod.Lambda(typeof(CompGenepackContainer), nameof(CompGenepackContainer.CompGetGizmosExtra), 1).SetDebugOnly(); // Fill with new packs
+
+            // Deathrest Gene
+            SyncMethod.Register(typeof(Gene_Deathrest), nameof(Gene_Deathrest.Wake));
+            SyncMethod.Lambda(typeof(Gene_Deathrest), nameof(Gene_Deathrest.GetGizmos), 2); // Auto wake
+            SyncMethod.Lambda(typeof(Gene_Deathrest), nameof(Gene_Deathrest.GetGizmos), 3).SetDebugOnly(); // Wake and apply bonuses
+
+            // Baby feeding
+            SyncMethod.Register(typeof(Pawn_MindState), nameof(Pawn_MindState.SetAutofeeder)); // Called from ITab_Pawn_Feeding.GenerateFloatMenuOption
+
+            // HealthCardUtility
+            // Previously we synced the delegate which created the bill, but it has side effects to it.
+            // It can display confirmation like royal implant (no longer used?) or implanting IUD (if it would terminate pregnancy).
+            // On top of that, in case of implanting the Xenogerm recipe, it will open a dialog with list of available options.
+            SyncMethod.Register(typeof(HealthCardUtility), nameof(HealthCardUtility.CreateSurgeryBill));
         }
 
         [MpPrefix(typeof(PawnColumnWorker_CopyPasteTimetable), nameof(PawnColumnWorker_CopyPasteTimetable.PasteTo))]
@@ -345,6 +464,115 @@ namespace Multiplayer.Client
                 ideo.development.ideo = ideo;
                 ideo.style.ideo = ideo;
             }
+        }
+
+        // Syncing the method directly would end up trying to sync it every single tick, as the method is called for every single ThingDef.
+        // This will only call the synced method only if there is any need for it in the first place.
+        [MpPrefix(typeof(Pawn_FoodRestrictionTracker), nameof(Pawn_FoodRestrictionTracker.SetBabyFoodAllowed))]
+        static bool PreSetBabyFoodAllowed(Pawn_FoodRestrictionTracker __instance, ThingDef food, bool allowed)
+        {
+            // Let the method run normally if not in MP or executing commands
+            if (Multiplayer.Client == null || Multiplayer.ExecutingCmds)
+                return true;
+
+            // Ignore if def is not a baby food, as there's no point to let the method run
+            if (!ITab_Pawn_Feeding.BabyConsumableFoods.Contains(food))
+                return false;
+
+            // Sync the call if the method would do anything: allowed baby foods not set up, the def is not in the dictionary, or the value is changed
+            if (__instance.allowedBabyFoodTypes == null || !__instance.allowedBabyFoodTypes.TryGetValue(food, out var current) || current != allowed)
+                SyncedSetBabyFoodAllowed(__instance, food, allowed);
+
+            // Don't let the method run, as we'll call it through synced method - also ignore setting the value if it wasn't changed at all
+            return false;
+        }
+
+        [SyncMethod]
+        static void SyncedSetBabyFoodAllowed(Pawn_FoodRestrictionTracker tracker, ThingDef food, bool allowed)
+            => tracker.SetBabyFoodAllowed(food, allowed);
+
+        [MpPrefix(typeof(ITab_ContentsGenepackHolder), nameof(ITab_ContentsGenepackHolder.DoRow))]
+        static void PreGenepackHolderDoRow(Genepack genepack, CompGenepackContainer container, bool insideContainer, ref int __state)
+        {
+            // Checkbox to autoload only displayed if it's not inside of the container already
+            if (Multiplayer.Client == null || insideContainer)
+                return;
+
+            __state = container.leftToLoad.IndexOf(genepack);
+        }
+
+        [MpPostfix(typeof(ITab_ContentsGenepackHolder), nameof(ITab_ContentsGenepackHolder.DoRow))]
+        static void PostGenepackHolderDoRow(Genepack genepack, CompGenepackContainer container, bool insideContainer, int __state)
+        {
+            if (Multiplayer.Client == null || insideContainer)
+                return;
+
+            var listPosition = container.leftToLoad.IndexOf(genepack);
+
+            // No change in state, do nothing
+            if (listPosition == __state)
+                return;
+
+            if (listPosition >= 0)
+            {
+                genepack.targetContainer = null;
+                container.leftToLoad.Remove(genepack);
+                SyncDesiredGenepackState(genepack, container, true);
+            }
+            else
+            {
+                genepack.targetContainer = container.parent;
+                container.leftToLoad.Insert(__state, genepack); // Keep the order
+                SyncDesiredGenepackState(genepack, container, false);
+            }
+        }
+
+        [SyncMethod]
+        static void SyncDesiredGenepackState(Genepack genepack, CompGenepackContainer container, bool shouldLoad)
+        {
+            if (shouldLoad)
+            {
+                if (container.CanLoadMore)
+                {
+                    genepack.targetContainer = container.parent;
+                    container.leftToLoad.Add(genepack);
+                }
+            }
+            else
+            {
+                genepack.targetContainer = null;
+                container.leftToLoad.Remove(genepack);
+            }
+        }
+
+        [MpPrefix(typeof(Targeter), nameof(Targeter.BeginTargeting), new []{ typeof(ITargetingSource), typeof(ITargetingSource), typeof(bool), typeof(Func<LocalTargetInfo, ITargetingSource>), typeof(Action) })]
+        static bool BeginTargeting(ITargetingSource source)
+        {
+            if (Multiplayer.Client == null || source.Targetable)
+                return true;
+
+            var verb = source.GetVerb;
+            // In case both Targetable and nonInterruptingSelfCast are false, targeter makes the caster use the verb.
+            // Before this change, we were syncing the cast method this ended up calling, like smokepop (and other belt) manual uses.
+            if (verb.verbProps.nonInterruptingSelfCast)
+                SyncTargeterNonInterruptingSelfCast(verb);
+            // In case Targetable is false and nonInterruptingSelfCast is true, targeter makes the pawn start a new job.
+            // At the moment, it seems to never be the case in vanilla. However, this can happen with mods.
+            else
+                SyncTargeterInterruptingSelfCast(verb, source.CasterPawn);
+
+            return false;
+        }
+
+        [SyncMethod]
+        static void SyncTargeterNonInterruptingSelfCast(Verb verb) => verb.TryStartCastOn(verb.Caster);
+
+        [SyncMethod]
+        static void SyncTargeterInterruptingSelfCast(Verb verb, Pawn casterPawn)
+        {
+            var job = JobMaker.MakeJob(JobDefOf.UseVerbOnThing, verb.Caster);
+            job.verbToUse = verb;
+            casterPawn.jobs.StartJob(job, JobCondition.InterruptForced);
         }
     }
 

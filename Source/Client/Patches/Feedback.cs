@@ -2,11 +2,9 @@ using HarmonyLib;
 using RimWorld;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
-using System.Text;
-using System.Threading.Tasks;
+using RimWorld.Planet;
 using UnityEngine;
 using Verse;
 using Verse.Sound;
@@ -59,7 +57,7 @@ namespace Multiplayer.Client.Patches
         static IEnumerable<MethodBase> TargetMethods()
         {
             yield return AccessTools.Method(typeof(MoteMaker), nameof(MoteMaker.MakeStaticMote), new[] { typeof(IntVec3), typeof(Map), typeof(ThingDef), typeof(float) });
-            yield return AccessTools.Method(typeof(MoteMaker), nameof(MoteMaker.MakeStaticMote), new[] { typeof(Vector3), typeof(Map), typeof(ThingDef), typeof(float) });
+            yield return AccessTools.Method(typeof(MoteMaker), nameof(MoteMaker.MakeStaticMote), new[] { typeof(Vector3), typeof(Map), typeof(ThingDef), typeof(float), typeof(bool) });
         }
 
         static bool Prefix(ThingDef moteDef)
@@ -107,7 +105,10 @@ namespace Multiplayer.Client.Patches
             Multiplayer.ExecutingCmds &&
             !TickPatch.currentExecutingCmdIssuedBySelf;
 
-        static bool Prefix() => !Cancel;
+        static bool Prefix()
+        {
+            return !Cancel;
+        }
     }
 
     [HarmonyPatch(typeof(Thing), nameof(Thing.DeSpawn))]
@@ -134,6 +135,60 @@ namespace Multiplayer.Client.Patches
         {
             if (Multiplayer.Client == null || AsyncTimeComp.prevSelected == null) return;
             AsyncTimeComp.prevSelected.Remove(t);
+        }
+    }
+
+    [HarmonyPatch(typeof(Bill), nameof(Bill.CreateNoPawnsWithSkillDialog))]
+    static class CancelNoPawnWithSkillDialog
+    {
+        static bool Prefix() =>
+            Multiplayer.Client == null ||
+            TickPatch.currentExecutingCmdIssuedBySelf;
+    }
+
+    [HarmonyPatch]
+    static class NoCameraJumpingDuringSimulating
+    {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(CameraJumper), nameof(CameraJumper.TrySelect));
+            yield return AccessTools.Method(typeof(CameraJumper), nameof(CameraJumper.TryJumpAndSelect));
+            yield return AccessTools.Method(typeof(CameraJumper), nameof(CameraJumper.TryJump), new[] {typeof(GlobalTargetInfo), typeof(CameraJumper.MovementMode)});
+        }
+        static bool Prefix() => !TickPatch.Simulating;
+    }
+
+    [HarmonyPatch(typeof(Selector), nameof(Selector.Deselect))]
+    static class SelectorDeselectPatch
+    {
+        public static List<object> deselected;
+
+        static void Prefix(object obj)
+        {
+            if (deselected != null)
+                deselected.Add(obj);
+        }
+    }
+
+    [HarmonyPatch(typeof(CompBiosculpterPod), nameof(CompBiosculpterPod.OrderToPod))]
+    static class NoBiosculpterConfirmationSyncing
+    {
+        static bool Prefix(CompBiosculpterPod_Cycle cycle, Pawn pawn, Action giveJobAct)
+        {
+            if (Multiplayer.Client == null || cycle is not CompBiosculpterPod_HealingCycle healingCycle)
+                return true; // Alternatively we could return false and invoke giveJobAct
+
+            var healingDescriptionForPawn = healingCycle.GetHealingDescriptionForPawn(pawn);
+            string text = healingDescriptionForPawn.NullOrEmpty()
+                ? "BiosculpterNoCoditionsToHeal".Translate(pawn.Named("PAWN"), healingCycle.Props.label.Named("CYCLE")).Resolve()
+                : "OnCompletionOfCycle".Translate(healingCycle.Props.label.Named("CYCLE")).Resolve() + ":\n\n" + healingDescriptionForPawn;
+
+            Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
+                text,
+                giveJobAct,
+                healingDescriptionForPawn.NullOrEmpty()));
+
+            return false;
         }
     }
 

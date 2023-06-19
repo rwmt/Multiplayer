@@ -1,16 +1,10 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using HarmonyLib;
 using Multiplayer.API;
-using Multiplayer.Client.Persistent;
 using Multiplayer.Common;
 using RimWorld;
-using RimWorld.Planet;
 using UnityEngine;
 using Verse;
-using Verse.AI;
-using Verse.AI.Group;
 using static Multiplayer.Client.SyncSerialization;
 
 namespace Multiplayer.Client
@@ -28,7 +22,7 @@ namespace Multiplayer.Client
             #region System
             {
                 (ByteWriter data, Type type) => data.WriteString(type.FullName),
-                (ByteReader data) => AccessTools.TypeByName(data.ReadString())
+                (ByteReader data) => AccessTools.TypeByName(data.ReadStringNullable())
             },
             #endregion
 
@@ -62,7 +56,7 @@ namespace Multiplayer.Client
                     data.WriteString(name.nameInt);
                     data.WriteBool(name.numerical);
                 },
-                (ByteReader data) => new NameSingle(data.ReadString(), data.ReadBool())
+                (ByteReader data) => new NameSingle(data.ReadStringNullable(), data.ReadBool())
             },
             {
                 (ByteWriter data, NameTriple name) => {
@@ -70,7 +64,7 @@ namespace Multiplayer.Client
                     data.WriteString(name.nickInt);
                     data.WriteString(name.lastInt);
                 },
-                (ByteReader data) => new NameTriple(data.ReadString(), data.ReadString(), data.ReadString())
+                (ByteReader data) => new NameTriple(data.ReadStringNullable(), data.ReadStringNullable(), data.ReadStringNullable())
             },
             #endregion
 
@@ -79,7 +73,16 @@ namespace Multiplayer.Client
                 (ByteWriter data, TaggedString str) => {
                     data.WriteString(str.rawText);
                 },
-                (ByteReader data) => new TaggedString(data.ReadString())
+                (ByteReader data) => new TaggedString(data.ReadStringNullable())
+            },
+            {
+                (SyncWorker worker, ref ColorInt color) =>
+                {
+                    worker.Bind(ref color.r);
+                    worker.Bind(ref color.g);
+                    worker.Bind(ref color.b);
+                    worker.Bind(ref color.a);
+                }
             },
             #endregion
 

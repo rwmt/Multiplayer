@@ -1,26 +1,19 @@
 using LiteNetLib;
 using Multiplayer.Common;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net;
 using System.Net.Sockets;
-using System.Text;
-using System.Threading.Tasks;
 using Multiplayer.Client.Util;
-using Verse;
 
 namespace Multiplayer.Client.Networking
 {
-    [HotSwappable]
+
     public class MpClientNetListener : INetEventListener
     {
         public void OnPeerConnected(NetPeer peer)
         {
             ConnectionBase conn = new LiteNetConnection(peer);
             conn.username = Multiplayer.username;
-            conn.State = ConnectionStateEnum.ClientJoining;
-            conn.StateObj.StartState();
+            conn.ChangeState(ConnectionStateEnum.ClientJoining);
 
             Multiplayer.session.client = conn;
             Multiplayer.session.ReapplyPrefs();
@@ -30,7 +23,7 @@ namespace Multiplayer.Client.Networking
 
         public void OnNetworkError(IPEndPoint endPoint, SocketError error)
         {
-            MpLog.Error($"Net client error {error}");
+            MpLog.Warn($"Net client error {error}");
         }
 
         public void OnNetworkReceive(NetPeer peer, NetPacketReader reader, DeliveryMethod method)

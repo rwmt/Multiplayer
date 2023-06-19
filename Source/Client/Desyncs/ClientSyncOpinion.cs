@@ -1,14 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using HarmonyLib;
-using JetBrains.Annotations;
 using Multiplayer.Common;
 using Verse;
 
 namespace Multiplayer.Client
 {
+
     public class ClientSyncOpinion
     {
         public bool isLocalClientsOpinion;
@@ -29,13 +28,16 @@ namespace Multiplayer.Client
 
         public string CheckForDesync(ClientSyncOpinion other)
         {
-            if (!mapStates.Select(m => m.mapId).SequenceEqual(other.mapStates.Select(m => m.mapId)))
-                return "Map instances don't match";
+            // if (!mapStates.Select(m => m.mapId).SequenceEqual(other.mapStates.Select(m => m.mapId)))
+            //     return "Map instances don't match";
 
-            for (var i = 0; i < mapStates.Count; i++)
+            foreach (var g in
+                     from map1 in mapStates
+                     join map2 in other.mapStates on map1.mapId equals map2.mapId
+                     select (map1, map2))
             {
-                if (!mapStates[i].randomStates.SequenceEqual(other.mapStates[i].randomStates))
-                    return $"Wrong random state on map {mapStates[i].mapId}";
+                if (!g.map1.randomStates.SequenceEqual(g.map2.randomStates))
+                    return $"Wrong random state on map {g.map1.mapId}";
             }
 
             if (!worldRandomStates.SequenceEqual(other.worldRandomStates))
@@ -121,8 +123,8 @@ namespace Multiplayer.Client
             var traceId = start;
 
             return
-                $"Trace of first desynced map random state:\n{diffAt} {desyncStackTraces.ElementAtOrDefault(diffAt)}" +
-                "\n\nContext Traces:\n" +
+                $"Trace count: {desyncStackTraces.Count}\nTrace of first desynced map random state:\n{diffAt} {desyncStackTraces.ElementAtOrDefault(diffAt)}" +
+                "\n\nContext traces:\n" +
                 desyncStackTraces
                 .Skip(start)
                 .Take(end - start)

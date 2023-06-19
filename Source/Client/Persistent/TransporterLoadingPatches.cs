@@ -1,12 +1,7 @@
-using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Reflection;
 using HarmonyLib;
-using Multiplayer.API;
 using RimWorld;
-using RimWorld.Planet;
 using UnityEngine;
 using Verse;
 using static Verse.Widgets;
@@ -89,7 +84,7 @@ namespace Multiplayer.Client.Persistent
     {
         static bool Prefix(Dialog_LoadTransporters __instance)
         {
-            if (Multiplayer.ShouldSync && __instance is TransporterLoadingProxy dialog)
+            if (Multiplayer.InInterface && __instance is TransporterLoadingProxy dialog)
             {
                 dialog.Session?.TryAccept();
                 return false;
@@ -104,7 +99,7 @@ namespace Multiplayer.Client.Persistent
     {
         static bool Prefix(Dialog_LoadTransporters __instance)
         {
-            if (Multiplayer.ShouldSync && __instance is TransporterLoadingProxy dialog)
+            if (Multiplayer.InInterface && __instance is TransporterLoadingProxy dialog)
             {
                 dialog.Session?.DebugTryLoadInstantly();
                 return false;

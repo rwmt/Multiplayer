@@ -1,16 +1,11 @@
-using HarmonyLib;
 using Ionic.Zlib;
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
-using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Xml;
-using Multiplayer.Client.Comp;
 using Multiplayer.Client.Saving;
 using UnityEngine;
 using Verse;
@@ -20,7 +15,6 @@ namespace Multiplayer.Client
 {
     public record TempGameData(XmlDocument SaveData, byte[] SemiPersistent);
 
-    [HotSwappable]
     public static class SaveLoad
     {
         public static TempGameData SaveAndReload()
@@ -53,7 +47,7 @@ namespace Multiplayer.Client
                 mapCmds[map.uniqueID] = map.AsyncTime().cmds;
             }
 
-            mapCmds[ScheduledCommand.Global] = Multiplayer.WorldComp.cmds;
+            mapCmds[ScheduledCommand.Global] = Multiplayer.AsyncWorldTime.cmds;
 
             DeepProfiler.Start("Multiplayer SaveAndReload: Save");
             //WriteElementPatch.cachedVals = new Dictionary<string, object>();
@@ -85,7 +79,7 @@ namespace Multiplayer.Client
             if (musicManager != null)
                 Current.Root_Play.musicManagerPlay = musicManager;
 
-            Multiplayer.RealPlayerFaction = Find.FactionManager.GetById(localFactionId);
+            Multiplayer.game.ChangeRealPlayerFaction(Find.FactionManager.GetById(localFactionId));
 
             foreach (Map m in Find.Maps)
             {
@@ -108,7 +102,7 @@ namespace Multiplayer.Client
             Find.Selector.selected = SyncSerialization.ReadSync<List<ISelectable>>(selectedReader).AllNotNull().Cast<object>().ToList();
 
             Find.World.renderer.wantedMode = planetRenderMode;
-            Multiplayer.WorldComp.cmds = mapCmds[ScheduledCommand.Global];
+            Multiplayer.AsyncWorldTime.cmds = mapCmds[ScheduledCommand.Global];
 
             Multiplayer.reloading = false;
             //SimpleProfiler.Pause();
@@ -149,8 +143,8 @@ namespace Multiplayer.Client
                     sustainer.Cleanup();
 
                 // todo destroy other game objects?
-                UnityEngine.Object.Destroy(pool.sourcePoolCamera.cameraSourcesContainer);
-                UnityEngine.Object.Destroy(pool.sourcePoolWorld.sourcesWorld[0].gameObject);
+                Object.Destroy(pool.sourcePoolCamera.cameraSourcesContainer);
+                Object.Destroy(pool.sourcePoolWorld.sourcesWorld[0].gameObject);
             }
         }
 
@@ -195,34 +189,37 @@ namespace Multiplayer.Client
             XmlNode gameNode = data.SaveData.DocumentElement["game"];
             XmlNode mapsNode = gameNode["maps"];
 
-            var dataSnapshot = new GameDataSnapshot();
+            var mapCmdsDict = new Dictionary<int, List<ScheduledCommand>>();
+            var mapDataDict = new Dictionary<int, byte[]>();
 
             foreach (XmlNode mapNode in mapsNode)
             {
                 int id = int.Parse(mapNode["uniqueID"].InnerText);
                 byte[] mapData = ScribeUtil.XmlToByteArray(mapNode);
-                dataSnapshot.mapData[id] = mapData;
-                dataSnapshot.mapCmds[id] = new List<ScheduledCommand>(Find.Maps.First(m => m.uniqueID == id).AsyncTime().cmds);
+                mapDataDict[id] = mapData;
+                mapCmdsDict[id] = new List<ScheduledCommand>(Find.Maps.First(m => m.uniqueID == id).AsyncTime().cmds);
             }
 
             gameNode["currentMapIndex"].RemoveFromParent();
             mapsNode.RemoveAll();
 
             byte[] gameData = ScribeUtil.XmlToByteArray(data.SaveData);
-            dataSnapshot.cachedAtTime = TickPatch.Timer;
-            dataSnapshot.gameData = gameData;
-            dataSnapshot.semiPersistentData = data.SemiPersistent;
-            dataSnapshot.mapCmds[ScheduledCommand.Global] = new List<ScheduledCommand>(Multiplayer.WorldComp.cmds);
+            mapCmdsDict[ScheduledCommand.Global] = new List<ScheduledCommand>(Multiplayer.AsyncWorldTime.cmds);
 
-            return dataSnapshot;
+            return new GameDataSnapshot(
+                TickPatch.Timer,
+                gameData,
+                data.SemiPersistent,
+                mapDataDict,
+                mapCmdsDict
+            );
         }
 
-        public static void SendGameData(GameDataSnapshot data, bool async)
+        public static void SendGameData(GameDataSnapshot snapshot, bool async)
         {
-            var cache = Multiplayer.session.dataSnapshot;
-            var mapsData = new Dictionary<int, byte[]>(cache.mapData);
-            var gameData = cache.gameData;
-            var semiPersistent = cache.semiPersistentData;
+            var mapsData = new Dictionary<int, byte[]>(snapshot.MapData);
+            var gameData = snapshot.GameData;
+            var semiPersistent = snapshot.SemiPersistentData;
 
             void Send()
             {

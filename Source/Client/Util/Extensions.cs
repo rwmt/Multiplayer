@@ -1,5 +1,3 @@
-extern alias zip;
-
 using HarmonyLib;
 using Ionic.Crc;
 using Multiplayer.Common;
@@ -8,7 +6,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -16,10 +13,8 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml;
-using Steamworks;
 using UnityEngine;
 using Verse;
-using zip::Ionic.Zip;
 using Random = System.Random;
 
 namespace Multiplayer.Client
@@ -27,16 +22,6 @@ namespace Multiplayer.Client
     public static class Extensions
     {
         private static Regex methodNameCleaner = new Regex(@"(\?[0-9\-]+)");
-
-        public static IEnumerable<Type> AllSubtypesAndSelf(this Type t)
-        {
-            return t.AllSubclasses().Concat(t);
-        }
-
-        public static IEnumerable<Type> AllImplementing(this Type type)
-        {
-            return Multiplayer.implementations.GetValueSafe(type) is { } list ? list : Array.Empty<Type>();
-        }
 
         // Sets the current Faction.OfPlayer
         // Applies faction's world components
@@ -176,18 +161,6 @@ namespace Multiplayer.Client
             return traceToHash.ToString().GetHashCode();
         }
 
-        public static byte[] GetBytes(this ZipEntry entry)
-        {
-            MemoryStream stream = new MemoryStream();
-            entry.Extract(stream);
-            return stream.ToArray();
-        }
-
-        public static string GetString(this ZipEntry entry)
-        {
-            return Encoding.UTF8.GetString(entry.GetBytes());
-        }
-
         public static bool IsCompilerGenerated(this Type type)
         {
             while (type != null)
@@ -265,6 +238,13 @@ namespace Multiplayer.Client
             catch { }
         }
 
+        /// <summary>
+        /// Like Harmony.GeneralExtensions.FullDescription but without method type (static, abstract...) and return type
+        /// </summary>
+        /// <returns>
+        /// [namespace].[type]::[method name]([param namespace].[param type name]...)
+        /// "null" for a null method
+        /// </returns>
         public static string MethodDesc(this MethodBase method)
         {
             if (method is null) return "null";
@@ -353,8 +333,8 @@ namespace Multiplayer.Client
             var result = harmony.Patch(original, prefix, postfix, transpiler, finalizer);
             watch.Stop();
             var took = watch.ElapsedMillisDouble() - prev;
-            //if (took > 15)
-            //    Log.Message($"{took} ms: Patching {original.MethodDesc()}");
+            // if (took > 5)
+                // Log.Message($"{took} ms: Patching {original.MethodDesc()}");
             return result;
         }
 

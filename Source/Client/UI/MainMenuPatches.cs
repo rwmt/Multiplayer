@@ -3,13 +3,9 @@ using Multiplayer.Common;
 using RimWorld;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
-using RestSharp;
 using UnityEngine;
 using Verse;
 using Verse.Profile;
@@ -31,7 +27,6 @@ namespace Multiplayer.Client
         static void Prefix(ref Rect rect) => rect.height += 45f;
     }
 
-    [HotSwappable]
     [HarmonyPatch(typeof(OptionListingUtility), nameof(OptionListingUtility.DrawOptionListing))]
     public static class MainMenuPatch
     {
@@ -65,7 +60,7 @@ namespace Multiplayer.Client
                 if (MpVersion.IsDebug && Multiplayer.IsReplay)
                     optList.Insert(0, new ListableOption(
                         "MpHostServer".Translate(),
-                        () => Find.WindowStack.Add(new HostWindow(withSimulation: true) { layer = WindowLayer.Super })
+                        () => Find.WindowStack.Add(new HostWindow(hadSimulation: true) { layer = WindowLayer.Super })
                     ));
 
                 if (Multiplayer.Client != null)
@@ -73,7 +68,7 @@ namespace Multiplayer.Client
                     optList.RemoveAll(opt => opt.label == "Save".Translate() || opt.label == "LoadGame".Translate());
                     if (!Multiplayer.IsReplay)
                     {
-                        optList.Insert(0, new ListableOption("Save".Translate(), () => Find.WindowStack.Add(new Dialog_SaveGame() { layer = WindowLayer.Super })));
+                        optList.Insert(0, new ListableOption("Save".Translate(), () => Find.WindowStack.Add(new SaveGameWindow(Multiplayer.session.gameName) { layer = WindowLayer.Super })));
                     }
 
                     var quitMenuLabel = "QuitToMainMenu".Translate();
@@ -112,6 +107,9 @@ namespace Multiplayer.Client
 
         static void ShowModDebugInfo()
         {
+            Find.WindowStack.Add(new DisconnectedWindow(new SessionDisconnectInfo() { specialButtonTranslated = "Special btn"}));
+            return;
+
             var info = new RemoteData();
             JoinData.ReadServerData(JoinData.WriteServerData(true), info);
             for (int i = 0; i < 200; i++)
@@ -142,12 +140,12 @@ namespace Multiplayer.Client
 
         static string GetServerCloseConfirmation()
         {
-            var seconds = (int)(Time.realtimeSinceStartup - Multiplayer.session.lastSaveAt);
-            if (seconds < 10)
+            float? seconds = Time.realtimeSinceStartup - Multiplayer.session.lastSaveAt;
+            if (seconds is null or < 10)
                 return "MpServerCloseConfirmationNoTime".Translate();
 
             var minutes = seconds / 60;
-            return "MpServerCloseConfirmationTime".Translate(minutes > 0 ? $"{minutes}min" : $"{seconds}s");
+            return "MpServerCloseConfirmationTime".Translate(minutes > 0 ? $"{minutes:0.00}min" : $"{seconds:0.00}s");
         }
 
         private static void AskConvertToSingleplayer()

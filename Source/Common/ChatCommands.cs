@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+﻿using System.Diagnostics;
 
 namespace Multiplayer.Common
 {
@@ -11,7 +8,7 @@ namespace Multiplayer.Common
 
         public MultiplayerServer Server => MultiplayerServer.instance;
 
-        public abstract void Handle(ServerPlayer player, string[] args);
+        public abstract void Handle(IChatSource source, string[] args);
 
         public void SendNoPermission(ServerPlayer player)
         {
@@ -24,14 +21,6 @@ namespace Multiplayer.Common
         }
     }
 
-    public class ChatCmdAutosave : ChatCmdHandler
-    {
-        public override void Handle(ServerPlayer player, string[] args)
-        {
-            player.SendChat("Do you mean /joinpoint?");
-        }
-    }
-
     public class ChatCmdJoinPoint : ChatCmdHandler
     {
         public ChatCmdJoinPoint()
@@ -39,10 +28,10 @@ namespace Multiplayer.Common
             requiresHost = true;
         }
 
-        public override void Handle(ServerPlayer player, string[] args)
+        public override void Handle(IChatSource source, string[] args)
         {
-            if (!Server.TryStartJoinPointCreation(true))
-                player.SendChat("Join point creation already in progress.");
+            if (!Server.worldData.TryStartJoinPointCreation(true))
+                source.SendMsg("Join point creation already in progress.");
         }
     }
 
@@ -53,28 +42,41 @@ namespace Multiplayer.Common
             requiresHost = true;
         }
 
-        public override void Handle(ServerPlayer player, string[] args)
+        public override void Handle(IChatSource source, string[] args)
         {
             if (args.Length < 1)
             {
-                player.SendChat("No username provided.");
+                source.SendMsg("No username provided.");
                 return;
             }
 
             var toKick = FindPlayer(args[0]);
             if (toKick == null)
             {
-                player.SendChat("Couldn't find the player.");
+                source.SendMsg("Couldn't find the player.");
                 return;
             }
 
             if (toKick.IsHost)
             {
-                player.SendChat("You can't kick the host.");
+                source.SendMsg("You can't kick the host.");
                 return;
             }
 
             toKick.Disconnect(MpDisconnectReason.Kick);
+        }
+    }
+
+    public class ChatCmdStop : ChatCmdHandler
+    {
+        public ChatCmdStop()
+        {
+            requiresHost = true;
+        }
+
+        public override void Handle(IChatSource source, string[] args)
+        {
+            Server.running = false;
         }
     }
 }

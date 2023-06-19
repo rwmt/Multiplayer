@@ -9,7 +9,7 @@ namespace Multiplayer.Common
 
         private readonly byte[] array;
         private int index;
-        public object context;
+        public object? context;
 
         public int Length => array.Length;
         public int Position => index;
@@ -44,7 +44,7 @@ namespace Multiplayer.Common
 
         public virtual bool ReadBool() => BitConverter.ToBoolean(array, IncrementIndex(1));
 
-        public virtual string ReadString(int maxLen = DefaultMaxStringLen)
+        public virtual string? ReadStringNullable(int maxLen = DefaultMaxStringLen)
         {
             int bytes = ReadInt32();
             if (bytes == -1) return null;
@@ -60,12 +60,27 @@ namespace Multiplayer.Common
             return result;
         }
 
+        public virtual string ReadString(int maxLen = DefaultMaxStringLen)
+        {
+            int bytes = ReadInt32();
+
+            if (bytes < 0)
+                throw new ReaderException($"String byte length ({bytes}<0)");
+            if (bytes > maxLen)
+                throw new ReaderException($"String too long ({bytes}>{maxLen})");
+
+            string result = Encoding.UTF8.GetString(array, index, bytes);
+            index += bytes;
+
+            return result;
+        }
+
         public virtual byte[] ReadRaw(int len)
         {
             return array.SubArray(IncrementIndex(len), len);
         }
 
-        public virtual byte[] ReadPrefixedBytes(int maxLen = int.MaxValue)
+        public virtual byte[]? ReadPrefixedBytes(int maxLen = int.MaxValue)
         {
             int len = ReadInt32();
             if (len == -1) return null;
@@ -113,10 +128,10 @@ namespace Multiplayer.Common
             return result;
         }
 
-        public virtual string[] ReadPrefixedStrings()
+        public virtual string?[] ReadPrefixedStrings()
         {
             int len = ReadInt32();
-            string[] result = new string[len];
+            string?[] result = new string[len];
             for (int i = 0; i < len; i++)
                 result[i] = ReadString();
             return result;

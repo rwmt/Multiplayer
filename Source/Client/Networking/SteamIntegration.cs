@@ -1,11 +1,9 @@
 using Multiplayer.Client.Networking;
 using Multiplayer.Common;
 using Steamworks;
-using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Text;
 using UnityEngine;
 using Verse;
 
@@ -120,7 +118,7 @@ namespace Multiplayer.Client
                         continue;
                     }
 
-                    conn.State = ConnectionStateEnum.ServerJoining;
+                    conn.ChangeState(ConnectionStateEnum.ServerJoining);
                     player = playerManager.OnConnected(conn);
                     player.type = PlayerType.Steam;
 

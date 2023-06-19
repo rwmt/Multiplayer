@@ -1,42 +1,24 @@
-//extern alias zip;
-
 using System;
-using System.Collections;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Drawing;
-using System.Drawing.Imaging;
-using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Net.Sockets;
 using System.Reflection;
-using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Web.UI.WebControls;
-using System.Xml;
-using System.Xml.Linq;
 using HarmonyLib;
 using LiteNetLib;
-using Multiplayer.API;
-using Multiplayer.Client.Desyncs;
-using Multiplayer.Client.EarlyPatches;
 using Multiplayer.Client.Patches;
 using Multiplayer.Client.Util;
 using Multiplayer.Common;
 using RimWorld;
 using Steamworks;
 using UnityEngine;
-using UnityEngine.Scripting;
 using Verse;
 using Verse.Sound;
 using Verse.Steam;
+using Debug = UnityEngine.Debug;
 
 namespace Multiplayer.Client
 {
@@ -57,8 +39,8 @@ namespace Multiplayer.Client
             Native.InitLmfPtr();
 
             // UnityEngine.Debug.Log instead of Verse.Log.Message because the server runs on its own thread
-            ServerLog.info = str => UnityEngine.Debug.Log($"MpServerLog: {str}");
-            ServerLog.error = str => UnityEngine.Debug.Log($"MpServerLog Error: {str}");
+            ServerLog.info = str => Debug.Log($"MpServerLog: {str}");
+            ServerLog.error = str => Debug.Log($"MpServerLog Error: {str}");
             NetDebug.Logger = new ServerLog();
 
             SetUsername();
@@ -75,6 +57,7 @@ namespace Multiplayer.Client
 
             MpConnectionState.SetImplementation(ConnectionStateEnum.ClientSteam, typeof(ClientSteamState));
             MpConnectionState.SetImplementation(ConnectionStateEnum.ClientJoining, typeof(ClientJoiningState));
+            MpConnectionState.SetImplementation(ConnectionStateEnum.ClientLoading, typeof(ClientLoadingState));
             MpConnectionState.SetImplementation(ConnectionStateEnum.ClientPlaying, typeof(ClientPlayingState));
 
             MultiplayerData.CollectCursorIcons();
@@ -164,16 +147,18 @@ namespace Multiplayer.Client
             {
                 int port = MultiplayerServer.DefaultPort;
 
+                string address = null;
                 var split = addressPort.Split(':');
+
                 if (split.Length == 0)
-                    addressPort = "127.0.0.1";
+                    address = "127.0.0.1";
                 else if (split.Length >= 1)
-                    addressPort = split[0];
+                    address = split[0];
 
                 if (split.Length == 2)
                     int.TryParse(split[1], out port);
 
-                DoubleLongEvent(() => ClientUtil.TryConnectWithWindow(addressPort, port, false), "Connecting");
+                DoubleLongEvent(() => ClientUtil.TryConnectWithWindow(address, port, false), "Connecting");
             }
 
             if (GenCommandLine.CommandLineArgPassed("arbiter"))
@@ -184,18 +169,67 @@ namespace Multiplayer.Client
 
             if (GenCommandLine.TryGetCommandLineArg("replay", out string replay))
             {
+                GenCommandLine.TryGetCommandLineArg("replaydata", out string replayData);
+                var replays = replay.Split(';').ToList().GetEnumerator();
+
                 DoubleLongEvent(() =>
                 {
-                    Replay.LoadReplay(Replay.ReplayFile(replay), true, () =>
+                    void LoadNextReplay()
                     {
-                        var rand = Find.Maps.Select(m => m.AsyncTime().randState).Select(s => $"{s} {(uint)s} {s >> 32}");
+                        if (!replays.MoveNext())
+                        {
+                            Application.Quit();
+                            return;
+                        }
 
-                        Log.Message($"timer {TickPatch.Timer}");
-                        Log.Message($"world rand {Multiplayer.WorldComp.randState} {(uint)Multiplayer.WorldComp.randState} {Multiplayer.WorldComp.randState >> 32}");
-                        Log.Message($"map rand {rand.ToStringSafeEnumerable()} | {Find.Maps.Select(m => m.AsyncTime().mapTicks).ToStringSafeEnumerable()}");
+                        var current = replays.Current!.Split(':');
+                        int totalTicks = int.Parse(current[2]);
+                        int batchSize = int.Parse(current[3]);
+                        int ticksDone = 0;
+                        double timeSpent = 0;
 
-                        Application.Quit();
-                    });
+                        Replay.LoadReplay(Replay.ReplayFile(current[1]), true, () =>
+                        {
+                            TickPatch.AllTickables.Do(t => t.SetDesiredTimeSpeed(TimeSpeed.Normal));
+
+                            void TickBatch()
+                            {
+                                if (ticksDone >= totalTicks)
+                                {
+                                    if (!replayData.NullOrEmpty())
+                                    {
+                                        string output = "";
+                                        void Log(string text) => output += text + "\n";
+
+                                        Log($"Ticks done: {ticksDone}");
+                                        Log($"TPS: {1000.0/(timeSpent / ticksDone)}");
+                                        Log($"Timer: {TickPatch.Timer}");
+                                        Log($"World: {Multiplayer.AsyncWorldTime.worldTicks}/{Multiplayer.AsyncWorldTime.randState}");
+                                        foreach (var map in Find.Maps)
+                                            Log($"Map {map.uniqueID} rand: {map.AsyncTime().mapTicks}/{map.AsyncTime().randState}");
+
+                                        File.WriteAllText(Path.Combine(replayData, $"{current[0]}"), output);
+                                    }
+
+                                    LoadNextReplay();
+                                    return;
+                                }
+
+                                OnMainThread.Enqueue(() =>
+                                {
+                                    var watch = Stopwatch.StartNew();
+                                    TickPatch.DoTicks(batchSize);
+                                    timeSpent += watch.Elapsed.TotalMilliseconds;
+                                    ticksDone += batchSize;
+                                    TickBatch();
+                                });
+                            }
+
+                            TickBatch();
+                        });
+                    }
+
+                    LoadNextReplay();
                 }, "Replay");
             }
 
@@ -258,7 +292,8 @@ namespace Multiplayer.Client
                      "DesignateThing",
                 };
 
-                foreach (Type t in typeof(Designator).AllSubtypesAndSelf())
+                foreach (Type t in typeof(Designator).AllSubtypesAndSelf()
+                             .Except(typeof(Designator_MechControlGroup))) // Opens float menu, sync that instead
                 {
                     foreach (string m in designatorMethods)
                     {
@@ -268,7 +303,7 @@ namespace Multiplayer.Client
                         MethodInfo prefix = AccessTools.Method(typeof(DesignatorPatches), m);
                         try
                         {
-                            harmony.PatchMeasure(method, new HarmonyMethod(prefix), null, null, new HarmonyMethod(designatorFinalizer));
+                            harmony.PatchMeasure(method, new HarmonyMethod(prefix) { priority = MpPriority.MpFirst }, null, null, new HarmonyMethod(designatorFinalizer));
                         } catch (Exception e) {
                             LogError($"FAIL: {t.FullName}:{method.Name} with {e}");
                         }
@@ -292,14 +327,19 @@ namespace Multiplayer.Client
                 var randomBoltMesh = typeof(LightningBoltMeshPool).GetProperty(nameof(LightningBoltMeshPool.RandomBoltMesh)).GetGetMethod();
                 var drawTrackerCtor = typeof(Pawn_DrawTracker).GetConstructor(new[] { typeof(Pawn) });
                 var randomHair = typeof(PawnStyleItemChooser).GetMethod(nameof(PawnStyleItemChooser.RandomHairFor));
+                var cannotAssignReason = typeof(Dialog_BeginRitual).GetMethod(nameof(Dialog_BeginRitual.CannotAssignReason), BindingFlags.NonPublic | BindingFlags.Instance);
+                var canEverSpectate = typeof(RitualRoleAssignments).GetMethod(nameof(RitualRoleAssignments.CanEverSpectate));
 
                 var effectMethods = new MethodBase[] { subSustainerStart, sampleCtor, subSoundPlay, effecterTick, effecterTrigger, effecterCleanup, randomBoltMesh, drawTrackerCtor, randomHair };
                 var moteMethods = typeof(MoteMaker).GetMethods(BindingFlags.Static | BindingFlags.Public)
                     .Where(m => m.Name != "MakeBombardmentMote"); // Special case, just calls MakeBombardmentMote_NewTmp, prevents Hugslib complains
                 var fleckMethods = typeof(FleckMaker).GetMethods(BindingFlags.Static | BindingFlags.Public)
-                    .Where(m => m.ReturnType == typeof(void));
+                    .Where(m => m.ReturnType == typeof(void))
+                    .Concat(typeof(FleckManager).GetMethods() // FleckStatic uses Rand in Setup method, FleckThrown uses RandomInRange in TimeInterval. May as well catch all in case mods do the same.
+                        .Where(m => m.ReturnType == typeof(void)));
+                var ritualMethods = new[] { cannotAssignReason, canEverSpectate };
 
-                foreach (MethodBase m in effectMethods.Concat(moteMethods).Concat(fleckMethods))
+                foreach (MethodBase m in effectMethods.Concat(moteMethods).Concat(fleckMethods).Concat(ritualMethods))
                 {
                     try
                     {

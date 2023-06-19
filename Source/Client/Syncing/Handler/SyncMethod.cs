@@ -36,11 +36,12 @@ namespace Multiplayer.Client
 
     public delegate void SyncMethodWriter(object obj, SyncType type, string debugInfo);
 
-    [HotSwappable]
+
     public class SyncMethod : SyncHandler, ISyncMethod
     {
         public readonly Type targetType;
         public readonly MethodInfo method;
+        public readonly FastInvokeHandler methodDelegate;
 
         protected readonly string instancePath;
 
@@ -65,6 +66,7 @@ namespace Multiplayer.Client
             this.targetType = targetType;
             this.instancePath = instancePath;
 
+            methodDelegate = MethodInvoker.GetHandler(method);
             argTypes = CheckArgs(method, inTypes);
             argNames = method.GetParameters().Names();
             argTransformers = new SyncTransformer[argTypes.Length];
@@ -142,7 +144,7 @@ namespace Multiplayer.Client
             writer.Log.Node("Map id: " + mapId);
             Multiplayer.WriterLog.AddCurrentNode(writer);
 
-            Multiplayer.Client.SendCommand(CommandType.Sync, mapId, writer.ToArray());
+            SendSyncCommand(mapId, writer);
 
             lastSendTime = Utils.MillisNow;
 
@@ -195,7 +197,7 @@ namespace Multiplayer.Client
             beforeCall?.Invoke(target, args);
 
             MpLog.Debug($"Invoked {method} on {target} with {args.Length} params {args.ToStringSafeEnumerable()}");
-            method.Invoke(target, args);
+            methodDelegate.Invoke(target, args);
 
             afterCall?.Invoke(target, args);
         }

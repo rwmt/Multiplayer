@@ -1,32 +1,25 @@
-extern alias zip;
-
 using LiteNetLib;
 using Multiplayer.Common;
 using RimWorld;
 using Steamworks;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
 using System.Threading;
-using System.Xml;
 using UnityEngine;
 using Verse;
 using Verse.Steam;
 using HarmonyLib;
-using zip::Ionic.Zip;
-using System.Collections.Concurrent;
 using Verse.Sound;
-using Multiplayer.Client.Networking;
 using Multiplayer.Client.Util;
 using Multiplayer.Common.Util;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
+
     public class ServerBrowser : Window
     {
         private NetManager lanListener;
@@ -56,7 +49,6 @@ namespace Multiplayer.Client
             lanListener.Start(5100);
 
             doCloseX = true;
-            closeOnAccept = false;
         }
 
         private Vector2 lanScroll;
@@ -68,8 +60,6 @@ namespace Multiplayer.Client
         {
             Lan, Direct, Steam, Host
         }
-
-        private WidgetRow widgetRow = new WidgetRow();
 
         public override void DoWindowContents(Rect inRect)
         {
@@ -108,8 +98,8 @@ namespace Multiplayer.Client
         {
             float x = 0;
 
-            const string WebsiteLink = "https://rimworldmultiplayer.com";
-            const string DiscordLink = "https://discord.gg/n5E2cb2Y4Z";
+            const string websiteLink = "https://rimworldmultiplayer.com";
+            const string discordLink = "https://discord.gg/n5E2cb2Y4Z";
 
             bool Button(Texture2D icon, string labelKey, string tip, Color baseIconColor, float iconSize = 24f)
             {
@@ -145,11 +135,11 @@ namespace Multiplayer.Client
             if (Button(TexButton.ToggleLog, compatLabel, MpUtil.TranslateWithDoubleNewLines(compatLabelDesc, 2), Color.grey, 20))
                 Find.WindowStack.Add(new ModCompatWindow(null, false, false, null));
 
-            if (Button(MultiplayerStatic.WebsiteIcon, "MpWebsiteButton", "MpLinkButtonDesc".Translate() + " " + WebsiteLink, Color.grey, 20))
-                Application.OpenURL(WebsiteLink);
+            if (Button(MultiplayerStatic.WebsiteIcon, "MpWebsiteButton", "MpLinkButtonDesc".Translate() + " " + websiteLink, Color.grey, 20))
+                Application.OpenURL(websiteLink);
 
-            if (Button(MultiplayerStatic.DiscordIcon, "MpDiscordButton", "MpLinkButtonDesc".Translate() + " " + DiscordLink, Color.white))
-                Application.OpenURL(DiscordLink);
+            if (Button(MultiplayerStatic.DiscordIcon, "MpDiscordButton", "MpLinkButtonDesc".Translate() + " " + discordLink, Color.white))
+                Application.OpenURL(discordLink);
 
             if (false) // todo
                 Button(
@@ -167,7 +157,7 @@ namespace Multiplayer.Client
         private void ReloadFiles()
         {
             selectedFile = null;
-            reader?.WaitTasks();
+            reader?.WaitTasks(); // Wait for the existing reader to finish
 
             reader = new SaveFileReader();
             reader.StartReading();
@@ -411,7 +401,7 @@ namespace Multiplayer.Client
 
             yield return new FloatMenuOption("MpSeeModList".Translate(), () =>
             {
-                Find.WindowStack.Add(new TwoTextAreas_Window($"RimWorld {save.rwVersion}\nSave mod list:\n\n{saveMods}", $"RimWorld {VersionControl.CurrentVersionString}\nActive mod list:\n\n{activeMods}"));
+                Find.WindowStack.Add(new TwoTextAreasWindow($"RimWorld {save.rwVersion}\nSave mod list:\n\n{saveMods}", $"RimWorld {VersionControl.CurrentVersionString}\nActive mod list:\n\n{activeMods}"));
             });
 
             yield return new FloatMenuOption("MpOpenSaveFolder".Translate(), () =>
@@ -421,7 +411,7 @@ namespace Multiplayer.Client
 
             yield return new FloatMenuOption("MpFileRename".Translate(), () =>
             {
-                Find.WindowStack.Add(new Dialog_RenameFile(save.file, ReloadFiles));
+                Find.WindowStack.Add(new RenameFileWindow(save.file, ReloadFiles));
             });
 
             if (!MpVersion.IsDebug) yield break;
@@ -468,7 +458,7 @@ namespace Multiplayer.Client
             float height = friends.Count * 40;
             Rect viewRect = new Rect(0, 0, outRect.width - 16f, height);
 
-            Widgets.BeginScrollView(outRect, ref steamScroll, viewRect, true);
+            Widgets.BeginScrollView(outRect, ref steamScroll, viewRect);
 
             float y = 0;
             int i = 0;
@@ -518,40 +508,45 @@ namespace Multiplayer.Client
 
             const float btnWidth = 115f;
 
-            if (Widgets.ButtonText(new Rect(inRect.center.x - btnWidth / 2, 60f, btnWidth, 35f), "MpConnectButton".Translate()))
+            if (Widgets.ButtonText(new Rect(inRect.center.x - btnWidth / 2, 60f, btnWidth, 35f), "MpConnectButton".Translate()) &&
+                DirectConnect(Multiplayer.settings.serverAddress.Trim()))
+                Close(false);
+        }
+
+        private static bool DirectConnect(string addr)
+        {
+            var port = MultiplayerServer.DefaultPort;
+
+            // If IPv4 or IPv6 address with optional port
+            if (Endpoints.TryParse(addr, MultiplayerServer.DefaultPort, out var endpoint))
             {
-                var addr = Multiplayer.settings.serverAddress.Trim();
-                var port = MultiplayerServer.DefaultPort;
-
-                // If IPv4 or IPv6 address with optional port
-                if (Endpoints.TryParse(addr, MultiplayerServer.DefaultPort, out var endpoint))
-                {
-                    addr = endpoint.Address.ToString();
-                    port = endpoint.Port;
-                }
-                // Hostname with optional port
-                else
-                {
-                    var split = addr.Split(':');
-                    addr = split[0];
-                    if (split.Length == 2 && int.TryParse(split[1], out var parsedPort) && parsedPort is > IPEndPoint.MinPort and < IPEndPoint.MaxPort)
-                        port = parsedPort;
-                }
-
-                Log.Message("Connecting directly");
-
-                try
-                {
-                    ClientUtil.TryConnectWithWindow(addr, port);
-                    Multiplayer.settings.Write();
-                    Close(false);
-                }
-                catch (Exception e)
-                {
-                    Messages.Message("MpInvalidAddress".Translate(), MessageTypeDefOf.RejectInput, false);
-                    Log.Error($"Exception while connecting directly {e}");
-                }
+                addr = endpoint.Address.ToString();
+                port = endpoint.Port;
             }
+            // Hostname with optional port
+            else
+            {
+                var split = addr.Split(':');
+                addr = split[0];
+                if (split.Length == 2 && int.TryParse(split[1], out var parsedPort) && parsedPort is > IPEndPoint.MinPort and < IPEndPoint.MaxPort)
+                    port = parsedPort;
+            }
+
+            Log.Message("Connecting directly");
+
+            try
+            {
+                ClientUtil.TryConnectWithWindow(addr, port);
+                Multiplayer.settings.Write();
+                return true;
+            }
+            catch (Exception e)
+            {
+                Messages.Message("MpInvalidAddress".Translate(), MessageTypeDefOf.RejectInput, false);
+                Log.Error($"Exception while connecting directly {e}");
+            }
+
+            return false;
         }
 
         private void DrawLan(Rect inRect)
@@ -618,7 +613,7 @@ namespace Multiplayer.Client
             }
         }
 
-        private long lastFriendUpdate = 0;
+        private long lastFriendUpdate;
 
         private void UpdateSteam()
         {
@@ -653,7 +648,7 @@ namespace Multiplayer.Client
                     id = friend,
                     avatar = avatar,
                     username = username,
-                    playingRimworld = playingRimworld,
+                    playingRimworld = true,
                     serverHost = serverHost,
                 });
             }
@@ -670,12 +665,12 @@ namespace Multiplayer.Client
 
         public void Cleanup(bool sync)
         {
-            WaitCallback stop = s => lanListener.Stop();
+            void Stop(object s) => lanListener.Stop();
 
             if (sync)
-                stop(null);
+                Stop(null);
             else
-                ThreadPool.QueueUserWorkItem(stop);
+                ThreadPool.QueueUserWorkItem(Stop);
         }
 
         private void AddOrUpdate(IPEndPoint endpoint)
@@ -700,6 +695,15 @@ namespace Multiplayer.Client
         {
             public IPEndPoint endpoint;
             public long lastUpdate;
+        }
+
+        public override void OnAcceptKeyPressed()
+        {
+            if (tab == Tabs.Direct)
+            {
+                DirectConnect(Multiplayer.settings.serverAddress.Trim());
+                Close(false);
+            }
         }
     }
 

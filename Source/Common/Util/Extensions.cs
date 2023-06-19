@@ -7,13 +7,12 @@ using System.Linq;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
-using System.Xml;
 
 namespace Multiplayer.Common
 {
     public static class Extensions
     {
-        public static object GetDefaultValue(this Type t)
+        public static object? GetDefaultValue(this Type t)
         {
             return t.IsValueType ? Activator.CreateInstance(t) : null;
         }
@@ -79,7 +78,7 @@ namespace Multiplayer.Common
             return Attribute.GetCustomAttributes(member).OfType<T>();
         }
 
-        public static T GetAttribute<T>(this MemberInfo member) where T : Attribute
+        public static T? GetAttribute<T>(this MemberInfo member) where T : Attribute
         {
             return AllAttributes<T>(member).FirstOrDefault();
         }
@@ -113,35 +112,16 @@ namespace Multiplayer.Common
                 hex.AppendFormat("{0:x2}", b);
             return hex.ToString();
         }
-    }
 
-    public static class XmlExtensions
-    {
-        public static void SelectAndRemove(this XmlNode node, string xpath)
+        public static void Deconstruct<Key, Value>(this KeyValuePair<Key, Value> tuple, out Key key, out Value value)
         {
-            XmlNodeList nodes = node.SelectNodes(xpath);
-            foreach (XmlNode selected in nodes)
-                selected.RemoveFromParent();
+            key = tuple.Key;
+            value = tuple.Value;
         }
 
-        public static void RemoveChildIfPresent(this XmlNode node, string child)
+        public static float MaxOrZero<T>(this IEnumerable<T> items, Func<T, float> map)
         {
-            XmlNode childNode = node[child];
-            if (childNode != null)
-                node.RemoveChild(childNode);
-        }
-
-        public static void RemoveFromParent(this XmlNode node)
-        {
-            if (node == null) return;
-            node.ParentNode.RemoveChild(node);
-        }
-
-        public static void AddNode(this XmlNode parent, string name, string value)
-        {
-            XmlNode node = parent.OwnerDocument.CreateElement(name);
-            node.InnerText = value;
-            parent.AppendChild(node);
+            return items.Max(i => (float?)map(i)) ?? 0f;
         }
     }
 

@@ -2,17 +2,13 @@ using HarmonyLib;
 using RimWorld;
 using RimWorld.Planet;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using UnityEngine;
 using Verse;
 using static Verse.Widgets;
 
 namespace Multiplayer.Client.Persistent
 {
-    [HarmonyPatch(typeof(Widgets), nameof(Widgets.ButtonText), new[] { typeof(Rect), typeof(string), typeof(bool), typeof(bool), typeof(bool) })]
+    [HarmonyPatch(typeof(Widgets), nameof(Widgets.ButtonText), new[] { typeof(Rect), typeof(string), typeof(bool), typeof(bool), typeof(bool), typeof(TextAnchor) })]
     static class MakeCancelFormingButtonRed
     {
         static void Prefix(string label, ref bool __state)
@@ -63,18 +59,21 @@ namespace Multiplayer.Client.Persistent
     [HarmonyPatch(typeof(Dialog_FormCaravan), nameof(Dialog_FormCaravan.DrawAutoSelectCheckbox))]
     static class DrawAutoSelectCheckboxPatch
     {
-        // TODO: Sync autoSelectFoodAndMedicine
         // This is merely hiding it and enabling manual transfer as a side effect.
         static bool Prefix(Dialog_FormCaravan __instance, Rect rect)
         {
-            if (Multiplayer.ShouldSync && __instance is CaravanFormingProxy dialog)
+            if (Multiplayer.InInterface && __instance is CaravanFormingProxy dialog)
             {
                 rect.yMin += 37f;
                 rect.height = 35f;
 
-                bool autoSelectFoodAndMedicine = false;
+                bool autoSelectFoodAndMedicine = dialog.autoSelectTravelSupplies;
+                dialog.travelSuppliesTransfer.readOnly = autoSelectFoodAndMedicine;
 
-                Widgets.CheckboxLabeled(rect, "AutomaticallySelectFoodAndMedicine".Translate(), ref autoSelectFoodAndMedicine, disabled: true, placeCheckboxNearText: true);
+                Widgets.CheckboxLabeled(rect, "AutomaticallySelectTravelSupplies".Translate(), ref dialog.autoSelectTravelSupplies, placeCheckboxNearText: true);
+
+                if (autoSelectFoodAndMedicine != dialog.autoSelectTravelSupplies)
+                    dialog.Session?.SetAutoSelectTravelSupplies(dialog.autoSelectTravelSupplies);
 
                 return false;
             }
@@ -88,7 +87,7 @@ namespace Multiplayer.Client.Persistent
     {
         static bool Prefix(Dialog_FormCaravan __instance)
         {
-            if (Multiplayer.ShouldSync && __instance is CaravanFormingProxy dialog)
+            if (Multiplayer.InInterface && __instance is CaravanFormingProxy dialog)
             {
                 dialog.Session?.TryFormAndSendCaravan();
                 return false;
@@ -103,7 +102,7 @@ namespace Multiplayer.Client.Persistent
     {
         static bool Prefix(Dialog_FormCaravan __instance)
         {
-            if (Multiplayer.ShouldSync && __instance is CaravanFormingProxy dialog)
+            if (Multiplayer.InInterface && __instance is CaravanFormingProxy dialog)
             {
                 dialog.Session?.DebugTryFormCaravanInstantly();
                 return false;
@@ -118,7 +117,7 @@ namespace Multiplayer.Client.Persistent
     {
         static bool Prefix(Dialog_FormCaravan __instance)
         {
-            if (Multiplayer.ShouldSync && __instance is CaravanFormingProxy dialog)
+            if (Multiplayer.InInterface && __instance is CaravanFormingProxy dialog)
             {
                 dialog.Session?.TryReformCaravan();
                 return false;
@@ -133,7 +132,7 @@ namespace Multiplayer.Client.Persistent
     {
         static bool Prefix(Dialog_FormCaravan __instance, int destinationTile)
         {
-            if (Multiplayer.ShouldSync && __instance is CaravanFormingProxy dialog)
+            if (Multiplayer.InInterface && __instance is CaravanFormingProxy dialog)
             {
                 dialog.Session?.ChooseRoute(destinationTile);
                 return false;
@@ -156,7 +155,7 @@ namespace Multiplayer.Client.Persistent
     }
 
     [HarmonyPatch(typeof(Dialog_FormCaravan), MethodType.Constructor)]
-    [HarmonyPatch(new[] { typeof(Map), typeof(bool), typeof(Action), typeof(bool) })]
+    [HarmonyPatch(new[] { typeof(Map), typeof(bool), typeof(Action), typeof(bool), typeof(IntVec3) })]
     static class DialogFormCaravanCtorPatch
     {
         static void Prefix(Dialog_FormCaravan __instance, Map map, bool reform, Action onClosed, bool mapAboutToBeRemoved)

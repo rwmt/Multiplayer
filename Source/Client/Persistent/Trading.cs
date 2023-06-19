@@ -1,17 +1,11 @@
 using HarmonyLib;
 using Multiplayer.API;
 using Multiplayer.Client.Persistent;
-using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
-using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
-using System.Text;
-using UnityEngine;
 using Verse;
 using Verse.AI;
 using Verse.AI.Group;
@@ -222,7 +216,7 @@ namespace Multiplayer.Client
         }
     }
 
-    [HotSwappable]
+
     public class MpTradeDeal : TradeDeal, IExposable
     {
         public MpTradeSession session;

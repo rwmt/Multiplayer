@@ -1,10 +1,8 @@
 using HarmonyLib;
 using Multiplayer.Common;
 using RimWorld;
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using UnityEngine;
 using Verse;
 
@@ -23,8 +21,12 @@ namespace Multiplayer.Client
             {
                 if (player.username == Multiplayer.username) continue;
                 if (player.map != curMap) continue;
+                if (player.factionId != Multiplayer.RealPlayerFaction.loadID) continue;
 
-                GUI.color = player.color * new Color(1, 1, 1, 0.5f);
+                if (Multiplayer.settings.transparentPlayerCursors)
+                    GUI.color = player.color * new Color(1, 1, 1, 0.5f);
+                else
+                    GUI.color = player.color * new Color(1, 1, 1, 1);
 
                 var pos = Vector3.Lerp(
                     player.lastCursor,
@@ -76,6 +78,8 @@ namespace Multiplayer.Client
 
             foreach (var player in Multiplayer.session.players)
             {
+                if (player.factionId != Multiplayer.RealPlayerFaction.loadID) continue;
+
                 foreach (var sel in player.selectedThings)
                 {
                     if (!drawnThisUpdate.Add(sel.Key)) continue;

@@ -8,10 +8,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading;
-using HarmonyLib;
-using Multiplayer.API;
 using Multiplayer.Client.Util;
 using UnityEngine;
 using Verse;
@@ -26,9 +22,9 @@ namespace Multiplayer.Client
         public string gameName;
         public int playerId;
 
-        public int localCmdId;
+        public int receivedCmds;
         public int remoteTickUntil;
-        public int remoteCmdId;
+        public int remoteSentCmds;
 
         public ConnectionBase client;
         public NetManager netClient;
@@ -36,11 +32,12 @@ namespace Multiplayer.Client
         public PacketLogWindow readerLog = new();
         public int myFactionId;
         public List<PlayerInfo> players = new();
-        public GameDataSnapshot dataSnapshot = new();
+        public GameDataSnapshot dataSnapshot;
         public CursorAndPing cursorAndPing = new();
         public int autosaveCounter;
-        public float lastSaveAt;
+        public float? lastSaveAt;
         public string desyncTracesFromHost;
+        public List<ClientSyncOpinion> initialOpinions = new();
 
         public bool replay;
         public int replayTimerStart = -1;
@@ -57,6 +54,7 @@ namespace Multiplayer.Client
         public const int MaxMessages = 200;
         public List<ChatMsg> messages = new();
         public bool hasUnread;
+        public bool ghostModeCheckbox;
 
         public ServerSettings localServerSettings;
 
@@ -72,7 +70,7 @@ namespace Multiplayer.Client
             if (client != null)
             {
                 client.Close(MpDisconnectReason.Internal);
-                client.State = ConnectionStateEnum.Disconnected;
+                client.ChangeState(ConnectionStateEnum.Disconnected);
             }
 
             netClient?.Stop();
@@ -115,7 +113,7 @@ namespace Multiplayer.Client
         public void NotifyChat()
         {
             hasUnread = true;
-            SoundDefOf.PageChange.PlayOneShotOnCamera(null);
+            SoundDefOf.PageChange.PlayOneShotOnCamera();
         }
 
         public void ProcessDisconnectPacket(MpDisconnectReason reason, byte[] data)
@@ -134,7 +132,7 @@ namespace Multiplayer.Client
                 int proto = reader.ReadInt32();
 
                 disconnectInfo.wideWindow = true;
-                disconnectInfo.descTranslated = "MpWrongMultiplayerVersionInfo".Translate(strVersion, proto, MpVersion.Version);
+                disconnectInfo.descTranslated = "MpWrongMultiplayerVersionDesc".Translate(strVersion, proto, MpVersion.Version, MpVersion.Protocol);
 
                 if (proto < MpVersion.Protocol)
                     disconnectInfo.descTranslated += "\n" + "MpWrongVersionUpdateInfoHost".Translate();
@@ -179,6 +177,7 @@ namespace Multiplayer.Client
             if (reason == MpDisconnectReason.ServerStarting) titleKey = "MpDisconnectServerStarting";
             if (reason == MpDisconnectReason.Kick) titleKey = "MpKicked";
             if (reason == MpDisconnectReason.ServerPacketRead) descKey = "MpPacketErrorRemote";
+            if (reason == MpDisconnectReason.BadGamePassword) descKey = "MpBadGamePassword";
 
             disconnectInfo.titleTranslated ??= titleKey?.Translate();
             disconnectInfo.descTranslated ??= descKey?.Translate();
@@ -215,19 +214,19 @@ namespace Multiplayer.Client
 
         public void ProcessTimeControl()
         {
-            if (localCmdId >= remoteCmdId)
+            if (receivedCmds >= remoteSentCmds)
                 TickPatch.tickUntil = remoteTickUntil;
         }
 
         public void ScheduleCommand(ScheduledCommand cmd)
         {
             MpLog.Debug(cmd.ToString());
-            dataSnapshot.mapCmds.GetOrAddNew(cmd.mapId).Add(cmd);
+            dataSnapshot.MapCmds.GetOrAddNew(cmd.mapId).Add(cmd);
 
             if (Current.ProgramState != ProgramState.Playing) return;
 
             if (cmd.mapId == ScheduledCommand.Global)
-                Multiplayer.WorldComp.cmds.Enqueue(cmd);
+                Multiplayer.AsyncWorldTime.cmds.Enqueue(cmd);
             else
                 cmd.GetMap()?.AsyncTime().cmds.Enqueue(cmd);
         }
@@ -241,7 +240,7 @@ namespace Multiplayer.Client
         {
             LongEventHandler.QueueLongEvent(() =>
             {
-                SaveGameToFile(GetNextAutosaveFileName());
+                SaveGameToFile(GetNextAutosaveFileName(), false);
                 Multiplayer.Client.Send(Packets.Client_Autosaving);
             }, "MpSaving", false, null);
         }
@@ -260,14 +259,16 @@ namespace Multiplayer.Client
                 .First();
         }
 
-        public static void SaveGameToFile(string fileNameNoExtension)
+        public static void SaveGameToFile(string fileNameNoExtension, bool currentReplay)
         {
             Log.Message($"Multiplayer: saving to file {fileNameNoExtension}");
 
             try
             {
                 new FileInfo(Path.Combine(Multiplayer.ReplaysDir, $"{fileNameNoExtension}.zip")).Delete();
-                Replay.ForSaving(fileNameNoExtension).WriteData(SaveLoad.CreateGameDataSnapshot(SaveLoad.SaveGameData()));
+                Replay.ForSaving(fileNameNoExtension).WriteData(
+                    currentReplay ? Multiplayer.session.dataSnapshot : SaveLoad.CreateGameDataSnapshot(SaveLoad.SaveGameData())
+                );
                 Messages.Message("MpGameSaved".Translate(fileNameNoExtension), MessageTypeDefOf.SilentInput, false);
                 Multiplayer.session.lastSaveAt = Time.realtimeSinceStartup;
             }
@@ -280,9 +281,11 @@ namespace Multiplayer.Client
 
         public static void DoRejoin()
         {
-            Multiplayer.Client.State = ConnectionStateEnum.ClientJoining;
-            Multiplayer.Client.Send(Packets.Client_WorldRequest);
-            ((ClientJoiningState)Multiplayer.Client.StateObj).subState = JoiningState.Waiting;
+            Multiplayer.Client.Send(Packets.Client_RequestRejoin);
+
+            Multiplayer.Client.ChangeState(ConnectionStateEnum.ClientLoading);
+            Multiplayer.Client.GetState<ClientLoadingState>()!.subState = LoadingState.Waiting;
+            Multiplayer.Client.Lenient = true;
 
             Multiplayer.session.desynced = false;
 
@@ -313,16 +316,13 @@ namespace Multiplayer.Client
         public bool wideWindow;
     }
 
-    public class GameDataSnapshot
-    {
-        public int cachedAtTime;
-        public byte[] gameData;
-        public byte[] semiPersistentData;
-        public Dictionary<int, byte[]> mapData = new();
-
-        // Global cmds are -1
-        public Dictionary<int, List<ScheduledCommand>> mapCmds = new();
-    }
+    public record GameDataSnapshot(
+        int CachedAtTime,
+        byte[] GameData,
+        byte[] SemiPersistentData,
+        Dictionary<int, byte[]> MapData,
+        Dictionary<int, List<ScheduledCommand>> MapCmds // Global cmds are -1, this is mutated by MultiplayerSession.ScheduleCommand
+    );
 
     public class PlayerInfo : IPlayerInfo
     {
@@ -333,9 +333,11 @@ namespace Multiplayer.Client
         public int latency;
         public int ticksBehind;
         public bool simulating;
+        public float frameTime;
         public PlayerType type;
         public PlayerStatus status;
         public Color color;
+        public int factionId;
 
         public ulong steamId;
         public string steamPersonaName;
@@ -390,6 +392,8 @@ namespace Multiplayer.Client
 
             var color = new Color(data.ReadByte() / 255f, data.ReadByte() / 255f, data.ReadByte() / 255f);
 
+            int factionId = data.ReadInt32();
+
             return new PlayerInfo(id, username, latency, type)
             {
                 status = status,
@@ -397,7 +401,8 @@ namespace Multiplayer.Client
                 steamPersonaName = steamName,
                 color = color,
                 ticksBehind = ticksBehind,
-                simulating = simulating
+                simulating = simulating,
+                factionId = factionId
             };
         }
     }

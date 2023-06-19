@@ -1,13 +1,9 @@
-using Multiplayer.Client.EarlyPatches;
 using Multiplayer.Common;
 using RimWorld;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Web.ModelBinding;
 using UnityEngine;
 using Verse;
 using Verse.Sound;
@@ -42,13 +38,22 @@ namespace Multiplayer.Client
             if (translationMods.TryGetValue(mod.RootDir.FullName, out var xml))
                 return xml;
 
-            var dummyPack = DummyContentPack(mod);
+            // ModContentPack.InitLoadFolders can throw "Illegal characters in path"
+            try
+            {
+                var dummyPack = DummyContentPack(mod);
 
-            return translationMods[mod.RootDir.FullName] =
-                !ModHasAssemblies(mod)
-                && !ModContentPack.GetAllFilesForModPreserveOrder(dummyPack, "Defs/", _ => true).Any()
-                && !ModContentPack.GetAllFilesForModPreserveOrder(dummyPack, "Patches/", _ => true).Any()
-                && ModContentPack.GetAllFilesForModPreserveOrder(dummyPack, "Languages/", _ => true).Any();
+                return translationMods[mod.RootDir.FullName] =
+                    !ModHasAssemblies(mod)
+                    && !ModContentPack.GetAllFilesForModPreserveOrder(dummyPack, "Defs/", _ => true).Any()
+                    && !ModContentPack.GetAllFilesForModPreserveOrder(dummyPack, "Patches/", _ => true).Any()
+                    && ModContentPack.GetAllFilesForModPreserveOrder(dummyPack, "Languages/", _ => true).Any();
+            }
+            catch (Exception e)
+            {
+                Log.Error($"Error getting information about mod {mod.RootDir.FullName}: {e}");
+                return translationMods[mod.RootDir.FullName] = false;
+            }
         }
 
         public static bool ModHasAssemblies(ModMetaData mod)
@@ -68,7 +73,7 @@ namespace Multiplayer.Client
             return new ModContentPack(mod.RootDir, mod.PackageId, mod.PackageIdPlayerFacing, 0, mod.Name, mod.Official);
         }
 
-        public static UniqueList<Texture2D> icons = new();
+        public static UniqueList<Texture> icons = new();
         public static UniqueList<IconInfo> iconInfos = new();
 
         public class IconInfo
@@ -112,20 +117,21 @@ namespace Multiplayer.Client
 
             int TypeHash(Type type) => GenText.StableStringHash(type.FullName);
 
-            dict["ThingComp"] = GetDefInfo(ImplSerialization.thingCompTypes, TypeHash);
-            dict["AbilityComp"] = GetDefInfo(ImplSerialization.abilityCompTypes, TypeHash);
-            dict["Designator"] = GetDefInfo(ImplSerialization.designatorTypes, TypeHash);
-            dict["WorldObjectComp"] = GetDefInfo(ImplSerialization.worldObjectCompTypes, TypeHash);
-            dict["IStoreSettingsParent"] = GetDefInfo(ImplSerialization.storageParents, TypeHash);
-            dict["IPlantToGrowSettable"] = GetDefInfo(ImplSerialization.plantToGrowSettables, TypeHash);
+            dict["ThingComp"] = GetDefInfo(RwImplSerialization.thingCompTypes, TypeHash);
+            dict["AbilityComp"] = GetDefInfo(RwImplSerialization.abilityCompTypes, TypeHash);
+            dict["Designator"] = GetDefInfo(RwImplSerialization.designatorTypes, TypeHash);
+            dict["WorldObjectComp"] = GetDefInfo(RwImplSerialization.worldObjectCompTypes, TypeHash);
+            dict["HediffComp"] = GetDefInfo(RwImplSerialization.hediffCompTypes, TypeHash);
+            dict["IStoreSettingsParent"] = GetDefInfo(RwImplSerialization.storageParents, TypeHash);
+            dict["IPlantToGrowSettable"] = GetDefInfo(RwImplSerialization.plantToGrowSettables, TypeHash);
             dict["DefTypes"] = GetDefInfo(DefSerialization.DefTypes, TypeHash);
 
-            dict["GameComponent"] = GetDefInfo(ImplSerialization.gameCompTypes, TypeHash);
-            dict["WorldComponent"] = GetDefInfo(ImplSerialization.worldCompTypes, TypeHash);
-            dict["MapComponent"] = GetDefInfo(ImplSerialization.mapCompTypes, TypeHash);
+            dict["GameComponent"] = GetDefInfo(RwImplSerialization.gameCompTypes, TypeHash);
+            dict["WorldComponent"] = GetDefInfo(RwImplSerialization.worldCompTypes, TypeHash);
+            dict["MapComponent"] = GetDefInfo(RwImplSerialization.mapCompTypes, TypeHash);
+            dict["ISyncSimple"] = GetDefInfo(ImplSerialization.syncSimples, TypeHash);
 
             dict["PawnBio"] = GetDefInfo(SolidBioDatabase.allBios, b => b.name.GetHashCode());
-            dict["Backstory"] = GetDefInfo(BackstoryDatabase.allBackstories.Keys, b => b.GetHashCode());
 
             foreach (var defType in GenTypes.AllLeafSubclasses(typeof(Def)))
             {

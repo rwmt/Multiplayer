@@ -1,12 +1,8 @@
-using HarmonyLib;
 using Ionic.Zlib;
 using Multiplayer.Common;
 using RimWorld;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
-using System.Linq;
 using UnityEngine;
 using Verse;
 
@@ -22,12 +18,13 @@ namespace Multiplayer.Client
         public void HandleTimeControl(ByteReader data)
         {
             int tickUntil = data.ReadInt32();
-            int cmdId = data.ReadInt32();
+            int sentCmds = data.ReadInt32();
+            TickPatch.serverTimePerTick = data.ReadFloat();
 
-            if (TickPatch.tickUntil >= tickUntil) return;
+            if (Multiplayer.session.remoteTickUntil >= tickUntil) return;
 
             Multiplayer.session.remoteTickUntil = tickUntil;
-            Multiplayer.session.remoteCmdId = cmdId;
+            Multiplayer.session.remoteSentCmds = sentCmds;
             Multiplayer.session.ProcessTimeControl();
         }
 
@@ -51,14 +48,8 @@ namespace Multiplayer.Client
             cmd.issuedBySelf = data.ReadBool();
             Session.ScheduleCommand(cmd);
 
-            Multiplayer.session.localCmdId++;
+            Multiplayer.session.receivedCmds++;
             Multiplayer.session.ProcessTimeControl();
-        }
-
-        [PacketHandler(Packets.Server_CanRejoin)]
-        public void HandleCanRejoin(ByteReader data)
-        {
-            MultiplayerSession.DoRejoin();
         }
 
         [PacketHandler(Packets.Server_PlayerList)]
@@ -95,6 +86,7 @@ namespace Multiplayer.Client
                     player.latency = data.ReadInt32();
                     player.ticksBehind = data.ReadInt32();
                     player.simulating = data.ReadBool();
+                    player.frameTime = data.ReadFloat();
                 }
             }
             else if (action == PlayerListAction.Status)
@@ -197,10 +189,10 @@ namespace Multiplayer.Client
             for (int j = 0; j < mapCmdsLen; j++)
                 mapCmds.Add(ScheduledCommand.Deserialize(new ByteReader(data.ReadPrefixedBytes())));
 
-            Session.dataSnapshot.mapCmds[mapId] = mapCmds;
+            Session.dataSnapshot.MapCmds[mapId] = mapCmds;
 
             byte[] mapData = GZipStream.UncompressBuffer(data.ReadPrefixedBytes());
-            Session.dataSnapshot.mapData[mapId] = mapData;
+            Session.dataSnapshot.MapData[mapId] = mapData;
 
             //ClientJoiningState.ReloadGame(TickPatch.tickUntil, Find.Maps.Select(m => m.uniqueID).Concat(mapId).ToList());
             // todo Multiplayer.client.Send(Packets.CLIENT_MAP_LOADED);
@@ -222,14 +214,14 @@ namespace Multiplayer.Client
             Multiplayer.game?.sync.AddClientOpinionAndCheckDesync(ClientSyncOpinion.Deserialize(data));
         }
 
-        [PacketHandler(Packets.Server_Pause)]
-        public void HandlePause(ByteReader data)
+        [PacketHandler(Packets.Server_Freeze)]
+        public void HandleFreze(ByteReader data)
         {
-            bool pause = data.ReadBool();
-            int pausedAt = data.ReadInt32();
+            bool frozen = data.ReadBool();
+            int frozenAt = data.ReadInt32();
 
-            TickPatch.shouldPause = pause;
-            TickPatch.pausedAt = pausedAt;
+            TickPatch.serverFrozen = frozen;
+            TickPatch.frozenAt = frozenAt;
         }
 
         [PacketHandler(Packets.Server_Traces)]
@@ -259,6 +251,18 @@ namespace Multiplayer.Client
         [PacketHandler(Packets.Server_Debug)]
         public void HandleDebug(ByteReader data)
         {
+        }
+
+        [PacketHandler(Packets.Server_SetFaction)]
+        public void HandleSetFaction(ByteReader data)
+        {
+            int player = data.ReadInt32();
+            int factionId = data.ReadInt32();
+
+            Session.GetPlayerInfo(player).factionId = factionId;
+
+            if (Session.playerId == player)
+                Multiplayer.game.ChangeRealPlayerFaction(factionId);
         }
     }
 

@@ -1,14 +1,13 @@
 using HarmonyLib;
 using RimWorld;
 using RimWorld.Planet;
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
-using System.Text;
-using System.Threading.Tasks;
+using Multiplayer.Client.AsyncTime;
 using Multiplayer.Client.Util;
+using RimWorld.QuestGen;
 using UnityEngine;
 using Verse;
 
@@ -110,7 +109,7 @@ namespace Multiplayer.Client.Patches
     [HarmonyPatch(typeof(WealthWatcher), nameof(WealthWatcher.ForceRecount))]
     static class WealthWatcherRecalc
     {
-        static bool Prefix() => Multiplayer.Client == null || !Multiplayer.ShouldSync;
+        static bool Prefix() => Multiplayer.Client == null || !Multiplayer.InInterface;
     }
 
     [HarmonyPatch(typeof(FloodFillerFog), nameof(FloodFillerFog.FloodUnfog))]
@@ -123,7 +122,7 @@ namespace Multiplayer.Client.Patches
         }
     }
 
-    [HarmonyPatch(typeof(Pawn_DrawTracker), nameof(Pawn_DrawTracker.DrawTrackerTick))]
+    [HarmonyPatch(typeof(Pawn), nameof(Pawn.ProcessPostTickVisuals))]
     static class DrawTrackerTickPatch
     {
         static MethodInfo CellRectContains = AccessTools.Method(typeof(CellRect), nameof(CellRect.Contains));
@@ -169,37 +168,6 @@ namespace Multiplayer.Client.Patches
         static bool ShouldShuffle()
         {
             return Multiplayer.Client == null || Multiplayer.Ticking;
-        }
-    }
-
-    [HarmonyPatch(typeof(WorkGiver_DoBill), nameof(WorkGiver_DoBill.StartOrResumeBillJob))]
-    static class StartOrResumeBillPatch
-    {
-        static FieldInfo LastFailTicks = AccessTools.Field(typeof(Bill), nameof(Bill.lastIngredientSearchFailTicks));
-
-        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts, MethodBase original)
-        {
-            var list = new List<CodeInstruction>(insts);
-
-            int index = new CodeFinder(original, list).Forward(OpCodes.Stfld, LastFailTicks).Advance(-1);
-            if (list[index].opcode != OpCodes.Ldc_I4_0)
-                throw new Exception("Wrong code");
-
-            list.RemoveAt(index);
-
-            list.Insert(
-                index,
-                new CodeInstruction(OpCodes.Ldloc_1),
-                new CodeInstruction(OpCodes.Ldarg_1),
-                new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(StartOrResumeBillPatch), nameof(Value)))
-            );
-
-            return list;
-        }
-
-        static int Value(Bill bill, Pawn pawn)
-        {
-            return FloatMenuMakerMap.makingFor == pawn ? bill.lastIngredientSearchFailTicks : 0;
         }
     }
 
@@ -262,6 +230,90 @@ namespace Multiplayer.Client.Patches
             // The result can be null only if the method gets cancelled by the prefix
             if (__result == null)
                 __result = __instance.allAbilitiesCached;
+        }
+    }
+
+    // In vanilla WealthWatcher.ResetStaticData depends on Def indices but it runs before they are set
+    // This patch runs it later
+    [HarmonyPatch(typeof(ShortHashGiver), nameof(ShortHashGiver.GiveAllShortHashes))]
+    [EarlyPatch]
+    static class FixWealthWatcherStaticData
+    {
+        static void Prefix()
+        {
+            WealthWatcher.ResetStaticData();
+        }
+    }
+
+    [HarmonyPatch(typeof(PriorityWork), nameof(PriorityWork.Clear))]
+    static class PriorityWorkClearNoInterface
+    {
+        // This can get called in the UI but has side effects
+        static bool Prefix(PriorityWork __instance)
+        {
+            return Multiplayer.Client == null || Multiplayer.ExecutingCmds;
+        }
+    }
+
+    [HarmonyPatch(typeof(Pawn_GeneTracker), nameof(Pawn_GeneTracker.Notify_GenesChanged))]
+    static class CheckWhetherBiotechIsActive
+    {
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+        {
+            foreach (var inst in insts)
+            {
+                if (inst.operand == AccessTools.PropertyGetter(typeof(ModLister), nameof(ModLister.BiotechInstalled)))
+                    inst.operand = AccessTools.PropertyGetter(typeof(ModsConfig), nameof(ModsConfig.BiotechActive));
+                yield return inst;
+            }
+        }
+    }
+
+    [HarmonyPatch]
+    static class UpdateWorldStateWhenTickingOnly
+    {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            // Handles relation and retaliation for polluting the world
+            yield return AccessTools.DeclaredMethod(typeof(CompDissolutionEffect_Goodwill), nameof(CompDissolutionEffect_Goodwill.WorldUpdate));
+            // Handles increasing/decreasing world pollution
+            yield return AccessTools.DeclaredMethod(typeof(CompDissolutionEffect_Pollution), nameof(CompDissolutionEffect_Pollution.WorldUpdate));
+        }
+
+        static bool Prefix()
+        {
+            // In MP only allow updates from MultiplayerWorldComp:Tick()
+            return Multiplayer.Client == null || AsyncWorldTimeComp.tickingWorld;
+        }
+    }
+
+    [HarmonyPatch(typeof(QuestNode_Root_PollutionRetaliation), nameof(QuestNode_Root_PollutionRetaliation.RunInt))]
+    static class ReplaceUnityRngPollutionRetaliation
+    {
+        // Simplified transpiler from MP Compat.
+        // Source: https://github.com/rwmt/Multiplayer-Compatibility/blob/2e82e71aef64c5a5a4fc879db6f49d3c20da25cb/Source/PatchingUtilities.cs#L226
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts, MethodBase original)
+        {
+            var anythingPatched = false;
+
+            var parameters = new[] { typeof(int), typeof(int) };
+            var unityRandomRangeInt = AccessTools.DeclaredMethod(typeof(UnityEngine.Random), nameof(UnityEngine.Random.Range), parameters);
+            var verseRandomRangeInt = AccessTools.DeclaredMethod(typeof(Rand), nameof(Rand.Range), parameters);
+
+            foreach (var inst in insts)
+            {
+                if ((inst.opcode == OpCodes.Call || inst.opcode == OpCodes.Callvirt) && inst.operand is MethodInfo method && method == unityRandomRangeInt)
+                {
+                    inst.opcode = OpCodes.Call;
+                    inst.operand = verseRandomRangeInt;
+
+                    anythingPatched = true;
+                }
+
+                yield return inst;
+            }
+
+            if (!anythingPatched) Log.Warning($"No Unity RNG was patched for method: {original?.FullDescription() ?? "(unknown method)"}");
         }
     }
 

@@ -261,6 +261,7 @@ __pycache__/
 *.pyc
 
 /Assemblies
+/AssembliesCustom
 /Source/Publicise-1.0.0.zip
 /Source/publicise_hash.txt
 /Source/Publicise.exe

@@ -1,18 +1,13 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Reflection;
-using HarmonyLib;
 using Multiplayer.API;
 using RimWorld;
-using RimWorld.Planet;
 using Verse;
 using Multiplayer.Client.Persistent;
 
 namespace Multiplayer.Client
 {
-    public class TransporterLoading : IExposable, ISessionWithTransferables
+    public class TransporterLoading : IExposable, ISessionWithTransferables, IPausingWithDialog
     {
         public int SessionId => sessionId;
         public Map Map => map;

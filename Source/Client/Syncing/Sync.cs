@@ -1,13 +1,9 @@
 using HarmonyLib;
 using Multiplayer.API;
 using Multiplayer.Common;
-using RimWorld;
-using RimWorld.Planet;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Linq.Expressions;
 using System.Reflection;
 using Verse;
 
@@ -48,11 +44,6 @@ namespace Multiplayer.Client
             return handler;
         }
 
-        public static SyncMethod[] MethodMultiTarget(MultiTarget targetType, string methodName, SyncType[] argTypes = null)
-        {
-            return targetType.Select(type => Method(type.Item1, type.Item2, methodName, argTypes)).ToArray();
-        }
-
         public static SyncField Field(Type targetType, string fieldName)
         {
             return Field(targetType, null, fieldName);
@@ -63,11 +54,6 @@ namespace Multiplayer.Client
             SyncField handler = new SyncField(targetType, instancePath + "/" + fieldName);
             handlers.Add(handler);
             return handler;
-        }
-
-        public static SyncField[] FieldMultiTarget(MultiTarget targetType, string fieldName)
-        {
-            return targetType.Select(type => Field(type.Item1, type.Item2, fieldName)).ToArray();
         }
 
         public static SyncField[] Fields(Type targetType, string instancePath, params string[] memberPaths)
@@ -421,15 +407,6 @@ namespace Multiplayer.Client
                     field.Watch(target, index);
         }
 
-        public static bool DoSync(this SyncMethod[] group, object target, params object[] args)
-        {
-            foreach (SyncMethod method in group)
-                if (method.targetType == null || method.targetType.IsInstanceOfType(target))
-                    return method.DoSync(target, args);
-
-            return false;
-        }
-
         public static SyncField[] SetBufferChanges(this SyncField[] group)
         {
             foreach (SyncField field in group)
@@ -442,87 +419,6 @@ namespace Multiplayer.Client
             foreach (SyncField field in group)
                 field.PostApply(func);
             return group;
-        }
-    }
-
-    public class MultiTarget : IEnumerable<(Type, string)>
-    {
-        private List<(Type, string)> types = new();
-
-        public void Add(Type type, string path)
-        {
-            types.Add((type, path));
-        }
-
-        public void Add(MultiTarget type, string path)
-        {
-            foreach (var multiType in type)
-                Add(multiType.Item1, multiType.Item2 + "/" + path);
-        }
-
-        public void Add(Type type)
-        {
-            types.Add((type, null));
-        }
-
-        public IEnumerator<(Type, string)> GetEnumerator()
-        {
-            return types.GetEnumerator();
-        }
-
-        IEnumerator IEnumerable.GetEnumerator()
-        {
-            return types.GetEnumerator();
-        }
-    }
-
-    public class MethodGroup : IEnumerable<SyncMethod>
-    {
-        private List<SyncMethod> methods = new();
-
-        public void Add(string methodName, params SyncType[] argTypes)
-        {
-            methods.Add(Sync.Method(null, methodName, argTypes));
-        }
-
-        public bool MatchSync(object target, params object[] args)
-        {
-            if (!Multiplayer.ShouldSync)
-                return false;
-
-            foreach (SyncMethod method in methods) {
-                if (Enumerable.SequenceEqual(method.argTypes.Select(t => t.type), args.Select(o => o.GetType()), TypeComparer.instance)) {
-                    method.DoSync(target, args);
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        private class TypeComparer : IEqualityComparer<Type>
-        {
-            public static TypeComparer instance = new();
-
-            public bool Equals(Type x, Type y)
-            {
-                return x.IsAssignableFrom(y);
-            }
-
-            public int GetHashCode(Type obj)
-            {
-                throw new NotImplementedException();
-            }
-        }
-
-        public IEnumerator<SyncMethod> GetEnumerator()
-        {
-            throw new NotImplementedException();
-        }
-
-        IEnumerator IEnumerable.GetEnumerator()
-        {
-            throw new NotImplementedException();
         }
     }
 }

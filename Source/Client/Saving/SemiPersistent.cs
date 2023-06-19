@@ -1,11 +1,20 @@
 ﻿using System;
-using System.Linq;
-using Multiplayer.Client.Comp;
 using Multiplayer.Common;
 using Verse;
 
 namespace Multiplayer.Client.Saving
 {
+    // Semi-persistence is the middle ground between lack of persistence and full persistence:
+    // - Non-persistent data:
+    //      Mainly data in caches
+    //      Reset/removed during reloading (f.e. when creating a join point)
+    // - Semi-persistent data:
+    //      Things like ritual sessions and per player god mode status
+    //      Serialized into binary using the Sync system
+    //      Session-bound: survives a reload, lost when the server is closed
+    // - Persistent data:
+    //      Serialized into XML using RimWorld's Scribe system
+    //      Save-bound: survives a server restart
     public static class SemiPersistent
     {
         public static byte[] WriteSemiPersistent()
@@ -74,7 +83,9 @@ namespace Multiplayer.Client.Saving
 
                 try
                 {
-                    map.MpComp().ReadSemiPersistent(new ByteReader(mapData));
+                    var mapReader = new ByteReader(mapData);
+                    mapReader.MpContext().map = map;
+                    map.MpComp().ReadSemiPersistent(mapReader);
                 }
                 catch (Exception e)
                 {

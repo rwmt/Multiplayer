@@ -3,16 +3,14 @@ using System.Collections.Generic;
 using System.Linq;
 using HarmonyLib;
 using Multiplayer.API;
-using Multiplayer.Client.Persistent;
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
-using UnityEngine;
 using Verse;
 using Verse.AI;
 using Verse.AI.Group;
 using static Multiplayer.Client.SyncSerialization;
-using static Multiplayer.Client.ImplSerialization;
+using static Multiplayer.Client.RwImplSerialization;
 // ReSharper disable RedundantLambdaParameterType
 
 namespace Multiplayer.Client
@@ -125,6 +123,37 @@ namespace Multiplayer.Client
                 }, true // implicit
             },
             {
+                (SyncWorker data, ref HediffComp hediffComp) => {
+                    if (data.isWriting) {
+                        if (hediffComp != null) {
+                            ushort index = (ushort)Array.IndexOf(hediffCompTypes, hediffComp.GetType());
+                            data.Write(index);
+                            data.Write(hediffComp.parent);
+                            var tempComp = hediffComp;
+                            var compIndex = hediffComp.parent.comps.Where(x => x.props.compClass == tempComp.props.compClass).FirstIndexOf(x => x == tempComp);
+                            data.Write((ushort)compIndex);
+                        } else {
+                            data.Write(ushort.MaxValue);
+                        }
+                    } else {
+                        ushort index = data.Read<ushort>();
+                        if (index == ushort.MaxValue) {
+                            return;
+                        }
+                        HediffWithComps parent = data.Read<HediffWithComps>();
+                        if (parent == null) {
+                            return;
+                        }
+                        Type compType = hediffCompTypes[index];
+                        var compIndex = data.Read<ushort>();
+                        if (compIndex <= 0)
+                            hediffComp = parent.comps.Find(c => c.props.compClass == compType);
+                        else
+                            hediffComp = parent.comps.Where(c => c.props.compClass == compType).ElementAt(compIndex);
+                    }
+                }, true // implicit
+            },
+            {
                 (ByteWriter data, Need need) =>
                 {
                     WriteSync(data, need.pawn);
@@ -135,6 +164,10 @@ namespace Multiplayer.Client
                     var pawn = ReadSync<Pawn>(data);
                     return pawn.needs.TryGetNeed(ReadSync<NeedDef>(data));
                 }, true // implicit
+            },
+            {
+                (ByteWriter data, Pawn_MindState mindState) => WriteSync(data, mindState.pawn),
+                (ByteReader data) => ReadSync<Pawn>(data).mindState
             },
             #endregion
 
@@ -262,13 +295,9 @@ namespace Multiplayer.Client
                             sync.Write(VerbOwnerType.Ability);
                             sync.Write(ability);
                         }
-                        else if (verb.DirectOwner is CompEquippable compEquippable) {
-                            sync.Write(VerbOwnerType.CompEquippable);
-                            sync.Write(compEquippable);
-                        }
-                        else if (verb.DirectOwner is CompReloadable compReloadable) {
-                            sync.Write(VerbOwnerType.CompReloadable);
-                            sync.Write(compReloadable);
+                        else if (verb.DirectOwner is ThingComp thingComp) {
+                            sync.Write(VerbOwnerType.ThingComp);
+                            sync.Write(thingComp);
                         }
                         else {
                             Log.Error($"Multiplayer :: SyncDictionary.Verb: Unknown DirectOwner {verb.loadID} {verb.DirectOwner}");
@@ -292,11 +321,8 @@ namespace Multiplayer.Client
                         else if (ownerType == VerbOwnerType.Ability) {
                             verbOwner = sync.Read<Ability>();
                         }
-                        else if (ownerType == VerbOwnerType.CompEquippable) {
-                            verbOwner = sync.Read<CompEquippable>();
-                        }
-                        else if (ownerType == VerbOwnerType.CompReloadable) {
-                            verbOwner = sync.Read<CompReloadable>();
+                        else if (ownerType == VerbOwnerType.ThingComp) {
+                            verbOwner = sync.Read<ThingComp>() as IVerbOwner;
                         }
 
                         if (verbOwner == null) {
@@ -328,6 +354,24 @@ namespace Multiplayer.Client
                     int lordId = data.ReadInt32();
                     return map.lordManager.lords.Find(l => l.loadID == lordId);
                 }
+            },
+            {
+                (ByteWriter data, LordJob job) => {
+                    WriteSync(data, job.lord);
+                },
+                (ByteReader data) => {
+                    var lord = ReadSync<Lord>(data);
+                    return lord?.LordJob;
+                }, true // Implicit
+            },
+            {
+                (ByteWriter data, LordToil toil) => {
+                    WriteSync(data, toil.lord);
+                },
+                (ByteReader data) => {
+                    var lord = ReadSync<Lord>(data);
+                    return lord?.curLordToil;
+                }, true // Implicit
             },
             #endregion
 
@@ -441,8 +485,9 @@ namespace Multiplayer.Client
                 (ByteReader data) => new ITab_Pawn_Gear()
             },
             {
-                (ByteWriter data, ITab_ContentsTransporter tab) => { },
-                (ByteReader data) => new ITab_ContentsTransporter()
+                (ByteWriter data, ITab_ContentsBase tab) => WriteSync(data, tab.GetType()),
+                (ByteReader data) => (ITab_ContentsBase)Activator.CreateInstance(ReadSync<Type>(data)),
+                true // Implicit
             },
             {
                 (ByteWriter data, ITab_Pawn_Guest tab) => { },
@@ -551,7 +596,7 @@ namespace Multiplayer.Client
             },
             {
                 // Designator_Build is a Designator_Place but we aren't using Implicit
-                // We can't take part of the implicit tree because Designator_Build has an argument
+                // We can't take part of the implicit tree because Designator_Build ctor has an argument
                 // So we need to implement placingRot here too, until we separate instancing from decorating.
                 (SyncWorker sync, ref Designator_Build build) => {
                     if (sync.isWriting) {
@@ -571,6 +616,15 @@ namespace Multiplayer.Client
                         build.sourcePrecept = sync.Read<Precept_Building>();
                     }
                 }
+            },
+            {
+                (SyncWorker sync, ref Designator_Paint paint) => {
+                    if (sync.isWriting) {
+                        sync.Write(paint.colorDef);
+                    } else {
+                        paint.colorDef = sync.Read<ColorDef>();
+                    }
+                }, true, true // <- Implicit ShouldConstruct
             },
             #endregion
 
@@ -630,11 +684,11 @@ namespace Multiplayer.Client
                             holder = thing.Map;
                         else if (thing.ParentHolder is ThingComp thingComp)
                             holder = thingComp;
-                        else if (ThingOwnerUtility.GetFirstSpawnedParentThing(thing) is Thing parentThing)
+                        else if (ThingOwnerUtility.GetFirstSpawnedParentThing(thing) is { } parentThing)
                             holder = parentThing;
-                        else if (GetAnyParent<WorldObject>(thing) is WorldObject worldObj)
+                        else if (GetAnyParent<WorldObject>(thing) is { } worldObj)
                             holder = worldObj;
-                        else if (GetAnyParent<WorldObjectComp>(thing) is WorldObjectComp worldObjComp)
+                        else if (GetAnyParent<WorldObjectComp>(thing) is { } worldObjComp)
                             holder = worldObjComp;
 
                         GetImpl(holder, supportedThingHolders, out Type implType, out int index);
@@ -652,7 +706,6 @@ namespace Multiplayer.Client
                             context.syncingThingParent = true;
                             WriteSyncObject(data, holder, implType);
                             context.syncingThingParent = false;
-                            return;
                         }
                     }
                 },
@@ -694,6 +747,9 @@ namespace Multiplayer.Client
                             ushort index = (ushort)Array.IndexOf(thingCompTypes, comp.GetType());
                             data.Write(index);
                             data.Write(comp.parent);
+                            var tempComp = comp;
+                            var compIndex = comp.parent.AllComps.Where(x => x.props.compClass == tempComp.props.compClass).FirstIndexOf(x => x == tempComp);
+                            data.Write((ushort)compIndex);
                         } else {
                             data.Write(ushort.MaxValue);
                         }
@@ -707,7 +763,11 @@ namespace Multiplayer.Client
                             return;
                         }
                         Type compType = thingCompTypes[index];
-                        comp = parent.AllComps.Find(c => c.props.compClass == compType);
+                        var compIndex = data.Read<ushort>();
+                        if (compIndex <= 0)
+                            comp = parent.AllComps.Find(c => c.props.compClass == compType);
+                        else
+                            comp = parent.AllComps.Where(c => c.props.compClass == compType).ElementAt(compIndex);
                     }
                 }, true // implicit
             },
@@ -765,6 +825,10 @@ namespace Multiplayer.Client
             #endregion
 
             #region World
+            {
+                (ByteWriter data, World world) => { },
+                (ByteReader data) => Find.World
+            },
             {
                 (ByteWriter data, WorldObject worldObj) => {
                     data.WriteInt32(worldObj?.ID ?? -1);
@@ -1029,6 +1093,16 @@ namespace Multiplayer.Client
                     return ReadWithImpl<IThingHolder>(data, supportedThingHolders);
                 }
             },
+            {
+                (ByteWriter data, IStorageGroupMember obj) =>
+                {
+                    if (obj is Thing thing)
+                        WriteSync(data, thing);
+                    else
+                        throw new SerializationException($"Unknown IStorageGroupMember type: {obj.GetType()}");
+                },
+                (ByteReader data) => (IStorageGroupMember)ReadSync<Thing>(data)
+            },
 
             #endregion
 
@@ -1041,6 +1115,10 @@ namespace Multiplayer.Client
                     IStoreSettingsParent parent = ReadSync<IStoreSettingsParent>(data);
                     return parent?.GetStoreSettings();
                 }
+            },
+            {
+                (ByteWriter data, StorageGroup group) => WriteSync(data, group.members.First()),
+                (ByteReader data) => ReadSync<IStorageGroupMember>(data).Group
             },
             #endregion
 

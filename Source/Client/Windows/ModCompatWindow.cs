@@ -8,10 +8,11 @@ using Multiplayer.Client.Util;
 using RimWorld;
 using UnityEngine;
 using Verse;
+using Verse.Sound;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
+
     public class ModCompatWindow : Window
     {
         public override Vector2 InitialSize => popup ? new(600, 450) : new(900, 600);
@@ -322,7 +323,7 @@ namespace Multiplayer.Client
         public override void PostClose()
         {
             base.PostClose();
-            Multiplayer.WriteSettingsToDisk();
+            Multiplayer.settings.Write();
         }
 
         private void RecacheMods()
@@ -390,30 +391,53 @@ namespace Multiplayer.Client
         }
     }
 
-    [HotSwappable]
     [HarmonyPatch(typeof(Page_ModsConfig), nameof(Page_ModsConfig.DoWindowContents))]
+    static class PageModsConfigIncreaseBottomButtonsWidth
+    {
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+        {
+            var list = insts.ToList();
+            list.First(i => i.operand is 508f).operand = 708F;
+
+            return list;
+        }
+    }
+
+
+    [HarmonyPatch(typeof(Page_ModsConfig), nameof(Page_ModsConfig.DoBottomButtons))]
     static class PageModsConfigAddButton
     {
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
         {
             var list = insts.ToList();
-            var stlocs = list.SkipWhile(i => i.operand != "GetModsFromForum")
-                .First(i => i.opcode == OpCodes.Stloc_S);
 
-            list.InsertRange(list.IndexOf(stlocs) + 1, new[]
+            var endGroupMethod = AccessTools.Method(typeof(Widgets), nameof(Widgets.EndGroup));
+
+            var saveLoadListString = list.First(i => i.operand == "SaveLoadList");
+            // WidgetRow is not stored as a local, only staying on stack. We need to duplicate it before its last use so we can use it as well.
+            var dupInst = new CodeInstruction(OpCodes.Dup);
+            saveLoadListString.MoveLabelsTo(dupInst);
+            list.Insert(list.IndexOf(saveLoadListString), dupInst);
+
+            var endGroupCall = list.First(i => i.operand == endGroupMethod);
+            var ldarg = new CodeInstruction(OpCodes.Ldarg_0);
+            endGroupCall.MoveLabelsTo(ldarg);
+
+            list.InsertRange(list.IndexOf(endGroupCall), new[]
             {
-                new CodeInstruction(OpCodes.Ldarg_0),
-                new CodeInstruction(OpCodes.Ldloca_S, 4),
+                ldarg,
                 new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(PageModsConfigAddButton), nameof(DrawBtn))),
             });
 
             return list;
         }
 
-        static void DrawBtn(Page_ModsConfig page, ref float y)
+        static void DrawBtn(WidgetRow widgetRow, Page_ModsConfig page)
         {
-            DoButton(new Rect(17f, y, 316f, 30f), page);
-            y += 30f;
+            // We use fixed width so label is ignored, so we're using null
+            // Must be slightly bigger than original buttons which have width of 150,
+            // as our label would not fit otherwise.
+            DoButton(widgetRow.ButtonRect(null, 175f), page);
         }
 
         public static void DoButton(Rect btnRect, Window parent, bool forceNameSort = false, Func<string, string> nameProcessor = null)
@@ -435,7 +459,10 @@ namespace Multiplayer.Client
                 Widgets.Label(btnRect, "MpModCompatButton".Translate());
 
             if (Widgets.ButtonInvisible(btnRect))
+            {
+                SoundDefOf.Click.PlayOneShotOnCamera();
                 Find.WindowStack.Add(new ModCompatWindow(parent, true, forceNameSort, nameProcessor));
+            }
         }
     }
 

@@ -1,4 +1,3 @@
-using Multiplayer.Common;
 using RimWorld;
 using System;
 using System.Collections.Generic;
@@ -6,62 +5,10 @@ using System.IO;
 using System.Linq;
 using System.Xml;
 using Multiplayer.Client.Util;
-using UnityEngine;
 using Verse;
 
 namespace Multiplayer.Client
 {
-    public class SharedCrossRefs : LoadedObjectDirectory
-    {
-        // Used in CrossRefs patches
-        public HashSet<string> tempKeys = new HashSet<string>();
-
-        public void Unregister(ILoadReferenceable reffable)
-        {
-            allObjectsByLoadID.Remove(reffable.GetUniqueLoadID());
-        }
-
-        public void UnregisterAllTemp()
-        {
-            foreach (var key in tempKeys)
-                allObjectsByLoadID.Remove(key);
-
-            tempKeys.Clear();
-        }
-
-        public void UnregisterAllFrom(Map map)
-        {
-            foreach (var val in allObjectsByLoadID.Values.ToArray())
-            {
-                if (val is Thing thing && thing.Map == map ||
-                    val is PassingShip ship && ship.Map == map ||
-                    val is Bill bill && bill.Map == map
-                )
-                    Unregister(val);
-            }
-        }
-    }
-
-    public static class ThingsById
-    {
-        public static Dictionary<int, Thing> thingsById = new Dictionary<int, Thing>();
-
-        public static void Register(Thing t)
-        {
-            thingsById[t.thingIDNumber] = t;
-        }
-
-        public static void Unregister(Thing t)
-        {
-            thingsById.Remove(t.thingIDNumber);
-        }
-
-        public static void UnregisterAllFrom(Map map)
-        {
-            thingsById.RemoveAll(kv => kv.Value.Map == map);
-        }
-    }
-
     public static class ScribeUtil
     {
         private const string RootNode = "root";
@@ -72,6 +19,10 @@ namespace Multiplayer.Client
         public static LoadedObjectDirectory defaultCrossRefs;
 
         public static bool loading;
+
+        //dbg
+        public static bool removeMapRefs;
+        private static List<ILoadReferenceable> removedMapRefs;
 
         public static void StartWriting(bool indent = false)
         {
@@ -110,7 +61,7 @@ namespace Multiplayer.Client
 
         public static XmlDocument FinishWritingToDoc()
         {
-            var doc = (Scribe.saver.writer as CustomXmlWriter).doc;
+            var doc = ((CustomXmlWriter)Scribe.saver.writer).doc;
             Scribe.saver.FinalizeSaving();
             return doc;
         }
@@ -209,6 +160,13 @@ namespace Multiplayer.Client
             defaultCrossRefs ??= Scribe.loader.crossRefs.loadedObjectDirectory;
             Scribe.loader.crossRefs.loadedObjectDirectory = sharedCrossRefs;
 
+            if (removeMapRefs)
+            {
+                removedMapRefs = new List<ILoadReferenceable>();
+                foreach (var map in Find.Maps)
+                    removedMapRefs.AddRange(sharedCrossRefs.UnregisterAllFrom(map));
+            }
+
             MpLog.Debug($"Cross ref supply: {sharedCrossRefs.allObjectsByLoadID.Count} {sharedCrossRefs.allObjectsByLoadID.LastOrDefault()} {Faction.OfPlayer}");
         }
 
@@ -225,10 +183,17 @@ namespace Multiplayer.Client
         {
             StartLoading(data);
             SupplyCrossRefs();
+
             T element = default;
             Scribe_Deep.Look(ref element, RootNode);
 
             beforeFinish?.Invoke(element);
+
+            if (removeMapRefs)
+            {
+                sharedCrossRefs.Reregister(removedMapRefs);
+                removedMapRefs = null;
+            }
 
             FinalizeLoading();
 

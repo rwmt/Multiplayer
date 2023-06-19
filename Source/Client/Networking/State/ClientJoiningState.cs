@@ -1,31 +1,18 @@
 using HarmonyLib;
-using Ionic.Zlib;
 using Multiplayer.Client.Networking;
 using Multiplayer.Common;
-using System;
-using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Xml;
-using Multiplayer.Client.Util;
+using Multiplayer.Common.Util;
+using RimWorld;
 using Verse;
-using Verse.Profile;
 
 namespace Multiplayer.Client
 {
-    public enum JoiningState
-    {
-        Connected, Waiting, Downloading
-    }
-
     [HotSwappable]
     public class ClientJoiningState : ClientBaseState
     {
-        public JoiningState subState = JoiningState.Connected;
-
         public ClientJoiningState(ConnectionBase connection) : base(connection)
         {
-
         }
 
         public override void StartState()
@@ -37,7 +24,38 @@ namespace Multiplayer.Client
         [PacketHandler(Packets.Server_ProtocolOk)]
         public void HandleProtocolOk(ByteReader data)
         {
-            connection.Send(Packets.Client_Username, Multiplayer.username);
+            bool hasPassword = data.ReadBool();
+
+            if (hasPassword)
+            {
+                // Delay showing the window for better UX
+                OnMainThread.Schedule(() => Find.WindowStack.Add(new GamePasswordWindow
+                {
+                    returnToServerBrowser = Find.WindowStack.WindowOfType<BaseConnectingWindow>().returnToServerBrowser
+                }), 0.3f);
+            }
+            else
+            {
+                connection.Send(Packets.Client_Username, Multiplayer.username);
+            }
+        }
+
+        [PacketHandler(Packets.Server_InitDataRequest)]
+        public void HandleInitDataRequest(ByteReader data)
+        {
+            var includeConfigs = data.ReadBool();
+            connection.SendFragmented(Packets.Client_InitData, PackInitData(includeConfigs));
+        }
+
+        public static byte[] PackInitData(bool includeConfigs)
+        {
+            return ByteWriter.GetBytes(
+                JoinData.WriteServerData(includeConfigs),
+                VersionControl.CurrentVersionString,
+                Sync.handlers.Where(h => h.debugOnly).Select(h => h.syncId).ToList(),
+                Sync.handlers.Where(h => h.hostOnly).Select(h => h.syncId).ToList(),
+                MultiplayerData.localDefInfos.Select(p => (p.Key, p.Value.count, p.Value.hash)).ToList()
+            );
         }
 
         [PacketHandler(Packets.Server_UsernameOk)]
@@ -87,6 +105,7 @@ namespace Multiplayer.Client
 
             JoinData.ReadServerData(data.ReadPrefixedBytes(), remoteInfo);
 
+            // Delay showing the window for better UX
             OnMainThread.Schedule(Complete, 0.3f);
 
             void Complete()
@@ -98,10 +117,7 @@ namespace Multiplayer.Client
                 }
 
                 if (defDiff)
-                    Multiplayer.StopMultiplayer();
-
-                var connectingWindow = Find.WindowStack.WindowOfType<BaseConnectingWindow>();
-                MpUI.ClearWindowStack();
+                    Multiplayer.StopMultiplayerAndClearAllWindows();
 
                 var defDiffStr = "\n\n" + MultiplayerData.localDefInfos
                     .Where(kv => kv.Value.status != DefCheckStatus.Ok)
@@ -110,165 +126,15 @@ namespace Multiplayer.Client
 
                 Find.WindowStack.Add(new JoinDataWindow(remoteInfo){
                     connectAnywayDisabled = defDiff ? "MpMismatchDefsDiff".Translate() + defDiffStr : null,
-                    connectAnywayCallback = () =>
-                    {
-                        Find.WindowStack.Add(connectingWindow);
-                        StartDownloading();
-                    }
+                    connectAnywayCallback = StartDownloading
                 });
 
                 void StartDownloading()
                 {
                     connection.Send(Packets.Client_WorldRequest);
-                    subState = JoiningState.Waiting;
+                    connection.ChangeState(ConnectionStateEnum.ClientLoading);
                 }
             }
-        }
-
-        [PacketHandler(Packets.Server_WorldDataStart)]
-        public void HandleWorldDataStart(ByteReader data)
-        {
-            subState = JoiningState.Downloading;
-        }
-
-        [PacketHandler(Packets.Server_WorldData)]
-        [IsFragmented]
-        public void HandleWorldData(ByteReader data)
-        {
-            connection.State = ConnectionStateEnum.ClientPlaying;
-            Log.Message("Game data size: " + data.Length);
-
-            int factionId = data.ReadInt32();
-            Multiplayer.session.myFactionId = factionId;
-
-            int tickUntil = data.ReadInt32();
-
-            var dataSnapshot = new GameDataSnapshot();
-
-            byte[] worldData = GZipStream.UncompressBuffer(data.ReadPrefixedBytes());
-            dataSnapshot.gameData = worldData;
-
-            byte[] semiPersistentData = GZipStream.UncompressBuffer(data.ReadPrefixedBytes());
-            dataSnapshot.semiPersistentData = semiPersistentData;
-
-            List<int> mapsToLoad = new List<int>();
-
-            int mapCmdsCount = data.ReadInt32();
-            for (int i = 0; i < mapCmdsCount; i++)
-            {
-                int mapId = data.ReadInt32();
-
-                int mapCmdsLen = data.ReadInt32();
-                List<ScheduledCommand> mapCmds = new List<ScheduledCommand>(mapCmdsLen);
-                for (int j = 0; j < mapCmdsLen; j++)
-                    mapCmds.Add(ScheduledCommand.Deserialize(new ByteReader(data.ReadPrefixedBytes())));
-
-                dataSnapshot.mapCmds[mapId] = mapCmds;
-            }
-
-            int mapDataCount = data.ReadInt32();
-            for (int i = 0; i < mapDataCount; i++)
-            {
-                int mapId = data.ReadInt32();
-                byte[] rawMapData = data.ReadPrefixedBytes();
-
-                byte[] mapData = GZipStream.UncompressBuffer(rawMapData);
-                dataSnapshot.mapData[mapId] = mapData;
-                mapsToLoad.Add(mapId);
-            }
-
-            Session.dataSnapshot = dataSnapshot;
-            Multiplayer.session.localCmdId = data.ReadInt32();
-            TickPatch.shouldPause = data.ReadBool();
-            TickPatch.tickUntil = tickUntil;
-
-            TickPatch.SetSimulation(
-                toTickUntil: true,
-                onFinish: () => Multiplayer.Client.Send(Packets.Client_WorldReady),
-                cancelButtonKey: "Quit",
-                onCancel: GenScene.GoToMainMenu // Calls StopMultiplayer through a patch
-            );
-
-            ReloadGame(mapsToLoad, true, false);
-        }
-
-        private static XmlDocument GetGameDocument(List<int> mapsToLoad)
-        {
-            XmlDocument gameDoc = ScribeUtil.LoadDocument(Multiplayer.session.dataSnapshot.gameData);
-            XmlNode gameNode = gameDoc.DocumentElement["game"];
-
-            foreach (int map in mapsToLoad)
-            {
-                using XmlReader reader = XmlReader.Create(new MemoryStream(Multiplayer.session.dataSnapshot.mapData[map]));
-                XmlNode mapNode = gameDoc.ReadNode(reader);
-                gameNode["maps"].AppendChild(mapNode);
-
-                if (gameNode["currentMapIndex"] == null)
-                    gameNode.AddNode("currentMapIndex", map.ToString());
-            }
-
-            return gameDoc;
-        }
-
-        public static void ReloadGame(List<int> mapsToLoad, bool changeScene, bool forceAsyncTime)
-        {
-            var gameDoc = GetGameDocument(mapsToLoad);
-
-            LoadPatch.gameToLoad = new(gameDoc, Multiplayer.session.dataSnapshot.semiPersistentData);
-            TickPatch.replayTimeSpeed = TimeSpeed.Paused;
-
-            if (changeScene)
-            {
-                LongEventHandler.QueueLongEvent(() =>
-                {
-                    MemoryUtility.ClearAllMapsAndWorld();
-                    Current.Game = new Game
-                    {
-                        InitData = new GameInitData
-                        {
-                            gameToLoad = "server"
-                        }
-                    };
-
-                    LongEventHandler.ExecuteWhenFinished(() =>
-                    {
-                        LongEventHandler.QueueLongEvent(() => PostLoad(forceAsyncTime), "MpSimulating", false, null);
-                    });
-                }, "Play", "MpLoading", true, null);
-            }
-            else
-            {
-                LongEventHandler.QueueLongEvent(() =>
-                {
-                    SaveLoad.LoadInMainThread(LoadPatch.gameToLoad);
-                    PostLoad(forceAsyncTime);
-                }, "MpLoading", false, null);
-            }
-        }
-
-        private static void PostLoad(bool forceAsyncTime)
-        {
-            // If the client gets disconnected during loading
-            if (Multiplayer.Client == null) return;
-
-            Multiplayer.session.dataSnapshot.cachedAtTime = TickPatch.Timer;
-            Multiplayer.session.replayTimerStart = TickPatch.Timer;
-
-            var factionData = Multiplayer.WorldComp.factionData.GetValueSafe(Multiplayer.session.myFactionId);
-            if (factionData is { online: true })
-                Multiplayer.RealPlayerFaction = Find.FactionManager.GetById(factionData.factionId);
-            else
-                //Multiplayer.RealPlayerFaction = Multiplayer.DummyFaction;
-                throw new Exception("Currently not supported");
-
-            // todo find a better way
-            Multiplayer.game.myFactionLoading = null;
-
-            if (forceAsyncTime)
-                Multiplayer.game.gameComp.asyncTime = true;
-
-            Multiplayer.WorldComp.cmds = new Queue<ScheduledCommand>(Multiplayer.session.dataSnapshot.mapCmds.GetValueSafe(ScheduledCommand.Global) ?? new List<ScheduledCommand>());
-            // Map cmds are added in MapAsyncTimeComp.FinalizeInit
         }
     }
 

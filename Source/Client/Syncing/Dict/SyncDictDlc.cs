@@ -1,15 +1,10 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
-using HarmonyLib;
 using Multiplayer.API;
 using Multiplayer.Client.Persistent;
 using Multiplayer.Common;
 using RimWorld;
-using RimWorld.Planet;
-using UnityEngine;
 using Verse;
-using Verse.AI;
 using Verse.AI.Group;
 using static Multiplayer.Client.SyncSerialization;
 // ReSharper disable RedundantLambdaParameterType
@@ -103,24 +98,6 @@ namespace Multiplayer.Client
                 }, true // Implicit
             },
             {
-                (ByteWriter data, LordJob_BestowingCeremony job) => {
-                    WriteSync(data, job.lord);
-                },
-                (ByteReader data) => {
-                    var lord = ReadSync<Lord>(data);
-                    return lord?.LordJob as LordJob_BestowingCeremony;
-                }
-            },
-            {
-                (ByteWriter data, LordToil_BestowingCeremony_Wait toil) => {
-                    WriteSync(data, toil.lord);
-                },
-                (ByteReader data) => {
-                    var lord = ReadSync<Lord>(data);
-                    return lord?.curLordToil as LordToil_BestowingCeremony_Wait;
-                }
-            },
-            {
                 (ByteWriter data, Command_BestowerCeremony cmd) => {
                     WriteSync(data, cmd.job.lord);
                     WriteSync(data, cmd.bestower);
@@ -189,7 +166,7 @@ namespace Multiplayer.Client
             {
                 (ByteWriter data, RitualRoleAssignments assgn) => {
                     // In Multiplayer, RitualRoleAssignments should only be of the wrapper type MpRitualAssignments
-                    var mpAssgn = assgn as MpRitualAssignments;
+                    var mpAssgn = (MpRitualAssignments)assgn;
                     data.MpContext().map = mpAssgn.session.map;
                     data.WriteInt32(mpAssgn.session.SessionId);
                 },
@@ -206,24 +183,102 @@ namespace Multiplayer.Client
                     WriteSync(data, dialog.ritual);
                 },
                 (ByteReader data) => {
-                    var assgn = ReadSync<RitualRoleAssignments>(data);
+                    var assgn = ReadSync<RitualRoleAssignments>(data) as MpRitualAssignments;
                     if (assgn == null) return null;
 
                     var ritual = ReadSync<Precept_Ritual>(data); // todo handle ritual becoming null?
                     var dlog = MpUtil.NewObjectNoCtor<Dialog_BeginRitual>();
                     dlog.assignments = assgn;
                     dlog.ritual = ritual;
+                    dlog.target = assgn.session.data.target;
+
+                    // This is a cache set every frame at the top of Dialog_BeginRitual.DrawPawnList
+                    dlog.rolesGroupedTmp = (from r in assgn.AllRolesForReading group r by r.mergeId ?? r.id).ToList();
 
                     return dlog;
                 }
             },
             {
-                (ByteWriter data, LordJob_Ritual job) => {
-                    WriteSync(data, job.lord);
+                // This dialog has nothing of interest to us besides the methods which we need for syncing
+                (ByteWriter _, Dialog_StyleSelection _) => { },
+                (ByteReader _) => new Dialog_StyleSelection()
+            },
+            #endregion
+
+            #region Biotech
+            {
+                (ByteWriter data, Gene gene) =>
+                {
+                    WriteSync(data, gene.def);
+                    WriteSync(data, gene.pawn);
                 },
-                (ByteReader data) => {
-                    var lord = ReadSync<Lord>(data);
-                    return lord?.LordJob as LordJob_Ritual;
+                (ByteReader data) =>
+                {
+                    var geneDef = ReadSync<GeneDef>(data);
+                    var pawn = ReadSync<Pawn>(data);
+
+                    return pawn.genes.GetGene(geneDef);
+                }, true // implicit
+            },
+            {
+                (ByteWriter data, GeneGizmo_Resource gizmo) => WriteSync(data, gizmo.gene),
+                (ByteReader data) =>
+                {
+                    var gene = ReadSync<Gene_Resource>(data);
+                    // Normally created inside of Gene_Resource.GetGizmos
+                    // Alternatively we could iterating through that enumerable to make it initialize - which should handle situations of mods (or updates)
+                    // making custom gizmo initialization - this would end up with messier looking code.
+                    gene.gizmo ??= (GeneGizmo_Resource)Activator.CreateInstance(gene.def.resourceGizmoType, gene, gene.DrainGenes, gene.BarColor, gene.BarHighlightColor);
+
+                    return gene.gizmo;
+                }
+            },
+            {
+                (ByteWriter data, IGeneResourceDrain resourceDrain) =>
+                {
+                    if (resourceDrain is Gene gene)
+                        WriteSync(data, gene);
+                    else
+                        throw new Exception($"Unsupported {nameof(IGeneResourceDrain)} type: {resourceDrain.GetType()}");
+                },
+                (ByteReader data) => ReadSync<Gene>(data) as IGeneResourceDrain
+            },
+            {
+                (ByteWriter data, MechanitorControlGroup group) =>
+                {
+                    WriteSync(data, group.tracker.Pawn);
+                    data.WriteInt32(group.tracker.controlGroups.IndexOf(group));
+                },
+                (ByteReader data) =>
+                {
+                    var mechanitor = ReadSync<Pawn>(data).mechanitor;
+                    var index = data.ReadInt32();
+
+                    return mechanitor.controlGroups[index];
+                }
+            },
+            {
+                (ByteWriter data, MechCarrierGizmo gizmo) =>
+                {
+                    WriteSync(data, gizmo.carrier);
+                },
+                (ByteReader data) =>
+                {
+                    var comp = ReadSync<CompMechCarrier>(data);
+                    comp.gizmo ??= new MechCarrierGizmo(comp);
+                    return comp.gizmo;
+                }
+            },
+            {
+                (ByteWriter data, Dialog_CreateXenogerm dialog) => WriteSync(data, dialog.geneAssembler),
+                (ByteReader data) =>
+                {
+                    var assembler = ReadSync<Building_GeneAssembler>(data);
+                    // Return the currently open dialog (if any) to refresh the data - else create a dummy dialog
+                    return Find.WindowStack.Windows
+                               .OfType<Dialog_CreateXenogerm>()
+                               .FirstOrDefault(d => d.geneAssembler == assembler)
+                           ?? new Dialog_CreateXenogerm(assembler);
                 }
             },
             #endregion

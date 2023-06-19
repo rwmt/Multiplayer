@@ -1,15 +1,8 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
-using System.Xml.Serialization;
 using HarmonyLib;
-using MonoMod.RuntimeDetour;
 //using Iced.Intel;
 using UnityEngine;
 using Verse;
@@ -55,6 +48,10 @@ namespace Multiplayer.Client
         {
             if (!UnityData.IsInMainThread)
                 throw new Exception("Multiplayer.Client.Native data getter not running on the main thread!");
+
+            // Don't bother on 32 bit runtimes
+            if (IntPtr.Size == 4)
+                return;
 
             var internalThreadField = AccessTools.Field(typeof(Thread), "internal_thread");
             var threadInfoField = AccessTools.Field(internalThreadField.FieldType, "runtime_thread_info");

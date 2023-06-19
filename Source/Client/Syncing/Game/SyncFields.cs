@@ -4,6 +4,7 @@ using RimWorld;
 using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
+using Multiplayer.Client.Experimental;
 using UnityEngine;
 using Verse;
 using static Verse.Widgets;
@@ -23,6 +24,7 @@ namespace Multiplayer.Client
         public static ISyncField SyncBeCarried;
         public static ISyncField SyncPsychicEntropyLimit;
         public static ISyncField SyncPsychicEntropyTargetFocus;
+        public static ISyncField SyncGuiltAwaitingExecution;
 
         public static ISyncField SyncGodMode;
         public static ISyncField SyncUseWorkPriorities;
@@ -34,8 +36,8 @@ namespace Multiplayer.Client
         public static ISyncField SyncFactionAcceptRoyalFavor;
         public static ISyncField SyncFactionAcceptGoodwill;
 
-        public static SyncField[] SyncThingFilterHitPoints;
-        public static SyncField[] SyncThingFilterQuality;
+        public static ISyncField SyncThingFilterHitPoints;
+        public static ISyncField SyncThingFilterQuality;
 
         public static ISyncField SyncBillSuspended;
         public static ISyncField SyncIngredientSearchRadius;
@@ -45,6 +47,10 @@ namespace Multiplayer.Client
         public static ISyncField SyncBillIncludeHpRange;
         public static ISyncField SyncBillIncludeQualityRange;
         public static ISyncField SyncBillPawnRestriction;
+
+        public static ISyncField SyncBillSlavesOnly;
+        public static ISyncField SyncBillMechsOnly;
+        public static ISyncField SyncBillNonMechsOnly;
 
         public static ISyncField SyncZoneLabel;
 
@@ -68,7 +74,7 @@ namespace Multiplayer.Client
         public static ISyncField SyncStorytellerDifficultyDef;
         public static ISyncField SyncStorytellerDifficulty;
 
-        public static ISyncField SyncAnimalPenAutocut;
+        public static ISyncField SyncAutocutCompToggle;
 
         public static SyncField[] SyncAutoSlaughter;
 
@@ -77,6 +83,18 @@ namespace Multiplayer.Client
         public static ISyncField SyncPlantCells;
 
         public static ISyncField SyncNeuralSuperchargerMode;
+
+        public static ISyncField SyncGeneGizmoResource;
+        public static ISyncField SyncGeneResource;
+        public static ISyncField SyncGeneHemogenAllowed;
+        public static ISyncField SyncGeneHolderAllowAll;
+
+        public static ISyncField SyncNeedLevel;
+
+        public static ISyncField SyncMechRechargeThresholds;
+        public static ISyncField SyncMechAutoRepair;
+        public static ISyncField SyncMechCarrierGizmoTargetValue;
+        public static ISyncField SyncMechCarrierMaxToFill;
 
         public static void Init()
         {
@@ -91,6 +109,7 @@ namespace Multiplayer.Client
             SyncBeCarried = Sync.Field(typeof(Pawn), "health", "beCarriedByCaravanIfSick");
             SyncPsychicEntropyLimit = Sync.Field(typeof(Pawn), "psychicEntropy", "limitEntropyAmount");
             SyncPsychicEntropyTargetFocus = Sync.Field(typeof(Pawn), "psychicEntropy", "targetPsyfocus").SetBufferChanges();
+            SyncGuiltAwaitingExecution = Sync.Field(typeof(Pawn), nameof(Pawn.guilt), nameof(Pawn_GuiltTracker.awaitingExecution));
 
             SyncUseWorkPriorities = Sync.Field(null, "Verse.Current/Game/playSettings", "useWorkPriorities").PostApply(UseWorkPriorities_PostApply);
             SyncAutoHomeArea = Sync.Field(null, "Verse.Current/Game/playSettings", "autoHomeArea");
@@ -112,9 +131,8 @@ namespace Multiplayer.Client
             SyncFactionAcceptRoyalFavor = Sync.Field(typeof(Faction), nameof(Faction.allowRoyalFavorRewards));
             SyncFactionAcceptGoodwill = Sync.Field(typeof(Faction), nameof(Faction.allowGoodwillRewards));
 
-            var thingFilterTarget = new MultiTarget() { { SyncThingFilters.ThingFilterTarget, "Filter" } };
-            SyncThingFilterHitPoints = Sync.FieldMultiTarget(thingFilterTarget, "AllowedHitPointsPercents").SetBufferChanges();
-            SyncThingFilterQuality = Sync.FieldMultiTarget(thingFilterTarget, "AllowedQualityLevels").SetBufferChanges();
+            SyncThingFilterHitPoints = Sync.Field(typeof(ThingFilterContext), "Filter/AllowedHitPointsPercents").SetBufferChanges();
+            SyncThingFilterQuality = Sync.Field(typeof(ThingFilterContext), "Filter/AllowedQualityLevels").SetBufferChanges();
 
             SyncBillSuspended = Sync.Field(typeof(Bill), "suspended");
             SyncIngredientSearchRadius = Sync.Field(typeof(Bill), "ingredientSearchRadius").SetBufferChanges();
@@ -124,6 +142,10 @@ namespace Multiplayer.Client
             SyncBillIncludeHpRange = Sync.Field(typeof(Bill_Production), "hpRange").SetBufferChanges();
             SyncBillIncludeQualityRange = Sync.Field(typeof(Bill_Production), "qualityRange").SetBufferChanges();
             SyncBillPawnRestriction = Sync.Field(typeof(Bill), "pawnRestriction");
+
+            SyncBillSlavesOnly = Sync.Field(typeof(Bill), nameof(Bill.slavesOnly));
+            SyncBillMechsOnly = Sync.Field(typeof(Bill), nameof(Bill.mechsOnly));
+            SyncBillNonMechsOnly = Sync.Field(typeof(Bill), nameof(Bill.nonMechsOnly));
 
             SyncZoneLabel = Sync.Field(typeof(Zone), "label");
 
@@ -145,7 +167,7 @@ namespace Multiplayer.Client
                 "limitToAllowedStuff"
             );
 
-             SyncDrugPolicyEntry = Sync.Fields(
+            SyncDrugPolicyEntry = Sync.Fields(
                 typeof(DrugPolicy),
                 "entriesInt/[]",
                 "allowedForAddiction",
@@ -192,9 +214,21 @@ namespace Multiplayer.Client
             SyncDryadCaste = Sync.Field(typeof(CompTreeConnection), nameof(CompTreeConnection.desiredMode));
             SyncDesiredTreeConnectionStrength = Sync.Field(typeof(CompTreeConnection), nameof(CompTreeConnection.desiredConnectionStrength));
 
-            SyncAnimalPenAutocut = Sync.Field(typeof(CompAnimalPenMarker), nameof(CompAnimalPenMarker.autoCut));
+            SyncAutocutCompToggle = Sync.Field(typeof(CompAutoCut), nameof(CompAutoCut.autoCut));
 
             SyncNeuralSuperchargerMode = Sync.Field(typeof(CompNeuralSupercharger), nameof(CompNeuralSupercharger.autoUseMode));
+
+            SyncGeneGizmoResource = Sync.Field(typeof(GeneGizmo_Resource), nameof(GeneGizmo_Resource.targetValuePct)).SetBufferChanges();
+            SyncGeneResource = Sync.Field(typeof(Gene_Resource), nameof(Gene_Resource.targetValue)).SetBufferChanges();
+            SyncGeneHemogenAllowed = Sync.Field(typeof(Gene_Hemogen), nameof(Gene_Hemogen.hemogenPacksAllowed));
+            SyncGeneHolderAllowAll = Sync.Field(typeof(CompGenepackContainer), nameof(CompGenepackContainer.autoLoad));
+
+            SyncNeedLevel = Sync.Field(typeof(Need), nameof(Need.curLevelInt)).SetDebugOnly();
+
+            SyncMechRechargeThresholds = Sync.Field(typeof(MechanitorControlGroup), nameof(MechanitorControlGroup.mechRechargeThresholds));
+            SyncMechAutoRepair = Sync.Field(typeof(CompMechRepairable), nameof(CompMechRepairable.autoRepair));
+            SyncMechCarrierGizmoTargetValue = Sync.Field(typeof(MechCarrierGizmo), nameof(MechCarrierGizmo.targetValue)).SetBufferChanges();
+            SyncMechCarrierMaxToFill = Sync.Field(typeof(CompMechCarrier), nameof(CompMechCarrier.maxToFill)).SetBufferChanges();
         }
 
         [MpPrefix(typeof(StorytellerUI), nameof(StorytellerUI.DrawStorytellerSelectionInterface))]
@@ -267,7 +301,13 @@ namespace Multiplayer.Client
         [MpPostfix(typeof(Dialog_BillConfig), nameof(Dialog_BillConfig.GeneratePawnRestrictionOptions))]
         static IEnumerable<DropdownMenuElement<Pawn>> BillPawnRestrictions_Postfix(IEnumerable<DropdownMenuElement<Pawn>> __result, Bill ___bill)
         {
-            return WatchDropdowns(() => SyncBillPawnRestriction.Watch(___bill), __result);
+            return WatchDropdowns(() =>
+            {
+                SyncBillPawnRestriction.Watch(___bill);
+                SyncBillSlavesOnly.Watch(___bill);
+                SyncBillMechsOnly.Watch(___bill);
+                SyncBillNonMechsOnly.Watch(___bill);
+            }, __result);
         }
 
         [MpPostfix(typeof(HostilityResponseModeUtility), nameof(HostilityResponseModeUtility.DrawResponseButton_GenerateMenu))]
@@ -328,13 +368,13 @@ namespace Multiplayer.Client
         [MpPrefix(typeof(ThingFilterUI), "DrawHitPointsFilterConfig")]
         static void ThingFilterHitPoints()
         {
-            SyncThingFilterHitPoints.Watch(SyncMarkers.DrawnThingFilter);
+            SyncThingFilterHitPoints.Watch(ThingFilterMarkers.DrawnThingFilter);
         }
 
         [MpPrefix(typeof(ThingFilterUI), "DrawQualityFilterConfig")]
         static void ThingFilterQuality()
         {
-            SyncThingFilterQuality.Watch(SyncMarkers.DrawnThingFilter);
+            SyncThingFilterQuality.Watch(ThingFilterMarkers.DrawnThingFilter);
         }
 
         [MpPrefix(typeof(Bill), "DoInterface")]
@@ -424,9 +464,15 @@ namespace Multiplayer.Client
         }
 
         [MpPrefix(typeof(ITab_PenAutoCut), nameof(ITab_PenAutoCut.DrawAutoCutOptions))]
-        static void DrawAutoCutOptions(CompAnimalPenMarker marker)
+        static void DrawAnimalPenAutoCutOptions(CompAnimalPenMarker marker)
         {
-            SyncAnimalPenAutocut.Watch(marker);
+            SyncAutocutCompToggle.Watch(marker);
+        }
+
+        [MpPrefix(typeof(ITab_WindTurbineAutoCut), nameof(ITab_WindTurbineAutoCut.DrawAutoCutOptions))]
+        static void DrawWindTurbineAutoCutOptions(CompAutoCutWindTurbine autoCut)
+        {
+            SyncAutocutCompToggle.Watch(autoCut);
         }
 
         [MpPrefix(typeof(Dialog_AutoSlaughter), nameof(Dialog_AutoSlaughter.DoAnimalRow))]
@@ -449,13 +495,13 @@ namespace Multiplayer.Client
         static void WatchPolicyLabels()
         {
             if (SyncMarkers.dialogOutfit != null)
-                SyncOutfitLabel.Watch(SyncMarkers.dialogOutfit.Outfit);
+                SyncOutfitLabel.Watch(SyncMarkers.dialogOutfit);
 
             if (SyncMarkers.drugPolicy != null)
                 SyncDrugPolicyLabel.Watch(SyncMarkers.drugPolicy);
 
             if (SyncMarkers.foodRestriction != null)
-                SyncFoodRestrictionLabel.Watch(SyncMarkers.foodRestriction.Food);
+                SyncFoodRestrictionLabel.Watch(SyncMarkers.foodRestriction);
         }
 
         static void UseWorkPriorities_PostApply(object target, object value)
@@ -487,7 +533,7 @@ namespace Multiplayer.Client
         static void WatchTreeConnectionStrength(Gizmo_PruningConfig __instance)
         {
             SyncDesiredTreeConnectionStrength.Watch(__instance.connection);
-		}
+        }
 
         [MpPrefix(typeof(Dialog_ChangeDryadCaste), nameof(Dialog_ChangeDryadCaste.StartChange))]
         static void WatchDryadCaste(Dialog_ChangeDryadCaste __instance)
@@ -508,6 +554,54 @@ namespace Multiplayer.Client
         {
             SyncNeuralSuperchargerMode.Watch(__instance.comp);
 		}
+
+        [MpPrefix(typeof(CharacterCardUtility), nameof(CharacterCardUtility.DrawCharacterCard))]
+        static void WatchAwaitingExecution(Pawn pawn)
+        {
+            SyncGuiltAwaitingExecution.Watch(pawn);
+        }
+
+        [MpPrefix(typeof(GeneGizmo_Resource), nameof(GeneGizmo_Resource.GizmoOnGUI))]
+        static void SyncGeneResourceChange(GeneGizmo_Resource __instance)
+        {
+            SyncGeneGizmoResource.Watch(__instance);
+            SyncGeneResource.Watch(__instance.gene);
+            if (__instance.gene is Gene_Hemogen)
+                SyncGeneHemogenAllowed.Watch(__instance.gene);
+        }
+
+        [MpPrefix(typeof(ITab_ContentsGenepackHolder), nameof(ITab_ContentsGenepackHolder.DoItemsLists))]
+        static void WatchGeneHolderAllowAll(ITab_ContentsGenepackHolder __instance)
+        {
+            SyncGeneHolderAllowAll.Watch(__instance.ContainerThing);
+        }
+
+        [MpPrefix(typeof(Need), nameof(Need.DrawOnGUI))]
+        static void SyncNeedLevelValueChange(Need __instance)
+        {
+            SyncNeedLevel.Watch(__instance);
+        }
+
+        [MpPrefix(typeof(Dialog_RechargeSettings), nameof(Dialog_RechargeSettings.DoWindowContents))]
+        static void WatchRechargeSettings(Dialog_RechargeSettings __instance)
+        {
+            SyncMechRechargeThresholds.Watch(__instance.controlGroup);
+        }
+
+        [MpPrefix(typeof(PawnColumnWorker_AutoRepair), nameof(PawnColumnWorker_AutoRepair.DoCell))]
+        static void WatchMechAutoRepair(Pawn pawn)
+        {
+            var comp = pawn.GetComp<CompMechRepairable>();
+            if (comp != null)
+                SyncMechAutoRepair.Watch(comp);
+        }
+
+        [MpPrefix(typeof(MechCarrierGizmo), nameof(MechCarrierGizmo.GizmoOnGUI))]
+        static void WatchMechCarrierMaxToFill(MechCarrierGizmo __instance)
+        {
+            SyncMechCarrierGizmoTargetValue.Watch(__instance);
+            SyncMechCarrierMaxToFill.Watch(__instance.carrier);
+        }
     }
 
 }

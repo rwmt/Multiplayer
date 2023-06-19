@@ -9,6 +9,11 @@ namespace Multiplayer.Client.Util
             Verse.Log.Message($"{Multiplayer.username} {TickPatch.Timer} {msg}");
         }
 
+        public static void Warn(string msg)
+        {
+            Verse.Log.Warning($"{Multiplayer.username} {TickPatch.Timer} {msg}");
+        }
+
         public static void Error(string msg)
         {
             Verse.Log.Error($"{Multiplayer.username} {TickPatch.Timer} {msg}");

@@ -1,11 +1,6 @@
 using Multiplayer.Client.Networking;
-using Multiplayer.Common;
 using Steamworks;
-using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Net;
-using System.Text;
 using Multiplayer.Client.Util;
 using UnityEngine;
 using Verse;
@@ -22,19 +17,34 @@ namespace Multiplayer.Client
         public bool returnToServerBrowser;
         protected string result;
 
+        // Only show this window if there aren't any others during connecting
+        private bool ShouldShow => Find.WindowStack.Windows.Count(w => w.layer == WindowLayer.Dialog) == 1;
+
         public BaseConnectingWindow()
         {
             closeOnAccept = false;
             closeOnCancel = false;
         }
 
+        // ExtraOnGUI is called before drawing the window shadow and WindowOnGUI
+        public override void ExtraOnGUI()
+        {
+            drawShadow = ShouldShow;
+        }
+
+        public override void WindowOnGUI()
+        {
+            if (ShouldShow)
+                base.WindowOnGUI();
+        }
+
         public override void DoWindowContents(Rect inRect)
         {
             string label;
 
-            if (Multiplayer.Client?.StateObj is ClientJoiningState { subState: JoiningState.Waiting })
+            if (Multiplayer.Client?.StateObj is ClientLoadingState { subState: LoadingState.Waiting })
                 label = "MpWaitingForGameData".Translate() + MpUI.FixedEllipsis();
-            else if (Multiplayer.Client?.StateObj is ClientJoiningState { subState: JoiningState.Downloading })
+            else if (Multiplayer.Client?.StateObj is ClientLoadingState { subState: LoadingState.Downloading })
                 label = "MpDownloading".Translate(Multiplayer.Client.FragmentProgress);
             else
                 label = IsConnecting ? (ConnectingString + MpUI.FixedEllipsis()) : result;

@@ -3,8 +3,6 @@ using RimWorld;
 using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Reflection;
 using Multiplayer.Client.Util;
 using Verse;
@@ -23,6 +21,7 @@ namespace Multiplayer.Client
             yield return AccessTools.Method(typeof(MapInterface), nameof(MapInterface.HandleMapClicks));
             yield return AccessTools.Method(typeof(MapInterface), nameof(MapInterface.HandleLowPriorityInput));
             yield return AccessTools.Method(typeof(MapInterface), nameof(MapInterface.MapInterfaceUpdate));
+            yield return AccessTools.Method(typeof(AlertsReadout), nameof(AlertsReadout.AlertsReadoutUpdate));
             yield return AccessTools.Method(typeof(SoundRoot), nameof(SoundRoot.Update));
             yield return AccessTools.Method(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.ChoicesAtFor));
         }
@@ -193,12 +192,12 @@ namespace Multiplayer.Client
 
             TimeSnapshot prev = Current();
 
-            var man = Find.TickManager;
-            var comp = map.AsyncTime();
+            var tickManager = Find.TickManager;
+            var mapComp = map.AsyncTime();
 
-            man.ticksGameInt = comp.mapTicks;
-            man.slower = comp.slower;
-            man.CurTimeSpeed = comp.TimeSpeed;
+            tickManager.ticksGameInt = mapComp.mapTicks;
+            tickManager.slower = mapComp.slower;
+            tickManager.CurTimeSpeed = mapComp.DesiredTimeSpeed;
 
             return prev;
         }

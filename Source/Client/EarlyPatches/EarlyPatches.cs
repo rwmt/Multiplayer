@@ -1,17 +1,13 @@
 using HarmonyLib;
 using Multiplayer.Common;
-using Multiplayer.Client;
 using RimWorld;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
 using Verse;
-using System.IO;
 using Multiplayer.Client.Patches;
+using Multiplayer.Client.Util;
 
 namespace Multiplayer.Client
 {
@@ -39,13 +35,17 @@ namespace Multiplayer.Client
     static class XmlAssetsInModFolderPatch
     {
         // Sorts the files before processing, ensures cross os compatibility
-        static IEnumerable<LoadableXmlAsset> Postfix(IEnumerable<LoadableXmlAsset> __result)
+        static void Postfix(LoadableXmlAsset[] __result)
         {
-            var array = __result.ToArray();
+            // This compares by absolute paths but they all have a common prefix
+            // Ignore non-alphanumeric chars (only slashes?) as they might be different between OSes
+            Array.Sort(__result, (x, y) =>
+                StringComparer.OrdinalIgnoreCase.Compare(OnlyAlphanumeric(x.FullFilePath), OnlyAlphanumeric(y.FullFilePath)));
+        }
 
-            Array.Sort(array, (x, y) => StringComparer.OrdinalIgnoreCase.Compare(x.name, y.name));
-
-            return array;
+        static string OnlyAlphanumeric(string str)
+        {
+            return new string(str.Where(char.IsLetterOrDigit).ToArray());
         }
     }
 
@@ -82,7 +82,7 @@ namespace Multiplayer.Client
     {
         static bool Prefix(Type baseType, ref List<Type> __result)
         {
-            __result = Multiplayer.subClasses.GetOrAddNew(baseType);
+            __result = TypeCache.subClasses.GetOrAddNew(baseType);
             return false;
         }
     }
@@ -93,7 +93,7 @@ namespace Multiplayer.Client
     {
         static bool Prefix(Type baseType, ref List<Type> __result)
         {
-            __result = Multiplayer.subClassesNonAbstract.GetOrAddNew(baseType);
+            __result = TypeCache.subClassesNonAbstract.GetOrAddNew(baseType);
             return false;
         }
     }
@@ -104,7 +104,7 @@ namespace Multiplayer.Client
     {
         static bool Prefix(string name, ref Type __result)
         {
-            return !Multiplayer.typeByFullName.TryGetValue(name, out __result) && !Multiplayer.typeByName.TryGetValue(name, out __result);
+            return !TypeCache.typeByFullName.TryGetValue(name, out __result) && !TypeCache.typeByName.TryGetValue(name, out __result);
         }
     }
 }

@@ -1,9 +1,5 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
+using HarmonyLib;
 using JetBrains.Annotations;
 
 namespace Multiplayer.Common
@@ -23,5 +19,5 @@ namespace Multiplayer.Common
     {
     }
 
-    public record PacketHandlerInfo(MethodInfo Method, bool Fragment);
+    public record PacketHandlerInfo(FastInvokeHandler Method, bool Fragment);
 }

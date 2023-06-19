@@ -1,17 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using HarmonyLib;
-using Multiplayer.API;
 using Multiplayer.Client.Comp;
 using Multiplayer.Client.Persistent;
 using Multiplayer.Common;
 using RimWorld;
-using RimWorld.Planet;
-using UnityEngine;
 using Verse;
-using Verse.AI;
-using Verse.AI.Group;
 using static Multiplayer.Client.SyncSerialization;
 // ReSharper disable RedundantLambdaParameterType
 
@@ -40,7 +34,7 @@ namespace Multiplayer.Client
                 },
                 (ByteReader data) => {
                     int id = data.ReadInt32();
-                    return GetSessions(data.MpContext().map).FirstOrDefault(s => s.SessionId == id);
+                    return Multiplayer.game.GetSessions(data.MpContext().map).FirstOrDefault(s => s.SessionId == id);
                 }, true
             },
             #endregion
@@ -103,6 +97,13 @@ namespace Multiplayer.Client
                 (ByteWriter _, MultiplayerGameComp _) => {
                 },
                 (ByteReader _) => Multiplayer.GameComp
+            },
+            #endregion
+
+            #region Multiplayer ScheduledCommand
+            {
+                (ByteWriter _, ScheduledCommand _) => throw new NotImplementedException(),
+                (ByteReader data) => ScheduledCommand.Deserialize(new ByteReader(data.ReadPrefixedBytes()))
             },
             #endregion
         };

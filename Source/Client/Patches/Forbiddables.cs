@@ -1,8 +1,4 @@
-using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using HarmonyLib;
 using RimWorld;
 using Verse;
@@ -31,7 +27,7 @@ namespace Multiplayer.Client
         static void Prefix(CompForbiddable __instance, Thing ___parent, bool value)
         {
             if (Multiplayer.Client == null) return;
-            if (Multiplayer.ShouldSync) return; // Will get synced
+            if (Multiplayer.InInterface) return; // Will get synced
 
             bool changed = false;
 

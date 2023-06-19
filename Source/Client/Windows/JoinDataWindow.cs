@@ -1,12 +1,8 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
-using System.Threading;
-using JetBrains.Annotations;
-using Multiplayer.Client.EarlyPatches;
 using Multiplayer.Client.Util;
 using Multiplayer.Common;
 using RimWorld;
@@ -17,7 +13,7 @@ using Verse.Steam;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
+
     public class JoinDataWindow : Window
     {
         public override Vector2 InitialSize => new(660f, 610f);
@@ -262,8 +258,7 @@ namespace Multiplayer.Client
 
             if (Widgets.ButtonText(btnCenter.Right(150f), "MpMismatchQuit".Translate()))
             {
-                Multiplayer.StopMultiplayer();
-                Close();
+                Multiplayer.StopMultiplayerAndClearAllWindows();
                 Find.WindowStack.Add(new ServerBrowser());
             }
         }
@@ -681,7 +676,7 @@ namespace Multiplayer.Client
         }
     }
 
-    [HotSwappable]
+
     public class FixAndRestartWindow : Window
     {
         private RemoteData data;
@@ -768,8 +763,8 @@ namespace Multiplayer.Client
                 : $"{data.remoteAddress}:{data.remotePort}";
 
             // The env variables will get inherited by the child process started in GenCommandLine.Restart
-            Environment.SetEnvironmentVariable(Multiplayer.RestartConnectVariable, connectTo);
-            Environment.SetEnvironmentVariable(Multiplayer.RestartConfigsVariable, applyConfigs ? "true" : "false");
+            Environment.SetEnvironmentVariable(EarlyInit.RestartConnectVariable, connectTo);
+            Environment.SetEnvironmentVariable(EarlyInit.RestartConfigsVariable, applyConfigs ? "true" : "false");
 
             GenCommandLine.Restart();
         }

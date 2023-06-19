@@ -1,4 +1,4 @@
-﻿namespace Multiplayer.Common
+namespace Multiplayer.Common
 {
     public struct ColorRGB
     {

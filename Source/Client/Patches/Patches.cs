@@ -1,27 +1,18 @@
 using HarmonyLib;
 using Multiplayer.API;
-using Multiplayer.Client.Desyncs;
-using Multiplayer.Common;
-using RestSharp;
 using RimWorld;
 using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
-using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
+using Multiplayer.Common.Util;
 using UnityEngine;
 using Verse;
 using Verse.AI;
-using Verse.Profile;
-using Verse.Sound;
 
 namespace Multiplayer.Client
 {
@@ -116,7 +107,7 @@ namespace Multiplayer.Client
         }
     }
 
-    /*[HotSwappable]
+    /*
     [HarmonyPatch(typeof(Thing), nameof(Thing.ExposeData))]
     public static class PawnExposeDataFirst
     {
@@ -356,7 +347,7 @@ namespace Multiplayer.Client
             async.storyWatcher = new StoryWatcher();
 
             if (!Multiplayer.GameComp.asyncTime)
-                async.TimeSpeed = Find.TickManager.CurTimeSpeed;
+                async.SetDesiredTimeSpeed(Find.TickManager.CurTimeSpeed);
         }
 
         public static void InitFactionDataFromMap(Map map, Faction f)
@@ -411,30 +402,6 @@ namespace Multiplayer.Client
     static class NoNamingInMultiplayer
     {
         static bool Prefix() => Multiplayer.Client == null;
-    }
-
-    [HarmonyPatch]
-    static class NoCameraJumpingDuringSimulating
-    {
-        static IEnumerable<MethodBase> TargetMethods()
-        {
-            yield return AccessTools.Method(typeof(CameraJumper), nameof(CameraJumper.TrySelect));
-            yield return AccessTools.Method(typeof(CameraJumper), nameof(CameraJumper.TryJumpAndSelect));
-            yield return AccessTools.Method(typeof(CameraJumper), nameof(CameraJumper.TryJump), new[] {typeof(GlobalTargetInfo)});
-        }
-        static bool Prefix() => !TickPatch.Simulating;
-    }
-
-    [HarmonyPatch(typeof(Selector), nameof(Selector.Deselect))]
-    static class SelectorDeselectPatch
-    {
-        public static List<object> deselected;
-
-        static void Prefix(object obj)
-        {
-            if (deselected != null)
-                deselected.Add(obj);
-        }
     }
 
     [HarmonyPatch(typeof(DirectXmlSaver), nameof(DirectXmlSaver.XElementFromObject), typeof(object), typeof(Type), typeof(string), typeof(FieldInfo), typeof(bool))]
@@ -536,7 +503,7 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.Client == null) return true;
 
-            foreach(var part in Find.QuestManager.quests.SelectMany(q => q.parts).OfType<QuestPart_Choice>()) {
+            foreach(var part in Find.QuestManager.QuestsListForReading.SelectMany(q => q.parts).OfType<QuestPart_Choice>()) {
                 int index = part.choices.IndexOf(___localChoice);
 
                 if (index >= 0) {
@@ -558,7 +525,7 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(MoteMaker), nameof(MoteMaker.MakeStaticMote))]
-    [HarmonyPatch(new[] {typeof(Vector3), typeof(Map), typeof(ThingDef), typeof(float)})]
+    [HarmonyPatch(new[] {typeof(Vector3), typeof(Map), typeof(ThingDef), typeof(float), typeof(bool)})]
     static class FixNullMotes
     {
         static Dictionary<Type, Mote> cache = new();
@@ -658,22 +625,33 @@ namespace Multiplayer.Client
         }
     }
 
-    // todo: needed for multifaction
-    /*[HarmonyPatch(typeof(SettlementDefeatUtility), nameof(SettlementDefeatUtility.CheckDefeated))]
-    static class CheckDefeatedPatch
+    [HarmonyPatch(typeof(Settlement), nameof(Settlement.Material), MethodType.Getter)]
+    static class SettlementNullFactionPatch1
     {
-        static bool Prefix()
+        static bool Prefix(Settlement __instance, ref Material __result)
         {
-            return false;
+            if (__instance.factionInt == null)
+            {
+                __result = BaseContent.BadMat;
+                return false;
+            }
+
+            return true;
         }
     }
 
-    [HarmonyPatch(typeof(MapParent), nameof(MapParent.CheckRemoveMapNow))]
-    static class CheckRemoveMapNowPatch
+    [HarmonyPatch(typeof(Settlement), nameof(Settlement.ExpandingIcon), MethodType.Getter)]
+    static class SettlementNullFactionPatch2
     {
-        static bool Prefix()
+        static bool Prefix(Settlement __instance, ref Texture2D __result)
         {
-            return false;
+            if (__instance.factionInt == null)
+            {
+                __result = BaseContent.BadTex;
+                return false;
+            }
+
+            return true;
         }
-    }*/
+    }
 }

@@ -8,7 +8,7 @@ using Verse;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
+
     public class AlertPing : Alert
     {
         public AlertPing()
@@ -35,7 +35,7 @@ namespace Multiplayer.Client
             if (Multiplayer.Client == null)
                 return "";
 
-            var players = Multiplayer.session.cursorAndPing.pings.Select(p => p.PlayerInfo).AllNotNull().Join(p => p.username);
+            var players = Multiplayer.session.cursorAndPing.pings.Select(p => p.PlayerInfo?.username).AllNotNull().JoinStringsAtMost();
             return $"{"MpAlertPingDesc1".Translate(players)}\n\n{"MpAlertPingDesc2".Translate()}";
         }
 

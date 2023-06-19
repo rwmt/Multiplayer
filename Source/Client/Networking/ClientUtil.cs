@@ -1,21 +1,8 @@
-using Ionic.Zlib;
 using LiteNetLib;
 using Multiplayer.Common;
-using Multiplayer.Client.EarlyPatches;
-using RimWorld;
 using Steamworks;
 using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Net;
-using System.Net.Sockets;
-using System.Reflection;
-using System.Threading;
-using System.ComponentModel;
 using Verse;
-using UnityEngine;
-using System.IO;
 using Multiplayer.Client.Networking;
 
 namespace Multiplayer.Client
@@ -59,14 +46,14 @@ namespace Multiplayer.Client
             Find.WindowStack.Add(new SteamConnectingWindow(user) { returnToServerBrowser = returnToServerBrowser });
 
             Multiplayer.session.ReapplyPrefs();
-            Multiplayer.Client.State = ConnectionStateEnum.ClientSteam;
+            Multiplayer.Client.ChangeState(ConnectionStateEnum.ClientSteam);
         }
 
         public static void HandleReceive(ByteReader data, bool reliable)
         {
             try
             {
-                Multiplayer.Client.HandleReceive(data, reliable);
+                Multiplayer.Client.HandleReceiveRaw(data, reliable);
             }
             catch (Exception e)
             {

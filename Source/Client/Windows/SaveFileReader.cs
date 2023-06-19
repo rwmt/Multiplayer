@@ -5,7 +5,6 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using System.Xml;
 using UnityEngine;
@@ -44,27 +43,26 @@ namespace Multiplayer.Client
 
         private void ReadSpSave(FileInfo file)
         {
-            var saveFile = new SaveFile(Path.GetFileNameWithoutExtension(file.Name), false, file);
-
             try
             {
+                var saveFile = new SaveFile(Path.GetFileNameWithoutExtension(file.Name), false, file);
                 using var stream = file.OpenRead();
                 ReadSaveInfo(stream, saveFile);
                 data[file] = saveFile;
             }
             catch (Exception ex)
             {
-                Log.Warning("Exception loading save info of " + file.Name + ": " + ex.ToString());
+                Log.Warning($"Exception loading save info of {file.Name}: {ex}");
             }
         }
 
         private void ReadMpSave(FileInfo file)
         {
-            var displayName = Path.ChangeExtension(file.FullName.Substring(Multiplayer.ReplaysDir.Length + 1), null);
-            var saveFile = new SaveFile(displayName, true, file);
-
             try
             {
+                var displayName = Path.ChangeExtension(file.FullName.Substring(Multiplayer.ReplaysDir.Length + 1), null);
+                var saveFile = new SaveFile(displayName, true, file);
+
                 var replay = Replay.ForLoading(file);
                 if (!replay.LoadInfo()) return;
 
@@ -81,8 +79,8 @@ namespace Multiplayer.Client
                 }
                 else
                 {
-                    using var zip = replay.ZipFile;
-                    var stream = zip["world/000_save"].OpenReader();
+                    using var zip = replay.OpenZipRead();
+                    using var stream = zip.GetEntry("world/000_save")!.Open();
                     ReadSaveInfo(stream, saveFile);
                 }
 
@@ -90,7 +88,7 @@ namespace Multiplayer.Client
             }
             catch (Exception ex)
             {
-                Log.Warning("Exception loading replay info of " + file.Name + ": " + ex.ToString());
+                Log.Warning($"Exception loading replay info of {file.Name}: {ex}");
             }
         }
 

@@ -10,7 +10,6 @@ using Multiplayer.Client.Saving;
 using Multiplayer.Common;
 
 using RimWorld;
-using RimWorld.Planet;
 using Verse;
 
 namespace Multiplayer.Client
@@ -639,7 +638,7 @@ namespace Multiplayer.Client
             var type = __instance.GetType();
             if ((__instance is Dialog_NodeTree)) return true;
 
-            return !Multiplayer.ShouldSync;
+            return !Multiplayer.InInterface;
         }
     }
 
@@ -649,8 +648,7 @@ namespace Multiplayer.Client
         static bool Prefix(Dialog_NodeTree __instance)
         {
             if (Multiplayer.Client == null) return true;
-
-            if (!Multiplayer.ShouldSync) return true;
+            if (!Multiplayer.InInterface) return true;
 
             if (PersistentDialog.FindDialog(__instance) == null) {
                 return true;
@@ -666,13 +664,10 @@ namespace Multiplayer.Client
         static void Postfix(Window window)
         {
             if (Multiplayer.Client == null) return;
-
-            if (Multiplayer.ShouldSync) return;
+            if (Multiplayer.InInterface) return;
 
             var session = PersistentDialog.FindDialog(window);
-            if (session == null) return;
-
-            session.map.MpComp().mapDialogs.Remove(session);
+            session?.map.MpComp().mapDialogs.Remove(session);
         }
     }
 
@@ -681,7 +676,7 @@ namespace Multiplayer.Client
     {
         static bool Prefix(DiaOption __instance)
         {
-            if (Multiplayer.ShouldSync)
+            if (Multiplayer.InInterface)
             {
                 var session = PersistentDialog.FindDialog(__instance.dialog);
                 if (session == null) return true;

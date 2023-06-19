@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Net;
@@ -11,10 +11,10 @@ namespace Multiplayer.Common
         const long ThrottleMillis = 1000;
         private Dictionary<object, long> lastConnection = new();
         private Stopwatch clock = Stopwatch.StartNew();
-        public HashSet<int> playersWaitingForWorldData = new();
 
         public List<ServerPlayer> Players { get; } = new();
 
+        public IEnumerable<ServerPlayer> JoinedPlayers => Players.Where(p => p.HasJoined);
         public IEnumerable<ServerPlayer> PlayingPlayers => Players.Where(p => p.IsPlaying);
 
         public PlayerManager(MultiplayerServer server)
@@ -27,11 +27,11 @@ namespace Multiplayer.Common
             var writer = new ByteWriter();
             writer.WriteByte((byte)PlayerListAction.Latencies);
 
-            writer.WriteInt32(PlayingPlayers.Count());
-            foreach (var player in PlayingPlayers)
+            writer.WriteInt32(JoinedPlayers.Count());
+            foreach (var player in JoinedPlayers)
                 player.WriteLatencyUpdate(writer);
 
-            server.SendToAll(Packets.Server_PlayerList, writer.ToArray());
+            server.SendToPlaying(Packets.Server_PlayerList, writer.ToArray());
         }
 
         // id can be an IPAddress or CSteamID
@@ -69,9 +69,11 @@ namespace Multiplayer.Common
             return conn.serverPlayer;
         }
 
-        public void OnDisconnected(ConnectionBase conn, MpDisconnectReason reason)
+        public void SetDisconnected(ConnectionBase conn, MpDisconnectReason reason)
         {
             if (conn.State == ConnectionStateEnum.Disconnected) return;
+
+            conn.StateObj?.OnDisconnect();
 
             ServerPlayer player = conn.serverPlayer;
             Players.Remove(player);
@@ -79,19 +81,22 @@ namespace Multiplayer.Common
             if (player.hasJoined)
             {
                 // todo check player.IsPlaying?
-                if (Players.All(p => p.FactionId != player.FactionId))
-                {
-                    byte[] data = ByteWriter.GetBytes(player.FactionId);
-                    server.commands.Send(CommandType.FactionOffline, ScheduledCommand.NoFaction, ScheduledCommand.Global, data);
-                }
+                // todo FactionId might throw when called for not fully initialized players
+                // if (Players.All(p => p.FactionId != player.FactionId))
+                // {
+                //     byte[] data = ByteWriter.GetBytes(player.FactionId);
+                //     server.commands.Send(CommandType.FactionOffline, ScheduledCommand.NoFaction, ScheduledCommand.Global, data);
+                // }
 
                 server.SendNotification("MpPlayerDisconnected", conn.username);
                 server.SendChat($"{conn.username} has left.");
 
-                server.SendToAll(Packets.Server_PlayerList, new object[] { (byte)PlayerListAction.Remove, player.id });
+                server.SendToPlaying(Packets.Server_PlayerList, new object[] { (byte)PlayerListAction.Remove, player.id });
+
+                player.ResetTimeVotes();
             }
 
-            conn.State = ConnectionStateEnum.Disconnected;
+            conn.ChangeState(ConnectionStateEnum.Disconnected);
 
             ServerLog.Log($"Disconnected ({reason}): {conn}");
         }
@@ -101,11 +106,16 @@ namespace Multiplayer.Common
             player.UpdateStatus(PlayerStatus.Desynced);
             server.HostPlayer.SendPacket(Packets.Server_Traces, new object[] { TracesPacket.Request, tick, diffAt, player.id });
 
+            player.ResetTimeVotes();
+
+            if (server.settings.pauseOnDesync)
+                server.commands.PauseAll();
+
             if (server.settings.autoJoinPoint.HasFlag(AutoJoinPointFlags.Desync))
-                server.TryStartJoinPointCreation(true);
+                server.worldData.TryStartJoinPointCreation(true);
         }
 
-        private static readonly ColorRGB[] PlayerColors =
+        public static ColorRGB[] PlayerColors =
         {
             new(0,125,255),
             new(255,0,0),
@@ -116,13 +126,12 @@ namespace Multiplayer.Common
             new(100,0,75)
         };
 
-        private static Dictionary<string, ColorRGB> givenColors = new();
+        public static Dictionary<string, ColorRGB> givenColors = new();
 
         public void OnJoin(ServerPlayer player)
         {
             player.hasJoined = true;
-
-            SendInitDataCommand(player);
+            player.FactionId = server.worldData.defaultFactionId;
 
             server.SendNotification("MpPlayerConnected", player.Username);
             server.SendChat($"{player.Username} has joined.");
@@ -138,7 +147,7 @@ namespace Multiplayer.Common
             writer.WriteByte((byte)PlayerListAction.Add);
             writer.WriteRaw(player.SerializePlayerInfo());
 
-            server.SendToAll(Packets.Server_PlayerList, writer.ToArray());
+            server.SendToPlaying(Packets.Server_PlayerList, writer.ToArray());
         }
 
         public void SendInitDataCommand(ServerPlayer player)
@@ -158,12 +167,22 @@ namespace Multiplayer.Common
             Players.Clear();
         }
 
-        public ServerPlayer GetPlayer(string username)
+        public void MakeHost(ServerPlayer host)
+        {
+            OnJoin(host);
+
+            host.conn.ChangeState(ConnectionStateEnum.ServerPlaying);
+            host.SendPlayerList();
+            SendInitDataCommand(host);
+            host.UpdateStatus(PlayerStatus.Playing);
+        }
+
+        public ServerPlayer? GetPlayer(string username)
         {
             return Players.Find(player => player.Username == username);
         }
 
-        public ServerPlayer GetPlayer(int id)
+        public ServerPlayer? GetPlayer(int id)
         {
             return Players.Find(player => player.id == id);
         }

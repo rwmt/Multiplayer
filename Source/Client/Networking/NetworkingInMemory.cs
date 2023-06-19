@@ -1,9 +1,5 @@
 using Multiplayer.Common;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Verse;
 
 namespace Multiplayer.Client.Networking
@@ -25,7 +21,7 @@ namespace Multiplayer.Client.Networking
             {
                 try
                 {
-                    serverSide.HandleReceive(new ByteReader(raw), reliable);
+                    serverSide.HandleReceiveRaw(new ByteReader(raw), reliable);
                 }
                 catch (Exception e)
                 {
@@ -61,7 +57,7 @@ namespace Multiplayer.Client.Networking
             {
                 try
                 {
-                    clientSide.HandleReceive(new ByteReader(raw), reliable);
+                    clientSide.HandleReceiveRaw(new ByteReader(raw), reliable);
                 }
                 catch (Exception e)
                 {

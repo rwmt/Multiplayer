@@ -1,169 +1,103 @@
-using Multiplayer.API;
-using Multiplayer.Common;
 using RimWorld;
-using System;
-using System.Collections;
 using System.Collections.Generic;
+using Multiplayer.API;
+using Multiplayer.Client.Experimental;
 using Verse;
 
-namespace Multiplayer.Client
+namespace Multiplayer.Client;
+
+public static class SyncThingFilters
 {
-    public static class SyncThingFilters
+    [MpPrefix(typeof(ThingFilter), "SetAllow", new[] { typeof(StuffCategoryDef), typeof(bool) })]
+    static bool ThingFilter_SetAllow(StuffCategoryDef cat, bool allow)
     {
-        static SyncMethod[] AllowThing;
-        static SyncMethod[] AllowSpecial;
-        static SyncMethod[] AllowStuffCategory;
-        static SyncMethod[] AllowCategory;
-        static SyncMethod[] AllowAll;
-        static SyncMethod[] DisallowAll;
-
-        public static MultiTarget ThingFilterTarget = new MultiTarget()
-        {
-            { typeof(TabStorageWrapper) },
-            { typeof(BillConfigWrapper) },
-            { typeof(OutfitWrapper) },
-            { typeof(FoodRestrictionWrapper) },
-            { typeof(PenAnimalsWrapper) },
-            { typeof(PenAutocutWrapper) },
-        };
-
-        public static void Init()
-        {
-            AllowThing = Sync.MethodMultiTarget(ThingFilterTarget, nameof(ThingFilterContext.AllowThing_Helper));
-            AllowSpecial = Sync.MethodMultiTarget(ThingFilterTarget, nameof(ThingFilterContext.AllowSpecial_Helper));
-            AllowStuffCategory = Sync.MethodMultiTarget(ThingFilterTarget, nameof(ThingFilterContext.AllowStuffCat_Helper));
-            AllowCategory = Sync.MethodMultiTarget(ThingFilterTarget, nameof(ThingFilterContext.AllowCategory_Helper));
-            AllowAll = Sync.MethodMultiTarget(ThingFilterTarget, nameof(ThingFilterContext.AllowAll_Helper));
-            DisallowAll = Sync.MethodMultiTarget(ThingFilterTarget, nameof(ThingFilterContext.DisallowAll_Helper));
-        }
-
-        [MpPrefix(typeof(ThingFilter), "SetAllow", new[] { typeof(StuffCategoryDef), typeof(bool) })]
-        static bool ThingFilter_SetAllow(StuffCategoryDef cat, bool allow)
-        {
-            if (SyncMarkers.DrawnThingFilter == null) return true;
-            return !AllowStuffCategory.DoSync(SyncMarkers.DrawnThingFilter, cat, allow);
-        }
-
-        [MpPrefix(typeof(ThingFilter), "SetAllow", new[] { typeof(SpecialThingFilterDef), typeof(bool) })]
-        static bool ThingFilter_SetAllow(SpecialThingFilterDef sfDef, bool allow)
-        {
-            if (SyncMarkers.DrawnThingFilter == null) return true;
-            return !AllowSpecial.DoSync(SyncMarkers.DrawnThingFilter, sfDef, allow);
-        }
-
-        [MpPrefix(typeof(ThingFilter), "SetAllow", new[] { typeof(ThingDef), typeof(bool) })]
-        static bool ThingFilter_SetAllow(ThingDef thingDef, bool allow)
-        {
-            if (SyncMarkers.DrawnThingFilter == null) return true;
-            return !AllowThing.DoSync(SyncMarkers.DrawnThingFilter, thingDef, allow);
-        }
-
-        [MpPrefix(typeof(ThingFilter), "SetAllow", new[] { typeof(ThingCategoryDef), typeof(bool), typeof(IEnumerable<ThingDef>), typeof(IEnumerable<SpecialThingFilterDef>) })]
-        static bool ThingFilter_SetAllow(ThingCategoryDef categoryDef, bool allow)
-        {
-            if (SyncMarkers.DrawnThingFilter == null) return true;
-            return !AllowCategory.DoSync(SyncMarkers.DrawnThingFilter, categoryDef, allow);
-        }
-
-        [MpPrefix(typeof(ThingFilter), "SetAllowAll")]
-        static bool ThingFilter_SetAllowAll()
-        {
-            if (SyncMarkers.DrawnThingFilter == null) return true;
-            return !AllowAll.DoSync(SyncMarkers.DrawnThingFilter);
-        }
-
-        [MpPrefix(typeof(ThingFilter), "SetDisallowAll")]
-        static bool ThingFilter_SetDisallowAll()
-        {
-            if (SyncMarkers.DrawnThingFilter == null) return true;
-            return !DisallowAll.DoSync(SyncMarkers.DrawnThingFilter);
-        }
+        if (!Multiplayer.ShouldSync || ThingFilterMarkers.DrawnThingFilter == null) return true;
+        AllowStuffCat_Helper(ThingFilterMarkers.DrawnThingFilter, cat, allow);
+        return false;
     }
 
-    public abstract record ThingFilterContext : ISyncSimple
+    [MpPrefix(typeof(ThingFilter), "SetAllow", new[] { typeof(SpecialThingFilterDef), typeof(bool) })]
+    static bool ThingFilter_SetAllow(SpecialThingFilterDef sfDef, bool allow)
     {
-        public abstract ThingFilter Filter { get; }
-        public abstract ThingFilter ParentFilter { get; }
-        public virtual IEnumerable<SpecialThingFilterDef> HiddenFilters { get => null; }
-
-        internal void AllowStuffCat_Helper(StuffCategoryDef cat, bool allow)
-        {
-            Filter.SetAllow(cat, allow);
-        }
-
-        internal void AllowSpecial_Helper(SpecialThingFilterDef sfDef, bool allow)
-        {
-            Filter.SetAllow(sfDef, allow);
-        }
-
-        internal void AllowThing_Helper(ThingDef thingDef, bool allow)
-        {
-            Filter.SetAllow(thingDef, allow);
-        }
-
-        internal void DisallowAll_Helper()
-        {
-            Filter.SetDisallowAll(null, HiddenFilters);
-        }
-
-        internal void AllowAll_Helper()
-        {
-            Filter.SetAllowAll(ParentFilter);
-        }
-
-        internal void AllowCategory_Helper(ThingCategoryDef categoryDef, bool allow)
-        {
-            var node = new TreeNode_ThingCategory(categoryDef);
-
-            Filter.SetAllow(
-                categoryDef,
-                allow,
-                null,
-                Listing_TreeThingFilter
-                .CalculateHiddenSpecialFilters(node, ParentFilter)
-                .ConcatIfNotNull(HiddenFilters)
-            );
-        }
+        if (!Multiplayer.ShouldSync || ThingFilterMarkers.DrawnThingFilter == null) return true;
+        AllowSpecial_Helper(ThingFilterMarkers.DrawnThingFilter, sfDef, allow);
+        return false;
     }
 
-    public record TabStorageWrapper(IStoreSettingsParent Storage) : ThingFilterContext
+    [MpPrefix(typeof(ThingFilter), "SetAllow", new[] { typeof(ThingDef), typeof(bool) })]
+    static bool ThingFilter_SetAllow(ThingDef thingDef, bool allow)
     {
-        public override ThingFilter Filter => Storage.GetStoreSettings().filter;
-        public override ThingFilter ParentFilter => Storage.GetParentStoreSettings()?.filter;
+        if (!Multiplayer.ShouldSync || ThingFilterMarkers.DrawnThingFilter == null) return true;
+        AllowThing_Helper(ThingFilterMarkers.DrawnThingFilter, thingDef, allow);
+        return false;
     }
 
-    public record BillConfigWrapper(Bill Bill) : ThingFilterContext
+    [MpPrefix(typeof(ThingFilter), "SetAllow", new[] { typeof(ThingCategoryDef), typeof(bool), typeof(IEnumerable<ThingDef>), typeof(IEnumerable<SpecialThingFilterDef>) })]
+    static bool ThingFilter_SetAllow(ThingCategoryDef categoryDef, bool allow)
     {
-        public override ThingFilter Filter => Bill.ingredientFilter;
-        public override ThingFilter ParentFilter => Bill.recipe.fixedIngredientFilter;
-        public override IEnumerable<SpecialThingFilterDef> HiddenFilters => Bill.recipe.forceHiddenSpecialFilters;
+        if (!Multiplayer.ShouldSync || ThingFilterMarkers.DrawnThingFilter == null) return true;
+        AllowCategory_Helper(ThingFilterMarkers.DrawnThingFilter, categoryDef, allow);
+        return false;
     }
 
-    public record OutfitWrapper(Outfit Outfit) : ThingFilterContext
+    [MpPrefix(typeof(ThingFilter), "SetAllowAll")]
+    static bool ThingFilter_SetAllowAll()
     {
-        public override ThingFilter Filter => Outfit.filter;
-        public override ThingFilter ParentFilter => Dialog_ManageOutfits.apparelGlobalFilter;
-        public override IEnumerable<SpecialThingFilterDef> HiddenFilters => SpecialThingFilterDefOf.AllowNonDeadmansApparel.ToEnumerable();
+        if (!Multiplayer.ShouldSync || ThingFilterMarkers.DrawnThingFilter == null) return true;
+        AllowAll_Helper(ThingFilterMarkers.DrawnThingFilter);
+        return false;
     }
 
-    public record FoodRestrictionWrapper(FoodRestriction Food) : ThingFilterContext
+    [MpPrefix(typeof(ThingFilter), "SetDisallowAll")]
+    static bool ThingFilter_SetDisallowAll()
     {
-        public override ThingFilter Filter => Food.filter;
-        public override ThingFilter ParentFilter => Dialog_ManageFoodRestrictions.foodGlobalFilter;
-        public override IEnumerable<SpecialThingFilterDef> HiddenFilters => SpecialThingFilterDefOf.AllowFresh.ToEnumerable();
+        if (!Multiplayer.ShouldSync || ThingFilterMarkers.DrawnThingFilter == null) return true;
+        DisallowAll_Helper(ThingFilterMarkers.DrawnThingFilter);
+        return false;
     }
 
-    public record PenAnimalsWrapper(CompAnimalPenMarker Pen) : ThingFilterContext
+    [SyncMethod]
+    static void AllowStuffCat_Helper(ThingFilterContext context, StuffCategoryDef cat, bool allow)
     {
-        public override ThingFilter Filter => Pen.AnimalFilter;
-        public override ThingFilter ParentFilter => AnimalPenUtility.GetFixedAnimalFilter();
+        context.Filter.SetAllow(cat, allow);
     }
 
-    public record PenAutocutWrapper(CompAnimalPenMarker Pen) : ThingFilterContext
+    [SyncMethod]
+    private static void AllowSpecial_Helper(ThingFilterContext context, SpecialThingFilterDef sfDef, bool allow)
     {
-        public override ThingFilter Filter => Pen.AutoCutFilter;
-        public override ThingFilter ParentFilter => Pen.parent.Map.animalPenManager.GetFixedAutoCutFilter();
-        public override IEnumerable<SpecialThingFilterDef> HiddenFilters => SpecialThingFilterDefOf.AllowFresh.ToEnumerable();
+        context.Filter.SetAllow(sfDef, allow);
     }
 
+    [SyncMethod]
+    private static void AllowThing_Helper(ThingFilterContext context, ThingDef thingDef, bool allow)
+    {
+        context.Filter.SetAllow(thingDef, allow);
+    }
+
+    [SyncMethod]
+    private static void DisallowAll_Helper(ThingFilterContext context)
+    {
+        context.Filter.SetDisallowAll(null, context.HiddenFilters);
+    }
+
+    [SyncMethod]
+    private static void AllowAll_Helper(ThingFilterContext context)
+    {
+        context.Filter.SetAllowAll(context.ParentFilter);
+    }
+
+    [SyncMethod]
+    private static void AllowCategory_Helper(ThingFilterContext context, ThingCategoryDef categoryDef, bool allow)
+    {
+        var node = new TreeNode_ThingCategory(categoryDef);
+
+        context.Filter.SetAllow(
+            categoryDef,
+            allow,
+            null,
+            Listing_TreeThingFilter
+                .CalculateHiddenSpecialFilters(node, context.ParentFilter)
+                .ConcatIfNotNull(context.HiddenFilters)
+        );
+    }
 }

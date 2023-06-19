@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 
 namespace Multiplayer.Common
 {
@@ -48,7 +49,7 @@ namespace Multiplayer.Common
             int factionId = data.ReadInt32();
             int mapId = data.ReadInt32();
             int playerId = data.ReadInt32();
-            byte[] extraBytes = data.ReadPrefixedBytes();
+            byte[] extraBytes = data.ReadPrefixedBytes()!;
 
             return new ScheduledCommand(cmd, ticks, factionId, mapId, playerId, extraBytes);
         }
@@ -56,6 +57,29 @@ namespace Multiplayer.Common
         public override string ToString()
         {
             return $"Cmd: {type}, faction: {factionId}, map: {mapId}, ticks: {ticks}, player: {playerId}";
+        }
+
+        public static List<ScheduledCommand> DeserializeCmds(byte[] data)
+        {
+            var reader = new ByteReader(data);
+
+            int count = reader.ReadInt32();
+            var result = new List<ScheduledCommand>(count);
+            for (int i = 0; i < count; i++)
+                result.Add(Deserialize(new ByteReader(reader.ReadPrefixedBytes()!)));
+
+            return result;
+        }
+
+        public static byte[] SerializeCmds(List<ScheduledCommand> cmds)
+        {
+            ByteWriter writer = new ByteWriter();
+
+            writer.WriteInt32(cmds.Count);
+            foreach (var cmd in cmds)
+                writer.WritePrefixedBytes(Serialize(cmd));
+
+            return writer.ToArray();
         }
     }
 }

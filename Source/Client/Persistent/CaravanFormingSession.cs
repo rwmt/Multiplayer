@@ -1,17 +1,16 @@
-using HarmonyLib;
 using Multiplayer.API;
 using Multiplayer.Client.Persistent;
 using RimWorld;
 using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using UnityEngine;
+using Multiplayer.Common.Util;
 using Verse;
 
 namespace Multiplayer.Client
 {
-    public class CaravanFormingSession : IExposable, ISessionWithTransferables
+    [HotSwappable]
+    public class CaravanFormingSession : IExposable, ISessionWithTransferables, IPausingWithDialog
     {
         public Map map;
 
@@ -22,6 +21,8 @@ namespace Multiplayer.Client
         public int startingTile = -1;
         public int destinationTile = -1;
         public List<TransferableOneWay> transferables;
+        public bool autoSelectTravelSupplies;
+        public IntVec3? meetingSpot;
 
         public bool uiDirty;
 
@@ -33,7 +34,7 @@ namespace Multiplayer.Client
             this.map = map;
         }
 
-        public CaravanFormingSession(Map map, bool reform, Action onClosed, bool mapAboutToBeRemoved) : this(map)
+        public CaravanFormingSession(Map map, bool reform, Action onClosed, bool mapAboutToBeRemoved, IntVec3? meetingSpot = null) : this(map)
         {
             //sessionId = map.MpComp().mapIdBlock.NextId();
             sessionId = Multiplayer.GlobalIdBlock.NextId();
@@ -41,14 +42,18 @@ namespace Multiplayer.Client
             this.reform = reform;
             this.onClosed = onClosed;
             this.mapAboutToBeRemoved = mapAboutToBeRemoved;
+            autoSelectTravelSupplies = !reform;
+            this.meetingSpot = meetingSpot;
 
             AddItems();
         }
 
         private void AddItems()
         {
-            var dialog = new CaravanFormingProxy(map, reform, null, mapAboutToBeRemoved);
-            dialog.autoSelectTravelSupplies = false;
+            var dialog = new CaravanFormingProxy(map, reform, null, mapAboutToBeRemoved, meetingSpot)
+            {
+                autoSelectTravelSupplies = autoSelectTravelSupplies
+            };
             dialog.CalculateAndRecacheTransferables();
             transferables = dialog.transferables;
         }
@@ -72,21 +77,24 @@ namespace Multiplayer.Client
                 mapAboutToBeRemoved
             );
 
-            dialog.CountToTransferChanged();
+            dialog.Notify_TransferablesChanged();
 
             Find.WindowStack.Add(dialog);
         }
 
         private CaravanFormingProxy PrepareDummyDialog()
         {
-            var dialog = new CaravanFormingProxy(map, reform, null, mapAboutToBeRemoved)
+            var dialog = new CaravanFormingProxy(map, reform, null, mapAboutToBeRemoved, meetingSpot)
             {
                 transferables = transferables,
                 startingTile = startingTile,
                 destinationTile = destinationTile,
                 thisWindowInstanceEverOpened = true,
-                autoSelectTravelSupplies = false,
+                autoSelectTravelSupplies = autoSelectTravelSupplies,
             };
+
+            if (autoSelectTravelSupplies)
+                dialog.SelectApproximateBestTravelSupplies();
 
             return dialog;
         }
@@ -138,6 +146,16 @@ namespace Multiplayer.Client
             Find.WorldRoutePlanner.Stop();
         }
 
+        [SyncMethod]
+        public void SetAutoSelectTravelSupplies(bool value)
+        {
+            if (autoSelectTravelSupplies != value)
+            {
+                autoSelectTravelSupplies = value;
+                uiDirty = true;
+            }
+        }
+
         public void ExposeData()
         {
             Scribe_Values.Look(ref sessionId, "sessionId");
@@ -146,6 +164,8 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref mapAboutToBeRemoved, "mapAboutToBeRemoved");
             Scribe_Values.Look(ref startingTile, "startingTile");
             Scribe_Values.Look(ref destinationTile, "destinationTile");
+            Scribe_Values.Look(ref autoSelectTravelSupplies, "autoSelectTravelSupplies");
+            Scribe_Values.Look(ref meetingSpot, "meetingSpot");
 
             Scribe_Collections.Look(ref transferables, "transferables", LookMode.Deep);
         }

@@ -1,10 +1,6 @@
 using Multiplayer.Common;
 using Steamworks;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Verse;
 
 namespace Multiplayer.Client.Networking
@@ -51,8 +47,6 @@ namespace Multiplayer.Client.Networking
 
         public abstract void OnError(EP2PSessionError error);
 
-        protected abstract void OnDisconnect();
-
         public override string ToString()
         {
             return $"SteamP2P ({remoteId}) ({username})";
@@ -67,7 +61,7 @@ namespace Multiplayer.Client.Networking
         {
         }
 
-        protected override void HandleReceive(int msgId, int fragState, ByteReader reader, bool reliable)
+        protected override void HandleReceiveMsg(int msgId, int fragState, ByteReader reader, bool reliable)
         {
             if (msgId == (int)Packets.Special_Steam_Disconnect)
             {
@@ -79,7 +73,7 @@ namespace Multiplayer.Client.Networking
                 return;
             }
 
-            base.HandleReceive(msgId, fragState, reader, reliable);
+            base.HandleReceiveMsg(msgId, fragState, reader, reliable);
         }
 
         public override void OnError(EP2PSessionError error)
@@ -90,7 +84,7 @@ namespace Multiplayer.Client.Networking
             OnDisconnect();
         }
 
-        protected override void OnDisconnect()
+        private void OnDisconnect()
         {
             ConnectionStatusListeners.TryNotifyAll_Disconnected();
             Multiplayer.StopMultiplayer();
@@ -103,7 +97,7 @@ namespace Multiplayer.Client.Networking
         {
         }
 
-        protected override void HandleReceive(int msgId, int fragState, ByteReader reader, bool reliable)
+        protected override void HandleReceiveMsg(int msgId, int fragState, ByteReader reader, bool reliable)
         {
             if (msgId == (int)Packets.Special_Steam_Disconnect)
             {
@@ -111,7 +105,7 @@ namespace Multiplayer.Client.Networking
                 return;
             }
 
-            base.HandleReceive(msgId, fragState, reader, reliable);
+            base.HandleReceiveMsg(msgId, fragState, reader, reliable);
         }
 
         public override void OnError(EP2PSessionError error)
@@ -119,9 +113,9 @@ namespace Multiplayer.Client.Networking
             OnDisconnect();
         }
 
-        protected override void OnDisconnect()
+        private void OnDisconnect()
         {
-            serverPlayer.Server.playerManager.OnDisconnected(this, MpDisconnectReason.ClientLeft);
+            serverPlayer.Server.playerManager.SetDisconnected(this, MpDisconnectReason.ClientLeft);
         }
     }
 }

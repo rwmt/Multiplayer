@@ -4,16 +4,14 @@ using RimWorld;
 using Steamworks;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using Multiplayer.Client.Util;
 using UnityEngine;
 using Verse;
-using Verse.Steam;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
+
     [StaticConstructorOnStartup]
     public class ChatWindow : Window
     {
@@ -128,6 +126,7 @@ namespace Multiplayer.Client
                     string toolTip = $"{p.username}\n\nPing: {p.latency}ms\n{p.ticksBehind} ticks behind";
                     if (p.simulating)
                         toolTip += "\n(Simulating)";
+                    toolTip += $"\nAvg frame time: {p.frameTime:0.00}ms";
 
                     TooltipHandler.TipRegion(rect, new TipSignal(toolTip, p.id));
                 },
@@ -379,8 +378,8 @@ namespace Multiplayer.Client
 
             if (Multiplayer.LocalServer != null)
             {
-                if (Multiplayer.LocalServer.net.lanManager != null)
-                    LogNetData("Lan Server", Multiplayer.LocalServer.net.lanManager.Statistics);
+                if (Multiplayer.LocalServer.liteNet.lanManager != null)
+                    LogNetData("Lan Server", Multiplayer.LocalServer.liteNet.lanManager.Statistics);
 
                 //if (Multiplayer.LocalServer.net.netManager != null)
                 //    LogNetData("Net Server", Multiplayer.LocalServer.net.netManager.Statistics);

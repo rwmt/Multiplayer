@@ -1,20 +1,24 @@
 using Multiplayer.Client.Desyncs;
-using Multiplayer.Client.EarlyPatches;
 using RimWorld;
 using RimWorld.BaseGen;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Multiplayer.Client.AsyncTime;
 using Multiplayer.Client.Comp;
+using Multiplayer.Client.Persistent;
+using Multiplayer.Common.Util;
 using UnityEngine;
 using Verse;
 
 namespace Multiplayer.Client
 {
+    [HotSwappable]
     public class MultiplayerGame
     {
         public SyncCoordinator sync = new();
 
+        public AsyncWorldTimeComp asyncWorldTimeComp;
         public MultiplayerWorldComp worldComp;
         public MultiplayerGameComp gameComp;
         public List<MultiplayerMapComp> mapComps = new();
@@ -26,20 +30,7 @@ namespace Multiplayer.Client
 
         public Dictionary<int, PlayerDebugState> playerDebugState = new();
 
-        public Faction RealPlayerFaction
-        {
-            get => myFaction ?? myFactionLoading;
-
-            set
-            {
-                myFaction = value;
-                FactionContext.Set(value);
-                worldComp.SetFaction(value);
-
-                foreach (Map m in Find.Maps)
-                    m.MpComp().SetFaction(value);
-            }
-        }
+        public Faction RealPlayerFaction => myFaction ?? myFactionLoading;
 
         public MultiplayerGame()
         {
@@ -81,17 +72,21 @@ namespace Multiplayer.Client
                     edgeThing.randomRotations = new List<int>() { 0, 1, 2, 3 };
 
             typeof(SymbolResolver_SingleThing).TypeInitializer.Invoke(null, null);
+
+            foreach (var initialOpinion in Multiplayer.session.initialOpinions)
+                sync.AddClientOpinionAndCheckDesync(initialOpinion);
+            Multiplayer.session.initialOpinions.Clear();
         }
 
         public static void ClearPortraits()
         {
-            foreach (var portraitParams in PortraitsCache.cachedPortraits)
+            foreach (var (_, cachedPortraits) in PortraitsCache.cachedPortraits)
             {
-                foreach (var portrait in portraitParams.CachedPortraits.ToList())
+                foreach (var portrait in cachedPortraits.ToList())
                 {
                     var cached = portrait.Value;
                     cached.LastUseTime = Time.time - 2f; // RimWorld expires portraits that have been unused for more than 1 second
-                    portraitParams.CachedPortraits[portrait.Key] = cached;
+                    cachedPortraits[portrait.Key] = cached;
                 }
             }
 
@@ -113,6 +108,45 @@ namespace Multiplayer.Client
         {
             FactionContext.Clear();
             ThingContext.Clear();
+        }
+
+        public IEnumerable<ISession> GetSessions(Map map)
+        {
+            foreach (var s in worldComp.trading)
+                yield return s;
+
+            if (worldComp.splitSession != null)
+                yield return worldComp.splitSession;
+
+            if (map == null) yield break;
+            var mapComp = map.MpComp();
+
+            if (mapComp.caravanForming != null)
+                yield return mapComp.caravanForming;
+
+            if (mapComp.transporterLoading != null)
+                yield return mapComp.transporterLoading;
+
+            if (mapComp.ritualSession != null)
+                yield return mapComp.ritualSession;
+        }
+
+        public void ChangeRealPlayerFaction(int newFaction)
+        {
+            ChangeRealPlayerFaction(Find.FactionManager.GetById(newFaction));
+        }
+
+        public void ChangeRealPlayerFaction(Faction newFaction)
+        {
+            myFaction = newFaction;
+            FactionContext.Set(newFaction);
+            worldComp.SetFaction(newFaction);
+
+            foreach (Map m in Find.Maps)
+                m.MpComp().SetFaction(newFaction);
+
+            Find.ColonistBar?.MarkColonistsDirty();
+            Find.CurrentMap?.mapDrawer.RegenerateEverythingNow();
         }
     }
 }
