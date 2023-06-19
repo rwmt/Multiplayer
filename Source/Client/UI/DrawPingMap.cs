@@ -17,7 +17,7 @@ namespace Multiplayer.Client
             foreach (var ping in Multiplayer.session.cursorAndPing.pings)
             {
                 if (ping.mapId != Find.CurrentMap.uniqueID) continue;
-                if (Multiplayer.session.GetPlayerInfo(ping.player) is not { } player) continue;
+                if (ping.PlayerInfo is not { } player) continue;
 
                 ping.DrawAt(ping.mapLoc.MapToUIPosition(), player.color, size);
             }

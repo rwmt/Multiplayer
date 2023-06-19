@@ -1,3 +1,4 @@
+using System;
 using HarmonyLib;
 using Multiplayer.API;
 using RimWorld;
@@ -5,12 +6,12 @@ using RimWorld.Planet;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection.Emit;
+using Multiplayer.Client.Util;
 using Verse;
 using Verse.AI;
 
 namespace Multiplayer.Client
 {
-
     public static class SyncMethods
     {
         static SyncField SyncTimetable;
@@ -60,17 +61,24 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(Building_Bed), nameof(Building_Bed.Medical));
 
             {
-                var methodNames = new [] {
-                    nameof(CompAssignableToPawn.TryAssignPawn),
-                    nameof(CompAssignableToPawn.TryUnassignPawn),
-                };
-
-                var methods = typeof(CompAssignableToPawn).AllSubtypesAndSelf()
-                    .SelectMany(t => methodNames.Select(n => t.GetMethod(n, AccessTools.allDeclared)))
+                var types = typeof(CompAssignableToPawn).AllSubtypesAndSelf().ToArray();
+                var assignMethods = types
+                    .Select(t => t.GetMethod(nameof(CompAssignableToPawn.TryAssignPawn), AccessTools.allDeclared))
+                    .AllNotNull();
+                var unassignMethods = types
+                    .Select(t => t.GetMethod(nameof(CompAssignableToPawn.TryUnassignPawn), AccessTools.allDeclared))
                     .AllNotNull();
 
-                foreach (var method in methods) {
+                var unassignSerializer = Serializer.New(
+                    (Pawn pawn, object target, object[] _) => (pawnId: pawn.thingIDNumber, target: (CompAssignableToPawn)target),
+                    tuple => tuple.target.assignedPawns.FirstOrDefault(p => p.thingIDNumber == tuple.pawnId));
+
+                foreach (var method in assignMethods) {
                     Sync.RegisterSyncMethod(method).CancelIfAnyArgNull();
+                }
+
+                foreach (var method in unassignMethods) {
+                    Sync.RegisterSyncMethod(method).TransformArgument(0, unassignSerializer).CancelIfAnyArgNull();
                 }
             }
 
@@ -152,11 +160,6 @@ namespace Multiplayer.Client
             // 3
             SyncMethod.Register(typeof(ShipUtility), nameof(ShipUtility.StartupHibernatingParts)).CancelIfAnyArgNull().SetVersion(3);
 
-            SyncMethod.Register(typeof(Verb_SmokePop), nameof(Verb_SmokePop.Pop));
-            SyncMethod.Register(typeof(Verb_DeployBroadshield), nameof(Verb_DeployBroadshield.Deploy));
-            SyncMethod.Register(typeof(Verb_FirefoamPop), nameof(Verb_FirefoamPop.Pop));
-            SyncMethod.Register(typeof(Verb_DeployToxPack), nameof(Verb_DeployToxPack.TryDeploy));
-
             // Dialog_NodeTree
             Sync.RegisterSyncDialogNodeTree(typeof(IncidentWorker_CaravanMeeting), nameof(IncidentWorker_CaravanMeeting.TryExecuteWorker));
             Sync.RegisterSyncDialogNodeTree(typeof(IncidentWorker_CaravanDemand), nameof(IncidentWorker_CaravanDemand.TryExecuteWorker));
@@ -225,6 +228,12 @@ namespace Multiplayer.Client
             SyncMethod.Lambda(typeof(MinifiedTree), nameof(MinifiedThing.GetGizmos), 0).SetDebugOnly(); // Destroy
             SyncMethod.Lambda(typeof(MinifiedTree), nameof(MinifiedThing.GetGizmos), 1).SetDebugOnly(); // Die in 1 hour
             SyncMethod.Lambda(typeof(MinifiedTree), nameof(MinifiedThing.GetGizmos), 2).SetDebugOnly(); // Die in 1 day
+            SyncMethod.Lambda(typeof(Pawn), nameof(Pawn.GetGizmos), 0).SetDebugOnly(); // Psyfocus -20%
+            SyncMethod.Lambda(typeof(Pawn), nameof(Pawn.GetGizmos), 1).SetDebugOnly(); // Psyfocus +20%
+            SyncMethod.Lambda(typeof(Pawn), nameof(Pawn.GetGizmos), 2).SetDebugOnly(); // Psychic entropy -20%
+            SyncMethod.Lambda(typeof(Pawn), nameof(Pawn.GetGizmos), 3).SetDebugOnly(); // Psychic entropy +20%
+            SyncMethod.Lambda(typeof(Pawn), nameof(Pawn.GetGizmos), 6).SetDebugOnly(); // Reset faction permit cooldowns
+            SyncMethod.Lambda(typeof(Pawn), nameof(Pawn.GetGizmos), 7).SetDebugOnly(); // Reset try romance cooldown
 
             SyncMethod.Register(typeof(Blueprint_Build), nameof(Blueprint_Build.ChangeStyleOfAllSelected)).SetContext(SyncContext.MapSelected);
             SyncMethod.Lambda(typeof(CompTurretGun), nameof(CompTurretGun.CompGetGizmosExtra), 1); // Toggle fire at will
@@ -534,6 +543,36 @@ namespace Multiplayer.Client
                 genepack.targetContainer = null;
                 container.leftToLoad.Remove(genepack);
             }
+        }
+
+        [MpPrefix(typeof(Targeter), nameof(Targeter.BeginTargeting), new []{ typeof(ITargetingSource), typeof(ITargetingSource), typeof(bool), typeof(Func<LocalTargetInfo, ITargetingSource>), typeof(Action) })]
+        static bool BeginTargeting(ITargetingSource source)
+        {
+            if (Multiplayer.Client == null || source.Targetable)
+                return true;
+
+            var verb = source.GetVerb;
+            // In case both Targetable and nonInterruptingSelfCast are false, targeter makes the caster use the verb.
+            // Before this change, we were syncing the cast method this ended up calling, like smokepop (and other belt) manual uses.
+            if (verb.verbProps.nonInterruptingSelfCast)
+                SyncTargeterNonInterruptingSelfCast(verb);
+            // In case Targetable is false and nonInterruptingSelfCast is true, targeter makes the pawn start a new job.
+            // At the moment, it seems to never be the case in vanilla. However, this can happen with mods.
+            else
+                SyncTargeterInterruptingSelfCast(verb, source.CasterPawn);
+
+            return false;
+        }
+
+        [SyncMethod]
+        static void SyncTargeterNonInterruptingSelfCast(Verb verb) => verb.TryStartCastOn(verb.Caster);
+
+        [SyncMethod]
+        static void SyncTargeterInterruptingSelfCast(Verb verb, Pawn casterPawn)
+        {
+            var job = JobMaker.MakeJob(JobDefOf.UseVerbOnThing, verb.Caster);
+            job.verbToUse = verb;
+            casterPawn.jobs.StartJob(job, JobCondition.InterruptForced);
         }
     }
 

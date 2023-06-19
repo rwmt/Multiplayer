@@ -13,7 +13,6 @@ using Multiplayer.Common.Util;
 
 namespace Multiplayer.Client
 {
-
     [StaticConstructorOnStartup]
     public class HostWindow : Window
     {
@@ -26,7 +25,7 @@ namespace Multiplayer.Client
 
         private SaveFile file;
         public bool returnToServerBrowser;
-        private bool withSimulation;
+        private bool hadSimulation;
         private bool asyncTime;
         private bool asyncTimeLocked;
         private Tab tab;
@@ -35,14 +34,14 @@ namespace Multiplayer.Client
 
         private ServerSettings serverSettings;
 
-        public HostWindow(SaveFile file = null, bool withSimulation = false)
+        public HostWindow(SaveFile file = null, bool hadSimulation = false)
         {
             closeOnAccept = false;
             doCloseX = true;
 
-            serverSettings = Multiplayer.settings.serverSettings;
+            serverSettings = Multiplayer.settings.ServerSettings;
 
-            this.withSimulation = withSimulation;
+            this.hadSimulation = hadSimulation;
             this.file = file;
             serverSettings.gameName = file?.gameName ?? Multiplayer.session?.gameName ?? $"{Multiplayer.username}'s game";
 
@@ -416,11 +415,11 @@ namespace Multiplayer.Client
                 return;
 
             if (file?.replay ?? Multiplayer.IsReplay)
-                HostFromMultiplayerSave(settings);
+                HostFromReplay(settings);
             else if (file == null)
-                HostUtil.HostServer(settings, false, false, asyncTime);
+                HostFromSpIngame(settings);
             else
-                HostFromSingleplayer(settings);
+                HostFromSpSaveFile(settings);
 
             Close();
         }
@@ -459,7 +458,7 @@ namespace Multiplayer.Client
                 failed = true;
             }
 
-            if (settings.lan && !localServer.liteNet.lanManager.IsRunning)
+            if (settings.lan && !localServer.liteNet.lanManager!.IsRunning)
             {
                 Messages.Message("Failed to bind LAN on " + settings.lanAddress, MessageTypeDefOf.RejectInput, false);
                 failed = true;
@@ -475,13 +474,13 @@ namespace Multiplayer.Client
 
         public override void PostClose()
         {
-            Multiplayer.WriteSettingsToDisk();
+            Multiplayer.settings.Write();
 
             if (returnToServerBrowser)
                 Find.WindowStack.Add(new ServerBrowser());
         }
 
-        private void HostFromSingleplayer(ServerSettings settings)
+        private void HostFromSpSaveFile(ServerSettings settings)
         {
             LongEventHandler.QueueLongEvent(() =>
             {
@@ -501,9 +500,14 @@ namespace Multiplayer.Client
             }, "Play", "LoadingLongEvent", true, null);
         }
 
-        private void HostFromMultiplayerSave(ServerSettings settings)
+        private void HostFromSpIngame(ServerSettings settings)
         {
-            void ReplayLoaded() => HostUtil.HostServer(settings, true, withSimulation, asyncTime);
+            HostUtil.HostServer(settings, false, false, asyncTime);
+        }
+
+        private void HostFromReplay(ServerSettings settings)
+        {
+            void ReplayLoaded() => HostUtil.HostServer(settings, true, hadSimulation, asyncTime);
 
             if (file != null)
             {

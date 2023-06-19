@@ -60,7 +60,7 @@ namespace Multiplayer.Client
 
         static void Postfix(int ID)
         {
-            if (ID == -LongEventWindowId || ID == -IngameUIPatch.ModalWindowId)
+            if (ID == -LongEventWindowId || ID == -IngameModal.ModalWindowId)
             {
                 var window = Find.WindowStack.windows.Find(w => w.ID == ID);
 
@@ -78,7 +78,7 @@ namespace Multiplayer.Client
             if (Current.ProgramState == ProgramState.Entry) return;
 
             if (__instance.ID == -LongEventWindowPreventCameraMotion.LongEventWindowId ||
-                __instance.ID == -IngameUIPatch.ModalWindowId ||
+                __instance.ID == -IngameModal.ModalWindowId ||
                 __instance is DisconnectedWindow ||
                 __instance is CaravanFormingProxy
             )

@@ -1,10 +1,11 @@
-//extern alias zip;
-
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Text.RegularExpressions;
 using HarmonyLib;
 using LiteNetLib;
@@ -17,6 +18,7 @@ using UnityEngine;
 using Verse;
 using Verse.Sound;
 using Verse.Steam;
+using Debug = UnityEngine.Debug;
 
 namespace Multiplayer.Client
 {
@@ -37,8 +39,8 @@ namespace Multiplayer.Client
             Native.InitLmfPtr();
 
             // UnityEngine.Debug.Log instead of Verse.Log.Message because the server runs on its own thread
-            ServerLog.info = str => UnityEngine.Debug.Log($"MpServerLog: {str}");
-            ServerLog.error = str => UnityEngine.Debug.Log($"MpServerLog Error: {str}");
+            ServerLog.info = str => Debug.Log($"MpServerLog: {str}");
+            ServerLog.error = str => Debug.Log($"MpServerLog Error: {str}");
             NetDebug.Logger = new ServerLog();
 
             SetUsername();
@@ -55,6 +57,7 @@ namespace Multiplayer.Client
 
             MpConnectionState.SetImplementation(ConnectionStateEnum.ClientSteam, typeof(ClientSteamState));
             MpConnectionState.SetImplementation(ConnectionStateEnum.ClientJoining, typeof(ClientJoiningState));
+            MpConnectionState.SetImplementation(ConnectionStateEnum.ClientLoading, typeof(ClientLoadingState));
             MpConnectionState.SetImplementation(ConnectionStateEnum.ClientPlaying, typeof(ClientPlayingState));
 
             MultiplayerData.CollectCursorIcons();
@@ -166,18 +169,67 @@ namespace Multiplayer.Client
 
             if (GenCommandLine.TryGetCommandLineArg("replay", out string replay))
             {
+                GenCommandLine.TryGetCommandLineArg("replaydata", out string replayData);
+                var replays = replay.Split(';').ToList().GetEnumerator();
+
                 DoubleLongEvent(() =>
                 {
-                    Replay.LoadReplay(Replay.ReplayFile(replay), true, () =>
+                    void LoadNextReplay()
                     {
-                        var rand = Find.Maps.Select(m => m.AsyncTime().randState).Select(s => $"{s} {(uint)s} {s >> 32}");
+                        if (!replays.MoveNext())
+                        {
+                            Application.Quit();
+                            return;
+                        }
 
-                        Log.Message($"timer {TickPatch.Timer}");
-                        Log.Message($"world rand {Multiplayer.WorldComp.randState} {(uint)Multiplayer.WorldComp.randState} {Multiplayer.WorldComp.randState >> 32}");
-                        Log.Message($"map rand {rand.ToStringSafeEnumerable()} | {Find.Maps.Select(m => m.AsyncTime().mapTicks).ToStringSafeEnumerable()}");
+                        var current = replays.Current!.Split(':');
+                        int totalTicks = int.Parse(current[2]);
+                        int batchSize = int.Parse(current[3]);
+                        int ticksDone = 0;
+                        double timeSpent = 0;
 
-                        Application.Quit();
-                    });
+                        Replay.LoadReplay(Replay.ReplayFile(current[1]), true, () =>
+                        {
+                            TickPatch.AllTickables.Do(t => t.SetDesiredTimeSpeed(TimeSpeed.Normal));
+
+                            void TickBatch()
+                            {
+                                if (ticksDone >= totalTicks)
+                                {
+                                    if (!replayData.NullOrEmpty())
+                                    {
+                                        string output = "";
+                                        void Log(string text) => output += text + "\n";
+
+                                        Log($"Ticks done: {ticksDone}");
+                                        Log($"TPS: {1000.0/(timeSpent / ticksDone)}");
+                                        Log($"Timer: {TickPatch.Timer}");
+                                        Log($"World: {Multiplayer.AsyncWorldTime.worldTicks}/{Multiplayer.AsyncWorldTime.randState}");
+                                        foreach (var map in Find.Maps)
+                                            Log($"Map {map.uniqueID} rand: {map.AsyncTime().mapTicks}/{map.AsyncTime().randState}");
+
+                                        File.WriteAllText(Path.Combine(replayData, $"{current[0]}"), output);
+                                    }
+
+                                    LoadNextReplay();
+                                    return;
+                                }
+
+                                OnMainThread.Enqueue(() =>
+                                {
+                                    var watch = Stopwatch.StartNew();
+                                    TickPatch.DoTicks(batchSize);
+                                    timeSpent += watch.Elapsed.TotalMilliseconds;
+                                    ticksDone += batchSize;
+                                    TickBatch();
+                                });
+                            }
+
+                            TickBatch();
+                        });
+                    }
+
+                    LoadNextReplay();
                 }, "Replay");
             }
 

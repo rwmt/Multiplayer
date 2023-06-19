@@ -51,6 +51,11 @@ namespace Multiplayer.Client
             return Log.NodePassthrough("short: ", base.ReadShort());
         }
 
+        public override string ReadStringNullable(int maxLen = 32767)
+        {
+            return Log.NodePassthrough("string?: ", base.ReadStringNullable(maxLen));
+        }
+
         public override string ReadString(int maxLen = 32767)
         {
             return Log.NodePassthrough("string: ", base.ReadString(maxLen));

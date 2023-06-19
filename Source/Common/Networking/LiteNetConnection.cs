@@ -16,7 +16,7 @@ namespace Multiplayer.Common
             peer.Send(raw, reliable ? DeliveryMethod.ReliableOrdered : DeliveryMethod.Unreliable);
         }
 
-        public override void Close(MpDisconnectReason reason, byte[] data)
+        public override void Close(MpDisconnectReason reason, byte[]? data)
         {
             peer.NetManager.TriggerUpdate(); // todo: is this needed?
             peer.NetManager.DisconnectPeer(peer, GetDisconnectBytes(reason, data));

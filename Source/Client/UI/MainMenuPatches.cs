@@ -27,7 +27,6 @@ namespace Multiplayer.Client
         static void Prefix(ref Rect rect) => rect.height += 45f;
     }
 
-
     [HarmonyPatch(typeof(OptionListingUtility), nameof(OptionListingUtility.DrawOptionListing))]
     public static class MainMenuPatch
     {
@@ -61,7 +60,7 @@ namespace Multiplayer.Client
                 if (MpVersion.IsDebug && Multiplayer.IsReplay)
                     optList.Insert(0, new ListableOption(
                         "MpHostServer".Translate(),
-                        () => Find.WindowStack.Add(new HostWindow(withSimulation: true) { layer = WindowLayer.Super })
+                        () => Find.WindowStack.Add(new HostWindow(hadSimulation: true) { layer = WindowLayer.Super })
                     ));
 
                 if (Multiplayer.Client != null)

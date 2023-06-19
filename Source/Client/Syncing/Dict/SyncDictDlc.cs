@@ -98,24 +98,6 @@ namespace Multiplayer.Client
                 }, true // Implicit
             },
             {
-                (ByteWriter data, LordJob_BestowingCeremony job) => {
-                    WriteSync(data, job.lord);
-                },
-                (ByteReader data) => {
-                    var lord = ReadSync<Lord>(data);
-                    return lord?.LordJob as LordJob_BestowingCeremony;
-                }
-            },
-            {
-                (ByteWriter data, LordToil_BestowingCeremony_Wait toil) => {
-                    WriteSync(data, toil.lord);
-                },
-                (ByteReader data) => {
-                    var lord = ReadSync<Lord>(data);
-                    return lord?.curLordToil as LordToil_BestowingCeremony_Wait;
-                }
-            },
-            {
                 (ByteWriter data, Command_BestowerCeremony cmd) => {
                     WriteSync(data, cmd.job.lord);
                     WriteSync(data, cmd.bestower);
@@ -217,15 +199,6 @@ namespace Multiplayer.Client
                 }
             },
             {
-                (ByteWriter data, LordJob_Ritual job) => {
-                    WriteSync(data, job.lord);
-                },
-                (ByteReader data) => {
-                    var lord = ReadSync<Lord>(data);
-                    return lord?.LordJob as LordJob_Ritual;
-                }
-            },
-            {
                 // This dialog has nothing of interest to us besides the methods which we need for syncing
                 (ByteWriter _, Dialog_StyleSelection _) => { },
                 (ByteReader _) => new Dialog_StyleSelection()
@@ -259,6 +232,16 @@ namespace Multiplayer.Client
 
                     return gene.gizmo;
                 }
+            },
+            {
+                (ByteWriter data, IGeneResourceDrain resourceDrain) =>
+                {
+                    if (resourceDrain is Gene gene)
+                        WriteSync(data, gene);
+                    else
+                        throw new Exception($"Unsupported {nameof(IGeneResourceDrain)} type: {resourceDrain.GetType()}");
+                },
+                (ByteReader data) => ReadSync<Gene>(data) as IGeneResourceDrain
             },
             {
                 (ByteWriter data, MechanitorControlGroup group) =>

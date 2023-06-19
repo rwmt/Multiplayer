@@ -30,7 +30,7 @@ namespace Multiplayer.Common
         public void OnPeerConnected(NetPeer peer)
         {
             ConnectionBase conn = new LiteNetConnection(peer);
-            conn.State = ConnectionStateEnum.ServerJoining;
+            conn.ChangeState(ConnectionStateEnum.ServerJoining);
             peer.Tag = conn;
 
             var player = server.playerManager.OnConnected(conn);
@@ -44,7 +44,7 @@ namespace Multiplayer.Common
         public void OnPeerDisconnected(NetPeer peer, DisconnectInfo disconnectInfo)
         {
             ConnectionBase conn = peer.GetConnection();
-            server.playerManager.OnDisconnected(conn, MpDisconnectReason.ClientLeft);
+            server.playerManager.SetDisconnected(conn, MpDisconnectReason.ClientLeft);
         }
 
         public void OnNetworkLatencyUpdate(NetPeer peer, int latency)

@@ -58,7 +58,7 @@ namespace Multiplayer.Client
             }), true);
         }
 
-        void Add(SyncWorkerDelegate sync, bool append = true)
+        private void Add(SyncWorkerDelegate sync, bool append = true)
         {
             if (append)
                 syncWorkers.Add(sync);
@@ -418,23 +418,24 @@ namespace Multiplayer.Client
         }
     }
 
-    internal static class TypeRWHelper
+    internal static class RwTypeHelper
     {
         private static Dictionary<Type, Type[]> cache = new Dictionary<Type, Type[]>();
 
-        static TypeRWHelper()
+        static RwTypeHelper()
         {
-            cache[typeof(IStoreSettingsParent)] = ImplSerialization.storageParents;
-            cache[typeof(IPlantToGrowSettable)] = ImplSerialization.plantToGrowSettables;
+            cache[typeof(IStoreSettingsParent)] = RwImplSerialization.storageParents;
+            cache[typeof(IPlantToGrowSettable)] = RwImplSerialization.plantToGrowSettables;
 
-            cache[typeof(ThingComp)] = ImplSerialization.thingCompTypes;
-            cache[typeof(AbilityComp)] = ImplSerialization.abilityCompTypes;
-            cache[typeof(Designator)] = ImplSerialization.designatorTypes;
-            cache[typeof(WorldObjectComp)] = ImplSerialization.worldObjectCompTypes;
+            cache[typeof(ThingComp)] = RwImplSerialization.thingCompTypes;
+            cache[typeof(AbilityComp)] = RwImplSerialization.abilityCompTypes;
+            cache[typeof(Designator)] = RwImplSerialization.designatorTypes;
+            cache[typeof(WorldObjectComp)] = RwImplSerialization.worldObjectCompTypes;
+            cache[typeof(HediffComp)] = RwImplSerialization.hediffCompTypes;
 
-            cache[typeof(GameComponent)] = ImplSerialization.gameCompTypes;
-            cache[typeof(WorldComponent)] = ImplSerialization.worldCompTypes;
-            cache[typeof(MapComponent)] = ImplSerialization.mapCompTypes;
+            cache[typeof(GameComponent)] = RwImplSerialization.gameCompTypes;
+            cache[typeof(WorldComponent)] = RwImplSerialization.worldCompTypes;
+            cache[typeof(MapComponent)] = RwImplSerialization.mapCompTypes;
         }
 
         internal static void FlushCache()

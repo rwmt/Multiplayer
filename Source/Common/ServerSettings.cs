@@ -1,9 +1,8 @@
 ﻿using System;
-using Verse;
 
 namespace Multiplayer.Common
 {
-    public class ServerSettings : IExposable
+    public class ServerSettings
     {
         public string gameName;
         public string lanAddress;
@@ -32,24 +31,24 @@ namespace Multiplayer.Common
         {
             // Remember to mirror the default values
 
-            Scribe_Values.Look(ref directAddress, "directAddress", $"0.0.0.0:{MultiplayerServer.DefaultPort}");
-            Scribe_Values.Look(ref maxPlayers, "maxPlayers", 8);
-            Scribe_Values.Look(ref autosaveInterval, "autosaveInterval", 1f);
-            Scribe_Values.Look(ref autosaveUnit, "autosaveUnit");
-            Scribe_Values.Look(ref steam, "steam");
-            Scribe_Values.Look(ref direct, "direct");
-            Scribe_Values.Look(ref lan, "lan", true);
-            Scribe_Values.Look(ref debugMode, "debugMode");
-            Scribe_Values.Look(ref desyncTraces, "desyncTraces", true);
-            Scribe_Values.Look(ref syncConfigs, "syncConfigs", true);
-            Scribe_Values.Look(ref autoJoinPoint, "autoJoinPoint", AutoJoinPointFlags.Join | AutoJoinPointFlags.Desync);
-            Scribe_Values.Look(ref devModeScope, "devModeScope");
-            Scribe_Values.Look(ref hasPassword, "hasPassword");
-            Scribe_Values.Look(ref password, "password", "");
-            Scribe_Values.Look(ref pauseOnLetter, "pauseOnLetter", PauseOnLetter.AnyThreat);
-            Scribe_Values.Look(ref pauseOnJoin, "pauseOnJoin", true);
-            Scribe_Values.Look(ref pauseOnDesync, "pauseOnDesync", true);
-            Scribe_Values.Look(ref timeControl, "timeControl");
+            ScribeLike.Look(ref directAddress!, "directAddress", $"0.0.0.0:{MultiplayerServer.DefaultPort}");
+            ScribeLike.Look(ref maxPlayers, "maxPlayers", 8);
+            ScribeLike.Look(ref autosaveInterval, "autosaveInterval", 1f);
+            ScribeLike.Look(ref autosaveUnit, "autosaveUnit");
+            ScribeLike.Look(ref steam, "steam");
+            ScribeLike.Look(ref direct, "direct");
+            ScribeLike.Look(ref lan, "lan", true);
+            ScribeLike.Look(ref debugMode, "debugMode");
+            ScribeLike.Look(ref desyncTraces, "desyncTraces", true);
+            ScribeLike.Look(ref syncConfigs, "syncConfigs", true);
+            ScribeLike.Look(ref autoJoinPoint, "autoJoinPoint", AutoJoinPointFlags.Join | AutoJoinPointFlags.Desync);
+            ScribeLike.Look(ref devModeScope, "devModeScope");
+            ScribeLike.Look(ref hasPassword, "hasPassword");
+            ScribeLike.Look(ref password!, "password", "");
+            ScribeLike.Look(ref pauseOnLetter, "pauseOnLetter", PauseOnLetter.AnyThreat);
+            ScribeLike.Look(ref pauseOnJoin, "pauseOnJoin", true);
+            ScribeLike.Look(ref pauseOnDesync, "pauseOnDesync", true);
+            ScribeLike.Look(ref timeControl, "timeControl");
         }
     }
 

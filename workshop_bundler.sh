@@ -44,7 +44,7 @@ sed -i "s/<version>.*<\/version>\$/<version>${VERSION}<\/version>/" About/Manife
 
 # The current version
 mkdir -p 1.4
-cp -r ../Assemblies ../Defs ../Languages 1.4/
+cp -r ../Assemblies ../AssembliesCustom ../Defs ../Languages 1.4/
 rm -f 1.4/Languages/.git 1.4/Languages/LICENSE 1.4/Languages/README.md
 
 # Past versions

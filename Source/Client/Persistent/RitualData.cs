@@ -62,15 +62,14 @@ namespace Multiplayer.Client.Persistent
                 SyncSerialization.WriteSync(writer, targetType);
 
                 var fieldPaths = GetFields(targetType).ToArray();
-                var fieldTypes = fieldPaths.Select(path => MpReflection.PathType(path)).ToArray();
+                var fieldTypes = fieldPaths.Select(MpReflection.PathType).ToArray();
 
                 void SyncObj(object obj, Type type, string debugInfo)
                 {
                     if (type.IsCompilerGenerated())
                         return;
 
-                    if (writer is LoggingByteWriter log1)
-                        log1.Log.Enter(debugInfo);
+                    (writer as LoggingByteWriter)?.Log.Enter(debugInfo);
 
                     try
                     {
@@ -81,8 +80,7 @@ namespace Multiplayer.Client.Persistent
                     }
                     finally
                     {
-                        if (writer is LoggingByteWriter log2)
-                            log2.Log.Exit();
+                        (writer as LoggingByteWriter)?.Log.Exit();
                     }
                 }
 

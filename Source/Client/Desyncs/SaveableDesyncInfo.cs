@@ -1,15 +1,15 @@
-﻿extern alias zip;
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Text;
 using HarmonyLib;
 using Multiplayer.Common;
+using Multiplayer.Common.Util;
 using RimWorld;
 using UnityEngine;
 using Verse;
-using zip::Ionic.Zip;
 
 namespace Multiplayer.Client.Desyncs;
 
@@ -35,7 +35,7 @@ public class SaveableDesyncInfo
         try
         {
             var desyncFilePath = FindFileNameForNextDesyncFile();
-            using var zip = new ZipFile(Path.Combine(Multiplayer.DesyncsDir, desyncFilePath + ".zip"));
+            using var zip = MpZipFile.Open(Path.Combine(Multiplayer.DesyncsDir, desyncFilePath + ".zip"), ZipArchiveMode.Create);
 
             zip.AddEntry("desync_info", GetDesyncDetails());
             zip.AddEntry("local_traces.txt", GetLocalTraces());
@@ -43,8 +43,6 @@ public class SaveableDesyncInfo
 
             var extraLogs = LogGenerator.PrepareLogData();
             if (extraLogs != null) zip.AddEntry("local_logs.txt", extraLogs);
-
-            zip.Save();
         }
         catch (Exception e)
         {

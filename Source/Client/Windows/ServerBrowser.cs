@@ -1,5 +1,3 @@
-extern alias zip;
-
 using LiteNetLib;
 using Multiplayer.Common;
 using RimWorld;
@@ -63,8 +61,6 @@ namespace Multiplayer.Client
             Lan, Direct, Steam, Host
         }
 
-        private WidgetRow widgetRow = new WidgetRow();
-
         public override void DoWindowContents(Rect inRect)
         {
             DrawInfoButtons();
@@ -102,8 +98,8 @@ namespace Multiplayer.Client
         {
             float x = 0;
 
-            const string WebsiteLink = "https://rimworldmultiplayer.com";
-            const string DiscordLink = "https://discord.gg/n5E2cb2Y4Z";
+            const string websiteLink = "https://rimworldmultiplayer.com";
+            const string discordLink = "https://discord.gg/n5E2cb2Y4Z";
 
             bool Button(Texture2D icon, string labelKey, string tip, Color baseIconColor, float iconSize = 24f)
             {
@@ -139,11 +135,11 @@ namespace Multiplayer.Client
             if (Button(TexButton.ToggleLog, compatLabel, MpUtil.TranslateWithDoubleNewLines(compatLabelDesc, 2), Color.grey, 20))
                 Find.WindowStack.Add(new ModCompatWindow(null, false, false, null));
 
-            if (Button(MultiplayerStatic.WebsiteIcon, "MpWebsiteButton", "MpLinkButtonDesc".Translate() + " " + WebsiteLink, Color.grey, 20))
-                Application.OpenURL(WebsiteLink);
+            if (Button(MultiplayerStatic.WebsiteIcon, "MpWebsiteButton", "MpLinkButtonDesc".Translate() + " " + websiteLink, Color.grey, 20))
+                Application.OpenURL(websiteLink);
 
-            if (Button(MultiplayerStatic.DiscordIcon, "MpDiscordButton", "MpLinkButtonDesc".Translate() + " " + DiscordLink, Color.white))
-                Application.OpenURL(DiscordLink);
+            if (Button(MultiplayerStatic.DiscordIcon, "MpDiscordButton", "MpLinkButtonDesc".Translate() + " " + discordLink, Color.white))
+                Application.OpenURL(discordLink);
 
             if (false) // todo
                 Button(
@@ -161,7 +157,7 @@ namespace Multiplayer.Client
         private void ReloadFiles()
         {
             selectedFile = null;
-            reader?.WaitTasks();
+            reader?.WaitTasks(); // Wait for the existing reader to finish
 
             reader = new SaveFileReader();
             reader.StartReading();
@@ -462,7 +458,7 @@ namespace Multiplayer.Client
             float height = friends.Count * 40;
             Rect viewRect = new Rect(0, 0, outRect.width - 16f, height);
 
-            Widgets.BeginScrollView(outRect, ref steamScroll, viewRect, true);
+            Widgets.BeginScrollView(outRect, ref steamScroll, viewRect);
 
             float y = 0;
             int i = 0;
@@ -617,7 +613,7 @@ namespace Multiplayer.Client
             }
         }
 
-        private long lastFriendUpdate = 0;
+        private long lastFriendUpdate;
 
         private void UpdateSteam()
         {
@@ -652,7 +648,7 @@ namespace Multiplayer.Client
                     id = friend,
                     avatar = avatar,
                     username = username,
-                    playingRimworld = playingRimworld,
+                    playingRimworld = true,
                     serverHost = serverHost,
                 });
             }
@@ -669,12 +665,12 @@ namespace Multiplayer.Client
 
         public void Cleanup(bool sync)
         {
-            WaitCallback stop = s => lanListener.Stop();
+            void Stop(object s) => lanListener.Stop();
 
             if (sync)
-                stop(null);
+                Stop(null);
             else
-                ThreadPool.QueueUserWorkItem(stop);
+                ThreadPool.QueueUserWorkItem(Stop);
         }
 
         private void AddOrUpdate(IPEndPoint endpoint)

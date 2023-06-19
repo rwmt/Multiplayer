@@ -11,7 +11,7 @@ namespace Multiplayer.Client
 
         public CaravanFormingSession Session => map.MpComp().caravanForming;
 
-        public CaravanFormingProxy(Map map, bool reform = false, Action onClosed = null, bool mapAboutToBeRemoved = false) : base(map, reform, onClosed, mapAboutToBeRemoved)
+        public CaravanFormingProxy(Map map, bool reform = false, Action onClosed = null, bool mapAboutToBeRemoved = false, IntVec3? meetingSpot = null) : base(map, reform, onClosed, mapAboutToBeRemoved, meetingSpot)
         {
         }
 
@@ -33,6 +33,8 @@ namespace Multiplayer.Client
                     startingTile = session.startingTile;
                     destinationTile = session.destinationTile;
                     autoSelectTravelSupplies = session.autoSelectTravelSupplies;
+                    if (autoSelectTravelSupplies)
+                        SelectApproximateBestTravelSupplies();
 
                     session.uiDirty = false;
                 }

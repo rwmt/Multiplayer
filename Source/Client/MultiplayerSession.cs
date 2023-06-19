@@ -32,7 +32,7 @@ namespace Multiplayer.Client
         public PacketLogWindow readerLog = new();
         public int myFactionId;
         public List<PlayerInfo> players = new();
-        public GameDataSnapshot dataSnapshot = new();
+        public GameDataSnapshot dataSnapshot;
         public CursorAndPing cursorAndPing = new();
         public int autosaveCounter;
         public float? lastSaveAt;
@@ -70,7 +70,7 @@ namespace Multiplayer.Client
             if (client != null)
             {
                 client.Close(MpDisconnectReason.Internal);
-                client.State = ConnectionStateEnum.Disconnected;
+                client.ChangeState(ConnectionStateEnum.Disconnected);
             }
 
             netClient?.Stop();
@@ -113,7 +113,7 @@ namespace Multiplayer.Client
         public void NotifyChat()
         {
             hasUnread = true;
-            SoundDefOf.PageChange.PlayOneShotOnCamera(null);
+            SoundDefOf.PageChange.PlayOneShotOnCamera();
         }
 
         public void ProcessDisconnectPacket(MpDisconnectReason reason, byte[] data)
@@ -221,12 +221,12 @@ namespace Multiplayer.Client
         public void ScheduleCommand(ScheduledCommand cmd)
         {
             MpLog.Debug(cmd.ToString());
-            dataSnapshot.mapCmds.GetOrAddNew(cmd.mapId).Add(cmd);
+            dataSnapshot.MapCmds.GetOrAddNew(cmd.mapId).Add(cmd);
 
             if (Current.ProgramState != ProgramState.Playing) return;
 
             if (cmd.mapId == ScheduledCommand.Global)
-                Multiplayer.WorldComp.cmds.Enqueue(cmd);
+                Multiplayer.AsyncWorldTime.cmds.Enqueue(cmd);
             else
                 cmd.GetMap()?.AsyncTime().cmds.Enqueue(cmd);
         }
@@ -240,7 +240,7 @@ namespace Multiplayer.Client
         {
             LongEventHandler.QueueLongEvent(() =>
             {
-                SaveGameToFile(GetNextAutosaveFileName());
+                SaveGameToFile(GetNextAutosaveFileName(), false);
                 Multiplayer.Client.Send(Packets.Client_Autosaving);
             }, "MpSaving", false, null);
         }
@@ -259,14 +259,16 @@ namespace Multiplayer.Client
                 .First();
         }
 
-        public static void SaveGameToFile(string fileNameNoExtension)
+        public static void SaveGameToFile(string fileNameNoExtension, bool currentReplay)
         {
             Log.Message($"Multiplayer: saving to file {fileNameNoExtension}");
 
             try
             {
                 new FileInfo(Path.Combine(Multiplayer.ReplaysDir, $"{fileNameNoExtension}.zip")).Delete();
-                Replay.ForSaving(fileNameNoExtension).WriteData(SaveLoad.CreateGameDataSnapshot(SaveLoad.SaveGameData()));
+                Replay.ForSaving(fileNameNoExtension).WriteData(
+                    currentReplay ? Multiplayer.session.dataSnapshot : SaveLoad.CreateGameDataSnapshot(SaveLoad.SaveGameData())
+                );
                 Messages.Message("MpGameSaved".Translate(fileNameNoExtension), MessageTypeDefOf.SilentInput, false);
                 Multiplayer.session.lastSaveAt = Time.realtimeSinceStartup;
             }
@@ -279,9 +281,11 @@ namespace Multiplayer.Client
 
         public static void DoRejoin()
         {
-            Multiplayer.Client.State = ConnectionStateEnum.ClientJoining;
-            Multiplayer.Client.Send(Packets.Client_WorldRequest);
-            ((ClientJoiningState)Multiplayer.Client.StateObj).subState = JoiningState.Waiting;
+            Multiplayer.Client.Send(Packets.Client_RequestRejoin);
+
+            Multiplayer.Client.ChangeState(ConnectionStateEnum.ClientLoading);
+            Multiplayer.Client.GetState<ClientLoadingState>()!.subState = LoadingState.Waiting;
+            Multiplayer.Client.Lenient = true;
 
             Multiplayer.session.desynced = false;
 
@@ -312,16 +316,13 @@ namespace Multiplayer.Client
         public bool wideWindow;
     }
 
-    public class GameDataSnapshot
-    {
-        public int cachedAtTime;
-        public byte[] gameData;
-        public byte[] semiPersistentData;
-        public Dictionary<int, byte[]> mapData = new();
-
-        // Global cmds are -1
-        public Dictionary<int, List<ScheduledCommand>> mapCmds = new();
-    }
+    public record GameDataSnapshot(
+        int CachedAtTime,
+        byte[] GameData,
+        byte[] SemiPersistentData,
+        Dictionary<int, byte[]> MapData,
+        Dictionary<int, List<ScheduledCommand>> MapCmds // Global cmds are -1, this is mutated by MultiplayerSession.ScheduleCommand
+    );
 
     public class PlayerInfo
     {
@@ -332,6 +333,7 @@ namespace Multiplayer.Client
         public int latency;
         public int ticksBehind;
         public bool simulating;
+        public float frameTime;
         public PlayerType type;
         public PlayerStatus status;
         public Color color;

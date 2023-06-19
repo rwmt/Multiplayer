@@ -99,6 +99,13 @@ namespace Multiplayer.Client
                 (ByteReader _) => Multiplayer.GameComp
             },
             #endregion
+
+            #region Multiplayer ScheduledCommand
+            {
+                (ByteWriter _, ScheduledCommand _) => throw new NotImplementedException(),
+                (ByteReader data) => ScheduledCommand.Deserialize(new ByteReader(data.ReadPrefixedBytes()))
+            },
+            #endregion
         };
     }
 }
