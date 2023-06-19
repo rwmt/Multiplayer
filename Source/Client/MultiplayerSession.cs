@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using Multiplayer.API;
 using Multiplayer.Client.Util;
 using UnityEngine;
 using Verse;
