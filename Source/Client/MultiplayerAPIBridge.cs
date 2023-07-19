@@ -25,8 +25,6 @@ namespace Multiplayer.Common
 
         public bool CanUseDevMode => Client.Multiplayer.GameComp.LocalPlayerDataOrNull?.canUseDevMode ?? false;
 
-        public IThingFilterAPI ThingFilters { get; } = new ThingFilterBridge();
-
         public void WatchBegin()
         {
             SyncFieldUtil.FieldWatchPrefix();
@@ -96,7 +94,7 @@ namespace Multiplayer.Common
             return Sync.RegisterSyncMethod(method, argTypes);
         }
 
-        public ISyncMethod RegisterSyncMethodLambda(Type parentType, string parentMethod, int lambdaOrdinal, Type[] parentArgs = null, MethodType parentMethodType = MethodType.Normal)
+        public ISyncMethod RegisterSyncMethodLambda(Type parentType, string parentMethod, int lambdaOrdinal, Type[] parentArgs = null, ParentMethodType parentMethodType = ParentMethodType.Normal)
         {
             return SyncMethod.Lambda(parentType, parentMethod, lambdaOrdinal, parentArgs);
         }
@@ -116,9 +114,9 @@ namespace Multiplayer.Common
             return Sync.RegisterSyncDelegate(type, nestedType, method);
         }
 
-        public ISyncDelegate RegisterSyncDelegateLambda(Type parentType, string parentMethod, int lambdaOrdinal, Type[] parentArgs = null, MethodType parentMethodType = MethodType.Normal)
+        public ISyncDelegate RegisterSyncDelegateLambda(Type parentType, string parentMethod, int lambdaOrdinal, Type[] parentArgs = null, ParentMethodType parentMethodType = ParentMethodType.Normal)
         {
-            return SyncDelegate.Lambda(parentType, parentMethod, lambdaOrdinal, parentArgs, parentMethodType);
+            return SyncDelegate.Lambda(parentType, parentMethod, lambdaOrdinal, parentArgs, (MethodType)parentMethodType);
         }
 
         public ISyncDelegate RegisterSyncDelegateLambdaInGetter(Type parentType, string parentMethod, int lambdaOrdinal)
@@ -152,25 +150,5 @@ namespace Multiplayer.Common
         }
 
         public void RegisterDefaultLetterChoice(MethodInfo method, Type letterType = null) => CloseDialogsForExpiredLetters.RegisterDefaultLetterChoice(method, letterType);
-    }
-
-    public class ThingFilterBridge : IThingFilterAPI
-    {
-        public void RegisterThingFilterTarget(Type type)
-        {
-            SyncThingFilters.ThingFilterTarget.Add(type);
-            SyncThingFilters.Init();
-        }
-
-        public void RegisterThingFilterTarget<T>() where T : ThingFilterContext
-        {
-            SyncThingFilters.ThingFilterTarget.Add(typeof(T));
-            SyncThingFilters.Init();
-        }
-
-        public void RegisterThingFilterListener(GetThingFilter context)
-        {
-            SyncMarkers.thingFilters.Add(context);
-        }
     }
 }
