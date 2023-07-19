@@ -96,7 +96,7 @@ namespace Multiplayer.Common
 
         public ISyncMethod RegisterSyncMethodLambda(Type parentType, string parentMethod, int lambdaOrdinal, Type[] parentArgs = null, ParentMethodType parentMethodType = ParentMethodType.Normal)
         {
-            return SyncMethod.Lambda(parentType, parentMethod, lambdaOrdinal, parentArgs);
+            return SyncMethod.Lambda(parentType, parentMethod, lambdaOrdinal, parentArgs, (MethodType)parentMethodType);
         }
 
         public ISyncMethod RegisterSyncMethodLambdaInGetter(Type parentType, string parentMethod, int lambdaOrdinal)
