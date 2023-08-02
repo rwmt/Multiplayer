@@ -63,10 +63,10 @@ namespace Multiplayer.Client
             {
                 var types = typeof(CompAssignableToPawn).AllSubtypesAndSelf().ToArray();
                 var assignMethods = types
-                    .Select(t => t.GetMethod(nameof(CompAssignableToPawn.TryAssignPawn), AccessTools.allDeclared))
+                    .Select(t => t.GetMethod(nameof(CompAssignableToPawn.TryAssignPawn), AccessTools.allDeclared, null, new[] { typeof(Pawn) }, null))
                     .AllNotNull();
                 var unassignMethods = types
-                    .Select(t => t.GetMethod(nameof(CompAssignableToPawn.TryUnassignPawn), AccessTools.allDeclared))
+                    .Select(t => t.GetMethod(nameof(CompAssignableToPawn.TryUnassignPawn), AccessTools.allDeclared, null, new[] { typeof(Pawn), typeof(bool), typeof(bool) }, null))
                     .AllNotNull();
 
                 var unassignSerializer = Serializer.New(

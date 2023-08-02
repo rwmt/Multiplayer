@@ -287,17 +287,17 @@ namespace Multiplayer.Client
             {
                 var designatorFinalizer = AccessTools.Method(typeof(DesignatorPatches), "DesignateFinalizer");
                 var designatorMethods = new[] {
-                     "DesignateSingleCell",
-                     "DesignateMultiCell",
-                     "DesignateThing",
+                     ("DesignateSingleCell", new[]{ typeof(IntVec3) }),
+                     ("DesignateMultiCell", new[]{ typeof(IEnumerable<IntVec3>) }),
+                     ("DesignateThing", new[]{ typeof(Thing) }),
                 };
 
                 foreach (Type t in typeof(Designator).AllSubtypesAndSelf()
                              .Except(typeof(Designator_MechControlGroup))) // Opens float menu, sync that instead
                 {
-                    foreach (string m in designatorMethods)
+                    foreach ((string m, Type[] args) in designatorMethods)
                     {
-                        MethodInfo method = t.GetMethod(m, BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly);
+                        MethodInfo method = t.GetMethod(m, BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly, null, args, null);
                         if (method == null) continue;
 
                         MethodInfo prefix = AccessTools.Method(typeof(DesignatorPatches), m);
@@ -357,13 +357,21 @@ namespace Multiplayer.Client
             {
                 var thingMethodPrefix = new HarmonyMethod(typeof(ThingMethodPatches).GetMethod("Prefix"));
                 var thingMethodPostfix = new HarmonyMethod(typeof(ThingMethodPatches).GetMethod("Postfix"));
-                var thingMethods = new[] { "Tick", "TickRare", "TickLong", "SpawnSetup", "TakeDamage", "Kill" };
+                var thingMethods = new[]
+                {
+                    ("Tick", Type.EmptyTypes),
+                    ("TickRare", Type.EmptyTypes),
+                    ("TickLong", Type.EmptyTypes),
+                    ("SpawnSetup", new[]{ typeof(Map), typeof(bool) }),
+                    ("TakeDamage", new[]{ typeof(DamageInfo) }),
+                    ("Kill", new[]{ typeof(DamageInfo?), typeof(Hediff) })
+                };
 
                 foreach (Type t in typeof(Thing).AllSubtypesAndSelf())
                 {
-                    foreach (string m in thingMethods)
+                    foreach ((string m, Type[] args) in thingMethods)
                     {
-                        MethodInfo method = t.GetMethod(m, BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly);
+                        MethodInfo method = t.GetMethod(m, BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly, null, args, null);
                         if (method != null)
                         {
                             try
@@ -400,7 +408,7 @@ namespace Multiplayer.Client
 
                 foreach (var t in typeof(InspectTabBase).AllSubtypesAndSelf())
                 {
-                    var method = t.GetMethod("FillTab", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
+                    var method = t.GetMethod("FillTab", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly, null, Type.EmptyTypes, null);
                     if (method != null && !method.IsAbstract)
                     {
                         try
