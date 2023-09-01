@@ -301,4 +301,37 @@ namespace Multiplayer.Client
             }
         }
     }
+
+    [HarmonyPatch(typeof(TransportShipManager), nameof(TransportShipManager.RegisterShipObject))]
+    public static class TransportShipAddPatch
+    {
+        public static void Postfix(TransportShip s)
+        {
+            if (Multiplayer.game == null) return;
+            ScribeUtil.sharedCrossRefs.RegisterLoaded(s);
+        }
+    }
+
+    [HarmonyPatch(typeof(TransportShipManager), nameof(TransportShipManager.DeregisterShipObject))]
+    public static class TransportShipRemovePatch
+    {
+        public static void Postfix(TransportShip s)
+        {
+            if (Multiplayer.game == null) return;
+            ScribeUtil.sharedCrossRefs.Unregister(s);
+        }
+    }
+
+    [HarmonyPatch(typeof(TransportShipManager), nameof(TransportShipManager.ExposeData))]
+    public static class TransportShipExposePatch
+    {
+        static void Postfix(TransportShipManager __instance)
+        {
+            if (Multiplayer.game == null) return;
+
+            if (Scribe.mode == LoadSaveMode.PostLoadInit)
+                foreach (var ship in __instance.ships)
+                    ScribeUtil.sharedCrossRefs.RegisterLoaded(ship);
+        }
+    }
 }
