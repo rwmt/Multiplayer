@@ -25,6 +25,8 @@ namespace Multiplayer.Common
 
         public bool CanUseDevMode => Client.Multiplayer.GameComp.LocalPlayerDataOrNull?.canUseDevMode ?? false;
 
+        public bool InInterface => Client.Multiplayer.InInterface;
+
         public void WatchBegin()
         {
             SyncFieldUtil.FieldWatchPrefix();
