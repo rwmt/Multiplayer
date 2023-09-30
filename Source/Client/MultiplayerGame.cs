@@ -112,23 +112,7 @@ namespace Multiplayer.Client
 
         public IEnumerable<ISession> GetSessions(Map map)
         {
-            foreach (var s in worldComp.trading)
-                yield return s;
-
-            if (worldComp.splitSession != null)
-                yield return worldComp.splitSession;
-
-            if (map == null) yield break;
-            var mapComp = map.MpComp();
-
-            if (mapComp.caravanForming != null)
-                yield return mapComp.caravanForming;
-
-            if (mapComp.transporterLoading != null)
-                yield return mapComp.transporterLoading;
-
-            if (mapComp.ritualSession != null)
-                yield return mapComp.ritualSession;
+            return worldComp.sessionManager.AllSessions.ConcatIfNotNull(map?.MpComp().sessionManager.AllSessions);
         }
 
         public void ChangeRealPlayerFaction(int newFaction)

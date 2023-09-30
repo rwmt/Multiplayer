@@ -1,28 +1,33 @@
 using RimWorld;
 using RimWorld.Planet;
 using System.Collections.Generic;
+using System.Linq;
+using Multiplayer.Client.Comp;
 using Verse;
 using Multiplayer.Client.Persistent;
 using Multiplayer.Client.Saving;
+using Multiplayer.Common;
 
 namespace Multiplayer.Client;
 
-public class MultiplayerWorldComp
+public class MultiplayerWorldComp : IHasSemiPersistentData, IIdBlockProvider
 {
     public Dictionary<int, FactionWorldData> factionData = new();
 
     public World world;
 
     public TileTemperaturesComp uiTemperatures;
-    public List<MpTradeSession> trading = new();
-    public CaravanSplittingSession splitSession;
+    public SessionManager sessionManager;
 
     private int currentFactionId;
+
+    public IdBlock IdBlock => Multiplayer.GlobalIdBlock;
 
     public MultiplayerWorldComp(World world)
     {
         this.world = world;
         uiTemperatures = new TileTemperaturesComp(world);
+        sessionManager = new SessionManager(this);
     }
 
     // Called from AsyncWorldTimeComp.ExposeData
@@ -30,12 +35,7 @@ public class MultiplayerWorldComp
     {
         ExposeFactionData();
 
-        Scribe_Collections.Look(ref trading, "tradingSessions", LookMode.Deep);
-        if (Scribe.mode == LoadSaveMode.PostLoadInit)
-        {
-            if (trading.RemoveAll(t => t.trader == null || t.playerNegotiator == null) > 0)
-                Log.Message("Some trading sessions had null entries");
-        }
+        sessionManager.ExposeSessions();
     }
 
     private void ExposeFactionData()
@@ -71,23 +71,26 @@ public class MultiplayerWorldComp
         }
     }
 
-    public void TickWorldTrading()
+    public void WriteSemiPersistent(ByteWriter writer)
     {
-        for (int i = trading.Count - 1; i >= 0; i--)
-        {
-            var session = trading[i];
-            if (session.playerNegotiator.Spawned) continue;
+        sessionManager.WriteSemiPersistent(writer);
+    }
 
-            if (session.ShouldCancel())
-                RemoveTradeSession(session);
-        }
+    public void ReadSemiPersistent(ByteReader data)
+    {
+        sessionManager.ReadSemiPersistent(data);
+    }
+
+    public void TickWorldSessions()
+    {
+        sessionManager.TickSessions();
     }
 
     public void RemoveTradeSession(MpTradeSession session)
     {
         int index = trading.IndexOf(session);
-        trading.Remove(session);
-        Find.WindowStack?.WindowOfType<TradingWindow>()?.Notify_RemovedSession(index);
+            trading.Remove(session);
+            Find.WindowStack?.WindowOfType<TradingWindow>()?.Notify_RemovedSession(index);
     }
 
     public void SetFaction(Faction faction)
@@ -108,7 +111,7 @@ public class MultiplayerWorldComp
     public void DirtyColonyTradeForMap(Map map)
     {
         if (map == null) return;
-        foreach (MpTradeSession session in trading)
+        foreach (MpTradeSession session in sessionManager.AllSessions.OfType<MpTradeSession>())
             if (session.playerNegotiator.Map == map)
                 session.deal.recacheColony = true;
     }
@@ -116,7 +119,7 @@ public class MultiplayerWorldComp
     public void DirtyTraderTradeForTrader(ITrader trader)
     {
         if (trader == null) return;
-        foreach (MpTradeSession session in trading)
+        foreach (MpTradeSession session in sessionManager.AllSessions.OfType<MpTradeSession>())
             if (session.trader == trader)
                 session.deal.recacheTrader = true;
     }
@@ -124,14 +127,14 @@ public class MultiplayerWorldComp
     public void DirtyTradeForSpawnedThing(Thing t)
     {
         if (t is not { Spawned: true }) return;
-        foreach (MpTradeSession session in trading)
+        foreach (MpTradeSession session in sessionManager.AllSessions.OfType<MpTradeSession>())
             if (session.playerNegotiator.Map == t.Map)
                 session.deal.recacheThings.Add(t);
     }
 
     public bool AnyTradeSessionsOnMap(Map map)
     {
-        foreach (MpTradeSession session in trading)
+        foreach (MpTradeSession session in sessionManager.AllSessions.OfType<MpTradeSession>())
             if (session.playerNegotiator.Map == map)
                 return true;
         return false;

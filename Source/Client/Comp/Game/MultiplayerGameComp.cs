@@ -8,7 +8,7 @@ using Verse;
 
 namespace Multiplayer.Client.Comp
 {
-    public class MultiplayerGameComp : IExposable, IHasSemiPersistentData
+    public class MultiplayerGameComp : IExposable, IHasSemiPersistentData, IIdBlockProvider
     {
         public bool asyncTime;
         public bool debugMode;
@@ -18,6 +18,7 @@ namespace Multiplayer.Client.Comp
         public Dictionary<int, PlayerData> playerData = new(); // player id to player data
 
         public IdBlock globalIdBlock = new(int.MaxValue / 2, 1_000_000_000);
+        public IdBlock IdBlock => globalIdBlock;
 
         public bool IsLowestWins => timeControl == TimeControl.LowestWins;
 

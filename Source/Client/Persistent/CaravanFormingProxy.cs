@@ -9,7 +9,7 @@ namespace Multiplayer.Client
     {
         public static CaravanFormingProxy drawing;
 
-        public CaravanFormingSession Session => map.MpComp().caravanForming;
+        public CaravanFormingSession Session => map.MpComp().sessionManager.GetFirstOfType<CaravanFormingSession>();
 
         public CaravanFormingProxy(Map map, bool reform = false, Action onClosed = null, bool mapAboutToBeRemoved = false, IntVec3? meetingSpot = null) : base(map, reform, onClosed, mapAboutToBeRemoved, meetingSpot)
         {

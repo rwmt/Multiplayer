@@ -453,8 +453,8 @@ namespace Multiplayer.Client
         {
             var comp = map.MpComp();
 
-            if (comp.caravanForming != null)
-                comp.caravanForming.OpenWindow();
+            if (comp.sessionManager.GetFirstOfType<CaravanFormingSession>() is { } session)
+                session.OpenWindow();
             else
                 CreateCaravanFormingSession(comp, reform, meetingSpot);
         }
@@ -480,7 +480,7 @@ namespace Multiplayer.Client
 
             ((Command_Action)__result).action = () =>
             {
-                if (Multiplayer.Client != null && Multiplayer.WorldComp.trading.Any(t => t.trader == CaravanVisitUtility.SettlementVisitedNow(caravan)))
+                if (Multiplayer.Client != null && Multiplayer.WorldComp.sessionManager.AllSessions.OfType<MpTradeSession>().Any(t => t.trader == CaravanVisitUtility.SettlementVisitedNow(caravan)))
                 {
                     Find.WindowStack.Add(new TradingWindow());
                     return;

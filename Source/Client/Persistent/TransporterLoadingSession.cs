@@ -71,7 +71,7 @@ namespace Multiplayer.Client
         [SyncMethod]
         public void Remove()
         {
-            map.MpComp().transporterLoading = null;
+            map.MpComp().sessionManager.RemoveSession(this);
         }
 
         public void OpenWindow(bool sound = true)
@@ -109,6 +109,15 @@ namespace Multiplayer.Client
         public void Notify_CountChanged(Transferable tr)
         {
             uiDirty = true;
+        }
+
+        public FloatMenuOption GetBlockingWindowOptions(ColonistBar.Entry entry)
+        {
+            return new FloatMenuOption("MpTransportLoadingSession".Translate(), () =>
+            {
+                SwitchToMapOrWorld(entry.map);
+                OpenWindow();
+            });
         }
     }
 

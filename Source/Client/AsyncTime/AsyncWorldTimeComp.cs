@@ -102,7 +102,7 @@ public class AsyncWorldTimeComp : IExposable, ITickable
         {
             Find.TickManager.DoSingleTick();
             worldTicks++;
-            Multiplayer.WorldComp.TickWorldTrading();
+            Multiplayer.WorldComp.TickWorldSessions();
 
             if (ModsConfig.BiotechActive)
             {

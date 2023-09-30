@@ -11,7 +11,7 @@ namespace Multiplayer.Client
 
         public bool itemsReady;
 
-        public TransporterLoading Session => map.MpComp().transporterLoading;
+        public TransporterLoading Session => map.MpComp().sessionManager.GetFirstOfType<TransporterLoading>();
 
         public TransporterLoadingProxy(Map map, List<CompTransporter> transporters) : base(map, transporters)
         {

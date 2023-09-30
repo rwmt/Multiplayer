@@ -44,9 +44,9 @@ namespace Multiplayer.Client.Persistent
             //Otherwise cancel creation of the Dialog_SplitCaravan.
             //  If there's already an active session, open the window associated with it.
             //  Otherwise, create a new session.
-            if (Multiplayer.WorldComp.splitSession != null)
+            if (Multiplayer.WorldComp.sessionManager.GetFirstOfType<CaravanSplittingSession>() is { } session)
             {
-                Multiplayer.WorldComp.splitSession.OpenWindow();
+                session.OpenWindow();
             }
             else
             {

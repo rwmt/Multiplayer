@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using HarmonyLib;
+using Multiplayer.Client.Comp;
 using Multiplayer.Client.Persistent;
 using Multiplayer.Client.Saving;
 using Multiplayer.Common;
@@ -11,7 +12,7 @@ using Verse;
 
 namespace Multiplayer.Client
 {
-    public class MultiplayerMapComp : IExposable, IHasSemiPersistentData
+    public class MultiplayerMapComp : IExposable, IHasSemiPersistentData, IIdBlockProvider
     {
         public static bool tickingFactions;
 
@@ -21,38 +22,55 @@ namespace Multiplayer.Client
         public Dictionary<int, FactionMapData> factionData = new Dictionary<int, FactionMapData>();
         public Dictionary<int, CustomFactionMapData> customFactionData = new Dictionary<int, CustomFactionMapData>();
 
-        public CaravanFormingSession caravanForming;
-        public TransporterLoading transporterLoading;
-        public RitualSession ritualSession;
+        public SessionManager sessionManager;
         public List<PersistentDialog> mapDialogs = new List<PersistentDialog>();
         public int autosaveCounter;
 
         // for SaveCompression
         public List<Thing> tempLoadedThings;
 
+        // Using the global ID block since the map ID block was unused.
+        public IdBlock IdBlock => Multiplayer.GlobalIdBlock;
+
         public MultiplayerMapComp(Map map)
         {
             this.map = map;
+            sessionManager = new SessionManager(this);
         }
 
         public CaravanFormingSession CreateCaravanFormingSession(bool reform, Action onClosed, bool mapAboutToBeRemoved, IntVec3? meetingSpot = null)
         {
+            var caravanForming = sessionManager.GetFirstOfType<CaravanFormingSession>();
             if (caravanForming == null)
+            {
                 caravanForming = new CaravanFormingSession(map, reform, onClosed, mapAboutToBeRemoved, meetingSpot);
+                if (!sessionManager.AddSession(caravanForming))
+                    return null;
+            }
             return caravanForming;
         }
 
         public TransporterLoading CreateTransporterLoadingSession(List<CompTransporter> transporters)
         {
+            var transporterLoading = sessionManager.GetFirstOfType<TransporterLoading>();
             if (transporterLoading == null)
+            {
                 transporterLoading = new TransporterLoading(map, transporters);
+                if (!sessionManager.AddSession(transporterLoading))
+                    return null;
+            }
             return transporterLoading;
         }
 
         public RitualSession CreateRitualSession(RitualData data)
         {
+            var ritualSession = sessionManager.GetFirstOfType<RitualSession>();
             if (ritualSession == null)
+            {
                 ritualSession = new RitualSession(map, data);
+                if (!sessionManager.AddSession(ritualSession))
+                    return null;
+            }
             return ritualSession;
         }
 
@@ -114,8 +132,7 @@ namespace Multiplayer.Client
                 Scribe_Values.Look(ref isPlayerHome, "isPlayerHome", false, true);
             }
 
-            Scribe_Deep.Look(ref caravanForming, "caravanFormingSession", map);
-            Scribe_Deep.Look(ref transporterLoading, "transporterLoading", map);
+            sessionManager.ExposeSessions();
 
             Scribe_Collections.Look(ref mapDialogs, "mapDialogs", LookMode.Deep, map);
             if (Scribe.mode == LoadSaveMode.LoadingVars && mapDialogs == null)
@@ -169,21 +186,14 @@ namespace Multiplayer.Client
         {
             writer.WriteInt32(autosaveCounter);
 
-            writer.WriteBool(ritualSession != null);
-            ritualSession?.Write(writer);
+            sessionManager.WriteSemiPersistent(writer);
         }
 
-        public void ReadSemiPersistent(ByteReader reader)
+        public void ReadSemiPersistent(ByteReader data)
         {
-            autosaveCounter = reader.ReadInt32();
+            autosaveCounter = data.ReadInt32();
 
-            var hasRitual = reader.ReadBool();
-            if (hasRitual)
-            {
-                var session = new RitualSession(map);
-                session.Read(reader);
-                ritualSession = session;
-            }
+            sessionManager.ReadSemiPersistent(data);
         }
     }
 
@@ -215,11 +225,11 @@ namespace Multiplayer.Client
             if (Multiplayer.Client == null) return;
 
             // Trading window on resume save
-            if (Multiplayer.WorldComp.trading.NullOrEmpty()) return;
-            if (Multiplayer.WorldComp.trading.FirstOrDefault(t => t.playerNegotiator == null) is MpTradeSession trade)
-            {
-                trade.OpenWindow();
-            }
+            if (!Multiplayer.WorldComp.sessionManager.AnySessionActive) return;
+            Multiplayer.WorldComp.sessionManager.AllSessions
+                .OfType<MpTradeSession>()
+                .FirstOrDefault(t => t.playerNegotiator == null)
+                ?.OpenWindow();
         }
     }
 
@@ -233,7 +243,7 @@ namespace Multiplayer.Client
             if (Find.World.renderer.wantedMode == WorldRenderMode.Planet)
             {
                 // Hide trading window for map trades
-                if (Multiplayer.WorldComp.trading.All(t => t.playerNegotiator?.Map != null))
+                if (Multiplayer.WorldComp.sessionManager.AllSessions.OfType<MpTradeSession>().All(t => t.playerNegotiator?.Map != null))
                 {
                     if (Find.WindowStack.IsOpen(typeof(TradingWindow)))
                         Find.WindowStack.TryRemove(typeof(TradingWindow), doCloseSound: false);

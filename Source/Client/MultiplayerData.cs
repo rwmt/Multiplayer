@@ -130,6 +130,7 @@ namespace Multiplayer.Client
             dict["WorldComponent"] = GetDefInfo(RwImplSerialization.worldCompTypes, TypeHash);
             dict["MapComponent"] = GetDefInfo(RwImplSerialization.mapCompTypes, TypeHash);
             dict["ISyncSimple"] = GetDefInfo(ImplSerialization.syncSimples, TypeHash);
+            dict["ISession"] = GetDefInfo(ImplSerialization.sessions, TypeHash);
 
             dict["PawnBio"] = GetDefInfo(SolidBioDatabase.allBios, b => b.name.GetHashCode());
 

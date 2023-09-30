@@ -179,6 +179,15 @@ namespace Multiplayer.Client
         {
             uiDirty = true;
         }
+
+        public FloatMenuOption GetBlockingWindowOptions(ColonistBar.Entry entry)
+        {
+            return new FloatMenuOption("MpCaravanFormingSession".Translate(), () =>
+            {
+                SwitchToMapOrWorld(entry.map);
+                OpenWindow();
+            });
+        }
     }
 
 }

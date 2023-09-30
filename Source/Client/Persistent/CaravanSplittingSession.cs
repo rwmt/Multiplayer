@@ -137,7 +137,7 @@ namespace Multiplayer.Client.Persistent
         [SyncMethod]
         public void CancelSplittingSession() {
             dialog.Close();
-            Multiplayer.WorldComp.splitSession = null;
+            Multiplayer.WorldComp.sessionManager.RemoveSession(this);
         }
 
         /// <summary>
@@ -161,8 +161,21 @@ namespace Multiplayer.Client.Persistent
             {
                 SoundDefOf.Tick_High.PlayOneShotOnCamera();
                 dialog.Close(false);
-                Multiplayer.WorldComp.splitSession = null;
+                Multiplayer.WorldComp.sessionManager.RemoveSession(this);
             }
+        }
+
+        public FloatMenuOption GetBlockingWindowOptions(ColonistBar.Entry entry)
+        {
+            if (!Caravan.pawns.Contains(entry.pawn))
+                return null;
+
+            return new FloatMenuOption("MpCaravanSplittingSession".Translate(), () =>
+            {
+                SwitchToMapOrWorld(entry.map);
+                CameraJumper.TryJumpAndSelect(entry.pawn);
+                OpenWindow();
+            });
         }
     }
 }
