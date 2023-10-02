@@ -1,5 +1,6 @@
 using System;
 using HarmonyLib;
+using Multiplayer.Client.Factions;
 using Multiplayer.Common;
 using RimWorld;
 using Verse;
@@ -37,7 +38,7 @@ namespace Multiplayer.Client
         private const float TicksPerMinute = 60 * 60;
         private const float TicksPerIngameDay = 2500 * 24;
 
-        static void TickAutosave()
+        private static void TickAutosave()
         {
             if (Multiplayer.LocalServer is not { } server) return;
 
@@ -66,7 +67,7 @@ namespace Multiplayer.Client
             }
         }
 
-        static void TickSyncCoordinator()
+        private static void TickSyncCoordinator()
         {
             var sync = Multiplayer.game.sync;
             if (sync.ShouldCollect && TickPatch.Timer % 30 == 0 && sync.currentOpinion != null)
@@ -115,7 +116,7 @@ namespace Multiplayer.Client
                 if (factionData.researchManager.currentProj == null)
                     continue;
 
-                Extensions.PushFaction(null, factionData.factionId);
+                FactionExtensions.PushFaction(null, factionData.factionId);
 
                 foreach (var kv in factionData.researchSpeed.data)
                 {
@@ -131,7 +132,7 @@ namespace Multiplayer.Client
                     dummyPawn.factionInt = null;
                 }
 
-                Extensions.PopFaction();
+                FactionExtensions.PopFaction();
             }
         }
     }

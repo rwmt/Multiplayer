@@ -168,7 +168,7 @@ namespace Multiplayer.Client
                 }
             }
 
-            var localConfigs = JoinData.GetSyncableConfigContents(remote.RemoteModIds);
+            var localConfigs = JoinData.GetSyncableConfigContents(remote.RemoteModIds.ToList());
 
             if (remote.hasConfigs)
             {
@@ -676,7 +676,6 @@ namespace Multiplayer.Client
         }
     }
 
-
     public class FixAndRestartWindow : Window
     {
         private RemoteData data;
@@ -732,17 +731,19 @@ namespace Multiplayer.Client
         {
             if (applyModList)
             {
-                ModsConfig.SetActiveToList(data.remoteMods.Select(m =>
+                ModsConfig.data.activeMods = data.remoteMods.Select(m =>
                 {
-                    var activeMod = ModsConfig.ActiveModsInLoadOrder.FirstOrDefault(a => a.PackageIdNonUnique == m.packageId);
+                    var activeMod =
+                        ModsConfig.ActiveModsInLoadOrder.FirstOrDefault(a => a.PackageIdNonUnique == m.packageId);
                     if (activeMod != null)
                         return activeMod.PackageId;
 
                     if (!m.packageId.Contains("ludeon"))
-                        return m.packageId + ModMetaData.SteamModPostfix; // Prefer the Steam version for new mods on the list
+                        return m.packageId +
+                               ModMetaData.SteamModPostfix; // Prefer the Steam version for new mods on the list
 
                     return m.packageId;
-                }).ToList());
+                }).ToList();
 
                 ModsConfig.Save();
             }

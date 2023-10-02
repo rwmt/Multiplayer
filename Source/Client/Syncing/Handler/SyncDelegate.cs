@@ -13,7 +13,7 @@ namespace Multiplayer.Client
 {
     public class SyncDelegate : SyncMethod, ISyncDelegate
     {
-        public const string DELEGATE_THIS = "<>4__this";
+        public const string DelegateThis = "<>4__this";
 
         private Type[] fieldTypes;
         private string[] fieldPaths;
@@ -95,7 +95,7 @@ namespace Multiplayer.Client
                 if (value == null)
                 {
                     if (allowedNull != null && !allowedNull.Contains(noTypePath)) return null;
-                    if (noTypePath.EndsWith(DELEGATE_THIS)) return null;
+                    if (noTypePath.EndsWith(DelegateThis)) return null;
                     if (cancelIfNull != null && cancelIfNull.Contains(noTypePath)) return null;
                 }
 

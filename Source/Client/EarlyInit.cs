@@ -66,18 +66,18 @@ public static class EarlyInit
     internal static void LatePatches(Harmony harmony)
     {
         // optimization, cache DescendantThingDefs
-        harmony.PatchMeasure(
-            AccessTools.Method(typeof(ThingCategoryDef), "get_DescendantThingDefs"),
-            new HarmonyMethod(typeof(ThingCategoryDef_DescendantThingDefsPatch), "Prefix"),
-            new HarmonyMethod(typeof(ThingCategoryDef_DescendantThingDefsPatch), "Postfix")
-        );
+        // harmony.PatchMeasure(
+        //     AccessTools.Method(typeof(ThingCategoryDef), "get_DescendantThingDefs"),
+        //     new HarmonyMethod(typeof(ThingCategoryDef_DescendantThingDefsPatch), "Prefix"),
+        //     new HarmonyMethod(typeof(ThingCategoryDef_DescendantThingDefsPatch), "Postfix")
+        // );
 
         // optimization, cache ThisAndChildCategoryDefs
-        harmony.PatchMeasure(
-            AccessTools.Method(typeof(ThingCategoryDef), "get_ThisAndChildCategoryDefs"),
-            new HarmonyMethod(typeof(ThingCategoryDef_ThisAndChildCategoryDefsPatch), "Prefix"),
-            new HarmonyMethod(typeof(ThingCategoryDef_ThisAndChildCategoryDefsPatch), "Postfix")
-        );
+        // harmony.PatchMeasure(
+        //     AccessTools.Method(typeof(ThingCategoryDef), "get_ThisAndChildCategoryDefs"),
+        //     new HarmonyMethod(typeof(ThingCategoryDef_ThisAndChildCategoryDefsPatch), "Prefix"),
+        //     new HarmonyMethod(typeof(ThingCategoryDef_ThisAndChildCategoryDefsPatch), "Postfix")
+        // );
 
         if (MpVersion.IsDebug)
         {

@@ -1,6 +1,4 @@
-﻿using System.Diagnostics;
-
-namespace Multiplayer.Common
+﻿namespace Multiplayer.Common
 {
     public abstract class ChatCmdHandler
     {
@@ -15,7 +13,7 @@ namespace Multiplayer.Common
             player.SendChat("You don't have permission.");
         }
 
-        public ServerPlayer FindPlayer(string username)
+        public ServerPlayer? FindPlayer(string username)
         {
             return Server.GetPlayer(username);
         }

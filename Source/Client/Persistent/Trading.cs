@@ -33,14 +33,14 @@ namespace Multiplayer.Client
             }
         }
 
-        public Map Map => null;
+        public Map Map => playerNegotiator.Map;
         public int SessionId => sessionId;
 
         public MpTradeSession() { }
 
         private MpTradeSession(ITrader trader, Pawn playerNegotiator, bool giftMode)
         {
-            sessionId = Multiplayer.GlobalIdBlock.NextId();
+            sessionId = Find.UniqueIDsManager.GetNextThingID();
 
             this.trader = trader;
             this.playerNegotiator = playerNegotiator;
@@ -61,7 +61,7 @@ namespace Multiplayer.Client
             Multiplayer.WorldComp.trading.Add(session);
 
             CancelTradeDealReset.cancel = true;
-            SetTradeSession(session, true);
+            SetTradeSession(session);
 
             try
             {
@@ -145,10 +145,8 @@ namespace Multiplayer.Client
             deal.uiShouldReset = UIShouldReset.Silent;
         }
 
-        public static void SetTradeSession(MpTradeSession session, bool force = false)
+        public static void SetTradeSession(MpTradeSession session)
         {
-            if (!force && TradeSession.deal == session?.deal) return;
-
             current = session;
             TradeSession.trader = session?.trader;
             TradeSession.playerNegotiator = session?.playerNegotiator;

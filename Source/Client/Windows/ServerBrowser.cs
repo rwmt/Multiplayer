@@ -369,17 +369,19 @@ namespace Multiplayer.Client
                         var text = "MpSaveOutdatedDesc".Translate(data.rwVersion, VersionControl.CurrentVersionString);
                         TooltipHandler.TipRegion(outdated, text);
                     }
+                }
 
-                    Text.Font = GameFont.Small;
-                    GUI.color = Color.white;
+                Text.Font = GameFont.Small;
+                GUI.color = Color.white;
 
-                    if (Widgets.ButtonInvisible(entryRect, false))
-                    {
-                        if (Event.current.button == 0)
-                            selectedFile = file;
-                        else if (Event.current.button == 1 && data.HasRwVersion)
-                            Find.WindowStack.Add(new FloatMenu(SaveFloatMenu(data).ToList()));
-                    }
+                // Check data != null after drawing the button so draw order doesn't depend on data
+                // and IMGUI control ids are the same across frames
+                if (Widgets.ButtonInvisible(entryRect, false) && data != null)
+                {
+                    if (Event.current.button == 0)
+                        selectedFile = file;
+                    else if (Event.current.button == 1 && data.HasRwVersion)
+                        Find.WindowStack.Add(new FloatMenu(SaveFloatMenu(data).ToList()));
                 }
 
                 y += 40;

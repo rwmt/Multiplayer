@@ -5,20 +5,19 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using Verse;
-using Multiplayer.Common.Util;
 using RimWorld.Planet;
 
 namespace Multiplayer.Client
 {
     [HarmonyPatch(typeof(MainButtonsRoot), nameof(MainButtonsRoot.MainButtonsOnGUI))]
-    [HotSwappable]
     public static class IngameUIPatch
     {
         public static List<Func<float, float>> upperLeftDrawers = new()
         {
             DoChatAndTicksBehind,
             IngameDebug.DoDevInfo,
-            IngameDebug.DoDebugModeLabel
+            IngameDebug.DoDebugModeLabel,
+            IngameDebug.DoTimeDiffLabel
         };
 
         private const float BtnMargin = 8f;
@@ -33,7 +32,7 @@ namespace Multiplayer.Client
                 IngameDebug.DoDebugPrintout();
             }
 
-            if (Multiplayer.IsReplay || TickPatch.Simulating)
+            if (Multiplayer.IsReplay && Multiplayer.session.showTimeline || TickPatch.Simulating)
                 ReplayTimeline.DrawTimeline();
 
             if (TickPatch.Simulating)
@@ -114,7 +113,7 @@ namespace Multiplayer.Client
                 var biggerRect = new Rect(btnRect.x - 25f - 5f + 2f / 2f, btnRect.y + 2f / 2f, 23f, 23f);
 
                 if (slow && Widgets.ButtonInvisible(biggerRect))
-                    TickPatch.SetSimulation(toTickUntil: true, canESC: true);
+                    TickPatch.SetSimulation(toTickUntil: true, canEsc: true);
 
                 Widgets.DrawRectFast(biggerRect, new Color(color.r * 0.6f, color.g * 0.6f, color.b * 0.6f));
                 Widgets.DrawRectFast(indRect, color);

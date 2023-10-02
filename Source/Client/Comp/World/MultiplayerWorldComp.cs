@@ -17,6 +17,8 @@ public class MultiplayerWorldComp
     public List<MpTradeSession> trading = new();
     public CaravanSplittingSession splitSession;
 
+    public Faction spectatorFaction;
+
     private int currentFactionId;
 
     public MultiplayerWorldComp(World world)
@@ -25,14 +27,23 @@ public class MultiplayerWorldComp
         uiTemperatures = new TileTemperaturesComp(world);
     }
 
-    // Called from AsyncWorldTimeComp.ExposeData
+    // Called from AsyncWorldTimeComp.ExposeData (for backcompat)
     public void ExposeData()
     {
         ExposeFactionData();
 
+        Scribe_References.Look(ref spectatorFaction, "spectatorFaction");
         Scribe_Collections.Look(ref trading, "tradingSessions", LookMode.Deep);
+
         if (Scribe.mode == LoadSaveMode.PostLoadInit)
         {
+            if (spectatorFaction == null)
+            {
+                spectatorFaction = HostUtil.AddNewFaction("Spectator", FactionDefOf.PlayerColony);
+                foreach (var map in Find.Maps)
+                    MapSetup.InitNewFactionData(map, spectatorFaction);
+            }
+
             if (trading.RemoveAll(t => t.trader == null || t.playerNegotiator == null) > 0)
                 Log.Message("Some trading sessions had null entries");
         }

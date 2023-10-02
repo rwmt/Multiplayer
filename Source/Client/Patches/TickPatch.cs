@@ -6,20 +6,18 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using Multiplayer.Client.AsyncTime;
-using Multiplayer.Common.Util;
 using UnityEngine;
 using Verse;
 
 namespace Multiplayer.Client
 {
     [HarmonyPatch(typeof(TickManager), nameof(TickManager.TickManagerUpdate))]
-    [HotSwappable]
     public static class TickPatch
     {
         public static int Timer { get; private set; }
 
         public static int ticksToRun;
-        public static int tickUntil;
+        public static int tickUntil; // Ticks < tickUntil can be simulated
         public static int workTicks;
         public static bool currentExecutingCmdIssuedBySelf;
         public static bool serverFrozen;
@@ -129,7 +127,7 @@ namespace Multiplayer.Client
             }
         }
 
-        public static void SetSimulation(int ticks = 0, bool toTickUntil = false, Action onFinish = null, Action onCancel = null, string cancelButtonKey = null, bool canESC = false, string simTextKey = null)
+        public static void SetSimulation(int ticks = 0, bool toTickUntil = false, Action onFinish = null, Action onCancel = null, string cancelButtonKey = null, bool canEsc = false, string simTextKey = null)
         {
             simulating = new SimulatingData
             {
@@ -137,7 +135,7 @@ namespace Multiplayer.Client
                 targetIsTickUntil = toTickUntil,
                 onFinish = onFinish,
                 onCancel = onCancel,
-                canEsc = canESC,
+                canEsc = canEsc,
                 cancelButtonKey = cancelButtonKey ?? "CancelButton",
                 simTextKey = simTextKey ?? "MpSimulating"
             };
@@ -182,7 +180,7 @@ namespace Multiplayer.Client
         }
 
         // Returns whether the tick loop should stop
-        private static bool DoTick(ref bool worked)
+        public static bool DoTick(ref bool worked, bool justCmds = false)
         {
             tickTimer.Restart();
             int curTimer = Timer;
@@ -197,6 +195,9 @@ namespace Multiplayer.Client
                     if (LongEventHandler.eventQueue.Count > 0) return true; // Yield to e.g. join-point creation
                 }
             }
+
+            if (justCmds)
+                return true;
 
             foreach (ITickable tickable in AllTickables)
             {

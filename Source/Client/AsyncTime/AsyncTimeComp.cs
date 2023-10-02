@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using Multiplayer.API;
 using Verse;
 using Multiplayer.Client.Comp;
+using Multiplayer.Client.Factions;
 using Multiplayer.Client.Patches;
 using Multiplayer.Client.Saving;
 using Multiplayer.Client.Util;
@@ -67,7 +68,7 @@ namespace Multiplayer.Client
 
         public float TimeToTickThrough { get; set; }
 
-        public Queue<ScheduledCommand> Cmds { get => cmds; }
+        public Queue<ScheduledCommand> Cmds => cmds;
 
         public int TickableId => map.uniqueID;
 
@@ -148,10 +149,7 @@ namespace Multiplayer.Client
                 if (session.playerNegotiator.Map != map) continue;
 
                 if (session.ShouldCancel())
-                {
                     Multiplayer.WorldComp.RemoveTradeSession(session);
-                    continue;
-                }
             }
         }
 
@@ -183,9 +181,6 @@ namespace Multiplayer.Client
             Current.Game.storyteller = storyteller;
             Current.Game.storyWatcher = storyWatcher;
 
-            //UniqueIdsPatch.CurrentBlock = map.MpComp().mapIdBlock;
-            UniqueIdsPatch.CurrentBlock = Multiplayer.GlobalIdBlock;
-
             Rand.PushState();
             Rand.StateCompressed = randState;
 
@@ -195,8 +190,6 @@ namespace Multiplayer.Client
 
         public void PostContext()
         {
-            UniqueIdsPatch.CurrentBlock = null;
-
             Current.Game.storyteller = prevStoryteller;
             Current.Game.storyWatcher = prevStoryWatcher;
 
@@ -276,11 +269,6 @@ namespace Multiplayer.Client
                     MpDebugTools.HandleCmd(data);
                 }
 
-                if (cmdType == CommandType.CreateMapFactionData)
-                {
-                    HandleMapFactionData(cmd, data);
-                }
-
                 if (cmdType == CommandType.MapTimeSpeed && Multiplayer.GameComp.asyncTime)
                 {
                     TimeSpeed speed = (TimeSpeed)data.ReadByte();
@@ -289,19 +277,9 @@ namespace Multiplayer.Client
                     MpLog.Debug("Set map time speed " + speed);
                 }
 
-                if (cmdType == CommandType.MapIdBlock)
-                {
-                    IdBlock block = IdBlock.Deserialize(data);
-
-                    if (map != null)
-                    {
-                        //map.MpComp().mapIdBlock = block;
-                    }
-                }
-
                 if (cmdType == CommandType.Designator)
                 {
-                    HandleDesignator(cmd, data);
+                    HandleDesignator(data);
                 }
 
                 UpdateManagers();
@@ -357,28 +335,11 @@ namespace Multiplayer.Client
             }
         }
 
-        private void HandleMapFactionData(ScheduledCommand cmd, ByteReader data)
+        private void HandleDesignator(ByteReader data)
         {
-            int factionId = data.ReadInt32();
-
-            Faction faction = Find.FactionManager.GetById(factionId);
-            MultiplayerMapComp comp = map.MpComp();
-
-            if (!comp.factionData.ContainsKey(factionId))
-            {
-                BeforeMapGeneration.InitNewMapFactionData(map, faction);
-                MpLog.Log($"New map faction data for {faction.GetUniqueLoadID()}");
-            }
-        }
-
-        private void HandleDesignator(ScheduledCommand command, ByteReader data)
-        {
-            var mode = SyncSerialization.ReadSync<DesignatorMode>(data);
-            var designator = SyncSerialization.ReadSync<Designator>(data);
-
             Container<Area>? prevArea = null;
 
-            bool SetState(Designator designator, ByteReader data)
+            bool SetState(Designator designator)
             {
                 if (designator is Designator_AreaAllowed)
                 {
@@ -415,9 +376,12 @@ namespace Multiplayer.Client
                 DesignatorInstall_SetThingToInstall.thingToInstall = null;
             }
 
+            var mode = SyncSerialization.ReadSync<DesignatorMode>(data);
+            var designator = SyncSerialization.ReadSync<Designator>(data);
+
             try
             {
-                if (!SetState(designator, data)) return;
+                if (!SetState(designator)) return;
 
                 if (mode == DesignatorMode.SingleCell)
                 {
@@ -454,9 +418,8 @@ namespace Multiplayer.Client
             nothingHappeningCached = true;
             var list = map.mapPawns.SpawnedPawnsInFaction(Faction.OfPlayer);
 
-            for (int j = 0; j < list.Count; j++)
+            foreach (var pawn in list)
             {
-                Pawn pawn = list[j];
                 if (pawn.HostFaction == null && pawn.RaceProps.Humanlike && pawn.Awake())
                     nothingHappeningCached = false;
             }

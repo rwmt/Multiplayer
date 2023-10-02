@@ -42,7 +42,7 @@ namespace Multiplayer.Client
         };
 
         private ServerSettingsClient serverSettingsClient = new();
-        public ServerSettings ServerSettings => serverSettingsClient.settings;
+        public ServerSettings PreferredLocalServerSettings => serverSettingsClient.settings;
 
         public override void ExposeData()
         {

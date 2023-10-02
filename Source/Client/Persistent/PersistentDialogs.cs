@@ -243,7 +243,7 @@ namespace Multiplayer.Client
 
         protected PersistentDialog(Map map, T dialog) : this(map)
         {
-            id = Multiplayer.GlobalIdBlock.NextId();
+            id = Find.UniqueIDsManager.GetNextThingID();
             this.dialog = dialog;
         }
 
@@ -460,6 +460,9 @@ namespace Multiplayer.Client
                 this.parent = parent;
             }
 
+            public const LookMode DelegateMode = (LookMode)101;
+            public const LookMode PlainObjectMode = (LookMode)100;
+
             public FieldSave(PersistentDialog<T> parent, Type type, object value) : this(parent)
             {
                 this.type = type;
@@ -467,7 +470,7 @@ namespace Multiplayer.Client
                 this.value = value;
 
                 if (typeof(Delegate).IsAssignableFrom(type))
-                    mode = (LookMode)101;
+                    mode = DelegateMode;
                 else if (ParseHelper.HandlesType(type))
                     mode = LookMode.Value;
                 else if (typeof(Def).IsAssignableFrom(type))
@@ -479,12 +482,12 @@ namespace Multiplayer.Client
                 else if (typeof(IExposable).IsAssignableFrom(type))
                     mode = LookMode.Deep;
                 else
-                    mode = (LookMode)100;
+                    mode = PlainObjectMode;
             }
 
             private Dictionary<string, int> fields;
 
-            private string methodType;
+            private string methodDeclaringType;
             private string methodName;
             private int targetIndex;
 
@@ -524,7 +527,7 @@ namespace Multiplayer.Client
                     if (Scribe.mode == LoadSaveMode.LoadingVars)
                         value = args[0];
                 }
-                else if (mode == (LookMode)100)
+                else if (mode == PlainObjectMode)
                 {
                     if (Scribe.mode == LoadSaveMode.Saving)
                     {
@@ -538,17 +541,20 @@ namespace Multiplayer.Client
 
                     if (Scribe.mode == LoadSaveMode.LoadingVars)
                     {
+                        if (!type.IsCompilerGenerated())
+                            throw new Exception($"Persistent dialog field deserialization: Unsupported plain object type: {type.FullName}");
+
                         value = Activator.CreateInstance(type);
                         Scribe_Collections.Look(ref fields, "fields");
                     }
 
-                    if (Scribe.mode == LoadSaveMode.PostLoadInit)
+                    if (Scribe.mode == LoadSaveMode.PostLoadInit && value != null)
                     {
                         foreach (var kv in fields)
                             value.SetPropertyOrField(kv.Key, parent.fieldValues[kv.Value].value);
                     }
                 }
-                else if (mode == (LookMode)101)
+                else if (mode == DelegateMode)
                 {
                     if (Scribe.mode == LoadSaveMode.Saving)
                     {
@@ -563,7 +569,7 @@ namespace Multiplayer.Client
 
                     if (Scribe.mode == LoadSaveMode.LoadingVars)
                     {
-                        Scribe_Values.Look(ref methodType, "methodType");
+                        Scribe_Values.Look(ref methodDeclaringType, "methodType");
                         Scribe_Values.Look(ref methodName, "methodName");
                         Scribe_Values.Look(ref targetIndex, "targetIndex");
                     }
@@ -573,11 +579,20 @@ namespace Multiplayer.Client
                         if (targetIndex != -1)
                         {
                             object target = parent.fieldValues[targetIndex].value;
-                            value = Delegate.CreateDelegate(type, target, methodName);
+                            value = Delegate.CreateDelegate(
+                                type,
+                                target,
+                                DelegateSerialization.CheckMethodAllowed(
+                                    AccessTools.Method(target.GetType(), methodName))
+                            );
                         }
                         else
                         {
-                            value = Delegate.CreateDelegate(type, GenTypes.GetTypeInAnyAssembly(methodType), methodName);
+                            value = Delegate.CreateDelegate(
+                                type,
+                                DelegateSerialization.CheckMethodAllowed(
+                                    AccessTools.Method(GenTypes.GetTypeInAnyAssembly(methodDeclaringType), methodName))
+                            );
                         }
                     }
                 }

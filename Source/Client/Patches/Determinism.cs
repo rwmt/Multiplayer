@@ -297,7 +297,7 @@ namespace Multiplayer.Client.Patches
             var anythingPatched = false;
 
             var parameters = new[] { typeof(int), typeof(int) };
-            var unityRandomRangeInt = AccessTools.DeclaredMethod(typeof(UnityEngine.Random), nameof(UnityEngine.Random.Range), parameters);
+            var unityRandomRangeInt = AccessTools.DeclaredMethod(typeof(Random), nameof(Random.Range), parameters);
             var verseRandomRangeInt = AccessTools.DeclaredMethod(typeof(Rand), nameof(Rand.Range), parameters);
 
             foreach (var inst in insts)
@@ -314,6 +314,28 @@ namespace Multiplayer.Client.Patches
             }
 
             if (!anythingPatched) Log.Warning($"No Unity RNG was patched for method: {original?.FullDescription() ?? "(unknown method)"}");
+        }
+    }
+
+    [HarmonyPatch(typeof(Pawn_RecordsTracker), nameof(Pawn_RecordsTracker.ExposeData))]
+    static class RecordsTrackerExposePatch
+    {
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+        {
+            var battleActiveField =
+                AccessTools.Field(typeof(Pawn_RecordsTracker), nameof(Pawn_RecordsTracker.battleActive));
+
+            foreach (var inst in insts)
+            {
+                // Remove mutation of battleActive during saving which was a source of non-determinism
+                if (inst.opcode == OpCodes.Stfld && inst.operand == battleActiveField)
+                {
+                    yield return new CodeInstruction(OpCodes.Pop);
+                    yield return new CodeInstruction(OpCodes.Pop);
+                }
+                else
+                    yield return inst;
+            }
         }
     }
 

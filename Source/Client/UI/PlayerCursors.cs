@@ -1,134 +1,96 @@
-using HarmonyLib;
-using Multiplayer.Common;
-using RimWorld;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
+using Multiplayer.Common;
+using RimWorld.Planet;
 using UnityEngine;
 using Verse;
 
-namespace Multiplayer.Client
+namespace Multiplayer.Client;
+
+public class PlayerCursors
 {
-    [HarmonyPatch(typeof(Targeter), nameof(Targeter.TargeterOnGUI))]
-    static class DrawPlayerCursors
+    private HashSet<int> lastSelected = new();
+    private float lastSelectedSend;
+    private int lastMap;
+
+    private byte cursorSeq;
+    private float lastCursorSend;
+
+    public void SendVisuals()
     {
-        static void Postfix()
+        if (Time.realtimeSinceStartup - lastCursorSend > 0.05f)
         {
-            if (Multiplayer.Client == null || !Multiplayer.settings.showCursors || TickPatch.Simulating) return;
+            lastCursorSend = Time.realtimeSinceStartup;
+            SendCursor();
+        }
 
-            var curMap = Find.CurrentMap.Index;
-
-            foreach (var player in Multiplayer.session.players)
-            {
-                if (player.username == Multiplayer.username) continue;
-                if (player.map != curMap) continue;
-                if (player.factionId != Multiplayer.RealPlayerFaction.loadID) continue;
-
-                if (Multiplayer.settings.transparentPlayerCursors)
-                    GUI.color = player.color * new Color(1, 1, 1, 0.5f);
-                else
-                    GUI.color = player.color * new Color(1, 1, 1, 1);
-
-                var pos = Vector3.Lerp(
-                    player.lastCursor,
-                    player.cursor,
-                    (float)(Multiplayer.clock.ElapsedMillisDouble() - player.updatedAt) / 50f
-                ).MapToUIPosition();
-
-                var icon = MultiplayerData.icons.ElementAtOrDefault(player.cursorIcon);
-                var drawIcon = icon ?? CustomCursor.CursorTex;
-                var iconRect = new Rect(pos, new Vector2(24f * drawIcon.width / drawIcon.height, 24f));
-
-                Text.Font = GameFont.Tiny;
-                Text.Anchor = TextAnchor.MiddleCenter;
-                Widgets.Label(new Rect(pos, new Vector2(100, 30)).CenterOn(iconRect).Down(20f).Left(icon != null ? 0f : 5f), player.username);
-                Text.Anchor = TextAnchor.UpperLeft;
-                Text.Font = GameFont.Small;
-
-                if (icon != null && MultiplayerData.iconInfos[player.cursorIcon].hasStuff)
-                    GUI.color = new Color(0.5f, 0.4f, 0.26f, 0.5f); // Stuff color for wood
-
-                GUI.DrawTexture(iconRect, drawIcon);
-
-                if (player.dragStart != PlayerInfo.Invalid)
-                {
-                    GUI.color = player.color * new Color(1, 1, 1, 0.2f);
-                    Widgets.DrawBox(new Rect() { min = player.dragStart.MapToUIPosition(), max = pos }, 2);
-                }
-
-                GUI.color = Color.white;
-            }
+        if (Time.realtimeSinceStartup - lastSelectedSend > 0.2f)
+        {
+            lastSelectedSend = Time.realtimeSinceStartup;
+            SendSelected();
         }
     }
 
-    [HarmonyPatch(typeof(SelectionDrawer), nameof(SelectionDrawer.DrawSelectionOverlays))]
-    [StaticConstructorOnStartup]
-    static class SelectionBoxPatch
+    private void SendCursor()
     {
-        static Material graySelection = MaterialPool.MatFrom("UI/Overlays/SelectionBracket", ShaderDatabase.MetaOverlay);
-        static MaterialPropertyBlock propBlock = new MaterialPropertyBlock();
-        static HashSet<int> drawnThisUpdate = new HashSet<int>();
-        static Dictionary<object, float> selTimes = new Dictionary<object, float>();
+        var writer = new ByteWriter();
+        writer.WriteByte(cursorSeq++);
 
-        static void Postfix()
+        if (Find.CurrentMap != null && !WorldRendererUtility.WorldRenderedNow)
         {
-            if (Multiplayer.Client == null || TickPatch.Simulating) return;
+            writer.WriteByte((byte)Find.CurrentMap.Index);
 
-            foreach (var t in Find.Selector.SelectedObjects.OfType<Thing>())
-                drawnThisUpdate.Add(t.thingIDNumber);
+            var icon = Find.MapUI?.designatorManager?.SelectedDesignator?.icon;
+            int iconId = icon == null ? 0 :
+                !MultiplayerData.icons.Contains(icon) ? 0 : MultiplayerData.icons.IndexOf(icon);
+            writer.WriteByte((byte)iconId);
 
-            foreach (var player in Multiplayer.session.players)
-            {
-                if (player.factionId != Multiplayer.RealPlayerFaction.loadID) continue;
+            writer.WriteVectorXZ(UI.MouseMapPosition());
 
-                foreach (var sel in player.selectedThings)
-                {
-                    if (!drawnThisUpdate.Add(sel.Key)) continue;
-                    if (!ThingsById.thingsById.TryGetValue(sel.Key, out Thing thing)) continue;
-                    if (thing.Map != Find.CurrentMap) continue;
-
-                    selTimes[thing] = sel.Value;
-                    SelectionDrawerUtility.CalculateSelectionBracketPositionsWorld(SelectionDrawer.bracketLocs, thing, thing.DrawPos, thing.RotatedSize.ToVector2(), selTimes, Vector2.one, 1f);
-                    selTimes.Clear();
-
-                    for (int i = 0; i < 4; i++)
-                    {
-                        Quaternion rotation = Quaternion.AngleAxis(-i * 90, Vector3.up);
-                        propBlock.SetColor("_Color", player.color * new Color(1, 1, 1, 0.5f));
-                        Graphics.DrawMesh(MeshPool.plane10, SelectionDrawer.bracketLocs[i], rotation, graySelection, 0, null, 0, propBlock);
-                    }
-                }
-            }
-
-            drawnThisUpdate.Clear();
+            if (Find.Selector.dragBox.IsValidAndActive)
+                writer.WriteVectorXZ(Find.Selector.dragBox.start);
+            else
+                writer.WriteShort(-1);
         }
-    }
-
-    [HarmonyPatch(typeof(InspectPaneFiller), nameof(InspectPaneFiller.DrawInspectStringFor))]
-    static class DrawInspectPaneStringMarker
-    {
-        public static ISelectable drawingFor;
-
-        static void Prefix(ISelectable sel) => drawingFor = sel;
-        static void Postfix() => drawingFor = null;
-    }
-
-    [HarmonyPatch(typeof(InspectPaneFiller), nameof(InspectPaneFiller.DrawInspectString))]
-    static class DrawInspectStringPatch
-    {
-        static void Prefix(ref string str)
+        else
         {
-            if (Multiplayer.Client == null) return;
-            if (!(DrawInspectPaneStringMarker.drawingFor is Thing thing)) return;
-
-            List<string> players = new List<string>();
-
-            foreach (var player in Multiplayer.session.players)
-                if (player.selectedThings.ContainsKey(thing.thingIDNumber))
-                    players.Add(player.username);
-
-            if (players.Count > 0)
-                str += $"\nSelected by: {players.Join()}";
+            writer.WriteByte(byte.MaxValue);
         }
+
+        Multiplayer.Client.Send(Packets.Client_Cursor, writer.ToArray(), reliable: false);
     }
 
+    private void SendSelected()
+    {
+        if (Current.ProgramState != ProgramState.Playing) return;
+
+        var writer = new ByteWriter();
+
+        int mapId = Find.CurrentMap?.Index ?? -1;
+        if (WorldRendererUtility.WorldRenderedNow) mapId = -1;
+
+        bool reset = false;
+
+        if (mapId != lastMap)
+        {
+            reset = true;
+            lastMap = mapId;
+            lastSelected.Clear();
+        }
+
+        var selected = new HashSet<int>(Find.Selector.selected.OfType<Thing>().Select(t => t.thingIDNumber));
+
+        var add = new List<int>(selected.Except(lastSelected));
+        var remove = new List<int>(lastSelected.Except(selected));
+
+        if (!reset && add.Count == 0 && remove.Count == 0) return;
+
+        writer.WriteBool(reset);
+        writer.WritePrefixedInts(add);
+        writer.WritePrefixedInts(remove);
+
+        lastSelected = selected;
+
+        Multiplayer.Client.Send(Packets.Client_Selected, writer.ToArray());
+    }
 }

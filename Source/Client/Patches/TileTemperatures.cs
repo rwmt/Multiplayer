@@ -50,7 +50,6 @@ namespace Multiplayer.Client
         }
     }
 
-
     [HarmonyPatch(typeof(GenTemperature), nameof(GenTemperature.AverageTemperatureAtTileForTwelfth))]
     static class CacheAverageTileTemperature
     {

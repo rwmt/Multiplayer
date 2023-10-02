@@ -14,7 +14,7 @@ namespace Multiplayer.Client
 
             var size = Math.Min(UI.CurUICellSize() * 4, 32f);
 
-            foreach (var ping in Multiplayer.session.cursorAndPing.pings)
+            foreach (var ping in Multiplayer.session.locationPings.pings)
             {
                 if (ping.mapId != Find.CurrentMap.uniqueID) continue;
                 if (ping.PlayerInfo is not { } player) continue;

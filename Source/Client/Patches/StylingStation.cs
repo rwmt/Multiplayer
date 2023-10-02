@@ -82,7 +82,7 @@ namespace Multiplayer.Client.Patches
         static bool Prefix(Dialog_StylingStation __instance)
         {
             // The styling station got destroyed (in multiplayer, the styling dialog is not pausing)
-            if (__instance.stylingStation != null && !__instance.stylingStation.Spawned)
+            if (__instance.stylingStation is { Spawned: false })
             {
                 __instance.Close();
                 return false;

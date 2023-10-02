@@ -11,38 +11,31 @@ namespace Multiplayer.Client.Comp
     public class MultiplayerGameComp : IExposable, IHasSemiPersistentData
     {
         public bool asyncTime;
+        public bool multifaction;
         public bool debugMode;
         public bool logDesyncTraces;
         public PauseOnLetter pauseOnLetter;
         public TimeControl timeControl;
         public Dictionary<int, PlayerData> playerData = new(); // player id to player data
 
-        public IdBlock globalIdBlock = new(int.MaxValue / 2, 1_000_000_000);
+        public string idBlockBase64;
 
         public bool IsLowestWins => timeControl == TimeControl.LowestWins;
 
         public PlayerData LocalPlayerDataOrNull => playerData.GetValueOrDefault(Multiplayer.session.playerId);
 
-        public MultiplayerGameComp(Game game)
-        {
-        }
-
         public void ExposeData()
         {
             Scribe_Values.Look(ref asyncTime, "asyncTime", true, true);
+            Scribe_Values.Look(ref multifaction, "multifaction", false, true);
             Scribe_Values.Look(ref debugMode, "debugMode");
             Scribe_Values.Look(ref logDesyncTraces, "logDesyncTraces");
             Scribe_Values.Look(ref pauseOnLetter, "pauseOnLetter");
             Scribe_Values.Look(ref timeControl, "timeControl");
 
-            Scribe_Custom.LookIdBlock(ref globalIdBlock, "globalIdBlock");
-
-            if (globalIdBlock == null)
-            {
-                // todo globalIdBlock was previously in WorldComp, this is a quick hack to make old saves compatible
-                Log.Warning("Global id block was null, fixing...");
-                globalIdBlock = new IdBlock(int.MaxValue / 2, 1_000_000_000);
-            }
+            // Store for back-compat conversion in GameExposeComponentsPatch
+            if (Scribe.mode == LoadSaveMode.LoadingVars)
+                Scribe_Values.Look(ref idBlockBase64, "globalIdBlock");
         }
 
         public void WriteSemiPersistent(ByteWriter writer)

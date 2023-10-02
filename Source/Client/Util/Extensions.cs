@@ -23,46 +23,6 @@ namespace Multiplayer.Client
     {
         private static Regex methodNameCleaner = new Regex(@"(\?[0-9\-]+)");
 
-        // Sets the current Faction.OfPlayer
-        // Applies faction's world components
-        // Applies faction's map components if map not null
-        public static void PushFaction(this Map map, Faction f)
-        {
-            var faction = FactionContext.Push(f);
-            if (faction == null) return;
-
-            Multiplayer.WorldComp?.SetFaction(faction);
-            map?.MpComp().SetFaction(faction);
-        }
-
-        public static void PushFaction(this Map map, int factionId)
-        {
-            Faction faction = Find.FactionManager.GetById(factionId);
-            map.PushFaction(faction);
-        }
-
-        public static Faction PopFaction()
-        {
-            return PopFaction(null);
-        }
-
-        public static Faction PopFaction(this Container<Map>? c)
-        {
-            if (!c.HasValue) return null;
-            return PopFaction(c.Value.Inner);
-        }
-
-        public static Faction PopFaction(this Map map)
-        {
-            Faction faction = FactionContext.Pop();
-            if (faction == null) return null;
-
-            Multiplayer.WorldComp?.SetFaction(faction);
-            map?.MpComp().SetFaction(faction);
-
-            return faction;
-        }
-
         public static Map GetMap(this ScheduledCommand cmd)
         {
             if (cmd.mapId == ScheduledCommand.Global) return null;

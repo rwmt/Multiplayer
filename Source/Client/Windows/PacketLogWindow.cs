@@ -7,17 +7,20 @@ namespace Multiplayer.Client
 
     public class PacketLogWindow : Window
     {
-        public override Vector2 InitialSize => new Vector2(UI.screenWidth / 2f, UI.screenHeight / 2f);
+        public override Vector2 InitialSize => new(UI.screenWidth / 2f, UI.screenHeight / 2f);
 
-        private List<LogNode> nodes = new List<LogNode>();
+        private List<LogNode> nodes = new();
         private int logHeight;
         private Vector2 scrollPos;
+        private bool storeStackTrace;
 
         public int NodeCount => nodes.Count;
 
-        public PacketLogWindow()
+        public PacketLogWindow(bool storeStackTrace)
         {
             doCloseX = true;
+
+            this.storeStackTrace = storeStackTrace;
         }
 
         public override void DoWindowContents(Rect rect)
@@ -72,6 +75,15 @@ namespace Multiplayer.Client
 
         public void AddCurrentNode(IHasLogger hasLogger)
         {
+            if (storeStackTrace)
+                hasLogger.Log.current.children.Add(new LogNode("Stack trace")
+                {
+                    children =
+                    {
+                        new LogNode(StackTraceUtility.ExtractStackTrace())
+                    }
+                });
+
             nodes.Add(hasLogger.Log.current);
         }
     }

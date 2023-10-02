@@ -58,8 +58,14 @@ public static class Loader
 
         Multiplayer.session.replayTimerStart = TickPatch.Timer;
 
-        Multiplayer.game.ChangeRealPlayerFaction(Find.FactionManager.GetById(Multiplayer.session.myFactionId));
+        Multiplayer.game.ChangeRealPlayerFaction(
+            Find.FactionManager.GetById(Multiplayer.session.myFactionId) ?? Multiplayer.WorldComp.spectatorFaction
+        );
         Multiplayer.game.myFactionLoading = null;
+
+        // todo temporary
+        // Current.Game.InitData = new GameInitData() { mapSize = 50 };
+        // Find.WindowStack.Add(new Page_SelectStartingSite());
 
         if (forceAsyncTime)
             Multiplayer.game.gameComp.asyncTime = true;
@@ -81,8 +87,9 @@ public static class Loader
             XmlNode mapNode = gameDoc.ReadNode(reader);
             gameNode["maps"].AppendChild(mapNode);
 
-            if (gameNode["currentMapIndex"] == null)
-                gameNode.AddNode("currentMapIndex", map.ToString());
+            // todo temporary
+            // if (gameNode["currentMapIndex"] == null)
+            //     gameNode.AddNode("currentMapIndex", map.ToString());
         }
 
         return gameDoc;

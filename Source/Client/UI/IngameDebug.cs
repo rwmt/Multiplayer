@@ -29,8 +29,8 @@ public static class IngameDebug
             int timerLag = (TickPatch.tickUntil - TickPatch.Timer);
             StringBuilder text = new StringBuilder();
             text.Append(
-                $"{Faction.OfPlayer.loadID} {Multiplayer.RealPlayerFaction?.loadID} {Find.UniqueIDsManager.nextThingID} j:{Find.UniqueIDsManager.nextJobID} {Find.TickManager.TicksGame} {Find.TickManager.CurTimeSpeed} {TickPatch.Timer} {TickPatch.tickUntil} {timerLag}");
-            text.Append($"\n{Time.deltaTime * 60f:0.0000} {TickPatch.tickTimer.ElapsedMilliseconds}");
+                $"{FactionContext.stack.Count} {Faction.OfPlayer.loadID} {Multiplayer.RealPlayerFaction?.loadID} {Find.UniqueIDsManager.nextThingID} j:{Find.UniqueIDsManager.nextJobID} {Find.TickManager.TicksGame} {Find.TickManager.CurTimeSpeed} {TickPatch.Timer} {TickPatch.tickUntil} {timerLag}");
+            text.Append($"\n{1f/Time.deltaTime:0.0000} {TickPatch.tickTimer.ElapsedMilliseconds}");
             text.Append($"\n{avgDelta = (avgDelta * 59.0 + Time.deltaTime * 60.0) / 60.0:0.0000}");
             text.Append(
                 $"\n{avgTickTime = (avgTickTime * 59.0 + TickPatch.tickTimer.ElapsedMilliseconds) / 60.0:0.0000} {Find.World.worldObjects.settlements.Count}");
@@ -81,7 +81,7 @@ public static class IngameDebug
             text.Append(
                 $"\n{async.cmds.Count} {Multiplayer.AsyncWorldTime.cmds.Count} {async.slower.forceNormalSpeedUntil} {Multiplayer.GameComp.asyncTime}");
             text.Append(
-                $"\nt{DeferredStackTracing.maxTraceDepth} p{SimplePool<StackTraceLogItemRaw>.FreeItemsCount} {DeferredStackTracingImpl.hashtableEntries}/{DeferredStackTracingImpl.hashtableSize} {DeferredStackTracingImpl.collisions}");
+                $"\n{Find.WorldPawns.AllPawnsAliveOrDead.Count} t{DeferredStackTracing.maxTraceDepth} p{SimplePool<StackTraceLogItemRaw>.FreeItemsCount} {DeferredStackTracingImpl.hashtableEntries}/{DeferredStackTracingImpl.hashtableSize} {DeferredStackTracingImpl.collisions}");
 
             text.Append(Find.WindowStack.focusedWindow is ImmediateWindow win
                 ? $"\nImmediateWindow: {MpUtil.DelegateMethodInfo(win.doWindowFunc?.Method)}"
@@ -148,6 +148,24 @@ public static class IngameDebug
         {
             using (MpStyle.Set(GameFont.Tiny).Set(TextAnchor.MiddleCenter))
                 Widgets.Label(new Rect(x, y, BtnWidth, 30f), $"Debug mode");
+
+            return BtnHeight;
+        }
+
+        return 0;
+    }
+
+    internal static float DoTimeDiffLabel(float y)
+    {
+        float x = UI.screenWidth - BtnWidth - BtnMargin;
+
+        if (Multiplayer.Client != null &&
+            !Multiplayer.GameComp.asyncTime &&
+            Find.CurrentMap.AsyncTime() != null &&
+            Find.CurrentMap.AsyncTime().mapTicks != Multiplayer.AsyncWorldTime.worldTicks)
+        {
+            using (MpStyle.Set(GameFont.Tiny).Set(TextAnchor.MiddleCenter))
+                Widgets.Label(new Rect(x, y, BtnWidth, 30f), $"{Find.CurrentMap.AsyncTime().mapTicks - Multiplayer.AsyncWorldTime.worldTicks}");
 
             return BtnHeight;
         }

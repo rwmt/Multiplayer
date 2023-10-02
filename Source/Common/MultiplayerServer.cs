@@ -38,6 +38,7 @@ namespace Multiplayer.Common
 
         public string? hostUsername;
         public int gameTimer;
+        public int startingTimer;
         public int workTicks;
         public ActionQueue queue = new();
         public ServerSettings settings;
@@ -47,8 +48,6 @@ namespace Multiplayer.Common
         public InitDataState initDataState = InitDataState.Waiting;
 
         private Dictionary<string, ChatCmdHandler> chatCmdHandlers = new();
-
-        public int nextUniqueId; // currently unused
 
         public volatile bool running;
         public event Action<MultiplayerServer>? TickEvent;
@@ -212,15 +211,6 @@ namespace Multiplayer.Common
         public ServerPlayer? GetPlayer(int id)
         {
             return playerManager.GetPlayer(id);
-        }
-
-        public IdBlock NextIdBlock(int blockSize = 30000)
-        {
-            int blockStart = nextUniqueId;
-            nextUniqueId += blockSize;
-            ServerLog.Log($"New id block {blockStart} of size {blockSize}");
-
-            return new IdBlock(blockStart, blockSize);
         }
 
         public void SendChat(string msg)

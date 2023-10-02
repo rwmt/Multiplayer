@@ -35,7 +35,7 @@ namespace Multiplayer.Client
             if (Multiplayer.Client == null)
                 return "";
 
-            var players = Multiplayer.session.cursorAndPing.pings.Select(p => p.PlayerInfo?.username).AllNotNull().JoinStringsAtMost();
+            var players = Multiplayer.session.locationPings.pings.Select(p => p.PlayerInfo?.username).AllNotNull().JoinStringsAtMost();
             return $"{"MpAlertPingDesc1".Translate(players)}\n\n{"MpAlertPingDesc2".Translate()}";
         }
 
@@ -47,8 +47,8 @@ namespace Multiplayer.Client
             {
                 culpritList.Clear();
 
-                if (Multiplayer.Client != null && !Multiplayer.session.cursorAndPing.alertHidden)
-                    foreach (var ping in Multiplayer.session.cursorAndPing.pings)
+                if (Multiplayer.Client != null && !Multiplayer.session.locationPings.alertHidden)
+                    foreach (var ping in Multiplayer.session.locationPings.pings)
                     {
                         if (ping.PlayerInfo == null) continue;
                         if (ping.Target.HasValue)
@@ -67,7 +67,7 @@ namespace Multiplayer.Client
         public override void OnClick()
         {
             if (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift))
-                Multiplayer.session.cursorAndPing.alertHidden = true;
+                Multiplayer.session.locationPings.alertHidden = true;
             else
                 base.OnClick();
         }

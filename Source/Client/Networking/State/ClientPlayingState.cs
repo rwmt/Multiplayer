@@ -176,7 +176,7 @@ namespace Multiplayer.Client
             int planetTile = data.ReadInt32();
             var loc = new Vector3(data.ReadFloat(), data.ReadFloat(), data.ReadFloat());
 
-            Session.cursorAndPing.ReceivePing(player, map, planetTile, loc);
+            Session.locationPings.ReceivePing(player, map, planetTile, loc);
         }
 
         [PacketHandler(Packets.Server_MapResponse)]
@@ -251,6 +251,7 @@ namespace Multiplayer.Client
         [PacketHandler(Packets.Server_Debug)]
         public void HandleDebug(ByteReader data)
         {
+            MultiplayerSession.DoRejoin();
         }
 
         [PacketHandler(Packets.Server_SetFaction)]

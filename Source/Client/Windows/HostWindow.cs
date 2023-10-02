@@ -21,34 +21,37 @@ namespace Multiplayer.Client
             Connecting, Gameplay
         }
 
-        public override Vector2 InitialSize => new(550f, 430f);
+        public override Vector2 InitialSize => new(550f, 460f);
 
         private SaveFile file;
         public bool returnToServerBrowser;
-        private bool hadSimulation;
-        private bool asyncTime;
-        private bool asyncTimeLocked;
         private Tab tab;
+
+        private bool asyncTimeLocked;
+        private bool multifactionLocked;
 
         private float height;
 
         private ServerSettings serverSettings;
 
-        public HostWindow(SaveFile file = null, bool hadSimulation = false)
+        public HostWindow(SaveFile file = null)
         {
             closeOnAccept = false;
             doCloseX = true;
 
-            serverSettings = Multiplayer.settings.ServerSettings;
+            serverSettings = Multiplayer.settings.PreferredLocalServerSettings;
 
-            this.hadSimulation = hadSimulation;
             this.file = file;
             serverSettings.gameName = file?.gameName ?? Multiplayer.session?.gameName ?? $"{Multiplayer.username}'s game";
 
-            asyncTime = file?.asyncTime ?? Multiplayer.game?.gameComp.asyncTime ?? false;
+            serverSettings.asyncTime = file?.asyncTime ?? Multiplayer.game?.gameComp.asyncTime ?? false;
+            serverSettings.multifaction = file?.multifaction ?? Multiplayer.game?.gameComp.multifaction ?? false;
 
-            if (asyncTime)
+            if (serverSettings.asyncTime)
                 asyncTimeLocked = true; // Once enabled in a save, cannot be disabled
+
+            if (serverSettings.multifaction)
+                multifactionLocked = true;
 
             var localAddr = MpUtil.GetLocalIpAddress() ?? "127.0.0.1";
             serverSettings.lanAddress = localAddr;
@@ -217,9 +220,13 @@ namespace Multiplayer.Client
 
             entry = entry.Down(30);
 
+            // Multifaction
+            MpUI.CheckboxLabeled(entry.Width(CheckboxWidth), $"Multifaction:  ", ref serverSettings.multifaction, order: ElementOrder.Right, disabled: multifactionLocked);
+            entry = entry.Down(30);
+
             // Async time
             TooltipHandler.TipRegion(entry.Width(CheckboxWidth), $"{"MpAsyncTimeDesc".Translate()}\n\n{"MpExperimentalFeature".Translate()}");
-            MpUI.CheckboxLabeled(entry.Width(CheckboxWidth), $"{"MpAsyncTime".Translate()}:  ", ref asyncTime, order: ElementOrder.Right, disabled: asyncTimeLocked);
+            MpUI.CheckboxLabeled(entry.Width(CheckboxWidth), $"{"MpAsyncTime".Translate()}:  ", ref serverSettings.asyncTime, order: ElementOrder.Right, disabled: asyncTimeLocked);
             entry = entry.Down(30);
 
             // Time control
@@ -495,19 +502,19 @@ namespace Multiplayer.Client
 
                 LongEventHandler.ExecuteWhenFinished(() =>
                 {
-                    LongEventHandler.QueueLongEvent(() => HostUtil.HostServer(settings, false, false, asyncTime), "MpLoading", false, null);
+                    LongEventHandler.QueueLongEvent(() => HostUtil.HostServer(settings, false), "MpLoading", false, null);
                 });
             }, "Play", "LoadingLongEvent", true, null);
         }
 
         private void HostFromSpIngame(ServerSettings settings)
         {
-            HostUtil.HostServer(settings, false, false, asyncTime);
+            HostUtil.HostServer(settings, false);
         }
 
         private void HostFromReplay(ServerSettings settings)
         {
-            void ReplayLoaded() => HostUtil.HostServer(settings, true, hadSimulation, asyncTime);
+            void ReplayLoaded() => HostUtil.HostServer(settings, true);
 
             if (file != null)
             {

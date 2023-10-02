@@ -32,7 +32,7 @@ namespace Multiplayer.Client.Persistent
             // Taken from Window.PostOpen, overriden to remove effects of Dialog_SplitCaravan.PostOpen
 
             if (soundAppear != null)
-                soundAppear.PlayOneShotOnCamera(null);
+                soundAppear.PlayOneShotOnCamera();
 
             if (soundAmbient != null)
                 sustainerAmbient = soundAmbient.TrySpawnSustainer(SoundInfo.OnCamera(MaintenanceType.PerFrame));

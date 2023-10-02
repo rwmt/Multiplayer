@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using Verse;
 
@@ -5,7 +6,7 @@ namespace Multiplayer.Client
 {
     static class ThingCategoryDef_DescendantThingDefsPatch
     {
-        static Dictionary<ThingCategoryDef, HashSet<ThingDef>> values = new(DefaultComparer<ThingCategoryDef>.Instance);
+        static ConcurrentDictionary<ThingCategoryDef, HashSet<ThingDef>> values = new(DefaultComparer<ThingCategoryDef>.Instance);
 
         static bool Prefix(ThingCategoryDef __instance)
         {
@@ -28,7 +29,7 @@ namespace Multiplayer.Client
 
     static class ThingCategoryDef_ThisAndChildCategoryDefsPatch
     {
-        static Dictionary<ThingCategoryDef, HashSet<ThingCategoryDef>> values = new(DefaultComparer<ThingCategoryDef>.Instance);
+        static ConcurrentDictionary<ThingCategoryDef, HashSet<ThingCategoryDef>> values = new(DefaultComparer<ThingCategoryDef>.Instance);
 
         static bool Prefix(ThingCategoryDef __instance)
         {

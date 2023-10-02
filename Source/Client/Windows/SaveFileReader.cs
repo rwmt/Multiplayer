@@ -76,6 +76,7 @@ namespace Multiplayer.Client
                     saveFile.modIds = replay.info.modIds.ToArray();
                     saveFile.modNames = replay.info.modNames.ToArray();
                     saveFile.asyncTime = replay.info.asyncTime;
+                    saveFile.multifaction = replay.info.multifaction;
                 }
                 else
                 {
@@ -138,6 +139,7 @@ namespace Multiplayer.Client
 
         public int protocol;
         public bool asyncTime;
+        public bool multifaction;
 
         public bool HasRwVersion => rwVersion != null;
 

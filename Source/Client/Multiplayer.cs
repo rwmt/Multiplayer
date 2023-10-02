@@ -37,7 +37,6 @@ namespace Multiplayer.Client
 
         public static bool reloading;
 
-        public static IdBlock GlobalIdBlock => game.gameComp.globalIdBlock;
         public static MultiplayerGameComp GameComp => game.gameComp;
         public static MultiplayerWorldComp WorldComp => game.worldComp;
         public static AsyncWorldTimeComp AsyncWorldTime => game.asyncWorldTimeComp;
@@ -75,7 +74,16 @@ namespace Multiplayer.Client
 
         public static void InitMultiplayer()
         {
-            Native.EarlyInit();
+            Native.EarlyInit(
+                Application.platform switch
+                {
+                    RuntimePlatform.LinuxEditor => Native.NativeOS.Linux,
+                    RuntimePlatform.LinuxPlayer => Native.NativeOS.Linux,
+                    RuntimePlatform.OSXEditor => Native.NativeOS.OSX,
+                    RuntimePlatform.OSXPlayer => Native.NativeOS.OSX,
+                    _ => Native.NativeOS.Windows
+                });
+
             DisableOmitFramePointer();
 
             MultiplayerLoader.Multiplayer.settingsWindowDrawer =
@@ -187,6 +195,7 @@ namespace Multiplayer.Client
             {
                 session.Stop();
                 session = null;
+
                 Prefs.Apply();
             }
 

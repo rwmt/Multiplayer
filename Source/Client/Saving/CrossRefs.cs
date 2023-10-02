@@ -254,7 +254,7 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.game == null) return;
 
-            if (item.def.HasThingIDNumber)
+            if (item.def.HasThingIDNumber && item.thingIDNumber >= 0)
             {
                 ScribeUtil.sharedCrossRefs.RegisterLoaded(item);
                 ThingsById.Register(item);
@@ -293,7 +293,7 @@ namespace Multiplayer.Client
                 // Ignore null values and minified things with null inner thing.
                 // Since this method is called before ThingOwner<>.ExposeData,
                 // we're using data before it was cleaned up.
-                if (item != null && item is not MinifiedThing { InnerThing: null })
+                if (item != null && item is not MinifiedThing { InnerThing: null } && item.thingIDNumber >= 0)
                 {
                     ScribeUtil.sharedCrossRefs.RegisterLoaded(item);
                     ThingsById.Register(item);

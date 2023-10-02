@@ -84,6 +84,7 @@ public class ClientLoadingState : ClientBaseState
 
         TickPatch.tickUntil = tickUntil;
         Multiplayer.session.receivedCmds = remoteSentCmds;
+        Multiplayer.session.remoteTickUntil = tickUntil;
         TickPatch.serverFrozen = serverFrozen;
 
         int syncInfos = data.ReadInt32();
