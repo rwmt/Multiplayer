@@ -32,7 +32,7 @@ public static class EarlyInit
     {
         // Might fix some mod desyncs
         harmony.PatchMeasure(
-            AccessTools.Constructor(typeof(Def), new Type[0]),
+            AccessTools.Constructor(typeof(Def), Type.EmptyTypes),
             new HarmonyMethod(typeof(RandPatches), nameof(RandPatches.Prefix)),
             new HarmonyMethod(typeof(RandPatches), nameof(RandPatches.Postfix))
         );
