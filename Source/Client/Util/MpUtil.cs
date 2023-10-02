@@ -240,14 +240,4 @@ namespace Multiplayer.Client
             return dict.Keys.GetEnumerator();
         }
     }
-
-    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]
-    public class HotSwappableAttribute : Attribute
-    {
-        public HotSwappableAttribute()
-        {
-
-        }
-    }
-
 }

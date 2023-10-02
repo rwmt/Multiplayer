@@ -124,7 +124,7 @@ namespace Multiplayer.Client
         }
 
         [SuppressMessage("ReSharper", "StringLiteralTypo")]
-        private static string[] ignoredConfigsModIds =
+        public static string[] ignoredConfigsModIds =
         {
             // The old mod management code also included TacticalGroupsMod.xml and GraphicSetter.xml but I couldn't find their ids
             // todo unhardcode it
@@ -138,7 +138,8 @@ namespace Multiplayer.Client
             "fluffy.modmanager",
             "jelly.modswitch",
             "betterscenes.rimconnect", // contains secret key for streamer
-            "jaxe.rimhud"
+            "jaxe.rimhud",
+            //"zetrith.prepatcher"
         };
 
         public const string TempConfigsDir = "MultiplayerTempConfigs";

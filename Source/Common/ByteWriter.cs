@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace Multiplayer.Common
@@ -9,7 +10,7 @@ namespace Multiplayer.Common
     public class ByteWriter
     {
         private MemoryStream stream;
-        public object context;
+        public object? context;
 
         public int Position => (int)stream.Position;
 
@@ -40,7 +41,7 @@ namespace Multiplayer.Common
 
         public virtual void WriteBool(bool val) => stream.WriteByte(val ? (byte)1 : (byte)0);
 
-        public virtual void WritePrefixedBytes(byte[] bytes)
+        public virtual void WritePrefixedBytes(byte[]? bytes)
         {
             if (bytes == null)
             {
@@ -76,7 +77,7 @@ namespace Multiplayer.Common
             stream.Write(buffer, offset, length);
         }
 
-        public virtual ByteWriter WriteString(string s)
+        public virtual ByteWriter WriteString(string? s)
         {
             WritePrefixedBytes(s == null ? null : Encoding.UTF8.GetBytes(s));
             return this;
@@ -144,6 +145,11 @@ namespace Multiplayer.Common
                 foreach (object o in list)
                     Write(o);
             }
+            else if (obj is ITuple tuple)
+            {
+                for (int i = 0; i < tuple.Length; i++)
+                    Write(tuple[i]);
+            }
             else
             {
                 ServerLog.Error($"MP ByteWriter.Write: Unknown type {obj.GetType()}");
@@ -166,7 +172,7 @@ namespace Multiplayer.Common
             return writer.ToArray();
         }
 
-        internal void SetLength(long value)
+        public void SetLength(long value)
         {
             stream.SetLength(value);
         }

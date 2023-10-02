@@ -13,10 +13,10 @@ namespace Multiplayer.Common
         private MultiplayerServer server;
 
         public List<(LiteNetEndpoint, NetManager)> netManagers = new();
-        public NetManager lanManager;
-        private NetManager arbiter;
+        public NetManager? lanManager;
+        private NetManager? arbiter;
 
-        public int ArbiterPort => arbiter.LocalPort;
+        public int ArbiterPort => arbiter!.LocalPort;
 
         private int broadcastTimer;
 
@@ -65,6 +65,7 @@ namespace Multiplayer.Common
 
                     foreach (var (endpoint, man) in netManagers)
                     {
+                        ServerLog.Detail($"Starting NetManager at {endpoint}");
                         man.Start(endpoint.ipv4 ?? IPAddress.Any, endpoint.ipv6 ?? IPAddress.IPv6Any, endpoint.port);
                     }
                 }
@@ -120,8 +121,8 @@ namespace Multiplayer.Common
 
     public class LiteNetEndpoint
     {
-        public IPAddress ipv4;
-        public IPAddress ipv6;
+        public IPAddress? ipv4;
+        public IPAddress? ipv6;
         public int port;
 
         public override string ToString()

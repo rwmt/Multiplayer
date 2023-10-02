@@ -23,14 +23,14 @@ public static class TimeControlPatch
     private static ITickable Tickable =>
         !WorldRendererUtility.WorldRenderedNow && Multiplayer.GameComp.asyncTime
             ? Find.CurrentMap.AsyncTime()
-            : Multiplayer.WorldComp;
+            : Multiplayer.AsyncWorldTime;
 
     private static TimeVote CurTimeSpeedGame =>
-        (TimeVote)(Multiplayer.IsReplay ? TickPatch.replayTimeSpeed : Tickable.TimeSpeed);
+        (TimeVote)(Multiplayer.IsReplay ? TickPatch.replayTimeSpeed : Tickable.DesiredTimeSpeed);
 
     private static TimeVote? CurTimeSpeedUI =>
         Multiplayer.IsReplay ? (TimeVote?)TickPatch.replayTimeSpeed :
-        Multiplayer.GameComp.IsLowestWins ? Multiplayer.GameComp.LocalPlayerDataOrNull?.GetTimeVoteOrNull(Tickable.TickableId) : (TimeVote?)Tickable.TimeSpeed;
+        Multiplayer.GameComp.IsLowestWins ? Multiplayer.GameComp.LocalPlayerDataOrNull?.GetTimeVoteOrNull(Tickable.TickableId) : (TimeVote?)Tickable.DesiredTimeSpeed;
 
     static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
     {
@@ -80,7 +80,7 @@ public static class TimeControlPatch
             ));
 
             if (Widgets.ButtonInvisible(descRect, false) && ShouldReset && Multiplayer.LocalServer != null)
-                SendTimeVote(TimeVote.Reset);
+                SendTimeVote(TimeVote.ResetTickable);
         }
 
         foreach (var speed in GameSpeeds)
@@ -89,7 +89,7 @@ public static class TimeControlPatch
             {
                 // todo Move the host check to the server?
                 if (ShouldReset && Multiplayer.LocalServer != null)
-                    SendTimeVote(TimeVote.Reset);
+                    SendTimeVote(TimeVote.ResetTickable);
                 else if (speed == TimeVote.Paused)
                     SendTimeVote(TogglePaused(CurTimeSpeedUI));
                 else
@@ -118,16 +118,21 @@ public static class TimeControlPatch
         GenUI.AbsorbClicksInRect(timerRect);
         UIHighlighter.HighlightOpportunity(timerRect, "TimeControls");
 
+        DoTimeControlsHotkeys();
+    }
+
+    private static void DoTimeControlsHotkeys()
+    {
         if (Event.current.type != EventType.KeyDown)
             return;
 
         // Prevent multiple players changing the speed too quickly
-        if (Time.realtimeSinceStartup - MultiplayerWorldComp.lastSpeedChange < 0.4f)
+        if (Time.realtimeSinceStartup - AsyncWorldTimeComp.lastSpeedChange < 0.4f)
             return;
 
         if (KeyBindingDefOf.TogglePause.KeyDownEvent)
         {
-            SendTimeVote(ShouldReset ? TimeVote.PlayerReset : TogglePaused(CurTimeSpeedUI));
+            SendTimeVote(ShouldReset ? TimeVote.PlayerResetTickable : TogglePaused(CurTimeSpeedUI));
             if (ShouldReset)
                 prePauseTimeSpeed = null;
         }
@@ -240,7 +245,7 @@ public static class TimeControlPatch
         if (Event.current.type == EventType.KeyDown)
             Event.current.Use();
 
-        TimeControls.PlaySoundOf(vote >= TimeVote.PlayerReset ? TimeSpeed.Paused : (TimeSpeed)vote);
+        TimeControls.PlaySoundOf(vote >= TimeVote.PlayerResetTickable ? TimeSpeed.Paused : (TimeSpeed)vote);
     }
 
     private static void DoSingleTick()
@@ -249,11 +254,11 @@ public static class TimeControlPatch
         {
             var replaySpeed = TickPatch.replayTimeSpeed;
             TickPatch.replayTimeSpeed = TimeSpeed.Normal;
-            TickPatch.accumulator = 1;
+            TickPatch.ticksToRun = 1;
 
-            TickPatch.Tick(out _);
+            TickPatch.DoUpdate(out _);
 
-            TickPatch.accumulator = 0;
+            TickPatch.ticksToRun = 0;
             TickPatch.replayTimeSpeed = replaySpeed;
         }
     }
@@ -306,7 +311,7 @@ public static class ColonistBarTimeControl
             if (curGroup == entry.group) continue;
 
             ITickable entryTickable = entry.map?.AsyncTime();
-            if (entryTickable == null) entryTickable = Multiplayer.WorldComp;
+            if (entryTickable == null) entryTickable = Multiplayer.AsyncWorldTime;
 
             Rect groupBar = bar.drawer.GroupFrameRect(entry.group);
             float drawXPos = groupBar.x;
@@ -438,7 +443,7 @@ static class MainButtonWorldTimeControl
         __state = button;
 
         if (Event.current.type is EventType.MouseDown or EventType.MouseUp)
-            MpTimeControls.TimeControlButton(__state.Value, ColonistBarTimeControl.normalBgColor, Multiplayer.WorldComp);
+            MpTimeControls.TimeControlButton(__state.Value, ColonistBarTimeControl.normalBgColor, Multiplayer.AsyncWorldTime);
     }
 
     static void Postfix(MainButtonWorker __instance, Rect? __state)
@@ -446,7 +451,7 @@ static class MainButtonWorldTimeControl
         if (__state == null) return;
 
         if (Event.current.type == EventType.Repaint)
-            MpTimeControls.TimeControlButton(__state.Value, ColonistBarTimeControl.normalBgColor, Multiplayer.WorldComp);
+            MpTimeControls.TimeControlButton(__state.Value, ColonistBarTimeControl.normalBgColor, Multiplayer.AsyncWorldTime);
     }
 }
 
@@ -460,7 +465,7 @@ static class MpTimeControls
 
     public static void TimeControlButton(Rect button, Color bgColor, ITickable tickable)
     {
-        int speed = (int)tickable.TimeSpeed;
+        int speed = (int)tickable.DesiredTimeSpeed;
         if (tickable.ActualRateMultiplier(TimeSpeed.Normal) == 0f)
             speed = 0;
 
@@ -475,7 +480,7 @@ static class MpTimeControls
 
     public static void SendTimeChange(ITickable tickable, TimeSpeed newSpeed)
     {
-        if (tickable is MultiplayerWorldComp)
+        if (tickable is AsyncWorldTimeComp)
             Multiplayer.Client.SendCommand(CommandType.GlobalTimeSpeed, ScheduledCommand.Global, (byte)newSpeed);
         else if (tickable is AsyncTimeComp comp)
             Multiplayer.Client.SendCommand(CommandType.MapTimeSpeed, comp.map.uniqueID, (byte)newSpeed);

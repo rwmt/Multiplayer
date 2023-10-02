@@ -21,7 +21,7 @@ namespace Multiplayer.Client.Networking
             {
                 try
                 {
-                    serverSide.HandleReceive(new ByteReader(raw), reliable);
+                    serverSide.HandleReceiveRaw(new ByteReader(raw), reliable);
                 }
                 catch (Exception e)
                 {
@@ -57,7 +57,7 @@ namespace Multiplayer.Client.Networking
             {
                 try
                 {
-                    clientSide.HandleReceive(new ByteReader(raw), reliable);
+                    clientSide.HandleReceiveRaw(new ByteReader(raw), reliable);
                 }
                 catch (Exception e)
                 {

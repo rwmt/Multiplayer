@@ -1,19 +1,18 @@
-extern alias zip;
 using System;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Xml;
 using Multiplayer.Common;
+using Multiplayer.Common.Util;
 using Verse;
-using zip::Ionic.Zip;
 
 namespace Multiplayer.Client
 {
     public static class UserReadableDesyncInfo
     {
         /// <summary>
-        /// Attempts to generate user-readable desync info from the given replay 
+        /// Attempts to generate user-readable desync info from the given replay
         /// </summary>
         /// <param name="replay">The replay to generate the info from</param>
         /// <returns>The desync info as a human-readable string</returns>
@@ -21,14 +20,14 @@ namespace Multiplayer.Client
         {
             var text = new StringBuilder();
 
-            //Open the replay zip
-            using (var zip = replay.ZipFile)
+            // Open the replay zip
+            using (var zip = replay.OpenZipRead())
             {
                 try
                 {
                     text.AppendLine("[header]");
 
-                    using (var reader = new XmlTextReader(new MemoryStream(zip["game_snapshot"].GetBytes())))
+                    using (var reader = new XmlTextReader(new MemoryStream(zip.GetBytes("game_snapshot"))))
                     {
                         //Read to the <root> element
                         reader.ReadToNextElement();
@@ -50,7 +49,7 @@ namespace Multiplayer.Client
                 {
                     //The info is the replay save data, including game name, protocol version, and assembly hashes
                     text.AppendLine("[info]");
-                    text.AppendLine(zip["info"].GetString());
+                    text.AppendLine(zip.GetString("info"));
                 }
                 catch
                 {
@@ -62,7 +61,7 @@ namespace Multiplayer.Client
                 try
                 {
                     //Local Client Opinion data
-                    local = DeserializeAndPrintSyncInfo(text, zip, "sync_local");
+                    local = DeserializeAndPrintSyncInfo(text, "sync_local", zip.GetBytes("sync_local"));
                 }
                 catch
                 {
@@ -74,7 +73,7 @@ namespace Multiplayer.Client
                 try
                 {
                     //Remote Client Opinion data
-                    remote = DeserializeAndPrintSyncInfo(text, zip, "sync_remote");
+                    remote = DeserializeAndPrintSyncInfo(text, "sync_remote", zip.GetBytes("sync_remote"));
                 }
                 catch
                 {
@@ -88,13 +87,13 @@ namespace Multiplayer.Client
                     text.AppendLine("[desync_info]");
 
                     //Backwards compatibility! (AKA v1 support)
-                    if (zip["desync_info"].GetString().StartsWith("###"))
+                    if (zip.GetString("desync_info").StartsWith("###"))
                         //This is a V2 file, dump as-is
-                        text.AppendLine(zip["desync_info"].GetString());
+                        text.AppendLine(zip.GetString("desync_info"));
                     else
                     {
                         //V1 file, parse it.
-                        var desyncInfo = new ByteReader(zip["desync_info"].GetBytes());
+                        var desyncInfo = new ByteReader(zip.GetBytes("desync_info"));
                         text.AppendLine($"Arbiter online: {desyncInfo.ReadBool()}");
                         text.AppendLine($"Last valid tick: {desyncInfo.ReadInt32()}");
                         text.AppendLine($"Last valid arbiter online: {desyncInfo.ReadBool()}");
@@ -138,7 +137,7 @@ namespace Multiplayer.Client
                 {
                     //Add commands random states saved with the replay
                     text.AppendLine("[map_cmds]");
-                    foreach (var cmd in Replay.DeserializeCmds(zip["maps/000_0_cmds"].GetBytes()))
+                    foreach (var cmd in ScheduledCommand.DeserializeCmds(zip.GetBytes("maps/000_0_cmds")))
                         PrintCmdInfo(text, cmd);
                 }
                 catch
@@ -151,7 +150,7 @@ namespace Multiplayer.Client
                 {
                     //Add world random states saved with the replay
                     text.AppendLine("[world_cmds]");
-                    foreach (var cmd in Replay.DeserializeCmds(zip["world/000_cmds"].GetBytes()))
+                    foreach (var cmd in ScheduledCommand.DeserializeCmds(zip.GetBytes("world/000_cmds")))
                         PrintCmdInfo(text, cmd);
                 }
                 catch
@@ -184,14 +183,14 @@ namespace Multiplayer.Client
         /// and dumps its data in a human-readable format to the provided string builder
         /// </summary>
         /// <param name="builder">The builder to append the data to</param>
-        /// <param name="zip">The zip file that contains the file with the provided name</param>
         /// <param name="filename">The name of the sync file to dump</param>
+        /// <param name="bytes">The contents of the sync file to dump</param>
         /// <returns>The deserialized client opinion that was dumped</returns>
-        private static ClientSyncOpinion DeserializeAndPrintSyncInfo(StringBuilder builder, ZipFile zip, string filename)
+        private static ClientSyncOpinion DeserializeAndPrintSyncInfo(StringBuilder builder, string filename, byte[] bytes)
         {
             builder.AppendLine($"[{filename}]");
 
-            var sync = ClientSyncOpinion.Deserialize(new ByteReader(zip[filename].GetBytes()));
+            var sync = ClientSyncOpinion.Deserialize(new ByteReader(bytes));
             builder.AppendLine($"Start: {sync.startTick}");
             builder.AppendLine($"Was simulating: {sync.simulating}");
             builder.AppendLine($"Map count: {sync.mapStates.Count}");

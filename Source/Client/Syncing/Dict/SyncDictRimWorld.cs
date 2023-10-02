@@ -10,7 +10,7 @@ using Verse;
 using Verse.AI;
 using Verse.AI.Group;
 using static Multiplayer.Client.SyncSerialization;
-using static Multiplayer.Client.ImplSerialization;
+using static Multiplayer.Client.RwImplSerialization;
 // ReSharper disable RedundantLambdaParameterType
 
 namespace Multiplayer.Client
@@ -119,6 +119,37 @@ namespace Multiplayer.Client
                         {
                             Log.Error($"Multiplayer :: SyncDictionary.Hediff: Unknown hediff {id}");
                         }
+                    }
+                }, true // implicit
+            },
+            {
+                (SyncWorker data, ref HediffComp hediffComp) => {
+                    if (data.isWriting) {
+                        if (hediffComp != null) {
+                            ushort index = (ushort)Array.IndexOf(hediffCompTypes, hediffComp.GetType());
+                            data.Write(index);
+                            data.Write(hediffComp.parent);
+                            var tempComp = hediffComp;
+                            var compIndex = hediffComp.parent.comps.Where(x => x.props.compClass == tempComp.props.compClass).FirstIndexOf(x => x == tempComp);
+                            data.Write((ushort)compIndex);
+                        } else {
+                            data.Write(ushort.MaxValue);
+                        }
+                    } else {
+                        ushort index = data.Read<ushort>();
+                        if (index == ushort.MaxValue) {
+                            return;
+                        }
+                        HediffWithComps parent = data.Read<HediffWithComps>();
+                        if (parent == null) {
+                            return;
+                        }
+                        Type compType = hediffCompTypes[index];
+                        var compIndex = data.Read<ushort>();
+                        if (compIndex <= 0)
+                            hediffComp = parent.comps.Find(c => c.props.compClass == compType);
+                        else
+                            hediffComp = parent.comps.Where(c => c.props.compClass == compType).ElementAt(compIndex);
                     }
                 }, true // implicit
             },
@@ -323,6 +354,24 @@ namespace Multiplayer.Client
                     int lordId = data.ReadInt32();
                     return map.lordManager.lords.Find(l => l.loadID == lordId);
                 }
+            },
+            {
+                (ByteWriter data, LordJob job) => {
+                    WriteSync(data, job.lord);
+                },
+                (ByteReader data) => {
+                    var lord = ReadSync<Lord>(data);
+                    return lord?.LordJob;
+                }, true // Implicit
+            },
+            {
+                (ByteWriter data, LordToil toil) => {
+                    WriteSync(data, toil.lord);
+                },
+                (ByteReader data) => {
+                    var lord = ReadSync<Lord>(data);
+                    return lord?.curLordToil;
+                }, true // Implicit
             },
             #endregion
 
@@ -635,11 +684,11 @@ namespace Multiplayer.Client
                             holder = thing.Map;
                         else if (thing.ParentHolder is ThingComp thingComp)
                             holder = thingComp;
-                        else if (ThingOwnerUtility.GetFirstSpawnedParentThing(thing) is Thing parentThing)
+                        else if (ThingOwnerUtility.GetFirstSpawnedParentThing(thing) is { } parentThing)
                             holder = parentThing;
-                        else if (GetAnyParent<WorldObject>(thing) is WorldObject worldObj)
+                        else if (GetAnyParent<WorldObject>(thing) is { } worldObj)
                             holder = worldObj;
-                        else if (GetAnyParent<WorldObjectComp>(thing) is WorldObjectComp worldObjComp)
+                        else if (GetAnyParent<WorldObjectComp>(thing) is { } worldObjComp)
                             holder = worldObjComp;
 
                         GetImpl(holder, supportedThingHolders, out Type implType, out int index);
@@ -657,7 +706,6 @@ namespace Multiplayer.Client
                             context.syncingThingParent = true;
                             WriteSyncObject(data, holder, implType);
                             context.syncingThingParent = false;
-                            return;
                         }
                     }
                 },

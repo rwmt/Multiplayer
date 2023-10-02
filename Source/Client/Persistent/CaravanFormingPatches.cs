@@ -59,7 +59,6 @@ namespace Multiplayer.Client.Persistent
     [HarmonyPatch(typeof(Dialog_FormCaravan), nameof(Dialog_FormCaravan.DrawAutoSelectCheckbox))]
     static class DrawAutoSelectCheckboxPatch
     {
-        // TODO: Sync autoSelectFoodAndMedicine
         // This is merely hiding it and enabling manual transfer as a side effect.
         static bool Prefix(Dialog_FormCaravan __instance, Rect rect)
         {

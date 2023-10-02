@@ -18,7 +18,8 @@
         ServerPacketRead,
         Internal,
         ServerStarting,
-        BadGamePassword
+        BadGamePassword,
+        StateException
     }
 
 }

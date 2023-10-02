@@ -7,9 +7,10 @@ namespace Multiplayer.Common
     public abstract class MpConnectionState
     {
         public readonly ConnectionBase connection;
+        public bool alive = true;
 
         protected ServerPlayer Player => connection.serverPlayer;
-        protected MultiplayerServer Server => MultiplayerServer.instance;
+        protected MultiplayerServer Server => MultiplayerServer.instance!;
 
         public MpConnectionState(ConnectionBase connection)
         {
@@ -20,14 +21,23 @@ namespace Multiplayer.Common
         {
         }
 
-        public static Type[] connectionImpls = new Type[(int)ConnectionStateEnum.Count];
-        public static PacketHandlerInfo[,] packetHandlers = new PacketHandlerInfo[(int)ConnectionStateEnum.Count, (int)Packets.Count];
+        public virtual void OnDisconnect()
+        {
+        }
+
+        public virtual PacketHandlerInfo? GetPacketHandler(Packets packet)
+        {
+            return null;
+        }
+
+        public static Type[] stateImpls = new Type[(int)ConnectionStateEnum.Count];
+        public static PacketHandlerInfo?[,] packetHandlers = new PacketHandlerInfo?[(int)ConnectionStateEnum.Count, (int)Packets.Count];
 
         public static void SetImplementation(ConnectionStateEnum state, Type type)
         {
             if (!type.IsSubclassOf(typeof(MpConnectionState))) return;
 
-            connectionImpls[(int)state] = type;
+            stateImpls[(int)state] = type;
 
             foreach (var method in type.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly))
             {
@@ -36,9 +46,13 @@ namespace Multiplayer.Common
                     continue;
 
                 if (method.GetParameters().Length != 1 || method.GetParameters()[0].ParameterType != typeof(ByteReader))
-                    continue;
+                    throw new Exception($"Bad packet handler signature for {method}");
 
                 bool fragment = method.GetAttribute<IsFragmentedAttribute>() != null;
+
+                if (packetHandlers[(int)state, (int)attr.packet] != null)
+                    throw new Exception($"Packet {state}:{type} already has a handler");
+
                 packetHandlers[(int)state, (int)attr.packet] = new PacketHandlerInfo(MethodInvoker.GetHandler(method), fragment);
             }
         }

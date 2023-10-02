@@ -42,9 +42,9 @@ namespace Multiplayer.Client
         {
             string label;
 
-            if (Multiplayer.Client?.StateObj is ClientJoiningState { subState: JoiningState.Waiting })
+            if (Multiplayer.Client?.StateObj is ClientLoadingState { subState: LoadingState.Waiting })
                 label = "MpWaitingForGameData".Translate() + MpUI.FixedEllipsis();
-            else if (Multiplayer.Client?.StateObj is ClientJoiningState { subState: JoiningState.Downloading })
+            else if (Multiplayer.Client?.StateObj is ClientLoadingState { subState: LoadingState.Downloading })
                 label = "MpDownloading".Translate(Multiplayer.Client.FragmentProgress);
             else
                 label = IsConnecting ? (ConnectingString + MpUI.FixedEllipsis()) : result;

@@ -35,7 +35,7 @@ jobs:
     - run: mkdir -p output/Multiplayer
 
     - name: Move files
-      run: mv About/ Assemblies/ Defs/ Languages/ Textures/ output/Multiplayer
+      run: mv About/ Assemblies/ AssembliesCustom/ Defs/ Languages/ Textures/ output/Multiplayer
 
     - name: Upload Mod Artifacts
       uses: actions/upload-artifact@v2

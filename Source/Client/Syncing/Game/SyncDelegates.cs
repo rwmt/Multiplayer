@@ -69,7 +69,8 @@ namespace Multiplayer.Client
             SyncMethod.Lambda(typeof(CompRefuelable), nameof(CompRefuelable.CompGetGizmosExtra), 1);                    // Toggle Auto-refuel
             SyncMethod.Lambda(typeof(CompRefuelable), nameof(CompRefuelable.CompGetGizmosExtra), 2).SetDebugOnly();     // Set fuel to 0
             SyncMethod.Lambda(typeof(CompRefuelable), nameof(CompRefuelable.CompGetGizmosExtra), 3).SetDebugOnly();     // Set fuel to 0.1
-            SyncMethod.Lambda(typeof(CompRefuelable), nameof(CompRefuelable.CompGetGizmosExtra), 4).SetDebugOnly();     // Set fuel to max
+            SyncMethod.Lambda(typeof(CompRefuelable), nameof(CompRefuelable.CompGetGizmosExtra), 4).SetDebugOnly();     // -20% fuel
+            SyncMethod.Lambda(typeof(CompRefuelable), nameof(CompRefuelable.CompGetGizmosExtra), 5).SetDebugOnly();     // Set fuel to max
 
             SyncMethod.Lambda(typeof(CompShuttle), nameof(CompShuttle.CompGetGizmosExtra), 1);  // Toggle autoload
             SyncMethod.Lambda(typeof(ShipJob_Wait), nameof(ShipJob_Wait.GetJobGizmos), 1);      // Send shuttle
@@ -181,7 +182,9 @@ namespace Multiplayer.Client
 
             // Genepack Container
             SyncMethod.Register(typeof(ITab_ContentsBase), nameof(ITab_ContentsBase.OnDropThing)).SetContext(SyncContext.MapSelected); // Used by ITab_ContentsGenepackHolder
-            SyncDelegate.Lambda(typeof(Dialog_CreateXenogerm), nameof(Dialog_CreateXenogerm.DrawGenepack), 7); // Eject from container
+            SyncDelegate.Lambda(typeof(Dialog_CreateXenogerm), nameof(Dialog_CreateXenogerm.DrawGenepack), 8); // Eject from container
+
+            SyncDelegate.Lambda(typeof(Pawn), nameof(Pawn.GetGizmos), 5).SetDebugOnly(); // Set growth tier
 
             InitRituals();
             InitChoiceLetters();
@@ -438,20 +441,28 @@ namespace Multiplayer.Client
             return false;
         }
 
-        private static void GizmoFormCaravan(Map map, bool reform)
+        [MpPrefix(typeof(CompHitchingSpot), nameof(CompHitchingSpot.CompGetGizmosExtra), 0)]
+        static bool GizmoFormCaravan(CompHitchingSpot __instance)
+        {
+            if (Multiplayer.Client == null) return true;
+            GizmoFormCaravan(__instance.parent.Map, false, __instance.parent.Position);
+            return false;
+        }
+
+        private static void GizmoFormCaravan(Map map, bool reform, IntVec3? meetingSpot = null)
         {
             var comp = map.MpComp();
 
             if (comp.caravanForming != null)
                 comp.caravanForming.OpenWindow();
             else
-                CreateCaravanFormingSession(comp, reform);
+                CreateCaravanFormingSession(comp, reform, meetingSpot);
         }
 
         [SyncMethod]
-        private static void CreateCaravanFormingSession(MultiplayerMapComp comp, bool reform)
+        private static void CreateCaravanFormingSession(MultiplayerMapComp comp, bool reform, IntVec3? meetingSpot = null)
         {
-            var session = comp.CreateCaravanFormingSession(reform, null, false);
+            var session = comp.CreateCaravanFormingSession(reform, null, false, meetingSpot);
 
             if (TickPatch.currentExecutingCmdIssuedBySelf)
             {

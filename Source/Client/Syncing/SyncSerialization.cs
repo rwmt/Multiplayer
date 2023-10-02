@@ -9,17 +9,16 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Xml;
+using Multiplayer.Client.Experimental;
 using Verse;
 
 namespace Multiplayer.Client
 {
-    // Syncs a type with all its declared fields
-    public interface ISyncSimple { }
-
     public static class SyncSerialization
     {
         public static void Init()
         {
+            RwImplSerialization.Init();
             ImplSerialization.Init();
             DefSerialization.Init();
         }
@@ -50,10 +49,14 @@ namespace Multiplayer.Client
                     || gtd == typeof(Nullable<>)
                     || gtd == typeof(Dictionary<,>)
                     || gtd == typeof(Pair<,>)
+                    || gtd == typeof(HashSet<>)
                     || typeof(ITuple).IsAssignableFrom(gtd))
                     && CanHandleGenericArgs(type);
             if (typeof(ISyncSimple).IsAssignableFrom(type))
-                return AccessTools.GetDeclaredFields(type).All(f => CanHandle(f.FieldType));
+                return ImplSerialization.syncSimples.
+                    Where(t => type.IsAssignableFrom(t)).
+                    SelectMany(AccessTools.GetDeclaredFields).
+                    All(f => CanHandle(f.FieldType));
             if (typeof(Def).IsAssignableFrom(type))
                 return true;
             if (typeof(Designator).IsAssignableFrom(type))
@@ -213,7 +216,7 @@ namespace Multiplayer.Client
                         return dictionary;
                     }
 
-                    if (genericTypeDefinition == typeof(Pair<,>))
+                    if (genericTypeDefinition == typeof(Pair<,>) || genericTypeDefinition == typeof(ValueTuple<,>))
                     {
                         Type[] arguments = type.GetGenericArguments();
                         object[] parameters =
@@ -223,6 +226,13 @@ namespace Multiplayer.Client
                         };
 
                         return type.GetConstructors().First().Invoke(parameters);
+                    }
+
+                    if (genericTypeDefinition == typeof(HashSet<>))
+                    {
+                        Type element = type.GetGenericArguments()[0];
+                        object list = ReadSyncObject(data, typeof(List<>).MakeGenericType(element));
+                        return Activator.CreateInstance(typeof(HashSet<>).MakeGenericType(element), list);
                     }
 
                     if (typeof(ITuple).IsAssignableFrom(genericTypeDefinition)) // ValueTuple or Tuple
@@ -241,8 +251,10 @@ namespace Multiplayer.Client
 
                 if (typeof(ISyncSimple).IsAssignableFrom(type))
                 {
-                    var obj = MpUtil.NewObjectNoCtor(type);
-                    foreach (var field in AccessTools.GetDeclaredFields(type))
+                    ushort typeIndex = data.ReadUShort();
+                    var objType = ImplSerialization.syncSimples[typeIndex];
+                    var obj = MpUtil.NewObjectNoCtor(objType);
+                    foreach (var field in AccessTools.GetDeclaredFields(objType))
                         field.SetValue(obj, ReadSyncObject(data, field.FieldType));
                     return obj;
                 }
@@ -269,7 +281,7 @@ namespace Multiplayer.Client
                 if (typeof(Designator).IsAssignableFrom(type))
                 {
                     ushort desId = ReadSync<ushort>(data);
-                    type = ImplSerialization.designatorTypes[desId]; // Replaces the type!
+                    type = RwImplSerialization.designatorTypes[desId]; // Replaces the type!
                 }
 
                 // Where the magic happens
@@ -301,13 +313,11 @@ namespace Multiplayer.Client
 
         public static void WriteSyncObject(ByteWriter data, object obj, SyncType syncType)
         {
-            MpContext context = data.MpContext();
             Type type = syncType.type;
-
             var log = (data as LoggingByteWriter)?.Log;
             log?.Enter($"{type.FullName}: {obj ?? "null"}");
 
-            if (obj != null && !type.IsAssignableFrom(obj.GetType()))
+            if (obj != null && !type.IsInstanceOfType(obj))
                 throw new SerializationException($"Serializing with type {type} but got object of type {obj.GetType()}");
 
             try
@@ -402,7 +412,7 @@ namespace Multiplayer.Client
                         return;
                     }
 
-                    if (genericTypeDefinition == typeof(IEnumerable<>))
+                    if (genericTypeDefinition == typeof(IEnumerable<>) || genericTypeDefinition == typeof(HashSet<>))
                     {
                         IEnumerable e = (IEnumerable)obj;
                         Type elementType = type.GetGenericArguments()[0];
@@ -468,6 +478,16 @@ namespace Multiplayer.Client
                         return;
                     }
 
+                    if (genericTypeDefinition == typeof(ValueTuple<,>))
+                    {
+                        Type[] arguments = type.GetGenericArguments();
+
+                        WriteSyncObject(data, AccessTools.DeclaredField(type, "Item1").GetValue(obj), arguments[0]);
+                        WriteSyncObject(data, AccessTools.DeclaredField(type, "Item2").GetValue(obj), arguments[1]);
+
+                        return;
+                    }
+
                     if (typeof(ITuple).IsAssignableFrom(genericTypeDefinition)) // ValueTuple or Tuple
                     {
                         Type[] arguments = type.GetGenericArguments();
@@ -484,7 +504,8 @@ namespace Multiplayer.Client
 
                 if (typeof(ISyncSimple).IsAssignableFrom(type))
                 {
-                    foreach (var field in AccessTools.GetDeclaredFields(type))
+                    data.WriteUShort((ushort)ImplSerialization.syncSimples.FindIndex(obj.GetType()));
+                    foreach (var field in AccessTools.GetDeclaredFields(obj.GetType()))
                         WriteSyncObject(data, field.GetValue(obj), field.FieldType);
                     return;
                 }
@@ -511,7 +532,7 @@ namespace Multiplayer.Client
                 // Special case for Designators to change the type
                 if (typeof(Designator).IsAssignableFrom(type))
                 {
-                    data.WriteUShort((ushort) Array.IndexOf(ImplSerialization.designatorTypes, obj.GetType()));
+                    data.WriteUShort((ushort) Array.IndexOf(RwImplSerialization.designatorTypes, obj.GetType()));
                 }
 
                 // Where the magic happens

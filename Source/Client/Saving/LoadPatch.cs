@@ -1,5 +1,4 @@
-﻿using System.Linq;
-using HarmonyLib;
+﻿using HarmonyLib;
 using Multiplayer.Client.Saving;
 using Verse;
 using Verse.Profile;
@@ -46,7 +45,7 @@ namespace Multiplayer.Client
                 LongEventHandler.ExecuteWhenFinished(() =>
                 {
                     // Inits all caches
-                    foreach (ITickable tickable in TickPatch.AllTickables.Where(t => !(t is ConstantTicker)))
+                    foreach (ITickable tickable in TickPatch.AllTickables)
                         tickable.Tick();
 
                     if (!Current.Game.Maps.Any())

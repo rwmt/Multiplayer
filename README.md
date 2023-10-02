@@ -24,7 +24,7 @@ Please do all pull requests to the [development](https://github.com/rwmt/Multipl
 
 If you’re feeling generous these are people who have contributed greatly to the mod’s development and upkeep.
 
-**[Zetrith](https://ko-fi.com/zetrith)** - Creator, Core, Support\
+**[Zetrith](https://patreon.com/zetrith)** - Creator, Core, Support\
 **[NotFood](https://ko-fi.com/notfood)** - Core, Mod Compatiblity, Compatibility Commissions\
 **[Sokyran](https://ko-fi.com/sokyran)** - Core, Mod Compatiblity, Compatibility Commissions\
 [Nebual](https://ko-fi.com/Nebual) - Core\
