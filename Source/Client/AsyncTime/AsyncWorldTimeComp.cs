@@ -142,12 +142,14 @@ public class AsyncWorldTimeComp : IExposable, ITickable
         Rand.PushState();
         Rand.StateCompressed = randState;
 
-        FactionExtensions.PushFaction(null, Multiplayer.WorldComp.spectatorFaction);
+        if (Multiplayer.GameComp.multifaction)
+            FactionExtensions.PushFaction(null, Multiplayer.WorldComp.spectatorFaction);
     }
 
     public void PostContext()
     {
-        FactionExtensions.PopFaction();
+        if (Multiplayer.GameComp.multifaction)
+            FactionExtensions.PopFaction();
 
         randState = Rand.StateCompressed;
         Rand.PopState();
@@ -237,7 +239,7 @@ public class AsyncWorldTimeComp : IExposable, ITickable
 
     private static void CreateJoinPointAndSendIfHost()
     {
-        Multiplayer.session.dataSnapshot = SaveLoad.CreateGameDataSnapshot(SaveLoad.SaveAndReload());
+        Multiplayer.session.dataSnapshot = SaveLoad.CreateGameDataSnapshot(SaveLoad.SaveAndReload(), Multiplayer.GameComp.multifaction);
 
         if (!TickPatch.Simulating && !Multiplayer.IsReplay &&
             (Multiplayer.LocalServer != null || Multiplayer.arbiterInstance))

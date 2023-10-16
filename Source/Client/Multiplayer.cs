@@ -121,7 +121,7 @@ namespace Multiplayer.Client
 
             LongEventHandler.ExecuteWhenFinished(() => {
                 // Double Execute ensures it'll run last.
-                LongEventHandler.ExecuteWhenFinished(() => EarlyInit.LatePatches(harmony));
+                LongEventHandler.ExecuteWhenFinished(EarlyInit.LatePatches);
             });
 
 #if DEBUG

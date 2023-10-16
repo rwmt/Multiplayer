@@ -117,7 +117,7 @@ namespace Multiplayer.Client
         private static async Task<GameDataSnapshot> CreateGameData()
         {
             await LongEventTask.ContinueInLongEvent("MpSaving", false);
-            return SaveLoad.CreateGameDataSnapshot(SaveLoad.SaveAndReload());
+            return SaveLoad.CreateGameDataSnapshot(SaveLoad.SaveAndReload(), Multiplayer.GameComp.multifaction);
         }
 
         private static void SetupGameFromSingleplayer()

@@ -153,7 +153,7 @@ namespace Multiplayer.Client
         public static DebugActionNode RecreateGraphAndGetNode(string path)
         {
             // Some actions (like quest generation) invoke the RNG during global graph caching
-            // so we it recreate to avoid desyncs
+            // so we recreate it to avoid desyncs
             Dialog_Debug.ResetStaticData();
             Dialog_Debug.TrySetupNodeGraph();
 

@@ -63,10 +63,6 @@ public static class Loader
         );
         Multiplayer.game.myFactionLoading = null;
 
-        // todo temporary
-        // Current.Game.InitData = new GameInitData() { mapSize = 50 };
-        // Find.WindowStack.Add(new Page_SelectStartingSite());
-
         if (forceAsyncTime)
             Multiplayer.game.gameComp.asyncTime = true;
 
@@ -86,10 +82,6 @@ public static class Loader
             using XmlReader reader = XmlReader.Create(new MemoryStream(dataSnapshot.MapData[map]));
             XmlNode mapNode = gameDoc.ReadNode(reader);
             gameNode["maps"].AppendChild(mapNode);
-
-            // todo temporary
-            // if (gameNode["currentMapIndex"] == null)
-            //     gameNode.AddNode("currentMapIndex", map.ToString());
         }
 
         return gameDoc;

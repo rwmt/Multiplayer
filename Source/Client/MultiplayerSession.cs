@@ -268,7 +268,9 @@ namespace Multiplayer.Client
             {
                 new FileInfo(Path.Combine(Multiplayer.ReplaysDir, $"{fileNameNoExtension}.zip")).Delete();
                 Replay.ForSaving(fileNameNoExtension).WriteData(
-                    currentReplay ? Multiplayer.session.dataSnapshot : SaveLoad.CreateGameDataSnapshot(SaveLoad.SaveGameData())
+                    currentReplay ?
+                        Multiplayer.session.dataSnapshot :
+                        SaveLoad.CreateGameDataSnapshot(SaveLoad.SaveGameData(), false)
                 );
                 Messages.Message("MpGameSaved".Translate(fileNameNoExtension), MessageTypeDefOf.SilentInput, false);
                 Multiplayer.session.lastSaveAt = Time.realtimeSinceStartup;

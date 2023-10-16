@@ -77,17 +77,10 @@ static class CheckRemoveMapNowPatch
     }
 }
 
-// todo this is temporary
-[HarmonyPatch(typeof(GoodwillSituationManager), nameof(GoodwillSituationManager.GoodwillManagerTick))]
-static class GoodwillManagerTickCancel
-{
-    static bool Prefix() => false;
-}
-
 [HarmonyPatch(typeof(Settlement), nameof(Settlement.Attackable), MethodType.Getter)]
 static class SettlementAttackablePatch
 {
-    static bool Prefix() => false; // todo should only be player
+    static bool Prefix(Settlement __instance) => __instance.Faction is not { IsPlayer: true };
 }
 
 [HarmonyPatch(typeof(Settlement), nameof(Settlement.Material), MethodType.Getter)]
@@ -108,37 +101,6 @@ static class SettlementNullFactionPatch1
 [HarmonyPatch(typeof(Settlement), nameof(Settlement.ExpandingIcon), MethodType.Getter)]
 static class SettlementNullFactionPatch2
 {
-    static void OnCodeReload(int version)
-    {
-        var harmony = new Harmony("mptestpatches");
-        harmony.UnpatchAll("mptestpatches");
-
-        static bool GoodwillPrefix(Faction other)
-        {
-            return other is not { IsPlayer: true };
-        }
-
-        static void PrintPrefix()
-        {
-            Log.Message("add pawn");
-        }
-
-        harmony.Patch(
-            MethodOf.Inner((GoodwillSituationManager m) => m.GetNaturalGoodwill),
-            MethodOf.Lambda(GoodwillPrefix).Harmony()
-        );
-
-        harmony.Patch(
-            MethodOf.Inner((GoodwillSituationManager m) => m.GetMaxGoodwill),
-            MethodOf.Lambda(GoodwillPrefix).Harmony()
-        );
-
-        harmony.Patch(
-            MethodOf.Inner((WorldPawns w) => w.AddPawn(null)),
-            MethodOf.Lambda(PrintPrefix).Harmony()
-        );
-    }
-
     static bool Prefix(Settlement __instance, ref Texture2D __result)
     {
         if (__instance.factionInt == null)

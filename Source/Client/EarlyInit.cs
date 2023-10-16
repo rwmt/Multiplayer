@@ -63,25 +63,9 @@ public static class EarlyInit
             Sync.ValidateAll();
     }
 
-    internal static void LatePatches(Harmony harmony)
+    internal static void LatePatches()
     {
-        // optimization, cache DescendantThingDefs
-        // harmony.PatchMeasure(
-        //     AccessTools.Method(typeof(ThingCategoryDef), "get_DescendantThingDefs"),
-        //     new HarmonyMethod(typeof(ThingCategoryDef_DescendantThingDefsPatch), "Prefix"),
-        //     new HarmonyMethod(typeof(ThingCategoryDef_DescendantThingDefsPatch), "Postfix")
-        // );
-
-        // optimization, cache ThisAndChildCategoryDefs
-        // harmony.PatchMeasure(
-        //     AccessTools.Method(typeof(ThingCategoryDef), "get_ThisAndChildCategoryDefs"),
-        //     new HarmonyMethod(typeof(ThingCategoryDef_ThisAndChildCategoryDefsPatch), "Prefix"),
-        //     new HarmonyMethod(typeof(ThingCategoryDef_ThisAndChildCategoryDefsPatch), "Postfix")
-        // );
-
         if (MpVersion.IsDebug)
-        {
             Log.Message("== Structure == \n" + SyncDict.syncWorkers.PrintStructure());
-        }
     }
 }

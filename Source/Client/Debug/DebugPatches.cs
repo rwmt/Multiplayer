@@ -177,8 +177,8 @@ namespace Multiplayer.Client.Patches
         {
             // On Windows, Debug.Log used by Verse.Log replaces \n with \r\n
             // Without this patch printing \r\n results in \r\r\n
-            // if (Native.Windows)
-            //     text = text?.Replace("\r\n", "\n");
+            if (Application.platform == RuntimePlatform.WindowsPlayer)
+                text = text?.Replace("\r\n", "\n");
         }
     }
 

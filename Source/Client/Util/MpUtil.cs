@@ -177,9 +177,9 @@ namespace Multiplayer.Client
         }
     }
 
-    public class DefaultComparer<T> : IEqualityComparer<T>
+    public class IdentityComparer<T> : IEqualityComparer<T>
     {
-        public static DefaultComparer<T> Instance = new DefaultComparer<T>();
+        public static IdentityComparer<T> Instance = new();
 
         public bool Equals(T x, T y)
         {

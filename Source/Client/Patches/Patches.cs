@@ -546,4 +546,16 @@ namespace Multiplayer.Client
             return list;
         }
     }
+
+    [HarmonyPatch(typeof(PawnTextureAtlas), MethodType.Constructor)]
+    static class PawnTextureAtlasCtorPatch
+    {
+        static void Postfix(PawnTextureAtlas __instance)
+        {
+            // Pawn ids can change during deserialization when fixing local (negative) ids in CrossRefHandler_Clear_Patch
+            __instance.frameAssignments = new Dictionary<Pawn, PawnTextureAtlasFrameSet>(
+                IdentityComparer<Pawn>.Instance
+            );
+        }
+    }
 }

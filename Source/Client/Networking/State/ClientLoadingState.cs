@@ -72,8 +72,6 @@ public class ClientLoadingState : ClientBaseState
             mapsToLoad.Add(mapId);
         }
 
-        //mapsToLoad.RemoveAt(Multiplayer.LocalServer != null ? 1 : 0); // todo dbg
-
         Session.dataSnapshot = new GameDataSnapshot(
             0,
             worldData,

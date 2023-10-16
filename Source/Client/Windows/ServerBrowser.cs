@@ -19,13 +19,12 @@ using Multiplayer.Common.Util;
 
 namespace Multiplayer.Client
 {
-
     public class ServerBrowser : Window
     {
         private NetManager lanListener;
-        private List<LanServer> servers = new List<LanServer>();
+        private List<LanServer> servers = new();
 
-        public override Vector2 InitialSize => new Vector2(800f, 500f);
+        public override Vector2 InitialSize => new(800f, 500f);
 
         public ServerBrowser()
         {
@@ -53,7 +52,7 @@ namespace Multiplayer.Client
 
         private Vector2 lanScroll;
         private Vector2 steamScroll;
-        private Vector2 hostScroll;
+        private static Vector2 hostScroll;
         private static Tabs tab;
 
         enum Tabs
