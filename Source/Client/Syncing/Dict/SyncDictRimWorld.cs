@@ -345,19 +345,26 @@ namespace Multiplayer.Client
             #region AI
             {
                 (ByteWriter data, Lord lord) => {
-                    MpContext context = data.MpContext();
-                    context.map = lord.Map;
-                    data.WriteInt32(lord.loadID);
+                    if (lord == null) {
+                        data.WriteInt32(int.MaxValue);
+                    }
+                    else {
+                        data.WriteInt32(lord.loadID);
+                        MpContext context = data.MpContext();
+                        context.map = lord.Map;
+                    }
                 },
                 (ByteReader data) => {
-                    var map = data.MpContext().map;
                     int lordId = data.ReadInt32();
+                    if (lordId == int.MaxValue)
+                        return null;
+                    var map = data.MpContext().map;
                     return map.lordManager.lords.Find(l => l.loadID == lordId);
                 }
             },
             {
                 (ByteWriter data, LordJob job) => {
-                    WriteSync(data, job.lord);
+                    WriteSync(data, job?.lord);
                 },
                 (ByteReader data) => {
                     var lord = ReadSync<Lord>(data);
@@ -366,7 +373,7 @@ namespace Multiplayer.Client
             },
             {
                 (ByteWriter data, LordToil toil) => {
-                    WriteSync(data, toil.lord);
+                    WriteSync(data, toil?.lord);
                 },
                 (ByteReader data) => {
                     var lord = ReadSync<Lord>(data);
