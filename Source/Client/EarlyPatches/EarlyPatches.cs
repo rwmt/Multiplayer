@@ -17,8 +17,8 @@ namespace Multiplayer.Client
     {
         static IEnumerable<MethodBase> TargetMethods()
         {
-            yield return typeof(ThingSetMaker_MarketValue).GetConstructor(new Type[0]);
-            yield return typeof(ThingSetMaker_Nutrition).GetConstructor(new Type[0]);
+            yield return typeof(ThingSetMaker_MarketValue).GetConstructor(Type.EmptyTypes);
+            yield return typeof(ThingSetMaker_Nutrition).GetConstructor(Type.EmptyTypes);
         }
 
         public static List<ThingSetMaker> captured = new();

@@ -133,8 +133,8 @@ namespace Multiplayer.Client
         public string gameName;
 
         public string rwVersion;
-        public string[] modNames = new string[0];
-        public string[] modIds = new string[0];
+        public string[] modNames = Array.Empty<string>();
+        public string[] modIds = Array.Empty<string>();
 
         public int protocol;
         public bool asyncTime;
