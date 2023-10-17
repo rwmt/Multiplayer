@@ -906,7 +906,7 @@ namespace Multiplayer.Client
                         if (index == ushort.MaxValue) {
                             return;
                         }
-                        Type compType = worldCompTypes[index];
+                        Type compType = gameCompTypes[index];
                         comp = Current.Game.GetComponent(compType);
                     }
                 }, true // implicit
