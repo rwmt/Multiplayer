@@ -52,8 +52,10 @@ namespace Multiplayer.Client
             SyncDelegate.Lambda(typeof(CompTargetable), nameof(CompTargetable.SelectedUseOption), 0); // Use targetable
 
             SyncDelegate.LambdaInGetter(typeof(Designator), nameof(Designator.RightClickFloatMenuOptions), 0) // Designate all
-                .TransformField("things", Serializer.SimpleReader(() => Find.CurrentMap.listerThings.AllThings));
-            SyncDelegate.LambdaInGetter(typeof(Designator), nameof(Designator.RightClickFloatMenuOptions), 1); // Remove all designations
+                .TransformField("things", Serializer.SimpleReader(() => Find.CurrentMap.listerThings.AllThings))
+                .SetContext(SyncContext.CurrentMap);
+            SyncDelegate.LambdaInGetter(typeof(Designator), nameof(Designator.RightClickFloatMenuOptions), 1) // Remove all designations
+                .SetContext(SyncContext.CurrentMap);
 
             SyncDelegate.Lambda(typeof(CaravanAbandonOrBanishUtility), nameof(CaravanAbandonOrBanishUtility.TryAbandonOrBanishViaInterface), 1, new[] { typeof(Thing), typeof(Caravan) }).CancelIfAnyFieldNull(); // Abandon caravan thing
             SyncDelegate.Lambda(typeof(CaravanAbandonOrBanishUtility), nameof(CaravanAbandonOrBanishUtility.TryAbandonOrBanishViaInterface), 0, new[] { typeof(TransferableImmutable), typeof(Caravan) }).CancelIfAnyFieldNull(); // Abandon caravan transferable
