@@ -43,7 +43,7 @@ namespace Multiplayer.Client
             SyncFieldUtil.UpdateSync();
 
             if (!Multiplayer.arbiterInstance && Application.isFocused && !TickPatch.Simulating && !Multiplayer.session.desynced)
-                Multiplayer.session.cursorAndPing.SendVisuals();
+                Multiplayer.session.playerCursors.SendVisuals();
 
             if (Multiplayer.Client is SteamBaseConn steamConn && SteamManager.Initialized)
                 foreach (var packet in SteamIntegration.ReadPackets(steamConn.recvChannel))

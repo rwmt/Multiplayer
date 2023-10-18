@@ -1,13 +1,10 @@
-using Multiplayer.Common;
 using Multiplayer.Client.Desyncs;
 using Multiplayer.Client.Util;
-using Multiplayer.Common.Util;
 using UnityEngine;
 using Verse;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
     public class DesyncedWindow : Window
     {
         const int NumButtons = 5;

@@ -52,10 +52,8 @@ namespace Multiplayer.Client
             SyncDelegate.Lambda(typeof(CompTargetable), nameof(CompTargetable.SelectedUseOption), 0); // Use targetable
 
             SyncDelegate.LambdaInGetter(typeof(Designator), nameof(Designator.RightClickFloatMenuOptions), 0) // Designate all
-                .TransformField("things", Serializer.SimpleReader(() => Find.CurrentMap.listerThings.AllThings))
-                .SetContext(SyncContext.CurrentMap);
-            SyncDelegate.LambdaInGetter(typeof(Designator), nameof(Designator.RightClickFloatMenuOptions), 1) // Remove all designations
-                .SetContext(SyncContext.CurrentMap);
+                .TransformField("things", Serializer.SimpleReader(() => Find.CurrentMap.listerThings.AllThings)).SetContext(SyncContext.CurrentMap);
+            SyncDelegate.LambdaInGetter(typeof(Designator), nameof(Designator.RightClickFloatMenuOptions), 1).SetContext(SyncContext.CurrentMap); // Remove all designations
 
             SyncDelegate.Lambda(typeof(CaravanAbandonOrBanishUtility), nameof(CaravanAbandonOrBanishUtility.TryAbandonOrBanishViaInterface), 1, new[] { typeof(Thing), typeof(Caravan) }).CancelIfAnyFieldNull(); // Abandon caravan thing
             SyncDelegate.Lambda(typeof(CaravanAbandonOrBanishUtility), nameof(CaravanAbandonOrBanishUtility.TryAbandonOrBanishViaInterface), 0, new[] { typeof(TransferableImmutable), typeof(Caravan) }).CancelIfAnyFieldNull(); // Abandon caravan transferable
@@ -228,7 +226,7 @@ namespace Multiplayer.Client
             var RitualRolesSerializer = Serializer.New(
                 (IEnumerable<RitualRole> roles, object target, object[] args) =>
                 {
-                    var dialog = target.GetPropertyOrField(SyncDelegate.DELEGATE_THIS) as Dialog_BeginRitual;
+                    var dialog = target.GetPropertyOrField(SyncDelegate.DelegateThis) as Dialog_BeginRitual;
                     var ids = from r in roles select r.id;
                     return (dialog.ritual.behavior.def, ids);
                 },
@@ -504,7 +502,7 @@ namespace Multiplayer.Client
                 {
                     // After encountering the first return - insert our method and return early, ignoring the original code we don't care for
                     var pawnField = AccessTools.Field(original.DeclaringType, "pawn");
-                    var embryoField = AccessTools.Field(original.DeclaringType, SyncDelegate.DELEGATE_THIS);
+                    var embryoField = AccessTools.Field(original.DeclaringType, SyncDelegate.DelegateThis);
                     var ourMethod = AccessTools.Method(typeof(SyncDelegates), nameof(SyncedCreateImplantEmbryoBill));
 
                     yield return new CodeInstruction(OpCodes.Ldarg_0).MoveLabelsFrom(ci);

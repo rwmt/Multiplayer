@@ -58,7 +58,9 @@ public static class Loader
 
         Multiplayer.session.replayTimerStart = TickPatch.Timer;
 
-        Multiplayer.game.ChangeRealPlayerFaction(Find.FactionManager.GetById(Multiplayer.session.myFactionId));
+        Multiplayer.game.ChangeRealPlayerFaction(
+            Find.FactionManager.GetById(Multiplayer.session.myFactionId) ?? Multiplayer.WorldComp.spectatorFaction
+        );
         Multiplayer.game.myFactionLoading = null;
 
         if (forceAsyncTime)
@@ -80,9 +82,6 @@ public static class Loader
             using XmlReader reader = XmlReader.Create(new MemoryStream(dataSnapshot.MapData[map]));
             XmlNode mapNode = gameDoc.ReadNode(reader);
             gameNode["maps"].AppendChild(mapNode);
-
-            if (gameNode["currentMapIndex"] == null)
-                gameNode.AddNode("currentMapIndex", map.ToString());
         }
 
         return gameDoc;

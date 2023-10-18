@@ -13,7 +13,6 @@ public class ReplayInfo
     public int playerFaction;
 
     public List<ReplaySection> sections = new();
-    public List<ReplayEvent> events = new();
 
     public string rwVersion;
     public List<string> modIds;
@@ -21,6 +20,7 @@ public class ReplayInfo
     public List<int> modAssemblyHashes; // Unused, here to satisfy DirectXmlToObject on old saves
 
     public XmlBool asyncTime;
+    public bool multifaction;
 
     public static byte[] Write(ReplayInfo info)
     {
@@ -45,10 +45,7 @@ public class ReplayInfo
     private static XmlSerializer GetSerializer()
     {
         var overrides = new XmlAttributeOverrides();
-        overrides.Add(typeof(ReplayInfo), nameof(events), new XmlAttributes
-        {
-            XmlArrayItems = { new XmlArrayItemAttribute("li") }
-        });
+
         overrides.Add(typeof(ReplayInfo), nameof(sections), new XmlAttributes
         {
             XmlArrayItems = { new XmlArrayItemAttribute("li") }
@@ -81,12 +78,6 @@ public class ReplaySection
         this.start = start;
         this.end = end;
     }
-}
-
-public class ReplayEvent
-{
-    public string name;
-    public int time;
 }
 
 // Taken from StackOverflow, makes bool serialization case-insensitive

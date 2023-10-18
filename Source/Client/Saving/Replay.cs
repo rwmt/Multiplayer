@@ -103,13 +103,13 @@ namespace Multiplayer.Client
             );
         }
 
-        public static FileInfo ReplayFile(string fileName, string folder = null)
+        public static FileInfo SavedReplayFile(string fileName, string folder = null)
             => new(Path.Combine(folder ?? Multiplayer.ReplaysDir, $"{fileName}.zip"));
 
-        public static Replay ForLoading(string fileName) => ForLoading(ReplayFile(fileName));
-        public static Replay ForLoading(FileInfo file) => new Replay(file);
+        public static Replay ForLoading(string fileName) => ForLoading(SavedReplayFile(fileName));
+        public static Replay ForLoading(FileInfo file) => new(file);
 
-        public static Replay ForSaving(string fileName) => ForSaving(ReplayFile(fileName));
+        public static Replay ForSaving(string fileName) => ForSaving(SavedReplayFile(fileName));
         public static Replay ForSaving(FileInfo file)
         {
             var replay = new Replay(file)
@@ -123,13 +123,14 @@ namespace Multiplayer.Client
                     modIds = LoadedModManager.RunningModsListForReading.Select(m => m.PackageId).ToList(),
                     modNames = LoadedModManager.RunningModsListForReading.Select(m => m.Name).ToList(),
                     asyncTime = Multiplayer.GameComp.asyncTime,
+                    multifaction = Multiplayer.GameComp.multifaction
                 }
             };
 
             return replay;
         }
 
-        public static void LoadReplay(FileInfo file, bool toEnd = false, Action after = null, Action cancel = null, string simTextKey = null)
+        public static void LoadReplay(FileInfo file, bool toEnd = false, Action after = null, Action cancel = null, string simTextKey = null, bool showTimeline = true)
         {
             var session = new MultiplayerSession
             {
@@ -150,6 +151,7 @@ namespace Multiplayer.Client
 
             session.myFactionId = replay.info.playerFaction;
             session.replayTimerStart = replay.info.sections[sectionIndex].start;
+            session.showTimeline = showTimeline;
 
             int tickUntil = replay.info.sections[sectionIndex].end;
             session.replayTimerEnd = tickUntil;

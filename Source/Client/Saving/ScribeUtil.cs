@@ -66,19 +66,12 @@ namespace Multiplayer.Client
             return doc;
         }
 
-        public static void StartLoading(XmlDocument doc)
+        public static void InitFromXmlDoc(XmlDocument doc)
         {
-            loading = true;
-
             ScribeMetaHeaderUtility.loadedGameVersion = VersionControl.CurrentVersionStringWithRev;
 
             Scribe.loader.curXmlParent = doc.DocumentElement;
             Scribe.mode = LoadSaveMode.LoadingVars;
-        }
-
-        public static void StartLoading(byte[] data)
-        {
-            StartLoading(LoadDocument(data));
         }
 
         public static void FinalizeLoading()
@@ -181,7 +174,8 @@ namespace Multiplayer.Client
 
         public static T ReadExposable<T>(byte[] data, Action<T> beforeFinish = null) where T : IExposable
         {
-            StartLoading(data);
+            loading = true;
+            InitFromXmlDoc(LoadDocument(data));
             SupplyCrossRefs();
 
             T element = default;

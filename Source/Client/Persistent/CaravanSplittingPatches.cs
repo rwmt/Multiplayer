@@ -18,7 +18,7 @@ namespace Multiplayer.Client.Persistent
 
             //If the dialog being added is a native Dialog_SplitCaravan, cancel adding it to the window stack.
             //Otherwise, window being added is something else. Let it happen.
-            return !(window is Dialog_SplitCaravan) || window is CaravanSplittingProxy;
+            return window is CaravanSplittingProxy or not Dialog_SplitCaravan;
         }
     }
 

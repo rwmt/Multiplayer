@@ -1,11 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using HarmonyLib;
 using Multiplayer.Client.Saving;
 using Multiplayer.Client.Util;
-using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
 using UnityEngine;
@@ -52,24 +50,6 @@ public static class ReplayTimeline
         MpUI.DrawRotatedLine(new Vector2((int)progressX, rect.center.y), TimelineHeight, 20f, 90f, Color.green);
 
         float mouseX = Event.current.mousePosition.x;
-        ReplayEvent mouseEvent = null;
-
-        foreach (var ev in Multiplayer.session.events)
-        {
-            if (ev.time < timerStart || ev.time > timerEnd)
-                continue;
-
-            var pointX = rect.xMin + (ev.time - timerStart) / (float)timeLen * rect.width;
-
-            //GUI.DrawTexture(new Rect(pointX - 12f, rect.yMin - 24f, 24f, 24f), texture);
-            MpUI.DrawRotatedLine(new Vector2(pointX, rect.center.y), TimelineHeight, 20f, 90f, /*ev.color*/ Color.red);
-
-            if (Mouse.IsOver(rect) && Math.Abs(mouseX - pointX) < 10)
-            {
-                mouseX = pointX;
-                mouseEvent = ev;
-            }
-        }
 
         // Draw mouse pointer and tooltip
         if (Mouse.IsOver(rect))
@@ -86,11 +66,7 @@ public static class ReplayTimeline
                 Event.current.Use();
 
             string tooltip = $"Tick {mouseTimer}";
-            if (mouseEvent != null)
-                tooltip = $"{mouseEvent.name}\n{tooltip}";
-
             const int tickTipId = 215462143;
-
             TooltipHandler.TipRegion(rect, new TipSignal(tooltip, tickTipId));
 
             // Remove delay between the mouseover and showing
@@ -109,7 +85,7 @@ public static class ReplayTimeline
 
     private static void SimulateToTick(int targetTick)
     {
-        TickPatch.SetSimulation(targetTick, canESC: true);
+        TickPatch.SetSimulation(targetTick, canEsc: true);
 
         if (targetTick < TickPatch.Timer)
         {

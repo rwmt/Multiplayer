@@ -21,7 +21,7 @@ public class ExposeActor : IExposable
     // This depends on the fact that the implementation of HashSet RimWorld currently uses
     // "preserves" insertion order (as long as elements are only added and not removed
     // [which is the case for Scribe managers])
-    public static void Register(Action action)
+    public static void OnPostInit(Action action)
     {
         if (Scribe.mode == LoadSaveMode.LoadingVars)
             Scribe.loader.initer.RegisterForPostLoadInit(new ExposeActor(action));

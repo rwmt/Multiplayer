@@ -12,7 +12,7 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.Client == null || TickPatch.Simulating) return;
 
-            foreach (var ping in Multiplayer.session.cursorAndPing.pings)
+            foreach (var ping in Multiplayer.session.locationPings.pings)
             {
                 if (ping.mapId != -1) continue;
                 if (ping.PlayerInfo is not { } player) continue;

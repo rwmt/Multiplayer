@@ -117,7 +117,7 @@ namespace Multiplayer.Client.Patches
     [HarmonyPatch(typeof(Dialog_GrowthMomentChoices), nameof(Dialog_GrowthMomentChoices.DoWindowContents))]
     static class IsDrawingGrowthMomentDialog
     {
-        public static bool isDrawing = false;
+        public static bool isDrawing;
 
         static void Prefix() => isDrawing = true;
 

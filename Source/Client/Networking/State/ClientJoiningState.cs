@@ -2,13 +2,11 @@ using HarmonyLib;
 using Multiplayer.Client.Networking;
 using Multiplayer.Common;
 using System.Linq;
-using Multiplayer.Common.Util;
 using RimWorld;
 using Verse;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
     public class ClientJoiningState : ClientBaseState
     {
         public ClientJoiningState(ConnectionBase connection) : base(connection)

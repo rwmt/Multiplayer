@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using HarmonyLib;
 using Multiplayer.Client.Util;
-using Multiplayer.Common.Util;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -11,7 +10,6 @@ using Random = System.Random;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
     [HarmonyPatch(typeof(UI_BackgroundMain), nameof(UI_BackgroundMain.DoOverlay))]
     [StaticConstructorOnStartup]
     static class MainMenuAnimation
@@ -119,6 +117,9 @@ namespace Multiplayer.Client
                             GetPos(bgRect, posX, posY),
                             new(6, 6)
                         ),
+                        // After changing the game language, RimWorld destroys and reloads all assets but doesn't
+                        // rerun static constructors, so resource fields reference destroyed resources
+                        // The pulses disappear after changing the language
                         MultiplayerStatic.Pulse
                     );
             }

@@ -13,7 +13,7 @@ public class ServerJoiningState : AsyncConnectionState
         HandleProtocol(await Packet(Packets.Client_Protocol));
         HandleUsername(await Packet(Packets.Client_Username));
 
-        while (await Server.InitData() is not { } && await EndIfDead())
+        while (await Server.InitData() is null && await EndIfDead())
             if (Server.initDataState == InitDataState.Waiting)
                 await RequestInitData();
 

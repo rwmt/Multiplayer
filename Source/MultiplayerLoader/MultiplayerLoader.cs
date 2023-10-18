@@ -11,8 +11,8 @@ namespace MultiplayerLoader
     // This class has to be named Multiplayer for backwards compatibility of the settings file location
     public class Multiplayer : Mod
     {
-        public static Multiplayer? instance;
-        public static Action<Rect>? settingsWindowDrawer;
+        public static Multiplayer instance;
+        public static Action<Rect> settingsWindowDrawer;
 
         public Multiplayer(ModContentPack content) : base(content)
         {
@@ -45,7 +45,6 @@ namespace MultiplayerLoader
                     {
                         byte[] rawSymbolStore = File.ReadAllBytes(fileInfo.FullName);
                         assembly = AppDomain.CurrentDomain.Load(rawAssembly, rawSymbolStore);
-                        Log.Message(""+AssemblyName.GetAssemblyName(item.FullName));
                     }
                     else
                     {

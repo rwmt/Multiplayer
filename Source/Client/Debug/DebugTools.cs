@@ -65,7 +65,7 @@ namespace Multiplayer.Client
             {
                 if (source == DebugSource.Tree)
                 {
-                    var node = GetNode(path);
+                    var node = RecreateGraphAndGetNode(path);
                     if (node != null)
                     {
                         node.Enter(null);
@@ -150,9 +150,13 @@ namespace Multiplayer.Client
         }
 
         // From Dialog_Debug.GetNode
-        public static DebugActionNode GetNode(string path)
+        public static DebugActionNode RecreateGraphAndGetNode(string path)
         {
+            // Some actions (like quest generation) invoke the RNG during global graph caching
+            // so we recreate it to avoid desyncs
+            Dialog_Debug.ResetStaticData();
             Dialog_Debug.TrySetupNodeGraph();
+
             DebugActionNode curNode = Dialog_Debug.rootNode;
             string[] pathParts = path.Split('\\');
             for (int i = 0; i < pathParts.Length; i++)

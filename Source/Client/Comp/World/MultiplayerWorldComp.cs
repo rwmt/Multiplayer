@@ -1,6 +1,7 @@
 using RimWorld;
 using RimWorld.Planet;
 using System.Collections.Generic;
+using System.Linq;
 using Verse;
 using Multiplayer.Client.Persistent;
 using Multiplayer.Client.Saving;
@@ -17,6 +18,8 @@ public class MultiplayerWorldComp
     public List<MpTradeSession> trading = new();
     public CaravanSplittingSession splitSession;
 
+    public Faction spectatorFaction;
+
     private int currentFactionId;
 
     public MultiplayerWorldComp(World world)
@@ -25,16 +28,55 @@ public class MultiplayerWorldComp
         uiTemperatures = new TileTemperaturesComp(world);
     }
 
-    // Called from AsyncWorldTimeComp.ExposeData
+    // Called from AsyncWorldTimeComp.ExposeData (for backcompat)
     public void ExposeData()
     {
         ExposeFactionData();
 
+        Scribe_References.Look(ref spectatorFaction, "spectatorFaction");
         Scribe_Collections.Look(ref trading, "tradingSessions", LookMode.Deep);
+
         if (Scribe.mode == LoadSaveMode.PostLoadInit)
-        {
             if (trading.RemoveAll(t => t.trader == null || t.playerNegotiator == null) > 0)
                 Log.Message("Some trading sessions had null entries");
+
+        DoBackCompat();
+    }
+
+    private void DoBackCompat()
+    {
+        if (Scribe.mode != LoadSaveMode.PostLoadInit)
+            return;
+
+        if (spectatorFaction == null)
+        {
+            void AddSpectatorFaction()
+            {
+                spectatorFaction = HostUtil.AddNewFaction("Spectator", FactionDefOf.PlayerColony);
+
+                factionData[spectatorFaction.loadID] = FactionWorldData.New(spectatorFaction.loadID);
+                factionData[spectatorFaction.loadID].ReassignIds();
+
+                foreach (var map in Find.Maps)
+                    MapSetup.InitNewFactionData(map, spectatorFaction);
+            }
+
+            void RemoveOpponentFaction()
+            {
+                // Test faction left in by mistake in version 0.7
+                var opponent =
+                    Find.FactionManager.AllFactions.FirstOrDefault(f => f.Name == "Opponent" && f.IsPlayer);
+
+                if (opponent is not null)
+                {
+                    opponent.RemoveAllRelations();
+                    Find.FactionManager.allFactions.Remove(opponent);
+                    Log.Warning("Multiplayer removed dummy Opponent faction");
+                }
+            }
+
+            AddSpectatorFaction();
+            RemoveOpponentFaction();
         }
     }
 

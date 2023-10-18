@@ -15,6 +15,8 @@ namespace Multiplayer.Common
         public bool direct;
         public bool lan = true;
         public bool arbiter;
+        public bool asyncTime;
+        public bool multifaction;
         public bool debugMode;
         public bool desyncTraces = true;
         public bool syncConfigs = true;
@@ -38,6 +40,8 @@ namespace Multiplayer.Common
             ScribeLike.Look(ref steam, "steam");
             ScribeLike.Look(ref direct, "direct");
             ScribeLike.Look(ref lan, "lan", true);
+            ScribeLike.Look(ref debugMode, "asyncTime");
+            ScribeLike.Look(ref debugMode, "multifaction");
             ScribeLike.Look(ref debugMode, "debugMode");
             ScribeLike.Look(ref desyncTraces, "desyncTraces", true);
             ScribeLike.Look(ref syncConfigs, "syncConfigs", true);

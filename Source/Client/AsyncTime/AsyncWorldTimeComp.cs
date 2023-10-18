@@ -4,7 +4,7 @@ using System.Linq;
 using HarmonyLib;
 using Multiplayer.Client.Comp;
 using Multiplayer.Client.Desyncs;
-using Multiplayer.Client.Patches;
+using Multiplayer.Client.Factions;
 using Multiplayer.Client.Saving;
 using Multiplayer.Client.Util;
 using Multiplayer.Common;
@@ -45,10 +45,12 @@ public class AsyncWorldTimeComp : IExposable, ITickable
         };
     }
 
-    // Run at the speed of the fastest map
-    public TimeSpeed DesiredTimeSpeed => Find.Maps.Select(m => m.AsyncTime())
+    // Run at the speed of the fastest map or at chosen speed if there are no maps
+    public TimeSpeed DesiredTimeSpeed => !Find.Maps.Any() ?
+        timeSpeedInt :
+        Find.Maps.Select(m => m.AsyncTime())
         .Where(a => a.ActualRateMultiplier(a.DesiredTimeSpeed) != 0f)
-        .Max(a => a?.DesiredTimeSpeed) ?? timeSpeedInt;
+        .Max(a => a?.DesiredTimeSpeed) ?? TimeSpeed.Paused;
 
     public void SetDesiredTimeSpeed(TimeSpeed speed)
     {
@@ -137,16 +139,20 @@ public class AsyncWorldTimeComp : IExposable, ITickable
     public void PreContext()
     {
         Find.TickManager.CurTimeSpeed = DesiredTimeSpeed;
-        UniqueIdsPatch.CurrentBlock = Multiplayer.GlobalIdBlock;
         Rand.PushState();
         Rand.StateCompressed = randState;
+
+        if (Multiplayer.GameComp.multifaction)
+            FactionExtensions.PushFaction(null, Multiplayer.WorldComp.spectatorFaction);
     }
 
     public void PostContext()
     {
+        if (Multiplayer.GameComp.multifaction)
+            FactionExtensions.PopFaction();
+
         randState = Rand.StateCompressed;
         Rand.PopState();
-        UniqueIdsPatch.CurrentBlock = null;
     }
 
     public void ExecuteCmd(ScheduledCommand cmd)
@@ -159,7 +165,7 @@ public class AsyncWorldTimeComp : IExposable, ITickable
         TickPatch.currentExecutingCmdIssuedBySelf = cmd.issuedBySelf && !TickPatch.Simulating;
 
         PreContext();
-        Extensions.PushFaction(null, cmd.GetFaction());
+        FactionExtensions.PushFaction(null, cmd.GetFaction());
 
         bool prevDevMode = Prefs.data.devMode;
         var prevGodMode = DebugSettings.godMode;
@@ -195,14 +201,9 @@ public class AsyncWorldTimeComp : IExposable, ITickable
                 SetTimeEverywhere(TimeSpeed.Paused);
             }
 
-            if (cmdType == CommandType.SetupFaction)
-            {
-                HandleSetupFaction(cmd, data);
-            }
-
             if (cmdType == CommandType.CreateJoinPoint)
             {
-                LongEventHandler.QueueLongEvent(CreateJoinPoint, "MpCreatingJoinPoint", false, null);
+                LongEventHandler.QueueLongEvent(CreateJoinPointAndSendIfHost, "MpCreatingJoinPoint", false, null);
             }
 
             if (cmdType == CommandType.InitPlayerData)
@@ -224,7 +225,7 @@ public class AsyncWorldTimeComp : IExposable, ITickable
             MpLog.Debug($"rand calls {DeferredStackTracing.randCalls - randCalls1}");
             MpLog.Debug("rand state " + Rand.StateCompressed);
 
-            Extensions.PopFaction();
+            FactionExtensions.PopFaction();
             PostContext();
             TickPatch.currentExecutingCmdIssuedBySelf = false;
             executingCmdWorld = false;
@@ -236,9 +237,9 @@ public class AsyncWorldTimeComp : IExposable, ITickable
         }
     }
 
-    private static void CreateJoinPoint()
+    private static void CreateJoinPointAndSendIfHost()
     {
-        Multiplayer.session.dataSnapshot = SaveLoad.CreateGameDataSnapshot(SaveLoad.SaveAndReload());
+        Multiplayer.session.dataSnapshot = SaveLoad.CreateGameDataSnapshot(SaveLoad.SaveAndReload(), Multiplayer.GameComp.multifaction);
 
         if (!TickPatch.Simulating && !Multiplayer.IsReplay &&
             (Multiplayer.LocalServer != null || Multiplayer.arbiterInstance))
@@ -286,34 +287,6 @@ public class AsyncWorldTimeComp : IExposable, ITickable
             SetTimeEverywhere(Multiplayer.GameComp.GetLowestTimeVote(TickableId));
         else if (TickPatch.TickableById(tickableId) is { } tickable)
             tickable.SetDesiredTimeSpeed(Multiplayer.GameComp.GetLowestTimeVote(tickableId));
-    }
-
-    private void HandleSetupFaction(ScheduledCommand command, ByteReader data)
-    {
-        int factionId = data.ReadInt32();
-        Faction faction = Find.FactionManager.GetById(factionId);
-
-        if (faction == null)
-        {
-            faction = new Faction
-            {
-                loadID = factionId,
-                def = FactionDefOf.PlayerColony,
-                Name = "Multiplayer faction",
-            };
-
-            Find.FactionManager.Add(faction);
-
-            foreach (Faction current in Find.FactionManager.AllFactionsListForReading)
-            {
-                if (current == faction) continue;
-                current.TryMakeInitialRelationsWith(faction);
-            }
-
-            Multiplayer.WorldComp.factionData[factionId] = FactionWorldData.New(factionId);
-
-            MpLog.Log($"New faction {faction.GetUniqueLoadID()}");
-        }
     }
 
     public void FinalizeInit()

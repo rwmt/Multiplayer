@@ -19,7 +19,7 @@ namespace Multiplayer.Client
         {
             if (done) return;
             GUI.skin.font = Text.fontStyles[1].font;
-            Text.fontStyles[1].font.fontNames = new string[] { "arial", "arialbd", "ariali", "arialbi" };
+            Text.fontStyles[1].font.fontNames = new[] { "arial", "arialbd", "ariali", "arialbi" };
             done = true;
         }
     }
@@ -58,6 +58,7 @@ namespace Multiplayer.Client
     {
         public const int LongEventWindowId = 62893994;
 
+        // ReSharper disable once InconsistentNaming
         static void Postfix(int ID)
         {
             if (ID == -LongEventWindowId || ID == -IngameModal.ModalWindowId)

@@ -1,4 +1,5 @@
-﻿using System.Globalization;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Net;
 
 namespace Multiplayer.Common.Util
@@ -6,7 +7,7 @@ namespace Multiplayer.Common.Util
     public static class Endpoints
     {
         // From IPEndPoint in .NET Core
-        public static bool TryParse(string s, uint defaultPort, out IPEndPoint result)
+        public static bool TryParse(string s, uint defaultPort, [NotNullWhen(true)] out IPEndPoint? result)
         {
             s = s.Trim();
             int addressLength = s.Length;

@@ -18,6 +18,7 @@ namespace Multiplayer.Common
             if (server.freezeManager.Frozen)
                 return;
 
+            // policy
             if (sourcePlayer != null)
             {
                 bool debugCmd =

@@ -1,3 +1,4 @@
+using Multiplayer.Client.Factions;
 using RimWorld;
 using Verse;
 
@@ -46,14 +47,14 @@ public class FactionMapData : IExposable
 
     public void ExposeData()
     {
-        ExposeActor.Register(() => map.PushFaction(factionId));
+        ExposeActor.OnPostInit(() => map.PushFaction(factionId));
 
         Scribe_Values.Look(ref factionId, "factionId");
         Scribe_Deep.Look(ref designationManager, "designationManager", map);
         Scribe_Deep.Look(ref areaManager, "areaManager", map);
         Scribe_Deep.Look(ref zoneManager, "zoneManager", map);
 
-        ExposeActor.Register(() => map.PopFaction());
+        ExposeActor.OnPostInit(() => map.PopFaction());
     }
 
     public static FactionMapData New(int factionId, Map map)

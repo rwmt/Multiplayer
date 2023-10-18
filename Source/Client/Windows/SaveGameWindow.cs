@@ -1,17 +1,15 @@
 ﻿using System.IO;
 using Multiplayer.Client.Util;
-using Multiplayer.Common.Util;
 using UnityEngine;
 using Verse;
 
 namespace Multiplayer.Client;
 
-[HotSwappable]
 public class SaveGameWindow : Window
 {
     public override Vector2 InitialSize => new(350f, 175f);
 
-    private string curText;
+    private string curText = "";
     private bool fileExists;
 
     public SaveGameWindow(string gameName)
@@ -20,7 +18,7 @@ public class SaveGameWindow : Window
         doCloseX = true;
         absorbInputAroundWindow = true;
         closeOnAccept = true;
-        curText = GenFile.SanitizedFileName(gameName);
+        UpdateText(ref curText, GenFile.SanitizedFileName(gameName));
     }
 
     public override void DoWindowContents(Rect inRect)
@@ -73,7 +71,7 @@ public class SaveGameWindow : Window
     {
         if (curText.Length != 0)
         {
-            LongEventHandler.QueueLongEvent(() => MultiplayerSession.SaveGameToFile(curText, currentReplay), "MpSaving", false, null);
+            LongEventHandler.QueueLongEvent(() => MultiplayerSession.SaveGameToFile_Overwrite(curText, currentReplay), "MpSaving", false, null);
             Close();
         }
     }

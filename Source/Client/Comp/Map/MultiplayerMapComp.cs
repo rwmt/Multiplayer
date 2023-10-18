@@ -1,12 +1,15 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using HarmonyLib;
+using Multiplayer.Client.Factions;
 using Multiplayer.Client.Persistent;
 using Multiplayer.Client.Saving;
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
+using UnityEngine;
 using Verse;
 
 namespace Multiplayer.Client
@@ -17,14 +20,13 @@ namespace Multiplayer.Client
 
         public Map map;
 
-        public IdBlock mapIdBlock;
-        public Dictionary<int, FactionMapData> factionData = new Dictionary<int, FactionMapData>();
-        public Dictionary<int, CustomFactionMapData> customFactionData = new Dictionary<int, CustomFactionMapData>();
+        public Dictionary<int, FactionMapData> factionData = new();
+        public Dictionary<int, CustomFactionMapData> customFactionData = new();
 
         public CaravanFormingSession caravanForming;
         public TransporterLoading transporterLoading;
         public RitualSession ritualSession;
-        public List<PersistentDialog> mapDialogs = new List<PersistentDialog>();
+        public List<PersistentDialog> mapDialogs = new();
         public int autosaveCounter;
 
         // for SaveCompression
@@ -94,6 +96,13 @@ namespace Multiplayer.Client
             map.listerMergeables = data.listerMergeables;
         }
 
+        [Conditional("DEBUG")]
+        public void CheckInvariant()
+        {
+            if (factionData.TryGetValue(Faction.OfPlayer.loadID, out var data) && map.areaManager != data.areaManager)
+                Log.Error($"(Debug) Invariant broken for {Faction.OfPlayer}: {FactionContext.stack.ToStringSafeEnumerable()} {factionData.FirstOrDefault(d => d.Value.areaManager == map.areaManager)} {StackTraceUtility.ExtractStackTrace()}");
+        }
+
         public CustomFactionMapData GetCurrentCustomFactionData()
         {
             return customFactionData[Faction.OfPlayer.loadID];
@@ -120,11 +129,6 @@ namespace Multiplayer.Client
             Scribe_Collections.Look(ref mapDialogs, "mapDialogs", LookMode.Deep, map);
             if (Scribe.mode == LoadSaveMode.LoadingVars && mapDialogs == null)
                 mapDialogs = new List<PersistentDialog>();
-
-            // todo for split sim
-            // Scribe_Custom.LookIdBlock(ref mapIdBlock, "mapIdBlock");
-            // const int mapBlockSize = int.MaxValue / 2 / 1024;
-            // mapIdBlock ??= new IdBlock(int.MaxValue / 2 + mapBlockSize * map.uniqueID, mapBlockSize);
 
             ExposeFactionData();
             ExposeCustomFactionData();
@@ -216,7 +220,9 @@ namespace Multiplayer.Client
 
             // Trading window on resume save
             if (Multiplayer.WorldComp.trading.NullOrEmpty()) return;
-            if (Multiplayer.WorldComp.trading.FirstOrDefault(t => t.playerNegotiator == null) is MpTradeSession trade)
+
+            // playerNegotiator == null can only happen during loading? Is this a resuming check?
+            if (Multiplayer.WorldComp.trading.FirstOrDefault(t => t.playerNegotiator == null) is { } trade)
             {
                 trade.OpenWindow();
             }

@@ -184,7 +184,7 @@ namespace Multiplayer.Client
             return ScribeUtil.FinishWritingToDoc();
         }
 
-        public static GameDataSnapshot CreateGameDataSnapshot(TempGameData data)
+        public static GameDataSnapshot CreateGameDataSnapshot(TempGameData data, bool removeCurrentMapId)
         {
             XmlNode gameNode = data.SaveData.DocumentElement["game"];
             XmlNode mapsNode = gameNode["maps"];
@@ -200,7 +200,9 @@ namespace Multiplayer.Client
                 mapCmdsDict[id] = new List<ScheduledCommand>(Find.Maps.First(m => m.uniqueID == id).AsyncTime().cmds);
             }
 
-            gameNode["currentMapIndex"].RemoveFromParent();
+            if (removeCurrentMapId)
+                gameNode["currentMapIndex"].RemoveFromParent();
+
             mapsNode.RemoveAll();
 
             byte[] gameData = ScribeUtil.XmlToByteArray(data.SaveData);
