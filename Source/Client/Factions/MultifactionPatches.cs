@@ -42,12 +42,11 @@ static class PawnChangeRelationGizmo
                 icon = MultiplayerStatic.ChangeRelationIcon,
                 action = () =>
                 {
-                    List<FloatMenuOption> list = new List<FloatMenuOption>();
-                    for (int i = 0; i <= 2; i++)
+                    List<FloatMenuOption> list = new List<FloatMenuOption>
                     {
-                        var kind = (FactionRelationKind)i;
-                        list.Add(new FloatMenuOption(kind.ToString(), () => { SetFactionRelation(otherFaction, kind); }));
-                    }
+                        new(FactionRelationKind.Hostile.ToString(), () => { SetFactionRelation(otherFaction, FactionRelationKind.Hostile); }),
+                        new(FactionRelationKind.Neutral.ToString(), () => { SetFactionRelation(otherFaction, FactionRelationKind.Neutral); })
+                    };
 
                     Find.WindowStack.Add(new FloatMenu(list));
                 }
