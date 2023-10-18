@@ -15,9 +15,6 @@ cd Multiplayer
 # About/ and Textures/ are shared between all versions
 cp -r ../About ../Textures .
 
-mkdir ../Assemblies
-mkdir ../AssembliesCustom
-
 cat <<EOF > LoadFolders.xml
 <loadFolders>
   <v1.4>
