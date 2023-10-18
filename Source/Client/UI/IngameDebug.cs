@@ -3,6 +3,7 @@ using System.Text;
 using HarmonyLib;
 using Multiplayer.Client.Desyncs;
 using Multiplayer.Client.Util;
+using Multiplayer.Common;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -13,10 +14,6 @@ public static class IngameDebug
 {
     private static double avgDelta;
     private static double avgTickTime;
-
-    public static float tps;
-    private static float lastTicksAt;
-    private static int lastTicks;
 
     private const float BtnMargin = 8f;
     private const float BtnHeight = 27f;
@@ -51,7 +48,7 @@ public static class IngameDebug
             var async = Find.CurrentMap.AsyncTime();
             StringBuilder text = new StringBuilder();
             text.Append(
-                $"{Multiplayer.game.sync.knownClientOpinions.Count} {Multiplayer.game.sync.knownClientOpinions.FirstOrDefault()?.startTick} {async.mapTicks} {TickPatch.serverFrozen} {TickPatch.frozenAt} ");
+                $"{Find.IdeoManager.classicMode} {Multiplayer.game.sync.knownClientOpinions.Count} {Multiplayer.game.sync.knownClientOpinions.FirstOrDefault()?.startTick} {async.mapTicks} {TickPatch.serverFrozen} {TickPatch.frozenAt} ");
 
             text.Append(
                 $"z: {Find.CurrentMap.haulDestinationManager.AllHaulDestinationsListForReading.Count()} d: {Find.CurrentMap.designationManager.designationsByDef.Count} hc: {Find.CurrentMap.listerHaulables.ThingsPotentiallyNeedingHauling().Count}");
@@ -88,7 +85,7 @@ public static class IngameDebug
                 : $"\n{Find.WindowStack.focusedWindow}");
 
             text.Append($"\n{UI.CurUICellSize()} {Find.WindowStack.windows.ToStringSafeEnumerable()}");
-            text.Append($"\n\nMap TPS: {tps:0.00}");
+            text.Append($"\n\nMap TPS: {IngameUIPatch.tps:0.00}");
             text.Append($"\nDelta: {Time.deltaTime * 1000f}");
             text.Append($"\nAverage ft: {TickPatch.avgFrameTime}");
             text.Append($"\nServer tpt: {TickPatch.serverTimePerTick}");
@@ -100,13 +97,6 @@ public static class IngameDebug
 
             Rect rect1 = new Rect(80f, 170f, 330f, Text.CalcHeight(text.ToString(), 330f));
             Widgets.Label(rect1, text.ToString());
-
-            if (Time.time - lastTicksAt > 0.5f)
-            {
-                tps = (tps + (async.mapTicks - lastTicks) * 2f) / 2f;
-                lastTicks = async.mapTicks;
-                lastTicksAt = Time.time;
-            }
         }
 
         //if (Event.current.type == EventType.Repaint)
@@ -159,7 +149,8 @@ public static class IngameDebug
     {
         float x = UI.screenWidth - BtnWidth - BtnMargin;
 
-        if (Multiplayer.Client != null &&
+        if (MpVersion.IsDebug &&
+            Multiplayer.Client != null &&
             !Multiplayer.GameComp.asyncTime &&
             Find.CurrentMap.AsyncTime() != null &&
             Find.CurrentMap.AsyncTime().mapTicks != Multiplayer.AsyncWorldTime.worldTicks)

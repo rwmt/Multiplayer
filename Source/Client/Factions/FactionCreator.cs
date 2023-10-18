@@ -24,7 +24,7 @@ public static class FactionCreator
     }
 
     [SyncMethod]
-    public static void CreateFaction(int sessionId, string factionName, int tile, string scenario, FactionRelationKind relation)
+    public static void CreateFaction(int sessionId, string factionName, int tile, string scenario, FactionRelationKind relation, ChooseIdeoInfo chooseIdeoInfo)
     {
         PrepareState(sessionId);
 
@@ -32,8 +32,14 @@ public static class FactionCreator
 
         LongEventHandler.QueueLongEvent(delegate
         {
-            int id = Find.UniqueIDsManager.GetNextFactionID();
-            var newFaction = NewFaction(id, factionName, FactionDefOf.PlayerColony);
+            int newFactionID = Find.UniqueIDsManager.GetNextFactionID();
+
+            var newFaction = NewFaction(
+                newFactionID,
+                factionName,
+                FactionDefOf.PlayerColony,
+                chooseIdeoInfo
+            );
 
             newFaction.hidden = true;
 
@@ -44,6 +50,10 @@ public static class FactionCreator
                 }
 
             FactionContext.Push(newFaction);
+
+            foreach (var pawn in StartingPawnUtility.StartingAndOptionalPawns)
+                pawn.ideo.SetIdeo(newFaction.ideos.PrimaryIdeo);
+
             var newMap = GenerateNewMap(tile, scenario);
             FactionContext.Pop();
 
@@ -94,7 +104,7 @@ public static class FactionCreator
         Find.WorldObjects.Add(mapParent);
 
         var prevScenario = Find.Scenario;
-        Current.Game.scenarioInt = ScenarioLister.AllScenarios().First(s => s.name == scenario);
+        Current.Game.scenarioInt = DefDatabase<ScenarioDef>.AllDefs.First(s => s.defName == scenario).scenario;
 
         try
         {
@@ -116,7 +126,7 @@ public static class FactionCreator
         ResearchUtility.ApplyPlayerStartingResearch();
     }
 
-    public static void SetInitialInitData()
+    public static void SetGameInitData()
     {
         Current.Game.InitData = new GameInitData
         {
@@ -127,7 +137,7 @@ public static class FactionCreator
 
     public static void PrepareState(int sessionId)
     {
-        SetInitialInitData();
+        SetGameInitData();
 
         if (pawnStore.TryGetValue(sessionId, out var pawns))
         {
@@ -140,29 +150,54 @@ public static class FactionCreator
         }
     }
 
-    private static Faction NewFaction(int id, string name, FactionDef def)
+    private static Faction NewFaction(int id, string name, FactionDef def, ChooseIdeoInfo chooseIdeoInfo)
     {
         Faction faction = Find.FactionManager.AllFactions.FirstOrDefault(f => f.loadID == id);
 
         if (faction == null)
         {
-            faction = new Faction() { loadID = id, def = def };
-
+            faction = new Faction { loadID = id, def = def };
             faction.ideos = new FactionIdeosTracker(faction);
-            faction.ideos.ChooseOrGenerateIdeo(new IdeoGenerationParms());
+
+            if (!ModsConfig.IdeologyActive || Find.IdeoManager.classicMode)
+            {
+                faction.ideos.SetPrimary(Faction.OfPlayer.ideos.PrimaryIdeo);
+            }
+            else
+            {
+                var newIdeo = GenerateIdeo(chooseIdeoInfo);
+                faction.ideos.SetPrimary(newIdeo);
+                Find.IdeoManager.Add(newIdeo);
+            }
 
             foreach (Faction other in Find.FactionManager.AllFactionsListForReading)
                 faction.TryMakeInitialRelationsWith(other);
 
             Find.FactionManager.Add(faction);
 
-            Multiplayer.WorldComp.factionData[faction.loadID] =
-                FactionWorldData.New(faction.loadID);
+            var newWorldFactionData = FactionWorldData.New(faction.loadID);
+            Multiplayer.WorldComp.factionData[faction.loadID] = newWorldFactionData;
+            newWorldFactionData.ReassignIds();
         }
 
         faction.Name = name;
         faction.def = def;
 
         return faction;
+    }
+
+    private static Ideo GenerateIdeo(ChooseIdeoInfo chooseIdeoInfo)
+    {
+        List<MemeDef> list = chooseIdeoInfo.SelectedIdeo.memes.ToList();
+
+        if (chooseIdeoInfo.SelectedStructure != null)
+            list.Add(chooseIdeoInfo.SelectedStructure);
+        else if (DefDatabase<MemeDef>.AllDefsListForReading.Where(m => m.category == MemeCategory.Structure && IdeoUtility.IsMemeAllowedFor(m, Find.Scenario.playerFaction.factionDef)).TryRandomElement(out var result))
+            list.Add(result);
+
+        Ideo ideo = IdeoGenerator.GenerateIdeo(new IdeoGenerationParms(Find.FactionManager.OfPlayer.def, forceNoExpansionIdeo: false, null, null, list, chooseIdeoInfo.SelectedIdeo.classicPlus, forceNoWeaponPreference: true));
+        new Page_ChooseIdeoPreset { selectedStyles = chooseIdeoInfo.SelectedStyles }.ApplySelectedStylesToIdeo(ideo);
+
+        return ideo;
     }
 }

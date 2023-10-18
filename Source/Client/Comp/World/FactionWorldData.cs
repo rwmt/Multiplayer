@@ -32,8 +32,16 @@ public class FactionWorldData : IExposable
         Scribe_Deep.Look(ref researchSpeed, "researchSpeed");
     }
 
-    public void Tick()
+    public void ReassignIds()
     {
+        foreach (DrugPolicy p in drugPolicyDatabase.policies)
+            p.uniqueId = Find.UniqueIDsManager.GetNextThingID();
+
+        foreach (Outfit o in outfitDatabase.outfits)
+            o.uniqueId = Find.UniqueIDsManager.GetNextThingID();
+
+        foreach (FoodRestriction o in foodRestrictionDatabase.foodRestrictions)
+            o.id = Find.UniqueIDsManager.GetNextThingID();
     }
 
     public static FactionWorldData New(int factionId)

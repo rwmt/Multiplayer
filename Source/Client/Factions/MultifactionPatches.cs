@@ -29,11 +29,14 @@ static class PawnChangeRelationGizmo
         foreach (var gizmo in gizmos)
             yield return gizmo;
 
-        if (__instance.Faction is { IsPlayer: true } && __instance.Faction != Faction.OfPlayer)
+        if (Multiplayer.Client == null || Multiplayer.RealPlayerFaction == Multiplayer.WorldComp.spectatorFaction)
+            yield break;
+
+        if (__instance.Faction is { IsPlayer: true } &&__instance.Faction != Faction.OfPlayer)
         {
             var otherFaction = __instance.Faction;
 
-            yield return new Command_Action()
+            yield return new Command_Action
             {
                 defaultLabel = "Change faction relation",
                 icon = MultiplayerStatic.ChangeRelationIcon,

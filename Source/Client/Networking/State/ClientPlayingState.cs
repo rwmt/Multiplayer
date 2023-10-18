@@ -263,7 +263,10 @@ namespace Multiplayer.Client
             Session.GetPlayerInfo(player).factionId = factionId;
 
             if (Session.playerId == player)
+            {
                 Multiplayer.game.ChangeRealPlayerFaction(factionId);
+                Session.myFactionId = factionId;
+            }
         }
     }
 

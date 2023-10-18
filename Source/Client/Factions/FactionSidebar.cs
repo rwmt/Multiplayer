@@ -1,5 +1,7 @@
-﻿using System.Linq;
+﻿using System.Collections.Generic;
+using System.Linq;
 using System.Text;
+using Multiplayer.Client.Experimental;
 using Multiplayer.Client.Factions;
 using Multiplayer.Client.Util;
 using Multiplayer.Common;
@@ -66,10 +68,28 @@ public class FactionSidebar
             {
                 PreparePawns();
 
-                Find.WindowStack.Add(new Page_ConfigureStartingPawns
+                var pages = new List<Page>();
+                Page_ChooseIdeo_Multifaction chooseIdeoPage = null;
+
+                if (ModsConfig.IdeologyActive && !Find.IdeoManager.classicMode)
+                    pages.Add(chooseIdeoPage = new Page_ChooseIdeo_Multifaction());
+
+                pages.Add(new Page_ConfigureStartingPawns
                 {
-                    nextAct = DoCreateFaction
+                    nextAct = () =>
+                    {
+                        DoCreateFaction(
+                            new ChooseIdeoInfo(
+                                chooseIdeoPage?.pageChooseIdeo.selectedIdeo,
+                                chooseIdeoPage?.pageChooseIdeo.selectedStructure,
+                                chooseIdeoPage?.pageChooseIdeo.selectedStyles
+                            )
+                        );
+                    }
                 });
+
+                var page = PageUtility.StitchedPages(pages);
+                Find.WindowStack.Add(page);
             }
         }
     }
@@ -81,7 +101,7 @@ public class FactionSidebar
 
         try
         {
-            FactionCreator.SetInitialInitData();
+            FactionCreator.SetGameInitData();
 
             // Create starting pawns
             new ScenPart_ConfigPage_ConfigureStartingPawns { pawnCount = Current.Game.InitData.startingPawnCount }
@@ -93,7 +113,7 @@ public class FactionSidebar
         }
     }
 
-    private static void DoCreateFaction()
+    private static void DoCreateFaction(ChooseIdeoInfo chooseIdeoInfo)
     {
         int sessionId = Multiplayer.session.playerId;
         var prevState = Current.programStateInt;
@@ -107,8 +127,14 @@ public class FactionSidebar
                     p
                 );
 
-            FactionCreator.CreateFaction(sessionId, factionName, Find.WorldInterface.SelectedTile,
-                scenario, hostility);
+            FactionCreator.CreateFaction(
+                sessionId,
+                factionName,
+                Find.WorldInterface.SelectedTile,
+                scenario,
+                hostility,
+                chooseIdeoInfo
+            );
         }
         finally
         {
@@ -172,3 +198,9 @@ public class FactionSidebar
         return Widgets.ButtonText(Layouter.Rect(width, height), text);
     }
 }
+
+public record ChooseIdeoInfo(
+    IdeoPresetDef SelectedIdeo,
+    MemeDef SelectedStructure,
+    List<StyleCategoryDef> SelectedStyles
+) : ISyncSimple;

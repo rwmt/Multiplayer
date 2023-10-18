@@ -24,12 +24,33 @@ namespace Multiplayer.Client
         private const float BtnHeight = 27f;
         private const float BtnWidth = 80f;
 
+        public static float tps;
+        private static float lastTicksAt;
+        private static int lastTicks;
+        private static int lastTicksMapId;
+
         static bool Prefix()
         {
             Text.Font = GameFont.Small;
 
             if (MpVersion.IsDebug) {
                 IngameDebug.DoDebugPrintout();
+            }
+
+            if (Multiplayer.Client != null && Find.CurrentMap != null && Time.time - lastTicksAt > 0.5f)
+            {
+                var async = Find.CurrentMap.AsyncTime();
+
+                if (lastTicksMapId != Find.CurrentMap.uniqueID)
+                {
+                    lastTicksMapId = Find.CurrentMap.uniqueID;
+                    lastTicks = async.mapTicks;
+                    tps = 0;
+                }
+
+                tps = (tps + (async.mapTicks - lastTicks) * 2f) / 2f;
+                lastTicks = async.mapTicks;
+                lastTicksAt = Time.time;
             }
 
             if (Multiplayer.IsReplay && Multiplayer.session.showTimeline || TickPatch.Simulating)
@@ -145,7 +166,7 @@ namespace Multiplayer.Client
             }
 
             if (!WorldRendererUtility.WorldRenderedNow)
-                text += $"\n\nCurrent map avg TPS: {IngameDebug.tps:0.00}";
+                text += $"\n\nCurrent map avg TPS: {tps:0.00}";
         }
 
         private static void HandleUiEventsWhenSimulating()

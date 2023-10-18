@@ -138,20 +138,11 @@ namespace Multiplayer.Client
             spectator.hidden = true;
             spectator.SetRelation(new FactionRelation(Faction.OfPlayer, FactionRelationKind.Neutral));
 
+            worldComp.factionData[spectator.loadID] = FactionWorldData.New(spectator.loadID);
             worldComp.spectatorFaction = spectator;
 
-            // todo is this needed?
-            // foreach (FactionWorldData data in worldComp.factionData.Values)
-            // {
-            //     foreach (DrugPolicy p in data.drugPolicyDatabase.policies)
-            //         p.uniqueId = Multiplayer.GlobalIdBlock.NextId();
-            //
-            //     foreach (Outfit o in data.outfitDatabase.outfits)
-            //         o.uniqueId = Multiplayer.GlobalIdBlock.NextId();
-            //
-            //     foreach (FoodRestriction o in data.foodRestrictionDatabase.foodRestrictions)
-            //         o.id = Multiplayer.GlobalIdBlock.NextId();
-            // }
+            foreach (FactionWorldData data in worldComp.factionData.Values)
+                data.ReassignIds();
 
             foreach (Map map in Find.Maps)
             {
@@ -177,7 +168,6 @@ namespace Multiplayer.Client
             faction.def = def;
 
             Find.FactionManager.Add(faction);
-            Multiplayer.WorldComp.factionData[faction.loadID] = FactionWorldData.New(faction.loadID);
 
             return faction;
         }

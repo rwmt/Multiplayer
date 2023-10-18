@@ -25,6 +25,14 @@ public class ConvertToSp
     private static void PrepareSingleplayer()
     {
         Find.GameInfo.permadeathMode = false;
+
+        // Remove spectator faction
+        var spectator = Multiplayer.WorldComp.spectatorFaction;
+        if (spectator != null)
+        {
+            spectator.RemoveAllRelations();
+            Find.FactionManager.allFactions.Remove(spectator);
+        }
     }
 
     private static void PrepareLoading()

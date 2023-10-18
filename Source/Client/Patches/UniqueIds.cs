@@ -43,6 +43,36 @@ namespace Multiplayer.Client.Patches
         static bool Prefix() => Scribe.mode != LoadSaveMode.LoadingVars;
     }
 
+    [HarmonyPatch(typeof(OutfitDatabase), nameof(OutfitDatabase.MakeNewOutfit))]
+    static class OutfitUniqueIdPatch
+    {
+        static void Postfix(Outfit __result)
+        {
+            if (Multiplayer.Ticking || Multiplayer.ExecutingCmds)
+                __result.uniqueId = Find.UniqueIDsManager.GetNextThingID();
+        }
+    }
+
+    [HarmonyPatch(typeof(DrugPolicyDatabase), nameof(DrugPolicyDatabase.MakeNewDrugPolicy))]
+    static class DrugPolicyUniqueIdPatch
+    {
+        static void Postfix(DrugPolicy __result)
+        {
+            if (Multiplayer.Ticking || Multiplayer.ExecutingCmds)
+                __result.uniqueId = Find.UniqueIDsManager.GetNextThingID();
+        }
+    }
+
+    [HarmonyPatch(typeof(FoodRestrictionDatabase), nameof(FoodRestrictionDatabase.MakeNewFoodRestriction))]
+    static class FoodRestrictionUniqueIdPatch
+    {
+        static void Postfix(FoodRestriction __result)
+        {
+            if (Multiplayer.Ticking || Multiplayer.ExecutingCmds)
+                __result.id = Find.UniqueIDsManager.GetNextThingID();
+        }
+    }
+
     [HarmonyPatch]
     static class MessagesMarker
     {

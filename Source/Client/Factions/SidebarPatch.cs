@@ -10,15 +10,16 @@ static class UIRootPrefix
 {
     static void Postfix()
     {
-        // if (Multiplayer.Client != null && Multiplayer.RealPlayerFaction != null && Find.FactionManager != null)
-        //     Find.FactionManager.ofPlayer = Multiplayer.RealPlayerFaction;
+        if (Multiplayer.Client != null && Multiplayer.RealPlayerFaction != null && Find.FactionManager != null)
+            Find.FactionManager.ofPlayer = Multiplayer.RealPlayerFaction;
 
         Layouter.BeginFrame();
 
         if (Multiplayer.Client != null &&
             Multiplayer.RealPlayerFaction == Multiplayer.WorldComp.spectatorFaction &&
             !TickPatch.Simulating &&
-            Find.WindowStack.WindowOfType<Page_ConfigureStartingPawns>() == null
+            !Multiplayer.IsReplay &&
+            Find.WindowStack.WindowOfType<Page>() == null
         )
             Find.WindowStack.ImmediateWindow(
                 "MpWindowFaction".GetHashCode(),
