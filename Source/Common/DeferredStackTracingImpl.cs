@@ -96,7 +96,7 @@ public static class DeferredStackTracingImpl
 
             trace[depth] = ret;
 
-            if (depth < HashInfluence)
+            if (depth < HashInfluence && info.nameHash != 0)
                 hash = HashCombineInt(hash, (int)info.nameHash);
 
             if (++depth == MaxDepth)
@@ -135,7 +135,7 @@ public static class DeferredStackTracingImpl
         info.stackUsage = stackUsage;
 
         var rawName = Native.MethodNameFromAddr(ret, true); // Use the original instead of replacement for hashing
-        info.nameHash = rawName != null ? StableStringHash(rawName) : 1;
+        info.nameHash = rawName != null ? Native.GetMethodAggressiveInlining(ret) ? 0 : StableStringHash(rawName) : 1;
 
         hashtableEntries++;
         if (hashtableEntries > hashtableSize * LoadFactor)
@@ -179,7 +179,7 @@ public static class DeferredStackTracingImpl
         return indexmask;
     }
 
-    unsafe static long GetStackUsage(long addr)
+    static unsafe long GetStackUsage(long addr)
     {
         var ji = Native.mono_jit_info_table_find(Native.DomainPtr, (IntPtr)addr);
 

@@ -33,7 +33,7 @@ namespace Multiplayer.Client
         public static readonly Texture2D DiscordIcon = ContentFinder<Texture2D>.Get("Multiplayer/Discord");
         public static readonly Texture2D Pulse = ContentFinder<Texture2D>.Get("Multiplayer/Pulse");
 
-        public static readonly Texture2D ChangeRelationIcon = ContentFinder<Texture2D>.Get("UI/Memes/Loyalist");
+        public static readonly Texture2D ChangeRelationIcon = ContentFinder<Texture2D>.Get("UI/Icons/VisitorsHelp");
 
         static MultiplayerStatic()
         {
@@ -47,6 +47,8 @@ namespace Multiplayer.Client
                     _ => Native.NativeOS.Windows
                 }
             );
+
+            Native.HarmonyOriginalGetter = MpUtil.GetOriginalFromHarmonyReplacement;
 
             // UnityEngine.Debug.Log instead of Verse.Log.Message because the server runs on its own thread
             ServerLog.info = str => Debug.Log($"MpServerLog: {str}");

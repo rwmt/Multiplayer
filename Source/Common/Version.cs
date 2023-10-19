@@ -2,8 +2,8 @@ namespace Multiplayer.Common
 {
     public static class MpVersion
     {
-        public const string Version = "0.9";
-        public const int Protocol = 34;
+        public const string Version = "0.9.1";
+        public const int Protocol = 35;
 
         public const string ApiAssemblyName = "0MultiplayerAPI";
 

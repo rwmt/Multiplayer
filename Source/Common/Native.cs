@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading;
+using HarmonyLib;
 
 namespace Multiplayer.Client
 {
@@ -18,6 +19,8 @@ namespace Multiplayer.Client
         // LMF is Last Managed Frame
         // current_thread->internal_thread->thread_info->tls[4]
         public static long LmfPtr { get; private set; }
+
+        public static Func<long, MethodBase>? HarmonyOriginalGetter { get; set; }
 
         public static void EarlyInit(NativeOS os)
         {
@@ -70,7 +73,7 @@ namespace Multiplayer.Client
             }
         }
 
-        public static string MethodNameFromAddr(long addr, bool harmonyOriginals)
+        public static string? MethodNameFromAddr(long addr, bool harmonyOriginals)
         {
             var domain = DomainPtr;
             var ji = mono_jit_info_table_find(domain, (IntPtr)addr);
@@ -80,11 +83,11 @@ namespace Multiplayer.Client
             var ptrToPrint = mono_jit_info_get_method(ji);
             var codeStart = (long)mono_jit_info_get_code_start(ji);
 
-            if (harmonyOriginals)
+            if (harmonyOriginals && HarmonyOriginalGetter != null)
             {
-                // var original = MpUtil.GetOriginalFromHarmonyReplacement(codeStart);
-                // if (original != null)
-                //     ptrToPrint = original.MethodHandle.Value;
+                var original = HarmonyOriginalGetter(codeStart);
+                if (original != null)
+                    ptrToPrint = original.MethodHandle.Value;
             }
 
             var name = mono_debug_print_stack_frame(ptrToPrint, -1, domain);
@@ -92,6 +95,23 @@ namespace Multiplayer.Client
             return string.IsNullOrEmpty(name) ? null : name;
         }
 
+        private static ConstructorInfo RuntimeMethodHandleCtor = AccessTools.Constructor(typeof(RuntimeMethodHandle), new[]{typeof(IntPtr)});
+
+        public static bool GetMethodAggressiveInlining(long addr)
+        {
+            var domain = DomainPtr;
+            var ji = mono_jit_info_table_find(domain, (IntPtr)addr);
+
+            if (ji == IntPtr.Zero) return false;
+
+            var methodHandle = mono_jit_info_get_method(ji);
+            var methodInfo =
+                MethodBase.GetMethodFromHandle((RuntimeMethodHandle)RuntimeMethodHandleCtor.Invoke(new[] { (object)methodHandle }));
+
+            return (methodInfo.MethodImplementationFlags & MethodImplAttributes.AggressiveInlining) != 0;
+        }
+
+        // const string MonoWindows = "mono-2.0-sgen.dll";
         const string MonoWindows = "mono-2.0-bdwgc";
         const string MonoLinux = "libmonobdwgc-2.0.so";
         const string MonoOSX = "libmonobdwgc-2.0.dylib";
