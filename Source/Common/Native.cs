@@ -95,7 +95,7 @@ namespace Multiplayer.Client
             return string.IsNullOrEmpty(name) ? null : name;
         }
 
-        private static ConstructorInfo RuntimeMethodHandleCtor = AccessTools.Constructor(typeof(RuntimeMethodHandle), new[]{typeof(IntPtr)});
+        private static ConstructorInfo runtimeMethodHandleCtor = AccessTools.Constructor(typeof(RuntimeMethodHandle), new[]{typeof(IntPtr)});
 
         public static bool GetMethodAggressiveInlining(long addr)
         {
@@ -105,8 +105,10 @@ namespace Multiplayer.Client
             if (ji == IntPtr.Zero) return false;
 
             var methodHandle = mono_jit_info_get_method(ji);
-            var methodInfo =
-                MethodBase.GetMethodFromHandle((RuntimeMethodHandle)RuntimeMethodHandleCtor.Invoke(new[] { (object)methodHandle }));
+            var rmh = (RuntimeMethodHandle)runtimeMethodHandleCtor.Invoke(new[] { (object)methodHandle });
+            var rth = new RuntimeTypeHandle();
+            var methodInfo = MethodBase.GetMethodFromHandle(rmh, rth);
+            if (methodInfo == null) return false;
 
             return (methodInfo.MethodImplementationFlags & MethodImplAttributes.AggressiveInlining) != 0;
         }

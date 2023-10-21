@@ -134,15 +134,15 @@ namespace Multiplayer.Client
         }
 
         [HarmonyPriority(MpPriority.MpFirst)]
-        public static void Prefix_SpawnSetup(Thing __instance, Map map, ref Container<Map>? __state)
+        public static void Prefix_SpawnSetup(Thing __instance, Map __0, ref Container<Map>? __state)
         {
             if (Multiplayer.Client == null) return;
 
-            __state = map;
+            __state = __0;
             ThingContext.Push(__instance);
 
             if (__instance.def.CanHaveFaction)
-                map.PushFaction(__instance.Faction);
+                __0.PushFaction(__instance.Faction);
         }
 
         [HarmonyPriority(MpPriority.MpLast)]

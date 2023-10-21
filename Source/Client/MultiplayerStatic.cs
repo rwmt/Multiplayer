@@ -376,7 +376,6 @@ namespace Multiplayer.Client
                     ("Tick", Type.EmptyTypes),
                     ("TickRare", Type.EmptyTypes),
                     ("TickLong", Type.EmptyTypes),
-                    ("SpawnSetup", new[]{ typeof(Map), typeof(bool) }),
                     ("TakeDamage", new[]{ typeof(DamageInfo) }),
                     ("Kill", new[]{ typeof(DamageInfo?), typeof(Hediff) })
                 };

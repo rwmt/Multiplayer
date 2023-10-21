@@ -13,23 +13,27 @@ class Program
         Native.InitLmfPtr(Native.NativeOS.Dummy);
         Native.EarlyInit(Native.NativeOS.Dummy);
 
-        Test1();
+        TestClass<int>.Test1<int>();
+        TestClass<int>.Test();
     }
 
-    public static void Test()
+    class TestClass<S>
     {
-        int hash = 0;
-        long[] trace = new long[8];
-        DeferredStackTracingImpl.TraceImpl(trace, ref hash);
-        Console.WriteLine(hash);
+        public static void Test()
+        {
+            int hash = 0;
+            long[] trace = new long[8];
+            DeferredStackTracingImpl.TraceImpl(trace, ref hash);
+            Console.WriteLine(hash);
 
-        foreach (long l in trace)
-            Console.WriteLine(Native.MethodNameFromAddr(l, false));
-    }
+            foreach (long l in trace)
+                Console.WriteLine(Native.MethodNameFromAddr(l, false));
+        }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.NoInlining)]
-    public static void Test1()
-    {
-        Test();
+        [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.NoInlining)]
+        public static void Test1<T>()
+        {
+            Test();
+        }
     }
 }
