@@ -122,32 +122,8 @@ namespace Multiplayer.Client
             GenPlace.TryPlaceThing(shuttle, UI.MouseCell(), Find.CurrentMap, ThingPlaceMode.Near);
         }
 
-        [DebugAction(MultiplayerCategory, "Save Map", allowedGameStates = AllowedGameStates.Playing)]
-        public static void SaveGameCmd()
-        {
-            Map map = Find.CurrentMap;
-            byte[] mapData = ScribeUtil.WriteExposable(Current.Game, "map", true);
-            File.WriteAllBytes($"map_{map.uniqueID}_{Multiplayer.username}.xml", mapData);
-        }
-
-        [DebugAction(MultiplayerCategory, "Save Map (local)", allowedGameStates = AllowedGameStates.Playing)]
-        public static void SaveGameCmdLocal()
-        {
-            Map map = Find.CurrentMap;
-            byte[] mapData = ScribeUtil.WriteExposable(Current.Game, "map", true);
-            File.WriteAllBytes($"map_{map.uniqueID}_{Multiplayer.username}.xml", mapData);
-        }
-
         [DebugAction(MultiplayerCategory, "Save Game", allowedGameStates = AllowedGameStates.Playing)]
         public static void SaveGame()
-        {
-            Game game = Current.Game;
-            byte[] data = ScribeUtil.WriteExposable(game, "game", true);
-            File.WriteAllBytes($"game_{Multiplayer.username}.xml", data);
-        }
-
-        [DebugAction(MultiplayerCategory, "Save Game (local)", allowedGameStates = AllowedGameStates.Playing)]
-        public static void SaveGameLocal()
         {
             Game game = Current.Game;
             byte[] data = ScribeUtil.WriteExposable(game, "game", true);

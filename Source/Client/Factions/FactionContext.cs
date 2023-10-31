@@ -6,11 +6,11 @@ namespace Multiplayer.Client
 {
     public static class FactionContext
     {
-        public static Stack<Faction> stack = new Stack<Faction>();
+        public static Stack<Faction> stack = new();
 
         public static Faction Push(Faction newFaction)
         {
-            if (newFaction == null || !newFaction.def.isPlayer)
+            if (newFaction == null || Find.FactionManager.ofPlayer == newFaction || !newFaction.def.isPlayer)
             {
                 stack.Push(null);
                 return null;

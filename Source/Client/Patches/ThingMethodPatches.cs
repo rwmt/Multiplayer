@@ -1,6 +1,7 @@
 using HarmonyLib;
 using RimWorld;
 using System.Collections.Generic;
+using Multiplayer.Client.Factions;
 using Verse;
 using Verse.AI;
 
@@ -19,8 +20,8 @@ namespace Multiplayer.Client
 
         static void Postfix(Pawn pawn, Container<Map>? __state)
         {
-            if (__state != null)
-                __state.PopFaction();
+            if (__state is { Inner: var map })
+                map.PopFaction();
         }
     }
 
@@ -37,8 +38,8 @@ namespace Multiplayer.Client
 
         static void Postfix(Container<Map>? __state)
         {
-            if (__state != null)
-                __state.PopFaction();
+            if (__state is { Inner: var map })
+                map.PopFaction();
         }
     }
 
@@ -65,8 +66,8 @@ namespace Multiplayer.Client
 
         static void Postfix(Container<Map>? __state)
         {
-            if (__state != null)
-                __state.PopFaction();
+            if (__state is { Inner: var map })
+                map.PopFaction();
         }
     }
 
@@ -87,8 +88,8 @@ namespace Multiplayer.Client
 
         static void Postfix(Container<Map>? __state)
         {
-            if (__state != null)
-                __state.PopFaction();
+            if (__state is { Inner: var map })
+                map.PopFaction();
         }
     }
 
@@ -110,9 +111,9 @@ namespace Multiplayer.Client
 
         static void Postfix(Container<Map>? __state)
         {
-            if (__state != null)
+            if (__state is { Inner: var map })
             {
-                __state.PopFaction();
+                map.PopFaction();
                 ThingContext.Pop();
             }
         }
@@ -132,13 +133,25 @@ namespace Multiplayer.Client
                 __instance.Map.PushFaction(__instance.Faction);
         }
 
+        [HarmonyPriority(MpPriority.MpFirst)]
+        public static void Prefix_SpawnSetup(Thing __instance, Map __0, ref Container<Map>? __state)
+        {
+            if (Multiplayer.Client == null) return;
+
+            __state = __0;
+            ThingContext.Push(__instance);
+
+            if (__instance.def.CanHaveFaction)
+                __0.PushFaction(__instance.Faction);
+        }
+
         [HarmonyPriority(MpPriority.MpLast)]
         public static void Postfix(Thing __instance, Container<Map>? __state)
         {
-            if (__state == null) return;
+            if (__state is not { Inner: var map }) return;
 
             if (__instance.def.CanHaveFaction)
-                __state.PopFaction();
+                map.PopFaction();
 
             ThingContext.Pop();
         }

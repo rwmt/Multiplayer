@@ -4,12 +4,10 @@ using RimWorld;
 using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
-using Multiplayer.Common.Util;
 using Verse;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
     public class CaravanFormingSession : IExposable, ISessionWithTransferables, IPausingWithDialog
     {
         public Map map;
@@ -36,8 +34,7 @@ namespace Multiplayer.Client
 
         public CaravanFormingSession(Map map, bool reform, Action onClosed, bool mapAboutToBeRemoved, IntVec3? meetingSpot = null) : this(map)
         {
-            //sessionId = map.MpComp().mapIdBlock.NextId();
-            sessionId = Multiplayer.GlobalIdBlock.NextId();
+            sessionId = Find.UniqueIDsManager.GetNextThingID();
 
             this.reform = reform;
             this.onClosed = onClosed;
@@ -60,6 +57,8 @@ namespace Multiplayer.Client
 
         public void OpenWindow(bool sound = true)
         {
+            Log.Message($"session {sessionId}");
+
             var dialog = PrepareDummyDialog();
             if (!sound)
                 dialog.soundAppear = null;

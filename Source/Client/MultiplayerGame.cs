@@ -6,14 +6,13 @@ using System.Linq;
 using System.Reflection;
 using Multiplayer.Client.AsyncTime;
 using Multiplayer.Client.Comp;
+using Multiplayer.Client.Factions;
 using Multiplayer.Client.Persistent;
-using Multiplayer.Common.Util;
 using UnityEngine;
 using Verse;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
     public class MultiplayerGame
     {
         public SyncCoordinator sync = new();
@@ -76,6 +75,8 @@ namespace Multiplayer.Client
             foreach (var initialOpinion in Multiplayer.session.initialOpinions)
                 sync.AddClientOpinionAndCheckDesync(initialOpinion);
             Multiplayer.session.initialOpinions.Clear();
+
+            FactionCreator.ClearData();
         }
 
         public static void ClearPortraits()
@@ -122,6 +123,8 @@ namespace Multiplayer.Client
 
         public void ChangeRealPlayerFaction(Faction newFaction)
         {
+            Log.Message($"Changing real player faction to {newFaction} from {myFaction}");
+
             myFaction = newFaction;
             FactionContext.Set(newFaction);
             worldComp.SetFaction(newFaction);
@@ -129,8 +132,16 @@ namespace Multiplayer.Client
             foreach (Map m in Find.Maps)
                 m.MpComp().SetFaction(newFaction);
 
+            foreach (Map m in Find.Maps)
+            {
+                m.mapDrawer.RegenerateEverythingNow();
+
+                foreach (var t in m.listerThings.AllThings)
+                    if (t is ThingWithComps tc)
+                        tc.GetComp<CompForbiddable>()?.UpdateOverlayHandle();
+            }
+
             Find.ColonistBar?.MarkColonistsDirty();
-            Find.CurrentMap?.mapDrawer.RegenerateEverythingNow();
         }
     }
 }

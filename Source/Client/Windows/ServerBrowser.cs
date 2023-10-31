@@ -19,13 +19,12 @@ using Multiplayer.Common.Util;
 
 namespace Multiplayer.Client
 {
-
     public class ServerBrowser : Window
     {
         private NetManager lanListener;
-        private List<LanServer> servers = new List<LanServer>();
+        private List<LanServer> servers = new();
 
-        public override Vector2 InitialSize => new Vector2(800f, 500f);
+        public override Vector2 InitialSize => new(800f, 500f);
 
         public ServerBrowser()
         {
@@ -53,7 +52,7 @@ namespace Multiplayer.Client
 
         private Vector2 lanScroll;
         private Vector2 steamScroll;
-        private Vector2 hostScroll;
+        private static Vector2 hostScroll;
         private static Tabs tab;
 
         enum Tabs
@@ -369,17 +368,19 @@ namespace Multiplayer.Client
                         var text = "MpSaveOutdatedDesc".Translate(data.rwVersion, VersionControl.CurrentVersionString);
                         TooltipHandler.TipRegion(outdated, text);
                     }
+                }
 
-                    Text.Font = GameFont.Small;
-                    GUI.color = Color.white;
+                Text.Font = GameFont.Small;
+                GUI.color = Color.white;
 
-                    if (Widgets.ButtonInvisible(entryRect, false))
-                    {
-                        if (Event.current.button == 0)
-                            selectedFile = file;
-                        else if (Event.current.button == 1 && data.HasRwVersion)
-                            Find.WindowStack.Add(new FloatMenu(SaveFloatMenu(data).ToList()));
-                    }
+                // Check data != null after drawing the button so draw order doesn't depend on data
+                // and IMGUI control ids are the same across frames
+                if (Widgets.ButtonInvisible(entryRect, false) && data != null)
+                {
+                    if (Event.current.button == 0)
+                        selectedFile = file;
+                    else if (Event.current.button == 1 && data.HasRwVersion)
+                        Find.WindowStack.Add(new FloatMenu(SaveFloatMenu(data).ToList()));
                 }
 
                 y += 40;

@@ -7,18 +7,14 @@
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
     <AssemblyName>MultiplayerLoader</AssemblyName>
-    <OutputPath>..\..\Assemblies\</OutputPath>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Krafs.Rimworld.Ref" Version="1.4.3704" />
     <PackageReference Include="Krafs.Publicizer" Version="2.0.1" />
-    <PackageReference Include="RimWorld.MultiplayerAPI" Version="0.4.0" />
     <PackageReference Include="Zetrith.Prepatcher" Version="1.1.1" />
-    <PackageReference Include="RestSharp" Version="106.12.0" />
     <PackageReference Include="Lib.Harmony" Version="2.2.2" ExcludeAssets="runtime" />
-
-    <ProjectReference Include="..\Common\Common.csproj" Private="false"  />
+    <ProjectReference Include="..\Common\Common.csproj"  />
   </ItemGroup>
 
   <ItemGroup>

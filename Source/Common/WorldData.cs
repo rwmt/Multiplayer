@@ -6,7 +6,8 @@ namespace Multiplayer.Common;
 
 public class WorldData
 {
-    public int defaultFactionId;
+    public int hostFactionId;
+    public int spectatorFactionId;
     public byte[]? savedGame; // Compressed game save
     public byte[]? semiPersistent; // Compressed semi persistent data
     public Dictionary<int, byte[]> mapData = new(); // Map id to compressed map data

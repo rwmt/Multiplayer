@@ -48,7 +48,9 @@ namespace Multiplayer.Client
             data.WriteBool(writeConfigs);
             if (writeConfigs)
             {
-                var configs = GetSyncableConfigContents(activeModsSnapshot.Select(m => m.PackageIdNonUnique));
+                var configs = GetSyncableConfigContents(
+                    activeModsSnapshot.Select(m => m.PackageIdNonUnique).ToList()
+                );
 
                 data.WriteInt32(configs.Count);
                 foreach (var config in configs)
@@ -146,7 +148,7 @@ namespace Multiplayer.Client
         public const string HugsLibId = "unlimitedhugs.hugslib";
         public const string HugsLibSettingsFile = "ModSettings";
 
-        public static List<ModConfig> GetSyncableConfigContents(IEnumerable<string> modIds)
+        public static List<ModConfig> GetSyncableConfigContents(List<string> modIds)
         {
             var list = new List<ModConfig>();
 
@@ -206,7 +208,7 @@ namespace Multiplayer.Client
                 remote.remoteRwVersion == VersionControl.CurrentVersionString &&
                 remote.CompareMods(activeModsSnapshot) == ModListDiff.None &&
                 remote.remoteFiles.DictsEqual(modFilesSnapshot) &&
-                (!remote.hasConfigs || remote.remoteModConfigs.EqualAsSets(GetSyncableConfigContents(remote.RemoteModIds)));
+                (!remote.hasConfigs || remote.remoteModConfigs.EqualAsSets(GetSyncableConfigContents(remote.RemoteModIds.ToList())));
         }
 
         internal static void TakeModDataSnapshot()
@@ -355,7 +357,7 @@ namespace Multiplayer.Client
 
     public struct ModInfo
     {
-        public string packageId; // Mod package id with no _steam suffix
+        public string packageId; // Mod package id, lower case, no _steam suffix
         public string name;
         public ulong steamId; // Zero means invalid
         public ContentSource source;

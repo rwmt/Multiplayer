@@ -1,7 +1,6 @@
 using Multiplayer.Common;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using RimWorld;
 using Verse;
@@ -10,7 +9,6 @@ using Multiplayer.Client.Util;
 
 namespace Multiplayer.Client
 {
-
     public class SyncCoordinator
     {
         public bool ShouldCollect => !Multiplayer.IsReplay;
@@ -218,6 +216,7 @@ namespace Multiplayer.Client
             OpinionInBuilding.TryMarkSimulating();
 
             item.depth = depth;
+            item.ticksGame = Find.TickManager.ticksGameInt;
             item.iters = (int)Rand.iterations;
             item.tick = TickPatch.Timer;
             item.factionName = Faction.OfPlayer?.Name ?? string.Empty;

@@ -1,5 +1,4 @@
 using HarmonyLib;
-using Multiplayer.Client.Patches;
 using RimWorld;
 using RimWorld.Planet;
 using System;
@@ -42,12 +41,6 @@ namespace Multiplayer.Client
             int seed = __instance.uniqueID;
             Rand.PushState(seed);
 
-            if (Scribe.mode != LoadSaveMode.LoadingVars)
-            {
-                //UniqueIdsPatch.CurrentBlock = __instance.MpComp().mapIdBlock;
-                UniqueIdsPatch.CurrentBlock = Multiplayer.GlobalIdBlock;
-            }
-
             __state = true;
         }
 
@@ -57,9 +50,6 @@ namespace Multiplayer.Client
             {
                 Log.Message($"Map.ExposeData post rand {__instance.uniqueID} {Scribe.mode} {Rand.iterations}");
                 Rand.PopState();
-
-                if (Scribe.mode != LoadSaveMode.LoadingVars)
-                    UniqueIdsPatch.CurrentBlock = null;
             }
         }
     }
@@ -75,9 +65,6 @@ namespace Multiplayer.Client
             int seed = __instance.uniqueID;
             Rand.PushState(seed);
 
-            //UniqueIdsPatch.CurrentBlock = __instance.MpComp().mapIdBlock;
-            UniqueIdsPatch.CurrentBlock = Multiplayer.GlobalIdBlock;
-
             __state = true;
         }
 
@@ -87,12 +74,11 @@ namespace Multiplayer.Client
             {
                 Log.Message($"Map.FinalizeLoading post rand {__instance.uniqueID} {Rand.iterations}");
                 Rand.PopState();
-                UniqueIdsPatch.CurrentBlock = null;
             }
         }
     }
 
-    [HarmonyPatch(typeof(CaravanEnterMapUtility), nameof(CaravanEnterMapUtility.Enter), new[] { typeof(Caravan), typeof(Map), typeof(CaravanEnterMode), typeof(CaravanDropInventoryMode), typeof(bool), typeof(Predicate<IntVec3>) })]
+    [HarmonyPatch(typeof(CaravanEnterMapUtility), nameof(CaravanEnterMapUtility.Enter), new[] { typeof(Caravan), typeof(Map), typeof(Func<Pawn, IntVec3>), typeof(CaravanDropInventoryMode), typeof(bool) })]
     static class SeedCaravanEnter
     {
         static void Prefix(Map map, ref bool __state)

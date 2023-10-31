@@ -63,10 +63,10 @@ namespace Multiplayer.Client
             {
                 var types = typeof(CompAssignableToPawn).AllSubtypesAndSelf().ToArray();
                 var assignMethods = types
-                    .Select(t => t.GetMethod(nameof(CompAssignableToPawn.TryAssignPawn), AccessTools.allDeclared))
+                    .Select(t => t.GetMethod(nameof(CompAssignableToPawn.TryAssignPawn), AccessTools.allDeclared, null, new[] { typeof(Pawn) }, null))
                     .AllNotNull();
                 var unassignMethods = types
-                    .Select(t => t.GetMethod(nameof(CompAssignableToPawn.TryUnassignPawn), AccessTools.allDeclared))
+                    .Select(t => t.GetMethod(nameof(CompAssignableToPawn.TryUnassignPawn), AccessTools.allDeclared, null, new[] { typeof(Pawn), typeof(bool), typeof(bool) }, null))
                     .AllNotNull();
 
                 var unassignSerializer = Serializer.New(
@@ -100,7 +100,7 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(Building_ShipComputerCore), nameof(Building_ShipComputerCore.TryLaunch));
             SyncMethod.Register(typeof(CompPower), nameof(CompPower.TryManualReconnect));
             SyncMethod.Register(typeof(CompTempControl), nameof(CompTempControl.InterfaceChangeTargetTemperature));
-            SyncMethod.Register(typeof(CompTransporter), nameof(CompTransporter.CancelLoad), new SyncType[0]);
+            SyncMethod.Register(typeof(CompTransporter), nameof(CompTransporter.CancelLoad), Array.Empty<SyncType>());
             SyncMethod.Register(typeof(StorageSettings), nameof(StorageSettings.CopyFrom)).ExposeParameter(0);
             SyncMethod.Lambda(typeof(Command_SetTargetFuelLevel), nameof(Command_SetTargetFuelLevel.ProcessInput), 2); // Set target fuel level from Dialog_Slider
             SyncMethod.Register(typeof(ITab_Pawn_Gear), nameof(ITab_Pawn_Gear.InterfaceDrop)).SetContext(SyncContext.MapSelected | SyncContext.QueueOrder_Down).CancelIfAnyArgNull().CancelIfNoSelectedMapObjects();
@@ -111,6 +111,7 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(CaravanFormingUtility), nameof(CaravanFormingUtility.RemovePawnFromCaravan)).CancelIfAnyArgNull();
             SyncMethod.Register(typeof(CaravanFormingUtility), nameof(CaravanFormingUtility.LateJoinFormingCaravan)).CancelIfAnyArgNull();
             SyncMethod.Register(typeof(SettleInEmptyTileUtility), nameof(SettleInEmptyTileUtility.Settle)).CancelIfAnyArgNull();
+            SyncMethod.Register(typeof(SettleInExistingMapUtility), nameof(SettleInExistingMapUtility.Settle)).CancelIfAnyArgNull();
             SyncMethod.Register(typeof(SettlementAbandonUtility), nameof(SettlementAbandonUtility.Abandon)).CancelIfAnyArgNull();
             SyncMethod.Register(typeof(WorldSelector), nameof(WorldSelector.AutoOrderToTileNow)).CancelIfAnyArgNull();
             SyncMethod.Register(typeof(CaravanMergeUtility), nameof(CaravanMergeUtility.TryMergeSelectedCaravans)).SetContext(SyncContext.WorldSelected);

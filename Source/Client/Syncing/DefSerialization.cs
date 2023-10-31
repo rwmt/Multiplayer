@@ -31,7 +31,7 @@ namespace Multiplayer.Client
 
         public static Def GetDef(Type defType, ushort hash)
         {
-            return (Def)methodCache.AddOrGet(
+            return (Def)methodCache.GetOrAdd(
                 hashableType[defType],
                 static t => typeof(DefDatabase<>).MakeGenericType(t).GetMethod("GetByShortHash")
             ).Invoke(null, new[] { (object)hash });

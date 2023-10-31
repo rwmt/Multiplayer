@@ -1,6 +1,6 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using Verse;
 
 namespace Multiplayer.Common
 {
@@ -51,7 +51,8 @@ namespace Multiplayer.Common
         {
             CommandType cmd = (CommandType)data.ReadInt32();
             int mapId = data.ReadInt32();
-            byte[] extra = data.ReadPrefixedBytes(65535);
+            byte[]? extra = data.ReadPrefixedBytes(65535);
+            if (extra == null) return;
 
             // todo check if map id is valid for the player
 
@@ -84,7 +85,7 @@ namespace Multiplayer.Common
         [IsFragmented]
         public void HandleWorldDataUpload(ByteReader data)
         {
-            if (Server.ArbiterPlaying ? !Player.IsArbiter : !Player.IsHost)
+            if (Server.ArbiterPlaying ? !Player.IsArbiter : !Player.IsHost) // policy
                 return;
 
             ServerLog.Log($"Got world upload {data.Left}");
@@ -108,7 +109,7 @@ namespace Multiplayer.Common
         [PacketHandler(Packets.Client_Cursor)]
         public void HandleCursor(ByteReader data)
         {
-            if (Player.lastCursorTick == Server.NetTimer) return;
+            if (Player.lastCursorTick == Server.NetTimer) return; // policy
 
             var writer = new ByteWriter();
 
@@ -175,22 +176,6 @@ namespace Multiplayer.Common
             Server.SendToPlaying(Packets.Server_PingLocation, writer.ToArray());
         }
 
-        [PacketHandler(Packets.Client_IdBlockRequest)]
-        public void HandleIdBlockRequest(ByteReader data)
-        {
-            int mapId = data.ReadInt32();
-
-            if (mapId == ScheduledCommand.Global)
-            {
-                //IdBlock nextBlock = MultiplayerServer.instance.NextIdBlock();
-                //MultiplayerServer.instance.SendCommand(CommandType.GlobalIdBlock, ScheduledCommand.NoFaction, ScheduledCommand.Global, nextBlock.Serialize());
-            }
-            else
-            {
-                // todo
-            }
-        }
-
         [PacketHandler(Packets.Client_KeepAlive)]
         public void HandleClientKeepAlive(ByteReader data)
         {
@@ -224,7 +209,7 @@ namespace Multiplayer.Common
         public void HandleDesyncCheck(ByteReader data)
         {
             var arbiter = Server.ArbiterPlaying;
-            if (arbiter ? !Player.IsArbiter : !Player.IsHost) return;
+            if (arbiter ? !Player.IsArbiter : !Player.IsHost) return; // policy
 
             var raw = data.ReadRaw(data.Left);
 
@@ -250,6 +235,7 @@ namespace Multiplayer.Common
         [PacketHandler(Packets.Client_Autosaving)]
         public void HandleAutosaving(ByteReader data)
         {
+            // Host policy
             if (Player.IsHost && Server.settings.autoJoinPoint.HasFlag(AutoJoinPointFlags.Autosave))
                 Server.worldData.TryStartJoinPointCreation();
         }
@@ -257,12 +243,18 @@ namespace Multiplayer.Common
         [PacketHandler(Packets.Client_Debug)]
         public void HandleDebug(ByteReader data)
         {
+            // todo restrict handling
+
+            Server.worldData.mapCmds.Clear();
+            Server.gameTimer = Server.startingTimer;
+
+            Server.SendToPlaying(Packets.Server_Debug, Array.Empty<object>());
         }
 
         [PacketHandler(Packets.Client_SetFaction)]
         public void HandleSetFaction(ByteReader data)
         {
-            if (!Player.IsHost) return;
+            // todo restrict handling
 
             int playerId = data.ReadInt32();
             int factionId = data.ReadInt32();

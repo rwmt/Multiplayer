@@ -1,32 +1,32 @@
 using System;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading;
 using HarmonyLib;
-//using Iced.Intel;
-using UnityEngine;
-using Verse;
-//using Decoder = Iced.Intel.Decoder;
 
 namespace Multiplayer.Client
 {
-    static class Native
+    public static class Native
     {
+        public enum NativeOS
+        {
+            Windows, OSX, Linux, Dummy
+        }
+
         public static IntPtr DomainPtr { get; private set; }
 
         // LMF is Last Managed Frame
         // current_thread->internal_thread->thread_info->tls[4]
         public static long LmfPtr { get; private set; }
 
-        public static bool Linux => Application.platform == RuntimePlatform.LinuxEditor || Application.platform == RuntimePlatform.LinuxPlayer;
-        public static bool Windows => Application.platform == RuntimePlatform.WindowsEditor || Application.platform == RuntimePlatform.WindowsPlayer;
-        public static bool OSX => Application.platform == RuntimePlatform.OSXEditor || Application.platform == RuntimePlatform.OSXPlayer;
+        public static Func<long, MethodBase>? HarmonyOriginalGetter { get; set; }
 
-        public static void EarlyInit()
+        public static void EarlyInit(NativeOS os)
         {
-            if (Linux)
+            if (os == NativeOS.Linux)
                 TheLinuxWay();
-            if (OSX)
+            if (os == NativeOS.OSX)
                 TheOSXWay();
 
             EarlyInitInternal();
@@ -44,30 +44,36 @@ namespace Multiplayer.Client
             DomainPtr = mono_domain_get();
         }
 
-        public static void InitLmfPtr()
+        public static unsafe void InitLmfPtr(NativeOS os)
         {
-            if (!UnityData.IsInMainThread)
-                throw new Exception("Multiplayer.Client.Native data getter not running on the main thread!");
-
             // Don't bother on 32 bit runtimes
             if (IntPtr.Size == 4)
                 return;
 
-            var internalThreadField = AccessTools.Field(typeof(Thread), "internal_thread");
-            var threadInfoField = AccessTools.Field(internalThreadField.FieldType, "runtime_thread_info");
+            const BindingFlags all = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public |
+                                     BindingFlags.NonPublic;
+
+            var internalThreadField = typeof(Thread).GetField("internal_thread", all);
+            var threadInfoField = internalThreadField.FieldType.GetField("runtime_thread_info", all);
             var threadInfoPtr = (long)(IntPtr)threadInfoField.GetValue(internalThreadField.GetValue(Thread.CurrentThread));
 
             // Struct offset found manually
             // Navigate by string: "Handle Stack"
-            if (Linux)
+            if (os == NativeOS.Linux)
                 LmfPtr = threadInfoPtr + 0x480 - 8 * 4;
-            else if (Windows)
+            else if (os == NativeOS.Windows)
                 LmfPtr = threadInfoPtr + 0x448 - 8 * 4;
-            else if (OSX)
+            else if (os == NativeOS.OSX)
                 LmfPtr = threadInfoPtr + 0x418 - 8 * 4;
+            else if (os == NativeOS.Dummy)
+            {
+                LmfPtr = (long)Marshal.AllocHGlobal(3 * 8);
+                *(long*)LmfPtr = LmfPtr;
+                *(long*)(LmfPtr + 8) = 0;
+            }
         }
 
-        public static string MethodNameFromAddr(long addr, bool harmonyOriginals)
+        public static string? MethodNameFromAddr(long addr, bool harmonyOriginals)
         {
             var domain = DomainPtr;
             var ji = mono_jit_info_table_find(domain, (IntPtr)addr);
@@ -77,9 +83,9 @@ namespace Multiplayer.Client
             var ptrToPrint = mono_jit_info_get_method(ji);
             var codeStart = (long)mono_jit_info_get_code_start(ji);
 
-            if (harmonyOriginals)
+            if (harmonyOriginals && HarmonyOriginalGetter != null)
             {
-                var original = MpUtil.GetOriginalFromHarmonyReplacement(codeStart);
+                var original = HarmonyOriginalGetter(codeStart);
                 if (original != null)
                     ptrToPrint = original.MethodHandle.Value;
             }
@@ -89,6 +95,25 @@ namespace Multiplayer.Client
             return string.IsNullOrEmpty(name) ? null : name;
         }
 
+        private static ConstructorInfo runtimeMethodHandleCtor = AccessTools.Constructor(typeof(RuntimeMethodHandle), new[]{typeof(IntPtr)});
+
+        public static bool GetMethodAggressiveInlining(long addr)
+        {
+            var domain = DomainPtr;
+            var ji = mono_jit_info_table_find(domain, (IntPtr)addr);
+
+            if (ji == IntPtr.Zero) return false;
+
+            var methodHandle = mono_jit_info_get_method(ji);
+            var rmh = (RuntimeMethodHandle)runtimeMethodHandleCtor.Invoke(new[] { (object)methodHandle });
+            var rth = new RuntimeTypeHandle();
+            var methodInfo = MethodBase.GetMethodFromHandle(rmh, rth);
+            if (methodInfo == null) return false;
+
+            return (methodInfo.MethodImplementationFlags & MethodImplAttributes.AggressiveInlining) != 0;
+        }
+
+        // const string MonoWindows = "mono-2.0-sgen.dll";
         const string MonoWindows = "mono-2.0-bdwgc";
         const string MonoLinux = "libmonobdwgc-2.0.so";
         const string MonoOSX = "libmonobdwgc-2.0.dylib";
@@ -116,6 +141,9 @@ namespace Multiplayer.Client
 
         [DllImport(MonoWindows)]
         public static extern int mini_parse_debug_option(string option);
+
+        [DllImport(MonoWindows)]
+        public static extern void mono_set_defaults(int verboseLevel, int opts);
 
         [DllImport(MonoWindows)]
         public static extern IntPtr mono_domain_get();

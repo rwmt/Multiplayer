@@ -165,7 +165,7 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(MapDeiniter))]
-    [HarmonyPatch(nameof(MapDeiniter.Deinit))]
+    [HarmonyPatch(nameof(MapDeiniter.Deinit_NewTemp))]
     public static class DeinitMapPatch
     {
         static void Prefix(Map map)
@@ -254,7 +254,7 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.game == null) return;
 
-            if (item.def.HasThingIDNumber)
+            if (item.def.HasThingIDNumber && item.thingIDNumber >= 0)
             {
                 ScribeUtil.sharedCrossRefs.RegisterLoaded(item);
                 ThingsById.Register(item);
@@ -293,12 +293,45 @@ namespace Multiplayer.Client
                 // Ignore null values and minified things with null inner thing.
                 // Since this method is called before ThingOwner<>.ExposeData,
                 // we're using data before it was cleaned up.
-                if (item != null && item is not MinifiedThing { InnerThing: null })
+                if (item != null && item is not MinifiedThing { InnerThing: null } && item.thingIDNumber >= 0)
                 {
                     ScribeUtil.sharedCrossRefs.RegisterLoaded(item);
                     ThingsById.Register(item);
                 }
             }
+        }
+    }
+
+    [HarmonyPatch(typeof(TransportShipManager), nameof(TransportShipManager.RegisterShipObject))]
+    public static class TransportShipAddPatch
+    {
+        public static void Postfix(TransportShip s)
+        {
+            if (Multiplayer.game == null) return;
+            ScribeUtil.sharedCrossRefs.RegisterLoaded(s);
+        }
+    }
+
+    [HarmonyPatch(typeof(TransportShipManager), nameof(TransportShipManager.DeregisterShipObject))]
+    public static class TransportShipRemovePatch
+    {
+        public static void Postfix(TransportShip s)
+        {
+            if (Multiplayer.game == null) return;
+            ScribeUtil.sharedCrossRefs.Unregister(s);
+        }
+    }
+
+    [HarmonyPatch(typeof(TransportShipManager), nameof(TransportShipManager.ExposeData))]
+    public static class TransportShipExposePatch
+    {
+        static void Postfix(TransportShipManager __instance)
+        {
+            if (Multiplayer.game == null) return;
+
+            if (Scribe.mode == LoadSaveMode.PostLoadInit)
+                foreach (var ship in __instance.ships)
+                    ScribeUtil.sharedCrossRefs.RegisterLoaded(ship);
         }
     }
 }

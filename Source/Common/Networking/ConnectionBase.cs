@@ -30,12 +30,12 @@ namespace Multiplayer.Common
             StateObj?.StartState();
         }
 
-        public virtual void Send(Packets id)
+        public void Send(Packets id)
         {
             Send(id, Array.Empty<byte>());
         }
 
-        public virtual void Send(Packets id, params object[] msg)
+        public void Send(Packets id, params object[] msg)
         {
             Send(id, ByteWriter.GetBytes(msg));
         }
@@ -64,7 +64,7 @@ namespace Multiplayer.Common
         private const int FragEnd = 0x80;
 
         // All fragmented packets need to be sent from the same thread
-        public virtual void SendFragmented(Packets id, byte[] message)
+        public void SendFragmented(Packets id, byte[] message)
         {
             if (State == ConnectionStateEnum.Disconnected)
                 return;
@@ -93,7 +93,7 @@ namespace Multiplayer.Common
             }
         }
 
-        public virtual void SendFragmented(Packets id, params object[] msg)
+        public void SendFragmented(Packets id, params object[] msg)
         {
             SendFragmented(id, ByteWriter.GetBytes(msg));
         }
@@ -116,7 +116,7 @@ namespace Multiplayer.Common
         }
 
         private ByteWriter? fragmented;
-        private int fullSize; // For information, doesn't affect anything
+        private int fullSize; // Only for UI
 
         public int FragmentProgress => (fragmented?.Position * 100 / fullSize) ?? 0;
 

@@ -3,9 +3,9 @@
   <PropertyGroup>
     <TargetFramework>net472</TargetFramework>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <LangVersion>10</LangVersion>
+    <LangVersion>11</LangVersion>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-    <OutputPath>..\..\AssembliesCustom\</OutputPath>
+    <OutputPath>bin</OutputPath>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
     <ReleaseVersion>0.6.2</ReleaseVersion>
@@ -29,8 +29,9 @@
   <ItemGroup>
     <PackageReference Include="Krafs.Publicizer" Version="2.0.1" />
     <PackageReference Include="Lib.Harmony" Version="2.2.2" ExcludeAssets="runtime" />
-    <PackageReference Include="Krafs.Rimworld.Ref" Version="1.4.3704" />
-    <PackageReference Include="RestSharp" Version="106.12.0" ExcludeAssets="runtime" />
+<!--    <PackageReference Include="Krafs.Rimworld.Ref" Version="1.4.3704" />-->
+    <PackageReference Include="RestSharp" Version="106.12.0" />
+    <PackageReference Include="RimWorld.MultiplayerAPI" Version="0.4.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -43,12 +44,13 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\MultiplayerLoader\MultiplayerLoader.csproj" ExcludeAssets="runtime" Private="false" />
-    <ProjectReference Include="..\Common\Common.csproj" ExcludeAssets="runtime" />
+    <ProjectReference Include="..\MultiplayerLoader\MultiplayerLoader.csproj" />
+    <ProjectReference Include="..\Common\Common.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Remove="Factions\ScenParts.cs" />
+    <Reference Include="..\..\..\..\RimWorldWin64_Data\Managed\*.dll">
+    </Reference>
   </ItemGroup>
 
   <!-- Ignore any system frameworks and get the system assemblies from Krafs.Rimworld.Ref -->
@@ -56,6 +58,18 @@
     <PropertyGroup>
       <TargetFrameworkDirectory></TargetFrameworkDirectory>
     </PropertyGroup>
+  </Target>
+
+  <Target Name="CopyToRimworld" AfterTargets="Build">
+    <Copy SourceFiles="bin\Multiplayer.dll" DestinationFiles="..\..\AssembliesCustom\Multiplayer.dll" />
+    <Copy SourceFiles="bin\MultiplayerCommon.dll" DestinationFiles="..\..\AssembliesCustom\MultiplayerCommon.dll" />
+
+    <Copy SourceFiles="bin\0MultiplayerAPI.dll" DestinationFiles="..\..\Assemblies\0MultiplayerAPI.dll" />
+    <Copy SourceFiles="bin\0PrepatcherAPI.dll" DestinationFiles="..\..\Assemblies\0PrepatcherAPI.dll" />
+    <Copy SourceFiles="bin\LiteNetLib.dll" DestinationFiles="..\..\Assemblies\LiteNetLib.dll" />
+    <Copy SourceFiles="bin\MultiplayerLoader.dll" DestinationFiles="..\..\Assemblies\MultiplayerLoader.dll" />
+    <Copy SourceFiles="bin\RestSharp.dll" DestinationFiles="..\..\Assemblies\RestSharp.dll" />
+    <Copy SourceFiles="bin\System.IO.Compression.dll" DestinationFiles="..\..\Assemblies\System.IO.Compression.dll" />
   </Target>
 
 </Project>

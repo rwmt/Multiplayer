@@ -131,7 +131,9 @@ namespace Multiplayer.Common
         public void OnJoin(ServerPlayer player)
         {
             player.hasJoined = true;
-            player.FactionId = server.worldData.defaultFactionId;
+            player.FactionId = player.id == 0 || !server.settings.multifaction ?
+                server.worldData.hostFactionId :
+                server.worldData.spectatorFactionId;
 
             server.SendNotification("MpPlayerConnected", player.Username);
             server.SendChat($"{player.Username} has joined.");

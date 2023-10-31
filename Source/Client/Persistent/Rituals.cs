@@ -27,7 +27,7 @@ namespace Multiplayer.Client.Persistent
 
         public RitualSession(Map map, RitualData data)
         {
-            SessionId = Multiplayer.GlobalIdBlock.NextId();
+            SessionId = Find.UniqueIDsManager.GetNextThingID();
 
             this.map = map;
             this.data = data;

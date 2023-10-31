@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
-using System.Text;
 using LiteNetLib;
 using Multiplayer.Common.Util;
 
@@ -34,7 +33,7 @@ namespace Multiplayer.Common
             arbiter?.PollEvents();
 
             if (lanManager != null && broadcastTimer % 60 == 0)
-                lanManager.SendBroadcast(Encoding.UTF8.GetBytes("mp-server"), 5100);
+                lanManager.SendBroadcast("mp-server"u8.ToArray(), 5100);
 
             broadcastTimer++;
         }

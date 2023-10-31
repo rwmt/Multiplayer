@@ -1,6 +1,11 @@
-﻿using HarmonyLib;
+﻿using System;
+using System.Linq;
+using System.Reflection;
+using HarmonyLib;
 using Multiplayer.Client.AsyncTime;
 using Multiplayer.Client.Comp;
+using Multiplayer.Common;
+using RimWorld;
 using RimWorld.Planet;
 using Verse;
 using Verse.Profile;
@@ -19,14 +24,39 @@ namespace Multiplayer.Client.Saving
 
             if (Scribe.mode is LoadSaveMode.LoadingVars or LoadSaveMode.Saving)
             {
-                Scribe_Deep.Look(ref Multiplayer.game.gameComp, "mpGameComp", __instance);
+                Scribe_Deep.Look(ref Multiplayer.game.gameComp, "mpGameComp");
 
                 if (Multiplayer.game.gameComp == null)
                 {
                     Log.Warning($"No {nameof(MultiplayerGameComp)} during loading/saving");
-                    Multiplayer.game.gameComp = new MultiplayerGameComp(__instance);
+                    Multiplayer.game.gameComp = new MultiplayerGameComp();
                 }
             }
+        }
+
+        static void Postfix()
+        {
+            if (Multiplayer.Client == null) return;
+
+            // Convert old id blocks to vanilla unique id manager ids
+            if (Scribe.mode is LoadSaveMode.LoadingVars && Multiplayer.GameComp.idBlockBase64 != null)
+            {
+                Log.Message("Multiplayer removing old id block...");
+
+                var reader = new ByteReader(Convert.FromBase64String(Multiplayer.GameComp.idBlockBase64));
+                var (blockStart, _, _, currentInBlock) = (reader.ReadInt32(), reader.ReadInt32(), reader.ReadInt32(), reader.ReadInt32());
+                SetAllUniqueIds(blockStart + currentInBlock + 1);
+
+                Multiplayer.GameComp.idBlockBase64 = null;
+            }
+        }
+
+        private static void SetAllUniqueIds(int value)
+        {
+            typeof(UniqueIDsManager)
+                .GetFields(BindingFlags.NonPublic | BindingFlags.Instance)
+                .Where(f => f.FieldType == typeof(int))
+                .Do(f => f.SetValue(Find.UniqueIDsManager, value));
         }
     }
 

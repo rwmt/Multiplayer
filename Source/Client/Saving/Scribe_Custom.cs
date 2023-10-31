@@ -1,4 +1,3 @@
-using Multiplayer.Common;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -31,31 +30,6 @@ namespace Multiplayer.Client.Saving
             Vector4 value = new Vector4(rect.x, rect.y, rect.width, rect.height);
             Scribe_Values.Look(ref value, label);
             rect = new Rect(value.x, value.y, value.z, value.w);
-        }
-
-        public static void LookIdBlock(ref IdBlock block, string label)
-        {
-            if (Scribe.mode == LoadSaveMode.Saving && block != null)
-            {
-                string base64 = Convert.ToBase64String(block.Serialize());
-                Scribe_Values.Look(ref base64, label);
-            }
-
-            if (Scribe.mode == LoadSaveMode.LoadingVars)
-            {
-                string base64 = null;
-                Scribe_Values.Look(ref base64, label);
-
-                if (base64 != null)
-                    block = IdBlock.Deserialize(new ByteReader(Convert.FromBase64String(base64)));
-                else
-                    block = null;
-            }
-        }
-
-        public static void LookRecord<T>(ref T record)
-        {
-
         }
 
         // Copy of RimWorld's method but with ctor args

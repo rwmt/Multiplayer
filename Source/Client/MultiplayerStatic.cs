@@ -5,7 +5,6 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
-using System.Text;
 using System.Text.RegularExpressions;
 using HarmonyLib;
 using LiteNetLib;
@@ -34,9 +33,22 @@ namespace Multiplayer.Client
         public static readonly Texture2D DiscordIcon = ContentFinder<Texture2D>.Get("Multiplayer/Discord");
         public static readonly Texture2D Pulse = ContentFinder<Texture2D>.Get("Multiplayer/Pulse");
 
+        public static readonly Texture2D ChangeRelationIcon = ContentFinder<Texture2D>.Get("UI/Icons/VisitorsHelp");
+
         static MultiplayerStatic()
         {
-            Native.InitLmfPtr();
+            Native.InitLmfPtr(
+                Application.platform switch
+                {
+                    RuntimePlatform.LinuxEditor => Native.NativeOS.Linux,
+                    RuntimePlatform.LinuxPlayer => Native.NativeOS.Linux,
+                    RuntimePlatform.OSXEditor => Native.NativeOS.OSX,
+                    RuntimePlatform.OSXPlayer => Native.NativeOS.OSX,
+                    _ => Native.NativeOS.Windows
+                }
+            );
+
+            Native.HarmonyOriginalGetter = MpUtil.GetOriginalFromHarmonyReplacement;
 
             // UnityEngine.Debug.Log instead of Verse.Log.Message because the server runs on its own thread
             ServerLog.info = str => Debug.Log($"MpServerLog: {str}");
@@ -188,7 +200,7 @@ namespace Multiplayer.Client
                         int ticksDone = 0;
                         double timeSpent = 0;
 
-                        Replay.LoadReplay(Replay.ReplayFile(current[1]), true, () =>
+                        Replay.LoadReplay(Replay.SavedReplayFile(current[1]), true, () =>
                         {
                             TickPatch.AllTickables.Do(t => t.SetDesiredTimeSpeed(TimeSpeed.Normal));
 
@@ -285,19 +297,19 @@ namespace Multiplayer.Client
 
             // General designation handling
             {
-                var designatorFinalizer = AccessTools.Method(typeof(DesignatorPatches), "DesignateFinalizer");
+                var designatorFinalizer = AccessTools.Method(typeof(DesignatorPatches), nameof(DesignatorPatches.DesignateFinalizer));
                 var designatorMethods = new[] {
-                     "DesignateSingleCell",
-                     "DesignateMultiCell",
-                     "DesignateThing",
+                     ("DesignateSingleCell", new[]{ typeof(IntVec3) }),
+                     ("DesignateMultiCell", new[]{ typeof(IEnumerable<IntVec3>) }),
+                     ("DesignateThing", new[]{ typeof(Thing) }),
                 };
 
                 foreach (Type t in typeof(Designator).AllSubtypesAndSelf()
                              .Except(typeof(Designator_MechControlGroup))) // Opens float menu, sync that instead
                 {
-                    foreach (string m in designatorMethods)
+                    foreach ((string m, Type[] args) in designatorMethods)
                     {
-                        MethodInfo method = t.GetMethod(m, BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly);
+                        MethodInfo method = t.GetMethod(m, BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly, null, args, null);
                         if (method == null) continue;
 
                         MethodInfo prefix = AccessTools.Method(typeof(DesignatorPatches), m);
@@ -324,7 +336,7 @@ namespace Multiplayer.Client
                 var effecterTick = typeof(Effecter).GetMethod(nameof(Effecter.EffectTick));
                 var effecterTrigger = typeof(Effecter).GetMethod(nameof(Effecter.Trigger));
                 var effecterCleanup = typeof(Effecter).GetMethod(nameof(Effecter.Cleanup));
-                var randomBoltMesh = typeof(LightningBoltMeshPool).GetProperty(nameof(LightningBoltMeshPool.RandomBoltMesh)).GetGetMethod();
+                var randomBoltMesh = typeof(LightningBoltMeshPool).GetProperty(nameof(LightningBoltMeshPool.RandomBoltMesh))!.GetGetMethod();
                 var drawTrackerCtor = typeof(Pawn_DrawTracker).GetConstructor(new[] { typeof(Pawn) });
                 var randomHair = typeof(PawnStyleItemChooser).GetMethod(nameof(PawnStyleItemChooser.RandomHairFor));
                 var cannotAssignReason = typeof(Dialog_BeginRitual).GetMethod(nameof(Dialog_BeginRitual.CannotAssignReason), BindingFlags.NonPublic | BindingFlags.Instance);
@@ -357,13 +369,27 @@ namespace Multiplayer.Client
             {
                 var thingMethodPrefix = new HarmonyMethod(typeof(ThingMethodPatches).GetMethod("Prefix"));
                 var thingMethodPostfix = new HarmonyMethod(typeof(ThingMethodPatches).GetMethod("Postfix"));
-                var thingMethods = new[] { "Tick", "TickRare", "TickLong", "SpawnSetup", "TakeDamage", "Kill" };
+                var thingMethodPrefixSpawnSetup = new HarmonyMethod(typeof(ThingMethodPatches).GetMethod(nameof(ThingMethodPatches.Prefix_SpawnSetup)));
+
+                var thingMethods = new[]
+                {
+                    ("Tick", Type.EmptyTypes),
+                    ("TickRare", Type.EmptyTypes),
+                    ("TickLong", Type.EmptyTypes),
+                    ("TakeDamage", new[]{ typeof(DamageInfo) }),
+                    ("Kill", new[]{ typeof(DamageInfo?), typeof(Hediff) })
+                };
 
                 foreach (Type t in typeof(Thing).AllSubtypesAndSelf())
                 {
-                    foreach (string m in thingMethods)
+                    // SpawnSetup is patched separately because it sets the map
+                    var spawnSetupMethod = t.GetMethod("SpawnSetup", BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly);
+                    if (spawnSetupMethod != null)
+                        harmony.PatchMeasure(spawnSetupMethod, thingMethodPrefixSpawnSetup, thingMethodPostfix);
+
+                    foreach ((string m, Type[] args) in thingMethods)
                     {
-                        MethodInfo method = t.GetMethod(m, BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly);
+                        MethodInfo method = t.GetMethod(m, BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly, null, args, null);
                         if (method != null)
                         {
                             try
@@ -383,8 +409,8 @@ namespace Multiplayer.Client
                 var floatSavePrefix = new HarmonyMethod(typeof(ValueSavePatch).GetMethod(nameof(ValueSavePatch.FloatSave_Prefix)));
                 var valueSaveMethod = typeof(Scribe_Values).GetMethod(nameof(Scribe_Values.Look));
 
-                harmony.PatchMeasure(valueSaveMethod.MakeGenericMethod(typeof(double)), doubleSavePrefix, null);
-                harmony.PatchMeasure(valueSaveMethod.MakeGenericMethod(typeof(float)), floatSavePrefix, null);
+                harmony.PatchMeasure(valueSaveMethod.MakeGenericMethod(typeof(double)), doubleSavePrefix);
+                harmony.PatchMeasure(valueSaveMethod.MakeGenericMethod(typeof(float)), floatSavePrefix);
             }
 
             SetCategory("Map time gui patches");
@@ -400,7 +426,7 @@ namespace Multiplayer.Client
 
                 foreach (var t in typeof(InspectTabBase).AllSubtypesAndSelf())
                 {
-                    var method = t.GetMethod("FillTab", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
+                    var method = t.GetMethod("FillTab", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly, null, Type.EmptyTypes, null);
                     if (method != null && !method.IsAbstract)
                     {
                         try

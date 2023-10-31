@@ -23,7 +23,7 @@ namespace Multiplayer.Client
             return true;
         }
 
-        static readonly MethodInfo m_General = SymbolExtensions.GetMethodInfo(() => General(0, null, new object[0]));
+        static readonly MethodInfo m_General = SymbolExtensions.GetMethodInfo(() => General(0, null, Array.Empty<object>()));
         static readonly MethodInfo m_Transpiler = SymbolExtensions.GetMethodInfo(() => Transpiler(null, null, null));
 
         static IEnumerable<CodeInstruction> Transpiler(MethodBase original, IEnumerable<CodeInstruction> instructions, ILGenerator gen)

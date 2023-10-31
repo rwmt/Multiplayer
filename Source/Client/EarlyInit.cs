@@ -32,7 +32,7 @@ public static class EarlyInit
     {
         // Might fix some mod desyncs
         harmony.PatchMeasure(
-            AccessTools.Constructor(typeof(Def), new Type[0]),
+            AccessTools.Constructor(typeof(Def), Type.EmptyTypes),
             new HarmonyMethod(typeof(RandPatches), nameof(RandPatches.Prefix)),
             new HarmonyMethod(typeof(RandPatches), nameof(RandPatches.Postfix))
         );
@@ -63,25 +63,9 @@ public static class EarlyInit
             Sync.ValidateAll();
     }
 
-    internal static void LatePatches(Harmony harmony)
+    internal static void LatePatches()
     {
-        // optimization, cache DescendantThingDefs
-        harmony.PatchMeasure(
-            AccessTools.Method(typeof(ThingCategoryDef), "get_DescendantThingDefs"),
-            new HarmonyMethod(typeof(ThingCategoryDef_DescendantThingDefsPatch), "Prefix"),
-            new HarmonyMethod(typeof(ThingCategoryDef_DescendantThingDefsPatch), "Postfix")
-        );
-
-        // optimization, cache ThisAndChildCategoryDefs
-        harmony.PatchMeasure(
-            AccessTools.Method(typeof(ThingCategoryDef), "get_ThisAndChildCategoryDefs"),
-            new HarmonyMethod(typeof(ThingCategoryDef_ThisAndChildCategoryDefsPatch), "Prefix"),
-            new HarmonyMethod(typeof(ThingCategoryDef_ThisAndChildCategoryDefsPatch), "Postfix")
-        );
-
         if (MpVersion.IsDebug)
-        {
             Log.Message("== Structure == \n" + SyncDict.syncWorkers.PrintStructure());
-        }
     }
 }

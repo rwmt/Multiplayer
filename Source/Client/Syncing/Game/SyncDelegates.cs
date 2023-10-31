@@ -52,8 +52,8 @@ namespace Multiplayer.Client
             SyncDelegate.Lambda(typeof(CompTargetable), nameof(CompTargetable.SelectedUseOption), 0); // Use targetable
 
             SyncDelegate.LambdaInGetter(typeof(Designator), nameof(Designator.RightClickFloatMenuOptions), 0) // Designate all
-                .TransformField("things", Serializer.SimpleReader(() => Find.CurrentMap.listerThings.AllThings));
-            SyncDelegate.LambdaInGetter(typeof(Designator), nameof(Designator.RightClickFloatMenuOptions), 1); // Remove all designations
+                .TransformField("things", Serializer.SimpleReader(() => Find.CurrentMap.listerThings.AllThings)).SetContext(SyncContext.CurrentMap);
+            SyncDelegate.LambdaInGetter(typeof(Designator), nameof(Designator.RightClickFloatMenuOptions), 1).SetContext(SyncContext.CurrentMap); // Remove all designations
 
             SyncDelegate.Lambda(typeof(CaravanAbandonOrBanishUtility), nameof(CaravanAbandonOrBanishUtility.TryAbandonOrBanishViaInterface), 1, new[] { typeof(Thing), typeof(Caravan) }).CancelIfAnyFieldNull(); // Abandon caravan thing
             SyncDelegate.Lambda(typeof(CaravanAbandonOrBanishUtility), nameof(CaravanAbandonOrBanishUtility.TryAbandonOrBanishViaInterface), 0, new[] { typeof(TransferableImmutable), typeof(Caravan) }).CancelIfAnyFieldNull(); // Abandon caravan transferable
@@ -73,7 +73,6 @@ namespace Multiplayer.Client
             SyncMethod.Lambda(typeof(CompRefuelable), nameof(CompRefuelable.CompGetGizmosExtra), 5).SetDebugOnly();     // Set fuel to max
 
             SyncMethod.Lambda(typeof(CompShuttle), nameof(CompShuttle.CompGetGizmosExtra), 1);  // Toggle autoload
-            SyncMethod.Lambda(typeof(ShipJob_Wait), nameof(ShipJob_Wait.GetJobGizmos), 1);      // Send shuttle
 
             SyncDelegate.LocalFunc(typeof(RoyalTitlePermitWorker_CallShuttle), nameof(RoyalTitlePermitWorker_CallShuttle.CallShuttleToCaravan), "Launch").ExposeParameter(1);  // Call shuttle permit on caravan
 
@@ -227,7 +226,7 @@ namespace Multiplayer.Client
             var RitualRolesSerializer = Serializer.New(
                 (IEnumerable<RitualRole> roles, object target, object[] args) =>
                 {
-                    var dialog = target.GetPropertyOrField(SyncDelegate.DELEGATE_THIS) as Dialog_BeginRitual;
+                    var dialog = target.GetPropertyOrField(SyncDelegate.DelegateThis) as Dialog_BeginRitual;
                     var ids = from r in roles select r.id;
                     return (dialog.ritual.behavior.def, ids);
                 },
@@ -503,7 +502,7 @@ namespace Multiplayer.Client
                 {
                     // After encountering the first return - insert our method and return early, ignoring the original code we don't care for
                     var pawnField = AccessTools.Field(original.DeclaringType, "pawn");
-                    var embryoField = AccessTools.Field(original.DeclaringType, SyncDelegate.DELEGATE_THIS);
+                    var embryoField = AccessTools.Field(original.DeclaringType, SyncDelegate.DelegateThis);
                     var ourMethod = AccessTools.Method(typeof(SyncDelegates), nameof(SyncedCreateImplantEmbryoBill));
 
                     yield return new CodeInstruction(OpCodes.Ldarg_0).MoveLabelsFrom(ci);

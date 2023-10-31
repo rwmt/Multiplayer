@@ -147,7 +147,7 @@ namespace Multiplayer.Client
                     }
                     catch (Exception e)
                     {
-                        Log.Error($"Exception registering SyncMethod by attribute: {e}");
+                        Log.Error($"Exception registering SyncMethod {type}::{method} by attribute: {e}");
                         Multiplayer.loadingErrors = true;
                     }
                 }
@@ -173,17 +173,13 @@ namespace Multiplayer.Client
             int[] exposeParameters = attribute.exposeParameters;
             int paramNum = method.GetParameters().Length;
 
-            if (exposeParameters != null) {
-                if (exposeParameters.Length != paramNum) {
-                    Log.Error($"Failed to register a method: Invalid number of parameters to expose in SyncMethod attribute applied to {method.DeclaringType.FullName}::{method}. Expected {paramNum}, got {exposeParameters.Length}");
-                    return;
-                } else if (exposeParameters.Any(p => p < 0 || p >= paramNum)) {
-                    Log.Error($"Failed to register a method: One or more indexes of parameters to expose in SyncMethod attribute applied to {method.DeclaringType.FullName}::{method} is invalid.");
-                    return;
-                }
+            if (exposeParameters != null && exposeParameters.Any(p => p < 0 || p >= paramNum))
+            {
+                Log.Error($"Failed to register a method: One or more indexes of parameters to expose in SyncMethod attribute applied to {method.DeclaringType.FullName}::{method} is invalid.");
+                return;
             }
 
-            var sm = RegisterSyncMethod(method, (SyncType[]) null);
+            var sm = RegisterSyncMethod(method);
             sm.context = attribute.context;
             sm.debugOnly = attribute.debugOnly;
 

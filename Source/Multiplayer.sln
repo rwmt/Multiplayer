@@ -13,6 +13,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tests", "Tests\Tests.csproj
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MultiplayerLoader", "MultiplayerLoader\MultiplayerLoader.csproj", "{D9F53E9B-A72C-4183-B549-63B649320B61}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestsOnMono", "TestsOnMono\TestsOnMono.csproj", "{B9258593-604D-4862-96EF-192B2BC6250E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -43,6 +45,10 @@ Global
 		{D9F53E9B-A72C-4183-B549-63B649320B61}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D9F53E9B-A72C-4183-B549-63B649320B61}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D9F53E9B-A72C-4183-B549-63B649320B61}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B9258593-604D-4862-96EF-192B2BC6250E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B9258593-604D-4862-96EF-192B2BC6250E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B9258593-604D-4862-96EF-192B2BC6250E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B9258593-604D-4862-96EF-192B2BC6250E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

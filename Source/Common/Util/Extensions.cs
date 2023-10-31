@@ -17,7 +17,7 @@ namespace Multiplayer.Common
             return t.IsValueType ? Activator.CreateInstance(t) : null;
         }
 
-        public static V AddOrGet<K, V>(this Dictionary<K, V> dict, K key, Func<K, V> defaultValueGetter)
+        public static V GetOrAdd<K, V>(this Dictionary<K, V> dict, K key, Func<K, V> defaultValueGetter)
         {
             if (!dict.TryGetValue(key, out V value))
             {
@@ -30,7 +30,7 @@ namespace Multiplayer.Common
 
         public static V GetOrAddNew<K, V>(this Dictionary<K, V> dict, K obj) where V : new()
         {
-            return AddOrGet(dict, obj, k => new V());
+            return GetOrAdd(dict, obj, k => new V());
         }
 
         public static IEnumerable<T> ToEnumerable<T>(this T input)
@@ -137,7 +137,7 @@ namespace Multiplayer.Common
                     hash.TransformBlock(data, 0, data.Length, null, 0);
                 }
 
-                hash.TransformFinalBlock(new byte[0], 0, 0);
+                hash.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
 
                 return hash.Hash;
             }

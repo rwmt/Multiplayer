@@ -3,6 +3,7 @@ using System.Text;
 using HarmonyLib;
 using Multiplayer.Client.Desyncs;
 using Multiplayer.Client.Util;
+using Multiplayer.Common;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -13,10 +14,6 @@ public static class IngameDebug
 {
     private static double avgDelta;
     private static double avgTickTime;
-
-    public static float tps;
-    private static float lastTicksAt;
-    private static int lastTicks;
 
     private const float BtnMargin = 8f;
     private const float BtnHeight = 27f;
@@ -29,8 +26,8 @@ public static class IngameDebug
             int timerLag = (TickPatch.tickUntil - TickPatch.Timer);
             StringBuilder text = new StringBuilder();
             text.Append(
-                $"{Faction.OfPlayer.loadID} {Multiplayer.RealPlayerFaction?.loadID} {Find.UniqueIDsManager.nextThingID} j:{Find.UniqueIDsManager.nextJobID} {Find.TickManager.TicksGame} {Find.TickManager.CurTimeSpeed} {TickPatch.Timer} {TickPatch.tickUntil} {timerLag}");
-            text.Append($"\n{Time.deltaTime * 60f:0.0000} {TickPatch.tickTimer.ElapsedMilliseconds}");
+                $"{FactionContext.stack.Count} {Faction.OfPlayer.loadID} {Multiplayer.RealPlayerFaction?.loadID} {Find.UniqueIDsManager.nextThingID} j:{Find.UniqueIDsManager.nextJobID} {Find.TickManager.TicksGame} {Find.TickManager.CurTimeSpeed} {TickPatch.Timer} {TickPatch.tickUntil} {timerLag}");
+            text.Append($"\n{1f/Time.deltaTime:0.0000} {TickPatch.tickTimer.ElapsedMilliseconds}");
             text.Append($"\n{avgDelta = (avgDelta * 59.0 + Time.deltaTime * 60.0) / 60.0:0.0000}");
             text.Append(
                 $"\n{avgTickTime = (avgTickTime * 59.0 + TickPatch.tickTimer.ElapsedMilliseconds) / 60.0:0.0000} {Find.World.worldObjects.settlements.Count}");
@@ -51,7 +48,7 @@ public static class IngameDebug
             var async = Find.CurrentMap.AsyncTime();
             StringBuilder text = new StringBuilder();
             text.Append(
-                $"{Multiplayer.game.sync.knownClientOpinions.Count} {Multiplayer.game.sync.knownClientOpinions.FirstOrDefault()?.startTick} {async.mapTicks} {TickPatch.serverFrozen} {TickPatch.frozenAt} ");
+                $"{Find.IdeoManager.classicMode} {Multiplayer.game.sync.knownClientOpinions.Count} {Multiplayer.game.sync.knownClientOpinions.FirstOrDefault()?.startTick} {async.mapTicks} {TickPatch.serverFrozen} {TickPatch.frozenAt} ");
 
             text.Append(
                 $"z: {Find.CurrentMap.haulDestinationManager.AllHaulDestinationsListForReading.Count()} d: {Find.CurrentMap.designationManager.designationsByDef.Count} hc: {Find.CurrentMap.listerHaulables.ThingsPotentiallyNeedingHauling().Count}");
@@ -81,14 +78,14 @@ public static class IngameDebug
             text.Append(
                 $"\n{async.cmds.Count} {Multiplayer.AsyncWorldTime.cmds.Count} {async.slower.forceNormalSpeedUntil} {Multiplayer.GameComp.asyncTime}");
             text.Append(
-                $"\nt{DeferredStackTracing.maxTraceDepth} p{SimplePool<StackTraceLogItemRaw>.FreeItemsCount} {DeferredStackTracingImpl.hashtableEntries}/{DeferredStackTracingImpl.hashtableSize} {DeferredStackTracingImpl.collisions}");
+                $"\n{Find.WorldPawns.AllPawnsAliveOrDead.Count} t{DeferredStackTracing.maxTraceDepth} p{SimplePool<StackTraceLogItemRaw>.FreeItemsCount} {DeferredStackTracingImpl.hashtableEntries}/{DeferredStackTracingImpl.hashtableSize} {DeferredStackTracingImpl.collisions}");
 
             text.Append(Find.WindowStack.focusedWindow is ImmediateWindow win
                 ? $"\nImmediateWindow: {MpUtil.DelegateMethodInfo(win.doWindowFunc?.Method)}"
                 : $"\n{Find.WindowStack.focusedWindow}");
 
             text.Append($"\n{UI.CurUICellSize()} {Find.WindowStack.windows.ToStringSafeEnumerable()}");
-            text.Append($"\n\nMap TPS: {tps:0.00}");
+            text.Append($"\n\nMap TPS: {IngameUIPatch.tps:0.00}");
             text.Append($"\nDelta: {Time.deltaTime * 1000f}");
             text.Append($"\nAverage ft: {TickPatch.avgFrameTime}");
             text.Append($"\nServer tpt: {TickPatch.serverTimePerTick}");
@@ -100,13 +97,6 @@ public static class IngameDebug
 
             Rect rect1 = new Rect(80f, 170f, 330f, Text.CalcHeight(text.ToString(), 330f));
             Widgets.Label(rect1, text.ToString());
-
-            if (Time.time - lastTicksAt > 0.5f)
-            {
-                tps = (tps + (async.mapTicks - lastTicks) * 2f) / 2f;
-                lastTicks = async.mapTicks;
-                lastTicksAt = Time.time;
-            }
         }
 
         //if (Event.current.type == EventType.Repaint)
@@ -148,6 +138,25 @@ public static class IngameDebug
         {
             using (MpStyle.Set(GameFont.Tiny).Set(TextAnchor.MiddleCenter))
                 Widgets.Label(new Rect(x, y, BtnWidth, 30f), $"Debug mode");
+
+            return BtnHeight;
+        }
+
+        return 0;
+    }
+
+    internal static float DoTimeDiffLabel(float y)
+    {
+        float x = UI.screenWidth - BtnWidth - BtnMargin;
+
+        if (MpVersion.IsDebug &&
+            Multiplayer.Client != null &&
+            !Multiplayer.GameComp.asyncTime &&
+            Find.CurrentMap.AsyncTime() != null &&
+            Find.CurrentMap.AsyncTime().mapTicks != Multiplayer.AsyncWorldTime.worldTicks)
+        {
+            using (MpStyle.Set(GameFont.Tiny).Set(TextAnchor.MiddleCenter))
+                Widgets.Label(new Rect(x, y, BtnWidth, 30f), $"{Find.CurrentMap.AsyncTime().mapTicks - Multiplayer.AsyncWorldTime.worldTicks}");
 
             return BtnHeight;
         }

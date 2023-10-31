@@ -16,7 +16,7 @@ namespace Multiplayer.Client
 
         public static IExposable ReadExposable(Type type, byte[] data)
         {
-            return (IExposable)readExposableCache.AddOrGet(type, newType => ReadExposableDefinition.MakeGenericMethod(newType)).Invoke(null, new[] { (object)data, null });
+            return (IExposable)readExposableCache.GetOrAdd(type, newType => ReadExposableDefinition.MakeGenericMethod(newType)).Invoke(null, new[] { (object)data, null });
         }
     }
 }

@@ -28,12 +28,13 @@ namespace Multiplayer.Client
 
         public ConnectionBase client;
         public NetManager netClient;
-        public PacketLogWindow writerLog = new();
-        public PacketLogWindow readerLog = new();
+        public PacketLogWindow writerLog = new(true);
+        public PacketLogWindow readerLog = new(false);
         public int myFactionId;
         public List<PlayerInfo> players = new();
         public GameDataSnapshot dataSnapshot;
-        public CursorAndPing cursorAndPing = new();
+        public LocationPings locationPings = new();
+        public PlayerCursors playerCursors = new();
         public int autosaveCounter;
         public float? lastSaveAt;
         public string desyncTracesFromHost;
@@ -42,7 +43,7 @@ namespace Multiplayer.Client
         public bool replay;
         public int replayTimerStart = -1;
         public int replayTimerEnd = -1;
-        public List<ReplayEvent> events = new();
+        public bool showTimeline;
 
         public bool desynced;
 
@@ -233,14 +234,14 @@ namespace Multiplayer.Client
 
         public void Update()
         {
-            cursorAndPing.UpdatePing();
+            locationPings.UpdatePing();
         }
 
         public static void DoAutosave()
         {
             LongEventHandler.QueueLongEvent(() =>
             {
-                SaveGameToFile(GetNextAutosaveFileName(), false);
+                SaveGameToFile_Overwrite(GetNextAutosaveFileName(), false);
                 Multiplayer.Client.Send(Packets.Client_Autosaving);
             }, "MpSaving", false, null);
         }
@@ -259,7 +260,7 @@ namespace Multiplayer.Client
                 .First();
         }
 
-        public static void SaveGameToFile(string fileNameNoExtension, bool currentReplay)
+        public static void SaveGameToFile_Overwrite(string fileNameNoExtension, bool currentReplay)
         {
             Log.Message($"Multiplayer: saving to file {fileNameNoExtension}");
 
@@ -267,14 +268,16 @@ namespace Multiplayer.Client
             {
                 new FileInfo(Path.Combine(Multiplayer.ReplaysDir, $"{fileNameNoExtension}.zip")).Delete();
                 Replay.ForSaving(fileNameNoExtension).WriteData(
-                    currentReplay ? Multiplayer.session.dataSnapshot : SaveLoad.CreateGameDataSnapshot(SaveLoad.SaveGameData())
+                    currentReplay ?
+                        Multiplayer.session.dataSnapshot :
+                        SaveLoad.CreateGameDataSnapshot(SaveLoad.SaveGameData(), false)
                 );
                 Messages.Message("MpGameSaved".Translate(fileNameNoExtension), MessageTypeDefOf.SilentInput, false);
                 Multiplayer.session.lastSaveAt = Time.realtimeSinceStartup;
             }
             catch (Exception e)
             {
-                Log.Error($"Exception saving multiplayer game: {e}");
+                Log.Error($"Exception saving multiplayer game as {fileNameNoExtension}: {e}");
                 Messages.Message("MpGameSaveFailed".Translate(), MessageTypeDefOf.SilentInput, false);
             }
         }

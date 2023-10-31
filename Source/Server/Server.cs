@@ -51,10 +51,11 @@ static void LoadSave(MultiplayerServer server, string path)
     ServerLog.Detail($"Loading {path} saved in RW {replayInfo.rwVersion} with {replayInfo.modNames.Count} mods");
 
     server.settings.gameName = replayInfo.name;
-    server.worldData.defaultFactionId = replayInfo.playerFaction;
+    server.worldData.hostFactionId = replayInfo.playerFaction;
 
     // todo this assumes only one zero-tick section and map id 0
     server.gameTimer = replayInfo.sections[0].start;
+    server.startingTimer = replayInfo.sections[0].start;
 
     server.worldData.savedGame = Compress(zip.GetBytes("world/000_save"));
     server.worldData.mapData[0] = Compress(zip.GetBytes("maps/000_0_save"));

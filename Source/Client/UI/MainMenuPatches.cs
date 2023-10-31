@@ -3,12 +3,12 @@ using Multiplayer.Common;
 using RimWorld;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Reflection;
+using Multiplayer.Client.Factions;
+using Multiplayer.Client.Saving;
 using UnityEngine;
 using Verse;
-using Verse.Profile;
 
 namespace Multiplayer.Client
 {
@@ -60,7 +60,7 @@ namespace Multiplayer.Client
                 if (MpVersion.IsDebug && Multiplayer.IsReplay)
                     optList.Insert(0, new ListableOption(
                         "MpHostServer".Translate(),
-                        () => Find.WindowStack.Add(new HostWindow(hadSimulation: true) { layer = WindowLayer.Super })
+                        () => Find.WindowStack.Add(new HostWindow() { layer = WindowLayer.Super })
                     ));
 
                 if (Multiplayer.Client != null)
@@ -68,7 +68,14 @@ namespace Multiplayer.Client
                     optList.RemoveAll(opt => opt.label == "Save".Translate() || opt.label == "LoadGame".Translate());
                     if (!Multiplayer.IsReplay)
                     {
-                        optList.Insert(0, new ListableOption("Save".Translate(), () => Find.WindowStack.Add(new SaveGameWindow(Multiplayer.session.gameName) { layer = WindowLayer.Super })));
+                        optList.Insert(
+                            0,
+                            new ListableOption(
+                                "Save".Translate(),
+                                () => Find.WindowStack.Add(new SaveGameWindow(Multiplayer.session.gameName)
+                                {
+                                    layer = WindowLayer.Super
+                                })));
                     }
 
                     var quitMenuLabel = "QuitToMainMenu".Translate();
@@ -107,7 +114,7 @@ namespace Multiplayer.Client
 
         static void ShowModDebugInfo()
         {
-            Find.WindowStack.Add(new DisconnectedWindow(new SessionDisconnectInfo() { specialButtonTranslated = "Special btn"}));
+            Find.WindowStack.Add(new Page_ChooseIdeo_Multifaction());
             return;
 
             var info = new RemoteData();
@@ -150,43 +157,10 @@ namespace Multiplayer.Client
 
         private static void AskConvertToSingleplayer()
         {
-            static void Convert()
-            {
-                LongEventHandler.QueueLongEvent(() =>
-                {
-                    try
-                    {
-                        const string suffix = "-preconvert";
-                        var saveName = $"{GenFile.SanitizedFileName(Multiplayer.session.gameName)}{suffix}";
-
-                        new FileInfo(Path.Combine(Multiplayer.ReplaysDir, saveName + ".zip")).Delete();
-                        Replay.ForSaving(saveName).WriteCurrentData();
-                    }
-                    catch (Exception e)
-                    {
-                        Log.Warning($"Convert to singleplayer failed to write pre-convert file: {e}");
-                    }
-
-                    Find.GameInfo.permadeathMode = false;
-                    HostUtil.SetAllUniqueIds(Multiplayer.GlobalIdBlock.Current);
-
-                    Multiplayer.StopMultiplayer();
-
-                    var doc = SaveLoad.SaveGameToDoc();
-                    MemoryUtility.ClearAllMapsAndWorld();
-
-                    Current.Game = new Game();
-                    Current.Game.InitData = new GameInitData();
-                    Current.Game.InitData.gameToLoad = "play";
-
-                    LoadPatch.gameToLoad = new TempGameData(doc, new byte[0]);
-                }, "Play", "MpConvertingToSp", true, null);
-            }
-
             Find.WindowStack.Add(
                 Dialog_MessageBox.CreateConfirmation(
                     Multiplayer.LocalServer != null ? "MpConvertToSpWarnHost".Translate() : "MpConvertToSpWarn".Translate(),
-                    Convert,
+                    ConvertToSp.DoConvert,
                     true,
                     layer: WindowLayer.Super
                 )

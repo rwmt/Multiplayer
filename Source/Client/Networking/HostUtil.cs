@@ -1,24 +1,19 @@
-using HarmonyLib;
 using Multiplayer.Client.Networking;
 using Multiplayer.Common;
 using RimWorld;
 using System;
 using System.ComponentModel;
 using System.Diagnostics;
-using System.Linq;
-using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Multiplayer.Client.AsyncTime;
 using Multiplayer.Client.Comp;
 using Multiplayer.Client.Util;
-using Multiplayer.Common.Util;
 using UnityEngine;
 using Verse;
 
 namespace Multiplayer.Client
 {
-    [HotSwappable]
     public static class HostUtil
     {
         // Host entry points:
@@ -26,22 +21,23 @@ namespace Multiplayer.Client
         // - singleplayer save, ingame
         // - replay, server browser
         // - replay, ingame
-        public static async ClientTask HostServer(ServerSettings settings, bool fromReplay, bool hadSimulation, bool asyncTime)
+        public static async ClientTask HostServer(ServerSettings settings, bool fromReplay)
         {
             Log.Message($"Starting the server");
 
             CreateSession(settings);
 
-            // Server already pre-inited in HostWindow
-            PrepareLocalServer(settings, fromReplay);
-
             if (!fromReplay)
                 SetupGameFromSingleplayer();
 
+            // Server already pre-inited in HostWindow
+            PrepareLocalServer(settings, fromReplay);
+
             CreateLocalClient();
             PrepareGame();
+            SetGameState(settings);
 
-            Multiplayer.session.dataSnapshot = await CreateGameData(settings, asyncTime);
+            Multiplayer.session.dataSnapshot = await CreateGameData();
 
             MakeHostOnServer();
 
@@ -70,13 +66,17 @@ namespace Multiplayer.Client
             MultiplayerServer.instance = Multiplayer.LocalServer;
 
             localServer.hostUsername = Multiplayer.username;
-            localServer.worldData.defaultFactionId = Faction.OfPlayer.loadID;
+            localServer.worldData.hostFactionId = Faction.OfPlayer.loadID;
+            localServer.worldData.spectatorFactionId = Multiplayer.WorldComp.spectatorFaction.loadID;
 
             if (settings.steam)
                 localServer.TickEvent += SteamIntegration.ServerSteamNetTick;
 
             if (fromReplay)
+            {
                 localServer.gameTimer = TickPatch.Timer;
+                localServer.startingTimer = TickPatch.Timer;
+            }
 
             localServer.initDataSource = new TaskCompletionSource<ServerInitData>();
             localServer.CompleteInitData(
@@ -98,7 +98,7 @@ namespace Multiplayer.Client
             Multiplayer.session.AddMsg(new ChatMsg_Url("https://discord.gg/S4bxXpv"), false);
         }
 
-        private static async Task<GameDataSnapshot> CreateGameData(ServerSettings settings, bool asyncTime)
+        private static void SetGameState(ServerSettings settings)
         {
             Multiplayer.AsyncWorldTime.SetDesiredTimeSpeed(TimeSpeed.Paused);
             foreach (var map in Find.Maps)
@@ -106,86 +106,70 @@ namespace Multiplayer.Client
 
             Find.TickManager.CurTimeSpeed = TimeSpeed.Paused;
 
-            Multiplayer.GameComp.asyncTime = asyncTime;
+            Multiplayer.GameComp.asyncTime = settings.asyncTime;
+            Multiplayer.GameComp.multifaction = settings.multifaction;
             Multiplayer.GameComp.debugMode = settings.debugMode;
             Multiplayer.GameComp.logDesyncTraces = settings.desyncTraces;
             Multiplayer.GameComp.pauseOnLetter = settings.pauseOnLetter;
             Multiplayer.GameComp.timeControl = settings.timeControl;
+        }
 
+        private static async Task<GameDataSnapshot> CreateGameData()
+        {
             await LongEventTask.ContinueInLongEvent("MpSaving", false);
-
-            return SaveLoad.CreateGameDataSnapshot(SaveLoad.SaveAndReload());
+            return SaveLoad.CreateGameDataSnapshot(SaveLoad.SaveAndReload(), Multiplayer.GameComp.multifaction);
         }
 
         private static void SetupGameFromSingleplayer()
         {
             var worldComp = new MultiplayerWorldComp(Find.World);
 
-            Faction NewFaction(int id, string name, FactionDef def)
-            {
-                Faction faction = Find.FactionManager.AllFactions.FirstOrDefault(f => f.loadID == id);
-
-                if (faction == null)
-                {
-                    faction = new Faction() { loadID = id, def = def };
-
-                    faction.ideos = new FactionIdeosTracker(faction);
-                    faction.ideos.ChooseOrGenerateIdeo(new IdeoGenerationParms());
-
-                    foreach (Faction other in Find.FactionManager.AllFactionsListForReading)
-                        faction.TryMakeInitialRelationsWith(other);
-
-                    Find.FactionManager.Add(faction);
-
-                    worldComp.factionData[faction.loadID] = FactionWorldData.New(faction.loadID);
-                }
-
-                faction.Name = name;
-                faction.def = def;
-
-                return faction;
-            }
-
             Faction.OfPlayer.Name = $"{Multiplayer.username}'s faction";
             //comp.factionData[Faction.OfPlayer.loadID] = FactionWorldData.FromCurrent();
 
             Multiplayer.game = new MultiplayerGame
             {
-                gameComp = new MultiplayerGameComp(Current.Game)
-                {
-                    globalIdBlock = new IdBlock(GetMaxUniqueId(), 1_000_000_000)
-                },
+                gameComp = new MultiplayerGameComp(),
                 asyncWorldTimeComp = new AsyncWorldTimeComp(Find.World) { worldTicks = Find.TickManager.TicksGame },
                 worldComp = worldComp
             };
 
-            // var opponent = NewFaction(Multiplayer.GlobalIdBlock.NextId(), "Opponent", FactionDefOf.PlayerColony);
-            // opponent.hidden = true;
-            // opponent.SetRelation(new FactionRelation(Faction.OfPlayer, FactionRelationKind.Neutral));
+            var spectator = AddNewFaction("Spectator", FactionDefOf.PlayerColony);
+            spectator.hidden = true;
+            spectator.SetRelation(new FactionRelation(Faction.OfPlayer, FactionRelationKind.Neutral));
+
+            worldComp.factionData[spectator.loadID] = FactionWorldData.New(spectator.loadID);
+            worldComp.spectatorFaction = spectator;
 
             foreach (FactionWorldData data in worldComp.factionData.Values)
-            {
-                foreach (DrugPolicy p in data.drugPolicyDatabase.policies)
-                    p.uniqueId = Multiplayer.GlobalIdBlock.NextId();
-
-                foreach (Outfit o in data.outfitDatabase.outfits)
-                    o.uniqueId = Multiplayer.GlobalIdBlock.NextId();
-
-                foreach (FoodRestriction o in data.foodRestrictionDatabase.foodRestrictions)
-                    o.id = Multiplayer.GlobalIdBlock.NextId();
-            }
+                data.ReassignIds();
 
             foreach (Map map in Find.Maps)
             {
-                //mapComp.mapIdBlock = localServer.NextIdBlock();
-
-                BeforeMapGeneration.SetupMap(map);
-                // BeforeMapGeneration.InitNewMapFactionData(map, opponent);
+                MapSetup.SetupMap(map);
 
                 AsyncTimeComp async = map.AsyncTime();
                 async.mapTicks = Find.TickManager.TicksGame;
                 async.SetDesiredTimeSpeed(Find.TickManager.CurTimeSpeed);
             }
+        }
+
+        public static Faction AddNewFaction(string name, FactionDef def)
+        {
+            Faction faction = new Faction { loadID = Find.UniqueIDsManager.GetNextFactionID(), def = def };
+
+            faction.ideos = new FactionIdeosTracker(faction);
+            faction.ideos.ChooseOrGenerateIdeo(new IdeoGenerationParms());
+
+            foreach (Faction other in Find.FactionManager.AllFactionsListForReading)
+                faction.TryMakeInitialRelationsWith(other);
+
+            faction.Name = name;
+            faction.def = def;
+
+            Find.FactionManager.Add(faction);
+
+            return faction;
         }
 
         private static void CreateLocalClient()
@@ -264,23 +248,6 @@ namespace Multiplayer.Client
                     Log.Error("Win32 Error Code: " + ((Win32Exception)ex).NativeErrorCode);
                 }
             }
-        }
-
-        public static int GetMaxUniqueId()
-        {
-            return typeof(UniqueIDsManager)
-                .GetFields(BindingFlags.NonPublic | BindingFlags.Instance)
-                .Where(f => f.FieldType == typeof(int))
-                .Select(f => (int)f.GetValue(Find.UniqueIDsManager))
-                .Max();
-        }
-
-        public static void SetAllUniqueIds(int value)
-        {
-            typeof(UniqueIDsManager)
-                .GetFields(BindingFlags.NonPublic | BindingFlags.Instance)
-                .Where(f => f.FieldType == typeof(int))
-                .Do(f => f.SetValue(Find.UniqueIDsManager, value));
         }
     }
 }

@@ -72,8 +72,6 @@ public class ClientLoadingState : ClientBaseState
             mapsToLoad.Add(mapId);
         }
 
-        //mapsToLoad.RemoveAt(Multiplayer.LocalServer != null ? 1 : 0); // todo dbg
-
         Session.dataSnapshot = new GameDataSnapshot(
             0,
             worldData,
@@ -84,6 +82,7 @@ public class ClientLoadingState : ClientBaseState
 
         TickPatch.tickUntil = tickUntil;
         Multiplayer.session.receivedCmds = remoteSentCmds;
+        Multiplayer.session.remoteTickUntil = tickUntil;
         TickPatch.serverFrozen = serverFrozen;
 
         int syncInfos = data.ReadInt32();

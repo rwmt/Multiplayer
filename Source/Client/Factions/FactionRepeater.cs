@@ -1,5 +1,6 @@
 using System;
 using HarmonyLib;
+using Multiplayer.Client.Factions;
 using RimWorld;
 using Verse;
 
@@ -68,7 +69,7 @@ namespace Multiplayer.Client
         static bool ignore;
 
         static bool Prefix(ListerMergeables __instance, Thing t) =>
-            FactionRepeater.Template(d => d.listerMergeables.Notify_DeSpawned(t), __instance.map, ref ignore);
+            FactionRepeater.Template(d => d.listerMergeables.Notify_Spawned(t), __instance.map, ref ignore);
     }
 
     [HarmonyPatch(typeof(ListerMergeables), nameof(ListerMergeables.Notify_DeSpawned))]

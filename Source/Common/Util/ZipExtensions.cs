@@ -6,7 +6,6 @@ using System.Text.RegularExpressions;
 
 namespace Multiplayer.Common.Util;
 
-[HotSwappable]
 public static class ZipExtensions
 {
     public static byte[] GetBytes(this ZipArchive zip, string path)

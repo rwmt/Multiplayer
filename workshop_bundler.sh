@@ -29,16 +29,11 @@ cat <<EOF > LoadFolders.xml
     <li>/</li>
     <li>1.3</li>
   </v1.3>
-  <v1.2>
-    <li>/</li>
-    <li>1.2</li>
-  </v1.2>
 </loadFolders>
 EOF
 
 
 sed -i "/<supportedVersions>/ a \ \ \ \ <li>1.3</li>" About/About.xml
-sed -i "/<supportedVersions>/ a \ \ \ \ <li>1.2</li>" About/About.xml
 sed -i "/Multiplayer mod for RimWorld./aThis is version ${VERSION}." About/About.xml
 sed -i "s/<version>.*<\/version>\$/<version>${VERSION}<\/version>/" About/Manifest.xml
 
@@ -55,9 +50,6 @@ rm -f 1.3.3311/Languages/.git 1.3.3311/Languages/LICENSE 1.3.3311/Languages/READ
 mkdir -p 1.3
 git --work-tree=1.3 restore --recurse-submodules --source=origin/rw-1.3 -- Assemblies Defs Languages
 rm -f 1.3/Languages/.git 1.3/Languages/LICENSE 1.3/Languages/README.md
-
-mkdir -p 1.2
-git --work-tree=1.2 restore --source=origin/rw-1.2 -- Assemblies Defs Languages
 
 cd ..
 

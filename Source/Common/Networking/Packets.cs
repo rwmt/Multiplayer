@@ -19,7 +19,6 @@ public enum Packets : byte
     Client_WorldReady,
     Client_Command,
     Client_WorldDataUpload,
-    Client_IdBlockRequest,
     Client_Chat,
     Client_KeepAlive,
     Client_SteamRequest,

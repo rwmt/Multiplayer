@@ -20,7 +20,7 @@ namespace Multiplayer.Client
 
             try
             {
-                ScribeUtil.StartLoading(gameToLoad.SaveData);
+                ScribeUtil.InitFromXmlDoc(gameToLoad.SaveData);
                 ScribeMetaHeaderUtility.LoadGameDataHeader(ScribeMetaHeaderUtility.ScribeHeaderMode.Map, false);
                 Scribe.EnterNode("game");
                 Current.Game = new Game();

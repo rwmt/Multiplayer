@@ -47,7 +47,7 @@ namespace Multiplayer.Client.Persistent
         /// <param name="caravan"></param>
         public CaravanSplittingSession(Caravan caravan)
         {
-            sessionId = Multiplayer.GlobalIdBlock.NextId();
+            sessionId = Find.UniqueIDsManager.GetNextThingID();
             Caravan = caravan;
 
             AddItems();
@@ -86,8 +86,7 @@ namespace Multiplayer.Client.Persistent
                 IgnorePawnsInventoryMode.Ignore,
                 () => dialog.DestMassCapacity - dialog.DestMassUsage,
                 false,
-                Caravan.Tile,
-                false
+                Caravan.Tile
             );
 
             dialog.CountToTransferChanged();
