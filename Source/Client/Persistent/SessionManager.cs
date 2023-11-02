@@ -2,9 +2,9 @@
 using System.Collections.Generic;
 using System.Linq;
 using HarmonyLib;
-using Multiplayer.Client.Comp;
 using Multiplayer.Client.Saving;
 using Multiplayer.Common;
+using RimWorld;
 using Verse;
 
 namespace Multiplayer.Client.Persistent;
@@ -22,14 +22,7 @@ public class SessionManager : IHasSemiPersistentData
     private List<ITickingSession> tickingSessions = new();
     private static HashSet<Type> tempCleanupLoggingTypes = new();
 
-    private readonly IIdBlockProvider idBlockProvider;
-
     public bool AnySessionActive => allSessions.Count > 0;
-
-    public SessionManager(IIdBlockProvider provider)
-    {
-        idBlockProvider = provider ?? throw new ArgumentNullException(nameof(provider));
-    }
 
     /// <summary>
     /// Adds a new session to the list of active sessions.
@@ -101,7 +94,8 @@ public class SessionManager : IHasSemiPersistentData
             tickingSessions.Add(ticking);
 
         allSessions.Add(session);
-        session.SessionId = idBlockProvider.IdBlock.NextId();
+        session.SessionId = UniqueIDsManager.GetNextID(ref Multiplayer.GameComp.nextSessionId);
+        session.PostAddSession();
     }
 
     /// <summary>
@@ -117,9 +111,16 @@ public class SessionManager : IHasSemiPersistentData
             semiPersistentSessions.Remove(semiPersistent);
 
         if (session is ITickingSession ticking)
-            tickingSessions.Add(ticking);
+            tickingSessions.Remove(ticking);
 
-        return allSessions.Remove(session);
+        if (allSessions.Remove(session))
+        {
+            // Avoid repeated calls if the session was already removed
+            session.PostRemoveSession();
+            return true;
+        }
+
+        return false;
     }
 
     private ISession GetFirstConflictingSession(ISession session)
@@ -259,6 +260,17 @@ public class SessionManager : IHasSemiPersistentData
             allSessions.RemoveAll(s => s is IExposableSession);
             allSessions.AddRange(exposableSessions);
         }
+    }
+
+    public bool IsAnySessionCurrentlyPausing(Map map)
+    {
+        for (int i = 0; i < allSessions.Count; i++)
+        {
+            if (AllSessions[i].IsCurrentlyPausing(map))
+                return true;
+        }
+
+        return false;
     }
 
     public static void ValidateSessionClasses()

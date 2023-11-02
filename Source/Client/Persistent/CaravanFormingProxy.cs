@@ -17,12 +17,12 @@ namespace Multiplayer.Client
 
         public override void DoWindowContents(Rect inRect)
         {
+            var session = Session;
+            SyncSessionWithTransferablesMarker.DrawnThingFilter = session;
             drawing = this;
 
             try
             {
-                var session = Session;
-
                 if (session == null)
                 {
                     Close();
@@ -44,6 +44,7 @@ namespace Multiplayer.Client
             finally
             {
                 drawing = null;
+                SyncSessionWithTransferablesMarker.DrawnThingFilter = null;
             }
         }
     }

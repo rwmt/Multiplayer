@@ -449,10 +449,7 @@ namespace Multiplayer.Client
         [MpPrefix(typeof(TransferableUIUtility), "DoCountAdjustInterface")]
         static void TransferableAdjustTo(Transferable trad)
         {
-            var session = MpTradeSession.current ??
-                (Multiplayer.Client != null ? Multiplayer.WorldComp.splitSession : null) ??
-                (ISessionWithTransferables)CaravanFormingProxy.drawing?.Session ??
-                TransporterLoadingProxy.drawing?.Session;
+            var session = SyncSessionWithTransferablesMarker.DrawnThingFilter;
             if (session != null)
                 SyncTradeableCount.Watch(new MpTransferableReference(session, trad));
         }

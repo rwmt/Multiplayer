@@ -3,6 +3,7 @@ using Verse;
 using RimWorld;
 using RimWorld.Planet;
 using Multiplayer.API;
+using Multiplayer.Client.Experimental;
 using Verse.Sound;
 
 namespace Multiplayer.Client.Persistent
@@ -10,15 +11,9 @@ namespace Multiplayer.Client.Persistent
     /// <summary>
     /// Represents an active Caravan Split session. This session will track all the pawns and items being split.
     /// </summary>
-    public class CaravanSplittingSession : IExposable, ISessionWithTransferables, IPausingWithDialog
+    public class CaravanSplittingSession : Session, IExposableSession, ISessionWithTransferables, IPausingWithDialog, ISessionWithCreationRestrictions
     {
-        private int sessionId;
-
-        /// <summary>
-        /// Uniquely identifies this ISessionWithTransferables
-        /// </summary>
-        public int SessionId => sessionId;
-        public Map Map => null;
+        public override Map Map => null;
 
         /// <summary>
         /// The list of items that can be transferred, along with their count.
@@ -107,9 +102,9 @@ namespace Multiplayer.Client.Persistent
             return newProxy;
         }
 
-        public void ExposeData()
+        public override void ExposeData()
         {
-            Scribe_Values.Look(ref sessionId, "sessionId");
+            base.ExposeData();
             Scribe_Collections.Look(ref transferables, "transferables", LookMode.Deep);
         }
 
@@ -164,7 +159,7 @@ namespace Multiplayer.Client.Persistent
             }
         }
 
-        public FloatMenuOption GetBlockingWindowOptions(ColonistBar.Entry entry)
+        public override FloatMenuOption GetBlockingWindowOptions(ColonistBar.Entry entry)
         {
             if (!Caravan.pawns.Contains(entry.pawn))
                 return null;
@@ -176,5 +171,9 @@ namespace Multiplayer.Client.Persistent
                 OpenWindow();
             });
         }
+
+        public override bool IsCurrentlyPausing(Map map) => true;
+
+        public bool CanExistWith(ISession other) => other is not CaravanSplittingSession;
     }
 }

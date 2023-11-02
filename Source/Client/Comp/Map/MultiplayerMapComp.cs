@@ -23,7 +23,7 @@ namespace Multiplayer.Client
         public Dictionary<int, FactionMapData> factionData = new();
         public Dictionary<int, CustomFactionMapData> customFactionData = new();
 
-        public SessionManager sessionManager;
+        public SessionManager sessionManager = new();
         public List<PersistentDialog> mapDialogs = new List<PersistentDialog>();
         public int autosaveCounter;
 
@@ -33,7 +33,6 @@ namespace Multiplayer.Client
         public MultiplayerMapComp(Map map)
         {
             this.map = map;
-            sessionManager = new SessionManager(this);
         }
 
         public CaravanFormingSession CreateCaravanFormingSession(bool reform, Action onClosed, bool mapAboutToBeRemoved, IntVec3? meetingSpot = null)

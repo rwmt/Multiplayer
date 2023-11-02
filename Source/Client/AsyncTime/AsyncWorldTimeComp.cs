@@ -27,8 +27,10 @@ public class AsyncWorldTimeComp : IExposable, ITickable
     {
         if (Multiplayer.GameComp.asyncTime)
         {
-            var enforcePause = Multiplayer.WorldComp.splitSession != null ||
+            var enforcePause = Multiplayer.WorldComp.sessionManager.IsAnySessionCurrentlyPausing(null) ||
                                AsyncTimeComp.pauseLocks.Any(x => x(null));
+            // var enforcePause = Multiplayer.WorldComp.splitSession != null ||
+            //                    AsyncTimeComp.pauseLocks.Any(x => x(null));
 
             if (enforcePause)
                 return 0f;

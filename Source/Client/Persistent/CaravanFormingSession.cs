@@ -4,15 +4,15 @@ using RimWorld;
 using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
+using Multiplayer.Client.Experimental;
 using Verse;
 
 namespace Multiplayer.Client
 {
-    public class CaravanFormingSession : IExposable, ISessionWithTransferables, IPausingWithDialog
+    public class CaravanFormingSession : Session, IExposableSession, ISessionWithTransferables, IPausingWithDialog, ISessionWithCreationRestrictions
     {
         public Map map;
 
-        public int sessionId;
         public bool reform;
         public Action onClosed;
         public bool mapAboutToBeRemoved;
@@ -24,8 +24,7 @@ namespace Multiplayer.Client
 
         public bool uiDirty;
 
-        public Map Map => map;
-        public int SessionId => sessionId;
+        public override Map Map => map;
 
         public CaravanFormingSession(Map map)
         {
@@ -34,14 +33,14 @@ namespace Multiplayer.Client
 
         public CaravanFormingSession(Map map, bool reform, Action onClosed, bool mapAboutToBeRemoved, IntVec3? meetingSpot = null) : this(map)
         {
-            sessionId = Find.UniqueIDsManager.GetNextThingID();
-
             this.reform = reform;
             this.onClosed = onClosed;
             this.mapAboutToBeRemoved = mapAboutToBeRemoved;
             autoSelectTravelSupplies = !reform;
             this.meetingSpot = meetingSpot;
 
+            // Should this be called from PostAddSession? It would also be called from the other constructor
+            // (map only parameter) - do we want that to happen? Is it going to come up?
             AddItems();
         }
 
@@ -141,7 +140,7 @@ namespace Multiplayer.Client
         [SyncMethod]
         public void Remove()
         {
-            map.MpComp().caravanForming = null;
+            map.MpComp().sessionManager.RemoveSession(this);
             Find.WorldRoutePlanner.Stop();
         }
 
@@ -155,9 +154,10 @@ namespace Multiplayer.Client
             }
         }
 
-        public void ExposeData()
+        public override void ExposeData()
         {
-            Scribe_Values.Look(ref sessionId, "sessionId");
+            base.ExposeData();
+
             Scribe_Values.Look(ref reform, "reform");
             Scribe_Values.Look(ref onClosed, "onClosed");
             Scribe_Values.Look(ref mapAboutToBeRemoved, "mapAboutToBeRemoved");
@@ -179,7 +179,9 @@ namespace Multiplayer.Client
             uiDirty = true;
         }
 
-        public FloatMenuOption GetBlockingWindowOptions(ColonistBar.Entry entry)
+        public override bool IsCurrentlyPausing(Map map) => map == this.map;
+
+        public override FloatMenuOption GetBlockingWindowOptions(ColonistBar.Entry entry)
         {
             return new FloatMenuOption("MpCaravanFormingSession".Translate(), () =>
             {
@@ -187,6 +189,8 @@ namespace Multiplayer.Client
                 OpenWindow();
             });
         }
+
+        public bool CanExistWith(ISession other) => other is not CaravanFormingSession;
     }
 
 }

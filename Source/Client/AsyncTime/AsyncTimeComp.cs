@@ -24,13 +24,16 @@ namespace Multiplayer.Client
         {
             var comp = map.MpComp();
 
-            var enforcePause = comp.transporterLoading != null ||
-                comp.caravanForming != null ||
-                comp.ritualSession != null ||
-                comp.mapDialogs.Any() ||
-                Multiplayer.WorldComp.AnyTradeSessionsOnMap(map) ||
-                Multiplayer.WorldComp.splitSession != null ||
+            var enforcePause = comp.sessionManager.IsAnySessionCurrentlyPausing(map) ||
+                Multiplayer.WorldComp.sessionManager.IsAnySessionCurrentlyPausing(map) ||
                 pauseLocks.Any(x => x(map));
+            // var enforcePause = comp.transporterLoading != null ||
+            //     comp.caravanForming != null ||
+            //     comp.ritualSession != null ||
+            //     comp.mapDialogs.Any() ||
+            //     Multiplayer.WorldComp.AnyTradeSessionsOnMap(map) ||
+            //     Multiplayer.WorldComp.splitSession != null ||
+            //     pauseLocks.Any(x => x(map));
 
             if (enforcePause)
                 return 0f;

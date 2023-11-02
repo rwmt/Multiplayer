@@ -65,10 +65,7 @@ namespace Multiplayer.Client.Persistent
         public static void CreateSplittingSession(Caravan caravan)
         {
             //Start caravan splitting session here by calling new session constructor
-            if (Multiplayer.WorldComp.splitSession == null)
-            {
-                Multiplayer.WorldComp.splitSession = new CaravanSplittingSession(caravan);
-            }
+            Multiplayer.WorldComp.sessionManager.AddSession(new CaravanSplittingSession(caravan));
         }
     }
 }

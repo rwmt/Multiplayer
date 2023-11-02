@@ -7,17 +7,17 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using Multiplayer.Client.Experimental;
 using Verse;
 using Verse.AI;
 using Verse.AI.Group;
 
 namespace Multiplayer.Client
 {
-    public class MpTradeSession : IExposableSession, ISessionWithTransferables, ISessionWithCreationRestrictions, ITickingSession
+    public class MpTradeSession : Session, IExposableSession, ISessionWithTransferables, ISessionWithCreationRestrictions, ITickingSession
     {
         public static MpTradeSession current;
 
-        public int sessionId;
         public ITrader trader;
         public Pawn playerNegotiator;
         public bool giftMode;
@@ -34,10 +34,9 @@ namespace Multiplayer.Client
             }
         }
 
-        public Map Map => playerNegotiator.Map;
-        public int SessionId => sessionId;
+        public override Map Map => playerNegotiator.Map;
 
-        public bool IsSessionValid => trader != null && playerNegotiator != null;
+        public override bool IsSessionValid => trader != null && playerNegotiator != null;
 
         public MpTradeSession() { }
 
@@ -202,15 +201,12 @@ namespace Multiplayer.Client
             if (playerNegotiator.Spawned) return;
 
             if (ShouldCancel())
-            {
                 Multiplayer.WorldComp.sessionManager.RemoveSession(this);
-                Find.WindowStack?.WindowOfType<TradingWindow>()?.Notify_RemovedSession(index);
-            }
         }
 
-        public void ExposeData()
+        public override void ExposeData()
         {
-            Scribe_Values.Look(ref sessionId, "sessionId");
+            base.ExposeData();
 
             ILoadReferenceable trader = (ILoadReferenceable)this.trader;
             Scribe_References.Look(ref trader, "trader");
@@ -221,6 +217,9 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref giftsOnly, "giftsOnly");
 
             Scribe_Deep.Look(ref deal, "tradeDeal", this);
+
+            if (Scribe.mode == LoadSaveMode.PostLoadInit)
+                Multiplayer.WorldComp.trading.AddDistinct(this);
         }
 
         public Transferable GetTransferableByThingId(int thingId)
@@ -242,7 +241,9 @@ namespace Multiplayer.Client
             deal.caravanDirty = true;
         }
 
-        public FloatMenuOption GetBlockingWindowOptions(ColonistBar.Entry entry)
+        public override bool IsCurrentlyPausing(Map map) => map == Map;
+
+        public override FloatMenuOption GetBlockingWindowOptions(ColonistBar.Entry entry)
         {
             if (playerNegotiator?.Map != entry.map)
                 return null;
@@ -250,10 +251,19 @@ namespace Multiplayer.Client
             return new FloatMenuOption("MpTradingSession".Translate(), () =>
             {
                 SwitchToMapOrWorld(entry.map);
-                CameraJumper.TryJumpAndSelect(trade.playerNegotiator);
+                CameraJumper.TryJumpAndSelect(playerNegotiator);
                 Find.WindowStack.Add(new TradingWindow()
-                    { selectedTab = Multiplayer.WorldComp.trading.IndexOf(trade) });
+                    { selectedTab = Multiplayer.WorldComp.trading.IndexOf(this) });
             });
+        }
+
+        public override void PostAddSession() => Multiplayer.WorldComp.trading.Add(this);
+
+        public override void PostRemoveSession()
+        {
+            var index = Multiplayer.WorldComp.trading.IndexOf(this);
+            Multiplayer.WorldComp.trading.RemoveAt(index);
+            Find.WindowStack?.WindowOfType<TradingWindow>()?.Notify_RemovedSession(index);
         }
     }
 

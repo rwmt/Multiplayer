@@ -5,6 +5,7 @@ using System.Linq;
 using Verse;
 using Multiplayer.Client.Persistent;
 using Multiplayer.Client.Saving;
+using Multiplayer.Common;
 
 namespace Multiplayer.Client;
 
@@ -15,7 +16,8 @@ public class MultiplayerWorldComp : IHasSemiPersistentData
     public World world;
 
     public TileTemperaturesComp uiTemperatures;
-    public SessionManager sessionManager;
+    public List<MpTradeSession> trading = new(); // Should only be modified from MpTradeSession itself
+    public SessionManager sessionManager = new();
 
     public Faction spectatorFaction;
 
@@ -25,7 +27,6 @@ public class MultiplayerWorldComp : IHasSemiPersistentData
     {
         this.world = world;
         uiTemperatures = new TileTemperaturesComp(world);
-        sessionManager = new SessionManager(this);
     }
 
     // Called from AsyncWorldTimeComp.ExposeData (for backcompat)
@@ -173,7 +174,7 @@ public class MultiplayerWorldComp : IHasSemiPersistentData
 
     public bool AnyTradeSessionsOnMap(Map map)
     {
-        foreach (MpTradeSession session in sessionManager.AllSessions.OfType<MpTradeSession>())
+        foreach (MpTradeSession session in trading.OfType<MpTradeSession>())
             if (session.playerNegotiator.Map == map)
                 return true;
         return false;

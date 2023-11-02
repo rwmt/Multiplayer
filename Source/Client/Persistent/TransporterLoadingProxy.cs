@@ -7,9 +7,9 @@ namespace Multiplayer.Client
 {
     public class TransporterLoadingProxy : Dialog_LoadTransporters, ISwitchToMap
     {
-        public static TransporterLoadingProxy drawing;
-
         public bool itemsReady;
+
+        public static TransporterLoadingProxy drawing;
 
         public TransporterLoading Session => map.MpComp().sessionManager.GetFirstOfType<TransporterLoading>();
 
@@ -19,12 +19,12 @@ namespace Multiplayer.Client
 
         public override void DoWindowContents(Rect inRect)
         {
+            var session = Session;
+            SyncSessionWithTransferablesMarker.DrawnThingFilter = session;
             drawing = this;
 
             try
             {
-                var session = Session;
-
                 if (session == null)
                 {
                     Close();
@@ -40,6 +40,7 @@ namespace Multiplayer.Client
             finally
             {
                 drawing = null;
+                SyncSessionWithTransferablesMarker.DrawnThingFilter = null;
             }
         }
     }

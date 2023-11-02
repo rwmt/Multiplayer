@@ -17,6 +17,7 @@ namespace Multiplayer.Client.Comp
         public PauseOnLetter pauseOnLetter;
         public TimeControl timeControl;
         public Dictionary<int, PlayerData> playerData = new(); // player id to player data
+        public int nextSessionId;
 
         public string idBlockBase64;
 

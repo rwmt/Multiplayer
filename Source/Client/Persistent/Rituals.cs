@@ -5,6 +5,7 @@ using RimWorld;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using Multiplayer.Client.Experimental;
 using Multiplayer.Client.Util;
 using UnityEngine;
 using Verse;
@@ -12,13 +13,12 @@ using static Verse.Widgets;
 
 namespace Multiplayer.Client.Persistent
 {
-    public class RitualSession : ISession, IPausingWithDialog
+    public class RitualSession : Session, IPausingWithDialog
     {
         public Map map;
         public RitualData data;
 
-        public Map Map => map;
-        public int SessionId { get; private set; }
+        public override Map Map => map;
 
         public RitualSession(Map map)
         {
@@ -92,7 +92,9 @@ namespace Multiplayer.Client.Persistent
             data.assignments.session = this;
         }
 
-        public FloatMenuOption GetBlockingWindowOptions(ColonistBar.Entry entry)
+        public override bool IsCurrentlyPausing(Map map) => map == this.map;
+
+        public override FloatMenuOption GetBlockingWindowOptions(ColonistBar.Entry entry)
         {
             return new FloatMenuOption("MpRitualSession".Translate(), () =>
             {
