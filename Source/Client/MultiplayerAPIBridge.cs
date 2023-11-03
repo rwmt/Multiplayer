@@ -117,7 +117,7 @@ namespace Multiplayer.Common
 
         public void RegisterPauseLock(PauseLockDelegate pauseLock)
         {
-            AsyncTimeComp.pauseLocks.Add(pauseLock);
+            Sync.RegisterPauseLock(pauseLock);
         }
     }
 }

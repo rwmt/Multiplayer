@@ -18,15 +18,13 @@ namespace Multiplayer.Client
     {
         public static Map tickingMap;
         public static Map executingCmdMap;
-        public static List<PauseLockDelegate> pauseLocks = new();
 
         public float TickRateMultiplier(TimeSpeed speed)
         {
             var comp = map.MpComp();
 
             var enforcePause = comp.sessionManager.IsAnySessionCurrentlyPausing(map) ||
-                Multiplayer.WorldComp.sessionManager.IsAnySessionCurrentlyPausing(map) ||
-                pauseLocks.Any(x => x(map));
+                Multiplayer.WorldComp.sessionManager.IsAnySessionCurrentlyPausing(map);
             // var enforcePause = comp.transporterLoading != null ||
             //     comp.caravanForming != null ||
             //     comp.ritualSession != null ||

@@ -1,22 +1,21 @@
-﻿using Multiplayer.Client.Experimental;
+﻿using System.Collections.Generic;
+using Multiplayer.API;
+using Multiplayer.Client.Experimental;
 using RimWorld;
 using Verse;
 
 namespace Multiplayer.Client.Persistent;
 
 // Used for pause locks. Pause locks should become obsolete and this should become unused,
-// but pause locks are kept for backwards compatibility. WIP.
+// but pause locks are kept for backwards compatibility.
 public class PauseLockSession : Session
 {
+    public List<PauseLockDelegate> pauseLocks = new();
+
     public override Map Map => null;
 
-    public override bool IsCurrentlyPausing(Map map)
-    {
-        throw new System.NotImplementedException();
-    }
+    public override bool IsCurrentlyPausing(Map map) => pauseLocks.Any(x => x(map));
 
-    public override FloatMenuOption GetBlockingWindowOptions(ColonistBar.Entry entry)
-    {
-        return null;
-    }
+    // Should we add some message explaining pause locks/having a list of pausing ones?
+    public override FloatMenuOption GetBlockingWindowOptions(ColonistBar.Entry entry) => null;
 }
