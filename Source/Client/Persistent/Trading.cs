@@ -601,7 +601,7 @@ namespace Multiplayer.Client
             if (Multiplayer.Client == null) return;
             if (__instance.parent is not Building_OrbitalTradeBeacon) return;
             if (value == __instance.powerOnInt) return;
-            if (!Multiplayer.WorldComp.sessionManager.AllSessions.OfType<MpTradeSession>().Any(t => t.trader is TradeShip)) return;
+            if (!Multiplayer.WorldComp.trading.Any(t => t.trader is TradeShip)) return;
 
             // For trade ships
             Multiplayer.WorldComp.DirtyColonyTradeForMap(__instance.parent.Map);
@@ -726,7 +726,7 @@ namespace Multiplayer.Client
     {
         static bool Prefix(Settlement_TraderTracker __instance)
         {
-            return Multiplayer.Client == null || Multiplayer.WorldComp.sessionManager.AllSessions.OfType<MpTradeSession>().All(s => s.trader != __instance.settlement);
+            return Multiplayer.Client == null || Multiplayer.WorldComp.trading.All(s => s.trader != __instance.settlement);
         }
     }
 

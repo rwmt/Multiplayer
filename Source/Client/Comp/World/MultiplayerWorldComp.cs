@@ -16,7 +16,7 @@ public class MultiplayerWorldComp : IHasSemiPersistentData
     public World world;
 
     public TileTemperaturesComp uiTemperatures;
-    public List<MpTradeSession> trading = new(); // Should only be modified from MpTradeSession itself
+    public List<MpTradeSession> trading = new(); // Should only be modified from MpTradeSession in PostAdd/Remove and ExposeData
     public SessionManager sessionManager = new();
 
     public Faction spectatorFaction;
@@ -36,7 +36,11 @@ public class MultiplayerWorldComp : IHasSemiPersistentData
 
         Scribe_References.Look(ref spectatorFaction, "spectatorFaction");
 
+        if (Scribe.mode == LoadSaveMode.PostLoadInit)
+            trading.Clear(); // Reset the list, let the sessions re-add themselves from ExposeData - should prevent any potential issues with this list having different order or elements
         sessionManager.ExposeSessions();
+        if (Scribe.mode == LoadSaveMode.PostLoadInit && MpTradeSession.current != null && TradingWindow.drawingTrade != null)
+            TradingWindow.drawingTrade.selectedTab = trading.IndexOf(MpTradeSession.current); // In case order changed, set the current tab
 
         DoBackCompat();
     }
@@ -128,9 +132,8 @@ public class MultiplayerWorldComp : IHasSemiPersistentData
 
     public void RemoveTradeSession(MpTradeSession session)
     {
-        int index = trading.IndexOf(session);
-            trading.Remove(session);
-            Find.WindowStack?.WindowOfType<TradingWindow>()?.Notify_RemovedSession(index);
+        // Cleanup and removal from `trading` field is handled in PostRemoveSession
+        sessionManager.RemoveSession(session);
     }
 
     public void SetFaction(Faction faction)
