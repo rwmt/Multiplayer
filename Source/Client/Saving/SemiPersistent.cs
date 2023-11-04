@@ -79,9 +79,11 @@ namespace Multiplayer.Client.Saving
                 Log.Error($"Exception reading semi-persistent data for game: {e}");
             }
 
+            var worldData = reader.ReadPrefixedBytes();
+
             try
             {
-                Multiplayer.WorldComp.ReadSemiPersistent(new ByteReader(gameData));
+                Multiplayer.WorldComp.ReadSemiPersistent(new ByteReader(worldData));
             }
             catch (Exception e)
             {
