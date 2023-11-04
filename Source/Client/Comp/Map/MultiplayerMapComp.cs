@@ -24,7 +24,7 @@ namespace Multiplayer.Client
         public Dictionary<int, CustomFactionMapData> customFactionData = new();
 
         public SessionManager sessionManager = new();
-        public List<PersistentDialog> mapDialogs = new List<PersistentDialog>();
+        public List<PersistentDialog> mapDialogs = new();
         public int autosaveCounter;
 
         // for SaveCompression
@@ -42,7 +42,11 @@ namespace Multiplayer.Client
             {
                 caravanForming = new CaravanFormingSession(map, reform, onClosed, mapAboutToBeRemoved, meetingSpot);
                 if (!sessionManager.AddSession(caravanForming))
+                {
+                    // Shouldn't happen if the session doesn't exist already, show an error just in case
+                    Log.Error($"Failed trying to created a session of type {nameof(CaravanFormingSession)} - prior session did not exist and creating session failed.");
                     return null;
+                }
             }
             return caravanForming;
         }
@@ -54,7 +58,11 @@ namespace Multiplayer.Client
             {
                 transporterLoading = new TransporterLoading(map, transporters);
                 if (!sessionManager.AddSession(transporterLoading))
+                {
+                    // Shouldn't happen if the session doesn't exist already, show an error just in case
+                    Log.Error($"Failed trying to created a session of type {nameof(TransporterLoading)} - prior session did not exist and creating session failed.");
                     return null;
+                }
             }
             return transporterLoading;
         }
@@ -66,7 +74,11 @@ namespace Multiplayer.Client
             {
                 ritualSession = new RitualSession(map, data);
                 if (!sessionManager.AddSession(ritualSession))
+                {
+                    // Shouldn't happen if the session doesn't exist already, show an error just in case
+                    Log.Error($"Failed trying to created a session of type {nameof(RitualSession)} - prior session did not exist and creating session failed.");
                     return null;
+                }
             }
             return ritualSession;
         }
@@ -188,11 +200,11 @@ namespace Multiplayer.Client
             sessionManager.WriteSemiPersistent(writer);
         }
 
-        public void ReadSemiPersistent(ByteReader data)
+        public void ReadSemiPersistent(ByteReader reader)
         {
-            autosaveCounter = data.ReadInt32();
+            autosaveCounter = reader.ReadInt32();
 
-            sessionManager.ReadSemiPersistent(data);
+            sessionManager.ReadSemiPersistent(reader);
         }
     }
 
