@@ -114,7 +114,7 @@ namespace Multiplayer.Client
                 tickListRare.Tick();
                 tickListLong.Tick();
 
-                TickMapTrading();
+                TickMapSessions();
 
                 storyteller.StorytellerTick();
                 storyWatcher.StoryWatcherTick();
@@ -140,18 +140,9 @@ namespace Multiplayer.Client
             }
         }
 
-        public void TickMapTrading()
+        public void TickMapSessions()
         {
-            var trading = Multiplayer.WorldComp.trading;
-
-            for (int i = trading.Count - 1; i >= 0; i--)
-            {
-                var session = trading[i];
-                if (session.playerNegotiator.Map != map) continue;
-
-                if (session.ShouldCancel())
-                    Multiplayer.WorldComp.RemoveTradeSession(session);
-            }
+            map.MpComp().sessionManager.TickSessions();
         }
 
         // These are normally called in Map.MapUpdate() and react to changes in the game state even when the game is paused (not ticking)
