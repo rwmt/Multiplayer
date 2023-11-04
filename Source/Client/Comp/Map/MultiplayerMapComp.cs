@@ -224,12 +224,9 @@ namespace Multiplayer.Client
             if (Multiplayer.Client == null) return;
 
             // Trading window on resume save
-            if (!Multiplayer.WorldComp.sessionManager.AnySessionActive) return;
+            if (!Multiplayer.WorldComp.trading.NullOrEmpty()) return;
             // playerNegotiator == null can only happen during loading? Is this a resuming check?
-            Multiplayer.WorldComp.sessionManager.AllSessions
-                .OfType<MpTradeSession>()
-                .FirstOrDefault(t => t.playerNegotiator == null)
-                ?.OpenWindow();
+            Multiplayer.WorldComp.trading.FirstOrDefault(t => t.playerNegotiator == null)?.OpenWindow();
         }
     }
 
@@ -243,7 +240,7 @@ namespace Multiplayer.Client
             if (Find.World.renderer.wantedMode == WorldRenderMode.Planet)
             {
                 // Hide trading window for map trades
-                if (Multiplayer.WorldComp.sessionManager.AllSessions.OfType<MpTradeSession>().All(t => t.playerNegotiator?.Map != null))
+                if (Multiplayer.WorldComp.trading.All(t => t.playerNegotiator?.Map != null))
                 {
                     if (Find.WindowStack.IsOpen(typeof(TradingWindow)))
                         Find.WindowStack.TryRemove(typeof(TradingWindow), doCloseSound: false);

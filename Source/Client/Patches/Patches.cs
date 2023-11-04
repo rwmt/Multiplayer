@@ -488,7 +488,7 @@ namespace Multiplayer.Client
                     if (!option.resolveTree) SyncUtil.isDialogNodeTreeOpen = true; // In case dialog is still open, we mark it as such
 
                     // Try opening the trading menu if the picked option was supposed to do so (caravan meeting, trading option)
-                    if (Multiplayer.Client != null && Multiplayer.WorldComp.sessionManager.AllSessions.OfType<MpTradeSession>().Any(t => t.trader is Caravan))
+                    if (Multiplayer.Client != null && Multiplayer.WorldComp.trading.Any(t => t.trader is Caravan))
                         Find.WindowStack.Add(new TradingWindow());
                 }
                 else SyncUtil.isDialogNodeTreeOpen = false;

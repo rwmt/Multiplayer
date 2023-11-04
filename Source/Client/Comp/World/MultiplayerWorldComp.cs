@@ -154,7 +154,7 @@ public class MultiplayerWorldComp : IHasSemiPersistentData
     public void DirtyColonyTradeForMap(Map map)
     {
         if (map == null) return;
-        foreach (MpTradeSession session in sessionManager.AllSessions.OfType<MpTradeSession>())
+        foreach (MpTradeSession session in trading)
             if (session.playerNegotiator.Map == map)
                 session.deal.recacheColony = true;
     }
@@ -162,7 +162,7 @@ public class MultiplayerWorldComp : IHasSemiPersistentData
     public void DirtyTraderTradeForTrader(ITrader trader)
     {
         if (trader == null) return;
-        foreach (MpTradeSession session in sessionManager.AllSessions.OfType<MpTradeSession>())
+        foreach (MpTradeSession session in trading)
             if (session.trader == trader)
                 session.deal.recacheTrader = true;
     }
@@ -170,14 +170,14 @@ public class MultiplayerWorldComp : IHasSemiPersistentData
     public void DirtyTradeForSpawnedThing(Thing t)
     {
         if (t is not { Spawned: true }) return;
-        foreach (MpTradeSession session in sessionManager.AllSessions.OfType<MpTradeSession>())
+        foreach (MpTradeSession session in trading)
             if (session.playerNegotiator.Map == t.Map)
                 session.deal.recacheThings.Add(t);
     }
 
     public bool AnyTradeSessionsOnMap(Map map)
     {
-        foreach (MpTradeSession session in trading.OfType<MpTradeSession>())
+        foreach (MpTradeSession session in trading)
             if (session.playerNegotiator.Map == map)
                 return true;
         return false;
