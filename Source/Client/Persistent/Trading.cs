@@ -67,15 +67,10 @@ namespace Multiplayer.Client
 
         public static MpTradeSession TryCreate(ITrader trader, Pawn playerNegotiator, bool giftMode)
         {
-            // todo show error messages?
-            if (Multiplayer.WorldComp.trading.Any(s => s.trader == trader))
-                return null;
-
-            if (Multiplayer.WorldComp.trading.Any(s => s.playerNegotiator == playerNegotiator))
-                return null;
-
             MpTradeSession session = new MpTradeSession(trader, playerNegotiator, giftMode);
-            Multiplayer.WorldComp.trading.Add(session);
+            // Return null if there was a conflicting session
+            if (!Multiplayer.WorldComp.sessionManager.AddSession(session))
+                return null;
 
             CancelTradeDealReset.cancel = true;
             SetTradeSession(session);
