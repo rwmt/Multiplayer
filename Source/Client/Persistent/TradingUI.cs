@@ -35,102 +35,96 @@ namespace Multiplayer.Client
 
         public override void DoWindowContents(Rect inRect)
         {
-            SyncSessionWithTransferablesMarker.DrawnThingFilter = MpTradeSession.current;
+            added.RemoveAll(kv => Time.time - kv.Value > 1f);
+            removed.RemoveAll(kv => Time.time - kv.Value > 0.5f && RemoveCachedTradeable(kv.Key));
+
+            tabs.Clear();
+            var trading = Multiplayer.WorldComp.trading;
+            for (int i = 0; i < trading.Count; i++)
+            {
+                int j = i;
+                tabs.Add(new TabRecord(trading[i].Label, () => selectedTab = j, () => selectedTab == j));
+            }
+
+            if (selectedTab == -1 && trading.Count > 0)
+                selectedTab = 0;
+
+            if (selectedTab == -1)
+            {
+                Close();
+                return;
+            }
+
+            int rows = Mathf.CeilToInt(tabs.Count / 3f);
+            inRect.yMin += rows * TabDrawer.TabHeight + 3;
+            TabDrawer.DrawTabs(inRect, tabs, rows);
+
+            inRect.yMin += 10f;
+
+            var session = Multiplayer.WorldComp.trading[selectedTab];
+            if (session.SessionId != selectedSession)
+            {
+                RecreateDialog();
+                selectedSession = session.SessionId;
+            }
 
             try
             {
-                added.RemoveAll(kv => Time.time - kv.Value > 1f);
-                removed.RemoveAll(kv => Time.time - kv.Value > 0.5f && RemoveCachedTradeable(kv.Key));
+                MpTradeSession.SetTradeSession(session);
+                drawingTrade = this;
 
-                tabs.Clear();
-                var trading = Multiplayer.WorldComp.trading;
-                for (int i = 0; i < trading.Count; i++)
+                if (session.deal.ShouldRecache)
+                    session.deal.Recache();
+
+                if (session.deal.uiShouldReset != UIShouldReset.None)
                 {
-                    int j = i;
-                    tabs.Add(new TabRecord(trading[i].Label, () => selectedTab = j, () => selectedTab == j));
+                    if (session.deal.uiShouldReset != UIShouldReset.Silent)
+                        BeforeCache();
+
+                    dialog.CacheTradeables();
+                    dialog.CountToTransferChanged();
+
+                    session.deal.uiShouldReset = UIShouldReset.None;
                 }
 
-                if (selectedTab == -1 && trading.Count > 0)
-                    selectedTab = 0;
-
-                if (selectedTab == -1)
+                if (session.deal.caravanDirty)
                 {
-                    Close();
-                    return;
+                    dialog.CountToTransferChanged();
+                    session.deal.caravanDirty = false;
                 }
 
-                int rows = Mathf.CeilToInt(tabs.Count / 3f);
-                inRect.yMin += rows * TabDrawer.TabHeight + 3;
-                TabDrawer.DrawTabs(inRect, tabs, rows);
-
-                inRect.yMin += 10f;
-
-                var session = Multiplayer.WorldComp.trading[selectedTab];
-                if (session.SessionId != selectedSession)
+                GUI.BeginGroup(inRect);
                 {
-                    RecreateDialog();
-                    selectedSession = session.SessionId;
+                    Rect groupRect = new Rect(0, 0, inRect.width, inRect.height);
+                    dialog.DoWindowContents(groupRect);
+                }
+                GUI.EndGroup();
+
+                int? traderLeavingIn = GetTraderTime(TradeSession.trader);
+                if (traderLeavingIn != null)
+                {
+                    float num = inRect.width - 590f;
+                    Rect position = new Rect(inRect.x + num, inRect.y, inRect.width - num, 58f);
+                    Rect traderNameRect = new Rect(position.x + position.width / 2f, position.y, position.width / 2f - 1f, position.height);
+                    Rect traderTimeRect = traderNameRect.Up(traderNameRect.height - 5f);
+
+                    Text.Anchor = TextAnchor.LowerRight;
+                    Widgets.Label(traderTimeRect, "MpTraderLeavesIn".Translate(traderLeavingIn?.ToStringTicksToPeriod()));
+                    Text.Anchor = TextAnchor.UpperLeft;
                 }
 
+                if (cancelPressed)
                 {
-                    MpTradeSession.SetTradeSession(session);
-                    drawingTrade = this;
-
-                    if (session.deal.ShouldRecache)
-                        session.deal.Recache();
-
-                    if (session.deal.uiShouldReset != UIShouldReset.None)
-                    {
-                        if (session.deal.uiShouldReset != UIShouldReset.Silent)
-                            BeforeCache();
-
-                        dialog.CacheTradeables();
-                        dialog.CountToTransferChanged();
-
-                        session.deal.uiShouldReset = UIShouldReset.None;
-                    }
-
-                    if (session.deal.caravanDirty)
-                    {
-                        dialog.CountToTransferChanged();
-                        session.deal.caravanDirty = false;
-                    }
-
-                    GUI.BeginGroup(inRect);
-                    {
-                        Rect groupRect = new Rect(0, 0, inRect.width, inRect.height);
-                        dialog.DoWindowContents(groupRect);
-                    }
-                    GUI.EndGroup();
-
-                    int? traderLeavingIn = GetTraderTime(TradeSession.trader);
-                    if (traderLeavingIn != null)
-                    {
-                        float num = inRect.width - 590f;
-                        Rect position = new Rect(inRect.x + num, inRect.y, inRect.width - num, 58f);
-                        Rect traderNameRect = new Rect(position.x + position.width / 2f, position.y, position.width / 2f - 1f, position.height);
-                        Rect traderTimeRect = traderNameRect.Up(traderNameRect.height - 5f);
-
-                        Text.Anchor = TextAnchor.LowerRight;
-                        Widgets.Label(traderTimeRect, "MpTraderLeavesIn".Translate(traderLeavingIn?.ToStringTicksToPeriod()));
-                        Text.Anchor = TextAnchor.UpperLeft;
-                    }
-
-                    if (cancelPressed)
-                    {
-                        CancelTradeSession(session);
-                        cancelPressed = false;
-                    }
-
-                    session.giftMode = TradeSession.giftMode;
-
-                    drawingTrade = null;
-                    MpTradeSession.SetTradeSession(null);
+                    CancelTradeSession(session);
+                    cancelPressed = false;
                 }
+
+                session.giftMode = TradeSession.giftMode;
             }
             finally
             {
-                SyncSessionWithTransferablesMarker.DrawnThingFilter = null;
+                drawingTrade = null;
+                MpTradeSession.SetTradeSession(null);
             }
         }
 
@@ -162,20 +156,25 @@ namespace Multiplayer.Client
         {
             var session = Multiplayer.WorldComp.trading[selectedTab];
 
-            MpTradeSession.SetTradeSession(session);
+            try
+            {
+                MpTradeSession.SetTradeSession(session);
 
-            dialog = MpUtil.NewObjectNoCtor<Dialog_Trade>();
-            dialog.quickSearchWidget = new QuickSearchWidget();
-            dialog.giftsOnly = session.giftsOnly;
-            dialog.sorter1 = TransferableSorterDefOf.Category;
-            dialog.sorter2 = TransferableSorterDefOf.MarketValue;
-            dialog.CacheTradeables();
-            session.deal.uiShouldReset = UIShouldReset.None;
+                dialog = MpUtil.NewObjectNoCtor<Dialog_Trade>();
+                dialog.quickSearchWidget = new QuickSearchWidget();
+                dialog.giftsOnly = session.giftsOnly;
+                dialog.sorter1 = TransferableSorterDefOf.Category;
+                dialog.sorter2 = TransferableSorterDefOf.MarketValue;
+                dialog.CacheTradeables();
+                session.deal.uiShouldReset = UIShouldReset.None;
 
-            removed.Clear();
-            added.Clear();
-
-            MpTradeSession.SetTradeSession(null);
+                removed.Clear();
+                added.Clear();
+            }
+            finally
+            {
+                MpTradeSession.SetTradeSession(null);
+            }
         }
 
         public void Notify_RemovedSession(int index)
@@ -405,7 +404,7 @@ namespace Multiplayer.Client
             }
         }
 
-        static void Postfix(bool __state)
+        static void Finalizer(bool __state)
         {
             if (__state)
                 MpTradeSession.SetTradeSession(null);
@@ -429,7 +428,7 @@ namespace Multiplayer.Client
             return true;
         }
 
-        static void Postfix(bool __state)
+        static void Finalizer(bool __state)
         {
             if (__state)
                 MpTradeSession.SetTradeSession(null);
@@ -484,7 +483,7 @@ namespace Multiplayer.Client
             }
         }
 
-        static void Postfix(bool __state)
+        static void Finalizer(bool __state)
         {
             if (__state)
             {

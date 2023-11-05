@@ -72,11 +72,11 @@ namespace Multiplayer.Client
             if (!Multiplayer.WorldComp.sessionManager.AddSession(session))
                 return null;
 
-            CancelTradeDealReset.cancel = true;
-            SetTradeSession(session);
-
             try
             {
+                CancelTradeDealReset.cancel = true;
+                SetTradeSession(session);
+
                 session.deal = new MpTradeDeal(session);
 
                 Thing permSilver = ThingMaker.MakeThing(ThingDefOf.Silver, null);
@@ -129,14 +129,22 @@ namespace Multiplayer.Client
         [SyncMethod]
         public void TryExecute()
         {
-            SetTradeSession(this);
+            bool executed = false;
 
-            deal.recacheColony = true;
-            deal.recacheTrader = true;
-            deal.Recache();
+            try
+            {
+                SetTradeSession(this);
 
-            bool executed = deal.TryExecute(out bool traded);
-            SetTradeSession(null);
+                deal.recacheColony = true;
+                deal.recacheTrader = true;
+                deal.Recache();
+
+                executed = deal.TryExecute(out bool traded);
+            }
+            finally
+            {
+                SetTradeSession(null);
+            }
 
             if (executed)
                 Multiplayer.WorldComp.RemoveTradeSession(this);
@@ -159,6 +167,7 @@ namespace Multiplayer.Client
 
         public static void SetTradeSession(MpTradeSession session)
         {
+            SyncSessionWithTransferablesMarker.DrawnThingFilter = session;
             current = session;
             TradeSession.trader = session?.trader;
             TradeSession.playerNegotiator = session?.playerNegotiator;
