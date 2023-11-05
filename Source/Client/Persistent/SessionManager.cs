@@ -248,6 +248,7 @@ public class SessionManager : IHasSemiPersistentData
                 {
                     // Removal from allSessions handled lower
                     exposableSessions.RemoveAt(i);
+                    session.PostRemoveSession();
                     var sessionType = session.GetType();
                     if (!tempCleanupLoggingTypes.Add(sessionType))
                         Log.Message($"Multiplayer session not valid after exposing data: {sessionType}");
