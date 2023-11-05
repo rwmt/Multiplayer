@@ -167,7 +167,7 @@ namespace Multiplayer.Client
 
         public static void SetTradeSession(MpTradeSession session)
         {
-            SyncSessionWithTransferablesMarker.DrawnThingFilter = session;
+            SyncSessionWithTransferablesMarker.DrawnSessionWithTransferables = session;
             current = session;
             TradeSession.trader = session?.trader;
             TradeSession.playerNegotiator = session?.playerNegotiator;

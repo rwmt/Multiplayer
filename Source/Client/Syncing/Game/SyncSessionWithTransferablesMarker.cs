@@ -5,17 +5,17 @@ namespace Multiplayer.Client;
 
 public class SyncSessionWithTransferablesMarker
 {
-    private static ISessionWithTransferables thingFilterContext;
+    private static ISessionWithTransferables drawnSessionWithTransferables;
 
-    public static ISessionWithTransferables DrawnThingFilter
+    public static ISessionWithTransferables DrawnSessionWithTransferables
     {
-        get => thingFilterContext;
+        get => drawnSessionWithTransferables;
         set
         {
-            if (value != null && thingFilterContext != null)
+            if (value != null && drawnSessionWithTransferables != null)
                 throw new Exception("Session with transferables context already set!");
 
-            thingFilterContext = value;
+            drawnSessionWithTransferables = value;
         }
     }
 }

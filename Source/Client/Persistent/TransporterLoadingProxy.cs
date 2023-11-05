@@ -20,7 +20,7 @@ namespace Multiplayer.Client
         public override void DoWindowContents(Rect inRect)
         {
             var session = Session;
-            SyncSessionWithTransferablesMarker.DrawnThingFilter = session;
+            SyncSessionWithTransferablesMarker.DrawnSessionWithTransferables = session;
             drawing = this;
 
             try
@@ -40,7 +40,7 @@ namespace Multiplayer.Client
             finally
             {
                 drawing = null;
-                SyncSessionWithTransferablesMarker.DrawnThingFilter = null;
+                SyncSessionWithTransferablesMarker.DrawnSessionWithTransferables = null;
             }
         }
     }
