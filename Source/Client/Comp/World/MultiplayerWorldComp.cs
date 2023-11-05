@@ -36,11 +36,7 @@ public class MultiplayerWorldComp : IHasSemiPersistentData
 
         Scribe_References.Look(ref spectatorFaction, "spectatorFaction");
 
-        if (Scribe.mode == LoadSaveMode.PostLoadInit)
-            trading.Clear(); // Reset the list, let the sessions re-add themselves from ExposeData - should prevent any potential issues with this list having different order or elements
         sessionManager.ExposeSessions();
-        if (Scribe.mode == LoadSaveMode.PostLoadInit && MpTradeSession.current != null && TradingWindow.drawingTrade != null)
-            TradingWindow.drawingTrade.selectedTab = trading.IndexOf(MpTradeSession.current); // In case order changed, set the current tab
 
         DoBackCompat();
     }
