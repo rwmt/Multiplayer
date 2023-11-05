@@ -234,7 +234,7 @@ namespace Multiplayer.Client.Persistent
                         assignments = MpUtil.ShallowCopy(dialog.assignments, new MpRitualAssignments())
                     };
 
-                    comp.CreateRitualSession(data);
+                    session = comp.CreateRitualSession(data);
                 }
 
                 if (TickPatch.currentExecutingCmdIssuedBySelf)
