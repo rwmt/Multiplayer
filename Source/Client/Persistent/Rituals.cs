@@ -1,6 +1,5 @@
 using HarmonyLib;
 using Multiplayer.API;
-using Multiplayer.Common;
 using RimWorld;
 using System;
 using System.Collections.Generic;
@@ -13,7 +12,7 @@ using static Verse.Widgets;
 
 namespace Multiplayer.Client.Persistent
 {
-    public class RitualSession : Session, IPausingWithDialog
+    public class RitualSession : Session, IPausingWithDialog, ISemiPersistentSession
     {
         public Map map;
         public RitualData data;
@@ -75,19 +74,17 @@ namespace Multiplayer.Client.Persistent
             Find.WindowStack.Add(dialog);
         }
 
-        public void Write(ByteWriter writer)
+        public void Sync(SyncWorker sync)
         {
-            writer.WriteInt32(SessionId);
-            writer.MpContext().map = map;
-
-            SyncSerialization.WriteSync(writer, data);
-        }
-
-        public void Read(ByteReader reader)
-        {
-            SessionId = reader.ReadInt32();
-            data = SyncSerialization.ReadSync<RitualData>(reader);
-            data.assignments.session = this;
+            if (sync.isWriting)
+            {
+                sync.Write(data);
+            }
+            else
+            {
+                data = sync.Read<RitualData>();
+                data.assignments.session = this;
+            }
         }
 
         public override bool IsCurrentlyPausing(Map map) => map == this.map;

@@ -110,9 +110,11 @@ namespace Multiplayer.Client.Persistent
     /// <remarks>A class should NOT implement both this and <see cref="IExposableSession"/> - it'll be treated as if only implementing <see cref="IExposableSession"/>.</remarks>
     public interface ISemiPersistentSession : ISession
     {
-        void Write(SyncWorker sync);
-
-        void Read(SyncWorker sync);
+        /// <summary>
+        /// Writes/reads the data used by this session.
+        /// </summary>
+        /// <param name="sync">Sync worker used for writing/reading the data.</param>
+        void Sync(SyncWorker sync);
     }
 
     /// <summary>

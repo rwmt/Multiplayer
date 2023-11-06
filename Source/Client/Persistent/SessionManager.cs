@@ -176,7 +176,7 @@ public class SessionManager : IHasSemiPersistentData
 
             try
             {
-                session.Write(new WritingSyncWorker(data));
+                session.Sync(new WritingSyncWorker(data));
             }
             catch (Exception e)
             {
@@ -220,7 +220,7 @@ public class SessionManager : IHasSemiPersistentData
                 if (Activator.CreateInstance(objType, map) is ISemiPersistentSession session)
                 {
                     session.SessionId = sessionId;
-                    session.Read(new ReadingSyncWorker(data));
+                    session.Sync(new ReadingSyncWorker(data));
                     semiPersistentSessions.Add(session);
                     allSessions.Add(session);
                 }
