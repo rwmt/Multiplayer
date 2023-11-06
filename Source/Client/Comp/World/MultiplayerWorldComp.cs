@@ -37,6 +37,9 @@ public class MultiplayerWorldComp : IHasSemiPersistentData
         Scribe_References.Look(ref spectatorFaction, "spectatorFaction");
 
         sessionManager.ExposeSessions();
+        // Ensure a pause lock session exists if there's any pause locks registered
+        if (!PauseLockSession.pauseLocks.NullOrEmpty())
+            sessionManager.AddSession(new PauseLockSession());
 
         DoBackCompat();
     }

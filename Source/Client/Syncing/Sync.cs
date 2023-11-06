@@ -381,15 +381,10 @@ namespace Multiplayer.Client
 
         public static void RegisterPauseLock(PauseLockDelegate pauseLock)
         {
-            var session = Multiplayer.WorldComp.sessionManager.GetFirstOfType<PauseLockSession>();
-            if (session == null)
-            {
-                // Only ever add pause lock session if we have any pause locks
-                session = new PauseLockSession();
-                Multiplayer.WorldComp.sessionManager.AddSession(session);
-            }
+            if (PauseLockSession.pauseLocks.Contains(pauseLock))
+                throw new Exception($"Pause lock already registered: {pauseLock}");
 
-            session.pauseLocks.Add(pauseLock);
+            PauseLockSession.pauseLocks.Add(pauseLock);
         }
 
         public static void ValidateAll()

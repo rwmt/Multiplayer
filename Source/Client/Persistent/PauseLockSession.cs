@@ -8,9 +8,9 @@ namespace Multiplayer.Client.Persistent;
 
 // Used for pause locks. Pause locks should become obsolete and this should become unused,
 // but pause locks are kept for backwards compatibility.
-public class PauseLockSession : Session
+public class PauseLockSession : Session, ISessionWithCreationRestrictions
 {
-    public List<PauseLockDelegate> pauseLocks = new();
+    public static List<PauseLockDelegate> pauseLocks = new();
 
     public override Map Map => null;
 
@@ -18,4 +18,6 @@ public class PauseLockSession : Session
 
     // Should we add some message explaining pause locks/having a list of pausing ones?
     public override FloatMenuOption GetBlockingWindowOptions(ColonistBar.Entry entry) => null;
+
+    public bool CanExistWith(ISession other) => other is not PauseLockSession;
 }
