@@ -42,7 +42,6 @@ namespace Multiplayer.Client.Persistent
         /// <param name="caravan"></param>
         public CaravanSplittingSession(Caravan caravan)
         {
-            sessionId = Find.UniqueIDsManager.GetNextThingID();
             Caravan = caravan;
 
             AddItems();

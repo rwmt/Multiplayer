@@ -42,8 +42,6 @@ namespace Multiplayer.Client
 
         private MpTradeSession(ITrader trader, Pawn playerNegotiator, bool giftMode)
         {
-            sessionId = Find.UniqueIDsManager.GetNextThingID();
-
             this.trader = trader;
             this.playerNegotiator = playerNegotiator;
             this.giftMode = giftMode;

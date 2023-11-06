@@ -27,7 +27,6 @@ namespace Multiplayer.Client
 
         public TransporterLoading(Map map, List<CompTransporter> transporters) : this(map)
         {
-            sessionId = Find.UniqueIDsManager.GetNextThingID();
             this.transporters = transporters;
             pods = transporters.Select(t => t.parent).ToList();
 
