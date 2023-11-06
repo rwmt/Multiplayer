@@ -33,6 +33,7 @@ namespace Multiplayer.Client.Comp
             Scribe_Values.Look(ref logDesyncTraces, "logDesyncTraces");
             Scribe_Values.Look(ref pauseOnLetter, "pauseOnLetter");
             Scribe_Values.Look(ref timeControl, "timeControl");
+            Scribe_Values.Look(ref nextSessionId, "nextSessionId");
 
             // Store for back-compat conversion in GameExposeComponentsPatch
             if (Scribe.mode == LoadSaveMode.LoadingVars)
