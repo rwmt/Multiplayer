@@ -160,7 +160,7 @@ public class SessionManager : IHasSemiPersistentData
                 allSessions.Remove(session);
                 var sessionType = session.GetType();
                 if (!tempCleanupLoggingTypes.Add(sessionType))
-                    Log.Message($"Multiplayer session not valid after exposing data: {sessionType}");
+                    Log.Message($"Multiplayer session not valid after writing semi persistent data: {sessionType}");
             }
         }
         // Clear the set again to not leave behind any unneeded stuff
@@ -172,6 +172,7 @@ public class SessionManager : IHasSemiPersistentData
         {
             data.WriteUShort((ushort)ImplSerialization.sessions.FindIndex(session.GetType()));
             data.WriteInt32(session.Map?.uniqueID ?? -1);
+            data.WriteInt32(session.SessionId);
 
             try
             {
@@ -194,6 +195,7 @@ public class SessionManager : IHasSemiPersistentData
         {
             ushort typeIndex = data.ReadUShort();
             int mapId = data.ReadInt32();
+            int sessionId = data.ReadInt32();
 
             if (typeIndex >= ImplSerialization.sessions.Length)
             {
@@ -217,6 +219,7 @@ public class SessionManager : IHasSemiPersistentData
             {
                 if (Activator.CreateInstance(objType, map) is ISemiPersistentSession session)
                 {
+                    session.SessionId = sessionId;
                     session.Read(new ReadingSyncWorker(data));
                     semiPersistentSessions.Add(session);
                     allSessions.Add(session);
