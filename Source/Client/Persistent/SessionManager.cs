@@ -10,7 +10,7 @@ using Verse;
 
 namespace Multiplayer.Client.Persistent;
 
-public class SessionManager : IHasSemiPersistentData, ISessionManagerAPI
+public class SessionManager : IHasSemiPersistentData, ISessionManager
 {
     public IReadOnlyList<ISession> AllSessions => allSessions.AsReadOnly();
     public IReadOnlyList<IExposableSession> ExposableSessions => exposableSessions.AsReadOnly();

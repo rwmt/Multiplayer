@@ -4,7 +4,7 @@ using Verse;
 
 namespace Multiplayer.Client.Experimental;
 
-public interface ISessionManagerAPI
+public interface ISessionManager
 {
     IReadOnlyList<ISession> AllSessions { get; }
     IReadOnlyList<IExposableSession> ExposableSessions { get; }
