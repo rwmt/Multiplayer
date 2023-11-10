@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using HarmonyLib;
 using Multiplayer.Client.Experimental;
 using Multiplayer.Client.Saving;
 using Multiplayer.Common;
@@ -12,20 +11,20 @@ namespace Multiplayer.Client.Persistent;
 
 public class SessionManager : IHasSemiPersistentData, ISessionManager
 {
-    public IReadOnlyList<ISession> AllSessions => allSessions.AsReadOnly();
-    public IReadOnlyList<IExposableSession> ExposableSessions => exposableSessions.AsReadOnly();
-    public IReadOnlyList<ISemiPersistentSession> SemiPersistentSessions => semiPersistentSessions.AsReadOnly();
+    public IReadOnlyList<Session> AllSessions => allSessions.AsReadOnly();
+    public IReadOnlyList<ExposableSession> ExposableSessions => exposableSessions.AsReadOnly();
+    public IReadOnlyList<SemiPersistentSession> SemiPersistentSessions => semiPersistentSessions.AsReadOnly();
     public IReadOnlyList<ITickingSession> TickingSessions => tickingSessions.AsReadOnly();
 
-    private List<ISession> allSessions = new();
-    private List<IExposableSession> exposableSessions = new();
-    private List<ISemiPersistentSession> semiPersistentSessions = new();
+    private List<Session> allSessions = new();
+    private List<ExposableSession> exposableSessions = new();
+    private List<SemiPersistentSession> semiPersistentSessions = new();
     private List<ITickingSession> tickingSessions = new();
     private static HashSet<Type> tempCleanupLoggingTypes = new();
 
     public bool AnySessionActive => allSessions.Count > 0;
 
-    public bool AddSession(ISession session)
+    public bool AddSession(Session session)
     {
         if (GetFirstConflictingSession(session) != null)
             return false;
@@ -34,7 +33,7 @@ public class SessionManager : IHasSemiPersistentData, ISessionManager
         return true;
     }
 
-    public ISession GetOrAddSessionAnyConflict(ISession session)
+    public Session GetOrAddSessionAnyConflict(Session session)
     {
         if (GetFirstConflictingSession(session) is { } other)
             return other;
@@ -43,7 +42,7 @@ public class SessionManager : IHasSemiPersistentData, ISessionManager
         return session;
     }
 
-    public T GetOrAddSession<T>(T session) where T : ISession
+    public T GetOrAddSession<T>(T session) where T : Session
     {
         if (session is ISessionWithCreationRestrictions s)
         {
@@ -69,11 +68,11 @@ public class SessionManager : IHasSemiPersistentData, ISessionManager
         return session;
     }
 
-    private void AddSessionNoCheck(ISession session)
+    private void AddSessionNoCheck(Session session)
     {
-        if (session is IExposableSession exposable)
+        if (session is ExposableSession exposable)
             exposableSessions.Add(exposable);
-        else if (session is ISemiPersistentSession semiPersistent)
+        else if (session is SemiPersistentSession semiPersistent)
             semiPersistentSessions.Add(semiPersistent);
 
         if (session is ITickingSession ticking)
@@ -84,11 +83,11 @@ public class SessionManager : IHasSemiPersistentData, ISessionManager
         session.PostAddSession();
     }
 
-    public bool RemoveSession(ISession session)
+    public bool RemoveSession(Session session)
     {
-        if (session is IExposableSession exposable)
+        if (session is ExposableSession exposable)
             exposableSessions.Remove(exposable);
-        else if (session is ISemiPersistentSession semiPersistent)
+        else if (session is SemiPersistentSession semiPersistent)
             semiPersistentSessions.Remove(semiPersistent);
 
         if (session is ITickingSession ticking)
@@ -104,7 +103,7 @@ public class SessionManager : IHasSemiPersistentData, ISessionManager
         return false;
     }
 
-    private ISession GetFirstConflictingSession(ISession session)
+    private Session GetFirstConflictingSession(Session session)
     {
         // Should the check be two-way? A property for optional two-way check?
         if (session is ISessionWithCreationRestrictions restrictions)
@@ -122,11 +121,11 @@ public class SessionManager : IHasSemiPersistentData, ISessionManager
             tickingSessions[i].Tick();
     }
 
-    public T GetFirstOfType<T>() where T : ISession => allSessions.OfType<T>().FirstOrDefault();
+    public T GetFirstOfType<T>() where T : Session => allSessions.OfType<T>().FirstOrDefault();
 
-    public T GetFirstWithId<T>(int id) where T : ISession => allSessions.OfType<T>().FirstOrDefault(s => s.SessionId == id);
+    public T GetFirstWithId<T>(int id) where T : Session => allSessions.OfType<T>().FirstOrDefault(s => s.SessionId == id);
 
-    public ISession GetFirstWithId(int id) => allSessions.FirstOrDefault(s => s.SessionId == id);
+    public Session GetFirstWithId(int id) => allSessions.FirstOrDefault(s => s.SessionId == id);
 
     public void WriteSemiPersistent(ByteWriter data)
     {
@@ -170,7 +169,7 @@ public class SessionManager : IHasSemiPersistentData, ISessionManager
     {
         var sessionsCount = data.ReadInt32();
         semiPersistentSessions.Clear();
-        allSessions.RemoveAll(s => s is ISemiPersistentSession);
+        allSessions.RemoveAll(s => s is SemiPersistentSession);
 
         for (int i = 0; i < sessionsCount; i++)
         {
@@ -198,7 +197,7 @@ public class SessionManager : IHasSemiPersistentData, ISessionManager
 
             try
             {
-                if (Activator.CreateInstance(objType, map) is ISemiPersistentSession session)
+                if (Activator.CreateInstance(objType, map) is SemiPersistentSession session)
                 {
                     session.SessionId = sessionId;
                     session.Sync(new ReadingSyncWorker(data));
@@ -242,7 +241,7 @@ public class SessionManager : IHasSemiPersistentData, ISessionManager
             tempCleanupLoggingTypes.Clear();
 
             // Just in case something went wrong when exposing data, clear the all session from exposable ones and fill them again
-            allSessions.RemoveAll(s => s is IExposableSession);
+            allSessions.RemoveAll(s => s is ExposableSession);
             allSessions.AddRange(exposableSessions);
         }
     }
@@ -256,22 +255,5 @@ public class SessionManager : IHasSemiPersistentData, ISessionManager
         }
 
         return false;
-    }
-
-    public static void ValidateSessionClasses()
-    {
-        foreach (var subclass in typeof(ISession).AllSubclasses())
-        {
-            var interfaces = subclass.GetInterfaces();
-
-            if (interfaces.Contains(typeof(ISemiPersistentSession)))
-            {
-                if (interfaces.Contains(typeof(IExposableSession)))
-                    Log.Error($"Type {subclass} implements both {nameof(IExposableSession)} and {nameof(ISemiPersistentSession)}, it should implement only one of them at most.");
-
-                if (AccessTools.GetDeclaredConstructors(subclass).All(c => c.GetParameters().Length != 1 || c.GetParameters()[0].ParameterType != typeof(Map)))
-                    Log.Error($"Type {subclass} implements {nameof(ISemiPersistentSession)}, but does not have a single parameter constructor with {nameof(Map)} as the parameter.");
-            }
-        }
     }
 }

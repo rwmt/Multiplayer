@@ -9,7 +9,7 @@ using Verse;
 
 namespace Multiplayer.Client
 {
-    public class CaravanFormingSession : Session, IExposableSession, ISessionWithTransferables, IPausingWithDialog, ISessionWithCreationRestrictions
+    public class CaravanFormingSession : ExposableSession, ISessionWithTransferables, IPausingWithDialog, ISessionWithCreationRestrictions
     {
         public Map map;
 
@@ -190,7 +190,7 @@ namespace Multiplayer.Client
             });
         }
 
-        public bool CanExistWith(ISession other) => other is not CaravanFormingSession;
+        public bool CanExistWith(Session other) => other is not CaravanFormingSession;
     }
 
 }

@@ -8,7 +8,7 @@ using Multiplayer.Client.Persistent;
 
 namespace Multiplayer.Client
 {
-    public class TransporterLoading : Session, IExposableSession, ISessionWithTransferables, IPausingWithDialog
+    public class TransporterLoading : ExposableSession, ISessionWithTransferables, IPausingWithDialog
     {
         public override Map Map => map;
 

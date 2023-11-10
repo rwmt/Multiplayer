@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Multiplayer.Client.Comp;
+using Multiplayer.Client.Experimental;
 using Multiplayer.Client.Persistent;
 using Multiplayer.Common;
 using RimWorld;
@@ -27,7 +28,7 @@ namespace Multiplayer.Client
                 }
             },
             {
-                (ByteWriter data, ISession session) =>
+                (ByteWriter data, Session session) =>
                 {
                     data.MpContext().map ??= session.Map;
                     data.WriteInt32(session.SessionId);

@@ -14,7 +14,7 @@ using Verse.AI.Group;
 
 namespace Multiplayer.Client
 {
-    public class MpTradeSession : Session, IExposableSession, ISessionWithTransferables, ISessionWithCreationRestrictions, ITickingSession
+    public class MpTradeSession : ExposableSession, ISessionWithTransferables, ISessionWithCreationRestrictions, ITickingSession
     {
         public static MpTradeSession current;
 
@@ -48,7 +48,7 @@ namespace Multiplayer.Client
             giftsOnly = giftMode;
         }
 
-        public bool CanExistWith(ISession other)
+        public bool CanExistWith(Session other)
         {
             if (other is not MpTradeSession otherTrade)
                 return true;

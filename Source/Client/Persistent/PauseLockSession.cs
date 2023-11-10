@@ -19,5 +19,5 @@ public class PauseLockSession : Session, ISessionWithCreationRestrictions
     // Should we add some message explaining pause locks/having a list of pausing ones?
     public override FloatMenuOption GetBlockingWindowOptions(ColonistBar.Entry entry) => null;
 
-    public bool CanExistWith(ISession other) => other is not PauseLockSession;
+    public bool CanExistWith(Session other) => other is not PauseLockSession;
 }

@@ -11,7 +11,7 @@ namespace Multiplayer.Client.Persistent
     /// <summary>
     /// Represents an active Caravan Split session. This session will track all the pawns and items being split.
     /// </summary>
-    public class CaravanSplittingSession : Session, IExposableSession, ISessionWithTransferables, IPausingWithDialog, ISessionWithCreationRestrictions
+    public class CaravanSplittingSession : ExposableSession, ISessionWithTransferables, IPausingWithDialog, ISessionWithCreationRestrictions
     {
         public override Map Map => null;
 
@@ -173,6 +173,6 @@ namespace Multiplayer.Client.Persistent
 
         public override bool IsCurrentlyPausing(Map map) => true;
 
-        public bool CanExistWith(ISession other) => other is not CaravanSplittingSession;
+        public bool CanExistWith(Session other) => other is not CaravanSplittingSession;
     }
 }

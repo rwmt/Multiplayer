@@ -6,8 +6,8 @@ using System.Linq;
 using System.Reflection;
 using Multiplayer.Client.AsyncTime;
 using Multiplayer.Client.Comp;
+using Multiplayer.Client.Experimental;
 using Multiplayer.Client.Factions;
-using Multiplayer.Client.Persistent;
 using UnityEngine;
 using Verse;
 
@@ -111,7 +111,7 @@ namespace Multiplayer.Client
             ThingContext.Clear();
         }
 
-        public IEnumerable<ISession> GetSessions(Map map)
+        public IEnumerable<Session> GetSessions(Map map)
         {
             return worldComp.sessionManager.AllSessions.ConcatIfNotNull(map?.MpComp().sessionManager.AllSessions);
         }

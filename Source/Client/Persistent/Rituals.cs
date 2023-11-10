@@ -12,7 +12,7 @@ using static Verse.Widgets;
 
 namespace Multiplayer.Client.Persistent
 {
-    public class RitualSession : Session, IPausingWithDialog, ISemiPersistentSession
+    public class RitualSession : SemiPersistentSession, IPausingWithDialog
     {
         public Map map;
         public RitualData data;
@@ -74,7 +74,7 @@ namespace Multiplayer.Client.Persistent
             Find.WindowStack.Add(dialog);
         }
 
-        public void Sync(SyncWorker sync)
+        public override void Sync(SyncWorker sync)
         {
             if (sync.isWriting)
             {

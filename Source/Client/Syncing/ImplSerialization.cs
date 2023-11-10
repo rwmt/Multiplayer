@@ -13,6 +13,6 @@ public static class ImplSerialization
     public static void Init()
     {
         syncSimples = TypeUtil.AllImplementationsOrdered(typeof(ISyncSimple));
-        sessions = TypeUtil.AllImplementationsOrdered(typeof(ISession));
+        sessions = TypeUtil.AllImplementationsOrdered(typeof(Session));
     }
 }
