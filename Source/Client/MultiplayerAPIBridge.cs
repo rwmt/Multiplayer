@@ -2,6 +2,9 @@ using System;
 using System.Reflection;
 using Multiplayer.API;
 using Multiplayer.Client;
+using Multiplayer.Client.Experimental;
+using Multiplayer.Client.Persistent;
+using Verse;
 
 // ReSharper disable once CheckNamespace
 namespace Multiplayer.Common
@@ -118,6 +121,23 @@ namespace Multiplayer.Common
         public void RegisterPauseLock(PauseLockDelegate pauseLock)
         {
             Sync.RegisterPauseLock(pauseLock);
+        }
+
+        public ISessionManager GetGlobalSessionManager()
+        {
+            return Client.Multiplayer.WorldComp.sessionManager;
+        }
+
+        public ISessionManager GetLocalSessionManager(Map map)
+        {
+            if (map == null)
+                throw new ArgumentNullException(nameof(map));
+            return map.MpComp().sessionManager;
+        }
+
+        public void SetCurrentSessionWithTransferables(ISessionWithTransferables session)
+        {
+            SyncSessionWithTransferablesMarker.DrawnSessionWithTransferables = session;
         }
     }
 }
