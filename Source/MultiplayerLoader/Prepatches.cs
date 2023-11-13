@@ -14,8 +14,11 @@ public static class Prepatches
     {
         if (MpVersion.IsDebug)
         {
-            var utilType = module.ImportReference(typeof(ResolutionUtility)).Resolve();
-            utilType.FindMethod("SetResolutionRaw").Body.Instructions.Insert(0, Instruction.Create(OpCodes.Ret));
+            var resolutionUtilityType = module.ImportReference(typeof(ResolutionUtility)).Resolve();
+            resolutionUtilityType.FindMethod("SetResolutionRaw").Body.Instructions.Insert(
+                0,
+                Instruction.Create(OpCodes.Ret)
+            );
         }
     }
 }

@@ -26,7 +26,7 @@ public class StorytellerPatches
             return Multiplayer.Client == null || Multiplayer.Ticking;
         }
 
-        static void Postfix() => updating = false;
+        static void Finalizer() => updating = false;
     }
 
     [HarmonyPatch(typeof(Storyteller))]
@@ -92,7 +92,7 @@ public class StorytellerPatches
             }
         }
 
-        static void Postfix(Map __state)
+        static void Finalizer(Map __state)
         {
             if (__state != null)
             {
@@ -115,7 +115,7 @@ public class StorytellerPatches
             }
         }
 
-        static void Postfix(Map __state)
+        static void Finalizer(Map __state)
         {
             if (__state != null)
             {

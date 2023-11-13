@@ -1,12 +1,10 @@
 ﻿using HarmonyLib;
-using RimWorld;
 using Verse;
 
 namespace Multiplayer.Client
 {
     public class MultiplayerPawnComp : ThingComp
     {
-        public SituationalThoughtHandler thoughtsForInterface;
         public int lastMap = -1;
         public int worldPawnRemoveTick = -1;
     }

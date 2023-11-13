@@ -327,8 +327,8 @@ namespace Multiplayer.Client
 
             // Remove side effects from methods which are non-deterministic during ticking (e.g. camera dependent motes and sound effects)
             {
-                var randPatchPrefix = new HarmonyMethod(typeof(RandPatches), "Prefix");
-                var randPatchPostfix = new HarmonyMethod(typeof(RandPatches), "Postfix");
+                var randPatchPrefix = new HarmonyMethod(typeof(RandPatches), nameof(RandPatches.Prefix));
+                var randPatchPostfix = new HarmonyMethod(typeof(RandPatches), nameof(RandPatches.Postfix));
 
                 var subSustainerStart = MpMethodUtil.GetLambda(typeof(SubSustainer), parentMethodType: MethodType.Constructor, parentArgs: new[] { typeof(Sustainer), typeof(SubSoundDef) });
                 var sampleCtor = typeof(Sample).GetConstructor(new[] { typeof(SubSoundDef) });
@@ -367,8 +367,8 @@ namespace Multiplayer.Client
 
             // Set ThingContext and FactionContext (for pawns and buildings) in common Thing methods
             {
-                var thingMethodPrefix = new HarmonyMethod(typeof(ThingMethodPatches).GetMethod("Prefix"));
-                var thingMethodPostfix = new HarmonyMethod(typeof(ThingMethodPatches).GetMethod("Postfix"));
+                var thingMethodPrefix = new HarmonyMethod(typeof(ThingMethodPatches).GetMethod(nameof(ThingMethodPatches.Prefix)));
+                var thingMethodFinalizer = new HarmonyMethod(typeof(ThingMethodPatches).GetMethod(nameof(ThingMethodPatches.Finalizer)));
                 var thingMethodPrefixSpawnSetup = new HarmonyMethod(typeof(ThingMethodPatches).GetMethod(nameof(ThingMethodPatches.Prefix_SpawnSetup)));
 
                 var thingMethods = new[]
@@ -385,7 +385,7 @@ namespace Multiplayer.Client
                     // SpawnSetup is patched separately because it sets the map
                     var spawnSetupMethod = t.GetMethod("SpawnSetup", BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly);
                     if (spawnSetupMethod != null)
-                        harmony.PatchMeasure(spawnSetupMethod, thingMethodPrefixSpawnSetup, thingMethodPostfix);
+                        harmony.PatchMeasure(spawnSetupMethod, thingMethodPrefixSpawnSetup, finalizer: thingMethodFinalizer);
 
                     foreach ((string m, Type[] args) in thingMethods)
                     {
@@ -394,7 +394,7 @@ namespace Multiplayer.Client
                         {
                             try
                             {
-                                harmony.PatchMeasure(method, thingMethodPrefix, thingMethodPostfix);
+                                harmony.PatchMeasure(method, thingMethodPrefix, finalizer: thingMethodFinalizer);
                             } catch (Exception e) {
                                 LogError($"FAIL: {method.DeclaringType.FullName}:{method.Name} with {e}");
                             }
@@ -417,8 +417,8 @@ namespace Multiplayer.Client
 
             // Set the map time for GUI methods depending on it
             {
-                var setMapTimePrefix = new HarmonyMethod(AccessTools.Method(typeof(SetMapTimeForUI), "Prefix"));
-                var setMapTimePostfix = new HarmonyMethod(AccessTools.Method(typeof(SetMapTimeForUI), "Postfix"));
+                var setMapTimePrefix = new HarmonyMethod(AccessTools.Method(typeof(SetMapTimeForUI), nameof(SetMapTimeForUI.Prefix)));
+                var setMapTimePostfix = new HarmonyMethod(AccessTools.Method(typeof(SetMapTimeForUI), nameof(SetMapTimeForUI.Postfix)));
 
                 var windowMethods = new[] { "DoWindowContents", "WindowUpdate" };
                 foreach (string m in windowMethods)

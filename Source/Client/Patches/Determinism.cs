@@ -1,3 +1,4 @@
+using System;
 using HarmonyLib;
 using RimWorld;
 using RimWorld.Planet;
@@ -10,6 +11,7 @@ using Multiplayer.Client.Util;
 using RimWorld.QuestGen;
 using UnityEngine;
 using Verse;
+using Random = UnityEngine.Random;
 
 namespace Multiplayer.Client.Patches
 {
@@ -336,6 +338,145 @@ namespace Multiplayer.Client.Patches
                 else
                     yield return inst;
             }
+        }
+    }
+
+    [HarmonyPatch(typeof(SituationalThoughtHandler), nameof(SituationalThoughtHandler.CheckRecalculateSocialThoughts))]
+    static class DontRecalculateSocialThoughtsInInterface
+    {
+        static bool Prefix(SituationalThoughtHandler __instance, Pawn otherPawn)
+        {
+            if (!Multiplayer.InInterface) return true;
+
+            // This initializer needs to always run (the method itself begins with it)
+            if (!__instance.cachedSocialThoughts.TryGetValue(otherPawn, out var value))
+            {
+                value = new SituationalThoughtHandler.CachedSocialThoughts();
+                __instance.cachedSocialThoughts.Add(otherPawn, value);
+            }
+
+            return false;
+        }
+    }
+
+    [HarmonyPatch(typeof(SituationalThoughtHandler), nameof(SituationalThoughtHandler.CheckRecalculateMoodThoughts))]
+    static class DontRecalculateMoodThoughtsInInterface
+    {
+        static bool Prefix()
+        {
+            return !Multiplayer.InInterface;
+        }
+    }
+
+    [HarmonyPatch(typeof(PawnCapacitiesHandler), nameof(PawnCapacitiesHandler.GetLevel))]
+    static class PawnCapacitiesHandlerGetLevelPatch
+    {
+        private static readonly PawnCapacitiesHandler.CacheStatus CachedInInterface = (PawnCapacitiesHandler.CacheStatus)3;
+
+        private static FieldInfo statusField = AccessTools.Field(typeof(PawnCapacitiesHandler.CacheElement),
+            nameof(PawnCapacitiesHandler.CacheElement.status));
+
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+        {
+            var matcher = new CodeMatcher(insts);
+
+            // Modify cache update checking
+            matcher.MatchEndForward(
+                new CodeMatch(OpCodes.Ldfld, statusField),
+                new CodeMatch(OpCodes.Brtrue_S)
+            ).Insert(
+                new CodeInstruction(OpCodes.Call,
+                    AccessTools.Method(typeof(PawnCapacitiesHandlerGetLevelPatch), nameof(ShouldUpdateCache))),
+                new CodeInstruction(OpCodes.Ldc_I4_0),
+                new CodeInstruction(OpCodes.Ceq)
+            );
+
+            // Modify status setter
+            matcher.MatchEndForward(
+                new CodeMatch(OpCodes.Ldc_I4_2),
+                new CodeMatch(OpCodes.Stfld, statusField)
+            ).Insert(
+                new CodeInstruction(OpCodes.Call,
+                    AccessTools.Method(typeof(PawnCapacitiesHandlerGetLevelPatch), nameof(NewCacheStatus)))
+            );
+
+            return matcher.codes;
+        }
+
+        private static bool ShouldUpdateCache(PawnCapacitiesHandler.CacheStatus status)
+        {
+            return status == PawnCapacitiesHandler.CacheStatus.Uncached || !Multiplayer.InInterface && status == CachedInInterface;
+        }
+
+        private static PawnCapacitiesHandler.CacheStatus NewCacheStatus(PawnCapacitiesHandler.CacheStatus _)
+        {
+            return Multiplayer.InInterface ? CachedInInterface : PawnCapacitiesHandler.CacheStatus.Cached;
+        }
+    }
+
+    [HarmonyPatch(typeof(StatWorker), nameof(StatWorker.GetValue), typeof(Thing), typeof(bool), typeof(int))]
+    static class StatWorkerGetValuePatch
+    {
+        private static readonly PawnCapacitiesHandler.CacheStatus CachedInInterface = (PawnCapacitiesHandler.CacheStatus)3;
+
+        private static FieldInfo statusField = AccessTools.Field(typeof(PawnCapacitiesHandler.CacheElement),
+            nameof(PawnCapacitiesHandler.CacheElement.status));
+
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+        {
+            var matcher = new CodeMatcher(insts);
+
+            // Modify cache update checking
+            matcher.MatchEndForward(
+                new CodeMatch(OpCodes.Callvirt, typeof(Dictionary<Thing, StatCacheEntry>).GetMethod("TryGetValue"))
+            ).Advance(1).Insert(
+                new CodeInstruction(OpCodes.Ldarg_0),
+                new CodeInstruction(OpCodes.Ldarg_1),
+                new CodeInstruction(OpCodes.Call,
+                    AccessTools.Method(typeof(StatWorkerGetValuePatch), nameof(HasValueInCache)))
+            );
+
+            matcher.MatchEndForward(
+                new CodeMatch(OpCodes.Ldfld, typeof(StatCacheEntry).GetField(nameof(StatCacheEntry.gameTick)))
+            ).Advance(1).Insert(
+                new CodeInstruction(OpCodes.Call,
+                    AccessTools.Method(typeof(Math), nameof(Math.Abs), new[] { typeof(int) }))
+            );
+
+            // Modify status setter
+            matcher.MatchEndForward(
+                new CodeMatch(OpCodes.Newobj)
+            ).Advance(1).Insert(
+                new CodeInstruction(OpCodes.Call,
+                    AccessTools.Method(typeof(StatWorkerGetValuePatch), nameof(NewCacheStatusCtor)))
+            );
+
+            // Modify status setter
+            matcher.MatchEndForward(
+                    new CodeMatch(OpCodes.Stfld, typeof(StatCacheEntry).GetField(nameof(StatCacheEntry.gameTick)))
+            ).Insert(
+                new CodeInstruction(OpCodes.Call,
+                    AccessTools.Method(typeof(StatWorkerGetValuePatch), nameof(NewCacheStatus)))
+            );
+
+            return matcher.codes;
+        }
+
+        private static bool HasValueInCache(bool hasValueInCache, StatWorker worker, Thing t)
+        {
+            var simulating = !Multiplayer.InInterface;
+            return hasValueInCache && !(simulating && worker.temporaryStatCache[t].gameTick < 0);
+        }
+
+        private static StatCacheEntry NewCacheStatusCtor(StatCacheEntry entry)
+        {
+            entry.gameTick = NewCacheStatus(entry.gameTick);
+            return entry;
+        }
+
+        private static int NewCacheStatus(int gameTick)
+        {
+            return Multiplayer.InInterface ? -gameTick : gameTick;
         }
     }
 

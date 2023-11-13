@@ -12,11 +12,10 @@ using Verse;
 
 namespace Multiplayer.Client;
 
-public class FactionSidebar
+public static class FactionSidebar
 {
-    private static string scenario = "Crashlanded";
-    private static string factionName;
-    private static FactionRelationKind hostility = FactionRelationKind.Neutral;
+    private static ScenarioDef chosenScenario = ScenarioDefOf.Crashlanded; // null means current game's scenario
+    private static string newFactionName;
     private static Vector2 scroll;
 
     public static void DrawFactionSidebar(Rect rect)
@@ -51,14 +50,25 @@ public class FactionSidebar
 
     private static void DrawFactionCreator()
     {
-        factionName = Widgets.TextField(Layouter.Rect(150, 24), factionName);
+        Layouter.BeginHorizontal();
+        // Label($"Scenario: {chosenScenario?.label ?? Find.Scenario.name}");
+        //
+        // if (Mouse.IsOver(Layouter.LastRect()))
+        //     Widgets.DrawAltRect(Layouter.LastRect());
+        //
+        // if (Widgets.ButtonInvisible(Layouter.LastRect()))
+        //     OpenScenarioChooser();
+
+        Layouter.EndHorizontal();
+
+        newFactionName = Widgets.TextField(Layouter.Rect(150, 24), newFactionName);
 
         if (Button("Settle new faction", 130))
         {
             var tileError = new StringBuilder();
 
             // todo check faction name not exists
-            if (factionName.NullOrEmpty())
+            if (newFactionName.NullOrEmpty())
                 Messages.Message("The faction name can't be empty.", MessageTypeDefOf.RejectInput, historical: false);
             else if (Find.WorldInterface.SelectedTile < 0)
                 Messages.Message("MustSelectStartingSite".TranslateWithBackup("MustSelectLandingSite"), MessageTypeDefOf.RejectInput, historical: false);
@@ -94,15 +104,39 @@ public class FactionSidebar
         }
     }
 
+    private static void OpenScenarioChooser()
+    {
+        Find.WindowStack.Add(new FloatMenu(
+            DefDatabase<ScenarioDef>.AllDefs.
+                Where(def => def.scenario.GetHashCode() != Find.Scenario.GetHashCode()).
+                Except(ScenarioDefOf.Tutorial).
+                Prepend(null).
+                Select(s =>
+                {
+                    return new FloatMenuOption(s?.label ?? Find.Scenario.name, () =>
+                    {
+                        chosenScenario = s;
+                    });
+                }).
+                ToList()));
+    }
+
     private static void PreparePawns()
     {
+        var scenario = chosenScenario?.scenario ?? Current.Game.Scenario;
         var prevState = Current.programStateInt;
+
         Current.programStateInt = ProgramState.Entry; // Set ProgramState.Entry so that InInterface is false
+
+        Current.Game.InitData = new GameInitData
+        {
+            startingPawnCount = 3,
+            startingPawnKind = scenario.playerFaction.factionDef.basicMemberKind,
+            gameToLoad = "dummy" // Prevent special calculation path in GenTicks.TicksAbs
+        };
 
         try
         {
-            FactionCreator.SetGameInitData();
-
             // Create starting pawns
             new ScenPart_ConfigPage_ConfigureStartingPawns { pawnCount = Current.Game.InitData.startingPawnCount }
                 .GenerateStartingPawns();
@@ -115,7 +149,7 @@ public class FactionSidebar
 
     private static void DoCreateFaction(ChooseIdeoInfo chooseIdeoInfo)
     {
-        int sessionId = Multiplayer.session.playerId;
+        int playerId = Multiplayer.session.playerId;
         var prevState = Current.programStateInt;
         Current.programStateInt = ProgramState.Playing; // This is to force a sync
 
@@ -123,16 +157,15 @@ public class FactionSidebar
         {
             foreach (var p in Current.Game.InitData.startingAndOptionalPawns)
                 FactionCreator.SendPawn(
-                    sessionId,
+                    playerId,
                     p
                 );
 
             FactionCreator.CreateFaction(
-                sessionId,
-                factionName,
+                playerId,
+                newFactionName,
                 Find.WorldInterface.SelectedTile,
-                scenario,
-                hostility,
+                chosenScenario,
                 chooseIdeoInfo
             );
         }
@@ -154,27 +187,15 @@ public class FactionSidebar
             if (i % 2 == 0)
                 Widgets.DrawAltRect(Layouter.GroupRect());
 
-            if (Mouse.IsOver(Layouter.GroupRect()))
-            {
-                // todo this doesn't exactly work
-                foreach (var settlement in Find.WorldObjects.Settlements)
-                    if (settlement.Faction == playerFaction)
-                        Graphics.DrawMesh(MeshPool.plane20,
-                            Find.WorldGrid.GetTileCenter(settlement.Tile),
-                            Quaternion.identity,
-                            GenDraw.ArrowMatWhite,
-                            0);
-
-                Widgets.DrawRectFast(Layouter.GroupRect(), new Color(0.2f, 0.2f, 0.2f));
-            }
-
             using (MpStyle.Set(TextAnchor.MiddleCenter))
                 Label(playerFaction.Name, true);
 
             Layouter.FlexibleWidth();
             if (Button("Join", 70))
             {
-                Current.Game.CurrentMap = Find.Maps.First(m => m.ParentFaction == playerFaction);
+                var factionHome = Find.Maps.FirstOrDefault(m => m.ParentFaction == playerFaction);
+                if (factionHome != null)
+                    Current.Game.CurrentMap = factionHome;
 
                 // todo setting faction of self
                 Multiplayer.Client.Send(

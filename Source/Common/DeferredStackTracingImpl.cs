@@ -96,10 +96,11 @@ public static class DeferredStackTracingImpl
 
             trace[depth] = ret;
 
+            // info.nameHash == 0 marks methods to skip
             if (depth < HashInfluence && info.nameHash != 0)
                 hash = HashCombineInt(hash, (int)info.nameHash);
 
-            if (++depth == MaxDepth)
+            if (info.nameHash != 0 && ++depth == MaxDepth)
                 break;
 
             if (stackUsage == RBPBased)

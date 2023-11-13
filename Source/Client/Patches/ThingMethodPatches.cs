@@ -18,7 +18,7 @@ namespace Multiplayer.Client
             __state = pawn.Map;
         }
 
-        static void Postfix(Pawn pawn, Container<Map>? __state)
+        static void Finalizer(Pawn pawn, Container<Map>? __state)
         {
             if (__state is { Inner: var map })
                 map.PopFaction();
@@ -36,7 +36,7 @@ namespace Multiplayer.Client
             __state = ___pawn.Map;
         }
 
-        static void Postfix(Container<Map>? __state)
+        static void Finalizer(Container<Map>? __state)
         {
             if (__state is { Inner: var map })
                 map.PopFaction();
@@ -64,15 +64,14 @@ namespace Multiplayer.Client
             __state = pawn.Map;
         }
 
-        static void Postfix(Container<Map>? __state)
+        static void Finalizer(Container<Map>? __state)
         {
             if (__state is { Inner: var map })
                 map.PopFaction();
         }
     }
 
-    [HarmonyPatch(typeof(Pawn_JobTracker))]
-    [HarmonyPatch(nameof(Pawn_JobTracker.EndCurrentJob))]
+    [HarmonyPatch(typeof(Pawn_JobTracker), nameof(Pawn_JobTracker.EndCurrentJob))]
     public static class JobTrackerEndCurrent
     {
         static void Prefix(Pawn_JobTracker __instance, JobCondition condition, ref Container<Map>? __state)
@@ -86,15 +85,14 @@ namespace Multiplayer.Client
             __state = pawn.Map;
         }
 
-        static void Postfix(Container<Map>? __state)
+        static void Finalizer(Container<Map>? __state)
         {
             if (__state is { Inner: var map })
                 map.PopFaction();
         }
     }
 
-    [HarmonyPatch(typeof(Pawn_JobTracker))]
-    [HarmonyPatch(nameof(Pawn_JobTracker.CheckForJobOverride))]
+    [HarmonyPatch(typeof(Pawn_JobTracker), nameof(Pawn_JobTracker.CheckForJobOverride))]
     public static class JobTrackerOverride
     {
         static void Prefix(Pawn_JobTracker __instance, ref Container<Map>? __state)
@@ -109,7 +107,7 @@ namespace Multiplayer.Client
             __state = pawn.Map;
         }
 
-        static void Postfix(Container<Map>? __state)
+        static void Finalizer(Container<Map>? __state)
         {
             if (__state is { Inner: var map })
             {
@@ -146,7 +144,7 @@ namespace Multiplayer.Client
         }
 
         [HarmonyPriority(MpPriority.MpLast)]
-        public static void Postfix(Thing __instance, Container<Map>? __state)
+        public static void Finalizer(Thing __instance, Container<Map>? __state)
         {
             if (__state is not { Inner: var map }) return;
 

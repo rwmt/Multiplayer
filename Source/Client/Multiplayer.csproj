@@ -29,7 +29,7 @@
   <ItemGroup>
     <PackageReference Include="Krafs.Publicizer" Version="2.0.1" />
     <PackageReference Include="Lib.Harmony" Version="2.2.2" ExcludeAssets="runtime" />
-<!--    <PackageReference Include="Krafs.Rimworld.Ref" Version="1.4.3704" />-->
+    <PackageReference Include="Krafs.Rimworld.Ref" Version="1.4.3704" />
     <PackageReference Include="RestSharp" Version="106.12.0" />
     <PackageReference Include="RimWorld.MultiplayerAPI" Version="0.4.0" />
   </ItemGroup>
@@ -46,11 +46,6 @@
   <ItemGroup>
     <ProjectReference Include="..\MultiplayerLoader\MultiplayerLoader.csproj" />
     <ProjectReference Include="..\Common\Common.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Reference Include="..\..\..\..\RimWorldWin64_Data\Managed\*.dll">
-    </Reference>
   </ItemGroup>
 
   <!-- Ignore any system frameworks and get the system assemblies from Krafs.Rimworld.Ref -->

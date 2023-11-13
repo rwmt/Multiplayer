@@ -32,7 +32,7 @@ namespace Multiplayer.Client.AsyncTime
         public static bool updating;
 
         static void Prefix() => updating = true;
-        static void Postfix() => updating = false;
+        static void Finalizer() => updating = false;
     }
 
     [HarmonyPatch]
@@ -64,7 +64,7 @@ namespace Multiplayer.Client.AsyncTime
             Find.TickManager.DebugSetTicksGame(map.AsyncTime().mapTicks);
         }
 
-        static void Postfix(int? __state)
+        static void Finalizer(int? __state)
         {
             if (!__state.HasValue) return;
             Find.TickManager.DebugSetTicksGame(__state.Value);
@@ -120,7 +120,7 @@ namespace Multiplayer.Client.AsyncTime
         public static Pawn calculating;
 
         static void Prefix(PawnTweener __instance) => calculating = __instance.pawn;
-        static void Postfix() => calculating = null;
+        static void Finalizer() => calculating = null;
     }
 
     [HarmonyPatch(typeof(TickManager), nameof(TickManager.TickRateMultiplier), MethodType.Getter)]

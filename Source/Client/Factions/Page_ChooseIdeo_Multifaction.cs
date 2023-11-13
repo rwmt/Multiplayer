@@ -46,4 +46,15 @@ public class Page_ChooseIdeo_Multifaction : Page
 
 		DoBottomButtons(inRect);
     }
+
+    public override bool CanDoNext()
+    {
+        if (pageChooseIdeo.selectedIdeo == null)
+        {
+            Messages.Message("Please select a preset.", MessageTypeDefOf.RejectInput, historical: false);
+            return false;
+        }
+
+        return base.CanDoNext();
+    }
 }

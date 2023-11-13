@@ -4,6 +4,7 @@ using Multiplayer.Common;
 using RimWorld;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using Multiplayer.Client.Util;
 using UnityEngine;
@@ -104,9 +105,21 @@ namespace Multiplayer.Client.Persistent
 
         public RitualSession Session => map.MpComp().ritualSession;
 
-        public BeginRitualProxy(string header, string ritualLabel, Precept_Ritual ritual, TargetInfo target, Map map, ActionCallback action, Pawn organizer, RitualObligation obligation, Func<Pawn, bool, bool, bool> filter = null, string confirmText = null, List<Pawn> requiredPawns = null, Dictionary<string, Pawn> forcedForRole = null, string ritualName = null, RitualOutcomeEffectDef outcome = null, List<string> extraInfoText = null, Pawn selectedPawn = null) : base(header, ritualLabel, ritual, target, map, action, organizer, obligation, filter, confirmText, requiredPawns, forcedForRole, ritualName, outcome, extraInfoText, selectedPawn)
+        public BeginRitualProxy(string header, string ritualLabel, Precept_Ritual ritual, TargetInfo target, Map map, ActionCallback action, Pawn organizer, RitualObligation obligation, Func<Pawn, bool, bool, bool> filter = null, string confirmText = null, List<Pawn> requiredPawns = null, Dictionary<string, Pawn> forcedForRole = null, string ritualName = null, RitualOutcomeEffectDef outcome = null, List<string> extraInfoText = null, Pawn selectedPawn = null) :
+            base(header, ritualLabel, ritual, target, map, action, organizer, obligation, filter, confirmText, requiredPawns, forcedForRole, ritualName, outcome, extraInfoText, selectedPawn)
         {
             soundClose = SoundDefOf.TabClose;
+
+            // This gets cancelled in the base constructor if called from ticking/cmd in DontClearDialogBeginRitualCache
+            cachedRoles.Clear();
+            if (ritual is { ideo: not null })
+            {
+                cachedRoles.AddRange(ritual.ideo.RolesListForReading.Where(r => !r.def.leaderRole));
+                Precept_Role preceptRole = Faction.OfPlayer.ideos.PrimaryIdeo.RolesListForReading.FirstOrDefault(p => p.def.leaderRole);
+                if (preceptRole != null)
+                    cachedRoles.Add(preceptRole);
+                cachedRoles.SortBy(x => x.def.displayOrderInImpact);
+            }
         }
 
         public override void DoWindowContents(Rect inRect)

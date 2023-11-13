@@ -10,8 +10,6 @@ public static class FactionExtensions
     // Applies faction's map components if map not null
     public static void PushFaction(this Map map, Faction f)
     {
-        map?.MpComp()?.CheckInvariant();
-
         var faction = FactionContext.Push(f);
         if (faction == null) return;
 

@@ -1,6 +1,4 @@
-using System;
 using HarmonyLib;
-using Multiplayer.Client.Factions;
 using Multiplayer.Common;
 using RimWorld;
 using Verse;
@@ -17,14 +15,6 @@ namespace Multiplayer.Client
 
             try
             {
-                //TickResearch();
-
-                // Not really deterministic but here for possible future server-side game state verification
-                //Extensions.PushFaction(null, Multiplayer.RealPlayerFaction);
-                //TickSync();
-                //SyncResearch.ConstantTick();
-                //Extensions.PopFaction();
-
                 TickShipCountdown();
                 TickSyncCoordinator();
                 TickAutosave();
@@ -89,50 +79,6 @@ namespace Multiplayer.Client
 
                 if (ShipCountdown.timeLeft <= 0f)
                     ShipCountdown.CountdownEnded();
-            }
-        }
-
-        private static Func<BufferTarget, BufferData, bool> bufferPredicate = SyncFieldUtil.BufferedChangesPruner(() => TickPatch.Timer);
-
-        private static void TickSync()
-        {
-            foreach (SyncField f in Sync.bufferedFields)
-            {
-                if (!f.inGameLoop) continue;
-                SyncFieldUtil.bufferedChanges[f].RemoveAll(bufferPredicate);
-            }
-        }
-
-        private static Pawn dummyPawn = new()
-        {
-            relations = new Pawn_RelationsTracker(dummyPawn),
-        };
-
-        public static void TickResearch()
-        {
-            MultiplayerWorldComp comp = Multiplayer.WorldComp;
-            foreach (FactionWorldData factionData in comp.factionData.Values)
-            {
-                if (factionData.researchManager.currentProj == null)
-                    continue;
-
-                FactionExtensions.PushFaction(null, factionData.factionId);
-
-                foreach (var kv in factionData.researchSpeed.data)
-                {
-                    Pawn pawn = PawnsFinder.AllMaps_Spawned.FirstOrDefault(p => p.thingIDNumber == kv.Key);
-                    if (pawn == null)
-                    {
-                        dummyPawn.factionInt = Faction.OfPlayer;
-                        pawn = dummyPawn;
-                    }
-
-                    Find.ResearchManager.ResearchPerformed(kv.Value, pawn);
-
-                    dummyPawn.factionInt = null;
-                }
-
-                FactionExtensions.PopFaction();
             }
         }
     }

@@ -124,9 +124,6 @@ namespace Multiplayer.Client
         {
             var worldComp = new MultiplayerWorldComp(Find.World);
 
-            Faction.OfPlayer.Name = $"{Multiplayer.username}'s faction";
-            //comp.factionData[Faction.OfPlayer.loadID] = FactionWorldData.FromCurrent();
-
             Multiplayer.game = new MultiplayerGame
             {
                 gameComp = new MultiplayerGameComp(),
@@ -134,10 +131,13 @@ namespace Multiplayer.Client
                 worldComp = worldComp
             };
 
+            Faction.OfPlayer.Name = $"{Multiplayer.username}'s faction";
+
             var spectator = AddNewFaction("Spectator", FactionDefOf.PlayerColony);
             spectator.hidden = true;
             spectator.SetRelation(new FactionRelation(Faction.OfPlayer, FactionRelationKind.Neutral));
 
+            worldComp.factionData[Faction.OfPlayer.loadID] = FactionWorldData.FromCurrent(Faction.OfPlayer.loadID);
             worldComp.factionData[spectator.loadID] = FactionWorldData.New(spectator.loadID);
             worldComp.spectatorFaction = spectator;
 

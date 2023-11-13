@@ -117,7 +117,7 @@ namespace Multiplayer.Client
         [DebugAction(MultiplayerCategory, actionType = DebugActionType.ToolMap, allowedGameStates = AllowedGameStates.PlayingOnMap)]
         public static void SpawnShuttleAcceptColonists()
         {
-            var shuttle = ThingMaker.MakeThing(ThingDefOf.Shuttle, null);
+            var shuttle = ThingMaker.MakeThing(ThingDefOf.Shuttle);
             shuttle.TryGetComp<CompShuttle>().acceptColonists = true;
             GenPlace.TryPlaceThing(shuttle, UI.MouseCell(), Find.CurrentMap, ThingPlaceMode.Near);
         }

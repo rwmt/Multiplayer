@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using HarmonyLib;
 using Multiplayer.Client.Factions;
@@ -9,7 +8,6 @@ using Multiplayer.Client.Saving;
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
-using UnityEngine;
 using Verse;
 
 namespace Multiplayer.Client
@@ -96,13 +94,6 @@ namespace Multiplayer.Client
             map.listerMergeables = data.listerMergeables;
         }
 
-        [Conditional("DEBUG")]
-        public void CheckInvariant()
-        {
-            if (factionData.TryGetValue(Faction.OfPlayer.loadID, out var data) && map.areaManager != data.areaManager)
-                Log.Error($"(Debug) Invariant broken for {Faction.OfPlayer}: {FactionContext.stack.ToStringSafeEnumerable()} {factionData.FirstOrDefault(d => d.Value.areaManager == map.areaManager)} {StackTraceUtility.ExtractStackTrace()}");
-        }
-
         public CustomFactionMapData GetCurrentCustomFactionData()
         {
             return customFactionData[Faction.OfPlayer.loadID];
@@ -140,12 +131,12 @@ namespace Multiplayer.Client
         {
             if (Scribe.mode == LoadSaveMode.Saving)
             {
-                int currentFactionId = Faction.OfPlayer.loadID;
+                int currentFactionId =GetFactionId(map.zoneManager);
                 Scribe_Custom.LookValue(currentFactionId, "currentFactionId");
 
-                var data = new Dictionary<int, FactionMapData>(factionData);
-                data.Remove(currentFactionId);
-                Scribe_Custom.LookValueDeep(ref data, "factionMapData", map);
+                var savedFactionData = new Dictionary<int, FactionMapData>(factionData);
+                savedFactionData.Remove(currentFactionId);
+                Scribe_Custom.LookValueDeep(ref savedFactionData, "factionMapData", map);
             }
             else
             {
@@ -188,6 +179,11 @@ namespace Multiplayer.Client
                 session.Read(reader);
                 ritualSession = session;
             }
+        }
+
+        public int GetFactionId(ZoneManager zoneManager)
+        {
+            return factionData.First(kv => kv.Value.zoneManager == zoneManager).Key;
         }
     }
 

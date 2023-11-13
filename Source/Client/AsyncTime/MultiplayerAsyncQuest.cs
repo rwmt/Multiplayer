@@ -266,7 +266,7 @@ namespace Multiplayer.Client.Comp
             //Really terrible way to determine if any quest parts have a map which also has an async time
             foreach (var part in quest.parts.Where(x => x != null && questPartsToCheck.Contains(x.GetType())))
             {
-                if (part.GetType().GetField("mapParent")?.GetValue(part) is MapParent mapParent)
+                if (part.GetType().GetField("mapParent")?.GetValue(part) is MapParent { Map: not null } mapParent)
                 {
                     var mapAsyncTimeComp = mapParent.Map.IsPlayerHome ? mapParent.Map.AsyncTime() : null;
                     if (mapAsyncTimeComp != null) return mapAsyncTimeComp;

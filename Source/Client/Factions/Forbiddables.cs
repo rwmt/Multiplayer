@@ -55,7 +55,7 @@ namespace Multiplayer.Client
         }
 
         [HarmonyPriority(MpPriority.MpLast)]
-        static void Postfix(CompForbiddable __instance, bool __state)
+        static void Finalizer(CompForbiddable __instance, bool __state)
         {
             __instance.forbiddenInt = __state;
             FactionContext.Pop();

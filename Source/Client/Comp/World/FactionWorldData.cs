@@ -6,7 +6,6 @@ namespace Multiplayer.Client;
 public class FactionWorldData : IExposable
 {
     public int factionId;
-    public bool online;
 
     public ResearchManager researchManager;
     public OutfitDatabase outfitDatabase;
@@ -14,14 +13,15 @@ public class FactionWorldData : IExposable
     public FoodRestrictionDatabase foodRestrictionDatabase;
     public PlaySettings playSettings;
 
-    public ResearchSpeed researchSpeed;
+    public History history;
+    public Storyteller storyteller;
+    public StoryWatcher storyWatcher;
 
     public FactionWorldData() { }
 
     public void ExposeData()
     {
         Scribe_Values.Look(ref factionId, "factionId");
-        Scribe_Values.Look(ref online, "online");
 
         Scribe_Deep.Look(ref researchManager, "researchManager");
         Scribe_Deep.Look(ref drugPolicyDatabase, "drugPolicyDatabase");
@@ -29,7 +29,17 @@ public class FactionWorldData : IExposable
         Scribe_Deep.Look(ref foodRestrictionDatabase, "foodRestrictionDatabase");
         Scribe_Deep.Look(ref playSettings, "playSettings");
 
-        Scribe_Deep.Look(ref researchSpeed, "researchSpeed");
+        Scribe_Deep.Look(ref history, "history");
+        Scribe_Deep.Look(ref storyteller, "storyteller");
+        Scribe_Deep.Look(ref storyWatcher, "storyWatcher");
+
+        if (Scribe.mode == LoadSaveMode.LoadingVars)
+        {
+            history ??= new History();
+            storyteller ??= new Storyteller(Find.Storyteller.def, Find.Storyteller.difficultyDef,
+                Find.Storyteller.difficulty);
+            storyWatcher ??= new StoryWatcher();
+        }
     }
 
     public void ReassignIds()
@@ -55,7 +65,10 @@ public class FactionWorldData : IExposable
             outfitDatabase = new OutfitDatabase(),
             foodRestrictionDatabase = new FoodRestrictionDatabase(),
             playSettings = new PlaySettings(),
-            researchSpeed = new ResearchSpeed(),
+
+            history = new History(),
+            storyteller = new Storyteller(Find.Storyteller.def, Find.Storyteller.difficultyDef, Find.Storyteller.difficulty),
+            storyWatcher = new StoryWatcher()
         };
     }
 
@@ -64,7 +77,6 @@ public class FactionWorldData : IExposable
         return new FactionWorldData()
         {
             factionId = factionId == int.MinValue ? Faction.OfPlayer.loadID : factionId,
-            online = true,
 
             researchManager = Find.ResearchManager,
             drugPolicyDatabase = Current.Game.drugPolicyDatabase,
@@ -72,7 +84,9 @@ public class FactionWorldData : IExposable
             foodRestrictionDatabase = Current.Game.foodRestrictionDatabase,
             playSettings = Current.Game.playSettings,
 
-            researchSpeed = new ResearchSpeed(),
+            history = Find.History,
+            storyteller = Find.Storyteller,
+            storyWatcher = Find.StoryWatcher
         };
     }
 }
