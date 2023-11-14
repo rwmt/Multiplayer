@@ -10,7 +10,7 @@ using Verse;
 
 namespace Multiplayer.Client
 {
-    static class MpDebugTools
+    static class DebugSync
     {
         private static int currentPlayer;
         public static int currentHash;
@@ -230,10 +230,10 @@ namespace Multiplayer.Client
 
             public void Action()
             {
-                if (Multiplayer.Client == null || Multiplayer.ExecutingCmds || !MpDebugTools.ShouldHandle())
+                if (Multiplayer.Client == null || Multiplayer.ExecutingCmds || !DebugSync.ShouldHandle())
                     original();
                 else
-                    MpDebugTools.SendCmd(
+                    DebugSync.SendCmd(
                         DebugSource.Tree,
                         0,
                         node.NodePath(),
@@ -251,7 +251,7 @@ namespace Multiplayer.Client
             if (Multiplayer.Client == null) return true;
             if (!Multiplayer.ExecutingCmds) return true;
             if (!Multiplayer.GameComp.debugMode) return true;
-            if (!MpDebugTools.ShouldHandle()) return true;
+            if (!DebugSync.ShouldHandle()) return true;
 
             bool keepOpen = TickPatch.currentExecutingCmdIssuedBySelf;
             var map = Multiplayer.MapContext;
@@ -270,12 +270,12 @@ namespace Multiplayer.Client
                         lister.options.Add(new DebugMenuOption(
                             opt.label,
                             opt.mode,
-                            () => MpDebugTools.SendCmd(DebugSource.Lister, hash, null, map)
+                            () => DebugSync.SendCmd(DebugSource.Lister, hash, null, map)
                         ));
                     }
                 }
 
-                MpDebugTools.CurrentPlayerState.currentData = origOptions;
+                DebugSync.CurrentPlayerState.currentData = origOptions;
                 return keepOpen;
             }
 
@@ -291,12 +291,12 @@ namespace Multiplayer.Client
                     {
                         var copy = new FloatMenuOption(option.labelInt, option.action);
                         int hash = copy.Hash();
-                        copy.action = () => MpDebugTools.SendCmd(DebugSource.FloatMenu, hash, null, map);
+                        copy.action = () => DebugSync.SendCmd(DebugSource.FloatMenu, hash, null, map);
                         menu.options.Add(copy);
                     }
                 }
 
-                MpDebugTools.CurrentPlayerState.currentData = origOptions;
+                DebugSync.CurrentPlayerState.currentData = origOptions;
                 return keepOpen;
             }
 

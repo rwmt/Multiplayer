@@ -156,7 +156,12 @@ namespace Multiplayer.Client
 
         public void PreContext()
         {
-            map.PushFaction(map.ParentFaction); // bullets?
+            if (Multiplayer.GameComp.multifaction)
+            {
+                map.PushFaction(map.ParentFaction is { IsPlayer: true }
+                    ? map.ParentFaction
+                    : Multiplayer.WorldComp.spectatorFaction);
+            }
 
             prevTime = TimeSnapshot.GetAndSetFromMap(map);
 
@@ -183,7 +188,8 @@ namespace Multiplayer.Client
             randState = Rand.StateCompressed;
             Rand.PopState();
 
-            map.PopFaction();
+            if (Multiplayer.GameComp.multifaction)
+                map.PopFaction();
         }
 
         public void ExposeData()
@@ -251,7 +257,7 @@ namespace Multiplayer.Client
 
                 if (cmdType == CommandType.DebugTools)
                 {
-                    MpDebugTools.HandleCmd(data);
+                    DebugSync.HandleCmd(data);
                 }
 
                 if (cmdType == CommandType.MapTimeSpeed && Multiplayer.GameComp.asyncTime)

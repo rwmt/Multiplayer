@@ -45,7 +45,7 @@ public static class MethodOf
     {
         if (expression.Body is not MethodCallExpression outermostExpression)
         {
-            if (expression.Body is UnaryExpression ue && ue.Operand is MethodCallExpression me &&
+            if (expression.Body is UnaryExpression { Operand: MethodCallExpression me } ue &&
                 me.Object is ConstantExpression ce && ce.Value is MethodInfo mi)
                 return mi;
             throw new ArgumentException("Invalid Expression. Expression should consist of a Method call only.");

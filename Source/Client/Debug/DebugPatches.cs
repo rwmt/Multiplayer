@@ -249,5 +249,14 @@ namespace Multiplayer.Client.Patches
         static bool Prefix() => false;
     }
 
+    [HarmonyPatch(typeof(Log), nameof(Log.Notify_MessageReceivedThreadedInternal))]
+    static class DisableLogMessageLimit
+    {
+        static bool Prefix()
+        {
+            return false;
+        }
+    }
+
 }
 #endif

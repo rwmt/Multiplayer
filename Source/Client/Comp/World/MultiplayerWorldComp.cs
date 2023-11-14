@@ -85,13 +85,13 @@ public class MultiplayerWorldComp : IHasSemiPersistentData
     {
         if (Scribe.mode == LoadSaveMode.Saving)
         {
-            int currentFactionId = Faction.OfPlayer.loadID;
+            int currentFactionId = GetFactionId(Find.ResearchManager);
             Scribe_Custom.LookValue(currentFactionId, "currentFactionId");
 
-            var factionData = new Dictionary<int, FactionWorldData>(this.factionData);
-            factionData.Remove(currentFactionId);
+            var savedFactionData = new Dictionary<int, FactionWorldData>(factionData);
+            savedFactionData.Remove(currentFactionId);
 
-            Scribe_Collections.Look(ref factionData, "factionData", LookMode.Value, LookMode.Deep);
+            Scribe_Collections.Look(ref savedFactionData, "factionData", LookMode.Value, LookMode.Deep);
         }
         else
         {
@@ -147,7 +147,9 @@ public class MultiplayerWorldComp : IHasSemiPersistentData
         game.foodRestrictionDatabase = data.foodRestrictionDatabase;
         game.playSettings = data.playSettings;
 
-        SyncResearch.researchSpeed = data.researchSpeed;
+        game.history = data.history;
+        game.storyteller = data.storyteller;
+        game.storyWatcher = data.storyWatcher;
     }
 
     public void DirtyColonyTradeForMap(Map map)
@@ -180,6 +182,11 @@ public class MultiplayerWorldComp : IHasSemiPersistentData
             if (session.playerNegotiator.Map == map)
                 return true;
         return false;
+    }
+
+    public int GetFactionId(ResearchManager researchManager)
+    {
+        return factionData.First(kv => kv.Value.researchManager == researchManager).Key;
     }
 
     public override string ToString()

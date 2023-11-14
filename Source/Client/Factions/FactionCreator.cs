@@ -1,6 +1,8 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using JetBrains.Annotations;
 using Multiplayer.API;
+using Multiplayer.Client.Util;
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
@@ -11,6 +13,7 @@ namespace Multiplayer.Client.Factions;
 public static class FactionCreator
 {
     private static Dictionary<int, List<Pawn>> pawnStore = new();
+    public static bool generatingMap;
 
     public static void ClearData()
     {
@@ -18,26 +21,24 @@ public static class FactionCreator
     }
 
     [SyncMethod(exposeParameters = new[] { 1 })]
-    public static void SendPawn(int sessionId, Pawn p)
+    public static void SendPawn(int playerId, Pawn p)
     {
-        pawnStore.GetOrAddNew(sessionId).Add(p);
+        pawnStore.GetOrAddNew(playerId).Add(p);
     }
 
     [SyncMethod]
-    public static void CreateFaction(int sessionId, string factionName, int tile, string scenario, FactionRelationKind relation, ChooseIdeoInfo chooseIdeoInfo)
+    public static void CreateFaction(int playerId, string factionName, int tile, [CanBeNull] ScenarioDef scenarioDef, ChooseIdeoInfo chooseIdeoInfo)
     {
-        PrepareState(sessionId);
-
         var self = TickPatch.currentExecutingCmdIssuedBySelf;
 
-        LongEventHandler.QueueLongEvent(delegate
+        LongEventHandler.QueueLongEvent(() =>
         {
-            int newFactionID = Find.UniqueIDsManager.GetNextFactionID();
+            PrepareState(playerId);
 
-            var newFaction = NewFaction(
-                newFactionID,
+            var scenario = scenarioDef?.scenario ?? Current.Game.Scenario;
+            var newFaction = NewFactionWithIdeo(
                 factionName,
-                FactionDefOf.PlayerColony,
+                scenario.playerFaction.factionDef,
                 chooseIdeoInfo
             );
 
@@ -45,19 +46,19 @@ public static class FactionCreator
 
             foreach (var f in Find.FactionManager.AllFactions.Where(f => f.IsPlayer))
                 if (f != newFaction)
-                {
-                    newFaction.SetRelation(new FactionRelation(f, relation));
-                }
+                    newFaction.SetRelation(new FactionRelation(f, FactionRelationKind.Neutral));
 
-            FactionContext.Push(newFaction);
+            Map newMap;
 
-            foreach (var pawn in StartingPawnUtility.StartingAndOptionalPawns)
-                pawn.ideo.SetIdeo(newFaction.ideos.PrimaryIdeo);
+            using (MpScope.PushFaction(newFaction))
+            {
+                foreach (var pawn in StartingPawnUtility.StartingAndOptionalPawns)
+                    pawn.ideo.SetIdeo(newFaction.ideos.PrimaryIdeo);
 
-            var newMap = GenerateNewMap(tile, scenario);
-            FactionContext.Pop();
+                newMap = GenerateNewMap(tile, scenario);
+            }
 
-            // Add new faction to all maps but the new
+            // Add new faction to all maps but the new one (it's already handled during generation)
             foreach (Map map in Find.Maps)
                 if (map != newMap)
                     MapSetup.InitNewFactionData(map, newFaction);
@@ -66,15 +67,8 @@ public static class FactionCreator
                 foreach (var f in Find.FactionManager.AllFactions.Where(f => f.IsPlayer))
                     map.attackTargetsCache.Notify_FactionHostilityChanged(f, newFaction);
 
-            FactionContext.Push(newFaction);
-            try
-            {
+            using (MpScope.PushFaction(newFaction))
                 InitNewGame();
-            }
-            finally
-            {
-                FactionContext.Pop();
-            }
 
             if (self)
             {
@@ -92,7 +86,7 @@ public static class FactionCreator
         }, "GeneratingMap", doAsynchronously: true, GameAndMapInitExceptionHandlers.ErrorWhileGeneratingMap);
     }
 
-    private static Map GenerateNewMap(int tile, string scenario)
+    private static Map GenerateNewMap(int tile, Scenario scenario)
     {
         // This has to be null, otherwise, during map generation, Faction.OfPlayer returns it which breaks FactionContext
         Find.GameInitData.playerFaction = null;
@@ -104,7 +98,8 @@ public static class FactionCreator
         Find.WorldObjects.Add(mapParent);
 
         var prevScenario = Find.Scenario;
-        Current.Game.scenarioInt = DefDatabase<ScenarioDef>.AllDefs.First(s => s.defName == scenario).scenario;
+        Current.Game.Scenario = scenario;
+        generatingMap = true;
 
         try
         {
@@ -116,7 +111,8 @@ public static class FactionCreator
         }
         finally
         {
-            Current.Game.scenarioInt = prevScenario;
+            generatingMap = false;
+            Current.Game.Scenario = prevScenario;
         }
     }
 
@@ -126,18 +122,13 @@ public static class FactionCreator
         ResearchUtility.ApplyPlayerStartingResearch();
     }
 
-    public static void SetGameInitData()
+    public static void PrepareState(int sessionId)
     {
         Current.Game.InitData = new GameInitData
         {
             startingPawnCount = 3,
             gameToLoad = "dummy" // Prevent special calculation path in GenTicks.TicksAbs
         };
-    }
-
-    public static void PrepareState(int sessionId)
-    {
-        SetGameInitData();
 
         if (pawnStore.TryGetValue(sessionId, out var pawns))
         {
@@ -150,35 +141,30 @@ public static class FactionCreator
         }
     }
 
-    private static Faction NewFaction(int id, string name, FactionDef def, ChooseIdeoInfo chooseIdeoInfo)
+    private static Faction NewFactionWithIdeo(string name, FactionDef def, ChooseIdeoInfo chooseIdeoInfo)
     {
-        Faction faction = Find.FactionManager.AllFactions.FirstOrDefault(f => f.loadID == id);
+        var faction = new Faction { loadID = Find.UniqueIDsManager.GetNextFactionID(), def = def };
+        faction.ideos = new FactionIdeosTracker(faction);
 
-        if (faction == null)
+        if (!ModsConfig.IdeologyActive || Find.IdeoManager.classicMode)
         {
-            faction = new Faction { loadID = id, def = def };
-            faction.ideos = new FactionIdeosTracker(faction);
-
-            if (!ModsConfig.IdeologyActive || Find.IdeoManager.classicMode)
-            {
-                faction.ideos.SetPrimary(Faction.OfPlayer.ideos.PrimaryIdeo);
-            }
-            else
-            {
-                var newIdeo = GenerateIdeo(chooseIdeoInfo);
-                faction.ideos.SetPrimary(newIdeo);
-                Find.IdeoManager.Add(newIdeo);
-            }
-
-            foreach (Faction other in Find.FactionManager.AllFactionsListForReading)
-                faction.TryMakeInitialRelationsWith(other);
-
-            Find.FactionManager.Add(faction);
-
-            var newWorldFactionData = FactionWorldData.New(faction.loadID);
-            Multiplayer.WorldComp.factionData[faction.loadID] = newWorldFactionData;
-            newWorldFactionData.ReassignIds();
+            faction.ideos.SetPrimary(Faction.OfPlayer.ideos.PrimaryIdeo);
         }
+        else
+        {
+            var newIdeo = GenerateIdeo(chooseIdeoInfo);
+            faction.ideos.SetPrimary(newIdeo);
+            Find.IdeoManager.Add(newIdeo);
+        }
+
+        foreach (Faction other in Find.FactionManager.AllFactionsListForReading)
+            faction.TryMakeInitialRelationsWith(other);
+
+        Find.FactionManager.Add(faction);
+
+        var newWorldFactionData = FactionWorldData.New(faction.loadID);
+        Multiplayer.WorldComp.factionData[faction.loadID] = newWorldFactionData;
+        newWorldFactionData.ReassignIds();
 
         faction.Name = name;
         faction.def = def;

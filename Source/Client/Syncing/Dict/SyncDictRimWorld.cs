@@ -1136,9 +1136,8 @@ namespace Multiplayer.Client
                 },
                 (ByteReader data) =>
                 {
-                    // Note that this only returns live (not archived) letters
                     var id = data.ReadInt32();
-                    return Find.LetterStack.LettersListForReading.Find(l => l.ID == id);
+                    return (Letter)Find.Archive.ArchivablesListForReading.Find(a => a is Letter l && l.ID == id);
                 }, true
             },
             #endregion

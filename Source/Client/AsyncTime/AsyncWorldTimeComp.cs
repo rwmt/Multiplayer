@@ -182,7 +182,7 @@ public class AsyncWorldTimeComp : IExposable, ITickable
 
             if (cmdType == CommandType.DebugTools)
             {
-                MpDebugTools.HandleCmd(data);
+                DebugSync.HandleCmd(data);
             }
 
             if (cmdType == CommandType.GlobalTimeSpeed)

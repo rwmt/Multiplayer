@@ -33,9 +33,8 @@ public static class AutoRoofFactionPatch
         return true;
     }
 
-    static void Postfix(ref Map __state)
+    static void Finalizer(ref Map __state)
     {
-        if (__state != null)
-            __state.PopFaction();
+        __state?.PopFaction();
     }
 }

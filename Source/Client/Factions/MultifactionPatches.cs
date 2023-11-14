@@ -1,14 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Reflection.Emit;
 using HarmonyLib;
 using Multiplayer.API;
-using Multiplayer.Client.Util;
+using Multiplayer.Client.Factions;
 using RimWorld;
 using RimWorld.Planet;
 using UnityEngine;
 using Verse;
+using Verse.AI;
 
 namespace Multiplayer.Client.Patches;
 
@@ -38,14 +40,20 @@ static class PawnChangeRelationGizmo
 
             yield return new Command_Action
             {
-                defaultLabel = "Change faction relation",
+                defaultLabel = $"Change faction relation {Faction.OfPlayer.HostileTo(otherFaction)}",
                 icon = MultiplayerStatic.ChangeRelationIcon,
                 action = () =>
                 {
                     List<FloatMenuOption> list = new List<FloatMenuOption>
                     {
-                        new(FactionRelationKind.Hostile.ToString(), () => { SetFactionRelation(otherFaction, FactionRelationKind.Hostile); }),
-                        new(FactionRelationKind.Neutral.ToString(), () => { SetFactionRelation(otherFaction, FactionRelationKind.Neutral); })
+                        new(FactionRelationKind.Hostile.ToString(), () =>
+                        {
+                            SetRelation(otherFaction, FactionRelationKind.Hostile);
+                        }),
+                        new(FactionRelationKind.Neutral.ToString(), () =>
+                        {
+                            SetRelation(otherFaction, FactionRelationKind.Neutral);
+                        })
                     };
 
                     Find.WindowStack.Add(new FloatMenu(list));
@@ -55,9 +63,26 @@ static class PawnChangeRelationGizmo
     }
 
     [SyncMethod]
-    static void SetFactionRelation(Faction other, FactionRelationKind kind)
+    static void SetRelation(Faction other, FactionRelationKind kind)
     {
         Faction.OfPlayer.SetRelation(new FactionRelation(other, kind));
+
+        foreach (Map map in Find.Maps)
+            map.attackTargetsCache.Notify_FactionHostilityChanged(Faction.OfPlayer, other);
+    }
+}
+
+[HarmonyPatch(typeof(SettlementUtility), nameof(SettlementUtility.AttackNow))]
+static class AttackNowPatch
+{
+    static void Prefix(Caravan caravan)
+    {
+        FactionContext.Push(caravan.Faction);
+    }
+
+    static void Finalizer()
+    {
+        FactionContext.Pop();
     }
 }
 
@@ -225,62 +250,304 @@ static class WealthRecountFactionPatch
     }
 }
 
-[HarmonyPatch(typeof(Page_ConfigureStartingPawns), nameof(Page_ConfigureStartingPawns.DoWindowContents))]
-static class ConfigureStartingPawns_DoWindowContents_Patch
+[HarmonyPatch(typeof(FactionIdeosTracker), nameof(FactionIdeosTracker.RecalculateIdeosBasedOnPlayerPawns))]
+static class RecalculateFactionIdeosContext
 {
-    static void Prefix(ref ProgramState __state)
+    static void Prefix(FactionIdeosTracker __instance)
     {
-        __state = Current.ProgramState;
-        Current.programStateInt = ProgramState.Entry;
+        FactionContext.Push(__instance.faction);
     }
 
-    static void Finalizer(ProgramState __state)
+    static void Finalizer()
     {
-        Current.programStateInt = __state;
+        FactionContext.Pop();
     }
 }
 
-[HarmonyPatch(typeof(Page_ConfigureStartingPawns), nameof(Page_ConfigureStartingPawns.RandomizeCurPawn))]
-static class ConfigureStartingPawns_RandomizeCurPawn_Patch
+[HarmonyPatch(typeof(Ideo), nameof(Ideo.RecacheColonistBelieverCount))]
+static class RecacheColonistBelieverCountPatch
 {
-    static void Prefix(ref ProgramState __state)
+    private static MethodInfo allColonists = AccessTools.PropertyGetter(typeof(PawnsFinder), nameof(PawnsFinder.AllMapsCaravansAndTravelingTransportPods_Alive_FreeColonists_NoCryptosleep));
+
+    static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
     {
-        __state = Current.ProgramState;
-        Current.programStateInt = ProgramState.Entry;
+        foreach (var inst in insts)
+        {
+            if (inst.operand == allColonists)
+                inst.operand = AccessTools.Method(typeof(RecacheColonistBelieverCountPatch), nameof(ColonistsAllFactions));
+            yield return inst;
+        }
     }
 
-    static void Finalizer(ProgramState __state)
+    private static List<Pawn> colonistsAllFactions = new();
+
+    private static List<Pawn> ColonistsAllFactions()
     {
-        Current.programStateInt = __state;
+        colonistsAllFactions.Clear();
+
+        foreach (var p in PawnsFinder.AllMapsCaravansAndTravelingTransportPods_Alive)
+        {
+            if (IsColonistAnyFaction(p) && p.HostFaction == null && !p.InCryptosleep)
+                colonistsAllFactions.Add(p);
+        }
+
+        return colonistsAllFactions;
+    }
+
+    public static bool IsColonistAnyFaction(Pawn p)
+    {
+        if (p.Faction is { IsPlayer: true } && p.RaceProps.Humanlike)
+            return !p.IsSlave || p.guest.SlaveIsSecure;
+        return false;
+    }
+
+    public static bool IsColonyMechAnyFaction(Pawn p)
+    {
+        if (ModsConfig.BiotechActive && p.RaceProps.IsMechanoid && p.Faction == Faction.OfPlayer && p.MentalStateDef == null)
+            return p.HostFaction == null || p.IsSlave;
+        return false;
     }
 }
 
-[HarmonyPatch(typeof(LifeStageWorker_HumanlikeAdult), nameof(LifeStageWorker_HumanlikeAdult.Notify_LifeStageStarted))]
-static class LifeStageWorker_Patch
+[HarmonyPatch(typeof(MapPawns), nameof(MapPawns.AnyPawnBlockingMapRemoval), MethodType.Getter)]
+static class AnyPawnBlockingMapRemovalPatch
+{
+    private static MethodInfo isColonist = AccessTools.PropertyGetter(typeof(Pawn), nameof(Pawn.IsColonist));
+    private static MethodInfo isColonyMech = AccessTools.PropertyGetter(typeof(Pawn), nameof(Pawn.IsColonyMech));
+
+    static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+    {
+        foreach (var inst in insts)
+        {
+            if (inst.operand == isColonist)
+                inst.operand = AccessTools.Method(typeof(RecacheColonistBelieverCountPatch), nameof(RecacheColonistBelieverCountPatch.IsColonistAnyFaction));
+
+            if (inst.operand == isColonyMech)
+                inst.operand = AccessTools.Method(typeof(RecacheColonistBelieverCountPatch), nameof(RecacheColonistBelieverCountPatch.IsColonyMechAnyFaction));
+
+            yield return inst;
+        }
+    }
+
+    static void Postfix(MapPawns __instance, ref bool __result)
+    {
+        for (int i = 0; i < __instance.pawnsSpawned.Count; i++)
+        {
+            var p = __instance.pawnsSpawned[i];
+            if (p.Faction is { IsPlayer: true } || p.HostFaction is { IsPlayer: true })
+            {
+                Job curJob = p.CurJob;
+                if (curJob is { exitMapOnArrival: true })
+                {
+                    __result = true;
+                    break;
+                }
+
+                if (p.health.hediffSet.InLabor())
+                {
+                    __result = true;
+                    break;
+                }
+            }
+        }
+    }
+}
+
+[HarmonyPatch(typeof(Precept_Role), nameof(Precept_Role.ValidatePawn))]
+static class ValidatePawnPatch
+{
+    private static MethodInfo isFreeNonSlaveColonist = AccessTools.PropertyGetter(typeof(Pawn), nameof(Pawn.IsFreeNonSlaveColonist));
+
+    static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+    {
+        foreach (var inst in insts)
+        {
+            if (inst.operand == isFreeNonSlaveColonist)
+                inst.operand = AccessTools.Method(typeof(ValidatePawnPatch), nameof(IsFreeNonSlaveColonistAnyFaction));
+
+            yield return inst;
+        }
+    }
+
+    public static bool IsFreeNonSlaveColonistAnyFaction(Pawn p)
+    {
+        return p.Faction is { IsPlayer: true } && p.RaceProps.Humanlike && p.HostFaction == null && !p.IsSlave;
+    }
+}
+
+[HarmonyPatch(typeof(Faction), nameof(Faction.HasGoodwill), MethodType.Getter)]
+static class PlayerFactionsHaveGoodwill
+{
+    static void Postfix(Faction __instance, ref bool __result)
+    {
+        if (__instance.IsPlayer)
+            __result = true;
+    }
+}
+
+[HarmonyPatch(typeof(GenHostility), nameof(GenHostility.IsActiveThreatToPlayer))]
+static class IsActiveThreatToAnyPlayer
+{
+    static void Postfix(IAttackTarget target, ref bool __result)
+    {
+        foreach (var f in Find.FactionManager.AllFactions)
+            if (f.IsPlayer)
+                __result |= GenHostility.IsActiveThreatTo(target, f);
+    }
+}
+
+[HarmonyPatch(typeof(LetterStack), nameof(LetterStack.ReceiveLetter), typeof(Letter), typeof(string))]
+static class LetterStackReceiveOnlyMyFaction
+{
+    // todo the letter might get culled from the archive if it isn't in the stack and Sync depends on the archive
+    static void Postfix(LetterStack __instance, Letter let)
+    {
+        if (Multiplayer.RealPlayerFaction != Faction.OfPlayer)
+            __instance.letters.Remove(let);
+    }
+}
+
+[HarmonyPatch]
+static class DontClearDialogBeginRitualCache
+{
+    private static MethodInfo listClear = AccessTools.Method(typeof(List<Precept_Role>), "Clear");
+
+    static IEnumerable<MethodBase> TargetMethods()
+    {
+        yield return typeof(Dialog_BeginRitual).GetConstructors(BindingFlags.Public | BindingFlags.Instance).First();
+    }
+
+    static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts, ILGenerator gen)
+    {
+        var list = insts.ToList();
+        var brLabel = gen.DefineLabel();
+
+        foreach (var inst in list)
+        {
+            if (inst.operand == listClear)
+            {
+                yield return new CodeInstruction(OpCodes.Call,
+                    AccessTools.Method(typeof(DontClearDialogBeginRitualCache), nameof(ShouldCancelCacheClear)));
+                yield return new CodeInstruction(OpCodes.Brfalse, brLabel);
+                yield return new CodeInstruction(OpCodes.Pop);
+                yield return new CodeInstruction(OpCodes.Ret);
+                yield return new CodeInstruction(OpCodes.Nop) { labels = { brLabel } };
+            }
+
+            yield return inst;
+        }
+    }
+
+    static bool ShouldCancelCacheClear()
+    {
+        return Multiplayer.Ticking || Multiplayer.ExecutingCmds;
+    }
+}
+
+[HarmonyPatch(typeof(Bill), nameof(Bill.ValidateSettings))]
+static class BillValidateSettingsPatch
+{
+    static void Prefix(Bill __instance)
+    {
+        if (Multiplayer.Client == null) return;
+        FactionContext.Push(__instance.pawnRestriction?.Faction); // todo HostFaction, SlaveFaction?
+    }
+
+    static void Finalizer()
+    {
+        if (Multiplayer.Client == null) return;
+        FactionContext.Pop();
+    }
+}
+
+[HarmonyPatch(typeof(Bill_Production), nameof(Bill_Production.ValidateSettings))]
+static class BillProductionValidateSettingsPatch
+{
+    static void Prefix(Bill_Production __instance, ref Map __state)
+    {
+        if (Multiplayer.Client == null) return;
+
+        var zoneManager = __instance.storeZone?.zoneManager ?? __instance.includeFromZone?.zoneManager;
+        if (__instance.Map != null && zoneManager != null)
+        {
+            __instance.Map.PushFaction(zoneManager.map.MpComp().GetFactionId(zoneManager));
+            __state = __instance.Map;
+        }
+    }
+
+    static void Finalizer(Map __state)
+    {
+        __state?.PopFaction();
+    }
+}
+
+[HarmonyPatch(typeof(Apparel), nameof(Apparel.WornGraphicPath), MethodType.Getter)]
+static class ApparelWornGraphicPathGetterPatch
+{
+    private static FieldInfo thingIDNumberField = AccessTools.Field(typeof(Apparel), nameof(Apparel.thingIDNumber));
+
+    static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+    {
+        foreach (var inst in insts)
+        {
+            yield return inst;
+
+            // This instruction is part of wornGraphicPaths[thingIDNumber % wornGraphicPaths.Count]
+            // The function makes sure the id is positive
+            if (inst.operand == thingIDNumberField)
+                yield return new CodeInstruction(OpCodes.Call,
+                    AccessTools.Method(typeof(ApparelWornGraphicPathGetterPatch), nameof(MakeIdPositive)));
+        }
+    }
+
+    private static int MakeIdPositive(int id)
+    {
+        return id < 0 ? -id : id;
+    }
+}
+
+[HarmonyPatch(typeof(ScenPart_ScatterThings), nameof(ScenPart_ScatterThings.GenerateIntoMap))]
+static class ScenPartScatterThingsPatch
 {
     static bool Prefix()
     {
-        // Corresponds to "Current.ProgramState == ProgramState.Playing" check in Notify_LifeStageStarted
-        return !ScribeUtil.loading;
+        return Multiplayer.Client == null || FactionCreator.generatingMap;
     }
 }
 
-[HarmonyPatch(typeof(StartingPawnUtility), nameof(StartingPawnUtility.GetGenerationRequest))]
-static class StartingPawnUtility_GetGenerationRequest_Patch
+[HarmonyPatch(typeof(ScenPart_PlayerPawnsArriveMethod), nameof(ScenPart_PlayerPawnsArriveMethod.GenerateIntoMap))]
+static class ScenPartPlayerPawnsArriveMethodPatch
 {
-    static void Postfix(ref PawnGenerationRequest __result)
+    static bool Prefix()
     {
-        if (Multiplayer.Client != null)
-            __result.CanGeneratePawnRelations = false;
+        return Multiplayer.Client == null || FactionCreator.generatingMap;
     }
 }
 
-[HarmonyPatch(typeof(StartingPawnUtility), nameof(StartingPawnUtility.DefaultStartingPawnRequest), MethodType.Getter)]
-static class StartingPawnUtility_DefaultStartingPawnRequest_Patch
+[HarmonyPatch(typeof(CharacterCardUtility), nameof(CharacterCardUtility.DoTopStack))]
+static class CharacterCardUtilityDontDrawIdeoPlate
 {
-    static void Postfix(ref PawnGenerationRequest __result)
+    private static FieldInfo classicModeField = AccessTools.Field(typeof(IdeoManager), nameof(IdeoManager.classicMode));
+
+    static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
     {
-        if (Multiplayer.Client != null)
-            __result.CanGeneratePawnRelations = false;
+        foreach (var inst in insts)
+        {
+            yield return inst;
+
+            // Don't draw the ideo plate while choosing starting pawns in multifaction
+            if (inst.operand == classicModeField)
+            {
+                yield return new CodeInstruction(OpCodes.Ldarg_2);
+                yield return new CodeInstruction(OpCodes.Call,
+                    AccessTools.Method(typeof(CharacterCardUtilityDontDrawIdeoPlate), nameof(DontDrawIdeoPlate)));
+                yield return new CodeInstruction(OpCodes.Or);
+            }
+        }
+    }
+
+    private static bool DontDrawIdeoPlate(bool generating)
+    {
+        return Multiplayer.Client != null && generating;
     }
 }
