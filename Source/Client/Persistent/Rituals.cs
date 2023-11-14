@@ -19,14 +19,13 @@ namespace Multiplayer.Client.Persistent
 
         public override Map Map => map;
 
-        public RitualSession(Map map)
+        public RitualSession(Map map) : base(map)
         {
             this.map = map;
         }
 
-        public RitualSession(Map map, RitualData data)
+        public RitualSession(Map map, RitualData data) : this(map)
         {
-            this.map = map;
             this.data = data;
             this.data.assignments.session = this;
         }

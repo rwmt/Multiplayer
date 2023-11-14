@@ -20,7 +20,7 @@ namespace Multiplayer.Client
 
         public bool uiDirty;
 
-        public TransporterLoading(Map map)
+        public TransporterLoading(Map map) : base(map)
         {
             this.map = map;
         }

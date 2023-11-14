@@ -26,7 +26,7 @@ namespace Multiplayer.Client
 
         public override Map Map => map;
 
-        public CaravanFormingSession(Map map)
+        public CaravanFormingSession(Map map) : base(map)
         {
             this.map = map;
         }

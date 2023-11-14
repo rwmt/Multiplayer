@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using JetBrains.Annotations;
 using Verse;
 using RimWorld;
 using RimWorld.Planet;
@@ -35,12 +36,15 @@ namespace Multiplayer.Client.Persistent
         /// </summary>
         public CaravanSplittingProxy dialog;
 
+        public CaravanSplittingSession(Map map) : base(null)
+        {
+        }
+
         /// <summary>
         /// Handles creation of new CaravanSplittingSession.
-        /// Ensures a unique Id is given to this session and creates the dialog.
         /// </summary>
         /// <param name="caravan"></param>
-        public CaravanSplittingSession(Caravan caravan)
+        public CaravanSplittingSession(Caravan caravan) : base(null)
         {
             Caravan = caravan;
 

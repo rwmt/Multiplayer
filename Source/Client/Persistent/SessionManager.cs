@@ -22,7 +22,13 @@ public class SessionManager : IHasSemiPersistentData, ISessionManager
     private List<ITickingSession> tickingSessions = new();
     private static HashSet<Type> tempCleanupLoggingTypes = new();
 
+    public Map Map { get; }
     public bool AnySessionActive => allSessions.Count > 0;
+
+    public SessionManager(Map map)
+    {
+        Map = map;
+    }
 
     public bool AddSession(Session session)
     {
@@ -151,7 +157,6 @@ public class SessionManager : IHasSemiPersistentData, ISessionManager
         foreach (var session in semiPersistentSessions)
         {
             data.WriteUShort((ushort)ImplSerialization.sessions.FindIndex(session.GetType()));
-            data.WriteInt32(session.Map?.uniqueID ?? -1);
             data.WriteInt32(session.SessionId);
 
             try
@@ -174,7 +179,6 @@ public class SessionManager : IHasSemiPersistentData, ISessionManager
         for (int i = 0; i < sessionsCount; i++)
         {
             ushort typeIndex = data.ReadUShort();
-            int mapId = data.ReadInt32();
             int sessionId = data.ReadInt32();
 
             if (typeIndex >= ImplSerialization.sessions.Length)
@@ -184,20 +188,10 @@ public class SessionManager : IHasSemiPersistentData, ISessionManager
             }
 
             var objType = ImplSerialization.sessions[typeIndex];
-            Map map = null;
-            if (mapId != -1)
-            {
-                map = Find.Maps.FirstOrDefault(m => m.uniqueID == mapId);
-                if (map == null)
-                {
-                    Log.Error($"Trying to read semi persistent session of type {objType} received a null map while expecting a map with ID {mapId}");
-                    // Continue? Let it run?
-                }
-            }
 
             try
             {
-                if (Activator.CreateInstance(objType, map) is SemiPersistentSession session)
+                if (Activator.CreateInstance(objType, Map) is SemiPersistentSession session)
                 {
                     session.SessionId = sessionId;
                     session.Sync(new ReadingSyncWorker(data));
@@ -214,7 +208,7 @@ public class SessionManager : IHasSemiPersistentData, ISessionManager
 
     public void ExposeSessions()
     {
-        Scribe_Collections.Look(ref exposableSessions, "sessions", LookMode.Deep);
+        Scribe_Collections.Look(ref exposableSessions, "sessions", LookMode.Deep, Map);
 
         if (Scribe.mode == LoadSaveMode.PostLoadInit)
         {

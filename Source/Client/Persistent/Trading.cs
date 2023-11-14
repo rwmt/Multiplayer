@@ -38,9 +38,9 @@ namespace Multiplayer.Client
 
         public override bool IsSessionValid => trader != null && playerNegotiator != null;
 
-        public MpTradeSession() { }
+        public MpTradeSession(Map _) : base(null) { }
 
-        private MpTradeSession(ITrader trader, Pawn playerNegotiator, bool giftMode)
+        private MpTradeSession(ITrader trader, Pawn playerNegotiator, bool giftMode) : base(null)
         {
             this.trader = trader;
             this.playerNegotiator = playerNegotiator;

@@ -14,6 +14,8 @@ public class PauseLockSession : Session, ISessionWithCreationRestrictions
 
     public override Map Map => null;
 
+    public PauseLockSession(Map _) : base(null) { }
+
     public override bool IsCurrentlyPausing(Map map) => pauseLocks.Any(x => x(map));
 
     // Should we add some message explaining pause locks/having a list of pausing ones?

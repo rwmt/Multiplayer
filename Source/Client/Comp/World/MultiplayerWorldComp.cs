@@ -17,7 +17,7 @@ public class MultiplayerWorldComp : IHasSemiPersistentData
 
     public TileTemperaturesComp uiTemperatures;
     public List<MpTradeSession> trading = new(); // Should only be modified from MpTradeSession in PostAdd/Remove and ExposeData
-    public SessionManager sessionManager = new();
+    public SessionManager sessionManager = new(null);
 
     public Faction spectatorFaction;
 
@@ -39,7 +39,7 @@ public class MultiplayerWorldComp : IHasSemiPersistentData
         sessionManager.ExposeSessions();
         // Ensure a pause lock session exists if there's any pause locks registered
         if (!PauseLockSession.pauseLocks.NullOrEmpty())
-            sessionManager.AddSession(new PauseLockSession());
+            sessionManager.AddSession(new PauseLockSession(null));
 
         DoBackCompat();
     }
