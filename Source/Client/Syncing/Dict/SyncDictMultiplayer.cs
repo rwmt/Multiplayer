@@ -38,6 +38,22 @@ namespace Multiplayer.Client
                     return Multiplayer.game.GetSessions(data.MpContext().map).FirstOrDefault(s => s.SessionId == id);
                 }, true
             },
+            {
+                (ByteWriter data, ISessionWithTransferables session) =>
+                {
+                    if (session is Session s)
+                    {
+                        WriteSync(data, s);
+                        return;
+                    }
+
+                    WriteSync<Session>(data, null);
+                    if (session != null)
+                        Log.ErrorOnce($"Trying to sync {nameof(ISessionWithTransferables)} that is not a subtype of {nameof(Session)}", session.GetHashCode());
+                },
+                (ByteReader data) => ReadSync<Session>(data) as ISessionWithTransferables,
+                true
+            },
             #endregion
 
             #region Multiplayer Transferables
