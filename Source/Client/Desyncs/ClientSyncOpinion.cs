@@ -17,6 +17,11 @@ namespace Multiplayer.Client
         public List<uint> worldRandomStates = new();
         public List<MapRandomStateData> mapStates = new();
 
+        // todo Unused for now
+        public List<int> pawnCapacityHashes = new();
+        public List<int> pawnStatHashes = new();
+        public List<int> pawnNeedHashes = new();
+
         public List<StackTraceLogItem> desyncStackTraces = new();
         public List<int> desyncStackTraceHashes = new();
         public bool simulating;

@@ -73,8 +73,16 @@ namespace Multiplayer.Client
                 (ByteWriter data, PawnTable table) => WriteSync(data, Find.MainTabsRoot.OpenTab),
                 (ByteReader data) =>
                 {
-                    var tab = (MainTabWindow_PawnTable)ReadSync<MainButtonDef>(data).TabWindow;
-                    return tab.CreateTable();
+                    Rand.PushState();
+                    try
+                    {
+                        var tab = (MainTabWindow_PawnTable)ReadSync<MainButtonDef>(data).TabWindow;
+                        return tab.CreateTable();
+                    }
+                    finally
+                    {
+                        Rand.PopState();
+                    }
                 }, true
             },
             {
