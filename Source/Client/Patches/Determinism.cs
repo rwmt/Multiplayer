@@ -346,7 +346,8 @@ namespace Multiplayer.Client.Patches
     {
         static bool Prefix(SituationalThoughtHandler __instance, Pawn otherPawn)
         {
-            if (!Multiplayer.InInterface) return true;
+            if (Multiplayer.Client == null) return true;
+            if (Multiplayer.Ticking || Multiplayer.ExecutingCmds) return true;
 
             // This initializer needs to always run (the method itself begins with it)
             if (!__instance.cachedSocialThoughts.TryGetValue(otherPawn, out var value))
@@ -359,12 +360,64 @@ namespace Multiplayer.Client.Patches
         }
     }
 
+    [HarmonyPatch(typeof(SituationalThoughtHandler), nameof(SituationalThoughtHandler.AppendSocialThoughts))]
+    static class DontUpdateThoughQueryTickInInterface
+    {
+        private static FieldInfo queryTickField = AccessTools.Field(typeof(SituationalThoughtHandler.CachedSocialThoughts), nameof(SituationalThoughtHandler.CachedSocialThoughts.lastQueryTick));
+
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+        {
+            foreach (var inst in insts)
+            {
+                if (inst.opcode == OpCodes.Stfld && inst.operand == queryTickField)
+                {
+                    yield return new CodeInstruction(OpCodes.Ldarg_0);
+                    yield return new CodeInstruction(OpCodes.Ldarg_1);
+                    yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(DontUpdateThoughQueryTickInInterface), nameof(NewQueryTick)));
+                }
+
+                yield return inst;
+            }
+        }
+
+        private static int NewQueryTick(int ticks, SituationalThoughtHandler thoughtHandler, Pawn otherPawn)
+        {
+            return Multiplayer.Client == null || Multiplayer.Ticking || Multiplayer.ExecutingCmds ?
+                ticks :
+                thoughtHandler.cachedSocialThoughts[otherPawn].lastQueryTick;
+        }
+    }
+
     [HarmonyPatch(typeof(SituationalThoughtHandler), nameof(SituationalThoughtHandler.CheckRecalculateMoodThoughts))]
     static class DontRecalculateMoodThoughtsInInterface
     {
-        static bool Prefix()
+        static bool Prefix(SituationalThoughtHandler __instance)
         {
-            return !Multiplayer.InInterface;
+            if (Multiplayer.Client != null && !Multiplayer.Ticking && !Multiplayer.ExecutingCmds) return false;
+
+            // Notify_SituationalThoughtsDirty was called
+            if (__instance.lastMoodThoughtsRecalculationTick == -99999)
+                __instance.cachedThoughts.Clear();
+
+            return true;
+        }
+    }
+
+    [HarmonyPatch(typeof(SituationalThoughtHandler), nameof(SituationalThoughtHandler.Notify_SituationalThoughtsDirty))]
+    static class NotifyThoughtsDirtyPatch
+    {
+        private static MethodInfo clearMethod =
+            AccessTools.Method(typeof(List<Thought_Situational>), nameof(List<Thought_Situational>.Clear));
+
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+        {
+            foreach (var inst in insts)
+            {
+                if (inst.operand == clearMethod)
+                    yield return new CodeInstruction(OpCodes.Pop);
+                else
+                    yield return inst;
+            }
         }
     }
 
