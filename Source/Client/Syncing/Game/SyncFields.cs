@@ -52,6 +52,10 @@ namespace Multiplayer.Client
         public static ISyncField SyncBillMechsOnly;
         public static ISyncField SyncBillNonMechsOnly;
 
+        public static ISyncField SyncBillStyle;
+        public static ISyncField SyncBillGlobalStyle;
+        public static ISyncField SyncBillGraphicIndexOverride;
+
         public static ISyncField SyncZoneLabel;
 
         public static SyncField[] SyncBillProduction;
@@ -146,6 +150,10 @@ namespace Multiplayer.Client
             SyncBillSlavesOnly = Sync.Field(typeof(Bill), nameof(Bill.slavesOnly));
             SyncBillMechsOnly = Sync.Field(typeof(Bill), nameof(Bill.mechsOnly));
             SyncBillNonMechsOnly = Sync.Field(typeof(Bill), nameof(Bill.nonMechsOnly));
+
+            SyncBillStyle = Sync.Field(typeof(Bill), nameof(Bill.style));
+            SyncBillGlobalStyle = Sync.Field(typeof(Bill), nameof(Bill.globalStyle));
+            SyncBillGraphicIndexOverride = Sync.Field(typeof(Bill), nameof(Bill.graphicIndexOverride));
 
             SyncZoneLabel = Sync.Field(typeof(Zone), "label");
 
@@ -601,6 +609,41 @@ namespace Multiplayer.Client
         {
             SyncMechCarrierGizmoTargetValue.Watch(__instance);
             SyncMechCarrierMaxToFill.Watch(__instance.carrier);
+        }
+
+        [MpPrefix(typeof(Dialog_BillConfig), nameof(Dialog_BillConfig.DoWindowContents), lambdaOrdinal: 8)]
+        static void WatchBillStyleGlobal(object __instance)
+        {
+            // Sets the graphic to default (global) style
+            WatchBillStyle(__instance.GetPropertyOrField("<>4__this/bill"));
+        }
+
+        [MpPrefix(typeof(Dialog_BillConfig), nameof(Dialog_BillConfig.DoWindowContents), lambdaOrdinal: 9)]
+        static void WatchBillStyleBasic(Dialog_BillConfig __instance)
+        {
+            // Sets the graphic to basic style (unstyled)
+            WatchBillStyle(__instance.bill);
+        }
+
+        [MpPrefix(typeof(Dialog_BillConfig), nameof(Dialog_BillConfig.DoWindowContents), lambdaOrdinal: 10)]
+        static void WatchBillStyleSpecific(object __instance)
+        {
+            // Sets the graphic to a specific style
+            WatchBillStyle(__instance.GetPropertyOrField("CS$<>8__locals2/<>4__this/bill"));
+        }
+
+        [MpPrefix(typeof(Dialog_BillConfig), nameof(Dialog_BillConfig.DoWindowContents), lambdaOrdinal: 11)]
+        static void WatchBillStyleSpecificIndex(object __instance)
+        {
+            // Sets the graphic to a specific style with specific subgraphic index for Graphic_Random
+            WatchBillStyle(__instance.GetPropertyOrField("CS$<>8__locals3/CS$<>8__locals2/<>4__this/bill"));
+        }
+
+        static void WatchBillStyle(object bill)
+        {
+            SyncBillStyle.Watch(bill);
+            SyncBillGlobalStyle.Watch(bill);
+            SyncBillGraphicIndexOverride.Watch(bill);
         }
     }
 
