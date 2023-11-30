@@ -30,7 +30,7 @@ namespace Multiplayer.Client
                 // todo revisit disconnection during loading
                 // todo loading can be async, concurrency issues
                 if (Multiplayer.Client != null)
-                    SemiPersistent.ReadSemiPersistent(gameToLoad.SemiPersistent);
+                    SessionData.ReadSessionData(gameToLoad.SessionData);
             }
             finally
             {

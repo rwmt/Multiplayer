@@ -143,13 +143,21 @@ public class AsyncWorldTimeComp : IExposable, ITickable
         Rand.StateCompressed = randState;
 
         if (Multiplayer.GameComp.multifaction)
-            FactionExtensions.PushFaction(null, Multiplayer.WorldComp.spectatorFaction);
+        {
+            FactionExtensions.PushFaction(null, Multiplayer.WorldComp.spectatorFaction, force: true);
+            foreach (var map in Find.Maps)
+                map.MpComp().SetFaction(Multiplayer.WorldComp.spectatorFaction);
+        }
     }
 
     public void PostContext()
     {
         if (Multiplayer.GameComp.multifaction)
-            FactionExtensions.PopFaction();
+        {
+            var f = FactionExtensions.PopFaction();
+            foreach (var map in Find.Maps)
+                map.MpComp().SetFaction(f);
+        }
 
         randState = Rand.StateCompressed;
         Rand.PopState();

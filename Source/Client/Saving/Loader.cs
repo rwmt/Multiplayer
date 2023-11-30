@@ -14,7 +14,7 @@ public static class Loader
     {
         var gameDoc = DataSnapshotToXml(Multiplayer.session.dataSnapshot, mapsToLoad);
 
-        LoadPatch.gameToLoad = new(gameDoc, Multiplayer.session.dataSnapshot.SemiPersistentData);
+        LoadPatch.gameToLoad = new(gameDoc, Multiplayer.session.dataSnapshot.SessionData);
         TickPatch.replayTimeSpeed = TimeSpeed.Paused;
 
         if (changeScene)

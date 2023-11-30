@@ -9,7 +9,7 @@ namespace Multiplayer.Client
 {
     static class FactionRepeater
     {
-        public static bool Template<T>(Dictionary<int, T> factionIdToData, Action<T> dataProcessor, Map map, ref bool ignore)
+        public static bool Template<T>(IDictionary<int, T> factionIdToData, Action<T> dataProcessor, Map map, ref bool ignore)
         {
             if (Multiplayer.Client == null || ignore) return true;
 

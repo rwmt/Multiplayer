@@ -49,15 +49,15 @@ namespace Multiplayer.Client
 
         private static void CreateSession(ServerSettings settings)
         {
-            var session = new MultiplayerSession();
-            if (Multiplayer.session != null) // This is the case when hosting from a replay
-                session.dataSnapshot = Multiplayer.session.dataSnapshot;
+            var session = new MultiplayerSession
+            {
+                myFactionId = Faction.OfPlayer.loadID,
+                localServerSettings = settings,
+                gameName = settings.gameName,
+                dataSnapshot = Multiplayer.session?.dataSnapshot // This is the case when hosting from a replay
+            };
 
             Multiplayer.session = session;
-
-            session.myFactionId = Faction.OfPlayer.loadID;
-            session.localServerSettings = settings;
-            session.gameName = settings.gameName;
         }
 
         private static void PrepareLocalServer(ServerSettings settings, bool fromReplay)

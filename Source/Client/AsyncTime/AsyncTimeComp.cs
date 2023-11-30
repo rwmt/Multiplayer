@@ -173,9 +173,11 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.GameComp.multifaction)
             {
-                map.PushFaction(map.ParentFaction is { IsPlayer: true }
+                map.PushFaction(
+                    map.ParentFaction is { IsPlayer: true }
                     ? map.ParentFaction
-                    : Multiplayer.WorldComp.spectatorFaction);
+                    : Multiplayer.WorldComp.spectatorFaction,
+                    force: true);
             }
 
             prevTime = TimeSnapshot.GetAndSetFromMap(map);

@@ -9,7 +9,7 @@ public class WorldData
     public int hostFactionId;
     public int spectatorFactionId;
     public byte[]? savedGame; // Compressed game save
-    public byte[]? semiPersistent; // Compressed semi persistent data
+    public byte[]? sessionData; // Compressed semi persistent data
     public Dictionary<int, byte[]> mapData = new(); // Map id to compressed map data
 
     public Dictionary<int, List<byte[]>> mapCmds = new(); // Map id to serialized cmds list

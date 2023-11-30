@@ -13,7 +13,7 @@ using Verse.Profile;
 
 namespace Multiplayer.Client
 {
-    public record TempGameData(XmlDocument SaveData, byte[] SemiPersistent);
+    public record TempGameData(XmlDocument SaveData, byte[] SessionData);
 
     public static class SaveLoad
     {
@@ -151,8 +151,8 @@ namespace Multiplayer.Client
         public static TempGameData SaveGameData()
         {
             var gameDoc = SaveGameToDoc();
-            var semiPersistent = SemiPersistent.WriteSemiPersistent();
-            return new TempGameData(gameDoc, semiPersistent);
+            var sessionData = SessionData.WriteSessionData();
+            return new TempGameData(gameDoc, sessionData);
         }
 
         public static XmlDocument SaveGameToDoc()
@@ -211,7 +211,7 @@ namespace Multiplayer.Client
             return new GameDataSnapshot(
                 TickPatch.Timer,
                 gameData,
-                data.SemiPersistent,
+                data.SessionData,
                 mapDataDict,
                 mapCmdsDict
             );
@@ -221,7 +221,7 @@ namespace Multiplayer.Client
         {
             var mapsData = new Dictionary<int, byte[]>(snapshot.MapData);
             var gameData = snapshot.GameData;
-            var semiPersistent = snapshot.SemiPersistentData;
+            var sessionData = snapshot.SessionData;
 
             void Send()
             {
@@ -235,7 +235,7 @@ namespace Multiplayer.Client
                 }
 
                 writer.WritePrefixedBytes(GZipStream.CompressBuffer(gameData));
-                writer.WritePrefixedBytes(GZipStream.CompressBuffer(semiPersistent));
+                writer.WritePrefixedBytes(GZipStream.CompressBuffer(sessionData));
 
                 byte[] data = writer.ToArray();
 

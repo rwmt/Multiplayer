@@ -2,7 +2,6 @@ using HarmonyLib;
 using RimWorld;
 using System.Collections.Generic;
 using System.Reflection;
-using Multiplayer.Client.Desyncs;
 using Verse;
 
 namespace Multiplayer.Client.Patches
@@ -25,8 +24,6 @@ namespace Multiplayer.Client.Patches
 
             if (Multiplayer.InInterface || Current.ProgramState == ProgramState.Entry)
                 __result = localIds--;
-            else
-                DeferredStackTracing.Postfix();
         }
     }
 

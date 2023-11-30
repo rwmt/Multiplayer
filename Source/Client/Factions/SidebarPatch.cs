@@ -24,7 +24,7 @@ static class UIRootPrefix
             Find.WindowStack.ImmediateWindow(
                 "MpWindowFaction".GetHashCode(),
                 new Rect(0, UI.screenHeight / 2f - 400 / 2f, 300, 350),
-                WindowLayer.Super,
+                WindowLayer.GameUI,
                 () =>
                 {
                     FactionSidebar.DrawFactionSidebar(new Rect(0, 0, 300, 350).ContractedBy(15));

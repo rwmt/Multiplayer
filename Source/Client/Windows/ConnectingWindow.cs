@@ -11,7 +11,6 @@ namespace Multiplayer.Client
     {
         public override Vector2 InitialSize => new(400f, 150f);
 
-        protected bool IsConnecting => result == null;
         protected abstract string ConnectingString { get; }
 
         public bool returnToServerBrowser;
@@ -47,7 +46,7 @@ namespace Multiplayer.Client
             else if (Multiplayer.Client?.StateObj is ClientLoadingState { subState: LoadingState.Downloading })
                 label = "MpDownloading".Translate(Multiplayer.Client.FragmentProgress);
             else
-                label = IsConnecting ? (ConnectingString + MpUI.FixedEllipsis()) : result;
+                label = result ?? (ConnectingString + MpUI.FixedEllipsis());
 
             const float buttonHeight = 40f;
             const float buttonWidth = 120f;
@@ -85,7 +84,8 @@ namespace Multiplayer.Client
 
     public class ConnectingWindow : BaseConnectingWindow
     {
-        protected override string ConnectingString => string.Format("MpConnectingTo".Translate("{0}", port), address);
+        protected override string ConnectingString =>
+            string.Format("MpConnectingTo".Translate("{0}", port), address);
 
         private string address;
         private int port;

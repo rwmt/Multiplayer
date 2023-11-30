@@ -15,9 +15,6 @@ namespace Multiplayer.Common
 
         public void Send(CommandType cmd, int factionId, int mapId, byte[] data, ServerPlayer? sourcePlayer = null, ServerPlayer? fauxSource = null)
         {
-            if (server.freezeManager.Frozen)
-                return;
-
             // policy
             if (sourcePlayer != null)
             {
@@ -39,7 +36,7 @@ namespace Multiplayer.Common
             byte[] toSave = ScheduledCommand.Serialize(
                 new ScheduledCommand(
                     cmd,
-                    server.gameTimer + 1,
+                    server.gameTimer,
                     factionId,
                     mapId,
                     sourcePlayer?.id ?? fauxSource?.id ?? ScheduledCommand.NoPlayer,

@@ -100,7 +100,7 @@ namespace Multiplayer.Common
             }
 
             Server.worldData.savedGame = data.ReadPrefixedBytes();
-            Server.worldData.semiPersistent = data.ReadPrefixedBytes();
+            Server.worldData.sessionData = data.ReadPrefixedBytes();
 
             if (Server.worldData.CreatingJoinPoint)
                 Server.worldData.EndJoinPointCreation();

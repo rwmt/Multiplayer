@@ -10,7 +10,8 @@ namespace Multiplayer.Client;
 
 public class MultiplayerWorldComp
 {
-    public Dictionary<int, FactionWorldData> factionData = new();
+    // SortedDictionary to ensure determinism
+    public SortedDictionary<int, FactionWorldData> factionData = new();
 
     public World world;
 
@@ -33,7 +34,6 @@ public class MultiplayerWorldComp
     {
         ExposeFactionData();
 
-        Scribe_References.Look(ref spectatorFaction, "spectatorFaction");
         Scribe_Collections.Look(ref trading, "tradingSessions", LookMode.Deep);
 
         if (Scribe.mode == LoadSaveMode.PostLoadInit)
@@ -82,28 +82,31 @@ public class MultiplayerWorldComp
 
     private void ExposeFactionData()
     {
+        Scribe_References.Look(ref spectatorFaction, "spectatorFaction");
+
         if (Scribe.mode == LoadSaveMode.Saving)
         {
             int currentFactionId = GetFactionId(Find.ResearchManager);
             Scribe_Custom.LookValue(currentFactionId, "currentFactionId");
 
-            var savedFactionData = new Dictionary<int, FactionWorldData>(factionData);
+            var savedFactionData = new SortedDictionary<int, FactionWorldData>(factionData);
             savedFactionData.Remove(currentFactionId);
 
-            Scribe_Collections.Look(ref savedFactionData, "factionData", LookMode.Value, LookMode.Deep);
+            Scribe_Custom.LookValueDeep(ref savedFactionData, "factionData");
         }
         else
         {
             // The faction whose data is currently set
             Scribe_Values.Look(ref currentFactionId, "currentFactionId");
 
-            Scribe_Collections.Look(ref factionData, "factionData", LookMode.Value, LookMode.Deep);
-            factionData ??= new Dictionary<int, FactionWorldData>();
+            Scribe_Custom.LookValueDeep(ref factionData, "factionData");
+            factionData ??= new SortedDictionary<int, FactionWorldData>();
         }
 
         if (Scribe.mode == LoadSaveMode.LoadingVars && Multiplayer.session != null && Multiplayer.game != null)
         {
-            Multiplayer.game.myFactionLoading = Find.FactionManager.GetById(Multiplayer.session.myFactionId);
+            Multiplayer.game.myFactionLoading =
+                Find.FactionManager.GetById(Multiplayer.session.myFactionId) ?? spectatorFaction;
         }
 
         if (Scribe.mode == LoadSaveMode.LoadingVars)
