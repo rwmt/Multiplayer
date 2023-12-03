@@ -560,7 +560,7 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch]
-    public static class NutritionStoragesKeepsItsOwner
+    public static class StoragesKeepsTheirOwners
     {
         [HarmonyPostfix]
         [HarmonyPatch(typeof(Building_GrowthVat), nameof(Building_GrowthVat.ExposeData))]
