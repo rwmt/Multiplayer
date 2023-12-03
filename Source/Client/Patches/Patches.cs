@@ -558,4 +558,32 @@ namespace Multiplayer.Client
             );
         }
     }
+
+    [HarmonyPatch]
+    public static class NutritionStoragesKeepsItsOwner
+    {
+        [HarmonyPostfix]
+        [HarmonyPatch(typeof(Building_GrowthVat), nameof(Building_GrowthVat.ExposeData))]
+        static void PostBuildingGrowthVat(Building_GrowthVat __instance)
+            => FixStorage(__instance, __instance.allowedNutritionSettings);
+
+        [HarmonyPostfix]
+        [HarmonyPatch(typeof(CompBiosculpterPod), nameof(CompBiosculpterPod.PostExposeData))]
+        static void PostCompBiosculpterPod(CompBiosculpterPod __instance)
+            => FixStorage(__instance, __instance.allowedNutritionSettings);
+
+        [HarmonyPostfix]
+        [HarmonyPatch(typeof(CompChangeableProjectile), nameof(CompChangeableProjectile.PostExposeData))]
+        static void PostCompChangeableProjectile(CompChangeableProjectile __instance)
+            => FixStorage(__instance, __instance.allowedShellsSettings);
+
+        // Fix syncing of copy/paste due to null StorageSettings.owner by assigning the parent
+        // in ExposeData. The patched types omit passing/assigning self as the owner by passing
+        // Array.Empty<object>() as the argument to expose data on StorageSetting.
+        static void FixStorage(IStoreSettingsParent __instance, StorageSettings ___allowedNutritionSettings)
+        {
+            if (Scribe.mode == LoadSaveMode.PostLoadInit)
+                ___allowedNutritionSettings.owner ??= __instance;
+        }
+    }
 }
