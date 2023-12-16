@@ -12,6 +12,7 @@ using Multiplayer.Client.Patches;
 using Multiplayer.Client.Util;
 using Multiplayer.Common;
 using RimWorld;
+using RimWorld.Planet;
 using Steamworks;
 using UnityEngine;
 using Verse;
@@ -395,6 +396,35 @@ namespace Multiplayer.Client
                             try
                             {
                                 harmony.PatchMeasure(method, thingMethodPrefix, finalizer: thingMethodFinalizer);
+                            } catch (Exception e) {
+                                LogError($"FAIL: {method.DeclaringType.FullName}:{method.Name} with {e}");
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Set FactionContext in common WorldObject methods
+            {
+                var prefix = new HarmonyMethod(typeof(WorldObjectMethodPatches).GetMethod(nameof(WorldObjectMethodPatches.Prefix)));
+                var finalizer = new HarmonyMethod(typeof(WorldObjectMethodPatches).GetMethod(nameof(WorldObjectMethodPatches.Finalizer)));
+
+                var thingMethods = new[]
+                {
+                    ("SpawnSetup", Type.EmptyTypes),
+                    ("Tick", Type.EmptyTypes)
+                };
+
+                foreach (Type t in typeof(WorldObject).AllSubtypesAndSelf())
+                {
+                    foreach ((string m, Type[] args) in thingMethods)
+                    {
+                        MethodInfo method = t.GetMethod(m, BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly, null, args, null);
+                        if (method != null)
+                        {
+                            try
+                            {
+                                harmony.PatchMeasure(method, prefix, finalizer: finalizer);
                             } catch (Exception e) {
                                 LogError($"FAIL: {method.DeclaringType.FullName}:{method.Name} with {e}");
                             }

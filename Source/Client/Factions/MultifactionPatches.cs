@@ -10,6 +10,7 @@ using RimWorld.Planet;
 using UnityEngine;
 using Verse;
 using Verse.AI;
+using Verse.Sound;
 
 namespace Multiplayer.Client.Patches;
 
@@ -329,6 +330,32 @@ static class LetterStackReceiveOnlyMyFaction
     {
         if (Multiplayer.RealPlayerFaction != Faction.OfPlayer)
             __instance.letters.Remove(let);
+    }
+}
+
+[HarmonyPatch(typeof(LetterStack), nameof(LetterStack.ReceiveLetter), typeof(Letter), typeof(string))]
+static class LetterStackReceiveSoundOnlyMyFaction
+{
+    private static MethodInfo PlayOneShotOnCamera =
+        typeof(SoundStarter).GetMethod(nameof(SoundStarter.PlayOneShotOnCamera));
+
+    static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+    {
+        foreach (var inst in insts)
+        {
+            if (inst.operand == PlayOneShotOnCamera)
+                yield return new CodeInstruction(
+                    OpCodes.Call,
+                    SymbolExtensions.GetMethodInfo((SoundDef s, Map m) => PlaySoundReplacement(s, m)));
+            else
+                yield return inst;
+        }
+    }
+
+    static void PlaySoundReplacement(SoundDef sound, Map map)
+    {
+        if (Multiplayer.RealPlayerFaction == Faction.OfPlayer)
+            sound.PlayOneShotOnCamera(map);
     }
 }
 

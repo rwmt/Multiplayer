@@ -261,6 +261,7 @@ namespace Multiplayer.Common
 
             var player = Server.GetPlayer(playerId);
             if (player == null) return;
+            if (player.FactionId == factionId) return;
 
             player.FactionId = factionId;
             Server.SendToPlaying(Packets.Server_SetFaction, new object[] { playerId, factionId });

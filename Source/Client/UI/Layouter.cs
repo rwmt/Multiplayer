@@ -105,14 +105,13 @@ public static class Layouter
     #region Groups
     private static void PushGroup(El el)
     {
-        var parent = currentGroup;
-        currentGroup = el;
-
-        if (parent != null)
+        if (currentGroup != null)
         {
-            currentGroup.parent = parent;
-            parent.children.Add(currentGroup);
+            el.parent = currentGroup;
+            currentGroup.children.Add(el);
         }
+
+        currentGroup = el;
     }
 
     private static void PopGroup()
@@ -184,12 +183,37 @@ public static class Layouter
         PopGroup();
     }
 
+    public static void BeginHorizontalCenter()
+    {
+        BeginHorizontal();
+        FlexibleWidth();
+    }
+
+    public static void EndHorizontalCenter()
+    {
+        FlexibleWidth();
+        EndHorizontal();
+    }
+
     public static void BeginVertical(float spacing = 10f, bool stretch = true)
     {
         if (Event.current.type == EventType.Layout)
             PushGroup(new El { widthMode = DimensionMode.Decide, heightMode = stretch ? DimensionMode.Stretch : DimensionMode.SumFixedChildren, horizontal = false, spacing = spacing});
         else
             currentGroup = GetNextChild();
+    }
+
+    public static void BeginVerticalInLastRect(float spacing = 10f)
+    {
+        if (Event.current.type == EventType.Layout)
+        {
+            LastEl().parent = currentGroup;
+            currentGroup = LastEl();
+            currentGroup.spacing = spacing;
+        } else
+        {
+            currentGroup = LastEl();
+        }
     }
 
     public static void EndVertical()
@@ -204,15 +228,19 @@ public static class Layouter
         var outRect = currentGroup!.rect;
         currentGroup.scroll = true;
 
-        Widgets.BeginScrollView(
-            outRect,
-            ref scrollPos,
-            new Rect(0, 0, outRect.width - currentGroup.paddingRight, currentGroup.childrenHeight));
+        var viewRect = new Rect(outRect.x, outRect.y, outRect.width - currentGroup.paddingRight, currentGroup.childrenHeight);
+
+        if (currentGroup.paddingRight != 0f)
+            Widgets.BeginScrollView(
+                outRect,
+                ref scrollPos,
+                viewRect);
     }
 
     public static void EndScroll()
     {
-        Widgets.EndScrollView();
+        if (currentGroup.paddingRight != 0f)
+            Widgets.EndScrollView();
         EndVertical();
     }
     #endregion
@@ -304,17 +332,46 @@ public static class Layouter
         return GetNextChild().rect;
     }
 
-    public static Rect LastRect()
+    public static Rect FixedHeight(float height)
+    {
+        if (Event.current.type == EventType.Layout)
+        {
+            currentGroup!.children.Add(new El()
+                { rect = new Rect(0, 0, 0, height), widthMode = DimensionMode.Stretch, heightMode = DimensionMode.Fixed });
+            return DummyRect;
+        }
+
+        return GetNextChild().rect;
+    }
+
+    private static El LastEl()
     {
         return
             Event.current.type == EventType.Layout ?
-            currentGroup!.children.Last().rect :
-            currentGroup!.children[currentGroup.currentChild - 1].rect;
+                currentGroup!.children.Last() :
+                currentGroup!.children[currentGroup.currentChild - 1];
+    }
+
+    public static Rect LastRect()
+    {
+        return LastEl().rect;
     }
 
     public static Rect GroupRect()
     {
         return currentGroup!.rect;
+    }
+    #endregion
+
+    #region UI elements
+    public static void Label(string text, bool inheritHeight = false)
+    {
+        GUI.Label(inheritHeight ? FlexibleWidth() : ContentRect(text), text, Text.CurFontStyle);
+    }
+
+    public static bool Button(string text, float width, float height = 35f)
+    {
+        return Widgets.ButtonText(Rect(width, height), text);
     }
     #endregion
 

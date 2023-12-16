@@ -5,6 +5,7 @@ using Steamworks;
 using System;
 using System.Collections.Generic;
 using System.Text;
+using Multiplayer.Client.Factions;
 using Multiplayer.Client.Util;
 using UnityEngine;
 using Verse;
@@ -91,7 +92,9 @@ namespace Multiplayer.Client
             DrawChat(chat);
 
             GUI.BeginGroup(new Rect(chat.xMax + 10f, chat.y, infoWidth, inRect.height));
-            DrawInfo(new Rect(0, 0, infoWidth, inRect.height));
+            DrawInfo(new Rect(0, 0, infoWidth, inRect.height - 30f));
+            if (Widgets.ButtonText(new Rect(50f, inRect.height - 25f, infoWidth - 50f, 25f), "Factions"))
+                Find.WindowStack.Add(new FactionsWindow());
             GUI.EndGroup();
 
             if (KeyBindingDefOf.Cancel.KeyDownEvent && Find.WindowStack.focusedWindow == this)
