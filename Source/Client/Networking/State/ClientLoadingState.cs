@@ -42,7 +42,7 @@ public class ClientLoadingState : ClientBaseState
         bool serverFrozen = data.ReadBool();
 
         byte[] worldData = GZipStream.UncompressBuffer(data.ReadPrefixedBytes());
-        byte[] semiPersistentData = GZipStream.UncompressBuffer(data.ReadPrefixedBytes());
+        byte[] sessionData = GZipStream.UncompressBuffer(data.ReadPrefixedBytes());
 
         var mapCmdsDict = new Dictionary<int, List<ScheduledCommand>>();
         var mapDataDict = new Dictionary<int, byte[]>();
@@ -75,7 +75,7 @@ public class ClientLoadingState : ClientBaseState
         Session.dataSnapshot = new GameDataSnapshot(
             0,
             worldData,
-            semiPersistentData,
+            sessionData,
             mapDataDict,
             mapCmdsDict
         );

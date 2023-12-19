@@ -8,7 +8,7 @@ using Verse;
 
 namespace Multiplayer.Client.Comp
 {
-    public class MultiplayerGameComp : IExposable, IHasSemiPersistentData
+    public class MultiplayerGameComp : IExposable, IHasSessionData
     {
         public bool asyncTime;
         public bool multifaction;
@@ -40,12 +40,12 @@ namespace Multiplayer.Client.Comp
                 Scribe_Values.Look(ref idBlockBase64, "globalIdBlock");
         }
 
-        public void WriteSemiPersistent(ByteWriter writer)
+        public void WriteSessionData(ByteWriter writer)
         {
             SyncSerialization.WriteSync(writer, playerData);
         }
 
-        public void ReadSemiPersistent(ByteReader reader)
+        public void ReadSessionData(ByteReader reader)
         {
             playerData = SyncSerialization.ReadSync<Dictionary<int, PlayerData>>(reader);
             DebugSettings.godMode = LocalPlayerDataOrNull?.godMode ?? false;

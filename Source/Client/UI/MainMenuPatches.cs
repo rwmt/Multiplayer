@@ -5,7 +5,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using Multiplayer.Client.Factions;
 using Multiplayer.Client.Saving;
 using UnityEngine;
 using Verse;
@@ -114,7 +113,6 @@ namespace Multiplayer.Client
 
         static void ShowModDebugInfo()
         {
-            Find.WindowStack.Add(new Page_ChooseIdeo_Multifaction());
             return;
 
             var info = new RemoteData();

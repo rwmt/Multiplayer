@@ -107,8 +107,12 @@ namespace Multiplayer.Client
             if (MpVersion.IsDebug)
                 SimpleProfiler.Start();
 
-            DoUpdate(out var worked);
-            if (worked) workTicks++;
+            RunCmds();
+            if  (LongEventHandler.eventQueue.Count == 0)
+            {
+                DoUpdate(out var worked);
+                if (worked) workTicks++;
+            }
 
             if (MpVersion.IsDebug)
                 SimpleProfiler.Pause();
@@ -158,6 +162,24 @@ namespace Multiplayer.Client
             Shader.SetGlobalFloat(ShaderPropertyIDs.GameSeconds, Find.CurrentMap.AsyncTime().mapTicks.TicksToSeconds());
         }
 
+        private static bool RunCmds()
+        {
+            int curTimer = Timer;
+
+            foreach (ITickable tickable in AllTickables)
+            {
+                while (tickable.Cmds.Count > 0 && tickable.Cmds.Peek().ticks == curTimer)
+                {
+                    ScheduledCommand cmd = tickable.Cmds.Dequeue();
+                    tickable.ExecuteCmd(cmd);
+
+                    if (LongEventHandler.eventQueue.Count > 0) return true; // Yield to e.g. join-point creation
+                }
+            }
+
+            return false;
+        }
+
         public static void DoUpdate(out bool worked)
         {
             worked = false;
@@ -165,6 +187,8 @@ namespace Multiplayer.Client
 
             while (Simulating ? (Timer < simulating.target && updateTimer.ElapsedMilliseconds < 25) : (ticksToRun > 0))
             {
+                if (RunCmds())
+                    return;
                 if (DoTick(ref worked))
                     return;
             }
@@ -180,24 +204,9 @@ namespace Multiplayer.Client
         }
 
         // Returns whether the tick loop should stop
-        public static bool DoTick(ref bool worked, bool justCmds = false)
+        public static bool DoTick(ref bool worked)
         {
             tickTimer.Restart();
-            int curTimer = Timer;
-
-            foreach (ITickable tickable in AllTickables)
-            {
-                while (tickable.Cmds.Count > 0 && tickable.Cmds.Peek().ticks == curTimer)
-                {
-                    ScheduledCommand cmd = tickable.Cmds.Dequeue();
-                    tickable.ExecuteCmd(cmd);
-
-                    if (LongEventHandler.eventQueue.Count > 0) return true; // Yield to e.g. join-point creation
-                }
-            }
-
-            if (justCmds)
-                return true;
 
             foreach (ITickable tickable in AllTickables)
             {

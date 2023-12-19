@@ -57,7 +57,7 @@ public static class IngameDebug
             {
                 int faction = Find.CurrentMap.ParentFaction.loadID;
                 MultiplayerMapComp comp = Find.CurrentMap.MpComp();
-                FactionMapData data = comp.factionData.GetValueSafe(faction);
+                FactionMapData data = comp.factionData.TryGetValue(faction);
 
                 if (data != null)
                 {

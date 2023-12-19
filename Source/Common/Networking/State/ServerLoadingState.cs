@@ -31,7 +31,7 @@ public class ServerLoadingState : AsyncConnectionState
         writer.WriteInt32(Server.commands.SentCmds);
         writer.WriteBool(Server.freezeManager.Frozen);
         writer.WritePrefixedBytes(Server.worldData.savedGame);
-        writer.WritePrefixedBytes(Server.worldData.semiPersistent);
+        writer.WritePrefixedBytes(Server.worldData.sessionData);
 
         writer.WriteInt32(Server.worldData.mapCmds.Count);
 

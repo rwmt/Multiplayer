@@ -190,7 +190,8 @@ namespace Multiplayer.Client
         /// <summary>
         /// Logs an item to aid in desync debugging.
         /// </summary>
-        /// <param name="info">Information to be logged</param>
+        /// <param name="info1">Information to be logged</param>
+        /// <param name="info2">Information to be logged</param>
         public void TryAddInfoForDesyncLog(string info1, string info2)
         {
             if (!ShouldCollect) return;

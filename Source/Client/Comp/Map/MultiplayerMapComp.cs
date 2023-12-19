@@ -12,14 +12,15 @@ using Verse;
 
 namespace Multiplayer.Client
 {
-    public class MultiplayerMapComp : IExposable, IHasSemiPersistentData
+    public class MultiplayerMapComp : IExposable, IHasSessionData
     {
         public static bool tickingFactions;
 
         public Map map;
 
-        public Dictionary<int, FactionMapData> factionData = new();
-        public Dictionary<int, CustomFactionMapData> customFactionData = new();
+        // SortedDictionary to ensure determinism
+        public SortedDictionary<int, FactionMapData> factionData = new();
+        public SortedDictionary<int, CustomFactionMapData> customFactionData = new();
 
         public SessionManager sessionManager;
         public List<PersistentDialog> mapDialogs = new();
@@ -156,10 +157,10 @@ namespace Multiplayer.Client
         {
             if (Scribe.mode == LoadSaveMode.Saving)
             {
-                int currentFactionId =GetFactionId(map.zoneManager);
+                int currentFactionId = GetFactionId(map.zoneManager);
                 Scribe_Custom.LookValue(currentFactionId, "currentFactionId");
 
-                var savedFactionData = new Dictionary<int, FactionMapData>(factionData);
+                var savedFactionData = new SortedDictionary<int, FactionMapData>(factionData);
                 savedFactionData.Remove(currentFactionId);
                 Scribe_Custom.LookValueDeep(ref savedFactionData, "factionMapData", map);
             }
@@ -169,8 +170,7 @@ namespace Multiplayer.Client
                 Scribe_Values.Look(ref currentFactionId, "currentFactionId");
 
                 Scribe_Custom.LookValueDeep(ref factionData, "factionMapData", map);
-                if (factionData == null)
-                    factionData = new Dictionary<int, FactionMapData>();
+                factionData ??= new SortedDictionary<int, FactionMapData>();
             }
 
             if (Scribe.mode == LoadSaveMode.LoadingVars)
@@ -182,17 +182,17 @@ namespace Multiplayer.Client
         private void ExposeCustomFactionData()
         {
             Scribe_Custom.LookValueDeep(ref customFactionData, "customFactionMapData", map);
-            customFactionData ??= new Dictionary<int, CustomFactionMapData>();
+            customFactionData ??= new SortedDictionary<int, CustomFactionMapData>();
         }
 
-        public void WriteSemiPersistent(ByteWriter writer)
+        public void WriteSessionData(ByteWriter writer)
         {
             writer.WriteInt32(autosaveCounter);
 
             sessionManager.WriteSemiPersistent(writer);
         }
 
-        public void ReadSemiPersistent(ByteReader reader)
+        public void ReadSessionData(ByteReader reader)
         {
             autosaveCounter = reader.ReadInt32();
 

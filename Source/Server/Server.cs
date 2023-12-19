@@ -61,7 +61,7 @@ static void LoadSave(MultiplayerServer server, string path)
     server.worldData.mapData[0] = Compress(zip.GetBytes("maps/000_0_save"));
     server.worldData.mapCmds[0] = ScheduledCommand.DeserializeCmds(zip.GetBytes("maps/000_0_cmds")).Select(ScheduledCommand.Serialize).ToList();
     server.worldData.mapCmds[-1] = ScheduledCommand.DeserializeCmds(zip.GetBytes("world/000_cmds")).Select(ScheduledCommand.Serialize).ToList();
-    server.worldData.semiPersistent = Array.Empty<byte>();
+    server.worldData.sessionData = Array.Empty<byte>();
 }
 
 static byte[] Compress(byte[] input)

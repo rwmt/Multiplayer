@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -11,6 +10,7 @@ using RimWorld.Planet;
 using UnityEngine;
 using Verse;
 using Verse.AI;
+using Verse.Sound;
 
 namespace Multiplayer.Client.Patches;
 
@@ -69,20 +69,6 @@ static class PawnChangeRelationGizmo
 
         foreach (Map map in Find.Maps)
             map.attackTargetsCache.Notify_FactionHostilityChanged(Faction.OfPlayer, other);
-    }
-}
-
-[HarmonyPatch(typeof(SettlementUtility), nameof(SettlementUtility.AttackNow))]
-static class AttackNowPatch
-{
-    static void Prefix(Caravan caravan)
-    {
-        FactionContext.Push(caravan.Faction);
-    }
-
-    static void Finalizer()
-    {
-        FactionContext.Pop();
     }
 }
 
@@ -201,66 +187,6 @@ static class PawnIsColonistPatch
     static bool FactionIsPlayer(Faction f)
     {
         return f == Find.FactionManager.OfPlayer;
-    }
-}
-
-[HarmonyPatch(typeof(GetOrGenerateMapUtility), nameof(GetOrGenerateMapUtility.GetOrGenerateMap), new []{ typeof(int), typeof(IntVec3), typeof(WorldObjectDef) })]
-static class MapGenFactionPatch
-{
-    static void Prefix(int tile)
-    {
-        var mapParent = Find.WorldObjects.MapParentAt(tile);
-        if (Multiplayer.Client != null && mapParent == null)
-            Log.Warning($"Couldn't set the faction context for map gen at {tile}: no world object");
-
-        FactionContext.Push(mapParent?.Faction);
-    }
-
-    static void Finalizer()
-    {
-        FactionContext.Pop();
-    }
-}
-
-[HarmonyPatch(typeof(CaravanEnterMapUtility), nameof(CaravanEnterMapUtility.Enter), new[] { typeof(Caravan), typeof(Map), typeof(Func<Pawn, IntVec3>), typeof(CaravanDropInventoryMode), typeof(bool) })]
-static class CaravanEnterFactionPatch
-{
-    static void Prefix(Caravan caravan)
-    {
-        FactionContext.Push(caravan.Faction);
-    }
-
-    static void Finalizer()
-    {
-        FactionContext.Pop();
-    }
-}
-
-[HarmonyPatch(typeof(WealthWatcher), nameof(WealthWatcher.ForceRecount))]
-static class WealthRecountFactionPatch
-{
-    static void Prefix(WealthWatcher __instance)
-    {
-        FactionContext.Push(__instance.map.ParentFaction);
-    }
-
-    static void Finalizer()
-    {
-        FactionContext.Pop();
-    }
-}
-
-[HarmonyPatch(typeof(FactionIdeosTracker), nameof(FactionIdeosTracker.RecalculateIdeosBasedOnPlayerPawns))]
-static class RecalculateFactionIdeosContext
-{
-    static void Prefix(FactionIdeosTracker __instance)
-    {
-        FactionContext.Push(__instance.faction);
-    }
-
-    static void Finalizer()
-    {
-        FactionContext.Pop();
     }
 }
 
@@ -407,6 +333,32 @@ static class LetterStackReceiveOnlyMyFaction
     }
 }
 
+[HarmonyPatch(typeof(LetterStack), nameof(LetterStack.ReceiveLetter), typeof(Letter), typeof(string))]
+static class LetterStackReceiveSoundOnlyMyFaction
+{
+    private static MethodInfo PlayOneShotOnCamera =
+        typeof(SoundStarter).GetMethod(nameof(SoundStarter.PlayOneShotOnCamera));
+
+    static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+    {
+        foreach (var inst in insts)
+        {
+            if (inst.operand == PlayOneShotOnCamera)
+                yield return new CodeInstruction(
+                    OpCodes.Call,
+                    SymbolExtensions.GetMethodInfo((SoundDef s, Map m) => PlaySoundReplacement(s, m)));
+            else
+                yield return inst;
+        }
+    }
+
+    static void PlaySoundReplacement(SoundDef sound, Map map)
+    {
+        if (Multiplayer.RealPlayerFaction == Faction.OfPlayer)
+            sound.PlayOneShotOnCamera(map);
+    }
+}
+
 [HarmonyPatch]
 static class DontClearDialogBeginRitualCache
 {
@@ -441,43 +393,6 @@ static class DontClearDialogBeginRitualCache
     static bool ShouldCancelCacheClear()
     {
         return Multiplayer.Ticking || Multiplayer.ExecutingCmds;
-    }
-}
-
-[HarmonyPatch(typeof(Bill), nameof(Bill.ValidateSettings))]
-static class BillValidateSettingsPatch
-{
-    static void Prefix(Bill __instance)
-    {
-        if (Multiplayer.Client == null) return;
-        FactionContext.Push(__instance.pawnRestriction?.Faction); // todo HostFaction, SlaveFaction?
-    }
-
-    static void Finalizer()
-    {
-        if (Multiplayer.Client == null) return;
-        FactionContext.Pop();
-    }
-}
-
-[HarmonyPatch(typeof(Bill_Production), nameof(Bill_Production.ValidateSettings))]
-static class BillProductionValidateSettingsPatch
-{
-    static void Prefix(Bill_Production __instance, ref Map __state)
-    {
-        if (Multiplayer.Client == null) return;
-
-        var zoneManager = __instance.storeZone?.zoneManager ?? __instance.includeFromZone?.zoneManager;
-        if (__instance.Map != null && zoneManager != null)
-        {
-            __instance.Map.PushFaction(zoneManager.map.MpComp().GetFactionId(zoneManager));
-            __state = __instance.Map;
-        }
-    }
-
-    static void Finalizer(Map __state)
-    {
-        __state?.PopFaction();
     }
 }
 

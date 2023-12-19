@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using Verse;
 
@@ -33,119 +34,62 @@ namespace Multiplayer.Client.Saving
         }
 
         // Copy of RimWorld's method but with ctor args
-        public static void LookValueDeep<K, V>(ref Dictionary<K, V> dict, string label, params object[] valueCtorArgs)
+        public static void LookValueDeep<K, V>(ref SortedDictionary<K, V> dict, string label, params object[] valueCtorArgs)
         {
-            List<K> keysWorkingList = null;
-            List<V> valuesWorkingList = null;
-
             if (Scribe.EnterNode(label))
             {
                 try
                 {
-                    if (Scribe.mode == LoadSaveMode.Saving || Scribe.mode == LoadSaveMode.LoadingVars)
-                    {
-                        keysWorkingList = new List<K>();
-                        valuesWorkingList = new List<V>();
-                    }
+                    List<K> keysWorkingList = null;
+                    List<V> valuesWorkingList = null;
 
                     if (Scribe.mode == LoadSaveMode.Saving)
                     {
-                        foreach (KeyValuePair<K, V> current in dict)
-                        {
-                            keysWorkingList.Add(current.Key);
-                            valuesWorkingList.Add(current.Value);
-                        }
+                        keysWorkingList = dict.Keys.ToList();
+                        valuesWorkingList = dict.Values.ToList();
                     }
 
                     Scribe_Collections.Look(ref keysWorkingList, "keys", LookMode.Value);
                     Scribe_Collections.Look(ref valuesWorkingList, "values", LookMode.Deep, valueCtorArgs);
 
-                    if (Scribe.mode == LoadSaveMode.Saving)
-                    {
-                        if (keysWorkingList != null)
-                        {
-                            keysWorkingList.Clear();
-                            keysWorkingList = null;
-                        }
-
-                        if (valuesWorkingList != null)
-                        {
-                            valuesWorkingList.Clear();
-                            valuesWorkingList = null;
-                        }
-                    }
-
                     if (Scribe.mode == LoadSaveMode.LoadingVars)
                     {
                         dict.Clear();
+
                         if (keysWorkingList == null)
                         {
                             Log.Error("Cannot fill dictionary because there are no keys.");
+                            return;
                         }
-                        else if (valuesWorkingList == null)
+
+                        if (valuesWorkingList == null)
                         {
                             Log.Error("Cannot fill dictionary because there are no values.");
+                            return;
                         }
-                        else
+
+                        if (keysWorkingList.Count != valuesWorkingList.Count)
                         {
-                            if (keysWorkingList.Count != valuesWorkingList.Count)
+                            Log.Error($"Keys count does not match the values count while loading a dictionary. Some elements will be skipped. keys={keysWorkingList.Count}, values={valuesWorkingList.Count}");
+                        }
+
+                        int num = Math.Min(keysWorkingList.Count, valuesWorkingList.Count);
+                        for (int i = 0; i < num; i++)
+                        {
+                            if (keysWorkingList[i] == null)
                             {
-                                Log.Error(string.Concat(new object[]
-                                {
-                                    "Keys count does not match the values count while loading a dictionary (maybe keys and values were resolved during different passes?). Some elements will be skipped. keys=",
-                                    keysWorkingList.Count,
-                                    ", values=",
-                                    valuesWorkingList.Count
-                                }));
+                                Log.Error($"Null key while loading dictionary of {typeof(K)} and {typeof(V)}");
+                                continue;
                             }
 
-                            int num = Math.Min(keysWorkingList.Count, valuesWorkingList.Count);
-                            for (int i = 0; i < num; i++)
+                            try
                             {
-                                if (keysWorkingList[i] == null)
-                                {
-                                    Log.Error(string.Concat(new object[]
-                                    {
-                                        "Null key while loading dictionary of ",
-                                        typeof(K),
-                                        " and ",
-                                        typeof(V),
-                                        "."
-                                    }));
-                                }
-                                else
-                                {
-                                    try
-                                    {
-                                        dict.Add(keysWorkingList[i], valuesWorkingList[i]);
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        Log.Error(string.Concat(new object[]
-                                        {
-                                            "Exception in LookDictionary(node=",
-                                            label,
-                                            "): ",
-                                            ex
-                                        }));
-                                    }
-                                }
+                                dict.Add(keysWorkingList[i], valuesWorkingList[i]);
                             }
-                        }
-                    }
-
-                    if (Scribe.mode == LoadSaveMode.PostLoadInit)
-                    {
-                        if (keysWorkingList != null)
-                        {
-                            keysWorkingList.Clear();
-                            keysWorkingList = null;
-                        }
-
-                        if (valuesWorkingList != null)
-                        {
-                            valuesWorkingList.Clear();
-                            valuesWorkingList = null;
+                            catch (Exception ex)
+                            {
+                                Log.Error($"Exception in LookDictionary(node={label}): {ex}");
+                            }
                         }
                     }
                 }

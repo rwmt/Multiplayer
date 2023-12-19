@@ -2,8 +2,10 @@ using System.Collections.Generic;
 using System.Reflection;
 using HarmonyLib;
 using Multiplayer.Client.Patches;
+using Multiplayer.Common;
 using RimWorld;
 using Verse;
+using Verse.AI;
 
 namespace Multiplayer.Client.Desyncs
 {
@@ -19,7 +21,6 @@ namespace Multiplayer.Client.Desyncs
         {
             yield return AccessTools.PropertyGetter(typeof(Rand), nameof(Rand.Value));
             yield return AccessTools.PropertyGetter(typeof(Rand), nameof(Rand.Int));
-            //yield return AccessTools.Method(typeof(Thing), nameof(Thing.DeSpawn));
         }
 
         public static int acc;
@@ -54,6 +55,45 @@ namespace Multiplayer.Client.Desyncs
             if (!Multiplayer.Ticking && !Multiplayer.ExecutingCmds) return false;
 
             return ignoreTraces == 0;
+        }
+    }
+
+    [HarmonyPatch(typeof(UniqueIDsManager), nameof(UniqueIDsManager.GetNextID))]
+    public static class UniqueIdsPatch
+    {
+        static void Postfix()
+        {
+            DeferredStackTracing.Postfix();
+        }
+    }
+
+    [HarmonyPatch(typeof(Thing), nameof(Thing.SpawnSetup))]
+    public static class ThingSpawnPatch
+    {
+        static void Postfix(Thing __instance)
+        {
+            if (__instance.def.HasThingIDNumber)
+                DeferredStackTracing.Postfix();
+        }
+    }
+
+    [HarmonyPatch(typeof(Thing), nameof(Thing.DeSpawn))]
+    public static class ThingDeSpawnPatch
+    {
+        static void Postfix(Thing __instance)
+        {
+            if (__instance.def.HasThingIDNumber)
+                DeferredStackTracing.Postfix();
+        }
+    }
+
+    [HarmonyPatch(typeof(Pawn_JobTracker), nameof(Pawn_JobTracker.EndCurrentJob))]
+    public static class EndCurrentJobPatch
+    {
+        static void Prefix(Pawn_JobTracker __instance)
+        {
+            if (MpVersion.IsDebug && __instance.curJob != null && DeferredStackTracing.ShouldAddStackTraceForDesyncLog())
+                Multiplayer.game.sync.TryAddInfoForDesyncLog($"EndCurrentJob for {__instance.pawn}: {__instance.curJob}", "");
         }
     }
 

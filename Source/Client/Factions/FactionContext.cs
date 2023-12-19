@@ -8,9 +8,9 @@ namespace Multiplayer.Client
     {
         public static Stack<Faction> stack = new();
 
-        public static Faction Push(Faction newFaction)
+        public static Faction Push(Faction newFaction, bool force = false)
         {
-            if (newFaction == null || Find.FactionManager.ofPlayer == newFaction || !newFaction.def.isPlayer)
+            if (newFaction == null || !force && Find.FactionManager.ofPlayer == newFaction || !newFaction.def.isPlayer)
             {
                 stack.Push(null);
                 return null;

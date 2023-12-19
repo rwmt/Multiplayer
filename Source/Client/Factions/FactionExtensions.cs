@@ -8,9 +8,9 @@ public static class FactionExtensions
     // Sets the current Faction.OfPlayer
     // Applies faction's world components
     // Applies faction's map components if map not null
-    public static void PushFaction(this Map map, Faction f)
+    public static void PushFaction(this Map map, Faction f, bool force = false)
     {
-        var faction = FactionContext.Push(f);
+        var faction = FactionContext.Push(f, force);
         if (faction == null) return;
 
         Multiplayer.WorldComp?.SetFaction(faction);
@@ -23,9 +23,9 @@ public static class FactionExtensions
         map.PushFaction(faction);
     }
 
-    public static void PopFaction()
+    public static Faction PopFaction()
     {
-        PopFaction(null);
+        return PopFaction(null);
     }
 
     public static Faction PopFaction(this Map map)

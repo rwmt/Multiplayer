@@ -201,12 +201,6 @@ namespace Multiplayer.Client
             Debug.Log(__originalMethod.FullDescription());
         }
 
-        [DebugAction(MultiplayerCategory, allowedGameStates = AllowedGameStates.Playing)]
-        static void Add1000TicksToTime()
-        {
-            Find.TickManager.ticksGameInt += 1000;
-        }
-
 #if DEBUG
 
         [DebugOutput]
