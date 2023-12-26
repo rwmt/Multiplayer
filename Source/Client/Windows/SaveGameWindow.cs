@@ -71,7 +71,7 @@ public class SaveGameWindow : Window
     {
         if (curText.Length != 0)
         {
-            LongEventHandler.QueueLongEvent(() => MultiplayerSession.SaveGameToFile_Overwrite(curText, currentReplay), "MpSaving", false, null);
+            LongEventHandler.QueueLongEvent(() => Autosaving.SaveGameToFile_Overwrite(curText, currentReplay), "MpSaving", false, null);
             Close();
         }
     }

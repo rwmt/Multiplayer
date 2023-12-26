@@ -25,7 +25,7 @@ public class ClientLoadingState : ClientBaseState
     public void HandleWorldDataStart(ByteReader data)
     {
         subState = LoadingState.Downloading;
-        connection.Lenient = false;
+        connection.Lenient = false; // Lenient is set while rejoining
     }
 
     [PacketHandler(Packets.Server_WorldData)]

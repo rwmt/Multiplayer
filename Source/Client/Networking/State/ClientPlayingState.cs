@@ -19,10 +19,11 @@ namespace Multiplayer.Client
         {
             int tickUntil = data.ReadInt32();
             int sentCmds = data.ReadInt32();
-            TickPatch.serverTimePerTick = data.ReadFloat();
+            float stpt = data.ReadFloat();
 
             if (Multiplayer.session.remoteTickUntil >= tickUntil) return;
 
+            TickPatch.serverTimePerTick = stpt;
             Multiplayer.session.remoteTickUntil = tickUntil;
             Multiplayer.session.remoteSentCmds = sentCmds;
             Multiplayer.session.ProcessTimeControl();
@@ -251,7 +252,7 @@ namespace Multiplayer.Client
         [PacketHandler(Packets.Server_Debug)]
         public void HandleDebug(ByteReader data)
         {
-            MultiplayerSession.DoRejoin();
+            Rejoiner.DoRejoin();
         }
 
         [PacketHandler(Packets.Server_SetFaction)]

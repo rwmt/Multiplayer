@@ -2,12 +2,12 @@
 namespace System.Runtime.CompilerServices
 {
     // Added to support compiling with C# 9
-    public sealed class IsExternalInit
+    internal sealed class IsExternalInit
     {
     }
 
     [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Enum | AttributeTargets.Interface | AttributeTargets.Delegate, Inherited = false, AllowMultiple = false)]
-    public sealed class AsyncMethodBuilderAttribute : Attribute
+    internal sealed class AsyncMethodBuilderAttribute : Attribute
     {
         public Type BuilderType { get; }
 
@@ -21,7 +21,7 @@ namespace System.Runtime.CompilerServices
 namespace System.Diagnostics.CodeAnalysis
 {
     [AttributeUsage(AttributeTargets.Parameter)]
-    public sealed class NotNullWhenAttribute : Attribute
+    internal sealed class NotNullWhenAttribute : Attribute
     {
         public NotNullWhenAttribute(bool returnValue) => ReturnValue = returnValue;
         public bool ReturnValue { get; }

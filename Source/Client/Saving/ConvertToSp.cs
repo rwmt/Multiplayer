@@ -19,7 +19,7 @@ public class ConvertToSp
     {
         const string suffix = "-preconvert";
         var saveName = $"{GenFile.SanitizedFileName(Multiplayer.session.gameName)}{suffix}";
-        MultiplayerSession.SaveGameToFile_Overwrite(saveName, false);
+        Autosaving.SaveGameToFile_Overwrite(saveName, false);
     }
 
     private static void PrepareSingleplayer()

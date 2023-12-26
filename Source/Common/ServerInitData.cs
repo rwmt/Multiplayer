@@ -11,6 +11,17 @@ public record ServerInitData(
     Dictionary<string, DefInfo> DefInfos
 )
 {
+    public static byte[] Serialize(ServerInitData data)
+    {
+        return ByteWriter.GetBytes(
+            data.RawData,
+            data.RwVersion,
+            data.DebugOnlySyncCmds.ToList(),
+            data.HostOnlySyncCmds.ToList(),
+            data.DefInfos.Select(p => (p.Key, p.Value.count, p.Value.hash)).ToList()
+        );
+    }
+
     public static ServerInitData Deserialize(ByteReader data)
     {
         var joinData = new ServerInitData

@@ -41,7 +41,7 @@ namespace Multiplayer.Client
                     session.autosaveCounter > server.settings.autosaveInterval * TicksPerMinute)
                 {
                     session.autosaveCounter = 0;
-                    MultiplayerSession.DoAutosave();
+                    Autosaving.DoAutosave();
                 }
             } else if (server.settings.autosaveUnit == AutosaveUnit.Days && server.settings.autosaveInterval > 0)
             {
@@ -52,7 +52,7 @@ namespace Multiplayer.Client
                 if (anyMapCounterUp)
                 {
                     Multiplayer.game.mapComps.Do(m => m.autosaveCounter = 0);
-                    MultiplayerSession.DoAutosave();
+                    Autosaving.DoAutosave();
                 }
             }
         }

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using HarmonyLib;
 using Multiplayer.Client.Networking;
 using Multiplayer.Common;
@@ -47,13 +48,13 @@ namespace Multiplayer.Client
 
         public static byte[] PackInitData(bool includeConfigs)
         {
-            return ByteWriter.GetBytes(
+            return ServerInitData.Serialize(new ServerInitData(
                 JoinData.WriteServerData(includeConfigs),
                 VersionControl.CurrentVersionString,
-                Sync.handlers.Where(h => h.debugOnly).Select(h => h.syncId).ToList(),
-                Sync.handlers.Where(h => h.hostOnly).Select(h => h.syncId).ToList(),
-                MultiplayerData.localDefInfos.Select(p => (p.Key, p.Value.count, p.Value.hash)).ToList()
-            );
+                Sync.handlers.Where(h => h.debugOnly).Select(h => h.syncId).ToHashSet(),
+                Sync.handlers.Where(h => h.hostOnly).Select(h => h.syncId).ToHashSet(),
+                new Dictionary<string, DefInfo>(MultiplayerData.localDefInfos)
+            ));
         }
 
         [PacketHandler(Packets.Server_UsernameOk)]

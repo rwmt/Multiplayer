@@ -52,7 +52,7 @@ namespace Multiplayer.Client
             if (Widgets.ButtonText(new Rect(x, 0, 120, 35), "MpTryResync".Translate()) && !rejoining)
             {
                 Log.Message("Multiplayer: requesting rejoin");
-                MultiplayerSession.DoRejoin();
+                Rejoiner.DoRejoin();
             }
 
             x += 120 + 10;
