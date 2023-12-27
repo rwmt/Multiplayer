@@ -5,10 +5,11 @@ using System.Linq;
 using Verse;
 using Multiplayer.Client.Persistent;
 using Multiplayer.Client.Saving;
+using Multiplayer.Common;
 
 namespace Multiplayer.Client;
 
-public class MultiplayerWorldComp
+public class MultiplayerWorldComp : IHasSemiPersistentData
 {
     // SortedDictionary to ensure determinism
     public SortedDictionary<int, FactionWorldData> factionData = new();
@@ -16,8 +17,8 @@ public class MultiplayerWorldComp
     public World world;
 
     public TileTemperaturesComp uiTemperatures;
-    public List<MpTradeSession> trading = new();
-    public CaravanSplittingSession splitSession;
+    public List<MpTradeSession> trading = new(); // Should only be modified from MpTradeSession in PostAdd/Remove and ExposeData
+    public SessionManager sessionManager = new(null);
 
     public Faction spectatorFaction;
 
@@ -34,11 +35,10 @@ public class MultiplayerWorldComp
     {
         ExposeFactionData();
 
-        Scribe_Collections.Look(ref trading, "tradingSessions", LookMode.Deep);
-
-        if (Scribe.mode == LoadSaveMode.PostLoadInit)
-            if (trading.RemoveAll(t => t.trader == null || t.playerNegotiator == null) > 0)
-                Log.Message("Some trading sessions had null entries");
+        sessionManager.ExposeSessions();
+        // Ensure a pause lock session exists if there's any pause locks registered
+        if (!PauseLockSession.pauseLocks.NullOrEmpty())
+            sessionManager.AddSession(new PauseLockSession(null));
 
         DoBackCompat();
     }
@@ -116,23 +116,25 @@ public class MultiplayerWorldComp
         }
     }
 
-    public void TickWorldTrading()
+    public void WriteSemiPersistent(ByteWriter writer)
     {
-        for (int i = trading.Count - 1; i >= 0; i--)
-        {
-            var session = trading[i];
-            if (session.playerNegotiator.Spawned) continue;
+        sessionManager.WriteSemiPersistent(writer);
+    }
 
-            if (session.ShouldCancel())
-                RemoveTradeSession(session);
-        }
+    public void ReadSemiPersistent(ByteReader data)
+    {
+        sessionManager.ReadSemiPersistent(data);
+    }
+
+    public void TickWorldSessions()
+    {
+        sessionManager.TickSessions();
     }
 
     public void RemoveTradeSession(MpTradeSession session)
     {
-        int index = trading.IndexOf(session);
-        trading.Remove(session);
-        Find.WindowStack?.WindowOfType<TradingWindow>()?.Notify_RemovedSession(index);
+        // Cleanup and removal from `trading` field is handled in PostRemoveSession
+        sessionManager.RemoveSession(session);
     }
 
     public void SetFaction(Faction faction)

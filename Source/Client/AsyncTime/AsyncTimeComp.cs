@@ -18,19 +18,13 @@ namespace Multiplayer.Client
     {
         public static Map tickingMap;
         public static Map executingCmdMap;
-        public static List<PauseLockDelegate> pauseLocks = new();
 
         public float TickRateMultiplier(TimeSpeed speed)
         {
             var comp = map.MpComp();
 
-            var enforcePause = comp.transporterLoading != null ||
-                comp.caravanForming != null ||
-                comp.ritualSession != null ||
-                comp.mapDialogs.Any() ||
-                Multiplayer.WorldComp.AnyTradeSessionsOnMap(map) ||
-                Multiplayer.WorldComp.splitSession != null ||
-                pauseLocks.Any(x => x(map));
+            var enforcePause = comp.sessionManager.IsAnySessionCurrentlyPausing(map) ||
+                Multiplayer.WorldComp.sessionManager.IsAnySessionCurrentlyPausing(map);
 
             if (enforcePause)
                 return 0f;
@@ -113,7 +107,7 @@ namespace Multiplayer.Client
                 tickListRare.Tick();
                 tickListLong.Tick();
 
-                TickMapTrading();
+                TickMapSessions();
 
                 storyteller.StorytellerTick();
                 storyWatcher.StoryWatcherTick();
@@ -139,18 +133,9 @@ namespace Multiplayer.Client
             }
         }
 
-        public void TickMapTrading()
+        public void TickMapSessions()
         {
-            var trading = Multiplayer.WorldComp.trading;
-
-            for (int i = trading.Count - 1; i >= 0; i--)
-            {
-                var session = trading[i];
-                if (session.playerNegotiator.Map != map) continue;
-
-                if (session.ShouldCancel())
-                    Multiplayer.WorldComp.RemoveTradeSession(session);
-            }
+            map.MpComp().sessionManager.TickSessions();
         }
 
         // These are normally called in Map.MapUpdate() and react to changes in the game state even when the game is paused (not ticking)

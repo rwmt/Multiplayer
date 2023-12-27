@@ -22,9 +22,7 @@ namespace Multiplayer.Client
         public SortedDictionary<int, FactionMapData> factionData = new();
         public SortedDictionary<int, CustomFactionMapData> customFactionData = new();
 
-        public CaravanFormingSession caravanForming;
-        public TransporterLoading transporterLoading;
-        public RitualSession ritualSession;
+        public SessionManager sessionManager;
         public List<PersistentDialog> mapDialogs = new();
         public int autosaveCounter;
 
@@ -34,26 +32,54 @@ namespace Multiplayer.Client
         public MultiplayerMapComp(Map map)
         {
             this.map = map;
+            sessionManager = new(map);
         }
 
         public CaravanFormingSession CreateCaravanFormingSession(bool reform, Action onClosed, bool mapAboutToBeRemoved, IntVec3? meetingSpot = null)
         {
+            var caravanForming = sessionManager.GetFirstOfType<CaravanFormingSession>();
             if (caravanForming == null)
+            {
                 caravanForming = new CaravanFormingSession(map, reform, onClosed, mapAboutToBeRemoved, meetingSpot);
+                if (!sessionManager.AddSession(caravanForming))
+                {
+                    // Shouldn't happen if the session doesn't exist already, show an error just in case
+                    Log.Error($"Failed trying to created a session of type {nameof(CaravanFormingSession)} - prior session did not exist and creating session failed.");
+                    return null;
+                }
+            }
             return caravanForming;
         }
 
         public TransporterLoading CreateTransporterLoadingSession(List<CompTransporter> transporters)
         {
+            var transporterLoading = sessionManager.GetFirstOfType<TransporterLoading>();
             if (transporterLoading == null)
+            {
                 transporterLoading = new TransporterLoading(map, transporters);
+                if (!sessionManager.AddSession(transporterLoading))
+                {
+                    // Shouldn't happen if the session doesn't exist already, show an error just in case
+                    Log.Error($"Failed trying to created a session of type {nameof(TransporterLoading)} - prior session did not exist and creating session failed.");
+                    return null;
+                }
+            }
             return transporterLoading;
         }
 
         public RitualSession CreateRitualSession(RitualData data)
         {
+            var ritualSession = sessionManager.GetFirstOfType<RitualSession>();
             if (ritualSession == null)
+            {
                 ritualSession = new RitualSession(map, data);
+                if (!sessionManager.AddSession(ritualSession))
+                {
+                    // Shouldn't happen if the session doesn't exist already, show an error just in case
+                    Log.Error($"Failed trying to created a session of type {nameof(RitualSession)} - prior session did not exist and creating session failed.");
+                    return null;
+                }
+            }
             return ritualSession;
         }
 
@@ -115,8 +141,7 @@ namespace Multiplayer.Client
                 Scribe_Values.Look(ref isPlayerHome, "isPlayerHome", false, true);
             }
 
-            Scribe_Deep.Look(ref caravanForming, "caravanFormingSession", map);
-            Scribe_Deep.Look(ref transporterLoading, "transporterLoading", map);
+            sessionManager.ExposeSessions();
 
             Scribe_Collections.Look(ref mapDialogs, "mapDialogs", LookMode.Deep, map);
             if (Scribe.mode == LoadSaveMode.LoadingVars && mapDialogs == null)
@@ -164,21 +189,14 @@ namespace Multiplayer.Client
         {
             writer.WriteInt32(autosaveCounter);
 
-            writer.WriteBool(ritualSession != null);
-            ritualSession?.Write(writer);
+            sessionManager.WriteSemiPersistent(writer);
         }
 
         public void ReadSessionData(ByteReader reader)
         {
             autosaveCounter = reader.ReadInt32();
 
-            var hasRitual = reader.ReadBool();
-            if (hasRitual)
-            {
-                var session = new RitualSession(map);
-                session.Read(reader);
-                ritualSession = session;
-            }
+            sessionManager.ReadSemiPersistent(reader);
         }
 
         public int GetFactionId(ZoneManager zoneManager)
@@ -215,13 +233,9 @@ namespace Multiplayer.Client
             if (Multiplayer.Client == null) return;
 
             // Trading window on resume save
-            if (Multiplayer.WorldComp.trading.NullOrEmpty()) return;
-
+            if (!Multiplayer.WorldComp.trading.NullOrEmpty()) return;
             // playerNegotiator == null can only happen during loading? Is this a resuming check?
-            if (Multiplayer.WorldComp.trading.FirstOrDefault(t => t.playerNegotiator == null) is { } trade)
-            {
-                trade.OpenWindow();
-            }
+            Multiplayer.WorldComp.trading.FirstOrDefault(t => t.playerNegotiator == null)?.OpenWindow();
         }
     }
 

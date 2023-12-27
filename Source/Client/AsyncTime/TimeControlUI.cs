@@ -358,58 +358,9 @@ public static class ColonistBarTimeControl
 
     static List<FloatMenuOption> GetBlockingWindowOptions(ColonistBar.Entry entry, ITickable tickable)
     {
-        List<FloatMenuOption> options = new List<FloatMenuOption>();
-        var split = Multiplayer.WorldComp.splitSession;
-
-        if (split != null && split.Caravan.pawns.Contains(entry.pawn))
-        {
-            options.Add(new FloatMenuOption("MpCaravanSplittingSession".Translate(), () =>
-            {
-                SwitchToMapOrWorld(entry.map);
-                CameraJumper.TryJumpAndSelect(entry.pawn);
-                Multiplayer.WorldComp.splitSession.OpenWindow();
-            }));
-        }
-
-        if (Multiplayer.WorldComp.trading.FirstOrDefault(t => t.playerNegotiator?.Map == entry.map) is { } trade)
-        {
-            options.Add(new FloatMenuOption("MpTradingSession".Translate(), () =>
-            {
-                SwitchToMapOrWorld(entry.map);
-                CameraJumper.TryJumpAndSelect(trade.playerNegotiator);
-                Find.WindowStack.Add(new TradingWindow()
-                    { selectedTab = Multiplayer.WorldComp.trading.IndexOf(trade) });
-            }));
-        }
-
-        if (entry.map?.MpComp().transporterLoading != null)
-        {
-            options.Add(new FloatMenuOption("MpTransportLoadingSession".Translate(), () =>
-            {
-                SwitchToMapOrWorld(entry.map);
-                entry.map.MpComp().transporterLoading.OpenWindow();
-            }));
-        }
-
-        if (entry.map?.MpComp().caravanForming != null)
-        {
-            options.Add(new FloatMenuOption("MpCaravanFormingSession".Translate(), () =>
-            {
-                SwitchToMapOrWorld(entry.map);
-                entry.map.MpComp().caravanForming.OpenWindow();
-            }));
-        }
-
-        if (entry.map?.MpComp().ritualSession != null)
-        {
-            options.Add(new FloatMenuOption("MpRitualSession".Translate(), () =>
-            {
-                SwitchToMapOrWorld(entry.map);
-                entry.map.MpComp().ritualSession.OpenWindow();
-            }));
-        }
-
-        return options;
+        return Multiplayer.WorldComp.sessionManager.AllSessions
+            .ConcatIfNotNull(entry.map?.MpComp().sessionManager.AllSessions)
+            .Select(s => s.GetBlockingWindowOptions(entry)).Where(fmo => fmo != null).ToList();
     }
 
     static void SwitchToMapOrWorld(Map map)

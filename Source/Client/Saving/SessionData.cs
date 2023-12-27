@@ -32,6 +32,17 @@ namespace Multiplayer.Client.Saving
                 Log.Error($"Exception writing session data for game: {e}");
             }
 
+            try
+            {
+                var worldWriter = new ByteWriter();
+                Multiplayer.WorldComp.WriteSemiPersistent(worldWriter);
+                writer.WritePrefixedBytes(worldWriter.ToArray());
+            }
+            catch (Exception e)
+            {
+                Log.Error($"Exception writing semi-persistent data for world: {e}");
+            }
+
             writer.WriteInt32(Find.Maps.Count);
             foreach (var map in Find.Maps)
             {
@@ -66,6 +77,17 @@ namespace Multiplayer.Client.Saving
             catch (Exception e)
             {
                 Log.Error($"Exception reading session data for game: {e}");
+            }
+
+            var worldData = reader.ReadPrefixedBytes();
+
+            try
+            {
+                Multiplayer.WorldComp.ReadSemiPersistent(new ByteReader(worldData));
+            }
+            catch (Exception e)
+            {
+                Log.Error($"Exception reading semi-persistent data for world: {e}");
             }
 
             var mapCount = reader.ReadInt32();

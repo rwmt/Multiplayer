@@ -4,19 +4,20 @@ using Multiplayer.Client.Persistent;
 using RimWorld;
 using RimWorld.Planet;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using Multiplayer.Client.Experimental;
 using Verse;
 using Verse.AI;
 using Verse.AI.Group;
 
 namespace Multiplayer.Client
 {
-    public class MpTradeSession : IExposable, ISessionWithTransferables
+    public class MpTradeSession : ExposableSession, ISessionWithTransferables, ISessionWithCreationRestrictions, ITickingSession
     {
         public static MpTradeSession current;
 
-        public int sessionId;
         public ITrader trader;
         public Pawn playerNegotiator;
         public bool giftMode;
@@ -33,38 +34,47 @@ namespace Multiplayer.Client
             }
         }
 
-        public Map Map => playerNegotiator.Map;
-        public int SessionId => sessionId;
+        public override Map Map => playerNegotiator.Map;
 
-        public MpTradeSession() { }
+        public override bool IsSessionValid => trader != null && playerNegotiator != null;
 
-        private MpTradeSession(ITrader trader, Pawn playerNegotiator, bool giftMode)
+        public MpTradeSession(Map _) : base(null) { }
+
+        private MpTradeSession(ITrader trader, Pawn playerNegotiator, bool giftMode) : base(null)
         {
-            sessionId = Find.UniqueIDsManager.GetNextThingID();
-
             this.trader = trader;
             this.playerNegotiator = playerNegotiator;
             this.giftMode = giftMode;
             giftsOnly = giftMode;
         }
 
+        public bool CanExistWith(Session other)
+        {
+            if (other is not MpTradeSession otherTrade)
+                return true;
+
+            // todo show error messages?
+            if (otherTrade.trader == trader)
+                return false;
+
+            if (otherTrade.playerNegotiator == playerNegotiator)
+                return false;
+
+            return true;
+        }
+
         public static MpTradeSession TryCreate(ITrader trader, Pawn playerNegotiator, bool giftMode)
         {
-            // todo show error messages?
-            if (Multiplayer.WorldComp.trading.Any(s => s.trader == trader))
-                return null;
-
-            if (Multiplayer.WorldComp.trading.Any(s => s.playerNegotiator == playerNegotiator))
-                return null;
-
             MpTradeSession session = new MpTradeSession(trader, playerNegotiator, giftMode);
-            Multiplayer.WorldComp.trading.Add(session);
-
-            CancelTradeDealReset.cancel = true;
-            SetTradeSession(session);
+            // Return null if there was a conflicting session
+            if (!Multiplayer.WorldComp.sessionManager.AddSession(session))
+                return null;
 
             try
             {
+                CancelTradeDealReset.cancel = true;
+                SetTradeSession(session);
+
                 session.deal = new MpTradeDeal(session);
 
                 Thing permSilver = ThingMaker.MakeThing(ThingDefOf.Silver, null);
@@ -117,14 +127,22 @@ namespace Multiplayer.Client
         [SyncMethod]
         public void TryExecute()
         {
-            SetTradeSession(this);
+            bool executed = false;
 
-            deal.recacheColony = true;
-            deal.recacheTrader = true;
-            deal.Recache();
+            try
+            {
+                SetTradeSession(this);
 
-            bool executed = deal.TryExecute(out bool traded);
-            SetTradeSession(null);
+                deal.recacheColony = true;
+                deal.recacheTrader = true;
+                deal.Recache();
+
+                executed = deal.TryExecute(out bool traded);
+            }
+            finally
+            {
+                SetTradeSession(null);
+            }
 
             if (executed)
                 Multiplayer.WorldComp.RemoveTradeSession(this);
@@ -147,6 +165,7 @@ namespace Multiplayer.Client
 
         public static void SetTradeSession(MpTradeSession session)
         {
+            SyncSessionWithTransferablesMarker.DrawnSessionWithTransferables = session;
             current = session;
             TradeSession.trader = session?.trader;
             TradeSession.playerNegotiator = session?.playerNegotiator;
@@ -179,9 +198,17 @@ namespace Multiplayer.Client
             }
         }
 
-        public void ExposeData()
+        public void Tick()
         {
-            Scribe_Values.Look(ref sessionId, "sessionId");
+            if (playerNegotiator.Spawned) return;
+
+            if (ShouldCancel())
+                Multiplayer.WorldComp.sessionManager.RemoveSession(this);
+        }
+
+        public override void ExposeData()
+        {
+            base.ExposeData();
 
             ILoadReferenceable trader = (ILoadReferenceable)this.trader;
             Scribe_References.Look(ref trader, "trader");
@@ -192,6 +219,9 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref giftsOnly, "giftsOnly");
 
             Scribe_Deep.Look(ref deal, "tradeDeal", this);
+
+            if (Scribe.mode == LoadSaveMode.PostLoadInit)
+                Multiplayer.WorldComp.trading.AddDistinct(this);
         }
 
         public Transferable GetTransferableByThingId(int thingId)
@@ -211,6 +241,31 @@ namespace Multiplayer.Client
         public void Notify_CountChanged(Transferable tr)
         {
             deal.caravanDirty = true;
+        }
+
+        public override bool IsCurrentlyPausing(Map map) => map == Map;
+
+        public override FloatMenuOption GetBlockingWindowOptions(ColonistBar.Entry entry)
+        {
+            if (playerNegotiator?.Map != entry.map)
+                return null;
+
+            return new FloatMenuOption("MpTradingSession".Translate(), () =>
+            {
+                SwitchToMapOrWorld(entry.map);
+                CameraJumper.TryJumpAndSelect(playerNegotiator);
+                Find.WindowStack.Add(new TradingWindow()
+                    { selectedTab = Multiplayer.WorldComp.trading.IndexOf(this) });
+            });
+        }
+
+        public override void PostAddSession() => Multiplayer.WorldComp.trading.Add(this);
+
+        public override void PostRemoveSession()
+        {
+            var index = Multiplayer.WorldComp.trading.IndexOf(this);
+            Multiplayer.WorldComp.trading.RemoveAt(index);
+            Find.WindowStack?.WindowOfType<TradingWindow>()?.Notify_RemovedSession(index);
         }
     }
 
@@ -546,7 +601,7 @@ namespace Multiplayer.Client
         static void Postfix(CompPowerTrader __instance, bool value)
         {
             if (Multiplayer.Client == null) return;
-            if (!(__instance.parent is Building_OrbitalTradeBeacon)) return;
+            if (__instance.parent is not Building_OrbitalTradeBeacon) return;
             if (value == __instance.powerOnInt) return;
             if (!Multiplayer.WorldComp.trading.Any(t => t.trader is TradeShip)) return;
 
@@ -673,15 +728,7 @@ namespace Multiplayer.Client
     {
         static bool Prefix(Settlement_TraderTracker __instance)
         {
-            if (Multiplayer.Client != null)
-            {
-                var trading = Multiplayer.WorldComp.trading;
-                for (int i = 0; i < trading.Count; i++)
-                    if (trading[i].trader == __instance.settlement)
-                        return false;
-            }
-
-            return true;
+            return Multiplayer.Client == null || Multiplayer.WorldComp.trading.All(s => s.trader != __instance.settlement);
         }
     }
 

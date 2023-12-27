@@ -172,8 +172,8 @@ namespace Multiplayer.Client
                 },
                 (ByteReader data) => {
                     var id = data.ReadInt32();
-                    var ritual = data.MpContext().map.MpComp().ritualSession;
-                    return ritual?.SessionId == id ? ritual.data.assignments : null;
+                    var ritual = data.MpContext().map.MpComp().sessionManager.GetFirstWithId<RitualSession>(id);
+                    return ritual?.data.assignments;
                 }
             },
             {

@@ -166,7 +166,7 @@ namespace Multiplayer.Client.Persistent
             if (Multiplayer.ExecutingCmds || Multiplayer.Ticking)
             {
                 var comp = map.MpComp();
-                if (comp.caravanForming == null)
+                if (comp.sessionManager.GetFirstOfType<CaravanFormingSession>() == null)
                     comp.CreateCaravanFormingSession(reform, onClosed, mapAboutToBeRemoved);
             }
         }

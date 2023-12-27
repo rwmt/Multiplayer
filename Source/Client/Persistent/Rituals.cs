@@ -1,11 +1,11 @@
 using HarmonyLib;
 using Multiplayer.API;
-using Multiplayer.Common;
 using RimWorld;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Multiplayer.Client.Experimental;
 using Multiplayer.Client.Util;
 using UnityEngine;
 using Verse;
@@ -13,24 +13,20 @@ using static Verse.Widgets;
 
 namespace Multiplayer.Client.Persistent
 {
-    public class RitualSession : ISession, IPausingWithDialog
+    public class RitualSession : SemiPersistentSession, IPausingWithDialog
     {
         public Map map;
         public RitualData data;
 
-        public Map Map => map;
-        public int SessionId { get; private set; }
+        public override Map Map => map;
 
-        public RitualSession(Map map)
+        public RitualSession(Map map) : base(map)
         {
             this.map = map;
         }
 
-        public RitualSession(Map map, RitualData data)
+        public RitualSession(Map map, RitualData data) : this(map)
         {
-            SessionId = Find.UniqueIDsManager.GetNextThingID();
-
-            this.map = map;
             this.data = data;
             this.data.assignments.session = this;
         }
@@ -38,7 +34,7 @@ namespace Multiplayer.Client.Persistent
         [SyncMethod]
         public void Remove()
         {
-            map.MpComp().ritualSession = null;
+            map.MpComp().sessionManager.RemoveSession(this);
         }
 
         [SyncMethod]
@@ -78,19 +74,28 @@ namespace Multiplayer.Client.Persistent
             Find.WindowStack.Add(dialog);
         }
 
-        public void Write(ByteWriter writer)
+        public override void Sync(SyncWorker sync)
         {
-            writer.WriteInt32(SessionId);
-            writer.MpContext().map = map;
-
-            SyncSerialization.WriteSync(writer, data);
+            if (sync.isWriting)
+            {
+                sync.Write(data);
+            }
+            else
+            {
+                data = sync.Read<RitualData>();
+                data.assignments.session = this;
+            }
         }
 
-        public void Read(ByteReader reader)
+        public override bool IsCurrentlyPausing(Map map) => map == this.map;
+
+        public override FloatMenuOption GetBlockingWindowOptions(ColonistBar.Entry entry)
         {
-            SessionId = reader.ReadInt32();
-            data = SyncSerialization.ReadSync<RitualData>(reader);
-            data.assignments.session = this;
+            return new FloatMenuOption("MpRitualSession".Translate(), () =>
+            {
+                SwitchToMapOrWorld(entry.map);
+                OpenWindow();
+            });
         }
     }
 
@@ -103,7 +108,7 @@ namespace Multiplayer.Client.Persistent
     {
         public static BeginRitualProxy drawing;
 
-        public RitualSession Session => map.MpComp().ritualSession;
+        public RitualSession Session => map.MpComp().sessionManager.GetFirstOfType<RitualSession>();
 
         public BeginRitualProxy(string header, string ritualLabel, Precept_Ritual ritual, TargetInfo target, Map map, ActionCallback action, Pawn organizer, RitualObligation obligation, Func<Pawn, bool, bool, bool> filter = null, string confirmText = null, List<Pawn> requiredPawns = null, Dictionary<string, Pawn> forcedForRole = null, string ritualName = null, RitualOutcomeEffectDef outcome = null, List<string> extraInfoText = null, Pawn selectedPawn = null) :
             base(header, ritualLabel, ritual, target, map, action, organizer, obligation, filter, confirmText, requiredPawns, forcedForRole, ritualName, outcome, extraInfoText, selectedPawn)
@@ -210,16 +215,17 @@ namespace Multiplayer.Client.Persistent
                 dialog.PostOpen(); // Completes initialization
 
                 var comp = dialog.map.MpComp();
+                var session = comp.sessionManager.GetFirstOfType<RitualSession>();
 
-                if (comp.ritualSession != null &&
-                    (comp.ritualSession.data.ritual != dialog.ritual ||
-                     comp.ritualSession.data.outcome != dialog.outcome))
+                if (session != null &&
+                    (session.data.ritual != dialog.ritual ||
+                     session.data.outcome != dialog.outcome))
                 {
                     Messages.Message("MpAnotherRitualInProgress".Translate(), MessageTypeDefOf.RejectInput, false);
                     return false;
                 }
 
-                if (comp.ritualSession == null)
+                if (session == null)
                 {
                     var data = new RitualData
                     {
@@ -235,11 +241,11 @@ namespace Multiplayer.Client.Persistent
                         assignments = MpUtil.ShallowCopy(dialog.assignments, new MpRitualAssignments())
                     };
 
-                    comp.CreateRitualSession(data);
+                    session = comp.CreateRitualSession(data);
                 }
 
                 if (TickPatch.currentExecutingCmdIssuedBySelf)
-                    comp.ritualSession.OpenWindow();
+                    session?.OpenWindow();
 
                 return false;
             }

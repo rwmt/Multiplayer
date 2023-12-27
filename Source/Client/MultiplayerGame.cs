@@ -6,8 +6,8 @@ using System.Linq;
 using System.Reflection;
 using Multiplayer.Client.AsyncTime;
 using Multiplayer.Client.Comp;
+using Multiplayer.Client.Experimental;
 using Multiplayer.Client.Factions;
-using Multiplayer.Client.Persistent;
 using UnityEngine;
 using Verse;
 
@@ -111,25 +111,9 @@ namespace Multiplayer.Client
             ThingContext.Clear();
         }
 
-        public IEnumerable<ISession> GetSessions(Map map)
+        public IEnumerable<Session> GetSessions(Map map)
         {
-            foreach (var s in worldComp.trading)
-                yield return s;
-
-            if (worldComp.splitSession != null)
-                yield return worldComp.splitSession;
-
-            if (map == null) yield break;
-            var mapComp = map.MpComp();
-
-            if (mapComp.caravanForming != null)
-                yield return mapComp.caravanForming;
-
-            if (mapComp.transporterLoading != null)
-                yield return mapComp.transporterLoading;
-
-            if (mapComp.ritualSession != null)
-                yield return mapComp.ritualSession;
+            return worldComp.sessionManager.AllSessions.ConcatIfNotNull(map?.MpComp().sessionManager.AllSessions);
         }
 
         public void ChangeRealPlayerFaction(int newFaction)

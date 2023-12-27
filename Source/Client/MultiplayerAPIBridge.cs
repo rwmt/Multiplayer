@@ -3,6 +3,9 @@ using System.Reflection;
 using HarmonyLib;
 using Multiplayer.API;
 using Multiplayer.Client;
+using Multiplayer.Client.Experimental;
+using Multiplayer.Client.Persistent;
+using Verse;
 using Multiplayer.Client.Patches;
 
 // ReSharper disable once CheckNamespace
@@ -148,7 +151,24 @@ namespace Multiplayer.Common
 
         public void RegisterPauseLock(PauseLockDelegate pauseLock)
         {
-            AsyncTimeComp.pauseLocks.Add(pauseLock);
+            Sync.RegisterPauseLock(pauseLock);
+        }
+
+        public ISessionManager GetGlobalSessionManager()
+        {
+            return Client.Multiplayer.WorldComp.sessionManager;
+        }
+
+        public ISessionManager GetLocalSessionManager(Map map)
+        {
+            if (map == null)
+                throw new ArgumentNullException(nameof(map));
+            return map.MpComp().sessionManager;
+        }
+
+        public void SetCurrentSessionWithTransferables(ISessionWithTransferables session)
+        {
+            SyncSessionWithTransferablesMarker.DrawnSessionWithTransferables = session;
         }
 
         public void RegisterDefaultLetterChoice(MethodInfo method, Type letterType = null) => CloseDialogsForExpiredLetters.RegisterDefaultLetterChoice(method, letterType);

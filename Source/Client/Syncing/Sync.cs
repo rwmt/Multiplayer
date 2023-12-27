@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Multiplayer.Client.Persistent;
 using Verse;
 
 namespace Multiplayer.Client
@@ -375,7 +376,15 @@ namespace Multiplayer.Client
             if (pauseLock == null)
                 throw new Exception($"Couldn't generate pause lock delegate from {method.DeclaringType?.FullName}:{method.Name}");
 
-            AsyncTimeComp.pauseLocks.Add(pauseLock);
+            RegisterPauseLock(pauseLock);
+        }
+
+        public static void RegisterPauseLock(PauseLockDelegate pauseLock)
+        {
+            if (PauseLockSession.pauseLocks.Contains(pauseLock))
+                throw new Exception($"Pause lock already registered: {pauseLock}");
+
+            PauseLockSession.pauseLocks.Add(pauseLock);
         }
 
         public static void ValidateAll()

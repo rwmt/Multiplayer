@@ -452,8 +452,8 @@ namespace Multiplayer.Client
         {
             var comp = map.MpComp();
 
-            if (comp.caravanForming != null)
-                comp.caravanForming.OpenWindow();
+            if (comp.sessionManager.GetFirstOfType<CaravanFormingSession>() is { } session)
+                session.OpenWindow();
             else
                 CreateCaravanFormingSession(comp, reform, meetingSpot);
         }
