@@ -9,29 +9,6 @@ using Verse;
 
 namespace Multiplayer.Client
 {
-    public record Serializer<Live, Networked>(
-        Func<Live, object, object[], Networked> Writer, // (live, target, args) => networked
-        Func<Networked, Live> Reader // (networked) => live
-    );
-
-    public static class Serializer
-    {
-        public static Serializer<Live, Networked> New<Live, Networked>(Func<Live, object, object[], Networked> writer, Func<Networked, Live> reader)
-        {
-            return new(writer, reader);
-        }
-
-        public static Serializer<Live, Networked> New<Live, Networked>(Func<Live, Networked> writer, Func<Networked, Live> reader)
-        {
-            return new((live, _, _) => writer(live), reader);
-        }
-
-        public static Serializer<Live, object> SimpleReader<Live>(Func<Live> reader)
-        {
-            return new((_, _, _) => null, _ => reader());
-        }
-    }
-
     public record SyncTransformer(Type LiveType, Type NetworkType, Delegate Writer, Delegate Reader);
 
     public delegate void SyncMethodWriter(object obj, SyncType type, string debugInfo);
@@ -234,6 +211,12 @@ namespace Multiplayer.Client
             return this;
         }
 
+        public ISyncMethod SetHostOnly()
+        {
+            hostOnly = true;
+            return this;
+        }
+
         public ISyncMethod SetPreInvoke(Action<object, object[]> action)
         {
             beforeCall = action;
@@ -270,27 +253,21 @@ namespace Multiplayer.Client
             return this;
         }
 
-        public SyncMethod TransformArgument<Live, Networked>(int index, Serializer<Live, Networked> serializer)
+        public ISyncMethod TransformArgument<Live, Networked>(int index, Serializer<Live, Networked> serializer, bool skipTypeCheck = false)
         {
-            if (argTypes[index].type != typeof(Live))
+            if (!skipTypeCheck && argTypes[index].type != typeof(Live))
                 throw new Exception($"Arg transformer type mismatch for {this}: {argTypes[index].type} != {typeof(Live)}");
 
             argTransformers[index] = new(typeof(Live), typeof(Networked), serializer.Writer, serializer.Reader);
             return this;
         }
 
-        public SyncMethod TransformTarget<Live, Networked>(Serializer<Live, Networked> serializer)
+        public ISyncMethod TransformTarget<Live, Networked>(Serializer<Live, Networked> serializer, bool skipTypeCheck = false)
         {
-            if (targetType != typeof(Live))
+            if (!skipTypeCheck && targetType != typeof(Live))
                 throw new Exception($"Target transformer type mismatch for {this}: {targetType} != {typeof(Live)}");
 
             targetTransformer = new(typeof(Live), typeof(Networked), serializer.Writer, serializer.Reader);
-            return this;
-        }
-
-        public SyncMethod SetHostOnly()
-        {
-            hostOnly = true;
             return this;
         }
 
@@ -299,10 +276,10 @@ namespace Multiplayer.Client
             return Sync.RegisterSyncMethod(type, methodOrPropertyName, argTypes);
         }
 
-        public static SyncMethod Lambda(Type parentType, string parentMethod, int lambdaOrdinal, Type[] parentArgs = null)
+        public static SyncMethod Lambda(Type parentType, string parentMethod, int lambdaOrdinal, Type[] parentArgs = null, MethodType parentMethodType = MethodType.Normal)
         {
             return Sync.RegisterSyncMethod(
-                MpMethodUtil.GetLambda(parentType, parentMethod, MethodType.Normal, parentArgs, lambdaOrdinal),
+                MpMethodUtil.GetLambda(parentType, parentMethod, parentMethodType, parentArgs, lambdaOrdinal),
                 null
             );
         }

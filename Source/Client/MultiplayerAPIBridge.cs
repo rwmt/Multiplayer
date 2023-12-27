@@ -1,7 +1,9 @@
 using System;
 using System.Reflection;
+using HarmonyLib;
 using Multiplayer.API;
 using Multiplayer.Client;
+using Multiplayer.Client.Patches;
 
 // ReSharper disable once CheckNamespace
 namespace Multiplayer.Common
@@ -20,6 +22,10 @@ namespace Multiplayer.Common
         public bool IsExecutingSyncCommand => Client.Multiplayer.ExecutingCmds;
 
         public bool IsExecutingSyncCommandIssuedBySelf => TickPatch.currentExecutingCmdIssuedBySelf;
+
+        public bool CanUseDevMode => Client.Multiplayer.GameComp.LocalPlayerDataOrNull?.canUseDevMode ?? false;
+
+        public bool InInterface => Client.Multiplayer.InInterface;
 
         public void WatchBegin()
         {
@@ -90,6 +96,16 @@ namespace Multiplayer.Common
             return Sync.RegisterSyncMethod(method, argTypes);
         }
 
+        public ISyncMethod RegisterSyncMethodLambda(Type parentType, string parentMethod, int lambdaOrdinal, Type[] parentArgs = null, ParentMethodType parentMethodType = ParentMethodType.Normal)
+        {
+            return SyncMethod.Lambda(parentType, parentMethod, lambdaOrdinal, parentArgs, (MethodType)parentMethodType);
+        }
+
+        public ISyncMethod RegisterSyncMethodLambdaInGetter(Type parentType, string parentMethod, int lambdaOrdinal)
+        {
+            return SyncMethod.LambdaInGetter(parentType, parentMethod, lambdaOrdinal);
+        }
+
         public ISyncDelegate RegisterSyncDelegate(Type inType, string nestedType, string methodName, string[] fields, Type[] args = null)
         {
             return Sync.RegisterSyncDelegate(inType, nestedType, methodName, fields, args);
@@ -98,6 +114,21 @@ namespace Multiplayer.Common
         public ISyncDelegate RegisterSyncDelegate(Type type, string nestedType, string method)
         {
             return Sync.RegisterSyncDelegate(type, nestedType, method);
+        }
+
+        public ISyncDelegate RegisterSyncDelegateLambda(Type parentType, string parentMethod, int lambdaOrdinal, Type[] parentArgs = null, ParentMethodType parentMethodType = ParentMethodType.Normal)
+        {
+            return SyncDelegate.Lambda(parentType, parentMethod, lambdaOrdinal, parentArgs, (MethodType)parentMethodType);
+        }
+
+        public ISyncDelegate RegisterSyncDelegateLambdaInGetter(Type parentType, string parentMethod, int lambdaOrdinal)
+        {
+            return SyncDelegate.LambdaInGetter(parentType, parentMethod, lambdaOrdinal);
+        }
+
+        public ISyncDelegate RegisterSyncDelegateLocalFunc(Type parentType, string parentMethod, string localFuncName, Type[] parentArgs = null)
+        {
+            return SyncDelegate.LocalFunc(parentType, parentMethod, localFuncName, parentArgs);
         }
 
         public void RegisterSyncWorker<T>(SyncWorkerDelegate<T> syncWorkerDelegate, Type targetType = null, bool isImplicit = false, bool shouldConstruct = false)
@@ -119,5 +150,7 @@ namespace Multiplayer.Common
         {
             AsyncTimeComp.pauseLocks.Add(pauseLock);
         }
+
+        public void RegisterDefaultLetterChoice(MethodInfo method, Type letterType = null) => CloseDialogsForExpiredLetters.RegisterDefaultLetterChoice(method, letterType);
     }
 }
