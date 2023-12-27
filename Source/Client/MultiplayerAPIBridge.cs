@@ -1,8 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using HarmonyLib;
 using Multiplayer.API;
 using Multiplayer.Client;
+using Verse;
 using Multiplayer.Client.Experimental;
 using Multiplayer.Client.Persistent;
 using Verse;
@@ -172,5 +174,25 @@ namespace Multiplayer.Common
         }
 
         public void RegisterDefaultLetterChoice(MethodInfo method, Type letterType = null) => CloseDialogsForExpiredLetters.RegisterDefaultLetterChoice(method, letterType);
+
+        public Thing GetThingById(int id)
+        {
+            return ThingsById.thingsById[id];
+        }
+
+        public bool TryGetThingById(int id, out Thing value)
+        {
+            return ThingsById.thingsById.TryGetValue(id, out value);
+        }
+
+        public IReadOnlyList<IPlayerInfo> GetPlayers()
+        {
+            return Client.Multiplayer.session.players.AsReadOnly();
+        }
+
+        public IPlayerInfo GetPlayerById(int id)
+        {
+            return Client.Multiplayer.session.GetPlayerInfo(id);
+        }
     }
 }
