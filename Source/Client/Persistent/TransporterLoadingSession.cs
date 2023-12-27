@@ -1,14 +1,12 @@
 using System.Collections.Generic;
 using System.Linq;
 using Multiplayer.API;
-using Multiplayer.Client.Experimental;
 using RimWorld;
 using Verse;
-using Multiplayer.Client.Persistent;
 
 namespace Multiplayer.Client
 {
-    public class TransporterLoading : ExposableSession, ISessionWithTransferables, IPausingWithDialog
+    public class TransporterLoading : ExposableSession, ISessionWithTransferables
     {
         public override Map Map => map;
 

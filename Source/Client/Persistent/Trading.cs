@@ -1,13 +1,11 @@
 using HarmonyLib;
 using Multiplayer.API;
-using Multiplayer.Client.Persistent;
 using RimWorld;
 using RimWorld.Planet;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
-using Multiplayer.Client.Experimental;
 using Verse;
 using Verse.AI;
 using Verse.AI.Group;

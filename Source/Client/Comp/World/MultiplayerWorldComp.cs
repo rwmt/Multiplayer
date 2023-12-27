@@ -9,7 +9,7 @@ using Multiplayer.Common;
 
 namespace Multiplayer.Client;
 
-public class MultiplayerWorldComp : IHasSemiPersistentData
+public class MultiplayerWorldComp : IHasSessionData
 {
     // SortedDictionary to ensure determinism
     public SortedDictionary<int, FactionWorldData> factionData = new();
@@ -116,14 +116,14 @@ public class MultiplayerWorldComp : IHasSemiPersistentData
         }
     }
 
-    public void WriteSemiPersistent(ByteWriter writer)
+    public void WriteSessionData(ByteWriter writer)
     {
-        sessionManager.WriteSemiPersistent(writer);
+        sessionManager.WriteSessionData(writer);
     }
 
-    public void ReadSemiPersistent(ByteReader data)
+    public void ReadSessionData(ByteReader data)
     {
-        sessionManager.ReadSemiPersistent(data);
+        sessionManager.ReadSessionData(data);
     }
 
     public void TickWorldSessions()

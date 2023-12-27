@@ -189,14 +189,14 @@ namespace Multiplayer.Client
         {
             writer.WriteInt32(autosaveCounter);
 
-            sessionManager.WriteSemiPersistent(writer);
+            sessionManager.WriteSessionData(writer);
         }
 
         public void ReadSessionData(ByteReader reader)
         {
             autosaveCounter = reader.ReadInt32();
 
-            sessionManager.ReadSemiPersistent(reader);
+            sessionManager.ReadSessionData(reader);
         }
 
         public int GetFactionId(ZoneManager zoneManager)

@@ -1,10 +1,8 @@
 using System.Collections.Generic;
-using JetBrains.Annotations;
 using Verse;
 using RimWorld;
 using RimWorld.Planet;
 using Multiplayer.API;
-using Multiplayer.Client.Experimental;
 using Verse.Sound;
 
 namespace Multiplayer.Client.Persistent
@@ -12,7 +10,7 @@ namespace Multiplayer.Client.Persistent
     /// <summary>
     /// Represents an active Caravan Split session. This session will track all the pawns and items being split.
     /// </summary>
-    public class CaravanSplittingSession : ExposableSession, ISessionWithTransferables, IPausingWithDialog, ISessionWithCreationRestrictions
+    public class CaravanSplittingSession : ExposableSession, ISessionWithTransferables, ISessionWithCreationRestrictions
     {
         public override Map Map => null;
 

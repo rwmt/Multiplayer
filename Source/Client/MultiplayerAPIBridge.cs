@@ -5,10 +5,8 @@ using HarmonyLib;
 using Multiplayer.API;
 using Multiplayer.Client;
 using Verse;
-using Multiplayer.Client.Experimental;
-using Multiplayer.Client.Persistent;
-using Verse;
 using Multiplayer.Client.Patches;
+using RimWorld;
 
 // ReSharper disable once CheckNamespace
 namespace Multiplayer.Common
@@ -31,6 +29,8 @@ namespace Multiplayer.Common
         public bool CanUseDevMode => Client.Multiplayer.GameComp.LocalPlayerDataOrNull?.canUseDevMode ?? false;
 
         public bool InInterface => Client.Multiplayer.InInterface;
+
+        public Faction RealPlayerFaction => Client.Multiplayer.RealPlayerFaction;
 
         public void WatchBegin()
         {
@@ -193,6 +193,11 @@ namespace Multiplayer.Common
         public IPlayerInfo GetPlayerById(int id)
         {
             return Client.Multiplayer.session.GetPlayerInfo(id);
+        }
+
+        public void SetThingFilterContext(ThingFilterContext context)
+        {
+            ThingFilterMarkers.DrawnThingFilter = context;
         }
     }
 }

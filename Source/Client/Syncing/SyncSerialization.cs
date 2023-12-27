@@ -9,7 +9,6 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Xml;
-using Multiplayer.Client.Experimental;
 using Verse;
 
 namespace Multiplayer.Client

@@ -1,15 +1,13 @@
 using Multiplayer.API;
-using Multiplayer.Client.Persistent;
 using RimWorld;
 using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
-using Multiplayer.Client.Experimental;
 using Verse;
 
 namespace Multiplayer.Client
 {
-    public class CaravanFormingSession : ExposableSession, ISessionWithTransferables, IPausingWithDialog, ISessionWithCreationRestrictions
+    public class CaravanFormingSession : ExposableSession, ISessionWithTransferables, ISessionWithCreationRestrictions
     {
         public Map map;
 

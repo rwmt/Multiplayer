@@ -1,5 +1,5 @@
 ﻿using System;
-using Multiplayer.Client.Persistent;
+using Multiplayer.API;
 
 namespace Multiplayer.Client;
 

@@ -1,3 +1,4 @@
+using Multiplayer.API;
 using RimWorld;
 
 namespace Multiplayer.Client.Persistent;

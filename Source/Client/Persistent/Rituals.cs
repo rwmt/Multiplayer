@@ -5,7 +5,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using Multiplayer.Client.Experimental;
 using Multiplayer.Client.Util;
 using UnityEngine;
 using Verse;
@@ -13,7 +12,7 @@ using static Verse.Widgets;
 
 namespace Multiplayer.Client.Persistent
 {
-    public class RitualSession : SemiPersistentSession, IPausingWithDialog
+    public class RitualSession : SemiPersistentSession
     {
         public Map map;
         public RitualData data;

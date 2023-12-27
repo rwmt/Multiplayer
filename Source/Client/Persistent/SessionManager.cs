@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using Multiplayer.Client.Experimental;
+using Multiplayer.API;
 using Multiplayer.Client.Saving;
 using Multiplayer.Common;
 using RimWorld;
@@ -9,7 +9,7 @@ using Verse;
 
 namespace Multiplayer.Client.Persistent;
 
-public class SessionManager : IHasSemiPersistentData, ISessionManager
+public class SessionManager : IHasSessionData, ISessionManager
 {
     public IReadOnlyList<Session> AllSessions => allSessions.AsReadOnly();
     public IReadOnlyList<ExposableSession> ExposableSessions => exposableSessions.AsReadOnly();
@@ -133,7 +133,7 @@ public class SessionManager : IHasSemiPersistentData, ISessionManager
 
     public Session GetFirstWithId(int id) => allSessions.FirstOrDefault(s => s.SessionId == id);
 
-    public void WriteSemiPersistent(ByteWriter data)
+    public void WriteSessionData(ByteWriter data)
     {
         // Clear the set to make sure it's empty
         tempCleanupLoggingTypes.Clear();
@@ -170,7 +170,7 @@ public class SessionManager : IHasSemiPersistentData, ISessionManager
         }
     }
 
-    public void ReadSemiPersistent(ByteReader data)
+    public void ReadSessionData(ByteReader data)
     {
         var sessionsCount = data.ReadInt32();
         semiPersistentSessions.Clear();

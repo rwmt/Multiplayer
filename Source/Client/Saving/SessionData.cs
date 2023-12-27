@@ -35,7 +35,7 @@ namespace Multiplayer.Client.Saving
             try
             {
                 var worldWriter = new ByteWriter();
-                Multiplayer.WorldComp.WriteSemiPersistent(worldWriter);
+                Multiplayer.WorldComp.WriteSessionData(worldWriter);
                 writer.WritePrefixedBytes(worldWriter.ToArray());
             }
             catch (Exception e)
@@ -83,7 +83,7 @@ namespace Multiplayer.Client.Saving
 
             try
             {
-                Multiplayer.WorldComp.ReadSemiPersistent(new ByteReader(worldData));
+                Multiplayer.WorldComp.ReadSessionData(new ByteReader(worldData));
             }
             catch (Exception e)
             {
