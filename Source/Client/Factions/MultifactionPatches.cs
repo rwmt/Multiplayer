@@ -40,7 +40,7 @@ static class PawnChangeRelationGizmo
 
             yield return new Command_Action
             {
-                defaultLabel = $"Change faction relation {Faction.OfPlayer.HostileTo(otherFaction)}",
+                defaultLabel = "Change faction relation",
                 icon = MultiplayerStatic.ChangeRelationIcon,
                 action = () =>
                 {

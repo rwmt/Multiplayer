@@ -281,6 +281,17 @@ namespace Multiplayer.Client
 
             var harmony = Multiplayer.harmony;
 
+            void TryPatch(MethodBase original, HarmonyMethod prefix = null, HarmonyMethod postfix = null,
+                HarmonyMethod transpiler = null, HarmonyMethod finalizer = null)
+            {
+                try
+                {
+                    harmony.PatchMeasure(original, prefix, postfix, transpiler, finalizer);
+                } catch (Exception e) {
+                    LogError($"FAIL: {original.DeclaringType.FullName}:{original.Name} with {e}");
+                }
+            }
+
             SetCategory("Annotated patches");
 
             Assembly.GetCallingAssembly().GetTypes().Do(type => {
@@ -314,12 +325,7 @@ namespace Multiplayer.Client
                         if (method == null) continue;
 
                         MethodInfo prefix = AccessTools.Method(typeof(DesignatorPatches), m);
-                        try
-                        {
-                            harmony.PatchMeasure(method, new HarmonyMethod(prefix) { priority = MpPriority.MpFirst }, null, null, new HarmonyMethod(designatorFinalizer));
-                        } catch (Exception e) {
-                            LogError($"FAIL: {t.FullName}:{method.Name} with {e}");
-                        }
+                        TryPatch(method, new HarmonyMethod(prefix) { priority = MpPriority.MpFirst }, null, null, new HarmonyMethod(designatorFinalizer));
                     }
                 }
             }
@@ -353,15 +359,7 @@ namespace Multiplayer.Client
                 var ritualMethods = new[] { cannotAssignReason, canEverSpectate };
 
                 foreach (MethodBase m in effectMethods.Concat(moteMethods).Concat(fleckMethods).Concat(ritualMethods))
-                {
-                    try
-                    {
-                        harmony.PatchMeasure(m, randPatchPrefix, randPatchPostfix);
-                    } catch (Exception e) {
-                        LogError($"FAIL: {m.DeclaringType.FullName}:{m.Name} with {e}");
-                    }
-                }
-
+                    TryPatch(m, randPatchPrefix, randPatchPostfix);
             }
 
             SetCategory("Non-deterministic patches 2");
@@ -386,20 +384,13 @@ namespace Multiplayer.Client
                     // SpawnSetup is patched separately because it sets the map
                     var spawnSetupMethod = t.GetMethod("SpawnSetup", BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly);
                     if (spawnSetupMethod != null)
-                        harmony.PatchMeasure(spawnSetupMethod, thingMethodPrefixSpawnSetup, finalizer: thingMethodFinalizer);
+                        TryPatch(spawnSetupMethod, thingMethodPrefixSpawnSetup, finalizer: thingMethodFinalizer);
 
                     foreach ((string m, Type[] args) in thingMethods)
                     {
                         MethodInfo method = t.GetMethod(m, BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly, null, args, null);
                         if (method != null)
-                        {
-                            try
-                            {
-                                harmony.PatchMeasure(method, thingMethodPrefix, finalizer: thingMethodFinalizer);
-                            } catch (Exception e) {
-                                LogError($"FAIL: {method.DeclaringType.FullName}:{method.Name} with {e}");
-                            }
-                        }
+                            TryPatch(method, thingMethodPrefix, finalizer: thingMethodFinalizer);
                     }
                 }
             }
@@ -421,14 +412,7 @@ namespace Multiplayer.Client
                     {
                         MethodInfo method = t.GetMethod(m, BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly, null, args, null);
                         if (method != null)
-                        {
-                            try
-                            {
-                                harmony.PatchMeasure(method, prefix, finalizer: finalizer);
-                            } catch (Exception e) {
-                                LogError($"FAIL: {method.DeclaringType.FullName}:{method.Name} with {e}");
-                            }
-                        }
+                            TryPatch(method, prefix, finalizer: finalizer);
                     }
                 }
             }
@@ -439,8 +423,8 @@ namespace Multiplayer.Client
                 var floatSavePrefix = new HarmonyMethod(typeof(ValueSavePatch).GetMethod(nameof(ValueSavePatch.FloatSave_Prefix)));
                 var valueSaveMethod = typeof(Scribe_Values).GetMethod(nameof(Scribe_Values.Look));
 
-                harmony.PatchMeasure(valueSaveMethod.MakeGenericMethod(typeof(double)), doubleSavePrefix);
-                harmony.PatchMeasure(valueSaveMethod.MakeGenericMethod(typeof(float)), floatSavePrefix);
+                TryPatch(valueSaveMethod.MakeGenericMethod(typeof(double)), doubleSavePrefix);
+                TryPatch(valueSaveMethod.MakeGenericMethod(typeof(float)), floatSavePrefix);
             }
 
             SetCategory("Map time gui patches");
@@ -452,25 +436,15 @@ namespace Multiplayer.Client
 
                 var windowMethods = new[] { "DoWindowContents", "WindowUpdate" };
                 foreach (string m in windowMethods)
-                    harmony.PatchMeasure(typeof(MainTabWindow_Inspect).GetMethod(m), setMapTimePrefix, setMapTimePostfix);
+                    TryPatch(typeof(MainTabWindow_Inspect).GetMethod(m), setMapTimePrefix, setMapTimePostfix);
 
                 foreach (var t in typeof(InspectTabBase).AllSubtypesAndSelf())
                 {
                     var method = t.GetMethod("FillTab", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly, null, Type.EmptyTypes, null);
                     if (method != null && !method.IsAbstract)
-                    {
-                        try
-                        {
-                            harmony.PatchMeasure(method, setMapTimePrefix, setMapTimePostfix);
-                        } catch (Exception e) {
-                            LogError($"FAIL: {method.DeclaringType.FullName}:{method.Name} with {e}");
-                        }
-                    }
-
+                        TryPatch(method, setMapTimePrefix, setMapTimePostfix);
                 }
             }
-
-            SetCategory("");
         }
     }
 
