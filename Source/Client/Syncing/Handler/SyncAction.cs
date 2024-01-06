@@ -93,7 +93,7 @@ namespace Multiplayer.Client
 
         public void PatchAll(string methodName)
         {
-            foreach (var type in typeof(A).AllSubtypesAndSelf())
+            foreach (var type in typeof(A).AllSubtypesAndSelf().TryMakeGenericTypes())
             {
                 if (type.IsAbstract) continue;
 

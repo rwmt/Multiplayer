@@ -305,7 +305,7 @@ namespace Multiplayer.Client
                      ("DesignateThing", new[]{ typeof(Thing) }),
                 };
 
-                foreach (Type t in typeof(Designator).AllSubtypesAndSelf()
+                foreach (Type t in typeof(Designator).AllSubtypesAndSelf().TryMakeGenericTypes()
                              .Except(typeof(Designator_MechControlGroup))) // Opens float menu, sync that instead
                 {
                     foreach ((string m, Type[] args) in designatorMethods)
@@ -381,7 +381,7 @@ namespace Multiplayer.Client
                     ("Kill", new[]{ typeof(DamageInfo?), typeof(Hediff) })
                 };
 
-                foreach (Type t in typeof(Thing).AllSubtypesAndSelf())
+                foreach (Type t in typeof(Thing).AllSubtypesAndSelf().TryMakeGenericTypes())
                 {
                     // SpawnSetup is patched separately because it sets the map
                     var spawnSetupMethod = t.GetMethod("SpawnSetup", BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly);
@@ -415,7 +415,7 @@ namespace Multiplayer.Client
                     ("Tick", Type.EmptyTypes)
                 };
 
-                foreach (Type t in typeof(WorldObject).AllSubtypesAndSelf())
+                foreach (Type t in typeof(WorldObject).AllSubtypesAndSelf().TryMakeGenericTypes())
                 {
                     foreach ((string m, Type[] args) in thingMethods)
                     {
@@ -454,7 +454,7 @@ namespace Multiplayer.Client
                 foreach (string m in windowMethods)
                     harmony.PatchMeasure(typeof(MainTabWindow_Inspect).GetMethod(m), setMapTimePrefix, setMapTimePostfix);
 
-                foreach (var t in typeof(InspectTabBase).AllSubtypesAndSelf())
+                foreach (var t in typeof(InspectTabBase).AllSubtypesAndSelf().TryMakeGenericTypes())
                 {
                     var method = t.GetMethod("FillTab", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly, null, Type.EmptyTypes, null);
                     if (method != null && !method.IsAbstract)

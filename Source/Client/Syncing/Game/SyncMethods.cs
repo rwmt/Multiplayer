@@ -61,7 +61,7 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(Building_Bed), nameof(Building_Bed.Medical));
 
             {
-                var types = typeof(CompAssignableToPawn).AllSubtypesAndSelf().ToArray();
+                var types = typeof(CompAssignableToPawn).AllSubtypesAndSelf().TryMakeGenericTypes().ToArray();
                 var assignMethods = types
                     .Select(t => t.GetMethod(nameof(CompAssignableToPawn.TryAssignPawn), AccessTools.allDeclared, null, new[] { typeof(Pawn) }, null))
                     .AllNotNull();
