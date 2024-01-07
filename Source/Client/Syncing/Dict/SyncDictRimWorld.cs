@@ -317,6 +317,14 @@ namespace Multiplayer.Client
                     }
                 }, true // implicit
             },
+            {
+                (ByteWriter data, IVerbOwner obj) => {
+                    WriteWithImpl<IVerbOwner>(data, obj, supportedVerbOwnerTypes);
+                },
+                (ByteReader data) => {
+                    return ReadWithImpl<IVerbOwner>(data, supportedVerbOwnerTypes);
+                }, true // Implicit
+            },
             #endregion
 
             #region AI
@@ -1013,6 +1021,83 @@ namespace Multiplayer.Client
             },
             #endregion
 
+            #region Interfaces
+            {
+                (ByteWriter data, ISelectable obj) => {
+                    if (obj == null)
+                    {
+                        WriteSync(data, ISelectableImpl.None);
+                    }
+                    else if (obj is Thing thing)
+                    {
+                        WriteSync(data, ISelectableImpl.Thing);
+                        WriteSync(data, thing);
+                    }
+                    else if (obj is Zone zone)
+                    {
+                        WriteSync(data, ISelectableImpl.Zone);
+                        WriteSync(data, zone);
+                    }
+                    else if (obj is WorldObject worldObj)
+                    {
+                        WriteSync(data, ISelectableImpl.WorldObject);
+                        WriteSync(data, worldObj);
+                    }
+                    else
+                    {
+                        throw new SerializationException($"Unknown ISelectable type: {obj.GetType()}");
+                    }
+                },
+                (ByteReader data) => {
+                    ISelectableImpl impl = ReadSync<ISelectableImpl>(data);
+
+                    return impl switch
+                    {
+                        ISelectableImpl.None => null,
+                        ISelectableImpl.Thing => ReadSync<Thing>(data),
+                        ISelectableImpl.Zone => ReadSync<Zone>(data),
+                        ISelectableImpl.WorldObject => ReadSync<WorldObject>(data),
+                        _ => throw new Exception($"Unknown ISelectable {impl}")
+                    };
+                }, true
+            },
+            {
+                (ByteWriter data, IStoreSettingsParent obj) => {
+                    WriteWithImpl<IStoreSettingsParent>(data, obj, storageParents);
+                },
+                (ByteReader data) => {
+                    return ReadWithImpl<IStoreSettingsParent>(data, storageParents);
+                }
+            },
+            {
+                (ByteWriter data, IPlantToGrowSettable obj) => {
+                    WriteWithImpl<IPlantToGrowSettable>(data, obj, plantToGrowSettables);
+                },
+                (ByteReader data) => {
+                    return ReadWithImpl<IPlantToGrowSettable>(data, plantToGrowSettables);
+                }
+            },
+            {
+                (ByteWriter data, IThingHolder obj) => {
+                    WriteWithImpl<IThingHolder>(data, obj, supportedThingHolders);
+                },
+                (ByteReader data) => {
+                    return ReadWithImpl<IThingHolder>(data, supportedThingHolders);
+                }
+            },
+            {
+                (ByteWriter data, IStorageGroupMember obj) =>
+                {
+                    if (obj is Thing thing)
+                        WriteSync(data, thing);
+                    else
+                        throw new SerializationException($"Unknown IStorageGroupMember type: {obj.GetType()}");
+                },
+                (ByteReader data) => (IStorageGroupMember)ReadSync<Thing>(data)
+            },
+
+            #endregion
+
             #region Storage
             {
                 (ByteWriter data, StorageSettings storage) => {
@@ -1056,59 +1141,6 @@ namespace Multiplayer.Client
 
                     var id = data.ReadInt32();
                     return map.passingShipManager.passingShips.FirstOrDefault(s => s.loadID == id);
-                }, true // Implicit
-            },
-            #endregion
-
-            #region Interfaces
-            {
-                (ByteWriter data, ISelectable obj) => {
-                    WriteWithImpl<ISelectable>(data, obj, selectables);
-                },
-                (ByteReader data) => {
-                    return ReadWithImpl<ISelectable>(data, selectables);
-                }, true // Implicit
-            },
-            {
-                (ByteWriter data, IStoreSettingsParent obj) => {
-                    WriteWithImpl<IStoreSettingsParent>(data, obj, storageParents);
-                },
-                (ByteReader data) => {
-                    return ReadWithImpl<IStoreSettingsParent>(data, storageParents);
-                }
-            },
-            {
-                (ByteWriter data, IPlantToGrowSettable obj) => {
-                    WriteWithImpl<IPlantToGrowSettable>(data, obj, plantToGrowSettables);
-                },
-                (ByteReader data) => {
-                    return ReadWithImpl<IPlantToGrowSettable>(data, plantToGrowSettables);
-                }
-            },
-            {
-                (ByteWriter data, IThingHolder obj) => {
-                    WriteWithImpl<IThingHolder>(data, obj, supportedThingHolders);
-                },
-                (ByteReader data) => {
-                    return ReadWithImpl<IThingHolder>(data, supportedThingHolders);
-                }
-            },
-            {
-                (ByteWriter data, IStorageGroupMember obj) =>
-                {
-                    if (obj is Thing thing)
-                        WriteSync(data, thing);
-                    else
-                        throw new SerializationException($"Unknown IStorageGroupMember type: {obj.GetType()}");
-                },
-                (ByteReader data) => (IStorageGroupMember)ReadSync<Thing>(data)
-            },
-            {
-                (ByteWriter data, IVerbOwner obj) => {
-                    WriteWithImpl<IVerbOwner>(data, obj, verbOwners);
-                },
-                (ByteReader data) => {
-                    return ReadWithImpl<IVerbOwner>(data, verbOwners);
                 }, true // Implicit
             },
             #endregion

@@ -12,8 +12,6 @@ namespace Multiplayer.Client
     {
         public static Type[] storageParents;
         public static Type[] plantToGrowSettables;
-        public static Type[] verbOwners;
-        public static Type[] selectables;
 
         public static Type[] thingCompTypes;
         public static Type[] hediffCompTypes;
@@ -34,12 +32,23 @@ namespace Multiplayer.Client
             typeof(WorldObjectComp)
         };
 
+        internal static Type[] supportedVerbOwnerTypes =
+        {
+            typeof(Thing),
+            typeof(Ability),
+            typeof(ThingComp),
+        };
+
+        // ReSharper disable once InconsistentNaming
+        internal enum ISelectableImpl : byte
+        {
+            None, Thing, Zone, WorldObject
+        }
+
         public static void Init()
         {
             storageParents = TypeUtil.AllImplementationsOrdered(typeof(IStoreSettingsParent));
             plantToGrowSettables = TypeUtil.AllImplementationsOrdered(typeof(IPlantToGrowSettable));
-            verbOwners = TypeUtil.AllImplementationsOrdered(typeof(IVerbOwner));
-            selectables = TypeUtil.AllImplementationsOrdered(typeof(ISelectable));
 
             thingCompTypes = TypeUtil.AllSubclassesNonAbstractOrdered(typeof(ThingComp));
             hediffCompTypes = TypeUtil.AllSubclassesNonAbstractOrdered(typeof(HediffComp));

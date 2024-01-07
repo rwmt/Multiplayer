@@ -124,8 +124,6 @@ namespace Multiplayer.Client
             dict["HediffComp"] = GetDefInfo(RwImplSerialization.hediffCompTypes, TypeHash);
             dict["IStoreSettingsParent"] = GetDefInfo(RwImplSerialization.storageParents, TypeHash);
             dict["IPlantToGrowSettable"] = GetDefInfo(RwImplSerialization.plantToGrowSettables, TypeHash);
-            dict["IVerbOwner"] = GetDefInfo(RwImplSerialization.verbOwners, TypeHash);
-            dict["ISelectable"] = GetDefInfo(RwImplSerialization.selectables, TypeHash);
             dict["DefTypes"] = GetDefInfo(DefSerialization.DefTypes, TypeHash);
 
             dict["GameComponent"] = GetDefInfo(RwImplSerialization.gameCompTypes, TypeHash);
