@@ -20,6 +20,7 @@ public class PlayerInfo : IPlayerInfo
     public PlayerType type;
     public PlayerStatus status;
     public Color color;
+    public Material selectionBracketMaterial;
     public int factionId;
 
     public ulong steamId;
@@ -83,6 +84,7 @@ public class PlayerInfo : IPlayerInfo
             steamId = steamId,
             steamPersonaName = steamName,
             color = color,
+            selectionBracketMaterial = MaterialPool.MatFrom("UI/Overlays/SelectionBracket", ShaderDatabase.MetaOverlay, color * new Color(1, 1, 1, 0.5f)),
             ticksBehind = ticksBehind,
             simulating = simulating,
             factionId = factionId
