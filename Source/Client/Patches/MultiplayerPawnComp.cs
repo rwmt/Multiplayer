@@ -1,4 +1,5 @@
-﻿using HarmonyLib;
+﻿using System.Collections.Generic;
+using HarmonyLib;
 using Verse;
 
 namespace Multiplayer.Client
@@ -16,6 +17,8 @@ namespace Multiplayer.Client
         {
             if (__instance is Pawn)
             {
+                // Initialize comps if null, otherwise AllComps will return ThingWithComps.EmptyCompsList
+                __instance.comps ??= new List<ThingComp>();
                 MultiplayerPawnComp comp = new MultiplayerPawnComp() {parent = __instance};
                 __instance.AllComps.Add(comp);
             }
