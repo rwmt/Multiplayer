@@ -131,9 +131,7 @@ public static class Layouter
             PushGroup(new El { rect = rect.AtZero(), spacing = spacing });
 
             // Add to linked list
-            if (!firstTopLevel.ContainsKey(windowId))
-                firstTopLevel[windowId] = currentGroup;
-            else
+            if (!firstTopLevel.TryAdd(windowId, currentGroup))
                 currentTopLevel!.nextTopLevel = currentGroup;
 
             // Set current list pointer
