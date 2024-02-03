@@ -24,17 +24,17 @@ public static class DeferredStackTracingImpl
     public static int hashtableShift = StartingShift;
     public static int collisions;
 
-    const long NotJIT = long.MaxValue;
-    const long RBPBased = long.MaxValue - 1;
+    const long NotJit = long.MaxValue;
+    const long RbpBased = long.MaxValue - 1;
 
-    const long UsesRBPAsGPR = 1 << 50;
-    const long UsesRBX = 1 << 51;
-    const long RBPInfoClearMask = ~(UsesRBPAsGPR | UsesRBX);
+    const long UsesRbpAsGpr = 1L << 50;
+    const long UsesRbx = 1L << 51;
+    const long RbpInfoClearMask = ~(UsesRbpAsGpr | UsesRbx);
 
     public const int MaxDepth = 32;
     public const int HashInfluence = 6;
 
-    public unsafe static int TraceImpl(long[] traceIn, ref int hash)
+    public static unsafe int TraceImpl(long[] traceIn, ref int hash)
     {
         long[] trace = traceIn;
         long rbp = GetRbp();
@@ -75,7 +75,7 @@ public static class DeferredStackTracingImpl
             else
                 stackUsage = UpdateNewElement(ref info, ret);
 
-            if (stackUsage == NotJIT)
+            if (stackUsage == NotJit)
             {
                 // LMF (Last Managed Frame) layout on x64:
                 // previous
@@ -103,7 +103,7 @@ public static class DeferredStackTracingImpl
             if (info.nameHash != 0 && ++depth == MaxDepth)
                 break;
 
-            if (stackUsage == RBPBased)
+            if (stackUsage == RbpBased)
             {
                 stck = rbp;
                 rbp = *(long*)rbp;
@@ -112,14 +112,14 @@ public static class DeferredStackTracingImpl
 
             stck += 8;
 
-            if ((stackUsage & UsesRBPAsGPR) != 0)
+            if ((stackUsage & UsesRbpAsGpr) != 0)
             {
-                if ((stackUsage & UsesRBX) != 0)
+                if ((stackUsage & UsesRbx) != 0)
                     rbp = *(long*)(stck + 16);
                 else
                     rbp = *(long*)(stck + 8);
 
-                stackUsage &= RBPInfoClearMask;
+                stackUsage &= RbpInfoClearMask;
             }
 
             stck += stackUsage;
@@ -185,7 +185,7 @@ public static class DeferredStackTracingImpl
         var ji = Native.mono_jit_info_table_find(Native.DomainPtr, (IntPtr)addr);
 
         if (ji == IntPtr.Zero)
-            return NotJIT;
+            return NotJit;
 
         var start = (uint*)Native.mono_jit_info_get_code_start(ji);
         long usage = 0;
@@ -208,7 +208,7 @@ public static class DeferredStackTracingImpl
 
         // push rbp (55)
         if (*(byte*)start == 0x55)
-            return RBPBased;
+            return RbpBased;
 
         throw new Exception($"Deferred stack tracing: Unknown function header {*start} {Native.MethodNameFromAddr(addr, false)}");
     }
@@ -225,12 +225,12 @@ public static class DeferredStackTracingImpl
 
         if (*at == 0x242C8948)
         {
-            stackUsage |= UsesRBPAsGPR;
+            stackUsage |= UsesRbpAsGpr;
         }
         else if (*at == 0x241C8948 && *(at + 1) == 0x246C8948)
         {
-            stackUsage |= UsesRBPAsGPR;
-            stackUsage |= UsesRBX;
+            stackUsage |= UsesRbpAsGpr;
+            stackUsage |= UsesRbx;
         }
     }
 
@@ -246,7 +246,7 @@ public static class DeferredStackTracingImpl
         return (int)(seed ^ (value + 2654435769u + (seed << 6) + (seed >> 2)));
     }
 
-    public static int StableStringHash(string str)
+    public static int StableStringHash(string? str)
     {
         if (str == null)
         {

@@ -62,6 +62,8 @@ namespace Multiplayer.Client
             var sync = Multiplayer.game.sync;
             if (sync.ShouldCollect && TickPatch.Timer % 30 == 0 && sync.currentOpinion != null)
             {
+                sync.currentOpinion.roundMode = RoundMode.GetCurrentRoundMode();
+
                 if (!TickPatch.Simulating && (Multiplayer.LocalServer != null || Multiplayer.arbiterInstance))
                     Multiplayer.Client.SendFragmented(Packets.Client_SyncInfo, sync.currentOpinion.Serialize());
 

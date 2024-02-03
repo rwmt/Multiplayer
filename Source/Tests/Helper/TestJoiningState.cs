@@ -31,7 +31,7 @@ public class TestJoiningState : AsyncConnectionState
 
         connection.Send(
             Packets.Client_JoinData,
-            0
+            RoundModeEnum.ToNearest, RoundModeEnum.ToNearest, 0
         );
 
         await Packet(Packets.Server_JoinData).Fragmented();

@@ -150,14 +150,11 @@ namespace Multiplayer.Client
         }
 
         // From Dialog_Debug.GetNode
-        public static DebugActionNode RecreateGraphAndGetNode(string path)
+        private static DebugActionNode RecreateGraphAndGetNode(string path)
         {
-            // Some actions (like quest generation) invoke the RNG during global graph caching
-            // so we recreate it to avoid desyncs
-            Dialog_Debug.ResetStaticData();
-            Dialog_Debug.TrySetupNodeGraph();
+            TrySetupNodeGraph();
 
-            DebugActionNode curNode = Dialog_Debug.rootNode;
+            DebugActionNode curNode = Multiplayer.game.rootDebugActionNode;
             string[] pathParts = path.Split('\\');
             for (int i = 0; i < pathParts.Length; i++)
             {
@@ -168,6 +165,17 @@ namespace Multiplayer.Client
                 curNode.TrySetupChildren();
             }
             return curNode;
+        }
+
+        // From Dialog_Debug.TrySetupNodeGraph
+        private static void TrySetupNodeGraph()
+        {
+            if (Multiplayer.game.rootDebugActionNode != null)
+                return;
+
+            var rootNode = Multiplayer.game.rootDebugActionNode = new DebugActionNode("Root");
+            foreach (DebugTabMenuDef allDef in DefDatabase<DebugTabMenuDef>.AllDefs)
+                DebugTabMenu.CreateMenu(allDef, null, rootNode).InitActions(rootNode);
         }
 
         public static string LabelAndCategory(this DebugActionNode node)

@@ -1,7 +1,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Collections.Concurrent;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -217,26 +216,6 @@ namespace Multiplayer.Client
         IEnumerator IEnumerable.GetEnumerator()
         {
             return q.GetEnumerator();
-        }
-    }
-
-    public class ConcurrentSet<T> : IEnumerable<T>
-    {
-        private ConcurrentDictionary<T, object> dict = new ConcurrentDictionary<T, object>();
-
-        public void Add(T t)
-        {
-            dict[t] = null;
-        }
-
-        public IEnumerator<T> GetEnumerator()
-        {
-            return dict.Keys.GetEnumerator();
-        }
-
-        IEnumerator IEnumerable.GetEnumerator()
-        {
-            return dict.Keys.GetEnumerator();
         }
     }
 }

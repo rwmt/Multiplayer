@@ -105,6 +105,15 @@ public class ServerJoiningState : AsyncConnectionState
 
     private bool HandleClientJoinData(ByteReader data)
     {
+        var modCtorRoundMode = (RoundModeEnum)data.ReadInt32();
+        var staticCtorRoundMode = (RoundModeEnum)data.ReadInt32();
+
+        if ((modCtorRoundMode, staticCtorRoundMode) != Server.initData!.RoundModes)
+        {
+            Player.Disconnect($"FP round modes don't match: {(modCtorRoundMode, staticCtorRoundMode)} != {Server.initData!.RoundModes}");
+            return false;
+        }
+
         var defTypeCount = data.ReadInt32();
         if (defTypeCount > 512)
         {

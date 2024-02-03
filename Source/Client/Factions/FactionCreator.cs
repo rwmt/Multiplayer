@@ -27,13 +27,17 @@ public static class FactionCreator
     }
 
     [SyncMethod]
-    public static void CreateFaction(int playerId, string factionName, int tile, [CanBeNull] ScenarioDef scenarioDef, ChooseIdeoInfo chooseIdeoInfo)
+    public static void CreateFaction(
+        int playerId, string factionName, int tile,
+        [CanBeNull] ScenarioDef scenarioDef, ChooseIdeoInfo chooseIdeoInfo,
+        bool generateMap
+    )
     {
         var self = TickPatch.currentExecutingCmdIssuedBySelf;
 
         LongEventHandler.QueueLongEvent(() =>
         {
-            PrepareState(playerId);
+            PrepareGameInitData(playerId);
 
             var scenario = scenarioDef?.scenario ?? Current.Game.Scenario;
             var newFaction = NewFactionWithIdeo(
@@ -42,26 +46,16 @@ public static class FactionCreator
                 chooseIdeoInfo
             );
 
-            newFaction.hidden = true;
+            Map newMap = null;
 
-            foreach (var f in Find.FactionManager.AllFactions.Where(f => f.IsPlayer))
-                if (f != newFaction)
-                    newFaction.SetRelation(new FactionRelation(f, FactionRelationKind.Neutral));
+            if (generateMap)
+                using (MpScope.PushFaction(newFaction))
+                {
+                    foreach (var pawn in StartingPawnUtility.StartingAndOptionalPawns)
+                        pawn.ideo.SetIdeo(newFaction.ideos.PrimaryIdeo);
 
-            Map newMap;
-
-            using (MpScope.PushFaction(newFaction))
-            {
-                foreach (var pawn in StartingPawnUtility.StartingAndOptionalPawns)
-                    pawn.ideo.SetIdeo(newFaction.ideos.PrimaryIdeo);
-
-                newMap = GenerateNewMap(tile, scenario);
-            }
-
-            // Add new faction to all maps but the new one (it's already handled during generation)
-            foreach (Map map in Find.Maps)
-                if (map != newMap)
-                    MapSetup.InitNewFactionData(map, newFaction);
+                    newMap = GenerateNewMap(tile, scenario);
+                }
 
             foreach (Map map in Find.Maps)
                 foreach (var f in Find.FactionManager.AllFactions.Where(f => f.IsPlayer))
@@ -122,7 +116,7 @@ public static class FactionCreator
         ResearchUtility.ApplyPlayerStartingResearch();
     }
 
-    public static void PrepareState(int sessionId)
+    private static void PrepareGameInitData(int sessionId)
     {
         Current.Game.InitData = new GameInitData
         {
@@ -143,10 +137,16 @@ public static class FactionCreator
 
     private static Faction NewFactionWithIdeo(string name, FactionDef def, ChooseIdeoInfo chooseIdeoInfo)
     {
-        var faction = new Faction { loadID = Find.UniqueIDsManager.GetNextFactionID(), def = def };
+        var faction = new Faction
+        {
+            loadID = Find.UniqueIDsManager.GetNextFactionID(),
+            def = def,
+            Name = name,
+            hidden = true
+        };
         faction.ideos = new FactionIdeosTracker(faction);
 
-        if (!ModsConfig.IdeologyActive || Find.IdeoManager.classicMode)
+        if (!ModsConfig.IdeologyActive || Find.IdeoManager.classicMode || chooseIdeoInfo.SelectedIdeo == null)
         {
             faction.ideos.SetPrimary(Faction.OfPlayer.ideos.PrimaryIdeo);
         }
@@ -166,8 +166,13 @@ public static class FactionCreator
         Multiplayer.WorldComp.factionData[faction.loadID] = newWorldFactionData;
         newWorldFactionData.ReassignIds();
 
-        faction.Name = name;
-        faction.def = def;
+        // Add new faction to all maps (the new map is handled by map generation code)
+        foreach (Map map in Find.Maps)
+            MapSetup.InitNewFactionData(map, faction);
+
+        foreach (var f in Find.FactionManager.AllFactions.Where(f => f.IsPlayer))
+            if (f != faction)
+                faction.SetRelation(new FactionRelation(f, FactionRelationKind.Neutral));
 
         return faction;
     }

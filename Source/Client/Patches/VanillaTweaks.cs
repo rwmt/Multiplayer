@@ -132,4 +132,18 @@ namespace Multiplayer.Client
         }
     }
 
+    // Fix a lag spike when spawning/destroying things which affect the exit grid
+    [HarmonyPatch(typeof(ExitMapGrid), nameof(ExitMapGrid.Grid), MethodType.Getter)]
+    static class ExitMapGridPatch
+    {
+        static bool Prefix(ExitMapGrid __instance, ref BoolGrid __result)
+        {
+            // A copy of the getter without a costly call to MapUsesExitGrid
+            if (__instance.dirty)
+                __instance.Rebuild();
+            __result = __instance.exitMapGrid;
+            return false;
+        }
+    }
+
 }

@@ -92,9 +92,18 @@ namespace Multiplayer.Client
             DrawChat(chat);
 
             GUI.BeginGroup(new Rect(chat.xMax + 10f, chat.y, infoWidth, inRect.height));
-            DrawInfo(new Rect(0, 0, infoWidth, inRect.height - 30f));
-            if (Widgets.ButtonText(new Rect(50f, inRect.height - 25f, infoWidth - 50f, 25f), "Factions"))
-                Find.WindowStack.Add(new FactionsWindow());
+
+            if (Multiplayer.GameComp.multifaction)
+            {
+                DrawInfo(new Rect(0, 0, infoWidth, inRect.height - 30f));
+                if (Widgets.ButtonText(new Rect(50f, inRect.height - 25f, infoWidth - 50f, 25f), "Factions"))
+                    Find.WindowStack.Add(new FactionsWindow());
+            }
+            else
+            {
+                DrawInfo(new Rect(0, 0, infoWidth, inRect.height));
+            }
+
             GUI.EndGroup();
 
             if (KeyBindingDefOf.Cancel.KeyDownEvent && Find.WindowStack.focusedWindow == this)

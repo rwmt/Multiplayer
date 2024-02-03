@@ -66,7 +66,7 @@ public static class IngameDebug
             }
 
             text.Append(
-                $" {Find.CurrentMap.Parent.IncidentTargetTags().ToStringSafeEnumerable()} {Find.IdeoManager.IdeosInViewOrder.FirstOrDefault()?.id}");
+                $" ddd{Find.CurrentMap.designationManager.SpawnedDesignationsOfDef(DesignationDefOf.Mine).Count()} {Find.IdeoManager.IdeosInViewOrder.FirstOrDefault()?.id}");
 
             text.Append(
                 $"\n{SyncFieldUtil.bufferedChanges.Sum(kv => kv.Value.Count)} {Find.UniqueIDsManager.nextThingID}");

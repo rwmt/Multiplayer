@@ -15,17 +15,9 @@ public static class MapSetup
         extraInitBeforeContentGen += SetupMap;
     }
 
-    static void Postfix()
-    {
-        if (Multiplayer.Client == null) return;
-
-        Log.Message("Rand " + Rand.StateCompressed);
-    }
-
     public static void SetupMap(Map map)
     {
-        Log.Message("New map " + map.uniqueID);
-        Log.Message("Rand " + Rand.StateCompressed);
+        Log.Message("MP: Setting up map " + map.uniqueID);
 
         // Initialize and store Multiplayer components
         var async = new AsyncTimeComp(map);

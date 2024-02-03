@@ -24,7 +24,6 @@ namespace Multiplayer.Client
 
         static void Postfix()
         {
-            Log.Message($"Game.LoadGame post rand {Rand.iterations}");
             Rand.PopState();
         }
     }
@@ -47,10 +46,7 @@ namespace Multiplayer.Client
         static void Postfix(Map __instance, bool __state)
         {
             if (__state)
-            {
-                Log.Message($"Map.ExposeData post rand {__instance.uniqueID} {Scribe.mode} {Rand.iterations}");
                 Rand.PopState();
-            }
         }
     }
 
@@ -71,10 +67,7 @@ namespace Multiplayer.Client
         static void Postfix(Map __instance, bool __state)
         {
             if (__state)
-            {
-                Log.Message($"Map.FinalizeLoading post rand {__instance.uniqueID} {Rand.iterations}");
                 Rand.PopState();
-            }
         }
     }
 

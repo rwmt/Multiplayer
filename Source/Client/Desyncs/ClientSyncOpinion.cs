@@ -25,6 +25,7 @@ namespace Multiplayer.Client
         public List<StackTraceLogItem> desyncStackTraces = new();
         public List<int> desyncStackTraceHashes = new();
         public bool simulating;
+        public RoundModeEnum roundMode;
 
         public ClientSyncOpinion(int startTick)
         {
@@ -33,8 +34,11 @@ namespace Multiplayer.Client
 
         public string CheckForDesync(ClientSyncOpinion other)
         {
-            // if (!mapStates.Select(m => m.mapId).SequenceEqual(other.mapStates.Select(m => m.mapId)))
-            //     return "Map instances don't match";
+            if (roundMode != other.roundMode)
+                return $"FP round mode doesn't match: {roundMode} != {other.roundMode}";
+
+            if (!mapStates.Select(m => m.mapId).SequenceEqual(other.mapStates.Select(m => m.mapId)))
+                return "Map instances don't match";
 
             foreach (var g in
                      from map1 in mapStates
@@ -82,6 +86,7 @@ namespace Multiplayer.Client
 
             writer.WritePrefixedInts(desyncStackTraceHashes);
             writer.WriteBool(simulating);
+            writer.WriteShort((short)roundMode);
 
             return writer.ToArray();
         }
@@ -103,7 +108,8 @@ namespace Multiplayer.Client
             }
 
             var traceHashes = new List<int>(data.ReadPrefixedInts());
-            var playing = data.ReadBool();
+            var simulating = data.ReadBool();
+            var roundMode = data.ReadShort();
 
             return new ClientSyncOpinion(startTick)
             {
@@ -111,7 +117,8 @@ namespace Multiplayer.Client
                 worldRandomStates = world,
                 mapStates = maps,
                 desyncStackTraceHashes = traceHashes,
-                simulating = playing
+                simulating = simulating,
+                roundMode = (RoundModeEnum)roundMode
             };
         }
 

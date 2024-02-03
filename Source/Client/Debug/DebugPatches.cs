@@ -18,15 +18,10 @@ namespace Multiplayer.Client.Patches
     {
         public static void Init()
         {
-            /*harmony.Patch(
-                AccessTools.PropertyGetter(typeof(Faction), nameof(Faction.OfPlayer)),
-                new HarmonyMethod(typeof(MultiplayerMod), nameof(Prefixfactionman))
-            );
-
-            harmony.Patch(
-                AccessTools.PropertyGetter(typeof(Faction), nameof(Faction.IsPlayer)),
-                new HarmonyMethod(typeof(MultiplayerMod), nameof(Prefixfactionman))
-            );*/
+            // Multiplayer.harmony.Patch(
+            //     AccessTools.PropertyGetter(typeof(Find), nameof(Find.FactionManager)),
+            //     new HarmonyMethod(typeof(DebugPatches), nameof(Prefixfactionman))
+            // );
         }
 
         static void Prefixfactionman()
@@ -34,9 +29,12 @@ namespace Multiplayer.Client.Patches
             if (Scribe.mode != LoadSaveMode.Inactive)
             {
                 string trace = new StackTrace().ToString();
-                if (!trace.Contains("SetInitialPsyfocusLevel") &&
+                if (
                     !trace.Contains("Pawn_NeedsTracker.ShouldHaveNeed") &&
-                    !trace.Contains("FactionManager.ExposeData"))
+                    !trace.Contains("FactionManager.ExposeData") &&
+                    !trace.Contains("Client.FactionContext") &&
+                    !trace.Contains("Thing.ExposeData")
+                )
                     Log.Message($"factionman call {trace}", true);
             }
         }

@@ -235,18 +235,6 @@ namespace Multiplayer.Client.Patches
         }
     }
 
-    // In vanilla WealthWatcher.ResetStaticData depends on Def indices but it runs before they are set
-    // This patch runs it later
-    [HarmonyPatch(typeof(ShortHashGiver), nameof(ShortHashGiver.GiveAllShortHashes))]
-    [EarlyPatch]
-    static class FixWealthWatcherStaticData
-    {
-        static void Prefix()
-        {
-            WealthWatcher.ResetStaticData();
-        }
-    }
-
     [HarmonyPatch(typeof(PriorityWork), nameof(PriorityWork.Clear))]
     static class PriorityWorkClearNoInterface
     {
@@ -530,6 +518,32 @@ namespace Multiplayer.Client.Patches
         private static int NewCacheStatus(int gameTick)
         {
             return Multiplayer.InInterface ? -gameTick : gameTick;
+        }
+    }
+
+    [HarmonyPatch(typeof(CompPollutionPump), nameof(CompPollutionPump.CompTick))]
+    static class PollutionPumpRemoveCurrentMap
+    {
+        private static MethodInfo currentMapGetter = AccessTools.PropertyGetter(typeof(Find), nameof(Find.CurrentMap));
+
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+        {
+            foreach (var inst in insts)
+            {
+                if (inst.operand == currentMapGetter)
+                {
+                    yield return new CodeInstruction(OpCodes.Ldarg_0);
+                    yield return new CodeInstruction(OpCodes.Call, MethodOf.Lambda(CompMap));
+                    continue;
+                }
+
+                yield return inst;
+            }
+        }
+
+        static Map CompMap(CompPollutionPump pump)
+        {
+            return pump.parent.Map;
         }
     }
 

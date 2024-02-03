@@ -8,6 +8,7 @@ public record ServerInitData(
     string RwVersion,
     HashSet<int> DebugOnlySyncCmds,
     HashSet<int> HostOnlySyncCmds,
+    (RoundModeEnum, RoundModeEnum) RoundModes,
     Dictionary<string, DefInfo> DefInfos
 )
 {
@@ -18,6 +19,7 @@ public record ServerInitData(
             data.RwVersion,
             data.DebugOnlySyncCmds.ToList(),
             data.HostOnlySyncCmds.ToList(),
+            data.RoundModes,
             data.DefInfos.Select(p => (p.Key, p.Value.count, p.Value.hash)).ToList()
         );
     }
@@ -30,6 +32,7 @@ public record ServerInitData(
             data.ReadString(),
             data.ReadPrefixedInts().ToHashSet(),
             data.ReadPrefixedInts().ToHashSet(),
+            ((RoundModeEnum)data.ReadInt32(), (RoundModeEnum)data.ReadInt32()),
             new Dictionary<string, DefInfo>()
         );
 

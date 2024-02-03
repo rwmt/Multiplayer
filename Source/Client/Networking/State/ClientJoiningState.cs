@@ -53,6 +53,7 @@ namespace Multiplayer.Client
                 VersionControl.CurrentVersionString,
                 Sync.handlers.Where(h => h.debugOnly).Select(h => h.syncId).ToHashSet(),
                 Sync.handlers.Where(h => h.hostOnly).Select(h => h.syncId).ToHashSet(),
+                (MultiplayerData.modCtorRoundMode, MultiplayerData.staticCtorRoundMode),
                 new Dictionary<string, DefInfo>(MultiplayerData.localDefInfos)
             ));
         }
@@ -62,6 +63,8 @@ namespace Multiplayer.Client
         {
             var writer = new ByteWriter();
 
+            writer.WriteInt32((int)MultiplayerData.modCtorRoundMode);
+            writer.WriteInt32((int)MultiplayerData.staticCtorRoundMode);
             writer.WriteInt32(MultiplayerData.localDefInfos.Count);
 
             foreach (var kv in MultiplayerData.localDefInfos)

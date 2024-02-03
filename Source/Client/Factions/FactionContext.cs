@@ -32,8 +32,6 @@ namespace Multiplayer.Client
 
         public static void Set(Faction newFaction)
         {
-            //Log.Message($"set faction {playerFaction}>{newFaction} {stack.Count}");
-
             Find.FactionManager.ofPlayer = newFaction;
         }
 

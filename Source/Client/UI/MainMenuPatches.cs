@@ -155,9 +155,16 @@ namespace Multiplayer.Client
 
         private static void AskConvertToSingleplayer()
         {
+            var warning = Multiplayer.LocalServer != null
+                ? "MpConvertToSpWarnHost".Translate()
+                : "MpConvertToSpWarn".Translate();
+
+            if (Multiplayer.GameComp.multifaction)
+                warning += "\n\n\nOnly your current faction will keep its data. All other factions will lose their data (e.g. research progress).";
+
             Find.WindowStack.Add(
                 Dialog_MessageBox.CreateConfirmation(
-                    Multiplayer.LocalServer != null ? "MpConvertToSpWarnHost".Translate() : "MpConvertToSpWarn".Translate(),
+                    warning,
                     ConvertToSp.DoConvert,
                     true,
                     layer: WindowLayer.Super

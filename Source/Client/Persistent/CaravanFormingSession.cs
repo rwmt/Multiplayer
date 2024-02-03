@@ -54,8 +54,6 @@ namespace Multiplayer.Client
 
         public void OpenWindow(bool sound = true)
         {
-            Log.Message($"session {sessionId}");
-
             var dialog = PrepareDummyDialog();
             if (!sound)
                 dialog.soundAppear = null;

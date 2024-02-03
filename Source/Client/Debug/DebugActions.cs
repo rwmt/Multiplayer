@@ -87,10 +87,10 @@ namespace Multiplayer.Client
             }
         }
 
-        [DebugAction(MultiplayerCategory, "Set faction", actionType = DebugActionType.Action, allowedGameStates = AllowedGameStates.PlayingOnMap, displayPriority = 100)]
+        [DebugAction(MultiplayerCategory, "Set faction (rect)", actionType = DebugActionType.Action, allowedGameStates = AllowedGameStates.PlayingOnMap, displayPriority = 100)]
         private static void SetFaction()
         {
-        	DebugToolsGeneral.GenericRectTool("Set faction", rect =>
+        	DebugToolsGeneral.GenericRectTool("Set faction (rect)", rect =>
         	{
                 List<FloatMenuOption> factionOptions = new List<FloatMenuOption>();
                 foreach (Faction faction in Find.FactionManager.AllFactionsInViewOrder)
@@ -102,7 +102,7 @@ namespace Multiplayer.Client
                             if (thing.def.CanHaveFaction)
                                 thing.SetFaction(faction);
 
-                            if (thing is IThingHolder holder)
+                            if (thing is IThingHolder holder && holder.GetDirectlyHeldThings() != null)
                                 foreach (var heldThing in holder.GetDirectlyHeldThings())
                                     if (heldThing.def.CanHaveFaction)
                                         heldThing.SetFaction(faction);

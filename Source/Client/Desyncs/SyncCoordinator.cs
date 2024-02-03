@@ -218,7 +218,7 @@ namespace Multiplayer.Client
 
             item.depth = depth;
             item.ticksGame = Find.TickManager.ticksGameInt;
-            item.iters = (int)Rand.iterations;
+            item.rngState = Rand.StateCompressed;
             item.tick = TickPatch.Timer;
             item.factionName = Faction.OfPlayer?.Name ?? string.Empty;
             item.moreInfo = moreInfo;
@@ -230,7 +230,7 @@ namespace Multiplayer.Client
                 item.thingId = thing.thingIDNumber;
             }
 
-            var hash = Gen.HashCombineInt(hashIn, depth, item.iters, 1);
+            var hash = Gen.HashCombineInt(hashIn, depth, (int)(item.rngState >> 32), (int)item.rngState);
             item.hash = hash;
 
             OpinionInBuilding.desyncStackTraces.Add(item);

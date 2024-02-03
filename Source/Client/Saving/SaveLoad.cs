@@ -19,7 +19,6 @@ namespace Multiplayer.Client
     {
         public static TempGameData SaveAndReload()
         {
-            //SimpleProfiler.Start();
             Multiplayer.reloading = true;
 
             var worldGridSaved = Find.WorldGrid;
@@ -34,12 +33,9 @@ namespace Multiplayer.Client
             var selectedData = new ByteWriter();
             SyncSerialization.WriteSync(selectedData, Find.Selector.selected.OfType<ISelectable>().ToList());
 
-            //Multiplayer.RealPlayerFaction = Multiplayer.DummyFaction;
-
             foreach (Map map in Find.Maps)
             {
                 drawers[map.uniqueID] = map.mapDrawer;
-                //RebuildRegionsAndRoomsPatch.copyFrom[map.uniqueID] = map.regionGrid;
 
                 foreach (Pawn p in map.mapPawns.AllPawnsSpawned)
                     tweenedPos[p.thingIDNumber] = p.drawer.tweener.tweenedPos;
@@ -50,11 +46,8 @@ namespace Multiplayer.Client
             mapCmds[ScheduledCommand.Global] = Multiplayer.AsyncWorldTime.cmds;
 
             DeepProfiler.Start("Multiplayer SaveAndReload: Save");
-            //WriteElementPatch.cachedVals = new Dictionary<string, object>();
-            //WriteElementPatch.id = 0;
             var gameData = SaveGameData();
             DeepProfiler.End();
-            //Log.Message($"Saving took {WriteElementPatch.cachedVals.Count} {WriteElementPatch.cachedVals.FirstOrDefault()}");
 
             MapDrawerRegenPatch.copyFrom = drawers;
             WorldGridCachePatch.copyFrom = worldGridSaved;
@@ -70,9 +63,6 @@ namespace Multiplayer.Client
 
                 musicManager = Find.MusicManagerPlay;
             }
-
-            //SpawnSetupPatch.total = 0;
-            //SpawnSetupPatch.total2 = new long[SpawnSetupPatch.total2.Length];
 
             LoadInMainThread(gameData);
 
@@ -105,9 +95,6 @@ namespace Multiplayer.Client
             Multiplayer.AsyncWorldTime.cmds = mapCmds[ScheduledCommand.Global];
 
             Multiplayer.reloading = false;
-            //SimpleProfiler.Pause();
-
-            //Log.Message($"allocs {(double)SpawnSetupPatch.total2.Sum() / Stopwatch.Frequency * 1000} ({SpawnSetupPatch.total2.Select((l,i) => $"{SpawnSetupPatch.methods[i]}: {(double)l / Stopwatch.Frequency * 1000}").Join(delimiter: "\n")}) {SpawnSetupPatch.total} {AllocsPrefixClass.allocs} {CustomXmlElement.n} {CustomXmlElement.m} {CustomXmlElement.n - CustomXmlElement.m} {(double)CustomXmlElement.n/CustomXmlElement.m}");
 
             return gameData;
         }
@@ -127,8 +114,6 @@ namespace Multiplayer.Client
 
             // SaveCompression enabled in the patch
             SavedGameLoaderNow.LoadGameFromSaveFileNow(null);
-
-            Log.Message($"loading stack {FactionContext.stack.Count}");
 
             DeepProfiler.End();
         }

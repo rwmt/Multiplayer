@@ -151,7 +151,13 @@ namespace Multiplayer.Client
             {
                 foreach (var attr in toPatch.AllAttributes<MpPrefix>())
                 {
-                    Multiplayer.harmony.PatchMeasure(attr.Method, prefix, postfix);
+                    try
+                    {
+                        Multiplayer.harmony.PatchMeasure(attr.Method, prefix, postfix);
+                    } catch (Exception e) {
+                        Log.Error($"FAIL: {attr.Method.DeclaringType.FullName}:{attr.Method.Name} with {e}");
+                        Multiplayer.loadingErrors = true;
+                    }
                 }
             }
         }

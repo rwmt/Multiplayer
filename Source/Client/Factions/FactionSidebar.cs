@@ -70,6 +70,15 @@ public static class FactionSidebar
             // todo check faction name not exists
             if (newFactionName.NullOrEmpty())
                 Messages.Message("The faction name can't be empty.", MessageTypeDefOf.RejectInput, historical: false);
+            else if (Event.current.button == 1)
+            {
+                Find.WindowStack.Add(new FloatMenu(new List<FloatMenuOption>()
+                {
+                    new(
+                        "Dev: create faction (no base)", () => DoCreateFaction(new ChooseIdeoInfo(null, null, null), false)
+                    )
+                }));
+            }
             else if (Find.WorldInterface.SelectedTile < 0)
                 Messages.Message("MustSelectStartingSite".TranslateWithBackup("MustSelectLandingSite"), MessageTypeDefOf.RejectInput, historical: false);
             else if (!TileFinder.IsValidTileForNewSettlement(Find.WorldInterface.SelectedTile, tileError))
@@ -93,7 +102,8 @@ public static class FactionSidebar
                                 chooseIdeoPage?.pageChooseIdeo.selectedIdeo,
                                 chooseIdeoPage?.pageChooseIdeo.selectedStructure,
                                 chooseIdeoPage?.pageChooseIdeo.selectedStyles
-                            )
+                            ),
+                            true
                         );
                     }
                 });
@@ -147,7 +157,7 @@ public static class FactionSidebar
         }
     }
 
-    private static void DoCreateFaction(ChooseIdeoInfo chooseIdeoInfo)
+    private static void DoCreateFaction(ChooseIdeoInfo chooseIdeoInfo, bool generateMap)
     {
         int playerId = Multiplayer.session.playerId;
         var prevState = Current.programStateInt;
@@ -155,18 +165,20 @@ public static class FactionSidebar
 
         try
         {
-            foreach (var p in Current.Game.InitData.startingAndOptionalPawns)
-                FactionCreator.SendPawn(
-                    playerId,
-                    p
-                );
+            if (Current.Game.InitData?.startingAndOptionalPawns is { } pawns)
+                foreach (var p in pawns)
+                    FactionCreator.SendPawn(
+                        playerId,
+                        p
+                    );
 
             FactionCreator.CreateFaction(
                 playerId,
                 newFactionName,
                 Find.WorldInterface.SelectedTile,
                 chosenScenario,
-                chooseIdeoInfo
+                chooseIdeoInfo,
+                generateMap
             );
         }
         finally

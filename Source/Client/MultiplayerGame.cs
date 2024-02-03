@@ -28,6 +28,7 @@ namespace Multiplayer.Client
         public Faction myFactionLoading;
 
         public Dictionary<int, PlayerDebugState> playerDebugState = new();
+        public DebugActionNode rootDebugActionNode;
 
         public Faction RealPlayerFaction => myFaction ?? myFactionLoading;
 

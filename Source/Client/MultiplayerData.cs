@@ -16,6 +16,9 @@ namespace Multiplayer.Client
         private static Dictionary<string, bool> translationMods = new();
         public static Dictionary<string, DefInfo> localDefInfos;
 
+        public static RoundModeEnum modCtorRoundMode;
+        public static RoundModeEnum staticCtorRoundMode;
+
         public static void PrecacheMods()
         {
             foreach (var mod in ModLister.AllInstalledMods)

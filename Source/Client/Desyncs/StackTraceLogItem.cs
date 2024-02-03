@@ -38,13 +38,13 @@ namespace Multiplayer.Client
         public int depth;
 
         public int ticksGame;
-        public int iters;
+        public ulong rngState;
         public ThingDef thingDef;
         public int thingId;
         public string factionName;
         public string moreInfo;
 
-        public override string AdditionalInfo => $"{ticksGame} {thingDef}{thingId} {factionName} {depth} {iters} {moreInfo}";
+        public override string AdditionalInfo => $"{ticksGame} {thingDef}{thingId} {factionName} {depth} {rngState} {moreInfo}";
 
         private static Dictionary<long, string> methodNameCache = new();
 
@@ -79,7 +79,7 @@ namespace Multiplayer.Client
         {
             depth = 0;
             ticksGame = 0;
-            iters = 0;
+            rngState = 0;
             thingId = 0;
             thingDef = null;
             factionName = null;

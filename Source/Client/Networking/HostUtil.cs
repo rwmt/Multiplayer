@@ -4,6 +4,7 @@ using RimWorld;
 using System;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Multiplayer.Client.AsyncTime;
@@ -136,10 +137,20 @@ namespace Multiplayer.Client
             var spectator = AddNewFaction("Spectator", FactionDefOf.PlayerColony);
             spectator.hidden = true;
             spectator.SetRelation(new FactionRelation(Faction.OfPlayer, FactionRelationKind.Neutral));
-
-            worldComp.factionData[Faction.OfPlayer.loadID] = FactionWorldData.FromCurrent(Faction.OfPlayer.loadID);
-            worldComp.factionData[spectator.loadID] = FactionWorldData.New(spectator.loadID);
             worldComp.spectatorFaction = spectator;
+
+            var playerFactionData = FactionWorldData.FromCurrent(Faction.OfPlayer.loadID);
+            worldComp.factionData[Faction.OfPlayer.loadID] = playerFactionData;
+
+            foreach (var faction in Find.FactionManager.AllFactions.Where(f => f.IsPlayer))
+                if (faction != Faction.OfPlayer)
+                {
+                    var factionData = FactionWorldData.New(spectator.loadID);
+                    worldComp.factionData[faction.loadID] = factionData;
+
+                    factionData.researchManager.progress = new(playerFactionData.researchManager.progress);
+                    factionData.researchManager.techprints = new(playerFactionData.researchManager.techprints);
+                }
 
             foreach (FactionWorldData data in worldComp.factionData.Values)
                 data.ReassignIds();

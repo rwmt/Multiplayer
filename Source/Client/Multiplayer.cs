@@ -123,6 +123,8 @@ namespace Multiplayer.Client
                 // Double Execute ensures it'll run last.
                 LongEventHandler.ExecuteWhenFinished(EarlyInit.LatePatches);
             });
+
+            MultiplayerData.modCtorRoundMode = RoundMode.GetCurrentRoundMode();
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]

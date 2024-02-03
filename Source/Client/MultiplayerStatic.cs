@@ -107,6 +107,8 @@ namespace Multiplayer.Client
 
             if (GenCommandLine.CommandLineArgPassed("profiler"))
                 SimpleProfiler.Print("mp_prof_out.txt");
+
+            MultiplayerData.staticCtorRoundMode = RoundMode.GetCurrentRoundMode();
         }
 
         private static void DoubleLongEvent(Action action, string textKey)
@@ -382,7 +384,7 @@ namespace Multiplayer.Client
                 foreach (Type t in typeof(Thing).AllSubtypesAndSelf())
                 {
                     // SpawnSetup is patched separately because it sets the map
-                    var spawnSetupMethod = t.GetMethod("SpawnSetup", BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly);
+                    var spawnSetupMethod = t.GetMethod("SpawnSetup", BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly, null, new[] { typeof(Map), typeof(bool) }, null);
                     if (spawnSetupMethod != null)
                         TryPatch(spawnSetupMethod, thingMethodPrefixSpawnSetup, finalizer: thingMethodFinalizer);
 

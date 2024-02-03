@@ -39,8 +39,13 @@ public static class EarlyInit
 
         Assembly.GetCallingAssembly().GetTypes().Do(type =>
         {
-            if (type.IsDefined(typeof(EarlyPatchAttribute)))
-                harmony.CreateClassProcessor(type).Patch();
+            try {
+                if (type.IsDefined(typeof(EarlyPatchAttribute)))
+                    harmony.CreateClassProcessor(type).Patch();
+            } catch (Exception e) {
+                Log.Error($"FAIL: {type} with {e}");
+                Multiplayer.loadingErrors = true;
+            }
         });
 
 #if DEBUG
