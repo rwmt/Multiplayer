@@ -91,6 +91,8 @@ public class SaveableDesyncInfo
             .AppendLine($"Rimworld Developer Mode - Client|||{Prefs.DevMode}")
             .AppendLine("\n###Server Info###")
             .AppendLine($"Player Count|||{Multiplayer.session.players.Count}")
+            .AppendLine($"Async time active|||{Multiplayer.GameComp.asyncTime}")
+            .AppendLine($"Multifaction active|||{Multiplayer.GameComp.multifaction}")
             .AppendLine("\n###CPU Info###")
             .AppendLine($"Processor Name|||{SystemInfo.processorType}")
             .AppendLine($"Processor Speed (MHz)|||{SystemInfo.processorFrequency}")
