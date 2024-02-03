@@ -36,8 +36,13 @@ namespace Multiplayer.Client
                 return;
 
             using (MpStyle.Set(GameFont.Tiny))
-                if (Widgets.ButtonText(new Rect(rect.xMax - 105, 5, 100, 24), "Switch to map"))
+            {
+                var switchToMapText = "MpSwitchToMap".Translate();
+                var width = switchToMapText.GetWidthCached() + 25;
+
+                if (Widgets.ButtonText(new Rect(rect.xMax - width - 5, 5, width, 24), switchToMapText))
                     window.Close();
+            }
         }
     }
 }
