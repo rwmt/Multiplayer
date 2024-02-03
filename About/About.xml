@@ -31,5 +31,6 @@ Discord - https://discord.gg/S4bxXpv
   </loadAfter>
   <loadBefore>
     <li>UnlimitedHugs.HugsLib</li>
+    <li>OskarPotocki.VanillaFactionsExpanded.Core</li>
   </loadBefore>
 </ModMetaData>
