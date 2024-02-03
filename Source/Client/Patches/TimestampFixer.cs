@@ -52,8 +52,8 @@ public static class TimestampFixer
 
     public static void ProcessExposable(IExposable exposable)
     {
-        if (timestampFields.ContainsKey(exposable.GetType()))
-            foreach (var del in timestampFields[exposable.GetType()])
+        if (timestampFields.TryGetValue(exposable.GetType(), out var fieldGetters))
+            foreach (var del in fieldGetters)
                 del(exposable) += currentOffset!.Value;
     }
 }

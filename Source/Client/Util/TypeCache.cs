@@ -36,11 +36,8 @@ public static class TypeCache
     {
         foreach (var type in GenTypes.AllTypes)
         {
-            if (!typeByName.ContainsKey(type.Name))
-                typeByName[type.Name] = type;
-
-            if (!typeByFullName.ContainsKey(type.Name))
-                typeByFullName[type.FullName] = type;
+            typeByName.TryAdd(type.Name, type);
+            typeByFullName.TryAdd(type.FullName, type);
         }
     }
 
