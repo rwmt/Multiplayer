@@ -64,8 +64,6 @@ namespace Multiplayer.Client
     [StaticConstructorOnStartup]
     static class SelectionBoxPatch
     {
-        static Material graySelection = MaterialPool.MatFrom("UI/Overlays/SelectionBracket", ShaderDatabase.MetaOverlay);
-        static MaterialPropertyBlock propBlock = new MaterialPropertyBlock();
         static HashSet<int> drawnThisUpdate = new HashSet<int>();
         static Dictionary<object, float> selTimes = new Dictionary<object, float>();
 
@@ -76,27 +74,30 @@ namespace Multiplayer.Client
             foreach (var t in Find.Selector.SelectedObjects.OfType<Thing>())
                 drawnThisUpdate.Add(t.thingIDNumber);
 
-            foreach (var player in Multiplayer.session.players)
+            var tempTimes = SelectionDrawer.selectTimes;
+            try
             {
-                if (player.factionId != Multiplayer.RealPlayerFaction.loadID) continue;
+                SelectionDrawer.selectTimes = selTimes;
 
-                foreach (var sel in player.selectedThings)
+                foreach (var player in Multiplayer.session.players)
                 {
-                    if (!drawnThisUpdate.Add(sel.Key)) continue;
-                    if (!ThingsById.thingsById.TryGetValue(sel.Key, out Thing thing)) continue;
-                    if (thing.Map != Find.CurrentMap) continue;
+                    if (player.factionId != Multiplayer.RealPlayerFaction.loadID) continue;
 
-                    selTimes[thing] = sel.Value;
-                    SelectionDrawerUtility.CalculateSelectionBracketPositionsWorld(SelectionDrawer.bracketLocs, thing, thing.DrawPos, thing.RotatedSize.ToVector2(), selTimes, Vector2.one, 1f);
-                    selTimes.Clear();
-
-                    for (int i = 0; i < 4; i++)
+                    foreach (var sel in player.selectedThings)
                     {
-                        Quaternion rotation = Quaternion.AngleAxis(-i * 90, Vector3.up);
-                        propBlock.SetColor("_Color", player.color * new Color(1, 1, 1, 0.5f));
-                        Graphics.DrawMesh(MeshPool.plane10, SelectionDrawer.bracketLocs[i], rotation, graySelection, 0, null, 0, propBlock);
+                        if (!drawnThisUpdate.Add(sel.Key)) continue;
+                        if (!ThingsById.thingsById.TryGetValue(sel.Key, out Thing thing)) continue;
+                        if (thing.MapHeld != Find.CurrentMap) continue;
+
+                        selTimes[thing] = sel.Value;
+                        SelectionDrawer.DrawSelectionBracketFor(thing, player.selectionBracketMaterial);
+                        selTimes.Clear();
                     }
                 }
+            }
+            finally
+            {
+                SelectionDrawer.selectTimes = tempTimes;
             }
 
             drawnThisUpdate.Clear();
@@ -130,5 +131,4 @@ namespace Multiplayer.Client
                 str += $"\nSelected by: {players.Join()}";
         }
     }
-
 }
