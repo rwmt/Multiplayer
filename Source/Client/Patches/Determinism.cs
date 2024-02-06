@@ -528,17 +528,22 @@ namespace Multiplayer.Client.Patches
 
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
         {
+            var patched = false;
+
             foreach (var inst in insts)
             {
                 if (inst.operand == currentMapGetter)
                 {
                     yield return new CodeInstruction(OpCodes.Ldarg_0);
                     yield return new CodeInstruction(OpCodes.Call, MethodOf.Lambda(CompMap));
+                    patched = true;
                     continue;
                 }
 
                 yield return inst;
             }
+
+            if (!patched) Log.Warning($"No current map usage found for {nameof(CompPollutionPump)}.{nameof(CompPollutionPump.CompTick)}, patch is likely no longer needed");
         }
 
         static Map CompMap(CompPollutionPump pump)
