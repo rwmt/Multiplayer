@@ -295,46 +295,15 @@ namespace Multiplayer.Client
                 (SyncWorker sync, ref Verb verb)  => {
                     if (sync.isWriting) {
 
-                        if (verb.DirectOwner is Pawn pawn) {
-                            sync.Write(VerbOwnerType.Pawn);
-                            sync.Write(pawn);
-                        }
-                        else if (verb.DirectOwner is Ability ability) {
-                            sync.Write(VerbOwnerType.Ability);
-                            sync.Write(ability);
-                        }
-                        else if (verb.DirectOwner is ThingComp thingComp) {
-                            sync.Write(VerbOwnerType.ThingComp);
-                            sync.Write(thingComp);
-                        }
-                        else {
-                            Log.Error($"Multiplayer :: SyncDictionary.Verb: Unknown DirectOwner {verb.loadID} {verb.DirectOwner}");
-                            sync.Write(VerbOwnerType.None);
-                            return;
-                        }
-
-                        sync.Write(verb.loadID);
+                        sync.Write(verb.DirectOwner);
+                        // No reason to sync loadID if the owner is null
+                        if (verb.DirectOwner != null)
+                            sync.Write(verb.loadID);
                     }
                     else {
 
-                        var ownerType = sync.Read<VerbOwnerType>();
-                        if (ownerType == VerbOwnerType.None) {
-                            return;
-                        }
-
-                        IVerbOwner verbOwner = null;
-                        if (ownerType == VerbOwnerType.Pawn) {
-                            verbOwner = sync.Read<Pawn>();
-                        }
-                        else if (ownerType == VerbOwnerType.Ability) {
-                            verbOwner = sync.Read<Ability>();
-                        }
-                        else if (ownerType == VerbOwnerType.ThingComp) {
-                            verbOwner = sync.Read<ThingComp>() as IVerbOwner;
-                        }
-
+                        var verbOwner = sync.Read<IVerbOwner>();
                         if (verbOwner == null) {
-                            Log.Error($"Multiplayer :: SyncDictionary.Verb: Unknown VerbOwnerType {ownerType}");
                             return;
                         }
 
@@ -347,6 +316,14 @@ namespace Multiplayer.Client
                         }
                     }
                 }, true // implicit
+            },
+            {
+                (ByteWriter data, IVerbOwner obj) => {
+                    WriteWithImpl<IVerbOwner>(data, obj, supportedVerbOwnerTypes);
+                },
+                (ByteReader data) => {
+                    return ReadWithImpl<IVerbOwner>(data, supportedVerbOwnerTypes);
+                }, true // Implicit
             },
             #endregion
 

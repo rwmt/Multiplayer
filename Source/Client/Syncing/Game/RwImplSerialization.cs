@@ -32,15 +32,17 @@ namespace Multiplayer.Client
             typeof(WorldObjectComp)
         };
 
+        internal static Type[] supportedVerbOwnerTypes =
+        {
+            typeof(Thing),
+            typeof(Ability),
+            typeof(ThingComp),
+        };
+
         // ReSharper disable once InconsistentNaming
         internal enum ISelectableImpl : byte
         {
             None, Thing, Zone, WorldObject
-        }
-
-        internal enum VerbOwnerType : byte
-        {
-            None, Pawn, Ability, ThingComp
         }
 
         public static void Init()
