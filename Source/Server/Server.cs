@@ -53,13 +53,38 @@ static void LoadSave(MultiplayerServer server, string path)
     server.settings.gameName = replayInfo.name;
     server.worldData.hostFactionId = replayInfo.playerFaction;
 
-    // todo this assumes only one zero-tick section and map id 0
+    //This parses multiple saves as long as they are named correctly
     server.gameTimer = replayInfo.sections[0].start;
     server.startingTimer = replayInfo.sections[0].start;
 
+
     server.worldData.savedGame = Compress(zip.GetBytes("world/000_save"));
-    server.worldData.mapData[0] = Compress(zip.GetBytes("maps/000_0_save"));
-    server.worldData.mapCmds[0] = ScheduledCommand.DeserializeCmds(zip.GetBytes("maps/000_0_cmds")).Select(ScheduledCommand.Serialize).ToList();
+
+    // Parse cmds entry for each map
+    foreach (var entry in zip.GetEntries("maps/*_cmds"))
+    {
+        var parts = entry.FullName.Split('_');
+
+        if (parts.Length == 3)
+        {
+            int mapNumber = int.Parse(parts[1]);
+            server.worldData.mapCmds[mapNumber] = ScheduledCommand.DeserializeCmds(zip.GetBytes(entry.FullName)).Select(ScheduledCommand.Serialize).ToList();
+        }
+    }
+
+    // Parse save entry for each map
+    foreach (var entry in zip.GetEntries("maps/*_save"))
+    {
+        var parts = entry.FullName.Split('_');
+
+        if (parts.Length == 3)
+        {
+            int mapNumber = int.Parse(parts[1]);
+            server.worldData.mapData[mapNumber] = Compress(zip.GetBytes(entry.FullName));
+        }
+    }
+    
+
     server.worldData.mapCmds[-1] = ScheduledCommand.DeserializeCmds(zip.GetBytes("world/000_cmds")).Select(ScheduledCommand.Serialize).ToList();
     server.worldData.sessionData = Array.Empty<byte>();
 }
