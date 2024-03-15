@@ -48,18 +48,18 @@ static class ThingFilterMarkers
     [MpPostfix(typeof(Dialog_BillConfig), "DoWindowContents")]
     static void BillConfig_Postfix() => DrawnThingFilter = null;
 
-    [MpPrefix(typeof(Dialog_ManageOutfits), "DoWindowContents")]
-    static void ManageOutfit_Prefix(Dialog_ManageOutfits __instance) =>
-        DrawnThingFilter = new OutfitWrapper(__instance.SelectedOutfit);
+    [MpPrefix(typeof(Dialog_ManageApparelPolicies), "DoContentsRect")]
+    static void ManageOutfit_Prefix(Dialog_ManageApparelPolicies __instance) =>
+        DrawnThingFilter = new OutfitWrapper(__instance.SelectedPolicy);
 
-    [MpPostfix(typeof(Dialog_ManageOutfits), "DoWindowContents")]
+    [MpPostfix(typeof(Dialog_ManageApparelPolicies), "DoContentsRect")]
     static void ManageOutfit_Postfix() => DrawnThingFilter = null;
 
-    [MpPrefix(typeof(Dialog_ManageFoodRestrictions), "DoWindowContents")]
-    static void ManageFoodRestriction_Prefix(Dialog_ManageFoodRestrictions __instance) =>
-        DrawnThingFilter = new FoodRestrictionWrapper(__instance.SelectedFoodRestriction);
+    [MpPrefix(typeof(Dialog_ManageFoodPolicies), "DoContentsRect")]
+    static void ManageFoodRestriction_Prefix(Dialog_ManageFoodPolicies __instance) =>
+        DrawnThingFilter = new FoodRestrictionWrapper(__instance.SelectedPolicy);
 
-    [MpPostfix(typeof(Dialog_ManageFoodRestrictions), "DoWindowContents")]
+    [MpPostfix(typeof(Dialog_ManageFoodPolicies), "DoContentsRect")]
     static void ManageFoodRestriction_Postfix() => DrawnThingFilter = null;
 
     [MpPrefix(typeof(ITab_PenAutoCut), "FillTab")]

@@ -25,8 +25,6 @@ namespace Multiplayer.Client
             TryInit("SyncDelegates", SyncDelegates.Init);
             TryInit("SyncActions", SyncActions.Init);
 
-            //RuntimeHelpers.RunClassConstructor(typeof(SyncResearch).TypeHandle);
-
             SyncFieldUtil.ApplyWatchFieldPatches(typeof(SyncFields));
         }
     }

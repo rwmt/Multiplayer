@@ -193,7 +193,8 @@ namespace Multiplayer.Client
                     dlog.target = assgn.session.data.target;
 
                     // This is a cache set every frame at the top of Dialog_BeginRitual.DrawPawnList
-                    dlog.rolesGroupedTmp = (from r in assgn.AllRolesForReading group r by r.mergeId ?? r.id).ToList();
+                    // todo for 1.5
+                    // dlog.rolesGroupedTmp = (from r in assgn.AllRolesForReading group r by r.mergeId ?? r.id).ToList();
 
                     return dlog;
                 }

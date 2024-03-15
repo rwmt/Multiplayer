@@ -23,9 +23,9 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(Pawn_DraftController), nameof(Pawn_DraftController.Drafted));
             SyncMethod.Register(typeof(Pawn_DraftController), nameof(Pawn_DraftController.FireAtWill));
             SyncMethod.Register(typeof(Pawn_DrugPolicyTracker), nameof(Pawn_DrugPolicyTracker.CurrentPolicy)).CancelIfAnyArgNull();
-            SyncMethod.Register(typeof(Pawn_OutfitTracker), nameof(Pawn_OutfitTracker.CurrentOutfit)).CancelIfAnyArgNull();
-            SyncMethod.Register(typeof(Pawn_FoodRestrictionTracker), nameof(Pawn_FoodRestrictionTracker.CurrentFoodRestriction)).CancelIfAnyArgNull();
-            SyncMethod.Register(typeof(Pawn_PlayerSettings), nameof(Pawn_PlayerSettings.AreaRestriction));
+            SyncMethod.Register(typeof(Pawn_OutfitTracker), nameof(Pawn_OutfitTracker.CurrentApparelPolicy)).CancelIfAnyArgNull();
+            SyncMethod.Register(typeof(Pawn_FoodRestrictionTracker), nameof(Pawn_FoodRestrictionTracker.CurrentFoodPolicy)).CancelIfAnyArgNull();
+            SyncMethod.Register(typeof(Pawn_PlayerSettings), nameof(Pawn_PlayerSettings.AreaRestrictionInPawnCurrentMap));
             SyncMethod.Register(typeof(Pawn_PlayerSettings), nameof(Pawn_PlayerSettings.Master));
             SyncMethod.Register(typeof(Pawn), nameof(Pawn.Name)).ExposeParameter(0)
                 .SetPostInvoke((pawn, _) => ((Pawn)pawn).babyNamingDeadline = -1); // If a newborn was named then mark it as no longer needing to be named
@@ -42,11 +42,12 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(BillStack), nameof(BillStack.Delete)).CancelIfAnyArgNull();
             SyncMethod.Register(typeof(BillStack), nameof(BillStack.Reorder)).CancelIfAnyArgNull();
             SyncMethod.Register(typeof(Bill_Production), nameof(Bill_Production.SetStoreMode));
+            SyncMethod.Register(typeof(Bill_Production), nameof(Bill_Production.SetIncludeGroup));
             SyncMethod.Register(typeof(Building_TurretGun), nameof(Building_TurretGun.OrderAttack));
             SyncMethod.Register(typeof(Building_TurretGun), nameof(Building_TurretGun.ExtractShell));
             SyncMethod.Register(typeof(Area), nameof(Area.Invert));
             SyncMethod.Register(typeof(Area), nameof(Area.Delete));
-            SyncMethod.Register(typeof(Area_Allowed), nameof(Area_Allowed.SetLabel));
+            SyncMethod.Register(typeof(Area_Allowed), nameof(Area_Allowed.RenamableLabel));
             SyncMethod.Register(typeof(AreaManager), nameof(AreaManager.TryMakeNewAllowed));
             SyncMethod.Register(typeof(MainTabWindow_Research), nameof(MainTabWindow_Research.DoBeginResearch))
                 .TransformTarget(Serializer.SimpleReader(() => new MainTabWindow_Research()));
@@ -129,7 +130,7 @@ namespace Multiplayer.Client
 
             {
                 var methods = typeof(ITargetingSource).AllImplementing()
-                    .Except(typeof(CompActivable_RocketswarmLauncher)) // Skip it, as all it does is open another targeter
+                    .Except(typeof(CompInteractableRocketswarmLauncher)) // Skip it, as all it does is open another targeter
                     .Where(t => t.Assembly == typeof(Game).Assembly)
                     .Select(t => t.GetMethod(nameof(ITargetingSource.OrderForceTarget), AccessTools.allDeclared))
                     .AllNotNull();
@@ -150,16 +151,11 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(MonumentMarker), nameof(MonumentMarker.PlaceAllBlueprints));
             SyncMethod.Register(typeof(MonumentMarker), nameof(MonumentMarker.PlaceBlueprintsSimilarTo)).ExposeParameter(0);
 
-            // 1
-            SyncMethod.Register(typeof(TradeRequestComp), nameof(TradeRequestComp.Fulfill)).CancelIfAnyArgNull().SetVersion(1);
-
-            // 2
-            SyncMethod.Register(typeof(CompLaunchable), nameof(CompLaunchable.TryLaunch)).ExposeParameter(1).SetVersion(2);
-            SyncMethod.Register(typeof(OutfitForcedHandler), nameof(OutfitForcedHandler.Reset)).SetVersion(2);
-            SyncMethod.Register(typeof(Pawn_StoryTracker), nameof(Pawn_StoryTracker.Title)).SetVersion(2);
-
-            // 3
-            SyncMethod.Register(typeof(ShipUtility), nameof(ShipUtility.StartupHibernatingParts)).CancelIfAnyArgNull().SetVersion(3);
+            SyncMethod.Register(typeof(TradeRequestComp), nameof(TradeRequestComp.Fulfill)).CancelIfAnyArgNull();
+            SyncMethod.Register(typeof(CompLaunchable), nameof(CompLaunchable.TryLaunch)).ExposeParameter(1);
+            SyncMethod.Register(typeof(OutfitForcedHandler), nameof(OutfitForcedHandler.Reset));
+            SyncMethod.Register(typeof(Pawn_StoryTracker), nameof(Pawn_StoryTracker.Title));
+            SyncMethod.Register(typeof(ShipUtility), nameof(ShipUtility.StartupHibernatingParts)).CancelIfAnyArgNull();
 
             // Dialog_NodeTree
             Sync.RegisterSyncDialogNodeTree(typeof(IncidentWorker_CaravanMeeting), nameof(IncidentWorker_CaravanMeeting.TryExecuteWorker));
@@ -222,7 +218,8 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(CompPollutionPump), nameof(CompPollutionPump.Pump)).SetDebugOnly();
             SyncMethod.Lambda(typeof(CompProjectileInterceptor), nameof(CompProjectileInterceptor.CompGetGizmosExtra), 0).SetDebugOnly(); // Reset cooldown
             SyncMethod.Lambda(typeof(CompProjectileInterceptor), nameof(CompProjectileInterceptor.CompGetGizmosExtra), 2).SetDebugOnly(); // Toggle intercept non-hostile
-            SyncMethod.Lambda(typeof(CompReloadable), nameof(CompReloadable.CompGetWornGizmosExtra), 0).SetDebugOnly(); // Reload to full
+            SyncMethod.Lambda(typeof(CompApparelVerbOwner_Charged), nameof(CompApparelVerbOwner_Charged.CompGetWornGizmosExtra), 0).SetDebugOnly(); // Reload to full
+            SyncMethod.Lambda(typeof(CompEquippableAbilityReloadable), nameof(CompEquippableAbilityReloadable.CompGetEquippedGizmosExtra), 0).SetDebugOnly(); // Reload to full
             SyncMethod.Lambda(typeof(CompScanner), nameof(CompScanner.CompGetGizmosExtra), 0).SetDebugOnly(); // Find now
             SyncMethod.Lambda(typeof(CompTerrainPump), nameof(CompTerrainPump.CompGetGizmosExtra), 0).SetDebugOnly(); // Progress 1 day
             SyncMethod.Register(typeof(CompToxifier), nameof(CompToxifier.PolluteNextCell)).SetDebugOnly();
@@ -235,6 +232,7 @@ namespace Multiplayer.Client
             SyncMethod.Lambda(typeof(Pawn), nameof(Pawn.GetGizmos), 3).SetDebugOnly(); // Psychic entropy +20%
             SyncMethod.Lambda(typeof(Pawn), nameof(Pawn.GetGizmos), 6).SetDebugOnly(); // Reset faction permit cooldowns
             SyncMethod.Lambda(typeof(Pawn), nameof(Pawn.GetGizmos), 7).SetDebugOnly(); // Reset try romance cooldown
+            SyncMethod.Register(typeof(CompCanBeDormant), nameof(CompCanBeDormant.WakeUp)).SetDebugOnly();
 
             SyncMethod.Register(typeof(Blueprint_Build), nameof(Blueprint_Build.ChangeStyleOfAllSelected)).SetContext(SyncContext.MapSelected);
             SyncMethod.Lambda(typeof(CompTurretGun), nameof(CompTurretGun.CompGetGizmosExtra), 1); // Toggle fire at will
@@ -275,8 +273,6 @@ namespace Multiplayer.Client
             SyncMethod.Lambda(typeof(Building_MechCharger), nameof(Building_MechCharger.GetGizmos), 4).SetDebugOnly(); // Charge 100%
             // Gestator
             SyncMethod.Lambda(typeof(Building_MechGestator), nameof(Building_MechGestator.GetGizmos), 0).SetDebugOnly(); // Generate 5 waste
-            SyncMethod.Lambda(typeof(Building_MechGestator), nameof(Building_MechGestator.GetGizmos), 1).SetDebugOnly(); // Forming cycle +25%
-            SyncMethod.Lambda(typeof(Building_MechGestator), nameof(Building_MechGestator.GetGizmos), 2).SetDebugOnly(); // Complete cycle
             SyncMethod.Register(typeof(Bill_Mech), nameof(Bill_Mech.ForceCompleteAllCycles)).SetDebugOnly(); // Called from Building_MechGestator.GetGizmos
             // Carrier
             SyncMethod.Register(typeof(CompMechCarrier), nameof(CompMechCarrier.TrySpawnPawns));
@@ -362,19 +358,19 @@ namespace Multiplayer.Client
         }
 
         [MpPostfix(typeof(OutfitDatabase), nameof(OutfitDatabase.MakeNewOutfit))]
-        static void MakeNewOutfit_Postfix(Outfit __result)
+        static void MakeNewOutfit_Postfix(ApparelPolicy __result)
         {
             var dialog = GetDialogOutfits();
             if (__result != null && dialog != null && TickPatch.currentExecutingCmdIssuedBySelf)
-                dialog.SelectedOutfit = __result;
+                dialog.SelectedPolicy = __result;
         }
 
         [MpPostfix(typeof(FoodRestrictionDatabase), nameof(FoodRestrictionDatabase.MakeNewFoodRestriction))]
-        static void MakeNewFood_Postfix(FoodRestriction __result)
+        static void MakeNewFood_Postfix(FoodPolicy __result)
         {
             var dialog = GetDialogFood();
             if (__result != null && dialog != null && TickPatch.currentExecutingCmdIssuedBySelf)
-                dialog.SelectedFoodRestriction = __result;
+                dialog.SelectedPolicy = __result;
         }
 
         [MpPostfix(typeof(DrugPolicyDatabase), nameof(DrugPolicyDatabase.TryDelete))]
@@ -386,24 +382,24 @@ namespace Multiplayer.Client
         }
 
         [MpPostfix(typeof(OutfitDatabase), nameof(OutfitDatabase.TryDelete))]
-        static void TryDeleteOutfit_Postfix(Outfit outfit, AcceptanceReport __result)
+        static void TryDeleteOutfit_Postfix(ApparelPolicy apparelPolicy, AcceptanceReport __result)
         {
             var dialog = GetDialogOutfits();
-            if (__result.Accepted && dialog != null && dialog.SelectedOutfit == outfit)
-                dialog.SelectedOutfit = null;
+            if (__result.Accepted && dialog != null && dialog.SelectedPolicy == apparelPolicy)
+                dialog.SelectedPolicy = null;
         }
 
         [MpPostfix(typeof(FoodRestrictionDatabase), nameof(FoodRestrictionDatabase.TryDelete))]
-        static void TryDeleteFood_Postfix(FoodRestriction foodRestriction, AcceptanceReport __result)
+        static void TryDeleteFood_Postfix(FoodPolicy foodPolicy, AcceptanceReport __result)
         {
             var dialog = GetDialogFood();
-            if (__result.Accepted && dialog != null && dialog.SelectedFoodRestriction == foodRestriction)
-                dialog.SelectedFoodRestriction = null;
+            if (__result.Accepted && dialog != null && dialog.SelectedPolicy == foodPolicy)
+                dialog.SelectedPolicy = null;
         }
 
         static Dialog_ManageDrugPolicies GetDialogDrugPolicies() => Find.WindowStack?.WindowOfType<Dialog_ManageDrugPolicies>();
-        static Dialog_ManageOutfits GetDialogOutfits() => Find.WindowStack?.WindowOfType<Dialog_ManageOutfits>();
-        static Dialog_ManageFoodRestrictions GetDialogFood() => Find.WindowStack?.WindowOfType<Dialog_ManageFoodRestrictions>();
+        static Dialog_ManageApparelPolicies GetDialogOutfits() => Find.WindowStack?.WindowOfType<Dialog_ManageApparelPolicies>();
+        static Dialog_ManageFoodPolicies GetDialogFood() => Find.WindowStack?.WindowOfType<Dialog_ManageFoodPolicies>();
 
         [MpPostfix(typeof(WITab_Caravan_Gear), nameof(WITab_Caravan_Gear.TryEquipDraggedItem))]
         static void TryEquipDraggedItem_Postfix(WITab_Caravan_Gear __instance)
@@ -546,7 +542,7 @@ namespace Multiplayer.Client
             }
         }
 
-        [MpPrefix(typeof(Targeter), nameof(Targeter.BeginTargeting), new []{ typeof(ITargetingSource), typeof(ITargetingSource), typeof(bool), typeof(Func<LocalTargetInfo, ITargetingSource>), typeof(Action) })]
+        [MpPrefix(typeof(Targeter), nameof(Targeter.BeginTargeting), new []{ typeof(ITargetingSource), typeof(ITargetingSource), typeof(bool), typeof(Func<LocalTargetInfo, ITargetingSource>), typeof(Action), typeof(bool) })]
         static bool BeginTargeting(ITargetingSource source)
         {
             if (Multiplayer.Client == null || source.Targetable)

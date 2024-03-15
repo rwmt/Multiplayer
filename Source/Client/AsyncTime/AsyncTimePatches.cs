@@ -169,7 +169,7 @@ namespace Multiplayer.Client.AsyncTime
         }
     }
 
-    [HarmonyPatch(typeof(LetterStack), nameof(LetterStack.ReceiveLetter), typeof(Letter), typeof(string))]
+    [HarmonyPatch(typeof(LetterStack), nameof(LetterStack.ReceiveLetter), typeof(Letter), typeof(string), typeof(int), typeof(bool))]
     static class ReceiveLetterPause
     {
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
