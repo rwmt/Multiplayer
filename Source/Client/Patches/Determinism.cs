@@ -277,36 +277,6 @@ namespace Multiplayer.Client.Patches
         }
     }
 
-    [HarmonyPatch(typeof(QuestNode_Root_PollutionRetaliation), nameof(QuestNode_Root_PollutionRetaliation.RunInt))]
-    static class ReplaceUnityRngPollutionRetaliation
-    {
-        // Simplified transpiler from MP Compat.
-        // Source: https://github.com/rwmt/Multiplayer-Compatibility/blob/2e82e71aef64c5a5a4fc879db6f49d3c20da25cb/Source/PatchingUtilities.cs#L226
-        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts, MethodBase original)
-        {
-            var anythingPatched = false;
-
-            var parameters = new[] { typeof(int), typeof(int) };
-            var unityRandomRangeInt = AccessTools.DeclaredMethod(typeof(Random), nameof(Random.Range), parameters);
-            var verseRandomRangeInt = AccessTools.DeclaredMethod(typeof(Rand), nameof(Rand.Range), parameters);
-
-            foreach (var inst in insts)
-            {
-                if ((inst.opcode == OpCodes.Call || inst.opcode == OpCodes.Callvirt) && inst.operand is MethodInfo method && method == unityRandomRangeInt)
-                {
-                    inst.opcode = OpCodes.Call;
-                    inst.operand = verseRandomRangeInt;
-
-                    anythingPatched = true;
-                }
-
-                yield return inst;
-            }
-
-            if (!anythingPatched) Log.Warning($"No Unity RNG was patched for method: {original?.FullDescription() ?? "(unknown method)"}");
-        }
-    }
-
     [HarmonyPatch(typeof(Pawn_RecordsTracker), nameof(Pawn_RecordsTracker.ExposeData))]
     static class RecordsTrackerExposePatch
     {
@@ -376,7 +346,7 @@ namespace Multiplayer.Client.Patches
         }
     }
 
-    [HarmonyPatch(typeof(SituationalThoughtHandler), nameof(SituationalThoughtHandler.CheckRecalculateMoodThoughts))]
+    [HarmonyPatch(typeof(SituationalThoughtHandler), nameof(SituationalThoughtHandler.UpdateAllMoodThoughts))]
     static class DontRecalculateMoodThoughtsInInterface
     {
         static bool Prefix(SituationalThoughtHandler __instance)
@@ -384,7 +354,7 @@ namespace Multiplayer.Client.Patches
             if (Multiplayer.Client != null && !Multiplayer.Ticking && !Multiplayer.ExecutingCmds) return false;
 
             // Notify_SituationalThoughtsDirty was called
-            if (__instance.lastMoodThoughtsRecalculationTick == -99999)
+            if (__instance.thoughtsDirty)
                 __instance.cachedThoughts.Clear();
 
             return true;
@@ -518,32 +488,6 @@ namespace Multiplayer.Client.Patches
         private static int NewCacheStatus(int gameTick)
         {
             return Multiplayer.InInterface ? -gameTick : gameTick;
-        }
-    }
-
-    [HarmonyPatch(typeof(CompPollutionPump), nameof(CompPollutionPump.CompTick))]
-    static class PollutionPumpRemoveCurrentMap
-    {
-        private static MethodInfo currentMapGetter = AccessTools.PropertyGetter(typeof(Find), nameof(Find.CurrentMap));
-
-        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
-        {
-            foreach (var inst in insts)
-            {
-                if (inst.operand == currentMapGetter)
-                {
-                    yield return new CodeInstruction(OpCodes.Ldarg_0);
-                    yield return new CodeInstruction(OpCodes.Call, MethodOf.Lambda(CompMap));
-                    continue;
-                }
-
-                yield return inst;
-            }
-        }
-
-        static Map CompMap(CompPollutionPump pump)
-        {
-            return pump.parent.Map;
         }
     }
 

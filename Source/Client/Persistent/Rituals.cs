@@ -46,7 +46,6 @@ namespace Multiplayer.Client.Persistent
         public void OpenWindow(bool sound = true)
         {
             var dialog = new BeginRitualProxy(
-                null,
                 data.ritualLabel,
                 data.ritual,
                 data.target,
@@ -56,7 +55,6 @@ namespace Multiplayer.Client.Persistent
                 data.obligation,
                 null,
                 data.confirmText,
-                null,
                 null,
                 null,
                 data.outcome,
@@ -109,8 +107,8 @@ namespace Multiplayer.Client.Persistent
 
         public RitualSession Session => map.MpComp().sessionManager.GetFirstOfType<RitualSession>();
 
-        public BeginRitualProxy(string header, string ritualLabel, Precept_Ritual ritual, TargetInfo target, Map map, ActionCallback action, Pawn organizer, RitualObligation obligation, Func<Pawn, bool, bool, bool> filter = null, string confirmText = null, List<Pawn> requiredPawns = null, Dictionary<string, Pawn> forcedForRole = null, string ritualName = null, RitualOutcomeEffectDef outcome = null, List<string> extraInfoText = null, Pawn selectedPawn = null) :
-            base(header, ritualLabel, ritual, target, map, action, organizer, obligation, filter, confirmText, requiredPawns, forcedForRole, ritualName, outcome, extraInfoText, selectedPawn)
+        public BeginRitualProxy(string ritualLabel, Precept_Ritual ritual, TargetInfo target, Map map, ActionCallback action, Pawn organizer, RitualObligation obligation, PawnFilter filter = null, string okButtonText = null, List<Pawn> requiredPawns = null, Dictionary<string, Pawn> forcedForRole = null, RitualOutcomeEffectDef outcome = null, List<string> extraInfoText = null, Pawn selectedPawn = null) :
+            base(ritualLabel, ritual, target, map, action, organizer, obligation, filter, okButtonText, requiredPawns, forcedForRole, outcome, extraInfoText, selectedPawn)
         {
             soundClose = SoundDefOf.TabClose;
 
@@ -177,18 +175,9 @@ namespace Multiplayer.Client.Persistent
         }
     }
 
-    [HarmonyPatch]
+    [HarmonyPatch(typeof(Dialog_BeginRitual), nameof(Dialog_BeginRitual.Start))]
     static class HandleStartRitual
     {
-        static MethodBase TargetMethod()
-        {
-            return MpMethodUtil.GetLocalFunc(
-                typeof(Dialog_BeginRitual),
-                nameof(Dialog_BeginRitual.DoWindowContents),
-                localFunc: "Start"
-            );
-        }
-
         static bool Prefix(Dialog_BeginRitual __instance)
         {
             if (__instance is BeginRitualProxy proxy)

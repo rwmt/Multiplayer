@@ -2,6 +2,7 @@ using HarmonyLib;
 using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using Verse;
 
 namespace Multiplayer.Client
@@ -12,17 +13,21 @@ namespace Multiplayer.Client
     {
         public static Dictionary<int, MapDrawer> copyFrom = new();
 
+        // These are readonly so they need to be set using reflection
+        private static FieldInfo mapDrawerMap = AccessTools.Field(typeof(MapDrawer), nameof(MapDrawer.map));
+        private static FieldInfo sectionMap = AccessTools.Field(typeof(Section), nameof(Section.map));
+
         static bool Prefix(MapDrawer __instance)
         {
             Map map = __instance.map;
             if (!copyFrom.TryGetValue(map.uniqueID, out MapDrawer keepDrawer)) return true;
 
             map.mapDrawer = keepDrawer;
-            keepDrawer.map = map;
+            mapDrawerMap.SetValue(keepDrawer, map);
 
             foreach (Section section in keepDrawer.sections)
             {
-                section.map = map;
+                sectionMap.SetValue(section, map);
 
                 for (int i = 0; i < section.layers.Count; i++)
                 {
@@ -30,8 +35,6 @@ namespace Multiplayer.Client
 
                     if (!ShouldKeep(layer))
                         section.layers[i] = (SectionLayer)Activator.CreateInstance(layer.GetType(), section);
-                    else if (layer is SectionLayer_LightingOverlay lighting)
-                        lighting.glowGrid = map.glowGrid.glowGrid;
                     else if (layer is SectionLayer_TerrainScatter scatter)
                         scatter.scats.Do(s => s.map = map);
                 }

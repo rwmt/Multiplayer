@@ -289,13 +289,13 @@ namespace Multiplayer.Client
         private static void SaveBinary(BinaryWriter writer, string label)
         {
             byte[] arr = (writer.BaseStream as MemoryStream).ToArray();
-            DataExposeUtility.ByteArray(ref arr, label);
+            DataExposeUtility.LookByteArray(ref arr, label);
         }
 
         private static BinaryReader LoadBinary(string label)
         {
             byte[] arr = null;
-            DataExposeUtility.ByteArray(ref arr, label);
+            DataExposeUtility.LookByteArray(ref arr, label);
             if (arr == null) return null;
 
             return new BinaryReader(new MemoryStream(arr));

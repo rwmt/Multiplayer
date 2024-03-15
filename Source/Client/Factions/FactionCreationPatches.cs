@@ -19,11 +19,12 @@ static class ConfigureStartingPawns_DoWindowContents_Patch
     }
 }
 
-[HarmonyPatch(typeof(Page_ConfigureStartingPawns), nameof(Page_ConfigureStartingPawns.RandomizeCurPawn))]
-static class ConfigureStartingPawns_RandomizeCurPawn_Patch
+[HarmonyPatch(typeof(StartingPawnUtility), nameof(StartingPawnUtility.RandomizePawn))]
+static class StartingPawnUtility_RandomizePawn_Patch
 {
     static void Prefix(ref ProgramState __state)
     {
+        // todo is this compatible with 1.5's "Create new wanderers?"
         __state = Current.ProgramState;
         Current.programStateInt = ProgramState.Entry;
     }

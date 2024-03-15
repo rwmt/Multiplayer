@@ -45,12 +45,12 @@ public class FactionWorldData : IExposable
     public void ReassignIds()
     {
         foreach (DrugPolicy p in drugPolicyDatabase.policies)
-            p.uniqueId = Find.UniqueIDsManager.GetNextThingID();
+            p.id = Find.UniqueIDsManager.GetNextThingID();
 
-        foreach (Outfit o in outfitDatabase.outfits)
-            o.uniqueId = Find.UniqueIDsManager.GetNextThingID();
+        foreach (ApparelPolicy o in outfitDatabase.outfits)
+            o.id = Find.UniqueIDsManager.GetNextThingID();
 
-        foreach (FoodRestriction o in foodRestrictionDatabase.foodRestrictions)
+        foreach (FoodPolicy o in foodRestrictionDatabase.foodRestrictions)
             o.id = Find.UniqueIDsManager.GetNextThingID();
     }
 

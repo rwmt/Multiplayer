@@ -103,10 +103,9 @@ static class BillProductionValidateSettingsPatch
     {
         if (Multiplayer.Client == null) return;
 
-        var zoneManager = __instance.storeZone?.zoneManager ?? __instance.includeFromZone?.zoneManager;
-        if (__instance.Map != null && zoneManager != null)
+        if (__instance.Map != null && __instance.billStack?.billGiver is Thing { Faction: { } faction })
         {
-            __instance.Map.PushFaction(zoneManager.map.MpComp().GetFactionId(zoneManager));
+            __instance.Map.PushFaction(faction);
             __state = __instance.Map;
         }
     }

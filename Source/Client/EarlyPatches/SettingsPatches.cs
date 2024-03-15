@@ -14,7 +14,6 @@ namespace Multiplayer.Client.EarlyPatches
     {
         static IEnumerable<MethodBase> TargetMethods()
         {
-            yield return AccessTools.PropertyGetter(typeof(Prefs), nameof(Prefs.PauseOnError));
             yield return AccessTools.PropertyGetter(typeof(Prefs), nameof(Prefs.AutomaticPauseMode));
             yield return AccessTools.PropertyGetter(typeof(Prefs), nameof(Prefs.PauseOnLoad));
             yield return AccessTools.PropertyGetter(typeof(Prefs), nameof(Prefs.AdaptiveTrainingEnabled));
@@ -29,7 +28,6 @@ namespace Multiplayer.Client.EarlyPatches
     {
         static IEnumerable<MethodBase> TargetMethods()
         {
-            yield return AccessTools.PropertySetter(typeof(Prefs), nameof(Prefs.PauseOnError));
             yield return AccessTools.PropertySetter(typeof(Prefs), nameof(Prefs.AutomaticPauseMode));
             yield return AccessTools.PropertySetter(typeof(Prefs), nameof(Prefs.PauseOnLoad));
             yield return AccessTools.PropertySetter(typeof(Prefs), nameof(Prefs.AdaptiveTrainingEnabled));

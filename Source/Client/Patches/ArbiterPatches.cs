@@ -62,7 +62,7 @@ namespace Multiplayer.Client
             yield return AccessTools.Method(typeof(Prefs), nameof(Prefs.Save));
             yield return AccessTools.Method(typeof(FloatMenuOption), nameof(FloatMenuOption.SetSizeMode));
             yield return AccessTools.Method(typeof(Section), nameof(Section.RegenerateAllLayers));
-            yield return AccessTools.Method(typeof(Section), nameof(Section.RegenerateLayers));
+            yield return AccessTools.Method(typeof(Section), nameof(Section.RegenerateDirtyLayers));
             yield return AccessTools.Method(typeof(SectionLayer), nameof(SectionLayer.DrawLayer));
             yield return AccessTools.Method(typeof(Map), nameof(Map.MapUpdate));
             yield return AccessTools.Method(typeof(GUIStyle), nameof(GUIStyle.CalcSize));

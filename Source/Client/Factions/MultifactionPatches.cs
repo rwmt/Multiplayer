@@ -322,7 +322,7 @@ static class IsActiveThreatToAnyPlayer
     }
 }
 
-[HarmonyPatch(typeof(LetterStack), nameof(LetterStack.ReceiveLetter), typeof(Letter), typeof(string))]
+[HarmonyPatch(typeof(LetterStack), nameof(LetterStack.ReceiveLetter), typeof(Letter), typeof(string), typeof(int), typeof(bool))]
 static class LetterStackReceiveOnlyMyFaction
 {
     // todo the letter might get culled from the archive if it isn't in the stack and Sync depends on the archive
@@ -333,7 +333,7 @@ static class LetterStackReceiveOnlyMyFaction
     }
 }
 
-[HarmonyPatch(typeof(LetterStack), nameof(LetterStack.ReceiveLetter), typeof(Letter), typeof(string))]
+[HarmonyPatch(typeof(LetterStack), nameof(LetterStack.ReceiveLetter), typeof(Letter), typeof(string), typeof(int), typeof(bool))]
 static class LetterStackReceiveSoundOnlyMyFaction
 {
     private static MethodInfo PlayOneShotOnCamera =

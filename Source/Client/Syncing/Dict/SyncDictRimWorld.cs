@@ -181,25 +181,25 @@ namespace Multiplayer.Client
 
             #region Policies
             {
-                (ByteWriter data, Outfit policy) => {
-                    data.WriteInt32(policy.uniqueId);
+                (ByteWriter data, ApparelPolicy policy) => {
+                    data.WriteInt32(policy.id);
                 },
                 (ByteReader data) => {
                     int id = data.ReadInt32();
-                    return Current.Game.outfitDatabase.AllOutfits.Find(o => o.uniqueId == id);
+                    return Current.Game.outfitDatabase.AllOutfits.Find(o => o.id == id);
                 }
             },
             {
                 (ByteWriter data, DrugPolicy policy) => {
-                    data.WriteInt32(policy.uniqueId);
+                    data.WriteInt32(policy.id);
                 },
                 (ByteReader data) => {
                     int id = data.ReadInt32();
-                    return Current.Game.drugPolicyDatabase.AllPolicies.Find(o => o.uniqueId == id);
+                    return Current.Game.drugPolicyDatabase.AllPolicies.Find(o => o.id == id);
                 }
             },
             {
-                (ByteWriter data, FoodRestriction policy) => {
+                (ByteWriter data, FoodPolicy policy) => {
                     data.WriteInt32(policy.id);
                 },
                 (ByteReader data) => {
@@ -582,11 +582,13 @@ namespace Multiplayer.Client
             {
                 (ByteWriter data, Command_Ability command) => {
                     WriteSync(data, command.ability);
+                    WriteSync(data, command.Pawn);
                 },
                 (ByteReader data) => {
                     Ability ability = ReadSync<Ability>(data);
+                    Pawn pawn = ReadSync<Pawn>(data);
 
-                    return new Command_Ability(ability);
+                    return new Command_Ability(ability, pawn);
                 }
             },
             #endregion

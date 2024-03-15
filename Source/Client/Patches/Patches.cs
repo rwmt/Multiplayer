@@ -245,7 +245,7 @@ namespace Multiplayer.Client
         static void Finalizer() => starting = false;
     }
 
-    [HarmonyPatch(typeof(LongEventHandler), nameof(LongEventHandler.QueueLongEvent), new[] { typeof(Action), typeof(string), typeof(bool), typeof(Action<Exception>), typeof(bool) })]
+    [HarmonyPatch(typeof(LongEventHandler), nameof(LongEventHandler.QueueLongEvent), new[] { typeof(Action), typeof(string), typeof(bool), typeof(Action<Exception>), typeof(bool), typeof(Action) })]
     static class CancelRootPlayStartLongEvents
     {
         public static bool cancel;
@@ -263,7 +263,7 @@ namespace Multiplayer.Client
         static bool Prefix() => LongEventHandler.eventQueue.All(e => e.eventTextKey == "MpLoading");
     }
 
-    [HarmonyPatch(typeof(ScreenFader), nameof(ScreenFader.StartFade))]
+    [HarmonyPatch(typeof(ScreenFader), nameof(ScreenFader.StartFade), typeof(Color), typeof(float), typeof(float))]
     static class DisableScreenFade2
     {
         static bool Prefix() => LongEventHandler.eventQueue.All(e => e.eventTextKey == "MpLoading");
@@ -381,11 +381,11 @@ namespace Multiplayer.Client
         static bool Prefix(Pawn_WorkSettings __instance, WorkTypeDef w, int priority) => __instance.GetPriority(w) != priority;
     }
 
-    [HarmonyPatch(typeof(Pawn_PlayerSettings), nameof(Pawn_PlayerSettings.AreaRestriction), MethodType.Setter)]
+    [HarmonyPatch(typeof(Pawn_PlayerSettings), nameof(Pawn_PlayerSettings.AreaRestrictionInPawnCurrentMap), MethodType.Setter)]
     static class AreaRestrictionSameValue
     {
         [HarmonyPriority(MpPriority.MpFirst + 1)]
-        static bool Prefix(Pawn_PlayerSettings __instance, Area value) => __instance.AreaRestriction != value;
+        static bool Prefix(Pawn_PlayerSettings __instance, Area value) => __instance.AreaRestrictionInPawnCurrentMap != value;
     }
 
     [HarmonyPatch]
@@ -426,7 +426,7 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(MoteMaker), nameof(MoteMaker.MakeStaticMote))]
-    [HarmonyPatch(new[] {typeof(Vector3), typeof(Map), typeof(ThingDef), typeof(float), typeof(bool)})]
+    [HarmonyPatch(new[] {typeof(Vector3), typeof(Map), typeof(ThingDef), typeof(float), typeof(bool), typeof(float)})]
     static class FixNullMotes
     {
         static Dictionary<Type, Mote> cache = new();
