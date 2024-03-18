@@ -54,12 +54,10 @@ namespace Multiplayer.Client
             if (type == typeof(ISyncSimple))
                 return true;
             if (typeof(ISyncSimple).IsAssignableFrom(type))
-            {
                 return ImplSerialization.syncSimples.
                     Where(t => type.IsAssignableFrom(t)).
                     SelectMany(AccessTools.GetDeclaredFields).
                     All(f => CanHandle(f.FieldType));
-            }
             if (typeof(Def).IsAssignableFrom(type))
                 return true;
             if (typeof(Designator).IsAssignableFrom(type))
