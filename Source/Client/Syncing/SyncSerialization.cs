@@ -15,8 +15,6 @@ namespace Multiplayer.Client
 {
     public static class SyncSerialization
     {
-        private static bool simplifiedSyncSimpleCheck = false;
-
         public static void Init()
         {
             RwImplSerialization.Init();
@@ -53,24 +51,14 @@ namespace Multiplayer.Client
                     || gtd == typeof(HashSet<>)
                     || typeof(ITuple).IsAssignableFrom(gtd))
                     && CanHandleGenericArgs(type);
+            if (type == typeof(ISyncSimple))
+                return true;
             if (typeof(ISyncSimple).IsAssignableFrom(type))
             {
-                // Prevent infinite recursive calls to CanHandle on ISyncSimple subtypes.
-                if (simplifiedSyncSimpleCheck)
-                    return true;
-
-                try
-                {
-                    simplifiedSyncSimpleCheck = true;
-                    return ImplSerialization.syncSimples.
-                        Where(t => type.IsAssignableFrom(t)).
-                        SelectMany(AccessTools.GetDeclaredFields).
-                        All(f => CanHandle(f.FieldType));
-                }
-                finally
-                {
-                    simplifiedSyncSimpleCheck = false;
-                }
+                return ImplSerialization.syncSimples.
+                    Where(t => type.IsAssignableFrom(t)).
+                    SelectMany(AccessTools.GetDeclaredFields).
+                    All(f => CanHandle(f.FieldType));
             }
             if (typeof(Def).IsAssignableFrom(type))
                 return true;
