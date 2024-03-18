@@ -51,6 +51,8 @@ namespace Multiplayer.Client
                     || gtd == typeof(HashSet<>)
                     || typeof(ITuple).IsAssignableFrom(gtd))
                     && CanHandleGenericArgs(type);
+            if (type == typeof(ISyncSimple))
+                return true;
             if (typeof(ISyncSimple).IsAssignableFrom(type))
                 return ImplSerialization.syncSimples.
                     Where(t => type.IsAssignableFrom(t)).
