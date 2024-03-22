@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection.Emit;
 using HarmonyLib;
@@ -283,6 +283,10 @@ public static class ColonistBarTimeControl
     public static float btnWidth = TimeControls.TimeButSize.x;
     public static float btnHeight = TimeControls.TimeButSize.y;
 
+    private static Dictionary<Vector2, float> flashDict = new Dictionary<Vector2, float>();
+    private static float flashInterval = 6f;
+    private static Color flashColor = Color.red;
+
     static void Prefix(ref bool __state)
     {
         if (Event.current.type is EventType.MouseDown or EventType.MouseUp)
@@ -316,6 +320,7 @@ public static class ColonistBarTimeControl
             Rect groupBar = bar.drawer.GroupFrameRect(entry.group);
             float drawXPos = groupBar.x;
             Color bgColor = (entryTickable.ActualRateMultiplier(TimeSpeed.Normal) == 0f) ? pauseBgColor : normalBgColor;
+            Vector2 flashPos = new Vector2(drawXPos + btnWidth / 2, groupBar.yMax + btnHeight / 2);
 
             if (Multiplayer.GameComp.asyncTime)
             {
@@ -337,6 +342,24 @@ public static class ColonistBarTimeControl
                 Rect button = new Rect(drawXPos, groupBar.yMax, btnWidth, btnHeight);
                 MpTimeControls.TimeIndicateBlockingPause(button, bgColor);
                 drawXPos += TimeControls.TimeButSize.x;
+
+                float pauseTime = flashDict.GetValueOrDefault(flashPos);
+                if (flashDict.ContainsKey(flashPos))
+                {
+                    // Draw flash for ongoing blocking pause
+                    DrawPauseFlash(flashPos);
+                }
+                else
+                {
+                    // There is a new blocking pause 
+                    flashDict.Add(flashPos, Time.time);
+                }
+            }
+
+            if (entryTickable.ActualRateMultiplier(TimeSpeed.Normal) != 0f && flashDict.ContainsKey(flashPos))
+            {
+                // No longer any blocking pauses, stop flashing here
+                flashDict.Remove(flashPos);
             }
 
             List<FloatMenuOption> options = GetBlockingWindowOptions(entry, entryTickable);
@@ -373,6 +396,18 @@ public static class ColonistBarTimeControl
         {
             if (WorldRendererUtility.WorldRenderedNow) CameraJumper.TryHideWorld();
             Current.Game.CurrentMap = map;
+        }
+    }
+
+    static void DrawPauseFlash(Vector2 pos)
+    {
+        float pauseTime = flashDict.GetValueOrDefault(pos);
+        float pauseDuration = Time.time - pauseTime;
+
+        // Only flash at flashInterval from the time the blocking pause began
+        if (pauseDuration > 0f && pauseDuration % flashInterval < 1f)
+        {
+             GenUI.DrawFlash(pos.x, pos.y, UI.screenWidth * 0.6f, Pulser.PulseBrightness(1f, 1f, pauseDuration) * 0.4f, flashColor);
         }
     }
 }
