@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using Multiplayer.API;
 using Multiplayer.Client.Util;
 using Multiplayer.Common;
 using RimWorld;
@@ -12,16 +13,7 @@ namespace Multiplayer.Client
     {
         public static Type[] storageParents;
         public static Type[] plantToGrowSettables;
-
-        public static Type[] thingCompTypes;
-        public static Type[] hediffCompTypes;
-        public static Type[] abilityCompTypes;
         public static Type[] designatorTypes;
-        public static Type[] worldObjectCompTypes;
-
-        public static Type[] gameCompTypes;
-        public static Type[] worldCompTypes;
-        public static Type[] mapCompTypes;
 
         internal static Type[] supportedThingHolders =
         {
@@ -47,16 +39,7 @@ namespace Multiplayer.Client
         {
             storageParents = TypeUtil.AllImplementationsOrdered(typeof(IStoreSettingsParent));
             plantToGrowSettables = TypeUtil.AllImplementationsOrdered(typeof(IPlantToGrowSettable));
-
-            thingCompTypes = TypeUtil.AllSubclassesNonAbstractOrdered(typeof(ThingComp));
-            hediffCompTypes = TypeUtil.AllSubclassesNonAbstractOrdered(typeof(HediffComp));
-            abilityCompTypes = TypeUtil.AllSubclassesNonAbstractOrdered(typeof(AbilityComp));
             designatorTypes = TypeUtil.AllSubclassesNonAbstractOrdered(typeof(Designator));
-            worldObjectCompTypes = TypeUtil.AllSubclassesNonAbstractOrdered(typeof(WorldObjectComp));
-
-            gameCompTypes = TypeUtil.AllSubclassesNonAbstractOrdered(typeof(GameComponent));
-            worldCompTypes = TypeUtil.AllSubclassesNonAbstractOrdered(typeof(WorldComponent));
-            mapCompTypes = TypeUtil.AllSubclassesNonAbstractOrdered(typeof(MapComponent));
         }
 
         internal static T ReadWithImpl<T>(ByteReader data, IList<Type> impls) where T : class

@@ -156,7 +156,7 @@ public class SessionManager : IHasSessionData, ISessionManager
 
         foreach (var session in semiPersistentSessions)
         {
-            data.WriteUShort((ushort)ImplSerialization.sessions.FindIndex(session.GetType()));
+            data.WriteUShort((ushort)ApiSerialization.sessions.FindIndex(session.GetType()));
             data.WriteInt32(session.SessionId);
 
             try
@@ -181,13 +181,13 @@ public class SessionManager : IHasSessionData, ISessionManager
             ushort typeIndex = data.ReadUShort();
             int sessionId = data.ReadInt32();
 
-            if (typeIndex >= ImplSerialization.sessions.Length)
+            if (typeIndex >= ApiSerialization.sessions.Length)
             {
-                Log.Error($"Received data for ISession type with index out of range: {typeIndex}, session types count: {ImplSerialization.sessions.Length}");
+                Log.Error($"Received data for ISession type with index out of range: {typeIndex}, session types count: {ApiSerialization.sessions.Length}");
                 continue;
             }
 
-            var objType = ImplSerialization.sessions[typeIndex];
+            var objType = ApiSerialization.sessions[typeIndex];
 
             try
             {

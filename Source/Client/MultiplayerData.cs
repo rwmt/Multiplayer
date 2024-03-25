@@ -120,20 +120,20 @@ namespace Multiplayer.Client
 
             int TypeHash(Type type) => GenText.StableStringHash(type.FullName);
 
-            dict["ThingComp"] = GetDefInfo(RwImplSerialization.thingCompTypes, TypeHash);
-            dict["AbilityComp"] = GetDefInfo(RwImplSerialization.abilityCompTypes, TypeHash);
-            dict["Designator"] = GetDefInfo(RwImplSerialization.designatorTypes, TypeHash);
-            dict["WorldObjectComp"] = GetDefInfo(RwImplSerialization.worldObjectCompTypes, TypeHash);
-            dict["HediffComp"] = GetDefInfo(RwImplSerialization.hediffCompTypes, TypeHash);
+            dict["ThingComp"] = GetDefInfo(CompSerialization.thingCompTypes, TypeHash);
+            dict["AbilityComp"] = GetDefInfo(CompSerialization.abilityCompTypes, TypeHash);
+            dict["WorldObjectComp"] = GetDefInfo(CompSerialization.worldObjectCompTypes, TypeHash);
+            dict["HediffComp"] = GetDefInfo(CompSerialization.hediffCompTypes, TypeHash);
             dict["IStoreSettingsParent"] = GetDefInfo(RwImplSerialization.storageParents, TypeHash);
             dict["IPlantToGrowSettable"] = GetDefInfo(RwImplSerialization.plantToGrowSettables, TypeHash);
+            dict["Designator"] = GetDefInfo(RwImplSerialization.designatorTypes, TypeHash);
             dict["DefTypes"] = GetDefInfo(DefSerialization.DefTypes, TypeHash);
 
-            dict["GameComponent"] = GetDefInfo(RwImplSerialization.gameCompTypes, TypeHash);
-            dict["WorldComponent"] = GetDefInfo(RwImplSerialization.worldCompTypes, TypeHash);
-            dict["MapComponent"] = GetDefInfo(RwImplSerialization.mapCompTypes, TypeHash);
-            dict["ISyncSimple"] = GetDefInfo(ImplSerialization.syncSimples, TypeHash);
-            dict["ISession"] = GetDefInfo(ImplSerialization.sessions, TypeHash);
+            dict["GameComponent"] = GetDefInfo(CompSerialization.gameCompTypes, TypeHash);
+            dict["WorldComponent"] = GetDefInfo(CompSerialization.worldCompTypes, TypeHash);
+            dict["MapComponent"] = GetDefInfo(CompSerialization.mapCompTypes, TypeHash);
+            dict["ISyncSimple"] = GetDefInfo(ApiSerialization.syncSimples, TypeHash);
+            dict["ISession"] = GetDefInfo(ApiSerialization.sessions, TypeHash);
 
             dict["PawnBio"] = GetDefInfo(SolidBioDatabase.allBios, b => b.name.GetHashCode());
 

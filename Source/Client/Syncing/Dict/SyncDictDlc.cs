@@ -13,7 +13,7 @@ namespace Multiplayer.Client
 {
     public static class SyncDictDlc
     {
-		internal static SyncWorkerDictionaryTree syncWorkers = new SyncWorkerDictionaryTree()
+		internal static SyncWorkerDictionaryTree syncWorkers = new()
         {
             #region Royalty
             {
