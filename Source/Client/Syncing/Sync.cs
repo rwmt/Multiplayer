@@ -141,9 +141,9 @@ namespace Multiplayer.Client
                             RegisterSyncMethod(method, sma);
                         else if (method.TryGetAttribute(out SyncWorkerAttribute swa))
                             RegisterSyncWorker(method, isImplicit: swa.isImplicit, shouldConstruct: swa.shouldConstruct);
-                        else if (method.TryGetAttribute(out SyncDialogNodeTreeAttribute sdnta))
+                        else if (method.TryGetAttribute(out SyncDialogNodeTreeAttribute _))
                             RegisterSyncDialogNodeTree(method);
-                        else if (method.TryGetAttribute(out PauseLockAttribute pea))
+                        else if (method.TryGetAttribute(out PauseLockAttribute _))
                             RegisterPauseLock(method);
                     }
                     catch (Exception e)
@@ -176,7 +176,7 @@ namespace Multiplayer.Client
 
             if (exposeParameters != null && exposeParameters.Any(p => p < 0 || p >= paramNum))
             {
-                Log.Error($"Failed to register a method: One or more indexes of parameters to expose in SyncMethod attribute applied to {method.DeclaringType.FullName}::{method} is invalid.");
+                Log.Error($"Failed to register a method: One or more indexes of parameters to expose in SyncMethod attribute applied to {method.DeclaringType?.FullName}::{method} is invalid.");
                 return;
             }
 
@@ -206,7 +206,7 @@ namespace Multiplayer.Client
                         sm.ExposeParameter(exposeParameters[i]);
                     }
                 } catch (Exception exc) {
-                    Log.Error($"An exception occurred while exposing parameter {i} ({method.GetParameters()[i]}) for method {method.DeclaringType.FullName}::{method}: {exc}");
+                    Log.Error($"An exception occurred while exposing parameter {i} ({method.GetParameters()[i]}) for method {method.DeclaringType?.FullName}::{method}: {exc}");
                 }
             }
         }
@@ -275,27 +275,27 @@ namespace Multiplayer.Client
             Type[] parameters = method.GetParameters().Select(p => p.ParameterType).ToArray();
 
             if (!method.IsStatic) {
-                Log.Error($"Error in {method.DeclaringType.FullName}::{method}: SyncWorker method has to be static.");
+                Log.Error($"Error in {method.DeclaringType?.FullName}::{method}: SyncWorker method has to be static.");
                 return;
             }
 
             if (parameters.Length != 2) {
-                Log.Error($"Error in {method.DeclaringType.FullName}::{method}: SyncWorker method has an invalid number of parameters.");
+                Log.Error($"Error in {method.DeclaringType?.FullName}::{method}: SyncWorker method has an invalid number of parameters.");
                 return;
             }
 
             if (parameters[0] != typeof(SyncWorker)) {
-                Log.Error($"Error in {method.DeclaringType.FullName}::{method}: SyncWorker method has an invalid first parameter (got {parameters[0]}, expected ISyncWorker).");
+                Log.Error($"Error in {method.DeclaringType?.FullName}::{method}: SyncWorker method has an invalid first parameter (got {parameters[0]}, expected ISyncWorker).");
                 return;
             }
 
             if (targetType != null && parameters[1].IsAssignableFrom(targetType)) {
-                Log.Error($"Error in {method.DeclaringType.FullName}::{method}: SyncWorker method has an invalid second parameter (got {parameters[1]}, expected {targetType} or assignable).");
+                Log.Error($"Error in {method.DeclaringType?.FullName}::{method}: SyncWorker method has an invalid second parameter (got {parameters[1]}, expected {targetType} or assignable).");
                 return;
             }
 
             if (!parameters[1].IsByRef) {
-                Log.Error($"Error in {method.DeclaringType.FullName}::{method}: SyncWorker method has an invalid second parameter, should be a ref.");
+                Log.Error($"Error in {method.DeclaringType?.FullName}::{method}: SyncWorker method has an invalid second parameter, should be a ref.");
                 return;
             }
 
@@ -303,50 +303,46 @@ namespace Multiplayer.Client
 
             if (isImplicit) {
                 if (method.ReturnType != typeof(bool)) {
-                    Log.Error($"Error in {method.DeclaringType.FullName}::{method}: SyncWorker set as implicit (or the argument type is an interface) requires bool type as a return value.");
+                    Log.Error($"Error in {method.DeclaringType?.FullName}::{method}: SyncWorker set as implicit (or the argument type is an interface) requires bool type as a return value.");
                     return;
                 }
             } else if (method.ReturnType != typeof(void)) {
-                Log.Error($"Error in {method.DeclaringType.FullName}::{method}: SyncWorker set as explicit should have void as a return value.");
+                Log.Error($"Error in {method.DeclaringType?.FullName}::{method}: SyncWorker set as explicit should have void as a return value.");
                 return;
             }
 
             SyncWorkerEntry entry = SyncDict.syncWorkers.GetOrAddEntry(type, isImplicit: isImplicit, shouldConstruct: shouldConstruct);
-
             entry.Add(method);
 
             if (!(isImplicit || type.IsInterface) && entry.SyncWorkerCount > 1) {
-                Log.Warning($"Warning in {method.DeclaringType.FullName}::{method}: type {type} has already registered an explicit SyncWorker, the code in this method may be not used.");
+                Log.Warning($"Warning in {method.DeclaringType?.FullName}::{method}: type {type} has already registered an explicit SyncWorker, the code in this method may be not used.");
             }
 
-            Log.Message($"Registered a SyncWorker {method.DeclaringType.FullName}::{method} for type {type} in assembly {method.DeclaringType.Assembly.GetName().Name}");
+            Log.Message($"Registered a SyncWorker {method.DeclaringType?.FullName}::{method} for type {type} in assembly {method.DeclaringType?.Assembly.GetName().Name}");
         }
 
         public static void RegisterSyncWorker<T>(SyncWorkerDelegate<T> syncWorkerDelegate, Type targetType = null, bool isImplicit = false, bool shouldConstruct = false)
         {
             MethodInfo method = syncWorkerDelegate.Method;
-
             Type[] parameters = method.GetParameters().Select(p => p.ParameterType).ToArray();
 
             if (targetType != null && parameters[1].IsAssignableFrom(targetType)) {
-                Log.Error($"Error in {method.DeclaringType.FullName}::{method}: SyncWorker method has an invalid second parameter (got {parameters[1]}, expected {targetType} or assignable).");
+                Log.Error($"Error in {method.DeclaringType?.FullName}::{method}: SyncWorker method has an invalid second parameter (got {parameters[1]}, expected {targetType} or assignable).");
                 return;
             }
 
             var type = targetType ?? typeof(T);
-
             SyncWorkerEntry entry = SyncDict.syncWorkers.GetOrAddEntry(type, isImplicit: isImplicit, shouldConstruct: shouldConstruct);
-
             entry.Add(syncWorkerDelegate);
 
             if (!(isImplicit || type.IsInterface) && entry.SyncWorkerCount > 1) {
-                Log.Warning($"Warning in {method.DeclaringType.FullName}::{method}: type {type} has already registered an explicit SyncWorker, the code in this method may be not used.");
+                Log.Warning($"Warning in {method.DeclaringType?.FullName}::{method}: type {type} has already registered an explicit SyncWorker, the code in this method may be not used.");
             }
         }
 
         public static void RegisterSyncDialogNodeTree(Type type, string methodOrPropertyName, SyncType[] argTypes = null)
         {
-            MethodInfo method = AccessTools.Method(type, methodOrPropertyName, argTypes != null ? argTypes.Select(t => t.type).ToArray() : null);
+            MethodInfo method = AccessTools.Method(type, methodOrPropertyName, argTypes?.Select(t => t.type).ToArray());
 
             if (method == null)
             {

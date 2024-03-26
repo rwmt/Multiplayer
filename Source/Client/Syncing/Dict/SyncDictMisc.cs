@@ -114,6 +114,48 @@ namespace Multiplayer.Client
                 }
             },
             #endregion
+
+            #region Structs
+            {
+                (ByteWriter data, Rot4 rot) => data.WriteByte(rot.AsByte),
+                (ByteReader data) => new Rot4(data.ReadByte())
+            },
+            {
+                (ByteWriter data, IntVec3 vec) => {
+                    if (vec.y < 0) {
+                        data.WriteShort(-1);
+                    }
+                    else {
+                        data.WriteShort((short)vec.y);
+                        data.WriteShort((short)vec.x);
+                        data.WriteShort((short)vec.z);
+                    }
+                },
+                (ByteReader data) => {
+                    short y = data.ReadShort();
+                    if (y < 0)
+                        return IntVec3.Invalid;
+
+                    short x = data.ReadShort();
+                    short z = data.ReadShort();
+
+                    return new IntVec3(x, y, z);
+                }
+            },
+            {
+                (SyncWorker sync, ref Vector2 vec)  => {
+                    sync.Bind(ref vec.x);
+                    sync.Bind(ref vec.y);
+                }
+            },
+            {
+                (SyncWorker sync, ref Vector3 vec)  => {
+                    sync.Bind(ref vec.x);
+                    sync.Bind(ref vec.y);
+                    sync.Bind(ref vec.z);
+                }
+            },
+            #endregion
         };
     }
 }

@@ -28,9 +28,9 @@ namespace Multiplayer.Client.Persistent
             sync.Bind(ref extraInfos);
 
             if (sync is WritingSyncWorker writer1)
-                DelegateSerialization.WriteDelegate(writer1.writer, action);
+                DelegateSerialization.WriteDelegate(writer1.Writer, action);
             else if (sync is ReadingSyncWorker reader)
-                action = (ActionCallback)DelegateSerialization.ReadDelegate(reader.reader);
+                action = (ActionCallback)DelegateSerialization.ReadDelegate(reader.Reader);
 
             sync.Bind(ref ritualLabel);
             sync.Bind(ref confirmText);

@@ -4,23 +4,42 @@ using Multiplayer.Common;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Text;
-using System.Xml;
-using Verse;
 
 namespace Multiplayer.Client
 {
     public static class SyncSerialization
     {
-        public static void Init()
+        public delegate bool CanHandleHook(SyncType syncType);
+        public delegate bool SyncTypeMatcher(SyncType syncType);
+
+        public delegate object? SerializationReader(ByteReader data, SyncType syncType);
+        public delegate void SerializationWriter(ByteWriter data, object? obj, SyncType syncType);
+
+        public delegate Type TypeChangerReader(ByteReader data, SyncType syncType);
+        public delegate void TypeChangerWriter(ByteWriter data, object? obj, SyncType syncType);
+
+        public static List<CanHandleHook> canHandleHooks = [];
+        private static List<(SyncTypeMatcher, SerializationReader, SerializationWriter)> serializationHooks = [];
+        private static List<(SyncTypeMatcher, TypeChangerReader, TypeChangerWriter)> typeChangerHooks = [];
+
+        public static Action<string> errorLogger = msg => Console.WriteLine($"Sync Error: {msg}");
+
+        public static void AddSerializationHook(SyncTypeMatcher matcher, SerializationReader reader, SerializationWriter writer)
         {
-            RwImplSerialization.Init();
-            ImplSerialization.Init();
-            DefSerialization.Init();
+            serializationHooks.Add((matcher, reader, writer));
         }
+
+        public static void AddTypeChanger(SyncTypeMatcher matcher, TypeChangerReader reader, TypeChangerWriter writer)
+        {
+            typeChangerHooks.Add((matcher, reader, writer));
+        }
+
+        public static SyncWorkerDictionaryTree? syncTree;
+
+        private static Type[] supportedSystemGtds =
+            [typeof(List<>), typeof(IEnumerable<>), typeof(Nullable<>), typeof(Dictionary<,>), typeof(HashSet<>)];
 
         public static bool CanHandle(SyncType syncType)
         {
@@ -30,51 +49,37 @@ namespace Multiplayer.Client
                 return true;
             if (type.IsByRef)
                 return true;
-            if (SyncDictFast.syncWorkers.TryGetValue(type, out _))
+            if (SyncDictPrimitives.syncWorkers.TryGetValue(type, out _))
                 return true;
-            if (syncType.expose)
-                return typeof(IExposable).IsAssignableFrom(type);
             if (typeof(ISynchronizable).IsAssignableFrom(type))
                 return true;
             if (type.IsEnum)
                 return CanHandle(Enum.GetUnderlyingType(type));
             if (type.IsArray)
                 return type.GetArrayRank() == 1 && CanHandle(type.GetElementType());
-            if (type.IsGenericType && type.GetGenericTypeDefinition() is { } gtd)
-                return
-                    (false
-                    || gtd == typeof(List<>)
-                    || gtd == typeof(IEnumerable<>)
-                    || gtd == typeof(Nullable<>)
-                    || gtd == typeof(Dictionary<,>)
-                    || gtd == typeof(Pair<,>)
-                    || gtd == typeof(HashSet<>)
-                    || typeof(ITuple).IsAssignableFrom(gtd))
-                    && CanHandleGenericArgs(type);
-            if (typeof(ISyncSimple).IsAssignableFrom(type))
-                return ImplSerialization.syncSimples.
-                    Where(t => type.IsAssignableFrom(t)).
-                    SelectMany(AccessTools.GetDeclaredFields).
-                    All(f => CanHandle(f.FieldType));
-            if (typeof(Def).IsAssignableFrom(type))
-                return true;
-            if (typeof(Designator).IsAssignableFrom(type))
+
+            if (type.IsGenericType &&
+                type.GetGenericTypeDefinition() is { } gtd&&
+                (supportedSystemGtds.Contains(gtd) || typeof(ITuple).IsAssignableFrom(gtd)))
+                return CanHandleGenericArgs(type);
+
+            if (Enumerable.Any(canHandleHooks, hook => hook(syncType)))
                 return true;
 
-            return SyncDict.syncWorkers.TryGetValue(type, out _);
+            return syncTree != null && syncTree.TryGetValue(type, out _);
         }
 
-        private static bool CanHandleGenericArgs(Type genericType)
+        public static bool CanHandleGenericArgs(Type genericType)
         {
             return genericType.GetGenericArguments().All(arg => CanHandle(arg));
         }
 
-        public static T ReadSync<T>(ByteReader data)
+        public static T? ReadSync<T>(ByteReader data)
         {
-            return (T)ReadSyncObject(data, typeof(T));
+            return (T?)ReadSyncObject(data, typeof(T));
         }
 
-        public static object ReadSyncObject(ByteReader data, SyncType syncType)
+        public static object? ReadSyncObject(ByteReader data, SyncType syncType)
         {
             var log = (data as LoggingByteReader)?.Log;
             Type type = syncType.type;
@@ -83,7 +88,7 @@ namespace Multiplayer.Client
 
             try
             {
-                object val = ReadSyncObjectInternal(data, syncType);
+                object? val = ReadSyncObjectInternal(data, syncType);
                 log?.AppendToCurrentName($": {val}");
                 return val;
             }
@@ -93,7 +98,7 @@ namespace Multiplayer.Client
             }
         }
 
-        private static object ReadSyncObjectInternal(ByteReader data, SyncType syncType)
+        private static object? ReadSyncObjectInternal(ByteReader data, SyncType syncType)
         {
             Type type = syncType.type;
 
@@ -109,8 +114,8 @@ namespace Multiplayer.Client
                     return null;
                 }
 
-                if (SyncDictFast.syncWorkers.TryGetValue(type, out SyncWorkerEntry syncWorkerEntryEarly)) {
-                    object res = null;
+                if (SyncDictPrimitives.syncWorkers.TryGetValue(type, out SyncWorkerEntry syncWorkerEntryEarly)) {
+                    object? res = null;
 
                     if (syncWorkerEntryEarly.shouldConstruct || type.IsValueType)
                         res = Activator.CreateInstance(type);
@@ -120,27 +125,10 @@ namespace Multiplayer.Client
                     return res;
                 }
 
-                if (syncType.expose)
-                {
-                    if (!typeof(IExposable).IsAssignableFrom(type))
-                        throw new SerializationException($"Type {type} can't be exposed because it isn't IExposable");
-
-                    byte[] exposableData = data.ReadPrefixedBytes();
-                    return ExposableSerialization.ReadExposable(type, exposableData);
-                }
-
-                if (typeof(ISynchronizable).IsAssignableFrom(type))
-                {
-                    var obj = Activator.CreateInstance(type);
-
-                    ((ISynchronizable) obj).Sync(new ReadingSyncWorker(data));
-                    return obj;
-                }
-
                 if (type.IsEnum) {
                     Type underlyingType = Enum.GetUnderlyingType(type);
 
-                    return Enum.ToObject(type, ReadSyncObject(data, underlyingType));
+                    return Enum.ToObject(type, ReadSyncObject(data, underlyingType)!);
                 }
 
                 if (type.IsArray)
@@ -152,7 +140,7 @@ namespace Multiplayer.Client
                     if (length == ushort.MaxValue)
                         return null;
 
-                    Type elementType = type.GetElementType();
+                    Type elementType = type.GetElementType()!;
                     Array arr = Array.CreateInstance(elementType, length);
 
                     for (int i = 0; i < length; i++)
@@ -198,11 +186,11 @@ namespace Multiplayer.Client
                     {
                         Type[] arguments = type.GetGenericArguments();
 
-                        Array keys = (Array)ReadSyncObject(data, arguments[0].MakeArrayType());
+                        Array? keys = (Array?)ReadSyncObject(data, arguments[0].MakeArrayType());
                         if (keys == null)
                             return null;
 
-                        Array values = (Array)ReadSyncObject(data, arguments[1].MakeArrayType());
+                        Array values = (Array)ReadSyncObject(data, arguments[1].MakeArrayType())!;
 
                         IDictionary dictionary = (IDictionary)Activator.CreateInstance(type);
                         for (int i = 0; i < keys.Length; i++)
@@ -215,14 +203,14 @@ namespace Multiplayer.Client
                         return dictionary;
                     }
 
-                    if (genericTypeDefinition == typeof(Pair<,>) || genericTypeDefinition == typeof(ValueTuple<,>))
+                    if (genericTypeDefinition == typeof(ValueTuple<,>)) // Binary ValueTuple
                     {
                         Type[] arguments = type.GetGenericArguments();
-                        object[] parameters =
-                        {
+                        object?[] parameters =
+                        [
                             ReadSyncObject(data, arguments[0]),
-                            ReadSyncObject(data, arguments[1]),
-                        };
+                            ReadSyncObject(data, arguments[1])
+                        ];
 
                         return type.GetConstructors().First().Invoke(parameters);
                     }
@@ -230,16 +218,17 @@ namespace Multiplayer.Client
                     if (genericTypeDefinition == typeof(HashSet<>))
                     {
                         Type element = type.GetGenericArguments()[0];
-                        object list = ReadSyncObject(data, typeof(List<>).MakeGenericType(element));
-                        return Activator.CreateInstance(typeof(HashSet<>).MakeGenericType(element), list);
+                        object? list = ReadSyncObject(data, typeof(List<>).MakeGenericType(element));
+                        return list == null ? null : Activator.CreateInstance(typeof(HashSet<>).MakeGenericType(element), list);
                     }
 
+                    // todo handle null non-value Tuples?
                     if (typeof(ITuple).IsAssignableFrom(genericTypeDefinition)) // ValueTuple or Tuple
                     {
                         Type[] arguments = type.GetGenericArguments();
 
                         int size = data.ReadInt32();
-                        object[] values = new object[size];
+                        object?[] values = new object?[size];
 
                         for (int i = 0; i < size; i++)
                             values[i] = ReadSyncObject(data, arguments[i]);
@@ -248,45 +237,26 @@ namespace Multiplayer.Client
                     }
                 }
 
-                if (typeof(ISyncSimple).IsAssignableFrom(type))
+                foreach (var hook in serializationHooks)
+                    if (hook.Item1(syncType))
+                        return hook.Item2(data, type);
+
+                if (typeof(ISynchronizable).IsAssignableFrom(type))
                 {
-                    ushort typeIndex = data.ReadUShort();
-                    var objType = ImplSerialization.syncSimples[typeIndex];
-                    var obj = MpUtil.NewObjectNoCtor(objType);
-                    foreach (var field in AccessTools.GetDeclaredFields(objType))
-                        field.SetValue(obj, ReadSyncObject(data, field.FieldType));
+                    var obj = Activator.CreateInstance(type);
+
+                    ((ISynchronizable) obj).Sync(new ReadingSyncWorker(data));
                     return obj;
                 }
 
-                // Def is a special case until the workers can read their own type
-                if (typeof(Def).IsAssignableFrom(type))
-                {
-                    ushort defTypeIndex = data.ReadUShort();
-                    if (defTypeIndex == ushort.MaxValue)
-                        return null;
-
-                    ushort shortHash = data.ReadUShort();
-
-                    var defType = DefSerialization.DefTypes[defTypeIndex];
-                    var def = DefSerialization.GetDef(defType, shortHash);
-
-                    if (def == null)
-                        throw new SerializationException($"Couldn't find {defType} with short hash {shortHash}");
-
-                    return def;
-                }
-
-                // Designators can't be handled by SyncWorkers due to the type change
-                if (typeof(Designator).IsAssignableFrom(type))
-                {
-                    ushort desId = ReadSync<ushort>(data);
-                    type = RwImplSerialization.designatorTypes[desId]; // Replaces the type!
-                }
+                foreach (var hook in typeChangerHooks)
+                    if (hook.Item1(syncType))
+                        syncType = type = hook.Item2(data, syncType);
 
                 // Where the magic happens
-                if (SyncDict.syncWorkers.TryGetValue(type, out var syncWorkerEntry))
+                if (syncTree != null && syncTree.TryGetValue(type, out var syncWorkerEntry))
                 {
-                    object res = null;
+                    object? res = null;
 
                     if (syncWorkerEntry.shouldConstruct || type.IsValueType)
                         res = Activator.CreateInstance(type);
@@ -300,17 +270,17 @@ namespace Multiplayer.Client
             }
             catch
             {
-                Log.Error($"Multiplayer: Error reading type: {type}");
+                errorLogger($"Multiplayer: Error reading type: {type}");
                 throw;
             }
         }
 
-        public static void WriteSync<T>(ByteWriter data, T obj)
+        public static void WriteSync<T>(ByteWriter data, T? obj)
         {
             WriteSyncObject(data, obj, typeof(T));
         }
 
-        public static void WriteSyncObject(ByteWriter data, object obj, SyncType syncType)
+        public static void WriteSyncObject(ByteWriter data, object? obj, SyncType syncType)
         {
             Type type = syncType.type;
             var log = (data as LoggingByteWriter)?.Log;
@@ -331,28 +301,9 @@ namespace Multiplayer.Client
                     return;
                 }
 
-                if (SyncDictFast.syncWorkers.TryGetValue(type, out var syncWorkerEntryEarly)) {
+                if (SyncDictPrimitives.syncWorkers.TryGetValue(type, out var syncWorkerEntryEarly)) {
                     syncWorkerEntryEarly.Invoke(new WritingSyncWorker(data), ref obj);
 
-                    return;
-                }
-
-                if (syncType.expose)
-                {
-                    if (!typeof(IExposable).IsAssignableFrom(type))
-                        throw new SerializationException($"Type {type} can't be exposed because it isn't IExposable");
-
-                    IExposable exposable = obj as IExposable;
-                    byte[] xmlData = ScribeUtil.WriteExposable(exposable);
-                    LogXML(log, xmlData);
-                    data.WritePrefixedBytes(xmlData);
-
-                    return;
-                }
-
-                if (typeof(ISynchronizable).IsAssignableFrom(type))
-                {
-                    ((ISynchronizable) obj).Sync(new WritingSyncWorker(data));
                     return;
                 }
 
@@ -368,8 +319,8 @@ namespace Multiplayer.Client
                     if (type.GetArrayRank() != 1)
                         throw new SerializationException("Multi dimensional arrays aren't supported.");
 
-                    Type elementType = type.GetElementType();
-                    Array arr = (Array)obj;
+                    Type elementType = type.GetElementType()!;
+                    Array? arr = (Array?)obj;
 
                     if (arr == null)
                     {
@@ -392,7 +343,7 @@ namespace Multiplayer.Client
 
                     if (genericTypeDefinition == typeof(List<>))
                     {
-                        IList list = (IList)obj;
+                        IList? list = (IList?)obj;
                         Type listObjType = type.GetGenericArguments()[0];
 
                         if (list == null)
@@ -413,7 +364,7 @@ namespace Multiplayer.Client
 
                     if (genericTypeDefinition == typeof(IEnumerable<>) || genericTypeDefinition == typeof(HashSet<>))
                     {
-                        IEnumerable e = (IEnumerable)obj;
+                        IEnumerable? e = (IEnumerable?)obj;
                         Type elementType = type.GetGenericArguments()[0];
                         var listType = typeof(List<>).MakeGenericType(elementType);
 
@@ -446,7 +397,7 @@ namespace Multiplayer.Client
 
                     if (genericTypeDefinition == typeof(Dictionary<,>))
                     {
-                        IDictionary dictionary = (IDictionary)obj;
+                        IDictionary? dictionary = (IDictionary?)obj;
                         Type[] arguments = type.GetGenericArguments();
 
                         if (dictionary == null)
@@ -467,16 +418,6 @@ namespace Multiplayer.Client
                         return;
                     }
 
-                    if (genericTypeDefinition == typeof(Pair<,>))
-                    {
-                        Type[] arguments = type.GetGenericArguments();
-
-                        WriteSyncObject(data, AccessTools.DeclaredField(type, "first").GetValue(obj), arguments[0]);
-                        WriteSyncObject(data, AccessTools.DeclaredField(type, "second").GetValue(obj), arguments[1]);
-
-                        return;
-                    }
-
                     if (genericTypeDefinition == typeof(ValueTuple<,>))
                     {
                         Type[] arguments = type.GetGenericArguments();
@@ -490,7 +431,7 @@ namespace Multiplayer.Client
                     if (typeof(ITuple).IsAssignableFrom(genericTypeDefinition)) // ValueTuple or Tuple
                     {
                         Type[] arguments = type.GetGenericArguments();
-                        ITuple tuple = (ITuple)obj;
+                        ITuple tuple = (ITuple)obj!;
 
                         data.WriteInt32(tuple.Length);
 
@@ -501,44 +442,29 @@ namespace Multiplayer.Client
                     }
                 }
 
-                if (typeof(ISyncSimple).IsAssignableFrom(type))
+                foreach (var hook in serializationHooks)
                 {
-                    data.WriteUShort((ushort)ImplSerialization.syncSimples.FindIndex(obj.GetType()));
-                    foreach (var field in AccessTools.GetDeclaredFields(obj.GetType()))
-                        WriteSyncObject(data, field.GetValue(obj), field.FieldType);
-                    return;
-                }
-
-                // Special case
-                if (typeof(Def).IsAssignableFrom(type))
-                {
-                    if (obj is not Def def)
+                    if (hook.Item1(syncType))
                     {
-                        data.WriteUShort(ushort.MaxValue);
+                        hook.Item3(data, obj, syncType);
                         return;
                     }
+                }
 
-                    var defTypeIndex = Array.IndexOf(DefSerialization.DefTypes, def.GetType());
-                    if (defTypeIndex == -1)
-                        throw new SerializationException($"Unknown def type {def.GetType()}");
-
-                    data.WriteUShort((ushort)defTypeIndex);
-                    data.WriteUShort(def.shortHash);
-
+                if (typeof(ISynchronizable).IsAssignableFrom(type))
+                {
+                    ((ISynchronizable) obj!).Sync(new WritingSyncWorker(data));
                     return;
                 }
 
-                // Special case for Designators to change the type
-                if (typeof(Designator).IsAssignableFrom(type))
-                {
-                    data.WriteUShort((ushort) Array.IndexOf(RwImplSerialization.designatorTypes, obj.GetType()));
-                }
+                foreach (var hook in typeChangerHooks)
+                    if (hook.Item1(syncType))
+                        hook.Item3(data, obj, syncType);
 
                 // Where the magic happens
-                if (SyncDict.syncWorkers.TryGetValue(type, out var syncWorkerEntry))
+                if (syncTree != null && syncTree.TryGetValue(type, out var syncWorkerEntry))
                 {
                     syncWorkerEntry.Invoke(new WritingSyncWorker(data), ref obj);
-
                     return;
                 }
 
@@ -547,67 +473,12 @@ namespace Multiplayer.Client
             }
             catch
             {
-                Log.Error($"Multiplayer: Error writing type: {type}, obj: {obj}, obj type: {obj?.GetType()}");
+                errorLogger($"Multiplayer: Error writing type: {type}, obj: {obj}, obj type: {obj?.GetType()}");
                 throw;
             }
             finally
             {
                 log?.Exit();
-            }
-        }
-
-        internal static T GetAnyParent<T>(Thing thing) where T : class
-        {
-            if (thing is T t)
-                return t;
-
-            for (var parentHolder = thing.ParentHolder; parentHolder != null; parentHolder = parentHolder.ParentHolder)
-                if (parentHolder is T t2)
-                    return t2;
-
-            return null;
-        }
-
-        internal static string ThingHolderString(Thing thing)
-        {
-            StringBuilder builder = new StringBuilder(thing.ToString());
-
-            for (var parentHolder = thing.ParentHolder; parentHolder != null; parentHolder = parentHolder.ParentHolder)
-            {
-                builder.Insert(0, "=>");
-                builder.Insert(0, parentHolder.ToString());
-            }
-
-            return builder.ToString();
-        }
-
-        private static void LogXML(SyncLogger log, byte[] xmlData)
-        {
-            if (log == null) return;
-
-            var reader = XmlReader.Create(new MemoryStream(xmlData));
-
-            while (reader.Read())
-            {
-                if (reader.NodeType == XmlNodeType.Element)
-                {
-                    string name = reader.Name;
-                    if (reader.GetAttribute("IsNull") == "True")
-                        name += " (IsNull)";
-
-                    if (reader.IsEmptyElement)
-                        log.Node(name);
-                    else
-                        log.Enter(name);
-                }
-                else if (reader.NodeType == XmlNodeType.EndElement)
-                {
-                    log.Exit();
-                }
-                else if (reader.NodeType == XmlNodeType.Text)
-                {
-                    log.AppendToCurrentName($": {reader.Value}");
-                }
             }
         }
     }

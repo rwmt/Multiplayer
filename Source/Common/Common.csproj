@@ -4,7 +4,7 @@
     <TargetFramework>net472</TargetFramework>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Nullable>enable</Nullable>
-    <LangVersion>11</LangVersion>
+    <LangVersion>12</LangVersion>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
     <RootNamespace>Multiplayer.Common</RootNamespace>
@@ -16,6 +16,7 @@
     <PackageReference Include="LiteNetLib" Version="0.9.5.2" />
     <PackageReference Include="Lib.Harmony" Version="2.2.2" ExcludeAssets="runtime" />
     <PackageReference Include="System.IO.Compression" Version="4.3.0" />
+    <PackageReference Include="RimWorld.MultiplayerAPI" Version="0.5.0" />
   </ItemGroup>
 
   <!-- Ignore any system frameworks and get the system assemblies from Krafs.Rimworld.Ref -->

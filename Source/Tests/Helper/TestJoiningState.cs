@@ -24,6 +24,7 @@ public class TestJoiningState : AsyncConnectionState
             RwVersion,
             Array.Empty<int>(),
             Array.Empty<int>(),
+            RoundModeEnum.ToNearest, RoundModeEnum.ToNearest,
             Array.Empty<object>()
         );
 

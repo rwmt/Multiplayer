@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Reflection;
 using HarmonyLib;
 using Multiplayer.Client.Patches;
@@ -55,10 +56,12 @@ public static class EarlyInit
 
     internal static void InitSync()
     {
-        using (DeepProfilerWrapper.Section("Multiplayer SyncSerialization.Init"))
-            SyncSerialization.Init();
+        MpReflection.allAssembliesHook = RwAllAssemblies;
 
-        using (DeepProfilerWrapper.Section("Multiplayer SyncGame"))
+        using (DeepProfilerWrapper.Section("Multiplayer RwSerialization.Init"))
+            RwSerialization.Init();
+
+        using (DeepProfilerWrapper.Section("Multiplayer SyncGame.Init"))
             SyncGame.Init();
 
         using (DeepProfilerWrapper.Section("Multiplayer Sync register attributes"))
@@ -66,6 +69,18 @@ public static class EarlyInit
 
         using (DeepProfilerWrapper.Section("Multiplayer Sync validation"))
             Sync.ValidateAll();
+    }
+
+    private static IEnumerable<Assembly> RwAllAssemblies()
+    {
+        yield return Assembly.GetAssembly(typeof(Game));
+
+        foreach (ModContentPack mod in LoadedModManager.RunningMods)
+            foreach (Assembly assembly in mod.assemblies.loadedAssemblies)
+                yield return assembly;
+
+        if (Assembly.GetEntryAssembly() != null)
+            yield return Assembly.GetEntryAssembly();
     }
 
     internal static void LatePatches()

@@ -5,108 +5,105 @@ using Multiplayer.Common;
 
 namespace Multiplayer.Client
 {
-    public class ReadingSyncWorker : SyncWorker
+    public class WritingSyncWorker : SyncWorker
     {
-        internal readonly ByteReader reader;
+        internal readonly ByteWriter writer;
         readonly int initialPos;
 
-        internal ByteReader Reader => reader;
+        public ByteWriter Writer => writer;
 
-        public ReadingSyncWorker(ByteReader reader) : base(false)
+        public WritingSyncWorker(ByteWriter writer) : base(true)
         {
-            this.reader = reader;
-            initialPos = reader.Position;
+            this.writer = writer;
+            initialPos = writer.Position;
         }
 
         public override void Bind<T>(ref T obj, SyncType type)
         {
-            obj = (T)SyncSerialization.ReadSyncObject(reader, type);
+            SyncSerialization.WriteSyncObject(writer, obj, type);
         }
 
         public override void Bind<T>(ref T obj)
         {
-            obj = (T) SyncSerialization.ReadSyncObject(reader, typeof(T));
+            SyncSerialization.WriteSyncObject(writer, obj, typeof(T));
         }
 
         public override void Bind(object obj, string name)
         {
             object value = MpReflection.GetValue(obj, name);
-
             Type type = value.GetType();
 
-            var res = SyncSerialization.ReadSyncObject(reader, type);
-
-            MpReflection.SetValue(obj, name, res);
+            SyncSerialization.WriteSyncObject(writer, value, type);
         }
 
         public override void Bind(ref byte obj)
         {
-            obj = reader.ReadByte();
+            writer.WriteByte(obj);
         }
 
         public override void Bind(ref sbyte obj)
         {
-            obj = reader.ReadSByte();
+            writer.WriteSByte(obj);
         }
 
         public override void Bind(ref short obj)
         {
-            obj = reader.ReadShort();
+            writer.WriteShort(obj);
         }
 
         public override void Bind(ref ushort obj)
         {
-            obj = reader.ReadUShort();
+            writer.WriteUShort(obj);
         }
 
         public override void Bind(ref int obj)
         {
-            obj = reader.ReadInt32();
+            writer.WriteInt32(obj);
         }
 
         public override void Bind(ref uint obj)
         {
-            obj = reader.ReadUInt32();
+            writer.WriteUInt32(obj);
         }
 
         public override void Bind(ref long obj)
         {
-            obj = reader.ReadLong();
+            writer.WriteLong(obj);
         }
 
         public override void Bind(ref ulong obj)
         {
-            obj = reader.ReadULong();
+            writer.WriteULong(obj);
         }
 
         public override void Bind(ref float obj)
         {
-            obj = reader.ReadFloat();
+            writer.WriteFloat(obj);
         }
 
         public override void Bind(ref double obj)
         {
-            obj = reader.ReadDouble();
+            writer.WriteDouble(obj);
         }
 
         public override void Bind(ref bool obj)
         {
-            obj = reader.ReadBool();
+            writer.WriteBool(obj);
         }
 
         public override void Bind(ref string obj)
         {
-            obj = reader.ReadStringNullable();
+            writer.WriteString(obj);
         }
 
         public override void BindType<T>(ref Type type)
         {
-            type = RwTypeHelper.GetType(reader.ReadUShort(), typeof(T));
+            writer.WriteUShort(SyncWorkerTypeHelper.GetTypeIndex(type, typeof(T)));
         }
 
         internal void Reset()
         {
-            reader.Seek(initialPos);
+            writer.SetLength(initialPos);
         }
     }
 }
