@@ -50,7 +50,7 @@ public static class IngameDebug
                 $"{Find.IdeoManager.classicMode} {Multiplayer.game.sync.knownClientOpinions.Count} {Multiplayer.game.sync.knownClientOpinions.FirstOrDefault()?.startTick} {async.mapTicks} {TickPatch.serverFrozen} {TickPatch.frozenAt} ");
 
             text.Append(
-                $"z: {Find.CurrentMap.haulDestinationManager.AllHaulDestinationsListForReading.Count()} d: {Find.CurrentMap.designationManager.designationsByDef.Count} hc: {Find.CurrentMap.listerHaulables.ThingsPotentiallyNeedingHauling().Count}");
+                $"z: {Find.CurrentMap.haulDestinationManager.AllHaulDestinationsListForReading.Count} d: {Find.CurrentMap.designationManager.designationsByDef.Count} hc: {Find.CurrentMap.listerHaulables.ThingsPotentiallyNeedingHauling().Count}");
 
             if (Find.CurrentMap.ParentFaction != null)
             {

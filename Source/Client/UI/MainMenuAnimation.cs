@@ -61,7 +61,7 @@ namespace Multiplayer.Client
             newPulseTimer += Time.deltaTime;
             if (newPulseTimer > 1 / 12f)
             {
-                var edge = edges[rand.Next(edges.Count())];
+                var edge = edges[rand.Next(edges.Count)];
                 var switchEndpoints = rand.NextDouble() < 0.5;
                 pulses.Add(new Pulse(switchEndpoints ? edge.v2 : edge.v1, switchEndpoints ? edge.v1 : edge.v2) { starting = true });
                 newPulseTimer = 0;
@@ -132,7 +132,7 @@ namespace Multiplayer.Client
 
             while (newEnd == null && attempts < 20)
             {
-                var randEdge = edges[rand.Next(edges.Count())];
+                var randEdge = edges[rand.Next(edges.Count)];
                 var otherVert = randEdge.OtherVert(pulse.end);
                 if (otherVert != null && otherVert != pulse.start && otherVert != pulse.end)
                     newEnd = otherVert;
