@@ -124,8 +124,10 @@ namespace Multiplayer.Client
             dict["AbilityComp"] = GetDefInfo(CompSerialization.abilityCompTypes, TypeHash);
             dict["WorldObjectComp"] = GetDefInfo(CompSerialization.worldObjectCompTypes, TypeHash);
             dict["HediffComp"] = GetDefInfo(CompSerialization.hediffCompTypes, TypeHash);
-            dict["IStoreSettingsParent"] = GetDefInfo(RwImplSerialization.storageParents, TypeHash);
+            dict["IStoreSettingsParent"] = GetDefInfo(RwImplSerialization.storageSettingsParent, TypeHash);
             dict["IPlantToGrowSettable"] = GetDefInfo(RwImplSerialization.plantToGrowSettables, TypeHash);
+            dict["ISlotGroup"] = GetDefInfo(RwImplSerialization.slotGroupTypes, TypeHash);
+            dict["ISlotGroupParent"] = GetDefInfo(RwImplSerialization.slotGroupParents, TypeHash);
             dict["Designator"] = GetDefInfo(RwImplSerialization.designatorTypes, TypeHash);
             dict["DefTypes"] = GetDefInfo(DefSerialization.DefTypes, TypeHash);
 

@@ -1047,6 +1047,65 @@ namespace Multiplayer.Client
             },
             #endregion
 
+            #region Storage
+            {
+                (ByteWriter data, IStoreSettingsParent obj) => {
+                    WriteWithImpl<IStoreSettingsParent>(data, obj, storageSettingsParent);
+                },
+                (ByteReader data) => {
+                    return ReadWithImpl<IStoreSettingsParent>(data, storageSettingsParent);
+                }
+            },
+            {
+                (ByteWriter data, SlotGroup obj) => {
+                    WriteSync(data, obj.parent);
+                },
+                (ByteReader data) =>
+                {
+                    var parent = ReadSync<ISlotGroupParent>(data);
+                    return parent.GetSlotGroup();
+                }
+            },
+            {
+                (ByteWriter data, StorageGroup obj) =>
+                {
+                    data.MpContext().map = obj.Map;
+                    WriteSync(data, obj.loadID);
+                },
+                (ByteReader data) =>
+                {
+                    var loadId = data.ReadInt32();
+                    return data.MpContext().map.storageGroups.groups.Find(g => g.loadID == loadId);
+                }
+            },
+            {
+                (ByteWriter data, ISlotGroup obj) => {
+                    WriteWithImpl<ISlotGroup>(data, obj, slotGroupTypes);
+                },
+                (ByteReader data) => {
+                    return ReadWithImpl<ISlotGroup>(data, slotGroupTypes);
+                }
+            },
+            {
+                (ByteWriter data, ISlotGroupParent obj) => {
+                    WriteWithImpl<ISlotGroupParent>(data, obj, slotGroupParents);
+                },
+                (ByteReader data) => {
+                    return ReadWithImpl<ISlotGroupParent>(data, slotGroupParents);
+                }
+            },
+            {
+                (ByteWriter data, IStorageGroupMember obj) =>
+                {
+                    if (obj is Thing thing)
+                        WriteSync(data, thing);
+                    else
+                        throw new SerializationException($"Unknown IStorageGroupMember type: {obj.GetType()}");
+                },
+                (ByteReader data) => (IStorageGroupMember)ReadSync<Thing>(data)
+            },
+            #endregion
+
             #region Interfaces
             {
                 (ByteWriter data, ISelectable obj) => {
@@ -1088,14 +1147,6 @@ namespace Multiplayer.Client
                 }, true
             },
             {
-                (ByteWriter data, IStoreSettingsParent obj) => {
-                    WriteWithImpl<IStoreSettingsParent>(data, obj, storageParents);
-                },
-                (ByteReader data) => {
-                    return ReadWithImpl<IStoreSettingsParent>(data, storageParents);
-                }
-            },
-            {
                 (ByteWriter data, IPlantToGrowSettable obj) => {
                     WriteWithImpl<IPlantToGrowSettable>(data, obj, plantToGrowSettables);
                 },
@@ -1110,16 +1161,6 @@ namespace Multiplayer.Client
                 (ByteReader data) => {
                     return ReadWithImpl<IThingHolder>(data, supportedThingHolders);
                 }
-            },
-            {
-                (ByteWriter data, IStorageGroupMember obj) =>
-                {
-                    if (obj is Thing thing)
-                        WriteSync(data, thing);
-                    else
-                        throw new SerializationException($"Unknown IStorageGroupMember type: {obj.GetType()}");
-                },
-                (ByteReader data) => (IStorageGroupMember)ReadSync<Thing>(data)
             },
             #endregion
 

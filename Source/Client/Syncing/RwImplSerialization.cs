@@ -11,11 +11,13 @@ namespace Multiplayer.Client
 {
     public static class RwImplSerialization
     {
-        public static Type[] storageParents;
-        public static Type[] plantToGrowSettables;
-        public static Type[] designatorTypes;
+        public static Type[] storageSettingsParent; // IStoreSettingsParent
+        public static Type[] plantToGrowSettables; // IPlantToGrowSettable
+        public static Type[] slotGroupTypes; // ISlotGroup
+        public static Type[] slotGroupParents; // ISlotGroupParent
+        public static Type[] designatorTypes; // Designator
 
-        internal static Type[] supportedThingHolders =
+        internal static Type[] supportedThingHolders = // IThingHolder
         {
             typeof(Map),
             typeof(Thing),
@@ -37,8 +39,10 @@ namespace Multiplayer.Client
 
         public static void Init()
         {
-            storageParents = TypeUtil.AllImplementationsOrdered(typeof(IStoreSettingsParent));
+            storageSettingsParent = TypeUtil.AllImplementationsOrdered(typeof(IStoreSettingsParent));
             plantToGrowSettables = TypeUtil.AllImplementationsOrdered(typeof(IPlantToGrowSettable));
+            slotGroupTypes = TypeUtil.AllImplementationsOrdered(typeof(ISlotGroup));
+            slotGroupParents = TypeUtil.AllImplementationsOrdered(typeof(ISlotGroupParent));
             designatorTypes = TypeUtil.AllSubclassesNonAbstractOrdered(typeof(Designator));
         }
 

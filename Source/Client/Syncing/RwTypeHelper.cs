@@ -14,8 +14,10 @@ internal static class RwTypeHelper
 
     public static void Init()
     {
-        cache[typeof(IStoreSettingsParent)] = RwImplSerialization.storageParents;
+        cache[typeof(IStoreSettingsParent)] = RwImplSerialization.storageSettingsParent;
         cache[typeof(IPlantToGrowSettable)] = RwImplSerialization.plantToGrowSettables;
+        cache[typeof(ISlotGroup)] = RwImplSerialization.slotGroupTypes;
+        cache[typeof(ISlotGroupParent)] = RwImplSerialization.slotGroupParents;
         cache[typeof(Designator)] = RwImplSerialization.designatorTypes;
 
         cache[typeof(ThingComp)] = CompSerialization.thingCompTypes;

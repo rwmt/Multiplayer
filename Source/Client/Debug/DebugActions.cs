@@ -136,8 +136,10 @@ namespace Multiplayer.Client
         {
             var dict = new Dictionary<string, Type[]>() {
                 {"Designator", RwImplSerialization.designatorTypes},
-                {"IStoreSettingsParent", RwImplSerialization.storageParents},
+                {"IStoreSettingsParent", RwImplSerialization.storageSettingsParent},
                 {"IPlantToGrowSettable", RwImplSerialization.plantToGrowSettables},
+                {"ISlotGroup", RwImplSerialization.slotGroupTypes},
+                {"ISlotGroupParent", RwImplSerialization.slotGroupParents},
 
                 {"ThingComp", CompSerialization.thingCompTypes},
                 {"AbilityComp", CompSerialization.abilityCompTypes},
