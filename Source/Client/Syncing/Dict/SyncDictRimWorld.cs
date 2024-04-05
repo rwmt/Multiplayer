@@ -11,6 +11,7 @@ using Verse.AI;
 using Verse.AI.Group;
 using static Multiplayer.Client.SyncSerialization;
 using static Multiplayer.Client.RwImplSerialization;
+using static Multiplayer.Client.CompSerialization;
 // ReSharper disable RedundantLambdaParameterType
 
 namespace Multiplayer.Client
@@ -703,16 +704,16 @@ namespace Multiplayer.Client
                             holder = thingComp;
                         else if (ThingOwnerUtility.GetFirstSpawnedParentThing(thing) is { } parentThing)
                             holder = parentThing;
-                        else if (GetAnyParent<WorldObject>(thing) is { } worldObj)
+                        else if (RwSerialization.GetAnyParent<WorldObject>(thing) is { } worldObj)
                             holder = worldObj;
-                        else if (GetAnyParent<WorldObjectComp>(thing) is { } worldObjComp)
+                        else if (RwSerialization.GetAnyParent<WorldObjectComp>(thing) is { } worldObjComp)
                             holder = worldObjComp;
 
                         GetImpl(holder, supportedThingHolders, out Type implType, out int index);
                         if (index == -1)
                         {
                             data.WriteByte(byte.MaxValue);
-                            Log.Error($"Thing {ThingHolderString(thing)} is inaccessible");
+                            Log.Error($"Thing {RwSerialization.ThingHolderString(thing)} is inaccessible");
                             return;
                         }
 
@@ -755,7 +756,7 @@ namespace Multiplayer.Client
                     }
 
                     return ThingsById.thingsById.GetValueSafe(thingId);
-                }
+                }, true
             },
             {
                 (SyncWorker data, ref ThingComp comp) => {
@@ -1120,7 +1121,6 @@ namespace Multiplayer.Client
                 },
                 (ByteReader data) => (IStorageGroupMember)ReadSync<Thing>(data)
             },
-
             #endregion
 
             #region Storage
