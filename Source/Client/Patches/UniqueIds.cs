@@ -43,10 +43,10 @@ namespace Multiplayer.Client.Patches
     [HarmonyPatch(typeof(OutfitDatabase), nameof(OutfitDatabase.MakeNewOutfit))]
     static class OutfitUniqueIdPatch
     {
-        static void Postfix(Outfit __result)
+        static void Postfix(ApparelPolicy __result)
         {
             if (Multiplayer.Ticking || Multiplayer.ExecutingCmds)
-                __result.uniqueId = Find.UniqueIDsManager.GetNextThingID();
+                __result.id = Find.UniqueIDsManager.GetNextThingID();
         }
     }
 
@@ -56,14 +56,14 @@ namespace Multiplayer.Client.Patches
         static void Postfix(DrugPolicy __result)
         {
             if (Multiplayer.Ticking || Multiplayer.ExecutingCmds)
-                __result.uniqueId = Find.UniqueIDsManager.GetNextThingID();
+                __result.id = Find.UniqueIDsManager.GetNextThingID();
         }
     }
 
     [HarmonyPatch(typeof(FoodRestrictionDatabase), nameof(FoodRestrictionDatabase.MakeNewFoodRestriction))]
     static class FoodRestrictionUniqueIdPatch
     {
-        static void Postfix(FoodRestriction __result)
+        static void Postfix(FoodPolicy __result)
         {
             if (Multiplayer.Ticking || Multiplayer.ExecutingCmds)
                 __result.id = Find.UniqueIDsManager.GetNextThingID();

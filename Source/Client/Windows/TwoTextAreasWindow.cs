@@ -24,8 +24,17 @@ namespace Multiplayer.Client
 
         public override void DoWindowContents(Rect inRect)
         {
-            Widgets.TextAreaScrollable(inRect.LeftHalf(), left, ref scroll1);
-            Widgets.TextAreaScrollable(inRect.RightHalf(), right, ref scroll2);
+            TextAreaScrollable(inRect.LeftHalf(), left, ref scroll1);
+            TextAreaScrollable(inRect.RightHalf(), right, ref scroll2);
+        }
+
+        private static string TextAreaScrollable(Rect rect, string text, ref Vector2 scrollbarPosition, bool readOnly = false)
+        {
+            Rect rect2 = new Rect(0f, 0f, rect.width - 16f, Mathf.Max(Text.CalcHeight(text, rect.width) + 10f, rect.height));
+            Widgets.BeginScrollView(rect, ref scrollbarPosition, rect2);
+            string result = Widgets.TextArea(rect2, text, readOnly);
+            Widgets.EndScrollView();
+            return result;
         }
     }
 
