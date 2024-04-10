@@ -244,6 +244,15 @@ namespace Multiplayer.Client
                     return Current.Game.foodRestrictionDatabase.AllFoodRestrictions.Find(o => o.id == id);
                 }
             },
+            {
+                (ByteWriter data, ReadingPolicy policy) => {
+                    data.WriteInt32(policy.id);
+                },
+                (ByteReader data) => {
+                    int id = data.ReadInt32();
+                    return Current.Game.readingPolicyDatabase.AllReadingPolicies.Find(o => o.id == id);
+                }
+            },
             #endregion
 
             #region Jobs

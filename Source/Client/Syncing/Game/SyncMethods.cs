@@ -25,6 +25,7 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(Pawn_DrugPolicyTracker), nameof(Pawn_DrugPolicyTracker.CurrentPolicy)).CancelIfAnyArgNull();
             SyncMethod.Register(typeof(Pawn_OutfitTracker), nameof(Pawn_OutfitTracker.CurrentApparelPolicy)).CancelIfAnyArgNull();
             SyncMethod.Register(typeof(Pawn_FoodRestrictionTracker), nameof(Pawn_FoodRestrictionTracker.CurrentFoodPolicy)).CancelIfAnyArgNull();
+            SyncMethod.Register(typeof(Policy), nameof(Policy.RenamableLabel));
             SyncMethod.Register(typeof(Pawn_PlayerSettings), nameof(Pawn_PlayerSettings.AreaRestrictionInPawnCurrentMap));
             SyncMethod.Register(typeof(Pawn_PlayerSettings), nameof(Pawn_PlayerSettings.Master));
             SyncMethod.Register(typeof(Pawn), nameof(Pawn.Name)).ExposeParameter(0)

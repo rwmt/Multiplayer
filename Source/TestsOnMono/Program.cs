@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
+using HarmonyLib;
 using Multiplayer.Client;
 using Multiplayer.Client.Desyncs;
 using Multiplayer.Common;
@@ -21,7 +22,7 @@ static class Program
     }
 
     // Test rounding modes
-    public static void Main(string[] args)
+    public static void Main2(string[] args)
     {
         void Print()
         {
@@ -36,6 +37,29 @@ static class Program
         Print();
         ExternMethods.SetRound(RoundModeEnum.TowardZero);
         Print();
+    }
+
+    // Test patching generic methods with Harmony
+    public static void Main(string[] args)
+    {
+        TestClassForPatches<SomeClass> test = new()
+        {
+            field = new SomeClassDerived { a = 2 }
+        };
+
+        Console.WriteLine(test.GetField().GetA());
+
+        new Harmony("test").Patch(
+            typeof(TestClassForPatches<SomeClass>).GetMethod("GetField"),
+            postfix: new HarmonyMethod(typeof(Program).GetMethod("GenericPostfix"))
+        );
+
+        Console.WriteLine(test.GetField().GetA());
+    }
+
+    public static void GenericPostfix(ref object __result)
+    {
+        __result = new SomeClass2() { a = 3 };
     }
 
     class TestClass<S>
@@ -56,5 +80,33 @@ static class Program
         {
             Test();
         }
+    }
+
+    public class SomeClass
+    {
+        public int a;
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public int GetA() => a;
+    }
+
+    public class SomeClassDerived : SomeClass
+    {
+    }
+
+    public class SomeClass2
+    {
+        public int a;
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public int GetA() => a;
+    }
+
+    class TestClassForPatches<T>
+    {
+        public T field;
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public T GetField() => field;
     }
 }

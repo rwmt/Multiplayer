@@ -18,5 +18,6 @@ public static class ImplSerialization
         Multiplayer.serialization.AddExplicitImplType(typeof(IVerbOwner));
         Multiplayer.serialization.AddExplicitImplType(typeof(IThingHolder));
         Multiplayer.serialization.AddExplicitImplType(typeof(IReloadableComp));
+        Multiplayer.serialization.AddExplicitImplType(typeof(Policy));
     }
 }
