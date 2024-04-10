@@ -98,6 +98,17 @@ namespace Multiplayer.Client
                 }, true // Implicit
             },
             {
+                // Parent: RoyalTitlePermitWorker_Targeted
+                (SyncWorker sync, ref RoyalTitlePermitWorker_CallLaborers dropResources) => {
+                    if (sync.isWriting) {
+                        sync.Write(dropResources.calledFaction);
+                    }
+                    else {
+                        dropResources.calledFaction = sync.Read<Faction>();
+                    }
+                }, true // Implicit
+            },
+            {
                 (ByteWriter data, Command_BestowerCeremony cmd) => {
                     WriteSync(data, cmd.job.lord);
                     WriteSync(data, cmd.bestower);

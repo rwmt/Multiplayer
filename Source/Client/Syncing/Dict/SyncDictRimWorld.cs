@@ -6,6 +6,7 @@ using Multiplayer.API;
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
+using RimWorld.Utility;
 using Verse;
 using Verse.AI;
 using Verse.AI.Group;
@@ -1161,6 +1162,18 @@ namespace Multiplayer.Client
                 (ByteReader data) => {
                     return ReadWithImpl<IThingHolder>(data, supportedThingHolders);
                 }
+            },
+            {
+                (ByteWriter data, IReloadableComp obj) =>
+                {
+                    if (obj is null)
+                        WriteSync(data, (ThingComp)null);
+                    else if (obj is ThingComp comp)
+                        WriteSync(data, comp);
+                    else
+                        throw new SerializationException($"Unknown {nameof(IReloadableComp)} type: {obj.GetType()}");
+                },
+                (ByteReader data) => (IReloadableComp)ReadSync<ThingComp>(data)
             },
             #endregion
 

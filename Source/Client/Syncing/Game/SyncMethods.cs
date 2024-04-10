@@ -64,10 +64,10 @@ namespace Multiplayer.Client
             {
                 var types = typeof(CompAssignableToPawn).AllSubtypesAndSelf().ToArray();
                 var assignMethods = types
-                    .Select(t => t.GetMethod(nameof(CompAssignableToPawn.TryAssignPawn), AccessTools.allDeclared, null, new[] { typeof(Pawn) }, null))
+                    .Select(t => t.GetMethod(nameof(CompAssignableToPawn.TryAssignPawn), AccessTools.allDeclared, null, [typeof(Pawn)], null))
                     .AllNotNull();
                 var unassignMethods = types
-                    .Select(t => t.GetMethod(nameof(CompAssignableToPawn.TryUnassignPawn), AccessTools.allDeclared, null, new[] { typeof(Pawn), typeof(bool), typeof(bool) }, null))
+                    .Select(t => t.GetMethod(nameof(CompAssignableToPawn.TryUnassignPawn), AccessTools.allDeclared, null, [typeof(Pawn), typeof(bool), typeof(bool)], null))
                     .AllNotNull();
 
                 var unassignSerializer = Serializer.New(
@@ -140,7 +140,6 @@ namespace Multiplayer.Client
                 }
             }
 
-            SyncMethod.Register(typeof(RoyalTitlePermitWorker_CallLaborers), nameof(RoyalTitlePermitWorker_CallLaborers.CallLaborers));
             SyncMethod.Register(typeof(RoyalTitlePermitWorker_DropResources), nameof(RoyalTitlePermitWorker_DropResources.CallResourcesToCaravan));
 
             SyncMethod.Register(typeof(Pawn_RoyaltyTracker), nameof(Pawn_RoyaltyTracker.AddPermit));
@@ -542,27 +541,24 @@ namespace Multiplayer.Client
             }
         }
 
-        [MpPrefix(typeof(Targeter), nameof(Targeter.BeginTargeting), new []{ typeof(ITargetingSource), typeof(ITargetingSource), typeof(bool), typeof(Func<LocalTargetInfo, ITargetingSource>), typeof(Action), typeof(bool) })]
+        [MpPrefix(typeof(Targeter), nameof(Targeter.BeginTargeting), [typeof(ITargetingSource), typeof(ITargetingSource), typeof(bool), typeof(Func<LocalTargetInfo, ITargetingSource>), typeof(Action), typeof(bool)])]
         static bool BeginTargeting(ITargetingSource source)
         {
             if (Multiplayer.Client == null || source.Targetable)
                 return true;
 
             var verb = source.GetVerb;
-            // In case both Targetable and nonInterruptingSelfCast are false, targeter makes the caster use the verb.
-            // Before this change, we were syncing the cast method this ended up calling, like smokepop (and other belt) manual uses.
+
+            // In case both Targetable and nonInterruptingSelfCast are false, the targeter
+            // calls the non-vritual TryStartCastOn method, which we sync normally.
             if (verb.verbProps.nonInterruptingSelfCast)
-                SyncTargeterNonInterruptingSelfCast(verb);
+                return true;
+
             // In case Targetable is false and nonInterruptingSelfCast is true, targeter makes the pawn start a new job.
             // At the moment, it seems to never be the case in vanilla. However, this can happen with mods.
-            else
-                SyncTargeterInterruptingSelfCast(verb, source.CasterPawn);
-
+            SyncTargeterInterruptingSelfCast(verb, source.CasterPawn);
             return false;
         }
-
-        [SyncMethod]
-        static void SyncTargeterNonInterruptingSelfCast(Verb verb) => verb.TryStartCastOn(verb.Caster);
 
         [SyncMethod]
         static void SyncTargeterInterruptingSelfCast(Verb verb, Pawn casterPawn)

@@ -17,18 +17,18 @@ namespace Multiplayer.Client
         {
             const SyncContext mouseKeyContext = SyncContext.QueueOrder_Down | SyncContext.MapMouseCell;
 
-            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.GotoLocationOption), 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);     // Goto
-            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddHumanlikeOrders), 1).CancelIfAnyFieldNull().SetContext(mouseKeyContext);     // Arrest
-            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddHumanlikeOrders), 8).CancelIfAnyFieldNull().SetContext(mouseKeyContext);     // Rescue
-            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddHumanlikeOrders), 7).CancelIfAnyFieldNull().SetContext(mouseKeyContext);     // Capture slave
-            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddHumanlikeOrders), 9).CancelIfAnyFieldNull().SetContext(mouseKeyContext);     // Capture prisoner
-            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddHumanlikeOrders), 10).CancelIfAnyFieldNull().SetContext(mouseKeyContext);    // Carry to cryptosleep casket
-            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddHumanlikeOrders), 12).CancelIfAnyFieldNull().SetContext(mouseKeyContext);    // Carry to shuttle
-            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddHumanlikeOrders), 42).CancelIfAnyFieldNull().SetContext(mouseKeyContext);    // Reload
-            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddDraftedOrders), 3).CancelIfAnyFieldNull().SetContext(mouseKeyContext);       // Drafted carry to bed
-            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddDraftedOrders), 4).CancelIfAnyFieldNull().SetContext(mouseKeyContext);       // Drafted carry to bed (arrest)
-            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddDraftedOrders), 5).CancelIfAnyFieldNull().SetContext(mouseKeyContext);       // Drafted carry to transport shuttle
-            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddDraftedOrders), 6).CancelIfAnyFieldNull().SetContext(mouseKeyContext);       // Drafted carry to cryptosleep casket
+            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.GotoLocationOption), 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);  // Goto
+            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddHumanlikeOrders), 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);  // Arrest
+            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddHumanlikeOrders), 6).CancelIfAnyFieldNull().SetContext(mouseKeyContext);  // Rescue
+            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddHumanlikeOrders), 7).CancelIfAnyFieldNull().SetContext(mouseKeyContext);  // Capture slave
+            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddHumanlikeOrders), 8).CancelIfAnyFieldNull().SetContext(mouseKeyContext);  // Capture prisoner
+            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddHumanlikeOrders), 9).CancelIfAnyFieldNull().SetContext(mouseKeyContext);  // Carry to cryptosleep casket
+            SyncDelegate.LocalFunc(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddHumanlikeOrders), "CarryToShuttleAct").CancelIfAnyFieldNull().SetContext(mouseKeyContext); // Carry to shuttle
+            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddHumanlikeOrders), 50).CancelIfAnyFieldNull().SetContext(mouseKeyContext); // Reload
+            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddDraftedOrders), 3).CancelIfAnyFieldNull().SetContext(mouseKeyContext);    // Drafted carry to bed
+            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddDraftedOrders), 4).CancelIfAnyFieldNull().SetContext(mouseKeyContext);    // Drafted carry to bed (arrest)
+            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddDraftedOrders), 6).CancelIfAnyFieldNull().SetContext(mouseKeyContext);    // Drafted carry to transport shuttle
+            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddDraftedOrders), 7).CancelIfAnyFieldNull().SetContext(mouseKeyContext);    // Drafted carry to cryptosleep casket
 
             SyncDelegate.Lambda(typeof(Command_SetPlantToGrow), nameof(Command_SetPlantToGrow.ProcessInput), 2);                                        // Set plant to grow
             SyncDelegate.Lambda(typeof(Building_Bed), nameof(Building_Bed.SetBedOwnerTypeByInterface), 0).RemoveNullsFromLists("bedsToAffect");         // Set bed owner type
@@ -53,11 +53,11 @@ namespace Multiplayer.Client
                 .TransformField("things", Serializer.SimpleReader(() => Find.CurrentMap.listerThings.AllThings)).SetContext(SyncContext.CurrentMap);
             SyncDelegate.LambdaInGetter(typeof(Designator), nameof(Designator.RightClickFloatMenuOptions), 1).SetContext(SyncContext.CurrentMap); // Remove all designations
 
-            SyncDelegate.Lambda(typeof(CaravanAbandonOrBanishUtility), nameof(CaravanAbandonOrBanishUtility.TryAbandonOrBanishViaInterface), 1, new[] { typeof(Thing), typeof(Caravan) }).CancelIfAnyFieldNull(); // Abandon caravan thing
-            SyncDelegate.Lambda(typeof(CaravanAbandonOrBanishUtility), nameof(CaravanAbandonOrBanishUtility.TryAbandonOrBanishViaInterface), 0, new[] { typeof(TransferableImmutable), typeof(Caravan) }).CancelIfAnyFieldNull(); // Abandon caravan transferable
+            SyncDelegate.Lambda(typeof(CaravanAbandonOrBanishUtility), nameof(CaravanAbandonOrBanishUtility.TryAbandonOrBanishViaInterface), 1, [typeof(Thing), typeof(Caravan)]).CancelIfAnyFieldNull(); // Abandon caravan thing
+            SyncDelegate.Lambda(typeof(CaravanAbandonOrBanishUtility), nameof(CaravanAbandonOrBanishUtility.TryAbandonOrBanishViaInterface), 0, [typeof(TransferableImmutable), typeof(Caravan)]).CancelIfAnyFieldNull(); // Abandon caravan transferable
 
-            SyncDelegate.Lambda(typeof(CaravanAbandonOrBanishUtility), nameof(CaravanAbandonOrBanishUtility.TryAbandonSpecificCountViaInterface), 0, new[] { typeof(Thing), typeof(Caravan) }).CancelIfAnyFieldNull();                  // Abandon thing specific count
-            SyncDelegate.Lambda(typeof(CaravanAbandonOrBanishUtility), nameof(CaravanAbandonOrBanishUtility.TryAbandonSpecificCountViaInterface), 0, new[] { typeof(TransferableImmutable), typeof(Caravan) }).CancelIfAnyFieldNull();  // Abandon transferable specific count
+            SyncDelegate.Lambda(typeof(CaravanAbandonOrBanishUtility), nameof(CaravanAbandonOrBanishUtility.TryAbandonSpecificCountViaInterface), 0, [typeof(Thing), typeof(Caravan)]).CancelIfAnyFieldNull();                  // Abandon thing specific count
+            SyncDelegate.Lambda(typeof(CaravanAbandonOrBanishUtility), nameof(CaravanAbandonOrBanishUtility.TryAbandonSpecificCountViaInterface), 0, [typeof(TransferableImmutable), typeof(Caravan)]).CancelIfAnyFieldNull();  // Abandon transferable specific count
 
             SyncDelegate.Lambda(typeof(CaravanVisitUtility), nameof(CaravanVisitUtility.TradeCommand), 0).CancelIfAnyFieldNull();       // Caravan trade with settlement
             SyncDelegate.Lambda(typeof(FactionGiftUtility), nameof(FactionGiftUtility.OfferGiftsCommand), 0).CancelIfAnyFieldNull();    // Caravan offer gifts
@@ -119,8 +119,10 @@ namespace Multiplayer.Client
             SyncMethod.Lambda(typeof(CompRechargeable), nameof(CompRechargeable.CompGetGizmosExtra), 0).SetDebugOnly(); // Recharge
             SyncMethod.Register(typeof(CompRechargeable), nameof(CompRechargeable.Discharge)).SetDebugOnly();
 
-            SyncDelegate.Lambda(typeof(Ability), nameof(Ability.QueueCastingJob), 0, new[] { typeof(LocalTargetInfo), typeof(LocalTargetInfo) });
-            SyncDelegate.Lambda(typeof(Ability), nameof(Ability.QueueCastingJob), 0, new[] { typeof(GlobalTargetInfo) });
+            // Abilities
+            SyncDelegate.Lambda(typeof(Ability), nameof(Ability.QueueCastingJob), 0, [typeof(LocalTargetInfo), typeof(LocalTargetInfo)]);
+            SyncDelegate.Lambda(typeof(Ability), nameof(Ability.QueueCastingJob), 0, [typeof(GlobalTargetInfo)]);
+            SyncMethod.Register(typeof(Verb), nameof(Verb.TryStartCastOn), [typeof(LocalTargetInfo), typeof(bool), typeof(bool), typeof(bool), typeof(bool)]);
 
             // Style selection dialog
             SyncDelegate.Lambda(typeof(Dialog_StyleSelection), nameof(Dialog_StyleSelection.DoWindowContents), 0); // Remove style
@@ -136,8 +138,8 @@ namespace Multiplayer.Client
             SyncDelegate.Lambda(typeof(Gene_Deathrest), nameof(Gene_Deathrest.GetGizmos), 5).SetDebugOnly(); // Set capacity
 
             // Mechanitor
-            SyncDelegate.Lambda(typeof(MechanitorUtility), nameof(MechanitorUtility.GetMechGizmos), 1).SetDebugOnly(); // Recruit
-            SyncDelegate.Lambda(typeof(MechanitorUtility), nameof(MechanitorUtility.GetMechGizmos), 2).SetDebugOnly(); // Kill
+            SyncDelegate.Lambda(typeof(MechanitorUtility), nameof(MechanitorUtility.GetMechGizmos), 2).SetDebugOnly(); // Recruit
+            SyncDelegate.Lambda(typeof(MechanitorUtility), nameof(MechanitorUtility.GetMechGizmos), 3).SetDebugOnly(); // Kill
             SyncMethod.Register(typeof(MechanitorUtility), nameof(MechanitorUtility.ForceDisconnectMechFromOverseer)); // Disconnect from overseer, only called from FloatMenuMakerMap.<>c__DisplayClass10_19.<AddHumanlikeOrders>b__25
             SyncDelegate.Lambda(typeof(Designator_MechControlGroup), nameof(Designator_MechControlGroup.ProcessInput), 1).SetContext(SyncContext.MapSelected); // Assign to group
             SyncDelegate.Lambda(typeof(MechanitorControlGroupGizmo), nameof(MechanitorControlGroupGizmo.GetWorkModeOptions), 1); // Set work mode for group
@@ -522,7 +524,7 @@ namespace Multiplayer.Client
         [SyncMethod]
         static void SyncedCreateImplantEmbryoBill(Pawn pawn, HumanEmbryo embryo)
         {
-            HealthCardUtility.CreateSurgeryBill(pawn, RecipeDefOf.ImplantEmbryo, null, new List<Thing> { embryo });
+            HealthCardUtility.CreateSurgeryBill(pawn, RecipeDefOf.ImplantEmbryo, null, [embryo]);
             embryo.implantTarget = pawn;
         }
 
