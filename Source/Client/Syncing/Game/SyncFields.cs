@@ -343,13 +343,15 @@ namespace Multiplayer.Client
         [MpPrefix(typeof(ThingFilterUI), nameof(ThingFilterUI.DrawHitPointsFilterConfig))]
         static void ThingFilterHitPoints()
         {
-            SyncThingFilterHitPoints.Watch(ThingFilterMarkers.DrawnThingFilter);
+            if (ThingFilterMarkers.DrawnThingFilter != null)
+                SyncThingFilterHitPoints.Watch(ThingFilterMarkers.DrawnThingFilter);
         }
 
         [MpPrefix(typeof(ThingFilterUI), nameof(ThingFilterUI.DrawQualityFilterConfig))]
         static void ThingFilterQuality()
         {
-            SyncThingFilterQuality.Watch(ThingFilterMarkers.DrawnThingFilter);
+            if (ThingFilterMarkers.DrawnThingFilter != null)
+                SyncThingFilterQuality.Watch(ThingFilterMarkers.DrawnThingFilter);
         }
 
         [MpPrefix(typeof(Bill), nameof(Bill.DoInterface))]
