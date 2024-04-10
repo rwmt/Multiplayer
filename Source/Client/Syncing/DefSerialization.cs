@@ -14,7 +14,7 @@ namespace Multiplayer.Client
 
         public static void Init()
         {
-            DefTypes = TypeUtil.AllSubclassesNonAbstractOrdered(typeof(Def));
+            DefTypes = TypeCache.AllSubclassesNonAbstractOrdered(typeof(Def));
 
             foreach (var defType in DefTypes)
             {

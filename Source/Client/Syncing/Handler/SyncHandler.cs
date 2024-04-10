@@ -29,7 +29,7 @@ namespace Multiplayer.Client
 
         protected void ValidateType(string desc, SyncType type)
         {
-            if (type.type != null && !SyncSerialization.CanHandle(type))
+            if (type.type != null && !Multiplayer.serialization.CanHandle(type))
                 throw new Exception($"Sync handler uses a non-serializable type: {type.type}. Details: {desc}");
         }
     }

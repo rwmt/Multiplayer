@@ -19,13 +19,13 @@ public static class CompSerialization
 
     public static void Init()
     {
-        thingCompTypes = TypeUtil.AllSubclassesNonAbstractOrdered(typeof(ThingComp));
-        hediffCompTypes = TypeUtil.AllSubclassesNonAbstractOrdered(typeof(HediffComp));
-        abilityCompTypes = TypeUtil.AllSubclassesNonAbstractOrdered(typeof(AbilityComp));
-        worldObjectCompTypes = TypeUtil.AllSubclassesNonAbstractOrdered(typeof(WorldObjectComp));
+        thingCompTypes = TypeCache.AllSubclassesNonAbstractOrdered(typeof(ThingComp));
+        hediffCompTypes = TypeCache.AllSubclassesNonAbstractOrdered(typeof(HediffComp));
+        abilityCompTypes = TypeCache.AllSubclassesNonAbstractOrdered(typeof(AbilityComp));
+        worldObjectCompTypes = TypeCache.AllSubclassesNonAbstractOrdered(typeof(WorldObjectComp));
 
-        gameCompTypes = TypeUtil.AllSubclassesNonAbstractOrdered(typeof(GameComponent));
-        worldCompTypes = TypeUtil.AllSubclassesNonAbstractOrdered(typeof(WorldComponent));
-        mapCompTypes = TypeUtil.AllSubclassesNonAbstractOrdered(typeof(MapComponent));
+        gameCompTypes = TypeCache.AllSubclassesNonAbstractOrdered(typeof(GameComponent));
+        worldCompTypes = TypeCache.AllSubclassesNonAbstractOrdered(typeof(WorldComponent));
+        mapCompTypes = TypeCache.AllSubclassesNonAbstractOrdered(typeof(MapComponent));
     }
 }

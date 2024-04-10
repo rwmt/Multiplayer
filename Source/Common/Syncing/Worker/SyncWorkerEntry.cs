@@ -13,7 +13,7 @@ public class SyncWorkerEntry
     public Type type;
     public bool shouldConstruct;
     private List<SyncWorkerDelegate> syncWorkers;
-    private List<SyncWorkerEntry>? subclasses;
+    private List<SyncWorkerEntry> subclasses = [];
     private SyncWorkerEntry? parent;
 
     public int SyncWorkerCount => syncWorkers.Count;
@@ -21,7 +21,7 @@ public class SyncWorkerEntry
     public SyncWorkerEntry(Type type, bool shouldConstruct = false)
     {
         this.type = type;
-        this.syncWorkers = new List<SyncWorkerDelegate>();
+        syncWorkers = new List<SyncWorkerDelegate>();
         this.shouldConstruct = shouldConstruct;
     }
 
@@ -31,6 +31,9 @@ public class SyncWorkerEntry
         syncWorkers = other.syncWorkers;
         subclasses = other.subclasses;
         shouldConstruct = other.shouldConstruct;
+
+        foreach (var sub in subclasses)
+            sub.parent = this;
     }
 
     public void Add(MethodInfo method)
@@ -46,7 +49,7 @@ public class SyncWorkerEntry
             func(sync, ref obj2);
             obj = obj2;
             return true;
-        }, true);
+        });
     }
 
     private void Add(SyncWorkerDelegate sync, bool append = true)
@@ -75,66 +78,68 @@ public class SyncWorkerEntry
         return false;
     }
 
-    public SyncWorkerEntry Add(SyncWorkerEntry other)
+    public void Add(SyncWorkerEntry other)
     {
         SyncWorkerEntry newEntry = Add(other.type, other, other.shouldConstruct);
         newEntry.subclasses = other.subclasses;
-        return newEntry;
     }
 
-    public SyncWorkerEntry? Add(Type type, bool shouldConstruct = false)
+    public SyncWorkerEntry? Add(Type toAddType, bool toAddConstruct = false)
     {
-        return Add(type, null, shouldConstruct);
+        return Add(toAddType, null, toAddConstruct);
     }
 
-    private SyncWorkerEntry? Add(Type type, SyncWorkerEntry? parent, bool shouldConstruct)
+    private SyncWorkerEntry? Add(Type toAddType, SyncWorkerEntry? toAddParent, bool toAddConstruct)
     {
-        if (type == this.type) {
-            if (shouldConstruct) {
-                this.shouldConstruct = true;
+        if (toAddType == type) {
+            if (toAddConstruct) {
+                shouldConstruct = true;
             }
 
             return this;
         }
 
-        if (type.IsAssignableFrom(this.type)) // Is parent
+        if (toAddType.IsAssignableFrom(type)) // New is parent
         {
-            SyncWorkerEntry newEntry;
+            if (toAddParent != null) {
+                List<SyncWorkerEntry> parentSubclasses = toAddParent.subclasses;
+                SyncWorkerEntry newEntry = new SyncWorkerEntry(toAddType, toAddConstruct);
 
-            if (parent != null) {
-                List<SyncWorkerEntry>? ps = parent.subclasses;
-                newEntry = new SyncWorkerEntry(type, shouldConstruct);
-
+                parent = newEntry;
                 newEntry.subclasses.Add(this);
 
-                ps[ps.IndexOf(this)] = newEntry;
+                parentSubclasses[parentSubclasses.IndexOf(this)] = newEntry;
                 return newEntry;
-            } else {
-                newEntry = new SyncWorkerEntry(this);
+            } else
+            {
+                // Copy this into new child entry
+                SyncWorkerEntry newEntry = new SyncWorkerEntry(this);
 
-                this.type = type;
-                this.shouldConstruct = shouldConstruct;
-                syncWorkers = new List<SyncWorkerDelegate>();
-                subclasses = new List<SyncWorkerEntry>() { newEntry };
+                // Make this into parent
+                type = toAddType;
+                shouldConstruct = toAddConstruct;
+                syncWorkers = [];
+                subclasses = [newEntry];
+                newEntry.parent = this;
 
                 return this;
             }
         }
 
-        if (this.type.IsAssignableFrom(type)) // Is child
+        if (type.IsAssignableFrom(toAddType)) // New is child
         {
-            if (subclasses != null) {
-                for (int i = 0; i < subclasses.Count; i++) {
-                    SyncWorkerEntry? res = subclasses[i].Add(type, this, shouldConstruct);
-                    if (res != null)
-                        return res;
-                }
-            } else {
-                subclasses = new List<SyncWorkerEntry>();
+            // Try add as child of a child
+            for (int i = 0; i < subclasses.Count; i++) {
+                SyncWorkerEntry? res = subclasses[i].Add(toAddType, this, toAddConstruct);
+                if (res != null)
+                    return res;
             }
 
-            var newEntry = new SyncWorkerEntry(type, shouldConstruct);
-            newEntry.parent = this;
+            // Make into new child of this
+            var newEntry = new SyncWorkerEntry(toAddType, toAddConstruct)
+            {
+                parent = this
+            };
             subclasses.Add(newEntry);
 
             return newEntry;
@@ -146,9 +151,6 @@ public class SyncWorkerEntry
     public SyncWorkerEntry? GetClosest(Type queryType)
     {
         if (type.IsAssignableFrom(queryType)) {
-            if (subclasses == null)
-                return this;
-
             int len = subclasses.Count;
 
             for (int i = 0; i < len; i++) {
@@ -169,7 +171,7 @@ public class SyncWorkerEntry
         str.Append(' ', 4 * level);
         str.Append(type);
 
-        if (subclasses == null) {
+        if (subclasses.Count == 0) {
             str.AppendLine();
             return;
         }

@@ -9,7 +9,7 @@ namespace Multiplayer.Client
 {
     public static class MpReflection
     {
-        public static Func<IEnumerable<Assembly>> allAssembliesHook;
+        public static Func<IEnumerable<Assembly>> allAssembliesHook = () => throw new Exception("No implementation");
 
         public delegate object Getter(object? instance, object? index);
         public delegate void Setter(object? instance, object? value, object? index);

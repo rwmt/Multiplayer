@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -6,6 +7,7 @@ using System.Xml;
 using HarmonyLib;
 using Multiplayer.API;
 using Multiplayer.Common;
+using RimWorld.Planet;
 using Verse;
 
 namespace Multiplayer.Client;
@@ -14,13 +16,15 @@ public static class RwSerialization
 {
     public static void Init()
     {
+        Multiplayer.serialization = new Common.SyncSerialization(new RwSyncTypeHelper());
+
         // CanHandle hooks
-        SyncSerialization.canHandleHooks.Add(syncType =>
+        Multiplayer.serialization.AddCanHandleHook(syncType =>
         {
             var type = syncType.type;
             if (type.IsGenericType && type.GetGenericTypeDefinition() is { } gtd)
                 if (gtd == typeof(Pair<,>))
-                    return SyncSerialization.CanHandleGenericArgs(type);
+                    return Multiplayer.serialization.CanHandleGenericArgs(type);
 
             if (syncType.expose)
                 return typeof(IExposable).IsAssignableFrom(type);
@@ -30,7 +34,7 @@ public static class RwSerialization
                 return ApiSerialization.syncSimples.
                     Where(t => type.IsAssignableFrom(t)).
                     SelectMany(AccessTools.GetDeclaredFields).
-                    All(f => SyncSerialization.CanHandle(f.FieldType));
+                    All(f => Multiplayer.serialization.CanHandle(f.FieldType));
             if (typeof(Def).IsAssignableFrom(type))
                 return true;
             if (typeof(Designator).IsAssignableFrom(type))
@@ -40,7 +44,7 @@ public static class RwSerialization
         });
 
         // Verse.Pair<,> serialization
-        SyncSerialization.AddSerializationHook(
+        Multiplayer.serialization.AddSerializationHook(
             syncType => syncType.type.IsGenericType && syncType.type.GetGenericTypeDefinition() is { } gtd && gtd == typeof(Pair<,>),
             (data, syncType) =>
             {
@@ -63,7 +67,7 @@ public static class RwSerialization
         );
 
         // IExposable serialization
-        SyncSerialization.AddSerializationHook(
+        Multiplayer.serialization.AddSerializationHook(
             syncType => syncType.expose,
             (data, syncType) =>
             {
@@ -88,7 +92,7 @@ public static class RwSerialization
 
         // ISyncSimple serialization
         // todo null handling for ISyncSimple?
-        SyncSerialization.AddSerializationHook(
+        Multiplayer.serialization.AddSerializationHook(
             syncType => typeof(ISyncSimple).IsAssignableFrom(syncType.type),
             (data, _) =>
             {
@@ -107,65 +111,10 @@ public static class RwSerialization
             }
         );
 
-        // Def serialization
-        SyncSerialization.AddSerializationHook(
-            syncType => typeof(Def).IsAssignableFrom(syncType.type),
-            (data, _) =>
-            {
-                ushort defTypeIndex = data.ReadUShort();
-                if (defTypeIndex == ushort.MaxValue)
-                    return null;
-
-                ushort shortHash = data.ReadUShort();
-
-                var defType = DefSerialization.DefTypes[defTypeIndex];
-                var def = DefSerialization.GetDef(defType, shortHash);
-
-                if (def == null)
-                    throw new SerializationException($"Couldn't find {defType} with short hash {shortHash}");
-
-                return def;
-            },
-            (data, obj, _) =>
-            {
-                if (obj is not Def def)
-                {
-                    data.WriteUShort(ushort.MaxValue);
-                    return;
-                }
-
-                var defTypeIndex = Array.IndexOf(DefSerialization.DefTypes, def.GetType());
-                if (defTypeIndex == -1)
-                    throw new SerializationException($"Unknown def type {def.GetType()}");
-
-                data.WriteUShort((ushort)defTypeIndex);
-                data.WriteUShort(def.shortHash);
-            }
-        );
-
-        // Designator type changer
-        // todo handle null?
-        SyncSerialization.AddTypeChanger(
-            syncType => typeof(Designator).IsAssignableFrom(syncType.type),
-            (data, _) =>
-            {
-                ushort desId = SyncSerialization.ReadSync<ushort>(data);
-                return RwImplSerialization.designatorTypes[desId];
-            },
-            (data, obj, _) =>
-            {
-                data.WriteUShort((ushort) Array.IndexOf(RwImplSerialization.designatorTypes, obj!.GetType()));
-            }
-        );
-
-        RwImplSerialization.Init();
+        ImplSerialization.Init();
         CompSerialization.Init();
         ApiSerialization.Init();
         DefSerialization.Init();
-
-        RwTypeHelper.Init();
-        SyncWorkerTypeHelper.GetType = RwTypeHelper.GetType;
-        SyncWorkerTypeHelper.GetTypeIndex = RwTypeHelper.GetTypeIndex;
     }
 
     internal static T GetAnyParent<T>(Thing thing) where T : class
@@ -180,6 +129,15 @@ public static class RwSerialization
         return null;
     }
 
+    internal static Type[] supportedThingHolders =
+    {
+        typeof(Map),
+        typeof(Thing),
+        typeof(ThingComp),
+        typeof(WorldObject),
+        typeof(WorldObjectComp)
+    };
+
     internal static string ThingHolderString(Thing thing)
     {
         StringBuilder builder = new StringBuilder(thing.ToString());
@@ -191,6 +149,24 @@ public static class RwSerialization
         }
 
         return builder.ToString();
+    }
+
+    internal static void GetImpl(object obj, IList<Type> impls, out Type type, out int index)
+    {
+        type = null;
+        index = -1;
+
+        if (obj == null) return;
+
+        for (int i = 0; i < impls.Count; i++)
+        {
+            if (impls[i].IsInstanceOfType(obj))
+            {
+                type = impls[i];
+                index = i;
+                break;
+            }
+        }
     }
 
     private static void LogXML(SyncLogger log, byte[] xmlData)

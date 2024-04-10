@@ -56,10 +56,10 @@ public static class EarlyInit
 
     internal static void InitSync()
     {
-        MpReflection.allAssembliesHook = RwAllAssemblies;
-
         using (DeepProfilerWrapper.Section("Multiplayer RwSerialization.Init"))
             RwSerialization.Init();
+
+        SyncDict.Init();
 
         using (DeepProfilerWrapper.Section("Multiplayer SyncGame.Init"))
             SyncGame.Init();
@@ -69,18 +69,6 @@ public static class EarlyInit
 
         using (DeepProfilerWrapper.Section("Multiplayer Sync validation"))
             Sync.ValidateAll();
-    }
-
-    private static IEnumerable<Assembly> RwAllAssemblies()
-    {
-        yield return Assembly.GetAssembly(typeof(Game));
-
-        foreach (ModContentPack mod in LoadedModManager.RunningMods)
-            foreach (Assembly assembly in mod.assemblies.loadedAssemblies)
-                yield return assembly;
-
-        if (Assembly.GetEntryAssembly() != null)
-            yield return Assembly.GetEntryAssembly();
     }
 
     internal static void LatePatches()

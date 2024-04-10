@@ -161,7 +161,7 @@ public class SessionManager : IHasSessionData, ISessionManager
 
             try
             {
-                session.Sync(new WritingSyncWorker(data));
+                session.Sync(new WritingSyncWorker(data, Multiplayer.serialization));
             }
             catch (Exception e)
             {
@@ -194,7 +194,7 @@ public class SessionManager : IHasSessionData, ISessionManager
                 if (Activator.CreateInstance(objType, Map) is SemiPersistentSession session)
                 {
                     session.SessionId = sessionId;
-                    session.Sync(new ReadingSyncWorker(data));
+                    session.Sync(new ReadingSyncWorker(data, Multiplayer.serialization));
                     semiPersistentSessions.Add(session);
                     allSessions.Add(session);
                 }

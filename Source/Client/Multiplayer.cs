@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
@@ -24,6 +25,8 @@ namespace Multiplayer.Client
 
         public static MultiplayerGame game;
         public static MultiplayerSession session;
+
+        public static Common.SyncSerialization serialization;
 
         public static MultiplayerServer LocalServer { get; set; }
         public static Thread localServerThread;
@@ -112,10 +115,8 @@ namespace Multiplayer.Client
             settings = MultiplayerLoader.Multiplayer.instance!.GetSettings<MpSettings>();
 
             EarlyInit.ProcessEnvironment();
-
-            SyncDict.Init();
-
             EarlyInit.EarlyPatches(harmony);
+            MpReflection.allAssembliesHook = RwAllAssemblies;
             EarlyInit.InitSync();
             CheckInterfaceVersions();
 
@@ -218,6 +219,18 @@ namespace Multiplayer.Client
                 arbiterInstance = false;
                 Application.Quit();
             }
+        }
+
+        private static IEnumerable<Assembly> RwAllAssemblies()
+        {
+            yield return Assembly.GetAssembly(typeof(Game));
+
+            foreach (ModContentPack mod in LoadedModManager.RunningMods)
+            foreach (Assembly assembly in mod.assemblies.loadedAssemblies)
+                yield return assembly;
+
+            if (Assembly.GetEntryAssembly() != null)
+                yield return Assembly.GetEntryAssembly();
         }
     }
 }

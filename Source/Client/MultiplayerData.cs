@@ -124,16 +124,14 @@ namespace Multiplayer.Client
             dict["AbilityComp"] = GetDefInfo(CompSerialization.abilityCompTypes, TypeHash);
             dict["WorldObjectComp"] = GetDefInfo(CompSerialization.worldObjectCompTypes, TypeHash);
             dict["HediffComp"] = GetDefInfo(CompSerialization.hediffCompTypes, TypeHash);
-            dict["IStoreSettingsParent"] = GetDefInfo(RwImplSerialization.storageSettingsParent, TypeHash);
-            dict["IPlantToGrowSettable"] = GetDefInfo(RwImplSerialization.plantToGrowSettables, TypeHash);
-            dict["ISlotGroup"] = GetDefInfo(RwImplSerialization.slotGroupTypes, TypeHash);
-            dict["ISlotGroupParent"] = GetDefInfo(RwImplSerialization.slotGroupParents, TypeHash);
-            dict["Designator"] = GetDefInfo(RwImplSerialization.designatorTypes, TypeHash);
-            dict["DefTypes"] = GetDefInfo(DefSerialization.DefTypes, TypeHash);
-
             dict["GameComponent"] = GetDefInfo(CompSerialization.gameCompTypes, TypeHash);
             dict["WorldComponent"] = GetDefInfo(CompSerialization.worldCompTypes, TypeHash);
             dict["MapComponent"] = GetDefInfo(CompSerialization.mapCompTypes, TypeHash);
+
+            foreach (var explicitImplType in Multiplayer.serialization.explicitImplTypes)
+                dict[explicitImplType.Name] =
+                    GetDefInfo(Multiplayer.serialization.TypeHelper.GetImplementations(explicitImplType), TypeHash);
+
             dict["ISyncSimple"] = GetDefInfo(ApiSerialization.syncSimples, TypeHash);
             dict["ISession"] = GetDefInfo(ApiSerialization.sessions, TypeHash);
 

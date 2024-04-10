@@ -1,47 +1,50 @@
 using HarmonyLib;
 using Multiplayer.API;
-using Multiplayer.Common;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using Multiplayer.Client;
 
-namespace Multiplayer.Client
+namespace Multiplayer.Common
 {
-    public static class SyncSerialization
+    public class SyncSerialization(SyncTypeHelper typeHelper)
     {
         public delegate bool CanHandleHook(SyncType syncType);
-        public delegate bool SyncTypeMatcher(SyncType syncType);
 
+        public delegate bool SyncTypeMatcher(SyncType syncType);
         public delegate object? SerializationReader(ByteReader data, SyncType syncType);
         public delegate void SerializationWriter(ByteWriter data, object? obj, SyncType syncType);
 
-        public delegate Type TypeChangerReader(ByteReader data, SyncType syncType);
-        public delegate void TypeChangerWriter(ByteWriter data, object? obj, SyncType syncType);
+        private List<CanHandleHook> canHandleHooks = [];
+        private List<(SyncTypeMatcher, SerializationReader, SerializationWriter)> serializationHooks = [];
+        public HashSet<Type> explicitImplTypes = [];
+        public SyncTypeHelper TypeHelper { get; } = typeHelper;
 
-        public static List<CanHandleHook> canHandleHooks = [];
-        private static List<(SyncTypeMatcher, SerializationReader, SerializationWriter)> serializationHooks = [];
-        private static List<(SyncTypeMatcher, TypeChangerReader, TypeChangerWriter)> typeChangerHooks = [];
+        public Action<string> errorLogger = msg => Console.WriteLine($"Sync Error: {msg}");
 
-        public static Action<string> errorLogger = msg => Console.WriteLine($"Sync Error: {msg}");
+        public void AddCanHandleHook(CanHandleHook hook)
+        {
+            canHandleHooks.Add(hook);
+        }
 
-        public static void AddSerializationHook(SyncTypeMatcher matcher, SerializationReader reader, SerializationWriter writer)
+        public void AddSerializationHook(SyncTypeMatcher matcher, SerializationReader reader, SerializationWriter writer)
         {
             serializationHooks.Add((matcher, reader, writer));
         }
 
-        public static void AddTypeChanger(SyncTypeMatcher matcher, TypeChangerReader reader, TypeChangerWriter writer)
+        public void AddExplicitImplType(Type type)
         {
-            typeChangerHooks.Add((matcher, reader, writer));
+            explicitImplTypes.Add(type);
         }
 
-        public static SyncWorkerDictionaryTree? syncTree;
+        public SyncWorkerDictionaryTree? syncTree;
 
         private static Type[] supportedSystemGtds =
             [typeof(List<>), typeof(IEnumerable<>), typeof(Nullable<>), typeof(Dictionary<,>), typeof(HashSet<>)];
 
-        public static bool CanHandle(SyncType syncType)
+        public bool CanHandle(SyncType syncType)
         {
             var type = syncType.type;
 
@@ -66,20 +69,39 @@ namespace Multiplayer.Client
             if (Enumerable.Any(canHandleHooks, hook => hook(syncType)))
                 return true;
 
+            if (explicitImplTypes.Contains(syncType.type))
+                return true;
+
             return syncTree != null && syncTree.TryGetValue(type, out _);
         }
 
-        public static bool CanHandleGenericArgs(Type genericType)
+        public bool CanHandleGenericArgs(Type genericType)
         {
             return genericType.GetGenericArguments().All(arg => CanHandle(arg));
         }
 
-        public static T? ReadSync<T>(ByteReader data)
+        public T? ReadSync<T>(ByteReader data)
         {
             return (T?)ReadSyncObject(data, typeof(T));
         }
 
-        public static object? ReadSyncObject(ByteReader data, SyncType syncType)
+        // Serialization order:
+        // object is null
+        // byref is null
+        // Primitives (bool, numerics, string)
+        // Enums
+        // Array (single-dimensional)
+        // Generic types:
+        //      List<T>, IEnumerable<T> (synced as List<T>), Nullable<T>, Dictionary<K, V>, HashSet<T>
+        //      ValueTuple<T1, T2>
+        //      Implementations of System.Runtime.CompilerServices.ITuple (System.Tuples and System.ValueTuples)
+        // For each serializationHooks:
+        //      if matcher: serialize; break
+        // Implementations of Multiplayer.API.ISynchronizable
+        // Run all typeChangerHooks
+        // syncTree.TryGetValue(type)
+
+        public object? ReadSyncObject(ByteReader data, SyncType syncType)
         {
             var log = (data as LoggingByteReader)?.Log;
             Type type = syncType.type;
@@ -98,7 +120,7 @@ namespace Multiplayer.Client
             }
         }
 
-        private static object? ReadSyncObjectInternal(ByteReader data, SyncType syncType)
+        private object? ReadSyncObjectInternal(ByteReader data, SyncType syncType)
         {
             Type type = syncType.type;
 
@@ -120,7 +142,7 @@ namespace Multiplayer.Client
                     if (syncWorkerEntryEarly.shouldConstruct || type.IsValueType)
                         res = Activator.CreateInstance(type);
 
-                    syncWorkerEntryEarly.Invoke(new ReadingSyncWorker(data), ref res);
+                    syncWorkerEntryEarly.Invoke(new ReadingSyncWorker(data, this), ref res);
 
                     return res;
                 }
@@ -203,6 +225,13 @@ namespace Multiplayer.Client
                         return dictionary;
                     }
 
+                    if (genericTypeDefinition == typeof(HashSet<>))
+                    {
+                        Type element = type.GetGenericArguments()[0];
+                        object? list = ReadSyncObject(data, typeof(List<>).MakeGenericType(element));
+                        return list == null ? null : Activator.CreateInstance(typeof(HashSet<>).MakeGenericType(element), list);
+                    }
+
                     if (genericTypeDefinition == typeof(ValueTuple<,>)) // Binary ValueTuple
                     {
                         Type[] arguments = type.GetGenericArguments();
@@ -213,13 +242,6 @@ namespace Multiplayer.Client
                         ];
 
                         return type.GetConstructors().First().Invoke(parameters);
-                    }
-
-                    if (genericTypeDefinition == typeof(HashSet<>))
-                    {
-                        Type element = type.GetGenericArguments()[0];
-                        object? list = ReadSyncObject(data, typeof(List<>).MakeGenericType(element));
-                        return list == null ? null : Activator.CreateInstance(typeof(HashSet<>).MakeGenericType(element), list);
                     }
 
                     // todo handle null non-value Tuples?
@@ -245,13 +267,16 @@ namespace Multiplayer.Client
                 {
                     var obj = Activator.CreateInstance(type);
 
-                    ((ISynchronizable) obj).Sync(new ReadingSyncWorker(data));
+                    ((ISynchronizable) obj).Sync(new ReadingSyncWorker(data, this));
                     return obj;
                 }
 
-                foreach (var hook in typeChangerHooks)
-                    if (hook.Item1(syncType))
-                        syncType = type = hook.Item2(data, syncType);
+                if (explicitImplTypes.Contains(type))
+                {
+                    ushort impl = data.ReadUShort();
+                    return impl == ushort.MaxValue ? null :
+                        ReadSyncObject(data, TypeHelper.GetImplementationByIndex(type, impl));
+                }
 
                 // Where the magic happens
                 if (syncTree != null && syncTree.TryGetValue(type, out var syncWorkerEntry))
@@ -261,7 +286,7 @@ namespace Multiplayer.Client
                     if (syncWorkerEntry.shouldConstruct || type.IsValueType)
                         res = Activator.CreateInstance(type);
 
-                    syncWorkerEntry.Invoke(new ReadingSyncWorker(data), ref res);
+                    syncWorkerEntry.Invoke(new ReadingSyncWorker(data, this), ref res);
 
                     return res;
                 }
@@ -275,12 +300,12 @@ namespace Multiplayer.Client
             }
         }
 
-        public static void WriteSync<T>(ByteWriter data, T? obj)
+        public void WriteSync<T>(ByteWriter data, T? obj)
         {
             WriteSyncObject(data, obj, typeof(T));
         }
 
-        public static void WriteSyncObject(ByteWriter data, object? obj, SyncType syncType)
+        public void WriteSyncObject(ByteWriter data, object? obj, SyncType syncType)
         {
             Type type = syncType.type;
             var log = (data as LoggingByteWriter)?.Log;
@@ -302,7 +327,7 @@ namespace Multiplayer.Client
                 }
 
                 if (SyncDictPrimitives.syncWorkers.TryGetValue(type, out var syncWorkerEntryEarly)) {
-                    syncWorkerEntryEarly.Invoke(new WritingSyncWorker(data), ref obj);
+                    syncWorkerEntryEarly.Invoke(new WritingSyncWorker(data, this), ref obj);
 
                     return;
                 }
@@ -453,18 +478,28 @@ namespace Multiplayer.Client
 
                 if (typeof(ISynchronizable).IsAssignableFrom(type))
                 {
-                    ((ISynchronizable) obj!).Sync(new WritingSyncWorker(data));
+                    ((ISynchronizable) obj!).Sync(new WritingSyncWorker(data, this));
                     return;
                 }
 
-                foreach (var hook in typeChangerHooks)
-                    if (hook.Item1(syncType))
-                        hook.Item3(data, obj, syncType);
+                if (explicitImplTypes.Contains(type))
+                {
+                    if (obj == null)
+                    {
+                        data.WriteUShort(ushort.MaxValue);
+                        return;
+                    }
+
+                    ushort implIndex = TypeHelper!.GetIndexFromImplementation(type, obj.GetType());
+                    data.WriteUShort(implIndex);
+                    WriteSyncObject(data, obj, obj.GetType());
+                    return;
+                }
 
                 // Where the magic happens
                 if (syncTree != null && syncTree.TryGetValue(type, out var syncWorkerEntry))
                 {
-                    syncWorkerEntry.Invoke(new WritingSyncWorker(data), ref obj);
+                    syncWorkerEntry.Invoke(new WritingSyncWorker(data, this), ref obj);
                     return;
                 }
 

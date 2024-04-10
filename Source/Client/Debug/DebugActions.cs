@@ -135,12 +135,6 @@ namespace Multiplayer.Client
         public static void DumpSyncTypes()
         {
             var dict = new Dictionary<string, Type[]>() {
-                {"Designator", RwImplSerialization.designatorTypes},
-                {"IStoreSettingsParent", RwImplSerialization.storageSettingsParent},
-                {"IPlantToGrowSettable", RwImplSerialization.plantToGrowSettables},
-                {"ISlotGroup", RwImplSerialization.slotGroupTypes},
-                {"ISlotGroupParent", RwImplSerialization.slotGroupParents},
-
                 {"ThingComp", CompSerialization.thingCompTypes},
                 {"AbilityComp", CompSerialization.abilityCompTypes},
                 {"WorldObjectComp", CompSerialization.worldObjectCompTypes},
@@ -150,6 +144,9 @@ namespace Multiplayer.Client
                 {"WorldComponent", CompSerialization.worldCompTypes},
                 {"MapComponent", CompSerialization.mapCompTypes},
             };
+
+            foreach (var explicitImplType in Multiplayer.serialization.explicitImplTypes)
+                dict[explicitImplType.Name] = Multiplayer.serialization.TypeHelper!.GetImplementations(explicitImplType).ToArray();
 
             foreach(var kv in dict) {
                 Log.Warning($"== {kv.Key} ==");

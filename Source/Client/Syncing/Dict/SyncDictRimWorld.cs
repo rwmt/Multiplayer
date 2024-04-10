@@ -11,7 +11,6 @@ using Verse;
 using Verse.AI;
 using Verse.AI.Group;
 using static Multiplayer.Client.SyncSerialization;
-using static Multiplayer.Client.RwImplSerialization;
 using static Multiplayer.Client.CompSerialization;
 // ReSharper disable RedundantLambdaParameterType
 
@@ -21,6 +20,42 @@ namespace Multiplayer.Client
     {
         internal static SyncWorkerDictionaryTree syncWorkers = new SyncWorkerDictionaryTree()
         {
+            #region Defs
+            {
+                (ByteWriter data, Def def) =>
+                {
+                    if (def == null)
+                    {
+                        data.WriteUShort(ushort.MaxValue);
+                        return;
+                    }
+
+                    var defTypeIndex = Array.IndexOf(DefSerialization.DefTypes, def.GetType());
+                    if (defTypeIndex == -1)
+                        throw new SerializationException($"Unknown def type {def.GetType()}");
+
+                    data.WriteUShort((ushort)defTypeIndex);
+                    data.WriteUShort(def.shortHash);
+                },
+                (ByteReader data) => {
+                    ushort defTypeIndex = data.ReadUShort();
+                    if (defTypeIndex == ushort.MaxValue)
+                        return null;
+
+                    ushort shortHash = data.ReadUShort();
+
+                    var defType = DefSerialization.DefTypes[defTypeIndex];
+                    var def = DefSerialization.GetDef(defType, shortHash);
+
+                    if (def == null)
+                        throw new SerializationException($"Couldn't find {defType} with short hash {shortHash}");
+
+                    return def;
+                },
+                true // Implicit
+            },
+            #endregion
+
             #region Pawns
             {
                 (ByteWriter data, PriorityWork work) => WriteSync(data, work.pawn),
@@ -297,52 +332,18 @@ namespace Multiplayer.Client
                 (SyncWorker sync, ref Verb verb)  => {
                     if (sync.isWriting) {
 
-                        if (verb.DirectOwner is Pawn pawn) {
-                            sync.Write(VerbOwnerType.Pawn);
-                            sync.Write(pawn);
-                        }
-                        else if (verb.DirectOwner is Ability ability) {
-                            sync.Write(VerbOwnerType.Ability);
-                            sync.Write(ability);
-                        }
-                        else if (verb.DirectOwner is ThingComp thingComp) {
-                            sync.Write(VerbOwnerType.ThingComp);
-                            sync.Write(thingComp);
-                        }
-                        else {
-                            Log.Error($"Multiplayer :: SyncDictionary.Verb: Unknown DirectOwner {verb.loadID} {verb.DirectOwner}");
-                            sync.Write(VerbOwnerType.None);
-                            return;
-                        }
-
-                        sync.Write(verb.loadID);
+                        sync.Write(verb.DirectOwner);
+                        if (verb.DirectOwner != null)
+                            sync.Write(verb.loadID);
                     }
-                    else {
-
-                        var ownerType = sync.Read<VerbOwnerType>();
-                        if (ownerType == VerbOwnerType.None) {
+                    else
+                    {
+                        var owner = sync.Read<IVerbOwner>();
+                        if (owner == null)
                             return;
-                        }
-
-                        IVerbOwner verbOwner = null;
-                        if (ownerType == VerbOwnerType.Pawn) {
-                            verbOwner = sync.Read<Pawn>();
-                        }
-                        else if (ownerType == VerbOwnerType.Ability) {
-                            verbOwner = sync.Read<Ability>();
-                        }
-                        else if (ownerType == VerbOwnerType.ThingComp) {
-                            verbOwner = sync.Read<ThingComp>() as IVerbOwner;
-                        }
-
-                        if (verbOwner == null) {
-                            Log.Error($"Multiplayer :: SyncDictionary.Verb: Unknown VerbOwnerType {ownerType}");
-                            return;
-                        }
-
                         var loadID = sync.Read<string>();
 
-                        verb = verbOwner.VerbTracker.AllVerbs.Find(ve => ve.loadID == loadID);
+                        verb = owner.VerbTracker.AllVerbs.Find(ve => ve.loadID == loadID);
 
                         if (verb == null) {
                             Log.Error($"Multiplayer :: SyncDictionary.Verb: Unknown verb {loadID}");
@@ -614,6 +615,15 @@ namespace Multiplayer.Client
                 }, true, true // <- Implicit ShouldConstruct
             },
             {
+                (SyncWorker sync, ref Designator_Paint paint) => {
+                    if (sync.isWriting) {
+                        sync.Write(paint.colorDef);
+                    } else {
+                        paint.colorDef = sync.Read<ColorDef>();
+                    }
+                }, true, true // <- Implicit ShouldConstruct
+            },
+            {
                 // Designator_Build is a Designator_Place but we aren't using Implicit
                 // We can't take part of the implicit tree because Designator_Build ctor has an argument
                 // So we need to implement placingRot here too, until we separate instancing from decorating.
@@ -635,15 +645,6 @@ namespace Multiplayer.Client
                         build.sourcePrecept = sync.Read<Precept_Building>();
                     }
                 }
-            },
-            {
-                (SyncWorker sync, ref Designator_Paint paint) => {
-                    if (sync.isWriting) {
-                        sync.Write(paint.colorDef);
-                    } else {
-                        paint.colorDef = sync.Read<ColorDef>();
-                    }
-                }, true, true // <- Implicit ShouldConstruct
             },
             #endregion
 
@@ -710,7 +711,7 @@ namespace Multiplayer.Client
                         else if (RwSerialization.GetAnyParent<WorldObjectComp>(thing) is { } worldObjComp)
                             holder = worldObjComp;
 
-                        GetImpl(holder, supportedThingHolders, out Type implType, out int index);
+                        RwSerialization.GetImpl(holder, RwSerialization.supportedThingHolders, out Type implType, out int index);
                         if (index == -1)
                         {
                             data.WriteByte(byte.MaxValue);
@@ -741,7 +742,7 @@ namespace Multiplayer.Client
                         if (implIndex == byte.MaxValue)
                             return null;
 
-                        Type implType = supportedThingHolders[implIndex];
+                        Type implType = RwSerialization.supportedThingHolders[implIndex];
 
                         if (implType != typeof(Map))
                         {
@@ -751,8 +752,7 @@ namespace Multiplayer.Client
 
                             if (parent != null)
                                 return ThingOwnerUtility.GetAllThingsRecursively(parent).Find(t => t.thingIDNumber == thingId);
-                            else
-                                return null;
+                            return null;
                         }
                     }
 
@@ -858,7 +858,7 @@ namespace Multiplayer.Client
                         return null;
 
                     return Find.World.worldObjects.AllWorldObjects.Find(w => w.ID == objId);
-                }
+                }, true // Implicit
             },
             {
                 (SyncWorker data, ref WorldObjectComp comp) => {
@@ -1031,32 +1031,23 @@ namespace Multiplayer.Client
                         WriteSync(data, info.Tile);
                     }
                 },
-                (ByteReader data) => {
-                    switch (data.ReadByte()) {
-                        case 0:
-                            return new GlobalTargetInfo(ReadSync<Thing>(data));
-                        case 1:
-                            return new GlobalTargetInfo(ReadSync<IntVec3>(data), ReadSync<Map>(data), true); // True to prevent errors/warnings if synced map was null
-                        case 2:
-                            return new GlobalTargetInfo(ReadSync<WorldObject>(data));
-                        case 3:
-                            return new GlobalTargetInfo(data.ReadInt32());
-                        default:
-                            return GlobalTargetInfo.Invalid;
-                    }
+                (ByteReader data) =>
+                {
+                    return data.ReadByte() switch
+                    {
+                        0 => new GlobalTargetInfo(ReadSync<Thing>(data)),
+                        1 => new GlobalTargetInfo(ReadSync<IntVec3>(data), ReadSync<Map>(data),
+                            true) // True to prevent errors/warnings if synced map was null
+                        ,
+                        2 => new GlobalTargetInfo(ReadSync<WorldObject>(data)),
+                        3 => new GlobalTargetInfo(data.ReadInt32()),
+                        _ => GlobalTargetInfo.Invalid
+                    };
                 }
             },
             #endregion
 
             #region Storage
-            {
-                (ByteWriter data, IStoreSettingsParent obj) => {
-                    WriteWithImpl<IStoreSettingsParent>(data, obj, storageSettingsParent);
-                },
-                (ByteReader data) => {
-                    return ReadWithImpl<IStoreSettingsParent>(data, storageSettingsParent);
-                }
-            },
             {
                 (ByteWriter data, SlotGroup obj) => {
                     WriteSync(data, obj.parent);
@@ -1078,102 +1069,6 @@ namespace Multiplayer.Client
                     var loadId = data.ReadInt32();
                     return data.MpContext().map.storageGroups.groups.Find(g => g.loadID == loadId);
                 }
-            },
-            {
-                (ByteWriter data, ISlotGroup obj) => {
-                    WriteWithImpl<ISlotGroup>(data, obj, slotGroupTypes);
-                },
-                (ByteReader data) => {
-                    return ReadWithImpl<ISlotGroup>(data, slotGroupTypes);
-                }
-            },
-            {
-                (ByteWriter data, ISlotGroupParent obj) => {
-                    WriteWithImpl<ISlotGroupParent>(data, obj, slotGroupParents);
-                },
-                (ByteReader data) => {
-                    return ReadWithImpl<ISlotGroupParent>(data, slotGroupParents);
-                }
-            },
-            {
-                (ByteWriter data, IStorageGroupMember obj) =>
-                {
-                    if (obj is Thing thing)
-                        WriteSync(data, thing);
-                    else
-                        throw new SerializationException($"Unknown IStorageGroupMember type: {obj.GetType()}");
-                },
-                (ByteReader data) => (IStorageGroupMember)ReadSync<Thing>(data)
-            },
-            #endregion
-
-            #region Interfaces
-            {
-                (ByteWriter data, ISelectable obj) => {
-                    if (obj == null)
-                    {
-                        WriteSync(data, ISelectableImpl.None);
-                    }
-                    else if (obj is Thing thing)
-                    {
-                        WriteSync(data, ISelectableImpl.Thing);
-                        WriteSync(data, thing);
-                    }
-                    else if (obj is Zone zone)
-                    {
-                        WriteSync(data, ISelectableImpl.Zone);
-                        WriteSync(data, zone);
-                    }
-                    else if (obj is WorldObject worldObj)
-                    {
-                        WriteSync(data, ISelectableImpl.WorldObject);
-                        WriteSync(data, worldObj);
-                    }
-                    else
-                    {
-                        throw new SerializationException($"Unknown ISelectable type: {obj.GetType()}");
-                    }
-                },
-                (ByteReader data) => {
-                    ISelectableImpl impl = ReadSync<ISelectableImpl>(data);
-
-                    return impl switch
-                    {
-                        ISelectableImpl.None => null,
-                        ISelectableImpl.Thing => ReadSync<Thing>(data),
-                        ISelectableImpl.Zone => ReadSync<Zone>(data),
-                        ISelectableImpl.WorldObject => ReadSync<WorldObject>(data),
-                        _ => throw new Exception($"Unknown ISelectable {impl}")
-                    };
-                }, true
-            },
-            {
-                (ByteWriter data, IPlantToGrowSettable obj) => {
-                    WriteWithImpl<IPlantToGrowSettable>(data, obj, plantToGrowSettables);
-                },
-                (ByteReader data) => {
-                    return ReadWithImpl<IPlantToGrowSettable>(data, plantToGrowSettables);
-                }
-            },
-            {
-                (ByteWriter data, IThingHolder obj) => {
-                    WriteWithImpl<IThingHolder>(data, obj, supportedThingHolders);
-                },
-                (ByteReader data) => {
-                    return ReadWithImpl<IThingHolder>(data, supportedThingHolders);
-                }
-            },
-            {
-                (ByteWriter data, IReloadableComp obj) =>
-                {
-                    if (obj is null)
-                        WriteSync(data, (ThingComp)null);
-                    else if (obj is ThingComp comp)
-                        WriteSync(data, comp);
-                    else
-                        throw new SerializationException($"Unknown {nameof(IReloadableComp)} type: {obj.GetType()}");
-                },
-                (ByteReader data) => (IReloadableComp)ReadSync<ThingComp>(data)
             },
             #endregion
 

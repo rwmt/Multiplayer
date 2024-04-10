@@ -13,6 +13,6 @@ public static class SyncDict
             SyncDictMultiplayer.syncWorkers
         );
 
-        SyncSerialization.syncTree = syncWorkers;
+        Multiplayer.serialization.syncTree = syncWorkers;
     }
 }

@@ -104,7 +104,7 @@ namespace Multiplayer.Client
         private static void WriteData(ByteWriter data, DesignatorMode mode, Designator designator)
         {
             SyncSerialization.WriteSync(data, mode);
-            SyncSerialization.WriteSyncObject(data, designator, designator.GetType());
+            SyncSerialization.WriteSync(data, designator);
 
             // Read at MapAsyncTimeComp.SetDesignatorState
             // The reading side affects global state so these can't be SyncWorkers

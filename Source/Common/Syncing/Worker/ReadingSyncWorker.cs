@@ -5,27 +5,21 @@ using Multiplayer.Common;
 
 namespace Multiplayer.Client
 {
-    public class ReadingSyncWorker : SyncWorker
+    public class ReadingSyncWorker(ByteReader reader, SyncSerialization serialization) : SyncWorker(false)
     {
-        internal readonly ByteReader reader;
-        readonly int initialPos;
+        internal readonly ByteReader reader = reader;
+        readonly int initialPos = reader.Position;
 
         public ByteReader Reader => reader;
 
-        public ReadingSyncWorker(ByteReader reader) : base(false)
-        {
-            this.reader = reader;
-            initialPos = reader.Position;
-        }
-
         public override void Bind<T>(ref T obj, SyncType type)
         {
-            obj = (T)SyncSerialization.ReadSyncObject(reader, type);
+            obj = (T)serialization.ReadSyncObject(reader, type);
         }
 
         public override void Bind<T>(ref T obj)
         {
-            obj = (T)SyncSerialization.ReadSyncObject(reader, typeof(T));
+            obj = (T)serialization.ReadSyncObject(reader, typeof(T));
         }
 
         public override void Bind(object obj, string name)
@@ -33,7 +27,7 @@ namespace Multiplayer.Client
             object value = MpReflection.GetValue(obj, name);
 
             Type type = value.GetType();
-            var res = SyncSerialization.ReadSyncObject(reader, type);
+            var res = serialization.ReadSyncObject(reader, type);
             MpReflection.SetValue(obj, name, res);
         }
 
@@ -99,7 +93,7 @@ namespace Multiplayer.Client
 
         public override void BindType<T>(ref Type type)
         {
-            type = SyncWorkerTypeHelper.GetType(reader.ReadUShort(), typeof(T));
+            type = serialization.TypeHelper.GetImplementationByIndex(typeof(T), reader.ReadUShort());
         }
 
         internal void Reset()
