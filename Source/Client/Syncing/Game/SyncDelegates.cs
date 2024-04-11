@@ -36,18 +36,19 @@ namespace Multiplayer.Client
 
             SyncDelegate.Lambda(typeof(CompLongRangeMineralScanner), nameof(CompLongRangeMineralScanner.CompGetGizmosExtra), 1).SetContext(SyncContext.MapSelected); // Select mineral to scan for
 
-            SyncMethod.Lambda(typeof(CompFlickable), nameof(CompFlickable.CompGetGizmosExtra), 1);      // Toggle flick designation
-            SyncMethod.Lambda(typeof(Pawn_PlayerSettings), nameof(Pawn_PlayerSettings.GetGizmos), 1);   // Toggle release animals
-            SyncMethod.Lambda(typeof(Building_TurretGun), nameof(Building_TurretGun.GetGizmos), 2);     // Toggle turret hold fire
-            SyncMethod.Lambda(typeof(Building_Trap), nameof(Building_Trap.GetGizmos), 1);               // Toggle trap auto-rearm
-            SyncMethod.Lambda(typeof(Building_Door), nameof(Building_Door.GetGizmos), 1);               // Toggle door hold open
-            SyncMethod.Lambda(typeof(Zone_Growing), nameof(Zone_Growing.GetGizmos), 1);                 // Toggle zone allow sow
-            SyncMethod.Lambda(typeof(Zone_Growing), nameof(Zone_Growing.GetGizmos), 3);                 // Toggle zone allow cut
+            SyncMethod.Lambda(typeof(CompFlickable), nameof(CompFlickable.CompGetGizmosExtra), 1);           // Toggle flick designation
+            SyncMethod.Lambda(typeof(Pawn_PlayerSettings), nameof(Pawn_PlayerSettings.GetGizmos), 1);        // Toggle release animals
+            SyncMethod.Lambda(typeof(Building_TurretGun), nameof(Building_TurretGun.GetGizmos), 2);          // Toggle turret hold fire
+            SyncMethod.Lambda(typeof(Building_Trap), nameof(Building_Trap.GetGizmos), 1);                    // Toggle trap auto-rearm
+            SyncMethod.Lambda(typeof(Building_Door), nameof(Building_Door.GetGizmos), 1);                    // Toggle door hold open
+            SyncMethod.Lambda(typeof(Zone_Growing), nameof(Zone_Growing.GetGizmos), 1);                      // Toggle zone allow sow
+            SyncMethod.Lambda(typeof(Zone_Growing), nameof(Zone_Growing.GetGizmos), 3);                      // Toggle zone allow cut
 
-            SyncMethod.Lambda(typeof(PriorityWork), nameof(PriorityWork.GetGizmos), 0);                 // Clear prioritized work
-            SyncMethod.Lambda(typeof(Building_TurretGun), nameof(Building_TurretGun.GetGizmos), 1);     // Reset forced target
-            SyncMethod.Lambda(typeof(UnfinishedThing), nameof(UnfinishedThing.GetGizmos), 0);           // Cancel unfinished thing
-            SyncMethod.Lambda(typeof(CompTempControl), nameof(CompTempControl.CompGetGizmosExtra), 2);  // Reset temperature
+            SyncMethod.Lambda(typeof(PriorityWork), nameof(PriorityWork.GetGizmos), 0);                      // Clear prioritized work
+            SyncMethod.Lambda(typeof(Building_TurretGun), nameof(Building_TurretGun.GetGizmos), 1);          // Reset forced target
+            SyncMethod.Lambda(typeof(UnfinishedThing), nameof(UnfinishedThing.GetGizmos), 0);                // Cancel unfinished thing
+            SyncMethod.Lambda(typeof(UnfinishedThing), nameof(UnfinishedThing.GetGizmos), 1).SetDebugOnly(); // Dev complete
+            SyncMethod.Lambda(typeof(CompTempControl), nameof(CompTempControl.CompGetGizmosExtra), 2);       // Reset temperature
 
             SyncDelegate.LambdaInGetter(typeof(Designator), nameof(Designator.RightClickFloatMenuOptions), 0) // Designate all
                 .TransformField("things", Serializer.SimpleReader(() => Find.CurrentMap.listerThings.AllThings)).SetContext(SyncContext.CurrentMap);
@@ -76,6 +77,7 @@ namespace Multiplayer.Client
 
             SyncMethod.Lambda(typeof(MonumentMarker), nameof(MonumentMarker.GetGizmos), 1);                 // Build monument quest - monument marker: cancel/remove marker
             SyncMethod.Lambda(typeof(MonumentMarker), nameof(MonumentMarker.GetGizmos), 4).SetDebugOnly();  // Build monument quest - monument marker: dev build all
+            SyncMethod.Lambda(typeof(MonumentMarker), nameof(MonumentMarker.GetGizmos), 5).SetDebugOnly();  // Build monument quest - monument marker: dev disallowed building ticks +6 hours
 
             SyncDelegate.Lambda(typeof(CompPlantable), nameof(CompPlantable.BeginTargeting), 3);    // Select cell to plant in with confirmation
             SyncMethod.Lambda(typeof(CompPlantable), nameof(CompPlantable.CompGetGizmosExtra), 0);  // Cancel planting all
@@ -106,6 +108,7 @@ namespace Multiplayer.Client
 
             SyncMethod.Lambda(typeof(Pawn_CarryTracker), nameof(Pawn_CarryTracker.GetGizmos), 0)
                 .TransformTarget(Serializer.New(t => t.pawn, (Pawn p) => p.carryTracker));  // Drop carried pawn
+            SyncDelegate.Lambda(typeof(Pawn_CarryTracker), nameof(Pawn_CarryTracker.GetGizmos), 1).SetDebugOnly(); // Trigger dissolution event (CompDissolution)
 
             // CompSpawner
             SyncMethod.Lambda(typeof(CompSpawner), nameof(CompSpawner.CompGetGizmosExtra), 0).SetDebugOnly();
@@ -134,6 +137,7 @@ namespace Multiplayer.Client
             SyncDelegate.Lambda(typeof(CompBandNode), nameof(CompBandNode.CompGetGizmosExtra), 7); // Select pawn to tune to
             SyncDelegate.Lambda(typeof(CompDissolution), nameof(CompDissolution.CompGetGizmosExtra), 4).SetDebugOnly(); // Set next dissolve time
             SyncDelegate.Lambda(typeof(CompPollutionPump), nameof(CompPollutionPump.CompGetGizmosExtra), 1).SetDebugOnly(); // Set next pollution cycle
+            SyncDelegate.Lambda(typeof(CompToxifier), nameof(CompToxifier.CompGetGizmosExtra), 2).SetDebugOnly(); // Pollute all, calls a synced method PolluteNextCell on loop which would cause infinite loop in MP
             SyncDelegate.Lambda(typeof(CompToxifier), nameof(CompToxifier.CompGetGizmosExtra), 3).SetDebugOnly(); // Set next pollution time
             SyncDelegate.Lambda(typeof(Gene_Deathrest), nameof(Gene_Deathrest.GetGizmos), 5).SetDebugOnly(); // Set capacity
 
@@ -145,6 +149,12 @@ namespace Multiplayer.Client
             SyncDelegate.Lambda(typeof(MechanitorControlGroupGizmo), nameof(MechanitorControlGroupGizmo.GetWorkModeOptions), 1); // Set work mode for group
             SyncDelegate.Lambda(typeof(PawnColumnWorker_ControlGroup), nameof(PawnColumnWorker_ControlGroup.Button_GenerateMenu), 0); // Assign to group
             SyncDelegate.Lambda(typeof(MainTabWindow_Mechs), nameof(MainTabWindow_Mechs.DoWindowContents), 0); // Change mech color
+            // Overseer subject
+            // Disable 'needs overseer' effect/Allow mech undrafted orders are static fields that are remembered when joining,
+            // could cause issues if someone pressed one of them and then started playing MP. Values reset on game restart.
+            SyncMethod.Register(typeof(CompOverseerSubject), nameof(CompOverseerSubject.ForceFeral)).SetDebugOnly(); // Make feral
+            SyncMethod.Lambda(typeof(CompOverseerSubject), nameof(CompOverseerSubject.CompGetGizmosExtra), 4).SetDebugOnly(); // Make feral (event)
+            SyncDelegate.Lambda(typeof(CompOverseerSubject), nameof(CompOverseerSubject.CompGetGizmosExtra), 6).SetDebugOnly(); // Assign to overseer
 
             // Glower
             SyncMethod.Register(typeof(CompGlower), nameof(CompGlower.SetGlowColorInternal)); // Set color gizmo - will send a separate command per selected glower. Could be fixed with a transpiler for Dialog_GlowerColorPicker
@@ -183,6 +193,55 @@ namespace Multiplayer.Client
             SyncDelegate.Lambda(typeof(Dialog_CreateXenogerm), nameof(Dialog_CreateXenogerm.DrawGenepack), 8); // Eject from container
 
             SyncDelegate.Lambda(typeof(Pawn), nameof(Pawn.GetGizmos), 5).SetDebugOnly(); // Set growth tier
+
+            // Building_HoldingPlatform and related comps
+            SyncDelegate.Lambda(typeof(Building_HoldingPlatform), nameof(Building_HoldingPlatform.GetGizmos), 1); // Set escape tick
+            SyncMethod.Lambda(typeof(CompActivity), nameof(CompActivity.CompGetGizmosExtra), 0).SetDebugOnly();   // Dev activity -5%
+            SyncMethod.Lambda(typeof(CompActivity), nameof(CompActivity.CompGetGizmosExtra), 1).SetDebugOnly();   // Dev activity +5%
+            SyncMethod.Lambda(typeof(CompActivity), nameof(CompActivity.CompGetGizmosExtra), 2).SetDebugOnly();   // Dev go active/go passive
+            SyncMethod.Lambda(typeof(CompStudiable), nameof(CompStudiable.CompGetGizmosExtra), 1);                // Toggle study
+            SyncMethod.Lambda(typeof(CompStudiable), nameof(CompStudiable.CompGetGizmosExtra), 2).SetDebugOnly(); // End study cooldown
+            SyncMethod.Lambda(typeof(CompStudiable), nameof(CompStudiable.CompGetGizmosExtra), 3).SetDebugOnly(); // Complete study
+            SyncMethod.Lambda(typeof(CompStudyUnlocks), nameof(CompStudyUnlocks.CompGetGizmosExtra), 0).SetDebugOnly(); // Advance study
+            SyncMethod.Lambda(typeof(CompHoldingPlatformTarget), nameof(CompHoldingPlatformTarget.CompGetGizmosExtra), 0); // Cancel capture
+            SyncMethod.Lambda(typeof(CompHoldingPlatformTarget), nameof(CompHoldingPlatformTarget.CompGetGizmosExtra), 2); // Cancel transfer
+            SyncMethod.Lambda(typeof(CompHoldingPlatformTarget), nameof(CompHoldingPlatformTarget.CompGetGizmosExtra), 4).SetDebugOnly(); // Dev escape
+            SyncMethod.Lambda(typeof(CompHoldingPlatformTarget), nameof(CompHoldingPlatformTarget.CompGetGizmosExtra), 5).SetDebugOnly(); // Dev kill
+            SyncDelegate.Lambda(typeof(StudyUtility), nameof(StudyUtility.TargetHoldingPlatformForEntity), 2); // Capture/transfer
+
+            // Fleshmass
+            SyncMethod.Register(typeof(CompFleshmassHeart), nameof(CompFleshmassHeart.StartGrowthCycle)).SetDebugOnly(); // Start growth cycle
+            SyncMethod.Lambda(typeof(CompFleshmassHeart), nameof(CompFleshmassHeart.CompGetGizmosExtra), 0).SetDebugOnly(); // Add 100 growth points
+            SyncMethod.Lambda(typeof(CompFleshmassHeart), nameof(CompFleshmassHeart.CompGetGizmosExtra), 1).SetDebugOnly(); // Add 200 fleshbeast points
+            SyncMethod.Lambda(typeof(CompFleshmassHeart), nameof(CompFleshmassHeart.CompGetGizmosExtra), 2).SetDebugOnly(); // Do Tachycardiac Overload
+            SyncDelegate.Lambda(typeof(CompFleshmassNucleus), nameof(CompFleshmassNucleus.CompGetGizmosExtra), 1).SetDebugOnly(); // Create meat
+            SyncDelegate.Lambda(typeof(CompFleshmassNucleus), nameof(CompFleshmassNucleus.CompGetGizmosExtra), 3).SetDebugOnly(); // Go active
+            SyncMethod.Lambda(typeof(CompFleshmassSpitter), nameof(CompFleshmassSpitter.CompGetGizmosExtra), 0).SetDebugOnly(); // Remove spit cooldown
+
+            // Dev mode gizmos
+            SyncDelegate.Lambda(typeof(Caravan), nameof(Caravan.GetGizmos), 17).SetDebugOnly(); // Trigger random dissolution event (CompDissolution)
+            SyncDelegate.Lambda(typeof(GroundSpawner), nameof(GroundSpawner.GetGizmos), 1).SetDebugOnly(); // Set spawn delay
+            SyncDelegate.Lambda(typeof(GeneResourceDrainUtility), nameof(GeneResourceDrainUtility.GetResourceDrainGizmos), 0).SetDebugOnly(); // -10% resource
+            SyncDelegate.Lambda(typeof(GeneResourceDrainUtility), nameof(GeneResourceDrainUtility.GetResourceDrainGizmos), 1).SetDebugOnly(); // +10% resource
+
+            // Hediffs
+            SyncMethod.Register(typeof(Hediff_CubeInterest), nameof(Hediff_CubeInterest.StartWithdrawal)).SetDebugOnly();
+            SyncMethod.Register(typeof(Hediff_CubeInterest), nameof(Hediff_CubeInterest.DoMentalBreak)).SetDebugOnly();
+            SyncDelegate.Lambda(typeof(Hediff_DeathRefusal), nameof(Hediff_DeathRefusal.GetGizmos), 2) // Self resurrect
+                .TransformField("cmdSelfResurrect", Serializer.SimpleReader(() => new Command_ActionWithLimitedUseCount { usesLeftGetter = () => 1 })); // The delegate uses the command to disable the gizmo, but it shouldn't matter as it'll get disabled in GetGizmos
+            SyncMethod.Lambda(typeof(Hediff_Labor), nameof(Hediff_Labor.GetGizmos), 0).SetDebugOnly(); // Force progress to labor pushing
+            SyncMethod.Lambda(typeof(Hediff_LaborPushing), nameof(Hediff_LaborPushing.GetGizmos), 0).SetDebugOnly(); // Force stillborn
+            SyncMethod.Lambda(typeof(Hediff_LaborPushing), nameof(Hediff_LaborPushing.GetGizmos), 1).SetDebugOnly(); // Force infant illness
+            SyncMethod.Lambda(typeof(Hediff_LaborPushing), nameof(Hediff_LaborPushing.GetGizmos), 2).SetDebugOnly(); // Force healthy
+            SyncMethod.Lambda(typeof(Hediff_LaborPushing), nameof(Hediff_LaborPushing.GetGizmos), 3).SetDebugOnly(); // Force end
+            SyncMethod.Lambda(typeof(Hediff_LaborPushing), nameof(Hediff_Pregnant.GetGizmos), 0).SetDebugOnly(); // Next trimester
+            SyncMethod.Lambda(typeof(Hediff_LaborPushing), nameof(Hediff_Pregnant.GetGizmos), 1).SetDebugOnly(); // Start labor
+            SyncDelegate.Lambda(typeof(Hediff_MetalhorrorImplant), nameof(Hediff_MetalhorrorImplant.GetGizmos), 0).SetDebugOnly(); // Emerge
+            SyncDelegate.Lambda(typeof(Hediff_MetalhorrorImplant), nameof(Hediff_MetalhorrorImplant.GetGizmos), 1).SetDebugOnly(); // Mark for flesh drop
+            SyncDelegate.Lambda(typeof(Hediff_MetalhorrorImplant), nameof(Hediff_MetalhorrorImplant.GetGizmos), 2).SetDebugOnly(); // Discover next interaction
+            SyncDelegate.Lambda(typeof(Hediff_MetalhorrorImplant), nameof(Hediff_MetalhorrorImplant.GetGizmos), 3).SetDebugOnly(); // Increase lifestage
+            SyncDelegate.Lambda(typeof(Hediff_MetalhorrorImplant), nameof(Hediff_MetalhorrorImplant.GetGizmos), 6).SetDebugOnly(); // Change biosignature
+            SyncMethod.Lambda(typeof(Hediff_Shambler), nameof(Hediff_Shambler.GetGizmos), 0).SetDebugOnly(); // Self raise
 
             InitRituals();
             InitChoiceLetters();
