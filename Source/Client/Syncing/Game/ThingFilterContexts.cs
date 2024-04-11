@@ -33,6 +33,18 @@ public record FoodRestrictionWrapper(FoodPolicy Policy) : ThingFilterContext
     public override IEnumerable<SpecialThingFilterDef> HiddenFilters => SpecialThingFilterDefOf.AllowFresh.ToEnumerable();
 }
 
+public record ReadingPolicyDefFilterWrapper(ReadingPolicy Policy) : ThingFilterContext
+{
+    public override ThingFilter Filter => Policy.defFilter;
+    public override ThingFilter ParentFilter => Dialog_ManageReadingPolicies.PolicyGlobalFilter;
+}
+
+public record ReadingPolicyEffectFilterWrapper(ReadingPolicy Policy) : ThingFilterContext
+{
+    public override ThingFilter Filter => Policy.effectFilter;
+    public override ThingFilter ParentFilter => null;
+}
+
 public record PenAnimalsWrapper(CompAnimalPenMarker PenMarker) : ThingFilterContext
 {
     public override ThingFilter Filter => PenMarker.AnimalFilter;

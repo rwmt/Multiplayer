@@ -25,6 +25,7 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(Pawn_DrugPolicyTracker), nameof(Pawn_DrugPolicyTracker.CurrentPolicy)).CancelIfAnyArgNull();
             SyncMethod.Register(typeof(Pawn_OutfitTracker), nameof(Pawn_OutfitTracker.CurrentApparelPolicy)).CancelIfAnyArgNull();
             SyncMethod.Register(typeof(Pawn_FoodRestrictionTracker), nameof(Pawn_FoodRestrictionTracker.CurrentFoodPolicy)).CancelIfAnyArgNull();
+            SyncMethod.Register(typeof(Pawn_ReadingTracker), nameof(Pawn_ReadingTracker.CurrentPolicy)).CancelIfAnyArgNull();
             SyncMethod.Register(typeof(Policy), nameof(Policy.RenamableLabel));
             SyncMethod.Register(typeof(Pawn_PlayerSettings), nameof(Pawn_PlayerSettings.AreaRestrictionInPawnCurrentMap));
             SyncMethod.Register(typeof(Pawn_PlayerSettings), nameof(Pawn_PlayerSettings.Master));
@@ -59,6 +60,8 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(OutfitDatabase), nameof(OutfitDatabase.TryDelete)).CancelIfAnyArgNull();
             SyncMethod.Register(typeof(FoodRestrictionDatabase), nameof(FoodRestrictionDatabase.MakeNewFoodRestriction));
             SyncMethod.Register(typeof(FoodRestrictionDatabase), nameof(FoodRestrictionDatabase.TryDelete)).CancelIfAnyArgNull();
+            SyncMethod.Register(typeof(ReadingPolicyDatabase), nameof(ReadingPolicyDatabase.MakeNewReadingPolicy));
+            SyncMethod.Register(typeof(ReadingPolicyDatabase), nameof(ReadingPolicyDatabase.TryDelete)).CancelIfAnyArgNull();
 
             SyncMethod.Register(typeof(Building_Bed), nameof(Building_Bed.Medical));
 
@@ -373,6 +376,14 @@ namespace Multiplayer.Client
                 dialog.SelectedPolicy = __result;
         }
 
+        [MpPostfix(typeof(ReadingPolicyDatabase), nameof(ReadingPolicyDatabase.MakeNewReadingPolicy))]
+        static void MakeNewReading_Postfix(ReadingPolicy __result)
+        {
+            var dialog = GetDialogReadingPolicies();
+            if (__result != null && dialog != null && TickPatch.currentExecutingCmdIssuedBySelf)
+                dialog.SelectedPolicy = __result;
+        }
+
         [MpPostfix(typeof(DrugPolicyDatabase), nameof(DrugPolicyDatabase.TryDelete))]
         static void TryDeleteDrugPolicy_Postfix(DrugPolicy policy, AcceptanceReport __result)
         {
@@ -397,9 +408,18 @@ namespace Multiplayer.Client
                 dialog.SelectedPolicy = null;
         }
 
+        [MpPostfix(typeof(ReadingPolicyDatabase), nameof(ReadingPolicyDatabase.TryDelete))]
+        static void TryDeleteReading_Postfix(ReadingPolicy policy, AcceptanceReport __result)
+        {
+            var dialog = GetDialogReadingPolicies();
+            if (__result.Accepted && dialog != null && dialog.SelectedPolicy == policy)
+                dialog.SelectedPolicy = null;
+        }
+
         static Dialog_ManageDrugPolicies GetDialogDrugPolicies() => Find.WindowStack?.WindowOfType<Dialog_ManageDrugPolicies>();
         static Dialog_ManageApparelPolicies GetDialogOutfits() => Find.WindowStack?.WindowOfType<Dialog_ManageApparelPolicies>();
         static Dialog_ManageFoodPolicies GetDialogFood() => Find.WindowStack?.WindowOfType<Dialog_ManageFoodPolicies>();
+        static Dialog_ManageReadingPolicies GetDialogReadingPolicies() => Find.WindowStack?.WindowOfType<Dialog_ManageReadingPolicies>();
 
         [MpPostfix(typeof(WITab_Caravan_Gear), nameof(WITab_Caravan_Gear.TryEquipDraggedItem))]
         static void TryEquipDraggedItem_Postfix(WITab_Caravan_Gear __instance)

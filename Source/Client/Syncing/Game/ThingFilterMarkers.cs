@@ -23,7 +23,6 @@ static class ThingFilterMarkers
         }
     }
 
-    #region ThingFilter Markers
     [MpPrefix(typeof(ITab_Storage), "FillTab")]
     static void TabStorageFillTab_Prefix(ITab_Storage __instance)
     {
@@ -83,10 +82,38 @@ static class ThingFilterMarkers
     [MpPostfix(typeof(ITab_WindTurbineAutoCut), nameof(ITab_WindTurbineAutoCut.FillTab))]
     static void TabWindTurbineAutocutFillTab_Postfix(ITab_WindTurbineAutoCut __instance) => DrawnThingFilter = null;
 
-    [MpPrefix(typeof(ThingFilterUI), "DoThingFilterConfigWindow")]
+    [MpPrefix(typeof(ThingFilterUI), nameof(ThingFilterUI.DoThingFilterConfigWindow))]
     static void ThingFilterUI_Prefix() => drawingThingFilter = true;
 
-    [MpPostfix(typeof(ThingFilterUI), "DoThingFilterConfigWindow")]
+    [MpPostfix(typeof(ThingFilterUI), nameof(ThingFilterUI.DoThingFilterConfigWindow))]
     static void ThingFilterUI_Postfix() => drawingThingFilter = false;
-    #endregion
+
+    // Reading policies need special handling as they draw two ThingFilters
+    private static ReadingPolicy drawnReadingPolicy;
+
+    [MpPrefix(typeof(Dialog_ManageReadingPolicies), nameof(Dialog_ManageReadingPolicies.DoContentsRect))]
+    static void Dialog_ManageReadingPolicies_Prefix(Dialog_ManageReadingPolicies __instance) => drawnReadingPolicy = __instance.SelectedPolicy;
+
+    [MpPostfix(typeof(Dialog_ManageReadingPolicies), nameof(Dialog_ManageReadingPolicies.DoContentsRect))]
+    static void Dialog_ManageReadingPolicies_Postfix(Dialog_ManageReadingPolicies __instance) => drawnReadingPolicy = null;
+
+    [MpPrefix(typeof(ThingFilterUI), nameof(ThingFilterUI.DoThingFilterConfigWindow))]
+    static void ThingFilterUI_ReadingPolicy_Prefix(ThingFilter filter)
+    {
+        if (drawnReadingPolicy != null && drawnReadingPolicy.defFilter == filter)
+            DrawnThingFilter = new ReadingPolicyDefFilterWrapper(drawnReadingPolicy);
+
+        if (drawnReadingPolicy != null && drawnReadingPolicy.effectFilter == filter)
+            DrawnThingFilter = new ReadingPolicyEffectFilterWrapper(drawnReadingPolicy);
+    }
+
+    [MpPostfix(typeof(ThingFilterUI), nameof(ThingFilterUI.DoThingFilterConfigWindow))]
+    static void ThingFilterUI_ReadingPolicy_Postfix(ThingFilter filter)
+    {
+        if (drawnReadingPolicy != null && drawnReadingPolicy.defFilter == filter)
+            DrawnThingFilter = null;
+
+        if (drawnReadingPolicy != null && drawnReadingPolicy.effectFilter == filter)
+            DrawnThingFilter = null;
+    }
 }

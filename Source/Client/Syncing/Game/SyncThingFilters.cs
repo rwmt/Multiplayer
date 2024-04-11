@@ -94,7 +94,7 @@ public static class SyncThingFilters
             categoryDef,
             allow,
             null,
-            Listing_TreeThingFilter
+            context.Filter.OnlySpecialFilters ? null : Listing_TreeThingFilter
                 .CalculateHiddenSpecialFilters(node, context.ParentFilter)
                 .ConcatIfNotNull(context.HiddenFilters)
         );

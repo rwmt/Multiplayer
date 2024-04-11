@@ -42,24 +42,24 @@ static class Program
     // Test patching generic methods with Harmony
     public static void Main(string[] args)
     {
-        TestClassForPatches<SomeClass> test = new()
+        TestClassForPatches<SomeClassDerived> test = new()
         {
-            field = new SomeClassDerived { a = 2 }
+            field = new SomeClassDerived { a = 2, b = 1 }
         };
 
-        Console.WriteLine(test.GetField().GetA());
+        Console.WriteLine(test.GetField().b);
 
         new Harmony("test").Patch(
             typeof(TestClassForPatches<SomeClass>).GetMethod("GetField"),
             postfix: new HarmonyMethod(typeof(Program).GetMethod("GenericPostfix"))
         );
 
-        Console.WriteLine(test.GetField().GetA());
+        Console.WriteLine(test.GetField().b);
     }
 
-    public static void GenericPostfix(ref object __result)
+    public static void GenericPostfix(ref SomeClass __result)
     {
-        __result = new SomeClass2() { a = 3 };
+        __result = __result;
     }
 
     class TestClass<S>
@@ -92,6 +92,7 @@ static class Program
 
     public class SomeClassDerived : SomeClass
     {
+        public int b;
     }
 
     public class SomeClass2

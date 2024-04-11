@@ -6,7 +6,6 @@ using Multiplayer.API;
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
-using RimWorld.Utility;
 using Verse;
 using Verse.AI;
 using Verse.AI.Group;
@@ -92,6 +91,10 @@ namespace Multiplayer.Client
             {
                 (ByteWriter data, Pawn_FoodRestrictionTracker comp) => WriteSync(data, comp.pawn),
                 (ByteReader data) => ReadSync<Pawn>(data)?.foodRestriction
+            },
+            {
+                (ByteWriter data, Pawn_ReadingTracker comp) => WriteSync(data, comp.pawn),
+                (ByteReader data) => ReadSync<Pawn>(data)?.reading
             },
             {
                 (ByteWriter data, Pawn_TrainingTracker comp) => WriteSync(data, comp.pawn),
@@ -806,6 +809,7 @@ namespace Multiplayer.Client
             { (SyncWorker data, ref OutfitDatabase db) => db = Current.Game.outfitDatabase },
             { (SyncWorker data, ref DrugPolicyDatabase db) => db = Current.Game.drugPolicyDatabase },
             { (SyncWorker data, ref FoodRestrictionDatabase db) => db = Current.Game.foodRestrictionDatabase },
+            { (SyncWorker data, ref ReadingPolicyDatabase db) => db = Current.Game.readingPolicyDatabase },
 
             #endregion
 
