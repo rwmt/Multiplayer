@@ -302,8 +302,8 @@ namespace Multiplayer.Client
 
             // We only care about transpiled methods that aren't part of MP.
             var query = Multiplayer.harmony.GetPatchedMethods()
-                .Where(m => !m.DeclaringType.Namespace.StartsWith("Multiplayer") &&
-                    !Harmony.GetPatchInfo(m).Transpilers.NullOrEmpty());
+                .Where(m => !(m.DeclaringType.Namespace?.StartsWith("Multiplayer") ?? false)
+                    && !Harmony.GetPatchInfo(m).Transpilers.NullOrEmpty());
 
             foreach (var method in query) {
                 builder.Append(GetMethodHash(method));
