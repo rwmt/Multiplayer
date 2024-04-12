@@ -92,7 +92,6 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(PawnColumnWorker_FollowFieldwork), nameof(PawnColumnWorker_FollowFieldwork.SetValue)).CancelIfAnyArgNull();
             SyncMethod.Register(typeof(PawnColumnWorker_Sterilize), nameof(PawnColumnWorker_Sterilize.SetValue)).CancelIfAnyArgNull(); // Will sync even without this, but this will set the column to dirty
             SyncMethod.Register(typeof(CompGatherSpot), nameof(CompGatherSpot.Active));
-            SyncMethod.Register(typeof(Building_BlastingCharge), nameof(Building_BlastingCharge.Command_Detonate));
 
             SyncMethod.Register(typeof(Building_Grave), nameof(Building_Grave.EjectContents));
             SyncMethod.Register(typeof(Building_Casket), nameof(Building_Casket.EjectContents));
@@ -106,6 +105,7 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(CompPower), nameof(CompPower.TryManualReconnect));
             SyncMethod.Register(typeof(CompTempControl), nameof(CompTempControl.InterfaceChangeTargetTemperature));
             SyncMethod.Register(typeof(CompTransporter), nameof(CompTransporter.CancelLoad), Array.Empty<SyncType>());
+            SyncMethod.Register(typeof(MapPortal), nameof(MapPortal.CancelLoad));
             SyncMethod.Register(typeof(StorageSettings), nameof(StorageSettings.CopyFrom)).ExposeParameter(0);
             SyncMethod.Lambda(typeof(Command_SetTargetFuelLevel), nameof(Command_SetTargetFuelLevel.ProcessInput), 2); // Set target fuel level from Dialog_Slider
             SyncMethod.Register(typeof(ITab_Pawn_Gear), nameof(ITab_Pawn_Gear.InterfaceDrop)).SetContext(SyncContext.MapSelected | SyncContext.QueueOrder_Down).CancelIfAnyArgNull().CancelIfNoSelectedMapObjects();
@@ -167,7 +167,9 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(CompAnimalPenMarker), nameof(CompAnimalPenMarker.RemoveForceDisplayedAnimal));
             SyncMethod.Register(typeof(CompAnimalPenMarker), nameof(CompAnimalPenMarker.AddForceDisplayedAnimal));
             SyncMethod.Register(typeof(CompAutoCut), nameof(CompAutoCut.DesignatePlantsToCut));
-            SyncMethod.Lambda(typeof(Plant), nameof(Plant.GetGizmos), 0);
+            SyncMethod.Lambda(typeof(Plant), nameof(Plant.GetGizmos), 0); // Cut all blighted
+            SyncMethod.Lambda(typeof(Plant), nameof(Plant.GetGizmos), 1).SetDebugOnly(); // Dev spread blight
+            SyncMethod.Register(typeof(Plant), nameof(Plant.CropBlighted)).SetDebugOnly(); // Dev make blighted
 
             SyncMethod.Register(typeof(ShipJob_Wait), nameof(ShipJob_Wait.Launch)).ExposeParameter(1); // Launch the (Royalty) shuttle
 
@@ -214,7 +216,6 @@ namespace Multiplayer.Client
             SyncMethod.Lambda(typeof(CompDissolution), nameof(CompDissolution.CompGetGizmosExtra), 1).SetDebugOnly(); // Dissolution event until destroyed
             SyncMethod.Lambda(typeof(CompDissolution), nameof(CompDissolution.CompGetGizmosExtra), 2).SetDebugOnly(); // Dissolution progress +25%
             SyncMethod.Lambda(typeof(CompEggContainer), nameof(CompEggContainer.CompGetGizmosExtra), 0).SetDebugOnly(); // Fill with eggs
-            SyncMethod.Lambda(typeof(CompExplosive), nameof(CompExplosive.CompGetGizmosExtra), 0).SetDebugOnly(); // Trigger countdown
             SyncMethod.Lambda(typeof(CompHackable), nameof(CompHackable.CompGetGizmosExtra), 0).SetDebugOnly(); // Hack +10%
             SyncMethod.Lambda(typeof(CompHackable), nameof(CompHackable.CompGetGizmosExtra), 1).SetDebugOnly(); // Complete hack
             SyncMethod.Register(typeof(CompPolluteOverTime), nameof(CompPolluteOverTime.Pollute)).SetDebugOnly();
@@ -226,9 +227,9 @@ namespace Multiplayer.Client
             SyncMethod.Lambda(typeof(CompScanner), nameof(CompScanner.CompGetGizmosExtra), 0).SetDebugOnly(); // Find now
             SyncMethod.Lambda(typeof(CompTerrainPump), nameof(CompTerrainPump.CompGetGizmosExtra), 0).SetDebugOnly(); // Progress 1 day
             SyncMethod.Register(typeof(CompToxifier), nameof(CompToxifier.PolluteNextCell)).SetDebugOnly();
-            SyncMethod.Lambda(typeof(MinifiedTree), nameof(MinifiedThing.GetGizmos), 0).SetDebugOnly(); // Destroy
-            SyncMethod.Lambda(typeof(MinifiedTree), nameof(MinifiedThing.GetGizmos), 1).SetDebugOnly(); // Die in 1 hour
-            SyncMethod.Lambda(typeof(MinifiedTree), nameof(MinifiedThing.GetGizmos), 2).SetDebugOnly(); // Die in 1 day
+            SyncMethod.Lambda(typeof(MinifiedTree), nameof(MinifiedTree.GetGizmos), 0).SetDebugOnly(); // Destroy
+            SyncMethod.Lambda(typeof(MinifiedTree), nameof(MinifiedTree.GetGizmos), 1).SetDebugOnly(); // Die in 1 hour
+            SyncMethod.Lambda(typeof(MinifiedTree), nameof(MinifiedTree.GetGizmos), 2).SetDebugOnly(); // Die in 1 day
             SyncMethod.Lambda(typeof(Pawn), nameof(Pawn.GetGizmos), 0).SetDebugOnly(); // Psyfocus -20%
             SyncMethod.Lambda(typeof(Pawn), nameof(Pawn.GetGizmos), 1).SetDebugOnly(); // Psyfocus +20%
             SyncMethod.Lambda(typeof(Pawn), nameof(Pawn.GetGizmos), 2).SetDebugOnly(); // Psychic entropy -20%
@@ -236,8 +237,58 @@ namespace Multiplayer.Client
             SyncMethod.Lambda(typeof(Pawn), nameof(Pawn.GetGizmos), 6).SetDebugOnly(); // Reset faction permit cooldowns
             SyncMethod.Lambda(typeof(Pawn), nameof(Pawn.GetGizmos), 7).SetDebugOnly(); // Reset try romance cooldown
             SyncMethod.Register(typeof(CompCanBeDormant), nameof(CompCanBeDormant.WakeUp)).SetDebugOnly();
+            SyncMethod.Lambda(typeof(Building_Bookcase), nameof(Building_Bookcase.GetGizmos), 0).SetDebugOnly(); // Fill with books
+            SyncMethod.Lambda(typeof(Building_WorkTableAutonomous), nameof(Building_WorkTableAutonomous.GetGizmos), 0).SetDebugOnly(); // Forming cycle +25%
+            SyncMethod.Lambda(typeof(Building_WorkTableAutonomous), nameof(Building_WorkTableAutonomous.GetGizmos), 1).SetDebugOnly(); // Complete cycle
+            SyncMethod.Lambda(typeof(CompAbilityEffect_ResurrectMech), nameof(CompAbilityEffect_ResurrectMech.CompGetGizmosExtra), 0).SetDebugOnly(); // Add charge
+            SyncMethod.Lambda(typeof(CompAbilityEffect_ResurrectMech), nameof(CompAbilityEffect_ResurrectMech.CompGetGizmosExtra), 1).SetDebugOnly(); // Remove charge
+            SyncMethod.Lambda(typeof(CompAnalyzable), nameof(CompAnalyzable.CompGetGizmosExtra), 0).SetDebugOnly(); // Finish analysis
+            SyncMethod.Lambda(typeof(CompChimera), nameof(CompChimera.CompGetGizmosExtra), 0).SetDebugOnly(); // Switch stalk/attack mode
+            SyncMethod.Register(typeof(CompFloorEtchingRambling), nameof(CompFloorEtchingRambling.GenerateMessage)).SetDebugOnly(); // Regenerate text
+            SyncMethod.Lambda(typeof(CompGrayStatueGas), nameof(CompGrayStatueGas.CompGetGizmosExtra), 0).SetDebugOnly(); // Test gas spread
+            SyncMethod.Lambda(typeof(CompInteractable), nameof(CompInteractable.CompGetGizmosExtra), 1).SetDebugOnly(); // Reset cooldown
+            SyncMethod.Register(typeof(CompPlantDamager), nameof(CompPlantDamager.DamageCycle)).SetDebugOnly();
+            SyncMethod.Register(typeof(CompPowerBattery), nameof(CompPowerBattery.SetStoredEnergyPct)).SetDebugOnly(); // Set battery to 0/100%
+            SyncMethod.Lambda(typeof(CompPowerTrader), nameof(CompPowerTrader.CompGetGizmosExtra), 0).SetDebugOnly(); // Toggle power on/off
+            SyncMethod.Lambda(typeof(CompProximityFuse), nameof(CompProximityFuse.CompGetGizmosExtra), 0).SetDebugOnly(); // Trigger
+            SyncMethod.Register(typeof(GameComponent_PsychicRitualManager), nameof(GameComponent_PsychicRitualManager.ClearAllCooldowns)).SetDebugOnly();
+            SyncMethod.Lambda(typeof(CompRevenant), nameof(CompRevenant.CompGetGizmosExtra), 0).SetDebugOnly(); // Reset hypnosis cooldown
+            SyncMethod.Lambda(typeof(CompRevenant), nameof(CompRevenant.CompGetGizmosExtra), 1).SetDebugOnly(); // Change to wander mode
+            SyncMethod.Lambda(typeof(CompRevenant), nameof(CompRevenant.CompGetGizmosExtra), 2).SetDebugOnly(); // Change to sleep mode
+            SyncMethod.Lambda(typeof(CompRevenant), nameof(CompRevenant.CompGetGizmosExtra), 3).SetDebugOnly(); // Find target
+            SyncMethod.Register(typeof(CompShield), nameof(CompShield.Break)).SetDebugOnly();
+            SyncMethod.Lambda(typeof(CompShield), nameof(CompShield.CompGetWornGizmosExtra), 0).SetDebugOnly(); // Reset
+            SyncMethod.Register(typeof(CompSpawnImmortalSubplantsAround), nameof(CompSpawnImmortalSubplantsAround.RespawnCheck)).SetDebugOnly();
+            SyncMethod.Lambda(typeof(CompSpawnSubplant), nameof(CompSpawnSubplant.CompGetGizmosExtra), 0).SetDebugOnly(); // Add 100% progress
+            SyncMethod.Lambda(typeof(CompVoidStructure), nameof(CompVoidStructure.CompGetGizmosExtra), 0).SetDebugOnly(); // Activate
+            SyncMethod.Lambda(typeof(CompObelisk), nameof(CompObelisk.CompGetGizmosExtra), 0).SetDebugOnly(); // Trigger interaction effect
+            SyncMethod.Lambda(typeof(Pawn_NeedsTracker), nameof(Pawn_NeedsTracker.GetGizmos), 0).SetDebugOnly(); // +5% mech energy
+            SyncMethod.Lambda(typeof(Pawn_NeedsTracker), nameof(Pawn_NeedsTracker.GetGizmos), 1).SetDebugOnly(); // -5% mech energy
+            SyncMethod.Lambda(typeof(Caravan), nameof(Caravan.GetGizmos), 4).SetDebugOnly();  // Cause mental break
+            SyncMethod.Lambda(typeof(Caravan), nameof(Caravan.GetGizmos), 6).SetDebugOnly();  // Make random pawn hungry
+            SyncMethod.Lambda(typeof(Caravan), nameof(Caravan.GetGizmos), 8).SetDebugOnly();  // Kill random pawn
+            SyncMethod.Lambda(typeof(Caravan), nameof(Caravan.GetGizmos), 9).SetDebugOnly();  // Kill all non-slave pawns
+            SyncMethod.Lambda(typeof(Caravan), nameof(Caravan.GetGizmos), 10).SetDebugOnly(); // Harm random pawn
+            SyncMethod.Lambda(typeof(Caravan), nameof(Caravan.GetGizmos), 11).SetDebugOnly(); // Down random pawn
+            SyncMethod.Lambda(typeof(Caravan), nameof(Caravan.GetGizmos), 13).SetDebugOnly(); // Plague on random pawn
+            SyncMethod.Lambda(typeof(Caravan), nameof(Caravan.GetGizmos), 15).SetDebugOnly(); // Teleport to destination
+            SyncMethod.Lambda(typeof(Caravan), nameof(Caravan.GetGizmos), 16).SetDebugOnly(); // +20% psyfocus
+            SyncMethod.Register(typeof(Caravan_ForageTracker), nameof(Caravan_ForageTracker.Forage)).SetDebugOnly(); // Dev forage
+            SyncMethod.Lambda(typeof(EnterCooldownComp), nameof(EnterCooldownComp.GetGizmos), 0).SetDebugOnly(); // Set enter cooldown to 1 hour
+            SyncMethod.Lambda(typeof(EnterCooldownComp), nameof(EnterCooldownComp.GetGizmos), 1).SetDebugOnly(); // Reset enter cooldown
+            SyncMethod.Lambda(typeof(TimedDetectionRaids), nameof(TimedDetectionRaids.GetGizmos), 0).SetDebugOnly(); // Set raid timer to 1 hour
+            SyncMethod.Lambda(typeof(TimedDetectionRaids), nameof(TimedDetectionRaids.GetGizmos), 1).SetDebugOnly(); // Disable raid timer
+            SyncMethod.Lambda(typeof(TimedDetectionRaids), nameof(TimedDetectionRaids.GetGizmos), 2).SetDebugOnly(); // Set notify raid timer to 1 hour
+            SyncMethod.Lambda(typeof(Corpse), nameof(Corpse.GetGizmos), 0).SetDebugOnly(); // Resurrect
+            SyncMethod.Lambda(typeof(Corpse), nameof(Corpse.GetGizmos), 1).SetDebugOnly(); // Resurrect as shambler
+            SyncMethod.Lambda(typeof(UnnaturalCorpse), nameof(UnnaturalCorpse.GetGizmos), 0).SetDebugOnly(); // Disappear
+            SyncMethod.Lambda(typeof(UnnaturalCorpse), nameof(UnnaturalCorpse.GetGizmos), 1).SetDebugOnly(); // Teleport
+            SyncMethod.Lambda(typeof(UnnaturalCorpse), nameof(UnnaturalCorpse.GetGizmos), 2).SetDebugOnly(); // Mental break
+            SyncMethod.Lambda(typeof(UnnaturalCorpse), nameof(UnnaturalCorpse.GetGizmos), 3).SetDebugOnly(); // Awake
+            SyncMethod.Lambda(typeof(UnnaturalCorpse), nameof(UnnaturalCorpse.GetGizmos), 4).SetDebugOnly(); // Unlock deactivation
+            SyncMethod.Lambda(typeof(Thing), nameof(Thing.GetGizmos), 0).SetDebugOnly(); // Extinguish
 
-            SyncMethod.Register(typeof(Blueprint_Build), nameof(Blueprint_Build.ChangeStyleOfAllSelected)).SetContext(SyncContext.MapSelected);
+            SyncMethod.Register(typeof(Blueprint_Build), nameof(Blueprint_Build.ChangeStyleOfAllSelected)).SetContext(SyncContext.MapSelected).CancelIfNoSelectedMapObjects();
             SyncMethod.Lambda(typeof(CompTurretGun), nameof(CompTurretGun.CompGetGizmosExtra), 1); // Toggle fire at will
 
             // Gene Assembler
@@ -279,7 +330,9 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(Bill_Mech), nameof(Bill_Mech.ForceCompleteAllCycles)).SetDebugOnly(); // Called from Building_MechGestator.GetGizmos
             // Carrier
             SyncMethod.Register(typeof(CompMechCarrier), nameof(CompMechCarrier.TrySpawnPawns));
-            SyncMethod.Lambda(typeof(CompMechCarrier), nameof(CompMechCarrier.CompGetGizmosExtra), 2).SetDebugOnly(); // Reset cooldown
+            SyncMethod.Lambda(typeof(CompMechCarrier), nameof(CompMechCarrier.CompGetGizmosExtra), 2).SetDebugOnly(); // Fill
+            SyncMethod.Lambda(typeof(CompMechCarrier), nameof(CompMechCarrier.CompGetGizmosExtra), 3).SetDebugOnly(); // Empty
+            SyncMethod.Lambda(typeof(CompMechCarrier), nameof(CompMechCarrier.CompGetGizmosExtra), 4).SetDebugOnly(); // Reset cooldown
             // Power Cell
             SyncMethod.Lambda(typeof(CompMechPowerCell), nameof(CompMechPowerCell.CompGetGizmosExtra), 0).SetDebugOnly(); // Power left 0%
             SyncMethod.Lambda(typeof(CompMechPowerCell), nameof(CompMechPowerCell.CompGetGizmosExtra), 1).SetDebugOnly(); // Power left 100%
@@ -298,10 +351,12 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(CompGenepackContainer), nameof(CompGenepackContainer.EjectContents));
             SyncMethod.Lambda(typeof(CompGenepackContainer), nameof(CompGenepackContainer.CompGetGizmosExtra), 1).SetDebugOnly(); // Fill with new packs
 
-            // Deathrest Gene
+            // Genes
             SyncMethod.Register(typeof(Gene_Deathrest), nameof(Gene_Deathrest.Wake));
             SyncMethod.Lambda(typeof(Gene_Deathrest), nameof(Gene_Deathrest.GetGizmos), 2); // Auto wake
             SyncMethod.Lambda(typeof(Gene_Deathrest), nameof(Gene_Deathrest.GetGizmos), 3).SetDebugOnly(); // Wake and apply bonuses
+            SyncMethod.Lambda(typeof(Gene_Healing), nameof(Gene_Healing.GetGizmos), 0).SetDebugOnly(); // Heal permament wound
+            SyncMethod.Lambda(typeof(Gene_PsychicBonding), nameof(Gene_PsychicBonding.GetGizmos), 0).SetDebugOnly(); // Bond to random pawn
 
             // Baby feeding
             SyncMethod.Register(typeof(Pawn_MindState), nameof(Pawn_MindState.SetAutofeeder)); // Called from ITab_Pawn_Feeding.GenerateFloatMenuOption
@@ -311,6 +366,46 @@ namespace Multiplayer.Client
             // It can display confirmation like royal implant (no longer used?) or implanting IUD (if it would terminate pregnancy).
             // On top of that, in case of implanting the Xenogerm recipe, it will open a dialog with list of available options.
             SyncMethod.Register(typeof(HealthCardUtility), nameof(HealthCardUtility.CreateSurgeryBill));
+
+            // Comp explosive
+            SyncMethod.Register(typeof(CompExplosive), nameof(CompExplosive.StartWick)); // Called from Building_BlastingCharge (and some modded) gizmos
+            SyncMethod.Lambda(typeof(CompExplosive), nameof(CompExplosive.CompGetGizmosExtra), 0).SetDebugOnly(); // Trigger countdown
+
+            // Firefoam popper
+            SyncMethod.Lambda(typeof(Building_FirefoamPopper), nameof(Building_FirefoamPopper.GetGizmos), 1); // Toggle auto rebuild
+
+            // Jammed door
+            SyncMethod.Register(typeof(Building_JammedDoor), nameof(Building_JammedDoor.UnlockDoor)).SetDebugOnly(); // Dev unjam door
+
+            // Void monolith
+            // Targeting should be handled by syncing `ITargetingSource:OrderForceTarget`
+            SyncMethod.Lambda(typeof(Building_VoidMonolith), nameof(Building_VoidMonolith.GetGizmos), 1).SetDebugOnly(); // Dev activate
+            SyncMethod.Lambda(typeof(Building_VoidMonolith), nameof(Building_VoidMonolith.GetGizmos), 2).SetDebugOnly(); // Dev relink
+
+            // Harbinger Tree
+            SyncMethod.Register(typeof(HarbingerTree), nameof(HarbingerTree.CreateCorpseStockpile));
+            SyncMethod.Register(typeof(HarbingerTree), nameof(HarbingerTree.AddNutrition)).SetDebugOnly();
+            SyncMethod.Register(typeof(HarbingerTree), nameof(HarbingerTree.SpawnNewTree)).SetDebugOnly();
+            SyncMethod.Register(typeof(HarbingerTree), nameof(HarbingerTree.UpdateRoots)).SetDebugOnly();
+            SyncMethod.LocalFunc(typeof(HarbingerTree), nameof(HarbingerTree.GetGizmos), "DelayedSplatter").SetDebugOnly(); // Set blood splatters delay
+
+            // Pawn creep joiner tracker
+            SyncMethod.Lambda(typeof(Pawn_CreepJoinerTracker), nameof(Pawn_CreepJoinerTracker.GetGizmos), 0).SetDebugOnly(); // Unlock downside trigger
+            SyncMethod.Register(typeof(Pawn_CreepJoinerTracker), nameof(Pawn_CreepJoinerTracker.DoDownside)).SetDebugOnly(); // Trigger timed downside
+            SyncMethod.Register(typeof(Pawn_CreepJoinerTracker), nameof(Pawn_CreepJoinerTracker.DoAggressive)).SetDebugOnly();
+            SyncMethod.Register(typeof(Pawn_CreepJoinerTracker), nameof(Pawn_CreepJoinerTracker.DoRejection)).SetDebugOnly();
+
+            // Pits
+            SyncMethod.Register(typeof(PitBurrow), nameof(PitBurrow.Collapse)).SetDebugOnly();
+            SyncMethod.Lambda(typeof(PitBurrow), nameof(PitBurrow.GetGizmos), 0).SetDebugOnly(); // Spawn fleshbeast
+            SyncMethod.Register(typeof(PitGate), nameof(PitGate.TryFireIncident)).SetDebugOnly(); // Trigger incident with specific point value/with natural point value
+            SyncMethod.Lambda(typeof(PitGate), nameof(PitGate.GetGizmos), 4).SetDebugOnly(); // End cooldown
+            SyncMethod.Register(typeof(PitGate), nameof(PitGate.BeginCollapsing)).SetDebugOnly();
+
+            // Bioferrite harvester
+            SyncMethod.Register(typeof(Building_BioferriteHarvester), nameof(Building_BioferriteHarvester.EjectContents)); // Eject contents
+            SyncMethod.Lambda(typeof(Building_BioferriteHarvester), nameof(Building_BioferriteHarvester.GetGizmos), 1); // Toggle unload
+            SyncMethod.Lambda(typeof(Building_BioferriteHarvester), nameof(Building_BioferriteHarvester.GetGizmos), 3).SetDebugOnly(); // Dev add +1
         }
 
         [MpPrefix(typeof(PawnColumnWorker_CopyPasteTimetable), nameof(PawnColumnWorker_CopyPasteTimetable.PasteTo))]

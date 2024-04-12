@@ -217,6 +217,14 @@ namespace Multiplayer.Client
                 (ByteWriter data, Pawn_MindState mindState) => WriteSync(data, mindState.pawn),
                 (ByteReader data) => ReadSync<Pawn>(data).mindState
             },
+            {
+                (ByteWriter data, Pawn_CreepJoinerTracker joinerTracker) => WriteSync(data, joinerTracker?.Pawn),
+                (ByteReader data) => ReadSync<Pawn>(data)?.creepjoiner
+            },
+            {
+                (ByteWriter data, Pawn_NeedsTracker joinerTracker) => WriteSync(data, joinerTracker?.pawn),
+                (ByteReader data) => ReadSync<Pawn>(data)?.needs
+            },
             #endregion
 
             #region Policies
@@ -459,10 +467,6 @@ namespace Multiplayer.Client
                     PawnColumnDef def = ReadSync<PawnColumnDef>(data);
                     return def.Worker;
                 }, true
-            },
-            {
-                (ByteWriter data, TradeRequestComp trade) => WriteSync(data, trade.parent),
-                (ByteReader data) => ReadSync<WorldObject>(data).GetComponent<TradeRequestComp>()
             },
             #endregion
 
@@ -920,6 +924,10 @@ namespace Multiplayer.Client
                         comp = world.GetComponent(compType);
                     }
                 }, true // implicit
+            },
+            {
+                (ByteWriter data, Caravan_ForageTracker tracker) => WriteSync(data, tracker?.caravan),
+                (ByteReader data) => ReadSync<Caravan>(data)?.forage
             },
             #endregion
 

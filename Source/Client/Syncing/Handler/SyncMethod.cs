@@ -292,6 +292,14 @@ namespace Multiplayer.Client
             );
         }
 
+        public static SyncMethod LocalFunc(Type parentType, string parentMethod, string name, Type[] parentArgs = null)
+        {
+            return Sync.RegisterSyncMethod(
+                MpMethodUtil.GetLocalFunc(parentType, parentMethod, MethodType.Normal, parentArgs, name),
+                null
+            );
+        }
+
         public override void Validate()
         {
             ValidateType("Target type", targetTransformer?.NetworkType ?? targetType);
