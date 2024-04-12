@@ -501,7 +501,7 @@ namespace Multiplayer.Client
 
                 if (mode == LookMode.Value)
                 {
-                    var args = new[] { value, "value", type.GetDefaultValue(), false };
+                    var args = new[] { value, "value", Common.Extensions.GetDefaultValue(type), false };
                     ScribeValues.MakeGenericMethod(type).Invoke(null, args);
                     if (Scribe.mode == LoadSaveMode.LoadingVars)
                         value = args[0];
