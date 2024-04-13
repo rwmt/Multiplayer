@@ -264,9 +264,9 @@ namespace Multiplayer.Client
             SyncDelegate.Lambda(typeof(SocialCardUtility), nameof(SocialCardUtility.DrawPawnRoleSelection), 0); // Begin role change: remove role
             SyncDelegate.Lambda(typeof(SocialCardUtility), nameof(SocialCardUtility.DrawPawnRoleSelection), 3); // Begin role change: assign role
 
-            SyncDelegate.Lambda(typeof(Dialog_BeginRitual), nameof(Dialog_BeginRitual.DrawRoleSelection), 0); // Select role: none
-            SyncDelegate.Lambda(typeof(Dialog_BeginRitual), nameof(Dialog_BeginRitual.DrawRoleSelection), 3); // Select role, set confirm text
-            SyncDelegate.Lambda(typeof(Dialog_BeginRitual), nameof(Dialog_BeginRitual.DrawRoleSelection), 4); // Select role, no confirm text
+            // SyncDelegate.Lambda(typeof(Dialog_BeginRitual), nameof(Dialog_BeginRitual.DrawRoleSelection), 0); // Select role: none
+            // SyncDelegate.Lambda(typeof(Dialog_BeginRitual), nameof(Dialog_BeginRitual.DrawRoleSelection), 3); // Select role, set confirm text
+            // SyncDelegate.Lambda(typeof(Dialog_BeginRitual), nameof(Dialog_BeginRitual.DrawRoleSelection), 4); // Select role, no confirm text
 
             /*
                 Ritual dialog
@@ -282,24 +282,23 @@ namespace Multiplayer.Client
             */
 
             var ritualRolesSerializer = Serializer.New(
-                (IEnumerable<RitualRole> roles, object target, object[] _) =>
+                (IEnumerable<ILordJobRole> roles, object target, object[] _) =>
                 {
-                    var dialog = target.GetPropertyOrField(SyncDelegate.DelegateThis) as Dialog_BeginRitual;
-                    var ids = from r in roles select r.id;
-                    return (dialog.ritual.behavior.def, ids);
+                    var roleSelectionWidget = (PawnRoleSelectionWidgetBase<ILordJobRole>)target;
+                    return (roleSelectionWidget, roleSelectionWidget.assignments.RoleGroups().FirstOrDefault(g => g.SequenceEqual(roles))?.Key);
                 },
-                (data) => data.ids.Select(id => data.def.roles.FirstOrDefault(r => r.id == id))
+                data => data.roleSelectionWidget.assignments.RoleGroups().FirstOrDefault(g => g.Key == data.Key)
             );
 
             // todo for 1.5
-            // SyncDelegate.LocalFunc(typeof(Dialog_BeginRitual), nameof(Dialog_BeginRitual.DrawPawnList), "TryAssignReplace")
+            // SyncMethod.Register(typeof(PawnRoleSelectionWidgetBase<ILordJobRole>), nameof(PawnRoleSelectionWidgetBase<ILordJobRole>.TryAssignReplace))
             //     .TransformArgument(1, ritualRolesSerializer);
-            // SyncDelegate.LocalFunc(typeof(Dialog_BeginRitual), nameof(Dialog_BeginRitual.DrawPawnList), "TryAssignAnyRole");
-            // SyncDelegate.LocalFunc(typeof(Dialog_BeginRitual), nameof(Dialog_BeginRitual.DrawPawnList), "TryAssign")
+            // SyncMethod.Register(typeof(PawnRoleSelectionWidgetBase<ILordJobRole>), nameof(PawnRoleSelectionWidgetBase<ILordJobRole>.TryAssignAnyRole));
+            // SyncMethod.Register(typeof(PawnRoleSelectionWidgetBase<ILordJobRole>), nameof(PawnRoleSelectionWidgetBase<ILordJobRole>.TryAssign))
             //     .TransformArgument(1, ritualRolesSerializer);
             //
-            // SyncDelegate.Lambda(typeof(Dialog_BeginRitual), nameof(Dialog_BeginRitual.DrawPawnList), 27); // Roles right click delegate (try assign spectate)
-            // SyncDelegate.Lambda(typeof(Dialog_BeginRitual), nameof(Dialog_BeginRitual.DrawPawnList), 15); // Not participating left click delegate (try assign any role or spectate)
+            // SyncMethod.Lambda(typeof(PawnRoleSelectionWidgetBase<ILordJobRole>), nameof(PawnRoleSelectionWidgetBase<ILordJobRole>.DrawPawnListInternal), 7); // Roles right click delegate (try assign spectate)
+            // SyncMethod.Lambda(typeof(PawnRoleSelectionWidgetBase<ILordJobRole>), nameof(PawnRoleSelectionWidgetBase<ILordJobRole>.DrawPawnListInternal), 2); // Not participating left click delegate (try assign any role or spectate)
 
             SyncMethod.Register(typeof(RitualRoleAssignments), nameof(RitualRoleAssignments.TryAssignSpectate));
             SyncMethod.Register(typeof(RitualRoleAssignments), nameof(RitualRoleAssignments.RemoveParticipant));
