@@ -19,39 +19,31 @@ cp -r ../About ../Textures .
 
 cat <<EOF > LoadFolders.xml
 <loadFolders>
+  <v1.5>
+    <li>/</li>
+    <li>1.5</li>
+  </v1.5>
   <v1.4>
     <li>/</li>
     <li>1.4</li>
   </v1.4>
-  <v1.3.3311>
-    <li>/</li>
-    <li>1.3.3311</li>
-  </v1.3.3311>
-  <v1.3>
-    <li>/</li>
-    <li>1.3</li>
-  </v1.3>
 </loadFolders>
 EOF
 
 
-sed -i "/<supportedVersions>/ a \ \ \ \ <li>1.3</li>" About/About.xml
+sed -i "/<supportedVersions>/ a \ \ \ \ <li>1.4</li>" About/About.xml
 sed -i "/Multiplayer mod for RimWorld./aThis is version ${VERSION}." About/About.xml
 sed -i "s/<version>.*<\/version>\$/<version>${VERSION}<\/version>/" About/Manifest.xml
 
 # The current version
-mkdir -p 1.4
-cp -r ../Assemblies ../AssembliesCustom ../Defs ../Languages 1.4/
-rm -f 1.4/Languages/.git 1.4/Languages/LICENSE 1.4/Languages/README.md
+mkdir -p 1.5
+cp -r ../Assemblies ../AssembliesCustom ../Defs ../Languages 1.5/
+rm -f 1.5/Languages/.git 1.5/Languages/LICENSE 1.5/Languages/README.md
 
 # Past versions
-mkdir -p 1.3.3311
-git --work-tree=1.3.3311 restore --recurse-submodules --source=origin/rw-1.3.3311 -- Assemblies Defs Languages
-rm -f 1.3.3311/Languages/.git 1.3.3311/Languages/LICENSE 1.3.3311/Languages/README.md
-
-mkdir -p 1.3
-git --work-tree=1.3 restore --recurse-submodules --source=origin/rw-1.3 -- Assemblies Defs Languages
-rm -f 1.3/Languages/.git 1.3/Languages/LICENSE 1.3/Languages/README.md
+mkdir -p 1.4
+git --work-tree=1.4 restore --recurse-submodules --source=origin/rw-1.4 -- Assemblies AssembliesCustom Defs Languages
+rm -f 1.4/Languages/.git 1.4/Languages/LICENSE 1.4/Languages/README.md
 
 cd ..
 

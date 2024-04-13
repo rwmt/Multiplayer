@@ -5,27 +5,21 @@ using Multiplayer.Common;
 
 namespace Multiplayer.Client
 {
-    public class WritingSyncWorker : SyncWorker
+    public class WritingSyncWorker(ByteWriter writer, SyncSerialization serialization) : SyncWorker(true)
     {
-        internal readonly ByteWriter writer;
-        readonly int initialPos;
+        internal readonly ByteWriter writer = writer;
+        readonly int initialPos = writer.Position;
 
-        internal ByteWriter Writer { get; }
-
-        public WritingSyncWorker(ByteWriter writer) : base(true)
-        {
-            this.writer = writer;
-            initialPos = writer.Position;
-        }
+        public ByteWriter Writer => writer;
 
         public override void Bind<T>(ref T obj, SyncType type)
         {
-            SyncSerialization.WriteSyncObject(writer, obj, type);
+            serialization.WriteSyncObject(writer, obj, type);
         }
 
         public override void Bind<T>(ref T obj)
         {
-            SyncSerialization.WriteSyncObject(writer, obj, typeof(T));
+            serialization.WriteSyncObject(writer, obj, typeof(T));
         }
 
         public override void Bind(object obj, string name)
@@ -33,7 +27,7 @@ namespace Multiplayer.Client
             object value = MpReflection.GetValue(obj, name);
             Type type = value.GetType();
 
-            SyncSerialization.WriteSyncObject(writer, value, type);
+            serialization.WriteSyncObject(writer, value, type);
         }
 
         public override void Bind(ref byte obj)
@@ -98,7 +92,7 @@ namespace Multiplayer.Client
 
         public override void BindType<T>(ref Type type)
         {
-            writer.WriteUShort(RwTypeHelper.GetTypeIndex(type, typeof(T)));
+            writer.WriteUShort(serialization.TypeHelper.GetIndexFromImplementation(typeof(T), type));
         }
 
         internal void Reset()

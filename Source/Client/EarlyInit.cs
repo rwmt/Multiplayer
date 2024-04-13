@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Reflection;
 using HarmonyLib;
 using Multiplayer.Client.Patches;
@@ -55,10 +56,12 @@ public static class EarlyInit
 
     internal static void InitSync()
     {
-        using (DeepProfilerWrapper.Section("Multiplayer SyncSerialization.Init"))
-            SyncSerialization.Init();
+        using (DeepProfilerWrapper.Section("Multiplayer RwSerialization.Init"))
+            RwSerialization.Init();
 
-        using (DeepProfilerWrapper.Section("Multiplayer SyncGame"))
+        SyncDict.Init();
+
+        using (DeepProfilerWrapper.Section("Multiplayer SyncGame.Init"))
             SyncGame.Init();
 
         using (DeepProfilerWrapper.Section("Multiplayer Sync register attributes"))

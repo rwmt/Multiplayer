@@ -4,6 +4,7 @@ using RimWorld.BaseGen;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using LudeonTK;
 using Multiplayer.API;
 using Multiplayer.Client.AsyncTime;
 using Multiplayer.Client.Comp;
@@ -122,7 +123,7 @@ namespace Multiplayer.Client
             ChangeRealPlayerFaction(Find.FactionManager.GetById(newFaction));
         }
 
-        public void ChangeRealPlayerFaction(Faction newFaction)
+        public void ChangeRealPlayerFaction(Faction newFaction, bool regenMapDrawers = true)
         {
             Log.Message($"Changing real player faction to {newFaction} from {myFaction}");
 
@@ -135,7 +136,8 @@ namespace Multiplayer.Client
 
             foreach (Map m in Find.Maps)
             {
-                m.mapDrawer.RegenerateEverythingNow();
+                if (regenMapDrawers)
+                    m.mapDrawer.RegenerateEverythingNow();
 
                 foreach (var t in m.listerThings.AllThings)
                     if (t is ThingWithComps tc)

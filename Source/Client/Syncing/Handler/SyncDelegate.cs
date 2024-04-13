@@ -72,7 +72,7 @@ namespace Multiplayer.Client
                 else if (!fieldTypes[i].IsCompilerGenerated())
                 {
                     var type = (SyncType)fieldTypes[i];
-                    if (exposeFields != null && exposeFields.Contains(path))
+                    if (exposeFields != null && exposeFields.Contains(fieldPathsNoTypes[i]))
                         type.expose = true;
 
                     writer(val, type, path);
@@ -96,7 +96,12 @@ namespace Multiplayer.Client
                 else if (fieldType.IsCompilerGenerated())
                     value = Activator.CreateInstance(fieldType);
                 else
-                    value = SyncSerialization.ReadSyncObject(data, fieldType);
+                {
+                    SyncType type = fieldType;
+                    if (exposeFields != null && exposeFields.Contains(noTypePath))
+                        type.expose = true;
+                    value = SyncSerialization.ReadSyncObject(data, type);
+                }
 
                 if (value == null)
                 {

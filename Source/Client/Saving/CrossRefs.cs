@@ -165,7 +165,7 @@ namespace Multiplayer.Client
     }
 
     [HarmonyPatch(typeof(MapDeiniter))]
-    [HarmonyPatch(nameof(MapDeiniter.Deinit_NewTemp))]
+    [HarmonyPatch(nameof(MapDeiniter.Deinit))]
     public static class DeinitMapPatch
     {
         static void Prefix(Map map)

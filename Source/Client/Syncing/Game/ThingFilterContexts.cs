@@ -19,30 +19,42 @@ public record BillConfigWrapper(Bill Bill) : ThingFilterContext
     public override IEnumerable<SpecialThingFilterDef> HiddenFilters => Bill.recipe.forceHiddenSpecialFilters;
 }
 
-public record OutfitWrapper(Outfit Outfit) : ThingFilterContext
+public record OutfitWrapper(ApparelPolicy Policy) : ThingFilterContext
 {
-    public override ThingFilter Filter => Outfit.filter;
-    public override ThingFilter ParentFilter => Dialog_ManageOutfits.apparelGlobalFilter;
+    public override ThingFilter Filter => Policy.filter;
+    public override ThingFilter ParentFilter => Dialog_ManageApparelPolicies.apparelGlobalFilter;
     public override IEnumerable<SpecialThingFilterDef> HiddenFilters => SpecialThingFilterDefOf.AllowNonDeadmansApparel.ToEnumerable();
 }
 
-public record FoodRestrictionWrapper(FoodRestriction Food) : ThingFilterContext
+public record FoodRestrictionWrapper(FoodPolicy Policy) : ThingFilterContext
 {
-    public override ThingFilter Filter => Food.filter;
-    public override ThingFilter ParentFilter => Dialog_ManageFoodRestrictions.foodGlobalFilter;
+    public override ThingFilter Filter => Policy.filter;
+    public override ThingFilter ParentFilter => Dialog_ManageFoodPolicies.foodGlobalFilter;
     public override IEnumerable<SpecialThingFilterDef> HiddenFilters => SpecialThingFilterDefOf.AllowFresh.ToEnumerable();
 }
 
-public record PenAnimalsWrapper(CompAnimalPenMarker Pen) : ThingFilterContext
+public record ReadingPolicyDefFilterWrapper(ReadingPolicy Policy) : ThingFilterContext
 {
-    public override ThingFilter Filter => Pen.AnimalFilter;
+    public override ThingFilter Filter => Policy.defFilter;
+    public override ThingFilter ParentFilter => Dialog_ManageReadingPolicies.PolicyGlobalFilter;
+}
+
+public record ReadingPolicyEffectFilterWrapper(ReadingPolicy Policy) : ThingFilterContext
+{
+    public override ThingFilter Filter => Policy.effectFilter;
+    public override ThingFilter ParentFilter => null;
+}
+
+public record PenAnimalsWrapper(CompAnimalPenMarker PenMarker) : ThingFilterContext
+{
+    public override ThingFilter Filter => PenMarker.AnimalFilter;
     public override ThingFilter ParentFilter => AnimalPenUtility.GetFixedAnimalFilter();
 }
 
-public record PenAutocutWrapper(CompAnimalPenMarker Pen) : ThingFilterContext
+public record PenAutocutWrapper(CompAnimalPenMarker PenMarker) : ThingFilterContext
 {
-    public override ThingFilter Filter => Pen.AutoCutFilter;
-    public override ThingFilter ParentFilter => Pen.parent.Map.animalPenManager.GetFixedAutoCutFilter();
+    public override ThingFilter Filter => PenMarker.AutoCutFilter;
+    public override ThingFilter ParentFilter => PenMarker.parent.Map.animalPenManager.GetFixedAutoCutFilter();
     public override IEnumerable<SpecialThingFilterDef> HiddenFilters => SpecialThingFilterDefOf.AllowFresh.ToEnumerable();
 }
 

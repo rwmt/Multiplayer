@@ -13,7 +13,7 @@ namespace Multiplayer.Client
 {
     public static class SyncDictDlc
     {
-		internal static SyncWorkerDictionaryTree syncWorkers = new SyncWorkerDictionaryTree()
+		internal static SyncWorkerDictionaryTree syncWorkers = new()
         {
             #region Royalty
             {
@@ -98,6 +98,17 @@ namespace Multiplayer.Client
                 }, true // Implicit
             },
             {
+                // Parent: RoyalTitlePermitWorker_Targeted
+                (SyncWorker sync, ref RoyalTitlePermitWorker_CallLaborers dropResources) => {
+                    if (sync.isWriting) {
+                        sync.Write(dropResources.calledFaction);
+                    }
+                    else {
+                        dropResources.calledFaction = sync.Read<Faction>();
+                    }
+                }, true // Implicit
+            },
+            {
                 (ByteWriter data, Command_BestowerCeremony cmd) => {
                     WriteSync(data, cmd.job.lord);
                     WriteSync(data, cmd.bestower);
@@ -164,11 +175,11 @@ namespace Multiplayer.Client
                 true
             },
             {
-                (ByteWriter data, RitualRoleAssignments assgn) => {
+                (ByteWriter data, RitualRoleAssignments assignments) => {
                     // In Multiplayer, RitualRoleAssignments should only be of the wrapper type MpRitualAssignments
-                    var mpAssgn = (MpRitualAssignments)assgn;
-                    data.MpContext().map = mpAssgn.session.map;
-                    data.WriteInt32(mpAssgn.session.SessionId);
+                    var mpAssignments = (MpRitualAssignments)assignments;
+                    data.MpContext().map = mpAssignments.session.map;
+                    data.WriteInt32(mpAssignments.session.SessionId);
                 },
                 (ByteReader data) => {
                     var id = data.ReadInt32();
@@ -177,25 +188,17 @@ namespace Multiplayer.Client
                 }
             },
             {
-                // Currently only used for Dialog_BeginRitual delegate syncing
-                (ByteWriter data, Dialog_BeginRitual dialog) => {
-                    WriteSync(data, dialog.assignments);
+                // Currently only used for PawnRitualRoleSelectionWidget syncing
+                (ByteWriter data, PawnRitualRoleSelectionWidget dialog) => {
+                    WriteSync(data, dialog.ritualAssignments);
                     WriteSync(data, dialog.ritual);
                 },
                 (ByteReader data) => {
-                    var assgn = ReadSync<RitualRoleAssignments>(data) as MpRitualAssignments;
-                    if (assgn == null) return null;
+                    var assignments = ReadSync<RitualRoleAssignments>(data) as MpRitualAssignments;
+                    if (assignments == null) return null;
 
                     var ritual = ReadSync<Precept_Ritual>(data); // todo handle ritual becoming null?
-                    var dlog = MpUtil.NewObjectNoCtor<Dialog_BeginRitual>();
-                    dlog.assignments = assgn;
-                    dlog.ritual = ritual;
-                    dlog.target = assgn.session.data.target;
-
-                    // This is a cache set every frame at the top of Dialog_BeginRitual.DrawPawnList
-                    dlog.rolesGroupedTmp = (from r in assgn.AllRolesForReading group r by r.mergeId ?? r.id).ToList();
-
-                    return dlog;
+                    return new PawnRitualRoleSelectionWidget(assignments, ritual, assignments.session.data.target, assignments.session.data.outcome);
                 }
             },
             {

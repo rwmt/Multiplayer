@@ -35,7 +35,7 @@ namespace Multiplayer.Client.Patches
                     !trace.Contains("Client.FactionContext") &&
                     !trace.Contains("Thing.ExposeData")
                 )
-                    Log.Message($"factionman call {trace}", true);
+                    Log.Message($"factionman call {trace}");
             }
         }
     }

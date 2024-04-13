@@ -7,6 +7,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 
 using HarmonyLib;
+using LudeonTK;
 using RimWorld;
 using RimWorld.Planet;
 using UnityEngine;
@@ -134,18 +135,18 @@ namespace Multiplayer.Client
         public static void DumpSyncTypes()
         {
             var dict = new Dictionary<string, Type[]>() {
-                {"ThingComp", RwImplSerialization.thingCompTypes},
-                {"AbilityComp", RwImplSerialization.abilityCompTypes},
-                {"Designator", RwImplSerialization.designatorTypes},
-                {"WorldObjectComp", RwImplSerialization.worldObjectCompTypes},
-                {"HediffComp", RwImplSerialization.hediffCompTypes},
-                {"IStoreSettingsParent", RwImplSerialization.storageParents},
-                {"IPlantToGrowSettable", RwImplSerialization.plantToGrowSettables},
+                {"ThingComp", CompSerialization.thingCompTypes},
+                {"AbilityComp", CompSerialization.abilityCompTypes},
+                {"WorldObjectComp", CompSerialization.worldObjectCompTypes},
+                {"HediffComp", CompSerialization.hediffCompTypes},
 
-                {"GameComponent", RwImplSerialization.gameCompTypes},
-                {"WorldComponent", RwImplSerialization.worldCompTypes},
-                {"MapComponent", RwImplSerialization.mapCompTypes},
+                {"GameComponent", CompSerialization.gameCompTypes},
+                {"WorldComponent", CompSerialization.worldCompTypes},
+                {"MapComponent", CompSerialization.mapCompTypes},
             };
+
+            foreach (var explicitImplType in Multiplayer.serialization.explicitImplTypes)
+                dict[explicitImplType.Name] = Multiplayer.serialization.TypeHelper!.GetImplementations(explicitImplType).ToArray();
 
             foreach(var kv in dict) {
                 Log.Warning($"== {kv.Key} ==");
@@ -301,8 +302,8 @@ namespace Multiplayer.Client
 
             // We only care about transpiled methods that aren't part of MP.
             var query = Multiplayer.harmony.GetPatchedMethods()
-                .Where(m => !m.DeclaringType.Namespace.StartsWith("Multiplayer") &&
-                    !Harmony.GetPatchInfo(m).Transpilers.NullOrEmpty());
+                .Where(m => !(m.DeclaringType.Namespace?.StartsWith("Multiplayer") ?? false)
+                    && !Harmony.GetPatchInfo(m).Transpilers.NullOrEmpty());
 
             foreach (var method in query) {
                 builder.Append(GetMethodHash(method));

@@ -4,11 +4,10 @@ namespace Multiplayer.Client
 {
     public class LoggingByteReader : ByteReader, IHasLogger
     {
-        public SyncLogger Log { get; } = new SyncLogger();
+        public SyncLogger Log { get; } = new();
 
         public LoggingByteReader(byte[] array) : base(array)
         {
-
         }
 
         public override bool ReadBool()
@@ -51,7 +50,7 @@ namespace Multiplayer.Client
             return Log.NodePassthrough("short: ", base.ReadShort());
         }
 
-        public override string ReadStringNullable(int maxLen = 32767)
+        public override string? ReadStringNullable(int maxLen = 32767)
         {
             return Log.NodePassthrough("string?: ", base.ReadStringNullable(maxLen));
         }
@@ -76,12 +75,12 @@ namespace Multiplayer.Client
             return Log.NodePassthrough("ushort: ", base.ReadUShort());
         }
 
-        public override byte[] ReadPrefixedBytes(int maxLen = int.MaxValue)
+        public override byte[]? ReadPrefixedBytes(int maxLen = int.MaxValue)
         {
             Log.Pause();
-            byte[] array = base.ReadPrefixedBytes();
+            byte[]? array = base.ReadPrefixedBytes(maxLen);
             Log.Resume();
-            Log.Node($"byte[{array.Length}]");
+            Log.Node($"byte[{array?.Length}]");
             return array;
         }
     }

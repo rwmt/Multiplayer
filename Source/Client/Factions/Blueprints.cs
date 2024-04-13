@@ -15,7 +15,7 @@ namespace Multiplayer.Client
     // Don't draw other factions' blueprints
     // Don't link graphics of different factions' blueprints
 
-    [HarmonyPatch(typeof(GenConstruct), nameof(GenConstruct.CanPlaceBlueprintAt))]
+    [HarmonyPatch(typeof(GenConstruct), nameof(GenConstruct.CanPlaceBlueprintAt_NewTemp))]
     static class CanPlaceBlueprintAtPatch
     {
         static MethodInfo CanPlaceBlueprintOver = AccessTools.Method(typeof(GenConstruct), nameof(GenConstruct.CanPlaceBlueprintOver));
@@ -49,7 +49,7 @@ namespace Multiplayer.Client
     }
 
 
-    [HarmonyPatch(typeof(GenConstruct), nameof(GenConstruct.CanPlaceBlueprintAt))]
+    [HarmonyPatch(typeof(GenConstruct), nameof(GenConstruct.CanPlaceBlueprintAt_NewTemp))]
     static class CanPlaceBlueprintAtPatch2
     {
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> e, MethodBase original)

@@ -23,7 +23,7 @@ namespace Multiplayer.Client
         {
             var data = new ByteWriter();
 
-            data.WriteInt32(activeModsSnapshot.Count());
+            data.WriteInt32(activeModsSnapshot.Count);
             foreach (var m in activeModsSnapshot)
             {
                 data.WriteString(m.PackageIdNonUnique);
