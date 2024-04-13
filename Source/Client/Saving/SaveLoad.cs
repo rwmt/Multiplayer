@@ -7,6 +7,7 @@ using System.Linq;
 using System.Threading;
 using System.Xml;
 using Multiplayer.Client.Saving;
+using Multiplayer.Client.Util;
 using UnityEngine;
 using Verse;
 using Verse.Profile;
@@ -45,9 +46,14 @@ namespace Multiplayer.Client
 
             mapCmds[ScheduledCommand.Global] = Multiplayer.AsyncWorldTime.cmds;
 
-            DeepProfiler.Start("Multiplayer SaveAndReload: Save");
-            var gameData = SaveGameData();
-            DeepProfiler.End();
+            TempGameData gameData;
+            using (DeepProfilerWrapper.Section("Multiplayer SaveAndReload: Save"))
+            {
+                // When reloading in multifaction always save as the spectator faction to ensure determinism
+                if (Multiplayer.GameComp.multifaction)
+                    Multiplayer.game.ChangeRealPlayerFaction(Multiplayer.WorldComp.spectatorFaction, false);
+                gameData = SaveGameData();
+            }
 
             MapDrawerRegenPatch.copyFrom = drawers;
             WorldGridCachePatch.copyFrom = worldGridSaved;
