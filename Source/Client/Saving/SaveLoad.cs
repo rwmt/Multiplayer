@@ -49,9 +49,11 @@ namespace Multiplayer.Client
             TempGameData gameData;
             using (DeepProfilerWrapper.Section("Multiplayer SaveAndReload: Save"))
             {
-                // When reloading in multifaction always save as the spectator faction to ensure determinism
+                // When reloading in multifaction always save as a fixed faction to ensure determinism
+                // The faction is chosen to be the first player faction in the FactionManager as this is what
+                // Faction.OfPlayer gets set to initially during loading (in FactionManager.ExposeData -> RecacheFactions)
                 if (Multiplayer.GameComp.multifaction)
-                    Multiplayer.game.ChangeRealPlayerFaction(Multiplayer.WorldComp.spectatorFaction, false);
+                    Multiplayer.game.ChangeRealPlayerFaction(Find.FactionManager.AllFactions.First(f => f.IsPlayer), false);
                 gameData = SaveGameData();
             }
 
