@@ -63,10 +63,10 @@ namespace Multiplayer.Client.Util
             var displayClassPrefix = $"{DisplayClassPrefix}{parentId}_";
 
             // Example: <DoWindowContents>g__Start|
-            var localFuncPrefix = $"<{parentMethod}>{LocalFunctionInfix}{localFunc}|";
+            var localFuncPrefix = $"<{parent.Name}>{LocalFunctionInfix}{localFunc}|";
 
             // Example: <DoWindowContents>g__Start|10
-            var localFuncPrefixWithId = $"<{parentMethod}>{LocalFunctionInfix}{localFunc}|{parentId}";
+            var localFuncPrefixWithId = $"<{parent.Name}>{LocalFunctionInfix}{localFunc}|{parentId}";
 
             var candidates = parentType.GetNestedTypes(AccessTools.all).
                 Where(t => t.Name.StartsWith(displayClassPrefix)).
@@ -142,12 +142,12 @@ namespace Multiplayer.Client.Util
 
                 case MethodType.Getter:
                     if (methodName == null)
-                        return null;
+                        return AccessTools.DeclaredIndexer(type, args).GetGetMethod(true);
                     return AccessTools.DeclaredProperty(type, methodName).GetGetMethod(true);
 
                 case MethodType.Setter:
                     if (methodName == null)
-                        return null;
+                        return AccessTools.DeclaredIndexer(type, args).GetSetMethod(true);
                     return AccessTools.DeclaredProperty(type, methodName).GetSetMethod(true);
 
                 case MethodType.Constructor:
@@ -162,6 +162,11 @@ namespace Multiplayer.Client.Util
                     if (methodName == null)
                         return null;
                     return AccessTools.EnumeratorMoveNext(AccessTools.DeclaredMethod(type, methodName, args));
+
+                case MethodType.Async:
+                    if (methodName == null)
+                        return null;
+                    return AccessTools.AsyncMoveNext(AccessTools.DeclaredMethod(type, methodName, args));
             }
 
             return null;
