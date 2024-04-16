@@ -19,7 +19,7 @@ namespace Multiplayer.Common
 
         private List<CanHandleHook> canHandleHooks = [];
         private List<(SyncTypeMatcher, SerializationReader, SerializationWriter)> serializationHooks = [];
-        public HashSet<Type> explicitImplTypes = [];
+        public HashSet<Type> syncWithImplTypes = [];
         public SyncTypeHelper TypeHelper { get; } = typeHelper;
 
         public Action<string> errorLogger = msg => Console.WriteLine($"Sync Error: {msg}");
@@ -34,9 +34,9 @@ namespace Multiplayer.Common
             serializationHooks.Add((matcher, reader, writer));
         }
 
-        public void AddExplicitImplType(Type type)
+        public void RegisterForSyncWithImpl(Type type)
         {
-            explicitImplTypes.Add(type);
+            syncWithImplTypes.Add(type);
         }
 
         public SyncWorkerDictionaryTree? syncTree;
@@ -69,7 +69,7 @@ namespace Multiplayer.Common
             if (Enumerable.Any(canHandleHooks, hook => hook(syncType)))
                 return true;
 
-            if (explicitImplTypes.Contains(syncType.type))
+            if (syncWithImplTypes.Contains(syncType.type))
                 return true;
 
             return syncTree != null && syncTree.TryGetValue(type, out _);
@@ -271,7 +271,7 @@ namespace Multiplayer.Common
                     return obj;
                 }
 
-                if (explicitImplTypes.Contains(type))
+                if (syncWithImplTypes.Contains(type))
                 {
                     ushort impl = data.ReadUShort();
                     return impl == ushort.MaxValue ? null :
@@ -482,7 +482,7 @@ namespace Multiplayer.Common
                     return;
                 }
 
-                if (explicitImplTypes.Contains(type))
+                if (syncWithImplTypes.Contains(type))
                 {
                     if (obj == null)
                     {

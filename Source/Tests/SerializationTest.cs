@@ -124,7 +124,7 @@ public class SerializationTest
     }
 
     [Test]
-    public void ExplicitImpl()
+    public void SyncWithImpl()
     {
         var ser = new SyncSerialization(new TestTypeHelper());
 
@@ -144,7 +144,7 @@ public class SerializationTest
             },
         };
 
-        ser.AddExplicitImplType(typeof(C1));
+        ser.RegisterForSyncWithImpl(typeof(C1));
 
         {
             var input = new C2 { a = 1 };

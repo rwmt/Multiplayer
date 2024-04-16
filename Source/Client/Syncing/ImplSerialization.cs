@@ -8,19 +8,19 @@ public static class ImplSerialization
 {
     public static void Init()
     {
-        Multiplayer.serialization.AddExplicitImplType(typeof(IStoreSettingsParent));
-        Multiplayer.serialization.AddExplicitImplType(typeof(IStorageGroupMember));
-        Multiplayer.serialization.AddExplicitImplType(typeof(IPlantToGrowSettable));
-        Multiplayer.serialization.AddExplicitImplType(typeof(ISlotGroup));
-        Multiplayer.serialization.AddExplicitImplType(typeof(ISlotGroupParent));
-        Multiplayer.serialization.AddExplicitImplType(typeof(Designator));
-        Multiplayer.serialization.AddExplicitImplType(typeof(ISelectable));
-        Multiplayer.serialization.AddExplicitImplType(typeof(IVerbOwner));
-        Multiplayer.serialization.AddExplicitImplType(typeof(IThingHolder));
-        Multiplayer.serialization.AddExplicitImplType(typeof(IReloadableComp));
-        Multiplayer.serialization.AddExplicitImplType(typeof(Policy));
+        Multiplayer.serialization.RegisterForSyncWithImpl(typeof(IStoreSettingsParent));
+        Multiplayer.serialization.RegisterForSyncWithImpl(typeof(IStorageGroupMember));
+        Multiplayer.serialization.RegisterForSyncWithImpl(typeof(IPlantToGrowSettable));
+        Multiplayer.serialization.RegisterForSyncWithImpl(typeof(ISlotGroup));
+        Multiplayer.serialization.RegisterForSyncWithImpl(typeof(ISlotGroupParent));
+        Multiplayer.serialization.RegisterForSyncWithImpl(typeof(Designator));
+        Multiplayer.serialization.RegisterForSyncWithImpl(typeof(ISelectable));
+        Multiplayer.serialization.RegisterForSyncWithImpl(typeof(IVerbOwner));
+        Multiplayer.serialization.RegisterForSyncWithImpl(typeof(IThingHolder));
+        Multiplayer.serialization.RegisterForSyncWithImpl(typeof(IReloadableComp));
+        Multiplayer.serialization.RegisterForSyncWithImpl(typeof(Policy));
 
         // todo for 1.5
-        // Multiplayer.serialization.AddExplicitImplType(typeof(PawnRoleSelectionWidgetBase<ILordJobRole>));
+        // Multiplayer.serialization.RegisterForSyncWithImpl(typeof(PawnRoleSelectionWidgetBase<ILordJobRole>));
     }
 }

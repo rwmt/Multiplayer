@@ -145,8 +145,8 @@ namespace Multiplayer.Client
                 {"MapComponent", CompSerialization.mapCompTypes},
             };
 
-            foreach (var explicitImplType in Multiplayer.serialization.explicitImplTypes)
-                dict[explicitImplType.Name] = Multiplayer.serialization.TypeHelper!.GetImplementations(explicitImplType).ToArray();
+            foreach (var syncWithImplType in Multiplayer.serialization.syncWithImplTypes)
+                dict[syncWithImplType.Name] = Multiplayer.serialization.TypeHelper!.GetImplementations(syncWithImplType).ToArray();
 
             foreach(var kv in dict) {
                 Log.Warning($"== {kv.Key} ==");

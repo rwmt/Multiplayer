@@ -128,9 +128,9 @@ namespace Multiplayer.Client
             dict["WorldComponent"] = GetDefInfo(CompSerialization.worldCompTypes, TypeHash);
             dict["MapComponent"] = GetDefInfo(CompSerialization.mapCompTypes, TypeHash);
 
-            foreach (var explicitImplType in Multiplayer.serialization.explicitImplTypes)
-                dict[explicitImplType.Name] =
-                    GetDefInfo(Multiplayer.serialization.TypeHelper.GetImplementations(explicitImplType), TypeHash);
+            foreach (var syncWithImplType in Multiplayer.serialization.syncWithImplTypes)
+                dict[syncWithImplType.Name] =
+                    GetDefInfo(Multiplayer.serialization.TypeHelper.GetImplementations(syncWithImplType), TypeHash);
 
             dict["ISyncSimple"] = GetDefInfo(ApiSerialization.syncSimples, TypeHash);
             dict["ISession"] = GetDefInfo(ApiSerialization.sessions, TypeHash);
