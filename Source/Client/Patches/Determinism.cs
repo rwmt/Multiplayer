@@ -123,7 +123,34 @@ namespace Multiplayer.Client.Patches
                 __result.allOnScreen = false;
         }
     }
-
+    
+    [HarmonyPatch]
+    static class UnnaturalCorpsePatch // v1.5
+    {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.DeclaredMethod(typeof(AnomalyUtility), nameof(AnomalyUtility.IsValidUnseenCell));
+            yield return AccessTools.DeclaredMethod(typeof(UnnaturalCorpse), nameof(UnnaturalCorpse.IsOutsideView));
+        }
+        
+        static MethodInfo CellRectContains = AccessTools.Method(typeof(CellRect), nameof(CellRect.Contains));
+    
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+        {
+            foreach (var inst in insts)
+            {
+                yield return inst;
+    
+                // consider it always outside view (not contained in CurrentViewRect)
+                if (inst.operand == CellRectContains)
+                {
+                    yield return new CodeInstruction(OpCodes.Ldc_I4_0);
+                    yield return new CodeInstruction(OpCodes.And);
+                }
+            }
+        }
+    }
+    
     [HarmonyPatch(typeof(Pawn), nameof(Pawn.ProcessPostTickVisuals))]
     static class DrawTrackerTickPatch
     {
