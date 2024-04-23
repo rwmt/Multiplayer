@@ -83,6 +83,9 @@ namespace Multiplayer.Client
         public static ISyncField SyncMechCarrierGizmoTargetValue;
         public static ISyncField SyncMechCarrierMaxToFill;
 
+        public static ISyncField SyncStudiableCompEnabled;
+        public static ISyncField SyncEntityContainmentMode;
+
         public static void Init()
         {
             SyncMedCare = Sync.Field(typeof(Pawn), nameof(Pawn.playerSettings), nameof(Pawn_PlayerSettings.medCare));
@@ -210,6 +213,9 @@ namespace Multiplayer.Client
             SyncMechAutoRepair = Sync.Field(typeof(CompMechRepairable), nameof(CompMechRepairable.autoRepair));
             SyncMechCarrierGizmoTargetValue = Sync.Field(typeof(MechCarrierGizmo), nameof(MechCarrierGizmo.targetValue)).SetBufferChanges();
             SyncMechCarrierMaxToFill = Sync.Field(typeof(CompMechCarrier), nameof(CompMechCarrier.maxToFill)).SetBufferChanges();
+
+            SyncStudiableCompEnabled = Sync.Field(typeof(CompStudiable), nameof(CompStudiable.studyEnabled));
+            SyncEntityContainmentMode = Sync.Field(typeof(CompHoldingPlatformTarget), nameof(CompHoldingPlatformTarget.containmentMode));
         }
 
         [MpPrefix(typeof(StorytellerUI), nameof(StorytellerUI.DrawStorytellerSelectionInterface))]
@@ -559,6 +565,22 @@ namespace Multiplayer.Client
         {
             SyncMechCarrierGizmoTargetValue.Watch(__instance);
             SyncMechCarrierMaxToFill.Watch(__instance.carrier);
+        }
+
+        [MpPrefix(typeof(ITab_StudyNotes), nameof(ITab_StudyNotes.DrawTitle))]
+        static void CompStudiableEnabledCheckbox(ITab_StudyNotes __instance)
+        {
+            var comp = __instance.StudiableThing.TryGetComp<CompStudiable>();
+            if (comp != null)
+                SyncStudiableCompEnabled.Watch(comp);
+        }
+
+        [MpPrefix(typeof(ITab_Entity), nameof(ITab_Entity.FillTab))]
+        static void CompHoldingPlatformTargetMode(ITab_Entity __instance)
+        {
+            var comp = __instance.SelPawn.TryGetComp<CompHoldingPlatformTarget>();
+            if (comp != null)
+                SyncEntityContainmentMode.Watch(comp);
         }
     }
 
