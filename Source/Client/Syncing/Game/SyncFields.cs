@@ -85,6 +85,7 @@ namespace Multiplayer.Client
 
         public static ISyncField SyncStudiableCompEnabled;
         public static ISyncField SyncEntityContainmentMode;
+        public static ISyncField SyncExtractBioferrite;
 
         public static void Init()
         {
@@ -216,6 +217,7 @@ namespace Multiplayer.Client
 
             SyncStudiableCompEnabled = Sync.Field(typeof(CompStudiable), nameof(CompStudiable.studyEnabled));
             SyncEntityContainmentMode = Sync.Field(typeof(CompHoldingPlatformTarget), nameof(CompHoldingPlatformTarget.containmentMode));
+            SyncExtractBioferrite = Sync.Field(typeof(CompHoldingPlatformTarget), nameof(CompHoldingPlatformTarget.extractBioferrite));
         }
 
         [MpPrefix(typeof(StorytellerUI), nameof(StorytellerUI.DrawStorytellerSelectionInterface))]
@@ -580,7 +582,10 @@ namespace Multiplayer.Client
         {
             var comp = __instance.SelPawn.TryGetComp<CompHoldingPlatformTarget>();
             if (comp != null)
+            {
                 SyncEntityContainmentMode.Watch(comp);
+                SyncExtractBioferrite.Watch(comp);
+            }
         }
     }
 
