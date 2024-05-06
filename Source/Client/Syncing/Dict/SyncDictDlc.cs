@@ -285,6 +285,23 @@ namespace Multiplayer.Client
                 }
             },
             #endregion
+
+            #region Anomaly
+
+            {
+                (ByteWriter data, ActivityGizmo gizmo) => WriteSync(data, gizmo.Comp),
+                (ByteReader data) =>
+                {
+                    var comp = ReadSync<CompActivity>(data);
+
+                    // The gizmo may not yet be initialized for the comp.
+                    comp.gizmo ??= new ActivityGizmo(comp.parent);
+
+                    return (ActivityGizmo)comp.gizmo;
+                }
+            }
+
+            #endregion
         };
 	}
 }

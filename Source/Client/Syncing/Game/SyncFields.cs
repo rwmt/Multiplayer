@@ -87,6 +87,10 @@ namespace Multiplayer.Client
         public static ISyncField SyncEntityContainmentMode;
         public static ISyncField SyncExtractBioferrite;
 
+        public static ISyncField SyncActivityGizmoTarget;
+        public static ISyncField SyncActivityCompTarget;
+        public static ISyncField SyncActivityCompSuppression;
+
         public static void Init()
         {
             SyncMedCare = Sync.Field(typeof(Pawn), nameof(Pawn.playerSettings), nameof(Pawn_PlayerSettings.medCare));
@@ -218,6 +222,10 @@ namespace Multiplayer.Client
             SyncStudiableCompEnabled = Sync.Field(typeof(CompStudiable), nameof(CompStudiable.studyEnabled));
             SyncEntityContainmentMode = Sync.Field(typeof(CompHoldingPlatformTarget), nameof(CompHoldingPlatformTarget.containmentMode));
             SyncExtractBioferrite = Sync.Field(typeof(CompHoldingPlatformTarget), nameof(CompHoldingPlatformTarget.extractBioferrite));
+
+            SyncActivityGizmoTarget = Sync.Field(typeof(ActivityGizmo), nameof(ActivityGizmo.targetValuePct)).SetBufferChanges();
+            SyncActivityCompTarget = Sync.Field(typeof(CompActivity), nameof(CompActivity.suppressIfAbove)).SetBufferChanges();
+            SyncActivityCompSuppression = Sync.Field(typeof(CompActivity), nameof(CompActivity.suppressionEnabled));
         }
 
         [MpPrefix(typeof(StorytellerUI), nameof(StorytellerUI.DrawStorytellerSelectionInterface))]
@@ -533,6 +541,14 @@ namespace Multiplayer.Client
 
                 if (geneGizmo.gene is Gene_Hemogen)
                     SyncGeneHemogenAllowed.Watch(geneGizmo.gene);
+            }
+            else if (__instance is ActivityGizmo activityGizmo)
+            {
+                SyncActivityGizmoTarget.Watch(activityGizmo);
+
+                var comp = activityGizmo.Comp;
+                SyncActivityCompTarget.Watch(comp);
+                SyncActivityCompSuppression.Watch(comp);
             }
         }
 
