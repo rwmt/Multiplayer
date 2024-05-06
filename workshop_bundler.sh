@@ -4,10 +4,10 @@
 
 VERSION=$(grep -Po '(?<=Version = ")[0-9\.]+' Source/Common/Version.cs)
 
-git submodule update --init --recursive
+git submodule update --init --recursive || { echo 'git submodule update FAILED' ; exit 1; }
 
 cd Source
-dotnet build --configuration Release
+dotnet build --configuration Release || { echo 'dotnet build FAILED' ; exit 1; }
 cd ..
 
 rm -rf Multiplayer/
