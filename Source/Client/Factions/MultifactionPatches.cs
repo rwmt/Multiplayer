@@ -399,7 +399,7 @@ static class DontClearDialogBeginRitualCache
 [HarmonyPatch(typeof(Apparel), nameof(Apparel.WornGraphicPath), MethodType.Getter)]
 static class ApparelWornGraphicPathGetterPatch
 {
-    private static FieldInfo thingIDNumberField = AccessTools.Field(typeof(Apparel), nameof(Apparel.thingIDNumber));
+    private static FieldInfo thingIDNumberField = AccessTools.Field(typeof(Thing), nameof(Thing.thingIDNumber));
 
     static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
     {

@@ -44,6 +44,7 @@
 
   <ItemGroup>
     <Publicize Include="Assembly-CSharp;0Harmony;UnityEngine.IMGUIModule" />
+    <DoNotPublicize Include="0Harmony:System.Runtime.CompilerServices.DefaultInterpolatedStringHandler" />
   </ItemGroup>
 
   <ItemGroup>

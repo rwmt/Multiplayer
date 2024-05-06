@@ -319,7 +319,7 @@ namespace Multiplayer.Client.Patches
     }
 
     [HarmonyPatch(typeof(SituationalThoughtHandler), nameof(SituationalThoughtHandler.AppendSocialThoughts))]
-    static class DontUpdateThoughQueryTickInInterface
+    static class DontUpdateThoughtQueryTickInInterface
     {
         private static FieldInfo queryTickField = AccessTools.Field(typeof(SituationalThoughtHandler.CachedSocialThoughts), nameof(SituationalThoughtHandler.CachedSocialThoughts.lastQueryTick));
 
@@ -331,7 +331,7 @@ namespace Multiplayer.Client.Patches
                 {
                     yield return new CodeInstruction(OpCodes.Ldarg_0);
                     yield return new CodeInstruction(OpCodes.Ldarg_1);
-                    yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(DontUpdateThoughQueryTickInInterface), nameof(NewQueryTick)));
+                    yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(DontUpdateThoughtQueryTickInInterface), nameof(NewQueryTick)));
                 }
 
                 yield return inst;
@@ -411,7 +411,7 @@ namespace Multiplayer.Client.Patches
                     AccessTools.Method(typeof(PawnCapacitiesHandlerGetLevelPatch), nameof(NewCacheStatus)))
             );
 
-            return matcher.codes;
+            return matcher.Instructions();
         }
 
         private static bool ShouldUpdateCache(PawnCapacitiesHandler.CacheStatus status)
@@ -459,7 +459,7 @@ namespace Multiplayer.Client.Patches
                 new CodeMatch(OpCodes.Newobj)
             ).Advance(1).Insert(
                 new CodeInstruction(OpCodes.Call,
-                    AccessTools.Method(typeof(StatWorkerGetValuePatch), nameof(NewCacheStatusCtor)))
+                    AccessTools.Method(typeof(StatWorkerGetValuePatch), nameof(NewCacheTicksCtor)))
             );
 
             // Modify status setter
@@ -467,10 +467,10 @@ namespace Multiplayer.Client.Patches
                     new CodeMatch(OpCodes.Stfld, typeof(StatCacheEntry).GetField(nameof(StatCacheEntry.gameTick)))
             ).Insert(
                 new CodeInstruction(OpCodes.Call,
-                    AccessTools.Method(typeof(StatWorkerGetValuePatch), nameof(NewCacheStatus)))
+                    AccessTools.Method(typeof(StatWorkerGetValuePatch), nameof(NewCacheTicks)))
             );
 
-            return matcher.codes;
+            return matcher.Instructions();
         }
 
         private static bool HasValueInCache(bool hasValueInCache, StatWorker worker, Thing t)
@@ -479,13 +479,13 @@ namespace Multiplayer.Client.Patches
             return hasValueInCache && !(simulating && worker.temporaryStatCache[t].gameTick < 0);
         }
 
-        private static StatCacheEntry NewCacheStatusCtor(StatCacheEntry entry)
+        private static StatCacheEntry NewCacheTicksCtor(StatCacheEntry entry)
         {
-            entry.gameTick = NewCacheStatus(entry.gameTick);
+            entry.gameTick = NewCacheTicks(entry.gameTick);
             return entry;
         }
 
-        private static int NewCacheStatus(int gameTick)
+        private static int NewCacheTicks(int gameTick)
         {
             return Multiplayer.InInterface ? -gameTick : gameTick;
         }

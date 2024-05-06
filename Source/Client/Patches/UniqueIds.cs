@@ -148,7 +148,7 @@ namespace Multiplayer.Client.Patches
             {
                 // Handle negative thing ids when loading
                 // These come from getting a unique id in the interface and are fixed (replaced) later when necessary
-                if (inst.operand == "\\d+$")
+                if (inst.operand is "\\d+$")
                     inst.operand = "-?\\d+$";
 
                 yield return inst;

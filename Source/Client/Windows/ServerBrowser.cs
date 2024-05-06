@@ -120,7 +120,7 @@ namespace Multiplayer.Client
 
                 using (MpStyle.Set(mouseOver ? Color.yellow : Color.white))
                 using (MpStyle.Set(TextAnchor.MiddleCenter))
-                    MpUI.Label(new Rect(x, 0, labelWidth, 24f), labelKey.Translate());
+                    Widgets.Label(new Rect(x, 0, labelWidth, 24f), labelKey.Translate());
 
                 x += labelWidth;
                 x += 10;
@@ -139,6 +139,18 @@ namespace Multiplayer.Client
 
             if (Button(MultiplayerStatic.DiscordIcon, "MpDiscordButton", "MpLinkButtonDesc".Translate() + " " + discordLink, Color.white))
                 Application.OpenURL(discordLink);
+
+            x += 10;
+            Widgets.Label(new Rect(x, 0, 400, 24), "Note: Multiplayer for 1.5 is still in testing phase.");
+
+            const string v15Notice =
+                """
+                Anomaly compatibility is also a work-in-progress. Compatibility with other mods is likely going to take the longest to flesh out.
+
+                We recommend downgrading RimWorld to 1.4 if you want to continue playing a stable version.
+                """;
+
+            TooltipHandler.TipRegion(new Rect(x, 0, 400, 300), v15Notice);
 
             if (false) // todo
                 Button(
