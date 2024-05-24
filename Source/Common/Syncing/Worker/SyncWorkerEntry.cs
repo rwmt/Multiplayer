@@ -9,6 +9,7 @@ namespace Multiplayer.Client;
 public class SyncWorkerEntry
 {
     delegate bool SyncWorkerDelegate(SyncWorker sync, ref object? obj);
+    delegate void SyncWorkerDelegateNoReturn(SyncWorker sync, ref object? obj);
 
     public Type type;
     public bool shouldConstruct;
@@ -38,8 +39,19 @@ public class SyncWorkerEntry
 
     public void Add(MethodInfo method)
     {
-        // todo: Find a way to do this without DynDelegate
-        Add(DynDelegate.DynamicDelegate.Create<SyncWorkerDelegate>(method), method.ReturnType == typeof(void));
+        if (method.ReturnType == typeof(void))
+        {
+            var func = (SyncWorkerDelegateNoReturn)Delegate.CreateDelegate(typeof(SyncWorkerDelegateNoReturn), method);
+            Add((SyncWorker sync, ref object obj) =>
+            {
+                func(sync, ref obj);
+                return true;
+            }, true);
+        }
+        else
+        {
+            Add((SyncWorkerDelegate)Delegate.CreateDelegate(typeof(SyncWorkerDelegate), method), false);
+        }
     }
 
     public void Add<T>(SyncWorkerDelegate<T> func)
