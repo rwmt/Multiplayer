@@ -1095,9 +1095,7 @@ namespace Multiplayer.Client
                     return data.MpContext().map.storageGroups.groups.Find(g => g.loadID == loadId);
                 }
             },
-            #endregion
 
-            #region Storage
             {
                 (ByteWriter data, StorageSettings storage) => {
                     WriteSync(data, storage.owner);
@@ -1106,10 +1104,6 @@ namespace Multiplayer.Client
                     IStoreSettingsParent parent = ReadSync<IStoreSettingsParent>(data);
                     return parent?.GetStoreSettings();
                 }
-            },
-            {
-                (ByteWriter data, StorageGroup group) => WriteSync(data, group.members.First()),
-                (ByteReader data) => ReadSync<IStorageGroupMember>(data).Group
             },
             #endregion
 
