@@ -8,6 +8,7 @@ using System.Text;
 
 using HarmonyLib;
 using LudeonTK;
+using Multiplayer.Client.Util;
 using RimWorld;
 using RimWorld.Planet;
 using UnityEngine;
@@ -173,6 +174,33 @@ namespace Multiplayer.Client
                     .Join(delimiter: "\n")
                 );
             }
+        }
+
+        [DebugAction(MultiplayerCategory, "Dump IRenameable Types", allowedGameStates = AllowedGameStates.Entry)]
+        static void DumpIRenameableTypes()
+        {
+            var synced = new List<Type>();
+            var unsynced = new List<Type>();
+            var methods = typeof(IRenameable).AllImplementing()
+                .Select(t => AccessTools.DeclaredPropertySetter(t, nameof(IRenameable.RenamableLabel)))
+                .AllNotNull();
+
+            foreach (var method in methods)
+            {
+                // Check if a method is synced or not
+                if (Sync.methodBaseToInternalId.ContainsKey(method))
+                    synced.Add(method.DeclaringType);
+                else
+                    unsynced.Add(method.DeclaringType);
+            }
+
+            Log.Warning("== Synced IRenameable types ==");
+            Log.Message(!synced.Any() ? "No types" : synced.Select(GetNameWithNamespace).Join(delimiter: "\n"));
+
+            Log.Warning("== Unsynced IRenameable types ==");
+            Log.Message(!unsynced.Any() ? "No types" : unsynced.Select(GetNameWithNamespace).Join(delimiter: "\n"));
+
+            static string GetNameWithNamespace(Type t) => t.Namespace.NullOrEmpty() ? t.Name : $"{t.Namespace}.{t.Name}";
         }
 
         [DebugAction(MultiplayerCategory, allowedGameStates = AllowedGameStates.Playing)]

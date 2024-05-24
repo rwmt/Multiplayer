@@ -407,6 +407,28 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(Building_BioferriteHarvester), nameof(Building_BioferriteHarvester.EjectContents)); // Eject contents
             SyncMethod.Lambda(typeof(Building_BioferriteHarvester), nameof(Building_BioferriteHarvester.GetGizmos), 1); // Toggle unload
             SyncMethod.Lambda(typeof(Building_BioferriteHarvester), nameof(Building_BioferriteHarvester.GetGizmos), 3).SetDebugOnly(); // Dev add +1
+
+            // Double ExecuteWhenFinished ensures it'll load after MP Compat late patches,
+            // so it will have registered all its sync workers already.
+            LongEventHandler.ExecuteWhenFinished(() => LongEventHandler.ExecuteWhenFinished(() =>
+            {
+                // Only get methods for types which we can sync. The syncing of renaming is of low enough importance
+                // that we don't need to worry about having errors if there's any that can't be synced
+                var methods = typeof(IRenameable).AllImplementing()
+                    .Where(t => Multiplayer.serialization.CanHandle(t))
+                    .Select(t => AccessTools.DeclaredPropertySetter(t, nameof(IRenameable.RenamableLabel)))
+                    .AllNotNull();
+
+                foreach (var method in methods)
+                    MP.RegisterSyncMethod(method);
+
+                // This OnRenamed method will create a storage group, which needs to be synced.
+                // No other vanilla rename dialogs need syncing OnRenamed, but modded ones potentially could need it.
+                MP.RegisterSyncMethod(typeof(Dialog_RenameBuildingStorage_CreateNew), nameof(Dialog_RenameBuildingStorage_CreateNew.OnRenamed))
+                    .TransformTarget(Serializer.New(
+                        (Dialog_RenameBuildingStorage_CreateNew dialog) => dialog.building,
+                        (IStorageGroupMember member) => new Dialog_RenameBuildingStorage_CreateNew(member)));
+            }));
         }
 
         [MpPrefix(typeof(PawnColumnWorker_CopyPasteTimetable), nameof(PawnColumnWorker_CopyPasteTimetable.PasteTo))]
