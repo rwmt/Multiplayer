@@ -145,7 +145,7 @@ namespace Multiplayer.Client
 
             const string v15Notice =
                 """
-                Anomaly compatibility is also a work-in-progress. Compatibility with other mods is likely going to take the longest to flesh out.
+                1.5 and Anomaly compatibility is a work-in-progress. Compatibility with other mods is likely going to take the longest to flesh out.
 
                 We recommend downgrading RimWorld to 1.4 if you want to continue playing a stable version.
                 """;
