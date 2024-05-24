@@ -17,7 +17,6 @@ namespace Multiplayer.Client
         public static ISyncField SyncHostilityResponse;
         public static ISyncField SyncFollowDrafted;
         public static ISyncField SyncFollowFieldwork;
-        public static ISyncField SyncInteractionMode;
         public static ISyncField SyncSlaveInteractionMode;
         public static ISyncField SyncIdeoForConversion;
         public static ISyncField SyncBeCarried;
@@ -90,7 +89,6 @@ namespace Multiplayer.Client
             SyncHostilityResponse = Sync.Field(typeof(Pawn), nameof(Pawn.playerSettings), nameof(Pawn_PlayerSettings.hostilityResponse));
             SyncFollowDrafted = Sync.Field(typeof(Pawn), nameof(Pawn.playerSettings), nameof(Pawn_PlayerSettings.followDrafted));
             SyncFollowFieldwork = Sync.Field(typeof(Pawn), nameof(Pawn.playerSettings), nameof(Pawn_PlayerSettings.followFieldwork));
-            SyncInteractionMode = Sync.Field(typeof(Pawn), nameof(Pawn.guest), nameof(Pawn_GuestTracker.interactionMode));
             SyncSlaveInteractionMode = Sync.Field(typeof(Pawn), nameof(Pawn.guest), nameof(Pawn_GuestTracker.slaveInteractionMode));
             SyncIdeoForConversion = Sync.Field(typeof(Pawn), nameof(Pawn.guest), nameof(Pawn_GuestTracker.ideoForConversion));
             SyncBeCarried = Sync.Field(typeof(Pawn), nameof(Pawn.health), nameof(Pawn_HealthTracker.beCarriedByCaravanIfSick));
@@ -258,7 +256,6 @@ namespace Multiplayer.Client
         {
             Pawn pawn = __instance.SelPawn;
             SyncMedCare.Watch(pawn);
-            SyncInteractionMode.Watch(pawn);
             SyncSlaveInteractionMode.Watch(pawn);
             SyncIdeoForConversion.Watch(pawn);
         }

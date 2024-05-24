@@ -39,6 +39,8 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(Pawn_JobTracker), nameof(Pawn_JobTracker.TryTakeOrderedJob)).SetContext(SyncContext.QueueOrder_Down).ExposeParameter(0);
             SyncMethod.Register(typeof(Pawn_JobTracker), nameof(Pawn_JobTracker.TryTakeOrderedJobPrioritizedWork)).SetContext(SyncContext.QueueOrder_Down).ExposeParameter(0);
             SyncMethod.Register(typeof(Pawn_TrainingTracker), nameof(Pawn_TrainingTracker.SetWantedRecursive));
+            SyncMethod.Register(typeof(Pawn_GuestTracker), nameof(Pawn_GuestTracker.SetExclusiveInteraction)).CancelIfAnyArgNull();
+            SyncMethod.Register(typeof(Pawn_GuestTracker), nameof(Pawn_GuestTracker.ToggleNonExclusiveInteraction)).CancelIfAnyArgNull();
             SyncMethod.Register(typeof(Zone), nameof(Zone.Delete));
             SyncMethod.Register(typeof(BillStack), nameof(BillStack.AddBill)).ExposeParameter(0); // Only used for pasting
             SyncMethod.Register(typeof(BillStack), nameof(BillStack.Delete)).CancelIfAnyArgNull();

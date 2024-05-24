@@ -225,6 +225,10 @@ namespace Multiplayer.Client
                 (ByteWriter data, Pawn_NeedsTracker joinerTracker) => WriteSync(data, joinerTracker?.pawn),
                 (ByteReader data) => ReadSync<Pawn>(data)?.needs
             },
+            {
+                (ByteWriter data, Pawn_GuestTracker guestTracker) => WriteSync(data, guestTracker?.pawn),
+                (ByteReader data) => ReadSync<Pawn>(data)?.guest
+            },
             #endregion
 
             #region Policies
