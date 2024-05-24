@@ -385,10 +385,9 @@ namespace Multiplayer.Client
             SyncMethod.Lambda(typeof(Building_VoidMonolith), nameof(Building_VoidMonolith.GetGizmos), 2).SetDebugOnly(); // Dev relink
 
             // Harbinger Tree
-            SyncMethod.Register(typeof(HarbingerTree), nameof(HarbingerTree.CreateCorpseStockpile));
+            SyncMethod.Register(typeof(HarbingerTree), nameof(HarbingerTree.CreateCorpseStockpile)).SetContext(SyncContext.MapSelected);
             SyncMethod.Register(typeof(HarbingerTree), nameof(HarbingerTree.AddNutrition)).SetDebugOnly();
             SyncMethod.Register(typeof(HarbingerTree), nameof(HarbingerTree.SpawnNewTree)).SetDebugOnly();
-            SyncMethod.Register(typeof(HarbingerTree), nameof(HarbingerTree.UpdateRoots)).SetDebugOnly();
             SyncMethod.LocalFunc(typeof(HarbingerTree), nameof(HarbingerTree.GetGizmos), "DelayedSplatter").SetDebugOnly(); // Set blood splatters delay
 
             // Pawn creep joiner tracker
