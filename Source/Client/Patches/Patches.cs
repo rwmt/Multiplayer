@@ -563,11 +563,6 @@ namespace Multiplayer.Client
     public static class StoragesKeepsTheirOwners
     {
         [HarmonyPostfix]
-        [HarmonyPatch(typeof(Building_GrowthVat), nameof(Building_GrowthVat.ExposeData))]
-        static void PostBuildingGrowthVat(Building_GrowthVat __instance)
-            => FixStorage(__instance, __instance.allowedNutritionSettings);
-
-        [HarmonyPostfix]
         [HarmonyPatch(typeof(CompBiosculpterPod), nameof(CompBiosculpterPod.PostExposeData))]
         static void PostCompBiosculpterPod(CompBiosculpterPod __instance)
             => FixStorage(__instance, __instance.allowedNutritionSettings);
