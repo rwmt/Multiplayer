@@ -491,4 +491,37 @@ namespace Multiplayer.Client.Patches
         }
     }
 
+    [HarmonyPatch(typeof(GameConditionManager.MapBrightnessTracker), nameof(GameConditionManager.MapBrightnessTracker.Tick))]
+    static class MapBrightnessLerpPatch
+    {
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instr)
+        {
+            var patchCount = 0;
+
+            // The method is using delta time for darkness changes,
+            // which is not good for MP since it's tied to the FPS.
+            var target = AccessTools.DeclaredPropertyGetter(typeof(Time), nameof(Time.deltaTime));
+
+            foreach (var ci in instr)
+            {
+                if (ci.Calls(target))
+                {
+                    // Replace deltaTime with a constant value.
+                    // We use 1/60 since 1 second at speed 1 the deltaTime
+                    // should (in perfect situation) be 60 ticks.
+                    ci.opcode = OpCodes.Ldc_R4;
+                    ci.operand = 1f / 60f;
+
+                    patchCount++;
+                }
+
+                yield return ci;
+            }
+
+            const int expectedPatches = 1;
+            if (patchCount != expectedPatches)
+                Log.Error($"Replaced an incorrect amount of Time.deltaTime calls for GameConditionManager.MapBrightnessTracker:Tick (expected: {expectedPatches}, patched: {patchCount}). Was the original method changed?");
+        }
+    }
+
 }
