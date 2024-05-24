@@ -1,11 +1,10 @@
 using HarmonyLib;
 using Multiplayer.API;
 using RimWorld;
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using Multiplayer.Client.Util;
+using System.Reflection.Emit;
 using UnityEngine;
 using Verse;
 using static Verse.Widgets;
@@ -46,6 +45,7 @@ namespace Multiplayer.Client.Persistent
         public void OpenWindow(bool sound = true)
         {
             var dialog = new BeginRitualProxy(
+                data.assignments,
                 data.ritualLabel,
                 data.ritual,
                 data.target,
@@ -60,10 +60,7 @@ namespace Multiplayer.Client.Persistent
                 data.outcome,
                 data.extraInfos,
                 null
-            )
-            {
-                assignments = data.assignments
-            };
+            );
 
             if (!sound)
                 dialog.soundAppear = null;
@@ -107,12 +104,43 @@ namespace Multiplayer.Client.Persistent
 
         public RitualSession Session => map.MpComp().sessionManager.GetFirstOfType<RitualSession>();
 
-        public BeginRitualProxy(string ritualLabel, Precept_Ritual ritual, TargetInfo target, Map map, ActionCallback action, Pawn organizer, RitualObligation obligation, PawnFilter filter = null, string okButtonText = null, List<Pawn> requiredPawns = null, Dictionary<string, Pawn> forcedForRole = null, RitualOutcomeEffectDef outcome = null, List<string> extraInfoText = null, Pawn selectedPawn = null) :
-            base(ritualLabel, ritual, target, map, action, organizer, obligation, filter, okButtonText, requiredPawns, forcedForRole, outcome, extraInfoText, selectedPawn)
+        // In the base type, the unused fields are used to create RitualRoleAssignments which already exist in an MP session
+        // They are here to help keep the base constructor in sync with this one
+        public BeginRitualProxy(
+            RitualRoleAssignments assignments,
+            string ritualLabel,
+            Precept_Ritual ritual,
+            TargetInfo target,
+            Map map,
+            ActionCallback action,
+            Pawn organizer,
+            RitualObligation obligation,
+            PawnFilter filter = null,
+            string okButtonText = null,
+            // ReSharper disable once UnusedParameter.Local
+            List<Pawn> requiredPawns = null,
+            // ReSharper disable once UnusedParameter.Local
+            Dictionary<string, Pawn> forcedForRole = null,
+            RitualOutcomeEffectDef outcome = null,
+            List<string> extraInfoText = null,
+            // ReSharper disable once UnusedParameter.Local
+            Pawn selectedPawn = null) :
+            base(assignments, ritual, target, ritual?.outcomeEffect?.def ?? outcome)
         {
+            this.obligation = obligation;
+            this.filter = filter;
+            this.organizer = organizer;
+            this.map = map;
+            this.action = action;
+            ritualExplanation = ritual?.ritualExplanation;
+            this.ritualLabel = ritualLabel;
+            this.okButtonText = okButtonText ?? "OK".Translate();
+            extraInfos = extraInfoText;
+
             soundClose = SoundDefOf.TabClose;
 
             // This gets cancelled in the base constructor if called from ticking/cmd in DontClearDialogBeginRitualCache
+            // Note that: cachedRoles is a static field, cachedRoles is only used for UI drawing
             cachedRoles.Clear();
             if (ritual is { ideo: not null })
             {
@@ -199,15 +227,15 @@ namespace Multiplayer.Client.Persistent
                 && window.GetType() == typeof(Dialog_BeginRitual) // Doesn't let BeginRitualProxy through
                 && (Multiplayer.ExecutingCmds || Multiplayer.Ticking))
             {
-                var dialog = (Dialog_BeginRitual)window;
-                dialog.PostOpen(); // Completes initialization
+                var tempDialog = (Dialog_BeginRitual)window;
+                tempDialog.PostOpen(); // Completes initialization
 
-                var comp = dialog.map.MpComp();
+                var comp = tempDialog.map.MpComp();
                 var session = comp.sessionManager.GetFirstOfType<RitualSession>();
 
                 if (session != null &&
-                    (session.data.ritual != dialog.ritual ||
-                     session.data.outcome != dialog.outcome))
+                    (session.data.ritual != tempDialog.ritual ||
+                     session.data.outcome != tempDialog.outcome))
                 {
                     Messages.Message("MpAnotherRitualInProgress".Translate(), MessageTypeDefOf.RejectInput, false);
                     return false;
@@ -217,16 +245,16 @@ namespace Multiplayer.Client.Persistent
                 {
                     var data = new RitualData
                     {
-                        ritual = dialog.ritual,
-                        target = dialog.target,
-                        obligation = dialog.obligation,
-                        outcome = dialog.outcome,
-                        extraInfos = dialog.extraInfos,
-                        action = dialog.action,
-                        ritualLabel = dialog.ritualLabel,
-                        confirmText = dialog.confirmText,
-                        organizer = dialog.organizer,
-                        assignments = MpUtil.ShallowCopy(dialog.assignments, new MpRitualAssignments())
+                        ritual = tempDialog.ritual,
+                        target = tempDialog.target,
+                        obligation = tempDialog.obligation,
+                        outcome = tempDialog.outcome,
+                        extraInfos = tempDialog.extraInfos,
+                        action = tempDialog.action,
+                        ritualLabel = tempDialog.ritualLabel,
+                        confirmText = tempDialog.confirmText,
+                        organizer = tempDialog.organizer,
+                        assignments = MpUtil.ShallowCopy(tempDialog.assignments, new MpRitualAssignments())
                     };
 
                     session = comp.CreateRitualSession(data);
@@ -239,6 +267,44 @@ namespace Multiplayer.Client.Persistent
             }
 
             return true;
+        }
+    }
+
+    // Note that cachedRoles is a static field and is only used for UI drawing
+    [HarmonyPatch]
+    static class DontClearDialogBeginRitualCache
+    {
+        private static MethodInfo listClear = AccessTools.Method(typeof(List<Precept_Role>), "Clear");
+
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return typeof(Dialog_BeginRitual).GetConstructors(BindingFlags.Public | BindingFlags.Instance).First();
+        }
+
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts, ILGenerator gen)
+        {
+            var list = insts.ToList();
+            var brLabel = gen.DefineLabel();
+
+            foreach (var inst in list)
+            {
+                if (inst.operand == listClear)
+                {
+                    yield return new CodeInstruction(OpCodes.Call,
+                        AccessTools.Method(typeof(DontClearDialogBeginRitualCache), nameof(ShouldCancelCacheClear)));
+                    yield return new CodeInstruction(OpCodes.Brfalse, brLabel);
+                    yield return new CodeInstruction(OpCodes.Pop);
+                    yield return new CodeInstruction(OpCodes.Ret);
+                    yield return new CodeInstruction(OpCodes.Nop) { labels = { brLabel } };
+                }
+
+                yield return inst;
+            }
+        }
+
+        static bool ShouldCancelCacheClear()
+        {
+            return Multiplayer.Ticking || Multiplayer.ExecutingCmds;
         }
     }
 

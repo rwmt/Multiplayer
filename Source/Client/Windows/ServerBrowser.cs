@@ -150,7 +150,7 @@ namespace Multiplayer.Client
                 We recommend downgrading RimWorld to 1.4 if you want to continue playing a stable version.
                 """;
 
-            TooltipHandler.TipRegion(new Rect(x, 0, 400, 300), v15Notice);
+            TooltipHandler.TipRegion(new Rect(x, 0, 400, 25), v15Notice);
 
             if (false) // todo
                 Button(

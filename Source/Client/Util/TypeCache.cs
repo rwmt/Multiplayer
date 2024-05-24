@@ -63,7 +63,7 @@ public static class TypeCache
         return interfaceImplementations.GetValueSafe(type) ?? Enumerable.Empty<Type>();
     }
 
-    public static Type[] AllImplementationsOrdered(Type type)
+    public static Type[] AllInterfaceImplementationsOrdered(Type type)
     {
         return type.AllImplementing()
             .OrderBy(t => t.IsInterface)

@@ -27,7 +27,7 @@ namespace Multiplayer.Client.Persistent
             GUI.color = Color.white;
             if (__result)
             {
-                CaravanFormingProxy.drawing.Session?.Remove();
+                CaravanFormingProxy.drawing.Session?.Cancel();
                 __result = false;
             }
         }
@@ -163,6 +163,7 @@ namespace Multiplayer.Client.Persistent
             if (__instance.GetType() != typeof(Dialog_FormCaravan))
                 return;
 
+            // Handles showing the dialog from TimedForcedExit.CompTick -> TimedForcedExit.ForceReform
             if (Multiplayer.ExecutingCmds || Multiplayer.Ticking)
             {
                 var comp = map.MpComp();

@@ -337,7 +337,7 @@ namespace Multiplayer.Client
             // Remove side effects from methods which are non-deterministic during ticking (e.g. camera dependent motes and sound effects)
             {
                 var randPatchPrefix = new HarmonyMethod(typeof(RandPatches), nameof(RandPatches.Prefix));
-                var randPatchPostfix = new HarmonyMethod(typeof(RandPatches), nameof(RandPatches.Postfix));
+                var randPatchFinalizer = new HarmonyMethod(typeof(RandPatches), nameof(RandPatches.Finalizer));
 
                 var subSustainerStart = MpMethodUtil.GetLambda(typeof(SubSustainer), parentMethodType: MethodType.Constructor, parentArgs: new[] { typeof(Sustainer), typeof(SubSoundDef) });
                 var sampleCtor = typeof(Sample).GetConstructor(new[] { typeof(SubSoundDef) });
@@ -362,7 +362,7 @@ namespace Multiplayer.Client
                 var ritualMethods = new[] { canEverSpectate };
 
                 foreach (MethodBase m in effectMethods.Concat(moteMethods).Concat(fleckMethods).Concat(ritualMethods))
-                    TryPatch(m, randPatchPrefix, randPatchPostfix);
+                    TryPatch(m, randPatchPrefix, finalizer: randPatchFinalizer);
             }
 
             SetCategory("Non-deterministic patches 2");
@@ -435,17 +435,17 @@ namespace Multiplayer.Client
             // Set the map time for GUI methods depending on it
             {
                 var setMapTimePrefix = new HarmonyMethod(AccessTools.Method(typeof(SetMapTimeForUI), nameof(SetMapTimeForUI.Prefix)));
-                var setMapTimePostfix = new HarmonyMethod(AccessTools.Method(typeof(SetMapTimeForUI), nameof(SetMapTimeForUI.Postfix)));
+                var setMapTimeFinalizer = new HarmonyMethod(AccessTools.Method(typeof(SetMapTimeForUI), nameof(SetMapTimeForUI.Finalizer)));
 
                 var windowMethods = new[] { "DoWindowContents", "WindowUpdate" };
                 foreach (string m in windowMethods)
-                    TryPatch(typeof(MainTabWindow_Inspect).GetMethod(m), setMapTimePrefix, setMapTimePostfix);
+                    TryPatch(typeof(MainTabWindow_Inspect).GetMethod(m), setMapTimePrefix, finalizer: setMapTimeFinalizer);
 
                 foreach (var t in typeof(InspectTabBase).AllSubtypesAndSelf())
                 {
                     var method = t.GetMethod("FillTab", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly, null, Type.EmptyTypes, null);
                     if (method != null && !method.IsAbstract)
-                        TryPatch(method, setMapTimePrefix, setMapTimePostfix);
+                        TryPatch(method, setMapTimePrefix, finalizer: setMapTimeFinalizer);
                 }
             }
         }

@@ -4,9 +4,9 @@ using Verse;
 
 namespace Multiplayer.Client;
 
-public static class ImplSerialization
+internal static class ImplSerialization
 {
-    public static void Init()
+    public static void Init(RwSyncTypeHelper typeHelper)
     {
         Multiplayer.serialization.RegisterForSyncWithImpl(typeof(IStoreSettingsParent));
         Multiplayer.serialization.RegisterForSyncWithImpl(typeof(IStorageGroupMember));
@@ -21,6 +21,7 @@ public static class ImplSerialization
         Multiplayer.serialization.RegisterForSyncWithImpl(typeof(Policy));
 
         // todo for 1.5
-        // Multiplayer.serialization.RegisterForSyncWithImpl(typeof(PawnRoleSelectionWidgetBase<ILordJobRole>));
+        Multiplayer.serialization.RegisterForSyncWithImpl(typeof(PawnRoleSelectionWidgetBase<ILordJobRole>));
+        typeHelper.AddImplManually(typeof(PawnRoleSelectionWidgetBase<ILordJobRole>), typeof(PawnRitualRoleSelectionWidget));
     }
 }

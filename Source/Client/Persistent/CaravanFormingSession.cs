@@ -134,7 +134,12 @@ namespace Multiplayer.Client
         }
 
         [SyncMethod]
-        public void Remove()
+        public void Cancel()
+        {
+            Remove();
+        }
+
+        private void Remove()
         {
             map.MpComp().sessionManager.RemoveSession(this);
             Find.WorldRoutePlanner.Stop();

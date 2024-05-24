@@ -359,43 +359,6 @@ static class LetterStackReceiveSoundOnlyMyFaction
     }
 }
 
-[HarmonyPatch]
-static class DontClearDialogBeginRitualCache
-{
-    private static MethodInfo listClear = AccessTools.Method(typeof(List<Precept_Role>), "Clear");
-
-    static IEnumerable<MethodBase> TargetMethods()
-    {
-        yield return typeof(Dialog_BeginRitual).GetConstructors(BindingFlags.Public | BindingFlags.Instance).First();
-    }
-
-    static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts, ILGenerator gen)
-    {
-        var list = insts.ToList();
-        var brLabel = gen.DefineLabel();
-
-        foreach (var inst in list)
-        {
-            if (inst.operand == listClear)
-            {
-                yield return new CodeInstruction(OpCodes.Call,
-                    AccessTools.Method(typeof(DontClearDialogBeginRitualCache), nameof(ShouldCancelCacheClear)));
-                yield return new CodeInstruction(OpCodes.Brfalse, brLabel);
-                yield return new CodeInstruction(OpCodes.Pop);
-                yield return new CodeInstruction(OpCodes.Ret);
-                yield return new CodeInstruction(OpCodes.Nop) { labels = { brLabel } };
-            }
-
-            yield return inst;
-        }
-    }
-
-    static bool ShouldCancelCacheClear()
-    {
-        return Multiplayer.Ticking || Multiplayer.ExecutingCmds;
-    }
-}
-
 [HarmonyPatch(typeof(Apparel), nameof(Apparel.WornGraphicPath), MethodType.Getter)]
 static class ApparelWornGraphicPathGetterPatch
 {

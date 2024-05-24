@@ -11,7 +11,7 @@ public static class ApiSerialization
 
     public static void Init()
     {
-        syncSimples = TypeCache.AllImplementationsOrdered(typeof(ISyncSimple));
-        sessions = TypeCache.AllImplementationsOrdered(typeof(Session));
+        syncSimples = TypeCache.AllInterfaceImplementationsOrdered(typeof(ISyncSimple));
+        sessions = TypeCache.AllSubclassesNonAbstractOrdered(typeof(Session));
     }
 }

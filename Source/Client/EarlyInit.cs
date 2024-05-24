@@ -35,7 +35,7 @@ public static class EarlyInit
         harmony.PatchMeasure(
             AccessTools.Constructor(typeof(Def), Type.EmptyTypes),
             new HarmonyMethod(typeof(RandPatches), nameof(RandPatches.Prefix)),
-            new HarmonyMethod(typeof(RandPatches), nameof(RandPatches.Postfix))
+            finalizer: new HarmonyMethod(typeof(RandPatches), nameof(RandPatches.Finalizer))
         );
 
         Assembly.GetCallingAssembly().GetTypes().Do(type =>

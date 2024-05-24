@@ -188,7 +188,7 @@ namespace Multiplayer.Client
                 }
             },
             {
-                // Currently only used for PawnRitualRoleSelectionWidget syncing
+                // Currently only used for Dialog_BeginRitual delegate syncing
                 (ByteWriter data, PawnRitualRoleSelectionWidget dialog) => {
                     WriteSync(data, dialog.ritualAssignments);
                     WriteSync(data, dialog.ritual);
@@ -199,6 +199,20 @@ namespace Multiplayer.Client
 
                     var ritual = ReadSync<Precept_Ritual>(data); // todo handle ritual becoming null?
                     return new PawnRitualRoleSelectionWidget(assignments, ritual, assignments.session.data.target, assignments.session.data.outcome);
+                }
+            },
+            {
+                // Currently only used for Dialog_BeginRitual delegate syncing
+                (ByteWriter data, Dialog_BeginRitual dialog) => {
+                    WriteSync(data, dialog.assignments);
+                    WriteSync(data, dialog.ritual);
+                },
+                (ByteReader data) => {
+                    var assignment = ReadSync<RitualRoleAssignments>(data) as MpRitualAssignments;
+                    if (assignment == null) return null;
+
+                    var ritual = ReadSync<Precept_Ritual>(data); // todo handle ritual becoming null?
+                    return new Dialog_BeginRitual(assignment, ritual, assignment.ritualTarget, assignment.session.data.outcome);
                 }
             },
             {

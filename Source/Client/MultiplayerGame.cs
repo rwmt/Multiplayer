@@ -56,6 +56,7 @@ namespace Multiplayer.Client
             District.nextDistrictID = 1;
             Region.nextId = 1;
             ListerHaulables.groupCycleIndex = 0;
+            ListerHaulables.cellCycleIndices.Clear();
 
             ZoneColorUtility.nextGrowingZoneColorIndex = 0;
             ZoneColorUtility.nextStorageZoneColorIndex = 0;

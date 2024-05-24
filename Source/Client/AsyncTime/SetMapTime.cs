@@ -34,7 +34,7 @@ namespace Multiplayer.Client
         }
 
         [HarmonyPriority(MpPriority.MpLast)]
-        internal static void Postfix(TimeSnapshot? __state) => __state?.Set();
+        internal static void Finalizer(TimeSnapshot? __state) => __state?.Set();
     }
 
     [HarmonyPatch]

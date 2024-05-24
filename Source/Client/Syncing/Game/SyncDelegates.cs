@@ -63,7 +63,7 @@ namespace Multiplayer.Client
             SyncDelegate.Lambda(typeof(CaravanVisitUtility), nameof(CaravanVisitUtility.TradeCommand), 0).CancelIfAnyFieldNull();       // Caravan trade with settlement
             SyncDelegate.Lambda(typeof(FactionGiftUtility), nameof(FactionGiftUtility.OfferGiftsCommand), 0).CancelIfAnyFieldNull();    // Caravan offer gifts
 
-            SyncDelegate.Lambda(typeof(Building_Bed), nameof(Building_Bed.GetFloatMenuOptions), 0).CancelIfAnyFieldNull(); // Use medical bed
+            SyncDelegate.Lambda(typeof(Building_Bed), nameof(Building_Bed.GetBedRestFloatMenuOption), 0).CancelIfAnyFieldNull(); // Use medical bed
 
             SyncMethod.Lambda(typeof(CompRefuelable), nameof(CompRefuelable.CompGetGizmosExtra), 1);                    // Toggle Auto-refuel
             SyncMethod.Lambda(typeof(CompRefuelable), nameof(CompRefuelable.CompGetGizmosExtra), 2).SetDebugOnly();     // Set fuel to 0
@@ -284,7 +284,7 @@ namespace Multiplayer.Client
             var ritualRolesSerializer = Serializer.New(
                 (IEnumerable<ILordJobRole> roles, object target, object[] _) =>
                 {
-                    var roleSelectionWidget = (PawnRoleSelectionWidgetBase<ILordJobRole>)target;
+                    var roleSelectionWidget = (PawnRitualRoleSelectionWidget)target;
                     return (roleSelectionWidget, roleSelectionWidget.assignments.RoleGroups().FirstOrDefault(g => g.SequenceEqual(roles))?.Key);
                 },
                 data => data.roleSelectionWidget.assignments.RoleGroups().FirstOrDefault(g => g.Key == data.Key)

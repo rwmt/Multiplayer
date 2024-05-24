@@ -98,7 +98,6 @@ namespace Multiplayer.Common
         // For each serializationHooks:
         //      if matcher: serialize; break
         // Implementations of Multiplayer.API.ISynchronizable
-        // Run all typeChangerHooks
         // syncTree.TryGetValue(type)
 
         public object? ReadSyncObject(ByteReader data, SyncType syncType)
@@ -310,9 +309,6 @@ namespace Multiplayer.Common
             Type type = syncType.type;
             var log = (data as LoggingByteWriter)?.Log;
             log?.Enter($"{type.FullName}: {obj ?? "null"}");
-
-            if (obj != null && !type.IsInstanceOfType(obj))
-                throw new SerializationException($"Serializing with type {type} but got object of type {obj.GetType()}");
 
             try
             {

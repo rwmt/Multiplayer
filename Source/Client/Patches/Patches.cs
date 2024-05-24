@@ -355,7 +355,7 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.Client == null) return;
 
-            // Ignore pause
+            // Ignore unpausing
             if (__result && __instance.active && WorldRendererUtility.WorldRenderedNow)
                 __result = false;
         }
@@ -584,6 +584,15 @@ namespace Multiplayer.Client
         {
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
                 ___allowedNutritionSettings.owner ??= __instance;
+        }
+    }
+
+    [HarmonyPatch(typeof(PawnRoleSelectionWidgetBase<ILordJobRole>), nameof(PawnRoleSelectionWidgetBase<ILordJobRole>.TryAssign))]
+    static class Patc
+    {
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+        {
+            return insts;
         }
     }
 }

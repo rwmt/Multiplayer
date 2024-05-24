@@ -16,18 +16,24 @@ public static class RwSerialization
 {
     public static void Init()
     {
-        Multiplayer.serialization = new Common.SyncSerialization(new RwSyncTypeHelper());
+        var typeHelper = new RwSyncTypeHelper();
+        Multiplayer.serialization = new Common.SyncSerialization(typeHelper);
 
         // CanHandle hooks
         Multiplayer.serialization.AddCanHandleHook(syncType =>
         {
             var type = syncType.type;
+
+            // Verse.Pair<,>
             if (type.IsGenericType && type.GetGenericTypeDefinition() is { } gtd)
                 if (gtd == typeof(Pair<,>))
                     return Multiplayer.serialization.CanHandleGenericArgs(type);
 
+            // Verse.IExposable
             if (syncType.expose)
                 return typeof(IExposable).IsAssignableFrom(type);
+
+            // Multiplayer.API.ISyncSimple
             if (type == typeof(ISyncSimple))
                 return true;
             if (typeof(ISyncSimple).IsAssignableFrom(type))
@@ -35,12 +41,8 @@ public static class RwSerialization
                     Where(t => type.IsAssignableFrom(t)).
                     SelectMany(AccessTools.GetDeclaredFields).
                     All(f => Multiplayer.serialization.CanHandle(f.FieldType));
-            if (typeof(Def).IsAssignableFrom(type))
-                return true;
-            if (typeof(Designator).IsAssignableFrom(type))
-                return true;
 
-            return SyncDict.syncWorkers.TryGetValue(type, out _);
+            return false;
         });
 
         // Verse.Pair<,> serialization
@@ -66,7 +68,7 @@ public static class RwSerialization
             }
         );
 
-        // IExposable serialization
+        // Verse.IExposable serialization
         Multiplayer.serialization.AddSerializationHook(
             syncType => syncType.expose,
             (data, syncType) =>
@@ -90,7 +92,7 @@ public static class RwSerialization
             }
         );
 
-        // ISyncSimple serialization
+        // Multiplayer.API.ISyncSimple serialization
         // todo null handling for ISyncSimple?
         Multiplayer.serialization.AddSerializationHook(
             syncType => typeof(ISyncSimple).IsAssignableFrom(syncType.type),
@@ -111,7 +113,7 @@ public static class RwSerialization
             }
         );
 
-        ImplSerialization.Init();
+        ImplSerialization.Init(typeHelper);
         CompSerialization.Init();
         ApiSerialization.Init();
         DefSerialization.Init();

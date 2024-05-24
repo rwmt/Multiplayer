@@ -140,7 +140,7 @@ namespace Multiplayer.Client
         }
 
         [HarmonyPriority(MpPriority.MpLast)]
-        public static void Postfix(bool __state)
+        public static void Finalizer(bool __state)
         {
             if (__state)
                 Rand.PopState();
