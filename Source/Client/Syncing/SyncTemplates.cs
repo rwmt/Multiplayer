@@ -30,10 +30,10 @@ namespace Multiplayer.Client
         {
             int idx;
             var label = gen.DefineLabel();
-            var parameter = original.GetParameters();
+            var parameters = original.GetParameters();
 
             idx = 0;
-            foreach (var pInfo in parameter) {
+            foreach (var pInfo in parameters) {
                 var argIndex = idx++ + (original.IsStatic ? 0 : 1);
                 var pType = pInfo.ParameterType;
                 if (pInfo.IsOut) {
@@ -58,12 +58,12 @@ namespace Multiplayer.Client
             yield return new CodeInstruction(OpCodes.Ldc_I4, Sync.methodBaseToInternalId[original]);
             yield return new CodeInstruction(original.IsStatic ? OpCodes.Ldnull : OpCodes.Ldarg_0);
 
-            yield return new CodeInstruction(OpCodes.Ldc_I4, parameter.Length);
+            yield return new CodeInstruction(OpCodes.Ldc_I4, parameters.Length);
             yield return new CodeInstruction(OpCodes.Newarr, typeof(object));
 
             idx = 0;
             var arrayIdx = 0;
-            foreach (var pInfo in parameter) {
+            foreach (var pInfo in parameters) {
                 var argIndex = idx++ + (original.IsStatic ? 0 : 1);
                 var pType = pInfo.ParameterType;
                 yield return new CodeInstruction(OpCodes.Dup);
@@ -116,7 +116,6 @@ namespace Multiplayer.Client
                     yield return new CodeInstruction(OpCodes.Ldc_I8, (long) 0);
                 else
                     yield return new CodeInstruction(OpCodes.Ldc_I4, 0);
-                yield break;
             }
         }
 

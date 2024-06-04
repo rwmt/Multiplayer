@@ -122,7 +122,7 @@ namespace Multiplayer.Client.Util
             }
             catch (Exception e)
             {
-                throw new Exception($"Extracting debug id for {method.DeclaringType}::{method.Name} failed at {cur} with: {e.Message}");
+                throw new Exception($"Extracting debug id for {method.DeclaringType}::{method.Name} failed at {cur} with: {e}");
             }
 
             throw new Exception($"Couldn't determine debug id for parent method {method.DeclaringType}::{method.Name}");
@@ -170,6 +170,20 @@ namespace Multiplayer.Client.Util
             }
 
             return null;
+        }
+
+        public static string After(this string s, char c)
+        {
+            if (s.IndexOf(c) == -1)
+                throw new ArgumentException($"Char {c} not found in string {s}");
+            return s.Substring(s.IndexOf(c) + 1);
+        }
+
+        public static string Until(this string s, char c)
+        {
+            if (s.IndexOf(c) == -1)
+                throw new ArgumentException($"Char {c} not found in string {s}");
+            return s.Substring(0, s.IndexOf(c));
         }
     }
 }

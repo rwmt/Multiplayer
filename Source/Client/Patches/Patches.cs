@@ -581,13 +581,4 @@ namespace Multiplayer.Client
                 ___allowedNutritionSettings.owner ??= __instance;
         }
     }
-
-    [HarmonyPatch(typeof(PawnRoleSelectionWidgetBase<ILordJobRole>), nameof(PawnRoleSelectionWidgetBase<ILordJobRole>.TryAssign))]
-    static class Patc
-    {
-        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
-        {
-            return insts;
-        }
-    }
 }

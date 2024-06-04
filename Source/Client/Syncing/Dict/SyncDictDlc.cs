@@ -194,7 +194,7 @@ namespace Multiplayer.Client
                     WriteSync(data, dialog.ritual);
                 },
                 (ByteReader data) => {
-                    var assignments = ReadSync<RitualRoleAssignments>(data) as MpRitualAssignments;
+                    var assignments = (MpRitualAssignments)ReadSync<RitualRoleAssignments>(data);
                     if (assignments == null) return null;
 
                     var ritual = ReadSync<Precept_Ritual>(data); // todo handle ritual becoming null?
@@ -208,7 +208,7 @@ namespace Multiplayer.Client
                     WriteSync(data, dialog.ritual);
                 },
                 (ByteReader data) => {
-                    var assignment = ReadSync<RitualRoleAssignments>(data) as MpRitualAssignments;
+                    var assignment = (MpRitualAssignments)ReadSync<RitualRoleAssignments>(data);
                     if (assignment == null) return null;
 
                     var ritual = ReadSync<Precept_Ritual>(data); // todo handle ritual becoming null?

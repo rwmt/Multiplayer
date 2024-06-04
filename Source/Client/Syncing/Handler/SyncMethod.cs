@@ -5,6 +5,7 @@ using System;
 using System.Linq;
 using System.Reflection;
 using Multiplayer.Client.Util;
+using MultiplayerLoader;
 using Verse;
 
 namespace Multiplayer.Client
@@ -14,7 +15,7 @@ namespace Multiplayer.Client
     public delegate void SyncMethodWriter(object obj, SyncType type, string debugInfo);
 
 
-    public class SyncMethod : SyncHandler, ISyncMethod
+    public class SyncMethod : SyncHandler, ISyncMethod, ISyncMethodForPrepatcher
     {
         public readonly Type targetType;
         public readonly MethodInfo method;
@@ -36,6 +37,8 @@ namespace Multiplayer.Client
 
         private Action<object, object[]> beforeCall;
         private Action<object, object[]> afterCall;
+
+        public Type TargetType => targetType;
 
         public SyncMethod(Type targetType, string instancePath, MethodInfo method, SyncType[] inTypes)
         {

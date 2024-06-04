@@ -31,16 +31,10 @@ namespace Multiplayer.Client
 
         public static SyncMethod Method(Type targetType, string methodName, SyncType[] argTypes = null)
         {
-            return Method(targetType, null, methodName, argTypes);
-        }
+            var method = AccessTools.Method(targetType, methodName, argTypes?.Select(t => t.type).ToArray())
+                ?? throw new Exception($"Couldn't find method {targetType}::{methodName}");
 
-        public static SyncMethod Method(Type targetType, string instancePath, string methodName, SyncType[] argTypes = null)
-        {
-            var instanceType = instancePath == null ? targetType : MpReflection.PathType($"{targetType}/{instancePath}");
-            var method = AccessTools.Method(instanceType, methodName, argTypes?.Select(t => t.type).ToArray())
-                ?? throw new Exception($"Couldn't find method {instanceType}::{methodName}");
-
-            SyncMethod handler = new SyncMethod(targetType, instancePath, method, argTypes);
+            SyncMethod handler = new SyncMethod(targetType, null, method, argTypes);
             handlers.Add(handler);
             return handler;
         }

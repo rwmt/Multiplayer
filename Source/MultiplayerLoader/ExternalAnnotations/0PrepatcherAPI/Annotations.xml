@@ -1,0 +1,7 @@
+<assembly name="0PrepatcherAPI">
+  <member name="T:Prepatcher.FreePatchAttribute">
+    <attribute ctor="M:JetBrains.Annotations.MeansImplicitUseAttribute.#ctor(JetBrains.Annotations.ImplicitUseTargetFlags)">
+      <argument>3</argument>
+    </attribute>
+  </member>
+</assembly>

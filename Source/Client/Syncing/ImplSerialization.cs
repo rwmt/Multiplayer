@@ -6,7 +6,7 @@ namespace Multiplayer.Client;
 
 internal static class ImplSerialization
 {
-    public static void Init(RwSyncTypeHelper typeHelper)
+    public static void Init()
     {
         Multiplayer.serialization.RegisterForSyncWithImpl(typeof(IStoreSettingsParent));
         Multiplayer.serialization.RegisterForSyncWithImpl(typeof(IStorageGroupMember));
@@ -19,9 +19,5 @@ internal static class ImplSerialization
         Multiplayer.serialization.RegisterForSyncWithImpl(typeof(IThingHolder));
         Multiplayer.serialization.RegisterForSyncWithImpl(typeof(IReloadableComp));
         Multiplayer.serialization.RegisterForSyncWithImpl(typeof(Policy));
-
-        // todo for 1.5
-        Multiplayer.serialization.RegisterForSyncWithImpl(typeof(PawnRoleSelectionWidgetBase<ILordJobRole>));
-        typeHelper.AddImplManually(typeof(PawnRoleSelectionWidgetBase<ILordJobRole>), typeof(PawnRitualRoleSelectionWidget));
     }
 }

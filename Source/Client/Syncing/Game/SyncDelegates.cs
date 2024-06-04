@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using HarmonyLib;
 using Multiplayer.Client.Patches;
+using MultiplayerLoader;
 using Verse;
 
 namespace Multiplayer.Client
@@ -266,44 +267,27 @@ namespace Multiplayer.Client
             SyncDelegate.Lambda(typeof(SocialCardUtility), nameof(SocialCardUtility.DrawPawnRoleSelection), 0); // Begin role change: remove role
             SyncDelegate.Lambda(typeof(SocialCardUtility), nameof(SocialCardUtility.DrawPawnRoleSelection), 3); // Begin role change: assign role
 
-            // SyncDelegate.Lambda(typeof(Dialog_BeginRitual), nameof(Dialog_BeginRitual.DrawRoleSelection), 0); // Select role: none
-            // SyncDelegate.Lambda(typeof(Dialog_BeginRitual), nameof(Dialog_BeginRitual.DrawRoleSelection), 3); // Select role, set confirm text
-            // SyncDelegate.Lambda(typeof(Dialog_BeginRitual), nameof(Dialog_BeginRitual.DrawRoleSelection), 4); // Select role, no confirm text
+            SyncDelegate.Lambda(typeof(Dialog_BeginRitual), nameof(Dialog_BeginRitual.DrawRoleSelection), 0); // Select role: none
+            SyncDelegate.Lambda(typeof(Dialog_BeginRitual), nameof(Dialog_BeginRitual.DrawRoleSelection), 3); // Select role, set confirm text
+            SyncDelegate.Lambda(typeof(Dialog_BeginRitual), nameof(Dialog_BeginRitual.DrawRoleSelection), 4); // Select role, no confirm text
 
             /*
-                Ritual dialog
+                PawnRoleSelectionWidgetBase
 
                 The UI's main interaction area is split into three types of groups of pawns.
                 Each has three action handlers: (drop), (leftclick), (rightclick)
                 The names in parenths below indicate what is synced for each handler.
 
                 <Pawn Group>: <Handlers>
-                (Zero or more) roles: (local TryAssignReplace, local TryAssign), (null), (delegate)
-                Spectators: (assgn.TryAssignSpectate), (local TryAssignAnyRole), (assgn.RemoveParticipant)
-                Not participating: (assgn.RemoveParticipant), (delegate), float menus: (assgn.TryAssignSpectate, local TryAssignReplace, local TryAssign)
+                (Zero or more) roles: (TryAssignReplace, TryAssign), (null), (delegate)
+                Spectators: (assgn.TryAssignSpectate), (TryAssignAnyRole), (assgn.RemoveParticipant)
+                Not participating: (assgn.RemoveParticipant), (delegate), float menus: (assgn.TryAssignSpectate, TryAssignReplace, TryAssign)
             */
-
-            var ritualRolesSerializer = Serializer.New(
-                (IEnumerable<ILordJobRole> roles, object target, object[] _) =>
-                {
-                    var roleSelectionWidget = (PawnRitualRoleSelectionWidget)target;
-                    return (roleSelectionWidget, roleSelectionWidget.assignments.RoleGroups().FirstOrDefault(g => g.SequenceEqual(roles))?.Key);
-                },
-                data => data.roleSelectionWidget.assignments.RoleGroups().FirstOrDefault(g => g.Key == data.Key)
-            );
-
-            // todo for 1.5
-            // SyncMethod.Register(typeof(PawnRoleSelectionWidgetBase<ILordJobRole>), nameof(PawnRoleSelectionWidgetBase<ILordJobRole>.TryAssignReplace))
-            //     .TransformArgument(1, ritualRolesSerializer);
-            // SyncMethod.Register(typeof(PawnRoleSelectionWidgetBase<ILordJobRole>), nameof(PawnRoleSelectionWidgetBase<ILordJobRole>.TryAssignAnyRole));
-            // SyncMethod.Register(typeof(PawnRoleSelectionWidgetBase<ILordJobRole>), nameof(PawnRoleSelectionWidgetBase<ILordJobRole>.TryAssign))
-            //     .TransformArgument(1, ritualRolesSerializer);
-            //
-            // SyncMethod.Lambda(typeof(PawnRoleSelectionWidgetBase<ILordJobRole>), nameof(PawnRoleSelectionWidgetBase<ILordJobRole>.DrawPawnListInternal), 7); // Roles right click delegate (try assign spectate)
-            // SyncMethod.Lambda(typeof(PawnRoleSelectionWidgetBase<ILordJobRole>), nameof(PawnRoleSelectionWidgetBase<ILordJobRole>.DrawPawnListInternal), 2); // Not participating left click delegate (try assign any role or spectate)
 
             SyncMethod.Register(typeof(RitualRoleAssignments), nameof(RitualRoleAssignments.TryAssignSpectate));
             SyncMethod.Register(typeof(RitualRoleAssignments), nameof(RitualRoleAssignments.RemoveParticipant));
+
+            SyncRituals.ApplyPrepatches(null);
         }
 
         private static void InitChoiceLetters()

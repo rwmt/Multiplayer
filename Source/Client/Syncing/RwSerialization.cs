@@ -16,8 +16,7 @@ public static class RwSerialization
 {
     public static void Init()
     {
-        var typeHelper = new RwSyncTypeHelper();
-        Multiplayer.serialization = new Common.SyncSerialization(typeHelper);
+        Multiplayer.serialization = new Common.SyncSerialization(new RwSyncTypeHelper());
 
         // CanHandle hooks
         Multiplayer.serialization.AddCanHandleHook(syncType =>
@@ -113,7 +112,7 @@ public static class RwSerialization
             }
         );
 
-        ImplSerialization.Init(typeHelper);
+        ImplSerialization.Init();
         CompSerialization.Init();
         ApiSerialization.Init();
         DefSerialization.Init();
