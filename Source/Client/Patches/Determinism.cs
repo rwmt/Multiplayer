@@ -524,4 +524,64 @@ namespace Multiplayer.Client.Patches
         }
     }
 
+    [HarmonyPatch(typeof(UndercaveMapComponent), nameof(UndercaveMapComponent.MapComponentTick))]
+    static class DeterministicUndercaveRockCollapse
+    {
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instr)
+        {
+            var target = MethodOf.Lambda(Rand.MTBEventOccurs);
+
+            foreach (var ci in instr)
+            {
+                yield return ci;
+
+                // Add "& false" to any call to Rand.MTBEventOccurs.
+                // We'll handle those calls in our postfix.
+                if (ci.Calls(target))
+                {
+                    yield return new CodeInstruction(OpCodes.Ldc_I4_0);
+                    yield return new CodeInstruction(OpCodes.And);
+                }
+            }
+        }
+
+        static void Prefix() => Rand.PushState();
+
+        static void Postfix(UndercaveMapComponent __instance)
+        {
+            // Pop the RNG state from the prefix
+            Rand.PopState();
+
+            // Make sure the pit gate is collapsing
+            if (__instance.pitGate is not { IsCollapsing: true })
+                return;
+
+            // Check if the rocks should collapse
+            var mtb = UndercaveMapComponent.HoursToShakeMTBTicksCurve.Evaluate(__instance.pitGate.TicksUntilCollapse / 2500f);
+            if (!Rand.MTBEventOccurs(mtb, 1, 1))
+                return;
+
+            // Since the number of RNG calls will depend on numDustEffecters argument, we need to push/pop the RNG state.
+            // The RNG calls related to simulation will happen first, followed by the one determined by amount of
+            // effecters - it would not be MP safe, but since it happens last it will be fine once we pop the state.
+            Rand.PushState();
+
+            // If not looking at the map, trigger the collapse without shake/effecters (since it's not needed for current player).
+            // The call to play a sound is handled by RW itself, since it targets a specific map already.
+            if (Find.CurrentMap != __instance.map)
+            {
+                // Progress the RNG state, matching the RandomInRange call in other two cases
+                Rand.RangeInclusive(0, 100);
+                __instance.TriggerCollapseFX(0, 0);
+            }
+            // Else, follow vanilla shake/effecter rules
+            else if (__instance.pitGate.CollapseStage == 1)
+                __instance.TriggerCollapseFX(UndercaveMapComponent.StageOneShakeAmount, UndercaveMapComponent.StageOneNumCollapseEffects.RandomInRange);
+            else
+                __instance.TriggerCollapseFX(UndercaveMapComponent.StageTwoShakeAmount, UndercaveMapComponent.StageTwoNumCollapseEffects.RandomInRange);
+
+            Rand.PopState();
+        }
+    }
+
 }
