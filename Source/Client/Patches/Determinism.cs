@@ -124,6 +124,40 @@ namespace Multiplayer.Client.Patches
         }
     }
 
+    [HarmonyPatch]
+    static class UnnaturalCorpsePatch
+    {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            // both of these actually combine "is valid" semantics with "is unseen"
+            yield return AccessTools.DeclaredMethod(typeof(AnomalyUtility), nameof(AnomalyUtility.IsValidUnseenCell));
+            yield return AccessTools.DeclaredMethod(typeof(UnnaturalCorpse), nameof(UnnaturalCorpse.IsOutsideView));
+        }
+        
+        // primarily for `IsValidUnseenCell()` but works fine for `IsOutsideView()` as well (maybe others)
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts, ILGenerator gen)
+        {
+            var cm = new CodeMatcher(insts, gen);
+            
+            cm.MatchStartForward(Code.Call[AccessTools.DeclaredPropertyGetter(typeof(Find), nameof(Find.CurrentMap))]);
+            cm.SearchForward(inst => inst.Branches(out _));
+            // consider it always on current map, so we can proceed (with finding a nice walkable cell etc.)
+            //  keeping `Beq` and `Bne` avoids needing `Code.Pop, Code.Pop`
+            if (cm.Opcode == OpCodes.Beq_S)
+                cm.Advance(1).Insert(Code.Br_S[cm.InstructionAt(-1).operand]);  // force jump as if equal
+            else if (cm.Opcode == OpCodes.Bne_Un_S)
+                cm.CreateLabelWithOffsets(1, out var label).Operand = label;    // not-equal jump goes nowhere
+            else
+                cm.ThrowIfFalse("Couldn't find equality branch opcode following `Find.CurrentMap`", _ => false);
+
+            cm.MatchStartForward(Code.Call[AccessTools.DeclaredMethod(typeof(CellRect), nameof(CellRect.Contains))]);
+            // consider it always outside view (not contained in `CurrentViewRect`) so we can proceed
+            cm.Advance(1).Insert(Code.Ldc_I4_0, Code.And);
+            
+            return cm.Instructions();
+        }
+    }
+    
     [HarmonyPatch(typeof(Pawn), nameof(Pawn.ProcessPostTickVisuals))]
     static class DrawTrackerTickPatch
     {
