@@ -15,6 +15,7 @@ using Random = UnityEngine.Random;
 
 namespace Multiplayer.Client.Patches
 {
+    [EarlyPatch]
     [HarmonyPatch(typeof(PawnTweener))]
     [HarmonyPatch(nameof(PawnTweener.TweenedPos), MethodType.Getter)]
     static class DrawPosPatch
