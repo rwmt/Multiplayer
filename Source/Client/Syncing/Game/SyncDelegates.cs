@@ -320,6 +320,13 @@ namespace Multiplayer.Client
             // Growth moment for a child
             CloseDialogsForExpiredLetters.RegisterDefaultLetterChoice(AccessTools.Method(typeof(SyncDelegates), nameof(PickRandomTraitAndPassions)), typeof(ChoiceLetter_GrowthMoment));
             SyncMethod.Register(typeof(ChoiceLetter_GrowthMoment), nameof(ChoiceLetter_GrowthMoment.MakeChoices)).ExposeParameter(1);
+
+            // Creep joiner
+            SyncMethod.LambdaInGetter(typeof(ChoiceLetter_AcceptCreepJoiner), nameof(ChoiceLetter_AcceptCreepJoiner.Choices), 0); // Accept joiner
+            SyncMethod.LambdaInGetter(typeof(ChoiceLetter_AcceptCreepJoiner), nameof(ChoiceLetter_AcceptCreepJoiner.Choices), 1); // Arrest joiner
+            CloseDialogsForExpiredLetters.RegisterDefaultLetterChoice(
+                SyncMethod.LambdaInGetter(typeof(ChoiceLetter_AcceptCreepJoiner), nameof(ChoiceLetter_AcceptCreepJoiner.Choices), 2)
+                    .method); // Reject joiner
         }
 
         static void SyncBabyToChildLetter(ChoiceLetter_BabyToChild letter)
