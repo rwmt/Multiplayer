@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Multiplayer.API;
 using Multiplayer.Client.Persistent;
@@ -313,7 +314,69 @@ namespace Multiplayer.Client
 
                     return (ActivityGizmo)comp.gizmo;
                 }
-            }
+            },
+            {
+                (ByteWriter data, PsychicRitualRoleAssignments assignments) =>
+                {
+                    // In Multiplayer, PsychicRitualRoleAssignments should only be of the wrapper type MpRitualAssignments
+                    var mpAssignments = (MpPsychicRitualAssignments)assignments;
+                    data.MpContext().map = mpAssignments.session.map;
+                    data.WriteInt32(mpAssignments.session.SessionId);
+                },
+                (ByteReader data) =>
+                {
+                    var id = data.ReadInt32();
+                    var ritual = data.MpContext().map.MpComp().sessionManager.GetFirstWithId<PsychicRitualSession>(id);
+                    return ritual?.assignments;
+                }
+            },
+            {
+                (ByteWriter data, PsychicRitualCandidatePool candidatePool) =>
+                {
+                    WriteSync(data, candidatePool.AllCandidatePawns);
+                    WriteSync(data, candidatePool.NonAssignablePawns);
+                },
+                (ByteReader data) =>
+                {
+                    var allCandidates = ReadSync<List<Pawn>>(data);
+                    var nonAssignable = ReadSync<List<Pawn>>(data);
+
+                    return new PsychicRitualCandidatePool(allCandidates, nonAssignable);
+                }
+            },
+            {
+                (ByteWriter data, PsychicRitual ritual) =>
+                {
+                    var lordToil = ritual?.lord?.CurLordToil as LordToil_PsychicRitual;
+                    WriteSync(data, lordToil);
+
+                    // We could skip syncing the ID, I've decided to include it for additional error checking
+                    if (lordToil != null)
+                        data.WriteInt32(ritual.loadID);
+                },
+                (ByteReader data) =>
+                {
+                    var lordToil = ReadSync<LordToil_PsychicRitual>(data);
+                    if (lordToil == null)
+                        return null;
+
+                    var ritualId = data.ReadInt32();
+                    var ritual = lordToil.RitualData.psychicRitual;
+
+                    if (ritual == null)
+                    {
+                        Log.Error("Psychic ritual was null after syncing");
+                        return null;
+                    }
+                    if (ritual.loadID != ritualId)
+                    {
+                        Log.Error($"Synced psychic ritual ID did not match after syncing, expected: {ritualId}, current: {ritual.loadID}");
+                        return null;
+                    }
+
+                    return ritual;
+                }, true // implicit
+            },
 
             #endregion
         };
