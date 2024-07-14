@@ -13,16 +13,19 @@ namespace Multiplayer.Client.Patches
         // Start at -2 because -1 is sometimes used as the uninitialized marker
         private static int localIds = -2;
 
+        public static bool useLocalIdsOverride;
+
+        private static bool UseLocalIds =>
+            Multiplayer.Client != null && (useLocalIdsOverride || Multiplayer.InInterface || Current.ProgramState == ProgramState.Entry);
+
         static bool Prefix()
         {
-            return Multiplayer.Client == null || (!Multiplayer.InInterface && Current.ProgramState != ProgramState.Entry);
+            return !UseLocalIds;
         }
 
         static void Postfix(ref int __result)
         {
-            if (Multiplayer.Client == null) return;
-
-            if (Multiplayer.InInterface || Current.ProgramState == ProgramState.Entry)
+            if (UseLocalIds)
                 __result = localIds--;
         }
     }

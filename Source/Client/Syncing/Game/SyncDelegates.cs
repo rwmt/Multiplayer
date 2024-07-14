@@ -468,54 +468,6 @@ namespace Multiplayer.Client
             geneUIUtilityTarget = target;
         }
 
-        [MpPrefix(typeof(FormCaravanComp), nameof(FormCaravanComp.GetGizmos), lambdaOrdinal: 0)]
-        static bool GizmoFormCaravan(MapParent ___mapParent)
-        {
-            if (Multiplayer.Client == null) return true;
-            GizmoFormCaravan(___mapParent.Map, false);
-            return false;
-        }
-
-        [MpPrefix(typeof(FormCaravanComp), nameof(FormCaravanComp.GetGizmos), lambdaOrdinal: 1)]
-        static bool GizmoReformCaravan(MapParent ___mapParent)
-        {
-            if (Multiplayer.Client == null) return true;
-            GizmoFormCaravan(___mapParent.Map, true);
-            return false;
-        }
-
-        [MpPrefix(typeof(CompHitchingSpot), nameof(CompHitchingSpot.CompGetGizmosExtra), 0)]
-        static bool GizmoFormCaravan(CompHitchingSpot __instance)
-        {
-            if (Multiplayer.Client == null) return true;
-            GizmoFormCaravan(__instance.parent.Map, false, __instance.parent.Position);
-            return false;
-        }
-
-        private static void GizmoFormCaravan(Map map, bool reform, IntVec3? meetingSpot = null)
-        {
-            var comp = map.MpComp();
-
-            if (comp.sessionManager.GetFirstOfType<CaravanFormingSession>() is { } session)
-                session.OpenWindow();
-            else
-                CreateCaravanFormingSession(comp, reform, meetingSpot);
-        }
-
-        [SyncMethod]
-        private static void CreateCaravanFormingSession(MultiplayerMapComp comp, bool reform, IntVec3? meetingSpot = null)
-        {
-            var session = comp.CreateCaravanFormingSession(reform, null, false, meetingSpot);
-
-            if (TickPatch.currentExecutingCmdIssuedBySelf)
-            {
-                session.OpenWindow();
-                AsyncTimeComp.keepTheMap = true;
-                Current.Game.CurrentMap = comp.map;
-                Find.World.renderer.wantedMode = WorldRenderMode.None;
-            }
-        }
-
         [MpPostfix(typeof(CaravanVisitUtility), nameof(CaravanVisitUtility.TradeCommand))]
         static void ReopenTradingWindowLocally(Caravan caravan, Command __result)
         {

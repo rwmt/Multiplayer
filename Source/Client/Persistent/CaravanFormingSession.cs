@@ -44,7 +44,7 @@ namespace Multiplayer.Client
 
         private void AddItems()
         {
-            var dialog = new CaravanFormingProxy(map, reform, null, mapAboutToBeRemoved, meetingSpot)
+            var dialog = new CaravanFormingProxy(sessionId, map, reform, null, mapAboutToBeRemoved, meetingSpot)
             {
                 autoSelectTravelSupplies = autoSelectTravelSupplies
             };
@@ -52,7 +52,7 @@ namespace Multiplayer.Client
             transferables = dialog.transferables;
         }
 
-        public void OpenWindow(bool sound = true)
+        public CaravanFormingProxy OpenWindow(bool sound = true)
         {
             var dialog = PrepareDummyDialog();
             if (!sound)
@@ -72,13 +72,14 @@ namespace Multiplayer.Client
             );
 
             dialog.Notify_TransferablesChanged();
-
             Find.WindowStack.Add(dialog);
+
+            return dialog;
         }
 
         private CaravanFormingProxy PrepareDummyDialog()
         {
-            var dialog = new CaravanFormingProxy(map, reform, null, mapAboutToBeRemoved, meetingSpot)
+            var dialog = new CaravanFormingProxy(sessionId, map, reform, null, mapAboutToBeRemoved, meetingSpot)
             {
                 transferables = transferables,
                 startingTile = startingTile,
@@ -142,7 +143,9 @@ namespace Multiplayer.Client
         private void Remove()
         {
             map.MpComp().sessionManager.RemoveSession(this);
-            Find.WorldRoutePlanner.Stop();
+
+            if (Find.WorldRoutePlanner.currentFormCaravanDialog is CaravanFormingProxy proxy && proxy.originalSessionId == sessionId)
+                Find.WorldRoutePlanner.Stop();
         }
 
         [SyncMethod]
@@ -186,7 +189,6 @@ namespace Multiplayer.Client
         {
             return new FloatMenuOption("MpCaravanFormingSession".Translate(), () =>
             {
-                SwitchToMapOrWorld(entry.map);
                 OpenWindow();
             });
         }
