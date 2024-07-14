@@ -20,12 +20,14 @@ namespace Multiplayer.Client.Patches
     [HarmonyPatch(nameof(PawnTweener.TweenedPos), MethodType.Getter)]
     static class DrawPosPatch
     {
-        static bool Prefix() => Multiplayer.Client == null || Multiplayer.InInterface;
+        public static bool returnTruePosition = false;
+
+        static bool Prefix() => Multiplayer.Client == null || Multiplayer.InInterface || returnTruePosition;
 
         // Give the root position during ticking
         static void Postfix(PawnTweener __instance, ref Vector3 __result)
         {
-            if (Multiplayer.Client == null || Multiplayer.InInterface) return;
+            if (Multiplayer.Client == null || Multiplayer.InInterface || returnTruePosition) return;
             __result = __instance.TweenedPosRoot();
         }
     }
