@@ -47,9 +47,9 @@ public static class SyncRituals
             else
             {
                 // Sync.Method doesn't apply a Harmony patch and doesn't require the DeclaringType to be the target type
-                var syncMethod = (ISyncMethodForPrepatcher)SyncRituals.syncMethod.Invoke(null, [derivedType, method, null]);
-                postProcess?.Invoke(syncMethod);
-                syncMethodsWithPrepatches.Add(syncMethod);
+                var newSyncMethod = (ISyncMethodForPrepatcher)syncMethod.Invoke(null, [derivedType, method, null]);
+                postProcess?.Invoke(newSyncMethod);
+                syncMethodsWithPrepatches.Add(newSyncMethod);
             }
         }
 

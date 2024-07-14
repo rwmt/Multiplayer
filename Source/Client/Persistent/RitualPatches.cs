@@ -11,179 +11,12 @@ using static Verse.Widgets;
 
 namespace Multiplayer.Client.Persistent
 {
-    public class RitualSession : SemiPersistentSession
-    {
-        public Map map;
-        public RitualData data;
-
-        public override Map Map => map;
-
-        public RitualSession(Map map) : base(map)
-        {
-            this.map = map;
-        }
-
-        public RitualSession(Map map, RitualData data) : this(map)
-        {
-            this.data = data;
-            this.data.assignments.session = this;
-        }
-
-        [SyncMethod]
-        public void Remove()
-        {
-            map.MpComp().sessionManager.RemoveSession(this);
-        }
-
-        [SyncMethod]
-        public void Start()
-        {
-            if (data.action != null && data.action(data.assignments))
-                Remove();
-        }
-
-        public void OpenWindow(bool sound = true)
-        {
-            var dialog = new BeginRitualProxy(
-                data.assignments,
-                data.ritualLabel,
-                data.ritual,
-                data.target,
-                map,
-                data.action,
-                data.organizer,
-                data.obligation,
-                null,
-                data.confirmText,
-                null,
-                null,
-                data.outcome,
-                data.extraInfos,
-                null
-            );
-
-            if (!sound)
-                dialog.soundAppear = null;
-
-            Find.WindowStack.Add(dialog);
-        }
-
-        public override void Sync(SyncWorker sync)
-        {
-            if (sync.isWriting)
-            {
-                sync.Write(data);
-            }
-            else
-            {
-                data = sync.Read<RitualData>();
-                data.assignments.session = this;
-            }
-        }
-
-        public override bool IsCurrentlyPausing(Map map) => map == this.map;
-
-        public override FloatMenuOption GetBlockingWindowOptions(ColonistBar.Entry entry)
-        {
-            return new FloatMenuOption("MpRitualSession".Translate(), () =>
-            {
-                SwitchToMapOrWorld(entry.map);
-                OpenWindow();
-            });
-        }
-    }
-
-    public class MpRitualAssignments : RitualRoleAssignments
-    {
-        public RitualSession session;
-    }
-
-    public class BeginRitualProxy : Dialog_BeginRitual, ISwitchToMap
-    {
-        public static BeginRitualProxy drawing;
-
-        public RitualSession Session => map.MpComp().sessionManager.GetFirstOfType<RitualSession>();
-
-        // In the base type, the unused fields are used to create RitualRoleAssignments which already exist in an MP session
-        // They are here to help keep the base constructor in sync with this one
-        public BeginRitualProxy(
-            RitualRoleAssignments assignments,
-            string ritualLabel,
-            Precept_Ritual ritual,
-            TargetInfo target,
-            Map map,
-            ActionCallback action,
-            Pawn organizer,
-            RitualObligation obligation,
-            PawnFilter filter = null,
-            string okButtonText = null,
-            // ReSharper disable once UnusedParameter.Local
-            List<Pawn> requiredPawns = null,
-            // ReSharper disable once UnusedParameter.Local
-            Dictionary<string, Pawn> forcedForRole = null,
-            RitualOutcomeEffectDef outcome = null,
-            List<string> extraInfoText = null,
-            // ReSharper disable once UnusedParameter.Local
-            Pawn selectedPawn = null) :
-            base(assignments, ritual, target, ritual?.outcomeEffect?.def ?? outcome)
-        {
-            this.obligation = obligation;
-            this.filter = filter;
-            this.organizer = organizer;
-            this.map = map;
-            this.action = action;
-            ritualExplanation = ritual?.ritualExplanation;
-            this.ritualLabel = ritualLabel;
-            this.okButtonText = okButtonText ?? "OK".Translate();
-            extraInfos = extraInfoText;
-
-            soundClose = SoundDefOf.TabClose;
-
-            // This gets cancelled in the base constructor if called from ticking/cmd in DontClearDialogBeginRitualCache
-            // Note that: cachedRoles is a static field, cachedRoles is only used for UI drawing
-            cachedRoles.Clear();
-            if (ritual is { ideo: not null })
-            {
-                cachedRoles.AddRange(ritual.ideo.RolesListForReading.Where(r => !r.def.leaderRole));
-                Precept_Role preceptRole = Faction.OfPlayer.ideos.PrimaryIdeo.RolesListForReading.FirstOrDefault(p => p.def.leaderRole);
-                if (preceptRole != null)
-                    cachedRoles.Add(preceptRole);
-                cachedRoles.SortBy(x => x.def.displayOrderInImpact);
-            }
-        }
-
-        public override void DoWindowContents(Rect inRect)
-        {
-            drawing = this;
-
-            try
-            {
-                var session = Session;
-
-                if (session == null)
-                {
-                    soundClose = SoundDefOf.Click;
-                    Close();
-                }
-
-                // Make space for the "Switch to map" button
-                inRect.yMin += 20f;
-
-                base.DoWindowContents(inRect);
-            }
-            finally
-            {
-                drawing = null;
-            }
-        }
-    }
-
     [HarmonyPatch(typeof(Widgets), nameof(Widgets.ButtonTextWorker))]
     static class MakeCancelRitualButtonRed
     {
         static void Prefix(string label, ref bool __state)
         {
-            if (BeginRitualProxy.drawing == null) return;
+            if (RitualBeginProxy.drawing == null) return;
             if (label != "CancelButton".Translate()) return;
 
             GUI.color = new Color(1f, 0.3f, 0.35f);
@@ -197,7 +30,7 @@ namespace Multiplayer.Client.Persistent
             GUI.color = Color.white;
             if (__result.AnyPressed())
             {
-                BeginRitualProxy.drawing.Session?.Remove();
+                RitualBeginProxy.drawing.Session?.Remove();
                 __result = DraggableResult.Idle;
             }
         }
@@ -208,7 +41,7 @@ namespace Multiplayer.Client.Persistent
     {
         static bool Prefix(Dialog_BeginRitual __instance)
         {
-            if (__instance is BeginRitualProxy proxy)
+            if (__instance is RitualBeginProxy proxy)
             {
                 proxy.Session.Start();
                 return false;
@@ -224,7 +57,7 @@ namespace Multiplayer.Client.Persistent
         static bool Prefix(Window window)
         {
             if (Multiplayer.Client != null
-                && window.GetType() == typeof(Dialog_BeginRitual) // Doesn't let BeginRitualProxy through
+                && window.GetType() == typeof(Dialog_BeginRitual) // Doesn't let RitualBeginProxy through
                 && (Multiplayer.ExecutingCmds || Multiplayer.Ticking))
             {
                 var tempDialog = (Dialog_BeginRitual)window;
