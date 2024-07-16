@@ -10,7 +10,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Krafs.Rimworld.Ref" Version="1.5.4104-beta" />
+    <PackageReference Include="Krafs.Rimworld.Ref" Version="1.5.4104" />
     <PackageReference Include="Krafs.Publicizer" Version="2.2.1">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

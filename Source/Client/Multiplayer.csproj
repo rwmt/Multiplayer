@@ -32,7 +32,7 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="Lib.Harmony" Version="2.3.3" ExcludeAssets="runtime" />
-    <PackageReference Include="Krafs.Rimworld.Ref" Version="1.5.4104-beta" />
+    <PackageReference Include="Krafs.Rimworld.Ref" Version="1.5.4104" />
     <PackageReference Include="RestSharp" Version="106.12.0" />
     <PackageReference Include="RimWorld.MultiplayerAPI" Version="0.5.0" />
   </ItemGroup>
