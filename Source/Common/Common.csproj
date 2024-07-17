@@ -12,7 +12,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Krafs.Rimworld.Ref" Version="1.5.4104-beta" />
+    <PackageReference Include="Krafs.Rimworld.Ref" Version="1.5.4104" />
     <PackageReference Include="LiteNetLib" Version="0.9.5.2" />
     <PackageReference Include="Lib.Harmony" Version="2.3.3" ExcludeAssets="runtime" />
     <PackageReference Include="System.IO.Compression" Version="4.3.0" />

@@ -9,6 +9,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
+using Multiplayer.Client.Patches;
 using UnityEngine;
 using Verse;
 using Verse.AI;
@@ -580,5 +581,13 @@ namespace Multiplayer.Client
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
                 ___allowedNutritionSettings.owner ??= __instance;
         }
+    }
+
+    [HarmonyPatch(typeof(MoteAttachLink), nameof(MoteAttachLink.UpdateDrawPos))]
+    static class MoteAttachLinkUsesTruePosition
+    {
+        static void Prefix() => DrawPosPatch.returnTruePosition = true;
+
+        static void Finalizer() => DrawPosPatch.returnTruePosition = false;
     }
 }

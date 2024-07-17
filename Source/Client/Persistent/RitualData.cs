@@ -6,6 +6,11 @@ using static RimWorld.Dialog_BeginRitual;
 
 namespace Multiplayer.Client.Persistent
 {
+    public class MpRitualAssignments : RitualRoleAssignments
+    {
+        public RitualSession session;
+    }
+
     public class RitualData : ISynchronizable
     {
         public Precept_Ritual ritual;

@@ -320,6 +320,13 @@ namespace Multiplayer.Client
             // Growth moment for a child
             CloseDialogsForExpiredLetters.RegisterDefaultLetterChoice(AccessTools.Method(typeof(SyncDelegates), nameof(PickRandomTraitAndPassions)), typeof(ChoiceLetter_GrowthMoment));
             SyncMethod.Register(typeof(ChoiceLetter_GrowthMoment), nameof(ChoiceLetter_GrowthMoment.MakeChoices)).ExposeParameter(1);
+
+            // Creep joiner
+            SyncMethod.LambdaInGetter(typeof(ChoiceLetter_AcceptCreepJoiner), nameof(ChoiceLetter_AcceptCreepJoiner.Choices), 0); // Accept joiner
+            SyncMethod.LambdaInGetter(typeof(ChoiceLetter_AcceptCreepJoiner), nameof(ChoiceLetter_AcceptCreepJoiner.Choices), 1); // Arrest joiner
+            CloseDialogsForExpiredLetters.RegisterDefaultLetterChoice(
+                SyncMethod.LambdaInGetter(typeof(ChoiceLetter_AcceptCreepJoiner), nameof(ChoiceLetter_AcceptCreepJoiner.Choices), 2)
+                    .method); // Reject joiner
         }
 
         static void SyncBabyToChildLetter(ChoiceLetter_BabyToChild letter)
@@ -364,7 +371,7 @@ namespace Multiplayer.Client
         }
 
         // If the baby ended up being stillborn, the timer to name them is 1 tick. This patch is here to allow players in MP to actually change their name.
-        [MpPostfix(typeof(PregnancyUtility), nameof(PregnancyUtility.ApplyBirthOutcome))]
+        [MpPostfix(typeof(PregnancyUtility), nameof(PregnancyUtility.ApplyBirthOutcome_NewTemp))]
         static void GiveTimeToNameStillborn(Thing __result)
         {
             if (Multiplayer.Client != null && __result is Pawn pawn && pawn.health.hediffSet.HasHediff(HediffDefOf.Stillborn))
@@ -466,54 +473,6 @@ namespace Multiplayer.Client
         static void GeneUIUtilityTarget(Thing target)
         {
             geneUIUtilityTarget = target;
-        }
-
-        [MpPrefix(typeof(FormCaravanComp), nameof(FormCaravanComp.GetGizmos), lambdaOrdinal: 0)]
-        static bool GizmoFormCaravan(MapParent ___mapParent)
-        {
-            if (Multiplayer.Client == null) return true;
-            GizmoFormCaravan(___mapParent.Map, false);
-            return false;
-        }
-
-        [MpPrefix(typeof(FormCaravanComp), nameof(FormCaravanComp.GetGizmos), lambdaOrdinal: 1)]
-        static bool GizmoReformCaravan(MapParent ___mapParent)
-        {
-            if (Multiplayer.Client == null) return true;
-            GizmoFormCaravan(___mapParent.Map, true);
-            return false;
-        }
-
-        [MpPrefix(typeof(CompHitchingSpot), nameof(CompHitchingSpot.CompGetGizmosExtra), 0)]
-        static bool GizmoFormCaravan(CompHitchingSpot __instance)
-        {
-            if (Multiplayer.Client == null) return true;
-            GizmoFormCaravan(__instance.parent.Map, false, __instance.parent.Position);
-            return false;
-        }
-
-        private static void GizmoFormCaravan(Map map, bool reform, IntVec3? meetingSpot = null)
-        {
-            var comp = map.MpComp();
-
-            if (comp.sessionManager.GetFirstOfType<CaravanFormingSession>() is { } session)
-                session.OpenWindow();
-            else
-                CreateCaravanFormingSession(comp, reform, meetingSpot);
-        }
-
-        [SyncMethod]
-        private static void CreateCaravanFormingSession(MultiplayerMapComp comp, bool reform, IntVec3? meetingSpot = null)
-        {
-            var session = comp.CreateCaravanFormingSession(reform, null, false, meetingSpot);
-
-            if (TickPatch.currentExecutingCmdIssuedBySelf)
-            {
-                session.OpenWindow();
-                AsyncTimeComp.keepTheMap = true;
-                Current.Game.CurrentMap = comp.map;
-                Find.World.renderer.wantedMode = WorldRenderMode.None;
-            }
         }
 
         [MpPostfix(typeof(CaravanVisitUtility), nameof(CaravanVisitUtility.TradeCommand))]

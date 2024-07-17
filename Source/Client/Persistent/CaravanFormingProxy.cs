@@ -11,8 +11,11 @@ namespace Multiplayer.Client
 
         public CaravanFormingSession Session => map.MpComp().sessionManager.GetFirstOfType<CaravanFormingSession>();
 
-        public CaravanFormingProxy(Map map, bool reform = false, Action onClosed = null, bool mapAboutToBeRemoved = false, IntVec3? meetingSpot = null) : base(map, reform, onClosed, mapAboutToBeRemoved, meetingSpot)
+        public int originalSessionId;
+
+        public CaravanFormingProxy(int originalSessionId, Map map, bool reform = false, Action onClosed = null, bool mapAboutToBeRemoved = false, IntVec3? meetingSpot = null) : base(map, reform, onClosed, mapAboutToBeRemoved, meetingSpot)
         {
+            this.originalSessionId = originalSessionId;
         }
 
         public override void DoWindowContents(Rect inRect)
