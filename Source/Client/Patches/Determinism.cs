@@ -587,4 +587,11 @@ namespace Multiplayer.Client.Patches
         }
     }
 
+    [HarmonyPatch(typeof(CompObelisk_Abductor), nameof(CompObelisk_Abductor.GenerateLabyrinth))]
+    static class SynchronousAbductorObelisk
+    {
+        static void Prefix() => LongEventAlwaysSync.forceSynchronously = true;
+        static void Finalizer() => LongEventAlwaysSync.forceSynchronously = false;
+    }
+
 }
