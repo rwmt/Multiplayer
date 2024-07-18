@@ -46,7 +46,6 @@ namespace Multiplayer.Client.Desyncs
             if (Multiplayer.settings.desyncTracingMode == DesyncTracingMode.None) return false;
             if (Multiplayer.game == null) return false;
 
-            // Only log if debugging enabled in Host Server menu
             if (!Multiplayer.game.gameComp.logDesyncTraces) return false;
 
             if (Rand.stateStack.Count > 1) return false;
@@ -101,34 +100,34 @@ namespace Multiplayer.Client.Desyncs
     static class WildAnimalSpawnerTickTraceIgnore
     {
         static void Prefix() => DeferredStackTracing.ignoreTraces++;
-        static void Postfix() => DeferredStackTracing.ignoreTraces--;
+        static void Finalizer() => DeferredStackTracing.ignoreTraces--;
     }
 
     [HarmonyPatch(typeof(WildPlantSpawner), nameof(WildPlantSpawner.WildPlantSpawnerTick))]
     static class WildPlantSpawnerTickTraceIgnore
     {
         static void Prefix() => DeferredStackTracing.ignoreTraces++;
-        static void Postfix() => DeferredStackTracing.ignoreTraces--;
+        static void Finalizer() => DeferredStackTracing.ignoreTraces--;
     }
 
     [HarmonyPatch(typeof(SteadyEnvironmentEffects), nameof(SteadyEnvironmentEffects.SteadyEnvironmentEffectsTick))]
     static class SteadyEnvironmentEffectsTickTraceIgnore
     {
         static void Prefix() => DeferredStackTracing.ignoreTraces++;
-        static void Postfix() => DeferredStackTracing.ignoreTraces--;
+        static void Finalizer() => DeferredStackTracing.ignoreTraces--;
     }
 
     /*[HarmonyPatch(typeof(StoreUtility), nameof(StoreUtility.TryFindBestBetterStoreCellForWorker))]
     static class FindBestStorageCellTraceIgnore
     {
         static void Prefix() => DeferredStackTracing.ignoreTraces++;
-        static void Postfix() => DeferredStackTracing.ignoreTraces--;
+        static void Finalizer() => DeferredStackTracing.ignoreTraces--;
     }*/
 
     [HarmonyPatch(typeof(IntermittentSteamSprayer), nameof(IntermittentSteamSprayer.SteamSprayerTick))]
     static class SteamSprayerTickTraceIgnore
     {
         static void Prefix() => DeferredStackTracing.ignoreTraces++;
-        static void Postfix() => DeferredStackTracing.ignoreTraces--;
+        static void Finalizer() => DeferredStackTracing.ignoreTraces--;
     }
 }

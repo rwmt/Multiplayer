@@ -1,4 +1,5 @@
 using HarmonyLib;
+using Multiplayer.Client.Desyncs;
 using Multiplayer.Common;
 using RimWorld;
 using Verse;
@@ -15,13 +16,27 @@ namespace Multiplayer.Client
 
             try
             {
-                TickShipCountdown();
+                TickShipCountdown(); // todo control the RNG seed here?
+                TickNonSimulation();
+            }
+            finally
+            {
+                ticking = false;
+            }
+        }
+
+        private static void TickNonSimulation()
+        {
+            DeferredStackTracing.ignoreTraces++;
+
+            try
+            {
                 TickSyncCoordinator();
                 TickAutosave();
             }
             finally
             {
-                ticking = false;
+                DeferredStackTracing.ignoreTraces--;
             }
         }
 
