@@ -6,13 +6,13 @@ VERSION=$(grep -Po '(?<=Version = ")[0-9\.]+' Source/Common/Version.cs)
 
 git submodule update --init --recursive || { echo 'git submodule update FAILED' ; exit 1; }
 
-cd Source
+cd Source || exit
 dotnet build --configuration Release || { echo 'dotnet build FAILED' ; exit 1; }
 cd ..
 
 rm -rf Multiplayer/
 mkdir -p Multiplayer
-cd Multiplayer
+cd Multiplayer || exit
 
 # About/ and Textures/ are shared between all versions
 cp -r ../About ../Textures .
@@ -41,8 +41,10 @@ cp -r ../Assemblies ../AssembliesCustom ../Defs ../Languages 1.5/
 rm -f 1.5/Languages/.git 1.5/Languages/LICENSE 1.5/Languages/README.md
 
 # Past versions
-mkdir -p 1.4
-git --work-tree=1.4 restore --recurse-submodules --source=origin/rw-1.4 -- Assemblies AssembliesCustom Defs Languages
+git clone -b rw-1.4 --depth=1 --single-branch --recurse-submodules https://github.com/rwmt/Multiplayer.git 1.4 || { echo 'Git cloning 1.4 FAILED' ; exit 1; }
+shopt -s extglob
+shopt -s dotglob
+rm -rf -- 1.4/!(Languages|Assemblies|AssembliesCustom|Defs)
 rm -f 1.4/Languages/.git 1.4/Languages/LICENSE 1.4/Languages/README.md
 
 cd ..
