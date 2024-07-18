@@ -200,14 +200,14 @@ static class RecacheColonistBelieverCountPatch
         foreach (var inst in insts)
         {
             if (inst.operand == allColonists)
-                inst.operand = AccessTools.Method(typeof(RecacheColonistBelieverCountPatch), nameof(ColonistsAllFactions));
+                inst.operand = AccessTools.Method(typeof(RecacheColonistBelieverCountPatch), nameof(ColonistsAllPlayerFactions));
             yield return inst;
         }
     }
 
     private static List<Pawn> colonistsAllFactions = new();
 
-    private static List<Pawn> ColonistsAllFactions()
+    private static List<Pawn> ColonistsAllPlayerFactions()
     {
         colonistsAllFactions.Clear();
 
@@ -220,6 +220,7 @@ static class RecacheColonistBelieverCountPatch
         return colonistsAllFactions;
     }
 
+    // Note: IsColonist is patched above to compare to Faction.OfPlayer
     public static bool IsColonistAnyFaction(Pawn p)
     {
         if (p.Faction is { IsPlayer: true } && p.RaceProps.Humanlike)
@@ -229,9 +230,14 @@ static class RecacheColonistBelieverCountPatch
 
     public static bool IsColonyMechAnyFaction(Pawn p)
     {
-        if (ModsConfig.BiotechActive && p.RaceProps.IsMechanoid && p.Faction == Faction.OfPlayer && p.MentalStateDef == null)
+        if (ModsConfig.BiotechActive && p.RaceProps.IsMechanoid && p.Faction is { IsPlayer: true } && p.MentalStateDef == null)
             return p.HostFaction == null || p.IsSlave;
         return false;
+    }
+
+    public static bool IsColonyMutantAnyFaction(Pawn p)
+    {
+        return ModsConfig.AnomalyActive && p.IsMutant && p.Faction is { IsPlayer: true };
     }
 }
 
@@ -245,9 +251,6 @@ static class AnyPawnBlockingMapRemovalPatch
     {
         foreach (var inst in insts)
         {
-            if (inst.operand == isColonist)
-                inst.operand = AccessTools.Method(typeof(RecacheColonistBelieverCountPatch), nameof(RecacheColonistBelieverCountPatch.IsColonistAnyFaction));
-
             if (inst.operand == isColonyMech)
                 inst.operand = AccessTools.Method(typeof(RecacheColonistBelieverCountPatch), nameof(RecacheColonistBelieverCountPatch.IsColonyMechAnyFaction));
 
@@ -275,6 +278,27 @@ static class AnyPawnBlockingMapRemovalPatch
                     break;
                 }
             }
+        }
+    }
+}
+
+[HarmonyPatch(typeof(MapPawns), nameof(MapPawns.IsValidColonyPawn))]
+static class IsValidColonyPawnPatch
+{
+    private static MethodInfo isColonist = AccessTools.PropertyGetter(typeof(Pawn), nameof(Pawn.IsColonist));
+    private static MethodInfo isColonyMutant = AccessTools.PropertyGetter(typeof(Pawn), nameof(Pawn.IsColonyMutant));
+
+    static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+    {
+        foreach (var inst in insts)
+        {
+            if (inst.operand == isColonist)
+                inst.operand = AccessTools.Method(typeof(RecacheColonistBelieverCountPatch), nameof(RecacheColonistBelieverCountPatch.IsColonistAnyFaction));
+
+            if (inst.operand == isColonyMutant)
+                inst.operand = AccessTools.Method(typeof(RecacheColonistBelieverCountPatch), nameof(RecacheColonistBelieverCountPatch.IsColonyMutantAnyFaction));
+
+            yield return inst;
         }
     }
 }
