@@ -139,3 +139,17 @@ static class SettlementIncidentTargetTagsPatch
         }
     }
 }
+
+[HarmonyPatch(typeof(StorytellerUtility), nameof(StorytellerUtility.DefaultThreatPointsNow))]
+static class FixMultifactionPocketMapDefaultThreatPointsNow
+{
+    static bool Prefix(IIncidentTarget target)
+    {
+        // StorytellerUtility.DefaultThreatPointsNow uses Find.AnyPlayerHomeMap if
+        // the target map is a pocket map. In such a situation, we stop the method
+        // from executing if Find.AnyPlayerHomeMap would return null, as otherwise
+        // we'll end up with a very frequent error spam from spectator faction and
+        // any other factions without a map.
+        return Multiplayer.Client == null || target is not Map { IsPocketMap: true } || Find.AnyPlayerHomeMap != null;
+    }
+}
