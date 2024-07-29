@@ -426,31 +426,6 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(MoteMaker), nameof(MoteMaker.MakeStaticMote))]
-    [HarmonyPatch(new[] {typeof(Vector3), typeof(Map), typeof(ThingDef), typeof(float), typeof(bool), typeof(float)})]
-    static class FixNullMotes
-    {
-        static Dictionary<Type, Mote> cache = new();
-
-        static void Postfix(ThingDef moteDef, ref Mote __result) {
-            if (__result != null) return;
-
-            if (moteDef.mote.needsMaintenance) return;
-
-            var thingClass = moteDef.thingClass;
-
-            if (cache.TryGetValue(thingClass, out Mote value)) {
-                __result = value;
-            } else {
-                __result = (Mote) Activator.CreateInstance(thingClass);
-
-                cache.Add(thingClass, __result);
-            }
-
-            __result.def = moteDef;
-        }
-    }
-
     [HarmonyPatch(typeof(DiaOption), nameof(DiaOption.Activate))]
     static class NodeTreeDialogSync
     {

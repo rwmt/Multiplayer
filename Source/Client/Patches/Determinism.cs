@@ -587,4 +587,71 @@ namespace Multiplayer.Client.Patches
         }
     }
 
+    [HarmonyPatch(typeof(MoteMaker), nameof(MoteMaker.MakeStaticMote))]
+    [HarmonyPatch([typeof(Vector3), typeof(Map), typeof(ThingDef), typeof(float), typeof(bool), typeof(float)])]
+    static class FixNullMotes
+    {
+        // Make sure that motes will (almost) always spawn. We skip based to player-specific
+        // data, and instead only allow the only fully deterministic checks (location is in map bounds).
+        // We skip checks to current map and current mote counter saturation, as those may vary between players.
+
+        static void Prefix(ref bool makeOffscreen)
+        {
+            // Skip a call to GenView.ShouldSpawnMotesAt, forcing
+            // each call to check GenGrid.InBounds instead.
+            // ShouldSpawnMotesAt would check for bounds, but also
+            // include a current map check as well, which we don't want.
+            makeOffscreen = true;
+        }
+
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instr)
+        {
+            var targetCall = AccessTools.DeclaredPropertyGetter(typeof(MoteCounter), nameof(MoteCounter.Saturated));
+
+            foreach (var ci in instr)
+            {
+                yield return ci;
+
+                // Add "& false" to any call to MoteCounter.Saturated to get a deterministic result.
+                // Not a perfect solution performance-wise, but will prevent desyncs due to
+                // MoteMaker.MakeStaticMote being non-deterministic without this change.
+                if (ci.Calls(targetCall))
+                {
+                    yield return new CodeInstruction(OpCodes.Ldc_I4_0);
+                    yield return new CodeInstruction(OpCodes.And);
+                }
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(Building_BioferriteHarvester), nameof(Building_BioferriteHarvester.SpawnSetup))]
+    static class AlwaysRebuildBioferriteHarvesterCables
+    {
+        static void Postfix(Building_BioferriteHarvester __instance)
+        {
+            // After reloading the game the initialize method will generally be called
+            // during rendering, ensure it's called on respawning as well.
+            if (!__instance.initalized)
+            {
+                // We need to call ExecuteWhenFinished, as it will crash otherwise.
+                LongEventHandler.ExecuteWhenFinished(__instance.Initialize);
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(Building_Electroharvester), nameof(Building_Electroharvester.SpawnSetup))]
+    static class AlwaysRebuildElectroharvesterCables
+    {
+        static void Postfix(Building_Electroharvester __instance)
+        {
+            // After reloading the game the initialize method will generally be called
+            // during rendering, ensure it's called on respawning as well.
+            if (!__instance.initalized)
+            {
+                // We need to call ExecuteWhenFinished, as it will crash otherwise.
+                LongEventHandler.ExecuteWhenFinished(__instance.Initialize);
+            }
+        }
+    }
+
 }
