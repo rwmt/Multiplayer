@@ -377,6 +377,24 @@ namespace Multiplayer.Client
                     return ritual;
                 }, true // implicit
             },
+            {
+                // Currently only used for Dialog_BeginPsychicRitual delegate syncing
+                (ByteWriter data, PawnPsychicRitualRoleSelectionWidget dialog) =>
+                {
+                    // psychicRitualAssignments and assignments fields store the same object.
+                    // If we used assignments field we would have to cast it before syncing.
+                    WriteSync(data, dialog.psychicRitualAssignments);
+                    WriteSync(data, dialog.ritualDef);
+                },
+                (ByteReader data) =>
+                {
+                    var assignments = (MpPsychicRitualAssignments)ReadSync<PsychicRitualRoleAssignments>(data);
+                    if (assignments == null) return null;
+
+                    var ritual = ReadSync<PsychicRitualDef>(data); // todo handle ritual becoming null?
+                    return new PawnPsychicRitualRoleSelectionWidget(ritual, assignments.session.candidatePool, assignments);
+                }
+            },
 
             #endregion
         };
