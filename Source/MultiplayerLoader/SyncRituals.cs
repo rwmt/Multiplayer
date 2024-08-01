@@ -55,25 +55,33 @@ public static class SyncRituals
 
         // ======= PawnRitualRoleSelectionWidget =======
 
-        var ritualRolesSerializer = Serializer.New(
-            (IEnumerable<RitualRole> roles, object target, object[] _) =>
-            {
-                var roleSelectionWidget = (PawnRitualRoleSelectionWidget)target;
-                return (roleSelectionWidget, roleSelectionWidget.assignments.RoleGroups().FirstOrDefault(g => g.SequenceEqual(roles))?.Key);
-            },
-            data => data.roleSelectionWidget.assignments.RoleGroups().FirstOrDefault(g => g.Key == data.Key)
+        var ritualRolesSerializer = Serializer.New<IEnumerable<RitualRole>, (PawnRitualRoleSelectionWidget roleSelectionWidget, string Key)>(
+            RitualRoleWriter<PawnRitualRoleSelectionWidget, RitualRole>,
+            RitualRoleReader<PawnRitualRoleSelectionWidget, RitualRole>
+        );
+        var psychicRitualRolesSerializer = Serializer.New<IEnumerable<PsychicRitualRoleDef>, (PawnPsychicRitualRoleSelectionWidget roleSelectionWidget, string Key)>(
+            RitualRoleWriter<PawnPsychicRitualRoleSelectionWidget, PsychicRitualRoleDef>,
+            RitualRoleReader<PawnPsychicRitualRoleSelectionWidget, PsychicRitualRoleDef>
         );
 
         Register(typeof(PawnRoleSelectionWidgetBase<>), nameof(PawnRoleSelectionWidgetBase<RitualRole>.TryAssignReplace),
             typeof(PawnRitualRoleSelectionWidget),
             m => m.TransformArgument(1, ritualRolesSerializer));
+        Register(typeof(PawnRoleSelectionWidgetBase<>), nameof(PawnRoleSelectionWidgetBase<PsychicRitualRoleDef>.TryAssignReplace),
+            typeof(PawnPsychicRitualRoleSelectionWidget),
+            m => m.TransformArgument(1, psychicRitualRolesSerializer));
 
         Register(typeof(PawnRoleSelectionWidgetBase<>), nameof(PawnRoleSelectionWidgetBase<RitualRole>.TryAssignAnyRole),
             typeof(PawnRitualRoleSelectionWidget));
+        Register(typeof(PawnRoleSelectionWidgetBase<>), nameof(PawnRoleSelectionWidgetBase<PsychicRitualRoleDef>.TryAssignAnyRole),
+            typeof(PawnPsychicRitualRoleSelectionWidget));
 
         Register(typeof(PawnRoleSelectionWidgetBase<>), nameof(PawnRoleSelectionWidgetBase<RitualRole>.TryAssign),
             typeof(PawnRitualRoleSelectionWidget),
             m => m.TransformArgument(1, ritualRolesSerializer));
+        Register(typeof(PawnRoleSelectionWidgetBase<>), nameof(PawnRoleSelectionWidgetBase<PsychicRitualRoleDef>.TryAssign),
+            typeof(PawnPsychicRitualRoleSelectionWidget),
+            m => m.TransformArgument(1, psychicRitualRolesSerializer));
 
         Register(
             typeof(PawnRoleSelectionWidgetBase<>),
@@ -82,6 +90,14 @@ public static class SyncRituals
                 nameof(PawnRoleSelectionWidgetBase<RitualRole>.DrawPawnListInternal),
                 lambdaOrdinal: 7).Name,
             typeof(PawnRitualRoleSelectionWidget)
+        ); // Roles right click delegate (try assign spectate)
+        Register(
+            typeof(PawnRoleSelectionWidgetBase<>),
+            MpMethodUtil.GetLambda(
+                typeof(PawnRoleSelectionWidgetBase<ILordJobRole>),
+                nameof(PawnRoleSelectionWidgetBase<PsychicRitualRoleDef>.DrawPawnListInternal),
+                lambdaOrdinal: 7).Name,
+            typeof(PawnPsychicRitualRoleSelectionWidget)
         ); // Roles right click delegate (try assign spectate)
 
         Register(
@@ -92,5 +108,28 @@ public static class SyncRituals
                 lambdaOrdinal: 2).Name,
             typeof(PawnRitualRoleSelectionWidget)
         ); // Not participating left click delegate (try assign any role or spectate)
+        Register(
+            typeof(PawnRoleSelectionWidgetBase<>),
+            MpMethodUtil.GetLambda(
+                typeof(PawnRoleSelectionWidgetBase<ILordJobRole>),
+                nameof(PawnRoleSelectionWidgetBase<PsychicRitualRoleDef>.DrawPawnListInternal),
+                lambdaOrdinal: 2).Name,
+            typeof(PawnPsychicRitualRoleSelectionWidget)
+        ); // Not participating left click delegate (try assign any role or spectate)
+    }
+
+    private static (WidgetType roleSelectionWidget, string Key) RitualRoleWriter<WidgetType, RoleType>(IEnumerable<RoleType> roles, object target, object[] _)
+        where WidgetType : PawnRoleSelectionWidgetBase<RoleType>
+        where RoleType : class, ILordJobRole
+    {
+        var roleSelectionWidget = (WidgetType)target;
+        return (roleSelectionWidget, roleSelectionWidget.assignments.RoleGroups().FirstOrDefault(g => g.SequenceEqual(roles))?.Key);
+    }
+
+    private static IEnumerable<RoleType> RitualRoleReader<WidgetType, RoleType>((WidgetType roleSelectionWidget, string Key) data)
+        where WidgetType : PawnRoleSelectionWidgetBase<RoleType>
+        where RoleType : class, ILordJobRole
+    {
+        return data.roleSelectionWidget.assignments.RoleGroups().FirstOrDefault(g => g.Key == data.Key);
     }
 }

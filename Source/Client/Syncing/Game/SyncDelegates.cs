@@ -9,6 +9,7 @@ using HarmonyLib;
 using Multiplayer.Client.Patches;
 using MultiplayerLoader;
 using Verse;
+using Verse.AI.Group;
 
 namespace Multiplayer.Client
 {
@@ -271,6 +272,11 @@ namespace Multiplayer.Client
             SyncDelegate.Lambda(typeof(Dialog_BeginRitual), nameof(Dialog_BeginRitual.DrawRoleSelection), 3); // Select role, set confirm text
             SyncDelegate.Lambda(typeof(Dialog_BeginRitual), nameof(Dialog_BeginRitual.DrawRoleSelection), 4); // Select role, no confirm text
 
+            SyncMethod.Register(typeof(PsychicRitual), nameof(PsychicRitual.CancelPsychicRitual));
+            SyncMethod.Register(typeof(PsychicRitual), nameof(PsychicRitual.LeavePsychicRitual)); // Make pawn leave ritual
+
+            SyncMethod.Register(typeof(GameComponent_PsychicRitualManager), nameof(GameComponent_PsychicRitualManager.ClearAllCooldowns)).SetDebugOnly(); // Dev reset all psychic ritual cooldowns
+
             /*
                 PawnRoleSelectionWidgetBase
 
@@ -286,6 +292,9 @@ namespace Multiplayer.Client
 
             SyncMethod.Register(typeof(RitualRoleAssignments), nameof(RitualRoleAssignments.TryAssignSpectate));
             SyncMethod.Register(typeof(RitualRoleAssignments), nameof(RitualRoleAssignments.RemoveParticipant));
+
+            SyncMethod.Register(typeof(PsychicRitualRoleAssignments), nameof(PsychicRitualRoleAssignments.TryAssignSpectate));
+            SyncMethod.Register(typeof(PsychicRitualRoleAssignments), nameof(PsychicRitualRoleAssignments.RemoveParticipant));
 
             SyncRituals.ApplyPrepatches(null);
         }
