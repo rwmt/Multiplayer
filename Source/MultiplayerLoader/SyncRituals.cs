@@ -119,14 +119,16 @@ public static class SyncRituals
     }
 
     private static (WidgetType roleSelectionWidget, string Key) RitualRoleWriter<WidgetType, RoleType>(IEnumerable<RoleType> roles, object target, object[] _)
-        where WidgetType : PawnRoleSelectionWidgetBase<RoleType> where RoleType : class, ILordJobRole
+        where WidgetType : PawnRoleSelectionWidgetBase<RoleType>
+        where RoleType : class, ILordJobRole
     {
         var roleSelectionWidget = (WidgetType)target;
         return (roleSelectionWidget, roleSelectionWidget.assignments.RoleGroups().FirstOrDefault(g => g.SequenceEqual(roles))?.Key);
     }
 
     private static IEnumerable<RoleType> RitualRoleReader<WidgetType, RoleType>((WidgetType roleSelectionWidget, string Key) data)
-        where WidgetType : PawnRoleSelectionWidgetBase<RoleType> where RoleType : class, ILordJobRole
+        where WidgetType : PawnRoleSelectionWidgetBase<RoleType>
+        where RoleType : class, ILordJobRole
     {
         return data.roleSelectionWidget.assignments.RoleGroups().FirstOrDefault(g => g.Key == data.Key);
     }
