@@ -229,6 +229,7 @@ namespace Multiplayer.Client
             SyncMethod.Lambda(typeof(CompScanner), nameof(CompScanner.CompGetGizmosExtra), 0).SetDebugOnly(); // Find now
             SyncMethod.Lambda(typeof(CompTerrainPump), nameof(CompTerrainPump.CompGetGizmosExtra), 0).SetDebugOnly(); // Progress 1 day
             SyncMethod.Register(typeof(CompToxifier), nameof(CompToxifier.PolluteNextCell)).SetDebugOnly();
+            SyncMethod.Lambda(typeof(CompToxifier), nameof(CompToxifier.CompGetGizmosExtra), 1).SetDebugOnly(); // Pollute all, calls a synced method PolluteNextCell on loop which would cause infinite loop in MP if unsynced
             SyncMethod.Lambda(typeof(MinifiedTree), nameof(MinifiedTree.GetGizmos), 0).SetDebugOnly(); // Destroy
             SyncMethod.Lambda(typeof(MinifiedTree), nameof(MinifiedTree.GetGizmos), 1).SetDebugOnly(); // Die in 1 hour
             SyncMethod.Lambda(typeof(MinifiedTree), nameof(MinifiedTree.GetGizmos), 2).SetDebugOnly(); // Die in 1 day
