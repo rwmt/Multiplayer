@@ -13,9 +13,13 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.Client == null || ignore) return true;
 
+            var spectatorId = Multiplayer.WorldComp.spectatorFaction.loadID;
             ignore = true;
             foreach (var (id, data) in factionIdToData)
             {
+                if (id == spectatorId)
+                    continue;
+
                 map.PushFaction(id);
                 try
                 {
