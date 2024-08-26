@@ -25,13 +25,12 @@ public class AsyncWorldTimeComp : IExposable, ITickable
 
     public float TickRateMultiplier(TimeSpeed speed)
     {
-        if (Multiplayer.GameComp.asyncTime)
-        {
-            var enforcePause = Multiplayer.WorldComp.sessionManager.IsAnySessionCurrentlyPausing(null);
+        if (IsForcePaused)
+            return 0f;
 
-            if (enforcePause)
-                return 0f;
-        }
+        // Could just skip, as it currently can not be true unless a mod makes a Harmony patch.
+        if (IsForceSlowdown)
+            return speed == TimeSpeed.Paused ? 0 : 1;
 
         return speed switch
         {
@@ -43,6 +42,11 @@ public class AsyncWorldTimeComp : IExposable, ITickable
             _ => -1f
         };
     }
+
+    public bool IsForcePaused => Multiplayer.GameComp.asyncTime &&
+                                 Multiplayer.WorldComp.sessionManager.IsAnySessionCurrentlyPausing(null);
+
+    public bool IsForceSlowdown => false;
 
     // Run at the speed of the fastest map or at chosen speed if there are no maps
     public TimeSpeed DesiredTimeSpeed => !Find.Maps.Any() ?

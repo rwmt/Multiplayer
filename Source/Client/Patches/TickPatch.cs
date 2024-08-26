@@ -270,9 +270,10 @@ namespace Multiplayer.Client
 
         public static float TimePerTick(this ITickable tickable, TimeSpeed speed)
         {
-            if (tickable.ActualRateMultiplier(speed) == 0f)
+            var mult = tickable.ActualRateMultiplier(speed);
+            if (mult == 0f)
                 return 0f;
-            return 1f / tickable.ActualRateMultiplier(speed);
+            return 1f / mult;
         }
 
         public static float ActualRateMultiplier(this ITickable tickable, TimeSpeed speed)
@@ -285,6 +286,39 @@ namespace Multiplayer.Client
                 rate = Math.Min(rate, map.AsyncTime().TickRateMultiplier(speed));
 
             return rate;
+        }
+
+        public static ForcedTickRate GetForcedTickRate(this ITickable tickable)
+        {
+            if (Multiplayer.GameComp.asyncTime)
+            {
+                if (tickable.IsForcePaused)
+                    return ForcedTickRate.Paused;
+                if (tickable.IsForceSlowdown)
+                    return ForcedTickRate.Slowdown;
+                return ForcedTickRate.Normal;
+            }
+
+            if (Multiplayer.AsyncWorldTime.IsForcePaused)
+                return ForcedTickRate.Paused;
+
+            // Could just use false as default, as it currently can
+            // not be true unless a mod makes a Harmony patch.
+            var isForceSlowdown = Multiplayer.AsyncWorldTime.IsForceSlowdown;
+
+            foreach (var map in Find.Maps)
+            {
+                var comp = map.AsyncTime();
+
+                if (comp.IsForcePaused)
+                    return ForcedTickRate.Paused;
+                if (!isForceSlowdown)
+                    isForceSlowdown = comp.IsForceSlowdown;
+            }
+
+            if (isForceSlowdown)
+                return ForcedTickRate.Slowdown;
+            return ForcedTickRate.Normal;
         }
 
         public static void ClearSimulating()
@@ -327,4 +361,6 @@ namespace Multiplayer.Client
         public string cancelButtonKey;
         public string simTextKey;
     }
+
+    public enum ForcedTickRate { Normal, Paused, Slowdown, }
 }

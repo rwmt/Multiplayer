@@ -20,15 +20,10 @@ namespace Multiplayer.Client
 
         public float TickRateMultiplier(TimeSpeed speed)
         {
-            var comp = map.MpComp();
-
-            var enforcePause = comp.sessionManager.IsAnySessionCurrentlyPausing(map) ||
-                Multiplayer.WorldComp.sessionManager.IsAnySessionCurrentlyPausing(map);
-
-            if (enforcePause)
+            if (IsForcePaused)
                 return 0f;
 
-            if (mapTicks < slower.forceNormalSpeedUntil)
+            if (IsForceSlowdown)
                 return speed == TimeSpeed.Paused ? 0 : 1;
 
             switch (speed)
@@ -56,6 +51,11 @@ namespace Multiplayer.Client
         {
             timeSpeedInt = speed;
         }
+
+        public bool IsForcePaused => map.MpComp().sessionManager.IsAnySessionCurrentlyPausing(map) ||
+                                     Multiplayer.WorldComp.sessionManager.IsAnySessionCurrentlyPausing(map);
+
+        public bool IsForceSlowdown => mapTicks < slower.forceNormalSpeedUntil;
 
         public bool Paused => this.ActualRateMultiplier(DesiredTimeSpeed) == 0f;
 

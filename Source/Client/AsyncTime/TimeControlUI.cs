@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Reflection.Emit;
 using HarmonyLib;
@@ -106,12 +106,11 @@ public static class TimeControlPatch
             rect.x += rect.width;
         }
 
-        float normalSpeed = Tickable.ActualRateMultiplier(TimeSpeed.Normal);
-        float fastSpeed = Tickable.ActualRateMultiplier(TimeSpeed.Fast);
+        ForcedTickRate info = Tickable.GetForcedTickRate();
 
-        if (normalSpeed == 0f) // Completely paused
+        if (info == ForcedTickRate.Paused) // Completely paused
             Widgets.DrawLineHorizontal(rect.width, rect.height / 2f, rect.width * 3f);
-        else if (normalSpeed == fastSpeed) // Slowed down
+        else if (info == ForcedTickRate.Slowdown) // Slowed down
             Widgets.DrawLineHorizontal(rect.width * 2f, rect.height / 2f, rect.width * 2f);
 
         Widgets.EndGroup();
@@ -314,12 +313,12 @@ public static class ColonistBarTimeControl
         {
             if (curGroup == entry.group) continue;
 
-            ITickable entryTickable = entry.map?.AsyncTime();
-            if (entryTickable == null) entryTickable = Multiplayer.AsyncWorldTime;
+            ITickable entryTickable = entry.map?.AsyncTime() ?? (ITickable)Multiplayer.AsyncWorldTime;
 
             Rect groupBar = bar.drawer.GroupFrameRect(entry.group);
             float drawXPos = groupBar.x;
-            Color bgColor = (entryTickable.ActualRateMultiplier(TimeSpeed.Normal) == 0f) ? pauseBgColor : normalBgColor;
+            bool paused = entryTickable.IsForcePaused;
+            Color bgColor = paused ? pauseBgColor : normalBgColor;
             Vector2 flashPos = new Vector2(drawXPos + btnWidth / 2, groupBar.yMax + btnHeight / 2);
 
             if (Multiplayer.GameComp.asyncTime)
@@ -331,7 +330,7 @@ public static class ColonistBarTimeControl
                     MpTimeControls.TimeControlButton(button, bgColor, entryTickable);
                     drawXPos += TimeControls.TimeButSize.x;
                 }
-                else if (entryTickable.ActualRateMultiplier(TimeSpeed.Normal) == 0f)
+                else if (paused)
                 {
                     MpTimeControls.TimeIndicateBlockingPause(button, bgColor);
                     drawXPos += TimeControls.TimeButSize.x;
@@ -351,7 +350,7 @@ public static class ColonistBarTimeControl
                 }
                 else
                 {
-                    // There is a new blocking pause 
+                    // There is a new blocking pause
                     flashDict.Add(flashPos, Time.time);
                 }
             }
