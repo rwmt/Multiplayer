@@ -404,12 +404,12 @@ namespace Multiplayer.Client
         {
             // Find the last occurence of Find.WindowStack.Add(new FloatMenu(opts)) by searching for Find.WindowStack property access.
             var findWindowStackGetProp = AccessTools.DeclaredPropertyGetter(typeof(Find), nameof(Find.WindowStack));
-            var found = false;
+            var found = 0;
             foreach (var inst in insts)
             {
                 if (inst.Calls(findWindowStackGetProp))
                 {
-                    found = true;
+                    found++;
                     yield return new CodeInstruction(OpCodes.Ldarg_0); // Bill_Production bill
                     yield return new CodeInstruction(OpCodes.Ldloc_1); // List<FloatMenuOption> options
                     yield return new CodeInstruction(OpCodes.Call, ((Delegate) SyncBillConfigFloatMenuOptions).Method);
@@ -418,9 +418,17 @@ namespace Multiplayer.Client
                 yield return inst;
             }
 
-            if (!found)
+            if (found == 0)
             {
-                throw new Exception("Unexpected code structure in BillRepeatModeUtility.MakeConfigFloatMenu");
+                throw new Exception("Unexpected code structure in BillRepeatModeUtility.MakeConfigFloatMenu (couldn't find `Find.WindowStack`)." +
+                                    " Bill repeat mode will not be synchronized!");
+            }
+
+            if (found > 1)
+            {
+                Log.Warning(
+                    $"Atypical code structure in BillRepeatModeUtility.MakeConfigFloatMenu (`Find.WindowStack` occurred ${found} times)." +
+                    " This may cause unexpected behaviour or desynchronization when interacting with a bill's repeat mode.");
             }
         }
 
