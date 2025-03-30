@@ -246,6 +246,9 @@ namespace Multiplayer.Client
             SyncDelegate.Lambda(typeof(Hediff_MetalhorrorImplant), nameof(Hediff_MetalhorrorImplant.GetGizmos), 6).SetDebugOnly(); // Change biosignature
             SyncMethod.Lambda(typeof(Hediff_Shambler), nameof(Hediff_Shambler.GetGizmos), 0).SetDebugOnly(); // Self raise
 
+            // Colonist bar reordering
+            SyncDelegate.Lambda(typeof(ColonistBar.Entry), null, lambdaOrdinal: 0, parentMethodType: MethodType.Constructor, parentArgs: [typeof(Pawn), typeof(Map), typeof(int)]);
+
             InitRituals();
             InitChoiceLetters();
             InitDevTools();
