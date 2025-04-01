@@ -113,8 +113,18 @@ namespace Multiplayer.Client
 
                     postfix.priority = MpPriority.MpLast;
 
-                    Multiplayer.harmony.PatchMeasure(method, prefix, postfix);
-                    SyncActions.syncActions[method] = this;
+                    // Types with StaticConstructorOnStartup may be loading resources, which causes issues with
+                    // modded types. I assume that vanilla types end up loading their resources at some point earlier.
+                    if (method.DeclaringType?.Assembly != typeof(Game).Assembly && method.DeclaringType.HasAttribute<StaticConstructorOnStartup>())
+                        LongEventHandler.ExecuteWhenFinished(Patch);
+                    else
+                        Patch();
+
+                    void Patch()
+                    {
+                        Multiplayer.harmony.PatchMeasure(method, prefix, postfix);
+                        SyncActions.syncActions[method] = this;
+                    }
                 }
             }
         }
