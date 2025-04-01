@@ -129,6 +129,7 @@ namespace Multiplayer.Client
             SyncDelegate.Lambda(typeof(Ability), nameof(Ability.QueueCastingJob), 0, [typeof(LocalTargetInfo), typeof(LocalTargetInfo)]);
             SyncDelegate.Lambda(typeof(Ability), nameof(Ability.QueueCastingJob), 0, [typeof(GlobalTargetInfo)]);
             SyncMethod.Register(typeof(Verb), nameof(Verb.TryStartCastOn), [typeof(LocalTargetInfo), typeof(bool), typeof(bool), typeof(bool), typeof(bool)]);
+            SyncMethod.Lambda(typeof(Ability), nameof(Ability.GetGizmos), 0).SetDebugOnly(); // Reset cooldown
 
             // Style selection dialog
             SyncDelegate.Lambda(typeof(Dialog_StyleSelection), nameof(Dialog_StyleSelection.DoWindowContents), 0); // Remove style
