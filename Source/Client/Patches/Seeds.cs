@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Reflection.Emit;
+using Multiplayer.Client.Util;
 using Verse;
 using Verse.Grammar;
 
@@ -37,7 +38,7 @@ namespace Multiplayer.Client
             if (Multiplayer.Client == null) return;
             if (Scribe.mode != LoadSaveMode.LoadingVars && Scribe.mode != LoadSaveMode.ResolvingCrossRefs && Scribe.mode != LoadSaveMode.PostLoadInit) return;
 
-            int seed = __instance.uniqueID;
+            int seed = Gen.HashCombineInt(__instance.uniqueID, Find.World.ConstantRandSeed);
             Rand.PushState(seed);
 
             __state = true;
@@ -58,7 +59,7 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.Client == null) return;
 
-            int seed = __instance.uniqueID;
+            int seed = Gen.HashCombineInt(__instance.uniqueID, Find.World.ConstantRandSeed);
             Rand.PushState(seed);
 
             __state = true;
@@ -71,14 +72,14 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(CaravanEnterMapUtility), nameof(CaravanEnterMapUtility.Enter), new[] { typeof(Caravan), typeof(Map), typeof(Func<Pawn, IntVec3>), typeof(CaravanDropInventoryMode), typeof(bool) })]
+    [HarmonyPatch(typeof(CaravanEnterMapUtility), nameof(CaravanEnterMapUtility.Enter), typeof(Caravan), typeof(Map), typeof(Func<Pawn, IntVec3>), typeof(CaravanDropInventoryMode), typeof(bool))]
     static class SeedCaravanEnter
     {
         static void Prefix(Map map, ref bool __state)
         {
             if (Multiplayer.Client == null) return;
 
-            int seed = map.uniqueID;
+            int seed = Gen.HashCombineInt(map.uniqueID, Find.World.ConstantRandSeed);
             Rand.PushState(seed);
 
             __state = true;
@@ -105,7 +106,7 @@ namespace Multiplayer.Client
     }
 
     // Seed the rotation random
-    [HarmonyPatch(typeof(GenSpawn), nameof(GenSpawn.Spawn), new[] { typeof(Thing), typeof(IntVec3), typeof(Map), typeof(Rot4), typeof(WipeMode), typeof(bool), typeof(bool) })]
+    [HarmonyPatch(typeof(GenSpawn), nameof(GenSpawn.Spawn), typeof(Thing), typeof(IntVec3), typeof(Map), typeof(Rot4), typeof(WipeMode), typeof(bool), typeof(bool))]
     static class GenSpawnRotatePatch
     {
         static MethodInfo Rot4GetRandom = AccessTools.Property(typeof(Rot4), nameof(Rot4.Random)).GetGetMethod();
@@ -116,9 +117,16 @@ namespace Multiplayer.Client
             {
                 if (inst.operand == Rot4GetRandom)
                 {
+                    // Load newThing.thingIdNumber to the stack
                     yield return new CodeInstruction(OpCodes.Ldarg_0);
                     yield return new CodeInstruction(OpCodes.Ldfld, AccessTools.Field(typeof(Thing), nameof(Thing.thingIDNumber)));
-                    yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(Rand), nameof(Rand.PushState), new[] { typeof(int) }));
+                    // Load Find.World.ConstantRandSeed to the stack
+                    yield return new CodeInstruction(OpCodes.Call, AccessTools.PropertyGetter(typeof(Find), nameof(Find.World)));
+                    yield return new CodeInstruction(OpCodes.Call, AccessTools.PropertyGetter(typeof(World), nameof(World.ConstantRandSeed)));
+                    // Pop our 2 values, call Gen.HashCombineInt with them, and push the outcome to the stack
+                    yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(Gen), nameof(Gen.HashCombineInt), [typeof(int), typeof(int)]));
+                    // Pop the value off the stack and call Rand.PushState with it as the argument
+                    yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(Rand), nameof(Rand.PushState), [typeof(int)]));
                 }
 
                 yield return inst;
@@ -153,7 +161,7 @@ namespace Multiplayer.Client
         {
             yield return AccessTools.Method(typeof(GrammarResolver), nameof(GrammarResolver.Resolve));
             yield return AccessTools.Method(typeof(PawnBioAndNameGenerator), nameof(PawnBioAndNameGenerator.GeneratePawnName));
-            yield return AccessTools.Method(typeof(NameGenerator), nameof(NameGenerator.GenerateName), new[] { typeof(RulePackDef), typeof(Predicate<string>), typeof(bool), typeof(string), typeof(string), typeof(List<Rule>) });
+            yield return AccessTools.Method(typeof(NameGenerator), nameof(NameGenerator.GenerateName), [typeof(RulePackDef), typeof(Predicate<string>), typeof(bool), typeof(string), typeof(string), typeof(List<Rule>)]);
         }
 
         [HarmonyPriority(MpPriority.MpFirst)]
@@ -177,13 +185,13 @@ namespace Multiplayer.Client
     {
         static IEnumerable<MethodBase> TargetMethods()
         {
-            yield return AccessTools.Method(typeof(PawnRenderer), nameof(PawnRenderer.SetAllGraphicsDirty));
+            yield return MpMethodUtil.GetLambda(typeof(PawnRenderer), nameof(PawnRenderer.SetAllGraphicsDirty), 0);
         }
 
         [HarmonyPriority(MpPriority.MpFirst)]
         static void Prefix(PawnRenderer __instance, ref bool __state)
         {
-            Rand.PushState(__instance.pawn.thingIDNumber);
+            Rand.PushState(Gen.HashCombineInt(__instance.pawn.thingIDNumber, Find.World.ConstantRandSeed));
             __state = true;
         }
 
