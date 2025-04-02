@@ -77,8 +77,7 @@ namespace Multiplayer.Client
             connection.SendFragmented(Packets.Client_JoinData, writer.ToArray());
         }
 
-        [PacketHandler(Packets.Server_JoinData)]
-        [IsFragmented]
+        [PacketHandler(Packets.Server_JoinData, allowFragmented: true)]
         public void HandleJoinData(ByteReader data)
         {
             Multiplayer.session.gameName = data.ReadString();

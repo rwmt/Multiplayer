@@ -32,8 +32,7 @@ namespace Multiplayer.Common
             Server.playerManager.OnDesync(Player, tick, diffAt);
         }
 
-        [PacketHandler(Packets.Client_Traces)]
-        [IsFragmented]
+        [PacketHandler(Packets.Client_Traces, allowFragmented: true)]
         public void HandleTraces(ByteReader data)
         {
             var type = (TracesPacket)data.ReadInt32();
@@ -81,8 +80,7 @@ namespace Multiplayer.Common
             }
         }
 
-        [PacketHandler(Packets.Client_WorldDataUpload)]
-        [IsFragmented]
+        [PacketHandler(Packets.Client_WorldDataUpload, allowFragmented: true)]
         public void HandleWorldDataUpload(ByteReader data)
         {
             if (Server.ArbiterPlaying ? !Player.IsArbiter : !Player.IsHost) // policy
@@ -204,8 +202,7 @@ namespace Multiplayer.Common
             }
         }
 
-        [PacketHandler(Packets.Client_SyncInfo)]
-        [IsFragmented]
+        [PacketHandler(Packets.Client_SyncInfo, allowFragmented: true)]
         public void HandleDesyncCheck(ByteReader data)
         {
             var arbiter = Server.ArbiterPlaying;

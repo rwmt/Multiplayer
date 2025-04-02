@@ -5,18 +5,10 @@ using JetBrains.Annotations;
 namespace Multiplayer.Common
 {
     [MeansImplicitUse]
-    public class PacketHandlerAttribute : Attribute
+    public class PacketHandlerAttribute(Packets packet, bool allowFragmented = false) : Attribute
     {
-        public readonly Packets packet;
-
-        public PacketHandlerAttribute(Packets packet)
-        {
-            this.packet = packet;
-        }
-    }
-
-    public class IsFragmentedAttribute : Attribute
-    {
+        public readonly Packets packet = packet;
+        public readonly bool allowFragmented = allowFragmented;
     }
 
     public record PacketHandlerInfo(FastInvokeHandler Method, bool Fragment);

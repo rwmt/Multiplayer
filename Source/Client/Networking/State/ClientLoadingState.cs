@@ -28,8 +28,7 @@ public class ClientLoadingState : ClientBaseState
         connection.Lenient = false; // Lenient is set while rejoining
     }
 
-    [PacketHandler(Packets.Server_WorldData)]
-    [IsFragmented]
+    [PacketHandler(Packets.Server_WorldData, allowFragmented: true)]
     public void HandleWorldData(ByteReader data)
     {
         Log.Message("Game data size: " + data.Length);

@@ -208,8 +208,7 @@ namespace Multiplayer.Client
             Messages.Message(key.Translate(Array.ConvertAll(args, s => (NamedArgument)s)), MessageTypeDefOf.SilentInput, false);
         }
 
-        [PacketHandler(Packets.Server_SyncInfo)]
-        [IsFragmented]
+        [PacketHandler(Packets.Server_SyncInfo, allowFragmented: true)]
         public void HandleDesyncCheck(ByteReader data)
         {
             Multiplayer.game?.sync.AddClientOpinionAndCheckDesync(ClientSyncOpinion.Deserialize(data));
@@ -225,8 +224,7 @@ namespace Multiplayer.Client
             TickPatch.frozenAt = frozenAt;
         }
 
-        [PacketHandler(Packets.Server_Traces)]
-        [IsFragmented]
+        [PacketHandler(Packets.Server_Traces, allowFragmented: true)]
         public void HandleTraces(ByteReader data)
         {
             var type = (TracesPacket)data.ReadInt32();
