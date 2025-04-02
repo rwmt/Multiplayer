@@ -158,13 +158,19 @@ namespace Multiplayer.Common
         {
             NetTimer++;
 
+            // We aim to tick 30 times a second, so this is once per second.
             if (NetTimer % 30 == 0)
                 playerManager.SendLatencies();
 
             if (NetTimer % 6 == 0)
-                foreach (var player in JoinedPlayers)
-                    player.SendPacket(Packets.Server_KeepAlive, ByteWriter.GetBytes(player.keepAliveId), false);
+            {
+                foreach (var player in JoinedPlayers) {
+                    player.SendKeepAlivePacket();
+                }
+            }
 
+            // Send to simulating players as well to update the simulation window for them and actually update further
+            // during the same simulation.
             SendToPlaying(Packets.Server_TimeControl, ByteWriter.GetBytes(gameTimer, sentCmdsSnapshot, serverTimePerTick), false);
 
             serverTimePerTick = PlayingIngamePlayers.MaxOrZero(p => p.frameTime);
