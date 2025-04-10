@@ -141,6 +141,21 @@ namespace Multiplayer.Client
             return this;
         }
 
+        /// Throttles network updates for this field to reduce network chatter. An update
+        /// is sent immediately unless another was already sent within the last 200ms. If
+        /// additional updates occur during that cooldown period, they are not sent
+        /// immediately; only the most recent update is queued and will be sent once the
+        /// 200ms interval has passed. All intermediate updates are discarded.
+        ///
+        /// The UI reflects the latest value instantly, without waiting for server
+        /// confirmation — avoiding rollback, and re-apply behavior when the server
+        /// responds. However, in some cases the UI may briefly display stale information:
+        /// this can occur when the client sends an update to the host, which then sends a
+        /// confirmation back that overwrites the current client-side value, potentially
+        /// during an ongoing user interaction.
+        ///
+        /// This mechanism is typically used for rapidly changing values (e.g., sliders),
+        /// where sending every intermediate update would be inefficient and unnecessary.
         public ISyncField SetBufferChanges()
         {
             SyncFieldUtil.bufferedChanges[this] = new();
