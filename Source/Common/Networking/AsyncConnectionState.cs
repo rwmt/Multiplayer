@@ -6,15 +6,11 @@ using Multiplayer.Common.Util;
 
 namespace Multiplayer.Common;
 
-public abstract class AsyncConnectionState : MpConnectionState
+public abstract class AsyncConnectionState(ConnectionBase connection) : MpConnectionState(connection)
 {
     private PacketAwaitable<ByteReader?>? packetAwaitable;
 
     public Task? CurrentTask { get; private set; }
-
-    public AsyncConnectionState(ConnectionBase connection) : base(connection)
-    {
-    }
 
     public override void StartState()
     {
@@ -81,15 +77,16 @@ public abstract class AsyncConnectionState : MpConnectionState
 
     public override PacketHandlerInfo? GetPacketHandler(Packets packet)
     {
-        return packetAwaitable != null && packetAwaitable.PacketType == packet ?
-            new PacketHandlerInfo((_, args) =>
+        if (packetAwaitable != null && packetAwaitable.PacketType == packet)
+            return new PacketHandlerInfo((_, args) =>
             {
                 var source = packetAwaitable;
                 packetAwaitable = null;
                 source.SetResult((ByteReader)args[0]);
                 return null;
-            }, packetAwaitable.Fragment) :
-            null;
+            }, packetAwaitable.Fragment);
+
+        return base.GetPacketHandler(packet);
     }
 
     protected async Task<bool> EndIfDead()

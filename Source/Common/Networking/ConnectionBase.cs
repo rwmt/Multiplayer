@@ -128,7 +128,7 @@ namespace Multiplayer.Common
             Packets packetType = (Packets)msgId;
             ServerLog.Verbose($"Received packet {this}: {packetType}");
 
-            var handler = StateObj?.GetPacketHandler(packetType) ?? MpConnectionState.packetHandlers[(int)State, (int)packetType];
+            var handler = StateObj?.GetPacketHandler(packetType);
             if (handler == null)
             {
                 if (reliable && !Lenient)
