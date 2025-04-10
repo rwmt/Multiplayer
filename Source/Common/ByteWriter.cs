@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Text;
+using Multiplayer.Common.Util;
 
 namespace Multiplayer.Common
 {
@@ -85,7 +86,7 @@ namespace Multiplayer.Common
 
         public virtual void WriteEnum<T>(T value) where T : Enum
         {
-            var values = Enum.GetValues(value.GetType());
+            var values = EnumCache.GetValues(value.GetType());
             var index = Array.IndexOf(values, value);
             switch (values.Length)
             {

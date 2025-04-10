@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 namespace Multiplayer.Common
 {
@@ -32,7 +31,8 @@ namespace Multiplayer.Common
         public static byte[] Serialize(ScheduledCommand cmd)
         {
             ByteWriter writer = new ByteWriter();
-            writer.WriteEnum(cmd.type);
+            // Use WriteByte directly instead of WriteEnum for better performance, as this is frequently used.
+            writer.WriteByte((byte)cmd.type);
             writer.WriteInt32(cmd.ticks);
             writer.WriteInt32(cmd.factionId);
             writer.WriteInt32(cmd.mapId);
@@ -44,7 +44,8 @@ namespace Multiplayer.Common
 
         public static ScheduledCommand Deserialize(ByteReader data)
         {
-            CommandType cmd = data.ReadEnum<CommandType>();
+            // Use ReadByte directly instead of ReadEnum for better performance, as this is frequently used.
+            CommandType cmd = (CommandType)data.ReadByte();
             int ticks = data.ReadInt32();
             int factionId = data.ReadInt32();
             int mapId = data.ReadInt32();

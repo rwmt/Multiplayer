@@ -1,5 +1,6 @@
 using System;
 using System.Text;
+using Multiplayer.Common.Util;
 
 namespace Multiplayer.Common
 {
@@ -139,7 +140,7 @@ namespace Multiplayer.Common
 
         public virtual T ReadEnum<T>() where T : Enum
         {
-            var values = Enum.GetValues(typeof(T));
+            var values = EnumCache.GetValues(typeof(T));
             ushort enumIndex = values.Length switch
             {
                 <= byte.MaxValue => ReadByte(),
