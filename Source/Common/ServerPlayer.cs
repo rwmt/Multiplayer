@@ -90,7 +90,7 @@ namespace Multiplayer.Common
         {
             var writer = new ByteWriter();
 
-            writer.WriteByte((byte)PlayerListAction.List);
+            writer.WriteEnum(PlayerListAction.List);
             writer.WriteInt32(Server.JoinedPlayers.Count());
 
             foreach (var player in Server.JoinedPlayers)
@@ -106,8 +106,8 @@ namespace Multiplayer.Common
             writer.WriteInt32(id);
             writer.WriteString(Username);
             writer.WriteInt32(Latency);
-            writer.WriteByte((byte)type);
-            writer.WriteByte((byte)status);
+            writer.WriteEnum(type);
+            writer.WriteEnum(status);
             writer.WriteULong(steamId);
             writer.WriteString(steamPersonaName);
             writer.WriteInt32(ticksBehind);
@@ -132,7 +132,7 @@ namespace Multiplayer.Common
         {
             if (status == newStatus) return;
             status = newStatus;
-            Server.SendToPlaying(Packets.Server_PlayerList, new object[] { (byte)PlayerListAction.Status, id, (byte)newStatus });
+            Server.SendToPlaying(Packets.Server_PlayerList, new object[] { PlayerListAction.Status, id, newStatus });
         }
 
         public void ResetTimeVotes()

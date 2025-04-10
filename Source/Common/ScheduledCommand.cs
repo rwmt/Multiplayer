@@ -32,7 +32,7 @@ namespace Multiplayer.Common
         public static byte[] Serialize(ScheduledCommand cmd)
         {
             ByteWriter writer = new ByteWriter();
-            writer.WriteInt32(Convert.ToInt32(cmd.type));
+            writer.WriteEnum(cmd.type);
             writer.WriteInt32(cmd.ticks);
             writer.WriteInt32(cmd.factionId);
             writer.WriteInt32(cmd.mapId);
@@ -44,7 +44,7 @@ namespace Multiplayer.Common
 
         public static ScheduledCommand Deserialize(ByteReader data)
         {
-            CommandType cmd = (CommandType)data.ReadInt32();
+            CommandType cmd = data.ReadEnum<CommandType>();
             int ticks = data.ReadInt32();
             int factionId = data.ReadInt32();
             int mapId = data.ReadInt32();

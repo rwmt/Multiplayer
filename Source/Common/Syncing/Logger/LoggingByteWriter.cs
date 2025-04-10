@@ -62,6 +62,13 @@ namespace Multiplayer.Client
 			Log.Exit();
 			return this;
 		}
+
+        public override void WriteEnum<T>(T value)
+        {
+            Log.Enter($"enum {value.GetType().FullName}: {value}");
+            base.WriteEnum(value);
+            Log.Exit();
+        }
     }
 
 }

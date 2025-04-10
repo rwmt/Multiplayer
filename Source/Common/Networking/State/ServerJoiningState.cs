@@ -105,8 +105,8 @@ public class ServerJoiningState : AsyncConnectionState
 
     private bool HandleClientJoinData(ByteReader data)
     {
-        var modCtorRoundMode = (RoundModeEnum)data.ReadInt32();
-        var staticCtorRoundMode = (RoundModeEnum)data.ReadInt32();
+        var modCtorRoundMode = data.ReadEnum<RoundModeEnum>();
+        var staticCtorRoundMode = data.ReadEnum<RoundModeEnum>();
 
         if ((modCtorRoundMode, staticCtorRoundMode) != Server.initData!.RoundModes)
         {
@@ -142,7 +142,7 @@ public class ServerJoiningState : AsyncConnectionState
             if (status != DefCheckStatus.Ok)
                 defsMatch = false;
 
-            defsResponse.WriteByte((byte)status);
+            defsResponse.WriteEnum(status);
         }
 
         connection.SendFragmented(

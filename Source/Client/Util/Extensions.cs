@@ -84,7 +84,7 @@ namespace Multiplayer.Client
         public static void SendCommand(this ConnectionBase conn, CommandType type, int mapId, byte[] data)
         {
             ByteWriter writer = new ByteWriter();
-            writer.WriteInt32(Convert.ToInt32(type));
+            writer.WriteEnum(type);
             writer.WriteInt32(mapId);
             writer.WritePrefixedBytes(data);
 

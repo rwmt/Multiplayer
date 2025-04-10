@@ -172,7 +172,7 @@ namespace Multiplayer.Common
         public static byte[] GetDisconnectBytes(MpDisconnectReason reason, byte[]? data = null)
         {
             var writer = new ByteWriter();
-            writer.WriteByte((byte)reason);
+            writer.WriteEnum(reason);
             writer.WritePrefixedBytes(data ?? Array.Empty<byte>());
             return writer.ToArray();
         }

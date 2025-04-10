@@ -32,7 +32,7 @@ public record ServerInitData(
             data.ReadString(),
             data.ReadPrefixedInts().ToHashSet(),
             data.ReadPrefixedInts().ToHashSet(),
-            ((RoundModeEnum)data.ReadInt32(), (RoundModeEnum)data.ReadInt32()),
+            (data.ReadEnum<RoundModeEnum>(), data.ReadEnum<RoundModeEnum>()),
             new Dictionary<string, DefInfo>()
         );
 

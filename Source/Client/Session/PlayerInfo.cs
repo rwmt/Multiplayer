@@ -65,8 +65,8 @@ public class PlayerInfo : IPlayerInfo
         int id = data.ReadInt32();
         string username = data.ReadString();
         int latency = data.ReadInt32();
-        var type = (PlayerType)data.ReadByte();
-        var status = (PlayerStatus)data.ReadByte();
+        var type = data.ReadEnum<PlayerType>();
+        var status = data.ReadEnum<PlayerStatus>();
 
         var steamId = data.ReadULong();
         var steamName = data.ReadString();

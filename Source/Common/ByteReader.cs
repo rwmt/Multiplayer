@@ -137,6 +137,18 @@ namespace Multiplayer.Common
             return result;
         }
 
+        public virtual T ReadEnum<T>() where T : Enum
+        {
+            var values = Enum.GetValues(typeof(T));
+            ushort enumIndex = values.Length switch
+            {
+                <= byte.MaxValue => ReadByte(),
+                <= ushort.MaxValue => ReadUShort(),
+                _ => throw new Exception($"Enum {typeof(T).FullName} has more than {ushort.MaxValue} values!")
+            };
+            return (T)values.GetValue(enumIndex);
+        }
+
         private int IncrementIndex(int size)
         {
             int i = index;

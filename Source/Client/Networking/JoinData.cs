@@ -29,7 +29,7 @@ namespace Multiplayer.Client
                 data.WriteString(m.PackageIdNonUnique);
                 data.WriteString(m.Name);
                 data.WriteULong((ulong)m.GetPublishedFileId());
-                data.WriteByte((byte)m.Source);
+                data.WriteEnum(m.Source);
             }
 
             data.WriteInt32(modFilesSnapshot.Count());
@@ -74,7 +74,7 @@ namespace Multiplayer.Client
                 var packageId = data.ReadString();
                 var name = data.ReadString();
                 var steamId = data.ReadULong();
-                var source = (ContentSource)data.ReadByte();
+                var source = data.ReadEnum<ContentSource>();
 
                 remoteInfo.remoteMods.Add(new ModInfo() { packageId = packageId, name = name, steamId = steamId, source = source });
             }

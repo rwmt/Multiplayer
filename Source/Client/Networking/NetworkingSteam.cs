@@ -66,7 +66,7 @@ namespace Multiplayer.Client.Networking
             if (msgId == (int)Packets.Special_Steam_Disconnect)
             {
                 Multiplayer.session.ProcessDisconnectPacket(
-                    (MpDisconnectReason)reader.ReadByte(),
+                    reader.ReadEnum<MpDisconnectReason>(),
                     reader.ReadPrefixedBytes()
                 );
                 OnDisconnect();

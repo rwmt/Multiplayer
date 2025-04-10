@@ -25,7 +25,7 @@ namespace Multiplayer.Common
         public void SendLatencies()
         {
             var writer = new ByteWriter();
-            writer.WriteByte((byte)PlayerListAction.Latencies);
+            writer.WriteEnum(PlayerListAction.Latencies);
 
             writer.WriteInt32(JoinedPlayers.Count());
             foreach (var player in JoinedPlayers)
@@ -91,7 +91,7 @@ namespace Multiplayer.Common
                 server.SendNotification("MpPlayerDisconnected", conn.username);
                 server.SendChat($"{conn.username} has left.");
 
-                server.SendToPlaying(Packets.Server_PlayerList, new object[] { (byte)PlayerListAction.Remove, player.id });
+                server.SendToPlaying(Packets.Server_PlayerList, new object[] { PlayerListAction.Remove, player.id });
 
                 player.ResetTimeVotes();
             }
@@ -146,7 +146,7 @@ namespace Multiplayer.Common
             }
 
             var writer = new ByteWriter();
-            writer.WriteByte((byte)PlayerListAction.Add);
+            writer.WriteEnum(PlayerListAction.Add);
             writer.WriteRaw(player.SerializePlayerInfo());
 
             server.SendToPlaying(Packets.Server_PlayerList, writer.ToArray());

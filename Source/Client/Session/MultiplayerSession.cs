@@ -140,7 +140,7 @@ namespace Multiplayer.Client
 
             if (reason == MpDisconnectReason.ConnectingFailed)
             {
-                var netReason = (DisconnectReason)reader.ReadByte();
+                var netReason = reader.ReadEnum<DisconnectReason>();
 
                 disconnectInfo.titleTranslated =
                     netReason == DisconnectReason.ConnectionFailed ?
@@ -150,7 +150,7 @@ namespace Multiplayer.Client
 
             if (reason == MpDisconnectReason.NetFailed)
             {
-                var netReason = (DisconnectReason)reader.ReadByte();
+                var netReason = reader.ReadEnum<DisconnectReason>();
 
                 disconnectInfo.titleTranslated =
                     "MpDisconnectedWithInfo".Translate(netReason.ToString().CamelSpace().ToLowerInvariant());

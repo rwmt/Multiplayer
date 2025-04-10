@@ -56,8 +56,7 @@ namespace Multiplayer.Client
         [PacketHandler(Packets.Server_PlayerList)]
         public void HandlePlayerList(ByteReader data)
         {
-            var action = (PlayerListAction)data.ReadByte();
-
+            var action = data.ReadEnum<PlayerListAction>();
             if (action == PlayerListAction.Add)
             {
                 var info = PlayerInfo.Read(data);
@@ -93,7 +92,7 @@ namespace Multiplayer.Client
             else if (action == PlayerListAction.Status)
             {
                 var id = data.ReadInt32();
-                var status = (PlayerStatus)data.ReadByte();
+                var status = data.ReadEnum<PlayerStatus>();
                 var player = Multiplayer.session.GetPlayerInfo(id);
 
                 if (player != null)

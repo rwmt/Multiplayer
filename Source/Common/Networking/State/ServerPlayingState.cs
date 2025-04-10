@@ -49,7 +49,7 @@ namespace Multiplayer.Common
         [PacketHandler(Packets.Client_Command)]
         public void HandleClientCommand(ByteReader data)
         {
-            CommandType cmd = (CommandType)data.ReadInt32();
+            CommandType cmd = data.ReadEnum<CommandType>();
             int mapId = data.ReadInt32();
             byte[]? extra = data.ReadPrefixedBytes(65535);
             if (extra == null) return;

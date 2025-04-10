@@ -51,7 +51,7 @@ namespace Multiplayer.Client.Networking
             else
             {
                 var reader = new ByteReader(info.AdditionalData.GetRemainingBytes());
-                reason = (MpDisconnectReason)reader.ReadByte();
+                reason = reader.ReadEnum<MpDisconnectReason>();
                 data = reader.ReadPrefixedBytes();
             }
 

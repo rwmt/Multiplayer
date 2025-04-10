@@ -83,6 +83,11 @@ namespace Multiplayer.Client
             Log.Node($"byte[{array?.Length}]");
             return array;
         }
+
+        public override T ReadEnum<T>()
+        {
+            return Log.NodePassthrough($"enum {typeof(T).FullName}: ", base.ReadEnum<T>());
+        }
     }
 
 }
