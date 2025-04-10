@@ -152,7 +152,7 @@ namespace Multiplayer.Client
                 nameof(Bill_Production.targetCount),
                 nameof(Bill_Production.pauseWhenSatisfied),
                 nameof(Bill_Production.unpauseWhenYouHave)
-            );
+            ).SetBufferChanges();
 
             SyncBillIncludeCriteria = Sync.Fields(
                 typeof(Bill_Production),
