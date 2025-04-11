@@ -12,6 +12,11 @@ namespace Multiplayer.Client
         public static Dictionary<SyncField, Dictionary<BufferTarget, BufferData>> bufferedChanges = new();
         private static Stack<FieldData?> watchedStack = new();
 
+        public static void StackPush(SyncField field, object target, object value, object index)
+        {
+            watchedStack.Push(new FieldData(field, target, value, index));
+        }
+
         public static void FieldWatchPrefix()
         {
             if (Multiplayer.Client == null) return;
@@ -65,9 +70,13 @@ namespace Multiplayer.Client
             }
         }
 
-        public static void StackPush(SyncField field, object target, object value, object index)
+        public static void UpdateSync()
         {
-            watchedStack.Push(new FieldData(field, target, value, index));
+            foreach (var (field, fieldBufferedChanges) in bufferedChanges)
+            {
+                if (field.inGameLoop) continue;
+                fieldBufferedChanges.RemoveAll(SyncPendingAndPruneFinished);
+            }
         }
 
         private static bool SyncPendingAndPruneFinished(BufferTarget target, BufferData data)
@@ -87,15 +96,6 @@ namespace Multiplayer.Client
             }
 
             return false;
-        }
-
-        public static void UpdateSync()
-        {
-            foreach (var (field, fieldBufferedChanges) in bufferedChanges)
-            {
-                if (field.inGameLoop) continue;
-                fieldBufferedChanges.RemoveAll(SyncPendingAndPruneFinished);
-            }
         }
 
         private static bool IsAlreadySynced(this BufferData data, BufferTarget target)
