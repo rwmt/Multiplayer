@@ -70,52 +70,51 @@ namespace Multiplayer.Client
             watchedStack.Push(new FieldData(field, target, value, index));
         }
 
-        public static Func<BufferTarget, BufferData, bool> BufferedChangesPruner(Func<long> timeGetter)
+        private static bool SyncPendingAndPruneFinished(BufferTarget target, BufferData data)
         {
-            return (target, data) =>
+            if (data.IsAlreadySynced(target))
+                return true;
+
+            var millisNow = Utils.MillisNow;
+            if (!data.sent && millisNow - data.timestamp > 200)
             {
-                if (CheckShouldRemove(data.field, target, data))
+                // If syncing fails with an exception don't try to reattempt and just give up.
+                if (data.field.DoSyncCatch(target.target, data.toSend, target.index) is false)
                     return true;
 
-                if (!data.sent && timeGetter() - data.timestamp > 200)
-                {
-                    if (data.field.DoSyncCatch(target.target, data.toSend, target.index) is false)
-                        return true;
+                data.sent = true;
+                data.timestamp = millisNow;
+            }
 
-                    data.sent = true;
-                    data.timestamp = timeGetter();
-                }
-
-                return false;
-            };
+            return false;
         }
-
-        private static Func<BufferTarget, BufferData, bool> bufferPredicate =
-            BufferedChangesPruner(() => Utils.MillisNow);
 
         public static void UpdateSync()
         {
             foreach (var (field, fieldBufferedChanges) in bufferedChanges)
             {
                 if (field.inGameLoop) continue;
-                fieldBufferedChanges.RemoveAll(bufferPredicate);
+                fieldBufferedChanges.RemoveAll(SyncPendingAndPruneFinished);
             }
         }
 
-        public static bool CheckShouldRemove(SyncField field, BufferTarget target, BufferData data)
+        private static bool IsAlreadySynced(this BufferData data, BufferTarget target)
         {
-            if (data.sent && ValuesEqual(field, data.toSend, data.actualValue))
-                return true;
+            var field = data.field;
+            if (data.sent && ValuesEqual(field, data.toSend, data.actualValue)) return true;
 
             object currentValue = target.target.GetPropertyOrField(field.memberPath, target.index);
 
-            if (!ValuesEqual(field, currentValue, data.actualValue))
-            {
-                if (data.sent)
-                    return true;
-                data.actualValue = SnapshotValueIfNeeded(field, currentValue);
-            }
+            // Data hasn't been sent yet, or we are waiting for the server to acknowledge it and send it back.
+            if (ValuesEqual(field, currentValue, data.actualValue)) return false;
 
+            // The last seen value differs from the current field value — likely because a sync command from the server
+            // has overwritten it (possibly even with the desired value). If we've already sent our update, we assume it's fine;
+            // once the server processes it, it will likely acknowledge and send back the update via another sync command,
+            // restoring the field to the intended value.
+            if (data.sent) return true;
+
+            data.actualValue = SnapshotValueIfNeeded(field, currentValue);
             return false;
         }
 
