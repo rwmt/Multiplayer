@@ -13,7 +13,6 @@ namespace Multiplayer.Client
     public static class Sync
     {
         public static List<SyncHandler> handlers = new();
-        public static List<SyncField> bufferedFields = new();
 
         // Internal maps for Harmony patches
         public static Dictionary<MethodBase, int> methodBaseToInternalId = new();

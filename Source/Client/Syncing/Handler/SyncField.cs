@@ -159,7 +159,6 @@ namespace Multiplayer.Client
         public ISyncField SetBufferChanges()
         {
             SyncFieldUtil.bufferedChanges[this] = new();
-            Sync.bufferedFields.Add(this);
             bufferChanges = true;
             return this;
         }

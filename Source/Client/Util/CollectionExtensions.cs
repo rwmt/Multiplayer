@@ -53,8 +53,6 @@ namespace Multiplayer.Client
         public static int RemoveAll<TKey, TValue>(this Dictionary<TKey, TValue> dictionary, Func<TKey, TValue, bool> predicate)
         {
             List<TKey> list = null;
-            int result;
-
             try
             {
                 foreach (var (key, value) in dictionary)
@@ -66,21 +64,12 @@ namespace Multiplayer.Client
                     }
                 }
 
-                if (list != null)
+                if (list == null) return 0;
+                foreach (var key in list)
                 {
-                    int i = 0;
-                    int count = list.Count;
-                    while (i < count)
-                    {
-                        dictionary.Remove(list[i]);
-                        i++;
-                    }
-                    result = list.Count;
+                    dictionary.Remove(key);
                 }
-                else
-                {
-                    result = 0;
-                }
+                return list.Count;
             }
             finally
             {
@@ -90,8 +79,6 @@ namespace Multiplayer.Client
                     SimplePool<List<TKey>>.Return(list);
                 }
             }
-
-            return result;
         }
 
         public static bool EqualAsSets<T>(this IEnumerable<T> enum1, IEnumerable<T> enum2)

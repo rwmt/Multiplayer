@@ -95,10 +95,10 @@ namespace Multiplayer.Client
 
         public static void UpdateSync()
         {
-            foreach (SyncField f in Sync.bufferedFields)
+            foreach (var (field, fieldBufferedChanges) in bufferedChanges)
             {
-                if (f.inGameLoop) continue;
-                bufferedChanges[f].RemoveAll(bufferPredicate);
+                if (field.inGameLoop) continue;
+                fieldBufferedChanges.RemoveAll(bufferPredicate);
             }
         }
 
