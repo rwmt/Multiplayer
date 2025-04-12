@@ -28,45 +28,54 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.Client == null) return;
 
-            while (watchedStack.Count > 0)
+            // Iterate until we hit the marker (`null`).
+            while (watchedStack.TryPop(out var dataOrNull) && dataOrNull is { } data)
             {
-                var dataOrNull = watchedStack.Pop();
-
-                if (dataOrNull is not { } data)
-                    break; // The marker
-
                 SyncField handler = data.handler;
-
                 object newValue = MpReflection.GetValue(data.target, handler.memberPath, data.index);
                 bool changed = !ValuesEqual(handler, newValue, data.oldValue);
                 var cache =
-                    handler.bufferChanges && !Multiplayer.IsReplay && !Multiplayer.GhostMode ?
-                        bufferedChanges.GetValueSafe(handler) :
-                        null;
+                    handler.bufferChanges && !Multiplayer.IsReplay && !Multiplayer.GhostMode
+                        ? bufferedChanges.GetValueSafe(handler)
+                        : null;
+                var bufferTarget = new BufferTarget(data.target, data.index);
+                var cachedData = cache?.GetValueSafe(bufferTarget);
 
-                if (cache != null && cache.TryGetValue(new(data.target, data.index), out BufferData cached))
+                // Revert the local field's value for simulation purposes.
+                // For unbuffered fields, this rollback is only necessary if the value actually changed.
+                // For buffered fields, however, we always perform the restore, since the value is overwritten
+                // whenever watching it begins — assuming the value was previously changed and thus the buffer was
+                // initialized.
+                // If any change has happened, we record it and either send it immediately (unbuffered field) or queue
+                // it (buffered field). The server will eventually acknowledge the change and send it back, at which
+                // point the field is updated.
+                if (changed || cachedData != null)
                 {
-                    if (changed && cached.sent)
-                        cached.sent = false;
+                    var simulationValue = cachedData?.actualValue ?? data.oldValue;
+                    MpReflection.SetValue(data.target, handler.memberPath, simulationValue, data.index);
+                }
 
-                    cached.toSend = SnapshotValueIfNeeded(handler, newValue);
-                    MpReflection.SetValue(data.target, handler.memberPath, cached.actualValue, data.index);
+                // No changes happened means no syncing needed either - we are done.
+                if (!changed)
+                    continue;
+
+                // For unbuffered fields, just immediately sync any changes.
+                if (cache == null)
+                {
+                    handler.DoSyncCatch(data.target, newValue, data.index);
                     continue;
                 }
 
-                if (!changed) continue;
-
-                if (cache != null)
+                // For buffered fields, update the value to be sent.
+                if (cachedData != null)
                 {
-                    BufferData bufferData = new BufferData(handler, data.oldValue, SnapshotValueIfNeeded(handler, newValue));
-                    cache[new(data.target, data.index)] = bufferData;
-                }
-                else
-                {
-                    handler.DoSyncCatch(data.target, newValue, data.index);
+                    cachedData.sent = false;
+                    cachedData.toSend = SnapshotValueIfNeeded(handler, newValue);
+                    continue;
                 }
 
-                MpReflection.SetValue(data.target, handler.memberPath, data.oldValue, data.index);
+                // The field is buffered but had no prior changes; initialize the cache entry now that a change has occurred.
+                cache[bufferTarget] = new BufferData(handler, data.oldValue, SnapshotValueIfNeeded(handler, newValue));
             }
         }
 
