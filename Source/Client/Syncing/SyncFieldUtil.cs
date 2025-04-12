@@ -181,6 +181,10 @@ namespace Multiplayer.Client
     {
         public readonly SyncField handler;
         public readonly object target;
+        /// Reflects the value the field had before the most recent GUI update.
+        /// For unbuffered fields, this is also the current simulation value.
+        /// For buffered fields, which may modify the field across multiple `Watch` calls,
+        /// this represents the value at the start of the latest `Watch` invocation.
         public readonly object oldValue;
         public readonly object index;
 
@@ -218,6 +222,9 @@ namespace Multiplayer.Client
     public class BufferData
     {
         public SyncField field;
+        /// This is the real field's value. If this were an unbuffered field, it'd be equivalent to `FieldData.oldValue`,
+        /// however for buffered fields `oldValue` reflects the value prior to the last GUI update. Use this field to
+        /// access the original value before any user interaction occurred.
         public object actualValue;
         public object toSend;
         public long timestamp;
