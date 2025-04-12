@@ -70,6 +70,7 @@ namespace Multiplayer.Client
                 if (cachedData != null)
                 {
                     cachedData.sent = false;
+                    cachedData.lastChangedAtMillis = Utils.MillisNow;
                     cachedData.toSend = SnapshotValueIfNeeded(handler, newValue);
                     continue;
                 }
@@ -94,14 +95,13 @@ namespace Multiplayer.Client
                 return true;
 
             var millisNow = Utils.MillisNow;
-            if (!data.sent && millisNow - data.timestamp > 200)
+            if (!data.sent && millisNow - data.lastChangedAtMillis > 200)
             {
                 // If syncing fails with an exception don't try to reattempt and just give up.
                 if (data.field.DoSyncCatch(target.target, data.toSend, target.index) is false)
                     return true;
 
                 data.sent = true;
-                data.timestamp = millisNow;
             }
 
             return false;
@@ -219,22 +219,15 @@ namespace Multiplayer.Client
         }
     }
 
-    public class BufferData
+    public class BufferData(SyncField field, object actualValue, object toSend)
     {
-        public SyncField field;
+        public SyncField field = field;
         /// This is the real field's value. If this were an unbuffered field, it'd be equivalent to `FieldData.oldValue`,
         /// however for buffered fields `oldValue` reflects the value prior to the last GUI update. Use this field to
         /// access the original value before any user interaction occurred.
-        public object actualValue;
-        public object toSend;
-        public long timestamp;
+        public object actualValue = actualValue;
+        public object toSend = toSend;
+        public long lastChangedAtMillis = Utils.MillisNow;
         public bool sent;
-
-        public BufferData(SyncField field, object actualValue, object toSend)
-        {
-            this.field = field;
-            this.actualValue = actualValue;
-            this.toSend = toSend;
-        }
     }
 }
