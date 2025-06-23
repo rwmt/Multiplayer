@@ -810,6 +810,23 @@ namespace Multiplayer.Client
                     }
                 }, true // implicit
             },
+            {
+                (SyncWorker sync, ref ThingDefCount thingDefCount) =>
+                {
+                    if (sync.isWriting)
+                    {
+                        sync.Write(thingDefCount.ThingDef);
+                        sync.Write(thingDefCount.Count);
+                    }
+                    else
+                    {
+                        var def = sync.Read<ThingDef>();
+                        var count = sync.Read<int>();
+
+                        thingDefCount = new ThingDefCount(def, count);
+                    }
+                }
+            },
             #endregion
 
             #region Databases
