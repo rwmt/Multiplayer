@@ -322,10 +322,10 @@ public static class FactionSidebar
 
         Layouter.EndHorizontal();
 
-        if (ModsConfig.RoyaltyActive || ModsConfig.AnomalyActive)
+        if (ModsConfig.AnomalyActive)
         {
             chosenScenario = ScenarioDefOf.Crashlanded;
-            TooltipHandler.TipRegion(Layouter.LastRect(),"Choosing a scenario is not available for Royalty or Anomaly");
+            TooltipHandler.TipRegion(Layouter.LastRect(),"Choosing a scenario is not available for Anomaly");
             return;
         }
 
