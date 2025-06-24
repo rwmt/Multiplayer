@@ -147,7 +147,6 @@ namespace Multiplayer.Client.AsyncTime
         {
             if (Multiplayer.Client == null) return;
             if (WorldRendererUtility.WorldRenderedNow) return;
-            if (Find.CurrentMap == null) return;
 
             var asyncTime = Find.CurrentMap.AsyncTime();
             var timeSpeed = Multiplayer.IsReplay ? TickPatch.replayTimeSpeed : asyncTime.DesiredTimeSpeed;

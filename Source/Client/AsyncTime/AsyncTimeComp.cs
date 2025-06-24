@@ -98,12 +98,6 @@ namespace Multiplayer.Client
 
         public Queue<ScheduledCommand> cmds = new();
 
-        public AsyncTimeComp(Map map)
-        {
-            this.map = map;
-            this.gameStartAbsTickMap = 0;
-        }
-
         public AsyncTimeComp(Map map, int gameStartAbsTick = 0)
         {
             this.map = map;
