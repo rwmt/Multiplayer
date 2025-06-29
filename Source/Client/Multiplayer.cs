@@ -15,6 +15,7 @@ using System.Threading;
 using Multiplayer.Client.AsyncTime;
 using Multiplayer.Client.Comp;
 using Multiplayer.Client.Util;
+using Multiplayer.Client.AsyncTime.Quests;
 
 namespace Multiplayer.Client
 {
@@ -43,6 +44,8 @@ namespace Multiplayer.Client
         public static MultiplayerGameComp GameComp => game.gameComp;
         public static MultiplayerWorldComp WorldComp => game.worldComp;
         public static AsyncWorldTimeComp AsyncWorldTime => game.asyncWorldTimeComp;
+
+        public static QuestManagerAsync QuestManagerAsync => game.questManagerAsync;
 
         public static bool ShowDevInfo => Prefs.DevMode && settings.showDevInfo;
         public static bool GhostMode => session is { ghostModeCheckbox: true };

@@ -11,6 +11,7 @@ using Multiplayer.Client.Comp;
 using Multiplayer.Client.Factions;
 using UnityEngine;
 using Verse;
+using Multiplayer.Client.AsyncTime.Quests;
 
 namespace Multiplayer.Client
 {
@@ -24,6 +25,7 @@ namespace Multiplayer.Client
         public List<MultiplayerMapComp> mapComps = new();
         public List<AsyncTimeComp> asyncTimeComps = new();
         public SharedCrossRefs sharedCrossRefs = new();
+        public QuestManagerAsync questManagerAsync = new();
 
         private Faction myFaction;
         public Faction myFactionLoading;
