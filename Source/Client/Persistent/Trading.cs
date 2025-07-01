@@ -22,6 +22,8 @@ namespace Multiplayer.Client
         public MpTradeDeal deal;
         public bool giftsOnly;
 
+        public Faction NegotiatorFaction => playerNegotiator?.Faction;
+
         public string Label
         {
             get

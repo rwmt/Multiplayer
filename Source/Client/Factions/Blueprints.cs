@@ -177,8 +177,8 @@ namespace Multiplayer.Client
     static class SpawnBuildingAsPossiblePatch
     {
         static MethodInfo SpawningWipes = AccessTools.Method(typeof(GenSpawn), nameof(GenSpawn.SpawningWipes));
-        public static MethodInfo ThingListGet = AccessTools.Method(typeof(List<Thing>), "get_Item");
-        static FieldInfo ThingDefField = AccessTools.Field(typeof(Thing), "def");
+        public static MethodInfo ThingListGet = AccessTools.IndexerGetter(typeof(List<Thing>), [typeof(int)]);
+        static FieldInfo ThingDefField = AccessTools.Field(typeof(Thing), nameof(Thing.def));
 
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
         {

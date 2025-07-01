@@ -11,6 +11,8 @@ namespace Multiplayer.Client
     {
         public Map map;
 
+        public Faction faction;
+
         public bool reform;
         public Action onClosed;
         public bool mapAboutToBeRemoved;
@@ -24,12 +26,13 @@ namespace Multiplayer.Client
 
         public override Map Map => map;
 
-        public CaravanFormingSession(Map map) : base(map)
+        public CaravanFormingSession(Faction faction, Map map) : base(map)
         {
             this.map = map;
+            this.faction = faction;
         }
 
-        public CaravanFormingSession(Map map, bool reform, Action onClosed, bool mapAboutToBeRemoved, IntVec3? meetingSpot = null) : this(map)
+        public CaravanFormingSession(Faction faction, Map map, bool reform, Action onClosed, bool mapAboutToBeRemoved, IntVec3? meetingSpot = null) : this(faction, map)
         {
             this.reform = reform;
             this.onClosed = onClosed;

@@ -25,7 +25,7 @@ namespace Multiplayer.Common
         public int lastCursorTick = -1;
 
         public int keepAliveId;
-        public Stopwatch keepAliveTimer = Stopwatch.StartNew();
+        public Stopwatch keepAliveTimer = new();
         public int keepAliveAt;
 
         public bool frozen;
@@ -74,6 +74,15 @@ namespace Multiplayer.Common
         public void SendChat(string msg)
         {
             SendPacket(Packets.Server_Chat, new object[] { msg });
+        }
+
+        public void SendKeepAlivePacket()
+        {
+            if (!keepAliveTimer.IsRunning)
+            {
+                keepAliveTimer.Start();
+            }
+            SendPacket(Packets.Server_KeepAlive, ByteWriter.GetBytes(keepAliveId), false);
         }
 
         public void SendPacket(Packets packet, byte[] data, bool reliable = true)

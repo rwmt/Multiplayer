@@ -43,7 +43,7 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(Pawn_GuestTracker), nameof(Pawn_GuestTracker.ToggleNonExclusiveInteraction)).CancelIfAnyArgNull();
             SyncMethod.Register(typeof(Zone), nameof(Zone.Delete));
             SyncMethod.Register(typeof(BillStack), nameof(BillStack.AddBill)).ExposeParameter(0); // Only used for pasting
-            SyncMethod.Register(typeof(BillStack), nameof(BillStack.Delete)).CancelIfAnyArgNull();
+            SyncMethod.Register(typeof(BillStack), nameof(BillStack.Delete)).CancelIfAnyArgNull().SetPostInvoke(TryDirtyCurrentPawnTable);
             SyncMethod.Register(typeof(BillStack), nameof(BillStack.Reorder)).CancelIfAnyArgNull();
             SyncMethod.Register(typeof(Bill_Production), nameof(Bill_Production.SetStoreMode));
             SyncMethod.Register(typeof(Bill_Production), nameof(Bill_Production.SetIncludeGroup));
@@ -55,6 +55,15 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(AreaManager), nameof(AreaManager.TryMakeNewAllowed));
             SyncMethod.Register(typeof(MainTabWindow_Research), nameof(MainTabWindow_Research.DoBeginResearch))
                 .TransformTarget(Serializer.SimpleReader(() => new MainTabWindow_Research()));
+            SyncMethod.Register(typeof(ResearchManager), nameof(ResearchManager.StopProject));
+            // ResearchManager.SetCurrentProject changes the current project and is synced by
+            // MainTabWindow_Research.DoBeginResearch. It will still be called when selecting
+            // "Debug: Finish now". The issue with this is that when triggered by a player who
+            // can't execute debug-only methods it may change the current project to a research
+            // project which cannot be research due to prerequisites, allowing to research them.
+            SyncMethod.Register(typeof(ResearchManager), nameof(ResearchManager.SetCurrentProject)).SetDebugOnly();
+            SyncMethod.Register(typeof(ResearchManager), nameof(ResearchManager.FinishProject)).SetDebugOnly();
+            SyncMethod.Register(typeof(ResearchManager), nameof(ResearchManager.ApplyTechprint)).SetDebugOnly();
 
             SyncMethod.Register(typeof(DrugPolicyDatabase), nameof(DrugPolicyDatabase.MakeNewDrugPolicy));
             SyncMethod.Register(typeof(DrugPolicyDatabase), nameof(DrugPolicyDatabase.TryDelete)).CancelIfAnyArgNull();
@@ -89,10 +98,13 @@ namespace Multiplayer.Client
                 }
             }
 
-            SyncMethod.Register(typeof(PawnColumnWorker_Designator), nameof(PawnColumnWorker_Designator.SetValue)).CancelIfAnyArgNull(); // Virtual but currently not overriden by any subclasses
+            SyncMethod.Register(typeof(DesignationManager), nameof(DesignationManager.AddDesignation)).ExposeParameter(0).SetPostInvoke(TryDirtyCurrentPawnTable); // Added designation will be freshly constructed, so we need to expose it rather than sync it
+            SyncMethod.Register(typeof(DesignationManager), nameof(DesignationManager.RemoveDesignation)).CancelIfAnyArgNull().SetPostInvoke(TryDirtyCurrentPawnTable);
+            SyncMethod.Register(typeof(PawnColumnWorker_Designator), nameof(PawnColumnWorker_Designator.DesignationConfirmed)).CancelIfAnyArgNull().SetPostInvoke(TryDirtyCurrentPawnTable); // Called from SetValue and confirmation dialog
             SyncMethod.Register(typeof(PawnColumnWorker_FollowDrafted), nameof(PawnColumnWorker_FollowDrafted.SetValue)).CancelIfAnyArgNull();
             SyncMethod.Register(typeof(PawnColumnWorker_FollowFieldwork), nameof(PawnColumnWorker_FollowFieldwork.SetValue)).CancelIfAnyArgNull();
-            SyncMethod.Register(typeof(PawnColumnWorker_Sterilize), nameof(PawnColumnWorker_Sterilize.SetValue)).CancelIfAnyArgNull(); // Will sync even without this, but this will set the column to dirty
+            SyncMethod.Register(typeof(PawnColumnWorker_Sterilize), nameof(PawnColumnWorker_Sterilize.AddSterilizeOperation)).CancelIfAnyArgNull().SetPostInvoke(TryDirtyCurrentPawnTable);
+            SyncMethod.Register(typeof(PawnColumnWorker_Sterilize), nameof(PawnColumnWorker_Sterilize.CancelSterilizeOperations)).CancelIfAnyArgNull().SetPostInvoke(TryDirtyCurrentPawnTable);
             SyncMethod.Register(typeof(CompGatherSpot), nameof(CompGatherSpot.Active));
 
             SyncMethod.Register(typeof(Building_Grave), nameof(Building_Grave.EjectContents));
@@ -106,6 +118,8 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(Building_ShipComputerCore), nameof(Building_ShipComputerCore.TryLaunch));
             SyncMethod.Register(typeof(CompPower), nameof(CompPower.TryManualReconnect));
             SyncMethod.Register(typeof(CompTempControl), nameof(CompTempControl.InterfaceChangeTargetTemperature_NewTemp));
+            SyncMethod.Lambda(typeof(CompTempControl), nameof(CompTempControl.CompGetGizmosExtra), 2);               // Reset temperature
+            SyncMethod.Lambda(typeof(Comp_AtmosphericHeater), nameof(Comp_AtmosphericHeater.CompGetGizmosExtra), 0); // Reset temperature
             SyncMethod.Register(typeof(CompTransporter), nameof(CompTransporter.CancelLoad), Array.Empty<SyncType>());
             SyncMethod.Register(typeof(MapPortal), nameof(MapPortal.CancelLoad));
             SyncMethod.Register(typeof(StorageSettings), nameof(StorageSettings.CopyFrom)).ExposeParameter(0);
@@ -229,6 +243,7 @@ namespace Multiplayer.Client
             SyncMethod.Lambda(typeof(CompScanner), nameof(CompScanner.CompGetGizmosExtra), 0).SetDebugOnly(); // Find now
             SyncMethod.Lambda(typeof(CompTerrainPump), nameof(CompTerrainPump.CompGetGizmosExtra), 0).SetDebugOnly(); // Progress 1 day
             SyncMethod.Register(typeof(CompToxifier), nameof(CompToxifier.PolluteNextCell)).SetDebugOnly();
+            SyncMethod.Lambda(typeof(CompToxifier), nameof(CompToxifier.CompGetGizmosExtra), 1).SetDebugOnly(); // Pollute all, calls a synced method PolluteNextCell on loop which would cause infinite loop in MP if unsynced
             SyncMethod.Lambda(typeof(MinifiedTree), nameof(MinifiedTree.GetGizmos), 0).SetDebugOnly(); // Destroy
             SyncMethod.Lambda(typeof(MinifiedTree), nameof(MinifiedTree.GetGizmos), 1).SetDebugOnly(); // Die in 1 hour
             SyncMethod.Lambda(typeof(MinifiedTree), nameof(MinifiedTree.GetGizmos), 2).SetDebugOnly(); // Die in 1 day
@@ -367,7 +382,7 @@ namespace Multiplayer.Client
             // Previously we synced the delegate which created the bill, but it has side effects to it.
             // It can display confirmation like royal implant (no longer used?) or implanting IUD (if it would terminate pregnancy).
             // On top of that, in case of implanting the Xenogerm recipe, it will open a dialog with list of available options.
-            SyncMethod.Register(typeof(HealthCardUtility), nameof(HealthCardUtility.CreateSurgeryBill));
+            SyncMethod.Register(typeof(HealthCardUtility), nameof(HealthCardUtility.CreateSurgeryBill)).SetPostInvoke(TryDirtyCurrentPawnTable);
 
             // Comp explosive
             SyncMethod.Register(typeof(CompExplosive), nameof(CompExplosive.StartWick)); // Called from Building_BlastingCharge (and some modded) gizmos
@@ -378,11 +393,6 @@ namespace Multiplayer.Client
 
             // Jammed door
             SyncMethod.Register(typeof(Building_JammedDoor), nameof(Building_JammedDoor.UnlockDoor)).SetDebugOnly(); // Dev unjam door
-
-            // Void monolith
-            // Targeting should be handled by syncing `ITargetingSource:OrderForceTarget`
-            SyncMethod.Lambda(typeof(Building_VoidMonolith), nameof(Building_VoidMonolith.GetGizmos), 1).SetDebugOnly(); // Dev activate
-            SyncMethod.Lambda(typeof(Building_VoidMonolith), nameof(Building_VoidMonolith.GetGizmos), 2).SetDebugOnly(); // Dev relink
 
             // Harbinger Tree
             SyncMethod.Register(typeof(HarbingerTree), nameof(HarbingerTree.CreateCorpseStockpile)).SetContext(SyncContext.MapSelected);
@@ -420,11 +430,11 @@ namespace Multiplayer.Client
                     .AllNotNull();
 
                 foreach (var method in methods)
-                    MP.RegisterSyncMethod(method);
+                    Sync.RegisterSyncMethod(method);
 
                 // This OnRenamed method will create a storage group, which needs to be synced.
                 // No other vanilla rename dialogs need syncing OnRenamed, but modded ones potentially could need it.
-                MP.RegisterSyncMethod(typeof(Dialog_RenameBuildingStorage_CreateNew), nameof(Dialog_RenameBuildingStorage_CreateNew.OnRenamed))
+                SyncMethod.Register(typeof(Dialog_RenameBuildingStorage_CreateNew), nameof(Dialog_RenameBuildingStorage_CreateNew.OnRenamed))
                     .TransformTarget(Serializer.New(
                         (Dialog_RenameBuildingStorage_CreateNew dialog) => dialog.building,
                         (IStorageGroupMember member) => new Dialog_RenameBuildingStorage_CreateNew(member)));
@@ -705,6 +715,50 @@ namespace Multiplayer.Client
             var job = JobMaker.MakeJob(JobDefOf.UseVerbOnThing, verb.Caster);
             job.verbToUse = verb;
             casterPawn.jobs.StartJob(job, JobCondition.InterruptForced);
+        }
+
+        // By no longer syncing "SetValue" method for pawn column workers, the
+        // tables aren't made dirty when a value changes. This will ensure that
+        // the table is made dirty when its state changes, so it can be properly
+        // sorted. It'll also allow us to dirty the table when it normally wouldn't
+        // be in vanilla, causing the table to be re-sorted when it wouldn't be in
+        // vanilla. For example, we can cause the table to be re-sorted when something
+        // is designated outside the pawn table.
+        public static void TryDirtyCurrentPawnTable(object instance = null, object[] args = null)
+        {
+            // Make sure there's a currently open tab whose window has pawn table,
+            // and ensure the table is not null and one of the columns is sorted.
+            // Otherwise, there would be no point in making the table dirty,
+            // as it wouldn't change anything about the table.
+            if (Find.MainTabsRoot.OpenTab?.TabWindow is MainTabWindow_PawnTable { table: { SortingBy: not null } table })
+            {
+                // If the method was called on Designator or DesignationManager,
+                // set the DesignationDef from them as the instance. Instance
+                // is never Designation, so no point in getting def from it.
+                if (instance is Designator designator)
+                    instance = designator.Designation;
+                else if (instance is DesignationManager && args is { Length: > 0 } && args[0] is Designation designation)
+                    instance = designation.def;
+
+                // If the synced object is PawnColumnWorker, then we can dirty the current
+                // table based on if it's being sorted by the specific PawnColumnDef.
+                if (instance is PawnColumnWorker worker)
+                {
+                    if (table.SortingBy == worker.def)
+                        table.SetDirty();
+                }
+                // If we can get DesignationDef, we can check if the sorted column worker is
+                // designator worker and is the specific designation that
+                else if (instance is DesignationDef designation)
+                {
+                    if (table.SortingBy.Worker is PawnColumnWorker_Designator des && des.DesignationType == designation)
+                        table.SetDirty();
+                }
+                // If it's a different type, then we always dirty as we don't
+                // know if making the table dirty is required or not.
+                else
+                    table.SetDirty();
+            }
         }
     }
 

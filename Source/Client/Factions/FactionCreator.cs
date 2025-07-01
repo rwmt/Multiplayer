@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using JetBrains.Annotations;
 using Multiplayer.API;
@@ -14,6 +15,7 @@ public static class FactionCreator
 {
     private static Dictionary<int, List<Pawn>> pawnStore = new();
     public static bool generatingMap;
+    public const string preventSpecialCalculationPathInGenTicksTicksAbs = "dummy";
 
     public static void ClearData()
     {
@@ -27,34 +29,30 @@ public static class FactionCreator
     }
 
     [SyncMethod]
-    public static void CreateFaction(
-        int playerId, string factionName, int tile,
-        [CanBeNull] ScenarioDef scenarioDef, ChooseIdeoInfo chooseIdeoInfo,
-        bool generateMap
-    )
+    public static void CreateFaction(int playerId, FactionCreationData creationData)
     {
         var self = TickPatch.currentExecutingCmdIssuedBySelf;
 
         LongEventHandler.QueueLongEvent(() =>
         {
-            PrepareGameInitData(playerId);
-
-            var scenario = scenarioDef?.scenario ?? Current.Game.Scenario;
-            var newFaction = NewFactionWithIdeo(
-                factionName,
-                scenario.playerFaction.factionDef,
-                chooseIdeoInfo
-            );
-
+            var scenario = creationData.scenarioDef?.scenario ?? Current.Game.Scenario;
             Map newMap = null;
 
-            if (generateMap)
+            PrepareGameInitData(playerId, scenario, self, creationData.startingPossessions);
+
+            var newFaction = NewFactionWithIdeo(
+                creationData.factionName,
+                scenario.playerFaction.factionDef,
+                creationData.chooseIdeoInfo
+            );
+
+            if (creationData.generateMap)
                 using (MpScope.PushFaction(newFaction))
                 {
                     foreach (var pawn in StartingPawnUtility.StartingAndOptionalPawns)
                         pawn.ideo.SetIdeo(newFaction.ideos.PrimaryIdeo);
 
-                    newMap = GenerateNewMap(tile, scenario);
+                    newMap = GenerateNewMap(creationData.startingTile, scenario, creationData.setupNextMapFromTickZero);
                 }
 
             foreach (Map map in Find.Maps)
@@ -70,6 +68,10 @@ public static class FactionCreator
 
                 Multiplayer.game.ChangeRealPlayerFaction(newFaction);
 
+                CameraJumper.TryJump(MapGenerator.playerStartSpotInt, newMap);
+
+                PostGameStart(scenario);
+
                 // todo setting faction of self
                 Multiplayer.Client.Send(
                     Packets.Client_SetFaction,
@@ -80,62 +82,141 @@ public static class FactionCreator
         }, "GeneratingMap", doAsynchronously: true, GameAndMapInitExceptionHandlers.ErrorWhileGeneratingMap);
     }
 
-    private static Map GenerateNewMap(int tile, Scenario scenario)
+    private static void PostGameStart(Scenario scenario)
+    {
+        /**
+        ScenPart_StartingResearch.cs				
+        ScenPart_AutoActivateMonolith.cs		
+        ScenPart_CreateIncident.cs		
+        ScenPart_GameStartDialog.cs			
+        ScenPart_PlayerFaction.cs		
+        ScenPart_Rule.cs
+
+        Would like to call PostGameStart on all implementations (scenario.PostGameStart) -
+        but dont know if it breaks with dlcs other than biotech - especially while only called
+        on self
+        **/
+
+        HashSet<Type> types = new HashSet<Type>
+        {
+            typeof(ScenPart_PlayerFaction),
+            typeof(ScenPart_GameStartDialog),
+            typeof(ScenPart_StartingResearch),
+        };
+
+        foreach (ScenPart part in scenario.AllParts)
+        {
+            if (types.Contains(part.GetType()))
+            {
+                part.PostGameStart();
+            }
+        }
+    }
+
+    private static Map GenerateNewMap(int tile, Scenario scenario, bool setupNextMapFromTickZero)
     {
         // This has to be null, otherwise, during map generation, Faction.OfPlayer returns it which breaks FactionContext
         Find.GameInitData.playerFaction = null;
         Find.GameInitData.PrepForMapGen();
 
-        var mapParent = (Settlement)WorldObjectMaker.MakeWorldObject(WorldObjectDefOf.Settlement);
-        mapParent.Tile = tile;
-        mapParent.SetFaction(Faction.OfPlayer);
-        Find.WorldObjects.Add(mapParent);
+        // ScenPart_PlayerFaction --> PreMapGenerate 
+
+        var settlement = (Settlement)WorldObjectMaker.MakeWorldObject(WorldObjectDefOf.Settlement);
+        settlement.Tile = tile;
+        settlement.SetFaction(Faction.OfPlayer);
+        Find.WorldObjects.Add(settlement);
+
+        // ^^^^ Duplicate Code here ^^^^
 
         var prevScenario = Find.Scenario;
+        var prevStartingTile = Find.GameInfo.startingTile;
+
         Current.Game.Scenario = scenario;
+        Find.GameInfo.startingTile = tile;
+        Find.GameInitData.startingTile = tile;
+
+        MapSetup.SetupNextMapFromTickZero = setupNextMapFromTickZero;
+
         generatingMap = true;
 
         try
         {
-            return GetOrGenerateMapUtility.GetOrGenerateMap(
+            Map map = GetOrGenerateMapUtility.GetOrGenerateMap(
                 tile,
                 new IntVec3(250, 1, 250),
                 null
             );
+
+            SetAllThingWithCompsOnMapForbidden(map);
+
+            return map;
         }
         finally
         {
             generatingMap = false;
             Current.Game.Scenario = prevScenario;
+            Find.GameInfo.startingTile = prevStartingTile;
+            Find.GameInitData.startingTile = prevStartingTile;
+        }
+    }
+
+    // TODO: Remove this Workaround (see Issue #535)
+    private static void SetAllThingWithCompsOnMapForbidden(Map map)
+    {
+        foreach (Thing thing in map.listerThings.AllThings)
+        {
+            if (thing is ThingWithComps)
+            {
+                thing.SetForbidden(true, false);
+            }
         }
     }
 
     private static void InitNewGame()
     {
         PawnUtility.GiveAllStartingPlayerPawnsThought(ThoughtDefOf.NewColonyOptimism);
+
         ResearchUtility.ApplyPlayerStartingResearch();
+        // Initialize anomaly. Since the Anomaly comp is currently shared by all players,
+        // we need to ensure that any new factions have access to anomaly research if
+        // anomaly content was started.
+        Find.ResearchManager.Notify_MonolithLevelChanged(Find.Anomaly.Level);
     }
 
-    private static void PrepareGameInitData(int sessionId)
+    private static void PrepareGameInitData(int sessionId, Scenario scenario, bool self, List<ThingDefCount> startingPossessions)
     {
-        Current.Game.InitData = new GameInitData
+        if (!self)
         {
-            startingPawnCount = 3,
-            gameToLoad = "dummy" // Prevent special calculation path in GenTicks.TicksAbs
-        };
+            Current.Game.InitData = new GameInitData()
+            {
+                startingPawnCount = GetStartingPawnsCountForScenario(scenario),
+                gameToLoad = preventSpecialCalculationPathInGenTicksTicksAbs
+            };
+        }
 
         if (pawnStore.TryGetValue(sessionId, out var pawns))
         {
-            Current.Game.InitData.startingAndOptionalPawns = pawns;
-            Current.Game.InitData.startingPossessions = new Dictionary<Pawn, List<ThingDefCount>>();
-            foreach (var p in pawns)
-                Current.Game.InitData.startingPossessions[p] = new List<ThingDefCount>();
+            Pawn firstPawn = pawns.First();
+
+            GameInitData gameInitData = Current.Game.InitData;
+            gameInitData.startingAndOptionalPawns = pawns;
+            gameInitData.startingPossessions = new Dictionary<Pawn, List<ThingDefCount>>();
+
+            foreach (var pawn in pawns)
+            {
+                gameInitData.startingPossessions[pawn] = new List<ThingDefCount>();
+            }
+
+            foreach (var possesion in startingPossessions)
+            {
+                gameInitData.startingPossessions[firstPawn].Add(possesion);
+            }
 
             pawnStore.Remove(sessionId);
         }
     }
 
-    private static Faction NewFactionWithIdeo(string name, FactionDef def, ChooseIdeoInfo chooseIdeoInfo)
+    private static Faction NewFactionWithIdeo(string name, FactionDef def, IdeologyData chooseIdeoInfo)
     {
         var faction = new Faction
         {
@@ -144,6 +225,7 @@ public static class FactionCreator
             Name = name,
             hidden = true
         };
+
         faction.ideos = new FactionIdeosTracker(faction);
 
         if (!ModsConfig.IdeologyActive || Find.IdeoManager.classicMode || chooseIdeoInfo.SelectedIdeo == null)
@@ -177,7 +259,7 @@ public static class FactionCreator
         return faction;
     }
 
-    private static Ideo GenerateIdeo(ChooseIdeoInfo chooseIdeoInfo)
+    private static Ideo GenerateIdeo(IdeologyData chooseIdeoInfo)
     {
         List<MemeDef> list = chooseIdeoInfo.SelectedIdeo.memes.ToList();
 
@@ -191,4 +273,30 @@ public static class FactionCreator
 
         return ideo;
     }
+
+    public static int GetStartingPawnsCountForScenario(Scenario scenario)
+    {
+        foreach (ScenPart part in scenario.AllParts)
+        {
+            if (part is ScenPart_ConfigPage_ConfigureStartingPawnsBase startingPawnsConfig)
+            {
+                return startingPawnsConfig.TotalPawnCount;
+            }
+        }
+
+        MpLog.Error("No starting pawns config found to access startingPawnCount");
+
+        return 0;
+    }
 }
+public record FactionCreationData : ISyncSimple
+{
+    public string factionName;
+    public int startingTile;
+    [CanBeNull] public ScenarioDef scenarioDef;
+    public IdeologyData chooseIdeoInfo;
+    public bool generateMap;
+    public List<ThingDefCount> startingPossessions;
+    public bool setupNextMapFromTickZero;
+}
+

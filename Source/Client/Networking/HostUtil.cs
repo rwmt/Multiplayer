@@ -150,6 +150,14 @@ namespace Multiplayer.Client
 
                     factionData.researchManager.progress = new(playerFactionData.researchManager.progress);
                     factionData.researchManager.techprints = new(playerFactionData.researchManager.techprints);
+                    factionData.researchManager.anomalyKnowledge = new(playerFactionData.researchManager.anomalyKnowledge);
+                    factionData.researchManager.currentAnomalyKnowledgeProjects = new(playerFactionData.researchManager.currentAnomalyKnowledgeProjects ?? Enumerable.Empty<ResearchManager.KnowledgeCategoryProject>());
+                    factionData.researchManager.tabInfoVisibility = new();
+                    if (playerFactionData.researchManager.tabInfoVisibility != null)
+                    {
+                        foreach (var (def, value) in playerFactionData.researchManager.tabInfoVisibility)
+                            factionData.researchManager.tabInfoVisibility[def] = value;
+                    }
                 }
 
             foreach (FactionWorldData data in worldComp.factionData.Values)
@@ -157,11 +165,7 @@ namespace Multiplayer.Client
 
             foreach (Map map in Find.Maps)
             {
-                MapSetup.SetupMap(map);
-
-                AsyncTimeComp async = map.AsyncTime();
-                async.mapTicks = Find.TickManager.TicksGame;
-                async.SetDesiredTimeSpeed(Find.TickManager.CurTimeSpeed);
+                MapSetup.SetupMap(map, true);
             }
         }
 

@@ -104,7 +104,7 @@ namespace Multiplayer.Client.Saving
 
             if (Scribe.mode == LoadSaveMode.LoadingVars || Scribe.mode == LoadSaveMode.Saving)
             {
-                Scribe_Deep.Look(ref asyncTime, "mpAsyncTime", __instance);
+                Scribe_Deep.Look(ref asyncTime, "mpAsyncTime", __instance, 0);
                 Scribe_Deep.Look(ref comp, "mpMapComp", __instance);
             }
 
@@ -114,7 +114,7 @@ namespace Multiplayer.Client.Saving
                 {
                     Log.Error($"{typeof(AsyncTimeComp)} missing during loading");
                     // This is just so the game doesn't completely freeze
-                    asyncTime = new AsyncTimeComp(__instance);
+                    asyncTime = new AsyncTimeComp(__instance, 0);
                 }
 
                 Multiplayer.game.asyncTimeComps.Add(asyncTime);

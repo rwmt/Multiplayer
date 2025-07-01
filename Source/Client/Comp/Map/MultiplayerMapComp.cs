@@ -35,12 +35,12 @@ namespace Multiplayer.Client
             sessionManager = new(map);
         }
 
-        public CaravanFormingSession CreateCaravanFormingSession(bool reform, Action onClosed, bool mapAboutToBeRemoved, IntVec3? meetingSpot = null)
+        public CaravanFormingSession CreateCaravanFormingSession(Faction faction, bool reform, Action onClosed, bool mapAboutToBeRemoved, IntVec3? meetingSpot = null)
         {
             var caravanForming = sessionManager.GetFirstOfType<CaravanFormingSession>();
             if (caravanForming == null)
             {
-                caravanForming = new CaravanFormingSession(map, reform, onClosed, mapAboutToBeRemoved, meetingSpot);
+                caravanForming = new CaravanFormingSession(faction, map, reform, onClosed, mapAboutToBeRemoved, meetingSpot);
                 if (!sessionManager.AddSession(caravanForming))
                 {
                     // Shouldn't happen if the session doesn't exist already, show an error just in case
@@ -51,12 +51,12 @@ namespace Multiplayer.Client
             return caravanForming;
         }
 
-        public TransporterLoading CreateTransporterLoadingSession(List<CompTransporter> transporters)
+        public TransporterLoading CreateTransporterLoadingSession(Faction faction, List<CompTransporter> transporters)
         {
             var transporterLoading = sessionManager.GetFirstOfType<TransporterLoading>();
             if (transporterLoading == null)
             {
-                transporterLoading = new TransporterLoading(map, transporters);
+                transporterLoading = new TransporterLoading(faction, map, transporters);
                 if (!sessionManager.AddSession(transporterLoading))
                 {
                     // Shouldn't happen if the session doesn't exist already, show an error just in case

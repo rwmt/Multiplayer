@@ -62,13 +62,17 @@ public class AsyncWorldTimeComp : IExposable, ITickable
     public int TickableId => -1;
 
     public World world;
-    public ulong randState = 2;
+    public ulong randState;
 
     public int worldTicks;
 
     public AsyncWorldTimeComp(World world)
     {
         this.world = world;
+
+        // Use the world's constant rand seed as our initial randState.
+        // Only fill the seed part, leave the iterations out.
+        randState = (uint)world.ConstantRandSeed;
     }
 
     public void ExposeData()

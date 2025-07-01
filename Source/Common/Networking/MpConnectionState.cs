@@ -4,18 +4,13 @@ using HarmonyLib;
 
 namespace Multiplayer.Common
 {
-    public abstract class MpConnectionState
+    public abstract class MpConnectionState(ConnectionBase connection)
     {
-        public readonly ConnectionBase connection;
+        protected readonly ConnectionBase connection = connection;
         public bool alive = true;
 
         protected ServerPlayer Player => connection.serverPlayer;
         protected MultiplayerServer Server => MultiplayerServer.instance!;
-
-        public MpConnectionState(ConnectionBase connection)
-        {
-            this.connection = connection;
-        }
 
         public virtual void StartState()
         {
@@ -25,13 +20,11 @@ namespace Multiplayer.Common
         {
         }
 
-        public virtual PacketHandlerInfo? GetPacketHandler(Packets packet)
-        {
-            return null;
-        }
+        public virtual PacketHandlerInfo? GetPacketHandler(Packets id) =>
+            packetHandlers[(int)connection.State, (int)id];
 
         public static Type[] stateImpls = new Type[(int)ConnectionStateEnum.Count];
-        public static PacketHandlerInfo?[,] packetHandlers = new PacketHandlerInfo?[(int)ConnectionStateEnum.Count, (int)Packets.Count];
+        private static PacketHandlerInfo?[,] packetHandlers = new PacketHandlerInfo?[(int)ConnectionStateEnum.Count, (int)Packets.Count];
 
         public static void SetImplementation(ConnectionStateEnum state, Type type)
         {

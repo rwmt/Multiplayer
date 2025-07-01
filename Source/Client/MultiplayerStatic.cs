@@ -313,9 +313,9 @@ namespace Multiplayer.Client
             {
                 var designatorFinalizer = AccessTools.Method(typeof(DesignatorPatches), nameof(DesignatorPatches.DesignateFinalizer));
                 var designatorMethods = new[] {
-                     ("DesignateSingleCell", new[]{ typeof(IntVec3) }),
-                     ("DesignateMultiCell", new[]{ typeof(IEnumerable<IntVec3>) }),
-                     ("DesignateThing", new[]{ typeof(Thing) }),
+                     (nameof(DesignatorPatches.DesignateSingleCell), new[]{ typeof(IntVec3) }),
+                     (nameof(DesignatorPatches.DesignateMultiCell), new[]{ typeof(IEnumerable<IntVec3>) }),
+                     (nameof(DesignatorPatches.DesignateThing), new[]{ typeof(Thing) }),
                 };
 
                 foreach (Type t in typeof(Designator).AllSubtypesAndSelf()
