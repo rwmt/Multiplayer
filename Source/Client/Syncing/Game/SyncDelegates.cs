@@ -9,6 +9,7 @@ using HarmonyLib;
 using Multiplayer.Client.Patches;
 using MultiplayerLoader;
 using Verse;
+using Verse.AI.Group;
 
 namespace Multiplayer.Client
 {
@@ -51,7 +52,6 @@ namespace Multiplayer.Client
             SyncMethod.Lambda(typeof(Building_TurretGun), nameof(Building_TurretGun.GetGizmos), 1);          // Reset forced target
             SyncMethod.Lambda(typeof(UnfinishedThing), nameof(UnfinishedThing.GetGizmos), 0);                // Cancel unfinished thing
             SyncMethod.Lambda(typeof(UnfinishedThing), nameof(UnfinishedThing.GetGizmos), 1).SetDebugOnly(); // Dev complete
-            SyncMethod.Lambda(typeof(CompTempControl), nameof(CompTempControl.CompGetGizmosExtra), 2);       // Reset temperature
 
             SyncDelegate.LambdaInGetter(typeof(Designator), nameof(Designator.RightClickFloatMenuOptions), 0) // Designate all
                 .TransformField("things", Serializer.SimpleReader(() => Find.CurrentMap.listerThings.AllThings)).SetContext(SyncContext.CurrentMap);
@@ -140,7 +140,6 @@ namespace Multiplayer.Client
             SyncDelegate.Lambda(typeof(CompBandNode), nameof(CompBandNode.CompGetGizmosExtra), 7); // Select pawn to tune to
             SyncDelegate.Lambda(typeof(CompDissolution), nameof(CompDissolution.CompGetGizmosExtra), 4).SetDebugOnly(); // Set next dissolve time
             SyncDelegate.Lambda(typeof(CompPollutionPump), nameof(CompPollutionPump.CompGetGizmosExtra), 1).SetDebugOnly(); // Set next pollution cycle
-            SyncDelegate.Lambda(typeof(CompToxifier), nameof(CompToxifier.CompGetGizmosExtra), 2).SetDebugOnly(); // Pollute all, calls a synced method PolluteNextCell on loop which would cause infinite loop in MP
             SyncDelegate.Lambda(typeof(CompToxifier), nameof(CompToxifier.CompGetGizmosExtra), 3).SetDebugOnly(); // Set next pollution time
             SyncDelegate.Lambda(typeof(Gene_Deathrest), nameof(Gene_Deathrest.GetGizmos), 5).SetDebugOnly(); // Set capacity
 
@@ -246,6 +245,14 @@ namespace Multiplayer.Client
             SyncDelegate.Lambda(typeof(Hediff_MetalhorrorImplant), nameof(Hediff_MetalhorrorImplant.GetGizmos), 6).SetDebugOnly(); // Change biosignature
             SyncMethod.Lambda(typeof(Hediff_Shambler), nameof(Hediff_Shambler.GetGizmos), 0).SetDebugOnly(); // Self raise
 
+            // Void monolith
+            // Targeting should be handled by syncing `ITargetingSource:OrderForceTarget`
+            SyncMethod.Lambda(typeof(Building_VoidMonolith), nameof(Building_VoidMonolith.GetGizmos), 1).SetDebugOnly(); // Dev activate
+            SyncMethod.Lambda(typeof(Building_VoidMonolith), nameof(Building_VoidMonolith.GetGizmos), 2).SetDebugOnly(); // Dev relink
+            // TryTakeOrderedJob call is already synced, but we also need to make sure that
+            // CompProximityLetter.letterSent is set to true to prevent a desync.
+            SyncDelegate.Lambda(typeof(Building_VoidMonolith), nameof(Building_VoidMonolith.GetFloatMenuOptions), 0);
+
             InitRituals();
             InitChoiceLetters();
             InitDevTools();
@@ -259,7 +266,7 @@ namespace Multiplayer.Client
             SyncDelegate.Lambda(typeof(LordJob_BestowingCeremony), nameof(LordJob_BestowingCeremony.GetPawnGizmos), 2); // Cancel ceremony
             SyncDelegate.Lambda(typeof(LordJob_BestowingCeremony), nameof(LordJob_BestowingCeremony.GetPawnGizmos), 0); // Make pawn leave ceremony
 
-            SyncDelegate.Lambda(typeof(LordToil_BestowingCeremony_Wait), nameof(LordToil_BestowingCeremony_Wait.ExtraFloatMenuOptions), 0); // Begin bestowing float menu
+            SyncMethod.Lambda(typeof(LordToil_BestowingCeremony_Wait), nameof(LordToil_BestowingCeremony_Wait.ExtraFloatMenuOptions), 0); // Begin bestowing float menu
             SyncMethod.Register(typeof(Command_BestowerCeremony), nameof(Command_BestowerCeremony.ProcessInput)); // Begin bestowing gizmo
 
             SyncDelegate.Lambda(typeof(CompPsylinkable), nameof(CompPsylinkable.CompFloatMenuOptions), 0); // Psylinkable begin linking
@@ -270,6 +277,11 @@ namespace Multiplayer.Client
             SyncDelegate.Lambda(typeof(Dialog_BeginRitual), nameof(Dialog_BeginRitual.DrawRoleSelection), 0); // Select role: none
             SyncDelegate.Lambda(typeof(Dialog_BeginRitual), nameof(Dialog_BeginRitual.DrawRoleSelection), 3); // Select role, set confirm text
             SyncDelegate.Lambda(typeof(Dialog_BeginRitual), nameof(Dialog_BeginRitual.DrawRoleSelection), 4); // Select role, no confirm text
+
+            SyncMethod.Register(typeof(PsychicRitual), nameof(PsychicRitual.CancelPsychicRitual));
+            SyncMethod.Register(typeof(PsychicRitual), nameof(PsychicRitual.LeavePsychicRitual)); // Make pawn leave ritual
+
+            SyncMethod.Register(typeof(GameComponent_PsychicRitualManager), nameof(GameComponent_PsychicRitualManager.ClearAllCooldowns)).SetDebugOnly(); // Dev reset all psychic ritual cooldowns
 
             /*
                 PawnRoleSelectionWidgetBase
@@ -286,6 +298,9 @@ namespace Multiplayer.Client
 
             SyncMethod.Register(typeof(RitualRoleAssignments), nameof(RitualRoleAssignments.TryAssignSpectate));
             SyncMethod.Register(typeof(RitualRoleAssignments), nameof(RitualRoleAssignments.RemoveParticipant));
+
+            SyncMethod.Register(typeof(PsychicRitualRoleAssignments), nameof(PsychicRitualRoleAssignments.TryAssignSpectate));
+            SyncMethod.Register(typeof(PsychicRitualRoleAssignments), nameof(PsychicRitualRoleAssignments.RemoveParticipant));
 
             SyncRituals.ApplyPrepatches(null);
         }

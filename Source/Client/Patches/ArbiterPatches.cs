@@ -14,7 +14,7 @@ namespace Multiplayer.Client
     {
         static MethodBase TargetMethod()
         {
-            return AccessTools.Method(typeof(GUI), "get_" + nameof(GUI.skin));
+            return AccessTools.PropertyGetter(typeof(GUI), nameof(GUI.skin));
         }
 
         static bool Prefix(ref GUISkin __result)
@@ -28,7 +28,7 @@ namespace Multiplayer.Client
     [HarmonyPatch]
     static class RenderTextureCreatePatch
     {
-        static MethodInfo IsCreated = AccessTools.Method(typeof(RenderTexture), "IsCreated");
+        static MethodInfo IsCreated = AccessTools.Method(typeof(RenderTexture), nameof(RenderTexture.IsCreated));
         static FieldInfo ArbiterField = AccessTools.Field(typeof(Multiplayer), nameof(Multiplayer.arbiterInstance));
 
         static IEnumerable<MethodBase> TargetMethods()

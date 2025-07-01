@@ -37,7 +37,7 @@ public class MultiplayerWorldComp : IHasSessionData
 
         sessionManager.ExposeSessions();
         // Ensure a pause lock session exists if there's any pause locks registered
-        if (!PauseLockSession.pauseLocks.NullOrEmpty())
+        if (!PauseLockSession.pauseLocks.NullOrEmpty() && Scribe.mode == LoadSaveMode.PostLoadInit)
             sessionManager.AddSession(new PauseLockSession(null));
 
         DoBackCompat();
@@ -77,6 +77,18 @@ public class MultiplayerWorldComp : IHasSessionData
 
             AddSpectatorFaction();
             RemoveOpponentFaction();
+        }
+
+        // Fix old save files by ensuring all factions have access to Anomaly research if
+        // it was enabled. This needs to be done since Anomaly state is shared by all players.
+        var anomaly = Find.Anomaly;
+        // Don't use anomaly.Level, as it'll return 0 due to monolith not being
+        // spawned. If we want to include that check then we'd need to move this
+        // code into a postfix to Building_VoidMonolith:SpawnSetup.
+        if (anomaly.level > 0 && anomaly.monolith != null)
+        {
+            foreach (var (_, data) in factionData)
+                data.researchManager.Notify_MonolithLevelChanged(anomaly.level);
         }
     }
 

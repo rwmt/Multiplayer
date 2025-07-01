@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using HarmonyLib;
 using RimWorld;
 using UnityEngine;
@@ -57,6 +57,20 @@ namespace Multiplayer.Client.Util
             Text.Font = prevFont;
         }
 
+        public static void Checkbox(float x, float y, ref bool checkOn, bool disabled, float size)
+        {
+            if (!disabled && Widgets.ButtonInvisible(new Rect(x, y, size, size), false))
+            {
+                checkOn = !checkOn;
+                if (checkOn)
+                    SoundDefOf.Checkbox_TurnedOn.PlayOneShotOnCamera(null);
+                else
+                    SoundDefOf.Checkbox_TurnedOff.PlayOneShotOnCamera(null);
+            }
+
+            Widgets.CheckboxDraw(x, y, checkOn, disabled, size);
+        }
+
         public static Rect CheckboxLabeled(Rect rect, string label, ref bool checkOn, bool disabled = false, ElementOrder order = ElementOrder.Apart, float size = 24f)
         {
             TextAnchor anchor = Text.Anchor;
@@ -76,19 +90,10 @@ namespace Multiplayer.Client.Util
 
             Widgets.Label(rect, label);
 
-            if (!disabled && Widgets.ButtonInvisible(rect, false))
-            {
-                checkOn = !checkOn;
-                if (checkOn)
-                    SoundDefOf.Checkbox_TurnedOn.PlayOneShotOnCamera(null);
-                else
-                    SoundDefOf.Checkbox_TurnedOff.PlayOneShotOnCamera(null);
-            }
-
-            Widgets.CheckboxDraw(
+            Checkbox(
                 rect.xMax - size,
                 rect.y + (rect.height - size) / 2,
-                checkOn,
+                ref checkOn,
                 disabled,
                 size);
 
@@ -248,7 +253,7 @@ namespace Multiplayer.Client.Util
                     Text.textFieldStyles[1]
                 );
             else
-                password =  GUI.TextField(
+                password = GUI.TextField(
                     rect,
                     password,
                     Text.textFieldStyles[1]

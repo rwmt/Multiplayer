@@ -23,7 +23,7 @@ static class ThingFilterMarkers
         }
     }
 
-    [MpPrefix(typeof(ITab_Storage), "FillTab")]
+    [MpPrefix(typeof(ITab_Storage), nameof(ITab_Storage.FillTab))]
     static void TabStorageFillTab_Prefix(ITab_Storage __instance)
     {
         var selThing = __instance.SelObject;
@@ -37,42 +37,42 @@ static class ThingFilterMarkers
         DrawnThingFilter = new TabStorageWrapper(selParent);
     }
 
-    [MpPostfix(typeof(ITab_Storage), "FillTab")]
+    [MpPostfix(typeof(ITab_Storage), nameof(ITab_Storage.FillTab))]
     static void TabStorageFillTab_Postfix() => DrawnThingFilter = null;
 
-    [MpPrefix(typeof(Dialog_BillConfig), "DoWindowContents")]
+    [MpPrefix(typeof(Dialog_BillConfig), nameof(Dialog_BillConfig.DoWindowContents))]
     static void BillConfig_Prefix(Dialog_BillConfig __instance) =>
         DrawnThingFilter = new BillConfigWrapper(__instance.bill);
 
-    [MpPostfix(typeof(Dialog_BillConfig), "DoWindowContents")]
+    [MpPostfix(typeof(Dialog_BillConfig), nameof(Dialog_BillConfig.DoWindowContents))]
     static void BillConfig_Postfix() => DrawnThingFilter = null;
 
-    [MpPrefix(typeof(Dialog_ManageApparelPolicies), "DoContentsRect")]
+    [MpPrefix(typeof(Dialog_ManageApparelPolicies), nameof(Dialog_ManageApparelPolicies.DoContentsRect))]
     static void ManageOutfit_Prefix(Dialog_ManageApparelPolicies __instance) =>
         DrawnThingFilter = new OutfitWrapper(__instance.SelectedPolicy);
 
-    [MpPostfix(typeof(Dialog_ManageApparelPolicies), "DoContentsRect")]
+    [MpPostfix(typeof(Dialog_ManageApparelPolicies), nameof(Dialog_ManageApparelPolicies.DoContentsRect))]
     static void ManageOutfit_Postfix() => DrawnThingFilter = null;
 
-    [MpPrefix(typeof(Dialog_ManageFoodPolicies), "DoContentsRect")]
+    [MpPrefix(typeof(Dialog_ManageFoodPolicies), nameof(Dialog_ManageFoodPolicies.DoContentsRect))]
     static void ManageFoodRestriction_Prefix(Dialog_ManageFoodPolicies __instance) =>
         DrawnThingFilter = new FoodRestrictionWrapper(__instance.SelectedPolicy);
 
-    [MpPostfix(typeof(Dialog_ManageFoodPolicies), "DoContentsRect")]
+    [MpPostfix(typeof(Dialog_ManageFoodPolicies), nameof(Dialog_ManageFoodPolicies.DoContentsRect))]
     static void ManageFoodRestriction_Postfix() => DrawnThingFilter = null;
 
-    [MpPrefix(typeof(ITab_PenAutoCut), "FillTab")]
+    [MpPrefix(typeof(ITab_PenAutoCut), nameof(ITab_PenAutoCut.FillTab))]
     static void TabPenAutocutFillTab_Prefix(ITab_PenAutoCut __instance) =>
         DrawnThingFilter = new PenAutocutWrapper(__instance.SelectedCompAnimalPenMarker);
 
-    [MpPostfix(typeof(ITab_PenAutoCut), "FillTab")]
+    [MpPostfix(typeof(ITab_PenAutoCut), nameof(ITab_PenAutoCut.FillTab))]
     static void TabPenAutocutFillTab_Postfix() => DrawnThingFilter = null;
 
-    [MpPrefix(typeof(ITab_PenAnimals), "FillTab")]
+    [MpPrefix(typeof(ITab_PenAnimals), nameof(ITab_PenAnimals.FillTab))]
     static void TabPenAnimalsFillTab_Prefix(ITab_PenAnimals __instance) =>
         DrawnThingFilter = new PenAnimalsWrapper(__instance.SelectedCompAnimalPenMarker);
 
-    [MpPostfix(typeof(ITab_PenAnimals), "FillTab")]
+    [MpPostfix(typeof(ITab_PenAnimals), nameof(ITab_PenAnimals.FillTab))]
     static void TabPenAnimalsFillTab_Postfix() => DrawnThingFilter = null;
 
     [MpPrefix(typeof(ITab_WindTurbineAutoCut), nameof(ITab_WindTurbineAutoCut.FillTab))]

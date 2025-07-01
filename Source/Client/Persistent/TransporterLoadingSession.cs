@@ -12,18 +12,21 @@ namespace Multiplayer.Client
 
         public Map map;
 
+        public Faction faction;
+
         public List<CompTransporter> transporters;
         public List<ThingWithComps> pods;
         public List<TransferableOneWay> transferables;
 
         public bool uiDirty;
 
-        public TransporterLoading(Map map) : base(map)
+        public TransporterLoading(Faction faction, Map map) : base(map)
         {
             this.map = map;
+            this.faction = faction;
         }
 
-        public TransporterLoading(Map map, List<CompTransporter> transporters) : this(map)
+        public TransporterLoading(Faction faction, Map map, List<CompTransporter> transporters) : this(faction, map)
         {
             this.transporters = transporters;
             pods = transporters.Select(t => t.parent).ToList();
