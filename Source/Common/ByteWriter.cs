@@ -5,6 +5,7 @@ using System.IO;
 using System.Runtime.CompilerServices;
 using System.Text;
 using Multiplayer.Common.Util;
+using Verse;
 
 namespace Multiplayer.Common
 {
@@ -86,7 +87,7 @@ namespace Multiplayer.Common
 
         public virtual void WriteEnum<T>(T value) where T : Enum
         {
-            var values = EnumCache.GetValues(value.GetType());
+            var values = typeof(T) == typeof(Enum) ? EnumCache.Values(value.GetType()) : EnumCache<T>.Values;
             var index = Array.IndexOf(values, value);
             switch (values.Length)
             {

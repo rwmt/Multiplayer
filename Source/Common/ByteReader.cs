@@ -140,7 +140,7 @@ namespace Multiplayer.Common
 
         public virtual T ReadEnum<T>() where T : Enum
         {
-            var values = EnumCache.GetValues(typeof(T));
+            var values = EnumCache<T>.Values;
             ushort enumIndex = values.Length switch
             {
                 <= byte.MaxValue => ReadByte(),
