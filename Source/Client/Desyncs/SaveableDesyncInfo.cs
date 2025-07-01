@@ -93,6 +93,7 @@ public class SaveableDesyncInfo
             .AppendLine($"Player Count|||{Multiplayer.session.players.Count}")
             .AppendLine($"Async time active|||{Multiplayer.GameComp.asyncTime}")
             .AppendLine($"Multifaction active|||{Multiplayer.GameComp.multifaction}")
+            .AppendLine($"Map Count|||{Find.Maps?.Count.ToStringSafe()}")
             .AppendLine("\n###CPU Info###")
             .AppendLine($"Processor Name|||{SystemInfo.processorType}")
             .AppendLine($"Processor Speed (MHz)|||{SystemInfo.processorFrequency}")

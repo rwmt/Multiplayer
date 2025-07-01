@@ -3,6 +3,7 @@ using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using HarmonyLib;
 using Verse;
 
 namespace Multiplayer.Client
@@ -12,23 +13,96 @@ namespace Multiplayer.Client
         static SyncAction<FloatMenuOption, WorldObject, Caravan, object> SyncWorldObjCaravanMenus;
         static SyncAction<FloatMenuOption, WorldObject, IEnumerable<IThingHolder>, CompLaunchable> SyncTransportPodMenus;
 
+        static Type CaravanActionConfirmationType;
+        static Type TransportPodActionConfirmationType;
+
         public static void Init()
         {
-            SyncWorldObjCaravanMenus = RegisterActions((WorldObject obj, Caravan c) => obj.GetFloatMenuOptions(c), o => ref o.action);
+            void Error(string error)
+            {
+                Multiplayer.loadingErrors = true;
+                Log.Error(error);
+            }
+
+            // TODO: Use MpMethodUtil instead if we decide to make it work with generic types/methods (already in MP Compat, so use it). Or remove this TODO if we decide not to.
+            CaravanActionConfirmationType = AccessTools.Inner(typeof(CaravanArrivalActionUtility), "<>c__DisplayClass0_1`1");
+            TransportPodActionConfirmationType = AccessTools.Inner(typeof(TransportPodsArrivalActionUtility), "<>c__DisplayClass0_0`1");
+
+            if (CaravanActionConfirmationType == null) Error($"Could not find type: {nameof(CaravanArrivalActionUtility)}.<>c__DisplayClass0_1<T>");
+            if (TransportPodActionConfirmationType == null) Error($"Could not find type: {nameof(TransportPodsArrivalActionUtility)}.<>c__DisplayClass0_0<T>");
+
+            SyncWorldObjCaravanMenus = RegisterActions((WorldObject obj, Caravan c) => obj.GetFloatMenuOptions(c), ActionGetter, WorldObjectCaravanMenuWrapper);
             SyncWorldObjCaravanMenus.PatchAll(nameof(WorldObject.GetFloatMenuOptions));
 
-            SyncTransportPodMenus = RegisterActions((WorldObject obj, IEnumerable<IThingHolder> p, CompLaunchable r) => obj.GetTransportPodsFloatMenuOptions(p, r), o => ref o.action);
+            SyncTransportPodMenus = RegisterActions((WorldObject obj, IEnumerable<IThingHolder> p, CompLaunchable r) => obj.GetTransportPodsFloatMenuOptions(p, r), o => ref o.action, TransportPodMenuWrapper);
             SyncTransportPodMenus.PatchAll(nameof(WorldObject.GetTransportPodsFloatMenuOptions));
         }
 
-        static SyncAction<T, A, B, object> RegisterActions<T, A, B>(Func<A, B, IEnumerable<T>> func, ActionGetter<T> actionGetter)
+        private static ref Action ActionGetter(FloatMenuOption o) => ref o.action;
+
+        private static Action WorldObjectCaravanMenuWrapper(FloatMenuOption instance, WorldObject a, Caravan b, object c, Action original, Action sync)
         {
-            return RegisterActions<T, A, B, object>((a, b, c) => func(a, b), actionGetter);
+            if (instance.action.Method.DeclaringType is not { IsGenericType: true })
+                return null;
+
+            if (instance.action.Method.DeclaringType.GetGenericTypeDefinition() != CaravanActionConfirmationType)
+                return null;
+
+            return () =>
+            {
+                var field = AccessTools.DeclaredField(original.Target.GetType(), "action");
+                if (!Multiplayer.ExecutingCmds)
+                {
+                    // If not in a synced call then replace the method that will be
+                    // called by confirmation dialog with our synced method call.
+                    field.SetValue(original.Target, sync);
+                    original();
+                    return;
+                }
+
+                // If we're in a synced call, just call the action itself (after confirmation dialog)
+                ((Action)field.GetValue(original.Target))();
+            };
         }
 
-        static SyncAction<T, A, B, C> RegisterActions<T, A, B, C>(Func<A, B, C, IEnumerable<T>> func, ActionGetter<T> actionGetter)
+        public static Action TransportPodMenuWrapper(FloatMenuOption instance, WorldObject worldObject, IEnumerable<IThingHolder> thingHolders, CompLaunchable compLaunchable, Action original, Action sync)
         {
-            var sync = new SyncAction<T, A, B, C>(func, actionGetter);
+            if (instance.action.Method.DeclaringType is not { IsGenericType: true })
+                return null;
+
+            if (instance.action.Method.DeclaringType.GetGenericTypeDefinition() != TransportPodActionConfirmationType)
+                return null;
+
+            return () =>
+            {
+                var field = AccessTools.DeclaredField(original.Target.GetType(), "uiConfirmationCallback");
+
+                if (Multiplayer.ExecutingCmds)
+                {
+                    // Remove UI confirmation during synced commands so the method is just called directly
+                    field.SetValue(original.Target, null);
+                    original();
+                    return;
+                }
+
+                var confirmation = (Action<Action>)field.GetValue(original.Target);
+                // If no confirmation dialog, just sync
+                if (confirmation == null)
+                    sync();
+                // If there's a confirmation dialog, call it with sync as its synced method
+                else
+                    confirmation(sync);
+            };
+        }
+
+        static SyncAction<T, A, B, object> RegisterActions<T, A, B>(Func<A, B, IEnumerable<T>> func, ActionGetter<T> actionGetter, ActionWrapper<T, A, B, object> actionWrapper = null)
+        {
+            return RegisterActions<T, A, B, object>((a, b, c) => func(a, b), actionGetter, actionWrapper);
+        }
+
+        static SyncAction<T, A, B, C> RegisterActions<T, A, B, C>(Func<A, B, C, IEnumerable<T>> func, ActionGetter<T> actionGetter, ActionWrapper<T, A, B, C> actionWrapper = null)
+        {
+            var sync = new SyncAction<T, A, B, C>(func, actionGetter, actionWrapper);
             Sync.handlers.Add(sync);
 
             return sync;

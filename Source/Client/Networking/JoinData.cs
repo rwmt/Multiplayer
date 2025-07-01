@@ -128,7 +128,6 @@ namespace Multiplayer.Client
         [SuppressMessage("ReSharper", "StringLiteralTypo")]
         public static string[] ignoredConfigsModIds =
         {
-            // The old mod management code also included TacticalGroupsMod.xml and GraphicSetter.xml but I couldn't find their ids
             // todo unhardcode it
             "rwmt.multiplayer",
             "hodlhodl.twitchtoolkit", // contains username
@@ -141,7 +140,11 @@ namespace Multiplayer.Client
             "jelly.modswitch",
             "betterscenes.rimconnect", // contains secret key for streamer
             "jaxe.rimhud",
-            //"zetrith.prepatcher"
+            "telefonmast.graphicssettings",
+            "derekbickley.ltocolonygroupsfinal",
+            "dra.multiplayercustomtickrates", // syncs its own settings
+            "merthsoft.designatorshapes", // settings for UI and stuff meaningless for MP
+            //"zetrith.prepatcher",
         };
 
         public const string TempConfigsDir = "MultiplayerTempConfigs";

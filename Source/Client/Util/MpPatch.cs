@@ -195,7 +195,7 @@ namespace Multiplayer.Client
         {
         }
 
-        public MpTranspiler(Type type, string method, Type[] argTypes) : base(type, method, argTypes)
+        public MpTranspiler(Type type, string method, Type[] argTypes = null) : base(type, method, argTypes)
         {
         }
 

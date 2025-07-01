@@ -13,9 +13,13 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.Client == null || ignore) return true;
 
+            var spectatorId = Multiplayer.WorldComp.spectatorFaction.loadID;
             ignore = true;
             foreach (var (id, data) in factionIdToData)
             {
+                if (id == spectatorId)
+                    continue;
+
                 map.PushFaction(id);
                 try
                 {
@@ -170,6 +174,20 @@ namespace Multiplayer.Client
             FactionRepeater.Template(
                 Multiplayer.game?.worldComp.factionData,
                 d => d.storyWatcher.StoryWatcherTick(),
+                null,
+                ref ignore
+            );
+    }
+
+    [HarmonyPatch(typeof(ResearchManager), nameof(ResearchManager.Notify_MonolithLevelChanged))]
+    static class MonolithLevelChangedPatch
+    {
+        static bool ignore;
+
+        static bool Prefix(int newLevel) =>
+            FactionRepeater.Template(
+                Multiplayer.game?.worldComp.factionData,
+                d => d.researchManager.Notify_MonolithLevelChanged(newLevel),
                 null,
                 ref ignore
             );

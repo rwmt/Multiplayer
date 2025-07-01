@@ -107,7 +107,7 @@ namespace Multiplayer.Client.Persistent
     [HarmonyPatch]
     static class DontClearDialogBeginRitualCache
     {
-        private static MethodInfo listClear = AccessTools.Method(typeof(List<Precept_Role>), "Clear");
+        private static MethodInfo listClear = AccessTools.Method(typeof(List<Precept_Role>), nameof(List<Precept_Role>.Clear));
 
         static IEnumerable<MethodBase> TargetMethods()
         {

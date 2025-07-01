@@ -666,6 +666,54 @@ namespace Multiplayer.Client
                     }
                 }
             },
+            {
+                (ByteWriter data, DesignationManager manager) =>
+                {
+                    var isNull = manager?.map == null;
+                    data.WriteBool(isNull);
+                    if (!isNull)
+                        data.MpContext().map = manager.map;
+                },
+                (ByteReader data) =>
+                {
+                    if (data.ReadBool())
+                        return null;
+                    return data.MpContext().map.designationManager;
+                }
+            },
+            {
+                (SyncWorker sync, ref Designation designation) =>
+                {
+                    if (sync.isWriting)
+                    {
+                        sync.Write(designation?.designationManager);
+
+                        if (designation?.designationManager != null)
+                        {
+                            sync.Write(designation.target);
+                            sync.Write(designation.def);
+                        }
+                    }
+                    else
+                    {
+                        var manager = sync.Read<DesignationManager>();
+
+                        if (manager != null)
+                        {
+                            var target = sync.Read<LocalTargetInfo>();
+                            var def = sync.Read<DesignationDef>();
+
+                            // If the target has Thing, read designation by def for it.
+                            if (target.HasThing)
+                                designation = manager.DesignationOn(target.Thing, def);
+                            // If the target doesn't have a Thing then it must have a cell,
+                            // get the designation by def for that specific cell.
+                            else
+                                designation = manager.DesignationAt(target.Cell, def);
+                        }
+                    }
+                }, true // implicit
+            },
             #endregion
 
             #region ThingComps
@@ -810,6 +858,23 @@ namespace Multiplayer.Client
                     }
                 }, true // implicit
             },
+            {
+                (SyncWorker sync, ref ThingDefCount thingDefCount) =>
+                {
+                    if (sync.isWriting)
+                    {
+                        sync.Write(thingDefCount.ThingDef);
+                        sync.Write(thingDefCount.Count);
+                    }
+                    else
+                    {
+                        var def = sync.Read<ThingDef>();
+                        var count = sync.Read<int>();
+
+                        thingDefCount = new ThingDefCount(def, count);
+                    }
+                }
+            },
             #endregion
 
             #region Databases
@@ -878,7 +943,8 @@ namespace Multiplayer.Client
                     if (objId == -1)
                         return null;
 
-                    return Find.World.worldObjects.AllWorldObjects.Find(w => w.ID == objId);
+                    return Find.World.worldObjects.AllWorldObjects.Find(w => w.ID == objId) ??
+                           Find.World.pocketMaps.Find(p => p.ID == objId);
                 }, true // Implicit
             },
             {
@@ -954,6 +1020,10 @@ namespace Multiplayer.Client
                         comp = Current.Game.GetComponent(compType);
                     }
                 }, true // implicit
+            },
+            {
+                (ByteWriter _, ResearchManager _) => { },
+                (ByteReader _) => Find.ResearchManager
             },
             #endregion
 

@@ -48,7 +48,7 @@ namespace Multiplayer.Client
             if (selectedTab == -1 && trading.Count > 0)
                 selectedTab = 0;
 
-            if (selectedTab == -1)
+            if (selectedTab == -1 || tabs.Count == 0)
             {
                 Close();
                 return;
@@ -56,7 +56,7 @@ namespace Multiplayer.Client
 
             int rows = Mathf.CeilToInt(tabs.Count / 3f);
             inRect.yMin += rows * TabDrawer.TabHeight + 3;
-            TabDrawer.DrawTabs(inRect, tabs, rows);
+            TabDrawer.DrawTabs(inRect, tabs);
 
             inRect.yMin += 10f;
 
@@ -67,8 +67,10 @@ namespace Multiplayer.Client
                 selectedSession = session.SessionId;
             }
 
+            Faction factionContext = session.NegotiatorFaction;
             try
             {
+                factionContext = FactionContext.Push(factionContext);
                 MpTradeSession.SetTradeSession(session);
                 drawingTrade = this;
 
@@ -124,6 +126,9 @@ namespace Multiplayer.Client
             {
                 drawingTrade = null;
                 MpTradeSession.SetTradeSession(null);
+                if (factionContext != null) {
+                    FactionContext.Pop();
+                }
             }
         }
 
@@ -243,6 +248,77 @@ namespace Multiplayer.Client
             }
 
             return list;
+        }
+    }
+
+    [HarmonyPatch(typeof(Widgets), nameof(Widgets.ButtonText), typeof(Rect), typeof(string), typeof(bool), typeof(bool), typeof(bool), typeof(TextAnchor))]
+    static class DisableTradeControlButtonsForOtherFactions
+    {
+        static bool Prefix(Rect rect, string label, ref bool __result)
+        {
+            if (TradingWindow.drawingTrade == null || MpTradeSession.current.NegotiatorFaction == Multiplayer.RealPlayerFaction)
+                return true;
+
+            if (label != "ResetButton".Translate() && label != "CancelButton".Translate() && label != "OfferGifts".Translate() && label != "AcceptButton".Translate())
+                return true;
+
+            __result = false;
+            return false;
+        }
+    }
+
+    [HarmonyPatch(typeof(Widgets), nameof(Widgets.ButtonImageWithBG))]
+    static class DisableTradeModeButtonForOtherFactions
+    {
+        private static readonly Texture2D GiftModeIcon = ContentFinder<Texture2D>.Get("UI/Buttons/GiftMode");
+	    private static readonly Texture2D TradeModeIcon = ContentFinder<Texture2D>.Get("UI/Buttons/TradeMode");
+
+        static bool Prefix(Rect butRect, Texture2D image, ref bool __result)
+        {
+            if (TradingWindow.drawingTrade == null || MpTradeSession.current.NegotiatorFaction == Multiplayer.RealPlayerFaction)
+                return true;
+
+            if (image != GiftModeIcon && image != TradeModeIcon)
+                return true;
+
+            __result = false;
+            return false;
+        }
+    }
+
+    [HarmonyPatch(typeof(Widgets), nameof(Widgets.ButtonText), typeof(Rect), typeof(string), typeof(bool), typeof(bool), typeof(bool), typeof(TextAnchor))]
+    static class DisableTradeCountButtonsForOtherFactions
+    {
+        static bool Prefix(Rect rect, string label, ref bool __result)
+        {
+            if (TradingWindow.drawingTrade == null || MpTradeSession.current.NegotiatorFaction == Multiplayer.RealPlayerFaction)
+                return true;
+
+            if (label != "0" && label != "M<" && label != "<<" && label != "<" && label != ">" && label != ">>" && label != ">M")
+                return true;
+
+            GUI.color = Widgets.InactiveColor;
+            Widgets.TextArea(rect, label, true);
+            GUI.color = Color.white;
+            __result = false;
+            return false;
+        }
+    }
+
+    [HarmonyPatch()]
+    static class DisableTradeCountTextBoxForOtherFactions
+    {
+        static MethodInfo TargetMethod() {
+            return typeof(Widgets).GetMethod("TextFieldNumeric", BindingFlags.Public | BindingFlags.Static).MakeGenericMethod(typeof(int));
+        }
+        static bool Prefix(Rect rect, int val)
+        {
+            if (TradingWindow.drawingTrade == null || MpTradeSession.current.NegotiatorFaction == Multiplayer.RealPlayerFaction)
+                return true;
+
+            GUI.color = Color.white;
+            Widgets.TextArea(rect, val.ToString(), true);
+            return false;
         }
     }
 
@@ -451,7 +527,7 @@ namespace Multiplayer.Client
 
             for (int i = 0; i < 2; i++)
             {
-                int getAllTradeables = finder.Forward(OpCodes.Callvirt, AccessTools.Method(typeof(TradeDeal), "get_AllTradeables"));
+                int getAllTradeables = finder.Forward(OpCodes.Callvirt, AccessTools.PropertyGetter(typeof(TradeDeal), nameof(TradeDeal.AllTradeables)));
 
                 insts.RemoveRange(getAllTradeables - 1, 2);
                 insts.Insert(getAllTradeables - 1, new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(TradingWindow), nameof(TradingWindow.AllTradeables))));

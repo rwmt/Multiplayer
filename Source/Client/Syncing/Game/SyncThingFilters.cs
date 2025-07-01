@@ -7,7 +7,7 @@ namespace Multiplayer.Client;
 
 public static class SyncThingFilters
 {
-    [MpPrefix(typeof(ThingFilter), "SetAllow", new[] { typeof(StuffCategoryDef), typeof(bool) })]
+    [MpPrefix(typeof(ThingFilter), nameof(ThingFilter.SetAllow), [typeof(StuffCategoryDef), typeof(bool)])]
     static bool ThingFilter_SetAllow(StuffCategoryDef cat, bool allow)
     {
         if (!Multiplayer.ShouldSync || ThingFilterMarkers.DrawnThingFilter == null) return true;
@@ -15,7 +15,7 @@ public static class SyncThingFilters
         return false;
     }
 
-    [MpPrefix(typeof(ThingFilter), "SetAllow", new[] { typeof(SpecialThingFilterDef), typeof(bool) })]
+    [MpPrefix(typeof(ThingFilter), nameof(ThingFilter.SetAllow), [typeof(SpecialThingFilterDef), typeof(bool)])]
     static bool ThingFilter_SetAllow(SpecialThingFilterDef sfDef, bool allow)
     {
         if (!Multiplayer.ShouldSync || ThingFilterMarkers.DrawnThingFilter == null) return true;
@@ -23,7 +23,7 @@ public static class SyncThingFilters
         return false;
     }
 
-    [MpPrefix(typeof(ThingFilter), "SetAllow", new[] { typeof(ThingDef), typeof(bool) })]
+    [MpPrefix(typeof(ThingFilter), nameof(ThingFilter.SetAllow), [typeof(ThingDef), typeof(bool)])]
     static bool ThingFilter_SetAllow(ThingDef thingDef, bool allow)
     {
         if (!Multiplayer.ShouldSync || ThingFilterMarkers.DrawnThingFilter == null) return true;
@@ -31,7 +31,7 @@ public static class SyncThingFilters
         return false;
     }
 
-    [MpPrefix(typeof(ThingFilter), "SetAllow", new[] { typeof(ThingCategoryDef), typeof(bool), typeof(IEnumerable<ThingDef>), typeof(IEnumerable<SpecialThingFilterDef>) })]
+    [MpPrefix(typeof(ThingFilter), nameof(ThingFilter.SetAllow), [typeof(ThingCategoryDef), typeof(bool), typeof(IEnumerable<ThingDef>), typeof(IEnumerable<SpecialThingFilterDef>)])]
     static bool ThingFilter_SetAllow(ThingCategoryDef categoryDef, bool allow)
     {
         if (!Multiplayer.ShouldSync || ThingFilterMarkers.DrawnThingFilter == null) return true;
@@ -39,7 +39,7 @@ public static class SyncThingFilters
         return false;
     }
 
-    [MpPrefix(typeof(ThingFilter), "SetAllowAll")]
+    [MpPrefix(typeof(ThingFilter), nameof(ThingFilter.SetAllowAll))]
     static bool ThingFilter_SetAllowAll()
     {
         if (!Multiplayer.ShouldSync || ThingFilterMarkers.DrawnThingFilter == null) return true;
@@ -47,7 +47,7 @@ public static class SyncThingFilters
         return false;
     }
 
-    [MpPrefix(typeof(ThingFilter), "SetDisallowAll")]
+    [MpPrefix(typeof(ThingFilter), nameof(ThingFilter.SetDisallowAll))]
     static bool ThingFilter_SetDisallowAll()
     {
         if (!Multiplayer.ShouldSync || ThingFilterMarkers.DrawnThingFilter == null) return true;

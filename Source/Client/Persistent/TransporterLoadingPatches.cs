@@ -133,10 +133,85 @@ namespace Multiplayer.Client.Persistent
             if (Multiplayer.ExecutingCmds || Multiplayer.Ticking)
             {
                 var comp = map.MpComp();
-                TransporterLoading loading = comp.CreateTransporterLoadingSession(transporters);
+                TransporterLoading loading = comp.CreateTransporterLoadingSession(Faction.OfPlayer, transporters);
                 if (TickPatch.currentExecutingCmdIssuedBySelf)
                     loading.OpenWindow();
             }
+        }
+    }
+
+    [HarmonyPatch()]
+    static class DisableTransferCheckboxForOtherFactions
+    {
+        static MethodInfo TargetMethod() {
+            return typeof(Widgets).GetMethod("Checkbox", [
+                typeof(Vector2), typeof(bool).MakeByRefType(), typeof(float), typeof(bool), typeof(bool), typeof(Texture2D), typeof(Texture2D)
+            ]);
+        }
+
+        static bool Prefix(Vector2 topLeft, bool checkOn, bool disabled)
+        {
+            if (TransporterLoadingProxy.drawing == null || TransporterLoadingProxy.drawing.Session?.faction == Multiplayer.RealPlayerFaction)
+                return true;
+
+            if (disabled)
+                return true;
+
+            Widgets.Checkbox(topLeft, ref checkOn, disabled: true);
+            return false;
+        }
+    }
+
+    [HarmonyPatch(typeof(Widgets), nameof(Widgets.ButtonText), typeof(Rect), typeof(string), typeof(bool), typeof(bool), typeof(bool), typeof(TextAnchor))]
+    static class DisableLoadingControlButtonsForOtherFactions
+    {
+        static bool Prefix(Rect rect, string label, ref bool __result)
+        {
+            if (TransporterLoadingProxy.drawing == null || TransporterLoadingProxy.drawing.Session?.faction == Multiplayer.RealPlayerFaction)
+                return true;
+
+            if (label != "ResetButton".Translate() && label != "CancelButton".Translate() && label != "AcceptButton".Translate())
+                return true;
+
+            __result = false;
+            return false;
+        }
+    }
+
+    [HarmonyPatch(typeof(Widgets), nameof(Widgets.ButtonText))]
+    [HarmonyPatch(new[] { typeof(Rect), typeof(string), typeof(bool), typeof(bool), typeof(bool), typeof(TextAnchor) })]
+    static class DisableTransferCountButtonsForOtherFactions
+    {
+        static bool Prefix(Rect rect, string label, ref bool __result)
+        {
+            if (TransporterLoadingProxy.drawing == null || TransporterLoadingProxy.drawing.Session?.faction == Multiplayer.RealPlayerFaction)
+                return true;
+
+            if (label != "0" && label != "M<" && label != "<<" && label != "<" && label != ">" && label != ">>" && label != ">M")
+                return true;
+
+            GUI.color = Widgets.InactiveColor;
+            Widgets.TextArea(rect, label, true);
+            GUI.color = Color.white;
+            __result = false;
+            return false;
+        }
+    }
+
+    [HarmonyPatch()]
+    static class DisableTransferCountTextBoxForOtherFactions
+    {
+        static MethodInfo TargetMethod() {
+            return typeof(Widgets).GetMethod("TextFieldNumeric", BindingFlags.Public | BindingFlags.Static).MakeGenericMethod(typeof(int));
+        }
+        static bool Prefix(Rect rect, int val)
+        {
+            if (TransporterLoadingProxy.drawing == null || TransporterLoadingProxy.drawing.Session?.faction == Multiplayer.RealPlayerFaction)
+                return true;
+
+            GUI.color = Color.white;
+            Widgets.TextArea(rect, val.ToString(), true);
+            return false;
         }
     }
 }

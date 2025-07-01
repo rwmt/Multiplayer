@@ -4,6 +4,9 @@ using RimWorld;
 using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
+using System.Reflection;
+using System.Reflection.Emit;
+using HarmonyLib;
 using UnityEngine;
 using Verse;
 using static Verse.Widgets;
@@ -128,8 +131,8 @@ namespace Multiplayer.Client
             SyncFactionAcceptRoyalFavor = Sync.Field(typeof(Faction), nameof(Faction.allowRoyalFavorRewards));
             SyncFactionAcceptGoodwill = Sync.Field(typeof(Faction), nameof(Faction.allowGoodwillRewards));
 
-            SyncThingFilterHitPoints = Sync.Field(typeof(ThingFilterContext), "Filter/AllowedHitPointsPercents").SetBufferChanges();
-            SyncThingFilterQuality = Sync.Field(typeof(ThingFilterContext), "Filter/AllowedQualityLevels").SetBufferChanges();
+            SyncThingFilterHitPoints = Sync.Field(typeof(ThingFilterContext), $"{nameof(ThingFilterContext.Filter)}/{nameof(ThingFilter.AllowedHitPointsPercents)}").SetBufferChanges();
+            SyncThingFilterQuality = Sync.Field(typeof(ThingFilterContext), $"{nameof(ThingFilterContext.Filter)}/{nameof(ThingFilter.AllowedQualityLevels)}").SetBufferChanges();
 
             SyncBillPaused = Sync.Field(typeof(Bill_Production), nameof(Bill_Production.paused)).SetBufferChanges();
             SyncBillSuspended = Sync.Field(typeof(Bill), nameof(Bill.suspended));
@@ -396,12 +399,42 @@ namespace Multiplayer.Client
             }
         }
 
-        [MpPrefix(typeof(BillRepeatModeUtility), nameof(BillRepeatModeUtility.MakeConfigFloatMenu), lambdaOrdinal: 0)]
-        [MpPrefix(typeof(BillRepeatModeUtility), nameof(BillRepeatModeUtility.MakeConfigFloatMenu), lambdaOrdinal: 1)]
-        [MpPrefix(typeof(BillRepeatModeUtility), nameof(BillRepeatModeUtility.MakeConfigFloatMenu), lambdaOrdinal: 2)]
-        static void BillRepeatMode(object __instance)
+        [MpTranspiler(typeof(BillRepeatModeUtility), nameof(BillRepeatModeUtility.MakeConfigFloatMenu))]
+        static IEnumerable<CodeInstruction> BillConfigFloatMenuTranspiler(IEnumerable<CodeInstruction> insts, MethodBase orig)
         {
-            SyncBillProduction.Watch(__instance.GetPropertyOrField("bill"));
+            // Find the last occurence of Find.WindowStack.Add(new FloatMenu(opts)) by searching for Find.WindowStack property access.
+            var findWindowStackGetProp = AccessTools.DeclaredPropertyGetter(typeof(Find), nameof(Find.WindowStack));
+            var found = 0;
+            foreach (var inst in insts)
+            {
+                if (inst.Calls(findWindowStackGetProp))
+                {
+                    found++;
+                    yield return new CodeInstruction(OpCodes.Ldarg_0); // Bill_Production bill
+                    yield return new CodeInstruction(OpCodes.Ldloc_1); // List<FloatMenuOption> options
+                    yield return new CodeInstruction(OpCodes.Call, ((Delegate) SyncBillConfigFloatMenuOptions).Method);
+                }
+
+                yield return inst;
+            }
+
+            if (found == 0)
+            {
+                throw new Exception("Unexpected code structure in BillRepeatModeUtility.MakeConfigFloatMenu (couldn't find `Find.WindowStack`)." +
+                                    " Bill repeat mode will not be synchronized!");
+            }
+
+            if (found > 1)
+            {
+                Log.Warning(
+                    $"Atypical code structure in BillRepeatModeUtility.MakeConfigFloatMenu (`Find.WindowStack` occurred ${found} times)." +
+                    " This may cause unexpected behaviour or desynchronization when interacting with a bill's repeat mode.");
+            }
+        }
+
+        private static void SyncBillConfigFloatMenuOptions(Bill_Production bill, List<FloatMenuOption> opts)
+        {
+            WatchMenuOptions(() => SyncBillProduction.Watch(bill), opts);
         }
 
         [MpPrefix(typeof(ITab_Bills), nameof(ITab_Bills.TabUpdate))]
@@ -491,8 +524,19 @@ namespace Multiplayer.Client
             foreach (var entry in dropdowns)
             {
                 if (entry.option.action != null)
-                    entry.option.action = (SyncFieldUtil.FieldWatchPrefix + watchAction + entry.option.action + SyncFieldUtil.FieldWatchPostfix);
+                    entry.option.action = SyncFieldUtil.FieldWatchPrefix + watchAction + entry.option.action + SyncFieldUtil.FieldWatchPostfix;
                 yield return entry;
+            }
+        }
+
+        static void WatchMenuOptions(Action watchAction, IEnumerable<FloatMenuOption> opts)
+        {
+            foreach (var entry in opts)
+            {
+                if (entry.action != null)
+                {
+                    entry.action = SyncFieldUtil.FieldWatchPrefix + watchAction + entry.action + SyncFieldUtil.FieldWatchPostfix;
+                }
             }
         }
 
