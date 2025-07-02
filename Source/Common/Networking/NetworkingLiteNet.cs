@@ -4,17 +4,8 @@ using LiteNetLib;
 
 namespace Multiplayer.Common
 {
-    public class MpServerNetListener : INetEventListener
+    public class MpServerNetListener(MultiplayerServer server, bool arbiter) : INetEventListener
     {
-        private MultiplayerServer server;
-        private bool arbiter;
-
-        public MpServerNetListener(MultiplayerServer server, bool arbiter)
-        {
-            this.server = server;
-            this.arbiter = arbiter;
-        }
-
         public void OnConnectionRequest(ConnectionRequest req)
         {
             var result = server.playerManager.OnPreConnect(req.RemoteEndPoint.Address);

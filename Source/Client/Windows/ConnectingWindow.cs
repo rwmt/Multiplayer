@@ -82,31 +82,18 @@ namespace Multiplayer.Client
         protected override string ConnectingString => "MpJoining".Translate();
     }
 
-    public class ConnectingWindow : BaseConnectingWindow
+    public class ConnectingWindow(string address, int port) : BaseConnectingWindow
     {
         protected override string ConnectingString =>
             string.Format("MpConnectingTo".Translate("{0}", port), address);
-
-        private string address;
-        private int port;
-
-        public ConnectingWindow(string address, int port)
-        {
-            this.address = address;
-            this.port = port;
-        }
     }
 
-    public class SteamConnectingWindow : BaseConnectingWindow
+    public class SteamConnectingWindow(CSteamID hostId) : BaseConnectingWindow
     {
-        protected override string ConnectingString => (hostUsername.NullOrEmpty() ? "" : $"{"MpSteamConnectingTo".Translate(hostUsername)}\n") + "MpSteamConnectingWaiting".Translate();
+        protected override string ConnectingString =>
+            (hostUsername.NullOrEmpty() ? "" : $"{"MpSteamConnectingTo".Translate(hostUsername)}\n") +
+            "MpSteamConnectingWaiting".Translate();
 
-        public string hostUsername;
-
-        public SteamConnectingWindow(CSteamID hostId)
-        {
-            hostUsername = SteamFriends.GetFriendPersonaName(hostId);
-        }
+        public string hostUsername = SteamFriends.GetFriendPersonaName(hostId);
     }
-
 }

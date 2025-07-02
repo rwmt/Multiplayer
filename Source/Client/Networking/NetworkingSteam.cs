@@ -53,13 +53,9 @@ namespace Multiplayer.Client.Networking
         }
     }
 
-    public class SteamClientConn : SteamBaseConn
+    public class SteamClientConn(CSteamID remoteId) : SteamBaseConn(remoteId, RandomChannelId(), 0)
     {
         static ushort RandomChannelId() => (ushort)new Random().Next();
-
-        public SteamClientConn(CSteamID remoteId) : base(remoteId, RandomChannelId(), 0)
-        {
-        }
 
         protected override void HandleReceiveMsg(int msgId, int fragState, ByteReader reader, bool reliable)
         {
@@ -91,12 +87,8 @@ namespace Multiplayer.Client.Networking
         }
     }
 
-    public class SteamServerConn : SteamBaseConn
+    public class SteamServerConn(CSteamID remoteId, ushort clientChannel) : SteamBaseConn(remoteId, 0, clientChannel)
     {
-        public SteamServerConn(CSteamID remoteId, ushort clientChannel) : base(remoteId, 0, clientChannel)
-        {
-        }
-
         protected override void HandleReceiveMsg(int msgId, int fragState, ByteReader reader, bool reliable)
         {
             if (msgId == (int)Packets.Special_Steam_Disconnect)

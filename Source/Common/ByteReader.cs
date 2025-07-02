@@ -8,11 +8,10 @@ namespace Multiplayer.Common
         const int DefaultMaxStringLen = 32767;
 
         private readonly byte[] array;
-        private int index;
         public object? context;
 
         public int Length => array.Length;
-        public int Position => index;
+        public int Position { get; private set; }
         public int Left => Length - Position;
 
         public ByteReader(byte[] array)
@@ -20,7 +19,7 @@ namespace Multiplayer.Common
             this.array = array;
         }
 
-        public virtual byte PeekByte() => array[index];
+        public virtual byte PeekByte() => array[Position];
 
         public virtual byte ReadByte() => array[IncrementIndex(1)];
 
@@ -54,8 +53,8 @@ namespace Multiplayer.Common
             if (bytes > maxLen)
                 throw new ReaderException($"String too long ({bytes}>{maxLen})");
 
-            string result = Encoding.UTF8.GetString(array, index, bytes);
-            index += bytes;
+            string result = Encoding.UTF8.GetString(array, Position, bytes);
+            Position += bytes;
 
             return result;
         }
@@ -69,8 +68,8 @@ namespace Multiplayer.Common
             if (bytes > maxLen)
                 throw new ReaderException($"String too long ({bytes}>{maxLen})");
 
-            string result = Encoding.UTF8.GetString(array, index, bytes);
-            index += bytes;
+            string result = Encoding.UTF8.GetString(array, Position, bytes);
+            Position += bytes;
 
             return result;
         }
@@ -182,22 +181,17 @@ namespace Multiplayer.Common
 
         private int IncrementIndex(int size)
         {
-            int i = index;
-            index += size;
+            int i = Position;
+            Position += size;
             return i;
         }
 
         public void Seek(int position)
         {
-            index = position;
+            Position = position;
         }
     }
 
-    public class ReaderException : Exception
-    {
-        public ReaderException(string msg) : base(msg)
-        {
-        }
-    }
+    public class ReaderException(string msg) : Exception(msg);
 
 }

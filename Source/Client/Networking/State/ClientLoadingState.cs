@@ -13,13 +13,10 @@ public enum LoadingState
     Downloading
 }
 
-public class ClientLoadingState : ClientBaseState
+public class ClientLoadingState(ConnectionBase connection) : ClientBaseState(connection)
 {
     public LoadingState subState = LoadingState.Waiting;
 
-    public ClientLoadingState(ConnectionBase connection) : base(connection)
-    {
-    }
 
     [PacketHandler(Packets.Server_WorldDataStart)]
     public void HandleWorldDataStart(ByteReader data)

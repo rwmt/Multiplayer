@@ -5,6 +5,7 @@ using JetBrains.Annotations;
 namespace Multiplayer.Common
 {
     [MeansImplicitUse]
+    [AttributeUsage(AttributeTargets.Method)]
     public class PacketHandlerAttribute(Packets packet, bool allowFragmented = false) : Attribute
     {
         public readonly Packets packet = packet;
