@@ -190,6 +190,11 @@ namespace Multiplayer.Common
         {
             Position = position;
         }
+
+        internal byte[] GetBuffer()
+        {
+            return array;
+        }
     }
 
     public class ReaderException(string msg) : Exception(msg);

@@ -35,18 +35,69 @@ namespace Multiplayer.Common
             foreach (var method in type.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly))
             {
                 var attr = method.GetAttribute<PacketHandlerAttribute>();
-                if (attr == null)
-                    continue;
+                if (attr != null) RegisterPacketHandler(state, method, attr);
 
-                if (method.GetParameters().Length != 1 || method.GetParameters()[0].ParameterType != typeof(ByteReader))
-                    throw new Exception($"Bad packet handler signature for {method}");
+                var attr2 = method.GetAttribute<FragmentedPacketHandlerAttribute>();
+                if (attr2 != null) RegisterFragmentedPacketHandler(state, method, attr2);
+            }
 
-                if (packetHandlers[(int)state, (int)attr.packet] != null)
-                    throw new Exception($"Packet {state}:{type} already has a handler");
+            for (var packetId = 0; packetId < packetHandlers.GetLength(1); packetId++)
+            {
+                var handlerInfo = packetHandlers[(int)state, packetId];
+                if (handlerInfo is { Method: null })
+                {
+                    throw new Exception(
+                        $"Packet handler for {state}:{(Packets)packetId} only has a handler for fragments!");
+                }
+            }
+        }
 
+        private static void RegisterPacketHandler(ConnectionStateEnum state, MethodInfo method, PacketHandlerAttribute attr)
+        {
+            if (method.GetParameters().Length != 1 || method.GetParameters()[0].ParameterType != typeof(ByteReader))
+                throw new Exception($"Bad packet handler signature for {method}");
+
+            var packetHandlerInfo = packetHandlers[(int)state, (int)attr.packet];
+            if (packetHandlerInfo == null)
+            {
                 packetHandlers[(int)state, (int)attr.packet] =
                     new PacketHandlerInfo(MethodInvoker.GetHandler(method), attr.allowFragmented);
+                return;
             }
+            if (packetHandlerInfo.Method != null)
+                throw new Exception($"Packet {state}:{attr.packet} already has a handler");
+
+            if (!attr.allowFragmented && packetHandlerInfo.FragmentHandler != null)
+                throw new Exception($"Packet {state}:{attr.packet} has a fragment handler despite not being allowed to");
+
+            packetHandlers[(int)state, (int)attr.packet] = packetHandlerInfo with
+            {
+                Method = MethodInvoker.GetHandler(method), Fragment = attr.allowFragmented
+            };
+        }
+
+        private static void RegisterFragmentedPacketHandler(ConnectionStateEnum state, MethodInfo method, FragmentedPacketHandlerAttribute attr)
+        {
+            if (method.GetParameters().Length != 1 || method.GetParameters()[0].ParameterType != typeof(FragmentedPacket))
+                throw new Exception($"Bad packet handler signature for {method}");
+
+            var packetHandlerInfo = packetHandlers[(int)state, (int)attr.packet];
+            if (packetHandlerInfo == null)
+            {
+                packetHandlers[(int)state, (int)attr.packet] =
+                    new PacketHandlerInfo(null!, false, MethodInvoker.GetHandler(method));
+                return;
+            }
+            if (packetHandlerInfo.FragmentHandler != null)
+                throw new Exception($"Packet {state}:{attr.packet} already has a fragment handler");
+
+            if (!packetHandlerInfo.Fragment)
+                throw new Exception($"Packet {state}:{attr.packet} has a fragment handler despite not being allowed to");
+
+            packetHandlers[(int)state, (int)attr.packet] = packetHandlerInfo with
+            {
+                FragmentHandler = MethodInvoker.GetHandler(method)
+            };
         }
     }
 
