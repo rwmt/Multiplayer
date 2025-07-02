@@ -338,17 +338,17 @@ public static class FactionSidebar
 
     private static void OpenScenarioChooser()
     {
-        Find.WindowStack.Add(new FloatMenu(
-            DefDatabase<ScenarioDef>.AllDefs.
-                Except(ScenarioDefOf.Tutorial).
-                Select(s =>
-                {
-                    return new FloatMenuOption(s.label, () =>
-                    {
-                        chosenScenario = s;                        
-                    });
-                }).
-                ToList()));
+        Find.WindowStack.Add(new Page_SelectScenario_Multifaction
+        {
+            curScen = chosenScenario?.scenario,
+            onScenChosen = chosenScen =>
+            {
+                var selectedDef = DefDatabase<ScenarioDef>.AllDefsListForReading.Find(def => def.scenario == chosenScen);
+
+                if (selectedDef != null)
+                    chosenScenario = selectedDef;
+            }
+        });
     }
 
     private static List<ThingDefCount> GetStartingPossessions(List<Pawn> startingPawns)
