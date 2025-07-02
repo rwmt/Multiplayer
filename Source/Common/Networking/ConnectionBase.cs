@@ -149,16 +149,6 @@ namespace Multiplayer.Common
         private const int MaxFragmentedPackets = 1;
         private readonly List<(/* fragId */ byte, FragmentedPacket)> fragments = [];
 
-        public int FragmentProgress
-        {
-            get
-            {
-                if (fragments.Count == 0) return 0;
-                var (_, fragPacket) = fragments[0];
-                return (int)(fragPacket.ReceivedSize * 100 / fragPacket.ExpectedSize);
-            }
-        }
-
         protected virtual void HandleReceiveMsg(int msgId, int fragState, ByteReader reader, bool reliable)
         {
             if (msgId is < 0 or >= (int)Packets.Count)

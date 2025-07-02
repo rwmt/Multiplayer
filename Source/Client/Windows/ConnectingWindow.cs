@@ -41,25 +41,75 @@ namespace Multiplayer.Client
         {
             string label;
 
-            if (Multiplayer.Client?.StateObj is ClientLoadingState { subState: LoadingState.Waiting })
-                label = "MpWaitingForGameData".Translate() + MpUI.FixedEllipsis();
-            else if (Multiplayer.Client?.StateObj is ClientLoadingState { subState: LoadingState.Downloading })
-                label = "MpDownloading".Translate(Multiplayer.Client.FragmentProgress);
-            else
-                label = result ?? (ConnectingString + MpUI.FixedEllipsis());
+            switch (Multiplayer.Client?.StateObj)
+            {
+                case ClientLoadingState { subState: LoadingState.Waiting }:
+                    label = "MpWaitingForGameData".Translate() + MpUI.FixedEllipsis();
+                    break;
+                case ClientLoadingState { subState: LoadingState.Downloading, WorldExpectedSize: 0 } state:
+                    label = "MpDownloading".Translate();
+                    label += $"\n{state.WorldReceivedSize / 1000}KB";
+                    break;
+                case ClientLoadingState { subState: LoadingState.Downloading } state:
+                    label = "MpDownloading".Translate() + $" ({state.DownloadProgressPercent}%)";
+                    var leftToDownloadKBps = (state.WorldExpectedSize - state.WorldReceivedSize) / 1000;
+                    if (state.DownloadSpeedKBps != 0)
+                    {
+                        var timeLeftSecs = leftToDownloadKBps / state.DownloadSpeedKBps;
+                        label +=
+                            $"\n{timeLeftSecs}s – ";
+                    }
+                    else
+                        label += "\n";
+
+                    label +=
+                        $"{state.WorldReceivedSize / 1000}/{state.WorldExpectedSize / 1000} KB ({state.DownloadSpeedKBps} KB/s)";
+                    break;
+                default:
+                    label = result ?? (ConnectingString + MpUI.FixedEllipsis());
+                    break;
+            }
 
             const float buttonHeight = 40f;
             const float buttonWidth = 120f;
 
-            Rect textRect = inRect;
-            textRect.yMax -= (buttonHeight + 10f);
-            Text.Anchor = TextAnchor.MiddleCenter;
+            var isDownloading = Multiplayer.Client?.StateObj is ClientLoadingState { subState: LoadingState.Downloading };
 
+            Rect textRect = new Rect(inRect);
+            if (isDownloading)
+            {
+                var textSize = Text.CalcSize(label);
+                textRect.height = textSize.y;
+            } else
+                textRect.height = 60f;
+
+            Text.Anchor = TextAnchor.MiddleCenter;
             Widgets.Label(textRect, label);
             Text.Anchor = TextAnchor.UpperLeft;
 
-            Rect buttonRect = new Rect((inRect.width - buttonWidth) / 2f, inRect.height - buttonHeight - 10f, buttonWidth, buttonHeight);
-            if (Widgets.ButtonText(buttonRect, "CancelButton".Translate(), true, false, true))
+            Rect buttonRect = new Rect((inRect.width - buttonWidth) / 2f, inRect.yMax - buttonHeight - 10f, buttonWidth, buttonHeight);
+            if (Multiplayer.Client?.StateObj is ClientLoadingState { subState: LoadingState.Downloading } state2)
+            {
+                Rect progressBarRect = new Rect(inRect)
+                {
+                    y = textRect.yMax + 10f,
+                    height = 30f
+                };
+                buttonRect.y = progressBarRect.yMax + 10f;
+                buttonRect.height = buttonHeight;
+                var oldHeight = inRect.height;
+                inRect.yMax = buttonRect.yMax + 10f;
+                windowRect.height += inRect.height - oldHeight;
+
+                Widgets.FillableBar(progressBarRect, state2.DownloadProgress, Widgets.BarFullTexHor,
+                    Widgets.DefaultBarBgTex, doBorder: true);
+            }
+            else
+            {
+                windowRect.height = InitialSize.y;
+            }
+
+            if (Widgets.ButtonText(buttonRect, "CancelButton".Translate(), true, false))
             {
                 Close();
             }

@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Ionic.Zlib;
 using Multiplayer.Client.Saving;
@@ -16,13 +17,41 @@ public enum LoadingState
 public class ClientLoadingState(ConnectionBase connection) : ClientBaseState(connection)
 {
     public LoadingState subState = LoadingState.Waiting;
+    public uint WorldExpectedSize { get; private set; }
+    public uint WorldReceivedSize { get; private set; }
+    public float DownloadProgress => (float)WorldReceivedSize / WorldExpectedSize;
+    public int DownloadProgressPercent => (int)(DownloadProgress * 100);
+    public int DownloadSpeedKBps
+    {
+        get
+        {
+            if (downloadCheckpoints.Count == 0) return -1;
+            var firstCheckpoint = downloadCheckpoints.First();
+            var lastCheckpoint = downloadCheckpoints.Last();
+            var timeTakenMs = Utils.MillisNow - firstCheckpoint.Item1;
+            var timeTakenSecs = Math.Max(1, timeTakenMs / 1000);
+            var downloadedBytes = lastCheckpoint.Item2 - firstCheckpoint.Item2;
+            return (int)(downloadedBytes / 1000 / timeTakenSecs);
+        }
+    }
 
+    private List<(long, uint)> downloadCheckpoints = new(capacity: 64);
 
     [PacketHandler(Packets.Server_WorldDataStart)]
     public void HandleWorldDataStart(ByteReader data)
     {
         subState = LoadingState.Downloading;
         connection.Lenient = false; // Lenient is set while rejoining
+    }
+
+    [FragmentedPacketHandler(Packets.Server_WorldData)]
+    public void HandleWorldDataFragment(FragmentedPacket packet)
+    {
+        WorldExpectedSize = packet.ExpectedSize;
+        WorldReceivedSize = packet.ReceivedSize;
+        if (downloadCheckpoints.Count == downloadCheckpoints.Capacity)
+            downloadCheckpoints.RemoveAt(0);
+        downloadCheckpoints.Add((Utils.MillisNow, packet.ReceivedSize));
     }
 
     [PacketHandler(Packets.Server_WorldData, allowFragmented: true)]
