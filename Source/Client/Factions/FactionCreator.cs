@@ -113,7 +113,7 @@ public static class FactionCreator
         }
     }
 
-    private static Map GenerateNewMap(int tile, Scenario scenario, bool setupNextMapFromTickZero)
+    private static Map GenerateNewMap(PlanetTile tile, Scenario scenario, bool setupNextMapFromTickZero)
     {
         // This has to be null, otherwise, during map generation, Faction.OfPlayer returns it which breaks FactionContext
         Find.GameInitData.playerFaction = null;
@@ -121,15 +121,14 @@ public static class FactionCreator
 
         // ScenPart_PlayerFaction --> PreMapGenerate 
 
-        var settlement = (Settlement)WorldObjectMaker.MakeWorldObject(WorldObjectDefOf.Settlement);
+        Settlement settlement = (Settlement)WorldObjectMaker.MakeWorldObject(WorldObjectDefOf.Settlement);
         settlement.Tile = tile;
         settlement.SetFaction(Faction.OfPlayer);
         Find.WorldObjects.Add(settlement);
 
         // ^^^^ Duplicate Code here ^^^^
-
-        var prevScenario = Find.Scenario;
-        var prevStartingTile = Find.GameInfo.startingTile;
+        Scenario prevScenario = Find.Scenario;
+        PlanetTile prevStartingTile = Find.GameInfo.startingTile;
 
         Current.Game.Scenario = scenario;
         Find.GameInfo.startingTile = tile;
@@ -292,7 +291,7 @@ public static class FactionCreator
 public record FactionCreationData : ISyncSimple
 {
     public string factionName;
-    public int startingTile;
+    public PlanetTile startingTile;
     [CanBeNull] public ScenarioDef scenarioDef;
     public IdeologyData chooseIdeoInfo;
     public bool generateMap;

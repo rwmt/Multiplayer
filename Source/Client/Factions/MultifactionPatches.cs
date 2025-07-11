@@ -193,7 +193,7 @@ static class PawnIsColonistPatch
 [HarmonyPatch(typeof(Ideo), nameof(Ideo.RecacheColonistBelieverCount))]
 static class RecacheColonistBelieverCountPatch
 {
-    private static MethodInfo allColonists = AccessTools.PropertyGetter(typeof(PawnsFinder), nameof(PawnsFinder.AllMapsCaravansAndTravelingTransportPods_Alive_FreeColonists_NoCryptosleep));
+    private static MethodInfo allColonists = AccessTools.PropertyGetter(typeof(PawnsFinder), nameof(PawnsFinder.AllMapsCaravansAndTravellingTransporters_Alive_FreeColonists_NoCryptosleep));
 
     static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
     {
@@ -211,7 +211,7 @@ static class RecacheColonistBelieverCountPatch
     {
         colonistsAllFactions.Clear();
 
-        foreach (var p in PawnsFinder.AllMapsCaravansAndTravelingTransportPods_Alive)
+        foreach (var p in PawnsFinder.AllMapsCaravansAndTravellingTransporters_Alive)
         {
             if (IsColonistAnyFaction(p) && p.HostFaction == null && !p.InCryptosleep)
                 colonistsAllFactions.Add(p);
@@ -286,7 +286,7 @@ static class AnyPawnBlockingMapRemovalPatch
 static class IsValidColonyPawnPatch
 {
     private static MethodInfo isColonist = AccessTools.PropertyGetter(typeof(Pawn), nameof(Pawn.IsColonist));
-    private static MethodInfo isColonyMutant = AccessTools.PropertyGetter(typeof(Pawn), nameof(Pawn.IsColonyMutant));
+    private static MethodInfo isColonySubhuman = AccessTools.PropertyGetter(typeof(Pawn), nameof(Pawn.IsColonySubhuman));
 
     static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
     {
@@ -295,7 +295,7 @@ static class IsValidColonyPawnPatch
             if (inst.operand == isColonist)
                 inst.operand = AccessTools.Method(typeof(RecacheColonistBelieverCountPatch), nameof(RecacheColonistBelieverCountPatch.IsColonistAnyFaction));
 
-            if (inst.operand == isColonyMutant)
+            if (inst.operand == isColonySubhuman)
                 inst.operand = AccessTools.Method(typeof(RecacheColonistBelieverCountPatch), nameof(RecacheColonistBelieverCountPatch.IsColonyMutantAnyFaction));
 
             yield return inst;

@@ -61,8 +61,7 @@ namespace Multiplayer.Client.Patches
         {
             if (SetupQuickTestPatch.marker)
             {
-                Find.GameInitData.startingTile = 501;
-                Find.WorldGrid[Find.GameInitData.startingTile].hilliness = Hilliness.SmallHills;
+                Find.GameInitData.startingTile = 400;
             }
         }
     }

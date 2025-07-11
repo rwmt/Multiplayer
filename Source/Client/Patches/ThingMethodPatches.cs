@@ -92,7 +92,7 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(Pawn_JobTracker), nameof(Pawn_JobTracker.CheckForJobOverride_NewTemp))]
+    [HarmonyPatch(typeof(Pawn_JobTracker), nameof(Pawn_JobTracker.CheckForJobOverride))]
     public static class JobTrackerOverride
     {
         static void Prefix(Pawn_JobTracker __instance, ref Container<Map>? __state)

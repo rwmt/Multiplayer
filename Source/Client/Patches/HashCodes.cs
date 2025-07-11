@@ -8,12 +8,15 @@ using Verse;
 
 namespace Multiplayer.Client.Patches
 {
-    [HarmonyPatch(typeof(GlowGrid), MethodType.Constructor, new[] { typeof(Map) })]
+    [HarmonyPatch(typeof(GlowGrid), MethodType.Constructor, typeof(Map))]
     static class GlowGridCtorPatch
     {
+        private static AccessTools.FieldRef<GlowGrid, HashSet<CompGlower>> litGlowers =
+            AccessTools.FieldRefAccess<GlowGrid, HashSet<CompGlower>>(nameof(GlowGrid.litGlowers));
+
         static void Postfix(GlowGrid __instance)
         {
-            __instance.litGlowers = new HashSet<CompGlower>(new CompGlowerEquality());
+            litGlowers(__instance) = new HashSet<CompGlower>(new CompGlowerEquality());
         }
 
         class CompGlowerEquality : IEqualityComparer<CompGlower>

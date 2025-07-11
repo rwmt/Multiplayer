@@ -16,7 +16,7 @@
 
     <ItemGroup>
       <ProjectReference Include="..\Common\Common.csproj" />
-      <PackageReference Include="Lib.Harmony" Version="2.3.3" />
+      <PackageReference Include="Lib.Harmony" Version="2.3.6" />
       <PackageReference Include="Tomlyn" Version="0.16.2" />
     </ItemGroup>
 

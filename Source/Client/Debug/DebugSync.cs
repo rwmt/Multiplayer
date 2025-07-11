@@ -2,12 +2,14 @@ using System;
 using System.Collections.Generic;
 using HarmonyLib;
 using LudeonTK;
+using Multiplayer.Client.Util;
 using Multiplayer.Common;
 
 using RimWorld;
 using RimWorld.Planet;
 using UnityEngine;
 using Verse;
+using static HarmonyLib.AccessTools;
 
 namespace Multiplayer.Client
 {
@@ -43,7 +45,7 @@ namespace Multiplayer.Client
             List<WorldObject> prevWorldSelected = Find.WorldSelector.selected;
 
             Find.Selector.selected = new List<object>();
-            Find.WorldSelector.selected = new List<WorldObject>();
+            FieldRefs.worldSelected(Find.WorldSelector) = new List<WorldObject>();
 
             int selectedId = data.ReadInt32();
 
@@ -108,7 +110,7 @@ namespace Multiplayer.Client
                 MouseCellPatch.result = null;
                 MouseTilePatch.result = null;
                 Find.Selector.selected = prevSelected;
-                Find.WorldSelector.selected = prevWorldSelected;
+                FieldRefs.worldSelected(Find.WorldSelector) = prevWorldSelected;
 
                 currentHash = 0;
                 currentPlayer = -1;
@@ -246,7 +248,7 @@ namespace Multiplayer.Client
                         DebugSource.Tree,
                         0,
                         node.NodePath(),
-                        WorldRendererUtility.WorldRenderedNow ? null : Find.CurrentMap
+                        WorldRendererUtility.WorldSelected ? null : Find.CurrentMap
                     );
             }
         }

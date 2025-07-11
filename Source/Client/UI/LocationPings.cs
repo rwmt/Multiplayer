@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using Multiplayer.Client.Util;
 using Multiplayer.Common;
 using RimWorld;
@@ -22,7 +22,7 @@ public class LocationPings
         if (pingsEnabled)
             if (MultiplayerStatic.PingKeyDef.JustPressed || KeyDown(Multiplayer.settings.sendPingButton))
             {
-                if (WorldRendererUtility.WorldRenderedNow)
+                if (WorldRendererUtility.WorldSelected)
                     PingLocation(-1, GenWorld.MouseTile(), Vector3.zero);
                 else if (Find.CurrentMap != null)
                     PingLocation(Find.CurrentMap.uniqueID, 0, UI.MouseMapPosition());
