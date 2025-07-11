@@ -223,6 +223,19 @@ public class AsyncWorldTimeComp : IExposable, ITickable
                 var canUseDevMode = data.ReadBool();
                 Multiplayer.GameComp.playerData[playerId] = new PlayerData { canUseDevMode = canUseDevMode };
             }
+
+            if (cmdType == CommandType.PlayerCount)
+            {
+                int previousMapId = data.ReadInt32();
+                int newMapId = data.ReadInt32();
+                int mapCount = Find.Maps.Count;
+
+                if (0 <= previousMapId && previousMapId < mapCount)
+                    Find.Maps[previousMapId]?.AsyncTime()?.DecreasePlayerCount();
+
+                if (0 <= newMapId && newMapId < mapCount)
+                    Find.Maps[newMapId]?.AsyncTime()?.IncreasePlayerCount();
+            }
         }
         catch (Exception e)
         {

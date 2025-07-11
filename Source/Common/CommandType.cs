@@ -16,4 +16,5 @@ public enum CommandType : byte
     // Map scope
     MapTimeSpeed,
     Designator,
+    PlayerCount,
 }
