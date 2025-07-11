@@ -59,12 +59,13 @@ namespace Multiplayer.Client
 
             // Struct offset found manually
             // Navigate by string: "Handle Stack"
+            // Updated for RimWorld 1.6 (Unity 2022.3.35f1, Mono 6.13.0)
             if (os == NativeOS.Linux)
-                LmfPtr = threadInfoPtr + 0x480 - 8 * 4;
+                LmfPtr = threadInfoPtr + 0x450; // Updated: 1.5 was 0x460, -16 bytes = 0x450 (following Windows pattern)
             else if (os == NativeOS.Windows)
-                LmfPtr = threadInfoPtr + 0x448 - 8 * 4;
+                LmfPtr = threadInfoPtr + 0x418; // Updated for 1.6. Seems to work so far.
             else if (os == NativeOS.OSX)
-                LmfPtr = threadInfoPtr + 0x418 - 8 * 4;
+                LmfPtr = threadInfoPtr + 0x3E8; // Updated: 1.5 was 0x3F8, -16 bytes = 0x3E8 (following Windows pattern)
             else if (os == NativeOS.Dummy)
             {
                 LmfPtr = (long)Marshal.AllocHGlobal(3 * 8);
