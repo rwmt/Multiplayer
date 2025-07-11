@@ -162,7 +162,8 @@ namespace Multiplayer.Common
             writer.WriteInt32(Player.id);
 
             writer.WriteInt32(data.ReadInt32()); // Map id
-            writer.WriteInt32(data.ReadInt32()); // Planet tile
+            writer.WriteInt32(data.ReadInt32()); // Planet tile id
+            writer.WriteInt32(data.ReadInt32()); // Planet tile layer
             writer.WriteFloat(data.ReadFloat()); // X
             writer.WriteFloat(data.ReadFloat()); // Y
             writer.WriteFloat(data.ReadFloat()); // Z

@@ -566,4 +566,21 @@ namespace Multiplayer.Client
 
         static void Finalizer() => DrawPosPatch.returnTruePosition = false;
     }
+
+    [HarmonyPatch(typeof(DebugWindowsOpener), nameof(DebugWindowsOpener.TryOpenOrClosePalette))]
+    static class DebugWindowsOpenerReloadingPatch
+    {
+        static bool Prefix()
+        {
+            // During multiplayer reload, Find.World can be null when UIRoot_Play.Init() calls TryOpenOrClosePalette()
+            // This prevents the Dialog_DevPalette from being opened, which would cause a null reference exception
+            // in Window.PreOpen() when it tries to access Find.WorldSelector
+            if (Multiplayer.reloading)
+            {
+                return false; // Skip opening/closing the dev palette during multiplayer reload
+            }
+            
+            return true; // Execute normally
+        }
+    }
 }

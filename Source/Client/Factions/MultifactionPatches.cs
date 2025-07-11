@@ -235,9 +235,9 @@ static class RecacheColonistBelieverCountPatch
         return false;
     }
 
-    public static bool IsColonyMutantAnyFaction(Pawn p)
+    public static bool IsColonySubhumanAnyFaction(Pawn p)
     {
-        return ModsConfig.AnomalyActive && p.IsMutant && p.Faction is { IsPlayer: true };
+        return ModsConfig.AnomalyActive && p.IsSubhuman && p.Faction is { IsPlayer: true };
     }
 }
 
@@ -296,7 +296,7 @@ static class IsValidColonyPawnPatch
                 inst.operand = AccessTools.Method(typeof(RecacheColonistBelieverCountPatch), nameof(RecacheColonistBelieverCountPatch.IsColonistAnyFaction));
 
             if (inst.operand == isColonySubhuman)
-                inst.operand = AccessTools.Method(typeof(RecacheColonistBelieverCountPatch), nameof(RecacheColonistBelieverCountPatch.IsColonyMutantAnyFaction));
+                inst.operand = AccessTools.Method(typeof(RecacheColonistBelieverCountPatch), nameof(RecacheColonistBelieverCountPatch.IsColonySubhumanAnyFaction));
 
             yield return inst;
         }
