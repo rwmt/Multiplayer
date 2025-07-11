@@ -1,5 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
+using System.Reflection.Emit;
 using HarmonyLib;
 using Multiplayer.Client.Factions;
 using RimWorld;
@@ -191,6 +194,46 @@ namespace Multiplayer.Client
                 null,
                 ref ignore
             );
+    }
+
+    // Fix for RimWorld 1.6 bug where HistoryAutoRecorder.Tick() calls .Last() on empty collection
+    [HarmonyPatch(typeof(HistoryAutoRecorder), nameof(HistoryAutoRecorder.Tick))]
+    static class HistoryAutoRecorderTickPatch
+    {
+        // Transpiler to fix the .Last() call on potentially empty collection
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator il)
+        {
+            var safeLastMethod = AccessTools.Method(typeof(HistoryAutoRecorderTickPatch), nameof(SafeLast));
+
+            var codes = new List<CodeInstruction>(instructions);
+
+
+            for (int i = 0; i < codes.Count; i++)
+            {
+                var instruction = codes[i];
+
+                if (instruction.opcode == OpCodes.Call && instruction.operand is MethodInfo methodInfo)
+                {
+                    // Check if this is the generic Enumerable.Last<T>(...) method.
+                    if (methodInfo.Name == nameof(Enumerable.Last) &&
+                        methodInfo.DeclaringType == typeof(Enumerable) &&
+                        methodInfo.IsGenericMethod)
+                    {
+                        // Found it, replace the operand with our safe method.
+                        instruction.operand = safeLastMethod;
+                        break;
+                    }
+                }
+            }
+
+            return codes;
+        }
+
+        // Safe version of .Last() that returns 0f for empty collections
+        static float SafeLast(IEnumerable<float> source)
+        {
+            return source.Any() ? source.Last() : 0f;
+        }
     }
 
 }
