@@ -23,6 +23,7 @@ namespace Multiplayer.Client.Util
         public static void Debug(string msg)
         {
             Verse.Log.Message($"{Multiplayer.username} {TickPatch.Timer} {msg}");
+            SaveableMpLogs.AddLog("DEBUG", msg);
         }
     }
 }
