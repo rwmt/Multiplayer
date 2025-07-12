@@ -16,20 +16,49 @@ namespace Multiplayer.Client.Patches
             if (Multiplayer.Client == null)
                 return true;
 
-            __result = GetSynchronizedUpdateRate(thing);
+            __result = VTRSync.GetSynchronizedUpdateRate(thing);
             return false;
         }
+    }
 
-        private static int GetSynchronizedUpdateRate(Thing thing) => thing?.MapHeld?.AsyncTime()?.VTR ?? 15;
+    [HarmonyPatch(typeof(Projectile), nameof(Projectile.UpdateRateTicks), MethodType.Getter)]
+    public static class VtrSyncProjectilePatch
+    {
+        static bool Prefix(ref int __result, Projectile __instance)
+        {
+            if (Multiplayer.Client == null)
+                return true;
+
+            __result = __instance.Spawned ? VTRSync.GetSynchronizedUpdateRate(__instance) : VTRSync.MaximumVtr;
+            return false;
+        }
+    }
+
+    [HarmonyPatch(typeof(WorldObject), nameof(WorldObject.UpdateRateTicks), MethodType.Getter)]
+    public static class VtrSyncWorldObjectPatch
+    {
+        static bool Prefix(ref int __result, WorldObject __instance)
+        {
+            if (Multiplayer.Client == null)
+                return true;
+
+            __result = VTRSync.MaximumVtr;
+            return false;
+        }
     }
 
     static class VTRSync
     {
-        public static int lastMovedToMap = -1;
-        public static int lastSentTick = -1;
-        
         // Special identifier for world map (since it doesn't have a uniqueID like regular maps)
         public const int WorldMapId = -2;
+        public static int lastMovedToMap = -1;
+        public static int lastSentTick = -1;
+
+        // Vtr rates
+        public const int MaximumVtr = 15;
+        public const int MinimumVtr = 1;
+
+        public static int GetSynchronizedUpdateRate(Thing thing) => thing?.MapHeld?.AsyncTime()?.VTR ?? VTRSync.MaximumVtr;
     }
 
     [HarmonyPatch(typeof(Game), nameof(Game.CurrentMap), MethodType.Setter)]
