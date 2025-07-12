@@ -1,11 +1,9 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using HarmonyLib;
+using Multiplayer.Client.Patches;
 using Multiplayer.Client.Util;
 using Multiplayer.Common;
-using RimWorld;
-using UnityEngine;
+using RimWorld.Planet;
+using System;
 using Verse;
 
 namespace Multiplayer.Client.Patches
@@ -25,15 +23,21 @@ namespace Multiplayer.Client.Patches
         private static int GetSynchronizedUpdateRate(Thing thing) => thing?.MapHeld?.AsyncTime()?.VTR ?? 15;
     }
 
+    static class VTRSync
+    {
+        public static int lastMovedToMap = -1;
+        public static int lastSentTick = -1;
+        
+        // Special identifier for world map (since it doesn't have a uniqueID like regular maps)
+        public const int WorldMapId = -2;
+    }
+
     [HarmonyPatch(typeof(Game), nameof(Game.CurrentMap), MethodType.Setter)]
     static class MapSwitchPatch
     {
-        private static int lastSentFromMap = int.MaxValue;
-        private static int lastSentTick = -1;
-
         static void Prefix(Map value)
         {
-            if (Multiplayer.Client == null) return;
+            if (Multiplayer.Client == null || Client.Multiplayer.session == null) return;
 
             try
             {
@@ -41,16 +45,12 @@ namespace Multiplayer.Client.Patches
                 int newMap = value?.uniqueID ?? -1;
                 int currentTick = Find.TickManager?.TicksGame ?? 0;
 
-                // Only send when multiplayer is ready
-                if (Multiplayer.Client == null || Client.Multiplayer.session == null)
-                    return;
-
                 // If no change in map, do nothing
                 if (previousMap == newMap)
                     return;
 
                 // Prevent duplicate commands for the same transition, but allow retry after a tick
-                if (lastSentFromMap == previousMap && currentTick == lastSentTick)
+                if (VTRSync.lastMovedToMap == previousMap && currentTick == VTRSync.lastSentTick)
                     return;
 
                 // Send map change command to server
@@ -58,12 +58,47 @@ namespace Multiplayer.Client.Patches
                 Multiplayer.Client.SendCommand(CommandType.PlayerCount, ScheduledCommand.Global, ByteWriter.GetBytes(previousMap, newMap));
 
                 // Track this command to prevent duplicates
-                lastSentFromMap = previousMap;
-                lastSentTick = currentTick;
+                VTRSync.lastMovedToMap = newMap;
+                VTRSync.lastSentTick = currentTick;
             }
             catch (Exception ex)
             {
                 MpLog.Error($"VTR MapSwitchPatch error: {ex.Message}");
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(WorldRendererUtility), nameof(WorldRendererUtility.CurrentWorldRenderMode), MethodType.Getter)]
+    static class WorldRenderModePatch
+    {
+        private static WorldRenderMode lastRenderMode = WorldRenderMode.None;
+
+        static void Postfix(WorldRenderMode __result)
+        {
+            if (Multiplayer.Client == null) return;
+
+            try
+            {
+                // Detect transition to world map (Planet mode)
+                if (__result == WorldRenderMode.Planet && lastRenderMode != WorldRenderMode.Planet)
+                {
+                    if (VTRSync.lastMovedToMap != -1)
+                    {
+                        Multiplayer.Client.SendCommand(CommandType.PlayerCount, ScheduledCommand.Global, ByteWriter.GetBytes(VTRSync.lastMovedToMap, VTRSync.WorldMapId));
+                    }
+                }
+                // Detect transition away from world map
+                else if (__result != WorldRenderMode.Planet && lastRenderMode == WorldRenderMode.Planet)
+                {
+                    int currentMapId = Find.CurrentMap?.uniqueID ?? -1;
+                    Multiplayer.Client.SendCommand(CommandType.PlayerCount, ScheduledCommand.Global, ByteWriter.GetBytes(VTRSync.WorldMapId, currentMapId));
+                }
+
+                lastRenderMode = __result;
+            }
+            catch (Exception ex)
+            {
+                MpLog.Error($"WorldRenderModePatch error: {ex.Message}");
             }
         }
     }
