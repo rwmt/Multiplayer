@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using Verse;
 using RimWorld.Planet;
+using Multiplayer.Client.DebugUi;
 
 namespace Multiplayer.Client
 {
@@ -15,7 +16,7 @@ namespace Multiplayer.Client
         public static List<Func<float, float>> upperLeftDrawers = new()
         {
             DoChatAndTicksBehind,
-            IngameDebug.DoDevInfo,
+            SyncDebugPanel.DoSyncDebugPanel,  // Enhanced expandable debug panel
             IngameDebug.DoDebugModeLabel,
             IngameDebug.DoTimeDiffLabel
         };
@@ -33,9 +34,10 @@ namespace Multiplayer.Client
         {
             Text.Font = GameFont.Small;
 
-            if (MpVersion.IsDebug) {
-                IngameDebug.DoDebugPrintout();
-            }
+            // Legacy debug printout disabled - now handled by SyncDebugPanel
+            // if (MpVersion.IsDebug) {
+            //     IngameDebug.DoDebugPrintout();
+            // }
 
             if (Multiplayer.Client != null && Find.CurrentMap != null && Time.time - lastTicksAt > 0.5f)
             {
