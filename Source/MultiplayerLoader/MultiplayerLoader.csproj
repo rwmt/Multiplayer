@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net472</TargetFramework>
+    <TargetFramework>net48</TargetFramework>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <LangVersion>12</LangVersion>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
@@ -17,7 +17,7 @@
     </PackageReference>
     <PackageReference Include="Zetrith.Prepatcher" Version="1.2.0" />
     <PackageReference Include="Lib.Harmony" Version="2.3.6" ExcludeAssets="runtime" />
-    <ProjectReference Include="..\Common\Common.csproj"  />
+    <ProjectReference Include="..\Common\Common.csproj" />
   </ItemGroup>
 
   <ItemGroup>
