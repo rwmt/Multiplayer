@@ -16,8 +16,8 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="Zetrith.Prepatcher" Version="1.2.0" />
-    <PackageReference Include="Lib.Harmony" Version="2.3.3" ExcludeAssets="runtime" />
-    <ProjectReference Include="..\Common\Common.csproj"  />
+    <PackageReference Include="Lib.Harmony" Version="2.3.6" ExcludeAssets="runtime" />
+    <ProjectReference Include="..\Common\Common.csproj" />
   </ItemGroup>
 
   <ItemGroup>
