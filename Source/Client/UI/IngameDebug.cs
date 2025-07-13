@@ -1,4 +1,4 @@
-﻿using System.Linq;
+using System.Linq;
 using System.Text;
 using Multiplayer.Client.Desyncs;
 using Multiplayer.Client.Util;
@@ -17,6 +17,7 @@ public static class IngameDebug
     private const float BtnMargin = 8f;
     private const float BtnHeight = 27f;
     private const float BtnWidth = 80f;
+    private const string separator = "     ";
 
     internal static void DoDebugPrintout()
     {
@@ -24,16 +25,86 @@ public static class IngameDebug
         {
             int timerLag = (TickPatch.tickUntil - TickPatch.Timer);
             StringBuilder text = new StringBuilder();
-            text.Append(
-                $"{FactionContext.stack.Count} {Faction.OfPlayer.loadID} {Multiplayer.RealPlayerFaction?.loadID} {Find.UniqueIDsManager.nextThingID} j:{Find.UniqueIDsManager.nextJobID} {Find.TickManager.TicksGame} {Find.TickManager.CurTimeSpeed} {TickPatch.Timer} {TickPatch.tickUntil} {timerLag}");
-            text.Append($"\n{1f/Time.deltaTime:0.0000} {TickPatch.tickTimer.ElapsedMilliseconds}");
-            text.Append($"\n{avgDelta = (avgDelta * 59.0 + Time.deltaTime * 60.0) / 60.0:0.0000}");
-            text.Append(
-                $"\n{avgTickTime = (avgTickTime * 59.0 + TickPatch.tickTimer.ElapsedMilliseconds) / 60.0:0.0000} {Find.World.worldObjects.settlements.Count}");
-            text.Append(
-                $"\n{Multiplayer.session?.receivedCmds} {Multiplayer.session?.remoteSentCmds} {Multiplayer.session?.remoteTickUntil}");
-            Rect rect = new Rect(80f, 60f, 330f, Text.CalcHeight(text.ToString(), 330f));
+
+            // Core game state and timing info
+            text.AppendLine($"Timer: {TickPatch.Timer}");
+            text.AppendLine($"Timer Lag: {timerLag}");
+            text.AppendLine($"Current FPS: {1f / Time.deltaTime:0.0}");
+            text.AppendLine($"Tick Time: {TickPatch.tickTimer.ElapsedMilliseconds}ms{separator}Avg: {avgTickTime = (avgTickTime * 59.0 + TickPatch.tickTimer.ElapsedMilliseconds) / 60.0:0.0000}ms");
+            text.AppendLine($"Avg Delta: {avgDelta = (avgDelta * 59.0 + Time.deltaTime * 60.0) / 60.0:0.0000}");
+            text.AppendLine($"Game Ticks: {Find.TickManager.TicksGame}");
+            text.AppendLine($"Time Speed: {Find.TickManager.CurTimeSpeed}");
+            text.AppendLine($"Tick Until: {TickPatch.tickUntil}{separator}Remote: {Multiplayer.session?.remoteTickUntil ?? 0}");
+            text.AppendLine($"Received Commands: {Multiplayer.session?.receivedCmds ?? 0}");
+            text.AppendLine($"Sent Commands: {Multiplayer.session?.remoteSentCmds ?? 0}");
+
+            text.AppendLine($"\nFaction ID: {Faction.OfPlayer.loadID} ({FactionContext.stack.Count}){separator}Real Faction ID: {Multiplayer.RealPlayerFaction?.loadID ?? -1}");
+            text.AppendLine($"Next Thing ID: {Find.UniqueIDsManager.nextThingID}{separator}Next Job ID: {Find.UniqueIDsManager.nextJobID}");
+            text.AppendLine($"Faction Stack: {FactionContext.stack.Count}{separator}World Settlements: {Find.World.worldObjects.settlements.Count}");
+
+            // Add map-specific info if available
+            if (Multiplayer.Client != null && Find.CurrentMap != null)
+            {
+                var async = Find.CurrentMap.AsyncTime();
+
+                text.AppendLine($"\nMap TPS: {IngameUIPatch.tps:0.00}");
+                text.AppendLine($"Frame Time: {Time.deltaTime * 1000f:0.0}ms{separator}Avg: {TickPatch.avgFrameTime:0.0}ms");
+                text.AppendLine($"Server TPT: {TickPatch.serverTimePerTick:0.0}ms");
+                text.AppendLine($"Calculated TPT: {(TickPatch.tickUntil - TickPatch.Timer <= 3 ? TickPatch.serverTimePerTick * 1.2f : TickPatch.tickUntil - TickPatch.Timer >= 7 ? TickPatch.serverTimePerTick * 0.8f : TickPatch.serverTimePerTick):0.0}ms");
+                text.AppendLine($"Map Ticks: {async.mapTicks}{separator}Frozen: {TickPatch.serverFrozen} @ {TickPatch.frozenAt}");
+                text.AppendLine($"Client Opinions: {Multiplayer.game.sync.knownClientOpinions.Count}{separator}Opinion Start Tick: {Multiplayer.game.sync.knownClientOpinions.FirstOrDefault()?.startTick ?? 0}");
+                text.AppendLine($"Opinion Start Tick: {Multiplayer.game.sync.knownClientOpinions.FirstOrDefault()?.startTick ?? 0}");
+                text.AppendLine($"Force Normal Speed Until: {async.slower.forceNormalSpeedUntil}");
+                text.AppendLine($"Async Time Enabled: {Multiplayer.GameComp.asyncTime}");
+
+                text.AppendLine($"\nBuffered Changes: {SyncFieldUtil.bufferedChanges.Sum(kv => kv.Value.Count)}");
+                text.AppendLine($"Map Cmds: {async.cmds.Count}{separator} World Cmds: {Multiplayer.AsyncWorldTime.cmds.Count}");
+                text.AppendLine($"Stack Trace: {DeferredStackTracing.acc}{separator} Max Depth: {DeferredStackTracing.maxTraceDepth}");
+                text.AppendLine($"Hash: {DeferredStackTracingImpl.hashtableEntries}/{DeferredStackTracingImpl.hashtableSize} ({DeferredStackTracingImpl.collisions} collisions)");
+
+                text.AppendLine($"\nIdeology: {Find.IdeoManager.classicMode}{separator} Ideo ID: {Find.IdeoManager.IdeosInViewOrder.FirstOrDefault()?.id ?? 0}");
+                text.AppendLine($"Haul Dest: {Find.CurrentMap.haulDestinationManager.AllHaulDestinationsListForReading.Count}{separator} Designations: {Find.CurrentMap.designationManager.designationsByDef.Count}");
+                text.AppendLine($"Haulables: {Find.CurrentMap.listerHaulables.ThingsPotentiallyNeedingHauling().Count}{separator} Mines: {Find.CurrentMap.designationManager.SpawnedDesignationsOfDef(DesignationDefOf.Mine).Count()}");
+
+                if (Find.CurrentMap.ParentFaction != null)
+                {
+                    var comp = Find.CurrentMap.MpComp();
+                    var data = comp.factionData.TryGetValue(Find.CurrentMap.ParentFaction.loadID);
+                    if (data != null)
+                        text.AppendLine($"Faction Haul: {data.listerHaulables.ThingsPotentiallyNeedingHauling().Count}{separator}Groups: {data.haulDestinationManager.AllGroupsListForReading.Count}");
+                }
+                text.AppendLine($"World Pawns: {Find.WorldPawns.AllPawnsAliveOrDead.Count}{separator}Pool: {SimplePool<StackTraceLogItemRaw>.FreeItemsCount}");
+
+                text.AppendLine($"\nMap RNG: {(uint)async.randState:X8} {(uint)(async.randState >> 32):X8}");
+                text.AppendLine($"World RNG: {(uint)Multiplayer.AsyncWorldTime.randState:X8} {(uint)(Multiplayer.AsyncWorldTime.randState >> 32):X8}");
+                text.AppendLine($"Mouse2: {MpInput.Mouse2UpWithoutDrag}   Up: {Input.GetKeyUp(KeyCode.Mouse2)}   Held: {Input.GetKey(KeyCode.Mouse2)}");
+                text.AppendLine($"Cell Size: {UI.CurUICellSize()}{separator} Windows: {Find.WindowStack.windows.Count}");
+
+                string focusedWin = Find.WindowStack.focusedWindow is ImmediateWindow win ?
+                    $"Immediate: {MpUtil.DelegateMethodInfo(win.doWindowFunc?.Method)}" :
+                    Find.WindowStack.focusedWindow?.ToString() ?? "None";
+                text.AppendLine($"Focus: {focusedWin}");
+            }
+
+            text.AppendLine("\n[Hold END to reset averages]");
+
+            // Calculate appropriate width based on content
+            float contentWidth = Text.CalcSize(text.ToString()).x + 20f; // Add some padding
+            float maxWidth = UI.screenWidth * 0.4f; // Don't take more than 40% of screen width
+            float finalWidth = Mathf.Min(contentWidth, maxWidth);
+
+            Rect rect = new Rect(80f, 60f, finalWidth, Text.CalcHeight(text.ToString(), finalWidth));
+
+            // Apply transparency to text
+            if (!Mouse.IsOver(rect))
+            {
+                GUI.contentColor = new Color(1, 1, 1, 0.8f);
+            }
+
             Widgets.Label(rect, text.ToString());
+
+            // Reset GUI color
+            GUI.contentColor = Color.white;
 
             if (Input.GetKey(KeyCode.End))
             {
@@ -41,65 +112,6 @@ public static class IngameDebug
                 avgTickTime = 0;
             }
         }
-
-        if (Multiplayer.ShowDevInfo && Multiplayer.Client != null && Find.CurrentMap != null)
-        {
-            var async = Find.CurrentMap.AsyncTime();
-            StringBuilder text = new StringBuilder();
-            text.Append(
-                $"{Find.IdeoManager.classicMode} {Multiplayer.game.sync.knownClientOpinions.Count} {Multiplayer.game.sync.knownClientOpinions.FirstOrDefault()?.startTick} {async.mapTicks} {TickPatch.serverFrozen} {TickPatch.frozenAt} ");
-
-            text.Append(
-                $"z: {Find.CurrentMap.haulDestinationManager.AllHaulDestinationsListForReading.Count} d: {Find.CurrentMap.designationManager.designationsByDef.Count} hc: {Find.CurrentMap.listerHaulables.ThingsPotentiallyNeedingHauling().Count}");
-
-            if (Find.CurrentMap.ParentFaction != null)
-            {
-                int faction = Find.CurrentMap.ParentFaction.loadID;
-                MultiplayerMapComp comp = Find.CurrentMap.MpComp();
-                FactionMapData data = comp.factionData.TryGetValue(faction);
-
-                if (data != null)
-                {
-                    text.Append($" h: {data.listerHaulables.ThingsPotentiallyNeedingHauling().Count}");
-                    text.Append($" sg: {data.haulDestinationManager.AllGroupsListForReading.Count}");
-                }
-            }
-
-            text.Append(
-                $" ddd{Find.CurrentMap.designationManager.SpawnedDesignationsOfDef(DesignationDefOf.Mine).Count()} {Find.IdeoManager.IdeosInViewOrder.FirstOrDefault()?.id}");
-
-            text.Append(
-                $"\n{SyncFieldUtil.bufferedChanges.Sum(kv => kv.Value.Count)} {Find.UniqueIDsManager.nextThingID}");
-            text.Append(
-                $"\n{DeferredStackTracing.acc} {MpInput.Mouse2UpWithoutDrag} {Input.GetKeyUp(KeyCode.Mouse2)} {Input.GetKey(KeyCode.Mouse2)}");
-            text.Append($"\n{(uint)async.randState} {(uint)(async.randState >> 32)}");
-            text.Append($"\n{(uint)Multiplayer.AsyncWorldTime.randState} {(uint)(Multiplayer.AsyncWorldTime.randState >> 32)}");
-            text.Append(
-                $"\n{async.cmds.Count} {Multiplayer.AsyncWorldTime.cmds.Count} {async.slower.forceNormalSpeedUntil} {Multiplayer.GameComp.asyncTime}");
-            text.Append(
-                $"\n{Find.WorldPawns.AllPawnsAliveOrDead.Count} t{DeferredStackTracing.maxTraceDepth} p{SimplePool<StackTraceLogItemRaw>.FreeItemsCount} {DeferredStackTracingImpl.hashtableEntries}/{DeferredStackTracingImpl.hashtableSize} {DeferredStackTracingImpl.collisions}");
-
-            text.Append(Find.WindowStack.focusedWindow is ImmediateWindow win
-                ? $"\nImmediateWindow: {MpUtil.DelegateMethodInfo(win.doWindowFunc?.Method)}"
-                : $"\n{Find.WindowStack.focusedWindow}");
-
-            text.Append($"\n{UI.CurUICellSize()} {Find.WindowStack.windows.ToStringSafeEnumerable()}");
-            text.Append($"\n\nMap TPS: {IngameUIPatch.tps:0.00}");
-            text.Append($"\nDelta: {Time.deltaTime * 1000f}");
-            text.Append($"\nAverage ft: {TickPatch.avgFrameTime}");
-            text.Append($"\nServer tpt: {TickPatch.serverTimePerTick}");
-
-            var calcStpt = TickPatch.tickUntil - TickPatch.Timer <= 3 ? TickPatch.serverTimePerTick * 1.2f :
-                TickPatch.tickUntil - TickPatch.Timer >= 7 ? TickPatch.serverTimePerTick * 0.8f :
-                TickPatch.serverTimePerTick;
-            text.Append($"\nServer tpt: {calcStpt}");
-
-            Rect rect1 = new Rect(80f, 170f, 330f, Text.CalcHeight(text.ToString(), 330f));
-            Widgets.Label(rect1, text.ToString());
-        }
-
-        //if (Event.current.type == EventType.Repaint)
-        //    RandGetValuePatch.tracesThistick = 0;
     }
 
     internal static float DoDevInfo(float y)
