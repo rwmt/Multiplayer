@@ -1,376 +1,515 @@
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using Multiplayer.Client.Factions;
 using Multiplayer.Client.Util;
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
 using UnityEngine;
 using Verse;
+using Verse.Sound;
 
-namespace Multiplayer.Client;
-
-public static class FactionSidebar
+namespace Multiplayer.Client
 {
-    private static ScenarioDef chosenScenario = ScenarioDefOf.Crashlanded;
-    private static string factionNameTextField;
-    private static bool setupNextMapFromTickZero;
-
-    private static Vector2 scroll;
-    private static Rect factionBarRect;
-    private static Vector2 factionChooserScrollBarPos;
-    private static float buttonHeight = 25f;
-
-    public static void DrawFactionSidebar(Rect rect)
+    public static class FactionSidebar
     {
-        using var _ = MpStyle.Set(GameFont.Small);
+        private static SidebarTabs currentTab = SidebarTabs.CreateFaction;
 
-        if (!Layouter.BeginArea(rect, 0))
-            return;
+        private static string factionNameTextField;
+        private static Color factionColor = new Color32(0x00, 0xBC, 0xD8, 255);
+        private static bool setupNextMapFromTickZero;
+        private static ScenarioDef chosenScenario = ScenarioDefOf.Crashlanded;
 
-        factionBarRect = rect;
+        private static Vector2 joinFactionScroll;
 
-        DrawFactionCreator();
-
-        DrawFactionChooser();
-
-        Layouter.EndArea();
-    }
-
-    private static void DrawFactionCreator()
-    {
-        Layouter.BeginVertical(6, false);
-
-        DrawHeadline("Create Faction");
-
-        DrawFactionNameTextfield();
-
-        DrawScenarioChooser();
-
-        DrawDefaultMapTimeCheckbox();
-
-        DrawSettleButton();
-    }
-
-    private static void DrawSettleButton()
-    {
-        Layouter.BeginHorizontal();
-
-        Layouter.FlexibleWidth();
-
-        if (Button("Settle faction", 130, buttonHeight) && FactionCreationCanBeStarted())
+        private enum SidebarTabs
         {
-            OpenConfigurationPages();
+            CreateFaction,
+            JoinFaction
         }
 
-        Layouter.EndHorizontal();
-
-        Layouter.EndVertical();
-    }
-
-    private static void DrawDefaultMapTimeCheckbox()
-    {
-        float spacingLabelCheckbox = 10;
-        bool asyncTimeDisabled = !Multiplayer.GameComp.asyncTime;
-        StringBuilder sb = new StringBuilder();
-        Rect defaultMapTimeRect;
-
-        Layouter.BeginHorizontal(spacingLabelCheckbox);
-
-        Label("Default map time: ");
-
-        defaultMapTimeRect = Layouter.LastRect();
-
-        MpUI.Checkbox(
-            (Layouter.LastRect().xMax / 2.0f) + (spacingLabelCheckbox / 2.0f),
-            Layouter.LastRect().y,
-            ref setupNextMapFromTickZero,
-            asyncTimeDisabled,
-            defaultMapTimeRect.height - 2);
-
-        Layouter.EndHorizontal();
-
-        if (asyncTimeDisabled)
+        public static void DoFactionSidebarContents(Rect inRect)
         {
-            sb.Append("Only changeable with async setting active in host menu\n\n");
-        }
+            using var _ = MpStyle.Set(GameFont.Small);
 
-        sb.AppendLine("This checkbox controls the starting time on the generated map\n");
-        sb.AppendLine("Checked: Uses the default start time, similar to singleplayer maps\n");
-        sb.AppendLine("Unchecked: Uses the current world time");
-
-        TooltipHandler.TipRegion(defaultMapTimeRect, sb.ToString());
-    }
-
-    private static void OpenConfigurationPages()
-    {
-        var gameConfigurationPages = new List<Page>();
-        Page_ChooseIdeo_Multifaction ideologyConfigPage = null;
-        Page_ConfigureStartingPawns pawnConfigPage = null;
-
-        InitializeDataForGameConfigurationPages();
-
-        ideologyConfigPage = TryGetIdeologyConfigurationPage();
-
-        pawnConfigPage = new Page_ConfigureStartingPawns_Multifaction()
-        {
-            nextAct = () =>
+            var tabs = new List<TabRecord>
             {
-                IdeologyData ideologyData = ideologyConfigPage?.GetIdeologyData() ?? new IdeologyData();
-                DoCreateFaction(ideologyData, true);
-            }
-        };
+            new("MpCreateFaction".Translate(), () => currentTab = SidebarTabs.CreateFaction, currentTab == SidebarTabs.CreateFaction),
+            new("MpJoinFaction".Translate(), () => currentTab = SidebarTabs.JoinFaction, currentTab == SidebarTabs.JoinFaction),
+            };
+            inRect.yMin += 35f;
 
-        if (ideologyConfigPage != null)
-            gameConfigurationPages.Add(ideologyConfigPage);
+            TabDrawer.DrawTabs(inRect, tabs);
 
-        gameConfigurationPages.Add(pawnConfigPage);
 
-        Find.WindowStack.Add(PageUtility.StitchedPages(gameConfigurationPages));
-    }
-
-    private static void DoCreateFaction(IdeologyData chooseIdeoInfo, bool generateMap)
-    {
-        int playerId = Multiplayer.session.playerId;
-        var prevState = Current.programStateInt;
-        List<Pawn> startingPawns = new List<Pawn>();
-        FactionCreationData factionCreationDto = new FactionCreationData();
-
-        // OldComment: This is to force a sync
-        // TODO: Make this clearer without a needed comment
-        // LookUp Multiplayer.InInterface && Multiplayer.ShouldSync
-
-        Current.programStateInt = ProgramState.Playing;
-
-        try
-        {
-            if (Current.Game.InitData?.startingAndOptionalPawns is { } pawns)
-                for (int i = 0; i < Find.GameInitData.startingPawnCount; i++)
+            GUI.BeginGroup(new Rect(0, inRect.yMin, inRect.width, inRect.height));
+            {
+                Rect groupRect = new Rect(0, 0, inRect.width, inRect.height);
+                switch (currentTab)
                 {
-                    FactionCreator.SendPawn(playerId, pawns[i]);
-                    startingPawns.Add(pawns[i]);
+                    case SidebarTabs.CreateFaction:
+                        DrawFactionCreator(groupRect);
+                        break;
+                    case SidebarTabs.JoinFaction:
+                        DrawFactionChooser(groupRect);
+                        break;
+                }
+            }
+            GUI.EndGroup();
+        }
+
+        private static void DrawFactionChooser(Rect inRect)
+        {
+            var allPlayerFactions = Find.FactionManager.AllFactions.Where(f => f.IsPlayer).Where(f => f.name != "Spectator");
+
+            // Join Faction Headline
+            inRect.yMin += 5f;
+            using (MpStyle.Set(GameFont.Medium))
+                Widgets.Label(inRect.Right(16), "MpJoinFaction".Translate());
+            inRect.yMin += 25f + 5f;
+            // END Join Faction Headline
+
+            // Line
+            float lineX = inRect.x + 16f;
+            float lineY = inRect.yMin;
+            float lineWidth = inRect.width - 32f;
+            Widgets.DrawLineHorizontal(lineX, lineY, lineWidth);
+            inRect.yMin += 5f;
+            // END Line
+
+            // Faction List
+            Rect outRect = new Rect(0, inRect.yMin + 10, inRect.width - 16, inRect.height - 20);
+            float height = allPlayerFactions.Count() * 40;
+            Rect viewRect = new Rect(0, 0, outRect.width - 16f, height);
+            Widgets.BeginScrollView(outRect, ref joinFactionScroll, viewRect, true);
+
+            float y = 0;
+            int i = 0;
+
+            foreach (var playerFaction in allPlayerFactions)
+            {
+                Rect entryRect = new Rect(16, y, viewRect.width, 40);
+                if (i % 2 == 0)
+                    Widgets.DrawAltRect(entryRect);
+
+                using (MpStyle.Set(TextAnchor.MiddleLeft))
+                    LabelWithIcon(entryRect, playerFaction.Name, playerFaction.def.FactionIcon, playerFaction.Color, 0.6f);
+
+                Rect joinButton = new Rect(entryRect.xMax - 75, entryRect.y + 5, 70, 40 - 10);
+                if (Widgets.ButtonText(joinButton, "MpJoin".Translate()))
+                {
+                    var factionHome = Find.Maps.FirstOrDefault(m => m.ParentFaction == playerFaction);
+                    if (factionHome != null)
+                    {
+                        Current.Game.CurrentMap = factionHome;
+                        Find.World.renderer.wantedMode = WorldRenderMode.None;
+                    }
+                    Multiplayer.Client.Send(
+                        Packets.Client_SetFaction,
+                        Multiplayer.session.playerId,
+                        playerFaction.loadID
+                    );
                 }
 
-            factionCreationDto.factionName = factionNameTextField;
-            factionCreationDto.startingTile = Find.WorldInterface.SelectedTile;
-            factionCreationDto.scenarioDef = chosenScenario;
-            factionCreationDto.chooseIdeoInfo = chooseIdeoInfo;
-            factionCreationDto.generateMap = generateMap;
-            factionCreationDto.startingPossessions = GetStartingPossessions(startingPawns);
-            factionCreationDto.setupNextMapFromTickZero = setupNextMapFromTickZero;            
-
-            FactionCreator.CreateFaction(playerId, factionCreationDto);
-        }
-        finally
-        {
-            Current.programStateInt = prevState;
-        }
-    }
-
-    private static void DrawHeadline(string headline)
-    {
-        using (MpStyle.Set(TextAnchor.MiddleLeft))
-        using (MpStyle.Set(GameFont.Medium))
-            Label(headline);
-    }
-
-    private static void DrawFactionChooser()
-    {
-        int i = 0;
-        float scrollSpacing = 4;
-        var allPlayerFactions = Find.FactionManager.AllFactions.
-            Where(f => f.def == FactionDefOf.PlayerColony || f.def == FactionDefOf.PlayerTribe).
-            Where(f => f.name != "Spectator").
-            Where(f => !f.temporary);
-
-        Layouter.BeginVertical(2);
-
-        DrawHeadline("Join Faction");
-
-        Layouter.BeginScroll(ref factionChooserScrollBarPos, scrollSpacing);
-        Layouter.Rect(5, scrollSpacing / 2.0f);
-
-        foreach (var playerFaction in allPlayerFactions)
-        {
-            Layouter.BeginHorizontal();
-
-            if (i % 2 == 0)
-            {
-                Rect rect = Layouter.GroupRect();
-                Widgets.DrawAltRect(new Rect(rect.x, rect.y - scrollSpacing / 2.0f, rect.width, rect.height + scrollSpacing));
-            }
-
-            using (MpStyle.Set(TextAnchor.MiddleLeft))
-                Label($" {playerFaction.Name}", true);
-
-            if (Button("Join", 70, buttonHeight))
-            {
-                var factionHome = Find.Maps.FirstOrDefault(m => m.ParentFaction == playerFaction);
-                if (factionHome != null)
-                    Current.Game.CurrentMap = factionHome;
-
-                // todo setting faction of self
-                Multiplayer.Client.Send(
-                    Packets.Client_SetFaction,
-                    Multiplayer.session.playerId,
-                    playerFaction.loadID
-                );
-            }
-
-            Layouter.EndHorizontal();
-            i++;
-        }
-
-        Layouter.Rect(5, scrollSpacing / 2.0f);
-        Layouter.EndScroll();
-        Layouter.EndVertical();
-    }
-
-    private static void DrawFactionNameTextfield()
-    {
-        float spacing = 10;
-
-        Layouter.BeginHorizontal(spacing);
-
-        using (MpStyle.Set(TextAnchor.MiddleLeft))
-            Label("Faction name: ", true);
-
-        factionNameTextField = Widgets.TextField(Layouter.Rect((factionBarRect.width / 2.0f) - (spacing / 2.0f), 20), factionNameTextField);
-
-        Layouter.EndHorizontal();
-    }
-
-    private static bool FactionCreationCanBeStarted()
-    {
-        var tileError = new StringBuilder();
-
-        if (factionNameTextField.NullOrEmpty())
-        {
-            ShowRejectInputMessage("The faction name can't be empty.");
-            return false;
-        }
-        else if (Find.FactionManager.AllFactions.Any(f => f.Name == factionNameTextField))
-        {
-            ShowRejectInputMessage("The faction name is already taken");
-            return false;
-        }
-        else if (MpVersion.IsDebug && Event.current.button == 1)
-        {
-            DrawDebugFactionCreationFloatMenu();
-            return false;
-        }
-        else if (Find.WorldInterface.SelectedTile < 0)
-        {
-            ShowRejectInputMessage("MustSelectStartingSite".TranslateWithBackup("MustSelectLandingSite"));
-            return false;
-        }
-        else if (!TileFinder.IsValidTileForNewSettlement(Find.WorldInterface.SelectedTile, tileError))
-        {
-            ShowRejectInputMessage(tileError.ToString());
-            return false;
-        }
-
-        return true;
-    }
-
-    private static void ShowRejectInputMessage(string message)
-    {
-        Messages.Message(message, MessageTypeDefOf.RejectInput, historical: false);
-    }
-
-    private static void DrawDebugFactionCreationFloatMenu()
-    {
-        Find.WindowStack.Add(new FloatMenu(new List<FloatMenuOption>()
+                Rect locateButton = new Rect(entryRect.xMax - 110, entryRect.y+7, 24, 24);
+                if (Widgets.ButtonImage(locateButton, TexButton.OpenInspector))
                 {
-                    new(
-                        "Dev: create faction (no base)", () => DoCreateFaction(new IdeologyData(null, null, null), false)
-                    )
-                }));
-    }
+                    var factionHomes = Find.Maps.Where(m => m.ParentFaction == playerFaction).ToList();
 
-    private static Page_ChooseIdeo_Multifaction TryGetIdeologyConfigurationPage()
-    {
-        Page_ChooseIdeo_Multifaction chooseIdeoPage = null;
-
-        if (ModsConfig.IdeologyActive && !Find.IdeoManager.classicMode)
-            chooseIdeoPage = new Page_ChooseIdeo_Multifaction();
-
-        return chooseIdeoPage;
-    }
-
-    private static void InitializeDataForGameConfigurationPages()
-    {
-        Current.Game.Scenario = chosenScenario.scenario;
-
-        Current.Game.InitData = new GameInitData
-        {
-            startedFromEntry = true,
-            gameToLoad = FactionCreator.preventSpecialCalculationPathInGenTicksTicksAbs
-        };
-    }
-
-    private static void DrawScenarioChooser()
-    {
-        Layouter.BeginHorizontal();
-
-        using (MpStyle.Set(TextAnchor.MiddleLeft))
-        {
-            Label($"Scenario: ");
-            Label(chosenScenario?.label ?? Find.Scenario.name);
-        }
-
-        Layouter.EndHorizontal();
-
-        if (ModsConfig.AnomalyActive)
-        {
-            chosenScenario = ScenarioDefOf.Crashlanded;
-            TooltipHandler.TipRegion(Layouter.LastRect(),"Choosing a scenario is not available for Anomaly");
-            return;
-        }
-
-        if (Mouse.IsOver(Layouter.LastRect()))
-            Widgets.DrawAltRect(Layouter.LastRect());
-
-        if (Widgets.ButtonInvisible(Layouter.LastRect()))
-            OpenScenarioChooser();
-    }
-
-    private static void OpenScenarioChooser()
-    {
-        Find.WindowStack.Add(new FloatMenu(
-            DefDatabase<ScenarioDef>.AllDefs.
-                Except(ScenarioDefOf.Tutorial).
-                Select(s =>
-                {
-                    return new FloatMenuOption(s.label, () =>
+                    if (factionHomes.Count == 1)
                     {
-                        chosenScenario = s;                        
-                    });
-                }).
-                ToList()));
-    }
+                        CameraJumper.TryJumpAndSelect(factionHomes[0].Parent, CameraJumper.MovementMode.Pan);
+                    }
+                    else if (factionHomes.Count > 1)
+                    {
+                        List<FloatMenuOption> list = new();
+                        foreach (Map m in factionHomes)
+                        {
+                            if (!m.IsPocketMap)
+                            {
+                                string label = m.Parent.LabelCap;
+                                if (GravshipUtility.TryGetNameOfGravshipOnMap(m, out string shipName))
+                                    label += " (" + shipName + ")";
 
-    private static List<ThingDefCount> GetStartingPossessions(List<Pawn> startingPawns)
-    {
-        Dictionary<Pawn, List<ThingDefCount>> allPossessions = Find.GameInitData.startingPossessions;
-        List<ThingDefCount> startingPossessions = new List<ThingDefCount>();
+                                var capturedMap = m; // <-- Closure-safe
+                                list.Add(new FloatMenuOption(label, () =>
+                                {
+                                    CameraJumper.TryJumpAndSelect(capturedMap.Parent, CameraJumper.MovementMode.Pan);
+                                },
+                                capturedMap.Parent.ExpandingIcon,
+                                capturedMap.Parent.ExpandingIconColor));
+                            }
+                        }
+                        Find.WindowStack.Add(new FloatMenu(list));
+                    }
+                }
 
-        foreach(Pawn pawn in startingPawns)
+                TooltipHandler.TipRegion(locateButton, "MpLocateOnMap".Translate());
+
+                y += entryRect.height;
+                i++;
+            }
+            Widgets.EndScrollView();
+            // END Faction List
+        }
+        private static void DrawFactionCreator(Rect inRect)
         {
-            startingPossessions.AddRange(allPossessions[pawn]);
+            // Create Faction Headline
+            inRect.yMin += 5f;
+            using (MpStyle.Set(GameFont.Medium))
+                Widgets.Label(inRect.Right(16), "MpCreateFaction".Translate());
+            inRect.yMin += 25f + 5f;
+            // END Create Faction Headline
+
+            // Line
+            float lineX = inRect.x + 16f; 
+            float lineY = inRect.yMin;    
+            float lineWidth = inRect.width - 32f;
+            Widgets.DrawLineHorizontal(lineX, lineY, lineWidth);
+            inRect.yMin += 5f;
+            // END Line
+
+            // Row Settings
+            float rowHeight = 25f;
+            float spacing = 5f;
+
+            Rect outRect = new Rect(0, inRect.yMin + 10, inRect.width - 16, inRect.height - 20);
+            Rect viewRect = new Rect(16, outRect.y, outRect.width - 16f, 300);
+            // END Row Settings
+
+            // Faction Name Row
+            float fieldWidth = 160f;
+
+            viewRect.yMin += 5f;
+            Vector2 labelSize = Text.CalcSize("MpFactionName".Translate());
+            float labelWidth = labelSize.x;
+           
+            Rect factionNameRowRect = new Rect(
+                viewRect.x,
+                viewRect.y,
+                viewRect.width,
+                rowHeight
+            );
+
+            Rect labelRect = new Rect(
+                factionNameRowRect.x,
+                factionNameRowRect.y,
+                labelWidth,
+                rowHeight
+            );
+            using (MpStyle.Set(GameFont.Small))
+                Widgets.Label(labelRect, "MpFactionName".Translate());
+
+            Rect fieldRect = new Rect(
+                factionNameRowRect.xMax - fieldWidth,
+                factionNameRowRect.y,
+                fieldWidth,
+                rowHeight
+            );
+            factionNameTextField = Widgets.TextField(fieldRect, factionNameTextField);
+
+            viewRect.yMin += rowHeight + spacing;
+            // END Faction Name Row
+
+            // Faction Color Picker
+            rowHeight = 24f;
+            float boxSize = 24f;
+
+            Rect colorRowRect = new Rect(viewRect.x, viewRect.y, viewRect.width, rowHeight);
+
+            Rect colorPreviewRect = new Rect(
+                colorRowRect.xMax - boxSize,
+                colorRowRect.y + (rowHeight - boxSize) / 2f,
+                boxSize,
+                boxSize
+            );
+
+            Rect colorPreviewlabelRect = new Rect(
+              colorRowRect.x,
+              colorRowRect.y,
+              colorRowRect.width - boxSize - spacing,
+              rowHeight
+            );
+            using (MpStyle.Set(GameFont.Small))
+                Widgets.Label(colorPreviewlabelRect, "MpFactionColor".Translate());
+
+
+            Widgets.DrawBoxSolid(colorPreviewRect, factionColor);
+            Widgets.DrawBox(colorPreviewRect);
+            Widgets.DrawHighlightIfMouseover(colorPreviewRect);
+
+            if (Widgets.ButtonInvisible(colorPreviewRect))
+            {
+                Find.WindowStack.Add(new Dialog_ChooseFactionColor(color =>
+                {
+                    factionColor = color;
+                },factionColor));
+            }
+            viewRect.yMin += rowHeight + spacing;
+            // END Faction Color Picker 
+
+            // Default Map Time Row
+            float checkSize = 24f;
+            bool asyncTimeDisabled = !Multiplayer.GameComp.asyncTime;
+
+            StringBuilder sb = new StringBuilder();
+            if (asyncTimeDisabled)
+            {
+                sb.Append("MpAsyncTimeDisabled".Translate());
+            }
+            sb.AppendLine("MpDefaultMapTimeDesc1".Translate());
+            sb.AppendLine("MpDefaultMapTimeDesc2".Translate());
+            sb.AppendLine("MpDefaultMapTimeDesc3".Translate());
+
+            Rect defaultMapTimeRowRect = new Rect(viewRect.x, viewRect.y, viewRect.width, rowHeight);
+          
+            Rect checkRect = new Rect(
+                defaultMapTimeRowRect.xMax - checkSize,
+                defaultMapTimeRowRect.y + (rowHeight - checkSize) / 2f,
+                checkSize,
+                checkSize
+            );
+
+            Rect defaultMapTimelabelRect = new Rect(
+                defaultMapTimeRowRect.x,
+                defaultMapTimeRowRect.y,
+                defaultMapTimeRowRect.width - checkSize - spacing,
+                rowHeight
+            );
+
+            using (MpStyle.Set(GameFont.Small))
+                Widgets.Label(defaultMapTimelabelRect, "MpDefaultMapTime".Translate());
+
+            MpUI.Checkbox(
+                checkRect.position.x,
+               checkRect.position.y,
+               ref setupNextMapFromTickZero,
+               asyncTimeDisabled,
+               checkSize);
+
+            TooltipHandler.TipRegion(defaultMapTimeRowRect, sb.ToString());
+
+            viewRect.yMin += rowHeight + spacing;
+            // END Default Map Time Row
+
+            // Scanerio Chooser
+            rowHeight = 30f;
+
+            Rect scenarioRect = new Rect(
+                viewRect.x,
+                viewRect.y,
+                viewRect.width,
+                rowHeight
+            );
+
+            if (Mouse.IsOver(scenarioRect))            
+                Widgets.DrawMenuSection(scenarioRect);          
+            else           
+                Widgets.DrawHighlight(scenarioRect);
+            
+            if (Widgets.ButtonInvisible(scenarioRect))
+                OpenScenarioChooser();
+
+            Text.Anchor = TextAnchor.MiddleCenter;
+            Widgets.Label(scenarioRect, $"{chosenScenario?.label ?? Find.Scenario.name}");
+            Text.Anchor = TextAnchor.UpperLeft;
+
+            viewRect.yMin += rowHeight + spacing;
+            // END Scanerio Chooser
+
+            // Buttons
+            float buttonHeight = 35f;
+
+            Rect createFactionRect = new Rect(
+                viewRect.x,
+                viewRect.yMin + spacing + 5f,
+                viewRect.width,
+                buttonHeight
+            );
+            if (Widgets.ButtonText(createFactionRect, "MpSettleFaction".Translate()) && FactionCreationCanBeStarted())
+            {
+                OpenConfigurationPages();
+            }
+
+            Rect selectRandomSiteRect = new Rect(
+                viewRect.x,
+                createFactionRect.yMax + spacing + 10f,
+                viewRect.width,
+                buttonHeight
+            );
+            if (Widgets.ButtonText(selectRandomSiteRect, "MpSelectRandomSite".Translate()))
+            {
+                SoundDefOf.Click.PlayOneShotOnCamera(null);
+                Find.WorldInterface.SelectedTile = TileFinder.RandomStartingTile();
+                Find.WorldCameraDriver.JumpTo(Find.WorldGrid.GetTileCenter(Find.WorldInterface.SelectedTile));
+            }
+
+            Rect worldFactionsRect = new Rect(
+             viewRect.x,
+             selectRandomSiteRect.yMax + spacing,
+             viewRect.width,
+             buttonHeight
+            );
+            if (Widgets.ButtonText(worldFactionsRect, "MpWorldFactions".Translate()))
+            {
+                Find.WindowStack.Add(new Dialog_FactionDuringLanding());
+            }
+            // END Buttons
         }
 
-        return startingPossessions;
-    }
+        private static void DoCreateFaction(IdeologyData chooseIdeoInfo, bool generateMap)
+        {
+            int playerId = Multiplayer.session.playerId;
+            var prevState = Current.programStateInt;
+            List<Pawn> startingPawns = new List<Pawn>();
+            FactionCreationData factionCreationDto = new FactionCreationData();
 
-    private static void Label(string text, bool inheritHeight = false)
-    {
-        GUI.Label(inheritHeight ? Layouter.FlexibleWidth() : Layouter.ContentRect(text), text, Text.CurFontStyle);
-    }
+            // OldComment: This is to force a sync
+            // TODO: Make this clearer without a needed comment
+            // LookUp Multiplayer.InInterface && Multiplayer.ShouldSync
 
-    private static bool Button(string text, float width, float height = 35f)
-    {
-        return Widgets.ButtonText(Layouter.Rect(width, height), text);
+            Current.programStateInt = ProgramState.Playing;
+
+            try
+            {
+                if (Current.Game.InitData?.startingAndOptionalPawns is { } pawns)
+                    for (int i = 0; i < Find.GameInitData.startingPawnCount; i++)
+                    {
+                        FactionCreator.SendPawn(playerId, pawns[i]);
+                        startingPawns.Add(pawns[i]);
+                    }
+
+                factionCreationDto.factionName = factionNameTextField;
+                factionCreationDto.factionColor = factionColor;
+                factionCreationDto.startingTile = Find.WorldInterface.SelectedTile;
+                factionCreationDto.scenarioDef = chosenScenario;
+                factionCreationDto.chooseIdeoInfo = chooseIdeoInfo;
+                factionCreationDto.generateMap = generateMap;
+                factionCreationDto.startingPossessions = GetStartingPossessions(startingPawns);
+                factionCreationDto.setupNextMapFromTickZero = setupNextMapFromTickZero;
+
+                FactionCreator.CreateFaction(playerId, factionCreationDto);
+            }
+            finally
+            {
+                Current.programStateInt = prevState;
+            }
+        }
+
+        private static void OpenScenarioChooser()
+        {
+            Find.WindowStack.Add(new Page_SelectScenario_Multifaction
+            {
+                curScen = chosenScenario?.scenario,
+                onScenChosen = chosenScen =>
+                {
+                    var selectedDef = DefDatabase<ScenarioDef>.AllDefsListForReading.Find(def => def.scenario == chosenScen);
+
+                    if (selectedDef != null)
+                        chosenScenario = selectedDef;
+                }
+            });
+        }
+        private static void OpenConfigurationPages()
+        {
+            var gameConfigurationPages = new List<Page>();
+            Page_ChooseIdeo_Multifaction ideologyConfigPage = null;
+            Page_ConfigureStartingPawns pawnConfigPage = null;
+
+            InitializeDataForGameConfigurationPages();
+
+            ideologyConfigPage = TryGetIdeologyConfigurationPage();
+
+            pawnConfigPage = new Page_ConfigureStartingPawns_Multifaction()
+            {
+                nextAct = () =>
+                {
+                    IdeologyData ideologyData = ideologyConfigPage?.GetIdeologyData() ?? new IdeologyData();
+                    DoCreateFaction(ideologyData, true);
+                }
+            };
+
+            if (ideologyConfigPage != null)
+                gameConfigurationPages.Add(ideologyConfigPage);
+
+            gameConfigurationPages.Add(pawnConfigPage);
+
+            Find.WindowStack.Add(PageUtility.StitchedPages(gameConfigurationPages));
+        }
+        private static void InitializeDataForGameConfigurationPages()
+        {
+            Current.Game.Scenario = chosenScenario.scenario;
+
+            Current.Game.InitData = new GameInitData
+            {
+                startedFromEntry = true,
+                gameToLoad = FactionCreator.preventSpecialCalculationPathInGenTicksTicksAbs
+            };
+        }
+
+        private static List<ThingDefCount> GetStartingPossessions(List<Pawn> startingPawns)
+        {
+            Dictionary<Pawn, List<ThingDefCount>> allPossessions = Find.GameInitData.startingPossessions;
+            List<ThingDefCount> startingPossessions = new List<ThingDefCount>();
+
+            foreach (Pawn pawn in startingPawns)
+            {
+                startingPossessions.AddRange(allPossessions[pawn]);
+            }
+
+            return startingPossessions;
+        }
+        private static Page_ChooseIdeo_Multifaction TryGetIdeologyConfigurationPage()
+        {
+            Page_ChooseIdeo_Multifaction chooseIdeoPage = null;
+
+            if (ModsConfig.IdeologyActive && !Find.IdeoManager.classicMode)
+                chooseIdeoPage = new Page_ChooseIdeo_Multifaction();
+
+            return chooseIdeoPage;
+        }
+        private static bool FactionCreationCanBeStarted()
+        {
+            var tileError = new StringBuilder();
+
+            if (string.IsNullOrWhiteSpace(factionNameTextField))
+            {
+                ShowRejectInputMessage("MpEmptyFactionName".Translate());
+                return false;
+            }
+            else if (Find.FactionManager.AllFactions.Any(f => f.Name == factionNameTextField))
+            {
+                ShowRejectInputMessage("MpTakenFactionName".Translate());
+                return false;
+            }
+            else if (Find.WorldInterface.SelectedTile < 0)
+            {
+                ShowRejectInputMessage("MustSelectStartingSite".TranslateWithBackup("MustSelectLandingSite"));
+                return false;
+            }
+            else if (!TileFinder.IsValidTileForNewSettlement(Find.WorldInterface.SelectedTile, tileError))
+            {
+                ShowRejectInputMessage(tileError.ToString());
+                return false;
+            }
+            return true;
+        }
+
+        private static void ShowRejectInputMessage(string message)
+        {
+            Messages.Message(message, MessageTypeDefOf.RejectInput, historical: false);
+        }
+        public static void LabelWithIcon(Rect rect, string label, Texture2D labelIcon, Color iconColor, float labelIconScale = 1f)
+        {
+            float num = Mathf.Min((float)labelIcon.width, rect.height);
+            Rect outerRect = new Rect(rect.x, rect.y, num, rect.height);
+            rect.xMin += num;
+            Color color = GUI.color;
+            GUI.color = new Color(iconColor.r, iconColor.g, iconColor.b, iconColor.a * GUI.color.a);
+            Widgets.DrawTextureFitted(outerRect, labelIcon, labelIconScale, 1f);
+            GUI.color = color;
+            Widgets.Label(rect, label);
+        }
     }
 }

@@ -7,6 +7,7 @@ using Multiplayer.Client.Util;
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
+using UnityEngine;
 using Verse;
 
 namespace Multiplayer.Client.Factions;
@@ -42,6 +43,7 @@ public static class FactionCreator
 
             var newFaction = NewFactionWithIdeo(
                 creationData.factionName,
+                creationData.factionColor,
                 scenario.playerFaction.factionDef,
                 creationData.chooseIdeoInfo
             );
@@ -214,15 +216,16 @@ public static class FactionCreator
             pawnStore.Remove(sessionId);
         }
     }
-
-    private static Faction NewFactionWithIdeo(string name, FactionDef def, IdeologyData chooseIdeoInfo)
+    
+    private static Faction NewFactionWithIdeo(string name, Color color, FactionDef def, IdeologyData chooseIdeoInfo)
     {
         var faction = new Faction
         {
             loadID = Find.UniqueIDsManager.GetNextFactionID(),
             def = def,
             Name = name,
-            hidden = true
+            color = color,
+            hidden = true,        
         };
 
         faction.ideos = new FactionIdeosTracker(faction);
@@ -292,6 +295,7 @@ public record FactionCreationData : ISyncSimple
 {
     public string factionName;
     public PlanetTile startingTile;
+    public Color factionColor;
     [CanBeNull] public ScenarioDef scenarioDef;
     public IdeologyData chooseIdeoInfo;
     public bool generateMap;

@@ -145,6 +145,7 @@ namespace Multiplayer.Client
                         tc.GetComp<CompForbiddable>()?.UpdateOverlayHandle();
             }
 
+            Find.MainTabsRoot?.EscapeCurrentTab();
             Find.ColonistBar?.MarkColonistsDirty();
         }
     }

@@ -1,18 +1,283 @@
-﻿using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using System.Reflection.Emit;
 using HarmonyLib;
 using Multiplayer.API;
 using Multiplayer.Client.Factions;
 using RimWorld;
 using RimWorld.Planet;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
+using System.Reflection.Emit;
 using UnityEngine;
 using Verse;
 using Verse.AI;
 using Verse.Sound;
+using static HarmonyLib.AccessTools;
 
 namespace Multiplayer.Client.Patches;
+
+[HarmonyPatch(typeof(MainTabWindow_Quests), nameof(MainTabWindow_Quests.DoRow))]
+public static class MainTabWindow_QuestsDoRowPatch
+{
+    public static void Prefix(ref Rect rect, Quest quest)
+    {
+        if(Multiplayer.Client != null && !Multiplayer.settings.hideOtherPlayersQuests)
+        {
+            Faction playerFaction;
+            if (quest.TryGetPlayerFaction(out playerFaction))
+            {
+                Rect iconRect = new Rect(rect.x + 2f, rect.y + 2f, 4f, rect.height - 4f);
+                Widgets.DrawBoxSolid(iconRect, playerFaction.Color);
+                rect.xMin += 8f;
+                TooltipHandler.TipRegion(rect,"MpQuestDesc".Translate(playerFaction.Name, playerFaction == Faction.OfPlayer ? ". (you)" : "."));
+            }
+            else
+            {
+                TooltipHandler.TipRegion(rect, "MpPublicQuest".Translate());
+            }
+        }
+    }
+}
+
+[HarmonyPatch(typeof(MainTabWindow_Quests), nameof(MainTabWindow_Quests.ShouldListNow))]
+public static class MainTabWindow_QuestsShouldListNowPatch
+{
+    static bool Prefix(Quest quest, ref bool __result)
+    {
+        if (Multiplayer.Client != null && Multiplayer.settings.hideOtherPlayersQuests)
+        {
+            Faction playerFaction;
+            if (quest.TryGetPlayerFaction(out playerFaction) && playerFaction != Faction.OfPlayer)
+            {
+                __result = false;
+                return false; 
+            }
+        }
+        return true;
+    }
+}
+
+[HarmonyPatch(typeof(WorldObject), nameof(WorldObject.ShowRelatedQuests), MethodType.Getter)]
+static class WorldObjectShowRelatedQuestsPatch
+{
+    static void Postfix(ref bool __result)
+    {
+        if (Multiplayer.Client != null && Multiplayer.RealPlayerFaction == Multiplayer.WorldComp.spectatorFaction)
+            __result = false;
+    }
+}
+
+[HarmonyPatch(typeof(Settlement), nameof(Settlement.ShowRelatedQuests), MethodType.Getter)]
+static class SettlementShowRelatedQuestsPatch
+{
+    static void Postfix(ref bool __result)
+    {
+        if (Multiplayer.Client != null && Multiplayer.RealPlayerFaction == Multiplayer.WorldComp.spectatorFaction)
+            __result = false;
+    }
+}
+
+[HarmonyPatch(typeof(WorldInspectPane), nameof(WorldInspectPane.PaneTopY), MethodType.Getter)]
+static class WorldInspectPanePaneTopYPatch
+{
+    static void Postfix(ref float __result)
+    {
+        if (Multiplayer.Client != null && Multiplayer.RealPlayerFaction == Multiplayer.WorldComp.spectatorFaction)       
+            __result += 35f;      
+    }
+}
+
+[HarmonyPatch(typeof(MainTabWindow_Quests), nameof(MainTabWindow_Quests.DoRewardsPrefsButton))]
+public static class MainTabWindow_QuestsDoRewardsPrefsButtonPatch
+{
+    public static bool Prefix(MainTabWindow_Quests __instance, Rect rect, out Rect __result)
+    {
+        if (Multiplayer.Client == null || !Multiplayer.GameComp.multifaction)
+        {
+            __result = rect;
+            return true;
+        }
+        rect.yMin = rect.yMax - 40f;
+
+        float buttonHeight = 40f;
+
+        float rewardButtonWidth = rect.width * 0.5f - 5f;
+        float toggleButtonWidth = rect.width - rewardButtonWidth - 10f;
+
+        Rect rewardRect = new Rect(rect.x, rect.yMax - buttonHeight, rewardButtonWidth, buttonHeight);
+        Text.Font = GameFont.Small;
+        if (Widgets.ButtonText(rewardRect, "ChooseRewards".Translate(), true, true, true))
+        {
+            Find.WindowStack.Add(new Dialog_RewardPrefsConfig());
+        }
+
+        Rect toggleRect = new Rect(rewardRect.xMax + 10f, rewardRect.y, toggleButtonWidth, buttonHeight);
+        bool value = Multiplayer.settings.hideOtherPlayersQuests;
+        string label = value ? "MpHideQuestsOn".Translate() : "MpHideQuestsOff".Translate();
+        if (Widgets.ButtonText(toggleRect, label, true, true))
+        {
+            Multiplayer.settings.hideOtherPlayersQuests = !value;
+            SoundDefOf.Tick_High.PlayOneShotOnCamera();
+        }
+        TooltipHandler.TipRegion(toggleRect, "MpHideQuestsDesc".Translate());
+
+        __result = rect;
+        return false;
+    }
+}
+
+[HarmonyPatch(typeof(ColonistBar), nameof(ColonistBar.CheckRecacheEntries))]
+public static class ColonistBarCheckRecacheEntriesPatch
+{
+    static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+    {
+        var findMapsGetter = AccessTools.PropertyGetter(typeof(Find), nameof(Find.Maps));
+        foreach (var inst in insts)
+        {
+            if (inst.Calls(findMapsGetter))
+            {
+                yield return new CodeInstruction(OpCodes.Call,
+                    AccessTools.Method(typeof(ColonistBarCheckRecacheEntriesPatch), nameof(GetFilteredMaps)));
+            }
+            else
+            {
+                yield return inst;
+            }
+        }
+    }
+
+    public static IEnumerable<Map> GetFilteredMaps()
+    {
+        if (Multiplayer.Client == null || !Multiplayer.settings.hideOtherPlayersInColonistBar)
+            return Find.Maps;
+
+        return Find.Maps.Where(map =>
+            map.mapPawns.FreeColonistsSpawned.Any() ||
+            map.Parent?.Faction == Faction.OfPlayer);
+    }
+}
+
+[HarmonyPatch(typeof(WorldRoutePlanner), nameof(WorldRoutePlanner.DoRoutePlannerButton))]
+public static class WorldRoutePlannerPatch
+{
+    static bool Prefix()
+    {
+        return Multiplayer.Client == null || Multiplayer.RealPlayerFaction != Multiplayer.WorldComp.spectatorFaction;
+    }
+}
+
+[HarmonyPatch(typeof(WorldGizmoUtility), nameof(WorldGizmoUtility.TryGetCaravanGizmo))]
+public static class WorldGizmoUtilityTryGetCaravanGizmoPatch
+{
+    static bool Prefix(ref Gizmo gizmo, ref bool __result)
+    {
+        if (Multiplayer.Client != null && Multiplayer.RealPlayerFaction == Multiplayer.WorldComp.spectatorFaction)
+        {
+            gizmo = null;
+            __result = false;
+            return false;
+        }
+        return true;
+    }
+}
+
+[HarmonyPatch(typeof(MainButtonsRoot), nameof(MainButtonsRoot.DoButtons))]
+static class MainButtonsRootDoButtonsPatch
+{
+    private static bool IsSpectator =>
+      Multiplayer.Client != null &&
+      Multiplayer.RealPlayerFaction == Multiplayer.WorldComp.spectatorFaction;
+
+    private static readonly string[] SpectatorButtons = { "Menu", "World" };
+
+    private static readonly FieldRef<MainButtonsRoot, List<MainButtonDef>> AllButtonsRef = AccessTools.FieldRefAccess<MainButtonsRoot, List<MainButtonDef>>("allButtonsInOrder");
+
+    private static readonly Dictionary<string, int> SpectatorButtonOrder = SpectatorButtons.Select((name, idx) => new { name, idx }).ToDictionary(x => x.name, x => x.idx);
+
+    [HarmonyPrefix]
+    private static bool ReplaceOriginalDrawing(MainButtonsRoot __instance)
+    {
+        if (!IsSpectator)
+            return true; 
+
+        try
+        {
+            var allButtons = AllButtonsRef(__instance);
+            if (allButtons == null)
+                return true; 
+
+            var toDraw = SpectatorButtons
+                .Select(name => allButtons.Find(b => b.defName == name))
+                .Where(b => b?.Worker.Visible ?? false)
+                .ToList();
+
+            DrawCornerButtons(toDraw);
+            return false; 
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"[MainButtonsRootPatch] ReplaceOriginalDrawing failed: {ex}");
+            return true;
+        }
+    }
+
+    [HarmonyPostfix]
+    private static void FilterButtons(MainButtonsRoot __instance)
+    {
+        try
+        {
+            var allButtons = AllButtonsRef(__instance);
+            if (allButtons == null)
+                return;
+
+            if (IsSpectator)
+            {
+                // Keep only SpectatorButtons, sorted by our map
+                var filtered = allButtons
+                    .Where(b => SpectatorButtonOrder.ContainsKey(b.defName))
+                    .OrderBy(b => SpectatorButtonOrder[b.defName])
+                    .ToList();
+
+                AllButtonsRef(__instance) = filtered;
+            }
+            else
+            {
+                // Restore original full list in normal mode
+                var original = DefDatabase<MainButtonDef>.AllDefsListForReading
+                    .Where(b => b.order >= 0)
+                    .OrderBy(b => b.order)
+                    .ToList();
+
+                AllButtonsRef(__instance) = original;
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"[MainButtonsRootPatch] FilterButtons failed: {ex}");
+        }
+    }
+
+    private static void DrawCornerButtons(List<MainButtonDef> buttons)
+    {
+        const float buttonHeight = 35f;
+        const float defaultPadding = 20f;
+        const float spacing = 0f;
+
+        float x = UI.screenWidth;
+        float y = UI.screenHeight - buttonHeight;
+
+        foreach (var btn in buttons)
+        {
+            float padding = btn.defName == "World" ? 120f : defaultPadding;
+            float width = btn.ShortenedLabelCapWidth + padding;
+
+            x -= width;
+            btn.Worker.DoButton(new Rect(x, y, width, buttonHeight));
+            x -= spacing;
+        }
+    }
+}
+
 
 [HarmonyPatch(typeof(Pawn_DraftController), nameof(Pawn_DraftController.GetGizmos))]
 static class DisableDraftGizmo
