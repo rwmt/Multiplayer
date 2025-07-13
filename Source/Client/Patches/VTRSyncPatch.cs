@@ -79,7 +79,7 @@ namespace Multiplayer.Client.Patches
                     return;
 
                 // Prevent duplicate commands for the same transition, but allow retry after a tick
-                if (VTRSync.lastMovedToMap == previousMap && currentTick == VTRSync.lastSentTick)
+                if (VTRSync.lastMovedToMap == newMap && currentTick == VTRSync.lastSentTick)
                     return;
 
                 // Send map change command to server
@@ -115,12 +115,6 @@ namespace Multiplayer.Client.Patches
                     {
                         Multiplayer.Client.SendCommand(CommandType.PlayerCount, ScheduledCommand.Global, ByteWriter.GetBytes(VTRSync.lastMovedToMap, VTRSync.WorldMapId));
                     }
-                }
-                // Detect transition away from world map
-                else if (__result != WorldRenderMode.Planet && lastRenderMode == WorldRenderMode.Planet)
-                {
-                    int currentMapId = Find.CurrentMap?.uniqueID ?? -1;
-                    Multiplayer.Client.SendCommand(CommandType.PlayerCount, ScheduledCommand.Global, ByteWriter.GetBytes(VTRSync.WorldMapId, currentMapId));
                 }
 
                 lastRenderMode = __result;
