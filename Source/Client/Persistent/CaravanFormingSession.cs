@@ -16,8 +16,8 @@ namespace Multiplayer.Client
         public bool reform;
         public Action onClosed;
         public bool mapAboutToBeRemoved;
-        public int startingTile = -1;
-        public int destinationTile = -1;
+        public PlanetTile startingTile = -1;
+        public PlanetTile destinationTile = -1;
         public List<TransferableOneWay> transferables;
         public bool autoSelectTravelSupplies;
         public IntVec3? meetingSpot;
@@ -98,7 +98,7 @@ namespace Multiplayer.Client
         }
 
         [SyncMethod]
-        public void ChooseRoute(int destination)
+        public void ChooseRoute(PlanetTile destination)
         {
             var dialog = PrepareDummyDialog();
             dialog.Notify_ChoseRoute(destination);
