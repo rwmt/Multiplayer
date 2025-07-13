@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Multiplayer.Client.Util;
 using RimWorld.Planet;
 using UnityEngine;
@@ -10,7 +10,7 @@ public class PingInfo
 {
     public int player;
     public int mapId; // Map id or -1 for planet
-    public int planetTile;
+    public PlanetTile planetTile;
     public Vector3 mapLoc;
 
     public PlayerInfo PlayerInfo => Multiplayer.session.GetPlayerInfo(player);

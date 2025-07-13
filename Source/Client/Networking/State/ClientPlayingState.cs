@@ -1,6 +1,7 @@
 using Ionic.Zlib;
 using Multiplayer.Common;
 using RimWorld;
+using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -173,7 +174,7 @@ namespace Multiplayer.Client
         {
             int player = data.ReadInt32();
             int map = data.ReadInt32();
-            int planetTile = data.ReadInt32();
+            PlanetTile planetTile = new(data.ReadInt32(), data.ReadInt32());
             var loc = new Vector3(data.ReadFloat(), data.ReadFloat(), data.ReadFloat());
 
             Session.locationPings.ReceivePing(player, map, planetTile, loc);
