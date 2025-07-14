@@ -18,10 +18,11 @@ namespace Multiplayer.Client.Factions
 
         public Action<Scenario> onScenChosen;
 
-        private static readonly Dictionary<string, string> warnScenList = new Dictionary<string, string>
+        private static readonly HashSet<string> scenarioBlacklist = new()
         {
-           { "The Anomaly", "Only the starting colony will have the monolith. It will be located on the starting colony’s tile, so keep that in mind if you plan to play this scenario." },
+            "The Anomaly"
         };
+
         public override string PageTitle
         {
             get
@@ -85,7 +86,7 @@ namespace Multiplayer.Client.Factions
             listing_Standard.ColumnWidth = rect2.width;
             listing_Standard.Begin(rect3);
             Text.Font = GameFont.Small;
-            ListScenariosOnListing(listing_Standard, ScenarioLister.ScenariosInCategory(ScenarioCategory.FromDef));
+            ListScenariosOnListing(listing_Standard, ScenarioLister.ScenariosInCategory(ScenarioCategory.FromDef).Where(s => !scenarioBlacklist.Contains(s.name)));
             listing_Standard.End();
             totalScenarioListHeight = listing_Standard.CurHeight;
             Widgets.EndScrollView();
@@ -94,8 +95,7 @@ namespace Multiplayer.Client.Factions
         private void DoScenarioListEntry(Rect rect, Scenario scen)
         {
             bool flag = curScen == scen;
-            bool warn = warnScenList.ContainsKey(scen.name);
-            DrawOptionBackgroundReplacement(rect, flag, warn, warn? warnScenList[scen.name]: null);   
+            DrawOptionBackgroundReplacement(rect, flag);   
             MouseoverSounds.DoRegion(rect);
             Rect rect2 = rect.ContractedBy(4f);
             Text.Font = GameFont.Small;
@@ -167,19 +167,11 @@ namespace Multiplayer.Client.Factions
             Widgets.DrawBox(rect, 1, null);
             GUI.color = Color.white;
         }
-        public void DrawOptionBackgroundReplacement(Rect rect, bool selected, bool warning, string reason = null)
+        public void DrawOptionBackgroundReplacement(Rect rect, bool selected)
         {
             if (selected)
             {
                 Widgets.DrawOptionSelected(rect);
-            }
-            else if (warning)
-            {
-                DrawOptionUnselectedReplacement(rect);
-                if (!string.IsNullOrEmpty(reason))
-                {
-                    TooltipHandler.TipRegion(rect, reason);
-                }
             }
             else
             {
