@@ -15,19 +15,19 @@ namespace Multiplayer.Client.Factions
         {
             Color.white,
             Color.yellow,
-            new ColorInt(218,166,26).ToColor,    // Contributor Yellow
+            new ColorInt(218,166,26).ToColor,    // contributor yellow
             new ColorInt(255, 100, 0).ToColor,   // orange
             Color.red,
-            new ColorInt(231,76,60).ToColor,     // Core Red
+            new ColorInt(231,76,60).ToColor,     // core red
             Color.magenta,
             new ColorInt(128, 0, 128).ToColor,   // purple
             Color.blue,
             new Color32(0x00, 0xBC, 0xD8, 255),  // cyan / default faction color
-            new ColorInt(38,196,133).ToColor,    // Admin Green
+            new ColorInt(38,196,133).ToColor,    // admin Green
             new ColorInt(26, 185, 12).ToColor,   // green
             new ColorInt(0, 100, 8).ToColor,     // dark green
-            new ColorInt(87, 40, 0).ToColor,     // shit
-            new ColorInt(145, 113, 53).ToColor,  // shit 2
+            new ColorInt(87, 40, 0).ToColor,     // brown
+            new ColorInt(145, 113, 53).ToColor,  // brown 2
             new ColorInt(193, 193, 193).ToColor, // gray 
             new ColorInt(129, 129, 129).ToColor, // gray 2
             new ColorInt(62, 62, 62).ToColor,    // gray 3
@@ -53,17 +53,16 @@ namespace Multiplayer.Client.Factions
 
             gridSize = (int)Math.Ceiling(Math.Sqrt(palette.Count));
             actualRows = (palette.Count + gridSize - 1) / gridSize;
-
         }
 
         public override void PreOpen()
         {
             base.PreOpen();
 
-            float formWidth = padding + gridSize * (boxSize + padding);
-            float formHeight = padding + actualRows * (boxSize + padding);
+            float windowWidth = padding + gridSize * (boxSize + padding);
+            float windowHeight = padding + actualRows * (boxSize + padding);
 
-            this.windowRect.size = new Vector2(formWidth, formHeight);
+            this.windowRect.size = new Vector2(windowWidth, windowHeight);
             this.windowRect.position = new Vector2(332, UI.screenHeight / 2f - 80f);
         }
 
