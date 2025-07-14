@@ -673,6 +673,22 @@ static class ApparelWornGraphicPathGetterPatch
     }
 }
 
+#region Map generation
+
+[HarmonyPatch(typeof(GenStep_Monolith), nameof(GenStep_Monolith.GenerateMonolith))]
+public static class GenStepMonolithPatch
+{
+    static bool Prefix()
+    {
+        if (Multiplayer.Client == null)
+            return true;
+
+        var anomalyComp = Current.Game.components.OfType<GameComponent_Anomaly>().FirstOrDefault();
+
+        return anomalyComp?.monolith == null;
+    }
+}
+
 [HarmonyPatch(typeof(ScenPart_ScatterThings), nameof(ScenPart_ScatterThings.GenerateIntoMap))]
 static class ScenPartScatterThingsPatch
 {
@@ -690,6 +706,8 @@ static class ScenPartPlayerPawnsArriveMethodPatch
         return Multiplayer.Client == null || FactionCreator.generatingMap;
     }
 }
+
+#endregion
 
 [HarmonyPatch(typeof(CharacterCardUtility), nameof(CharacterCardUtility.DoTopStack))]
 static class CharacterCardUtilityDontDrawIdeoPlate
