@@ -20,7 +20,7 @@ namespace Multiplayer.Client.Factions
 
         private static readonly Dictionary<string, string> warnScenList = new Dictionary<string, string>
         {
-           { "The Anomaly", "Only the starting colony will have the monolith. It will be located in the starting colony’s tile — so keep that in mind if you plan to play this scenario." },
+           { "The Anomaly", "Only the starting colony will have the monolith. It will be located on the starting colony’s tile, so keep that in mind if you plan to play this scenario." },
         };
         public override string PageTitle
         {
