@@ -288,8 +288,8 @@ public static class ColonistBarTimeControl
     private static Color flashColor = Color.red;
 
     private static bool IsSpectator =>
-    Multiplayer.Client != null &&
-    Multiplayer.RealPlayerFaction == Multiplayer.WorldComp.spectatorFaction;
+        Multiplayer.Client != null &&
+        Multiplayer.RealPlayerFaction == Multiplayer.WorldComp.spectatorFaction;
 
     static bool Prefix(ref bool __state)
     {
