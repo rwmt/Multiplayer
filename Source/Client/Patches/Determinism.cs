@@ -147,22 +147,17 @@ namespace Multiplayer.Client.Patches
         }
     }
 
-    [HarmonyPatch(typeof(Zone), nameof(Zone.Cells), MethodType.Getter)]
-    static class ZoneCellsShufflePatch
+    public static class CellsShufflePatchShared
     {
-        static FieldInfo CellsShuffled = AccessTools.Field(typeof(Zone), nameof(Zone.cellsShuffled));
-
-        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+        public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts, FieldInfo cellsShuffledField)
         {
             bool found = false;
-
-            foreach (var inst in insts)
+            foreach (CodeInstruction inst in insts)
             {
                 yield return inst;
-
-                if (!found && inst.operand == CellsShuffled)
+                if (!found && inst.operand == cellsShuffledField)
                 {
-                    yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(ZoneCellsShufflePatch), nameof(ShouldShuffle)));
+                    yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(CellsShufflePatchShared), nameof(ShouldShuffle)));
                     yield return new CodeInstruction(OpCodes.Not);
                     yield return new CodeInstruction(OpCodes.Or);
                     found = true;
@@ -170,10 +165,26 @@ namespace Multiplayer.Client.Patches
             }
         }
 
-        static bool ShouldShuffle()
+        public static bool ShouldShuffle()
         {
             return Multiplayer.Client == null || Multiplayer.Ticking;
         }
+    }
+
+    [HarmonyPatch(typeof(Zone), nameof(Zone.Cells), MethodType.Getter)]
+    static class ZoneCellsShufflePatch
+    {
+        static readonly FieldInfo CellsShuffled = AccessTools.Field(typeof(Zone), "cellsShuffled");
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+            => CellsShufflePatchShared.Transpiler(insts, CellsShuffled);
+    }
+
+    [HarmonyPatch(typeof(Plan), nameof(Plan.Cells), MethodType.Getter)]
+    static class PlanCellsShufflePatch
+    {
+        static readonly FieldInfo CellsShuffled = AccessTools.Field(typeof(Plan), "cellsShuffled");
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+            => CellsShufflePatchShared.Transpiler(insts, CellsShuffled);
     }
 
     [HarmonyPatch]

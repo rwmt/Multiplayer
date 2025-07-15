@@ -36,6 +36,12 @@ namespace Multiplayer.Client
 
         public static readonly Texture2D ChangeRelationIcon = ContentFinder<Texture2D>.Get("UI/Icons/VisitorsHelp");
 
+        public static readonly Texture2D OptionsGeneral = ContentFinder<Texture2D>.Get("UI/Icons/Options/OptionsGeneral");
+        public static readonly Texture2D OptionsGameplay = ContentFinder<Texture2D>.Get("UI/Icons/Options/OptionsGameplay");
+
+        public static readonly Texture2D GiftModeIcon = ContentFinder<Texture2D>.Get("UI/Buttons/GiftMode");
+        public static readonly Texture2D TradeModeIcon = ContentFinder<Texture2D>.Get("UI/Buttons/TradeMode");
+
         static MultiplayerStatic()
         {
             Native.InitLmfPtr(

@@ -25,6 +25,7 @@ namespace Multiplayer.Client
         public static bool DesignateSingleCell(Designator __instance, IntVec3 __0)
         {
             if (!Multiplayer.InInterface) return true;
+            if (__instance is Designator_Plan_Copy or Designator_Plan_CopySelection or Designator_Plan_CopySelectionPaste) return true;
 
             Designator designator = __instance;
 
@@ -34,6 +35,9 @@ namespace Multiplayer.Client
 
             WriteData(writer, DesignatorMode.SingleCell, designator);
             SyncSerialization.WriteSync(writer, __0);
+
+            if (__instance is Designator_Plan_Add addDesignator)
+                SyncSerialization.WriteSync(writer, addDesignator.colorDef);
 
             SendSyncCommand(map.uniqueID, writer);
             Multiplayer.WriterLog.AddCurrentNode(writer);
@@ -57,6 +61,9 @@ namespace Multiplayer.Client
 
             WriteData(writer, DesignatorMode.MultiCell, designator);
             SyncSerialization.WriteSync(writer, cellArray);
+
+            if (__instance is Designator_Plan_Add addDesignator)
+                SyncSerialization.WriteSync(writer, addDesignator.colorDef);
 
             SendSyncCommand(map.uniqueID, writer);
             Multiplayer.WriterLog.AddCurrentNode(writer);

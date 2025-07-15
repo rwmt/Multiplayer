@@ -399,6 +399,8 @@ namespace Multiplayer.Client
                 if (mode == DesignatorMode.SingleCell)
                 {
                     IntVec3 cell = SyncSerialization.ReadSync<IntVec3>(data);
+                    if (designator is Designator_Plan_Add addDesignator)
+                        addDesignator.colorDef = SyncSerialization.ReadSync<ColorDef>(data);
 
                     designator.DesignateSingleCell(cell);
                     designator.Finalize(true);
@@ -406,6 +408,8 @@ namespace Multiplayer.Client
                 else if (mode == DesignatorMode.MultiCell)
                 {
                     IntVec3[] cells = SyncSerialization.ReadSync<IntVec3[]>(data);
+                    if (designator is Designator_Plan_Add addDesignator)
+                        addDesignator.colorDef = SyncSerialization.ReadSync<ColorDef>(data);
 
                     designator.DesignateMultiCell(cells);
                 }
