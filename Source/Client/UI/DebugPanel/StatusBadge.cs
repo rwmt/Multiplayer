@@ -33,15 +33,28 @@ namespace Multiplayer.Client.DebugUi
         public static StatusBadge GetPerformanceStatus()
         {
             float tps = IngameUIPatch.tps;
-            string tooltip = tps > 40f ? "Performance is good" : tps > 20f ? "Performance is moderate" : "Performance is poor";
-
-            return new StatusBadge("▲", GetPerformanceColor(tps, 40f, 20f), $"{tps:F1}", tooltip);
+            
+            if (PerformanceCalculator.IsInStabilizationPeriod())
+            {
+                return new StatusBadge("▲", Color.yellow, "STAB", "Stabilizing after speed change");
+            }
+            
+            float normalizedTps = PerformanceCalculator.GetNormalizedTPS(tps);
+            
+            string tooltip = normalizedTps >= 90f ? "Performance is excellent" : 
+                            normalizedTps >= 70f ? "Performance is good" : 
+                            normalizedTps >= 50f ? "Performance is moderate" : 
+                            normalizedTps >= 25f ? "Performance is poor" : 
+                            "Performance is very poor";
+            
+            return new StatusBadge("▲", PerformanceCalculator.GetPerformanceColor(normalizedTps, 90f, 70f), $"{normalizedTps:F0}%", tooltip);
         }
+
 
         public static StatusBadge GetTickStatus()
         {
             int behind = TickPatch.tickUntil - TickPatch.Timer;
-            Color color = GetPerformanceColor(behind, 5, 15, true);
+            Color color = PerformanceCalculator.GetPerformanceColor(behind, 5, 15, true);
             string tooltip = behind <= 5 ? "Timing is good" : behind <= 15 ? "Slightly behind" : "Significantly behind";
             return new StatusBadge("♦", color, behind.ToString(), tooltip);
         }
@@ -58,13 +71,5 @@ namespace Multiplayer.Client.DebugUi
             return new StatusBadge("P", playerCount > 0 ? Color.green : Color.red, $"{playerCount}", "Active players in the current map");
         }
 
-        // Unified color logic for performance metrics
-        public static Color GetPerformanceColor(float value, float goodThreshold, float moderateThreshold, bool lowerIsBetter = false)
-        {
-            if (lowerIsBetter)
-                return value <= goodThreshold ? Color.green : value < moderateThreshold ? Color.yellow : Color.red;
-
-            return value >= goodThreshold ? Color.green : value >= moderateThreshold ? Color.yellow : Color.red;
-        }
     }
 } 
