@@ -1,17 +1,14 @@
 namespace Multiplayer.Client.DebugUi
 {
-public static partial class SyncDebugPanel
+    internal struct DebugSection
     {
-        private struct DebugSection
-        {
-            public string Title;
-            public DebugLine[] Lines;
+        public string Title;
+        public DebugLine[] Lines;
 
-            public DebugSection(string title, DebugLine[] lines)
-            {
-                Title = title;
-                Lines = lines;
-            }
+        public DebugSection(string title, DebugLine[] lines)
+        {
+            Title = title;
+            Lines = lines;
         }
     }
 } 

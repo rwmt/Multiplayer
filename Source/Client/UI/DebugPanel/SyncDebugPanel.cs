@@ -24,7 +24,7 @@ namespace Multiplayer.Client.DebugUi
         // Panel dimensions
         private const float HeaderHeight = 40f;
         private const float VisibleExpandedHeight = 400f;
-        private const float ContentHeight = 1300f;
+        private const float ContentHeight = 1500f;
         private const float PanelWidth = 275f;
 
         // Visual constants
@@ -184,6 +184,7 @@ namespace Multiplayer.Client.DebugUi
             currentY += DrawStatusSummarySection(viewRect.x + Margin, currentY, viewRect.width - Margin);
             currentY += DrawRngStatesSection(viewRect.x + Margin, currentY, viewRect.width - Margin);
             currentY += DrawPerformanceSection(viewRect.x + Margin, currentY, viewRect.width - Margin);
+            currentY += DrawPerformanceRecorderSection(viewRect.x + Margin, currentY, viewRect.width - Margin);
             currentY += DrawNetworkSyncSection(viewRect.x + Margin, currentY, viewRect.width - Margin);
             currentY += DrawCoreSystemSection(viewRect.x + Margin, currentY, viewRect.width - Margin);
             currentY += DrawTimingSyncSection(viewRect.x + Margin, currentY, viewRect.width - Margin);

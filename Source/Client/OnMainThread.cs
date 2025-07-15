@@ -1,3 +1,4 @@
+using Multiplayer.Client.DebugUi;
 using Multiplayer.Client.Networking;
 using Multiplayer.Common;
 using System;
@@ -41,6 +42,11 @@ namespace Multiplayer.Client
 
             Multiplayer.session.Update();
             SyncFieldUtil.UpdateSync();
+
+            if (PerformanceRecorder.IsRecording)
+            {
+                PerformanceRecorder.RecordFrame();
+            }
 
             if (!Multiplayer.arbiterInstance && Application.isFocused && !TickPatch.Simulating && !Multiplayer.session.desynced)
                 Multiplayer.session.playerCursors.SendVisuals();
