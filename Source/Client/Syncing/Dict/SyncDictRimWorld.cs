@@ -1095,6 +1095,22 @@ namespace Multiplayer.Client
                     return data.MpContext().map.zoneManager.AllZones.Find(zone => zone.ID == zoneId);
                 }, true
             },
+            {
+                (ByteWriter data, Room room) => {
+                    if(room == null){
+                        data.WriteInt32(-1);
+                    } else {
+                        data.MpContext().map = room.Map;
+                        data.WriteInt32(room.ID);
+                    }
+                },
+                (ByteReader data) => {
+                    int roomId = data.ReadInt32();
+                    if (roomId == -1)
+                        return null;
+                    return data.MpContext().map.regionGrid.allRooms.Find(r => r.ID == roomId);
+                }, true
+            },
             #endregion
 
             #region Globals
