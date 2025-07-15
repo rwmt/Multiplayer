@@ -1,6 +1,3 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using HarmonyLib;
 using Multiplayer.Client.Comp;
 using Multiplayer.Client.Desyncs;
@@ -10,6 +7,9 @@ using Multiplayer.Client.Util;
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using Verse;
 
@@ -106,6 +106,7 @@ public class AsyncWorldTimeComp : IExposable, ITickable
         try
         {
             Find.TickManager.DoSingleTick();
+            TickAsyncWorldQuests();
             worldTicks++;
             Multiplayer.WorldComp.TickWorldSessions();
 
@@ -136,6 +137,14 @@ public class AsyncWorldTimeComp : IExposable, ITickable
             tickingWorld = false;
 
             Multiplayer.game.sync.TryAddWorldRandomState(randState);
+        }
+    }
+
+    private void TickAsyncWorldQuests()
+    {
+        if(Multiplayer.GameComp.asyncTime)
+        {
+            Multiplayer.QuestManagerAsync.TickWorldQuests();
         }
     }
 

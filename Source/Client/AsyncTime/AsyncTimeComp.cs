@@ -1,19 +1,19 @@
 using HarmonyLib;
+using Multiplayer.Client.Factions;
+using Multiplayer.Client.Patches;
+using Multiplayer.Client.Quests;
+using Multiplayer.Client.Saving;
+using Multiplayer.Client.Util;
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
 using Verse;
-using Multiplayer.Client.Comp;
-using Multiplayer.Client.Factions;
-using Multiplayer.Client.Patches;
-using Multiplayer.Client.Saving;
-using Multiplayer.Client.Util;
 
 namespace Multiplayer.Client
 {
-    public class AsyncTimeComp : IExposable, ITickable
+    public class AsyncTimeComp : IExposable, ITickable, IAsyncQuestContext
     {
         public static Map tickingMap;
         public static Map executingCmdMap;
@@ -456,7 +456,12 @@ namespace Multiplayer.Client
         {
             if (!Multiplayer.GameComp.asyncTime || Paused) return;
 
-            MultiplayerAsyncQuest.TickMapQuests(this);
+            Multiplayer.QuestManagerAsync.TickQuestsAsync(this);
+        }
+
+        public string GetQuestContextInfo()
+        {
+            return $"AsyncTimeComp for Map: {map.Index}; faction {map.ParentFaction}";
         }
     }
 
