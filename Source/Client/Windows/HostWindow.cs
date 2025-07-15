@@ -127,8 +127,7 @@ namespace Multiplayer.Client
 
             float num = r.x + 10f;
             Rect rect = new Rect(num, r.y + (r.height - 20f) / 2f, 20f, 20f);
-            Texture2D texture2D = ContentFinder<Texture2D>.Get(tab == Tab.Connecting ? "UI/Icons/Options/OptionsGeneral" : "UI/Icons/Options/OptionsGameplay");
-            GUI.DrawTexture(rect, texture2D);
+            GUI.DrawTexture(rect, tab == Tab.Connecting ? MultiplayerStatic.OptionsGeneral : MultiplayerStatic.OptionsGameplay);
             num += 30f;
             Widgets.Label(new Rect(num, r.y, r.width - num, r.height), tab == Tab.Connecting ? "MpHostTabConnecting".Translate() : "MpHostTabGameplay".Translate());
         }
