@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net48</TargetFramework>
@@ -59,16 +59,22 @@
     </PropertyGroup>
   </Target>
 
-  <Target Name="CopyToRimworld" AfterTargets="Build">
-    <Copy SourceFiles="bin\Multiplayer.dll" DestinationFiles="..\..\AssembliesCustom\Multiplayer.dll" />
-    <Copy SourceFiles="bin\MultiplayerCommon.dll" DestinationFiles="..\..\AssembliesCustom\MultiplayerCommon.dll" />
 
-    <Copy SourceFiles="bin\0MultiplayerAPI.dll" DestinationFiles="..\..\Assemblies\0MultiplayerAPI.dll" />
-    <Copy SourceFiles="bin\0PrepatcherAPI.dll" DestinationFiles="..\..\Assemblies\0PrepatcherAPI.dll" />
-    <Copy SourceFiles="bin\LiteNetLib.dll" DestinationFiles="..\..\Assemblies\LiteNetLib.dll" />
-    <Copy SourceFiles="bin\MultiplayerLoader.dll" DestinationFiles="..\..\Assemblies\MultiplayerLoader.dll" />
-    <Copy SourceFiles="bin\RestSharp.dll" DestinationFiles="..\..\Assemblies\RestSharp.dll" />
-    <Copy SourceFiles="bin\System.IO.Compression.dll" DestinationFiles="..\..\Assemblies\System.IO.Compression.dll" />
+  <!-- Define the path to the Multiplayer mod - ex: C:\Program Files (x86)\Steam\steamapps\workshop\content\294100\2606448745\1.6 -->
+  <PropertyGroup>
+    <MultiplayerModPath>..\..\</MultiplayerModPath>
+  </PropertyGroup>
+
+  <Target Name="CopyToRimworld" AfterTargets="Build">
+    <Copy SourceFiles="bin\Multiplayer.dll" DestinationFiles="$(MultiplayerModPath)\AssembliesCustom\Multiplayer.dll" />
+    <Copy SourceFiles="bin\MultiplayerCommon.dll" DestinationFiles="$(MultiplayerModPath)\AssembliesCustom\MultiplayerCommon.dll" />
+
+    <Copy SourceFiles="bin\0MultiplayerAPI.dll" DestinationFiles="$(MultiplayerModPath)\Assemblies\0MultiplayerAPI.dll" />
+    <Copy SourceFiles="bin\0PrepatcherAPI.dll" DestinationFiles="$(MultiplayerModPath)\Assemblies\0PrepatcherAPI.dll" />
+    <Copy SourceFiles="bin\LiteNetLib.dll" DestinationFiles="$(MultiplayerModPath)\Assemblies\LiteNetLib.dll" />
+    <Copy SourceFiles="bin\MultiplayerLoader.dll" DestinationFiles="$(MultiplayerModPath)\Assemblies\MultiplayerLoader.dll" />
+    <Copy SourceFiles="bin\RestSharp.dll" DestinationFiles="$(MultiplayerModPath)\Assemblies\RestSharp.dll" />
+    <Copy SourceFiles="bin\System.IO.Compression.dll" DestinationFiles="$(MultiplayerModPath)\Assemblies\System.IO.Compression.dll" />
   </Target>
 
 </Project>
