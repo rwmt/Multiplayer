@@ -18,6 +18,10 @@ namespace Multiplayer.Client.Factions
 
         public Action<Scenario> onScenChosen;
 
+        private static readonly Dictionary<string, string> warnScenList = new Dictionary<string, string>
+        {
+           { "The Anomaly", "Only the starting colony will have the monolith. It will be located on the starting colony’s tile, so keep that in mind if you plan to play this scenario." },
+        };
         public override string PageTitle
         {
             get
@@ -90,7 +94,8 @@ namespace Multiplayer.Client.Factions
         private void DoScenarioListEntry(Rect rect, Scenario scen)
         {
             bool flag = curScen == scen;
-            Widgets.DrawOptionBackground(rect, flag);
+            bool warn = warnScenList.ContainsKey(scen.name);
+            DrawOptionBackgroundReplacement(rect, flag, warn, warn? warnScenList[scen.name]: null);   
             MouseoverSounds.DoRegion(rect);
             Rect rect2 = rect.ContractedBy(4f);
             Text.Font = GameFont.Small;
@@ -108,7 +113,7 @@ namespace Multiplayer.Client.Factions
             Widgets.Label(rect4, scen.GetSummary());
             if (scen.enabled)
             {
-                WidgetRow widgetRow = new WidgetRow(rect.xMax, rect.y, UIDirection.LeftThenDown, 99999f, 4f);             
+                WidgetRow widgetRow = new WidgetRow(rect.xMax, rect.y, UIDirection.LeftThenDown, 99999f, 4f);
                 if (!flag && Widgets.ButtonInvisible(rect, true))
                 {
                     curScen = scen;
@@ -116,7 +121,6 @@ namespace Multiplayer.Client.Factions
                 }
             }
         }
-
         private void ListScenariosOnListing(Listing_Standard listing, IEnumerable<Scenario> scenarios)
         {
             bool flag = false;
@@ -153,6 +157,35 @@ namespace Multiplayer.Client.Factions
                 return false;
             }
             return true;
+        }
+
+        public void DrawOptionUnselectedReplacement(Rect rect)
+        {
+            GUI.color = new ColorInt(144, 21, 28).ToColor;
+            GUI.DrawTexture(rect, BaseContent.WhiteTex);
+            GUI.color =  new ColorInt(187, 89, 95).ToColor;
+            Widgets.DrawBox(rect, 1, null);
+            GUI.color = Color.white;
+        }
+        public void DrawOptionBackgroundReplacement(Rect rect, bool selected, bool warning, string reason = null)
+        {
+            if (selected)
+            {
+                Widgets.DrawOptionSelected(rect);
+            }
+            else if (warning)
+            {
+                DrawOptionUnselectedReplacement(rect);
+                if (!string.IsNullOrEmpty(reason))
+                {
+                    TooltipHandler.TipRegion(rect, reason);
+                }
+            }
+            else
+            {
+                Widgets.DrawOptionUnselected(rect);
+            }
+            Widgets.DrawHighlightIfMouseover(rect);
         }
     }
 }

@@ -65,7 +65,7 @@ namespace Multiplayer.Client
                 {
                     Pawn item = PawnGenerator.GeneratePawn(
                         DefDatabase<PawnKindDef>.AllDefs
-                            .Where((PawnKindDef d) => d.RaceProps.Animal && d.RaceProps.wildness < 1f).RandomElement(),
+                            .Where((PawnKindDef d) => d.RaceProps.Animal && d.race.GetStatValueAbstract(StatDefOf.Wildness) < 1f).RandomElement(),
                         Faction.OfPlayer);
                     list.Add(item);
                 }

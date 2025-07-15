@@ -1,13 +1,16 @@
 using HarmonyLib;
+using Multiplayer.Client.Util;
 using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using Verse;
 
+// TODO: TEST: Test that this works with the new world generation
+
 namespace Multiplayer.Client
 {
-
     [HarmonyPatch(typeof(MapDrawer), nameof(MapDrawer.RegenerateEverythingNow))]
     public static class MapDrawerRegenPatch
     {
@@ -59,6 +62,7 @@ namespace Multiplayer.Client
     [HarmonyPatch(typeof(WorldGrid), MethodType.Constructor)]
     public static class WorldGridCachePatch
     {
+        public static AccessTools.FieldRef<WorldGrid, List<WorldDrawLayerBase>> globalLayers = AccessTools.FieldRefAccess<WorldGrid, List<WorldDrawLayerBase>>(nameof(WorldGrid.globalLayers));
         public static WorldGrid copyFrom;
 
         static bool Prefix(WorldGrid __instance, ref int ___cachedTraversalDistance, ref int ___cachedTraversalDistanceForStart, ref int ___cachedTraversalDistanceForEnd)
@@ -67,15 +71,16 @@ namespace Multiplayer.Client
 
             WorldGrid grid = __instance;
 
-            grid.viewAngle = copyFrom.viewAngle;
-            grid.viewCenter = copyFrom.viewCenter;
-            grid.verts = copyFrom.verts;
-            grid.tileIDToNeighbors_offsets = copyFrom.tileIDToNeighbors_offsets;
-            grid.tileIDToNeighbors_values = copyFrom.tileIDToNeighbors_values;
-            grid.tileIDToVerts_offsets = copyFrom.tileIDToVerts_offsets;
-            grid.averageTileSize = copyFrom.averageTileSize;
+            grid.surfaceViewAngle = copyFrom.SurfaceViewAngle;
+            grid.surfaceViewCenter = copyFrom.SurfaceViewCenter;
+            grid.surface.verts = copyFrom.UnsafeVerts;
+            grid.surface.tileIDToNeighbors_offsets = copyFrom.UnsafeTileIDToNeighbors_offsets;
+            grid.surface.tileIDToNeighbors_values = copyFrom.UnsafeTileIDToNeighbors_values;
+            grid.surface.tileIDToVerts_offsets = copyFrom.UnsafeTileIDToVerts_offsets;
+            grid.surface.averageTileSize = copyFrom.AverageTileSize;
+            grid.surface.tiles.Clear();
+            globalLayers(grid) = copyFrom.globalLayers;
 
-            grid.tiles = new List<Tile>();
             ___cachedTraversalDistance = -1;
             ___cachedTraversalDistanceForStart = -1;
             ___cachedTraversalDistanceForEnd = -1;
@@ -97,23 +102,39 @@ namespace Multiplayer.Client
 
             WorldGrid grid = __instance;
 
-            grid.tileBiome = copyFrom.tileBiome;
-            grid.tileElevation = copyFrom.tileElevation;
-            grid.tileHilliness = copyFrom.tileHilliness;
-            grid.tileTemperature = copyFrom.tileTemperature;
-            grid.tileRainfall = copyFrom.tileRainfall;
-            grid.tileSwampiness = copyFrom.tileSwampiness;
-            grid.tileFeature = copyFrom.tileFeature;
-            grid.tileRoadOrigins = copyFrom.tileRoadOrigins;
-            grid.tileRoadAdjacency = copyFrom.tileRoadAdjacency;
-            grid.tileRoadDef = copyFrom.tileRoadDef;
-            grid.tileRiverOrigins = copyFrom.tileRiverOrigins;
-            grid.tileRiverAdjacency = copyFrom.tileRiverAdjacency;
-            grid.tileRiverDef = copyFrom.tileRiverDef;
+            List<SurfaceTile> copyTiles = copyFrom.Tiles.ToList<SurfaceTile>();
+            List<SurfaceTile> gridTiles = grid.Tiles.ToList<SurfaceTile>();
+
+            for(int i = 0; i < copyTiles.Count; i++)
+            {
+                SurfaceTile sourceTile = copyTiles[i];
+                SurfaceTile targetTile = gridTiles[i];
+
+                // Tile
+                targetTile.biome = sourceTile.biome;
+                targetTile.elevation = sourceTile.elevation;
+                targetTile.hilliness = sourceTile.hilliness;
+                targetTile.temperature = sourceTile.temperature;
+                targetTile.rainfall = sourceTile.rainfall;
+                targetTile.swampiness = sourceTile.swampiness;
+                targetTile.feature = sourceTile.feature;
+                targetTile.pollution = sourceTile.pollution;
+                targetTile.tile = sourceTile.tile;
+                targetTile.mutatorsNullable = sourceTile.mutatorsNullable;
+
+                // Surface Tile - Roads/Rivers are getters for potentialRoads/potentialRivers
+                targetTile.potentialRoads = sourceTile.potentialRoads;
+                targetTile.riverDist = sourceTile.riverDist;
+                targetTile.potentialRivers = sourceTile.potentialRivers;
+            }
 
             // This is plain old data apart from the WorldFeature feature field which is a reference
             // It later gets reset in WorldFeatures.ExposeData though so it can be safely copied
-            grid.tiles = copyFrom.tiles;
+            
+            // Use Clear/AddRange instead of reflection to preserve collection observers
+            // and handle readonly field correctly
+            grid.surface.tiles.Clear();
+            grid.surface.tiles.AddRange(copyFrom.surface.tiles);
 
             // ExposeData runs multiple times but WorldGrid only needs LoadSaveMode.LoadingVars
             copyFrom = null;
@@ -122,16 +143,19 @@ namespace Multiplayer.Client
         }
     }
 
-    [HarmonyPatch(typeof(WorldRenderer), MethodType.Constructor)]
+    //TODO: TEST: Test that this works with the new world generation
+    [HarmonyPatch(typeof(WorldGrid), (nameof(WorldGrid.InitializeGlobalLayers)))]
     public static class WorldRendererCachePatch
     {
-        public static WorldRenderer copyFrom;
 
-        static bool Prefix(WorldRenderer __instance)
+        public static AccessTools.FieldRef<WorldGrid, List<WorldDrawLayerBase>> globalLayers = AccessTools.FieldRefAccess<WorldGrid, List<WorldDrawLayerBase>>(nameof(WorldGrid.globalLayers));
+        public static WorldGrid copyFrom;
+
+        static bool Prefix(WorldGrid __instance)
         {
             if (copyFrom == null) return true;
 
-            __instance.layers = copyFrom.layers;
+            globalLayers(__instance) = copyFrom.globalLayers;
             copyFrom = null;
 
             return false;

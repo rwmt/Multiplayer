@@ -1,4 +1,5 @@
-﻿using System;
+using System;
+using System.Collections.Generic;
 using HarmonyLib;
 using RimWorld;
 using RimWorld.Planet;
@@ -20,16 +21,18 @@ static class AttackNowPatch
     }
 }
 
-[HarmonyPatch(typeof(GetOrGenerateMapUtility), nameof(GetOrGenerateMapUtility.GetOrGenerateMap), new []{ typeof(int), typeof(IntVec3), typeof(WorldObjectDef) })]
+[HarmonyPatch(typeof(GetOrGenerateMapUtility), nameof(GetOrGenerateMapUtility.GetOrGenerateMap), [typeof(PlanetTile), typeof(IntVec3), typeof(WorldObjectDef), typeof(IEnumerable<GenStepWithParams>), typeof(bool)])]
 static class MapGenFactionPatch
 {
-    static void Prefix(int tile)
+    static void Prefix(PlanetTile tile)
     {
-        var mapParent = Find.WorldObjects.MapParentAt(tile);
-        if (Multiplayer.Client != null && mapParent == null)
-            Log.Warning($"Couldn't set the faction context for map gen at {tile}: no world object");
+        MapParent mapParent = Find.WorldObjects.MapParentAt(tile);
+        Faction factionToSet = mapParent?.Faction ?? TileFactionContext.GetFactionForTile(tile);
 
-        FactionContext.Push(mapParent?.Faction);
+        if (Multiplayer.Client != null && factionToSet == null)
+            Log.Warning($"Couldn't set the faction context for map gen at {tile.tileId}: no world object and no stored faction.");
+
+        FactionContext.Push(factionToSet);
     }
 
     static void Finalizer()
@@ -113,5 +116,16 @@ static class BillProductionValidateSettingsPatch
     static void Finalizer(Map __state)
     {
         __state?.PopFaction();
+    }
+}
+
+// Clean up after map generation is complete
+[HarmonyPatch(typeof(MapGenerator), nameof(MapGenerator.GenerateMap))]
+static class CleanupTileFactionContext
+{
+    static void Finalizer(MapParent parent)
+    {
+        if (parent != null)
+            TileFactionContext.ClearTile(parent.Tile);
     }
 }

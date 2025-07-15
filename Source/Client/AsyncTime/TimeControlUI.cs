@@ -21,7 +21,7 @@ public static class TimeControlPatch
     private static bool ShouldReset => Event.current.shift && Multiplayer.GameComp.IsLowestWins;
 
     private static ITickable Tickable =>
-        !WorldRendererUtility.WorldRenderedNow && Multiplayer.GameComp.asyncTime
+        !WorldRendererUtility.WorldSelected && Multiplayer.GameComp.asyncTime
             ? Find.CurrentMap.AsyncTime()
             : Multiplayer.AsyncWorldTime;
 
@@ -287,18 +287,27 @@ public static class ColonistBarTimeControl
     private static float flashInterval = 6f;
     private static Color flashColor = Color.red;
 
-    static void Prefix(ref bool __state)
+    private static bool IsSpectator =>
+        Multiplayer.Client != null &&
+        Multiplayer.RealPlayerFaction == Multiplayer.WorldComp.spectatorFaction;
+
+    static bool Prefix(ref bool __state)
     {
+        if (IsSpectator)
+            return false;
+
         if (Event.current.type is EventType.MouseDown or EventType.MouseUp)
         {
             DrawButtons();
             __state = true;
         }
+
+        return true;
     }
 
     static void Postfix(bool __state)
     {
-        if (!__state)
+        if (!__state && !IsSpectator)
             DrawButtons();
     }
 
@@ -394,7 +403,7 @@ public static class ColonistBarTimeControl
         }
         else
         {
-            if (WorldRendererUtility.WorldRenderedNow) CameraJumper.TryHideWorld();
+            if (WorldRendererUtility.WorldSelected) CameraJumper.TryHideWorld();
             Current.Game.CurrentMap = map;
         }
     }

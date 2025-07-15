@@ -7,6 +7,7 @@ using Multiplayer.Client.Util;
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
+using UnityEngine;
 using Verse;
 
 namespace Multiplayer.Client.Factions;
@@ -42,6 +43,7 @@ public static class FactionCreator
 
             var newFaction = NewFactionWithIdeo(
                 creationData.factionName,
+                creationData.factionColor,
                 scenario.playerFaction.factionDef,
                 creationData.chooseIdeoInfo
             );
@@ -113,7 +115,7 @@ public static class FactionCreator
         }
     }
 
-    private static Map GenerateNewMap(int tile, Scenario scenario, bool setupNextMapFromTickZero)
+    private static Map GenerateNewMap(PlanetTile tile, Scenario scenario, bool setupNextMapFromTickZero)
     {
         // This has to be null, otherwise, during map generation, Faction.OfPlayer returns it which breaks FactionContext
         Find.GameInitData.playerFaction = null;
@@ -121,15 +123,14 @@ public static class FactionCreator
 
         // ScenPart_PlayerFaction --> PreMapGenerate 
 
-        var settlement = (Settlement)WorldObjectMaker.MakeWorldObject(WorldObjectDefOf.Settlement);
+        Settlement settlement = (Settlement)WorldObjectMaker.MakeWorldObject(WorldObjectDefOf.Settlement);
         settlement.Tile = tile;
         settlement.SetFaction(Faction.OfPlayer);
         Find.WorldObjects.Add(settlement);
 
         // ^^^^ Duplicate Code here ^^^^
-
-        var prevScenario = Find.Scenario;
-        var prevStartingTile = Find.GameInfo.startingTile;
+        Scenario prevScenario = Find.Scenario;
+        PlanetTile prevStartingTile = Find.GameInfo.startingTile;
 
         Current.Game.Scenario = scenario;
         Find.GameInfo.startingTile = tile;
@@ -215,15 +216,16 @@ public static class FactionCreator
             pawnStore.Remove(sessionId);
         }
     }
-
-    private static Faction NewFactionWithIdeo(string name, FactionDef def, IdeologyData chooseIdeoInfo)
+    
+    private static Faction NewFactionWithIdeo(string name, Color color, FactionDef def, IdeologyData chooseIdeoInfo)
     {
         var faction = new Faction
         {
             loadID = Find.UniqueIDsManager.GetNextFactionID(),
             def = def,
             Name = name,
-            hidden = true
+            color = color,
+            hidden = true,        
         };
 
         faction.ideos = new FactionIdeosTracker(faction);
@@ -292,7 +294,8 @@ public static class FactionCreator
 public record FactionCreationData : ISyncSimple
 {
     public string factionName;
-    public int startingTile;
+    public PlanetTile startingTile;
+    public Color factionColor;
     [CanBeNull] public ScenarioDef scenarioDef;
     public IdeologyData chooseIdeoInfo;
     public bool generateMap;

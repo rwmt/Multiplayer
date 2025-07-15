@@ -21,7 +21,7 @@ namespace Multiplayer.Client
             {
                 if (inst.operand == AllGroups)
                 {
-                    yield return new CodeInstruction(OpCodes.Ldarg_1);
+                    yield return new CodeInstruction(OpCodes.Ldarg_1).MoveLabelsFrom(inst);
                     yield return new CodeInstruction(OpCodes.Call, method);
                 }
                 else

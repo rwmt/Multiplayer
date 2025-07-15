@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -23,11 +23,11 @@ static class UIRootPrefix
         )
             Find.WindowStack.ImmediateWindow(
                 "MpWindowFaction".GetHashCode(),
-                new Rect(0, UI.screenHeight / 2f - 400 / 2f, 300, 350),
+                new Rect(0, UI.screenHeight / 2f - 400 / 2f, 332, 370),
                 WindowLayer.GameUI,
                 () =>
                 {
-                    FactionSidebar.DrawFactionSidebar(new Rect(0, 0, 300, 350).ContractedBy(15));
+                    FactionSidebar.DoFactionSidebarContents(new Rect(0, 0, 332, 370));
                 }
             );
     }

@@ -19,20 +19,57 @@ namespace Multiplayer.Client
         {
             const SyncContext mouseKeyContext = SyncContext.QueueOrder_Down | SyncContext.MapMouseCell;
 
-            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.GotoLocationOption), 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);  // Goto
-            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddHumanlikeOrders), 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);  // Arrest
-            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddHumanlikeOrders), 6).CancelIfAnyFieldNull().SetContext(mouseKeyContext);  // Rescue
-            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddHumanlikeOrders), 7).CancelIfAnyFieldNull().SetContext(mouseKeyContext);  // Capture slave
-            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddHumanlikeOrders), 8).CancelIfAnyFieldNull().SetContext(mouseKeyContext);  // Capture prisoner
-            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddHumanlikeOrders), 9).CancelIfAnyFieldNull().SetContext(mouseKeyContext);  // Carry to cryptosleep casket
-            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddHumanlikeOrders), 12).CancelIfAnyFieldNull().SetContext(mouseKeyContext); // Capture entity
-            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddHumanlikeOrders), 50).CancelIfAnyFieldNull().SetContext(mouseKeyContext); // Reload
-            SyncDelegate.LocalFunc(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddHumanlikeOrders), "CarryToShuttleAct").CancelIfAnyFieldNull().SetContext(mouseKeyContext); // Carry to shuttle
-            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddDraftedOrders), 3).CancelIfAnyFieldNull().SetContext(mouseKeyContext);    // Drafted carry to bed
-            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddDraftedOrders), 4).CancelIfAnyFieldNull().SetContext(mouseKeyContext);    // Drafted carry to bed (arrest)
-            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddDraftedOrders), 5).CancelIfAnyFieldNull().SetContext(mouseKeyContext);    // Drafted carry entity to holding building
-            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddDraftedOrders), 6).CancelIfAnyFieldNull().SetContext(mouseKeyContext);    // Drafted carry to transport shuttle
-            SyncDelegate.Lambda(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.AddDraftedOrders), 7).CancelIfAnyFieldNull().SetContext(mouseKeyContext);    // Drafted carry to cryptosleep casket
+            SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_Arrest),                     "GetSingleOptionFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);  // Arrest
+            SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_BringBabyToSafety),          "GetSingleOptionFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);  // Bring baby to safety
+            SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_CaptureEntity),              "GetOptionsFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);       // Capture entity
+            SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_CapturePawn),                "GetSingleOptionFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);  // Capture pawn (prisoner or slave)
+            SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_CarryDeathrestingToCasket),  "GetSingleOptionFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);  // Carry deathresting to casket
+            SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_CarryMechToCharger),         "GetSingleOptionFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);  // Carry mech to charger
+            SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_CarryPawnToExit),            "GetSingleOptionFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);  // Carry pawn to exit grid
+            SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_CarryToBiosculpterPod),      "GetOptionsFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);       // Carry to biosculpter pod
+            SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_CarryToCryptosleepCasket),   "GetSingleOptionFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);  // Carry to cryptosleep casket
+            SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_CleanRoom),                  "GetSingleOption", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);     // Clean room
+            SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_Deathrest),                  "GetSingleOptionFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);  // Deathrest
+
+            // Other possible float menu options that could be added later:
+            // SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_CarryingPawn), "GetSingleOptionFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);             // Carry downed pawn
+            // SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_CarryToShuttle), "GetSingleOptionFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);           // Carry to shuttle
+            // SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_Childcare), "GetOptionsFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);                     // Breastfeed/give milk
+            // SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_DraftedAttack), "GetSingleOptionFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);            // Drafted attack
+            // SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_DraftedMove), "GetSingleOptionFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);              // Drafted move (Goto)
+            // SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_DraftedRepair), "GetSingleOptionFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);            // Drafted repair
+            // SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_DraftedTend), "GetOptionsFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);                   // Drafted tend
+            // SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_DressOtherPawn), "GetSingleOptionFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);           // Dress other pawn
+            // SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_DropEquipment), "GetSingleOptionFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);            // Drop equipment
+            // SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_EnterMapPortal), "GetSingleOptionFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);           // Enter map portal
+            // SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_Equip), "GetSingleOptionFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);                    // Equip
+            // SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_ExtinguishFires), "GetOptionsFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);               // Extinguish fires
+            // SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_GhoulRest), "GetSingleOptionFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);                // Ghoul rest
+            // SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_HackAncientTerminal), "GetSingleOptionFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);      // Hack ancient terminal
+            // SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_HandleCorpse), "GetOptionsFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);                  // Handle corpse (bury/etc)
+            // SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_Ingest), "GetSingleOptionFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);                   // Ingest
+            // SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_InvokeArchotech), "GetSingleOptionFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);          // Invoke archotech
+            // SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_LoadCaravan), "GetOptionsFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);                   // Load caravan
+            // SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_LoadOntoPackAnimal), "GetOptionsFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);            // Load into pack animal
+            // SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_Mechanitor), "GetOptionsFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);                    // Mechanitor commands
+            // SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_OfferHelp), "GetSingleOptionFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);                // Offer help
+            // SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_OpenThing), "GetSingleOptionFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);                // Open
+            // SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_PickUpItem), "GetOptionsFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);                    // Pick up
+            // SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_PrisonerBloodfeed), "GetSingleOptionFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);        // Prisoner bloodfeed
+            // SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_PutOutFireOnPawn), "GetSingleOptionFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);         // Put out fire on pawn
+            // SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_Relic), "GetOptionsFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);                         // Extract relic
+            // SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_Reload), "GetOptionsFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);                        // Reload
+            // SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_RemoveMechlink), "GetSingleOptionFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);           // Remove mechlink
+            // SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_RescuePawn), "GetSingleOptionFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);               // Rescue pawn
+            // SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_ReturnSlaveToBed), "GetSingleOptionFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);         // Return slave to bed
+            // SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_Romance), "GetSingleOptionFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);                  // Romance attempt
+            // SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_StartRitual), "GetOptionsFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);                   // Start ritual
+            // SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_Strip), "GetSingleOptionFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);                    // Strip
+            // SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_Trade), "GetOptionsFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);                         // Trade
+            // SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_TransferEntity), "GetOptionsFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);                // Transfer entity
+            // SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_Wear), "GetSingleOptionFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);                     // Wear
+            // SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_WorkGivers), "GetOptionsFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);                    // Generic work givers
+            // SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_Xenogerm), "GetSingleOptionFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);                 // Implant xenogerm
 
             SyncDelegate.Lambda(typeof(Command_SetPlantToGrow), nameof(Command_SetPlantToGrow.ProcessInput), 2);                                        // Set plant to grow
             SyncDelegate.Lambda(typeof(Building_Bed), nameof(Building_Bed.SetBedOwnerTypeByInterface), 0).RemoveNullsFromLists("bedsToAffect");         // Set bed owner type
@@ -55,7 +92,7 @@ namespace Multiplayer.Client
 
             SyncDelegate.LambdaInGetter(typeof(Designator), nameof(Designator.RightClickFloatMenuOptions), 0) // Designate all
                 .TransformField("things", Serializer.SimpleReader(() => Find.CurrentMap.listerThings.AllThings)).SetContext(SyncContext.CurrentMap);
-            SyncDelegate.LambdaInGetter(typeof(Designator), nameof(Designator.RightClickFloatMenuOptions), 1).SetContext(SyncContext.CurrentMap); // Remove all designations
+            SyncMethod.LambdaInGetter(typeof(Designator), nameof(Designator.RightClickFloatMenuOptions), 1).SetContext(SyncContext.CurrentMap); // Remove all designations
 
             SyncDelegate.Lambda(typeof(CaravanAbandonOrBanishUtility), nameof(CaravanAbandonOrBanishUtility.TryAbandonOrBanishViaInterface), 1, [typeof(Thing), typeof(Caravan)]).CancelIfAnyFieldNull(); // Abandon caravan thing
             SyncDelegate.Lambda(typeof(CaravanAbandonOrBanishUtility), nameof(CaravanAbandonOrBanishUtility.TryAbandonOrBanishViaInterface), 0, [typeof(TransferableImmutable), typeof(Caravan)]).CancelIfAnyFieldNull(); // Abandon caravan transferable
@@ -156,8 +193,8 @@ namespace Multiplayer.Client
             // Disable 'needs overseer' effect/Allow mech undrafted orders are static fields that are remembered when joining,
             // could cause issues if someone pressed one of them and then started playing MP. Values reset on game restart.
             SyncMethod.Register(typeof(CompOverseerSubject), nameof(CompOverseerSubject.ForceFeral)).SetDebugOnly(); // Make feral
-            SyncMethod.Lambda(typeof(CompOverseerSubject), nameof(CompOverseerSubject.CompGetGizmosExtra), 4).SetDebugOnly(); // Make feral (event)
-            SyncDelegate.Lambda(typeof(CompOverseerSubject), nameof(CompOverseerSubject.CompGetGizmosExtra), 6).SetDebugOnly(); // Assign to overseer
+            SyncMethod.Register(typeof(CompOverseerSubject), nameof(CompOverseerSubject.TryMakeFeral)).SetDebugOnly(); // Make feral (event)
+            SyncDelegate.Lambda(typeof(CompOverseerSubject), nameof(CompOverseerSubject.CompGetGizmosExtra), 2).SetDebugOnly(); // Assign to overseer
 
             // Glower
             SyncMethod.Register(typeof(CompGlower), nameof(CompGlower.SetGlowColorInternal)); // Set color gizmo - will send a separate command per selected glower. Could be fixed with a transpiler for Dialog_GlowerColorPicker
@@ -222,7 +259,7 @@ namespace Multiplayer.Client
             SyncMethod.Lambda(typeof(CompFleshmassSpitter), nameof(CompFleshmassSpitter.CompGetGizmosExtra), 0).SetDebugOnly(); // Remove spit cooldown
 
             // Dev mode gizmos
-            SyncDelegate.Lambda(typeof(Caravan), nameof(Caravan.GetGizmos), 17).SetDebugOnly(); // Trigger random dissolution event (CompDissolution)
+            SyncDelegate.Lambda(typeof(Caravan), nameof(Caravan.GetGizmos), 18).SetDebugOnly(); // Trigger random dissolution event (CompDissolution)
             SyncDelegate.Lambda(typeof(GroundSpawner), nameof(GroundSpawner.GetGizmos), 1).SetDebugOnly(); // Set spawn delay
             SyncDelegate.Lambda(typeof(GeneResourceDrainUtility), nameof(GeneResourceDrainUtility.GetResourceDrainGizmos), 0).SetDebugOnly(); // -10% resource
             SyncDelegate.Lambda(typeof(GeneResourceDrainUtility), nameof(GeneResourceDrainUtility.GetResourceDrainGizmos), 1).SetDebugOnly(); // +10% resource
@@ -267,7 +304,8 @@ namespace Multiplayer.Client
             SyncDelegate.Lambda(typeof(LordJob_BestowingCeremony), nameof(LordJob_BestowingCeremony.GetPawnGizmos), 2); // Cancel ceremony
             SyncDelegate.Lambda(typeof(LordJob_BestowingCeremony), nameof(LordJob_BestowingCeremony.GetPawnGizmos), 0); // Make pawn leave ceremony
 
-            SyncMethod.Lambda(typeof(LordToil_BestowingCeremony_Wait), nameof(LordToil_BestowingCeremony_Wait.ExtraFloatMenuOptions), 0); // Begin bestowing float menu
+            // TODO: May need to change this back to SynchMetho, but changes to 1.6 broke it.
+            SyncDelegate.Lambda(typeof(LordToil_BestowingCeremony_Wait), nameof(LordToil_BestowingCeremony_Wait.ExtraFloatMenuOptions), 0); // Begin bestowing float menu
             SyncMethod.Register(typeof(Command_BestowerCeremony), nameof(Command_BestowerCeremony.ProcessInput)); // Begin bestowing gizmo
 
             SyncDelegate.Lambda(typeof(CompPsylinkable), nameof(CompPsylinkable.CompFloatMenuOptions), 0); // Psylinkable begin linking
@@ -387,7 +425,7 @@ namespace Multiplayer.Client
         }
 
         // If the baby ended up being stillborn, the timer to name them is 1 tick. This patch is here to allow players in MP to actually change their name.
-        [MpPostfix(typeof(PregnancyUtility), nameof(PregnancyUtility.ApplyBirthOutcome_NewTemp))]
+        [MpPostfix(typeof(PregnancyUtility), nameof(PregnancyUtility.ApplyBirthOutcome))]
         static void GiveTimeToNameStillborn(Thing __result)
         {
             if (Multiplayer.Client != null && __result is Pawn pawn && pawn.health.hediffSet.HasHediff(HediffDefOf.Stillborn))

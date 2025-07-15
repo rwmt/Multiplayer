@@ -1,5 +1,6 @@
 using HarmonyLib;
 using Multiplayer.API;
+using Multiplayer.Client.Util;
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
@@ -68,7 +69,7 @@ namespace Multiplayer.Client
                 if (handler.context.HasFlag(SyncContext.WorldSelected))
                 {
                     List<ISelectable> selected = SyncSerialization.ReadSync<List<ISelectable>>(data);
-                    Find.WorldSelector.selected = selected.Cast<WorldObject>().AllNotNull().ToList();
+                    FieldRefs.worldSelected(Find.WorldSelector) = selected.Cast<WorldObject>().AllNotNull().ToList();
                 }
 
                 if (handler.context.HasFlag(SyncContext.QueueOrder_Down))
@@ -86,7 +87,7 @@ namespace Multiplayer.Client
                 MouseCellPatch.result = null;
                 KeyIsDownPatch.shouldQueue = null;
                 Find.Selector.selected = prevSelected;
-                Find.WorldSelector.selected = prevWorldSelected;
+                FieldRefs.worldSelected(Find.WorldSelector) = prevWorldSelected;
             }
 
             return handler;

@@ -19,33 +19,33 @@ cp -r ../About ../Textures .
 
 cat <<EOF > LoadFolders.xml
 <loadFolders>
+  <v1.6>
+    <li>/</li>
+    <li>1.6</li>
+  </v1.6>
   <v1.5>
     <li>/</li>
     <li>1.5</li>
   </v1.5>
-  <v1.4>
-    <li>/</li>
-    <li>1.4</li>
-  </v1.4>
 </loadFolders>
 EOF
 
 
-sed -i "/<supportedVersions>/ a \ \ \ \ <li>1.4</li>" About/About.xml
+sed -i "/<supportedVersions>/ a \ \ \ \ <li>1.5</li>" About/About.xml
 sed -i "/Multiplayer mod for RimWorld./aThis is version ${VERSION}." About/About.xml
 sed -i "s/<version>.*<\/version>\$/<version>${VERSION}<\/version>/" About/Manifest.xml
 
 # The current version
-mkdir -p 1.5
-cp -r ../Assemblies ../AssembliesCustom ../Defs ../Languages 1.5/
-rm -f 1.5/Languages/.git 1.5/Languages/LICENSE 1.5/Languages/README.md
+mkdir -p 1.6
+cp -r ../Assemblies ../AssembliesCustom ../Defs ../Languages 1.6/
+rm -f 1.6/Languages/.git 1.6/Languages/LICENSE 1.6/Languages/README.md
 
 # Past versions
-git clone -b rw-1.4 --depth=1 --single-branch --recurse-submodules https://github.com/rwmt/Multiplayer.git 1.4 || { echo 'Git cloning 1.4 FAILED' ; exit 1; }
+git clone -b rw-1.5 --depth=1 --single-branch --recurse-submodules https://github.com/rwmt/Multiplayer.git 1.5 || { echo 'Git cloning 1.5 FAILED' ; exit 1; }
 shopt -s extglob
 shopt -s dotglob
-rm -rf -- 1.4/!(Languages|Assemblies|AssembliesCustom|Defs)
-rm -f 1.4/Languages/.git 1.4/Languages/LICENSE 1.4/Languages/README.md
+rm -rf -- 1.5/!(Languages|Assemblies|AssembliesCustom|Defs)
+rm -f 1.5/Languages/.git 1.5/Languages/LICENSE 1.5/Languages/README.md
 
 cd ..
 

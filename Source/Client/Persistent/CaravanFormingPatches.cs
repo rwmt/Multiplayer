@@ -11,7 +11,7 @@ using System.Reflection;
 
 namespace Multiplayer.Client.Persistent
 {
-    [HarmonyPatch(typeof(Widgets), nameof(Widgets.ButtonText), new[] { typeof(Rect), typeof(string), typeof(bool), typeof(bool), typeof(bool), typeof(TextAnchor) })]
+    [HarmonyPatch(typeof(Widgets), nameof(ButtonText), [typeof(Rect), typeof(string), typeof(bool), typeof(bool), typeof(bool), typeof(TextAnchor)])]
     static class MakeCancelFormingButtonRed
     {
         static void Prefix(string label, ref bool __state)
@@ -36,7 +36,7 @@ namespace Multiplayer.Client.Persistent
         }
     }
 
-    [HarmonyPatch(typeof(Widgets), nameof(Widgets.ButtonTextWorker))]
+    [HarmonyPatch(typeof(Widgets), nameof(ButtonTextWorker))]
     static class FormCaravanHandleReset
     {
         static void Prefix(string label, ref bool __state)
@@ -133,7 +133,7 @@ namespace Multiplayer.Client.Persistent
     [HarmonyPatch(typeof(Dialog_FormCaravan), nameof(Dialog_FormCaravan.Notify_ChoseRoute))]
     static class Notify_ChoseRoutePatch
     {
-        static bool Prefix(Dialog_FormCaravan __instance, int destinationTile)
+        static bool Prefix(Dialog_FormCaravan __instance, PlanetTile destinationTile)
         {
             if (Multiplayer.InInterface && __instance is CaravanFormingProxy dialog)
             {
@@ -157,8 +157,7 @@ namespace Multiplayer.Client.Persistent
         }
     }
 
-    [HarmonyPatch(typeof(Dialog_FormCaravan), MethodType.Constructor)]
-    [HarmonyPatch(new[] { typeof(Map), typeof(bool), typeof(Action), typeof(bool), typeof(IntVec3?) })]
+    [HarmonyPatch(typeof(Dialog_FormCaravan), MethodType.Constructor, [typeof(Map), typeof(bool), typeof(Action), typeof(bool), typeof(IntVec3?)])]
     static class DialogFormCaravanCtorPatch
     {
         static void Prefix(Dialog_FormCaravan __instance, Map map, bool reform, Action onClosed, bool mapAboutToBeRemoved, IntVec3? designatedMeetingPoint)
@@ -171,7 +170,7 @@ namespace Multiplayer.Client.Persistent
 
             Faction faction = Faction.OfPlayer;
 
-            // Handles showing the dialog from TimedForcedExit.CompTick -> TimedForcedExit.ForceReform
+            // Handles showing the dialog from TimedForcedExit.CompTickInterval -> TimedForcedExit.ForceReform
             // (note TimedForcedExit is obsolete)
             if (Multiplayer.ExecutingCmds || Multiplayer.Ticking)
             {
@@ -186,42 +185,42 @@ namespace Multiplayer.Client.Persistent
         }
 
         [SyncMethod]
-        internal static void StartFormingCaravan(Faction faction, Map map, bool reform = false, IntVec3? designatedMeetingPoint = null, int? routePlannerWaypoint = null)
+        internal static void StartFormingCaravan(Faction faction, Map map, bool reform = false, IntVec3? designatedMeetingPoint = null, PlanetTile? routePlannerWaypoint = null)
         {
             var comp = map.MpComp();
             var session = comp.CreateCaravanFormingSession(faction, reform, null, false, designatedMeetingPoint);
 
             if (TickPatch.currentExecutingCmdIssuedBySelf)
             {
-                var dialog = session.OpenWindow();
-                if (routePlannerWaypoint is { } tile)
+                CaravanFormingProxy dialog = session.OpenWindow();
+                if (!routePlannerWaypoint.HasValue)
+                    return;
+
+                try
                 {
-                    try
-                    {
-                        UniqueIdsPatch.useLocalIdsOverride = true;
+                    UniqueIdsPatch.useLocalIdsOverride = true;
 
-                        // Just to be safe
-                        // RNG shouldn't be invoked but TryAddWaypoint is quite complex and calls pathfinding
-                        Rand.PushState();
+                    // Just to be safe
+                    // RNG shouldn't be invoked but TryAddWaypoint is quite complex and calls pathfinding
+                    Rand.PushState();
 
-                        var worldRoutePlanner = Find.WorldRoutePlanner;
-                        worldRoutePlanner.Start(dialog);
-                        worldRoutePlanner.TryAddWaypoint(tile);
-                    }
-                    finally
-                    {
-                        Rand.PopState();
-                        UniqueIdsPatch.useLocalIdsOverride = false;
-                    }
+                    var worldRoutePlanner = Find.WorldRoutePlanner;
+                    worldRoutePlanner.Start(dialog);
+                    worldRoutePlanner.TryAddWaypoint(routePlannerWaypoint.Value);
+                }
+                finally
+                {
+                    Rand.PopState();
+                    UniqueIdsPatch.useLocalIdsOverride = false;
                 }
             }
         }
     }
 
-    [HarmonyPatch(typeof(FormCaravanGizmoUtility), nameof(FormCaravanGizmoUtility.DialogFromToSettlement))]
+    [HarmonyPatch(typeof(WorldGizmoUtility), nameof(WorldGizmoUtility.DialogFromToSettlement))]
     static class HandleFormCaravanShowRoutePlanner
     {
-        static bool Prefix(Map origin, int tile)
+        static bool Prefix(Map origin, PlanetTile tile)
         {
             if (Multiplayer.Client == null)
                 return true;
@@ -233,7 +232,7 @@ namespace Multiplayer.Client.Persistent
         }
     }
 
-    [HarmonyPatch(typeof(TimedForcedExit), nameof(TimedForcedExit.CompTick))]
+    [HarmonyPatch(typeof(TimedForcedExit), nameof(TimedForcedExit.CompTickInterval))]
     static class TimedForcedExitTickPatch
     {
         static bool Prefix(TimedForcedExit __instance)

@@ -4,8 +4,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Text;
-using Multiplayer.Common.Util;
-using Verse;
 
 namespace Multiplayer.Common
 {
@@ -87,18 +85,43 @@ namespace Multiplayer.Common
 
         public virtual void WriteEnum<T>(T value) where T : Enum
         {
-            var values = typeof(T) == typeof(Enum) ? EnumCache.Values(value.GetType()) : EnumCache<T>.Values;
-            var index = Array.IndexOf(values, value);
-            switch (values.Length)
+            Type type = Enum.GetUnderlyingType(typeof(T) == typeof(Enum) ? value.GetType() : typeof(T));
+
+            if (type == typeof(byte))
             {
-                case <= byte.MaxValue:
-                    WriteByte((byte)index);
-                    break;
-                case <= ushort.MaxValue:
-                    WriteUShort((ushort)index);
-                    break;
-                default:
-                    throw new Exception($"Enum {value.GetType().FullName} has more than {ushort.MaxValue} values!");
+                WriteByte(Convert.ToByte(value));
+            }
+            else if (type == typeof(sbyte))
+            {
+                WriteSByte(Convert.ToSByte(value));
+            }
+            else if (type == typeof(short))
+            {
+                WriteShort(Convert.ToInt16(value));
+            }
+            else if (type == typeof(ushort))
+            {
+                WriteUShort(Convert.ToUInt16(value));
+            }
+            else if (type == typeof(int))
+            {
+                WriteInt32(Convert.ToInt32(value));
+            }
+            else if (type == typeof(uint))
+            {
+                WriteUInt32(Convert.ToUInt32(value));
+            }
+            else if (type == typeof(long) || type == typeof(IntPtr))
+            {
+                WriteLong(Convert.ToInt64(value));
+            }
+            else if (type == typeof(ulong) || type == typeof(UIntPtr))
+            {
+                WriteULong(Convert.ToUInt64(value));
+            }
+            else
+            {
+                ServerLog.Error($"MP ByteWriter.WriteEnum: Unknown type {type}");
             }
         }
         private void Write(object obj)

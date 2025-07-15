@@ -23,13 +23,13 @@ namespace Multiplayer.Client
             yield return AccessTools.Method(typeof(MapInterface), nameof(MapInterface.MapInterfaceUpdate));
             yield return AccessTools.Method(typeof(AlertsReadout), nameof(AlertsReadout.AlertsReadoutUpdate));
             yield return AccessTools.Method(typeof(SoundRoot), nameof(SoundRoot.Update));
-            yield return AccessTools.Method(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.ChoicesAtFor));
+            yield return AccessTools.Method(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.GetOptions));
         }
 
         [HarmonyPriority(MpPriority.MpFirst)]
         internal static void Prefix(ref TimeSnapshot? __state)
         {
-            if (Multiplayer.Client == null || WorldRendererUtility.WorldRenderedNow || Find.CurrentMap == null) return;
+            if (Multiplayer.Client == null || WorldRendererUtility.WorldSelected || Find.CurrentMap == null) return;
             __state = TimeSnapshot.GetAndSetFromMap(Find.CurrentMap);
         }
 

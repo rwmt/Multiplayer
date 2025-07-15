@@ -183,9 +183,9 @@ namespace Multiplayer.Client
     [HarmonyPatch(typeof(GenWorld), nameof(GenWorld.MouseTile))]
     public static class MouseTilePatch
     {
-        public static int? result;
+        public static PlanetTile? result;
 
-        static void Postfix(ref int __result)
+        static void Postfix(ref PlanetTile __result)
         {
             if (result.HasValue)
                 __result = result.Value;
@@ -246,7 +246,8 @@ namespace Multiplayer.Client
         static void Finalizer() => starting = false;
     }
 
-    [HarmonyPatch(typeof(LongEventHandler), nameof(LongEventHandler.QueueLongEvent), new[] { typeof(Action), typeof(string), typeof(bool), typeof(Action<Exception>), typeof(bool), typeof(Action) })]
+    [HarmonyPatch(typeof(LongEventHandler), nameof(LongEventHandler.QueueLongEvent),
+        [typeof(Action), typeof(string), typeof(bool), typeof(Action<Exception>), typeof(bool), typeof(bool), typeof(Action)])]
     static class CancelRootPlayStartLongEvents
     {
         public static bool cancel;
@@ -357,7 +358,7 @@ namespace Multiplayer.Client
             if (Multiplayer.Client == null) return;
 
             // Ignore unpausing
-            if (__result && __instance.active && WorldRendererUtility.WorldRenderedNow)
+            if (__result && __instance.active && WorldRendererUtility.WorldSelected)
                 __result = false;
         }
     }
@@ -564,5 +565,22 @@ namespace Multiplayer.Client
         static void Prefix() => DrawPosPatch.returnTruePosition = true;
 
         static void Finalizer() => DrawPosPatch.returnTruePosition = false;
+    }
+
+    [HarmonyPatch(typeof(DebugWindowsOpener), nameof(DebugWindowsOpener.TryOpenOrClosePalette))]
+    static class DebugWindowsOpenerReloadingPatch
+    {
+        static bool Prefix()
+        {
+            // During multiplayer reload, Find.World can be null when UIRoot_Play.Init() calls TryOpenOrClosePalette()
+            // This prevents the Dialog_DevPalette from being opened, which would cause a null reference exception
+            // in Window.PreOpen() when it tries to access Find.WorldSelector
+            if (Multiplayer.reloading)
+            {
+                return false; // Skip opening/closing the dev palette during multiplayer reload
+            }
+            
+            return true; // Execute normally
+        }
     }
 }

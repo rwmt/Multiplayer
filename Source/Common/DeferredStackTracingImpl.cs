@@ -1,5 +1,7 @@
-﻿using System;
+using System;
 using System.Runtime.CompilerServices;
+using UnityEngine;
+using Verse;
 
 namespace Multiplayer.Client.Desyncs;
 
@@ -34,10 +36,27 @@ public static class DeferredStackTracingImpl
     public const int MaxDepth = 32;
     public const int HashInfluence = 6;
 
+    private static unsafe delegate*<long> getRbpFunc;
+
+    static unsafe DeferredStackTracingImpl()
+    {
+        getRbpFunc = Application.platform switch
+                {
+                    RuntimePlatform.LinuxEditor => &GetRbpWindows,
+                    RuntimePlatform.LinuxPlayer => &GetRbpWindows,
+                    RuntimePlatform.OSXEditor => &GetRbpMac,
+                    RuntimePlatform.OSXPlayer => &GetRbpMac,
+                    _ => &GetRbpWindows
+                };
+    }
+
     public static unsafe int TraceImpl(long[] traceIn, ref int hash)
     {
+        if (Native.LmfPtr == 0)
+            return 0;
+        
         long[] trace = traceIn;
-        long rbp = GetRbp();
+        long rbp = getRbpFunc();
         long stck = rbp;
         rbp = *(long*)rbp;
 
@@ -235,10 +254,17 @@ public static class DeferredStackTracingImpl
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    static unsafe long GetRbp()
+    static unsafe long GetRbpMac()
     {
         long rbp = 0;
-        return *(&rbp + 1);
+        return *(&rbp + 1); // Mac offset
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    static unsafe long GetRbpWindows()
+    {
+        long rbp = 0;
+        return *(&rbp + 4); // Windows offset
     }
 
     public static int HashCombineInt(int seed, int value)

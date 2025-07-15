@@ -165,7 +165,7 @@ namespace Multiplayer.Client
                 color = new Color(0.0f, 0.8f, 0.0f);
             }
 
-            if (!WorldRendererUtility.WorldRenderedNow)
+            if (!WorldRendererUtility.WorldSelected)
                 text += $"\n\nCurrent map avg TPS: {tps:0.00}";
         }
 

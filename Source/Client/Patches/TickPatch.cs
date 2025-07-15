@@ -148,7 +148,7 @@ namespace Multiplayer.Client
 
         static ITickable CurrentTickable()
         {
-            if (WorldRendererUtility.WorldRenderedNow)
+            if (WorldRendererUtility.WorldSelected)
                 return Multiplayer.AsyncWorldTime;
 
             if (Find.CurrentMap != null)

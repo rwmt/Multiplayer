@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using Multiplayer.Client.Util;
 using Multiplayer.Common;
 using RimWorld;
@@ -22,7 +22,7 @@ public class LocationPings
         if (pingsEnabled)
             if (MultiplayerStatic.PingKeyDef.JustPressed || KeyDown(Multiplayer.settings.sendPingButton))
             {
-                if (WorldRendererUtility.WorldRenderedNow)
+                if (WorldRendererUtility.WorldSelected)
                     PingLocation(-1, GenWorld.MouseTile(), Vector3.zero);
                 else if (Find.CurrentMap != null)
                     PingLocation(Find.CurrentMap.uniqueID, 0, UI.MouseMapPosition());
@@ -58,11 +58,12 @@ public class LocationPings
         return Input.GetKeyDown(key);
     }
 
-    private void PingLocation(int map, int tile, Vector3 loc)
+    private void PingLocation(int map, PlanetTile tile, Vector3 loc)
     {
         var writer = new ByteWriter();
         writer.WriteInt32(map);
-        writer.WriteInt32(tile);
+        writer.WriteInt32(tile.tileId);
+        writer.WriteInt32(tile.layerId);
         writer.WriteFloat(loc.x);
         writer.WriteFloat(loc.y);
         writer.WriteFloat(loc.z);
@@ -71,7 +72,7 @@ public class LocationPings
         SoundDefOf.TinyBell.PlayOneShotOnCamera();
     }
 
-    public void ReceivePing(int player, int map, int tile, Vector3 loc)
+    public void ReceivePing(int player, int map, PlanetTile tile, Vector3 loc)
     {
         if (!Multiplayer.settings.enablePings) return;
 

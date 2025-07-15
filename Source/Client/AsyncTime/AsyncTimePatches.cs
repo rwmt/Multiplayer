@@ -1,4 +1,5 @@
 using HarmonyLib;
+using Multiplayer.Client.Factions;
 using RimWorld;
 using RimWorld.Planet;
 using System.Collections.Generic;
@@ -130,7 +131,7 @@ namespace Multiplayer.Client.AsyncTime
         {
             if (PreDrawCalcMarker.calculating == null) return;
             if (Multiplayer.Client == null) return;
-            if (WorldRendererUtility.WorldRenderedNow) return;
+            if (WorldRendererUtility.WorldSelected) return;
 
             var map = PreDrawCalcMarker.calculating.Map ?? Find.CurrentMap;
             var asyncTime = map.AsyncTime();
@@ -146,7 +147,8 @@ namespace Multiplayer.Client.AsyncTime
         static void Postfix(ref bool __result)
         {
             if (Multiplayer.Client == null) return;
-            if (WorldRendererUtility.WorldRenderedNow) return;
+            if (WorldRendererUtility.WorldRendered) return;
+            if (FactionCreator.generatingMap) return;
 
             var asyncTime = Find.CurrentMap.AsyncTime();
             var timeSpeed = Multiplayer.IsReplay ? TickPatch.replayTimeSpeed : asyncTime.DesiredTimeSpeed;

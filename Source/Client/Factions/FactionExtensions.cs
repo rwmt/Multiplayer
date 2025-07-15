@@ -1,4 +1,6 @@
-﻿using RimWorld;
+using RimWorld;
+using RimWorld.Planet;
+using System.Linq;
 using Verse;
 
 namespace Multiplayer.Client.Factions;
@@ -37,5 +39,15 @@ public static class FactionExtensions
         map?.MpComp().SetFaction(faction);
 
         return faction;
+    }
+
+    public static bool TryGetPlayerFaction(this Quest quest, out Faction faction)
+    {
+        faction = quest.QuestLookTargets
+            .Where(t => t.HasWorldObject && t.WorldObject is Settlement)
+            .Select(t => ((Settlement)t.WorldObject).Faction)
+            .FirstOrDefault(f => f != null);
+
+        return faction != null;
     }
 }

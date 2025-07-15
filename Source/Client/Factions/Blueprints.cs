@@ -15,7 +15,7 @@ namespace Multiplayer.Client
     // Don't draw other factions' blueprints
     // Don't link graphics of different factions' blueprints
 
-    [HarmonyPatch(typeof(GenConstruct), nameof(GenConstruct.CanPlaceBlueprintAt_NewTemp))]
+    [HarmonyPatch(typeof(GenConstruct), nameof(GenConstruct.CanPlaceBlueprintAt))]
     static class CanPlaceBlueprintAtPatch
     {
         static MethodInfo CanPlaceBlueprintOver = AccessTools.Method(typeof(GenConstruct), nameof(GenConstruct.CanPlaceBlueprintOver));
@@ -48,8 +48,7 @@ namespace Multiplayer.Client
         static bool ShouldIgnore1(Thing oldThing) => oldThing.def.IsBlueprint && oldThing.Faction != Faction.OfPlayer;
     }
 
-
-    [HarmonyPatch(typeof(GenConstruct), nameof(GenConstruct.CanPlaceBlueprintAt_NewTemp))]
+    [HarmonyPatch(typeof(GenConstruct), nameof(GenConstruct.CanPlaceBlueprintAt))]
     static class CanPlaceBlueprintAtPatch2
     {
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> e, MethodBase original)
@@ -63,39 +62,75 @@ namespace Multiplayer.Client
 
             List<CodeInstruction> insts = e.ToList();
 
-            int loop1 = new CodeFinder(original, insts).
+            int loop = new CodeFinder(original, insts).
                 Forward(OpCodes.Ldstr, "IdenticalThingExists").
                 Backward(OpCodes.Ldarg_S, thingToIgnore_Ldarg_S);
 
             insts.Insert(
-                loop1 - 1,
-                new CodeInstruction(OpCodes.Ldloc_S, insts[loop1 - 1].operand),
+                loop - 1,
+                new CodeInstruction(OpCodes.Ldloc_S, insts[loop - 1].operand),
                 new CodeInstruction(OpCodes.Call, CanPlaceBlueprintAtPatch.ShouldIgnore1Method),
-                new CodeInstruction(OpCodes.Brtrue, insts[loop1 + 1].operand)
+                new CodeInstruction(OpCodes.Brtrue, insts[loop + 1].operand)
             );
 
-            int loop2 = new CodeFinder(original, insts).
+            return insts;
+        }
+    }
+
+    [HarmonyPatch(typeof(GenConstruct), nameof(GenConstruct.InteractionCellStandable))]
+    static class InteractionCellStandablePatch
+    {
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> e, MethodBase original)
+        {
+            byte thingToIgnore_Ldarg_S = (byte) original.GetParameters().FirstIndexOf(p => p.Name == "thingToIgnore");
+
+            if (thingToIgnore_Ldarg_S < 1) {
+                Log.Error($"FAIL: {nameof(InteractionCellStandablePatch)} can't find thingToIgnore");
+                return e;
+            }
+
+            List<CodeInstruction> insts = e.ToList();
+
+            int loop = new CodeFinder(original, insts).
                 Forward(OpCodes.Ldstr, "InteractionSpotBlocked").
                 Backward(OpCodes.Ldarg_S, thingToIgnore_Ldarg_S);
 
             insts.Insert(
-                loop2 - 3,
-                new CodeInstruction(OpCodes.Ldloc_S, insts[loop2 - 3].operand),
-                new CodeInstruction(OpCodes.Ldloc_S, insts[loop2 - 2].operand),
+                loop - 3,
+                new CodeInstruction(insts[loop - 3].opcode, insts[loop - 3].operand),
+                new CodeInstruction(insts[loop - 2].opcode, insts[loop - 2].operand),
                 new CodeInstruction(OpCodes.Callvirt, SpawnBuildingAsPossiblePatch.ThingListGet),
                 new CodeInstruction(OpCodes.Call, CanPlaceBlueprintAtPatch.ShouldIgnore1Method),
-                new CodeInstruction(OpCodes.Brtrue, insts[loop2 + 1].operand)
+                new CodeInstruction(OpCodes.Brtrue, insts[loop + 1].operand)
             );
+            
+            return insts;
+        }
+    }
 
-            int loop3 = new CodeFinder(original, insts).
+    [HarmonyPatch(typeof(GenConstruct), nameof(GenConstruct.NotBlockingAnyInteractionCells))]
+    static class NotBlockingAnyInteractionCellsPatch
+    {
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> e, MethodBase original)
+        {
+            byte thingToIgnore_Ldarg_S = (byte) original.GetParameters().FirstIndexOf(p => p.Name == "thingToIgnore");
+
+            if (thingToIgnore_Ldarg_S < 1) {
+                Log.Error($"FAIL: {nameof(NotBlockingAnyInteractionCellsPatch)} can't find thingToIgnore");
+                return e;
+            }
+
+            List<CodeInstruction> insts = e.ToList();
+
+            int loop = new CodeFinder(original, insts).
                 Forward(OpCodes.Ldstr, "WouldBlockInteractionSpot").
                 Backward(OpCodes.Ldarg_S, thingToIgnore_Ldarg_S);
 
             insts.Insert(
-                loop3 - 1,
-                new CodeInstruction(OpCodes.Ldloc_S, insts[loop3 - 1].operand),
+                loop - 1,
+                new CodeInstruction(insts[loop - 1].opcode, insts[loop - 1].operand),
                 new CodeInstruction(OpCodes.Call, CanPlaceBlueprintAtPatch.ShouldIgnore1Method),
-                new CodeInstruction(OpCodes.Brtrue, insts[loop3 + 1].operand)
+                new CodeInstruction(OpCodes.Brtrue, insts[loop + 1].operand)
             );
 
             return insts;
