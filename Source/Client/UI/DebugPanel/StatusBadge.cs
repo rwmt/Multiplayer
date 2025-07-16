@@ -60,7 +60,7 @@ namespace Multiplayer.Client.DebugUi
 
         public static StatusBadge GetVtrStatus()
         {
-            int rate = Find.CurrentMap?.AsyncTime()?.VTR ?? VTRSync.MaximumVtr;
+            int rate = Find.CurrentMap?.AsyncTime()?.VTR ?? Patches.VTRSync.MaximumVtr;
             return new StatusBadge("V", rate == 15 ? Color.red : Color.green, rate.ToString(), $"Variable Tick Rate: Things update every {rate} tick(s)");
         }
 
