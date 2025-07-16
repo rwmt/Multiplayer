@@ -80,6 +80,16 @@ namespace Multiplayer.Common
 
             if (player.hasJoined)
             {
+                // Handle unexpected disconnections by sending PlayerCount command
+                if (reason == MpDisconnectReason.ClientLeft || reason == MpDisconnectReason.NetFailed)
+                {
+                    // Send PlayerCount command to remove player from their last known map
+                    if (player.currentMap != -1)
+                    {
+                        byte[] playerCountData = ByteWriter.GetBytes(player.currentMap, -1); // previousMap: player's map, newMap: -1 (disconnected)
+                        server.commands.Send(CommandType.PlayerCount, ScheduledCommand.NoFaction, ScheduledCommand.Global, playerCountData);
+                    }
+                }
                 // todo check player.IsPlaying?
                 // todo FactionId might throw when called for not fully initialized players
                 // if (Players.All(p => p.FactionId != player.FactionId))

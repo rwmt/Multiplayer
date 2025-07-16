@@ -109,6 +109,9 @@ namespace Multiplayer.Common
 
             byte seq = data.ReadByte();
             byte map = data.ReadByte();
+            
+            // Track the player's current map from cursor updates
+            Player.currentMap = map;
 
             writer.WriteInt32(Player.id);
             writer.WriteByte(seq);

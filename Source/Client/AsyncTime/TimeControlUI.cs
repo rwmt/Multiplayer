@@ -287,18 +287,27 @@ public static class ColonistBarTimeControl
     private static float flashInterval = 6f;
     private static Color flashColor = Color.red;
 
-    static void Prefix(ref bool __state)
+    private static bool IsSpectator =>
+        Multiplayer.Client != null &&
+        Multiplayer.RealPlayerFaction == Multiplayer.WorldComp.spectatorFaction;
+
+    static bool Prefix(ref bool __state)
     {
+        if (IsSpectator)
+            return false;
+
         if (Event.current.type is EventType.MouseDown or EventType.MouseUp)
         {
             DrawButtons();
             __state = true;
         }
+
+        return true;
     }
 
     static void Postfix(bool __state)
     {
-        if (!__state)
+        if (!__state && !IsSpectator)
             DrawButtons();
     }
 

@@ -42,6 +42,7 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(Pawn_GuestTracker), nameof(Pawn_GuestTracker.SetExclusiveInteraction)).CancelIfAnyArgNull();
             SyncMethod.Register(typeof(Pawn_GuestTracker), nameof(Pawn_GuestTracker.ToggleNonExclusiveInteraction)).CancelIfAnyArgNull();
             SyncMethod.Register(typeof(Zone), nameof(Zone.Delete));
+            SyncMethod.Register(typeof(Plan), nameof(Plan.Delete));
             SyncMethod.Register(typeof(BillStack), nameof(BillStack.AddBill)).ExposeParameter(0); // Only used for pasting
             SyncMethod.Register(typeof(BillStack), nameof(BillStack.Delete)).CancelIfAnyArgNull().SetPostInvoke(TryDirtyCurrentPawnTable);
             SyncMethod.Register(typeof(BillStack), nameof(BillStack.Reorder)).CancelIfAnyArgNull();

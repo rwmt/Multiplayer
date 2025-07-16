@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Multiplayer.Client.Util;
@@ -63,6 +63,7 @@ public static class MpSettingsUI
             99f);
 
         listing.CheckboxLabeled("MpShowPlayerCursors".Translate(), ref settings.showCursors);
+        DoHideOtherPlayersInColonistBarField(settings, listing);
         listing.CheckboxLabeled("MpPlayerCursorTransparency".Translate(), ref settings.transparentPlayerCursors);
         listing.CheckboxLabeled("MpAutoAcceptSteam".Translate(), ref settings.autoAcceptSteam,
             "MpAutoAcceptSteamDesc".Translate());
@@ -214,6 +215,20 @@ public static class MpSettingsUI
         // Don't allow changing the username while playing
         if (Multiplayer.Client != null && GUI.GetNameOfFocusedControl() == UsernameField)
             UI.UnfocusCurrentControl();
+    }
+
+    private static void DoHideOtherPlayersInColonistBarField(MpSettings settings, Listing_Standard listing)
+    {
+
+        bool oldValue = settings.hideOtherPlayersInColonistBar;
+        listing.CheckboxLabeled("MpHideOtherPlayersInColonistBar".Translate(), ref settings.hideOtherPlayersInColonistBar);
+        if(oldValue != settings.hideOtherPlayersInColonistBar && Multiplayer.Client != null)
+        {
+            //Force update ColonistBar
+            Find.ColonistBar.MarkColonistsDirty();
+            Find.ColonistBar.CheckRecacheEntries();
+        }
+
     }
 
     private enum SettingsPage

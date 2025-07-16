@@ -1026,7 +1026,7 @@ namespace Multiplayer.Client
             {
                 // TODO: Consider using int16 rather that int32 to minimize network traffic.
                 // Investigate if the tiles/layers are small enough to allow that.
-                (ByteWriter data, PlanetTile tile) => 
+                (ByteWriter data, PlanetTile tile) =>
                 {
                     data.WriteInt32(tile.tileId);
                     data.WriteInt32(tile.layerId);
@@ -1093,6 +1093,42 @@ namespace Multiplayer.Client
                     if (zoneId == -1)
                         return null;
                     return data.MpContext().map.zoneManager.AllZones.Find(zone => zone.ID == zoneId);
+                }, true
+            },
+            {
+                (ByteWriter data, Room room) => {
+                    if(room == null){
+                        data.WriteInt32(-1);
+                    } else {
+                        data.MpContext().map = room.Map;
+                        data.WriteInt32(room.ID);
+                    }
+                },
+                (ByteReader data) => {
+                    int roomId = data.ReadInt32();
+                    if (roomId == -1)
+                        return null;
+                    return data.MpContext().map.regionGrid.allRooms.Find(r => r.ID == roomId);
+                }, true
+            },
+            {
+                (ByteWriter data, Plan plan) =>
+                {
+                    if (plan == null)
+                    {
+                        data.WriteInt32(-1);
+                    }
+                    else
+                    {
+                        data.MpContext().map = plan.Map;
+                        data.WriteInt32(plan.ID);
+                    }
+                },
+                (ByteReader data) => {
+                    int zoneId = data.ReadInt32();
+                    if (zoneId == -1)
+                        return null;
+                    return data.MpContext().map.planManager.AllPlans.Find(p => p.ID == zoneId);
                 }, true
             },
             #endregion

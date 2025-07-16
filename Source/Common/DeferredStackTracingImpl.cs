@@ -1,7 +1,5 @@
 using System;
 using System.Runtime.CompilerServices;
-using UnityEngine;
-using Verse;
 
 namespace Multiplayer.Client.Desyncs;
 
@@ -37,18 +35,7 @@ public static class DeferredStackTracingImpl
     public const int HashInfluence = 6;
 
     private static unsafe delegate*<long> getRbpFunc;
-
-    static unsafe DeferredStackTracingImpl()
-    {
-        getRbpFunc = Application.platform switch
-                {
-                    RuntimePlatform.LinuxEditor => &GetRbpWindows,
-                    RuntimePlatform.LinuxPlayer => &GetRbpWindows,
-                    RuntimePlatform.OSXEditor => &GetRbpMac,
-                    RuntimePlatform.OSXPlayer => &GetRbpMac,
-                    _ => &GetRbpWindows
-                };
-    }
+    static unsafe DeferredStackTracingImpl() => getRbpFunc = &GetRbpProbed;
 
     public static unsafe int TraceImpl(long[] traceIn, ref int hash)
     {
@@ -253,18 +240,30 @@ public static class DeferredStackTracingImpl
         }
     }
 
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    static unsafe long GetRbpMac()
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
+    private static unsafe long GetRbpProbed()
     {
-        long rbp = 0;
-        return *(&rbp + 1); // Mac offset
-    }
+        long local = 0;
+        long* p = &local;
 
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    static unsafe long GetRbpWindows()
-    {
-        long rbp = 0;
-        return *(&rbp + 4); // Windows offset
+        // Scan up to 32 q-words (~256 B) – copes with big frames from extra locals,
+        // tier-1 JIT prologues and the 6-register spill variant.
+        for (int i = 1; i <= 32; i++)
+        {
+            long cand = *(&local + i);
+
+            if (cand <= (long)p) continue;   // must be above us
+            if ((cand & 7) != 0) continue;   // 8-byte aligned
+
+            // Cheap sanity: return address slot should be executable
+            if (Native.mono_jit_info_table_find(Native.DomainPtr, *(IntPtr*)(cand + 8)) == IntPtr.Zero)
+                continue;
+
+            return cand;                              // looks like a real frame ptr
+        }
+
+        // Fallback – old +1 assumption
+        return *(p + 1);
     }
 
     public static int HashCombineInt(int seed, int value)

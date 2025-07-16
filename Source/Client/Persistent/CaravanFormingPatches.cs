@@ -11,7 +11,7 @@ using System.Reflection;
 
 namespace Multiplayer.Client.Persistent
 {
-    [HarmonyPatch(typeof(Widgets), nameof(Widgets.ButtonText), new[] { typeof(Rect), typeof(string), typeof(bool), typeof(bool), typeof(bool), typeof(TextAnchor) })]
+    [HarmonyPatch(typeof(Widgets), nameof(ButtonText), [typeof(Rect), typeof(string), typeof(bool), typeof(bool), typeof(bool), typeof(TextAnchor)])]
     static class MakeCancelFormingButtonRed
     {
         static void Prefix(string label, ref bool __state)
@@ -36,7 +36,7 @@ namespace Multiplayer.Client.Persistent
         }
     }
 
-    [HarmonyPatch(typeof(Widgets), nameof(Widgets.ButtonTextWorker))]
+    [HarmonyPatch(typeof(Widgets), nameof(ButtonTextWorker))]
     static class FormCaravanHandleReset
     {
         static void Prefix(string label, ref bool __state)
@@ -185,33 +185,33 @@ namespace Multiplayer.Client.Persistent
         }
 
         [SyncMethod]
-        internal static void StartFormingCaravan(Faction faction, Map map, bool reform = false, IntVec3? designatedMeetingPoint = null, int? routePlannerWaypoint = null)
+        internal static void StartFormingCaravan(Faction faction, Map map, bool reform = false, IntVec3? designatedMeetingPoint = null, PlanetTile? routePlannerWaypoint = null)
         {
             var comp = map.MpComp();
             var session = comp.CreateCaravanFormingSession(faction, reform, null, false, designatedMeetingPoint);
 
             if (TickPatch.currentExecutingCmdIssuedBySelf)
             {
-                var dialog = session.OpenWindow();
-                if (routePlannerWaypoint is { } tile)
+                CaravanFormingProxy dialog = session.OpenWindow();
+                if (!routePlannerWaypoint.HasValue)
+                    return;
+
+                try
                 {
-                    try
-                    {
-                        UniqueIdsPatch.useLocalIdsOverride = true;
+                    UniqueIdsPatch.useLocalIdsOverride = true;
 
-                        // Just to be safe
-                        // RNG shouldn't be invoked but TryAddWaypoint is quite complex and calls pathfinding
-                        Rand.PushState();
+                    // Just to be safe
+                    // RNG shouldn't be invoked but TryAddWaypoint is quite complex and calls pathfinding
+                    Rand.PushState();
 
-                        var worldRoutePlanner = Find.WorldRoutePlanner;
-                        worldRoutePlanner.Start(dialog);
-                        worldRoutePlanner.TryAddWaypoint(tile);
-                    }
-                    finally
-                    {
-                        Rand.PopState();
-                        UniqueIdsPatch.useLocalIdsOverride = false;
-                    }
+                    var worldRoutePlanner = Find.WorldRoutePlanner;
+                    worldRoutePlanner.Start(dialog);
+                    worldRoutePlanner.TryAddWaypoint(routePlannerWaypoint.Value);
+                }
+                finally
+                {
+                    Rand.PopState();
+                    UniqueIdsPatch.useLocalIdsOverride = false;
                 }
             }
         }

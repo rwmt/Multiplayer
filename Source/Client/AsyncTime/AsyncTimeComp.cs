@@ -10,6 +10,7 @@ using Multiplayer.Client.Factions;
 using Multiplayer.Client.Patches;
 using Multiplayer.Client.Saving;
 using Multiplayer.Client.Util;
+using System.Linq;
 
 namespace Multiplayer.Client
 {
@@ -97,6 +98,9 @@ namespace Multiplayer.Client
         public ulong randState;
 
         public Queue<ScheduledCommand> cmds = new();
+
+        public int CurrentPlayerCount { get; private set; } = 0;
+        public int VTR => CurrentPlayerCount > 0 ? VTRSync.MinimumVtr : VTRSync.MaximumVtr;
 
         public AsyncTimeComp(Map map, int gameStartAbsTick = 0)
         {
@@ -227,6 +231,9 @@ namespace Multiplayer.Client
 
             Scribe_Custom.LookULong(ref randState, "randState", 1);
         }
+
+        public void IncreasePlayerCount() => CurrentPlayerCount++;
+        public void DecreasePlayerCount() => CurrentPlayerCount = Math.Max(0, CurrentPlayerCount - 1);
 
         public void FinalizeInit()
         {
@@ -399,6 +406,8 @@ namespace Multiplayer.Client
                 if (mode == DesignatorMode.SingleCell)
                 {
                     IntVec3 cell = SyncSerialization.ReadSync<IntVec3>(data);
+                    if (designator is Designator_Plan_Add addDesignator)
+                        addDesignator.colorDef = SyncSerialization.ReadSync<ColorDef>(data);
 
                     designator.DesignateSingleCell(cell);
                     designator.Finalize(true);
@@ -406,6 +415,8 @@ namespace Multiplayer.Client
                 else if (mode == DesignatorMode.MultiCell)
                 {
                     IntVec3[] cells = SyncSerialization.ReadSync<IntVec3[]>(data);
+                    if (designator is Designator_Plan_Add addDesignator)
+                        addDesignator.colorDef = SyncSerialization.ReadSync<ColorDef>(data);
 
                     designator.DesignateMultiCell(cells);
                 }

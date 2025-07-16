@@ -270,15 +270,12 @@ namespace Multiplayer.Client
     [HarmonyPatch(typeof(Widgets), nameof(Widgets.ButtonImageWithBG))]
     static class DisableTradeModeButtonForOtherFactions
     {
-        private static readonly Texture2D GiftModeIcon = ContentFinder<Texture2D>.Get("UI/Buttons/GiftMode");
-	    private static readonly Texture2D TradeModeIcon = ContentFinder<Texture2D>.Get("UI/Buttons/TradeMode");
-
         static bool Prefix(Rect butRect, Texture2D image, ref bool __result)
         {
             if (TradingWindow.drawingTrade == null || MpTradeSession.current.NegotiatorFaction == Multiplayer.RealPlayerFaction)
                 return true;
 
-            if (image != GiftModeIcon && image != TradeModeIcon)
+            if (image != MultiplayerStatic.GiftModeIcon && image != MultiplayerStatic.TradeModeIcon)
                 return true;
 
             __result = false;
