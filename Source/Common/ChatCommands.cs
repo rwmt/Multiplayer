@@ -1,12 +1,10 @@
-﻿using System.IO;
-
-namespace Multiplayer.Common
+﻿namespace Multiplayer.Common
 {
     public abstract class ChatCmdHandler
     {
         public bool requiresHost;
 
-        public MultiplayerServer Server => MultiplayerServer.instance ?? throw new InvalidDataException("MultiplayerServer instance is not initialized.");
+        public MultiplayerServer Server => MultiplayerServer.instance!;
 
         public abstract void Handle(IChatSource source, string[] args);
 

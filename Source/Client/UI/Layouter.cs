@@ -266,7 +266,7 @@ public static class Layouter
         if (Event.current.type == EventType.Layout)
         {
             currentGroup!.children.Add(new El()
-            { widthMode = DimensionMode.Stretch, heightMode = DimensionMode.AspectRatio, aspectRatio = widthByHeight });
+                { widthMode = DimensionMode.Stretch, heightMode = DimensionMode.AspectRatio, aspectRatio = widthByHeight });
             return DummyRect;
         }
 
@@ -278,7 +278,7 @@ public static class Layouter
         if (Event.current.type == EventType.Layout)
         {
             currentGroup!.children.Add(new El()
-            { widthMode = DimensionMode.Stretch, heightMode = DimensionMode.ContentHeight, stringContent = stringContent, style = new GUIStyle(Text.CurFontStyle) });
+                { widthMode = DimensionMode.Stretch, heightMode = DimensionMode.ContentHeight, stringContent = stringContent, style = new GUIStyle(Text.CurFontStyle) });
             return DummyRect;
         }
 
@@ -290,7 +290,7 @@ public static class Layouter
         if (Event.current.type == EventType.Layout)
         {
             currentGroup!.children.Add(new El()
-            { widthMode = DimensionMode.Stretch, heightMode = DimensionMode.Stretch });
+                { widthMode = DimensionMode.Stretch, heightMode = DimensionMode.Stretch });
             return DummyRect;
         }
 
@@ -312,7 +312,7 @@ public static class Layouter
         if (Event.current.type == EventType.Layout)
         {
             currentGroup!.children.Add(new El()
-            { widthMode = DimensionMode.Stretch, heightMode = DimensionMode.MaxFixedSibling });
+                { widthMode = DimensionMode.Stretch, heightMode = DimensionMode.MaxFixedSibling });
             return DummyRect;
         }
 
@@ -324,7 +324,7 @@ public static class Layouter
         if (Event.current.type == EventType.Layout)
         {
             currentGroup!.children.Add(new El()
-            { rect = new Rect(0, 0, width, 0), widthMode = DimensionMode.Fixed, heightMode = DimensionMode.MaxFixedSibling });
+                { rect = new Rect(0, 0, width, 0), widthMode = DimensionMode.Fixed, heightMode = DimensionMode.MaxFixedSibling });
             return DummyRect;
         }
 
@@ -336,7 +336,7 @@ public static class Layouter
         if (Event.current.type == EventType.Layout)
         {
             currentGroup!.children.Add(new El()
-            { rect = new Rect(0, 0, 0, height), widthMode = DimensionMode.Stretch, heightMode = DimensionMode.Fixed });
+                { rect = new Rect(0, 0, 0, height), widthMode = DimensionMode.Stretch, heightMode = DimensionMode.Fixed });
             return DummyRect;
         }
 
