@@ -90,10 +90,10 @@ namespace Multiplayer.Client.Patches
         {
             foreach (var inst in insts)
             {
-                if (GizmoOnGUI.Equals(inst.operand))
+                if (inst.operand as MethodInfo == GizmoOnGUI)
                     yield return new CodeInstruction(OpCodes.Call,
                         AccessTools.Method(typeof(GizmoDrawDebugInfo), nameof(GizmoOnGUIProxy)));
-                else if (GizmoOnGUIShrunk.Equals(inst.operand))
+                else if (inst.operand as MethodInfo == GizmoOnGUIShrunk)
                     yield return new CodeInstruction(OpCodes.Call,
                         AccessTools.Method(typeof(GizmoDrawDebugInfo), nameof(GizmoOnGUIShrunkProxy)));
                 else

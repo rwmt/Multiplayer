@@ -121,7 +121,7 @@ namespace Multiplayer.Client
         {
             foreach (CodeInstruction inst in insts)
             {
-                if (Rot4GetRandom.Equals(inst.operand))
+                if (inst.operand as MethodInfo == Rot4GetRandom)
                 {
                     // Load newThing.thingIdNumber to the stack
                     yield return new CodeInstruction(OpCodes.Ldarg_0);
@@ -137,7 +137,7 @@ namespace Multiplayer.Client
 
                 yield return inst;
 
-                if (Rot4GetRandom.Equals(inst.operand))
+                if (inst.operand as MethodInfo == Rot4GetRandom)
                     yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(Rand), nameof(Rand.PopState)));
             }
         }

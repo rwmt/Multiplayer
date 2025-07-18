@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Reflection.Emit;
 using HarmonyLib;
 using Multiplayer.Client.Util;
@@ -36,13 +37,13 @@ public static class TimeControlPatch
     {
         foreach (var inst in insts)
         {
-            if (AccessTools.Method(typeof(TimeControls), nameof(TimeControls.DoTimeControlsGUI)).Equals(inst.operand))
+            if (inst.operand as MethodInfo == AccessTools.Method(typeof(TimeControls), nameof(TimeControls.DoTimeControlsGUI)))
                 inst.operand = AccessTools.Method(typeof(TimeControlPatch), nameof(DoTimeControlsGUI));
 
             yield return inst;
 
-            if (AccessTools.Constructor(typeof(Rect),
-                new[] { typeof(float), typeof(float), typeof(float), typeof(float) }).Equals(inst.operand))
+            if (inst.operand as MethodInfo == AccessTools.Constructor(typeof(Rect),
+                    new[] { typeof(float), typeof(float), typeof(float), typeof(float) }))
             {
                 yield return new CodeInstruction(OpCodes.Ldloca_S, 1);
                 yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(TimeControlPatch), nameof(ModifyRect)));

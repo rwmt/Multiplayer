@@ -178,9 +178,9 @@ namespace Multiplayer.Client.AsyncTime
         {
             foreach (var inst in insts)
             {
-                if (AccessTools.PropertyGetter(typeof(Prefs), nameof(Prefs.AutomaticPauseMode)).Equals(inst.operand))
+                if (inst.operand as MethodInfo == AccessTools.PropertyGetter(typeof(Prefs), nameof(Prefs.AutomaticPauseMode)))
                     inst.operand = AccessTools.Method(typeof(ReceiveLetterPause), nameof(AutomaticPauseMode));
-                else if (AccessTools.Method(typeof(TickManager), nameof(TickManager.Pause)).Equals(inst.operand))
+                else if (inst.operand as MethodInfo == AccessTools.Method(typeof(TickManager), nameof(TickManager.Pause)))
                     inst.operand = AccessTools.Method(typeof(ReceiveLetterPause), nameof(PauseOnLetter));
 
                 yield return inst;

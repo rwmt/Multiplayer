@@ -76,7 +76,7 @@ namespace Multiplayer.Client.Patches
 
             for (int i = insts.Count - 1; i >= 0; i--)
             {
-                if (FirstOrDefault.Equals(insts[i].operand))
+                if (insts[i].operand as MethodInfo == FirstOrDefault)
                     insts.Insert(
                        i + 1,
                        new CodeInstruction(OpCodes.Ldloc_1),
@@ -138,7 +138,7 @@ namespace Multiplayer.Client.Patches
             {
                 yield return inst;
 
-                if (CellRectContains.Equals(inst.operand))
+                if (inst.operand as MethodInfo == CellRectContains)
                 {
                     yield return new CodeInstruction(OpCodes.Ldc_I4_1);
                     yield return new CodeInstruction(OpCodes.Or);
@@ -155,7 +155,7 @@ namespace Multiplayer.Client.Patches
             foreach (CodeInstruction inst in insts)
             {
                 yield return inst;
-                if (!found && cellsShuffledField.Equals(inst.operand))
+                if (!found && inst.operand as MethodInfo == cellsShuffledField)
                 {
                     yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(CellsShufflePatchShared), nameof(ShouldShuffle)));
                     yield return new CodeInstruction(OpCodes.Not);
@@ -266,7 +266,7 @@ namespace Multiplayer.Client.Patches
         {
             foreach (var inst in insts)
             {
-                if (AccessTools.PropertyGetter(typeof(ModLister), nameof(ModLister.BiotechInstalled)).Equals(inst.operand))
+                if (inst.operand as MethodInfo == AccessTools.PropertyGetter(typeof(ModLister), nameof(ModLister.BiotechInstalled)))
                     inst.operand = AccessTools.PropertyGetter(typeof(ModsConfig), nameof(ModsConfig.BiotechActive));
                 yield return inst;
             }
@@ -302,7 +302,7 @@ namespace Multiplayer.Client.Patches
             foreach (var inst in insts)
             {
                 // Remove mutation of battleActive during saving which was a source of non-determinism
-                if (inst.opcode == OpCodes.Stfld && battleActiveField.Equals(inst.operand))
+                if (inst.opcode == OpCodes.Stfld && inst.operand as MethodInfo == battleActiveField)
                 {
                     yield return new CodeInstruction(OpCodes.Pop);
                     yield return new CodeInstruction(OpCodes.Pop);
@@ -341,7 +341,7 @@ namespace Multiplayer.Client.Patches
         {
             foreach (var inst in insts)
             {
-                if (inst.opcode == OpCodes.Stfld && queryTickField.Equals(inst.operand))
+                if (inst.opcode == OpCodes.Stfld && inst.operand as MethodInfo == queryTickField)
                 {
                     yield return new CodeInstruction(OpCodes.Ldarg_0);
                     yield return new CodeInstruction(OpCodes.Ldarg_1);
@@ -385,7 +385,7 @@ namespace Multiplayer.Client.Patches
         {
             foreach (var inst in insts)
             {
-                if (clearMethod.Equals(inst.operand))
+                if (inst.operand as MethodInfo == clearMethod)
                     yield return new CodeInstruction(OpCodes.Pop);
                 else
                     yield return inst;

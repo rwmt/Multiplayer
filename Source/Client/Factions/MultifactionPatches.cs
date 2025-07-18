@@ -421,7 +421,7 @@ static class StartingAnimalPatch
         {
             yield return inst;
 
-            if (playerFactionField.Equals(inst.operand))
+            if (inst.operand as MethodInfo == playerFactionField)
                 yield return new CodeInstruction(OpCodes.Call, factionOfPlayer.Method);
         }
     }
@@ -442,7 +442,7 @@ static class PawnIsColonistPatch
 
         foreach (var inst in insts)
         {
-            if (isPlayerMethodGetter.Equals(inst.operand))
+            if (inst.operand as MethodInfo == isPlayerMethodGetter)
                 inst.operand = factionIsPlayer.Method;
 
             yield return inst;
@@ -464,7 +464,7 @@ static class RecacheColonistBelieverCountPatch
     {
         foreach (var inst in insts)
         {
-            if (allColonists.Equals(inst.operand))
+            if (inst.operand as MethodInfo == allColonists)
                 inst.operand = AccessTools.Method(typeof(RecacheColonistBelieverCountPatch), nameof(ColonistsAllPlayerFactions));
             yield return inst;
         }
@@ -516,7 +516,7 @@ static class AnyPawnBlockingMapRemovalPatch
     {
         foreach (var inst in insts)
         {
-            if (isColonyMech.Equals(inst.operand))
+            if (inst.operand as MethodInfo == isColonyMech)
                 inst.operand = AccessTools.Method(typeof(RecacheColonistBelieverCountPatch), nameof(RecacheColonistBelieverCountPatch.IsColonyMechAnyFaction));
 
             yield return inst;
@@ -557,10 +557,10 @@ static class IsValidColonyPawnPatch
     {
         foreach (var inst in insts)
         {
-            if (isColonist.Equals(inst.operand))
+            if (inst.operand as MethodInfo == isColonist)
                 inst.operand = AccessTools.Method(typeof(RecacheColonistBelieverCountPatch), nameof(RecacheColonistBelieverCountPatch.IsColonistAnyFaction));
 
-            if (isColonySubhuman.Equals(inst.operand))
+            if (inst.operand as MethodInfo == isColonySubhuman)
                 inst.operand = AccessTools.Method(typeof(RecacheColonistBelieverCountPatch), nameof(RecacheColonistBelieverCountPatch.IsColonySubhumanAnyFaction));
 
             yield return inst;
@@ -577,7 +577,7 @@ static class ValidatePawnPatch
     {
         foreach (var inst in insts)
         {
-            if (isFreeNonSlaveColonist.Equals(inst.operand))
+            if (inst.operand as MethodInfo == isFreeNonSlaveColonist)
                 inst.operand = AccessTools.Method(typeof(ValidatePawnPatch), nameof(IsFreeNonSlaveColonistAnyFaction));
 
             yield return inst;
@@ -632,7 +632,7 @@ static class LetterStackReceiveSoundOnlyMyFaction
     {
         foreach (var inst in insts)
         {
-            if (PlayOneShotOnCamera.Equals(inst.operand))
+            if (inst.operand as MethodInfo == PlayOneShotOnCamera)
                 yield return new CodeInstruction(
                     OpCodes.Call,
                     SymbolExtensions.GetMethodInfo((SoundDef s, Map m) => PlaySoundReplacement(s, m)));
@@ -661,7 +661,7 @@ static class ApparelWornGraphicPathGetterPatch
 
             // This instruction is part of wornGraphicPaths[thingIDNumber % wornGraphicPaths.Count]
             // The function makes sure the id is positive
-            if (thingIDNumberField.Equals(inst.operand))
+            if (inst.operand as MethodInfo == thingIDNumberField)
                 yield return new CodeInstruction(OpCodes.Call,
                     AccessTools.Method(typeof(ApparelWornGraphicPathGetterPatch), nameof(MakeIdPositive)));
         }
@@ -721,7 +721,7 @@ static class CharacterCardUtilityDontDrawIdeoPlate
             yield return inst;
 
             // Don't draw the ideo plate while choosing starting pawns in multifaction
-            if (classicModeField.Equals(inst.operand))
+            if (inst.operand as MethodInfo == classicModeField)
             {
                 yield return new CodeInstruction(OpCodes.Ldarg_2);
                 yield return new CodeInstruction(OpCodes.Call,

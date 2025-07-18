@@ -30,7 +30,7 @@ namespace Multiplayer.Client
 
                 yield return cur;
 
-                if (cur.opcode == OpCodes.Call && CanPlaceBlueprintOver.Equals(cur.operand))
+                if (cur.opcode == OpCodes.Call && cur.operand as MethodInfo == CanPlaceBlueprintOver)
                 {
                     var thingToIgnoreIndex = insts[i - 2].operand;
 
@@ -173,7 +173,7 @@ namespace Multiplayer.Client
             {
                 yield return inst;
 
-                if (inst.opcode == OpCodes.Call && SpawningWipes.Equals(inst.operand))
+                if (inst.opcode == OpCodes.Call && inst.operand as MethodInfo == SpawningWipes)
                 {
                     yield return new CodeInstruction(OpCodes.Ldarg_2);
                     yield return new CodeInstruction(OpCodes.Ldloc_3);
@@ -196,7 +196,7 @@ namespace Multiplayer.Client
             {
                 yield return inst;
 
-                if (inst.opcode == OpCodes.Call && SpawningWipes.Equals(inst.operand))
+                if (inst.opcode == OpCodes.Call && inst.operand as MethodInfo == SpawningWipes)
                 {
                     yield return new CodeInstruction(OpCodes.Ldarg_2);
                     yield return new CodeInstruction(OpCodes.Ldloc_S, 4);
@@ -221,7 +221,7 @@ namespace Multiplayer.Client
             {
                 yield return inst;
 
-                if (inst.opcode == OpCodes.Call && SpawningWipes.Equals(inst.operand))
+                if (inst.opcode == OpCodes.Call && inst.operand as MethodInfo == SpawningWipes)
                 {
                     yield return new CodeInstruction(OpCodes.Ldarg_0);
                     yield return new CodeInstruction(OpCodes.Ldfld, ThingDefField);
@@ -335,7 +335,7 @@ namespace Multiplayer.Client
             {
                 yield return inst;
 
-                if (inst.opcode == OpCodes.Isinst && typeof(Blueprint).Equals(inst.operand))
+                if (inst.opcode == OpCodes.Isinst && inst.operand as MethodInfo == typeof(Blueprint))
                 {
                     yield return new CodeInstruction(OpCodes.Ldnull);
                     yield return new CodeInstruction(OpCodes.Cgt_Un);

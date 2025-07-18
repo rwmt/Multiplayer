@@ -5,6 +5,7 @@ using RimWorld;
 using RimWorld.Planet;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Reflection.Emit;
 using Multiplayer.Client.Util;
 using Verse;
@@ -462,7 +463,7 @@ namespace Multiplayer.Client
             foreach (var inst in insts)
             {
                 // this.plantCells.Add(t.Cell) => CompPlantable_AddCell(t.Cell, this)
-                if (typeof(List<IntVec3>).GetMethod("Add").Equals(inst.operand))
+                if (inst.operand as MethodInfo == typeof(List<IntVec3>).GetMethod("Add"))
                 {
                     // Load this
                     yield return new CodeInstruction(OpCodes.Ldarg_0);

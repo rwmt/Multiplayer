@@ -121,7 +121,7 @@ namespace Multiplayer.Client.Persistent
 
             foreach (var inst in list)
             {
-                if (listClear.Equals(inst.operand))
+                if (inst.operand as MethodInfo == listClear)
                 {
                     yield return new CodeInstruction(OpCodes.Call,
                         AccessTools.Method(typeof(DontClearDialogBeginRitualCache), nameof(ShouldCancelCacheClear)));

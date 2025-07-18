@@ -19,7 +19,7 @@ namespace Multiplayer.Client
 
             foreach (CodeInstruction inst in insts)
             {
-                if (AllGroups.Equals(inst.operand))
+                if (inst.operand as MethodInfo == AllGroups)
                 {
                     yield return new CodeInstruction(OpCodes.Ldarg_1).MoveLabelsFrom(inst);
                     yield return new CodeInstruction(OpCodes.Call, method);

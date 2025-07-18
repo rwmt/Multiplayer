@@ -781,7 +781,7 @@ namespace Multiplayer.Client
         {
             foreach (var inst in insts)
             {
-                if (AgeBiologicalFloat.Equals(inst.operand))
+                if (inst.operand as MethodInfo == AgeBiologicalFloat)
                 {
                     yield return new CodeInstruction(OpCodes.Callvirt, AgeBiologicalInt);
                     yield return new CodeInstruction(OpCodes.Conv_R4);

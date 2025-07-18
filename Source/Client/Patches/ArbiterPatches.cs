@@ -43,7 +43,7 @@ namespace Multiplayer.Client
             {
                 yield return inst;
 
-                if (IsCreated.Equals(inst.operand))
+                if (inst.operand as MethodInfo == IsCreated)
                 {
                     yield return new CodeInstruction(OpCodes.Ldsfld, ArbiterField);
                     yield return new CodeInstruction(OpCodes.Or);

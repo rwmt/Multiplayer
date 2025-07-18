@@ -44,7 +44,7 @@ namespace Multiplayer.Client.Patches
         {
             foreach (var inst in insts)
             {
-                if (Combine.Equals(inst.operand))
+                if (inst.operand as MethodInfo == Combine)
                     inst.operand = AccessTools.Method(typeof(PatchTargetInfoHashCodes), nameof(CombineHashes));
 
                 yield return inst;
