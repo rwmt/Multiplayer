@@ -1,11 +1,12 @@
 using HarmonyLib;
 using Multiplayer.Common;
 using RimWorld;
+using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using Verse;
-using RimWorld.Planet;
 
 namespace Multiplayer.Client
 {
@@ -175,6 +176,71 @@ namespace Multiplayer.Client
             {
                 TickPatch.ClearSimulating();
                 Event.current.Use();
+            }
+        }
+    }
+
+    //Prepatcher Warning server browser
+    [HarmonyPatch(typeof(UIRoot_Entry), nameof(UIRoot_Entry.UIRootOnGUI))]
+    static class UIRootEntryPrefix
+    {
+        static void Postfix()
+        {
+            if (Find.WindowStack.WindowOfType<ServerBrowser>() != null)
+            {
+                ServerBrowser serverBrowserWindow = Find.WindowStack.Windows
+                    .FirstOrDefault(w => w.GetType().Name == typeof(ServerBrowser).Name) as ServerBrowser;
+
+                if (serverBrowserWindow == null)
+                    return;
+
+                Rect baseRect = serverBrowserWindow.windowRect;
+
+                float boxWidth = 310f;
+                float boxHeight = 88f;
+                float spacing = 5f;
+
+                Rect hintRect = new Rect(
+                    baseRect.xMax + spacing,
+                    baseRect.y,
+                    boxWidth,
+                    boxHeight
+                );
+
+                PrepatcherWarning.DoPrepatcherWarning(hintRect);
+            }
+
+        }
+    }
+
+    //Prepatcher Warning in-game
+    [HarmonyPatch(typeof(UIRoot_Play), nameof(UIRoot_Play.UIRootOnGUI))]
+    static class UIRootPlayPrefix
+    {
+        static void Postfix()
+        {
+            if (Find.WindowStack.WindowOfType<HostWindow>() != null)
+            {
+                HostWindow hostWindowWindow = Find.WindowStack.Windows
+                    .FirstOrDefault(w => w.GetType().Name == typeof(HostWindow).Name) as HostWindow;
+
+                if (hostWindowWindow == null)
+                    return;
+
+                Rect baseRect = hostWindowWindow.windowRect;
+
+                float boxWidth = 310f;
+                float boxHeight = 88f;
+                float spacing = 5f;
+
+                Rect hintRect = new Rect(
+                    baseRect.xMax + spacing,
+                    baseRect.y,
+                    boxWidth,
+                    boxHeight
+                );
+
+                PrepatcherWarning.DoPrepatcherWarning(hintRect);
             }
         }
     }
