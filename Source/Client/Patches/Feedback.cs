@@ -121,7 +121,7 @@ namespace Multiplayer.Client.Patches
         {
             foreach (var inst in insts)
             {
-                if (inst.operand == IsSelected)
+                if (IsSelected.Equals(inst.operand))
                 {
                     yield return new CodeInstruction(OpCodes.Ldarg_0);
                     yield return new CodeInstruction(OpCodes.Call, DeselectOnDespawnMethod);

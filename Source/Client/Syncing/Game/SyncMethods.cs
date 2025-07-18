@@ -462,7 +462,7 @@ namespace Multiplayer.Client
             foreach (var inst in insts)
             {
                 // this.plantCells.Add(t.Cell) => CompPlantable_AddCell(t.Cell, this)
-                if (inst.operand == typeof(List<IntVec3>).GetMethod("Add"))
+                if (typeof(List<IntVec3>).GetMethod("Add").Equals(inst.operand))
                 {
                     // Load this
                     yield return new CodeInstruction(OpCodes.Ldarg_0);

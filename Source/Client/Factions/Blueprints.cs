@@ -30,7 +30,7 @@ namespace Multiplayer.Client
 
                 yield return cur;
 
-                if (cur.opcode == OpCodes.Call && cur.operand == CanPlaceBlueprintOver)
+                if (cur.opcode == OpCodes.Call && CanPlaceBlueprintOver.Equals(cur.operand))
                 {
                     var thingToIgnoreIndex = insts[i - 2].operand;
 
@@ -103,7 +103,7 @@ namespace Multiplayer.Client
                 new CodeInstruction(OpCodes.Call, CanPlaceBlueprintAtPatch.ShouldIgnore1Method),
                 new CodeInstruction(OpCodes.Brtrue, insts[loop + 1].operand)
             );
-            
+
             return insts;
         }
     }
@@ -173,7 +173,7 @@ namespace Multiplayer.Client
             {
                 yield return inst;
 
-                if (inst.opcode == OpCodes.Call && inst.operand == SpawningWipes)
+                if (inst.opcode == OpCodes.Call && SpawningWipes.Equals(inst.operand))
                 {
                     yield return new CodeInstruction(OpCodes.Ldarg_2);
                     yield return new CodeInstruction(OpCodes.Ldloc_3);
@@ -196,7 +196,7 @@ namespace Multiplayer.Client
             {
                 yield return inst;
 
-                if (inst.opcode == OpCodes.Call && inst.operand == SpawningWipes)
+                if (inst.opcode == OpCodes.Call && SpawningWipes.Equals(inst.operand))
                 {
                     yield return new CodeInstruction(OpCodes.Ldarg_2);
                     yield return new CodeInstruction(OpCodes.Ldloc_S, 4);
@@ -221,7 +221,7 @@ namespace Multiplayer.Client
             {
                 yield return inst;
 
-                if (inst.opcode == OpCodes.Call && inst.operand == SpawningWipes)
+                if (inst.opcode == OpCodes.Call && SpawningWipes.Equals(inst.operand))
                 {
                     yield return new CodeInstruction(OpCodes.Ldarg_0);
                     yield return new CodeInstruction(OpCodes.Ldfld, ThingDefField);
@@ -335,7 +335,7 @@ namespace Multiplayer.Client
             {
                 yield return inst;
 
-                if (inst.opcode == OpCodes.Isinst && inst.operand == typeof(Blueprint))
+                if (inst.opcode == OpCodes.Isinst && typeof(Blueprint).Equals(inst.operand))
                 {
                     yield return new CodeInstruction(OpCodes.Ldnull);
                     yield return new CodeInstruction(OpCodes.Cgt_Un);

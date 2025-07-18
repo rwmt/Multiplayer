@@ -412,13 +412,13 @@ namespace Multiplayer.Client
 
             var endGroupMethod = AccessTools.Method(typeof(Widgets), nameof(Widgets.EndGroup));
 
-            var saveLoadListString = list.First(i => i.operand == "SaveLoadList");
+            var saveLoadListString = list.First(i => "SaveLoadList".Equals(i.operand));
             // WidgetRow is not stored as a local, only staying on stack. We need to duplicate it before its last use so we can use it as well.
             var dupInst = new CodeInstruction(OpCodes.Dup);
             saveLoadListString.MoveLabelsTo(dupInst);
             list.Insert(list.IndexOf(saveLoadListString), dupInst);
 
-            var endGroupCall = list.First(i => i.operand == endGroupMethod);
+            var endGroupCall = list.First(i => endGroupMethod.Equals(i.operand));
             var ldarg = new CodeInstruction(OpCodes.Ldarg_0);
             endGroupCall.MoveLabelsTo(ldarg);
 

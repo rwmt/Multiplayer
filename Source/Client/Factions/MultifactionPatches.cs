@@ -50,7 +50,7 @@ public static class MainTabWindow_QuestsShouldListNowPatch
             if (quest.TryGetPlayerFaction(out playerFaction) && playerFaction != Faction.OfPlayer)
             {
                 __result = false;
-                return false; 
+                return false;
             }
         }
         return true;
@@ -82,8 +82,8 @@ static class WorldInspectPanePaneTopYPatch
 {
     static void Postfix(ref float __result)
     {
-        if (Multiplayer.Client != null && Multiplayer.RealPlayerFaction == Multiplayer.WorldComp.spectatorFaction)       
-            __result += 35f;      
+        if (Multiplayer.Client != null && Multiplayer.RealPlayerFaction == Multiplayer.WorldComp.spectatorFaction)
+            __result += 35f;
     }
 }
 
@@ -198,13 +198,13 @@ static class MainButtonsRootDoButtonsPatch
     private static bool ReplaceOriginalDrawing(MainButtonsRoot __instance)
     {
         if (!IsSpectator)
-            return true; 
+            return true;
 
         try
         {
             var allButtons = AllButtonsRef(__instance);
             if (allButtons == null)
-                return true; 
+                return true;
 
             var toDraw = SpectatorButtons
                 .Select(name => allButtons.Find(b => b.defName == name))
@@ -212,7 +212,7 @@ static class MainButtonsRootDoButtonsPatch
                 .ToList();
 
             DrawCornerButtons(toDraw);
-            return false; 
+            return false;
         }
         catch (Exception ex)
         {
@@ -421,7 +421,7 @@ static class StartingAnimalPatch
         {
             yield return inst;
 
-            if (inst.operand == playerFactionField)
+            if (playerFactionField.Equals(inst.operand))
                 yield return new CodeInstruction(OpCodes.Call, factionOfPlayer.Method);
         }
     }
@@ -442,7 +442,7 @@ static class PawnIsColonistPatch
 
         foreach (var inst in insts)
         {
-            if (inst.operand == isPlayerMethodGetter)
+            if (isPlayerMethodGetter.Equals(inst.operand))
                 inst.operand = factionIsPlayer.Method;
 
             yield return inst;
@@ -464,7 +464,7 @@ static class RecacheColonistBelieverCountPatch
     {
         foreach (var inst in insts)
         {
-            if (inst.operand == allColonists)
+            if (allColonists.Equals(inst.operand))
                 inst.operand = AccessTools.Method(typeof(RecacheColonistBelieverCountPatch), nameof(ColonistsAllPlayerFactions));
             yield return inst;
         }
@@ -516,7 +516,7 @@ static class AnyPawnBlockingMapRemovalPatch
     {
         foreach (var inst in insts)
         {
-            if (inst.operand == isColonyMech)
+            if (isColonyMech.Equals(inst.operand))
                 inst.operand = AccessTools.Method(typeof(RecacheColonistBelieverCountPatch), nameof(RecacheColonistBelieverCountPatch.IsColonyMechAnyFaction));
 
             yield return inst;
@@ -557,10 +557,10 @@ static class IsValidColonyPawnPatch
     {
         foreach (var inst in insts)
         {
-            if (inst.operand == isColonist)
+            if (isColonist.Equals(inst.operand))
                 inst.operand = AccessTools.Method(typeof(RecacheColonistBelieverCountPatch), nameof(RecacheColonistBelieverCountPatch.IsColonistAnyFaction));
 
-            if (inst.operand == isColonySubhuman)
+            if (isColonySubhuman.Equals(inst.operand))
                 inst.operand = AccessTools.Method(typeof(RecacheColonistBelieverCountPatch), nameof(RecacheColonistBelieverCountPatch.IsColonySubhumanAnyFaction));
 
             yield return inst;
@@ -577,7 +577,7 @@ static class ValidatePawnPatch
     {
         foreach (var inst in insts)
         {
-            if (inst.operand == isFreeNonSlaveColonist)
+            if (isFreeNonSlaveColonist.Equals(inst.operand))
                 inst.operand = AccessTools.Method(typeof(ValidatePawnPatch), nameof(IsFreeNonSlaveColonistAnyFaction));
 
             yield return inst;
@@ -632,7 +632,7 @@ static class LetterStackReceiveSoundOnlyMyFaction
     {
         foreach (var inst in insts)
         {
-            if (inst.operand == PlayOneShotOnCamera)
+            if (PlayOneShotOnCamera.Equals(inst.operand))
                 yield return new CodeInstruction(
                     OpCodes.Call,
                     SymbolExtensions.GetMethodInfo((SoundDef s, Map m) => PlaySoundReplacement(s, m)));
@@ -661,7 +661,7 @@ static class ApparelWornGraphicPathGetterPatch
 
             // This instruction is part of wornGraphicPaths[thingIDNumber % wornGraphicPaths.Count]
             // The function makes sure the id is positive
-            if (inst.operand == thingIDNumberField)
+            if (thingIDNumberField.Equals(inst.operand))
                 yield return new CodeInstruction(OpCodes.Call,
                     AccessTools.Method(typeof(ApparelWornGraphicPathGetterPatch), nameof(MakeIdPositive)));
         }
@@ -721,7 +721,7 @@ static class CharacterCardUtilityDontDrawIdeoPlate
             yield return inst;
 
             // Don't draw the ideo plate while choosing starting pawns in multifaction
-            if (inst.operand == classicModeField)
+            if (classicModeField.Equals(inst.operand))
             {
                 yield return new CodeInstruction(OpCodes.Ldarg_2);
                 yield return new CodeInstruction(OpCodes.Call,

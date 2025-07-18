@@ -178,9 +178,9 @@ namespace Multiplayer.Client.AsyncTime
         {
             foreach (var inst in insts)
             {
-                if (inst.operand == AccessTools.PropertyGetter(typeof(Prefs), nameof(Prefs.AutomaticPauseMode)))
+                if (AccessTools.PropertyGetter(typeof(Prefs), nameof(Prefs.AutomaticPauseMode)).Equals(inst.operand))
                     inst.operand = AccessTools.Method(typeof(ReceiveLetterPause), nameof(AutomaticPauseMode));
-                else if (inst.operand == AccessTools.Method(typeof(TickManager), nameof(TickManager.Pause)))
+                else if (AccessTools.Method(typeof(TickManager), nameof(TickManager.Pause)).Equals(inst.operand))
                     inst.operand = AccessTools.Method(typeof(ReceiveLetterPause), nameof(PauseOnLetter));
 
                 yield return inst;
@@ -190,7 +190,7 @@ namespace Multiplayer.Client.AsyncTime
         private static AutomaticPauseMode AutomaticPauseMode()
         {
             return Multiplayer.Client != null
-                ? (AutomaticPauseMode) Multiplayer.GameComp.pauseOnLetter
+                ? (AutomaticPauseMode)Multiplayer.GameComp.pauseOnLetter
                 : Prefs.AutomaticPauseMode;
         }
 
