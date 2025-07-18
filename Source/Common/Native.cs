@@ -120,10 +120,10 @@ namespace Multiplayer.Client
         const string MonoOSX = "libmonobdwgc-2.0.dylib";
 
         [DllImport(MonoLinux, EntryPoint = "mono_dllmap_insert")]
-        private static extern void mono_dllmap_insert_linux(IntPtr assembly, string dll, string func, string tdll, string tfunc);
+        private static extern void mono_dllmap_insert_linux(IntPtr assembly, string? dll, string? func, string? tdll, string? tfunc);
 
         [DllImport(MonoOSX, EntryPoint = "mono_dllmap_insert")]
-        private static extern void mono_dllmap_insert_osx(IntPtr assembly, string dll, string func, string tdll, string tfunc);
+        private static extern void mono_dllmap_insert_osx(IntPtr assembly, string? dll, string? func, string? tdll, string? tfunc);
 
         [DllImport(MonoWindows)]
         public static extern IntPtr mono_jit_info_table_find(IntPtr domain, IntPtr addr);

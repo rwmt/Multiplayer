@@ -5,8 +5,8 @@ namespace Multiplayer.Common
 {
     public class ServerLog : INetLogger
     {
-        public static Action<string> info;
-        public static Action<string> error;
+        public static Action<string>? info;
+        public static Action<string>? error;
         public static bool detailEnabled;
         public static bool verboseEnabled;
 

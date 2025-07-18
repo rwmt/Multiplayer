@@ -48,14 +48,14 @@ namespace Multiplayer.Client
 			base.WriteLong(val);
 		}
 
-		public override void WritePrefixedBytes(byte[] bytes)
+		public override void WritePrefixedBytes(byte[]? bytes)
 		{
 			Log.Enter("byte[]");
 			base.WritePrefixedBytes(bytes);
 			Log.Exit();
 		}
 
-		public override ByteWriter WriteString(string s)
+		public override ByteWriter WriteString(string? s)
 		{
 			Log.Enter("string: " + s);
 			base.WriteString(s);
