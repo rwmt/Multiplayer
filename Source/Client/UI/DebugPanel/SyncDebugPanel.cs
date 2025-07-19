@@ -276,16 +276,44 @@ namespace Multiplayer.Client.DebugUi
         }
 
         /// <summary>
-        /// Draw performance recorder control buttons
+        /// Draw performance recorder control buttons and settings
         /// </summary>
         private static float DrawRecorderControls(float x, float y, float width)
         {
             var buttonWidth = 60f;
             var buttonHeight = 20f;
             var spacing = 4f;
-            
-            var startRect = new Rect(x, y, buttonWidth, buttonHeight);
-            var stopRect = new Rect(x + buttonWidth + spacing, y, buttonWidth, buttonHeight);
+            var lineHeight = 18f;
+            float currentY = y;
+
+            if (!PerformanceRecorder.IsRecording)
+            {
+                using (MpStyle.Set(GameFont.Tiny).Set(Color.white).Set(TextAnchor.MiddleLeft))
+                {
+                    float sampleCount = PerformanceRecorder.MaxSampleCountSetting;
+                    var sampleCountLabelRect = new Rect(x, currentY, width, lineHeight);
+                    Widgets.Label(sampleCountLabelRect, $"Max samples: {sampleCount}");
+                    currentY+= lineHeight + 1;
+
+                    var sampleCountSliderRect = new Rect(x, currentY, width, lineHeight);
+                    sampleCount = Widgets.HorizontalSlider(sampleCountSliderRect, sampleCount, 1000f, 500000f, roundTo: 0);
+                    PerformanceRecorder.MaxSampleCountSetting = (int)sampleCount;
+                    currentY += lineHeight + 1;
+
+                    float nonPerfInterval = PerformanceRecorder.NonPerfFrameIntervalSetting;
+                    var nonPerfLabelRect = new Rect(x, currentY, width, lineHeight);
+                    Widgets.Label(nonPerfLabelRect, $"Non-performance metric sample interval: {nonPerfInterval}");
+                    currentY += lineHeight + 1;
+
+                    var nonPerfSliderRect = new Rect(x, currentY, width, lineHeight);
+                    nonPerfInterval = Widgets.HorizontalSlider(nonPerfSliderRect, nonPerfInterval, 1f, 300f, roundTo: 0);
+                    PerformanceRecorder.NonPerfFrameIntervalSetting = (int)nonPerfInterval;
+                    currentY += lineHeight + 1;
+                }
+            }
+
+            var startRect = new Rect(x, currentY, buttonWidth, buttonHeight);
+            var stopRect = new Rect(x + buttonWidth + spacing, currentY, buttonWidth, buttonHeight);
             
             GUI.color = PerformanceRecorder.IsRecording ? Color.gray : Color.white;
             
@@ -302,7 +330,8 @@ namespace Multiplayer.Client.DebugUi
             }
             
             GUI.color = Color.white;
-            return buttonHeight + spacing;
+            currentY += buttonHeight + spacing;
+            return currentY - y;
         }
 
         /// <summary>

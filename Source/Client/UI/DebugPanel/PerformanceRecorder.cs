@@ -21,31 +21,37 @@ public static class PerformanceRecorder
     private static bool hasLoggedLimitWarning = false;
     private static DateTime recordingStartTime;
     private static int recordingFrameCount = 0;
-    private const int MaxSampleCount = 72000; // 20 min at 60fps
-    private const int NonPerfMetricsFrameInterval = 60;
     private static int lastNonPerfMetricsFrameCount = 0;
 
+    public static int MaxSampleCountSetting = 72000; // Default: 20 min at 60fps
+    public static int NonPerfFrameIntervalSetting = 60;
+    private static int cachedMaxSampleCount;
+    private static int cachedNonPerfMetricsFrameInterval;
+
     // Performance metrics
-    private static CircularBuffer<float> frameTimeSamples = new CircularBuffer<float>(MaxSampleCount);
-    private static CircularBuffer<float> tickTimeSamples = new CircularBuffer<float>(MaxSampleCount);
-    private static CircularBuffer<float> deltaTimeSamples = new CircularBuffer<float>(MaxSampleCount);
-    private static CircularBuffer<float> fpsSamples = new CircularBuffer<float>(MaxSampleCount);
-    private static CircularBuffer<float> tpsSamples = new CircularBuffer<float>(MaxSampleCount);
-    private static CircularBuffer<float> normalizedTpsSamples = new CircularBuffer<float>(MaxSampleCount);
-    private static CircularBuffer<float> serverTPTSamples = new CircularBuffer<float>(MaxSampleCount);
+    private static CircularBuffer<float> frameTimeSamples;
+    private static CircularBuffer<float> tickTimeSamples;
+    private static CircularBuffer<float> deltaTimeSamples;
+    private static CircularBuffer<float> fpsSamples;
+    private static CircularBuffer<float> tpsSamples;
+    private static CircularBuffer<float> normalizedTpsSamples;
+    private static CircularBuffer<float> serverTPTSamples;
 
     // Networking metrics
-    private static CircularBuffer<int> timerLagSamples = new CircularBuffer<int>(MaxSampleCount);
-    private static CircularBuffer<int> receivedCmdsSamples = new CircularBuffer<int>(MaxSampleCount / NonPerfMetricsFrameInterval);
-    private static CircularBuffer<int> sentCmdsSamples = new CircularBuffer<int>(MaxSampleCount / NonPerfMetricsFrameInterval);
-    private static CircularBuffer<int> bufferedChangesSamples = new CircularBuffer<int>(MaxSampleCount / NonPerfMetricsFrameInterval);
-    private static CircularBuffer<int> mapCmdsSamples = new CircularBuffer<int>(MaxSampleCount);
-    private static CircularBuffer<int> worldCmdsSamples = new CircularBuffer<int>(MaxSampleCount / NonPerfMetricsFrameInterval);
+    private static CircularBuffer<int> timerLagSamples;
+    private static CircularBuffer<int> receivedCmdsSamples;
+    private static CircularBuffer<int> sentCmdsSamples;
+    private static CircularBuffer<int> bufferedChangesSamples;
+    private static CircularBuffer<int> mapCmdsSamples;
+    private static CircularBuffer<int> worldCmdsSamples;
 
     // Memory/GC metrics
-    private static CircularBuffer<int> clientOpinionsSamples = new CircularBuffer<int>(MaxSampleCount / NonPerfMetricsFrameInterval);
-    private static CircularBuffer<int> worldPawnsSamples = new CircularBuffer<int>(MaxSampleCount / NonPerfMetricsFrameInterval);
-    private static CircularBuffer<int> windowCountSamples = new CircularBuffer<int>(MaxSampleCount / NonPerfMetricsFrameInterval);
+    private static CircularBuffer<int> clientOpinionsSamples;
+    private static CircularBuffer<int> worldPawnsSamples;
+    private static CircularBuffer<int> windowCountSamples;
+    
+    private static int MaxSampleCount => cachedMaxSampleCount;
+    private static int NonPerfMetricsFrameInterval => cachedNonPerfMetricsFrameInterval;
 
     public static bool IsRecording => isRecording;
     public static int FrameCount => recordingFrameCount;
@@ -189,6 +195,10 @@ public static class PerformanceRecorder
     {
         if (isRecording) return;
 
+        cachedMaxSampleCount = MaxSampleCountSetting;
+        cachedNonPerfMetricsFrameInterval = NonPerfFrameIntervalSetting;
+
+        InitializeBuffers();
         isRecording = true;
         recordingStartTime = DateTime.Now;
         recordingFrameCount = 0;
@@ -248,24 +258,49 @@ public static class PerformanceRecorder
     private static StatResult CalculateStats(IEnumerable<int> samples)
         => CalculateStats(samples.Select(s => (float)s));
 
+    private static void InitializeBuffers()
+    {
+        var maxSamples = MaxSampleCount;
+        var frameInterval = NonPerfMetricsFrameInterval;
+        var nonPerfSamples = Math.Max(1, maxSamples / frameInterval);
+        
+        frameTimeSamples = new CircularBuffer<float>(maxSamples);
+        tickTimeSamples = new CircularBuffer<float>(maxSamples);
+        deltaTimeSamples = new CircularBuffer<float>(maxSamples);
+        fpsSamples = new CircularBuffer<float>(maxSamples);
+        tpsSamples = new CircularBuffer<float>(maxSamples);
+        normalizedTpsSamples = new CircularBuffer<float>(maxSamples);
+        serverTPTSamples = new CircularBuffer<float>(maxSamples);
+        timerLagSamples = new CircularBuffer<int>(maxSamples);
+        mapCmdsSamples = new CircularBuffer<int>(maxSamples);
+        
+        receivedCmdsSamples = new CircularBuffer<int>(nonPerfSamples);
+        sentCmdsSamples = new CircularBuffer<int>(nonPerfSamples);
+        bufferedChangesSamples = new CircularBuffer<int>(nonPerfSamples);
+        worldCmdsSamples = new CircularBuffer<int>(nonPerfSamples);
+        clientOpinionsSamples = new CircularBuffer<int>(nonPerfSamples);
+        worldPawnsSamples = new CircularBuffer<int>(nonPerfSamples);
+        windowCountSamples = new CircularBuffer<int>(nonPerfSamples);
+    }
+    
     private static void ClearSamples()
     {
-        frameTimeSamples.Clear();
-        tickTimeSamples.Clear();
-        deltaTimeSamples.Clear();
-        fpsSamples.Clear();
-        tpsSamples.Clear();
-        normalizedTpsSamples.Clear();
-        serverTPTSamples.Clear();
-        timerLagSamples.Clear();
-        receivedCmdsSamples.Clear();
-        sentCmdsSamples.Clear();
-        bufferedChangesSamples.Clear();
-        mapCmdsSamples.Clear();
-        worldCmdsSamples.Clear();
-        clientOpinionsSamples.Clear();
-        worldPawnsSamples.Clear();
-        windowCountSamples.Clear();
+        frameTimeSamples?.Clear();
+        tickTimeSamples?.Clear();
+        deltaTimeSamples?.Clear();
+        fpsSamples?.Clear();
+        tpsSamples?.Clear();
+        normalizedTpsSamples?.Clear();
+        serverTPTSamples?.Clear();
+        timerLagSamples?.Clear();
+        receivedCmdsSamples?.Clear();
+        sentCmdsSamples?.Clear();
+        bufferedChangesSamples?.Clear();
+        mapCmdsSamples?.Clear();
+        worldCmdsSamples?.Clear();
+        clientOpinionsSamples?.Clear();
+        worldPawnsSamples?.Clear();
+        windowCountSamples?.Clear();
         lastNonPerfMetricsFrameCount = 0;
     }
 
@@ -345,9 +380,9 @@ public static class PerformanceRecorder
 
     private static void LogTrimWarningIfNeeded()
     {
-        if (!hasLoggedLimitWarning && frameTimeSamples.IsFull)
+        if (!hasLoggedLimitWarning && frameTimeSamples?.IsFull == true)
         {
-            Verse.Log.Warning("[PerformanceRecorder] Sample buffer full - oldest data will be overwritten to maintain rolling 20-minute window");
+            Verse.Log.Warning($"[PerformanceRecorder] Sample buffer full - oldest data will be overwritten to maintain rolling {MaxSampleCount} max sample count");
             hasLoggedLimitWarning = true;
         }
     }
