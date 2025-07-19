@@ -196,20 +196,14 @@ namespace Multiplayer.Client
 
                 Rect baseRect = serverBrowserWindow.windowRect;
 
-                float boxWidth = 310f;
-                float boxHeight = 88f;
                 float spacing = 5f;
+                float boxWidth = 310f;
+                float boxHeight = Text.CalcHeight("MpPrepatcherWarnNotFoundDescription".Translate().RemoveRichTextTags(), boxWidth - 16f);
 
-                Rect hintRect = new Rect(
-                    baseRect.xMax + spacing,
-                    baseRect.y,
-                    boxWidth,
-                    boxHeight
-                );
+                Rect hintRect = new Rect(baseRect.xMax + spacing, baseRect.y, boxWidth, boxHeight + 35f);
 
                 PrepatcherWarning.DoPrepatcherWarning(hintRect);
             }
-
         }
     }
 
@@ -229,16 +223,11 @@ namespace Multiplayer.Client
 
                 Rect baseRect = hostWindowWindow.windowRect;
 
-                float boxWidth = 310f;
-                float boxHeight = 88f;
                 float spacing = 5f;
+                float boxWidth = 310f;
+                float boxHeight = Text.CalcHeight("MpPrepatcherWarnNotFoundDescription".Translate().RemoveRichTextTags(), boxWidth - 16f);
 
-                Rect hintRect = new Rect(
-                    baseRect.xMax + spacing,
-                    baseRect.y,
-                    boxWidth,
-                    boxHeight
-                );
+                Rect hintRect = new Rect(baseRect.xMax + spacing, baseRect.y, boxWidth, boxHeight + 35f);
 
                 PrepatcherWarning.DoPrepatcherWarning(hintRect);
             }

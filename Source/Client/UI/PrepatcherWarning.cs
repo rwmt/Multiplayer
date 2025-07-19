@@ -1,22 +1,22 @@
-using Multiplayer.Client.Factions;
-using Multiplayer.Client.Util;
-using Multiplayer.Common;
-using RimWorld;
-using RimWorld.Planet;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Text.RegularExpressions;
 using UnityEngine;
+using RimWorld;
+using Steamworks;
 using Verse;
 using Verse.Sound;
 using Verse.Steam;
+using Multiplayer.Client.Util;
 
 namespace Multiplayer.Client
 {
     public static class PrepatcherWarning
     {
-        
+        private static readonly string prepatcherPackageId = "zetrith.prepatcher";
+        private static readonly PublishedFileId_t prepatcherFileId = new PublishedFileId_t(2934420800);
+        private static ModMetaData prepatcherMetaData;
+        public  static PrepatcherStatus prepatcherStatus = PrepatcherStatus.Unknown;
+
+        private const float Spacing = 8f;
+
         public static void DoPrepatcherWarning(Rect inRect)
         {
             GUI.BeginGroup(new Rect(inRect.x, inRect.y, inRect.width, inRect.height));
@@ -26,60 +26,97 @@ namespace Multiplayer.Client
             }
             GUI.EndGroup();
         }
+
         private static void DrawWarning(Rect inRect)
         {
-            Widgets.DrawMenuSection(inRect);
-            MouseoverSounds.DoRegion(inRect);
+            if (prepatcherStatus == PrepatcherStatus.Unknown)
+                CheckPrepatcherStatus();
 
-            if (SteamManager.Initialized)
-                TooltipHandler.TipRegion(inRect, "Open <color=#f4c542><b>Prepatcher</b></color> mod on <color=#4484b2><b>Steam Workshop</b></color>.");
-            else
-                TooltipHandler.TipRegion(inRect, "Open <color=#f4c542><b>Prepatcher</b></color> mod on browser.");
+            // Background
+            Widgets.DrawMenuSection(inRect);
+            DrawAnimatedBorder(inRect, 2f, new ColorInt(218, 166, 26).ToColor);
+            MouseoverSounds.DoRegion(inRect);
 
             if (Mouse.IsOver(inRect))
                 Widgets.DrawHighlight(inRect);
+            // END Background
 
-            if (Mouse.IsOver(inRect) && Input.GetMouseButtonDown(0))
-            {
-                SoundDefOf.TabOpen.PlayOneShotOnCamera();
-                if (SteamManager.Initialized)
-                {
-                    SteamUtility.OpenWorkshopPage(new Steamworks.PublishedFileId_t(2934420800));
-                }
-                else
-                {
-                    Application.OpenURL("https://steamcommunity.com/sharedfiles/filedetails/?id=2934420800");
-                }
-            }
-
-            DrawAnimatedBorder(inRect, 2f, new ColorInt(218, 166, 26).ToColor);
-            // Create Faction Headline
+            //Headline
             inRect.yMin += 5f;
             using (MpStyle.Set(GameFont.Small))
             using (MpStyle.Set(WordWrap.NoWrap))
-                Widgets.Label(inRect.Right(8f), "<b>PREPATCHER NOT FOUND</b>");
+            {
+                switch (prepatcherStatus)
+                {
+                    case PrepatcherStatus.NotFound:
+                        Widgets.Label(inRect.Right(Spacing), "MpPrepatcherWarnNotFoundHeadline".Translate());
+                        break;
+                    case PrepatcherStatus.NotActive:
+                        Widgets.Label(inRect.Right(Spacing), "MpPrepatcherWarnDisabledHeadline".Translate());
+                        break;
+                }
+            }
             inRect.yMin += 20f;
-            // END Create Faction Headline
+            //END Headline
 
             // Line
-            float lineX = inRect.x + 8f;
+            float lineX = inRect.x + Spacing;
             float lineY = inRect.yMin;
-            float lineWidth = inRect.width - 16f; //16*2 Header
+            float lineWidth = inRect.width - (Spacing * 2); //Cut both sides
             Widgets.DrawLineHorizontal(lineX, lineY, lineWidth);
             inRect.yMin += 5f;
             // END Line
 
-            // Description text
-            string warningText =
-     "Rituals will not work properly in multiplayer without the <color=#f4c542><b>Prepatcher</b></color> mod. " +
-     "Please <b>install</b> and <b>enable</b> it to avoid <color=red>desync issues</color>.";
+            // Description 
             using (MpStyle.Set(WordWrap.DoWrap))
             {
-                Rect textRect = new Rect(inRect.x + 8f, inRect.yMin, inRect.width - 16f, Text.CalcHeight(warningText, inRect.width - 16f));
-                Widgets.Label(textRect, warningText);
+                Rect textRect;
+                switch (prepatcherStatus)
+                {
+                    case PrepatcherStatus.NotFound:
+                        textRect = new Rect(inRect.x + Spacing, inRect.yMin, inRect.width - (Spacing * 2), Text.CalcHeight("MpPrepatcherWarnNotFoundDescription".Translate().RemoveRichTextTags(), inRect.width - (Spacing * 2)));
+                        Widgets.Label(textRect, "MpPrepatcherWarnNotFoundDescription".Translate());
+                        break;
+                    case PrepatcherStatus.NotActive:
+                        textRect = new Rect(inRect.x + Spacing, inRect.yMin, inRect.width - (Spacing * 2), Text.CalcHeight("MpPrepatcherWarnDisabledDescription".Translate().RemoveRichTextTags(), inRect.width - (Spacing * 2)));
+                        Widgets.Label(textRect, "MpPrepatcherWarnDisabledDescription".Translate());
+                        break;
+                }
+            
             }
+            // END Description 
 
+            // Tooltip
+            if (prepatcherStatus == PrepatcherStatus.NotFound)
+            {
+                if (SteamManager.Initialized)
+                    TooltipHandler.TipRegion(inRect, "MpPrepatcherWarnOpenSteamWorkshop".Translate());
+                else
+                    TooltipHandler.TipRegion(inRect, "MpPrepatcherWarnOpenBrowser".Translate());
 
+                if (Mouse.IsOver(inRect) && Input.GetMouseButtonDown(0))
+                {
+                    SoundDefOf.TabOpen.PlayOneShotOnCamera();
+                    if (SteamManager.Initialized)
+                        SteamUtility.OpenWorkshopPage(prepatcherFileId);
+                    else
+                        Application.OpenURL("https://steamcommunity.com/sharedfiles/filedetails/?id=2934420800");
+                }
+            }
+            else
+            {
+                //We don't want the game to restart without saving by accident.
+                if (Current.Game == null)
+                {
+                    TooltipHandler.TipRegion(inRect, "MpPrepatcherWarnEnableRestart".Translate());
+                    if (Mouse.IsOver(inRect) && Input.GetMouseButtonDown(0))
+                    {
+                        SoundDefOf.TabOpen.PlayOneShotOnCamera();
+                        DoRestart();
+                    }
+                }
+            }
+            // END Tooltip
         }
 
         private static void DrawAnimatedBorder(Rect inRect, float borderWidth, Color baseColor, float pulseSpeed = 1f)
@@ -99,18 +136,40 @@ namespace Multiplayer.Client
             GUI.color = prevColor;
         }
 
-        private static void DrawBorder(Rect inRect, float borderWidth, Color color)
+        public static void CheckPrepatcherStatus()
         {
-            Color prevColor = GUI.color;
+            prepatcherMetaData = ModLister.GetModWithIdentifier(prepatcherPackageId);
 
-            GUI.color = color;
+            if (prepatcherMetaData == null)
+            {
+                prepatcherStatus = PrepatcherStatus.NotFound;
+                return;
+            }
 
-            GUI.DrawTexture(new Rect(inRect.x, inRect.y, inRect.width, borderWidth), BaseContent.WhiteTex);                   // Up
-            GUI.DrawTexture(new Rect(inRect.x, inRect.yMax - borderWidth, inRect.width, borderWidth), BaseContent.WhiteTex);  // Down
-            GUI.DrawTexture(new Rect(inRect.x, inRect.y, borderWidth, inRect.height), BaseContent.WhiteTex);                  // Left
-            GUI.DrawTexture(new Rect(inRect.xMax - borderWidth, inRect.y, borderWidth, inRect.height), BaseContent.WhiteTex); // Right
+            prepatcherStatus = prepatcherMetaData.Active
+                ? PrepatcherStatus.Active
+                : PrepatcherStatus.NotActive;
+        }
 
-            GUI.color = prevColor;
+        private static void DoRestart()
+        {
+            if (prepatcherMetaData != null)
+            {
+                ModsConfig.SetActive(prepatcherMetaData.PackageId, true);
+                ModsConfig.RestartFromChangedMods();
+            }
+            else {
+                Messages.Message("MpPrepatcherWarnFail".Translate(), MessageTypeDefOf.NegativeEvent, false);
+                CheckPrepatcherStatus();
+            }
+        }
+
+        public enum PrepatcherStatus
+        {
+            Unknown,
+            NotFound,
+            NotActive,
+            Active
         }
     }
 }
