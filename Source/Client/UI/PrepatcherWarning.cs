@@ -188,7 +188,7 @@ namespace Multiplayer.Client
                     return;
 
                 //Check before boxWidth calc
-                if (PrepatcherStatus == PrepatcherStatus.Unknown)
+                if (prepatcherStatus == PrepatcherStatus.Unknown)
                     CheckPrepatcherStatus();
 
                 Rect baseRect = serverBrowserWindow.windowRect;
