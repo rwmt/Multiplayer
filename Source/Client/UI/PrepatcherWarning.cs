@@ -100,7 +100,7 @@ namespace Multiplayer.Client
                     if (SteamManager.Initialized)
                         SteamUtility.OpenWorkshopPage(prepatcherFileId);
                     else
-                        Application.OpenURL("https://steamcommunity.com/sharedfiles/filedetails/?id=2934420800");
+                        Application.OpenURL("https://steamcommunity.com/sharedfiles/filedetails/?id="+prepatcherFileId.m_PublishedFileId.ToString());
                 }
             }
             else
