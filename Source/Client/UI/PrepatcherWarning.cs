@@ -1,10 +1,13 @@
-using UnityEngine;
+using HarmonyLib;
+using Multiplayer.Client.Util;
 using RimWorld;
 using Steamworks;
+using System.Linq;
+using UnityEngine;
 using Verse;
 using Verse.Sound;
 using Verse.Steam;
-using Multiplayer.Client.Util;
+using static Multiplayer.Client.PrepatcherWarning;
 
 namespace Multiplayer.Client
 {
@@ -29,9 +32,6 @@ namespace Multiplayer.Client
 
         private static void DrawWarning(Rect inRect)
         {
-            if (prepatcherStatus == PrepatcherStatus.Unknown)
-                CheckPrepatcherStatus();
-
             // Background
             Widgets.DrawMenuSection(inRect);
             DrawAnimatedBorder(inRect, 2f, new ColorInt(218, 166, 26).ToColor);
@@ -170,6 +170,84 @@ namespace Multiplayer.Client
             NotInstalled,
             NotActive,
             Active
+        }
+    }
+
+    //Prepatcher Warning server browser
+    [HarmonyPatch(typeof(UIRoot_Entry), nameof(UIRoot_Entry.UIRootOnGUI))]
+    static class PrepatcherWarningUIRootEntryPatch
+    {
+        static void Postfix()
+        {
+            if (Find.WindowStack.WindowOfType<ServerBrowser>() != null)
+            {
+                ServerBrowser serverBrowserWindow = Find.WindowStack.Windows
+                    .FirstOrDefault(w => w.GetType().Name == typeof(ServerBrowser).Name) as ServerBrowser;
+
+                if (serverBrowserWindow == null)
+                    return;
+
+                //Check before boxWidth calc
+                if (PrepatcherStatus == PrepatcherStatus.Unknown)
+                    CheckPrepatcherStatus();
+
+                Rect baseRect = serverBrowserWindow.windowRect;
+
+                float spacing = 5f;
+                float boxWidth = 310f;
+                float boxHeight = 60f;
+                switch (prepatcherStatus)
+                {
+                    case PrepatcherStatus.NotInstalled:
+                        boxHeight = Text.CalcHeight("MpPrepatcherWarnNotInstalledDescription".Translate().RemoveRichTextTags(), boxWidth - 16f);
+                        break;
+                    case PrepatcherStatus.NotActive:
+                        boxHeight = Text.CalcHeight("MpPrepatcherWarnDisabledDescription".Translate().RemoveRichTextTags(), boxWidth - 16f);
+                        break;
+                }
+
+                Rect hintRect = new Rect(baseRect.xMax + spacing, baseRect.y, boxWidth, boxHeight + 35f);
+                PrepatcherWarning.DoPrepatcherWarning(hintRect);
+            }
+        }
+    }
+
+    //Prepatcher Warning in-game
+    [HarmonyPatch(typeof(UIRoot_Play), nameof(UIRoot_Play.UIRootOnGUI))]
+    static class PrepatcherWarningUIRootPlayPatch
+    {
+        static void Postfix()
+        {
+            if (Find.WindowStack.WindowOfType<HostWindow>() != null)
+            {
+                HostWindow hostWindowWindow = Find.WindowStack.Windows
+                    .FirstOrDefault(w => w.GetType().Name == typeof(HostWindow).Name) as HostWindow;
+
+                if (hostWindowWindow == null)
+                    return;
+
+                //Check before boxWidth calc
+                if (prepatcherStatus == PrepatcherStatus.Unknown)
+                    CheckPrepatcherStatus();
+
+                Rect baseRect = hostWindowWindow.windowRect;
+
+                float spacing = 5f;
+                float boxWidth = 310f;
+                float boxHeight = 60f;
+                switch (prepatcherStatus)
+                {
+                    case PrepatcherStatus.NotInstalled:
+                        boxHeight = Text.CalcHeight("MpPrepatcherWarnNotInstalledDescription".Translate().RemoveRichTextTags(), boxWidth - 16f);
+                        break;
+                    case PrepatcherStatus.NotActive:
+                        boxHeight = Text.CalcHeight("MpPrepatcherWarnDisabledDescription".Translate().RemoveRichTextTags(), boxWidth - 16f);
+                        break;
+                }
+
+                Rect hintRect = new Rect(baseRect.xMax + spacing, baseRect.y, boxWidth, boxHeight + 35f);
+                PrepatcherWarning.DoPrepatcherWarning(hintRect);
+            }
         }
     }
 }
