@@ -60,21 +60,20 @@
   </Target>
 
 
-  <!-- Define the path to the Multiplayer mod - ex: C:\Program Files (x86)\Steam\steamapps\workshop\content\294100\2606448745\1.6 -->
   <PropertyGroup>
-    <MultiplayerModPath>..\..\</MultiplayerModPath>
+    <ModOutputPath>..\..\</ModOutputPath>
   </PropertyGroup>
 
   <Target Name="CopyToRimworld" AfterTargets="Build">
-    <Copy SourceFiles="bin\Multiplayer.dll" DestinationFiles="$(MultiplayerModPath)\AssembliesCustom\Multiplayer.dll" />
-    <Copy SourceFiles="bin\MultiplayerCommon.dll" DestinationFiles="$(MultiplayerModPath)\AssembliesCustom\MultiplayerCommon.dll" />
+    <Copy SourceFiles="bin\Multiplayer.dll" DestinationFiles="$(ModOutputPath)\AssembliesCustom\Multiplayer.dll" />
+    <Copy SourceFiles="bin\MultiplayerCommon.dll" DestinationFiles="$(ModOutputPath)\AssembliesCustom\MultiplayerCommon.dll" />
 
-    <Copy SourceFiles="bin\0MultiplayerAPI.dll" DestinationFiles="$(MultiplayerModPath)\Assemblies\0MultiplayerAPI.dll" />
-    <Copy SourceFiles="bin\0PrepatcherAPI.dll" DestinationFiles="$(MultiplayerModPath)\Assemblies\0PrepatcherAPI.dll" />
-    <Copy SourceFiles="bin\LiteNetLib.dll" DestinationFiles="$(MultiplayerModPath)\Assemblies\LiteNetLib.dll" />
-    <Copy SourceFiles="bin\MultiplayerLoader.dll" DestinationFiles="$(MultiplayerModPath)\Assemblies\MultiplayerLoader.dll" />
-    <Copy SourceFiles="bin\RestSharp.dll" DestinationFiles="$(MultiplayerModPath)\Assemblies\RestSharp.dll" />
-    <Copy SourceFiles="bin\System.IO.Compression.dll" DestinationFiles="$(MultiplayerModPath)\Assemblies\System.IO.Compression.dll" />
+    <Copy SourceFiles="bin\0MultiplayerAPI.dll" DestinationFiles="$(ModOutputPath)\Assemblies\0MultiplayerAPI.dll" />
+    <Copy SourceFiles="bin\0PrepatcherAPI.dll" DestinationFiles="$(ModOutputPath)\Assemblies\0PrepatcherAPI.dll" />
+    <Copy SourceFiles="bin\LiteNetLib.dll" DestinationFiles="$(ModOutputPath)\Assemblies\LiteNetLib.dll" />
+    <Copy SourceFiles="bin\MultiplayerLoader.dll" DestinationFiles="$(ModOutputPath)\Assemblies\MultiplayerLoader.dll" />
+    <Copy SourceFiles="bin\RestSharp.dll" DestinationFiles="$(ModOutputPath)\Assemblies\RestSharp.dll" />
+    <Copy SourceFiles="bin\System.IO.Compression.dll" DestinationFiles="$(ModOutputPath)\Assemblies\System.IO.Compression.dll" />
   </Target>
 
 </Project>
