@@ -1,4 +1,3 @@
-using Multiplayer.Client.Patches;
 using Multiplayer.Client.Util;
 using Multiplayer.Common;
 using RimWorld;
@@ -19,37 +18,106 @@ namespace Multiplayer.Client.DebugUi;
 public static class PerformanceRecorder
 {
     private static bool isRecording = false;
+    private static bool hasLoggedLimitWarning = false;
     private static DateTime recordingStartTime;
     private static int recordingFrameCount = 0;
+    private const int MaxSampleCount = 72000; // 20 min at 60fps
+    private const int NonPerfMetricsFrameInterval = 60;
+    private static int lastNonPerfMetricsFrameCount = 0;
 
     // Performance metrics
-    private static List<float> frameTimeSamples = new List<float>();
-    private static List<float> tickTimeSamples = new List<float>();
-    private static List<float> deltaTimeSamples = new List<float>();
-    private static List<float> fpsSamples = new List<float>();
-    private static List<float> tpsSamples = new List<float>();
-    private static List<float> normalizedTpsSamples = new List<float>();
-    private static List<float> serverTPTSamples = new List<float>();
+    private static CircularBuffer<float> frameTimeSamples = new CircularBuffer<float>(MaxSampleCount);
+    private static CircularBuffer<float> tickTimeSamples = new CircularBuffer<float>(MaxSampleCount);
+    private static CircularBuffer<float> deltaTimeSamples = new CircularBuffer<float>(MaxSampleCount);
+    private static CircularBuffer<float> fpsSamples = new CircularBuffer<float>(MaxSampleCount);
+    private static CircularBuffer<float> tpsSamples = new CircularBuffer<float>(MaxSampleCount);
+    private static CircularBuffer<float> normalizedTpsSamples = new CircularBuffer<float>(MaxSampleCount);
+    private static CircularBuffer<float> serverTPTSamples = new CircularBuffer<float>(MaxSampleCount);
 
     // Networking metrics
-    private static List<int> timerLagSamples = new List<int>();
-    private static List<int> receivedCmdsSamples = new List<int>();
-    private static List<int> sentCmdsSamples = new List<int>();
-    private static List<int> bufferedChangesSamples = new List<int>();
-    private static List<int> mapCmdsSamples = new List<int>();
-    private static List<int> worldCmdsSamples = new List<int>();
+    private static CircularBuffer<int> timerLagSamples = new CircularBuffer<int>(MaxSampleCount);
+    private static CircularBuffer<int> receivedCmdsSamples = new CircularBuffer<int>(MaxSampleCount / NonPerfMetricsFrameInterval);
+    private static CircularBuffer<int> sentCmdsSamples = new CircularBuffer<int>(MaxSampleCount / NonPerfMetricsFrameInterval);
+    private static CircularBuffer<int> bufferedChangesSamples = new CircularBuffer<int>(MaxSampleCount / NonPerfMetricsFrameInterval);
+    private static CircularBuffer<int> mapCmdsSamples = new CircularBuffer<int>(MaxSampleCount);
+    private static CircularBuffer<int> worldCmdsSamples = new CircularBuffer<int>(MaxSampleCount / NonPerfMetricsFrameInterval);
 
     // Memory/GC metrics
-    private static List<int> clientOpinionsSamples = new List<int>();
-    private static List<int> worldPawnsSamples = new List<int>();
-    private static List<int> windowCountSamples = new List<int>();
-    
+    private static CircularBuffer<int> clientOpinionsSamples = new CircularBuffer<int>(MaxSampleCount / NonPerfMetricsFrameInterval);
+    private static CircularBuffer<int> worldPawnsSamples = new CircularBuffer<int>(MaxSampleCount / NonPerfMetricsFrameInterval);
+    private static CircularBuffer<int> windowCountSamples = new CircularBuffer<int>(MaxSampleCount / NonPerfMetricsFrameInterval);
+
     public static bool IsRecording => isRecording;
     public static int FrameCount => recordingFrameCount;
     public static TimeSpan RecordingDuration => isRecording ? DateTime.Now - recordingStartTime : TimeSpan.Zero;
-    public static float AverageFPS => fpsSamples.Count > 0 ? fpsSamples.Average() : 0f;
-    public static float AverageTPS => tpsSamples.Count > 0 ? tpsSamples.Average() : 0f;
-    public static float AverageNormalizedTPS => normalizedTpsSamples.Count > 0 ? normalizedTpsSamples.Average() : 0f;
+    public static float AverageFPS => fpsSamples.Count > 0 ? fpsSamples.GetValues().Average() : 0f;
+    public static float AverageTPS => tpsSamples.Count > 0 ? tpsSamples.GetValues().Average() : 0f;
+    public static float AverageNormalizedTPS => normalizedTpsSamples.Count > 0 ? normalizedTpsSamples.GetValues().Average() : 0f;
+
+    /// <summary>
+    /// Draws the performance recorder Start/Stop control buttons on the <see cref="SyncDebugPanel"/> interface.
+    /// </summary>
+    /// <param name="x">The x-coordinate of the starting position for the buttons.</param>
+    /// <param name="y">The y-coordinate of the starting position for the buttons.</param>
+    /// <param name="width">The total width available for the buttons.</param>
+    /// <returns>The total height occupied by the buttons, including spacing.</returns>
+    public static float DrawPerformanceRecorderControls(float x, float y, float width)
+    {
+        var buttonWidth = 60f;
+        var buttonHeight = 20f;
+        var spacing = 4f;
+
+        var startRect = new Rect(x, y, buttonWidth, buttonHeight);
+        var stopRect = new Rect(x + buttonWidth + spacing, y, buttonWidth, buttonHeight);
+
+        GUI.color = isRecording ? Color.gray : Color.white;
+
+        if (Widgets.ButtonText(startRect, "Start") && !isRecording)
+        {
+            StartRecording();
+        }
+
+        GUI.color = !isRecording ? Color.gray : Color.white;
+
+        if (Widgets.ButtonText(stopRect, "Stop") && isRecording)
+        {
+            StopRecording();
+        }
+
+        UnityEngine.GUI.color = Color.white;
+        return buttonHeight + spacing;
+    }
+
+    /// <summary>
+    /// Draws the performance recorder section on the <see cref="SyncDebugPanel"/> interface.
+    /// </summary>
+    /// <remarks>This method displays the current status of the performance recorder, including the frame count,
+    /// recording duration, and average frames per second (FPS) and ticks per second (TPS) if recording is active.</remarks>
+    /// <param name="x">The x-coordinate of the section's top-left corner.</param>
+    /// <param name="y">The y-coordinate of the section's top-left corner.</param>
+    /// <param name="width">The width of the section to be drawn.</param>
+    /// <returns>The height of the drawn section.</returns>
+    public static float DrawPerformanceRecorderSection(float x, float y, float width)
+    {
+        StatusBadge recordingStatus = GetRecordingStatus();
+
+        var lines = new List<DebugLine>
+        {
+            new DebugLine("Status:", recordingStatus.text, recordingStatus.color),
+            new DebugLine("Frame Count:", recordingFrameCount.ToString(), Color.white)
+        };
+
+        if (isRecording)
+        {
+            var duration = DateTime.Now - recordingStartTime;
+            lines.Add(new DebugLine("Duration:", $"{duration.TotalSeconds:F1}s", Color.white));
+            lines.Add(new DebugLine("Avg FPS:", fpsSamples.Count > 0 ? $"{AverageFPS:F1}" : "N/A", Color.white));
+            lines.Add(new DebugLine("Avg TPS:", tpsSamples.Count > 0 ? $"{AverageTPS:F1}" : "N/A", Color.white));
+        }
+
+        var section = new DebugSection("PERFORMANCE RECORDER", lines.ToArray());
+        return DrawSection(x, y, width, section);
+    }
 
     /// <summary>
     /// Get recording status for debug panel display
@@ -58,11 +126,65 @@ public static class PerformanceRecorder
     {
         if (!isRecording)
             return new StatusBadge("⏸", Color.gray, "REC", "Performance recording is stopped");
-        
+
         var duration = DateTime.Now - recordingStartTime;
         return new StatusBadge("⏺", Color.red, $"REC {duration.TotalSeconds:F0}s", $"Recording performance for {duration.TotalSeconds:F1} seconds");
     }
 
+    /// <summary>
+    /// Records the current frame's performance metrics, including frame time, FPS, and other relevant data.
+    /// </summary>
+    /// <remarks>This method collects and stores various performance metrics for the current frame if
+    /// recording is active. It logs frame time, FPS, and other metrics related to multiplayer and asynchronous
+    /// operations. The method also checks and records non-performance metrics at specified intervals.</remarks>
+    public static void RecordFrame()
+    {
+        if (!isRecording) return;
+
+        recordingFrameCount++;
+
+        LogTrimWarningIfNeeded();
+
+        float deltaTime = Time.deltaTime;
+        float frameTimeMs = deltaTime * 1000f;
+        float fps = deltaTime > 0 ? 1f / deltaTime : 0f;
+
+        frameTimeSamples.Add(frameTimeMs);
+        tickTimeSamples.Add(TickPatch.tickTimer?.ElapsedMilliseconds ?? 0);
+        deltaTimeSamples.Add(deltaTime * 60f);
+        fpsSamples.Add(fps);
+
+        if (Multiplayer.Client != null)
+        {
+            timerLagSamples.Add(TickPatch.tickUntil - TickPatch.Timer);
+
+            if (Find.CurrentMap?.AsyncTime() is AsyncTimeComp asyncComp)
+            {
+                float currentTps = IngameUIPatch.tps;
+                tpsSamples.Add(currentTps);
+
+                // Only record normalized TPS if we're not in stabilization period
+                if (PerformanceCalculator.GetStableNormalizedTPS(currentTps) is float stableNormalizedTps)
+                {
+                    normalizedTpsSamples.Add(stableNormalizedTps);
+                }
+
+                serverTPTSamples.Add(TickPatch.serverTimePerTick);
+                mapCmdsSamples.Add(asyncComp.cmds?.Count ?? 0);
+            }
+        }
+        // Check if enough frames have passed since last non-performance metrics update
+        if (recordingFrameCount >= lastNonPerfMetricsFrameCount + NonPerfMetricsFrameInterval)
+        {
+            RecordNonPerformanceMetrics();
+        }
+    }
+
+    /// <summary>
+    /// Initiates the recording process for performance metrics.
+    /// </summary>
+    /// <remarks>This method starts recording performance data if it is not already in progress.  It resets
+    /// the recording state and logs a message indicating the start of the recording.</remarks>
     public static void StartRecording()
     {
         if (isRecording) return;
@@ -70,28 +192,17 @@ public static class PerformanceRecorder
         isRecording = true;
         recordingStartTime = DateTime.Now;
         recordingFrameCount = 0;
+        ClearSamples();
 
-        // Clear previous samples
-        frameTimeSamples.Clear();
-        tickTimeSamples.Clear();
-        deltaTimeSamples.Clear();
-        fpsSamples.Clear();
-        tpsSamples.Clear();
-        normalizedTpsSamples.Clear();
-        serverTPTSamples.Clear();
-        timerLagSamples.Clear();
-        receivedCmdsSamples.Clear();
-        sentCmdsSamples.Clear();
-        bufferedChangesSamples.Clear();
-        mapCmdsSamples.Clear();
-        worldCmdsSamples.Clear();
-        clientOpinionsSamples.Clear();
-        worldPawnsSamples.Clear();
-        windowCountSamples.Clear();
-
-        Verse.Log.Message("[PerformanceRecorder] Recording started");
+        Verse.Log.Message("[PerformanceRecorder] Recording started");     
     }
 
+    /// <summary>
+    /// Stops the current recording session and processes the recorded data.
+    /// </summary>
+    /// <remarks>This method finalizes the recording session by calculating the duration of the recording,
+    /// generating results, and outputting them to the console and a file. It also clears any collected samples and
+    /// resets the logging state.</remarks>
     public static void StopRecording()
     {
         if (!isRecording) return;
@@ -99,89 +210,24 @@ public static class PerformanceRecorder
         isRecording = false;
         var recordingDuration = DateTime.Now - recordingStartTime;
 
-        Verse.Log.Message("[PerformanceRecorder] Recording stopped");
-
         // Generate and output results
         var results = GenerateResults(recordingDuration);
+        Verse.Log.Message("[PerformanceRecorder] Recording stopped");
+
         OutputToConsole(results);
         OutputToFile(results);
+        ClearSamples();
+        hasLoggedLimitWarning = false;
     }
 
-    public static void RecordFrame()
+    private static void AppendCountStats(StringBuilder sb, string name, int count)
     {
-        if (!isRecording) return;
+        sb.AppendLine($"{name,-25} Count: {count,6:N0}");
+    }
 
-        recordingFrameCount++;
-
-        // Performance metrics
-        frameTimeSamples.Add(Time.deltaTime * 1000f);
-        tickTimeSamples.Add(TickPatch.tickTimer?.ElapsedMilliseconds ?? 0);
-        deltaTimeSamples.Add(Time.deltaTime * 60f);
-        fpsSamples.Add(1f / Time.deltaTime);
-
-        // Networking metrics
-        if (Multiplayer.Client != null)
-        {
-            timerLagSamples.Add(TickPatch.tickUntil - TickPatch.Timer);
-            receivedCmdsSamples.Add(Multiplayer.session?.receivedCmds ?? 0);
-            sentCmdsSamples.Add(Multiplayer.session?.remoteSentCmds ?? 0);
-            bufferedChangesSamples.Add(SyncFieldUtil.bufferedChanges?.Sum(kv => kv.Value?.Count ?? 0) ?? 0);
-
-            if (Find.CurrentMap?.AsyncTime() != null)
-            {
-                var async = Find.CurrentMap.AsyncTime();
-                float currentTps = IngameUIPatch.tps;
-                tpsSamples.Add(currentTps);
-                
-                // Only record normalized TPS if we're not in stabilization period
-                if (PerformanceCalculator.GetStableNormalizedTPS(currentTps) is float stableNormalizedTps)
-                {
-                    normalizedTpsSamples.Add(stableNormalizedTps);
-                }
-                
-                serverTPTSamples.Add(TickPatch.serverTimePerTick);
-                mapCmdsSamples.Add(async.cmds?.Count ?? 0);
-                worldCmdsSamples.Add(Multiplayer.AsyncWorldTime?.cmds?.Count ?? 0);
-            }
-
-            clientOpinionsSamples.Add(Multiplayer.game?.sync?.knownClientOpinions?.Count ?? 0);
-        }
-
-        // Memory/system metrics
-        worldPawnsSamples.Add(Find.WorldPawns?.AllPawnsAliveOrDead?.Count ?? 0);
-        windowCountSamples.Add(Find.WindowStack?.windows?.Count ?? 0);
-        }
-        
-    private static PerformanceResults GenerateResults(TimeSpan duration)
+    private static void AppendDetailedStats(StringBuilder sb, string name, StatResult stats)
     {
-        return new PerformanceResults
-        {
-            Duration = duration,
-            FrameCount = recordingFrameCount,
-            StartTime = recordingStartTime,
-
-            // Performance stats
-            FrameTime = CalculateStats(frameTimeSamples),
-            TickTime = CalculateStats(tickTimeSamples),
-            DeltaTime = CalculateStats(deltaTimeSamples),
-            FPS = CalculateStats(fpsSamples),
-            TPS = CalculateStats(tpsSamples),
-            NormalizedTPS = CalculateStats(normalizedTpsSamples),
-            ServerTPT = CalculateStats(serverTPTSamples),
-
-            // Networking stats
-            TimerLag = CalculateStats(timerLagSamples.Select(x => (float)x)),
-            ReceivedCmds = CalculateStats(receivedCmdsSamples.Select(x => (float)x)),
-            SentCmds = CalculateStats(sentCmdsSamples.Select(x => (float)x)),
-            BufferedChanges = CalculateStats(bufferedChangesSamples.Select(x => (float)x)),
-            MapCmds = CalculateStats(mapCmdsSamples.Select(x => (float)x)),
-            WorldCmds = CalculateStats(worldCmdsSamples.Select(x => (float)x)),
-
-            // Memory stats
-            ClientOpinions = CalculateStats(clientOpinionsSamples.Select(x => (float)x)),
-            WorldPawns = CalculateStats(worldPawnsSamples.Select(x => (float)x)),
-            WindowCount = CalculateStats(windowCountSamples.Select(x => (float)x))
-        };
+        sb.AppendLine($"{name,-25} Avg: {stats.Average,8:F2}  Min: {stats.Min,8:F2}  Max: {stats.Max,8:F2}  Samples: {stats.Count,6:N0}");
     }
 
     private static StatResult CalculateStats(IEnumerable<float> samples)
@@ -199,173 +245,28 @@ public static class PerformanceRecorder
         };
     }
 
-    private static void OutputToConsole(PerformanceResults results)
+    private static StatResult CalculateStats(IEnumerable<int> samples)
+        => CalculateStats(samples.Select(s => (float)s));
+
+    private static void ClearSamples()
     {
-        var sb = new StringBuilder();
-        sb.AppendLine("-- MULTIPLAYER PERFORMANCE RECORDING RESULTS --");
-        sb.AppendLine($"Recording Duration: {results.Duration.TotalSeconds:F2} seconds");
-        sb.AppendLine($"Total Frames: {results.FrameCount:N0}");
-        sb.AppendLine($"Recording Start: {results.StartTime:yyyy-MM-dd HH:mm:ss}");
-        sb.AppendLine();
-
-        sb.AppendLine("PERFORMANCE METRICS:");
-        sb.AppendLine($"  Frame Time:     Avg {results.FrameTime.Average:F2}ms  Min {results.FrameTime.Min:F2}ms  Max {results.FrameTime.Max:F2}ms");
-        sb.AppendLine($"  Tick Time:      Avg {results.TickTime.Average:F2}ms  Min {results.TickTime.Min:F2}ms  Max {results.TickTime.Max:F2}ms");
-        sb.AppendLine($"  FPS:            Avg {results.FPS.Average:F1}     Min {results.FPS.Min:F1}     Max {results.FPS.Max:F1}");
-        sb.AppendLine($"  TPS (Raw):      Avg {results.TPS.Average:F2}     Min {results.TPS.Min:F2}     Max {results.TPS.Max:F2}");
-        sb.AppendLine($"  TPS (Norm %):   Avg {results.NormalizedTPS.Average:F1}%    Min {results.NormalizedTPS.Min:F1}%    Max {results.NormalizedTPS.Max:F1}%");
-        sb.AppendLine($"  Server TPT:     Avg {results.ServerTPT.Average:F2}ms  Min {results.ServerTPT.Min:F2}ms  Max {results.ServerTPT.Max:F2}ms");
-        sb.AppendLine();
-
-        sb.AppendLine("NETWORKING METRICS:");
-        sb.AppendLine($"  Timer Lag:      Avg {results.TimerLag.Average:F1}     Min {results.TimerLag.Min:F0}     Max {results.TimerLag.Max:F0}");
-        sb.AppendLine($"  Received Cmds:  Avg {results.ReceivedCmds.Average:F0}     Min {results.ReceivedCmds.Min:F0}     Max {results.ReceivedCmds.Max:F0}");
-        sb.AppendLine($"  Sent Cmds:      Avg {results.SentCmds.Average:F0}     Min {results.SentCmds.Min:F0}     Max {results.SentCmds.Max:F0}");
-        sb.AppendLine($"  Buffered Changes: Avg {results.BufferedChanges.Average:F0}   Min {results.BufferedChanges.Min:F0}     Max {results.BufferedChanges.Max:F0}");
-        sb.AppendLine($"  Map Commands:   Avg {results.MapCmds.Average:F0}     Min {results.MapCmds.Min:F0}     Max {results.MapCmds.Max:F0}");
-        sb.AppendLine($"  World Commands: Avg {results.WorldCmds.Average:F0}     Min {results.WorldCmds.Min:F0}     Max {results.WorldCmds.Max:F0}");
-        sb.AppendLine();
-
-        sb.AppendLine("SYSTEM METRICS:");
-        sb.AppendLine($"  Client Opinions: Avg {results.ClientOpinions.Average:F0}   Min {results.ClientOpinions.Min:F0}     Max {results.ClientOpinions.Max:F0}");
-        sb.AppendLine($"  World Pawns:     Avg {results.WorldPawns.Average:F0}   Min {results.WorldPawns.Min:F0}     Max {results.WorldPawns.Max:F0}");
-        sb.AppendLine($"  Window Count:    Avg {results.WindowCount.Average:F0}   Min {results.WindowCount.Min:F0}     Max {results.WindowCount.Max:F0}");
-        sb.AppendLine();
-        sb.AppendLine("-- END RECORDING RESULTS --");
-
-        Verse.Log.Message(sb.ToString());
-    }
-
-    private static void OutputToFile(PerformanceResults results)
-    {
-        try
-        {
-            var fileName = $"MpLogs/MpPerf-{results.StartTime:MMddHHmmss}.txt";
-            var filePath = Path.Combine(GenFilePaths.SaveDataFolderPath, fileName);
-
-            var sb = new StringBuilder();
-            sb.AppendLine("MULTIPLAYER PERFORMANCE RECORDING RESULTS");
-            sb.AppendLine("-----------------------------------------");
-            sb.AppendLine($"Recording Start: {results.StartTime:yyyy-MM-dd HH:mm:ss}");
-            sb.AppendLine($"Recording Duration: {results.Duration.TotalSeconds:F2} seconds");
-            sb.AppendLine($"Total Frames Recorded: {results.FrameCount:N0}");
-            sb.AppendLine($"Average Frame Rate: {results.FrameCount / results.Duration.TotalSeconds:F1} FPS");
-            sb.AppendLine();
-
-            sb.AppendLine("PERFORMANCE METRICS");
-            sb.AppendLine("-------------------");
-            AppendDetailedStats(sb, "Frame Time (ms)", results.FrameTime);
-            AppendDetailedStats(sb, "Tick Time (ms)", results.TickTime);
-            AppendDetailedStats(sb, "Delta Time", results.DeltaTime);
-            AppendDetailedStats(sb, "Frames Per Second", results.FPS);
-            AppendDetailedStats(sb, "Ticks Per Second (Raw)", results.TPS);
-            AppendDetailedStats(sb, "TPS Performance (%)", results.NormalizedTPS);
-            AppendDetailedStats(sb, "Server Time Per Tick (ms)", results.ServerTPT);
-            AppendDetailedStats(sb, "Timer Lag", results.TimerLag);
-
-            sb.AppendLine();
-
-
-
-            sb.AppendLine("MISC METRICS");
-            sb.AppendLine("------------");
-            AppendDetailedStats(sb, "Client Opinions", results.ClientOpinions);
-            AppendDetailedStats(sb, "World Pawns", results.WorldPawns);
-            AppendDetailedStats(sb, "Window Count", results.WindowCount);
-            sb.AppendLine();
-
-            sb.AppendLine("COMMAND METRICS");
-            sb.AppendLine("---------------");
-            AppendCountStats(sb, "Received Commands", (int)results.ReceivedCmds.Max);
-            AppendCountStats(sb, "Sent Commands", (int)results.SentCmds.Max);
-            AppendCountStats(sb, "Buffered Changes", (int)results.BufferedChanges.Max);
-            AppendCountStats(sb, "Map Commands", (int)results.MapCmds.Max);
-            AppendCountStats(sb, "World Commands", (int)results.WorldCmds.Max);
-            sb.AppendLine();
-
-            sb.AppendLine("SYSTEM INFORMATION");
-            sb.AppendLine("------------------");
-            sb.AppendLine($"RimWorld Version: {VersionControl.CurrentVersionStringWithRev}");
-            sb.AppendLine($"Multiplayer Version: {MpVersion.Version}");
-            sb.AppendLine($"Unity Version: {Application.unityVersion}");
-            sb.AppendLine($"Platform: {Application.platform}");
-            sb.AppendLine($"System Memory: {SystemInfo.systemMemorySize} MB");
-            sb.AppendLine($"Graphics Memory: {SystemInfo.graphicsMemorySize} MB");
-            sb.AppendLine($"Processor: {SystemInfo.processorType} ({SystemInfo.processorCount} cores)");
-
-            File.WriteAllText(filePath, sb.ToString());
-            Verse.Log.Message($"[PerformanceRecorder] Results saved to: {filePath}");
-        }
-        catch (Exception ex)
-        {
-            Verse.Log.Error($"[PerformanceRecorder] Failed to save results to file: {ex.Message}");
-        }
-    }
-
-    private static void AppendDetailedStats(StringBuilder sb, string name, StatResult stats)
-    {
-        sb.AppendLine($"{name,-25} Avg: {stats.Average,8:F2}  Min: {stats.Min,8:F2}  Max: {stats.Max,8:F2}  Samples: {stats.Count,6:N0}");
-    }
-
-    private static void AppendCountStats(StringBuilder sb, string name, int count)
-    {
-        sb.AppendLine($"{name,-25} Count: {count,6:N0}");
-    }
-    /// <summary>
-    /// Draw performance recorder section for debug panel
-    /// </summary>
-    public static float DrawPerformanceRecorderSection(float x, float y, float width)
-    {
-        StatusBadge recordingStatus = GetRecordingStatus();
-        
-        var lines = new List<DebugLine>
-        {
-            new DebugLine("Status:", recordingStatus.text, recordingStatus.color),
-            new DebugLine("Frame Count:", recordingFrameCount.ToString(), Color.white)
-        };
-
-        if (isRecording)
-        {
-            var duration = DateTime.Now - recordingStartTime;
-            lines.Add(new DebugLine("Duration:", $"{duration.TotalSeconds:F1}s", Color.white));
-            lines.Add(new DebugLine("Avg FPS:", frameTimeSamples.Count > 0 ? $"{fpsSamples.Average():F1}" : "N/A", Color.white));
-            lines.Add(new DebugLine("Avg TPS:", tpsSamples.Count > 0 ? $"{tpsSamples.Average():F1}" : "N/A", Color.white));
-        }
-
-        var section = new DebugSection("PERFORMANCE RECORDER", lines.ToArray());
-        return DrawSection(x, y, width, section);
-    }
-
-    /// <summary>
-    /// Draw performance recorder controls for debug panel
-    /// </summary>
-    public static float DrawPerformanceRecorderControls(float x, float y, float width)
-    {
-        var buttonWidth = 60f;
-        var buttonHeight = 20f;
-        var spacing = 4f;
-        
-        var startRect = new Rect(x, y, buttonWidth, buttonHeight);
-        var stopRect = new Rect(x + buttonWidth + spacing, y, buttonWidth, buttonHeight);
-
-        GUI.color = isRecording ? Color.gray : Color.white;
-        
-        if (Widgets.ButtonText(startRect, "Start") && !isRecording)
-        {
-            StartRecording();
-        }
-
-
-        GUI.color = !isRecording ? Color.gray : Color.white;
-        
-        if (Widgets.ButtonText(stopRect, "Stop") && isRecording)
-        {
-            StopRecording();
-        }
-        
-        
-        UnityEngine.GUI.color = Color.white;
-        return buttonHeight + spacing;
+        frameTimeSamples.Clear();
+        tickTimeSamples.Clear();
+        deltaTimeSamples.Clear();
+        fpsSamples.Clear();
+        tpsSamples.Clear();
+        normalizedTpsSamples.Clear();
+        serverTPTSamples.Clear();
+        timerLagSamples.Clear();
+        receivedCmdsSamples.Clear();
+        sentCmdsSamples.Clear();
+        bufferedChangesSamples.Clear();
+        mapCmdsSamples.Clear();
+        worldCmdsSamples.Clear();
+        clientOpinionsSamples.Clear();
+        worldPawnsSamples.Clear();
+        windowCountSamples.Clear();
+        lastNonPerfMetricsFrameCount = 0;
     }
 
     // Helper method to draw sections (copied from SyncDebugPanel pattern)
@@ -409,41 +310,249 @@ public static class PerformanceRecorder
 
         return y - startY + SectionSpacing;
     }
+
+    private static PerformanceResults GenerateResults(TimeSpan duration)
+    {
+        return new PerformanceResults
+        {
+            Duration = duration,
+            FrameCount = recordingFrameCount,
+            StartTime = recordingStartTime,
+
+            // Performance stats
+            FrameTime = CalculateStats(frameTimeSamples.GetValues()),
+            TickTime = CalculateStats(tickTimeSamples.GetValues()),
+            DeltaTime = CalculateStats(deltaTimeSamples.GetValues()),
+            FPS = CalculateStats(fpsSamples.GetValues()),
+            TPS = CalculateStats(tpsSamples.GetValues()),
+            NormalizedTPS = CalculateStats(normalizedTpsSamples.GetValues()),
+            ServerTPT = CalculateStats(serverTPTSamples.GetValues()),
+
+            // Networking stats
+            TimerLag = CalculateStats(timerLagSamples.GetValues()),
+            ReceivedCmds = CalculateStats(receivedCmdsSamples.GetValues()),
+            SentCmds = CalculateStats(sentCmdsSamples.GetValues()),
+            BufferedChanges = CalculateStats(bufferedChangesSamples.GetValues()),
+            MapCmds = CalculateStats(mapCmdsSamples.GetValues()),
+            WorldCmds = CalculateStats(worldCmdsSamples.GetValues()),
+
+            // Memory stats
+            ClientOpinions = CalculateStats(clientOpinionsSamples.GetValues()),
+            WorldPawns = CalculateStats(worldPawnsSamples.GetValues()),
+            WindowCount = CalculateStats(windowCountSamples.GetValues())
+        };
+    }
+
+    private static void LogTrimWarningIfNeeded()
+    {
+        if (!hasLoggedLimitWarning && frameTimeSamples.IsFull)
+        {
+            Verse.Log.Warning("[PerformanceRecorder] Sample buffer full - oldest data will be overwritten to maintain rolling 20-minute window");
+            hasLoggedLimitWarning = true;
+        }
+    }
+
+    private static void OutputToConsole(PerformanceResults results)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("-- MULTIPLAYER PERFORMANCE RECORDING RESULTS --");
+        sb.AppendLine($"Recording Duration: {results.Duration.TotalSeconds:F2} seconds");
+        sb.AppendLine($"Total Frames: {results.FrameCount:N0}");
+        sb.AppendLine($"Recording Start: {results.StartTime:yyyy-MM-dd HH:mm:ss}");
+        sb.AppendLine();
+
+        sb.AppendLine("PERFORMANCE METRICS:");
+        sb.AppendLine($"  Frame Time:     Avg {results.FrameTime.Average:F2}ms  Min {results.FrameTime.Min:F2}ms  Max {results.FrameTime.Max:F2}ms");
+        sb.AppendLine($"  Tick Time:      Avg {results.TickTime.Average:F2}ms  Min {results.TickTime.Min:F2}ms  Max {results.TickTime.Max:F2}ms");
+        sb.AppendLine($"  FPS:            Avg {results.FPS.Average:F1}     Min {results.FPS.Min:F1}     Max {results.FPS.Max:F1}");
+        sb.AppendLine($"  TPS (Raw):      Avg {results.TPS.Average:F2}     Min {results.TPS.Min:F2}     Max {results.TPS.Max:F2}");
+        sb.AppendLine($"  TPS (Norm %):   Avg {results.NormalizedTPS.Average:F1}%    Min {results.NormalizedTPS.Min:F1}%    Max {results.NormalizedTPS.Max:F1}%");
+        sb.AppendLine($"  Server TPT:     Avg {results.ServerTPT.Average:F2}ms  Min {results.ServerTPT.Min:F2}ms  Max {results.ServerTPT.Max:F2}ms");
+        sb.AppendLine();
+
+        sb.AppendLine("NETWORKING METRICS:");
+        sb.AppendLine($"  Timer Lag:      Avg {results.TimerLag.Average:F1}     Min {results.TimerLag.Min:F0}     Max {results.TimerLag.Max:F0}");
+        sb.AppendLine($"  Received Cmds:  Avg {results.ReceivedCmds.Average:F0}     Min {results.ReceivedCmds.Min:F0}     Max {results.ReceivedCmds.Max:F0}");
+        sb.AppendLine($"  Sent Cmds:      Avg {results.SentCmds.Average:F0}     Min {results.SentCmds.Min:F0}     Max {results.SentCmds.Max:F0}");
+        sb.AppendLine($"  Buffered Changes: Avg {results.BufferedChanges.Average:F0}   Min {results.BufferedChanges.Min:F0}     Max {results.BufferedChanges.Max:F0}");
+        sb.AppendLine($"  Map Commands:   Avg {results.MapCmds.Average:F0}     Min {results.MapCmds.Min:F0}     Max {results.MapCmds.Max:F0}");
+        sb.AppendLine($"  World Commands: Avg {results.WorldCmds.Average:F0}     Min {results.WorldCmds.Min:F0}     Max {results.WorldCmds.Max:F0}");
+        sb.AppendLine();
+
+        sb.AppendLine("SYSTEM METRICS:");
+        sb.AppendLine($"  Client Opinions: Avg {results.ClientOpinions.Average:F0}   Min {results.ClientOpinions.Min:F0}     Max {results.ClientOpinions.Max:F0}   ({results.ClientOpinions.Count} samples)");
+        sb.AppendLine($"  World Pawns:     Avg {results.WorldPawns.Average:F0}   Min {results.WorldPawns.Min:F0}     Max {results.WorldPawns.Max:F0}   ({results.WorldPawns.Count} samples)");
+        sb.AppendLine($"  Window Count:    Avg {results.WindowCount.Average:F0}   Min {results.WindowCount.Min:F0}     Max {results.WindowCount.Max:F0}   ({results.WindowCount.Count} samples)");
+        sb.AppendLine();
+        sb.AppendLine("-- END RECORDING RESULTS --");
+
+        Verse.Log.Message(sb.ToString());
+    }
+
+    private static void OutputToFile(PerformanceResults results)
+    {
+        try
+        {
+            var fileName = $"MpLogs/MpPerf-{results.StartTime:MMddHHmmss}.txt";
+            var filePath = Path.Combine(GenFilePaths.SaveDataFolderPath, fileName);
+
+            var sb = new StringBuilder();
+            sb.AppendLine("MULTIPLAYER PERFORMANCE RECORDING RESULTS");
+            sb.AppendLine("-----------------------------------------");
+            sb.AppendLine($"Recording Start: {results.StartTime:yyyy-MM-dd HH:mm:ss}");
+            sb.AppendLine($"Recording Duration: {results.Duration.TotalSeconds:F2} seconds");
+            sb.AppendLine($"Total Frames Recorded: {results.FrameCount:N0}");
+            sb.AppendLine($"Average Frame Rate: {results.FrameCount / results.Duration.TotalSeconds:F1} FPS");
+            sb.AppendLine();
+
+            sb.AppendLine("PERFORMANCE METRICS");
+            sb.AppendLine("-------------------");
+            AppendDetailedStats(sb, "Frame Time (ms)", results.FrameTime);
+            AppendDetailedStats(sb, "Tick Time (ms)", results.TickTime);
+            AppendDetailedStats(sb, "Delta Time", results.DeltaTime);
+            AppendDetailedStats(sb, "Frames Per Second", results.FPS);
+            AppendDetailedStats(sb, "Ticks Per Second (Raw)", results.TPS);
+            AppendDetailedStats(sb, "TPS Performance (%)", results.NormalizedTPS);
+            AppendDetailedStats(sb, "Server Time Per Tick (ms)", results.ServerTPT);
+            AppendDetailedStats(sb, "Timer Lag", results.TimerLag);
+
+            sb.AppendLine();
+
+            sb.AppendLine("MISC METRICS");
+            sb.AppendLine("------------");
+            AppendDetailedStats(sb, "Client Opinions", results.ClientOpinions);
+            AppendDetailedStats(sb, "World Pawns", results.WorldPawns);
+            AppendDetailedStats(sb, "Window Count", results.WindowCount);
+            sb.AppendLine();
+
+            sb.AppendLine("COMMAND METRICS");
+            sb.AppendLine("---------------");
+            AppendCountStats(sb, "Received Commands", (int)results.ReceivedCmds.Max);
+            AppendCountStats(sb, "Sent Commands", (int)results.SentCmds.Max);
+            AppendCountStats(sb, "Buffered Changes", (int)results.BufferedChanges.Max);
+            AppendCountStats(sb, "Map Commands", (int)results.MapCmds.Max);
+            AppendCountStats(sb, "World Commands", (int)results.WorldCmds.Max);
+            sb.AppendLine();
+
+            sb.AppendLine("SYSTEM INFORMATION");
+            sb.AppendLine("------------------");
+            sb.AppendLine($"RimWorld Version: {VersionControl.CurrentVersionStringWithRev}");
+            sb.AppendLine($"Multiplayer Version: {MpVersion.Version}");
+            sb.AppendLine($"Unity Version: {Application.unityVersion}");
+            sb.AppendLine($"Platform: {Application.platform}");
+            sb.AppendLine($"System Memory: {SystemInfo.systemMemorySize} MB");
+            sb.AppendLine($"Graphics Memory: {SystemInfo.graphicsMemorySize} MB");
+            sb.AppendLine($"Processor: {SystemInfo.processorType} ({SystemInfo.processorCount} cores)");
+
+            File.WriteAllText(filePath, sb.ToString());
+            Verse.Log.Message($"[PerformanceRecorder] Results saved to: {filePath}");
+        }
+        catch (Exception ex)
+        {
+            Verse.Log.Error($"[PerformanceRecorder] Failed to save results to file: {ex.Message}");
+        }
+    }
+
+    private static void RecordNonPerformanceMetrics()
+    {
+        lastNonPerfMetricsFrameCount = recordingFrameCount;
+
+        if (Multiplayer.Client != null)
+        {
+            bufferedChangesSamples.Add(SyncFieldUtil.bufferedChanges?.Sum(kv => kv.Value?.Count ?? 0) ?? 0);
+            receivedCmdsSamples.Add(Multiplayer.session?.receivedCmds ?? 0);
+            sentCmdsSamples.Add(Multiplayer.session?.remoteSentCmds ?? 0);
+            worldCmdsSamples.Add(Multiplayer.AsyncWorldTime?.cmds?.Count ?? 0);
+            clientOpinionsSamples.Add(Multiplayer.game?.sync?.knownClientOpinions?.Count ?? 0);
+        }
+
+        worldPawnsSamples.Add(Find.WorldPawns?.AllPawnsAliveOrDead?.Count ?? 0);
+        windowCountSamples.Add(Find.WindowStack?.windows?.Count ?? 0);
+    }
 }
 
-public class PerformanceResults
-{
-    public TimeSpan Duration;
-    public int FrameCount;
-    public DateTime StartTime;
+#region PerformanceResults and StatResult
 
-    // Performance
-    public StatResult FrameTime;
-    public StatResult TickTime;
-    public StatResult DeltaTime;
-    public StatResult FPS;
-    public StatResult TPS;
-    public StatResult NormalizedTPS;
-    public StatResult ServerTPT;
-
-    // Networking
-    public StatResult TimerLag;
-    public StatResult ReceivedCmds;
-    public StatResult SentCmds;
-    public StatResult BufferedChanges;
-    public StatResult MapCmds;
-    public StatResult WorldCmds;
-
-    // System
-    public StatResult ClientOpinions;
-    public StatResult WorldPawns;
-    public StatResult WindowCount;
-}
-
-public struct StatResult
+internal struct StatResult
 {
     public float Average;
-    public float Min;
-    public float Max;
     public int Count;
+    public float Max;
+    public float Min;
 }
+
+internal class PerformanceResults
+{
+    public StatResult BufferedChanges;
+    // System
+    public StatResult ClientOpinions;
+
+    public StatResult DeltaTime;
+    public TimeSpan Duration;
+    public StatResult FPS;
+    public int FrameCount;
+    // Performance
+    public StatResult FrameTime;
+
+    public StatResult MapCmds;
+    public StatResult NormalizedTPS;
+    public StatResult ReceivedCmds;
+    public StatResult SentCmds;
+    public StatResult ServerTPT;
+    public DateTime StartTime;
+    public StatResult TickTime;
+    // Networking
+    public StatResult TimerLag;
+
+    public StatResult TPS;
+    public StatResult WindowCount;
+    public StatResult WorldCmds;
+    public StatResult WorldPawns;
+}
+#endregion PerformanceResults and StatResult
+
+#region CircularBuffer
+
+internal class CircularBuffer<T>
+{
+    private readonly T[] buffer;
+    private readonly int capacity;
+    private int count = 0;
+    private int head = 0;
+    public CircularBuffer(int capacity)
+    {
+        this.capacity = capacity;
+        this.buffer = new T[capacity];
+    }
+
+    public int Count => count;
+
+    public bool IsFull => count == capacity;
+
+    public void Add(T item)
+    {
+        buffer[head] = item;
+        head = (head + 1) % capacity;
+        if (count < capacity)
+            count++;
+    }
+
+    public void Clear()
+    {
+        head = 0;
+        count = 0;
+        Array.Clear(buffer, 0, capacity);
+    }
+
+    public IEnumerable<T> GetValues()
+    {
+        if (count == 0) yield break;
+
+        int start = count < capacity ? 0 : head;
+        for (int i = 0; i < count; i++)
+        {
+            yield return buffer[(start + i) % capacity];
+        }
+    }
+}
+#endregion CircularBuffer
