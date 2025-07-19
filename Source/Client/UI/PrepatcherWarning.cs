@@ -75,7 +75,7 @@ namespace Multiplayer.Client
                 {
                     case PrepatcherStatus.NotInstalled:
                         textRect = new Rect(inRect.x + Spacing, inRect.yMin, inRect.width - (Spacing * 2), Text.CalcHeight("MpPrepatcherWarnNotInstalledDescription".Translate().RemoveRichTextTags(), inRect.width - (Spacing * 2)));
-                        Widgets.Label(textRect, "MpPrepatcherWarnNotFoundDescription".Translate());
+                        Widgets.Label(textRect, "MpPrepatcherWarnNotInstalledDescription".Translate());
                         break;
                     case PrepatcherStatus.NotActive:
                         textRect = new Rect(inRect.x + Spacing, inRect.yMin, inRect.width - (Spacing * 2), Text.CalcHeight("MpPrepatcherWarnDisabledDescription".Translate().RemoveRichTextTags(), inRect.width - (Spacing * 2)));
