@@ -48,8 +48,8 @@ namespace Multiplayer.Client
             {
                 switch (prepatcherStatus)
                 {
-                    case PrepatcherStatus.NotFound:
-                        Widgets.Label(inRect.Right(Spacing), "MpPrepatcherWarnNotFoundHeadline".Translate());
+                    case PrepatcherStatus.NotInstalled:
+                        Widgets.Label(inRect.Right(Spacing), "MpPrepatcherWarnNotInstalledHeadline".Translate());
                         break;
                     case PrepatcherStatus.NotActive:
                         Widgets.Label(inRect.Right(Spacing), "MpPrepatcherWarnDisabledHeadline".Translate());
@@ -73,8 +73,8 @@ namespace Multiplayer.Client
                 Rect textRect;
                 switch (prepatcherStatus)
                 {
-                    case PrepatcherStatus.NotFound:
-                        textRect = new Rect(inRect.x + Spacing, inRect.yMin, inRect.width - (Spacing * 2), Text.CalcHeight("MpPrepatcherWarnNotFoundDescription".Translate().RemoveRichTextTags(), inRect.width - (Spacing * 2)));
+                    case PrepatcherStatus.NotInstalled:
+                        textRect = new Rect(inRect.x + Spacing, inRect.yMin, inRect.width - (Spacing * 2), Text.CalcHeight("MpPrepatcherWarnNotInstalledDescription".Translate().RemoveRichTextTags(), inRect.width - (Spacing * 2)));
                         Widgets.Label(textRect, "MpPrepatcherWarnNotFoundDescription".Translate());
                         break;
                     case PrepatcherStatus.NotActive:
@@ -87,7 +87,7 @@ namespace Multiplayer.Client
             // END Description 
 
             // Tooltip
-            if (prepatcherStatus == PrepatcherStatus.NotFound)
+            if (prepatcherStatus == PrepatcherStatus.NotInstalled)
             {
                 if (SteamManager.Initialized)
                     TooltipHandler.TipRegion(inRect, "MpPrepatcherWarnOpenSteamWorkshop".Translate());
@@ -142,7 +142,7 @@ namespace Multiplayer.Client
 
             if (prepatcherMetaData == null)
             {
-                prepatcherStatus = PrepatcherStatus.NotFound;
+                prepatcherStatus = PrepatcherStatus.NotInstalled;
                 return;
             }
 
@@ -167,7 +167,7 @@ namespace Multiplayer.Client
         public enum PrepatcherStatus
         {
             Unknown,
-            NotFound,
+            NotInstalled,
             NotActive,
             Active
         }
