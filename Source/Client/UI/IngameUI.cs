@@ -1,12 +1,11 @@
 using HarmonyLib;
 using Multiplayer.Common;
 using RimWorld;
-using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 using Verse;
+using RimWorld.Planet;
 
 namespace Multiplayer.Client
 {
