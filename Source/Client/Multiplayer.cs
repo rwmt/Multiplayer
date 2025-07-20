@@ -49,7 +49,8 @@ namespace Multiplayer.Client
 
         public static Faction RealPlayerFaction => Client != null ? game.RealPlayerFaction : Faction.OfPlayer;
 
-        public static bool ExecutingCmds => AsyncWorldTimeComp.executingCmdWorld || AsyncTimeComp.executingCmdMap != null;
+        public static bool ExecutingCmds => TickPatch.currentExecutingCmdType != null;
+        public static bool ExecutingCmdDebugTool => TickPatch.currentExecutingCmdType == CommandType.DebugTools;
         public static bool Ticking => AsyncWorldTimeComp.tickingWorld || AsyncTimeComp.tickingMap != null || ConstantTicker.ticking;
         public static Map MapContext => AsyncTimeComp.tickingMap ?? AsyncTimeComp.executingCmdMap;
 

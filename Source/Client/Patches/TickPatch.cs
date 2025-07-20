@@ -21,6 +21,7 @@ namespace Multiplayer.Client
         public static int tickUntil; // Ticks < tickUntil can be simulated
         public static int workTicks;
         public static bool currentExecutingCmdIssuedBySelf;
+        public static CommandType? currentExecutingCmdType;
         public static bool serverFrozen;
         public static int frozenAt;
 

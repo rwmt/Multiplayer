@@ -249,7 +249,7 @@ namespace Multiplayer.Client
         {
             if (Multiplayer.Client == null) return true;
             if (!Multiplayer.GameComp.debugMode) return true;
-            if (!ActionIsCreatedInDebugActionsIncidents(action)) return true;
+            if (!Multiplayer.ExecutingCmdDebugTool) return true;
             if (!DebugSync.ShouldHandle()) return true;
 
             DebugSync.CurrentPlayerState.currentData = action;
@@ -263,11 +263,6 @@ namespace Multiplayer.Client
             };
 
             return true;
-        }
-
-        private static bool ActionIsCreatedInDebugActionsIncidents(Action<LocalTargetInfo> action)
-        {
-            return action?.Method.DeclaringType?.DeclaringType == typeof(DebugActionsIncidents);
         }
     }
 

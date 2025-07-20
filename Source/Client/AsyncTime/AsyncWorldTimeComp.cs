@@ -18,7 +18,6 @@ namespace Multiplayer.Client.AsyncTime;
 public class AsyncWorldTimeComp : IExposable, ITickable
 {
     public static bool tickingWorld;
-    public static bool executingCmdWorld;
     private TimeSpeed timeSpeedInt;
 
     public float TimeToTickThrough { get; set; }
@@ -172,8 +171,8 @@ public class AsyncWorldTimeComp : IExposable, ITickable
         LoggingByteReader data = new LoggingByteReader(cmd.data);
         data.Log.Node($"{cmdType} Global");
 
-        executingCmdWorld = true;
         TickPatch.currentExecutingCmdIssuedBySelf = cmd.issuedBySelf && !TickPatch.Simulating;
+        TickPatch.currentExecutingCmdType = cmdType;
 
         PreContext();
         FactionExtensions.PushFaction(null, cmd.GetFaction());
@@ -252,7 +251,7 @@ public class AsyncWorldTimeComp : IExposable, ITickable
             FactionExtensions.PopFaction();
             PostContext();
             TickPatch.currentExecutingCmdIssuedBySelf = false;
-            executingCmdWorld = false;
+            TickPatch.currentExecutingCmdType = null;
 
             Multiplayer.game.sync.TryAddCommandRandomState(randState);
 
