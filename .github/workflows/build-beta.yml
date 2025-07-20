@@ -15,6 +15,8 @@ jobs:
   build:
     name: Build beta
     runs-on: ubuntu-latest
+    env:
+        GH_TOKEN: ${{ github.token }}
     steps:
     - name: Checkout Repository
       uses: actions/checkout@v4
@@ -32,14 +34,22 @@ jobs:
     - name: Build Mod
       run: dotnet build ${{ env.SLN_PATH }} --configuration Release --no-restore
 
-    - run: mkdir -p output/Multiplayer
-
-    - name: Move files
-      run: mv About/ Assemblies/ AssembliesCustom/ Defs/ Languages/ Textures/ output/Multiplayer
+    - name: Package files
+      run: zip -r Multiplayer-beta.zip About/ Assemblies/ AssembliesCustom/ Defs/ Languages/ Textures/ 
 
     - name: Upload Mod Artifacts
       uses: actions/upload-artifact@v4
       with:
         name: Multiplayer-beta
-        path: |
-          output/
+        path: Multiplayer-beta.zip
+    
+    - name: Clean up last release
+      continue-on-error: true
+      run: |
+        gh release delete --cleanup-tag --yes "continuous"
+    
+    - name: Upload new release
+      run: |
+        gh release create --target "${{ github.sha }}" --title "Continuous" --notes "This 'alpha' release is an automatically generated snapshot of the current state of development. It is continuously updated with work-in-progress changes that may be broken, incomplete, or incompatible." --draft "continuous"
+        gh release upload "continuous" Multiplayer-beta.zip
+        gh release edit "continuous" --draft=false
