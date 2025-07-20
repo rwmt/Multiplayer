@@ -126,8 +126,6 @@ public static class FactionCreator
                 null
             );
 
-            SetAllThingWithCompsOnMapForbidden(map);
-
             return map;
         }
         finally
@@ -136,18 +134,6 @@ public static class FactionCreator
             Current.Game.Scenario = prevScenario;
             Find.GameInfo.startingTile = prevStartingTile;
             Find.GameInitData.startingTile = prevStartingTile;
-        }
-    }
-
-    // TODO: Remove this Workaround (see Issue #535)
-    private static void SetAllThingWithCompsOnMapForbidden(Map map)
-    {
-        foreach (Thing thing in map.listerThings.AllThings)
-        {
-            if (thing is ThingWithComps)
-            {
-                thing.SetForbidden(true, false);
-            }
         }
     }
 
