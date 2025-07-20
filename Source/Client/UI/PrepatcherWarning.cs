@@ -1,0 +1,253 @@
+using HarmonyLib;
+using Multiplayer.Client.Util;
+using RimWorld;
+using Steamworks;
+using System.Linq;
+using UnityEngine;
+using Verse;
+using Verse.Sound;
+using Verse.Steam;
+using static Multiplayer.Client.PrepatcherWarning;
+
+namespace Multiplayer.Client
+{
+    public static class PrepatcherWarning
+    {
+        private static readonly string prepatcherPackageId = "zetrith.prepatcher";
+        private static readonly PublishedFileId_t prepatcherFileId = new PublishedFileId_t(2934420800);
+        private static ModMetaData prepatcherMetaData;
+        public  static PrepatcherStatus prepatcherStatus = PrepatcherStatus.Unknown;
+
+        private const float Spacing = 8f;
+
+        public static void DoPrepatcherWarning(Rect inRect)
+        {
+            GUI.BeginGroup(new Rect(inRect.x, inRect.y, inRect.width, inRect.height));
+            {
+                Rect groupRect = new Rect(0, 0, inRect.width, inRect.height);
+                DrawWarning(groupRect);
+            }
+            GUI.EndGroup();
+        }
+
+        private static void DrawWarning(Rect inRect)
+        {
+            // Background
+            Widgets.DrawMenuSection(inRect);
+            DrawAnimatedBorder(inRect, 2f, new ColorInt(218, 166, 26).ToColor);
+            MouseoverSounds.DoRegion(inRect);
+
+            if (Mouse.IsOver(inRect))
+                Widgets.DrawHighlight(inRect);
+            // END Background
+
+            //Headline
+            inRect.yMin += 5f;
+            using (MpStyle.Set(GameFont.Small))
+            using (MpStyle.Set(WordWrap.NoWrap))
+            {
+                switch (prepatcherStatus)
+                {
+                    case PrepatcherStatus.NotInstalled:
+                        Widgets.Label(inRect.Right(Spacing), "MpPrepatcherWarnNotInstalledHeadline".Translate());
+                        break;
+                    case PrepatcherStatus.NotActive:
+                        Widgets.Label(inRect.Right(Spacing), "MpPrepatcherWarnDisabledHeadline".Translate());
+                        break;
+                }
+            }
+            inRect.yMin += 20f;
+            //END Headline
+
+            // Line
+            float lineX = inRect.x + Spacing;
+            float lineY = inRect.yMin;
+            float lineWidth = inRect.width - (Spacing * 2); //Cut both sides
+            Widgets.DrawLineHorizontal(lineX, lineY, lineWidth);
+            inRect.yMin += 5f;
+            // END Line
+
+            // Description 
+            using (MpStyle.Set(WordWrap.DoWrap))
+            {
+                Rect textRect;
+                switch (prepatcherStatus)
+                {
+                    case PrepatcherStatus.NotInstalled:
+                        textRect = new Rect(inRect.x + Spacing, inRect.yMin, inRect.width - (Spacing * 2), Text.CalcHeight("MpPrepatcherWarnNotInstalledDescription".Translate().RemoveRichTextTags(), inRect.width - (Spacing * 2)));
+                        Widgets.Label(textRect, "MpPrepatcherWarnNotInstalledDescription".Translate());
+                        break;
+                    case PrepatcherStatus.NotActive:
+                        textRect = new Rect(inRect.x + Spacing, inRect.yMin, inRect.width - (Spacing * 2), Text.CalcHeight("MpPrepatcherWarnDisabledDescription".Translate().RemoveRichTextTags(), inRect.width - (Spacing * 2)));
+                        Widgets.Label(textRect, "MpPrepatcherWarnDisabledDescription".Translate());
+                        break;
+                }
+            
+            }
+            // END Description 
+
+            // Tooltip
+            if (prepatcherStatus == PrepatcherStatus.NotInstalled)
+            {
+                if (SteamManager.Initialized)
+                    TooltipHandler.TipRegion(inRect, "MpPrepatcherWarnOpenSteamWorkshop".Translate());
+                else
+                    TooltipHandler.TipRegion(inRect, "MpPrepatcherWarnOpenBrowser".Translate());
+
+                if (Mouse.IsOver(inRect) && Input.GetMouseButtonDown(0))
+                {
+                    SoundDefOf.TabOpen.PlayOneShotOnCamera();
+                    if (SteamManager.Initialized)
+                        SteamUtility.OpenWorkshopPage(prepatcherFileId);
+                    else
+                        Application.OpenURL("https://steamcommunity.com/sharedfiles/filedetails/?id="+prepatcherFileId.m_PublishedFileId.ToString());
+                }
+            }
+            else
+            {
+                //We don't want the game to restart without saving by accident.
+                if (Current.Game == null)
+                {
+                    TooltipHandler.TipRegion(inRect, "MpPrepatcherWarnEnableRestart".Translate());
+                    if (Mouse.IsOver(inRect) && Input.GetMouseButtonDown(0))
+                    {
+                        SoundDefOf.TabOpen.PlayOneShotOnCamera();
+                        DoRestart();
+                    }
+                }
+            }
+            // END Tooltip
+        }
+
+        private static void DrawAnimatedBorder(Rect inRect, float borderWidth, Color baseColor, float pulseSpeed = 1f)
+        {
+            Color prevColor = GUI.color;
+
+            float pulse = Mathf.PingPong(Time.realtimeSinceStartup * pulseSpeed, 1f);
+            Color animatedColor = Color.Lerp(baseColor, Color.white, pulse);  
+
+            GUI.color = animatedColor;
+
+            GUI.DrawTexture(new Rect(inRect.x, inRect.y, inRect.width, borderWidth), BaseContent.WhiteTex);                   // Up
+            GUI.DrawTexture(new Rect(inRect.x, inRect.yMax - borderWidth, inRect.width, borderWidth), BaseContent.WhiteTex);  // Down
+            GUI.DrawTexture(new Rect(inRect.x, inRect.y, borderWidth, inRect.height), BaseContent.WhiteTex);                  // Left
+            GUI.DrawTexture(new Rect(inRect.xMax - borderWidth, inRect.y, borderWidth, inRect.height), BaseContent.WhiteTex); // Right
+
+            GUI.color = prevColor;
+        }
+
+        public static void CheckPrepatcherStatus()
+        {
+            prepatcherMetaData = ModLister.GetModWithIdentifier(prepatcherPackageId);
+
+            if (prepatcherMetaData == null)
+            {
+                prepatcherStatus = PrepatcherStatus.NotInstalled;
+                return;
+            }
+
+            prepatcherStatus = prepatcherMetaData.Active
+                ? PrepatcherStatus.Active
+                : PrepatcherStatus.NotActive;
+        }
+
+        private static void DoRestart()
+        {
+            if (prepatcherMetaData != null)
+            {
+                ModsConfig.SetActive(prepatcherMetaData.PackageId, true);
+                ModsConfig.RestartFromChangedMods();
+            }
+            else {
+                Messages.Message("MpPrepatcherWarnFail".Translate(), MessageTypeDefOf.NegativeEvent, false);
+                CheckPrepatcherStatus();
+            }
+        }
+
+        public enum PrepatcherStatus
+        {
+            Unknown,
+            NotInstalled,
+            NotActive,
+            Active
+        }
+    }
+
+    //Prepatcher Warning server browser
+    [HarmonyPatch(typeof(UIRoot_Entry), nameof(UIRoot_Entry.UIRootOnGUI))]
+    static class PrepatcherWarningUIRootEntryPatch
+    {
+        static void Postfix()
+        {
+            if (Find.WindowStack.WindowOfType<ServerBrowser>() != null)
+            {
+                ServerBrowser serverBrowserWindow = Find.WindowStack.Windows
+                    .FirstOrDefault(w => w.GetType().Name == typeof(ServerBrowser).Name) as ServerBrowser;
+
+                if (serverBrowserWindow == null)
+                    return;
+
+                //Check before boxWidth calc
+                if (prepatcherStatus == PrepatcherStatus.Unknown)
+                    CheckPrepatcherStatus();
+
+                Rect baseRect = serverBrowserWindow.windowRect;
+
+                float spacing = 5f;
+                float boxWidth = 310f;
+                float boxHeight = 60f;
+                switch (prepatcherStatus)
+                {
+                    case PrepatcherStatus.NotInstalled:
+                        boxHeight = Text.CalcHeight("MpPrepatcherWarnNotInstalledDescription".Translate().RemoveRichTextTags(), boxWidth - 16f);
+                        break;
+                    case PrepatcherStatus.NotActive:
+                        boxHeight = Text.CalcHeight("MpPrepatcherWarnDisabledDescription".Translate().RemoveRichTextTags(), boxWidth - 16f);
+                        break;
+                }
+
+                Rect hintRect = new Rect(baseRect.xMax + spacing, baseRect.y, boxWidth, boxHeight + 35f);
+                PrepatcherWarning.DoPrepatcherWarning(hintRect);
+            }
+        }
+    }
+
+    //Prepatcher Warning in-game
+    [HarmonyPatch(typeof(UIRoot_Play), nameof(UIRoot_Play.UIRootOnGUI))]
+    static class PrepatcherWarningUIRootPlayPatch
+    {
+        static void Postfix()
+        {
+            if (Find.WindowStack.WindowOfType<HostWindow>() != null)
+            {
+                HostWindow hostWindowWindow = Find.WindowStack.Windows
+                    .FirstOrDefault(w => w.GetType().Name == typeof(HostWindow).Name) as HostWindow;
+
+                if (hostWindowWindow == null)
+                    return;
+
+                //Check before boxWidth calc
+                if (prepatcherStatus == PrepatcherStatus.Unknown)
+                    CheckPrepatcherStatus();
+
+                Rect baseRect = hostWindowWindow.windowRect;
+
+                float spacing = 5f;
+                float boxWidth = 310f;
+                float boxHeight = 60f;
+                switch (prepatcherStatus)
+                {
+                    case PrepatcherStatus.NotInstalled:
+                        boxHeight = Text.CalcHeight("MpPrepatcherWarnNotInstalledDescription".Translate().RemoveRichTextTags(), boxWidth - 16f);
+                        break;
+                    case PrepatcherStatus.NotActive:
+                        boxHeight = Text.CalcHeight("MpPrepatcherWarnDisabledDescription".Translate().RemoveRichTextTags(), boxWidth - 16f);
+                        break;
+                }
+
+                Rect hintRect = new Rect(baseRect.xMax + spacing, baseRect.y, boxWidth, boxHeight + 35f);
+                PrepatcherWarning.DoPrepatcherWarning(hintRect);
+            }
+        }
+    }
+}

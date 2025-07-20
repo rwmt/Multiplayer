@@ -22,6 +22,7 @@ namespace Multiplayer.Client
     public static class Extensions
     {
         private static Regex methodNameCleaner = new Regex(@"(\?[0-9\-]+)");
+        private static readonly Regex richTextTagCleaner = new Regex("(<.*?>)", RegexOptions.Compiled);
 
         public static Map GetMap(this ScheduledCommand cmd)
         {
@@ -269,6 +270,16 @@ namespace Multiplayer.Client
         public static string NormalizePath(this string path)
         {
             return path.Replace('\\', '/');
+        }
+
+        public static string RemoveRichTextTags(this string str)
+        {
+            return richTextTagCleaner.Replace(str, "<noparse>$1</noparse>").Replace("</noparse></noparse>", "</noparse></<b></b>noparse>");
+        }
+
+        public static string RemoveRichTextTags(this TaggedString str)
+        {
+            return richTextTagCleaner.Replace(str, "<noparse>$1</noparse>").Replace("</noparse></noparse>", "</noparse></<b></b>noparse>");
         }
 
         public static MethodInfo PatchMeasure(this Harmony harmony, MethodBase original, HarmonyMethod prefix = null, HarmonyMethod postfix = null, HarmonyMethod transpiler = null, HarmonyMethod finalizer = null)
