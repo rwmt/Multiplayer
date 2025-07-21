@@ -37,7 +37,7 @@ namespace Multiplayer.Client
             {
                 yield return inst;
 
-                if (inst.operand as MethodInfo == FrameCountField)
+                if (inst.operand as FieldInfo == FrameCountField)
                 {
                     yield return new CodeInstruction(OpCodes.Ldarg_0);
                     yield return new CodeInstruction(OpCodes.Call, FrameCountReplacementMethod);
@@ -579,7 +579,7 @@ namespace Multiplayer.Client
             {
                 return false; // Skip opening/closing the dev palette during multiplayer reload
             }
-            
+
             return true; // Execute normally
         }
     }

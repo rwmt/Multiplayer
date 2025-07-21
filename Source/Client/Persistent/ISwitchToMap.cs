@@ -19,7 +19,7 @@ namespace Multiplayer.Client
         {
             foreach (var inst in insts)
             {
-                if (inst.opcode == OpCodes.Ldfld && inst.operand as MethodInfo == doCloseXField)
+                if (inst.opcode == OpCodes.Ldfld && inst.operand as FieldInfo == doCloseXField)
                 {
                     yield return new CodeInstruction(OpCodes.Ldarg_0); // This window
                     yield return new CodeInstruction(OpCodes.Ldloc_0); // Window rect

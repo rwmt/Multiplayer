@@ -42,7 +42,7 @@ public static class TimeControlPatch
 
             yield return inst;
 
-            if (inst.operand as MethodInfo == AccessTools.Constructor(typeof(Rect),
+            if (inst.operand as ConstructorInfo == AccessTools.Constructor(typeof(Rect),
                     new[] { typeof(float), typeof(float), typeof(float), typeof(float) }))
             {
                 yield return new CodeInstruction(OpCodes.Ldloca_S, 1);

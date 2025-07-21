@@ -76,7 +76,7 @@ namespace Multiplayer.Client.Patches
 
             for (int i = insts.Count - 1; i >= 0; i--)
             {
-                if (insts[i].operand as MethodInfo == FirstOrDefault)
+                if (insts[i].operand as MethodBase == FirstOrDefault)
                     insts.Insert(
                        i + 1,
                        new CodeInstruction(OpCodes.Ldloc_1),
@@ -155,7 +155,7 @@ namespace Multiplayer.Client.Patches
             foreach (CodeInstruction inst in insts)
             {
                 yield return inst;
-                if (!found && inst.operand as MethodInfo == cellsShuffledField)
+                if (!found && inst.operand as FieldInfo == cellsShuffledField)
                 {
                     yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(CellsShufflePatchShared), nameof(ShouldShuffle)));
                     yield return new CodeInstruction(OpCodes.Not);
@@ -302,7 +302,7 @@ namespace Multiplayer.Client.Patches
             foreach (var inst in insts)
             {
                 // Remove mutation of battleActive during saving which was a source of non-determinism
-                if (inst.opcode == OpCodes.Stfld && inst.operand as MethodInfo == battleActiveField)
+                if (inst.opcode == OpCodes.Stfld && inst.operand as FieldInfo == battleActiveField)
                 {
                     yield return new CodeInstruction(OpCodes.Pop);
                     yield return new CodeInstruction(OpCodes.Pop);
@@ -341,7 +341,7 @@ namespace Multiplayer.Client.Patches
         {
             foreach (var inst in insts)
             {
-                if (inst.opcode == OpCodes.Stfld && inst.operand as MethodInfo == queryTickField)
+                if (inst.opcode == OpCodes.Stfld && inst.operand as FieldInfo == queryTickField)
                 {
                     yield return new CodeInstruction(OpCodes.Ldarg_0);
                     yield return new CodeInstruction(OpCodes.Ldarg_1);

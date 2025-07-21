@@ -421,7 +421,7 @@ static class StartingAnimalPatch
         {
             yield return inst;
 
-            if (inst.operand as MethodInfo == playerFactionField)
+            if (inst.operand as FieldInfo == playerFactionField)
                 yield return new CodeInstruction(OpCodes.Call, factionOfPlayer.Method);
         }
     }
@@ -661,7 +661,7 @@ static class ApparelWornGraphicPathGetterPatch
 
             // This instruction is part of wornGraphicPaths[thingIDNumber % wornGraphicPaths.Count]
             // The function makes sure the id is positive
-            if (inst.operand as MethodInfo == thingIDNumberField)
+            if (inst.operand as FieldInfo == thingIDNumberField)
                 yield return new CodeInstruction(OpCodes.Call,
                     AccessTools.Method(typeof(ApparelWornGraphicPathGetterPatch), nameof(MakeIdPositive)));
         }
@@ -721,7 +721,7 @@ static class CharacterCardUtilityDontDrawIdeoPlate
             yield return inst;
 
             // Don't draw the ideo plate while choosing starting pawns in multifaction
-            if (inst.operand as MethodInfo == classicModeField)
+            if (inst.operand as FieldInfo == classicModeField)
             {
                 yield return new CodeInstruction(OpCodes.Ldarg_2);
                 yield return new CodeInstruction(OpCodes.Call,

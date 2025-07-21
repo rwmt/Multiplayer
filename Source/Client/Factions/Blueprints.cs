@@ -335,7 +335,7 @@ namespace Multiplayer.Client
             {
                 yield return inst;
 
-                if (inst.opcode == OpCodes.Isinst && inst.operand as MethodInfo == typeof(Blueprint))
+                if (inst.opcode == OpCodes.Isinst && inst.operand as Type == typeof(Blueprint))
                 {
                     yield return new CodeInstruction(OpCodes.Ldnull);
                     yield return new CodeInstruction(OpCodes.Cgt_Un);
