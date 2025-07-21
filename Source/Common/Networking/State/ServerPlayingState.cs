@@ -31,7 +31,7 @@ namespace Multiplayer.Common
         [PacketHandler(Packets.Client_Traces, allowFragmented: true)]
         public void HandleTraces(ByteReader data)
         {
-            var type = (TracesPacket)data.ReadInt32();
+            var type = data.ReadEnum<TracesPacket>();
 
             if (type == TracesPacket.Response && Player.IsHost)
             {
@@ -109,7 +109,7 @@ namespace Multiplayer.Common
 
             byte seq = data.ReadByte();
             byte map = data.ReadByte();
-            
+
             // Track the player's current map from cursor updates
             Player.currentMap = map;
 
@@ -274,7 +274,7 @@ namespace Multiplayer.Common
         }
     }
 
-    public enum TracesPacket
+    public enum TracesPacket : byte
     {
         Request, Response, Transfer
     }

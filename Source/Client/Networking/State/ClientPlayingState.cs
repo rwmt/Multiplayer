@@ -227,7 +227,7 @@ namespace Multiplayer.Client
         [PacketHandler(Packets.Server_Traces, allowFragmented: true)]
         public void HandleTraces(ByteReader data)
         {
-            var type = (TracesPacket)data.ReadInt32();
+            var type = data.ReadEnum<TracesPacket>();
 
             if (type == TracesPacket.Request)
             {
