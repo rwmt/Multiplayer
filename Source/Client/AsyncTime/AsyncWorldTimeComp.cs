@@ -229,11 +229,13 @@ public class AsyncWorldTimeComp : IExposable, ITickable
                 int newMapId = data.ReadInt32();
                 int mapCount = Find.Maps.Count;
 
-                if (0 <= previousMapId && previousMapId < mapCount)
-                    Find.Maps[previousMapId]?.AsyncTime()?.DecreasePlayerCount();
+                MpLog.Debug($"[{worldTicks}|{Multiplayer.session.remoteTickUntil}] Player count change: previousMapId={previousMapId}, newMapId={newMapId}, mapCount={mapCount}");
 
-                if (0 <= newMapId && newMapId < mapCount)
-                    Find.Maps[newMapId]?.AsyncTime()?.IncreasePlayerCount();
+                if (0 <= previousMapId)
+                    Find.Maps.FirstOrDefault(x => x.uniqueID == previousMapId)?.AsyncTime()?.DecreasePlayerCount();
+
+                if (0 <= newMapId)
+                    Find.Maps.FirstOrDefault(x => x.uniqueID == newMapId)?.AsyncTime()?.IncreasePlayerCount();
             }
         }
         catch (Exception e)

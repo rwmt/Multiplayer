@@ -83,6 +83,22 @@ namespace Multiplayer.Client
             return ritualSession;
         }
 
+        public GravshipTravelSession CreateGravshipTravelSession()
+        {
+            GravshipTravelSession gravShipTravelSession = sessionManager.GetFirstOfType<GravshipTravelSession>();
+            if (gravShipTravelSession == null)
+            {
+                gravShipTravelSession = new GravshipTravelSession(map);
+                if (!sessionManager.AddSession(gravShipTravelSession))
+                {
+                    // Shouldn't happen if the session doesn't exist already, show an error just in case
+                    Log.Error($"Failed trying to created a session of type {nameof(GravshipTravelSession)} - prior session did not exist and creating session failed.");
+                    return null;
+                }
+            }
+            return gravShipTravelSession;
+        }
+
         public void DoTick()
         {
             autosaveCounter++;
