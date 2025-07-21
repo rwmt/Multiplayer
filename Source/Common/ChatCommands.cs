@@ -1,80 +1,104 @@
-﻿namespace Multiplayer.Common
+﻿using System.Collections.Generic;
+
+namespace Multiplayer.Common;
+
+public class ChatCmdManager
 {
-    public abstract class ChatCmdHandler
+    private readonly IDictionary<string, ChatCmdHandler> handlers = new Dictionary<string, ChatCmdHandler>();
+
+    public void Handle(IChatSource source, string cmd)
     {
-        public bool requiresHost;
-
-        public MultiplayerServer Server => MultiplayerServer.instance!;
-
-        public abstract void Handle(IChatSource source, string[] args);
-
-        public void SendNoPermission(ServerPlayer player)
+        var parts = cmd.Split(' ');
+        if (handlers.TryGetValue(parts[0], out var handler))
         {
-            player.SendChat("You don't have permission.");
+            if (handler.requiresHost && source is ServerPlayer { IsHost: false })
+                source.SendChat("No permission");
+            else
+                handler.Handle(source, parts.SubArray(1));
         }
-
-        public ServerPlayer? FindPlayer(string username)
+        else
         {
-            return Server.GetPlayer(username);
+            source.SendChat("Invalid command");
         }
     }
 
-    public class ChatCmdJoinPoint : ChatCmdHandler
-    {
-        public ChatCmdJoinPoint()
-        {
-            requiresHost = true;
-        }
+    public void AddCommandHandler(string name, ChatCmdHandler handler) => handlers[name] = handler;
+}
 
-        public override void Handle(IChatSource source, string[] args)
-        {
-            if (!Server.worldData.TryStartJoinPointCreation(true))
-                source.SendMsg("Join point creation already in progress.");
-        }
+public abstract class ChatCmdHandler
+{
+    public bool requiresHost;
+
+    public MultiplayerServer Server => MultiplayerServer.instance!;
+
+    public abstract void Handle(IChatSource source, string[] args);
+
+    public void SendNoPermission(ServerPlayer player)
+    {
+        player.SendMsg("You don't have permission.");
     }
 
-    public class ChatCmdKick : ChatCmdHandler
+    public ServerPlayer? FindPlayer(string username)
     {
-        public ChatCmdKick()
-        {
-            requiresHost = true;
-        }
+        return Server.GetPlayer(username);
+    }
+}
 
-        public override void Handle(IChatSource source, string[] args)
-        {
-            if (args.Length < 1)
-            {
-                source.SendMsg("No username provided.");
-                return;
-            }
-
-            var toKick = FindPlayer(args[0]);
-            if (toKick == null)
-            {
-                source.SendMsg("Couldn't find the player.");
-                return;
-            }
-
-            if (toKick.IsHost)
-            {
-                source.SendMsg("You can't kick the host.");
-                return;
-            }
-
-            toKick.Disconnect(MpDisconnectReason.Kick);
-        }
+public class ChatCmdJoinPoint : ChatCmdHandler
+{
+    public ChatCmdJoinPoint()
+    {
+        requiresHost = true;
     }
 
-    public class ChatCmdStop : ChatCmdHandler
+    public override void Handle(IChatSource source, string[] args)
     {
-        public ChatCmdStop()
+        if (!Server.worldData.TryStartJoinPointCreation(true))
+            source.SendMsg("Join point creation already in progress.");
+    }
+}
+
+public class ChatCmdKick : ChatCmdHandler
+{
+    public ChatCmdKick()
+    {
+        requiresHost = true;
+    }
+
+    public override void Handle(IChatSource source, string[] args)
+    {
+        if (args.Length < 1)
         {
-            requiresHost = true;
+            source.SendMsg("No username provided.");
+            return;
         }
 
-        public override void Handle(IChatSource source, string[] args)
+        var toKick = FindPlayer(args[0]);
+        if (toKick == null)
         {
-            Server.running = false;
+            source.SendMsg("Couldn't find the player.");
+            return;
         }
+
+        if (toKick.IsHost)
+        {
+            source.SendMsg("You can't kick the host.");
+            return;
+        }
+
+        toKick.Disconnect(MpDisconnectReason.Kick);
+    }
+}
+
+public class ChatCmdStop : ChatCmdHandler
+{
+    public ChatCmdStop()
+    {
+        requiresHost = true;
+    }
+
+    public override void Handle(IChatSource source, string[] args)
+    {
+        Server.running = false;
     }
 }

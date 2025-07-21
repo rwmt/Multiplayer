@@ -30,6 +30,7 @@ namespace Multiplayer.Common
         public WorldData worldData;
         public FreezeManager freezeManager;
         public CommandHandler commands;
+        public ChatCmdManager chatCmdManager;
         public PlayerManager playerManager;
         public LiteNetManager liteNet;
         public IEnumerable<ServerPlayer> JoinedPlayers => playerManager.JoinedPlayers;
@@ -46,8 +47,6 @@ namespace Multiplayer.Common
         public ServerInitData? initData;
         public TaskCompletionSource<ServerInitData?> initDataSource = new();
         public InitDataState initDataState = InitDataState.Waiting;
-
-        private Dictionary<string, ChatCmdHandler> chatCmdHandlers = new();
 
         public volatile bool running;
         public event Action<MultiplayerServer>? TickEvent;
@@ -71,6 +70,7 @@ namespace Multiplayer.Common
             worldData = new WorldData(this);
             freezeManager = new FreezeManager(this);
             commands = new CommandHandler(this);
+            chatCmdManager = new ChatCmdManager();
             playerManager = new PlayerManager(this);
             liteNet = new LiteNetManager(this);
 
@@ -230,34 +230,10 @@ namespace Multiplayer.Common
             SendToPlaying(Packets.Server_Notification, new object[] { key, args });
         }
 
-        public void RegisterChatCmd(string cmdName, ChatCmdHandler handler)
-        {
-            chatCmdHandlers[cmdName] = handler;
-        }
+        public void RegisterChatCmd(string cmdName, ChatCmdHandler handler) =>
+            chatCmdManager.AddCommandHandler(cmdName, handler);
 
-        public ChatCmdHandler? GetChatCmdHandler(string cmdName)
-        {
-            chatCmdHandlers.TryGetValue(cmdName, out ChatCmdHandler handler);
-            return handler;
-        }
-
-        public void HandleChatCmd(IChatSource source, string cmd)
-        {
-            var parts = cmd.Split(' ');
-            var handler = GetChatCmdHandler(parts[0]);
-
-            if (handler != null)
-            {
-                if (handler.requiresHost && source is ServerPlayer { IsHost: false })
-                    source.SendMsg("No permission");
-                else
-                    handler.Handle(source, parts.SubArray(1));
-            }
-            else
-            {
-                source.SendMsg("Invalid command");
-            }
-        }
+        public void HandleChatCmd(IChatSource source, string cmd) => chatCmdManager.Handle(source, cmd);
 
         public Task<ServerInitData?> InitData()
         {
