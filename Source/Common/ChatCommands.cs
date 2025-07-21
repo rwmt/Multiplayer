@@ -12,13 +12,13 @@ public class ChatCmdManager
         if (handlers.TryGetValue(parts[0], out var handler))
         {
             if (handler.requiresHost && source is ServerPlayer { IsHost: false })
-                source.SendChat("No permission");
+                source.SendMsg("No permission");
             else
                 handler.Handle(source, parts.SubArray(1));
         }
         else
         {
-            source.SendChat("Invalid command");
+            source.SendMsg("Invalid command");
         }
     }
 

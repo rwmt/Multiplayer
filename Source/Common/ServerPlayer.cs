@@ -74,11 +74,6 @@ namespace Multiplayer.Common
             Server.playerManager.SetDisconnected(conn, reason);
         }
 
-        public void SendChat(string msg)
-        {
-            SendPacket(Packets.Server_Chat, new object[] { msg });
-        }
-
         public void SendKeepAlivePacket()
         {
             if (!keepAliveTimer.IsRunning)
@@ -160,7 +155,7 @@ namespace Multiplayer.Common
 
         public void SendMsg(string msg)
         {
-            SendChat(msg);
+            SendPacket(Packets.Server_Chat, new object[] { msg });
         }
     }
 
