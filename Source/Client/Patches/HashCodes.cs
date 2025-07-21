@@ -6,11 +6,39 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
 using Verse;
 
 namespace Multiplayer.Client.Patches
 {
+    [HarmonyPatch(typeof(WindManager), nameof(WindManager.BaseWindSpeedAt))]
+    static class BaseWindSpeetGetHashCodeChange
+    {
+        static readonly MethodInfo OriginalGetHash = AccessTools.Method(typeof(object), nameof(GetHashCode));
+
+        static readonly MethodInfo ChangedGetHash = AccessTools.Method(typeof(BaseWindSpeetGetHashCodeChange), nameof(GetMapHash));
+
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+        {
+            foreach (var ci in insts)
+            {
+                if (ci.Calls(OriginalGetHash))
+                    yield return new CodeInstruction(OpCodes.Call, ChangedGetHash);
+                else
+                    yield return ci;
+            }
+        }
+
+        static int GetMapHash(Map map)
+        {
+            if (Multiplayer.Client == null)
+                return map.GetHashCode();
+
+            return map.Tile;
+        }
+    }
+
     [HarmonyPatch(typeof(GlowGrid), MethodType.Constructor, typeof(Map))]
     static class GlowGridCtorPatch
     {
