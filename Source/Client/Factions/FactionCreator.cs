@@ -66,7 +66,7 @@ public static class FactionCreator
 
             if (executingOnlyOnIssuer)
             {
-                CleanUpTempDataFromCharacterCreationPage();
+                ClearPortraitCacheFromPawnConfigPage();
 
                 Current.Game.CurrentMap = newMap;
 
@@ -84,7 +84,7 @@ public static class FactionCreator
         }, "GeneratingMap", doAsynchronously: true, GameAndMapInitExceptionHandlers.ErrorWhileGeneratingMap);
     }
 
-    private static void CleanUpTempDataFromCharacterCreationPage()
+    private static void ClearPortraitCacheFromPawnConfigPage()
     {
         PortraitsCache.Clear();
     }
