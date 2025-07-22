@@ -167,7 +167,7 @@ namespace Multiplayer.Common
                 return;
             }
 
-            if (fragState == FragNone) handler.Method(StateObj, reader);
+            if (fragState == FragNone) ExecuteMessageHandler(handler, packetType, reader);
             else HandleReceiveFragment(reader, packetType, handler);
         }
 
@@ -218,7 +218,19 @@ namespace Multiplayer.Common
                 throw new PacketReadException($"Fragmented packet {packetType} (fragId {fragId}) recombined with different than expected size: {fragPacket.ReceivedSize} != {fragPacket.ExpectedSize}");
 
             fragments.RemoveAt(fragIndex);
-            handler.Method(StateObj, new ByteReader(fragPacket.Data.GetBuffer()));
+            ExecuteMessageHandler(handler, packetType, new ByteReader(fragPacket.Data.GetBuffer()));
+        }
+
+        private void ExecuteMessageHandler(PacketHandlerInfo handler, Packets packet, ByteReader data)
+        {
+            try
+            {
+                handler.Method(StateObj, data);
+            }
+            catch (Exception e)
+            {
+                throw new PacketReadException($"Exception handling packet {packet} in state {State}", e);
+            }
         }
 
         public abstract void Close(MpDisconnectReason reason, byte[]? data = null);

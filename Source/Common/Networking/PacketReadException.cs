@@ -7,5 +7,9 @@ namespace Multiplayer.Common
         public PacketReadException(string msg) : base(msg)
         {
         }
+
+        public PacketReadException(string message, Exception innerException) : base(message, innerException)
+        {
+        }
     }
 }
