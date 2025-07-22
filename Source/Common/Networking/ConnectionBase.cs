@@ -63,7 +63,8 @@ namespace Multiplayer.Common
         // We can send a single packet up to MaxSinglePacketSize but when specifically sending a fragmented packet,
         // use smaller sizes so that we have more control over them.
         public const int MaxFragmentPacketSize = 1024;
-        public const int MaxPacketSize = 33_554_432;
+        // Max size of a packet that can be sent fragmented. It is not possible to send any packets larger than this.
+        public const int MaxFragmentPacketTotalSize = 33_554_432;
 
         private const int FragNone = 0x0;
         private const int FragMore = 0x40;
@@ -84,13 +85,19 @@ namespace Multiplayer.Common
                 return;
             }
 
-            var fragId = sendFragId++;
             // every packet has an additional 2 bytes of overhead
             const int maxFragmentSize = MaxFragmentPacketSize - 2;
             // the first packet has an additional 6 bytes of overhead
             var totalLength = message.Length + 6;
+            if (totalLength > MaxFragmentPacketSize)
+            {
+                throw new PacketSendException(
+                    $"Tried to send too big packet {id}. Max size: {MaxFragmentPacketSize}, requested size (incl. overhead): {totalLength}.");
+            }
+
             // Divide rounding up
             var fragParts = (totalLength + maxFragmentSize - 1) / maxFragmentSize;
+            var fragId = sendFragId++;
             int read = 0;
             var writer = new ByteWriter(MaxFragmentPacketSize);
             while (read < message.Length)
@@ -190,8 +197,8 @@ namespace Multiplayer.Common
                 var expectedSize = reader.ReadUInt32();
                 if (expectedParts < 2)
                     ServerLog.Error($"Received fragmented packet with only {expectedParts} expected parts (packet type: {packetType}, fragment id: {fragId}, expected size: {expectedSize}).");
-                if (expectedSize > MaxPacketSize)
-                    throw new PacketReadException($"Full packet {packetType} too big {expectedSize}>{MaxPacketSize}");
+                if (expectedSize > MaxFragmentPacketTotalSize)
+                    throw new PacketReadException($"Full packet {packetType} too big {expectedSize}>{MaxFragmentPacketTotalSize}");
 
                 fragPacket = FragmentedPacket.Create(packetType, expectedParts, expectedSize);
                 fragIndex = fragments.Count;
