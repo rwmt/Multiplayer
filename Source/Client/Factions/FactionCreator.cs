@@ -66,6 +66,8 @@ public static class FactionCreator
 
             if (executingOnlyOnIssuer)
             {
+                CleanUpTempDataFromCharacterCreationPage();
+
                 Current.Game.CurrentMap = newMap;
 
                 Multiplayer.game.ChangeRealPlayerFaction(newFaction);
@@ -80,6 +82,11 @@ public static class FactionCreator
                 );
             }
         }, "GeneratingMap", doAsynchronously: true, GameAndMapInitExceptionHandlers.ErrorWhileGeneratingMap);
+    }
+
+    private static void CleanUpTempDataFromCharacterCreationPage()
+    {
+        PortraitsCache.Clear();
     }
 
     private static void InitLocalVisuals(Scenario scenario, Map generatedMap)
