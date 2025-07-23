@@ -133,7 +133,6 @@ namespace Multiplayer.Client
 
             SyncMethod.Lambda(typeof(CompPilotConsole), nameof(CompPilotConsole.CompGetGizmosExtra), 0); // Launch instantly
             SyncMethod.Lambda(typeof(CompPilotConsole), nameof(CompPilotConsole.CompGetGizmosExtra), 1); // Reset cooldown
-            SyncMethod.Lambda(typeof(CompBreakdownable), nameof(CompBreakdownable.CompGetGizmosExtra), 0); // Toggle auto-launch
 
             // Biosculpter pod
             SyncMethod.Lambda(typeof(CompBiosculpterPod), nameof(CompBiosculpterPod.CompGetGizmosExtra), 1);                // Interrupt cycle (eject contents)
