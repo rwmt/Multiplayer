@@ -89,10 +89,10 @@ namespace Multiplayer.Common
             const int maxFragmentSize = MaxFragmentPacketSize - 2;
             // the first packet has an additional 6 bytes of overhead
             var totalLength = message.Length + 6;
-            if (totalLength > MaxFragmentPacketSize)
+            if (totalLength > MaxFragmentPacketTotalSize)
             {
                 throw new PacketSendException(
-                    $"Tried to send too big packet {id}. Max size: {MaxFragmentPacketSize}, requested size (incl. overhead): {totalLength}.");
+                    $"Tried to send too big packet {id}. Max size: {MaxFragmentPacketTotalSize}, requested size (incl. overhead): {totalLength}.");
             }
 
             // Divide rounding up
