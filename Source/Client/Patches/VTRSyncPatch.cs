@@ -17,7 +17,7 @@ namespace Multiplayer.Client.Patches
 
             // TODO: Put this back to the original value
             // Probably need to sync up all the animations before doing this
-            __result = 1;// VTRSync.GetSynchronizedUpdateRate(thing);
+            __result = VTRSync.GetSynchronizedUpdateRate(thing);
             return false;
         }
     }

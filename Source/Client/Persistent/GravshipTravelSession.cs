@@ -14,6 +14,7 @@ public class GravshipTravelSession : ExposableSession
     private Map map;
     internal bool takeoffEndedSyncScheduled;
     internal bool takeOffEndedComplete;
+    internal bool landingSyncScheduled;
 
     public override Map Map => map;
     public PlanetTile InitialTile { get; private set; }
@@ -81,6 +82,7 @@ public static class GravshipTravelSessionUtils
         GravshipTravelSession session = GetSession(tile);
         if (session == null) return;
 
+        MpLog.Debug($"[MP] GravshipTravelSession: Closing session for tile {tile}");
         session.UnregisterMap();
         Multiplayer.Client.Multiplayer.WorldComp.sessionManager.RemoveSession(session);
     }

@@ -176,6 +176,46 @@ namespace Multiplayer.Client.Patches
         }
     }
 
+
+    [HarmonyPatch(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.LandingEnded))]
+    public static class WorldComponent_GravshipController_LandingEnded_Patch
+    {
+        private static bool allowVanillaLanding = false;
+
+        static bool Prefix(WorldComponent_GravshipController __instance)
+        {
+            if (Multiplayer.Client == null) return true;
+
+            GravshipTravelSession session = GravshipTravelSessionUtils.GetSession(__instance.takeoffTile);
+            if (session == null)
+            {
+                MpLog.Error($"[MP] Patch_GravshipLandingEnded: Gravship session not found for tile {__instance.takeoffTile}. Cannot end landing.");
+                return false;
+            }
+
+            if (allowVanillaLanding)
+            {
+                allowVanillaLanding = false;
+                return true;
+            }
+
+            if (!session.landingSyncScheduled)
+            {
+                session.landingSyncScheduled = true;
+                SyncBeginLandingCutscene(__instance);
+            }
+
+            return false;
+        }
+
+        [SyncMethod]
+        static void SyncBeginLandingCutscene(WorldComponent_GravshipController controller)
+        {
+            allowVanillaLanding = true;
+            controller.LandingEnded();
+        }
+    }
+
     [HarmonyPatch(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.Notify_LandingAreaConfirmationStarted))]
     public static class Patch_GravshipLandingPause
     {
@@ -269,16 +309,6 @@ namespace Multiplayer.Client.Patches
             marker.BeginLanding(controller);
             controller.landingMarker = null;
             SoundDefOf.Gravship_Land.PlayOneShotOnCamera();
-        }
-    }
-
-    [HarmonyPatch(typeof(TempTerrainManager), nameof(TempTerrainManager.Tick))]
-    public static class Patch_TempTerrainManager_Tick
-    {
-        static bool Prefix(TempTerrainManager __instance)
-        {
-            if (Multiplayer.Client == null) return true;
-            return false;
         }
     }
 }
