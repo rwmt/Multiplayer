@@ -23,7 +23,13 @@ namespace Multiplayer.Client.Patches
             }
         }
 
-        public static int WaterBodyHash(WaterBody body) =>
-            Gen.HashCombineInt(body.map?.uniqueID ?? 0, body.rootCell.x, body.rootCell.z, (int)body.waterBodyType);
+        public static int WaterBodyHash(WaterBody body)
+        {
+            if (Multiplayer.Client == null)
+                return body.GetHashCode();
+
+            return Gen.HashCombineInt(body.map?.uniqueID ?? 0, body.rootCell.x, body.rootCell.z, (int)body.waterBodyType);
+        }
+
     }
 }
