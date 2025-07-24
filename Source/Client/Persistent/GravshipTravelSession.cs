@@ -12,6 +12,7 @@ using Verse;
 public class GravshipTravelSession : ExposableSession
 {
     private Map map;
+    internal bool beginTakeoffSyncScheduled;
     internal bool takeoffEndedSyncScheduled;
     internal bool takeOffEndedComplete;
     internal bool landingSyncScheduled;
