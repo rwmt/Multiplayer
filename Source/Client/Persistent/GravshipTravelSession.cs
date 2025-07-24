@@ -77,6 +77,8 @@ public static class GravshipTravelSessionUtils
     public static void UnregisterMap(PlanetTile takeoffTile) => GetSession(takeoffTile)?.UnregisterMap();
 
     [SyncMethod]
+    public static void SyncCloseSession(PlanetTile tile) => CloseSession(tile);
+
     public static void CloseSession(PlanetTile tile)
     {
         GravshipTravelSession session = GetSession(tile);

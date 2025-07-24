@@ -80,7 +80,7 @@ namespace Multiplayer.Client.Patches
             {
                 __instance.buttonBAction = () =>
                 {
-                    GravshipTravelSessionUtils.CloseSession(Find.CurrentMap.Tile);
+                    GravshipTravelSessionUtils.SyncCloseSession(Find.CurrentMap.Tile);
                     SyncGravshipDialogCancel();
                 };
             }
@@ -181,6 +181,7 @@ namespace Multiplayer.Client.Patches
     public static class WorldComponent_GravshipController_LandingEnded_Patch
     {
         private static bool allowVanillaLanding = false;
+        private static bool vanillaLandingCalled = false;
 
         static bool Prefix(WorldComponent_GravshipController __instance)
         {
@@ -195,7 +196,9 @@ namespace Multiplayer.Client.Patches
 
             if (allowVanillaLanding)
             {
+                MpLog.Debug("[MP] Allowing vanilla landing logic to run.");
                 allowVanillaLanding = false;
+                vanillaLandingCalled = true;
                 return true;
             }
 
@@ -206,6 +209,15 @@ namespace Multiplayer.Client.Patches
             }
 
             return false;
+        }
+
+        static void Postfix(WorldComponent_GravshipController __instance)
+        {
+            if (Multiplayer.Client == null) return;
+            if (!vanillaLandingCalled) return;
+
+            GravshipTravelSessionUtils.CloseSession(__instance.takeoffTile);
+            vanillaLandingCalled = false;
         }
 
         [SyncMethod]
@@ -229,23 +241,6 @@ namespace Multiplayer.Client.Patches
             }
 
             GravshipTravelSessionUtils.RegisterMap(marker.gravship.initialTile, marker.Map);
-        }
-    }
-
-    [HarmonyPatch(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.LandingEnded))]
-    public static class Patch_GravshipLandingPauseEnd
-    {
-        static void Postfix(WorldComponent_GravshipController __instance)
-        {
-            if (Multiplayer.Client == null) return;
-            if (__instance.takeoffTile == null)
-            {
-                MpLog.Error("[MP] Patch_GravshipLandingPauseEnd: Gravship takeoff tile is null, cannot end landing pause.");
-                return;
-            }
-
-            if (Multiplayer.LocalServer != null)
-                GravshipTravelSessionUtils.CloseSession(__instance.takeoffTile);
         }
     }
 
