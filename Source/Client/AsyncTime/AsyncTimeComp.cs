@@ -385,6 +385,33 @@ namespace Multiplayer.Client
                         Find.Selector.selected.Add(zone);
                 }
 
+                if (designator is Designator_Plan_Add designatorPlanAdd)
+                {
+                    designatorPlanAdd.colorDef = SyncSerialization.ReadSync<ColorDef>(data);
+                    designator = designatorPlanAdd;
+                }
+
+                if (designator is Designator_Plan_Copy designatorPlanCopy)
+                {
+                    designatorPlanCopy.cells.Clear();
+                    designatorPlanCopy.cells.AddRange(SyncSerialization.ReadSync<List<IntVec3>>(data));
+                    designator = designatorPlanCopy;
+                }
+
+                if (designator is Designator_Plan_CopySelectionPaste pasteDesignator)
+                {
+                    pasteDesignator.indices = SyncSerialization.ReadSync<CellIndices>(data);
+                    pasteDesignator.rotation = SyncSerialization.ReadSync<Rot4>(data);
+
+                    pasteDesignator.grid.Clear();
+                    pasteDesignator.grid.AddRange(SyncSerialization.ReadSync<List<ColorDef>>(data));
+
+                    pasteDesignator.colors.Clear();
+                    pasteDesignator.colors.AddRange(SyncSerialization.ReadSync<HashSet<ColorDef>>(data));
+
+                    designator = pasteDesignator;
+                }
+
                 return true;
             }
 
@@ -406,8 +433,6 @@ namespace Multiplayer.Client
                 if (mode == DesignatorMode.SingleCell)
                 {
                     IntVec3 cell = SyncSerialization.ReadSync<IntVec3>(data);
-                    if (designator is Designator_Plan_Add addDesignator)
-                        addDesignator.colorDef = SyncSerialization.ReadSync<ColorDef>(data);
 
                     designator.DesignateSingleCell(cell);
                     designator.Finalize(true);
@@ -415,8 +440,6 @@ namespace Multiplayer.Client
                 else if (mode == DesignatorMode.MultiCell)
                 {
                     IntVec3[] cells = SyncSerialization.ReadSync<IntVec3[]>(data);
-                    if (designator is Designator_Plan_Add addDesignator)
-                        addDesignator.colorDef = SyncSerialization.ReadSync<ColorDef>(data);
 
                     designator.DesignateMultiCell(cells);
                 }

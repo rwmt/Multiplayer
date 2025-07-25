@@ -1,4 +1,5 @@
 using HarmonyLib;
+using Multiplayer.Client.Util;
 using Multiplayer.Common;
 using RimWorld;
 using System;
@@ -25,7 +26,6 @@ namespace Multiplayer.Client
         public static bool DesignateSingleCell(Designator __instance, IntVec3 __0)
         {
             if (!Multiplayer.InInterface) return true;
-            if (__instance is Designator_Plan_Copy or Designator_Plan_CopySelection or Designator_Plan_CopySelectionPaste) return true;
 
             Designator designator = __instance;
 
@@ -35,9 +35,6 @@ namespace Multiplayer.Client
 
             WriteData(writer, DesignatorMode.SingleCell, designator);
             SyncSerialization.WriteSync(writer, __0);
-
-            if (__instance is Designator_Plan_Add addDesignator)
-                SyncSerialization.WriteSync(writer, addDesignator.colorDef);
 
             SendSyncCommand(map.uniqueID, writer);
             Multiplayer.WriterLog.AddCurrentNode(writer);
@@ -124,6 +121,20 @@ namespace Multiplayer.Client
 
             if (designator is Designator_Zone)
                 SyncSerialization.WriteSync(data, Find.Selector.SelectedZone);
+
+            if (designator is Designator_Plan_Add addDesignator)
+                SyncSerialization.WriteSync(data, addDesignator.colorDef);
+
+            if (designator is Designator_Plan_Copy copyDesignator)
+                SyncSerialization.WriteSync(data, copyDesignator.cells);
+
+            if (designator is Designator_Plan_CopySelectionPaste pasteDesignator)
+            {
+                SyncSerialization.WriteSync(data, pasteDesignator.indices);
+                SyncSerialization.WriteSync(data, pasteDesignator.rotation);
+                SyncSerialization.WriteSync(data, pasteDesignator.grid);
+                SyncSerialization.WriteSync(data, pasteDesignator.colors);
+            }
         }
     }
 

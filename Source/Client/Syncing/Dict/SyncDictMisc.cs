@@ -184,6 +184,14 @@ namespace Multiplayer.Client
                     sync.Bind(ref vec.z);
                 }
             },
+            {
+                (ByteWriter data, CellIndices cellIndices) =>
+                {
+                    data.WriteInt32(cellIndices.sizeX);
+                    data.WriteInt32(cellIndices.sizeZ);
+                },
+                (ByteReader data) => new CellIndices(data.ReadInt32(), data.ReadInt32())
+            }
             #endregion
         };
     }

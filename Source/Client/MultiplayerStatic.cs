@@ -325,7 +325,9 @@ namespace Multiplayer.Client
                 };
 
                 foreach (Type t in typeof(Designator).AllSubtypesAndSelf()
-                             .Except(typeof(Designator_MechControlGroup))) // Opens float menu, sync that instead
+                    // Designator_MechControlGroup Opens float menu, sync that instead
+                    // Designator_Plan_CopySelection creates the placement gizmo, this shouldn't be synced
+                    .Except([typeof(Designator_MechControlGroup), typeof(Designator_Plan_CopySelection)])) 
                 {
                     foreach ((string m, Type[] args) in designatorMethods)
                     {
