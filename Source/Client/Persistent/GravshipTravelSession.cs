@@ -12,13 +12,9 @@ using Verse;
 public class GravshipTravelSession : ExposableSession
 {
     private Map map;
-    internal bool beginTakeoffSyncScheduled;
-    internal bool takeoffEndedSyncScheduled;
-    internal bool takeOffEndedComplete;
-    internal bool landingSyncScheduled;
 
     public override Map Map => map;
-    public PlanetTile InitialTile { get; private set; }
+    public PlanetTile InitialTile;
 
     public GravshipTravelSession(Map map) : base(map)
     {
@@ -57,6 +53,13 @@ public class GravshipTravelSession : ExposableSession
     public override void PostRemoveSession()
     {
         TickManager_PlayerCanControl_Patch.ResetLandingMessageFlag();
+    }
+
+    public override void ExposeData()
+    {
+        base.ExposeData();
+        Scribe_References.Look(ref map, "map", false);
+        Scribe_Values.Look(ref InitialTile, "initialTile");
     }
 }
 

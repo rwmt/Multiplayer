@@ -136,15 +136,7 @@ namespace Multiplayer.Client.Patches
             if (Multiplayer.Client == null) return;
             if (!__instance.forGravship) return;
 
-            if (!Patch_CompPilotConsole_StartChoosingDestination.initialTile.HasValue)
-            {
-                MpLog.Error("[MP] Patch_TilePicker_StopTargeting: initialTile is null, cannot close gravship session.");
-                return;
-            }
-
-            GravshipTravelSessionUtils.SyncCloseSession(Patch_CompPilotConsole_StartChoosingDestination.initialTile.Value);
             SyncStopTargeting();
-            Patch_CompPilotConsole_StartChoosingDestination.initialTile = null;
         }
 
         [SyncMethod]
@@ -156,8 +148,17 @@ namespace Multiplayer.Client.Patches
             if (tilePicker.active && tilePicker.noTileChosen != null)
             {
                 tilePicker.noTileChosen();
+
+                if (!Patch_CompPilotConsole_StartChoosingDestination.initialTile.HasValue)
+                {
+                    MpLog.Error("[MP] Patch_TilePicker_StopTargeting: initialTile is null, cannot close gravship session.");
+                    return;
+                }
+                GravshipTravelSessionUtils.SyncCloseSession(Patch_CompPilotConsole_StartChoosingDestination.initialTile.Value);
             }
+
             tilePicker.StopTargetingInt();
+            Patch_CompPilotConsole_StartChoosingDestination.initialTile = null;
         }
     }
 
