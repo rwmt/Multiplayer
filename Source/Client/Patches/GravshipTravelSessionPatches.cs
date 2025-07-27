@@ -84,8 +84,19 @@ namespace Multiplayer.Client.Patches
         [SyncMethod]
         public static void SyncGravshipDialogCancel()
         {
-            MpLog.Debug($"[MP] [{Multiplayer.AsyncWorldTime.worldTicks}] Patch_GravshipPreLaunchCancel: Cancelling gravship launch.");
             Patch_GravshipPreLaunchConfirmation.CloseGravshipDialog();
+        }
+    }
+
+    [HarmonyPatch(typeof(CompPilotConsole), nameof(CompPilotConsole.StartChoosingDestination))]
+    public static class Patch_CompPilotConsole_StartChoosingDestination
+    {
+        public static PlanetTile? initialTile;
+        static bool Prefix(CompPilotConsole __instance)
+        {
+            if (Multiplayer.Client == null) return true;
+            initialTile = __instance.parent.Map.Tile;
+            return true;
         }
     }
 
@@ -112,6 +123,41 @@ namespace Multiplayer.Client.Patches
             engine.ConsumeFuel(planetTile);
             Find.GravshipController.InitiateTakeoff(engine, planetTile);
             SoundDefOf.Gravship_Launch.PlayOneShotOnCamera();
+            Patch_CompPilotConsole_StartChoosingDestination.initialTile = null;
+        }
+    }
+
+    //Tile cancel input
+    [HarmonyPatch(typeof(TilePicker), nameof(TilePicker.StopTargeting))]
+    public static class Patch_TilePicker_StopTargeting
+    {
+        static void Prefix(TilePicker __instance)
+        {
+            if (Multiplayer.Client == null) return;
+            if (!__instance.forGravship) return;
+
+            if (!Patch_CompPilotConsole_StartChoosingDestination.initialTile.HasValue)
+            {
+                MpLog.Error("[MP] Patch_TilePicker_StopTargeting: initialTile is null, cannot close gravship session.");
+                return;
+            }
+
+            GravshipTravelSessionUtils.SyncCloseSession(Patch_CompPilotConsole_StartChoosingDestination.initialTile.Value);
+            SyncStopTargeting();
+            Patch_CompPilotConsole_StartChoosingDestination.initialTile = null;
+        }
+
+        [SyncMethod]
+        static void SyncStopTargeting()
+        {
+            TilePicker tilePicker = Find.TilePicker;
+            if (Multiplayer.Client == null) return;
+
+            if (tilePicker.active && tilePicker.noTileChosen != null)
+            {
+                tilePicker.noTileChosen();
+            }
+            tilePicker.StopTargetingInt();
         }
     }
 
