@@ -1,8 +1,8 @@
-using System;
-using System.Collections.Generic;
 using HarmonyLib;
 using RimWorld;
 using RimWorld.Planet;
+using System;
+using System.Collections.Generic;
 using Verse;
 
 namespace Multiplayer.Client.Factions;
@@ -36,13 +36,13 @@ static class MapGenFactionPatch
 
     private static Faction GetFactionAt(PlanetTile tile)
     {
-        MapParent mapParent = Find.WorldObjects.MapParentAt(tile);
+        var worldObjectsHolder = Find.WorldObjects;
 
+        var mapParent = worldObjectsHolder.MapParentAt(tile);
         if (mapParent != null)
             return mapParent.Faction;
 
-        Caravan caravan = Find.WorldObjects.PlayerControlledCaravanAt(tile);
-
+        var caravan = worldObjectsHolder.PlayerControlledCaravanAt(tile);
         if (caravan != null)
             return caravan.Faction;
 

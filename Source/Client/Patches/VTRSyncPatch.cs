@@ -1,5 +1,4 @@
 using HarmonyLib;
-using Multiplayer.Client.Patches;
 using Multiplayer.Client.Util;
 using Multiplayer.Common;
 using RimWorld.Planet;
@@ -64,7 +63,7 @@ namespace Multiplayer.Client.Patches
     [HarmonyPatch(typeof(Game), nameof(Game.CurrentMap), MethodType.Setter)]
     static class MapSwitchPatch
     {
-        static readonly int InvalidMapIndex = -1;
+        const int InvalidMapIndex = -1;
 
         static void Prefix(Map value)
         {
