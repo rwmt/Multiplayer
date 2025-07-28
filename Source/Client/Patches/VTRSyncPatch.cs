@@ -64,14 +64,16 @@ namespace Multiplayer.Client.Patches
     [HarmonyPatch(typeof(Game), nameof(Game.CurrentMap), MethodType.Setter)]
     static class MapSwitchPatch
     {
+        static readonly int InvalidMapIndex = -1;
+
         static void Prefix(Map value)
         {
             if (Multiplayer.Client == null || Client.Multiplayer.session == null) return;
 
             try
             {
-                int previousMap = Find.CurrentMap?.uniqueID ?? -1;
-                int newMap = value?.uniqueID ?? -1;
+                int previousMap = GetPreviousMapIndex();
+                int newMap = value?.uniqueID ?? InvalidMapIndex;
                 int currentTick = Find.TickManager?.TicksGame ?? 0;
 
                 // If no change in map, do nothing
@@ -94,6 +96,18 @@ namespace Multiplayer.Client.Patches
             {
                 MpLog.Error($"VTR MapSwitchPatch error: {ex.Message}");
             }
+        }
+
+        private static int GetPreviousMapIndex()
+        {
+            bool currentMapIsRemovedAndWasLatestMap = Current.Game.currentMapIndex >= Find.Maps.Count;
+
+            if (currentMapIsRemovedAndWasLatestMap)
+            {
+                return InvalidMapIndex;
+            }
+
+            return Find.CurrentMap?.uniqueID ?? InvalidMapIndex;
         }
     }
 
