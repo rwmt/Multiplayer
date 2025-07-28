@@ -351,7 +351,12 @@ static class CheckRemoveMapNowPatch
 {
     static bool Prefix(MapParent __instance)
     {
-        return __instance.Faction is not { IsPlayer: true };
+        if (Multiplayer.Client == null) return true;
+        if (__instance is Camp) return true;
+
+        bool parentBelongsToNonPlayerFaction = __instance.Faction is not { IsPlayer: true };
+
+        return parentBelongsToNonPlayerFaction;
     }
 }
 
