@@ -84,6 +84,7 @@ namespace Multiplayer.Client
             SyncMethod.Lambda(typeof(Building_Door), nameof(Building_Door.GetGizmos), 1);                    // Toggle door hold open
             SyncMethod.Lambda(typeof(Zone_Growing), nameof(Zone_Growing.GetGizmos), 1);                      // Toggle zone allow sow
             SyncMethod.Lambda(typeof(Zone_Growing), nameof(Zone_Growing.GetGizmos), 3);                      // Toggle zone allow cut
+            SyncMethod.Lambda(typeof(Zone_Fishing), nameof(Zone_Fishing.GetGizmos), 1);                      // Toggle zone allow fishing
 
             SyncMethod.Lambda(typeof(PriorityWork), nameof(PriorityWork.GetGizmos), 0);                      // Clear prioritized work
             SyncMethod.Lambda(typeof(Building_TurretGun), nameof(Building_TurretGun.GetGizmos), 1);          // Reset forced target
