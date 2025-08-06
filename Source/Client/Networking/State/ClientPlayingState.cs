@@ -234,7 +234,9 @@ namespace Multiplayer.Client
             string key = data.ReadString();
             string[] args = data.ReadPrefixedStrings();
 
-            Messages.Message(key.Translate(Array.ConvertAll(args, s => (NamedArgument)s)), MessageTypeDefOf.SilentInput, false);
+            var msg = key.Translate(Array.ConvertAll(args, s => (NamedArgument)s));
+            Messages.Message(msg, MessageTypeDefOf.SilentInput, false);
+            ServerLog.Log($"Notification: {msg} ({key}, {args.Join(", ")})");
         }
 
         [PacketHandler(Packets.Server_SyncInfo, allowFragmented: true)]
