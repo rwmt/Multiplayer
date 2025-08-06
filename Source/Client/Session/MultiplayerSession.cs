@@ -6,6 +6,7 @@ using Steamworks;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using Multiplayer.Client.Util;
 using UnityEngine;
 using Verse;
@@ -80,13 +81,7 @@ namespace Multiplayer.Client
             }
         }
 
-        public PlayerInfo GetPlayerInfo(int id)
-        {
-            for (int i = 0; i < players.Count; i++)
-                if (players[i].id == id)
-                    return players[i];
-            return null;
-        }
+        public PlayerInfo GetPlayerInfo(int id) => players.FirstOrDefault(p => p.id == id);
 
         public void AddMsg(string msg, bool notify = true)
         {

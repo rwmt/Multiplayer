@@ -29,7 +29,10 @@ namespace Multiplayer.Common
 
             writer.WriteInt32(JoinedPlayers.Count());
             foreach (var player in JoinedPlayers)
+            {
+                writer.WriteInt32(player.id);
                 player.WriteLatencyUpdate(writer);
+            }
 
             server.SendToPlaying(Packets.Server_PlayerList, writer.ToArray());
         }

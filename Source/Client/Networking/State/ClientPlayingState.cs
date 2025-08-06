@@ -83,7 +83,13 @@ namespace Multiplayer.Client
 
                 for (int i = 0; i < count; i++)
                 {
-                    var player = Multiplayer.session.players[i];
+                    var id = data.ReadInt32();
+                    var player = Multiplayer.session.GetPlayerInfo(id);
+                    if (player == null)
+                    {
+                        ServerLog.Log($"Received latency info for unknown player with id {id}");
+                        continue;
+                    }
                     player.latency = data.ReadInt32();
                     player.ticksBehind = data.ReadInt32();
                     player.simulating = data.ReadBool();
