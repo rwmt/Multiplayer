@@ -16,8 +16,8 @@ public class ServerLoadingState : AsyncConnectionState
 
         SendWorldData();
 
-        connection.ChangeState(ConnectionStateEnum.ServerPlaying);
         Player.SendPlayerList();
+        connection.ChangeState(ConnectionStateEnum.ServerPlaying);
     }
 
     public void SendWorldData()
