@@ -49,7 +49,7 @@ namespace Multiplayer.Client.Networking
 
         public override string ToString()
         {
-            return $"SteamP2P ({remoteId}) ({username})";
+            return $"SteamP2P ({remoteId}:{username})";
         }
     }
 

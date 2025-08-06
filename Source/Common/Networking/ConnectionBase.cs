@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
 
 namespace Multiplayer.Common
 {
@@ -230,14 +231,29 @@ namespace Multiplayer.Common
 
         private void ExecuteMessageHandler(PacketHandlerInfo handler, Packets packet, ByteReader data)
         {
+            var pos = data.Position;
             try
             {
                 handler.Method(StateObj, data);
             }
             catch (Exception e)
             {
-                throw new PacketReadException($"Exception handling packet {packet} in state {State}", e);
+                // Don't assume the actual packet's data is at index 0. Packets store extra metadata at the start
+                // of the same ByteReader. We do not care about that metadata here.
+                var packetLen = data.Length - pos;
+                var bytesToShow = Math.Min(128, packetLen);
+                var bytes = data.GetBuffer().SubArray(pos, bytesToShow);
+                var bytesStr = ByteArrayToString(bytes);
+                throw new PacketReadException($"Exception handling packet {packet} in state {State} (first {bytesToShow}/{packetLen} bytes: {bytesStr})", e);
             }
+        }
+
+        private static string ByteArrayToString(byte[] ba)
+        {
+            StringBuilder hex = new StringBuilder(ba.Length * 2);
+            foreach (byte b in ba)
+                hex.AppendFormat("{0:x2}", b);
+            return hex.ToString();
         }
 
         public abstract void Close(MpDisconnectReason reason, byte[]? data = null);
