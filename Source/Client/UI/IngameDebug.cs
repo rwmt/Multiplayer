@@ -148,7 +148,7 @@ public static class IngameDebug
         if (Multiplayer.Client != null && Multiplayer.GameComp.debugMode)
         {
             using (MpStyle.Set(GameFont.Tiny).Set(TextAnchor.MiddleCenter))
-                Widgets.Label(new Rect(x, y, BtnWidth, 30f), $"Debug mode");
+                Widgets.Label(new Rect(x, y, BtnWidth, 30f), "Debug mode");
 
             return BtnHeight;
         }

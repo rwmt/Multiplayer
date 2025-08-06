@@ -13,13 +13,17 @@ namespace Multiplayer.Client
     [HarmonyPatch(typeof(MainButtonsRoot), nameof(MainButtonsRoot.MainButtonsOnGUI))]
     public static class IngameUIPatch
     {
-        public static List<Func<float, float>> upperLeftDrawers = new()
-        {
+        public static List<Func<float, float>> upperLeftDrawers =
+        [
+            SyncDebugPanel.DoSyncDebugPanel, // Enhanced expandable debug panel
+        ];
+        public static List<Func<float, float>> upperRightDrawers =
+        [
             DoChatAndTicksBehind,
-            SyncDebugPanel.DoSyncDebugPanel,  // Enhanced expandable debug panel
+            IngameDebug.DoDevInfo,
             IngameDebug.DoDebugModeLabel,
             IngameDebug.DoTimeDiffLabel
-        };
+        ];
 
         private const float BtnMargin = 8f;
         private const float BtnHeight = 27f;
@@ -80,7 +84,9 @@ namespace Multiplayer.Client
                 );
             }
 
-            DoUpperLeftButtons();
+            // Add extra space for the left side to avoid overlapping with game notifications.
+            DoWidgetList(BtnMargin + BtnHeight + BtnMargin, upperLeftDrawers);
+            DoWidgetList(BtnMargin, upperRightDrawers);
 
             if (Multiplayer.Client != null
                 && !Multiplayer.IsReplay
@@ -97,14 +103,12 @@ namespace Multiplayer.Client
             return Find.Maps.Count > 0;
         }
 
-        private static void DoUpperLeftButtons()
+        private static void DoWidgetList(float y, List<Func<float, float>> widgets)
         {
             if (Multiplayer.session == null)
                 return;
 
-            float y = BtnMargin;
-
-            foreach (var drawer in upperLeftDrawers)
+            foreach (var drawer in widgets)
                 y += drawer(y);
         }
 
