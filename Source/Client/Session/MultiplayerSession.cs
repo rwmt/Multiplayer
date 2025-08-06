@@ -114,9 +114,8 @@ namespace Multiplayer.Client
             SoundDefOf.PageChange.PlayOneShotOnCamera();
         }
 
-        public void ProcessDisconnectPacket(MpDisconnectReason reason, byte[] data)
+        public void ProcessDisconnectPacket(MpDisconnectReason reason, ByteReader reader)
         {
-            var reader = new ByteReader(data);
             string titleKey = null;
             string descKey = null;
 

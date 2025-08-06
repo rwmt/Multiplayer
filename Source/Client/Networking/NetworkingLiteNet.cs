@@ -35,7 +35,7 @@ namespace Multiplayer.Client.Networking
         public void OnPeerDisconnected(NetPeer peer, DisconnectInfo info)
         {
             MpDisconnectReason reason;
-            byte[] data;
+            ByteReader reader;
 
             if (info.AdditionalData.IsNull)
             {
@@ -46,16 +46,15 @@ namespace Multiplayer.Client.Networking
                 else
                     reason = MpDisconnectReason.NetFailed;
 
-                data = new [] { (byte)info.Reason };
+                reader = new ByteReader(ByteWriter.GetBytes(info.Reason));
             }
             else
             {
-                var reader = new ByteReader(info.AdditionalData.GetRemainingBytes());
+                reader = new ByteReader(info.AdditionalData.GetRemainingBytes());
                 reason = reader.ReadEnum<MpDisconnectReason>();
-                data = reader.ReadPrefixedBytes();
             }
 
-            Multiplayer.session.ProcessDisconnectPacket(reason, data);
+            Multiplayer.session.ProcessDisconnectPacket(reason, reader);
             ConnectionStatusListeners.TryNotifyAll_Disconnected();
 
             Multiplayer.StopMultiplayer();

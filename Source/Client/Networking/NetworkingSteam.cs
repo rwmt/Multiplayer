@@ -63,7 +63,7 @@ namespace Multiplayer.Client.Networking
             {
                 Multiplayer.session.ProcessDisconnectPacket(
                     reader.ReadEnum<MpDisconnectReason>(),
-                    reader.ReadPrefixedBytes()
+                    reader
                 );
                 OnDisconnect();
                 return;
