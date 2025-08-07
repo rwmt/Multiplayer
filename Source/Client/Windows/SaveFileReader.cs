@@ -60,7 +60,7 @@ namespace Multiplayer.Client
         {
             try
             {
-                var displayName = Path.ChangeExtension(file.FullName.Substring(Multiplayer.ReplaysDir.Length + 1), null);
+                var displayName = Path.ChangeExtension(Path.GetRelativePath(Multiplayer.ReplaysDir, file.FullName), null);
                 var saveFile = new SaveFile(displayName, true, file);
 
                 var replay = Replay.ForLoading(file);
