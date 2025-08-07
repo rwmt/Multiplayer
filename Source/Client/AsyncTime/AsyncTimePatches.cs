@@ -83,7 +83,7 @@ namespace Multiplayer.Client.AsyncTime
             AsyncTimeComp comp = t.Map.AsyncTime();
             TickerType tickerType = t.def.tickerType;
 
-            if (tickerType == TickerType.Normal)
+            if (t is IThingHolder || tickerType == TickerType.Normal)
                 comp.tickListNormal.RegisterThing(t);
             else if (tickerType == TickerType.Rare)
                 comp.tickListRare.RegisterThing(t);
