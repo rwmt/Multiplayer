@@ -29,7 +29,9 @@ namespace Multiplayer.Client
             }
         }
 
-        public readonly List<ClientSyncOpinion> knownClientOpinions = new();
+        // Contains both local and remote opinions. The first opinion is the oldest one, and the last is the newest one.
+        // The host player has only local opinions.
+        public readonly List<ClientSyncOpinion> knownClientOpinions = [];
 
         public ClientSyncOpinion currentOpinion;
 
@@ -59,48 +61,49 @@ namespace Multiplayer.Client
                 knownClientOpinions.Add(newOpinion);
                 if (knownClientOpinions.Count > MaxBacklog)
                     RemoveAndClearFirst();
+                return;
+            }
+
+            // Remove all opinions that started before this one, as it's the most up-to-date one
+            while (knownClientOpinions.Count > 0 && knownClientOpinions[0].startTick < newOpinion.startTick)
+                RemoveAndClearFirst();
+
+            // If there are none left, we don't need to compare this new one
+            if (knownClientOpinions.Count == 0)
+            {
+                knownClientOpinions.Add(newOpinion);
+                return;
+            }
+
+            if (knownClientOpinions.First().startTick != newOpinion.startTick)
+            {
+                // Ignore this opinion
+                newOpinion.Clear();
+                return;
+            }
+
+            // If these two contain the same tick range - i.e., they start at the same time, because they should
+            // continue to the current tick, then do a comparison.
+            var oldOpinion = knownClientOpinions.RemoveFirst();
+
+            // Actually do the comparison to find any desync
+            var desyncMessage = oldOpinion.CheckForDesync(newOpinion);
+
+            if (desyncMessage != null)
+            {
+                MpLog.Log($"Desynced after last valid tick {lastValidTick}: {desyncMessage}");
+                Multiplayer.session.desynced = true;
+                TickPatch.ClearSimulating();
+                OnMainThread.Enqueue(() => HandleDesync(oldOpinion, newOpinion, desyncMessage));
             }
             else
             {
-                //Remove all opinions that started before this one, as it's the most up to date one
-                while (knownClientOpinions.Count > 0 && knownClientOpinions[0].startTick < newOpinion.startTick)
-                    RemoveAndClearFirst();
+                // Update fields
+                lastValidTick = oldOpinion.startTick;
+                arbiterWasPlayingOnLastValidTick = Multiplayer.session.ArbiterPlaying;
 
-                //If there are none left, we don't need to compare this new one
-                if (knownClientOpinions.Count == 0)
-                {
-                    knownClientOpinions.Add(newOpinion);
-                }
-                else if (knownClientOpinions.First().startTick == newOpinion.startTick)
-                {
-                    //If these two contain the same tick range - i.e. they start at the same time, because they should continue to the current tick, then do a comparison.
-                    var oldOpinion = knownClientOpinions.RemoveFirst();
-
-                    //Actually do the comparison to find any desync
-                    var desyncMessage = oldOpinion.CheckForDesync(newOpinion);
-
-                    if (desyncMessage != null)
-                    {
-                        MpLog.Log($"Desynced after last valid tick {lastValidTick}: {desyncMessage}");
-                        Multiplayer.session.desynced = true;
-                        TickPatch.ClearSimulating();
-                        OnMainThread.Enqueue(() => HandleDesync(oldOpinion, newOpinion, desyncMessage));
-                    }
-                    else
-                    {
-                        //Update fields
-                        lastValidTick = oldOpinion.startTick;
-                        arbiterWasPlayingOnLastValidTick = Multiplayer.session.ArbiterPlaying;
-
-                        // Return inner data to the pool
-                        oldOpinion.Clear();
-                    }
-                }
-                // Ignore this opinion
-                else
-                {
-                    newOpinion.Clear();
-                }
+                // Return inner data to the pool
+                oldOpinion.Clear();
             }
         }
 
@@ -118,7 +121,7 @@ namespace Multiplayer.Client
         /// <param name="desyncMessage">The error message that explains exactly what desynced.</param>
         private void HandleDesync(ClientSyncOpinion oldOpinion, ClientSyncOpinion newOpinion, string desyncMessage)
         {
-            //Identify which of the two sync infos is local, and which is the remote.
+            // Identify which of the two sync infos is local and which is the remote.
             var local = oldOpinion.isLocalClientsOpinion ? oldOpinion : newOpinion;
             var remote = !oldOpinion.isLocalClientsOpinion ? oldOpinion : newOpinion;
 
@@ -133,7 +136,7 @@ namespace Multiplayer.Client
             ));
         }
 
-        private int FindTraceHashesDiffTick(ClientSyncOpinion local, ClientSyncOpinion remote)
+        private static int FindTraceHashesDiffTick(ClientSyncOpinion local, ClientSyncOpinion remote)
         {
             //Find the length of whichever stack trace is shorter.
             var localCount = local.desyncStackTraceHashes.Count;

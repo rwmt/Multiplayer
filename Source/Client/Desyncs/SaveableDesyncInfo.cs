@@ -13,20 +13,15 @@ using Verse;
 
 namespace Multiplayer.Client.Desyncs;
 
-public class SaveableDesyncInfo
+public class SaveableDesyncInfo(
+    SyncCoordinator coordinator,
+    ClientSyncOpinion local,
+    ClientSyncOpinion remote,
+    int diffAt)
 {
-    private readonly SyncCoordinator coordinator;
-    public readonly ClientSyncOpinion local;
-    public readonly ClientSyncOpinion remote;
-    public readonly int diffAt;
-
-    public SaveableDesyncInfo(SyncCoordinator coordinator, ClientSyncOpinion local, ClientSyncOpinion remote, int diffAt)
-    {
-        this.coordinator = coordinator;
-        this.local = local;
-        this.remote = remote;
-        this.diffAt = diffAt;
-    }
+    public readonly ClientSyncOpinion local = local;
+    public readonly ClientSyncOpinion remote = remote;
+    public readonly int diffAt = diffAt;
 
     public void Save()
     {
