@@ -386,8 +386,9 @@ namespace Multiplayer.Client
                     ("Tick", Type.EmptyTypes),
                     ("TickRare", Type.EmptyTypes),
                     ("TickLong", Type.EmptyTypes),
-                    ("TakeDamage", new[]{ typeof(DamageInfo) }),
-                    ("Kill", new[]{ typeof(DamageInfo?), typeof(Hediff) })
+                    ("TickInterval", [typeof(int)]),
+                    ("TakeDamage", [typeof(DamageInfo)]),
+                    ("Kill", [typeof(DamageInfo?), typeof(Hediff)])
                 };
 
                 foreach (Type t in typeof(Thing).AllSubtypesAndSelf())
@@ -399,7 +400,7 @@ namespace Multiplayer.Client
 
                     foreach ((string m, Type[] args) in thingMethods)
                     {
-                        MethodInfo method = t.GetMethod(m, BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly, null, args, null);
+                        MethodInfo method = t.GetMethod(m, BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly | BindingFlags.NonPublic, null, args, null);
                         if (method != null)
                             TryPatch(method, thingMethodPrefix, finalizer: thingMethodFinalizer);
                     }
