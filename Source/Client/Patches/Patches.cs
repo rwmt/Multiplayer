@@ -106,22 +106,22 @@ namespace Multiplayer.Client
         }
     }*/
 
-    // why patch it if it's commented out?
+    //why patch it if it's commented out?
     //[HarmonyPatch(typeof(PawnTweener), nameof(PawnTweener.PreDrawPosCalculation))]
-    public static class PreDrawPosCalcPatch
-    {
-        static void Prefix()
-        {
-            //if (MapAsyncTimeComp.tickingMap != null)
-            //    SimpleProfiler.Pause();
-        }
+    //public static class PreDrawPosCalcPatch
+    //{
+    //    static void Prefix()
+    //    {
+    //        if (MapAsyncTimeComp.tickingMap != null)
+    //            SimpleProfiler.Pause();
+    //    }
 
-        static void Postfix()
-        {
-            //if (MapAsyncTimeComp.tickingMap != null)
-            //    SimpleProfiler.Start();
-        }
-    }
+    //    static void Postfix()
+    //    {
+    //        if (MapAsyncTimeComp.tickingMap != null)
+    //            SimpleProfiler.Start();
+    //    }
+    //}
 
     public static class ValueSavePatch
     {
@@ -141,32 +141,32 @@ namespace Multiplayer.Client
     }
 
     //[HarmonyPatch(typeof(Log), nameof(Log.Warning))]
-    public static class CrossRefWarningPatch
-    {
-        private static Regex regex = new Regex(@"^Could not resolve reference to object with loadID ([\w.-]*) of type ([\w.<>+]*)\. Was it compressed away");
-        public static bool ignore;
+    //public static class CrossRefWarningPatch
+    //{
+    //    private static Regex regex = new Regex(@"^Could not resolve reference to object with loadID ([\w.-]*) of type ([\w.<>+]*)\. Was it compressed away");
+    //    public static bool ignore;
 
-        // The only non-generic entry point during cross reference resolving
-        static bool Prefix(string text)
-        {
-            if (Multiplayer.Client == null || ignore) return true;
+    //    // The only non-generic entry point during cross reference resolving
+    //    static bool Prefix(string text)
+    //    {
+    //        if (Multiplayer.Client == null || ignore) return true;
 
-            ignore = true;
+    //        ignore = true;
 
-            GroupCollection groups = regex.Match(text).Groups;
-            if (groups.Count == 3)
-            {
-                string loadId = groups[1].Value;
-                string typeName = groups[2].Value;
-                // todo
-                return false;
-            }
+    //        GroupCollection groups = regex.Match(text).Groups;
+    //        if (groups.Count == 3)
+    //        {
+    //            string loadId = groups[1].Value;
+    //            string typeName = groups[2].Value;
+    //            // todo
+    //            return false;
+    //        }
 
-            ignore = false;
+    //        ignore = false;
 
-            return true;
-        }
-    }
+    //        return true;
+    //    }
+    //}
 
     [HarmonyPatch(typeof(UI), nameof(UI.MouseCell))]
     public static class MouseCellPatch

@@ -344,8 +344,8 @@ namespace Multiplayer.Client
 
             // Remove side effects from methods which are non-deterministic during ticking (e.g. camera dependent motes and sound effects)
             {
-                var randPatchPrefix = new HarmonyMethod(typeof(RandPatches), nameof(RandPatches.Prefix));
-                var randPatchFinalizer = new HarmonyMethod(typeof(RandPatches), nameof(RandPatches.Finalizer));
+                var randPatchPrefix = new HarmonyMethod(typeof(RandPatches), nameof(RandPatches.RandPrefix));
+                var randPatchFinalizer = new HarmonyMethod(typeof(RandPatches), nameof(RandPatches.RandFinalizer));
 
                 var subSustainerStart = MpMethodUtil.GetLambda(typeof(SubSustainer), parentMethodType: MethodType.Constructor, parentArgs: new[] { typeof(Sustainer), typeof(SubSoundDef) });
                 var sampleCtor = typeof(Sample).GetConstructor(new[] { typeof(SubSoundDef) });
@@ -377,8 +377,8 @@ namespace Multiplayer.Client
 
             // Set ThingContext and FactionContext (for pawns and buildings) in common Thing methods
             {
-                var thingMethodPrefix = new HarmonyMethod(typeof(ThingMethodPatches).GetMethod(nameof(ThingMethodPatches.Prefix)));
-                var thingMethodFinalizer = new HarmonyMethod(typeof(ThingMethodPatches).GetMethod(nameof(ThingMethodPatches.Finalizer)));
+                var thingMethodPrefix = new HarmonyMethod(typeof(ThingMethodPatches).GetMethod(nameof(ThingMethodPatches.ThingPrefix)));
+                var thingMethodFinalizer = new HarmonyMethod(typeof(ThingMethodPatches).GetMethod(nameof(ThingMethodPatches.ThingFinalizer)));
                 var thingMethodPrefixSpawnSetup = new HarmonyMethod(typeof(ThingMethodPatches).GetMethod(nameof(ThingMethodPatches.Prefix_SpawnSetup)));
 
                 var thingMethods = new[]

@@ -146,14 +146,14 @@ namespace Multiplayer.Client
     public static class RandPatches
     {
         [HarmonyPriority(MpPriority.MpFirst)]
-        public static void Prefix(ref bool __state)
+        public static void RandPrefix(ref bool __state)
         {
             Rand.PushState();
             __state = true;
         }
 
         [HarmonyPriority(MpPriority.MpLast)]
-        public static void Finalizer(bool __state)
+        public static void RandFinalizer(bool __state)
         {
             if (__state)
                 Rand.PopState();

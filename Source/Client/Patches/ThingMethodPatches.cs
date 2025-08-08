@@ -120,7 +120,7 @@ namespace Multiplayer.Client
     public static class ThingMethodPatches
     {
         [HarmonyPriority(MpPriority.MpFirst)]
-        public static void Prefix(Thing __instance, ref Container<Map>? __state)
+        public static void ThingPrefix(Thing __instance, ref Container<Map>? __state)
         {
             if (Multiplayer.Client == null) return;
 
@@ -144,7 +144,7 @@ namespace Multiplayer.Client
         }
 
         [HarmonyPriority(MpPriority.MpLast)]
-        public static void Finalizer(Thing __instance, Container<Map>? __state)
+        public static void ThingFinalizer(Thing __instance, Container<Map>? __state)
         {
             if (__state is not { Inner: var map }) return;
 

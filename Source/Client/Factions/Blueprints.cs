@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using RimWorld;
 using System;
 using System.Collections.Generic;
@@ -298,22 +298,22 @@ namespace Multiplayer.Client
 
     // todo revisit for pvp
     //[HarmonyPatch(typeof(Designator_Build), nameof(Designator_Build.DesignateSingleCell))]
-    static class DisableInstaBuild
-    {
-        static MethodInfo GetStatValueAbstract = AccessTools.Method(typeof(StatExtension), nameof(StatExtension.GetStatValueAbstract), new []{ typeof(BuildableDef), typeof(StatDef), typeof(ThingDef) });
-        static MethodInfo WorkToBuildMethod = AccessTools.Method(typeof(DisableInstaBuild), nameof(WorkToBuild));
+    //static class DisableInstaBuild
+    //{
+    //    static MethodInfo GetStatValueAbstract = AccessTools.Method(typeof(StatExtension), nameof(StatExtension.GetStatValueAbstract), new []{ typeof(BuildableDef), typeof(StatDef), typeof(ThingDef) });
+    //    static MethodInfo WorkToBuildMethod = AccessTools.Method(typeof(DisableInstaBuild), nameof(WorkToBuild));
 
-        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> e, MethodBase original)
-        {
-            List<CodeInstruction> insts = e.ToList();
-            int pos = new CodeFinder(original, insts).Forward(OpCodes.Call, GetStatValueAbstract);
-            insts[pos + 1] = new CodeInstruction(OpCodes.Call, WorkToBuildMethod);
+    //    static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> e, MethodBase original)
+    //    {
+    //        List<CodeInstruction> insts = e.ToList();
+    //        int pos = new CodeFinder(original, insts).Forward(OpCodes.Call, GetStatValueAbstract);
+    //        insts[pos + 1] = new CodeInstruction(OpCodes.Call, WorkToBuildMethod);
 
-            return insts;
-        }
+    //        return insts;
+    //    }
 
-        static float WorkToBuild() => Multiplayer.Client == null ? 0f : -1f;
-    }
+    //    static float WorkToBuild() => Multiplayer.Client == null ? 0f : -1f;
+    //}
 
     [HarmonyPatch(typeof(Frame), nameof(Frame.WorkToBuild), MethodType.Getter)]
     static class NoZeroWorkFrames

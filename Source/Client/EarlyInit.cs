@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using HarmonyLib;
@@ -34,8 +34,8 @@ public static class EarlyInit
         // Might fix some mod desyncs
         harmony.PatchMeasure(
             AccessTools.Constructor(typeof(Def), Type.EmptyTypes),
-            new HarmonyMethod(typeof(RandPatches), nameof(RandPatches.Prefix)),
-            finalizer: new HarmonyMethod(typeof(RandPatches), nameof(RandPatches.Finalizer))
+            new HarmonyMethod(typeof(RandPatches), nameof(RandPatches.RandPrefix)),
+            finalizer: new HarmonyMethod(typeof(RandPatches), nameof(RandPatches.RandFinalizer))
         );
 
         Assembly.GetCallingAssembly().GetTypes().Do(type =>
