@@ -673,10 +673,10 @@ namespace Multiplayer.Client
 
         public override void PostClose()
         {
-            Cleanup(false);
+            CleanupServerBrowser(false);
         }
 
-        public void Cleanup(bool sync)
+        public void CleanupServerBrowser(bool sync)
         {
             void Stop(object s) => lanListener.Stop();
 

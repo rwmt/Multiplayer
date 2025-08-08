@@ -149,7 +149,7 @@ namespace Multiplayer.Client.Patches
 
     public static class CellsShufflePatchShared
     {
-        public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts, FieldInfo cellsShuffledField)
+        public static IEnumerable<CodeInstruction> CellShuffleTranspiler(IEnumerable<CodeInstruction> insts, FieldInfo cellsShuffledField)
         {
             bool found = false;
             foreach (CodeInstruction inst in insts)
@@ -176,7 +176,7 @@ namespace Multiplayer.Client.Patches
     {
         static readonly FieldInfo CellsShuffled = AccessTools.Field(typeof(Zone), "cellsShuffled");
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
-            => CellsShufflePatchShared.Transpiler(insts, CellsShuffled);
+            => CellsShufflePatchShared.CellShuffleTranspiler(insts, CellsShuffled);
     }
 
     [HarmonyPatch(typeof(Plan), nameof(Plan.Cells), MethodType.Getter)]
@@ -184,7 +184,7 @@ namespace Multiplayer.Client.Patches
     {
         static readonly FieldInfo CellsShuffled = AccessTools.Field(typeof(Plan), "cellsShuffled");
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
-            => CellsShufflePatchShared.Transpiler(insts, CellsShuffled);
+            => CellsShufflePatchShared.CellShuffleTranspiler(insts, CellsShuffled);
     }
 
     [HarmonyPatch]

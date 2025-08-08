@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -24,9 +24,9 @@ namespace Multiplayer.Client
         }
 
         static readonly MethodInfo m_General = SymbolExtensions.GetMethodInfo(() => General(0, null, Array.Empty<object>()));
-        static readonly MethodInfo m_Transpiler = SymbolExtensions.GetMethodInfo(() => Transpiler(null, null, null));
+        static readonly MethodInfo m_Transpiler = SymbolExtensions.GetMethodInfo(() => SyncTemplateTranspiler(null, null, null));
 
-        static IEnumerable<CodeInstruction> Transpiler(MethodBase original, IEnumerable<CodeInstruction> instructions, ILGenerator gen)
+        static IEnumerable<CodeInstruction> SyncTemplateTranspiler(MethodBase original, IEnumerable<CodeInstruction> instructions, ILGenerator gen)
         {
             int idx;
             var label = gen.DefineLabel();

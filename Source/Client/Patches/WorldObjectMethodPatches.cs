@@ -6,7 +6,7 @@ namespace Multiplayer.Client.Patches;
 public static class WorldObjectMethodPatches
 {
     [HarmonyPriority(MpPriority.MpFirst)]
-    public static void Prefix(WorldObject __instance)
+    public static void WorldObjectPrefix(WorldObject __instance)
     {
         if (Multiplayer.Client == null) return;
 
@@ -15,7 +15,7 @@ public static class WorldObjectMethodPatches
     }
 
     [HarmonyPriority(MpPriority.MpLast)]
-    public static void Finalizer(WorldObject __instance)
+    public static void WorldObjectFinalizer(WorldObject __instance)
     {
         if (Multiplayer.Client == null) return;
 

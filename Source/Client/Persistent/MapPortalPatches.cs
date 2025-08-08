@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -88,7 +88,7 @@ static class CancelMapPortalAddItems
 static class OpenMapPortalSessionDialog
 {
     [MpPrefix(typeof(MapPortal), nameof(MapPortal.GetGizmos), 0)]
-    static bool Prefix(MapPortal __instance)
+    static bool OpenMapPortalPrefix(MapPortal __instance)
     {
         if (Multiplayer.Client == null)
             return true;

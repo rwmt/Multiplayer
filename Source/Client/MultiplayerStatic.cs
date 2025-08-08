@@ -408,8 +408,8 @@ namespace Multiplayer.Client
 
             // Set FactionContext in common WorldObject methods
             {
-                var prefix = new HarmonyMethod(typeof(WorldObjectMethodPatches).GetMethod(nameof(WorldObjectMethodPatches.Prefix)));
-                var finalizer = new HarmonyMethod(typeof(WorldObjectMethodPatches).GetMethod(nameof(WorldObjectMethodPatches.Finalizer)));
+                var prefix = new HarmonyMethod(typeof(WorldObjectMethodPatches).GetMethod(nameof(WorldObjectMethodPatches.WorldObjectPrefix)));
+                var finalizer = new HarmonyMethod(typeof(WorldObjectMethodPatches).GetMethod(nameof(WorldObjectMethodPatches.WorldObjectFinalizer)));
 
                 var thingMethods = new[]
                 {

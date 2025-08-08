@@ -211,7 +211,7 @@ namespace Multiplayer.Client
 
             TickPatch.Reset();
 
-            Find.WindowStack?.WindowOfType<ServerBrowser>()?.Cleanup(true);
+            Find.WindowStack?.WindowOfType<ServerBrowser>()?.CleanupServerBrowser(true);
             SyncFieldUtil.ClearAllBufferedChanges();
 
             if (arbiterInstance)
