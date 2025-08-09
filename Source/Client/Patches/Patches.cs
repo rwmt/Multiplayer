@@ -72,57 +72,6 @@ namespace Multiplayer.Client
         }
     }
 
-    /*
-    [HarmonyPatch(typeof(Thing), nameof(Thing.ExposeData))]
-    public static class PawnExposeDataFirst
-    {
-        public static Container<Map>? state;
-
-        // Postfix so Thing's faction is already loaded
-        static void Postfix(Thing __instance)
-        {
-            if (Multiplayer.Client == null) return;
-            if (!(__instance is Pawn)) return;
-            if (__instance.Faction == null) return;
-            if (Find.FactionManager == null) return;
-            if (Find.FactionManager.AllFactionsListForReading.Count == 0) return;
-
-            __instance.Map.PushFaction(__instance.Faction);
-            ThingContext.Push(__instance);
-            state = __instance.Map;
-        }
-    }
-    [HarmonyPatch(typeof(Pawn), nameof(Pawn.ExposeData))]
-    public static class PawnExposeDataLast
-    {
-        static void Postfix()
-        {
-            if (PawnExposeDataFirst.state != null)
-            {
-                ThingContext.Pop();
-                PawnExposeDataFirst.state.PopFaction();
-                PawnExposeDataFirst.state = null;
-            }
-        }
-    }*/
-
-    //why patch it if it's commented out?
-    //[HarmonyPatch(typeof(PawnTweener), nameof(PawnTweener.PreDrawPosCalculation))]
-    //public static class PreDrawPosCalcPatch
-    //{
-    //    static void Prefix()
-    //    {
-    //        if (MapAsyncTimeComp.tickingMap != null)
-    //            SimpleProfiler.Pause();
-    //    }
-
-    //    static void Postfix()
-    //    {
-    //        if (MapAsyncTimeComp.tickingMap != null)
-    //            SimpleProfiler.Start();
-    //    }
-    //}
-
     public static class ValueSavePatch
     {
         public static bool DoubleSave_Prefix(string label, ref double value)
@@ -139,34 +88,6 @@ namespace Multiplayer.Client
             return false;
         }
     }
-
-    //[HarmonyPatch(typeof(Log), nameof(Log.Warning))]
-    //public static class CrossRefWarningPatch
-    //{
-    //    private static Regex regex = new Regex(@"^Could not resolve reference to object with loadID ([\w.-]*) of type ([\w.<>+]*)\. Was it compressed away");
-    //    public static bool ignore;
-
-    //    // The only non-generic entry point during cross reference resolving
-    //    static bool Prefix(string text)
-    //    {
-    //        if (Multiplayer.Client == null || ignore) return true;
-
-    //        ignore = true;
-
-    //        GroupCollection groups = regex.Match(text).Groups;
-    //        if (groups.Count == 3)
-    //        {
-    //            string loadId = groups[1].Value;
-    //            string typeName = groups[2].Value;
-    //            // todo
-    //            return false;
-    //        }
-
-    //        ignore = false;
-
-    //        return true;
-    //    }
-    //}
 
     [HarmonyPatch(typeof(UI), nameof(UI.MouseCell))]
     public static class MouseCellPatch
