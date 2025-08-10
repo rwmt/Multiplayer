@@ -949,23 +949,31 @@ namespace Multiplayer.Client
                 }, true // Implicit
             },
             {
-                (ByteWriter data, Action<PlanetTile, TransportersArrivalAction> action) =>
-                {
-                    WriteSync<object>(data, action.Target);
-                    data.WriteString(action.Method.Name);
+                (ByteWriter data, Action<PlanetTile, TransportersArrivalAction> action) => {
+                    var method = action.Method;
+                    var target = action.Target;
+
+                    var t = target.GetType();
+                    WriteSync(data, t);
+                    WriteSyncObject(data, target, t);
+
+                    data.WriteString(method.Name);
                 },
-                (ByteReader data) =>
-                {
-                    // ReadSyncObject can infer the type from the data stream.
-                    object target = ReadSync<object>(data);
+                (ByteReader data) => {
+
+                    object target = null;
+                    Type targetType = null;
+
+                    targetType = ReadSync<Type>(data);
+                    target = ReadSyncObject(data, targetType);
+
                     string methodName = data.ReadString();
 
-                    // Use the ReadSync helper for arrays.
-                    Type[] parameterTypes = ReadSync<Type[]>(data);
-                    if (target == null || methodName == null)
+                    var declaringType = target?.GetType();
+                    if (declaringType  == null || methodName == null)
                         return null;
 
-                    System.Reflection.MethodInfo method = AccessTools.Method(target.GetType(), methodName, parameterTypes);
+                    var method = AccessTools.Method(declaringType , methodName);
                     if (method == null) return null;
 
                     return (Action<PlanetTile, TransportersArrivalAction>) Delegate.CreateDelegate(typeof(Action<PlanetTile, TransportersArrivalAction>), target, method);
