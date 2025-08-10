@@ -421,14 +421,15 @@ namespace Multiplayer.Client
                 var thingMethods = new[]
                 {
                     ("SpawnSetup", Type.EmptyTypes),
-                    ("Tick", Type.EmptyTypes)
+                    ("Tick", Type.EmptyTypes),
+                    ("TickInterval", [typeof(int)]),
                 };
 
                 foreach (Type t in typeof(WorldObject).AllSubtypesAndSelf())
                 {
                     foreach ((string m, Type[] args) in thingMethods)
                     {
-                        MethodInfo method = t.GetMethod(m, BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly, null, args, null);
+                        MethodInfo method = t.GetMethod(m, BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly | BindingFlags.NonPublic, null, args, null);
                         if (method != null)
                             TryPatch(method, prefix, finalizer: finalizer);
                     }
