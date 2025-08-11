@@ -1,9 +1,8 @@
-﻿using RimWorld;
+using HarmonyLib;
 using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
-using HarmonyLib;
 using Verse;
 
 namespace Multiplayer.Client
@@ -11,10 +10,7 @@ namespace Multiplayer.Client
     static class SyncActions
     {
         static SyncAction<FloatMenuOption, WorldObject, Caravan, object> SyncWorldObjCaravanMenus;
-        static SyncAction<FloatMenuOption, WorldObject, IEnumerable<IThingHolder>, Action<PlanetTile, TransportersArrivalAction>> SyncTransportPodMenus;
-
         static Type CaravanActionConfirmationType;
-        static Type TransportPodActionConfirmationType;
 
         public static void Init()
         {
@@ -26,16 +22,11 @@ namespace Multiplayer.Client
 
             // TODO: Use MpMethodUtil instead if we decide to make it work with generic types/methods (already in MP Compat, so use it). Or remove this TODO if we decide not to.
             CaravanActionConfirmationType = AccessTools.Inner(typeof(CaravanArrivalActionUtility), "<>c__DisplayClass0_1`1");
-            TransportPodActionConfirmationType = AccessTools.Inner(typeof(TransportersArrivalActionUtility), "<>c__DisplayClass0_0`1");
 
             if (CaravanActionConfirmationType == null) Error($"Could not find type: {nameof(CaravanArrivalActionUtility)}.<>c__DisplayClass0_1<T>");
-            if (TransportPodActionConfirmationType == null) Error($"Could not find type: {nameof(TransportersArrivalActionUtility)}.<>c__DisplayClass0_0<T>");
 
             SyncWorldObjCaravanMenus = RegisterActions((WorldObject obj, Caravan c) => obj.GetFloatMenuOptions(c), ActionGetter, WorldObjectCaravanMenuWrapper);
             SyncWorldObjCaravanMenus.PatchAll(nameof(WorldObject.GetFloatMenuOptions));
-
-            SyncTransportPodMenus = RegisterActions((WorldObject obj, IEnumerable<IThingHolder> p, Action<PlanetTile, TransportersArrivalAction> a) => obj.GetTransportersFloatMenuOptions(p, a), o => ref o.action);
-            SyncTransportPodMenus.PatchAll(nameof(WorldObject.GetTransportersFloatMenuOptions));
         }
 
         private static ref Action ActionGetter(FloatMenuOption o) => ref o.action;
@@ -62,36 +53,6 @@ namespace Multiplayer.Client
 
                 // If we're in a synced call, just call the action itself (after confirmation dialog)
                 ((Action)field.GetValue(original.Target))();
-            };
-        }
-
-        public static Action TransportPodMenuWrapper(FloatMenuOption instance, WorldObject worldObject, IEnumerable<IThingHolder> thingHolders, CompLaunchable compLaunchable, Action original, Action sync)
-        {
-            if (instance.action.Method.DeclaringType is not { IsGenericType: true })
-                return null;
-
-            if (instance.action.Method.DeclaringType.GetGenericTypeDefinition() != TransportPodActionConfirmationType)
-                return null;
-
-            return () =>
-            {
-                var field = AccessTools.DeclaredField(original.Target.GetType(), "uiConfirmationCallback");
-
-                if (Multiplayer.ExecutingCmds)
-                {
-                    // Remove UI confirmation during synced commands so the method is just called directly
-                    field.SetValue(original.Target, null);
-                    original();
-                    return;
-                }
-
-                var confirmation = (Action<Action>)field.GetValue(original.Target);
-                // If no confirmation dialog, just sync
-                if (confirmation == null)
-                    sync();
-                // If there's a confirmation dialog, call it with sync as its synced method
-                else
-                    confirmation(sync);
             };
         }
 
@@ -133,5 +94,4 @@ namespace Multiplayer.Client
             }
         }
     }
-
 }

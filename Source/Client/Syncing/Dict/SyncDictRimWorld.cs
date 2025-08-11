@@ -949,37 +949,6 @@ namespace Multiplayer.Client
                 }, true // Implicit
             },
             {
-                (ByteWriter data, Action<PlanetTile, TransportersArrivalAction> action) => {
-                    var method = action.Method;
-                    var target = action.Target;
-
-                    var t = target.GetType();
-                    WriteSync(data, t);
-                    WriteSyncObject(data, target, t);
-
-                    data.WriteString(method.Name);
-                },
-                (ByteReader data) => {
-
-                    object target = null;
-                    Type targetType = null;
-
-                    targetType = ReadSync<Type>(data);
-                    target = ReadSyncObject(data, targetType);
-
-                    string methodName = data.ReadString();
-
-                    var declaringType = target?.GetType();
-                    if (declaringType  == null || methodName == null)
-                        return null;
-
-                    var method = AccessTools.Method(declaringType , methodName);
-                    if (method == null) return null;
-
-                    return (Action<PlanetTile, TransportersArrivalAction>) Delegate.CreateDelegate(typeof(Action<PlanetTile, TransportersArrivalAction>), target, method);
-                }
-            },
-            {
                 (SyncWorker data, ref WorldObjectComp comp) => {
                     if (data.isWriting) {
                         if (comp != null) {
