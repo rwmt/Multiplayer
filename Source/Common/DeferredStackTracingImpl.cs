@@ -141,8 +141,15 @@ public static class DeferredStackTracingImpl
         info.addr = ret;
         info.stackUsage = stackUsage;
 
-        var rawName = Native.MethodNameFromAddr(ret, true); // Use the original instead of replacement for hashing
-        info.nameHash = rawName != null ? Native.GetMethodAggressiveInlining(ret) ? 0 : StableStringHash(rawName) : 1;
+        // Use the original mono name for hashing, but normalize away volatile parts
+        var rawName = Native.MethodNameFromAddr(ret, true);
+        var nameForHash = NormalizeMethodName(rawName);
+
+        // nameHash: 0 => skip (aggressive inline), 1 => unknown-but-present, else stable hash
+        info.nameHash =
+            rawName == null ? 1 :
+            Native.GetMethodAggressiveInlining(ret) ? 0 :
+            StableStringHash(nameForHash);
 
         hashtableEntries++;
         if (hashtableEntries > hashtableSize * LoadFactor)
@@ -151,6 +158,21 @@ public static class DeferredStackTracingImpl
         return stackUsage;
     }
 
+    private static string? NormalizeMethodName(string? name)
+    {
+        if (string.IsNullOrEmpty(name)) return name;
+
+        // Drop IL offset: " (...) [0x000b6]" and everything after it
+        int idx = name.IndexOf(" [0x", StringComparison.Ordinal);
+        if (idx >= 0) name = name.Substring(0, idx);
+
+        // Drop " in <image>:line" tail, which includes per-build GUID/hashes
+        int inIdx = name.IndexOf(" in <", StringComparison.Ordinal);
+        if (inIdx >= 0) name = name.Substring(0, inIdx);
+
+        // Trim any stray whitespace
+        return name.TrimEnd();
+    }
     static ulong HashAddr(ulong addr) => ((addr >> 4) | addr << 60) * 11400714819323198485;
 
     static int ResizeHashtable()
