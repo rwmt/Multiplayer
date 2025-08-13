@@ -250,18 +250,22 @@ namespace Multiplayer.Client.Patches
         static void Prefix(WorldComponent_GravshipController __instance)
         {
             if (Multiplayer.Client == null) return;
+
+            PlanetTile takeOffTile = __instance.takeoffTile;
+
             Rand.PushState();
             Rand.StateCompressed = __instance.map.AsyncTime().randState;
 
-            GravshipTravelSession session = GravshipTravelSessionUtils.GetSession(__instance.takeoffTile);
+            GravshipTravelSession session = GravshipTravelSessionUtils.GetSession(takeOffTile);
             if (session == null)
             {
-                MpLog.Error($"[MP] WorldComponent_GravshipController_LandingEnded_Patch: Gravship session not found for tile {__instance.takeoffTile}. Cannot end landing.");
+                MpLog.Error($"[MP] WorldComponent_GravshipController_LandingEnded_Patch: Gravship session not found for tile {takeOffTile}. Cannot end landing.");
                 return;
             }
 
             Multiplayer.Client.Send(Common.Packets.Client_Freeze, [false]);
             session.UnregisterMap();
+            GravshipTravelSessionUtils.CloseSession(takeOffTile);
         }
 
         static void Postfix()
