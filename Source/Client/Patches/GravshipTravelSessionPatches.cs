@@ -124,6 +124,17 @@ namespace Multiplayer.Client.Patches
             Find.GravshipController.InitiateTakeoff(engine, planetTile);
             SoundDefOf.Gravship_Launch.PlayOneShotOnCamera();
             Patch_CompPilotConsole_StartChoosingDestination.initialTile = null;
+
+            ClearTilePickerForNonIssuer();
+        }
+
+        private static void ClearTilePickerForNonIssuer()
+        {
+            if (!TickPatch.currentExecutingCmdIssuedBySelf)
+            {
+                Find.TilePicker.StopTargetingInt();
+                Event.current.Use();
+            }
         }
     }
 
