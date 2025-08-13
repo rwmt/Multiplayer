@@ -146,6 +146,7 @@ namespace Multiplayer.Client.Patches
         {
             if (Multiplayer.Client == null) return;
             if (!__instance.forGravship) return;
+            if (Multiplayer.ExecutingCmds) return;
 
             if (!Patch_CompPilotConsole_StartChoosingDestination.initialTile.HasValue)
             {
@@ -155,20 +156,18 @@ namespace Multiplayer.Client.Patches
 
             GravshipTravelSessionUtils.SyncCloseSession(Patch_CompPilotConsole_StartChoosingDestination.initialTile.Value);
             SyncStopTargeting();
-            Patch_CompPilotConsole_StartChoosingDestination.initialTile = null;
         }
 
         [SyncMethod]
         static void SyncStopTargeting()
         {
             TilePicker tilePicker = Find.TilePicker;
-            if (Multiplayer.Client == null) return;
 
-            if (tilePicker.active && tilePicker.noTileChosen != null)
-            {
-                tilePicker.noTileChosen();
-            }
-            tilePicker.StopTargetingInt();
+            Find.World.renderer.wantedMode = WorldRenderMode.None;
+
+            tilePicker.StopTargeting();
+
+            Patch_CompPilotConsole_StartChoosingDestination.initialTile = null;
         }
     }
 
