@@ -1,5 +1,6 @@
 using HarmonyLib;
 using Multiplayer.API;
+using Multiplayer.Client.Persistent;
 using Multiplayer.Client.Util;
 using RimWorld;
 using RimWorld.Planet;

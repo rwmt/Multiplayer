@@ -1,12 +1,12 @@
 using Multiplayer.API;
-using Multiplayer.Client;
 using Multiplayer.Client.Patches;
 using Multiplayer.Client.Util;
 using RimWorld;
 using RimWorld.Planet;
-using System.Collections.Generic;
 using System.Linq;
 using Verse;
+
+namespace Multiplayer.Client.Persistent;
 
 // World-level session: always registered with WorldComp, never pauses a map
 public class GravshipTravelSession : ExposableSession
@@ -68,11 +68,11 @@ public static class GravshipTravelSessionUtils
     public static void CreateGravshipTravelSession(Map map)
     {
         GravshipTravelSession session = new(map);
-        Multiplayer.Client.Multiplayer.WorldComp.sessionManager.AddSession(session);
+        Multiplayer.WorldComp.sessionManager.AddSession(session);
     }
 
     public static GravshipTravelSession GetSession(PlanetTile takeoffTile) =>
-        Multiplayer.Client.Multiplayer.WorldComp.sessionManager.AllSessions.OfType<GravshipTravelSession>().FirstOrDefault(s => s.InitialTile == takeoffTile);
+        Multiplayer.WorldComp.sessionManager.AllSessions.OfType<GravshipTravelSession>().FirstOrDefault(s => s.InitialTile == takeoffTile);
 
     [SyncMethod]
     public static void RegisterMap(PlanetTile tile, Map map) => GetSession(tile)?.RegisterMap(map);
@@ -90,6 +90,6 @@ public static class GravshipTravelSessionUtils
 
         MpLog.Debug($"[MP] GravshipTravelSession: Closing session for tile {tile}");
         session.UnregisterMap();
-        Multiplayer.Client.Multiplayer.WorldComp.sessionManager.RemoveSession(session);
+        Multiplayer.WorldComp.sessionManager.RemoveSession(session);
     }
 }
