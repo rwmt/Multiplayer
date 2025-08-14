@@ -98,6 +98,9 @@ namespace Multiplayer.Client.Patches
         static bool Prefix(CompPilotConsole __instance)
         {
             if (Multiplayer.Client == null) return true;
+
+            GravshipTravelSessionUtils.OpenSession(__instance.engine.Map);
+
             initialTile = __instance.parent.Map.Tile;
             return true;
         }

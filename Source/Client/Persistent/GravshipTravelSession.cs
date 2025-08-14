@@ -38,6 +38,8 @@ public static class GravshipTravelSessionUtils
 {
     public static void OpenSession(Map map)
     {
+        if (HasSessionAt(map.Tile)) return;
+
         GravshipTravelSession session = new GravshipTravelSession(map);
         map.MpComp()?.sessionManager?.AddSession(session);
     }  
