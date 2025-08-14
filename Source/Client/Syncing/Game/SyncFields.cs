@@ -405,7 +405,6 @@ namespace Multiplayer.Client
             }
         }
 
-
         [MpTranspiler(typeof(BillRepeatModeUtility), nameof(BillRepeatModeUtility.MakeConfigFloatMenu))]
         static IEnumerable<CodeInstruction> BillConfigFloatMenuTranspiler(IEnumerable<CodeInstruction> insts, MethodBase orig)
         {
