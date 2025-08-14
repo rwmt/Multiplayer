@@ -22,13 +22,15 @@ namespace Multiplayer.Client.Patches
         static bool Prefix(Building_GravEngine engine, ref Action launchAction)
         {
             if (Multiplayer.Client == null) return true;
-            if (GravshipTravelSessionUtils.GetSession(engine.Map.Tile) != null)
+
+            if (GravshipTravelSessionUtils.HasSessionAt(engine.Map.Tile))
             {
                 // If a session already exists, we don't need to show the dialog again
                 MpLog.Debug($"[MP] [{Multiplayer.AsyncWorldTime.worldTicks}] Patch_GravshipPreLaunchConfirmation: Session already exists for tile {engine.Map.Tile}, skipping dialog.");
                 return true;
             }
-            GravshipTravelSessionUtils.CreateGravshipTravelSession(engine.Map);
+
+            GravshipTravelSessionUtils.OpenSession(engine.Map);
 
             launchAction = () =>
             {
@@ -185,7 +187,7 @@ namespace Multiplayer.Client.Patches
                 return;
             }
 
-            GravshipTravelSessionUtils.RegisterMap(marker.gravship.initialTile, marker.Map);
+            GravshipTravelSessionUtils.SyncOpenSession(marker.gravship.initialTile, marker.Map);
         }
     }
 
@@ -252,21 +254,12 @@ namespace Multiplayer.Client.Patches
         {
             if (Multiplayer.Client == null) return;
 
-            PlanetTile takeOffTile = __instance.takeoffTile;
-
             Rand.PushState();
             Rand.StateCompressed = __instance.map.AsyncTime().randState;
 
-            GravshipTravelSession session = GravshipTravelSessionUtils.GetSession(takeOffTile);
-            if (session == null)
-            {
-                MpLog.Error($"[MP] WorldComponent_GravshipController_LandingEnded_Patch: Gravship session not found for tile {takeOffTile}. Cannot end landing.");
-                return;
-            }
-
             Multiplayer.Client.Send(Common.Packets.Client_Freeze, [false]);
-            session.UnregisterMap();
-            GravshipTravelSessionUtils.CloseSession(takeOffTile);
+
+            GravshipTravelSessionUtils.CloseSessionAt(__instance.landingTile);
         }
 
         static void Postfix()
@@ -293,15 +286,8 @@ namespace Multiplayer.Client.Patches
         {
             if (Multiplayer.Client == null) return;
 
-            GravshipTravelSession session = GravshipTravelSessionUtils.GetSession(__instance.takeoffTile);
-            if (session == null)
-            {
-                MpLog.Error($"[MP] Patch_GravshipTakeoffEnded: Gravship session not found for tile {__instance.takeoffTile}. Cannot end takeoff.");
-                return;
-            }
-
             Multiplayer.Client.Send(Common.Packets.Client_Freeze, [false]);
-            session.UnregisterMap();
+            GravshipTravelSessionUtils.CloseSessionAt(__instance.takeoffTile);
         }
     }
     #endregion

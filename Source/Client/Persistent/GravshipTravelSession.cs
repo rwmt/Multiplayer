@@ -1,6 +1,5 @@
 using Multiplayer.API;
 using Multiplayer.Client.Patches;
-using Multiplayer.Client.Util;
 using RimWorld;
 using RimWorld.Planet;
 using System.Linq;
@@ -8,45 +7,24 @@ using Verse;
 
 namespace Multiplayer.Client.Persistent;
 
-// World-level session: always registered with WorldComp, never pauses a map
-public class GravshipTravelSession : ExposableSession
+public class GravshipTravelSession : Session
 {
-    private Map map;
-
     public override Map Map => map;
     public PlanetTile InitialTile;
 
+    private Map map;
+
     public GravshipTravelSession(Map map) : base(map)
     {
-        if (map == null)
-        {
-            MpLog.Error("[MP] GravshipTravelSession: Cannot create session with null map.");
-            return;
-        }
-
-        MpLog.Debug($"[MP] GravshipTravelSession: Creating session");
+        this.map = map;
         InitialTile = map.Tile;
-        RegisterMap(map);
     }
 
     public override bool IsCurrentlyPausing(Map map) => Map != null && map == Map;
     public override FloatMenuOption GetBlockingWindowOptions(ColonistBar.Entry entry) => null;
 
-    public void RegisterMap(Map map)
+    public void StopPausing()
     {
-        MpLog.Debug($"[MP] GravshipTravelSession: Registering map");
-        UnregisterMap();
-        map.MpComp()?.sessionManager?.AddSession(this);
-
-        this.map = map;
-    }
-
-    public void UnregisterMap()
-    {
-        if (map == null) return;
-
-        MpLog.Debug($"[MP] GravshipTravelSession: Unregistering map");
-        map.MpComp()?.sessionManager?.RemoveSession(this);
         map = null;
     }
 
@@ -54,42 +32,54 @@ public class GravshipTravelSession : ExposableSession
     {
         TickManager_PlayerCanControl_Patch.ResetLandingMessageFlag();
     }
-
-    public override void ExposeData()
-    {
-        base.ExposeData();
-        Scribe_References.Look(ref map, "map", false);
-        Scribe_Values.Look(ref InitialTile, "initialTile");
-    }
 }
 
 public static class GravshipTravelSessionUtils
 {
-    public static void CreateGravshipTravelSession(Map map)
+    public static void OpenSession(Map map)
     {
-        GravshipTravelSession session = new(map);
-        Multiplayer.WorldComp.sessionManager.AddSession(session);
+        GravshipTravelSession session = new GravshipTravelSession(map);
+        map.MpComp()?.sessionManager?.AddSession(session);
+    }  
+
+    public static void CloseSessionAt(PlanetTile tile)
+    {
+        if(TryGetSessionAt(tile, out GravshipTravelSession session))
+        {
+            session.Map.MpComp()?.sessionManager?.RemoveSession(session);
+            session.StopPausing();
+        }
     }
 
-    public static GravshipTravelSession GetSession(PlanetTile takeoffTile) =>
-        Multiplayer.WorldComp.sessionManager.AllSessions.OfType<GravshipTravelSession>().FirstOrDefault(s => s.InitialTile == takeoffTile);
-
-    [SyncMethod]
-    public static void RegisterMap(PlanetTile tile, Map map) => GetSession(tile)?.RegisterMap(map);
-
-    [SyncMethod]
-    public static void UnregisterMap(PlanetTile takeoffTile) => GetSession(takeoffTile)?.UnregisterMap();
-
-    [SyncMethod]
-    public static void SyncCloseSession(PlanetTile tile) => CloseSession(tile);
-
-    public static void CloseSession(PlanetTile tile)
+    public static bool TryGetSessionAt(PlanetTile takeoffTile, out GravshipTravelSession session)
     {
-        GravshipTravelSession session = GetSession(tile);
-        if (session == null) return;
+        session = null;
 
-        MpLog.Debug($"[MP] GravshipTravelSession: Closing session for tile {tile}");
-        session.UnregisterMap();
-        Multiplayer.WorldComp.sessionManager.RemoveSession(session);
+        foreach (var sessionManager in Multiplayer.game.mapComps.Select(mp => mp.sessionManager))
+        {
+            foreach (var iSession in sessionManager.AllSessions.OfType<GravshipTravelSession>())
+            {
+                if (iSession.InitialTile == takeoffTile)
+                {
+                    session = iSession;
+                    return true;
+                }
+                    
+            }
+        }
+
+        return false;
     }
+
+    public static bool HasSessionAt(PlanetTile takeoffTile)
+    {
+        return TryGetSessionAt(takeoffTile, out _);
+    }
+
+    [SyncMethod]
+    public static void SyncOpenSession(PlanetTile tile, Map map) => OpenSession(map);
+
+
+    [SyncMethod]
+    public static void SyncCloseSession(PlanetTile tile) => CloseSessionAt(tile);
 }
