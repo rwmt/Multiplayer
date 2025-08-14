@@ -1,12 +1,10 @@
 using HarmonyLib;
 using Multiplayer.API;
 using Multiplayer.Client.Persistent;
-using Multiplayer.Client.Util;
 using RimWorld;
 using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using UnityEngine;
@@ -15,7 +13,7 @@ using static Verse.Widgets;
 
 namespace Multiplayer.Client
 {
-    public static class SyncFields
+    public static partial class SyncFields
     {
         public static ISyncField SyncMedCare;
         public static ISyncField SyncSelfTend;
@@ -96,10 +94,6 @@ namespace Multiplayer.Client
         public static ISyncField SyncActivityCompSuppression;
 
         public static ISyncField SyncCompRefuelableValue;
-
-        public static ISyncField SyncFishingZoneTargetPopulationPct;
-        public static SyncField[] SyncFishingZoneValuesBufferedPostApply;
-        public static SyncField[] SyncFishingZoneValues;
 
         public static void Init()
         {
@@ -238,22 +232,7 @@ namespace Multiplayer.Client
 
             SyncCompRefuelableValue = Sync.Field(typeof(CompRefuelable), nameof(CompRefuelable.allowAutoRefuel)).SetBufferChanges();
 
-            SyncFishingZoneValuesBufferedPostApply = Sync.Fields(
-                typeof(Zone_Fishing),
-                null,
-                nameof(Zone_Fishing.targetCount),
-                nameof(Zone_Fishing.repeatCount),
-                nameof(Zone_Fishing.unpauseAtCount)
-            ).SetBufferChanges().PostApply((fishZone, _) => UpdateFishingTabTextfieldBuffers(fishZone));
-
-            SyncFishingZoneValues = Sync.Fields(
-                typeof(Zone_Fishing),
-                null,
-                nameof(Zone_Fishing.pauseWhenSatisfied),
-                nameof(Zone_Fishing.repeatMode)
-            );
-
-            SyncFishingZoneTargetPopulationPct = Sync.Field(typeof(Zone_Fishing), nameof(Zone_Fishing.targetPopulationPct)).SetBufferChanges();
+            InitFishingZone();
         }
 
         [MpPrefix(typeof(StorytellerUI), nameof(StorytellerUI.DrawStorytellerSelectionInterface))]
@@ -426,136 +405,6 @@ namespace Multiplayer.Client
             }
         }
 
-        [MpPrefix(typeof(ITab_Fishing), nameof(ITab_Fishing.FillTab))]
-        static void SyncFishingZoneValuesChanged(ITab_Fishing __instance)
-        {
-            WatchFishingFields(__instance.SelZone);
-        }
-
-        [MpTranspiler(typeof(ITab_Fishing), nameof(ITab_Fishing.FillTab))]
-        static IEnumerable<CodeInstruction> SyncFishingZoneRepeatModeChangeViaFloatMenu(IEnumerable<CodeInstruction> rawInstructions, MethodBase originalMethod)
-        {
-            int notFound = ILUtil.LocalIndexNotFound;
-            bool patchInjected = false;
-            var instructions = rawInstructions.ToList();
-
-            var windowStackGetter = AccessTools.DeclaredPropertyGetter(typeof(Find), nameof(Find.WindowStack));
-
-            var floatMenuOptionsListCtor = AccessTools.Constructor(typeof(List<FloatMenuOption>), Type.EmptyTypes);
-            int floatMenuOptionListLocalIndex = ILUtil.FindLocalIndexStoredAfterConstructor(instructions, floatMenuOptionsListCtor);
-            var floatMenuCtor = AccessTools.Constructor(typeof(FloatMenu), [typeof(List<FloatMenuOption>)]);
-
-            var (displayClassIndex, zoneField) = FindZoneClosure(instructions, originalMethod.DeclaringType, typeof(Zone_Fishing));
-
-            if (floatMenuOptionListLocalIndex == notFound)
-                Log.Warning("[SyncFields] Couldn't locate FloatMenuOption list local index in SyncFishingZoneRepeatModeChangeViaFloatMenu transpiler; aborting patch.");
-
-            for (int i = 0; i < instructions.Count; i++)
-            {
-                var curInstruction = instructions[i];
-                bool shouldInjectPatch = !patchInjected && floatMenuOptionListLocalIndex != notFound;
-                bool injectionPointReached = curInstruction.Calls(windowStackGetter) && IsThisCorrectWindowStackAdd(instructions, i, floatMenuOptionListLocalIndex, floatMenuCtor);
-
-                if (shouldInjectPatch && injectionPointReached)
-                {
-                    var windowStackGetterCall = curInstruction;
-
-                    yield return windowStackGetterCall;
-
-                    if (displayClassIndex != notFound && zoneField != null)
-                    {
-                        yield return ILUtil.Ldloc(displayClassIndex);
-                        yield return new CodeInstruction(OpCodes.Ldfld, zoneField);
-                    }
-                    else
-                        yield return new CodeInstruction(OpCodes.Ldnull);
-
-
-                    yield return ILUtil.Ldloc(floatMenuOptionListLocalIndex);
-
-                    yield return new CodeInstruction(OpCodes.Call, ((Action<Zone_Fishing, List<FloatMenuOption>>)SyncRepeatModeFloatMenuOptions).Method);
-
-                    patchInjected = true;
-                }
-                else
-                {
-                    yield return curInstruction;
-                }
-            }
-
-            if (!patchInjected)
-                Log.Warning("[SyncFields] SyncFishingZoneRepeatModeChangeViaFloatMenu injection failed – pattern not found.");
-        }
-
-        private static (int displayClassLocalIndex, FieldInfo zoneFieldInfo) FindZoneClosure(List<CodeInstruction> instructions, Type tabType, Type zoneType)
-        {
-            var closureType = tabType.GetNestedTypes(BindingFlags.NonPublic | BindingFlags.Public)
-                                     .FirstOrDefault(t => t.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
-                                     .Any(f => f.FieldType == zoneType));
-
-            if (closureType == null)
-                return (ILUtil.LocalIndexNotFound, null);
-
-            var zoneField = closureType.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
-                                   .First(f => f.FieldType == zoneType);
-
-            var ctor = closureType.GetConstructors(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
-                                  .First();
-
-            int displayClassLocalIndex = ILUtil.FindLocalIndexStoredAfterConstructor(instructions, ctor);
-
-            return (displayClassLocalIndex, zoneField);
-        }
-
-       private static bool IsThisCorrectWindowStackAdd(List<CodeInstruction> instructions, int i, int floatMenuOptionListLocalIndex, ConstructorInfo floatMenuCtor)
-        {
-            bool sawCtor = false;
-            bool ctorUsesList = false;
-            int lookAheadDistance = 25;
-
-            for (int j = i + 1; j < Math.Min(instructions.Count, i + lookAheadDistance); j++)
-            {
-                var curInstruction = instructions[j];
-
-                if (!sawCtor && curInstruction.opcode == OpCodes.Newobj && Equals(curInstruction.operand, floatMenuCtor))
-                {
-                    sawCtor = true;
-                    if (j > 0 && ILUtil.TryGetLoadedLocalIndex(instructions[j - 1], out var idx) && idx == floatMenuOptionListLocalIndex)
-                        ctorUsesList = true;
-                }
-
-                if (sawCtor && ctorUsesList && curInstruction.opcode == OpCodes.Callvirt && curInstruction.operand is MethodInfo mi && mi.Name == nameof(WindowStack.Add))
-                    return true;
-            }
-
-            return false;
-        }
-
-        private static void UpdateFishingTabTextfieldBuffers(object fishingZoneObj)
-        {
-            Zone_Fishing fishingZone = fishingZoneObj as Zone_Fishing;
-
-            if (fishingZone == null)
-                return;
-
-            ITab_Fishing fishingTab = fishingZone.ITabs.OfType<ITab_Fishing>().FirstOrDefault();
-
-            fishingTab.targetCountEditBuffer = fishingZone.targetCount.ToString();
-            fishingTab.repeatCountEditBuffer = fishingZone.repeatCount.ToString();
-            fishingTab.unpauseAtCountEditBuffer = fishingZone.unpauseAtCount.ToString();
-        }
-
-        private static void SyncRepeatModeFloatMenuOptions(Zone_Fishing fishingZone, List<FloatMenuOption> opts)
-        {
-            WatchMenuOptions(() => WatchFishingFields(fishingZone), opts);
-        }
-
-        private static void WatchFishingFields(Zone_Fishing fishingZone)
-        {
-            SyncFishingZoneValues.Watch(fishingZone);
-            SyncFishingZoneValuesBufferedPostApply.Watch(fishingZone);
-            SyncFishingZoneTargetPopulationPct.Watch(fishingZone);
-        }
 
         [MpTranspiler(typeof(BillRepeatModeUtility), nameof(BillRepeatModeUtility.MakeConfigFloatMenu))]
         static IEnumerable<CodeInstruction> BillConfigFloatMenuTranspiler(IEnumerable<CodeInstruction> insts, MethodBase orig)
