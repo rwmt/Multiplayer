@@ -177,21 +177,28 @@ namespace Multiplayer.Client.Patches
         }
     }
 
-    // Pause for gravship landing
     [HarmonyPatch(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.Notify_LandingAreaConfirmationStarted))]
     public static class Patch_GravshipLandingPause
     {
-        static void Postfix(ref GravshipLandingMarker marker)
+        static void Postfix(GravshipLandingMarker marker, WorldComponent_GravshipController __instance)
         {
             if (Multiplayer.Client == null) return;
-            if (marker == null || marker.Map == null)
-            {
-                MpLog.Error("[MP] Patch_GravshipLandingPlacementPause: Marker or map is null, cannot pause for gravship landing.");
-                return;
-            }
 
-            GravshipTravelSessionUtils.SyncOpenSession(marker.gravship.initialTile, marker.Map);
+            var map = __instance.landingMap ?? marker.Map;
+
+            if (map != null)
+                GravshipTravelSessionUtils.OpenSession(map);
+            else
+                MpLog.Error("[MP] No map found for opening gravship travel session");
         }
+    }
+   
+    [HarmonyPatch(typeof(Designator_MoveGravship), nameof(Designator_MoveGravship.DesignateSingleCell))]
+    public static class HandleDesignatorDeselectForAllClients
+    {
+        static void Prefix() => CancelDesignatorDeselection.EnableCanceling();
+
+        static void Finalizer() => CancelDesignatorDeselection.DisableCanceling();
     }
 
     // Confirm gravship landing

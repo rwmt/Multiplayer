@@ -79,9 +79,5 @@ public static class GravshipTravelSessionUtils
     }
 
     [SyncMethod]
-    public static void SyncOpenSession(PlanetTile tile, Map map) => OpenSession(map);
-
-
-    [SyncMethod]
     public static void SyncCloseSession(PlanetTile tile) => CloseSessionAt(tile);
 }

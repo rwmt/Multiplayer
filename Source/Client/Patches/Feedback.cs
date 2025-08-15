@@ -100,15 +100,27 @@ namespace Multiplayer.Client.Patches
     [HarmonyPatch(typeof(DesignatorManager), nameof(DesignatorManager.Deselect))]
     static class CancelDesignatorDeselection
     {
+        static bool stopCancel = false;
+
         public static bool Cancel =>
             Multiplayer.Client != null &&
             Multiplayer.ExecutingCmds &&
             !TickPatch.currentExecutingCmdIssuedBySelf;
 
-        static bool Prefix()
+        static bool Prefix(DesignatorManager __instance)
         {
-            return !Cancel;
+            return stopCancel || !Cancel;
         }
+
+        internal static void DisableCanceling()
+        {
+            stopCancel = false;
+        }
+
+        internal static void EnableCanceling()
+        {
+            stopCancel = true;
+        }        
     }
 
     [HarmonyPatch(typeof(Thing), nameof(Thing.DeSpawn))]

@@ -672,22 +672,18 @@ namespace Multiplayer.Client
             {
                 (SyncWorker sync, ref Designator_MoveGravship moveGravship) => {
                     if (sync.isWriting)
-                    {
-                        sync.Write(moveGravship.map);
-                        sync.Write(moveGravship.marker);
                         sync.Write(moveGravship.marker.GravshipRotation);
-                        moveGravship.deselectedRotation = moveGravship.marker.GravshipRotation;
-                    }
                     else
                     {
-                        Map map = sync.Read<Map>();
-                        GravshipLandingMarker marker = sync.Read<GravshipLandingMarker>();
-                        Rot4 rot = sync.Read<Rot4>();
+                        var rot = sync.Read<Rot4>();
+
+                        var gravController = Find.GravshipController;
+                        var marker = gravController.landingMarker;
 
                         if (marker != null)
                             marker.GravshipRotation = rot;
 
-                        moveGravship = new Designator_MoveGravship(map, marker);
+                        moveGravship = gravController.moveDesignator;
                         moveGravship.deselectedRotation = moveGravship.marker.GravshipRotation;
                     }
                 }, true, false
