@@ -201,47 +201,36 @@ namespace Multiplayer.Client.Patches
         static void Finalizer() => CancelDesignatorDeselection.DisableCanceling();
     }
 
-    // Confirm gravship landing
-    [HarmonyPatch(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.WorldComponentOnGUI))]
-    public static class Patch_GravshipLandingConfirmSync
+    [HarmonyPatch(typeof(GravshipLandingMarker), nameof(GravshipLandingMarker.BeginLanding))]
+    public static class SyncLandingComfirmationButtonPressed
     {
-        static void Prefix(WorldComponent_GravshipController __instance)
+        static bool Prefix(GravshipLandingMarker __instance)
         {
-            if (Multiplayer.Client == null) return;
-            if (__instance.landingMarker == null) return;
+            if (Multiplayer.Client == null) return true;
+            if (Multiplayer.ExecutingCmds) return true;
 
-            if (__instance.LandingAreaConfirmationInProgress && !Find.ScreenshotModeHandler.Active)
-            {
-                Rect rect = new Rect((float)UI.screenWidth / 2f - 215f, (float)UI.screenHeight - 150f - 70f, 430f, 70f);
-                Widgets.DrawWindowBackground(rect);
-                Rect rect2 = new Rect(rect.xMin + 10f, rect.yMin + 10f, 200f, 50f);
-                Designator_MoveGravship des = __instance.MoveDesignator();
-                if (Widgets.ButtonText(rect2, "DesignatorMoveGravship".Translate()))
-                {
-                    Find.DesignatorManager.Select(des);
-                }
-                TooltipHandler.TipRegion(rect2, "DesignatorMoveGravshipDesc".Translate());
-                rect2.x += 210f;
-                if (Widgets.ButtonText(rect2, "ConfirmLandGravship".Translate()))
-                {
-                    SyncConfirmGravshipLanding(__instance.landingMarker, __instance);
-                }
-                TooltipHandler.TipRegion(rect2, "ConfirmLandGravshipDesc".Translate());
-            }
+            SyncBeginLanding(__instance);
+
+            return false;
         }
 
         [SyncMethod]
-        public static void SyncConfirmGravshipLanding(GravshipLandingMarker marker, WorldComponent_GravshipController controller)
+        public static void SyncBeginLanding(GravshipLandingMarker landingMarker)
         {
-            if (marker == null || marker.Tile == null)
+            var gravshipController = Find.GravshipController;
+
+            if (landingMarker == null || landingMarker.Tile == null)
             {
-                MpLog.Error($"[MP] SyncConfirmGravshipLanding: Marker [{marker != null}] Tile [{marker?.Tile != null}].");
+                MpLog.Error($"[MP] SyncConfirmGravshipLanding: Marker [{landingMarker != null}] Tile [{landingMarker?.Tile != null}].");
                 return;
             }
 
-            marker.BeginLanding(controller);
-            controller.landingMarker = null;
-            SoundDefOf.Gravship_Land.PlayOneShotOnCamera();
+            gravshipController.landingMarker = landingMarker;
+            landingMarker.BeginLanding(gravshipController);
+            gravshipController.landingMarker = null;
+
+            if (!TickPatch.currentExecutingCmdIssuedBySelf)
+                SoundDefOf.Gravship_Land.PlayOneShotOnCamera();
         }
     }
     #endregion
