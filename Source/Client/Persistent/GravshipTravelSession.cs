@@ -36,9 +36,12 @@ public class GravshipTravelSession : Session
 
 public static class GravshipTravelSessionUtils
 {
-    public static void OpenSession(Map map)
+    public static void OpenSessionAt(PlanetTile tile)
     {
-        if (HasSessionAt(map.Tile)) return;
+        Map map = Find.WorldObjects.MapParentAt(tile).Map;
+
+        if (HasSessionAt(map.Tile))
+            return;
 
         GravshipTravelSession session = new GravshipTravelSession(map);
         map.MpComp()?.sessionManager?.AddSession(session);

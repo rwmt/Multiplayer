@@ -423,6 +423,8 @@ namespace Multiplayer.Client
             SyncMethod.Lambda(typeof(Building_BioferriteHarvester), nameof(Building_BioferriteHarvester.GetGizmos), 3).SetDebugOnly(); // Dev add +1
 
             SyncMethod.Register(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.PlaceGravship));
+            SyncMethod.Register(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.AbortLanding)).SetContext(SyncContext.CurrentMap);
+
             //SyncMethod.Register(typeof(FreezeManager), nameof(FreezeManager.DoIceMelting));
 
             // Double ExecuteWhenFinished ensures it'll load after MP Compat late patches,

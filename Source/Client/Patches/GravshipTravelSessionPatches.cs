@@ -5,7 +5,9 @@ using Multiplayer.Client.Util;
 using RimWorld;
 using RimWorld.Planet;
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using UnityEngine;
 using Verse;
 using Verse.Sound;
@@ -23,14 +25,16 @@ namespace Multiplayer.Client.Patches
         {
             if (Multiplayer.Client == null) return true;
 
-            if (GravshipTravelSessionUtils.HasSessionAt(engine.Map.Tile))
+            PlanetTile tile = engine.Map.Tile;
+
+            if (GravshipTravelSessionUtils.HasSessionAt(tile))
             {
                 // If a session already exists, we don't need to show the dialog again
                 MpLog.Debug($"[MP] [{Multiplayer.AsyncWorldTime.worldTicks}] Patch_GravshipPreLaunchConfirmation: Session already exists for tile {engine.Map.Tile}, skipping dialog.");
                 return true;
             }
 
-            GravshipTravelSessionUtils.OpenSession(engine.Map);
+            GravshipTravelSessionUtils.OpenSessionAt(tile);
 
             launchAction = () =>
             {
@@ -99,7 +103,7 @@ namespace Multiplayer.Client.Patches
         {
             if (Multiplayer.Client == null) return true;
 
-            GravshipTravelSessionUtils.OpenSession(__instance.engine.Map);
+            GravshipTravelSessionUtils.OpenSessionAt(__instance.engine.Map.Tile);
 
             initialTile = __instance.parent.Map.Tile;
             return true;
@@ -177,22 +181,20 @@ namespace Multiplayer.Client.Patches
         }
     }
 
-    [HarmonyPatch(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.Notify_LandingAreaConfirmationStarted))]
+    [HarmonyPatch]
     public static class Patch_GravshipLandingPause
     {
-        static void Postfix(GravshipLandingMarker marker, WorldComponent_GravshipController __instance)
+        static IEnumerable<MethodBase> TargetMethods()
         {
-            if (Multiplayer.Client == null) return;
-
-            var map = __instance.landingMap ?? marker.Map;
-
-            if (map != null)
-                GravshipTravelSessionUtils.OpenSession(map);
-            else
-                MpLog.Error("[MP] No map found for opening gravship travel session");
+            yield return AccessTools.Method(typeof(GravshipUtility), nameof(GravshipUtility.ArriveExistingMap));
+            yield return AccessTools.Method(typeof(GravshipUtility), nameof(GravshipUtility.ArriveNewMap));
+        }
+        static void Postfix(Gravship gravship)
+        {
+            GravshipTravelSessionUtils.OpenSessionAt(gravship.destinationTile);
         }
     }
-   
+
     [HarmonyPatch(typeof(Designator_MoveGravship), nameof(Designator_MoveGravship.DesignateSingleCell))]
     public static class HandleDesignatorDeselectForAllClients
     {
@@ -233,6 +235,19 @@ namespace Multiplayer.Client.Patches
                 SoundDefOf.Gravship_Land.PlayOneShotOnCamera();
         }
     }
+
+    [HarmonyPatch(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.AbortLanding))]
+    public static class CloseSessionOnAbortLanding
+    {
+        static void Prefix(WorldComponent_GravshipController __instance, ref bool __state)
+        {
+            if (Multiplayer.Client == null) return;
+            if (!Multiplayer.ExecutingCmds) return;
+
+            GravshipTravelSessionUtils.CloseSessionAt(__instance.landingTile);
+        }
+    }
+
     #endregion
 
     #region Landing/Takeoff freeze
@@ -258,10 +273,10 @@ namespace Multiplayer.Client.Patches
 
             Multiplayer.Client.Send(Common.Packets.Client_Freeze, [false]);
 
-            GravshipTravelSessionUtils.CloseSessionAt(__instance.landingTile);
+            GravshipTravelSessionUtils.CloseSessionAt(__instance.gravship.destinationTile);
         }
-
-        static void Postfix()
+        
+        static void Finalizer()
         {
             if (Multiplayer.Client == null) return;
             Rand.PopState();
