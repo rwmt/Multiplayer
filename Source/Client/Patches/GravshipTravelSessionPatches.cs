@@ -251,13 +251,33 @@ namespace Multiplayer.Client.Patches
     #endregion
 
     #region Landing/Takeoff freeze
-    [HarmonyPatch(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.InitiateLanding))]
-    public static class Patch_WorldComponent_GravshipController_InitiateLanding
+
+    [HarmonyPatch]
+    public static class FreezeGameForLandingAndTakeOff
     {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.InitiateTakeoff));
+            yield return AccessTools.Method(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.InitiateLanding));
+        }
+
         static void Postfix()
         {
             if (Multiplayer.Client == null) return;
+
             Multiplayer.Client.Send(Common.Packets.Client_Freeze, [true]);
+        }
+    }
+
+    [HarmonyPatch(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.TakeoffEnded))]
+    public static class Patch_GravshipTakeoffEnded
+    {
+        static void Prefix(WorldComponent_GravshipController __instance)
+        {
+            if (Multiplayer.Client == null) return;
+
+            Multiplayer.Client.Send(Common.Packets.Client_Freeze, [false]);
+            GravshipTravelSessionUtils.CloseSessionAt(__instance.takeoffTile);
         }
     }
 
@@ -280,28 +300,6 @@ namespace Multiplayer.Client.Patches
         {
             if (Multiplayer.Client == null) return;
             Rand.PopState();
-        }
-    }
-
-    [HarmonyPatch(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.InitiateTakeoff))]
-    public static class Patch_WorldComponent_GravshipController_InitiateTakeoff
-    {
-        static void Postfix(WorldComponent_GravshipController __instance)
-        {
-            if (Multiplayer.Client == null) return;
-            Multiplayer.Client.Send(Common.Packets.Client_Freeze, [true]);
-        }
-    }
-
-    [HarmonyPatch(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.TakeoffEnded))]
-    public static class Patch_GravshipTakeoffEnded
-    {
-        static void Prefix(WorldComponent_GravshipController __instance)
-        {
-            if (Multiplayer.Client == null) return;
-
-            Multiplayer.Client.Send(Common.Packets.Client_Freeze, [false]);
-            GravshipTravelSessionUtils.CloseSessionAt(__instance.takeoffTile);
         }
     }
     #endregion
