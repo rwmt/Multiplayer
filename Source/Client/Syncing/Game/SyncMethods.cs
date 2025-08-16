@@ -234,8 +234,9 @@ namespace Multiplayer.Client
             SyncMethod.Lambda(typeof(CompDissolution), nameof(CompDissolution.CompGetGizmosExtra), 1).SetDebugOnly(); // Dissolution event until destroyed
             SyncMethod.Lambda(typeof(CompDissolution), nameof(CompDissolution.CompGetGizmosExtra), 2).SetDebugOnly(); // Dissolution progress +25%
             SyncMethod.Lambda(typeof(CompEggContainer), nameof(CompEggContainer.CompGetGizmosExtra), 0).SetDebugOnly(); // Fill with eggs
-            SyncMethod.Lambda(typeof(CompHackable), nameof(CompHackable.CompGetGizmosExtra), 0).SetDebugOnly(); // Hack +10%
-            SyncMethod.Lambda(typeof(CompHackable), nameof(CompHackable.CompGetGizmosExtra), 1).SetDebugOnly(); // Complete hack
+            SyncMethod.Lambda(typeof(CompHackable), nameof(CompHackable.CompGetGizmosExtra), 1);                // Toggle auto hack
+            SyncMethod.Lambda(typeof(CompHackable), nameof(CompHackable.CompGetGizmosExtra), 7).SetDebugOnly(); // DEV: Hack +10%
+            SyncMethod.Lambda(typeof(CompHackable), nameof(CompHackable.CompGetGizmosExtra), 8).SetDebugOnly(); // DEV: Complete hack
             SyncMethod.Register(typeof(CompPolluteOverTime), nameof(CompPolluteOverTime.Pollute)).SetDebugOnly();
             SyncMethod.Register(typeof(CompPollutionPump), nameof(CompPollutionPump.Pump)).SetDebugOnly();
             SyncMethod.Lambda(typeof(CompProjectileInterceptor), nameof(CompProjectileInterceptor.CompGetGizmosExtra), 0).SetDebugOnly(); // Reset cooldown
