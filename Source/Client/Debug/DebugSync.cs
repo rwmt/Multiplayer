@@ -50,7 +50,7 @@ namespace Multiplayer.Client
 
             if (Multiplayer.MapContext != null)
             {
-                var thing = ThingsById.thingsById.GetValueSafe(selectedId);
+                var thing = Multiplayer.ThingsById.GetValueSafe(selectedId);
                 if (thing != null)
                     Find.Selector.selected.Add(thing);
             }

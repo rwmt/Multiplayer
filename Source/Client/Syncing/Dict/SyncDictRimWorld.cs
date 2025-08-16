@@ -1,17 +1,15 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using HarmonyLib;
 using Multiplayer.API;
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using Verse;
 using Verse.AI;
 using Verse.AI.Group;
-using static Multiplayer.Client.SyncSerialization;
 using static Multiplayer.Client.CompSerialization;
-using static UnityEngine.GraphicsBuffer;
+using static Multiplayer.Client.SyncSerialization;
 // ReSharper disable RedundantLambdaParameterType
 
 namespace Multiplayer.Client
@@ -825,7 +823,7 @@ namespace Multiplayer.Client
                         }
                     }
 
-                    return ThingsById.thingsById.GetValueSafe(thingId);
+                    return Multiplayer.ThingsById.GetValueSafe(thingId);
                 }, true
             },
             {

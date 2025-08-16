@@ -177,12 +177,12 @@ namespace Multiplayer.Common
 
         public Thing GetThingById(int id)
         {
-            return ThingsById.thingsById[id];
+            return Client.Multiplayer.ThingsById.GetValue(id);
         }
 
         public bool TryGetThingById(int id, out Thing value)
         {
-            return ThingsById.thingsById.TryGetValue(id, out value);
+            return Client.Multiplayer.ThingsById.TryGetValue(id, out value);
         }
 
         public IReadOnlyList<IPlayerInfo> GetPlayers()
