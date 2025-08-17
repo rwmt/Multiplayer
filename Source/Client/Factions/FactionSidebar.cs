@@ -3,8 +3,10 @@ using Multiplayer.Client.Util;
 using Multiplayer.Common;
 using RimWorld;
 using RimWorld.Planet;
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using UnityEngine;
 using Verse;
@@ -341,8 +343,25 @@ namespace Multiplayer.Client
             if (Widgets.ButtonText(selectRandomSiteRect, "MpSelectRandomSite".Translate()))
             {
                 SoundDefOf.Click.PlayOneShotOnCamera(null);
-                Find.WorldInterface.SelectedTile = TileFinder.RandomStartingTile();
-                Find.WorldCameraDriver.JumpTo(Find.WorldGrid.GetTileCenter(Find.WorldInterface.SelectedTile));
+                if (ModsConfig.OdysseyActive && Rand.Bool)
+                {
+                    Find.WorldInterface.SelectedTile = TileFinder.RandomSettlementTileFor(Find.WorldGrid.Surface, Faction.OfPlayer, true, (PlanetTile x) => x.Tile.Landmark != null);
+                }
+                else
+                {
+                    Find.WorldInterface.SelectedTile = TileFinder.RandomStartingTile();
+                }
+                Vector3 selectedTileCenter = Find.WorldGrid.GetTileCenter(Find.WorldInterface.SelectedTile);
+                PropertyInfo worldCameraDriver = typeof(Find).GetProperty("WorldCameraDriver", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+                object worldCam = worldCameraDriver?.GetValue(null);
+                if (worldCam != null)
+                {
+                    MethodInfo jumpMethod = worldCam.GetType().GetMethod("JumpTo", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, new Type[] { typeof(Vector3) }, null);
+                    if (jumpMethod != null)
+                    {
+                        jumpMethod.Invoke(worldCam, new object[] { selectedTileCenter });
+                    }
+                }
             }
 
             Rect worldFactionsRect = new Rect(
