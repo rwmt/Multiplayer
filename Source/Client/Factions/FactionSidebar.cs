@@ -350,18 +350,8 @@ namespace Multiplayer.Client
                 else
                 {
                     Find.WorldInterface.SelectedTile = TileFinder.RandomStartingTile();
-                }
-                Vector3 selectedTileCenter = Find.WorldGrid.GetTileCenter(Find.WorldInterface.SelectedTile);
-                PropertyInfo worldCameraDriver = typeof(Find).GetProperty("WorldCameraDriver", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
-                object worldCam = worldCameraDriver?.GetValue(null);
-                if (worldCam != null)
-                {
-                    MethodInfo jumpMethod = worldCam.GetType().GetMethod("JumpTo", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, new Type[] { typeof(Vector3) }, null);
-                    if (jumpMethod != null)
-                    {
-                        jumpMethod.Invoke(worldCam, new object[] { selectedTileCenter });
-                    }
-                }
+                }                
+                CameraJumper.TryJumpAndSelect(new GlobalTargetInfo(Find.WorldInterface.SelectedTile), CameraJumper.MovementMode.Pan);
             }
 
             Rect worldFactionsRect = new Rect(
