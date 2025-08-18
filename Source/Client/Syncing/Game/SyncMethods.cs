@@ -162,6 +162,9 @@ namespace Multiplayer.Client
                 }
             }
 
+            SyncMethod.Register(typeof(CompLaunchable), nameof(CompLaunchable.TryLaunch)).ExposeParameter(1);           // Launch for transport pods and shuttle
+            SyncMethod.Lambda(typeof(CompLaunchable), nameof(CompLaunchable.CompGetGizmosExtra), 3).SetDebugOnly();     // DEV: reset launch cooldown
+
             SyncMethod.Register(typeof(RoyalTitlePermitWorker_DropResources), nameof(RoyalTitlePermitWorker_DropResources.CallResourcesToCaravan));
 
             SyncMethod.Register(typeof(Pawn_RoyaltyTracker), nameof(Pawn_RoyaltyTracker.AddPermit));
@@ -173,7 +176,7 @@ namespace Multiplayer.Client
             SyncMethod.Register(typeof(MonumentMarker), nameof(MonumentMarker.PlaceBlueprintsSimilarTo)).ExposeParameter(0);
 
             SyncMethod.Register(typeof(TradeRequestComp), nameof(TradeRequestComp.Fulfill)).CancelIfAnyArgNull();
-            SyncMethod.Register(typeof(CompLaunchable), nameof(CompLaunchable.TryLaunch)).ExposeParameter(1);
+            SyncMethod.Register(typeof(CaravanShuttleUtility), nameof(CaravanShuttleUtility.LaunchShuttle)).ExposeParameter(2);     // Launch shuttle from world map
             SyncMethod.Register(typeof(OutfitForcedHandler), nameof(OutfitForcedHandler.Reset));
             SyncMethod.Register(typeof(Pawn_StoryTracker), nameof(Pawn_StoryTracker.Title));
             SyncMethod.Register(typeof(ShipUtility), nameof(ShipUtility.StartupHibernatingParts)).CancelIfAnyArgNull();
