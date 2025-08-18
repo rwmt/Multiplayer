@@ -73,6 +73,58 @@ namespace Multiplayer.Client.AsyncTime
         }
     }
 
+    [HarmonyPatch]
+    static class GeneLastIngestPatch
+    {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(Gene_ChemicalDependency), nameof(Gene_ChemicalDependency.PostAdd));
+            yield return AccessTools.Method(typeof(Gene_ChemicalDependency), nameof(Gene_ChemicalDependency.Reset));
+        }
+
+        static void Prefix(Gene_ChemicalDependency __instance, ref int? __state)
+        {
+            if (Multiplayer.Client == null && Multiplayer.RealPlayerFaction != null) return;
+
+            Map map = __instance.pawn.Map;
+            if (map == null) return;
+
+            __state = Find.TickManager.TicksGame;
+            FactionContext.Push(Multiplayer.RealPlayerFaction);
+            Find.TickManager.DebugSetTicksGame(map.AsyncTime().mapTicks);
+        }
+
+        static void Finalizer(int? __state)
+        {
+            if (!__state.HasValue) return;
+            Find.TickManager.DebugSetTicksGame(__state.Value);
+            FactionContext.Pop();
+        }
+    }
+
+    [HarmonyPatch(typeof(Hediff_ChemicalDependency), nameof(Hediff_ChemicalDependency.TipStringExtra), MethodType.Getter)]
+    static class HediffTipTextPatch
+    {
+        static void Prefix(Hediff_ChemicalDependency __instance, ref int? __state)
+        {
+            if (Multiplayer.Client == null && Multiplayer.RealPlayerFaction != null) return;
+
+            Map map = __instance.pawn.Map;
+            if (map == null) return;
+
+            __state = Find.TickManager.TicksGame;
+            FactionContext.Push(Multiplayer.RealPlayerFaction);
+            Find.TickManager.DebugSetTicksGame(map.AsyncTime().mapTicks);
+        }
+
+        static void Finalizer(int? __state)
+        {
+            if (!__state.HasValue) return;
+            Find.TickManager.DebugSetTicksGame(__state.Value);
+            FactionContext.Pop();
+        }
+    }
+
     [HarmonyPatch(typeof(TickManager), nameof(TickManager.RegisterAllTickabilityFor))]
     public static class TickListAdd
     {
