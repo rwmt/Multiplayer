@@ -1,24 +1,23 @@
-﻿using System.Collections.Generic;
+using HarmonyLib;
+using System.Collections.Generic;
 using Verse;
 
 namespace Multiplayer.Client;
 
-public static class ThingsById
+public class ThingsById
 {
-    public static Dictionary<int, Thing> thingsById = new();
+    private Dictionary<int, Thing> thingsById = new();
 
-    public static void Register(Thing t)
-    {
-        thingsById[t.thingIDNumber] = t;
-    }
+    public void Register(Thing t) => thingsById[t.thingIDNumber] = t;
 
-    public static void Unregister(Thing t)
-    {
-        thingsById.Remove(t.thingIDNumber);
-    }
+    public void Unregister(Thing t) => thingsById.Remove(t.thingIDNumber);
 
-    public static void UnregisterAllFrom(Map map)
-    {
-        thingsById.RemoveAll(kv => kv.Value.Map == map);
-    }
+    public void UnregisterAllFrom(Map map) => thingsById.RemoveAll(kv => kv.Value.Map == map);
+
+    public Thing GetValueSafe(int thingIDNumber) => thingsById.GetValueSafe(thingIDNumber);
+
+    public Thing GetValue(int thingIdNumber) => thingsById[thingIdNumber];
+
+    public bool TryGetValue(int thingIDNumber, out Thing thing) => thingsById.TryGetValue(thingIDNumber, out thing);
+
 }

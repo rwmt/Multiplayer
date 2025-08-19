@@ -76,7 +76,7 @@ namespace Multiplayer.Client
             SyncDelegate.Lambda(typeof(ITab_Bills), nameof(ITab_Bills.FillTab), 2).SetContext(SyncContext.MapSelected).CancelIfNoSelectedMapObjects();  // Add bill
 
             SyncDelegate.Lambda(typeof(CompLongRangeMineralScanner), nameof(CompLongRangeMineralScanner.CompGetGizmosExtra), 1).SetContext(SyncContext.MapSelected); // Select mineral to scan for
-
+            SyncDelegate.Lambda(typeof(Building_PassengerShuttle), nameof(Building_PassengerShuttle.GetGizmos), 2); // Fill shuttle from cargo on map
             SyncMethod.Lambda(typeof(CompFlickable), nameof(CompFlickable.CompGetGizmosExtra), 1);           // Toggle flick designation
             SyncMethod.Lambda(typeof(Pawn_PlayerSettings), nameof(Pawn_PlayerSettings.GetGizmos), 1);        // Toggle release animals
             SyncMethod.Lambda(typeof(Building_TurretGun), nameof(Building_TurretGun.GetGizmos), 2);          // Toggle turret hold fire
@@ -84,6 +84,8 @@ namespace Multiplayer.Client
             SyncMethod.Lambda(typeof(Building_Door), nameof(Building_Door.GetGizmos), 1);                    // Toggle door hold open
             SyncMethod.Lambda(typeof(Zone_Growing), nameof(Zone_Growing.GetGizmos), 1);                      // Toggle zone allow sow
             SyncMethod.Lambda(typeof(Zone_Growing), nameof(Zone_Growing.GetGizmos), 3);                      // Toggle zone allow cut
+            SyncMethod.Lambda(typeof(Zone_Fishing), nameof(Zone_Fishing.GetGizmos), 1);                      // Toggle zone allow fishing
+            SyncDelegate.Lambda(typeof(ITab_Fishing), nameof(ITab_Fishing.FillTab), 0);                      // Changes repeat mode fishing zone
 
             SyncMethod.Lambda(typeof(PriorityWork), nameof(PriorityWork.GetGizmos), 0);                      // Clear prioritized work
             SyncMethod.Lambda(typeof(Building_TurretGun), nameof(Building_TurretGun.GetGizmos), 1);          // Reset forced target
@@ -95,6 +97,8 @@ namespace Multiplayer.Client
             SyncMethod.LambdaInGetter(typeof(Designator), nameof(Designator.RightClickFloatMenuOptions), 1).SetContext(SyncContext.CurrentMap); // Remove all designations
 
             SyncDelegate.Lambda(typeof(SettleInEmptyTileUtility), nameof(SettleInEmptyTileUtility.SetupCamp), 0);
+
+            SyncDelegate.Lambda(typeof(Caravan), nameof(Caravan.GetRefuelGizmo), 2); // Fill shuttle from cargo on world map
 
             SyncDelegate.Lambda(typeof(CaravanAbandonOrBanishUtility), nameof(CaravanAbandonOrBanishUtility.TryAbandonOrBanishViaInterface), 1, [typeof(Thing), typeof(Caravan)]).CancelIfAnyFieldNull(); // Abandon caravan thing
             SyncDelegate.Lambda(typeof(CaravanAbandonOrBanishUtility), nameof(CaravanAbandonOrBanishUtility.TryAbandonOrBanishViaInterface), 0, [typeof(TransferableImmutable), typeof(Caravan)]).CancelIfAnyFieldNull(); // Abandon caravan transferable

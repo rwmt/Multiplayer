@@ -16,7 +16,7 @@ namespace Multiplayer.Client
             if (__instance.def.HasThingIDNumber)
             {
                 ScribeUtil.sharedCrossRefs.RegisterLoaded(__instance);
-                ThingsById.Register(__instance);
+                Multiplayer.ThingsById.Register(__instance);
             }
         }
     }
@@ -30,7 +30,7 @@ namespace Multiplayer.Client
             if (Multiplayer.game == null) return;
 
             ScribeUtil.sharedCrossRefs.Unregister(__instance);
-            ThingsById.Unregister(__instance);
+            Multiplayer.ThingsById.Unregister(__instance);
         }
     }
 
@@ -173,7 +173,7 @@ namespace Multiplayer.Client
             if (Multiplayer.game == null) return;
 
             ScribeUtil.sharedCrossRefs.UnregisterAllFrom(map);
-            ThingsById.UnregisterAllFrom(map);
+            Multiplayer.ThingsById.UnregisterAllFrom(map);
 
             ScribeUtil.sharedCrossRefs.Unregister(map);
         }
@@ -257,7 +257,7 @@ namespace Multiplayer.Client
             if (item.def.HasThingIDNumber && item.thingIDNumber >= 0)
             {
                 ScribeUtil.sharedCrossRefs.RegisterLoaded(item);
-                ThingsById.Register(item);
+                Multiplayer.ThingsById.Register(item);
             }
         }
     }
@@ -271,7 +271,7 @@ namespace Multiplayer.Client
             if (Multiplayer.game == null) return;
 
             ScribeUtil.sharedCrossRefs.Unregister(item);
-            ThingsById.Unregister(item);
+            Multiplayer.ThingsById.Unregister(item);
         }
     }
 
@@ -296,7 +296,7 @@ namespace Multiplayer.Client
                 if (item != null && item is not MinifiedThing { InnerThing: null } && item.thingIDNumber >= 0)
                 {
                     ScribeUtil.sharedCrossRefs.RegisterLoaded(item);
-                    ThingsById.Register(item);
+                    Multiplayer.ThingsById.Register(item);
                 }
             }
         }

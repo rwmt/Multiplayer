@@ -86,7 +86,7 @@ namespace Multiplayer.Client
                     foreach (var sel in player.selectedThings)
                     {
                         if (!drawnThisUpdate.Add(sel.Key)) continue;
-                        if (!ThingsById.thingsById.TryGetValue(sel.Key, out Thing thing)) continue;
+                        if (!Multiplayer.ThingsById.TryGetValue(sel.Key, out Thing thing)) continue;
                         if (thing.MapHeld != Find.CurrentMap) continue;
 
                         selTimes[thing] = sel.Value;

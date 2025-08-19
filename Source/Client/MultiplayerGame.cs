@@ -24,6 +24,7 @@ namespace Multiplayer.Client
         public List<MultiplayerMapComp> mapComps = new();
         public List<AsyncTimeComp> asyncTimeComps = new();
         public SharedCrossRefs sharedCrossRefs = new();
+        public ThingsById thingsById = new();
 
         private Faction myFaction;
         public Faction myFactionLoading;

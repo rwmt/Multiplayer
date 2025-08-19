@@ -141,25 +141,16 @@ namespace Multiplayer.Client
                 Application.OpenURL(discordLink);
 
             x += 10;
-            Widgets.Label(new Rect(x, 0, 400, 24), "Note: Multiplayer for 1.5 is still in testing phase.");
+            Widgets.Label(new Rect(x, 0, 400, 24), "Note: Multiplayer for 1.6 is a work in progress.");
 
             const string v15Notice =
                 """
-                1.5 and Anomaly compatibility is a work-in-progress. Compatibility with other mods is likely going to take the longest to flesh out.
+                1.6 and Odyssey compatibility is a work-in-progress. Compatibility with other mods is likely going to take the longest to flesh out.
 
-                We recommend downgrading RimWorld to 1.4 if you want to continue playing a stable version.
+                Downgrade RimWorld to 1.5 if you want to continue playing a stable version.
                 """;
 
             TooltipHandler.TipRegion(new Rect(x, 0, 400, 25), v15Notice);
-
-            if (false) // todo
-                Button(
-                    TexButton.NewItem,
-                    "MpActiveConfigsButton",
-                    "MpActiveConfigsButtonDesc1".Translate("Player's game") + "\n\n" + "MpActiveConfigsButtonDesc2".Translate(),
-                    Color.grey,
-                    20
-                );
         }
 
         private bool filesRead;

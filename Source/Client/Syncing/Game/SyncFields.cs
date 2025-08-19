@@ -1,3 +1,4 @@
+using HarmonyLib;
 using Multiplayer.API;
 using Multiplayer.Client.Persistent;
 using RimWorld;
@@ -6,14 +7,13 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Reflection.Emit;
-using HarmonyLib;
 using UnityEngine;
 using Verse;
 using static Verse.Widgets;
 
 namespace Multiplayer.Client
 {
-    public static class SyncFields
+    public static partial class SyncFields
     {
         public static ISyncField SyncMedCare;
         public static ISyncField SyncSelfTend;
@@ -231,6 +231,8 @@ namespace Multiplayer.Client
             SyncActivityCompSuppression = Sync.Field(typeof(CompActivity), nameof(CompActivity.suppressionEnabled));
 
             SyncCompRefuelableValue = Sync.Field(typeof(CompRefuelable), nameof(CompRefuelable.allowAutoRefuel)).SetBufferChanges();
+
+            InitFishingZone();
         }
 
         [MpPrefix(typeof(StorytellerUI), nameof(StorytellerUI.DrawStorytellerSelectionInterface))]
@@ -654,5 +656,4 @@ namespace Multiplayer.Client
             }
         }
     }
-
 }

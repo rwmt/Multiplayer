@@ -96,6 +96,24 @@ namespace Multiplayer.Client
             return string.IsNullOrEmpty(name) ? null : name;
         }
 
+        public static string? MethodNameNormalizedFromAddr(long addr, bool harmonyOriginals)
+        {
+            var name = MethodNameFromAddr(addr, harmonyOriginals);
+
+            if (name == null) return null;
+            if (name.Length == 0) return name;
+
+            int ilOffsetIndex = name.IndexOf(" [0x", StringComparison.Ordinal);
+            if (ilOffsetIndex >= 0)
+                name = name.Substring(0, ilOffsetIndex);
+
+            int mvidIndex = name.IndexOf(" in <", StringComparison.Ordinal);
+            if (mvidIndex >= 0)
+                name = name.Substring(0, mvidIndex);
+
+            return name.TrimEnd();
+        }
+
         private static ConstructorInfo runtimeMethodHandleCtor = AccessTools.Constructor(typeof(RuntimeMethodHandle), new[]{typeof(IntPtr)});
 
         public static bool GetMethodAggressiveInlining(long addr)

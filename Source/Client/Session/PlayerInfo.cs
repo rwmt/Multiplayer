@@ -1,7 +1,7 @@
-using System.Collections.Generic;
-using System.Linq;
 using Multiplayer.API;
 using Multiplayer.Common;
+using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using Verse;
 
@@ -47,7 +47,7 @@ public class PlayerInfo : IPlayerInfo
         .ToList()
         .AsReadOnly();
     public IReadOnlyList<Thing> SelectedThings => selectedThings
-        .Select(x => ThingsById.thingsById.TryGetValue(x.Key, out var thing) ? thing : null)
+        .Select(x => Multiplayer.ThingsById.TryGetValue(x.Key, out var thing) ? thing : null)
         .Where(x => x != null)
         .ToList()
         .AsReadOnly();

@@ -341,8 +341,15 @@ namespace Multiplayer.Client
             if (Widgets.ButtonText(selectRandomSiteRect, "MpSelectRandomSite".Translate()))
             {
                 SoundDefOf.Click.PlayOneShotOnCamera(null);
-                Find.WorldInterface.SelectedTile = TileFinder.RandomStartingTile();
-                Find.WorldCameraDriver.JumpTo(Find.WorldGrid.GetTileCenter(Find.WorldInterface.SelectedTile));
+                if (ModsConfig.OdysseyActive && Rand.Bool)
+                {
+                    Find.WorldInterface.SelectedTile = TileFinder.RandomSettlementTileFor(Find.WorldGrid.Surface, Faction.OfPlayer, true, (PlanetTile x) => x.Tile.Landmark != null);
+                }
+                else
+                {
+                    Find.WorldInterface.SelectedTile = TileFinder.RandomStartingTile();
+                }                
+                CameraJumper.TryJumpAndSelect(new GlobalTargetInfo(Find.WorldInterface.SelectedTile), CameraJumper.MovementMode.Pan);
             }
 
             Rect worldFactionsRect = new Rect(

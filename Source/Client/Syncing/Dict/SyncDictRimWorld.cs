@@ -846,7 +846,7 @@ namespace Multiplayer.Client
                         }
                     }
 
-                    return ThingsById.thingsById.GetValueSafe(thingId);
+                    return Multiplayer.ThingsById.GetValueSafe(thingId);
                 }, true
             },
             {

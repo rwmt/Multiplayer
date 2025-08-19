@@ -141,8 +141,12 @@ public static class DeferredStackTracingImpl
         info.addr = ret;
         info.stackUsage = stackUsage;
 
-        var rawName = Native.MethodNameFromAddr(ret, true); // Use the original instead of replacement for hashing
-        info.nameHash = rawName != null ? Native.GetMethodAggressiveInlining(ret) ? 0 : StableStringHash(rawName) : 1;
+        var normalizedMethodNameBetweenOS = Native.MethodNameNormalizedFromAddr(ret, true);
+
+        info.nameHash =
+            normalizedMethodNameBetweenOS == null ? 1 :
+            Native.GetMethodAggressiveInlining(ret) ? 0 :
+            StableStringHash(normalizedMethodNameBetweenOS);
 
         hashtableEntries++;
         if (hashtableEntries > hashtableSize * LoadFactor)
