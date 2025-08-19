@@ -1,4 +1,5 @@
 using HarmonyLib;
+using RimWorld;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -30,6 +31,51 @@ namespace Multiplayer.Client.Patches
 
             return Gen.HashCombineInt(body.map?.uniqueID ?? 0, body.rootCell.x, body.rootCell.z, (int)body.waterBodyType);
         }
+    }
 
+
+    [HarmonyPatch(typeof(CompStatue), nameof(CompStatue.InitFakePawn))]
+    public static class PatchInitFakePawnToNotSyncPawnNameAndForceUseLocalIds
+    {
+        static void Prefix(ref InitFakePawnData __state)
+        {
+            if (Multiplayer.Client == null) return;
+
+            __state = new InitFakePawnData()
+            {
+                valuesChanged = true,
+                dontSync = Multiplayer.dontSync,
+                longEventHandlerCurrentEvent = LongEventHandler.currentEvent,
+            };
+
+            StopFakePawnNameSync();
+            ForceUseLocalIds();
+        }
+
+        static void Finalizer(ref InitFakePawnData __state)
+        {
+            if (__state.valuesChanged)
+            {
+                Multiplayer.dontSync = __state.dontSync;
+                LongEventHandler.currentEvent = __state.longEventHandlerCurrentEvent;
+            }
+        }
+
+        private static void ForceUseLocalIds()
+        {
+            LongEventHandler.currentEvent = null;
+        }
+
+        private static void StopFakePawnNameSync()
+        {
+            Multiplayer.dontSync = true;
+        }
+
+        struct InitFakePawnData
+        {
+            public bool valuesChanged;
+            public bool dontSync;
+            public LongEventHandler.QueuedLongEvent longEventHandlerCurrentEvent;
+        }
     }
 }
