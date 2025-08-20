@@ -1,5 +1,6 @@
 using HarmonyLib;
 using RimWorld;
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -37,45 +38,26 @@ namespace Multiplayer.Client.Patches
     [HarmonyPatch(typeof(CompStatue), nameof(CompStatue.InitFakePawn))]
     public static class PatchInitFakePawnToNotSyncPawnNameAndForceUseLocalIds
     {
-        static void Prefix(ref InitFakePawnData __state)
+        static readonly MethodInfo OriginalMethod = AccessTools.PropertySetter(typeof(Pawn), nameof(Pawn.Name));
+        static readonly MethodInfo ReplacementMethod = AccessTools.Method(typeof(PatchInitFakePawnToNotSyncPawnNameAndForceUseLocalIds), nameof(SetNameIntField));
+
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
         {
-            if (Multiplayer.Client == null) return;
-
-            __state = new InitFakePawnData()
+            foreach (var instr in instructions)
             {
-                valuesChanged = true,
-                dontSync = Multiplayer.dontSync,
-                longEventHandlerCurrentEvent = LongEventHandler.currentEvent,
-            };
-
-            StopFakePawnNameSync();
-            ForceUseLocalIds();
-        }
-
-        static void Finalizer(ref InitFakePawnData __state)
-        {
-            if (__state.valuesChanged)
-            {
-                Multiplayer.dontSync = __state.dontSync;
-                LongEventHandler.currentEvent = __state.longEventHandlerCurrentEvent;
+                if (instr.Calls(OriginalMethod))
+                    yield return new CodeInstruction(OpCodes.Call, ReplacementMethod);
+                else
+                    yield return instr;
             }
         }
 
-        private static void ForceUseLocalIds()
+        static void SetNameIntField(Pawn pawn, Name newName)
         {
-            LongEventHandler.currentEvent = null;
-        }
+            if (Multiplayer.Client == null)
+                pawn.Name = newName;
 
-        private static void StopFakePawnNameSync()
-        {
-            Multiplayer.dontSync = true;
-        }
-
-        struct InitFakePawnData
-        {
-            public bool valuesChanged;
-            public bool dontSync;
-            public LongEventHandler.QueuedLongEvent longEventHandlerCurrentEvent;
+            pawn.nameInt = newName;
         }
     }
 }
