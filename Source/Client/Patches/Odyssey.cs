@@ -36,10 +36,10 @@ namespace Multiplayer.Client.Patches
 
 
     [HarmonyPatch(typeof(CompStatue), nameof(CompStatue.InitFakePawn))]
-    public static class PatchInitFakePawnToNotSyncPawnNameAndForceUseLocalIds
+    public static class PatchInitFakePawnToNotSyncPawnName
     {
         static readonly MethodInfo OriginalMethod = AccessTools.PropertySetter(typeof(Pawn), nameof(Pawn.Name));
-        static readonly MethodInfo ReplacementMethod = AccessTools.Method(typeof(PatchInitFakePawnToNotSyncPawnNameAndForceUseLocalIds), nameof(SetNameIntField));
+        static readonly MethodInfo ReplacementMethod = AccessTools.Method(typeof(PatchInitFakePawnToNotSyncPawnName), nameof(SetNameIntField));
 
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
         {
