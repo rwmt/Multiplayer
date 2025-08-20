@@ -1,9 +1,10 @@
-﻿using System;
-using System.CodeDom;
-using System.Linq;
-using System.Reflection;
 using HarmonyLib;
 using Multiplayer.Common;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
+using System.Reflection.Emit;
 using Verse;
 
 namespace Multiplayer.Client.Patches
@@ -78,6 +79,41 @@ namespace Multiplayer.Client.Patches
                 if (callback != null)
                     action += callback;
             }
+        }
+    }
+
+    [HarmonyPatch(typeof(LongEventHandler), nameof(LongEventHandler.UpdateCurrentAsynchronousEvent))]
+    public static class PatchUpdateCurrentAsynchronousEventCleanUpOrder
+    {
+        readonly static MethodInfo OrginalMethod = AccessTools.Method(typeof(LongEventHandler), nameof(LongEventHandler.ExecuteToExecuteWhenFinished));
+        readonly static MethodInfo ReplacementMethod = AccessTools.Method(typeof(PatchUpdateCurrentAsynchronousEventCleanUpOrder), nameof(ReorderCleanupCode));
+
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
+        {
+            foreach (CodeInstruction instruction in instructions)
+            {
+                if (instruction.Calls(OrginalMethod))
+                {
+                    yield return new CodeInstruction(OpCodes.Call, ReplacementMethod);
+                    yield return new CodeInstruction(OpCodes.Ret);
+                }
+                else
+                    yield return instruction;
+            }
+        }
+
+        public static void ReorderCleanupCode()
+        {
+            Action callback = LongEventHandler.currentEvent.callback;
+
+            LongEventHandler.currentEvent = null;
+            LongEventHandler.eventThread = null;
+            LongEventHandler.levelLoadOp = null;
+
+            LongEventHandler.ExecuteToExecuteWhenFinished();
+
+            if (callback != null)
+                callback();
         }
     }
 }
