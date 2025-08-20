@@ -40,12 +40,10 @@ namespace Multiplayer.Client.Patches
 
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
         {
-            MethodInfo changed = AccessTools.Method(typeof(PatchEmissionTickShouldSpawnMotesAt), nameof(ShouldSpawnMotesAtReplacement));
-
             foreach (var ins in instructions)
             {
                 if (ins.Calls(OriginalMethod))
-                    yield return new CodeInstruction(OpCodes.Call, changed);
+                    yield return new CodeInstruction(OpCodes.Call, ReplacementMethod);
                 else
                     yield return ins;
             }
