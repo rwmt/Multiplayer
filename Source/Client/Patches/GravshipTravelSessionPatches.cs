@@ -27,14 +27,14 @@ namespace Multiplayer.Client.Patches
 
             PlanetTile tile = engine.Map.Tile;
 
-            if (GravshipTravelSessionUtils.HasSessionAt(tile))
+            if (GravshipTravelUtils.HasSessionAt(tile))
             {
                 // If a session already exists, we don't need to show the dialog again
                 MpLog.Debug($"[MP] [{Multiplayer.AsyncWorldTime.worldTicks}] Patch_GravshipPreLaunchConfirmation: Session already exists for tile {engine.Map.Tile}, skipping dialog.");
                 return true;
             }
 
-            GravshipTravelSessionUtils.OpenSessionAt(tile);
+            GravshipTravelUtils.OpenSessionAt(tile);
 
             launchAction = () =>
             {
@@ -82,7 +82,7 @@ namespace Multiplayer.Client.Patches
             {
                 __instance.buttonBAction = () =>
                 {
-                    GravshipTravelSessionUtils.SyncCloseSession(Find.CurrentMap.Tile);
+                    GravshipTravelUtils.SyncCloseSession(Find.CurrentMap.Tile);
                     SyncGravshipDialogCancel();
                 };
             }
@@ -103,7 +103,7 @@ namespace Multiplayer.Client.Patches
         {
             if (Multiplayer.Client == null) return true;
 
-            GravshipTravelSessionUtils.OpenSessionAt(__instance.engine.Map.Tile);
+            GravshipTravelUtils.OpenSessionAt(__instance.engine.Map.Tile);
 
             initialTile = __instance.parent.Map.Tile;
             return true;
@@ -148,6 +148,18 @@ namespace Multiplayer.Client.Patches
         }
     }
 
+    [HarmonyPatch(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.PlaceGravship))]
+    public static class PatchPlaceGravshipToUpdateSystemsAfterTheySpawn
+    {
+        static void Postfix(Map map)
+        {
+            if (Multiplayer.Client == null) return;
+
+            map.powerNetManager.UpdatePowerNetsAndConnections_First();
+            map.glowGrid.GlowGridUpdate_First();
+        }
+    }
+
     //Tile cancel input
     [HarmonyPatch(typeof(TilePicker), nameof(TilePicker.StopTargeting))]
     public static class Patch_TilePicker_StopTargeting
@@ -164,7 +176,7 @@ namespace Multiplayer.Client.Patches
                 return;
             }
 
-            GravshipTravelSessionUtils.SyncCloseSession(Patch_CompPilotConsole_StartChoosingDestination.initialTile.Value);
+            GravshipTravelUtils.SyncCloseSession(Patch_CompPilotConsole_StartChoosingDestination.initialTile.Value);
             SyncStopTargeting();
         }
 
@@ -191,7 +203,7 @@ namespace Multiplayer.Client.Patches
         }
         static void Postfix(Gravship gravship)
         {
-            GravshipTravelSessionUtils.OpenSessionAt(gravship.destinationTile);
+            GravshipTravelUtils.OpenSessionAt(gravship.destinationTile);
         }
     }
 
@@ -244,7 +256,7 @@ namespace Multiplayer.Client.Patches
             if (Multiplayer.Client == null) return;
             if (!Multiplayer.ExecutingCmds) return;
 
-            GravshipTravelSessionUtils.CloseSessionAt(__instance.landingTile);
+            GravshipTravelUtils.CloseSessionAt(__instance.landingTile);
         }
     }
 
@@ -265,7 +277,7 @@ namespace Multiplayer.Client.Patches
         {
             if (Multiplayer.Client == null) return;
 
-            Multiplayer.Client.Send(Common.Packets.Client_Freeze, [true]);
+            GravshipTravelUtils.StartFreeze();
         }
     }
 
@@ -276,8 +288,8 @@ namespace Multiplayer.Client.Patches
         {
             if (Multiplayer.Client == null) return;
 
-            Multiplayer.Client.Send(Common.Packets.Client_Freeze, [false]);
-            GravshipTravelSessionUtils.CloseSessionAt(__instance.takeoffTile);
+            GravshipTravelUtils.StopFreeze();
+            GravshipTravelUtils.CloseSessionAt(__instance.takeoffTile);
         }
     }
 
@@ -291,9 +303,8 @@ namespace Multiplayer.Client.Patches
             Rand.PushState();
             Rand.StateCompressed = __instance.map.AsyncTime().randState;
 
-            Multiplayer.Client.Send(Common.Packets.Client_Freeze, [false]);
-
-            GravshipTravelSessionUtils.CloseSessionAt(__instance.gravship.destinationTile);
+            GravshipTravelUtils.StopFreeze();
+            GravshipTravelUtils.CloseSessionAt(__instance.gravship.destinationTile);
         }
         
         static void Finalizer()
