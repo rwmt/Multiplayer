@@ -203,6 +203,8 @@ namespace Multiplayer.Client.Patches
         }
         static void Postfix(Gravship gravship)
         {
+            if (Multiplayer.Client == null) return;
+
             GravshipTravelUtils.OpenSessionAt(gravship.destinationTile);
         }
     }
