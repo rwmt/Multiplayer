@@ -21,42 +21,11 @@ namespace Multiplayer.Client.Patches
     {
         private static string GravshipDialogPrefix => "ConfirmGravEngineLaunch".Translate().RawText;
 
-        static bool Prefix(Building_GravEngine engine, ref Action launchAction)
+        static void Prefix(Building_GravEngine engine, ref Action launchAction)
         {
-            if (Multiplayer.Client == null) return true;
+            if (Multiplayer.Client == null) return;
 
-            PlanetTile tile = engine.Map.Tile;
-
-            if (GravshipTravelSessionUtils.HasSessionAt(tile))
-            {
-                // If a session already exists, we don't need to show the dialog again
-                MpLog.Debug($"[MP] [{Multiplayer.AsyncWorldTime.worldTicks}] Patch_GravshipPreLaunchConfirmation: Session already exists for tile {engine.Map.Tile}, skipping dialog.");
-                return true;
-            }
-
-            GravshipTravelSessionUtils.OpenSessionAt(tile);
-
-            launchAction = () =>
-            {
-                SyncGravshipDialogOK(engine);
-            };
-
-            return true;
-        }
-
-        [SyncMethod]
-        public static void SyncGravshipDialogOK(Building_GravEngine engine)
-        {
-            CloseGravshipDialog();
-
-            CompPilotConsole pilotConsole = engine.GravshipComponents.OfType<CompPilotConsole>().FirstOrDefault();
-            if (pilotConsole == null)
-            {
-                MpLog.Error($"[MP] No pilot console found for gravship engine {engine.def.defName}");
-                return;
-            }
-
-            pilotConsole?.StartChoosingDestination();
+            GravshipTravelSessionUtils.OpenSessionAt(engine.Map.Tile);
         }
 
         public static void CloseGravshipDialog()
@@ -99,14 +68,16 @@ namespace Multiplayer.Client.Patches
     public static class Patch_CompPilotConsole_StartChoosingDestination
     {
         public static PlanetTile? initialTile;
-        static bool Prefix(CompPilotConsole __instance)
+        static void Postfix(CompPilotConsole __instance)
         {
-            if (Multiplayer.Client == null) return true;
+            if (Multiplayer.Client == null) return;
+            if (!Multiplayer.ExecutingCmds) return;
+
+            Patch_GravshipPreLaunchConfirmation.CloseGravshipDialog();
 
             GravshipTravelSessionUtils.OpenSessionAt(__instance.engine.Map.Tile);
 
             initialTile = __instance.parent.Map.Tile;
-            return true;
         }
     }
 

@@ -428,6 +428,7 @@ namespace Multiplayer.Client
 
             SyncMethod.Register(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.PlaceGravship));
             SyncMethod.Register(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.AbortLanding)).SetContext(SyncContext.CurrentMap);
+            SyncMethod.Register(typeof(CompPilotConsole), nameof(CompPilotConsole.StartChoosingDestination));
 
             //SyncMethod.Register(typeof(FreezeManager), nameof(FreezeManager.DoIceMelting));
 
