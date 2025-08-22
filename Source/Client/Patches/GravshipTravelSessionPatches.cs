@@ -42,11 +42,9 @@ namespace Multiplayer.Client.Patches
         }
     }
 
-    // TODO: Try remove the static initialTile if possible
     [HarmonyPatch(typeof(CompPilotConsole), nameof(CompPilotConsole.StartChoosingDestination))]
     public static class Patch_CompPilotConsole_StartChoosingDestination
     {
-        public static PlanetTile? initialTile;
         static void Postfix(CompPilotConsole __instance)
         {
             if (Multiplayer.Client == null) return;
@@ -54,8 +52,6 @@ namespace Multiplayer.Client.Patches
 
             GravshipTravelUtils.CloseGravshipDialog();
             GravshipTravelUtils.OpenSessionAt(__instance.engine.Map.Tile);
-
-            initialTile = __instance.parent.Map.Tile;
         }
     }
 
@@ -82,8 +78,6 @@ namespace Multiplayer.Client.Patches
             engine.ConsumeFuel(planetTile);
             Find.GravshipController.InitiateTakeoff(engine, planetTile);
             SoundDefOf.Gravship_Launch.PlayOneShotOnCamera();
-            Patch_CompPilotConsole_StartChoosingDestination.initialTile = null;
-
             ClearTilePickerForNonIssuer();
         }
 
@@ -97,7 +91,6 @@ namespace Multiplayer.Client.Patches
         }
     }
 
-    //Tile cancel input
     [HarmonyPatch(typeof(TilePicker), nameof(TilePicker.StopTargeting))]
     public static class Patch_TilePicker_StopTargeting
     {
@@ -107,26 +100,17 @@ namespace Multiplayer.Client.Patches
             if (!__instance.forGravship) return;
             if (Multiplayer.ExecutingCmds) return;
 
-            if (!Patch_CompPilotConsole_StartChoosingDestination.initialTile.HasValue)
-            {
-                MpLog.Error("[MP] Patch_TilePicker_StopTargeting: initialTile is null, cannot close gravship session.");
-                return;
-            }
-
-            GravshipTravelUtils.SyncCloseSession(Patch_CompPilotConsole_StartChoosingDestination.initialTile.Value);
             SyncStopTargeting();
         }
 
         [SyncMethod]
         static void SyncStopTargeting()
         {
-            TilePicker tilePicker = Find.TilePicker;
-
             Find.World.renderer.wantedMode = WorldRenderMode.None;
 
-            tilePicker.StopTargeting();
+            Find.TilePicker.StopTargeting();
 
-            Patch_CompPilotConsole_StartChoosingDestination.initialTile = null;
+            GravshipTravelUtils.CloseSessionAt(Find.CurrentMap.Tile);
         }
     }
 
