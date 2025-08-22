@@ -137,7 +137,8 @@ namespace Multiplayer.Client
 
             SyncMethod.Lambda(typeof(CompPilotConsole), nameof(CompPilotConsole.CompGetGizmosExtra), 0); // Launch instantly
             SyncMethod.Lambda(typeof(CompPilotConsole), nameof(CompPilotConsole.CompGetGizmosExtra), 1); // Reset cooldown
-            SyncDelegate.Lambda(typeof(CompPilotConsole), nameof(CompPilotConsole.StartChoosingDestination), 5);  // Confirm landing tile
+            SyncDelegate.Lambda(typeof(CompPilotConsole), nameof(CompPilotConsole.StartChoosingDestination), 4);  // Cancel gravship tile picker
+            SyncDelegate.Lambda(typeof(CompPilotConsole), nameof(CompPilotConsole.StartChoosingDestination), 5);  // Confirm gravship landing tile
 
             // Biosculpter pod
             SyncMethod.Lambda(typeof(CompBiosculpterPod), nameof(CompBiosculpterPod.CompGetGizmosExtra), 1);                // Interrupt cycle (eject contents)

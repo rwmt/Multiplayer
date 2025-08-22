@@ -54,33 +54,22 @@ namespace Multiplayer.Client.Patches
         }
     }
 
-    // TODO: Something in Feedback.cs blocks the wantedMode switch therefore set manually for now
-    [HarmonyPatch(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.InitiateTakeoff))]
-    public static class Patch_TilePicker_StopTargetings
+    [HarmonyPatch]
+    static class PatchTilePickerCancel
     {
-        static void Prefix(TilePicker __instance) => Find.World.renderer.wantedMode = WorldRenderMode.Planet;
-    }
-
-    [HarmonyPatch(typeof(TilePicker), nameof(TilePicker.StopTargeting))]
-    public static class Patch_TilePicker_StopTargeting
-    {
-        static void Prefix(TilePicker __instance)
+        static MethodBase TargetMethod()
         {
-            if (Multiplayer.Client == null) return;
-            if (!__instance.forGravship) return;
-            if (Multiplayer.ExecutingCmds) return;
-
-            SyncStopTargeting();
+            return MpMethodUtil.GetLambda(typeof(CompPilotConsole), nameof(CompPilotConsole.StartChoosingDestination), lambdaOrdinal: 4);
         }
 
         // TODO: Something in Feedback.cs blocks the wantedMode switch therefore set manually for now
-        [SyncMethod]
-        static void SyncStopTargeting()
+        static void Finalizer()
         {
+            if (Multiplayer.Client == null) return;
+            if (!Multiplayer.ExecutingCmds) return;
+
             Find.World.renderer.wantedMode = WorldRenderMode.None;
-
-            Find.TilePicker.StopTargeting();
-
+            Find.TilePicker.StopTargetingInt();
             GravshipTravelUtils.CloseSessionAt(Find.CurrentMap.Tile);
         }
     }
