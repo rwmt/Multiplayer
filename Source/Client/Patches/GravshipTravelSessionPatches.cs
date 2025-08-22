@@ -6,7 +6,6 @@ using RimWorld;
 using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 using UnityEngine;
 using Verse;
@@ -43,6 +42,7 @@ namespace Multiplayer.Client.Patches
         }
     }
 
+    // TODO: Try remove the static initialTile if possible
     [HarmonyPatch(typeof(CompPilotConsole), nameof(CompPilotConsole.StartChoosingDestination))]
     public static class Patch_CompPilotConsole_StartChoosingDestination
     {

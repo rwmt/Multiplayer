@@ -98,6 +98,7 @@ public static class GravshipTravelUtils
     }
     private static string GravshipDialogPrefix => "ConfirmGravEngineLaunch".Translate().RawText;
 
+    // TODO: Try to find a better solution for that
     public static void CloseGravshipDialog()
     {
         Dialog_MessageBox dialog = Find.WindowStack.Windows
