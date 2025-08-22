@@ -1,9 +1,8 @@
-using System;
+﻿using System;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using HarmonyLib;
-using RimWorld;
 using Verse;
 
 namespace Multiplayer.Client.Util
@@ -36,41 +35,11 @@ namespace Multiplayer.Client.Util
                 SelectMany(t => t.GetDeclaredMethods()).
                 FirstOrDefault(m => m.Name == lambdaNameShort);
 
-
-            
-
             // Example: <FillTab>b__10_0
             var lambdaNameFull = $"<{parent.Name}>{LambdaMethodInfix}{parentId}_{lambdaOrdinal}";
 
             // Non-capturing lambda
             lambda ??= AccessTools.Method(parentType, lambdaNameFull);
-
-            if(parentType == typeof(CompPilotConsole))
-            {
-                foreach (var print in parentType.GetNestedTypes(AccessTools.all).Where(t => t.Name.StartsWith(displayClassPrefix)).SelectMany(t => t.GetDeclaredMethods()))
-                {
-                    Log.Message(print);
-                }
-
-                for (int i = 0; i < 100; i++)
-                {
-                    var lambdaNameFull1 = $"<{parent.Name}>{LambdaMethodInfix}{parentId}_{lambdaOrdinal}";
-
-                    MethodInfo lambda1;
-
-                    try
-                    {
-                        lambda1 = AccessTools.Method(parentType, lambdaNameFull);
-
-                        if (lambda1 != null)
-                            Log.Message(lambda1);
-                    }
-                    catch { }
-                }
-
-                Log.Message("DONE");
-            }
-
 
             // Non-capturing cached lambda
             if (lambda == null && AccessTools.Inner(parentType, SharedDisplayClass) is { } sharedDisplayClass)
