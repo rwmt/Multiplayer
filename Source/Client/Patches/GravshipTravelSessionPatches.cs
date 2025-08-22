@@ -155,6 +155,7 @@ namespace Multiplayer.Client.Patches
         {
             if (Multiplayer.Client == null) return;
 
+            map.powerNetManager.UpdatePowerNetsAndConnections_First();
             map.glowGrid.GlowGridUpdate_First();
         }
     }
