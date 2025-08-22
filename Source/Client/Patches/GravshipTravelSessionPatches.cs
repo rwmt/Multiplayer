@@ -62,7 +62,7 @@ namespace Multiplayer.Client.Patches
             return MpMethodUtil.GetLambda(typeof(CompPilotConsole), nameof(CompPilotConsole.StartChoosingDestination), lambdaOrdinal: 4);
         }
 
-        // TODO: Something in Feedback.cs blocks the wantedMode switch therefore set manually for now
+        // TODO: I think something in Feedback.cs blocks the wantedMode switch therefore set manually for now
         static void Finalizer()
         {
             if (Multiplayer.Client == null) return;
@@ -98,6 +98,7 @@ namespace Multiplayer.Client.Patches
         static void Finalizer() => CancelDesignatorDeselection.DisableCanceling();
     }
 
+    // TODO: Is there a better solution than this
     [HarmonyPatch(typeof(GravshipLandingMarker), nameof(GravshipLandingMarker.BeginLanding))]
     public static class SyncLandingComfirmationButtonPressed
     {
@@ -176,6 +177,7 @@ namespace Multiplayer.Client.Patches
         }
     }
 
+    // TODO: Is the random pushing here necassary? I feel like this could be the same problem as #638
     [HarmonyPatch(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.LandingEnded))]
     public static class WorldComponent_GravshipController_LandingEnded_Patch
     {
@@ -198,6 +200,7 @@ namespace Multiplayer.Client.Patches
     }
     #endregion
 
+    // TODO: Check what this even does
     // Stop the landing co message from showing every game tick
     [HarmonyPatch(typeof(TickManager), nameof(TickManager.PlayerCanControl), MethodType.Getter)]
     public static class TickManager_PlayerCanControl_Patch
