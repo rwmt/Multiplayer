@@ -15,52 +15,31 @@ using Verse.Sound;
 namespace Multiplayer.Client.Patches
 {
     #region Input
-    // Prelaunch & confirmation Input
+
     [HarmonyPatch(typeof(GravshipUtility), nameof(GravshipUtility.PreLaunchConfirmation))]
     public static class Patch_GravshipPreLaunchConfirmation
     {
-        private static string GravshipDialogPrefix => "ConfirmGravEngineLaunch".Translate().RawText;
-
         static void Prefix(Building_GravEngine engine, ref Action launchAction)
         {
             if (Multiplayer.Client == null) return;
 
             GravshipTravelUtils.OpenSessionAt(engine.Map.Tile);
         }
-
-        public static void CloseGravshipDialog()
-        {
-            Dialog_MessageBox dialog = Find.WindowStack.Windows
-                .OfType<Dialog_MessageBox>()
-                .FirstOrDefault(w => w.text.RawText.StartsWith(GravshipDialogPrefix));
-            dialog?.Close();
-        }
     }
 
-    // Dialog cancel Input
-    [HarmonyPatch(typeof(Dialog_MessageBox), MethodType.Constructor,
-        [typeof(TaggedString), typeof(string), typeof(Action), typeof(string), typeof(Action),
-         typeof(string), typeof(bool), typeof(Action), typeof(Action), typeof(WindowLayer)])]
+    [HarmonyPatch(typeof(Dialog_MessageBox), MethodType.Constructor, [typeof(TaggedString), typeof(string), typeof(Action), typeof(string), typeof(Action), typeof(string), typeof(bool), typeof(Action), typeof(Action), typeof(WindowLayer)])]
     public static class Patch_GravshipPreLaunchCancel
     {
-        private static string GravshipDialogPrefix => "ConfirmGravEngineLaunch".Translate().RawText;
         static void Postfix(Dialog_MessageBox __instance)
         {
             if (Multiplayer.Client == null) return;
-            if (__instance.text.RawText.StartsWith(GravshipDialogPrefix))
-            {
-                __instance.buttonBAction = () =>
-                {
-                    GravshipTravelUtils.SyncCloseSession(Find.CurrentMap.Tile);
-                    SyncGravshipDialogCancel();
-                };
-            }
-        }
+            if (!GravshipTravelUtils.IsGravShipMessageDialog(__instance)) return;
 
-        [SyncMethod]
-        public static void SyncGravshipDialogCancel()
-        {
-            Patch_GravshipPreLaunchConfirmation.CloseGravshipDialog();
+            __instance.buttonBAction = () =>
+            {
+                GravshipTravelUtils.SyncCloseSession(Find.CurrentMap.Tile);
+                GravshipTravelUtils.SyncGravshipDialogCancel();
+            };
         }
     }
 
@@ -73,8 +52,7 @@ namespace Multiplayer.Client.Patches
             if (Multiplayer.Client == null) return;
             if (!Multiplayer.ExecutingCmds) return;
 
-            Patch_GravshipPreLaunchConfirmation.CloseGravshipDialog();
-
+            GravshipTravelUtils.CloseGravshipDialog();
             GravshipTravelUtils.OpenSessionAt(__instance.engine.Map.Tile);
 
             initialTile = __instance.parent.Map.Tile;

@@ -96,6 +96,22 @@ public static class GravshipTravelUtils
     
         Multiplayer.Client.Send(Common.Packets.Client_Freeze, [value]);
     }
+    private static string GravshipDialogPrefix => "ConfirmGravEngineLaunch".Translate().RawText;
+
+    public static void CloseGravshipDialog()
+    {
+        Dialog_MessageBox dialog = Find.WindowStack.Windows
+            .OfType<Dialog_MessageBox>()
+            .FirstOrDefault(w => w.text.RawText.StartsWith(GravshipDialogPrefix));
+        dialog?.Close();
+    }
+    public static bool IsGravShipMessageDialog(Dialog_MessageBox messageBox)
+    {
+        return messageBox.text.RawText.StartsWith(GravshipDialogPrefix);
+    }
+
+    [SyncMethod]
+    public static void SyncGravshipDialogCancel() => CloseGravshipDialog();
 
     [SyncMethod]
     public static void SyncCloseSession(PlanetTile tile) => CloseSessionAt(tile);
