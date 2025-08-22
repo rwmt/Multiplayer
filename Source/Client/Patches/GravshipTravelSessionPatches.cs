@@ -15,7 +15,7 @@ namespace Multiplayer.Client.Patches
     #region Input
 
     [HarmonyPatch(typeof(GravshipUtility), nameof(GravshipUtility.PreLaunchConfirmation))]
-    public static class Patch_GravshipPreLaunchConfirmation
+    public static class PatchGravshipPreLaunchConfirmation
     {
         static void Prefix(Building_GravEngine engine, ref Action launchAction)
         {
@@ -26,7 +26,7 @@ namespace Multiplayer.Client.Patches
     }
 
     [HarmonyPatch(typeof(Dialog_MessageBox), MethodType.Constructor, [typeof(TaggedString), typeof(string), typeof(Action), typeof(string), typeof(Action), typeof(string), typeof(bool), typeof(Action), typeof(Action), typeof(WindowLayer)])]
-    public static class Patch_GravshipPreLaunchCancel
+    public static class PatchGravshipPreLaunchCancel
     {
         static void Postfix(Dialog_MessageBox __instance)
         {
@@ -42,7 +42,7 @@ namespace Multiplayer.Client.Patches
     }
 
     [HarmonyPatch(typeof(CompPilotConsole), nameof(CompPilotConsole.StartChoosingDestination))]
-    public static class Patch_CompPilotConsole_StartChoosingDestination
+    public static class PatchPilotConsoleStartChoosingDestination
     {
         static void Postfix(CompPilotConsole __instance)
         {
@@ -55,7 +55,7 @@ namespace Multiplayer.Client.Patches
     }
 
     [HarmonyPatch]
-    static class PatchTilePickerCancel
+    static class PatchTilePickerCancelLambda
     {
         static MethodBase TargetMethod()
         {
@@ -75,7 +75,7 @@ namespace Multiplayer.Client.Patches
     }
 
     [HarmonyPatch]
-    public static class Patch_GravshipLandingPause
+    public static class PatchGravshipMapArriveMethods
     {
         static IEnumerable<MethodBase> TargetMethods()
         {
@@ -91,7 +91,7 @@ namespace Multiplayer.Client.Patches
     }
 
     [HarmonyPatch(typeof(Designator_MoveGravship), nameof(Designator_MoveGravship.DesignateSingleCell))]
-    public static class HandleDesignatorDeselectForAllClients
+    public static class PatchGravshipDesignatorDeselectForAllClients
     {
         static void Prefix() => CancelDesignatorDeselection.EnableCanceling();
 
@@ -100,7 +100,7 @@ namespace Multiplayer.Client.Patches
 
     // TODO: Is there a better solution than this
     [HarmonyPatch(typeof(GravshipLandingMarker), nameof(GravshipLandingMarker.BeginLanding))]
-    public static class SyncLandingComfirmationButtonPressed
+    public static class PatchBeginLandingToSyncWithClients
     {
         static bool Prefix(GravshipLandingMarker __instance)
         {
@@ -133,7 +133,7 @@ namespace Multiplayer.Client.Patches
     }
 
     [HarmonyPatch(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.AbortLanding))]
-    public static class CloseSessionOnAbortLanding
+    public static class PatchAbortLandingToCloseSession
     {
         static void Prefix(WorldComponent_GravshipController __instance, ref bool __state)
         {
@@ -149,7 +149,7 @@ namespace Multiplayer.Client.Patches
     #region Landing/Takeoff freeze
 
     [HarmonyPatch]
-    public static class FreezeGameForLandingAndTakeOff
+    public static class PatchGravshipCutsceneToFreeze
     {
         static IEnumerable<MethodBase> TargetMethods()
         {
@@ -166,7 +166,7 @@ namespace Multiplayer.Client.Patches
     }
 
     [HarmonyPatch(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.TakeoffEnded))]
-    public static class Patch_GravshipTakeoffEnded
+    public static class PatchGravshipTakeoffEnded
     {
         static void Prefix(WorldComponent_GravshipController __instance)
         {
@@ -179,7 +179,7 @@ namespace Multiplayer.Client.Patches
 
     // TODO: Is the random pushing here necassary? I feel like this could be the same problem as #638
     [HarmonyPatch(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.LandingEnded))]
-    public static class WorldComponent_GravshipController_LandingEnded_Patch
+    public static class PatchGravshipLandingEnded
     {
         static void Prefix(WorldComponent_GravshipController __instance)
         {
@@ -203,7 +203,7 @@ namespace Multiplayer.Client.Patches
     // TODO: Check what this even does
     // Stop the landing co message from showing every game tick
     [HarmonyPatch(typeof(TickManager), nameof(TickManager.PlayerCanControl), MethodType.Getter)]
-    public static class TickManager_PlayerCanControl_Patch
+    public static class PatchTickmanagerPlayerCanControlGetter
     {
         private static bool shownLandingMessage = false;
 

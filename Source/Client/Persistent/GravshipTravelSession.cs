@@ -30,7 +30,7 @@ public class GravshipTravelSession : Session
 
     public override void PostRemoveSession()
     {
-        TickManager_PlayerCanControl_Patch.ResetLandingMessageFlag();
+        PatchTickmanagerPlayerCanControlGetter.ResetLandingMessageFlag();
     }
 }
 
