@@ -34,7 +34,7 @@ public class GravshipTravelSession : Session
     }
 }
 
-public static class GravshipTravelUtils
+public static class GravshipTravelSessionUtils
 {
     public static void OpenSessionAt(PlanetTile tile)
     {
@@ -79,22 +79,6 @@ public static class GravshipTravelUtils
     public static bool HasSessionAt(PlanetTile takeoffTile)
     {
         return TryGetSessionAt(takeoffTile, out _);
-    }
-
-    public static void StartFreeze()
-    {
-        SetFreeze(true);
-    }
-
-    public static void StopFreeze()
-    {
-        SetFreeze(false);
-    }
-
-    private static void SetFreeze(bool value)
-    { 
-    
-        Multiplayer.Client.Send(Common.Packets.Client_Freeze, [value]);
     }
 
     [SyncMethod]
