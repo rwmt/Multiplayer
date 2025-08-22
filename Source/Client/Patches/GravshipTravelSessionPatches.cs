@@ -248,6 +248,17 @@ namespace Multiplayer.Client.Patches
         }
     }
 
+    [HarmonyPatch(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.PlaceGravship))]
+    public static class PatchPlaceGravshipToUpdateSystemsAfterTheySpawn
+    {
+        static void Postfix(Map map)
+        {
+            if (Multiplayer.Client == null) return;
+
+            map.glowGrid.GlowGridUpdate_First();
+        }
+    }
+
     #endregion
 
     #region Landing/Takeoff freeze
