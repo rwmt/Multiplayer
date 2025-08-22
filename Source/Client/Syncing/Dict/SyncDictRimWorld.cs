@@ -1031,6 +1031,22 @@ namespace Multiplayer.Client
                 },
                 (ByteReader data) => new PlanetTile(data.ReadInt32(), data.ReadInt32()), true // Implicit
             },
+            {
+                (ByteWriter data, PlanetLayer workGiver) =>
+                {
+                    int layerId = workGiver?.LayerID ?? -1;
+                    WriteSync(data, workGiver.LayerID);
+                },
+                (ByteReader data) => {
+
+                    var layerId = ReadSync<int>(data);
+
+                    if(layerId == -1)
+                        return null;
+
+                    return Find.WorldGrid.PlanetLayers[layerId];
+                }, true
+            },
             #endregion
 
             #region Game

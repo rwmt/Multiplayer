@@ -7,7 +7,6 @@ using RimWorld.Planet;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
-using UnityEngine;
 using Verse;
 using Verse.Sound;
 
@@ -55,40 +54,11 @@ namespace Multiplayer.Client.Patches
         }
     }
 
-    // Tile confirmation input
-    [HarmonyPatch(typeof(SettlementProximityGoodwillUtility), nameof(SettlementProximityGoodwillUtility.CheckConfirmSettle))]
-    public static class Patch_SettlementProximityGoodwillUtility_CheckConfirmSettle
+    // TODO: Something in Feedback.cs blocks the wantedMode switch therefore set manually for now
+    [HarmonyPatch(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.InitiateTakeoff))]
+    public static class Patch_TilePicker_StopTargetings
     {
-        static bool Prefix(PlanetTile tile, ref Action settleAction, Action cancelAction = null, Building_GravEngine gravEngine = null)
-        {
-            if (Multiplayer.Client == null) return true;
-            if (gravEngine == null) return true;
-
-            settleAction = () => SyncGravshipTileConfirm(gravEngine, tile);
-            return true;
-        }
-
-        [SyncMethod]
-        public static void SyncGravshipTileConfirm(Building_GravEngine engine, PlanetTile planetTile)
-        {
-            MpLog.Debug($"[MP] [{Multiplayer.AsyncWorldTime.worldTicks}] Patch_SettlementProximityGoodwillUtility_CheckConfirmSettle: Confirming settlement for tile {planetTile} with gravship engine {engine.def.defName}.");
-            // Run the same logic as the original confirmation delegate
-            WorldComponent_GravshipController.DestroyTreesAroundSubstructure(engine.Map, engine.ValidSubstructure);
-            Find.World.renderer.wantedMode = WorldRenderMode.None;
-            engine.ConsumeFuel(planetTile);
-            Find.GravshipController.InitiateTakeoff(engine, planetTile);
-            SoundDefOf.Gravship_Launch.PlayOneShotOnCamera();
-            ClearTilePickerForNonIssuer();
-        }
-
-        private static void ClearTilePickerForNonIssuer()
-        {
-            if (!TickPatch.currentExecutingCmdIssuedBySelf)
-            {
-                Find.TilePicker.StopTargetingInt();
-                Event.current.Use();
-            }
-        }
+        static void Prefix(TilePicker __instance) => Find.World.renderer.wantedMode = WorldRenderMode.Planet;
     }
 
     [HarmonyPatch(typeof(TilePicker), nameof(TilePicker.StopTargeting))]
@@ -103,6 +73,7 @@ namespace Multiplayer.Client.Patches
             SyncStopTargeting();
         }
 
+        // TODO: Something in Feedback.cs blocks the wantedMode switch therefore set manually for now
         [SyncMethod]
         static void SyncStopTargeting()
         {
