@@ -507,7 +507,7 @@ static class RecacheColonistBelieverCountPatch
 
     public static bool IsColonySubhumanAnyFaction(Pawn p)
     {
-        return ModsConfig.AnomalyActive && p.IsSubhuman && p.Faction is { IsPlayer: true };
+        return p.IsSubhuman && p.Faction is { IsPlayer: true };
     }
 }
 
