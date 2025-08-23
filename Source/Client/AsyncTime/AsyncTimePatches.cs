@@ -147,7 +147,7 @@ namespace Multiplayer.Client.AsyncTime
         static void Postfix(ref bool __result)
         {
             if (Multiplayer.Client == null) return;
-            if (WorldRendererUtility.WorldRendered) return;
+            if (WorldRendererUtility.WorldSelected) return;
             if (FactionCreator.generatingMap) return;
 
             var asyncTime = Find.CurrentMap.AsyncTime();
