@@ -44,6 +44,10 @@ namespace Multiplayer.Client.Patches
                 return true;
 
             __result = VTRSync.MaximumVtr;
+
+            if (__instance is Gravship)
+                __result = VTRSync.MinimumVtr;
+
             return false;
         }
     }
