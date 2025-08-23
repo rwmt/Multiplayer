@@ -1,4 +1,5 @@
 ﻿using System.Linq;
+using Verse;
 
 namespace Multiplayer.Common
 {
@@ -23,7 +24,7 @@ namespace Multiplayer.Common
             Server = server;
         }
 
-        private const int MaxFreezeWaitTime = 60 * 10; // 10 seconds
+        private const int MaxFreezeWaitTime = GenTicks.TicksPerRealSecond * 10; // 10 seconds
 
         public void Tick()
         {

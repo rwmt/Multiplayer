@@ -524,7 +524,7 @@ namespace Multiplayer.Client.Patches
                     // We use 1/60 since 1 second at speed 1 the deltaTime
                     // should (in perfect situation) be 60 ticks.
                     ci.opcode = OpCodes.Ldc_R4;
-                    ci.operand = 1f / 60f;
+                    ci.operand = 1f / GenTicks.TicksPerRealSecond;
 
                     patchCount++;
                 }

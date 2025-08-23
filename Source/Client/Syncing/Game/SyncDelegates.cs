@@ -438,7 +438,7 @@ namespace Multiplayer.Client
         static void GiveTimeToNameStillborn(Thing __result)
         {
             if (Multiplayer.Client != null && __result is Pawn pawn && pawn.health.hediffSet.HasHediff(HediffDefOf.Stillborn))
-                pawn.babyNamingDeadline = Find.TickManager.TicksGame + 60000;
+                pawn.babyNamingDeadline = Find.TickManager.TicksGame + GenDate.TicksPerDay;
         }
 
         static void PickRandomTraitAndPassions(ChoiceLetter_GrowthMoment letter)

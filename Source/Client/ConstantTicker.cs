@@ -40,8 +40,8 @@ namespace Multiplayer.Client
             }
         }
 
-        private const float TicksPerMinute = 60 * 60;
-        private const float TicksPerIngameDay = 2500 * 24;
+        private const float TicksPerMinute = GenTicks.TicksPerRealSecond * 60;
+        private const float TicksPerIngameDay = GenDate.TicksPerDay;
 
         private static void TickAutosave()
         {
@@ -92,7 +92,7 @@ namespace Multiplayer.Client
         {
             if (ShipCountdown.timeLeft > 0f)
             {
-                ShipCountdown.timeLeft -= 1 / 60f;
+                ShipCountdown.timeLeft -= 1f / GenTicks.TicksPerRealSecond;
 
                 if (ShipCountdown.timeLeft <= 0f)
                     ShipCountdown.CountdownEnded();
