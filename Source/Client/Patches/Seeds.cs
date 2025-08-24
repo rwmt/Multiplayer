@@ -209,4 +209,30 @@ namespace Multiplayer.Client
         }
     }
 
+    [HarmonyPatch(typeof(PreceptComp_UnwillingToDo_Chance), nameof(PreceptComp_UnwillingToDo_Chance.MemberWillingToDo))]
+    static class SeedPreceptComp_UnwillingToDo_Chance
+    {
+        public static void Prefix(ref bool __state, HistoryEvent ev)
+        {
+            if (Multiplayer.Client == null) return;
+
+            // PreceptComp_UnwillingToDo_Chance.MemberWillingToDo uses RNG, and can be called in interface (or other places that cause issues).
+            // Seed the RNG using the pawn's ID (or the world's constant rand seed as fallback) and the current tick. This will ensure we
+            // get a unique result for each pawn on a given tick, but if called multiple times on the same time it'll have a consistent result.
+            // The fallback is mostly unnecessary, as this precept comp expects a doer. However, we may as well include it as a precaution.
+            // We could add some more parameters to the seed, like using the map's ID or the world's seed, but it's probably an overkill.
+            // This could probably be handled in a smarter way, so if anyone has an idea on how and is willing to do it - go ahead and replace this.
+            var pawnId = ev.args.TryGetArg<Pawn>(HistoryEventArgsNames.Doer, out var pawn) ? pawn.thingIDNumber : Find.World.ConstantRandSeed;
+
+            Rand.PushState(Gen.HashCombineInt(pawnId, Find.TickManager.TicksGame));
+            __state = true;
+        }
+
+        public static void Finalizer(bool __state)
+        {
+            if (__state)
+                Rand.PopState();
+        }
+    }
+
 }
