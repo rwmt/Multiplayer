@@ -1,6 +1,5 @@
 using HarmonyLib;
 using RimWorld;
-using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -38,26 +37,21 @@ namespace Multiplayer.Client.Patches
     [HarmonyPatch(typeof(CompStatue), nameof(CompStatue.InitFakePawn))]
     public static class PatchInitFakePawnToNotSyncPawnName
     {
-        static readonly MethodInfo OriginalMethod = AccessTools.PropertySetter(typeof(Pawn), nameof(Pawn.Name));
-        static readonly MethodInfo ReplacementMethod = AccessTools.Method(typeof(PatchInitFakePawnToNotSyncPawnName), nameof(SetNameIntField));
-
-        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
+        static void Prefix(ref bool __state)
         {
-            foreach (var instr in instructions)
+            if (Multiplayer.Client == null) return;
+
+            if(!Multiplayer.dontSync)
             {
-                if (instr.Calls(OriginalMethod))
-                    yield return new CodeInstruction(OpCodes.Call, ReplacementMethod);
-                else
-                    yield return instr;
+                Multiplayer.dontSync = true;
+                __state = true;
             }
         }
 
-        static void SetNameIntField(Pawn pawn, Name newName)
+        static void Finalizer(bool __state)
         {
-            if (Multiplayer.Client == null)
-                pawn.Name = newName;
-
-            pawn.nameInt = newName;
+            if (__state)
+                Multiplayer.dontSync = false;
         }
     }
 }
