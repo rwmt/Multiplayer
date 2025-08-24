@@ -43,10 +43,10 @@ namespace Multiplayer.Client.Patches
             if (Multiplayer.Client == null)
                 return true;
 
-            __result = VTRSync.MaximumVtr;
-
-            if (__instance is Gravship)
+            if (__instance is Gravship or TravellingTransporters)
                 __result = VTRSync.MinimumVtr;
+            else
+                __result = VTRSync.MaximumVtr;
 
             return false;
         }
