@@ -41,16 +41,33 @@ namespace Multiplayer.Client.Patches
         }
     }
 
-    [HarmonyPatch(typeof(CompPilotConsole), nameof(CompPilotConsole.StartChoosingDestination))]
+    [HarmonyPatch(typeof(CompPilotConsole), nameof(CompPilotConsole.StartChoosingDestination_NewTemp))]
     public static class PatchPilotConsoleStartChoosingDestination
     {
-        static void Postfix(CompPilotConsole __instance)
+        static void Prefix(bool launching, ref bool __state)
+        {
+            if (Multiplayer.Client == null || launching || Multiplayer.dontSync)
+                return;
+
+            // If we're trying to open the distance preview, don't sync
+            Multiplayer.dontSync = true;
+            __state = true;
+        }
+
+        static void Postfix(CompPilotConsole __instance, bool launching)
         {
             if (Multiplayer.Client == null) return;
             if (!Multiplayer.ExecutingCmds) return;
+            if (!launching) return;
 
             GravshipTravelUtils.CloseGravshipDialog();
             GravshipTravelUtils.OpenSessionAt(__instance.engine.Map.Tile);
+        }
+
+        static void Finalizer(bool __state)
+        {
+            if (__state)
+                Multiplayer.dontSync = false;
         }
     }
 
@@ -59,15 +76,25 @@ namespace Multiplayer.Client.Patches
     {
         static MethodBase TargetMethod()
         {
-            return MpMethodUtil.GetLambda(typeof(CompPilotConsole), nameof(CompPilotConsole.StartChoosingDestination), lambdaOrdinal: 4);
+            return MpMethodUtil.GetLambda(typeof(CompPilotConsole), nameof(CompPilotConsole.StartChoosingDestination_NewTemp), lambdaOrdinal: 4);
+        }
+
+        static void Prefix(bool ___launching, ref bool __state)
+        {
+            if (Multiplayer.Client == null || ___launching || Multiplayer.dontSync)
+                return;
+
+            Multiplayer.dontSync = true;
+            __state = true;
         }
 
         // TODO: Something in Feedback.cs seems to block the wantedMode switch.
         // For now, it's set manually - consider keeping it this way permanently.
-        static void Finalizer()
+        static void Finalizer(bool ___launching, bool __state)
         {
             if (Multiplayer.Client == null) return;
-            if (!Multiplayer.ExecutingCmds) return;
+            if (__state) Multiplayer.dontSync = false;
+            if (!Multiplayer.ExecutingCmds || !___launching) return;
 
             Find.World.renderer.wantedMode = WorldRenderMode.None;
             Find.TilePicker.StopTargetingInt();
@@ -203,7 +230,7 @@ namespace Multiplayer.Client.Patches
             GravshipTravelUtils.StopFreeze();
             GravshipTravelUtils.CloseSessionAt(__instance.gravship.destinationTile);
         }
-        
+
         static void Finalizer()
         {
             if (Multiplayer.Client == null) return;
