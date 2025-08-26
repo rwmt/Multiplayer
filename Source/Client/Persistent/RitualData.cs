@@ -23,6 +23,12 @@ namespace Multiplayer.Client.Persistent
         public string confirmText;
         public Pawn organizer;
         public MpRitualAssignments assignments;
+        // Gravship launch ritual.
+        // Perhaps we should consider adding an "extraRitualData" field and expose it to the API as well?
+        public bool isGravshipRitual;
+        public bool forceVisitorsToLeave;
+        public bool boardColonyAnimals;
+        public bool boardColonyMechs;
 
         public void Sync(SyncWorker sync)
         {
@@ -45,6 +51,14 @@ namespace Multiplayer.Client.Persistent
                 writer2.Bind(ref assignments, new SyncType(typeof(MpRitualAssignments)) { expose = true });
             else if (sync is ReadingSyncWorker reader)
                 reader.Bind(ref assignments, new SyncType(typeof(MpRitualAssignments)) { expose = true });
+
+            sync.Bind(ref isGravshipRitual);
+            if (isGravshipRitual)
+            {
+                sync.Bind(ref forceVisitorsToLeave);
+                sync.Bind(ref boardColonyAnimals);
+                sync.Bind(ref boardColonyMechs);
+            }
         }
     }
 }

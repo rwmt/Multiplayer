@@ -31,6 +31,18 @@ public class RitualSession : SemiPersistentSession
     [SyncMethod]
     public void Start()
     {
+        // Handle the same stuff as Dialog_BeginGravshipLaunch
+        if (data.isGravshipRitual)
+        {
+            if (data.ritual.behavior is RitualBehaviorWorker_GravshipLaunch behavior)
+            {
+                behavior.forceVisitorsToLeave = data.forceVisitorsToLeave;
+                behavior.boardColonyAnimals = data.boardColonyAnimals;
+                behavior.boardColonyMechs = data.boardColonyMechs;
+            }
+            else Log.Error($"Gravship ritual is using an incorrect ritual behavior. Expected {nameof(RitualBehaviorWorker_GravshipLaunch)} (or its subtype), received: {(data.ritual.behavior?.GetType()).ToStringSafe()}");
+        }
+
         if (data.action != null && data.action(data.assignments))
             Remove();
     }
@@ -83,5 +95,14 @@ public class RitualSession : SemiPersistentSession
             SwitchToMapOrWorld(entry.map);
             OpenWindow();
         });
+    }
+
+    // This method is only really relevant (and used by) gravship ritual sessions
+    [SyncMethod]
+    public void SetGravshipRitualData(bool forceVisitorsToLeave, bool boardColonyAnimals, bool boardColonyMechs)
+    {
+        data.forceVisitorsToLeave = forceVisitorsToLeave;
+        data.boardColonyAnimals = boardColonyAnimals;
+        data.boardColonyMechs = boardColonyMechs;
     }
 }

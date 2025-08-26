@@ -57,10 +57,9 @@ namespace Multiplayer.Client.Persistent
         static bool Prefix(Window window)
         {
             if (Multiplayer.Client != null
-                && window.GetType() == typeof(Dialog_BeginRitual) // Doesn't let RitualBeginProxy through
+                && window is Dialog_BeginRitual tempDialog and not RitualBeginProxy // Let any ritual through, but not MP proxy
                 && (Multiplayer.ExecutingCmds || Multiplayer.Ticking))
             {
-                var tempDialog = (Dialog_BeginRitual)window;
                 tempDialog.PostOpen(); // Completes initialization
 
                 var comp = tempDialog.map.MpComp();
@@ -89,6 +88,18 @@ namespace Multiplayer.Client.Persistent
                         organizer = tempDialog.organizer,
                         assignments = MpUtil.ShallowCopy(tempDialog.assignments, new MpRitualAssignments())
                     };
+
+                    if (tempDialog is Dialog_BeginGravshipLaunch gravshipLaunch)
+                    {
+                        data.isGravshipRitual = true;
+                        data.forceVisitorsToLeave = gravshipLaunch.forceVisitorsToLeave;
+                        data.boardColonyAnimals = gravshipLaunch.boardColonyAnimals;
+                        data.boardColonyMechs = gravshipLaunch.boardColonyMechs;
+                    }
+                    else
+                    {
+                        data.isGravshipRitual = false;
+                    }
 
                     session = comp.CreateRitualSession(data);
                 }
