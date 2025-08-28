@@ -24,6 +24,7 @@ namespace Multiplayer.Client
             yield return AccessTools.Method(typeof(AlertsReadout), nameof(AlertsReadout.AlertsReadoutUpdate));
             yield return AccessTools.Method(typeof(SoundRoot), nameof(SoundRoot.Update));
             yield return AccessTools.Method(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.GetOptions));
+            yield return AccessTools.Method(typeof(Hediff), nameof(Hediff.GetTooltip));
         }
 
         [HarmonyPriority(MpPriority.MpFirst)]
