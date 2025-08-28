@@ -135,10 +135,10 @@ namespace Multiplayer.Client
 
             SyncMethod.Lambda(typeof(CompNeuralSupercharger), nameof(CompNeuralSupercharger.CompGetGizmosExtra), 1); // Neural supercharger: allow temporary pawns to use
 
-            SyncMethod.Lambda(typeof(CompPilotConsole), nameof(CompPilotConsole.CompGetGizmosExtra), 0); // Launch instantly
-            SyncMethod.Lambda(typeof(CompPilotConsole), nameof(CompPilotConsole.CompGetGizmosExtra), 1); // Reset cooldown
-            SyncDelegate.Lambda(typeof(CompPilotConsole), nameof(CompPilotConsole.StartChoosingDestination), 4);  // Cancel gravship tile picker
-            SyncDelegate.Lambda(typeof(CompPilotConsole), nameof(CompPilotConsole.StartChoosingDestination), 5);  // Confirm gravship landing tile
+            SyncMethod.Lambda(typeof(CompPilotConsole), nameof(CompPilotConsole.CompGetGizmosExtra), 1).SetDebugOnly(); // Dev launch instantly
+            SyncMethod.Lambda(typeof(CompPilotConsole), nameof(CompPilotConsole.CompGetGizmosExtra), 2).SetDebugOnly(); // Dev reset cooldown
+            SyncDelegate.Lambda(typeof(CompPilotConsole), nameof(CompPilotConsole.StartChoosingDestination_NewTemp), 4);  // Cancel gravship tile picker
+            SyncDelegate.Lambda(typeof(CompPilotConsole), nameof(CompPilotConsole.StartChoosingDestination_NewTemp), 5);  // Confirm gravship landing tile
 
             // Biosculpter pod
             SyncMethod.Lambda(typeof(CompBiosculpterPod), nameof(CompBiosculpterPod.CompGetGizmosExtra), 1);                // Interrupt cycle (eject contents)

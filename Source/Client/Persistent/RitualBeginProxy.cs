@@ -84,4 +84,48 @@ public class RitualBeginProxy : Dialog_BeginRitual, ISwitchToMap
             drawing = null;
         }
     }
+
+    public override void DoRightColumn(ref RectDivider layout)
+    {
+        var session = Session;
+
+        // We either need to make a new ritual proxy for gravship launch, or we need to copy its code here.
+        // Making a new class added a bunch more complications, so it was easier to just include this code here.
+        if (session?.data.isGravshipRitual == true)
+        {
+            var forceVisitorsToLeave = session.data.forceVisitorsToLeave;
+            var boardColonyAnimals = session.data.boardColonyAnimals;
+            var boardColonyMechs = session.data.boardColonyMechs;
+
+            Rect rect = layout.NewRow(ModsConfig.BiotechActive ? Dialog_BeginGravshipLaunch.CheckboxHeight * 3 : Dialog_BeginGravshipLaunch.CheckboxHeight * 2).Rect with
+            {
+                width = QualityOffsetListWidth,
+                height = Dialog_BeginGravshipLaunch.CheckboxHeight,
+            };
+
+            Widgets.CheckboxLabeled(rect, "GravshipForceVisitorsToLeaveLabel".Translate(), ref forceVisitorsToLeave);
+            TooltipHandler.TipRegion(rect, "GravshipForceVisitorsToLeaveTooltip".Translate());
+
+            rect.y += Dialog_BeginGravshipLaunch.CheckboxHeight;
+            Widgets.CheckboxLabeled(rect, "GravshipBoardColonyAnimalsLabel".Translate(), ref boardColonyAnimals);
+            TooltipHandler.TipRegion(rect, "GravshipBoardColonyAnimalsTooltip".Translate());
+
+            if (ModsConfig.BiotechActive)
+            {
+                rect.y += Dialog_BeginGravshipLaunch.CheckboxHeight;
+                Widgets.CheckboxLabeled(rect, "GravshipBoardColonyMechsLabel".Translate(), ref boardColonyMechs);
+                TooltipHandler.TipRegion(rect, "GravshipBoardColonyMechsTooltip".Translate());
+            }
+
+            layout.NewRow(17f);
+
+            // Sync changes to checkboxes
+            if (forceVisitorsToLeave != session.data.forceVisitorsToLeave
+                || boardColonyAnimals != session.data.boardColonyAnimals
+                || boardColonyMechs != session.data.boardColonyMechs)
+                session.SetGravshipRitualData(forceVisitorsToLeave, boardColonyAnimals, boardColonyMechs);
+        }
+
+        base.DoRightColumn(ref layout);
+    }
 }
