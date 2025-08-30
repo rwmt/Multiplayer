@@ -25,49 +25,34 @@ namespace Multiplayer.Client.Patches
         }
     }
 
-    [HarmonyPatch(typeof(Dialog_MessageBox), MethodType.Constructor, [typeof(TaggedString), typeof(string), typeof(Action), typeof(string), typeof(Action), typeof(string), typeof(bool), typeof(Action), typeof(Action), typeof(WindowLayer)])]
+    [HarmonyPatch]
     public static class PatchGravshipPreLaunchCancel
     {
+        static MethodBase TargetMethod()
+        {
+            return MpMethodUtil.GetLambda(typeof(GravshipUtility), nameof(GravshipUtility.PreLaunchConfirmation), lambdaOrdinal: 4);
+        }
+
         static void Postfix(Dialog_MessageBox __instance)
         {
             if (Multiplayer.Client == null) return;
-            if (!GravshipTravelUtils.IsGravShipMessageDialog(__instance)) return;
+            if (!Multiplayer.ExecutingCmds) return;
 
-            __instance.buttonBAction = () =>
-            {
-                GravshipTravelUtils.SyncCloseSession(Find.CurrentMap.Tile);
-                GravshipTravelUtils.SyncGravshipDialogCancel();
-            };
+            GravshipTravelUtils.CloseSessionAt(Find.CurrentMap.Tile);
+            GravshipTravelUtils.CloseGravshipPrelaunchDialog();
         }
     }
 
     [HarmonyPatch(typeof(CompPilotConsole), nameof(CompPilotConsole.StartChoosingDestination_NewTemp))]
     public static class PatchPilotConsoleStartChoosingDestination
     {
-        static void Prefix(bool launching, ref bool __state)
-        {
-            if (Multiplayer.Client == null || launching || Multiplayer.dontSync)
-                return;
-
-            // If we're trying to open the distance preview, don't sync
-            Multiplayer.dontSync = true;
-            __state = true;
-        }
-
         static void Postfix(CompPilotConsole __instance, bool launching)
         {
             if (Multiplayer.Client == null) return;
-            if (!Multiplayer.ExecutingCmds) return;
             if (!launching) return;
 
-            GravshipTravelUtils.CloseGravshipDialog();
+            GravshipTravelUtils.CloseGravshipPrelaunchDialog();
             GravshipTravelUtils.OpenSessionAt(__instance.engine.Map.Tile);
-        }
-
-        static void Finalizer(bool __state)
-        {
-            if (__state)
-                Multiplayer.dontSync = false;
         }
     }
 
@@ -90,7 +75,7 @@ namespace Multiplayer.Client.Patches
 
         // TODO: Something in Feedback.cs seems to block the wantedMode switch.
         // For now, it's set manually - consider keeping it this way permanently.
-        static void Finalizer(bool ___launching, bool __state)
+        static void Finalizer(bool ___launching, PlanetTile ___curTile, bool __state)
         {
             if (Multiplayer.Client == null) return;
             if (__state) Multiplayer.dontSync = false;
@@ -98,7 +83,7 @@ namespace Multiplayer.Client.Patches
 
             Find.World.renderer.wantedMode = WorldRenderMode.None;
             Find.TilePicker.StopTargetingInt();
-            GravshipTravelUtils.CloseSessionAt(Find.CurrentMap.Tile);
+            GravshipTravelUtils.CloseSessionAt(___curTile);
         }
     }
 
