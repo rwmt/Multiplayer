@@ -428,9 +428,6 @@ namespace Multiplayer.Client
 
             SyncMethod.Register(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.PlaceGravship));
             SyncMethod.Register(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.AbortLanding)).SetContext(SyncContext.CurrentMap);
-            SyncMethod.Register(typeof(CompPilotConsole), nameof(CompPilotConsole.StartChoosingDestination_NewTemp));
-
-            //SyncMethod.Register(typeof(FreezeManager), nameof(FreezeManager.DoIceMelting));
 
             // Double ExecuteWhenFinished ensures it'll load after MP Compat late patches,
             // so it will have registered all its sync workers already.
