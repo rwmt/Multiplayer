@@ -34,16 +34,14 @@ public static class DeferredStackTracingImpl
     public const int MaxDepth = 32;
     public const int HashInfluence = 6;
 
-    private static unsafe delegate*<long> getRbpFunc;
-    static unsafe DeferredStackTracingImpl() => getRbpFunc = &GetRbpProbed;
-
     public static unsafe int TraceImpl(long[] traceIn, ref int hash)
     {
         if (Native.LmfPtr == 0)
             return 0;
-        
+
         long[] trace = traceIn;
-        long rbp = getRbpFunc();
+        long rbp = GetRbp();
+
         long stck = rbp;
         rbp = *(long*)rbp;
 
@@ -244,30 +242,12 @@ public static class DeferredStackTracingImpl
         }
     }
 
-    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
-    private static unsafe long GetRbpProbed()
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    static unsafe long GetRbp()
     {
-        long local = 0;
-        long* p = &local;
+        long rbp = 0;
 
-        // Scan up to 32 q-words (~256 B) – copes with big frames from extra locals,
-        // tier-1 JIT prologues and the 6-register spill variant.
-        for (int i = 1; i <= 32; i++)
-        {
-            long cand = *(&local + i);
-
-            if (cand <= (long)p) continue;   // must be above us
-            if ((cand & 7) != 0) continue;   // 8-byte aligned
-
-            // Cheap sanity: return address slot should be executable
-            if (Native.mono_jit_info_table_find(Native.DomainPtr, *(IntPtr*)(cand + 8)) == IntPtr.Zero)
-                continue;
-
-            return cand;                              // looks like a real frame ptr
-        }
-
-        // Fallback – old +1 assumption
-        return *(p + 1);
+        return *(&rbp + 1);
     }
 
     public static int HashCombineInt(int seed, int value)
