@@ -2,6 +2,7 @@ using HarmonyLib;
 using RimWorld;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using RimWorld.Planet;
@@ -120,7 +121,7 @@ namespace Multiplayer.Client.Patches
         internal static void EnableCanceling()
         {
             stopCancel = true;
-        }        
+        }
     }
 
     [HarmonyPatch(typeof(Thing), nameof(Thing.DeSpawn))]
@@ -201,6 +202,29 @@ namespace Multiplayer.Client.Patches
                 healingDescriptionForPawn.NullOrEmpty()));
 
             return false;
+        }
+    }
+
+    [HarmonyPatch(typeof(CompUsable), nameof(CompUsable.OrderForceTarget))]
+    static class NoTargetableCompUsableSyncing
+    {
+        static void Prefix(CompUsable __instance, ref bool __state)
+        {
+            if (Multiplayer.Client == null || Multiplayer.dontSync) return;
+
+            // Hopefully, all mods implement `PlayerChoosesTarget` as either always being true or false.
+            // If this is conditional then there could be some issues.
+            if (__instance.parent.GetComps<CompTargetable>().Any(x => x.PlayerChoosesTarget))
+            {
+                Multiplayer.dontSync = true;
+                __state = true;
+            }
+        }
+
+        static void Finalizer(bool __state)
+        {
+            if (__state)
+                Multiplayer.dontSync = false;
         }
     }
 
