@@ -18,14 +18,13 @@ namespace Multiplayer.Client
         public static ISyncField SyncMedCare;
         public static ISyncField SyncSelfTend;
         public static ISyncField SyncHostilityResponse;
-        public static ISyncField SyncFollowDrafted;
-        public static ISyncField SyncFollowFieldwork;
         public static ISyncField SyncSlaveInteractionMode;
         public static ISyncField SyncIdeoForConversion;
         public static ISyncField SyncBeCarried;
         public static ISyncField SyncPsychicEntropyLimit;
         public static ISyncField SyncPsychicEntropyTargetFocus;
         public static ISyncField SyncGuiltAwaitingExecution;
+        public static SyncField[] SyncTrainedAnimalSettings;
 
         public static ISyncField SyncUseWorkPriorities;
         public static ISyncField SyncAutoHomeArea;
@@ -100,14 +99,21 @@ namespace Multiplayer.Client
             SyncMedCare = Sync.Field(typeof(Pawn), nameof(Pawn.playerSettings), nameof(Pawn_PlayerSettings.medCare));
             SyncSelfTend = Sync.Field(typeof(Pawn), nameof(Pawn.playerSettings), nameof(Pawn_PlayerSettings.selfTend));
             SyncHostilityResponse = Sync.Field(typeof(Pawn), nameof(Pawn.playerSettings), nameof(Pawn_PlayerSettings.hostilityResponse));
-            SyncFollowDrafted = Sync.Field(typeof(Pawn), nameof(Pawn.playerSettings), nameof(Pawn_PlayerSettings.followDrafted));
-            SyncFollowFieldwork = Sync.Field(typeof(Pawn), nameof(Pawn.playerSettings), nameof(Pawn_PlayerSettings.followFieldwork));
             SyncSlaveInteractionMode = Sync.Field(typeof(Pawn), nameof(Pawn.guest), nameof(Pawn_GuestTracker.slaveInteractionMode));
             SyncIdeoForConversion = Sync.Field(typeof(Pawn), nameof(Pawn.guest), nameof(Pawn_GuestTracker.ideoForConversion));
             SyncBeCarried = Sync.Field(typeof(Pawn), nameof(Pawn.health), nameof(Pawn_HealthTracker.beCarriedByCaravanIfSick));
             SyncPsychicEntropyLimit = Sync.Field(typeof(Pawn), nameof(Pawn.psychicEntropy), nameof(Pawn_PsychicEntropyTracker.limitEntropyAmount));
             SyncPsychicEntropyTargetFocus = Sync.Field(typeof(Pawn), nameof(Pawn.psychicEntropy), nameof(Pawn_PsychicEntropyTracker.targetPsyfocus)).SetBufferChanges();
             SyncGuiltAwaitingExecution = Sync.Field(typeof(Pawn), nameof(Pawn.guilt), nameof(Pawn_GuiltTracker.awaitingExecution));
+
+            SyncTrainedAnimalSettings = Sync.Fields(
+                typeof(Pawn),
+                nameof(Pawn.playerSettings),
+                nameof(Pawn_PlayerSettings.followDrafted),
+                nameof(Pawn_PlayerSettings.followFieldwork),
+                nameof(Pawn_PlayerSettings.animalForage),
+                nameof(Pawn_PlayerSettings.animalDig)
+            ).SetBufferChanges();
 
             SyncUseWorkPriorities = Sync.Field(null, $"Verse.Current/Game/playSettings", nameof(PlaySettings.useWorkPriorities)).PostApply(UseWorkPriorities_PostApply);
             SyncAutoHomeArea = Sync.Field(null, "Verse.Current/Game/playSettings", nameof(PlaySettings.autoHomeArea));
@@ -328,8 +334,7 @@ namespace Multiplayer.Client
         [MpPrefix(typeof(TrainingCardUtility), nameof(TrainingCardUtility.DrawTrainingCard))]
         static void PawnSettingFollowWatch(Pawn pawn)
         {
-            SyncFollowDrafted.Watch(pawn);
-            SyncFollowFieldwork.Watch(pawn);
+            SyncTrainedAnimalSettings.Watch(pawn);
         }
 
         [MpPrefix(typeof(Dialog_MedicalDefaults), nameof(Dialog_MedicalDefaults.DoWindowContents))]
