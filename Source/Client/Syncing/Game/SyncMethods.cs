@@ -152,13 +152,25 @@ namespace Multiplayer.Client
 
             {
                 var methods = typeof(ITargetingSource).AllImplementing()
-                    .Except(typeof(CompInteractableRocketswarmLauncher)) // Skip it, as all it does is open another targeter
                     .Where(t => t.Assembly == typeof(Game).Assembly)
+                    .Except(typeof(CompInteractableRocketswarmLauncher)) // Skip it, as all it does is open another targeter
                     .Select(t => t.GetMethod(nameof(ITargetingSource.OrderForceTarget), AccessTools.allDeclared))
                     .AllNotNull();
 
                 foreach (var method in methods) {
-                    Sync.RegisterSyncMethod(method);
+                    var sync = Sync.RegisterSyncMethod(method);
+
+                    if (method.DeclaringType == typeof(CompTargetable))
+                    {
+                        // Possible errors/bugs if multiple people had targeter open for the same item and synced it (with some delay between each sync).
+                        sync.TransformTarget(Serializer.New(
+                            (CompTargetable comp) => (comp, comp.caster),
+                            x =>
+                            {
+                                x.comp.caster = x.caster;
+                                return x.comp;
+                            }));
+                    }
                 }
             }
 
