@@ -372,7 +372,10 @@ namespace Multiplayer.Client
                 var fleckMethods = typeof(FleckMaker).GetMethods(BindingFlags.Static | BindingFlags.Public)
                     .Where(m => m.ReturnType == typeof(void))
                     .Concat(typeof(FleckManager).GetMethods() // FleckStatic uses Rand in Setup method, FleckThrown uses RandomInRange in TimeInterval. May as well catch all in case mods do the same.
-                        .Where(m => m.ReturnType == typeof(void)));
+                        .Where(m => m.ReturnType == typeof(void)))
+                    .Concat(typeof(LavaFXComponent).DeclaredMethod(nameof(LavaFXComponent.ThrowLavaSmoke)))
+                    .Concat(typeof(FishShadowComponent).DeclaredMethod(nameof(FishShadowComponent.SpawnFishFleck)))
+                    .Concat(typeof(CompFleckEmitterLongTerm).DeclaredMethod(nameof(CompFleckEmitterLongTerm.EmissionTick)));
                 var ritualMethods = new[] { canEverSpectate };
 
                 foreach (MethodBase m in effectMethods.Concat(moteMethods).Concat(fleckMethods).Concat(ritualMethods))
