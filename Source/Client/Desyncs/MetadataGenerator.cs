@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -19,19 +20,24 @@ public static class MetadataGenerator
 
     private static string ListHarmonyPatches()
     {
-        var patchListing = DescribeAllPatchedMethods();
+        var patchMethods = Harmony
+            .GetAllPatchedMethods()
+            .Select(method => (method, patches: Harmony.GetPatchInfo(method)))
+            .Where(x => x.patches != null)
+            .ToList();
+        var patchListing = DescribeAllPatchedMethods(patchMethods);
         var newline = patchListing.EndsWith('\n') ? "" : "\n";
-        return $"Active Harmony patches:\n{patchListing}{newline}{HarmonyUtil.DescribeHarmonyVersions()}\n";
+        return $"Active Harmony patches:\n{patchListing}{newline}{HarmonyUtil.DescribeHarmonyVersions(patchMethods)}\n";
     }
 
     /// <summary>
     /// Produces a human-readable list of all methods patched by all Harmony instances and their respective patches.
     /// </summary>
-    private static string DescribeAllPatchedMethods()
+    private static string DescribeAllPatchedMethods(List<(MethodBase, HarmonyLib.Patches)> patchMethods)
     {
         try
         {
-            return HarmonyUtil.DescribePatchedMethodsList(Harmony.GetAllPatchedMethods());
+            return HarmonyUtil.DescribePatchedMethodsList(patchMethods);
         }
         catch (Exception e)
         {

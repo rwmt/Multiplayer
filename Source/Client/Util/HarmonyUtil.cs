@@ -17,18 +17,17 @@ namespace Multiplayer.Client
         /// <summary>
         /// Produces a human-readable list of Harmony patches on a given set of methods.
         /// </summary>
-        public static string DescribePatchedMethodsList(IEnumerable<MethodBase> patchedMethods)
+        public static string DescribePatchedMethodsList(List<(MethodBase method, HarmonyLib.Patches patches)> patchedMethods)
         {
             try
             {
                 var methodList = patchedMethods.ToList();
                 // generate method name strings so we can sort the patches alphabetically
-                var namedMethodList = new List<(string methodName, MethodBase method)>(methodList.Count);
+                var namedMethodList = new List<(string methodName, HarmonyLib.Patches patches)>(methodList.Count);
                 foreach (var method in methodList)
                 {
-                    if (method == null) continue;
-                    var nestedName = GetNestedMemberName(method);
-                    namedMethodList.Add((nestedName, method));
+                    var nestedName = GetNestedMemberName(method.method);
+                    namedMethodList.Add((nestedName, method.patches));
                 }
 
                 if (namedMethodList.Count == 0)
@@ -41,13 +40,12 @@ namespace Multiplayer.Client
                     string.Compare(m1.methodName, m2.methodName, StringComparison.Ordinal));
 
                 var builder = new StringBuilder();
-                foreach (var (methodName, method) in namedMethodList)
+                foreach (var (methodName, patches) in namedMethodList)
                 {
                     // write patched method
                     builder.Append(methodName);
                     builder.Append(": ");
                     // write patches
-                    var patches = Harmony.GetPatchInfo(method);
                     if (HasActivePatches(patches))
                     {
                         // write prefixes
@@ -92,11 +90,11 @@ namespace Multiplayer.Client
         /// <summary>
         /// Produces a human-readable list of all Harmony versions present and their respective owners.
         /// </summary>
-        public static string DescribeHarmonyVersions()
+        public static string DescribeHarmonyVersions(List<(MethodBase, HarmonyLib.Patches)> patchMethods)
         {
             try
             {
-                var modVersionPairs = Harmony.VersionInfo(out _);
+                var modVersionPairs = GetHarmonyVersions(patchMethods);
                 return "Harmony versions present: " +
                        modVersionPairs.GroupBy(kv => kv.Value, kv => kv.Key).OrderByDescending(grp => grp.Key)
                            .Select(grp => $"{grp.Key}: {grp.Join(", ")}").Join("; ");
@@ -105,6 +103,22 @@ namespace Multiplayer.Client
             {
                 return "An exception occurred while collating Harmony version data:\n" + e;
             }
+        }
+
+        private static Dictionary<string, Version> GetHarmonyVersions(List<(MethodBase, HarmonyLib.Patches patches)> patchMethods)
+        {
+            var result = new Dictionary<string, Version>();
+            var assemblies = patchMethods
+                .Select(x => x.patches)
+                .SelectMany(x => x.Prefixes.Concat(x.Postfixes).Concat(x.Transpilers).Concat(x.Finalizers))
+                .ToDictionaryConsistent(fix => fix.PatchMethod.DeclaringType.Assembly, fix => fix.owner);
+            assemblies.Do(info =>
+            {
+                AssemblyName assemblyName = info.Key.GetReferencedAssemblies().FirstOrDefault(a => a.FullName.StartsWith("0Harmony, Version", StringComparison.Ordinal));
+                if (assemblyName == null) return;
+                result[info.Value] = assemblyName.Version;
+            });
+            return result;
         }
 
         internal static string GetNestedMemberName(MemberInfo member, int maxParentTypes = 10)
