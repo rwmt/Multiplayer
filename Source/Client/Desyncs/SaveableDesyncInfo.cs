@@ -24,6 +24,7 @@ public class SaveableDesyncInfo(
     public readonly ClientSyncOpinion remote = remote;
     public readonly int diffAt = diffAt;
     private readonly Task<string> metadata = Task.Run(MetadataGenerator.Generate);
+    public bool ReadyToSave => metadata.IsCompleted;
 
     public void Save()
     {
