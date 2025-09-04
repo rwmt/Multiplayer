@@ -38,6 +38,8 @@ public class SaveableDesyncInfo(
 
             var extraLogs = LogGenerator.PrepareLogData();
             if (extraLogs != null) zip.AddEntry("local_logs.txt", extraLogs);
+
+            zip.AddEntry("local_metadata.txt", MetadataGenerator.Generate());
         }
         catch (Exception e)
         {
