@@ -4,6 +4,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 using HarmonyLib;
 using Multiplayer.Common;
 using Multiplayer.Common.Util;
@@ -22,6 +23,7 @@ public class SaveableDesyncInfo(
     public readonly ClientSyncOpinion local = local;
     public readonly ClientSyncOpinion remote = remote;
     public readonly int diffAt = diffAt;
+    private readonly Task<string> metadata = Task.Run(MetadataGenerator.Generate);
 
     public void Save()
     {
@@ -39,7 +41,7 @@ public class SaveableDesyncInfo(
             var extraLogs = LogGenerator.PrepareLogData();
             if (extraLogs != null) zip.AddEntry("local_logs.txt", extraLogs);
 
-            zip.AddEntry("local_metadata.txt", MetadataGenerator.Generate());
+            zip.AddEntry("local_metadata.txt", metadata.Result);
         }
         catch (Exception e)
         {
