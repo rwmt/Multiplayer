@@ -19,27 +19,31 @@ namespace MultiplayerLoader
             instance = this;
             LoadAssembliesCustom();
 
-            GenTypes.GetTypeInAnyAssembly("Multiplayer.Client.Multiplayer")!.GetMethod("InitMultiplayer")!.Invoke(null, null);
+            FindTypeInAppDomain("Multiplayer.Client.Multiplayer")!.GetMethod("InitMultiplayer")!.Invoke(null, null);
         }
+
+        public static Type? FindTypeInAppDomain(string typeFullName) =>
+            AppDomain.CurrentDomain.GetAssemblies()
+                .Select(assembly => assembly.GetType(typeFullName, throwOnError: false, ignoreCase: false))
+                .FirstOrDefault(type => type != null);
 
         private void LoadAssembliesCustom()
         {
             var assemblies = new List<Assembly>();
 
-            foreach (FileInfo item in
-                     from f
-                         in ModContentPack.GetAllFilesForModPreserveOrder(Content, "AssembliesCustom/",
-                             e => e.ToLower() == ".dll")
-                     select f.Item2)
+            foreach (FileInfo item in ModContentPack
+                         .GetAllFilesForModPreserveOrder(Content, "AssembliesCustom/", e => e.ToLower() == ".dll")
+                         .Select(f => f.Item2))
             {
                 Assembly assembly;
-
                 try
                 {
+                    // This would work with Assembly.Load the same as ModAssemblyHandler does it, but then the .dll
+                    // files are locked and cannot be replaced when a game instance is already running. This way it's
+                    // possible to keep a game instance open and just rebuild and reopen another instance without any
+                    // issues with replacing the dll files.
                     byte[] rawAssembly = File.ReadAllBytes(item.FullName);
-                    FileInfo fileInfo =
-                        new FileInfo(Path.Combine(item.DirectoryName!, Path.GetFileNameWithoutExtension(item.FullName)) +
-                                     ".pdb");
+                    FileInfo fileInfo = new FileInfo(Path.ChangeExtension(item.FullName, "pdb"));
 
                     if (fileInfo.Exists)
                     {
@@ -60,25 +64,14 @@ namespace MultiplayerLoader
                 assemblies.Add(assembly);
             }
 
-            var asmResolve = (Delegate)typeof(AppDomain).GetField("AssemblyResolve", BindingFlags.Instance | BindingFlags.NonPublic)
-                !.GetValue(AppDomain.CurrentDomain)!;
+            AppDomain.CurrentDomain.AssemblyResolve += (_, args) =>
+                Content.assemblies.loadedAssemblies.FirstOrDefault(a => a.FullName == args.Name);
 
-            Assembly Resolver(object _, ResolveEventArgs args)
+            foreach (var asm in assemblies.Where(asm => Content.assemblies.AssemblyIsUsable(asm)))
             {
-                return assemblies.Concat(Content.assemblies.loadedAssemblies).FirstOrDefault(a => a.FullName == args.Name);
+                GenTypes.ClearCache();
+                Content.assemblies.loadedAssemblies.Add(asm);
             }
-
-            typeof(AppDomain).GetField("AssemblyResolve", BindingFlags.Instance | BindingFlags.NonPublic)
-                !.SetValue(AppDomain.CurrentDomain, Delegate.Combine(
-                    (ResolveEventHandler)Resolver,
-                    asmResolve));
-
-            foreach (var asm in assemblies)
-                if (Content.assemblies.AssemblyIsUsable(asm))
-                {
-                    GenTypes.ClearCache();
-                    Content.assemblies.loadedAssemblies.Add(asm);
-                }
         }
 
         public override string SettingsCategory() => "Multiplayer";
