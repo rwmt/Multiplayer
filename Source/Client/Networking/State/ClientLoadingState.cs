@@ -136,4 +136,10 @@ public class ClientLoadingState(ConnectionBase connection) : ClientBaseState(con
         Log.Message($"Loaded game in {loadingMs}ms");
         connection.ChangeState(ConnectionStateEnum.ClientPlaying);
     }
+
+    [PacketHandler(Packets.Server_KeepAlive)]
+    public new void HandleKeepAlive(ByteReader data) => base.HandleKeepAlive(data);
+
+    [PacketHandler(Packets.Server_TimeControl)]
+    public new void HandleTimeControl(ByteReader data) => base.HandleTimeControl(data);
 }
