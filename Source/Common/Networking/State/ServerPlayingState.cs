@@ -139,7 +139,7 @@ namespace Multiplayer.Common
 
             Player.lastCursorTick = Server.NetTimer;
 
-            Server.SendToPlaying(Packets.Server_Cursor, writer.ToArray(), reliable: false, excluding: Player);
+            Server.SendToIngame(Packets.Server_Cursor, writer.ToArray(), reliable: false, excluding: Player);
         }
 
         [PacketHandler(Packets.Client_Selected)]

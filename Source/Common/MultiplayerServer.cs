@@ -202,6 +202,13 @@ namespace Multiplayer.Common
             SendToPlaying(id, ByteWriter.GetBytes(data));
         }
 
+        public void SendToIngame(Packets id, byte[] data, bool reliable = true, ServerPlayer? excluding = null)
+        {
+            foreach (ServerPlayer player in PlayingIngamePlayers)
+                if (player != excluding)
+                    player.conn.Send(id, data, reliable);
+        }
+
         public void SendToPlaying(Packets id, byte[] data, bool reliable = true, ServerPlayer? excluding = null)
         {
             foreach (ServerPlayer player in PlayingPlayers)
