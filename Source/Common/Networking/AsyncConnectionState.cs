@@ -78,12 +78,11 @@ public abstract class AsyncConnectionState(ConnectionBase connection) : MpConnec
     public override PacketHandlerInfo? GetPacketHandler(Packets packet)
     {
         if (packetAwaitable != null && packetAwaitable.PacketType == packet)
-            return new PacketHandlerInfo((_, args) =>
+            return new PacketHandlerInfo((_, data) =>
             {
                 var source = packetAwaitable;
                 packetAwaitable = null;
-                source.SetResult((ByteReader)args[0]);
-                return null;
+                source.SetResult(data);
             }, packetAwaitable.Fragment);
 
         return base.GetPacketHandler(packet);

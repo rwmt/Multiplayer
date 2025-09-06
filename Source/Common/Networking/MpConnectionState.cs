@@ -1,5 +1,6 @@
 using System;
 using System.Reflection;
+using System.Reflection.Emit;
 using HarmonyLib;
 
 namespace Multiplayer.Common
@@ -54,14 +55,11 @@ namespace Multiplayer.Common
 
         private static void RegisterPacketHandler(ConnectionStateEnum state, MethodInfo method, PacketHandlerAttribute attr)
         {
-            if (method.GetParameters().Length != 1 || method.GetParameters()[0].ParameterType != typeof(ByteReader))
-                throw new Exception($"Bad packet handler signature for {method}");
-
             var packetHandlerInfo = packetHandlers[(int)state, (int)attr.packet];
             if (packetHandlerInfo == null)
             {
                 packetHandlers[(int)state, (int)attr.packet] =
-                    new PacketHandlerInfo(MethodInvoker.GetHandler(method), attr.allowFragmented);
+                    new PacketHandlerInfo(CreateInvoker(attr.packet, method), attr.allowFragmented);
                 return;
             }
             if (packetHandlerInfo.Method != null)
@@ -72,8 +70,23 @@ namespace Multiplayer.Common
 
             packetHandlers[(int)state, (int)attr.packet] = packetHandlerInfo with
             {
-                Method = MethodInvoker.GetHandler(method), Fragment = attr.allowFragmented
+                Method = CreateInvoker(attr.packet, method), Fragment = attr.allowFragmented
             };
+        }
+
+        private static PacketHandlerInvoker CreateInvoker(Packets packet, MethodInfo handler)
+        {
+            if (handler.GetParameters().Length != 1 || handler.GetParameters()[0].ParameterType != typeof(ByteReader))
+                throw new Exception($"Bad packet handler signature for {handler}");
+
+            DynamicMethod invoker = new DynamicMethod($"PacketHandlerInvoker_{packet}_{handler.Name}", typeof(void), [typeof(object), typeof(ByteReader)]);
+            var il = invoker.GetILGenerator();
+            il.Emit(OpCodes.Ldarg_0);
+            il.Emit(OpCodes.Castclass, handler.DeclaringType ?? throw new InvalidOperationException());
+            il.Emit(OpCodes.Ldarg_1);
+            il.Emit(OpCodes.Callvirt, handler);
+            il.Emit(OpCodes.Ret);
+            return (PacketHandlerInvoker)invoker.CreateDelegate(typeof(PacketHandlerInvoker));
         }
 
         private static void RegisterFragmentedPacketHandler(ConnectionStateEnum state, MethodInfo method, FragmentedPacketHandlerAttribute attr)
