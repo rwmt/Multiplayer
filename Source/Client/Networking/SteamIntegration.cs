@@ -138,23 +138,27 @@ namespace Multiplayer.Client
         }
 
         private static Stopwatch lastSteamUpdate = Stopwatch.StartNew();
-        private static bool lastSteam;
+        private static bool lastLocalSteam; // running a server with steam networking
+        private static CSteamID? lastRemoteSteam; // connected to a server with steam networking
 
         public static void UpdateRichPresence()
         {
             if (lastSteamUpdate.ElapsedMilliseconds < 1000) return;
 
-            bool steam = Multiplayer.session?.localServerSettings?.steam ?? false;
-
-            if (steam != lastSteam)
+            var localSteam = Multiplayer.session?.localServerSettings?.steam ?? false;
+            var remoteSteam = (Multiplayer.session?.client as SteamClientConn)?.remoteId;
+            if (localSteam != lastLocalSteam || remoteSteam != lastRemoteSteam)
             {
-                if (steam)
-                    SteamFriends.SetRichPresence("connect", $"{SteamConnectStart}{SteamUser.GetSteamID()}");
-                else
-                    // Null and empty string mentioned in the docs don't seem to work
-                    SteamFriends.SetRichPresence("connect", "nil");
+                string connect;
+                if (localSteam) connect = SteamUser.GetSteamID().ToString();
+                else if (remoteSteam != null) connect = remoteSteam.ToString();
+                else connect = null;
 
-                lastSteam = steam;
+                // Null and empty string mentioned in the docs doesn't seem to work
+                SteamFriends.SetRichPresence("connect", connect != null ? $"{SteamConnectStart}{connect}" : "nil");
+
+                lastLocalSteam = localSteam;
+                lastRemoteSteam = remoteSteam;
             }
 
             lastSteamUpdate.Restart();
