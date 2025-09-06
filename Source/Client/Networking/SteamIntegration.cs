@@ -4,6 +4,7 @@ using Steamworks;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using RimWorld;
 using UnityEngine;
 using Verse;
 
@@ -49,6 +50,15 @@ namespace Multiplayer.Client
 
             gameJoinReq = Callback<GameRichPresenceJoinRequested_t>.Create(req =>
             {
+                if (Current.Game == null)
+                {
+                    ClientUtil.TrySteamConnectWithWindow(req.m_steamIDFriend, false);
+                }
+                else
+                {
+                    Messages.Message("MpQuitBeforeAcceptInvite".Translate(), MessageTypeDefOf.RejectInput,
+                        historical: false);
+                }
             });
 
             personaChange = Callback<PersonaStateChange_t>.Create(change =>
