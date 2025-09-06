@@ -14,6 +14,7 @@ public class FactionMapData : IExposable
     public DesignationManager designationManager;
     public AreaManager areaManager;
     public ZoneManager zoneManager;
+    public PlanManager planManager;
 
     // Not saved
     public HaulDestinationManager haulDestinationManager;
@@ -43,6 +44,7 @@ public class FactionMapData : IExposable
         designationManager = new DesignationManager(map);
         areaManager = new AreaManager(map);
         zoneManager = new ZoneManager(map);
+        planManager = new PlanManager(map);
     }
 
     public void ExposeData()
@@ -53,6 +55,7 @@ public class FactionMapData : IExposable
         Scribe_Deep.Look(ref designationManager, "designationManager", map);
         Scribe_Deep.Look(ref areaManager, "areaManager", map);
         Scribe_Deep.Look(ref zoneManager, "zoneManager", map);
+        Scribe_Deep.Look(ref planManager, "planManager", map);
 
         ExposeActor.OnPostInit(() => map.PopFaction());
     }
@@ -71,6 +74,7 @@ public class FactionMapData : IExposable
             designationManager = map.designationManager,
             areaManager = map.areaManager,
             zoneManager = map.zoneManager,
+            planManager = map.planManager,
 
             haulDestinationManager = map.haulDestinationManager,
             listerHaulables = map.listerHaulables,

@@ -129,6 +129,7 @@ namespace Multiplayer.Client
             map.designationManager = data.designationManager;
             map.areaManager = data.areaManager;
             map.zoneManager = data.zoneManager;
+            map.planManager = data.planManager;
 
             map.haulDestinationManager = data.haulDestinationManager;
             map.listerHaulables = data.listerHaulables;
