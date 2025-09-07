@@ -34,13 +34,13 @@ namespace Multiplayer.Client
             // Server already pre-inited in HostWindow
             PrepareLocalServer(settings, fromReplay);
 
-            CreateLocalClient();
+            var serverConn = CreateLocalClient();
             PrepareGame();
             SetGameState(settings);
 
             Multiplayer.session.dataSnapshot = await CreateGameData();
 
-            MakeHostOnServer();
+            MakeHostOnServer(serverConn);
 
             // todo handle sending cmds for hosting from loaded replay?
             SaveLoad.SendGameData(Multiplayer.session.dataSnapshot, false);
@@ -187,26 +187,21 @@ namespace Multiplayer.Client
             return faction;
         }
 
-        private static void CreateLocalClient()
+        private static LocalConnection CreateLocalClient()
         {
             if (Multiplayer.session.localServerSettings.arbiter)
                 StartArbiter();
 
-            LocalClientConnection localClient = new LocalClientConnection(Multiplayer.username);
-            LocalServerConnection localServerConn = new LocalServerConnection(Multiplayer.username);
-
-            localClient.serverSide = localServerConn;
-            localServerConn.clientSide = localClient;
-
-            localClient.ChangeState(ConnectionStateEnum.ClientPlaying);
-
-            Multiplayer.session.client = localClient;
+            var (client, server) = LocalConnection.Paired(Multiplayer.username);
+            client.ChangeState(ConnectionStateEnum.ClientPlaying);
+            Multiplayer.session.client = client;
+            return server;
         }
 
-        private static void MakeHostOnServer()
+        private static void MakeHostOnServer(LocalConnection serverConnection)
         {
             var server = Multiplayer.LocalServer;
-            var player = server.playerManager.OnConnected(((LocalClientConnection)Multiplayer.Client).serverSide);
+            var player = server.playerManager.OnConnected(serverConnection);
             server.playerManager.MakeHost(player);
         }
 
