@@ -60,24 +60,12 @@ namespace Multiplayer.Client
 
         private static string TrimExcessLines(string log)
         {
-            var indexOfLastNewline = IndexOfOccurrence(log, '\n', MaxLogLineCount);
+            var indexOfLastNewline = log.IndexOfOccurrence('\n', MaxLogLineCount);
             if (indexOfLastNewline >= 0)
             {
                 log = $"{log.Substring(0, indexOfLastNewline + 1)}(log trimmed to {MaxLogLineCount:N0} lines.)";
             }
             return log;
-        }
-
-        private static int IndexOfOccurrence(string s, char match, int occurrence)
-        {
-            var currentOccurrence = 1;
-            var currentIndex = 0;
-            while (currentOccurrence <= occurrence && (currentIndex = s.IndexOf(match, currentIndex + 1)) != -1)
-            {
-                if (currentOccurrence == occurrence) return currentIndex;
-                currentOccurrence++;
-            }
-            return -1;
         }
 
         private static string RedactUselessLines(string log)
