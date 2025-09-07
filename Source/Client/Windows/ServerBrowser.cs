@@ -635,25 +635,13 @@ namespace Multiplayer.Client
 
                 if (!playingRimworld) continue;
 
-                int avatar = SteamFriends.GetSmallFriendAvatar(friend);
-                string username = SteamFriends.GetFriendPersonaName(friend);
-                string connectValue = SteamFriends.GetFriendRichPresence(friend, "connect");
-
-                CSteamID serverHost = CSteamID.Nil;
-                if (connectValue != null &&
-                    connectValue.Contains(SteamIntegration.SteamConnectStart) &&
-                    ulong.TryParse(connectValue.Substring(SteamIntegration.SteamConnectStart.Length), out ulong hostId))
-                {
-                    serverHost = (CSteamID)hostId;
-                }
-
-                friends.Add(new SteamPersona()
+                friends.Add(new SteamPersona
                 {
                     id = friend,
-                    avatar = avatar,
-                    username = username,
+                    avatar = SteamFriends.GetSmallFriendAvatar(friend),
+                    username = SteamFriends.GetFriendPersonaName(friend),
                     playingRimworld = true,
-                    serverHost = serverHost,
+                    serverHost = SteamIntegration.GetConnectHostId(friend),
                 });
             }
 

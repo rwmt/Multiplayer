@@ -1,3 +1,4 @@
+using System;
 using Multiplayer.Client.Networking;
 using Multiplayer.Common;
 using Steamworks;
@@ -21,7 +22,7 @@ namespace Multiplayer.Client
 
         public static AppId_t RimWorldAppId;
 
-        public const string SteamConnectStart = " -mpserver=";
+        private const string SteamConnectStart = " -mpserver=";
 
         public static void InitCallbacks()
         {
@@ -172,6 +173,19 @@ namespace Multiplayer.Client
             }
 
             lastSteamUpdate.Restart();
+        }
+
+        /// Gets the Steam ID of the user hosting the server that the friend is now playing on.
+        public static CSteamID GetConnectHostId(CSteamID friend)
+        {
+            string connectValue = SteamFriends.GetFriendRichPresence(friend, "connect");
+            if (connectValue?.StartsWith(SteamConnectStart, StringComparison.OrdinalIgnoreCase) == true &&
+                ulong.TryParse(connectValue[SteamConnectStart.Length..], out ulong hostId))
+            {
+                return (CSteamID)hostId;
+            }
+
+            return CSteamID.Nil;
         }
     }
 
