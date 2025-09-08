@@ -59,10 +59,10 @@ public class FactionMapData : IExposable
 
         if (Scribe.mode == LoadSaveMode.LoadingVars)
         {
-            designationManager = new DesignationManager(map);
-            areaManager = new AreaManager(map);
-            zoneManager = new ZoneManager(map);
-            planManager = new PlanManager(map);
+            designationManager ??= new DesignationManager(map);
+            areaManager ??= new AreaManager(map);
+            zoneManager ??= new ZoneManager(map);
+            planManager ??= new PlanManager(map);
         }
 
         ExposeActor.OnPostInit(() => map.PopFaction());
