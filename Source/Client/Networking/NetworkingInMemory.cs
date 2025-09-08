@@ -4,75 +4,52 @@ using Verse;
 
 namespace Multiplayer.Client.Networking
 {
-    public class LocalClientConnection : ConnectionBase
+    public class LocalConnection : ConnectionBase
     {
-        public LocalServerConnection serverSide;
-
         public override int Latency { get => 0; set { } }
+        public LocalConnection remoteConn;
+        private bool isClient;
+        private Action<Action> enqueue;
 
-        public LocalClientConnection(string username)
+        private LocalConnection(string username, bool isClient, Action<Action> enqueue)
         {
             this.username = username;
+            this.isClient = isClient;
+            this.enqueue = enqueue;
         }
 
-        protected override void SendRaw(byte[] raw, bool reliable)
+        public static LocalConnection Client(string username) => new(username, true, Multiplayer.LocalServer.Enqueue);
+        public static LocalConnection Server(string username) => new(username, false, OnMainThread.Enqueue);
+
+        public static (LocalConnection client, LocalConnection server) Paired(string username)
         {
-            Multiplayer.LocalServer.Enqueue(() =>
+            var localClient = Client(username);
+            var localServer = Server(username);
+
+            localClient.remoteConn = localServer;
+            localServer.remoteConn = localClient;
+            return (localClient, localServer);
+        }
+
+        protected override void SendRaw(byte[] raw, bool reliable = true)
+        {
+            enqueue(() =>
             {
                 try
                 {
-                    serverSide.HandleReceiveRaw(new ByteReader(raw), reliable);
+                    remoteConn.HandleReceiveRaw(new ByteReader(raw), reliable);
                 }
                 catch (Exception e)
                 {
-                    Log.Error($"Exception handling packet by {serverSide}: {e}");
+                    Log.Error($"Exception handling packet by {remoteConn}: {e}");
                 }
             });
         }
 
-        public override void Close(MpDisconnectReason reason, byte[] data)
+        public override void Close(MpDisconnectReason reason, byte[] data = null)
         {
         }
 
-        public override string ToString()
-        {
-            return "LocalClientConn";
-        }
-    }
-
-    public class LocalServerConnection : ConnectionBase
-    {
-        public LocalClientConnection clientSide;
-
-        public override int Latency { get => 0; set { } }
-
-        public LocalServerConnection(string username)
-        {
-            this.username = username;
-        }
-
-        protected override void SendRaw(byte[] raw, bool reliable)
-        {
-            OnMainThread.Enqueue(() =>
-            {
-                try
-                {
-                    clientSide.HandleReceiveRaw(new ByteReader(raw), reliable);
-                }
-                catch (Exception e)
-                {
-                    Log.Error($"Exception handling packet by {clientSide}: {e}");
-                }
-            });
-        }
-
-        public override void Close(MpDisconnectReason reason, byte[] data)
-        {
-        }
-
-        public override string ToString()
-        {
-            return "LocalServerConn";
-        }
+        public override string ToString() => isClient ? "LocalClientConn" : "LocalServerConn";
     }
 }
