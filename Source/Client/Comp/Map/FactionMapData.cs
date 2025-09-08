@@ -57,6 +57,14 @@ public class FactionMapData : IExposable
         Scribe_Deep.Look(ref zoneManager, "zoneManager", map);
         Scribe_Deep.Look(ref planManager, "planManager", map);
 
+        if (Scribe.mode == LoadSaveMode.LoadingVars)
+        {
+            designationManager = new DesignationManager(map);
+            areaManager = new AreaManager(map);
+            zoneManager = new ZoneManager(map);
+            planManager = new PlanManager(map);
+        }
+
         ExposeActor.OnPostInit(() => map.PopFaction());
     }
 

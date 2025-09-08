@@ -35,6 +35,12 @@ public class FactionWorldData : IExposable
 
         if (Scribe.mode == LoadSaveMode.LoadingVars)
         {
+            researchManager ??= new ResearchManager();
+            drugPolicyDatabase ??= new DrugPolicyDatabase();
+            outfitDatabase ??= new OutfitDatabase();
+            foodRestrictionDatabase ??= new FoodRestrictionDatabase();
+            playSettings ??= new PlaySettings();
+
             history ??= new History();
             storyteller ??= new Storyteller(Find.Storyteller.def, Find.Storyteller.difficultyDef,
                 Find.Storyteller.difficulty);
