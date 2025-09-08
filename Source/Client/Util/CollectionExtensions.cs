@@ -102,6 +102,28 @@ namespace Multiplayer.Client
             return dict;
         }
 
+        /// <summary>
+        /// Like ToDictionary but allows duplicate keys as long as the values are equal
+        /// </summary>
+        public static Dictionary<K, V> ToDictionaryConsistent<T, K, V>(this IEnumerable<T> e, Func<T, K> keys, Func<T, V> values)
+        {
+            var dict = new Dictionary<K, V>();
+            foreach (var item in e)
+            {
+                var key = keys(item);
+                var newValue = values(item);
+                if (dict.TryGetValue(key, out var oldValue))
+                {
+                    if (newValue == null ? oldValue == null : !newValue.Equals(oldValue)) throw new ArgumentException();
+                }
+                else
+                {
+                    dict[key] = newValue;
+                }
+            }
+            return dict;
+        }
+
         public static IEnumerable<V> GetOrEmpty<K, V>(this Dictionary<K, V> dict, K key)
         {
             if (dict.TryGetValue(key, out var value))

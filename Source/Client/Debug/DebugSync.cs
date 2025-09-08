@@ -95,7 +95,7 @@ namespace Multiplayer.Client
                 {
                     var targetCell = new IntVec3(cursorX, 0, cursorZ);
                     var handleTargetSelected = (state.currentData as Action<LocalTargetInfo>);
-                 
+
                     handleTargetSelected?.Invoke(new LocalTargetInfo(targetCell));
                 }
             }
@@ -271,7 +271,8 @@ namespace Multiplayer.Client
     {
         static void Prefix(DebugActionNode __instance)
         {
-            if (Multiplayer.Client != null && __instance.action is {Target: not MpDebugAction})
+            if (Multiplayer.Client != null && __instance.action is { Target: not MpDebugAction } &&
+                __instance.label != MpDebugActions.TriggerDesyncActionName)
                 __instance.action = new MpDebugAction { node = __instance, original = __instance.action }.Action;
         }
 

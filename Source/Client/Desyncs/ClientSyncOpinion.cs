@@ -8,11 +8,11 @@ using Verse;
 namespace Multiplayer.Client
 {
 
-    public class ClientSyncOpinion
+    public class ClientSyncOpinion(int startTick)
     {
         public bool isLocalClientsOpinion;
 
-        public int startTick;
+        public int startTick = startTick;
         public List<uint> commandRandomStates = new();
         public List<uint> worldRandomStates = new();
         public List<MapRandomStateData> mapStates = new();
@@ -22,15 +22,12 @@ namespace Multiplayer.Client
         public List<int> pawnStatHashes = new();
         public List<int> pawnNeedHashes = new();
 
+        // Serialized only after a desync to reduce bandwidth usage in regular gameplay (only the hashes are used) and
+        // help with debugging in case something goes wrong.
         public List<StackTraceLogItem> desyncStackTraces = new();
         public List<int> desyncStackTraceHashes = new();
         public bool simulating;
         public RoundModeEnum roundMode;
-
-        public ClientSyncOpinion(int startTick)
-        {
-            this.startTick = startTick;
-        }
 
         public string CheckForDesync(ClientSyncOpinion other)
         {
@@ -146,7 +143,7 @@ namespace Multiplayer.Client
         public void Clear()
         {
             for (int i = 0; i < desyncStackTraces.Count; i++)
-                desyncStackTraces[i].ReturnToPool();
+                desyncStackTraces[i].Dispose();
         }
     }
 }

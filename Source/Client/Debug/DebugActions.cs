@@ -8,6 +8,7 @@ using System.Text;
 
 using HarmonyLib;
 using LudeonTK;
+using Multiplayer.Client.Desyncs;
 using Multiplayer.Client.Util;
 using RimWorld;
 using RimWorld.Planet;
@@ -130,6 +131,20 @@ namespace Multiplayer.Client
             Game game = Current.Game;
             byte[] data = ScribeUtil.WriteExposable(game, "game", true);
             File.WriteAllBytes($"game_{Multiplayer.username}.xml", data);
+        }
+
+        public const string TriggerDesyncActionName = "Trigger desync";
+
+        [DebugAction(MultiplayerCategory, name = TriggerDesyncActionName, allowedGameStates = AllowedGameStates.Playing)]
+        public static void TriggerDesync()
+        {
+            var logItem = StackTraceLogItemRaw.GetFromPool();
+            var trace = logItem.raw;
+            int hash = 0;
+            int depth = DeferredStackTracingImpl.TraceImpl(trace, ref hash);
+
+            Multiplayer.game.asyncWorldTimeComp.randState++;
+            Multiplayer.game.sync.TryAddStackTraceForDesyncLogRaw(logItem, depth, hash);
         }
 
         [DebugAction(MultiplayerCategory, "Dump Sync Types", allowedGameStates = AllowedGameStates.Entry)]

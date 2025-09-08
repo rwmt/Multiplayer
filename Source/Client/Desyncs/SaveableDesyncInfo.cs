@@ -4,6 +4,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 using HarmonyLib;
 using Multiplayer.Common;
 using Multiplayer.Common.Util;
@@ -13,20 +14,17 @@ using Verse;
 
 namespace Multiplayer.Client.Desyncs;
 
-public class SaveableDesyncInfo
+public class SaveableDesyncInfo(
+    SyncCoordinator coordinator,
+    ClientSyncOpinion local,
+    ClientSyncOpinion remote,
+    int diffAt)
 {
-    private readonly SyncCoordinator coordinator;
-    public readonly ClientSyncOpinion local;
-    public readonly ClientSyncOpinion remote;
-    public readonly int diffAt;
-
-    public SaveableDesyncInfo(SyncCoordinator coordinator, ClientSyncOpinion local, ClientSyncOpinion remote, int diffAt)
-    {
-        this.coordinator = coordinator;
-        this.local = local;
-        this.remote = remote;
-        this.diffAt = diffAt;
-    }
+    public readonly ClientSyncOpinion local = local;
+    public readonly ClientSyncOpinion remote = remote;
+    public readonly int diffAt = diffAt;
+    private readonly Task<string> metadata = Task.Run(MetadataGenerator.Generate);
+    public bool ReadyToSave => metadata.IsCompleted;
 
     public void Save()
     {
@@ -43,6 +41,8 @@ public class SaveableDesyncInfo
 
             var extraLogs = LogGenerator.PrepareLogData();
             if (extraLogs != null) zip.AddEntry("local_logs.txt", extraLogs);
+
+            zip.AddEntry("local_metadata.txt", metadata.Result);
         }
         catch (Exception e)
         {

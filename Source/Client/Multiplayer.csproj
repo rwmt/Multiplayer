@@ -66,7 +66,9 @@
 
   <Target Name="CopyToRimworld" AfterTargets="Build">
     <Copy SourceFiles="bin\Multiplayer.dll" DestinationFiles="$(ModOutputPath)\AssembliesCustom\Multiplayer.dll" />
+    <Copy SourceFiles="bin\Multiplayer.pdb" DestinationFiles="$(ModOutputPath)\AssembliesCustom\Multiplayer.pdb" />
     <Copy SourceFiles="bin\MultiplayerCommon.dll" DestinationFiles="$(ModOutputPath)\AssembliesCustom\MultiplayerCommon.dll" />
+    <Copy SourceFiles="bin\MultiplayerCommon.pdb" DestinationFiles="$(ModOutputPath)\AssembliesCustom\MultiplayerCommon.pdb" />
 
     <Copy SourceFiles="bin\0MultiplayerAPI.dll" DestinationFiles="$(ModOutputPath)\Assemblies\0MultiplayerAPI.dll" />
     <Copy SourceFiles="bin\0PrepatcherAPI.dll" DestinationFiles="$(ModOutputPath)\Assemblies\0PrepatcherAPI.dll" />

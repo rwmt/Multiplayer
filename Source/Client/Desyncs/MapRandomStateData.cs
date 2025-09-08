@@ -5,14 +5,9 @@ namespace Multiplayer.Client
     /// <summary>
     /// Holds the random states for a given map, and its map id
     /// </summary>
-    public class MapRandomStateData
+    public class MapRandomStateData(int mapId)
     {
-        public int mapId;
-        public List<uint> randomStates = new List<uint>();
-
-        public MapRandomStateData(int mapId)
-        {
-            this.mapId = mapId;
-        }
+        public int mapId = mapId;
+        public List<uint> randomStates = new();
     }
 }
