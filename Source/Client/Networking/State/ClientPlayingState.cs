@@ -9,39 +9,13 @@ using Verse;
 
 namespace Multiplayer.Client
 {
-    public class ClientPlayingState : ClientBaseState
+    public class ClientPlayingState(ConnectionBase connection) : ClientBaseState(connection)
     {
-        public ClientPlayingState(ConnectionBase connection) : base(connection)
-        {
-        }
+        [PacketHandler(Packets.Server_KeepAlive)]
+        public new void HandleKeepAlive(ByteReader data) => base.HandleKeepAlive(data);
 
         [PacketHandler(Packets.Server_TimeControl)]
-        public void HandleTimeControl(ByteReader data)
-        {
-            int tickUntil = data.ReadInt32();
-            int sentCmds = data.ReadInt32();
-            float stpt = data.ReadFloat();
-
-            if (Multiplayer.session.remoteTickUntil >= tickUntil) return;
-
-            TickPatch.serverTimePerTick = stpt;
-            Multiplayer.session.remoteTickUntil = tickUntil;
-            Multiplayer.session.remoteSentCmds = sentCmds;
-            Multiplayer.session.ProcessTimeControl();
-        }
-
-        [PacketHandler(Packets.Server_KeepAlive)]
-        public void HandleKeepAlive(ByteReader data)
-        {
-            int id = data.ReadInt32();
-            int ticksBehind = TickPatch.tickUntil - TickPatch.Timer;
-
-            connection.Send(
-                Packets.Client_KeepAlive,
-                ByteWriter.GetBytes(id, ticksBehind, TickPatch.Simulating, TickPatch.workTicks),
-                false
-            );
-        }
+        public new void HandleTimeControl(ByteReader data) => base.HandleTimeControl(data);
 
         [PacketHandler(Packets.Server_Command)]
         public void HandleCommand(ByteReader data)

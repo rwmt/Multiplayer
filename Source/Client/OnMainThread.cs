@@ -48,7 +48,8 @@ namespace Multiplayer.Client
                 PerformanceRecorder.RecordFrame();
             }
 
-            if (!Multiplayer.arbiterInstance && Application.isFocused && !TickPatch.Simulating && !Multiplayer.session.desynced)
+            if (!Multiplayer.arbiterInstance && Application.isFocused && !TickPatch.Simulating &&
+                !Multiplayer.session.desynced && Multiplayer.session.client.State == ConnectionStateEnum.ClientPlaying)
                 Multiplayer.session.playerCursors.SendVisuals();
 
             if (Multiplayer.Client is SteamBaseConn steamConn && SteamManager.Initialized)
