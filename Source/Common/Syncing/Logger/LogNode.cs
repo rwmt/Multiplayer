@@ -2,18 +2,11 @@ using System.Collections.Generic;
 
 namespace Multiplayer.Client
 {
-    public class LogNode
+    public class LogNode(string text, LogNode? parent = null)
     {
-        public LogNode? parent;
+        public LogNode? parent = parent;
+        public string text = text;
         public List<LogNode> children = new();
-        public string text;
-        public bool expand;
-
-        public LogNode(string text, LogNode? parent = null)
-        {
-            this.text = text;
-            this.parent = parent;
-        }
     }
 
 }

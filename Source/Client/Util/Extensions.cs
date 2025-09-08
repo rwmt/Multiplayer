@@ -323,6 +323,17 @@ namespace Multiplayer.Client
         {
             return (float)(start + rand.NextDouble() * (end - start));
         }
-    }
 
+        public static int IndexOfOccurrence(this string s, char match, int occurrence)
+        {
+            var currentOccurrence = 1;
+            var currentIndex = 0;
+            while (currentOccurrence <= occurrence && (currentIndex = s.IndexOf(match, currentIndex + 1)) != -1)
+            {
+                if (currentOccurrence == occurrence) return currentIndex;
+                currentOccurrence++;
+            }
+            return -1;
+        }
+    }
 }
