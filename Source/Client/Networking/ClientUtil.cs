@@ -6,6 +6,11 @@ using Multiplayer.Client.Networking;
 
 namespace Multiplayer.Client
 {
+    public interface ITickableConnection
+    {
+        public void Tick();
+    }
+
     public static class ClientUtil
     {
         public static void TryConnectWithWindow(string address, int port, bool returnToServerBrowser = true)

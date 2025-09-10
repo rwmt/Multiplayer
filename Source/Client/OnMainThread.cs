@@ -22,9 +22,6 @@ namespace Multiplayer.Client
                 return;
 
             MpInput.Update();
-
-            if (Multiplayer.Client is ClientLiteNetConnection netConn) ClientUtil.DisconnectOnException(netConn.Tick);
-
             queue.RunQueue(Log.Error);
             RunScheduled();
 
@@ -45,8 +42,8 @@ namespace Multiplayer.Client
                 !Multiplayer.session.desynced && Multiplayer.session.client.State == ConnectionStateEnum.ClientPlaying)
                 Multiplayer.session.playerCursors.SendVisuals();
 
-            if (Multiplayer.Client is SteamClientConn steamConn)
-                ClientUtil.DisconnectOnException(steamConn.Tick);
+            if (Multiplayer.Client is ITickableConnection conn)
+                ClientUtil.DisconnectOnException(conn.Tick);
         }
 
         public void OnApplicationQuit()
