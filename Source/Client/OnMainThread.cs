@@ -43,7 +43,21 @@ namespace Multiplayer.Client
                 Multiplayer.session.playerCursors.SendVisuals();
 
             if (Multiplayer.Client is ITickableConnection conn)
-                ClientUtil.DisconnectOnException(conn.Tick);
+            {
+                try
+                {
+                    conn.Tick();
+                }
+                catch (Exception e)
+                {
+                    Log.Error($"Exception handling packet by {conn}: {e}");
+
+                    Multiplayer.session.disconnectInfo.titleTranslated = "MpPacketErrorLocal".Translate();
+
+                    ConnectionStatusListeners.TryNotifyAll_Disconnected();
+                    Multiplayer.StopMultiplayer();
+                }
+            }
         }
 
         public void OnApplicationQuit()

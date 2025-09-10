@@ -1,6 +1,5 @@
 using Multiplayer.Common;
 using Steamworks;
-using System;
 using Verse;
 using Multiplayer.Client.Networking;
 
@@ -43,23 +42,6 @@ namespace Multiplayer.Client
 
             Multiplayer.session.ReapplyPrefs();
             Multiplayer.Client.ChangeState(ConnectionStateEnum.ClientSteam);
-        }
-
-        public static void DisconnectOnException(Action action)
-        {
-            try
-            {
-                action();
-            }
-            catch (Exception e)
-            {
-                Log.Error($"Exception handling packet by {Multiplayer.Client}: {e}");
-
-                Multiplayer.session.disconnectInfo.titleTranslated = "MpPacketErrorLocal".Translate();
-
-                ConnectionStatusListeners.TryNotifyAll_Disconnected();
-                Multiplayer.StopMultiplayer();
-            }
         }
     }
 }
