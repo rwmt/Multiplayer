@@ -49,11 +49,11 @@ namespace Multiplayer.Client
             Multiplayer.Client.ChangeState(ConnectionStateEnum.ClientSteam);
         }
 
-        public static void HandleReceive(ByteReader data, bool reliable)
+        public static void DisconnectOnException(Action action)
         {
             try
             {
-                Multiplayer.Client.HandleReceiveRaw(data, reliable);
+                action();
             }
             catch (Exception e)
             {
@@ -65,6 +65,9 @@ namespace Multiplayer.Client
                 Multiplayer.StopMultiplayer();
             }
         }
+
+        public static void HandleReceive(ByteReader data, bool reliable) =>
+            DisconnectOnException(() => Multiplayer.Client.HandleReceiveRaw(data, reliable));
     }
 
 }

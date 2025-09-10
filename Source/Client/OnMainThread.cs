@@ -52,11 +52,8 @@ namespace Multiplayer.Client
                 !Multiplayer.session.desynced && Multiplayer.session.client.State == ConnectionStateEnum.ClientPlaying)
                 Multiplayer.session.playerCursors.SendVisuals();
 
-            if (Multiplayer.Client is SteamBaseConn steamConn && SteamManager.Initialized)
-                foreach (var packet in SteamP2PIntegration.ReadPackets(steamConn.recvChannel))
-                    // Note: receive can lead to disconnection
-                    if (steamConn.remoteId == packet.remote && Multiplayer.Client != null)
-                        ClientUtil.HandleReceive(packet.data, packet.reliable);
+            if (Multiplayer.Client is SteamClientConn steamConn)
+                ClientUtil.DisconnectOnException(steamConn.Tick);
         }
 
         public void OnApplicationQuit()
