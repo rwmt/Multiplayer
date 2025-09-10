@@ -7,7 +7,6 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using HarmonyLib;
-using LiteNetLib;
 using Multiplayer.Client.Networking;
 using Multiplayer.Client.Patches;
 using Multiplayer.Client.Util;
@@ -61,7 +60,7 @@ namespace Multiplayer.Client
             // UnityEngine.Debug.Log instead of Verse.Log.Message because the server runs on its own thread
             ServerLog.info = str => Debug.Log($"MpServerLog: {str}");
             ServerLog.error = str => Debug.Log($"MpServerLog Error: {str}");
-            NetDebug.Logger = new ServerLog();
+            LiteNetLogger.Install();
 
             SetUsername();
 
