@@ -34,7 +34,8 @@ namespace Multiplayer.Common
             arbiter?.PollEvents();
 
             if (lanManager != null && broadcastTimer % 60 == 0)
-                lanManager.SendBroadcast(Encoding.UTF8.GetBytes("mp-server"), 5100);
+                lanManager.SendBroadcast(Encoding.UTF8.GetBytes(MultiplayerServer.LanBroadcastName),
+                    MultiplayerServer.LanBroadcastPort);
 
             broadcastTimer++;
         }

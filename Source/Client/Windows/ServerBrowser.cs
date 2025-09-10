@@ -21,32 +21,13 @@ namespace Multiplayer.Client
 {
     public class ServerBrowser : Window
     {
-        private NetManager lanListener;
-        private List<LanServer> servers = new();
+        private LanListener lanListener;
 
         public override Vector2 InitialSize => new(800f, 500f);
 
         public ServerBrowser()
         {
-            EventBasedNetListener listener = new EventBasedNetListener();
-            listener.NetworkReceiveUnconnectedEvent += (endpoint, data, type) =>
-            {
-                if (type != UnconnectedMessageType.Broadcast) return;
-
-                string s = Encoding.UTF8.GetString(data.GetRemainingBytes());
-                if (s == "mp-server")
-                    AddOrUpdate(endpoint);
-            };
-
-            lanListener = new NetManager(listener)
-            {
-                BroadcastReceiveEnabled = true,
-                ReuseAddress = true,
-                IPv6Enabled = IPv6Mode.Disabled
-            };
-
-            lanListener.Start(5100);
-
+            lanListener = new LanListener(expirationMillis: 5000);
             doCloseX = true;
         }
 
@@ -562,7 +543,7 @@ namespace Multiplayer.Client
             float margin = 100;
             Rect outRect = new Rect(margin, inRect.yMin + 10, inRect.width - 2 * margin, inRect.height - 20);
 
-            float height = servers.Count * 40;
+            float height = lanListener.foundServers.Count * 40;
             Rect viewRect = new Rect(0, 0, outRect.width - 16f, height);
 
             Widgets.BeginScrollView(outRect, ref lanScroll, viewRect, true);
@@ -570,7 +551,7 @@ namespace Multiplayer.Client
             float y = 0;
             int i = 0;
 
-            foreach (LanServer server in servers)
+            foreach (var server in lanListener.foundServers)
             {
                 Rect entryRect = new Rect(0, y, viewRect.width, 40);
                 if (i % 2 == 0)
@@ -599,22 +580,10 @@ namespace Multiplayer.Client
 
         public override void WindowUpdate()
         {
-            UpdateLan();
+            lanListener.Update();
 
             if (SteamManager.Initialized)
                 UpdateSteam();
-        }
-
-        private void UpdateLan()
-        {
-            lanListener.PollEvents();
-
-            for (int i = servers.Count - 1; i >= 0; i--)
-            {
-                LanServer server = servers[i];
-                if (Multiplayer.clock.ElapsedMilliseconds - server.lastUpdate > 5000)
-                    servers.RemoveAt(i);
-            }
         }
 
         private long lastFriendUpdate;
@@ -657,36 +626,12 @@ namespace Multiplayer.Client
 
         public void Cleanup(bool sync)
         {
-            void Stop(object s) => lanListener.Stop();
+            void Stop(object s) => lanListener.Dispose();
 
             if (sync)
                 Stop(null);
             else
                 ThreadPool.QueueUserWorkItem(Stop);
-        }
-
-        private void AddOrUpdate(IPEndPoint endpoint)
-        {
-            LanServer server = servers.Find(s => s.endpoint.Equals(endpoint));
-
-            if (server == null)
-            {
-                servers.Add(new LanServer()
-                {
-                    endpoint = endpoint,
-                    lastUpdate = Multiplayer.clock.ElapsedMilliseconds
-                });
-            }
-            else
-            {
-                server.lastUpdate = Multiplayer.clock.ElapsedMilliseconds;
-            }
-        }
-
-        class LanServer
-        {
-            public IPEndPoint endpoint;
-            public long lastUpdate;
         }
 
         public override void OnAcceptKeyPressed()
@@ -709,4 +654,58 @@ namespace Multiplayer.Client
         public CSteamID serverHost = CSteamID.Nil;
     }
 
+    public class LanListener : IDisposable
+    {
+        private NetManager netManager;
+        private int expirationMillis;
+        public readonly List<Server> foundServers = [];
+
+        public class Server
+        {
+            public IPEndPoint endpoint;
+            public long lastUpdate;
+        }
+
+        public LanListener(int expirationMillis)
+        {
+            this.expirationMillis = expirationMillis;
+            var listener = new EventBasedNetListener();
+            listener.NetworkReceiveUnconnectedEvent += (endpoint, data, type) =>
+            {
+                if (type != UnconnectedMessageType.Broadcast) return;
+
+                string s = Encoding.UTF8.GetString(data.GetRemainingBytes());
+                if (s != MultiplayerServer.LanBroadcastName) return;
+                var server = foundServers.Find(server => Equals(server.endpoint, endpoint));
+                if (server == null)
+                {
+                    server = new Server { endpoint = endpoint };
+                    foundServers.Add(server);
+                }
+                server.lastUpdate = Multiplayer.clock.ElapsedMilliseconds;
+            };
+
+            netManager = new NetManager(listener)
+            {
+                BroadcastReceiveEnabled = true,
+                ReuseAddress = true,
+                IPv6Enabled = IPv6Mode.Disabled
+            };
+
+            netManager.Start(MultiplayerServer.LanBroadcastPort);
+        }
+
+        public void Update()
+        {
+            netManager.PollEvents();
+            for (var i = foundServers.Count - 1; i >= 0; i--)
+            {
+                Server server = foundServers[i];
+                if (Multiplayer.clock.ElapsedMilliseconds - server.lastUpdate > expirationMillis)
+                    foundServers.RemoveAt(i);
+            }
+        }
+
+        public void Dispose() => netManager.Stop();
+    }
 }
