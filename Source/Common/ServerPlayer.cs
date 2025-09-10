@@ -25,12 +25,11 @@ namespace Multiplayer.Common
         public int lastCursorTick = -1;
 
         public int keepAliveId;
-        public Stopwatch keepAliveTimer = new();
         public int keepAliveAt;
 
         public bool frozen;
         public int unfrozenAt;
-        
+
         // Track which map the player is currently on (from cursor updates)
         public int currentMap = -1;
 
@@ -74,14 +73,8 @@ namespace Multiplayer.Common
             Server.playerManager.SetDisconnected(conn, reason);
         }
 
-        public void SendKeepAlivePacket()
-        {
-            if (!keepAliveTimer.IsRunning)
-            {
-                keepAliveTimer.Start();
-            }
+        public void SendKeepAlivePacket() =>
             SendPacket(Packets.Server_KeepAlive, ByteWriter.GetBytes(keepAliveId), false);
-        }
 
         public void SendPacket(Packets packet, byte[] data, bool reliable = true)
         {

@@ -190,19 +190,9 @@ namespace Multiplayer.Common
             if (Player.IsHost)
                 Server.workTicks = workTicks;
 
-            // Latency already handled by LiteNetLib. This can be as low as 0ms because LNL spawns its own thread for
-            // receiving packets and immediately processes its own internal keep alive packet (called Ping-Pong).
-            if (connection is LiteNetConnection) return;
-
-            if (Player.keepAliveId == id)
-            {
-                // We are ticking network logic every ~30ms, which means that effectively the lowest ping achievable is
-                // ~15ms.
-                connection.Latency = (connection.Latency * 4 + (int)Player.keepAliveTimer.ElapsedMilliseconds / 2) / 5;
-
-                Player.keepAliveId++;
-                Player.keepAliveTimer.Reset();
-            }
+            var idMatched = Player.keepAliveId == id;
+            connection.OnKeepAliveArrived(idMatched);
+            if (idMatched) Player.keepAliveId++;
         }
 
         [PacketHandler(Packets.Client_SyncInfo, allowFragmented: true)]

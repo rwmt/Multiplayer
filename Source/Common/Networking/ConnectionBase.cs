@@ -258,6 +258,11 @@ namespace Multiplayer.Common
 
         public abstract void Close(MpDisconnectReason reason, byte[]? data = null);
 
+        /// Invoked after a keep alive timer arrives. Only used by the server
+        public virtual void OnKeepAliveArrived(bool idMatched)
+        {
+        }
+
         public static byte[] GetDisconnectBytes(MpDisconnectReason reason, byte[]? data = null)
         {
             var writer = new ByteWriter();

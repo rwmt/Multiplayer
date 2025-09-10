@@ -24,6 +24,7 @@ namespace Multiplayer.Common
         public const int MaxUsernameLength = 15;
         public const int MinUsernameLength = 3;
         public const char EndpointSeparator = '&';
+        public const int NetTicksPerSecond = 30; // Not an exact amount. The net loop isn't particularly precise.
 
         public static readonly Regex UsernamePattern = new(@"^[a-zA-Z0-9_]+$");
 
@@ -133,8 +134,8 @@ namespace Multiplayer.Common
                         ServerLog.Log($"Server tick took {tickTime.ElapsedMillisDouble()}ms");
 
                     // On Windows, the clock ticks 64 times a second and sleep durations too close to a multiple of 15.625ms
-                    // tend to be rounded up so we sleep for a bit less
-                    int sleepFor = (int)Math.Floor((1000 / 30f - tickTime.ElapsedMillisDouble()) * 0.9f);
+                    // tend to be rounded up, so we sleep for a bit less
+                    int sleepFor = (int)Math.Floor((1000d / NetTicksPerSecond - tickTime.ElapsedMillisDouble()) * 0.9f);
                     if (sleepFor > 0)
                         Thread.Sleep(sleepFor);
                 }
@@ -158,11 +159,11 @@ namespace Multiplayer.Common
         {
             NetTimer++;
 
-            // We aim to tick 30 times a second, so this is once per second.
-            if (NetTimer % 30 == 0)
+            if (NetTimer % NetTicksPerSecond == 0)
                 playerManager.SendLatencies();
 
-            if (NetTimer % 6 == 0)
+
+            if (NetTimer % (NetTicksPerSecond / 5) == 0)
             {
                 foreach (var player in JoinedPlayers) {
                     player.SendKeepAlivePacket();
