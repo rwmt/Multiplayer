@@ -1,4 +1,3 @@
-using LiteNetLib;
 using Multiplayer.Common;
 using Steamworks;
 using System;
@@ -19,18 +18,10 @@ namespace Multiplayer.Client
                 port = port
             };
 
-            NetManager netClient = new NetManager(new MpClientNetListener())
-            {
-                EnableStatistics = true,
-                IPv6Enabled = MpUtil.SupportsIPv6() ? IPv6Mode.SeparateSocket : IPv6Mode.Disabled
-            };
-
-            netClient.Start();
-            netClient.ReconnectDelay = 300;
-            netClient.MaxConnectAttempts = 8;
-
-            Multiplayer.session.netClient = netClient;
-            netClient.Connect(address, port, "");
+            var conn = ClientLiteNetConnection.Connect(address, port);
+            conn.username = Multiplayer.username;
+            Multiplayer.session.client = conn;
+            Multiplayer.session.ReapplyPrefs();
         }
 
         public static void TrySteamConnectWithWindow(CSteamID user, bool returnToServerBrowser = true)
@@ -65,9 +56,5 @@ namespace Multiplayer.Client
                 Multiplayer.StopMultiplayer();
             }
         }
-
-        public static void HandleReceive(ByteReader data, bool reliable) =>
-            DisconnectOnException(() => Multiplayer.Client.HandleReceiveRaw(data, reliable));
     }
-
 }

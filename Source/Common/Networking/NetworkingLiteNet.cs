@@ -20,9 +20,9 @@ namespace Multiplayer.Common
 
         public void OnPeerConnected(NetPeer peer)
         {
-            ConnectionBase conn = new LiteNetConnection(peer);
+            var conn = new LiteNetConnection(peer);
             conn.ChangeState(ConnectionStateEnum.ServerJoining);
-            peer.Tag = conn;
+            peer.SetConnection(conn);
 
             var player = server.playerManager.OnConnected(conn);
             if (arbiter)

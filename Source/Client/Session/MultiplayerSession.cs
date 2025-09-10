@@ -6,7 +6,6 @@ using Steamworks;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
 using Multiplayer.Client.Util;
 using UnityEngine;
 using Verse;
@@ -25,7 +24,6 @@ namespace Multiplayer.Client
         public int remoteSentCmds;
 
         public ConnectionBase client;
-        public NetManager netClient;
         public PacketLogWindow writerLog = new(true);
         public PacketLogWindow readerLog = new(false);
         public int myFactionId;
@@ -71,8 +69,6 @@ namespace Multiplayer.Client
                 client.Close(MpDisconnectReason.Internal);
                 client.ChangeState(ConnectionStateEnum.Disconnected);
             }
-
-            netClient?.Stop();
 
             if (arbiter != null)
             {
