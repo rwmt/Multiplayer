@@ -4,7 +4,7 @@ using Multiplayer.API;
 using System.Collections.Generic;
 using RimWorld;
 
-namespace StkMultiplayerPatch;
+namespace Multiplayer.Client;
 
 // Fixing "slaves unattended" warning when other faction has slaves
 [HarmonyPatch(typeof(SlaveRebellionUtility), nameof(SlaveRebellionUtility.IsUnattendedByColonists))]
@@ -66,4 +66,5 @@ public static class Patch_Alert_SlavesUnsuppressed_Targets
 		__result = result;
 		return false;
 	}
+
 }
