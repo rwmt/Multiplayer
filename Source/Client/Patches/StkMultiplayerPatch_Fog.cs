@@ -3,7 +3,7 @@ using Verse;
 using RimWorld;
 using Multiplayer.API;
 
-namespace StkMultiplayerPatch;
+namespace Multiplayer.Client;
 
 [HarmonyPatch(typeof(FogGrid), nameof(FogGrid.Notify_PawnEnteringDoor))]
 public static class Patch_FogGrid_Notify_PawnEnteringDoor
@@ -28,4 +28,5 @@ public static class Patch_FogGrid_Notify_PawnEnteringDoor
 		// Multiplayer: works for the original host faction FOR SURE, need more testing for clients
 		return faction.IsPlayer;
 	}
+
 }
