@@ -8,21 +8,14 @@ using Verse;
 
 namespace Multiplayer.Client.Networking
 {
-    public abstract class SteamBaseConn : ConnectionBase
+    public abstract class SteamBaseConn(CSteamID remoteId, ushort recvChannel, ushort sendChannel) : ConnectionBase
     {
-        public readonly CSteamID remoteId;
+        public readonly CSteamID remoteId = remoteId;
 
-        public readonly ushort recvChannel; // currently only for client
-        public readonly ushort sendChannel; // currently only for server
+        public readonly ushort recvChannel = recvChannel; // currently only for client
+        public readonly ushort sendChannel = sendChannel; // currently only for server
 
-        public SteamBaseConn(CSteamID remoteId, ushort recvChannel, ushort sendChannel)
-        {
-            this.remoteId = remoteId;
-            this.recvChannel = recvChannel;
-            this.sendChannel = sendChannel;
-        }
-
-        protected override void SendRaw(byte[] raw, bool reliable)
+        protected override void SendRaw(byte[] raw, bool reliable = true)
         {
             byte[] full = new byte[1 + raw.Length];
             full[0] = reliable ? (byte)2 : (byte)0;
@@ -42,7 +35,7 @@ namespace Multiplayer.Client.Networking
             );
         }
 
-        public override void Close(MpDisconnectReason reason, byte[] data)
+        public override void Close(MpDisconnectReason reason, byte[] data = null)
         {
             if (State != ConnectionStateEnum.ClientSteam)
                 Send(Packets.Special_Steam_Disconnect, GetDisconnectBytes(reason, data));
@@ -59,6 +52,16 @@ namespace Multiplayer.Client.Networking
     public class SteamClientConn(CSteamID remoteId) : SteamBaseConn(remoteId, RandomChannelId(), 0)
     {
         static ushort RandomChannelId() => (ushort)new Random().Next();
+
+        public void Tick()
+        {
+            foreach (var packet in SteamP2PIntegration.ReadPackets(recvChannel))
+            {
+                // Note: receive can lead to disconnection
+                if (State == ConnectionStateEnum.Disconnected) return;
+                if (packet.remote == remoteId) HandleReceiveRaw(packet.data, packet.reliable);
+            }
+        }
 
         protected override void HandleReceiveMsg(int msgId, int fragState, ByteReader reader, bool reliable)
         {
@@ -161,7 +164,7 @@ namespace Multiplayer.Client.Networking
             });
         }
 
-        public struct SteamPacket
+        internal struct SteamPacket
         {
             public CSteamID remote;
             public ByteReader data;
@@ -170,14 +173,13 @@ namespace Multiplayer.Client.Networking
             public ushort channel;
         }
 
-        public static IEnumerable<SteamPacket> ReadPackets(int recvChannel)
+        internal static IEnumerable<SteamPacket> ReadPackets(int recvChannel)
         {
             while (SteamNetworking.IsP2PPacketAvailable(out uint size, recvChannel))
             {
                 byte[] data = new byte[size];
 
-                if (!SteamNetworking.ReadP2PPacket(data, size, out uint sizeRead, out CSteamID remote, recvChannel))
-                    continue;
+                if (!SteamNetworking.ReadP2PPacket(data, size, out uint sizeRead, out CSteamID remote, recvChannel)) continue;
                 if (data.Length <= 0) continue;
 
                 var reader = new ByteReader(data);
@@ -187,7 +189,7 @@ namespace Multiplayer.Client.Networking
                 bool hasChannel = (flags & 4) > 0;
                 ushort channel = hasChannel ? reader.ReadUShort() : (ushort)0;
 
-                yield return new SteamPacket()
+                yield return new SteamPacket
                 {
                     remote = remote, data = reader, joinPacket = joinPacket, reliable = reliable, channel = channel
                 };
@@ -199,8 +201,8 @@ namespace Multiplayer.Client.Networking
             foreach (var packet in ReadPackets(0))
             {
                 var playerManager = server.playerManager;
-                var player = GenCollection.FirstOrDefault(playerManager.Players,
-                    p => p.conn is SteamBaseConn conn && conn.remoteId == packet.remote);
+                var player = playerManager.Players
+                    .FirstOrDefault(p => p.conn is SteamBaseConn conn && conn.remoteId == packet.remote);
 
                 if (packet.joinPacket && player == null)
                 {

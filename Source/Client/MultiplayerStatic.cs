@@ -8,6 +8,7 @@ using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using HarmonyLib;
 using LiteNetLib;
+using Multiplayer.Client.Networking;
 using Multiplayer.Client.Patches;
 using Multiplayer.Client.Util;
 using Multiplayer.Common;
@@ -65,7 +66,10 @@ namespace Multiplayer.Client
             SetUsername();
 
             if (SteamManager.Initialized)
+            {
                 SteamIntegration.InitCallbacks();
+                SteamP2PIntegration.InitCallbacks();
+            }
 
             Log.Message($"Multiplayer version {MpVersion.Version}");
             Log.Message($"Player's username: {Multiplayer.username}");
@@ -305,7 +309,7 @@ namespace Multiplayer.Client
             Assembly.GetCallingAssembly().GetTypes().Do(type => {
                 // EarlyPatches are handled in MultiplayerMod.EarlyPatches
                 if (type.IsDefined(typeof(EarlyPatchAttribute))) return;
-                
+
                 var harmonyAttributes = HarmonyMethodExtensions.GetFromType(type);
 			    if (harmonyAttributes is null || harmonyAttributes.Count == 0) return;
 
@@ -333,7 +337,7 @@ namespace Multiplayer.Client
                 foreach (Type t in typeof(Designator).AllSubtypesAndSelf()
                     // Designator_MechControlGroup Opens float menu, sync that instead
                     // Designator_Plan_CopySelection creates the placement gizmo, this shouldn't be synced
-                    .Except([typeof(Designator_MechControlGroup), typeof(Designator_Plan_CopySelection)])) 
+                    .Except([typeof(Designator_MechControlGroup), typeof(Designator_Plan_CopySelection)]))
                 {
                     foreach ((string m, Type[] args) in designatorMethods)
                     {
