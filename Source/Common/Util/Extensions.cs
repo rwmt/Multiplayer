@@ -63,6 +63,11 @@ namespace Multiplayer.Common
             return result;
         }
 
+        public static void SetConnection(this NetPeer peer, LiteNetConnection conn)
+        {
+            peer.Tag = conn;
+        }
+
         public static LiteNetConnection GetConnection(this NetPeer peer)
         {
             return (LiteNetConnection)peer.Tag;

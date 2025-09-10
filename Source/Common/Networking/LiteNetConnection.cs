@@ -2,18 +2,16 @@
 
 namespace Multiplayer.Common
 {
-    public class LiteNetConnection : ConnectionBase
+    public class LiteNetConnection(NetPeer peer) : ConnectionBase
     {
-        public readonly NetPeer peer;
-
-        public LiteNetConnection(NetPeer peer)
-        {
-            this.peer = peer;
-        }
+        public readonly NetPeer peer = peer;
 
         protected override void SendRaw(byte[] raw, bool reliable)
         {
-            peer.Send(raw, reliable ? DeliveryMethod.ReliableOrdered : DeliveryMethod.Unreliable);
+            if (peer.ConnectionState == ConnectionState.Connected)
+                peer.Send(raw, reliable ? DeliveryMethod.ReliableOrdered : DeliveryMethod.Unreliable);
+            else
+                ServerLog.Error($"SendRaw() called with invalid connection state ({peer.EndPoint}): {peer.ConnectionState}");
         }
 
         public override void Close(MpDisconnectReason reason, byte[]? data)

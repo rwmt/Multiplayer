@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using Multiplayer.Client.Factions;
+using Multiplayer.Client.Networking;
 using Multiplayer.Client.Util;
 using UnityEngine;
 using Verse;
@@ -384,9 +385,8 @@ namespace Multiplayer.Client
                 text.AppendLine();
             }
 
-            var netClient = Multiplayer.session.netClient;
-            if (netClient != null)
-                LogNetData("Client", netClient.Statistics);
+            if (Multiplayer.Client is ClientLiteNetConnection conn)
+                LogNetData("Client", conn.peer.Statistics);
 
             if (Multiplayer.LocalServer != null)
             {

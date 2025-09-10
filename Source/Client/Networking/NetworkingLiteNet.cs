@@ -1,68 +1,120 @@
+using System;
 using LiteNetLib;
 using Multiplayer.Common;
 using System.Net;
 using System.Net.Sockets;
 using Multiplayer.Client.Util;
+using Verse;
 
 namespace Multiplayer.Client.Networking
 {
-
-    public class MpClientNetListener : INetEventListener
+    public class ClientLiteNetConnection : LiteNetConnection
     {
-        public void OnPeerConnected(NetPeer peer)
+        private readonly NetManager netManager;
+
+        private ClientLiteNetConnection(NetPeer peer, NetManager netManager) : base(peer) =>
+            this.netManager = netManager;
+
+        ~ClientLiteNetConnection()
         {
-            ConnectionBase conn = new LiteNetConnection(peer);
-            conn.username = Multiplayer.username;
-            conn.ChangeState(ConnectionStateEnum.ClientJoining);
-
-            Multiplayer.session.client = conn;
-            Multiplayer.session.ReapplyPrefs();
-
-            MpLog.Log("Net client connected");
-        }
-
-        public void OnNetworkError(IPEndPoint endPoint, SocketError error)
-        {
-            MpLog.Warn($"Net client error {error}");
-        }
-
-        public void OnNetworkReceive(NetPeer peer, NetPacketReader reader, DeliveryMethod method)
-        {
-            byte[] data = reader.GetRemainingBytes();
-            ClientUtil.HandleReceive(new ByteReader(data), method == DeliveryMethod.ReliableOrdered);
-        }
-
-        public void OnPeerDisconnected(NetPeer peer, DisconnectInfo info)
-        {
-            MpDisconnectReason reason;
-            ByteReader reader;
-
-            if (info.AdditionalData.IsNull)
+            if (netManager.IsRunning)
             {
-                if (info.Reason is DisconnectReason.DisconnectPeerCalled or DisconnectReason.RemoteConnectionClose)
-                    reason = MpDisconnectReason.Generic;
-                else if (Multiplayer.Client == null)
-                    reason = MpDisconnectReason.ConnectingFailed;
-                else
-                    reason = MpDisconnectReason.NetFailed;
-
-                reader = new ByteReader(ByteWriter.GetBytes(info.Reason));
+                Log.Error("[ClientLiteNetConnection] NetManager did not get stopped");
+                netManager.Stop();
             }
-            else
+        }
+
+        public static ClientLiteNetConnection Connect(string address, int port)
+        {
+            var netClient = new NetManager(new NetListener())
             {
-                reader = new ByteReader(info.AdditionalData.GetRemainingBytes());
-                reason = reader.ReadEnum<MpDisconnectReason>();
-            }
+                EnableStatistics = true,
+                IPv6Enabled = MpUtil.SupportsIPv6() ? IPv6Mode.SeparateSocket : IPv6Mode.Disabled,
+                ReconnectDelay = 300,
+                MaxConnectAttempts = 8
+            };
+            netClient.Start();
+            var peer = netClient.Connect(address, port, "");
+            var conn = new ClientLiteNetConnection(peer, netClient);
+            peer.SetConnection(conn);
+            return conn;
+        }
 
-            Multiplayer.session.ProcessDisconnectPacket(reason, reader);
+        public void Tick() => netManager.PollEvents();
+
+        public void OnDisconnect(MpDisconnectReason reason, ByteReader data)
+        {
+            Multiplayer.session.ProcessDisconnectPacket(reason, data);
             ConnectionStatusListeners.TryNotifyAll_Disconnected();
-
             Multiplayer.StopMultiplayer();
-            MpLog.Log($"Net client disconnected {info.Reason}");
         }
 
-        public void OnConnectionRequest(ConnectionRequest request) { }
-        public void OnNetworkLatencyUpdate(NetPeer peer, int latency) { }
-        public void OnNetworkReceiveUnconnected(IPEndPoint remoteEndPoint, NetPacketReader reader, UnconnectedMessageType messageType) { }
+        public override void Close(MpDisconnectReason reason, byte[] data)
+        {
+            base.Close(reason, data);
+            netManager.Stop();
+        }
+
+        private class NetListener : INetEventListener
+        {
+            private ClientLiteNetConnection GetConnection(NetPeer peer) =>
+                peer.GetConnection() as ClientLiteNetConnection ?? throw new Exception("Can't get connection");
+
+            public void OnPeerConnected(NetPeer peer)
+            {
+                GetConnection(peer).ChangeState(ConnectionStateEnum.ClientJoining);
+                MpLog.Log("Net client connected");
+            }
+
+            public void OnNetworkError(IPEndPoint endPoint, SocketError error)
+            {
+                MpLog.Warn($"Net client error {error}");
+            }
+
+            public void OnNetworkReceive(NetPeer peer, NetPacketReader reader, DeliveryMethod method)
+            {
+                byte[] data = reader.GetRemainingBytes();
+                GetConnection(peer).HandleReceiveRaw(new ByteReader(data), method == DeliveryMethod.ReliableOrdered);
+            }
+
+            public void OnPeerDisconnected(NetPeer peer, DisconnectInfo info)
+            {
+                MpDisconnectReason reason;
+                ByteReader reader;
+
+                if (info.AdditionalData.IsNull)
+                {
+                    if (info.Reason is DisconnectReason.DisconnectPeerCalled or DisconnectReason.RemoteConnectionClose)
+                        reason = MpDisconnectReason.Generic;
+                    else if (Multiplayer.Client == null)
+                        reason = MpDisconnectReason.ConnectingFailed;
+                    else
+                        reason = MpDisconnectReason.NetFailed;
+
+                    reader = new ByteReader(ByteWriter.GetBytes(info.Reason));
+                }
+                else
+                {
+                    reader = new ByteReader(info.AdditionalData.GetRemainingBytes());
+                    reason = reader.ReadEnum<MpDisconnectReason>();
+                }
+
+                GetConnection(peer).OnDisconnect(reason, reader);
+                MpLog.Log($"Net client disconnected {info.Reason}");
+            }
+
+            public void OnConnectionRequest(ConnectionRequest request)
+            {
+            }
+
+            public void OnNetworkLatencyUpdate(NetPeer peer, int latency)
+            {
+            }
+
+            public void OnNetworkReceiveUnconnected(IPEndPoint remoteEndPoint, NetPacketReader reader,
+                UnconnectedMessageType messageType)
+            {
+            }
+        }
     }
 }

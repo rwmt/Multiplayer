@@ -23,14 +23,7 @@ namespace Multiplayer.Client
 
             MpInput.Update();
 
-            try
-            {
-                Multiplayer.session?.netClient?.PollEvents();
-            }
-            catch (Exception e)
-            {
-                Log.Error($"Exception handling network events: {e}");
-            }
+            if (Multiplayer.Client is ClientLiteNetConnection netConn) ClientUtil.DisconnectOnException(netConn.Tick);
 
             queue.RunQueue(Log.Error);
             RunScheduled();
