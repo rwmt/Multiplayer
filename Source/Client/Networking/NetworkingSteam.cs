@@ -1,6 +1,7 @@
 using Multiplayer.Common;
 using Steamworks;
 using System;
+using System.Diagnostics;
 using Verse;
 
 namespace Multiplayer.Client.Networking
@@ -89,6 +90,14 @@ namespace Multiplayer.Client.Networking
 
     public class SteamServerConn(CSteamID remoteId, ushort clientChannel) : SteamBaseConn(remoteId, 0, clientChannel)
     {
+        private readonly Stopwatch keepAliveTimer = new();
+
+        public override void Send(Packets id, byte[] message, bool reliable = true)
+        {
+            if (id == Packets.Server_KeepAlive) keepAliveTimer.Restart();
+            base.Send(id, message, reliable);
+        }
+
         protected override void HandleReceiveMsg(int msgId, int fragState, ByteReader reader, bool reliable)
         {
             if (msgId == (int)Packets.Special_Steam_Disconnect)
@@ -103,6 +112,15 @@ namespace Multiplayer.Client.Networking
         public override void OnError(EP2PSessionError error)
         {
             OnDisconnect();
+        }
+
+        public override void OnKeepAliveArrived(bool idMatched)
+        {
+            if (!idMatched) return;
+            // We are ticking network logic every ~30ms, which means that effectively the lowest ping achievable is
+            // ~15ms.
+            Latency = (Latency * 4 + (int)keepAliveTimer.ElapsedMilliseconds / 2) / 5;
+            keepAliveTimer.Reset();
         }
 
         private void OnDisconnect()

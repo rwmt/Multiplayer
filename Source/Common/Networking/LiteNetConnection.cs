@@ -22,6 +22,13 @@ namespace Multiplayer.Common
             peer.NetManager.DisconnectPeer(peer, GetDisconnectBytes(reason, data));
         }
 
+        public override void OnKeepAliveArrived(bool idMatched)
+        {
+            // Latency already handled by LiteNetLib. This can be as low as 0ms because LNL spawns its own thread for
+            // receiving packets and immediately processes its own internal keep alive packet (called Ping-Pong).
+            // This is handled only on the server-side in MpServerNetListener
+        }
+
         public override string ToString()
         {
             return $"NetConnection ({peer.EndPoint}) ({username})";
