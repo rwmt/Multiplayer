@@ -147,8 +147,11 @@ public static class IngameDebug
 
         if (Multiplayer.Client != null && Multiplayer.GameComp.debugMode)
         {
+            var text = "Debug mode\n";
+            if (Multiplayer.LocalServer != null) text += "Host";
+            else text += "Client";
             using (MpStyle.Set(GameFont.Tiny).Set(TextAnchor.MiddleCenter))
-                Widgets.Label(new Rect(x, y, BtnWidth, 30f), "Debug mode");
+                Widgets.Label(new Rect(x, y, BtnWidth, 30f), text);
 
             return BtnHeight;
         }
