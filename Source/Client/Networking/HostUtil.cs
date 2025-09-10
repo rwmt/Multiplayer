@@ -71,7 +71,7 @@ namespace Multiplayer.Client
             localServer.worldData.spectatorFactionId = Multiplayer.WorldComp.spectatorFaction.loadID;
 
             if (settings.steam)
-                localServer.TickEvent += SteamIntegration.ServerSteamNetTick;
+                localServer.TickEvent += SteamP2PIntegration.ServerSteamNetTick;
 
             if (fromReplay)
             {

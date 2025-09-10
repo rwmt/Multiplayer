@@ -1,7 +1,9 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
 using Multiplayer.Common;
 using Steamworks;
-using System;
-using System.Diagnostics;
 using Verse;
 
 namespace Multiplayer.Client.Networking
@@ -75,8 +77,9 @@ namespace Multiplayer.Client.Networking
 
         public override void OnError(EP2PSessionError error)
         {
-            Multiplayer.session.disconnectInfo.titleTranslated =
-                error == EP2PSessionError.k_EP2PSessionErrorTimeout ? "MpSteamTimedOut".Translate() : "MpSteamGenericError".Translate();
+            Multiplayer.session.disconnectInfo.titleTranslated = error == EP2PSessionError.k_EP2PSessionErrorTimeout
+                ? "MpSteamTimedOut".Translate()
+                : "MpSteamGenericError".Translate();
 
             OnDisconnect();
         }
@@ -126,6 +129,107 @@ namespace Multiplayer.Client.Networking
         private void OnDisconnect()
         {
             serverPlayer.Server.playerManager.SetDisconnected(this, MpDisconnectReason.ClientLeft);
+        }
+    }
+
+    public static class SteamP2PIntegration
+    {
+        private static Callback<P2PSessionConnectFail_t> p2pFail;
+
+        public static void InitCallbacks()
+        {
+            p2pFail = Callback<P2PSessionConnectFail_t>.Create(fail =>
+            {
+                var session = Multiplayer.session;
+                if (session == null) return;
+
+                var remoteId = fail.m_steamIDRemote;
+                var error = (EP2PSessionError)fail.m_eP2PSessionError;
+
+                if (Multiplayer.Client is SteamBaseConn clientConn && clientConn.remoteId == remoteId)
+                    clientConn.OnError(error);
+
+                var server = Multiplayer.LocalServer;
+                if (server == null) return;
+
+                server.Enqueue(() =>
+                {
+                    var conn = server.playerManager.Players.Select(p => p.conn).OfType<SteamBaseConn>()
+                        .FirstOrDefault(c => c.remoteId == remoteId);
+                    conn?.OnError(error);
+                });
+            });
+        }
+
+        public struct SteamPacket
+        {
+            public CSteamID remote;
+            public ByteReader data;
+            public bool joinPacket;
+            public bool reliable;
+            public ushort channel;
+        }
+
+        public static IEnumerable<SteamPacket> ReadPackets(int recvChannel)
+        {
+            while (SteamNetworking.IsP2PPacketAvailable(out uint size, recvChannel))
+            {
+                byte[] data = new byte[size];
+
+                if (!SteamNetworking.ReadP2PPacket(data, size, out uint sizeRead, out CSteamID remote, recvChannel))
+                    continue;
+                if (data.Length <= 0) continue;
+
+                var reader = new ByteReader(data);
+                byte flags = reader.ReadByte();
+                bool joinPacket = (flags & 1) > 0;
+                bool reliable = (flags & 2) > 0;
+                bool hasChannel = (flags & 4) > 0;
+                ushort channel = hasChannel ? reader.ReadUShort() : (ushort)0;
+
+                yield return new SteamPacket()
+                {
+                    remote = remote, data = reader, joinPacket = joinPacket, reliable = reliable, channel = channel
+                };
+            }
+        }
+
+        public static void ServerSteamNetTick(MultiplayerServer server)
+        {
+            foreach (var packet in ReadPackets(0))
+            {
+                var playerManager = server.playerManager;
+                var player = GenCollection.FirstOrDefault(playerManager.Players,
+                    p => p.conn is SteamBaseConn conn && conn.remoteId == packet.remote);
+
+                if (packet.joinPacket && player == null)
+                {
+                    ConnectionBase conn = new SteamServerConn(packet.remote, packet.channel);
+
+                    var preConnect = playerManager.OnPreConnect(packet.remote);
+                    if (preConnect != null)
+                    {
+                        conn.Close(preConnect.Value);
+                        continue;
+                    }
+
+                    conn.ChangeState(ConnectionStateEnum.ServerJoining);
+                    player = playerManager.OnConnected(conn);
+                    player.type = PlayerType.Steam;
+
+                    player.steamId = (ulong)packet.remote;
+                    player.steamPersonaName = SteamFriends.GetFriendPersonaName(packet.remote);
+                    if (player.steamPersonaName.Length == 0)
+                        player.steamPersonaName = "[unknown]";
+
+                    conn.Send(Packets.Server_SteamAccept);
+                }
+
+                if (!packet.joinPacket && player != null)
+                {
+                    player.HandleReceive(packet.data, packet.reliable);
+                }
+            }
         }
     }
 }
