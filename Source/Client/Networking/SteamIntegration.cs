@@ -1,11 +1,9 @@
 using System;
-using Multiplayer.Client.Networking;
-using Multiplayer.Common;
-using Steamworks;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
+using Multiplayer.Client.Networking;
 using RimWorld;
+using Steamworks;
 using UnityEngine;
 using Verse;
 
@@ -15,7 +13,6 @@ namespace Multiplayer.Client
     {
         // Callbacks stored in static fields so they don't get garbage collected
         private static Callback<P2PSessionRequest_t> sessionReq;
-        private static Callback<P2PSessionConnectFail_t> p2pFail;
         private static Callback<FriendRichPresenceUpdate_t> friendRchpUpdate;
         private static Callback<GameRichPresenceJoinRequested_t> gameJoinReq;
         private static Callback<PersonaStateChange_t> personaChange;
@@ -65,87 +62,6 @@ namespace Multiplayer.Client
             personaChange = Callback<PersonaStateChange_t>.Create(change =>
             {
             });
-
-            p2pFail = Callback<P2PSessionConnectFail_t>.Create(fail =>
-            {
-                var session = Multiplayer.session;
-                if (session == null) return;
-
-                var remoteId = fail.m_steamIDRemote;
-                var error = (EP2PSessionError)fail.m_eP2PSessionError;
-
-                if (Multiplayer.Client is SteamBaseConn clientConn && clientConn.remoteId == remoteId)
-                    clientConn.OnError(error);
-
-                var server = Multiplayer.LocalServer;
-                if (server == null) return;
-
-                server.Enqueue(() =>
-                {
-                    var conn = server.playerManager.Players.Select(p => p.conn).OfType<SteamBaseConn>().FirstOrDefault(c => c.remoteId == remoteId);
-                    if (conn != null)
-                        conn.OnError(error);
-                });
-            });
-        }
-
-        public static IEnumerable<SteamPacket> ReadPackets(int recvChannel)
-        {
-            while (SteamNetworking.IsP2PPacketAvailable(out uint size, recvChannel))
-            {
-                byte[] data = new byte[size];
-
-                if (!SteamNetworking.ReadP2PPacket(data, size, out uint sizeRead, out CSteamID remote, recvChannel)) continue;
-                if (data.Length <= 0) continue;
-
-                var reader = new ByteReader(data);
-                byte flags = reader.ReadByte();
-                bool joinPacket = (flags & 1) > 0;
-                bool reliable = (flags & 2) > 0;
-                bool hasChannel = (flags & 4) > 0;
-                ushort channel = hasChannel ? reader.ReadUShort() : (ushort)0;
-
-                yield return new SteamPacket() {
-                    remote = remote, data = reader, joinPacket = joinPacket, reliable = reliable, channel = channel
-                };
-            }
-        }
-
-        public static void ServerSteamNetTick(MultiplayerServer server)
-        {
-            foreach (var packet in ReadPackets(0))
-            {
-                var playerManager = server.playerManager;
-                var player = playerManager.Players.FirstOrDefault(p => p.conn is SteamBaseConn conn && conn.remoteId == packet.remote);
-
-                if (packet.joinPacket && player == null)
-                {
-                    ConnectionBase conn = new SteamServerConn(packet.remote, packet.channel);
-
-                    var preConnect = playerManager.OnPreConnect(packet.remote);
-                    if (preConnect != null)
-                    {
-                        conn.Close(preConnect.Value);
-                        continue;
-                    }
-
-                    conn.ChangeState(ConnectionStateEnum.ServerJoining);
-                    player = playerManager.OnConnected(conn);
-                    player.type = PlayerType.Steam;
-
-                    player.steamId = (ulong)packet.remote;
-                    player.steamPersonaName = SteamFriends.GetFriendPersonaName(packet.remote);
-                    if (player.steamPersonaName.Length == 0)
-                        player.steamPersonaName = "[unknown]";
-
-                    conn.Send(Packets.Server_SteamAccept);
-                }
-
-                if (!packet.joinPacket && player != null)
-                {
-                    player.HandleReceive(packet.data, packet.reliable);
-                }
-            }
         }
 
         private static Stopwatch lastSteamUpdate = Stopwatch.StartNew();
@@ -187,15 +103,6 @@ namespace Multiplayer.Client
 
             return CSteamID.Nil;
         }
-    }
-
-    public struct SteamPacket
-    {
-        public CSteamID remote;
-        public ByteReader data;
-        public bool joinPacket;
-        public bool reliable;
-        public ushort channel;
     }
 
     public static class SteamImages
