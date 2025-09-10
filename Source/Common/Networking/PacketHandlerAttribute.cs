@@ -19,5 +19,7 @@ namespace Multiplayer.Common
         public readonly Packets packet = packet;
     }
 
-    public record PacketHandlerInfo(FastInvokeHandler Method, bool Fragment, FastInvokeHandler? FragmentHandler = null);
+    public delegate void PacketHandlerInvoker(object target, ByteReader data);
+
+    public record PacketHandlerInfo(PacketHandlerInvoker Method, bool Fragment, FastInvokeHandler? FragmentHandler = null);
 }
