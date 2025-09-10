@@ -8,7 +8,7 @@ using Verse;
 
 namespace Multiplayer.Client.Networking
 {
-    public class ClientLiteNetConnection : LiteNetConnection
+    public class ClientLiteNetConnection : LiteNetConnection, ITickableConnection
     {
         private readonly NetManager netManager;
 
