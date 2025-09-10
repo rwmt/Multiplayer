@@ -21,6 +21,8 @@ namespace Multiplayer.Common
         public static MultiplayerServer? instance;
 
         public const int DefaultPort = 30502;
+        public const int LanBroadcastPort = 5100;
+        public const string LanBroadcastName = "mp-server";
         public const int MaxUsernameLength = 15;
         public const int MinUsernameLength = 3;
         public const char EndpointSeparator = '&';
