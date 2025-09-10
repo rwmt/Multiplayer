@@ -445,30 +445,25 @@ namespace Multiplayer.Client
         static bool TryStartLocalServer(ServerSettings settings)
         {
             var localServer = new MultiplayerServer(settings);
-            localServer.liteNet.StartNet();
+            var success = localServer.liteNet.StartNet();
 
-            var failed = false;
-
-            if (settings.direct && localServer.liteNet.netManagers.Any(m => m.Item2.IsRunning is false))
+            if (success)
             {
-                foreach (var (endpoint, man) in localServer.liteNet.netManagers)
-                    if (man.IsRunning is false)
-                        Messages.Message("Failed to bind direct on " + endpoint, MessageTypeDefOf.RejectInput, false);
-                failed = true;
-            }
-
-            if (settings.lan && !localServer.liteNet.lanManager!.IsRunning)
-            {
-                Messages.Message("Failed to bind LAN on " + settings.lanAddress, MessageTypeDefOf.RejectInput, false);
-                failed = true;
-            }
-
-            if (failed)
-                localServer.liteNet.StopNet();
-            else
                 Multiplayer.LocalServer = localServer;
+                return true;
+            }
 
-            return !failed;
+            foreach (var (endpoint, man) in localServer.liteNet.netManagers)
+            {
+                if (man.IsRunning) continue;
+                Messages.Message($"Failed to bind direct on {endpoint}", MessageTypeDefOf.RejectInput, false);
+            }
+
+            if (localServer.liteNet.lanManager is { IsRunning: false })
+                Messages.Message($"Failed to bind LAN on {settings.lanAddress}", MessageTypeDefOf.RejectInput, false);
+
+            localServer.liteNet.StopNet();
+            return false;
         }
 
         public override void PostClose()
