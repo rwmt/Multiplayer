@@ -47,16 +47,14 @@ namespace Multiplayer.Common
                 if (server.settings.direct)
                 {
                     var liteNetEndpoints = new Dictionary<int, LiteNetEndpoint>();
-                    var split = server.settings.directAddress.Split(MultiplayerServer.EndpointSeparator);
-
-                    foreach (var str in split)
-                        if (Endpoints.TryParse(str, MultiplayerServer.DefaultPort, out var endpoint))
-                        {
-                            if (endpoint.AddressFamily == AddressFamily.InterNetwork)
-                                liteNetEndpoints.GetOrAddNew(endpoint.Port).ipv4 = endpoint.Address;
-                            else if (endpoint.AddressFamily == AddressFamily.InterNetworkV6)
-                                liteNetEndpoints.GetOrAddNew(endpoint.Port).ipv6 = endpoint.Address;
-                        }
+                    server.settings.TryParseEndpoints(out var endpoints);
+                    foreach (var endpoint in endpoints)
+                    {
+                        if (endpoint.AddressFamily == AddressFamily.InterNetwork)
+                            liteNetEndpoints.GetOrAddNew(endpoint.Port).ipv4 = endpoint.Address;
+                        else if (endpoint.AddressFamily == AddressFamily.InterNetworkV6)
+                            liteNetEndpoints.GetOrAddNew(endpoint.Port).ipv6 = endpoint.Address;
+                    }
 
                     foreach (var (port, endpoint) in liteNetEndpoints)
                     {

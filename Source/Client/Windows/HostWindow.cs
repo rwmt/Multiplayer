@@ -402,7 +402,7 @@ namespace Multiplayer.Client
         {
             var settings = MpUtil.ShallowCopy(serverSettings, new ServerSettings());
 
-            if (settings.direct && TryParseEndpoints(serverSettings.directAddress) is false)
+            if (settings.direct && !TryParseEndpoints(settings))
                 return;
 
             if (settings.gameName.NullOrEmpty())
@@ -417,7 +417,7 @@ namespace Multiplayer.Client
                 return;
             }
 
-            if (TryStartLocalServer(settings) is false)
+            if (!TryStartLocalServer(settings))
                 return;
 
             if (file?.replay ?? Multiplayer.IsReplay)
@@ -430,23 +430,16 @@ namespace Multiplayer.Client
             Close();
         }
 
-        static bool TryParseEndpoints(string endpoints)
+        static bool TryParseEndpoints(ServerSettings settings)
         {
-            var split = endpoints.Split(MultiplayerServer.EndpointSeparator);
-            var success = true;
-
-            foreach (var endpoint in split)
-                if (!Endpoints.TryParse(endpoint, MultiplayerServer.DefaultPort, out _))
-                {
-                    Messages.Message(
-                        "MpInvalidEndpoint".Translate(endpoint),
-                        MessageTypeDefOf.RejectInput,
-                        false
-                    );
-                    success = false;
-                }
-
-            return success;
+            var invalidEndpoint = settings.TryParseEndpoints(out _);
+            if (invalidEndpoint != null)
+                Messages.Message(
+                    "MpInvalidEndpoint".Translate(invalidEndpoint),
+                    MessageTypeDefOf.RejectInput,
+                    false
+                );
+            return invalidEndpoint == null;
         }
 
         static bool TryStartLocalServer(ServerSettings settings)
