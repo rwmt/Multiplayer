@@ -4,7 +4,6 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using LiteNetLib;
-using Multiplayer.Common.Util;
 
 namespace Multiplayer.Common
 {
@@ -12,7 +11,7 @@ namespace Multiplayer.Common
     {
         private MultiplayerServer server;
 
-        public List<(LiteNetEndpoint, NetManager)> netManagers = new();
+        public List<(LiteNetEndpoint endpoint, NetManager manager)> netManagers = new();
         public NetManager? lanManager;
         private NetManager? arbiter;
 
@@ -40,23 +39,22 @@ namespace Multiplayer.Common
             broadcastTimer++;
         }
 
-        public void StartNet()
+        public bool StartNet()
         {
+            var success = true;
             try
             {
                 if (server.settings.direct)
                 {
                     var liteNetEndpoints = new Dictionary<int, LiteNetEndpoint>();
-                    var split = server.settings.directAddress.Split(MultiplayerServer.EndpointSeparator);
-
-                    foreach (var str in split)
-                        if (Endpoints.TryParse(str, MultiplayerServer.DefaultPort, out var endpoint))
-                        {
-                            if (endpoint.AddressFamily == AddressFamily.InterNetwork)
-                                liteNetEndpoints.GetOrAddNew(endpoint.Port).ipv4 = endpoint.Address;
-                            else if (endpoint.AddressFamily == AddressFamily.InterNetworkV6)
-                                liteNetEndpoints.GetOrAddNew(endpoint.Port).ipv6 = endpoint.Address;
-                        }
+                    server.settings.TryParseEndpoints(out var endpoints);
+                    foreach (var endpoint in endpoints)
+                    {
+                        if (endpoint.AddressFamily == AddressFamily.InterNetwork)
+                            liteNetEndpoints.GetOrAddNew(endpoint.Port).ipv4 = endpoint.Address;
+                        else if (endpoint.AddressFamily == AddressFamily.InterNetworkV6)
+                            liteNetEndpoints.GetOrAddNew(endpoint.Port).ipv6 = endpoint.Address;
+                    }
 
                     foreach (var (port, endpoint) in liteNetEndpoints)
                     {
@@ -67,7 +65,7 @@ namespace Multiplayer.Common
                     foreach (var (endpoint, man) in netManagers)
                     {
                         ServerLog.Detail($"Starting NetManager at {endpoint}");
-                        man.Start(endpoint.ipv4 ?? IPAddress.Any, endpoint.ipv6 ?? IPAddress.IPv6Any, endpoint.port);
+                        success &= man.Start(endpoint.ipv4 ?? IPAddress.Any, endpoint.ipv6 ?? IPAddress.IPv6Any, endpoint.port);
                     }
                 }
             }
@@ -81,13 +79,15 @@ namespace Multiplayer.Common
                 if (server.settings.lan)
                 {
                     lanManager = CreateNetManager(IPv6Mode.Disabled);
-                    lanManager.Start(IPAddress.Parse(server.settings.lanAddress), IPAddress.IPv6Any, 0);
+                    success &= lanManager.Start(IPAddress.Parse(server.settings.lanAddress), IPAddress.IPv6Any, 0);
                 }
             }
             catch (Exception e)
             {
                 ServerLog.Log($"Exception starting LAN: {e}");
             }
+
+            return success;
 
             NetManager CreateNetManager(IPv6Mode ipv6)
             {

@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Net;
+using Multiplayer.Common.Util;
 
 namespace Multiplayer.Common
 {
@@ -28,6 +30,21 @@ namespace Multiplayer.Common
         public bool pauseOnJoin = true;
         public bool pauseOnDesync = true;
         public TimeControl timeControl;
+
+        public string? TryParseEndpoints(out IPEndPoint[] endpoints)
+        {
+            var split = directAddress.Split(MultiplayerServer.EndpointSeparator);
+            endpoints = new IPEndPoint[split.Length];
+            for (var i = 0; i < split.Length; i++)
+            {
+                var endpoint = split[i];
+                if (Endpoints.TryParse(endpoint, MultiplayerServer.DefaultPort, out var parsed))
+                    endpoints[i] = parsed;
+                else return endpoint;
+            }
+
+            return null;
+        }
 
         public void ExposeData()
         {

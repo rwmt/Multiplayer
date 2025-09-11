@@ -15,17 +15,15 @@ namespace Multiplayer.Common.Util
 
             if (lastColonPos > 0)
             {
-                if (s[lastColonPos - 1] == ']')
-                    addressLength = lastColonPos;
-                else if (s.Substring(0, lastColonPos).LastIndexOf(':') == -1)
+                if (s[lastColonPos - 1] == ']' || s[..lastColonPos].LastIndexOf(':') == -1)
                     addressLength = lastColonPos;
             }
 
-            if (IPAddress.TryParse(s.Substring(0, addressLength), out IPAddress address))
+            if (IPAddress.TryParse(s[..addressLength], out IPAddress address))
             {
                 uint port = defaultPort;
                 if (addressLength == s.Length ||
-                    uint.TryParse(s.Substring(addressLength + 1), NumberStyles.None, CultureInfo.InvariantCulture, out port) && port <= IPEndPoint.MaxPort)
+                    uint.TryParse(s[(addressLength + 1)..], NumberStyles.None, CultureInfo.InvariantCulture, out port) && port <= IPEndPoint.MaxPort)
                 {
                     result = new IPEndPoint(address, (int)port);
                     return true;
