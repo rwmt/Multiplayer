@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using LudeonTK;
 using RimWorld;
 using Verse;
 using Multiplayer.Client.Desyncs;
@@ -243,9 +244,14 @@ namespace Multiplayer.Client
             OpinionInBuilding.desyncStackTraceHashes.Add(hash);
         }
 
-        private static readonly Regex RemoveUnknownSourceInfoRegex = new(@"in <([a-zA-Z0-9]+)>:0");
-        public static string CleanedMethodName(string rawName)
+        [TweakValue("Multiplayer")]
+        public static bool cleanMethodNames = false;
+
+        private static readonly Regex RemoveUnknownSourceInfoRegex = new("in <([a-zA-Z0-9]+)>:0");
+        public static string PossiblyCleanedMethodName(string rawName)
         {
+            if (!cleanMethodNames) return MethodNameWithIL(rawName);
+
             // at (wrapper dynamic-method) MonoMod.Utils.DynamicMethodDefinition.RimWorld.UniqueIDsManager.GetNextID_Patch2  ...
             // =>
             // at (wrapper dynamic-method) RimWorld.UniqueIDsManager.GetNextID_Patch2  ...
