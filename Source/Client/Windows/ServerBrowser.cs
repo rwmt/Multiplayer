@@ -693,7 +693,7 @@ namespace Multiplayer.Client
             {
                 BroadcastReceiveEnabled = true,
                 ReuseAddress = true,
-                IPv6Enabled = IPv6Mode.Disabled
+                IPv6Enabled = false
             };
 
             netManager.Start(MultiplayerServer.LanBroadcastPort);

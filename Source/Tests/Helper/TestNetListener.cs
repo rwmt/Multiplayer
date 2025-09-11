@@ -28,7 +28,7 @@ public class TestNetListener : INetEventListener
         Assert.Fail($"Network error: {endPoint} {socketError}");
     }
 
-    public void OnNetworkReceive(NetPeer peer, NetPacketReader reader, DeliveryMethod method)
+    public void OnNetworkReceive(NetPeer peer, NetPacketReader reader, byte channelNumber, DeliveryMethod method)
     {
         try
         {

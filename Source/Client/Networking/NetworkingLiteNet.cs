@@ -29,7 +29,7 @@ namespace Multiplayer.Client.Networking
             var netClient = new NetManager(new NetListener())
             {
                 EnableStatistics = true,
-                IPv6Enabled = MpUtil.SupportsIPv6() ? IPv6Mode.SeparateSocket : IPv6Mode.Disabled,
+                IPv6Enabled = MpUtil.SupportsIPv6(),
                 ReconnectDelay = 300,
                 MaxConnectAttempts = 8
             };
@@ -71,7 +71,7 @@ namespace Multiplayer.Client.Networking
                 MpLog.Warn($"Net client error {error}");
             }
 
-            public void OnNetworkReceive(NetPeer peer, NetPacketReader reader, DeliveryMethod method)
+            public void OnNetworkReceive(NetPeer peer, NetPacketReader reader, byte channelNumber, DeliveryMethod method)
             {
                 byte[] data = reader.GetRemainingBytes();
                 GetConnection(peer).HandleReceiveRaw(new ByteReader(data), method == DeliveryMethod.ReliableOrdered);

@@ -59,7 +59,7 @@ namespace Multiplayer.Common
                     foreach (var (port, endpoint) in liteNetEndpoints)
                     {
                         endpoint.port = port;
-                        netManagers.Add((endpoint, CreateNetManager(endpoint.ipv6 != null ? IPv6Mode.SeparateSocket : IPv6Mode.Disabled)));
+                        netManagers.Add((endpoint, CreateNetManager(endpoint.ipv6 != null)));
                     }
 
                     foreach (var (endpoint, man) in netManagers)
@@ -78,7 +78,7 @@ namespace Multiplayer.Common
             {
                 if (server.settings.lan)
                 {
-                    lanManager = CreateNetManager(IPv6Mode.Disabled);
+                    lanManager = CreateNetManager(ipv6: false);
                     success &= lanManager.Start(IPAddress.Parse(server.settings.lanAddress), IPAddress.IPv6Any, 0);
                 }
             }
@@ -89,7 +89,7 @@ namespace Multiplayer.Common
 
             return success;
 
-            NetManager CreateNetManager(IPv6Mode ipv6)
+            NetManager CreateNetManager(bool ipv6)
             {
                 return new NetManager(new MpServerNetListener(server, false))
                 {
@@ -109,7 +109,7 @@ namespace Multiplayer.Common
 
         public void SetupArbiterConnection()
         {
-            arbiter = new NetManager(new MpServerNetListener(server, true)) { IPv6Enabled = IPv6Mode.Disabled };
+            arbiter = new NetManager(new MpServerNetListener(server, true)) { IPv6Enabled = false };
             arbiter.Start(IPAddress.Loopback, IPAddress.IPv6Any, 0);
         }
 
