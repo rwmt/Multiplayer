@@ -2,6 +2,7 @@ using Multiplayer.Common;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using RimWorld;
 using Verse;
 using Multiplayer.Client.Desyncs;
@@ -240,6 +241,44 @@ namespace Multiplayer.Client
 
             // Track & network trace hash, for comparison with other opinions.
             OpinionInBuilding.desyncStackTraceHashes.Add(hash);
+        }
+
+        private static readonly Regex RemoveUnknownSourceInfoRegex = new(@"in <([a-zA-Z0-9]+)>:0");
+        public static string CleanedMethodName(string rawName)
+        {
+            // at (wrapper dynamic-method) MonoMod.Utils.DynamicMethodDefinition.RimWorld.UniqueIDsManager.GetNextID_Patch2  ...
+            // =>
+            // at (wrapper dynamic-method) RimWorld.UniqueIDsManager.GetNextID_Patch2  ...
+            rawName = rawName.Replace("MonoMod.Utils.DynamicMethodDefinition.", string.Empty);
+
+            // Performs the transformation only if the source file is unknown, meaning random id instead of a path
+            // at Verse.AI.JobDriver.ReadyForNextToil () [0x00000] in <c847e073cda54790b59d58357cc8cf98>:0
+            // =>
+            // at Verse.AI.JobDriver.ReadyForNextToil () [0x00000]
+            rawName = RemoveUnknownSourceInfoRegex.Replace(rawName, string.Empty);
+            return ShortenSourceInfo(rawName);
+        }
+
+
+        private static string ShortenSourceInfo(string rawName)
+        {
+            // at Multiplayer.Client.Desyncs.DeferredStackTracing.Postfix () [0x00045] in /home/runner/work/Multiplayer/Multiplayer/Source/Client/Desyncs/DeferredStackTracing.cs:41
+            // =>
+            // at Multiplayer.Client.Desyncs.DeferredStackTracing.Postfix () [0x00045] in /Client/Desyncs/DeferredStackTracing.cs:41
+            const string sourcePrefix = "in ";
+            const string realSourceStartA = "Multiplayer/Source";
+            const string realSourceStartB = "Multiplayer\\Source";
+            var startSource2 = rawName.IndexOf(sourcePrefix, StringComparison.Ordinal);
+            if (startSource2 != -1)
+            {
+                var offset = startSource2 + sourcePrefix.Length;
+                var realSourceStartIndex = rawName.IndexOf(realSourceStartA, offset, StringComparison.Ordinal);
+                if (realSourceStartIndex == -1)
+                    realSourceStartIndex = rawName.IndexOf(realSourceStartB, offset, StringComparison.Ordinal);
+                if (realSourceStartIndex != -1)
+                    rawName = rawName.Remove(offset, realSourceStartIndex - offset + realSourceStartA.Length);
+            }
+            return rawName;
         }
 
         public static string MethodNameWithIL(string rawName)
