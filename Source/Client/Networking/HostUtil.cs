@@ -24,7 +24,7 @@ namespace Multiplayer.Client
         // - replay, ingame
         public static async ClientTask HostServer(ServerSettings settings, bool fromReplay)
         {
-            Log.Message($"Starting the server");
+            Log.Message("Starting the server");
 
             CreateSession(settings);
 
@@ -34,7 +34,7 @@ namespace Multiplayer.Client
             // Server already pre-inited in HostWindow
             PrepareLocalServer(settings, fromReplay);
 
-            var serverConn = CreateLocalClient();
+            var serverConn = CreateLocalClient(settings);
             PrepareGame();
             SetGameState(settings);
 
@@ -48,18 +48,13 @@ namespace Multiplayer.Client
             StartLocalServer();
         }
 
-        private static void CreateSession(ServerSettings settings)
-        {
-            var session = new MultiplayerSession
+        private static void CreateSession(ServerSettings settings) =>
+            Multiplayer.session = new MultiplayerSession
             {
                 myFactionId = Faction.OfPlayer.loadID,
-                localServerSettings = settings,
                 gameName = settings.gameName,
                 dataSnapshot = Multiplayer.session?.dataSnapshot // This is the case when hosting from a replay
             };
-
-            Multiplayer.session = session;
-        }
 
         private static void PrepareLocalServer(ServerSettings settings, bool fromReplay)
         {
@@ -187,9 +182,9 @@ namespace Multiplayer.Client
             return faction;
         }
 
-        private static LocalConnection CreateLocalClient()
+        private static LocalConnection CreateLocalClient(ServerSettings settings)
         {
-            if (Multiplayer.session.localServerSettings.arbiter)
+            if (settings.arbiter)
                 StartArbiter();
 
             var (client, server) = LocalConnection.Paired(Multiplayer.username);

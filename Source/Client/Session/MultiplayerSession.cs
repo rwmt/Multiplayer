@@ -53,8 +53,6 @@ namespace Multiplayer.Client
         public bool hasUnread;
         public bool ghostModeCheckbox;
 
-        public ServerSettings localServerSettings;
-
         public Process arbiter;
         public bool ArbiterPlaying => players.Any(p => p.type == PlayerType.Arbiter && p.status == PlayerStatus.Playing);
 
