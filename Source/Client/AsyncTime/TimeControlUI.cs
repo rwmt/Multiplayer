@@ -317,7 +317,7 @@ public static class ColonistBarTimeControl
         if (Multiplayer.Client == null) return;
 
         ColonistBar bar = Find.ColonistBar;
-        if (bar.Entries.Count == 0) return;
+        if (!bar.Visible || bar.Entries.Count == 0) return;
 
         int curGroup = -1;
         foreach (var entry in bar.Entries)
