@@ -28,7 +28,7 @@ namespace Multiplayer.Client
             sessionReq = Callback<P2PSessionRequest_t>.Create(req =>
             {
                 var session = Multiplayer.session;
-                if (session?.localServerSettings != null && session.localServerSettings.steam && !session.pendingSteam.Contains(req.m_steamIDRemote))
+                if (Multiplayer.LocalServer?.settings.steam == true && !session.pendingSteam.Contains(req.m_steamIDRemote))
                 {
                     if (Multiplayer.settings.autoAcceptSteam)
                         SteamNetworking.AcceptP2PSessionWithUser(req.m_steamIDRemote);
@@ -72,8 +72,8 @@ namespace Multiplayer.Client
         {
             if (lastSteamUpdate.ElapsedMilliseconds < 1000) return;
 
-            var localSteam = Multiplayer.session?.localServerSettings?.steam ?? false;
-            var remoteSteam = (Multiplayer.session?.client as SteamClientConn)?.remoteId;
+            var localSteam = Multiplayer.LocalServer?.settings.steam ?? false;
+            var remoteSteam = (Multiplayer.Client as SteamClientConn)?.remoteId;
             if (localSteam != lastLocalSteam || remoteSteam != lastRemoteSteam)
             {
                 string connect;
