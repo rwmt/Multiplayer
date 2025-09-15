@@ -10,8 +10,10 @@ using HarmonyLib;
 using LudeonTK;
 using Multiplayer.Client.Desyncs;
 using Multiplayer.Client.Util;
+using Multiplayer.Client.Windows;
 using RimWorld;
 using RimWorld.Planet;
+using Steamworks;
 using UnityEngine;
 using Verse;
 using Debug = UnityEngine.Debug;
@@ -145,6 +147,12 @@ namespace Multiplayer.Client
 
             Multiplayer.game.asyncWorldTimeComp.randState++;
             Multiplayer.game.sync.TryAddStackTraceForDesyncLogRaw(logItem, depth, hash);
+        }
+
+        [DebugAction(MultiplayerCategory, name = "Show pending player", allowedGameStates = AllowedGameStates.Playing)]
+        public static void ShowPendingPlayer()
+        {
+            PendingPlayerWindow.EnqueueJoinRequest(SteamUser.GetSteamID(), (_, _) => { });
         }
 
         [DebugAction(MultiplayerCategory, "Dump Sync Types", allowedGameStates = AllowedGameStates.Entry)]

@@ -154,7 +154,7 @@ namespace Multiplayer.Client
                 SteamFriends.GetFriendPersonaName,
                 ref inRect,
                 ref steamScroll,
-                AcceptSteamPlayer,
+                SteamIntegration.AcceptPlayerJoinRequest,
                 true,
                 "MpSteamAcceptDesc".Translate()
             );
@@ -172,14 +172,6 @@ namespace Multiplayer.Client
                     //new FloatMenuOption("MpSeeModList".Translate(), () => DefMismatchWindow.ShowModList(Multiplayer.session.mods))
                 }));
             }
-        }
-
-        private void AcceptSteamPlayer(CSteamID id)
-        {
-            SteamNetworking.AcceptP2PSessionWithUser(id);
-            Multiplayer.session.pendingSteam.Remove(id);
-
-            Messages.Message("MpSteamAccepted".Translate(), MessageTypeDefOf.PositiveEvent, false);
         }
 
         private Color GetColor(PlayerStatus status)

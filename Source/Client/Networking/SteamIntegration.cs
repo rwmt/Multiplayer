@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using Multiplayer.Client.Networking;
+using Multiplayer.Client.Windows;
 using RimWorld;
 using Steamworks;
 using UnityEngine;
@@ -33,8 +34,13 @@ namespace Multiplayer.Client
                     if (Multiplayer.settings.autoAcceptSteam)
                         SteamNetworking.AcceptP2PSessionWithUser(req.m_steamIDRemote);
                     else
+                    {
                         session.pendingSteam.Add(req.m_steamIDRemote);
-
+                        PendingPlayerWindow.EnqueueJoinRequest(req.m_steamIDRemote, (joinReq, accepted) =>
+                        {
+                            if(joinReq.steamId.HasValue && accepted) AcceptPlayerJoinRequest(joinReq.steamId.Value);
+                        });
+                    }
                     session.knownUsers.Add(req.m_steamIDRemote);
                     session.NotifyChat();
 
@@ -62,6 +68,14 @@ namespace Multiplayer.Client
             personaChange = Callback<PersonaStateChange_t>.Create(change =>
             {
             });
+        }
+
+        public static void AcceptPlayerJoinRequest(CSteamID id)
+        {
+            SteamNetworking.AcceptP2PSessionWithUser(id);
+            Multiplayer.session.pendingSteam.Remove(id);
+
+            Messages.Message("MpSteamAccepted".Translate(), MessageTypeDefOf.PositiveEvent, false);
         }
 
         private static Stopwatch lastSteamUpdate = Stopwatch.StartNew();

@@ -427,6 +427,8 @@ namespace Multiplayer.Client
             else
                 HostFromSpSaveFile(settings);
 
+            // No need to return to the server browser since we successfully started a local server.
+            returnToServerBrowser = false;
             Close();
         }
 
