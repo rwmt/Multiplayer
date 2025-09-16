@@ -1,4 +1,5 @@
 ﻿using UnityEngine;
+using Verse;
 
 namespace Multiplayer.Client
 {
@@ -107,6 +108,77 @@ namespace Multiplayer.Client
         public static Rect AtY(this Rect rect, float y)
         {
             rect.y = y;
+            return rect;
+        }
+
+        public static Rect FitToText(this Rect rect, string text)
+        {
+            var textSize = Text.CalcSize(text);
+            rect.width = textSize.x;
+            rect.height = textSize.y;
+            return rect;
+        }
+
+        public static Rect MarginLeft(this Rect rect, float margin)
+        {
+            rect.x += margin;
+            rect.width -= margin;
+            return rect;
+        }
+
+        public static Rect MarginRight(this Rect rect, float margin)
+        {
+            rect.width -= margin;
+            return rect;
+        }
+
+        public static Rect MarginTop(this Rect rect, float margin)
+        {
+            rect.y += margin;
+            rect.height -= margin;
+            return rect;
+        }
+
+        public static Rect MarginBottom(this Rect rect, float margin)
+        {
+            rect.height -= margin;
+            return rect;
+        }
+
+        public static Rect CenteredButtonX(this Rect rect, int buttonIndex,
+            int buttonsCount,
+            float buttonWidth,
+            float pad = 10f)
+        {
+            rect.x += GenUI.GetCenteredButtonPos(buttonIndex, buttonsCount, rect.width, buttonWidth, pad);
+            rect.width = buttonWidth;
+            return rect;
+        }
+
+        public static Rect SpacedEvenlyX(this Rect rect, int buttonIndex, int buttonsCount, float buttonWidth)
+        {
+            float totalWidth = rect.width;
+            float pad = (float)(((double) totalWidth - (double)buttonsCount * (double) buttonWidth) / (double) (buttonsCount + 1));
+            rect.x += Mathf.Floor(pad + buttonIndex * (buttonWidth + pad));
+            rect.width = buttonWidth;
+            return rect;
+        }
+
+        public static Rect SpacedAroundX(this Rect rect, int buttonIndex, int buttonsCount, float buttonWidth)
+        {
+            float totalWidth = rect.width;
+            float pad = (float)(((double) totalWidth - (double)buttonsCount * (double) buttonWidth) / (double) (buttonsCount));
+            rect.x += Mathf.Floor(pad/2 + buttonIndex * (buttonWidth + pad));
+            rect.width = buttonWidth;
+            return rect;
+        }
+
+        public static Rect SpacedBetweenX(this Rect rect, int buttonIndex, int buttonsCount, float buttonWidth)
+        {
+            float totalWidth = rect.width;
+            float pad = (float)(((double) totalWidth - (double)buttonsCount * (double) buttonWidth) / (double) (buttonsCount - 1));
+            rect.x += Mathf.Floor(buttonIndex * (buttonWidth + pad));
+            rect.width = buttonWidth;
             return rect;
         }
     }
