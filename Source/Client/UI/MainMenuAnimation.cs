@@ -462,7 +462,7 @@ namespace Multiplayer.Client
             "Spamming the \"World\" button causes bullets to appear stuttery/laggy.",
             "Loading a save where the camera is already in space throws an error.",
             "Inconsistent results when aborting a gravship landing to an anchored map. (Resyncs fine.)",
-            "Multifaction: Players cannot start with differing scenarios.",
+            "Multifaction: Starting with different scenarios may not work correctly.",
             "Multifaction: Letters and incidents don’t always match.",
             "Multifaction: Sometimes raids feel off.",
             "Multifaction: The gravship is not complete."
