@@ -445,8 +445,12 @@ namespace Multiplayer.Client
         static void Postfix()
         {
             if (Multiplayer.settings.mostRecentVersionWelcomed == WelcomeMessage.version) return;
-            Find.WindowStack.Add(new Dialog_MessageBox(WelcomeMessage.Message(), title: WelcomeMessage.Title()));
-            Multiplayer.settings.mostRecentVersionWelcomed = WelcomeMessage.version;
+            Find.WindowStack.Add(new Dialog_MessageBox(WelcomeMessage.Message(), title: WelcomeMessage.Title(), buttonBAction: () =>
+            {
+                Multiplayer.settings.mostRecentVersionWelcomed = WelcomeMessage.version;
+                Multiplayer.settings.Write();
+            }, buttonBText: "Never show again"));
+            
         }
     }
 
