@@ -1,9 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using HarmonyLib;
 using Multiplayer.Client.Util;
 using RimWorld;
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
 using UnityEngine;
 using Verse;
 using Random = System.Random;
@@ -434,6 +435,53 @@ namespace Multiplayer.Client
         {
             if (hideMainMenu)
                 __result = false;
+        }
+    }
+
+    [HarmonyPatch(typeof(UIRoot_Entry), nameof(UIRoot_Entry.Init))]
+    static class WelcomeScreenPatch
+    {
+        [HarmonyPostfix]
+        static void Postfix()
+        {
+            if (Multiplayer.settings.mostRecentVersionWelcomed == WelcomeMessage.version) return;
+            Find.WindowStack.Add(new Dialog_MessageBox(WelcomeMessage.Message(), title: WelcomeMessage.Title()));
+            Multiplayer.settings.mostRecentVersionWelcomed = WelcomeMessage.version;
+        }
+    }
+
+    public static class  WelcomeMessage
+    {
+        public static string version = "1.6";
+        static string[] knownIssues = [
+            "Some common mods are not compatible. (i.e. Vanilla Expanded Framework, Combat Extended)",
+            "Spamming the \"World\" button causes bullets to appear stuttery/laggy.",
+            "Loading a save where the camera is already in space throws an error.",
+            "Inconsistent results when aborting a gravship landing to an anchored map. (Resyncs fine.)",
+            "Multifaction: Players cannot start with differing scenarios.",
+            "Multifaction: Letters and incidents don’t always match.",
+            "Multifaction: Sometimes raids feel off.",
+            "Multifaction: The gravship is not complete."
+            ];
+
+
+        public static string Title()
+        {
+            string title = "Welcome to Zetrith's Multiplayer Mod " + version + "!";
+            return title;
+        }
+        public static TaggedString Message()
+        {
+            TaggedString message = "We are thrilled to release this BETA version to the Steam Workshop! Please note this build may still be unstable. A list of known issues is provided below:\n\n";
+            foreach (var issue in knownIssues)
+            {
+                message += "- " + issue + "\n";
+            }
+            message += "\n\nFor a more complete list please see our GitHub issues page.";
+            message += "\n\nFor the best experience please use the "+ ColoredText.Colorize("updated Prepatcher by jikulopo ", Color.cyan) +ColoredText.Colorize("INSTEAD OF HARMONY", Color.red)+". This allows ritual, birth, and gravship launch dialogs to sync.";
+            message += "\n\nIf you encounter any issues please report them on our Discord server "+ ColoredText.Colorize("with reproduction steps", Color.yellow)+" (this is important). Your feedback is crucial in helping us improve the mod.";
+
+            return message;
         }
     }
 }
