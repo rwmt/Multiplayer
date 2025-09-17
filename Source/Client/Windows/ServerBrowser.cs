@@ -23,34 +23,31 @@ namespace Multiplayer.Client
     {
         public static bool welcomedThisSession = false;
 
-        public static string version = "1.6";
-        static string[] knownIssues = [
-            "Some common mods are not compatible. (i.e. Vanilla Expanded Framework, Combat Extended)",
-            "Spamming the \"World\" button causes bullets to appear stuttery/laggy.",
-            "Loading a save where the camera is already in space throws an error.",
-            "Inconsistent results when aborting a gravship landing to an anchored map. (Resyncs fine.)",
-            "Multifaction: Starting with different scenarios may not work correctly.",
-            "Multifaction: Letters and incidents don’t always match.",
-            "Multifaction: Sometimes raids feel off.",
-            "Multifaction: The gravship is not complete."
-            ];
+        public static string version => "MpWelcomeVersion".Translate();
 
 
         public static string Title()
         {
-            string title = "Welcome to Zetrith's Multiplayer Mod " + version + "!";
+            string title = "MpWelcomeTitle".Translate(version) ;
             return title;
         }
         public static TaggedString Message()
         {
-            TaggedString message = "We are thrilled to release this BETA version to the Steam Workshop! Please note this build may still be unstable. A list of known issues is provided below:\n\n";
-            foreach (var issue in knownIssues)
+            TaggedString message = "MpWelcomeMessage".Translate() + "\n\n";
+
+            int issueCount = 1;
+            string knownIssueKey = "MpKnownIssue";
+
+            //while (LanguageDatabase.activeLanguage.HaveTextForKey(knownIssueKey + issueCount))
+            foreach (var thing in LanguageDatabase.activeLanguage.keyedReplacements.Where(kvp => kvp.Key.StartsWith(knownIssueKey)))
             {
-                message += "- " + issue + "\n";
+                message += "- " + (thing.Key).Translate() + "\n";
+                issueCount++;
             }
-            message += "\n\nFor a more complete list please see our GitHub issues page.";
-            message += "\n\nFor the best experience please use the " + ColoredText.Colorize("updated Prepatcher by jikulopo ", Color.cyan) + ColoredText.Colorize("INSTEAD OF HARMONY", Color.red) + ". This allows ritual, birth, and gravship launch dialogs to sync.";
-            message += "\n\nIf you encounter any issues please report them on our Discord server " + ColoredText.Colorize("with reproduction steps", Color.yellow) + " (this is important). Your feedback is crucial in helping us improve the mod.";
+
+            message += "\n\n" + "MpWelcomeCompleteList".Translate();
+            message += "\n\n" + "MpWelcomePrepatcher".Translate();
+            message += "\n\n" + "MpWelcomeDiscord".Translate();
 
             return message;
         }
@@ -85,7 +82,7 @@ namespace Multiplayer.Client
             {
                 Multiplayer.settings.mostRecentVersionWelcomed = WelcomeMessage.version;
                 Multiplayer.settings.Write();
-            }, buttonBText: "Never show again"));
+            }, buttonBText: "MpWelcomeNeverShowButton".Translate()));
             WelcomeMessage.welcomedThisSession = true;
         }
 
