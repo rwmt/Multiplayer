@@ -14,6 +14,10 @@ namespace Multiplayer.Common
 
         public static readonly string Version = SimpleVersion + (GitHash != null ? $"+{GitHash}" : "");
 
+        public static readonly string? GitDescription = Assembly.GetExecutingAssembly()
+            .GetCustomAttributes<AssemblyMetadataAttribute>()
+            .FirstOrDefault(attr => attr.Key == "GitDescription")?.Value;
+
         public const string ApiAssemblyName = "0MultiplayerAPI";
 
 #if DEBUG

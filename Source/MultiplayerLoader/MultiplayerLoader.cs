@@ -19,7 +19,7 @@ namespace MultiplayerLoader
             instance = this;
             LoadAssembliesCustom();
 
-            FindTypeInAppDomain("Multiplayer.Client.Multiplayer")!.GetMethod("InitMultiplayer")!.Invoke(null, null);
+            FindTypeInAppDomain("Multiplayer.Client.Multiplayer")!.GetMethod("InitMultiplayer")!.Invoke(null, [content]);
         }
 
         public static Type? FindTypeInAppDomain(string typeFullName) =>
