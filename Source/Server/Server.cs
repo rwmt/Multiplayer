@@ -20,6 +20,9 @@ if (File.Exists(settingsFile))
 else
     TomlSettings.Save(settings, settingsFile); // Save default settings
 
+if (settings.steam) ServerLog.Error("Arbiter is not supported in standalone server.");
+if (settings.arbiter) ServerLog.Error("Arbiter is not supported in standalone server.");
+
 var server = MultiplayerServer.instance = new MultiplayerServer(settings)
 {
     running = true,
