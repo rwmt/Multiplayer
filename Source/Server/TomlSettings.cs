@@ -1,4 +1,5 @@
 ﻿using Multiplayer.Common;
+using Multiplayer.Common.Util;
 using Tomlyn;
 using Tomlyn.Model;
 
@@ -18,6 +19,7 @@ public static class TomlSettings
 
         var settings = new ServerSettings();
         settings.ExposeData();
+        if (settings.lan) settings.lanAddress = Endpoints.GetLocalIpAddress() ?? "127.0.0.1";
 
         return settings;
     }

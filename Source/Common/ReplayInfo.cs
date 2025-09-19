@@ -11,6 +11,7 @@ public class ReplayInfo
     public string name;
     public int protocol;
     public int playerFaction;
+    public int spectatorFaction;
 
     public List<ReplaySection> sections = new();
 

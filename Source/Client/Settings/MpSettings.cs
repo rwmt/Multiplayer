@@ -70,13 +70,12 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref showMainMenuAnim, "showMainMenuAnim", true);
             Scribe_Values.Look(ref appendNameToAutosave, "appendNameToAutosave");
             Scribe_Values.Look(ref transparentPlayerCursors, "transparentPlayerCursors", true);
-            Scribe_Values.Look(ref hideOtherPlayersInColonistBar, "hideOtherPlayersInColonistBar", false);
-            Scribe_Values.Look(ref hideOtherPlayersQuests, "hideOtherPlayersQuests", false);
+            Scribe_Values.Look(ref hideOtherPlayersInColonistBar, "hideOtherPlayersInColonistBar");
+            Scribe_Values.Look(ref hideOtherPlayersQuests, "hideOtherPlayersQuests");
 
 
             Scribe_Collections.Look(ref playerColors, "playerColors", LookMode.Deep);
-            if (playerColors.NullOrEmpty())
-                playerColors = new List<ColorRGBClient>(DefaultPlayerColors);
+            if (playerColors.NullOrEmpty()) playerColors = [..DefaultPlayerColors];
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
                 PlayerManager.PlayerColors = playerColors.Select(c => (ColorRGB)c).ToArray();
 

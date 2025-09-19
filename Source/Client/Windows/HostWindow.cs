@@ -53,7 +53,7 @@ namespace Multiplayer.Client
             if (serverSettings.multifaction)
                 multifactionLocked = true;
 
-            var localAddr = MpUtil.GetLocalIpAddress() ?? "127.0.0.1";
+            var localAddr = Endpoints.GetLocalIpAddress() ?? "127.0.0.1";
             serverSettings.lanAddress = localAddr;
 
             if (MpVersion.IsDebug)
