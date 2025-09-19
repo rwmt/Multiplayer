@@ -94,11 +94,11 @@ namespace Multiplayer.Client
 
             var defDiff = false;
             var defsData = new ByteReader(data.ReadPrefixedBytes());
-
+            var defStatusMap = new Dictionary<DefInfo, DefCheckStatus>();
             foreach (var local in MultiplayerData.localDefInfos)
             {
                 var status = defsData.ReadEnum<DefCheckStatus>();
-                local.Value.status = status;
+                defStatusMap.Add(local.Value, status);
 
                 if (status != DefCheckStatus.Ok)
                     defDiff = true;
@@ -121,9 +121,10 @@ namespace Multiplayer.Client
                     Multiplayer.StopMultiplayerAndClearAllWindows();
 
                 var defDiffStr = "\n\n" + MultiplayerData.localDefInfos
-                    .Where(kv => kv.Value.status != DefCheckStatus.Ok)
+                    .Select(kv => (name: kv.Key, def: kv.Value, status: defStatusMap[kv.Value]))
+                    .Where(kv => kv.status != DefCheckStatus.Ok)
                     .Take(10)
-                    .Join(kv => $"{kv.Key}: {kv.Value.status}", "\n");
+                    .Join(kv => $"{kv.name}: {kv.status}", "\n");
 
                 Find.WindowStack.Add(new JoinDataWindow(remoteInfo){
                     connectAnywayDisabled = defDiff ? "MpMismatchDefsDiff".Translate() + defDiffStr : null,
