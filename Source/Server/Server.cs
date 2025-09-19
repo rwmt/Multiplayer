@@ -52,6 +52,7 @@ static void LoadSave(MultiplayerServer server, string path)
 
     server.settings.gameName = replayInfo.name;
     server.worldData.hostFactionId = replayInfo.playerFaction;
+    server.worldData.spectatorFactionId = replayInfo.spectatorFaction;
 
     //This parses multiple saves as long as they are named correctly
     server.gameTimer = replayInfo.sections[0].start;
