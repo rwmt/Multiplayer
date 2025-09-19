@@ -55,7 +55,10 @@ static void LoadSave(MultiplayerServer server, string path)
 
     server.settings.gameName = replayInfo.name;
     server.worldData.hostFactionId = replayInfo.playerFaction;
-    server.worldData.spectatorFactionId = replayInfo.spectatorFaction;
+    var spectatorFaction = replayInfo.spectatorFaction;
+    if (server.settings.multifaction && spectatorFaction == 0)
+        ServerLog.Error("Multifaction is enabled but the save doesn't contain spectator faction id.");
+    server.worldData.spectatorFactionId = spectatorFaction;
 
     //This parses multiple saves as long as they are named correctly
     server.gameTimer = replayInfo.sections[0].start;
@@ -87,7 +90,7 @@ static void LoadSave(MultiplayerServer server, string path)
             server.worldData.mapData[mapNumber] = Compress(zip.GetBytes(entry.FullName));
         }
     }
-    
+
 
     server.worldData.mapCmds[-1] = ScheduledCommand.DeserializeCmds(zip.GetBytes("world/000_cmds")).Select(ScheduledCommand.Serialize).ToList();
     server.worldData.sessionData = Array.Empty<byte>();
