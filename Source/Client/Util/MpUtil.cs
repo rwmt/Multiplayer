@@ -56,24 +56,6 @@ namespace Multiplayer.Client
             return ipv6;
         }
 
-        // https://stackoverflow.com/a/27376368
-        public static string GetLocalIpAddress()
-        {
-            try
-            {
-                using (Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.IP))
-                {
-                    socket.Connect("8.8.8.8", 65530);
-                    IPEndPoint endPoint = socket.LocalEndPoint as IPEndPoint;
-                    return endPoint.Address.ToString();
-                }
-            }
-            catch
-            {
-                return Dns.GetHostEntry(Dns.GetHostName()).AddressList.FirstOrDefault(i => i.AddressFamily == AddressFamily.InterNetwork).ToString();
-            }
-        }
-
         public static string RwDataFile(string filename)
         {
             return Path.Combine(GenFilePaths.SaveDataFolderPath, filename);
