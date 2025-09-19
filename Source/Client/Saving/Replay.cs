@@ -114,10 +114,11 @@ namespace Multiplayer.Client
         {
             var replay = new Replay(file)
             {
-                info = new ReplayInfo()
+                info = new ReplayInfo
                 {
                     name = Multiplayer.session.gameName,
                     playerFaction = Multiplayer.session.myFactionId,
+                    spectatorFaction = Multiplayer.WorldComp.spectatorFaction.loadID,
                     protocol = MpVersion.Protocol,
                     rwVersion = VersionControl.CurrentVersionStringWithRev,
                     modIds = LoadedModManager.RunningModsListForReading.Select(m => m.PackageId).ToList(),
