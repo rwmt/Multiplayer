@@ -5,7 +5,7 @@ namespace Multiplayer.Client.Desyncs;
 
 public struct AddrTable()
 {
-    private const int StartingN = 7;
+    private const int StartingN = 10; // 1024
     private const int StartingShift = 64 - StartingN;
     private const int StartingSize = 1 << StartingN;
     private const float LoadFactor = 0.5f;
