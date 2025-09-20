@@ -32,3 +32,6 @@ jobs:
              
     - name: Build release
       run: dotnet build ${{ env.SLN_PATH }} --configuration Release --no-restore
+
+    - name: Run tests
+      run: dotnet test ${{ env.SLN_PATH }} --no-restore
