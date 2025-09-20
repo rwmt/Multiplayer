@@ -241,7 +241,7 @@ namespace Multiplayer.Client.DebugUi
         private static float DrawPerformanceRecorderSection(float x, float y, float width)
         {
             StatusBadge recordingStatus = PerformanceRecorder.GetRecordingStatus();
-            
+
             var lines = new List<DebugLine>
             {
                 new("Status:", recordingStatus.text, recordingStatus.color),
@@ -254,7 +254,7 @@ namespace Multiplayer.Client.DebugUi
                 lines.Add(new("Duration:", $"{duration.TotalSeconds:F1}s", Color.white));
                 lines.Add(new("Avg FPS:", PerformanceRecorder.AverageFPS > 0 ? $"{PerformanceRecorder.AverageFPS:F1}" : "N/A", Color.white));
                 lines.Add(new("Avg TPS:", PerformanceRecorder.AverageTPS > 0 ? $"{PerformanceRecorder.AverageTPS:F1}" : "N/A", Color.white));
-                
+
                 if (PerformanceCalculator.IsInStabilizationPeriod())
                 {
                     lines.Add(new("TPS Perf:", "STABILIZING", Color.yellow));
@@ -267,11 +267,11 @@ namespace Multiplayer.Client.DebugUi
 
             var section = new DebugSection("PERFORMANCE RECORDER", lines.ToArray());
             float sectionHeight = DrawSection(x, y, width, section);
-            
+
             // Add control buttons below the section
             float buttonY = y + sectionHeight - SectionSpacing + 4f;
             float buttonHeight = DrawRecorderControls(x, buttonY, width);
-            
+
             return sectionHeight + buttonHeight;
         }
 
@@ -314,21 +314,21 @@ namespace Multiplayer.Client.DebugUi
 
             var startRect = new Rect(x, currentY, buttonWidth, buttonHeight);
             var stopRect = new Rect(x + buttonWidth + spacing, currentY, buttonWidth, buttonHeight);
-            
+
             GUI.color = PerformanceRecorder.IsRecording ? Color.gray : Color.white;
-            
+
             if (Widgets.ButtonText(startRect, "Start") && !PerformanceRecorder.IsRecording)
             {
                 PerformanceRecorder.StartRecording();
             }
 
             GUI.color = !PerformanceRecorder.IsRecording ? Color.gray : Color.white;
-            
+
             if (Widgets.ButtonText(stopRect, "Stop") && PerformanceRecorder.IsRecording)
             {
                 PerformanceRecorder.StopRecording();
             }
-            
+
             GUI.color = Color.white;
             currentY += buttonHeight + spacing;
             return currentY - y;
@@ -379,7 +379,7 @@ namespace Multiplayer.Client.DebugUi
             float targetTps = PerformanceCalculator.GetTargetTPS();
             string tpsPerformanceText;
             Color tpsColor;
-            
+
             if (PerformanceCalculator.IsInStabilizationPeriod())
             {
                 tpsPerformanceText = "STABILIZING";
@@ -477,7 +477,7 @@ namespace Multiplayer.Client.DebugUi
             {
                 int timerLag = TickPatch.tickUntil - TickPatch.Timer;
                 Color lagColor = PerformanceCalculator.GetPerformanceColor(timerLag, 15, 30);
-                
+
                 DebugLine[] timingLines = [
                     new("Timer Lag:", $"{timerLag}", lagColor),
                     new("Timer:", $"{TickPatch.Timer}", Color.white),
@@ -503,7 +503,7 @@ namespace Multiplayer.Client.DebugUi
             try
             {
                 AsyncTimeComp async = Find.CurrentMap?.AsyncTime();
-                
+
                 DebugLine[] gameStateLines = [
                     new("Classic Mode:", $"{Find.IdeoManager?.classicMode ?? false}", Color.white),
                     new("Client Opinions:", $"{Multiplayer.game?.sync?.knownClientOpinions?.Count ?? 0}", Color.white),
@@ -529,8 +529,8 @@ namespace Multiplayer.Client.DebugUi
             DebugLine[] rngLines = [
                 new("Rand Calls:", $"{DeferredStackTracing.acc}", Color.white),
                 new("Max Trace Depth:", $"{DeferredStackTracing.maxTraceDepth}", Color.white),
-                new("Hash Entries:", $"{DeferredStackTracingImpl.hashtableEntries}/{DeferredStackTracingImpl.hashtableSize}", Color.white),
-                new("Hash Collisions:", $"{DeferredStackTracingImpl.collisions}", Color.white)
+                new("Hash Entries:", $"{DeferredStackTracingImpl.hashTable.entries}/{DeferredStackTracingImpl.hashTable.size}", Color.white),
+                new("Hash Collisions:", $"{DeferredStackTracingImpl.hashTable.collisions}", Color.white)
             ];
 
             return DrawSection(x, y, width, new("RNG & DEBUG", rngLines));
@@ -544,7 +544,7 @@ namespace Multiplayer.Client.DebugUi
             try
             {
                 AsyncTimeComp async = Find.CurrentMap?.AsyncTime();
-                
+
                 DebugLine[] commandLines = [
                     new("Async Commands:", $"{async?.cmds?.Count ?? 0}", Color.white),
                     new("World Commands:", $"{Multiplayer.AsyncWorldTime?.cmds?.Count ?? 0}", Color.white),
@@ -570,7 +570,7 @@ namespace Multiplayer.Client.DebugUi
             float serverTpt = TickPatch.tickUntil - TickPatch.Timer <= 3 ? TickPatch.serverTimePerTick * 1.2f :
                 TickPatch.tickUntil - TickPatch.Timer >= 7 ? TickPatch.serverTimePerTick * 0.8f :
                 TickPatch.serverTimePerTick;
-                
+
             DebugLine[] memoryLines = [
                 new("World Pawns:", $"{Find.WorldPawns.AllPawnsAliveOrDead.Count}", Color.white),
                 new("Pool Free Items:", $"{SimplePool<StackTraceLogItemRaw>.FreeItemsCount}", Color.white),
@@ -639,4 +639,4 @@ namespace Multiplayer.Client.DebugUi
             return y + LineHeight + 1f; // Small padding between lines
         }
     }
-} 
+}

@@ -3,27 +3,85 @@ using System.Runtime.CompilerServices;
 
 namespace Multiplayer.Client.Desyncs;
 
-public static class DeferredStackTracingImpl
+public class AddrTable
 {
-    struct AddrInfo
-    {
-        public long addr;
-        public long stackUsage;
-        public long nameHash;
-        public long unused;
-    }
-
     const int StartingN = 7;
     const int StartingShift = 64 - StartingN;
     const int StartingSize = 1 << StartingN;
     const float LoadFactor = 0.5f;
 
-    static AddrInfo[] hashtable = new AddrInfo[StartingSize];
-    public static int hashtableSize = StartingSize;
-    public static int hashtableEntries;
-    public static int hashtableShift = StartingShift;
-    public static int collisions;
+    private AddrInfo[] hashtable = new AddrInfo[StartingSize];
+    public int size = StartingSize;
+    public int entries;
+    private int shift = StartingShift;
+    public int collisions;
 
+    public ref AddrInfo GetOrCreateAddrInfo(long ret)
+    {
+        int indexmask = size - 1;
+        int index = (int)(HashAddr((ulong)ret) >> shift);
+        ref var info = ref hashtable[index];
+        int colls = 0;
+
+        // Open addressing
+        while (info.addr != 0 && info.addr != ret)
+        {
+            index = (index + 1) & indexmask;
+            info = ref hashtable[index];
+            colls++;
+        }
+        if (colls > collisions) collisions = colls;
+
+        // When returning an unpopulated AddrInfo, assume it's going to get populated shortly and consider it used
+        // immediately.
+        if (info.addr == 0 && entries++ > size * LoadFactor) ResizeHashtable();
+        return ref info;
+    }
+
+    private static ulong HashAddr(ulong addr) => ((addr >> 4) | addr << 60) * 11400714819323198485;
+
+    private void ResizeHashtable()
+    {
+        var oldTable = hashtable;
+
+        size *= 2;
+        this.shift--;
+
+        hashtable = new AddrInfo[size];
+        collisions = 0;
+
+        int indexmask = size - 1;
+        int shift = this.shift;
+
+        for (int i = 0; i < oldTable.Length; i++)
+        {
+            ref var oldInfo = ref oldTable[i];
+            if (oldInfo.addr != 0)
+            {
+                int index = (int)(HashAddr((ulong)oldInfo.addr) >> shift);
+
+                while (hashtable[index].addr != 0)
+                    index = (index + 1) & indexmask;
+
+                ref var newInfo = ref hashtable[index];
+                newInfo.addr = oldInfo.addr;
+                newInfo.stackUsage = oldInfo.stackUsage;
+                newInfo.nameHash = oldInfo.nameHash;
+            }
+        }
+    }
+}
+
+public struct AddrInfo
+{
+    public long addr;
+    public long stackUsage;
+    public long nameHash;
+    public long unused;
+}
+
+public static class DeferredStackTracingImpl
+{
     const long NotJit = long.MaxValue;
     const long RbpBased = long.MaxValue - 1;
 
@@ -33,6 +91,8 @@ public static class DeferredStackTracingImpl
 
     public const int MaxDepth = 32;
     public const int HashInfluence = 6;
+
+    public static AddrTable hashTable = new();
 
     public static unsafe int TraceImpl(long[] traceIn, ref int hash, int skipFrames = 0)
     {
@@ -51,7 +111,7 @@ public static class DeferredStackTracingImpl
         while (true)
         {
             var ret = *(long*)(stck + 8);
-            ref var info = ref GetOrCreateAddrInfo(ret);
+            ref var info = ref hashTable.GetOrCreateAddrInfo(ret);
             if (info.addr == 0) UpdateNewElement(ref info, ret);
 
             long stackUsage = info.stackUsage;
@@ -112,27 +172,6 @@ public static class DeferredStackTracingImpl
         return index;
     }
 
-    private static ref AddrInfo GetOrCreateAddrInfo(long ret)
-    {
-        int indexmask = hashtableSize - 1;
-        int index = (int)(HashAddr((ulong)ret) >> hashtableShift);
-        ref var info = ref hashtable[index];
-        int colls = 0;
-
-        // Open addressing
-        while (info.addr != 0 && info.addr != ret)
-        {
-            index = (index + 1) & indexmask;
-            info = ref hashtable[index];
-            colls++;
-        }
-        if (colls > collisions) collisions = colls;
-
-        // When returning an unpopulated AddrInfo, assume it's going to get populated shortly and consider it used
-        // immediately.
-        if (info.addr == 0 && hashtableEntries++ > hashtableSize * LoadFactor) ResizeHashtable();
-        return ref info;
-    }
 
     private static void UpdateNewElement(ref AddrInfo info, long ret)
     {
@@ -145,39 +184,6 @@ public static class DeferredStackTracingImpl
             normalizedMethodNameBetweenOS == null ? 1 :
             Native.GetMethodAggressiveInlining(ret) ? 0 :
             StableStringHash(normalizedMethodNameBetweenOS);
-    }
-
-    private static ulong HashAddr(ulong addr) => ((addr >> 4) | addr << 60) * 11400714819323198485;
-
-    private static void ResizeHashtable()
-    {
-        var oldTable = hashtable;
-
-        hashtableSize *= 2;
-        hashtableShift--;
-
-        hashtable = new AddrInfo[hashtableSize];
-        collisions = 0;
-
-        int indexmask = hashtableSize - 1;
-        int shift = hashtableShift;
-
-        for (int i = 0; i < oldTable.Length; i++)
-        {
-            ref var oldInfo = ref oldTable[i];
-            if (oldInfo.addr != 0)
-            {
-                int index = (int)(HashAddr((ulong)oldInfo.addr) >> shift);
-
-                while (hashtable[index].addr != 0)
-                    index = (index + 1) & indexmask;
-
-                ref var newInfo = ref hashtable[index];
-                newInfo.addr = oldInfo.addr;
-                newInfo.stackUsage = oldInfo.stackUsage;
-                newInfo.nameHash = oldInfo.nameHash;
-            }
-        }
     }
 
     static unsafe long GetStackUsage(long addr)
