@@ -132,7 +132,7 @@ public static class DeferredStackTracingImpl
         return depth;
     }
 
-    static long UpdateNewElement(ref AddrInfo info, long ret)
+    private static long UpdateNewElement(ref AddrInfo info, long ret)
     {
         long stackUsage = GetStackUsage(ret);
 
@@ -153,9 +153,9 @@ public static class DeferredStackTracingImpl
         return stackUsage;
     }
 
-    static ulong HashAddr(ulong addr) => ((addr >> 4) | addr << 60) * 11400714819323198485;
+    private static ulong HashAddr(ulong addr) => ((addr >> 4) | addr << 60) * 11400714819323198485;
 
-    static int ResizeHashtable()
+    private static void ResizeHashtable()
     {
         var oldTable = hashtable;
 
@@ -184,8 +184,6 @@ public static class DeferredStackTracingImpl
                 newInfo.nameHash = oldInfo.nameHash;
             }
         }
-
-        return indexmask;
     }
 
     static unsafe long GetStackUsage(long addr)
@@ -243,19 +241,17 @@ public static class DeferredStackTracingImpl
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    static unsafe long GetRbp()
+    private static unsafe long GetRbp()
     {
         long rbp = 0;
 
         return *(&rbp + 1);
     }
 
-    public static int HashCombineInt(int seed, int value)
-    {
-        return (int)(seed ^ (value + 2654435769u + (seed << 6) + (seed >> 2)));
-    }
+    private static int HashCombineInt(int seed, int value) =>
+        (int)(seed ^ (value + 2654435769u + (seed << 6) + (seed >> 2)));
 
-    public static int StableStringHash(string? str)
+    private static int StableStringHash(string? str)
     {
         if (str == null)
         {
