@@ -53,15 +53,10 @@ public static class DeferredStackTracingImpl
         while (true)
         {
             ret = *(long*)(stck + 8);
-            ref var info = ref GetAddrInfo(ret);
+            ref var info = ref GetOrCreateAddrInfo(ret);
+            if (info.addr == 0) UpdateNewElement(ref info, ret);
 
-            long stackUsage = 0;
-
-            if (info.addr != 0)
-                stackUsage = info.stackUsage;
-            else
-                stackUsage = UpdateNewElement(ref info, ret);
-
+            long stackUsage = info.stackUsage;
             if (stackUsage == NotJit)
             {
                 // LMF (Last Managed Frame) layout on x64:
@@ -115,7 +110,7 @@ public static class DeferredStackTracingImpl
         return depth;
     }
 
-    private static ref AddrInfo GetAddrInfo(long ret)
+    private static ref AddrInfo GetOrCreateAddrInfo(long ret)
     {
         int indexmask = hashtableSize - 1;
         int index = (int)(HashAddr((ulong)ret) >> hashtableShift);
@@ -129,17 +124,18 @@ public static class DeferredStackTracingImpl
             info = ref hashtable[index];
             colls++;
         }
-
         if (colls > collisions) collisions = colls;
+
+        // When returning an unpopulated AddrInfo, assume it's going to get populated shortly and consider it used
+        // immediately.
+        if (info.addr == 0 && hashtableEntries++ > hashtableSize * LoadFactor) ResizeHashtable();
         return ref info;
     }
 
-    private static long UpdateNewElement(ref AddrInfo info, long ret)
+    private static void UpdateNewElement(ref AddrInfo info, long ret)
     {
-        long stackUsage = GetStackUsage(ret);
-
         info.addr = ret;
-        info.stackUsage = stackUsage;
+        info.stackUsage = GetStackUsage(ret);
 
         var normalizedMethodNameBetweenOS = Native.MethodNameNormalizedFromAddr(ret, true);
 
@@ -147,12 +143,6 @@ public static class DeferredStackTracingImpl
             normalizedMethodNameBetweenOS == null ? 1 :
             Native.GetMethodAggressiveInlining(ret) ? 0 :
             StableStringHash(normalizedMethodNameBetweenOS);
-
-        hashtableEntries++;
-        if (hashtableEntries > hashtableSize * LoadFactor)
-            ResizeHashtable();
-
-        return stackUsage;
     }
 
     private static ulong HashAddr(ulong addr) => ((addr >> 4) | addr << 60) * 11400714819323198485;
