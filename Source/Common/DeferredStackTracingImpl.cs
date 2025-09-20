@@ -87,7 +87,6 @@ public static class DeferredStackTracingImpl
     const long UsesRbx = 1L << 51;
     const long RbpInfoClearMask = ~(UsesRbpAsGpr | UsesRbx);
 
-    public const int MaxDepth = 32;
     public const int HashInfluence = 6;
 
     public static AddrTable hashTable = new();
@@ -142,7 +141,7 @@ public static class DeferredStackTracingImpl
                 index++;
             }
 
-            if (info.nameHash != 0 && ++depth == MaxDepth)
+            if (info.nameHash != 0 && ++depth == traceIn.Length)
                 break;
 
             if (stackUsage == RbpBased)

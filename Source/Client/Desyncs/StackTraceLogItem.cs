@@ -37,7 +37,8 @@ namespace Multiplayer.Client
 
     public class StackTraceLogItemRaw : StackTraceLogItem
     {
-        public long[] raw = new long[DeferredStackTracingImpl.MaxDepth];
+        public const int MaxDepth = 32;
+        public long[] raw = new long[MaxDepth];
         public int depth;
 
         public int ticksGame;
