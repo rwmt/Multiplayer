@@ -14,6 +14,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using Multiplayer.Client.AsyncTime;
 using Multiplayer.Client.Comp;
+using Multiplayer.Client.Patches;
 using Multiplayer.Client.Util;
 
 namespace Multiplayer.Client
@@ -216,6 +217,7 @@ namespace Multiplayer.Client
             game = null;
 
             TickPatch.Reset();
+            VTRSync.Reset();
 
             Find.WindowStack?.WindowOfType<ServerBrowser>()?.Cleanup(true);
             SyncFieldUtil.ClearAllBufferedChanges();

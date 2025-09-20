@@ -48,6 +48,16 @@ namespace Multiplayer.Common
             int mapId = data.ReadInt32();
             byte[]? extra = data.ReadPrefixedBytes(65535);
             if (extra == null) return;
+            if (cmd == CommandType.PlayerCount)
+            {
+                ByteReader reader = new ByteReader(extra);
+                var prevMap = reader.ReadInt32();
+                var newMap = reader.ReadInt32();
+                if (Player.currentMap != prevMap)
+                    ServerLog.Error($"Inconsistent player {Player.Username} map. Last known map: {Player.currentMap}, " +
+                                    $"however received command with transition: {prevMap} -> {newMap}");
+                Player.currentMap = newMap;
+            }
 
             // todo check if map id is valid for the player
 
@@ -109,9 +119,6 @@ namespace Multiplayer.Common
 
             byte seq = data.ReadByte();
             byte map = data.ReadByte();
-
-            // Track the player's current map from cursor updates
-            Player.currentMap = map;
 
             writer.WriteInt32(Player.id);
             writer.WriteByte(seq);

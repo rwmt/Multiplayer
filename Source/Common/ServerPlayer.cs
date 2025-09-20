@@ -30,7 +30,7 @@ namespace Multiplayer.Common
         public bool frozen;
         public int unfrozenAt;
 
-        // Track which map the player is currently on (from cursor updates)
+        // Track which map the player is currently on
         public int currentMap = -1;
 
         public string Username => conn.username;
