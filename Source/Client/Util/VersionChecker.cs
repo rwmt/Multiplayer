@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Multiplayer.Common;
 using RestSharp;
+using UnityEngine;
 using Verse;
 
 namespace Multiplayer.Client.Util;
