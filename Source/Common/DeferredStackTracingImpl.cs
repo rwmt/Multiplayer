@@ -39,20 +39,17 @@ public static class DeferredStackTracingImpl
         if (Native.LmfPtr == 0)
             return 0;
 
-        long[] trace = traceIn;
         long rbp = GetRbp();
 
         long stck = rbp;
         rbp = *(long*)rbp;
 
-        long ret;
         long lmfPtr = *(long*)Native.LmfPtr;
 
         int depth = 0;
-
         while (true)
         {
-            ret = *(long*)(stck + 8);
+            var ret = *(long*)(stck + 8);
             ref var info = ref GetOrCreateAddrInfo(ret);
             if (info.addr == 0) UpdateNewElement(ref info, ret);
 
@@ -76,7 +73,7 @@ public static class DeferredStackTracingImpl
                 continue;
             }
 
-            trace[depth] = ret;
+            traceIn[depth] = ret;
 
             // info.nameHash == 0 marks methods to skip
             if (depth < HashInfluence && info.nameHash != 0)
