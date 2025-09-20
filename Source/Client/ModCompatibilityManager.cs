@@ -20,10 +20,14 @@ namespace Multiplayer.Client
             startedLazyFetch = true;
 
             Task.Run(() => {
-                var client = new RestClient("https://bot.rimworldmultiplayer.com/mod-compatibility?version=1.1&format=metadata");
+                var client = new RestClient("https://bot.rimworldmultiplayer.com/");
                 try {
-                    var rawResponse = client.Get(new RestRequest($"", DataFormat.Json));
-                    var modCompatibilities = SimpleJson.DeserializeObject<List<ModCompatibility>>(rawResponse.Content);
+                    var req = new RestRequest("mod-compatibility?version=1.1&format=metadata")
+                    {
+                        RequestFormat = DataFormat.Json
+                    };
+                    var response = client.Get<List<ModCompatibility>>(req);
+                    var modCompatibilities = response.Data;
                     Log.Message($"MP: successfully fetched {modCompatibilities.Count} mods compatibility info");
 
                     workshopLookup = modCompatibilities
@@ -67,9 +71,10 @@ namespace Multiplayer.Client
 
     public class ModCompatibility
     {
-        public int status;
-        public string name;
-        public long workshopId;
-        public string notes = "";
+        // These are properties because RestSharp requires that for deserialization
+        public int status { get; set; }
+        public string name { get; set; }
+        public long workshopId { get; set; }
+        public string notes { get; set; } = "";
     }
 }

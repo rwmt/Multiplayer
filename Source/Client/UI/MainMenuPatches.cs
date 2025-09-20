@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Multiplayer.Client.Saving;
+using Multiplayer.Client.Util;
 using UnityEngine;
 using Verse;
 
@@ -43,7 +44,10 @@ namespace Multiplayer.Client
                         if (MpVersion.IsDebug && Event.current.button == 1)
                             ShowModDebugInfo();
                         else
+                        {
                             Find.WindowStack.Add(new ServerBrowser());
+                            VersionChecker.OpenNewVersionDialogIfApplicable();
+                        }
                     }));
                 }
             }

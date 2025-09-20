@@ -77,8 +77,11 @@ namespace Multiplayer.Client
         public static string restartConnect;
         public static bool restartConfigs;
 
-        public static void InitMultiplayer()
+        public static ModContentPack modContentPack;
+
+        public static void InitMultiplayer(ModContentPack content)
         {
+            modContentPack = content;
             Native.EarlyInit(
                 Application.platform switch
                 {
@@ -128,6 +131,7 @@ namespace Multiplayer.Client
             });
 
             MultiplayerData.modCtorRoundMode = RoundMode.GetCurrentRoundMode();
+            VersionChecker.Init();
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]

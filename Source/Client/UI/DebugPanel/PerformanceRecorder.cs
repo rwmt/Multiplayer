@@ -49,7 +49,7 @@ public static class PerformanceRecorder
     private static CircularBuffer<int> clientOpinionsSamples;
     private static CircularBuffer<int> worldPawnsSamples;
     private static CircularBuffer<int> windowCountSamples;
-    
+
     private static int MaxSampleCount => cachedMaxSampleCount;
     private static int NonPerfMetricsFrameInterval => cachedNonPerfMetricsFrameInterval;
 
@@ -204,7 +204,7 @@ public static class PerformanceRecorder
         recordingFrameCount = 0;
         ClearSamples();
 
-        Verse.Log.Message("[PerformanceRecorder] Recording started");     
+        Verse.Log.Message("[PerformanceRecorder] Recording started");
     }
 
     /// <summary>
@@ -263,7 +263,7 @@ public static class PerformanceRecorder
         var maxSamples = MaxSampleCount;
         var frameInterval = NonPerfMetricsFrameInterval;
         var nonPerfSamples = Math.Max(1, maxSamples / frameInterval);
-        
+
         frameTimeSamples = new CircularBuffer<float>(maxSamples);
         tickTimeSamples = new CircularBuffer<float>(maxSamples);
         deltaTimeSamples = new CircularBuffer<float>(maxSamples);
@@ -273,7 +273,7 @@ public static class PerformanceRecorder
         serverTPTSamples = new CircularBuffer<float>(maxSamples);
         timerLagSamples = new CircularBuffer<int>(maxSamples);
         mapCmdsSamples = new CircularBuffer<int>(maxSamples);
-        
+
         receivedCmdsSamples = new CircularBuffer<int>(nonPerfSamples);
         sentCmdsSamples = new CircularBuffer<int>(nonPerfSamples);
         bufferedChangesSamples = new CircularBuffer<int>(nonPerfSamples);
@@ -282,7 +282,7 @@ public static class PerformanceRecorder
         worldPawnsSamples = new CircularBuffer<int>(nonPerfSamples);
         windowCountSamples = new CircularBuffer<int>(nonPerfSamples);
     }
-    
+
     private static void ClearSamples()
     {
         frameTimeSamples?.Clear();
