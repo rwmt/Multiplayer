@@ -76,7 +76,6 @@ public struct AddrInfo
     public long addr;
     public long stackUsage;
     public long nameHash;
-    public long unused;
 }
 
 public static class DeferredStackTracingImpl
