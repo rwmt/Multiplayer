@@ -120,8 +120,15 @@ public class PendingPlayerWindow : Window
     {
         // This should not happen
         if (req == null) return;
-        if (req.steamId.HasValue) {
-            var avatarTex = SteamImages.GetTexture(SteamFriends.GetLargeFriendAvatar(SteamUser.GetSteamID()));
+        if (req.steamId.HasValue)
+        {
+            // This can return 0 (if the user has no avatar) or -1 (if we are waiting for the avatar to download).
+            // In that case, SteamImages will just return null and there will be no avatar displayed.
+            // Once the avatar is downloaded, it will just show up. For the download to start, you must
+            // RequestUserInformation. The only place that uses this window is SteamIntegration.P2PSessionRequest,
+            // which does request the information, so we are fine.
+            var avatarId = SteamFriends.GetLargeFriendAvatar(req.steamId.Value);
+            var avatarTex = SteamImages.GetTexture(avatarId);
             var avatarRect = new Rect(0, 0, 80, 80).CenteredOnYIn(inRect).Right(4);
             InvisibleOpenSteamProfileButton(avatarRect, req.steamId, doMouseoverSound: false);
             if (avatarTex != null)
