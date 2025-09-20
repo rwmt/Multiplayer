@@ -3,7 +3,7 @@ using System.Runtime.CompilerServices;
 
 namespace Multiplayer.Client.Desyncs;
 
-public class AddrTable
+public struct AddrTable()
 {
     private const int StartingN = 7;
     private const int StartingShift = 64 - StartingN;
@@ -13,8 +13,8 @@ public class AddrTable
     private AddrInfo[] hashtable = new AddrInfo[StartingSize];
 
     public int Size => hashtable.Length;
-    public int Entries { get; private set; }
-    public int Collisions { get; private set; }
+    public int Entries { get; private set; } = 0;
+    public int Collisions { get; private set; } = 0;
 
     private int shift = StartingShift;
 
