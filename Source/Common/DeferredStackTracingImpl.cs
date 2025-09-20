@@ -11,14 +11,14 @@ public class AddrTable
     const float LoadFactor = 0.5f;
 
     private AddrInfo[] hashtable = new AddrInfo[StartingSize];
-    public int size = StartingSize;
+    public int Size => hashtable.Length;
     public int entries;
     private int shift = StartingShift;
     public int collisions;
 
     public ref AddrInfo GetOrCreateAddrInfo(long ret)
     {
-        int indexmask = size - 1;
+        int indexmask = Size - 1;
         int index = (int)(HashAddr((ulong)ret) >> shift);
         ref var info = ref hashtable[index];
         int colls = 0;
@@ -34,7 +34,7 @@ public class AddrTable
 
         // When returning an unpopulated AddrInfo, assume it's going to get populated shortly and consider it used
         // immediately.
-        if (info.addr == 0 && entries++ > size * LoadFactor) ResizeHashtable();
+        if (info.addr == 0 && entries++ > Size * LoadFactor) ResizeHashtable();
         return ref info;
     }
 
@@ -44,14 +44,11 @@ public class AddrTable
     {
         var oldTable = hashtable;
 
-        size *= 2;
-        this.shift--;
-
-        hashtable = new AddrInfo[size];
+        hashtable = new AddrInfo[Size * 2];
+        shift--;
         collisions = 0;
 
-        int indexmask = size - 1;
-        int shift = this.shift;
+        int indexmask = Size - 1;
 
         for (int i = 0; i < oldTable.Length; i++)
         {

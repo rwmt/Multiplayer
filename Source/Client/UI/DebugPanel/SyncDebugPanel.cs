@@ -529,7 +529,7 @@ namespace Multiplayer.Client.DebugUi
             DebugLine[] rngLines = [
                 new("Rand Calls:", $"{DeferredStackTracing.acc}", Color.white),
                 new("Max Trace Depth:", $"{DeferredStackTracing.maxTraceDepth}", Color.white),
-                new("Hash Entries:", $"{DeferredStackTracingImpl.hashTable.entries}/{DeferredStackTracingImpl.hashTable.size}", Color.white),
+                new("Hash Entries:", $"{DeferredStackTracingImpl.hashTable.entries}/{DeferredStackTracingImpl.hashTable.Size}", Color.white),
                 new("Hash Collisions:", $"{DeferredStackTracingImpl.hashTable.collisions}", Color.white)
             ];
 
