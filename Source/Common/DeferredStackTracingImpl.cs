@@ -5,16 +5,18 @@ namespace Multiplayer.Client.Desyncs;
 
 public class AddrTable
 {
-    const int StartingN = 7;
-    const int StartingShift = 64 - StartingN;
-    const int StartingSize = 1 << StartingN;
-    const float LoadFactor = 0.5f;
+    private const int StartingN = 7;
+    private const int StartingShift = 64 - StartingN;
+    private const int StartingSize = 1 << StartingN;
+    private const float LoadFactor = 0.5f;
 
     private AddrInfo[] hashtable = new AddrInfo[StartingSize];
+
     public int Size => hashtable.Length;
-    public int entries;
+    public int Entries { get; private set; }
+    public int Collisions { get; private set; }
+
     private int shift = StartingShift;
-    public int collisions;
 
     public ref AddrInfo GetOrCreateAddrInfo(long ret)
     {
@@ -30,11 +32,11 @@ public class AddrTable
             info = ref hashtable[index];
             colls++;
         }
-        if (colls > collisions) collisions = colls;
+        if (colls > Collisions) Collisions = colls;
 
         // When returning an unpopulated AddrInfo, assume it's going to get populated shortly and consider it used
         // immediately.
-        if (info.addr == 0 && entries++ > Size * LoadFactor) ResizeHashtable();
+        if (info.addr == 0 && Entries++ > Size * LoadFactor) ResizeHashtable();
         return ref info;
     }
 
@@ -46,7 +48,7 @@ public class AddrTable
 
         hashtable = new AddrInfo[Size * 2];
         shift--;
-        collisions = 0;
+        Collisions = 0;
 
         int indexmask = Size - 1;
 
