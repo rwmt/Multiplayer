@@ -45,9 +45,6 @@ public static class DeferredStackTracingImpl
         long stck = rbp;
         rbp = *(long*)rbp;
 
-        int indexmask = hashtableSize - 1;
-        int shift = hashtableShift;
-
         long ret;
         long lmfPtr = *(long*)Native.LmfPtr;
 
@@ -56,21 +53,7 @@ public static class DeferredStackTracingImpl
         while (true)
         {
             ret = *(long*)(stck + 8);
-
-            int index = (int)(HashAddr((ulong)ret) >> shift);
-            ref var info = ref hashtable[index];
-            int colls = 0;
-
-            // Open addressing
-            while (info.addr != 0 && info.addr != ret)
-            {
-                index = (index + 1) & indexmask;
-                info = ref hashtable[index];
-                colls++;
-            }
-
-            if (colls > collisions)
-                collisions = colls;
+            ref var info = ref GetAddrInfo(ret);
 
             long stackUsage = 0;
 
@@ -130,6 +113,25 @@ public static class DeferredStackTracingImpl
         }
 
         return depth;
+    }
+
+    private static ref AddrInfo GetAddrInfo(long ret)
+    {
+        int indexmask = hashtableSize - 1;
+        int index = (int)(HashAddr((ulong)ret) >> hashtableShift);
+        ref var info = ref hashtable[index];
+        int colls = 0;
+
+        // Open addressing
+        while (info.addr != 0 && info.addr != ret)
+        {
+            index = (index + 1) & indexmask;
+            info = ref hashtable[index];
+            colls++;
+        }
+
+        if (colls > collisions) collisions = colls;
+        return ref info;
     }
 
     private static long UpdateNewElement(ref AddrInfo info, long ret)
