@@ -34,7 +34,7 @@ public static class DeferredStackTracingImpl
     public const int MaxDepth = 32;
     public const int HashInfluence = 6;
 
-    public static unsafe int TraceImpl(long[] traceIn, ref int hash)
+    public static unsafe int TraceImpl(long[] traceIn, ref int hash, int skipFrames = 0)
     {
         if (Native.LmfPtr == 0)
             return 0;
@@ -46,7 +46,8 @@ public static class DeferredStackTracingImpl
 
         long lmfPtr = *(long*)Native.LmfPtr;
 
-        int depth = 0;
+        int depth = 0; // frames seen
+        int index = 0; // frames returned through long[] traceIn
         while (true)
         {
             var ret = *(long*)(stck + 8);
@@ -73,11 +74,15 @@ public static class DeferredStackTracingImpl
                 continue;
             }
 
-            traceIn[depth] = ret;
+            if (depth >= skipFrames)
+            {
+                traceIn[index] = ret;
 
-            // info.nameHash == 0 marks methods to skip
-            if (depth < HashInfluence && info.nameHash != 0)
-                hash = HashCombineInt(hash, (int)info.nameHash);
+                // info.nameHash == 0 marks methods to skip
+                if (index < HashInfluence && info.nameHash != 0) hash = HashCombineInt(hash, (int)info.nameHash);
+
+                index++;
+            }
 
             if (info.nameHash != 0 && ++depth == MaxDepth)
                 break;
@@ -104,7 +109,7 @@ public static class DeferredStackTracingImpl
             stck += stackUsage;
         }
 
-        return depth;
+        return index;
     }
 
     private static ref AddrInfo GetOrCreateAddrInfo(long ret)
