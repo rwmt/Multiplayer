@@ -27,5 +27,8 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore ${{ env.SLN_PATH }}
 
-    - name: Build
-      run: dotnet build ${{ env.SLN_PATH }} --no-restore
+    - name: Build debug
+      run: dotnet build ${{ env.SLN_PATH }} --no-restore   
+             
+    - name: Build release
+      run: dotnet build ${{ env.SLN_PATH }} --configuration Release --no-restore
