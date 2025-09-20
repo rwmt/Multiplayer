@@ -141,6 +141,7 @@ public static class DeferredStackTracingImpl
                 index++;
             }
 
+            // traceIn length limits above all how many frames are visited, not how many are populated.
             if (info.nameHash != 0 && ++depth == traceIn.Length)
                 break;
 
