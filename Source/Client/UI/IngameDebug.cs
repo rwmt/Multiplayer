@@ -60,7 +60,7 @@ public static class IngameDebug
                 text.AppendLine($"\nBuffered Changes: {SyncFieldUtil.bufferedChanges.Sum(kv => kv.Value.Count)}");
                 text.AppendLine($"Map Cmds: {async.cmds.Count}{separator} World Cmds: {Multiplayer.AsyncWorldTime.cmds.Count}");
                 text.AppendLine($"Stack Trace: {DeferredStackTracing.acc}{separator} Max Depth: {DeferredStackTracing.maxTraceDepth}");
-                text.AppendLine($"Hash: {DeferredStackTracingImpl.hashtableEntries}/{DeferredStackTracingImpl.hashtableSize} ({DeferredStackTracingImpl.collisions} collisions)");
+                text.AppendLine($"Hash: {DeferredStackTracingImpl.hashTable.Entries}/{DeferredStackTracingImpl.hashTable.Size} ({DeferredStackTracingImpl.hashTable.Collisions} collisions)");
 
                 text.AppendLine($"\nIdeology: {Find.IdeoManager.classicMode}{separator} Ideo ID: {Find.IdeoManager.IdeosInViewOrder.FirstOrDefault()?.id ?? 0}");
                 text.AppendLine($"Haul Dest: {Find.CurrentMap.haulDestinationManager.AllHaulDestinationsListForReading.Count}{separator} Designations: {Find.CurrentMap.designationManager.designationsByDef.Count}");

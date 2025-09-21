@@ -3,27 +3,83 @@ using System.Runtime.CompilerServices;
 
 namespace Multiplayer.Client.Desyncs;
 
-public static class DeferredStackTracingImpl
+public struct AddrTable()
 {
-    struct AddrInfo
+    private const int StartingN = 10; // 1024
+    private const int StartingShift = 64 - StartingN;
+    private const int StartingSize = 1 << StartingN;
+    private const float LoadFactor = 0.5f;
+
+    private AddrInfo[] hashtable = new AddrInfo[StartingSize];
+
+    public int Size => hashtable.Length;
+    public int Entries { get; private set; } = 0;
+    public int Collisions { get; private set; } = 0;
+
+    private int shift = StartingShift;
+
+    public ref AddrInfo GetOrCreateAddrInfo(long ret)
     {
-        public long addr;
-        public long stackUsage;
-        public long nameHash;
-        public long unused;
+        int indexmask = Size - 1;
+        int index = (int)(HashAddr((ulong)ret) >> shift);
+        ref var info = ref hashtable[index];
+        int colls = 0;
+
+        // Open addressing
+        while (info.addr != 0 && info.addr != ret)
+        {
+            index = (index + 1) & indexmask;
+            info = ref hashtable[index];
+            colls++;
+        }
+        if (colls > Collisions) Collisions = colls;
+
+        // When returning an unpopulated AddrInfo, assume it's going to get populated shortly and consider it used
+        // immediately.
+        if (info.addr == 0 && Entries++ > Size * LoadFactor) ResizeHashtable();
+        return ref info;
     }
 
-    const int StartingN = 7;
-    const int StartingShift = 64 - StartingN;
-    const int StartingSize = 1 << StartingN;
-    const float LoadFactor = 0.5f;
+    private static ulong HashAddr(ulong addr) => ((addr >> 4) | addr << 60) * 11400714819323198485;
 
-    static AddrInfo[] hashtable = new AddrInfo[StartingSize];
-    public static int hashtableSize = StartingSize;
-    public static int hashtableEntries;
-    public static int hashtableShift = StartingShift;
-    public static int collisions;
+    private void ResizeHashtable()
+    {
+        var oldTable = hashtable;
 
+        hashtable = new AddrInfo[Size * 2];
+        shift--;
+        Collisions = 0;
+
+        int indexmask = Size - 1;
+
+        for (int i = 0; i < oldTable.Length; i++)
+        {
+            ref var oldInfo = ref oldTable[i];
+            if (oldInfo.addr != 0)
+            {
+                int index = (int)(HashAddr((ulong)oldInfo.addr) >> shift);
+
+                while (hashtable[index].addr != 0)
+                    index = (index + 1) & indexmask;
+
+                ref var newInfo = ref hashtable[index];
+                newInfo.addr = oldInfo.addr;
+                newInfo.stackUsage = oldInfo.stackUsage;
+                newInfo.nameHash = oldInfo.nameHash;
+            }
+        }
+    }
+}
+
+public struct AddrInfo
+{
+    public long addr;
+    public long stackUsage;
+    public long nameHash;
+}
+
+public static class DeferredStackTracingImpl
+{
     const long NotJit = long.MaxValue;
     const long RbpBased = long.MaxValue - 1;
 
@@ -31,54 +87,31 @@ public static class DeferredStackTracingImpl
     const long UsesRbx = 1L << 51;
     const long RbpInfoClearMask = ~(UsesRbpAsGpr | UsesRbx);
 
-    public const int MaxDepth = 32;
     public const int HashInfluence = 6;
 
-    public static unsafe int TraceImpl(long[] traceIn, ref int hash)
+    public static AddrTable hashTable = new();
+
+    public static unsafe int TraceImpl(long[] traceIn, ref int hash, int skipFrames = 0)
     {
         if (Native.LmfPtr == 0)
             return 0;
 
-        long[] trace = traceIn;
         long rbp = GetRbp();
 
         long stck = rbp;
         rbp = *(long*)rbp;
 
-        int indexmask = hashtableSize - 1;
-        int shift = hashtableShift;
-
-        long ret;
         long lmfPtr = *(long*)Native.LmfPtr;
 
-        int depth = 0;
-
+        int depth = 0; // frames seen
+        int index = 0; // frames returned through long[] traceIn
         while (true)
         {
-            ret = *(long*)(stck + 8);
+            var ret = *(long*)(stck + 8);
+            ref var info = ref hashTable.GetOrCreateAddrInfo(ret);
+            if (info.addr == 0) UpdateNewElement(ref info, ret);
 
-            int index = (int)(HashAddr((ulong)ret) >> shift);
-            ref var info = ref hashtable[index];
-            int colls = 0;
-
-            // Open addressing
-            while (info.addr != 0 && info.addr != ret)
-            {
-                index = (index + 1) & indexmask;
-                info = ref hashtable[index];
-                colls++;
-            }
-
-            if (colls > collisions)
-                collisions = colls;
-
-            long stackUsage = 0;
-
-            if (info.addr != 0)
-                stackUsage = info.stackUsage;
-            else
-                stackUsage = UpdateNewElement(ref info, ret);
-
+            long stackUsage = info.stackUsage;
             if (stackUsage == NotJit)
             {
                 // LMF (Last Managed Frame) layout on x64:
@@ -98,13 +131,18 @@ public static class DeferredStackTracingImpl
                 continue;
             }
 
-            trace[depth] = ret;
+            if (depth >= skipFrames)
+            {
+                traceIn[index] = ret;
 
-            // info.nameHash == 0 marks methods to skip
-            if (depth < HashInfluence && info.nameHash != 0)
-                hash = HashCombineInt(hash, (int)info.nameHash);
+                // info.nameHash == 0 marks methods to skip
+                if (index < HashInfluence && info.nameHash != 0) hash = HashCombineInt(hash, (int)info.nameHash);
 
-            if (info.nameHash != 0 && ++depth == MaxDepth)
+                index++;
+            }
+
+            // traceIn length limits above all how many frames are visited, not how many are populated.
+            if (info.nameHash != 0 && ++depth == traceIn.Length)
                 break;
 
             if (stackUsage == RbpBased)
@@ -129,15 +167,14 @@ public static class DeferredStackTracingImpl
             stck += stackUsage;
         }
 
-        return depth;
+        return index;
     }
 
-    static long UpdateNewElement(ref AddrInfo info, long ret)
-    {
-        long stackUsage = GetStackUsage(ret);
 
+    private static void UpdateNewElement(ref AddrInfo info, long ret)
+    {
         info.addr = ret;
-        info.stackUsage = stackUsage;
+        info.stackUsage = GetStackUsage(ret);
 
         var normalizedMethodNameBetweenOS = Native.MethodNameNormalizedFromAddr(ret, true);
 
@@ -145,47 +182,6 @@ public static class DeferredStackTracingImpl
             normalizedMethodNameBetweenOS == null ? 1 :
             Native.GetMethodAggressiveInlining(ret) ? 0 :
             StableStringHash(normalizedMethodNameBetweenOS);
-
-        hashtableEntries++;
-        if (hashtableEntries > hashtableSize * LoadFactor)
-            ResizeHashtable();
-
-        return stackUsage;
-    }
-
-    static ulong HashAddr(ulong addr) => ((addr >> 4) | addr << 60) * 11400714819323198485;
-
-    static int ResizeHashtable()
-    {
-        var oldTable = hashtable;
-
-        hashtableSize *= 2;
-        hashtableShift--;
-
-        hashtable = new AddrInfo[hashtableSize];
-        collisions = 0;
-
-        int indexmask = hashtableSize - 1;
-        int shift = hashtableShift;
-
-        for (int i = 0; i < oldTable.Length; i++)
-        {
-            ref var oldInfo = ref oldTable[i];
-            if (oldInfo.addr != 0)
-            {
-                int index = (int)(HashAddr((ulong)oldInfo.addr) >> shift);
-
-                while (hashtable[index].addr != 0)
-                    index = (index + 1) & indexmask;
-
-                ref var newInfo = ref hashtable[index];
-                newInfo.addr = oldInfo.addr;
-                newInfo.stackUsage = oldInfo.stackUsage;
-                newInfo.nameHash = oldInfo.nameHash;
-            }
-        }
-
-        return indexmask;
     }
 
     static unsafe long GetStackUsage(long addr)
@@ -243,19 +239,17 @@ public static class DeferredStackTracingImpl
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    static unsafe long GetRbp()
+    private static unsafe long GetRbp()
     {
         long rbp = 0;
 
         return *(&rbp + 1);
     }
 
-    public static int HashCombineInt(int seed, int value)
-    {
-        return (int)(seed ^ (value + 2654435769u + (seed << 6) + (seed >> 2)));
-    }
+    private static int HashCombineInt(int seed, int value) =>
+        (int)(seed ^ (value + 2654435769u + (seed << 6) + (seed >> 2)));
 
-    public static int StableStringHash(string? str)
+    private static int StableStringHash(string? str)
     {
         if (str == null)
         {

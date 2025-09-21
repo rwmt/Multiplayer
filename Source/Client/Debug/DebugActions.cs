@@ -22,7 +22,9 @@ namespace Multiplayer.Client
 {
     static class MpDebugActions
     {
-        const string MultiplayerCategory = "Multiplayer";
+        public const string MultiplayerCategory = "Multiplayer";
+        // Actions in this category are not synced and only happen on the client.
+        public const string MultiplayerLocalCategory = "Multiplayer local";
 
         [DebugAction(MultiplayerCategory, actionType = DebugActionType.ToolWorld, allowedGameStates = AllowedGameStates.PlayingOnWorld)]
         public static void SpawnCaravans()
@@ -135,9 +137,7 @@ namespace Multiplayer.Client
             File.WriteAllBytes($"game_{Multiplayer.username}.xml", data);
         }
 
-        public const string TriggerDesyncActionName = "Trigger desync";
-
-        [DebugAction(MultiplayerCategory, name = TriggerDesyncActionName, allowedGameStates = AllowedGameStates.Playing)]
+        [DebugAction(MultiplayerLocalCategory, name = "Trigger desync", allowedGameStates = AllowedGameStates.Playing)]
         public static void TriggerDesync()
         {
             var logItem = StackTraceLogItemRaw.GetFromPool();
@@ -147,6 +147,20 @@ namespace Multiplayer.Client
 
             Multiplayer.game.asyncWorldTimeComp.randState++;
             Multiplayer.game.sync.TryAddStackTraceForDesyncLogRaw(logItem, depth, hash);
+        }
+
+        [DebugAction(MultiplayerLocalCategory, name = "Show stack traces", allowedGameStates = AllowedGameStates.Playing)]
+        public static void ShowStackTraces()
+        {
+            var syncCoordinator = Multiplayer.game.sync;
+            var opinions = syncCoordinator.knownClientOpinions;
+            if (opinions.Count == 0)
+            {
+                Log.Message("No opinions available");
+                return;
+            }
+            var stackTrace = opinions[0].GetFormattedStackTracesForRange(-1);
+            Log.Message($"Current opinion stack trace: \n{stackTrace}");
         }
 
         [DebugAction(MultiplayerCategory, name = "Show pending player", allowedGameStates = AllowedGameStates.Playing)]

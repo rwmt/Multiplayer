@@ -272,7 +272,7 @@ namespace Multiplayer.Client
         static void Prefix(DebugActionNode __instance)
         {
             if (Multiplayer.Client != null && __instance.action is { Target: not MpDebugAction } &&
-                __instance.label != MpDebugActions.TriggerDesyncActionName)
+                __instance.category != MpDebugActions.MultiplayerLocalCategory)
                 __instance.action = new MpDebugAction { node = __instance, original = __instance.action }.Action;
         }
 
