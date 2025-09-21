@@ -5,9 +5,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using Multiplayer.API;
 using RimWorld.Planet;
 using UnityEngine;
 using Verse;
+using Verse.AI;
 using Verse.Sound;
 
 namespace Multiplayer.Client.Patches
@@ -225,6 +227,32 @@ namespace Multiplayer.Client.Patches
         {
             if (__state)
                 Multiplayer.dontSync = false;
+        }
+    }
+
+    [HarmonyPatch(typeof(FloatMenuOptionProvider_DraftedMove),
+        nameof(FloatMenuOptionProvider_DraftedMove.PawnGotoAction))]
+    static class DraftedMove_GotoFeedbackPatch
+    {
+        private static MethodInfo tryTakeOrderedJob =
+            AccessTools.Method(typeof(Pawn_JobTracker), nameof(Pawn_JobTracker.TryTakeOrderedJob));
+
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
+        {
+            foreach (var inst in instructions)
+            {
+                if (inst.Calls(tryTakeOrderedJob)) inst.operand = ((Delegate)CustomTryTakeOrderedJob).Method;
+                yield return inst;
+            }
+        }
+
+        [SyncMethod(exposeParameters = [1])]
+        static bool CustomTryTakeOrderedJob(Pawn_JobTracker self, Job job, JobTag? tag = JobTag.Misc,
+            bool requestQueueing = false)
+        {
+            if (self.TryTakeOrderedJob(job, tag, requestQueueing) && TickPatch.currentExecutingCmdIssuedBySelf)
+                FleckMaker.Static(job.targetA.Cell, self.pawn.Map, FleckDefOf.FeedbackGoto);
+            return false;
         }
     }
 

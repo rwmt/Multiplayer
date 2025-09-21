@@ -36,7 +36,6 @@ namespace Multiplayer.Client
             // SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_CarryToShuttle), "GetSingleOptionFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);           // Carry to shuttle
             // SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_Childcare), "GetOptionsFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);                     // Breastfeed/give milk
             // SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_DraftedAttack), "GetSingleOptionFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);            // Drafted attack
-            // SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_DraftedMove), "GetSingleOptionFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);              // Drafted move (Goto)
             // SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_DraftedRepair), "GetSingleOptionFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);            // Drafted repair
             // SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_DraftedTend), "GetOptionsFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);                   // Drafted tend
             // SyncDelegate.Lambda(typeof(FloatMenuOptionProvider_DressOtherPawn), "GetSingleOptionFor", 0).CancelIfAnyFieldNull().SetContext(mouseKeyContext);           // Dress other pawn
