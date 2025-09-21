@@ -143,17 +143,19 @@ public static class IngameDebug
 
     internal static float DoDebugModeLabel(float y)
     {
-        float x = UI.screenWidth - BtnWidth - BtnMargin;
+        const float width = 90f;
+        float x = UI.screenWidth - width - BtnMargin;
 
         if (Multiplayer.Client != null && Multiplayer.GameComp.debugMode)
         {
             var text = "Debug mode\n";
             if (Multiplayer.LocalServer != null) text += "Host";
             else text += "Client";
+            var height = Text.CalcHeight(text, width);
             using (MpStyle.Set(GameFont.Tiny).Set(TextAnchor.MiddleCenter))
-                Widgets.Label(new Rect(x, y, BtnWidth, 30f), text);
+                Widgets.Label(new Rect(x, y, width, height), text);
 
-            return BtnHeight;
+            return height;
         }
 
         return 0;
