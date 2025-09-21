@@ -55,6 +55,6 @@ jobs:
     
     - name: Upload new release
       run: |
-        gh release create --target "${{ github.sha }}" --title "Continuous" --notes "This 'alpha' release is an automatically generated snapshot of the current state of development. It is continuously updated with work-in-progress changes that may be broken, incomplete, or incompatible." --draft "continuous"
+        gh release create --target "${{ github.sha }}" --title "Continuous" --notes-file ".github/workflows/alpha-notes.md" --draft "continuous"
         gh release upload "continuous" Multiplayer-beta.zip
         gh release edit "continuous" --draft=false
