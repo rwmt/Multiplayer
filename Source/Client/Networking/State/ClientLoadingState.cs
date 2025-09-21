@@ -29,10 +29,13 @@ public class ClientLoadingState(ConnectionBase connection) : ClientBaseState(con
             if (downloadCheckpoints.Count == 0) return -1;
             var firstCheckpoint = downloadCheckpoints.First();
             var lastCheckpoint = downloadCheckpoints.Last();
+
             var timeTakenMs = Utils.MillisNow - firstCheckpoint.Item1;
-            var timeTakenSecs = Math.Max(1, timeTakenMs / 1000);
+            var timeTakenSecs = timeTakenMs / 1000f;
+
             var downloadedBytes = lastCheckpoint.Item2 - firstCheckpoint.Item2;
-            return (int)(downloadedBytes / 1000 / timeTakenSecs);
+            var downloadedKBytes = downloadedBytes / 1000;
+            return (int)(downloadedKBytes / timeTakenSecs);
         }
     }
 
