@@ -1,0 +1,9 @@
+﻿version: 2
+updates:
+  - package-ecosystem: gitsubmodule
+    directory: /
+    target-branch: dev
+    allow:
+      - dependency-name: Languages
+    schedule:
+      interval: daily
