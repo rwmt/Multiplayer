@@ -1,3 +1,4 @@
+#nullable enable
 using Multiplayer.Common;
 using RimWorld;
 using System;
@@ -7,7 +8,6 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Xml;
-using JetBrains.Annotations;
 using UnityEngine;
 using Verse;
 
@@ -15,17 +15,17 @@ namespace Multiplayer.Client
 {
     public class SaveFileReader
     {
-        public List<FileInfo> SpSaves { get; private set; }
-        public List<FileInfo> MpSaves { get; private set; }
+        public List<FileInfo> SpSaves { get; private set; } = [];
+        public List<FileInfo> MpSaves { get; private set; } = [];
 
         private ConcurrentDictionary<FileInfo, SaveFile> data = new();
-        private Task spTask, mpTask;
+        private Task? spTask, mpTask;
 
         public void StartReading()
         {
             SpSaves = GenFilePaths.AllSavedGameFiles.OrderByDescending(f => f.LastWriteTime).ToList();
 
-            var replaysDir = new DirectoryInfo(GenFilePaths.FolderUnderSaveData("MpReplays"));
+            var replaysDir = new DirectoryInfo(Multiplayer.ReplaysDir);
             var toRead = replaysDir.GetFiles("*.zip", MpVersion.IsDebug ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly);
             MpSaves = toRead.OrderByDescending(f => f.LastWriteTime).ToList();
 
@@ -38,8 +38,8 @@ namespace Multiplayer.Client
 
         public void WaitTasks()
         {
-            spTask.Wait();
-            mpTask.Wait();
+            spTask?.Wait();
+            mpTask?.Wait();
         }
 
         private void ReadSpSave(FileInfo file)
@@ -58,7 +58,8 @@ namespace Multiplayer.Client
         {
             try
             {
-                data[file] = SaveFile.ReadMpSave(file);
+                var saveFile = SaveFile.ReadMpSave(file);
+                if (saveFile != null) data[file] = saveFile;
             }
             catch (Exception ex)
             {
@@ -66,7 +67,7 @@ namespace Multiplayer.Client
             }
         }
 
-        public SaveFile GetData(FileInfo file)
+        public SaveFile? GetData(FileInfo file)
         {
             data.TryGetValue(file, out var saveFile);
             return saveFile;
@@ -86,9 +87,9 @@ namespace Multiplayer.Client
         public int replaySections;
         public FileInfo file = file;
 
-        public string gameName;
+        public string? gameName;
 
-        public string rwVersion;
+        public string? rwVersion;
         public string[] modNames = [];
         public string[] modIds = [];
 
@@ -98,7 +99,7 @@ namespace Multiplayer.Client
 
         public bool HasRwVersion => rwVersion != null;
 
-        public bool MajorAndMinorVerEqualToCurrent =>
+        public bool MajorAndMinorVerEqualToCurrent => rwVersion != null &&
             VersionControl.MajorFromVersionString(rwVersion) == VersionControl.CurrentMajor &&
             VersionControl.MinorFromVersionString(rwVersion) == VersionControl.CurrentMinor;
 
@@ -119,7 +120,6 @@ namespace Multiplayer.Client
             }
         }
 
-        [CanBeNull]
         public static SaveFile ReadSpSave(FileInfo file)
         {
             var saveFile = new SaveFile(Path.GetFileNameWithoutExtension(file.Name), false, file);
@@ -128,8 +128,7 @@ namespace Multiplayer.Client
             return saveFile;
         }
 
-        [CanBeNull]
-        public static SaveFile ReadMpSave(FileInfo file)
+        public static SaveFile? ReadMpSave(FileInfo file)
         {
             var displayName = Path.ChangeExtension(Path.GetRelativePath(Multiplayer.ReplaysDir, file.FullName), null);
             var saveFile = new SaveFile(displayName, true, file);
